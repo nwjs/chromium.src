@@ -21,11 +21,6 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "third_party/blink/renderer/core/css/style_property_serializer.h"
 
 #include <bitset>
@@ -448,7 +443,7 @@ String StylePropertySerializer::CommonShorthandChecks(
     return g_empty_string;
   }
 
-  const CSSValue* longhands[kMaxShorthandExpansion] = {};
+  std::array<const CSSValue*, kMaxShorthandExpansion> longhands;
 
   bool has_important = false;
   bool has_non_important = false;
@@ -713,12 +708,8 @@ String StylePropertySerializer::SerializeShorthand(
       return String();
     case CSSPropertyID::kScrollStart:
       return ScrollStartValue();
-    case CSSPropertyID::kScrollStartTarget:
-      return ScrollStartTargetValue();
     case CSSPropertyID::kPositionTry:
       return PositionTryValue(positionTryShorthand());
-    case CSSPropertyID::kAlternativePositionTry:
-      return PositionTryValue(alternativePositionTryShorthand());
     default:
       NOTREACHED_IN_MIGRATION()
           << "Shorthand property "
@@ -2253,16 +2244,17 @@ String StylePropertySerializer::BorderImagePropertyValue() const {
       &GetCSSPropertyBorderImageSource(), &GetCSSPropertyBorderImageSlice(),
       &GetCSSPropertyBorderImageWidth(), &GetCSSPropertyBorderImageOutset(),
       &GetCSSPropertyBorderImageRepeat()};
-  size_t length = std::size(properties);
-  for (size_t i = 0; i < length; ++i) {
-    const CSSValue& value = *property_set_.GetPropertyCSSValue(*properties[i]);
+  size_t index = 0;
+  for (const CSSProperty* property : properties) {
+    const CSSValue& value = *property_set_.GetPropertyCSSValue(*property);
     if (!result.empty()) {
       result.Append(" ");
     }
-    if (i == 2 || i == 3) {
+    if (index == 2 || index == 3) {
       result.Append("/ ");
     }
     result.Append(value.CssText());
+    index++;
   }
   return result.ReleaseString();
 }
@@ -2499,31 +2491,6 @@ String StylePropertySerializer::ScrollStartValue() const {
 
   if (const auto* ident_value = DynamicTo<CSSIdentifierValue>(inline_value);
       !ident_value || ident_value->GetValueID() != CSSValueID::kStart) {
-    list->Append(*inline_value);
-  }
-
-  return list->CssText();
-}
-
-String StylePropertySerializer::ScrollStartTargetValue() const {
-  CHECK_EQ(scrollStartTargetShorthand().length(), 2u);
-  CHECK_EQ(scrollStartTargetShorthand().properties()[0],
-           &GetCSSPropertyScrollStartTargetBlock());
-  CHECK_EQ(scrollStartTargetShorthand().properties()[1],
-           &GetCSSPropertyScrollStartTargetInline());
-
-  CSSValueList* list = CSSValueList::CreateSpaceSeparated();
-  const CSSValue* block_value =
-      property_set_.GetPropertyCSSValue(GetCSSPropertyScrollStartTargetBlock());
-  const CSSValue* inline_value = property_set_.GetPropertyCSSValue(
-      GetCSSPropertyScrollStartTargetInline());
-
-  DCHECK(block_value);
-  DCHECK(inline_value);
-
-  list->Append(*block_value);
-
-  if (To<CSSIdentifierValue>(*inline_value).GetValueID() != CSSValueID::kNone) {
     list->Append(*inline_value);
   }
 

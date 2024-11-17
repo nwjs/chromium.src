@@ -10,7 +10,6 @@
 #include <memory>
 
 #include "base/gtest_prod_util.h"
-#include "base/memory/raw_ptr.h"
 #include "chrome/browser/status_icons/status_tray.h"
 
 class StatusIconWin;
@@ -54,7 +53,7 @@ class StatusTrayWin : public StatusTray {
 
  private:
   FRIEND_TEST_ALL_PREFIXES(StatusTrayWinTest, EnsureVisibleTest);
-  raw_ptr<StatusIconWin> key_handler_;
+  StatusIconWin* key_handler_;
   // Static callback invoked when a message comes in to our messaging window.
   static LRESULT CALLBACK
       WndProcStatic(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);

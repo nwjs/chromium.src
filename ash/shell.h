@@ -22,7 +22,6 @@
 #include "ash/quick_pair/keyed_service/quick_pair_mediator.h"
 #include "ash/system/input_device_settings/touchscreen_metrics_recorder.h"
 #include "ash/system/toast/system_nudge_pause_manager_impl.h"
-#include "ash/wm/coral/coral_controller.h"
 #include "ash/wm/system_modal_container_event_filter_delegate.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
@@ -31,7 +30,7 @@
 #include "base/scoped_observation_traits.h"
 #include "chromeos/ui/frame/multitask_menu/multitask_menu_nudge_controller.h"
 #include "ui/aura/window.h"
-#include "ui/base/ui_base_types.h"
+#include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/display/screen.h"
 #include "ui/events/event_target.h"
 #include "ui/wm/core/cursor_manager.h"
@@ -238,6 +237,7 @@ class SavedDeskDelegate;
 class TabClusterUIController;
 class TabStripDelegate;
 class UsbPeripheralNotificationController;
+class ScannerController;
 class ScreenLayoutObserver;
 class ScreenOrientationController;
 class ScreenPinningController;
@@ -736,6 +736,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   RgbKeyboardManager* rgb_keyboard_manager() {
     return rgb_keyboard_manager_.get();
   }
+  ScannerController* scanner_controller() { return scanner_controller_.get(); }
   ScreenLayoutObserver* screen_layout_observer() {
     return screen_layout_observer_.get();
   }
@@ -903,7 +904,7 @@ class ASH_EXPORT Shell : public SessionObserver,
 
   // Shows the context menu for the wallpaper or shelf at |location_in_screen|.
   void ShowContextMenu(const gfx::Point& location_in_screen,
-                       ui::MenuSourceType source_type);
+                       ui::mojom::MenuSourceType source_type);
 
   void AddShellObserver(ShellObserver* observer);
   void RemoveShellObserver(ShellObserver* observer);
@@ -1139,6 +1140,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<PipController> pip_controller_;
   std::unique_ptr<PrivacyScreenController> privacy_screen_controller_;
   std::unique_ptr<PolicyRecommendationRestorer> policy_recommendation_restorer_;
+  std::unique_ptr<ScannerController> scanner_controller_;
   std::unique_ptr<ScreenSwitchCheckController> screen_switch_check_controller_;
   std::unique_ptr<ShelfConfig> shelf_config_;
   std::unique_ptr<ShelfController> shelf_controller_;

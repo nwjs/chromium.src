@@ -6,8 +6,10 @@
 
 #include <memory>
 #include <optional>
+#include <string>
 
 #include "ash/test/ash_test_base.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/types/expected.h"
 #include "chromeos/ash/components/boca/boca_app_client.h"
 #include "chromeos/ash/components/boca/proto/session.pb.h"
@@ -43,6 +45,10 @@ class MockSessionClientImpl : public SessionClientImpl {
               GetSession,
               (std::unique_ptr<GetSessionRequest>),
               (override));
+  MOCK_METHOD(void,
+              UpdateStudentActivity,
+              (std::unique_ptr<UpdateStudentActivitiesRequest>),
+              (override));
 };
 
 class MockObserver : public BocaSessionManager::Observer {
@@ -74,6 +80,12 @@ class MockObserver : public BocaSessionManager::Observer {
               (const std::string& group_name,
                const std::vector<::boca::UserIdentity>& consumers),
               (override));
+  MOCK_METHOD(
+      void,
+      OnConsumerActivityUpdated,
+      ((const std::map<std::string, ::boca::StudentStatus>& activities)),
+      (override));
+  MOCK_METHOD(void, OnAppReloaded, (), (override));
 };
 
 class MockBocaAppClient : public BocaAppClient {
@@ -83,11 +95,12 @@ class MockBocaAppClient : public BocaAppClient {
               GetURLLoaderFactory,
               (),
               (override));
+  MOCK_METHOD(std::string, GetDeviceId, (), (override));
 };
 
 constexpr char kTestGaiaId[] = "123";
 constexpr char kTestUserEmail[] = "cat@gmail.com";
-}  // namespace
+constexpr char kInitialSessionId[] = "0";
 
 class BocaSessionManagerTest : public testing::Test {
  public:
@@ -113,10 +126,13 @@ class BocaSessionManagerTest : public testing::Test {
     observer_ = std::make_unique<StrictMock<MockObserver>>();
 
     boca_app_client_ = std::make_unique<StrictMock<MockBocaAppClient>>();
-    // Start with empty session
-    EXPECT_CALL(*session_client_impl_, GetSession(_))
+    // Start with active session to trigger polling.
+    auto session_1 = std::make_unique<::boca::Session>();
+    session_1->set_session_state(::boca::Session::ACTIVE);
+    session_1->set_session_id(kInitialSessionId);
+    EXPECT_CALL(*session_client_impl(), GetSession(_))
         .WillOnce(testing::InvokeWithoutArgs([&]() {
-          boca_session_manager()->ParseSessionResponse(base::ok(nullptr));
+          boca_session_manager()->ParseSessionResponse(std::move(session_1));
         }));
 
     // Expect to have registered session manager for current profile.
@@ -124,14 +140,18 @@ class BocaSessionManagerTest : public testing::Test {
         .WillOnce(Return(identity_test_env_.identity_manager()));
 
     boca_session_manager_ = std::make_unique<BocaSessionManager>(
-        session_client_impl_.get(), AccountId::FromUserEmail(kTestUserEmail));
+        session_client_impl_.get(), account_id);
     boca_session_manager_->AddObserver(observer_.get());
-    ToggleOffline();
-    ToggleOnline();
 
-    // Trigger first load.
-    task_environment()->FastForwardBy(BocaSessionManager::kPollingInterval * 1 +
-                                      base::Seconds(1));
+    // Set statistic provider for hardware class tests.
+    ash::system::StatisticsProvider::SetTestProvider(
+        &fake_statistics_provider_);
+
+    EXPECT_CALL(*observer(), OnSessionStarted(_, _)).Times(1);
+    // Set initial network config.
+    ToggleOffline();
+    // Trigger network update activity.
+    ToggleOnline();
   }
 
  protected:
@@ -180,6 +200,7 @@ class BocaSessionManagerTest : public testing::Test {
   user_manager::TypedScopedUserManager<user_manager::FakeUserManager>
       fake_user_manager_;
   std::unique_ptr<BocaSessionManager> boca_session_manager_;
+  ash::system::ScopedFakeStatisticsProvider fake_statistics_provider_;
 };
 
 TEST_F(BocaSessionManagerTest, DoNothingIfSessionUpdateFailed) {
@@ -197,94 +218,79 @@ TEST_F(BocaSessionManagerTest, DoNothingIfSessionUpdateFailed) {
                                     base::Seconds(1));
 }
 
-TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenSessionFlipBetweenEmpty) {
-  const std::string session_id = "123";
-  auto session_1 = std::make_unique<::boca::Session>();
-  session_1->set_session_state(::boca::Session::ACTIVE);
-  session_1->set_session_id(session_id);
+TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenSessionEnded) {
   EXPECT_CALL(*session_client_impl(), GetSession(_))
-      .WillOnce(testing::InvokeWithoutArgs([&]() {
-        boca_session_manager()->ParseSessionResponse(std::move(session_1));
-      }))
       .WillOnce(testing::InvokeWithoutArgs([&]() {
         boca_session_manager()->ParseSessionResponse(base::ok(nullptr));
       }));
 
-  EXPECT_CALL(*observer(), OnSessionStarted(session_id, _)).Times(1);
-  EXPECT_CALL(*observer(), OnSessionEnded(session_id)).Times(1);
+  EXPECT_CALL(*observer(), OnSessionEnded(kInitialSessionId)).Times(1);
 
-  // Have updated two sessions.
-  task_environment()->FastForwardBy(BocaSessionManager::kPollingInterval * 2 +
+  // After session ended, polling should stop.
+  task_environment()->FastForwardBy(BocaSessionManager::kPollingInterval * 4 +
                                     base::Seconds(1));
 }
 
-TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenBothSessionIsEmpty) {
+TEST_F(BocaSessionManagerTest, DoNothingWhenBothSessionIsEmpty) {
   auto current_session = std::make_unique<::boca::Session>();
   EXPECT_CALL(*session_client_impl(), GetSession(_))
       .WillOnce(testing::InvokeWithoutArgs([&]() {
         boca_session_manager()->ParseSessionResponse(
             std::move(current_session));
       }));
-
+  EXPECT_CALL(*observer(), OnSessionEnded(_)).Times(1);
+  EXPECT_CALL(*observer(), OnSessionStarted(_, _)).Times(0);
   task_environment()->FastForwardBy(BocaSessionManager::kPollingInterval +
                                     base::Seconds(1));
-  EXPECT_CALL(*observer(), OnSessionEnded(_)).Times(0);
-  EXPECT_CALL(*observer(), OnSessionStarted(_, _)).Times(0);
-}
 
-TEST_F(BocaSessionManagerTest,
-       NotifySessionUpdateWhenPreviousSessionStateChanged) {
-  const std::string session_id = "1";
-  auto session_1 = std::make_unique<::boca::Session>();
-  session_1->set_session_state(::boca::Session::ACTIVE);
-  session_1->set_session_id(session_id);
-  auto session_2 = std::make_unique<::boca::Session>();
-  session_2->set_session_state(::boca::Session::PLANNING);
-  session_2->set_session_id(session_id);
   EXPECT_CALL(*session_client_impl(), GetSession(_))
       .WillOnce(testing::InvokeWithoutArgs([&]() {
-        boca_session_manager()->ParseSessionResponse(std::move(session_1));
-      }))
+        boca_session_manager()->ParseSessionResponse(
+            std::move(current_session));
+      }));
+  EXPECT_CALL(*observer(), OnSessionEnded(_)).Times(0);
+  EXPECT_CALL(*observer(), OnSessionStarted(_, _)).Times(0);
+  // Polling has stopped, manually load session.
+  boca_session_manager()->LoadCurrentSession();
+}
+
+TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenSessionStateChanged) {
+  auto session_2 = std::make_unique<::boca::Session>();
+  session_2->set_session_state(::boca::Session::PLANNING);
+  session_2->set_session_id(kInitialSessionId);
+  EXPECT_CALL(*session_client_impl(), GetSession(_))
       .WillOnce(testing::InvokeWithoutArgs([&]() {
         boca_session_manager()->ParseSessionResponse(std::move(session_2));
       }));
 
-  EXPECT_CALL(*observer(), OnSessionStarted(session_id, _)).Times(1);
-  EXPECT_CALL(*observer(), OnSessionEnded(session_id)).Times(1);
+  EXPECT_CALL(*observer(), OnSessionEnded(kInitialSessionId)).Times(1);
 
-  // Have updated two sessions.
-  task_environment()->FastForwardBy(BocaSessionManager::kPollingInterval * 2 +
+  // After session ended, polling should stop.
+  task_environment()->FastForwardBy(BocaSessionManager::kPollingInterval * 4 +
                                     base::Seconds(1));
 }
 
 TEST_F(BocaSessionManagerTest, DoNothingWhenSessionStateIsTheSame) {
-  const std::string session_id = "1";
   auto session_1 = std::make_unique<::boca::Session>();
   session_1->set_session_state(::boca::Session::ACTIVE);
-  session_1->set_session_id(session_id);
-  auto session_2 = std::make_unique<::boca::Session>();
-  session_2->set_session_state(::boca::Session::ACTIVE);
-  session_2->set_session_id(session_id);
+  session_1->set_session_id(kInitialSessionId);
   EXPECT_CALL(*session_client_impl(), GetSession(_))
       .WillOnce(testing::InvokeWithoutArgs([&]() {
         boca_session_manager()->ParseSessionResponse(std::move(session_1));
-      }))
-      .WillOnce(testing::InvokeWithoutArgs([&]() {
-        boca_session_manager()->ParseSessionResponse(std::move(session_2));
       }));
 
-  EXPECT_CALL(*observer(), OnSessionStarted(_, _)).Times(1);
+  EXPECT_CALL(*observer(), OnSessionStarted(_, _)).Times(0);
   EXPECT_CALL(*observer(), OnSessionEnded(_)).Times(0);
 
-  // Have updated two sessions.
-  task_environment()->FastForwardBy(BocaSessionManager::kPollingInterval * 2 +
+  // Have updated one sessions.
+  task_environment()->FastForwardBy(BocaSessionManager::kPollingInterval * 1 +
                                     base::Seconds(1));
 }
 
 TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenLockModeChanged) {
-  const std::string session_id = "1";
   auto session_1 = std::make_unique<::boca::Session>();
-  session_1->set_session_id(session_id);
+  session_1->set_session_id(kInitialSessionId);
+  session_1->set_session_state(::boca::Session::ACTIVE);
   ::boca::SessionConfig session_config;
   auto* active_bundle =
       session_config.mutable_on_task_config()->mutable_active_bundle();
@@ -294,7 +300,8 @@ TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenLockModeChanged) {
       std::move(session_config);
 
   auto session_2 = std::make_unique<::boca::Session>();
-  session_2->set_session_id(session_id);
+  session_2->set_session_id(kInitialSessionId);
+  session_2->set_session_state(::boca::Session::ACTIVE);
   ::boca::SessionConfig session_config_2;
   auto* active_bundle_2 =
       session_config.mutable_on_task_config()->mutable_active_bundle();
@@ -318,9 +325,9 @@ TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenLockModeChanged) {
 }
 
 TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenBundleContentChanged) {
-  const std::string session_id = "1";
   auto session_1 = std::make_unique<::boca::Session>();
-  session_1->set_session_id(session_id);
+  session_1->set_session_id(kInitialSessionId);
+  session_1->set_session_state(::boca::Session::ACTIVE);
   ::boca::SessionConfig session_config;
   auto* active_bundle =
       session_config.mutable_on_task_config()->mutable_active_bundle();
@@ -330,7 +337,8 @@ TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenBundleContentChanged) {
       std::move(session_config);
 
   auto session_2 = std::make_unique<::boca::Session>();
-  session_2->set_session_id(session_id);
+  session_2->set_session_id(kInitialSessionId);
+  session_2->set_session_state(::boca::Session::ACTIVE);
   ::boca::SessionConfig session_config_2;
   auto* active_bundle_2 =
       session_config.mutable_on_task_config()->mutable_active_bundle();
@@ -353,9 +361,9 @@ TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenBundleContentChanged) {
 }
 
 TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenBundleOrderChanged) {
-  const std::string session_id = "1";
   auto session_1 = std::make_unique<::boca::Session>();
-  session_1->set_session_id(session_id);
+  session_1->set_session_id(kInitialSessionId);
+  session_1->set_session_state(::boca::Session::ACTIVE);
   ::boca::SessionConfig session_config;
   auto* active_bundle =
       session_config.mutable_on_task_config()->mutable_active_bundle();
@@ -366,7 +374,8 @@ TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenBundleOrderChanged) {
       std::move(session_config);
 
   auto session_2 = std::make_unique<::boca::Session>();
-  session_2->set_session_id(session_id);
+  session_2->set_session_id(kInitialSessionId);
+  session_2->set_session_state(::boca::Session::ACTIVE);
   ::boca::SessionConfig session_config_2;
   auto* active_bundle_2 =
       session_config.mutable_on_task_config()->mutable_active_bundle();
@@ -390,9 +399,9 @@ TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenBundleOrderChanged) {
 }
 
 TEST_F(BocaSessionManagerTest, DoNothingWhenBundledContentNoChange) {
-  const std::string session_id = "1";
   auto session_1 = std::make_unique<::boca::Session>();
-  session_1->set_session_id(session_id);
+  session_1->set_session_id(kInitialSessionId);
+  session_1->set_session_state(::boca::Session::ACTIVE);
   ::boca::SessionConfig session_config;
   auto* active_bundle =
       session_config.mutable_on_task_config()->mutable_active_bundle();
@@ -402,7 +411,9 @@ TEST_F(BocaSessionManagerTest, DoNothingWhenBundledContentNoChange) {
       std::move(session_config);
 
   auto session_2 = std::make_unique<::boca::Session>();
-  session_2->set_session_id(session_id);
+  session_2->set_session_id(kInitialSessionId);
+  session_2->set_session_state(::boca::Session::ACTIVE);
+
   ::boca::SessionConfig session_config_2;
   auto* active_bundle_2 =
       session_config_2.mutable_on_task_config()->mutable_active_bundle();
@@ -427,9 +438,9 @@ TEST_F(BocaSessionManagerTest, DoNothingWhenBundledContentNoChange) {
 }
 
 TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenCurrentBundleEmpty) {
-  const std::string session_id = "1";
   auto session_1 = std::make_unique<::boca::Session>();
-  session_1->set_session_id(session_id);
+  session_1->set_session_id(kInitialSessionId);
+  session_1->set_session_state(::boca::Session::ACTIVE);
 
   EXPECT_CALL(*session_client_impl(), GetSession(_))
       .WillOnce(testing::InvokeWithoutArgs([&]() {
@@ -444,9 +455,9 @@ TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenCurrentBundleEmpty) {
 }
 
 TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenSessionCaptionUpdated) {
-  const std::string session_id = "1";
   auto session_1 = std::make_unique<::boca::Session>();
-  session_1->set_session_id(session_id);
+  session_1->set_session_id(kInitialSessionId);
+  session_1->set_session_state(::boca::Session::ACTIVE);
   ::boca::SessionConfig session_config;
   auto* caption_config_1 = session_config.mutable_captions_config();
 
@@ -456,7 +467,8 @@ TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenSessionCaptionUpdated) {
       std::move(session_config);
 
   auto session_2 = std::make_unique<::boca::Session>();
-  session_2->set_session_id(session_id);
+  session_2->set_session_id(kInitialSessionId);
+  session_2->set_session_state(::boca::Session::ACTIVE);
   ::boca::SessionConfig session_config_2;
   auto* caption_config_2 = session_config.mutable_captions_config();
 
@@ -483,9 +495,9 @@ TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenSessionCaptionUpdated) {
 }
 
 TEST_F(BocaSessionManagerTest, DoNothingWhenSessionCaptionSame) {
-  const std::string session_id = "1";
   auto session_1 = std::make_unique<::boca::Session>();
-  session_1->set_session_id(session_id);
+  session_1->set_session_id(kInitialSessionId);
+  session_1->set_session_state(::boca::Session::ACTIVE);
   ::boca::SessionConfig session_config;
   auto* caption_config_1 = session_config.mutable_captions_config();
 
@@ -508,10 +520,11 @@ TEST_F(BocaSessionManagerTest, DoNothingWhenSessionCaptionSame) {
                                     base::Seconds(1));
 }
 
-TEST_F(BocaSessionManagerTest, DoNothingWhenSessionConfigNotMatch) {
-  const std::string session_id = "1";
+TEST_F(BocaSessionManagerTest, DoNothingWhenSessionConfigNameNotMatch) {
   auto session_1 = std::make_unique<::boca::Session>();
-  session_1->set_session_id(session_id);
+  session_1->set_session_id(kInitialSessionId);
+  session_1->set_session_state(::boca::Session::ACTIVE);
+
   ::boca::SessionConfig session_config;
   auto* caption_config_1 = session_config.mutable_captions_config();
 
@@ -535,16 +548,19 @@ TEST_F(BocaSessionManagerTest, DoNothingWhenSessionConfigNotMatch) {
 }
 
 TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenSessionRosterUpdated) {
-  const std::string session_id = "1";
   auto session_1 = std::make_unique<::boca::Session>();
-  session_1->set_session_id(session_id);
+  session_1->set_session_id(kInitialSessionId);
+  session_1->set_session_state(::boca::Session::ACTIVE);
+
   auto* student_groups_1 =
       session_1->mutable_roster()->mutable_student_groups()->Add();
   student_groups_1->set_title(kMainStudentGroupName);
   student_groups_1->mutable_students()->Add()->set_email("dog1@email.com");
 
   auto session_2 = std::make_unique<::boca::Session>();
-  session_2->set_session_id(session_id);
+  session_2->set_session_id(kInitialSessionId);
+  session_2->set_session_state(::boca::Session::ACTIVE);
+
   auto* student_groups_2 =
       session_2->mutable_roster()->mutable_student_groups()->Add();
   student_groups_2->set_title(kMainStudentGroupName);
@@ -567,9 +583,9 @@ TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenSessionRosterUpdated) {
 
 TEST_F(BocaSessionManagerTest,
        NotifySessionUpdateWhenSessionRosterOrderUpdated) {
-  const std::string session_id = "1";
   auto session_1 = std::make_unique<::boca::Session>();
-  session_1->set_session_id(session_id);
+  session_1->set_session_id(kInitialSessionId);
+  session_1->set_session_state(::boca::Session::ACTIVE);
   auto* student_groups_1 =
       session_1->mutable_roster()->mutable_student_groups()->Add();
   student_groups_1->set_title(kMainStudentGroupName);
@@ -577,7 +593,9 @@ TEST_F(BocaSessionManagerTest,
   student_groups_1->mutable_students()->Add()->set_email("dog1@email.com");
 
   auto session_2 = std::make_unique<::boca::Session>();
-  session_2->set_session_id(session_id);
+  session_2->set_session_id(kInitialSessionId);
+  session_2->set_session_state(::boca::Session::ACTIVE);
+
   auto* student_groups_2 =
       session_2->mutable_roster()->mutable_student_groups()->Add();
   student_groups_2->set_title(kMainStudentGroupName);
@@ -600,8 +618,9 @@ TEST_F(BocaSessionManagerTest,
 }
 
 TEST_F(BocaSessionManagerTest, DoNothingWhenSessionRosterSame) {
-  const std::string session_id = "1";
   auto session_1 = std::make_unique<::boca::Session>();
+  session_1->set_session_id(kInitialSessionId);
+  session_1->set_session_state(::boca::Session::ACTIVE);
 
   EXPECT_CALL(*session_client_impl(), GetSession(_))
       .WillOnce(testing::InvokeWithoutArgs([&]() {
@@ -649,4 +668,174 @@ TEST_F(BocaSessionManagerTest, NotifyLocalCaptionConfigWhenLocalChange) {
   BocaAppClient::Get()->GetSessionManager()->NotifyLocalCaptionEvents(config);
 }
 
+TEST_F(BocaSessionManagerTest, NotifyAppReloadEvent) {
+  EXPECT_CALL(*boca_app_client(), GetIdentityManager())
+      .WillOnce(Return(identity_manager()));
+  EXPECT_CALL(*observer(), OnAppReloaded()).Times(1);
+
+  BocaAppClient::Get()->GetSessionManager()->NotifyAppReload();
+}
+
+TEST_F(BocaSessionManagerTest, UpdateTabActivity) {
+  std::string kDeviceId("myDevice");
+  std::u16string kTab(u"google.com");
+  std::string kSessionId("sessionId");
+  ::boca::Session session;
+  session.set_session_id(kSessionId);
+  session.set_session_state(::boca::Session::ACTIVE);
+  EXPECT_CALL(*boca_app_client(), GetDeviceId()).WillOnce(Return(kDeviceId));
+
+  EXPECT_CALL(*session_client_impl(), UpdateStudentActivity(_))
+      .WillOnce(WithArg<0>(
+          // Unique pointer have ownership issue, have to do manual deep copy
+          // here instead of using SaveArg.
+          Invoke([&](auto request) {
+            EXPECT_EQ(kSessionId, request->session_id());
+            EXPECT_EQ(kTestGaiaId, request->gaia_id());
+            EXPECT_EQ(kDeviceId, request->device_id());
+            request->callback().Run(true);
+          })));
+
+  boca_session_manager()->UpdateCurrentSession(
+      std::make_unique<::boca::Session>(session), false);
+  boca_session_manager()->UpdateTabActivity(kTab);
+}
+
+TEST_F(BocaSessionManagerTest, UpdateTabActivityWithDummyDeviceId) {
+  std::u16string kTab(u"google.com");
+  std::string kSessionId("sessionId");
+  ::boca::Session session;
+  session.set_session_id(kSessionId);
+  session.set_session_state(::boca::Session::ACTIVE);
+  EXPECT_CALL(*boca_app_client(), GetDeviceId()).WillOnce(Return(""));
+
+  EXPECT_CALL(*session_client_impl(), UpdateStudentActivity(_))
+      .WillOnce(WithArg<0>(
+          // Unique pointer have ownership issue, have to do manual deep copy
+          // here instead of using SaveArg.
+          Invoke([&](auto request) {
+            EXPECT_EQ(kSessionId, request->session_id());
+            EXPECT_EQ(kTestGaiaId, request->gaia_id());
+            EXPECT_EQ(BocaSessionManager::kDummyDeviceId, request->device_id());
+            request->callback().Run(true);
+          })));
+
+  boca_session_manager()->UpdateCurrentSession(
+      std::make_unique<::boca::Session>(session), false);
+  boca_session_manager()->UpdateTabActivity(kTab);
+}
+
+TEST_F(BocaSessionManagerTest, UpdateTabActivityWithInactiveSession) {
+  ::boca::Session session;
+  session.set_session_id(kSessionId);
+  EXPECT_CALL(*boca_app_client(), GetDeviceId()).Times(0);
+
+  EXPECT_CALL(*session_client_impl(), UpdateStudentActivity(_)).Times(0);
+
+  boca_session_manager()->UpdateCurrentSession(
+      std::make_unique<::boca::Session>(session), false);
+  boca_session_manager()->UpdateTabActivity(u"any");
+}
+
+TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenSessionActivityUpdated) {
+  auto session_1 = std::make_unique<::boca::Session>();
+  session_1->set_session_state(::boca::Session::ACTIVE);
+  ::boca::StudentStatus status;
+  ::boca::StudentDevice device;
+  auto* activity = device.mutable_activity();
+  activity->mutable_active_tab()->set_title("google");
+  (*status.mutable_devices())["device1"] = std::move(device);
+  (*session_1->mutable_student_statuses())["1"] = std::move(status);
+  auto session_2 = std::make_unique<::boca::Session>();
+  session_2->set_session_state(::boca::Session::ACTIVE);
+  ::boca::StudentStatus status_1;
+  ::boca::StudentDevice device_1;
+  auto* activity_1 = device_1.mutable_activity();
+  activity_1->mutable_active_tab()->set_title("youtube");
+  (*status_1.mutable_devices())["device1"] = std::move(device_1);
+  (*session_2->mutable_student_statuses())["1"] = std::move(status);
+
+  EXPECT_CALL(*session_client_impl(), GetSession(_))
+      .WillOnce(testing::InvokeWithoutArgs([&]() {
+        boca_session_manager()->ParseSessionResponse(std::move(session_1));
+      }))
+      .WillOnce(testing::InvokeWithoutArgs([&]() {
+        boca_session_manager()->ParseSessionResponse(std::move(session_2));
+      }));
+
+  EXPECT_CALL(*observer(), OnConsumerActivityUpdated(_)).Times(2);
+
+  // Have updated two sessions.
+  task_environment()->FastForwardBy(BocaSessionManager::kPollingInterval * 2 +
+                                    base::Seconds(1));
+}
+
+TEST_F(BocaSessionManagerTest, NotifySessionUpdateWhenStudentStateUpdated) {
+  auto session_1 = std::make_unique<::boca::Session>();
+  session_1->set_session_state(::boca::Session::ACTIVE);
+  ::boca::StudentStatus status;
+  status.set_state(::boca::StudentStatus::ACTIVE);
+  (*session_1->mutable_student_statuses())["1"] = std::move(status);
+  ::boca::StudentStatus status_1;
+  status.set_state(::boca::StudentStatus::ADDED);
+  (*session_1->mutable_student_statuses())["2"] = std::move(status_1);
+  auto session_2 = std::make_unique<::boca::Session>();
+  session_2->set_session_state(::boca::Session::ACTIVE);
+  ::boca::StudentStatus status_2;
+  status.set_state(::boca::StudentStatus::ADDED);
+  (*session_2->mutable_student_statuses())["1"] = std::move(status_2);
+  ::boca::StudentStatus status_3;
+  status.set_state(::boca::StudentStatus::ADDED);
+  (*session_2->mutable_student_statuses())["2"] = std::move(status);
+
+  EXPECT_CALL(*session_client_impl(), GetSession(_))
+      .WillOnce(testing::InvokeWithoutArgs([&]() {
+        boca_session_manager()->ParseSessionResponse(std::move(session_1));
+      }))
+      .WillOnce(testing::InvokeWithoutArgs([&]() {
+        boca_session_manager()->ParseSessionResponse(std::move(session_2));
+      }));
+
+  EXPECT_CALL(*observer(), OnConsumerActivityUpdated(_)).Times(2);
+
+  // Have updated two sessions.
+  task_environment()->FastForwardBy(BocaSessionManager::kPollingInterval * 2 +
+                                    base::Seconds(1));
+}
+
+TEST_F(BocaSessionManagerTest,
+       DoNotNotifySessionUpdateWhenSessionActivityNotChanged) {
+  auto session_1 = std::make_unique<::boca::Session>();
+  session_1->set_session_state(::boca::Session::ACTIVE);
+  ::boca::StudentStatus status;
+  ::boca::StudentDevice device;
+  auto* activity = device.mutable_activity();
+  activity->mutable_active_tab()->set_title("google");
+  (*status.mutable_devices())["device1"] = std::move(device);
+  (*session_1->mutable_student_statuses())["1"] = std::move(status);
+  auto session_2 = std::make_unique<::boca::Session>();
+  session_2->set_session_state(::boca::Session::ACTIVE);
+  ::boca::StudentStatus status_1;
+  ::boca::StudentDevice device_1;
+  auto* activity_1 = device_1.mutable_activity();
+  activity_1->mutable_active_tab()->set_title("google");
+  (*status_1.mutable_devices())["device1"] = std::move(device_1);
+  (*session_2->mutable_student_statuses())["1"] = std::move(status_1);
+
+  EXPECT_CALL(*session_client_impl(), GetSession(_))
+      .WillOnce(testing::InvokeWithoutArgs([&]() {
+        boca_session_manager()->ParseSessionResponse(std::move(session_1));
+      }))
+      .WillOnce(testing::InvokeWithoutArgs([&]() {
+        boca_session_manager()->ParseSessionResponse(std::move(session_2));
+      }));
+
+  // Only notify once for the initial update
+  EXPECT_CALL(*observer(), OnConsumerActivityUpdated(_)).Times(1);
+
+  // Have updated two sessions.
+  task_environment()->FastForwardBy(BocaSessionManager::kPollingInterval * 2 +
+                                    base::Seconds(1));
+}
+}  // namespace
 }  // namespace ash::boca

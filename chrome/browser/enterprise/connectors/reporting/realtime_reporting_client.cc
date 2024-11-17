@@ -19,7 +19,6 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/connectors/common.h"
 #include "chrome/browser/enterprise/connectors/connectors_service.h"
-#include "chrome/browser/enterprise/connectors/reporting/metrics_utils.h"
 #include "chrome/browser/enterprise/identifiers/profile_id_service_factory.h"
 #include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
@@ -140,8 +139,8 @@ void UploadSecurityEventReport(base::Value::Dict event,
       enterprise_connectors::GetUmaEnumFromEventName(name));
 
   client->UploadSecurityEventReport(
-      context, IncludeDeviceInfo(profile, settings.per_profile),
-      std::move(report), std::move(upload_callback));
+      IncludeDeviceInfo(profile, settings.per_profile), std::move(report),
+      std::move(upload_callback));
 }
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)

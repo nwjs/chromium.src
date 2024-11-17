@@ -26,6 +26,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
+#include "base/types/optional_ref.h"
 #include "base/unguessable_token.h"
 #include "base/values.h"
 #include "components/cbor/values.h"
@@ -428,9 +429,10 @@ void InterestGroupManagerImpl::UpdateInterestGroupsOfOwnersWithDelay(
 }
 
 void InterestGroupManagerImpl::AllowUpdateIfOlderThan(
-    const blink::InterestGroupKey& group_key,
+    blink::InterestGroupKey group_key,
     base::TimeDelta update_if_older_than) {
-  caching_storage_.AllowUpdateIfOlderThan(group_key, update_if_older_than);
+  caching_storage_.AllowUpdateIfOlderThan(std::move(group_key),
+                                          update_if_older_than);
 }
 
 void InterestGroupManagerImpl::RecordInterestGroupBids(
@@ -806,10 +808,10 @@ void InterestGroupManagerImpl::OnAdAuctionDataLoadComplete(
 }
 
 void InterestGroupManagerImpl::GetBiddingAndAuctionServerKey(
-    std::optional<url::Origin> coordinator,
+    const std::optional<url::Origin>& coordinator,
     base::OnceCallback<void(
         base::expected<BiddingAndAuctionServerKey, std::string>)> callback) {
-  ba_key_fetcher_.GetOrFetchKey(std::move(coordinator), std::move(callback));
+  ba_key_fetcher_.GetOrFetchKey(coordinator, std::move(callback));
 }
 
 void InterestGroupManagerImpl::OnJoinInterestGroupPermissionsChecked(

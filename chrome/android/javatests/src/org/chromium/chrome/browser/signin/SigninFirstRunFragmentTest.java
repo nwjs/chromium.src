@@ -99,6 +99,7 @@ import org.chromium.chrome.test.util.ActivityTestUtils;
 import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.chrome.test.util.browser.signin.SigninTestUtil;
+import org.chromium.chrome.test.util.browser.signin.TestAccounts;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.externalauth.ExternalAuthUtils;
 import org.chromium.components.signin.base.AccountInfo;
@@ -248,24 +249,24 @@ public class SigninFirstRunFragmentTest {
         onView(withText(R.string.signin_add_account_to_device)).check(matches(isDisplayed()));
         onView(withText(R.string.signin_fre_dismiss_button)).check(matches(isDisplayed()));
 
-        mSigninTestRule.addAccount(AccountManagerTestRule.TEST_CHILD_ACCOUNT);
+        mSigninTestRule.addAccount(TestAccounts.CHILD_ACCOUNT);
         when(mPolicyLoadListenerMock.get()).thenReturn(true);
 
         checkFragmentWithChildAccount(
                 /* hasDisplayableFullName= */ true,
                 /* hasDisplayableEmail= */ true,
-                AccountManagerTestRule.TEST_CHILD_ACCOUNT);
+                TestAccounts.CHILD_ACCOUNT);
     }
 
     @Test
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
     public void testFragmentWhenRemovingChildAccountDynamically() {
-        mSigninTestRule.addAccount(AccountManagerTestRule.TEST_CHILD_ACCOUNT);
+        mSigninTestRule.addAccount(TestAccounts.CHILD_ACCOUNT);
         launchActivityWithFragment();
-        checkFragmentWithChildAccount(true, true, AccountManagerTestRule.TEST_CHILD_ACCOUNT);
+        checkFragmentWithChildAccount(true, true, TestAccounts.CHILD_ACCOUNT);
 
-        mSigninTestRule.removeAccount(AccountManagerTestRule.TEST_CHILD_ACCOUNT.getId());
+        mSigninTestRule.removeAccount(TestAccounts.CHILD_ACCOUNT.getId());
 
         CriteriaHelper.pollUiThread(
                 () -> {
@@ -484,14 +485,14 @@ public class SigninFirstRunFragmentTest {
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
     public void testFragmentWithChildAccount() {
-        mSigninTestRule.addAccount(AccountManagerTestRule.TEST_CHILD_ACCOUNT);
+        mSigninTestRule.addAccount(TestAccounts.CHILD_ACCOUNT);
         when(mPolicyLoadListenerMock.get()).thenReturn(true);
 
         launchActivityWithFragment();
         checkFragmentWithChildAccount(
                 /* hasDisplayableFullName= */ true,
                 /* hasDisplayableEmail= */ true,
-                AccountManagerTestRule.TEST_CHILD_ACCOUNT);
+                TestAccounts.CHILD_ACCOUNT);
     }
 
     @Test
@@ -799,11 +800,11 @@ public class SigninFirstRunFragmentTest {
                             .thenReturn(mSigninManagerMock);
                 });
 
-        mSigninTestRule.addAccount(AccountManagerTestRule.TEST_CHILD_ACCOUNT);
+        mSigninTestRule.addAccount(TestAccounts.CHILD_ACCOUNT);
 
         checkContinueButtonWithChildAccount(
                 /* hasFullNameInButtonText= */ true,
-                AccountManagerTestRule.TEST_CHILD_ACCOUNT,
+                TestAccounts.CHILD_ACCOUNT,
                 /* advancesDirectlyToNextPage= */ true);
     }
 
@@ -828,11 +829,11 @@ public class SigninFirstRunFragmentTest {
                             .thenReturn(mIdentityManagerMock);
                 });
 
-        mSigninTestRule.addAccount(AccountManagerTestRule.TEST_CHILD_ACCOUNT);
+        mSigninTestRule.addAccount(TestAccounts.CHILD_ACCOUNT);
 
         checkContinueButtonWithChildAccount(
                 /* hasFullNameInButtonText= */ true,
-                AccountManagerTestRule.TEST_CHILD_ACCOUNT,
+                TestAccounts.CHILD_ACCOUNT,
                 /* advancesDirectlyToNextPage= */ false);
     }
 
@@ -1130,7 +1131,7 @@ public class SigninFirstRunFragmentTest {
 
         onView(withText(TEST_EMAIL1)).perform(click());
         onView(withText(R.string.signin_add_account_to_device)).perform(click());
-        mSigninTestRule.setUpNextAddAccountFlow(TEST_EMAIL2);
+        mSigninTestRule.setAddAccountFlowResult(TEST_EMAIL2);
         onViewWaiting(AccountManagerTestRule.ADD_ACCOUNT_BUTTON_MATCHER).perform(click());
 
         checkFragmentWithSelectedAccount(TEST_EMAIL2, /* fullName= */ null, /* givenName= */ null);
@@ -1145,7 +1146,7 @@ public class SigninFirstRunFragmentTest {
         launchActivityWithFragment();
 
         onView(withText(R.string.signin_add_account_to_device)).perform(click());
-        mSigninTestRule.setUpNextAddAccountFlow(TEST_EMAIL1);
+        mSigninTestRule.setAddAccountFlowResult(TEST_EMAIL1);
         onViewWaiting(AccountManagerTestRule.ADD_ACCOUNT_BUTTON_MATCHER).perform(click());
 
         checkFragmentWithSelectedAccount(TEST_EMAIL1, /* fullName= */ null, /* givenName= */ null);
@@ -1171,7 +1172,7 @@ public class SigninFirstRunFragmentTest {
                 mSigninTestRule.blockGetCoreAccountInfosUpdate(/* populateCache= */ true)) {
             launchActivityWithFragment();
             onView(withText(R.string.signin_add_account_to_device)).perform(click());
-            mSigninTestRule.setUpNextAddAccountFlow(TEST_EMAIL1);
+            mSigninTestRule.setAddAccountFlowResult(TEST_EMAIL1);
             onViewWaiting(AccountManagerTestRule.ADD_ACCOUNT_BUTTON_MATCHER).perform(click());
             checkFragmentWithSelectedAccount(
                     TEST_EMAIL1, /* fullName= */ null, /* givenName= */ null);
@@ -1374,14 +1375,14 @@ public class SigninFirstRunFragmentTest {
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
     public void testFragmentWithChildAccount_doesNotApplyFREStringVariation() {
-        mSigninTestRule.addAccount(AccountManagerTestRule.TEST_CHILD_ACCOUNT);
+        mSigninTestRule.addAccount(TestAccounts.CHILD_ACCOUNT);
         when(mPolicyLoadListenerMock.get()).thenReturn(true);
 
         launchActivityWithFragment();
         checkFragmentWithChildAccount(
                 /* hasDisplayableFullName= */ true,
                 /* hasDisplayableEmail= */ true,
-                AccountManagerTestRule.TEST_CHILD_ACCOUNT);
+                TestAccounts.CHILD_ACCOUNT);
     }
 
     @Test

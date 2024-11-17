@@ -213,7 +213,7 @@ TEST(PaymentRequestTest, NullShippingTypeWhenRequestShippingIsFalse) {
       scope.GetExecutionContext(), BuildPaymentMethodDataForTest(), details,
       options, scope.GetExceptionState());
 
-  EXPECT_TRUE(request->shippingType().IsNull());
+  EXPECT_FALSE(request->shippingType().has_value());
 }
 
 TEST(PaymentRequestTest,
@@ -793,6 +793,36 @@ TEST(PaymentRequestTest, SPCActivationlessNotConsumedWithActivation) {
     EXPECT_TRUE(scope.GetDocument().IsUseCounted(
         WebFeature::kPaymentRequestShowWithoutGestureOrToken));
   }
+}
+
+TEST(PaymentRequestTest, DeprecatedPaymentMethod) {
+  test::TaskEnvironment task_environment;
+  PaymentRequestV8TestingScope scope;
+  HeapVector<Member<PaymentMethodData>> method_data(
+      1, PaymentMethodData::Create());
+  method_data[0]->setSupportedMethod("https://android.com/pay");
+
+  PaymentRequest::Create(ExecutionContext::From(scope.GetScriptState()),
+                         method_data, BuildPaymentDetailsInitForTest(),
+                         ASSERT_NO_EXCEPTION);
+
+  EXPECT_TRUE(scope.GetDocument().IsUseCounted(
+      WebFeature::kPaymentRequestDeprecatedPaymentMethod));
+}
+
+TEST(PaymentRequestTest, NotDeprecatedPaymentMethod) {
+  test::TaskEnvironment task_environment;
+  PaymentRequestV8TestingScope scope;
+  HeapVector<Member<PaymentMethodData>> method_data(
+      1, PaymentMethodData::Create());
+  method_data[0]->setSupportedMethod("https://example.test/pay");
+
+  PaymentRequest::Create(ExecutionContext::From(scope.GetScriptState()),
+                         method_data, BuildPaymentDetailsInitForTest(),
+                         ASSERT_NO_EXCEPTION);
+
+  EXPECT_FALSE(scope.GetDocument().IsUseCounted(
+      WebFeature::kPaymentRequestDeprecatedPaymentMethod));
 }
 
 }  // namespace

@@ -146,6 +146,7 @@ void AddAndLoginUser(const AccountId& account_id, user_manager::UserType type) {
       break;
     case user_manager::UserType::kKioskApp:
     case user_manager::UserType::kWebKioskApp:
+    case user_manager::UserType::kKioskIWA:
       break;
   }
 
@@ -158,7 +159,7 @@ void AddAndLoginUser(const AccountId& account_id, user_manager::UserType type) {
 }
 
 testing::Matcher<ash::personalization_app::mojom::SeaPenThumbnailPtr>
-MatchesSeaPenImage(const std::string_view expected_jpg_bytes,
+MatchesSeaPenImage(std::string_view expected_jpg_bytes,
                    const uint32_t expected_id) {
   return testing::AllOf(
       testing::Pointee(testing::Field(
@@ -318,6 +319,7 @@ class PersonalizationAppSeaPenProviderImplTest : public testing::Test {
       case user_manager::UserType::kPublicAccount:
       case user_manager::UserType::kKioskApp:
       case user_manager::UserType::kWebKioskApp:
+      case user_manager::UserType::kKioskIWA:
         profile_ = profile_manager_.CreateTestingProfile(name);
         break;
     }
@@ -577,16 +579,23 @@ TEST_F(PersonalizationAppSeaPenProviderImplTest,
   ASSERT_EQ(249u, search_wallpaper_future.Get<0>().value().front()->id);
   search_wallpaper_future.Clear();
 
+  query = mojom::SeaPenQuery::NewTextQuery("search_query_4");
+  SetSeaPenFetcherResponse({250}, manta::MantaStatusCode::kOk, query);
+  sea_pen_provider_remote()->GetSeaPenThumbnails(
+      query->Clone(), search_wallpaper_future.GetCallback());
+  ASSERT_EQ(250u, search_wallpaper_future.Get<0>().value().front()->id);
+  search_wallpaper_future.Clear();
+
   auto history = test_sea_pen_observer().GetHistoryEntries();
-  EXPECT_EQ(2u, history->size());
-  EXPECT_EQ("search_query_2", history->at(0)->query);
+  EXPECT_EQ(3u, history->size());
+  EXPECT_EQ("search_query_3", history->at(0)->query);
   EXPECT_THAT(history->at(0)->thumbnails,
               testing::UnorderedElementsAre(
-                  testing::Pointee(testing::FieldsAre(testing::_, 248))));
-  EXPECT_EQ("search_query_1", history->at(1)->query);
+                  testing::Pointee(testing::FieldsAre(testing::_, 249))));
+  EXPECT_EQ("search_query_2", history->at(1)->query);
   EXPECT_THAT(history->at(1)->thumbnails,
               testing::UnorderedElementsAre(
-                  testing::Pointee(testing::FieldsAre(testing::_, 247))));
+                  testing::Pointee(testing::FieldsAre(testing::_, 248))));
 }
 
 TEST_F(PersonalizationAppSeaPenProviderImplTest,

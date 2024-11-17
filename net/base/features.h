@@ -197,19 +197,17 @@ NET_EXPORT BASE_DECLARE_FEATURE(kSplitCodeCacheByNetworkIsolationKey);
 // See https://github.com/MattMenke2/Explainer---Partition-Network-State.
 NET_EXPORT BASE_DECLARE_FEATURE(kPartitionConnectionsByNetworkIsolationKey);
 
-// Enables sending TLS 1.3 Key Update messages on TLS 1.3 connections in order
-// to ensure that this corner of the spec is exercised. This is currently
-// disabled by default because we discovered incompatibilities with some
-// servers.
-NET_EXPORT BASE_DECLARE_FEATURE(kTLS13KeyUpdate);
-
 // Enables post-quantum key-agreements in TLS 1.3 connections. kUseMLKEM
-// controls whether ML-KEM or Kyber is used.
+// controls whether ML-KEM or Kyber (its predecessor) is used. The flag is named
+// after Kyber because it was originally introduced for Kyber.
 NET_EXPORT BASE_DECLARE_FEATURE(kPostQuantumKyber);
 
 // Causes TLS 1.3 connections to use the ML-KEM standard instead of the Kyber
 // draft standard for post-quantum key-agreement. Post-quantum key-agreement
 // must be enabled (e.g. via kPostQuantumKyber) for this to have an effect.
+//
+// TODO(crbug.com/40910498): Remove this flag sometime after M131 has reached
+// stable without issues.
 NET_EXPORT BASE_DECLARE_FEATURE(kUseMLKEM);
 
 // Changes the timeout after which unused sockets idle sockets are cleaned up.
@@ -345,6 +343,10 @@ NET_EXPORT BASE_DECLARE_FEATURE(kEnableGetNetworkConnectivityHintAPI);
 // Whether or not to enable TCP port randomization via SO_RANDOMIZE_PORT on
 // Windows 20H1+.
 NET_EXPORT BASE_DECLARE_FEATURE(kEnableTcpPortRandomization);
+
+// Whether to use a TCP socket implementation which uses an IO completion
+// handler to be notified of completed reads and writes, instead of an event.
+NET_EXPORT BASE_DECLARE_FEATURE(kTcpSocketIoCompletionPortWin);
 #endif
 
 // Avoid creating cache entries for transactions that are most likely no-store.
@@ -607,6 +609,24 @@ NET_EXPORT BASE_DECLARE_FEATURE(kKeepWhitespaceForDataUrls);
 // If enabled, unrecognized keys in a No-Vary-Search header will be ignored.
 // Otherwise, unrecognized keys are treated as if the header was invalid.
 NET_EXPORT BASE_DECLARE_FEATURE(kNoVarySearchIgnoreUnrecognizedKeys);
+
+// If enabled, then a cookie entry containing both encrypted and plaintext
+// values is considered invalid, and the entire eTLD group will be dropped.
+NET_EXPORT BASE_DECLARE_FEATURE(kEncryptedAndPlaintextValuesAreInvalid);
+
+// Kill switch for Static CT Log (aka Tiled Log aka Sunlight)
+// enforcements in Certificate Transparency policy checks. If disabled, SCTs
+// from Static CT Logs will simply be ignored.
+NET_EXPORT BASE_DECLARE_FEATURE(kEnableStaticCTAPIEnforcement);
+
+// Finch experiment to select a disk cache backend.
+enum class DiskCacheBackend {
+  kSimple,
+  kBlockfile,
+};
+NET_EXPORT BASE_DECLARE_FEATURE(kDiskCacheBackendExperiment);
+NET_EXPORT extern const base::FeatureParam<DiskCacheBackend>
+    kDiskCacheBackendParam;
 
 }  // namespace net::features
 

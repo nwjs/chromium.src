@@ -230,7 +230,7 @@ class ContentAutofillDriver : public AutofillDriver,
       const FieldGlobalId& field_id,
       AutofillSuggestionTriggerSource trigger_source) override;
   void SendTypePredictionsToRenderer(
-      const std::vector<raw_ptr<FormStructure, VectorExperimental>>& forms)
+      base::span<const raw_ptr<FormStructure, VectorExperimental>> forms)
       override;
 
   // Group (1c): browser -> renderer events, directed to to this driver's main
@@ -273,7 +273,7 @@ class ContentAutofillDriver : public AutofillDriver,
                                         bool formatting_only) override;
   void SelectControlDidChange(const FormData& form,
                               FieldRendererId field_id) override;
-  void SelectOrSelectListFieldOptionsDidChange(const FormData& form) override;
+  void SelectFieldOptionsDidChange(const FormData& form) override;
   void CaretMovedInFormField(const FormData& form,
                              FieldRendererId field_id,
                              const gfx::Rect& caret_bounds) override;

@@ -17,6 +17,7 @@ import android.view.ViewGroup;
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.app.ActivityOptionsCompat;
 
@@ -27,7 +28,6 @@ import org.chromium.base.IntentUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.cached_flags.BooleanCachedFieldTrialParameter;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
@@ -56,7 +56,6 @@ import org.chromium.chrome.browser.omnibox.suggestions.OmniboxLoadUrlParams;
 import org.chromium.chrome.browser.omnibox.suggestions.action.OmniboxActionDelegateImpl;
 import org.chromium.chrome.browser.password_manager.ManagePasswordsReferrer;
 import org.chromium.chrome.browser.password_manager.PasswordManagerLauncher;
-import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManagerImpl;
 import org.chromium.chrome.browser.profiles.OTRProfileID;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
@@ -73,6 +72,7 @@ import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.I
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.SearchType;
 import org.chromium.chrome.browser.ui.system.StatusBarColorController;
 import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
+import org.chromium.components.cached_flags.BooleanCachedFieldTrialParameter;
 import org.chromium.components.metrics.OmniboxEventProtos.OmniboxEventProto.PageClassification;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
@@ -275,7 +275,8 @@ public class SearchActivity extends AsyncInitializationActivity
     protected void triggerLayoutInflation() {
         enableHardwareAcceleration();
         mSnackbarManager = new SnackbarManager(this, findViewById(android.R.id.content), null);
-        mSearchBoxDataProvider.initialize(this);
+        boolean isIncognito = SearchActivityUtils.getIntentIncognitoStatus(getIntent());
+        mSearchBoxDataProvider.initialize(this, isIncognito);
 
         ViewGroup rootView = (ViewGroup) getWindow().getDecorView().getRootView();
         // Setting fitsSystemWindows to false ensures that the root view doesn't consume the
@@ -307,7 +308,6 @@ public class SearchActivity extends AsyncInitializationActivity
                         mSearchBox,
                         anchorView,
                         mProfileSupplier,
-                        PrivacyPreferencesManagerImpl.getInstance(),
                         mSearchBoxDataProvider,
                         null,
                         new WindowDelegate(getWindow()),
@@ -366,7 +366,9 @@ public class SearchActivity extends AsyncInitializationActivity
                         /* OmniboxSuggestionsDropdownScrollListener= */ null,
                         /* tabModelSelectorSupplier= */ null,
                         mLocationBarUiOverrides,
-                        null);
+                        null,
+                        /* bottomWindowPaddingSupplier */ () -> 0,
+                        /* onLongClickListener= */ null);
         mLocationBarCoordinator.setUrlBarFocusable(true);
         mLocationBarCoordinator.setShouldShowMicButtonWhenUnfocused(true);
         mLocationBarCoordinator.getOmniboxStub().addUrlFocusChangeListener(this);
@@ -416,6 +418,15 @@ public class SearchActivity extends AsyncInitializationActivity
                         .setVoiceEntrypointAllowed(true);
                 mSearchBoxDataProvider.setPageClassification(
                         PageClassification.ANDROID_SHORTCUTS_WIDGET_VALUE);
+                break;
+
+            case IntentOrigin.HUB:
+                // Lens/voice input aren't supported for hub search.
+                mLocationBarUiOverrides
+                        .setLensEntrypointAllowed(false)
+                        .setVoiceEntrypointAllowed(false);
+                mSearchBoxDataProvider.setPageClassification(PageClassification.ANDROID_HUB_VALUE);
+                setHubSearchBoxVisualElements();
                 break;
 
             case IntentOrigin.SEARCH_WIDGET:
@@ -502,6 +513,10 @@ public class SearchActivity extends AsyncInitializationActivity
                         .setDelegateFactory(new SearchActivityTabDelegateFactory())
                         .build();
         mTab.loadUrl(new LoadUrlParams(ContentUrlConstants.ABOUT_BLANK_DISPLAY_URL));
+
+        if (ChromeFeatureList.sAndroidHubSearch.isEnabled() && mIntentOrigin == IntentOrigin.HUB) {
+            setHubSearchBoxUrlBarElements();
+        }
 
         mSearchBoxDataProvider.onNativeLibraryReady(mTab);
 
@@ -645,6 +660,16 @@ public class SearchActivity extends AsyncInitializationActivity
         }
     }
 
+    private void setHubSearchBoxUrlBarElements() {
+        boolean isIncognito = mSearchBoxDataProvider.isIncognitoBranded();
+        @StringRes
+        int hintTextRes =
+                isIncognito
+                        ? R.string.hub_search_empty_hint_incognito
+                        : R.string.hub_search_empty_hint;
+        mLocationBarCoordinator.getUrlBarCoordinator().setUrlBarHintText(hintTextRes);
+    }
+
     /* package */ boolean loadUrl(OmniboxLoadUrlParams params, boolean isIncognito) {
         recordNavigationTargetType(new GURL(params.url));
 
@@ -681,6 +706,10 @@ public class SearchActivity extends AsyncInitializationActivity
         RecordUserAction.record("SearchWidget.SearchMade");
         LocaleManager.getInstance()
                 .recordLocaleBasedSearchMetrics(true, params.url, params.transitionType);
+    }
+
+    private void setHubSearchBoxVisualElements() {
+        mLocationBarCoordinator.getStatusCoordinator().setShowStatusView(false);
     }
 
     @VisibleForTesting

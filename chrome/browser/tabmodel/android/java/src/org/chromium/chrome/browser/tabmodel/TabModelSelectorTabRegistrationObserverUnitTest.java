@@ -32,7 +32,6 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
-import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 
 /** Tests for the TabModelSelectorTabRegistrationObserver. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -78,7 +77,7 @@ public class TabModelSelectorTabRegistrationObserverUnitTest {
                 AsyncTabParamsManagerFactory.createAsyncTabParamsManager();
         NextTabPolicy.NextTabPolicySupplier nextTabPolicySupplier =
                 () -> NextTabPolicy.HIERARCHICAL;
-        TabModel normalTabModel =
+        TabModelImpl normalTabModel =
                 new TabModelImpl(
                         mProfile,
                         ActivityType.TABBED,
@@ -349,7 +348,7 @@ public class TabModelSelectorTabRegistrationObserverUnitTest {
 
     private static class TestTabModelSelector extends TabModelSelectorBase {
         public TestTabModelSelector(TabCreatorManager tabCreatorManager) {
-            super(tabCreatorManager, TabGroupModelFilter::new, false);
+            super(tabCreatorManager, false);
         }
 
         @Override
@@ -361,7 +360,8 @@ public class TabModelSelectorTabRegistrationObserverUnitTest {
         }
     }
 
-    private static class TestIncognitoTabModel extends TabModelImpl implements IncognitoTabModel {
+    private static class TestIncognitoTabModel extends TabModelImpl
+            implements IncognitoTabModelInternal {
         public TestIncognitoTabModel(
                 @NonNull Profile profile,
                 @ActivityType int activityType,

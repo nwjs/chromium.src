@@ -47,7 +47,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Variations.AppSeedFreshness" units="minutes"
-    expires_after="2025-01-19">
+    expires_after="2025-03-23">
   <owner>ntfschr@chromium.org</owner>
   <owner>src/android_webview/OWNERS</owner>
   <summary>
@@ -62,7 +62,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Variations.ExtendedSafeMode.BeaconFileDeserializationError"
-    enum="JsonDeserializationError" expires_after="2025-01-26">
+    enum="JsonDeserializationError" expires_after="2025-03-30">
   <owner>caitlinfischer@google.com</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <component>1456342</component>
@@ -164,7 +164,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Variations.FirstRun.SeedFetchTime" units="ms"
-    expires_after="2025-01-05">
+    expires_after="2025-04-06">
   <owner>asvitkine@chromium.org</owner>
   <owner>rkaplow@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
@@ -187,7 +187,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Variations.ForcedFieldTrialsAtStartupForInternalsPage"
-    enum="Boolean" expires_after="2025-01-26">
+    enum="Boolean" expires_after="2025-03-30">
   <owner>harringtond@google.com</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -285,7 +285,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Variations.LimitedEntropy.SeedRejectionReason"
     enum="VariationsLimitedEntropySeedRejectionReason"
-    expires_after="2025-01-10">
+    expires_after="2025-03-23">
   <owner>yulunz@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -720,7 +720,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Variations.WebViewDownloadJobInterval" units="minutes"
-    expires_after="2025-01-19">
+    expires_after="2025-03-23">
   <owner>ntfschr@chromium.org</owner>
   <owner>src/android_webview/OWNERS</owner>
   <summary>
@@ -731,7 +731,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Variations.WebViewDownloadJobQueueTime" units="minutes"
-    expires_after="2025-01-19">
+    expires_after="2025-03-23">
   <owner>ntfschr@chromium.org</owner>
   <owner>src/android_webview/OWNERS</owner>
   <summary>

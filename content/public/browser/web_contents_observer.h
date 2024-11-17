@@ -35,6 +35,7 @@
 #include "third_party/blink/public/mojom/loader/resource_load_info.mojom-forward.h"
 #include "third_party/blink/public/mojom/media/capture_handle_config.mojom-forward.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/accessibility/ax_location_and_scroll_updates.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 
@@ -53,7 +54,7 @@ class Size;
 
 namespace ui {
 struct AXUpdatesAndEvents;
-struct AXLocationChanges;
+struct AXLocationAndScrollUpdates;
 namespace mojom {
 enum class VirtualKeyboardMode;
 }  // namespace mojom
@@ -117,6 +118,18 @@ struct TrustTokenAccessDetails;
 // returned by GetRenderViewHost().
 class CONTENT_EXPORT WebContentsObserver : public base::CheckedObserver {
  public:
+  // Device connection types that can be used by a WebContents.
+  enum class DeviceConnectionType {
+    // WebUSB
+    kUSB,
+    // Web Bluetooth
+    kBluetooth,
+    // WebHID
+    kHID,
+    // Web Serial
+    kSerial
+  };
+
   WebContentsObserver(WebContentsObserver&&) = delete;
   WebContentsObserver(const WebContentsObserver&) = delete;
   WebContentsObserver& operator=(WebContentsObserver&&) = delete;
@@ -752,13 +765,12 @@ class CONTENT_EXPORT WebContentsObserver : public base::CheckedObserver {
       RenderFrameHost* rfh,
       bool is_capturing_media_stream) {}
 
-  // Called when the connected to USB device state changes.
-  virtual void OnIsConnectedToUsbDeviceChanged(
-      bool is_connected_to_usb_device) {}
-
-  // Called when the connected to Bluetooth device state changes.
-  virtual void OnIsConnectedToBluetoothDeviceChanged(
-      bool is_connected_to_bluetooth_device) {}
+  // Called when WebContents starts/stops using a device connection type. The
+  // arguments indicate the device connection type that starts/stops being used
+  // and whether it is in use (true if it starts being used, false if it stops).
+  virtual void OnDeviceConnectionTypesChanged(
+      DeviceConnectionType connection_type,
+      bool used) {}
 
   // Invoked when the WebContents is muted/unmuted.
   virtual void DidUpdateAudioMutingState(bool muted) {}
@@ -807,7 +819,8 @@ class CONTENT_EXPORT WebContentsObserver : public base::CheckedObserver {
   virtual void AccessibilityEventReceived(
       const ui::AXUpdatesAndEvents& details) {}
   virtual void AccessibilityLocationChangesReceived(
-      const std::vector<ui::AXLocationChanges>& details) {}
+      const ui::AXTreeID& tree_id,
+      ui::AXLocationAndScrollUpdates& details) {}
 
   // Invoked when theme color is changed.
   virtual void DidChangeThemeColor() {}

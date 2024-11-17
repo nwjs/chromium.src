@@ -245,6 +245,7 @@ async function iwaDevFetchUpdateManifest() {
     const installResult: InstallIsolatedWebAppResult =
         (await webAppInternalsHandler.installIsolatedWebAppFromBundleUrl({
           webBundleUrl: selectedVersionEntry.webBundleUrl,
+          updateManifestUrl,
         })).result;
     if (installResult.success) {
       iwaInstallMessageDiv.innerText = `Installing version ${
@@ -342,6 +343,9 @@ function formatDevModeLocation(location: IwaDevModeLocation): string {
   if (location.bundlePath) {
     return filePathToText(location.bundlePath);
   }
+  if (location.updateManifestUrl) {
+    return location.updateManifestUrl.url;
+  }
   assertNotReached();
 }
 
@@ -371,6 +375,7 @@ async function refreshDevModeAppList() {
 
       const updateBtn = document.createElement('button');
       updateBtn.className = 'iwa-dev-update-button';
+
       updateBtn.innerText = 'Perform update now';
       updateBtn.onclick = async () => {
         const oldText = updateBtn.innerText;
@@ -388,6 +393,11 @@ async function refreshDevModeAppList() {
             const {result}: {result: string} =
                 await webAppInternalsHandler.updateDevProxyIsolatedWebApp(
                     appId);
+            updateMsg.innerText = result;
+          } else if (location.updateManifestUrl) {
+            const {result}: {result: string} =
+                await webAppInternalsHandler
+                    .updateManifestInstalledIsolatedWebApp(appId);
             updateMsg.innerText = result;
           } else {
             assertNotReached();

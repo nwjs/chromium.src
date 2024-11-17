@@ -30,6 +30,7 @@ import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationDialog.ConfirmationDialogResult;
+import org.chromium.chrome.browser.tasks.tab_management.StrictButtonPressController.ButtonClickResult;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.modaldialog.DialogDismissalCause;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -80,6 +81,7 @@ public class ActionConfirmationDialogUnitTest {
                 noSyncResolver(R.string.delete_tab_group_dialog_title),
                 noSyncResolver(R.string.delete_tab_group_no_sync_description),
                 R.string.delete_tab_group_action,
+                R.string.cancel,
                 /* supportStopShowing= */ true,
                 mConfirmationDialogResult);
 
@@ -104,6 +106,7 @@ public class ActionConfirmationDialogUnitTest {
                 noSyncResolver(R.string.delete_tab_group_dialog_title),
                 syncResolver(R.string.delete_tab_group_description, "test@gmail.com"),
                 R.string.delete_tab_group_action,
+                R.string.cancel,
                 /* supportStopShowing= */ true,
                 mConfirmationDialogResult);
 
@@ -126,6 +129,7 @@ public class ActionConfirmationDialogUnitTest {
                 noSyncResolver(R.string.delete_tab_group_dialog_title),
                 noSyncResolver(R.string.delete_tab_group_no_sync_description),
                 R.string.delete_tab_group_action,
+                R.string.cancel,
                 /* supportStopShowing= */ true,
                 mConfirmationDialogResult);
 
@@ -136,7 +140,7 @@ public class ActionConfirmationDialogUnitTest {
         Controller controller = propertyModel.get(ModalDialogProperties.CONTROLLER);
         controller.onDismiss(propertyModel, DialogDismissalCause.POSITIVE_BUTTON_CLICKED);
         verify(mConfirmationDialogResult)
-                .onDismiss(/* isPositive= */ true, /* stopShowing= */ false);
+                .onDismiss(ButtonClickResult.POSITIVE, /* stopShowing= */ false);
     }
 
     @Test
@@ -147,6 +151,7 @@ public class ActionConfirmationDialogUnitTest {
                 noSyncResolver(R.string.delete_tab_group_dialog_title),
                 noSyncResolver(R.string.delete_tab_group_no_sync_description),
                 R.string.delete_tab_group_action,
+                R.string.cancel,
                 /* supportStopShowing= */ true,
                 mConfirmationDialogResult);
 
@@ -157,7 +162,7 @@ public class ActionConfirmationDialogUnitTest {
         Controller controller = propertyModel.get(ModalDialogProperties.CONTROLLER);
         controller.onDismiss(propertyModel, DialogDismissalCause.NEGATIVE_BUTTON_CLICKED);
         verify(mConfirmationDialogResult)
-                .onDismiss(/* isPositive= */ false, /* stopShowing= */ false);
+                .onDismiss(ButtonClickResult.NEGATIVE, /* stopShowing= */ false);
     }
 
     @Test
@@ -168,6 +173,7 @@ public class ActionConfirmationDialogUnitTest {
                 noSyncResolver(R.string.delete_tab_group_dialog_title),
                 noSyncResolver(R.string.delete_tab_group_no_sync_description),
                 R.string.delete_tab_group_action,
+                R.string.cancel,
                 /* supportStopShowing= */ true,
                 mConfirmationDialogResult);
 
@@ -182,7 +188,7 @@ public class ActionConfirmationDialogUnitTest {
         Controller controller = propertyModel.get(ModalDialogProperties.CONTROLLER);
         controller.onDismiss(propertyModel, DialogDismissalCause.POSITIVE_BUTTON_CLICKED);
         verify(mConfirmationDialogResult)
-                .onDismiss(/* isPositive= */ true, /* stopShowing= */ true);
+                .onDismiss(ButtonClickResult.POSITIVE, /* stopShowing= */ true);
     }
 
     @Test
@@ -193,6 +199,7 @@ public class ActionConfirmationDialogUnitTest {
                 noSyncResolver(R.string.delete_tab_group_dialog_title),
                 noSyncResolver(R.string.delete_tab_group_no_sync_description),
                 R.string.delete_tab_group_action,
+                R.string.cancel,
                 /* supportStopShowing= */ true,
                 mConfirmationDialogResult);
 
@@ -207,7 +214,7 @@ public class ActionConfirmationDialogUnitTest {
         Controller controller = propertyModel.get(ModalDialogProperties.CONTROLLER);
         controller.onDismiss(propertyModel, DialogDismissalCause.NEGATIVE_BUTTON_CLICKED);
         verify(mConfirmationDialogResult)
-                .onDismiss(/* isPositive= */ false, /* stopShowing= */ true);
+                .onDismiss(ButtonClickResult.NEGATIVE, /* stopShowing= */ true);
     }
 
     @Test
@@ -218,6 +225,7 @@ public class ActionConfirmationDialogUnitTest {
                 noSyncResolver(R.string.delete_tab_group_dialog_title),
                 noSyncResolver(R.string.delete_tab_group_no_sync_description),
                 R.string.delete_tab_group_action,
+                R.string.cancel,
                 /* supportStopShowing= */ false,
                 mConfirmationDialogResult);
 
@@ -231,16 +239,15 @@ public class ActionConfirmationDialogUnitTest {
     }
 
     @Test
-    public void testDefaultDismiss_DefaultDismissIsPositive_CustomNegativeAction() {
+    public void testDefaultDismiss_CustomNegativeAction() {
         ActionConfirmationDialog dialog =
                 new ActionConfirmationDialog(mActivity, mModalDialogManager);
-        dialog.showWithCustomNegativeAction(
+        dialog.show(
                 noSyncResolver(R.string.delete_tab_group_dialog_title),
                 noSyncResolver(R.string.delete_tab_group_no_sync_description),
                 R.string.tab_grid_dialog_toolbar_delete_group,
                 R.string.tab_grid_dialog_toolbar_close_group,
                 /* supportStopShowing= */ true,
-                /* defaultDismissIsPositive= */ true,
                 mConfirmationDialogResult);
 
         verify(mModalDialogManager)
@@ -256,6 +263,6 @@ public class ActionConfirmationDialogUnitTest {
         Controller controller = propertyModel.get(ModalDialogProperties.CONTROLLER);
         controller.onDismiss(propertyModel, DialogDismissalCause.TOUCH_OUTSIDE);
         verify(mConfirmationDialogResult)
-                .onDismiss(/* isPositive= */ true, /* stopShowing= */ false);
+                .onDismiss(ButtonClickResult.NO_CLICK, /* stopShowing= */ false);
     }
 }

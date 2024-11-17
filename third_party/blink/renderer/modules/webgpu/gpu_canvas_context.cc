@@ -174,13 +174,6 @@ bool GPUCanvasContext::PaintRenderingResultsToCanvas(
     return false;
   }
 
-  return CopyRenderingResultsFromDrawingBuffer(resource_provider,
-                                               source_buffer);
-}
-
-bool GPUCanvasContext::CopyRenderingResultsFromDrawingBuffer(
-    CanvasResourceProvider* resource_provider,
-    SourceDrawingBuffer source_buffer) {
   // TODO(crbug.com/1367056): Handle source_buffer == kFrontBuffer.
   // By returning false here the canvas will show up as black in the scenarios
   // that copy the front buffer, such as printing.
@@ -434,8 +427,9 @@ void GPUCanvasContext::configure(const GPUCanvasConfiguration* descriptor,
     default:
       device_->InjectError(
           wgpu::ErrorType::Validation,
-          ("Unsupported canvas context format \"" +
-           std::string(FromDawnEnum(texture_descriptor_.format)) + "\"")
+          ((String)("Unsupported canvas context format \"" +
+                    FromDawnEnum(texture_descriptor_.format).AsString() + "\""))
+              .Utf8()
               .c_str());
       return;
   }
@@ -473,15 +467,7 @@ void GPUCanvasContext::configure(const GPUCanvasConfiguration* descriptor,
   // `swap_texture_descriptor_`: Each can end up being used in operations on the
   // texture depending on whether the operation is on `texture_` or
   // `swap_texture_` (which will of course be the same texture in this case).
-  // NOTE: We gate these additions under the
-  // `kDawnSIRepsUseClientProvidedInternalUsages` feature here just to be safe
-  // while rolling out this feature. In reality, setting internal usages on
-  // `texture_` will be a no-op in this case if the feature is disabled, as the
-  // SI rep backing the texture will use hardcoded internal usages rather than
-  // taking them from the client.
-  if (!copy_to_swap_texture_required_ &&
-      base::FeatureList::IsEnabled(
-          features::kDawnSIRepsUseClientProvidedInternalUsages)) {
+  if (!copy_to_swap_texture_required_) {
     // `texture_` will be used as the source of either CopyTextureForBrowser()
     // or CopyTextureToTexture() operations (the former if the alpha mode is
     // opaque, the latter if it is not). In either case, CopySrc is required.
@@ -535,24 +521,19 @@ void GPUCanvasContext::configure(const GPUCanvasConfiguration* descriptor,
   }
 
   gfx::HDRMetadata hdr_metadata;
-  if (descriptor->hasToneMapping()) {
-    if (descriptor->toneMapping()->hasMode()) {
-      switch (descriptor->toneMapping()->mode().AsEnum()) {
-        case V8GPUCanvasToneMappingMode::Enum::kStandard:
-          break;
-        case V8GPUCanvasToneMappingMode::Enum::kExtended:
-          hdr_metadata.extended_range.emplace(
-              /*current_headroom=*/gfx::HdrMetadataExtendedRange::
-                  kDefaultHdrHeadroom,
-              /*desired_headroom=*/gfx::HdrMetadataExtendedRange::
-                  kDefaultHdrHeadroom);
-          break;
-      }
+  if (descriptor->hasToneMapping() && descriptor->toneMapping()->hasMode()) {
+    tone_mapping_mode_ = descriptor->toneMapping()->mode().AsEnum();
+    switch (tone_mapping_mode_) {
+      case V8GPUCanvasToneMappingMode::Enum::kStandard:
+        break;
+      case V8GPUCanvasToneMappingMode::Enum::kExtended:
+        hdr_metadata.extended_range.emplace(
+            /*current_headroom=*/gfx::HdrMetadataExtendedRange::
+                kDefaultHdrHeadroom,
+            /*desired_headroom=*/gfx::HdrMetadataExtendedRange::
+                kDefaultHdrHeadroom);
+        break;
     }
-  } else if (descriptor->hasHdrOptions()) {
-    // TODO(https://crbug.com/333967627): Remove support for this older version
-    // of the API once the new API lands.
-    ParseCanvasHighDynamicRangeOptions(descriptor->hdrOptions(), hdr_metadata);
   }
 
   const wgpu::DawnTextureInternalUsageDescriptor* internal_usage_desc = nullptr;
@@ -610,6 +591,32 @@ void GPUCanvasContext::unconfigure() {
   alpha_clearer_ = nullptr;
   device_ = nullptr;
   configured_ = false;
+}
+
+GPUCanvasConfiguration* GPUCanvasContext::getConfiguration() {
+  if (!configured_) {
+    return nullptr;
+  }
+
+  GPUCanvasConfiguration* configuration = GPUCanvasConfiguration::Create();
+  configuration->setDevice(device_);
+  configuration->setFormat(FromDawnEnum(texture_descriptor_.format));
+  configuration->setUsage(static_cast<uint32_t>(texture_descriptor_.usage));
+
+  Vector<V8GPUTextureFormat> view_formats;
+  for (size_t i = 0; i < texture_descriptor_.viewFormatCount; ++i) {
+    view_formats.push_back(FromDawnEnum(view_formats_[i]));
+  }
+  configuration->setViewFormats(view_formats);
+
+  configuration->setColorSpace(PredefinedColorSpaceToV8(color_space_));
+  configuration->setAlphaMode(alpha_mode_);
+
+  GPUCanvasToneMapping* tone_mapping = GPUCanvasToneMapping::Create();
+  tone_mapping->setMode(tone_mapping_mode_);
+  configuration->setToneMapping(tone_mapping);
+
+  return configuration;
 }
 
 GPUTexture* GPUCanvasContext::getCurrentTexture(
@@ -670,12 +677,13 @@ GPUTexture* GPUCanvasContext::getCurrentTexture(
   swap_texture_ = MakeGarbageCollected<GPUTexture>(
       device_, swap_texture_descriptor_.format,
       static_cast<wgpu::TextureUsage>(swap_texture_descriptor_.usage),
-      std::move(mailbox_texture), String(swap_texture_descriptor_.label));
+      std::move(mailbox_texture),
+      String::FromUTF8(swap_texture_descriptor_.label));
 
   if (copy_to_swap_texture_required_) {
     texture_ = MakeGarbageCollected<GPUTexture>(
         device_, device_->GetHandle().CreateTexture(&texture_descriptor_),
-        String(texture_descriptor_.label));
+        String::FromUTF8(texture_descriptor_.label));
     // If the user manually destroys the texture before yielding control back
     // to the browser, do the copy just prior to the texture destruction.
     texture_->SetBeforeDestroyCallback(WTF::BindOnce(

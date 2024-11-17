@@ -35,6 +35,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
@@ -578,8 +579,6 @@ WebUITabStripContainerView::GetAcceleratorProvider() const {
 
 void WebUITabStripContainerView::CloseContainer() {
   SetContainerTargetVisibility(false, WebUITabStripOpenCloseReason::kOther);
-  browser_view_->NotifyFeatureEngagementEvent(
-      feature_engagement::events::kWebUITabStripClosed);
 }
 
 bool WebUITabStripContainerView::CanStartDragToOpen(
@@ -629,11 +628,9 @@ void WebUITabStripContainerView::EndDragToOpen(
 
   if (opening) {
     RecordTabStripUIOpenHistogram(TabStripUIOpenAction::kToolbarDrag);
-    browser_view_->NotifyFeatureEngagementEvent(
-        feature_engagement::events::kWebUITabStripOpened);
   } else {
-    browser_view_->NotifyFeatureEngagementEvent(
-        feature_engagement::events::kWebUITabStripClosed);
+    browser_view_->AbortFeaturePromo(
+        feature_engagement::kIPHWebUITabStripFeature);
   }
 
   animation_.Reset(open_proportion);
@@ -647,12 +644,8 @@ void WebUITabStripContainerView::TabCounterPressed(const ui::Event& event) {
   const bool new_visibility = !GetVisible();
   if (new_visibility) {
     RecordTabStripUIOpenHistogram(TabStripUIOpenAction::kTapOnTabCounter);
-    browser_view_->NotifyFeatureEngagementEvent(
-        feature_engagement::events::kWebUITabStripOpened);
   } else {
     RecordTabStripUICloseHistogram(TabStripUICloseAction::kTapOnTabCounter);
-    browser_view_->NotifyFeatureEngagementEvent(
-        feature_engagement::events::kWebUITabStripClosed);
   }
 
   SetContainerTargetVisibility(new_visibility,
@@ -695,9 +688,9 @@ void WebUITabStripContainerView::SetContainerTargetVisibility(
 
     time_at_open_ = base::TimeTicks::Now();
 
-    browser_view_->CloseFeaturePromo(
+    browser_view_->NotifyFeaturePromoFeatureUsed(
         feature_engagement::kIPHWebUITabStripFeature,
-        user_education::EndFeaturePromoReason::kFeatureEngaged);
+        FeaturePromoFeatureUsedAction::kClosePromoIfPresent);
   } else {
     if (time_at_open_) {
       RecordTabStripUIOpenDurationHistogram(base::TimeTicks::Now() -

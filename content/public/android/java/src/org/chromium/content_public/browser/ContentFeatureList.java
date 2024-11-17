@@ -22,6 +22,8 @@ public class ContentFeatureList {
     public static final String ACCESSIBILITY_PAGE_ZOOM_ENHANCEMENTS =
             "AccessibilityPageZoomEnhancements";
 
+    public static final String ACCESSIBILITY_PAGE_ZOOM_V2 = "AccessibilityPageZoomV2";
+
     public static final String ACCESSIBILITY_UNIFIED_SNAPSHOTS = "AccessibilityUnifiedSnapshots";
     public static final String ACCESSIBILITY_MANAGE_BROADCAST_RECEIVER_ON_BACKGROUND =
             "AccessibilityManageBroadcastReceiverOnBackground";
@@ -31,6 +33,8 @@ public class ContentFeatureList {
     public static final String HIDE_PASTE_POPUP_ON_GSB = "HidePastePopupOnGSB";
 
     public static final String MOUSE_AND_TRACKPAD_DROPDOWN_MENU = "MouseAndTrackpadDropdownMenu";
+
+    public static final String INPUT_ON_VIZ = "InputOnViz";
 
     public static final String OPTIMIZE_IMM_HIDE_CALLS = "OptimizeImmHideCalls";
 

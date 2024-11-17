@@ -1004,6 +1004,12 @@ void RenderWidgetHostViewAndroid::WriteContentBitmapToDiskAsync(
                   std::move(result_callback));
 }
 
+void RenderWidgetHostViewAndroid::OnResume(JNIEnv* env) {
+  // crbug.com/370000831. After activity resume, input state is not refreshed
+  // properly. Manually call update state.
+  OnUpdateTextInputStateCalled(text_input_manager_, this, true);
+}
+
 void RenderWidgetHostViewAndroid::OnRenderFrameMetadataChangedAfterActivation(
     base::TimeTicks activation_time) {
   const cc::RenderFrameMetadata& metadata =
@@ -1319,14 +1325,15 @@ bool RenderWidgetHostViewAndroid::TransformPointToCoordSpaceForView(
     return true;
   }
 
-  viz::SurfaceId surface_id = GetCurrentSurfaceId();
-  if (!surface_id.is_valid())
+  auto frame_sink_id = GetFrameSinkId();
+  if (!frame_sink_id.is_valid()) {
     return false;
+  }
 
   // In TransformPointToLocalCoordSpace() there is a Point-to-Pixel conversion,
   // but it is not necessary here because the final target view is responsible
   // for converting before computing the final transform.
-  return target_view->TransformPointToLocalCoordSpace(point, surface_id,
+  return target_view->TransformPointToLocalCoordSpace(point, frame_sink_id,
                                                       transformed_point);
 }
 
@@ -1388,8 +1395,6 @@ bool RenderWidgetHostViewAndroid::OnTouchEvent(
     }
     if (ime_adapter_android_)
       ime_adapter_android_->UpdateOnTouchDown();
-    if (gesture_listener_manager_)
-      gesture_listener_manager_->UpdateOnTouchDown();
   }
 
   if (event.for_touch_handle())
@@ -2215,17 +2220,7 @@ void RenderWidgetHostViewAndroid::GestureEventAck(
   // but not consumed.
   StopFlingingIfNecessary(event, ack_result);
 
-  if (gesture_listener_manager_)
-    gesture_listener_manager_->GestureEventAck(event, ack_result);
-
   HandleSwipeToMoveCursorGestureAck(event);
-}
-
-void RenderWidgetHostViewAndroid::ChildDidAckGestureEvent(
-    const blink::WebGestureEvent& event,
-    blink::mojom::InputEventResultState ack_result) {
-  if (gesture_listener_manager_)
-    gesture_listener_manager_->GestureEventAck(event, ack_result);
 }
 
 blink::mojom::InputEventResultState
@@ -2486,12 +2481,6 @@ void RenderWidgetHostViewAndroid::DidOverscroll(
 
   if (overscroll_controller_)
     overscroll_controller_->OnOverscrolled(params);
-}
-
-void RenderWidgetHostViewAndroid::DidStopFlinging() {
-  if (!gesture_listener_manager_)
-    return;
-  gesture_listener_manager_->DidStopFlinging();
 }
 
 const viz::FrameSinkId& RenderWidgetHostViewAndroid::GetFrameSinkId() const {

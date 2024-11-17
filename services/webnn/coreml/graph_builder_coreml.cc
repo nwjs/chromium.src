@@ -47,6 +47,7 @@
 #include "services/webnn/public/cpp/webnn_errors.h"
 #include "services/webnn/public/mojom/webnn_error.mojom.h"
 #include "services/webnn/public/mojom/webnn_graph.mojom.h"
+#include "services/webnn/webnn_constant_operand.h"
 #include "services/webnn/webnn_utils.h"
 #include "third_party/coremltools/mlmodel/format/FeatureTypes.pb.h"
 #include "third_party/coremltools/mlmodel/format/MIL.pb.h"
@@ -121,6 +122,7 @@ constexpr char kOpClipTypeName[] = "clip";
 constexpr char kOpConcatTypeName[] = "concat";
 constexpr char kOpConv2dTypeName[] = "conv";
 constexpr char kOpConvTranspose2dTypeName[] = "conv_transpose";
+constexpr char kOpCumulativeSumTypeName[] = "cumsum";
 constexpr char kOpEluTypeName[] = "elu";
 constexpr char kOpExpandTypeName[] = "tile";
 constexpr char kOpGatherTypeName[] = "gather_along_axis";
@@ -139,6 +141,7 @@ constexpr char kOpSoftplusTypeName[] = "softplus";
 constexpr char kOpSoftsignTypeName[] = "softsign";
 constexpr char kOpSplitTypeName[] = "split";
 constexpr char kOpTanhTypeName[] = "tanh";
+constexpr char kOpTileTypeName[] = "tile";
 constexpr char kOpTransposeTypeName[] = "transpose";
 constexpr char kOpWhereTypeName[] = "select";
 // Elementwise binary operators.
@@ -198,6 +201,7 @@ constexpr char kOpParamEpsilon[] = "epsilon";
 constexpr char kOpParamGamma[] = "gamma";
 constexpr char kOpParamKeepDims[] = "keep_dims";
 constexpr char kOpParamPad[] = "pad";
+constexpr char kOpParamReps[] = "reps";
 constexpr char kOpParamX[] = "x";
 constexpr char kOpParamY[] = "y";
 // Hard coded path used in the model file to point at the weight path.
@@ -590,9 +594,12 @@ std::string GetCoreMLNameFromOutput(std::string_view output_name,
 
 // static
 base::expected<std::unique_ptr<GraphBuilderCoreml::Result>, mojom::ErrorPtr>
-GraphBuilderCoreml::CreateAndBuild(const mojom::GraphInfo& graph_info,
-                                   ContextProperties context_properties,
-                                   const base::FilePath& working_directory) {
+GraphBuilderCoreml::CreateAndBuild(
+    const mojom::GraphInfo& graph_info,
+    ContextProperties context_properties,
+    const base::flat_map<uint64_t, std::unique_ptr<WebNNConstantOperand>>&
+        constant_operands,
+    const base::FilePath& working_directory) {
   // Use a random string for the model package directory, because MLModel
   // compileModelAtURL creates a folder directly in the NSTemporaryDirectory
   // with the name of the .mlmodel file. Using a random string will avoid any
@@ -604,6 +611,7 @@ GraphBuilderCoreml::CreateAndBuild(const mojom::GraphInfo& graph_info,
   base::FilePath data_dir = ml_package_dir.Append(kMlPackageDataDir);
 
   GraphBuilderCoreml graph_builder(graph_info, std::move(context_properties),
+                                   constant_operands,
                                    std::move(ml_package_dir));
 
   RETURN_IF_ERROR(graph_builder.BuildCoreMLModel());
@@ -646,8 +654,7 @@ ContextProperties GraphBuilderCoreml::GetContextProperties() {
        /*concat_inputs=*/kFloatsAndInt32,
        /*conv2d_input=*/DataTypeConstraint::kFloat16To32,
        /*conv_transpose2d_input=*/DataTypeConstraint::kFloat16To32,
-       // CumulativeSum is not implemented.
-       /*cumulative_sum_input=*/{},
+       /*cumulative_sum_input=*/kFloatsAndInt32,
        // DequantizeLinear is not implemented.
        /*dequantize_linear_input=*/{},
        /*dequantize_linear_scale=*/{},
@@ -663,6 +670,10 @@ ContextProperties GraphBuilderCoreml::GetContextProperties() {
        /*greater_or_equal_input=*/kFloatsAndInt32,
        /*lesser_input=*/kFloatsAndInt32,
        /*lesser_or_equal_input=*/kFloatsAndInt32,
+       // TODO(crbug.com/368208141): Implement logical binary ops.
+       /*logical_and_input=*/{},
+       /*logical_or_input=*/{},
+       /*logical_xor_input=*/{},
        /*logical_not_input=*/DataTypeConstraint::kUint8,
        /*logical_output=*/DataTypeConstraint::kUint8,
        /*abs_input=*/kFloatsAndInt32,
@@ -691,6 +702,9 @@ ContextProperties GraphBuilderCoreml::GetContextProperties() {
        // GatherElements is not implemented.
        /*gather_elements_input=*/{},
        /*gather_elements_indices=*/{},
+       // GatherND is not implemented.
+       /*gather_nd_input=*/{},
+       /*gather_nd_indices=*/{},
        /*gelu_input=*/DataTypeConstraint::kFloat16To32,
        /*gemm_input=*/DataTypeConstraint::kFloat16To32,
        // Gru is not implemented.
@@ -735,6 +749,9 @@ ContextProperties GraphBuilderCoreml::GetContextProperties() {
        // corresponding BOOL type. See docs here:
        // https://apple.github.io/coremltools/source/coremltools.converters.mil.mil.ops.defs.html#coremltools.converters.mil.mil.ops.defs.iOS15.tensor_transformation.reshape
        /*reshape_input=*/kFloatsAndInt32,
+       // TODO(crbug.com/370535834): Implement ScatterElements.
+       /*scatter_elements_input=*/{},
+       /*scatter_elements_indices=*/{},
        // TODO(crbug.com/363544348): Implement ScatterND.
        /*scatter_nd_input=*/{},
        /*scatter_nd_indices=*/{},
@@ -751,8 +768,10 @@ ContextProperties GraphBuilderCoreml::GetContextProperties() {
        // https://apple.github.io/coremltools/source/coremltools.converters.mil.mil.ops.defs.html#coremltools.converters.mil.mil.ops.defs.iOS15.tensor_operation.split
        /*split_input=*/kFloatsAndInt32,
        /*tanh_input=*/DataTypeConstraint::kFloat16To32,
-       // Tile is not implemented.
-       /*tile_input=*/{},
+       // Note that BOOL is also supported by CoreML, but WebNN does not have a
+       // corresponding BOOL type. See docs here:
+       // https://apple.github.io/coremltools/source/coremltools.converters.mil.mil.ops.defs.html#coremltools.converters.mil.mil.ops.defs.iOS15.tensor_operation.tile
+       /*tile_input=*/kFloatsAndInt32,
        // Note that BOOL is also supported by CoreML, but WebNN does not have a
        // corresponding BOOL type. See docs here:
        // https://apple.github.io/coremltools/source/coremltools.converters.mil.mil.ops.defs.html#coremltools.converters.mil.mil.ops.defs.iOS15.tensor_operation.transpose
@@ -766,10 +785,14 @@ ContextProperties GraphBuilderCoreml::GetContextProperties() {
        /*where_value=*/kFloatsAndInt32});
 }
 
-GraphBuilderCoreml::GraphBuilderCoreml(const mojom::GraphInfo& graph_info,
-                                       ContextProperties context_properties,
-                                       base::FilePath ml_package_dir)
+GraphBuilderCoreml::GraphBuilderCoreml(
+    const mojom::GraphInfo& graph_info,
+    ContextProperties context_properties,
+    const base::flat_map<uint64_t, std::unique_ptr<WebNNConstantOperand>>&
+        constant_operands,
+    base::FilePath ml_package_dir)
     : graph_info_(graph_info),
+      constant_operands_(constant_operands),
       context_properties_(std::move(context_properties)),
       internal_operand_id_(
           base::ranges::max_element(
@@ -824,8 +847,8 @@ GraphBuilderCoreml::BuildCoreMLModel() {
 
   base::ElapsedTimer ml_weights_write_timer;
   RETURN_IF_ERROR(WriteWeightsToFile(block));
-  UMA_HISTOGRAM_MEDIUM_TIMES("WebNN.CoreML.TimingMs.MLWeightsWrite",
-                             ml_weights_write_timer.Elapsed());
+  DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES("WebNN.CoreML.TimingMs.MLWeightsWrite",
+                                        ml_weights_write_timer.Elapsed());
 
   // Add operations.
   for (const mojom::OperationPtr& operation : graph_info_->operations) {
@@ -851,6 +874,10 @@ GraphBuilderCoreml::BuildCoreMLModel() {
       }
       case mojom::Operation::Tag::kConv2d: {
         RETURN_IF_ERROR(AddOperationForConv2d(*operation->get_conv2d(), block));
+        break;
+      }
+      case mojom::Operation::Tag::kCumulativeSum: {
+        AddOperationForCumulativeSum(*operation->get_cumulative_sum(), block);
         break;
       }
       case mojom::Operation::Tag::kElementWiseBinary: {
@@ -996,6 +1023,10 @@ GraphBuilderCoreml::BuildCoreMLModel() {
         AddUnaryOperation(kOpTanhTypeName, *operation->get_tanh(), block);
         break;
       }
+      case mojom::Operation::Tag::kTile: {
+        AddOperationForTile(*operation->get_tile(), block);
+        break;
+      }
       case mojom::Operation::Tag::kTranspose: {
         AddOperationForTranspose(*operation->get_transpose(), block);
         break;
@@ -1004,9 +1035,9 @@ GraphBuilderCoreml::BuildCoreMLModel() {
         RETURN_IF_ERROR(AddOperationForWhere(*operation->get_where(), block));
         break;
       }
-      case mojom::Operation::Tag::kCumulativeSum:
       case mojom::Operation::Tag::kDequantizeLinear:
       case mojom::Operation::Tag::kGatherElements:
+      case mojom::Operation::Tag::kGatherNd:
       case mojom::Operation::Tag::kGelu:
       case mojom::Operation::Tag::kGru:
       case mojom::Operation::Tag::kGruCell:
@@ -1014,8 +1045,8 @@ GraphBuilderCoreml::BuildCoreMLModel() {
       case mojom::Operation::Tag::kLstmCell:
       case mojom::Operation::Tag::kPrelu:
       case mojom::Operation::Tag::kQuantizeLinear:
+      case mojom::Operation::Tag::kScatterElements:
       case mojom::Operation::Tag::kScatterNd:
-      case mojom::Operation::Tag::kTile:
       case mojom::Operation::Tag::kTriangular:
         return NewNotSupportedError(NotSupportedOperatorError(*operation));
     }
@@ -1043,8 +1074,8 @@ base::expected<void, mojom::ErrorPtr> GraphBuilderCoreml::SerializeModel() {
   }
   bool result =
       ml_model_.SerializeToFileDescriptor(model_file.GetPlatformFile());
-  UMA_HISTOGRAM_MEDIUM_TIMES("WebNN.CoreML.TimingMs.MLModelWrite",
-                             ml_model_write_timer.Elapsed());
+  DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES("WebNN.CoreML.TimingMs.MLModelWrite",
+                                        ml_model_write_timer.Elapsed());
   if (!result) {
     return NewUnknownError(kWriteModelErrorMessage);
   }
@@ -1071,30 +1102,29 @@ base::expected<void, mojom::ErrorPtr> GraphBuilderCoreml::WriteWeightsToFile(
   }
 
   uint64_t current_offset = 0;
-  WeightHeader header{
-      static_cast<uint32_t>(graph_info_->constant_id_to_buffer_map.size())};
+  WeightHeader header{static_cast<uint32_t>(constant_operands_->size())};
   if (!weights_file.WriteAtCurrentPosAndCheck(
           base::byte_span_from_ref(header))) {
     return NewUnknownError(kWriteWeightsErrorMessage);
   }
   current_offset += sizeof(header);
 
-  for (auto& [key, buffer] : graph_info_->constant_id_to_buffer_map) {
-    const mojom::Operand& operand = GetOperand(key);
+  for (auto& [id, constant_operand] : *constant_operands_) {
     // int32 is only supported as immediate value.
-    if (operand.descriptor.shape().empty() ||
-        operand.descriptor.data_type() == OperandDataType::kInt32) {
-      RETURN_IF_ERROR(AddConstantImmediateValue(key, block));
+    if (constant_operand->descriptor().shape().empty() ||
+        constant_operand->descriptor().data_type() == OperandDataType::kInt32) {
+      RETURN_IF_ERROR(AddConstantImmediateValue(id, block));
       continue;
     }
 
-    std::optional<BlobDataType> weight_type =
-        OperandTypeToDataTypeInWeightFile(operand.descriptor.data_type());
+    std::optional<BlobDataType> weight_type = OperandTypeToDataTypeInWeightFile(
+        constant_operand->descriptor().data_type());
     if (!weight_type.has_value()) {
       return NewNotSupportedError("Unsupported constant type.");
     }
 
-    WeightMetadata metadata(weight_type.value(), buffer.size(),
+    WeightMetadata metadata(weight_type.value(),
+                            constant_operand->ByteSpan().size(),
                             current_offset + sizeof(metadata));
 
     if (!weights_file.WriteAtCurrentPosAndCheck(
@@ -1102,13 +1132,13 @@ base::expected<void, mojom::ErrorPtr> GraphBuilderCoreml::WriteWeightsToFile(
       return NewUnknownError(kWriteWeightsErrorMessage);
     }
 
-    if (!weights_file.WriteAtCurrentPosAndCheck(base::make_span(buffer))) {
+    if (!weights_file.WriteAtCurrentPosAndCheck(constant_operand->ByteSpan())) {
       return NewUnknownError(kWriteWeightsErrorMessage);
     }
 
-    RETURN_IF_ERROR(AddConstantFileValue(key, current_offset, block));
+    RETURN_IF_ERROR(AddConstantFileValue(id, current_offset, block));
     current_offset += sizeof(metadata);
-    current_offset += buffer.size();
+    current_offset += constant_operand->ByteSpan().size();
     current_offset = base::bits::AlignUp(current_offset, kWeightAlignment);
     if (!weights_file.Seek(base::File::Whence::FROM_BEGIN, current_offset)) {
       return NewUnknownError(kWriteWeightsErrorMessage);
@@ -1590,10 +1620,11 @@ base::expected<void, mojom::ErrorPtr> GraphBuilderCoreml::AddOperationForConv2d(
 
   if (operation.kind == mojom::Conv2d::Kind::kTransposed) {
     // Get the output shape from the output operand.
-    std::vector<int32_t> output_shape;
+    const OperandInfo& output_operand =
+        GetOperandInfo(operation.output_operand_id);
+    base::FixedArray<int32_t> output_shape(output_operand.dimensions.size());
     base::ranges::transform(
-        GetOperandInfo(operation.output_operand_id).dimensions,
-        std::back_inserter(output_shape),
+        output_operand.dimensions, output_shape.begin(),
         [](uint32_t val) { return base::checked_cast<int32_t>(val); });
     SetInputWithValue(*op->mutable_inputs(), kParamOutputShape,
                       Create1DTensorImmediateValue<int32_t>(output_shape));
@@ -1601,6 +1632,31 @@ base::expected<void, mojom::ErrorPtr> GraphBuilderCoreml::AddOperationForConv2d(
 
   PopulateNamedValueType(operation.output_operand_id, *op->add_outputs());
   return base::ok();
+}
+
+void GraphBuilderCoreml::AddOperationForCumulativeSum(
+    const mojom::CumulativeSum& operation,
+    CoreML::Specification::MILSpec::Block& block) {
+  const OperandInfo& input_operand_info =
+      GetOperandInfo(operation.input_operand_id);
+  CHECK(context_properties_.data_type_limits.cumulative_sum_input.Has(
+      MILDataTypeToOperandType(input_operand_info.mil_data_type)));
+
+  CoreML::Specification::MILSpec::Operation* op = block.add_operations();
+  op->set_type(kOpCumulativeSumTypeName);
+  SetInputWithName(*op->mutable_inputs(), kOpParamX,
+                   input_operand_info.coreml_name);
+
+  static constexpr char kParamExclusive[] = "exclusive";
+  static constexpr char kParamReverse[] = "reverse";
+
+  SetInputsWithValues(
+      *op->mutable_inputs(),
+      {{kOpParamAxis, CreateScalarImmediateValue(
+                          base::checked_cast<int32_t>(operation.axis))},
+       {kParamExclusive, CreateScalarImmediateValue(operation.exclusive)},
+       {kParamReverse, CreateScalarImmediateValue(operation.reversed)}});
+  PopulateNamedValueType(operation.output_operand_id, *op->add_outputs());
 }
 
 base::expected<void, mojom::ErrorPtr>
@@ -1688,6 +1744,14 @@ GraphBuilderCoreml::AddOperationForElementwiseBinary(
           input_data_type));
       op->set_type(kOpLogicalLessEqual);
       break;
+    }
+    case mojom::ElementWiseBinary::Kind::kLogicalAnd:
+    case mojom::ElementWiseBinary::Kind::kLogicalOr:
+    case mojom::ElementWiseBinary::Kind::kLogicalXor: {
+      // TODO(crbug.com/368208141): Implement logical binary ops for CoreML.
+      return NewNotSupportedError(
+          "logicalAnd, logicalXor, and logicalXor are not yet supported on "
+          "CoreML.");
     }
   }
 
@@ -1956,9 +2020,8 @@ base::expected<void, mojom::ErrorPtr> GraphBuilderCoreml::AddOperationForExpand(
       CreateUnaryOperation(SupportedDataType::kFloatsAndInt32,
                            kOpExpandTypeName, reshaped_input,
                            operation.output_operand_id, block, ops::kExpand));
-  constexpr char kParamReps[] = "reps";
 
-  SetInputWithValue(*op->mutable_inputs(), kParamReps,
+  SetInputWithValue(*op->mutable_inputs(), kOpParamReps,
                     Create1DTensorImmediateValue<int32_t>(reps));
   return base::ok();
 }
@@ -2194,10 +2257,10 @@ GraphBuilderCoreml::AddOperationForLayerNormalization(
   op->set_type(kOpLayerNormalizationTypeName);
   SetInputWithName(*op->mutable_inputs(), kOpParamX,
                    input_operand_info.coreml_name);
-  std::vector<int32_t> axes;
-  base::ranges::transform(
-      operation.axes, std::back_inserter(axes),
-      [](uint32_t val) { return base::checked_cast<int32_t>(val); });
+  base::FixedArray<int32_t> axes(operation.axes.size());
+  base::ranges::transform(operation.axes, axes.begin(), [](uint32_t val) {
+    return base::checked_cast<int32_t>(val);
+  });
 
   // TODO: crbug.com/338529226: These params must all be constant tensors.
   if (operation.scale_operand_id.has_value()) {
@@ -2561,11 +2624,10 @@ base::expected<void, mojom::ErrorPtr> GraphBuilderCoreml::AddOperationForReduce(
       break;
   }
 
-  std::vector<int32_t> axes;
-
-  base::ranges::transform(
-      operation.axes, std::back_inserter(axes),
-      [](uint32_t val) { return base::checked_cast<int32_t>(val); });
+  base::FixedArray<int32_t> axes(operation.axes.size());
+  base::ranges::transform(operation.axes, axes.begin(), [](uint32_t val) {
+    return base::checked_cast<int32_t>(val);
+  });
   SetInputsWithValues(
       *op->mutable_inputs(),
       {{kOpParamAxes, Create1DTensorImmediateValue<int32_t>(axes)},
@@ -2666,9 +2728,9 @@ GraphBuilderCoreml::AddOperationForReshape(
                    input_operand_info.coreml_name);
 
   static constexpr char kParamShape[] = "shape";
-  std::vector<int32_t> shape;
+  base::FixedArray<int32_t> shape(output_operand_info.dimensions.size());
   base::ranges::transform(
-      output_operand_info.dimensions, std::back_inserter(shape),
+      output_operand_info.dimensions, shape.begin(),
       [](uint32_t val) { return base::checked_cast<int32_t>(val); });
   SetInputWithValue(*op->mutable_inputs(), kParamShape,
                     Create1DTensorImmediateValue<int32_t>(shape));
@@ -2701,15 +2763,15 @@ base::expected<void, mojom::ErrorPtr> GraphBuilderCoreml::AddOperationForSlice(
 
   static constexpr char kParamBegin[] = "begin";
   static constexpr char kParamSize[] = "size";
-  std::vector<int32_t> beginnings;
-  std::vector<int32_t> sizes;
-  for (const mojom::StartAndSizePtr& start_and_size :
-       operation.starts_and_sizes) {
-    if (start_and_size->size == 0) {
+  base::FixedArray<int32_t> beginnings(operation.starts_and_sizes.size());
+  base::FixedArray<int32_t> sizes(operation.starts_and_sizes.size());
+  for (size_t i = 0; i < operation.starts_and_sizes.size(); ++i) {
+    if (operation.starts_and_sizes[i]->size == 0) {
       continue;
     }
-    beginnings.push_back(base::checked_cast<int32_t>(start_and_size->start));
-    sizes.push_back(base::checked_cast<int32_t>(start_and_size->size));
+    beginnings[i] =
+        base::checked_cast<int32_t>(operation.starts_and_sizes[i]->start);
+    sizes[i] = base::checked_cast<int32_t>(operation.starts_and_sizes[i]->size);
   }
 
   SetInputsWithValues(
@@ -2776,6 +2838,30 @@ void GraphBuilderCoreml::AddOperationForSplit(
                           base::checked_cast<int32_t>(operation.axis))}});
 }
 
+void GraphBuilderCoreml::AddOperationForTile(
+    const mojom::Tile& operation,
+    CoreML::Specification::MILSpec::Block& block) {
+  const OperandInfo& input_operand_info =
+      GetOperandInfo(operation.input_operand_id);
+  CHECK(context_properties_.data_type_limits.tile_input.Has(
+      MILDataTypeToOperandType(input_operand_info.mil_data_type)));
+
+  CoreML::Specification::MILSpec::Operation* op = block.add_operations();
+  op->set_type(kOpTileTypeName);
+  SetInputWithName(*op->mutable_inputs(), kOpParamX,
+                   input_operand_info.coreml_name);
+
+  // CoreML expects repetitions to be vector of int32_t.
+  base::FixedArray<int32_t> repetitions(operation.repetitions.size());
+  base::ranges::transform(
+      operation.repetitions, repetitions.begin(),
+      [](uint32_t val) { return base::checked_cast<int32_t>(val); });
+  SetInputWithValue(*op->mutable_inputs(), kOpParamReps,
+                    Create1DTensorImmediateValue<int32_t>(repetitions));
+
+  PopulateNamedValueType(operation.output_operand_id, *op->add_outputs());
+}
+
 void GraphBuilderCoreml::AddOperationForTranspose(
     const mojom::Transpose& operation,
     CoreML::Specification::MILSpec::Block& block) {
@@ -2792,9 +2878,9 @@ void GraphBuilderCoreml::AddOperationForTranspose(
 
   // CoreML expects permutation to be vector of int32_t.
   static constexpr char kParamPerm[] = "perm";
-  std::vector<int32_t> permutation;
+  base::FixedArray<int32_t> permutation(operation.permutation.size());
   base::ranges::transform(
-      operation.permutation, std::back_inserter(permutation),
+      operation.permutation, permutation.begin(),
       [](uint32_t val) { return base::checked_cast<int32_t>(val); });
   SetInputWithValue(*op->mutable_inputs(), kParamPerm,
                     Create1DTensorImmediateValue<int32_t>(permutation));
@@ -2856,38 +2942,38 @@ GraphBuilderCoreml::AddConstantImmediateValue(
   std::string name = GetOperandInfo(constant_id).coreml_name;
   attributes["name"] = CreateStringImmediateValue(name);
 
-  base::span<const uint8_t> value(
-      graph_info_->constant_id_to_buffer_map.at(constant_id));
-  const mojom::Operand& operand = GetOperand(constant_id);
-  switch (operand.descriptor.data_type()) {
+  auto& constant_operand = constant_operands_->at(constant_id);
+  base::span<const uint8_t> value = constant_operand->ByteSpan();
+
+  switch (constant_operand->descriptor().data_type()) {
     case OperandDataType::kFloat32: {
-      std::vector<float> floats(value.size() / sizeof(float));
+      base::FixedArray<float> floats(value.size() / sizeof(float));
       for (size_t i = 0u; i < floats.size(); ++i) {
         floats[i] = base::FloatFromNativeEndian(
             value.subspan(i * sizeof(float)).first<4u>());
       }
-      attributes["val"] =
-          CreateTensorImmediateValue<float>(operand.descriptor.shape(), floats);
+      attributes["val"] = CreateTensorImmediateValue<float>(
+          constant_operand->descriptor().shape(), floats);
       break;
     }
     case OperandDataType::kFloat16: {
-      std::vector<Float16> float16s(value.size() / sizeof(Float16));
+      base::FixedArray<Float16> float16s(value.size() / sizeof(Float16));
       for (size_t i = 0u; i < float16s.size(); ++i) {
         float16s[i].data = base::U16FromNativeEndian(
             value.subspan(i * sizeof(Float16)).first<2u>());
       }
       attributes["val"] = CreateTensorImmediateValue<Float16>(
-          operand.descriptor.shape(), float16s);
+          constant_operand->descriptor().shape(), float16s);
       break;
     }
     case OperandDataType::kInt32: {
-      std::vector<int32_t> ints(value.size() / sizeof(int32_t));
+      base::FixedArray<int32_t> ints(value.size() / sizeof(int32_t));
       for (size_t i = 0u; i < ints.size(); ++i) {
         ints[i] = base::I32FromNativeEndian(
             value.subspan(i * sizeof(int32_t)).first<4u>());
       }
-      attributes["val"] =
-          CreateTensorImmediateValue<int32_t>(operand.descriptor.shape(), ints);
+      attributes["val"] = CreateTensorImmediateValue<int32_t>(
+          constant_operand->descriptor().shape(), ints);
       break;
     }
     case OperandDataType::kUint32:

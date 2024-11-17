@@ -22,6 +22,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/screen_ai/screen_ai_service_router.h"
 #include "chrome/browser/screen_ai/screen_ai_service_router_factory.h"
+#include "chrome/browser/speech/extension_api/tts_engine_extension_api.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -40,6 +41,7 @@
 #include "content/public/browser/browser_accessibility_state.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/scoped_accessibility_mode.h"
+#include "content/public/browser/tts_controller.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "content/public/browser/web_ui.h"
 #include "net/http/http_status_code.h"
@@ -73,6 +75,7 @@ using ash::language_packs::LanguagePackManager;
 using ash::language_packs::PackResult;
 #endif
 
+using content::TtsController;
 using read_anything::mojom::ErrorCode;
 using read_anything::mojom::InstallationState;
 using read_anything::mojom::UntrustedPage;
@@ -81,12 +84,16 @@ using read_anything::mojom::VoicePackInstallationState;
 
 namespace {
 
-// All components of kAXModeWebContentsOnly are needed. |ui::AXMode::kHTML| is
-// needed for URL information. |ui::AXMode::kScreenReader| is needed for heading
-// level information. |ui::AXMode::kInlineTextBoxes| is needed for complete
-// Screen2x output -- if excluded, some nodes from the tree will not be
-// identified as content nodes.
-constexpr ui::AXMode kReadAnythingAXMode = ui::kAXModeWebContentsOnly;
+// All AXMode flags of kAXModeWebContentsOnly are needed. |ui::AXMode::kHTML| is
+// needed for retrieveing the `aria-expanded` attribute.
+// |ui::AXMode::kScreenReader| is needed for HTML tag, and heading level
+// information. |ui::AXMode::kInlineTextBoxes| is needed for complete screen2x
+// output -- if excluded, some nodes from the tree will not be identified as
+// content nodes.
+// TODO(crbug.com/366000250): kHTML is a heavy-handed approach as it copies all
+// HTML attributes into the accessibility tree. It should be removed ASAP.
+constexpr ui::AXMode kReadAnythingAXMode =
+    ui::kAXModeWebContentsOnly | ui::AXMode::kHTML;
 
 int GetNormalizedFontScale(double font_scale) {
   DCHECK(font_scale >= kReadAnythingMinimumFontScale &&
@@ -241,8 +248,9 @@ void ReadAnythingWebContentsObserver::AccessibilityEventReceived(
 }
 
 void ReadAnythingWebContentsObserver::AccessibilityLocationChangesReceived(
-    const std::vector<ui::AXLocationChanges>& details) {
-  page_handler_->AccessibilityLocationChangesReceived(details);
+    const ui::AXTreeID& tree_id,
+    ui::AXLocationAndScrollUpdates& details) {
+  page_handler_->AccessibilityLocationChangesReceived(tree_id, details);
 }
 
 void ReadAnythingWebContentsObserver::PrimaryPageChanged(content::Page& page) {
@@ -390,9 +398,10 @@ void ReadAnythingUntrustedPageHandler::AccessibilityEventReceived(
 }
 
 void ReadAnythingUntrustedPageHandler::AccessibilityLocationChangesReceived(
-    const std::vector<ui::AXLocationChanges>& details) {
+    const ui::AXTreeID& tree_id,
+    ui::AXLocationAndScrollUpdates& details) {
   if (features::IsReadAnythingDocsIntegrationEnabled()) {
-    page_->AccessibilityLocationChangesReceived(details);
+    page_->AccessibilityLocationChangesReceived(tree_id, details);
   }
 }
 
@@ -466,14 +475,9 @@ void ReadAnythingUntrustedPageHandler::InstallVoicePack(
       base::BindOnce(&OnLanguagePackManagerResponse,
                      std::move(mojo_remote_callback)));
 #else
-  //  TODO (b/40927698) Implement high quality voice support for non ChromeOS
-  //  platforms. For now, just return that all high quality voices are
-  //  unavailable.
-  auto voicePackInfo = read_anything::mojom::VoicePackInfo::New();
-  voicePackInfo->language = language;
-  voicePackInfo->pack_state =
-      VoicePackInstallationState::NewErrorCode(ErrorCode::kUnsupportedPlatform);
-  std::move(mojo_remote_callback).Run(std::move(voicePackInfo));
+  TtsController::GetInstance()->InstallLanguageRequest(
+      profile_, language, string_constants::kReadingModeName,
+      static_cast<int>(tts_engine_events::TtsClientSource::CHROMEFEATURE));
 #endif
 }
 
@@ -589,17 +593,20 @@ void ReadAnythingUntrustedPageHandler::OnImageDataDownloaded(
     const GURL& image_url,
     const std::vector<SkBitmap>& bitmaps,
     const std::vector<gfx::Size>& sizes) {
-
   bool download_was_successful =
       network::IsSuccessfulStatus(http_status_code) || http_status_code == 0;
 
-  // There should be at least one image.
-  if (download_was_successful && !bitmaps.empty()) {
-    const auto& bitmap = bitmaps[0];
-    page_->OnImageDataDownloaded(target_tree_id, node_id, bitmap);
-  } else {
-    page_->OnImageDataDownloaded(target_tree_id, node_id, SkBitmap());
+  if (!download_was_successful || bitmaps.empty()) {
+    // If there was a failure, leave the canvas empty.
+    return;
   }
+  // There should be at least one image.
+  const auto& bitmap = bitmaps[0];
+  if (bitmap.isNull()) {
+    // If there was a failure, leave the canvas empty.
+    return;
+  }
+  page_->OnImageDataDownloaded(target_tree_id, node_id, bitmap);
 }
 
 void ReadAnythingUntrustedPageHandler::ScrollToTargetNode(

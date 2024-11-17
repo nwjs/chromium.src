@@ -2,11 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/test/chromedriver/chrome/stub_web_view.h"
+
 #include "base/files/file_path.h"
 #include "base/values.h"
 #include "chrome/test/chromedriver/chrome/status.h"
-#include "chrome/test/chromedriver/chrome/stub_web_view.h"
 #include "chrome/test/chromedriver/chrome/ui_events.h"
+#include "chrome/test/chromedriver/chrome/web_view.h"
 
 StubWebView::StubWebView(const std::string& id) : id_(id) {}
 
@@ -289,6 +291,7 @@ Status StubWebView::CallFunctionWithTimeout(
     const std::string& function,
     const base::Value::List& args,
     const base::TimeDelta& timeout,
+    const CallFunctionOptions& options,
     std::unique_ptr<base::Value>* result) {
   return Status{kOk};
 }
@@ -308,4 +311,8 @@ Status StubWebView::GetTypeOfDialog(std::string& type) const {
 Status StubWebView::HandleDialog(bool accept,
                                  const std::optional<std::string>& text) {
   return Status(kOk);
+}
+
+WebView* StubWebView::FindContainerForFrame(const std::string& frame_id) {
+  return nullptr;
 }

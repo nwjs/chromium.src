@@ -71,6 +71,7 @@ include_rules = [
   "+components/browser_sync",
   "+components/browser_ui/accessibility",
   "+components/browser_ui/bottomsheet",
+  "+components/browser_ui/desktop_windowing/android",
   "+components/browser_ui/modaldialog",
   "+components/browser_ui/notifications",
   "+components/browser_ui/photo_picker",
@@ -81,6 +82,7 @@ include_rules = [
   "+components/browser_ui/strings",
   "+components/browser_ui/styles",
   "+components/browsing_data/content",
+  "+components/cached_flags",
   "+components/continuous_search/common",
   "+components/continuous_search/browser",
   "+components/browsing_data/core",
@@ -161,6 +163,7 @@ include_rules = [
   "+components/find_in_page",
   "+components/fingerprinting_protection_filter/browser",
   "+components/fingerprinting_protection_filter/common",
+  "+components/fingerprinting_protection_filter/mojom",
   "+components/flags_ui",
   "+components/gcm_driver",
   "+components/global_media_controls",
@@ -212,6 +215,7 @@ include_rules = [
   "+components/manta",
   "+components/media_effects",
   "+components/memory_pressure",
+  "+components/memory_system",
   "+components/messages/android",
   "+components/metal_util",
   "+components/metrics",
@@ -308,7 +312,7 @@ include_rules = [
   "+components/tpcd/metadata",
   "+components/tpcd/support",
   "+components/safe_search_api",
-  "+components/saved_tab_groups",
+  "+components/saved_tab_groups/public",
   "+components/schema_org",
   "+components/shared_highlighting/core/common",
   "+components/search",
@@ -487,6 +491,7 @@ include_rules = [
   "+services/video_effects/test",
   "+services/viz/public",
   "+services/viz/privileged",
+  "+skia/buildflags.h",
   "+skia/ext",
   "+third_party/boringssl/src/include",
   "+third_party/content_analysis_sdk",
@@ -506,6 +511,7 @@ include_rules = [
   "+ash/constants",
   "+ash/keyboard/ui/grit",
   "+ash/keyboard/ui/resources",
+  "+ash/login/ui/management_disclosure_field_trial.h",
   "+ash/public",
   "+ash/webui",
 
@@ -576,6 +582,9 @@ specific_include_rules = {
       "+chrome/android/java/src/org/chromium/chrome/browser/searchwidget/SearchActivity.java",
       "+chrome/android/java/src/org/chromium/chrome/browser/ChromeTabbedActivity.java",
     ],
+  "platform_util_ash\.cc": [
+    "+ash/wm/window_pin_util.h",
+  ],
   "platform_util_linux.cc": [
     # The following is used to call the org.freedesktop.FileManager1
     # DBus interface to highlight a file within its parent folder
@@ -617,6 +626,7 @@ specific_include_rules = {
   "about_flags\.cc" : [
     "+mojo/core/embedder/features.h",
     "+sandbox/policy/features.h",
+    "+skia/rusty_png_feature.h",
   ],
   "dbus_memory_pressure_evaluator_linux(_unittest)?\.(cc|h)" : [
     "+dbus",
@@ -631,6 +641,7 @@ specific_include_rules = {
     "+ash/wm/window_restore/window_restore_util.h",
   ],
   "render_view_context_menu_browsertest.cc" : [
+    "+ash/wm/window_pin_util.h",
     "+third_party/libwebp/src/src/webp/decode.h",
   ],
   "webauth_interactive_uitest.cc": [

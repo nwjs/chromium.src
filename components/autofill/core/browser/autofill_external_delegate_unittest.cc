@@ -1176,10 +1176,10 @@ TEST_F(AutofillExternalDelegateUnitTest, ExternalDelegateFillsIbanEntry) {
           _));
   std::vector<Suggestion> suggestions;
   Iban iban = test::GetLocalIban();
-  suggestions.emplace_back(
-      /*main_text=*/iban.GetIdentifierStringForAutofillDisplay(),
-      SuggestionType::kIbanEntry);
-  suggestions[0].labels = {{Suggestion::Text(u"My doctor's IBAN")}};
+  suggestions.emplace_back(/*main_text=*/u"My doctor's IBAN",
+                           SuggestionType::kIbanEntry);
+  suggestions[0].labels = {
+      {Suggestion::Text(iban.GetIdentifierStringForAutofillDisplay())}};
   suggestions[0].payload = Suggestion::Guid(iban.guid());
   OnSuggestionsReturned(queried_field().global_id(), suggestions);
 
@@ -1200,10 +1200,10 @@ TEST_F(AutofillExternalDelegateUnitTest, ExternalDelegateFillsIbanEntry) {
                                  HasQueriedFormId(), HasQueriedFieldId(),
                                  iban.value(), SuggestionType::kIbanEntry,
                                  std::optional(IBAN_VALUE)));
-  Suggestion suggestion(iban.GetIdentifierStringForAutofillDisplay(),
-                        SuggestionType::kIbanEntry);
+  Suggestion suggestion(u"My doctor's IBAN", SuggestionType::kIbanEntry);
   suggestion.payload = Suggestion::Guid(iban.guid());
-  suggestion.labels = {{Suggestion::Text(u"My doctor's IBAN")}};
+  suggestion.labels = {
+      {Suggestion::Text(iban.GetIdentifierStringForAutofillDisplay())}};
   EXPECT_CALL(*client().GetPaymentsAutofillClient()->GetIbanManager(),
               OnSingleFieldSuggestionSelected(suggestion));
   ON_CALL(*client().GetPaymentsAutofillClient()->GetIbanAccessManager(),
@@ -2042,6 +2042,27 @@ TEST_F(AutofillExternalDelegateUnitTest,
   external_delegate().DidAcceptSuggestion(fill_suggestion, {});
 }
 
+// Tests that the `AutofillPredictionImprovementsDelegate` is notified when the
+// `kPredictionImprovementsLoadingState` suggestion is shown.
+TEST_F(AutofillExternalDelegateUnitTest,
+       OnPredictionImprovementsSuggestionsShownNotifiesDelegate) {
+  FormData form = CreateTestAddressFormData();
+  ASSERT_GT(form.fields().size(), 0UL);
+  const std::u16string value_to_fill = u"John";
+  FormFieldData* field_to_fill = form.FindFieldByNameForTest(u"firstname");
+  ASSERT_TRUE(field_to_fill);
+
+  manager().OnFormsSeen({form}, {});
+  external_delegate().OnQuery(
+      form, *field_to_fill,
+      /*caret_bounds=*/gfx::Rect(),
+      AutofillSuggestionTriggerSource::kPredictionImprovements);
+  EXPECT_CALL(*client().GetAutofillPredictionImprovementsDelegate(),
+              OnSuggestionsShown);
+  external_delegate().OnSuggestionsShown(std::vector<Suggestion>{
+      Suggestion(SuggestionType::kPredictionImprovementsLoadingState)});
+}
+
 // Test parameter data for asserting that the expected set of field types
 // is stored in the delegate.
 struct GetLastFieldTypesToFillForSectionTestParams {
@@ -2632,7 +2653,7 @@ TEST_F(
           AutofillPredictionImprovementsDelegate::UserFeedback::kThumbsUp));
 
   external_delegate().DidPerformButtonActionForSuggestion(
-      Suggestion(SuggestionType::kFillPredictionImprovements),
+      Suggestion(SuggestionType::kPredictionImprovementsFeedback),
       PredictionImprovementsButtonActions::kThumbsUpClicked);
 }
 
@@ -2649,7 +2670,7 @@ TEST_F(
           AutofillPredictionImprovementsDelegate::UserFeedback::kThumbsDown));
 
   external_delegate().DidPerformButtonActionForSuggestion(
-      Suggestion(SuggestionType::kFillPredictionImprovements),
+      Suggestion(SuggestionType::kPredictionImprovementsFeedback),
       PredictionImprovementsButtonActions::kThumbsDownClicked);
 }
 
@@ -2664,7 +2685,7 @@ TEST_F(
               UserClickedLearnMore());
 
   external_delegate().DidPerformButtonActionForSuggestion(
-      Suggestion(SuggestionType::kFillPredictionImprovements),
+      Suggestion(SuggestionType::kPredictionImprovementsFeedback),
       PredictionImprovementsButtonActions::kLearnMoreClicked);
 }
 

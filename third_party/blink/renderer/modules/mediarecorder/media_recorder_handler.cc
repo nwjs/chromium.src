@@ -26,6 +26,7 @@
 #include "media/base/audio_bus.h"
 #include "media/base/audio_codecs.h"
 #include "media/base/audio_parameters.h"
+#include "media/base/decoder_buffer.h"
 #include "media/base/mime_util.h"
 #include "media/base/video_codec_string_parsers.h"
 #include "media/base/video_codecs.h"
@@ -40,6 +41,7 @@
 #include "media/muxers/muxer.h"
 #include "media/muxers/muxer_timestamp_adapter.h"
 #include "media/muxers/webm_muxer.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_media_stream_track_state.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/modules/mediarecorder/media_recorder.h"
@@ -798,14 +800,12 @@ void MediaRecorderHandler::OnStreamChanged(const String& message) {
 
 void MediaRecorderHandler::OnEncodedVideo(
     const media::Muxer::VideoParameters& params,
-    std::string encoded_data,
-    std::string encoded_alpha,
+    scoped_refptr<media::DecoderBuffer> encoded_data,
     std::optional<media::VideoEncoder::CodecDescription> codec_description,
-    base::TimeTicks timestamp,
-    bool is_key_frame) {
+    base::TimeTicks timestamp) {
   DCHECK(IsMainThread());
 
-  if (encoded_data.empty() && encoded_alpha.empty()) {
+  if (encoded_data->empty()) {
     // An encoder drops a frame. This can happen with VideoToolBox encoder as
     // there is no way to disallow the frame dropping with it.
     return;
@@ -817,7 +817,7 @@ void MediaRecorderHandler::OnEncodedVideo(
 
   // Convert annex stream to avc bit stream for h264.
   if (video_codec_profile_.codec_id == VideoTrackRecorder::CodecId::kH264 &&
-      is_key_frame && !codec_description.has_value()) {
+      encoded_data->is_key_frame() && !codec_description.has_value()) {
     bool first_key_frame = false;
     if (!h264_converter_) {
       h264_converter_ =
@@ -830,14 +830,12 @@ void MediaRecorderHandler::OnEncodedVideo(
     bool config_changed = false;
     size_t desired_size = 0;
     std::vector<uint8_t> output_chunk;
-    base::span<const uint8_t> data_span(
-        reinterpret_cast<const uint8_t*>(encoded_data.data()),
-        encoded_data.size());
-    auto status = h264_converter_->ConvertChunk(data_span, output_chunk,
-                                                &config_changed, &desired_size);
+
+    auto status = h264_converter_->ConvertChunk(
+        encoded_data->AsSpan(), output_chunk, &config_changed, &desired_size);
     CHECK_EQ(status.code(), media::MP4Status::Codes::kBufferTooSmall);
     output_chunk.resize(desired_size);
-    status = h264_converter_->ConvertChunk(data_span, output_chunk,
+    status = h264_converter_->ConvertChunk(encoded_data->AsSpan(), output_chunk,
                                            &config_changed, &desired_size);
     DCHECK(status.is_ok());
 
@@ -862,31 +860,25 @@ void MediaRecorderHandler::OnEncodedVideo(
   }
 
   HandleEncodedVideo(params_with_codec, std::move(encoded_data),
-                     std::move(encoded_alpha), std::move(codec_description),
-                     timestamp, is_key_frame);
+                     std::move(codec_description), timestamp);
 }
 
 void MediaRecorderHandler::OnPassthroughVideo(
     const media::Muxer::VideoParameters& params,
-    std::string encoded_data,
-    std::string encoded_alpha,
-    base::TimeTicks timestamp,
-    bool is_key_frame) {
+    scoped_refptr<media::DecoderBuffer> encoded_data,
+    base::TimeTicks timestamp) {
   DCHECK(IsMainThread());
 
   // Update |video_codec_profile_| so that ActualMimeType() works.
   video_codec_profile_.codec_id = CodecIdFromMediaVideoCodec(params.codec);
-  HandleEncodedVideo(params, std::move(encoded_data), std::move(encoded_alpha),
-                     std::nullopt, timestamp, is_key_frame);
+  HandleEncodedVideo(params, std::move(encoded_data), std::nullopt, timestamp);
 }
 
 void MediaRecorderHandler::HandleEncodedVideo(
     const media::Muxer::VideoParameters& params,
-    std::string encoded_data,
-    std::string encoded_alpha,
+    scoped_refptr<media::DecoderBuffer> encoded_data,
     std::optional<media::VideoEncoder::CodecDescription> codec_description,
-    base::TimeTicks timestamp,
-    bool is_key_frame) {
+    base::TimeTicks timestamp) {
   DCHECK(IsMainThread());
 
   if (!last_seen_codec_.has_value())
@@ -902,9 +894,9 @@ void MediaRecorderHandler::HandleEncodedVideo(
   if (!muxer_adapter_) {
     return;
   }
-  if (!muxer_adapter_->OnEncodedVideo(
-          params, std::move(encoded_data), std::move(encoded_alpha),
-          std::move(codec_description), timestamp, is_key_frame)) {
+  if (!muxer_adapter_->OnEncodedVideo(params, std::move(encoded_data),
+                                      std::move(codec_description),
+                                      timestamp)) {
     recorder_->OnError(DOMExceptionCode::kUnknownError,
                        "Error muxing video data");
   }
@@ -912,7 +904,7 @@ void MediaRecorderHandler::HandleEncodedVideo(
 
 void MediaRecorderHandler::OnEncodedAudio(
     const media::AudioParameters& params,
-    std::string encoded_data,
+    scoped_refptr<media::DecoderBuffer> encoded_data,
     std::optional<media::AudioEncoder::CodecDescription> codec_description,
     base::TimeTicks timestamp) {
   DCHECK(IsMainThread());
@@ -948,26 +940,18 @@ MediaRecorderHandler::CreateVideoEncoderMetricsProvider() {
       ->CreateVideoEncoderMetricsProvider();
 }
 
-void MediaRecorderHandler::WriteData(std::string_view data) {
+void MediaRecorderHandler::WriteData(base::span<const uint8_t> data) {
   DCHECK(IsMainThread());
-  DVLOG(3) << __func__ << " " << data.length() << "B";
+  DVLOG(3) << __func__ << " " << data.size() << "B";
 
   const base::TimeTicks now = base::TimeTicks::Now();
-  // Non-buffered mode does not need to check timestamps.
-  if (timeslice_.is_zero()) {
-    recorder_->WriteData(base::as_byte_span(data), /*last_in_slice=*/true,
-                         (now - base::TimeTicks::UnixEpoch()).InMillisecondsF(),
-                         /*error_event=*/nullptr);
-    return;
-  }
-
-  const bool last_in_slice = now > slice_origin_timestamp_ + timeslice_;
+  const bool last_in_slice =
+      timeslice_.is_zero() ? true : now > slice_origin_timestamp_ + timeslice_;
   DVLOG_IF(1, last_in_slice) << "Slice finished @ " << now;
-  if (last_in_slice)
+  if (last_in_slice) {
     slice_origin_timestamp_ = now;
-  recorder_->WriteData(base::as_byte_span(data), last_in_slice,
-                       (now - base::TimeTicks::UnixEpoch()).InMillisecondsF(),
-                       /*error_event=*/nullptr);
+  }
+  recorder_->WriteData(data, last_in_slice, /*error_event=*/nullptr);
 }
 
 void MediaRecorderHandler::UpdateTracksLiveAndEnabled() {
@@ -995,7 +979,7 @@ void MediaRecorderHandler::UpdateTrackLiveAndEnabled(
 void MediaRecorderHandler::OnSourceReadyStateChanged() {
   MediaStream* stream = ToMediaStream(media_stream_);
   for (const auto& track : stream->getTracks()) {
-    if (track->readyState() != "ended") {
+    if (track->readyState() != V8MediaStreamTrackState::Enum::kEnded) {
       return;
     }
   }

@@ -37,6 +37,7 @@
 #include "components/profile_metrics/browser_profile_type.h"
 #include "components/security_state/core/security_state.h"
 #include "components/translate/core/browser/language_state.h"
+#include "components/user_annotations/user_annotations_types.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "ui/base/window_open_disposition.h"
@@ -59,6 +60,10 @@ namespace ukm {
 class UkmRecorder;
 }
 
+namespace optimization_guide::proto {
+class UserAnnotationsEntry;
+}
+
 namespace version_info {
 enum class Channel;
 }
@@ -73,6 +78,9 @@ class AutofillCrowdsourcingManager;
 class AutofillDriverFactory;
 class AutofillMlPredictionModelHandler;
 class AutofillOptimizationGuide;
+#if BUILDFLAG(IS_ANDROID)
+class AutofillSnackbarControllerImpl;
+#endif  // BUILDFLAG(IS_ANDROID)
 class AutofillSuggestionDelegate;
 class AutofillPlusAddressDelegate;
 class AutofillPredictionImprovementsDelegate;
@@ -134,6 +142,12 @@ class AutofillClient {
     kMaxValue = kAutoDeclined,
   };
 
+  // Describes the types of Iph shown by Autofill and anchored to a field.
+  enum class IphFeature {
+    kManualFallback,
+    kPredictionImprovements,
+  };
+
   // Required arguments to create a dropdown showing autofill suggestions.
   struct PopupOpenArgs {
     PopupOpenArgs();
@@ -192,7 +206,14 @@ class AutofillClient {
   // user closing the dialog directly and not when user closes the browser tab.
   using AddressProfileDeleteDialogCallback = base::OnceCallback<void(bool)>;
 
+  // Callback to run when the user decides to undo the plus address full form
+  // fulling. If the user never undoes the operation, the callback is never
+  // triggered.
+  using EmailOverrideUndoCallback = base::OnceClosure;
+
   virtual ~AutofillClient() = default;
+
+  virtual base::WeakPtr<AutofillClient> GetWeakPtr() = 0;
 
   // Returns the channel for the installation. In branded builds, this will be
   // version_info::Channel::{STABLE,BETA,DEV,CANARY}. In unbranded builds, or
@@ -286,6 +307,7 @@ class AutofillClient {
 
   // Gets the IdentityManager associated with the client.
   virtual signin::IdentityManager* GetIdentityManager() = 0;
+  virtual const signin::IdentityManager* GetIdentityManager() const = 0;
 
   // Gets the FormDataImporter instance owned by the client.
   virtual FormDataImporter* GetFormDataImporter() = 0;
@@ -392,6 +414,15 @@ class AutofillClient {
       const PopupOpenArgs& open_args,
       base::WeakPtr<AutofillSuggestionDelegate> delegate) = 0;
 
+  // Notifies the user via a patform specific UI that full form filling for plus
+  // addresses has occurred (i.e. the filled email address was overridden by the
+  // plus address). The UI provides the user with the option to undo the
+  // filling operation back to back to `original_email`, in which case the
+  // `email_override_undo_callback` is triggered.
+  virtual void ShowPlusAddressEmailOverrideNotification(
+      const std::string& original_email,
+      EmailOverrideUndoCallback email_override_undo_callback);
+
   // Update the data list values shown by the Autofill suggestions, if visible.
   virtual void UpdateAutofillDataListValues(
       base::span<const SelectOption> datalist) = 0;
@@ -456,6 +487,12 @@ class AutofillClient {
 
   virtual const AutofillAblationStudy& GetAblationStudy() const;
 
+#if BUILDFLAG(IS_ANDROID)
+  // The AutofillSnackbarController is used to show a snackbar notification
+  // on Android.
+  virtual AutofillSnackbarControllerImpl* GetAutofillSnackbarController();
+#endif
+
 #if BUILDFLAG(IS_IOS)
   // Checks whether `field_id` is the last field that for which
   // AutofillAgent::queryAutofillForForm() was called. See crbug.com/1097015.
@@ -479,20 +516,26 @@ class AutofillClient {
   virtual std::unique_ptr<device_reauth::DeviceAuthenticator>
   GetDeviceAuthenticator();
 
-  // Attaches the IPH for the manual fallback feature to the `field`, on
-  // platforms that support manual fallback.
-  virtual void ShowAutofillFieldIphForManualFallbackFeature(
-      const FormFieldData& field);
+  // Attaches the IPH for `feature` to the `field`, on
+  // platforms that it. If another IPH has been shown for the tab, the IPH is
+  // granteed not to be shown. Returns `true` if the IPH bubble is shown after
+  // this method call, which includes the case when it was open before the call.
+  virtual bool ShowAutofillFieldIphForFeature(
+      const FormFieldData& field,
+      AutofillClient::IphFeature feature);
 
-  // Hides the IPH for the manual fallback feature.
-  virtual void HideAutofillFieldIphForManualFallbackFeature();
+  // Hides any open IPH.
+  virtual void HideAutofillFieldIph();
 
-  // Notifies the IPH code that the manual fallback feature was used.
-  virtual void NotifyAutofillManualFallbackUsed();
+  // Notifies the IPH code that `feature` was used.
+  virtual void NotifyIphFeatureUsed(AutofillClient::IphFeature feature);
 
   // Shows a bubble asking whether the user wants to save prediction
   // improvements data.
-  virtual void ShowSaveAutofillPredictionImprovementsBubble();
+  virtual void ShowSaveAutofillPredictionImprovementsBubble(
+      const std::vector<optimization_guide::proto::UserAnnotationsEntry>&
+          to_be_upserted_entries,
+      user_annotations::PromptAcceptanceCallback prompt_acceptance_callback);
 
   // Stores test addresses provided by devtools and used to help developers
   // debug their forms with a list of well formatted addresses. Differently from

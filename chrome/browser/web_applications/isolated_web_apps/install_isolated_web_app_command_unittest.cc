@@ -355,11 +355,11 @@ TEST_F(InstallIsolatedWebAppCommandTest, PendingUpdateInfoIsEmpty) {
   SetUpPageAndIconStates(url_info);
 
   EXPECT_THAT(ExecuteCommand(Parameters{.url_info = url_info}), HasValue());
-  EXPECT_THAT(web_app_registrar().GetAppById(url_info.app_id()),
-              Pointee(Property(
-                  &WebApp::isolation_data,
-                  Optional(Property(&WebApp::IsolationData::pending_update_info,
-                                    Eq(std::nullopt))))));
+  EXPECT_THAT(
+      web_app_registrar().GetAppById(url_info.app_id()),
+      Pointee(Property(&WebApp::isolation_data,
+                       Optional(Property(&IsolationData::pending_update_info,
+                                         Eq(std::nullopt))))));
 }
 
 TEST_F(InstallIsolatedWebAppCommandTest,
@@ -425,8 +425,8 @@ TEST_F(InstallIsolatedWebAppCommandTest, LocationSentToFinalizer) {
       web_app_registrar().GetAppById(url_info.app_id()),
       Pointee(AllOf(Property(
           "isolation_data", &WebApp::isolation_data,
-          Optional(Field(
-              "location", &WebApp::IsolationData::location,
+          Optional(Property(
+              "location", &IsolationData::location,
               Property("variant", &IsolatedWebAppStorageLocation::variant,
                        VariantWith<IwaStorageProxy>(Property(
                            "proxy_url", &IwaStorageProxy::proxy_url,
@@ -841,9 +841,6 @@ TEST_P(InstallIsolatedWebAppCommandBundleTest, InstallsWhenThereIsNoError) {
                   EXPECT_TRUE(DirectoryExists(iwa_root_dir));
                   EXPECT_TRUE(base::IsDirectoryEmpty(iwa_root_dir));
                   break;
-                case IwaSourceBundleModeAndFileOp::kDevModeReference:
-                  EXPECT_FALSE(DirectoryExists(iwa_root_dir));
-                  break;
               }
             },
             [](const IwaSourceProxy&) { FAIL(); }},
@@ -941,15 +938,6 @@ INSTANTIATE_TEST_SUITE_P(
                 },
             .expected_management_type =
                 WebAppManagement::Type::kIwaShimlessRma},
-        BundleInstallSourceParam{
-            .install_source =
-                [](const base::FilePath& path) {
-                  return IsolatedWebAppInstallSource::FromDevUi(
-                      IwaSourceBundleDevModeWithFileOp(
-                          path, IwaSourceBundleDevFileOp::kReference));
-                },
-            .expected_management_type =
-                WebAppManagement::Type::kIwaUserInstalled},
         BundleInstallSourceParam{
             .install_source =
                 [](const base::FilePath& path) {

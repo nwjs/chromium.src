@@ -16,13 +16,21 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kDetectInconsistentPageImpl);
 
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnableBandAPrivateAggregation);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnableBandASampleDebugReports);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnableBandATriggeredUpdates);
 
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnableIFrameAdAuctionHeaders);
 
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeEnableUserAgentAndClientHints);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeEnableWALForInterestGroupStorage);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeFacilitatedTestingSignalsHeaders);
 
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgePrefetchBandAKeys);
+
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeStartAnticipatoryProcesses);
+CONTENT_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    base::TimeDelta,
+    kFledgeStartAnticipatoryProcessExpirationTime);
+
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeStoreBandAKeysInDB);
 
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeUsePreconnectCache);

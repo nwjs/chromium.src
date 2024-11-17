@@ -40,17 +40,26 @@ const char kManageYourGoogleAccountIdentifier[] =
 
 namespace {
 
+// The margin between the cell and the sheet.
+constexpr CGFloat kSideMargins = 16.;
+
 // Size of the symbols.
 constexpr CGFloat kErrorSymbolSize = 22.;
 
 // Height and width of the buttons.
 constexpr CGFloat kButtonSize = 30.;
 
+// The height of the footer of sections, except for last section.
+constexpr CGFloat kFooterHeight = 16.;
+
+// The left separator inset between two secondary accounts.
+constexpr CGFloat kSecondaryAccountsLeftSeparatorInset = 16.;
+
+// The left separator inset between the last secondary account and Add Account.
+constexpr CGFloat kLastSecondaryAccountLeftSeparatorInset = 60.;
+
 // Per Apple guidelines, touch targets should be at least 44x44.
 constexpr CGFloat kMinimumTouchTargetSize = 44.0;
-// Move navigation buttons towards the "out side" by this much, so they visually
-// align with the table views.
-constexpr CGFloat kButtonExtraSpacingOnOutside = 3.0;
 
 constexpr CGFloat kHalfSheetCornerRadius = 10.0;
 
@@ -82,52 +91,104 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 
 }  // namespace
 
+@interface AccountMenuViewController () <UITableViewDelegate>
+
+@property(nonatomic, strong) UITableView* tableView;
+
+@end
+
 @implementation AccountMenuViewController {
   UITableViewDiffableDataSource* _accountMenuDataSource;
+  UIButton* _closeButton;
+  UIButton* _ellipsisButton;
+  CentralAccountView* _identityAccountView;
+  BOOL _resizeReady;
+  // The index path of the cell on which the user tapped while account switching
+  // is in progress. It should be reset to nil before any table content occurs.
+  NSIndexPath* _selectedIndexPath;
 }
 
 #pragma mark - UIViewController
 
 - (void)viewDidLoad {
   [super viewDidLoad];
+  _resizeReady = NO;
+  self.tableView =
+      [[UITableView alloc] initWithFrame:CGRectZero
+                                   style:UITableViewStyleInsetGrouped];
+  self.tableView.translatesAutoresizingMaskIntoConstraints = NO;
+  [self.view addSubview:self.tableView];
+  [NSLayoutConstraint activateConstraints:@[
+    [self.view.topAnchor constraintEqualToAnchor:self.tableView.topAnchor],
+    [self.view.bottomAnchor
+        constraintEqualToAnchor:self.tableView.bottomAnchor],
+    [self.view.trailingAnchor
+        constraintEqualToAnchor:self.tableView.trailingAnchor],
+    [self.view.leadingAnchor
+        constraintEqualToAnchor:self.tableView.leadingAnchor],
+  ]];
+  self.tableView.delegate = self;
   self.tableView.accessibilityIdentifier = kAccountMenuTableViewId;
   self.tableView.backgroundColor =
       [UIColor colorNamed:kGroupedPrimaryBackgroundColor];
   RegisterTableViewCell<TableViewAccountCell>(self.tableView);
   RegisterTableViewCell<SettingsImageDetailTextCell>(self.tableView);
   RegisterTableViewCell<TableViewTextCell>(self.tableView);
-  [self setUpNavigationController];
+  [self setUpTopButtons];
   [self setUpTableContent];
   [self updatePrimaryAccount];
+  self.tableView.tableFooterView = [[UIView alloc]
+      initWithFrame:CGRectMake(0, 0, CGFLOAT_EPSILON, CGFLOAT_EPSILON)];
+}
+
+- (void)viewDidLayoutSubviews {
+  [super viewDidLayoutSubviews];
+  // Update the bottom sheet height.
   [self resize];
 }
 
-- (void)viewWillLayoutSubviews {
-  [super viewWillLayoutSubviews];
-  // Update the bottom sheet height.
-  [self resize];
+- (void)viewIsAppearing:(BOOL)animated {
+  [super viewIsAppearing:animated];
+  _resizeReady = YES;
 }
 
 #pragma mark - Private
 
+- (void)setActivityIndicator:(TableViewAccountCell*)cell {
+  UIActivityIndicatorView* activityIndicatorView =
+      [[UIActivityIndicatorView alloc] init];
+  activityIndicatorView.translatesAutoresizingMaskIntoConstraints = NO;
+  activityIndicatorView.color = [UIColor colorNamed:kTextSecondaryColor];
+  cell.accessoryView = activityIndicatorView;
+  [activityIndicatorView startAnimating];
+}
+
+// Returns the height of the navigation bar.
+- (CGFloat)navigationBarHeight {
+  return self.navigationController.navigationBar.frame.size.height;
+}
+
 // Resizes the view for current content.
 - (void)resize {
+  if (!_resizeReady) {
+    return;
+  }
   // Update the bottom sheet height.
   [self.sheetPresentationController invalidateDetents];
   // Update the popover height.
-  CGFloat height =
-      [self.tableView
-          systemLayoutSizeFittingSize:self.popoverPresentationController
-                                          .containerView.bounds.size]
-          .height;
+  [_identityAccountView updateTopPadding:[self navigationBarHeight]];
+  [self.tableView setNeedsLayout];
+  [self.tableView layoutIfNeeded];
+  CGFloat height = self.tableView.contentSize.height;
   self.preferredContentSize = CGSize(self.preferredContentSize.width, height);
 }
 
 // Creates a button for the navigation bar.
-- (UIButton*)navigationButtonWithSymbolName:(NSString*)symbolName
-                        symbolConfiguration:
-                            (UIImageSymbolConfiguration*)symbolConfiguration
-                                  isLeading:(BOOL)isLeading {
+- (UIButton*)addTopButtonWithSymbolName:(NSString*)symbolName
+                    symbolConfiguration:
+                        (UIImageSymbolConfiguration*)symbolConfiguration
+                              isLeading:(BOOL)isLeading
+                accessibilityIdentifier:(NSString*)accessibilityIdentifier {
   NSArray<UIColor*>* colors = @[
     [UIColor colorNamed:kTextSecondaryColor],
     [UIColor colorNamed:kUpdatedTertiaryBackgroundColor]
@@ -139,23 +200,43 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   // Add padding on all sides of the button, to make it a 44x44 touch target.
   CGFloat verticalInsets = (kMinimumTouchTargetSize - image.size.height) / 2.0;
   CGFloat horizontalInsets = (kMinimumTouchTargetSize - image.size.width) / 2.0;
-  CGFloat outsideInsets = horizontalInsets - kButtonExtraSpacingOnOutside;
-  CGFloat insideInsets = horizontalInsets + kButtonExtraSpacingOnOutside;
+  CGFloat distanceToSide = kSideMargins - horizontalInsets;
+  CGFloat distanceToTop = kSideMargins - verticalInsets;
 
   UIButtonConfiguration* buttonConfiguration =
       [UIButtonConfiguration plainButtonConfiguration];
   buttonConfiguration.contentInsets = NSDirectionalEdgeInsetsMake(
-      verticalInsets, isLeading ? outsideInsets : insideInsets, verticalInsets,
-      isLeading ? insideInsets : outsideInsets);
+      verticalInsets, horizontalInsets, verticalInsets, horizontalInsets);
   UIButton* button = [UIButton buttonWithConfiguration:buttonConfiguration
                                          primaryAction:nil];
   [button setImage:image forState:UIControlStateNormal];
+  button.translatesAutoresizingMaskIntoConstraints = NO;
+
+  button.accessibilityIdentifier = accessibilityIdentifier;
+  [self.navigationController.navigationBar addSubview:button];
+  if (isLeading) {
+    [button.leadingAnchor
+        constraintEqualToAnchor:self.navigationController.navigationBar
+                                    .leadingAnchor
+                       constant:distanceToSide]
+        .active = YES;
+  } else {
+    [button.trailingAnchor
+        constraintEqualToAnchor:self.navigationController.navigationBar
+                                    .trailingAnchor
+                       constant:-distanceToSide]
+        .active = YES;
+  }
+  [button.topAnchor
+      constraintEqualToAnchor:self.navigationController.navigationBar.topAnchor
+                     constant:distanceToTop]
+      .active = YES;
 
   return button;
 }
 
-// Sets up the navigation controller’s buttons.
-- (void)setUpNavigationController {
+// Sets up the buttons.
+- (void)setUpTopButtons {
   UIImageSymbolConfiguration* symbolConfiguration = [UIImageSymbolConfiguration
       configurationWithPointSize:kButtonSize
                           weight:UIImageSymbolWeightRegular
@@ -163,19 +244,13 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   // Stop button
   UIUserInterfaceIdiom idiom = [[UIDevice currentDevice] userInterfaceIdiom];
   if (idiom != UIUserInterfaceIdiomPad) {
-    UIButton* closeButton =
-        [self navigationButtonWithSymbolName:kXMarkCircleFillSymbol
-                         symbolConfiguration:symbolConfiguration
-                                   isLeading:NO];
-    [closeButton addTarget:self
-                    action:@selector(userTappedOnClose)
-          forControlEvents:UIControlEventTouchUpInside];
-    // We could use -initWithImage: instead of -initWithCustomView:, but this
-    // looks wrong for non-20x20 images.
-    UIBarButtonItem* closeButtonItem =
-        [[UIBarButtonItem alloc] initWithCustomView:closeButton];
-    closeButtonItem.accessibilityIdentifier = kAccountMenuCloseButtonId;
-    self.navigationItem.rightBarButtonItem = closeButtonItem;
+    _closeButton = [self addTopButtonWithSymbolName:kXMarkCircleFillSymbol
+                                symbolConfiguration:symbolConfiguration
+                                          isLeading:NO
+                            accessibilityIdentifier:kAccountMenuCloseButtonId];
+    [_closeButton addTarget:self
+                     action:@selector(userTappedOnClose)
+           forControlEvents:UIControlEventTouchUpInside];
   }
 
   // Ellipsis button
@@ -209,19 +284,13 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   UIMenu* ellipsisMenu = [UIMenu
       menuWithChildren:@[ manageYourAccountAction, editAccountListAction ]];
 
-  UIButton* ellipsisButton =
-      [self navigationButtonWithSymbolName:kEllipsisCircleFillSymbol
-                       symbolConfiguration:symbolConfiguration
-                                 isLeading:YES];
-  ellipsisButton.menu = ellipsisMenu;
-  ellipsisButton.showsMenuAsPrimaryAction = true;
-  // We could use -initWithImage: instead of -initWithCustomView:, but this
-  // looks wrong for non-20x20 images.
-  UIBarButtonItem* ellipsisButtonItem =
-      [[UIBarButtonItem alloc] initWithCustomView:ellipsisButton];
-  ellipsisButtonItem.accessibilityIdentifier =
-      kAccountMenuSecondaryActionMenuButtonId;
-  self.navigationItem.leftBarButtonItem = ellipsisButtonItem;
+  _ellipsisButton =
+      [self addTopButtonWithSymbolName:kEllipsisCircleFillSymbol
+                   symbolConfiguration:symbolConfiguration
+                             isLeading:YES
+               accessibilityIdentifier:kAccountMenuSecondaryActionMenuButtonId];
+  _ellipsisButton.menu = ellipsisMenu;
+  _ellipsisButton.showsMenuAsPrimaryAction = true;
 }
 
 - (UITableViewCell*)cellForTableView:(UITableView*)tableView
@@ -240,12 +309,20 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
     cell.detailTextLabel.textColor = [UIColor colorNamed:kTextSecondaryColor];
     cell.userInteractionEnabled = YES;
     cell.accessibilityIdentifier = kAccountMenuSecondaryAccountButtonId;
+    if ([indexPath isEqual:_selectedIndexPath]) {
+      // In theory, this can occur if, during the account switch process, the
+      // user scrolls a lot, and scroll back.
+      [self setActivityIndicator:cell];
+    }
     BOOL lastSecondaryIdentity =
         (indexPath.row == [_accountMenuDataSource tableView:self.tableView
                                       numberOfRowsInSection:indexPath.section] -
                               2);
     cell.separatorInset = UIEdgeInsetsMake(
-        0., /*left=*/(lastSecondaryIdentity) ? 16. : 60., 0., 0.);
+        0., /*left=*/
+        (lastSecondaryIdentity) ? kSecondaryAccountsLeftSeparatorInset
+                                : kLastSecondaryAccountLeftSeparatorInset,
+        0., 0.);
     return cell;
   }
 
@@ -307,14 +384,14 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   presentationController.widthFollowsPreferredContentSizeWhenEdgeAttached = YES;
   presentationController.preferredCornerRadius = kHalfSheetCornerRadius;
   __weak __typeof(self) weakSelf = self;
-  auto preferredHeightForContent = ^CGFloat(
+  auto preferredHeightForSheetContent = ^CGFloat(
       id<UISheetPresentationControllerDetentResolutionContext> context) {
-    return [weakSelf preferredHeightForContent];
+    return [weakSelf preferredHeightForSheetContent];
   };
   UISheetPresentationControllerDetent* customDetent =
       [UISheetPresentationControllerDetent
           customDetentWithIdentifier:kCustomMinimizedDetentIdentifier
-                            resolver:preferredHeightForContent];
+                            resolver:preferredHeightForSheetContent];
   presentationController.detents = @[ customDetent ];
   presentationController.selectedDetentIdentifier =
       kCustomMinimizedDetentIdentifier;
@@ -376,14 +453,11 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 }
 
 // Returns preferred height according to the container view width.
-- (CGFloat)preferredHeightForContent {
+- (CGFloat)preferredHeightForSheetContent {
   // Get the size of the container view which is the maximum available size.
-  UIView* containerView = self.sheetPresentationController.containerView;
-  CGSize fittingSize = containerView.bounds.size;
-  CGFloat height =
-      [self.tableView systemLayoutSizeFittingSize:fittingSize].height;
+  CGFloat height = self.tableView.contentSize.height;
   // Add the navigation bar.
-  height += self.navigationController.navigationBar.frame.size.height;
+  height += [self navigationBarHeight];
   return height;
 }
 
@@ -399,6 +473,7 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
     base::RecordAction(
         base::UserMetricsAction("Signin_AccountMenu_SelectAccount"));
     CGRect cellRect = [tableView rectForRowAtIndexPath:indexPath];
+    _selectedIndexPath = indexPath;
     [self.mutator accountTappedWithGaiaID:gaiaID targetRect:cellRect];
   } else {
     // Otherwise `itemIdentifier` is a `RowIdentifier`.
@@ -424,8 +499,8 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
         [self.mutator signOutFromTargetRect:cellRect];
         break;
     }
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
   }
-  [tableView deselectRowAtIndexPath:indexPath animated:YES];
 }
 
 - (CGFloat)tableView:(UITableView*)tableView
@@ -437,9 +512,9 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
     heightForFooterInSection:(NSInteger)section {
   if (section == [self.tableView numberOfSections] - 1) {
     //  No footer space for last section.
-    return 0;
+    return kSideMargins;
   }
-  return 16;
+  return kFooterHeight;
 }
 
 - (UIView*)tableView:(UITableView*)tableView
@@ -454,19 +529,45 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 
 #pragma mark - AccountMenuConsumer
 
+- (void)switchingStarted {
+  CHECK(_selectedIndexPath, base::NotFatalUntil::M135);
+  TableViewAccountCell* cell =
+      base::apple::ObjCCastStrict<TableViewAccountCell>(
+          [self.tableView cellForRowAtIndexPath:_selectedIndexPath]);
+  [self setActivityIndicator:cell];
+  self.modalInPresentation = YES;
+  _ellipsisButton.enabled = NO;
+}
+
+- (void)switchingStopped {
+  if (!_selectedIndexPath) {
+    return;
+  }
+  TableViewAccountCell* cell =
+      base::apple::ObjCCastStrict<TableViewAccountCell>(
+          [self.tableView cellForRowAtIndexPath:_selectedIndexPath]);
+  cell.accessoryView = nil;
+  _selectedIndexPath = nil;
+  self.modalInPresentation = NO;
+  _ellipsisButton.enabled = YES;
+}
+
 - (void)updatePrimaryAccount {
-  CentralAccountView* identityAccountItem = [[CentralAccountView alloc]
+  _identityAccountView = [[CentralAccountView alloc]
         initWithFrame:CGRectMake(0, 0, self.tableView.frame.size.width, 0)
           avatarImage:self.dataSource.primaryAccountAvatar
                  name:self.dataSource.primaryAccountUserFullName
                 email:self.dataSource.primaryAccountEmail
       managementState:self.dataSource.managementState
       useLargeMargins:NO];
-  self.tableView.tableHeaderView = identityAccountItem;
+  [_identityAccountView updateTopPadding:[self navigationBarHeight]];
+  self.tableView.tableHeaderView = _identityAccountView;
   [self.tableView reloadData];
+  [self resize];
 }
 
 - (void)updateErrorSection:(AccountErrorUIInfo*)error {
+  CHECK(!_selectedIndexPath, base::NotFatalUntil::M135);
   NSDiffableDataSourceSnapshot* snapshot = _accountMenuDataSource.snapshot;
   if (error == nil) {
     // The error disappeared.
@@ -488,10 +589,13 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
     // The error changed. No need to change the sections, only their content.
   }
   [_accountMenuDataSource applySnapshot:snapshot animatingDifferences:YES];
+  [self resize];
 }
 
 - (void)updateAccountListWithGaiaIDsToAdd:(NSArray<NSString*>*)indicesToAdd
                           gaiaIDsToRemove:(NSArray<NSString*>*)gaiaIDsToRemove {
+  CHECK(!_selectedIndexPath, base::NotFatalUntil::M135);
+  [self.tableView deselectRowAtIndexPath:_selectedIndexPath animated:YES];
   NSDiffableDataSourceSnapshot* snapshot = _accountMenuDataSource.snapshot;
 
   NSMutableArray* accountsIdentifiersToAdd = [[NSMutableArray alloc] init];
@@ -507,6 +611,9 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   }
   [snapshot deleteItemsWithIdentifiers:accountsIdentifiersToRemove];
   [_accountMenuDataSource applySnapshot:snapshot animatingDifferences:YES];
+
+  [self.tableView reloadData];
+  [self resize];
 }
 
 #pragma mark - UIResponder

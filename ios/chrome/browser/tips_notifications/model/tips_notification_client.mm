@@ -13,11 +13,13 @@
 #import "components/prefs/pref_registry_simple.h"
 #import "components/prefs/pref_service.h"
 #import "components/safe_browsing/core/common/safe_browsing_prefs.h"
+#import "components/search/search.h"
 #import "ios/chrome/browser/default_browser/model/promo_source.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/ntp/model/set_up_list_prefs.h"
 #import "ios/chrome/browser/push_notification/model/constants.h"
+#import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
@@ -41,6 +43,7 @@
 #import "ios/chrome/browser/ui/authentication/signin_presenter.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_commands.h"
 #import "ios/chrome/browser/ui/content_suggestions/set_up_list/utils.h"
+#import "ios/chrome/browser/ui/lens/lens_availability.h"
 #import "ios/public/provider/chrome/browser/lens/lens_api.h"
 #import "ui/base/device_form_factor.h"
 
@@ -97,8 +100,7 @@ bool DefaultBrowserPromoCanceled() {
 // given `feature`.
 bool FETHasEverTriggered(Browser* browser, const base::Feature& feature) {
   feature_engagement::Tracker* tracker =
-      feature_engagement::TrackerFactory::GetForBrowserState(
-          browser->GetBrowserState());
+      feature_engagement::TrackerFactory::GetForProfile(browser->GetProfile());
   return tracker->HasEverTriggered(feature, true);
 }
 
@@ -373,9 +375,9 @@ bool TipsNotificationClient::ShouldSendSignin() {
   if (!browser) {
     return false;
   }
-  ChromeBrowserState* browser_state = browser->GetBrowserState();
+  ProfileIOS* profile = browser->GetProfile();
   AuthenticationService* auth_service =
-      AuthenticationServiceFactory::GetForBrowserState(browser_state);
+      AuthenticationServiceFactory::GetForProfile(profile);
 
   return IsSigninEnabled(auth_service) &&
          !auth_service->HasPrimaryIdentity(signin::ConsentLevel::kSignin);
@@ -387,7 +389,7 @@ bool TipsNotificationClient::ShouldSendSetUpListContinuation() {
     return false;
   }
   PrefService* local_prefs = GetApplicationContext()->GetLocalState();
-  PrefService* user_prefs = browser->GetBrowserState()->GetPrefs();
+  PrefService* user_prefs = browser->GetProfile()->GetPrefs();
   if (!set_up_list_utils::IsSetUpListActive(local_prefs, user_prefs)) {
     return false;
   }
@@ -427,8 +429,19 @@ bool TipsNotificationClient::ShouldSendOmniboxPosition() {
 
 bool TipsNotificationClient::ShouldSendLens() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  // Early return if Lens is not available.
-  if (!ios::provider::IsLensSupported()) {
+  // Early return if Lens is not available or disabled by policy.
+  Browser* browser = GetSceneLevelForegroundActiveBrowser();
+  if (!browser) {
+    return false;
+  }
+  TemplateURLService* template_url_service =
+      ios::TemplateURLServiceFactory::GetForProfile(browser->GetProfile());
+  bool default_search_is_google =
+      search::DefaultSearchProviderIsGoogle(template_url_service);
+  const bool lens_enabled =
+      lens_availability::CheckAndLogAvailabilityForLensEntryPoint(
+          LensEntrypoint::NewTabPage, default_search_is_google);
+  if (!lens_enabled) {
     return false;
   }
 
@@ -443,8 +456,9 @@ bool TipsNotificationClient::ShouldSendEnhancedSafeBrowsing() {
   if (!browser) {
     return false;
   }
-  PrefService* user_prefs = browser->GetBrowserState()->GetPrefs();
-  return !safe_browsing::IsEnhancedProtectionEnabled(*user_prefs);
+  PrefService* user_prefs = browser->GetProfile()->GetPrefs();
+  return user_prefs->GetBoolean(prefs::kAdvancedProtectionAllowed) &&
+         !safe_browsing::IsEnhancedProtectionEnabled(*user_prefs);
 }
 
 bool TipsNotificationClient::IsSceneLevelForegroundActive() {
@@ -506,9 +520,9 @@ void TipsNotificationClient::ShowWhatsNew(Browser* browser) {
 void TipsNotificationClient::ShowSignin(Browser* browser) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // If there are 0 identities, kInstantSignin requires less taps.
-  ChromeBrowserState* browser_state = browser->GetBrowserState();
+  ProfileIOS* profile = browser->GetProfile();
   AuthenticationOperation operation =
-      ChromeAccountManagerServiceFactory::GetForBrowserState(browser_state)
+      ChromeAccountManagerServiceFactory::GetForProfile(profile)
               ->HasIdentities()
           ? AuthenticationOperation::kSigninOnly
           : AuthenticationOperation::kInstantSignin;
@@ -528,7 +542,8 @@ void TipsNotificationClient::ShowSignin(Browser* browser) {
 void TipsNotificationClient::ShowSetUpListContinuation(Browser* browser) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   [HandlerForProtocol(browser->GetCommandDispatcher(),
-                      ContentSuggestionsCommands) showSetUpListSeeMoreMenu];
+                      ContentSuggestionsCommands)
+      showSetUpListSeeMoreMenuExpanded:YES];
 }
 
 void TipsNotificationClient::ShowDocking(Browser* browser) {

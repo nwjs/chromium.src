@@ -31,10 +31,13 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.Criteria;
+import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.Matchers;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -66,8 +69,8 @@ import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.KeyboardVisibilityDelegate;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.ViewUtils;
-import org.chromium.ui.test.util.UiRestriction;
 import org.chromium.url.GURL;
 
 import java.util.concurrent.ExecutionException;
@@ -80,7 +83,7 @@ import java.util.concurrent.TimeoutException;
  */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add(ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE)
-@Restriction(UiRestriction.RESTRICTION_TYPE_PHONE) // TODO(mdjones): Remove this (crbug.com/837838).
+@Restriction(DeviceFormFactor.PHONE) // TODO(mdjones): Remove this (crbug.com/837838).
 @Batch(Batch.PER_CLASS)
 public class BottomSheetControllerTest {
     @ClassRule
@@ -210,11 +213,49 @@ public class BottomSheetControllerTest {
         requestContentInSheet(mLowPriorityContent, true);
         float transYWithBottomInset = bottomSheet.getTranslationY();
 
+        int bottomInsets = ViewUtils.dpToPx(mActivity, mEdgeToEdgeController.bottomInset);
         Assert.assertEquals(
                 "The translate is not adjusted for the extra content when it is expanded to edge.",
                 transYWithoutBottomInset,
-                transYWithBottomInset + ViewUtils.dpToPx(mActivity, 100),
+                transYWithBottomInset + bottomInsets,
                 MathUtils.EPSILON);
+
+        CriteriaHelper.pollUiThread(
+                () ->
+                        Criteria.checkThat(
+                                "Padding for the sheet should match the bottom insets.",
+                                bottomSheet
+                                        .findViewById(R.id.bottom_sheet_content)
+                                        .getPaddingBottom(),
+                                Matchers.equalTo(bottomInsets)));
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"BottomSheetController"})
+    public void testShowWithBottomInset_LargeBottomInsets() {
+        mEdgeToEdgeController.bottomInset = 2000;
+
+        requestContentInSheet(mNonPeekableContent, true);
+        View bottomSheet = mActivity.findViewById(R.id.bottom_sheet);
+        float transYWithBottomInset = bottomSheet.getTranslationY();
+
+        CriteriaHelper.pollUiThread(
+                () ->
+                        Criteria.checkThat(
+                                "The transition should be non-negative.",
+                                transYWithBottomInset,
+                                Matchers.greaterThanOrEqualTo(0.f)));
+
+        int bottomInsets = ViewUtils.dpToPx(mActivity, mEdgeToEdgeController.bottomInset);
+        CriteriaHelper.pollUiThread(
+                () ->
+                        Criteria.checkThat(
+                                "Padding for the sheet should match the bottom insets.",
+                                bottomSheet
+                                        .findViewById(R.id.bottom_sheet_content)
+                                        .getPaddingBottom(),
+                                Matchers.equalTo(bottomInsets)));
     }
 
     @Test
@@ -1193,7 +1234,7 @@ public class BottomSheetControllerTest {
                 .get();
     }
 
-    private class TestEdgeToEdgeController implements EdgeToEdgeController {
+    private static class TestEdgeToEdgeController implements EdgeToEdgeController {
         public int bottomInset;
 
         @Override
@@ -1206,6 +1247,11 @@ public class BottomSheetControllerTest {
 
         @Override
         public int getBottomInsetPx() {
+            return bottomInset;
+        }
+
+        @Override
+        public int getSystemBottomInsetPx() {
             return bottomInset;
         }
 

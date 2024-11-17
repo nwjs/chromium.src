@@ -144,8 +144,13 @@ BASE_DECLARE_FEATURE(kCPUMeasurementInFreezingPolicy);
 
 // Proportion of background CPU usage for a group of frames/workers that belong
 // to the same [browsing instance, origin] that is considered "high".
-extern const base::FeatureParam<double>
-    kFreezingOnBatterySaverHighCPUProportion;
+BASE_DECLARE_FEATURE_PARAM(double, kFreezingHighCPUProportion);
+
+// Time for which a page cannot be frozen after being visible.
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kFreezingVisibleProtectionTime);
+
+// Time for which a page cannot be frozen after being audible.
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kFreezingAudioProtectionTime);
 
 // When enabled, browsing instances with high CPU usage in background are frozen
 // when Battery Saver is active. Depends on kCPUMeasurementInFreezingPolicy.
@@ -163,6 +168,14 @@ BASE_DECLARE_FEATURE(kResourceAttributionIncludeOrigins);
 
 // When enabled, change the ordering of frame swap in render (crbug/357649043).
 BASE_DECLARE_FEATURE(kSeamlessRenderFrameSwap);
+
+// When enabled, visible unimportant frames receives a lesser priority than
+// non unimportant frames.
+BASE_DECLARE_FEATURE(kUnimportantFramesPriority);
+
+// When enabled, PerformanceManager will update
+// blink::performance_scenarios::LoadingScenario.
+BASE_DECLARE_FEATURE(kLoadingPerformanceScenario);
 
 }  // namespace performance_manager::features
 

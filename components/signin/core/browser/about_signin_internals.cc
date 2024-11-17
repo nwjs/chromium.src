@@ -262,7 +262,7 @@ AboutSigninInternals::AboutSigninInternals(
   account_reconcilor_observeration_.Observe(account_reconcilor_);
 }
 
-AboutSigninInternals::~AboutSigninInternals() {}
+AboutSigninInternals::~AboutSigninInternals() = default;
 
 signin_internals_util::UntimedSigninStatusField& operator++(
     signin_internals_util::UntimedSigninStatusField& field) {
@@ -532,13 +532,14 @@ void AboutSigninInternals::OnAccountsInCookieUpdated(
 
   base::Value::List cookie_info;
   for (const auto& signed_in_account :
-       accounts_in_cookie_jar_info.signed_in_accounts) {
+       accounts_in_cookie_jar_info.GetPotentiallyInvalidSignedInAccounts()) {
     AddCookieEntry(cookie_info, signed_in_account.raw_email,
                    signed_in_account.gaia_id,
                    signed_in_account.valid ? "Valid" : "Invalid");
   }
 
-  if (accounts_in_cookie_jar_info.signed_in_accounts.size() == 0) {
+  if (accounts_in_cookie_jar_info.GetPotentiallyInvalidSignedInAccounts()
+          .size() == 0) {
     AddCookieEntry(cookie_info, "No Accounts Present.", std::string(),
                    std::string());
   }

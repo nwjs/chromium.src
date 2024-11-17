@@ -11,10 +11,11 @@
 #include "ash/system/mahi/mahi_ui_controller.h"
 #include "base/memory/raw_ptr.h"
 #include "base/unguessable_token.h"
-#include "chrome/browser/ash/mahi/mahi_browser_delegate_ash.h"
 #include "chrome/browser/ash/mahi/mahi_cache_manager.h"
 #include "chromeos/components/magic_boost/public/cpp/magic_boost_state.h"
 #include "chromeos/components/mahi/public/cpp/mahi_manager.h"
+#include "chromeos/components/mahi/public/cpp/mahi_web_contents_manager.h"
+#include "chromeos/crosapi/mojom/mahi.mojom-forward.h"
 #include "chromeos/crosapi/mojom/mahi.mojom.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/history/core/browser/history_service_observer.h"
@@ -45,6 +46,7 @@ class MahiManagerImpl : public chromeos::MahiManager,
   std::u16string GetContentTitle() override;
   gfx::ImageSkia GetContentIcon() override;
   GURL GetContentUrl() override;
+  void GetContent(MahiContentCallback callback) override;
   void GetSummary(MahiSummaryCallback callback) override;
   void GetOutlines(MahiOutlinesCallback callback) override;
   void GoToOutlineContent(int outline_id) override;
@@ -101,6 +103,10 @@ class MahiManagerImpl : public chromeos::MahiManager,
 
   void MaybeObserveHistoryService();
 
+  void OnGetPageContent(crosapi::mojom::MahiPageInfoPtr request_page_info,
+                        MahiContentCallback callback,
+                        crosapi::mojom::MahiPageContentPtr mahi_content_ptr);
+
   void OnGetPageContentForSummary(
       crosapi::mojom::MahiPageInfoPtr request_page_info,
       MahiSummaryCallback callback,
@@ -125,6 +131,9 @@ class MahiManagerImpl : public chromeos::MahiManager,
       base::Value::Dict dict,
       manta::MantaStatus status);
 
+  void CacheCurrentPanelContent(crosapi::mojom::MahiPageInfo request_page_info,
+                                crosapi::mojom::MahiPageContent mahi_content);
+
   base::ScopedObservation<chromeos::MagicBoostState,
                           chromeos::MagicBoostState::Observer>
       magic_boost_state_observation_{this};
@@ -147,12 +156,12 @@ class MahiManagerImpl : public chromeos::MahiManager,
 
   std::unique_ptr<manta::MahiProvider> mahi_provider_;
 
-  raw_ptr<MahiBrowserDelegateAsh> mahi_browser_delegate_ash_ = nullptr;
+  raw_ptr<chromeos::MahiWebContentsManager> mahi_web_contents_manager_ =
+      nullptr;
 
   // Keeps track of the latest result and code, used for feedback.
   std::u16string latest_summary_;
   chromeos::MahiResponseStatus latest_response_status_;
-
   MahiUiController ui_controller_;
 
   std::unique_ptr<MahiCacheManager> cache_manager_;
@@ -179,20 +188,6 @@ class MahiManagerImpl : public chromeos::MahiManager,
       this};
 
   base::WeakPtrFactory<MahiManagerImpl> weak_ptr_factory_for_requests_{this};
-};
-
-// ScopedMahiBrowserDelegateOverrider ------------------------------------------
-
-// A helper class to override the Mahi browser delegate during its life cycle.
-// NOTE: This class should have at most one instance.
-class ScopedMahiBrowserDelegateOverrider {
- public:
-  explicit ScopedMahiBrowserDelegateOverrider(MahiBrowserDelegateAsh* delegate);
-  ScopedMahiBrowserDelegateOverrider(
-      const ScopedMahiBrowserDelegateOverrider&) = delete;
-  ScopedMahiBrowserDelegateOverrider& operator=(
-      const ScopedMahiBrowserDelegateOverrider&) = delete;
-  ~ScopedMahiBrowserDelegateOverrider();
 };
 
 }  // namespace ash

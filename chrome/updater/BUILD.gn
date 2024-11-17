@@ -6,6 +6,7 @@ import("//build/config/chrome_build.gni")
 import("//build/config/python.gni")
 import("//build/config/sanitizers/sanitizers.gni")
 import("//build/util/process_version.gni")
+import("//chrome/enterprise_companion/buildflags.gni")
 import("//chrome/updater/branding.gni")
 import("//chrome/updater/zip.gni")
 import("//components/crx_file/crx3.gni")
@@ -192,6 +193,12 @@ if (is_win || is_mac || is_linux) {
       ":external_constants",
     ]
 
+    defines = []
+
+    if (include_enterprise_companion_in_installer) {
+      defines += [ "INCLUDE_ENTERPRISE_COMPANION_IN_INSTALLER" ]
+    }
+
     if (is_mac) {
       sources += [
         "activity_impl_util_mac.cc",
@@ -247,12 +254,12 @@ if (is_win || is_mac || is_linux) {
         "app/server/win/com_classes.h",
         "app/server/win/com_classes_legacy.cc",
         "app/server/win/com_classes_legacy.h",
-        "app/server/win/service_main.cc",
-        "app/server/win/service_main.h",
         "app/server/win/update_service_internal_stub_win.cc",
         "app/server/win/update_service_internal_stub_win.h",
         "app/server/win/update_service_stub_win.cc",
         "app/server/win/update_service_stub_win.h",
+        "app/server/win/updater_service_delegate.cc",
+        "app/server/win/updater_service_delegate.h",
         "app/server/win/wrl_classes.cc",
         "change_owners_task_win.cc",
         "ipc/update_service_internal_proxy_win.cc",
@@ -319,6 +326,8 @@ if (is_win || is_mac || is_linux) {
         "//chrome/updater/app/server/win:updater_legacy_idl_user",
         "//chrome/updater/win/ui/resources",
         "//chrome/updater/win/ui/resources:strings",
+        "//chrome/windows_services/service_program:delegate",
+        "//chrome/windows_services/service_program:lib",
         "//components/winhttp",
         "//third_party/wtl",
       ]
@@ -329,7 +338,7 @@ if (is_win || is_mac || is_linux) {
         "//chrome/updater/win:wrl_strict",
       ]
 
-      defines = [ "SECURITY_WIN32" ]
+      defines += [ "SECURITY_WIN32" ]
 
       libs = [
         "msxml2.lib",
@@ -610,7 +619,10 @@ if (is_win || is_mac || is_linux) {
         "win/win_constants.h",
       ]
 
-      deps += [ "//chrome/updater/app/server/win:updater_idl" ]
+      deps += [
+        "//chrome/updater/app/server/win:updater_idl",
+        "//chrome/windows_services/service_program:common",
+      ]
 
       configs -= [ "//build/config/win:winver" ]
       configs += [
@@ -709,6 +721,12 @@ if (is_win || is_mac || is_linux) {
       if (is_win) {
         inputs = [ "$root_build_dir/UpdaterSetup_test.exe" ]
         deps = [ "//chrome/updater/win/installer:installer_test" ]
+
+        if (is_asan) {
+          # TODO(crbug.com/367746304): Get the inputs from //build/win:runtime.
+          deps += [ "//build/config/sanitizers:copy_sanitizer_runtime" ]
+          inputs += [ "$root_build_dir/clang_rt.asan_dynamic-x86_64.dll" ]
+        }
 
         if (is_component_build) {
           inputs += [
@@ -862,6 +880,12 @@ if (is_win || is_mac || is_linux) {
       "//chrome/updater/test/test_installer:app_installers",
     ]
 
+    defines = []
+
+    if (include_enterprise_companion_in_installer) {
+      defines += [ "INCLUDE_ENTERPRISE_COMPANION_IN_INSTALLER" ]
+    }
+
     if (is_win) {
       sources += [
         "activity_impl_win_unittest.cc",
@@ -950,7 +974,7 @@ if (is_win || is_mac || is_linux) {
         ]
       }
 
-      defines = [ "SECURITY_WIN32" ]
+      defines += [ "SECURITY_WIN32" ]
 
       libs = [
         "secur32.lib",

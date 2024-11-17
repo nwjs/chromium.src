@@ -216,6 +216,20 @@ export class ViewerToolbarElement extends CrLitElement {
                                                          ':fit-to-width');
   }
 
+  // TODO(crbug.com/360265881): Remove conditional icons after the UI refresh
+  // fully launches.
+  protected menuIcon_(): string {
+    return this.pdfCr23Enabled ? 'pdf-cr23:menu' : 'cr20:menu';
+  }
+
+  protected moreIcon_(): string {
+    return this.pdfCr23Enabled ? 'pdf-cr23:more' : 'cr:more-vert';
+  }
+
+  protected printIcon_(): string {
+    return this.pdfCr23Enabled ? 'pdf-cr23:print' : 'cr:print';
+  }
+
   /** @return The appropriate tooltip for the current state. */
   protected getFitToButtonTooltip_(
       fitToPageTooltip: string, fitToWidthTooltip: string): string {

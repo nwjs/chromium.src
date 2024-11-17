@@ -59,14 +59,13 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/keyboard/ui/grit/keyboard_resources.h"
 #include "base/system/sys_info.h"
 #include "chrome/browser/ash/crosapi/browser_util.h"
-#include "chrome/browser/ash/file_manager/app_id.h"
 #include "components/user_manager/user_manager.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/storage_partition.h"
@@ -103,7 +102,7 @@ BASE_FEATURE(kHangoutsExtensionV3,
 
 bool g_enable_background_extensions_during_testing = false;
 
-#if BUILDFLAG(IS_CHROMEOS_ASH) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#if BUILDFLAG(IS_CHROMEOS) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 // Whether HelpApp is enabled.
 bool g_enable_help_app = true;
 #endif
@@ -149,14 +148,14 @@ std::optional<base::Value::Dict> LoadManifestOnFileThread(
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 bool IsNormalSession() {
   return !base::CommandLine::ForCurrentProcess()->HasSwitch(
              ash::switches::kGuestSession) &&
          user_manager::UserManager::IsInitialized() &&
          user_manager::UserManager::Get()->IsUserLoggedIn();
 }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 }  // namespace
 
@@ -226,7 +225,7 @@ std::optional<base::Value::Dict> ComponentLoader::ParseManifest(
       deserializer.Deserialize(nullptr, nullptr);
 
   if (!manifest.get() || !manifest->is_dict()) {
-    LOG(ERROR) << "Failed to parse extension manifest.";
+    LOG(ERROR) << "Failed to parse extension manifest: " << manifest_contents;
     return std::nullopt;
   }
 
@@ -240,8 +239,8 @@ ExtensionId ComponentLoader::Add(int manifest_resource_id,
     return std::string();
   }
 
-  std::string_view manifest_contents =
-      ui::ResourceBundle::GetSharedInstance().GetRawDataResource(
+  std::string manifest_contents =
+      ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(
           manifest_resource_id);
   return Add(manifest_contents, root_directory, true);
 }
@@ -349,8 +348,7 @@ std::string ComponentLoader::GetExtensionID(
 					    int manifest_resource_id,
 					    const base::FilePath& root_directory) {
   std::optional<base::Value::Dict> manifest =
-    ParseManifest(ui::ResourceBundle::GetSharedInstance().GetRawDataResource(
-									     manifest_resource_id));
+    ParseManifest(ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(manifest_resource_id));
   if (!manifest)
     return std::string();
 
@@ -403,8 +401,8 @@ void ComponentLoader::AddWithNameAndDescription(
     return;
   }
 
-  std::string_view manifest_contents =
-      ui::ResourceBundle::GetSharedInstance().GetRawDataResource(
+  std::string manifest_contents =
+      ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(
           manifest_resource_id);
 
   // The Value is kept for the lifetime of the ComponentLoader. This is
@@ -419,7 +417,7 @@ void ComponentLoader::AddWithNameAndDescription(
 }
 
 void ComponentLoader::AddWebStoreApp() {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   if (!IsNormalSession()) {
     return;
   }
@@ -431,7 +429,7 @@ void ComponentLoader::AddWebStoreApp() {
       l10n_util::GetStringUTF8(IDS_WEBSTORE_APP_DESCRIPTION));
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 void ComponentLoader::AddChromeApp() {
   AddWithNameAndDescription(
       IDR_CHROME_APP_MANIFEST, base::FilePath(FILE_PATH_LITERAL("chrome_app")),
@@ -458,7 +456,7 @@ void ComponentLoader::AddKeyboardApp() {
   Add(IDR_KEYBOARD_MANIFEST, base::FilePath(FILE_PATH_LITERAL("keyboard")));
 }
 
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 scoped_refptr<const Extension> ComponentLoader::CreateExtension(
     const ComponentExtensionInfo& info,
@@ -476,7 +474,7 @@ void ComponentLoader::EnableBackgroundExtensionsForTesting() {
   g_enable_background_extensions_during_testing = true;
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#if BUILDFLAG(IS_CHROMEOS) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 // static
 void ComponentLoader::DisableHelpAppForTesting() {
   g_enable_help_app = false;
@@ -488,7 +486,7 @@ void ComponentLoader::AddDefaultComponentExtensions(
 #if 0
   // Do not add component extensions that have background pages here -- add them
   // to AddDefaultComponentExtensionsWithBackgroundPages.
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   if (g_enable_help_app) {
@@ -498,18 +496,22 @@ void ComponentLoader::AddDefaultComponentExtensions(
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
   AddKeyboardApp();
-#else   // BUILDFLAG(IS_CHROMEOS_ASH)
+#else   // BUILDFLAG(IS_CHROMEOS)
   DCHECK(!skip_session_components);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   if (!skip_session_components) {
     AddWebStoreApp();
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     if (crosapi::browser_util::IsAshWebBrowserEnabled() ||
         ash::switches::IsAshDebugBrowserEnabled()) {
       AddChromeApp();
     }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(ENABLE_PDF)
+    Add(pdf_extension_util::GetManifest(),
+        base::FilePath(FILE_PATH_LITERAL("pdf")));
+#endif  // BUILDFLAG(ENABLE_PDF)
   }
 
 #endif
@@ -533,13 +535,13 @@ void ComponentLoader::AddDefaultComponentExtensions(
   std::string manifest_contents;
   std::string default_path("nwjs_default_app");
   if (base::FeatureList::IsEnabled(::features::kNWNewWin)) {
-    manifest_contents = 
-      std::string(ui::ResourceBundle::GetSharedInstance().GetRawDataResource(IDR_NWJS_DEFAPP_MANIFEST_NEWWIN));
+    manifest_contents =
+      std::string(ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(IDR_NWJS_DEFAPP_MANIFEST_NEWWIN));
     default_path = "nwjs_newwin_app";
   }
   else
     manifest_contents =
-      std::string(ui::ResourceBundle::GetSharedInstance().GetRawDataResource(IDR_NWJS_DEFAPP_MANIFEST));
+      std::string(ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(IDR_NWJS_DEFAPP_MANIFEST));
   std::optional<base::Value::Dict> manifest
     = ParseManifest(manifest_contents);
   if (manifest) {
@@ -565,10 +567,10 @@ void ComponentLoader::AddDefaultComponentExtensionsForKioskMode(
     return;
   }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   // Add virtual keyboard.
   AddKeyboardApp();
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   AddDefaultComponentExtensionsWithBackgroundPagesForKioskMode();
 
@@ -624,7 +626,7 @@ void ComponentLoader::AddDefaultComponentExtensionsWithBackgroundPages(
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     if (command_line->HasSwitch(switches::kLoadGuestModeTestExtension)) {
       base::FilePath path = base::FilePath(command_line->GetSwitchValueASCII(
           switches::kLoadGuestModeTestExtension));
@@ -642,15 +644,13 @@ void ComponentLoader::AddDefaultComponentExtensionsWithBackgroundPages(
 
     Add(IDR_ARC_SUPPORT_MANIFEST,
         base::FilePath(FILE_PATH_LITERAL("chromeos/arc_support")));
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
   }
 
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-#if !BUILDFLAG(IS_CHROMEOS_ASH)  // http://crbug.com/314799
+// http://crbug.com/314799
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING) && !BUILDFLAG(IS_CHROMEOS)
   AddNetworkSpeechSynthesisExtension();
-#endif
-
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING) && !BUILDFLAG(IS_CHROMEOS)
 
 #endif //nwjs
 }
@@ -689,12 +689,10 @@ void ComponentLoader::AddComponentFromDirWithManifestFilename(
     const base::FilePath::CharType* guest_manifest_file_name,
     base::OnceClosure done_cb) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+
   const base::FilePath::CharType* manifest_filename =
       IsNormalSession() ? manifest_file_name : guest_manifest_file_name;
-#else
-  const base::FilePath::CharType* manifest_filename = manifest_file_name;
-#endif
+
   GetExtensionFileTaskRunner()->PostTaskAndReplyWithResult(
       FROM_HERE,
       base::BindOnce(&LoadManifestOnFileThread, root_directory,
@@ -731,9 +729,7 @@ void ComponentLoader::FinishAddComponentFromDir(
     std::move(done_cb).Run();
   }
 }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
 void ComponentLoader::AddComponentFromDir(const base::FilePath& root_directory,
                                           const ExtensionId& extension_id,
                                           base::OnceClosure done_cb) {
@@ -786,6 +782,6 @@ void ComponentLoader::FinishLoadSpeechSynthesisExtension(
   extensions::ProcessManager::Get(profile_)->WakeEventPage(extension_id,
                                                            base::DoNothing());
 }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 }  // namespace extensions

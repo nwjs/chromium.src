@@ -713,7 +713,7 @@ void RenderWidgetHostImpl::RendererWidgetCreated(bool for_frame_widget) {
   mojo::PendingRemote<blink::mojom::RenderInputRouterClient> browser_remote;
   mojo::PendingReceiver<blink::mojom::RenderInputRouterClient> viz_receiver =
       mojo::NullReceiver();
-  if (input::TransferInputToViz()) {
+  if (input::IsTransferInputToVizSupported()) {
     mojo::PendingRemote<blink::mojom::RenderInputRouterClient> viz_remote;
     viz_receiver = viz_remote.InitWithNewPipeAndPassReceiver();
     viz_rir_client_remote_ = std::move(viz_remote);
@@ -791,8 +791,12 @@ void RenderWidgetHostImpl::WasHidden() {
     return;
   }
 
-  RejectPointerLockOrUnlockIfNecessary(
-      blink::mojom::PointerLockResult::kWrongDocument);
+  // Cancel pending pointer lock requests, unless there's an open user prompt.
+  // Prompts should remain open and functional across tab switches.
+  if (!delegate_->IsWaitingForPointerLockPrompt(this)) {
+    RejectPointerLockOrUnlockIfNecessary(
+        blink::mojom::PointerLockResult::kWrongDocument);
+  }
 
   TRACE_EVENT0("renderer_host", "RenderWidgetHostImpl::WasHidden");
   is_hidden_ = true;
@@ -2367,14 +2371,26 @@ void RenderWidgetHostImpl::OnInputEventAckTimeout() {
   // Since input has timed out, let the BrowserUiThreadScheduler know we are
   // done with input currently.
   user_input_active_handle_.reset();
-  RendererIsUnresponsive(base::BindRepeating(
-      &RenderWidgetHostImpl::RestartInputEventAckTimeoutIfNecessary,
-      weak_factory_.GetWeakPtr()));
+  RendererIsUnresponsive(
+      RendererIsUnresponsiveReason::kOnInputEventAckTimeout,
+      base::BindRepeating(
+          &RenderWidgetHostImpl::RestartInputEventAckTimeoutIfNecessary,
+          weak_factory_.GetWeakPtr()));
 }
 
 void RenderWidgetHostImpl::RendererIsUnresponsive(
+    RendererIsUnresponsiveReason reason,
     base::RepeatingClosure restart_hang_monitor_timeout) {
   is_unresponsive_ = true;
+
+  base::UmaHistogramEnumeration("Renderer.Unresponsive.Reason", reason);
+  if (is_hidden()) {
+    base::UmaHistogramEnumeration("Renderer.Unresponsive.Reason.NotVisible",
+                                  reason);
+  } else {
+    base::UmaHistogramEnumeration("Renderer.Unresponsive.Reason.Visible",
+                                  reason);
+  }
 
   if (delegate_) {
     delegate_->RendererUnresponsive(this,
@@ -3541,12 +3557,14 @@ void RenderWidgetHostImpl::CreateFrameSink(
          mojo::PendingRemote<viz::mojom::CompositorFrameSinkClient> client,
          std::optional<mojo::PendingRemote<
              blink::mojom::RenderInputRouterClient>> viz_rir_client_remote,
-         const viz::FrameSinkId& frame_sink_id) {
+         uint32_t grouping_id, const viz::FrameSinkId& frame_sink_id) {
         input::mojom::RenderInputRouterConfigPtr config;
-        if (input::TransferInputToViz()) {
+        if (input::IsTransferInputToVizSupported()) {
           DCHECK(viz_rir_client_remote.has_value());
+
           config = input::mojom::RenderInputRouterConfig::New();
           config->rir_client = std::move(viz_rir_client_remote.value());
+          config->grouping_id = grouping_id;
         }
         GetHostFrameSinkManager()->CreateCompositorFrameSink(
             frame_sink_id, std::move(receiver), std::move(client),
@@ -3572,7 +3590,9 @@ void RenderWidgetHostImpl::MaybeDispatchBufferedFrameSinkRequest() {
     compositor_metric_recorder_->DidRequestFrameSink();
   }
 
-  std::move(create_frame_sink_callback_).Run(view_->GetFrameSinkId());
+  std::move(create_frame_sink_callback_)
+      .Run(delegate_->GetCompositorFrameSinkGroupingId(),
+           view_->GetFrameSinkId());
 }
 
 void RenderWidgetHostImpl::RegisterRenderFrameMetadataObserver(

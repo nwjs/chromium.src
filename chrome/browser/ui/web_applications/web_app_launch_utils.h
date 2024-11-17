@@ -11,11 +11,16 @@
 #include <optional>
 #include <string>
 
+#include "base/functional/callback_helpers.h"
 #include "base/memory/stack_allocated.h"
+#include "base/memory/weak_ptr.h"
+#include "base/values.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/web_applications/navigation_capturing_navigation_handle_user_data.h"
 #include "chrome/browser/web_applications/web_app_ui_manager.h"
 #include "components/services/app_service/public/cpp/app_launch_util.h"
 #include "components/webapps/common/web_app_id.h"
+#include "content/public/browser/navigation_handle.h"
 #include "ui/gfx/geometry/rect.h"
 
 class Profile;
@@ -33,6 +38,18 @@ class WebContents;
 }
 
 namespace web_app {
+// This function moves `contents` from the `source_browser` to the
+// `target_browser`. In doing so, it attempts to ensure that any logic that
+// needs to occur when transitioning between 'app' and 'browser' windows occurs,
+// and the all session restore logic is correctly updated. `contents` is not
+// required to be the active web contents in `source_browser`.
+//
+// Note: This will CHECK-fail if `contents` is not in `source_browser`.
+void ReparentWebContentsIntoBrowserImpl(
+    Browser* source_browser,
+    content::WebContents* contents,
+    Browser* target_browser,
+    bool insert_as_pinned_first_tab = false);
 
 class AppBrowserController;
 class WithAppResources;
@@ -45,13 +62,25 @@ enum class LaunchedAppType {
   kMaxValue = kCrafted,
 };
 
-// Returns information useful for the browser to show UI affordances, provided a
-// web app handles the navigation.
+// Returns information useful for the browser to show UI affordances if a web
+// app handles the navigation.
 struct AppNavigationResult {
-  Browser* browser = nullptr;
-  int tab_index = -1;
-  bool enqueue_launch_params = false;
-  bool show_iph = false;
+  // The browser instance to perform navigation in, and the tab inside the
+  // browser if overridden by the web app system. If std::nullopt, performs the
+  // default navigation behavior in browser_navigator.cc.
+  std::optional<std::tuple<Browser*, int>> browser_tab_override;
+
+  // Set to true if web contents in navigation are found. This will perform
+  // tasks like enqueuing launch params and showing IPH bubble for
+  // navigation handling.
+  bool perform_app_handling_tasks_in_web_contents = false;
+
+  // Information necessary for handling redirection after a response is received
+  // as part of a navigation.
+  NavigationCapturingRedirectionInfo redirection_info;
+
+  // Debug information persisted to chrome://web-app-internals.
+  base::Value::Dict debug_value;
 
   STACK_ALLOCATED();
 };
@@ -67,16 +96,24 @@ void PrunePreScopeNavigationHistory(const GURL& scope,
 // app in scope.
 Browser* ReparentWebAppForActiveTab(Browser* browser);
 
-// Reparents |contents| into a standalone web app window for |app_id|.
+// Reparents `contents` into a standalone web app window for `app_id`.
 // - If the web app has a launch_handler set to reuse existing windows and there
 // are existing web app windows around this will launch the web app into the
-// existing window and close |contents|.
+// existing window and close `contents`.
 // - If the web app is in experimental tabbed mode and has and existing web app
-// window, |contents| will be reparented into the existing window.
-// - Otherwise a new browser window is created for |contents| to be reparented
+// window, `contents` will be reparented into the existing window.
+// - Otherwise a new browser window is created for `contents` to be reparented
 // into.
-Browser* ReparentWebContentsIntoAppBrowser(content::WebContents* contents,
-                                           const webapps::AppId& app_id);
+// Returns the browser instance where the reparenting has happened, nullptr
+// otherwise. Runs `completion_callback` with the existing `contents`, if it was
+// reparented, or with the new `web_contents` that was created if the behavior
+// deemed it necessary (like for focus existing and navigate-existing
+// use-cases).
+Browser* ReparentWebContentsIntoAppBrowser(
+    content::WebContents* contents,
+    const webapps::AppId& app_id,
+    base::OnceCallback<void(content::WebContents*)> completion_callback =
+        base::DoNothingAs<void(content::WebContents*)>());
 
 // Marks the web contents as being the pinned home tab of a tabbed web app.
 void SetWebContentsIsPinnedHomeTab(content::WebContents* contents);
@@ -131,16 +168,12 @@ void LaunchWebApp(apps::AppLaunchParams params,
                   WithAppResources& app_resources,
                   LaunchWebAppDebugValueCallback callback);
 
-// Returns whether the navigation should be handled by a web app. If so, returns
-// an optional AppNavigationResult with the details pertinent to how to handle
-// it. See https://wicg.github.io/web-app-launch/#launchqueue-interface. This
-// function may create a browser instance, an app window or a new tab as needed.
-//
-// A value of std::nullopt means that the web app system cannot handle the
-// navigation, and as such, would allow the "normal" workflow to identify a
-// browser to perform navigation in to proceed. See Navigate() for more
-// information.
-std::optional<AppNavigationResult> MaybeHandleAppNavigation(
+// Returns an AppNavigationResult with pertinent details on how to handle a
+// navigation if the web app system can do so. If not, the
+// `browser_tab_override` is set to be std::nullopt so that ::Navigate() inside
+// the browser_navigator code can pick this up. This function may create a
+// browser instance, an app window or a new tab as needed.
+AppNavigationResult MaybeHandleAppNavigation(
     const NavigateParams& navigate_params);
 
 // Will enqueue the given url in the launch params for this web contents. Does
@@ -150,12 +183,15 @@ void EnqueueLaunchParams(content::WebContents* contents,
                          const GURL& url,
                          bool wait_for_navigation_to_complete);
 
-// Handle navigation-related tasks for the app, like enqueuing launch params
-// and showing a navigation capturing IPH bubble, after the appropriate
-// app-scoped WebContents has been identified and prepared for navigation.
+// Handle navigation-related tasks for the app, like enqueuing launch params,
+// showing a navigation capturing IPH bubble and storing information necessary
+// for handling redirections in the current `WebContents` or `NavigationHandle`,
+// after the appropriate app-scoped `WebContents` has been identified and
+// prepared for navigation.
 void OnWebAppNavigationAfterWebContentsCreation(
-    const web_app::AppNavigationResult& app_navigation_result,
-    const NavigateParams& params);
+    web_app::AppNavigationResult app_navigation_result,
+    const NavigateParams& params,
+    base::WeakPtr<content::NavigationHandle> navigation_handle);
 
 }  // namespace web_app
 

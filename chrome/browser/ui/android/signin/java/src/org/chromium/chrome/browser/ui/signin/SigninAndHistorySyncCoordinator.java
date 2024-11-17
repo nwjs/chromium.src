@@ -14,6 +14,7 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.ColorInt;
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
@@ -31,6 +32,8 @@ import org.chromium.components.browser_ui.device_lock.DeviceLockActivityLauncher
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.widget.scrim.ScrimProperties;
 import org.chromium.components.signin.AccountManagerFacadeProvider;
+import org.chromium.components.signin.base.CoreAccountId;
+import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
@@ -45,10 +48,12 @@ import org.chromium.ui.modelutil.PropertyModel;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.List;
 
 /** Responsible of showing the correct sub-component of the sign-in and history opt-in flow. */
-public class SigninAndHistorySyncCoordinator implements SigninAccountPickerCoordinator.Delegate,
-                                                        HistorySyncCoordinator.HistorySyncDelegate {
+public class SigninAndHistorySyncCoordinator
+        implements SigninAccountPickerCoordinator.Delegate,
+                HistorySyncCoordinator.HistorySyncDelegate {
     private final WindowAndroid mWindowAndroid;
     private final ComponentActivity mActivity;
     private final ViewGroup mContainerView;
@@ -63,12 +68,14 @@ public class SigninAndHistorySyncCoordinator implements SigninAccountPickerCoord
     private final @NoAccountSigninMode int mNoAccountSigninMode;
     private final @WithAccountSigninMode int mWithAccountSigninMode;
     private final @HistoryOptInMode int mHistoryOptInMode;
+    private final @Nullable CoreAccountId mCoreAccountId;
 
     private SigninAccountPickerCoordinator mAccountPickerCoordinator;
     private HistorySyncCoordinator mHistorySyncCoordinator;
     private PropertyModel mDialogModel;
     private boolean mDidShowSigninStep;
     private boolean mIsHistorySyncDedicatedFlow;
+    private boolean mFlowInitialized;
 
     /** This is a delegate that the embedder needs to implement. */
     public interface Delegate {
@@ -164,17 +171,23 @@ public class SigninAndHistorySyncCoordinator implements SigninAccountPickerCoord
      * @param signinAccessPoint The entry point for the sign-in.
      * @param isHistorySyncDedicatedFlow Whether the flow is dedicated to enabling history sync
      *     (recent tabs for example).
+     * @param accountId If not null, the identifier of the default account to display on the signin
+     *     bottom sheet.
      */
-    public SigninAndHistorySyncCoordinator(@NonNull WindowAndroid windowAndroid,
-            @NonNull ComponentActivity activity, @NonNull Delegate delegate,
+    public SigninAndHistorySyncCoordinator(
+            @NonNull WindowAndroid windowAndroid,
+            @NonNull ComponentActivity activity,
+            @NonNull Delegate delegate,
             @NonNull DeviceLockActivityLauncher deviceLockActivityLauncher,
             @NonNull OneshotSupplier<Profile> profileSupplier,
             @NonNull Supplier<ModalDialogManager> modalDialogManagerSupplier,
             @NonNull AccountPickerBottomSheetStrings bottomSheetStrings,
             @NoAccountSigninMode int noAccountSigninMode,
             @WithAccountSigninMode int withAccountSigninMode,
-            @HistoryOptInMode int historyOptInMode, @SigninAccessPoint int signinAccessPoint,
-            boolean isHistorySyncDedicatedFlow) {
+            @HistoryOptInMode int historyOptInMode,
+            @SigninAccessPoint int signinAccessPoint,
+            boolean isHistorySyncDedicatedFlow,
+            @Nullable CoreAccountId accountId) {
         mWindowAndroid = windowAndroid;
         mActivity = activity;
         mDelegate = delegate;
@@ -188,6 +201,7 @@ public class SigninAndHistorySyncCoordinator implements SigninAccountPickerCoord
         mHistoryOptInMode = historyOptInMode;
         mSigninAccessPoint = signinAccessPoint;
         mIsHistorySyncDedicatedFlow = isHistorySyncDedicatedFlow;
+        mCoreAccountId = accountId;
         mContainerView =
                 (ViewGroup)
                         LayoutInflater.from(mActivity)
@@ -201,12 +215,16 @@ public class SigninAndHistorySyncCoordinator implements SigninAccountPickerCoord
      * finished without being completed.
      */
     public void onAddAccountCanceled() {
+        // If the activity was killed during the add account flow (reason why the flow is not yet
+        // initialized), proceed as if the user started the sign-in flow for the first time.
+        if (!mFlowInitialized) {
+            // TODO(crbug.com/41493767): Dismiss the flow if in NoAccountSigninMode.ADD_ACCOUNT
+            // mode and there's no account on the device, or avoid starting the add account flow
+            // when there's a saved instance state when finishLoadingAndSelectSigninFlow is called.
+            return;
+        }
         final boolean isBottomSheetShown = mAccountPickerCoordinator != null;
-        if (!isBottomSheetShown) {
-            // This should only happen if no bottom sheet was shown before the "add account" flow,
-            // meaning there was no account on the device and NoAccountSigninMode.ADD_ACCOUNT is
-            // used.
-            assert mNoAccountSigninMode == NoAccountSigninMode.ADD_ACCOUNT;
+        if (!isBottomSheetShown && mNoAccountSigninMode == NoAccountSigninMode.ADD_ACCOUNT) {
             onFlowComplete();
         }
     }
@@ -216,8 +234,20 @@ public class SigninAndHistorySyncCoordinator implements SigninAccountPickerCoord
      * activity level.
      */
     public void onAccountAdded(@NonNull String accountEmail) {
-        showSigninBottomSheet();
-        mAccountPickerCoordinator.onAccountAdded(accountEmail);
+        // If the activity was killed during the add account flow (reason why the flow is not yet
+        // initialized), proceed as if the user started the sign-in flow for the first time.
+        if (!mFlowInitialized) {
+            // TODO(crbug.com/41493767): Select added account or sign in once done loading.
+        }
+        if (mAccountPickerCoordinator == null
+                && mNoAccountSigninMode == NoAccountSigninMode.ADD_ACCOUNT) {
+            // Show the bottom sheet to sign-in & show the sign-in spinner bottom sheet.
+            showSigninBottomSheet();
+        }
+
+        if (mAccountPickerCoordinator != null) {
+            mAccountPickerCoordinator.onAccountAdded(accountEmail);
+        }
     }
 
     /** Implements {@link SigninAccountPickerCoordinator.Delegate}. */
@@ -327,39 +357,43 @@ public class SigninAndHistorySyncCoordinator implements SigninAccountPickerCoord
                 .getCoreAccountInfos()
                 .then(
                         coreAccountInfos -> {
-                            // The history opt-in screen should be shown after the coreAccountInfos
-                            // become available to avoid showing additional loading UI after history
-                            // opt-in screen is shown.
-                            IdentityManager identityManager =
-                                    IdentityServicesProvider.get()
-                                            .getIdentityManager(mProfileSupplier.get());
-                            if (identityManager.hasPrimaryAccount(ConsentLevel.SIGNIN)) {
-                                maybeShowHistoryOptInDialog();
-                                return;
-                            }
-
-                            if (!coreAccountInfos.isEmpty()) {
-                                showSigninBottomSheet();
-                                SigninMetricsUtils.logSigninStarted(mSigninAccessPoint);
-                                return;
-                            }
-
-                            switch (mNoAccountSigninMode) {
-                                case NoAccountSigninMode.BOTTOM_SHEET:
-                                    showSigninBottomSheet();
-                                    SigninMetricsUtils.logSigninStarted(mSigninAccessPoint);
-                                    break;
-                                case NoAccountSigninMode.ADD_ACCOUNT:
-                                    addAccount();
-                                    mDidShowSigninStep = true;
-                                    SigninMetricsUtils.logSigninStarted(mSigninAccessPoint);
-                                    break;
-                                case NoAccountSigninMode.NO_SIGNIN:
-                                    // TODO(crbug.com/41493768): Implement the error state UI.
-                                    onFlowComplete();
-                                    break;
-                            }
+                            finishLoadingAndSelectSigninFlow(coreAccountInfos);
+                            mFlowInitialized = true;
                         });
+    }
+
+    private void finishLoadingAndSelectSigninFlow(List<CoreAccountInfo> coreAccountInfos) {
+        // The history opt-in screen should be shown after the coreAccountInfos
+        // become available to avoid showing additional loading UI after history
+        // opt-in screen is shown.
+        IdentityManager identityManager =
+                IdentityServicesProvider.get().getIdentityManager(mProfileSupplier.get());
+        if (identityManager.hasPrimaryAccount(ConsentLevel.SIGNIN)) {
+            maybeShowHistoryOptInDialog();
+            return;
+        }
+
+        if (!coreAccountInfos.isEmpty()) {
+            showSigninBottomSheet();
+            SigninMetricsUtils.logSigninStarted(mSigninAccessPoint);
+            return;
+        }
+
+        switch (mNoAccountSigninMode) {
+            case NoAccountSigninMode.BOTTOM_SHEET:
+                showSigninBottomSheet();
+                SigninMetricsUtils.logSigninStarted(mSigninAccessPoint);
+                break;
+            case NoAccountSigninMode.ADD_ACCOUNT:
+                addAccount();
+                mDidShowSigninStep = true;
+                SigninMetricsUtils.logSigninStarted(mSigninAccessPoint);
+                break;
+            case NoAccountSigninMode.NO_SIGNIN:
+                // TODO(crbug.com/41493768): Implement the error state UI.
+                onFlowComplete();
+                break;
+        }
     }
 
     private void showSigninBottomSheet() {
@@ -384,7 +418,8 @@ public class SigninAndHistorySyncCoordinator implements SigninAccountPickerCoord
                         signinManager,
                         mBottomSheetStrings,
                         accountPickerMode,
-                        mSigninAccessPoint);
+                        mSigninAccessPoint,
+                        mCoreAccountId);
         mDidShowSigninStep = true;
     }
 

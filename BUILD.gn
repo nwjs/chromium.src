@@ -199,6 +199,7 @@ group("gn_all") {
         "//components/url_formatter/tools:format_url",
         "//components/viz:viz_perftests",
         "//components/viz:viz_unittests",
+        "//content/browser/interest_group/tools:adjustable_auction",
         "//content/shell:content_shell",
         "//content/test:content_browsertests",
         "//content/test:content_unittests",
@@ -354,6 +355,9 @@ group("gn_all") {
       deps += [
         "//chrome/credential_provider",
         "//chrome/credential_provider/test:gcp_unittests",
+
+        # TODO(grt): Remove when chrome depends on the service.
+        "//chrome/windows_services/elevated_tracing_service",
       ]
 
       if (enable_platform_experience) {
@@ -434,7 +438,10 @@ group("gn_all") {
       }
 
       if (enable_chrome_android_internal) {
-        deps += [ "//clank" ]
+        deps += [
+          "//clank",
+          "//tools/pgo:generate_profile_android_clank_trichrome_bundle",
+        ]
       }
     }
 
@@ -456,7 +463,6 @@ group("gn_all") {
         "//ash/webui:ash_webui_unittests",
         "//chrome/browser/ash/child_accounts/time_limit_consistency_test:usage_time_limit_unittests",
         "//chrome/browser/metrics/perf:profile_provider_unittest",
-        "//chrome/test:ash_crosapi_tests",
         "//chromeos/ash/components/proximity_auth:proximity_auth_unittests",
         "//chromeos/components:chromeos_components_unittests",
         "//components/exo/wayland:wayland_client_compatibility_tests",
@@ -866,6 +872,10 @@ group("gn_all") {
 
   if (is_chrome_for_testing) {
     deps += [ "//chrome/browser/chrome_for_testing:chrome_for_testing" ]
+  }
+
+  if (checkout_src_internal) {
+    deps += [ "//internal:all" ]
   }
 }
 
@@ -1288,7 +1298,7 @@ if (use_blink && !is_cronet_build) {
       "//testing/scripts/run_isolated_script_test.py",
       "//testing/xvfb.py",
       "//third_party/blink/tools/",
-      "//third_party/blink/web_tests/external/wpt/config.json",
+      "//third_party/blink/web_tests/external/wpt/.config.json",
       "//third_party/blink/web_tests/resources/",
       "//third_party/blink/web_tests/TestLists/",
       "//third_party/pywebsocket3/src/mod_pywebsocket/",

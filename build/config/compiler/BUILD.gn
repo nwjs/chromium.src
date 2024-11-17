@@ -1044,6 +1044,9 @@ config("compiler") {
     # For deterministic builds, keep the local machine's current working
     # directory from appearing in build outputs.
     "-Zremap-cwd-prefix=.",
+
+    # We use clang-rt sanitizer runtimes.
+    "-Zexternal-clangrt",
   ]
 
   if (!is_win || force_rustc_color_output) {
@@ -1950,18 +1953,12 @@ config("default_warnings") {
         cflags_cc += [
           # TODO(crbug.com/42050603): fix and reenable
           "-Wno-missing-field-initializers",
-
-          # TODO(https://crbug.com/324953188): fix and reenable
-          "-Wno-extra-qualification",
         ]
       }
 
       cflags += [
         # TODO(crbug.com/330524456): -Wcast-function-type is under -Wextra now.
         "-Wno-cast-function-type",
-
-        # TODO(crbug.com/40286317): Evaluate and possibly enable.
-        "-Wno-vla-extension",
 
         # TODO(crbug.com/40284799): Fix and re-enable.
         "-Wno-thread-safety-reference-return",
@@ -1983,6 +1980,11 @@ config("default_warnings") {
 
         # TODO(crbug.com/356172342): Fix and re-enable.
         cflags_cc += [ "-Wno-dangling-assignment-gsl" ]
+
+        if (llvm_force_head_revision) {
+          # TODO(crbug.com/373130005): Fix and re-enable.
+          cflags_cc += [ "-Wno-deprecated-literal-operator" ]
+        }
       }
     }
 
@@ -2274,7 +2276,7 @@ config("export_dynamic") {
 config("thin_archive") {
   # The macOS and iOS default linker ld64 does not support reading thin
   # archives.
-  if ((is_posix && !is_nacl && !is_apple) || is_fuchsia) {
+  if ((is_posix && !is_nacl && (!is_apple || use_lld)) || is_fuchsia) {
     arflags = [ "-T" ]
   } else if (is_win && use_lld) {
     arflags = [ "/llvmlibthin" ]

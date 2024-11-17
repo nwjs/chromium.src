@@ -20,14 +20,48 @@ static_library("boca") {
   deps = [
     "//ash",
     "//ash/constants",
+    "//chromeos/ash/components/boca:activity",
     "//chromeos/ash/components/boca/proto",
     "//chromeos/ash/components/boca/session_api",
     "//chromeos/ash/components/network",
     "//components/signin/public/identity_manager",
   ]
 
-  allow_circular_includes_from =
-      [ "//chromeos/ash/components/boca/session_api" ]
+  allow_circular_includes_from = [
+    "//chromeos/ash/components/boca/session_api",
+    "//chromeos/ash/components/boca:activity",
+  ]
+}
+
+static_library("invalidations") {
+  sources = [
+    "invalidations/fcm_handler.cc",
+    "invalidations/fcm_handler.h",
+    "invalidations/invalidation_service_impl.cc",
+    "invalidations/invalidation_service_impl.h",
+  ]
+  deps = [
+    ":boca",
+    "//base",
+    "//chromeos/ash/components/boca/session_api",
+    "//components/account_id",
+    "//components/gcm_driver",
+    "//components/keyed_service/core",
+    "//google_apis/common:common",
+  ]
+}
+
+static_library("activity") {
+  sources = [
+    "activity/active_tab_tracker.cc",
+    "activity/active_tab_tracker.h",
+  ]
+  deps = [
+    "//base",
+
+    # TODO(b / 372525386): This is a transitive dep on the protobuf, please fix.
+    "//chromeos/ash/components/boca/proto",
+  ]
 }
 
 source_set("unit_tests") {
@@ -36,16 +70,21 @@ source_set("unit_tests") {
   sources = [
     "boca_session_manager_unittest.cc",
     "boca_session_util_unittest.cc",
+    "invalidations/fcm_handler_unittest.cc",
+    "invalidations/invalidation_service_impl_unittest.cc",
   ]
 
   deps = [
     ":boca",
+    ":invalidations",
     "//ash:test_support",
     "//base",
     "//base/test:test_support",
     "//chromeos/ash/components/boca/proto",
     "//chromeos/ash/components/boca/session_api",
     "//chromeos/ash/components/network",
+    "//components/gcm_driver",
+    "//components/gcm_driver:test_support",
     "//components/signin/public/identity_manager",
     "//components/signin/public/identity_manager:test_support",
     "//components/user_manager",

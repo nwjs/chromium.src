@@ -46,7 +46,7 @@ BASE_DECLARE_FEATURE(kSearchEngineChoiceTrigger);
 
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
-BASE_DECLARE_FEATURE(kSearchEngineChoiceAttribution);
+BASE_DECLARE_FEATURE(kRemoveSearchEngineChoiceAttribution);
 #endif
 
 // The string that's passed to
@@ -96,6 +96,12 @@ BASE_DECLARE_FEATURE(kRemoveSearchboxStatsParamFromPrefetchRequests);
 // Switch guarding TemplateURL reconciliation mechanism.
 COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
 BASE_DECLARE_FEATURE(kTemplateUrlReconciliation);
+
+// Parameter associated with kTemplateUrlReconciliation flag.
+// When set to <true>, reconciliation is performed with all known Search Engine
+// definitions.
+COMPONENT_EXPORT(SEARCH_ENGINES_SWITCHES)
+extern const base::FeatureParam<bool> kReconcileWithAllKnownEngines;
 
 }  // namespace switches
 

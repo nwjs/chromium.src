@@ -430,12 +430,15 @@ void BaseSearchProvider::DeleteMatch(const AutocompleteMatch& match) {
   //   non-debugging purposes.
   if (!match.GetAdditionalInfoForDebugging(BaseSearchProvider::kDeletionUrlKey)
            .empty()) {
+    // Remote personalized suggestions in OTR contexts are not OK.
+    DCHECK(!client_->IsOffTheRecord());
     deletion_loaders_.push_back(
         client()
             ->GetRemoteSuggestionsService(/*create_if_necessary=*/true)
             ->StartDeletionRequest(
                 match.GetAdditionalInfoForDebugging(
                     BaseSearchProvider::kDeletionUrlKey),
+                /*is_off_the_record=*/false,
                 base::BindOnce(&BaseSearchProvider::OnDeletionComplete,
                                base::Unretained(this))));
   }
@@ -470,7 +473,7 @@ const char BaseSearchProvider::kDeletionUrlKey[] = "deletion_url";
 const char BaseSearchProvider::kTrue[] = "true";
 const char BaseSearchProvider::kFalse[] = "false";
 
-BaseSearchProvider::~BaseSearchProvider() {}
+BaseSearchProvider::~BaseSearchProvider() = default;
 
 // static
 std::u16string BaseSearchProvider::GetFillIntoEdit(

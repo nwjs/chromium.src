@@ -132,7 +132,7 @@ BASE_FEATURE(kEnableArcVmDataMigration,
 // for certain types of ARC error dialogs).
 BASE_FEATURE(kEnableFriendlierErrorDialog,
              "FriendlierErrorDialog",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether WebView Zygote is lazily initialized in ARC.
 BASE_FEATURE(kEnableLazyWebViewInit,
@@ -283,11 +283,6 @@ BASE_FEATURE(kLockGuestMemory,
              "ArcLockGuestMemory",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Controls keyboard shortcut helper integration feature in ARC.
-BASE_FEATURE(kKeyboardShortcutHelperIntegrationFeature,
-             "ArcKeyboardShortcutHelperIntegration",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Controls ARCVM MGLRU reclaim feature.
 BASE_FEATURE(kMglruReclaim,
              "ArcMglruReclaim",
@@ -374,7 +369,7 @@ BASE_FEATURE(kSaveRawFilesOnTracing,
 // When enabled, skip dropping ARCVM page cache after boot.
 BASE_FEATURE(kSkipDropCaches,
              "ArcSkipDropPageCache",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, CertStoreService will talk to KeyMint instead of Keymaster on
 // ARC-T.
@@ -402,9 +397,9 @@ BASE_FEATURE(kTouchscreenEmulation,
 
 // When enabled, ARC will not be throttled when there is active audio stream
 // from ARC.
-BASE_FEATURE(kUnthrottleOnActiveAudio,
-             "ArcUnthrottleOnActiveAudio",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kUnthrottleOnActiveAudioV2,
+             "ArcUnthrottleOnActiveAudioV2",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls ARC USB Storage UI feature.
 // When enabled, chrome://settings and Files.app will ask if the user wants

@@ -1658,7 +1658,6 @@ test("content_browsertests") {
     "../browser/service_worker/service_worker_file_upload_browsertest.cc",
     "../browser/service_worker/service_worker_internals_ui_browsertest.cc",
     "../browser/service_worker/service_worker_no_best_effort_tasks_browsertest.cc",
-    "../browser/service_worker/service_worker_offline_capability_check_browsertest.cc",
     "../browser/service_worker/service_worker_process_browsertest.cc",
     "../browser/service_worker/service_worker_version_browsertest.cc",
     "../browser/session_history_browsertest.cc",
@@ -2158,6 +2157,7 @@ test("content_browsertests") {
       "//testing/android/native_test:native_test_support",
       "//ui/accessibility:ax_base_android",
       "//ui/android:android",
+      "//ui/android:test_support",
       "//ui/touch_selection:touch_selection",
     ]
     android_manifest =
@@ -2232,6 +2232,7 @@ test("content_browsertests") {
     sources += [
       "../app_shim_remote_cocoa/window_occlusion_browsertest_mac.mm",
       "../browser/accessibility/ax_tree_formatter_mac_browsertest.mm",
+      "../browser/accessibility/browser_accessibility_cocoa_browsertest.mm",
       "../browser/accessibility/hit_testing_mac_browsertest.mm",
       "../browser/gpu/browser_child_process_backgrounded_bridge_browsertest.mm",
       "../browser/keyboard_lock_browsertest_mac.mm",
@@ -2550,11 +2551,6 @@ test("content_unittests") {
     "../browser/generic_sensor/web_contents_sensor_provider_proxy_unittest.cc",
     "../browser/geolocation/geolocation_service_impl_unittest.cc",
     "../browser/gpu/gpu_data_manager_impl_private_unittest.cc",
-    "../browser/gpu/gpu_data_manager_testing_arrays_and_structs_autogen.h",
-    "../browser/gpu/gpu_data_manager_testing_autogen.cc",
-    "../browser/gpu/gpu_data_manager_testing_autogen.h",
-    "../browser/gpu/gpu_data_manager_testing_entry_enums_autogen.h",
-    "../browser/gpu/gpu_data_manager_testing_exceptions_autogen.h",
     "../browser/handwriting/handwriting_recognition_service_impl_unittest.cc",
     "../browser/idle/idle_manager_unittest.cc",
     "../browser/installedapp/installed_app_provider_impl_unittest.cc",
@@ -2660,6 +2656,7 @@ test("content_unittests") {
     "../browser/preloading/prefetch/prefetch_cookie_listener_unittest.cc",
     "../browser/preloading/prefetch/prefetch_data_pipe_tee_unittest.cc",
     "../browser/preloading/prefetch/prefetch_document_manager_unittest.cc",
+    "../browser/preloading/prefetch/prefetch_match_resolver_unittest.cc",
     "../browser/preloading/prefetch/prefetch_network_context_unittest.cc",
     "../browser/preloading/prefetch/prefetch_params_unittest.cc",
     "../browser/preloading/prefetch/prefetch_proxy_configurator_unittest.cc",
@@ -2872,7 +2869,9 @@ test("content_unittests") {
     "../browser/webrtc/webrtc_internals_message_handler_unittest.cc",
     "../browser/webrtc/webrtc_internals_unittest.cc",
     "../browser/webtransport/web_transport_throttle_context_unittest.cc",
+    "../browser/webui/url_data_manager_backend_unittest.cc",
     "../browser/webui/web_ui_data_source_unittest.cc",
+    "../browser/webui/web_ui_impl_unittest.cc",
     "../browser/webui/web_ui_main_frame_observer_unittest.cc",
     "../browser/webui/web_ui_message_handler_unittest.cc",
     "../browser/webui/web_ui_unittest.cc",
@@ -3276,9 +3275,6 @@ test("content_unittests") {
       "../renderer/pepper/mock_resource.h",
       "../renderer/pepper/v8_var_converter_unittest.cc",
     ]
-    if (is_win) {
-      sources += [ "../browser/ppapi_plugin_sandboxed_process_launcher_delegate_unittest.cc" ]
-    }
     deps += [
       "//ppapi/c",
       "//ppapi/host",
@@ -3662,6 +3658,7 @@ group("gpu_pytype") {
     "//content/test/gpu/unexpected_passes/",
     "//testing/flake_suppressor_common/",
     "//testing/unexpected_passes_common/",
+    "//third_party/blink/tools/blinkpy/",
   ]
 
   data_deps = [

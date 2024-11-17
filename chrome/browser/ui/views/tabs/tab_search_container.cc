@@ -218,6 +218,7 @@ TabSearchContainer::TabSearchContainer(
 
   std::unique_ptr<TabSearchButton> tab_search_button =
       std::make_unique<TabSearchButton>(tab_strip_controller,
+                                        tab_declutter_controller_.get(),
                                         GetFlatEdge(true, before_tab_strip));
   tab_search_button->SetProperty(views::kCrossAxisAlignmentKey,
                                  views::LayoutAlignment::kCenter);
@@ -485,9 +486,9 @@ void TabSearchContainer::OnToggleActionUIState(const Browser* browser,
 }
 
 void TabSearchContainer::OnTabDeclutterButtonClicked() {
-  const int tab_organization_tab_index = 1;
   tab_search_button_->tab_search_bubble_host()->ShowTabSearchBubble(
-      false, tab_organization_tab_index);
+      false, tab_search::mojom::TabSearchSection::kOrganize,
+      tab_search::mojom::TabOrganizationFeature::kDeclutter);
 
   // Force hide the button when pressed, bypassing locked expansion mode.
   ExecuteHideTabOrganization(tab_declutter_button_);

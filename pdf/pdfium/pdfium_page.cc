@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "base/check_op.h"
+#include "base/containers/to_vector.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/metrics/histogram_functions.h"
@@ -34,7 +35,6 @@
 #include "third_party/pdfium/public/fpdf_catalog.h"
 #include "third_party/pdfium/public/fpdf_edit.h"
 #include "third_party/pdfium/public/fpdfview.h"
-#include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/point_f.h"
@@ -44,7 +44,11 @@
 #include "ui/gfx/geometry/vector2d.h"
 #include "ui/gfx/geometry/vector2d_f.h"
 #include "ui/gfx/range/range.h"
+
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+#include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/skbitmap_operations.h"
+#endif
 
 using printing::ConvertUnitFloat;
 using printing::kPixelsPerInch;
@@ -386,7 +390,7 @@ PDFiumPage::LinkTarget::LinkTarget(const LinkTarget& other) = default;
 PDFiumPage::LinkTarget::~LinkTarget() = default;
 
 PDFiumPage::PDFiumPage(PDFiumEngine* engine, int i)
-    : engine_(engine), index_(i), available_(false) {}
+    : engine_(engine), index_(i) {}
 
 PDFiumPage::PDFiumPage(PDFiumPage&& that) = default;
 
@@ -403,6 +407,10 @@ void PDFiumPage::Unload() {
   text_page_.reset();
 
   if (page_) {
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+    // TODO(crbug.com/360803943): Keep previously generated OCR results.
+    engine_->CancelPendingSearchify(index_);
+#endif
     if (engine_->form()) {
       FORM_OnBeforeClosePage(page(), engine_->form());
     }
@@ -417,8 +425,13 @@ FPDF_PAGE PDFiumPage::GetPage() {
   if (!page_) {
     ScopedUnloadPreventer scoped_unload_preventer(this);
     page_.reset(FPDF_LoadPage(engine_->doc(), index_));
-    if (page_ && engine_->form()) {
-      FORM_OnAfterLoadPage(page(), engine_->form());
+    if (page_) {
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+      engine_->ScheduleSearchifyIfNeeded(this);
+#endif
+      if (engine_->form()) {
+        FORM_OnAfterLoadPage(page(), engine_->form());
+      }
     }
   }
   return page();
@@ -432,6 +445,12 @@ FPDF_TEXTPAGE PDFiumPage::GetTextPage() {
     text_page_.reset(FPDFText_LoadPage(GetPage()));
   }
   return text_page();
+}
+
+void PDFiumPage::ReloadTextPage() {
+  CHECK_EQ(preventing_unload_count_, 0);
+  text_page_.reset();
+  GetTextPage();
 }
 
 void PDFiumPage::CalculatePageObjectTextRunBreaks() {
@@ -470,6 +489,13 @@ void PDFiumPage::CalculatePageObjectTextRunBreaks() {
   }
 }
 
+int PDFiumPage::GetCharCount() {
+  if (!available_) {
+    return 0;
+  }
+  return FPDFText_CountChars(GetTextPage());
+}
+
 std::optional<AccessibilityTextRunInfo> PDFiumPage::GetTextRunInfo(
     int start_char_index) {
   FPDF_PAGE page = GetPage();
@@ -479,6 +505,11 @@ std::optional<AccessibilityTextRunInfo> PDFiumPage::GetTextRunInfo(
   if (start_char_index < 0 || start_char_index >= chars_count)
     return std::nullopt;
 
+  AccessibilityTextRunInfo info;
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+  info.is_searchified = IsCharacterGeneratedBySearchify(start_char_index);
+#endif
+
   int actual_start_char_index = GetFirstNonUnicodeWhiteSpaceCharIndex(
       text_page, start_char_index, chars_count);
   // Check to see if GetFirstNonUnicodeWhiteSpaceCharIndex() iterated through
@@ -487,7 +518,6 @@ std::optional<AccessibilityTextRunInfo> PDFiumPage::GetTextRunInfo(
     // If so, `info.len` needs to take the number of characters
     // iterated into account.
     DCHECK_GT(actual_start_char_index, start_char_index);
-    AccessibilityTextRunInfo info;
     info.len = chars_count - start_char_index;
     return info;
   }
@@ -504,7 +534,6 @@ std::optional<AccessibilityTextRunInfo> PDFiumPage::GetTextRunInfo(
 
   // Set text run's style info from the first character of the text run.
   FPDF_PAGEOBJECT text_object = FPDFText_GetTextObject(text_page, char_index);
-  AccessibilityTextRunInfo info;
   info.style = CalculateTextRunStyleInfo(text_object);
 
   gfx::RectF start_char_rect =
@@ -575,8 +604,9 @@ std::optional<AccessibilityTextRunInfo> PDFiumPage::GetTextRunInfo(
 
       // Heuristic: End text run if character isn't going in the same direction.
       if (char_direction !=
-          GetDirectionFromAngle(FPDFText_GetCharAngle(text_page, char_index)))
+          GetDirectionFromAngle(FPDFText_GetCharAngle(text_page, char_index))) {
         break;
+      }
 
       // Heuristic: End the text run if the difference between the text run
       // angle and the angle between the center-points of the previous and
@@ -605,8 +635,9 @@ std::optional<AccessibilityTextRunInfo> PDFiumPage::GetTextRunInfo(
           GetRotatedCharWidth(current_angle, char_rect.size()) / 2 -
           GetRotatedCharWidth(current_angle, prev_char_rect.size()) / 2;
 
-      if (distance > 2.5f * avg_char_width)
+      if (distance > 2.5f * avg_char_width) {
         break;
+      }
 
       text_run_bounds.Union(char_rect);
       prev_char_rect = char_rect;
@@ -643,8 +674,10 @@ std::optional<AccessibilityTextRunInfo> PDFiumPage::GetTextRunInfo(
 }
 
 uint32_t PDFiumPage::GetCharUnicode(int char_index) {
-  FPDF_TEXTPAGE text_page = GetTextPage();
-  return FPDFText_GetUnicode(text_page, char_index);
+  // No explicit `available_` check here to return 0 when unavailable.
+  // If this page is unavailable, GetTextPage() returns nullptr and
+  // FPDFText_GetUnicode() naturally returns 0.
+  return FPDFText_GetUnicode(GetTextPage(), char_index);
 }
 
 gfx::RectF PDFiumPage::GetCharBounds(int char_index) {
@@ -800,6 +833,17 @@ std::vector<AccessibilityImageInfo> PDFiumPage::GetImageInfo(
   return image_info;
 }
 
+std::vector<int> PDFiumPage::GetImageObjectIndices() {
+  if (!available_) {
+    return {};
+  }
+
+  CalculateImages();
+  return base::ToVector(
+      images_, [](const Image& image) { return image.page_object_index; });
+}
+
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 SkBitmap PDFiumPage::GetImageForOcr(int page_object_index) {
   FPDF_PAGE page = GetPage();
   FPDF_PAGEOBJECT page_object = FPDFPage_GetObject(page, page_object_index);
@@ -823,6 +867,17 @@ SkBitmap PDFiumPage::GetImageForOcr(int page_object_index) {
 
   return SkBitmapOperations::Rotate(bitmap, rotation);
 }
+
+void PDFiumPage::OnSearchifyGotOcrResult() {
+  if (!IsPageSearchified()) {
+    first_searchify_generated_object_index_ = FPDFPage_CountObjects(GetPage());
+  }
+}
+
+bool PDFiumPage::IsPageSearchified() const {
+  return first_searchify_generated_object_index_ != -1;
+}
+#endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
 std::vector<AccessibilityHighlightInfo> PDFiumPage::GetHighlightInfo(
     const std::vector<AccessibilityTextRunInfo>& text_runs) {
@@ -999,18 +1054,6 @@ PDFiumPage::Area PDFiumPage::FormTypeToArea(int form_type) {
     default:
       return NONSELECTABLE_AREA;
   }
-}
-
-char16_t PDFiumPage::GetCharAtIndex(int index) {
-  if (!available_)
-    return u'\0';
-  return static_cast<char16_t>(FPDFText_GetUnicode(GetTextPage(), index));
-}
-
-int PDFiumPage::GetCharCount() {
-  if (!available_)
-    return 0;
-  return FPDFText_CountChars(GetTextPage());
 }
 
 bool PDFiumPage::IsCharIndexInBounds(int index) {
@@ -1734,6 +1777,25 @@ Thumbnail PDFiumPage::GetThumbnail(float device_pixel_ratio) {
                       base::saturated_cast<int>(FPDF_GetPageHeightF(page)));
   return Thumbnail(page_size, device_pixel_ratio);
 }
+
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+bool PDFiumPage::IsCharacterGeneratedBySearchify(int char_index) {
+  if (!IsPageSearchified()) {
+    return false;
+  }
+
+  FPDF_PAGE page = GetPage();
+  int objects_count = FPDFPage_CountObjects(page);
+  FPDF_PAGEOBJECT object = FPDFText_GetTextObject(GetTextPage(), char_index);
+  for (int i = first_searchify_generated_object_index_; i < objects_count;
+       ++i) {
+    if (object == FPDFPage_GetObject(page, i)) {
+      return true;
+    }
+  }
+  return false;
+}
+#endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
 void PDFiumPage::MarkAvailable() {
   available_ = true;

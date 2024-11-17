@@ -52,13 +52,14 @@ def __step_config(ctx, step_config):
             "command_prefix": "python3 ../../build/android/gyp/compile_resources.py",
             "handler": "android_compile_resources",
             "exclude_input_patterns": [
-                "*.h",
-                "*.o",
-                "*.cc",
                 "*.a",
-                "*.info",
-                "*.pak",
+                "*.cc",
+                "*.h",
                 "*.inc",
+                "*.info",
+                "*.o",
+                "*.pak",
+                "*.sql",
             ],
             "remote": remote_run,
             "canonicalize_dir": True,
@@ -86,6 +87,16 @@ def __step_config(ctx, step_config):
             "indirect_inputs": {
                 "includes": ["*.dex", "*.ijar.jar", "*.turbine.jar"],
             },
+            "exclude_input_patterns": [
+                "*.a",
+                "*.cc",
+                "*.h",
+                "*.inc",
+                "*.info",
+                "*.o",
+                "*.pak",
+                "*.sql",
+            ],
             # *.dex files are intermediate files used in incremental builds.
             # Fo remote actions, let's ignore them, assuming remote cache hits compensate.
             "ignore_extra_input_pattern": ".*\\.dex",
@@ -99,6 +110,20 @@ def __step_config(ctx, step_config):
             "name": "android/filter_zip",
             "command_prefix": "python3 ../../build/android/gyp/filter_zip.py",
             "remote": remote_run,
+            "canonicalize_dir": True,
+            "timeout": "2m",
+        },
+        {
+            "name": "android/generate_resource_allowlist",
+            "command_prefix": "python3 ../../tools/resources/generate_resource_allowlist.py",
+            "indirect_inputs": {
+                "includes": ["*.o", "*.a"],
+            },
+            # When remote linking without bytes enabled, .o, .a files don't
+            # exist on the local file system.
+            # This step also should run remortely to avoid downloading them.
+            "remote": config.get(ctx, "remote-link"),
+            "platform_ref": "large",
             "canonicalize_dir": True,
             "timeout": "2m",
         },

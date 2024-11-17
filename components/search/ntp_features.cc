@@ -84,7 +84,7 @@ BASE_FEATURE(kNtpBackgroundImageErrorDetection,
 // If enabled, calendar module will be shown.
 BASE_FEATURE(kNtpCalendarModule,
              "NtpCalendarModule",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, chrome cart module will be shown.
 BASE_FEATURE(kNtpChromeCartModule,
@@ -114,7 +114,7 @@ BASE_FEATURE(kNtpDriveModuleSegmentation,
 // If enabled, six files show in the NTP Drive module, instead of three.
 BASE_FEATURE(kNtpDriveModuleShowSixFiles,
              "NtpDriveModuleShowSixFiles",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, logo will be shown.
 // This is a kill switch. Keep indefinitely.
@@ -292,6 +292,11 @@ BASE_FEATURE(kNtpWallpaperSearchButtonAnimationShownThreshold,
              "NtpWallpaperSearchButtonAnimationShownThreshold",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Feature to control the display of a mobile promo on the NTP.
+BASE_FEATURE(kNtpMobilePromo,
+             "NtpMobilePromo",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 const char kNtpModuleIgnoredCriteriaThreshold[] =
     "NtpModuleIgnoredCriteriaThreshold";
 const char kNtpModuleIgnoredHaTSDelayTimeParam[] =
@@ -355,6 +360,7 @@ const char kNtpWallpaperSearchButtonHideConditionParam[] =
 const char kNtpWallpaperSearchButtonAnimationShownThresholdParam[] =
     "NtpWallpaperSearchButtonAnimationShownThresholdParam";
 const char kWallpaperSearchHatsDelayParam[] = "WallpaperSearchHatsDelayParam";
+const char kNtpMobilePromoTargetUrlParam[] = "NtpMobilePromoTargetUrlParam";
 
 const base::FeatureParam<std::string> kNtpCalendarModuleExperimentParam(
     &ntp_features::kNtpCalendarModule,
@@ -363,7 +369,7 @@ const base::FeatureParam<std::string> kNtpCalendarModuleExperimentParam(
 const base::FeatureParam<int> kNtpCalendarModuleMaxEventsParam(
     &ntp_features::kNtpCalendarModule,
     "NtpCalendarModuleMaxEventsParam",
-    6);
+    5);
 const base::FeatureParam<base::TimeDelta> kNtpCalendarModuleWindowEndDeltaParam(
     &ntp_features::kNtpCalendarModule,
     "NtpCalendarModuleWindowEndDeltaParam",
@@ -381,6 +387,10 @@ const base::FeatureParam<bool> kNtpRealboxCr23SteadyStateShadow(
     &ntp_features::kRealboxCr23Theming,
     "kNtpRealboxCr23SteadyStateShadow",
     false);
+const base::FeatureParam<int> kNtpMobilePromoImpressionLimit(
+    &ntp_features::kNtpMobilePromo,
+    "kNtpMobilePromoImpressionLimit",
+    10);
 
 base::TimeDelta GetModulesLoadTimeout() {
   std::string param_value = base::GetFieldTrialParamValueByFeature(

@@ -70,8 +70,7 @@ import org.chromium.content_public.browser.test.util.UiUtils;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.net.test.ServerCertificate;
 import org.chromium.net.test.util.TestWebServer;
-import org.chromium.ui.test.util.UiDisableIf;
-import org.chromium.ui.test.util.UiRestriction;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.url.GURL;
 import org.chromium.url.Origin;
 
@@ -163,7 +162,7 @@ public class NavigateTest {
     }
 
     @Test
-    @Restriction(UiRestriction.RESTRICTION_TYPE_TABLET)
+    @Restriction(DeviceFormFactor.TABLET)
     @MediumTest
     @Feature({"Navigation"})
     public void testNavigateMany() throws Exception {
@@ -226,7 +225,7 @@ public class NavigateTest {
     @Test
     @MediumTest
     @Feature({"Navigation"})
-    @DisableIf.Device(type = {UiDisableIf.TABLET}) // https://crbug.com/339299609
+    @DisableIf.Device(DeviceFormFactor.TABLET) // https://crbug.com/339299609
     public void testOpenLink() throws Exception {
         String url1 = mTestServer.getURL("/chrome/test/data/android/google.html");
         String url2 = mTestServer.getURL("/chrome/test/data/android/about.html");
@@ -310,7 +309,7 @@ public class NavigateTest {
     @Test
     @MediumTest
     @Feature({"Navigation"})
-    @DisableIf.Device(type = {UiDisableIf.TABLET}) // https://crbug.com/339299609
+    @DisableIf.Device(DeviceFormFactor.TABLET) // https://crbug.com/339299609
     public void testTabObserverOnPageLoadStarted() throws Exception {
         final String url1 = mTestServer.getURL("/chrome/test/data/android/google.html");
         final String url2 = mTestServer.getURL("/chrome/test/data/android/about.html");
@@ -338,11 +337,7 @@ public class NavigateTest {
                         mActivityTestRule.getActivity().getActivityTab()));
     }
 
-    /**
-     * Test re-direct functionality for a web-page.
-     *
-     * @throws Exception
-     */
+    /** Test re-direct functionality for a web-page. */
     @Test
     @MediumTest
     @Feature({"Navigation"})
@@ -436,7 +431,7 @@ public class NavigateTest {
 
     /** Test navigating back. */
     @Test
-    @Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
+    @Restriction(DeviceFormFactor.PHONE)
     @MediumTest
     @Feature({"Navigation"})
     public void testNavigateBack() throws Exception {
@@ -477,7 +472,7 @@ public class NavigateTest {
 
     /** Test back and forward buttons. */
     @Test
-    @Restriction(UiRestriction.RESTRICTION_TYPE_TABLET)
+    @Restriction(DeviceFormFactor.TABLET)
     @MediumTest
     @Feature({"Navigation"})
     public void testNavigateBackAndForwardButtons() throws Exception {
@@ -715,8 +710,6 @@ public class NavigateTest {
     /**
      * Test that if the browser launches a renderer initiated intent towards itself, the url load
      * will be renderer initiated and has the correct origin.
-     *
-     * @throws Exception
      */
     @Test
     @MediumTest
@@ -776,7 +769,7 @@ public class NavigateTest {
                             Origin origin = params.getInitiatorOrigin();
                             Assert.assertEquals(url.getHost(), origin.getHost());
                         } catch (Exception e) {
-                            Assert.fail("Cannot parse URL:" + finalUrl);
+                            throw new AssertionError("Cannot parse URL:" + finalUrl, e);
                         }
                     }
                 };

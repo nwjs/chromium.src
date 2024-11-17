@@ -22,7 +22,6 @@
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/apps/platform_apps/app_window_registry_util.h"
 #include "chrome/browser/ash/extensions/file_manager/select_file_dialog_extension_user_data.h"
-#include "chrome/browser/ash/file_manager/app_id.h"
 #include "chrome/browser/ash/file_manager/fileapi_util.h"
 #include "chrome/browser/ash/file_manager/select_file_dialog_util.h"
 #include "chrome/browser/ash/file_manager/url_util.h"
@@ -485,6 +484,7 @@ void SelectFileDialogExtension::SelectFileWithFileManagerParams(
   if (owner.is_lacros) {
     // SelectFileAsh (Lacros) is opening the dialog: only show fusebox volumes
     // in File Manager UI to return real file descriptors to SelectFileAsh.
+    // TODO(crbug.com/369851375): Delete this; Lacros has sunset.
     volume_filter.push_back("fusebox-only");
   } else if (use_media_store_filter) {
     // ArcSelectFile is opening the dialog: add 'media-store-files-only' filter

@@ -52,42 +52,6 @@ class PLATFORM_EXPORT ExceptionState {
   STACK_ALLOCATED();
 
  public:
-  // ContextScope represents a stack of ExceptionContext in order to represent
-  // nested exception contexts such like an IDL dictionary in another IDL
-  // dictionary.
-  class ContextScope {
-    STACK_ALLOCATED();
-
-   public:
-    ContextScope(const ExceptionContext& context,
-                 ExceptionState& exception_state)
-        : exception_state_(exception_state), context_(context) {
-      exception_state_.PushContextScope(this);
-    }
-    ContextScope(const ContextScope&) = delete;
-    ContextScope& operator=(const ContextScope&) = delete;
-
-    ~ContextScope() { exception_state_.PopContextScope(); }
-
-    // This is used for a performance hack to reduce the number of construction
-    // and destruction times of ContextScope when iterating over properties.
-    // Only the generated bindings code is allowed to use this hack.
-    void ChangePropertyNameAsOptimizationHack(const char* property_name) {
-      context_.ChangePropertyNameAsOptimizationHack(property_name);
-    }
-
-   private:
-    void SetParent(const ContextScope* parent) { parent_ = parent; }
-    const ContextScope* GetParent() const { return parent_; }
-    const ExceptionContext& GetContext() const { return context_; }
-
-    ExceptionState& exception_state_;
-    const ContextScope* parent_ = nullptr;
-    ExceptionContext context_;
-
-    friend class ExceptionState;
-  };
-
   // A function pointer type that creates a DOMException.
   using CreateDOMExceptionFunction =
       v8::Local<v8::Value> (*)(v8::Isolate*,
@@ -98,11 +62,16 @@ class PLATFORM_EXPORT ExceptionState {
   // Sets the function to create a DOMException. Must be called only once.
   static void SetCreateDOMExceptionFunction(CreateDOMExceptionFunction);
 
+  // If `isolate` is nullptr, this ExceptionState will ignore all exceptions.
+  explicit ExceptionState(v8::Isolate* isolate)
+      : context_(v8::ExceptionContext::kUnknown, nullptr, String()),
+        isolate_(isolate) {}
+
   ExceptionState(v8::Isolate* isolate, const ExceptionContext& context)
-      : main_context_(context), isolate_(isolate) {}
+      : context_(context), isolate_(isolate) {}
 
   ExceptionState(v8::Isolate* isolate, ExceptionContext&& context)
-      : main_context_(std::move(context)), isolate_(isolate) {}
+      : context_(std::move(context)), isolate_(isolate) {}
 
   ExceptionState(v8::Isolate* isolate,
                  v8::ExceptionContext context_type,
@@ -139,10 +108,6 @@ class PLATFORM_EXPORT ExceptionState {
     }
   }
 
-  // Throws an appropriate exception due to the given exception code. The
-  // exception will be either of ECMAScript Error object or DOMException.
-  NOINLINE void ThrowException(ExceptionCode, const String& message);
-
   // Throws a DOMException due to the given exception code.
   NOINLINE void ThrowDOMException(DOMExceptionCode, const String& message);
 
@@ -170,19 +135,17 @@ class PLATFORM_EXPORT ExceptionState {
   NOINLINE void ThrowTypeError(const char* message);
   NOINLINE void ThrowWasmCompileError(const char* message);
 
-  // Rethrows a v8::Value as an exception.
-  NOINLINE void RethrowV8Exception(v8::Local<v8::Value>);
   // Report the given value as the exception being thrown, but rethrow it
   // immediately via the v8::TryCatch instead of in the destructor.
   NOINLINE void RethrowV8Exception(v8::TryCatch&);
+
+  bool DidRethrowViaV8TryCatch() const { return thrown_via_v8_trycatch_; }
 
   // Returns true if there is a pending exception.
   //
   // Note that this function returns true even when |exception_| is empty, and
   // that V8ThrowDOMException::CreateOrEmpty may return an empty handle.
   bool HadException() const { return code_; }
-
-  virtual void ClearException();
 
   ExceptionCode Code() const { return code_; }
 
@@ -193,55 +156,38 @@ class PLATFORM_EXPORT ExceptionState {
 
   const String& Message() const { return message_; }
 
-  virtual v8::Local<v8::Value> GetException() {
-    DCHECK(!exception_.IsEmpty());
-    return exception_.Get(isolate_);
+  v8::Local<v8::Value> GetException() {
+    return isolate_ ? exception_.Get(isolate_) : v8::Local<v8::Value>();
   }
 
   // Returns the context of what Web API is currently being executed.
-  const ExceptionContext& GetContext() const {
-    DCHECK(!context_stack_top_);
-    return main_context_;
-  }
+  const ExceptionContext& GetContext() const { return context_; }
+
+  ExceptionState& ReturnThis() { return *this; }
 
  protected:
-  // Methods for use by subclasses.
-  void SetException(ExceptionCode, const String&, v8::Local<v8::Value>);
-  void SetExceptionCode(ExceptionCode);
-  v8::Isolate* GetIsolate() { return isolate_; }
-
-  // Methods to be overridden by subclasses. These are not called directly by
-  // users of ExceptionState, but instead indirected via the non-virtual methods
-  // above in order to reduce binary size.
-  virtual void DoThrowDOMException(DOMExceptionCode, const String& message);
-  virtual void DoThrowSecurityError(
-      const String& sanitized_message,
-      const String& unsanitized_message = String());
-  virtual void DoThrowRangeError(const String& message);
-  virtual void DoThrowTypeError(const String& message);
-  virtual void DoThrowWasmCompileError(const String& message);
-  virtual void DoRethrowV8Exception(v8::Local<v8::Value>);
+  // Delegated constructor for NonThrowableExceptionState
+  enum ForNonthrowable { kNonthrowable };
+  ExceptionState(const char* file, int line, ForNonthrowable)
+      : context_(v8::ExceptionContext::kUnknown, nullptr, String()),
+        isolate_(nullptr) {
+#if DCHECK_IS_ON()
+    file_ = file;
+    line_ = line;
+    assert_no_exceptions_ = true;
+#endif
+  }
 
  private:
-  void PushContextScope(ContextScope* scope);
-  void PopContextScope();
+  void SetException(ExceptionCode, const String&, v8::Local<v8::Value>);
   void PropagateException();
-
-  String AddExceptionContext(const String&) const;
 
   // Since DOMException is defined in core/, we need a dependency injection in
   // order to create a DOMException in platform/.
   static CreateDOMExceptionFunction s_create_dom_exception_func_;
 
   // The main context represents what Web API is currently being executed.
-  // This is embedded without using ContextScope in order to avoid an overhead
-  // of ContextScope.
-  ExceptionContext main_context_;
-
-  // `context_stack_top_` points to the top of the context stack which
-  // represents additional (nested) contexts such as an IDL dictionary in a
-  // member of another IDL dictionary.  nullptr means no additional context.
-  const ContextScope* context_stack_top_ = nullptr;
+  ExceptionContext context_;
 
   v8::Isolate* isolate_;
   ExceptionCode code_ = 0;
@@ -251,32 +197,44 @@ class PLATFORM_EXPORT ExceptionState {
   TraceWrapperV8Reference<v8::Value> exception_;
   bool thrown_via_v8_trycatch_ = false;
 
-  friend class ContextScope;
+#if DCHECK_IS_ON()
+  const char* file_ = "";
+  int line_ = 0;
+  bool assert_no_exceptions_ = false;
+#endif
+};
+
+// Syntactic sugar for creating an ExceptionState that will throw as soon as
+// the function it's passed to returns.
+// This is useful for when a v8::TryCatch is on the stack.
+class PassThroughException {
+  STACK_ALLOCATED();
+
+ public:
+  explicit PassThroughException(v8::Isolate* isolate)
+      : exception_state_(isolate) {}
+
+  operator ExceptionState&() & = delete;
+  operator ExceptionState&() && { return exception_state_; }
+
+ private:
+  ExceptionState exception_state_;
 };
 
 // NonThrowableExceptionState never allow call sites to throw an exception.
 // Should be used if an exception must not be thrown.
 class PLATFORM_EXPORT NonThrowableExceptionState final : public ExceptionState {
  public:
-  NonThrowableExceptionState();
-  NonThrowableExceptionState(const char*, int);
+  NonThrowableExceptionState(const char* file = "", int line = 0)
+      : ExceptionState(file, line, kNonthrowable) {}
+};
 
-  ExceptionState& ReturnThis() { return *this; }
-
- protected:
-  void DoThrowDOMException(DOMExceptionCode, const String& message) override;
-  void DoThrowTypeError(const String& message) override;
-  void DoThrowSecurityError(const String& sanitized_message,
-                            const String& unsanitized_message) override;
-  void DoThrowRangeError(const String& message) override;
-  void DoThrowWasmCompileError(const String& message) override;
-  void DoRethrowV8Exception(v8::Local<v8::Value>) override;
-
- private:
-  void ComplainAbout(const char* exception);
-
-  const char* file_;
-  const int line_;
+// DummyExceptionStateForTesting ignores all thrown exceptions. Syntactic sugar
+// for ExceptionState(nullptr)
+class PLATFORM_EXPORT DummyExceptionStateForTesting final
+    : public ExceptionState {
+ public:
+  DummyExceptionStateForTesting() : ExceptionState(nullptr) {}
 };
 
 class PLATFORM_EXPORT TryRethrowScope {
@@ -300,6 +258,13 @@ class PLATFORM_EXPORT TryRethrowScope {
   ExceptionState& exception_state_;
 };
 
+// Syntax sugar for ExceptionState(nullptr)
+// This can be used as a default value of an ExceptionState parameter like this:
+//
+//     Node* removeChild(Node*, ExceptionState& = IGNORE_EXCEPTION);
+#define IGNORE_EXCEPTION (::blink::ExceptionState(nullptr).ReturnThis())
+#define IGNORE_EXCEPTION_FOR_TESTING IGNORE_EXCEPTION
+
 // Syntax sugar for NonThrowableExceptionState.
 // This can be used as a default value of an ExceptionState parameter like this:
 //
@@ -308,56 +273,8 @@ class PLATFORM_EXPORT TryRethrowScope {
 #define ASSERT_NO_EXCEPTION \
   (::blink::NonThrowableExceptionState(__FILE__, __LINE__).ReturnThis())
 #else
-#define ASSERT_NO_EXCEPTION \
-  (::blink::DummyExceptionStateForTesting().ReturnThis())
+#define ASSERT_NO_EXCEPTION IGNORE_EXCEPTION
 #endif
-
-// DummyExceptionStateForTesting ignores all thrown exceptions. You should not
-// use DummyExceptionStateForTesting in production code, where you need to
-// handle all exceptions properly. If you really need to ignore exceptions in
-// production code for some special reason, explicitly call clearException().
-class PLATFORM_EXPORT DummyExceptionStateForTesting final
-    : public ExceptionState {
- public:
-  DummyExceptionStateForTesting()
-      : ExceptionState(nullptr,
-                       v8::ExceptionContext::kUnknown,
-                       nullptr,
-                       nullptr) {}
-  ~DummyExceptionStateForTesting() {
-    // Prevent the base class throw an exception.
-    if (HadException()) {
-      ClearException();
-    }
-  }
-
-  ExceptionState& ReturnThis() { return *this; }
-  v8::Local<v8::Value> GetException() override {
-    return v8::Local<v8::Value>();
-  }
-
- protected:
-  void DoThrowDOMException(DOMExceptionCode, const String& message) override;
-  void DoThrowTypeError(const String& message) override;
-  void DoThrowSecurityError(const String& sanitized_message,
-                            const String& unsanitized_message) override;
-  void DoThrowRangeError(const String& message) override;
-  void DoThrowWasmCompileError(const String& message) override;
-  void DoRethrowV8Exception(v8::Local<v8::Value>) override;
-
- private:
-  void DoThrowInternal(ESErrorType, const String& message);
-  void DoThrowInternal(DOMExceptionCode, const String& message);
-  void DoThrowInternal(ExceptionCode, const String& message);
-};
-
-// Syntax sugar for DummyExceptionStateForTesting.
-// This can be used as a default value of an ExceptionState parameter like this:
-//
-//     Node* removeChild(Node*, ExceptionState& = IGNORE_EXCEPTION_FOR_TESTING);
-#define IGNORE_EXCEPTION_FOR_TESTING \
-  (::blink::DummyExceptionStateForTesting().ReturnThis())
-
 }  // namespace blink
 
 #endif  // THIRD_PARTY_BLINK_RENDERER_PLATFORM_BINDINGS_EXCEPTION_STATE_H_

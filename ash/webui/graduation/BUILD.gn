@@ -3,27 +3,37 @@
 # found in the LICENSE file.
 
 import("//build/config/chromeos/ui_mode.gni")
+import("//testing/test.gni")
 
 assert(is_chromeos_ash, "Graduation is ash-chrome only")
 
 static_library("graduation") {
   sources = [
+    "graduation_state_tracker.cc",
+    "graduation_state_tracker.h",
     "graduation_ui.cc",
     "graduation_ui.h",
+    "graduation_ui_handler.cc",
+    "graduation_ui_handler.h",
   ]
 
   public_deps = [ ":url_constants" ]
 
   deps = [
+    "mojom:mojom",
     "resources:resources",
     "//ash:ash",
     "//ash/constants:constants",
+    "//ash/public/cpp:cpp",
     "//ash/webui/common:chrome_os_webui_config",
     "//ash/webui/common:trusted_types_util",
     "//ash/webui/system_apps/public:system_web_app_config",
     "//ash/webui/system_apps/public:system_web_app_type",
+    "//base",
     "//chromeos/strings",
+    "//components/user_manager",
     "//content/public/browser",
+    "//ui/base",
     "//ui/webui",
   ]
 }
@@ -34,5 +44,22 @@ source_set("url_constants") {
   sources = [
     "url_constants.cc",
     "url_constants.h",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  sources = [ "graduation_ui_handler_unittest.cc" ]
+
+  deps = [
+    "mojom:mojom",
+    "//ash/webui/graduation:graduation",
+    "//base",
+    "//components/account_id",
+    "//components/user_manager:test_support",
+    "//content/test:test_support",
+    "//mojo/public/cpp/bindings",
+    "//testing/gtest",
   ]
 }

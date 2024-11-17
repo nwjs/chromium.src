@@ -216,8 +216,7 @@ void BluetoothDeviceFloss::SetConnectionLatency(
       max_connection_interval = kMaxConnectionIntervalHigh;
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 
   BLUETOOTH_LOG(EVENT) << "Setting LE connection parameters: min="
@@ -593,8 +592,7 @@ void BluetoothDeviceFloss::SetBondState(
       }
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 }
 
@@ -796,6 +794,11 @@ void BluetoothDeviceFloss::OnGetRemoteVendorProductInfo(
     DBusResult<FlossAdapterClient::VendorProductInfo> ret) {
   if (ret.has_value()) {
     vpi_ = *ret;
+    if (vpi_.vendorIdSrc >
+        static_cast<uint8_t>(VendorIDSource::VENDOR_ID_MAX_VALUE)) {
+      vpi_.vendorIdSrc =
+          static_cast<uint8_t>(VendorIDSource::VENDOR_ID_UNKNOWN);
+    }
   } else {
     BLUETOOTH_LOG(ERROR) << "GetRemoteVendorProductInfo() failed: "
                          << ret.error();
@@ -869,6 +872,12 @@ void BluetoothDeviceFloss::OnConnectAllEnabledProfiles(
   if (is_acl_connected_) {
     UpdateConnectingState(ConnectingState::kProfilesConnected, std::nullopt);
   }
+}
+
+void BluetoothDeviceFloss::OnDeviceConnectionFailed(
+    FlossDBusClient::BtifStatus status) {
+  UpdateConnectingState(ConnectingState::kIdle,
+                        FlossDBusClient::BtifStatusToConnectErrorCode(status));
 }
 
 void BluetoothDeviceFloss::UpdateConnectingState(

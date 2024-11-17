@@ -40,7 +40,7 @@ LocationBarModelImpl::LocationBarModelImpl(LocationBarModelDelegate* delegate,
   DCHECK(delegate_);
 }
 
-LocationBarModelImpl::~LocationBarModelImpl() {}
+LocationBarModelImpl::~LocationBarModelImpl() = default;
 
 // LocationBarModelImpl Implementation.
 std::u16string LocationBarModelImpl::GetFormattedFullURL() const {
@@ -159,7 +159,7 @@ net::CertStatus LocationBarModelImpl::GetCertStatus() const {
 }
 
 OmniboxEventProto::PageClassification
-LocationBarModelImpl::GetPageClassification(bool is_prefetch) {
+LocationBarModelImpl::GetPageClassification(bool is_prefetch) const {
   // We may be unable to fetch the current URL during startup or shutdown when
   // the omnibox exists but there is no attached page.
   GURL gurl;

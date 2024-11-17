@@ -86,7 +86,7 @@
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
-#include "base/android/content_uri_utils.h"
+#include "base/test/android/content_uri_test_utils.h"
 #endif
 
 #if BUILDFLAG(IS_FUCHSIA)
@@ -381,18 +381,23 @@ TEST_F(FileUtilTest, FileAndDirectorySize) {
   // should return 53 bytes.
   FilePath file_01 = temp_dir_.GetPath().Append(FPL("The file 01.txt"));
   CreateTextFile(file_01, L"12345678901234567890");
-  int64_t size_f1 = 0;
-  ASSERT_TRUE(GetFileSize(file_01, &size_f1));
-  EXPECT_EQ(20ll, size_f1);
+
+  std::optional<int64_t> size_f1 = GetFileSize(file_01);
+  ASSERT_THAT(size_f1, testing::Optional(20));
+  int64_t size_f1_out = 0;
+  ASSERT_TRUE(GetFileSize(file_01, &size_f1_out));
+  EXPECT_EQ(size_f1.value(), size_f1_out);
 
   FilePath subdir_path = temp_dir_.GetPath().Append(FPL("Level2"));
   CreateDirectory(subdir_path);
 
   FilePath file_02 = subdir_path.Append(FPL("The file 02.txt"));
   CreateTextFile(file_02, L"123456789012345678901234567890");
-  int64_t size_f2 = 0;
-  ASSERT_TRUE(GetFileSize(file_02, &size_f2));
-  EXPECT_EQ(30ll, size_f2);
+  std::optional<int64_t> size_f2 = GetFileSize(file_02);
+  ASSERT_THAT(size_f2, testing::Optional(30));
+  int64_t size_f2_out = 0;
+  ASSERT_TRUE(GetFileSize(file_02, &size_f2_out));
+  EXPECT_EQ(size_f2.value(), size_f2_out);
 
   FilePath subsubdir_path = subdir_path.Append(FPL("Level3"));
   CreateDirectory(subsubdir_path);
@@ -401,7 +406,7 @@ TEST_F(FileUtilTest, FileAndDirectorySize) {
   CreateTextFile(file_03, L"123");
 
   int64_t computed_size = ComputeDirectorySize(temp_dir_.GetPath());
-  EXPECT_EQ(size_f1 + size_f2 + 3, computed_size);
+  EXPECT_EQ(size_f1.value() + size_f2.value() + 3, computed_size);
 }
 
 TEST_F(FileUtilTest, NormalizeFilePathBasic) {
@@ -1757,6 +1762,43 @@ TEST_F(FileUtilTest, DeleteDeep) {
 #endif  // BUILDFLAG(IS_POSIX)
 
 #if BUILDFLAG(IS_ANDROID)
+TEST_F(FileUtilTest, ContentUriGetInfo) {
+  FilePath file = temp_dir_.GetPath().Append("file.txt");
+  FilePath dir = temp_dir_.GetPath().Append("dir");
+  WriteFile(file, "file-content");
+  CreateDirectory(dir);
+
+  FilePath content_uri_file =
+      *test::android::GetContentUriFromCacheDirFilePath(file);
+  FilePath content_uri_dir =
+      *test::android::GetContentUriFromCacheDirFilePath(dir);
+
+  // GetInfo() should work the same for files and content-URIs.
+  File::Info info;
+  File::Info content_uri_info;
+  EXPECT_TRUE(GetFileInfo(file, &info));
+  EXPECT_TRUE(GetFileInfo(content_uri_file, &content_uri_info));
+  EXPECT_EQ(12u, info.size);
+  EXPECT_EQ(12u, content_uri_info.size);
+  EXPECT_EQ(info.last_modified, content_uri_info.last_modified);
+  EXPECT_FALSE(info.is_directory);
+  EXPECT_FALSE(content_uri_info.is_directory);
+
+  // GetInfo() should work the same for dirs and content-URIs.
+  EXPECT_TRUE(GetFileInfo(dir, &info));
+  EXPECT_TRUE(GetFileInfo(content_uri_dir, &content_uri_info));
+  EXPECT_EQ(info.last_modified, content_uri_info.last_modified);
+  EXPECT_TRUE(info.is_directory);
+  EXPECT_TRUE(content_uri_info.is_directory);
+
+  // GetPosixFilePermissions() should fail for content URIs.
+  int mode = 0;
+  EXPECT_TRUE(GetPosixFilePermissions(file, &mode));
+  EXPECT_TRUE(GetPosixFilePermissions(dir, &mode));
+  EXPECT_FALSE(GetPosixFilePermissions(content_uri_file, &mode));
+  EXPECT_FALSE(GetPosixFilePermissions(content_uri_dir, &mode));
+}
+
 TEST_F(FileUtilTest, DeleteContentUri) {
   // Get the path to the test file.
   FilePath data_dir;
@@ -4392,9 +4434,8 @@ TEST_F(VerifyPathControlledByUserTest, WriteBitChecks) {
 
 #endif  // BUILDFLAG(IS_MAC)
 
-// Flaky test: crbug/1054637
 #if BUILDFLAG(IS_ANDROID)
-TEST_F(FileUtilTest, DISABLED_ValidContentUriTest) {
+TEST_F(FileUtilTest, ValidContentUriTest) {
   // Get the test image path.
   FilePath data_dir;
   ASSERT_TRUE(PathService::Get(DIR_TEST_DATA, &data_dir));
@@ -4417,15 +4458,31 @@ TEST_F(FileUtilTest, DISABLED_ValidContentUriTest) {
   EXPECT_EQ(image_size, content_uri_size);
 
   // We should be able to read the file.
-  File file = OpenContentUri(path, File::FLAG_OPEN | File::FLAG_READ);
+  File file(path, File::FLAG_OPEN | File::FLAG_READ);
   EXPECT_TRUE(file.IsValid());
   auto buffer = std::make_unique<char[]>(image_size);
   // SAFETY: required for test.
   EXPECT_TRUE(UNSAFE_BUFFERS(file.ReadAtCurrentPos(buffer.get(), image_size)));
+}
 
-  // We should be able to open the file as writable.
-  file = OpenContentUri(path, File::FLAG_CREATE_ALWAYS | File::FLAG_WRITE);
+TEST_F(FileUtilTest, WriteContentUri) {
+  // `path` and `content_uri` are the same file.
+  FilePath path = temp_dir_.GetPath().Append("file.txt");
+  ASSERT_TRUE(WriteFile(path, "file-content"));
+  FilePath content_uri =
+      *test::android::GetContentUriFromCacheDirFilePath(path);
+
+  // We should be able to open the file as writable which truncates the file.
+  File file = File(content_uri, File::FLAG_CREATE_ALWAYS | File::FLAG_WRITE);
   EXPECT_TRUE(file.IsValid());
+  int64_t size;
+  GetFileSize(path, &size);
+  EXPECT_EQ(size, 0);
+
+  EXPECT_EQ(*file.WriteAtCurrentPos(byte_span_from_cstring("123")), 3u);
+  EXPECT_TRUE(file.Flush());
+  GetFileSize(path, &size);
+  EXPECT_EQ(size, 3);
 }
 
 TEST_F(FileUtilTest, NonExistentContentUriTest) {
@@ -4437,7 +4494,7 @@ TEST_F(FileUtilTest, NonExistentContentUriTest) {
   EXPECT_FALSE(GetFileSize(path, &size));
 
   // We should not be able to read the file.
-  File file = OpenContentUri(path, File::FLAG_OPEN | File::FLAG_READ);
+  File file(path, File::FLAG_OPEN | File::FLAG_READ);
   EXPECT_FALSE(file.IsValid());
 }
 #endif
@@ -4594,7 +4651,7 @@ TEST(FileUtilMultiThreadedTest, MultiThreadedTempFiles) {
     thread->WaitUntilThreadStarted();
   }
 
-  const RepeatingClosure open_write_close_read = BindRepeating([]() {
+  const RepeatingClosure open_write_close_read = BindRepeating([] {
     FilePath output_filename;
     ScopedFILE output_file(CreateAndOpenTemporaryStream(&output_filename));
     EXPECT_TRUE(output_file);

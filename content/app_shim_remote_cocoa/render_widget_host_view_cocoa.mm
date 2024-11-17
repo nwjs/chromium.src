@@ -751,7 +751,7 @@ void ExtractUnderlines(NSAttributedString* string,
 
 - (void)drawRect:(NSRect)dirty {
   if (content::g_force_cpu_draw) {
-    CGContextRef ctx = (CGContextRef)[[NSGraphicsContext currentContext] CGContext];
+    CGContextRef ctx = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
     CGContextClipToRect(ctx, NSRectToCGRect(dirty));
     //High Sierra 10.13 fix, previously we use [self layer],
     //since we have set the layer to nil in AcceleratedWidgetMac::GotSoftwareFrame,
@@ -1217,8 +1217,7 @@ void ExtractUnderlines(NSAttributedString* string,
 
   _unmatchedKeyDownCodes.insert(keyCode);
 
-  RenderWidgetHostViewCocoa* __attribute__((objc_precise_lifetime))
-  keepSelfAlive = self;
+  NS_VALID_UNTIL_END_OF_SCOPE RenderWidgetHostViewCocoa* keepSelfAlive = self;
 
   // Records the current marked text state, so that we can know if the marked
   // text was deleted or not after handling the key down event.

@@ -61,7 +61,7 @@
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_ANDROID)
-#include "base/android/scoped_java_ref.h"
+#include "third_party/jni_zero/jni_zero.h"
 #endif
 
 namespace base {
@@ -1541,11 +1541,15 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   //   be embedded into it here.
   // - `attempt` is used to record some metrics associated with this prefetch
   //   request.
-  virtual void StartPrefetch(const GURL& prefetch_url,
-                             bool use_prefetch_proxy,
-                             const blink::mojom::Referrer& referrer,
-                             const std::optional<url::Origin>& referring_origin,
-                             base::WeakPtr<PreloadingAttempt> attempt) = 0;
+  // - `holdback_status_override` is used to override holdback status, if
+  //   specified.
+  virtual void StartPrefetch(
+      const GURL& prefetch_url,
+      bool use_prefetch_proxy,
+      const blink::mojom::Referrer& referrer,
+      const std::optional<url::Origin>& referring_origin,
+      base::WeakPtr<PreloadingAttempt> attempt,
+      std::optional<PreloadingHoldbackStatus> holdback_status_override) = 0;
 
   // Starts an embedder triggered (browser-initiated) prerendering page and
   // returns the unique_ptr<PrerenderHandle>, which cancels prerendering on its
@@ -1630,5 +1634,24 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
 };
 
 }  // namespace content
+
+#if BUILDFLAG(IS_ANDROID)
+namespace jni_zero {
+
+// @JniType conversion function.
+template <>
+inline content::WebContents* FromJniType<content::WebContents*>(
+    JNIEnv* env,
+    const JavaRef<jobject>& j_obj) {
+  return content::WebContents::FromJavaWebContents(j_obj);
+}
+template <>
+inline ScopedJavaLocalRef<jobject> ToJniType(JNIEnv* env,
+                                             content::WebContents* obj) {
+  return obj->GetJavaWebContents();
+}
+
+}  // namespace jni_zero
+#endif
 
 #endif  // CONTENT_PUBLIC_BROWSER_WEB_CONTENTS_H_

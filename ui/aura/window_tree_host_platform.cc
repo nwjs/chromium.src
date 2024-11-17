@@ -184,6 +184,18 @@ WindowTreeHostPlatform::GetKeyboardLayoutMap() {
 #endif
 }
 
+void WindowTreeHostPlatform::OnVideoCaptureLockCreated() {
+  if (platform_window_) {
+    platform_window_->SetVideoCapture();
+  }
+}
+
+void WindowTreeHostPlatform::OnVideoCaptureLockDestroyed() {
+  if (platform_window_) {
+    platform_window_->ReleaseVideoCapture();
+  }
+}
+
 void WindowTreeHostPlatform::SetCursorNative(gfx::NativeCursor cursor) {
   if (cursor == current_cursor_)
     return;
@@ -249,8 +261,8 @@ void WindowTreeHostPlatform::OnBoundsChanged(const BoundsChange& change) {
   // OnHostDidProcessBoundsChange() is called when all bounds changes have
   // completed.
   if (++on_bounds_changed_recursion_depth_ == 1) {
-    for (WindowTreeHostObserver& observer : observers())
-      observer.OnHostWillProcessBoundsChange(this);
+    observers().Notify(&WindowTreeHostObserver::OnHostWillProcessBoundsChange,
+                       this);
   }
 
   const auto preferred_scale =
@@ -275,8 +287,8 @@ void WindowTreeHostPlatform::OnBoundsChanged(const BoundsChange& change) {
   }
   DCHECK_GT(on_bounds_changed_recursion_depth_, 0);
   if (--on_bounds_changed_recursion_depth_ == 0) {
-    for (WindowTreeHostObserver& observer : observers())
-      observer.OnHostDidProcessBoundsChange(this);
+    observers().Notify(&WindowTreeHostObserver::OnHostDidProcessBoundsChange,
+                       this);
   }
 }
 

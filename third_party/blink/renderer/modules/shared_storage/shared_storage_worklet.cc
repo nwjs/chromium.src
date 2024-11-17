@@ -93,12 +93,6 @@ ScriptPromise<IDLUndefined> SharedStorageWorklet::addModule(
     const String& module_url,
     const WorkletOptions* options,
     ExceptionState& exception_state) {
-  if (!CheckBrowsingContextIsValid(*script_state, exception_state)) {
-    LogSharedStorageWorkletError(
-        SharedStorageWorkletErrorType::kAddModuleWebVisible);
-    return EmptyPromise();
-  }
-
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(
       script_state, exception_state.GetContext());
   auto promise = resolver->Promise();
@@ -116,6 +110,12 @@ void SharedStorageWorklet::AddModuleHelper(
     ExceptionState& exception_state,
     bool resolve_to_worklet,
     SharedStorageDataOrigin data_origin_type) {
+  if (!CheckBrowsingContextIsValid(*script_state, exception_state)) {
+    LogSharedStorageWorkletError(
+        SharedStorageWorkletErrorType::kAddModuleWebVisible);
+    return;
+  }
+
   base::TimeTicks start_time = base::TimeTicks::Now();
   ExecutionContext* execution_context = ExecutionContext::From(script_state);
   CHECK(execution_context->IsWindow());
@@ -232,10 +232,9 @@ void SharedStorageWorklet::AddModuleHelper(
 
   shared_storage_origin_ = std::move(shared_storage_origin);
 
-  const String& credentials = options->credentials();
-  std::optional<network::mojom::CredentialsMode> credentials_mode =
-      Request::ParseCredentialsMode(credentials);
-  CHECK(credentials_mode);
+  network::mojom::CredentialsMode credentials_mode =
+      Request::V8RequestCredentialsToCredentialsMode(
+          options->credentials().AsEnum());
 
   std::unique_ptr<Vector<mojom::blink::OriginTrialFeature>>
       origin_trial_features =
@@ -244,7 +243,7 @@ void SharedStorageWorklet::AddModuleHelper(
   SharedStorageWindowSupplement::From(To<LocalDOMWindow>(*execution_context))
       ->GetSharedStorageDocumentService()
       ->CreateWorklet(
-          script_source_url, shared_storage_security_origin, *credentials_mode,
+          script_source_url, shared_storage_security_origin, credentials_mode,
           origin_trial_features ? *origin_trial_features
                                 : Vector<mojom::blink::OriginTrialFeature>(),
           worklet_host_.BindNewEndpointAndPassReceiver(

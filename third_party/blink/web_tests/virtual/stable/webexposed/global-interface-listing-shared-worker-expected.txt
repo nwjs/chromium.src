@@ -540,7 +540,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter isFallbackAdapter
 [Worker]     getter limits
 [Worker]     method constructor
-[Worker]     method requestAdapterInfo
 [Worker]     method requestDevice
 [Worker] interface GPUAdapterInfo
 [Worker]     attribute @@toStringTag
@@ -576,6 +575,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter canvas
 [Worker]     method configure
 [Worker]     method constructor
+[Worker]     method getConfiguration
 [Worker]     method getCurrentTexture
 [Worker]     method unconfigure
 [Worker] interface GPUCommandBuffer
@@ -1434,6 +1434,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter cache
 [Worker]     getter credentials
 [Worker]     getter destination
+[Worker]     getter duplex
 [Worker]     getter headers
 [Worker]     getter integrity
 [Worker]     getter isHistoryNavigation

@@ -460,7 +460,7 @@ public class AutocompleteMatch {
 
         AutocompleteMatch suggestion = (AutocompleteMatch) obj;
         boolean answer_template_is_equal =
-                mAnswerTemplate != null && suggestion.mAnswerTemplate != null
+                (mAnswerTemplate != null && suggestion.mAnswerTemplate != null)
                         ? mAnswerTemplate.equals(suggestion.mAnswerTemplate)
                         : mAnswerTemplate == null && suggestion.mAnswerTemplate == null;
         return mType == suggestion.mType
@@ -509,6 +509,7 @@ public class AutocompleteMatch {
     }
 
     @Override
+    @SuppressWarnings("LiteProtoToString")
     public String toString() {
         List<String> pieces =
                 Arrays.asList(

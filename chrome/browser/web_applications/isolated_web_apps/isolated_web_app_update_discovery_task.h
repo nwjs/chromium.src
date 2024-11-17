@@ -25,6 +25,27 @@
 
 namespace web_app {
 
+class IwaUpdateDiscoveryTaskParams {
+ public:
+  IwaUpdateDiscoveryTaskParams(const GURL& update_manifest_url,
+                               const UpdateChannel& update_channel,
+                               const IsolatedWebAppUrlInfo& url_info,
+                               bool dev_mode);
+
+  IwaUpdateDiscoveryTaskParams(IwaUpdateDiscoveryTaskParams&& other);
+
+  const GURL& update_manifest_url() const { return update_manifest_url_; }
+  const UpdateChannel& update_channel() const { return update_channel_; }
+  const IsolatedWebAppUrlInfo& url_info() const { return url_info_; }
+  bool dev_mode() const { return dev_mode_; }
+
+ private:
+  GURL update_manifest_url_;
+  UpdateChannel update_channel_;
+  IsolatedWebAppUrlInfo url_info_;
+  bool dev_mode_;
+};
+
 class IsolatedWebAppUpdateDiscoveryTask {
  public:
   enum class Success {
@@ -57,8 +78,7 @@ class IsolatedWebAppUpdateDiscoveryTask {
   using CompletionCallback = base::OnceCallback<void(CompletionStatus status)>;
 
   IsolatedWebAppUpdateDiscoveryTask(
-      GURL update_manifest_url,
-      IsolatedWebAppUrlInfo url_info,
+      IwaUpdateDiscoveryTaskParams task_params,
       WebAppCommandScheduler& command_scheduler,
       WebAppRegistrar& registrar,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory);
@@ -72,7 +92,9 @@ class IsolatedWebAppUpdateDiscoveryTask {
   void Start(CompletionCallback callback);
   bool has_started() const { return has_started_; }
 
-  const IsolatedWebAppUrlInfo& url_info() const { return url_info_; }
+  const IsolatedWebAppUrlInfo& url_info() const {
+    return task_params_.url_info();
+  }
 
   base::Value AsDebugValue() const;
 
@@ -100,8 +122,7 @@ class IsolatedWebAppUpdateDiscoveryTask {
   bool has_started_ = false;
   CompletionCallback callback_;
 
-  GURL update_manifest_url_;
-  IsolatedWebAppUrlInfo url_info_;
+  const IwaUpdateDiscoveryTaskParams task_params_;
 
   raw_ref<WebAppCommandScheduler> command_scheduler_;
   raw_ref<WebAppRegistrar> registrar_;

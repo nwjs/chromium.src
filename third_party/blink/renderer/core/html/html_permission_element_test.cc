@@ -4,11 +4,16 @@
 
 #include "third_party/blink/renderer/core/html/html_permission_element.h"
 
+#include <optional>
+
+#include "base/compiler_specific.h"
 #include "base/run_loop.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/strings/grit/blink_strings.h"
+#include "third_party/blink/public/strings/grit/permission_element_generated_strings.h"
+#include "third_party/blink/public/strings/grit/permission_element_strings.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/css/properties/css_property.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -19,6 +24,7 @@
 #include "third_party/blink/renderer/core/html/html_span_element.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/script/classic_script.h"
+#include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/testing/null_execution_context.h"
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_request.h"
@@ -26,6 +32,7 @@
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/testing_platform_support.h"
+#include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 
 namespace blink {
 
@@ -41,15 +48,26 @@ using MojoPermissionStatus = mojom::blink::PermissionStatus;
 
 namespace {
 
-constexpr char kCameraString[] = "Allow camera";
+constexpr char16_t kGeolocationStringPt[] = u"Usar localização";
+constexpr char16_t kGeolocationAllowedStringPt[] =
+    u"Acesso à localização permitido";
+constexpr char16_t kGeolocationStringBr[] = u"Usar local";
+constexpr char16_t kGeolocationAllowedStringBr[] =
+    u"Acesso à localização permitido";
+constexpr char16_t kGeolocationStringTa[] = u"இருப்பிடத்தைப் பயன்படுத்து";
+constexpr char16_t kGeolocationAllowedStringTa[] = u"இருப்பிட அனுமதி வழங்கப்பட்டது";
+
+constexpr char kCameraString[] = "Use camera";
 constexpr char kCameraAllowedString[] = "Camera allowed";
-constexpr char kMicrophoneString[] = "Allow microphone";
+constexpr char kMicrophoneString[] = "Use microphone";
 constexpr char kMicrophoneAllowedString[] = "Microphone allowed";
-constexpr char kGeolocationString[] = "Share location";
-constexpr char kGeolocationAllowedString[] = "Sharing location allowed";
-constexpr char kCameraMicrophoneString[] = "Allow microphone and camera";
+constexpr char kGeolocationString[] = "Use location";
+constexpr char kGeolocationAllowedString[] = "Location allowed";
+constexpr char kCameraMicrophoneString[] = "Use microphone and camera";
 constexpr char kCameraMicrophoneAllowedString[] =
     "Camera and microphone allowed";
+constexpr char kPreciseGeolocationString[] = "Use precise location";
+constexpr char kPreciseGeolocationAllowedString[] = "Precise location allowed";
 
 constexpr base::TimeDelta kDefaultTimeout = base::Milliseconds(500);
 constexpr base::TimeDelta kSmallTimeout = base::Milliseconds(50);
@@ -74,6 +92,22 @@ class LocalePlatformSupport : public TestingPlatformSupport {
         return kCameraMicrophoneString;
       case IDS_PERMISSION_REQUEST_CAMERA_MICROPHONE_ALLOWED:
         return kCameraMicrophoneAllowedString;
+      case IDS_PERMISSION_REQUEST_PRECISE_GEOLOCATION:
+        return kPreciseGeolocationString;
+      case IDS_PERMISSION_REQUEST_PRECISE_GEOLOCATION_ALLOWED:
+        return kPreciseGeolocationAllowedString;
+      case IDS_PERMISSION_REQUEST_GEOLOCATION_pt_PT:
+        return WebString::FromUTF16(kGeolocationStringPt);
+      case IDS_PERMISSION_REQUEST_GEOLOCATION_ALLOWED_pt_PT:
+        return WebString::FromUTF16(kGeolocationAllowedStringPt);
+      case IDS_PERMISSION_REQUEST_GEOLOCATION_pt_BR:
+        return WebString::FromUTF16(kGeolocationStringBr);
+      case IDS_PERMISSION_REQUEST_GEOLOCATION_ALLOWED_pt_BR:
+        return WebString::FromUTF16(kGeolocationAllowedStringBr);
+      case IDS_PERMISSION_REQUEST_GEOLOCATION_ta:
+        return WebString::FromUTF16(kGeolocationStringTa);
+      case IDS_PERMISSION_REQUEST_GEOLOCATION_ALLOWED_ta:
+        return WebString::FromUTF16(kGeolocationAllowedStringTa);
       default:
         break;
     }
@@ -85,6 +119,17 @@ void NotReachedForPEPCRegistered() {
   EXPECT_TRUE(false)
       << "The RegisterPageEmbeddedPermissionControl was called despite the "
          "test expecting it not to.";
+}
+
+String PermissionStatusString(MojoPermissionStatus status) {
+  switch (status) {
+    case MojoPermissionStatus::GRANTED:
+      return "granted";
+    case MojoPermissionStatus::ASK:
+      return "prompt";
+    case MojoPermissionStatus::DENIED:
+      return "denied";
+  }
 }
 
 }  // namespace
@@ -117,6 +162,20 @@ TEST_F(HTMLPemissionElementTestBase, SetTypeAttribute) {
                                    AtomicString("geolocation"));
 
   EXPECT_EQ(AtomicString("camera"), permission_element->GetType());
+}
+
+TEST_F(HTMLPemissionElementTestBase, SetPreciseLocationAttribute) {
+  auto* permission_element =
+      MakeGarbageCollected<HTMLPermissionElement>(GetDocument());
+
+  EXPECT_FALSE(permission_element->is_precise_location_);
+
+  permission_element->setAttribute(html_names::kPreciselocationAttr,
+                                   AtomicString(""));
+  EXPECT_TRUE(permission_element->is_precise_location_);
+
+  permission_element->removeAttribute(html_names::kPreciselocationAttr);
+  EXPECT_TRUE(permission_element->is_precise_location_);
 }
 
 TEST_F(HTMLPemissionElementTestBase, ParsePermissionDescriptorsFromType) {
@@ -224,7 +283,7 @@ class TestPermissionService : public PermissionService {
             : initial_statuses_;
     mojo::Remote<mojom::blink::EmbeddedPermissionControlClient> client(
         std::move(pending_client));
-    client->OnEmbeddedPermissionControlRegistered(/*allowed=*/true,
+    client->OnEmbeddedPermissionControlRegistered(/*allow=*/true,
                                                   std::move(statuses));
   }
 
@@ -370,11 +429,17 @@ class HTMLPemissionElementTest : public HTMLPemissionElementTestBase {
     return permission_service_.get();
   }
 
-  HTMLPermissionElement* CreatePermissionElement(const char* permission) {
+  HTMLPermissionElement* CreatePermissionElement(
+      const char* permission,
+      bool precise_location = false) {
     HTMLPermissionElement* permission_element =
         MakeGarbageCollected<HTMLPermissionElement>(GetDocument());
     permission_element->setAttribute(html_names::kTypeAttr,
                                      AtomicString(permission));
+    if (precise_location) {
+      permission_element->setAttribute(html_names::kPreciselocationAttr,
+                                       AtomicString(""));
+    }
     GetDocument().body()->AppendChild(permission_element);
     GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
     return permission_element;
@@ -458,15 +523,22 @@ TEST_F(HTMLPemissionElementTest, InitializeInnerText) {
   const struct {
     const char* type;
     String expected_text;
+    bool precise_location = false;
   } kTestData[] = {{"geolocation", kGeolocationString},
                    {"microphone", kMicrophoneString},
                    {"camera", kCameraString},
-                   {"camera microphone", kCameraMicrophoneString}};
+                   {"camera microphone", kCameraMicrophoneString},
+                   {"geolocation", kPreciseGeolocationString, true},
+                   {"geolocation", kGeolocationString, false}};
   for (const auto& data : kTestData) {
     auto* permission_element =
         MakeGarbageCollected<HTMLPermissionElement>(GetDocument());
     permission_element->setAttribute(html_names::kTypeAttr,
                                      AtomicString(data.type));
+    if (data.precise_location) {
+      permission_element->setAttribute(html_names::kPreciselocationAttr,
+                                       AtomicString(""));
+    }
     EXPECT_EQ(
         data.expected_text,
         permission_element->permission_text_span_for_testing()->innerText());
@@ -477,6 +549,50 @@ TEST_F(HTMLPemissionElementTest, InitializeInnerText) {
     DOMRect* rect = permission_element->GetBoundingClientRect();
     EXPECT_NE(0, rect->width());
     EXPECT_NE(0, rect->height());
+  }
+}
+
+TEST_F(HTMLPemissionElementTest, TranslateInnerText) {
+  const struct {
+    const char* lang_attr_value;
+    String expected_text_ask;
+    String expected_text_allowed;
+  } kTestData[] = {
+      // no language means the default string
+      {"", kGeolocationString, kGeolocationAllowedString},
+      // "pt" selects Portuguese
+      {"pT", kGeolocationStringPt, kGeolocationAllowedStringPt},
+      // "pt-br" selects brazilian Portuguese
+      {"pt-BR", kGeolocationStringBr, kGeolocationAllowedStringBr},
+      // "pt" and a country that has no defined separate translation falls back
+      // to Portuguese
+      {"Pt-cA", kGeolocationStringPt, kGeolocationAllowedStringPt},
+      // "pt" and something that is not a country falls back to Portuguese
+      {"PT-gIbbeRish", kGeolocationStringPt, kGeolocationAllowedStringPt},
+      // unrecognized locale selects the default string
+      {"gibBeRish", kGeolocationString, kGeolocationAllowedString},
+      // try tamil to test non-english-alphabet-based language
+      {"ta", kGeolocationStringTa, kGeolocationAllowedStringTa}};
+
+  auto* permission_element = CreatePermissionElement("geolocation");
+  permission_service()->WaitForPermissionObserverAdded();
+
+  for (const auto& data : kTestData) {
+    permission_element->setAttribute(html_names::kLangAttr,
+                                     AtomicString(data.lang_attr_value));
+    permission_service()->NotifyPermissionStatusChange(
+        PermissionName::GEOLOCATION, MojoPermissionStatus::ASK);
+    GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+    EXPECT_EQ(
+        data.expected_text_ask,
+        permission_element->permission_text_span_for_testing()->innerText());
+
+    permission_service()->NotifyPermissionStatusChange(
+        PermissionName::GEOLOCATION, MojoPermissionStatus::GRANTED);
+    GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+    EXPECT_EQ(
+        data.expected_text_allowed,
+        permission_element->permission_text_span_for_testing()->innerText());
   }
 }
 
@@ -496,6 +612,7 @@ TEST_F(HTMLPemissionElementTest, SetInnerTextAfterRegistrationSingleElement) {
     const char* type;
     MojoPermissionStatus status;
     String expected_text;
+    bool precise_location = false;
   } kTestData[] = {
       {"geolocation", MojoPermissionStatus::ASK, kGeolocationString},
       {"microphone", MojoPermissionStatus::ASK, kMicrophoneString},
@@ -505,9 +622,21 @@ TEST_F(HTMLPemissionElementTest, SetInnerTextAfterRegistrationSingleElement) {
       {"camera", MojoPermissionStatus::DENIED, kCameraString},
       {"geolocation", MojoPermissionStatus::GRANTED, kGeolocationAllowedString},
       {"microphone", MojoPermissionStatus::GRANTED, kMicrophoneAllowedString},
-      {"camera", MojoPermissionStatus::GRANTED, kCameraAllowedString}};
+      {"camera", MojoPermissionStatus::GRANTED, kCameraAllowedString},
+      {"geolocation", MojoPermissionStatus::ASK, kPreciseGeolocationString,
+       true},
+      {"geolocation", MojoPermissionStatus::DENIED, kPreciseGeolocationString,
+       true},
+      {"geolocation", MojoPermissionStatus::GRANTED,
+       kPreciseGeolocationAllowedString, true},
+
+      // Only affects geolocation.
+      {"camera", MojoPermissionStatus::GRANTED, kCameraAllowedString, true},
+      {"microphone", MojoPermissionStatus::ASK, kMicrophoneString, true},
+  };
   for (const auto& data : kTestData) {
-    auto* permission_element = CreatePermissionElement(data.type);
+    auto* permission_element =
+        CreatePermissionElement(data.type, data.precise_location);
     permission_service()->set_initial_statuses({data.status});
     RegistrationWaiter(permission_element).Wait();
     EXPECT_EQ(
@@ -559,26 +688,35 @@ TEST_F(HTMLPemissionElementTest, StatusChangeSinglePermissionElement) {
     PermissionName name;
     MojoPermissionStatus status;
     String expected_text;
-  } kTestData[] = {{"geolocation", PermissionName::GEOLOCATION,
-                    MojoPermissionStatus::ASK, kGeolocationString},
-                   {"microphone", PermissionName::AUDIO_CAPTURE,
-                    MojoPermissionStatus::ASK, kMicrophoneString},
-                   {"camera", PermissionName::VIDEO_CAPTURE,
-                    MojoPermissionStatus::ASK, kCameraString},
-                   {"geolocation", PermissionName::GEOLOCATION,
-                    MojoPermissionStatus::DENIED, kGeolocationString},
-                   {"microphone", PermissionName::AUDIO_CAPTURE,
-                    MojoPermissionStatus::DENIED, kMicrophoneString},
-                   {"camera", PermissionName::VIDEO_CAPTURE,
-                    MojoPermissionStatus::DENIED, kCameraString},
-                   {"geolocation", PermissionName::GEOLOCATION,
-                    MojoPermissionStatus::GRANTED, kGeolocationAllowedString},
-                   {"microphone", PermissionName::AUDIO_CAPTURE,
-                    MojoPermissionStatus::GRANTED, kMicrophoneAllowedString},
-                   {"camera", PermissionName::VIDEO_CAPTURE,
-                    MojoPermissionStatus::GRANTED, kCameraAllowedString}};
+    bool precise_location = false;
+  } kTestData[] = {
+      {"geolocation", PermissionName::GEOLOCATION, MojoPermissionStatus::ASK,
+       kGeolocationString},
+      {"microphone", PermissionName::AUDIO_CAPTURE, MojoPermissionStatus::ASK,
+       kMicrophoneString},
+      {"camera", PermissionName::VIDEO_CAPTURE, MojoPermissionStatus::ASK,
+       kCameraString},
+      {"geolocation", PermissionName::GEOLOCATION, MojoPermissionStatus::DENIED,
+       kGeolocationString},
+      {"microphone", PermissionName::AUDIO_CAPTURE,
+       MojoPermissionStatus::DENIED, kMicrophoneString},
+      {"camera", PermissionName::VIDEO_CAPTURE, MojoPermissionStatus::DENIED,
+       kCameraString},
+      {"geolocation", PermissionName::GEOLOCATION,
+       MojoPermissionStatus::GRANTED, kGeolocationAllowedString},
+      {"microphone", PermissionName::AUDIO_CAPTURE,
+       MojoPermissionStatus::GRANTED, kMicrophoneAllowedString},
+      {"camera", PermissionName::VIDEO_CAPTURE, MojoPermissionStatus::GRANTED,
+       kCameraAllowedString},
+      {"geolocation", PermissionName::GEOLOCATION, MojoPermissionStatus::ASK,
+       kPreciseGeolocationString, true},
+      {"geolocation", PermissionName::GEOLOCATION, MojoPermissionStatus::DENIED,
+       kPreciseGeolocationString, true},
+      {"geolocation", PermissionName::GEOLOCATION,
+       MojoPermissionStatus::GRANTED, kPreciseGeolocationAllowedString, true}};
   for (const auto& data : kTestData) {
-    auto* permission_element = CreatePermissionElement(data.type);
+    auto* permission_element =
+        CreatePermissionElement(data.type, data.precise_location);
     permission_service()->WaitForPermissionObserverAdded();
     permission_service()->NotifyPermissionStatusChange(data.name, data.status);
     EXPECT_EQ(
@@ -624,6 +762,91 @@ TEST_F(HTMLPemissionElementTest,
         data.expected_text,
         permission_element->permission_text_span_for_testing()->innerText());
   }
+}
+
+TEST_F(HTMLPemissionElementTest, InitialAndUpdatedPermissionStatusMicCamera) {
+  for (const auto initial_status :
+       {MojoPermissionStatus::ASK, MojoPermissionStatus::DENIED,
+        MojoPermissionStatus::GRANTED}) {
+    String expected_initial_status = PermissionStatusString(initial_status);
+    auto* permission_element = CreatePermissionElement("geolocation");
+    permission_service()->set_initial_statuses({initial_status});
+    permission_service()->WaitForPermissionObserverAdded();
+    EXPECT_EQ(expected_initial_status,
+              permission_element->initialPermissionStatus());
+    EXPECT_EQ(expected_initial_status, permission_element->permissionStatus());
+
+    for (const auto updated_status :
+         {MojoPermissionStatus::ASK, MojoPermissionStatus::DENIED,
+          MojoPermissionStatus::GRANTED}) {
+      String expected_updated_status = PermissionStatusString(updated_status);
+      permission_service()->NotifyPermissionStatusChange(
+          PermissionName::GEOLOCATION, updated_status);
+      // After an updated, the initial permission status remains the same and
+      // just the permission status changes.
+      EXPECT_EQ(expected_initial_status,
+                permission_element->initialPermissionStatus());
+      EXPECT_EQ(expected_updated_status,
+                permission_element->permissionStatus());
+    }
+  }
+}
+
+TEST_F(HTMLPemissionElementTest, InitialAndUpdatedPermissionStatusCameraMic) {
+  auto* permission_element = CreatePermissionElement("camera microphone");
+  permission_service()->set_initial_statuses(
+      {MojoPermissionStatus::ASK, MojoPermissionStatus::DENIED});
+
+  // Before receiving any status, it's assumed it is "prompt" since we don't
+  // have a better idea.
+  EXPECT_EQ(PermissionStatusString(MojoPermissionStatus::ASK),
+            permission_element->initialPermissionStatus());
+  EXPECT_EQ(PermissionStatusString(MojoPermissionStatus::ASK),
+            permission_element->permissionStatus());
+
+  // Two permissoin observers should be added since it's a grouped permission
+  // element.
+  permission_service()->WaitForPermissionObserverAdded();
+  permission_service()->WaitForPermissionObserverAdded();
+
+  // The status is the most restrictive of the two permissions. The initial
+  // status never changes. camera: ASK, mic: DENIED
+  EXPECT_EQ(PermissionStatusString(MojoPermissionStatus::DENIED),
+            permission_element->initialPermissionStatus());
+  EXPECT_EQ(PermissionStatusString(MojoPermissionStatus::DENIED),
+            permission_element->permissionStatus());
+
+  // camera:ASK, mic: ASK
+  permission_service()->NotifyPermissionStatusChange(
+      PermissionName::AUDIO_CAPTURE, MojoPermissionStatus::ASK);
+  EXPECT_EQ(PermissionStatusString(MojoPermissionStatus::DENIED),
+            permission_element->initialPermissionStatus());
+  EXPECT_EQ(PermissionStatusString(MojoPermissionStatus::ASK),
+            permission_element->permissionStatus());
+
+  // camera:DENIED, mic: ASK
+  permission_service()->NotifyPermissionStatusChange(
+      PermissionName::VIDEO_CAPTURE, MojoPermissionStatus::DENIED);
+  EXPECT_EQ(PermissionStatusString(MojoPermissionStatus::DENIED),
+            permission_element->initialPermissionStatus());
+  EXPECT_EQ(PermissionStatusString(MojoPermissionStatus::DENIED),
+            permission_element->permissionStatus());
+
+  // camera:DENIED, mic: GRANTED
+  permission_service()->NotifyPermissionStatusChange(
+      PermissionName::AUDIO_CAPTURE, MojoPermissionStatus::GRANTED);
+  EXPECT_EQ(PermissionStatusString(MojoPermissionStatus::DENIED),
+            permission_element->initialPermissionStatus());
+  EXPECT_EQ(PermissionStatusString(MojoPermissionStatus::DENIED),
+            permission_element->permissionStatus());
+
+  // camera:GRANTED, mic: GRANTED
+  permission_service()->NotifyPermissionStatusChange(
+      PermissionName::VIDEO_CAPTURE, MojoPermissionStatus::GRANTED);
+  EXPECT_EQ(PermissionStatusString(MojoPermissionStatus::DENIED),
+            permission_element->initialPermissionStatus());
+  EXPECT_EQ(PermissionStatusString(MojoPermissionStatus::GRANTED),
+            permission_element->permissionStatus());
 }
 
 class HTMLPemissionElementClickingEnabledTest
@@ -691,12 +914,18 @@ class HTMLPemissionElementSimTest : public SimTest {
     return permission_service_.get();
   }
 
-  HTMLPermissionElement* CreatePermissionElement(Document& document,
-                                                 const char* permission) {
+  HTMLPermissionElement* CreatePermissionElement(
+      Document& document,
+      const char* permission,
+      std::optional<const char*> precise_location = std::nullopt) {
     HTMLPermissionElement* permission_element =
         MakeGarbageCollected<HTMLPermissionElement>(document);
     permission_element->setAttribute(html_names::kTypeAttr,
                                      AtomicString(permission));
+    if (precise_location.has_value()) {
+      permission_element->setAttribute(html_names::kPreciselocationAttr,
+                                       AtomicString(precise_location.value()));
+    }
     document.body()->AppendChild(permission_element);
     document.UpdateStyleAndLayout(DocumentUpdateReason::kTest);
     return permission_element;
@@ -791,6 +1020,9 @@ TEST_F(HTMLPemissionElementSimTest, BadContrastDisablesElement) {
   GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   checker.CheckClickingEnabledAfterDelay(kDefaultTimeout,
                                          /*expected_enabled=*/true);
+  EXPECT_FALSE(To<HTMLPermissionElement>(
+                   GetDocument().QuerySelector(AtomicString("permission")))
+                   ->matches(AtomicString(":invalid-style")));
 
   // Red on purple is not sufficient contrast.
   permission_element->setAttribute(
@@ -798,6 +1030,9 @@ TEST_F(HTMLPemissionElementSimTest, BadContrastDisablesElement) {
       AtomicString("color: red; background-color: purple;"));
   GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   checker.CheckClickingEnabled(/*enabled=*/false);
+  EXPECT_TRUE(To<HTMLPermissionElement>(
+                  GetDocument().QuerySelector(AtomicString("permission")))
+                  ->matches(AtomicString(":invalid-style")));
 
   // Purple on yellow is sufficient contrast, the element will be re-enabled
   // after a delay.
@@ -808,6 +1043,9 @@ TEST_F(HTMLPemissionElementSimTest, BadContrastDisablesElement) {
   checker.CheckClickingEnabled(/*enabled=*/false);
   checker.CheckClickingEnabledAfterDelay(kDefaultTimeout,
                                          /*expected_enabled=*/true);
+  EXPECT_FALSE(To<HTMLPermissionElement>(
+                   GetDocument().QuerySelector(AtomicString("permission")))
+                   ->matches(AtomicString(":invalid-style")));
 
   // Purple on yellow is sufficient contrast, however the alpha is not at 100%
   // so the element should become disabled. rgba(255, 255, 0, 0.99) is "yellow"
@@ -1174,6 +1412,48 @@ TEST_F(HTMLPemissionElementSimTest, BlockedByMissingFrameAncestorsCSP) {
   }
 }
 
+// Test that a permission element can be hidden (and shown again) by using the
+// ":granted" pseudo-class selector.
+TEST_F(HTMLPemissionElementSimTest, GrantedSelectorDisplayNone) {
+  SimRequest main_resource("https://example.test", "text/html");
+  LoadURL("https://example.test");
+  main_resource.Complete(R"(
+    <body>
+    <style>
+      permission:granted { display: none; }
+    </style>
+    </body>
+  )");
+
+  auto* permission_element =
+      CreatePermissionElement(GetDocument(), "geolocation");
+  permission_service()->WaitForPermissionObserverAdded();
+
+  EXPECT_TRUE(permission_element->GetComputedStyle());
+  EXPECT_EQ(
+      EDisplay::kInlineBlock,
+      permission_element->GetComputedStyle()->GetDisplayStyle().Display());
+
+  // The permission becomes granted, hiding the permission element because of
+  // the style.
+  permission_service()->NotifyPermissionStatusChange(
+      PermissionName::GEOLOCATION, MojoPermissionStatus::GRANTED);
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  // An element with "display: none" does not have a computed style.
+  EXPECT_FALSE(permission_element->GetComputedStyle());
+
+  // The permission stops being granted, the permission element is no longer
+  // hidden.
+  permission_service()->NotifyPermissionStatusChange(
+      PermissionName::GEOLOCATION, MojoPermissionStatus::DENIED);
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+
+  EXPECT_TRUE(permission_element->GetComputedStyle());
+  EXPECT_EQ(
+      EDisplay::kInlineBlock,
+      permission_element->GetComputedStyle()->GetDisplayStyle().Display());
+}
+
 class HTMLPemissionElementIntersectionTest
     : public HTMLPemissionElementSimTest {
  public:
@@ -1358,6 +1638,82 @@ TEST_F(HTMLPemissionElementIntersectionTest,
       HTMLPermissionElement::IntersectionVisibility::kOccludedOrDistorted);
   checker.CheckClickingEnabledAfterDelay(kDefaultTimeout,
                                          /*expected_enabled*/ false);
+}
+
+TEST_F(HTMLPemissionElementIntersectionTest, ClickingDisablePseudoClass) {
+  SimRequest main_resource("https://example.test/", "text/html");
+  LoadURL("https://example.test/");
+  main_resource.Complete(R"HTML(
+    <!doctype html>
+    <div id='cover'
+      style='position: fixed; left: 0px; top: 100px; width: 100px; height: 100px;'>
+    </div>
+    <permission id='camera' type='camera'>
+  )HTML");
+
+  Compositor().BeginFrame();
+  auto* permission_element = To<HTMLPermissionElement>(
+      GetDocument().QuerySelector(AtomicString("permission")));
+  auto* div =
+      To<HTMLDivElement>(GetDocument().QuerySelector(AtomicString("div")));
+  WaitForIntersectionVisibilityChanged(
+      permission_element,
+      HTMLPermissionElement::IntersectionVisibility::kFullyVisible);
+  DeferredChecker checker(permission_element);
+  checker.CheckClickingEnabledAfterDelay(kDefaultTimeout,
+                                         /*expected_enabled*/ true);
+  EXPECT_FALSE(To<HTMLPermissionElement>(
+                   GetDocument().QuerySelector(AtomicString("permission")))
+                   ->matches(AtomicString(":occluded")));
+
+  permission_element->setAttribute(
+      html_names::kStyleAttr,
+      AtomicString("color: red; background-color: white;"));
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  checker.CheckClickingEnabledAfterDelay(kDefaultTimeout,
+                                         /*expected_enabled=*/true);
+  EXPECT_FALSE(To<HTMLPermissionElement>(
+                   GetDocument().QuerySelector(AtomicString("permission")))
+                   ->matches(AtomicString(":invalid-style")));
+
+  // Red on purple is not sufficient contrast.
+  permission_element->setAttribute(
+      html_names::kStyleAttr,
+      AtomicString("color: red; background-color: purple;"));
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  checker.CheckClickingEnabled(/*enabled=*/false);
+  EXPECT_TRUE(To<HTMLPermissionElement>(
+                  GetDocument().QuerySelector(AtomicString("permission")))
+                  ->matches(AtomicString(":invalid-style")));
+
+  // Move the div to overlap the Permission Element
+  div->SetInlineStyleProperty(CSSPropertyID::kTop, "0px");
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  WaitForIntersectionVisibilityChanged(
+      permission_element,
+      HTMLPermissionElement::IntersectionVisibility::kOccludedOrDistorted);
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  GetDocument().View()->UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(To<HTMLPermissionElement>(
+                  GetDocument().QuerySelector(AtomicString("permission")))
+                  ->matches(AtomicString(":occluded")));
+  div->SetInlineStyleProperty(CSSPropertyID::kTop, "100px");
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  GetDocument().View()->UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(To<HTMLPermissionElement>(
+                   GetDocument().QuerySelector(AtomicString("permission")))
+                   ->matches(AtomicString(":occluded")));
+
+  permission_element->setAttribute(
+      html_names::kStyleAttr,
+      AtomicString("color: yellow; background-color: purple;"));
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  checker.CheckClickingEnabled(/*enabled=*/false);
+  checker.CheckClickingEnabledAfterDelay(kDefaultTimeout,
+                                         /*expected_enabled=*/true);
+  EXPECT_FALSE(To<HTMLPermissionElement>(
+                   GetDocument().QuerySelector(AtomicString("permission")))
+                   ->matches(AtomicString(":invalid-style")));
 }
 
 TEST_F(HTMLPemissionElementIntersectionTest, ContainerDivRotates) {

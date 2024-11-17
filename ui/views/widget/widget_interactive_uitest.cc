@@ -14,6 +14,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
+#include "base/scoped_observation.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
@@ -28,6 +29,7 @@
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
+#include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/test/ui_controls.h"
 #include "ui/base/ui_base_features.h"
@@ -322,16 +324,17 @@ BEGIN_METADATA(DragView)
 END_METADATA
 #endif  // BUILDFLAG(ENABLE_DESKTOP_AURA)
 
-ui::WindowShowState GetWidgetShowState(const Widget* widget) {
+ui::mojom::WindowShowState GetWidgetShowState(const Widget* widget) {
   // Use IsMaximized/IsMinimized/IsFullScreen instead of GetWindowPlacement
   // because the former is implemented on all platforms but the latter is not.
   if (widget->IsFullscreen())
-    return ui::SHOW_STATE_FULLSCREEN;
+    return ui::mojom::WindowShowState::kFullscreen;
   if (widget->IsMaximized())
-    return ui::SHOW_STATE_MAXIMIZED;
+    return ui::mojom::WindowShowState::kMaximized;
   if (widget->IsMinimized())
-    return ui::SHOW_STATE_MINIMIZED;
-  return widget->IsActive() ? ui::SHOW_STATE_NORMAL : ui::SHOW_STATE_INACTIVE;
+    return ui::mojom::WindowShowState::kMinimized;
+  return widget->IsActive() ? ui::mojom::WindowShowState::kNormal
+                            : ui::mojom::WindowShowState::kInactive;
 }
 
 // Give the OS an opportunity to process messages for an activation change, when
@@ -1051,7 +1054,7 @@ TEST_F(DesktopWidgetTestInteractive, WindowModalWindowDestroyedActivationTest) {
   auto top_level_widget = std::make_unique<Widget>();
   Widget::InitParams init_params = CreateParams(
       Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_WINDOW);
-  init_params.show_state = ui::SHOW_STATE_NORMAL;
+  init_params.show_state = ui::mojom::WindowShowState::kNormal;
   gfx::Rect initial_bounds(0, 0, 500, 500);
   init_params.bounds = initial_bounds;
   top_level_widget->Init(std::move(init_params));
@@ -1201,7 +1204,8 @@ TEST_F(WidgetTestInteractive, ShowCreatesActiveWindow) {
       CreateTopLevelPlatformWidget(Widget::InitParams::CLIENT_OWNS_WIDGET));
 
   ShowSync(widget.get());
-  EXPECT_EQ(GetWidgetShowState(widget.get()), ui::SHOW_STATE_NORMAL);
+  EXPECT_EQ(GetWidgetShowState(widget.get()),
+            ui::mojom::WindowShowState::kNormal);
 }
 
 TEST_F(WidgetTestInteractive, ShowInactive) {
@@ -1210,7 +1214,8 @@ TEST_F(WidgetTestInteractive, ShowInactive) {
       CreateTopLevelPlatformWidget(Widget::InitParams::CLIENT_OWNS_WIDGET));
 
   ShowInactiveSync(widget.get());
-  EXPECT_EQ(GetWidgetShowState(widget.get()), ui::SHOW_STATE_INACTIVE);
+  EXPECT_EQ(GetWidgetShowState(widget.get()),
+            ui::mojom::WindowShowState::kInactive);
 }
 
 TEST_F(WidgetTestInteractive, InactiveBeforeShow) {
@@ -1245,7 +1250,8 @@ TEST_F(WidgetTestInteractive, ShowInactiveAfterShow) {
   ShowInactiveSync(widget.get());
   EXPECT_TRUE(widget->IsActive());
   EXPECT_FALSE(widget2->IsActive());
-  EXPECT_EQ(GetWidgetShowState(widget.get()), ui::SHOW_STATE_NORMAL);
+  EXPECT_EQ(GetWidgetShowState(widget.get()),
+            ui::mojom::WindowShowState::kNormal);
 }
 
 TEST_F(WidgetTestInteractive, ShowAfterShowInactive) {
@@ -1254,7 +1260,8 @@ TEST_F(WidgetTestInteractive, ShowAfterShowInactive) {
 
   ShowInactiveSync(widget.get());
   ShowSync(widget.get());
-  EXPECT_EQ(GetWidgetShowState(widget.get()), ui::SHOW_STATE_NORMAL);
+  EXPECT_EQ(GetWidgetShowState(widget.get()),
+            ui::mojom::WindowShowState::kNormal);
 }
 
 TEST_F(WidgetTestInteractive, WidgetShouldBeActiveWhenShow) {
@@ -1276,7 +1283,8 @@ TEST_F(WidgetTestInteractive, InactiveWidgetDoesNotGrabActivation) {
   std::unique_ptr<Widget> widget = base::WrapUnique(
       CreateTopLevelPlatformWidget(Widget::InitParams::CLIENT_OWNS_WIDGET));
   ShowSync(widget.get());
-  EXPECT_EQ(GetWidgetShowState(widget.get()), ui::SHOW_STATE_NORMAL);
+  EXPECT_EQ(GetWidgetShowState(widget.get()),
+            ui::mojom::WindowShowState::kNormal);
 
   auto widget2 = std::make_unique<Widget>();
   Widget::InitParams params = CreateParams(
@@ -1285,8 +1293,10 @@ TEST_F(WidgetTestInteractive, InactiveWidgetDoesNotGrabActivation) {
   widget2->Show();
   RunPendingMessagesForActiveStatusChange();
 
-  EXPECT_EQ(GetWidgetShowState(widget2.get()), ui::SHOW_STATE_INACTIVE);
-  EXPECT_EQ(GetWidgetShowState(widget.get()), ui::SHOW_STATE_NORMAL);
+  EXPECT_EQ(GetWidgetShowState(widget2.get()),
+            ui::mojom::WindowShowState::kInactive);
+  EXPECT_EQ(GetWidgetShowState(widget.get()),
+            ui::mojom::WindowShowState::kNormal);
 }
 #endif  // BUILDFLAG(ENABLE_DESKTOP_AURA) || BUILDFLAG(IS_MAC)
 
@@ -1309,27 +1319,35 @@ TEST_F(WidgetTestInteractive, MAYBE_ExitFullscreenRestoreState) {
   RunPendingMessages();
 
   // This should be a normal state window.
-  EXPECT_EQ(ui::SHOW_STATE_NORMAL, GetWidgetShowState(toplevel.get()));
+  EXPECT_EQ(ui::mojom::WindowShowState::kNormal,
+            GetWidgetShowState(toplevel.get()));
 
   toplevel->SetFullscreen(true);
-  EXPECT_EQ(ui::SHOW_STATE_FULLSCREEN, GetWidgetShowState(toplevel.get()));
+  EXPECT_EQ(ui::mojom::WindowShowState::kFullscreen,
+            GetWidgetShowState(toplevel.get()));
   toplevel->SetFullscreen(false);
-  EXPECT_NE(ui::SHOW_STATE_FULLSCREEN, GetWidgetShowState(toplevel.get()));
+  EXPECT_NE(ui::mojom::WindowShowState::kFullscreen,
+            GetWidgetShowState(toplevel.get()));
 
   // And it should still be in normal state after getting out of full screen.
-  EXPECT_EQ(ui::SHOW_STATE_NORMAL, GetWidgetShowState(toplevel.get()));
+  EXPECT_EQ(ui::mojom::WindowShowState::kNormal,
+            GetWidgetShowState(toplevel.get()));
 
   // Now, make it maximized.
   toplevel->Maximize();
-  EXPECT_EQ(ui::SHOW_STATE_MAXIMIZED, GetWidgetShowState(toplevel.get()));
+  EXPECT_EQ(ui::mojom::WindowShowState::kMaximized,
+            GetWidgetShowState(toplevel.get()));
 
   toplevel->SetFullscreen(true);
-  EXPECT_EQ(ui::SHOW_STATE_FULLSCREEN, GetWidgetShowState(toplevel.get()));
+  EXPECT_EQ(ui::mojom::WindowShowState::kFullscreen,
+            GetWidgetShowState(toplevel.get()));
   toplevel->SetFullscreen(false);
-  EXPECT_NE(ui::SHOW_STATE_FULLSCREEN, GetWidgetShowState(toplevel.get()));
+  EXPECT_NE(ui::mojom::WindowShowState::kFullscreen,
+            GetWidgetShowState(toplevel.get()));
 
   // And it stays maximized after getting out of full screen.
-  EXPECT_EQ(ui::SHOW_STATE_MAXIMIZED, GetWidgetShowState(toplevel.get()));
+  EXPECT_EQ(ui::mojom::WindowShowState::kMaximized,
+            GetWidgetShowState(toplevel.get()));
 }
 
 // Testing initial focus is assigned properly for normal top-level widgets,
@@ -2057,7 +2075,7 @@ TEST_F(WidgetCaptureTest, MAYBE_SystemModalWindowReleasesCapture) {
   auto top_level_widget = std::make_unique<Widget>();
   Widget::InitParams init_params = CreateParams(
       Widget::InitParams::CLIENT_OWNS_WIDGET, Widget::InitParams::TYPE_WINDOW);
-  init_params.show_state = ui::SHOW_STATE_NORMAL;
+  init_params.show_state = ui::mojom::WindowShowState::kNormal;
   gfx::Rect initial_bounds(0, 0, 500, 500);
   init_params.bounds = initial_bounds;
   top_level_widget->Init(std::move(init_params));
@@ -2140,7 +2158,9 @@ namespace {
 // Widget observer which grabs capture when the widget is activated.
 class CaptureOnActivationObserver : public WidgetObserver {
  public:
-  CaptureOnActivationObserver() = default;
+  explicit CaptureOnActivationObserver(Widget* widget) {
+    widget_observation_.Observe(widget);
+  }
 
   CaptureOnActivationObserver(const CaptureOnActivationObserver&) = delete;
   CaptureOnActivationObserver& operator=(const CaptureOnActivationObserver&) =
@@ -2160,6 +2180,7 @@ class CaptureOnActivationObserver : public WidgetObserver {
 
  private:
   bool activation_observed_ = false;
+  base::ScopedObservation<Widget, WidgetObserver> widget_observation_{this};
 };
 
 }  // namespace
@@ -2182,8 +2203,7 @@ TEST_F(WidgetCaptureTest, SetCaptureToNonToplevel) {
   child_params.context = toplevel->GetNativeWindow();
   child->Init(std::move(child_params));
 
-  CaptureOnActivationObserver observer;
-  child->AddObserver(&observer);
+  CaptureOnActivationObserver observer(child.get());
   child->Show();
 
 #if BUILDFLAG(IS_MAC)
@@ -2196,8 +2216,6 @@ TEST_F(WidgetCaptureTest, SetCaptureToNonToplevel) {
 
   EXPECT_TRUE(observer.activation_observed());
   EXPECT_TRUE(child->HasCapture());
-
-  child->RemoveObserver(&observer);
 }
 
 #if BUILDFLAG(IS_WIN)
@@ -2566,7 +2584,14 @@ class DesktopWidgetDragTestInteractive : public DesktopWidgetTestInteractive,
 };
 
 // Cancels a DnD session started by `RunShellDrag()`.
-TEST_F(DesktopWidgetDragTestInteractive, CancelShellDrag) {
+//
+// TODO(crbug.com/332944429): Re-enable on Windows AMR64.
+#if BUILDFLAG(IS_WIN) && defined(ARCH_CPU_ARM64)
+#define MAYBE_CancelShellDrag DISABLED_CancelShellDrag
+#else
+#define MAYBE_CancelShellDrag CancelShellDrag
+#endif
+TEST_F(DesktopWidgetDragTestInteractive, MAYBE_CancelShellDrag) {
   WidgetAutoclosePtr widget(new Widget);
 
   auto cancel = [&]() {

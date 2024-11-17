@@ -120,14 +120,11 @@
 #include "extensions/common/switches.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "chromeos/constants/chromeos_features.h"
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "base/system/sys_info.h"
 #include "chrome/browser/ash/extensions/install_limiter.h"
 #include "chrome/browser/ash/fileapi/file_system_backend.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "storage/browser/file_system/file_system_context.h"
 #endif
 
@@ -427,7 +424,7 @@ ExtensionService::ExtensionService(
       force_installed_tracker_(registry_, profile_),
       force_installed_metrics_(registry_, profile_, &force_installed_tracker_),
       corrupted_extension_reinstaller_(profile_)
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
       ,
       ash_keeplist_manager_(profile, extension_prefs, this)
 #endif
@@ -494,6 +491,12 @@ ExtensionService::ExtensionService(
   SetCurrentDeveloperMode(
       util::GetBrowserContextId(profile),
       profile->GetPrefs()->GetBoolean(prefs::kExtensionsUIDeveloperMode));
+
+  pref_change_registrar_.Init(profile_->GetPrefs());
+  pref_change_registrar_.Add(
+      prefs::kExtensionsUIDeveloperMode,
+      base::BindRepeating(&ExtensionService::OnDeveloperModePrefChanged,
+                          base::Unretained(this)));
 }
 
 PendingExtensionManager* ExtensionService::pending_extension_manager() {
@@ -526,6 +529,7 @@ void ExtensionService::Shutdown() {
   external_install_manager_->Shutdown();
   corrupted_extension_reinstaller_.Shutdown();
   extension_registrar_.Shutdown();
+  pref_change_registrar_.Reset();
   weak_ptr_factory_.InvalidateWeakPtrs();
 }
 
@@ -539,7 +543,7 @@ void ExtensionService::Init() {
   component_loader_->LoadAll();
   bool load_saved_extensions = true;
   bool load_command_line_extensions = extensions_enabled_;
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   if (!ash::ProfileHelper::IsUserProfile(profile_)) {
     load_saved_extensions = false;
     load_command_line_extensions = false;
@@ -588,7 +592,7 @@ void ExtensionService::Init() {
   // Must be called after extensions are loaded.
   allowlist_.Init();
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   ash_keeplist_manager_.Init();
 #endif
 
@@ -748,7 +752,7 @@ void ExtensionService::LoadExtensionsFromCommandLineFlag(
   }
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 void ExtensionService::LoadSigninProfileTestExtension(const std::string& path) {
   base::SysInfo::CrashIfChromeOSNonTestImage();
   std::string extension_id;
@@ -1247,7 +1251,7 @@ void ExtensionService::PostDeactivateExtension(
   profile_->GetExtensionSpecialStoragePolicy()->RevokeRightsForExtension(
       extension.get(), profile_);
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   // Revoke external file access for the extension from its file system context.
   // It is safe to access the extension's storage partition at this point. The
   // storage partition may get destroyed only after the extension gets unloaded.
@@ -1316,6 +1320,31 @@ void ExtensionService::CheckManagementPolicy() {
     } else {
       disable_reasons |=
           disable_reason::DISABLE_PUBLISHED_IN_STORE_REQUIRED_BY_POLICY;
+    }
+
+    if (management->IsAllowedByUnpackedDeveloperModePolicy(*extension)) {
+      disable_reasons &=
+          ~disable_reason::DISABLE_UNSUPPORTED_DEVELOPER_EXTENSION;
+    } else {
+      disable_reasons |=
+          disable_reason::DISABLE_UNSUPPORTED_DEVELOPER_EXTENSION;
+    }
+
+    // Check if the `DISABLE_NOT_VERIFIED` reason is still applicable. This
+    // disable reason is used in multiple disabling flows (e.g., by
+    // InstallVerifier and StandardManagementPolicyProvider). Only clear the
+    // disable reason if none of these flows require the extension to be
+    // disabled.
+    // TODO(crbug.com/362756477): Refactor duplicated disable reason logic
+    // between CheckManagementPolicy() and policy providers.
+    disable_reason::DisableReason install_verifier_disable_reason =
+        disable_reason::DISABLE_NONE;
+    InstallVerifier::Get(GetBrowserContext())
+        ->MustRemainDisabled(extension.get(), &install_verifier_disable_reason,
+                             nullptr);
+    if (install_verifier_disable_reason == disable_reason::DISABLE_NONE &&
+        !management->ShouldBlockForceInstalledOffstoreExtension(*extension)) {
+      disable_reasons &= ~disable_reason::DISABLE_NOT_VERIFIED;
     }
 
     if (!system_->management_policy()->MustRemainDisabled(extension.get(),
@@ -1457,9 +1486,9 @@ bool ExtensionService::AreAllExternalProvidersReady() const {
 void ExtensionService::OnAllExternalProvidersReady() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   InstallLimiter::Get(profile_)->OnAllExternalProvidersReady();
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   // Install any pending extensions.
   if (update_once_all_providers_are_ready_ && updater()) {
@@ -2078,7 +2107,7 @@ bool ExtensionService::OnExternalExtensionFileFound(
       info.path, info.crx_location == mojom::ManifestLocation::kExternalPolicy
                      ? GetPolicyVerifierFormat()
                      : GetExternalVerifierFormat());
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   InstallLimiter::Get(profile_)->Add(installer, file_info);
 #else
   installer->InstallCrxFile(file_info);
@@ -2461,6 +2490,10 @@ void ExtensionService::UninstallMigratedExtensions() {
           extension->id(), extension->location());
     }
   }
+}
+
+void ExtensionService::OnDeveloperModePrefChanged() {
+  CheckManagementPolicy();
 }
 
 }  // namespace extensions

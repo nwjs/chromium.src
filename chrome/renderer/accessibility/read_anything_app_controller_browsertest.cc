@@ -24,6 +24,7 @@
 #include "services/strings/grit/services_strings.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "ui/accessibility/accessibility_features.h"
+#include "ui/accessibility/ax_location_and_scroll_updates.h"
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_node_id_forward.h"
 #include "ui/accessibility/ax_serializable_tree.h"
@@ -292,8 +293,9 @@ class ReadAnythingAppControllerTest : public ChromeRenderViewTest {
   }
 
   void AccessibilityLocationChangesReceived(
-      const std::vector<ui::AXLocationChanges>& details) {
-    controller_->AccessibilityLocationChangesReceived(details);
+      const ui::AXTreeID& tree_id,
+      ui::AXLocationAndScrollUpdates& details) {
+    controller_->AccessibilityLocationChangesReceived(tree_id, details);
   }
 
   // Since a11y events happen asynchronously, they can come between the time
@@ -422,10 +424,6 @@ class ReadAnythingAppControllerTest : public ChromeRenderViewTest {
   }
 
   std::string GetStoredVoice() { return controller_->GetStoredVoice(); }
-
-  std::string GetDataFontCss(ui::AXNodeID ax_node_id) {
-    return controller_->GetDataFontCss(ax_node_id);
-  }
 
   std::string GetHtmlTag(ui::AXNodeID ax_node_id) {
     return controller_->GetHtmlTag(ax_node_id);
@@ -784,19 +782,13 @@ TEST_F(ReadAnythingAppControllerTest,
 #endif  // !IS_CHROMEOS_ASH
 
 TEST_F(ReadAnythingAppControllerTest, GetStoredVoice_NoVoices_ReturnsEmpty) {
-  scoped_feature_list_.InitWithFeatures(
-      {features::kReadAnythingReadAloud,
-       features::kReadAloudAutoVoiceSwitching},
-      {});
+  scoped_feature_list_.InitWithFeatures({features::kReadAnythingReadAloud}, {});
   ASSERT_EQ(GetStoredVoice(), "");
 }
 
 TEST_F(ReadAnythingAppControllerTest,
        GetStoredVoice_CurrentBaseLangStored_ReturnsExpectedVoice) {
-  scoped_feature_list_.InitWithFeatures(
-      {features::kReadAnythingReadAloud,
-       features::kReadAloudAutoVoiceSwitching},
-      {});
+  scoped_feature_list_.InitWithFeatures({features::kReadAnythingReadAloud}, {});
   std::string base_lang = "fr";
   std::string expected_voice_name = "French voice 1";
 
@@ -809,10 +801,7 @@ TEST_F(ReadAnythingAppControllerTest,
 
 TEST_F(ReadAnythingAppControllerTest,
        GetStoredVoice_CurrentFullLangStored_ReturnsExpectedVoice) {
-  scoped_feature_list_.InitWithFeatures(
-      {features::kReadAnythingReadAloud,
-       features::kReadAloudAutoVoiceSwitching},
-      {});
+  scoped_feature_list_.InitWithFeatures({features::kReadAnythingReadAloud}, {});
   std::string full_lang = "en-UK";
   std::string expected_voice_name = "British voice 45";
 
@@ -826,10 +815,7 @@ TEST_F(ReadAnythingAppControllerTest,
 TEST_F(
     ReadAnythingAppControllerTest,
     GetStoredVoice_BaseLangStoredButCurrentLangIsFull_ReturnsStoredBaseLang) {
-  scoped_feature_list_.InitWithFeatures(
-      {features::kReadAnythingReadAloud,
-       features::kReadAloudAutoVoiceSwitching},
-      {});
+  scoped_feature_list_.InitWithFeatures({features::kReadAnythingReadAloud}, {});
   std::string base_lang = "zh";
   std::string full_lang = "zh-TW";
   std::string expected_voice_name = "Chinese voice";
@@ -843,10 +829,7 @@ TEST_F(
 
 TEST_F(ReadAnythingAppControllerTest,
        GetStoredVoice_CurrentLangNotStored_ReturnsEmpty) {
-  scoped_feature_list_.InitWithFeatures(
-      {features::kReadAnythingReadAloud,
-       features::kReadAloudAutoVoiceSwitching},
-      {});
+  scoped_feature_list_.InitWithFeatures({features::kReadAnythingReadAloud}, {});
   std::string current_lang = "de-DE";
   std::string stored_lang = "it-IT";
 
@@ -1441,16 +1424,6 @@ TEST_F(ReadAnythingAppControllerTest, ShouldBold) {
   EXPECT_EQ(true, ShouldBold(4));
 }
 
-TEST_F(ReadAnythingAppControllerTest, GetDataFontCss) {
-  std::string dataFontCss = "italic 400 14.6667px 'Courier New'";
-  ui::AXNodeData node;
-  node.id = 2;
-  node.html_attributes.emplace_back("data-font-css", dataFontCss);
-  SendUpdateWithNodes({node});
-  OnAXTreeDistilled({});
-  EXPECT_EQ(dataFontCss, GetDataFontCss(2));
-}
-
 TEST_F(ReadAnythingAppControllerTest, IsOverline) {
   ui::AXNodeData overline_node;
   overline_node.id = 2;
@@ -1747,13 +1720,11 @@ TEST_F(ReadAnythingAppControllerTest, AccessibilityLocationChangesReceived) {
   ui::AXRelativeBounds location_update;
   location_update.offset_container_id = 1;
   location_update.bounds = gfx::RectF(5, 5, 100, 100);
-  ui::AXLocationChanges location_changes;
-  location_changes.id = 2;
-  location_changes.ax_tree_id = id_1;
-  location_changes.new_location = location_update;
+  ui::AXLocationAndScrollUpdates location_and_scroll_updates;
+  location_and_scroll_updates.location_changes.emplace_back(2, location_update);
 
   // Test that the node data updates correctly
-  AccessibilityLocationChangesReceived({location_changes});
+  AccessibilityLocationChangesReceived(id_1, location_and_scroll_updates);
   node = GetNodeData(2);
   EXPECT_EQ(node.relative_bounds, location_update);
 }
@@ -2418,10 +2389,10 @@ TEST_F(ReadAnythingAppControllerTest, Selection_IsCollapsed) {
   update.tree_data.sel_anchor_offset = 3;
   update.tree_data.sel_focus_offset = 3;
   AccessibilityEventReceived({update});
-  EXPECT_EQ(2, StartNodeId());
-  EXPECT_EQ(2, EndNodeId());
-  EXPECT_EQ(3, StartOffset());
-  EXPECT_EQ(3, EndOffset());
+  EXPECT_EQ(ui::kInvalidAXNodeID, StartNodeId());
+  EXPECT_EQ(ui::kInvalidAXNodeID, EndNodeId());
+  EXPECT_EQ(-1, StartOffset());
+  EXPECT_EQ(-1, EndOffset());
   EXPECT_EQ(false, HasSelection());
 }
 

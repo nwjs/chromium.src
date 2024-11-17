@@ -5,12 +5,12 @@
 #include "chrome/browser/extensions/chrome_browser_context_keyed_service_factories.h"
 
 #include "build/build_config.h"
+#include "chrome/browser/extensions/account_extension_tracker.h"
 #include "chrome/browser/extensions/activity_log/activity_log.h"
 #include "chrome/browser/extensions/api/bookmarks/bookmarks_api_watcher.h"
 #include "chrome/browser/extensions/api/image_writer_private/operation_manager.h"
 #include "chrome/browser/extensions/api/messaging/incognito_connectability.h"
 #include "chrome/browser/extensions/api/notifications/extension_notification_display_helper_factory.h"
-#include "chrome/browser/extensions/api/web_authentication_proxy/web_authentication_proxy_service.h"
 #include "chrome/browser/extensions/chrome_app_icon_service_factory.h"
 #include "chrome/browser/extensions/chrome_extension_cookies_factory.h"
 #include "chrome/browser/extensions/cws_info_service_factory.h"
@@ -33,6 +33,7 @@ namespace chrome_extensions {
 
 void EnsureChromeBrowserContextKeyedServiceFactoriesBuilt() {
   ExtensionSyncServiceFactory::GetInstance();
+  extensions::AccountExtensionTracker::GetFactory();
   extensions::ActivityLog::GetFactoryInstance();
   extensions::BookmarksApiWatcher::EnsureFactoryBuilt();
   extensions::ChromeAppIconServiceFactory::GetInstance();
@@ -55,8 +56,6 @@ void EnsureChromeBrowserContextKeyedServiceFactoriesBuilt() {
   extensions::PluginManager::GetFactoryInstance();
 #endif
   extensions::WarningBadgeServiceFactory::GetInstance();
-  extensions::WebAuthenticationProxyRegistrarFactory::GetInstance();
-  extensions::WebAuthenticationProxyServiceFactory::GetInstance();
 }
 
 }  // namespace chrome_extensions

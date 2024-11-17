@@ -208,11 +208,9 @@ IndexedDBContextImpl::IndexedDBContextImpl(
         blob_storage_context,
     mojo::PendingRemote<storage::mojom::FileSystemAccessContext>
         file_system_access_context,
-    scoped_refptr<base::SequencedTaskRunner> io_task_runner,
     scoped_refptr<base::SequencedTaskRunner> custom_task_runner)
     : idb_task_runner_(custom_task_runner ? custom_task_runner
                                           : CreateTaskRunner()),
-      io_task_runner_(std::move(io_task_runner)),
       base_data_path_(base_data_path.empty() ? base::FilePath()
                                              : base_data_path),
       quota_manager_proxy_(std::move(quota_manager_proxy)),
@@ -1001,15 +999,6 @@ IndexedDBContextImpl::FindIndexedDBFiles() const {
   return bucket_id_to_file_path;
 }
 
-void IndexedDBContextImpl::ForEachBucketContext(
-    BucketContext::InstanceClosure callback) {
-  for_each_bucket_context_ = callback;
-  for (auto& [bucket_id, bucket_context] : bucket_contexts_) {
-    bucket_context.AsyncCall(&BucketContext::RunInstanceClosure)
-        .WithArgs(for_each_bucket_context_);
-  }
-}
-
 void IndexedDBContextImpl::GetInMemorySize(
     storage::BucketId bucket_id,
     base::OnceCallback<void(int64_t)> on_got_size) const {
@@ -1085,10 +1074,6 @@ void IndexedDBContextImpl::EnsureBucketContext(
       idb_task_runner_,
       base::BindRepeating(&IndexedDBContextImpl::OnFilesWritten,
                           weak_factory_.GetWeakPtr(), bucket_locator));
-  bucket_delegate.for_each_bucket_context = base::BindPostTask(
-      idb_task_runner_,
-      base::BindRepeating(&IndexedDBContextImpl::ForEachBucketContext,
-                          weak_factory_.GetWeakPtr()));
 
   mojo::PendingRemote<storage::mojom::BlobStorageContext>
       cloned_blob_storage_context;
@@ -1125,9 +1110,8 @@ void IndexedDBContextImpl::EnsureBucketContext(
           force_single_thread_ ? IDBTaskRunner()
                                : std::move(bucket_task_runner),
           bucket, data_directory, std::move(bucket_delegate),
-          quota_manager_proxy_, io_task_runner_,
-          std::move(cloned_blob_storage_context), std::move(fsa_context),
-          for_each_bucket_context_));
+          quota_manager_proxy_, std::move(cloned_blob_storage_context),
+          std::move(fsa_context)));
   DCHECK(inserted);
   if (pending_failure_injector_) {
     iter->second.AsyncCall(&BucketContext::BindMockFailureSingletonForTesting)

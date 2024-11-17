@@ -45,9 +45,11 @@ BASE_FEATURE(kWebViewEnumerateDevicesCache,
              "WebViewEnumerateDevicesCache",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kWebViewExitReasonMetric,
-             "WebViewExitReasonMetric",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+// Enable JS FileSystemAccess API.
+// TODO(b/364980165): Add targetSdkVersion checks before enabling.
+BASE_FEATURE(kWebViewFileSystemAccess,
+             "WebViewFileSystemAccess",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable WebView to automatically darken the page in FORCE_DARK_AUTO mode if
 // the app's theme is dark.
@@ -73,6 +75,11 @@ const base::FeatureParam<int> kWebViewIpProtectionExclusionCriteria{
 BASE_FEATURE(kWebViewDisplayCutout,
              "WebViewDisplayCutout",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Fetch Hand Writing icon lazily.
+BASE_FEATURE(kWebViewLazyFetchHandWritingIcon,
+             "WebViewLazyFetchHandWritingIcon",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable the WebView Media Integrity API as a Blink extension.
 // This feature requires `kWebViewMediaIntegrityApi` to be disabled.
@@ -230,7 +237,7 @@ BASE_FEATURE(kWebViewAsyncDns,
 // Preloads expensive classes during WebView startup.
 BASE_FEATURE(kWebViewPreloadClasses,
              "WebViewPreloadClasses",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled TYPE_SCROLLED accessibility events are sent every 100ms when user
 // is scrolling irrespective of GestureScrollUpdate being consumed or not.
@@ -250,7 +257,7 @@ BASE_FEATURE(kWebViewHyperlinkContextMenu,
 // Creates a spare renderer on browser context creation.
 BASE_FEATURE(kCreateSpareRendererOnBrowserContextCreation,
              "CreateSpareRendererOnBrowserContextCreation",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Kill switch for WebAuthn usage in WebViews.
 BASE_FEATURE(kWebViewWebauthn,
@@ -263,5 +270,13 @@ BASE_FEATURE(kWebViewWebauthn,
 BASE_FEATURE(kWebViewRenderDocument,
              "WebViewRenderDocument",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Auto-grants the `SANITIZED_CLIPBOARD_WRITE` permission.
+// This flag is introduced as a kill-switch in case the change leads
+// to problems.
+// TODO(https://crbug.com/362460435) Remove after launch.
+BASE_FEATURE(kWebViewAutoGrantSanitizedClipboardWrite,
+             "WebViewAutoGrantSanitizedClipboardWrite",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace android_webview::features

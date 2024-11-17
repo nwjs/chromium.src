@@ -41,15 +41,15 @@ constexpr CGFloat KErrorIconImageSize = 22.;
            withStyler:(ChromeTableViewStyler*)styler {
   [super configureCell:cell withStyler:styler];
 
+  CHECK(self.image, base::NotFatalUntil::M123);
   cell.imageView.image = self.image;
   cell.textLabel.text = self.text;
   cell.detailTextLabel.text = self.detailText;
   if (self.shouldDisplayError) {
-    cell.errorIcon.image =
-        DefaultSymbolWithPointSize(kErrorCircleFillSymbol, KErrorIconImageSize);
-    cell.errorIcon.tintColor = [UIColor colorNamed:kRed500Color];
+    [cell setErrorImage:DefaultSymbolWithPointSize(kErrorCircleFillSymbol,
+                                                   KErrorIconImageSize)];
   } else {
-    cell.errorIcon.image = nil;
+    [cell setErrorImage:nil];
     cell.detailTextLabel.textColor = [UIColor colorNamed:kTextSecondaryColor];
   }
 
@@ -72,10 +72,11 @@ constexpr CGFloat KErrorIconImageSize = 22.;
 
 @end
 
-@interface TableViewAccountCell () {
-  // Constraint used to set padding between image and text when image exists.
-  NSLayoutConstraint* _textLeadingAnchorConstraint;
-}
+@interface TableViewAccountCell ()
+
+// Error icon that will be displayed on the left side of the cell.
+@property(nonatomic, readonly, strong) UIImageView* errorIcon;
+
 @end
 
 @implementation TableViewAccountCell
@@ -110,6 +111,7 @@ constexpr CGFloat KErrorIconImageSize = 22.;
   [contentView addSubview:_imageView];
 
   _errorIcon = [[UIImageView alloc] init];
+  _errorIcon.tintColor = [UIColor colorNamed:kRed500Color];
   _errorIcon.translatesAutoresizingMaskIntoConstraints = NO;
   [_errorIcon setContentHuggingPriority:UILayoutPriorityRequired
                                 forAxis:UILayoutConstraintAxisHorizontal];
@@ -132,6 +134,7 @@ constexpr CGFloat KErrorIconImageSize = 22.;
   _detailTextLabel.adjustsFontForContentSizeCategory = YES;
   _detailTextLabel.textColor = [UIColor colorNamed:kTextSecondaryColor];
   [contentView addSubview:_detailTextLabel];
+  [self setErrorImage:nil];
 }
 
 // Set constraints on subviews.
@@ -143,8 +146,6 @@ constexpr CGFloat KErrorIconImageSize = 22.;
   verticalCenteringView.translatesAutoresizingMaskIntoConstraints = NO;
   [contentView addSubview:verticalCenteringView];
 
-  _textLeadingAnchorConstraint = [_textLabel.leadingAnchor
-      constraintEqualToAnchor:_imageView.trailingAnchor];
   [NSLayoutConstraint activateConstraints:@[
     // Set leading anchors.
     [_imageView.leadingAnchor
@@ -152,6 +153,11 @@ constexpr CGFloat KErrorIconImageSize = 22.;
                        constant:kTableViewHorizontalSpacing],
     [_detailTextLabel.leadingAnchor
         constraintEqualToAnchor:_textLabel.leadingAnchor],
+    // Leading and width on the vertical centering view does not matter. It’s
+    // here to remove ambiguity.
+    [verticalCenteringView.widthAnchor constraintEqualToConstant:0],
+    [verticalCenteringView.leadingAnchor
+        constraintEqualToAnchor:_imageView.trailingAnchor],
 
     // Fix image widths. The account images have been resized to fit this size.
     // Update the resize if this changes.
@@ -194,7 +200,9 @@ constexpr CGFloat KErrorIconImageSize = 22.;
         constraintLessThanOrEqualToAnchor:_errorIcon.leadingAnchor
                                  constant:
                                      -kHorizontalPaddingBetweenTextAndError],
-    _textLeadingAnchorConstraint,
+    [_textLabel.leadingAnchor
+        constraintEqualToAnchor:_imageView.trailingAnchor
+                       constant:kTableViewOneLabelCellVerticalSpacing],
     [_textLabel.trailingAnchor
         constraintLessThanOrEqualToAnchor:_errorIcon.leadingAnchor
                                  constant:
@@ -211,17 +219,12 @@ constexpr CGFloat KErrorIconImageSize = 22.;
                                       forAxis:UILayoutConstraintAxisHorizontal];
 }
 
-#pragma mark - UIView
-
-- (void)layoutSubviews {
-  [super layoutSubviews];
-
-  // Adjust the leading margin depending on existence of image.
-  if (_imageView.image) {
-    _textLeadingAnchorConstraint.constant =
-        kTableViewOneLabelCellVerticalSpacing;
+- (void)setErrorImage:(UIImage*)errorImage {
+  _errorIcon.image = errorImage;
+  if (errorImage) {
+    _errorIcon.hidden = NO;
   } else {
-    _textLeadingAnchorConstraint.constant = 0;
+    _errorIcon.hidden = YES;
   }
 }
 
@@ -234,7 +237,7 @@ constexpr CGFloat KErrorIconImageSize = 22.;
   self.detailTextLabel.text = nil;
   self.textLabel.textColor = [UIColor colorNamed:kTextPrimaryColor];
   self.detailTextLabel.textColor = [UIColor colorNamed:kTextSecondaryColor];
-  self.errorIcon.image = nil;
+  [self setErrorImage:nil];
   self.userInteractionEnabled = YES;
   self.contentView.alpha = 1;
   UIImageView* accessoryImage =

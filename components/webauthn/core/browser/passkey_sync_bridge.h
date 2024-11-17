@@ -71,7 +71,10 @@ class PasskeySyncBridge : public syncer::DataTypeSyncBridge,
                      const base::Location& location) override;
   void DeleteAllPasskeys() override;
   bool UpdatePasskey(const std::string& credential_id,
-                     PasskeyUpdate change) override;
+                     PasskeyUpdate change,
+                     bool updated_by_user) override;
+  bool UpdatePasskeyTimestamp(const std::string& credential_id,
+                              base::Time last_used_time) override;
   sync_pb::WebauthnCredentialSpecifics CreatePasskey(
       std::string_view rp_id,
       const UserEntity& user_entity,
@@ -90,6 +93,7 @@ class PasskeySyncBridge : public syncer::DataTypeSyncBridge,
       std::unique_ptr<syncer::DataTypeStore::RecordList> entries,
       std::unique_ptr<syncer::MetadataBatch> metadata_batch);
   void OnStoreCommitWriteBatch(const std::optional<syncer::ModelError>& error);
+  void NotifyPasskeyModelIsReady(bool is_ready);
   void NotifyPasskeysChanged(const std::vector<PasskeyModelChange>& changes);
   void AddPasskeyInternal(sync_pb::WebauthnCredentialSpecifics specifics);
   void AddShadowedCredentialIdsToNewPasskey(

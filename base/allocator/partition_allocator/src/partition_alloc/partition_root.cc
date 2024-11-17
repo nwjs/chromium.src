@@ -47,7 +47,10 @@
 
 #if PA_BUILDFLAG(IS_LINUX) || PA_BUILDFLAG(IS_CHROMEOS)
 #include <pthread.h>
-#endif
+#if PA_CONFIG(ENABLE_SHADOW_METADATA)
+#include <sys/mman.h>
+#endif  // PA_CONFIG(ENABLE_SHADOW_METADATA)
+#endif  // PA_BUILDFLAG(IS_LINUX) || PA_BUILDFLAG(IS_CHROMEOS)
 
 namespace partition_alloc::internal {
 
@@ -1135,11 +1138,6 @@ void PartitionRoot::Init(PartitionOptions opts) {
     ReserveBackupRefPtrGuardRegionIfNeeded();
 #endif
 
-#if PA_BUILDFLAG(DCHECKS_ARE_ON)
-    settings.use_cookie = true;
-#else
-    static_assert(!Settings::use_cookie);
-#endif  // PA_BUILDFLAG(DCHECKS_ARE_ON)
 #if PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
     settings.brp_enabled_ = opts.backup_ref_ptr == PartitionOptions::kEnabled;
 #else   // PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
@@ -1641,9 +1639,9 @@ void PartitionRoot::ShrinkEmptySlotSpansRing(size_t limit) {
     index += 1;
     // Walk through the entirety of possible slots, even though the last ones
     // are unused, if global_empty_slot_span_ring_size is smaller than
-    // kMaxFreeableSpans. It's simpler, and does not cost anything, since all
-    // the pointers are going to be nullptr.
-    if (index == internal::kMaxFreeableSpans) {
+    // kMaxEmptySlotSpanRingSize. It's simpler, and does not cost anything,
+    // since all the pointers are going to be nullptr.
+    if (index == internal::kMaxEmptySlotSpanRingSize) {
       index = 0;
     }
 
@@ -1958,6 +1956,16 @@ PA_NOINLINE void PartitionRoot::QuarantineForBrp(
 // static
 #if PA_CONFIG(ENABLE_SHADOW_METADATA)
 void PartitionRoot::EnableShadowMetadata(internal::PoolHandleMask mask) {
+#if PA_BUILDFLAG(IS_LINUX)
+  // TODO(crbug.com/40238514): implement ModuleCache() or something to
+  // load required shared libraries in advance.
+  // Since memfd_create() causes dlsym(), it is not possible to invoke
+  // memfd_create() while PartitionRoot-s are locked.
+  // So invoke memfd_create() here and invoke dysym() in advance.
+  // This is required to enable ShadowMetadata on utility processes.
+  { close(memfd_create("module_cache", MFD_CLOEXEC)); }
+#endif
+
   internal::ScopedGuard guard(g_root_enumerator_lock);
   // Must lock all PartitionRoot-s and ThreadCache.
   internal::PartitionRootEnumerator::Instance().Enumerate(
@@ -2007,7 +2015,7 @@ static_assert(offsetof(PartitionRoot, sentinel_bucket) ==
               "sentinel_bucket must be just after the regular buckets.");
 
 static_assert(
-    offsetof(PartitionRoot, lock_) >= 64,
+    offsetof(PartitionRoot, lock_) >= internal::kPartitionCachelineSize,
     "The lock should not be on the same cacheline as the read-mostly flags");
 #if defined(__clang__)
 #pragma clang diagnostic pop

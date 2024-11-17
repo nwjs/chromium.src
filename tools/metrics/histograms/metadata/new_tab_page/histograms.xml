@@ -35,7 +35,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.ActioniOS" enum="NewTabPageActioniOS"
-    expires_after="2025-01-12">
+    expires_after="2025-03-23">
   <owner>justincohen@chromium.org</owner>
   <owner>gambard@chromium.org</owner>
   <summary>
@@ -91,7 +91,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.BackgroundService.Images.Headers.ErrorDetected"
-    enum="NTPImageType" expires_after="2025-01-05">
+    enum="NTPImageType" expires_after="2025-03-23">
   <owner>pauladedeji@google.com</owner>
   <owner>danpeng@google.com</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -104,7 +104,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.BackgroundService.Images.Headers.RequestLatency"
-    units="ms" expires_after="2025-01-26">
+    units="ms" expires_after="2025-03-30">
   <owner>danpeng@google.com</owner>
   <owner>pauladedeji@google.com</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -117,7 +117,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.BackgroundService.Images.Headers.StatusCode"
-    units="HttpResponseCode" expires_after="2025-01-26">
+    units="HttpResponseCode" expires_after="2025-03-30">
   <owner>danpeng@google.com</owner>
   <owner>pauladedeji@google.com</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -470,7 +470,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.CustomizeChromeSidePanelAction"
-    enum="NTPCustomizeChromeSidePanelAction" expires_after="2025-02-02">
+    enum="NTPCustomizeChromeSidePanelAction" expires_after="2025-04-06">
   <owner>pauladedeji@google.com</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>rtatum@google.com</owner>
@@ -802,7 +802,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.LogoShown" enum="NewTabPageLogoShown"
-    expires_after="2025-01-14">
+    expires_after="2025-03-23">
   <owner>romanarora@chromium.org</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -814,7 +814,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.LogoShownTime2" units="ms"
-    expires_after="2025-01-14">
+    expires_after="2025-03-23">
   <owner>romanarora@chromium.org</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -837,7 +837,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.Module.Click" enum="ModuleTypeOnStartAndNTP"
-    expires_after="2025-01-19">
+    expires_after="2025-03-23">
   <owner>hanxi@chromium.org</owner>
   <owner>xinyiji@chromium.org</owner>
   <summary>
@@ -1055,7 +1055,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.Modules.LoadedModulesCount" units="count"
-    expires_after="2025-01-14">
+    expires_after="2025-03-23">
   <owner>romanarora@chromium.org</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -1162,7 +1162,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.MostVisited.DeciScore.{TileIndex}.Local"
-    units="deciscore" expires_after="2025-02-02">
+    units="deciscore" expires_after="2025-04-06">
   <owner>fredmello@chromium.org</owner>
   <owner>huangs@chromium.org</owner>
   <summary>
@@ -1334,6 +1334,63 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="NewTabPage.Promos.MobilePromo.Dismiss" units="count"
+    expires_after="2025-03-31">
+  <owner>rkgibson@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <owner>chrome-desktop-ntp@google.com</owner>
+  <summary>
+    Logs how many times the user saw the mobile promo before manually dismissing
+    it. Only logged on the 1P NTP and when #ntp-mobile-promo is enabled.
+  </summary>
+</histogram>
+
+<histogram name="NewTabPage.Promos.MobilePromo.DismissUndone" units="count"
+    expires_after="2025-03-31">
+  <owner>rkgibson@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <owner>chrome-desktop-ntp@google.com</owner>
+  <summary>
+    Logs how many times the user saw the mobile promo before undoing a manual
+    dismissal. Only logged on the 1P NTP and when #ntp-mobile-promo is enabled.
+  </summary>
+</histogram>
+
+<histogram name="NewTabPage.Promos.MobilePromo.Displayed" units="count"
+    expires_after="2025-03-31">
+  <owner>rkgibson@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <owner>chrome-desktop-ntp@google.com</owner>
+  <summary>
+    Logs how many times the user has seen the mobile promo in total each time
+    the promo is displayed. Recorded at most once per NTP load. Only logged on
+    the 1P NTP and when #ntp-mobile-promo is enabled.
+  </summary>
+</histogram>
+
+<histogram
+    name="NewTabPage.Promos.MobilePromo.SegmentationPlatformQuery.{ResponseStatus}.Duration"
+    units="ms" expires_after="2025-03-31">
+  <owner>rkgibson@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <owner>chrome-desktop-ntp@google.com</owner>
+  <summary>
+    When Mobile Promo eligibility is being checked, this logs the duration of
+    the query to the segmentation platform, broken down by the response status.
+    Eligibility is checked at most once per NTP load when the promo is enabled
+    and the user has not seen the promo too many times before. Only logged on
+    the 1P NTP and when #ntp-mobile-promo is enabled.
+  </summary>
+  <token key="ResponseStatus">
+    <variant name="Failed" summary="Segmentation Platform request failed"/>
+    <variant name="NotReady" summary="Segmentation Platform was not ready"/>
+    <variant name="Succeeded"
+        summary="Segmentation Platform request succeeded"/>
+    <variant name="Unknown"
+        summary="Segmentation Platform response type was unknown"/>
+  </token>
+</histogram>
+
 <histogram name="NewTabPage.Promos.PromoBrowserCommand"
     enum="PromoBrowserCommandEnum" expires_after="2023-10-21">
   <owner>mahmadi@chromium.org</owner>
@@ -1382,7 +1439,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.SearchResumptionModule.Show"
-    enum="SearchResumptionModule.ModuleShowStatus" expires_after="2025-01-31">
+    enum="SearchResumptionModule.ModuleShowStatus" expires_after="2025-04-06">
   <owner>hanxi@chromium.org</owner>
   <owner>xinyiji@chromium.org</owner>
   <summary>
@@ -1466,7 +1523,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.TabResumption.ResultStatus"
-    enum="NtpTabResumeResultStatus" expires_after="2025-01-12">
+    enum="NtpTabResumeResultStatus" expires_after="2025-03-23">
   <owner>mfacey@google.com</owner>
   <owner>romanarora@google.com</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -1511,7 +1568,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.TabResumption.URLVisitAggregateDataTypeDisplayed"
-    enum="NtpURLVisitAggregateTypes" expires_after="2025-01-12">
+    enum="NtpURLVisitAggregateTypes" expires_after="2025-03-23">
   <owner>mfacey@google.com</owner>
   <owner>romanarora@google.com</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -1535,7 +1592,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.TabResumption.VisitDismissIndex" units="index"
-    expires_after="2025-01-12">
+    expires_after="2025-04-06">
   <owner>mfacey@google.com</owner>
   <owner>romanarora@google.com</owner>
   <owner>chrome-desktop-ntp@google.com</owner>
@@ -1604,7 +1661,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NewTabPage.TimeSinceLastNTP" units="ms"
-    expires_after="2024-12-08">
+    expires_after="2025-03-23">
   <owner>romanarora@chromium.org</owner>
   <owner>tiborg@chromium.org</owner>
   <owner>chrome-desktop-ntp@google.com</owner>

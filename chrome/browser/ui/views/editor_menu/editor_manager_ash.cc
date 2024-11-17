@@ -88,9 +88,7 @@ void EditorManagerAsh::RemoveObserver(EditorManager::Observer* observer) {
 }
 
 void EditorManagerAsh::NotifyEditorModeChanged(const EditorMode& mode) {
-  for (EditorManager::Observer& obs : observers_) {
-    obs.OnEditorModeChanged(mode);
-  }
+  observers_.Notify(&EditorManager::Observer::OnEditorModeChanged, mode);
 }
 
 void EditorManagerAsh::RequestCacheContext() {

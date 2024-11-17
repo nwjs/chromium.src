@@ -22,6 +22,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
+import android.os.Build;
 import android.os.PatternMatcher;
 import android.os.SystemClock;
 import android.text.TextUtils;
@@ -62,6 +63,7 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -821,6 +823,7 @@ public class UrlOverridingTest {
 
     @Test
     @SmallTest
+    @DisableIf.Build(sdk_equals = Build.VERSION_CODES.S, message = "crbug.com/373333486")
     public void testNavigationFromXHRCallbackAndShortTimeout() throws Exception {
         mActivityTestRule.startMainActivityOnBlankPage();
         loadUrlAndWaitForIntentUrl(
@@ -1073,7 +1076,7 @@ public class UrlOverridingTest {
         // instead.
         mActivityTestRule.loadUrlInNewTab(
                 "chrome://about/",
-                /** incognito* */
+                /* incognito* */
                 true);
 
         String fallbackUrl = mTestServer.getURL(FALLBACK_LANDING_PATH);
@@ -1415,7 +1418,8 @@ public class UrlOverridingTest {
                 });
 
         // Press back to go back to first page with BFCache.
-        ThreadUtils.runOnUiThreadBlocking(() -> mActivityTestRule.getActivity().onBackPressed());
+        ThreadUtils.runOnUiThreadBlocking(
+                mActivityTestRule.getActivity().getOnBackPressedDispatcher()::onBackPressed);
         finishCallback.waitForCallback(1);
         Assert.assertTrue(mLastNavigationHandle.get().isPageActivation());
         // Page activations should clear the RedirectHandler so future navigations aren't part of
@@ -1843,7 +1847,7 @@ public class UrlOverridingTest {
         // instead.
         mActivityTestRule.loadUrlInNewTab(
                 "chrome://about/",
-                /** incognito* */
+                /* incognito* */
                 true);
 
         String fallbackUrl = mTestServer.getURL(FALLBACK_LANDING_PATH);

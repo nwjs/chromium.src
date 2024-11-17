@@ -145,6 +145,7 @@ class CredentialProviderService
   void OnPasskeysChanged(
       const std::vector<webauthn::PasskeyModelChange>& changes) override;
   void OnPasskeyModelShuttingDown() override;
+  void OnPasskeyModelIsReady(bool is_ready) override;
 
   // syncer::SyncServiceObserver:
   void OnStateChanged(syncer::SyncService* sync) override;
@@ -168,7 +169,7 @@ class CredentialProviderService
       account_password_store_;
 
   // Passkey store.
-  webauthn::PasskeyModel* passkey_model_;
+  raw_ptr<webauthn::PasskeyModel> passkey_model_;
 
   // Identity manager to observe.
   const raw_ptr<signin::IdentityManager> identity_manager_;

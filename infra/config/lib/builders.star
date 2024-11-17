@@ -370,9 +370,11 @@ defaults = args.defaults(
     siso_configs = ["builder"],
     siso_enable_cloud_profiler = True,
     siso_enable_cloud_trace = True,
+    siso_enable_cloud_monitoring = True,
     siso_experiments = [],
     siso_remote_jobs = None,
     siso_fail_if_reapi_used = None,
+    siso_remote_linking = None,
     siso_output_local_strategy = None,
     health_spec = None,
     builder_config_settings = None,
@@ -465,10 +467,12 @@ def builder(
         siso_configs = args.DEFAULT,
         siso_enable_cloud_profiler = args.DEFAULT,
         siso_enable_cloud_trace = args.DEFAULT,
+        siso_enable_cloud_monitoring = args.DEFAULT,
         siso_experiments = args.DEFAULT,
         siso_remote_jobs = args.DEFAULT,
         siso_fail_if_reapi_used = None,
         siso_output_local_strategy = args.DEFAULT,
+        siso_remote_linking = args.DEFAULT,
         skip_profile_upload = args.DEFAULT,
         health_spec = args.DEFAULT,
         shadow_builderless = args.DEFAULT,
@@ -670,8 +674,11 @@ def builder(
             instance and Cloud logging/trace/profile for Siso to use.
         siso_configs: a list of siso configs to enable. available values are defined in
             //build/config/siso/config.star.
-        siso_enable_cloud_profiler: If True, enable cloud profiler in siso.
-        siso_enable_cloud_trace: If True, enable cloud trace in siso.
+        siso_enable_cloud_profiler: If True, enable cloud profiler in Siso.
+        siso_enable_cloud_trace: If True, enable cloud trace in Siso.
+        siso_enable_cloud_monitoring: If true, enable cloud monitoring in Siso.
+            When Siso uses Reclient for remote executions, this flag is noop because
+            Reclient already sends metrics to Cloud monitoring.
         siso_experiments: a list of experiment flags for siso.
         siso_remote_jobs: an integer indicating the number of concurrent remote jobs
             to run when building with Siso.
@@ -679,6 +686,9 @@ def builder(
             used remote execution and fail the build if any step used it.
         siso_output_local_strategy: a string indicating the output strategy
             for `--output_local_strategy`. full, greedy or minimum.
+        siso_remote_linking: If True, enable remote linking. Siso has to use the
+            builtin RBE client instead of Reclient. Relevant configs and GN args
+            will be adjusted accordingly.
         health_spec: a health spec instance describing the threshold for when
             the builder should be considered unhealthy.
         shadow_builderless: If set to True, then led builds created for this
@@ -886,9 +896,9 @@ def builder(
             shadow_properties["$build/reclient"] = shadow_reclient
             shadow_rbe_project = shadow_reclient["instance"]
     use_siso = defaults.get_value("siso_enabled", siso_enabled) and rbe_project
+    use_siso_remote_linking = use_siso and defaults.get_value("siso_remote_linking", siso_remote_linking)
     if use_siso:
         siso = {
-            "configs": defaults.get_value("siso_configs", siso_configs),
             "enable_cloud_profiler": defaults.get_value("siso_enable_cloud_profiler", siso_enable_cloud_profiler),
             "enable_cloud_trace": defaults.get_value("siso_enable_cloud_trace", siso_enable_cloud_trace),
             "experiments": defaults.get_value("siso_experiments", siso_experiments),
@@ -897,11 +907,28 @@ def builder(
         remote_jobs = defaults.get_value("siso_remote_jobs", siso_remote_jobs)
         if remote_jobs:
             siso["remote_jobs"] = remote_jobs
+        siso_configs = defaults.get_value("siso_configs", siso_configs)
+        if use_siso_remote_linking:
+            siso_configs = siso_configs + ["remote-link"]
+        siso["configs"] = siso_configs
         if siso_fail_if_reapi_used:
             siso["fail_if_reapi_used"] = siso_fail_if_reapi_used
         siso_output_local_strategy = defaults.get_value("siso_output_local_strategy", siso_output_local_strategy)
+        if not siso_output_local_strategy and use_siso_remote_linking:
+            siso_output_local_strategy = "minimum"
         if siso_output_local_strategy:
             siso["output_local_strategy"] = siso_output_local_strategy
+
+        # Since Siso's remote linking doesn't use Reclient, it needs to enable
+        # Cloud Monitoring for monitoring and alerts.
+        if defaults.get_value("siso_enable_cloud_monitoring", siso_enable_cloud_monitoring) and use_siso_remote_linking:
+            siso["enable_cloud_monitoring"] = True
+
+            # TODO: crbug.com/368518993 - It uses the same GCP project with
+            # Reclient so that we can reuse the existing monitoring setup.
+            # We need to consider migrating to chromium-build-stats or the
+            # RBE project.
+            siso["metrics_project"] = "chromium-reclient-metrics"
         properties["$build/siso"] = siso
         if shadow_rbe_project:
             shadow_siso = dict(siso)
@@ -994,7 +1021,10 @@ def builder(
 
     register_recipe_experiments_ref(bucket, name, executable)
 
-    additional_exclusions = register_gn_args(builder_group, bucket, name, gn_args, use_siso)
+    # When Siso enables remote linking, it must use the builtin RBE client
+    # instead of Reclient. Modify GN args inside register_gn_args().
+    use_siso_rbe_client = use_siso_remote_linking
+    additional_exclusions = register_gn_args(builder_group, bucket, name, gn_args, use_siso, use_siso_rbe_client)
 
     builder_config_settings = defaults.get_value(
         "builder_config_settings",

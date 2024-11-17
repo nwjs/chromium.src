@@ -13,6 +13,7 @@ import type {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polym
 import {dedupingMixin} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import type {ItemDelegate} from '../item.js';
+import {DummyItemDelegate, FakeChromeEvent} from '../item.js';
 
 type Constructor<T> = new (...args: any[]) => T;
 
@@ -32,6 +33,64 @@ export interface SiteSettingsDelegate {
       Promise<void>;
   getUserSiteSettingsChangedTarget():
       ChromeEvent<(settings: chrome.developerPrivate.UserSiteSettings) => void>;
+}
+
+export class DummySiteSettingsDelegate {
+  getUserSiteSettings() {
+    return Promise.resolve({permittedSites: [], restrictedSites: []});
+  }
+  addUserSpecifiedSites(
+      _siteSet: chrome.developerPrivate.SiteSet, _hosts: string[]) {
+    return Promise.resolve();
+  }
+  removeUserSpecifiedSites(
+      _siteSet: chrome.developerPrivate.SiteSet, _hosts: string[]) {
+    return Promise.resolve();
+  }
+  getUserAndExtensionSitesByEtld() {
+    return Promise.resolve([]);
+  }
+  getMatchingExtensionsForSite(_site: string) {
+    return Promise.resolve([]);
+  }
+  updateSiteAccess(
+      _site: string,
+      _updates: chrome.developerPrivate.ExtensionSiteAccessUpdate[]) {
+    return Promise.resolve();
+  }
+  getUserSiteSettingsChangedTarget() {
+    return new FakeChromeEvent();
+  }
+}
+
+// Have to reproduce DummySiteSettingsDelegate since TS does not allow
+// extending multiple classes.
+export class DummySiteSettingsMixinDelegate extends DummyItemDelegate {
+  getUserSiteSettings() {
+    return Promise.resolve({permittedSites: [], restrictedSites: []});
+  }
+  addUserSpecifiedSites(
+      _siteSet: chrome.developerPrivate.SiteSet, _hosts: string[]) {
+    return Promise.resolve();
+  }
+  removeUserSpecifiedSites(
+      _siteSet: chrome.developerPrivate.SiteSet, _hosts: string[]) {
+    return Promise.resolve();
+  }
+  getUserAndExtensionSitesByEtld() {
+    return Promise.resolve([]);
+  }
+  getMatchingExtensionsForSite(_site: string) {
+    return Promise.resolve([]);
+  }
+  updateSiteAccess(
+      _site: string,
+      _updates: chrome.developerPrivate.ExtensionSiteAccessUpdate[]) {
+    return Promise.resolve();
+  }
+  getUserSiteSettingsChangedTarget() {
+    return new FakeChromeEvent();
+  }
 }
 
 export const SiteSettingsMixin = dedupingMixin(

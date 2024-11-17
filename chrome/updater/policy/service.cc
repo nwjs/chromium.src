@@ -39,9 +39,9 @@
 #elif BUILDFLAG(IS_MAC)
 #include "chrome/updater/policy/mac/managed_preference_policy_manager.h"
 #endif
+#include "components/crash/core/common/crash_key.h"
 
 namespace updater {
-
 namespace {
 
 // Sorts the managed policy managers ahead of the non-managed ones in the
@@ -118,8 +118,6 @@ std::vector<scoped_refptr<PolicyManagerInterface>> CreateManagers(
     managers.insert(managers.begin(), external_constants_policy_manager);
   }
 #if BUILDFLAG(IS_MAC)
-  // Managed preference policy manager is being deprecated and thus has a lower
-  // priority than DM policy manager.
   managers.push_back(CreateManagedPreferencePolicyManager(
       external_constants->IsMachineManaged()));
 #endif
@@ -177,6 +175,8 @@ void PolicyService::FetchPolicies(base::OnceCallback<void(int)> callback) {
 void PolicyService::DoFetchPolicies(base::OnceCallback<void(int)> callback,
                                     bool is_cbcm_managed) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  static crash_reporter::CrashKeyString<6> crash_key_cbcm("cbcm");
+  crash_key_cbcm.Set(is_cbcm_managed ? "true" : "false");
   if (!is_cbcm_managed) {
     VLOG(2) << "Device is not CBCM managed, skipped policy fetch.";
     std::move(callback).Run(0);
@@ -197,8 +197,9 @@ void PolicyService::DoFetchPolicies(base::OnceCallback<void(int)> callback,
 
   fetch_policies_callback_ = std::move(callback);
   auto fetcher = base::MakeRefCounted<FallbackPolicyFetcher>(
-      CreateOutOfProcessPolicyFetcher(usage_stats_enabled_,
-                                      external_constants_->IsMachineManaged()),
+      CreateOutOfProcessPolicyFetcher(
+          usage_stats_enabled_, external_constants_->IsMachineManaged(),
+          external_constants_->CecaConnectionTimeout()),
       CreateInProcessPolicyFetcher(external_constants_->DeviceManagementURL(),
                                    PolicyServiceProxyConfiguration::Get(this),
                                    external_constants_->IsMachineManaged()));
@@ -645,7 +646,7 @@ std::string PolicyService::GetAllPoliciesAsString() const {
                             base::JoinString(policies, "\n  ").c_str());
 }
 
-bool PolicyService::AreUpdatesSuppressedNow(const base::Time& now) const {
+bool PolicyService::AreUpdatesSuppressedNow(base::Time now) const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   const PolicyStatus<UpdatesSuppressedTimes> suppression =

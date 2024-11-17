@@ -6,9 +6,12 @@
 
 #import <optional>
 
+#import "base/feature_list.h"
 #import "components/keyed_service/core/service_access_type.h"
+#import "components/password_manager/core/browser/features/password_features.h"
 #import "components/password_manager/core/browser/ui/credential_ui_entry.h"
 #import "components/password_manager/core/browser/ui/saved_passwords_presenter.h"
+#import "components/segmentation_platform/embedder/home_modules/tips_manager/signal_constants.h"
 #import "ios/chrome/browser/favicon/model/ios_chrome_favicon_loader_factory.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_account_password_store_factory.h"
@@ -21,6 +24,9 @@
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/tips_manager/model/tips_manager_ios.h"
+#import "ios/chrome/browser/tips_manager/model/tips_manager_ios_factory.h"
 #import "ios/chrome/common/ui/reauthentication/reauthentication_module.h"
 #import "ios/web/public/web_state.h"
 #import "services/network/public/cpp/shared_url_loader_factory.h"
@@ -69,15 +75,14 @@ using PasswordSuggestionBottomSheetExitReason::kUsePasswordSuggestion;
         initWithHandler:self
                     URL:URL];
 
-    ChromeBrowserState* browserState =
-        browser->GetBrowserState()->GetOriginalChromeBrowserState();
+    ProfileIOS* profile = browser->GetProfile()->GetOriginalProfile();
 
     auto profilePasswordStore =
-        IOSChromeProfilePasswordStoreFactory::GetForBrowserState(
-            browserState, ServiceAccessType::EXPLICIT_ACCESS);
+        IOSChromeProfilePasswordStoreFactory::GetForProfile(
+            profile, ServiceAccessType::EXPLICIT_ACCESS);
     auto accountPasswordStore =
-        IOSChromeAccountPasswordStoreFactory::GetForBrowserState(
-            browserState, ServiceAccessType::EXPLICIT_ACCESS);
+        IOSChromeAccountPasswordStoreFactory::GetForProfile(
+            profile, ServiceAccessType::EXPLICIT_ACCESS);
 
     self.reauthModule =
         ScopedPasswordSuggestionBottomSheetReauthModuleOverride::Get();
@@ -86,18 +91,17 @@ using PasswordSuggestionBottomSheetExitReason::kUsePasswordSuggestion;
     }
     self.mediator = [[PasswordSuggestionBottomSheetMediator alloc]
           initWithWebStateList:webStateList
-                 faviconLoader:IOSChromeFaviconLoaderFactory::
-                                   GetForBrowserState(browserState)
-                   prefService:browserState->GetPrefs()
+                 faviconLoader:IOSChromeFaviconLoaderFactory::GetForProfile(
+                                   profile)
+                   prefService:profile->GetPrefs()
                         params:params
                   reauthModule:_reauthModule
                            URL:URL
           profilePasswordStore:profilePasswordStore
           accountPasswordStore:accountPasswordStore
-        sharedURLLoaderFactory:browserState->GetSharedURLLoaderFactory()
+        sharedURLLoaderFactory:profile->GetSharedURLLoaderFactory()
              engagementTracker:feature_engagement::TrackerFactory::
-                                   GetForBrowserState(
-                                       self.browser->GetBrowserState())];
+                                   GetForProfile(self.browser->GetProfile())];
     self.viewController.delegate = self.mediator;
     self.mediator.consumer = self.viewController;
   }
@@ -208,6 +212,16 @@ using PasswordSuggestionBottomSheetExitReason::kUsePasswordSuggestion;
                                                           atIndex:index
                                                        completion:completion];
                          }];
+
+  // Records the usage of password autofill. This notifies the Tips Manager,
+  // which may trigger tips or guidance related to password management features.
+  if (IsSegmentationTipsManagerEnabled()) {
+    TipsManagerIOS* tipsManager =
+        TipsManagerIOSFactory::GetForProfile(self.browser->GetProfile());
+
+    tipsManager->NotifySignal(
+        segmentation_platform::tips_manager::signals::kUsedPasswordAutofill);
+  }
 }
 
 - (void)secondaryButtonTapped {
@@ -220,8 +234,20 @@ using PasswordSuggestionBottomSheetExitReason::kUsePasswordSuggestion;
     return;
   }
 
+  if (base::FeatureList::IsEnabled(
+          password_manager::features::kIOSPasswordBottomSheetV2)) {
+    // Explicitly refocus the field if the sheet is dismissed without using any
+    // of its features. This is only required for V2 where the listeners are
+    // detached as soon as the sheet is presented which requires another means
+    // to refocus the blurred field once the sheet is dismissed.
+    [self.mediator refocus];
+  }
+
   [self.mediator logExitReason:kDismissal];
   [self.mediator dismiss];
+
+  // Disconnect as a last step of cleaning up the presentation. This should
+  // always be kept as the last step.
   [self.mediator disconnect];
   [_browserCoordinatorCommandsHandler dismissPasswordSuggestions];
 }

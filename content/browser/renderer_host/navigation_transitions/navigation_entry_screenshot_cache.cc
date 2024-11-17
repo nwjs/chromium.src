@@ -12,10 +12,16 @@
 #include "content/browser/renderer_host/navigation_transitions/navigation_transition_config.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_entry.h"
+#include "content/public/common/content_features.h"
+#include "third_party/blink/public/common/features.h"
 
 namespace content {
 
 namespace {
+
+const base::FeatureParam<bool> kDumpWithoutCrashNavigationEntryScreenshotCache{
+    &blink::features::kBackForwardTransitions,
+    "dump-without-crash-navigation-entry-screenshot-cache", false};
 
 NavigationEntryScreenshotCache::CompressedCallback& GetTestCallback() {
   static base::NoDestructor<NavigationEntryScreenshotCache::CompressedCallback>
@@ -76,6 +82,17 @@ void NavigationEntryScreenshotCache::OnNavigationFinished(
     const NavigationRequest& navigation_request) {
   auto it = pending_screenshots_.find(navigation_request.GetNavigationId());
   if (it == pending_screenshots_.end()) {
+    if (!navigation_request.HasCommitted()) {
+      // crbug.com/369200379: If the navigation fails to commit and the
+      // screenshot hasn't arrived at the browser yet, we need to increment the
+      // copy output request sequence on the screenshot destination entry to
+      // prevent the the screenshot eventually being stashed. Since the
+      // navigation never commits, it's erroneous to stash this screenshot into
+      // the last committed entry.
+      nav_controller_->GetLastCommittedEntry()
+          ->navigation_transition_data()
+          .increment_copy_output_request_sequence();
+    }
     return;
   }
 
@@ -118,9 +135,26 @@ void NavigationEntryScreenshotCache::SetScreenshotInternal(
     return;
   }
 
+  // Should never capture the last committed entry.
+  if (entry == nav_controller_->GetLastCommittedEntry()) {
+    if (kDumpWithoutCrashNavigationEntryScreenshotCache.Get()) {
+      SCOPED_CRASH_KEY_BOOL("dnt", "is_copied_from_embedder",
+                            is_copied_from_embedder);
+      base::debug::DumpWithoutCrashing();
+    }
+    return;
+  }
+
   // A navigation entry without a screenshot will be removed from the cache
   // first (thus not tracked). Impossible to overwrite for a cached entry.
-  CHECK(!entry->GetUserData(NavigationEntryScreenshot::kUserDataKey));
+  // TODO(crbug.com/373893401): Find out why this happens.
+  if (entry->GetUserData(NavigationEntryScreenshot::kUserDataKey)) {
+    if (kDumpWithoutCrashNavigationEntryScreenshotCache.Get()) {
+      base::debug::DumpWithoutCrashing();
+    }
+    RemoveScreenshot(entry);
+  }
+
   CHECK(cached_screenshots_.find(entry->GetUniqueID()) ==
         cached_screenshots_.end());
   CHECK(!screenshot->is_cached());
@@ -134,6 +168,8 @@ void NavigationEntryScreenshotCache::SetScreenshotInternal(
       .SetSameDocumentNavigationEntryScreenshotToken(std::nullopt);
   entry->navigation_transition_data().set_cache_hit_or_miss_reason(
       NavigationTransitionData::CacheHitOrMissReason::kCacheHit);
+  // Tentative fix for crbug.com/373893401.
+  entry->navigation_transition_data().increment_copy_output_request_sequence();
 
   cached_screenshots_[entry->GetUniqueID()] = size;
   manager_->OnScreenshotCached(this, size);
@@ -200,7 +236,7 @@ void NavigationEntryScreenshotCache::EvictScreenshotsUntilUnderBudgetOrEmpty() {
 
   CHECK_GT(manager_->GetCurrentCacheSize(), manager_->GetMaxCacheSize());
 
-  const int current_index = nav_controller_->GetCurrentEntryIndex();
+  const int current_index = nav_controller_->GetLastCommittedEntryIndex();
   const int current_entry_id =
       nav_controller_->GetEntryAtIndex(current_index)->GetUniqueID();
   // It's impossible to have a screenshot for the current entry.

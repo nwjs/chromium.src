@@ -7,6 +7,7 @@
 #import "base/check_op.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_availability.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_snapshot_controller.h"
+#import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/shared/public/commands/lens_overlay_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
@@ -36,8 +37,12 @@ void LensOverlayTabHelper::DidStartNavigation(
     web::WebState* web_state,
     web::NavigationContext* navigation_context) {
   if (web_state_ && snapshot_controller_) {
+    NewTabPageTabHelper* NTPHelper =
+        NewTabPageTabHelper::FromWebState(web_state_);
+    bool is_NTP = NTPHelper && NTPHelper->IsActive();
     bool is_pdf = web_state_->GetContentsMimeType() == kMimeTypePDF;
     snapshot_controller_->SetIsPDFDocument(is_pdf);
+    snapshot_controller_->SetIsNTP(is_NTP);
   }
 }
 
@@ -56,11 +61,11 @@ void LensOverlayTabHelper::WasHidden(web::WebState* web_state) {
     snapshot_controller_->CancelOngoingCaptures();
   }
 
-  //  Before hiding the UI, update the snapshot so that lens overlay is visible
-  //  in the tab switcher.
-  UpdateSnapshot();
-
   if (is_showing_lens_overlay_) {
+    // Prior to hiding the UI update the snapshot to ensure lens overlay is
+    // visible in the tab switcher.
+    UpdateSnapshot();
+
     [commands_handler_ hideLensUI:YES];
   }
 }
@@ -73,7 +78,9 @@ void LensOverlayTabHelper::WebStateDestroyed(web::WebState* web_state) {
   }
 
   if (is_showing_lens_overlay_) {
-    [commands_handler_ destroyLensUI:NO];
+    [commands_handler_
+        destroyLensUI:NO
+               reason:lens::LensOverlayDismissalSource::kTabClosed];
   }
   web_state_->RemoveObserver(this);
   web_state_ = nullptr;
@@ -101,8 +108,12 @@ void LensOverlayTabHelper::SetSnapshotController(
   snapshot_controller_->SetDelegate(weak_ptr_factory_.GetWeakPtr());
 
   if (web_state_ && snapshot_controller_) {
+    NewTabPageTabHelper* NTPHelper =
+        NewTabPageTabHelper::FromWebState(web_state_);
+    bool is_NTP = NTPHelper && NTPHelper->IsActive();
     bool is_pdf = web_state_->GetContentsMimeType() == kMimeTypePDF;
     snapshot_controller_->SetIsPDFDocument(is_pdf);
+    snapshot_controller_->SetIsNTP(is_NTP);
   }
 }
 
@@ -123,6 +134,12 @@ void LensOverlayTabHelper::CaptureFullscreenSnapshot(
     snapshot_controller_->CaptureFullscreenSnapshot(std::move(callback));
   } else {
     std::move(callback).Run(nil);
+  }
+}
+
+void LensOverlayTabHelper::ReleaseSnapshotAuxiliaryWindows() {
+  if (snapshot_controller_) {
+    snapshot_controller_->ReleaseAuxiliaryWindows();
   }
 }
 

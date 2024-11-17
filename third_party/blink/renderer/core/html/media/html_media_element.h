@@ -99,6 +99,8 @@ class TextTrackList;
 class TimeRanges;
 class VideoTrack;
 class VideoTrackList;
+class V8CanPlayTypeResult;
+class V8TextTrackKind;
 class WebRemotePlaybackClient;
 
 class CORE_EXPORT HTMLMediaElement
@@ -123,7 +125,7 @@ class CORE_EXPORT HTMLMediaElement
     kPaused_EndOfPlayback,
     kPaused_RemovedFromDocument,
     kPaused_AutoplayAutoPause,
-    kPaused_BackgroundVideoOptimization,
+    kPaused_PageHidden,
     kPaused_SuspendedPlayerIdleTimeout,
     kPaused_RemotePlayStateChange,
     kPaused_PauseRequestedByUser,
@@ -212,7 +214,7 @@ class CORE_EXPORT HTMLMediaElement
   WebTimeRanges BufferedInternal() const;
   TimeRanges* buffered() const;
   void load();
-  String canPlayType(const String& mime_type) const;
+  V8CanPlayTypeResult canPlayType(const String& mime_type) const;
 
   // ready state
   enum ReadyState {
@@ -284,7 +286,7 @@ class CORE_EXPORT HTMLMediaElement
   VideoTrackList& videoTracks();
   void SelectedVideoTrackChanged(VideoTrack*);
 
-  TextTrack* addTextTrack(const AtomicString& kind,
+  TextTrack* addTextTrack(const V8TextTrackKind& kind,
                           const AtomicString& label,
                           const AtomicString& language,
                           ExceptionState&);
@@ -381,13 +383,10 @@ class CORE_EXPORT HTMLMediaElement
 
   bool HasMediaSource() const { return media_source_attachment_.get(); }
 
-  // Return true if element is paused and won't resume automatically if it
-  // becomes visible again.
-  bool PausedWhenVisible() const;
-
   void DidAudioOutputSinkChanged(const String& hashed_device_id);
 
   void SetCcLayerForTesting(cc::Layer* layer) { SetCcLayer(layer); }
+  void AddMediaTrackForTesting(const media::MediaTrack& t) { AddMediaTrack(t); }
 
   // This should be called directly after creation.
   void SetMediaPlayerHostForTesting(
@@ -415,7 +414,8 @@ class CORE_EXPORT HTMLMediaElement
   // reason while in picture in picture mode.
   LocalFrame* LocalFrameForPlayer();
 
-  bool IsValidCommand(HTMLElement& invoker, CommandEventType command) override;
+  bool IsValidBuiltinCommand(HTMLElement& invoker,
+                             CommandEventType command) override;
   bool HandleCommandInternal(HTMLElement& invoker,
                              CommandEventType command) override;
 

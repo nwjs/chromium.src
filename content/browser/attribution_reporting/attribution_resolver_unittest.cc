@@ -2458,10 +2458,9 @@ TEST_F(AttributionResolverTest, AggregatableDedupKeysFiltering) {
   const auto origin = *SuitableOrigin::Deserialize("https://r.test");
 
   std::vector<attribution_reporting::AggregatableTriggerData>
-      aggregatable_trigger_data{
-          *attribution_reporting::AggregatableTriggerData::Create(
-              absl::MakeUint128(/*high=*/1, /*low=*/0),
-              /*source_keys=*/{"0"}, FilterPair())};
+      aggregatable_trigger_data{attribution_reporting::AggregatableTriggerData(
+          absl::MakeUint128(/*high=*/1, /*low=*/0),
+          /*source_keys=*/{"0"}, FilterPair())};
 
   auto aggregatable_values = {*AggregatableValues::Create(
       {{"0", *AggregatableValuesValue::Create(1, kDefaultFilteringId)}},
@@ -3452,7 +3451,7 @@ TEST_F(AttributionResolverTest, TopLevelTriggerFiltering) {
 
   std::vector<attribution_reporting::AggregatableTriggerData>
       aggregatable_trigger_data = {
-          *attribution_reporting::AggregatableTriggerData::Create(
+          attribution_reporting::AggregatableTriggerData(
               absl::MakeUint128(/*high=*/1, /*low=*/0),
               /*source_keys=*/{"0"}, FilterPair())};
 
@@ -5319,6 +5318,46 @@ TEST_F(AttributionResolverTest, TriggerAttributesOnMatchingScope) {
       storage()->GetAttributionReports(/*max_report_time=*/base::Time::Max()),
       ElementsAre(EventLevelDataIs(
           Field(&AttributionReport::EventLevelData::source_event_id, 1u))));
+}
+
+TEST_F(AttributionResolverTest, DebugKey) {
+  const struct {
+    std::optional<uint64_t> source_debug_key;
+    std::optional<uint64_t> trigger_debug_key;
+    int expected_metric;
+  } kTestCases[] = {
+      {
+          std::nullopt, std::nullopt,
+          0,  // kNone
+      },
+      {
+          1, std::nullopt,
+          1,  // kSourceOnly
+      },
+      {
+          std::nullopt, 1,
+          2,  // kTriggerOnly
+      },
+      {
+          1, 2,
+          3,  // kBoth
+      },
+  };
+
+  for (const auto& test_case : kTestCases) {
+    base::HistogramTester histograms;
+    storage()->StoreSource(TestAggregatableSourceProvider()
+                               .GetBuilder()
+                               .SetDebugKey(test_case.source_debug_key)
+                               .SetDebugCookieSet(true)
+                               .Build());
+    storage()->MaybeCreateAndStoreReport(
+        DefaultAggregatableTriggerBuilder()
+            .SetDebugKey(test_case.trigger_debug_key)
+            .Build());
+    histograms.ExpectBucketCount("Conversions.AttributionReportDebugKeyUsage",
+                                 test_case.expected_metric, 2);
+  }
 }
 
 }  // namespace content

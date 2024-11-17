@@ -86,6 +86,7 @@ import org.chromium.components.browser_ui.util.date.CalendarUtils;
 import org.chromium.components.browser_ui.util.date.StringUtils;
 import org.chromium.components.content_settings.ContentSettingValues;
 import org.chromium.components.content_settings.ContentSettingsType;
+import org.chromium.components.content_settings.CookieControlsEnforcement;
 import org.chromium.components.content_settings.CookieControlsMode;
 import org.chromium.components.location.LocationUtils;
 import org.chromium.components.page_info.PageInfoAdPersonalizationController;
@@ -125,7 +126,10 @@ import java.util.concurrent.TimeoutException;
 // TODO(crbug.com/344672095): Failing when batched, batch this again.
 // Disable TrackingProtection3pcd as we use prefs instead of the feature in
 // these tests.
-@DisableFeatures(ChromeFeatureList.TRACKING_PROTECTION_3PCD)
+@DisableFeatures({
+    ChromeFeatureList.TRACKING_PROTECTION_3PCD,
+    ChromeFeatureList.TRACKING_PROTECTION_3PCD_UX
+})
 public class PageInfoViewTest {
     private static final String sSimpleHtml = "/chrome/test/data/android/simple.html";
     private static final String sSiteDataHtml = "/content/test/data/browsing_data/site_data.html";
@@ -264,6 +268,13 @@ public class PageInfoViewTest {
             var tpController = controller.getTrackingProtectionControllerForTesting();
             tpController.setFixedExceptionExpirationForTesting(true);
         }
+    }
+
+    private void enableTpcdGrantEnforcement() {
+        PageInfoController controller = PageInfoController.getLastPageInfoControllerForTesting();
+        assertNotNull(controller);
+        var tpController = controller.getTrackingProtectionControllerForTesting();
+        tpController.setEnforcementForTesting(CookieControlsEnforcement.ENFORCED_BY_TPCD_GRANT);
     }
 
     private void setThirdPartyCookieBlocking(@CookieControlsMode int value) {
@@ -570,6 +581,17 @@ public class PageInfoViewTest {
         addSomeHistoryEntries();
         loadUrlAndOpenPageInfo(mTestServerRule.getServer().getURL(sSimpleHtml));
         mRenderTestRule.render(getPageInfoView(), "PageInfo_History");
+    }
+
+    /** Tests PageInfo on an allowlisted website. */
+    @Test
+    @MediumTest
+    @Feature({"RenderTest"})
+    public void testShowTrackingProtectionStatusSubtitleOnAllowlistedSite() throws IOException {
+        enableTrackingProtection();
+        loadUrlAndOpenPageInfo(mTestServerRule.getServer().getURL(sSimpleHtml));
+        enableTpcdGrantEnforcement();
+        mRenderTestRule.render(getPageInfoView(), "PageInfo_AllowlistedSite");
     }
 
     /** Tests the connection info page of the PageInfo UI - insecure website. */

@@ -184,12 +184,13 @@ const char* ProtoEnumToString(sync_pb::NigoriSpecifics::PassphraseType type) {
 const char* ProtoEnumToString(
     sync_pb::PaymentInstrument::SupportedRail supported_rail) {
   ASSERT_ENUM_BOUNDS(sync_pb::PaymentInstrument, SupportedRail,
-                     SUPPORTED_RAIL_UNKNOWN, PAYMENT_HYPERLINK);
+                     SUPPORTED_RAIL_UNKNOWN, CARD_NUMBER);
   switch (supported_rail) {
     ENUM_CASE(sync_pb::PaymentInstrument, SUPPORTED_RAIL_UNKNOWN);
     ENUM_CASE(sync_pb::PaymentInstrument, PIX);
     ENUM_CASE(sync_pb::PaymentInstrument, IBAN);
     ENUM_CASE(sync_pb::PaymentInstrument, PAYMENT_HYPERLINK);
+    ENUM_CASE(sync_pb::PaymentInstrument, CARD_NUMBER);
   }
   NOTREACHED_IN_MIGRATION();
   return "";
@@ -622,6 +623,24 @@ const char* ProtoEnumToString(
     ENUM_CASE(sync_pb::UserEventSpecifics::FlocIdComputed, NEW);
     ENUM_CASE(sync_pb::UserEventSpecifics::FlocIdComputed, REFRESHED);
     ENUM_CASE(sync_pb::UserEventSpecifics::FlocIdComputed, HISTORY_DELETE);
+  }
+  NOTREACHED_IN_MIGRATION();
+  return "";
+}
+
+const char* ProtoEnumToString(
+    sync_pb::WalletMaskedCreditCard::CardInfoRetrievalEnrollmentState
+        card_info_retrieval_enrollment_state) {
+  ASSERT_ENUM_BOUNDS(sync_pb::WalletMaskedCreditCard,
+                     CardInfoRetrievalEnrollmentState, RETRIEVAL_UNSPECIFIED,
+                     RETRIEVAL_UNENROLLED_AND_ELIGIBLE);
+  switch (card_info_retrieval_enrollment_state) {
+    ENUM_CASE(sync_pb::WalletMaskedCreditCard, RETRIEVAL_UNSPECIFIED);
+    ENUM_CASE(sync_pb::WalletMaskedCreditCard, RETRIEVAL_ENROLLED);
+    ENUM_CASE(sync_pb::WalletMaskedCreditCard,
+              RETRIEVAL_UNENROLLED_AND_NOT_ELIGIBLE);
+    ENUM_CASE(sync_pb::WalletMaskedCreditCard,
+              RETRIEVAL_UNENROLLED_AND_ELIGIBLE);
   }
   NOTREACHED_IN_MIGRATION();
   return "";

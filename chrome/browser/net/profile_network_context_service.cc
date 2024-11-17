@@ -12,6 +12,7 @@
 #include "base/check_op.h"
 #include "base/command_line.h"
 #include "base/containers/flat_map.h"
+#include "base/containers/to_vector.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -80,6 +81,7 @@
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "net/base/features.h"
 #include "net/cert/asn1_util.h"
+#include "net/disk_cache/backend_experiment.h"
 #include "net/http/http_auth_preferences.h"
 #include "net/http/http_util.h"
 #include "net/net_buildflags.h"
@@ -145,6 +147,13 @@
 #include "components/enterprise/client_certificates/core/certificate_provisioning_service.h"
 #include "components/enterprise/client_certificates/core/client_certificates_service.h"
 #include "components/enterprise/client_certificates/core/features.h"
+#endif
+
+#if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
+#include "chrome/browser/net/server_certificate_database.h"     // nogncheck
+#include "chrome/browser/net/server_certificate_database.pb.h"  // nogncheck
+#include "chrome/browser/net/server_certificate_database_service.h"  // nogncheck
+#include "chrome/browser/net/server_certificate_database_service_factory.h"  // nogncheck
 #endif
 
 namespace {
@@ -281,6 +290,81 @@ std::unique_ptr<net::ClientCertStore> GetWrappedCertStore(
 }
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
+bool IsValidDNSConstraint(std::string_view possible_dns_constraint) {
+  return base::IsStringASCII(possible_dns_constraint) &&
+         possible_dns_constraint.length() <= 255;
+}
+
+// Parses the |possible_cidr_constraint|, populating |parsed_cidr| and |mask|,
+// and then return true.
+//
+// If |possible_cidr_constraint| did not properly parse, returns false. The
+// state of |parsed_cidr| and |mask| in this case is not guaranteed.
+bool ParseCIDRConstraint(std::string_view possible_cidr_constraint,
+                         net::IPAddress* parsed_cidr,
+                         net::IPAddress* mask) {
+  size_t prefix_length;
+  if (!net::ParseCIDRBlock(possible_cidr_constraint, parsed_cidr,
+                           &prefix_length)) {
+    return false;
+  }
+  if (parsed_cidr->IsIPv4()) {
+    if (!net::IPAddress::CreateIPv4Mask(mask, prefix_length)) {
+      return false;
+    }
+  } else if (parsed_cidr->IsIPv6()) {
+    if (!net::IPAddress::CreateIPv6Mask(mask, prefix_length)) {
+      return false;
+    }
+  } else {
+    // Somehow got an IP address that isn't ipv4 or ipv6?
+    return false;
+  }
+  return true;
+}
+
+#if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
+// Add a cert with constraints to the provided list.
+// This will add a certificate from |cert_info| to the |cert_list| with
+// any added constraints that are in |cert_info.cert_metadata|. It is okay for
+// there to be no constraints in |cert_info.cert_metadata|.
+//
+// If any constraints in |cert_info.cert_metadata| are not valid, then the
+// certificate will not be added to |cert_list| and this function will return
+// false. Otherwise, the certificate will be added to |cert_list| and this
+// function will return true.
+bool MaybeAddCertWithConstraints(
+    const net::ServerCertificateDatabase::CertInformation& cert_info,
+    std::vector<cert_verifier::mojom::CertWithConstraintsPtr>* cert_list) {
+  auto cert_with_constraints_mojo =
+      cert_verifier::mojom::CertWithConstraints::New();
+  cert_with_constraints_mojo->certificate = cert_info.der_cert;
+  for (const auto& dns_constraint :
+       cert_info.cert_metadata.constraints().dns_names()) {
+    if (IsValidDNSConstraint(dns_constraint)) {
+      cert_with_constraints_mojo->permitted_dns_names.push_back(dns_constraint);
+    } else {
+      return false;
+    }
+  }
+  for (const auto& cidr_constraint :
+       cert_info.cert_metadata.constraints().cidrs()) {
+    net::IPAddress parsed_cidr;
+    net::IPAddress mask;
+    if (ParseCIDRConstraint(cidr_constraint, &parsed_cidr, &mask)) {
+      cert_with_constraints_mojo->permitted_cidrs.push_back(
+          cert_verifier::mojom::CIDR::New(/*ip=*/parsed_cidr,
+                                          /*mask=*/mask));
+    } else {
+      return false;
+    }
+  }
+
+  cert_list->push_back(std::move(cert_with_constraints_mojo));
+  return true;
+}
+#endif
+
 }  // namespace
 
 ProfileNetworkContextService::ProfileNetworkContextService(Profile* profile)
@@ -358,15 +442,6 @@ ProfileNetworkContextService::ProfileNetworkContextService(Profile* profile)
             base::Unretained(this)));
   }
 #endif  // BUILDFLAG(ENABLE_REPORTING)
-#if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
-  if (base::FeatureList::IsEnabled(features::kEnableCertManagementUIV2Write)) {
-    server_cert_database_ = base::SequenceBound<net::ServerCertificateDatabase>(
-        base::ThreadPool::CreateSequencedTaskRunner(
-            {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
-             base::TaskShutdownBehavior::BLOCK_SHUTDOWN}),
-        profile->GetPath());
-  }
-#endif  // BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
 }
 
 ProfileNetworkContextService::~ProfileNetworkContextService() = default;
@@ -412,6 +487,12 @@ void ProfileNetworkContextService::RegisterProfilePrefs(
 #if !BUILDFLAG(IS_CHROMEOS)
   // Include user added platform certs by default.
   registry->RegisterBooleanPref(prefs::kCAPlatformIntegrationEnabled, true);
+#endif
+#if BUILDFLAG(IS_CHROMEOS)
+  registry->RegisterIntegerPref(
+      prefs::kNSSCertsMigratedToServerCertDb,
+      static_cast<int>(net::ServerCertificateDatabaseService::
+                           NSSMigrationResultPref::kNotMigrated));
 #endif
 }
 
@@ -629,8 +710,8 @@ ProfileNetworkContextService::GetCertificatePolicy(
     cert_with_constraints_mojo->certificate = std::move(*decoded_cert_opt);
     if (permitted_dns_names) {
       for (const base::Value& dns_name : *permitted_dns_names) {
-        if (dns_name.is_string() && base::IsStringASCII(dns_name.GetString()) &&
-            dns_name.GetString().length() <= 255) {
+        if (dns_name.is_string() &&
+            IsValidDNSConstraint(dns_name.GetString())) {
           cert_with_constraints_mojo->permitted_dns_names.push_back(
               dns_name.GetString());
         } else {
@@ -651,32 +732,15 @@ ProfileNetworkContextService::GetCertificatePolicy(
         }
         net::IPAddress parsed_cidr;
         net::IPAddress mask;
-        size_t prefix_length;
-        if (!net::ParseCIDRBlock(cidr.GetString(), &parsed_cidr,
-                                 &prefix_length)) {
-          // Don't add trust for cert if CIDR block doesn't parse.
-          invalid_constraint = true;
-          break;
-        }
-        if (parsed_cidr.IsIPv4()) {
-          if (!net::IPAddress::CreateIPv4Mask(&mask, prefix_length)) {
-            // Error in mask creation.
-            invalid_constraint = true;
-            break;
-          }
-        } else if (parsed_cidr.IsIPv6()) {
-          if (!net::IPAddress::CreateIPv6Mask(&mask, prefix_length)) {
-            // Error in mask creation.
-            invalid_constraint = true;
-            break;
-          }
+        if (ParseCIDRConstraint(cidr.GetString(), &parsed_cidr, &mask)) {
+          cert_with_constraints_mojo->permitted_cidrs.push_back(
+              cert_verifier::mojom::CIDR::New(/*ip=*/parsed_cidr,
+                                              /*mask=*/mask));
+
         } else {
-          // Somehow got an IP address that isn't ipv4 or ipv6?
           invalid_constraint = true;
           break;
         }
-        cert_with_constraints_mojo->permitted_cidrs.push_back(
-            cert_verifier::mojom::CIDR::New(/*ip=*/parsed_cidr, /*mask=*/mask));
       }
     }
     if (invalid_constraint) {
@@ -696,8 +760,8 @@ ProfileNetworkContextService::GetCertificatePolicy(
     std::string_view spki_piece;
     bool success = net::asn1::ExtractSPKIFromDERCert(decoded, &spki_piece);
     if (success) {
-      additional_certificates->distrusted_spkis.emplace_back(spki_piece.begin(),
-                                                             spki_piece.end());
+      additional_certificates->distrusted_spkis.push_back(
+          base::ToVector(base::as_byte_span(spki_piece)));
     }
   }
 
@@ -710,13 +774,104 @@ ProfileNetworkContextService::GetCertificatePolicy(
 }
 
 void ProfileNetworkContextService::UpdateAdditionalCertificates() {
+#if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
+  if (base::FeatureList::IsEnabled(features::kEnableCertManagementUIV2Write)) {
+    net::ServerCertificateDatabaseService* cert_db_service =
+        net::ServerCertificateDatabaseServiceFactory::GetForBrowserContext(
+            profile_);
+
+#if BUILDFLAG(IS_CHROMEOS)
+    cert_db_service->GetAllCertificatesMigrateFromNSSFirstIfNeeded(
+        base::BindOnce(&ProfileNetworkContextService::
+                           UpdateAdditionalCertificatesWithUserAddedCerts,
+                       base::Unretained(this)));
+#else
+    cert_db_service->GetAllCertificates(
+        base::BindOnce(&ProfileNetworkContextService::
+                           UpdateAdditionalCertificatesWithUserAddedCerts,
+                       base::Unretained(this)));
+#endif
+  } else {
+    profile_->ForEachLoadedStoragePartition(
+        [&](content::StoragePartition* storage_partition) {
+          storage_partition->GetCertVerifierServiceUpdater()
+              ->UpdateAdditionalCertificates(
+                  GetCertificatePolicy(storage_partition->GetPath()));
+        });
+  }
+#else
   profile_->ForEachLoadedStoragePartition(
       [&](content::StoragePartition* storage_partition) {
         storage_partition->GetCertVerifierServiceUpdater()
             ->UpdateAdditionalCertificates(
                 GetCertificatePolicy(storage_partition->GetPath()));
       });
+#endif
 }
+
+#if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
+void ProfileNetworkContextService::
+    UpdateAdditionalCertificatesWithUserAddedCerts(
+        std::vector<net::ServerCertificateDatabase::CertInformation>
+            cert_infos) {
+  profile_->ForEachLoadedStoragePartition(
+      [&](content::StoragePartition* storage_partition) {
+        cert_verifier::mojom::AdditionalCertificatesPtr additional_certs =
+            GetCertificatePolicy(storage_partition->GetPath());
+
+        for (const auto& cert_info : cert_infos) {
+          std::optional<bssl::CertificateTrustType> trust =
+              net::ServerCertificateDatabase::GetUserCertificateTrust(
+                  cert_info);
+          if (!trust) {
+            continue;
+          }
+          switch (trust.value()) {
+            case bssl::CertificateTrustType::UNSPECIFIED:
+              additional_certs->all_certificates.push_back(cert_info.der_cert);
+              break;
+
+            case bssl::CertificateTrustType::DISTRUSTED: {
+              std::string_view spki_piece;
+              bool success = net::asn1::ExtractSPKIFromDERCert(
+                  base::as_string_view(cert_info.der_cert), &spki_piece);
+              if (success) {
+                additional_certs->distrusted_spkis.push_back(
+                    base::ToVector(base::as_byte_span(spki_piece)));
+              }
+              break;
+            }
+
+            case bssl::CertificateTrustType::TRUSTED_ANCHOR:
+              if (!cert_info.cert_metadata.has_constraints() ||
+                  (cert_info.cert_metadata.constraints().dns_names_size() ==
+                       0 &&
+                   cert_info.cert_metadata.constraints().cidrs_size() == 0)) {
+                additional_certs->trust_anchors_with_enforced_constraints
+                    .push_back(cert_info.der_cert);
+              } else {
+                MaybeAddCertWithConstraints(
+                    cert_info,
+                    &additional_certs
+                         ->trust_anchors_with_additional_constraints);
+              }
+              break;
+
+            case bssl::CertificateTrustType::TRUSTED_ANCHOR_OR_LEAF:
+              MaybeAddCertWithConstraints(
+                  cert_info, &additional_certs->trust_anchors_and_leafs);
+              break;
+            case bssl::CertificateTrustType::TRUSTED_LEAF:
+              MaybeAddCertWithConstraints(cert_info,
+                                          &additional_certs->trust_leafs);
+              break;
+          }
+        }
+        storage_partition->GetCertVerifierServiceUpdater()
+            ->UpdateAdditionalCertificates(std::move(additional_certs));
+      });
+}
+#endif  // BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
 
 void ProfileNetworkContextService::ScheduleUpdateCertificatePolicy() {
   cert_policy_update_timer_.Start(
@@ -976,7 +1131,7 @@ ProfileNetworkContextService::CreateClientCertStore() {
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
 
   if (!Profile::FromBrowserContext(
-           chrome::GetBrowserContextRedirectedInIncognito(profile_))
+           GetBrowserContextRedirectedInIncognito(profile_))
            ->IsMainProfile()) {
     // TODO(crbug.com/40156976): At the moment client certs are only enabled for
     // the main profile and its incognito profile (similarly to how it worked in
@@ -1048,6 +1203,14 @@ bool GetHttpCacheBackendResetParam(PrefService* local_state) {
   } else if (base::FeatureList::IsEnabled(
                  net::features::kHttpCacheKeyingExperimentControlGroup2024)) {
     current_field_trial_status += " 20240814-ExperimentControlGroup";
+  }
+
+  if (disk_cache::InBackendExperiment()) {
+    if (disk_cache::InSimpleBackendExperimentGroup()) {
+      current_field_trial_status += " 20241007-DiskCache-Simple";
+    } else {
+      current_field_trial_status += " 20241007-DiskCache-Blockfile";
+    }
   }
 
   std::string previous_field_trial_status =
@@ -1148,12 +1311,9 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
         base::FeatureList::IsEnabled(features::kLockProfileCookieDatabase);
 #endif  // BUILDFLAG(IS_WIN)
 
-    if (base::FeatureList::IsEnabled(
-            features::kUseOsCryptAsyncForCookieEncryption)) {
-      g_browser_process->system_network_context_manager()
-          ->AddCookieEncryptionManagerToNetworkContextParams(
-              network_context_params);
-    }
+    g_browser_process->system_network_context_manager()
+        ->AddCookieEncryptionManagerToNetworkContextParams(
+            network_context_params);
 
     network_context_params->file_paths->trust_token_database_name =
         base::FilePath(chrome::kTrustTokenFilename);
@@ -1272,7 +1432,12 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
       // public slot. Leaving them empty will make cert verifier ignore the
       // public slot. This is done mainly because Chrome sometimes fails to
       // load the public slot and has to crash because of that.
-      if (!chromeos::IsKioskSession()) {
+      // If the kEnableCertManagementUIV2Write flag is enabled, then NSS certs
+      // will be migrated to the chrome user certificate database, and the NSS
+      // user cert database should no longer be used by the verifier.
+      if (!base::FeatureList::IsEnabled(
+              features::kEnableCertManagementUIV2Write) &&
+          !chromeos::IsKioskSession()) {
         cert_verifier_creation_params->username_hash = user->username_hash();
         cert_verifier_creation_params->nss_path = profile_->GetPath();
       }
@@ -1288,18 +1453,19 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
   // TODO(crbug.com/40928765): check to see if IsManaged() ensures the pref
   // isn't set in user profiles, or if that does something else. If that's true,
   // add an isManaged() check here.
-  // TODO(crbug.com/40928765): add async calls to get the User Certs from
-  // server_cert_database_ and then feed it to the CertVerifiers
-  // through the cert_verifier_updater
-  // (storage_partition->GetCertVerifierServiceUpdater()).
-  // verifications need to wait for for these certs to get to the cert verifier.
-  //
-  // Will have to think about if separate mojom call should be used or if the
-  // currently existing one should be repurposed.
-  // Will also have to consider any caching/reuse to reduce amount of DB reads
-  // necessary.
+
+#if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
+  if (base::FeatureList::IsEnabled(features::kEnableCertManagementUIV2Write)) {
+    cert_verifier_creation_params->wait_for_update = true;
+    UpdateAdditionalCertificates();
+  } else {
+    cert_verifier_creation_params->initial_additional_certificates =
+        GetCertificatePolicy(GetPartitionPath(relative_partition_path));
+  }
+#else
   cert_verifier_creation_params->initial_additional_certificates =
       GetCertificatePolicy(GetPartitionPath(relative_partition_path));
+#endif  // BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
 
 #if BUILDFLAG(IS_CHROMEOS)
   // Disable idle sockets close on memory pressure if configured by finch or
@@ -1361,7 +1527,7 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
     ipp_core_host->AddNetworkService(
         network_context_params->ip_protection_config_getter
             .InitWithNewPipeAndPassReceiver(),
-        network_context_params->ip_protection_proxy_delegate
+        network_context_params->ip_protection_control
             .InitWithNewPipeAndPassRemote());
     network_context_params->enable_ip_protection =
         ipp_core_host->IsIpProtectionEnabled();

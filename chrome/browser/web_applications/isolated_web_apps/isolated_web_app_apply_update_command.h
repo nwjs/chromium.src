@@ -21,6 +21,7 @@
 #include "chrome/browser/web_applications/commands/web_app_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_install_command_helper.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
+#include "chrome/browser/web_applications/locks/app_lock.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
@@ -50,7 +51,7 @@ std::ostream& operator<<(std::ostream& os,
 
 // This command applies a pending update of an Isolated Web App. Information
 // about the pending update is read from
-// `WebApp::IsolationData::pending_update_info`. Both on success, and on
+// `IsolationData::pending_update_info`. Both on success, and on
 // failure, the pending update info is removed from the Web App database.
 class IsolatedWebAppApplyUpdateCommand
     : public WebAppCommand<
@@ -150,7 +151,7 @@ class IsolatedWebAppApplyUpdateCommand
   const std::unique_ptr<ScopedKeepAlive> optional_keep_alive_;
   const std::unique_ptr<ScopedProfileKeepAlive> optional_profile_keep_alive_;
 
-  std::optional<WebApp::IsolationData::PendingUpdateInfo> pending_update_info_;
+  std::optional<IsolationData::PendingUpdateInfo> pending_update_info_;
 
   std::unique_ptr<IsolatedWebAppInstallCommandHelper> command_helper_;
 

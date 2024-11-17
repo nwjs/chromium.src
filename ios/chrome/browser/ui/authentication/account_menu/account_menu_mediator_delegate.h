@@ -11,6 +11,7 @@
 #import "ios/chrome/browser/ui/settings/google_services/sync_error_settings_command_handler.h"
 
 @class AccountMenuMediator;
+@class AuthenticationFlow;
 @protocol SystemIdentity;
 
 @protocol AccountMenuMediatorDelegate <SyncErrorSettingsCommandHandler>
@@ -18,16 +19,21 @@
 // Requests to dismiss the account menu.
 - (void)mediatorWantsToBeDismissed:(AccountMenuMediator*)mediator;
 
-// Start managed account switch.
-- (void)triggerAccountSwitchWithTargetRect:(CGRect)targetRect
-                               newIdentity:(id<SystemIdentity>)newIdentity
-           viewWillBeDismissedAfterSignout:(BOOL)viewWillBeDismissedAfterSignout
-                          signInCompletion:(ShowSigninCommandCompletionCallback)
-                                               signInCompletion;
+// Starts the sign-in flow. Then call `completion`, with a parameter stating
+// whether the the sign-out was done.
+- (AuthenticationFlow*)
+    triggerSigninWithSystemIdentity:(id<SystemIdentity>)identity
+                         completion:
+                             (signin_ui::SigninCompletionCallback)completion;
+
+// Displays the identity snackbar with `systemIdentity`.
+- (void)triggerAccountSwitchSnackbarWithIdentity:
+    (id<SystemIdentity>)systemIdentity;
 
 // Sign out, display a toast, and call `callback` with argument stating whether
 // it’s a success.
 - (void)signOutFromTargetRect:(CGRect)targetRect
+                    forSwitch:(BOOL)forSwith
                      callback:(void (^)(BOOL))callback;
 
 // Shows https://myaccount.google.com/ for the account currently signed-in
@@ -42,10 +48,10 @@
 - (void)didTapAddAccount:(ShowSigninCommandCompletionCallback)callback;
 
 // Blocks the user from using Chromium.
-- (void)blockScene;
+- (void)blockOtherScene;
 
-// Stops the `blockScene`.
-- (void)unblockScene;
+// Stops the `blockOtherScene`.
+- (void)unblockOtherScene;
 
 @end
 

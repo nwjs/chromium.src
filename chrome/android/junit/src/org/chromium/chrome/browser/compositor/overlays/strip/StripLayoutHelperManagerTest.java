@@ -45,7 +45,8 @@ import org.mockito.Captor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
 
@@ -67,31 +68,34 @@ import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperMa
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager.TabModelStartupInfo;
 import org.chromium.chrome.browser.compositor.scene_layer.TabStripSceneLayer;
 import org.chromium.chrome.browser.compositor.scene_layer.TabStripSceneLayerJni;
+import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.layouts.components.VirtualView;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
+import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
+import org.chromium.chrome.browser.tabmodel.TabGroupModelFilterProvider;
 import org.chromium.chrome.browser.tabmodel.TabModel;
-import org.chromium.chrome.browser.tabmodel.TabModelFilterProvider;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationManager;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
 import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
-import org.chromium.chrome.browser.ui.desktop_windowing.AppHeaderState;
-import org.chromium.chrome.browser.ui.desktop_windowing.DesktopWindowStateProvider;
 import org.chromium.chrome.browser.ui.system.StatusBarColorController;
+import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
+import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateProvider;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.widget.scrim.ScrimProperties;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.dragdrop.DragAndDropDelegate;
+import org.chromium.ui.modaldialog.ModalDialogManager;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -103,6 +107,7 @@ import java.util.List;
 @DisableFeatures(ChromeFeatureList.TAB_STRIP_INCOGNITO_MIGRATION)
 public class StripLayoutHelperManagerTest {
     @Rule public JniMocker mJniMocker = new JniMocker();
+    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock private TabStripSceneLayer.Natives mTabStripSceneMock;
     @Mock private TabStripSceneLayer mTabStripTreeProvider;
     @Mock private LayoutManagerHost mManagerHost;
@@ -117,8 +122,9 @@ public class StripLayoutHelperManagerTest {
     @Mock private ObservableSupplierImpl<TabModel> mTabModelSupplier;
     @Mock private TabCreatorManager mTabCreatorManager;
     @Mock private TabGroupModelFilter mTabGroupModelFilter;
-    @Mock private TabModelFilterProvider mTabModelFilterProvider;
+    @Mock private TabGroupModelFilterProvider mTabGroupModelFilterProvider;
     @Mock private TabModel mStandardTabModel;
+    @Mock private Profile mProfile;
     @Mock private Tab mSelectedTab;
     @Mock private StripLayoutTab mHoveredStripTab;
     @Mock private ViewStub mTabHoverCardViewStub;
@@ -129,12 +135,14 @@ public class StripLayoutHelperManagerTest {
     @Mock private StatusBarColorController mStatusBarColorController;
     @Mock private DesktopWindowStateProvider mDesktopWindowStateProvider;
     @Mock private ActionConfirmationManager mActionConfirmationManager;
+    @Mock private DataSharingTabManager mDataSharingTabManager;
     @Captor private ArgumentCaptor<List<Rect>> mSystemExclusionRectCaptor;
 
     private StripLayoutHelperManager mStripLayoutHelperManager;
     private Activity mActivity;
     private ObservableSupplierImpl<TabModelStartupInfo> mTabModelStartupInfoSupplier;
     private ObservableSupplierImpl<Integer> mTabStripHeightSupplier;
+    private ModalDialogManager mModalDialogManager;
     private int mToolbarPrimaryColor;
     private static final float SCREEN_WIDTH = 800.f;
     private static final float SCREEN_HEIGHT = 1600.f;
@@ -146,17 +154,16 @@ public class StripLayoutHelperManagerTest {
 
     @Before
     public void beforeTest() {
-        MockitoAnnotations.initMocks(this);
         mJniMocker.mock(TabStripSceneLayerJni.TEST_HOOKS, mTabStripSceneMock);
         mActivity = Robolectric.buildActivity(Activity.class).setup().get();
         mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
-        when(mToolbarContainerView.getContext()).thenReturn(mActivity);
-        when(mToolbarManager.getStatusBarColorController()).thenReturn(mStatusBarColorController);
-
         TabStripSceneLayer.setTestFlag(true);
 
+        when(mToolbarContainerView.getContext()).thenReturn(mActivity);
+        when(mToolbarManager.getStatusBarColorController()).thenReturn(mStatusBarColorController);
         when(mDesktopWindowStateProvider.isInUnfocusedDesktopWindow()).thenReturn(false);
         when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
+
         initializeTest();
     }
 
@@ -166,11 +173,14 @@ public class StripLayoutHelperManagerTest {
     }
 
     private void initializeTest() {
-        when(mTabModelFilterProvider.getTabModelFilter(anyBoolean()))
+        when(mTabGroupModelFilterProvider.getTabGroupModelFilter(anyBoolean()))
                 .thenReturn(mTabGroupModelFilter);
-        when(mTabModelSelector.getTabModelFilterProvider()).thenReturn(mTabModelFilterProvider);
+        when(mTabGroupModelFilter.getTabModel()).thenReturn(mStandardTabModel);
+        when(mTabModelSelector.getTabGroupModelFilterProvider())
+                .thenReturn(mTabGroupModelFilterProvider);
         when(mTabModelSelector.getCurrentModel()).thenReturn(mStandardTabModel);
         when(mTabModelSelector.getCurrentTabModelSupplier()).thenReturn(mTabModelSupplier);
+        when(mStandardTabModel.getProfile()).thenReturn(mProfile);
 
         mTabModelStartupInfoSupplier = new ObservableSupplierImpl<>();
 
@@ -198,7 +208,9 @@ public class StripLayoutHelperManagerTest {
                         mWindowAndroid,
                         mToolbarManager,
                         mDesktopWindowStateProvider,
-                        mActionConfirmationManager);
+                        mActionConfirmationManager,
+                        mModalDialogManager,
+                        mDataSharingTabManager);
         mStripLayoutHelperManager.setTabModelSelector(mTabModelSelector, mTabCreatorManager);
         mStripLayoutHelperManager.disableAnimationsForTesting();
     }
@@ -340,7 +352,7 @@ public class StripLayoutHelperManagerTest {
 
     @Test
     @DisableFeatures(ChromeFeatureList.TAB_STRIP_LAYOUT_OPTIMIZATION)
-    public void testModelSelectorButtonXPosition() {
+    public void testModelSelectorButtonDrawX() {
         // Set model selector button position.
         mStripLayoutHelperManager.setModelSelectorButtonVisibleForTesting(true);
         mStripLayoutHelperManager.onSizeChanged(
@@ -357,7 +369,7 @@ public class StripLayoutHelperManagerTest {
 
     @Test
     @DisableFeatures(ChromeFeatureList.TAB_STRIP_LAYOUT_OPTIMIZATION)
-    public void testModelSelectorButtonXPosition_RTL() {
+    public void testModelSelectorButtonDrawX_Rtl() {
         // Set model selector button position.
         LocalizationUtils.setRtlForTesting(true);
         mStripLayoutHelperManager.setModelSelectorButtonVisibleForTesting(true);
@@ -373,7 +385,7 @@ public class StripLayoutHelperManagerTest {
     }
 
     @Test
-    public void testModelSelectorButtonYPosition() {
+    public void testModelSelectorButtonDrawY() {
         // Set model selector button position.
         mStripLayoutHelperManager.onSizeChanged(
                 SCREEN_WIDTH, SCREEN_HEIGHT, VISIBLE_VIEWPORT_Y, ORIENTATION);
@@ -533,7 +545,7 @@ public class StripLayoutHelperManagerTest {
     }
 
     @Test
-    public void testFadeDrawable_Left_RTL_ModelSelectorButtonVisible() {
+    public void testFadeDrawable_Left_Rtl_ModelSelectorButtonVisible() {
         // setup
         mStripLayoutHelperManager.setModelSelectorButtonVisibleForTesting(true);
         LocalizationUtils.setRtlForTesting(true);
@@ -546,7 +558,7 @@ public class StripLayoutHelperManagerTest {
     }
 
     @Test
-    public void testFadeDrawable_Left_RTL() {
+    public void testFadeDrawable_Left_Rtl() {
         // setup
         LocalizationUtils.setRtlForTesting(true);
 
@@ -558,7 +570,7 @@ public class StripLayoutHelperManagerTest {
     }
 
     @Test
-    public void testFadeDrawable_Right_RTL() {
+    public void testFadeDrawable_Right_Rtl() {
         // setup
         mStripLayoutHelperManager.setModelSelectorButtonVisibleForTesting(true);
         LocalizationUtils.setRtlForTesting(true);
@@ -1000,7 +1012,7 @@ public class StripLayoutHelperManagerTest {
         mStripLayoutHelperManager.onSizeChanged(
                 SCREEN_WIDTH, SCREEN_HEIGHT, VISIBLE_VIEWPORT_Y, ORIENTATION);
 
-        float yCenterOfStrip = newHeight / 2;
+        float yCenterOfStrip = newHeight / 2f;
         assertFalse("Event on paddings should be ignored.", motionEventHandled(0, yCenterOfStrip));
         assertFalse("Event on paddings should be ignored.", motionEventHandled(1, yCenterOfStrip));
         assertFalse(

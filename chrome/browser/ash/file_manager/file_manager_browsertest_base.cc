@@ -100,6 +100,7 @@
 #include "chrome/browser/ash/file_manager/copy_or_move_io_task_impl.h"
 #include "chrome/browser/ash/file_manager/file_manager_test_util.h"
 #include "chrome/browser/ash/file_manager/file_tasks_notifier.h"
+#include "chrome/browser/ash/file_manager/file_tasks_notifier_factory.h"
 #include "chrome/browser/ash/file_manager/file_tasks_observer.h"
 #include "chrome/browser/ash/file_manager/mount_test_util.h"
 #include "chrome/browser/ash/file_manager/office_file_tasks.h"
@@ -114,9 +115,11 @@
 #include "chrome/browser/ash/file_system_provider/service.h"
 #include "chrome/browser/ash/guest_os/guest_id.h"
 #include "chrome/browser/ash/guest_os/guest_os_share_path.h"
+#include "chrome/browser/ash/guest_os/guest_os_share_path_factory.h"
 #include "chrome/browser/ash/guest_os/public/guest_os_mount_provider.h"
 #include "chrome/browser/ash/guest_os/public/guest_os_mount_provider_registry.h"
 #include "chrome/browser/ash/guest_os/public/guest_os_service.h"
+#include "chrome/browser/ash/guest_os/public/guest_os_service_factory.h"
 #include "chrome/browser/ash/guest_os/public/types.h"
 #include "chrome/browser/ash/smb_client/smb_errors.h"
 #include "chrome/browser/ash/smb_client/smb_service.h"
@@ -1090,7 +1093,8 @@ class FileManagerBrowserTestBase::MockFileTasksObserver
     : public file_tasks::FileTasksObserver {
  public:
   explicit MockFileTasksObserver(Profile* profile) {
-    observation_.Observe(file_tasks::FileTasksNotifier::GetForProfile(profile));
+    observation_.Observe(
+        file_tasks::FileTasksNotifierFactory::GetForProfile(profile));
   }
 
   MOCK_METHOD2(OnFilesOpenedImpl,
@@ -2620,7 +2624,8 @@ void FileManagerBrowserTestBase::SetUpOnMainThread() {
                                 1234));
     crostini_volume_ = std::make_unique<CrostiniTestVolume>("sftp://3:1234");
 
-    guest_os::GuestOsSharePath::GetForProfile(profile()->GetOriginalProfile())
+    guest_os::GuestOsSharePathFactory::GetForProfile(
+        profile()->GetOriginalProfile())
         ->RegisterGuest(crostini::DefaultContainerId());
     static_cast<ash::FakeCrosDisksClient*>(ash::CrosDisksClient::Get())
         ->AddCustomMountPointCallback(
@@ -2679,7 +2684,8 @@ void FileManagerBrowserTestBase::SetUpOnMainThread() {
                 profile());
       }
     } else {
-      EXPECT_FALSE(file_tasks::FileTasksNotifier::GetForProfile(profile()));
+      EXPECT_FALSE(
+          file_tasks::FileTasksNotifierFactory::GetForProfile(profile()));
     }
 
     if (options.fake_file_system_provider) {
@@ -3624,11 +3630,11 @@ void FileManagerBrowserTestBase::OnCommand(const std::string& name,
     profile()->GetPrefs()->SetBoolean(crostini::prefs::kCrostiniEnabled,
                                       enabled.value());
     if (enabled.value()) {
-      guest_os::GuestOsSharePath::GetForProfile(profile())->RegisterGuest(
-          crostini::DefaultContainerId());
+      guest_os::GuestOsSharePathFactory::GetForProfile(profile())
+          ->RegisterGuest(crostini::DefaultContainerId());
     } else {
-      guest_os::GuestOsSharePath::GetForProfile(profile())->UnregisterGuest(
-          crostini::DefaultContainerId());
+      guest_os::GuestOsSharePathFactory::GetForProfile(profile())
+          ->UnregisterGuest(crostini::DefaultContainerId());
     }
     return;
   }
@@ -4147,6 +4153,10 @@ void FileManagerBrowserTestBase::OnCommand(const std::string& name,
     return;
   }
 
+  if (HandleSkyVaultCommands(name, value, output)) {
+    return;
+  }
+
   FAIL() << "Unknown test message: " << name;
 }  // NOLINT(readability/fn_size): Structure of OnCommand function should be
    // easy to manage.
@@ -4163,7 +4173,7 @@ bool FileManagerBrowserTestBase::HandleGuestOsCommands(
     // TODO(davidmunro): Merge with in-constructor derivation.
     // auto id = guest_os::GuestId(guest_os::VmType::UNKNOWN, *displayName,
     // *displayName);
-    auto* registry = guest_os::GuestOsService::GetForProfile(profile())
+    auto* registry = guest_os::GuestOsServiceFactory::GetForProfile(profile())
                          ->MountProviderRegistry();
     auto id = registry->Register(std::make_unique<MockGuestOsMountProvider>(
         profile()->GetOriginalProfile(), *displayName,
@@ -4187,7 +4197,7 @@ bool FileManagerBrowserTestBase::HandleGuestOsCommands(
     const std::string* str = value.FindString("guestId");
     CHECK(str != nullptr);
     CHECK(base::StringToInt(*str, &id));
-    auto* registry = guest_os::GuestOsService::GetForProfile(profile())
+    auto* registry = guest_os::GuestOsServiceFactory::GetForProfile(profile())
                          ->MountProviderRegistry();
     registry->Unregister(id);
     return true;
@@ -4197,7 +4207,7 @@ bool FileManagerBrowserTestBase::HandleGuestOsCommands(
     const std::string* str = value.FindString("guestId");
     CHECK(str != nullptr);
     CHECK(base::StringToInt(*str, &id));
-    auto* registry = guest_os::GuestOsService::GetForProfile(profile())
+    auto* registry = guest_os::GuestOsServiceFactory::GetForProfile(profile())
                          ->MountProviderRegistry();
     registry->Get(id)->Unmount();
     return true;
@@ -4219,6 +4229,15 @@ bool FileManagerBrowserTestBase::HandleEnterpriseConnectorCommands(
     std::string* output) {
   // Enterprise connector commands are only handled by the
   // FileTransferConnectorFilesAppBrowserTest.
+  return false;
+}
+
+bool FileManagerBrowserTestBase::HandleSkyVaultCommands(
+    const std::string& name,
+    const base::Value::Dict& value,
+    std::string* output) {
+  // SkyVault commands are only handled by the
+  // SkyVaultFilesAppBrowserTest.
   return false;
 }
 

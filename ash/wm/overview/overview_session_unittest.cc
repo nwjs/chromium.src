@@ -285,7 +285,6 @@ class OverviewSessionTest
   void SetUp() override {
     scoped_feature_list_.InitWithFeatureStates(
         {{features::kDesksTemplates, DeskTemplatesOn()},
-         {features::kSnapGroup, true},
          {features::kDeskBarWindowOcclusionOptimization, true}});
 
     OverviewTestBase::SetUp();
@@ -7178,9 +7177,9 @@ class SplitViewOverviewSessionTest : public OverviewTestBase {
  public:
   SplitViewOverviewSessionTest() {
     scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kSnapGroup,
-                              features::kOsSettingsRevampWayfinding,
-                              features::kDeskBarWindowOcclusionOptimization},
+        /*enabled_features=*/{features::kDeskBarWindowOcclusionOptimization,
+                              chromeos::features::
+                                  kOverviewSessionInitOptimizations},
         /*disabled_features=*/{});
   }
 
@@ -11278,8 +11277,7 @@ class OverviewWallpaperTest : public OverviewTestBase {
  public:
   OverviewWallpaperTest() {
     scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kForestFeature, features::kSnapGroup,
-                              features::kOsSettingsRevampWayfinding,
+        /*enabled_features=*/{features::kForestFeature,
                               features::kDeskBarWindowOcclusionOptimization},
         /*disabled_features=*/{});
   }

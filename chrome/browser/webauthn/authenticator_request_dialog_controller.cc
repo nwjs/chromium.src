@@ -5,20 +5,35 @@
 #include "chrome/browser/webauthn/authenticator_request_dialog_controller.h"
 
 #include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
 #include <iterator>
+#include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
+#include <vector>
 
 #include "base/base64.h"
+#include "base/check.h"
+#include "base/check_op.h"
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/i18n/string_compare.h"
+#include "base/location.h"
+#include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
+#include "base/strings/string_number_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "chrome/app/vector_icons/vector_icons.h"
@@ -39,7 +54,6 @@
 #include "components/device_event_log/device_event_log.h"
 #include "components/password_manager/core/browser/passkey_credential.h"
 #include "components/prefs/pref_service.h"
-#include "components/signin/public/identity_manager/account_info.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/sync/base/features.h"
 #include "components/vector_icons/vector_icons.h"
@@ -47,13 +61,22 @@
 #include "components/webauthn/core/browser/passkey_model_change.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
+#include "device/fido/authenticator_get_assertion_response.h"
 #include "device/fido/cable/cable_discovery_data.h"
+#include "device/fido/cable/v2_constants.h"
 #include "device/fido/discoverable_credential_metadata.h"
 #include "device/fido/enclave/constants.h"
 #include "device/fido/enclave/metrics.h"
 #include "device/fido/features.h"
 #include "device/fido/fido_authenticator.h"
+#include "device/fido/fido_constants.h"
+#include "device/fido/fido_request_handler_base.h"
+#include "device/fido/fido_transport_protocol.h"
+#include "device/fido/fido_types.h"
+#include "device/fido/pin.h"
+#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/icu/source/common/unicode/locid.h"
+#include "third_party/icu/source/common/unicode/utypes.h"
 #include "third_party/icu/source/i18n/unicode/coll.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/paint_vector_icon.h"
@@ -65,7 +88,6 @@
 
 #if BUILDFLAG(IS_MAC)
 #include "base/mac/mac_util.h"
-#include "crypto/scoped_lacontext.h"
 #include "device/fido/mac/util.h"
 #endif
 
@@ -94,8 +116,7 @@ constexpr int GetMessageIdForTransportDescription(
 #endif
     case AuthenticatorTransport::kHybrid:
       return IDS_WEBAUTHN_TRANSPORT_CABLE;
-    case AuthenticatorTransport::kAndroidAccessory:
-      return IDS_WEBAUTHN_TRANSPORT_AOA;
+    case AuthenticatorTransport::kDeprecatedAoa:
     case AuthenticatorTransport::kBluetoothLowEnergy:
     case AuthenticatorTransport::kNearFieldCommunication:
       NOTREACHED_IN_MIGRATION();
@@ -120,8 +141,7 @@ constexpr int GetMessageIdForTransportShortDescription(
       return IDS_WEBAUTHN_TRANSPORT_POPUP_INTERNAL;
     case AuthenticatorTransport::kHybrid:
       return IDS_WEBAUTHN_TRANSPORT_POPUP_CABLE;
-    case AuthenticatorTransport::kAndroidAccessory:
-      return IDS_WEBAUTHN_TRANSPORT_POPUP_AOA;
+    case AuthenticatorTransport::kDeprecatedAoa:
     case AuthenticatorTransport::kBluetoothLowEnergy:
     case AuthenticatorTransport::kNearFieldCommunication:
       NOTREACHED_IN_MIGRATION();
@@ -146,8 +166,7 @@ constexpr const gfx::VectorIcon& GetTransportIcon(
       return kLaptopIcon;
     case AuthenticatorTransport::kHybrid:
       return kSmartphoneIcon;
-    case AuthenticatorTransport::kAndroidAccessory:
-      return kUsbCableIcon;
+    case AuthenticatorTransport::kDeprecatedAoa:
     case AuthenticatorTransport::kBluetoothLowEnergy:
     case AuthenticatorTransport::kNearFieldCommunication:
       NOTREACHED_IN_MIGRATION();
@@ -985,16 +1004,6 @@ void AuthenticatorRequestDialogController::
   std::move(after_off_the_record_interstitial_).Run();
 }
 
-void AuthenticatorRequestDialogController::ShowCableUsbFallback() {
-  DCHECK_EQ(model_->step(), Step::kCableActivate);
-  SetCurrentStep(Step::kAndroidAccessory);
-}
-
-void AuthenticatorRequestDialogController::ShowCable() {
-  DCHECK_EQ(model_->step(), Step::kAndroidAccessory);
-  SetCurrentStep(Step::kCableActivate);
-}
-
 void AuthenticatorRequestDialogController::CancelAuthenticatorRequest() {
   if (model_->step() == Step::kGPMChangeArbitraryPin ||
       model_->step() == Step::kGPMChangePin) {
@@ -1025,9 +1034,12 @@ void AuthenticatorRequestDialogController::OnRequestComplete() {
     auto* web_contents =
         content::WebContents::FromRenderFrameHost(render_frame_host);
     if (web_contents && render_frame_host) {
-      ChromeWebAuthnCredentialsDelegateFactory::GetFactory(web_contents)
-          ->GetDelegateForFrame(render_frame_host)
-          ->NotifyWebAuthnRequestAborted();
+      ChromeWebAuthnCredentialsDelegate* delegate =
+          ChromeWebAuthnCredentialsDelegateFactory::GetFactory(web_contents)
+              ->GetDelegateForFrame(render_frame_host);
+      if (delegate) {
+        delegate->NotifyWebAuthnRequestAborted();
+      }
     }
   }
   SetCurrentStep(Step::kClosed);
@@ -1624,6 +1636,11 @@ void AuthenticatorRequestDialogController::set_has_icloud_drive_enabled(
 
 #endif
 
+void AuthenticatorRequestDialogController::set_ambient_credential_types(
+    int types) {
+  ambient_credential_types_ = types;
+}
+
 base::WeakPtr<AuthenticatorRequestDialogController>
 AuthenticatorRequestDialogController::GetWeakPtr() {
   return weak_factory_.GetWeakPtr();
@@ -1648,7 +1665,6 @@ void AuthenticatorRequestDialogController::StartGuidedFlowForTransport(
   DCHECK(model_->step() == Step::kMechanismSelection ||
          model_->step() == Step::kUsbInsertAndActivate ||
          model_->step() == Step::kCableActivate ||
-         model_->step() == Step::kAndroidAccessory ||
          model_->step() == Step::kConditionalMediation ||
          model_->step() == Step::kCreatePasskey ||
          model_->step() == Step::kPreSelectAccount ||
@@ -1666,9 +1682,6 @@ void AuthenticatorRequestDialogController::StartGuidedFlowForTransport(
       EnsureBleAdapterIsPoweredAndContinue(
           base::BindOnce(&AuthenticatorRequestDialogController::SetCurrentStep,
                          weak_factory_.GetWeakPtr(), Step::kCableActivate));
-      break;
-    case AuthenticatorTransport::kAndroidAccessory:
-      SetCurrentStep(Step::kAndroidAccessory);
       break;
     default:
       break;
@@ -1800,22 +1813,25 @@ void AuthenticatorRequestDialogController::StartConditionalMediationRequest() {
         password_manager::PasskeyCredential::DisplayName(
             credential.user.display_name.value_or("")));
     if (credential.source == AuthenticatorType::kPhone) {
-      passkey.set_authenticator_label(l10n_util::GetStringFUTF16(
-          IDS_PASSWORD_MANAGER_PASSKEY_FROM_PHONE, *priority_phone_name));
+      passkey.SetAuthenticatorLabel(l10n_util::GetStringFUTF16(
+          base::FeatureList::IsEnabled(device::kWebAuthnEnclaveAuthenticator)
+              ? IDS_PASSWORD_MANAGER_PASSKEY_FROM_PHONE_NEW
+              : IDS_PASSWORD_MANAGER_PASSKEY_FROM_PHONE,
+          *priority_phone_name));
     }
   }
-  bool offer_passkey_from_another_device;
+  bool is_security_key_or_hybrid_flow_available;
   switch (transport_availability_.conditional_ui_treatment) {
     case TransportAvailabilityInfo::ConditionalUITreatment::kDefault:
-      offer_passkey_from_another_device = true;
+      is_security_key_or_hybrid_flow_available = true;
       break;
     case TransportAvailabilityInfo::ConditionalUITreatment::
         kDontShowEmptyConditionalUI:
-      offer_passkey_from_another_device = !credentials.empty();
+      is_security_key_or_hybrid_flow_available = !credentials.empty();
       break;
     case TransportAvailabilityInfo::ConditionalUITreatment::
         kNeverOfferPasskeyFromAnotherDevice:
-      offer_passkey_from_another_device = false;
+      is_security_key_or_hybrid_flow_available = false;
       break;
   }
   ReportConditionalUiPasskeyCount(credentials.size());
@@ -1826,7 +1842,7 @@ void AuthenticatorRequestDialogController::StartConditionalMediationRequest() {
         ambient_signin::AmbientSigninController::GetOrCreateForCurrentDocument(
             render_frame_host);
     controller->AddAndShowWebAuthnMethods(
-        model(), credentials,
+        model(), credentials, ambient_credential_types_,
         base::BindOnce(
             [](base::WeakPtr<AuthenticatorRequestDialogController> controller,
                std::vector<uint8_t> credential_id) {
@@ -1838,13 +1854,15 @@ void AuthenticatorRequestDialogController::StartConditionalMediationRequest() {
             weak_factory_.GetWeakPtr()));
   }
 
-  auto* webauthn_credentials_delegate_factory =
+  ChromeWebAuthnCredentialsDelegate* webauthn_credentials_delegate =
       ChromeWebAuthnCredentialsDelegateFactory::GetFactory(web_contents)
           ->GetDelegateForFrame(render_frame_host);
-  if (webauthn_credentials_delegate_factory) {
+  if (webauthn_credentials_delegate) {
     // May be null on tests.
-    webauthn_credentials_delegate_factory->OnCredentialsReceived(
-        std::move(credentials), offer_passkey_from_another_device);
+    webauthn_credentials_delegate->OnCredentialsReceived(
+        std::move(credentials),
+        ChromeWebAuthnCredentialsDelegate::SecurityKeyOrHybridFlowAvailable(
+            is_security_key_or_hybrid_flow_available));
   }
   SetCurrentStep(Step::kConditionalMediation);
 }
@@ -2041,10 +2059,6 @@ void AuthenticatorRequestDialogController::PopulateMechanisms() {
         break;
 
       case AuthenticatorRequestDialogModel::CableUIType::CABLE_V2_SERVER_LINK:
-        transports_to_list_if_active.push_back(
-            AuthenticatorTransport::kAndroidAccessory);
-        [[fallthrough]];
-
       case AuthenticatorRequestDialogModel::CableUIType::CABLE_V1: {
         if (base::Contains(transport_availability_.available_transports,
                            kCable)) {
@@ -2387,6 +2401,9 @@ void AuthenticatorRequestDialogController::OnPasskeyModelShuttingDown() {
   passkey_model_observation_.Reset();
 }
 
+void AuthenticatorRequestDialogController::OnPasskeyModelIsReady(
+    bool is_ready) {}
+
 void AuthenticatorRequestDialogController::
     UpdateModelForTransportAvailability() {
   model_->request_type = transport_availability_.request_type;
@@ -2402,13 +2419,6 @@ void AuthenticatorRequestDialogController::
   model_->is_off_the_record = transport_availability_.is_off_the_record_context;
   model_->platform_has_biometrics =
       transport_availability_.platform_has_biometrics;
-  if (model_->cable_ui_type) {
-    model_->cable_should_suggest_usb =
-        *model_->cable_ui_type !=
-            AuthenticatorRequestDialogModel::CableUIType::CABLE_V1 &&
-        base::Contains(transport_availability_.available_transports,
-                       AuthenticatorTransport::kAndroidAccessory);
-  }
 }
 
 void AuthenticatorRequestDialogController::OnUserConfirmedPriorityMechanism() {

@@ -117,21 +117,7 @@ wgpu::Texture CreateWGPUTexture(wgpu::SharedTextureMemory shared_texture_memory,
   texture_descriptor.viewFormats = view_formats.data();
 
   wgpu::DawnTextureInternalUsageDescriptor internalDesc;
-  if (base::FeatureList::IsEnabled(
-          features::kDawnSIRepsUseClientProvidedInternalUsages)) {
-    internalDesc.internalUsage = internal_usage;
-  } else {
-    // We need to have internal usages of CopySrc for copies. If texture is not
-    // for video frame import, which has bi-planar format, we also need
-    // RenderAttachment usage for clears, and TextureBinding for
-    // copyTextureForBrowser.
-    internalDesc.internalUsage =
-        wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::TextureBinding;
-    if (wgpu_format != wgpu::TextureFormat::R8BG8Biplanar420Unorm &&
-        wgpu_format != wgpu::TextureFormat::R10X6BG10X6Biplanar420Unorm) {
-      internalDesc.internalUsage |= wgpu::TextureUsage::RenderAttachment;
-    }
-  }
+  internalDesc.internalUsage = internal_usage;
 
   texture_descriptor.nextInChain = &internalDesc;
 
@@ -766,11 +752,8 @@ class IOSurfaceImageBacking::DawnRepresentation final
 wgpu::Texture IOSurfaceImageBacking::DawnRepresentation::BeginAccess(
     wgpu::TextureUsage wgpu_texture_usage,
     wgpu::TextureUsage internal_usage) {
-  const bool readonly =
-      (wgpu_texture_usage & ~kReadOnlyUsage) == 0 &&
-      (!base::FeatureList::IsEnabled(
-           features::kDawnSIRepsUseClientProvidedInternalUsages) ||
-       (internal_usage & ~kReadOnlyUsage) == 0);
+  const bool readonly = (wgpu_texture_usage & ~kReadOnlyUsage) == 0 &&
+                        (internal_usage & ~kReadOnlyUsage) == 0;
 
   IOSurfaceImageBacking* iosurface_backing =
       static_cast<IOSurfaceImageBacking*>(backing());
@@ -883,11 +866,8 @@ void IOSurfaceImageBacking::DawnRepresentation::EndAccess() {
   // its state tracking.
   IOSurfaceImageBacking* iosurface_backing =
       static_cast<IOSurfaceImageBacking*>(backing());
-  const bool readonly =
-      (usage_ & ~kReadOnlyUsage) == 0 &&
-      (!base::FeatureList::IsEnabled(
-           features::kDawnSIRepsUseClientProvidedInternalUsages) ||
-       (internal_usage_ & ~kReadOnlyUsage) == 0);
+  const bool readonly = (usage_ & ~kReadOnlyUsage) == 0 &&
+                        (internal_usage_ & ~kReadOnlyUsage) == 0;
   iosurface_backing->EndAccess(readonly);
   int num_outstanding_accesses =
       iosurface_backing->TrackEndAccessToWGPUTexture(texture_);
@@ -1358,14 +1338,6 @@ std::unique_ptr<DawnImageRepresentation> IOSurfaceImageBacking::ProduceDawn(
   // RGBA versus BGRA when using Skia Ganesh GL backend or ANGLE.
   if (io_surface_format_ == 'BGRA') {
     wgpu_format = wgpu::TextureFormat::BGRA8Unorm;
-  }
-  // TODO(crbug.com/40213546): Remove these if conditions after using single
-  // multiplanar mailbox for which wgpu_format should already be correct.
-  if (io_surface_format_ == '420v') {
-    wgpu_format = wgpu::TextureFormat::R8BG8Biplanar420Unorm;
-  }
-  if (io_surface_format_ == 'x420') {
-    wgpu_format = wgpu::TextureFormat::R10X6BG10X6Biplanar420Unorm;
   }
   if (wgpu_format == wgpu::TextureFormat::Undefined) {
     LOG(ERROR) << "Unsupported format for Dawn: " << format().ToString();

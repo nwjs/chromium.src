@@ -70,12 +70,12 @@ class Vector2dF;
 
 namespace blink {
 
-class AccessibleNode;
 class AnchorElementObserver;
 class AnchorPositionScrollData;
 class AriaNotificationOptions;
 class Attr;
 class Attribute;
+class ColumnPseudoElement;
 class ContainerQueryData;
 class ContainerQueryEvaluator;
 class CSSPropertyName;
@@ -115,7 +115,6 @@ class ResizeObserverSize;
 class ScrollIntoViewOptions;
 class CheckVisibilityOptions;
 class ScrollToOptions;
-class ScrollMarkerPseudoElement;
 class ShadowRoot;
 class ShadowRootInit;
 class SpaceSplitString;
@@ -150,6 +149,8 @@ struct AttributeToNameTransform {
 
 using AttributeNamesView =
     bindings::TransformedView<AttributeCollection, AttributeToNameTransform>;
+
+using ColumnPseudoElementsVector = HeapVector<Member<ColumnPseudoElement>>;
 
 enum SpellcheckAttributeState {
   kSpellcheckAttributeTrue,
@@ -223,7 +224,7 @@ enum class CommandEventType {
   kRequestFullscreen,
   kExitFullscreen,
   // Audio/Video
-  kPlaypause,
+  kPlayPause,
   kPause,
   kPlay,
   kToggleMuted,
@@ -513,9 +514,6 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   String computedName();
   String ComputedNameNoLifecycleUpdate();
 
-  AccessibleNode* ExistingAccessibleNode() const;
-  AccessibleNode* accessibleNode();
-
   void ariaNotify(const String& announcement,
                   const AriaNotificationOptions* options);
 
@@ -752,7 +750,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   void RebuildLayoutTreeForTraversalRootAncestor() {
     RebuildFirstLetterLayoutTree();
     WhitespaceAttacher whitespace_attacher;
-    RebuildMarkerLayoutTree(whitespace_attacher);
+    RebuildPseudoElementLayoutTree(kPseudoIdMarker, whitespace_attacher);
     HandleSubtreeModifications();
   }
   void RebuildLayoutTreeForSizeContainerAncestor() {
@@ -1031,7 +1029,8 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   // This allows customization of how Invoker Commands are handled, per element.
   // See: crbug.com/1490919, https://open-ui.org/components/invokers.explainer/
-  virtual bool IsValidCommand(HTMLElement& invoker, CommandEventType command) {
+  virtual bool IsValidBuiltinCommand(HTMLElement& invoker,
+                                     CommandEventType command) {
     return false;
   }
   virtual bool HandleCommandInternal(HTMLElement& invoker,
@@ -1374,16 +1373,16 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   void SetPseudoElementStylesChangeCounters(bool value);
 
-  // Create a per column ::scroll-marker from ::column::scroll-marker style
-  // during layout, and add it to the end of the list of generated markers.
-  // ClearColumnScrollMarkers() needs to be called before each layout pass that
-  // generate these markers.
-  // Note: a regular ::scroll-marker isn't added to this list and lives in
-  // separate field of PseudoElementData.
-  ScrollMarkerPseudoElement* CreateColumnScrollMarker();
-  const HeapVector<Member<ScrollMarkerPseudoElement>>* GetColumnScrollMarkers()
-      const;
-  void ClearColumnScrollMarkers();
+  // Create per column (fragmentainer) ::column pseudo element during layout,
+  // and add it to the end of the list of generated column pseudo elements.
+  // Also, if ::column::scroll-marker is specified, it creates one
+  // ::scroll-marker per ::column pseudo element. ClearColumnPseudoElements()
+  // needs to be called before each layout pass that generate these pseudo
+  // elements.
+  ColumnPseudoElement* CreateColumnPseudoElement(
+      const PhysicalRect& column_rect);
+  const ColumnPseudoElementsVector* GetColumnPseudoElements() const;
+  void ClearColumnPseudoElements();
 
   // True if a scroller has not been explicitly scrolled by a user or by a
   // programmatic scroll. Indicates that we should use the CSS scroll-start
@@ -1708,7 +1707,6 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   void RebuildPseudoElementLayoutTree(PseudoId, WhitespaceAttacher&);
   void RebuildFirstLetterLayoutTree();
-  void RebuildMarkerLayoutTree(WhitespaceAttacher&);
   void RebuildShadowRootLayoutTree(WhitespaceAttacher&);
   inline void CheckForEmptyStyleChange(const Node* node_before_change,
                                        const Node* node_after_change);

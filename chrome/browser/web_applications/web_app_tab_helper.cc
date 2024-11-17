@@ -20,6 +20,7 @@
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_ui_manager.h"
+#include "chrome/browser/web_applications/web_app_ui_state_manager.h"
 #include "chrome/common/chrome_features.h"
 #include "content/public/browser/media_session.h"
 #include "content/public/browser/navigation_handle.h"
@@ -98,9 +99,6 @@ void WebAppTabHelper::SetState(std::optional<webapps::AppId> app_id,
   app_id_ = std::move(app_id);
 
   is_in_app_window_ = is_in_app_window;
-  if (is_in_app_window) {
-    set_acting_as_app(true);
-  }
 
   if (previous_app_id != app_id_) {
     OnAssociatedAppChanged(previous_app_id, app_id_);
@@ -170,7 +168,6 @@ void WebAppTabHelper::DidCloneToNewWebContents(
 
   // Clone common state:
   new_tab_helper->SetState(app_id_, /*is_in_app_window=*/false);
-  new_tab_helper->set_acting_as_app(acting_as_app());
   // Note: We don't clone is_in_app_window, as that need to only be set when
   // the new web contents is added to an app window.
 }
@@ -205,6 +202,42 @@ void WebAppTabHelper::OnWebAppWillBeUninstalled(
 void WebAppTabHelper::OnWebAppInstallManagerDestroyed() {
   observation_.Reset();
   SetAppId(std::nullopt);
+}
+
+void WebAppTabHelper::InitForTabFeatures(tabs::TabInterface* tab) {
+  tab_subscriptions_.push_back(tab->RegisterDidEnterForeground(
+      base::BindRepeating(&WebAppTabHelper::TabDidEnterForeground,
+                          weak_factory_.GetWeakPtr())));
+  tab_subscriptions_.push_back(tab->RegisterWillEnterBackground(
+      base::BindRepeating(&WebAppTabHelper::TabWillEnterBackground,
+                          weak_factory_.GetWeakPtr())));
+  tab_subscriptions_.push_back(tab->RegisterWillDetach(base::BindRepeating(
+      &WebAppTabHelper::WillDetach, weak_factory_.GetWeakPtr())));
+}
+
+void WebAppTabHelper::TabDidEnterForeground(tabs::TabInterface* tab) {
+  if (app_id_.has_value()) {
+    provider_->ui_state_manager().NotifyWebAppWindowDidEnterForeground(
+        app_id_.value());
+  }
+}
+
+void WebAppTabHelper::TabWillEnterBackground(tabs::TabInterface* tab) {
+  if (app_id_.has_value()) {
+    provider_->ui_state_manager().NotifyWebAppWindowWillEnterBackground(
+        app_id_.value());
+  }
+}
+
+void WebAppTabHelper::WillDetach(tabs::TabInterface* tab,
+                                 tabs::TabInterface::DetachReason reason) {
+  switch (reason) {
+    case tabs::TabInterface::DetachReason::kDelete:
+      tab_subscriptions_.clear();
+      break;
+    case tabs::TabInterface::DetachReason::kInsertIntoOtherWindow:
+      break;
+  }
 }
 
 void WebAppTabHelper::OnAssociatedAppChanged(

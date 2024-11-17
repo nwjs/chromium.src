@@ -13,13 +13,13 @@
 #import "components/plus_addresses/features.h"
 #import "components/plus_addresses/metrics/plus_address_metrics.h"
 #import "components/plus_addresses/plus_address_service.h"
+#import "components/plus_addresses/plus_address_test_utils.h"
 #import "components/plus_addresses/plus_address_types.h"
 #import "components/plus_addresses/settings/mock_plus_address_setting_service.h"
 #import "ios/chrome/browser/plus_addresses/ui/plus_address_bottom_sheet_constants.h"
 #import "ios/chrome/browser/plus_addresses/ui/plus_address_bottom_sheet_consumer.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
-#import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/url_loading/model/fake_url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_notifier_browser_agent.h"
 #import "testing/gmock/include/gmock/gmock.h"
@@ -42,10 +42,7 @@ class PlusAddressBottomSheetMediatorTest : public PlatformTest {
   PlusAddressBottomSheetMediatorTest()
       : consumer_(OCMProtocolMock(@protocol(PlusAddressBottomSheetConsumer))),
         browser_state_(TestChromeBrowserState::Builder().Build()),
-        browser_(browser_state_.get()),
-        service_(browser_state_->GetPrefs(),
-                 IdentityManagerFactory::GetForProfile(browser_state_.get()),
-                 &plus_address_setting_service_) {
+        browser_(browser_state_.get()) {
     UrlLoadingNotifierBrowserAgent::CreateForBrowser(&browser_);
     FakeUrlLoadingBrowserAgent::InjectForBrowser(&browser_);
     url_loader_ = FakeUrlLoadingBrowserAgent::FromUrlLoadingBrowserAgent(
@@ -54,8 +51,8 @@ class PlusAddressBottomSheetMediatorTest : public PlatformTest {
     mediator_ = [[PlusAddressBottomSheetMediator alloc]
         initWithPlusAddressService:&service()
          plusAddressSettingService:&plus_address_setting_service_
+                          delegate:nil
                          activeUrl:GURL(FakePlusAddressService::kFacet)
-                  autofillCallback:base::DoNothing()
                          urlLoader:url_loader_
                          incognito:incognito];
     mediator_.consumer = consumer_;
@@ -85,7 +82,7 @@ class PlusAddressBottomSheetMediatorTest : public PlatformTest {
 TEST_F(PlusAddressBottomSheetMediatorTest, ReservePlusAddress) {
   OCMExpect([consumer_
       didReservePlusAddress:base::SysUTF8ToNSString(
-                                FakePlusAddressService::kFakePlusAddress)]);
+                                plus_addresses::test::kFakePlusAddress)]);
   [mediator() reservePlusAddress];
   EXPECT_OCMOCK_VERIFY(consumer_);
 }
@@ -105,7 +102,7 @@ TEST_F(PlusAddressBottomSheetMediatorTest, ReservePlusAddressError) {
 TEST_F(PlusAddressBottomSheetMediatorTest, ConfirmPlusAddress) {
   OCMExpect([consumer_
       didReservePlusAddress:base::SysUTF8ToNSString(
-                                FakePlusAddressService::kFakePlusAddress)]);
+                                plus_addresses::test::kFakePlusAddress)]);
   [mediator() reservePlusAddress];
   EXPECT_OCMOCK_VERIFY(consumer_);
   OCMExpect([consumer_ didConfirmPlusAddress]);
@@ -144,7 +141,7 @@ TEST_F(PlusAddressBottomSheetMediatorTest, NoticeAlreadyAccepted) {
 TEST_F(PlusAddressBottomSheetMediatorTest, ConfirmPlusAddressError) {
   OCMExpect([consumer_
       didReservePlusAddress:base::SysUTF8ToNSString(
-                                FakePlusAddressService::kFakePlusAddress)]);
+                                plus_addresses::test::kFakePlusAddress)]);
   [mediator() reservePlusAddress];
   EXPECT_OCMOCK_VERIFY(consumer_);
   OCMExpect([consumer_
@@ -185,9 +182,9 @@ TEST_F(PlusAddressBottomSheetMediatorTest, OpenLearnMoreUrlOnNewTab) {
 
 // Ensure the consumer is notified when plus addresses are refreshed.
 TEST_F(PlusAddressBottomSheetMediatorTest, DidTapRefresh) {
-  OCMExpect([consumer_
-      didReservePlusAddress:base::SysUTF8ToNSString(
-                                FakePlusAddressService::kFakePlusAddress)]);
+  OCMExpect([consumer_ didReservePlusAddress:
+                           base::SysUTF8ToNSString(
+                               plus_addresses::test::kFakePlusAddressRefresh)]);
   [mediator() didTapRefreshButton];
   EXPECT_OCMOCK_VERIFY(consumer_);
   OCMExpect([consumer_ didConfirmPlusAddress]);

@@ -55,7 +55,9 @@ class TestPageLoadMetricsEmbedderInterface
 
   // Forward the registration logic to the test class so that derived classes
   // can override the logic there without depending on the embedder interface.
-  void RegisterObservers(PageLoadTracker* tracker) override {
+  void RegisterObservers(
+      PageLoadTracker* tracker,
+      content::NavigationHandle* navigation_handle) override {
     test_->RegisterObservers(tracker);
   }
 
@@ -70,10 +72,6 @@ class TestPageLoadMetricsEmbedderInterface
   }
 
   bool IsExtensionUrl(const GURL& url) override { return false; }
-
-  bool IsSidePanel(content::WebContents* web_contents) override {
-    return false;
-  }
 
   bool IsNonTabWebUI() override { return test_->is_non_tab_webui(); }
 
@@ -103,7 +101,7 @@ PageLoadMetricsObserverTester::PageLoadMetricsObserverTester(
               std::make_unique<TestPageLoadMetricsEmbedderInterface>(this))),
       is_non_tab_webui_(is_non_tab_webui) {}
 
-PageLoadMetricsObserverTester::~PageLoadMetricsObserverTester() {}
+PageLoadMetricsObserverTester::~PageLoadMetricsObserverTester() = default;
 
 void PageLoadMetricsObserverTester::StartNavigation(const GURL& gurl) {
   std::unique_ptr<content::NavigationSimulator> navigation =

@@ -12,7 +12,6 @@
 
 #include "chrome/chrome_elf/chrome_elf_main.h"
 #include "base/files/file_util.h"
-#include "tools/v8_context_snapshot/buildflags.h"
 
 #include <stddef.h>
 
@@ -51,6 +50,7 @@
 #include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/chrome_resource_bundle_helper.h"
 #include "chrome/browser/defaults.h"
+#include "chrome/browser/headless/headless_mode_util.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/mac/code_sign_clone_manager.h"
 #include "chrome/browser/metrics/chrome_feature_list_creator.h"
@@ -136,7 +136,6 @@
 #include "base/apple/foundation_util.h"
 #include "chrome/app/chrome_main_mac.h"
 #include "chrome/browser/chrome_browser_application_mac.h"
-#include "chrome/browser/headless/headless_mode_util.h"
 #include "chrome/browser/mac/relauncher.h"
 #include "chrome/browser/shell_integration.h"
 #include "components/crash/core/common/objc_zombie.h"
@@ -238,7 +237,6 @@
 #include "chromeos/lacros/lacros_paths.h"
 #include "chromeos/lacros/lacros_service.h"
 #include "chromeos/startup/browser_params_proxy.h"      // nogncheck
-#include "chromeos/startup/browser_postlogin_params.h"  // nogncheck
 #include "chromeos/startup/startup.h"                   // nogncheck
 #include "chromeos/startup/startup_switches.h"          // nogncheck
 #include "components/crash/core/app/client_upload_info.h"
@@ -259,7 +257,7 @@
 #include "base/native_library.h"
 #include "base/strings/utf_string_conversions.h"
 #if defined(OS_MAC)
-#include "base/apple/bundle_locations.h"
+#include "base/mac/bundle_locations.h"
 #include "base/strings/sys_string_conversions.h"
 #endif
 
@@ -461,40 +459,6 @@ void HandleHelpSwitches(const base::CommandLine& command_line) {
   }
 }
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-// BrowserManager launches Lacros redirecting its stderr to a log file.
-// This function redirects stderr a second time, to another log file, after
-// user login has happened (e.g. to the cryptohome).
-// Only useful when pre-launching Lacros at login screen.
-void RedirectLacrosLogging() {
-  const base::CommandLine& cmdline = *base::CommandLine::ForCurrentProcess();
-  uint32_t logging_dest = logging::DetermineLoggingDestination(cmdline);
-  base::FilePath log_file =
-      cmdline.GetSwitchValuePath(chromeos::switches::kCrosPostLoginLogFile);
-
-  if (!log_file.empty() && (logging_dest & logging::LOG_TO_STDERR)) {
-    log_file = logging::SetUpLogFile(log_file, /*new_log=*/true);
-    FILE* result = freopen(log_file.value().c_str(), "a", stderr);
-    DPCHECK(result != nullptr);
-
-    // Redirect Zygote and future children's logs.
-    if (result) {
-      content::ZygoteHost::GetInstance()->ReinitializeLogging(logging_dest,
-                                                              STDERR_FILENO);
-    }
-  }
-}
-
-// When prelaunching Lacros at login screen, the initialization of Crashpad
-// relies on the consent preferences of Ash. After login, we can rely on
-// the user-specific preferences. This function updates the user consent
-// preferences from the default location (the user's cryptohome).
-void SetCrashpadUploadConsentPostLogin() {
-  crash_reporter::SetUploadConsent(
-      crash_reporter::GetClientCollectStatsConsent());
-}
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
 
 #if !BUILDFLAG(IS_MAC) && !BUILDFLAG(IS_ANDROID)
 void SIGTERMProfilingShutdown(int signal) {
@@ -719,43 +683,6 @@ void InitializeUserDataDir(base::CommandLine* command_line) {
 #endif  // BUILDFLAG(IS_WIN)
 }
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-// If Lacros was prelaunched at login screen, this method blocks waiting
-// for the user to login. It can be called before or after the Zygotes
-// have been forked.
-void MaybeBlockAtLoginScreen(bool after_zygotes_fork) {
-  auto* command_line = base::CommandLine::ForCurrentProcess();
-  std::string process_type =
-      command_line->GetSwitchValueASCII(switches::kProcessType);
-
-  if (process_type.empty() && chromeos::IsLaunchedWithPostLoginParams()) {
-    // NOTE: When prelaunching Lacros, this is as far as Lacros's initialization
-    // will go at the login screen. The browser process will block here.
-    //
-    // IMPORTANT NOTE: If your code requires access to post-login parameters
-    // (which are only known after login), please place them *after* this call.
-    chromeos::BrowserParamsProxy::WaitForLogin();
-
-    // NOTE: When launching Lacros at login screen, after this point,
-    // the user should have logged in. The cryptohome is now accessible.
-    if (chrome::ProcessNeedsProfileDir(process_type)) {
-      InitializeUserDataDir(base::CommandLine::ForCurrentProcess());
-    }
-
-    // Redirect logs from system directory to cryptohome.
-    RedirectLacrosLogging();
-
-    // If Lacros blocked after forking the zygotes, Crashpad has
-    // already been initialized, but we need to update the upload
-    // consent based on the user's preferences.
-    if (after_zygotes_fork) {
-      // Update upload consent to reflect the user's preference.
-      SetCrashpadUploadConsentPostLogin();
-    }
-  }
-}
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
-
 #if !BUILDFLAG(IS_ANDROID)
 void InitLogging(const std::string& process_type) {
   logging::OldFileDeletionState file_state = logging::APPEND_TO_OLD_LOG_FILE;
@@ -808,6 +735,11 @@ void RecordMainStartupMetrics(const StartupTimestamps& timestamps) {
 }
 
 #if BUILDFLAG(IS_WIN)
+constexpr wchar_t kOnResourceExhaustedMessage[] =
+    L"Your computer has run out of resources and cannot start "
+    PRODUCT_SHORTNAME_STRING
+    L". Sign out of Windows or restart your computer and try again.";
+
 void OnResourceExhausted() {
   // RegisterClassEx will fail if the session's pool of ATOMs is exhausted. This
   // appears to happen most often when the browser is being driven by automation
@@ -818,14 +750,17 @@ void OnResourceExhausted() {
   if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kNoErrorDialogs)) {
     static constexpr wchar_t kMessageBoxTitle[] = L"System resource exhausted";
-    static constexpr wchar_t kMessage[] =
-        L"Your computer has run out of resources and cannot start "
-        PRODUCT_SHORTNAME_STRING
-        L". Sign out of Windows or restart your computer and try again.";
-    ::MessageBox(nullptr, kMessage, kMessageBoxTitle, MB_OK);
+    ::MessageBox(nullptr, kOnResourceExhaustedMessage, kMessageBoxTitle, MB_OK);
   }
   base::Process::TerminateCurrentProcessImmediately(
       chrome::RESULT_CODE_SYSTEM_RESOURCE_EXHAUSTED);
+}
+
+// Alternate version of the above handler that is used when running in headless
+// mode.
+void OnResourceExhaustedForHeadless() {
+  LOG(ERROR) << kOnResourceExhaustedMessage;
+  base::Process::TerminateCurrentProcessImmediately(EXIT_FAILURE);
 }
 #endif  // !BUILDFLAG(IS_WIN)
 
@@ -934,16 +869,8 @@ std::optional<int> ChromeMainDelegate::PostEarlyInitialization(
   // be scheduled in the main browser after taking the process singleton. They
   // cannot be scheduled immediately after InstantiatePersistentHistograms()
   // because ThreadPool is not ready at that time yet.
-  bool immediate_histogram_cleanup = true;
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  // When prelaunching Lacros at login screen, we want to postpone the
-  // cleanup of persistent histograms to when the user has logged in
-  // and the cryptohome is accessible.
-  immediate_histogram_cleanup = !chromeos::IsLaunchedWithPostLoginParams();
-#endif
   base::FilePath metrics_dir;
-  if (immediate_histogram_cleanup &&
-      base::PathService::Get(chrome::DIR_USER_DATA, &metrics_dir)) {
+  if (base::PathService::Get(chrome::DIR_USER_DATA, &metrics_dir)) {
     PersistentHistogramsCleanup(metrics_dir);
   }
 
@@ -963,11 +890,6 @@ std::optional<int> ChromeMainDelegate::PostEarlyInitialization(
 #elif BUILDFLAG(IS_CHROMEOS_LACROS)
   // Initialize D-Bus for Lacros.
   chromeos::LacrosInitializeDBus();
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  // If prelaunched at login screen, block waiting for the user to login.
-  MaybeBlockAtLoginScreen(/*after_zygotes_fork=*/true);
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
@@ -1337,8 +1259,9 @@ std::optional<int> ChromeMainDelegate::BasicStartupComplete() {
         base::PathExists(fp) && !base::DirectoryExists(fp) && !reader.Open(fp)) {
       base::NativeLibraryLoadError error;
 #if defined(OS_MAC)
-      base::FilePath node_dll_path = base::apple::FrameworkBundlePath().Append(base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName("node")));
-      std::string blob_path = base::apple::PathForFrameworkBundleResource(BUILDFLAG(V8_CONTEXT_SNAPSHOT_FILENAME)).AsUTF8Unsafe();
+      base::FilePath node_dll_path = base::mac::FrameworkBundlePath().Append(base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName("node")));
+      base::ScopedCFTypeRef<CFStringRef> natives_file_name(base::SysUTF8ToCFStringRef(V8_CONTEXT_SNAPSHOT_FILENAME));
+      std::string blob_path = base::mac::PathForFrameworkBundleResource(natives_file_name).AsUTF8Unsafe();
 #else
       base::FilePath node_dll_path = base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName("node"));
 #endif
@@ -1619,37 +1542,23 @@ void ChromeMainDelegate::PreSandboxStartup() {
   if (str) {
     product_string = *str;
     std::string helperProcessExecutablePath = (product_string + " Helper.app/Contents/MacOS/" + product_string + " Helper");
-    base::PathService::OverrideAndCreateIfNeeded(content::CHILD_PROCESS_EXE,
+    base::PathService::Override(content::CHILD_PROCESS_EXE,
                                 chrome::GetFrameworkBundlePath()
                                 .Append("Helpers")
-                                .Append(helperProcessExecutablePath), true, false);
+                                .Append(helperProcessExecutablePath));
   }else{
-    base::PathService::OverrideAndCreateIfNeeded(content::CHILD_PROCESS_EXE,
+    base::PathService::Override(content::CHILD_PROCESS_EXE,
                                 chrome::GetFrameworkBundlePath()
                                 .Append("Helpers")
-                                .Append(chrome::kHelperProcessExecutablePath), true, false);
+                                .Append(chrome::kHelperProcessExecutablePath));
   }
 
   InitMacCrashReporter(command_line, process_type);
   SetUpInstallerPreferences(command_line);
 #endif
 
-#if defined(ARCH_CPU_ARM_FAMILY) && \
-    (BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS))
-  // Create an instance of the CPU class to parse /proc/cpuinfo and cache
-  // cpu_brand info.
-  base::CPU cpu_info;
-#endif
-
   // Initialize the user data dir for any process type that needs it.
-  bool initialize_user_data_dir = chrome::ProcessNeedsProfileDir(process_type);
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  // In Lacros, when prelaunching at login screen, we postpone the
-  // initialization of the user data directory.
-  // We verify that no access happens before login via CHECKs.
-  initialize_user_data_dir &= !chromeos::IsLaunchedWithPostLoginParams();
-#endif
-  if (initialize_user_data_dir) {
+  if (chrome::ProcessNeedsProfileDir(process_type)) {
     InitializeUserDataDir(base::CommandLine::ForCurrentProcess());
   }
 
@@ -1894,22 +1803,15 @@ void ChromeMainDelegate::SandboxInitialized(const std::string& process_type) {
   SuppressWindowsErrorDialogs();
 #endif
 
-  // If this is a browser process, initialize the persistent histograms system.
-  // This is done as soon as possible to ensure metrics collection coverage.
-  // For Fuchsia, persistent histogram initialization is done after field trial
-  // initialization (so that it can be controlled from the serverside and
-  // experimented with).
-  // Note: this is done before field trial initialization, so the values of
+  // If this is a browser process, initialize the persistent histograms system
+  // unless headless mode is in effect. This is done as soon as possible to
+  // ensure metrics collection coverage. For Fuchsia, persistent histogram
+  // initialization is done after field trial initialization (so that it can be
+  // controlled from the serverside and experimented with). Note: this is done
+  // before field trial initialization, so the values of
   // `kPersistentHistogramsFeature` and `kPersistentHistogramsStorage` will
   // not be used. Persist histograms to a memory-mapped file.
-  bool immediate_histogram_init = true;
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  // For Lacros, when prelaunching at login screen, we want to postpone the
-  // instantiation of persistent histograms to when the user has logged in
-  // and the cryptohome is accessible.
-  immediate_histogram_init = !chromeos::IsLaunchedWithPostLoginParams();
-#endif
-  if (immediate_histogram_init && process_type.empty()) {
+  if (process_type.empty() && !headless::IsHeadlessMode()) {
     base::FilePath metrics_dir;
     if (base::PathService::Get(chrome::DIR_USER_DATA, &metrics_dir)) {
       InstantiatePersistentHistograms(
@@ -1917,7 +1819,7 @@ void ChromeMainDelegate::SandboxInitialized(const std::string& process_type) {
           /*persistent_histograms_enabled=*/true,
           /*storage=*/kPersistentHistogramStorageMappedFile);
     } else {
-      NOTREACHED_IN_MIGRATION();
+      DUMP_WILL_BE_NOTREACHED();
     }
   }
 
@@ -2098,7 +2000,9 @@ std::optional<int> ChromeMainDelegate::PreBrowserMain() {
 
 #if BUILDFLAG(IS_WIN)
   // Register callback to handle resource exhaustion.
-  base::win::SetOnResourceExhaustedFunction(&OnResourceExhausted);
+  base::win::SetOnResourceExhaustedFunction(
+      headless::IsHeadlessMode() ? &OnResourceExhaustedForHeadless
+                                 : &OnResourceExhausted);
 
   if (IsExtensionPointDisableSet()) {
     sandbox::SandboxFactory::GetBrokerServices()->SetStartingMitigations(

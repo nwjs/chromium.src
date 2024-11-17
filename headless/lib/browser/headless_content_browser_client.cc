@@ -91,8 +91,10 @@ class HeadlessVideoOverlayWindow : public content::VideoOverlayWindow {
   void ShowInactive() override {}
   void Hide() override {}
   bool IsVisible() const override { return false; }
-  gfx::Rect GetBounds() override { return gfx::Rect(); }
-  void UpdateNaturalSize(const gfx::Size& natural_size) override {}
+  gfx::Rect GetBounds() override { return gfx::Rect(size_); }
+  void UpdateNaturalSize(const gfx::Size& natural_size) override {
+    size_ = natural_size;
+  }
   void SetPlaybackState(PlaybackState playback_state) override {}
   void SetPlayPauseButtonVisibility(bool is_visible) override {}
   void SetSkipAdButtonVisibility(bool is_visible) override {}
@@ -107,6 +109,9 @@ class HeadlessVideoOverlayWindow : public content::VideoOverlayWindow {
   void SetPreviousSlideButtonVisibility(bool is_visible) override {}
 
   void SetSurfaceId(const viz::SurfaceId& surface_id) override {}
+
+ private:
+  gfx::Size size_;
 };
 
 }  // namespace
@@ -333,8 +338,7 @@ bool HeadlessContentBrowserClient::IsInterestGroupAPIAllowed(
 bool HeadlessContentBrowserClient::IsPrivacySandboxReportingDestinationAttested(
     content::BrowserContext* browser_context,
     const url::Origin& destination_origin,
-    content::PrivacySandboxInvokingAPI invoking_api,
-    bool post_impression_reporting) {
+    content::PrivacySandboxInvokingAPI invoking_api) {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   return command_line->HasSwitch(switches::kForceReportingDestinationAttested);
 }
@@ -451,6 +455,12 @@ std::unique_ptr<content::VideoOverlayWindow>
 HeadlessContentBrowserClient::CreateWindowForVideoPictureInPicture(
     content::VideoPictureInPictureWindowController* controller) {
   return std::make_unique<HeadlessVideoOverlayWindow>();
+}
+
+// TODO(364362654, 40052246): force-disable network service sandboxing
+// until it's stable in headful.
+bool HeadlessContentBrowserClient::ShouldSandboxNetworkService() {
+  return false;
 }
 
 void HeadlessContentBrowserClient::HandleExplicitlyAllowedPorts(

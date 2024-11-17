@@ -15,6 +15,7 @@
 #include "components/history/core/browser/history_service.h"
 #include "components/history_embeddings/history_embeddings_features.h"
 #include "components/history_embeddings/history_embeddings_service.h"
+#include "components/history_embeddings/mock_embedder.h"
 #include "components/optimization_guide/core/test_model_info_builder.h"
 #include "components/page_content_annotations/core/page_content_annotations_features.h"
 #include "components/page_content_annotations/core/page_content_annotations_service.h"
@@ -34,10 +35,24 @@ class HistoryEmbeddingsInteractiveTest
  public:
   void SetUp() override {
     scoped_feature_list_.InitWithFeaturesAndParameters(
-        {{history_embeddings::kHistoryEmbeddings, {{"UseMlEmbedder", "false"}}},
+        {{history_embeddings::kHistoryEmbeddings, {{}}},
          {page_content_annotations::features::kPageContentAnnotations, {{}}}},
         /*disabled_features=*/{});
+
     InteractiveBrowserTest::SetUp();
+  }
+
+  void SetUpOnMainThread() override {
+    HistoryEmbeddingsServiceFactory::GetInstance()->SetTestingFactory(
+        browser()->profile(),
+        base::BindLambdaForTesting([](content::BrowserContext* context) {
+          return HistoryEmbeddingsServiceFactory::
+              BuildServiceInstanceForBrowserContextForTesting(
+                  context, std::make_unique<history_embeddings::MockEmbedder>(),
+                  /*answerer=*/nullptr, /*intent_classfier=*/nullptr);
+        }));
+
+    InteractiveBrowserTest::SetUpOnMainThread();
   }
 
  protected:
@@ -103,7 +118,7 @@ IN_PROC_BROWSER_TEST_F(HistoryEmbeddingsInteractiveTest, FeedbackDialog) {
   // Load the History page and click on the thumbs down icon to verify that
   // the feedback dialog appears.
   const DeepQuery kThumbsDownElement = {"history-app", "cr-history-embeddings",
-                                        "#feedbackButtons", "#thumbsDown"};
+                                        "cr-feedback-buttons", "#thumbsDown"};
   RunTestSequence(
       InstrumentTab(kHistoryTabId),
       NavigateWebContents(kHistoryTabId,

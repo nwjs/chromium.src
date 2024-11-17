@@ -70,7 +70,7 @@ class AuthenticationFlowTest : public PlatformTest {
         AuthenticationServiceFactory::GetDefaultFactory());
     builder.SetPrefService(CreatePrefService());
     profile_ = std::move(builder).Build();
-    AuthenticationServiceFactory::CreateAndInitializeForBrowserState(
+    AuthenticationServiceFactory::CreateAndInitializeForProfile(
         profile_.get(), std::make_unique<FakeAuthenticationServiceDelegate>());
     browser_ = std::make_unique<TestBrowser>(profile_.get());
 
@@ -84,10 +84,18 @@ class AuthenticationFlowTest : public PlatformTest {
     fake_system_identity_manager()->AddIdentity(managed_identity2_);
 
     run_loop_ = std::make_unique<base::RunLoop>();
-    sign_in_completion_ = ^(BOOL success) {
+    sign_in_completion_ = ^(SigninCoordinatorResult result) {
       run_loop_->Quit();
-      signin_result_ =
-          success ? signin::Tribool::kTrue : signin::Tribool::kFalse;
+      switch (result) {
+        case SigninCoordinatorResult::SigninCoordinatorResultSuccess:
+          signin_result_ = signin::Tribool::kTrue;
+          break;
+        case SigninCoordinatorResult::SigninCoordinatorResultInterrupted:
+        case SigninCoordinatorResult::SigninCoordinatorResultCanceledByUser:
+        case SigninCoordinatorResult::SigninCoordinatorResultDisabled:
+          signin_result_ = signin::Tribool::kFalse;
+          break;
+      }
     };
   }
 
@@ -97,7 +105,7 @@ class AuthenticationFlowTest : public PlatformTest {
         new user_prefs::PrefRegistrySyncable);
     std::unique_ptr<sync_preferences::PrefServiceSyncable> prefs =
         factory.CreateSyncable(registry.get());
-    RegisterBrowserStatePrefs(registry.get());
+    RegisterProfilePrefs(registry.get());
     return prefs;
   }
 
@@ -209,7 +217,7 @@ class AuthenticationFlowTest : public PlatformTest {
 
   void SignOut() {
     AuthenticationService* authentication_service =
-        AuthenticationServiceFactory::GetForBrowserState(profile_.get());
+        AuthenticationServiceFactory::GetForProfile(profile_.get());
     // Can't use a RunLoop multiple times, create a new one.
     run_loop_ = std::make_unique<base::RunLoop>();
     authentication_service->SignOut(
@@ -233,7 +241,7 @@ class AuthenticationFlowTest : public PlatformTest {
   id<SystemIdentity> managed_identity1_ = nil;
   id<SystemIdentity> managed_identity2_ = nil;
   OCMockObject* performer_ = nil;
-  signin_ui::CompletionCallback sign_in_completion_;
+  signin_ui::SigninCompletionCallback sign_in_completion_;
   UIViewController* view_controller_;
   // Used to verify histogram logging.
   base::HistogramTester histogram_tester_;

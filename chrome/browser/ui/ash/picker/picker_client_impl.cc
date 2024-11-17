@@ -13,9 +13,12 @@
 #include <vector>
 
 #include "ash/constants/ash_features.h"
+#include "ash/lobster/lobster_controller.h"
 #include "ash/picker/picker_controller.h"
-#include "ash/public/cpp/picker/picker_search_result.h"
-#include "ash/public/cpp/picker/picker_web_paste_target.h"
+#include "ash/picker/picker_search_result.h"
+#include "ash/picker/picker_web_paste_target.h"
+#include "ash/public/cpp/lobster/lobster_system_state.h"
+#include "ash/shell.h"
 #include "base/check.h"
 #include "base/check_deref.h"
 #include "base/containers/span.h"
@@ -23,6 +26,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/logging.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/notimplemented.h"
 #include "base/ranges/algorithm.h"
 #include "base/ranges/functional.h"
@@ -31,18 +35,15 @@
 #include "chrome/browser/ash/app_list/search/chrome_search_result.h"
 #include "chrome/browser/ash/app_list/search/files/drive_search_provider.h"
 #include "chrome/browser/ash/app_list/search/files/file_search_provider.h"
-#include "chrome/browser/ash/app_list/search/omnibox/omnibox_lacros_provider.h"
 #include "chrome/browser/ash/app_list/search/omnibox/omnibox_provider.h"
 #include "chrome/browser/ash/app_list/search/ranking/ranker_manager.h"
 #include "chrome/browser/ash/app_list/search/search_engine.h"
 #include "chrome/browser/ash/app_list/search/types.h"
-#include "chrome/browser/ash/crosapi/browser_util.h"
 #include "chrome/browser/ash/file_manager/fileapi_util.h"
 #include "chrome/browser/ash/input_method/editor_mediator_factory.h"
-#include "chrome/browser/chromeos/launcher_search/search_util.h"
+#include "chrome/browser/ash/lobster/lobster_service_provider.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/picker/picker_file_suggester.h"
-#include "chrome/browser/ui/ash/picker/picker_lacros_omnibox_search_provider.h"
 #include "chrome/browser/ui/ash/picker/picker_link_suggester.h"
 #include "chrome/browser/ui/ash/picker/picker_thumbnail_loader.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
@@ -57,30 +58,68 @@
 #include "content/public/browser/render_widget_host_iterator.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
-#include "google_apis/gaia/gaia_auth_util.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "ui/aura/window.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/native_widget_types.h"
 #include "url/gurl.h"
 
-namespace ash {
-enum class AppListSearchResultType;
-}
-
 namespace {
 
 // TODO: b/345303965 - Finalize this string.
 constexpr std::u16string_view kAnnouncementViewName = u"Picker";
 
-bool IsSupportedLocalFileFormat(const base::FilePath& file_path) {
-  for (std::string_view extension :
-       {".jpg", ".jpeg", ".png", ".gif", ".webp"}) {
-    if (file_path.MatchesFinalExtension(extension)) {
-      return true;
+// Returns an `AppListControllerDelegate` with empty methods. Used only for
+// constructing search engine providers.
+AppListControllerDelegate* GetEmptyAppListControllerDelegate() {
+  class PickerAppListControllerDelegate : public AppListControllerDelegate {
+   public:
+    PickerAppListControllerDelegate() = default;
+    ~PickerAppListControllerDelegate() override = default;
+
+    // AppListControllerDelegate overrides:
+    void DismissView() override { NOTIMPLEMENTED_LOG_ONCE(); }
+    aura::Window* GetAppListWindow() override {
+      NOTIMPLEMENTED_LOG_ONCE();
+      return nullptr;
     }
-  }
-  return false;
+    int64_t GetAppListDisplayId() override {
+      NOTIMPLEMENTED_LOG_ONCE();
+      return 0;
+    }
+    bool IsAppPinned(const std::string& app_id) override {
+      NOTIMPLEMENTED_LOG_ONCE();
+      return false;
+    }
+    bool IsAppOpen(const std::string& app_id) const override {
+      NOTIMPLEMENTED_LOG_ONCE();
+      return false;
+    }
+    void PinApp(const std::string& app_id) override {
+      NOTIMPLEMENTED_LOG_ONCE();
+    }
+    void UnpinApp(const std::string& app_id) override {
+      NOTIMPLEMENTED_LOG_ONCE();
+    }
+    Pinnable GetPinnable(const std::string& app_id) override {
+      NOTIMPLEMENTED_LOG_ONCE();
+      return AppListControllerDelegate::NO_PIN;
+    }
+    void CreateNewWindow(bool incognito,
+                         bool should_trigger_session_restore) override {
+      NOTIMPLEMENTED_LOG_ONCE();
+    }
+    void OpenURL(Profile* profile,
+                 const GURL& url,
+                 ui::PageTransition transition,
+                 WindowOpenDisposition disposition) override {
+      NOTIMPLEMENTED_LOG_ONCE();
+    }
+  };
+
+  static base::NoDestructor<PickerAppListControllerDelegate> delegate;
+  return delegate.get();
 }
 
 std::vector<ash::PickerSearchResult> CreateSearchResultsForRecentLocalImages(
@@ -108,20 +147,16 @@ std::vector<ash::PickerSearchResult> CreateSearchResultsForRecentDriveFiles(
 
 std::unique_ptr<app_list::SearchProvider> CreateDriveSearchProvider(
     Profile* profile) {
-  auto provider = std::make_unique<app_list::DriveSearchProvider>(
+  return std::make_unique<app_list::DriveSearchProvider>(
       profile, /*should_filter_shared_files=*/false,
       /*should_filter_directories=*/true);
-  if (base::FeatureList::IsEnabled(ash::features::kPickerCloud)) {
-    provider->SetQuerySource(
-        drivefs::mojom::QueryParameters::QuerySource::kCloudOnly);
-  }
-  return provider;
 }
 
 std::unique_ptr<app_list::SearchProvider> CreateFileSearchProvider(
     Profile* profile) {
   return std::make_unique<app_list::FileSearchProvider>(
-      profile, base::FileEnumerator::FileType::FILES);
+      profile, base::FileEnumerator::FileType::FILES,
+      std::vector<std::string>{".jpg", ".jpeg", ".png", ".gif", ".webp"});
 }
 
 std::vector<ash::PickerSearchResult> ConvertSearchResults(
@@ -158,11 +193,8 @@ std::vector<ash::PickerSearchResult> ConvertSearchResults(
         break;
       }
       case ash::AppListSearchResultType::kFileSearch: {
-        // TODO: b/322926411 - Move this filtering to the search provider.
-        if (IsSupportedLocalFileFormat(result->filePath())) {
           picker_results.push_back(ash::PickerLocalFileResult(
               result->title(), result->filePath(), result->best_match()));
-        }
         break;
       }
       case ash::AppListSearchResultType::kDriveSearch:
@@ -226,12 +258,6 @@ std::vector<ash::PickerSearchResult> GetEditorResultsFromPanelContext(
   return results;
 }
 
-app_list::CategoriesList CreateRankerCategories() {
-  app_list::CategoriesList res({{.category = app_list::Category::kWeb},
-                                {.category = app_list::Category::kFiles}});
-  return res;
-}
-
 }  // namespace
 
 PickerClientImpl::PickerClientImpl(ash::PickerController* controller,
@@ -253,12 +279,18 @@ PickerClientImpl::~PickerClientImpl() {
   controller_->SetClient(nullptr);
 }
 
+scoped_refptr<network::SharedURLLoaderFactory>
+PickerClientImpl::GetSharedURLLoaderFactory() {
+  CHECK(profile_);
+  return profile_->GetURLLoaderFactory();
+}
+
 void PickerClientImpl::StartCrosSearch(
     const std::u16string& query,
     std::optional<ash::PickerCategory> category,
     CrosSearchResultsCallback callback) {
-  ranker_categories_ = CreateRankerCategories();
-  ranker_manager_->Start(query, ranker_categories_);
+  ranker_manager_->Start(query, {{.category = app_list::Category::kWeb},
+                                 {.category = app_list::Category::kFiles}});
   if (!category.has_value()) {
     CHECK(search_engine_);
     search_engine_->StartSearch(
@@ -271,6 +303,7 @@ void PickerClientImpl::StartCrosSearch(
   switch (*category) {
     case ash::PickerCategory::kEditorWrite:
     case ash::PickerCategory::kEditorRewrite:
+    case ash::PickerCategory::kLobster:
     case ash::PickerCategory::kEmojisGifs:
     case ash::PickerCategory::kEmojis:
     case ash::PickerCategory::kClipboard:
@@ -347,6 +380,23 @@ PickerClientImpl::ShowEditorCallback PickerClientImpl::CacheEditorContext() {
                         weak_factory_.GetWeakPtr());
 }
 
+PickerClientImpl::ShowLobsterCallback
+PickerClientImpl::GetShowLobsterCallback() {
+  if (!ash::features::IsLobsterEnabled()) {
+    return {};
+  }
+  LobsterService* lobster_service =
+      LobsterServiceProvider::GetForProfile(profile_);
+
+  if (lobster_service &&
+      lobster_service->system_state_provider()->GetSystemState().status ==
+          ash::LobsterStatus::kEnabled) {
+    return base::BindOnce(&PickerClientImpl::ShowLobster,
+                          weak_factory_.GetWeakPtr());
+  }
+  return {};
+}
+
 void PickerClientImpl::GetSuggestedEditorResults(
     SuggestedEditorResultsCallback callback) {
   ash::input_method::EditorMediator* editor_mediator =
@@ -389,10 +439,6 @@ void PickerClientImpl::GetSuggestedLinkResults(
     size_t max_results,
     SuggestedLinksCallback callback) {
   link_suggester_->GetSuggestedLinks(max_results, std::move(callback));
-}
-
-bool PickerClientImpl::IsFeatureAllowedForDogfood() {
-  return gaia::IsGoogleInternalAccountEmail(profile_->GetProfileUserName());
 }
 
 void PickerClientImpl::FetchFileThumbnail(const base::FilePath& path,
@@ -488,6 +534,8 @@ void PickerClientImpl::SetProfile(Profile* profile) {
       /*bookmarks=*/true, /*history=*/true, /*open_tabs=*/true));
   search_engine_->AddProvider(CreateFileSearchProvider(profile_));
   search_engine_->AddProvider(CreateDriveSearchProvider(profile_));
+  filtered_search_engine_ = nullptr;
+  current_filter_category_ = std::nullopt;
 
   ranker_manager_ = std::make_unique<app_list::RankerManager>(profile_);
 
@@ -496,7 +544,8 @@ void PickerClientImpl::SetProfile(Profile* profile) {
   thumbnail_loader_ = std::make_unique<PickerThumbnailLoader>(profile_);
 
   if (controller_ != nullptr) {
-    controller_->OnClientProfileSet();
+    controller_->OnClientPrefsSet(profile == nullptr ? nullptr
+                                                     : profile->GetPrefs());
   }
 }
 
@@ -504,16 +553,9 @@ std::unique_ptr<app_list::SearchProvider>
 PickerClientImpl::CreateOmniboxProvider(bool bookmarks,
                                         bool history,
                                         bool open_tabs) {
-  if (crosapi::browser_util::IsLacrosEnabled()) {
-    return std::make_unique<app_list::OmniboxLacrosProvider>(
-        profile_, &app_list_controller_delegate_,
-        PickerLacrosOmniboxSearchProvider::CreateControllerCallback(
-            bookmarks, history, open_tabs));
-  } else {
-    return std::make_unique<app_list::OmniboxProvider>(
-        profile_, &app_list_controller_delegate_,
-        crosapi::ProviderTypesPicker(bookmarks, history, open_tabs));
-  }
+  return std::make_unique<app_list::OmniboxProvider>(
+      profile_, GetEmptyAppListControllerDelegate(),
+      LauncherSearchProviderTypes(bookmarks, history, open_tabs));
 }
 
 std::unique_ptr<app_list::SearchProvider>
@@ -522,6 +564,7 @@ PickerClientImpl::CreateSearchProviderForCategory(
   switch (category) {
     case ash::PickerCategory::kEditorWrite:
     case ash::PickerCategory::kEditorRewrite:
+    case ash::PickerCategory::kLobster:
     case ash::PickerCategory::kEmojisGifs:
     case ash::PickerCategory::kEmojis:
     case ash::PickerCategory::kClipboard:
@@ -550,66 +593,43 @@ void PickerClientImpl::ShowEditor(std::optional<std::string> preset_query_id,
   }
 }
 
-PickerClientImpl::PickerAppListControllerDelegate::
-    PickerAppListControllerDelegate() = default;
-PickerClientImpl::PickerAppListControllerDelegate::
-    ~PickerAppListControllerDelegate() = default;
+void PickerClientImpl::ShowLobster(std::optional<std::string> query) {
+  if (!ash::features::IsLobsterEnabled() ||
+      !ash::LobsterController::IsEnabled()) {
+    return;
+  }
 
-void PickerClientImpl::PickerAppListControllerDelegate::DismissView() {
-  NOTIMPLEMENTED_LOG_ONCE();
+  ash::LobsterController* lobster_controller =
+      ash::Shell::Get()->lobster_controller();
+  if (lobster_controller == nullptr) {
+    return;
+  }
+
+  lobster_trigger_ = lobster_controller->CreateTrigger();
+  if (lobster_trigger_ != nullptr) {
+    lobster_trigger_->Fire(query);
+  }
 }
 
-aura::Window*
-PickerClientImpl::PickerAppListControllerDelegate::GetAppListWindow() {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return nullptr;
-}
+int PickerClientImpl::LauncherSearchProviderTypes(bool bookmarks,
+                                                  bool history,
+                                                  bool open_tabs) {
+  int providers = 0;
 
-int64_t
-PickerClientImpl::PickerAppListControllerDelegate::GetAppListDisplayId() {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return 0;
-}
+  if (bookmarks) {
+    providers |= AutocompleteProvider::TYPE_BOOKMARK;
+  }
 
-bool PickerClientImpl::PickerAppListControllerDelegate::IsAppPinned(
-    const std::string& app_id) {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return false;
-}
+  if (history) {
+    providers |= AutocompleteProvider::TYPE_HISTORY_QUICK |
+                 AutocompleteProvider::TYPE_HISTORY_URL |
+                 AutocompleteProvider::TYPE_HISTORY_FUZZY |
+                 AutocompleteProvider::TYPE_HISTORY_EMBEDDINGS;
+  }
 
-bool PickerClientImpl::PickerAppListControllerDelegate::IsAppOpen(
-    const std::string& app_id) const {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return false;
-}
+  if (open_tabs) {
+    providers |= AutocompleteProvider::TYPE_OPEN_TAB;
+  }
 
-void PickerClientImpl::PickerAppListControllerDelegate::PinApp(
-    const std::string& app_id) {
-  NOTIMPLEMENTED_LOG_ONCE();
-}
-
-void PickerClientImpl::PickerAppListControllerDelegate::UnpinApp(
-    const std::string& app_id) {
-  NOTIMPLEMENTED_LOG_ONCE();
-}
-
-AppListControllerDelegate::Pinnable
-PickerClientImpl::PickerAppListControllerDelegate::GetPinnable(
-    const std::string& app_id) {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return AppListControllerDelegate::NO_PIN;
-}
-
-void PickerClientImpl::PickerAppListControllerDelegate::CreateNewWindow(
-    bool incognito,
-    bool should_trigger_session_restore) {
-  NOTIMPLEMENTED_LOG_ONCE();
-}
-
-void PickerClientImpl::PickerAppListControllerDelegate::OpenURL(
-    Profile* profile,
-    const GURL& url,
-    ui::PageTransition transition,
-    WindowOpenDisposition disposition) {
-  NOTIMPLEMENTED_LOG_ONCE();
+  return providers;
 }

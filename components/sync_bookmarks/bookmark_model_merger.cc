@@ -20,7 +20,6 @@
 #include "components/bookmarks/browser/bookmark_node.h"
 #include "components/bookmarks/browser/bookmark_uuids.h"
 #include "components/sync/base/data_type.h"
-#include "components/sync/base/hash_util.h"
 #include "components/sync/protocol/bookmark_specifics.pb.h"
 #include "components/sync/protocol/entity_metadata.pb.h"
 #include "components/sync/protocol/entity_specifics.pb.h"
@@ -970,8 +969,9 @@ void BookmarkModelMerger::ProcessLocalCreation(
   // (e.g. incompatible types).
   const int64_t server_version = syncer::kUncommittedVersion;
   const base::Time creation_time = base::Time::Now();
-  const std::string suffix = syncer::GenerateUniquePositionSuffix(
-      SyncedBookmarkTracker::GetClientTagHashFromUuid(node->uuid()));
+  const syncer::UniquePosition::Suffix suffix =
+      syncer::UniquePosition::GenerateSuffix(
+          SyncedBookmarkTracker::GetClientTagHashFromUuid(node->uuid()));
   // Locally created nodes aren't tracked and hence don't have a unique position
   // yet so we need to produce new ones.
   const syncer::UniquePosition pos =
@@ -1057,7 +1057,7 @@ syncer::UniquePosition
 BookmarkModelMerger::GenerateUniquePositionForLocalCreation(
     const bookmarks::BookmarkNode* parent,
     size_t index,
-    const std::string& suffix) const {
+    const syncer::UniquePosition::Suffix& suffix) const {
   // Try to find last tracked preceding entity. It is not always the previous
   // one as it might be skipped if it has unprocessed remote matching by UUID
   // update.

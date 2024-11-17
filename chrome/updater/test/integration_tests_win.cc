@@ -83,6 +83,7 @@
 #include "chrome/updater/win/ui/l10n_util.h"
 #include "chrome/updater/win/ui/resources/resources.grh"
 #include "chrome/updater/win/ui/resources/updater_installer_strings.h"
+#include "chrome/updater/win/ui/ui_util.h"
 #include "chrome/updater/win/win_constants.h"
 #include "components/crx_file/crx_verifier.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -303,16 +304,37 @@ void CheckInstallation(UpdaterScope scope,
                 !IsServiceGone(GetServiceName(is_internal_service)))
           << ": " << service_name << ": " << is_internal_service;
 
-      if (!is_installed) {
-        ForEachServiceWithPrefix(
-            base::StrCat({base::ASCIIToWide(PRODUCT_FULLNAME_STRING),
-                          is_internal_service ? kWindowsInternalServiceName
-                                              : kWindowsServiceName}),
-            base::ASCIIToWide(PRODUCT_FULLNAME_STRING),
-            [](const std::wstring& service_name) {
+      int count_entries = 0;
+      ForEachServiceWithPrefix(
+          base::StrCat({base::ASCIIToWide(PRODUCT_FULLNAME_STRING),
+                        is_internal_service ? kWindowsInternalServiceName
+                                            : kWindowsServiceName}),
+          GetLocalizedString(
+              is_internal_service
+                  ? IDS_INTERNAL_UPDATER_SERVICE_DISPLAY_NAME_BASE
+                  : IDS_UPDATER_SERVICE_DISPLAY_NAME_BASE),
+          [&](const std::wstring& service_name) {
+            ++count_entries;
+
+            if (is_installed) {
+              base::win::RegKey key;
+              ASSERT_EQ(key.Open(HKEY_LOCAL_MACHINE,
+                                 base::StrCat(
+                                     {L"SYSTEM\\CurrentControlSet\\Services\\",
+                                      service_name})
+                                     .c_str(),
+                                 Wow6432(KEY_READ)),
+                        ERROR_SUCCESS);
+              std::wstring description;
+              EXPECT_EQ(key.ReadValue(L"Description", &description),
+                        ERROR_SUCCESS);
+              EXPECT_EQ(description, GetLocalizedString(
+                                         IDS_UPDATER_SERVICE_DESCRIPTION_BASE));
+            } else {
               ADD_FAILURE() << "Unexpected service found: " << service_name;
-            });
-      }
+            }
+          });
+      EXPECT_EQ(count_entries, is_installed);
     }
   }
 
@@ -365,7 +387,7 @@ void CheckInstallation(UpdaterScope scope,
              FILE_PATH_LITERAL(","));
 }
 
-void SleepFor(const base::TimeDelta& interval) {
+void SleepFor(base::TimeDelta interval) {
   VLOG(2) << "Sleeping " << interval.InSecondsF() << " seconds...";
   base::PlatformThread::Sleep(interval);
   VLOG(2) << "Sleep complete.";
@@ -507,7 +529,12 @@ bool BuildTestAppInstaller(const base::FilePath& installer_script,
     return false;
   }
   const base::FilePath installer_dir = exe_path.AppendASCII("test_installer");
-
+#if defined(ADDRESS_SANITIZER)
+  static const char kAsanRuntime[] = "clang_rt.asan_dynamic-x86_64.dll";
+  const base::FilePath asan_runtime = exe_path.AppendASCII(kAsanRuntime);
+  EXPECT_TRUE(base::CopyFile(
+      asan_runtime, output_installer.DirName().AppendASCII(kAsanRuntime)));
+#endif
   base::CommandLine command(
       installer_dir.AppendASCII("embed_install_scripts.py"));
   command.AppendSwitchPath(
@@ -628,7 +655,8 @@ void RunOfflineInstallWithManifest(UpdaterScope scope,
   if (is_silent_install || expect_success) {
     EXPECT_TRUE(WaitForUpdaterExit());
   } else {
-    CloseInstallCompleteDialog(GetLocalizedString(string_resource_id_to_find));
+    CloseInstallCompleteDialog({},
+                               GetLocalizedString(string_resource_id_to_find));
   }
 
   scoped_refptr<GlobalPrefs> global_prefs = CreateGlobalPrefs(scope);
@@ -748,8 +776,7 @@ void Clean(UpdaterScope scope) {
   }
 
   if (IsSystemInstall(scope)) {
-    ForEachServiceWithPrefix(base::ASCIIToWide(PRODUCT_FULLNAME_STRING),
-                             base::ASCIIToWide(PRODUCT_FULLNAME_STRING),
+    ForEachServiceWithPrefix(base::ASCIIToWide(PRODUCT_FULLNAME_STRING), {},
                              [](const std::wstring& service_name) {
                                EXPECT_TRUE(DeleteService(service_name));
                              });
@@ -777,25 +804,14 @@ void Clean(UpdaterScope scope) {
   for (const auto& file : GetUpdaterLogFilesInTmp()) {
     ASSERT_TRUE(base::DeleteFile(file));
   }
+
+  if (IsSystemInstall(scope)) {
+    ASSERT_NO_FATAL_FAILURE(UninstallEnterpriseCompanionApp());
+  }
 }
 
-void EnterTestMode(const GURL& update_url,
-                   const GURL& crash_upload_url,
-                   const GURL& device_management_url,
-                   const GURL& app_logo_url,
-                   const base::TimeDelta& idle_timeout) {
-  ASSERT_TRUE(ExternalConstantsBuilder()
-                  .SetUpdateURL(std::vector<std::string>{update_url.spec()})
-                  .SetCrashUploadURL(crash_upload_url.spec())
-                  .SetDeviceManagementURL(device_management_url.spec())
-                  .SetAppLogoURL(app_logo_url.spec())
-                  .SetUseCUP(false)
-                  .SetInitialDelay(base::Milliseconds(100))
-                  .SetServerKeepAliveTime(base::Seconds(1))
-                  .SetCrxVerifierFormat(crx_file::VerifierFormat::CRX3)
-                  .SetOverinstallTimeout(base::Seconds(11))
-                  .SetIdleCheckPeriod(idle_timeout)
-                  .Modify());
+base::TimeDelta GetOverinstallTimeoutForEnterTestMode() {
+  return base::Seconds(11);
 }
 
 void ExpectInstalled(UpdaterScope scope) {
@@ -827,6 +843,7 @@ void ExpectClean(UpdaterScope scope) {
                return files;
              }(),
              FILE_PATH_LITERAL(","));
+  ASSERT_NO_FATAL_FAILURE(ExpectEnterpriseCompanionAppNotInstalled());
 }
 
 void ExpectCandidateUninstalled(UpdaterScope scope) {
@@ -1833,11 +1850,10 @@ void RunFakeLegacyUpdater(UpdaterScope scope) {
   }
 }
 
-void CloseInstallCompleteDialog(const std::wstring& child_window_text_to_find,
+void CloseInstallCompleteDialog(const std::u16string& bundle_name,
+                                const std::wstring& child_window_text_to_find,
                                 bool verify_app_logo_loaded) {
-  const std::wstring window_title =
-      GetLocalizedStringF(IDS_INSTALLER_DISPLAY_NAME_BASE,
-                          GetLocalizedString(IDS_FRIENDLY_COMPANY_NAME_BASE));
+  const std::wstring window_title = ui::GetInstallerDisplayName(bundle_name);
   bool found = false;
   base::Process process;
   ASSERT_TRUE(WaitFor(

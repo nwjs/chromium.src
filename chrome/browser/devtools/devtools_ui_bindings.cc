@@ -36,10 +36,10 @@
 #include "base/uuid.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "chrome/browser/browser_features.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/devtools/devtools_file_watcher.h"
 #include "chrome/browser/devtools/devtools_window.h"
+#include "chrome/browser/devtools/features.h"
 #include "chrome/browser/devtools/url_constants.h"
 #include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -690,12 +690,10 @@ DevToolsUIBindings* DevToolsUIBindings::ForWebContents(
     content::WebContents* web_contents) {
   DevToolsUIBindingsList& instances =
       DevToolsUIBindings::GetDevToolsUIBindings();
-  for (DevToolsUIBindings* binding : instances) {
-    if (binding->web_contents() == web_contents) {
-      return binding;
-    }
-  }
-  return nullptr;
+  auto binding = std::find_if(
+      instances.rbegin(), instances.rend(),
+      [&](auto binding) { return binding->web_contents() == web_contents; });
+  return binding == instances.rend() ? nullptr : *binding;
 }
 
 std::string DevToolsUIBindings::GetTypeForMetrics() {
@@ -997,6 +995,12 @@ void DevToolsUIBindings::OnAidaConversationResponse(
         std::move(callback), stream_id, request,
         NetworkResourceLoader::GetNextExponentialBackoffDelay(delay),
         resource_request_or_error);
+  } else if (response_code == net::HTTP_UNAUTHORIZED) {
+    aida_client_->RemoveAccessToken();
+    aida_client_->PrepareRequestOrFail(base::BindOnce(
+        &DevToolsUIBindings::OnAidaConversationRequest, base::Unretained(this),
+        std::move(callback), stream_id, request,
+        NetworkResourceLoader::GetNextExponentialBackoffDelay(delay)));
   } else {
     base::UmaHistogramTimes("DevTools.AidaResponseTime",
                             base::TimeTicks::Now() - start_time);
@@ -1512,6 +1516,8 @@ base::Value::Dict DevToolsUIBindings::GetSyncInformationForProfile(
   result.Set("isSyncActive", sync_service->IsSyncFeatureActive());
   result.Set("arePreferencesSynced", sync_service->GetActiveDataTypes().Has(
                                          syncer::DataType::PREFERENCES));
+  result.Set("isSyncPaused", sync_service->GetTransportState() ==
+                                 syncer::SyncService::TransportState::PAUSED);
 
   CoreAccountInfo account_info = sync_service->GetAccountInfo();
   if (account_info.IsEmpty()) {
@@ -1569,19 +1575,31 @@ void DevToolsUIBindings::GetHostConfig(DispatchCallback callback) {
   response_dict.Set("devToolsConsoleInsights",
                     std::move(console_insights_dict));
 
-  base::Value::Dict freestyler_dogfood_dict;
-  freestyler_dogfood_dict.Set(
-      "enabled",
-      base::FeatureList::IsEnabled(::features::kDevToolsFreestylerDogfood));
-  freestyler_dogfood_dict.Set(
-      "modelId", features::kDevToolsFreestylerDogfoodModelId.Get());
-  freestyler_dogfood_dict.Set(
-      "temperature", features::kDevToolsFreestylerDogfoodTemperature.Get());
-  freestyler_dogfood_dict.Set(
-      "userTier", features::kDevToolsFreestylerDogfoodUserTier.GetName(
-        features::kDevToolsFreestylerDogfoodUserTier.Get()));
-  response_dict.Set("devToolsFreestylerDogfood",
-                    std::move(freestyler_dogfood_dict));
+  base::Value::Dict freestyler_dict;
+  if (base::FeatureList::IsEnabled(::features::kDevToolsFreestyler)) {
+    freestyler_dict.Set("enabled", base::FeatureList::IsEnabled(
+                                       ::features::kDevToolsFreestyler));
+    freestyler_dict.Set("modelId", features::kDevToolsFreestylerModelId.Get());
+    freestyler_dict.Set("temperature",
+                        features::kDevToolsFreestylerTemperature.Get());
+    freestyler_dict.Set("userTier",
+                        features::kDevToolsFreestylerUserTier.GetName(
+                            features::kDevToolsFreestylerUserTier.Get()));
+    freestyler_dict.Set("executionMode",
+                        features::kDevToolsFreestylerExecutionMode.GetName(
+                            features::kDevToolsFreestylerExecutionMode.Get()));
+  } else {
+    freestyler_dict.Set("enabled", base::FeatureList::IsEnabled(
+                                       ::features::kDevToolsFreestylerDogfood));
+    freestyler_dict.Set("modelId",
+                        features::kDevToolsFreestylerDogfoodModelId.Get());
+    freestyler_dict.Set("temperature",
+                        features::kDevToolsFreestylerDogfoodTemperature.Get());
+    freestyler_dict.Set(
+        "userTier", features::kDevToolsFreestylerDogfoodUserTier.GetName(
+                        features::kDevToolsFreestylerDogfoodUserTier.Get()));
+  }
+  response_dict.Set("devToolsFreestyler", std::move(freestyler_dict));
 
   base::Value::Dict explain_this_resource_dogfood_dict;
   explain_this_resource_dogfood_dict.Set(
@@ -1592,8 +1610,46 @@ void DevToolsUIBindings::GetHostConfig(DispatchCallback callback) {
   explain_this_resource_dogfood_dict.Set(
       "temperature",
       features::kDevToolsExplainThisResourceDogfoodTemperature.Get());
+  explain_this_resource_dogfood_dict.Set(
+      "userTier",
+      features::kDevToolsExplainThisResourceDogfoodUserTier.GetName(
+          features::kDevToolsExplainThisResourceDogfoodUserTier.Get()));
   response_dict.Set("devToolsExplainThisResourceDogfood",
                     std::move(explain_this_resource_dogfood_dict));
+
+  base::Value::Dict ai_assistance_performance_agent_dogfood_dict;
+  ai_assistance_performance_agent_dogfood_dict.Set(
+      "enabled", base::FeatureList::IsEnabled(
+                     ::features::kDevToolsAiAssistancePerformanceAgentDogfood));
+  ai_assistance_performance_agent_dogfood_dict.Set(
+      "modelId",
+      features::kDevToolsAiAssistancePerformanceAgentDogfoodModelId.Get());
+  ai_assistance_performance_agent_dogfood_dict.Set(
+      "temperature",
+      features::kDevToolsAiAssistancePerformanceAgentDogfoodTemperature.Get());
+  ai_assistance_performance_agent_dogfood_dict.Set(
+      "userTier",
+      features::kDevToolsAiAssistancePerformanceAgentDogfoodUserTier.GetName(
+          features::kDevToolsAiAssistancePerformanceAgentDogfoodUserTier
+              .Get()));
+  response_dict.Set("devToolsAiAssistancePerformanceAgentDogfood",
+                    std::move(ai_assistance_performance_agent_dogfood_dict));
+
+  base::Value::Dict ai_assistance_file_agent_dogfood_dict;
+  ai_assistance_file_agent_dogfood_dict.Set(
+      "enabled", base::FeatureList::IsEnabled(
+                     ::features::kDevToolsAiAssistanceFileAgentDogfood));
+  ai_assistance_file_agent_dogfood_dict.Set(
+      "modelId", features::kDevToolsAiAssistanceFileAgentDogfoodModelId.Get());
+  ai_assistance_file_agent_dogfood_dict.Set(
+      "temperature",
+      features::kDevToolsAiAssistanceFileAgentDogfoodTemperature.Get());
+  ai_assistance_file_agent_dogfood_dict.Set(
+      "userTier",
+      features::kDevToolsAiAssistanceFileAgentDogfoodUserTier.GetName(
+          features::kDevToolsAiAssistanceFileAgentDogfoodUserTier.Get()));
+  response_dict.Set("devToolsAiAssistanceFileAgentDogfood",
+                    std::move(ai_assistance_file_agent_dogfood_dict));
 
   base::Value::Dict ve_logging_dict;
   ve_logging_dict.Set(
@@ -2147,6 +2203,14 @@ void DevToolsUIBindings::RegisterAidaClientEvent(DispatchCallback callback,
 
 void DevToolsUIBindings::SetDelegate(Delegate* delegate) {
   delegate_.reset(delegate);
+}
+
+void DevToolsUIBindings::TransferDelegate(DevToolsUIBindings& other) {
+  std::swap(delegate_, other.delegate_);
+  if (auto agent_host = agent_host_) {
+    Detach();
+    other.AttachTo(agent_host);
+  }
 }
 
 void DevToolsUIBindings::AttachTo(

@@ -5,7 +5,7 @@
 module media.mojom;
 
 import "gpu/ipc/common/exported_shared_image.mojom";
-import "gpu/ipc/common/mailbox_holder.mojom";
+import "gpu/ipc/common/mailbox.mojom";
 import "gpu/ipc/common/sync_token.mojom";
 import "gpu/ipc/common/vulkan_ycbcr_info.mojom";
 import "media/mojo/mojom/audio_data.mojom";
@@ -253,7 +253,6 @@ enum CdmSessionClosedReason {
 // This defines a mojo transport format for media::SharedImageFormatType.
 // See media/base/video_frame.h for descriptions.
 enum SharedImageFormatType {
-  kLegacy,
   kSharedImageFormat,
   kSharedImageFormatExternalSampler,
 };
@@ -268,10 +267,23 @@ struct DecryptConfig {
   EncryptionPattern? encryption_pattern;
 };
 
+union DecoderBufferSideDataNextConfig {
+  AudioDecoderConfig next_audio_config;
+  VideoDecoderConfig next_video_config;
+};
+
 // This defines a mojo transport format for media::DecoderBufferSideData.
 struct DecoderBufferSideData {
+  // VP9 specific information.
   array<uint32> spatial_layers;
   array<uint8> alpha_data;
+
+  // Secure buffer handle corresponding to the decrypted contents of the
+  // associated DecoderBuffer. A non-zero value indicates this was set.
+  //
+  // Required by some hardware content protection mechanisms to ensure the
+  // decrypted buffer never leaves secure memory. When set, this DecoderBuffer
+  // generally carries the partially (headers in the clear) encrypted payload;
   uint64 secure_handle;
 
   // These fields indicate the amount of data to discard after decoding.
@@ -279,13 +291,10 @@ struct DecoderBufferSideData {
   mojo_base.mojom.TimeDelta back_discard;
 };
 
-// This defines a mojo transport format for media::DecoderBuffer.
-struct DecoderBuffer {
+// This defines a mojo transport format for media::DecoderBuffer w/ data.
+struct DataDecoderBuffer {
   mojo_base.mojom.TimeDelta timestamp;
   mojo_base.mojom.TimeDelta duration;
-
-  // Whether the buffer is an end-of-stream (EOS) buffer.
-  bool is_end_of_stream;
 
   // The number of bytes present in this buffer. The data is not serialized
   // along with this structure and must be read from a separate DataPipe.
@@ -300,6 +309,19 @@ struct DecoderBuffer {
   DecryptConfig? decrypt_config;
 
   DecoderBufferSideData? side_data;
+};
+
+// This defines a mojo transport format for an EOS media::DecoderBuffer.
+struct EosDecoderBuffer {
+  // Indicates that the EOS is for a config change. Decoders may make more
+  // optimal flushing decisions using this information.
+  DecoderBufferSideDataNextConfig? next_config;
+};
+
+// Possible choices for DecoderBuffer types.
+union DecoderBuffer {
+  EosDecoderBuffer eos;
+  DataDecoderBuffer data;
 };
 
 // This defines a mojo transport format for media::AudioBuffer.
@@ -446,6 +468,7 @@ union VideoFrameData {
   EosVideoFrameData eos_data;
   SharedMemoryVideoFrameData shared_memory_data;
   GpuMemoryBufferSharedImageVideoFrameData gpu_memory_buffer_shared_image_data;
+  [EnableIf=is_linux_or_chromeos]
   MailboxVideoFrameData mailbox_data;
   SharedImageVideoFrameData shared_image_data;
 };
@@ -472,10 +495,10 @@ struct GpuMemoryBufferSharedImageVideoFrameData {
   uint32 texture_target;
 };
 
+[EnableIf=is_linux_or_chromeos]
 // This defines video frame data stored in texture mailbox.
 struct MailboxVideoFrameData {
-  gpu.mojom.MailboxHolder mailbox_holder;
-  gpu.mojom.VulkanYCbCrInfo? ycbcr_data;
+  gpu.mojom.Mailbox mailbox;
 };
 
 // This defines video frame data stored in texture shared images.
@@ -619,4 +642,13 @@ enum CreateCdmStatus {
   kInsufficientGpuResources,
   kCrOsVerifiedAccessDisabled,
   kCrOsRemoteFactoryCreationFailed,
+  kAndroidMediaDrmIllegalArgument,
+  kAndroidMediaDrmIllegalState,
+  kAndroidFailedL1SecurityLevel,
+  kAndroidFailedL3SecurityLevel,
+  kAndroidFailedSecurityOrigin,
+  kAndroidFailedMediaCryptoSession,
+  kAndroidFailedToStartProvisioning,
+  kAndroidFailedMediaCryptoCreate,
+  kAndroidUnsupportedMediaCryptoScheme,
 };

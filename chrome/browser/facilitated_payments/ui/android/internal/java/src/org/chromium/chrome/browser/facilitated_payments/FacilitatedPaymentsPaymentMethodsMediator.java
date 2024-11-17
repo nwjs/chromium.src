@@ -8,6 +8,7 @@ import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymen
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.BankAccountProperties.BANK_ACCOUNT_DRAWABLE_ID;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.BankAccountProperties.BANK_ACCOUNT_ICON_BITMAP;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.BankAccountProperties.BANK_ACCOUNT_SUMMARY;
+import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.BankAccountProperties.BANK_ACCOUNT_TRANSACTION_LIMIT;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.BankAccountProperties.BANK_NAME;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.BankAccountProperties.ON_BANK_ACCOUNT_CLICK_ACTION;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.ErrorScreenProperties.PRIMARY_BUTTON_CALLBACK;
@@ -60,6 +61,8 @@ import java.util.stream.StreamSupport;
  * reacts to events like clicks.
  */
 class FacilitatedPaymentsPaymentMethodsMediator {
+    static final String PIX_BANK_ACCOUNT_TRANSACTION_LIMIT = "500";
+
     private Context mContext;
     private PropertyModel mModel;
     private Delegate mDelegate;
@@ -147,7 +150,7 @@ class FacilitatedPaymentsPaymentMethodsMediator {
                 FacilitatedPaymentsPaymentMethodsProperties.ItemType.HEADER,
                 new PropertyModel.Builder(HeaderProperties.ALL_KEYS)
                         .with(DESCRIPTION_ID, R.string.pix_payment_methods_bottom_sheet_description)
-                        .with(IMAGE_DRAWABLE_ID, R.drawable.pix_gpay_logo)
+                        .with(IMAGE_DRAWABLE_ID, R.drawable.gpay_pix_logo)
                         .with(TITLE_ID, R.string.pix_payment_methods_bottom_sheet_title)
                         .build());
     }
@@ -169,7 +172,7 @@ class FacilitatedPaymentsPaymentMethodsMediator {
                 new PropertyModel.Builder(AdditionalInfoProperties.ALL_KEYS)
                         .with(
                                 AdditionalInfoProperties.DESCRIPTION_ID,
-                                R.string.pix_payment_consent_note)
+                                R.string.pix_payment_additional_info)
                         .with(
                                 SHOW_PAYMENT_METHOD_SETTINGS_CALLBACK,
                                 () -> mDelegate.showFinancialAccountsManagementSettings(mContext))
@@ -184,6 +187,9 @@ class FacilitatedPaymentsPaymentMethodsMediator {
                         .with(
                                 BANK_ACCOUNT_SUMMARY,
                                 getBankAccountSummaryString(context, bankAccount))
+                        .with(
+                                BANK_ACCOUNT_TRANSACTION_LIMIT,
+                                getBankAccountTransactionLimit(context))
                         .with(
                                 ON_BANK_ACCOUNT_CLICK_ACTION,
                                 () -> this.onBankAccountSelected(bankAccount));
@@ -216,6 +222,13 @@ class FacilitatedPaymentsPaymentMethodsMediator {
                         R.string.settings_pix_bank_account_identifer,
                         getBankAccountTypeString(context, bankAccount.getAccountType()),
                         bankAccount.getAccountNumberSuffix());
+    }
+
+    static String getBankAccountTransactionLimit(Context context) {
+        return context.getResources()
+                .getString(
+                        R.string.pix_bank_account_transaction_limit,
+                        PIX_BANK_ACCOUNT_TRANSACTION_LIMIT);
     }
 
     @VisibleForTesting

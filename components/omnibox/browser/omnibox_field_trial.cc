@@ -610,70 +610,6 @@ std::string OmniboxFieldTrial::OnDeviceHeadModelLocaleConstraint(
   return constraint;
 }
 
-// Omnibox UI simplification - Uniform Suggestion Row Heights
-const base::FeatureParam<bool> OmniboxFieldTrial::kSquareSuggestIconAnswers(
-    &omnibox::kSquareSuggestIcons,
-    "OmniboxSquareSuggestIconAnswers",
-    true);
-const base::FeatureParam<bool> OmniboxFieldTrial::kSquareSuggestIconIcons(
-    &omnibox::kSquareSuggestIcons,
-    "OmniboxSquareSuggestIconIcons",
-    false);
-const base::FeatureParam<bool> OmniboxFieldTrial::kSquareSuggestIconEntities(
-    &omnibox::kSquareSuggestIcons,
-    "OmniboxSquareSuggestIconEntities",
-    false);
-const base::FeatureParam<double>
-    OmniboxFieldTrial::kSquareSuggestIconEntitiesScale(
-        &omnibox::kSquareSuggestIcons,
-        "OmniboxSquareSuggestIconEntitiesScale",
-        0.8722);
-const base::FeatureParam<bool> OmniboxFieldTrial::kSquareSuggestIconWeather(
-    &omnibox::kSquareSuggestIcons,
-    "OmniboxSquareSuggestIconWeather",
-    true);
-
-bool OmniboxFieldTrial::IsUniformRowHeightEnabled() {
-  return base::FeatureList::IsEnabled(omnibox::kUniformRowHeight);
-}
-
-const base::FeatureParam<int> OmniboxFieldTrial::kRichSuggestionVerticalMargin(
-    &omnibox::kUniformRowHeight,
-    "OmniboxRichSuggestionVerticalMargin",
-    6);
-
-bool OmniboxFieldTrial::IsGM3TextStyleEnabled() {
-  return base::FeatureList::IsEnabled(omnibox::kOmniboxSteadyStateTextStyle);
-}
-
-// In order to control the value of this "font size" param via Finch, the
-// `kOmniboxSteadyStateTextStyle` feature flag must be enabled.
-//
-// Enabling `ChromeRefresh2023` Level 2 while leaving the
-// `kOmniboxSteadyStateTextStyle` flag disabled, will result in the param being
-// locked to its default value and ignoring any overrides provided via Finch.
-//
-// If neither `ChromeRefresh2023` Level 2 nor `kOmniboxSteadyStateTextStyle` are
-// enabled, then this "font size" param will have zero effect on Chrome UI.
-const base::FeatureParam<int> OmniboxFieldTrial::kFontSizeTouchUI(
-    &omnibox::kOmniboxSteadyStateTextStyle,
-    "OmniboxFontSizeTouchUI",
-    15);
-
-// In order to control the value of this "font size" param via Finch, the
-// `kOmniboxSteadyStateTextStyle` feature flag must be enabled.
-//
-// Enabling `ChromeRefresh2023` Level 2 while leaving the
-// `kOmniboxSteadyStateTextStyle` flag disabled, will result in the param being
-// locked to its default value and ignoring any overrides provided via Finch.
-//
-// If neither `ChromeRefresh2023` Level 2 nor `kOmniboxSteadyStateTextStyle` are
-// enabled, then this "font size" param will have zero effect on Chrome UI.
-const base::FeatureParam<int> OmniboxFieldTrial::kFontSizeNonTouchUI(
-    &omnibox::kOmniboxSteadyStateTextStyle,
-    "OmniboxFontSizeNonTouchUI",
-    13);
-
 const char OmniboxFieldTrial::kBundledExperimentFieldTrialName[] =
     "OmniboxBundledExperimentV1";
 const char OmniboxFieldTrial::kDisableProvidersRule[] = "DisableProviders";
@@ -1169,7 +1105,8 @@ const base::FeatureParam<int>
 const base::FeatureParam<std::string> kGeminiUrlOverride(
     &omnibox::kStarterPackExpansion,
     "StarterPackGeminiUrlOverride",
-    "https://gemini.google.com/prompt");
+    "https://gemini.google.com/prompt?"
+    "utm_source=chrome_omnibox&utm_medium=owned&utm_campaign=gemini_shortcut");
 
 bool IsStarterPackExpansionEnabled() {
   return base::FeatureList::IsEnabled(omnibox::kStarterPackExpansion);

@@ -125,7 +125,7 @@ class NATIVE_THEME_EXPORT NativeTheme {
     kOff = 0,
     kDusk = 1,
     kDesert = 2,
-    kBlack = 3,
+    kNightSky = 3,
     kWhite = 4,
     kHighContrast = 5,
     kMaxValue = kHighContrast,
@@ -148,10 +148,6 @@ class NATIVE_THEME_EXPORT NativeTheme {
     kMaxValue = kCustom,
   };
 
-  // IMPORTANT!
-  // This enum is reported in metrics. Do not reorder; add additional values at
-  // the end.
-  //
   // This represents the OS-level high contrast theme. kNone unless the default
   // system color scheme is kPlatformHighContrast.
   enum class PlatformHighContrastColorScheme {

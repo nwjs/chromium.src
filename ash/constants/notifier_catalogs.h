@@ -202,7 +202,10 @@ enum class NotificationCatalogName {
   kOnDeviceAppControls = 183,
   kFaceGazeAssetsDownloaded = 184,
   kFaceGazeAssetsFailed = 185,
-  kMaxValue = kFaceGazeAssetsFailed
+  kDeviceRestrictionScheduleUpcomingLogout = 186,
+  kDeviceRestrictionSchedulePostLogout = 187,
+  kTrackpadDisabled = 188,
+  kMaxValue = kTrackpadDisabled
 };
 
 // A living catalog that registers system nudges.
@@ -251,7 +254,8 @@ enum class NudgeCatalogName {
   kBirchPrivacy = 35,
   kVideoConferenceTraySidetoneNotSupported = 36,
   kVideoConferenceTraySidetoneEnabled = 37,
-  kMaxValue = kVideoConferenceTraySidetoneEnabled
+  kGraduationAppEnabled = 38,
+  kMaxValue = kGraduationAppEnabled
 };
 
 // A living catalog that registers toasts.
@@ -311,7 +315,8 @@ enum class ToastCatalogName {
   kAppNotClosable = 49,
   kGameDashboardEnterTablet = 50,
   kInformedRestoreOnboarding = 51,
-  kMaxValue = kInformedRestoreOnboarding
+  kTrackpadDisabled = 52,
+  kMaxValue = kTrackpadDisabled
 };
 
 }  // namespace ash

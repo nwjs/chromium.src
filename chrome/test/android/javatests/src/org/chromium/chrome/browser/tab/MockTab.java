@@ -48,11 +48,11 @@ public class MockTab extends TabImpl {
     }
 
     public MockTab(int id, Profile profile) {
-        this(id, profile, null);
+        this(id, profile, TabLaunchType.UNSET);
     }
 
-    public MockTab(int id, Profile profile, @TabLaunchType Integer type) {
-        super(id, profile, type);
+    public MockTab(int id, Profile profile, @TabLaunchType int tabLaunchType) {
+        super(id, profile, tabLaunchType);
     }
 
     @Override
@@ -155,6 +155,7 @@ public class MockTab extends TabImpl {
         return mTimestampMillis;
     }
 
+    @Override
     public void setTimestampMillis(long timestampMillis) {
         mTimestampMillis = timestampMillis;
     }

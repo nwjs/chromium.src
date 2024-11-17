@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/containers/fixed_flat_set.h"
 #include "base/features.h"
 #include "base/memory/shared_memory_mapping.h"
 #include "base/memory/unsafe_shared_memory_region.h"
@@ -72,8 +73,8 @@ BASE_FEATURE(kExpandMediaFoundationEncodingResolutions,
 namespace {
 constexpr uint32_t kDefaultGOPLength = 3000;
 constexpr uint32_t kDefaultTargetBitrate = 5000000u;
-constexpr size_t kMaxFrameRateNumerator = 30;
-constexpr size_t kMaxFrameRateDenominator = 1;
+constexpr size_t kDefaultFrameRateNumerator = 30;
+constexpr size_t kDefaultFrameRateDenominator = 1;
 constexpr size_t kNumInputBuffers = 3;
 // Media Foundation uses 100 nanosecond units for time, see
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms697282(v=vs.85).aspx.
@@ -92,13 +93,9 @@ constexpr uint8_t kVP9MaxQuantizer = 56;
 constexpr uint8_t kAV1MinQuantizer = 10;
 // //third_party/webrtc/media/engine/webrtc_video_engine.h.
 constexpr uint8_t kAV1MaxQuantizer = 56;
-constexpr gfx::Size k2KMaxResolution(1920, 1088);
-constexpr gfx::Size k4KMaxResolution(3840, 2160);
-constexpr gfx::Size k8KMaxResolution(7680, 4320);
-constexpr gfx::Size kMinResolution(32, 32);
 
 // The range for the quantization parameter is determined by examining the
-// estamitaed QP values from the SW bitrate controller in various encoding
+// estimated QP values from the SW bitrate controller in various encoding
 // scenarios.
 constexpr uint8_t kH264MinQuantizer = 16;
 constexpr uint8_t kH264MaxQuantizer = 51;
@@ -111,6 +108,49 @@ constexpr uint8_t kH264MaxQuantizer = 51;
 constexpr uint8_t kH265MinQuantizer = 10;
 constexpr uint8_t kH265MaxQuantizer = 42;
 #endif  // BUILDFLAG(ENABLE_PLATFORM_HEVC)
+
+// NV12 is supported natively by all hardware encoders.  Other
+// formats can be converted by MediaFoundationVideoProcessorAccelerator.
+// In the future, specific encoders may also be queried for support
+// for additional formats.  For example, ARGB may be accepted by
+// some encoders directly, or AV1 encoders may accept some 4:4:4
+// formats.
+constexpr auto kSupportedPixelFormats =
+    base::MakeFixedFlatSet<VideoPixelFormat>(
+        {PIXEL_FORMAT_I420, PIXEL_FORMAT_NV12});
+constexpr auto kSupportedPixelFormatsD3DVideoProcessing =
+    base::MakeFixedFlatSet<VideoPixelFormat>(
+        {PIXEL_FORMAT_I420, PIXEL_FORMAT_NV12, PIXEL_FORMAT_YV12,
+         PIXEL_FORMAT_NV21, PIXEL_FORMAT_ARGB, PIXEL_FORMAT_XRGB});
+
+// The default supported max framerate and resolution.
+constexpr FramerateAndResolution kDefaultMaxFramerateAndResolution = {
+    kDefaultFrameRateNumerator / kDefaultFrameRateDenominator,
+    gfx::Size(1920, 1080)};
+
+// For H.264, some NVIDIA GPUs may report `MF_VIDEO_MAX_MB_PER_SEC` value equals
+// to `6799902`, resulting chromium think 8K & 30fps is supported, and some
+// Intel GPUs only support level 5.2. Since most devices only support up to 4K,
+// so we set level 5.2 as the max allowed level here to limit max resolution and
+// framerate combination can only go up to 2K & 172fps, or 4K & 66fps.
+constexpr FramerateAndResolution kLegacy2KMaxFramerateAndResolution = {
+    172, gfx::Size(1920, 1080)};
+constexpr FramerateAndResolution kLegacy4KMaxFramerateAndResolution = {
+    66, gfx::Size(3840, 2160)};
+
+// For H.265/AV1, some NVIDIA GPUs may report `MF_VIDEO_MAX_MB_PER_SEC` value
+// equals to `7255273`, resulting chromium think 2K & 880fps is supported. Since
+// the max level of H.265/AV1 (6.2/6.3) do not allow framerate >= 300fps, so we
+// set level 6.2/6.3 as the max allowed level here and limit max resolution and
+// framerate combination can only go up to 2K/4K & 300fps, 8K & 128fps.
+constexpr FramerateAndResolution kModern2KMaxFramerateAndResolution = {
+    300, gfx::Size(1920, 1080)};
+constexpr FramerateAndResolution kModern4KMaxFramerateAndResolution = {
+    300, gfx::Size(3840, 2160)};
+constexpr FramerateAndResolution kModern8KMaxFramerateAndResolution = {
+    128, gfx::Size(7680, 4320)};
+
+constexpr gfx::Size kMinResolution(32, 32);
 
 constexpr CLSID kIntelAV1HybridEncoderCLSID = {
     0x62c053ce,
@@ -574,77 +614,114 @@ std::vector<ComPtr<IMFActivate>> EnumerateHardwareEncoders(VideoCodec codec) {
   return encoders;
 }
 
-UINT32 VideoCodecToMFVideoLevel(VideoCodec code) {
-  switch (code) {
-    case VideoCodec::kH264:
-      return eAVEncH264VLevel5_2;
-    case VideoCodec::kAV1:
-      return eAVEncAV1VLevel5_2;
-    case VideoCodec::kHEVC:
-      return eAVEncH265VLevel5_2;
-    default:
-      NOTREACHED();
-  }
+uint32_t CalculateMaxFramerateFromMacroBlocksPerSecond(
+    const FramerateAndResolution& max_framerate_and_resolution,
+    uint32_t max_macroblocks_per_second) {
+  constexpr uint64_t kMacroBlockWidth = 16u;
+  constexpr uint64_t kMacroBlockHeight = 16u;
+
+  uint64_t max_possible_framerate = std::floor(
+      (max_macroblocks_per_second * kMacroBlockWidth * kMacroBlockHeight) /
+      max_framerate_and_resolution.resoluion.Area64());
+
+  return std::clamp(static_cast<uint32_t>(max_possible_framerate), 1u,
+                    max_framerate_and_resolution.frame_rate);
 }
 
-constexpr DWORD CalculateMacroBlocksPerSecond(const gfx::Size& size) {
-  constexpr DWORD kMacroBlockWidth = 16u;
-  constexpr DWORD kMacroBlockHeight = 16u;
-  constexpr DWORD kMacroBlockFrameRate = 30u;
-  return (size.GetArea() * kMacroBlockFrameRate) /
-         (kMacroBlockWidth * kMacroBlockHeight);
-}
-
-gfx::Size GetMaxResolutionFromMFT(VideoCodec codec, IMFTransform* encoder) {
+std::vector<FramerateAndResolution> GetMaxFramerateAndResolutionsFromMFT(
+    VideoCodec codec,
+    IMFTransform* encoder) {
   ComPtr<IMFMediaType> media_type;
+  std::vector<FramerateAndResolution> framerate_and_resolutions = {
+      kDefaultMaxFramerateAndResolution};
   RETURN_ON_HR_FAILURE(MFCreateMediaType(&media_type),
-                       "Create media type failed", k2KMaxResolution);
+                       "Create media type failed", framerate_and_resolutions);
   RETURN_ON_HR_FAILURE(media_type->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video),
-                       "Set major type failed", k2KMaxResolution);
+                       "Set major type failed", framerate_and_resolutions);
   RETURN_ON_HR_FAILURE(
       media_type->SetGUID(MF_MT_SUBTYPE, VideoCodecToMFSubtype(codec)),
-      "Set guid for sub type failed", k2KMaxResolution);
+      "Set guid for sub type failed", framerate_and_resolutions);
   RETURN_ON_HR_FAILURE(
       MFSetAttributeSize(media_type.Get(), MF_MT_FRAME_SIZE,
-                         k2KMaxResolution.width(), k2KMaxResolution.height()),
-      "Set attribute size failed", k2KMaxResolution);
+                         kDefaultMaxFramerateAndResolution.resoluion.width(),
+                         kDefaultMaxFramerateAndResolution.resoluion.height()),
+      "Set attribute size failed", framerate_and_resolutions);
   // Frame rate,30, is dummy value for pass through.
-  RETURN_ON_HR_FAILURE(MFSetAttributeRatio(media_type.Get(), MF_MT_FRAME_RATE,
-                                           /*unNumerator=*/30,
-                                           /*unDenominator=*/1),
-                       "Set attribute ratio failed", k2KMaxResolution);
+  RETURN_ON_HR_FAILURE(
+      MFSetAttributeRatio(
+          media_type.Get(), MF_MT_FRAME_RATE,
+          /*unNumerator=*/kDefaultMaxFramerateAndResolution.frame_rate,
+          /*unDenominator=*/1),
+      "Set attribute ratio failed", framerate_and_resolutions);
   RETURN_ON_HR_FAILURE(media_type->SetUINT32(MF_MT_AVG_BITRATE, 9000000),
-                       "Set avg bitrate failed", k2KMaxResolution);
+                       "Set avg bitrate failed", framerate_and_resolutions);
   RETURN_ON_HR_FAILURE(
       media_type->SetUINT32(MF_MT_INTERLACE_MODE, MFVideoInterlace_Progressive),
-      "Set interlace mode failed", k2KMaxResolution);
+      "Set interlace mode failed", framerate_and_resolutions);
 
   if (codec != VideoCodec::kVP9) {
-    RETURN_ON_HR_FAILURE(media_type->SetUINT32(MF_MT_VIDEO_LEVEL,
-                                               VideoCodecToMFVideoLevel(codec)),
-                         "Set video level failed", k2KMaxResolution);
+    UINT32 max_level;
+    switch (codec) {
+      case VideoCodec::kH264:
+        max_level = eAVEncH264VLevel5_2;
+        break;
+      case VideoCodec::kAV1:
+        max_level = eAVEncAV1VLevel6_3;
+        break;
+      case VideoCodec::kHEVC:
+        max_level = eAVEncH265VLevel6_2;
+        break;
+      default:
+        NOTREACHED();
+    }
+    RETURN_ON_HR_FAILURE(media_type->SetUINT32(MF_MT_VIDEO_LEVEL, max_level),
+                         "Set video level failed", framerate_and_resolutions);
   }
 
   RETURN_ON_HR_FAILURE(
       encoder->SetOutputType(/*stream_id=*/0, media_type.Get(), 0),
-      "Set output type failed", k2KMaxResolution);
+      "Set output type failed", framerate_and_resolutions);
 
   ComPtr<IMFAttributes> attributes;
   RETURN_ON_HR_FAILURE(encoder->GetAttributes(&attributes),
-                       "Get attributes failed", k2KMaxResolution);
+                       "Get attributes failed", framerate_and_resolutions);
   uint32_t max_macroblocks_per_second =
       MFGetAttributeUINT32(attributes.Get(), MF_VIDEO_MAX_MB_PER_SEC, 0);
   max_macroblocks_per_second &=
       0x0fffffff;  // Only lower 28 bits are supported.
 
-  if (max_macroblocks_per_second >=
-      CalculateMacroBlocksPerSecond(k8KMaxResolution)) {
-    return k8KMaxResolution;
-  } else if (max_macroblocks_per_second >=
-             CalculateMacroBlocksPerSecond(k4KMaxResolution)) {
-    return k4KMaxResolution;
+  std::vector<FramerateAndResolution> max_framerate_and_resolutions;
+  if (codec == VideoCodec::kH264) {
+    max_framerate_and_resolutions.push_back(kLegacy2KMaxFramerateAndResolution);
+    max_framerate_and_resolutions.push_back(kLegacy4KMaxFramerateAndResolution);
+  } else {
+    max_framerate_and_resolutions.push_back(kModern2KMaxFramerateAndResolution);
+    max_framerate_and_resolutions.push_back(kModern4KMaxFramerateAndResolution);
+    max_framerate_and_resolutions.push_back(kModern8KMaxFramerateAndResolution);
   }
-  return k2KMaxResolution;
+
+  framerate_and_resolutions.clear();
+  for (auto& max_framerate_and_resolution : max_framerate_and_resolutions) {
+    FramerateAndResolution framerate_and_resolution = {
+        CalculateMaxFramerateFromMacroBlocksPerSecond(
+            max_framerate_and_resolution, max_macroblocks_per_second),
+        max_framerate_and_resolution.resoluion};
+
+    // Only if the calculated framerate >= the default framerate, we then
+    // consider this resolution & framerate combination is supported.
+    if (framerate_and_resolution.frame_rate >=
+        (kDefaultFrameRateNumerator / kDefaultFrameRateDenominator)) {
+      framerate_and_resolutions.push_back(framerate_and_resolution);
+    }
+  }
+
+  // If the received value of `max_macroblocks_per_second` equals to zero,
+  // assign a default value here.
+  if (framerate_and_resolutions.empty()) {
+    framerate_and_resolutions.push_back(kDefaultMaxFramerateAndResolution);
+  }
+
+  return framerate_and_resolutions;
 }
 
 int GetMaxTemporalLayer(VideoCodec codec,
@@ -783,6 +860,7 @@ MediaFoundationVideoEncodeAccelerator::MediaFoundationVideoEncodeAccelerator(
     CHROME_LUID luid)
     : task_runner_(base::SingleThreadTaskRunner::GetCurrentDefault()),
       luid_(luid),
+      gpu_preferences_(gpu_preferences),
       workarounds_(gpu_workarounds) {
   weak_ptr_ = weak_factory_.GetWeakPtr();
   bitrate_allocation_.SetBitrate(0, 0, kDefaultTargetBitrate);
@@ -828,7 +906,8 @@ MediaFoundationVideoEncodeAccelerator::GetSupportedProfiles() {
       bitrate_mode |= VideoEncodeAccelerator::kExternalMode;
     }
 
-    gfx::Size max_resolution = k2KMaxResolution;
+    std::vector<FramerateAndResolution> max_framerate_and_resolutions = {
+        kDefaultMaxFramerateAndResolution};
 
     if (base::FeatureList::IsEnabled(
             kExpandMediaFoundationEncodingResolutions)) {
@@ -845,47 +924,60 @@ MediaFoundationVideoEncodeAccelerator::GetSupportedProfiles() {
       }
 
       CHECK(encoder);
-      max_resolution = GetMaxResolutionFromMFT(codec, encoder.Get());
-      DVLOG(3) << __func__ << ": " << codec
-               << " codec, max resolution width: " << max_resolution.width()
-               << ", height: " << max_resolution.height();
+      max_framerate_and_resolutions =
+          GetMaxFramerateAndResolutionsFromMFT(codec, encoder.Get());
       activate->ShutdownObject();
     }
 
-    SupportedProfile profile(VIDEO_CODEC_PROFILE_UNKNOWN, max_resolution,
-                             kMaxFrameRateNumerator, kMaxFrameRateDenominator,
-                             bitrate_mode, {SVCScalabilityMode::kL1T1});
-    profile.min_resolution = kMinResolution;
+    for (auto& max_framerate_and_resolution : max_framerate_and_resolutions) {
+      DVLOG(3) << __func__ << ": " << codec << " codec, max resolution width: "
+               << max_framerate_and_resolution.resoluion.width() << ", height: "
+               << max_framerate_and_resolution.resoluion.height()
+               << ", framerate: " << max_framerate_and_resolution.frame_rate;
 
-    if (!workarounds_.disable_svc_encoding) {
-      if (num_temporal_layers >= 2) {
-        profile.scalability_modes.push_back(SVCScalabilityMode::kL1T2);
+      SupportedProfile profile(VIDEO_CODEC_PROFILE_UNKNOWN,
+                               max_framerate_and_resolution.resoluion,
+                               max_framerate_and_resolution.frame_rate *
+                                   kDefaultFrameRateDenominator,
+                               kDefaultFrameRateDenominator, bitrate_mode,
+                               {SVCScalabilityMode::kL1T1});
+      profile.min_resolution = kMinResolution;
+
+      if (!workarounds_.disable_svc_encoding) {
+        if (num_temporal_layers >= 2) {
+          profile.scalability_modes.push_back(SVCScalabilityMode::kL1T2);
+        }
+        if (num_temporal_layers >= 3) {
+          profile.scalability_modes.push_back(SVCScalabilityMode::kL1T3);
+        }
       }
-      if (num_temporal_layers >= 3) {
-        profile.scalability_modes.push_back(SVCScalabilityMode::kL1T3);
+
+      if (base::FeatureList::IsEnabled(kMediaFoundationD3DVideoProcessing)) {
+        base::ranges::copy(kSupportedPixelFormatsD3DVideoProcessing,
+                           profile.gpu_supported_pixel_formats.begin());
       }
-    }
 
-    SupportedProfile portrait_profile(profile);
-    portrait_profile.max_resolution.Transpose();
-    portrait_profile.min_resolution.Transpose();
+      SupportedProfile portrait_profile(profile);
+      portrait_profile.max_resolution.Transpose();
+      portrait_profile.min_resolution.Transpose();
 
-    std::vector<VideoCodecProfile> codec_profiles;
-    if (codec == VideoCodec::kH264) {
-      codec_profiles = {H264PROFILE_BASELINE, H264PROFILE_MAIN,
-                        H264PROFILE_HIGH};
-    } else if (codec == VideoCodec::kVP9) {
-      codec_profiles = {VP9PROFILE_PROFILE0};
-    } else if (codec == VideoCodec::kAV1) {
-      codec_profiles = {AV1PROFILE_PROFILE_MAIN};
-    } else if (codec == VideoCodec::kHEVC) {
-      codec_profiles = {HEVCPROFILE_MAIN};
-    }
+      std::vector<VideoCodecProfile> codec_profiles;
+      if (codec == VideoCodec::kH264) {
+        codec_profiles = {H264PROFILE_BASELINE, H264PROFILE_MAIN,
+                          H264PROFILE_HIGH};
+      } else if (codec == VideoCodec::kVP9) {
+        codec_profiles = {VP9PROFILE_PROFILE0};
+      } else if (codec == VideoCodec::kAV1) {
+        codec_profiles = {AV1PROFILE_PROFILE_MAIN};
+      } else if (codec == VideoCodec::kHEVC) {
+        codec_profiles = {HEVCPROFILE_MAIN};
+      }
 
-    for (const auto codec_profile : codec_profiles) {
-      profile.profile = portrait_profile.profile = codec_profile;
-      profiles.push_back(profile);
-      profiles.push_back(portrait_profile);
+      for (const auto codec_profile : codec_profiles) {
+        profile.profile = portrait_profile.profile = codec_profile;
+        profiles.push_back(profile);
+        profiles.push_back(portrait_profile);
+      }
     }
   }
 
@@ -900,8 +992,18 @@ bool MediaFoundationVideoEncodeAccelerator::Initialize(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   media_log_ = std::move(media_log);
 
-  if (PIXEL_FORMAT_I420 != config.input_format &&
-      PIXEL_FORMAT_NV12 != config.input_format) {
+  bool is_supported_format = false;
+  if (base::FeatureList::IsEnabled(kMediaFoundationD3DVideoProcessing)) {
+    is_supported_format =
+        base::ranges::find(kSupportedPixelFormatsD3DVideoProcessing,
+                           config.input_format) != kSupportedPixelFormats.end();
+  } else {
+    is_supported_format =
+        base::ranges::find(kSupportedPixelFormats, config.input_format) !=
+        kSupportedPixelFormats.end();
+  }
+
+  if (!is_supported_format) {
     MEDIA_LOG(ERROR, media_log_)
         << "Input format not supported= "
         << VideoPixelFormatToString(config.input_format);
@@ -954,7 +1056,7 @@ bool MediaFoundationVideoEncodeAccelerator::Initialize(
   if (config.framerate > 0) {
     frame_rate_ = config.framerate;
   } else {
-    frame_rate_ = kMaxFrameRateNumerator / kMaxFrameRateDenominator;
+    frame_rate_ = kDefaultFrameRateNumerator / kDefaultFrameRateDenominator;
   }
   bitrate_allocation_ = AllocateBitrateForDefaultEncoding(config);
 
@@ -1120,6 +1222,44 @@ bool MediaFoundationVideoEncodeAccelerator::Initialize(
     encoder_info_sent_ = true;
   }
 
+  if (!base::FeatureList::IsEnabled(kMediaFoundationD3DVideoProcessing) ||
+      config.input_format == PIXEL_FORMAT_NV12) {
+    return true;
+  }
+
+  mf_video_processor_ =
+      std::make_unique<MediaFoundationVideoProcessorAccelerator>(
+          gpu_preferences_, workarounds_);
+  MediaFoundationVideoProcessorAccelerator::Config vp_config;
+  vp_config.input_format = config.input_format;
+  vp_config.input_visible_size = config.input_visible_size;
+  // Primaries information is provided per frame and will be
+  // attached to the corresponding IMFSample.  This color
+  // space information now serves as a default if frame
+  // primaries are unknown.
+  vp_config.input_color_space = gfx::ColorSpace::CreateREC709();
+  vp_config.output_format = VideoPixelFormat::PIXEL_FORMAT_NV12;
+  vp_config.output_visible_size = config.input_visible_size;
+  vp_config.output_color_space = gfx::ColorSpace::CreateREC709();
+  if (dxgi_resource_mapping_required_) {
+    hr = mf_video_processor_->Initialize(vp_config, nullptr,
+                                         media_log_->Clone());
+  } else {
+    hr = mf_video_processor_->Initialize(vp_config, dxgi_device_manager_,
+                                         media_log_->Clone());
+  }
+
+  if (FAILED(hr)) {
+    NotifyErrorStatus({EncoderStatus::Codes::kEncoderInitializationError,
+                       "Couldn't initialize MF video processor for color "
+                       "format conversion"});
+    return false;
+  }
+
+  MEDIA_LOG(INFO, media_log_)
+      << "Using video processor to convert from " << config.input_format
+      << " to encoder accepted " << vp_config.output_format;
+
   return true;
 }
 
@@ -1139,7 +1279,7 @@ void MediaFoundationVideoEncodeAccelerator::Encode(
     // Force a fake frame in between two key frames that come in a row. The
     // MFVEA will discard the output of this frame, and the client will never
     // see any side effects, but it helps working around crbug.com/1473665.
-    EncodeOptions discard_options(/*force_keyframe=*/false);
+    EncodeOptions discard_options(/*key_frame=*/false);
     EncodeInternal(frame, discard_options, /*discard_output=*/true);
   }
 
@@ -1155,7 +1295,7 @@ void MediaFoundationVideoEncodeAccelerator::Encode(
         input_since_keyframe_count_ + pending_input_queue_.size(),
         num_temporal_layers_);
     for (uint32_t i = 0; i < distance_to_base_layer; ++i) {
-      EncodeOptions discard_options(/*force_keyframe=*/false);
+      EncodeOptions discard_options(/*key_frame=*/false);
       EncodeInternal(frame, discard_options, /*discard_output=*/true);
     }
   }
@@ -1294,8 +1434,9 @@ void MediaFoundationVideoEncodeAccelerator::RequestEncodingParametersChange(
     return;
   }
 
-  framerate =
-      std::clamp(framerate, 1u, static_cast<uint32_t>(kMaxFrameRateNumerator));
+  framerate = std::clamp(framerate, 1u,
+                         static_cast<uint32_t>(kDefaultFrameRateNumerator /
+                                               kDefaultFrameRateDenominator));
 
   if (framerate == frame_rate_ && bitrate_allocation == bitrate_allocation_ &&
       !size.has_value()) {
@@ -1357,25 +1498,31 @@ void MediaFoundationVideoEncodeAccelerator::RequestEncodingParametersChange(
 }
 
 bool MediaFoundationVideoEncodeAccelerator::IsFrameSizeAllowed(gfx::Size size) {
-  if (max_resolution_.IsEmpty()) {
+  if (max_framerate_and_resolutions_.empty()) {
     DCHECK(encoder_);
-    max_resolution_ = GetMaxResolutionFromMFT(codec_, encoder_.Get());
+    max_framerate_and_resolutions_ =
+        GetMaxFramerateAndResolutionsFromMFT(codec_, encoder_.Get());
   }
 
-  if (size.width() >= kMinResolution.width() &&
-      size.height() >= kMinResolution.height() &&
-      size.width() <= max_resolution_.width() &&
-      size.height() <= max_resolution_.height()) {
-    return true;
+  for (auto& [frame_rate, resolution] : max_framerate_and_resolutions_) {
+    if (size.width() >= kMinResolution.width() &&
+        size.height() >= kMinResolution.height() &&
+        size.width() <= resolution.width() &&
+        size.height() <= resolution.height() && frame_rate_ <= frame_rate) {
+      return true;
+    }
+
+    size.Transpose();
+    if (size.width() >= kMinResolution.width() &&
+        size.height() >= kMinResolution.height() &&
+        size.width() <= resolution.width() &&
+        size.height() <= resolution.height() && frame_rate_ <= frame_rate) {
+      return true;
+    }
+
+    size.Transpose();
   }
 
-  size.Transpose();
-  if (size.width() >= kMinResolution.width() &&
-      size.height() >= kMinResolution.height() &&
-      size.width() <= max_resolution_.width() &&
-      size.height() <= max_resolution_.height()) {
-    return true;
-  }
   return false;
 }
 
@@ -2332,6 +2479,14 @@ HRESULT MediaFoundationVideoEncodeAccelerator::CopyInputSampleBufferFromGpu(
   RETURN_ON_HR_FAILURE(hr, "Failed to remove buffers from sample", hr);
   hr = input_sample_->AddBuffer(input_buffer.Get());
   RETURN_ON_HR_FAILURE(hr, "Failed to add buffer to sample", hr);
+
+  if (mf_video_processor_) {
+    // This sample needs color space conversion
+    ComMFSample vp_input_sample = std::move(input_sample_);
+    hr = mf_video_processor_->Convert(vp_input_sample.Get(), &input_sample_);
+    RETURN_ON_HR_FAILURE(hr, "Failed to convert input frame", hr);
+  }
+
   return S_OK;
 }
 
@@ -2342,6 +2497,20 @@ HRESULT MediaFoundationVideoEncodeAccelerator::PopulateInputSampleBufferGpu(
   DCHECK_EQ(frame->storage_type(),
             VideoFrame::StorageType::STORAGE_GPU_MEMORY_BUFFER);
   DCHECK(dxgi_device_manager_);
+
+  if (mf_video_processor_) {
+    // Using the MF video processor mitigates many of the issues handled below.
+    // - MFVP will resize if needed
+    // - MFVP acquires the texture's keyed mutex when available and
+    //    holds it only for the duration needed.
+    // - MFVP will call SetCurrentLength on the output buffer
+    // - MFVP will output a different texture that can be used
+    //    as encoder input with no synchronization issues.
+    input_sample_ = nullptr;
+    HRESULT hr = mf_video_processor_->Convert(frame, &input_sample_);
+    RETURN_ON_HR_FAILURE(hr, "Failed to convert input frame", hr);
+    return S_OK;
+  }
 
   gfx::GpuMemoryBufferHandle buffer_handle = frame->GetGpuMemoryBufferHandle();
   CHECK(!buffer_handle.is_null());
@@ -2431,7 +2600,7 @@ void MediaFoundationVideoEncodeAccelerator::ProcessOutput() {
   }
 
   RETURN_ON_HR_FAILURE(hr, "Couldn't get encoded data", );
-  DVLOG(3) << "Got encoded data " << hr;
+  DVLOG(3) << "Got encoded data: " << PrintHr(hr);
 
   ComMFSample output_sample;
   ComMFMediaBuffer output_buffer;

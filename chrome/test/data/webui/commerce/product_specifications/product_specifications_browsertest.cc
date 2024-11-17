@@ -94,14 +94,7 @@ IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, DisclosureApp) {
           "mocha.run()");
 }
 
-// TODO(crbug.com/365430929): Flaky on
-// linux-blink-web-tests-force-accessibility-rel.
-#if BUILDFLAG(IS_LINUX)
-#define MAYBE_DragAndDropManager DISABLED_DragAndDropManager
-#else
-#define MAYBE_DragAndDropManager DragAndDropManager
-#endif
-IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, MAYBE_DragAndDropManager) {
+IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, DragAndDropManager) {
   RunTest("commerce/product_specifications/drag_and_drop_manager_test.js",
           "mocha.run()");
 }
@@ -126,14 +119,7 @@ IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, LoadingState) {
           "mocha.run()");
 }
 
-// TODO(crbug.com/365430929): Flaky on
-// linux-blink-web-tests-force-accessibility-rel.
-#if BUILDFLAG(IS_LINUX)
-#define MAYBE_Table DISABLED_Table
-#else
-#define MAYBE_Table Table
-#endif
-IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, MAYBE_Table) {
+IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, Table) {
   RunTest("commerce/product_specifications/table_test.js", "mocha.run()");
 }
 

@@ -41,6 +41,9 @@ BASE_DECLARE_FEATURE(kUseConsentLevelSigninForLegacyAccountEmailPref);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(
     kDontFallbackToDefaultImplementationInAccountManagerFacade);
+
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kCctSignInPrompt);
 #endif
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -115,15 +118,6 @@ BASE_DECLARE_FEATURE(kImprovedSigninUIOnDesktop);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 bool IsImprovedSigninUIOnDesktopEnabled();
 
-// Controls the view mode for (history) sync screen.
-#if BUILDFLAG(IS_IOS)
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kMinorModeRestrictionsForHistorySyncOptIn);
-
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-extern const base::FeatureParam<int> kMinorModeRestrictionsFetchDeadlineMs;
-#endif
-
 #if BUILDFLAG(IS_IOS)
 // The feature that authorizes clear-cut to send log when UMA is enabled.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -131,6 +125,10 @@ BASE_DECLARE_FEATURE(kEnableClearCut);
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kRemoveSignedInAccountsDialog);
+
+// Features to enable identities in auth error (stale token).
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kEnableIdentityInAuthError);
 #endif
 
 // Pre-connectes the network socket for the Account Capabilities fetch, after
@@ -154,6 +152,9 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kBatchUploadDesktop);
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+bool IsBatchUploadDesktopEnabled();
+
 }  // namespace switches
 
 // TODO(crbug.com/337879458): Move switches below into the switches namespace.
@@ -162,9 +163,6 @@ BASE_DECLARE_FEATURE(kBatchUploadDesktop);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kStableDeviceId);
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kShowEnterpriseDialogForAllManagedAccountsSignin);
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kDisallowManagedProfileSignout);

@@ -6,7 +6,7 @@
 
 emulator_package {
   package_name: "chromium/third_party/android_sdk/public/emulator"
-  version: "fS1J2VhqKvbfzOX-30B8DEbVTfSF-CR5G0epjSFDa_QC"  # 34.2.15
+  version: "XS__KK27esI_4qZkc_Ybb_ooYjPfcIQ7DDOPUZGYW5wC"  # 35.1.21 (Stable)
   dest_path: "android_30_google_apis_x86"
 }
 
@@ -32,6 +32,24 @@ avd_settings {
   advanced_features {
     key: "GLESDynamicVersion"
     value: "on"
+  }
+}
+avd_variants {
+  key: "swarming"
+  value {
+    avd_properties {
+      key: "disk.dataPartition.size"
+      value: "4G"
+    }
+  }
+}
+avd_variants {
+  key: "local"
+  value {
+    avd_properties {
+      key: "disk.dataPartition.size"
+      value: "12G"
+    }
   }
 }
 

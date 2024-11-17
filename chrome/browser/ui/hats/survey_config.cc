@@ -11,6 +11,7 @@
 #include "base/strings/string_util.h"
 #include "chrome/common/chrome_features.h"
 #include "components/autofill/core/common/autofill_features.h"
+#include "components/lens/lens_features.h"
 #include "components/permissions/features.h"
 #include "components/permissions/permission_hats_trigger_helper.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
@@ -52,6 +53,7 @@ constexpr char kHatsSurveyTriggerDownloadWarningPageHeed[] =
     "download-warning-page-heed";
 constexpr char kHatsSurveyTriggerDownloadWarningPageIgnore[] =
     "download-warning-page-ignore";
+constexpr char kHatsSurveyTriggerLensOverlayResults[] = "lens-overlay-results";
 constexpr char kHatsSurveyTriggerM1AdPrivacyPage[] = "m1-ad-privacy-page";
 constexpr char kHatsSurveyTriggerM1TopicsSubpage[] = "m1-topics-subpage";
 constexpr char kHatsSurveyTriggerM1FledgeSubpage[] = "m1-fledge-subpage";
@@ -96,7 +98,6 @@ constexpr char kHatsSurveyTriggerTrustSafetyTrustedSurface[] =
     "ts-trusted-surface";
 constexpr char kHatsSurveyTriggerTrustSafetyTransactions[] = "ts-transactions";
 constexpr char kHatsSurveyTriggerWhatsNew[] = "whats-new";
-constexpr char kHatsSurveyTriggerWhatsNewAlternate[] = "whats-new-alternate";
 constexpr char kHatsSurveyTriggerTrustSafetyV2BrowsingData[] =
     "ts-v2-browsing-data";
 constexpr char kHatsSurveyTriggerTrustSafetyV2ControlGroup[] =
@@ -200,7 +201,13 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
   survey_configs.emplace_back(
       &privacy_sandbox::kPrivacySandboxSentimentSurvey,
       kHatsSurveyTriggerPrivacySandboxSentimentSurvey,
-      privacy_sandbox::kPrivacySandboxSentimentSurveyTriggerId.Get());
+      privacy_sandbox::kPrivacySandboxSentimentSurveyTriggerId.Get(),
+      /*product_specific_bits_data_fields=*/
+      std::vector<std::string>{"Topics enabled", "Protected audience enabled",
+                               "Measurement enabled", "Signed in"},
+      /*product_specific_string_data_fields=*/std::vector<std::string>{},
+      /*log_responses_to_uma=*/true,
+      /*log_responses_to_ukm=*/true);
 
 #if !BUILDFLAG(IS_ANDROID)
   // Dev tools surveys.
@@ -500,12 +507,7 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
   // What's New survey.2
   survey_configs.emplace_back(
       &features::kHappinessTrackingSurveysForDesktopWhatsNew,
-      kHatsSurveyTriggerWhatsNew, "SYLcvnoRH0ugnJ3q1cK0RAHYFycs");
-  // What's New survey for alternate studies. For example, compare
-  // v1 and v2 sentiments side-by-side.
-  survey_configs.emplace_back(
-      &features::kHappinessTrackingSurveysForDesktopWhatsNew,
-      kHatsSurveyTriggerWhatsNewAlternate, "6bnVh68QF0ugnJ3q1cK0NQxjpCFS");
+      kHatsSurveyTriggerWhatsNew);
 
   // Performance Controls surveys.
   survey_configs.emplace_back(
@@ -606,6 +608,12 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
       features::kHatsSurveyTriggerSafetyHubOneOffExperimentInteractionTriggerId
           .Get(),
       sh_psd_fields);
+
+  // Lens overlay surveys.
+  survey_configs.emplace_back(
+      &lens::features::kLensOverlaySurvey, kHatsSurveyTriggerLensOverlayResults,
+      /*presupplied_trigger_id=*/std::nullopt, std::vector<std::string>{},
+      std::vector<std::string>{"ID that's tied to your Google Lens session"});
 
 #else
   survey_configs.emplace_back(&chrome::android::kChromeSurveyNextAndroid,

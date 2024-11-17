@@ -69,8 +69,6 @@ CSSSelector::RelationType GetImplicitShadowCombinatorForMatching(
     case CSSSelector::PseudoType::kPseudoDetailsContent:
     case CSSSelector::PseudoType::kPseudoPlaceholder:
     case CSSSelector::PseudoType::kPseudoFileSelectorButton:
-    case CSSSelector::PseudoType::kPseudoSelectFallbackButton:
-    case CSSSelector::PseudoType::kPseudoSelectFallbackButtonText:
     case CSSSelector::PseudoType::kPseudoPicker:
       return CSSSelector::RelationType::kUAShadow;
     case CSSSelector::PseudoType::kPseudoPart:
@@ -1168,6 +1166,9 @@ bool IsUserActionPseudoClass(CSSSelector::PseudoType pseudo) {
 bool IsPseudoClassValidAfterPseudoElement(
     CSSSelector::PseudoType pseudo_class,
     CSSSelector::PseudoType compound_pseudo_element) {
+  // NOTE: pseudo-class rules for ::part() and part-like pseudo-elements do
+  // not need to be handled here; they should be handled in
+  // CSSSelector::IsAllowedAfterPart() instead.
   switch (compound_pseudo_element) {
     case CSSSelector::kPseudoResizer:
     case CSSSelector::kPseudoScrollbar:
@@ -1179,22 +1180,6 @@ bool IsPseudoClassValidAfterPseudoElement(
       return IsScrollbarPseudoClass(pseudo_class);
     case CSSSelector::kPseudoSelection:
       return pseudo_class == CSSSelector::kPseudoWindowInactive;
-    case CSSSelector::kPseudoPart:
-    // TODO(crbug.com/1511354): Add tests for the PseudoSelect cases here
-    case CSSSelector::kPseudoPicker:
-      // TODO(crbug.com/1511354): This separate case is only here to support
-      // kPseudoPopoverOpen. As part of the part-like pseudo-elements feature,
-      // kPseudoPopoverOpen may be supported by kPseudoPart, in which case this
-      // case could be combined with kPseudoPart.
-      if (pseudo_class == CSSSelector::kPseudoPopoverOpen) {
-        return true;
-      }
-      [[fallthrough]];
-    case CSSSelector::kPseudoSelectFallbackButton:
-    case CSSSelector::kPseudoSelectFallbackButtonText:
-      return IsUserActionPseudoClass(pseudo_class) ||
-             pseudo_class == CSSSelector::kPseudoState ||
-             pseudo_class == CSSSelector::kPseudoStateDeprecatedSyntax;
     case CSSSelector::kPseudoWebKitCustomElement:
     case CSSSelector::kPseudoBlinkInternalElement:
     case CSSSelector::kPseudoFileSelectorButton:
@@ -1207,6 +1192,8 @@ bool IsPseudoClassValidAfterPseudoElement(
     case CSSSelector::kPseudoSearchText:
       return pseudo_class == CSSSelector::kPseudoCurrent;
     case CSSSelector::kPseudoScrollMarker:
+    case CSSSelector::kPseudoScrollNextButton:
+    case CSSSelector::kPseudoScrollPrevButton:
       // TODO(crbug.com/40824273): User action pseudos should be allowed more
       // generally after pseudo elements.
       return pseudo_class == CSSSelector::kPseudoFocus ||
@@ -1234,13 +1221,13 @@ bool IsSimpleSelectorValidAfterPseudoElement(
       break;
     case CSSSelector::kPseudoSlotted:
       return simple_selector.IsTreeAbidingPseudoElement();
-    case CSSSelector::kPseudoPart:
-      if (simple_selector.IsAllowedAfterPart()) {
-        return true;
-      }
-      break;
     default:
       break;
+  }
+  if ((compound_pseudo_element == CSSSelector::kPseudoPart ||
+       CSSSelector::IsPartLikePseudoElement(compound_pseudo_element)) &&
+      simple_selector.IsAllowedAfterPart()) {
+    return true;
   }
   if (simple_selector.Match() != CSSSelector::kPseudoClass) {
     return false;
@@ -1311,6 +1298,8 @@ base::span<CSSSelector> CSSSelectorParser::ConsumeCompoundSelector(
   wtf_size_t start_pos = output_.size();
   base::AutoReset<CSSSelector::PseudoType> reset_restricting(
       &restricting_pseudo_element_, restricting_pseudo_element_);
+  base::AutoReset<bool> reset_found_host_in_compound(&found_host_in_compound_,
+                                                     false);
 
   // See if the compound selector starts with a tag name, universal selector
   // or the likes (these can only be at the beginning). Note that we don't
@@ -1646,6 +1635,9 @@ bool CSSSelectorParser::ConsumePseudo(CSSParserTokenStream& stream) {
     if (selector.GetPseudoType() == CSSSelector::kPseudoUnknown) {
       return false;
     }
+    if (selector.GetPseudoType() == CSSSelector::kPseudoHost) {
+      found_host_in_compound_ = true;
+    }
     output_.push_back(std::move(selector));
     return true;
   }
@@ -1691,6 +1683,8 @@ bool CSSSelectorParser::ConsumePseudo(CSSParserTokenStream& stream) {
     }
     case CSSSelector::kPseudoHost:
     case CSSSelector::kPseudoHostContext:
+      found_host_in_compound_ = true;
+      [[fallthrough]];
     case CSSSelector::kPseudoAny:
     case CSSSelector::kPseudoCue: {
       DisallowPseudoElementsScope scope(this);
@@ -1741,6 +1735,9 @@ bool CSSSelectorParser::ConsumePseudo(CSSParserTokenStream& stream) {
       if (found_complex_logical_combinations_in_has_argument_) {
         selector.SetContainsComplexLogicalCombinationsInsideHasPseudoClass();
       }
+      if (found_host_in_compound_) {
+        selector.SetHasArgumentMatchInShadowTree();
+      }
       output_.push_back(std::move(selector));
       return true;
     }
@@ -1761,7 +1758,7 @@ bool CSSSelectorParser::ConsumePseudo(CSSParserTokenStream& stream) {
       return true;
     }
     case CSSSelector::kPseudoPicker:
-      if (!RuntimeEnabledFeatures::StylableSelectEnabled()) {
+      if (!RuntimeEnabledFeatures::CustomizableSelectEnabled()) {
         return false;
       }
       [[fallthrough]];
@@ -2092,6 +2089,10 @@ bool CSSSelectorParser::ConsumeANPlusB(CSSParserTokenStream& stream,
     return false;
   }
 
+  if (stream.Peek().GetBlockType() != CSSParserToken::kNotBlock) {
+    return false;
+  }
+
   const CSSParserToken& token = stream.Consume();
   if (token.GetType() == kNumberToken &&
       token.GetNumericValueType() == kIntegerValueType) {
@@ -2322,9 +2323,9 @@ void CSSSelectorParser::SplitCompoundAtImplicitShadowCrossingCombinator(
       std::rotate(selectors.begin(), selectors.begin() + i, selectors.end());
 
       base::span<CSSSelector> remaining = selectors.first(selectors.size() - i);
-      // We might need to split the compound twice, since ::placeholder is
-      // allowed after ::slotted and they both need an implicit combinator for
-      // matching.
+      // We might need to split the compound multiple times, since a number of
+      // the relevant pseudo-elements can be combined, and they all need an
+      // implicit combinator for matching.
       SplitCompoundAtImplicitShadowCrossingCombinator(remaining);
       remaining.back().SetRelation(relation);
       break;

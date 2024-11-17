@@ -199,10 +199,6 @@
 [submodule "third_party/crossbench"]
 	path = third_party/crossbench
 	url = https://chromium.googlesource.com/crossbench
-[submodule "third_party/crubit/src"]
-	path = third_party/crubit/src
-	url = https://chromium.googlesource.com/external/github.com/google/crubit
-	gclient-condition = checkout_crubit
 [submodule "third_party/depot_tools"]
 	path = third_party/depot_tools
 	url = https://chromium.googlesource.com/chromium/tools/depot_tools
@@ -263,6 +259,12 @@
 [submodule "third_party/harfbuzz-ng/src"]
 	path = third_party/harfbuzz-ng/src
 	url = https://chromium.googlesource.com/external/github.com/harfbuzz/harfbuzz
+[submodule "third_party/ink/src"]
+	path = third_party/ink/src
+	url = https://chromium.googlesource.com/external/github.com/google/ink
+[submodule "third_party/ink_stroke_modeler/src"]
+	path = third_party/ink_stroke_modeler/src
+	url = https://chromium.googlesource.com/external/github.com/google/ink-stroke-modeler
 [submodule "third_party/instrumented_libs"]
 	path = third_party/instrumented_libs
 	url = https://chromium.googlesource.com/chromium/third_party/instrumented_libraries
@@ -771,6 +773,10 @@
 [submodule "components/test/data/autofill/heuristics-json/internal"]
 	path = components/test/data/autofill/heuristics-json/internal
 	url = https://chrome-internal.googlesource.com/chrome/test/autofill/structured_forms
+	gclient-condition = checkout_chromium_autofill_test_dependencies
+[submodule "components/test/data/autofill/label-doms/internal"]
+	path = components/test/data/autofill/label-doms/internal
+	url = https://chrome-internal.googlesource.com/chrome/test/autofill/field_labels
 	gclient-condition = checkout_chromium_autofill_test_dependencies
 [submodule "components/vector_icons/google_chrome"]
 	path = components/vector_icons/google_chrome

@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "base/check.h"
+#include "base/check_deref.h"
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -686,20 +687,75 @@ class PasswordAutofillAgent::DeferringPasswordManagerDriver
   base::WeakPtrFactory<DeferringPasswordManagerDriver> weak_ptr_factory_{this};
 };
 
-////////////////////////////////////////////////////////////////////////////////
-// PasswordAutofillAgent, public:
+PasswordAutofillAgent::FocusStateNotifier::FocusStateNotifier(
+    PasswordAutofillAgent* agent)
+    : agent_(CHECK_DEREF(agent)) {}
+
+PasswordAutofillAgent::FocusStateNotifier::~FocusStateNotifier() = default;
+
+void PasswordAutofillAgent::FocusStateNotifier::FocusedElementChanged(
+    const WebElement& element) {
+  mojom::FocusedFieldType new_focused_field_type =
+      mojom::FocusedFieldType::kUnknown;
+  FieldRendererId new_focused_field_id = FieldRendererId();
+  if (auto form_control_element = element.DynamicTo<WebFormControlElement>()) {
+    new_focused_field_type = GetFieldType(form_control_element);
+    new_focused_field_id = form_util::GetFieldRendererId(form_control_element);
+  }
+  NotifyIfChanged(new_focused_field_type, new_focused_field_id);
+}
+
+mojom::FocusedFieldType PasswordAutofillAgent::FocusStateNotifier::GetFieldType(
+    const WebFormControlElement& node) {
+  auto form_control_type = node.FormControlTypeForAutofill();
+  if (form_control_type == blink::mojom::FormControlType::kTextArea) {
+    return mojom::FocusedFieldType::kFillableTextArea;
+  }
+
+  WebInputElement input_element = node.DynamicTo<WebInputElement>();
+  if (!input_element || !input_element.IsTextField() ||
+      !form_util::IsElementEditable(input_element)) {
+    return mojom::FocusedFieldType::kUnfillableElement;
+  }
+
+  if (form_control_type == blink::mojom::FormControlType::kInputSearch) {
+    return mojom::FocusedFieldType::kFillableSearchField;
+  }
+  if (form_control_type == blink::mojom::FormControlType::kInputPassword) {
+    return mojom::FocusedFieldType::kFillablePasswordField;
+  }
+  if (agent_->IsUsernameInputField(input_element)) {
+    return mojom::FocusedFieldType::kFillableUsernameField;
+  }
+  if (form_util::IsWebauthnTaggedElement(node)) {
+    return mojom::FocusedFieldType::kFillableWebauthnTaggedField;
+  }
+  return mojom::FocusedFieldType::kFillableNonSearchField;
+}
+
+void PasswordAutofillAgent::FocusStateNotifier::NotifyIfChanged(
+    mojom::FocusedFieldType new_focused_field_type,
+    FieldRendererId new_focused_field_id) {
+  // Forward the request if the focused field is different from the previous
+  // one.
+  if (focused_field_id_ == new_focused_field_id &&
+      focused_field_type_ == new_focused_field_type) {
+    return;
+  }
+
+  agent_->GetPasswordManagerDriver().FocusedInputChanged(
+      new_focused_field_id, new_focused_field_type);
+
+  focused_field_type_ = new_focused_field_type;
+  focused_field_id_ = new_focused_field_id;
+}
 
 PasswordAutofillAgent::PasswordAutofillAgent(
     content::RenderFrame* render_frame,
     blink::AssociatedInterfaceRegistry* registry,
     EnableHeavyFormDataScraping enable_heavy_form_data_scraping)
     : content::RenderFrameObserver(render_frame),
-      enable_heavy_form_data_scraping_(enable_heavy_form_data_scraping),
-      last_supplied_password_info_iter_(web_input_to_password_info_.end()),
-      logging_state_active_(false),
-      sent_request_to_store_(false),
-      checked_safe_browsing_reputation_(false),
-      password_generation_agent_(nullptr) {
+      enable_heavy_form_data_scraping_(enable_heavy_form_data_scraping) {
   registry->AddInterface<mojom::PasswordAutofillAgent>(base::BindRepeating(
       &PasswordAutofillAgent::BindPendingReceiver, base::Unretained(this)));
 }
@@ -849,9 +905,11 @@ void PasswordAutofillAgent::TrackAutofilledElement(
 
 void PasswordAutofillAgent::FillPasswordSuggestion(
     const std::u16string& username,
-    const std::u16string& password) {
+    const std::u16string& password,
+    base::OnceCallback<void(bool)> callback) {
   auto focused_element = last_queried_element().DynamicTo<WebInputElement>();
   if (!focused_element || !IsElementEditable(focused_element)) {
+    std::move(callback).Run(/*success=*/false);
     return;
   }
   WebInputElement username_element;
@@ -860,6 +918,7 @@ void PasswordAutofillAgent::FillPasswordSuggestion(
   if (!HasElementsToFill(focused_element, UseFallbackData(true),
                          &username_element, &password_element,
                          &password_info)) {
+    std::move(callback).Run(/*success=*/false);
     return;
   }
   if (focused_element.FormControlTypeForAutofill() == kInputPassword) {
@@ -867,8 +926,9 @@ void PasswordAutofillAgent::FillPasswordSuggestion(
     password_info->password_field_suggestion_was_accepted = true;
     password_info->password_field = FieldRef(password_element);
   }
-  FillUsernameAndPasswordElements(username_element, password_element, username,
-                                  password);
+  bool success = FillUsernameAndPasswordElements(
+      username_element, password_element, username, password);
+  std::move(callback).Run(success);
 }
 
 void PasswordAutofillAgent::FillPasswordSuggestionById(
@@ -887,7 +947,7 @@ void PasswordAutofillAgent::FillPasswordSuggestionById(
       username, password);
 }
 
-void PasswordAutofillAgent::FillUsernameAndPasswordElements(
+bool PasswordAutofillAgent::FillUsernameAndPasswordElements(
     blink::WebInputElement username_element,
     blink::WebInputElement password_element,
     const std::u16string& username,
@@ -928,6 +988,11 @@ void PasswordAutofillAgent::FillUsernameAndPasswordElements(
   }
   auto length = base::checked_cast<unsigned>(focused_element.Value().length());
   focused_element.SetSelectionRange(length, length);
+
+  // Returns whether the fields were filled with the requested values
+  // successfully.
+  return (!username_element || username_element.Value().Utf16() == username) &&
+         (!password_element || password_element.Value().Utf16() == password);
 }
 
 void PasswordAutofillAgent::FillIntoFocusedField(
@@ -1101,8 +1166,7 @@ bool PasswordAutofillAgent::FindPasswordInfoForElement(
 
     auto iter = web_input_to_password_info_.find(FieldRef(element));
     if (iter == web_input_to_password_info_.end()) {
-      PasswordToLoginMap::const_iterator password_iter =
-          password_to_username_.find(FieldRef(element));
+      auto password_iter = password_to_username_.find(FieldRef(element));
       if (password_iter == password_to_username_.end()) {
         if (!use_fallback_data || web_input_to_password_info_.empty()) {
           return false;
@@ -1708,9 +1772,6 @@ void PasswordAutofillAgent::InformAboutFieldClearing(
     NotifyPasswordManagerAboutClearedForm(form);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// PasswordAutofillAgent, private:
-
 bool PasswordAutofillAgent::ShowSuggestionsForDomain(
     const WebInputElement& element,
     AutofillSuggestionTriggerSource trigger_source) {
@@ -1842,21 +1903,14 @@ void PasswordAutofillAgent::ShowSuggestionPopup(
   FindPasswordInfoForElement(user_input, UseFallbackData(false),
                              &username_element, &password_element,
                              &password_info);
-  size_t username_element_index = GetIndexOfElement(form, username_element);
-  if (!username_element || !IsElementEditable(username_element)) {
-    username_element_index = form.fields().size();
-  }
-  size_t password_element_index = GetIndexOfElement(form, password_element);
-  if (!password_element || !IsElementEditable(password_element)) {
-    password_element_index = form.fields().size();
-  }
 
   const bool show_webauthn_credentials =
       field.parsed_autocomplete() && field.parsed_autocomplete()->webauthn;
   GetPasswordManagerDriver().ShowPasswordSuggestions(PasswordSuggestionRequest(
-      field.renderer_id(), form, trigger_source, username_element_index,
-      password_element_index, field.text_direction(), typed_username,
-      show_webauthn_credentials,
+      field.renderer_id(), form, trigger_source,
+      GetIndexOfElement(form, username_element),
+      GetIndexOfElement(form, password_element), field.text_direction(),
+      typed_username, show_webauthn_credentials,
       gfx::RectF(render_frame()->ConvertViewportToWindow(
           user_input.BoundsInWidget()))));
 }

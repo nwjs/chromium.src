@@ -98,6 +98,7 @@
 #include "components/dom_distiller/core/dom_distiller_features.h"
 #include "components/dom_distiller/core/url_utils.h"
 #include "components/feature_engagement/public/event_constants.h"
+#include "components/feature_engagement/public/feature_constants.h"
 #include "components/omnibox/browser/vector_icons.h"
 #include "components/password_manager/content/common/web_ui_constants.h"
 #include "components/password_manager/core/common/password_manager_features.h"
@@ -105,11 +106,12 @@
 #include "components/prefs/pref_member.h"
 #include "components/prefs/pref_service.h"
 #include "components/profile_metrics/browser_profile_type.h"
-#include "components/saved_tab_groups/features.h"
+#include "components/saved_tab_groups/public/features.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/user_education/common/feature_promo_controller.h"
 #include "components/vector_icons/vector_icons.h"
 #include "components/webapps/browser/banners/app_banner_manager.h"
 #include "components/webapps/browser/banners/install_banner_config.h"
@@ -224,11 +226,10 @@ std::u16string GetUpgradeDialogTitleText() {
   }
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING) && \
     (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX))
-  if (base::FeatureList::IsEnabled(features::kUpdateTextOptions)) {
     return l10n_util::GetStringUTF16(IDS_RELAUNCH_TO_UPDATE_ALT);
-  }
-#endif
+#else
   return l10n_util::GetStringUTF16(IDS_RELAUNCH_TO_UPDATE);
+#endif
 }
 
 // Returns the appropriate menu label for the IDC_INSTALL_PWA command if
@@ -882,6 +883,15 @@ void ToolsMenuModel::Build(Browser* browser) {
     }
   }
 
+  if (base::FeatureList::IsEnabled(features::kTabstripDeclutter) &&
+      !browser->profile()->IsIncognitoProfile()) {
+    AddItemWithStringIdAndVectorIcon(this, IDC_DECLUTTER_TABS,
+                                     IDS_DECLUTTER_MENU, kTabCloseInactiveIcon);
+    SetIsNewFeatureAt(
+        GetIndexOfCommandId(IDC_DECLUTTER_TABS).value(),
+        browser->window()->MaybeShowNewBadgeFor(features::kTabstripDeclutter));
+  }
+
   AddItemWithStringIdAndVectorIcon(this, IDC_NAME_WINDOW, IDS_NAME_WINDOW,
                                    kNameWindowIcon);
 
@@ -1103,8 +1113,9 @@ void AppMenuModel::LogMenuMetrics(int command_id) {
       }
       LogMenuAction(MENU_ACTION_SHOW_BOOKMARK_SIDE_PANEL);
       // Close IPH for side panel menu, if shown.
-      browser()->window()->NotifyFeatureEngagementEvent(
-          feature_engagement::events::kSidePanelFromMenuShown);
+      browser()->window()->NotifyFeaturePromoFeatureUsed(
+          feature_engagement::kIPHPowerBookmarksSidePanelFeature,
+          FeaturePromoFeatureUsedAction::kIgnorePromoIfPresent);
       break;
     case IDC_SHOW_BOOKMARK_MANAGER:
       if (!uma_action_recorded_) {
@@ -1365,8 +1376,9 @@ void AppMenuModel::LogMenuMetrics(int command_id) {
       }
       LogMenuAction(MENU_ACTION_SHOW_READING_MODE_SIDE_PANEL);
       // Close IPH for side panel menu, if shown.
-      browser()->window()->NotifyFeatureEngagementEvent(
-          feature_engagement::events::kSidePanelFromMenuShown);
+      browser()->window()->NotifyFeaturePromoFeatureUsed(
+          feature_engagement::kIPHReadingModeSidePanelFeature,
+          FeaturePromoFeatureUsedAction::kIgnorePromoIfPresent);
       break;
     case IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL:
       if (!uma_action_recorded_) {
@@ -1375,8 +1387,9 @@ void AppMenuModel::LogMenuMetrics(int command_id) {
       }
       LogMenuAction(MENU_ACTION_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL);
       // Close IPH for side panel menu, if shown.
-      browser()->window()->NotifyFeatureEngagementEvent(
-          feature_engagement::events::kSidePanelFromMenuShown);
+      browser()->window()->NotifyFeaturePromoFeatureUsed(
+          feature_engagement::kIPHDesktopCustomizeChromeRefreshFeature,
+          FeaturePromoFeatureUsedAction::kIgnorePromoIfPresent);
       break;
     // Zoom menu
     case IDC_ZOOM_MINUS:

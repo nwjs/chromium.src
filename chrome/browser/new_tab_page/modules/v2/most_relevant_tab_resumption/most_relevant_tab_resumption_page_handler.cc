@@ -12,6 +12,7 @@
 #include <string>
 
 #include "base/hash/hash.h"
+#include "base/json/values_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_split.h"
@@ -49,6 +50,7 @@ using visited_url_ranking::URLVisitAggregatesTransformType;
 using Source = visited_url_ranking::URLVisit::Source;
 
 namespace {
+
 // Name of preference to track list of dismissed visits.
 const char kDismissedVisitsPrefName[] =
     "NewTabPage.MostRelevantTabResumption.DismissedVisits";
@@ -173,9 +175,8 @@ MostRelevantTabResumptionPageHandler::MostRelevantTabResumptionPageHandler(
   DCHECK(web_contents_);
 }
 
-MostRelevantTabResumptionPageHandler::~MostRelevantTabResumptionPageHandler() {
-  RemoveOldDismissedTabs();
-}
+MostRelevantTabResumptionPageHandler::~MostRelevantTabResumptionPageHandler() =
+    default;
 
 void MostRelevantTabResumptionPageHandler::GetURLVisits(
     GetURLVisitsCallback callback) {
@@ -270,10 +271,10 @@ void MostRelevantTabResumptionPageHandler::DismissURLVisits(
       visited_url_ranking::VisitedURLRankingServiceFactory::GetForProfile(
           profile_);
   for (const auto& url_visit : url_visits) {
+    DCHECK(!url_visit->url_key.empty());
     url_visit_dict->Set(
         url_visit->url_key,
-        static_cast<double>(
-            url_visit->timestamp->ToDeltaSinceWindowsEpoch().InMicroseconds()));
+        base::TimeToValue(base::Time::Now() + base::Seconds(30)));
     visited_url_ranking_service->RecordAction(
         visited_url_ranking::ScoredURLUserAction::kDismissed,
         url_visit->url_key,
@@ -305,10 +306,7 @@ void MostRelevantTabResumptionPageHandler::RestoreURLVisits(
       visited_url_ranking::VisitedURLRankingServiceFactory::GetForProfile(
           profile_);
   for (const auto& url_visit : url_visits) {
-    if (url_visit_dict->Find(url_visit->url_key) &&
-        static_cast<long>(
-            url_visit_dict->Find(url_visit->url_key)->GetDouble()) ==
-            url_visit->timestamp->ToDeltaSinceWindowsEpoch().InMicroseconds()) {
+    if (url_visit_dict->Find(url_visit->url_key)) {
       url_visit_dict->Remove(url_visit->url_key);
       visited_url_ranking_service->RecordAction(
           visited_url_ranking::ScoredURLUserAction::kSeen, url_visit->url_key,
@@ -413,7 +411,8 @@ void MostRelevantTabResumptionPageHandler::OnGotDecoratedURLVisitAggregates(
       }
 
       url_visit_mojom->timestamp = url_visit_aggregate.GetLastVisitTime();
-      if (IsNewURL(url_visit_mojom)) {
+      if (IsNewURL(url_visit_aggregate.url_key,
+                   url_visit_aggregate.GetLastVisitTime())) {
         url_visits_mojom.push_back(std::move(url_visit_mojom));
         base::UmaHistogramEnumeration(
             "NewTabPage.TabResumption.URLVisitAggregateDataTypeDisplayed",
@@ -454,7 +453,8 @@ void MostRelevantTabResumptionPageHandler::OnGotDecoratedURLVisitAggregates(
 
         history_url_visit_mojom->timestamp =
             url_visit_aggregate.GetLastVisitTime();
-        if (IsNewURL(history_url_visit_mojom)) {
+        if (IsNewURL(url_visit_aggregate.url_key,
+                     url_visit_aggregate.GetLastVisitTime())) {
           url_visits_mojom.push_back(std::move(history_url_visit_mojom));
           base::UmaHistogramEnumeration(
               "NewTabPage.TabResumption.URLVisitAggregateDataTypeDisplayed",
@@ -475,27 +475,38 @@ void MostRelevantTabResumptionPageHandler::RegisterProfilePrefs(
 }
 
 bool MostRelevantTabResumptionPageHandler::IsNewURL(
-    ntp::most_relevant_tab_resumption::mojom::URLVisitPtr& url_visit) {
+    const std::string& url_key,
+    const base::Time& timestamp) {
   const base::Value::Dict& cached_urls =
       profile_->GetPrefs()->GetDict(kDismissedVisitsPrefName);
-  if (cached_urls.Find(url_visit->url_key) == nullptr) {
-    return true;
-  } else {
-    return static_cast<long>(
-               cached_urls.Find(url_visit->url_key)->GetDouble()) !=
-           url_visit->timestamp->ToDeltaSinceWindowsEpoch().InMicroseconds();
+  auto* val = cached_urls.Find(url_key);
+  if (val) {
+    auto dismissed_time = base::ValueToTime(val);
+    if (dismissed_time.has_value()) {
+      return timestamp > dismissed_time.value();
+    }
   }
+
+  return true;
 }
 
 void MostRelevantTabResumptionPageHandler::RemoveOldDismissedTabs() {
+  std::set<std::string> urls_to_remove;
   ScopedDictPrefUpdate visit_dict(profile_->GetPrefs(),
                                   kDismissedVisitsPrefName);
   for (auto it = visit_dict->begin(); it != visit_dict->end(); ++it) {
-    base::Time timestamp = base::Time::FromDeltaSinceWindowsEpoch(
-        base::Microseconds(it->second.GetDouble()));
-    if (base::Time::Now() - timestamp > base::Days(dismissal_duration_days_)) {
-      visit_dict->Remove(it->first);
+    DCHECK(!it->first.empty());
+    auto timestamp = base::ValueToTime(it->second);
+    if (timestamp.has_value()) {
+      if (timestamp.value() <
+          base::Time::Now() - base::Days(dismissal_duration_days_)) {
+        urls_to_remove.insert(it->first);
+      }
     }
+  }
+
+  for (const auto& url : urls_to_remove) {
+    visit_dict->Remove(url);
   }
 }
 

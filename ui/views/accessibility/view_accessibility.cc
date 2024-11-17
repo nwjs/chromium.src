@@ -281,45 +281,6 @@ void ViewAccessibility::FireFocusAfterMenuClose() {
   NotifyEvent(ax::mojom::Event::kFocusAfterMenuClose, true);
 }
 
-void ViewAccessibility::SetProperties(
-    std::optional<ax::mojom::Role> role,
-    std::optional<std::u16string> name,
-    std::optional<std::u16string> description,
-    std::optional<std::u16string> role_description,
-    std::optional<ax::mojom::NameFrom> name_from,
-    std::optional<ax::mojom::DescriptionFrom> description_from) {
-  if (role.has_value()) {
-    if (role_description.has_value()) {
-      SetRole(role.value(), role_description.value());
-    } else {
-      SetRole(role.value());
-    }
-  }
-
-  // Defining the NameFrom value without specifying the name doesn't make much
-  // sense. The only exception might be if the NameFrom is setting the name to
-  // explicitly empty. In order to prevent surprising/confusing behavior, we
-  // only use the NameFrom value if we have an explicit name. As a result, any
-  // caller setting the name to explicitly empty must set the name to an empty
-  // string.
-  if (name.has_value()) {
-    if (name_from.has_value()) {
-      SetName(name.value(), name_from.value());
-    } else {
-      SetName(name.value());
-    }
-  }
-
-  // See the comment above regarding the NameFrom value.
-  if (description.has_value()) {
-    if (description_from.has_value()) {
-      SetDescription(description.value(), description_from.value());
-    } else {
-      SetDescription(description.value());
-    }
-  }
-}
-
 void ViewAccessibility::SetIsLeaf(bool value) {
   if (value == ViewAccessibility::IsLeaf()) {
     return;
@@ -392,6 +353,15 @@ void ViewAccessibility::ClearTextOffsets() {
   data_.RemoveIntListAttribute(ax::mojom::IntListAttribute::kCharacterOffsets);
   data_.RemoveIntListAttribute(ax::mojom::IntListAttribute::kWordStarts);
   data_.RemoveIntListAttribute(ax::mojom::IntListAttribute::kWordEnds);
+}
+
+void ViewAccessibility::SetClipsChildren(bool clips_children) {
+  data_.AddBoolAttribute(ax::mojom::BoolAttribute::kClipsChildren,
+                         clips_children);
+}
+
+void ViewAccessibility::SetClassName(const std::string& class_name) {
+  data_.AddStringAttribute(ax::mojom::StringAttribute::kClassName, class_name);
 }
 
 void ViewAccessibility::SetHasPopup(const ax::mojom::HasPopup has_popup) {
@@ -801,6 +771,15 @@ void ViewAccessibility::SetIsMultiselectable(bool multiselectable) {
   SetState(ax::mojom::State::kMultiselectable, multiselectable);
 }
 
+void ViewAccessibility::SetIsModal(bool modal) {
+  data_.AddBoolAttribute(ax::mojom::BoolAttribute::kModal, modal);
+}
+
+void ViewAccessibility::AddHTMLAttributes(
+    std::pair<std::string, std::string> attribute) {
+  data_.html_attributes.push_back(attribute);
+}
+
 void ViewAccessibility::SetIsIgnored(bool is_ignored) {
   if (is_ignored == should_be_ignored_) {
     return;
@@ -901,7 +880,7 @@ void ViewAccessibility::RemoveDefaultActionVerb() {
   data_.RemoveIntAttribute(ax::mojom::IntAttribute::kDefaultActionVerb);
 }
 
-void ViewAccessibility::SetAutoComplete(const std::string autocomplete) {
+void ViewAccessibility::SetAutoComplete(const std::string& autocomplete) {
   data_.AddStringAttribute(ax::mojom::StringAttribute::kAutoComplete,
                            autocomplete);
 }
@@ -1201,6 +1180,12 @@ void ViewAccessibility::SetDataForClosedWidget(ui::AXNodeData* data) const {
   // widget has already closed and hence explicitly setting the state.
   if (data_.HasState(ax::mojom::State::kCollapsed)) {
     data->AddState(ax::mojom::State::kCollapsed);
+  }
+
+  // Some of the views like popup_view_views have state invisible when the
+  // widget has already closed and hence explicitly setting the state.
+  if (data_.HasState(ax::mojom::State::kInvisible)) {
+    data->AddState(ax::mojom::State::kInvisible);
   }
 }
 

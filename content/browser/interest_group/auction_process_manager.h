@@ -5,8 +5,10 @@
 #ifndef CONTENT_BROWSER_INTEREST_GROUP_AUCTION_PROCESS_MANAGER_H_
 #define CONTENT_BROWSER_INTEREST_GROUP_AUCTION_PROCESS_MANAGER_H_
 
+#include <cstddef>
 #include <list>
 #include <map>
+#include <memory>
 #include <optional>
 #include <set>
 #include <string>
@@ -14,9 +16,12 @@
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/process/process_handle.h"
+#include "base/timer/timer.h"
 #include "content/common/content_export.h"
+#include "content/public/browser/render_process_host_observer.h"
 #include "content/services/auction_worklet/public/mojom/auction_worklet_service.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -33,6 +38,21 @@ class SiteInstance;
 
 // Base class of per-StoragePartition manager of auction bidder and seller
 // worklet processes. This provides limiting and sharing of worker processes.
+//
+// AuctionProcessManager managers two types of processes, idle processes, and
+// non-idle processes.
+//
+// Idle processes are owned directly by AuctionProcessManager::idle_processes_,
+// and have no associated ProcessHandle -- they have a WorkletProcess only. On
+// process crash or idle timeout, they tell the AuctionProcessManager to destroy
+// them.
+//
+// Non-idle processes have been handed out to one or more live ProcessHandles,
+// and are tracked in one of the AuctionProcessManager's ProcessMap with
+// raw pointers. When the last ProcessHandle releases a reference to the
+// WorkletProcess, it's destroyed, and informs the AuctionProcessManager to
+// remove it from the map. On process crash, it may also be removed from the
+// map, to prevent reuse, even though consumers may still own references to it.
 class CONTENT_EXPORT AuctionProcessManager {
  public:
   // The maximum number of bidder processes. Once this number is reached, no
@@ -57,9 +77,98 @@ class CONTENT_EXPORT AuctionProcessManager {
     kSeller,
   };
 
+  // Outcome of RequestWorkletService.
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  enum class RequestWorkletServiceOutcome {
+    kHitProcessLimit = 0,
+    kUsedSharedProcess = 1,
+    kUsedExistingDedicatedProcess = 2,
+    kCreatedNewDedicatedProcess = 3,
+    kUsedIdleProcess = 4,
+    kMaxValue = kUsedIdleProcess
+  };
+
+  class ProcessHandle;
+
   // Refcounted class that creates / holds Mojo Remote for an
   // AuctionWorkletService. Only public so it can be used by ProcessHandle.
-  class WorkletProcess;
+  class CONTENT_EXPORT WorkletProcess : public base::RefCounted<WorkletProcess>,
+                                        public RenderProcessHostObserver {
+   public:
+    WorkletProcess(
+        AuctionProcessManager* auction_process_manager,
+        scoped_refptr<SiteInstance> site_instance,
+        RenderProcessHost* render_process_host,
+        mojo::PendingRemote<auction_worklet::mojom::AuctionWorkletService>
+            service,
+        WorkletType worklet_type,
+        const url::Origin& origin,
+        bool uses_shared_process);
+
+    auction_worklet::mojom::AuctionWorkletService* GetService();
+
+    WorkletType worklet_type() const { return worklet_type_; }
+
+    const url::Origin& origin() const { return origin_; }
+
+    RenderProcessHost* render_process_host() const {
+      return render_process_host_;
+    }
+
+    std::optional<base::ProcessId> GetPid(
+        base::OnceCallback<void(base::ProcessId)> callback);
+
+    void OnLaunchedWithProcess(const base::Process& process);
+
+    void ReassignWorkletTypeAndOrigin(WorkletType worklet_type,
+                                      const url::Origin& origin);
+    void SetIsIdle(bool is_idle);
+
+   private:
+    friend class base::RefCounted<WorkletProcess>;
+    friend class DedicatedAuctionProcessManager;
+
+    // From RenderProcessHostObserver:
+    void RenderProcessReady(RenderProcessHost* host) override;
+
+    void RenderProcessHostDestroyed(RenderProcessHost* host) override;
+
+    void RemoveFromProcessManager(bool on_destruction);
+
+    ~WorkletProcess() override;
+
+    raw_ptr<RenderProcessHost> render_process_host_;
+
+    // SiteInstance representing the worklet. Used only by
+    // InRendererAuctionProcessManager.
+    scoped_refptr<SiteInstance> site_instance_;
+
+    WorkletType worklet_type_;
+    url::Origin origin_;
+    const base::TimeTicks start_time_;
+    bool uses_shared_process_;
+
+    std::optional<base::ProcessId> pid_;
+    std::vector<base::OnceCallback<void(base::ProcessId)>> waiting_for_pid_;
+
+    // nulled out once OnWorkletProcessUnusable() called.
+    raw_ptr<AuctionProcessManager> auction_process_manager_;
+
+    mojo::Remote<auction_worklet::mojom::AuctionWorkletService> service_;
+
+    // Whether the process is idle or not. If idle, it is owned directly by the
+    // AuctionProcessManager. If not, it is held by one or more
+    // ProcessHandle as scoped_refptrs.
+    bool is_idle_ = false;
+
+    // When a process is set idle, this timer will start to delete it after a
+    // fixed time to prevent holding onto unnecessary unused processes for too
+    // long. The timer will be cancelled if the process is set non-idle.
+    base::OneShotTimer remove_idle_process_from_manager_timer_;
+
+    base::WeakPtrFactory<WorkletProcess> weak_ptr_factory_{this};
+  };
 
   // Class that tracks a request for an auction worklet process, and manages
   // lifetime of the returned process once the request receives a process.
@@ -82,6 +191,10 @@ class CONTENT_EXPORT AuctionProcessManager {
     // Returns any RenderProcessHost being used to host this process, or
     // nullptr.
     RenderProcessHost* GetRenderProcessHostForTesting();
+
+    WorkletType worklet_type() const { return worklet_type_; }
+
+    const url::Origin& origin() const { return origin_; }
 
     // Returns the underlying process assignment at this level.
     // Meant for reference-equality testing.
@@ -106,11 +219,9 @@ class CONTENT_EXPORT AuctionProcessManager {
     friend class InRendererAuctionProcessManager;
     friend class DedicatedAuctionProcessManager;
 
-    // If the AuctionProcessManager is not using a RenderProcessHost to manage
-    // the process lifetime, it needs to call |OnBaseProcessLaunched| once the
-    // process has been launched successfully in order to properly figure out
-    // the PID.
-    void OnBaseProcessLaunched(const base::Process& process) const;
+    // Tests can call this function to configure this ProcessHandle's worklet
+    // process's PID to this process.
+    void OnBaseProcessLaunchedForTesting(const base::Process& process) const;
 
     // Assigns `worklet_process` to `this`. If `callback_` is non-null, queues a
     // task to invoke it asynchronously, and GetService() will return nullptr
@@ -176,28 +287,44 @@ class CONTENT_EXPORT AuctionProcessManager {
       ProcessHandle* process_handle,
       base::OnceClosure callback);
 
+  // Start an anticipatory process for an origin if
+  // 1) we have not yet started one for that buyer or seller origin and
+  // 2) we cannot use a shared process and
+  // 3) we have not yet reached the quota for the number of processes.
+  // An anticipatory process is a process for which we do not yet need
+  // a worklet; however, we anticipate that we will need a
+  // worklet for this origin later. This process will be owned by this
+  // AuctionProcessManger until it is needed.
+  void MaybeStartAnticipatoryProcess(const url::Origin& origin,
+                                     SiteInstance* frame_site_instance,
+                                     WorkletType worklet_type);
+
   size_t GetPendingBidderRequestsForTesting() const {
     return pending_bidder_request_queue_.size();
   }
   size_t GetPendingSellerRequestsForTesting() const {
     return pending_seller_request_queue_.size();
   }
+  // Returns the count of non-idle bidder processes.
   size_t GetBidderProcessCountForTesting() const {
     return bidder_processes_.size();
   }
+  // Returns the count of non-idle seller processes.
   size_t GetSellerProcessCountForTesting() const {
     return seller_processes_.size();
+  }
+  // Returns the count of idle processes, including for both bidders and
+  // sellers.
+  size_t GetIdleProcessCountForTesting() const {
+    return idle_processes_.size();
   }
 
  protected:
   AuctionProcessManager();
 
-  // Launches the actual process. Return value of null is permitted if a
-  // RenderProcessHost isn't used; otherwise the process will be kept-alive and
-  // watched by the ProcessHandle's WorkletProcess.
-  virtual RenderProcessHost* LaunchProcess(
-      mojo::PendingReceiver<auction_worklet::mojom::AuctionWorkletService>
-          auction_worklet_service_receiver,
+  // Launches the actual process. The process will be kept-alive and
+  // watched by the returned WorkletProcess.
+  virtual scoped_refptr<WorkletProcess> LaunchProcess(
       const ProcessHandle* process_handle,
       const std::string& display_name) = 0;
 
@@ -225,6 +352,10 @@ class CONTENT_EXPORT AuctionProcessManager {
   static std::string ComputeDisplayName(WorkletType worklet_type,
                                         const url::Origin& origin);
 
+  // Return true if a dedicated utility processes are used (rather than regular
+  // renderer processes).
+  virtual bool UsingDedicatedUtilityProcesses() = 0;
+
  private:
   // Contains ProcessHandles which have not yet been assigned processes.
   // Processes requested the earliest are at the start of the list, so processes
@@ -247,12 +378,24 @@ class CONTENT_EXPORT AuctionProcessManager {
 
   // Contains running processes. Worklet processes are refcounted, and
   // automatically remove themselves from this list when destroyed.
-  using ProcessMap = std::map<url::Origin, WorkletProcess*>;
+  using ProcessMap =
+      std::map<url::Origin, raw_ptr<WorkletProcess, CtnExperimental>>;
+
+  RequestWorkletServiceOutcome RequestWorkletServiceInternal(
+      WorkletType worklet_type,
+      const url::Origin& origin,
+      scoped_refptr<SiteInstance> frame_site_instance,
+      ProcessHandle* process_handle);
 
   // Tries to reuse an existing process for `process_handle` or create a new
   // one. `process_handle`'s WorkletType and Origin must be populated. Respects
   // the bidder and seller limits.
-  bool TryCreateOrGetProcessForHandle(ProcessHandle* process_handle);
+  RequestWorkletServiceOutcome TryCreateOrGetProcessForHandle(
+      ProcessHandle* process_handle);
+
+  // Attempts to get an idle process from `idle_processes_`
+  // to use with the handle.
+  bool TryToUseIdleProcessForHandle(ProcessHandle* process_handle);
 
   // Invoked by ProcessHandle's destructor, if it has previously been passed to
   // RequestWorkletService(). Checks if a new seller worklet can be created.
@@ -269,13 +412,24 @@ class CONTENT_EXPORT AuctionProcessManager {
   // started.
   void OnWorkletProcessUnusable(WorkletProcess* worklet_process);
 
+  // Callback to call after an idle process times out so that we can
+  // release our hold of it.
+  void ReleaseIdleProcess(WorkletProcess* worklet_process);
+
   // Helpers to access the maps of the corresponding worklet type.
   PendingRequestQueue* GetPendingRequestQueue(WorkletType worklet_type);
   PendingRequestMap* GetPendingRequestMap(WorkletType worklet_type);
   ProcessMap* Processes(WorkletType worklet_type);
 
-  // Returns true if there's an available slot of the specified worklet type.
-  bool HasAvailableProcessSlot(WorkletType worklet_type) const;
+  // Returns true if there's an available slot for an active process of the
+  // specified worklet type.
+  bool HasAvailableProcessSlotForActiveProcess(WorkletType worklet_type) const;
+
+  // Returns true if there's an available slot for an idle process of the
+  // specified worklet type.
+  bool HasAvailableProcessSlotForIdleProcess(
+      WorkletType worklet_type,
+      size_t num_idle_processes_of_type) const;
 
   PendingRequestQueue pending_bidder_request_queue_;
   PendingRequestQueue pending_seller_request_queue_;
@@ -285,6 +439,11 @@ class CONTENT_EXPORT AuctionProcessManager {
 
   ProcessMap bidder_processes_;
   ProcessMap seller_processes_;
+
+  // Idle processes sorted by creation time. These are processes that
+  // are not being actively used as a worklet but are on stand-by in case they
+  // are needed.
+  std::vector<scoped_refptr<WorkletProcess>> idle_processes_;
 
   base::WeakPtrFactory<AuctionProcessManager> weak_ptr_factory_{this};
 };
@@ -298,9 +457,7 @@ class CONTENT_EXPORT DedicatedAuctionProcessManager
   ~DedicatedAuctionProcessManager() override;
 
  private:
-  RenderProcessHost* LaunchProcess(
-      mojo::PendingReceiver<auction_worklet::mojom::AuctionWorkletService>
-          auction_worklet_service_receiver,
+  scoped_refptr<WorkletProcess> LaunchProcess(
       const ProcessHandle* process_handle,
       const std::string& display_name) override;
 
@@ -308,6 +465,7 @@ class CONTENT_EXPORT DedicatedAuctionProcessManager
       SiteInstance* frame_site_instance,
       const url::Origin& worklet_origin) override;
   bool TryUseSharedProcess(ProcessHandle* process_handle) override;
+  bool UsingDedicatedUtilityProcesses() override;
 };
 
 // An alternative implementation of AuctionProcessManager that places worklet
@@ -320,9 +478,7 @@ class CONTENT_EXPORT InRendererAuctionProcessManager
   ~InRendererAuctionProcessManager() override;
 
  protected:
-  RenderProcessHost* LaunchProcess(
-      mojo::PendingReceiver<auction_worklet::mojom::AuctionWorkletService>
-          auction_worklet_service_receiver,
+  scoped_refptr<WorkletProcess> LaunchProcess(
       const ProcessHandle* process_handle,
       const std::string& display_name) override;
 
@@ -330,6 +486,7 @@ class CONTENT_EXPORT InRendererAuctionProcessManager
       SiteInstance* frame_site_instance,
       const url::Origin& worklet_origin) override;
   bool TryUseSharedProcess(ProcessHandle* process_handle) override;
+  bool UsingDedicatedUtilityProcesses() override;
 
  private:
   RenderProcessHost* LaunchInSiteInstance(

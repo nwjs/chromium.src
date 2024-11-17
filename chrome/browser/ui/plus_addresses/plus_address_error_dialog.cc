@@ -10,7 +10,7 @@
 
 #include "base/functional/callback.h"
 #include "components/constrained_window/constrained_window_views.h"
-#include "components/strings/grit/components_strings.h"
+#include "components/plus_addresses/grit/plus_addresses_strings.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -58,10 +58,10 @@ std::unique_ptr<ui::DialogModel> CreateTimeoutErrorDialog(
 std::unique_ptr<ui::DialogModel> CreateQuotaErrorDialog(
     base::OnceClosure on_accepted) {
   return ui::DialogModel::Builder()
-      .SetTitle(
-          l10n_util::GetStringUTF16(IDS_PLUS_ADDRESS_CREATE_INLINE_ERROR_TITLE))
+      .SetTitle(l10n_util::GetStringUTF16(
+          IDS_PLUS_ADDRESS_CREATE_INLINE_QUOTA_ERROR_TITLE))
       .AddParagraph(ui::DialogModelLabel(l10n_util::GetStringUTF16(
-          IDS_PLUS_ADDRESS_CREATE_INLINE_ERROR_DESCRIPTION)))
+          IDS_PLUS_ADDRESS_CREATE_INLINE_QUOTA_ERROR_DESCRIPTION)))
       .AddOkButton(std::move(on_accepted),
                    ui::DialogModel::Button::Params().SetId(
                        kPlusAddressErrorDialogAcceptButton))

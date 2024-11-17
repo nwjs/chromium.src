@@ -34,6 +34,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/stack_allocated.h"
 #include "third_party/blink/renderer/bindings/core/v8/idl_types.h"
+#include "third_party/blink/renderer/bindings/core/v8/native_value_traits_impl.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_value.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -52,6 +53,18 @@ class ScriptFunction;
 
 template <typename IDLResolvedType>
 class ScriptPromise;
+
+// Defined here rather than in native_value_traits_impl.h to avoid a circular
+// dependency.
+template <typename T>
+struct NativeValueTraits<IDLPromise<T>>
+    : public NativeValueTraitsBase<IDLPromise<T>> {
+  static ScriptPromise<T> NativeValue(v8::Isolate* isolate,
+                                      v8::Local<v8::Value> value,
+                                      ExceptionState&) {
+    return ScriptPromise<T>::FromV8Value(isolate, std::move(value));
+  }
+};
 
 // ScriptPromise is the class for representing Promise values in C++
 // world. ScriptPromise holds a Promise. Holding a `ScriptPromise`
@@ -103,23 +116,8 @@ class CORE_EXPORT ScriptPromiseUntyped {
     return !operator==(value);
   }
 
-  // Constructs and returns a ScriptPromiseUntyped from |value|.
-  // if `value` is not a Promise object, returns a Promise object
-  // resolved with `value`.
-  // Returns `value` itself if it is a Promise.
-  // This is intended only for cases where we are receiving an arbitrary
-  // `value` of unknown type from script. If constructing a ScriptPromise
-  // of known type, use ToResolvedPromise<>.
-  static ScriptPromiseUntyped FromUntypedValueForBindings(ScriptState*,
-                                                          v8::Local<v8::Value>);
-
-  // Constructs and returns a ScriptPromiseUntyped resolved with undefined.
-  static ScriptPromiseUntyped CastUndefined(ScriptState*);
-
   static ScriptPromiseUntyped Reject(ScriptState*, const ScriptValue&);
   static ScriptPromiseUntyped Reject(ScriptState*, v8::Local<v8::Value>);
-  // Rejects with a given exception. The ExceptionState gets cleared.
-  static ScriptPromiseUntyped Reject(ScriptState*, ExceptionState&);
 
   // Constructs and returns a ScriptPromiseUntyped to be resolved when all
   // |promises| are resolved. If one of |promises| is rejected, the returned
@@ -146,12 +144,23 @@ class ScriptPromise : public ScriptPromiseUntyped {
  public:
   ScriptPromise() = default;
 
-  template <typename T = IDLResolvedType>
-  static ScriptPromise<T> FromV8Promise(
+  static ScriptPromise<IDLResolvedType> FromV8Promise(
       v8::Isolate* isolate,
-      v8::Local<v8::Promise> promise,
-      typename std::enable_if<std::is_same_v<T, IDLAny>>::type* = 0) {
-    return ScriptPromise<T>(isolate, promise);
+      v8::Local<v8::Promise> promise) {
+    return ScriptPromise<IDLResolvedType>(isolate, promise);
+  }
+
+  static ScriptPromise<IDLResolvedType> FromV8Value(
+      v8::Isolate* isolate,
+      v8::Local<v8::Value> value) {
+    if (value.IsEmpty()) {
+      return ScriptPromise<IDLResolvedType>();
+    }
+    v8::Local<v8::Promise> promise =
+        value->IsPromise()
+            ? value.As<v8::Promise>()
+            : ResolveRaw(ScriptState::ForCurrentRealm(isolate), value);
+    return ScriptPromise<IDLResolvedType>(isolate, promise);
   }
 
   static ScriptPromise<IDLResolvedType> RejectWithDOMException(

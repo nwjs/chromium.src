@@ -78,9 +78,8 @@ struct FeaturePromoParams;
 class FeaturePromoController {
  public:
   using BubbleCloseCallback = base::OnceClosure;
-  using QueuedPromoCallback =
-      base::OnceCallback<void(const base::Feature& iph_feature,
-                              FeaturePromoResult promo_result)>;
+  using ShowPromoResultCallback =
+      base::OnceCallback<void(FeaturePromoResult promo_result)>;
 
   FeaturePromoController();
   FeaturePromoController(const FeaturePromoController& other) = delete;
@@ -101,9 +100,10 @@ class FeaturePromoController {
   virtual FeaturePromoResult CanShowPromo(
       const FeaturePromoParams& params) const = 0;
 
-  // Starts the promo if possible. Returns whether it started.
-  // If the Feature Engagement backend is not initialized, returns false.
-  virtual FeaturePromoResult MaybeShowPromo(FeaturePromoParams params) = 0;
+  // Starts the promo if possible. If a result callback is specified, it will be
+  // called with the result of trying to show the promo. In cases where a promo
+  // could be queued, the callback may happen significantly later.
+  virtual void MaybeShowPromo(FeaturePromoParams params) = 0;
 
   // Tries to start the promo at a time when the Feature Engagement backend may
   // not yet be initialized. Once it is initialized (which could be
@@ -192,6 +192,11 @@ class FeaturePromoController {
   // Returns a weak pointer to this object.
   virtual base::WeakPtr<FeaturePromoController> GetAsWeakPtr() = 0;
 
+  // Posts `result` to `callback` on a fresh call stack. Requires a functioning
+  // message pump.
+  static void PostShowPromoResult(ShowPromoResultCallback callback,
+                                  FeaturePromoResult result);
+
  protected:
   friend class FeaturePromoHandle;
 
@@ -220,20 +225,6 @@ class FeaturePromoControllerCommon : public FeaturePromoController {
       ProductMessagingController* messaging_controller);
   ~FeaturePromoControllerCommon() override;
 
-  // Only for security or privacy critical promos. Immediately shows a
-  // promo with |params|, cancelling any normal promo and blocking any
-  // further promos until it's done.
-  //
-  // Returns an ID that can be passed to CloseBubbleForCriticalPromo()
-  // if successful. This can fail if another critical promo is showing.
-  std::unique_ptr<HelpBubble> ShowCriticalPromo(
-      const FeaturePromoSpecification& spec,
-      ui::TrackedElement* anchor_element,
-      FeaturePromoSpecification::FormatParameters body_params =
-          FeaturePromoSpecification::NoSubstitution(),
-      FeaturePromoSpecification::FormatParameters title_params =
-          FeaturePromoSpecification::NoSubstitution());
-
   // For systems where there are rendering issues of e.g. displaying the
   // omnibox and a bubble in the same region on the screen, dismisses a non-
   // critical promo bubble which overlaps a given screen region. Returns true
@@ -254,7 +245,7 @@ class FeaturePromoControllerCommon : public FeaturePromoController {
   // FeaturePromoController:
   FeaturePromoResult CanShowPromo(
       const FeaturePromoParams& params) const override;
-  FeaturePromoResult MaybeShowPromo(FeaturePromoParams params) override;
+  void MaybeShowPromo(FeaturePromoParams params) override;
   bool MaybeShowStartupPromo(FeaturePromoParams params) override;
   FeaturePromoStatus GetPromoStatus(
       const base::Feature& iph_feature) const override;
@@ -276,9 +267,6 @@ class FeaturePromoControllerCommon : public FeaturePromoController {
   }
 
   HelpBubble* promo_bubble_for_testing() { return promo_bubble(); }
-  HelpBubble* critical_promo_bubble_for_testing() {
-    return critical_promo_bubble();
-  }
 
   TutorialService* tutorial_service_for_testing() { return tutorial_service_; }
 
@@ -317,10 +305,6 @@ class FeaturePromoControllerCommon : public FeaturePromoController {
   }
   const HelpBubble* promo_bubble() const {
     return current_promo_ ? current_promo_->help_bubble() : nullptr;
-  }
-  HelpBubble* critical_promo_bubble() { return critical_promo_bubble_; }
-  const HelpBubble* critical_promo_bubble() const {
-    return critical_promo_bubble_;
   }
 
   // Gets the context in which to locate the anchor view.
@@ -361,8 +345,7 @@ class FeaturePromoControllerCommon : public FeaturePromoController {
   // accelerator to focus the help bubble.
   virtual std::u16string GetFocusHelpBubbleScreenReaderHint(
       FeaturePromoSpecification::PromoType promo_type,
-      ui::TrackedElement* anchor_element,
-      bool is_critical_promo) const = 0;
+      ui::TrackedElement* anchor_element) const = 0;
 
   const FeaturePromoRegistry* registry() const { return registry_; }
   FeaturePromoRegistry* registry() { return registry_; }
@@ -533,13 +516,6 @@ class FeaturePromoControllerCommon : public FeaturePromoController {
   // Non-null as long as a promo is showing.
   std::unique_ptr<FeaturePromoLifecycle> current_promo_;
 
-  // Has a value if a critical promo is showing. If this has a value,
-  // |current_iph_feature_| will usually be null. There is one edge case
-  // where this may not be true: when a critical promo is requested
-  // between a normal promo's CloseBubbleAndContinuePromo() call and its
-  // end.
-  raw_ptr<HelpBubble> critical_promo_bubble_ = nullptr;
-
   // Policy info about the most recent promo that was shown.
   // Updated when a new promo is shown.
   FeaturePromoSessionPolicy::PromoInfo last_promo_info_;
@@ -594,8 +570,11 @@ struct FeaturePromoParams {
   // (i.e. non-keyed) promos.
   std::string key;
 
-  // Used for startup promos; will be called when the promo actually shows.
-  FeaturePromoController::QueuedPromoCallback queued_promo_callback;
+  // Will be called when the promo actually shows or fails to show. For queued
+  // promos, will be called when the promo is shown. For non-queued promos, will
+  // be posted immediately with the result of the request (arrives on a fresh
+  // message loop call stack).
+  FeaturePromoController::ShowPromoResultCallback show_promo_result_callback;
 
   // If a bubble was shown and `close_callback` is provided, it will be called
   // when the bubble closes. The callback must remain valid as long as the

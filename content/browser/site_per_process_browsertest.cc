@@ -190,7 +190,7 @@
 #include "ui/android/view_android.h"
 #include "ui/android/window_android.h"
 #include "ui/events/android/event_handler_android.h"
-#include "ui/events/android/motion_event_android.h"
+#include "ui/events/android/motion_event_android_java.h"
 #include "ui/gfx/geometry/point_f.h"
 #endif
 
@@ -8712,10 +8712,7 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
   EXPECT_FALSE(nav_manager.was_successful());
   // Fallback handling should discard the child browsing context and render the
   // fallback contents.
-  // TODO(dcheng): Chrome is not compliant with the spec. An HTTP error triggers
-  // fallback content, which is supposed to discard the nested browsing
-  // context...
-  EXPECT_EQ(1, EvalJs(web_contents(), "window.length"));
+  EXPECT_EQ(0, EvalJs(web_contents(), "window.length"));
   EXPECT_EQ("fallback", EvalJs(web_contents(), "document.body.innerText"));
 }
 
@@ -8761,10 +8758,7 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTestWithoutSpeculativeRFHDelay,
   EXPECT_FALSE(nav_manager.was_successful());
   // Fallback handling should discard the child browsing context and render the
   // fallback contents.
-  // TODO(dcheng): Chrome is not compliant with the spec. An HTTP error triggers
-  // fallback content, which is supposed to discard the nested browsing
-  // context...
-  EXPECT_EQ(1, EvalJs(web_contents(), "window.length"));
+  EXPECT_EQ(0, EvalJs(web_contents(), "window.length"));
   EXPECT_EQ("fallback", EvalJs(web_contents(), "document.body.innerText"));
 }
 
@@ -8845,15 +8839,8 @@ IN_PROC_BROWSER_TEST_P(
   EXPECT_FALSE(nav_manager.was_successful());
   // Fallback handling should discard the child browsing context and render the
   // fallback contents.
-  // TODO(dcheng): Chrome is not compliant with the spec. An HTTP error triggers
-  // fallback content, which is supposed to discard the nested browsing
-  // context...
-  EXPECT_EQ(1, EvalJs(web_contents(), "window.length"));
+  EXPECT_EQ(0, EvalJs(web_contents(), "window.length"));
   EXPECT_EQ("fallback", EvalJs(web_contents(), "document.body.innerText"));
-
-  // `WaitForNavigationFinished()` should imply the `NavigationRequest` has been
-  // cleaned up as well, but check to be sure.
-  EXPECT_FALSE(first_child->navigation_request());
 }
 
 // Test that a cross-site navigation in <object> that fails with an HTTP error
@@ -8930,15 +8917,8 @@ IN_PROC_BROWSER_TEST_P(
   EXPECT_FALSE(nav_manager.was_successful());
   // Fallback handling should discard the child browsing context and render the
   // fallback contents.
-  // TODO(dcheng): Chrome is not compliant with the spec. An HTTP error triggers
-  // fallback content, which is supposed to discard the nested browsing
-  // context...
-  EXPECT_EQ(1, EvalJs(web_contents(), "window.length"));
+  EXPECT_EQ(0, EvalJs(web_contents(), "window.length"));
   EXPECT_EQ("fallback", EvalJs(web_contents(), "document.body.innerText"));
-
-  // `WaitForNavigationFinished()` should imply the `NavigationRequest` has been
-  // cleaned up as well, but check to be sure.
-  EXPECT_FALSE(first_child->navigation_request());
 }
 
 // Test that a same-site navigation in <object> that fails with a network error
@@ -9230,9 +9210,10 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
   float y = size.height() / 2;
   ui::MotionEventAndroid::Pointer pointer0(0, x, y, 0, 0, 0, 0, 0);
   ui::MotionEventAndroid::Pointer pointer1(0, 0, 0, 0, 0, 0, 0, 0);
-  ui::MotionEventAndroid event(nullptr, nullptr, 1.f / root_view->GetDipScale(),
-                               0.f, 0.f, 0.f, base::TimeTicks(), 0, 1, 0, 0, 0,
-                               0, 0, 0, 0, 0, false, &pointer0, &pointer1);
+  ui::MotionEventAndroidJava event(nullptr, nullptr,
+                                   1.f / root_view->GetDipScale(), 0.f, 0.f,
+                                   0.f, base::TimeTicks(), 0, 1, 0, 0, 0, 0, 0,
+                                   0, 0, 0, 0, false, &pointer0, &pointer1);
   root_view->OnTouchEventForTesting(event);
 
   EXPECT_TRUE(mock_handler.did_receive_event());
@@ -9563,10 +9544,10 @@ class TouchSelectionControllerClientAndroidSiteIsolationTest
     ui::MotionEventAndroid::Pointer p(0, point.x(), point.y(), 10, 0, 0, 0, 0);
     JNIEnv* env = base::android::AttachCurrentThread();
     auto time_ns = (ui::EventTimeForNow() - base::TimeTicks()).InNanoseconds();
-    ui::MotionEventAndroid touch(
+    ui::MotionEventAndroidJava touch(
         env, nullptr, 1.f, 0, 0, 0, base::TimeTicks::FromJavaNanoTime(time_ns),
         ui::MotionEventAndroid::GetAndroidAction(action), 1, 0, 0, 0, 0, 0, 0,
-        0, 0, false, &p, nullptr);
+        0, 0, 0, false, &p, nullptr);
     view->OnTouchEvent(touch);
   }
 
@@ -10511,11 +10492,22 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
   EXPECT_NE(third_shell_instance->GetProcess(), bar_process);
 }
 
+class SitePerProcessNoSharingBrowserTest : public SitePerProcessBrowserTest {
+ public:
+  SitePerProcessNoSharingBrowserTest() {
+    scoped_feature_list_.InitAndDisableFeature(
+        features::kProcessPerSiteUpToMainFrameThreshold);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
 // Check that when a subframe reuses an existing process for the same site
 // across BrowsingInstances, a browser-initiated navigation in that subframe's
 // tab doesn't unnecessarily share the reused process.  See
 // https://crbug.com/803367.
-IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
+IN_PROC_BROWSER_TEST_P(SitePerProcessNoSharingBrowserTest,
                        NoProcessSharingAfterSubframeReusesExistingProcess) {
   GURL foo_url(embedded_test_server()->GetURL("foo.com", "/title1.html"));
   EXPECT_TRUE(NavigateToURL(shell(), foo_url));
@@ -12987,16 +12979,9 @@ IN_PROC_BROWSER_TEST_P(InnerWebContentsAttachTest, PrepareFrame) {
   auto* child_node = web_contents()->GetPrimaryFrameTree().root()->child_at(0);
   EXPECT_TRUE(NavigateToURLFromRenderer(child_node, child_frame_url));
   if (test_beforeunload) {
-    if (base::FeatureList::IsEnabled(
-            blink::features::kBeforeunloadEventCancelByPreventDefault)) {
-      EXPECT_TRUE(ExecJs(child_node,
-                         "window.addEventListener('beforeunload', (e) => {"
-                         "e.preventDefault(); return e; });"));
-    } else {
-      EXPECT_TRUE(ExecJs(child_node,
-                         "window.addEventListener('beforeunload', (e) => {"
-                         "e.returnValue = 'Not empty string'; return e; });"));
-    }
+    EXPECT_TRUE(ExecJs(child_node,
+                       "window.addEventListener('beforeunload', (e) => {"
+                       "e.preventDefault(); return e; });"));
   }
   auto* original_child_frame = child_node->current_frame_host();
   RenderFrameDeletedObserver original_child_frame_observer(
@@ -13344,15 +13329,16 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
       NavigateToURL(shell(), embedded_test_server()->GetURL("/empty.html")));
 
   // Now do a browser-initiated navigation to about:blank in a new tab created
-  // in the previous SiteInstance. This happens to stay in the same process,
-  // though there may not be a requirement for that.
+  // in the previous SiteInstance. The current behavior is for the navigation
+  // to switch to a new SiteInstance, though there is no real requirement for
+  // that. In the past the existing SiteInstance was used.
   WebContents::CreateParams new_contents_params(
       web_contents()->GetBrowserContext(), web_contents()->GetSiteInstance());
   std::unique_ptr<WebContents> new_web_contents(
       WebContents::Create(new_contents_params));
 
   EXPECT_TRUE(NavigateToURL(new_web_contents.get(), GURL(url::kAboutBlankURL)));
-  EXPECT_EQ(web_contents()->GetPrimaryMainFrame()->GetProcess(),
+  EXPECT_NE(web_contents()->GetPrimaryMainFrame()->GetProcess(),
             new_web_contents->GetPrimaryMainFrame()->GetProcess());
 }
 
@@ -13867,6 +13853,9 @@ INSTANTIATE_TEST_SUITE_P(All,
                          testing::ValuesIn(RenderDocumentFeatureLevelValues()));
 INSTANTIATE_TEST_SUITE_P(All,
                          SitePerProcessBrowserTest,
+                         testing::ValuesIn(RenderDocumentFeatureLevelValues()));
+INSTANTIATE_TEST_SUITE_P(All,
+                         SitePerProcessNoSharingBrowserTest,
                          testing::ValuesIn(RenderDocumentFeatureLevelValues()));
 INSTANTIATE_TEST_SUITE_P(All,
                          SitePerProcessBrowserTestWithoutSpeculativeRFHDelay,

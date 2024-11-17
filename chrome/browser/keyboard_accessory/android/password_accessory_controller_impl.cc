@@ -55,6 +55,7 @@
 #include "components/password_manager/core/browser/webauthn_credentials_delegate.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/plus_addresses/features.h"
+#include "components/plus_addresses/grit/plus_addresses_strings.h"
 #include "components/plus_addresses/plus_address_service.h"
 #include "components/plus_addresses/plus_address_types.h"
 #include "components/resources/android/theme_resources.h"
@@ -437,8 +438,8 @@ void PasswordAccessoryControllerImpl::OnOptionSelected(
                 WebAuthnCredentialsDelegate* credentials_delegate =
                     password_client_->GetWebAuthnCredentialsDelegateForDriver(
                         driver)) {
-          CHECK(credentials_delegate->IsAndroidHybridAvailable());
-          credentials_delegate->ShowAndroidHybridSignIn();
+          CHECK(credentials_delegate->IsSecurityKeyOrHybridFlowAvailable());
+          credentials_delegate->LaunchSecurityKeyOrHybridFlow();
         }
       }
       return;
@@ -635,7 +636,7 @@ PasswordAccessoryControllerImpl::CreateManagePasswordsFooter() const {
             password_client_->GetWebAuthnCredentialsDelegateForDriver(driver)) {
       has_passkeys |= credentials_delegate->GetPasskeys() &&
                       !credentials_delegate->GetPasskeys()->empty();
-      if (credentials_delegate->IsAndroidHybridAvailable()) {
+      if (credentials_delegate->IsSecurityKeyOrHybridFlowAvailable()) {
         std::u16string passkey_other_device_title = l10n_util::GetStringUTF16(
             IDS_PASSWORD_MANAGER_ACCESSORY_USE_DEVICE_PASSKEY);
         footer_commands_to_add.emplace_back(
@@ -846,7 +847,7 @@ void PasswordAccessoryControllerImpl::FillSelection(
     const AccessorySheetField& selection) {
   if (!AppearsInSuggestions(selection.display_text(), selection.is_obfuscated(),
                             GetFocusedFrameOrigin())) {
-    NOTREACHED_IN_MIGRATION() << "Tried to fill '" << selection.display_text()
+    DUMP_WILL_BE_NOTREACHED() << "Tried to fill '" << selection.display_text()
                               << "' into " << GetFocusedFrameOrigin();
     return;  // Never fill across different origins!
   }
@@ -875,7 +876,9 @@ void PasswordAccessoryControllerImpl::FillSelection(
                        profile->GetPrefs(), /*called_at_startup=*/false)) {
       access_loss_warning_bridge_->MaybeShowAccessLossNoticeSheet(
           profile->GetPrefs(), GetWebContents().GetTopLevelNativeWindow(),
-          profile, /*called_at_startup=*/false);
+          profile, /*called_at_startup=*/false,
+          password_manager_android_util::PasswordAccessLossWarningTriggers::
+              kKeyboardAcessorySheet);
     }
   }
 }

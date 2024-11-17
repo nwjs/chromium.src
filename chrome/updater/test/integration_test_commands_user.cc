@@ -11,6 +11,7 @@
 #include "base/files/file_util.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/notreached.h"
+#include "base/time/time.h"
 #include "base/values.h"
 #include "base/version.h"
 #include "build/build_config.h"
@@ -82,10 +83,12 @@ class IntegrationTestCommandsUser : public IntegrationTestCommands {
                      const GURL& crash_upload_url,
                      const GURL& device_management_url,
                      const GURL& app_logo_url,
-                     const base::TimeDelta& idle_timeout) const override {
-    updater::test::EnterTestMode(update_url, crash_upload_url,
-                                 device_management_url, app_logo_url,
-                                 idle_timeout);
+                     base::TimeDelta idle_timeout,
+                     base::TimeDelta server_keep_alive_time,
+                     base::TimeDelta ceca_connection_timeout) const override {
+    updater::test::EnterTestMode(
+        update_url, crash_upload_url, device_management_url, app_logo_url,
+        idle_timeout, server_keep_alive_time, ceca_connection_timeout);
   }
 
   void ExitTestMode() const override {
@@ -148,10 +151,11 @@ class IntegrationTestCommandsUser : public IntegrationTestCommands {
                             UpdateService::Priority priority,
                             const base::Version& from_version,
                             const base::Version& to_version,
-                            bool do_fault_injection) const override {
+                            bool do_fault_injection,
+                            bool skip_download) const override {
     updater::test::ExpectUpdateSequence(
         updater_scope_, test_server, app_id, install_data_index, priority,
-        from_version, to_version, do_fault_injection);
+        from_version, to_version, do_fault_injection, skip_download);
   }
 
   void ExpectUpdateSequenceBadHash(
@@ -172,10 +176,11 @@ class IntegrationTestCommandsUser : public IntegrationTestCommands {
                              UpdateService::Priority priority,
                              const base::Version& from_version,
                              const base::Version& to_version,
-                             bool do_fault_injection) const override {
+                             bool do_fault_injection,
+                             bool skip_download) const override {
     updater::test::ExpectInstallSequence(
         updater_scope_, test_server, app_id, install_data_index, priority,
-        from_version, to_version, do_fault_injection);
+        from_version, to_version, do_fault_injection, skip_download);
   }
 
   void ExpectVersionActive(const std::string& version) const override {
@@ -426,7 +431,7 @@ class IntegrationTestCommandsUser : public IntegrationTestCommands {
     updater::test::RunRecoveryComponent(updater_scope_, app_id, version);
   }
 
-  void SetLastChecked(const base::Time& time) const override {
+  void SetLastChecked(base::Time time) const override {
     updater::test::SetLastChecked(updater_scope_, time);
   }
 
@@ -464,9 +469,25 @@ class IntegrationTestCommandsUser : public IntegrationTestCommands {
 
   void DMCleanup() override { updater::test::DMCleanup(updater_scope_); }
 
-  void InstallEnterpriseCompanionApp(
+  void InstallEnterpriseCompanionApp() override {
+    updater::test::InstallEnterpriseCompanionApp();
+  }
+
+  void InstallBrokenEnterpriseCompanionApp() override {
+    updater::test::InstallBrokenEnterpriseCompanionApp();
+  }
+
+  void UninstallBrokenEnterpriseCompanionApp() override {
+    updater::test::UninstallBrokenEnterpriseCompanionApp();
+  }
+
+  void InstallEnterpriseCompanionAppOverrides(
       const base::Value::Dict& external_overrides) override {
-    updater::test::InstallEnterpriseCompanionApp(external_overrides);
+    updater::test::InstallEnterpriseCompanionAppOverrides(external_overrides);
+  }
+
+  void ExpectEnterpriseCompanionAppNotInstalled() override {
+    updater::test::ExpectEnterpriseCompanionAppNotInstalled();
   }
 
   void UninstallEnterpriseCompanionApp() override {

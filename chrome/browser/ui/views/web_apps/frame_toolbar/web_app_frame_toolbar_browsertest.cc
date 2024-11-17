@@ -2041,7 +2041,8 @@ IN_PROC_BROWSER_TEST_F(
 #define MAYBE_WindowSetResizableBlocksResizeToAndResizeByApis \
   DISABLED_WindowSetResizableBlocksResizeToAndResizeByApis
 #else
-#define MAYBE_WindowSetResizableBlocksResizeToAndResizeByApis WindowSetResizableBlocksResizeToAndResizeByApis
+#define MAYBE_WindowSetResizableBlocksResizeToAndResizeByApis \
+  WindowSetResizableBlocksResizeToAndResizeByApis
 #endif
 IN_PROC_BROWSER_TEST_F(
     WebAppFrameToolbarBrowserTest_AdditionalWindowingControls,
@@ -2194,6 +2195,35 @@ IN_PROC_BROWSER_TEST_F(
     return MatchMediaMatches(
         web_contents, "window.matchMedia('(display-state: normal)').matches");
   }));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    WebAppFrameToolbarBrowserTest_AdditionalWindowingControls,
+    WindowSetResizableDoNotBlockRequestFullscreen) {
+  InstallAndLaunchWebApp();
+  helper()->GrantWindowManagementPermission();
+  auto* browser_view = helper()->browser_view();
+  auto* web_contents = browser_view->GetActiveWebContents();
+
+  SetResizableAndWait(web_contents, false, false);
+  EXPECT_FALSE(helper()->browser_view()->IsFullscreen());
+  {
+    ui_test_utils::FullscreenWaiter waiter(helper()->app_browser(),
+                                           {.tab_fullscreen = true});
+    EXPECT_TRUE(ExecJs(web_contents,
+                       "(async () => {await "
+                       "document.documentElement.requestFullscreen();})()"));
+    waiter.Wait();
+  }
+  EXPECT_TRUE(helper()->browser_view()->IsFullscreen());
+  {
+    ui_test_utils::FullscreenWaiter waiter(helper()->app_browser(),
+                                           {.tab_fullscreen = false});
+    EXPECT_TRUE(ExecJs(web_contents,
+                       "(async () => {await document.exitFullscreen();})()"));
+    waiter.Wait();
+  }
+  EXPECT_FALSE(helper()->browser_view()->IsFullscreen());
 }
 
 #if !BUILDFLAG(IS_MAC)
@@ -2526,8 +2556,16 @@ IN_PROC_BROWSER_TEST_P(WebAppFrameToolbarBrowserTest_OriginText,
   ExpectLastCommittedUrl(app_url());
 }
 
+// TODO(https://crbug.com/361839153): This test fails on ChromeOS builds.
+#if BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_WebAppOriginTextAccessibleProperties \
+  DISABLED_WebAppOriginTextAccessibleProperties
+#else
+#define MAYBE_WebAppOriginTextAccessibleProperties \
+  WebAppOriginTextAccessibleProperties
+#endif
 IN_PROC_BROWSER_TEST_P(WebAppFrameToolbarBrowserTest_OriginText,
-                       WebAppOriginTextAccessibleProperties) {
+                       MAYBE_WebAppOriginTextAccessibleProperties) {
   InstallAndLaunchWebApp();
   auto* origin_text = helper()->origin_text_view();
   ui::AXNodeData data;
@@ -2667,8 +2705,10 @@ class WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText
       ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION};
 };
 
+// TODO(crbug.com/371923523): Reenable ExtendedScope* tests when they are more
+// stable.
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText,
-                       ExtendedScope) {
+                       DISABLED_ExtendedScope) {
   ASSERT_TRUE(https_server()->Started());
   InstallAndLaunchWebApp();
   content::WebContents* web_contents =
@@ -2703,7 +2743,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText,
 }
 
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText,
-                       ExtendedScopeToOutOfScope) {
+                       DISABLED_ExtendedScopeToOutOfScope) {
   ASSERT_TRUE(https_server()->Started());
   InstallAndLaunchWebApp();
   content::WebContents* web_contents =
@@ -2735,7 +2775,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText,
 }
 
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText,
-                       ExtendedScopeThemeColorChange) {
+                       DISABLED_ExtendedScopeThemeColorChange) {
   ASSERT_TRUE(https_server()->Started());
   InstallAndLaunchWebApp();
   content::WebContents* web_contents =

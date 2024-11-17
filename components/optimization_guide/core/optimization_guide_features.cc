@@ -18,7 +18,6 @@
 #include "base/strings/string_util.h"
 #include "base/strings/to_string.h"
 #include "base/system/sys_info.h"
-#include "build/build_config.h"
 #include "components/optimization_guide/core/feature_registry/mqls_feature_registry.h"
 #include "components/optimization_guide/core/insertion_ordered_set.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
@@ -141,7 +140,11 @@ BASE_FEATURE(kOptimizationGuideModelExecution,
 // Whether to use the on device model service in optimization guide.
 BASE_FEATURE(kOptimizationGuideOnDeviceModel,
              "OptimizationGuideOnDeviceModel",
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#else
              base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 // Whether to allow on device model evaluation for Compose. This has no effect
 // if OptimizationGuideOnDeviceModel is off.
@@ -170,10 +173,12 @@ BASE_FEATURE(kOnDeviceModelValidation,
              "OnDeviceModelValidation",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Whether the on-device model enables support_multiple_sessions
-BASE_FEATURE(kOnDeviceModelSupportMultipleSessions,
-             "OnDeviceModelSupportMultipleSessions",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+#if !BUILDFLAG(IS_ANDROID)
+// Enable the "Synapse" refreshed AI settings page.
+BASE_FEATURE(kAiSettingsPageRefresh,
+             "AiSettingsPageRefresh",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 // The default value here is a bit of a guess.
 // TODO(crbug.com/40163041): This should be tuned once metrics are available.
@@ -194,9 +199,7 @@ bool ShouldBatchUpdateHintsForActiveTabsAndTopHosts() {
 
 size_t MaxResultsForSRPFetch() {
   static int max_urls = GetFieldTrialParamByFeatureAsInt(
-      kOptimizationGuideFetchingForSRP, "max_urls_for_srp_fetch",
-      // Default to match overall max.
-      MaxUrlsForOptimizationGuideServiceHintsFetch());
+      kOptimizationGuideFetchingForSRP, "max_urls_for_srp_fetch", 10);
   return max_urls;
 }
 
@@ -608,10 +611,6 @@ base::TimeDelta GetOnDeviceModelIdleTimeout() {
   return kOnDeviceModelServiceIdleTimeout.Get();
 }
 
-bool GetOnDeviceModelSupportMultipleSessions() {
-  return base::FeatureList::IsEnabled(kOnDeviceModelSupportMultipleSessions);
-}
-
 base::TimeDelta GetOnDeviceModelExecutionValidationStartupDelay() {
   static const base::FeatureParam<base::TimeDelta>
       kOnDeviceModelExecutionValidationStartupDelay{
@@ -654,6 +653,12 @@ int GetOnDeviceModelMaxTokensForOutput() {
       &kOptimizationGuideOnDeviceModel, "on_device_model_max_tokens_for_output",
       1024};
   return kOnDeviceModelMaxTokensForOutput.Get();
+}
+
+uint32_t GetOnDeviceModelMaxTokens() {
+  return static_cast<uint32_t>(GetOnDeviceModelMaxTokensForContext() +
+                               GetOnDeviceModelMaxTokensForExecute() +
+                               GetOnDeviceModelMaxTokensForOutput());
 }
 
 int GetOnDeviceModelCrashCountBeforeDisable() {
@@ -699,7 +704,7 @@ bool IsPerformanceClassCompatibleWithOnDeviceModel(
       kOptimizationGuideOnDeviceModel,
       "compatible_on_device_performance_classes");
   if (perf_classes_string.empty()) {
-    perf_classes_string = "3,4,5,6";
+    perf_classes_string = "5,6";
   }
   if (perf_classes_string == "*") {
     return true;
@@ -753,7 +758,7 @@ bool IsFreeDiskSpaceTooLowForOnDeviceModelInstall(
 bool GetOnDeviceModelRetractUnsafeContent() {
   static const base::FeatureParam<bool>
       kOnDeviceModelShouldRetractUnsafeContent{
-          &kTextSafetyClassifier, "on_device_retract_unsafe_content", false};
+          &kTextSafetyClassifier, "on_device_retract_unsafe_content", true};
   return kOnDeviceModelShouldRetractUnsafeContent.Get();
 }
 

@@ -11,13 +11,17 @@
 #include "components/fingerprinting_protection_filter/common/fingerprinting_protection_filter_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/privacy_sandbox/tracking_protection_settings.h"
-#include "components/subresource_filter/content/shared/common/subresource_filter_utils.h"
+#include "components/site_engagement/content/site_engagement_service.h"
+#include "components/subresource_filter/content/shared/browser/utils.h"
 #include "components/subresource_filter/core/browser/verified_ruleset_dealer.h"
 #include "components/subresource_filter/core/common/load_policy.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/navigation_handle_user_data.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_user_data.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
+#include "services/metrics/public/cpp/ukm_recorder.h"
+#include "services/metrics/public/cpp/ukm_source.h"
 
 namespace content {
 class NavigationHandle;
@@ -97,7 +101,8 @@ void FingerprintingProtectionWebContentsHelper::CreateForWebContents(
 
   content::WebContentsUserData<FingerprintingProtectionWebContentsHelper>::
       CreateForWebContents(web_contents, pref_service,
-                           tracking_protection_settings, dealer_handle);
+                           tracking_protection_settings, dealer_handle,
+                           is_incognito);
 }
 
 // private
@@ -107,13 +112,15 @@ FingerprintingProtectionWebContentsHelper::
         PrefService* pref_service,
         privacy_sandbox::TrackingProtectionSettings*
             tracking_protection_settings,
-        VerifiedRulesetDealer::Handle* dealer_handle)
+        VerifiedRulesetDealer::Handle* dealer_handle,
+        bool is_incognito)
     : content::WebContentsUserData<FingerprintingProtectionWebContentsHelper>(
           *web_contents),
       content::WebContentsObserver(web_contents),
       pref_service_(pref_service),
       tracking_protection_settings_(tracking_protection_settings),
-      dealer_handle_(dealer_handle) {}
+      dealer_handle_(dealer_handle),
+      is_incognito_(is_incognito) {}
 
 FingerprintingProtectionWebContentsHelper::
     ~FingerprintingProtectionWebContentsHelper() = default;
@@ -213,7 +220,8 @@ void FingerprintingProtectionWebContentsHelper::DidStartNavigation(
   }
 
   std::unique_ptr<ThrottleManager> new_manager =
-      ThrottleManager::CreateForNewPage(dealer_handle_.get(), *this);
+      ThrottleManager::CreateForNewPage(dealer_handle_.get(), *this,
+                                        *navigation_handle, is_incognito_);
 
   throttle_managers_.insert(new_manager.get());
 
@@ -354,6 +362,11 @@ void FingerprintingProtectionWebContentsHelper::Detach() {
   base::UmaHistogramCounts100(
       "FingerprintingProtection.WebContentsObserver.RefreshCount",
       refresh_count_);
+  ukm::SourceId source_id =
+      web_contents()->GetPrimaryMainFrame()->GetPageUkmSourceId();
+  ukm::builders::FingerprintingProtectionUsage(source_id)
+      .SetRefreshCount(refresh_count_)
+      .Record(ukm::UkmRecorder::Get());
 }
 
 void FingerprintingProtectionWebContentsHelper::AddObserver(

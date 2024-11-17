@@ -6,7 +6,7 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
-#include "chrome/browser/page_load_metrics/page_load_metrics_initialize.h"
+#include "chrome/browser/extensions/chrome_extension_web_contents_observer.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/browser/ui/browser.h"
@@ -28,7 +28,6 @@
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "third_party/blink/public/mojom/frame/user_activation_notification_type.mojom.h"
-#include "ui/base/page_transition_types.h"
 #include "ui/views/controls/webview/web_contents_set_background_color.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -45,10 +44,6 @@ SideSearchTabContentsHelper::~SideSearchTabContentsHelper() {
 
 void SideSearchTabContentsHelper::NavigateInTabContents(
     const content::OpenURLParams& params) {
-  side_panel_initiated_redirect_info_ = SidePanelRedirectInfo{
-      params.url, ui::PageTransitionCoreTypeIs(ui::PAGE_TRANSITION_LINK,
-                                               params.transition)};
-
   web_contents()->GetPrimaryMainFrame()->NotifyUserActivation(
       blink::mojom::UserActivationNotificationType::kInteraction);
   web_contents()->GetController().LoadURLWithParams(
@@ -108,23 +103,6 @@ void SideSearchTabContentsHelper::DidOpenRequestedURL(
     bool renderer_initiated) {
   const GURL& current_url = GetTabWebContents()->GetLastCommittedURL();
   CarryOverSideSearchStateToNewTab(current_url, new_contents);
-}
-
-void SideSearchTabContentsHelper::DidStartNavigation(
-    content::NavigationHandle* navigation_handle) {
-  if (!navigation_handle->IsInPrimaryMainFrame() ||
-      navigation_handle->IsSameDocument()) {
-    return;
-  }
-
-  // Reset the side panel redirect info if the current navigation does not
-  // belong to the side panel initiated navigation shain.
-  DCHECK(!navigation_handle->GetRedirectChain().empty());
-  if (side_panel_initiated_redirect_info_ &&
-      navigation_handle->GetRedirectChain()[0] !=
-          side_panel_initiated_redirect_info_->initiated_redirect_url) {
-    side_panel_initiated_redirect_info_.reset();
-  }
 }
 
 void SideSearchTabContentsHelper::DidFinishNavigation(
@@ -255,34 +233,6 @@ SideSearchTabContentsHelper::GetSideContentsHelper() {
       side_panel_contents_.get());
 }
 
-void SideSearchTabContentsHelper::OpenSidePanelFromContextMenuSearch(
-    const GURL& url) {
-  DCHECK(url.is_valid());
-  last_search_url_ = url;
-  if (!side_panel_contents_) {
-    CreateSidePanelContents();
-    auto* SideContentsHelper = GetSideContentsHelper();
-    DCHECK(SideContentsHelper);
-    SideContentsHelper->set_is_created_from_menu_option(true);
-  } else {
-    DCHECK(side_panel_contents_);
-    UpdateSideContentsNavigation();
-  }
-  delegate_->OpenSidePanel();
-}
-
-bool SideSearchTabContentsHelper::CanShowSidePanelFromContextMenuSearch() {
-  if (!delegate_)
-    return false;
-
-  SideSearchConfig* config =
-      SideSearchConfig::Get(web_contents()->GetBrowserContext());
-
-  //  Show the context menu option under only if side search can be shown
-  //  for the current page (ignore SRP / NTP pages etc).
-  return config->CanShowSidePanelForURL(web_contents()->GetLastCommittedURL());
-}
-
 void SideSearchTabContentsHelper::CreateSidePanelContents() {
   DCHECK(!side_panel_contents_);
   side_panel_contents_ =
@@ -297,15 +247,11 @@ void SideSearchTabContentsHelper::CreateSidePanelContents() {
   task_manager::WebContentsTags::CreateForTabContents(
       side_panel_contents_.get());
 
-  // Set helpers required for the side contents. We must add relevant tab
-  // helpers here explicitly as TabHelpers::AttachTabHelpers() is only called
-  // for tab WebContents. If called here it would add helpers that do not make
-  // sense / are not relevant for non-tab WebContents.
+  // Sets helpers required for the side contents.
   PrefsTabHelper::CreateForWebContents(side_panel_contents_.get());
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   extensions::TabHelper::CreateForWebContents(side_panel_contents_.get());
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
-  chrome::InitializePageLoadMetricsForWebContents(side_panel_contents_.get());
   chrome::UMABrowsingActivityObserver::TabHelper::CreateForWebContents(
       side_panel_contents_.get());
 

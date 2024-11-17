@@ -42,8 +42,8 @@ import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
+import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.ui.base.MimeTypeUtils;
 import org.chromium.ui.base.WindowAndroid;
@@ -97,15 +97,13 @@ public class TabDragSource implements View.OnDragListener {
      * Prepares the toolbar view to listen to the drag events and data drop after the drag is
      * initiated.
      *
-     * @param context @{@link Context} to get resources.
-     * @param stripLayoutHelperSupplier Supplier for @{@link StripLayoutHelper} to perform strip
-     *     actions.
-     * @param multiInstanceManager @{link MultiInstanceManager} to perform move action when drop
-     *     completes.
-     * @param dragAndDropDelegate @{@link DragAndDropDelegate} to initiate tab drag and drop.
-     * @param browserControlStateProvider @{@link BrowserControlsStateProvider} to compute
-     *     drag-shadow dimens.
-     * @param windowAndroid @{@link WindowAndroid} to access activity.
+     * @param context Context to get resources.
+     * @param stripLayoutHelperSupplier Supplier for StripLayoutHelper to perform strip actions.
+     * @param multiInstanceManager MultiInstanceManager to perform move action when drop completes.
+     * @param dragAndDropDelegate DragAndDropDelegate to initiate tab drag and drop.
+     * @param browserControlStateProvider BrowserControlsStateProvider to compute drag-shadow
+     *     dimens.
+     * @param windowAndroid WindowAndroid to access activity.
      * @param tabStripHeightSupplier Supplier of the tab strip height.
      */
     public TabDragSource(
@@ -135,11 +133,10 @@ public class TabDragSource implements View.OnDragListener {
     }
 
     /**
-     * Starts the tab drag action by initiating the process by calling @{link
-     * View.startDragAndDrop}.
+     * Starts the tab drag action by initiating the process by calling View.startDragAndDrop.
      *
-     * @param dragSourceView @{link View} used to create the drag shadow.
-     * @param tabBeingDragged @{link Tab} is the selected tab being dragged.
+     * @param dragSourceView View used to create the drag shadow.
+     * @param tabBeingDragged Tab is the selected tab being dragged.
      * @param startPoint Position of the drag start point in view coordinates.
      * @param tabPositionX Horizontal position of the dragged tab in view coordinates. Used to
      *     calculate the relative position of the touch point in the tab strip.
@@ -172,7 +169,7 @@ public class TabDragSource implements View.OnDragListener {
             Log.w(TAG, "Attempting to start drag before clearing state from prior drag");
         }
 
-        /** Allow drag to create new instance based on feature checks / current instance count. */
+        // Allow drag to create new instance based on feature checks / current instance count.
         boolean allowDragToCreateInstance =
                 shouldAllowTabDragToCreateInstance()
                         && (TabUiFeatureUtilities.doesOEMSupportDragToCreateInstance()
@@ -180,8 +177,7 @@ public class TabDragSource implements View.OnDragListener {
                                         < MultiWindowUtils.getMaxInstances());
 
         TabGroupModelFilter tabGroupModelFilter =
-                (TabGroupModelFilter)
-                        mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter();
+                mTabModelSelector.getTabGroupModelFilterProvider().getCurrentTabGroupModelFilter();
         boolean isTabInGroup = tabGroupModelFilter.isTabInTabGroup(tabBeingDragged);
 
         // Build shared state with all info.

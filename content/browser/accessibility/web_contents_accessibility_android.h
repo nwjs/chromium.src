@@ -21,7 +21,7 @@
 namespace ui {
 class MotionEventAndroid;
 struct AXTreeUpdate;
-}
+}  // namespace ui
 
 namespace content {
 
@@ -227,6 +227,11 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
   void MoveAccessibilityFocus(JNIEnv* env,
                               jint old_unique_id,
                               jint new_unique_id);
+
+  // Sets the sequential focus starting point. This sends a message to the
+  // renderer. The sequential focus starting point sets the node on which
+  // tab/shift tab should continue without actually changing input focus.
+  void SetSequentialFocusStartingPoint(JNIEnv* env, jint unique_id);
 
   // Returns true if the object is a slider.
   bool IsSlider(JNIEnv* env, jint id);

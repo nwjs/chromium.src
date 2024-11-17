@@ -381,7 +381,6 @@ VideoCaptureImpl::CreateVideoFrameInitData(
               video_frame_init_data.ready_buffer->info->pixel_format,
               buffer_context->shared_image(),
               buffer_context->shared_image_sync_token(),
-              buffer_context->shared_image()->GetTextureTarget(),
               media::VideoFrame::ReleaseMailboxCB(),
               gfx::Size(video_frame_init_data.ready_buffer->info->coded_size),
               gfx::Rect(video_frame_init_data.ready_buffer->info->visible_rect),
@@ -491,6 +490,10 @@ VideoCaptureImpl::CreateVideoFrameInitData(
           video_frame_init_data.ready_buffer->info->is_premapped
               ? const_cast<uint8_t*>(buffer_context->data())
               : nullptr;
+      size_t premapped_data_size =
+          video_frame_init_data.ready_buffer->info->is_premapped
+              ? buffer_context->data_size()
+              : 0;
 
       // Clone the GpuMemoryBuffer and wrap it in a VideoFrame.
       std::unique_ptr<gfx::GpuMemoryBuffer> buffer =
@@ -500,7 +503,7 @@ VideoCaptureImpl::CreateVideoFrameInitData(
               buffer_context->GetGpuMemoryBuffer()->GetFormat(),
               gfx::BufferUsage::SCANOUT_VEA_CPU_READ, base::DoNothing(),
               gpu_factories_->GpuMemoryBufferManager(), pool_,
-              base::span<uint8_t>(premapped_data, buffer_context->data_size()));
+              base::span<uint8_t>(premapped_data, premapped_data_size));
       if (!buffer) {
         LOG(ERROR) << "Failed to open GpuMemoryBuffer handle";
         return std::nullopt;
@@ -537,7 +540,6 @@ bool VideoCaptureImpl::BindVideoFrameOnMediaTaskRunner(
 
   bool should_recreate_shared_image = false;
   if (gpu_factories != video_frame_init_data.buffer_context->gpu_factories()) {
-    DVLOG(1) << "GPU context changed; re-creating SharedImage objects";
     video_frame_init_data.buffer_context->SetGpuFactories(gpu_factories);
     should_recreate_shared_image = true;
   }
@@ -610,9 +612,6 @@ bool VideoCaptureImpl::BindVideoFrameOnMediaTaskRunner(
                                ->shared_image->mailbox());
   }
 
-  const unsigned texture_target =
-      video_frame_init_data.buffer_context->gmb_resources()
-          ->shared_image->GetTextureTarget();
   const gpu::SyncToken sync_token = sii->GenVerifiedSyncToken();
 
   auto& shared_image =
@@ -624,7 +623,6 @@ bool VideoCaptureImpl::BindVideoFrameOnMediaTaskRunner(
       media::VideoFrame::WrapExternalGpuMemoryBuffer(
           gfx::Rect(video_frame_init_data.ready_buffer->info->visible_rect),
           gmb_size, std::move(gpu_memory_buffer), shared_image, sync_token,
-          texture_target,
           base::BindOnce(&BufferContext::MailboxHolderReleased,
                          video_frame_init_data.buffer_context),
           video_frame_init_data.ready_buffer->info->timestamp);

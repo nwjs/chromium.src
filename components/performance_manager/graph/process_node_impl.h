@@ -26,6 +26,7 @@
 #include "components/performance_manager/public/mojom/v8_contexts.mojom.h"
 #include "components/performance_manager/public/render_process_host_proxy.h"
 #include "components/performance_manager/resource_attribution/cpu_measurement_data.h"
+#include "components/performance_manager/scenarios/loading_scenario_data.h"
 #include "content/public/browser/background_tracing_manager.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -59,6 +60,7 @@ class ProcessNodeImpl
       public SupportsNodeInlineData<ProcessPriorityAggregatorData,
                                     FrozenData,
                                     resource_attribution::CPUMeasurementData,
+                                    LoadingScenarioCounts,
                                     // Keep this last to avoid merge conflicts.
                                     NodeAttachedDataStorage> {
  public:
@@ -100,7 +102,6 @@ class ProcessNodeImpl
   void OnRemoteIframeDetached(
       const blink::LocalFrameToken& parent_frame_token,
       const blink::RemoteFrameToken& remote_frame_token) override;
-  void FireBackgroundTracingTrigger(const std::string& trigger_name) override;
 
   // Partial ProcessNode implementation:
   content::ProcessType GetProcessType() const override;
@@ -113,6 +114,7 @@ class ProcessNodeImpl
   bool GetMainThreadTaskLoadIsLow() const override;
   uint64_t GetPrivateFootprintKb() const override;
   uint64_t GetResidentSetKb() const override;
+  uint64_t GetPrivateSwapKb() const override;
   RenderProcessHostId GetRenderProcessHostId() const override;
   const RenderProcessHostProxy& GetRenderProcessHostProxy() const override;
   const BrowserChildProcessHostProxy& GetBrowserChildProcessHostProxy()
@@ -135,6 +137,10 @@ class ProcessNodeImpl
   void set_resident_set_kb(uint64_t resident_set_kb) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     resident_set_kb_ = resident_set_kb;
+  }
+  void set_private_swap_kb(uint64_t private_swap_kb) {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    private_swap_kb_ = private_swap_kb;
   }
 
   // Add |frame_node| to this process.
@@ -159,8 +165,6 @@ class ProcessNodeImpl
   }
 
   void OnAllFramesInProcessFrozenForTesting() { OnAllFramesInProcessFrozen(); }
-  static void FireBackgroundTracingTriggerOnUIForTesting(
-      const std::string& trigger_name);
 
   base::WeakPtr<ProcessNodeImpl> GetWeakPtrOnUIThread();
   base::WeakPtr<ProcessNodeImpl> GetWeakPtr();
@@ -200,6 +204,7 @@ class ProcessNodeImpl
 
   uint64_t private_footprint_kb_ GUARDED_BY_CONTEXT(sequence_checker_) = 0u;
   uint64_t resident_set_kb_ GUARDED_BY_CONTEXT(sequence_checker_) = 0;
+  uint64_t private_swap_kb_ GUARDED_BY_CONTEXT(sequence_checker_) = 0;
 
   base::ProcessId process_id_ GUARDED_BY_CONTEXT(sequence_checker_) =
       base::kNullProcessId;

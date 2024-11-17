@@ -968,7 +968,7 @@ protocol::Response InspectorDOMAgent::setAttributesAsText(int element_id,
     if (is_html_document && contextElement)
       fragment->ParseHTML(markup, contextElement, kAllowScriptingContent);
     else
-      fragment->ParseXML(markup, contextElement, kAllowScriptingContent);
+      fragment->ParseXML(markup, contextElement, IGNORE_EXCEPTION);
     return DynamicTo<Element>(fragment->firstChild());
   };
 
@@ -2442,6 +2442,9 @@ void InspectorDOMAgent::DidInvalidateStyleAttr(Node* node) {
 
 bool InspectorDOMAgent::isNodeScrollable(Node* node) {
   if (auto* box = DynamicTo<LayoutBox>(node->GetLayoutObject())) {
+    if (!box->Style()) {
+      return false;
+    }
     return box->IsUserScrollable();
   }
   return false;
@@ -2560,7 +2563,9 @@ void InspectorDOMAgent::NodeCreated(Node* node) {
   }
 }
 
-void InspectorDOMAgent::UpdateScrollableFlag(Node* node) {
+void InspectorDOMAgent::UpdateScrollableFlag(
+    Node* node,
+    std::optional<bool> override_flag) {
   if (!node) {
     return;
   }
@@ -2569,7 +2574,9 @@ void InspectorDOMAgent::UpdateScrollableFlag(Node* node) {
   if (!nodeId) {
     return;
   }
-  GetFrontend()->scrollableFlagUpdated(nodeId, isNodeScrollable(node));
+  GetFrontend()->scrollableFlagUpdated(nodeId, override_flag.has_value()
+                                                   ? override_flag.value()
+                                                   : isNodeScrollable(node));
 }
 
 namespace {

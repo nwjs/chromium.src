@@ -17,15 +17,16 @@ import {outlookCalendarDescriptor} from './v2/calendar/outlook_calendar_module.j
 // <if expr="not is_official_build">
 import {dummyV2Descriptor} from './v2/dummy/module.js';
 // </if>
-import {fileSuggestionDescriptor} from './v2/file_suggestion/module.js';
+import {driveModuleV2Descriptor} from './v2/file_suggestion/drive_module.js';
+import {sharepointModuleDescriptor} from './v2/file_suggestion/sharepoint_module.js';
 import {mostRelevantTabResumptionDescriptor} from './v2/most_relevant_tab_resumption/module.js';
 
 const modulesRedesignedEnabled: boolean =
     loadTimeData.getBoolean('modulesRedesignedEnabled');
 export const descriptors: ModuleDescriptor[] = [];
 descriptors.push(
-    modulesRedesignedEnabled ? fileSuggestionDescriptor : driveDescriptor);
-
+    modulesRedesignedEnabled ? driveModuleV2Descriptor : driveDescriptor);
+descriptors.push(sharepointModuleDescriptor);
 descriptors.push(mostRelevantTabResumptionDescriptor);
 descriptors.push(googleCalendarDescriptor);
 descriptors.push(outlookCalendarDescriptor);

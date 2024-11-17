@@ -32,6 +32,7 @@
 #include "chrome/browser/autocomplete/chrome_autocomplete_provider_client.h"
 #include "chrome/browser/autocomplete/chrome_autocomplete_scheme_classifier.h"
 #include "chrome/browser/autocomplete/shortcuts_backend_factory.h"
+#include "chrome/browser/omnibox/autocomplete_controller_emitter_factory.h"
 #include "chrome/browser/predictors/autocomplete_action_predictor.h"
 #include "chrome/browser/predictors/autocomplete_action_predictor_factory.h"
 #include "chrome/browser/preloading/prefetch/search_prefetch/search_prefetch_service.h"
@@ -68,6 +69,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/spare_render_process_host_manager.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
 #include "net/cookies/cookie_util.h"
@@ -135,7 +137,7 @@ AutocompleteControllerAndroid::AutocompleteControllerAndroid(
   autocomplete_controller_->AddObserver(this);
 
   AutocompleteControllerEmitter* emitter =
-      AutocompleteControllerEmitter::GetForBrowserContext(profile_);
+      AutocompleteControllerEmitterFactory::GetForBrowserContext(profile_);
   if (emitter) {
     autocomplete_controller_->AddObserver(emitter);
   }
@@ -238,8 +240,9 @@ void AutocompleteControllerAndroid::OnOmniboxFocused(
     const JavaParamRef<jstring>& j_omnibox_text,
     const JavaParamRef<jstring>& j_current_url,
     jint j_page_classification,
-    const JavaParamRef<jstring>& j_current_title,
-    bool is_on_focus_context) {
+    const JavaParamRef<jstring>& j_current_title) {
+  using OFT = metrics::OmniboxFocusType;
+
   // Prevents double triggering of zero suggest when OnOmniboxFocused is issued
   // in quick succession (due to odd timing in the Android focus callbacks).
   if (!autocomplete_controller_->done()) {
@@ -260,11 +263,13 @@ void AutocompleteControllerAndroid::OnOmniboxFocused(
 
   auto page_class =
       OmniboxEventProto::PageClassification(j_page_classification);
-  const bool interaction_clobber_focus_type =
-      !(omnibox::IsNTPPage(page_class) ||
-        (is_on_focus_context &&
-         base::FeatureList::IsEnabled(omnibox::kRetainOmniboxOnFocus)));
-  if (interaction_clobber_focus_type) {
+
+  // Assign focus type to INTERACTION_CLOBBER to non-NTP zero-prefix requests
+  const auto interaction_type = omnibox::IsNTPPage(page_class)
+                                    ? OFT::INTERACTION_FOCUS
+                                    : OFT::INTERACTION_CLOBBER;
+
+  if (interaction_type == OFT::INTERACTION_CLOBBER) {
     omnibox_text.clear();
   }
 
@@ -290,11 +295,7 @@ void AutocompleteControllerAndroid::OnOmniboxFocused(
                              ChromeAutocompleteSchemeClassifier(profile_));
   input_.set_current_url(current_url);
   input_.set_current_title(current_title);
-
-  // Assign focus type to INTERACTION_CLOBBER to non-NTP zero-prefix requests
-  input_.set_focus_type(interaction_clobber_focus_type
-                            ? metrics::OmniboxFocusType::INTERACTION_CLOBBER
-                            : metrics::OmniboxFocusType::INTERACTION_FOCUS);
+  input_.set_focus_type(interaction_type);
 
   autocomplete_controller_->Start(input_);
 }
@@ -568,7 +569,7 @@ void AutocompleteControllerAndroid::NotifySuggestionsReceived(
 void AutocompleteControllerAndroid::WarmUpRenderProcess() const {
   // It is ok for this to get called multiple times since all the requests
   // will get de-duplicated to the first one.
-  content::RenderProcessHost::WarmupSpareRenderProcessHost(profile_);
+  content::SpareRenderProcessHostManager::Get().WarmupSpare(profile_);
 }
 
 // static

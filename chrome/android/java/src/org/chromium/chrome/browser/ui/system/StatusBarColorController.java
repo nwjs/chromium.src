@@ -78,8 +78,6 @@ public class StatusBarColorController
     private final ActivityTabProvider.ActivityTabTabObserver mStatusBarColorTabObserver;
     private final Callback<TabModel> mCurrentTabModelObserver;
     private final TopUiThemeColorProvider mTopUiThemeColor;
-    private final @ColorInt int mStandardPrimaryBgColor;
-    private final @ColorInt int mIncognitoPrimaryBgColor;
     private final @ColorInt int mStandardDefaultThemeColor;
     private final @ColorInt int mIncognitoDefaultThemeColor;
     private final @ColorInt int mActiveOmniboxDefaultColor;
@@ -157,8 +155,6 @@ public class StatusBarColorController
         mStatusBarColorProvider = statusBarColorProvider;
         mAllowToolbarColorOnTablets = false;
 
-        mStandardPrimaryBgColor = ChromeColors.getPrimaryBackgroundColor(context, false);
-        mIncognitoPrimaryBgColor = ChromeColors.getPrimaryBackgroundColor(context, true);
         mStandardDefaultThemeColor = ChromeColors.getDefaultThemeColor(context, false);
         mIncognitoDefaultThemeColor = ChromeColors.getDefaultThemeColor(context, true);
         mBackgroundColorForNtp =
@@ -483,9 +479,9 @@ public class StatusBarColorController
 
     /**
      * Takes status bar indicator into account in status bar color computation.
-     * @param color The status bar color without the status indicator's color taken into
-     *              consideration. (as specified in
-     *              {@link getStatusBarColorWithoutStatusIndicator()}).
+     *
+     * @param darkenedBaseColor The status bar color without the status indicator's color taken into
+     *     consideration. (as specified in {@link getStatusBarColorWithoutStatusIndicator()}).
      * @return The resulting color.
      */
     private @ColorInt int applyStatusBarIndicatorColor(@ColorInt int darkenedBaseColor) {

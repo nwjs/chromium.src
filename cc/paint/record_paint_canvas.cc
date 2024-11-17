@@ -41,6 +41,11 @@ void RecordPaintCanvas::DisableLineDrawingAsPaths() {
   draw_path_count_ = draw_line_count_ = 0;
 }
 
+PaintRecord RecordPaintCanvas::CopyAsRecord() {
+  needs_flush_ = false;
+  return buffer_.DeepCopyAsRecord();
+}
+
 template <typename T, typename... Args>
 void RecordPaintCanvas::push(Args&&... args) {
 #if DCHECK_IS_ON()
@@ -203,23 +208,19 @@ void RecordPaintCanvas::clipPathInternal(const SkPath& path,
 }
 
 SkImageInfo RecordPaintCanvas::imageInfo() const {
-  NOTREACHED_IN_MIGRATION();
-  return SkImageInfo();
+  NOTREACHED();
 }
 
 bool RecordPaintCanvas::getLocalClipBounds(SkRect* bounds) const {
-  NOTREACHED_IN_MIGRATION();
-  return false;
+  NOTREACHED();
 }
 
 bool RecordPaintCanvas::getDeviceClipBounds(SkIRect* bounds) const {
-  NOTREACHED_IN_MIGRATION();
-  return false;
+  NOTREACHED();
 }
 
 SkM44 RecordPaintCanvas::getLocalToDevice() const {
-  NOTREACHED_IN_MIGRATION();
-  return SkM44();
+  NOTREACHED();
 }
 
 void RecordPaintCanvas::drawColor(SkColor4f color, SkBlendMode mode) {

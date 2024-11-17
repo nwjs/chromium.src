@@ -275,78 +275,6 @@ TEST_F(AutofillMetricsTest, PerfectFilling_Addresses_CreditCards) {
                                       1);
 }
 
-// Test the emission of collisions between NUMERIC_QUANTITY and server
-// predictions as well as the potential false positives.
-TEST_F(AutofillMetricsTest, NumericQuantityCollision) {
-  // Those metrics are only collected when the numeric quantities are not
-  // getting precedence over server predictions.
-  base::test::ScopedFeatureList numeric_quantity_feature_list;
-  numeric_quantity_feature_list.InitAndDisableFeature(
-      features::kAutofillGivePrecedenceToNumericQuantities);
-
-  // Set up our form data.
-  test::FormDescription form_description = {
-      .description_for_logging = "NumericQuantityCollision",
-      .fields = {{.server_type = NO_SERVER_DATA,
-                  .heuristic_type = NUMERIC_QUANTITY,
-                  .is_autofilled = false},
-                 // We add a second field to make sure the metrics are only
-                 // recorded for the field with the numeric quantity prediction.
-                 {.server_type = ADDRESS_HOME_LINE1,
-                  .heuristic_type = ADDRESS_HOME_LINE1,
-                  .is_autofilled = false}}};
-
-  // Helper to submit the `form` and test the expectations. `collision`
-  // indicates that there was a collision between the NUMERIC_QUANTITY
-  // prediction and a server prediction.
-  // If `autofill_used` and a `collision` exists, the histogram to
-  // track `false_positive` is checked.
-  auto SubmitAndTest = [this](const FormData& form, bool collision,
-                              bool autofill_used, bool false_positive) {
-    base::HistogramTester histogram_tester;
-    SubmitForm(form);
-    histogram_tester.ExpectUniqueSample(
-        "Autofill.NumericQuantityCollidesWithServerPrediction", collision, 1);
-    if (collision && autofill_used) {
-      histogram_tester.ExpectUniqueSample(
-          "Autofill.AcceptedFilledFieldWithNumericQuantityHeuristicPrediction",
-          false_positive, 1);
-    }
-  };
-
-  {
-    SCOPED_TRACE(
-        "No collision case - The numeric quantity does not collide with a "
-        "server prediction.");
-    FormData form = GetAndAddSeenForm(form_description);
-    SubmitAndTest(form, /*collision=*/false, /*autofill_used=*/false,
-                  /*false_positive=*/false);
-  }
-  {
-    SCOPED_TRACE("Collision, but nothing is filled.");
-    // Add a server prediction to create a collision.
-    form_description.fields[0].server_type = NAME_FIRST;
-    FormData form = GetAndAddSeenForm(form_description);
-    SubmitAndTest(form, /*collision=*/true, /*autofill_used=*/false,
-                  /*false_positive=*/false);
-  }
-  {
-    SCOPED_TRACE("Collision, the field is autofilled.");
-    form_description.fields[0].is_autofilled = true;
-    FormData form = GetAndAddSeenForm(form_description);
-    SubmitAndTest(form, /*collision=*/true, /*autofill_used=*/true,
-                  /*false_positive=*/true);
-  }
-  {
-    SCOPED_TRACE(
-        "Collision, the field is autofilled and subsequently changed.");
-    FormData form = GetAndAddSeenForm(form_description);
-    SimulateUserChangedTextField(form, form.fields()[0]);
-    SubmitAndTest(form, /*collision=*/true, /*autofill_used=*/true,
-                  /*false_positive=*/false);
-  }
-}
-
 // Test that we log the skip decisions for hidden/representational fields
 // correctly.
 TEST_F(AutofillMetricsTest, LogHiddenRepresentationalFieldSkipDecision) {
@@ -700,7 +628,9 @@ TEST_F(AutofillMetricsTest, SaneMetricsWithCacheMismatch) {
   scoped_feature_list.InitWithFeatures(
       {features::kAutofillFixValueSemantics,
        features::kAutofillFixInitialValueOfSelect,
-       features::kAutofillFixCurrentValueInImport},
+       features::kAutofillFixCurrentValueInImport,
+       // Enable model predictions but don't make it the active source.
+       features::kAutofillModelPredictions},
       {});
   FormData form = CreateForm(
       {CreateTestFormField("Both match", "match", "Elvis Aaron Presley",
@@ -717,27 +647,54 @@ TEST_F(AutofillMetricsTest, SaneMetricsWithCacheMismatch) {
                                             ADDRESS_HOME_CITY, UNKNOWN_TYPE};
   std::vector<FieldType> server_types = {NAME_FULL, PHONE_HOME_NUMBER,
                                          PHONE_HOME_NUMBER, UNKNOWN_TYPE};
+  std::vector<FieldType> ml_types = server_types;
 
-  autofill_manager().AddSeenForm(test::WithoutValues(form), heuristic_types,
+  std::vector<std::vector<std::pair<HeuristicSource, FieldType>>>
+      all_heuristic_types;
+  ASSERT_EQ(heuristic_types.size(), ml_types.size());
+  for (size_t i = 0; i < heuristic_types.size(); ++i) {
+    all_heuristic_types.push_back(
+        {{GetActiveHeuristicSource(), heuristic_types[i]},
+         {HeuristicSource::kMachineLearning, ml_types[i]}});
+  }
+
+  autofill_manager().AddSeenForm(test::WithoutValues(form), all_heuristic_types,
                                  server_types);
 
   // Add a field and re-arrange the remaining form fields before submitting. The
   // five submitted fields are filled with
-  // - ADDRESS_HOME_STATE (Tennessee)
+  // - EMPTY_TYPE (Tennessee) - While this is an ADDRESS_HOME_STATE in theory,
+  //     this field is added at runtime. As the value "Tennessee" is seen
+  //     for the first time when the form is submitted, the field's initial
+  //     value equates the current value. Therefore, the field is considered as
+  //     not-typed and therefore empty. Also no ML heuristics are executed on
+  //     the field because it just appears at form submission time.
   // - ADDRESS_HOME_CITY (Memphis)
   // - EMAIL_ADDRESS (buddy@gmail.com)
   // - garbage
-  // - NAME_FULL (buddy@gmail.com)
+  // - NAME_FULL (Elvis Aaron Presley)
   std::vector<FormFieldData> cached_fields = form.fields();
   form.set_fields({CreateTestFormField("New field", "new field", "Tennessee",
                                        FormControlType::kInputText),
                    cached_fields[2], cached_fields[1], cached_fields[3],
                    cached_fields[0]});
+  std::vector<FieldType> actual_types = {NAME_FULL, EMAIL_ADDRESS,
+                                         ADDRESS_HOME_CITY, UNKNOWN_TYPE};
 
   base::HistogramTester histogram_tester;
   SubmitForm(form);
 
-  for (const std::string source : {"Heuristic", "Server", "Overall"}) {
+  std::vector<std::string> sources = {"Heuristic", "Server", "Overall"};
+#if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
+  // Quality metrics for ".ML" are only recorded if the ML predictions are
+  // computed but not the active heuristic source.
+  if (base::FeatureList::IsEnabled(features::kAutofillModelPredictions) &&
+      GetActiveHeuristicSource() != HeuristicSource::kMachineLearning) {
+    sources.push_back("ML");
+  }
+#endif
+
+  for (const std::string& source : sources) {
     SCOPED_TRACE(testing::Message() << source);
     using FieldTypeQualityMetric = AutofillMetrics::FieldTypeQualityMetric;
     using enum FieldTypeQualityMetric;
@@ -764,6 +721,31 @@ TEST_F(AutofillMetricsTest, SaneMetricsWithCacheMismatch) {
                              source != "Heuristic" ? 2 : 1),
                            b(EMAIL_ADDRESS, FALSE_NEGATIVE_MISMATCH),
                            b(NAME_FULL, TRUE_POSITIVE)));
+
+    std::vector<FieldType>& predicted_type = [&]() -> std::vector<FieldType>& {
+      if (source == "Heuristic") {
+        return heuristic_types;
+      } else if (source == "Server") {
+        return server_types;
+      } else if (source == "Overall") {
+        return server_types;
+      } else if (source == "ML") {
+        return ml_types;
+      }
+      NOTREACHED_NORETURN();
+    }();
+    EXPECT_THAT(
+        histogram_tester.GetAllSamples("Autofill.FieldPrediction." + source),
+        // The first field has the ML prediction type NO_SERVER_DATA because the
+        // ML predictions were never executed and NO_SERVER_DATA is used to
+        // indicate that a specific heuristic type is unset.
+        BucketsAre(source == "Server" || source == "ML"
+                       ? Bucket((NO_SERVER_DATA << 16) | EMPTY_TYPE, 1)
+                       : Bucket((UNKNOWN_TYPE << 16) | EMPTY_TYPE, 1),
+                   Bucket((predicted_type[0] << 16) | actual_types[0], 1),
+                   Bucket((predicted_type[1] << 16) | actual_types[1], 1),
+                   Bucket((predicted_type[2] << 16) | actual_types[2], 1),
+                   Bucket((predicted_type[3] << 16) | actual_types[3], 1)));
   }
 }
 
@@ -1215,6 +1197,12 @@ TEST_F(AutofillMetricsTest, LogStoredCreditCardWithInvalidCardNumberMetrics) {
 
 // Test that the credit card checkout flow user actions are correctly logged.
 TEST_F(AutofillMetricsTest, CreditCardCheckoutFlowUserActions) {
+#if BUILDFLAG(IS_ANDROID)
+  if (base::android::BuildInfo::GetInstance()->is_automotive()) {
+    GTEST_SKIP() << "This test should not run on automotive.";
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+
   // Disable mandatory reauth as it is not part of this test and will
   // interfere with the card retrieval flow.
   personal_data()
@@ -2334,6 +2322,12 @@ TEST_P(AutofillMetricsIFrameTest,
 
 // Test that we log filled form events for credit cards.
 TEST_P(AutofillMetricsIFrameTest, CreditCardFilledFormEvents) {
+#if BUILDFLAG(IS_ANDROID)
+  if (base::android::BuildInfo::GetInstance()->is_automotive()) {
+    GTEST_SKIP() << "This test should not run on automotive.";
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+
   // Disable mandatory reauth as it is not part of this test and will
   // interfere with the card retrieval flow.
   personal_data()
@@ -7444,44 +7438,6 @@ TEST_F(AutofillMetricsFromLogEventsTest,
   histogram_tester.ExpectBucketCount("Autofill.LogEvent.RationalizationEvent",
                                      4, 1);
   histogram_tester.ExpectBucketCount("Autofill.LogEvent.All", 4, 1);
-}
-
-// Tests that the forms with <selectlist> field are recorded in UkmFieldInfo
-// metrics.
-TEST_F(AutofillMetricsFromLogEventsTest,
-       AutofillFieldInfoMetricsRecordOnSelectListField) {
-  FormData form = test::GetFormData(
-      {.fields = {
-           // Start with two input text fields.
-           {.label = u"First Name", .name = u"firstname"},
-           {.label = u"Last Name", .name = u"lastname"},
-           // A Selectlist.
-           {.label = u"Country",
-            .name = u"country",
-            .form_control_type = FormControlType::kSelectList},
-       }});
-
-  std::vector<FieldType> field_types = {NAME_FIRST, NAME_LAST,
-                                        ADDRESS_HOME_COUNTRY};
-  autofill_manager().AddSeenForm(form, field_types);
-  SeeForm(form);
-  task_environment_.FastForwardBy(base::Milliseconds(9));
-  base::HistogramTester histogram_tester;
-  SubmitForm(form);
-  test_api(autofill_manager()).Reset();
-
-  auto entries =
-      test_ukm_recorder().GetEntriesByName(UkmFieldInfoType::kEntryName);
-  ASSERT_EQ(3u, entries.size());
-  test_ukm_recorder().ExpectEntryMetric(
-      entries[0], UkmFieldInfoType::kFormControlType2Name,
-      base::to_underlying(FormControlType::kInputText));
-  test_ukm_recorder().ExpectEntryMetric(
-      entries[1], UkmFieldInfoType::kFormControlType2Name,
-      base::to_underlying(FormControlType::kInputText));
-  test_ukm_recorder().ExpectEntryMetric(
-      entries[2], UkmFieldInfoType::kFormControlType2Name,
-      base::to_underlying(FormControlType::kSelectList));
 }
 
 // Tests that the field which is in a different frame than its form is recorded

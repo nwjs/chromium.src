@@ -19,7 +19,7 @@
 #include "base/base64.h"
 #include "base/command_line.h"
 #include "base/containers/contains.h"
-#include "base/containers/fixed_flat_map.h"
+#include "base/containers/flat_map.h"
 #include "base/feature_list.h"
 #include "base/i18n/case_conversion.h"
 #include "base/logging.h"
@@ -76,6 +76,7 @@
 #include "components/autofill/core/common/logging/log_buffer.h"
 #include "components/autofill/core/common/signatures.h"
 #include "components/autofill/core/common/unique_ids.h"
+#include "components/autofill_prediction_improvements/core/browser/autofill_prediction_improvements_features.h"
 #include "components/security_state/core/security_state.h"
 #include "components/version_info/version_info.h"
 #include "url/origin.h"
@@ -253,7 +254,7 @@ void FormStructure::DetermineNonActiveHeuristicTypes(
     ParsingContext& context) {
 #if BUILDFLAG(USE_INTERNAL_AUTOFILL_PATTERNS)
   if (base::FeatureList::IsEnabled(
-          features::kAutofillEnableImprovedPredictionParser)) {
+          autofill_prediction_improvements::kAutofillPredictionImprovements)) {
     // Run the parser for the prediction improvements.
     context.pattern_file = PatternFile::kPredictionImprovements;
     AssignBestFieldTypes(ParseFieldTypesWithPatterns(context),
@@ -274,7 +275,7 @@ void FormStructure::DetermineNonActiveHeuristicTypes(
 
 // static
 std::vector<FormDataPredictions> FormStructure::GetFieldTypePredictions(
-    const std::vector<raw_ptr<FormStructure, VectorExperimental>>&
+    base::span<const raw_ptr<FormStructure, VectorExperimental>>
         form_structures) {
   std::vector<FormDataPredictions> forms;
   forms.reserve(form_structures.size());
@@ -411,9 +412,8 @@ bool FormStructure::ShouldBeParsed(ShouldBeParsedParams params,
     return false;
   }
 
-  bool has_text_field = std::ranges::any_of(*this, [](const auto& field) {
-    return !field->IsSelectOrSelectListElement();
-  });
+  bool has_text_field = std::ranges::any_of(
+      *this, [](const auto& field) { return !field->IsSelectElement(); });
   if (!has_text_field) {
     LOG_AF(log_manager) << LoggingScope::kAbortParsing
                         << LogMessage::kAbortParsingFormHasNoTextfield << *this;
@@ -493,7 +493,7 @@ void FormStructure::RetrieveFromCache(const FormStructure& cached_form,
 
     // TODO: crbug.com/40227496 - Simplify the `switch` statement once
     // kAutofillFixValueSemantics is launched.
-    // TODO: crbug.com/40227496 - Remove the IsSelectOrSelectListElement()
+    // TODO: crbug.com/40227496 - Remove the IsSelectElement()
     // checks once kAutofillFixValueSemantics is launched.
     // TODO: crbug.com/40227496 - Update the comments when the experiments are
     // launched.
@@ -503,7 +503,7 @@ void FormStructure::RetrieveFromCache(const FormStructure& cached_form,
         // If kAutofillFixValueSemantics is disabled: During form parsing (as in
         // "assigning field types to fields") the `value` represents the initial
         // value found at page load and needs to be preserved.
-        if (!field->IsSelectOrSelectListElement() ||
+        if (!field->IsSelectElement() ||
             base::FeatureList::IsEnabled(
                 features::kAutofillFixInitialValueOfSelect)) {
           field->set_initial_value(
@@ -511,9 +511,8 @@ void FormStructure::RetrieveFromCache(const FormStructure& cached_form,
         }
         break;
       case RetrieveFromCacheReason::kFormImport:
-        // TODO: crbug.com/40227496 - Group IsSelectOrSelectListElement()
-        // checks.
-        if ((!field->IsSelectOrSelectListElement() ||
+        // TODO: crbug.com/40227496 - Group IsSelectElement() checks.
+        if ((!field->IsSelectElement() ||
              base::FeatureList::IsEnabled(
                  features::kAutofillFixInitialValueOfSelect)) &&
             base::FeatureList::IsEnabled(
@@ -534,7 +533,7 @@ void FormStructure::RetrieveFromCache(const FormStructure& cached_form,
             cached_field->Type().GetStorableType() > FieldType::UNKNOWN_TYPE ||
             !cached_field->possible_types().empty();
         if (!cached_field->value(ValueSemantics::kInitial).empty() &&
-            (!field->IsSelectOrSelectListElement() ||
+            (!field->IsSelectElement() ||
              base::FeatureList::IsEnabled(
                  features::kAutofillFixInitialValueOfSelect)) &&
             had_type) {
@@ -548,7 +547,7 @@ void FormStructure::RetrieveFromCache(const FormStructure& cached_form,
         const bool field_is_neither_state_nor_country =
             field->server_type() != ADDRESS_HOME_COUNTRY &&
             field->server_type() != ADDRESS_HOME_STATE;
-        if ((!field->IsSelectOrSelectListElement() &&
+        if ((!field->IsSelectElement() &&
              !base::FeatureList::IsEnabled(
                  features::kAutofillFixCurrentValueInImport)) &&
             same_value_as_on_page_load && field_is_neither_state_nor_country) {
@@ -723,7 +722,10 @@ void FormStructure::AssignBestFieldTypes(
 
   // Fields can share the same field signature. This map records for each
   // signature how many fields with the same signature have been observed.
-  std::map<FieldSignature, size_t> field_rank_map;
+  auto field_rank_map = base::MakeFlatMap<FieldSignature, size_t>(
+      fields_, std::less<>(), [](const std::unique_ptr<AutofillField>& field) {
+        return std::make_pair(field->GetFieldSignature(), 0);
+      });
   for (const auto& field : fields_) {
     auto iter = field_type_map.find(field->global_id());
     if (iter == field_type_map.end())
@@ -732,15 +734,14 @@ void FormStructure::AssignBestFieldTypes(
     const FieldCandidates& candidates = iter->second;
     field->set_heuristic_type(heuristic_source, candidates.BestHeuristicType());
 
-    ++field_rank_map[field->GetFieldSignature()];
+    const size_t field_rank = ++field_rank_map.at(field->GetFieldSignature());
     // Log the field type predicted from local heuristics.
     field->AppendLogEventIfNotRepeated(HeuristicPredictionFieldLogEvent{
         .field_type = field->heuristic_type(heuristic_source),
         .heuristic_source = heuristic_source,
         .is_active_heuristic_source =
             GetActiveHeuristicSource() == heuristic_source,
-        .rank_in_field_signature_group =
-            field_rank_map[field->GetFieldSignature()],
+        .rank_in_field_signature_group = field_rank,
     });
   }
 }

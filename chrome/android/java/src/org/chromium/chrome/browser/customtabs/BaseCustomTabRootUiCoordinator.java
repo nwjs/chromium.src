@@ -38,6 +38,7 @@ import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
 import org.chromium.chrome.browser.crash.ChromePureJavaExceptionReporter;
 import org.chromium.chrome.browser.customtabs.content.CustomTabActivityNavigationController;
 import org.chromium.chrome.browser.customtabs.content.CustomTabActivityTabController;
+import org.chromium.chrome.browser.customtabs.features.CustomTabNavigationBarController;
 import org.chromium.chrome.browser.customtabs.features.branding.BrandingController;
 import org.chromium.chrome.browser.customtabs.features.minimizedcustomtab.CustomTabMinimizeDelegate;
 import org.chromium.chrome.browser.customtabs.features.minimizedcustomtab.MinimizedFeatureUtils;
@@ -54,9 +55,9 @@ import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
-import org.chromium.chrome.browser.history.HistoryManager;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthCoordinatorFactory;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthManager;
+import org.chromium.chrome.browser.layouts.LayoutManager;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.page_info.ChromePageInfo;
 import org.chromium.chrome.browser.page_info.ChromePageInfoHighlight;
@@ -79,9 +80,13 @@ import org.chromium.chrome.browser.ui.RootUiCoordinator;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuBlocker;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuDelegate;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
+import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeControllerFactory;
+import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeSupplier;
+import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
 import org.chromium.chrome.browser.ui.google_bottom_bar.GoogleBottomBarCoordinator;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.system.StatusBarColorController.StatusBarColorProvider;
+import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeStateProvider;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.page_info.PageInfoController.OpenedFromSource;
@@ -112,6 +117,8 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
     private @Nullable ReadAloudIPHController mReadAloudIPHController;
     private @Nullable GoogleBottomBarCoordinator mGoogleBottomBarCoordinator;
     private @Nullable TrackingProtectionSnackbarController mTrackingProtectionSnackbarController;
+
+    private @Nullable EdgeToEdgeSupplier.ChangeObserver mEdgeToEdgeChangeObserver;
 
     /**
      * Construct a new BaseCustomTabRootUiCoordinator.
@@ -154,6 +161,8 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
      * @param baseChromeLayout The base view hosting Chrome that certain views (e.g. the omnibox
      *     suggestion list) will position themselves relative to. If null, the content view will be
      *     used.
+     * @param edgeToEdgeStateProvider Provides the edge-to-edge state and allows for requests to
+     *     draw edge-to-edge.
      */
     public BaseCustomTabRootUiCoordinator(
             @NonNull AppCompatActivity activity,
@@ -192,7 +201,8 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
             @NonNull Supplier<CustomTabActivityTabController> tabController,
             @NonNull Supplier<CustomTabMinimizeDelegate> minimizeDelegateSupplier,
             @NonNull Supplier<CustomTabFeatureOverridesManager> featureOverridesManagerSupplier,
-            @Nullable View baseChromeLayout) {
+            @Nullable View baseChromeLayout,
+            @NonNull EdgeToEdgeStateProvider edgeToEdgeStateProvider) {
         super(
                 activity,
                 null,
@@ -233,7 +243,8 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
                 backPressManager,
                 null,
                 /* overviewColorSupplier= */ null,
-                baseChromeLayout);
+                baseChromeLayout,
+                edgeToEdgeStateProvider);
         mToolbarCoordinator = customTabToolbarCoordinator;
         mNavigationController = customTabNavigationController;
         mIntentDataProvider = intentDataProvider;
@@ -511,14 +522,13 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
     public void onPostInflationStartup() {
         super.onPostInflationStartup();
         mCustomTabHeightStrategy.onPostInflationStartup();
-        if (HistoryManager.isAppSpecificHistoryEnabled() && mAppMenuCoordinator != null) {
-            mCustomTabHistoryIPHController =
-                    new CustomTabHistoryIPHController(
-                            mActivity,
-                            mActivityTabProvider,
-                            mProfileSupplier,
-                            mAppMenuCoordinator.getAppMenuHandler());
-        }
+        mCustomTabHistoryIPHController =
+                CustomTabAppMenuHelper.maybeCreateHistoryIPHController(
+                        mAppMenuCoordinator,
+                        mActivity,
+                        mActivityTabProvider,
+                        mProfileSupplier,
+                        mIntentDataProvider.get());
     }
 
     @Override
@@ -568,7 +578,39 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
     }
 
     @Override
+    protected boolean supportsEdgeToEdge() {
+        // Currently edge to edge only supports CCT media viewer.
+        return EdgeToEdgeControllerFactory.isSupportedConfiguration(mActivity)
+                && EdgeToEdgeUtils.isDrawKeyNativePageToEdgeEnabled()
+                && !EdgeToEdgeUtils.DISABLE_CCT_MEDIA_VIEWER_E2E.getValue()
+                && mIntentDataProvider.get() != null
+                && mIntentDataProvider.get().shouldEnableEmbeddedMediaExperience();
+    }
+
+    @Override
+    protected void initializeEdgeToEdgeController() {
+        super.initializeEdgeToEdgeController();
+
+        if (mEdgeToEdgeControllerSupplier.get() != null) {
+            mEdgeToEdgeChangeObserver =
+                    (int bottomInset, boolean isDrawingToEdge, boolean isPageOptInToEdge) -> {
+                        CustomTabNavigationBarController.update(
+                                mWindowAndroid.getWindow(),
+                                mIntentDataProvider.get(),
+                                mActivity,
+                                isDrawingToEdge && isPageOptInToEdge);
+                    };
+            mEdgeToEdgeControllerSupplier.get().registerObserver(mEdgeToEdgeChangeObserver);
+        }
+    }
+
+    @Override
     public void onDestroy() {
+        if (mEdgeToEdgeControllerSupplier.get() != null) {
+            mEdgeToEdgeControllerSupplier.get().unregisterObserver(mEdgeToEdgeChangeObserver);
+            mEdgeToEdgeChangeObserver = null;
+        }
+
         super.onDestroy();
 
         if (mBrandingController != null) {
@@ -639,7 +681,7 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
                             int activityType = mIntentDataProvider.get().getActivityType();
                             boolean isCustomTab =
                                     activityType == ActivityType.CUSTOM_TAB
-                                            && !(mIntentDataProvider.get().isPartialCustomTab());
+                                            && !mIntentDataProvider.get().isPartialCustomTab();
                             if (isCustomTab) {
                                 RecordHistogram.recordBooleanHistogram(
                                         "Startup.Android.PrivacySandbox.ShouldShowAdsNoticeCCT",

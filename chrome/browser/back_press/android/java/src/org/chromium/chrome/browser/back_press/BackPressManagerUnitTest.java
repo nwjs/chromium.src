@@ -32,7 +32,7 @@ import java.util.concurrent.TimeoutException;
 @EnableFeatures({ChromeFeatureList.BACK_TO_HOME_ANIMATION})
 public class BackPressManagerUnitTest {
 
-    private class EmptyBackPressHandler implements BackPressHandler {
+    private static class EmptyBackPressHandler implements BackPressHandler {
         private ObservableSupplierImpl<Boolean> mSupplier = new ObservableSupplierImpl<>();
         private CallbackHelper mCallbackHelper = new CallbackHelper();
 
@@ -106,6 +106,36 @@ public class BackPressManagerUnitTest {
                 "Handler's callback should not be executed if it is disabled",
                 1,
                 h1.getCallbackHelper().getCallCount());
+    }
+
+    @Test
+    public void testMaintainingHandler() {
+        BackPressManager manager = new BackPressManager();
+        manager.setIsGestureNavEnabledSupplier(() -> true);
+        EmptyBackPressHandler h1 = Mockito.spy(new EmptyBackPressHandler());
+        EmptyBackPressHandler h2 = Mockito.spy(new EmptyBackPressHandler());
+        manager.addHandler(h1, 0);
+        manager.addHandler(h2, 1);
+        h1.getHandleBackPressChangedSupplier().set(false);
+        h2.getHandleBackPressChangedSupplier().set(true);
+        Assert.assertEquals(
+                "Should return the active handler", h2, manager.getEnabledBackPressHandler());
+        var backEvent = new BackEventCompat(0, 0, 0, BackEventCompat.EDGE_LEFT);
+        manager.getCallback().handleOnBackStarted(backEvent);
+        Mockito.verify(h2).handleOnBackStarted(backEvent);
+
+        backEvent = new BackEventCompat(1, 0, .5f, BackEventCompat.EDGE_LEFT);
+        manager.getCallback().handleOnBackProgressed(backEvent);
+        Mockito.verify(h2).handleOnBackProgressed(backEvent);
+
+        backEvent = new BackEventCompat(2, 0, 1, BackEventCompat.EDGE_LEFT);
+        manager.getCallback().handleOnBackProgressed(backEvent);
+        Mockito.verify(h2).handleOnBackProgressed(backEvent);
+
+        h1.getHandleBackPressChangedSupplier().set(true);
+
+        manager.getCallback().handleOnBackPressed();
+        Mockito.verify(h2).handleBackPress();
     }
 
     @Test

@@ -13,6 +13,7 @@
 
 namespace views {
 class ImageButton;
+class View;
 }  // namespace views
 
 namespace autofill {
@@ -24,7 +25,14 @@ class PopupRowPredictionImprovementsFeedbackView : public PopupRowView {
   METADATA_HEADER(PopupRowPredictionImprovementsFeedbackView, PopupRowView)
 
  public:
-  static constexpr int kLearnMoreStyledLabelViewID = 1;
+  enum class FocusableControl {
+    kManagePredictionImprovementsLink,
+    kThumbsUp,
+    kThumbsDown,
+  };
+
+  static constexpr int kLearnMoreStyledLabelViewID = 123;
+  static constexpr int kFeedbackTextAndButtonsContainerViewID = 321;
 
   PopupRowPredictionImprovementsFeedbackView(
       AccessibilitySelectionDelegate& a11y_selection_delegate,
@@ -45,8 +53,20 @@ class PopupRowPredictionImprovementsFeedbackView : public PopupRowView {
 
   // PopupRowView:
   void SetSelectedCell(std::optional<CellType> cell) override;
+  bool HandleKeyPressEvent(const input::NativeWebKeyboardEvent& event) override;
+
+  std::optional<FocusableControl> focused_control_for_testing() {
+    return focused_control_;
+  }
 
  private:
+  views::View& GetFocusableControlView(FocusableControl focused_control);
+  void UpdateFocusedControl(std::optional<FocusableControl> focused_control);
+
+  // The FocusableControl currently focused. Pressing enter will run their
+  // respective controller method.s
+  std::optional<FocusableControl> focused_control_;
+  raw_ptr<views::View> manage_prediction_improvements_link_ = nullptr;
   raw_ptr<views::ImageButton> thumbs_up_button_ = nullptr;
   raw_ptr<views::ImageButton> thumbs_down_button_ = nullptr;
 };

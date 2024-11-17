@@ -54,25 +54,25 @@ EnterprisePolicyTestHelper::EnterprisePolicyTestHelper(
       browser_policy_connector_.get(), /*user_policy_provider=*/nullptr);
   scoped_refptr<user_prefs::PrefRegistrySyncable> pref_registry(
       new user_prefs::PrefRegistrySyncable);
-  RegisterBrowserStatePrefs(pref_registry.get());
+  RegisterProfilePrefs(pref_registry.get());
   std::unique_ptr<sync_preferences::PrefServiceSyncable> pref_service =
-      CreateBrowserStatePrefs(
+      CreateProfilePrefs(
           state_directory_path,
           base::SingleThreadTaskRunner::GetCurrentDefault().get(),
           pref_registry, browser_state_policy_connector_->GetPolicyService(),
           browser_policy_connector_.get(), /*supervised_user_prefs=*/nullptr,
           /*async=*/false);
 
-  TestChromeBrowserState::Builder builder;
+  TestProfileIOS::Builder builder;
   builder.SetName(kProfileName);
   builder.SetPrefService(std::move(pref_service));
-  browser_state_ = std::move(builder).Build(data_dir);
+  profile_ = std::move(builder).Build(data_dir);
 }
 
 EnterprisePolicyTestHelper::~EnterprisePolicyTestHelper() = default;
 
-TestChromeBrowserState* EnterprisePolicyTestHelper::GetBrowserState() const {
-  return browser_state_.get();
+TestProfileIOS* EnterprisePolicyTestHelper::GetProfile() const {
+  return profile_.get();
 }
 
 PrefService* EnterprisePolicyTestHelper::GetLocalState() {

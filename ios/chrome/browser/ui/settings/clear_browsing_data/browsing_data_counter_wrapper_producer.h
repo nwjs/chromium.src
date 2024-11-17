@@ -16,8 +16,7 @@
 // ClearBrowsingDataManager's dependency on creating BrowsingDataCounterWrapper
 @interface BrowsingDataCounterWrapperProducer : NSObject
 
-- (instancetype)initWithBrowserState:(ChromeBrowserState*)browserState
-    NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithProfile:(ProfileIOS*)profile NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;
 
 - (std::unique_ptr<BrowsingDataCounterWrapper>)
@@ -26,6 +25,12 @@
                         (BrowsingDataCounterWrapper::UpdateUICallback)
                             updateUiCallback;
 
+- (std::unique_ptr<BrowsingDataCounterWrapper>)
+    createCounterWrapperWithPrefName:(std::string_view)prefName
+                           beginTime:(base::Time)beginTime
+                    updateUiCallback:
+                        (BrowsingDataCounterWrapper::UpdateUICallback)
+                            updateUiCallback;
 @end
 
 #endif  // IOS_CHROME_BROWSER_UI_SETTINGS_CLEAR_BROWSING_DATA_BROWSING_DATA_COUNTER_WRAPPER_PRODUCER_H_

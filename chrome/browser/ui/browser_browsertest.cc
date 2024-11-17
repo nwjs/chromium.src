@@ -15,6 +15,7 @@
 #include <memory>
 #include <string>
 
+#include "ash/constants/web_app_id_constants.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/files/file_path.h"
@@ -85,7 +86,6 @@
 #include "chrome/browser/web_applications/policy/web_app_policy_manager.h"
 #include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
-#include "chrome/browser/web_applications/web_app_id_constants.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_paths.h"
@@ -152,6 +152,7 @@
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "third_party/blink/public/mojom/frame/fullscreen.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
 
@@ -1473,7 +1474,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, OpenAppWindowLikeNtp) {
 #endif  // !BUILDFLAG(IS_MAC)
 
 // Makes sure the browser doesn't crash when
-// set_show_state(ui::SHOW_STATE_MAXIMIZED) has been invoked.
+// set_show_state(ui::mojom::WindowShowState::kMaximized) has been invoked.
 IN_PROC_BROWSER_TEST_F(BrowserTest, StartMaximized) {
   Browser::CreateParams params[] = {
       Browser::CreateParams(Browser::TYPE_NORMAL, browser()->profile(), true),
@@ -1487,7 +1488,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, StartMaximized) {
                             browser()->profile(), true),
   };
   for (size_t i = 0; i < std::size(params); ++i) {
-    params[i].initial_show_state = ui::SHOW_STATE_MAXIMIZED;
+    params[i].initial_show_state = ui::mojom::WindowShowState::kMaximized;
     AddBlankTabAndShow(Browser::Create(params[i]));
   }
 }
@@ -1499,7 +1500,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, StartMaximized) {
 #define MAYBE_StartMinimized StartMinimized
 #endif
 // Makes sure the browser doesn't crash when
-// set_show_state(ui::SHOW_STATE_MINIMIZED) has been invoked.
+// set_show_state(ui::mojom::WindowShowState::kMinimized) has been invoked.
 IN_PROC_BROWSER_TEST_F(BrowserTest, MAYBE_StartMinimized) {
   Browser::CreateParams params[] = {
       Browser::CreateParams(Browser::TYPE_NORMAL, browser()->profile(), true),
@@ -1513,7 +1514,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, MAYBE_StartMinimized) {
                             browser()->profile(), true),
   };
   for (size_t i = 0; i < std::size(params); ++i) {
-    params[i].initial_show_state = ui::SHOW_STATE_MINIMIZED;
+    params[i].initial_show_state = ui::mojom::WindowShowState::kMinimized;
     AddBlankTabAndShow(Browser::Create(params[i]));
   }
 }
@@ -3103,14 +3104,14 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, PreventCloseYieldsCancelledEvent) {
   ASSERT_TRUE(policy_refresh_sync_future.Wait());
 
   apps::AppUpdateWaiter waiter(
-      profile(), web_app::kCalculatorAppId,
+      profile(), ash::kCalculatorAppId,
       base::BindRepeating([](const apps::AppUpdate& update) {
         return update.AllowClose().has_value() && !update.AllowClose().value();
       }));
   waiter.Await();
 
   Browser* const browser =
-      web_app::LaunchWebAppBrowser(profile(), web_app::kCalculatorAppId);
+      web_app::LaunchWebAppBrowser(profile(), ash::kCalculatorAppId);
   ASSERT_TRUE(browser);
 
   EXPECT_EQ(BrowserClosingStatus::kDeniedByPolicy,

@@ -35,6 +35,7 @@
 #include "build/chromeos_buildflags.h"
 #include "components/metrics/metrics_state_manager.h"
 #include "components/prefs/pref_service.h"
+#include "components/variations/active_field_trials.h"
 #include "components/variations/entropy_provider.h"
 #include "components/variations/field_trial_config/field_trial_util.h"
 #include "components/variations/limited_entropy_mode_gate.h"
@@ -689,6 +690,7 @@ bool VariationsFieldTrialCreatorBase::CreateTrialsFromSeed(
   }
   RecordVariationsSeedUsage(run_in_safe_mode ? SeedUsage::kSafeSeedUsed
                                              : SeedUsage::kRegularSeedUsed);
+  SetSeedVersion(seed.version());
 
   RegisterLimitedEntropySyntheticTrialIfNeeded(seed, synthetic_trial_registry);
   VariationsLayers layers(seed, entropy_providers);
@@ -780,6 +782,7 @@ void VariationsFieldTrialCreatorBase::LoadSeedFromJsonFile(
   local_state()->SetInteger(prefs::kVariationsFailedToFetchSeedStreak, 0);
 
   // Override Local State seed prefs.
+  // TODO(crbug.com/369080917): Use SeedReaderWriter to store a seed.
   local_state()->SetString(prefs::kVariationsCompressedSeed,
                            seed_data->GetString());
   local_state()->SetString(prefs::kVariationsSeedSignature,

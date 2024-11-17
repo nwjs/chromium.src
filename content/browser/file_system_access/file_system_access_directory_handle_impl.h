@@ -84,15 +84,6 @@ class CONTENT_EXPORT FileSystemAccessDirectoryHandleImpl
       const std::string& basename,
       storage::FileSystemURL* result);
 
-  // The File System Access API should not give access to files that might
-  // trigger special handling from the operating system. This method is used to
-  // validate that all paths passed to GetFileHandle/GetDirectoryHandle are safe
-  // to be exposed to the web.
-  // TODO(crbug.com/40159607): Merge this with
-  // net::IsSafePortablePathComponent.
-  static bool IsSafePathComponent(storage::FileSystemType type,
-                                  const std::string& name);
-
  private:
   // This method creates the file if it does not currently exists. I.e. it is
   // the implementation for passing create=true to GetFile.
@@ -128,7 +119,8 @@ class CONTENT_EXPORT FileSystemAccessDirectoryHandleImpl
                    FileSystemAccessTransferTokenImpl* possible_child);
 
   void DidVerifySensitiveAccessForFileEntry(
-      std::string basename,
+      base::FilePath basename,
+      base::FilePath display_name,
       storage::FileSystemURL child_url,
       base::OnceCallback<void(blink::mojom::FileSystemAccessEntryPtr)>
           barrier_callback,
@@ -142,7 +134,8 @@ class CONTENT_EXPORT FileSystemAccessDirectoryHandleImpl
 
   // Helper to create a blink::mojom::FileSystemAccessEntry struct.
   blink::mojom::FileSystemAccessEntryPtr CreateEntry(
-      const std::string& basename,
+      const base::FilePath& basename,
+      const base::FilePath& display_name,
       const storage::FileSystemURL& url,
       FileSystemAccessPermissionContext::HandleType handle_type);
 

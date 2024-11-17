@@ -12,8 +12,8 @@
 #import "build/branding_buildflags.h"
 #import "components/grit/components_resources.h"
 #import "components/plus_addresses/features.h"
+#import "components/plus_addresses/grit/plus_addresses_strings.h"
 #import "components/plus_addresses/metrics/plus_address_metrics.h"
-#import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/plus_addresses/ui/plus_address_bottom_sheet_constants.h"
 #import "ios/chrome/browser/plus_addresses/ui/plus_address_bottom_sheet_delegate.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
@@ -24,6 +24,7 @@
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/confirmation_alert/confirmation_alert_action_handler.h"
 #import "ios/chrome/common/ui/confirmation_alert/confirmation_alert_view_controller.h"
+#import "ios/chrome/common/ui/util/button_util.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/common/ui/util/dynamic_type_util.h"
 #import "ios/chrome/common/ui/util/text_view_util.h"
@@ -168,6 +169,13 @@ UIImageView* BrandingImageView() {
   NSInteger _refreshCount;
   // The notice message if it will be shown.
   UITextView* _noticeMessage;
+  // A boolean that is set to `YES` when generating a plus address either in the
+  // initial state or during the refresh state.
+  BOOL _isGenerating;
+  // `YES` if feature
+  // `plus_addresses::features::kPlusAddressIOSErrorAndLoadingStatesEnabled` is
+  // enabled.
+  BOOL _errorAndLoadingStatesEnabled;
 }
 
 - (instancetype)initWithDelegate:(id<PlusAddressBottomSheetDelegate>)delegate
@@ -180,6 +188,9 @@ UIImageView* BrandingImageView() {
     _reservedPlusAddress = l10n_util::GetNSString(
         IDS_PLUS_ADDRESS_BOTTOMSHEET_LOADING_TEMPORARY_LABEL_CONTENT_IOS);
     _refreshCount = 0;
+    _errorAndLoadingStatesEnabled = base::FeatureList::IsEnabled(
+        plus_addresses::features::kPlusAddressIOSErrorAndLoadingStatesEnabled);
+    _isGenerating = _errorAndLoadingStatesEnabled;
   }
   return self;
 }
@@ -221,24 +232,20 @@ UIImageView* BrandingImageView() {
   // Disable the primary button until such time as the reservation is complete.
   // If reserving an address fails, we should inform the user and not attempt to
   // fill any fields on the page.
-  self.primaryActionButton.enabled = NO;
-  [_delegate reservePlusAddress];
-  plus_addresses::metrics::RecordModalEvent(
-      plus_addresses::metrics::PlusAddressModalEvent::kModalShown,
-      [_delegate shouldShowNotice]);
+  [self enablePrimaryActionButton:NO];
+  if (!_errorAndLoadingStatesEnabled) {
+    [_delegate reservePlusAddress];
+    plus_addresses::metrics::RecordModalEvent(
+        plus_addresses::metrics::PlusAddressModalEvent::kModalShown,
+        [_delegate shouldShowNotice]);
+  }
   _bottomSheetShownTime = base::Time::Now();
 }
 
 #pragma mark - ConfirmationAlertActionHandler
 
 - (void)confirmationAlertPrimaryAction {
-  self.primaryActionButton.enabled = NO;
-  // Make sure the user perceives that something is happening via a spinner.
-  [_activityIndicator startAnimating];
-  [_delegate confirmPlusAddress];
-  plus_addresses::metrics::RecordModalEvent(
-      plus_addresses::metrics::PlusAddressModalEvent::kModalConfirmed,
-      [_delegate shouldShowNotice]);
+  [self willConfirmPlusAddress];
 }
 
 - (void)confirmationAlertSecondaryAction {
@@ -251,7 +258,15 @@ UIImageView* BrandingImageView() {
 #pragma mark - PlusAddressBottomSheetConsumer
 
 - (void)didReservePlusAddress:(NSString*)plusAddress {
-  self.primaryActionButton.enabled = YES;
+  [self enablePrimaryActionButton:YES];
+  if (_errorAndLoadingStatesEnabled) {
+    _isGenerating = NO;
+    if (!_refreshCount) {
+      plus_addresses::metrics::RecordModalEvent(
+          plus_addresses::metrics::PlusAddressModalEvent::kModalShown,
+          [_delegate shouldShowNotice]);
+    }
+  }
   _reservedPlusAddress = plusAddress;
   [_reservedPlusAddressTableView reloadData];
 }
@@ -261,23 +276,41 @@ UIImageView* BrandingImageView() {
       PlusAddressModalCompletionStatus::kModalConfirmed,
       base::Time::Now() - _bottomSheetShownTime,
       /*refresh_count=*/(int)_refreshCount, [_delegate shouldShowNotice]);
-  [_activityIndicator stopAnimating];
+  if (_errorAndLoadingStatesEnabled) {
+    self.isLoading = NO;
+  } else {
+    [_activityIndicator stopAnimating];
+  }
+
   [_browserCoordinatorHandler dismissPlusAddressBottomSheet];
 }
 
 - (void)notifyError:(PlusAddressModalCompletionStatus)status {
-  // With any error, whether during the reservation step or the confirmation
-  // step, disable submission of the modal.
   _bottomSheetErrorStatus = status;
-  self.primaryActionButton.enabled = NO;
+  if (_errorAndLoadingStatesEnabled) {
+    self.isLoading = NO;
+  } else {
+    // With any error, whether during the reservation step or the confirmation
+    // step, disable submission of the modal.
+    [self enablePrimaryActionButton:NO];
 
-  _reservedPlusAddressTableView.hidden = YES;
-  [_reservedPlusAddressTableView reloadData];
+    _reservedPlusAddressTableView.hidden = YES;
+    [_reservedPlusAddressTableView reloadData];
 
-  _errorMessage.hidden = NO;
-  [_activityIndicator stopAnimating];
-  // Resize to accommodate error message.
-  [self expandBottomSheet];
+    _errorMessage.hidden = NO;
+
+    [_activityIndicator stopAnimating];
+    // Resize to accommodate error message.
+    [self expandBottomSheet];
+  }
+}
+
+- (void)dismissBottomSheet {
+  [self dismiss];
+}
+
+- (void)didSelectTryAgainToConfirm {
+  [self willConfirmPlusAddress];
 }
 
 #pragma mark - UITextViewDelegate
@@ -329,6 +362,13 @@ UIImageView* BrandingImageView() {
 
   cell.selectionStyle = UITableViewCellSelectionStyleNone;
   cell.backgroundColor = [UIColor colorNamed:kSecondaryBackgroundColor];
+
+  BOOL shouldShowRefresh = [_delegate isRefreshEnabled];
+
+  if (_errorAndLoadingStatesEnabled && _isGenerating) {
+    shouldShowRefresh = NO;
+    [cell showActivityIndicator];
+  } else {
 #if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
   [cell setLeadingIconImage:CustomSymbolTemplateWithPointSize(
                                 kGooglePlusAddressSymbol,
@@ -339,7 +379,10 @@ UIImageView* BrandingImageView() {
                                 kMailFillSymbol, kPlusAddressSheetCellImageSize)
               withTintColor:[UIColor colorNamed:kTextSecondaryColor]];
 #endif
-  if ([_delegate isRefreshEnabled]) {
+  [cell hideActivityIndicator];
+  }
+
+  if (shouldShowRefresh) {
     [cell setTrailingButtonImage:CustomSymbolTemplateWithPointSize(
                                      kArrowClockWiseSymbol,
                                      kPlusAddressSheetCellImageSize)
@@ -347,6 +390,7 @@ UIImageView* BrandingImageView() {
          accessibilityIdentifier:
              kPlusAddressRefreshButtonAccessibilityIdentifier];
   }
+
   cell.textLabel.text = _reservedPlusAddress;
   cell.textLabel.accessibilityIdentifier =
       kPlusAddressLabelAccessibilityIdentifier;
@@ -359,10 +403,12 @@ UIImageView* BrandingImageView() {
 
 - (void)didTapTrailingButton {
   _refreshCount++;
-  self.primaryActionButton.enabled = NO;
-  // TODO(crbug.com/343153116): Disable the refresh button when it's loading.
+  [self enablePrimaryActionButton:NO];
+  _isGenerating = _errorAndLoadingStatesEnabled;
   _reservedPlusAddress = l10n_util::GetNSString(
-      IDS_PLUS_ADDRESS_BOTTOMSHEET_REFRESH_TEMPORARY_LABEL_CONTENT_IOS);
+      _errorAndLoadingStatesEnabled
+          ? IDS_PLUS_ADDRESS_BOTTOMSHEET_LOADING_TEMPORARY_LABEL_CONTENT_IOS
+          : IDS_PLUS_ADDRESS_BOTTOMSHEET_REFRESH_TEMPORARY_LABEL_CONTENT_IOS);
   [_reservedPlusAddressTableView reloadData];
 
   [_delegate didTapRefreshButton];
@@ -438,6 +484,10 @@ UIImageView* BrandingImageView() {
 }
 
 - (void)setupAboveTitleView {
+  if (_errorAndLoadingStatesEnabled) {
+    return;
+  }
+
   _activityIndicator = [[UIActivityIndicatorView alloc]
       initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
 
@@ -538,6 +588,30 @@ UIImageView* BrandingImageView() {
           kPlusAddressSheetBrandingIconContainerViewBottomPadding, 0));
 
   return outerView;
+}
+
+// Called when the user chose to confirm the plus address.
+- (void)willConfirmPlusAddress {
+  [self enablePrimaryActionButton:NO];
+  // Make sure the user perceives that something is happening via a spinner.
+  if (_errorAndLoadingStatesEnabled) {
+    self.isLoading = YES;
+  } else {
+    [_activityIndicator startAnimating];
+  }
+
+  [_delegate confirmPlusAddress];
+  plus_addresses::metrics::RecordModalEvent(
+      plus_addresses::metrics::PlusAddressModalEvent::kModalConfirmed,
+      [_delegate shouldShowNotice]);
+}
+
+// Enables/Disables the primary action button.
+- (void)enablePrimaryActionButton:(BOOL)enabled {
+  self.primaryActionButton.enabled = enabled;
+  if (_errorAndLoadingStatesEnabled) {
+    UpdateButtonColorOnEnableDisable(self.primaryActionButton);
+  }
 }
 
 @end

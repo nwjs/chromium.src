@@ -50,8 +50,6 @@ public class ExpandedPlayerSheetContent implements BottomSheetContent {
     private OptionsMenuSheetContent mOptionsMenu;
     private SpeedMenuSheetContent mSpeedMenu;
     private TextView mSpeedButton;
-    private boolean mHighlightingEnabled;
-    private boolean mHighlightingSupported;
 
     private LinearLayout mNormalLayout;
     private LinearLayout mErrorLayout;
@@ -241,7 +239,7 @@ public class ExpandedPlayerSheetContent implements BottomSheetContent {
     }
 
     /**
-     * @param percentProgress out of 1.0
+     * @param percent out of 1.0
      */
     public void setProgress(float percent) {
         mSeekBar.setProgress((int) (percent * mSeekBar.getMax()), true);
@@ -256,7 +254,7 @@ public class ExpandedPlayerSheetContent implements BottomSheetContent {
         // set bit saying we're waiting for another sheet
         mModel.set(PlayerProperties.SHOW_MINI_PLAYER_ON_DISMISS, false);
         mBottomSheetController.hideContent(this, /* animate= */ false);
-        mBottomSheetController.requestShowContent(mOptionsMenu, /* animate= */ true);
+        mBottomSheetController.requestShowContent(mOptionsMenu, /* animate= */ false);
     }
 
     @Nullable
@@ -276,7 +274,7 @@ public class ExpandedPlayerSheetContent implements BottomSheetContent {
         // set bit saying we're waiting for another sheet
         mModel.set(PlayerProperties.SHOW_MINI_PLAYER_ON_DISMISS, false);
         mBottomSheetController.hideContent(this, /* animate= */ false);
-        mBottomSheetController.requestShowContent(mSpeedMenu, /* animate= */ true);
+        mBottomSheetController.requestShowContent(mSpeedMenu, /* animate= */ false);
     }
 
     // BottomSheetContent implementation

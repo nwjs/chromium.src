@@ -271,8 +271,8 @@ SystemIdentityManager* TestingApplicationContext::GetSystemIdentityManager() {
 AccountProfileMapper* TestingApplicationContext::GetAccountProfileMapper() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!account_profile_mapper_) {
-    account_profile_mapper_ =
-        std::make_unique<AccountProfileMapper>(GetSystemIdentityManager());
+    account_profile_mapper_ = std::make_unique<AccountProfileMapper>(
+        GetSystemIdentityManager(), GetProfileManager());
   }
   return account_profile_mapper_.get();
 }
@@ -310,3 +310,12 @@ TestingApplicationContext::GetAdditionalFeaturesController() {
   }
   return additional_features_controller_.get();
 }
+
+#if BUILDFLAG(BUILD_WITH_INTERNAL_OPTIMIZATION_GUIDE)
+optimization_guide::OnDeviceModelServiceController*
+TestingApplicationContext::GetOnDeviceModelServiceController(
+    base::WeakPtr<optimization_guide::OnDeviceModelComponentStateManager>
+        on_device_component_manager) {
+  return nullptr;
+}
+#endif  // BUILD_WITH_INTERNAL_OPTIMIZATION_GUIDE

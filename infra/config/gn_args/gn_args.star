@@ -14,34 +14,6 @@ gn_args.config(
 )
 
 gn_args.config(
-    name = "also_build_ash_chrome",
-    args = {
-        "also_build_ash_chrome": True,
-    },
-)
-
-gn_args.config(
-    name = "also_build_lacros_chrome",
-    args = {
-        "also_build_lacros_chrome": True,
-    },
-)
-
-gn_args.config(
-    name = "also_build_lacros_chrome_for_architecture_amd64",
-    args = {
-        "also_build_lacros_chrome_for_architecture": "amd64",
-    },
-)
-
-gn_args.config(
-    name = "also_build_lacros_chrome_for_architecture_arm64",
-    args = {
-        "also_build_lacros_chrome_for_architecture": "arm64",
-    },
-)
-
-gn_args.config(
     name = "amd64-generic",
     args_file = "//build/args/chromeos/amd64-generic.gni",
 )
@@ -477,7 +449,6 @@ gn_args.config(
         "include_transport_security_state_preload_list": False,
         "is_cronet_build": True,
         "use_platform_icu_alternatives": True,
-        "enable_rust": False,
     },
 )
 
@@ -1208,6 +1179,13 @@ gn_args.config(
 )
 
 gn_args.config(
+    name = "save_lld_reproducers",
+    args = {
+        "save_reproducers_on_lld_crash": True,
+    },
+)
+
+gn_args.config(
     name = "skip_generate_fuzzer_owners",
     args = {
         "generate_fuzzer_owners": False,
@@ -1246,6 +1224,13 @@ gn_args.config(
     name = "strip_debug_info",
     args = {
         "strip_debug_info": True,
+    },
+)
+
+gn_args.config(
+    name = "system_headers_in_deps",
+    args = {
+        "system_headers_in_deps": True,
     },
 )
 

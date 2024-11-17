@@ -140,8 +140,7 @@ std::string PaintFilter::TypeToString(Type type) {
     case Type::kLightingSpot:
       return "kLightingSpot";
   }
-  NOTREACHED_IN_MIGRATION();
-  return "Unknown";
+  NOTREACHED();
 }
 
 SkIRect PaintFilter::MapRect(const SkIRect& src,
@@ -240,8 +239,7 @@ bool PaintFilter::EqualsForTesting(const PaintFilter& other) const {
     case Type::kLightingSpot:
       return AreEqualForTesting<LightingSpotPaintFilter>(*this, other);
   }
-  NOTREACHED_IN_MIGRATION();
-  return true;
+  NOTREACHED();
 }
 
 std::vector<sk_sp<SkImageFilter>> PaintFilter::ToSkImageFilters(
@@ -765,8 +763,13 @@ ImagePaintFilter::ImagePaintFilter(PaintImage image,
       src_rect_(src_rect),
       dst_rect_(dst_rect),
       filter_quality_(filter_quality) {
+  PaintFlags::ScalingOperation scale =
+      (src_rect.height() < dst_rect.height() &&
+       src_rect.width() < dst_rect.width())
+          ? PaintFlags::ScalingOperation::kUpscale
+          : PaintFlags::ScalingOperation::kUnknown;
   SkSamplingOptions sampling(
-      PaintFlags::FilterQualityToSkSamplingOptions(filter_quality));
+      PaintFlags::FilterQualityToSkSamplingOptions(filter_quality, scale));
   cached_sk_filter_ = SkImageFilters::Image(image_.GetSkImage(), src_rect_,
                                             dst_rect_, sampling);
 }
@@ -1241,8 +1244,19 @@ MatrixPaintFilter::MatrixPaintFilter(const SkMatrix& matrix,
     : OneInputPaintFilter(Type::kMatrix, std::move(input)),
       matrix_(matrix),
       filter_quality_(filter_quality) {
+  SkSize scale;
+  PaintFlags::ScalingOperation scaling_option =
+      PaintFlags::ScalingOperation::kUnknown;
+  if (matrix_.decomposeScale(&scale)) {
+    scaling_option = (scale.width() > 1 && scale.height() > 1)
+                         ? PaintFlags::ScalingOperation::kUpscale
+                         : PaintFlags::ScalingOperation::kUnknown;
+  }
+
   cached_sk_filter_ = SkImageFilters::MatrixTransform(
-      matrix_, PaintFlags::FilterQualityToSkSamplingOptions(filter_quality_),
+      matrix_,
+      PaintFlags::FilterQualityToSkSamplingOptions(filter_quality_,
+                                                   scaling_option),
       GetSkFilter(input_.get()));
 }
 

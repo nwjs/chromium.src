@@ -18,13 +18,13 @@ BASE_DECLARE_FEATURE(kAdaptiveButtonInTopToolbarCustomizationV2);
 BASE_DECLARE_FEATURE(kAdaptiveButtonInTopToolbarPageSummary);
 BASE_DECLARE_FEATURE(kAllowNewIncognitoTabIntents);
 BASE_DECLARE_FEATURE(kAndroidAppIntegration);
+BASE_DECLARE_FEATURE(kAndroidAppIntegrationWithFavicon);
 BASE_DECLARE_FEATURE(kAndroidBottomToolbar);
 BASE_DECLARE_FEATURE(kAndroidElegantTextHeight);
 BASE_DECLARE_FEATURE(kAndroidGoogleSansText);
 BASE_DECLARE_FEATURE(kAndroidHubFloatingActionButton);
 BASE_DECLARE_FEATURE(kAndroidHubSearch);
 BASE_DECLARE_FEATURE(kAndroidHubV2);
-BASE_DECLARE_FEATURE(kAndroidImprovedBookmarks);
 BASE_DECLARE_FEATURE(kAndroidNoVisibleHintForDifferentTLD);
 BASE_DECLARE_FEATURE(kAndroidTabDeclutter);
 BASE_DECLARE_FEATURE(kAndroidTabDeclutterArchiveAllButActiveTab);
@@ -35,6 +35,7 @@ BASE_DECLARE_FEATURE(kAnimatedImageDragShadow);
 BASE_DECLARE_FEATURE(kAppSpecificHistory);
 BASE_DECLARE_FEATURE(kTinkerTankBottomSheet);
 BASE_DECLARE_FEATURE(kAsyncNotificationManager);
+BASE_DECLARE_FEATURE(kAutomotiveFullscreenToolbarImprovements);
 BASE_DECLARE_FEATURE(kAuxiliarySearchDonation);
 BASE_DECLARE_FEATURE(kAvoidSelectedTabFocusOnLayoutDoneShowing);
 BASE_DECLARE_FEATURE(kBackGestureActivityTabProvider);
@@ -48,6 +49,7 @@ BASE_DECLARE_FEATURE(kBrowserControlsEarlyResize);
 BASE_DECLARE_FEATURE(kCacheActivityTaskID);
 BASE_DECLARE_FEATURE(kCastDeviceFilter);
 BASE_DECLARE_FEATURE(kCCTAuthTab);
+BASE_DECLARE_FEATURE(kCCTAuthTabDisableAllExternalIntents);
 BASE_DECLARE_FEATURE(kCCTBeforeUnload);
 BASE_DECLARE_FEATURE(kCCTClientDataHeader);
 BASE_DECLARE_FEATURE(kCCTEphemeralMode);
@@ -59,11 +61,10 @@ BASE_DECLARE_FEATURE(kCCTMinimized);
 BASE_DECLARE_FEATURE(kCCTMinimizedEnabledByDefault);
 BASE_DECLARE_FEATURE(kCCTNavigationalPrefetch);
 BASE_DECLARE_FEATURE(kCCTNestedSecurityIcon);
-BASE_DECLARE_FEATURE(kCCTPageInsightsHub);
-BASE_DECLARE_FEATURE(kCCTPageInsightsHubPeek);
-BASE_DECLARE_FEATURE(kCCTPageInsightsHubBetterScroll);
 BASE_DECLARE_FEATURE(kCCTGoogleBottomBar);
 BASE_DECLARE_FEATURE(kCCTGoogleBottomBarVariantLayouts);
+BASE_DECLARE_FEATURE(kCCTOpenInBrowserButtonIfAllowedByEmbedder);
+BASE_DECLARE_FEATURE(kCCTOpenInBrowserButtonIfEnabledByEmbedder);
 BASE_DECLARE_FEATURE(kCCTPrewarmTab);
 BASE_DECLARE_FEATURE(kCCTReportParallelRequestStatus);
 BASE_DECLARE_FEATURE(kCCTResizableForThirdParties);
@@ -71,6 +72,7 @@ BASE_DECLARE_FEATURE(kCCTRetainingStateInMemory);
 BASE_DECLARE_FEATURE(kCCTRevampedBranding);
 BASE_DECLARE_FEATURE(kCCTTabModalDialog);
 BASE_DECLARE_FEATURE(kDefaultBrowserPromoAndroid);
+BASE_DECLARE_FEATURE(kDefaultBrowserPromoAndroid2);
 BASE_DECLARE_FEATURE(kDontAutoHideBrowserControls);
 BASE_DECLARE_FEATURE(kCacheDeprecatedSystemLocationSetting);
 BASE_DECLARE_FEATURE(kChromeSharePageInfo);
@@ -93,19 +95,21 @@ BASE_DECLARE_FEATURE(kDrawEdgeToEdge);
 BASE_DECLARE_FEATURE(kDrawKeyNativeEdgeToEdge);
 BASE_DECLARE_FEATURE(kDrawNativeEdgeToEdge);
 BASE_DECLARE_FEATURE(kEdgeToEdgeBottomChin);
+BASE_DECLARE_FEATURE(kEdgeToEdgeEverywhere);
 BASE_DECLARE_FEATURE(kEdgeToEdgeWebOptIn);
 BASE_DECLARE_FEATURE(kDragDropIntoOmnibox);
 BASE_DECLARE_FEATURE(kDragDropTabTearing);
 BASE_DECLARE_FEATURE(kDragDropTabTearingEnableOEM);
-BASE_DECLARE_FEATURE(kEducationalTipModule);
 BASE_DECLARE_FEATURE(kExperimentsForAgsa);
 BASE_DECLARE_FEATURE(kFeedPositionAndroid);
 BASE_DECLARE_FEATURE(kFocusOmniboxInIncognitoTabIntents);
 BASE_DECLARE_FEATURE(kForceBrowserControlsUponExitingFullscreen);
 BASE_DECLARE_FEATURE(kForceListTabSwitcher);
+BASE_DECLARE_FEATURE(kForceTranslucentNotificationTrampoline);
 BASE_DECLARE_FEATURE(kFullscreenInsetsApiMigration);
 BASE_DECLARE_FEATURE(kFullscreenInsetsApiMigrationOnAutomotive);
-BASE_DECLARE_FEATURE(kGtsCloseTabAnimation);
+BASE_DECLARE_FEATURE(kGtsCloseTabAnimationKillSwitch);
+BASE_DECLARE_FEATURE(kLockBackPressHandlerAtStart);
 BASE_DECLARE_FEATURE(kIncognitoReauthenticationForAndroid);
 BASE_DECLARE_FEATURE(kIncognitoScreenshot);
 BASE_DECLARE_FEATURE(kImprovedA2HS);
@@ -123,6 +127,7 @@ BASE_DECLARE_FEATURE(kNewTabSearchEngineUrlAndroid);
 BASE_DECLARE_FEATURE(kNewTabPageAndroidTriggerForPrerender2);
 BASE_DECLARE_FEATURE(kNotificationPermissionVariant);
 BASE_DECLARE_FEATURE(kNotificationPermissionBottomSheet);
+BASE_DECLARE_FEATURE(kNotificationTrampoline);
 BASE_DECLARE_FEATURE(kOmahaMinSdkVersionAndroid);
 BASE_DECLARE_FEATURE(kAvoidRelayoutDuringFocusAnimation);
 BASE_DECLARE_FEATURE(kShortCircuitUnfocusAnimation);
@@ -170,7 +175,6 @@ BASE_DECLARE_FEATURE(kTabletToolbarReordering);
 BASE_DECLARE_FEATURE(kTabStateFlatBuffer);
 BASE_DECLARE_FEATURE(kTabStripGroupCollapseAndroid);
 BASE_DECLARE_FEATURE(kTabStripGroupContextMenuAndroid);
-BASE_DECLARE_FEATURE(kTabStripGroupIndicatorsAndroid);
 BASE_DECLARE_FEATURE(kTabStripIncognitoMigration);
 BASE_DECLARE_FEATURE(kTabStripLayoutOptimization);
 BASE_DECLARE_FEATURE(kTabStripStartupRefactoring);
@@ -188,7 +192,6 @@ BASE_DECLARE_FEATURE(kTabResumptionModuleAndroid);
 BASE_DECLARE_FEATURE(kUmaBackgroundSessions);
 BASE_DECLARE_FEATURE(kUseLibunwindstackNativeUnwinderAndroid);
 BASE_DECLARE_FEATURE(kUserMediaScreenCapturing);
-BASE_DECLARE_FEATURE(kVerticalAutomotiveBackButtonToolbar);
 BASE_DECLARE_FEATURE(kVoiceSearchAudioCapturePolicy);
 BASE_DECLARE_FEATURE(kWebOtpCrossDeviceSimpleString);
 BASE_DECLARE_FEATURE(kWebApkAllowIconUpdate);
@@ -199,7 +202,7 @@ constexpr base::FeatureParam<int> kAuxiliarySearchMaxBookmarksCountParam(
     "auxiliary_search_max_donation_bookmark",
     100);
 
-constexpr base::FeatureParam<int> kAuxiliarySearchMaxTabsCountParam(
+constexpr base::FeatureParam<size_t> kAuxiliarySearchMaxTabsCountParam(
     &kAuxiliarySearchDonation,
     "auxiliary_search_max_donation_tab",
     100);
@@ -208,6 +211,11 @@ constexpr base::FeatureParam<bool> kEdgeToEdgeBottomChinDebugParam(
     &kEdgeToEdgeBottomChin,
     "debug_bottom_chin",
     /*default_value=*/false);
+
+constexpr base::FeatureParam<bool> kCCTNavigationalPrefetchHoldback(
+    &kCCTNavigationalPrefetch,
+    "holdback",
+    false);
 
 constexpr base::FeatureParam<std::string> kQuickDeleteAndroidSurveyTriggerId(
     &kQuickDeleteAndroidSurvey,

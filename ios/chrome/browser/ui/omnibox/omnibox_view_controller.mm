@@ -90,9 +90,20 @@ using base::UserMetricsAction;
   // otherwise it should act exactly like a system button.
   /// Clear button owned by `view` (OmniboxContainerView).
   __weak UIButton* _clearButton;
+
+  /// Whether the view is presented in the lens overlay.
+  BOOL _isLensOverlay;
 }
 
 @dynamic view;
+
+- (instancetype)initWithIsLensOverlay:(BOOL)isLensOverlay {
+  self = [super initWithNibName:nil bundle:nil];
+  if (self) {
+    _isLensOverlay = isLensOverlay;
+  }
+  return self;
+}
 
 #pragma mark - UIViewController
 
@@ -105,7 +116,8 @@ using base::UserMetricsAction;
   self.view = [[OmniboxContainerView alloc] initWithFrame:CGRectZero
                                                 textColor:textColor
                                             textFieldTint:textFieldTintColor
-                                                 iconTint:iconTintColor];
+                                                 iconTint:iconTintColor
+                                            isLensOverlay:_isLensOverlay];
   self.view.layoutGuideCenter = self.layoutGuideCenter;
   _clearButton = self.view.clearButton;
 
@@ -123,22 +135,6 @@ using base::UserMetricsAction;
 
 - (void)viewDidLoad {
   [super viewDidLoad];
-#if !defined(__IPHONE_16_0) || __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_16_0
-  // Add Paste and Go option to the editing menu
-  RegisterEditMenuItem([[UIMenuItem alloc]
-      initWithTitle:l10n_util::GetNSString(IDS_IOS_SEARCH_COPIED_IMAGE)
-             action:@selector(searchCopiedImage:)]);
-  RegisterEditMenuItem([[UIMenuItem alloc]
-      initWithTitle:l10n_util::GetNSString(
-                        IDS_IOS_SEARCH_COPIED_IMAGE_WITH_LENS)
-             action:@selector(lensCopiedImage:)]);
-  RegisterEditMenuItem([[UIMenuItem alloc]
-      initWithTitle:l10n_util::GetNSString(IDS_IOS_VISIT_COPIED_LINK)
-             action:@selector(visitCopiedLink:)]);
-  RegisterEditMenuItem([[UIMenuItem alloc]
-      initWithTitle:l10n_util::GetNSString(IDS_IOS_SEARCH_COPIED_TEXT)
-             action:@selector(searchCopiedText:)]);
-#endif
 
   self.textField.placeholder = [self placeholderText];
 
@@ -222,20 +218,6 @@ using base::UserMetricsAction;
   if (_isTextfieldEditing == owns) {
     return;
   }
-#if !defined(__IPHONE_16_0) || __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_16_0
-  if (owns) {
-    [[NSNotificationCenter defaultCenter]
-        addObserver:self
-           selector:@selector(menuControllerWillShow:)
-               name:UIMenuControllerWillShowMenuNotification
-             object:nil];
-  } else {
-    [[NSNotificationCenter defaultCenter]
-        removeObserver:self
-                  name:UIMenuControllerWillShowMenuNotification
-                object:nil];
-  }
-#endif
   _isTextfieldEditing = owns;
 }
 
@@ -628,28 +610,6 @@ using base::UserMetricsAction;
         [weakSelf onClipboardContentTypesReceived:matched_types];
       }));
 }
-
-#if !defined(__IPHONE_16_0) || __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_16_0
-- (void)menuControllerWillShow:(NSNotification*)notification {
-  if (self.showingEditMenu || !self.isTextfieldEditing ||
-      !self.textField.window.isKeyWindow) {
-    return;
-  }
-
-  self.showingEditMenu = YES;
-
-  // Cancel original menu opening.
-  UIMenuController* menuController = [UIMenuController sharedMenuController];
-  [menuController hideMenu];
-
-  // Reset where it should open below text field and reopen it.
-  menuController.arrowDirection = UIMenuControllerArrowUp;
-
-  [menuController showMenuFromView:self.textField rect:self.textField.frame];
-
-  self.showingEditMenu = NO;
-}
-#endif
 
 - (void)pasteboardDidChange:(NSNotification*)notification {
   [self updateCachedClipboardState];

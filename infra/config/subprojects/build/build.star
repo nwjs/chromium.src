@@ -29,7 +29,10 @@ luci.bucket(
         ),
         acl.entry(
             roles = acl.BUILDBUCKET_OWNER,
-            groups = "project-chromium-admins",
+            groups = [
+                "project-chromium-admins",
+                "mdb/chrome-ops-browser-build-team",
+            ],
         ),
         acl.entry(
             roles = acl.SCHEDULER_TRIGGERER,
@@ -89,6 +92,7 @@ ci.defaults.set(
     contact_team_email = "chrome-build-team@google.com",
     execution_timeout = 10 * time.hour,
     priority = ci.DEFAULT_FYI_PRIORITY,
+    resultdb_enable = False,
     service_account = "chromium-build-perf-ci-builder@chops-service-accounts.iam.gserviceaccount.com",
     siso_configs = [],
     siso_enabled = True,
@@ -103,7 +107,7 @@ consoles.console_view(
 def cq_build_perf_builder(description_html, **kwargs):
     # Use CQ RBE instance and high remote_jobs/cores to simulate CQ builds.
     if not kwargs.get("siso_configs"):
-        kwargs["siso_configs"] = ["builder", "remote-library-link", "remote-exec-link"]
+        kwargs["siso_configs"] = ["builder", "remote-link"]
     return ci.builder(
         description_html = description_html + "<br>Build stats is show in http://shortn/_gaAdI3x6o6.",
         reclient_jobs = 500,
@@ -510,7 +514,7 @@ def developer_build_perf_builder(description_html, **kwargs):
         description_html = description_html + "<br>Build stats is show in http://shortn/_gaAdI3x6o6.",
         executable = "recipe:chrome_build/build_perf_developer",
         siso_project = siso.project.DEFAULT_UNTRUSTED,
-        siso_configs = ["remote-library-link", "remote-exec-link"],
+        siso_configs = ["remote-link"],
         shadow_siso_project = None,
         **kwargs
     )

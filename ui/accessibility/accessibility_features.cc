@@ -28,6 +28,14 @@ bool IsAccessibilityPdfOcrForSelectToSpeakEnabled() {
       ::features::kAccessibilityPdfOcrForSelectToSpeak);
 }
 
+BASE_FEATURE(kAccessibilityExposeSummaryAsHeading,
+             "AccessibilityExposeSummaryAsHeading",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsAccessibilityExposeSummaryAsHeadingEnabled() {
+  return base::FeatureList::IsEnabled(
+      ::features::kAccessibilityExposeSummaryAsHeading);
+}
+
 BASE_FEATURE(kAccessibilityPruneRedundantInlineText,
              "AccessibilityPruneRedundantInlineText",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -256,7 +264,7 @@ bool IsAccessibilityDisableTrackpadEnabled() {
 
 BASE_FEATURE(kAccessibilityFlashScreenFeature,
              "AccessibilityFlashScreenFeature",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsAccessibilityFlashScreenFeatureEnabled() {
   return base::FeatureList::IsEnabled(
       ::features::kAccessibilityFlashScreenFeature);
@@ -370,7 +378,7 @@ bool IsReadAloudLanguagePackDownloadingEnabled() {
 
 BASE_FEATURE(kReadAnythingReadAloudAutomaticWordHighlighting,
              "ReadAnythingReadAloudAutomaticWordHighlighting",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsReadAnythingReadAloudAutomaticWordHighlightingEnabled() {
   return base::FeatureList::IsEnabled(::features::kReadAnythingReadAloud) &&
          base::FeatureList::IsEnabled(
@@ -447,6 +455,15 @@ bool IsScreenAITestModeEnabled() {
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_MAC)
+// Enables the switchover to the newer NSAccessibility property-based API.
+BASE_FEATURE(kMacAccessibilityAPIMigration,
+             "MacAccessibilityAPIMigration",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsMacAccessibilityAPIMigrationEnabled() {
+  return base::FeatureList::IsEnabled(
+      ::features::kMacAccessibilityAPIMigration);
+}
+
 BASE_FEATURE(kAccessibilityRemoteUIApp,
              "AccessibilityRemoteUIApp",
              base::FEATURE_ENABLED_BY_DEFAULT);

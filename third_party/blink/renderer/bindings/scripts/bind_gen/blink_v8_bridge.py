@@ -363,7 +363,8 @@ def blink_type_info(idl_type):
         if "IDLTypeImplementedAsV8Promise" in real_type.extended_attributes:
             type_name = "v8::Local<v8::Promise>"
         else:
-            type_name = "ScriptPromiseUntyped"
+            type_name = "ScriptPromise<{}>".format(
+                native_value_tag(real_type.result_type))
         return TypeInfo(type_name,
                         ref_fmt="{}&",
                         const_ref_fmt="const {}&",
@@ -522,7 +523,8 @@ def _native_value_tag_impl(idl_type):
             _native_value_tag_impl(real_type.value_type))
 
     if real_type.is_promise:
-        return "IDLPromise"
+        return "IDLPromise<{}>".format(
+            _native_value_tag_impl(real_type.result_type))
 
     if real_type.is_union:
         return blink_class_name(real_type.union_definition_object)
@@ -832,6 +834,8 @@ def make_v8_to_blink_value(blink_var_name,
                 "${exception_state}",
             ]
         if "StringContext" in idl_type.effective_annotations:
+            arguments.append("${class_like_name}")
+            arguments.append("${property_name}")
             arguments.append("${execution_context_of_document_tree}")
         blink_value_expr = _format("NativeValueTraits<{_1}>::{_2}({_3})",
                                    _1=native_value_tag(
@@ -927,6 +931,8 @@ def make_v8_to_blink_value_variadic(blink_var_name, v8_array,
         str(v8_array_start_index), "${exception_state}"
     ]
     if "StringContext" in idl_type.element_type.effective_annotations:
+        arguments.append("${class_like_name}")
+        arguments.append("${property_name}")
         arguments.append("${execution_context_of_document_tree}")
     text = _format(
         pattern,

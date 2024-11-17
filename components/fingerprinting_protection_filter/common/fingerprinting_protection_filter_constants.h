@@ -26,6 +26,9 @@ const char ActivationDecisionHistogramName[] =
 const char ActivationLevelHistogramName[] =
     "FingerprintingProtection.PageLoad.ActivationLevel";
 
+const char kPageActivationThrottleNameForLogging[] =
+    "FingerprintingProtectionPageActivationThrottle";
+
 // Console messages
 // ----------------
 
@@ -35,7 +38,7 @@ constexpr char kActivationConsoleMessage[] =
 
 // Console message to be displayed on disallowing subframe.
 constexpr char kDisallowChildFrameConsoleMessageFormat[] =
-    "Blocking resource: %s";
+    "Blocking navigation: %s";
 
 }  // namespace fingerprinting_protection_filter
 

@@ -263,12 +263,7 @@ public class DownloadManagerService implements DownloadServiceDelegate, ProfileM
     // Deprecated after new download backend.
     public void onDownloadUpdated(final DownloadInfo downloadInfo) {
         DownloadItem item = new DownloadItem(false, downloadInfo);
-        // If user manually paused a download, this download is no longer auto resumable.
-        if (downloadInfo.isPaused()) {
-            removeAutoResumableDownload(item.getId());
-        }
         updateDownloadProgress(item, DownloadStatus.IN_PROGRESS);
-        updateDownloadInfoBar(item);
         scheduleUpdateIfNeeded();
     }
 
@@ -278,24 +273,7 @@ public class DownloadManagerService implements DownloadServiceDelegate, ProfileM
                 DownloadInfo.Builder.fromDownloadInfo(downloadInfo)
                         .setState(DownloadState.CANCELLED)
                         .build();
-        DownloadItem item = new DownloadItem(false, newInfo);
-        removeAutoResumableDownload(item.getId());
         updateDownloadProgress(new DownloadItem(false, downloadInfo), DownloadStatus.CANCELLED);
-        updateDownloadInfoBar(item);
-    }
-
-    // Deprecated after new download backend.
-    public void onDownloadInterrupted(final DownloadInfo downloadInfo, boolean isAutoResumable) {
-        @DownloadStatus int status = DownloadStatus.INTERRUPTED;
-        DownloadItem item = new DownloadItem(false, downloadInfo);
-        if (!downloadInfo.isResumable()) {
-            status = DownloadStatus.FAILED;
-        } else if (isAutoResumable) {
-            addAutoResumableDownload(item.getId());
-        }
-
-        updateDownloadProgress(item, status);
-        updateDownloadInfoBar(item);
     }
 
     /**
@@ -314,10 +292,9 @@ public class DownloadManagerService implements DownloadServiceDelegate, ProfileM
         }
     }
 
-    private void updateDownloadInfoBar(DownloadItem item) {}
-
     /**
      * Broadcast that a download was successful.
+     *
      * @param downloadInfo info about the download.
      */
     // For testing only.
@@ -676,12 +653,12 @@ public class DownloadManagerService implements DownloadServiceDelegate, ProfileM
     /**
      * Similar to getLaunchIntentForDownload(), but only works for download that is stored as a
      * content Uri.
-     * @param context    Context of the app.
+     *
      * @param contentUri Uri of the download.
      * @param isSupportedMimeType Whether the MIME type is supported by browser.
      * @param originalUrl The original url of the downloaded file
-     * @param referrer   Referrer of the downloaded file.
-     * @param mimeType   MIME type of the downloaded file.
+     * @param referrer Referrer of the downloaded file.
+     * @param mimeType MIME type of the downloaded file.
      * @return the intent to launch for the given download item.
      */
     private static @Nullable Intent getLaunchIntentFromDownloadUri(
@@ -745,7 +722,6 @@ public class DownloadManagerService implements DownloadServiceDelegate, ProfileM
     /**
      * Return whether a download item can be resolved to any activity.
      *
-     * @param context Context of the app.
      * @param download A download item.
      * @param isSupportedMimeType Whether the MIME type is supported by browser.
      * @return true if the download item can be resolved, or false otherwise.
@@ -841,7 +817,6 @@ public class DownloadManagerService implements DownloadServiceDelegate, ProfileM
     /**
      * Called when a download fails.
      *
-     * @param fileName Name of the download file.
      * @param reason Reason of failure reported by android DownloadManager
      */
     @VisibleForTesting
@@ -862,9 +837,9 @@ public class DownloadManagerService implements DownloadServiceDelegate, ProfileM
 
     /**
      * Open the Activity which shows a list of all downloads.
-     * @param context Application context
-     * @param otrProfileID The {@link OTRProfileID} to determine whether to open download page
-     * in incognito profile. If null, download page will be opened in normal profile.
+     *
+     * @param otrProfileID The {@link OTRProfileID} to determine whether to open download page in
+     *     incognito profile. If null, download page will be opened in normal profile.
      * @param source The source where the user action coming from.
      */
     @CalledByNative
@@ -1168,7 +1143,8 @@ public class DownloadManagerService implements DownloadServiceDelegate, ProfileM
 
     /**
      * Called by tests to set the network type.
-     * @isNetworkMetered Whether the network should appear to be metered.
+     *
+     * @param isNetworkMetered Whether the network should appear to be metered.
      */
     static void setIsNetworkMeteredForTest(boolean isNetworkMetered) {
         var oldValue = sIsNetworkMetered;
@@ -1177,27 +1153,13 @@ public class DownloadManagerService implements DownloadServiceDelegate, ProfileM
     }
 
     /**
-     * Helper method to add an auto resumable download.
-     * @param guid Id of the download item.
-     */
-    // Deprecated after native auto-resumption handler.
-    private void addAutoResumableDownload(String guid) {}
-
-    /**
-     * Helper method to remove an auto resumable download.
-     * @param guid Id of the download item.
-     */
-    // Deprecated after native auto-resumption.
-    private void removeAutoResumableDownload(String guid) {}
-
-    /**
      * Helper method to remove a download from |mDownloadProgressMap|.
+     *
      * @param guid Id of the download item.
      */
     // Deprecated after new download backend.
     private void removeDownloadProgress(String guid) {
         mDownloadProgressMap.remove(guid);
-        removeAutoResumableDownload(guid);
         sFirstSeenDownloadIds.remove(guid);
     }
 
@@ -1446,8 +1408,8 @@ public class DownloadManagerService implements DownloadServiceDelegate, ProfileM
 
     /**
      * Checks whether the download will be immediately opened after completion.
+     *
      * @param downloadItem The download item to be opened.
-     * @return True if the download will be auto-opened, false otherwise.
      */
     public void checkIfDownloadWillAutoOpen(DownloadItem downloadItem, Callback<Boolean> callback) {
         assert (downloadItem.getDownloadInfo().state() == DownloadState.COMPLETE);

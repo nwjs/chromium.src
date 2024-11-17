@@ -16,6 +16,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
 #include "base/notimplemented.h"
+#include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/strings/grit/components_strings.h"
@@ -45,6 +46,19 @@ DEFINE_LOCAL_REQUIRED_NOTICE_IDENTIFIER(kFeaturePromoControllerNotice);
 FeaturePromoController::FeaturePromoController() = default;
 FeaturePromoController::~FeaturePromoController() = default;
 
+void FeaturePromoController::PostShowPromoResult(
+    ShowPromoResultCallback callback,
+    FeaturePromoResult result) {
+  if (callback) {
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            [](FeaturePromoController::ShowPromoResultCallback callback,
+               FeaturePromoResult result) { std::move(callback).Run(result); },
+            std::move(callback), result));
+  }
+}
+
 struct FeaturePromoControllerCommon::ShowPromoBubbleParams {
   ShowPromoBubbleParams() = default;
   ShowPromoBubbleParams(ShowPromoBubbleParams&& other) noexcept = default;
@@ -57,7 +71,6 @@ struct FeaturePromoControllerCommon::ShowPromoBubbleParams {
   FeaturePromoSpecification::FormatParameters title_format;
   bool screen_reader_prompt_available = false;
   bool can_snooze = false;
-  bool is_critical_promo = false;
 };
 
 struct FeaturePromoControllerCommon::QueuedPromoData {
@@ -108,9 +121,11 @@ FeaturePromoResult FeaturePromoControllerCommon::CanShowPromo(
   return result;
 }
 
-FeaturePromoResult FeaturePromoControllerCommon::MaybeShowPromo(
-    FeaturePromoParams params) {
-  return MaybeShowPromoImpl(std::move(params), ShowSource::kNormal);
+void FeaturePromoControllerCommon::MaybeShowPromo(FeaturePromoParams params) {
+  auto callback = std::move(params.show_promo_result_callback);
+  PostShowPromoResult(
+      std::move(callback),
+      MaybeShowPromoImpl(std::move(params), ShowSource::kNormal));
 }
 
 bool FeaturePromoControllerCommon::MaybeShowStartupPromo(
@@ -253,48 +268,6 @@ FeaturePromoResult FeaturePromoControllerCommon::MaybeShowPromoCommon(
   return result;
 }
 
-std::unique_ptr<HelpBubble> FeaturePromoControllerCommon::ShowCriticalPromo(
-    const FeaturePromoSpecification& spec,
-    ui::TrackedElement* anchor_element,
-    FeaturePromoSpecification::FormatParameters body_params,
-    FeaturePromoSpecification::FormatParameters title_params) {
-  // Don't preempt an existing critical promo.
-  if (critical_promo_bubble_)
-    return nullptr;
-
-  // If a normal bubble is showing, close it. Won't affect a promo continued
-  // after its bubble has closed.
-  if (const auto* current = GetCurrentPromoFeature()) {
-    EndPromo(*current, FeaturePromoClosedReason::kOverrideForPrecedence);
-  }
-
-  // Snooze, tutorial, and rotating are not supported for critical promos.
-  CHECK_NE(FeaturePromoSpecification::PromoType::kSnooze, spec.promo_type());
-  CHECK_NE(FeaturePromoSpecification::PromoType::kTutorial, spec.promo_type());
-  CHECK_NE(FeaturePromoSpecification::PromoType::kRotating, spec.promo_type());
-
-  ShowPromoBubbleParams show_params;
-  show_params.spec = &spec;
-  show_params.anchor_element = anchor_element;
-  show_params.body_format = std::move(body_params);
-  show_params.title_format = std::move(title_params);
-  show_params.screen_reader_prompt_available =
-      CheckScreenReaderPromptAvailable(/* for_demo =*/false);
-  show_params.is_critical_promo = true;
-
-  auto bubble = ShowPromoBubbleImpl(std::move(show_params));
-  critical_promo_bubble_ = bubble.get();
-
-  // Update the most recent promo info. Critical promos are always high
-  // priority.
-  // TODO(dfried): we should probably verify that the bubble succeeded?
-  last_promo_info_ = session_policy_->SpecificationToPromoInfo(spec);
-  last_promo_info_.priority = FeaturePromoSessionPolicy::PromoPriority::kHigh;
-  session_policy_->NotifyPromoShown(last_promo_info_);
-
-  return bubble;
-}
-
 FeaturePromoStatus FeaturePromoControllerCommon::GetPromoStatus(
     const base::Feature& iph_feature) const {
   if (IsPromoQueued(iph_feature)) {
@@ -370,9 +343,9 @@ bool FeaturePromoControllerCommon::EndPromo(
     FeaturePromoClosedReason close_reason) {
   const auto it = FindQueuedPromo(iph_feature);
   if (it != queued_promos_.end()) {
-    auto& cb = it->params.queued_promo_callback;
+    auto& cb = it->params.show_promo_result_callback;
     if (cb) {
-      std::move(cb).Run(iph_feature, FeaturePromoResult::kCanceled);
+      std::move(cb).Run(FeaturePromoResult::kCanceled);
     }
     queued_promos_.erase(it);
     return true;
@@ -534,9 +507,7 @@ void FeaturePromoControllerCommon::MaybeShowQueuedPromo() {
   // If there is already a promo showing, it may be necessary to hold off trying
   // to show another.
   const std::optional<FeaturePromoSessionPolicy::PromoInfo> current_promo =
-      (current_promo_ || critical_promo_bubble_)
-          ? std::make_optional(last_promo_info_)
-          : std::nullopt;
+      current_promo_ ? std::make_optional(last_promo_info_) : std::nullopt;
 
   // Also, if the next promo in queue cannot be shown and the current promo is
   // not high-priority, any messaging priority must be released.
@@ -613,16 +584,16 @@ void FeaturePromoControllerCommon::MaybeShowQueuedPromo() {
 
   // Store the data that is needed to show the promo and then remove it from
   // the queue.
-  const base::Feature* const iph_feature = &next->params.feature.get();
   FeaturePromoParams params = std::move(next->params);
   queued_promos_.erase(next);
-  QueuedPromoCallback callback = std::move(params.queued_promo_callback);
+  ShowPromoResultCallback callback =
+      std::move(params.show_promo_result_callback);
 
   // Try to start the promo, assuming the tracker was successfully initialized.
   const FeaturePromoResult result =
       MaybeShowPromoImpl(std::move(params), ShowSource::kQueue);
   if (callback) {
-    std::move(callback).Run(*iph_feature, result);
+    std::move(callback).Run(result);
   }
 
   // On failure, there may still be promos to show, so attempt to show the next
@@ -654,9 +625,9 @@ FeaturePromoControllerCommon::FindQueuedPromo(
 
 void FeaturePromoControllerCommon::FailQueuedPromos() {
   for (auto& data : queued_promos_) {
-    auto& cb = data.params.queued_promo_callback;
+    auto& cb = data.params.show_promo_result_callback;
     if (cb) {
-      std::move(cb).Run(*data.params.feature, FeaturePromoResult::kError);
+      std::move(cb).Run(FeaturePromoResult::kError);
     }
   }
   queued_promos_.clear();
@@ -726,7 +697,7 @@ FeaturePromoResult FeaturePromoControllerCommon::CanShowPromoCommon(
 
   // Figure out if there's already a promo being shown.
   std::optional<FeaturePromoSessionPolicy::PromoInfo> current_promo;
-  if (critical_promo_bubble_ || current_promo_) {
+  if (current_promo_) {
     current_promo = last_promo_info_;
   } else if (bubble_factory_registry_->is_any_bubble_showing()) {
     current_promo = FeaturePromoSessionPolicy::PromoInfo();
@@ -850,14 +821,9 @@ std::unique_ptr<HelpBubble> FeaturePromoControllerCommon::ShowPromoBubbleImpl(
   bubble_params.arrow = spec.bubble_arrow();
   bubble_params.focus_on_show_hint = spec.focus_on_show_override();
 
-  // Critical promos don't time out.
-  if (params.is_critical_promo) {
-    bubble_params.timeout = base::Seconds(0);
-  } else {
-    bubble_params.timeout_callback = base::BindOnce(
-        &FeaturePromoControllerCommon::OnHelpBubbleTimeout,
-        weak_ptr_factory_.GetWeakPtr(), base::Unretained(spec.feature()));
-  }
+  bubble_params.timeout_callback = base::BindOnce(
+      &FeaturePromoControllerCommon::OnHelpBubbleTimeout,
+      weak_ptr_factory_.GetWeakPtr(), base::Unretained(spec.feature()));
 
   // Feature isn't present for some critical promos.
   if (spec.feature()) {
@@ -915,7 +881,7 @@ std::unique_ptr<HelpBubble> FeaturePromoControllerCommon::ShowPromoBubbleImpl(
     bubble_params.keyboard_navigation_hint = GetTutorialScreenReaderHint();
   } else if (params.screen_reader_prompt_available) {
     bubble_params.keyboard_navigation_hint = GetFocusHelpBubbleScreenReaderHint(
-        spec.promo_type(), params.anchor_element, params.is_critical_promo);
+        spec.promo_type(), params.anchor_element);
     had_screen_reader_promo = !bubble_params.keyboard_navigation_hint.empty();
   }
 
@@ -954,9 +920,7 @@ void FeaturePromoControllerCommon::OnHelpBubbleClosed(
   // subscription but since it's a weak pointer (internally) and since we should
   // should only get called here once, it's not a big deal if we don't reset
   // it.
-  if (bubble == critical_promo_bubble_) {
-    critical_promo_bubble_ = nullptr;
-  } else if (bubble == promo_bubble()) {
+  if (bubble == promo_bubble()) {
     if (current_promo_->OnPromoBubbleClosed(reason)) {
       current_promo_.reset();
     }

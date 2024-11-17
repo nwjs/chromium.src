@@ -152,7 +152,6 @@ class CanvasFontCache;
 class CheckPseudoHasCacheScope;
 class ChromeClient;
 class Comment;
-class ComputedAccessibleNode;
 class ConsoleMessage;
 class CookieJar;
 class DOMFeaturePolicy;
@@ -1763,7 +1762,8 @@ class CORE_EXPORT Document : public ContainerNode,
   }
   PropertyRegistry& EnsurePropertyRegistry();
 
-  // May return nullptr when PerformanceManager instrumentation is disabled.
+  // May return nullptr when PerformanceManager instrumentation is disabled or
+  // when the Document is inactive.
   DocumentResourceCoordinator* GetResourceCoordinator();
 
   const AtomicString& bgColor() const;
@@ -1868,8 +1868,6 @@ class CORE_EXPORT Document : public ContainerNode,
   // Manifest. If the document doesn't run in a context of a Web App or has no
   // associated Web App Manifest, it will return false.
   bool IsInWebAppScope() const;
-
-  ComputedAccessibleNode* GetOrCreateComputedAccessibleNode(AXID ax_id);
 
   void DispatchHandleLoadStart();
   void DispatchHandleLoadComplete();

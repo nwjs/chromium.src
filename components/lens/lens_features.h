@@ -55,9 +55,17 @@ BASE_DECLARE_FEATURE(kLensOverlay);
 COMPONENT_EXPORT(LENS_FEATURES)
 BASE_DECLARE_FEATURE(kLensOverlayTranslateButton);
 
+// Enables the Lens overlay image context menu actions.
+COMPONENT_EXPORT(LENS_FEATURES)
+BASE_DECLARE_FEATURE(kLensOverlayImageContextMenuActions);
+
 // Enables the Lens overlay searchbox.
 COMPONENT_EXPORT(LENS_FEATURES)
 BASE_DECLARE_FEATURE(kLensOverlayContextualSearchbox);
+
+// Enables the Lens overlay HaTS survey.
+COMPONENT_EXPORT(LENS_FEATURES)
+BASE_DECLARE_FEATURE(kLensOverlaySurvey);
 
 // The base URL for Lens.
 COMPONENT_EXPORT(LENS_FEATURES)
@@ -332,14 +340,46 @@ COMPONENT_EXPORT(LENS_FEATURES)
 extern int GetLensOverlayClusterInfoLifetimeSeconds();
 
 // Returns whether to include the search context with text-only Lens Overlay
-// requests.
+// requests. This is sent in the video params urlparam.
 COMPONENT_EXPORT(LENS_FEATURES)
-extern bool UseSearchContextForTextOnlyLensOverlayRequests();
+extern bool UseVideoContextForTextOnlyLensOverlayRequests();
 
 // Returns whether to include the search context with text-only Lens Overlay
-// requests.
+// requests. This is sent in the video params urlparam.
 COMPONENT_EXPORT(LENS_FEATURES)
-extern bool UseSearchContextForMultimodalLensOverlayRequests();
+extern bool UseVideoContextForMultimodalLensOverlayRequests();
+
+// Returns whether to use the new optimized request flow which makes a request
+// to get the cluster info prior to uploading any image or page content bytes.
+// This also decouples sending the images and page content bytes in the same
+// request.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool UseOptimizedRequestFlow();
+
+// Returns the finch configured endpoint URL for the cluster info request.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern std::string GetLensOverlayClusterInfoEndpointUrl();
+
+// Returns the max number of bytes to allow for content uploads.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern uint32_t GetLensOverlayFileUploadLimitBytes();
+
+// Returns whether to use the &vit=pdf param for the search request.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool UsePdfVitParam();
+
+// Returns whether to use the &vit=wp param for the search request.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool UseWebpageVitParam();
+
+// Returns whether to use the PDF_QUERY interaction type for PDF queries.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool UsePdfInteractionType();
+
+// Returns whether to use the WEBPAGE_QUERY interaction type for webpage
+// queries.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool UseWebpageInteractionType();
 
 // Returns whether to include PDFs from the underlying page in the request to be
 // used as page context.
@@ -351,6 +391,12 @@ extern bool UsePdfsAsContext();
 // equivalent to document.body.innerText.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool UseInnerTextAsContext();
+
+// Returns whether to include the inner html from the underlying page in the
+// request to be used as page context. Does nothing if UseInnerTextAsContext is
+// enabled.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool UseInnerHtmlAsContext();
 
 // Returns the margin in pixels to add to the top and bottom of word bounding
 // boxes.
@@ -546,6 +592,10 @@ int GetLensOverlayImageContextMenuActionsTextReceivedTimeout();
 // Whether to show the contextual searchbox in the Lens Overlay.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool IsLensOverlayContextualSearchboxEnabled();
+
+// Time delay for the results trigger of the Lens Overlay HaTS survey.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern base::TimeDelta GetLensOverlaySurveyResultsTime();
 
 }  // namespace lens::features
 

@@ -22,6 +22,7 @@
 #include "components/webauthn/core/browser/passkey_model_change.h"
 #include "content/public/browser/authenticator_request_client_delegate.h"
 #include "content/public/browser/global_routing_id.h"
+#include "third_party/blink/public/mojom/credentialmanagement/credential_type_flags.mojom.h"
 
 class Profile;
 
@@ -157,10 +158,6 @@ class AuthenticatorRequestDialogController
   void StartPlatformAuthenticatorFlow();
 
   void OnOffTheRecordInterstitialAccepted() override;
-  void ShowCableUsbFallback() override;
-
-  // Show caBLE activation sheet.
-  void ShowCable();
 
   void CancelAuthenticatorRequest() override;
   void OnRequestComplete() override;
@@ -356,6 +353,8 @@ class AuthenticatorRequestDialogController
   void set_has_icloud_drive_enabled(bool);
 #endif
 
+  void set_ambient_credential_types(int types);
+
   base::WeakPtr<AuthenticatorRequestDialogController> GetWeakPtr();
 
  private:
@@ -457,6 +456,7 @@ class AuthenticatorRequestDialogController
   void OnPasskeysChanged(
       const std::vector<webauthn::PasskeyModelChange>& changes) override;
   void OnPasskeyModelShuttingDown() override;
+  void OnPasskeyModelIsReady(bool is_ready) override;
 
   // Update fields in `model_` based on the value of `transport_availability_`
   // and `priority_mechanism_index_`.
@@ -603,6 +603,11 @@ class AuthenticatorRequestDialogController
 #endif
 
   bool enclave_can_be_default_ = true;
+
+  // The credential types that are being asked for in an ambient UI
+  // request.
+  int ambient_credential_types_ =
+      static_cast<int>(blink::mojom::CredentialTypeFlags::kNone);
 
   const content::GlobalRenderFrameHostId frame_host_id_;
 

@@ -27,14 +27,18 @@
 #include "base/test/task_environment.h"
 #include "base/test/test_timeouts.h"
 #include "base/time/time.h"
+#include "components/cbor/writer.h"
 #include "content/common/features.h"
 #include "content/public/common/content_features.h"
 #include "content/services/auction_worklet/auction_v8_helper.h"
+#include "content/services/auction_worklet/public/cpp/cbor_test_util.h"
 #include "content/services/auction_worklet/public/cpp/real_time_reporting.h"
+#include "content/services/auction_worklet/public/mojom/auction_worklet_service.mojom-forward.h"
 #include "content/services/auction_worklet/public/mojom/auction_worklet_service.mojom.h"
 #include "content/services/auction_worklet/public/mojom/bidder_worklet.mojom-forward.h"
 #include "content/services/auction_worklet/public/mojom/private_aggregation_request.mojom.h"
 #include "content/services/auction_worklet/public/mojom/real_time_reporting.mojom.h"
+#include "content/services/auction_worklet/public/mojom/trusted_signals_cache.mojom.h"
 #include "content/services/auction_worklet/worklet_devtools_debug_test_util.h"
 #include "content/services/auction_worklet/worklet_test_util.h"
 #include "content/services/auction_worklet/worklet_v8_debug_test_util.h"
@@ -44,6 +48,7 @@
 #include "mojo/public/cpp/bindings/struct_ptr.h"
 #include "mojo/public/cpp/bindings/unique_receiver_set.h"
 #include "net/http/http_status_code.h"
+#include "net/third_party/quiche/src/quiche/oblivious_http/oblivious_http_gateway.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock-matchers.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -83,7 +88,20 @@ const uint8_t kToyWasm[] = {
     0x7f, 0x00, 0x41, 0xfb, 0x00, 0x0b, 0x07, 0x0e, 0x01, 0x0a, 0x74,
     0x65, 0x73, 0x74, 0x5f, 0x63, 0x6f, 0x6e, 0x73, 0x74, 0x03, 0x00};
 
+const uint8_t kTestPrivateKey[] = {
+    0xff, 0x1f, 0x47, 0xb1, 0x68, 0xb6, 0xb9, 0xea, 0x65, 0xf7, 0x97,
+    0x4f, 0xf2, 0x2e, 0xf2, 0x36, 0x94, 0xe2, 0xf6, 0xb6, 0x8d, 0x66,
+    0xf3, 0xa7, 0x64, 0x14, 0x28, 0xd4, 0x45, 0x35, 0x01, 0x8f,
+};
+
+const uint8_t kTestPublicKey[] = {
+    0xa1, 0x5f, 0x40, 0x65, 0x86, 0xfa, 0xc4, 0x7b, 0x99, 0x59, 0x70,
+    0xf1, 0x85, 0xd9, 0xd8, 0x91, 0xc7, 0x4d, 0xcf, 0x1e, 0xb9, 0x1a,
+    0x7d, 0x50, 0xa5, 0x8b, 0x01, 0x68, 0x3e, 0x60, 0x05, 0x2d,
+};
+
 const char kWasmUrl[] = "https://foo.test/helper.wasm";
+const uint8_t kKeyId = 0xFF;
 
 // Packs kToyWasm into a std::string.
 std::string ToyWasm() {
@@ -341,6 +359,7 @@ class BidderWorkletTest : public testing::Test {
     interest_group_ad_components_->emplace_back(
         GURL("https://ad_component.test/"), /*metadata=*/std::nullopt);
 
+    trusted_signals_cache_key_.reset();
     kanon_keys_.clear();
     kanon_mode_ = auction_worklet::mojom::KAnonymityBidMode::kNone;
     bid_is_kanon_ = false;
@@ -366,6 +385,8 @@ class BidderWorkletTest : public testing::Test {
             /*private_aggregation_allowed=*/true,
             /*shared_storage_allowed=*/false);
     experiment_group_id_ = std::nullopt;
+    public_key_ = nullptr;
+
     browser_signal_seller_origin_ =
         url::Origin::Create(GURL("https://browser.signal.seller.test/"));
     browser_signal_top_level_seller_origin_.reset();
@@ -644,6 +665,8 @@ class BidderWorkletTest : public testing::Test {
                                : AuctionV8Helper::kScriptTimeout) *
                               0.9);
               }
+              EXPECT_EQ(expected_reporting_latency_timeout,
+                        timing_metrics->script_timed_out);
               std::move(done_closure).Run();
             },
             expected_report_url, expected_ad_beacon_map,
@@ -696,8 +719,8 @@ class BidderWorkletTest : public testing::Test {
   }
 
   // Creates a BiddingBrowserSignals based on test fixture configuration.
-  mojom::BiddingBrowserSignalsPtr CreateBiddingBrowserSignals() {
-    return mojom::BiddingBrowserSignals::New(
+  blink::mojom::BiddingBrowserSignalsPtr CreateBiddingBrowserSignals() {
+    return blink::mojom::BiddingBrowserSignals::New(
         browser_signal_join_count_, browser_signal_bid_count_,
         CloneWinList(browser_signal_prev_wins_),
         browser_signal_for_debugging_only_in_cooldown_or_lockout_);
@@ -728,10 +751,12 @@ class BidderWorkletTest : public testing::Test {
         v8_helpers_, std::move(shared_storage_hosts_),
         pause_for_debugger_on_start, std::move(url_loader_factory),
         auction_network_events_handler_.CreateRemote(),
+        trusted_signals_kvv2_manager_.get(),
         url.is_empty() ? interest_group_bidding_url_ : url,
         interest_group_wasm_url_, interest_group_trusted_bidding_signals_url_,
         /*trusted_bidding_signals_slot_size_param=*/"", top_window_origin_,
-        permissions_policy_state_.Clone(), experiment_group_id_, nullptr);
+        permissions_policy_state_.Clone(), experiment_group_id_,
+        public_key_ ? public_key_.Clone() : nullptr);
 
     shared_storage_hosts_.resize(NumThreads());
 
@@ -770,7 +795,8 @@ class BidderWorkletTest : public testing::Test {
               &BidderWorkletTest::GenerateBidCallback, base::Unretained(this)));
     }
     bidder_worklet->BeginGenerateBid(
-        CreateBidderWorkletNonSharedParams(), kanon_mode_, join_origin_,
+        CreateBidderWorkletNonSharedParams(),
+        trusted_signals_cache_key_.Clone(), kanon_mode_, join_origin_,
         provide_direct_from_seller_signals_late_
             ? std::nullopt
             : direct_from_seller_per_buyer_signals_,
@@ -814,7 +840,8 @@ class BidderWorkletTest : public testing::Test {
     mojo::AssociatedRemote<auction_worklet::mojom::GenerateBidFinalizer>
         bid_finalizer;
     bidder_worklet->BeginGenerateBid(
-        CreateBidderWorkletNonSharedParams(), kanon_mode_, join_origin_,
+        CreateBidderWorkletNonSharedParams(),
+        trusted_signals_cache_key_.Clone(), kanon_mode_, join_origin_,
         direct_from_seller_per_buyer_signals_,
         direct_from_seller_auction_signals_, browser_signal_seller_origin_,
         browser_signal_top_level_seller_origin_,
@@ -958,9 +985,10 @@ class BidderWorkletTest : public testing::Test {
     }
   }
 
-  std::vector<mojo::StructPtr<mojom::PreviousWin>> CloneWinList(
-      const std::vector<mojo::StructPtr<mojom::PreviousWin>>& prev_win_list) {
-    std::vector<mojo::StructPtr<mojom::PreviousWin>> out;
+  std::vector<mojo::StructPtr<blink::mojom::PreviousWin>> CloneWinList(
+      const std::vector<mojo::StructPtr<blink::mojom::PreviousWin>>&
+          prev_win_list) {
+    std::vector<mojo::StructPtr<blink::mojom::PreviousWin>> out;
     for (const auto& prev_win : prev_win_list) {
       out.push_back(prev_win->Clone());
     }
@@ -988,6 +1016,7 @@ class BidderWorkletTest : public testing::Test {
   std::optional<std::vector<blink::InterestGroup::Ad>>
       interest_group_ad_components_;
   base::flat_set<auction_worklet::mojom::KAnonKeyPtr> kanon_keys_;
+  mojom::TrustedSignalsCacheKeyPtr trusted_signals_cache_key_;
   auction_worklet::mojom::KAnonymityBidMode kanon_mode_ =
       auction_worklet::mojom::KAnonymityBidMode::kNone;
   bool bid_is_kanon_;
@@ -999,7 +1028,8 @@ class BidderWorkletTest : public testing::Test {
   int browser_signal_bid_count_;
   bool browser_signal_for_debugging_only_in_cooldown_or_lockout_;
   base::TimeDelta browser_signal_recency_generate_bid_;
-  std::vector<mojo::StructPtr<mojom::PreviousWin>> browser_signal_prev_wins_;
+  std::vector<mojo::StructPtr<blink::mojom::PreviousWin>>
+      browser_signal_prev_wins_;
 
   std::optional<std::string> auction_signals_;
   std::optional<std::string> per_buyer_signals_;
@@ -1013,6 +1043,7 @@ class BidderWorkletTest : public testing::Test {
   url::Origin top_window_origin_;
   mojom::AuctionWorkletPermissionsPolicyStatePtr permissions_policy_state_;
   std::optional<uint16_t> experiment_group_id_;
+  mojom::TrustedSignalsPublicKeyPtr public_key_;
   url::Origin browser_signal_seller_origin_;
   std::optional<url::Origin> browser_signal_top_level_seller_origin_;
 
@@ -1083,6 +1114,8 @@ class BidderWorkletTest : public testing::Test {
   network::TestURLLoaderFactory alternate_url_loader_factory_;
 
   std::vector<scoped_refptr<AuctionV8Helper>> v8_helpers_;
+
+  std::unique_ptr<TrustedSignalsKVv2Manager> trusted_signals_kvv2_manager_;
 
   std::string last_bidder_join_origin_hash_salt_;
 
@@ -1375,15 +1408,18 @@ TEST_F(BidderWorkletTest, GenerateBidReturnValueBid) {
   RunGenerateBidWithReturnValueExpectingResult(
       "",
       /*expected_bids=*/mojom::BidderWorkletBidPtr());
+  EXPECT_FALSE(generate_bid_metrics_->script_timed_out);
   RunGenerateBidWithReturnValueExpectingResult(
       "null",
       /*expected_bids=*/mojom::BidderWorkletBidPtr());
+  EXPECT_FALSE(generate_bid_metrics_->script_timed_out);
 
   // Missing bid value is also treated as not bidding, since setBid(null)
   // is basically the same as setBid({}) in WebIDL.
   RunGenerateBidWithReturnValueExpectingResult(
       R"({ad: "ad", render:"https://response.test/"})",
       /*expected_bids=*/mojom::BidderWorkletBidPtr());
+  EXPECT_FALSE(generate_bid_metrics_->script_timed_out);
 
   // Valid positive bid values.
   RunGenerateBidWithReturnValueExpectingResult(
@@ -1396,6 +1432,7 @@ TEST_F(BidderWorkletTest, GenerateBidReturnValueBid) {
           /*selected_buyer_and_seller_reporting_id=*/std::nullopt,
           /*ad_component_descriptors=*/std::nullopt,
           /*modeling_signals=*/std::nullopt, base::TimeDelta()));
+  EXPECT_FALSE(generate_bid_metrics_->script_timed_out);
   RunGenerateBidWithReturnValueExpectingResult(
       R"({ad: "ad", bid:1.5, render:"https://response.test/"})",
       mojom::BidderWorkletBid::New(
@@ -1498,6 +1535,7 @@ TEST_F(BidderWorkletTest, GenerateBidReturnValueBid) {
       /*expected_data_version=*/std::nullopt,
       {"https://url.test/ generateBid() Converting field 'bid' to a Number did "
        "not produce a finite double."});
+  EXPECT_FALSE(generate_bid_metrics_->script_timed_out);
 
   // Test with bid with a non-terminating conversion.
   RunGenerateBidWithJavascriptExpectingResult(
@@ -1511,6 +1549,7 @@ TEST_F(BidderWorkletTest, GenerateBidReturnValueBid) {
       /*expected_data_version=*/std::nullopt,
       {"https://url.test/ generateBid() Converting field 'bid' to Number timed"
        " out."});
+  EXPECT_TRUE(generate_bid_metrics_->script_timed_out);
 
   // Test with bid with a non-terminating getter.
   RunGenerateBidWithJavascriptExpectingResult(
@@ -1524,6 +1563,7 @@ TEST_F(BidderWorkletTest, GenerateBidReturnValueBid) {
       /*expected_data_version=*/std::nullopt,
       {"https://url.test/ generateBid() Execution timed out trying to access "
        "field 'bid'."});
+  EXPECT_TRUE(generate_bid_metrics_->script_timed_out);
 }
 
 TEST_F(BidderWorkletTest, GenerateBidReturnBidCurrencyExpectUnspecified) {
@@ -4535,7 +4575,8 @@ TEST_P(BidderWorkletMultiThreadingTest, GenerateBidParallel) {
       mojo::AssociatedRemote<auction_worklet::mojom::GenerateBidFinalizer>
           bid_finalizer;
       bidder_worklet->BeginGenerateBid(
-          CreateBidderWorkletNonSharedParams(), kanon_mode_, join_origin_,
+          CreateBidderWorkletNonSharedParams(),
+          trusted_signals_cache_key_.Clone(), kanon_mode_, join_origin_,
           direct_from_seller_per_buyer_signals_,
           direct_from_seller_auction_signals_, browser_signal_seller_origin_,
           browser_signal_top_level_seller_origin_,
@@ -4657,8 +4698,8 @@ TEST_P(BidderWorkletMultiThreadingTest,
     mojo::AssociatedRemote<auction_worklet::mojom::GenerateBidFinalizer>
         bid_finalizer;
     bidder_worklet->BeginGenerateBid(
-        std::move(interest_group_fields), kanon_mode_, join_origin_,
-        direct_from_seller_per_buyer_signals_,
+        std::move(interest_group_fields), trusted_signals_cache_key_.Clone(),
+        kanon_mode_, join_origin_, direct_from_seller_per_buyer_signals_,
         direct_from_seller_auction_signals_, browser_signal_seller_origin_,
         browser_signal_top_level_seller_origin_,
         browser_signal_recency_generate_bid_, CreateBiddingBrowserSignals(),
@@ -4787,8 +4828,8 @@ TEST_P(BidderWorkletMultiThreadingTest,
     mojo::AssociatedRemote<auction_worklet::mojom::GenerateBidFinalizer>
         bid_finalizer;
     bidder_worklet->BeginGenerateBid(
-        std::move(interest_group_fields), kanon_mode_, join_origin_,
-        direct_from_seller_per_buyer_signals_,
+        std::move(interest_group_fields), trusted_signals_cache_key_.Clone(),
+        kanon_mode_, join_origin_, direct_from_seller_per_buyer_signals_,
         direct_from_seller_auction_signals_, browser_signal_seller_origin_,
         browser_signal_top_level_seller_origin_,
         browser_signal_recency_generate_bid_, CreateBiddingBrowserSignals(),
@@ -4923,8 +4964,8 @@ TEST_P(BidderWorkletMultiThreadingTest,
     mojo::AssociatedRemote<auction_worklet::mojom::GenerateBidFinalizer>
         bid_finalizer;
     bidder_worklet->BeginGenerateBid(
-        std::move(interest_group_fields), kanon_mode_, join_origin_,
-        direct_from_seller_per_buyer_signals_,
+        std::move(interest_group_fields), trusted_signals_cache_key_.Clone(),
+        kanon_mode_, join_origin_, direct_from_seller_per_buyer_signals_,
         direct_from_seller_auction_signals_, browser_signal_seller_origin_,
         browser_signal_top_level_seller_origin_,
         browser_signal_recency_generate_bid_, CreateBiddingBrowserSignals(),
@@ -5038,8 +5079,8 @@ TEST_P(BidderWorkletMultiThreadingTest,
     mojo::AssociatedRemote<auction_worklet::mojom::GenerateBidFinalizer>
         bid_finalizer;
     bidder_worklet->BeginGenerateBid(
-        std::move(interest_group_fields), kanon_mode_, join_origin_,
-        direct_from_seller_per_buyer_signals_,
+        std::move(interest_group_fields), trusted_signals_cache_key_.Clone(),
+        kanon_mode_, join_origin_, direct_from_seller_per_buyer_signals_,
         direct_from_seller_auction_signals_, browser_signal_seller_origin_,
         browser_signal_top_level_seller_origin_,
         browser_signal_recency_generate_bid_, CreateBiddingBrowserSignals(),
@@ -6138,11 +6179,11 @@ TEST_F(BidderWorkletTest, WasmOrdering) {
 
 // Utility method to create a vector of PreviousWin. Needed because StructPtrs
 // don't allow copying.
-std::vector<mojom::PreviousWinPtr> CreateWinList(
-    const mojom::PreviousWinPtr& win1,
-    const mojom::PreviousWinPtr& win2 = mojom::PreviousWinPtr(),
-    const mojom::PreviousWinPtr& win3 = mojom::PreviousWinPtr()) {
-  std::vector<mojo::StructPtr<mojom::PreviousWin>> out;
+std::vector<blink::mojom::PreviousWinPtr> CreateWinList(
+    const blink::mojom::PreviousWinPtr& win1,
+    const blink::mojom::PreviousWinPtr& win2 = blink::mojom::PreviousWinPtr(),
+    const blink::mojom::PreviousWinPtr& win3 = blink::mojom::PreviousWinPtr()) {
+  std::vector<mojo::StructPtr<blink::mojom::PreviousWin>> out;
   out.emplace_back(win1.Clone());
   if (win2) {
     out.emplace_back(win2.Clone());
@@ -6161,13 +6202,13 @@ TEST_F(BidderWorkletTest, GenerateBidPrevWins) {
   base::Time time2 = auction_start_time_ - delta - tiny_delta;
   base::Time future_time = auction_start_time_ + delta;
 
-  auto win1 = mojom::PreviousWin::New(time1, R"({"renderURL":"ad1"})");
-  auto win2 = mojom::PreviousWin::New(
+  auto win1 = blink::mojom::PreviousWin::New(time1, R"({"renderURL":"ad1"})");
+  auto win2 = blink::mojom::PreviousWin::New(
       time2, R"({"renderURL":"ad2", "metadata":"{\"key\":\"value\"}"})");
-  auto future_win =
-      mojom::PreviousWin::New(future_time, R"({"renderURL":"future_ad"})");
+  auto future_win = blink::mojom::PreviousWin::New(
+      future_time, R"({"renderURL":"future_ad"})");
   struct TestCase {
-    std::vector<mojo::StructPtr<mojom::PreviousWin>> prev_wins;
+    std::vector<mojo::StructPtr<blink::mojom::PreviousWin>> prev_wins;
     // Value to output as the ad data.
     const char* ad;
     // Expected output in the `ad` field of the result.
@@ -6376,6 +6417,14 @@ TEST_F(BidderWorkletTest, GenerateBidTrustedBiddingSignals) {
       std::vector<std::string>({"key1", "key2"});
   url_loader_factory_.AddResponse(kFullSignalsUrl.spec(), kJson,
                                   net::HTTP_NOT_FOUND);
+  mojom::RealTimeReportingContribution expected_trusted_signal_histogram(
+      /*bucket=*/1024 + auction_worklet::RealTimeReportingPlatformError::
+                            kTrustedBiddingSignalsFailure,
+      /*priority_weight=*/1,
+      /*latency_threshold=*/std::nullopt);
+  RealTimeReportingContributions expected_real_time_contributions;
+  expected_real_time_contributions.push_back(
+      expected_trusted_signal_histogram.Clone());
   RunGenerateBidWithReturnValueExpectingResult(
       R"({ad: trustedBiddingSignals, bid:1, render:"https://response.test/"})",
       mojom::BidderWorkletBid::New(
@@ -6389,7 +6438,13 @@ TEST_F(BidderWorkletTest, GenerateBidTrustedBiddingSignals) {
       {"Failed to load "
        "https://signals.test/"
        "?hostname=top.window.test&keys=key1,key2&interestGroupNames=Fred HTTP "
-       "status = 404 Not Found."});
+       "status = 404 Not Found."},
+      std::nullopt, std::nullopt,
+      /*expected_set_priority=*/std::nullopt,
+      /*expected_update_priority_signals_overrides=*/{},
+      /*expected_pa_requests=*/{},
+      /*expected_non_kanon_pa_requests=*/{},
+      std::move(expected_real_time_contributions));
   EXPECT_EQ(observed_requests += 2, url_loader_factory_.total_requests());
 
   // Request with valid TrustedBiddingSignals URL and non-empty keys. Request
@@ -7006,6 +7061,18 @@ TEST_F(BidderWorkletTest, GenerateBidTimedOut) {
       /*expected_bids=*/mojom::BidderWorkletBidPtr(),
       /*expected_data_version=*/std::nullopt,
       {"https://url.test/ execution of `generateBid` timed out."});
+  EXPECT_TRUE(generate_bid_metrics_->script_timed_out);
+}
+
+TEST_F(BidderWorkletTest, GenerateBidTopLevelTimeout) {
+  // The bidding script has an endless while loop. It will time out due to
+  // AuctionV8Helper's default script timeout (50 ms).
+  RunGenerateBidWithJavascriptExpectingResult(
+      "while (1) {}",
+      /*expected_bids=*/mojom::BidderWorkletBidPtr(),
+      /*expected_data_version=*/std::nullopt,
+      {"https://url.test/ top-level execution timed out."});
+  EXPECT_TRUE(generate_bid_metrics_->script_timed_out);
 }
 
 TEST_F(BidderWorkletTest, GenerateBidPerBuyerTimeOut) {
@@ -7030,6 +7097,7 @@ TEST_F(BidderWorkletTest, GenerateBidPerBuyerTimeOut) {
       /*expected_bids=*/mojom::BidderWorkletBidPtr(),
       /*expected_data_version=*/std::nullopt,
       {"https://url.test/ execution of `generateBid` timed out."});
+  EXPECT_TRUE(generate_bid_metrics_->script_timed_out);
 }
 
 // Even though the script timed out, it had set an intermediate result with
@@ -7057,6 +7125,7 @@ TEST_F(BidderWorkletTest, GenerateBidTimedOutWithSetBid) {
           /*modeling_signals=*/std::nullopt, AuctionV8Helper::kScriptTimeout),
       /*expected_data_version=*/std::nullopt,
       {"https://url.test/ execution of `generateBid` timed out."});
+  EXPECT_TRUE(generate_bid_metrics_->script_timed_out);
 
   // Test the case where setBid() sets no bid. There should be no bid, and
   // no error, other than the timeout.
@@ -7072,6 +7141,7 @@ TEST_F(BidderWorkletTest, GenerateBidTimedOutWithSetBid) {
       mojom::BidderWorkletBidPtr(),
       /*expected_data_version=*/std::nullopt,
       {"https://url.test/ execution of `generateBid` timed out."});
+  EXPECT_TRUE(generate_bid_metrics_->script_timed_out);
 }
 
 // Test that per-buyer timeout of zero results in no bid produced.
@@ -7082,6 +7152,7 @@ TEST_F(BidderWorkletTest, PerBuyerTimeoutZero) {
       mojom::BidderWorkletBidPtr(),
       /*expected_data_version=*/std::nullopt,
       /*expected_errors=*/{"generateBid() aborted due to zero timeout."});
+  EXPECT_TRUE(generate_bid_metrics_->script_timed_out);
 }
 
 // Test that in the case of multiple setBid() calls, the most recent call takes
@@ -7113,6 +7184,7 @@ TEST_F(BidderWorkletTest, GenerateBidTimedOutWithSetBidTwice) {
           /*modeling_signals=*/std::nullopt, AuctionV8Helper::kScriptTimeout),
       /*expected_data_version=*/std::nullopt,
       {"https://url.test/ execution of `generateBid` timed out."});
+  EXPECT_TRUE(generate_bid_metrics_->script_timed_out);
 
   // Test the case where the second setBid() call clears the bid from the first
   // call without setting a new bid, by passing in no bid. There should be no
@@ -7130,6 +7202,7 @@ TEST_F(BidderWorkletTest, GenerateBidTimedOutWithSetBidTwice) {
       mojom::BidderWorkletBidPtr(),
       /*expected_data_version=*/std::nullopt,
       {"https://url.test/ execution of `generateBid` timed out."});
+  EXPECT_TRUE(generate_bid_metrics_->script_timed_out);
 
   // Test the case where the second setBid() call clears the bid from the first
   // call without setting a new bid, by passing in null. There should be no bid,
@@ -7147,6 +7220,7 @@ TEST_F(BidderWorkletTest, GenerateBidTimedOutWithSetBidTwice) {
       mojom::BidderWorkletBidPtr(),
       /*expected_data_version=*/std::nullopt,
       {"https://url.test/ execution of `generateBid` timed out."});
+  EXPECT_TRUE(generate_bid_metrics_->script_timed_out);
 }
 
 // Even though the script timed out, it had set an intermediate result with
@@ -7578,15 +7652,38 @@ TEST_F(BidderWorkletTest, ReportWin) {
       /*expected_pa_requests=*/{},
       {"https://url.test/:11 Uncaught TypeError: sendReportTo may be called at "
        "most once."});
+}
 
-  RunReportWinWithFunctionBodyExpectingResult(
-      R"(sendReportTo({
-              toString:() => {while(true) {}}
-         }))",
-      /*expected_report_url=*/std::nullopt, /*expected_ad_beacon_map=*/{},
+TEST_F(BidderWorkletTest, ReportWinTimeout) {
+  const char kBody[] = R"(
+    sendReportTo({
+      toString:() => {while(true) {}}
+    }))";
+  AddJavascriptResponse(&url_loader_factory_, interest_group_bidding_url_,
+                        CreateReportWinScript(kBody));
+  RunReportWinExpectingResult(
+      /*expected_report_url=*/std::nullopt,
+      /*expected_ad_beacon_map=*/{},
       /*expected_ad_macro_map=*/{},
       /*expected_pa_requests=*/{},
+      /*expected_reporting_latency_timeout=*/true,
+      /*expected_errors=*/
       {"https://url.test/ execution of `reportWin` timed out."});
+}
+
+TEST_F(BidderWorkletTest, ReportWinTopLevelTimeout) {
+  const char kScript[] = "while (1) {}";
+
+  AddJavascriptResponse(&url_loader_factory_, interest_group_bidding_url_,
+                        kScript);
+  RunReportWinExpectingResult(
+      /*expected_report_url=*/std::nullopt,
+      /*expected_ad_beacon_map=*/{},
+      /*expected_ad_macro_map=*/{},
+      /*expected_pa_requests=*/{},
+      /*expected_reporting_latency_timeout=*/true,
+      /*expected_errors=*/
+      {"https://url.test/ top-level execution timed out."});
 }
 
 TEST_F(BidderWorkletTest, SendReportToLongUrl) {
@@ -10684,16 +10781,21 @@ TEST_F(BidderWorkletSharedStorageAPIEnabledTest,
         &test_shared_storage_host);
     shared_storage_hosts_[0] = receiver.BindNewPipeAndPassRemote();
 
-    RunReportWinWithFunctionBodyExpectingResult(
-        R"(
-          sharedStorage.delete({toString: () => {
-              while(true) {}
-            }
-          });
-        )",
+    const char kBody[] = R"(
+      sharedStorage.delete({toString: () => {
+          while(true) {}
+        }
+      });
+    )";
+    AddJavascriptResponse(&url_loader_factory_, interest_group_bidding_url_,
+                          CreateReportWinScript(kBody));
+
+    RunReportWinExpectingResult(
         /*expected_report_url=*/std::nullopt,
-        /*expected_ad_beacon_map=*/{}, /*expected_ad_macro_map=*/{},
+        /*expected_ad_beacon_map=*/{},
+        /*expected_ad_macro_map=*/{},
         /*expected_pa_requests=*/{},
+        /*expected_reporting_latency_timeout=*/true,
         /*expected_errors=*/
         {"https://url.test/ execution of `reportWin` timed out."});
   }
@@ -13919,6 +14021,633 @@ realTimeReporting.contributeToHistogram({bucket: 100, priorityWeight: 0.5})
       /*expected_pa_requests=*/{},
       /*expected_non_kanon_pa_requests=*/{},
       std::move(expected_real_time_contributions));
+}
+
+// Test fixture that can test both KVv2 paths - the path where requests are made
+// from the worklet process, and the path that uses a TrustedSignalsCache to
+// make requests from the browser process.
+//
+// Note that when KVv1 is removed, most of the KVv1 tests above will be need to
+// converted to use KVv2 to avoid losing test coverage.
+class BidderWorkletKVv2Test : public BidderWorkletTest,
+                              public mojom::TrustedSignalsCache {
+ public:
+  BidderWorkletKVv2Test() {
+    scoped_feature_list_.InitAndEnableFeature(
+        blink::features::kFledgeTrustedSignalsKVv2Support);
+
+    // Used only when there's no KVv2 cache.
+    public_key_ = mojom::TrustedSignalsPublicKey::New(
+        std::string(reinterpret_cast<const char*>(&kTestPublicKey[0]),
+                    sizeof(kTestPublicKey)),
+        kKeyId);
+  }
+
+  ~BidderWorkletKVv2Test() override {
+    // Any pending requests should have been taken care of.
+    EXPECT_TRUE(pending_cache_clients_.empty());
+  }
+
+  // Switches to using the TrustedSignalsCache API and a
+  // TrustedSignalsKVv2Manager for trusted signals fetches.
+  void EnableSignalsCache() {
+    trusted_signals_kvv2_manager_ = std::make_unique<TrustedSignalsKVv2Manager>(
+        cache_receiver_.BindNewPipeAndPassRemote(), v8_helper());
+    trusted_signals_cache_key_ = mojom::TrustedSignalsCacheKey::New(
+        base::UnguessableToken::Create(), /*partition_id=*/1);
+    public_key_.reset();
+  }
+
+  // TrustedSignalsCache implementation:
+  void GetTrustedSignals(
+      const base::UnguessableToken& compression_group_token,
+      mojo::PendingRemote<mojom::TrustedSignalsCacheClient> client) override {
+    bool inserted = pending_cache_clients_
+                        .try_emplace(compression_group_token, std::move(client))
+                        .second;
+    // There should be at most one request at a time for any compression group.
+    EXPECT_TRUE(inserted);
+
+    if (wait_for_cache_requests_loop_ &&
+        waiting_for_cache_requests_count_ == pending_cache_clients_.size()) {
+      wait_for_cache_requests_loop_->Quit();
+    }
+  }
+
+  void WaitForCacheRequests(size_t count) {
+    if (pending_cache_clients_.size() < count) {
+      waiting_for_cache_requests_count_ = count;
+      wait_for_cache_requests_loop_ = std::make_unique<base::RunLoop>();
+      wait_for_cache_requests_loop_->Run();
+      wait_for_cache_requests_loop_.reset();
+    }
+    EXPECT_EQ(pending_cache_clients_.size(), count);
+  }
+
+  // Waits for a request to be observed, and then sends the provided response,
+  // which should be the JSON representation of a compression group. If
+  // `trusted_signals_kvv2_manager_` is non-null, expects the request to be
+  // observed through the TrustedSignalsCache API. Otherwise, expects to see it
+  // as an encrypted network request, and the response is returned as
+  // compression group 0, in a full, encrypted KVv2 response.
+  void WaitForRequestAndSendResponse(const std::string& response_json_content) {
+    if (trusted_signals_kvv2_manager_) {
+      WaitForCacheRequests(1);
+      RespondToCacheRequest(trusted_signals_cache_key_->compression_group_token,
+                            response_json_content);
+      return;
+    }
+
+    task_environment_.RunUntilIdle();
+    const network::ResourceRequest* pending_request;
+    ASSERT_TRUE(url_loader_factory_.IsPending(
+        interest_group_trusted_bidding_signals_url_->spec(), &pending_request));
+
+    std::string request_body =
+        std::string(pending_request->request_body->elements()
+                        ->at(0)
+                        .As<network::DataElementBytes>()
+                        .AsStringPiece());
+    std::string response_body =
+        GenerateResponseBody(request_body, response_json_content);
+
+    std::string headers =
+        base::StringPrintf("%s\nContent-Type: %s", kAllowFledgeHeader,
+                           "message/ad-auction-trusted-signals-request");
+    AddResponse(&url_loader_factory_,
+                interest_group_trusted_bidding_signals_url_.value(),
+                kAdAuctionTrustedSignalsMimeType,
+                /*charset=*/std::nullopt, response_body, headers);
+  }
+
+  void RespondToCacheRequest(base::UnguessableToken compression_group_token,
+                             const std::string& response_json_content) {
+    auto client_it = pending_cache_clients_.find(compression_group_token);
+    ASSERT_TRUE(client_it != pending_cache_clients_.end());
+    mojo::Remote<mojom::TrustedSignalsCacheClient> client(
+        std::move(client_it->second));
+    pending_cache_clients_.erase(client_it);
+    client->OnSuccess(mojom::TrustedSignalsCompressionScheme::kNone,
+                      test::ToCborVector(response_json_content));
+  }
+
+  static std::string GenerateResponseBody(
+      const std::string& request_body,
+      const std::string& response_json_content) {
+    // Decrypt the request.
+    auto response_key_config = quiche::ObliviousHttpHeaderKeyConfig::Create(
+        kKeyId, EVP_HPKE_DHKEM_X25519_HKDF_SHA256, EVP_HPKE_HKDF_SHA256,
+        EVP_HPKE_AES_256_GCM);
+    CHECK(response_key_config.ok()) << response_key_config.status();
+
+    auto ohttp_gateway =
+        quiche::ObliviousHttpGateway::Create(
+            std::string(reinterpret_cast<const char*>(&kTestPrivateKey[0]),
+                        sizeof(kTestPrivateKey)),
+            response_key_config.value())
+            .value();
+
+    auto received_request = ohttp_gateway.DecryptObliviousHttpRequest(
+        request_body, kTrustedSignalsKVv2EncryptionRequestMediaType);
+    CHECK(received_request.ok()) << received_request.status();
+
+    // Build response body.
+    cbor::Value::MapValue compression_group;
+    compression_group.try_emplace(cbor::Value("compressionGroupId"),
+                                  cbor::Value(0));
+    compression_group.try_emplace(cbor::Value("ttlMs"), cbor::Value(100));
+    compression_group.try_emplace(
+        cbor::Value("content"),
+        cbor::Value(test::ToCborVector(response_json_content)));
+
+    cbor::Value::ArrayValue compression_groups;
+    compression_groups.emplace_back(std::move(compression_group));
+
+    cbor::Value::MapValue body_map;
+    body_map.try_emplace(cbor::Value("compressionGroups"),
+                         cbor::Value(std::move(compression_groups)));
+
+    cbor::Value body_value(std::move(body_map));
+    std::optional<std::vector<uint8_t>> maybe_body_bytes =
+        cbor::Writer::Write(body_value);
+    CHECK(maybe_body_bytes);
+
+    std::string response_body = test::CreateKVv2ResponseBody(
+        base::as_string_view(maybe_body_bytes.value()));
+    auto response_context =
+        std::move(received_request).value().ReleaseContext();
+
+    // Encrypt the response body.
+    auto maybe_response = ohttp_gateway.CreateObliviousHttpResponse(
+        response_body, response_context,
+        kTrustedSignalsKVv2EncryptionResponseMediaType);
+    CHECK(maybe_response.ok()) << maybe_response.status();
+
+    return maybe_response->EncapsulateAndSerialize();
+  }
+
+ protected:
+  base::test::ScopedFeatureList scoped_feature_list_;
+
+  // Map of compression group tokens to cache clients waiting on them.
+  std::map<base::UnguessableToken,
+           mojo::PendingRemote<mojom::TrustedSignalsCacheClient>>
+      pending_cache_clients_;
+
+  std::unique_ptr<base::RunLoop> wait_for_cache_requests_loop_;
+  size_t waiting_for_cache_requests_count_ = 0;
+
+  mojo::Receiver<mojom::TrustedSignalsCache> cache_receiver_{this};
+};
+
+// Test the case where there's an error getting signals. The specific error
+// doesn't matter, since they're all exposed in the same way to the
+// BidderWorklet.
+//
+// Similar to BidderWorkletTest.GenerateBidOnBiddingSignalsReceivedFetchFails.
+TEST_F(BidderWorkletKVv2Test, SignalsError) {
+  const std::string generate_bid_script = CreateGenerateBidScript(
+      R"({ad: trustedBiddingSignals, bid:1,
+            render:"https://response.test/"})");
+
+  // This results in an error because it's supposed to be an array, not a map.
+  const char kJson[] = "{}";
+
+  interest_group_trusted_bidding_signals_url_ =
+      GURL("https://url.test/kvv2-test/");
+  interest_group_trusted_bidding_signals_keys_ = {"key1"};
+
+  for (bool use_signals_cache : {false, true}) {
+    SCOPED_TRACE(use_signals_cache);
+    if (use_signals_cache) {
+      EnableSignalsCache();
+    }
+
+    // Test the case that signals are received before the Javascript, and vice
+    // versa.
+    for (bool signals_first : {false, true}) {
+      SCOPED_TRACE(signals_first);
+      url_loader_factory_.ClearResponses();
+
+      auto bidder_worklet = CreateWorklet();
+      generate_bid_run_loop_ = std::make_unique<base::RunLoop>();
+      GenerateBid(bidder_worklet.get());
+
+      if (signals_first) {
+        AddJavascriptResponse(&url_loader_factory_, interest_group_bidding_url_,
+                              generate_bid_script);
+        task_environment_.RunUntilIdle();
+        WaitForRequestAndSendResponse(kJson);
+      } else {
+        WaitForRequestAndSendResponse(kJson);
+        task_environment_.RunUntilIdle();
+        AddJavascriptResponse(&url_loader_factory_, interest_group_bidding_url_,
+                              generate_bid_script);
+      }
+
+      generate_bid_run_loop_->Run();
+      generate_bid_run_loop_.reset();
+
+      EXPECT_THAT(bid_errors_,
+                  UnorderedElementsAre("Content is not type of array."));
+      ASSERT_EQ(bids_.size(), 1u);
+      auto* bid = bids_[0].get();
+      // `ad` comes from `trustedBiddingSignals`, which should be null.
+      EXPECT_EQ(bid->ad, "null");
+      EXPECT_EQ(bid->ad_descriptor.url, GURL("https://response.test/"));
+    }
+  }
+}
+
+TEST_F(BidderWorkletKVv2Test, GenerateBidTrustedBiddingSignals) {
+  const std::string generate_bid_script = CreateGenerateBidScript(
+      R"({ad: trustedBiddingSignals, bid:1,
+            render:"https://response.test/"})");
+
+  const char kJson[] =
+      R"([{
+          "id": 1,
+          "dataVersion": 101,
+          "keyGroupOutputs": [
+            {
+              "tags": [
+                "interestGroupNames"
+              ],
+              "keyValues": {
+                "Fred": {
+                  "value": "{\"priorityVector\":{\"foo\":1}}"
+                }
+              }
+            },
+            {
+              "tags": [
+                "keys"
+              ],
+              "keyValues": {
+                "key1": {
+                  "value": "1"
+                },
+                "key2": {
+                  "value": "[2]"
+                }
+              }
+            }
+          ]
+        }])";
+
+  for (bool use_signals_cache : {false, true}) {
+    SCOPED_TRACE(use_signals_cache);
+    if (use_signals_cache) {
+      EnableSignalsCache();
+    }
+
+    // Test the case that signals are received before the Javascript, and vice
+    // versa.
+    for (bool signals_first : {false, true}) {
+      SCOPED_TRACE(signals_first);
+      url_loader_factory_.ClearResponses();
+
+      interest_group_trusted_bidding_signals_url_ =
+          GURL("https://url.test/kvv2-test/");
+      interest_group_trusted_bidding_signals_keys_ =
+          std::vector<std::string>({"key1", "key2"});
+
+      auto bidder_worklet = CreateWorklet();
+      generate_bid_run_loop_ = std::make_unique<base::RunLoop>();
+      GenerateBid(bidder_worklet.get());
+
+      if (signals_first) {
+        AddJavascriptResponse(&url_loader_factory_, interest_group_bidding_url_,
+                              generate_bid_script);
+        task_environment_.RunUntilIdle();
+        WaitForRequestAndSendResponse(kJson);
+      } else {
+        WaitForRequestAndSendResponse(kJson);
+        task_environment_.RunUntilIdle();
+        AddJavascriptResponse(&url_loader_factory_, interest_group_bidding_url_,
+                              generate_bid_script);
+      }
+
+      generate_bid_run_loop_->Run();
+      generate_bid_run_loop_.reset();
+
+      ASSERT_EQ(0UL, bid_errors_.size());
+      ASSERT_EQ(1UL, bids_.size());
+
+      mojom::BidderWorkletBidPtr expected_bid = mojom::BidderWorkletBid::New(
+          auction_worklet::mojom::BidRole::kUnenforcedKAnon,
+          R"({"key1":1,"key2":[2]})", 1, /*bid_currency=*/std::nullopt,
+          /*ad_cost=*/std::nullopt,
+          blink::AdDescriptor(GURL("https://response.test/")),
+          /*selected_buyer_and_seller_reporting_id=*/std::nullopt,
+          /*ad_component_descriptors=*/std::nullopt,
+          /*modeling_signals=*/std::nullopt, base::TimeDelta());
+
+      auto actual_bid = std::move(bids_[0]);
+      EXPECT_EQ(expected_bid->bid_role, actual_bid->bid_role);
+      EXPECT_EQ(expected_bid->ad, actual_bid->ad);
+      EXPECT_EQ(expected_bid->selected_buyer_and_seller_reporting_id,
+                actual_bid->selected_buyer_and_seller_reporting_id);
+      EXPECT_EQ(expected_bid->bid, actual_bid->bid);
+      EXPECT_EQ(blink::PrintableAdCurrency(expected_bid->bid_currency),
+                blink::PrintableAdCurrency(actual_bid->bid_currency));
+      EXPECT_EQ(expected_bid->ad_descriptor.url, actual_bid->ad_descriptor.url);
+      EXPECT_EQ(expected_bid->ad_descriptor.size,
+                actual_bid->ad_descriptor.size);
+      if (!expected_bid->ad_component_descriptors) {
+        EXPECT_FALSE(actual_bid->ad_component_descriptors);
+      } else {
+        EXPECT_THAT(*actual_bid->ad_component_descriptors,
+                    ::testing::ElementsAreArray(
+                        *expected_bid->ad_component_descriptors));
+      }
+      if (!expected_bid->bid_duration.is_zero()) {
+        EXPECT_GE(actual_bid->bid_duration, expected_bid->bid_duration);
+      }
+      EXPECT_EQ(101, data_version_);
+    }
+  }
+}
+
+// Test the case where two simultaneous generateBid() calls are made with
+// different compression group tokens.
+TEST_F(BidderWorkletKVv2Test,
+       MultipleRequestsWithDifferentCompressionGroupTokens) {
+  // Compression group tokens are only a concept when using the KVv2 manager and
+  // TrustedSignalsCache.
+  EnableSignalsCache();
+
+  const std::array<const char*, 2> kCompressionGroups{
+      R"([{
+        "id": 0,
+        "dataVersion": 2,
+        "keyGroupOutputs": []
+      }])",
+      R"([{
+        "id": 1,
+        "dataVersion": 3,
+        "keyGroupOutputs": []
+      }])"};
+
+  const std::array<mojom::TrustedSignalsCacheKeyPtr, 2>
+      trusted_signals_cache_keys = {
+          mojom::TrustedSignalsCacheKey::New(base::UnguessableToken::Create(),
+                                             /*partition_id=*/0),
+          mojom::TrustedSignalsCacheKey::New(base::UnguessableToken::Create(),
+                                             /*partition_id=*/1),
+      };
+
+  interest_group_trusted_bidding_signals_url_ =
+      GURL("https://url.test/kvv2-test/");
+  interest_group_trusted_bidding_signals_keys_ = {"key1"};
+
+  AddJavascriptResponse(&url_loader_factory_, interest_group_bidding_url_,
+                        CreateGenerateBidScript(
+                            R"({ad: browserSignals.dataVersion, bid:1,
+            render:"https://response.test/"})"));
+
+  auto bidder_worklet = CreateWorklet();
+
+  base::RunLoop run_loop;
+  int num_bids_generated = 0;
+  for (size_t i = 0; i < 2; ++i) {
+    trusted_signals_cache_key_ = trusted_signals_cache_keys[i].Clone();
+    GenerateBid(
+        bidder_worklet.get(),
+        GenerateBidClientWithCallbacks::Create(base::BindLambdaForTesting(
+            [&num_bids_generated, &run_loop, i](
+                std::vector<mojom::BidderWorkletBidPtr> bids,
+                std::optional<uint32_t> data_version,
+                const std::optional<GURL>& debug_loss_report_url,
+                const std::optional<GURL>& debug_win_report_url,
+                std::optional<double> set_priority,
+                base::flat_map<std::string,
+                               auction_worklet::mojom::PrioritySignalsDoublePtr>
+                    update_priority_signals_overrides,
+                PrivateAggregationRequests pa_requests,
+                PrivateAggregationRequests non_kanon_pa_requests,
+                RealTimeReportingContributions real_time_contributions,
+                mojom::BidderTimingMetricsPtr generate_bid_metrics,
+                mojom::GenerateBidDependencyLatenciesPtr
+                    generate_bid_dependency_latencies,
+                mojom::RejectReason reject_reason,
+                const std::vector<std::string>& errors) {
+              ASSERT_EQ(1u, bids.size());
+              int expected_data_version = i + 2;
+              EXPECT_EQ(data_version, expected_data_version);
+              const mojom::BidderWorkletBid* bid = bids[0].get();
+              EXPECT_EQ(bid->ad, base::NumberToString(expected_data_version));
+
+              ++num_bids_generated;
+              if (num_bids_generated == 2) {
+                run_loop.Quit();
+              }
+            })));
+  }
+  bidder_worklet->SendPendingSignalsRequests();
+
+  WaitForCacheRequests(2);
+  for (int i = 0; i < 2; ++i) {
+    RespondToCacheRequest(
+        trusted_signals_cache_keys[i]->compression_group_token,
+        kCompressionGroups[i]);
+  }
+
+  run_loop.Run();
+}
+
+// Test the case where two generateBid() calls are made with the same
+// compression group token, and the second request is made only after the first
+// request has posted a task to the V8 thread. There should only be one request
+// to the cache.
+TEST_F(BidderWorkletKVv2Test, MultipleGenerateBidCallsSingleCacheRequest) {
+  // Compression group tokens are only a concept when using the KVv2 manager and
+  // TrustedSignalsCache.
+  EnableSignalsCache();
+
+  const char kJson[] = {
+      R"([{
+        "id": 1,
+        "dataVersion": 3,
+        "keyGroupOutputs": []
+      },
+      {
+        "id": 2,
+        "dataVersion": 4,
+        "keyGroupOutputs": []
+      }])"};
+
+  interest_group_trusted_bidding_signals_url_ =
+      GURL("https://url.test/kvv2-test/");
+  interest_group_trusted_bidding_signals_keys_ = {"key1"};
+
+  AddJavascriptResponse(&url_loader_factory_, interest_group_bidding_url_,
+                        CreateGenerateBidScript(
+                            R"({ad: browserSignals.dataVersion, bid:1,
+            render:"https://response.test/"})"));
+
+  auto bidder_worklet = CreateWorklet();
+
+  // A bid finalizer is used to delay calling into V8 for the first request
+  // until after all other works has been done.
+  mojo::AssociatedRemote<auction_worklet::mojom::GenerateBidFinalizer>
+      bid_finalizer;
+
+  // Start the first generate bid call.
+  base::RunLoop run_loop1;
+  BeginGenerateBid(
+      bidder_worklet.get(), bid_finalizer.BindNewEndpointAndPassReceiver(),
+      GenerateBidClientWithCallbacks::Create(base::BindLambdaForTesting(
+          [&run_loop1](
+              std::vector<mojom::BidderWorkletBidPtr> bids,
+              std::optional<uint32_t> data_version,
+              const std::optional<GURL>& debug_loss_report_url,
+              const std::optional<GURL>& debug_win_report_url,
+              std::optional<double> set_priority,
+              base::flat_map<std::string,
+                             auction_worklet::mojom::PrioritySignalsDoublePtr>
+                  update_priority_signals_overrides,
+              PrivateAggregationRequests pa_requests,
+              PrivateAggregationRequests non_kanon_pa_requests,
+              RealTimeReportingContributions real_time_contributions,
+              mojom::BidderTimingMetricsPtr generate_bid_metrics,
+              mojom::GenerateBidDependencyLatenciesPtr
+                  generate_bid_dependency_latencies,
+              mojom::RejectReason reject_reason,
+              const std::vector<std::string>& errors) {
+            ASSERT_EQ(1u, bids.size());
+            EXPECT_EQ(data_version, 3);
+            const mojom::BidderWorkletBid* bid = bids[0].get();
+            EXPECT_EQ(bid->ad, "3");
+            run_loop1.Quit();
+          })));
+  bidder_worklet->SendPendingSignalsRequests();
+  WaitForRequestAndSendResponse(kJson);
+
+  // Running until idle should result in the JS and JSON being parsed and
+  // loaded, but since the finalizer's FinishGenerateBid() method has not been
+  // called, generateBid() should not having been invoked.
+  task_environment_.RunUntilIdle();
+  EXPECT_FALSE(run_loop1.AnyQuitCalled());
+
+  // Wedge the V8 thread, so can verify the signals are still cached while using
+  // them to generate a bid.
+  base::WaitableEvent* event_handle = WedgeV8Thread(v8_helper().get());
+
+  bid_finalizer->FinishGenerateBid(
+      auction_signals_, per_buyer_signals_, per_buyer_timeout_,
+      per_buyer_currency_,
+      provide_direct_from_seller_signals_late_
+          ? direct_from_seller_per_buyer_signals_
+          : std::nullopt,
+      direct_from_seller_per_buyer_signals_header_ad_slot_,
+      provide_direct_from_seller_signals_late_
+          ? direct_from_seller_auction_signals_
+          : std::nullopt,
+      direct_from_seller_auction_signals_header_ad_slot_);
+  bid_finalizer.FlushForTesting();
+
+  // Start a generate bid call that uses the other partition of the same
+  // compression group.
+  trusted_signals_cache_key_->partition_id = 2;
+  base::RunLoop run_loop2;
+  GenerateBid(
+      bidder_worklet.get(),
+      GenerateBidClientWithCallbacks::Create(base::BindLambdaForTesting(
+          [&run_loop2](
+              std::vector<mojom::BidderWorkletBidPtr> bids,
+              std::optional<uint32_t> data_version,
+              const std::optional<GURL>& debug_loss_report_url,
+              const std::optional<GURL>& debug_win_report_url,
+              std::optional<double> set_priority,
+              base::flat_map<std::string,
+                             auction_worklet::mojom::PrioritySignalsDoublePtr>
+                  update_priority_signals_overrides,
+              PrivateAggregationRequests pa_requests,
+              PrivateAggregationRequests non_kanon_pa_requests,
+              RealTimeReportingContributions real_time_contributions,
+              mojom::BidderTimingMetricsPtr generate_bid_metrics,
+              mojom::GenerateBidDependencyLatenciesPtr
+                  generate_bid_dependency_latencies,
+              mojom::RejectReason reject_reason,
+              const std::vector<std::string>& errors) {
+            ASSERT_EQ(1u, bids.size());
+            EXPECT_EQ(data_version, 4);
+            const mojom::BidderWorkletBid* bid = bids[0].get();
+            EXPECT_EQ(bid->ad, "4");
+            run_loop2.Quit();
+          })));
+  bidder_worklet->SendPendingSignalsRequests();
+  // Flush pending messages to make sure the second request reaches the
+  // BidderWorklet before the first request completes and releases the data
+  // cached by the TrustedSignalsKVv2RequestManager.
+  bidder_worklet.FlushForTesting();
+
+  // Unwedge the V8 thread.
+  event_handle->Signal();
+
+  // Both generateBid() calls should complete, having received signals from a
+  // single request to the cache.
+  run_loop1.Run();
+  run_loop2.Run();
+  EXPECT_TRUE(pending_cache_clients_.empty());
+
+  // Start another generateBid() call using the same compression group. The data
+  // from the original requests should have been discarded, as it's no longer in
+  // use, so there should be a new request to the cache.
+  GenerateBid(bidder_worklet.get(),
+              GenerateBidClientWithCallbacks::CreateNeverCompletes());
+  bidder_worklet->SendPendingSignalsRequests();
+  WaitForCacheRequests(1);
+  EXPECT_EQ(pending_cache_clients_.count(
+                trusted_signals_cache_key_->compression_group_token),
+            1u);
+
+  // Clean up state. Destroy bidder worklets first to avoid triggering the
+  // generateBid() call by destroying the pending cache client pipe. Destroying
+  // the cache pipe doesn't currently cause anything to happen, but best not to
+  // depend on that here.
+  bidder_worklets_.Clear();
+  pending_cache_clients_.clear();
+}
+
+// Test that it's still possible to request KVv1 bidding signals when there's a
+// KVv2 cache wired up.
+TEST_F(BidderWorkletKVv2Test, TrustedBiddingSignalsV1WithKVv2Cache) {
+  // Enable the cache, but don't pass a cache key to GenerateBid(), so should
+  // still use V1 signals.
+  EnableSignalsCache();
+  trusted_signals_cache_key_.reset();
+
+  interest_group_trusted_bidding_signals_keys_ =
+      std::vector<std::string>({"key"});
+  const GURL kBaseSignalsUrl("https://url.test/signals");
+  interest_group_trusted_bidding_signals_url_ = kBaseSignalsUrl;
+  const GURL kSignalsUrl(
+      "https://url.test/signals"
+      "?hostname=top.window.test&keys=key&interestGroupNames=Fred");
+
+  const char kJson[] = R"(
+    {
+      "keys": {
+        "key": "bagel"
+      }
+    }
+  )";
+
+  // Request with valid TrustedBiddingSignals URL and non-empty keys. Request
+  // should be made. The request succeeds.
+  AddBidderJsonResponse(&url_loader_factory_, kSignalsUrl, kJson);
+  RunGenerateBidWithReturnValueExpectingResult(
+      R"({ad: trustedBiddingSignals, bid:1, render:"https://response.test/"})",
+      mojom::BidderWorkletBid::New(
+          auction_worklet::mojom::BidRole::kUnenforcedKAnon,
+          R"({"key":"bagel"})", 1, /*bid_currency=*/std::nullopt,
+          /*ad_cost=*/std::nullopt,
+          blink::AdDescriptor(GURL("https://response.test/")),
+          /*selected_buyer_and_seller_reporting_id=*/std::nullopt,
+          /*ad_component_descriptors=*/std::nullopt,
+          /*modeling_signals=*/std::nullopt, base::TimeDelta()));
 }
 
 }  // namespace

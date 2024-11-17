@@ -13,6 +13,7 @@
 #include "content/public/browser/render_frame_metadata_provider.h"
 #include "content/public/browser/render_widget_host_observer.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "ui/android/modal_dialog_manager_bridge.h"
 #include "ui/android/view_android_observer.h"
 #include "ui/android/window_android_observer.h"
 #include "ui/events/back_gesture_event.h"
@@ -128,12 +129,12 @@ class CONTENT_EXPORT BackForwardTransitionAnimator
     // transition.
     kAnimationAborted,
   };
-  static std::string ToString(State state);
+  static const char* StateToString(State state);
 
   // Indicates the animation abort reason for UMA metrics.
   // These values are persisted to logs. Entries should not be renumbered and
   // numeric values should never be reused. Upon adding a new value, add it
-  // to `enums.xml` as well.
+  // to `tools/metrics/histograms/metadata/navigation/enums.xml` as well.
   enum class AnimationAbortReason {
     // The subscribed `RenderWidgetHost` was destroyed.
     kRenderWidgetHostDestroyed = 0,
@@ -168,7 +169,23 @@ class CONTENT_EXPORT BackForwardTransitionAnimator
 
     kCompositorDetached = 16,
 
-    kMaxValue = kCompositorDetached
+    // The animation manager is destroyed. This can happen when a visible
+    // `WebContents` is destroyed when its NativeView, layer and compositor are
+    // still intact, thus bypassing other observer hooks.
+    kAnimationManagerDestroyed = 17,
+
+    // Abort the animation when the physical size of the screen has changed.
+    // This can happen when the user rotates the phone mid-animation.
+    kPhysicalSizeChanged = 18,
+
+    kMaxValue = kPhysicalSizeChanged
+  };
+
+  // Indicates what animation state caused input event suppression.
+  enum class IgnoringInputReason {
+    kAnimationInvokedOccurred = 0,
+    kAnimationCanceledOccurred = 1,
+    kNoOccurrence = 2
   };
 
   // To create the `BackForwardTransitionAnimator`. Tests can override this
@@ -303,7 +320,7 @@ class CONTENT_EXPORT BackForwardTransitionAnimator
     // or aborted by the user). Terminal state 3/3.
     kCancelled,
   };
-  static std::string ToString(NavigationState state);
+  static const char* NavigationStateToString(NavigationState state);
 
   ui::BackGestureEventSwipeEdge initiating_edge() const {
     return initiating_edge_;
@@ -318,13 +335,6 @@ class CONTENT_EXPORT BackForwardTransitionAnimator
       cc::RenderFrameMetadata::kInvalidItemSequenceNumber;
 
  private:
-  // Indicates what animation state caused input event suppression.
-  enum class IgnoringInputReason {
-    kAnimationInvokedOccurred = 0,
-    kAnimationCanceledOccurred = 1,
-    kNoOccurrence = 2
-  };
-
   // Initializes `effect_` for the scrim and cross-fade animation.
   void InitializeEffectForGestureProgressAnimation();
   void InitializeEffectForCrossfadeAnimation();
@@ -403,6 +413,9 @@ class CONTENT_EXPORT BackForwardTransitionAnimator
   gfx::PointF CalculateRRectEndPx() const;
 
   int DipToPx(int dip) const;
+
+  void DeferDialogs();
+  void ResumeDialogs();
 
   const BackForwardTransitionAnimationManager::NavigationDirection
       nav_direction_;
@@ -550,6 +563,14 @@ class CONTENT_EXPORT BackForwardTransitionAnimator
 
   IgnoringInputReason ignoring_input_reason_ =
       IgnoringInputReason::kNoOccurrence;
+
+  // Stores the token that identify the deferred dialogs. During the animated
+  // transition, the live page could show the user some permission prompts or
+  // alerts before unloaded. We suppress these dialogs during the transition.
+  // These dialogs will be re-presented if the swipe gesture does not unload the
+  // live page.
+  int deferred_dialog_token_ =
+      ui::ModalDialogManagerBridge::kInvalidDialogToken;
 
   base::WeakPtrFactory<BackForwardTransitionAnimator> weak_ptr_factory_{this};
 };

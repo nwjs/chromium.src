@@ -87,6 +87,8 @@ inline constexpr int kModalHorizontalSpacing = 8;
 inline constexpr int kIdpBadgeOffset = 8;
 // The size of the arrow icon.
 inline constexpr int kArrowIconSize = 8;
+// The size of the arrow icon.
+inline constexpr int kModalIconSpinnerSize = 28;
 
 inline constexpr char kImageFetcherUmaClient[] = "FedCMAccountChooser";
 
@@ -299,6 +301,12 @@ class AccountSelectionViewBase : public PictureInPictureOcclusionObserver {
   // download of the brand icon if necessary.
   void ConfigureBrandImageView(BrandIconImageView* image_view,
                                const GURL& brand_icon_url);
+
+  // Gets the summary and description string of the error.
+  std::pair<std::u16string, std::u16string> GetErrorDialogText(
+      const std::optional<TokenError>& error,
+      const std::u16string& rp_for_display,
+      const std::u16string& idp_for_display);
 
   // The ImageFetcher used to fetch the account pictures for FedCM.
   std::unique_ptr<image_fetcher::ImageFetcher> image_fetcher_;

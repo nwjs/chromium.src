@@ -27,7 +27,6 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kUseGles2ForOopR);
 GPU_EXPORT BASE_DECLARE_FEATURE(kAndroidSurfaceControl);
 GPU_EXPORT BASE_DECLARE_FEATURE(kWebViewSurfaceControl);
 GPU_EXPORT BASE_DECLARE_FEATURE(kWebViewSurfaceControlForTV);
-GPU_EXPORT BASE_DECLARE_FEATURE(kAImageReader);
 GPU_EXPORT BASE_DECLARE_FEATURE(kLimitAImageReaderMaxSizeToOne);
 GPU_EXPORT BASE_DECLARE_FEATURE(kWebViewThreadSafeMediaDefault);
 GPU_EXPORT BASE_DECLARE_FEATURE(kIncreaseBufferCountForHighFrameRate);
@@ -40,8 +39,6 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kCanvasOopRasterization);
 #endif
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kEnableMSAAOnNewIntelGPUs);
-
-GPU_EXPORT BASE_DECLARE_FEATURE(kDawnSIRepsUseClientProvidedInternalUsages);
 
 #if BUILDFLAG(IS_WIN)
 GPU_EXPORT BASE_DECLARE_FEATURE(kNoUndamagedOverlayPromotion);
@@ -59,6 +56,11 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kVaapiWebPImageDecodeAcceleration);
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kVulkan);
 
+#if BUILDFLAG(IS_OZONE)
+GPU_EXPORT BASE_DECLARE_FEATURE(
+    kSharedImageSupportScanoutOnOzoneOnlyIfOverlaysSupported);
+#endif
+
 GPU_EXPORT BASE_DECLARE_FEATURE(kSkiaGraphite);
 GPU_EXPORT extern const base::FeatureParam<bool>
     kSkiaGraphiteDawnSkipValidation;
@@ -68,6 +70,10 @@ GPU_EXPORT extern const base::FeatureParam<bool>
 #if BUILDFLAG(IS_WIN)
 GPU_EXPORT BASE_DECLARE_FEATURE(kSkiaGraphiteDawnUseD3D12);
 #endif
+
+GPU_EXPORT BASE_DECLARE_FEATURE(
+    kSWVideoFrameAddScanoutUsageOnlyIfSupportedBySharedImage);
+
 GPU_EXPORT BASE_DECLARE_FEATURE(kConditionallySkipGpuChannelFlush);
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kEnableVkPipelineCache);
@@ -111,7 +117,6 @@ GPU_EXPORT bool EnablePruneOldTransferCacheEntries();
 GPU_EXPORT bool IsCanvasOopRasterizationEnabled();
 
 #if BUILDFLAG(IS_ANDROID)
-GPU_EXPORT bool IsAImageReaderEnabled();
 GPU_EXPORT bool IsAndroidSurfaceControlEnabled();
 GPU_EXPORT bool LimitAImageReaderMaxSizeToOne();
 GPU_EXPORT bool IncreaseBufferCountForHighFrameRate();

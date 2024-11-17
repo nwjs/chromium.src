@@ -39,8 +39,6 @@ struct UpdateContext;
 // this class is associated with one instance of UpdateContext.
 class Component {
  public:
-  using Events = UpdateClient::Observer::Events;
-
   using CallbackHandleComplete = base::OnceCallback<void()>;
 
   Component(const UpdateContext& update_context, const std::string& id);
@@ -53,10 +51,6 @@ class Component {
   void Handle(CallbackHandleComplete callback_handle_complete);
 
   CrxUpdateItem GetCrxUpdateItem() const;
-
-  // Sets the ping-only state for this component.
-  void PingOnly(const CrxComponent& crx_component,
-                UpdateClient::PingParams ping_params);
 
   // Called by the UpdateEngine when an update check for this component is done.
   void SetUpdateCheckResult(const std::optional<ProtocolParser::Result>& result,
@@ -237,8 +231,10 @@ class Component {
     // State overrides.
     void DoHandle() override;
     bool CanTryDiffUpdate() const;
-    void GetNextCrxFromCacheComplete(const CrxCache::Result& result);
-    void CheckIfCacheContainsPreviousCrxComplete(bool crx_is_in_cache);
+    void GetNextCrxFromCacheComplete(
+        const base::expected<base::FilePath, UnpackerError>& result);
+    void CheckIfCacheContainsPreviousCrxComplete(
+        const base::expected<base::FilePath, UnpackerError>& result);
   };
 
   class StateUpToDate : public State {
@@ -315,18 +311,6 @@ class Component {
     void DoHandle() override;
   };
 
-  class StatePingOnly : public State {
-   public:
-    explicit StatePingOnly(Component* component);
-    StatePingOnly(const StatePingOnly&) = delete;
-    StatePingOnly& operator=(const StatePingOnly&) = delete;
-    ~StatePingOnly() override;
-
-   private:
-    // State overrides.
-    void DoHandle() override;
-  };
-
   class StateRun : public State {
    public:
     explicit StateRun(Component* component);
@@ -359,7 +343,7 @@ class Component {
   // If an UpdateClient::CrxStateChangeCallback is provided as an argument to
   // UpdateClient::Install or UpdateClient::Update function calls, then the
   // callback is invoked as well.
-  void NotifyObservers(Events event) const;
+  void NotifyObservers() const;
 
   void SetParseResult(const ProtocolParser::Result& result);
 

@@ -22,8 +22,8 @@
 #include "chrome/grit/theme_resources.h"
 #include "components/constrained_window/constrained_window_views.h"
 #include "components/plus_addresses/features.h"
+#include "components/plus_addresses/grit/plus_addresses_strings.h"
 #include "components/plus_addresses/plus_address_types.h"
-#include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "components/web_modal/web_contents_modal_dialog_manager_delegate.h"
@@ -199,7 +199,6 @@ std::unique_ptr<views::View> CreateDescription(
 
 std::unique_ptr<views::Label> CreateErrorMessageLabel() {
   return views::Builder<views::Label>()
-      .SetText(l10n_util::GetStringUTF16(IDS_PLUS_ADDRESS_MODAL_CREATE_ERROR))
       .SetTextContext(views::style::CONTEXT_LABEL)
       .SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT)
       .SetProperty(views::kElementIdentifierKey,
@@ -344,7 +343,7 @@ PlusAddressCreationDialogDelegate::PlusAddressContainerView::
           .SetText(l10n_util::GetStringUTF16(
               IDS_PLUS_ADDRESS_MODAL_GENERATION_TEMPORARY_LABEL_CONTENT))
           .SetTextContext(views::style::CONTEXT_LABEL)
-          .SetTextStyle(STYLE_SECONDARY_MONOSPACED)
+          .SetTextStyle(views::style::STYLE_SECONDARY_MONOSPACED)
           .CopyAddressTo(&generation_message_)
           .SetProperty(views::kMarginsKey, kMargins)
           .SetProperty(
@@ -375,7 +374,7 @@ std::unique_ptr<views::View> PlusAddressCreationDialogDelegate::
   auto address_label =
       views::Builder<views::Label>()
           .SetTextContext(views::style::CONTEXT_LABEL)
-          .SetTextStyle(STYLE_SECONDARY_MONOSPACED)
+          .SetTextStyle(views::style::STYLE_SECONDARY_MONOSPACED)
           .SetProperty(
               views::kElementIdentifierKey,
               PlusAddressCreationView::kPlusAddressSuggestedEmailElementId)
@@ -590,7 +589,7 @@ void PlusAddressCreationDialogDelegate::ShowConfirmResult(
   }
   if (base::FeatureList::IsEnabled(
           features::kPlusAddressUpdatedErrorStatesInOnboardingModal)) {
-    ShowCreateErrorMessage();
+    ShowCreateErrorMessage(maybe_plus_profile.error().IsTimeoutError());
     confirm_button_->SetText(
         l10n_util::GetStringUTF16(IDS_PLUS_ADDRESS_MODAL_CREATE_ERROR_BUTTON));
     confirm_button_->SetEnabled(true);
@@ -717,11 +716,15 @@ void PlusAddressCreationDialogDelegate::ShowErrorStateUI() {
           ->GetWebContentsModalDialogHost());
 }
 
-void PlusAddressCreationDialogDelegate::ShowCreateErrorMessage() {
+void PlusAddressCreationDialogDelegate::ShowCreateErrorMessage(
+    bool is_timeout) {
   plus_address_container_->SetProperty(
       views::kMarginsKey,
       gfx::Insets::TLBR(kPlusAddressLabelVerticalMargin, 0, 0, 0));
   plus_address_container_->ShowIcon(PlusAddressContainerView::Icon::kError);
+  create_error_message_label_->SetText(l10n_util::GetStringUTF16(
+      is_timeout ? IDS_PLUS_ADDRESS_MODAL_CREATE_TIMEOUT_ERROR
+                 : IDS_PLUS_ADDRESS_MODAL_CREATE_ERROR));
   create_error_message_label_->SetVisible(true);
 }
 

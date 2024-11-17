@@ -32,8 +32,8 @@
 #include "net/socket/ssl_client_socket.h"
 #include "net/spdy/spdy_session_key.h"
 #include "net/ssl/ssl_config_service.h"
+#include "net/third_party/quiche/src/quiche/http2/core/spdy_protocol.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_versions.h"
-#include "net/third_party/quiche/src/quiche/spdy/core/spdy_protocol.h"
 
 namespace net {
 
@@ -427,7 +427,7 @@ class NET_EXPORT SpdySessionPool
   // * Assumes there is only one host resolution for `key` at the same time.
   base::WeakPtr<SpdySession> FindMatchingIpSession(
       const SpdySessionKey& key,
-      const std::vector<IPEndPoint> ip_endpoints,
+      const std::vector<IPEndPoint>& ip_endpoints,
       const std::set<std::string>& dns_aliases);
 
   raw_ptr<HttpServerProperties> http_server_properties_;

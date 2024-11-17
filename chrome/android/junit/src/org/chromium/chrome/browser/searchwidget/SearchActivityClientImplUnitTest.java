@@ -204,12 +204,20 @@ public class SearchActivityClientImplUnitTest {
 
     @Test
     public void requestOmniboxForResult_noActionWhenActivityIsNull() {
-        SearchActivityClientImpl.requestOmniboxForResult(null, EMPTY_URL, null);
+        new SearchActivityClientImpl()
+                .requestOmniboxForResult(
+                        null, EMPTY_URL, IntentOrigin.CUSTOM_TAB, null, /* isIncognito= */ false);
     }
 
     @Test
     public void requestOmniboxForResult_propagatesCurrentUrl() {
-        SearchActivityClientImpl.requestOmniboxForResult(mActivity, GOOD_URL, null);
+        new SearchActivityClientImpl()
+                .requestOmniboxForResult(
+                        mActivity,
+                        GOOD_URL,
+                        IntentOrigin.CUSTOM_TAB,
+                        null,
+                        /* isIncognito= */ false);
 
         var intentForResult = Shadows.shadowOf(mActivity).getNextStartedActivityForResult();
 
@@ -223,7 +231,13 @@ public class SearchActivityClientImplUnitTest {
     @Test
     public void requestOmniboxForResult_acceptsEmptyUrl() {
         // This is technically an invalid case. The test verifies we still do the right thing.
-        SearchActivityClientImpl.requestOmniboxForResult(mActivity, EMPTY_URL, null);
+        new SearchActivityClientImpl()
+                .requestOmniboxForResult(
+                        mActivity,
+                        EMPTY_URL,
+                        IntentOrigin.CUSTOM_TAB,
+                        null,
+                        /* isIncognito= */ false);
 
         var intentForResult = Shadows.shadowOf(mActivity).getNextStartedActivityForResult();
 
@@ -234,6 +248,28 @@ public class SearchActivityClientImplUnitTest {
                 TextUtils.isEmpty(
                         IntentUtils.safeGetStringExtra(
                                 intentForResult.intent, SearchActivityExtras.EXTRA_CURRENT_URL)));
+        assertEquals(SearchActivityClientImpl.OMNIBOX_REQUEST_CODE, intentForResult.requestCode);
+    }
+
+    @Test
+    public void requestOmniboxForResult_propagatesIncognitoStatus() {
+        new SearchActivityClientImpl()
+                .requestOmniboxForResult(
+                        mActivity,
+                        GOOD_URL,
+                        IntentOrigin.CUSTOM_TAB,
+                        null,
+                        /* isIncognito= */ true);
+
+        var intentForResult = Shadows.shadowOf(mActivity).getNextStartedActivityForResult();
+
+        assertTrue(
+                IntentUtils.safeHasExtra(
+                        intentForResult.intent, SearchActivityExtras.EXTRA_IS_INCOGNITO));
+        assertEquals(
+                IntentUtils.safeGetBooleanExtra(
+                        intentForResult.intent, SearchActivityExtras.EXTRA_IS_INCOGNITO, false),
+                true);
         assertEquals(SearchActivityClientImpl.OMNIBOX_REQUEST_CODE, intentForResult.requestCode);
     }
 

@@ -65,7 +65,10 @@ class SavedTabGroupModelListener : public BrowserListObserver,
 
   // Stop updating the saved group corresponding to the local group with id
   // `tab_group_id` when the local group changes.
-  void DisconnectLocalTabGroup(tab_groups::TabGroupId tab_group_id);
+  // `closing_source` refers to the callsite that results in invoking this
+  // method.
+  void DisconnectLocalTabGroup(tab_groups::TabGroupId tab_group_id,
+                               ClosingSource closing_source);
 
   // The saved group corresponding to `local_group_id` was removed, so we must
   // remove the local group to match.
@@ -103,8 +106,8 @@ class SavedTabGroupModelListener : public BrowserListObserver,
 
  private:
   // Create a SavedTabGroup from the corresponding Tab Group in the TabStrip
-  // denoted by `group_id`. Also return a mapping of the WebContents in the tab
-  // group to their saved tab guid. This mapping will be used in
+  // denoted by `group_id`. Also return a mapping of the tabs in the tab group
+  // to their saved tab guid. This mapping will be used in
   // ConnectToLocalTabGroup in order to observe any changes to the tabs over
   // time.
   std::pair<SavedTabGroup, std::map<tabs::TabModel*, base::Uuid>>

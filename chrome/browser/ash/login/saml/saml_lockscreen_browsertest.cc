@@ -33,7 +33,6 @@
 #include "chrome/browser/ash/login/test/js_checker.h"
 #include "chrome/browser/ash/login/test/logged_in_user_mixin.h"
 #include "chrome/browser/ash/login/test/test_condition_waiter.h"
-#include "chrome/browser/ash/login/users/chrome_user_manager_impl.h"
 #include "chrome/browser/ash/policy/affiliation/affiliation_test_helper.h"
 #include "chrome/browser/ash/policy/core/device_policy_cros_browser_test.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
@@ -645,6 +644,37 @@ IN_PROC_BROWSER_TEST_F(AutoStartTest, DialogShownOnReauthEnforcement) {
   ExpectSuccessfulAutoStart();
 }
 
+// Verify that the "Enter Google Account Info" is shown during
+// AutoStart flow and pressing it initiates the standard reauth flow.
+IN_PROC_BROWSER_TEST_F(AutoStartTest, ChangeIdPButtonPresence) {
+  Login();
+  ForceOnlineReauthOnLockScreen();
+  ScreenLockerTester().Lock();
+
+  std::optional<LockScreenReauthDialogTestHelper> reauth_dialog_helper =
+      LockScreenReauthDialogTestHelper::InitForShownDialog();
+  // `reauth_dialog_helper` not being empty confirms that online reauth
+  // dialog is shown.
+  EXPECT_TRUE(reauth_dialog_helper);
+
+  // Wait for the webview and SAML IdP page to load.
+  reauth_dialog_helper->WaitForSigninWebview();
+  reauth_dialog_helper->WaitForSamlIdpPageLoad();
+
+  // EGAI button should be visible during the AutoStart flow,
+  // but not during normal reauth.
+  reauth_dialog_helper->ExpectChangeIdPButtonVisible();
+  reauth_dialog_helper->ClickChangeIdPButtonOnSamlScreen();
+
+  // With reauth endpoint we start on a Gaia page where user needs to click
+  // "Next" before being redirected to SAML IdP page.
+  reauth_dialog_helper->WaitForPrimaryGaiaButtonToBeEnabled();
+  reauth_dialog_helper->ClickPrimaryGaiaButton();
+
+  reauth_dialog_helper->WaitForSamlIdpPageLoad();
+  reauth_dialog_helper->ExpectChangeIdPButtonHidden();
+}
+
 class SamlUnlockTest : public LockscreenWebUiTest {
  public:
   SamlUnlockTest() = default;
@@ -706,8 +736,9 @@ IN_PROC_BROWSER_TEST_F(SamlUnlockTest, SamlNoticeMessage) {
   reauth_dialog_helper->DialogJS().ExpectTrue(js);
 }
 
-// Tests that we can switch from SAML page to Gaia page on the lock screen.
-IN_PROC_BROWSER_TEST_F(SamlUnlockTest, SamlSwitchToGaia) {
+// Tests that "Enter Google Account Info" button is hidden when reauth endpoint
+// is initiated on the lock screen.
+IN_PROC_BROWSER_TEST_F(SamlUnlockTest, SamlEgaiButtonHidden) {
   fake_saml_idp()->SetLoginHTMLTemplate("saml_login.html");
 
   Login();

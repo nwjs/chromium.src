@@ -31,17 +31,17 @@ const CGFloat kGradientOverlayTopAlpha = 0.0;
 // Alpha for bottom of gradienet overlay.
 const CGFloat kGradientOverlayBottomAlpha = 0.14;
 
-// Inset for product image fallback from the UIImageView boundary.
-const CGFloat kProductImageFallbackInset = 10.0f;
-
 // Radius of background circle of product image fallback.
-const CGFloat kProductImageFallbackCornerRadius = 25.0;
+const CGFloat kProductImageFallbackCornerRadius = 18.0;
 
-// Height and width of product image fallback.
-const CGFloat kProductImageFallbackSize = 28.0;
+// Vertical margin between down trend symbol and circle around it.
+const CGFloat kProductImageFallbackVerticalMargin = 6.0;
 
-// Point size of product image fallback.
-const CGFloat kProductImageFallbackPointSize = 10.0;
+// Horizontal margin between down trend symbol and circle around it.
+const CGFloat kProductImageFallbackHorizontalMargin = 4.0;
+
+// Width and height of product image fallback
+const CGFloat kProductImageFallbackSize = 36.0;
 
 // Rounded corners of the product image radius
 const CGFloat kProductImageCornerRadius = 8.0;
@@ -90,6 +90,7 @@ const CGFloat kSeparatorHeight = 0.5;
   _titleLabel.text = l10n_util::GetNSString(
       IDS_IOS_CONTENT_SUGGESTIONS_PRICE_TRACKING_PROMO_TITLE);
   _titleLabel.isAccessibilityElement = YES;
+  _titleLabel.accessibilityTraits |= UIAccessibilityTraitHeader;
 
   _descriptionLabel = [[UILabel alloc] init];
   _descriptionLabel.translatesAutoresizingMaskIntoConstraints = NO;
@@ -113,7 +114,7 @@ const CGFloat kSeparatorHeight = 0.5;
   if (retrievedProductImage) {
     _productImageView = [[UIImageView alloc] init];
     _productImageView.image = retrievedProductImage;
-    _productImageView.contentMode = UIViewContentModeScaleAspectFit;
+    _productImageView.contentMode = UIViewContentModeScaleAspectFill;
     _productImageView.translatesAutoresizingMaskIntoConstraints = NO;
     _productImageView.layer.borderWidth = 0;
     _productImageView.layer.cornerRadius = kProductImageCornerRadius;
@@ -150,17 +151,20 @@ const CGFloat kSeparatorHeight = 0.5;
 
   } else {
     _fallbackProductImageView = [[UIImageView alloc] init];
-    _fallbackProductImageView.image = CustomSymbolWithPointSize(
-        kDownTrendSymbol, kProductImageFallbackPointSize);
+    UIImageSymbolConfiguration* fallbackImageConfig =
+        [UIImageSymbolConfiguration
+            configurationWithWeight:UIImageSymbolWeightLight];
+    _fallbackProductImageView.image =
+        CustomSymbolWithConfiguration(kDownTrendSymbol, fallbackImageConfig);
     _fallbackProductImageView.contentMode = UIViewContentModeScaleAspectFit;
     _fallbackProductImageView.translatesAutoresizingMaskIntoConstraints = NO;
     _fallbackProductImageView.layer.borderWidth = 0;
 
     [NSLayoutConstraint activateConstraints:@[
-      [_fallbackProductImageView.widthAnchor
+      [_productImage.heightAnchor
           constraintEqualToConstant:kProductImageFallbackSize],
-      [_fallbackProductImageView.widthAnchor
-          constraintEqualToAnchor:_fallbackProductImageView.heightAnchor],
+      [_productImage.widthAnchor
+          constraintEqualToConstant:kProductImageFallbackSize],
     ]];
 
     _productImage.layer.cornerRadius = kProductImageFallbackCornerRadius;
@@ -168,26 +172,39 @@ const CGFloat kSeparatorHeight = 0.5;
 
     [_productImage addSubview:_fallbackProductImageView];
 
-    AddSameConstraintsWithInset(_fallbackProductImageView, _productImage,
-                                kProductImageFallbackInset);
+    AddSameConstraintsWithInsets(
+        _fallbackProductImageView, _productImage,
+        NSDirectionalEdgeInsets{kProductImageFallbackVerticalMargin,
+                                kProductImageFallbackHorizontalMargin,
+                                kProductImageFallbackVerticalMargin,
+                                kProductImageFallbackHorizontalMargin});
   }
 
   _allowButton = [[UIButton alloc] init];
-  _allowButton.translatesAutoresizingMaskIntoConstraints = NO;
-  [_allowButton
-      setTitle:l10n_util::GetNSString(
-                   IDS_IOS_CONTENT_SUGGESTIONS_PRICE_TRACKING_PROMO_ALLOW)
-      forState:UIControlStateNormal];
+  UIButtonConfiguration* buttonConfiguration =
+      [UIButtonConfiguration plainButtonConfiguration];
+  buttonConfiguration.contentInsets = NSDirectionalEdgeInsetsZero;
+  buttonConfiguration.titleLineBreakMode = NSLineBreakByTruncatingTail;
+  buttonConfiguration.attributedTitle = [[NSAttributedString alloc]
+      initWithString:l10n_util::GetNSString(
+                         IDS_IOS_CONTENT_SUGGESTIONS_PRICE_TRACKING_PROMO_ALLOW)
+          attributes:@{
+            NSFontAttributeName :
+                [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote]
+          }];
+  _allowButton.configuration = buttonConfiguration;
   [_allowButton setTitleColor:[UIColor colorNamed:kBlueColor]
                      forState:UIControlStateNormal];
-  _allowButton.titleLabel.font =
-      [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
   _allowButton.isAccessibilityElement = YES;
-  _allowButton.titleLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+  _allowButton.titleLabel.numberOfLines = 1;
+  _allowButton.titleLabel.adjustsFontForContentSizeCategory = YES;
+
+  _allowButton.contentHorizontalAlignment =
+      UIControlContentHorizontalAlignmentTrailing;
+  _allowButton.accessibilityIdentifier = _allowButton.titleLabel.text;
   _tapRecognizer = [[UITapGestureRecognizer alloc]
       initWithTarget:self
               action:@selector(allowPriceTrackingTapped:)];
-
   [_allowButton addGestureRecognizer:_tapRecognizer];
 
   _separator = [[UIView alloc] init];
@@ -231,9 +248,6 @@ const CGFloat kSeparatorHeight = 0.5;
 - (void)hideDescriptionOnTraitChange {
   _descriptionLabel.hidden = self.traitCollection.preferredContentSizeCategory >
                              UIContentSizeCategoryExtraExtraLarge;
-  // Force a layout since the size of text components may have changed.
-  [self setNeedsLayout];
-  [self layoutIfNeeded];
 }
 
 #pragma mark - Testing category methods
@@ -247,7 +261,7 @@ const CGFloat kSeparatorHeight = 0.5;
 }
 
 - (NSString*)allowLabelTextForTesting {
-  return self->_allowButton.currentTitle;
+  return [self->_allowButton.configuration.attributedTitle string];
 }
 
 @end

@@ -17,6 +17,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
+#include "base/memory/raw_ptr.h"
 #include "base/not_fatal_until.h"
 #include "base/strings/string_util.h"
 #include "base/task/single_thread_task_runner.h"
@@ -32,7 +33,6 @@
 #include "content/browser/service_worker/service_worker_host.h"
 #include "content/browser/service_worker/service_worker_info.h"
 #include "content/browser/service_worker/service_worker_job_coordinator.h"
-#include "content/browser/service_worker/service_worker_offline_capability_checker.h"
 #include "content/browser/service_worker/service_worker_process_manager.h"
 #include "content/browser/service_worker/service_worker_quota_client.h"
 #include "content/browser/service_worker/service_worker_register_job.h"
@@ -197,8 +197,8 @@ class ClearAllServiceWorkersHelper
       return;
     // Make a copy of live versions map because StopWorker() removes the version
     // from it when we were starting up and don't have a process yet.
-    const std::map<int64_t, ServiceWorkerVersion*> live_versions_copy =
-        context->GetLiveVersions();
+    const std::map<int64_t, raw_ptr<ServiceWorkerVersion, CtnExperimental>>
+        live_versions_copy = context->GetLiveVersions();
     for (const auto& version_itr : live_versions_copy) {
       ServiceWorkerVersion* version(version_itr.second);
       if (version->running_status() == blink::EmbeddedWorkerStatus::kStarting ||
@@ -225,7 +225,8 @@ class ClearAllServiceWorkersHelper
 };
 
 int GetWarmedUpServiceWorkerCount(
-    const std::map<int64_t, ServiceWorkerVersion*>& live_versions) {
+    const std::map<int64_t, raw_ptr<ServiceWorkerVersion, CtnExperimental>>&
+        live_versions) {
   return base::ranges::count_if(live_versions, [](const auto& iter) {
     ServiceWorkerVersion& service_worker_version = *iter.second;
     return service_worker_version.IsWarmingUp() ||
@@ -617,12 +618,6 @@ void ServiceWorkerContextCore::DeleteForStorageKey(const blink::StorageKey& key,
           AsWeakPtr(), key, std::move(callback)));
 }
 
-void ServiceWorkerContextCore::PerformStorageCleanup(
-    base::OnceClosure callback) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  registry()->PerformStorageCleanup(std::move(callback));
-}
-
 void ServiceWorkerContextCore::DidGetRegistrationsForDeleteForStorageKey(
     const blink::StorageKey& key,
     base::OnceCallback<void(blink::ServiceWorkerStatusCode)> callback,
@@ -912,7 +907,7 @@ bool ServiceWorkerContextCore::IsValidRegisterRequest(
 scoped_refptr<ServiceWorkerRegistration>
 ServiceWorkerContextCore::GetLiveRegistration(int64_t id) {
   auto it = live_registrations_.find(id);
-  return (it != live_registrations_.end()) ? it->second : nullptr;
+  return (it != live_registrations_.end()) ? it->second.get() : nullptr;
 }
 
 void ServiceWorkerContextCore::AddLiveRegistration(
@@ -986,8 +981,8 @@ void ServiceWorkerContextCore::RemoveLiveVersion(int64_t id) {
 std::vector<ServiceWorkerRegistrationInfo>
 ServiceWorkerContextCore::GetAllLiveRegistrationInfo() {
   std::vector<ServiceWorkerRegistrationInfo> infos;
-  for (std::map<int64_t, ServiceWorkerRegistration*>::const_iterator iter =
-           live_registrations_.begin();
+  for (std::map<int64_t, raw_ptr<ServiceWorkerRegistration, CtnExperimental>>::
+           const_iterator iter = live_registrations_.begin();
        iter != live_registrations_.end(); ++iter) {
     infos.push_back(iter->second->GetInfo());
   }
@@ -997,8 +992,9 @@ ServiceWorkerContextCore::GetAllLiveRegistrationInfo() {
 std::vector<ServiceWorkerVersionInfo>
 ServiceWorkerContextCore::GetAllLiveVersionInfo() {
   std::vector<ServiceWorkerVersionInfo> infos;
-  for (std::map<int64_t, ServiceWorkerVersion*>::const_iterator iter =
-           live_versions_.begin();
+  for (std::map<int64_t,
+                raw_ptr<ServiceWorkerVersion, CtnExperimental>>::const_iterator
+           iter = live_versions_.begin();
        iter != live_versions_.end(); ++iter) {
     infos.push_back(iter->second->GetInfo());
   }
@@ -1068,27 +1064,6 @@ void ServiceWorkerContextCore::CheckHasServiceWorker(
       base::BindOnce(&ServiceWorkerContextCore::
                          DidFindRegistrationForCheckHasServiceWorker,
                      AsWeakPtr(), std::move(callback)));
-}
-
-void ServiceWorkerContextCore::CheckOfflineCapability(
-    const GURL& url,
-    const blink::StorageKey& key,
-    ServiceWorkerContext::CheckOfflineCapabilityCallback callback) {
-  auto checker =
-      std::make_unique<ServiceWorkerOfflineCapabilityChecker>(url, key);
-  ServiceWorkerOfflineCapabilityChecker* checker_rawptr = checker.get();
-  checker_rawptr->Start(
-      registry(),
-      // Bind unique_ptr to the |callback| so that
-      // ServiceWorkerOfflineCapabilityChecker outlives |callback| and is surely
-      // freed when |callback| is called.
-      base::BindOnce(
-          [](std::unique_ptr<ServiceWorkerOfflineCapabilityChecker> checker,
-             ServiceWorkerContext::CheckOfflineCapabilityCallback callback,
-             OfflineCapability result, int64_t registration_id) {
-            std::move(callback).Run(result, registration_id);
-          },
-          std::move(checker), std::move(callback)));
 }
 
 void ServiceWorkerContextCore::UpdateVersionFailureCount(

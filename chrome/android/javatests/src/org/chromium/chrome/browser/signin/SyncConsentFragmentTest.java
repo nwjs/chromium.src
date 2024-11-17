@@ -91,6 +91,7 @@ import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.chrome.test.util.browser.signin.SigninTestUtil;
+import org.chromium.chrome.test.util.browser.signin.TestAccounts;
 import org.chromium.chrome.test.util.browser.sync.SyncTestUtil;
 import org.chromium.components.externalauth.ExternalAuthUtils;
 import org.chromium.components.signin.base.AccountInfo;
@@ -307,13 +308,12 @@ public class SyncConsentFragmentTest {
         mChromeActivityTestRule.startMainActivityOnBlankPage();
 
         mSigninTestRule.addAccount(AccountManagerTestRule.AADC_ADULT_ACCOUNT);
-        mSigninTestRule.addAccount(AccountManagerTestRule.TEST_ACCOUNT_1);
+        mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
 
         // Resolve minor mode of TEST_ACCOUNT_1 before taking screenshot.
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    mSigninTestRule.resolveMinorModeToUnrestricted(
-                            AccountManagerTestRule.TEST_ACCOUNT_1.getId());
+                    mSigninTestRule.resolveMinorModeToUnrestricted(TestAccounts.ACCOUNT1.getId());
                 });
 
         mSyncConsentActivity =
@@ -464,7 +464,7 @@ public class SyncConsentFragmentTest {
         var startPageHistogram =
                 HistogramWatcher.newSingleRecordWatcher(
                         "Signin.SigninStartedAccessPoint", SigninAccessPoint.START_PAGE);
-        mSigninTestRule.addAccount(AccountManagerTestRule.TEST_ACCOUNT_1);
+        mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
         CustomSyncConsentFirstRunFragment fragment = new CustomSyncConsentFirstRunFragment();
         Bundle bundle = new Bundle();
         bundle.putBoolean(SyncConsentFirstRunFragment.IS_CHILD_ACCOUNT, true);
@@ -477,8 +477,7 @@ public class SyncConsentFragmentTest {
         // Resolves minor-mode to unrestricted; so the user will experience weighted buttons.
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    mSigninTestRule.resolveMinorModeToUnrestricted(
-                            AccountManagerTestRule.TEST_ACCOUNT_1.getId());
+                    mSigninTestRule.resolveMinorModeToUnrestricted(TestAccounts.ACCOUNT1.getId());
                 });
         ViewUtils.waitForVisibleView(withText(R.string.signin_accept_button));
 
@@ -841,11 +840,10 @@ public class SyncConsentFragmentTest {
                                     .launchActivityForPromoAddAccountFlow(
                                             mChromeActivityTestRule.getActivity(),
                                             SigninAccessPoint.BOOKMARK_MANAGER);
-                            mSigninTestRule.setUpNextAddAccountFlow(NEW_ACCOUNT_NAME);
+                            mSigninTestRule.setAddAccountFlowResult(NEW_ACCOUNT_NAME);
                             onViewWaiting(AccountManagerTestRule.ADD_ACCOUNT_BUTTON_MATCHER)
                                     .perform(click());
                         });
-
         onView(withText(NEW_ACCOUNT_NAME)).check(matches(isDisplayed()));
         // Poll for these histograms as SUCCEEDED is recorded asynchronously.
         addAccountStateHistogram.pollInstrumentationThreadUntilSatisfied();
@@ -876,7 +874,6 @@ public class SyncConsentFragmentTest {
                             onViewWaiting(AccountManagerTestRule.CANCEL_ADD_ACCOUNT_BUTTON_MATCHER)
                                     .perform(click());
                         });
-
         onView(withText(R.string.signin_add_account)).check(matches(isDisplayed()));
         addAccountStateHistogram.assertExpected();
     }
@@ -934,7 +931,6 @@ public class SyncConsentFragmentTest {
                             onViewWaiting(AccountManagerTestRule.ADD_ACCOUNT_BUTTON_MATCHER)
                                     .perform(click());
                         });
-
         onView(withText(R.string.signin_add_account)).check(matches(isDisplayed()));
         addAccountStateHistogram.assertExpected();
     }

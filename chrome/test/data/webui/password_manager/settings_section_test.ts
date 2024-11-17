@@ -27,6 +27,13 @@ import { PasskeysBrowserProxyImpl } from 'chrome://password-manager/password_man
 
 import {TestPasskeysBrowserProxy} from './test_passkeys_browser_proxy.js';
 // </if>
+
+// <if expr="not is_chromeos">
+import {TestPromoCardsProxy} from './test_promo_cards_browser_proxy.js';
+
+import {PromoCardsProxyImpl} from 'chrome://password-manager/password_manager.js';
+// </if>
+
 // clang-format on
 
 /**
@@ -53,6 +60,9 @@ suite('SettingsSectionTest', function() {
   // <if expr="is_win or is_macosx">
   let passkeysProxy: TestPasskeysBrowserProxy;
   // </if>
+  // <if expr="not is_chromeos">
+  let promoCardsProxy: TestPromoCardsProxy;
+  // </if>
 
   setup(function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
@@ -62,6 +72,11 @@ suite('SettingsSectionTest', function() {
     OpenWindowProxyImpl.setInstance(openWindowProxy);
     syncProxy = new TestSyncBrowserProxy();
     SyncBrowserProxyImpl.setInstance(syncProxy);
+    // <if expr="not is_chromeos">
+    promoCardsProxy = new TestPromoCardsProxy();
+    PromoCardsProxyImpl.setInstance(promoCardsProxy);
+    // </if>
+
     // <if expr="is_win or is_macosx">
     passkeysProxy = new TestPasskeysBrowserProxy();
     PasskeysBrowserProxyImpl.setInstance(passkeysProxy);
@@ -394,7 +409,7 @@ suite('SettingsSectionTest', function() {
   });
 
   test('account storage toggle when feature is available', async function() {
-    passwordManager.data.isOptedInAccountStorage = false;
+    passwordManager.data.isAccountStorageEnabled = false;
     syncProxy.accountInfo = {
       email: 'testemail@gmail.com',
     };
@@ -415,16 +430,16 @@ suite('SettingsSectionTest', function() {
     assertFalse(accountStorageToggle.hasAttribute('checked'));
     accountStorageToggle.click();
 
-    // Toggle should not change until authentication succeeds.
-    await passwordManager.whenCalled('optInForAccountStorage');
+    // Toggle should not change until the backend confirms the enabling.
+    await passwordManager.whenCalled('setAccountStorageEnabled');
     assertFalse(accountStorageToggle.hasAttribute('checked'));
 
-    // Assert that password section subscribed as a listener to opt in state and
-    // opt out from account storage.
-    assertTrue(!!passwordManager.listeners.accountStorageOptInStateListener);
-    passwordManager.data.isOptedInAccountStorage = true;
+    // Assert that password section subscribed as a listener to enabled state
+    // and enable account storage.
+    assertTrue(!!passwordManager.listeners.accountStorageEnabledStateListener);
+    passwordManager.data.isAccountStorageEnabled = true;
     // Imitate listener notification after successful identification.
-    passwordManager.listeners.accountStorageOptInStateListener(true);
+    passwordManager.listeners.accountStorageEnabledStateListener(true);
     await flushTasks();
 
     assertTrue(accountStorageToggle.checked);
@@ -482,7 +497,7 @@ suite('SettingsSectionTest', function() {
   });
 
   test('Move passwords to account button is visible', async function() {
-    passwordManager.data.isOptedInAccountStorage = true;
+    passwordManager.data.isAccountStorageEnabled = true;
     syncProxy.syncInfo = {
       isEligibleForAccountStorage: true,
       isSyncingPasswords: false,
@@ -510,7 +525,7 @@ suite('SettingsSectionTest', function() {
   });
 
   test('Move passwords to account button is not visible', async function() {
-    passwordManager.data.isOptedInAccountStorage = true;
+    passwordManager.data.isAccountStorageEnabled = true;
     syncProxy.syncInfo = {
       isEligibleForAccountStorage: true,
       isSyncingPasswords: false,
@@ -540,7 +555,11 @@ suite('SettingsSectionTest', function() {
   test(
       'clicking save passwords in account opens move passwords dialog',
       async function() {
-        passwordManager.data.isOptedInAccountStorage = true;
+        loadTimeData.overrideValues({
+          isBatchUploadDesktopEnabled: false,
+        });
+
+        passwordManager.data.isAccountStorageEnabled = true;
         syncProxy.syncInfo = {
           isEligibleForAccountStorage: true,
           isSyncingPasswords: false,
@@ -582,9 +601,56 @@ suite('SettingsSectionTest', function() {
         assertTrue(!!dialog);
       });
 
+  // <if expr="not is_chromeos">
+  test(
+      'clicking save passwords in account opens batch upload dialog',
+      async function() {
+        loadTimeData.overrideValues({
+          isBatchUploadDesktopEnabled: true,
+        });
+
+        passwordManager.data.isAccountStorageEnabled = true;
+        syncProxy.syncInfo = {
+          isEligibleForAccountStorage: true,
+          isSyncingPasswords: false,
+        };
+
+        const group = createCredentialGroup({
+          name: 'test.com',
+          credentials: [
+            createPasswordEntry({
+              id: 0,
+              username: 'test1',
+              inProfileStore: true,
+              inAccountStore: false,
+            }),
+          ],
+        });
+
+        passwordManager.data.groups = [group];
+        passwordManager.setRequestCredentialsDetailsResponse(
+            passwordManager.data.groups[0]!.entries);
+
+        const settings = document.createElement('settings-section');
+        document.body.appendChild(settings);
+        await passwordManager.whenCalled('getSavedPasswordList');
+        await flushTasks();
+
+        const movePasswordsButton =
+            settings.shadowRoot!.getElementById('movePasswordsButton');
+        assertTrue(!!movePasswordsButton);
+        assertTrue(isVisible(movePasswordsButton));
+
+        movePasswordsButton!.click();
+        await flushTasks();
+
+        await promoCardsProxy.whenCalled('openBatchUpload');
+      });
+  // </if>
+
   test('Account storage iph', async function() {
     loadTimeData.overrideValues({canAddShortcut: false});
-    passwordManager.data.isOptedInAccountStorage = false;
+    passwordManager.data.isAccountStorageEnabled = false;
     syncProxy.accountInfo = {
       email: 'testemail@gmail.com',
     };

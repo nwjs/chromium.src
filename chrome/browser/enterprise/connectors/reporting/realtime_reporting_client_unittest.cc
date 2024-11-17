@@ -15,7 +15,6 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/enterprise/connectors/connectors_service.h"
-#include "chrome/browser/enterprise/connectors/reporting/metrics_utils.h"
 #include "chrome/browser/enterprise/connectors/reporting/realtime_reporting_client.h"
 #include "chrome/browser/enterprise/connectors/reporting/realtime_reporting_client_factory.h"
 #include "chrome/browser/policy/dm_token_utils.h"
@@ -23,6 +22,7 @@
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "components/enterprise/common/proto/connectors.pb.h"
+#include "components/enterprise/connectors/core/common.h"
 #include "components/enterprise/connectors/core/reporting_service_settings.h"
 #include "components/policy/core/common/cloud/mock_cloud_policy_client.h"
 #include "content/public/test/browser_task_environment.h"
@@ -228,8 +228,8 @@ TEST_F(RealtimeReportingClientUmaTest, TestUmaEventUploadSucceeds) {
   ReportingSettings settings;
   base::Value::Dict event;
 
-  EXPECT_CALL(*client_.get(), UploadSecurityEventReport(_, _, _, _))
-      .WillOnce(MoveArg<3>(&upload_callback));
+  EXPECT_CALL(*client_.get(), UploadSecurityEventReport(_, _, _))
+      .WillOnce(MoveArg<2>(&upload_callback));
 
   reporting_client_->ReportRealtimeEvent(kExtensionInstallEvent,
                                          std::move(settings), std::move(event));
@@ -247,8 +247,8 @@ TEST_F(RealtimeReportingClientUmaTest, TestUmaEventUploadFails) {
   ReportingSettings settings;
   base::Value::Dict event;
 
-  EXPECT_CALL(*client_.get(), UploadSecurityEventReport(_, _, _, _))
-      .WillOnce(MoveArg<3>(&upload_callback));
+  EXPECT_CALL(*client_.get(), UploadSecurityEventReport(_, _, _))
+      .WillOnce(MoveArg<2>(&upload_callback));
 
   reporting_client_->ReportRealtimeEvent(kExtensionInstallEvent,
                                          std::move(settings), std::move(event));

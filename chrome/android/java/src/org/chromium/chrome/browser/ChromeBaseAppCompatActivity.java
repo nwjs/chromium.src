@@ -38,7 +38,6 @@ import org.chromium.base.BuildInfo;
 import org.chromium.base.BundleUtils;
 import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
-import org.chromium.base.cached_flags.BooleanCachedFieldTrialParameter;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
@@ -51,7 +50,9 @@ import org.chromium.chrome.browser.metrics.UmaSessionStats;
 import org.chromium.chrome.browser.night_mode.GlobalNightModeStateProviderHolder;
 import org.chromium.chrome.browser.night_mode.NightModeStateProvider;
 import org.chromium.chrome.browser.night_mode.NightModeUtils;
+import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeStateProvider;
 import org.chromium.components.browser_ui.util.AutomotiveUtils;
+import org.chromium.components.cached_flags.BooleanCachedFieldTrialParameter;
 import org.chromium.ui.display.DisplaySwitches;
 import org.chromium.ui.display.DisplayUtil;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -73,7 +74,6 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
      * activity.
      *
      * Activities that use the <merge> tag or delay layout inflation cannot use WITH_TOOLBAR_VIEW.
-     * Activities that use their own action bar cannot use WITH_ACTION_BAR.
      * Activities that appear as Dialogs using themes do not have an automotive toolbar yet (NONE).
      *
      * Full screen alert dialogs display the automotive toolbar using FullscreenAlertDialog.
@@ -81,7 +81,6 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
      */
     @IntDef({
         AutomotiveToolbarImplementation.WITH_TOOLBAR_VIEW,
-        AutomotiveToolbarImplementation.WITH_ACTION_BAR,
         AutomotiveToolbarImplementation.NONE,
     })
     @Retention(RetentionPolicy.SOURCE)
@@ -93,14 +92,6 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
          * R.layout.automotive_layout_with_vertical_back_button_toolbar.
          */
         int WITH_TOOLBAR_VIEW = 0;
-
-        /**
-         * Automotive toolbar is added using AppCompatActivity's ActionBar, provided with a
-         * ThemeOverlay, see R.style.ThemeOverlay_BrowserUI_Automotive_PersistentBackButtonToolbar.
-         *
-         * <p>This will be deprecated because it does not support a vertical toolbar.
-         */
-        @Deprecated int WITH_ACTION_BAR = 1;
 
         /** Automotive toolbar is not added. */
         int NONE = -1;
@@ -118,6 +109,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
     private NightModeStateProvider mNightModeStateProvider;
     private LinkedHashSet<Integer> mThemeResIds = new LinkedHashSet<>();
     private ServiceTracingProxyProvider mServiceTracingProxyProvider;
+    private EdgeToEdgeStateProvider mEdgeToEdgeStateProvider;
 
     @Override
     protected void attachBaseContext(Context newBase) {
@@ -164,6 +156,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         BundleUtils.restoreLoadedSplits(savedInstanceState);
+        mEdgeToEdgeStateProvider = new EdgeToEdgeStateProvider(getWindow());
         mModalDialogManagerSupplier.set(createModalDialogManager());
 
         initializeNightModeStateProvider();
@@ -271,11 +264,12 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
 
     /**
      * Called during {@link #attachBaseContext(Context)} to allow configuration overrides to be
-     * applied. If this methods return true, the overrides will be applied using
-     * {@link #applyOverrideConfiguration(Configuration)}.
+     * applied. If this methods return true, the overrides will be applied using {@link
+     * #applyOverrideConfiguration(Configuration)}.
+     *
      * @param baseContext The base {@link Context} attached to this class.
-     * @param overrideConfig The {@link Configuration} that will be passed to
-     *                       @link #applyOverrideConfiguration(Configuration)} if necessary.
+     * @param overrideConfig The {@link Configuration} that will be passed to {@link}
+     *     #applyOverrideConfiguration(Configuration)} if necessary.
      * @return True if any configuration overrides were applied, and false otherwise.
      */
     @CallSuper
@@ -338,15 +332,6 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
                                     "IsDynamicColorAvailable",
                                     isDynamicColorAvailable ? "Enabled" : "Disabled");
                         });
-
-        if (BuildInfo.getInstance().isAutomotive
-                && getAutomotiveToolbarImplementation()
-                        == AutomotiveToolbarImplementation.WITH_ACTION_BAR) {
-            int automotiveOverlay =
-                    R.style.ThemeOverlay_BrowserUI_Automotive_PersistentBackButtonToolbar;
-            getTheme().applyStyle(automotiveOverlay, /* force= */ true);
-            mThemeResIds.add(automotiveOverlay);
-        }
 
         if (ChromeFeatureList.sAndroidElegantTextHeight.isEnabled()) {
             int elegantTextHeightOverlay = R.style.ThemeOverlay_BrowserUI_ElegantTextHeight;
@@ -476,17 +461,6 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
         }
     }
 
-    @Override
-    protected void onResume() {
-        if (BuildInfo.getInstance().isAutomotive
-                && getAutomotiveToolbarImplementation()
-                        == AutomotiveToolbarImplementation.WITH_ACTION_BAR
-                && getSupportActionBar() != null) {
-            getSupportActionBar().setHomeActionContentDescription(R.string.back);
-        }
-        super.onResume();
-    }
-
     protected int getAutomotiveToolbarImplementation() {
         int activityStyle = -1;
         try {
@@ -500,6 +474,14 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
         } else {
             return AutomotiveToolbarImplementation.WITH_TOOLBAR_VIEW;
         }
+    }
+
+    /**
+     * Returns the {@link EdgeToEdgeStateProvider} for checking and requesting changes to the
+     * edge-to-edge state.
+     */
+    protected EdgeToEdgeStateProvider getEdgeToEdgeStateProvider() {
+        return mEdgeToEdgeStateProvider;
     }
 
     private void setAutomotiveToolbarBackButtonAction() {

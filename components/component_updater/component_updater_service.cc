@@ -208,9 +208,9 @@ bool CrxUpdateService::RegisterComponent(
   CrxUpdateItem item;
   item.id = component.app_id;
   item.component = ToCrxComponent(component);
-  const auto inserted =
+  const auto [unused, inserted] =
       component_states_.insert(std::make_pair(component.app_id, item));
-  CHECK(inserted.second);
+  CHECK(inserted);
 
   // Start the timer if this is the first component registered. The first timer
   // event occurs after an interval defined by the component update
@@ -267,11 +267,11 @@ std::vector<std::string> CrxUpdateService::GetComponentIDs() const {
 std::vector<ComponentInfo> CrxUpdateService::GetComponents() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   std::vector<ComponentInfo> result;
-  for (const auto& it : components_) {
-    result.push_back(ComponentInfo(
-        it.first, it.second.fingerprint, base::UTF8ToUTF16(it.second.name),
-        it.second.version,
-        config_->GetPersistedData()->GetCohort(it.second.app_id)));
+  for (const auto& [app_id, registration] : components_) {
+    result.emplace_back(
+        app_id, registration.fingerprint, base::UTF8ToUTF16(registration.name),
+        registration.version,
+        config_->GetPersistedData()->GetCohort(registration.app_id));
   }
   return result;
 }
@@ -494,34 +494,29 @@ void CrxUpdateService::OnUpdateComplete(Callback callback,
   }
 }
 
-void CrxUpdateService::OnEvent(Events event, const std::string& id) {
+void CrxUpdateService::OnEvent(const CrxUpdateItem& update_item) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   // Unblock all throttles for the component.
-  if (event == Observer::Events::COMPONENT_UPDATED ||
-      event == Observer::Events::COMPONENT_ALREADY_UP_TO_DATE ||
-      event == Observer::Events::COMPONENT_UPDATE_ERROR) {
-    auto callbacks = ready_callbacks_.equal_range(id);
-    for (auto it = callbacks.first; it != callbacks.second; ++it) {
+  if (update_item.state == update_client::ComponentState::kUpdated ||
+      update_item.state == update_client::ComponentState::kUpToDate ||
+      update_item.state == update_client::ComponentState::kUpdateError) {
+    auto [first, last] = ready_callbacks_.equal_range(update_item.id);
+    for (auto it = first; it != last; ++it) {
       std::move(it->second).Run();
     }
-    ready_callbacks_.erase(id);
-  }
-
-  CrxUpdateItem update_item;
-  if (!update_client_->GetCrxUpdateState(id, &update_item)) {
-    return;
+    ready_callbacks_.erase(update_item.id);
   }
 
   // Update the state of the item.
-  const auto state_it = component_states_.find(id);
+  const auto state_it = component_states_.find(update_item.id);
   if (state_it != component_states_.end()) {
     state_it->second = update_item;
   }
 
   // Update the component registration with the new version.
-  if (event == Observer::Events::COMPONENT_UPDATED) {
-    const auto component_it = components_.find(id);
+  if (update_item.state == update_client::ComponentState::kUpdated) {
+    const auto component_it = components_.find(update_item.id);
     if (component_it != components_.end()) {
       component_it->second.version = update_item.next_version;
       component_it->second.fingerprint = update_item.next_fp;

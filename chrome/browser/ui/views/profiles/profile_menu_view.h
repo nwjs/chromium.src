@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/password_manager/web_app_profile_switcher.h"
 #include "chrome/browser/profiles/avatar_menu.h"
 #include "chrome/browser/profiles/avatar_menu_observer.h"
@@ -55,9 +54,6 @@ class ProfileMenuView : public ProfileMenuViewBase {
   friend class ProfileMenuViewSignoutTest;
   friend class ProfileMenuViewSyncErrorButtonTest;
   friend class ProfileMenuInteractiveUiTest;
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  friend class ProfileMenuViewSigninErrorButtonTest;
-#endif
 
   // views::BubbleDialogDelegateView:
   std::u16string GetAccessibleWindowTitle() const override;
@@ -75,15 +71,12 @@ class ProfileMenuView : public ProfileMenuViewBase {
                              ActionableItem button_type,
                              signin_metrics::AccessPoint access_point);
   void OnCookiesClearedOnExitLinkClicked();
-#if BUILDFLAG(ENABLE_DICE_SUPPORT) || BUILDFLAG(IS_CHROMEOS_LACROS)
   void OnSignoutButtonClicked();
-#endif
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
   void OnOtherProfileSelected(const base::FilePath& profile_path);
   void OnAddNewProfileButtonClicked();
   void OnManageProfilesButtonClicked();
   void OnEditProfileButtonClicked();
-#endif
+  void OnAutofillSettingsButtonClicked();
 
   // We normally close the bubble any time it becomes inactive but this can lead
   // to flaky tests where unexpected UI events are triggering this behavior.
@@ -91,24 +84,33 @@ class ProfileMenuView : public ProfileMenuViewBase {
   static bool close_on_deactivate_for_testing_;
 
   // Helper methods for building the menu.
-  void BuildIdentity();
   void BuildGuestIdentity();
+  void BuildAutofillSettingsButton();
+  void MaybeBuildCustomizeProfileButton();
+  void MaybeBuildChromeAccountSettingsButton();
+  void MaybeBuildManageGoogleAccountButton();
+  void MaybeBuildCloseBrowsersButton();
+  void MaybeBuildSignoutButton();
+  void BuildFeatureButtons();
+  std::u16string GetIdentitySectionSubtitle(
+      const CoreAccountInfo& account_info) const;
+  void BuildIdentityWithCallToAction();
+
+  // TODO(crbug.com/370473765): Delete these functions after
+  // `switches::IsImprovedSigninUIOnDesktopEnabled()` is launched.
+  void BuildIdentity();
   void BuildAutofillButtons();
   void BuildSyncInfo();
-  void BuildFeatureButtons();
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+
   void BuildAvailableProfiles();
   void BuildProfileManagementFeatureButtons();
-#endif
 
   std::u16string menu_title_;
   std::u16string menu_subtitle_;
 
-#if !BUILDFLAG(IS_CHROMEOS)
   // A profile switcher object needed if the user triggers opening other
   // profile in a web app.
   std::optional<WebAppProfileSwitcher> app_profile_switcher_;
-#endif
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_PROFILES_PROFILE_MENU_VIEW_H_

@@ -143,9 +143,12 @@ constexpr const char kScreenClosedQSCreatingAccount[] =
     "QuickStart.ScreenClosed.QSCreatingAccount";
 constexpr const char kScreenClosedQSFallbackURL[] =
     "QuickStart.ScreenClosed.QSFallbackURL";
+constexpr const char kSetupCompleteHistogramName[] = "QuickStart.SetupComplete";
 constexpr const char kAbortFlowReasonHistogramName[] =
     "QuickStart.FlowAborted.Reason";
 constexpr const char kEntryPointHistogramName[] = "QuickStart.EntryPoint";
+constexpr const char kEntryPointVisibleHistogramName[] =
+    "QuickStart.EntryPointVisible";
 constexpr const char kConsumerUpdateStartedHistogramName[] =
     "QuickStart.ConsumerUpdateStarted";
 constexpr const char kConsumerUpdateCancelledHistogramName[] =
@@ -327,6 +330,11 @@ void QuickStartMetrics::RecordEntryPoint(EntryPoint entry_point) {
 }
 
 // static
+void QuickStartMetrics::RecordEntryPointVisible(EntryPoint entry_point) {
+  base::UmaHistogramEnumeration(kEntryPointVisibleHistogramName, entry_point);
+}
+
+// static
 void QuickStartMetrics::RecordAuthenticationMethod(
     AuthenticationMethod auth_method) {
   base::UmaHistogramEnumeration(kAuthenticationMethodHistogramName,
@@ -364,6 +372,11 @@ void QuickStartMetrics::RecordEstablishConnection(bool success,
     metrics::structured::StructuredMetricsClient::Record(std::move(
         cros_events::QuickStart_EstablishConnection().SetSuccess(success)));
   }
+}
+
+// static
+void QuickStartMetrics::RecordSetupComplete() {
+  base::UmaHistogramBoolean(kSetupCompleteHistogramName, true);
 }
 
 QuickStartMetrics::QuickStartMetrics() = default;

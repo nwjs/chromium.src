@@ -49,7 +49,7 @@
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/display/display_switches.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "ash/public/cpp/accelerators.h"
 #include "ash/public/cpp/test/shell_test_api.h"
 #include "chrome/browser/ui/aura/accessibility/automation_manager_aura.h"
@@ -553,7 +553,13 @@ IN_PROC_BROWSER_TEST_P(AutomationApiTestWithContextType,
       << message_;
 }
 
-IN_PROC_BROWSER_TEST_P(AutomationApiTestWithContextType, ForceLayout) {
+// Flaky on Win: crbug.com/335553730
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_ForceLayout DISABLED_ForceLayout
+#else
+#define MAYBE_ForceLayout ForceLayout
+#endif
+IN_PROC_BROWSER_TEST_P(AutomationApiTestWithContextType, MAYBE_ForceLayout) {
   StartEmbeddedTestServer();
   ASSERT_TRUE(CreateExtensionAndRunTest("tabs/force_layout.js")) << message_;
 }
@@ -578,7 +584,7 @@ IN_PROC_BROWSER_TEST_P(AutomationApiTestWithContextType, DesktopNotSupported) {
 }
 #endif  // !defined(USE_AURA)
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 class AutomationApiFencedFrameTest : public AutomationApiTest {
  protected:
   AutomationApiFencedFrameTest() {
@@ -914,18 +920,11 @@ IN_PROC_BROWSER_TEST_P(AutomationApiTestWithMockedSourceRenderer,
                                         kPermissionsWindows))
       << message_;
 }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_CHROMEOS)
-// TODO(crbug.com/40766689) Flaky on lacros
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-#define MAYBE_HitTestMultipleWindows DISABLED_HitTestMultipleWindows
-#else
-#define MAYBE_HitTestMultipleWindows HitTestMultipleWindows
-#endif
-
 IN_PROC_BROWSER_TEST_P(AutomationApiTestWithContextType,
-                       MAYBE_HitTestMultipleWindows) {
+                       HitTestMultipleWindows) {
   StartEmbeddedTestServer();
   ASSERT_TRUE(CreateExtensionAndRunTest("desktop/hit_test_multiple_windows.js",
                                         kPermissionsWindows))

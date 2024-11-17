@@ -11,7 +11,12 @@
 #import "base/test/ios/wait_util.h"
 #import "base/test/metrics/histogram_tester.h"
 #import "base/time/time.h"
+#import "base/unguessable_token.h"
+#import "components/autofill/core/common/form_data.h"
+#import "components/autofill/core/common/form_field_data.h"
+#import "components/autofill/core/common/unique_ids.h"
 #import "components/autofill/ios/browser/autofill_java_script_feature.h"
+#import "components/autofill/ios/browser/autofill_util.h"
 #import "components/autofill/ios/form_util/autofill_test_with_web_state.h"
 #import "components/autofill/ios/form_util/form_activity_observer.h"
 #import "components/autofill/ios/form_util/form_handlers_java_script_feature.h"
@@ -24,19 +29,55 @@
 #import "ios/web/public/test/js_test_util.h"
 #import "ios/web/public/test/web_test_with_web_state.h"
 
-using autofill::FieldRendererId;
-using autofill::FormActivityParams;
-using autofill::FormRemovalParams;
-using autofill::FormRendererId;
-using autofill::test::kTrackFormMutationsDelayInMs;
+namespace autofill {
+
+namespace {
+
 using base::test::ios::kWaitForJSCompletionTimeout;
 using base::test::ios::WaitUntilConditionOrTimeout;
+using test::kTrackFormMutationsDelayInMs;
 using ::testing::ElementsAre;
 using ::testing::IsEmpty;
 using ::testing::Not;
 using ::testing::StrEq;
 using ::testing::UnorderedElementsAre;
 using web::WebFrame;
+
+// Default maximum length for text input fields defined by W3C.
+constexpr uint64_t kTextInputFieldMaxLength = 524288;
+// HTML containing one form with a text field and a submit button.
+constexpr NSString* kTestHTMLForm = @"<form name='form-name'>"
+                                     "<input type='text' id='text'/>"
+                                     "<input type='submit' id='button'/>"
+                                     "</form>";
+
+// Returns the `FormData` representation of the form in `kTestHTMLForm`.
+[[nodiscard]] FormData BuildTestFormData(std::string frame_id) {
+  FormData test_form_data;
+  test_form_data.set_name(u"form-name");
+  test_form_data.set_url(GURL("https://chromium.test/"));
+  test_form_data.set_action(GURL("https://chromium.test/"));
+  test_form_data.set_name_attribute(u"form-name");
+  test_form_data.set_renderer_id(FormRendererId(1));
+  std::optional<base::UnguessableToken> host_frame =
+      DeserializeJavaScriptFrameId(frame_id);
+  test_form_data.set_host_frame(LocalFrameToken(*host_frame));
+
+  FormFieldData test_field_data;
+  test_field_data.set_name(u"text");
+  test_field_data.set_form_control_type(FormControlType::kInputText);
+  test_field_data.set_renderer_id(FieldRendererId(2));
+  test_field_data.set_id_attribute(u"text");
+  // user_edited is true when the sources of inputs are not being tracked.
+  test_field_data.set_is_user_edited(true);
+  test_field_data.set_max_length(kTextInputFieldMaxLength);
+
+  test_form_data.set_fields({test_field_data});
+
+  return test_form_data;
+}
+
+}  // namespace
 
 // Tests fixture for autofill::FormActivityTabHelper class.
 class FormActivityTabHelperTest : public AutofillTestWithWebState {
@@ -46,24 +87,23 @@ class FormActivityTabHelperTest : public AutofillTestWithWebState {
     web::FakeWebClient* web_client =
         static_cast<web::FakeWebClient*>(GetWebClient());
     web_client->SetJavaScriptFeatures(
-        {autofill::FormUtilJavaScriptFeature::GetInstance(),
-         autofill::FormHandlersJavaScriptFeature::GetInstance(),
-         autofill::AutofillJavaScriptFeature::GetInstance()});
+        {FormUtilJavaScriptFeature::GetInstance(),
+         FormHandlersJavaScriptFeature::GetInstance(),
+         AutofillJavaScriptFeature::GetInstance()});
   }
 
   void SetUp() override {
     web::WebTestWithWebState::SetUp();
 
-    autofill::FormActivityTabHelper* tab_helper =
-        autofill::FormActivityTabHelper::GetOrCreateForWebState(web_state());
-    observer_ =
-        std::make_unique<autofill::TestFormActivityObserver>(web_state());
+    FormActivityTabHelper* tab_helper =
+        FormActivityTabHelper::GetOrCreateForWebState(web_state());
+    observer_ = std::make_unique<TestFormActivityObserver>(web_state());
     tab_helper->AddObserver(observer_.get());
   }
 
   void TearDown() override {
-    autofill::FormActivityTabHelper* tab_helper =
-        autofill::FormActivityTabHelper::GetOrCreateForWebState(web_state());
+    FormActivityTabHelper* tab_helper =
+        FormActivityTabHelper::GetOrCreateForWebState(web_state());
     tab_helper->RemoveObserver(observer_.get());
     web::WebTestWithWebState::TearDown();
   }
@@ -73,8 +113,7 @@ class FormActivityTabHelperTest : public AutofillTestWithWebState {
     __block WebFrame* main_frame = nullptr;
     EXPECT_TRUE(WaitUntilConditionOrTimeout(kWaitForJSCompletionTimeout, ^bool {
       web::WebFramesManager* frames_manager =
-          autofill::FormUtilJavaScriptFeature::GetInstance()
-              ->GetWebFramesManager(web_state());
+          GetWebFramesManagerForAutofill(web_state());
       main_frame = frames_manager->GetMainWebFrame();
       return main_frame != nullptr;
     }));
@@ -92,35 +131,25 @@ class FormActivityTabHelperTest : public AutofillTestWithWebState {
   }
 
   base::HistogramTester histogram_tester_;
-  std::unique_ptr<autofill::TestFormActivityObserver> observer_;
+  std::unique_ptr<TestFormActivityObserver> observer_;
 };
 
 // Tests that observer is called on form submission using submit control.
 TEST_F(FormActivityTabHelperTest, TestObserverDocumentSubmitted) {
-  LoadHtml(@"<form name='form-name'>"
-            "<input type='submit' id='submit'/>"
-            "</form>");
+  LoadHtml(kTestHTMLForm);
 
   WebFrame* main_frame = WaitForMainFrame();
   ASSERT_TRUE(main_frame);
 
   ASSERT_FALSE(observer_->submit_document_info());
-  const std::string kTestFormName("form-name");
 
-  std::string mainFrameID = main_frame->GetFrameId();
-  const std::string kTestFormData =
-      std::string("[{\"name\":\"form-name\",\"origin\":\"https://chromium.test/"
-                  "\",\"action\":\"https://chromium.test/\","
-                  "\"name_attribute\":\"form-name\",\"id_attribute\":\"\","
-                  "\"renderer_id\":\"1\",\"frame_id\":\"") +
-      mainFrameID + std::string("\"}]");
+  FormData test_form_data = BuildTestFormData(main_frame->GetFrameId());
 
-  ExecuteJavaScript(@"document.getElementById('submit').click();");
+  ExecuteJavaScript(@"document.getElementById('button').click();");
   ASSERT_TRUE(observer_->submit_document_info());
   EXPECT_EQ(web_state(), observer_->submit_document_info()->web_state);
   EXPECT_EQ(main_frame, observer_->submit_document_info()->sender_frame);
-  EXPECT_EQ(kTestFormName, observer_->submit_document_info()->form_name);
-  EXPECT_EQ(kTestFormData, observer_->submit_document_info()->form_data);
+  EXPECT_EQ(test_form_data, observer_->submit_document_info()->form_data);
 
   EXPECT_FALSE(observer_->submit_document_info()->has_user_gesture);
 
@@ -133,29 +162,18 @@ TEST_F(FormActivityTabHelperTest, TestObserverDocumentSubmitted) {
 
 // Tests that observer is called on form submission using submit() method.
 TEST_F(FormActivityTabHelperTest, TestFormSubmittedHook) {
-  LoadHtml(@"<form name='form-name' id='form'>"
-            "<input type='submit'/>"
-            "</form>");
+  LoadHtml(kTestHTMLForm);
 
   WebFrame* main_frame = WaitForMainFrame();
   ASSERT_TRUE(main_frame);
 
   ASSERT_FALSE(observer_->submit_document_info());
-  const std::string kTestFormName("form-name");
+  FormData kTestFormData = BuildTestFormData(main_frame->GetFrameId());
 
-  std::string mainFrameID = main_frame->GetFrameId();
-  const std::string kTestFormData =
-      std::string("[{\"name\":\"form-name\",\"origin\":\"https://chromium.test/"
-                  "\",\"action\":\"https://chromium.test/\","
-                  "\"name_attribute\":\"form-name\",\"id_attribute\":\"form\","
-                  "\"renderer_id\":\"1\",\"frame_id\":\"") +
-      mainFrameID + std::string("\"}]");
-
-  ExecuteJavaScript(@"document.getElementById('form').submit();");
+  ExecuteJavaScript(@"document.forms[0].submit();");
   ASSERT_TRUE(observer_->submit_document_info());
   EXPECT_EQ(web_state(), observer_->submit_document_info()->web_state);
   EXPECT_EQ(main_frame, observer_->submit_document_info()->sender_frame);
-  EXPECT_EQ(kTestFormName, observer_->submit_document_info()->form_name);
   EXPECT_EQ(kTestFormData, observer_->submit_document_info()->form_data);
   EXPECT_FALSE(observer_->submit_document_info()->has_user_gesture);
 
@@ -179,9 +197,9 @@ TEST_F(FormActivityTabHelperTest, FormSubmittedFromSameOriginIFrame) {
   ExecuteJavaScript(
       @"document.getElementById('frame1').contentDocument.getElementById('"
       @"submit_input').click();");
-  autofill::TestSubmitDocumentInfo* info = observer_->submit_document_info();
+  TestSubmitDocumentInfo* info = observer_->submit_document_info();
   ASSERT_TRUE(info);
-  EXPECT_EQ("form1", info->form_name);
+  EXPECT_EQ(u"form1", info->form_data.name());
 }
 
 // Tests that observer is called on form activity (input event).
@@ -229,7 +247,7 @@ TEST_F(FormActivityTabHelperTest, KeyUpEventNotFocused) {
   // Pump the run loop to get the renderer response.
   WaitForBackgroundTasks();
 
-  autofill::TestFormActivityInfo* info = observer_->form_activity_info();
+  TestFormActivityInfo* info = observer_->form_activity_info();
   ASSERT_FALSE(info);
 }
 
@@ -241,11 +259,11 @@ TEST_F(FormActivityTabHelperTest, FocusMainFrame) {
             "</form>");
   ASSERT_FALSE(observer_->form_activity_info());
   ExecuteJavaScript(@"document.getElementById('id1').focus();");
-  autofill::TestFormActivityObserver* block_observer = observer_.get();
+  TestFormActivityObserver* block_observer = observer_.get();
   ASSERT_TRUE(WaitUntilConditionOrTimeout(kWaitForJSCompletionTimeout, ^{
     return block_observer->form_activity_info() != nullptr;
   }));
-  autofill::TestFormActivityInfo* info = observer_->form_activity_info();
+  TestFormActivityInfo* info = observer_->form_activity_info();
   ASSERT_TRUE(info);
   EXPECT_EQ("focus", info->form_activity.type);
   EXPECT_FALSE(info->form_activity.input_missing);
@@ -265,11 +283,11 @@ TEST_F(FormActivityTabHelperTest, FocusSameOriginIFrame) {
   ExecuteJavaScript(
       @"document.getElementById('frame1').contentDocument.getElementById('id1')"
       @".focus()");
-  autofill::TestFormActivityObserver* block_observer = observer_.get();
+  TestFormActivityObserver* block_observer = observer_.get();
   ASSERT_TRUE(WaitUntilConditionOrTimeout(kWaitForJSCompletionTimeout, ^{
     return block_observer->form_activity_info() != nullptr;
   }));
-  autofill::TestFormActivityInfo* info = observer_->form_activity_info();
+  TestFormActivityInfo* info = observer_->form_activity_info();
   ASSERT_TRUE(info);
   EXPECT_EQ("focus", info->form_activity.type);
   EXPECT_FALSE(info->form_activity.input_missing);
@@ -287,8 +305,8 @@ TEST_F(FormActivityTabHelperTest, AddCustomElement) {
                     @"document.body.appendChild(form);");
 
   // Check that no activity is observed upon JS completion.
-  autofill::TestFormActivityObserver* block_observer = observer_.get();
-  __block autofill::TestFormActivityInfo* info = nil;
+  TestFormActivityObserver* block_observer = observer_.get();
+  __block TestFormActivityInfo* info = nil;
   EXPECT_FALSE(WaitUntilConditionOrTimeout(kWaitForJSCompletionTimeout, ^{
     info = block_observer->form_activity_info();
     return info != nil;
@@ -324,14 +342,13 @@ class FormMutationTest : public FormActivityTabHelperTest {
    * removal was successful and the event was received within the timeout;
    * otherwise, an empty `std::optional`.
    */
-  std::optional<autofill::FormRemovalParams> RemoveElement(
-      NSString* element_id) {
+  std::optional<FormRemovalParams> RemoveElement(NSString* element_id) {
     ExecuteJavaScript(
         [NSString stringWithFormat:@"document.getElementById('%@').remove();",
                                    element_id]);
 
-    autofill::TestFormActivityObserver* block_observer = observer_.get();
-    __block autofill::TestFormRemovalInfo* info = nil;
+    TestFormActivityObserver* block_observer = observer_.get();
+    __block TestFormRemovalInfo* info = nil;
 
     // Wait for form removal message delivery.
     bool form_removal_info_received = WaitUntilConditionOrTimeout(
@@ -365,7 +382,7 @@ class FormMutationTest : public FormActivityTabHelperTest {
     }
 
     __block bool finished = false;
-    autofill::AutofillJavaScriptFeature::GetInstance()->FetchForms(
+    AutofillJavaScriptFeature::GetInstance()->FetchForms(
         main_frame, base::BindOnce(^(NSString* result) {
           finished = true;
         }));
@@ -387,7 +404,7 @@ TEST_F(FormMutationTest, PasswordFormRemovalRegistered) {
 
   ASSERT_FALSE(observer_->form_removal_info());
 
-  std::optional<autofill::FormRemovalParams> form_removal_params =
+  std::optional<FormRemovalParams> form_removal_params =
       RemoveElement(/*element_id=*/@"form1");
   ASSERT_TRUE(form_removal_params);
 
@@ -420,7 +437,7 @@ TEST_F(FormMutationTest, RemoveNonPasswordForm) {
                            "<input type='text'>"
                            "</form>");
 
-  std::optional<autofill::FormRemovalParams> form_removal_params =
+  std::optional<FormRemovalParams> form_removal_params =
       RemoveElement(/*element_id=*/@"form1");
 
   ASSERT_TRUE(form_removal_params);
@@ -445,7 +462,7 @@ TEST_F(FormMutationTest, RemoveMultipleForms) {
                            "</form>"
                            "</div>");
 
-  std::optional<autofill::FormRemovalParams> form_removal_params =
+  std::optional<FormRemovalParams> form_removal_params =
       RemoveElement(/*element_id=*/@"div");
 
   ASSERT_TRUE(form_removal_params);
@@ -472,7 +489,7 @@ TEST_F(FormMutationTest, RemoveFormlessPasswordFields) {
   web::WebFrame* main_frame = WaitForMainFrame();
   ASSERT_TRUE(main_frame);
 
-  std::optional<autofill::FormRemovalParams> form_removal_params =
+  std::optional<FormRemovalParams> form_removal_params =
       RemoveElement(/*element_id=*/@"pw");
 
   ASSERT_TRUE(form_removal_params);
@@ -516,7 +533,7 @@ TEST_F(FormMutationTest, RemoveMultipleFormsAndFormlessFields) {
                            "<input id='text' type='text'/>"
                            "</div>");
 
-  std::optional<autofill::FormRemovalParams> form_removal_params =
+  std::optional<FormRemovalParams> form_removal_params =
       RemoveElement(/*element_id=*/@"div");
 
   ASSERT_TRUE(form_removal_params);
@@ -671,7 +688,7 @@ TEST_F(FormMutationTest, RemoveFormlessFields) {
                            "<textarea id='textarea'/>"
                            "</div></body>");
 
-  std::optional<autofill::FormRemovalParams> form_removal_params =
+  std::optional<FormRemovalParams> form_removal_params =
       RemoveElement(/*element_id=*/@"div");
 
   ASSERT_TRUE(form_removal_params);
@@ -705,8 +722,8 @@ TEST_F(FormMutationTest, AddForm) {
 
   ExecuteJavaScript(@"var form = document.createElement('form');"
                     @"document.body.appendChild(form);");
-  autofill::TestFormActivityObserver* block_observer = observer_.get();
-  __block autofill::TestFormActivityInfo* info = nil;
+  TestFormActivityObserver* block_observer = observer_.get();
+  __block TestFormActivityInfo* info = nil;
   ASSERT_TRUE(WaitUntilConditionOrTimeout(kWaitForJSCompletionTimeout, ^{
     info = block_observer->form_activity_info();
     return info != nil;
@@ -783,3 +800,5 @@ INSTANTIATE_TEST_SUITE_P(
     /* No InstantiationName */,
     FormMutationFormControlElements,
     ::testing::Values("form", "input", "select", "option", "textarea"));
+
+}  // namespace autofill

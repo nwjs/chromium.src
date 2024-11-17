@@ -45,6 +45,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
+import org.chromium.base.CallbackUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplierImpl;
@@ -83,15 +84,15 @@ import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.components.search_engines.TemplateUrlService;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.NightModeTestUtils;
-import org.chromium.ui.test.util.UiRestriction;
 import org.chromium.ui.test.util.ViewUtils;
 
 /** Instrumentation tests for {@link ToolbarPhone}. */
 @RunWith(ParameterizedRunner.class)
 @ParameterAnnotations.UseRunnerDelegate(ChromeJUnit4RunnerDelegate.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-@Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
+@Restriction(DeviceFormFactor.PHONE)
 public class ToolbarPhoneTest {
     @Rule
     public ChromeTabbedActivityTestRule mActivityTestRule = new ChromeTabbedActivityTestRule();
@@ -214,7 +215,7 @@ public class ToolbarPhoneTest {
                                     () -> false,
                                     mThemeColorProvider,
                                     () -> null,
-                                    () -> {},
+                                    CallbackUtils.emptyRunnable(),
                                     R.id.menu_button_wrapper);
                     mToolbar.setMenuButtonCoordinatorForTesting(realMenuButtonCoordinator);
                     mToolbar.updateOptionalButton(

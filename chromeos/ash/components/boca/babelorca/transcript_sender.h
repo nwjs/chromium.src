@@ -9,7 +9,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <string_view>
 
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
@@ -18,8 +17,6 @@
 #include "base/sequence_checker.h"
 #include "base/thread_annotations.h"
 #include "base/time/time.h"
-#include "base/types/expected.h"
-#include "chromeos/ash/components/boca/babelorca/tachyon_request_error.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 
 namespace media {
@@ -35,6 +32,7 @@ namespace ash::babelorca {
 class BabelOrcaMessage;
 class TachyonAuthedClient;
 class TachyonRequestDataProvider;
+class TachyonResponse;
 
 // Class to send transcriptions.
 class TranscriptSender {
@@ -48,7 +46,6 @@ class TranscriptSender {
       TachyonAuthedClient* authed_client,
       TachyonRequestDataProvider* request_data_provider,
       base::Time init_timestamp,
-      std::string_view sender_email,
       const net::NetworkTrafficAnnotationTag& network_traffic_annotation,
       Options options,
       base::OnceClosure failure_cb);
@@ -74,8 +71,7 @@ class TranscriptSender {
 
   void Send(int max_retries, std::string message);
 
-  void OnSendResponse(
-      base::expected<std::string, TachyonRequestError> response);
+  void OnSendResponse(TachyonResponse response);
 
   SEQUENCE_CHECKER(sequence_checker_);
 
@@ -91,7 +87,6 @@ class TranscriptSender {
   const raw_ptr<TachyonAuthedClient> authed_client_;
   const raw_ptr<TachyonRequestDataProvider> request_data_provider_;
   const int64_t init_timestamp_ms_;
-  const std::string sender_email_;
   const net::NetworkTrafficAnnotationTag network_traffic_annotation_;
   const Options options_;
   base::OnceClosure failure_cb_;

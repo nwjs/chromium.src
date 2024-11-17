@@ -677,7 +677,7 @@ AccessibilityPrivateSendSyntheticMouseEventFunction::Run() {
     flags |= ui::EF_TOUCH_ACCESSIBILITY;
   }
 
-  if (mouse_data->is_double_click) {
+  if (mouse_data->is_double_click && *(mouse_data->is_double_click)) {
     flags |= ui::EF_IS_DOUBLE_CLICK;
   }
 
@@ -1156,6 +1156,17 @@ AccessibilityPrivateUpdateDictationBubbleFunction::Run() {
 
   ash::AccessibilityController::Get()->UpdateDictationBubble(properties.visible,
                                                              icon, text, hints);
+  return RespondNow(NoArguments());
+}
+
+ExtensionFunction::ResponseAction
+AccessibilityPrivateUpdateFaceGazeBubbleFunction::Run() {
+  std::optional<accessibility_private::UpdateFaceGazeBubble::Params> params(
+      accessibility_private::UpdateFaceGazeBubble::Params::Create(args()));
+  EXTENSION_FUNCTION_VALIDATE(params);
+
+  ash::AccessibilityController::Get()->UpdateFaceGazeBubble(
+      base::UTF8ToUTF16(params->text));
   return RespondNow(NoArguments());
 }
 

@@ -74,6 +74,25 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="prepareGetCredential request failed."/>
 </enum>
 
+<enum name="SignalAllAcceptedCredentialsResult">
+  <int value="0" label="No passkeys were removed"/>
+  <int value="1" label="A passkey was removed"/>
+</enum>
+
+<enum name="SignalCurrentUserDetailsResult">
+  <int value="0"
+      label="The website exceeded the quota, so the request was dropped."/>
+  <int value="1"
+      label="A passkey matching the user ID was found and had changed, so it
+             was updated."/>
+  <int value="2" label="No passkeys were updated."/>
+</enum>
+
+<enum name="SignalUnknownCredentialResult">
+  <int value="0" label="The passkey ID was not found, so nothing was removed."/>
+  <int value="1" label="The passkey ID was found and removed."/>
+</enum>
+
 <enum name="WebAuthenticationAOADiscoveryEvent">
   <int value="0" label="Started"/>
   <int value="1" label="An AOA USB device appeared during a WebAuthn request"/>
@@ -238,7 +257,7 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Bluetooth Low Energy"/>
   <int value="3" label="Cloud-assisted BLE"/>
   <int value="4" label="Internal"/>
-  <int value="5" label="Android Accessory"/>
+  <int value="5" label="Android Accessory (Deprecated)"/>
 </enum>
 
 <enum name="WebAuthenticationGetAssertionOutcome">

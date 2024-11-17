@@ -14,6 +14,7 @@
 
 namespace features {
 
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kAlignSurfaceLayerImplToPixelGrid);
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kAnimatedImageResume);
 CC_BASE_EXPORT extern bool IsImpulseScrollAnimationEnabled();
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kSynchronizedScrolling);
@@ -106,10 +107,6 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kReclaimResourcesFlushInBackground);
 // Enabled 03/2024, kept to run a holdback experiment.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kReclaimResourcesDelayedFlushInBackground);
 
-// Allow CC FrameRateEstimater to reduce the frame rate to half of the default
-// if the condition meets the requirement.
-CC_BASE_EXPORT BASE_DECLARE_FEATURE(kReducedFrameRateEstimation);
-
 // Use 4x MSAA (vs 8) on High DPI screens.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kDetectHiDpiForMsaa);
 
@@ -151,11 +148,6 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kClearCanvasResourcesInBackground);
 // work is done regardless. When enabled this feature reduces extra calculation
 // to when tracing is enabled.
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kMetricsTracingCalculationReduction);
-
-// Temporary features to enable the fix for b/328665503 independently from
-// adding the implementation.
-CC_BASE_EXPORT BASE_DECLARE_FEATURE(kPaintWithGainmapShader);
-CC_BASE_EXPORT BASE_DECLARE_FEATURE(kPaintWithGlobalToneMapFilter);
 
 // When enabled we will restore older FrameSequenceTracker sequence order
 // enforcing that can miss backfilled frames.
@@ -231,6 +223,10 @@ CC_BASE_EXPORT BASE_DECLARE_FEATURE(kSendExplicitDecodeRequestsImmediately);
 CC_BASE_EXPORT BASE_DECLARE_FEATURE(kThrottleFrameRateOnManyDidNotProduceFrame);
 CC_BASE_EXPORT extern const base::FeatureParam<int>
     kNumDidNotProduceFrameBeforeThrottle;
+
+// When enabled, impl-only scroll animations may execute concurrently.
+CC_BASE_EXPORT BASE_DECLARE_FEATURE(kMultipleImplOnlyScrollAnimations);
+CC_BASE_EXPORT extern bool MultiImplOnlyScrollAnimationsSupported();
 
 }  // namespace features
 

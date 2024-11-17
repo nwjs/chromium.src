@@ -639,7 +639,7 @@ message PolicyFetchRequest {
 
   // Encoded information from a policy invalidation notification. This is opaque
   // to the client and should be forwarded from the invalidation notification.
-  optional string policy_invalidation_info = 10;
+  optional string policy_invalidation_info = 10 [deprecated = true];
 
   // Whether or not the client only supports the new PolicyData invalidation
   // topics. If true, only the policy_invalidation_topic and
@@ -1055,7 +1055,7 @@ message DevicePolicyRequest {
     SCHEDULED = 16;
     // Policy fetch triggered by sign-in.
     SIGNIN = 17;
-    // A placeholder reason used for tests (should not occur in production).
+    // A placeholder reason used for tests.
     TEST = 18;
     // Policy fetched at browser start, e.g. device policies at Ash start.
     BROWSER_START = 19;
@@ -1065,6 +1065,12 @@ message DevicePolicyRequest {
     USER_REQUEST = 21;
     // Policy fetches triggered by the Chrome Remote Desktop policy watcher.
     CRD_HOST_POLICY_WATCHER = 22;
+    // Fetch policy request when we shouldn't.
+    UNNECESSARY = 100;
+    // Fetch policy request when we disconnect from cloud management.
+    UNNECESSARY_DISCONNECT = 101;
+    // Fetch policy request when schema is updated.
+    UNNECESSARY_SCHEMA_UPDATED = 102;
   }
   optional Reason reason = 4;
 }
@@ -4384,6 +4390,11 @@ enum CertProvSignatureAlgorithm {
   // with PKCS#1 v1.5 padding. If no other key size was specified in the
   // RequiredClientCertificateFor{User,Device} policy, 2048 bits is assumed.
   SIGNATURE_ALGORITHM_RSA_PKCS1_V1_5_NO_HASH = 1;
+
+  // The PKCS#1 digest info is built by the server-side and sent to the
+  // client unhashed. The client is responsible for signing and hashing.
+  // Uses the P-256 curve.
+  SIGNATURE_ALGORITHM_ECDSA_SHA256 = 2;
 }
 
 // The client should import an issued certificate.

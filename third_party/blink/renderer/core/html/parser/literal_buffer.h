@@ -256,19 +256,19 @@ class UCharLiteralBuffer : public LiteralBufferBase<UChar, kInlineSize> {
 
   String AsString() const {
     if (Is8Bit()) {
-      return String::Make8BitFrom16BitSource(this->data(), this->size());
+      return String::Make8BitFrom16BitSource(base::span(*this));
     }
     return String(this->data(), this->size());
   }
 
   String AsString8() const {
-    return String::Make8BitFrom16BitSource(this->data(), this->size());
+    return String::Make8BitFrom16BitSource(base::span(*this));
   }
 
   AtomicString AsAtomicString() const {
-    return AtomicString(this->data(), this->size(),
-                        Is8Bit() ? WTF::AtomicStringUCharEncoding::kIs8Bit
-                                 : WTF::AtomicStringUCharEncoding::kIs16Bit);
+    return AtomicString(*this, Is8Bit()
+                                   ? WTF::AtomicStringUCharEncoding::kIs8Bit
+                                   : WTF::AtomicStringUCharEncoding::kIs16Bit);
   }
 
   ALWAYS_INLINE bool Is8Bit() const { return is_8bit_; }

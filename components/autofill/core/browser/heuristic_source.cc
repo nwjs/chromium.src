@@ -14,14 +14,18 @@
 namespace autofill {
 
 HeuristicSource GetActiveHeuristicSource() {
-  if (base::FeatureList::IsEnabled(features::kAutofillModelPredictions) &&
-      features::kAutofillModelPredictionsAreActive.Get()) {
-    return HeuristicSource::kMachineLearning;
+  if (base::FeatureList::IsEnabled(features::kAutofillModelPredictions)) {
+    static bool model_predictions_active =
+        features::kAutofillModelPredictionsAreActive.Get();
+    if (model_predictions_active) {
+      return HeuristicSource::kMachineLearning;
+    }
   }
 #if BUILDFLAG(USE_INTERNAL_AUTOFILL_PATTERNS)
-  return GetActiveRegexFeatures().empty()
-             ? HeuristicSource::kDefaultRegexes
-             : HeuristicSource::kExperimentalRegexes;
+  static const HeuristicSource active_source =
+      GetActiveRegexFeatures().empty() ? HeuristicSource::kDefaultRegexes
+                                       : HeuristicSource::kExperimentalRegexes;
+  return active_source;
 #else
   return HeuristicSource::kLegacyRegexes;
 #endif

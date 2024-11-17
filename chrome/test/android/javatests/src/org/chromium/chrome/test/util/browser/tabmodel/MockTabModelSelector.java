@@ -8,12 +8,12 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.MockTab;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
-import org.chromium.chrome.browser.tabmodel.IncognitoTabModel;
+import org.chromium.chrome.browser.tabmodel.IncognitoTabModelInternal;
 import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tabmodel.TabModelInternal;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorBase;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
-import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.content_public.browser.LoadUrlParams;
 
 /**
@@ -32,7 +32,7 @@ public class MockTabModelSelector extends TabModelSelectorBase {
             int tabCount,
             int incognitoTabCount,
             MockTabModel.MockTabModelDelegate delegate) {
-        super(null, TabGroupModelFilter::new, false);
+        super(null, false);
         initialize(
                 new MockTabModel(profile, delegate), new MockTabModel(incognitoProfile, delegate));
         for (int i = 0; i < tabCount; i++) {
@@ -49,12 +49,14 @@ public class MockTabModelSelector extends TabModelSelectorBase {
 
     /**
      * Exposed to allow tests to initialize the selector with different tab models.
+     *
      * @param normalModel The normal tab model.
      * @param incognitoModel The incognito tab model.
      */
-    public void initializeTabModels(TabModel normalModel, IncognitoTabModel incognitoModel) {
+    public void initializeTabModels(
+            TabModelInternal normalModel, IncognitoTabModelInternal incognitoModel) {
         destroy();
-        getTabModelFilterProvider().resetTabModelFilterListForTesting();
+        getTabGroupModelFilterProvider().resetTabGroupModelFilterListForTesting();
         initialize(normalModel, incognitoModel);
     }
 

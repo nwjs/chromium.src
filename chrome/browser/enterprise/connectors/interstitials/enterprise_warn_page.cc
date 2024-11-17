@@ -8,7 +8,7 @@
 
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/enterprise/connectors/interstitials/enterprise_interstitial_util.h"
+#include "components/enterprise/connectors/core/enterprise_interstitial_util.h"
 #include "components/grit/components_resources.h"
 #include "components/safe_browsing/content/browser/base_ui_manager.h"
 #include "components/safe_browsing/core/common/features.h"
@@ -17,8 +17,6 @@
 #include "components/security_interstitials/core/common_string_util.h"
 #include "components/security_interstitials/core/urls.h"
 #include "components/strings/grit/components_strings.h"
-#include "content/public/browser/navigation_entry.h"
-#include "content/public/browser/web_contents.h"
 #include "net/base/net_errors.h"
 #include "ui/base/l10n/l10n_util.h"
 

@@ -37,6 +37,7 @@ class ASH_EXPORT FakeMahiManager : public chromeos::MahiManager {
   std::u16string GetContentTitle() override;
   gfx::ImageSkia GetContentIcon() override;
   GURL GetContentUrl() override;
+  void GetContent(MahiContentCallback callback) override;
   void GetSummary(MahiSummaryCallback callback) override;
   void GetOutlines(MahiOutlinesCallback callback) override;
   void GoToOutlineContent(int outline_id) override {}
@@ -62,6 +63,8 @@ class ASH_EXPORT FakeMahiManager : public chromeos::MahiManager {
 
   MahiUiController* ui_controller() { return &ui_controller_; }
 
+  void set_mahi_enabled(bool enabled) { mahi_enabled_ = enabled; }
+
   void set_answer_text(const std::u16string& answer_text) {
     answer_text_ = answer_text;
   }
@@ -84,6 +87,7 @@ class ASH_EXPORT FakeMahiManager : public chromeos::MahiManager {
   gfx::ImageSkia content_icon_;
   std::optional<std::u16string> content_title_;
   std::optional<std::u16string> summary_text_;
+  bool mahi_enabled_ = true;
 
   MahiUiController ui_controller_;
 };

@@ -46,7 +46,6 @@ import org.chromium.ui.ViewProvider;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.LazyConstructionPropertyMcp;
-import org.chromium.ui.modelutil.MVCListAdapter;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -146,7 +145,7 @@ public class AutocompleteCoordinator
                 this::dropdownOverscrolledToTop);
 
         ViewProvider<SuggestionListViewHolder> viewProvider =
-                createViewProvider(context, listItems, forcePhoneStyleOmnibox);
+                createViewProvider(context, forcePhoneStyleOmnibox);
         viewProvider.whenLoaded(
                 (holder) -> {
                     mDropdown = holder.dropdown;
@@ -197,7 +196,7 @@ public class AutocompleteCoordinator
     }
 
     private ViewProvider<SuggestionListViewHolder> createViewProvider(
-            Context context, MVCListAdapter.ModelList modelList, boolean forcePhoneStyleOmnibox) {
+            Context context, boolean forcePhoneStyleOmnibox) {
         return new ViewProvider<SuggestionListViewHolder>() {
             private AsyncViewProvider<ViewGroup> mAsyncProvider;
             private List<Callback<SuggestionListViewHolder>> mCallbacks = new ArrayList<>();
@@ -359,7 +358,7 @@ public class AutocompleteCoordinator
 
     /** Notify the Autocomplete about Omnibox text change. */
     public void onTextChanged(String textWithoutAutocomplete) {
-        mMediator.onTextChanged(textWithoutAutocomplete, /* isOnFocusContext= */ false);
+        mMediator.onTextChanged(textWithoutAutocomplete);
     }
 
     /** Trigger autocomplete for the given query. */

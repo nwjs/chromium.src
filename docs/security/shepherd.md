@@ -165,15 +165,15 @@ that, our goal is to pass them actionable reports with little ambiguity.
 * **Add the `Needs-Feedback` hotlist (hotlistID: 5433459) and set a Next Action
   date of 24-48 hours for more information** if there is no response, close the
   issue as `WontFix`.
-* **Determine issue to be theoretical** - and follow the
-  [process for such issues](http://go/chrome-speculative-bug-triage) – theoretical
-  issues are ones that appear to be potentially real bugs, but there the report
-  is lacking evidence of exploitability or reachability. These cases can be
-  shared with engineering teams with a very clear message conveying the
-  speculative nature of the issue. These reports should generally not be
-  prioritized as a Pri-1 as they do not warrant disruption to the engineering
-  teams to investigate and prioritize without more or new information to
-  demonstrate conditions of exploitability.
+* **Determine issue to be theoretical** - and follow the [process for such
+  issues](http://go/chrome-speculative-bug-triage) – theoretical issues are
+  ones that appear to be potentially real bugs, but the report is lacking
+  evidence of exploitability or reachability. These cases can be shared with
+  engineering teams with a very clear message conveying the speculative nature
+  of the issue. These reports should generally not be prioritized as a Pri-1 as
+  they do not warrant disruption to the engineering teams to investigate and
+  prioritize without more or new information to demonstrate conditions of
+  exploitability.
 
 None of these apply? Great – this means the bug may be valid and actionable!
 It can take multiple discussions with a reporter to understand a bug. Try really
@@ -216,8 +216,9 @@ of time reproducing bugs. Here are some tips in doing so:
 * For any sort of a crash, CHECK/DCHECK or memory safety problem
   [use ClusterFuzz](clusterfuzz-for-shepherds.md). As well as reproducing bugs,
   ClusterFuzz will help you with lots of subsequent bisection and labelling
-  tasks. Currently ClusterFuzz cannot guard against malicious test cases,
-  so be just as paranoid as if you were running a test case locally.
+  tasks. Currently ClusterFuzz only supports untrusted inputs on Linux. If you
+  use ClusterFuzz to reproduce on any other platform, you should be just as
+  paranoid as if you were running a test case locally.
 * [Instructions for using an Android emulator can be found
   here](/docs/android_emulator.md). If you're inside Google, we have a
   [guide for testing using Google infrastructure](https://goto.google.com/android-for-chrome-shepherds).
@@ -556,7 +557,7 @@ remove any PII.
 
 For cases in which we are just delaying public disclosure (such as when a
 security issue impacts other products or vendors), please add the
-`SecurityEmbargo` hotlist (hotlistID: 1053360) and set a date in the `Next
+`SecurityEmbargo` hotlist (hotlistID: 5432549) and set a date in the `Next
 Action` field so that disclosure can be re-evaluated at that time.
 
 ### Protecting researcher identities

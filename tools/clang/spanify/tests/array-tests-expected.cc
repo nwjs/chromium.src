@@ -41,8 +41,8 @@ void fct() {
   buf4[index] = 11;
 
   // Expected rewrite:
-  // std::array<ns1::Type, 5> buf5 = {{1}, {1}, {1}, {1}, {1}};
-  std::array<ns1::Type1, 5> buf5 = {{1}, {1}, {1}, {1}, {1}};
+  // std::array<ns1::Type, 5> buf5 = {{{1}, {1}, {1}, {1}, {1}}};
+  std::array<ns1::Type1, 5> buf5 = {{{1}, {1}, {1}, {1}, {1}}};
   buf5[index].value = 11;
 
   // Expected rewrite:
@@ -65,6 +65,11 @@ void fct() {
   // std::array<Arr, buf3[0]> buf9 = {nullptr};
   std::array<Arr, buf3[0]> buf9 = {nullptr};
   buf9[index] = nullptr;
+
+  // Expected rewrite:
+  // static std::array<const volatile char*, 3> buf10 = {"1", "2", "3"};
+  static std::array<const volatile char*, 3> buf10 = {"1", "2", "3"};
+  buf10[index] = nullptr;
 
   index = kPropertyVisitedIDs[index];
 }

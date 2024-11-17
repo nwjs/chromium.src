@@ -58,7 +58,7 @@ import java.util.Arrays;
 import java.util.Collections;
 
 /**
- * Integration tests for the Account Selection Button Mode component check that the calls to the
+ * Integration tests for the Account Selection Active Mode component check that the calls to the
  * Account Selection API end up rendering a View. This class is parameterized to run all tests for
  * each RP mode.
  */
@@ -69,7 +69,7 @@ public class AccountSelectionButtonModeIntegrationTest extends AccountSelectionI
     @Before
     @Override
     public void setUp() throws InterruptedException {
-        mRpMode = RpMode.BUTTON;
+        mRpMode = RpMode.ACTIVE;
         super.setUp();
     }
 
@@ -510,7 +510,7 @@ public class AccountSelectionButtonModeIntegrationTest extends AccountSelectionI
     @Test
     @MediumTest
     public void testRpInApprovedClientsFlow() {
-        mIdpDataWithAddAccount.setRequestPermission(false);
+        mIdpDataWithAddAccount.setDisclosureFields(new int[0]);
         runOnUiThreadBlocking(
                 () -> {
                     mAccountSelection.showAccounts(
@@ -530,7 +530,7 @@ public class AccountSelectionButtonModeIntegrationTest extends AccountSelectionI
         assertEquals(mAccountSelection.getMediator().getHeaderType(), HeaderType.SIGN_IN);
         clickFirstAccountInAccountsList();
 
-        // Because requestPermission is false, user is now signed in and shown the verifying UI.
+        // Because disclosureFields are empty, user is now signed in and shown the verifying UI.
         assertEquals(mAccountSelection.getMediator().getHeaderType(), HeaderType.VERIFY);
         verify(mMockBridge, never()).onDismissed(anyInt());
         verify(mMockBridge).onAccountSelected(any(), any());
@@ -711,7 +711,7 @@ public class AccountSelectionButtonModeIntegrationTest extends AccountSelectionI
     @Test
     @MediumTest
     public void testAccountSelectionRecordsAccountChooserResultHistogram() {
-        mIdpDataWithAddAccount.setRequestPermission(false);
+        mIdpDataWithAddAccount.setDisclosureFields(new int[0]);
         runOnUiThreadBlocking(
                 () -> {
                     mAccountSelection.showAccounts(

@@ -82,6 +82,7 @@
 #include "third_party/blink/renderer/platform/widget/widget_base_client.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom-shared.h"
+#include "ui/base/mojom/menu_source_type.mojom-blink-forward.h"
 #include "ui/base/mojom/window_show_state.mojom-blink-forward.h"
 #include "ui/gfx/ca_layer_result.h"
 
@@ -156,7 +157,7 @@ class CORE_EXPORT WebFrameWidgetImpl
   virtual void Trace(Visitor*) const;
 
   // Shutdown the widget.
-  void Close();
+  void Close(DetachReason detach_reason);
 
   // Returns the WebFrame that this widget is attached to. It will be a local
   // root since only local roots have a widget attached.
@@ -454,7 +455,7 @@ class CORE_EXPORT WebFrameWidgetImpl
   void BeginMainFrame(base::TimeTicks last_frame_time) override;
   void UpdateLifecycle(WebLifecycleUpdate requested_update,
                        DocumentUpdateReason reason) override;
-  void ShowContextMenu(ui::mojom::MenuSourceType source_type,
+  void ShowContextMenu(ui::mojom::blink::MenuSourceType source_type,
                        const gfx::Point& location) override;
   void BindInputTargetClient(
       mojo::PendingReceiver<viz::mojom::blink::InputTargetClient> receiver)
@@ -929,9 +930,14 @@ class CORE_EXPORT WebFrameWidgetImpl
 
   void SendOverscrollEventFromImplSide(const gfx::Vector2dF& overscroll_delta,
                                        cc::ElementId scroll_latched_element_id);
-  void SendEndOfScrollEvents(bool affects_outer_viewport,
-                             bool affects_inner_viewport,
-                             cc::ElementId scroll_latched_element_id);
+  // TODO(crbug.com/372627916): This function is not used when
+  // MultipleImplOnlyScrollAnimations is enabled. It should be considered
+  // deprecated and should be deleted when the MultipleImplOnlyScrollAnimations
+  // code path is the only existing code path.
+  void SendEndOfScrollEventsDeprecated(bool affects_outer_viewport,
+                                       bool affects_inner_viewport,
+                                       cc::ElementId scroll_latched_element_id);
+  void SendEndOfScrollEvents(const cc::CompositorCommitData& commit_data);
   void SendScrollSnapChangingEventIfNeeded(
       const cc::CompositorCommitData& commit_data);
   void RecordManipulationTypeCounts(cc::ManipulationInfo info);

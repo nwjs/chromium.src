@@ -17,6 +17,7 @@
 #include "base/logging.h"
 #include "base/strings/pattern.h"
 #include "base/strings/sys_string_conversions.h"
+#include "ui/accessibility/platform/ax_platform_node_cocoa.h"
 #include "ui/accessibility/platform/ax_private_attributes_mac.h"
 
 // error: 'accessibilityAttributeNames' is deprecated: first deprecated in
@@ -29,6 +30,18 @@ namespace ui {
 
 constexpr char kUnsupportedObject[] =
     "Only AXUIElementRef and BrowserAccessibilityCocoa are supported.";
+
+// static
+AXElementWrapper::AXType AXElementWrapper::TypeOf(const id node) {
+  DCHECK(IsValidElement(node));
+  if (IsNSAccessibilityElement(node)) {
+    return AXType::kNSAccessibilityElement;
+  }
+  if (IsAXUIElement(node)) {
+    return AXType::kAXUIElement;
+  }
+  NOTREACHED() << "Unknown accessibility object type";
+}
 
 // static
 bool AXElementWrapper::IsValidElement(const id node) {
@@ -148,6 +161,13 @@ NSPoint AXElementWrapper::Position() const {
 
 NSArray* AXElementWrapper::AttributeNames() const {
   if (IsNSAccessibilityElement()) {
+    // The NSAccessibility protocol implementation in AXPlatformNodeCocoa no
+    // longer exposes old-style attributes. Instead, it provides the
+    // internalAccessibilityAttributeNames method for backward compatibility in
+    // testing.
+    if ([node_ isKindOfClass:[AXPlatformNodeCocoa class]]) {
+      return [node_ internalAccessibilityAttributeNames];
+    }
     return [node_ accessibilityAttributeNames];
   }
 

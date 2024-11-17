@@ -61,7 +61,6 @@ class HTMLIFrameElement;
 class HTMLInputElement;
 class HTMLMediaElement;
 class HTMLSelectElement;
-class HTMLSelectListElement;
 class HTMLVideoElement;
 class HitTestLayerRectList;
 class HitTestLocation;
@@ -236,8 +235,6 @@ class Internals final : public ScriptWrappable {
                                  unsigned start_offset,
                                  unsigned end_offset,
                                  bool);
-  void setMarkedTextMatchesAreHighlighted(Document*, bool);
-
   String viewportAsText(Document*,
                         float device_pixel_ratio,
                         int available_width,
@@ -452,8 +449,6 @@ class Internals final : public ScriptWrappable {
   bool selectPopupItemStyleIsRtl(Node*, int);
   int selectPopupItemStyleFontHeight(Node*, int);
   void resetTypeAheadSession(HTMLSelectElement*);
-
-  void resetSelectListTypeAheadSession(HTMLSelectListElement*);
 
   StaticSelection* getDragCaret();
   StaticSelection* getSelectionInFlatTree(DOMWindow*, ExceptionState&);

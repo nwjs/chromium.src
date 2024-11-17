@@ -4,6 +4,13 @@
 
 // Example WebIDL compatible schema for testing API definition features.
 // This will be added to as support for each features is implemented.
+
+dictionary ExampleType {
+  DOMString someString;
+  double someNumber;
+  boolean? optionalBoolean;
+};
+
 interface TestWebIdl {
 
   static void returnsVoid();
@@ -11,6 +18,19 @@ interface TestWebIdl {
   static double returnsDouble();
   static long returnsLong();
   static DOMString returnsDOMString();
+
+  static void takesNoArguments();
+  static void takesDOMString(DOMString stringArgument);
+  static void takesOptionalBoolean(optional boolean optionalBoolean);
+  static void takesMultipleArguments(
+      DOMString argument1, optional double argument2);
+  static void takesOptionalInnerArgument(
+      DOMString first, optional DOMString optionalInner, DOMString last);
+
+  static ExampleType returnsCustomType();
+  static void takesCustomType(ExampleType customTypeArgument);
+  static void takesOptionalCustomType(
+  optional ExampleType optionalCustomTypeArgument);
 };
 
 partial interface Browser {

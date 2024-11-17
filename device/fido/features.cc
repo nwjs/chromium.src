@@ -83,10 +83,14 @@ BASE_FEATURE(kWebAuthnEnclaveAuthenticator,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-// Not yet enabled by default.
+// Enabled in M130 % ChromeOs.
 const base::FeatureParam<bool> kWebAuthnGpmPin{
     &kWebAuthnEnclaveAuthenticator, kWebAuthnGpmPinFeatureParameterName,
+#if BUILDFLAG(IS_CHROMEOS)
     /*default_value=*/false};
+#else
+    /*default_value=*/true};
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 // Enabled by default in M128. Remove in or after M131.
 BASE_FEATURE(kWebAuthnPasskeysReset,
@@ -99,11 +103,6 @@ BASE_FEATURE(kChromeOsPasskeys,
              "WebAuthenticationCrosPasskeys",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
-
-// Enabled in M128. Remove in or after M131.
-BASE_FEATURE(kWebAuthnRelatedOrigin,
-             "WebAuthenticationRelatedOrigin",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Deprecation flag.
 // Default disabled in M125. Remove in or after M128.
@@ -137,14 +136,6 @@ BASE_FEATURE(kWebAuthnCacheSecurityDomain,
              "WebAuthenticationCacheSecurityDomain",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Disabled in M128. Remove in or after M130.
-// (This is a turn-down feature, i.e. the final state is that it should be
-// disabled.)
-// crbug.com/348204152
-BASE_FEATURE(kWebAuthnAndroidOpenAccessory,
-             "WebAuthenticationAndroidOpenAccessory",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Development flag. Must not be enabled by default.
 BASE_FEATURE(kWebAuthnEnclaveAuthenticatorDelay,
              "WebAuthnEnclaveAuthenticatorDelay",
@@ -154,5 +145,16 @@ BASE_FEATURE(kWebAuthnEnclaveAuthenticatorDelay,
 BASE_FEATURE(kWebAuthnAmbientSignin,
              "WebAuthenticationAmbientSignin",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Not yet enabled by default.
+BASE_FEATURE(kWebAuthniCloudKeychainPrf,
+             "WebAuthenticationiCloudKeychainPrf",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// This is a deprecation flag. It is now enabled by default, but we want to
+// disable it eventually.
+BASE_FEATURE(kWebAuthnHybridLinking,
+             "WebAuthenticationHybridLinking",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace device

@@ -18,7 +18,7 @@ import org.chromium.base.supplier.ObservableSupplierImpl;
 public class FakeSearchEngineCountryDelegate extends SearchEngineCountryDelegate {
     private static final String TAG = "SearchEngineDelefake";
 
-    private final Boolean mEnableLogging;
+    private final boolean mEnableLogging;
     private @Nullable ObservableSupplierImpl<Boolean> mIsChoiceRequired;
 
     /**
@@ -32,7 +32,6 @@ public class FakeSearchEngineCountryDelegate extends SearchEngineCountryDelegate
      */
     @MainThread
     public FakeSearchEngineCountryDelegate(boolean enableLogging) {
-        super(/* context= */ null);
         ThreadUtils.assertOnUiThread();
 
         mEnableLogging = enableLogging;
@@ -150,7 +149,9 @@ public class FakeSearchEngineCountryDelegate extends SearchEngineCountryDelegate
                             }
                             mIsChoiceRequired.set(true);
                         },
-                        dialogTimeoutMillis / 2);
+                        // Don't go beyond 3 seconds timeout, it doesn't help with testing and looks
+                        // broken.
+                        Math.min(dialogTimeoutMillis / 2, 3000));
             } else {
                 mIsChoiceRequired = new ObservableSupplierImpl<>(true);
             }

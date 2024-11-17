@@ -82,20 +82,17 @@ class ClipboardPromise::BlobPromiseResolverFunction final
   }
 
   ScriptValue Call(ScriptState* script_state, ScriptValue value) final {
-    ExceptionState exception_state(script_state->GetIsolate(),
-                                   v8::ExceptionContext::kOperation,
-                                   "Clipboard", "write");
     if (type_ == ResolveType::kReject) {
       clipboard_promise_->RejectBlobPromise("Promises to Blobs were rejected.");
     } else {
+      v8::TryCatch try_catch(script_state->GetIsolate());
       HeapVector<Member<Blob>>* blob_list =
           MakeGarbageCollected<HeapVector<Member<Blob>>>(
               NativeValueTraits<IDLSequence<Blob>>::NativeValue(
                   script_state->GetIsolate(), value.V8Value(),
-                  exception_state));
-      if (exception_state.HadException()) {
-        // Clear the exception here as it'll be fired in `RejectBlobPromise`.
-        exception_state.ClearException();
+                  PassThroughException(script_state->GetIsolate())));
+      if (try_catch.HasCaught()) {
+        // Swallow the exception here as it'll be fired in `RejectBlobPromise`.
         clipboard_promise_->RejectBlobPromise("Invalid Blob types.");
       } else {
         clipboard_promise_->HandlePromiseBlobsWrite(blob_list);
@@ -359,12 +356,14 @@ void ClipboardPromise::ResolveRead() {
     return;
   }
   ScriptState::Scope scope(script_state);
-  HeapVector<std::pair<String, ScriptPromiseUntyped>> items;
+  HeapVector<std::pair<String, ScriptPromise<Blob>>> items;
   items.ReserveInitialCapacity(clipboard_item_data_.size());
 
   for (const auto& item : clipboard_item_data_) {
-    ScriptPromiseUntyped promise =
-        ToResolvedPromise<IDLNullable<Blob>>(script_state, item.second);
+    if (!item.second) {
+      continue;
+    }
+    auto promise = ToResolvedPromise<Blob>(script_state, item.second);
     items.emplace_back(item.first, promise);
   }
   HeapVector<Member<ClipboardItem>> clipboard_items = {

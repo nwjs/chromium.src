@@ -44,11 +44,22 @@ class LocalFilesMigrationManager : public LocalUserFilesPolicyObserver,
     virtual void OnMigrationSucceeded() = 0;
   };
 
+  // Creates an instance of LocalFilesMigrationManager with overridden
+  // dependencies.
+  static LocalFilesMigrationManager* CreateForTesting(
+      content::BrowserContext* context,
+      MigrationNotificationManager* notification_manager,
+      std::unique_ptr<MigrationCoordinator> coordinator);
+
+  // Creates an instance of LocalFilesMigrationManager.
   explicit LocalFilesMigrationManager(content::BrowserContext* context);
   LocalFilesMigrationManager(const LocalFilesMigrationManager&) = delete;
   LocalFilesMigrationManager& operator=(const LocalFilesMigrationManager&) =
       delete;
   ~LocalFilesMigrationManager() override;
+
+  // Initializes this instance.
+  void Initialize();
 
   // KeyedService overrides:
   void Shutdown() override;
@@ -96,7 +107,16 @@ class LocalFilesMigrationManager : public LocalUserFilesPolicyObserver,
   void StartMigration(std::vector<base::FilePath> files);
 
   // Handles the completion of the migration process (success or failure).
+  // If the migration was successful, starts the cleanup process, and handles
+  // the errors otherwise.
   void OnMigrationDone(std::map<base::FilePath, MigrationUploadError> errors);
+
+  // Completes the migration process, taking into account any errors that
+  // occurred during the migration.
+  void ProcessErrors(std::map<base::FilePath, MigrationUploadError> errors);
+
+  // Cleans up any remaining files from the device after a successful migration.
+  void CleanupLocalFiles();
 
   // Handles the completion of the local files cleanup process.
   void OnCleanupDone(
@@ -111,13 +131,16 @@ class LocalFilesMigrationManager : public LocalUserFilesPolicyObserver,
       std::optional<user_data_auth::SetUserDataStorageWriteEnabledReply> reply);
 
   // Stops the migration if currently ongoing.
-  void MaybeStopMigration();
+  void MaybeStopMigration(CloudProvider previous_provider);
+
+  // Sets and stores the state on the device.
+  void SetState(State new_state);
 
   // Observers for migration events.
   base::ObserverList<Observer>::Unchecked observers_;
 
-  // Indicates if migration is currently running.
-  bool in_progress_ = false;
+  // Indicates the migration state.
+  State state_ = State::kUninitialized;
 
   // Indicates if local files cleanup is currently running.
   bool cleanup_in_progress_ = false;

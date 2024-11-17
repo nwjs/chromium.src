@@ -30,7 +30,6 @@
 #include "base/time/time.h"
 #include "base/trace_event/base_tracing.h"
 #include "build/build_config.h"
-#include "third_party/abseil-cpp/absl/base/attributes.h"
 
 namespace base {
 
@@ -44,8 +43,7 @@ namespace {
 enum class LoggingLevel { kNone = 0, kUmaOnly = 1, kUmaAndCrash = 2 };
 
 HangWatcher* g_instance = nullptr;
-ABSL_CONST_INIT thread_local internal::HangWatchState* hang_watch_state =
-    nullptr;
+constinit thread_local internal::HangWatchState* hang_watch_state = nullptr;
 std::atomic<bool> g_use_hang_watcher{false};
 std::atomic<HangWatcher::ProcessType> g_hang_watcher_process_type{
     HangWatcher::ProcessType::kBrowserProcess};
@@ -799,8 +797,9 @@ void HangWatcher::WatchStateSnapShot::Init(
         const PlatformThreadId thread_id = watch_state.get()->GetThreadID();
         const auto track = perfetto::Track::FromPointer(
             this, perfetto::ThreadTrack::ForThread(thread_id));
-        TRACE_EVENT_BEGIN("base", "HangWatcher::ThreadHung", track, deadline);
-        TRACE_EVENT_END("base", track, now);
+        TRACE_EVENT_BEGIN("latency", "HangWatcher::ThreadHung", track,
+                          deadline);
+        TRACE_EVENT_END("latency", track, now);
       }
 #endif
 
@@ -932,7 +931,7 @@ void HangWatcher::Monitor() {
 
 void HangWatcher::DoDumpWithoutCrashing(
     const WatchStateSnapShot& watch_state_snapshot) {
-  TRACE_EVENT("base", "HangWatcher::DoDumpWithoutCrashing");
+  TRACE_EVENT("latency", "HangWatcher::DoDumpWithoutCrashing");
 
   capture_in_progress_.store(true, std::memory_order_relaxed);
   base::AutoLock scope_lock(capture_lock_);

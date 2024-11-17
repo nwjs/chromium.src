@@ -1116,7 +1116,7 @@ static ParseColorResult ParseColor(CSSPropertyID property_id,
   CSSValueID value_id = CssValueKeywordID(string);
   if ((value_id == CSSValueID::kAccentcolor ||
        value_id == CSSValueID::kAccentcolortext) &&
-      !RuntimeEnabledFeatures::CSSSystemAccentColorEnabled()) {
+      !RuntimeEnabledFeatures::CSSAccentColorKeywordEnabled()) {
     return ParseColorResult::kFailure;
   }
   if (StyleColor::IsColorKeyword(value_id)) {
@@ -1196,6 +1196,8 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
              value_id == CSSValueID::kStatic;
     case CSSPropertyID::kCaptionSide:
       return value_id == CSSValueID::kTop || value_id == CSSValueID::kBottom;
+    case CSSPropertyID::kCaretAnimation:
+      return value_id == CSSValueID::kAuto || value_id == CSSValueID::kManual;
     case CSSPropertyID::kClear:
       return value_id == CSSValueID::kNone || value_id == CSSValueID::kLeft ||
              value_id == CSSValueID::kRight || value_id == CSSValueID::kBoth ||
@@ -1340,6 +1342,8 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
              value_id == CSSValueID::kBefore;
     case CSSPropertyID::kScrollBehavior:
       return value_id == CSSValueID::kAuto || value_id == CSSValueID::kSmooth;
+    case CSSPropertyID::kScrollStartTarget:
+      return value_id == CSSValueID::kAuto || value_id == CSSValueID::kNone;
     case CSSPropertyID::kShapeRendering:
       return value_id == CSSValueID::kAuto ||
              value_id == CSSValueID::kOptimizespeed ||
@@ -1439,7 +1443,7 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
               value_id == CSSValueID::kSearchfield ||
               value_id == CSSValueID::kTextfield ||
               value_id == CSSValueID::kTextarea) ||
-             (RuntimeEnabledFeatures::StylableSelectEnabled() &&
+             (RuntimeEnabledFeatures::CustomizableSelectEnabled() &&
               value_id == CSSValueID::kBaseSelect) ||
              (RuntimeEnabledFeatures::
                   NonStandardAppearanceValueSliderVerticalEnabled() &&
@@ -1706,6 +1710,7 @@ CSSBitset CSSParserFastPaths::handled_by_keyword_fast_paths_properties_{{
     CSSPropertyID::kBoxSizing,
     CSSPropertyID::kBufferedRendering,
     CSSPropertyID::kCaptionSide,
+    CSSPropertyID::kCaretAnimation,
     CSSPropertyID::kClear,
     CSSPropertyID::kClipRule,
     CSSPropertyID::kColorInterpolation,
@@ -1818,6 +1823,7 @@ CSSBitset CSSParserFastPaths::handled_by_keyword_fast_paths_properties_{{
     CSSPropertyID::kOriginTrialTestProperty,
     CSSPropertyID::kOverlay,
     CSSPropertyID::kTextBoxTrim,
+    CSSPropertyID::kScrollStartTarget,
 }};
 
 bool CSSParserFastPaths::IsValidSystemFont(CSSValueID value_id) {

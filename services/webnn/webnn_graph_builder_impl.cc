@@ -14,6 +14,7 @@
 #include "services/webnn/public/cpp/operand_descriptor.h"
 #include "services/webnn/public/cpp/supported_data_types.h"
 #include "services/webnn/public/mojom/webnn_error.mojom.h"
+#include "services/webnn/webnn_constant_operand.h"
 #include "services/webnn/webnn_context_impl.h"
 #include "services/webnn/webnn_graph_impl.h"
 #include "services/webnn/webnn_utils.h"
@@ -899,6 +900,15 @@ bool ValidateElementWiseBinaryDataTypes(
     case mojom::ElementWiseBinary::Kind::kLesserOrEqual:
       return context_properties.data_type_limits.lesser_or_equal_input.Has(
           lhs->descriptor.data_type());
+    case mojom::ElementWiseBinary::Kind::kLogicalAnd:
+      return context_properties.data_type_limits.logical_and_input.Has(
+          lhs->descriptor.data_type());
+    case mojom::ElementWiseBinary::Kind::kLogicalOr:
+      return context_properties.data_type_limits.logical_or_input.Has(
+          lhs->descriptor.data_type());
+    case mojom::ElementWiseBinary::Kind::kLogicalXor:
+      return context_properties.data_type_limits.logical_xor_input.Has(
+          lhs->descriptor.data_type());
   }
 }
 
@@ -1118,6 +1128,37 @@ bool ValidateGatherElements(const ContextProperties& context_properties,
   auto validated_output = ValidateGatherElementsAndInferOutput(
       context_properties, input->descriptor, indices->descriptor,
       gather_elements.axis, gather_elements.label);
+  if (!validated_output.has_value()) {
+    return false;
+  }
+  if (validated_output != output->descriptor) {
+    return false;
+  }
+
+  return true;
+}
+
+bool ValidateGatherND(const ContextProperties& context_properties,
+                      const IdToOperandMap& id_to_operand_map,
+                      const mojom::GatherND& gather_nd,
+                      base::flat_set<uint64_t>& processed_operands) {
+  if (!processed_operands.contains(gather_nd.input_operand_id) ||
+      !processed_operands.contains(gather_nd.indices_operand_id)) {
+    return false;
+  }
+  processed_operands.insert(gather_nd.output_operand_id);
+
+  auto* input = GetMojoOperand(id_to_operand_map, gather_nd.input_operand_id);
+  auto* output = GetMojoOperand(id_to_operand_map, gather_nd.output_operand_id);
+  auto* indices =
+      GetMojoOperand(id_to_operand_map, gather_nd.indices_operand_id);
+  if (!input || !output || !indices || output == input || output == indices) {
+    return false;
+  }
+
+  auto validated_output =
+      ValidateGatherNDAndInferOutput(context_properties, input->descriptor,
+                                     indices->descriptor, gather_nd.label);
   if (!validated_output.has_value()) {
     return false;
   }
@@ -1887,6 +1928,43 @@ bool ValidateReshape(const ContextProperties& context_properties,
   return true;
 }
 
+bool ValidateScatterElements(const ContextProperties& context_properties,
+                             const IdToOperandMap& id_to_operand_map,
+                             const mojom::ScatterElements& scatter_elements,
+                             base::flat_set<uint64_t>& processed_operands) {
+  if (!processed_operands.contains(scatter_elements.input_operand_id) ||
+      !processed_operands.contains(scatter_elements.indices_operand_id) ||
+      !processed_operands.contains(scatter_elements.updates_operand_id)) {
+    return false;
+  }
+  processed_operands.insert(scatter_elements.output_operand_id);
+
+  auto* input =
+      GetMojoOperand(id_to_operand_map, scatter_elements.input_operand_id);
+  auto* indices =
+      GetMojoOperand(id_to_operand_map, scatter_elements.indices_operand_id);
+  auto* updates =
+      GetMojoOperand(id_to_operand_map, scatter_elements.updates_operand_id);
+  auto* output =
+      GetMojoOperand(id_to_operand_map, scatter_elements.output_operand_id);
+  if (!input || !indices || !updates || !output || output == input ||
+      output == indices || output == updates) {
+    return false;
+  }
+
+  auto validated_output = ValidateScatterElementsAndInferOutput(
+      context_properties, input->descriptor, indices->descriptor,
+      updates->descriptor, scatter_elements.axis, scatter_elements.label);
+  if (!validated_output.has_value()) {
+    return false;
+  }
+  if (validated_output != output->descriptor) {
+    return false;
+  }
+
+  return true;
+}
+
 bool ValidateScatterND(const ContextProperties& context_properties,
                        const IdToOperandMap& id_to_operand_map,
                        const mojom::ScatterND& scatter_nd,
@@ -2235,6 +2313,9 @@ bool ValidateOperation(const ContextProperties& context_properties,
       return ValidateGatherElements(context_properties, id_to_operand_map,
                                     *operation.get_gather_elements(),
                                     processed_operands);
+    case mojom::Operation::Tag::kGatherNd:
+      return ValidateGatherND(context_properties, id_to_operand_map,
+                              *operation.get_gather_nd(), processed_operands);
     case mojom::Operation::Tag::kGelu:
       return ValidateUnaryOperation(
           id_to_operand_map, *operation.get_gelu(),
@@ -2307,6 +2388,10 @@ bool ValidateOperation(const ContextProperties& context_properties,
       return ValidateUnaryOperation(
           id_to_operand_map, *operation.get_relu(),
           context_properties.data_type_limits.relu_input, processed_operands);
+    case mojom::Operation::Tag::kScatterElements:
+      return ValidateScatterElements(context_properties, id_to_operand_map,
+                                     *operation.get_scatter_elements(),
+                                     processed_operands);
     case mojom::Operation::Tag::kScatterNd:
       return ValidateScatterND(context_properties, id_to_operand_map,
                                *operation.get_scatter_nd(), processed_operands);
@@ -2381,8 +2466,12 @@ void WebNNGraphBuilderImpl::CreateGraph(mojom::GraphInfoPtr graph_info,
     return;
   }
 
+  base::flat_map<uint64_t, std::unique_ptr<WebNNConstantOperand>>
+      constant_operands = TakeConstants(*graph_info);
+
   context_->CreateGraphImpl(
       std::move(graph_info), *std::move(compute_resource_info),
+      std::move(constant_operands),
       base::BindOnce(&WebNNGraphBuilderImpl::DidCreateGraph,
                      weak_factory_.GetWeakPtr(), std::move(callback)));
 }
@@ -2445,7 +2534,10 @@ WebNNGraphBuilderImpl::ValidateGraph(
   graph_inputs.reserve(graph_info.input_operands.size());
   std::vector<uint64_t> graph_outputs;
   graph_outputs.reserve(graph_info.output_operands.size());
-  base::flat_map<uint64_t, size_t> constant_id_to_byte_length_map;
+  base::flat_map<uint64_t, size_t> constant_ids_to_byte_lengths;
+  constant_ids_to_byte_lengths.reserve(
+      graph_info.constant_id_to_buffer_map.size());
+
   // The operand id must start from 1.
   uint64_t expected_operand_id = 1;
   for (auto& [id, operand] : graph_info.id_to_operand_map) {
@@ -2465,6 +2557,11 @@ WebNNGraphBuilderImpl::ValidateGraph(
           // Input names must be unique.
           return std::nullopt;
         }
+        if (!context_properties.data_type_limits.input.Has(
+                operand->descriptor.data_type())) {
+          // Input data type not supported.
+          return std::nullopt;
+        }
         graph_inputs.push_back(id);
         processed_operands.insert(id);
         break;
@@ -2481,6 +2578,11 @@ WebNNGraphBuilderImpl::ValidateGraph(
             // Output names must be unique.
             return std::nullopt;
           }
+          if (!context_properties.data_type_limits.input.Has(
+                  operand->descriptor.data_type())) {
+            // Output data type not supported.
+            return std::nullopt;
+          }
           graph_outputs.push_back(id);
         } else {
           // The intermediate operand that connects with two operators has no
@@ -2493,8 +2595,10 @@ WebNNGraphBuilderImpl::ValidateGraph(
           // Constant operand should not have a name.
           return std::nullopt;
         }
-        constant_id_to_byte_length_map[id] =
+
+        constant_ids_to_byte_lengths[id] =
             operand->descriptor.PackedByteLength();
+
         processed_operands.insert(id);
         break;
       }
@@ -2512,7 +2616,7 @@ WebNNGraphBuilderImpl::ValidateGraph(
 
   // Validate the constant weight data are valid.
   if (!base::ranges::equal(graph_info.constant_id_to_buffer_map,
-                           constant_id_to_byte_length_map,
+                           constant_ids_to_byte_lengths,
                            [](const auto& iter_a, const auto& iter_b) {
                              // Compare the constant id with the key of map and
                              // the byte length of buffer with value of map.
@@ -2540,6 +2644,31 @@ bool WebNNGraphBuilderImpl::IsValidForTesting(
     const ContextProperties& context_properties,
     const mojom::GraphInfo& graph_info) {
   return ValidateGraph(context_properties, graph_info).has_value();
+}
+
+// static
+base::flat_map<uint64_t, std::unique_ptr<WebNNConstantOperand>>
+WebNNGraphBuilderImpl::TakeConstants(mojom::GraphInfo& graph_info) {
+  std::vector<std::pair<uint64_t, std::unique_ptr<WebNNConstantOperand>>>
+      constant_operands;
+  constant_operands.reserve(graph_info.constant_id_to_buffer_map.size());
+
+  for (auto it = graph_info.constant_id_to_buffer_map.begin();
+       it != graph_info.constant_id_to_buffer_map.end();) {
+    const auto* operand =
+        GetMojoOperand(graph_info.id_to_operand_map, it->first);
+    CHECK(operand);
+    constant_operands.emplace_back(
+        it->first, std::make_unique<WebNNConstantOperand>(operand->descriptor,
+                                                          it->second));
+    // Destroy the `BigBuffer` immediately after copying it, to avoid ending up
+    // holding two copies of the all weights simultaneously by the last
+    // iteration of this loop.
+    it = graph_info.constant_id_to_buffer_map.erase(it);
+  }
+
+  return base::flat_map<uint64_t, std::unique_ptr<WebNNConstantOperand>>(
+      std::move(constant_operands));
 }
 
 void WebNNGraphBuilderImpl::DestroySelf() {

@@ -72,6 +72,12 @@ class TestConnectorsService : public ConnectorsServiceBase {
   PrefService* GetPrefs() override { return &prefs_; }
   const PrefService* GetPrefs() const override { return &prefs_; }
 
+  policy::CloudPolicyManager* GetManagedUserCloudPolicyManager()
+      const override {
+    NOTREACHED();
+    // return nullptr;
+  }
+
  private:
   bool connectors_enabled_ = false;
   std::optional<DmToken> machine_dm_token_;
@@ -182,20 +188,12 @@ class ConnectorsServiceBaseReportingSettingsTest
   bool reporting_enabled() const {
     return pref_value() == kNormalReportingSettingsPref;
   }
-
-  void ValidateSettings(const ReportingSettings& settings) {
-    // For now, the URL is the same for both legacy and new policies, so
-    // checking the specific URL here.  When service providers become
-    // configurable this will change.
-    ASSERT_EQ(GURL("https://chromereporting-pa.googleapis.com/v1/events"),
-              settings.reporting_url);
-  }
 };
 
 TEST_P(ConnectorsServiceBaseReportingSettingsTest, Test) {
   TestConnectorsService service;
-  // TODO(b/344593927): Re-enable this test for Android.
-#if BUILDFLAG(IS_ANDROID)
+  // TODO(b/344593927): Re-enable this test for Android and iOS
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   ASSERT_FALSE(service.GetPrefs()->FindPreference(
       "enterprise_connectors.on_security_event"));
 #else
@@ -208,10 +206,6 @@ TEST_P(ConnectorsServiceBaseReportingSettingsTest, Test) {
   auto settings =
       service.GetConnectorsManagerBase()->GetReportingSettings(connector());
   EXPECT_EQ(reporting_enabled(), settings.has_value());
-  if (settings.has_value()) {
-    ValidateSettings(settings.value());
-  }
-
   EXPECT_EQ(pref_value() == kNormalReportingSettingsPref,
             !service.GetConnectorsManagerBase()
                  ->GetReportingConnectorsSettingsForTesting()

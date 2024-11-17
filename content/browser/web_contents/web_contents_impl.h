@@ -49,6 +49,7 @@
 #include "content/browser/renderer_host/render_widget_host_delegate.h"
 #include "content/browser/renderer_host/visible_time_request_trigger.h"
 #include "content/browser/web_contents/file_chooser_impl.h"
+#include "content/browser/web_contents/slow_web_preference_cache.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/fullscreen_types.h"
 #include "content/public/browser/global_routing_id.h"
@@ -80,6 +81,7 @@
 #include "third_party/blink/public/mojom/page/display_cutout.mojom-shared.h"
 #include "third_party/blink/public/mojom/page/draggable_region.mojom-forward.h"
 #include "third_party/blink/public/mojom/page/page_visibility_state.mojom-shared.h"
+#include "ui/accessibility/ax_location_and_scroll_updates.h"
 #include "ui/accessibility/ax_mode.h"
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/platform/inspect/ax_event_recorder.h"
@@ -201,6 +203,7 @@ class CONTENT_EXPORT WebContentsImpl
       public NavigatorDelegate,
       public ui::NativeThemeObserver,
       public ui::ColorProviderSourceObserver,
+      public SlowWebPreferenceCacheObserver,
       public input::RenderWidgetHostInputEventRouter::Delegate {
  public:
   class FriendWrapper;
@@ -712,7 +715,8 @@ class CONTENT_EXPORT WebContentsImpl
   void ProcessAccessibilityUpdatesAndEvents(
       ui::AXUpdatesAndEvents& details) override;
   void AccessibilityLocationChangesReceived(
-      const std::vector<ui::AXLocationChanges>& details) override;
+      const ui::AXTreeID& tree_id,
+      ui::AXLocationAndScrollUpdates& details) override;
   ui::AXNode* GetAccessibilityRootNode() override;
   std::string DumpAccessibilityTree(
       bool internal,
@@ -951,13 +955,14 @@ class CONTENT_EXPORT WebContentsImpl
   bool IsJavaScriptDialogShowing() const override;
   bool ShouldIgnoreUnresponsiveRenderer() override;
   bool IsGuest() override;
-  void RecomputeWebPreferencesSlow() override;
   std::optional<SkColor> GetBaseBackgroundColor() override;
   void StartPrefetch(const GURL& prefetch_url,
                      bool use_prefetch_proxy,
                      const blink::mojom::Referrer& referrer,
                      const std::optional<url::Origin>& referring_origin,
-                     base::WeakPtr<PreloadingAttempt> attempt) override;
+                     base::WeakPtr<PreloadingAttempt> attempt,
+                     std::optional<PreloadingHoldbackStatus>
+                         holdback_status_override) override;
   std::unique_ptr<PrerenderHandle> StartPrerendering(
       const GURL& prerendering_url,
       PreloadingTriggerType trigger_type,
@@ -1073,6 +1078,7 @@ class CONTENT_EXPORT WebContentsImpl
                          bool should_show_handle,
                          bool should_show_context_menu) override;
   void MoveCaret(const gfx::Point& extent) override;
+  uint32_t GetCompositorFrameSinkGroupingId() const override;
   void AdjustSelectionByCharacterOffset(int start_adjust,
                                         int end_adjust,
                                         bool show_selection_menu) override;
@@ -1095,6 +1101,8 @@ class CONTENT_EXPORT WebContentsImpl
                             bool user_gesture,
                             bool last_unlocked_by_target,
                             bool privileged) override;
+  bool IsWaitingForPointerLockPrompt(
+      RenderWidgetHostImpl* render_widget_host) override;
   bool RequestKeyboardLock(RenderWidgetHostImpl* render_widget_host,
                            bool esc_key_locked) override;
   void CancelKeyboardLock(RenderWidgetHostImpl* render_widget_host) override;
@@ -1278,11 +1286,6 @@ class CONTENT_EXPORT WebContentsImpl
   void IncrementBluetoothConnectedDeviceCount();
   void DecrementBluetoothConnectedDeviceCount();
 
-  // Notifies the delegate and observers when the connected to Bluetooth device
-  // state changes.
-  void OnIsConnectedToBluetoothDeviceChanged(
-      bool is_connected_to_bluetooth_device);
-
   void IncrementBluetoothScanningSessionsCount();
   void DecrementBluetoothScanningSessionsCount();
 
@@ -1296,9 +1299,11 @@ class CONTENT_EXPORT WebContentsImpl
   void IncrementHidActiveFrameCount();
   void DecrementHidActiveFrameCount();
 
-  // Notifies the delegate and observers when the connected to USB device state
-  // changes.
-  void OnIsConnectedToUsbDeviceChanged(bool is_connected_to_usb_device);
+  // Notifies the delegate and observers when device connection types used by
+  // the WebContents change.
+  void OnDeviceConnectionTypesChanged(
+      WebContentsObserver::DeviceConnectionType device_connection_type,
+      bool used);
 
   // Modify the counter of frames in this WebContents actively using USB
   // devices.
@@ -1946,6 +1951,9 @@ class CONTENT_EXPORT WebContentsImpl
   // always return a valid ColorProvider instance.
   const ui::ColorProvider& GetColorProvider() const override;
 
+  // implements SlowWebPreferenceCacheObserver
+  void OnSlowWebPreferenceChanged() override;
+
   // Sets the visibility to |new_visibility| and propagates this to the
   // renderer side, taking into account the current capture state. This
   // can be called with the current visibility to affect capturing
@@ -1976,11 +1984,6 @@ class CONTENT_EXPORT WebContentsImpl
   void ForEachRenderViewHost(
       ForEachRenderViewHostTypes view_mask,
       RenderViewHostIterationCallback on_render_view_host);
-
-  // Sets the hardware-related fields in |prefs| that are slow to compute.  The
-  // fields are set from cache if available, otherwise recomputed.
-  void SetSlowWebPreferences(const base::CommandLine& command_line,
-                             blink::web_pref::WebPreferences* prefs);
 
   // This is the actual implementation of the various overloads of
   // |ForEachRenderFrameHost|.
@@ -2034,10 +2037,6 @@ class CONTENT_EXPORT WebContentsImpl
   // this WebContents (i.e. for WebContents::GetTitle()).
   NavigationEntry* GetNavigationEntryForTitle();
 
-  // Wrapper for ui::GetAvailablePointerAndHoverTypes which temporarily allows
-  // blocking calls required on Windows when running on touch enabled devices.
-  static std::pair<int, int> GetAvailablePointerAndHoverTypes();
-
   // Apply shared logic for SetHasPictureInPictureVideo() and
   // SetHasPictureInPictureDocument().
   void SetHasPictureInPictureCommon(bool has_picture_in_picture);
@@ -2089,7 +2088,8 @@ class CONTENT_EXPORT WebContentsImpl
 
   // This map holds widgets that were created on behalf of the renderer but
   // haven't been shown yet.
-  std::map<GlobalRoutingID, RenderWidgetHost*> pending_widgets_;
+  std::map<GlobalRoutingID, raw_ptr<RenderWidgetHost, CtnExperimental>>
+      pending_widgets_;
 
   // Watches for the destruction of items in `pending_widgets_`.
   std::map<RenderWidgetHost*,
@@ -2375,7 +2375,9 @@ class CONTENT_EXPORT WebContentsImpl
   std::unique_ptr<PepperPlaybackObserver> pepper_playback_observer_;
 #endif  // BUILDFLAG(ENABLE_PPAPI)
 
-  std::unique_ptr<input::RenderWidgetHostInputEventRouter>
+  // RenderWidgetHostInputEventRouter is uniquely owned by WebContentsImpl in
+  // the browser process.
+  scoped_refptr<input::RenderWidgetHostInputEventRouter>
       rwh_input_event_router_;
 
   std::unique_ptr<TouchEmulatorImpl> touch_emulator_;
@@ -2475,6 +2477,10 @@ class CONTENT_EXPORT WebContentsImpl
   base::ScopedObservation<ui::NativeTheme, ui::NativeThemeObserver>
       native_theme_observation_{this};
 
+  base::ScopedObservation<SlowWebPreferenceCache,
+                          SlowWebPreferenceCacheObserver>
+      slow_web_preference_cache_observation_{this};
+
   bool using_dark_colors_ = false;
   bool in_forced_colors_ = false;
   ui::NativeTheme::PreferredColorScheme preferred_color_scheme_ =
@@ -2557,6 +2563,11 @@ class CONTENT_EXPORT WebContentsImpl
   base::WeakPtr<FileChooserImpl> active_file_chooser_;
 
   std::optional<base::Location> ownership_location_;
+
+  // This id is used by Viz to create RenderWidgetHostInputEventRouter per
+  // WebContents(concept in browser) to allow grouping CompositorFrameSinks for
+  // input event routing with InputVizard.
+  const uint32_t compositor_frame_sink_grouping_id_;
 
   // Indicates if the instance is hosted in a preview window.
   // This will be set in Init() and will be reset in WillActivatePreviewPage().

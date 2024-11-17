@@ -210,10 +210,12 @@ public final class FacilitatedPaymentsPaymentMethodsViewTest {
         String expectedBankAccountSummary1 = String.format("Pix  •  %s ••••%s", "Checking", "1111");
         assertThat(getBankAccountNameAt(0).getText(), is("bankName1"));
         assertThat(getBankAccountSummaryAt(0).getText(), is(expectedBankAccountSummary1));
+        assertThat(getBankAccountAdditionalInfoAt(0).getText(), is("Limit per Pix R$ 500"));
 
         String expectedBankAccountSummary2 = String.format("Pix  •  %s ••••%s", "Savings", "2222");
         assertThat(getBankAccountNameAt(1).getText(), is("bankName2"));
         assertThat(getBankAccountSummaryAt(1).getText(), is(expectedBankAccountSummary2));
+        assertThat(getBankAccountAdditionalInfoAt(1).getText(), is("Limit per Pix R$ 500"));
     }
 
     @Test
@@ -233,11 +235,7 @@ public final class FacilitatedPaymentsPaymentMethodsViewTest {
         assertThat(
                 descriptionLine1.getText(),
                 hasToString(
-                        containsString(
-                                "By continuing, you agree to have your precise device location"
-                                    + " collected and shared with your account holder for fraud"
-                                    + " prevention purposes. To turn off Pix in Chrome, go to your"
-                                    + " payment settings")));
+                        containsString("To turn off Pix in Chrome, go to your payment settings")));
     }
 
     @Test
@@ -398,6 +396,10 @@ public final class FacilitatedPaymentsPaymentMethodsViewTest {
 
     private TextView getBankAccountSummaryAt(int index) {
         return getBankAccounts().getChildAt(index).findViewById(R.id.bank_account_summary);
+    }
+
+    private TextView getBankAccountAdditionalInfoAt(int index) {
+        return getBankAccounts().getChildAt(index).findViewById(R.id.bank_account_additional_info);
     }
 
     private static boolean containsViewOfClass(ViewGroup parent, Class<?> clazz) {

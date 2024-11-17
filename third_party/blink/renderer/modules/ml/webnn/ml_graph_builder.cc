@@ -46,11 +46,11 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_recurrent_network_activation.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_reduce_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_resample_2d_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_scatter_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_split_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_transpose_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_triangular_options.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
-#include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer_view.h"
 #include "third_party/blink/renderer/modules/ml/ml_context.h"
 #include "third_party/blink/renderer/modules/ml/webnn/ml_constant_operand.h"
@@ -92,16 +92,6 @@ namespace {
 
 constexpr char kGraphAlreadyBuiltError[] =
     "This MLGraphBuilder has already built a graph.";
-
-void LogConsoleWarning(ScriptState* script_state, const String& message) {
-  ExecutionContext* execution_context = ExecutionContext::From(script_state);
-  if (!execution_context) {
-    return;
-  }
-  execution_context->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-      mojom::blink::ConsoleMessageSource::kJavaScript,
-      mojom::blink::ConsoleMessageLevel::kWarning, message));
-}
 
 webnn::InputOperandLayout BlinkInputOperandLayoutToComponent(
     blink::V8MLInputOperandLayout::Enum type) {
@@ -1029,6 +1019,7 @@ MLGraphBuilder::~MLGraphBuilder() = default;
 void MLGraphBuilder::Trace(Visitor* visitor) const {
   visitor->Trace(ml_context_);
   visitor->Trace(remote_);
+  visitor->Trace(constant_operands_);
   visitor->Trace(pending_resolver_);
   ScriptWrappable::Trace(visitor);
 }
@@ -1037,13 +1028,17 @@ MLContext* MLGraphBuilder::GetContext() const {
   return ml_context_.Get();
 }
 
-MLOperand* MLGraphBuilder::input(String name,
+MLOperand* MLGraphBuilder::input(ScriptState* script_state,
+                                 String name,
                                  const MLOperandDescriptor* desc,
                                  ExceptionState& exception_state) {
   THROW_AND_RETURN_IF_ERROR(ValidateGraphBuilderState(), nullptr);
 
+  ASSIGN_OR_THROW_AND_RETURN_IF_ERROR(
+      Vector<uint32_t> shape, GetShapeFromDescriptor(script_state, *desc));
+
   auto input_operand = MLOperand::ValidateAndCreateInput(
-      this, desc->dataType().AsEnum(), desc->dimensions(), std::move(name));
+      this, desc->dataType().AsEnum(), std::move(shape), std::move(name));
   if (!input_operand.has_value()) {
     exception_state.ThrowTypeError(input_operand.error());
     return nullptr;
@@ -1060,7 +1055,8 @@ MLOperand* MLGraphBuilder::input(String name,
   return input_operand.value();
 }
 
-MLOperand* MLGraphBuilder::constant(const MLOperandDescriptor* desc,
+MLOperand* MLGraphBuilder::constant(ScriptState* script_state,
+                                    const MLOperandDescriptor* desc,
                                     NotShared<DOMArrayBufferView> buffer_view,
                                     ExceptionState& exception_state) {
   CHECK(buffer_view);
@@ -1068,9 +1064,12 @@ MLOperand* MLGraphBuilder::constant(const MLOperandDescriptor* desc,
   THROW_AND_RETURN_IF_ERROR(ValidateGraphBuilderState(), nullptr);
 
   ASSIGN_OR_THROW_AND_RETURN_IF_ERROR(
+      Vector<uint32_t> shape, GetShapeFromDescriptor(script_state, *desc));
+
+  ASSIGN_OR_THROW_AND_RETURN_IF_ERROR(
       webnn::OperandDescriptor descriptor,
       webnn::OperandDescriptor::Create(
-          FromBlinkDataType(desc->dataType().AsEnum()), desc->dimensions()));
+          FromBlinkDataType(desc->dataType().AsEnum()), shape));
 
   if (GetArrayBufferViewType(descriptor.data_type()) !=
       buffer_view->GetType()) {
@@ -1095,8 +1094,10 @@ MLOperand* MLGraphBuilder::constant(const MLOperandDescriptor* desc,
     return nullptr;
   }
 
-  return MakeGarbageCollected<MLConstantOperand>(this, std::move(descriptor),
+  auto* constant_operand = MakeGarbageCollected<MLConstantOperand>(this, std::move(descriptor),
                                                  buffer_view->ByteSpan());
+  constant_operands_.push_back(constant_operand);
+  return constant_operand;
 }
 
 MLOperand* MLGraphBuilder::argMin(const MLOperand* input,
@@ -1300,52 +1301,39 @@ MLOperand* MLGraphBuilder::cumulativeSum(const MLOperand* input,
   return output;
 }
 
-#define BUILD_ELEMENTWISE_BINARY_OP(op, op_kind)                        \
-  MLOperand* MLGraphBuilder::op(const MLOperand* a, const MLOperand* b, \
-                                const MLOperatorOptions* options,       \
-                                ExceptionState& exception_state) {      \
-    THROW_AND_RETURN_IF_ERROR(ValidateGraphBuilderState(), nullptr);    \
-    THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInputs({a, b}), nullptr);    \
-    return BuildElementWiseBinary(                                      \
-        this, webnn::mojom::blink::ElementWiseBinary::Kind::op_kind,    \
-        ml_context_->GetProperties().data_type_limits.op##_input, a, b, \
-        options, exception_state);                                      \
+// Macro to define the function for an elementwise binary op. `op_camel` is the
+// name of the op in camel case. `op_snake` is the name of the op in snake case.
+// `op_kind` is the corresponding `ElementWiseBinary::Kind` enum. We need to
+// separately specify the camel case and the snake case name because the
+// function name is in camel case, while the corresponding `DataTypeLimits`
+// field is in snake case.
+#define BUILD_ELEMENTWISE_BINARY_OP(op_camel, op_snake, op_kind)              \
+  MLOperand* MLGraphBuilder::op_camel(const MLOperand* a, const MLOperand* b, \
+                                      const MLOperatorOptions* options,       \
+                                      ExceptionState& exception_state) {      \
+    THROW_AND_RETURN_IF_ERROR(ValidateGraphBuilderState(), nullptr);          \
+    THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInputs({a, b}), nullptr);          \
+    return BuildElementWiseBinary(                                            \
+        this, webnn::mojom::blink::ElementWiseBinary::Kind::op_kind,          \
+        ml_context_->GetProperties().data_type_limits.op_snake##_input, a, b, \
+        options, exception_state);                                            \
   }
 
-BUILD_ELEMENTWISE_BINARY_OP(add, kAdd)
-BUILD_ELEMENTWISE_BINARY_OP(sub, kSub)
-BUILD_ELEMENTWISE_BINARY_OP(mul, kMul)
-BUILD_ELEMENTWISE_BINARY_OP(div, kDiv)
-BUILD_ELEMENTWISE_BINARY_OP(min, kMin)
-BUILD_ELEMENTWISE_BINARY_OP(max, kMax)
-BUILD_ELEMENTWISE_BINARY_OP(pow, kPow)
-BUILD_ELEMENTWISE_BINARY_OP(equal, kEqual)
-BUILD_ELEMENTWISE_BINARY_OP(greater, kGreater)
-BUILD_ELEMENTWISE_BINARY_OP(lesser, kLesser)
-
-MLOperand* MLGraphBuilder::greaterOrEqual(const MLOperand* a,
-                                          const MLOperand* b,
-                                          const MLOperatorOptions* options,
-                                          ExceptionState& exception_state) {
-  THROW_AND_RETURN_IF_ERROR(ValidateGraphBuilderState(), nullptr);
-  THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInputs({a, b}), nullptr);
-  return BuildElementWiseBinary(
-      this, webnn::mojom::blink::ElementWiseBinary::Kind::kGreaterOrEqual,
-      ml_context_->GetProperties().data_type_limits.greater_or_equal_input, a,
-      b, options, exception_state);
-}
-
-MLOperand* MLGraphBuilder::lesserOrEqual(const MLOperand* a,
-                                         const MLOperand* b,
-                                         const MLOperatorOptions* options,
-                                         ExceptionState& exception_state) {
-  THROW_AND_RETURN_IF_ERROR(ValidateGraphBuilderState(), nullptr);
-  THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInputs({a, b}), nullptr);
-  return BuildElementWiseBinary(
-      this, webnn::mojom::blink::ElementWiseBinary::Kind::kLesserOrEqual,
-      ml_context_->GetProperties().data_type_limits.lesser_or_equal_input, a, b,
-      options, exception_state);
-}
+BUILD_ELEMENTWISE_BINARY_OP(add, add, kAdd)
+BUILD_ELEMENTWISE_BINARY_OP(sub, sub, kSub)
+BUILD_ELEMENTWISE_BINARY_OP(mul, mul, kMul)
+BUILD_ELEMENTWISE_BINARY_OP(div, div, kDiv)
+BUILD_ELEMENTWISE_BINARY_OP(min, min, kMin)
+BUILD_ELEMENTWISE_BINARY_OP(max, max, kMax)
+BUILD_ELEMENTWISE_BINARY_OP(pow, pow, kPow)
+BUILD_ELEMENTWISE_BINARY_OP(equal, equal, kEqual)
+BUILD_ELEMENTWISE_BINARY_OP(greater, greater, kGreater)
+BUILD_ELEMENTWISE_BINARY_OP(lesser, lesser, kLesser)
+BUILD_ELEMENTWISE_BINARY_OP(greaterOrEqual, greater_or_equal, kGreaterOrEqual)
+BUILD_ELEMENTWISE_BINARY_OP(lesserOrEqual, lesser_or_equal, kLesserOrEqual)
+BUILD_ELEMENTWISE_BINARY_OP(logicalAnd, logical_and, kLogicalAnd)
+BUILD_ELEMENTWISE_BINARY_OP(logicalOr, logical_or, kLogicalOr)
+BUILD_ELEMENTWISE_BINARY_OP(logicalXor, logical_xor, kLogicalXor)
 
 #define BUILD_ELEMENTWISE_UNARY_OP(op, op_kind)                          \
   MLOperand* MLGraphBuilder::op(const MLOperand* input,                  \
@@ -1589,6 +1577,30 @@ MLOperand* MLGraphBuilder::gatherElements(const MLOperand* input,
       this, std::move(output_descriptor), gather_elements);
 
   gather_elements->Connect(std::move(inputs), {output});
+  return output;
+}
+
+MLOperand* MLGraphBuilder::gatherND(const MLOperand* input,
+                                    const MLOperand* indices,
+                                    const MLOperatorOptions* options,
+                                    ExceptionState& exception_state) {
+  THROW_AND_RETURN_IF_ERROR(ValidateGraphBuilderState(), nullptr);
+
+  HeapVector<Member<const MLOperand>> inputs = {input, indices};
+  THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInputs(inputs), nullptr);
+
+  ASSIGN_OR_THROW_AND_RETURN_IF_ERROR(
+      webnn::OperandDescriptor output_descriptor,
+      webnn::ValidateGatherNDAndInferOutput(
+          ml_context_->GetProperties(), input->Descriptor(),
+          indices->Descriptor(), options->label().Utf8()));
+
+  auto* gather_nd = MakeGarbageCollected<MLOperator>(
+      this, webnn::mojom::blink::Operation::Tag::kGatherNd, options);
+  MLOperand* output =
+      MLOperand::CreateOutput(this, std::move(output_descriptor), gather_nd);
+
+  gather_nd->Connect(std::move(inputs), {output});
   return output;
 }
 
@@ -2265,6 +2277,32 @@ MLOperand* MLGraphBuilder::resample2d(ScriptState* script_state,
   return output;
 }
 
+MLOperand* MLGraphBuilder::scatterElements(const MLOperand* input,
+                                           const MLOperand* indices,
+                                           const MLOperand* updates,
+                                           const MLScatterOptions* options,
+                                           ExceptionState& exception_state) {
+  THROW_AND_RETURN_IF_ERROR(ValidateGraphBuilderState(), nullptr);
+
+  HeapVector<Member<const MLOperand>> inputs = {input, indices, updates};
+  THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInputs(inputs), nullptr);
+
+  ASSIGN_OR_THROW_AND_RETURN_IF_ERROR(
+      webnn::OperandDescriptor output_descriptor,
+      webnn::ValidateScatterElementsAndInferOutput(
+          ml_context_->GetProperties(), input->Descriptor(),
+          indices->Descriptor(), updates->Descriptor(), options->axis(),
+          options->label().Utf8()));
+
+  auto* scatter_elements = MakeGarbageCollected<MLOperator>(
+      this, webnn::mojom::blink::Operation::Tag::kScatterElements, options);
+  MLOperand* output = MLOperand::CreateOutput(
+      this, std::move(output_descriptor), scatter_elements);
+
+  scatter_elements->Connect(std::move(inputs), {output});
+  return output;
+}
+
 MLOperand* MLGraphBuilder::scatterND(const MLOperand* input,
                                      const MLOperand* indices,
                                      const MLOperand* updates,
@@ -2630,6 +2668,10 @@ ScriptPromise<MLGraph> MLGraphBuilder::build(
   // Set `has_built_` after all inputs have been validated.
   has_built_ = true;
 
+  // Release constant data held by the renderer now that it has been copied to
+  // the remote graph.
+  ReleaseConstantData();
+
   pending_resolver_ = MakeGarbageCollected<ScriptPromiseResolver<MLGraph>>(
       script_state, exception_state.GetContext());
 
@@ -2677,6 +2719,8 @@ void MLGraphBuilder::DidCreateWebNNGraph(
 void MLGraphBuilder::OnConnectionError() {
   remote_.reset();
 
+  ReleaseConstantData();
+
   if (pending_resolver_) {
     pending_resolver_->RejectWithDOMException(
         DOMExceptionCode::kInvalidStateError, "Context is lost.");
@@ -2710,6 +2754,13 @@ base::expected<void, String> MLGraphBuilder::ValidateInputs(
     RETURN_IF_ERROR(ValidateInput(input_to_validate));
   }
   return base::ok();
+}
+
+void MLGraphBuilder::ReleaseConstantData() {
+  base::ranges::for_each(constant_operands_, [](auto& constant_operand) {
+    constant_operand->ReleaseBytes();
+  });
+  constant_operands_.clear();
 }
 
 }  // namespace blink

@@ -69,6 +69,18 @@ if (android_64bit_target_cpu) {
       "//third_party/chromium-variations",
     ]
   }
+
+  if (!skip_secondary_abi_for_cq) {
+    python_library("webview_trichrome_64_32_cts_tests") {
+      pydeps_file = "//android_webview/tools/run_cts.pydeps"
+      deps = [ "//android_webview:trichrome_webview_64_32_apk" ]
+      data_deps = [ "//build/android:test_runner_py" ]
+      data = [
+        "//android_webview/tools/cts_config/",
+        "//third_party/chromium-variations",
+      ]
+    }
+  }
 }
 
 script_test("system_webview_crx_smoke_tests") {
@@ -82,22 +94,41 @@ script_test("system_webview_crx_smoke_tests") {
   ]
 }
 
+# Options shared by all script test targets that call `run_wpt_tests.py`.
+_common_web_test_options = [
+  "--no-show-results",
+  "--zero-tests-executed-ok",
+]
+if (is_debug) {
+  _common_web_test_options += [ "--debug" ]
+} else {
+  _common_web_test_options += [ "--release" ]
+}
+base_out_dir = rebase_path(get_path_info(root_build_dir, "dir"), "../../.")
+out_dir = get_path_info(root_build_dir, "name")
+_common_web_test_options += [
+  "--build-directory",
+  base_out_dir,
+  "--target",
+  out_dir,
+]
+
 script_test("system_webview_wpt") {
   script = "//third_party/blink/tools/run_wpt_tests.py"
-  args = [
-    "--product",
-    "android_webview",
-    "--test-type",
-    "testharness",
-    "reftest",
-    "crashtest",
-    "print-reftest",
-    "--zero-tests-executed-ok",
-    "--webview-provider",
-    "@WrappedPath(apks/SystemWebView.apk)",
-    "--browser-apk",
-    "@WrappedPath(apks/SystemWebViewShell.apk)",
-  ]
+  args = _common_web_test_options + [
+           "--product",
+           "android_webview",
+           "--test-type",
+           "testharness",
+           "reftest",
+           "crashtest",
+           "print-reftest",
+           "--zero-tests-executed-ok",
+           "--webview-provider",
+           "@WrappedPath(apks/SystemWebView.apk)",
+           "--browser-apk",
+           "@WrappedPath(apks/SystemWebViewShell.apk)",
+         ]
   data = [
     "//third_party/blink/web_tests/platform/webview/",
     "//third_party/blink/web_tests/MobileTestExpectations",
@@ -112,22 +143,22 @@ script_test("system_webview_wpt") {
 
 script_test("trichrome_webview_wpt") {
   script = "//third_party/blink/tools/run_wpt_tests.py"
-  args = [
-    "--product",
-    "android_webview",
-    "--test-type",
-    "testharness",
-    "reftest",
-    "crashtest",
-    "print-reftest",
-    "--zero-tests-executed-ok",
-    "--webview-provider",
-    "@WrappedPath(apks/TrichromeWebView.apk)",
-    "--browser-apk",
-    "@WrappedPath(apks/SystemWebViewShell.apk)",
-    "--additional-apk",
-    "@WrappedPath(apks/TrichromeLibrary.apk)",
-  ]
+  args = _common_web_test_options + [
+           "--product",
+           "android_webview",
+           "--test-type",
+           "testharness",
+           "reftest",
+           "crashtest",
+           "print-reftest",
+           "--zero-tests-executed-ok",
+           "--webview-provider",
+           "@WrappedPath(apks/TrichromeWebView.apk)",
+           "--browser-apk",
+           "@WrappedPath(apks/SystemWebViewShell.apk)",
+           "--additional-apk",
+           "@WrappedPath(apks/TrichromeLibrary.apk)",
+         ]
   data = [
     "//third_party/blink/web_tests/platform/webview/",
     "//third_party/blink/web_tests/MobileTestExpectations",
@@ -143,22 +174,22 @@ script_test("trichrome_webview_wpt") {
 if (android_64bit_target_cpu) {
   script_test("trichrome_webview_wpt_64") {
     script = "//third_party/blink/tools/run_wpt_tests.py"
-    args = [
-      "--product",
-      "android_webview",
-      "--test-type",
-      "testharness",
-      "reftest",
-      "crashtest",
-      "print-reftest",
-      "--zero-tests-executed-ok",
-      "--webview-provider",
-      "@WrappedPath(apks/TrichromeWebView64.apk)",
-      "--browser-apk",
-      "@WrappedPath(apks/SystemWebViewShell.apk)",
-      "--additional-apk",
-      "@WrappedPath(apks/TrichromeLibrary64.apk)",
-    ]
+    args = _common_web_test_options + [
+             "--product",
+             "android_webview",
+             "--test-type",
+             "testharness",
+             "reftest",
+             "crashtest",
+             "print-reftest",
+             "--zero-tests-executed-ok",
+             "--webview-provider",
+             "@WrappedPath(apks/TrichromeWebView64.apk)",
+             "--browser-apk",
+             "@WrappedPath(apks/SystemWebViewShell.apk)",
+             "--additional-apk",
+             "@WrappedPath(apks/TrichromeLibrary64.apk)",
+           ]
     data = [
       "//third_party/blink/web_tests/platform/webview/",
       "//third_party/blink/web_tests/MobileTestExpectations",
@@ -305,6 +336,7 @@ base_webview_instrumentation_test_apk("webview_instrumentation_test_apk") {
     "//third_party/androidx_javascriptengine:javascriptengine_common_java",
     "//third_party/androidx_javascriptengine:javascriptengine_java",
     "//ui/accessibility:ax_base_java",
+    "//ui/base/mojom:ui_base_types_java",
   ]
   sources = [
     "../javatests/src/org/chromium/android_webview/test/AcceptLanguageTest.java",
@@ -318,6 +350,7 @@ base_webview_instrumentation_test_apk("webview_instrumentation_test_apk") {
     "../javatests/src/org/chromium/android_webview/test/AwAutofillTest.java",
     "../javatests/src/org/chromium/android_webview/test/AwBackForwardCacheTest.java",
     "../javatests/src/org/chromium/android_webview/test/AwBrowserContextFormDataTest.java",
+    "../javatests/src/org/chromium/android_webview/test/AwClipboardTest.java",
     "../javatests/src/org/chromium/android_webview/test/AwContentCaptureTest.java",
     "../javatests/src/org/chromium/android_webview/test/AwContentsAnchorViewTest.java",
     "../javatests/src/org/chromium/android_webview/test/AwContentsClientAutoLoginTest.java",
@@ -581,9 +614,12 @@ test("android_webview_unittests") {
     "//components/embedder_support/android:util",
     "//components/embedder_support/android/metrics:metrics",
     "//components/flags_ui:flags_ui",
-    "//components/ip_protection:browser",
-    "//components/ip_protection:ip_protection",
     "//components/ip_protection:unit_tests",
+    "//components/ip_protection/android:blind_sign_message_android_impl",
+    "//components/ip_protection/common:ip_protection_core_host_helper",
+    "//components/ip_protection/common:ip_protection_data_types",
+    "//components/ip_protection/common:ip_protection_proxy_config_direct_fetcher",
+    "//components/ip_protection/common:mock_blind_sign_auth",
     "//components/metrics",
     "//components/metrics:component_metrics",
     "//components/metrics:content",
@@ -629,6 +665,7 @@ test("android_webview_unittests") {
     "../browser/aw_permission_manager_unittest.cc",
     "../browser/aw_user_agent_metadata_unittest.cc",
     "../browser/enterprise_authentication_app_link_policy_handler_unittest.cc",
+    "../browser/file_system_access/aw_file_system_access_permission_context_unittest.cc",
     "../browser/gfx/begin_frame_source_webview_unittest.cc",
     "../browser/gfx/browser_view_renderer_unittest.cc",
     "../browser/gfx/test/fake_window.cc",

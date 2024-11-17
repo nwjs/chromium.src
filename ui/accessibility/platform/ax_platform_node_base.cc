@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <utility>
 
+#include "base/memory/raw_ptr.h"
 #include "base/no_destructor.h"
 #include "base/numerics/checked_math.h"
 #include "base/ranges/algorithm.h"
@@ -26,6 +27,8 @@
 #include "build/build_config.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/accessibility/ax_action_data.h"
+#include "ui/accessibility/ax_enums.mojom-shared-internal.h"
+#include "ui/accessibility/ax_enums.mojom-shared.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/accessibility/ax_role_properties.h"
@@ -76,7 +79,8 @@ bool FindDescendantRoleWithMaxDepth(const AXPlatformNodeBase* node,
 }
 
 // Map from each AXPlatformNode's unique id to its instance.
-using UniqueIdMap = std::unordered_map<int32_t, AXPlatformNode*>;
+using UniqueIdMap =
+    std::unordered_map<int32_t, raw_ptr<AXPlatformNode, CtnExperimental>>;
 base::LazyInstance<UniqueIdMap>::Leaky g_unique_id_map =
     LAZY_INSTANCE_INITIALIZER;
 
@@ -808,31 +812,11 @@ bool AXPlatformNodeBase::GetStringListAttribute(
   return delegate_->GetStringListAttribute(attribute, value);
 }
 
-bool AXPlatformNodeBase::HasHtmlAttribute(const char* attribute) const {
-  if (!delegate_)
-    return false;
-  return delegate_->HasHtmlAttribute(attribute);
-}
-
 const base::StringPairs& AXPlatformNodeBase::GetHtmlAttributes() const {
   static const base::NoDestructor<base::StringPairs> empty_data;
   if (!delegate_)
     return *empty_data;
   return delegate_->GetHtmlAttributes();
-}
-
-bool AXPlatformNodeBase::GetHtmlAttribute(const char* attribute,
-                                          std::string* value) const {
-  if (!delegate_)
-    return false;
-  return delegate_->GetHtmlAttribute(attribute, value);
-}
-
-bool AXPlatformNodeBase::GetHtmlAttribute(const char* attribute,
-                                          std::u16string* value) const {
-  if (!delegate_)
-    return false;
-  return delegate_->GetHtmlAttribute(attribute, value);
 }
 
 AXTextAttributes AXPlatformNodeBase::GetTextAttributes() const {
@@ -1539,21 +1523,18 @@ void AXPlatformNodeBase::ComputeAttributes(PlatformAttributeList* attributes) {
     AddAttributeToList("class", class_attr, attributes);
   }
 
-  // Expose datetime attribute.
-  std::string datetime;
-  if (GetRole() == ax::mojom::Role::kTime &&
-      GetHtmlAttribute("datetime", &datetime)) {
-    AddAttributeToList("datetime", datetime, attributes);
-  }
+  // Expose machine-readable datetime attribute on <time>, <ins> and <del>.
+  AddAttributeToList(ax::mojom::StringAttribute::kDateTime, "datetime",
+                     attributes);
 
   std::string id;
   if (delegate_->GetStringAttribute(ax::mojom::StringAttribute::kHtmlId, &id)) {
     AddAttributeToList("id", id, attributes);
   }
 
-  // Expose src attribute.
   std::string src;
-  if (GetRole() == ax::mojom::Role::kImage && GetHtmlAttribute("src", &src)) {
+  if (IsImage(GetRole()) &&
+      GetStringAttribute(ax::mojom::StringAttribute::kUrl, &src)) {
     AddAttributeToList("src", src, attributes);
   }
 
@@ -1601,12 +1582,39 @@ void AXPlatformNodeBase::ComputeAttributes(PlatformAttributeList* attributes) {
                        "text-input-type", attributes);
   }
 
+  // Expose details-from.
+  int details_from;
+  if (GetIntAttribute(ax::mojom::IntAttribute::kDetailsFrom, &details_from)) {
+    switch (static_cast<ax::mojom::DetailsFrom>(details_from)) {
+      case ax::mojom::DetailsFrom::kAriaDetails:
+        AddAttributeToList("details-from", "aria-details", attributes);
+        break;
+      case ax::mojom::DetailsFrom::kCssAnchor:
+        AddAttributeToList("details-from", "css-anchor", attributes);
+        break;
+      case ax::mojom::DetailsFrom::kPopoverAttribute:
+        AddAttributeToList("details-from", "popover-attribute", attributes);
+        break;
+    }
+  }
+
   std::string details_roles = ComputeDetailsRoles();
   if (!details_roles.empty())
     AddAttributeToList("details-roles", details_roles, attributes);
 
   if (IsLink(GetRole())) {
     AddAttributeToList(ax::mojom::StringAttribute::kLinkTarget, "link-target",
+                       attributes);
+  }
+
+  // MathML content.
+  AddAttributeToList(ax::mojom::StringAttribute::kMathContent, "math",
+                     attributes);
+
+  // The maxlength of an input.
+  // TODO(https://github.com/w3c/aria/issues/1119): consider aria-maxlength.
+  if (int max_length = GetIntAttribute(ax::mojom::IntAttribute::kMaxLength)) {
+    AddAttributeToList("maxlength", base::NumberToString(max_length),
                        attributes);
   }
 }

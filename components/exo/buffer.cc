@@ -569,7 +569,7 @@ Buffer::Buffer(gfx::GpuMemoryBufferHandle gpu_memory_buffer_handle,
       y_invert_(y_invert),
       wait_for_release_delay_(base::Milliseconds(kWaitForReleaseDelayMs)) {}
 
-Buffer::~Buffer() {}
+Buffer::~Buffer() = default;
 
 // static
 std::unique_ptr<Buffer> Buffer::CreateBufferFromGMBHandle(
@@ -973,10 +973,8 @@ SkBitmap Buffer::CreateBitmap() {
   SkImageInfo image_info = SkImageInfo::Make(size.width(), size.height(),
                                              color_type, kPremul_SkAlphaType);
 
-  SkPixmap pixmap =
-      SkPixmap(image_info, mapping->Memory(0), mapping->Stride(0));
   bitmap.allocPixels(image_info);
-  bitmap.writePixels(pixmap);
+  bitmap.writePixels(mapping->GetSkPixmapForPlane(0, image_info));
   bitmap.setImmutable();
   mapping.reset();
 

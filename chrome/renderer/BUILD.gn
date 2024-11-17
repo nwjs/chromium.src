@@ -130,6 +130,7 @@ static_library("renderer") {
 
   public_deps = [
     "//components/contextual_search:buildflags",
+    "//components/fingerprinting_protection_filter/renderer",
     "//components/signin/public/base:signin_buildflags",
   ]
 
@@ -145,7 +146,6 @@ static_library("renderer") {
     "//chrome/common/cart:mojo_bindings",
     "//chrome/common/net",
     "//chrome/common/search:mojo_bindings",
-    "//chrome/renderer/companion/visual_query",
     "//chrome/services/speech/buildflags",
     "//components/autofill/content/renderer",
     "//components/autofill/core/common:features",
@@ -166,6 +166,7 @@ static_library("renderer") {
     "//components/facilitated_payments/core/features",
     "//components/feed:feature_list",
     "//components/feed/content/renderer:feed_renderer",
+    "//components/fingerprinting_protection_filter/browser",
     "//components/google/core/common",
     "//components/heap_profiling/in_process",
     "//components/history_clusters/core",

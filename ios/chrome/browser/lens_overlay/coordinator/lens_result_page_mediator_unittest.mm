@@ -6,6 +6,8 @@
 
 #import "base/memory/raw_ptr.h"
 #import "base/test/scoped_feature_list.h"
+#import "components/variations/scoped_variations_ids_provider.h"
+#import "components/variations/variations_ids_provider.h"
 #import "ios/chrome/browser/lens_overlay/ui/lens_result_page_consumer.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
@@ -38,16 +40,15 @@ class LensResultPageMediatorTest : public PlatformTest {
  public:
   LensResultPageMediatorTest() {
     // AuthenticationService in required in AttachTabHelpers.
-    TestChromeBrowserState::Builder builder;
+    TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
         AuthenticationServiceFactory::GetDefaultFactory());
-    browser_state_ = std::move(builder).Build();
-    AuthenticationServiceFactory::CreateAndInitializeForBrowserState(
-        browser_state_.get(),
-        std::make_unique<FakeAuthenticationServiceDelegate>());
+    profile_ = std::move(builder).Build();
+    AuthenticationServiceFactory::CreateAndInitializeForProfile(
+        profile_.get(), std::make_unique<FakeAuthenticationServiceDelegate>());
 
-    web::WebState::CreateParams params(browser_state_.get());
+    web::WebState::CreateParams params(profile_.get());
     mediator_ = [[LensResultPageMediator alloc]
          initWithWebStateParams:params
         browserWebStateDelegate:&browser_web_state_delegate_
@@ -101,7 +102,7 @@ class LensResultPageMediatorTest : public PlatformTest {
   // Replaces the web state from LensResultPageMediator with a fake one.
   void AttachFakeWebState() {
     auto web_state = std::make_unique<web::FakeWebState>();
-    web_state->SetBrowserState(browser_state_.get());
+    web_state->SetBrowserState(profile_.get());
     web_state->SetIsRealized(true);
     web_state->SetWebFramesManager(
         web::ContentWorld::kAllContentWorlds,
@@ -119,43 +120,58 @@ class LensResultPageMediatorTest : public PlatformTest {
     [mediator_ attachWebState:std::move(web_state)];
   }
 
+  // Returns the fake navigation manager from the fake web state.
+  web::FakeNavigationManager* GetFakeNavigationManager() {
+    return static_cast<web::FakeNavigationManager*>(
+        fake_web_state_->GetNavigationManager());
+  }
+
  protected:
   web::WebTaskEnvironment task_environment_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
+  variations::ScopedVariationsIdsProvider scoped_variations_ids_provider_{
+      variations::VariationsIdsProvider::Mode::kUseSignedInState};
 
   LensResultPageMediator* mediator_;
-  std::unique_ptr<TestChromeBrowserState> browser_state_;
+  std::unique_ptr<TestProfileIOS> profile_;
   web::FakeWebStateDelegate browser_web_state_delegate_;
   OCMockObject<LensResultPageConsumer>* mock_consumer_;
   OCMockObject<ApplicationCommands>* mock_application_handler_;
 
   // Call `AttachFakeWebState()` to use `fake_web_state_`.
-  web::FakeWebState* fake_web_state_;
+  raw_ptr<web::FakeWebState> fake_web_state_;
 };
 
 // Tests that the mediator starts a navigation when loadResultsURL is called.
 TEST_F(LensResultPageMediatorTest, ShouldStartNavigationWhenLoadingResultsURL) {
+  ASSERT_EQ(variations::VariationsIdsProvider::ForceIdsResult::SUCCESS,
+            variations::VariationsIdsProvider::GetInstance()->ForceVariationIds(
+                /*variation_ids=*/{"100"}, /*command_line_variation_ids=*/""));
+  AttachFakeWebState();
   GURL result_url = GURL("https://www.google.com");
 
   // Expect that the light mode query param is added to the URL.
-  mediator_.isDarkMode = NO;
+  [mediator_ setIsDarkMode:NO];
   [mediator_ loadResultsURL:result_url];
   GURL light_mode_url = GURL("https://www.google.com?cs=0");
-  EXPECT_EQ(browser_web_state_delegate_.last_open_url_request()->params.url,
-            light_mode_url);
+  EXPECT_TRUE(GetFakeNavigationManager()->LoadURLWithParamsWasCalled());
+  std::optional<web::NavigationManager::WebLoadParams> load_params =
+      GetFakeNavigationManager()->GetLastLoadURLWithParams();
+  ASSERT_TRUE(load_params.has_value());
+  EXPECT_EQ(load_params->url, light_mode_url);
+  // Expect that the client data header is added to the request.
+  ASSERT_TRUE([load_params->extra_headers objectForKey:@"X-Client-Data"]);
 
   // Expect that the dark mode query param is added to the URL.
-  mediator_.isDarkMode = YES;
+  [mediator_ setIsDarkMode:YES];
   [mediator_ loadResultsURL:result_url];
   GURL dark_mode_url = GURL("https://www.google.com?cs=1");
-  EXPECT_EQ(browser_web_state_delegate_.last_open_url_request()->params.url,
-            dark_mode_url);
-}
-
-// Tests that web navigation to google is allowed.
-TEST_F(LensResultPageMediatorTest, ShouldAllowGoogleNavigation) {
-  EXPECT_TRUE(TestShouldAllowRequest(@"https://www.google.com",
-                                     /*target_frame_is_main=*/true));
+  EXPECT_TRUE(GetFakeNavigationManager()->LoadURLWithParamsWasCalled());
+  load_params = GetFakeNavigationManager()->GetLastLoadURLWithParams();
+  ASSERT_TRUE(load_params.has_value());
+  EXPECT_EQ(load_params->url, dark_mode_url);
+  // Expect that the client data header is added to the request.
+  ASSERT_TRUE([load_params->extra_headers objectForKey:@"X-Client-Data"]);
 }
 
 // Tests that other navigation is not allowed but opens a new tab.

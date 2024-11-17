@@ -429,22 +429,6 @@ BASE_FEATURE(kPlatformAudioEncoder,
 #endif
 );
 
-// If enabled, RTCVideoDecoderAdapter will wrap a DecoderStream as a video
-// decoder, rather than using MojoVideoDecoder.  This causes the RTC external
-// decoder to have all the decoder selection / fallback/forward logic of the
-// non-RTC pipeline.
-// TODO(liberato): This also causes the external decoder to use software
-// decoding sometimes, which changes the interpretation of "ExternalDecoder".
-BASE_FEATURE(kUseDecoderStreamForWebRTC,
-             "UseDecoderStreamForWebRTC",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If enabled, when RTCVideoDecoderAdapter is used then SW decoders will be
-// exposed directly to WebRTC.
-BASE_FEATURE(kExposeSwDecodersToWebRTC,
-             "ExposeSwDecodersToWebRTC",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // CDM host verification is enabled by default. Can be disabled for testing.
 // Has no effect if ENABLE_CDM_HOST_VERIFICATION buildflag is false.
 BASE_FEATURE(kCdmHostVerification,
@@ -481,7 +465,7 @@ BASE_FEATURE(kContextMenuSaveVideoFrameAs,
 // Enables the "Search Video Frame with <Search Provider>" context menu item.
 BASE_FEATURE(kContextMenuSearchForVideoFrame,
              "ContextMenuSearchForVideoFrame",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(CHROME_WIDE_ECHO_CANCELLATION)
 // If echo cancellation for a mic signal is requested, mix and cancel all audio
@@ -647,6 +631,14 @@ BASE_FEATURE(kDeferAudioFocusUntilAudible,
 #endif
 );
 
+#if !BUILDFLAG(IS_ANDROID)
+// Allow document picture-in-picture to navigate.  This should be disabled
+// except for testing.
+BASE_FEATURE(kDocumentPictureInPictureNavigation,
+             "DocumentPictureInPictureNavigation",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // !BUILDFLAG(IS_ANDROID)
+
 // Adds an animation to document picture-in-picture resizes.
 BASE_FEATURE(kDocumentPictureInPictureAnimateResize,
              "DocumentPictureInPictureAnimateResize",
@@ -698,7 +690,7 @@ BASE_FEATURE(kGlobalMediaControlsAutoDismiss,
 // Updated global media controls UI for all the non-CrOS desktop platforms.
 BASE_FEATURE(kGlobalMediaControlsUpdatedUI,
              "GlobalMediaControlsUpdatedUI",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -747,18 +739,18 @@ BASE_FEATURE(kUnifiedAutoplay,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_LINUX)
-// Enable vaapi video decoding on linux. This is already enabled by default on
-// chromeos, but needs an experiment on linux.
-BASE_FEATURE(kVaapiVideoDecodeLinux,
-             "VaapiVideoDecoder",
+// Enable vaapi/v4l2 video decoding on linux. This is already enabled by default
+// on chromeos, but needs an experiment on linux.
+BASE_FEATURE(kAcceleratedVideoDecodeLinux,
+             "AcceleratedVideoDecoder",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kVaapiVideoDecodeLinuxGL,
-             "VaapiVideoDecodeLinuxGL",
+BASE_FEATURE(kAcceleratedVideoDecodeLinuxGL,
+             "AcceleratedVideoDecodeLinuxGL",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kVaapiVideoEncodeLinux,
-             "VaapiVideoEncoder",
+BASE_FEATURE(kAcceleratedVideoEncodeLinux,
+             "AcceleratedVideoEncoder",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Ignore the non-intel driver blacklist for VaapiVideoDecoder implementations.
@@ -847,13 +839,6 @@ BASE_FEATURE(kVSyncMjpegDecoding,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // defined(ARCH_CPU_X86_FAMILY) && BUILDFLAG(IS_CHROMEOS)
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
-// Enables the new V4L2StatefulVideoDecoder instead of V4L2VideoDecoder.
-// Owners: frkoenig@chromium.org, mcasas@chromium.org
-// Expiry: When the |V4L2FlatVideoDecoder| flag handles stateful decoding on
-// all platforms.
-BASE_FEATURE(kV4L2FlatStatefulVideoDecoder,
-             "V4L2FlatStatefulVideoDecoder",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 // Enable H264 temporal layer encoding with V4L2 HW encoder on ChromeOS.
 BASE_FEATURE(kV4L2H264TemporalLayerHWEncoding,
              "V4L2H264TemporalLayerHWEncoding",
@@ -863,15 +848,6 @@ BASE_FEATURE(kV4L2H264TemporalLayerHWEncoding,
 // Inform video blitter of video color space.
 BASE_FEATURE(kVideoBlitColorAccuracy,
              "video-blit-color-accuracy",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Controls whether VideoFrames created by WrapSharedImage(s) get the
-// texture target to use from the ClientSharedImage(s) that they are passed
-// rather than the explicit texture target parameter(s) that they are passed.
-// Serves as a killswitch while we roll out this change.
-// TODO(crbug.com/346197746): Remove post-safe rollout.
-BASE_FEATURE(kVideoFrameUseClientSITextureTarget,
-             "VideoFrameUseClientSITextureTarget",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Displays new video picture-in-picture controls for the 2024 UI update.
@@ -1087,19 +1063,12 @@ BASE_FEATURE(kHardwareMediaKeyHandling,
 // decoders over software decoders or vice-versa.
 BASE_FEATURE(kResolutionBasedDecoderPriority,
              "ResolutionBasedDecoderPriority",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Forces use of hardware (platform) video decoders in
-// `media::DecoderSelector`.
-BASE_FEATURE(kForceHardwareVideoDecoders,
-             "ForceHardwareVideoDecoders",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Forces use of hardware (platform) audio decoders in
-// `media::DecoderSelector`.
-BASE_FEATURE(kForceHardwareAudioDecoders,
-             "ForceHardwareAudioDecoders",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 // Enables low-delay video rendering in media pipeline on "live" stream.
 BASE_FEATURE(kLowDelayVideoRenderingOnLiveStream,
@@ -1151,6 +1120,11 @@ BASE_FEATURE(kMediaCodecBlockModel,
 BASE_FEATURE(kMediaCodecCodedSizeGuessing,
              "MediaCodecCodedSizeGuessing",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Allow EOS buffers to be elided by MediaCodecVideoDecoder.
+BASE_FEATURE(kMediaCodecElideEOS,
+             "MediaCodecElideEOS",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable a gesture to make the media controls expanded into the display cutout.
 // TODO(beccahughes): Remove this.
@@ -1749,8 +1723,7 @@ BASE_FEATURE(kFuchsiaMediacodecVideoEncoder,
 // smaller than maximum supported decodes as advertiszed by decoder.
 BASE_FEATURE(kVideoDecodeBatching,
              "VideoDecodeBatching",
-             base::FEATURE_DISABLED_BY_DEFAULT
-);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Safety switch to allow us to revert to the previous behavior of using the
 // restored bounds for PiP windows, rather than the window bounds.  If this
@@ -1811,6 +1784,12 @@ BASE_FEATURE(kMediaFoundationAcceleratedEncodeOnArm64,
 BASE_FEATURE(kMediaSharedBitmapToSharedImage,
              "MediaSharedBitmapToSharedImage",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_WIN)
+BASE_FEATURE(kMediaFoundationD3DVideoProcessing,
+             "MediaFoundationD3DVideoProcessing",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 bool IsChromeWideEchoCancellationEnabled() {
 #if BUILDFLAG(CHROME_WIDE_ECHO_CANCELLATION)

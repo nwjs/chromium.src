@@ -27,12 +27,12 @@
 #include "base/uuid.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/ash/floating_workspace/floating_workspace_metrics_util.h"
-#include "chrome/browser/ash/floating_workspace/floating_workspace_service_factory.h"
 #include "chrome/browser/ash/floating_workspace/floating_workspace_util.h"
 #include "chrome/browser/ash/login/session/user_session_manager.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/notifications/notification_display_service.h"
+#include "chrome/browser/notifications/notification_display_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sessions/session_restore.h"
 #include "chrome/browser/sync/desk_sync_service_factory.h"
@@ -100,13 +100,6 @@ FloatingWorkspaceServiceNotificationType GetNotificationTypeById(
     return FloatingWorkspaceServiceNotificationType::kSafeMode;
   }
   return FloatingWorkspaceServiceNotificationType::kUnknown;
-}
-
-// Static
-FloatingWorkspaceService* FloatingWorkspaceService::GetForProfile(
-    Profile* profile) {
-  return static_cast<FloatingWorkspaceService*>(
-      FloatingWorkspaceServiceFactory::GetInstance()->GetForProfile(profile));
 }
 
 FloatingWorkspaceService::FloatingWorkspaceService(
@@ -399,7 +392,7 @@ void FloatingWorkspaceService::MaybeCloseNotification() {
     return;
   }
   auto* notification_display_service =
-      NotificationDisplayService::GetForProfile(profile_);
+      NotificationDisplayServiceFactory::GetForProfile(profile_);
   notification_display_service->Close(NotificationHandler::Type::TRANSIENT,
                                       notification_->id());
   notification_ = nullptr;
@@ -1023,7 +1016,7 @@ void FloatingWorkspaceService::SendNotification(const std::string& id) {
     }
   }
   auto* notification_display_service =
-      NotificationDisplayService::GetForProfile(profile_);
+      NotificationDisplayServiceFactory::GetForProfile(profile_);
   notification_display_service->Display(NotificationHandler::Type::TRANSIENT,
                                         *notification_,
                                         /*metadata=*/nullptr);

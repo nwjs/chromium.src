@@ -18,6 +18,7 @@
 #include "base/containers/contains.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
+#include "base/features.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/json/json_string_value_serializer.h"
@@ -32,6 +33,7 @@
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
+#include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/thread_annotations.h"
@@ -257,8 +259,7 @@ class AllowInterestGroupContentBrowserClient : public TestContentBrowserClient {
   bool IsPrivacySandboxReportingDestinationAttested(
       content::BrowserContext* browser_context,
       const url::Origin& destination_origin,
-      content::PrivacySandboxInvokingAPI invoking_api,
-      bool post_impression_reporting) override {
+      content::PrivacySandboxInvokingAPI invoking_api) override {
     if (!allow_list_) {
       return true;
     }
@@ -735,18 +736,21 @@ class SameProcessAuctionProcessManager : public AuctionProcessManager {
   ~SameProcessAuctionProcessManager() override = default;
 
  private:
-  RenderProcessHost* LaunchProcess(
-      mojo::PendingReceiver<auction_worklet::mojom::AuctionWorkletService>
-          auction_worklet_service_receiver,
-      const ProcessHandle* handle,
+  scoped_refptr<WorkletProcess> LaunchProcess(
+      const ProcessHandle* process_handle,
       const std::string& display_name) override {
     // Create one AuctionWorkletServiceImpl per Mojo pipe, just like in
     // production code. Don't bother to delete the service on pipe close,
     // though; just keep it in a vector instead.
+    mojo::PendingRemote<auction_worklet::mojom::AuctionWorkletService> service;
     auction_worklet_services_.push_back(
         auction_worklet::AuctionWorkletServiceImpl::CreateForService(
-            std::move(auction_worklet_service_receiver)));
-    return nullptr;
+            service.InitWithNewPipeAndPassReceiver()));
+    return base::MakeRefCounted<WorkletProcess>(
+        this, /*site_instance=*/nullptr, /*render_process_host=*/nullptr,
+        std::move(service), process_handle->worklet_type(),
+        process_handle->origin(),
+        /*uses_shared_process=*/false);
   }
 
   scoped_refptr<SiteInstance> MaybeComputeSiteInstance(
@@ -758,6 +762,8 @@ class SameProcessAuctionProcessManager : public AuctionProcessManager {
   bool TryUseSharedProcess(ProcessHandle* process_handle) override {
     return false;
   }
+
+  bool UsingDedicatedUtilityProcesses() override { return false; }
 
   std::vector<std::unique_ptr<auction_worklet::AuctionWorkletServiceImpl>>
       auction_worklet_services_;
@@ -1097,7 +1103,7 @@ class AdAuctionServiceImplTest : public RenderViewHostTestHarness {
   // be recorded.
   void ClearOriginJoinedInterestGroupsAndExpectBadMessage(
       const url::Origin& owner,
-      const std::string_view expected_bad_message,
+      std::string_view expected_bad_message,
       RenderFrameHost* rfh = nullptr) {
     mojo::Remote<blink::mojom::AdAuctionService> interest_service;
     AdAuctionServiceImpl::CreateMojoService(
@@ -4156,11 +4162,15 @@ TEST_F(AdAuctionServiceImplTest, UpdateInvalidJSONIgnored) {
 // UpdateJSONParserCrash fails on Android or with the Rust parser because in
 // those conditions the data decoder doesn't use a separate process to parse
 // JSON. On other platforms, the C++ parser runs out-of-proc for safety.
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(BUILD_RUST_JSON_READER)
+#if !BUILDFLAG(IS_ANDROID)
 
 // The server response is valid, but we simulate the JSON parser (which may
 // run in a separate process) crashing, so the update doesn't happen.
 TEST_F(AdAuctionServiceImplTest, UpdateJSONParserCrash) {
+  // Disable the Rust JSON parser, as it is in-process and cannot crash.
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatureState(base::features::kUseRustJsonParser, false);
+
   network_responder_->RegisterUpdateResponse(kUpdateUrlPath, R"({
 "ads": [{"renderURL": "https://example.com/new_render"
         }]
@@ -16801,6 +16811,170 @@ TEST_F(AdAuctionServiceImplBAndAKAnonTest, RunBAndAAuctionWithKAnon) {
   hist.ExpectUniqueSample(
       "Ads.InterestGroup.ServerAuction.NonKAnonWinnerIsKAnon", true, 1);
   hist.ExpectTotalCount("Ads.InterestGroup.Auction.NonKAnonWinnerIsKAnon", 0);
+}
+
+class AdAuctionServiceImplBAndAUpdateTest
+    : public AdAuctionServiceImplBAndATest {
+ public:
+  AdAuctionServiceImplBAndAUpdateTest() {
+    feature_list_.InitWithFeatures({features::kInterestGroupUpdateIfOlderThan,
+                                    features::kEnableBandATriggeredUpdates},
+                                   {});
+  }
+
+ protected:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Join and manually update an interest group so that it's not eligible to
+// update again for the successful update period. Advance a small amount of
+// time. Then, run a B&A auction whose response specifies an updateIfOlderThanMs
+// greater than the time advanced, but less than the successful update period.
+// The group should update successfully. Then, try updating again without
+// advancing time -- the update should fail.
+TEST_F(AdAuctionServiceImplBAndAUpdateTest, OlderThan) {
+  constexpr base::TimeDelta kFastForwardDelta(base::Hours(2));
+  ProvideKeys();
+  NavigateAndCommit(kUrlA);
+  url::Origin test_origin = url::Origin::Create(GURL(kOriginStringA));
+
+  network_responder_->RegisterUpdateResponse(kUpdateUrlPath, R"({
+"ads": [{
+  "renderURL": "https://example.com/new_render0",
+  "adRenderId": "adRenderId0"
+}]})");
+
+  blink::InterestGroup interest_group_a = CreateInterestGroup();
+  interest_group_a.expiry = base::Time::Now() + base::Days(10);
+  interest_group_a.update_url = kUpdateUrlA;
+  interest_group_a.bidding_url = kUrlA.Resolve(kBiddingUrlPath);
+  interest_group_a.ads.emplace();
+  blink::InterestGroup::Ad ad(
+      /*render_gurl=*/GURL("https://example.com/render"),
+      /*metadata=*/std::nullopt, /*size_group=*/std::nullopt,
+      /*buyer_reporting_id=*/std::nullopt,
+      /*buyer_and_seller_reporting_id=*/std::nullopt,
+      /*selectable_buyer_and_seller_reporting_ids=*/std::nullopt,
+      /*ad_render_id*/ "adRenderId");
+  interest_group_a.ads->emplace_back(std::move(ad));
+  JoinInterestGroupAndFlush(interest_group_a);
+  EXPECT_EQ(1, GetJoinCount(kOriginA, kInterestGroupName));
+
+  // Update the interest group -- it should succeed.
+  UpdateInterestGroupNoFlush();
+  task_environment()->FastForwardBy(kFastForwardDelta);
+
+  auto a_groups = GetInterestGroupsForOwner(kOriginA);
+  ASSERT_EQ(a_groups->size(), 1u);
+  auto a_group = a_groups->GetInterestGroups()[0]->interest_group;
+  ASSERT_TRUE(a_group.ads.has_value());
+  ASSERT_EQ(a_group.ads->size(), 1u);
+  EXPECT_EQ(a_group.ads.value()[0].render_url(),
+            "https://example.com/new_render0");
+  ASSERT_TRUE(a_group.ads.value()[0].ad_render_id.has_value());
+  EXPECT_EQ(a_group.ads.value()[0].ad_render_id.value(), "adRenderId0");
+
+  network_responder_->RegisterUpdateResponse(kUpdateUrlPath, R"({
+"ads": [{
+  "renderURL": "https://example.com/new_render1",
+  "adRenderId": "adRenderId1"
+}]})");
+
+  ASSERT_GT(InterestGroupStorage::kUpdateSucceededBackoffPeriod,
+            kFastForwardDelta);
+  task_environment()->FastForwardBy(kFastForwardDelta);
+
+  // Run an auction
+  std::optional<AdAuctionDataAndId> auction_data =
+      GetAdAuctionDataAndFlushForFrame(kOriginA);
+  EXPECT_TRUE(auction_data.has_value());
+
+  AdAuctionPageData* page_data = PageUserData<AdAuctionPageData>::GetForPage(
+      static_cast<RenderFrameHostImpl*>(main_rfh())->GetPage());
+  ASSERT_TRUE(page_data);
+  ASSERT_TRUE(auction_data->request_id);
+  AdAuctionRequestContext* request_context =
+      page_data->GetContextForAdAuctionRequest(*auction_data->request_id);
+
+  std::string response;
+  // CBOR response computed using https://cbor.me/
+  /*
+  {
+    "adRenderURL": "https://example.com/new_render0",
+    "biddingGroups": {"https://a.test/": [0]},
+    "interestGroupName": "interest-group-name",
+    "interestGroupOwner": "https://a.test/",
+    "updateGroups": {
+      "https://a.test": [{"index":0, "updateIfOlderThanMs":3600000}]
+    }
+  }
+  */
+  // Converted to base64 with `cat | xxd -r -p | gzip |
+  //   xxd -ps -c0 | sed 's/^/02000000A5/' | xxd -r -p | base64 -w0`
+  EXPECT_TRUE(base::Base64Decode(
+      "AgAAAKUfiwgAAAAAAAADW5qdmBKUmpeSWhQa5FMhn1FSUlBspa+"
+      "fWpGYW5CTqpecn6ufl1oeXwRWYpBTWpCSWJLqXpRfWlC8MA+"
+      "mOlGvJLW4pHFRaiZQVQVDMUSVZ5p/"
+      "DlBTSEZinm+xFIPZu4bcpMyUlMy8dKj+fFT9+"
+      "o0MhZl5JalFQDZYhV9ibmoxTEQ3HSSkmwcUK0JR5V+el1qEbhQA39rq3dcAAAA=",
+      &response));
+
+  std::string encrypted_response =
+      quiche::ObliviousHttpResponse::CreateServerObliviousResponse(
+          response, request_context->context,
+          kBiddingAndAuctionEncryptionResponseMediaType)
+          ->EncapsulateAndSerialize();
+
+  page_data->AddAuctionResultWitnessForOrigin(
+      kOriginA, crypto::SHA256HashString(encrypted_response));
+
+  blink::AuctionConfig auction_config;
+  auction_config.seller = kOriginA;
+  auction_config.non_shared_params.interest_group_buyers = {kOriginA};
+  auction_config.server_response.emplace();
+  auction_config.server_response->request_id = *auction_data->request_id;
+  std::optional<GURL> result = RunAdAuctionWithPromiseAndFlushForFrame(
+      auction_config,
+      base::BindLambdaForTesting(
+          [&](mojo::Remote<blink::mojom::AbortableAdAuction>& runner) {
+            runner->ResolvedAuctionAdResponsePromise(
+                blink::mojom::AuctionAdConfigAuctionId::NewMainAuction(0),
+                mojo_base::BigBuffer(base::as_byte_span(encrypted_response)));
+          }),
+      main_rfh());
+  EXPECT_TRUE(result);
+  InvokeCallbackForURN(*result);
+
+  // Now that the auction has completed, check that the interest group
+  // updated again.
+  task_environment()->FastForwardBy(kFastForwardDelta);
+
+  a_groups = GetInterestGroupsForOwner(kOriginA);
+  ASSERT_EQ(a_groups->size(), 1u);
+  a_group = a_groups->GetInterestGroups()[0]->interest_group;
+  ASSERT_TRUE(a_group.ads.has_value());
+  ASSERT_EQ(a_group.ads->size(), 1u);
+  EXPECT_EQ(a_group.ads.value()[0].render_url(),
+            "https://example.com/new_render1");
+
+  // Try to update again without advancing time. The update should be
+  // rate-limited, so the interest group shouldn't change.
+  network_responder_->RegisterUpdateResponse(kUpdateUrlPath, R"({
+"ads": [{
+  "renderURL": "https://example.com/new_render2",
+  "adRenderId": "adRenderId2"
+}]})");
+
+  UpdateInterestGroupNoFlush();
+  task_environment()->FastForwardBy(kFastForwardDelta);
+
+  a_groups = GetInterestGroupsForOwner(kOriginA);
+  ASSERT_EQ(a_groups->size(), 1u);
+  a_group = a_groups->GetInterestGroups()[0]->interest_group;
+  ASSERT_TRUE(a_group.ads.has_value());
+  ASSERT_EQ(a_group.ads->size(), 1u);
+  EXPECT_EQ(a_group.ads.value()[0].render_url(),
+            "https://example.com/new_render1");
 }
 
 class AdAuctionServiceImplFacilitatedTestingTest

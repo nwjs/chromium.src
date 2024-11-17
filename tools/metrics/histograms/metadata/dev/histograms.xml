@@ -195,6 +195,25 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="DevTools.Freestyler.EvalResponseSize" units="count"
+    expires_after="2025-11-11">
+  <owner>ergunsh@chromium.org</owner>
+  <owner>alexrudenko@chromium.org</owner>
+  <summary>
+    The size (in bytes) of the code evaluation output returned by the
+    FreestylerAgent.
+  </summary>
+</histogram>
+
+<histogram name="DevTools.Freestyler.QueryLength" units="count"
+    expires_after="2025-11-11">
+  <owner>ergunsh@chromium.org</owner>
+  <owner>alexrudenko@chromium.org</owner>
+  <summary>
+    The length of the query (number of characters) given to the FreestylerAgent.
+  </summary>
+</histogram>
+
 <histogram name="DevTools.InspectElement" units="ms" expires_after="2025-03-09">
   <owner>yangguo@chromium.org</owner>
   <owner>bmeurer@google.com</owner>
@@ -236,7 +255,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.IssuesPanelIssueExpanded"
-    enum="DevToolsIssuesPanelIssueExpanded" expires_after="2025-02-02">
+    enum="DevToolsIssuesPanelIssueExpanded" expires_after="2025-04-06">
   <owner>bmeurer@google.com</owner>
   <owner>danilsomsikov@google.com</owner>
   <summary>
@@ -245,7 +264,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.IssuesPanelOpenedFrom"
-    enum="DevToolsIssuesPanelOpenedFrom" expires_after="2025-02-02">
+    enum="DevToolsIssuesPanelOpenedFrom" expires_after="2025-04-06">
   <owner>bmeurer@google.com</owner>
   <owner>danilsomsikov@google.com</owner>
   <summary>
@@ -254,7 +273,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.IssuesPanelResourceOpened"
-    enum="DevToolsIssuesPanelResourceOpened" expires_after="2025-02-02">
+    enum="DevToolsIssuesPanelResourceOpened" expires_after="2025-04-06">
   <owner>bmeurer@google.com</owner>
   <owner>danilsomsikov@google.com</owner>
   <summary>
@@ -310,7 +329,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="DevTools.LegacyResourceTypeFilterItemSelected"
     enum="DevToolsLegacyResourceTypeFilterItemSelected"
-    expires_after="2025-01-12">
+    expires_after="2025-03-23">
   <owner>yangguo@chromium.org</owner>
   <owner>bmeurer@google.com</owner>
   <owner>wolfi@google.com</owner>
@@ -322,7 +341,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="DevTools.LegacyResourceTypeFilterNumberOfSelectedChanged"
     enum="DevToolsLegacyResourceTypeFilterNumberOfSelectedChanged"
-    expires_after="2025-01-12">
+    expires_after="2025-03-23">
   <owner>yangguo@chromium.org</owner>
   <owner>bmeurer@google.com</owner>
   <owner>wolfi@google.com</owner>
@@ -333,7 +352,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.LighthouseCategoryUsed"
-    enum="DevToolsLighthouseCategoryUsed" expires_after="2025-01-26">
+    enum="DevToolsLighthouseCategoryUsed" expires_after="2025-03-30">
   <owner>asraine@chromium.org</owner>
   <owner>paulirish@chromium.org</owner>
   <owner>cjamcl@chromium.org</owner>
@@ -357,30 +376,6 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records when certain items of the Manifest dropdown submenu in the
     Application Tool are selected.
-  </summary>
-</histogram>
-
-<histogram name="DevTools.NetworkPanelMoreFiltersItemSelected"
-    enum="DevToolsNetworkPanelMoreFiltersItemSelected"
-    expires_after="2025-01-12">
-  <owner>yangguo@chromium.org</owner>
-  <owner>bmeurer@google.com</owner>
-  <owner>wolfi@google.com</owner>
-  <summary>
-    Records when a filter is selected in the Network panel's 'More filters'
-    dropdown.
-  </summary>
-</histogram>
-
-<histogram name="DevTools.NetworkPanelMoreFiltersNumberOfSelectedChanged"
-    enum="DevToolsNetworkPanelMoreFiltersNumberOfSelectedChanged"
-    expires_after="2024-11-09">
-  <owner>yangguo@chromium.org</owner>
-  <owner>bmeurer@google.com</owner>
-  <owner>wolfi@google.com</owner>
-  <summary>
-    Records the number of selected items in the Network panel's 'More filters'
-    dropdown.
   </summary>
 </histogram>
 
@@ -552,7 +547,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.StyleTextCopied" enum="DevToolsStyleTextCopied"
-    expires_after="2025-01-12">
+    expires_after="2025-03-23">
   <owner>changhaohan@chromium.org</owner>
   <owner>bmeurer@google.com</owner>
   <owner>yangguo@chromium.org</owner>

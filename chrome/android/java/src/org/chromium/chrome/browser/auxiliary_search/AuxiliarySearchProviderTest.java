@@ -11,9 +11,16 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import android.content.Context;
+import android.content.res.Resources;
 
 import androidx.test.filters.SmallTest;
 
@@ -35,11 +42,15 @@ import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchGroupProto.AuxiliarySearchBookmarkGroup;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchGroupProto.AuxiliarySearchEntry;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchGroupProto.AuxiliarySearchTabGroup;
+import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchProvider.FaviconImageFetchedCallback;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.MockTab;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.ui.favicon.FaviconHelper;
+import org.chromium.chrome.browser.ui.favicon.FaviconHelper.FaviconImageCallback;
+import org.chromium.chrome.browser.ui.favicon.FaviconHelperJni;
 import org.chromium.chrome.test.util.browser.tabmodel.MockTabModel;
 import org.chromium.url.GURL;
 
@@ -63,8 +74,14 @@ public class AuxiliarySearchProviderTest {
     public @Rule MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     private @Mock AuxiliarySearchBridge.Natives mMockAuxiliarySearchBridgeJni;
+    private @Mock FaviconHelper.Natives mMockFaviconHelperJni;
     private @Mock Profile mProfile;
     private @Mock TabModelSelector mTabModelSelector;
+    private @Mock FaviconImageFetchedCallback mFaviconImageFetchedCallback;
+    private @Mock Callback<AuxiliarySearchTabGroup> mCallback;
+    private @Mock FaviconHelper mFaviconHelper;
+    private @Mock Context mContext;
+    private @Mock Resources mResources;
 
     private AuxiliarySearchProvider mAuxiliarySearchProvider;
     private MockTabModel mMockNormalTabModel;
@@ -73,7 +90,12 @@ public class AuxiliarySearchProviderTest {
     public void setUp() {
         mJniMocker.mock(AuxiliarySearchBridgeJni.TEST_HOOKS, mMockAuxiliarySearchBridgeJni);
         doReturn(FAKE_NATIVE_PROVIDER).when(mMockAuxiliarySearchBridgeJni).getForProfile(mProfile);
-        mAuxiliarySearchProvider = new AuxiliarySearchProvider(mProfile, mTabModelSelector);
+        when(mMockFaviconHelperJni.init()).thenReturn(1L);
+        mJniMocker.mock(FaviconHelperJni.TEST_HOOKS, mMockFaviconHelperJni);
+
+        when(mContext.getResources()).thenReturn(mResources);
+        mAuxiliarySearchProvider =
+                new AuxiliarySearchProvider(mContext, mProfile, mTabModelSelector);
         mMockNormalTabModel = new MockTabModel(mProfile, null);
         doReturn(mMockNormalTabModel).when(mTabModelSelector).getModel(false);
     }
@@ -157,7 +179,7 @@ public class AuxiliarySearchProviderTest {
         ArrayList<Tab> tabList = new ArrayList<>();
         long now = System.currentTimeMillis();
         // Create 200 tabs with different timestamps(from 0 to 199), and only the newest 100 tabs
-        // should be returned from 'getTabsSearchableDataProtoAsync'.
+        // should be returned from 'getTabsSearchableDataProtoWithFaviconAsync'.
         for (int i = 0; i < 200; i++) {
             MockTab tab = mMockNormalTabModel.addTab(i);
             tab.setGurlOverrideForTesting(new GURL(TAB_URL + Integer.toString(i)));
@@ -178,7 +200,7 @@ public class AuxiliarySearchProviderTest {
                 .when(mMockAuxiliarySearchBridgeJni)
                 .getNonSensitiveTabs(eq(FAKE_NATIVE_PROVIDER), any(), any(Callback.class));
 
-        mAuxiliarySearchProvider.getTabsSearchableDataProtoAsync(
+        mAuxiliarySearchProvider.getTabsSearchableDataProtoWithFaviconAsync(
                 new Callback<AuxiliarySearchTabGroup>() {
                     @Override
                     public void onResult(AuxiliarySearchTabGroup tabGroup) {
@@ -201,7 +223,8 @@ public class AuxiliarySearchProviderTest {
                         }
                         assertEquals(returnedTabsNumbers.size(), 100);
                     }
-                });
+                },
+                null);
     }
 
     @Test
@@ -236,6 +259,25 @@ public class AuxiliarySearchProviderTest {
 
     @Test
     @SmallTest
+    public void testTabToAuxiliarySearchEntry() {
+        int id = 111;
+        long now = System.currentTimeMillis();
+        MockTab tab = mMockNormalTabModel.addTab(id);
+        String expectedUrl = TAB_URL + Integer.toString(id);
+        tab.setGurlOverrideForTesting(new GURL(expectedUrl));
+        String expectedTitle = TAB_TITLE + Integer.toString(id);
+        tab.setTitle(expectedTitle);
+        tab.setTimestampMillis(now + id);
+
+        AuxiliarySearchEntry entry = AuxiliarySearchProvider.tabToAuxiliarySearchEntry(tab);
+        assertEquals(id, entry.getId());
+        assertEquals(expectedUrl, entry.getUrl());
+        assertEquals(expectedTitle, entry.getTitle());
+        assertEquals(now + id, tab.getTimestampMillis());
+    }
+
+    @Test
+    @SmallTest
     public void configuredTabsAgeCannotBeZero() {
         var config = new TestValues();
         config.addFieldTrialParamOverride(
@@ -244,7 +286,8 @@ public class AuxiliarySearchProviderTest {
                 "0");
         FeatureList.setTestValues(config);
         // Recreate provider to update the finch parameter.
-        mAuxiliarySearchProvider = new AuxiliarySearchProvider(mProfile, mTabModelSelector);
+        mAuxiliarySearchProvider =
+                new AuxiliarySearchProvider(mContext, mProfile, mTabModelSelector);
 
         assertNotEquals(0L, mAuxiliarySearchProvider.getTabsMaxAgeMs());
         assertEquals(
@@ -262,7 +305,47 @@ public class AuxiliarySearchProviderTest {
                 "10");
         FeatureList.setTestValues(config);
         // Recreate provider to update the finch parameter.
-        mAuxiliarySearchProvider = new AuxiliarySearchProvider(mProfile, mTabModelSelector);
+        mAuxiliarySearchProvider =
+                new AuxiliarySearchProvider(mContext, mProfile, mTabModelSelector);
         assertEquals(10 * 60 * 60 * 1000, mAuxiliarySearchProvider.getTabsMaxAgeMs());
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.ANDROID_APP_INTEGRATION_WITH_FAVICON)
+    public void testOnNonSensitiveTabsAvailable() {
+        int maxFaviconNumber = 5;
+        AuxiliarySearchProvider.MAX_FAVICON_NUMBER.setForTesting(maxFaviconNumber);
+        assertEquals(maxFaviconNumber, AuxiliarySearchProvider.MAX_FAVICON_NUMBER.getValue());
+
+        ArrayList<Tab> tabList = new ArrayList<>();
+        int count = 100;
+        long now = System.currentTimeMillis();
+        // The tabs are added with timestamps ascending, i.e., the most recent tab added at the
+        // end.
+        for (int i = 0; i < count; i++) {
+            MockTab tab = mMockNormalTabModel.addTab(i);
+            tab.setGurlOverrideForTesting(new GURL(TAB_URL + Integer.toString(i)));
+            tab.setTitle(TAB_TITLE + Integer.toString(i));
+            tab.setTimestampMillis(now + i);
+            tabList.add(tab);
+        }
+
+        mAuxiliarySearchProvider.onNonSensitiveTabsAvailable(
+                mFaviconHelper, mCallback, mFaviconImageFetchedCallback, tabList);
+
+        // Verifies that the tabs are sorted with timestamp descending, i.e., the most recent tab as
+        // as the first.
+        for (int i = 0; i < count; i++) {
+            Tab tab = tabList.get(i);
+            assertEquals(now + count - i - 1, tab.getTimestampMillis());
+            assertEquals(TAB_TITLE + Integer.toString(count - i - 1), tab.getTitle());
+        }
+        verify(mFaviconHelper, times(maxFaviconNumber))
+                .getLocalFaviconImageForURL(
+                        any(Profile.class),
+                        any(GURL.class),
+                        anyInt(),
+                        any(FaviconImageCallback.class));
     }
 }

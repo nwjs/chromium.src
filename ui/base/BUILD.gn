@@ -47,6 +47,8 @@ component("ui_data_pack") {
     ":base",
     "//chromeos/crosapi/mojom",  # This target requires minimal dependencies.
     "//ios/chrome/tools/strings:generate_localizable_strings",
+    "//third_party/blink/renderer/core:core",
+    "//third_party/blink/renderer/platform:platform",
     "//ui/gfx:*",
   ]
 
@@ -542,7 +544,6 @@ component("base") {
   if (use_blink) {
     public_deps += [
       "//ui/base/clipboard:file_info",
-      "//ui/base/mojom:ui_base_types",
       "//ui/events:dom_keycode_converter",
       "//ui/events:events_base",
       "//ui/events/platform",

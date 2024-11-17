@@ -194,27 +194,6 @@ BASE_FEATURE(kCapturedSurfaceControlStickyPermissions,
              "CapturedSurfaceControlStickyPermissions",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// This serves as an overall kill switch to kill CdmStorageDatabase. If
-// disabled, no operations will be routed through the CdmStorage* path, even in
-// the migration code that lives in MediaLicense* code path.
-// This feature is enabled as default alongside with
-// kCdmStorageDatabaseMigration enabled by default as to allow for data transfer
-// from the MediaLicenseDatabase to CdmStorageDatabase to occur. Refer to
-// go/cdm-storage-migration-details for more details.
-BASE_FEATURE(kCdmStorageDatabase,
-             "CdmStorageDatabase",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// This guards between using the MediaLicense* code path and the CdmStorage*
-// code path for storing Cdm data. This will be enabled by default as we do not
-// want the CdmStorageDatabase to be used solely.
-// Later when the migration is finished, we will remove this flag so that
-// kCdmStorageDatabase serves as the only flag. Refer to
-// go/cdm-storage-migration-details for more details.
-BASE_FEATURE(kCdmStorageDatabaseMigration,
-             "CdmStorageDatabaseMigration",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Clear the window.name property for the top-level cross-site navigations that
 // swap BrowsingContextGroups(BrowsingInstances).
 BASE_FEATURE(kClearCrossSiteCrossBrowsingContextGroupWindowName,
@@ -424,6 +403,12 @@ BASE_FEATURE(kEnableServiceWorkersForChromeScheme,
              "EnableServiceWorkersForChromeScheme",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Ensures the renderer is not dead when getting the process host for a site
+// instance.
+BASE_FEATURE(kEnsureExistingRendererAlive,
+             "EnsureExistingRendererAlive",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables JavaScript API to intermediate federated identity requests.
 // Note that actual exposure of the FedCM API to web content is controlled
 // by the flag in RuntimeEnabledFeatures on the blink side. See also
@@ -489,6 +474,13 @@ BASE_FEATURE(kFencedFramesEnforceFocus,
              "FencedFramesEnforceFocus",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Whether a memory pressure signal in a renderer should be forwarded to Blink
+// isolates. Forwarding the signal triggers a GC (critical) or starts
+// incremental marking (moderate), see `v8::Heap::CheckMemoryPressure`.
+BASE_FEATURE(kForwardMemoryPressureToBlinkIsolates,
+             "ForwardMemoryPressureToBlinkIsolates",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Enables the Digital Credential API.
 BASE_FEATURE(kWebIdentityDigitalCredentials,
              "WebIdentityDigitalCredentials",
@@ -516,6 +508,17 @@ BASE_FEATURE(kGreaseUACH, "GreaseUACH", base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIdbPrioritizeForegroundClients,
              "IdbPrioritizeForegroundClients",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Controls whether we ignore duplicate navigations or not, in favor of
+// preserving the already ongoing navigation.
+BASE_FEATURE(kIgnoreDuplicateNavs,
+             "IgnoreDuplicateNavs",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kDuplicateNavThreshold,
+                   &kIgnoreDuplicateNavs,
+                   "duplicate_nav_threshold",
+                   base::Milliseconds(2000));
 
 // Kill switch for the GetInstalledRelatedApps API.
 BASE_FEATURE(kInstalledApp, "InstalledApp", base::FEATURE_ENABLED_BY_DEFAULT);
@@ -563,11 +566,6 @@ BASE_FEATURE(kIsolateOrigins,
              "IsolateOrigins",
              base::FEATURE_DISABLED_BY_DEFAULT);
 const char kIsolateOriginsFieldTrialParamName[] = "OriginsList";
-
-// Enables experimental JavaScript shared memory features.
-BASE_FEATURE(kJavaScriptExperimentalSharedMemory,
-             "JavaScriptExperimentalSharedMemory",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable lazy initialization of the media controls.
 BASE_FEATURE(kLazyInitializeMediaControls,
@@ -682,6 +680,14 @@ BASE_FEATURE(kOriginIsolationHeader,
 BASE_FEATURE(kOverscrollHistoryNavigation,
              "OverscrollHistoryNavigation",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Partitioned Popins must have a Popin-Policy in their top-frame HTTP Response
+// that permits the opener origin. This feature disables that check for purposes
+// of testing only, this must never be enabled by default in any context.
+// See https://explainers-by-googlers.github.io/partitioned-popins/
+BASE_FEATURE(kPartitionedPopinsHeaderPolicyBypass,
+             "PartitionedPopinsHeaderPolicyBypass",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables additional ChildProcessSecurityPolicy enforcements for PDF renderer
 // processes, including blocking storage and cookie access for them.
@@ -1142,6 +1148,12 @@ BASE_FEATURE(kUnrestrictedSharedArrayBuffer,
              "UnrestrictedSharedArrayBuffer",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enable using browser-calculated origins on navigations, instead of
+// renderer-calculated ones.
+BASE_FEATURE(kUseBrowserCalculatedOrigin,
+             "UseBrowserCalculatedOrigin",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_ANDROID) && BUILDFLAG(INCLUDE_BOTH_V8_SNAPSHOTS)
 // If enabled, blink's context snapshot is used rather than the v8 snapshot.
 BASE_FEATURE(kUseContextSnapshot,
@@ -1271,16 +1283,24 @@ BASE_FEATURE(kAccessibilityIncludeLongClickAction,
 // updated UI to replace existing Chrome Accessibility Settings.
 BASE_FEATURE(kAccessibilityPageZoom,
              "AccessibilityPageZoom",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether the OS-level font setting is adjusted for.
 const base::FeatureParam<bool> kAccessibilityPageZoomOSLevelAdjustment{
     &kAccessibilityPageZoom, "AdjustForOSLevel", false};
 
 // Enables the use of enhancements to the Page Zoom feature based on user
-// feedback from the v1 version (e.g. reset button, better IPH, etc).
+// feedback from the v1 version (e.g. reset button, Site Settings, etc).
+// This flag is the fast-follow for the AccessibilityPageZoom experiment.
 BASE_FEATURE(kAccessibilityPageZoomEnhancements,
              "AccessibilityPageZoomEnhancements",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables the second iteration of AccessibilityPageZoom, which continues
+// the work completed in the first experiment and the subsequent fast-follow.
+// This version of the experiment explores enabling OS-level adjustments.
+BASE_FEATURE(kAccessibilityPageZoomV2,
+             "AccessibilityPageZoomV2",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables the use of a unified code path for AXTree snapshots.
@@ -1292,7 +1312,7 @@ BASE_FEATURE(kAccessibilityUnifiedSnapshots,
 // background thread.
 BASE_FEATURE(kAccessibilityManageBroadcastReceiverOnBackground,
              "AccessibilityManageBroadcastReceiverOnBackground",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable open PDF inline on Android.
 BASE_FEATURE(kAndroidOpenPdfInline,

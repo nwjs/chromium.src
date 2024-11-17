@@ -4,24 +4,11 @@
 
 #include "chrome/browser/profiles/batch_upload/batch_upload_data_provider.h"
 
-BatchUploadDataContainer::BatchUploadDataContainer(int section_title_id,
-                                                   int dialog_subtitle_id)
-    : section_title_id(section_title_id),
-      dialog_subtitle_id(dialog_subtitle_id) {}
-
-BatchUploadDataContainer::BatchUploadDataContainer(
-    BatchUploadDataContainer&& other) = default;
-
-BatchUploadDataContainer& BatchUploadDataContainer::operator=(
-    BatchUploadDataContainer&& other) = default;
-
-BatchUploadDataContainer::~BatchUploadDataContainer() = default;
-
-BatchUploadDataProvider::BatchUploadDataProvider(BatchUploadDataType type)
+BatchUploadDataProvider::BatchUploadDataProvider(syncer::DataType type)
     : type_(type) {}
 
 BatchUploadDataProvider::~BatchUploadDataProvider() = default;
 
-BatchUploadDataType BatchUploadDataProvider::GetDataType() const {
+syncer::DataType BatchUploadDataProvider::GetDataType() const {
   return type_;
 }

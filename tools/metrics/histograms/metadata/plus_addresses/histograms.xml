@@ -45,7 +45,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="PlusAddresses.AffiliationRequest.ResponseTime" units="ms"
-    expires_after="2024-12-31">
+    expires_after="2025-03-23">
   <owner>jkeitel@google.com</owner>
   <owner>vizcay@google.com</owner>
   <summary>
@@ -57,7 +57,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PlusAddresses.Blocklist.ParsingResult"
-    enum="PlusAddressBlocklistDataParsingResult" expires_after="2025-01-26">
+    enum="PlusAddressBlocklistDataParsingResult" expires_after="2025-03-30">
   <owner>jkeitel@google.com</owner>
   <owner>vizcay@google.com</owner>
   <owner>mreichhoff@chromium.org</owner>
@@ -81,7 +81,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PlusAddresses.NetworkRequest.{Type}.Latency" units="ms"
-    expires_after="2024-12-31">
+    expires_after="2025-03-30">
   <owner>jkeitel@google.com</owner>
   <owner>vizcay@google.com</owner>
   <owner>mreichhoff@chromium.org</owner>
@@ -91,6 +91,19 @@ chromium-metrics-reviews@google.com.
     difference between when the PlusAddressHttpClient issues the request and
     when it receives a response. The PlusAddressHttpClient records this whenever
     it gets a response for the network requests it makes.
+  </summary>
+  <token key="Type" variants="PlusAddressNetworkRequestType"/>
+</histogram>
+
+<histogram name="PlusAddresses.NetworkRequest.{Type}.NetErrorCode"
+    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2025-09-30">
+  <owner>jkeitel@google.com</owner>
+  <owner>vizcay@google.com</owner>
+  <owner>fleimgruber@google.com</owner>
+  <summary>
+    Records the net error codes of network requests. PlusAddressHttpClientImpl
+    records this whenever it gets a response from the URL loader for the network
+    requests it makes.
   </summary>
   <token key="Type" variants="PlusAddressNetworkRequestType"/>
 </histogram>
@@ -109,7 +122,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PlusAddresses.NetworkRequest.{Type}.ResponseCode"
-    enum="HttpResponseCode" expires_after="2024-12-31">
+    enum="HttpResponseCode" expires_after="2025-03-30">
   <owner>jkeitel@google.com</owner>
   <owner>vizcay@google.com</owner>
   <owner>mreichhoff@chromium.org</owner>

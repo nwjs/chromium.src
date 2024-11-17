@@ -55,7 +55,8 @@ enum class BuiltInImage {
   kSpark1PApp = 3,
   kSparkV2 = 4,
   kG1Notification = 5,
-  kMaxValue = kG1Notification
+  kMall = 6,
+  kMaxValue = kMall
 };
 
 // Supported window anchor element.
@@ -82,12 +83,14 @@ enum class TriggerType {
 class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_GROWTH) Trigger {
  public:
   explicit Trigger(TriggerType type);
+  ~Trigger();
 
   TriggerType type;
 
-  // `event` is only used for `kEvent` trigger, which needs to be matched with
-  // one of the event name in the `triggerEvents` in the `TriggerTargeting`.
-  std::string event;
+  // A list of `events` used for `kEvent` trigger. It is considered matched if
+  // any of the `events` matches with any of the event name in the
+  // `triggerEvents` in the `TriggerTargeting`.
+  std::vector<std::string> events;
 };
 
 // Dictionary of supported targetings. For example:
@@ -256,6 +259,28 @@ class NumberRangeTargeting {
   raw_ptr<const base::Value::Dict> number_range_dict_;
 };
 
+// Wrapper around a dictionary, which includes and excludes a string list
+// targeting criteria.
+//
+// The structure looks like:
+// {
+//   includes: ["brya"];
+//   excludes: ["reven", "betty"];
+// }
+class StringListTargeting {
+ public:
+  explicit StringListTargeting(const base::Value::Dict* string_list_dict);
+  StringListTargeting(const StringListTargeting&) = delete;
+  StringListTargeting& operator=(const StringListTargeting) = delete;
+  ~StringListTargeting();
+
+  const base::Value::List* GetIncludes() const;
+  const base::Value::List* GetExcludes() const;
+
+ private:
+  raw_ptr<const base::Value::Dict> string_list_dict_;
+};
+
 // Wrapper around Device targeting dictionary. The structure looks like:
 // {
 //   "locales": ["en-US", "zh-CN"];
@@ -271,6 +296,7 @@ class DeviceTargeting : public TargetingBase {
   DeviceTargeting& operator=(const DeviceTargeting) = delete;
   ~DeviceTargeting();
 
+  const std::unique_ptr<StringListTargeting> GetBoards() const;
   const base::Value::List* GetLocales() const;
   const base::Value::List* GetUserLocales() const;
   const base::Value::List* GetIncludedCountries() const;
@@ -415,6 +441,8 @@ class RuntimeTargeting : public TargetingBase {
   const std::vector<std::unique_ptr<TriggerTargeting>> GetTriggers() const;
 
   const base::Value::List* GetUserPrefTargetings() const;
+
+  std::unique_ptr<AppTargeting> GetHotseatAppIcon() const;
 };
 
 // Wrapper around the action dictionary for performing an action, including

@@ -77,7 +77,9 @@
 #endif
 
 #if defined(WAYLAND_GBM)
-#include "ui/ozone/platform/wayland/gpu/drm_render_node_path_finder.h"
+#include "ui/gfx/linux/drm_util_linux.h"
+#include "ui/gfx/linux/gbm_device.h"
+#include "ui/ozone/platform/wayland/common/drm_render_node_path_finder.h"
 #endif
 
 namespace ui {
@@ -202,6 +204,15 @@ class OzonePlatformWayland : public OzonePlatform,
     // to |buffer_manager_| via IPC after gpu service init in that case.
     if (buffer_manager_) {
       if (!buffer_manager_->SupportsFormat(format)) {
+        return false;
+      }
+      // Return false here if creating buffers for certain formats is not
+      // possible (e.g. YUV formats are not supported by linux system libgbm
+      // gbm_bo_create) even though |buffer_manager_| may indicate it can be
+      // imported as wl_buffer.
+      auto* gbm_device = buffer_manager_->GetGbmDevice();
+      if (!gbm_device || !gbm_device->CanCreateBufferForFormat(
+                             GetFourCCFormatFromBufferFormat(format))) {
         return false;
       }
     } else {

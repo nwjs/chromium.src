@@ -18,6 +18,7 @@
 #include "components/guest_view/common/guest_view_constants.h"
 #include "components/zoom/zoom_observer.h"
 #include "content/public/browser/browser_plugin_guest_delegate.h"
+#include "content/public/browser/frame_tree_node_id.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/permission_result.h"
 #include "content/public/browser/web_contents.h"
@@ -25,6 +26,7 @@
 #include "content/public/browser/web_contents_observer.h"
 
 namespace content {
+class NavigationHandle;
 class RenderFrameHost;
 }
 
@@ -68,6 +70,11 @@ class GuestViewBase : public content::BrowserPluginGuestDelegate,
   static GuestViewBase* FromRenderFrameHostId(
       const content::GlobalRenderFrameHostId& rfh_id);
 
+  static GuestViewBase* FromNavigationHandle(
+      content::NavigationHandle* navigation_handle);
+  static GuestViewBase* FromFrameTreeNodeId(
+      content::FrameTreeNodeId frame_tree_node_id);
+
   ~GuestViewBase() override;
   GuestViewBase(const GuestViewBase&) = delete;
   GuestViewBase& operator=(const GuestViewBase&) = delete;
@@ -85,6 +92,8 @@ class GuestViewBase : public content::BrowserPluginGuestDelegate,
   static bool IsGuest(content::WebContents* web_contents);
   static bool IsGuest(content::RenderFrameHost* rfh);
   static bool IsGuest(const content::GlobalRenderFrameHostId& rfh_id);
+  static bool IsGuest(content::NavigationHandle* navigation_handle);
+  static bool IsGuest(content::FrameTreeNodeId frame_tree_node_id);
 
   // Returns the name of the derived type of this GuestView.
   virtual const char* GetViewType() const = 0;
@@ -269,6 +278,11 @@ class GuestViewBase : public content::BrowserPluginGuestDelegate,
       std::pair<base::Value::Dict, content::WebContents::CreateParams>>&
   GetCreateParams() const;
 
+  // Convenience method for `CreateWebContents` implementations when not
+  // creating a guest.
+  void RejectGuestCreation(std::unique_ptr<GuestViewBase> owned_this,
+                           WebContentsCreatedCallback callback);
+
   void TakeGuestContentsOwnership(
       std::unique_ptr<content::WebContents> guest_web_contents);
   void ClearOwnedGuestContents();
@@ -388,8 +402,6 @@ class GuestViewBase : public content::BrowserPluginGuestDelegate,
   void ContentsMouseEvent(content::WebContents* source,
                           const ui::Event& event) final;
   void ContentsZoomChange(bool zoom_in) final;
-  void LoadingStateChanged(content::WebContents* source,
-                           bool should_show_loading_ui) final;
   void ResizeDueToAutoResize(content::WebContents* web_contents,
                              const gfx::Size& new_size) final;
   void RunFileChooser(content::RenderFrameHost* render_frame_host,

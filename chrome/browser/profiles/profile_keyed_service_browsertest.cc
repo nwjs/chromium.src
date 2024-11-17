@@ -37,10 +37,6 @@
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/base/ui_base_features.h"
 
-#if !BUILDFLAG(IS_ANDROID)
-#include "chrome/common/companion/visual_query/features.h"
-#endif  // !BUILDFLAG(IS_ANDROID)
-
 namespace {
 
 // Creates a Profile and its underlying OTR Profile for testing.
@@ -179,7 +175,6 @@ class ProfileKeyedServiceBrowserTest : public InProcessBrowserTest {
     feature_list_.InitWithFeatures(
         {
           features::kTrustSafetySentimentSurvey,
-          companion::visual_query::features::kVisualQuerySuggestions,
 #if BUILDFLAG(IS_WIN)
           switches::kEnableBoundSessionCredentials,
 #endif  // BUILDFLAG(IS_WIN)
@@ -188,6 +183,7 @@ class ProfileKeyedServiceBrowserTest : public InProcessBrowserTest {
           net::features::kTopLevelTpcdOriginTrial,
           net::features::kTpcdTrialSettings,
           net::features::kTopLevelTpcdTrialSettings,
+          features::kMainNodeAnnotations,
           features::kPdfOcr,
           features::kPersistentOriginTrials,
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
@@ -229,17 +225,9 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
                        GuestProfileOTR_NeededServices) {
   // clang-format off
   std::set<std::string> guest_otr_active_services {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-    "CleanupManagerLacros",
-    "DownloadBubbleUpdateService",
-    "DownloadCoreService",
-    "MediaNotificationService",
-#else
-    "LiveCaptionController",
-    "LiveTranslateController",
-#endif // BUILDFLAG(IS_CHROMEOS_LACROS)
     "AIManagerKeyedService",
     "AlarmManager",
+    "AXMainNodeAnnotatorController",
     "BackgroundContentsService",
     "BackgroundSyncService",
     "BluetoothApiAdvertisementManager",
@@ -260,9 +248,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     "FederatedIdentityPermissionContext",
     "FederatedIdentityAutoReauthnPermissionContext",
     "FeedbackPrivateAPI",
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-    "FileChangeServiceBridge",
-#endif // BUILDFLAG(IS_CHROMEOS_LACROS)
     "FileSystemAccessPermissionContext",
     "GeneratedPrefs",
     "HeavyAdService",
@@ -271,6 +256,8 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
 #endif
     "HidDeviceManager",
     "HostContentSettingsMap",
+    "LiveCaptionController",
+    "LiveTranslateController",
     "MediaRouter",
     "MediaRouterUIService",
     "NotificationDisplayService",
@@ -330,21 +317,9 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
                        GuestProfileParent_NeededServices) {
   // clang-format off
   std::set<std::string> guest_active_services {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-    "CastNotificationControllerLacros",
-    "CertDbInitializerFactory",
-    "CleanupManagerLacros",
-    "ClipboardAPI",
-    "ExternalLogoutRequestEventHandler",
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-    "ImageWriterControllerLacros",
-#endif
-    "MediaNotificationService",
-    "SessionStateChangedEventDispatcher",
-#else // !BUILDFLAG(IS_CHROMEOS_LACROS)
     "SystemIndicatorManager",
     "WebAppProvider",
-#endif
+    "AccountExtensionTracker",
     "AccountReconcilor",
     "ActivityLog",
     "ActivityLogPrivateAPI",
@@ -408,9 +383,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     "DeveloperPrivateAPI",
     "DeviceInfoSyncService",
     "DownloadCoreService",
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-    "EnterpriseManagementService",
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
     "EventRouter",
     "ExtensionActionAPI",
     "ExtensionActionManager",
@@ -433,9 +405,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     "FederatedIdentityPermissionContext",
     "FederatedIdentityAutoReauthnPermissionContext",
     "FeedbackPrivateAPI",
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-    "FileChangeServiceBridge",
-#endif // BUILDFLAG(IS_CHROMEOS_LACROS)
     "FileSystemAccessPermissionContext",
     "FirstPartySetsPolicyService",
     "FontPrefChangeNotifier",
@@ -460,9 +429,9 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     "InstallVerifier",
     "InstanceIDProfileService",
     "InvalidationService",
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     "KcerFactory",
-#endif // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif // BUILDFLAG(IS_CHROMEOS)
     "LanguageSettingsPrivateDelegate",
     "LazyBackgroundTaskQueue",
     "ListFamilyMembersService",
@@ -484,9 +453,9 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     "NotificationDisplayService",
     "NtpBackgroundService",
     "NtpCustomBackgroundService",
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     "NssServiceFactory",
-#endif // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif // BUILDFLAG(IS_CHROMEOS)
     "OmniboxAPI",
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
     "OnDeviceTailModelService",
@@ -576,9 +545,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     "UserCloudPolicyInvalidator",
     "UserFmRegistrationTokenUploader",
     "UserPolicySigninService",
-#if !BUILDFLAG(IS_ANDROID)
-    "VisualQuerySuggestionsService",
-#endif  // !BUILDFLAG(IS_ANDROID)
     "WarningBadgeService",
     "WarningService",
     "WebAuthenticationProxyAPI",
@@ -591,6 +557,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     "WebRequestEventRouter",
     "WebRtcEventLogManagerKeyedService",
     "WebrtcAudioPrivateEventService",
+    "WriteQuotaChecker",
     "feedback::FeedbackUploaderChrome",
     "sct_reporting::Factory",
     "ZeroSuggestCacheServiceFactory",

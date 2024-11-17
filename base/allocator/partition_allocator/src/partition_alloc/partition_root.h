@@ -238,11 +238,11 @@ struct alignas(64) PA_COMPONENT_EXPORT(PARTITION_ALLOC) PartitionRoot {
 
     bool with_thread_cache = false;
 
-#if PA_BUILDFLAG(DCHECKS_ARE_ON)
-    bool use_cookie = false;
+#if PA_BUILDFLAG(USE_PARTITION_COOKIE)
+    static constexpr bool use_cookie = true;
 #else
     static constexpr bool use_cookie = false;
-#endif  // PA_BUILDFLAG(DCHECKS_ARE_ON)
+#endif  // PA_BUILDFLAG(USE_PARTITION_COOKIE)
 #if PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
     bool brp_enabled_ = false;
 #if PA_CONFIG(MAYBE_ENABLE_MAC11_MALLOC_SIZE_HACK)
@@ -348,8 +348,8 @@ struct alignas(64) PA_COMPONENT_EXPORT(PARTITION_ALLOC) PartitionRoot {
   ReadOnlySuperPageExtentEntry* first_extent = nullptr;
   ReadOnlyDirectMapExtent* direct_map_list
       PA_GUARDED_BY(internal::PartitionRootLock(this)) = nullptr;
-  ReadOnlySlotSpanMetadata*
-      global_empty_slot_span_ring[internal::kMaxFreeableSpans] PA_GUARDED_BY(
+  ReadOnlySlotSpanMetadata* global_empty_slot_span_ring
+      [internal::kMaxEmptySlotSpanRingSize] PA_GUARDED_BY(
           internal::PartitionRootLock(this)) = {};
   int16_t global_empty_slot_span_ring_index
       PA_GUARDED_BY(internal::PartitionRootLock(this)) = 0;
@@ -609,7 +609,8 @@ struct alignas(64) PA_COMPONENT_EXPORT(PARTITION_ALLOC) PartitionRoot {
   void EnableLargeEmptySlotSpanRing() {
     ::partition_alloc::internal::ScopedGuard locker{
         internal::PartitionRootLock(this)};
-    global_empty_slot_span_ring_size = internal::kMinFreeableSpans;
+    global_empty_slot_span_ring_size =
+        internal::kBackgroundEmptySlotSpanRingSize;
   }
 
   void DumpStats(const char* partition_name,
@@ -823,18 +824,20 @@ struct alignas(64) PA_COMPONENT_EXPORT(PARTITION_ALLOC) PartitionRoot {
     max_empty_slot_spans_dirty_bytes_shift = 2;
     ::partition_alloc::internal::ScopedGuard guard{
         internal::PartitionRootLock(this)};
-    global_empty_slot_span_ring_size = internal::kMaxFreeableSpans;
+    global_empty_slot_span_ring_size =
+        internal::kForegroundEmptySlotSpanRingSize;
   }
 
   void AdjustForBackground() {
     max_empty_slot_spans_dirty_bytes_shift = 3;
-    // ShrinkEmptySlotSpansRing() will iterate through kMaxFreeableSpans, so
-    // no need to for this to free any empty pages now.
+    // ShrinkEmptySlotSpansRing() will iterate through
+    // kMaxEmptySlotSpanRingSize, so no need to free empty pages now.
     ::partition_alloc::internal::ScopedGuard guard{
         internal::PartitionRootLock(this)};
-    global_empty_slot_span_ring_size = internal::kMinFreeableSpans;
+    global_empty_slot_span_ring_size =
+        internal::kBackgroundEmptySlotSpanRingSize;
     if (global_empty_slot_span_ring_index >=
-        static_cast<int16_t>(internal::kMinFreeableSpans)) {
+        static_cast<int16_t>(internal::kBackgroundEmptySlotSpanRingSize)) {
       global_empty_slot_span_ring_index = 0;
     }
   }
@@ -913,8 +916,8 @@ struct alignas(64) PA_COMPONENT_EXPORT(PARTITION_ALLOC) PartitionRoot {
   //
   // See crbug.com/1150772 for an instance of Clusterfuzz / UBSAN detecting
   // this.
-  PA_ALWAYS_INLINE PA_NO_SANITIZE("undefined") const Bucket& bucket_at(
-      size_t i) const {
+  PA_NO_SANITIZE("undefined")
+  PA_ALWAYS_INLINE const Bucket& bucket_at(size_t i) const {
     PA_DCHECK(i <= internal::kNumBuckets);
     return buckets[i];
   }
@@ -1548,8 +1551,9 @@ PA_ALWAYS_INLINE void PartitionRoot::FreeNoHooksImmediate(
   if (settings.use_cookie) {
     // Verify the cookie after the allocated region.
     // If this assert fires, you probably corrupted memory.
-    internal::PartitionCookieCheckValue(static_cast<unsigned char*>(object) +
-                                        GetSlotUsableSize(slot_span));
+    const size_t usable_size = GetSlotUsableSize(slot_span);
+    internal::PartitionCookieCheckValue(
+        static_cast<unsigned char*>(object) + usable_size, usable_size);
   }
 
 #if PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
@@ -2529,7 +2533,7 @@ PartitionRoot::GetSchedulerLoopQuarantineBranch() {
   if (ThreadCache::IsValid(thread_cache)) [[likely]] {
     return thread_cache->GetSchedulerLoopQuarantineBranch();
   } else {
-    return *scheduler_loop_quarantine->get();
+    return **scheduler_loop_quarantine;
   }
 }
 

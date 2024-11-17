@@ -19,8 +19,6 @@
 #include "third_party/blink/public/common/logging/logging_utils.h"
 #include "url/gurl.h"
 
-#include "third_party/blink/public/mojom/page/draggable_region.mojom.h"
-
 namespace extensions {
 
 ChromeExtensionFrameHost::ChromeExtensionFrameHost(

@@ -103,7 +103,6 @@ public final class StatusMediatorUnitTest {
     @Mock private Tracker mTracker;
 
     Context mContext;
-    Resources mResources;
 
     PropertyModel mModel;
     StatusMediator mMediator;
@@ -115,7 +114,6 @@ public final class StatusMediatorUnitTest {
         mContext =
                 new ContextThemeWrapper(
                         ContextUtils.getApplicationContext(), R.style.Theme_BrowserUI_DayNight);
-        mResources = mContext.getResources();
         mWindowAndroid = new WindowAndroid(mContext);
 
         SearchEngineUtils.setInstanceForTesting(mSearchEngineUtils);
@@ -152,7 +150,6 @@ public final class StatusMediatorUnitTest {
         mMediator =
                 new StatusMediator(
                         mModel,
-                        mResources,
                         mContext,
                         mUrlBarEditingTextStateProvider,
                         isTablet,
@@ -755,6 +752,15 @@ public final class StatusMediatorUnitTest {
         mMediator.onUrlChanged();
 
         Assert.assertNotEquals(mMediator.getCookieControlsBridge(), null);
+    }
+
+    @Test
+    @SmallTest
+    public void showStatusView_toggleVisibility() {
+        mMediator.setShowStatusView(false);
+        Assert.assertFalse(mModel.get(StatusProperties.SHOW_STATUS_VIEW));
+        mMediator.setShowStatusView(true);
+        Assert.assertTrue(mModel.get(StatusProperties.SHOW_STATUS_VIEW));
     }
 
     private String getIconIdentifierForTesting() {

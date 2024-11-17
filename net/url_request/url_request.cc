@@ -10,6 +10,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
+#include "base/metrics/histogram_functions_internal_overloads.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/rand_util.h"
@@ -141,6 +142,23 @@ NetLogWithSource CreateNetLogWithSource(
     return NetLogWithSource::Make(net_log, net_log_source.value());
   }
   return NetLogWithSource::Make(net_log, NetLogSourceType::URL_REQUEST);
+}
+
+// TODO(https://crbug.com/366284840): remove this, once the "retry" header is
+// handled in URLLoader.
+net::cookie_util::SecFetchStorageAccessValueOutcome
+ConvertSecFetchStorageAccessHeaderValueToOutcome(
+    net::cookie_util::StorageAccessStatus storage_access_status) {
+  using enum net::cookie_util::SecFetchStorageAccessValueOutcome;
+  switch (storage_access_status) {
+    case net::cookie_util::StorageAccessStatus::kInactive:
+      return kValueInactive;
+    case net::cookie_util::StorageAccessStatus::kActive:
+      return kValueActive;
+    case net::cookie_util::StorageAccessStatus::kNone:
+      return kValueNone;
+  }
+  NOTREACHED();
 }
 
 }  // namespace
@@ -687,6 +705,7 @@ void URLRequest::StartJob(std::unique_ptr<URLRequestJob> job) {
 
   is_pending_ = true;
   is_redirecting_ = false;
+  deferred_redirect_info_.reset();
 
   response_info_.was_cached = false;
 
@@ -851,12 +870,31 @@ int URLRequest::NotifyConnected(const TransportInfo& info,
   return result;
 }
 
-void URLRequest::NotifyReceivedRedirect(const RedirectInfo& redirect_info,
-                                        bool* defer_redirect) {
+void URLRequest::ReceivedRedirect(RedirectInfo redirect_info) {
   DCHECK_EQ(OK, status_);
   is_redirecting_ = true;
   OnCallToDelegate(NetLogEventType::URL_REQUEST_DELEGATE_RECEIVED_REDIRECT);
-  delegate_->OnReceivedRedirect(this, redirect_info, defer_redirect);
+
+  // When notifying the URLRequest::Delegate, it can destroy the request,
+  // which will destroy |this|.  After calling to the URLRequest::Delegate,
+  // pointer must be checked to see if |this| still exists, and if not, the
+  // code must return immediately.
+  base::WeakPtr<URLRequest> weak_this(weak_factory_.GetWeakPtr());
+  bool defer_redirect = false;
+  delegate_->OnReceivedRedirect(this, redirect_info, &defer_redirect);
+
+  // Ensure that the request wasn't detached, destroyed, or canceled in
+  // NotifyReceivedRedirect.
+  if (!weak_this || failed()) {
+    return;
+  }
+
+  if (defer_redirect) {
+    deferred_redirect_info_ = std::move(redirect_info);
+  } else {
+    Redirect(redirect_info, /*removed_headers=*/std::nullopt,
+             /*modified_headers=*/std::nullopt);
+  }
   // |this| may be have been destroyed here.
 }
 
@@ -896,12 +934,21 @@ void URLRequest::FollowDeferredRedirect(
     const std::optional<net::HttpRequestHeaders>& modified_headers) {
   DCHECK(job_.get());
   DCHECK_EQ(OK, status_);
+  DCHECK(is_redirecting_);
+  DCHECK(deferred_redirect_info_);
 
   maybe_sent_cookies_.clear();
   maybe_stored_cookies_.clear();
 
   status_ = ERR_IO_PENDING;
-  job_->FollowDeferredRedirect(removed_headers, modified_headers);
+
+  // While this move is not strictly needed, Redirect() will start a new Job,
+  // which will delete `deferred_redirect_info_`. While `redirect_info` should
+  // not be needed after it's been deleted, it's best to not have a reference to
+  // a deleted object on the stack.
+  RedirectInfo redirect_info = std::move(deferred_redirect_info_).value();
+
+  Redirect(redirect_info, removed_headers, modified_headers);
 }
 
 void URLRequest::SetAuth(const AuthCredentials& credentials) {
@@ -1042,6 +1089,7 @@ void URLRequest::RetryWithStorageAccess() {
 
   cookie_setting_overrides().Put(
       CookieSettingOverride::kStorageAccessGrantEligibleViaHeader);
+  set_storage_access_status(CalculateStorageAccessStatus());
 
   if (!final_upload_progress_.position() && upload_data_stream_) {
     final_upload_progress_ = upload_data_stream_->GetUploadProgress();
@@ -1202,6 +1250,7 @@ void URLRequest::NotifyRequestCompleted() {
 
   is_pending_ = false;
   is_redirecting_ = false;
+  deferred_redirect_info_.reset();
   has_notified_completion_ = true;
   if (network_delegate())
     network_delegate()->NotifyCompleted(this, job_.get() != nullptr, status_);
@@ -1316,24 +1365,46 @@ void URLRequest::set_socket_tag(const SocketTag& socket_tag) {
   DCHECK(url().SchemeIsHTTPOrHTTPS());
   socket_tag_ = socket_tag;
 }
+std::optional<net::cookie_util::StorageAccessStatus>
+URLRequest::CalculateStorageAccessStatus() const {
+  std::optional<net::cookie_util::StorageAccessStatus> storage_access_status =
+      network_delegate()->GetStorageAccessStatus(*this);
 
-bool URLRequest::ShouldSetLoadWithStorageAccess() const {
-  CHECK(job_);
-  auto storage_access_can_be_activated = [this]() -> bool {
-    switch (job_->StorageAccessStatus()) {
-      case cookie_util::StorageAccessStatus::kNone:
-        return false;
-      case cookie_util::StorageAccessStatus::kInactive:
-        return true;
-      case cookie_util::StorageAccessStatus::kActive:
-        return true;
+  auto get_storage_access_value_outcome_if_omitted = [&]()
+      -> std::optional<net::cookie_util::SecFetchStorageAccessValueOutcome> {
+    if (!network_delegate()->IsStorageAccessHeaderEnabled(
+            base::OptionalToPtr(isolation_info().top_frame_origin()), url())) {
+      return net::cookie_util::SecFetchStorageAccessValueOutcome::
+          kOmittedFeatureDisabled;
     }
-    NOTREACHED();
+    // Avoid attaching the header in cases where credentials are not included in
+    // the request.
+    if (!allow_credentials_) {
+      return net::cookie_util::SecFetchStorageAccessValueOutcome::
+          kOmittedRequestOmitsCredentials;
+    }
+    if (!storage_access_status) {
+      return net::cookie_util::SecFetchStorageAccessValueOutcome::
+          kOmittedSameSite;
+    }
+    return std::nullopt;
   };
-  return network_delegate()->IsStorageAccessHeaderEnabled(
-             base::OptionalToPtr(isolation_info().top_frame_origin()), url()) &&
-         storage_access_can_be_activated() && response_headers() &&
-         response_headers()->HasStorageAccessLoadHeader();
+
+  auto storage_access_value_outcome =
+      get_storage_access_value_outcome_if_omitted();
+  if (storage_access_value_outcome) {
+    storage_access_status = std::nullopt;
+  } else {
+    storage_access_value_outcome =
+        ConvertSecFetchStorageAccessHeaderValueToOutcome(
+            storage_access_status.value());
+  }
+
+  base::UmaHistogramEnumeration(
+      "API.StorageAccessHeader.SecFetchStorageAccessValueOutcome",
+      storage_access_value_outcome.value());
+
+  return storage_access_status;
 }
 
 void URLRequest::SetSharedDictionaryGetter(

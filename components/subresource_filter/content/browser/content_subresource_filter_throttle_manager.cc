@@ -26,7 +26,8 @@
 #include "components/subresource_filter/content/mojom/subresource_filter.mojom.h"
 #include "components/subresource_filter/content/shared/browser/activation_state_computing_navigation_throttle.h"
 #include "components/subresource_filter/content/shared/browser/page_load_statistics.h"
-#include "components/subresource_filter/content/shared/common/subresource_filter_utils.h"
+#include "components/subresource_filter/content/shared/browser/utils.h"
+#include "components/subresource_filter/content/shared/common/utils.h"
 #include "components/subresource_filter/core/browser/async_document_subresource_filter.h"
 #include "components/subresource_filter/core/browser/subresource_filter_constants.h"
 #include "components/subresource_filter/core/browser/subresource_filter_features.h"
@@ -155,7 +156,7 @@ void ContentSubresourceFilterThrottleManager::ReadyToCommitInFrameNavigation(
              base::Contains(
                  ad_frames_,
                  frame_host->GetParentOrOuterDocument()->GetFrameTreeNodeId()),
-             base::NotFatalUntil::M132);
+             base::NotFatalUntil::M134);
     ad_evidence.set_is_complete();
     ad_evidence_for_navigation = ad_evidence;
 
@@ -306,11 +307,11 @@ void ContentSubresourceFilterThrottleManager::DidFinishInFrameNavigation(
     // (regardless of the URL).
     CHECK(!(navigation_handle->GetURL().IsAboutBlank() &&
             EnsureFrameAdEvidence(navigation_handle).IndicatesAdFrame()),
-          base::NotFatalUntil::M132);
+          base::NotFatalUntil::M134);
   } else {
     CHECK(navigation_handle->IsInMainFrame() ||
               EnsureFrameAdEvidence(navigation_handle).is_complete(),
-          base::NotFatalUntil::M129);
+          base::NotFatalUntil::M134);
   }
 
   bool did_inherit_opener_activation;
@@ -559,7 +560,7 @@ void ContentSubresourceFilterThrottleManager::OnChildFrameNavigationEvaluated(
            base::Contains(ad_frames_,
                           navigation_handle->GetParentFrameOrOuterDocument()
                               ->GetFrameTreeNodeId()),
-           base::NotFatalUntil::M132);
+           base::NotFatalUntil::M134);
 
   ad_evidence.UpdateFilterListResult(
       InterpretLoadPolicyAsEvidence(load_policy));

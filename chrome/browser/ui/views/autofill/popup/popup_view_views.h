@@ -32,6 +32,10 @@ class BoxLayoutView;
 class ScrollView;
 }  // namespace views
 
+namespace autofill_prediction_improvements {
+class PredictionImprovementsLoadingStateView;
+}
+
 namespace autofill {
 
 class AutofillPopupController;
@@ -67,7 +71,9 @@ class PopupViewViews : public PopupBaseView,
   using RowPointer = absl::variant<PopupRowView*,
                                    PopupSeparatorView*,
                                    PopupTitleView*,
-                                   PopupWarningView*>;
+                                   PopupWarningView*,
+                                   autofill_prediction_improvements::
+                                       PredictionImprovementsLoadingStateView*>;
 
   // The time it takes for a selected cell to open a sub-popup if it has one.
   static constexpr base::TimeDelta kMouseOpenSubPopupDelay =
@@ -243,6 +249,14 @@ class PopupViewViews : public PopupBaseView,
 
   // Announces a string without assertively alerting a user.
   void AnnouncePolitely(const std::u16string& text);
+
+  // The popup can be used for informing the user without providing suggestions
+  // to select, e.g. when the suggestions are loading. It has only one
+  // suggestion with a special type in this case. This method makes sure
+  // the suggestion's message is being announced to the user by focusing the row
+  // view (which must be selectable). Currently, `PopupWarningView` and
+  // `PredictionImprovementsLoadingStateView` are supported.
+  void MaybeA11yFocusInformationalSuggestion();
 
   // Controller for this view.
   base::WeakPtr<AutofillPopupController> controller_ = nullptr;

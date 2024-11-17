@@ -125,6 +125,10 @@ group("resources") {
     ]
   }
 
+  if (is_win || is_mac || is_linux) {
+    public_deps += [ "on_device_translation_internals:resources" ]
+  }
+
   if (is_linux || is_chromeos) {
     public_deps += [ "webui_js_error:resources" ]
   }
@@ -132,14 +136,16 @@ group("resources") {
   if (!is_android && !is_chromeos_ash) {
     public_deps += [
       "inline_login:resources",
-      "intro:resources",
       "signin/profile_picker:resources",
       "welcome:resources",
     ]
   }
 
   if (enable_dice_support) {
-    public_deps += [ "signin/batch_upload:resources" ]
+    public_deps += [
+      "intro:resources",
+      "signin/batch_upload:resources",
+    ]
   }
 
   if (enable_webui_tab_strip) {
@@ -147,10 +153,7 @@ group("resources") {
   }
 
   if (enable_extensions) {
-    public_deps += [
-      "extensions:resources",
-      "sync_file_system_internals:resources",
-    ]
+    public_deps += [ "extensions:resources" ]
   }
 
   if (enable_pdf) {

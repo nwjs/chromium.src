@@ -28,6 +28,7 @@
 #include "components/omnibox/browser/keyword_provider.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
+#include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_data.h"
@@ -273,6 +274,15 @@ void FeaturedSearchProvider::AddStarterPackMatch(
     match.allowed_to_be_default_match = false;
     match.keyword = template_url.keyword();
   } else {
+    // The Gemini provider should be ranked first.
+    // TODO(b/41494524): Currently templateurlservice returns the keywords in
+    //  alphabetical order, which is the order we rank them. There should be a
+    //  more sustainable way for specifying the order they should appear in the
+    //  omnibox.
+    if (OmniboxFieldTrial::IsStarterPackExpansionEnabled() &&
+        template_url.starter_pack_id() == TemplateURLStarterPackData::kGemini) {
+      match.relevance = kGeminiRelevance;
+    }
     match.description = template_url.short_name();
     match.description_class.emplace_back(0, ACMatchClassification::NONE);
     match.contents = destination_url;
@@ -466,7 +476,10 @@ void FeaturedSearchProvider::AddHistoryEmbeddingsSettingsPromoIphMatch() {
                         u" ";
   std::u16string link_text = l10n_util::GetStringUTF16(
       IDS_OMNIBOX_HISTORY_EMBEDDINGS_SETTINGS_PROMO_IPH_LINK_TEXT);
-  GURL link_url = GURL("chrome://settings/historySearch");
+  GURL link_url = GURL(base::FeatureList::IsEnabled(
+                           optimization_guide::features::kAiSettingsPageRefresh)
+                           ? "chrome://settings/ai/historySearch"
+                           : "chrome://settings/historySearch");
   AddIPHMatch(IphType::kHistoryEmbeddingsSettingsPromo, text, u"", link_text,
               link_url, true);
 }
@@ -486,7 +499,10 @@ void FeaturedSearchProvider::AddHistoryEmbeddingsDisclaimerIphMatch() {
       u" ";
   std::u16string link_text = l10n_util::GetStringUTF16(
       IDS_OMNIBOX_HISTORY_EMBEDDINGS_DISCLAIMER_IPH_LINK_TEXT);
-  GURL link_url = GURL("chrome://settings/historySearch");
+  GURL link_url = GURL(base::FeatureList::IsEnabled(
+                           optimization_guide::features::kAiSettingsPageRefresh)
+                           ? "chrome://settings/ai/historySearch"
+                           : "chrome://settings/historySearch");
   AddIPHMatch(IphType::kHistoryEmbeddingsDisclaimer, text, u"", link_text,
               link_url, false);
 }
@@ -500,6 +516,7 @@ bool FeaturedSearchProvider::ShouldShowHistoryScopePromoIphMatch(
   // to embeddings.
   return input.IsZeroSuggest() && !client_->IsHistoryEmbeddingsEnabled() &&
          history_embeddings::kOmniboxScoped.Get() &&
+         !client_->IsOffTheRecord() &&
          ShouldShowIPH(IphType::kHistoryScopePromo);
 }
 

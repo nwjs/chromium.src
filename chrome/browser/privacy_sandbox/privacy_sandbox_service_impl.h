@@ -6,6 +6,8 @@
 #define CHROME_BROWSER_PRIVACY_SANDBOX_PRIVACY_SANDBOX_SERVICE_IMPL_H_
 
 // clang-format off
+#include "chrome/browser/privacy_sandbox/privacy_sandbox_countries.h"
+#include "chrome/browser/privacy_sandbox/privacy_sandbox_countries_impl.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_service.h"
 // clang-format on
 
@@ -62,7 +64,8 @@ class PrivacySandboxServiceImpl : public PrivacySandboxService {
       TrustSafetySentimentService* sentiment_service,
 #endif
       browsing_topics::BrowsingTopicsService* browsing_topics_service,
-      first_party_sets::FirstPartySetsPolicyService* first_party_sets_service);
+      first_party_sets::FirstPartySetsPolicyService* first_party_sets_service,
+      PrivacySandboxCountries* privacy_sandbox_countries);
 
   ~PrivacySandboxServiceImpl() override;
 
@@ -105,6 +108,7 @@ class PrivacySandboxServiceImpl : public PrivacySandboxService {
       const privacy_sandbox::CanonicalTopic& topic) const override;
   void SetTopicAllowed(privacy_sandbox::CanonicalTopic topic,
                        bool allowed) override;
+  bool PrivacySandboxPrivacyGuideShouldShowAdTopicsCard() override;
   void TopicsToggleChanged(bool new_value) const override;
   bool TopicsConsentRequired() const override;
   bool TopicsHasActiveConsent() const override;
@@ -185,6 +189,8 @@ class PrivacySandboxServiceImpl : public PrivacySandboxService {
       RecordPrivacySandbox4StartupMetrics_PromptNotSuppressed_ROW);
   FRIEND_TEST_ALL_PREFIXES(PrivacySandboxServiceTest,
                            RecordPrivacySandbox4StartupMetrics_APIs);
+  FRIEND_TEST_ALL_PREFIXES(PrivacySandboxPrivacyGuideShouldShowAdTopicsTest,
+                           ReturnsCorrectStatus);
   FRIEND_TEST_ALL_PREFIXES(
       PrivacySandboxServiceM1RestrictedNoticePromptTest,
       RecordPrivacySandbox4StartupMetrics_PromptNotSuppressed);
@@ -337,8 +343,7 @@ class PrivacySandboxServiceImpl : public PrivacySandboxService {
 #endif  // !BUILDFLAG(IS_ANDROID)
 
  private:
-  raw_ptr<privacy_sandbox::PrivacySandboxSettings, DanglingUntriaged>
-      privacy_sandbox_settings_;
+  raw_ptr<privacy_sandbox::PrivacySandboxSettings> privacy_sandbox_settings_;
   raw_ptr<privacy_sandbox::TrackingProtectionSettings>
       tracking_protection_settings_;
   scoped_refptr<content_settings::CookieSettings> cookie_settings_;
@@ -349,18 +354,20 @@ class PrivacySandboxServiceImpl : public PrivacySandboxService {
   raw_ptr<content::BrowsingDataRemover> browsing_data_remover_;
   raw_ptr<HostContentSettingsMap> host_content_settings_map_;
 #if !BUILDFLAG(IS_ANDROID)
-  raw_ptr<TrustSafetySentimentService, DanglingUntriaged> sentiment_service_;
+  raw_ptr<TrustSafetySentimentService> sentiment_service_;
 #endif
   raw_ptr<browsing_topics::BrowsingTopicsService> browsing_topics_service_;
   raw_ptr<first_party_sets::FirstPartySetsPolicyService>
       first_party_sets_policy_service_;
+  raw_ptr<PrivacySandboxCountries> privacy_sandbox_countries_;
 
   PrefChangeRegistrar user_prefs_registrar_;
 
 #if !BUILDFLAG(IS_ANDROID)
   // A map of Browser windows which have an open Privacy Sandbox prompt,
   // to the Widget for that prompt.
-  std::map<Browser*, views::Widget*> browsers_to_open_prompts_;
+  std::map<Browser*, raw_ptr<views::Widget, CtnExperimental>>
+      browsers_to_open_prompts_;
 #endif
 
   // Fake implementation for current and blocked topics.
@@ -388,6 +395,9 @@ class PrivacySandboxServiceImpl : public PrivacySandboxService {
 
   // Called when the Ad measurement preference is changed.
   void OnAdMeasurementPrefChanged();
+
+  // Returns a PrivacySandboxCountries reference.
+  PrivacySandboxCountries* GetPrivacySandboxCountries();
 
   // Returns true if _any_ of the k-API prefs are disabled via policy or
   // the prompt was suppressed via policy.

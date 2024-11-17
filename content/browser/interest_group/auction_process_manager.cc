@@ -4,18 +4,25 @@
 
 #include "content/browser/interest_group/auction_process_manager.h"
 
+#include <optional>
+
 #include "base/check.h"
+#include "base/debug/stack_trace.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/not_fatal_until.h"
+#include "base/strings/strcat.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "build/build_config.h"
+#include "content/browser/interest_group/interest_group_features.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/child_process_host.h"
 #include "content/public/browser/render_frame_host.h"
@@ -30,129 +37,166 @@
 
 namespace content {
 
+namespace {
+
+void RecordRequestWorkletServiceOutcomeUMA(
+    AuctionProcessManager::WorkletType worklet_type,
+    AuctionProcessManager::RequestWorkletServiceOutcome result) {
+  base::UmaHistogramEnumeration(
+      base::StrCat({"Ads.InterestGroup.Auction.",
+                    worklet_type == AuctionProcessManager::WorkletType::kSeller
+                        ? "Seller."
+                        : "Buyer.",
+                    "RequestWorkletServiceOutcome"}),
+      result);
+}
+}  // namespace
+
 constexpr size_t AuctionProcessManager::kMaxBidderProcesses = 10;
 constexpr size_t AuctionProcessManager::kMaxSellerProcesses = 3;
 
-class AuctionProcessManager::WorkletProcess
-    : public base::RefCounted<WorkletProcess>,
-      public RenderProcessHostObserver {
- public:
-  WorkletProcess(
-      AuctionProcessManager* auction_process_manager,
-      RenderProcessHost* render_process_host,
-      mojo::Remote<auction_worklet::mojom::AuctionWorkletService> service,
-      WorkletType worklet_type,
-      const url::Origin& origin,
-      bool uses_shared_process)
-      : render_process_host_(render_process_host),
-        worklet_type_(worklet_type),
-        origin_(origin),
-        start_time_(base::TimeTicks::Now()),
-        uses_shared_process_(uses_shared_process),
-        auction_process_manager_(auction_process_manager),
-        service_(std::move(service)) {
-    DCHECK(auction_process_manager);
-    service_.set_disconnect_handler(base::BindOnce(
-        &WorkletProcess::NotifyUnusableOnce, base::Unretained(this)));
+AuctionProcessManager::WorkletProcess::WorkletProcess(
+    AuctionProcessManager* auction_process_manager,
+    scoped_refptr<SiteInstance> site_instance,
+    RenderProcessHost* render_process_host,
+    mojo::PendingRemote<auction_worklet::mojom::AuctionWorkletService> service,
+    WorkletType worklet_type,
+    const url::Origin& origin,
+    bool uses_shared_process)
+    : render_process_host_(render_process_host),
+      site_instance_(std::move(site_instance)),
+      worklet_type_(worklet_type),
+      origin_(origin),
+      start_time_(base::TimeTicks::Now()),
+      uses_shared_process_(uses_shared_process),
+      auction_process_manager_(auction_process_manager),
+      service_(std::move(service)) {
+  DCHECK(auction_process_manager);
+  service_.set_disconnect_handler(
+      base::BindOnce(&WorkletProcess::RemoveFromProcessManager,
+                     base::Unretained(this), /*on_destruction=*/false));
 
-    if (render_process_host_) {
-      render_process_host_->IncrementWorkerRefCount();
-      render_process_host_->AddObserver(this);
+  if (render_process_host_) {
+    render_process_host_->IncrementWorkerRefCount();
+    render_process_host_->AddObserver(this);
 
-      // Note the PID if the process has already launched
-      if (render_process_host_->IsReady()) {
-        DCHECK(render_process_host_->GetProcess().IsValid());
-        pid_ = render_process_host_->GetProcess().Pid();
-      }
+    // Note the PID if the process has already launched
+    if (render_process_host_->IsReady()) {
+      DCHECK(render_process_host_->GetProcess().IsValid());
+      pid_ = render_process_host_->GetProcess().Pid();
     }
   }
+}
 
-  auction_worklet::mojom::AuctionWorkletService* GetService() {
-    DCHECK(service_.is_connected());
-    return service_.get();
+auction_worklet::mojom::AuctionWorkletService*
+AuctionProcessManager::WorkletProcess::GetService() {
+  DCHECK(service_.is_connected());
+  return service_.get();
+}
+
+std::optional<base::ProcessId> AuctionProcessManager::WorkletProcess::GetPid(
+    base::OnceCallback<void(base::ProcessId)> callback) {
+  if (pid_.has_value()) {
+    return pid_;
+  } else {
+    waiting_for_pid_.push_back(std::move(callback));
+    return std::nullopt;
   }
+}
 
-  WorkletType worklet_type() const { return worklet_type_; }
-  const url::Origin& origin() const { return origin_; }
-  RenderProcessHost* render_process_host() const {
-    return render_process_host_;
+void AuctionProcessManager::WorkletProcess::OnLaunchedWithProcess(
+    const base::Process& process) {
+  base::UmaHistogramTimes("Ads.InterestGroup.Auction.ProcessLaunchTime",
+                          base::TimeTicks::Now() - start_time_);
+  DCHECK(!pid_.has_value());
+  base::ProcessId pid = process.Pid();
+  pid_ = std::make_optional<base::ProcessId>(pid);
+  std::vector<base::OnceCallback<void(base::ProcessId)>> waiting_for_pid =
+      std::move(waiting_for_pid_);
+  for (auto& callback : waiting_for_pid) {
+    std::move(callback).Run(pid);
   }
+}
 
-  std::optional<base::ProcessId> GetPid(
-      base::OnceCallback<void(base::ProcessId)> callback) {
-    if (pid_.has_value()) {
-      return pid_;
-    } else {
-      waiting_for_pid_.push_back(std::move(callback));
-      return std::nullopt;
+void AuctionProcessManager::WorkletProcess::ReassignWorkletTypeAndOrigin(
+    AuctionProcessManager::WorkletType worklet_type,
+    const url::Origin& origin) {
+  // We should only reassign the worklet type and origin of an unused process.
+  CHECK(is_idle_);
+  worklet_type_ = worklet_type;
+  origin_ = origin;
+}
+
+void AuctionProcessManager::WorkletProcess::SetIsIdle(bool is_idle) {
+  is_idle_ = is_idle;
+  if (is_idle) {
+    DCHECK(!remove_idle_process_from_manager_timer_.IsRunning());
+    remove_idle_process_from_manager_timer_.Start(
+        FROM_HERE,
+        features::kFledgeStartAnticipatoryProcessExpirationTime.Get(),
+        base::BindOnce(&WorkletProcess::RemoveFromProcessManager,
+                       base::Unretained(this),
+                       /*on_destruction=*/false));
+  } else {
+    remove_idle_process_from_manager_timer_.Stop();
+  }
+}
+
+void AuctionProcessManager::WorkletProcess::RenderProcessReady(
+    RenderProcessHost* host) {
+  DCHECK(render_process_host_);
+  DCHECK(render_process_host_->GetProcess().IsValid());
+  OnLaunchedWithProcess(render_process_host_->GetProcess());
+}
+
+void AuctionProcessManager::WorkletProcess::RenderProcessHostDestroyed(
+    RenderProcessHost* host) {
+  DCHECK_EQ(host, render_process_host_);
+  RemoveFromProcessManager(/*on_destruction=*/false);
+}
+
+void AuctionProcessManager::WorkletProcess::RemoveFromProcessManager(
+    bool on_destruction) {
+  if (render_process_host_) {
+    render_process_host_->RemoveObserver(this);
+    if (!render_process_host_->AreRefCountsDisabled()) {
+      render_process_host_->DecrementWorkerRefCount();
     }
+    render_process_host_ = nullptr;
   }
 
-  void OnLaunchedWithPid(base::ProcessId pid) {
-    base::UmaHistogramTimes("Ads.InterestGroup.Auction.ProcessLaunchTime",
-                            base::TimeTicks::Now() - start_time_);
-    DCHECK(!pid_.has_value());
-    pid_ = std::make_optional<base::ProcessId>(pid);
-    std::vector<base::OnceCallback<void(base::ProcessId)>> waiting_for_pid =
-        std::move(waiting_for_pid_);
-    for (auto& callback : waiting_for_pid) {
-      std::move(callback).Run(pid);
-    }
-  }
-
- private:
-  friend class base::RefCounted<WorkletProcess>;
-
-  // From RenderProcessHostObserver:
-  void RenderProcessReady(RenderProcessHost* host) override {
-    DCHECK(render_process_host_);
-    DCHECK(render_process_host_->GetProcess().IsValid());
-    OnLaunchedWithPid(render_process_host_->GetProcess().Pid());
-  }
-
-  void RenderProcessHostDestroyed(RenderProcessHost* host) override {
-    DCHECK_EQ(host, render_process_host_);
-    NotifyUnusableOnce();
-  }
-
-  void NotifyUnusableOnce() {
-    AuctionProcessManager* maybe_apm = auction_process_manager_;
-    // Clear `auction_process_manager_` to make sure OnWorkletProcessUnusable()
-    // is called once.  Clear it before call to ensure this is the case even
-    // if this method is re-entered somehow.
-    auction_process_manager_ = nullptr;
-    if (maybe_apm && !uses_shared_process_)
+  AuctionProcessManager* maybe_apm = auction_process_manager_;
+  // Clear `auction_process_manager_` to make sure OnWorkletProcessUnusable()
+  // is called once.  Clear it before call to ensure this is the case even
+  // if this method is re-entered somehow.
+  auction_process_manager_ = nullptr;
+  if (maybe_apm) {
+    if (is_idle_ && !on_destruction) {
+      // Idle shared worklet processes are not allowed.
+      DCHECK(!uses_shared_process_);
+      // AuctionProcessManager owns idle processes, so if this
+      // process is idle & being destructed, it must have been removed
+      // already.
+      maybe_apm->ReleaseIdleProcess(this);
+    } else if (!is_idle_ && !uses_shared_process_) {
       maybe_apm->OnWorkletProcessUnusable(this);
-
-    if (render_process_host_) {
-      render_process_host_->RemoveObserver(this);
-      if (!render_process_host_->AreRefCountsDisabled())
-        render_process_host_->DecrementWorkerRefCount();
-      render_process_host_ = nullptr;
     }
   }
+}
 
-  ~WorkletProcess() override { NotifyUnusableOnce(); }
-
-  raw_ptr<RenderProcessHost> render_process_host_;
-
-  const WorkletType worklet_type_;
-  const url::Origin origin_;
-  const base::TimeTicks start_time_;
-  bool uses_shared_process_;
-
-  std::optional<base::ProcessId> pid_;
-  std::vector<base::OnceCallback<void(base::ProcessId)>> waiting_for_pid_;
-
-  // nulled out once OnWorkletProcessUnusable() called.
-  raw_ptr<AuctionProcessManager> auction_process_manager_;
-
-  mojo::Remote<auction_worklet::mojom::AuctionWorkletService> service_;
-};
+AuctionProcessManager::WorkletProcess::~WorkletProcess() {
+  RemoveFromProcessManager(/*on_destruction=*/true);
+}
 
 AuctionProcessManager::ProcessHandle::ProcessHandle() = default;
 
 AuctionProcessManager::ProcessHandle::~ProcessHandle() {
+  if (worklet_process_) {
+    // Make sure the worklet process was not reassigned an origin or type
+    // while this ProcessHandle was alive.
+    DCHECK_EQ(worklet_process_->origin(), origin_);
+    DCHECK_EQ(worklet_process_->worklet_type(), worklet_type_);
+  }
   if (manager_) {
     // `manager_` should only be non-null if the handle is waiting for a
     // process.
@@ -183,6 +227,9 @@ std::optional<base::ProcessId> AuctionProcessManager::ProcessHandle::GetPid(
 
 void AuctionProcessManager::ProcessHandle::AssignProcess(
     scoped_refptr<WorkletProcess> worklet_process) {
+  // Only a process matching in origin and type can be assigned.
+  DCHECK_EQ(worklet_process->origin(), origin_);
+  DCHECK_EQ(worklet_process->worklet_type(), worklet_type_);
   worklet_process_ = std::move(worklet_process);
 
   // No longer needed.
@@ -195,10 +242,10 @@ void AuctionProcessManager::ProcessHandle::AssignProcess(
   }
 }
 
-void AuctionProcessManager::ProcessHandle::OnBaseProcessLaunched(
+void AuctionProcessManager::ProcessHandle::OnBaseProcessLaunchedForTesting(
     const base::Process& process) const {
   if (worklet_process_) {
-    worklet_process_->OnLaunchedWithPid(process.Pid());
+    worklet_process_->OnLaunchedWithProcess(process);
   }
 }
 
@@ -238,12 +285,21 @@ bool AuctionProcessManager::RequestWorkletService(
   //
   // This needs to be done before TryCreateOrGetProcessForHandle, since
   // shared processes really can't be keyed by origin.
-  if (TryUseSharedProcess(process_handle))
+  if (TryUseSharedProcess(process_handle)) {
+    RecordRequestWorkletServiceOutcomeUMA(
+        worklet_type, RequestWorkletServiceOutcome::kUsedSharedProcess);
     return true;
+  }
 
   // If can assign a process to the handle instantly, nothing else to do.
-  if (TryCreateOrGetProcessForHandle(process_handle))
+  RequestWorkletServiceOutcome create_or_get_process_outcome =
+      TryCreateOrGetProcessForHandle(process_handle);
+  RecordRequestWorkletServiceOutcomeUMA(worklet_type,
+                                        create_or_get_process_outcome);
+  if (create_or_get_process_outcome !=
+      RequestWorkletServiceOutcome::kHitProcessLimit) {
     return true;
+  }
 
   PendingRequestQueue* pending_requests = GetPendingRequestQueue(worklet_type);
   pending_requests->push_back(process_handle);
@@ -257,7 +313,66 @@ bool AuctionProcessManager::RequestWorkletService(
   return false;
 }
 
-bool AuctionProcessManager::TryCreateOrGetProcessForHandle(
+void AuctionProcessManager::MaybeStartAnticipatoryProcess(
+    const url::Origin& origin,
+    SiteInstance* frame_site_instance,
+    WorkletType worklet_type) {
+  if (!base::FeatureList::IsEnabled(
+          features::kFledgeStartAnticipatoryProcesses)) {
+    return;
+  }
+  if (!UsingDedicatedUtilityProcesses()) {
+    // TODO(abigailkatcoff): Renderer anticipatory processes that aren't
+    // implemented yet.
+    return;
+  }
+
+  // Don't start a process if we can use a shared process.
+  // `site_instance` will be null if we're using dedicated utility processes
+  // only.
+  scoped_refptr<SiteInstance> site_instance =
+      MaybeComputeSiteInstance(frame_site_instance, origin);
+  if (site_instance && !site_instance->RequiresDedicatedProcess()) {
+    return;
+  }
+
+  // Do not create a process for this origin/worklet_type if there already is
+  // one (active or idle).
+  ProcessMap* processes = Processes(worklet_type);
+  auto process_it = processes->find(origin);
+  if (process_it != processes->end()) {
+    return;
+  }
+  // Keep track of the number of idle processes of this type.
+  size_t num_idle_processes = 0;
+  for (const scoped_refptr<WorkletProcess>& process : idle_processes_) {
+    if (process->worklet_type() == worklet_type) {
+      if (process->origin() == origin) {
+        return;
+      }
+      num_idle_processes += 1;
+    }
+  }
+
+  // Don't start a process if we've already hit the process limit.
+  if (!HasAvailableProcessSlotForIdleProcess(worklet_type,
+                                             num_idle_processes)) {
+    return;
+  }
+
+  auto process_handle = std::make_unique<ProcessHandle>();
+  process_handle->origin_ = origin;
+  process_handle->worklet_type_ = worklet_type;
+  process_handle->site_instance_ = std::move(site_instance);
+  scoped_refptr<WorkletProcess> worklet_process = LaunchProcess(
+      process_handle.get(), ComputeDisplayName(process_handle->worklet_type_,
+                                               process_handle->origin_));
+  idle_processes_.push_back(std::move(worklet_process));
+  idle_processes_.back()->SetIsIdle(true);
+}
+
+AuctionProcessManager::RequestWorkletServiceOutcome
+AuctionProcessManager::TryCreateOrGetProcessForHandle(
     ProcessHandle* process_handle) {
   // Look for a pre-existing matching process.
   ProcessMap* processes = Processes(process_handle->worklet_type_);
@@ -265,30 +380,107 @@ bool AuctionProcessManager::TryCreateOrGetProcessForHandle(
   if (process_it != processes->end()) {
     // If there's a matching process, assign it.
     process_handle->AssignProcess(WrapRefCounted(process_it->second));
-    return true;
+    return RequestWorkletServiceOutcome::kUsedExistingDedicatedProcess;
   }
 
   // If the corresponding process limit has been hit, can't create a new
   // process.
-  if (!HasAvailableProcessSlot(process_handle->worklet_type_))
-    return false;
+  if (!HasAvailableProcessSlotForActiveProcess(process_handle->worklet_type_)) {
+    return RequestWorkletServiceOutcome::kHitProcessLimit;
+  }
+
+  if (TryToUseIdleProcessForHandle(process_handle)) {
+    return RequestWorkletServiceOutcome::kUsedIdleProcess;
+  }
+
+  // Making a new process shouldn't cause us to exceed the permitted number
+  // of idle processes.
+  DCHECK(HasAvailableProcessSlotForIdleProcess(
+      process_handle->worklet_type(),
+      std::count_if(
+          idle_processes_.begin(), idle_processes_.end(),
+          [&process_handle](const scoped_refptr<WorkletProcess>& process) {
+            return process->worklet_type() == process_handle->worklet_type();
+          })));
 
   // Launch the process and create WorkletProcess object bound to it.
-  mojo::Remote<auction_worklet::mojom::AuctionWorkletService> service;
-  RenderProcessHost* render_process_host =
-      LaunchProcess(service.BindNewPipeAndPassReceiver(), process_handle,
-                    ComputeDisplayName(process_handle->worklet_type_,
-                                       process_handle->origin_));
-
-  scoped_refptr<WorkletProcess> worklet_process =
-      base::MakeRefCounted<WorkletProcess>(
-          this, render_process_host, std::move(service),
-          process_handle->worklet_type_, process_handle->origin_,
-          /*uses_shared_process=*/false);
-
+  scoped_refptr<WorkletProcess> worklet_process = LaunchProcess(
+      process_handle, ComputeDisplayName(process_handle->worklet_type_,
+                                         process_handle->origin_));
   (*processes)[process_handle->origin_] = worklet_process.get();
   process_handle->AssignProcess(std::move(worklet_process));
   OnNewProcessAssigned(process_handle);
+  return RequestWorkletServiceOutcome::kCreatedNewDedicatedProcess;
+}
+
+bool AuctionProcessManager::TryToUseIdleProcessForHandle(
+    ProcessHandle* process_handle) {
+  // This function shouldn't be called unless we have a spot for a new process.
+  DCHECK(
+      HasAvailableProcessSlotForActiveProcess(process_handle->worklet_type_));
+  if (idle_processes_.empty()) {
+    return false;
+  }
+
+  // Keep track of processes we may want to use for the handle. Prefer to use a
+  // process that was created the earliest possible. idle_processes_  is
+  // sorted by process creation time.
+  auto process_matching_origin_and_type = idle_processes_.end();
+  auto first_process_matching_type = idle_processes_.end();
+  size_t num_idle_processes_of_type = 0;
+  for (auto it = idle_processes_.begin(); it != idle_processes_.end(); ++it) {
+    if (it->get()->worklet_type() == process_handle->worklet_type()) {
+      num_idle_processes_of_type++;
+      if (it->get()->origin() == process_handle->origin()) {
+        process_matching_origin_and_type = it;
+      }
+      if (first_process_matching_type == idle_processes_.end()) {
+        first_process_matching_type = it;
+      }
+    }
+  }
+
+  auto idle_process_to_use = idle_processes_.end();
+  if (process_matching_origin_and_type != idle_processes_.end()) {
+    // We can use the first anticipatory process no matter its type because
+    // we're guaranteed to not go over the process limit.
+    // TODO(abigailkatcoff): Once we implement non-fungible anticipatory
+    // processes, check if process_matching_origin_and_type is bound to an
+    // origin. If it's bound, use process_matching_origin_and_type.
+
+    idle_process_to_use = idle_processes_.begin();
+    // We want the `idle_processes_[0]` origin and type to remain in
+    // `idle_processes_` so we can confirm we've already started
+    // a process for that origin and type.
+    process_matching_origin_and_type->get()->ReassignWorkletTypeAndOrigin(
+        idle_processes_[0]->worklet_type(), idle_processes_[0]->origin());
+  } else {
+    if (HasAvailableProcessSlotForIdleProcess(process_handle->worklet_type(),
+                                              num_idle_processes_of_type)) {
+      // We can use the first process regardless of its `worklet_type` since
+      // we have an available spot of `worklet_type.`
+      idle_process_to_use = idle_processes_.begin();
+    } else {
+      // There must be a `first_process_matching_type` because
+      // HasAvailableProcessSlotForActiveProcess() is true but
+      // HasAvailableProcessSlotForIdleProcess() is false.
+      CHECK(first_process_matching_type != idle_processes_.end());
+      idle_process_to_use = first_process_matching_type;
+      // TODO(abigailkatcoff): Once we implement non-fungible anticipatory
+      // processes, remove `first_process_matching_type` & return so that we
+      // can start a new process.
+    }
+  }
+
+  CHECK(idle_process_to_use != idle_processes_.end());
+
+  idle_process_to_use->get()->ReassignWorkletTypeAndOrigin(
+      process_handle->worklet_type(), process_handle->origin());
+  idle_process_to_use->get()->SetIsIdle(false);
+  process_handle->AssignProcess(idle_process_to_use->get());
+  ProcessMap* processes = Processes(process_handle->worklet_type_);
+  (*processes)[process_handle->origin_] = idle_process_to_use->get();
+  idle_processes_.erase(idle_process_to_use);
   return true;
 }
 
@@ -347,7 +539,8 @@ void AuctionProcessManager::OnWorkletProcessUnusable(
 
   // Since a process was just destroyed, there should be at least one available
   // slot to create another.
-  DCHECK(HasAvailableProcessSlot(worklet_process->worklet_type()));
+  DCHECK(
+      HasAvailableProcessSlotForActiveProcess(worklet_process->worklet_type()));
 
   // If there are no pending requests for the corresponding worklet type,
   // nothing more to do.
@@ -383,13 +576,22 @@ void AuctionProcessManager::OnWorkletProcessUnusable(
     // available process slot. Subsequent requests will just receive the process
     // created for the first request. Could cache the process returned by the
     // first request and reuse it, but doesn't seem worth the effort.
-    bool process_created = TryCreateOrGetProcessForHandle(process_handle);
+    bool process_created = TryCreateOrGetProcessForHandle(process_handle) !=
+                           RequestWorkletServiceOutcome::kHitProcessLimit;
     CHECK(process_created);
     --num_matching_requests;
 
     // Nothing else to do after assigning the process - assigning a process
     // results in the callback being invoked asynchronously.
   }
+}
+
+void AuctionProcessManager::ReleaseIdleProcess(
+    AuctionProcessManager::WorkletProcess* worklet_process) {
+  std::erase_if(idle_processes_,
+                [worklet_process](const scoped_refptr<WorkletProcess>& item) {
+                  return item.get() == worklet_process;
+                });
 }
 
 AuctionProcessManager::PendingRequestQueue*
@@ -413,34 +615,51 @@ AuctionProcessManager::GetPendingRequestMap(WorkletType worklet_type) {
   return &pending_seller_requests_;
 }
 
-bool AuctionProcessManager::HasAvailableProcessSlot(
+bool AuctionProcessManager::HasAvailableProcessSlotForActiveProcess(
     WorkletType worklet_type) const {
   if (worklet_type == WorkletType::kBidder)
     return bidder_processes_.size() < kMaxBidderProcesses;
   return seller_processes_.size() < kMaxSellerProcesses;
 }
 
+bool AuctionProcessManager::HasAvailableProcessSlotForIdleProcess(
+    WorkletType worklet_type,
+    size_t num_idle_processes_of_type) const {
+  if (worklet_type == WorkletType::kBidder) {
+    return num_idle_processes_of_type + bidder_processes_.size() <
+           kMaxBidderProcesses;
+  }
+  return num_idle_processes_of_type + seller_processes_.size() <
+         kMaxSellerProcesses;
+}
+
 DedicatedAuctionProcessManager::DedicatedAuctionProcessManager() = default;
 DedicatedAuctionProcessManager::~DedicatedAuctionProcessManager() = default;
 
-RenderProcessHost* DedicatedAuctionProcessManager::LaunchProcess(
-    mojo::PendingReceiver<auction_worklet::mojom::AuctionWorkletService>
-        auction_worklet_service_receiver,
+scoped_refptr<AuctionProcessManager::WorkletProcess>
+DedicatedAuctionProcessManager::LaunchProcess(
     const ProcessHandle* process_handle,
     const std::string& display_name) {
+  mojo::PendingReceiver<auction_worklet::mojom::AuctionWorkletService> receiver;
+  scoped_refptr<WorkletProcess> worklet_process =
+      base::MakeRefCounted<WorkletProcess>(
+          this, /*site_instance=*/nullptr, /*render_process_host=*/nullptr,
+          receiver.InitWithNewPipeAndPassRemote(),
+          process_handle->worklet_type(), process_handle->origin(),
+          /*uses_shared_process=*/false);
   content::ServiceProcessHost::Launch(
-      std::move(auction_worklet_service_receiver),
+      std::move(receiver),
       ServiceProcessHost::Options()
           .WithDisplayName(display_name)
 #if BUILDFLAG(IS_MAC)
           // TODO(crbug.com/40812055) add a utility helper for Jit.
           .WithChildFlags(ChildProcessHost::CHILD_RENDERER)
 #endif
-          .WithProcessCallback(base::BindOnce(
-              &ProcessHandle::OnBaseProcessLaunched,
-              process_handle->weak_ptr_factory_.GetMutableWeakPtr()))
+          .WithProcessCallback(
+              base::BindOnce(&WorkletProcess::OnLaunchedWithProcess,
+                             worklet_process->weak_ptr_factory_.GetWeakPtr()))
           .Pass());
-  return nullptr;
+  return worklet_process;
 }
 
 scoped_refptr<SiteInstance>
@@ -455,18 +674,28 @@ bool DedicatedAuctionProcessManager::TryUseSharedProcess(
   return false;
 }
 
+bool DedicatedAuctionProcessManager::UsingDedicatedUtilityProcesses() {
+  return true;
+}
+
 InRendererAuctionProcessManager::InRendererAuctionProcessManager() = default;
 InRendererAuctionProcessManager::~InRendererAuctionProcessManager() = default;
 
-RenderProcessHost* InRendererAuctionProcessManager::LaunchProcess(
-    mojo::PendingReceiver<auction_worklet::mojom::AuctionWorkletService>
-        auction_worklet_service_receiver,
+scoped_refptr<AuctionProcessManager::WorkletProcess>
+InRendererAuctionProcessManager::LaunchProcess(
     const ProcessHandle* process_handle,
     const std::string& display_name) {
   DCHECK(process_handle->site_instance_);
   DCHECK(process_handle->site_instance_->RequiresDedicatedProcess());
-  return LaunchInSiteInstance(process_handle->site_instance_.get(),
-                              std::move(auction_worklet_service_receiver));
+  mojo::PendingRemote<auction_worklet::mojom::AuctionWorkletService> service;
+  RenderProcessHost* render_process_host =
+      LaunchInSiteInstance(process_handle->site_instance_.get(),
+                           service.InitWithNewPipeAndPassReceiver());
+  return base::MakeRefCounted<WorkletProcess>(
+      this, process_handle->site_instance_, render_process_host,
+      std::move(service), process_handle->worklet_type(),
+      process_handle->origin(),
+      /*uses_shared_process=*/false);
 }
 
 scoped_refptr<SiteInstance>
@@ -488,17 +717,21 @@ bool InRendererAuctionProcessManager::TryUseSharedProcess(
     return false;
 
   // Shared process case.
-  mojo::Remote<auction_worklet::mojom::AuctionWorkletService> service;
+  mojo::PendingRemote<auction_worklet::mojom::AuctionWorkletService> service;
   RenderProcessHost* render_process_host =
       LaunchInSiteInstance(process_handle->site_instance_.get(),
-                           service.BindNewPipeAndPassReceiver());
-
+                           service.InitWithNewPipeAndPassReceiver());
   auto process = base::MakeRefCounted<WorkletProcess>(
-      this, render_process_host, std::move(service),
-      process_handle->worklet_type_, process_handle->origin_,
+      this, process_handle->site_instance_, render_process_host,
+      std::move(service), process_handle->worklet_type(),
+      process_handle->origin(),
       /*uses_shared_process=*/true);
   process_handle->AssignProcess(std::move(process));
   return true;
+}
+
+bool InRendererAuctionProcessManager::UsingDedicatedUtilityProcesses() {
+  return false;
 }
 
 RenderProcessHost* InRendererAuctionProcessManager::LaunchInSiteInstance(

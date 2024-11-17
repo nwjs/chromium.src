@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/check_deref.h"
 #include "base/debug/stack_trace.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/metrics_hashes.h"
@@ -46,6 +47,7 @@
 #include "third_party/skia/include/core/SkImageInfo.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_enums.mojom-shared.h"
+#include "ui/accessibility/ax_location_and_scroll_updates.h"
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_node_id_forward.h"
 #include "ui/accessibility/ax_role_properties.h"
@@ -407,13 +409,12 @@ ReadAnythingAppController* ReadAnythingAppController::Install(
 
 ReadAnythingAppController::ReadAnythingAppController(
     content::RenderFrame* render_frame)
-    : content::RenderFrameObserver(render_frame),
-      post_user_entry_draw_timer_(
-          FROM_HERE,
-          base::Seconds(kPostInputDistillSeconds),
-          base::BindRepeating(&ReadAnythingAppController::Draw,
-                              base::Unretained(this),
-                              /* recompute_display_nodes= */ true)) {
+    : content::RenderFrameObserver(render_frame) {
+  post_user_entry_draw_timer_ = std::make_unique<base::RetainingOneShotTimer>(
+      FROM_HERE, base::Seconds(kPostInputDistillSeconds),
+      base::BindRepeating(&ReadAnythingAppController::Draw,
+                          weak_ptr_factory_.GetWeakPtr(),
+                          /* recompute_display_nodes= */ true));
   renderer_load_triggered_time_ms_ = base::TimeTicks::Now();
   distiller_ = std::make_unique<AXTreeDistiller>(
       render_frame,
@@ -426,14 +427,15 @@ ReadAnythingAppController::ReadAnythingAppController(
   ukm_recorder_ = ukm::MojoUkmRecorder::Create(*factory);
   if (features::IsDataCollectionModeForScreen2xEnabled()) {
     model_.SetDataCollectionForScreen2xCallback(base::BindRepeating(
-        &ReadAnythingAppController::Distill, base::Unretained(this)));
+        &ReadAnythingAppController::Distill, weak_ptr_factory_.GetWeakPtr()));
   }
+
+  model_observer_.Observe(&model_);
 }
 
 ReadAnythingAppController::~ReadAnythingAppController() {
   RecordNumSelections();
-  // Stop the timer for base::unretained.
-  post_user_entry_draw_timer_.Stop();
+  post_user_entry_draw_timer_->Stop();
 }
 
 void ReadAnythingAppController::OnDestruct() {
@@ -444,16 +446,19 @@ void ReadAnythingAppController::OnNodeDataChanged(
     ui::AXTree* tree,
     const ui::AXNodeData& old_node_data,
     const ui::AXNodeData& new_node_data) {
-  if (tree->GetAXTreeID() == model_.active_tree_id() &&
-      old_node_data.GetHtmlAttribute("aria-expanded") !=
-          new_node_data.GetHtmlAttribute("aria-expanded")) {
-    model_.set_last_expanded_node_id(new_node_data.id);
+  if (tree->GetAXTreeID() == model_.active_tree_id()) {
+    if (old_node_data.HasState(ax::mojom::State::kExpanded) !=
+            new_node_data.HasState(ax::mojom::State::kExpanded) ||
+        old_node_data.HasState(ax::mojom::State::kCollapsed) !=
+            new_node_data.HasState(ax::mojom::State::kCollapsed)) {
+      model_.set_last_expanded_node_id(new_node_data.id);
+    }
   }
 }
 
 void ReadAnythingAppController::OnNodeWillBeDeleted(ui::AXTree* tree,
                                                     ui::AXNode* node) {
-  ui::AXNodeID node_id = node->id();
+  ui::AXNodeID node_id = CHECK_DEREF(node).id();
   if (model_.display_node_ids().contains(node_id)) {
     displayed_nodes_pending_deletion_.insert(node_id);
   }
@@ -484,11 +489,6 @@ void ReadAnythingAppController::AccessibilityEventReceived(
     const ui::AXTreeID& tree_id,
     const std::vector<ui::AXTreeUpdate>& updates,
     const std::vector<ui::AXEvent>& events) {
-  // We will need to observe the tree which is added only after the model
-  // processes an accessibility event. So check to see if the tree exists or not
-  // yet.
-  bool had_tree = model_.ContainsTree(tree_id);
-
   // Remove the const-ness of the data here so that subsequent methods can move
   // the data.
   model_.AccessibilityEventReceived(
@@ -499,13 +499,6 @@ void ReadAnythingAppController::AccessibilityEventReceived(
 
   if (tree_id != model_.active_tree_id()) {
     return;
-  }
-
-  // If the tree was added, start observing.
-  if (!had_tree && model_.ContainsTree(tree_id)) {
-    // Observe the tree.
-    ui::AXSerializableTree* tree = model_.GetTreeFromId(tree_id);
-    tree->AddObserver(this);
   }
 
   if (model_.requires_distillation()) {
@@ -526,16 +519,24 @@ void ReadAnythingAppController::AccessibilityEventReceived(
   // If the user typed something, this value will be true and it will reset the
   // timer to distill.
   if (model_.reset_draw_timer()) {
-    post_user_entry_draw_timer_.Reset();
+    post_user_entry_draw_timer_->Reset();
     model_.set_reset_draw_timer(false);
   }
 }
 
 void ReadAnythingAppController::AccessibilityLocationChangesReceived(
-    const std::vector<ui::AXLocationChanges>& details) {
+    const ui::AXTreeID& tree_id,
+    const ui::AXLocationAndScrollUpdates& details) {
+  NOTREACHED() << "Non-const ref version of this method should be used as a "
+                  "performance optimization.";
+}
+
+void ReadAnythingAppController::AccessibilityLocationChangesReceived(
+    const ui::AXTreeID& tree_id,
+    ui::AXLocationAndScrollUpdates& details) {
   // Listen to location change notifications to update locations of the nodes
   // accordingly.
-  for (auto& change : details) {
+  for (auto& change : details.location_changes) {
     ui::AXNode* ax_node = model_.GetAXNode(change.id);
     if (!ax_node) {
       continue;
@@ -562,7 +563,7 @@ void ReadAnythingAppController::OnActiveAXTreeIDChanged(
   RecordNumSelections();
 
   // Cancel any running draw timers.
-  post_user_entry_draw_timer_.Stop();
+  post_user_entry_draw_timer_->Stop();
 
   model_.SetActiveTreeId(tree_id);
   model_.SetUkmSourceId(ukm_source_id);
@@ -594,7 +595,7 @@ void ReadAnythingAppController::RecordNumSelections() {
 
 void ReadAnythingAppController::OnAXTreeDestroyed(const ui::AXTreeID& tree_id) {
   // Cancel any running draw timers.
-  post_user_entry_draw_timer_.Stop();
+  post_user_entry_draw_timer_->Stop();
   model_.OnAXTreeDestroyed(tree_id);
 }
 
@@ -871,7 +872,6 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
                    &ReadAnythingAppController::IsPhraseHighlightingEnabled)
       .SetMethod("isHighlightOn", &ReadAnythingAppController::IsHighlightOn)
       .SetMethod("getChildren", &ReadAnythingAppController::GetChildren)
-      .SetMethod("getDataFontCss", &ReadAnythingAppController::GetDataFontCss)
       .SetMethod("getTextDirection",
                  &ReadAnythingAppController::GetTextDirection)
       .SetMethod("getHtmlTag", &ReadAnythingAppController::GetHtmlTag)
@@ -1142,16 +1142,6 @@ std::vector<ui::AXNodeID> ReadAnythingAppController::GetChildren(
   return child_ids;
 }
 
-std::string ReadAnythingAppController::GetDataFontCss(
-    ui::AXNodeID ax_node_id) const {
-  ui::AXNode* ax_node = model_.GetAXNode(ax_node_id);
-  DCHECK(ax_node);
-
-  std::string data_font_css;
-  ax_node->GetHtmlAttribute("data-font-css", &data_font_css);
-  return data_font_css;
-}
-
 std::string ReadAnythingAppController::GetHtmlTag(
     ui::AXNodeID ax_node_id) const {
   ui::AXNode* ax_node = model_.GetAXNode(ax_node_id);
@@ -1223,12 +1213,11 @@ std::string ReadAnythingAppController::GetUrl(ui::AXNodeID ax_node_id) const {
 void ReadAnythingAppController::SendGetVoicePackInfoRequest(
     const std::string& language) const {
   page_handler_->GetVoicePackInfo(
-      language,
-      base::BindOnce(&ReadAnythingAppController::OnGetVoicePackInfoResponse,
-                     weak_ptr_factory_.GetSafeRef()));
+      language, base::BindOnce(&ReadAnythingAppController::OnGetVoicePackInfo,
+                               weak_ptr_factory_.GetSafeRef()));
 }
 
-void ReadAnythingAppController::OnGetVoicePackInfoResponse(
+void ReadAnythingAppController::OnGetVoicePackInfo(
     read_anything::mojom::VoicePackInfoPtr voice_pack_info) {
   std::string status =
       voice_pack_info->pack_state->is_installation_state()
@@ -1392,7 +1381,13 @@ v8::Local<v8::Value> ReadAnythingAppController::GetImageBitmap(
     v8::Local<v8::Uint8ClampedArray> array =
         v8::Uint8ClampedArray::New(buffer, 0, size);
 
-    // Create an object with the image data and height.
+    // Create an object with the image data and height, as well as a scale
+    // factor.
+    ui::AXNode* node = model_.GetAXNode(node_id);
+    CHECK(node);
+    int width = bitmap.width();
+    int height = bitmap.height();
+    float scale = (node->data().relative_bounds.bounds.width()) / width;
     v8::Local<v8::Object> obj = v8::Object::New(isolate);
     auto created = obj->DefineOwnProperty(
         isolate->GetCurrentContext(),
@@ -1400,11 +1395,16 @@ v8::Local<v8::Value> ReadAnythingAppController::GetImageBitmap(
     created = obj->DefineOwnProperty(
         isolate->GetCurrentContext(),
         v8::String::NewFromUtf8(isolate, "width").ToLocalChecked(),
-        v8::Number::New(isolate, bitmap.width()));
+        v8::Number::New(isolate, width));
     created = obj->DefineOwnProperty(
         isolate->GetCurrentContext(),
         v8::String::NewFromUtf8(isolate, "height").ToLocalChecked(),
-        v8::Number::New(isolate, bitmap.height()));
+        v8::Number::New(isolate, height));
+    created = obj->DefineOwnProperty(
+        isolate->GetCurrentContext(),
+        v8::String::NewFromUtf8(isolate, "scale").ToLocalChecked(),
+        v8::Number::New(isolate, scale));
+
     return obj;
   }
   // If there wasn't an image, return undefined.
@@ -1881,4 +1881,22 @@ void ReadAnythingAppController::UpdateDependencyParserModel(
 DependencyParserModel&
 ReadAnythingAppController::GetDependencyParserModelForTesting() {
   return GetDependencyParserModel();
+}
+
+void ReadAnythingAppController::OnTreeAdded(ui::AXTree* tree) {
+  auto observation =
+      std::make_unique<base::ScopedObservation<ui::AXTree, ui::AXTreeObserver>>(
+          this);
+  observation->Observe(tree);
+  tree_observers_.push_back(std::move(observation));
+}
+
+void ReadAnythingAppController::OnTreeRemoved(ui::AXTree* tree) {
+  auto it = base::ranges::find_if(tree_observers_,
+                                  [tree](const auto& observation) -> bool {
+                                    return observation->GetSource() == tree;
+                                  });
+  if (it != tree_observers_.end()) {
+    tree_observers_.erase(it);
+  }
 }

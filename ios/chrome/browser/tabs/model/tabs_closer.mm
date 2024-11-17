@@ -11,8 +11,8 @@
 #import "base/functional/callback.h"
 #import "base/unguessable_token.h"
 #import "base/uuid.h"
-#import "components/saved_tab_groups/saved_tab_group.h"
-#import "components/saved_tab_groups/tab_group_sync_service.h"
+#import "components/saved_tab_groups/public/saved_tab_group.h"
+#import "components/saved_tab_groups/public/tab_group_sync_service.h"
 #import "components/sessions/core/session_id.h"
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/sessions/model/session_restoration_service.h"
@@ -142,9 +142,9 @@ class TabsCloser::UndoStorage {
 
 TabsCloser::UndoStorage::UndoStorage(Browser* browser)
     : original_browser_(browser),
-      temporary_browser_(Browser::CreateTemporary(browser->GetBrowserState())) {
-  SessionRestorationServiceFactory::GetForBrowserState(
-      temporary_browser_->GetBrowserState())
+      temporary_browser_(Browser::CreateTemporary(browser->GetProfile())) {
+  SessionRestorationServiceFactory::GetForProfile(
+      temporary_browser_->GetProfile())
       ->AttachBackup(original_browser_.get(), temporary_browser_.get());
 }
 
@@ -157,8 +157,8 @@ TabsCloser::UndoStorage::~UndoStorage() {
   DCHECK(temporary_browser_->GetWebStateList()->empty());
 
   SessionRestorationService* service =
-      SessionRestorationServiceFactory::GetForBrowserState(
-          temporary_browser_->GetBrowserState());
+      SessionRestorationServiceFactory::GetForProfile(
+          temporary_browser_->GetProfile());
 
   service->Disconnect(temporary_browser_.get());
 }
@@ -228,7 +228,7 @@ void TabsCloser::UndoStorage::Drop() {
 TabsCloser::TabsCloser(Browser* browser, ClosePolicy policy)
     : browser_(browser), close_policy_(policy) {
   DCHECK(browser_);
-  DCHECK(!browser_->GetBrowserState()->IsOffTheRecord());
+  DCHECK(!browser_->GetProfile()->IsOffTheRecord());
 }
 
 TabsCloser::~TabsCloser() = default;
@@ -264,8 +264,8 @@ int TabsCloser::CloseTabs() {
 
   if (IsTabGroupSyncEnabled()) {
     tab_groups::TabGroupSyncService* sync_service =
-        tab_groups::TabGroupSyncServiceFactory::GetForBrowserState(
-            browser_->GetBrowserState());
+        tab_groups::TabGroupSyncServiceFactory::GetForProfile(
+            browser_->GetProfile());
     CHECK(sync_service);
     for (const TabGroup* tab_group : web_state_list->GetGroups()) {
       tab_groups::TabGroupId local_id = tab_group->tab_group_id();
@@ -274,7 +274,8 @@ int TabsCloser::CloseTabs() {
       if (saved_group) {
         local_to_saved_group_ids_.insert(
             std::make_pair(local_id, saved_group->saved_guid()));
-        sync_service->RemoveLocalTabGroupMapping(local_id);
+        sync_service->RemoveLocalTabGroupMapping(
+            local_id, tab_groups::ClosingSource::kCloseAllTabs);
       }
     }
   }
@@ -285,8 +286,7 @@ int TabsCloser::CloseTabs() {
   // Force a session save to avoid having to wait for the timeout.
   // This is mostly useful when user has a large number of tabs (see
   // bug https://crbug.com/1510953 for details).
-  SessionRestorationServiceFactory::GetForBrowserState(
-      browser_->GetBrowserState())
+  SessionRestorationServiceFactory::GetForProfile(browser_->GetProfile())
       ->SaveSessions();
 
   return state_->count();
@@ -307,8 +307,8 @@ int TabsCloser::UndoCloseTabs() {
   }
 
   tab_groups::TabGroupSyncService* sync_service =
-      tab_groups::TabGroupSyncServiceFactory::GetForBrowserState(
-          browser_->GetBrowserState());
+      tab_groups::TabGroupSyncServiceFactory::GetForProfile(
+          browser_->GetProfile());
   CHECK(sync_service);
   WebStateList* web_state_list = browser_->GetWebStateList();
 
@@ -331,7 +331,8 @@ int TabsCloser::UndoCloseTabs() {
       tab_groups_to_delete.insert(tab_group);
       continue;
     }
-    sync_service->ConnectLocalTabGroup(saved_id, local_id);
+    sync_service->ConnectLocalTabGroup(
+        saved_id, local_id, tab_groups::OpeningSource::kUndoCloseAllTabs);
   }
   for (const TabGroup* tab_group : tab_groups_to_delete) {
     web_state_list->DeleteGroup(tab_group);

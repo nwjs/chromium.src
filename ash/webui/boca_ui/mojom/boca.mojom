@@ -30,6 +30,8 @@ struct Identity {
   string name;
   // User email address.
   string email;
+  // User photo url
+  url.mojom.Url? photo_url;
 };
 
 // Represents a course.
@@ -52,6 +54,8 @@ struct Window {
 
 struct Config{
   mojo_base.mojom.TimeDelta session_duration;
+  mojo_base.mojom.JSTime? session_start_time;
+  Identity? teacher;
   // Selected students to be joined for session.
   array<Identity> students;
   OnTaskConfig on_task_config;
@@ -59,12 +63,12 @@ struct Config{
 };
 
 struct CaptionConfig {
-  // If caption is enabled.
-  bool caption_enabled;
-  // If the caption will be persisted to local only.
-  bool local_only;
-  // If transcription is enabled.
-  bool transcription_enabled;
+  // If captions are available for session consumers.
+  bool session_caption_enabled;
+  // If captions are enabled on the local device.
+  bool local_caption_enabled;
+  // If session consumers can translate the captions.
+  bool session_translation_enabled;
 };
 
 enum NavigationType {
@@ -86,6 +90,46 @@ struct OnTaskConfig {
   array<ControlledTab> tabs;
 };
 
+enum JoinMethod {
+  kRoster = 0,
+  kAccessCode = 1,
+};
+
+struct StudentActivity {
+  // If the current student status is active.
+  bool is_active;
+  // Current active tab title.
+  string? active_tab;
+  // If caption is enabled.
+  bool is_caption_enabled;
+  // If hand raised.
+  bool is_hand_raised;
+  // TODO(b/365191878): Remove this after refactoring existing schema to support
+  // multi-group.
+  JoinMethod join_method;
+};
+
+struct IdentifiedActivity{
+  // Same id as identity.
+  string id;
+  StudentActivity activity;
+};
+
+enum GetSessionError{
+  kHTTPError,
+  kEmpty,
+};
+
+union SessionResult {
+ GetSessionError error;
+ Config config;
+};
+
+enum UpdateSessionError{
+  kInvalid,
+  kHTTPError,
+};
+
 // Implemented by browser process for page chrome-untrusted://boca-app/
 interface PageHandler {
   // Fetches a list of browser windows and tabs in it. Windows are ordered using
@@ -101,11 +145,25 @@ interface PageHandler {
   // Create a session with `config`.
   CreateSession(Config config) => (bool success);
   // Retrieves the current session.
-  GetSession() => (Config config);
+  GetSession() => (SessionResult result);
+  // End session.
+  EndSession() => (UpdateSessionError? error);
+  // Update OnTask config.
+  UpdateOnTaskConfig(OnTaskConfig on_task_config)
+  => (UpdateSessionError? error);
+  // Update caption config.
+  UpdateCaptionConfig(CaptionConfig caption_config)
+  => (UpdateSessionError? error);
+
 };
 
 // Implemented by renderer process
-interface Page {};
+interface Page {
+  // Notifies when student activities updated.
+  OnStudentActivityUpdated(array<IdentifiedActivity> activities);
+  // Notifies when session config updated.
+  OnSessionConfigUpdated(Config config);
+};
 
 // Implemented in browser process to set up the communication between the Page
 // and PageHandler

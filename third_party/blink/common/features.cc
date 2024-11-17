@@ -175,8 +175,11 @@ BASE_FEATURE(kAutofillSendUnidentifiedKeyAfterFill,
 BASE_FEATURE(kAutoSpeculationRules,
              "AutoSpeculationRules",
              base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<bool> kAutoSpeculationRulesHoldback{
-    &kAutoSpeculationRules, "holdback", false};
+BASE_FEATURE_PARAM(bool,
+                   kAutoSpeculationRulesHoldback,
+                   &kAutoSpeculationRules,
+                   "holdback",
+                   false);
 
 BASE_FEATURE(kAvifGainmapHdrImages,
              "AvifGainmapHdrImages",
@@ -185,6 +188,10 @@ BASE_FEATURE(kAvifGainmapHdrImages,
 BASE_FEATURE(kAvoidForcedLayoutOnInitialEmptyDocumentInSubframe,
              "AvoidForcedLayoutOnInitialEmptyDocumentInSubframe",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kBFCacheOpenBroadcastChannel,
+             "BFCacheOpenBroadcastChannel",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kBackForwardCacheDWCOnJavaScriptExecution,
              "BackForwardCacheDWCOnJavaScriptExecution",
@@ -228,9 +235,11 @@ BASE_FEATURE(kBakedGamutMapping,
 BASE_FEATURE(kBackgroundTracingPerformanceMark,
              "BackgroundTracingPerformanceMark",
              base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<std::string>
-    kBackgroundTracingPerformanceMark_AllowList{
-        &kBackgroundTracingPerformanceMark, "allow_list", ""};
+BASE_FEATURE_PARAM(std::string,
+                   kBackgroundTracingPerformanceMark_AllowList,
+                   &kBackgroundTracingPerformanceMark,
+                   "allow_list",
+                   "");
 
 // See https://github.com/WICG/turtledove/blob/main/FLEDGE.md
 // Feature flag to enable debug reporting APIs.
@@ -338,9 +347,10 @@ BASE_FEATURE_PARAM(int,
                    &kBrowsingTopicsParameters,
                    "use_random_topic_probability_percent",
                    5);
-// Maximum duration between when a epoch is calculated and when a site starts
-// using that new epoch's topics. The time chosen is a per-site random point in
-// time between [calculation time, calculation time + max duration).
+// Maximum delay between the calculation of the latest epoch and when a site
+// starts seeing that epoch's topics. Each site transitions to the latest epoch
+// at a per-site, per-epoch random time within
+// [calculation time, calculation time + max delay).
 BASE_FEATURE_PARAM(base::TimeDelta,
                    kBrowsingTopicsMaxEpochIntroductionDelay,
                    &kBrowsingTopicsParameters,
@@ -352,6 +362,19 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    &kBrowsingTopicsParameters,
                    "epoch_retention_duration",
                    base::Days(28));
+// Maximum time offset between when a site stops seeing an epoch's topics and
+// when the epoch is actually deleted. Each site transitions away from the
+// epoch at a per-site, per-epoch random time within
+// [deletion time - max offset, deletion time].
+//
+// Note: The actual phase-out time can be influenced by the
+// 'kBrowsingTopicsNumberOfEpochsToExpose' setting. If this setting enforces a
+// more restrictive phase-out, that will take precedence.
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kBrowsingTopicsMaxEpochPhaseOutTimeOffset,
+                   &kBrowsingTopicsParameters,
+                   "max_epoch_phase_out_time_offset",
+                   base::Days(2));
 // How many epochs (weeks) of API usage data (i.e. topics observations) will be
 // based off for the filtering of topics for a calling context.
 BASE_FEATURE_PARAM(
@@ -398,13 +421,18 @@ BASE_FEATURE_PARAM(int,
                    kBrowsingTopicsTaxonomyVersionDefault);
 // Comma separated Topic IDs to be blocked. Descendant topics of each blocked
 // topic will be blocked as well.
-const base::FeatureParam<std::string> kBrowsingTopicsDisabledTopicsList{
-    &kBrowsingTopicsParameters, "disabled_topics_list", ""};
+BASE_FEATURE_PARAM(std::string,
+                   kBrowsingTopicsDisabledTopicsList,
+                   &kBrowsingTopicsParameters,
+                   "disabled_topics_list",
+                   "");
 // Comma separated list of Topic IDs. Prioritize these topics and their
 // descendants during top topic selection.
-const base::FeatureParam<std::string> kBrowsingTopicsPrioritizedTopicsList{
-    &kBrowsingTopicsParameters, "prioritized_topics_list",
-    "57,86,126,149,172,180,196,207,239,254,263,272,289,299,332"};
+BASE_FEATURE_PARAM(std::string,
+                   kBrowsingTopicsPrioritizedTopicsList,
+                   &kBrowsingTopicsParameters,
+                   "prioritized_topics_list",
+                   "57,86,126,149,172,180,196,207,239,254,263,272,289,299,332");
 // When a topics calculation times out for the first time, the duration to wait
 // before starting a new one.
 BASE_FEATURE_PARAM(base::TimeDelta,
@@ -412,12 +440,6 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    &kBrowsingTopicsParameters,
                    "first_timeout_retry_delay",
                    base::Minutes(1));
-
-// Suppresses console errors for CORS problems which report an associated
-// inspector issue anyway.
-BASE_FEATURE(kCORSErrorsIssueOnly,
-             "CORSErrorsIssueOnly",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, code cache is produced asynchronously from the script execution
 // (https://crbug.com/1260908).
@@ -444,8 +466,18 @@ BASE_FEATURE_PARAM(bool,
 BASE_FEATURE(kCacheStorageCodeCacheHintHeader,
              "CacheStorageCodeCacheHintHeader",
              base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<std::string> kCacheStorageCodeCacheHintHeaderName{
-    &kCacheStorageCodeCacheHintHeader, "name", "x-CacheStorageCodeCacheHint"};
+BASE_FEATURE_PARAM(std::string,
+                   kCacheStorageCodeCacheHintHeaderName,
+                   &kCacheStorageCodeCacheHintHeader,
+                   "name",
+                   "x-CacheStorageCodeCacheHint");
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
+// Enables camera preview in permission bubble and site settings.
+BASE_FEATURE(kCameraMicPreview,
+             "CameraMicPreview",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 // Temporarily disabled due to issues:
 // - PDF blank previews
@@ -455,23 +487,15 @@ BASE_FEATURE(kCanvas2DHibernation,
              "Canvas2DHibernation",
              base::FeatureState::FEATURE_DISABLED_BY_DEFAULT);
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
-// Enables camera preview in permission bubble and site settings.
-BASE_FEATURE(kCameraMicPreview,
-             "CameraMicPreview",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Defers device selection until after permission is granted.
-BASE_FEATURE(kGetUserMediaDeferredDeviceSettingsSelection,
-             "GetUserMediaDeferredDeviceSettingsSelection",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
 // When hibernating, make sure that the just-used transfer memory (to transfer
 // the snapshot) is freed.
 BASE_FEATURE(kCanvas2DHibernationReleaseTransferMemory,
              "Canvas2DHibernationReleaseTransferMemory",
              base::FeatureState::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kCanvasSharedBitmapToSharedImage,
+             "CanvasSharedBitmapToSharedImage",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Whether to capture the source location of JavaScript execution, which is one
 // of the renderer eviction reasons for Back/Forward Cache.
@@ -483,19 +507,9 @@ BASE_FEATURE(kCheckHTMLParserBudgetLessOften,
              "CheckHTMLParserBudgetLessOften",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enable `sec-ch-dpr` client hint.
-BASE_FEATURE(kClientHintsDPR,
-             "ClientHintsDPR",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enable legacy `dpr` client hint.
 BASE_FEATURE(kClientHintsDPR_DEPRECATED,
              "ClientHintsDPR_DEPRECATED",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enable `sec-ch-device-memory` client hint.
-BASE_FEATURE(kClientHintsDeviceMemory,
-             "ClientHintsDeviceMemory",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable legacy `device-memory` client hint.
@@ -503,34 +517,9 @@ BASE_FEATURE(kClientHintsDeviceMemory_DEPRECATED,
              "ClientHintsDeviceMemory_DEPRECATED",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enable `form-factors` client hint.
-BASE_FEATURE(kClientHintsFormFactors,
-             "ClientHintsFormFactors",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enable `sec-ch-prefers-reduced-transparency` client hint.
-BASE_FEATURE(kClientHintsPrefersReducedTransparency,
-             "ClientHintsPrefersReducedTransparency",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enable `sec-ch-width` client hint.
-BASE_FEATURE(kClientHintsResourceWidth,
-             "ClientHintsResourceWidth",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enable legacy `width` client hint.
 BASE_FEATURE(kClientHintsResourceWidth_DEPRECATED,
              "ClientHintsResourceWidth_DEPRECATED",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enable `save-data` client hint.
-BASE_FEATURE(kClientHintsSaveData,
-             "ClientHintsSaveData",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enable `sec-ch-viewport-width` client hint.
-BASE_FEATURE(kClientHintsViewportWidth,
-             "ClientHintsViewportWidth",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable `form-factor` client hint for XR devices.
@@ -559,8 +548,11 @@ BASE_FEATURE(kLessAggressiveParkableString,
 // Limits maximum capacity of disk data allocator per renderer process.
 // DiskDataAllocator and its clients(ParkableString, ParkableImage) will try
 // to keep the limitation.
-const base::FeatureParam<int> kMaxDiskDataAllocatorCapacityMB{
-    &kCompressParkableStrings, "max_disk_capacity_mb", -1};
+BASE_FEATURE_PARAM(int,
+                   kMaxDiskDataAllocatorCapacityMB,
+                   &kCompressParkableStrings,
+                   "max_disk_capacity_mb",
+                   -1);
 
 // Controls off-thread code cache consumption.
 BASE_FEATURE(kConsumeCodeCacheOffThread,
@@ -684,9 +676,6 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    "delay_async_exec_feature_limit",
                    base::Seconds(0));
 
-const base::FeatureParam<std::string> kDelayAsyncScriptAllowList{
-    &kDelayAsyncScriptExecution, "delay_async_exec_allow_list", ""};
-
 BASE_FEATURE_PARAM(bool,
                    kDelayAsyncScriptExecutionDelayByDefaultParam,
                    &kDelayAsyncScriptExecution,
@@ -740,9 +729,11 @@ BASE_FEATURE(kDelayLowPriorityRequestsAccordingToNetworkState,
              "DelayLowPriorityRequestsAccordingToNetworkState",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-const base::FeatureParam<int> kMaxNumOfThrottleableRequestsInTightMode{
-    &kDelayLowPriorityRequestsAccordingToNetworkState,
-    "MaxNumOfThrottleableRequestsInTightMode", 5};
+BASE_FEATURE_PARAM(size_t,
+                   kMaxNumOfThrottleableRequestsInTightMode,
+                   &kDelayLowPriorityRequestsAccordingToNetworkState,
+                   "MaxNumOfThrottleableRequestsInTightMode",
+                   5);
 
 BASE_FEATURE_PARAM(base::TimeDelta,
                    kHttpRttThreshold,
@@ -750,9 +741,21 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    "HttpRttThreshold",
                    base::Milliseconds(450));
 
-const base::FeatureParam<double> kCostReductionOfMultiplexedRequests{
-    &kDelayLowPriorityRequestsAccordingToNetworkState,
-    "CostReductionOfMultiplexedRequests", 0.5};
+BASE_FEATURE_PARAM(double,
+                   kCostReductionOfMultiplexedRequests,
+                   &kDelayLowPriorityRequestsAccordingToNetworkState,
+                   "CostReductionOfMultiplexedRequests",
+                   0.5);
+
+BASE_FEATURE(kDelayLayerTreeViewDeletionOnLocalSwap,
+             "DelayLayerTreeViewDeletionOnLocalSwap",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kDelayLayerTreeViewDeletionOnLocalSwapTaskDelayParam,
+                   &kDelayLayerTreeViewDeletionOnLocalSwap,
+                   "deletion_task_delay",
+                   base::Milliseconds(1000));
 
 BASE_FEATURE(kDirectCompositorThreadIpc,
              "DirectCompositorThreadIpc",
@@ -799,12 +802,18 @@ BASE_FEATURE(kDeprecateUnload,
              base::FEATURE_DISABLED_BY_DEFAULT);
 // If < 100, each user experiences the deprecation on this % of origins.
 // Which origins varies per user.
-const base::FeatureParam<int> kDeprecateUnloadPercent{&kDeprecateUnload,
-                                                      "rollout_percent", 100};
+BASE_FEATURE_PARAM(int,
+                   kDeprecateUnloadPercent,
+                   &kDeprecateUnload,
+                   "rollout_percent",
+                   100);
 // This buckets users, with users in each bucket having a consistent experience
 // of the unload deprecation rollout.
-const base::FeatureParam<int> kDeprecateUnloadBucket{&kDeprecateUnload,
-                                                     "rollout_bucket", 0};
+BASE_FEATURE_PARAM(int,
+                   kDeprecateUnloadBucket,
+                   &kDeprecateUnload,
+                   "rollout_bucket",
+                   0);
 
 // Only used if `kDeprecateUnload` is enabled. The deprecation will only apply
 // if the host is on the allow-list.
@@ -813,8 +822,11 @@ BASE_FEATURE(kDeprecateUnloadByAllowList,
              base::FEATURE_DISABLED_BY_DEFAULT);
 // A list of hosts for which deprecation of unload is allowed. If it's empty
 // the all hosts are allowed.
-const base::FeatureParam<std::string> kDeprecateUnloadAllowlist{
-    &kDeprecateUnloadByAllowList, "allowlist", ""};
+BASE_FEATURE_PARAM(std::string,
+                   kDeprecateUnloadAllowlist,
+                   &kDeprecateUnloadByAllowList,
+                   "allowlist",
+                   "");
 
 // Enable not reporting orphan pointerup (pointerup not accompanied by
 // pointerdown) as an interaction in performance event timing.
@@ -831,20 +843,40 @@ BASE_FEATURE(kEventTimingHandleOrphanPointerup,
 BASE_FEATURE(kExcludeLowEntropyImagesFromLCP,
              "ExcludeLowEntropyImagesFromLCP",
              base::FEATURE_ENABLED_BY_DEFAULT);
-const base::FeatureParam<double> kMinimumEntropyForLCP{
-    &kExcludeLowEntropyImagesFromLCP, "min_bpp", 0.05};
+BASE_FEATURE_PARAM(double,
+                   kMinimumEntropyForLCP,
+                   &kExcludeLowEntropyImagesFromLCP,
+                   "min_bpp",
+                   0.05);
+
+BASE_FEATURE(kExemptSpeculationRulesHeaderFromCSP,
+             "ExemptSpeculationRulesHeaderFromCSP",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kExpandCompositedCullRect,
+             "ExpandCompositedCullRect",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(int,
+                   kCullRectPixelDistanceToExpand,
+                   &kExpandCompositedCullRect,
+                   "pixels",
+                   4000);
+BASE_FEATURE_PARAM(double,
+                   kCullRectExpansionDPRCoef,
+                   &kExpandCompositedCullRect,
+                   "dpr_coef",
+                   0);
+BASE_FEATURE_PARAM(bool,
+                   kSmallScrollersUseMinCullRect,
+                   &kExpandCompositedCullRect,
+                   "small_scroller_opt",
+                   false);
 
 // Enable the <fencedframe> element; see crbug.com/1123606. Note that enabling
 // this feature does not automatically expose this element to the web, it only
 // allows the element to be enabled by the runtime enabled feature, for origin
 // trials.
 BASE_FEATURE(kFencedFrames, "FencedFrames", base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Relax the attestation requirement of post-impression beacons from Protected
-// Audience only to either Protected Audience or Attribution Reporting.
-BASE_FEATURE(kFencedFramesReportingAttestationsChanges,
-             "FencedFramesReportingAttestationsChanges",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable sending event-level reports through reportEvent() in cross-origin
 // subframes. This requires opt-in both from the cross-origin subframe that is
@@ -884,7 +916,7 @@ BASE_FEATURE(kFencedFramesReportEventHeaderChanges,
 // expected. See: https://crbug.com/349080952
 BASE_FEATURE(kFencedFramesSrcPermissionsPolicy,
              "FencedFramesSrcPermissionsPolicy",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls access to an API to exempt certain URLs from fenced frame
 // network revocation to facilitate testing.
@@ -921,8 +953,11 @@ BASE_FEATURE(kFilteringScrollPrediction,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
-const base::FeatureParam<std::string> kFilteringScrollPredictionFilterParam{
-    &kFilteringScrollPrediction, "filter", "one_euro_filter"};
+BASE_FEATURE_PARAM(std::string,
+                   kFilteringScrollPredictionFilterParam,
+                   &kFilteringScrollPrediction,
+                   "filter",
+                   "one_euro_filter");
 
 // See https://github.com/WICG/turtledove/blob/main/FLEDGE.md
 // Enables FLEDGE implementation. See https://crbug.com/1186444.
@@ -933,10 +968,16 @@ BASE_FEATURE(kFledge, "Fledge", base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kFledgeBiddingAndAuctionServer,
              "FledgeBiddingAndAuctionServer",
              base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<std::string> kFledgeBiddingAndAuctionKeyURL{
-    &kFledgeBiddingAndAuctionServer, "FledgeBiddingAndAuctionKeyURL", ""};
-const base::FeatureParam<std::string> kFledgeBiddingAndAuctionKeyConfig{
-    &kFledgeBiddingAndAuctionServer, "FledgeBiddingAndAuctionKeyConfig", ""};
+BASE_FEATURE_PARAM(std::string,
+                   kFledgeBiddingAndAuctionKeyURL,
+                   &kFledgeBiddingAndAuctionServer,
+                   "FledgeBiddingAndAuctionKeyURL",
+                   "");
+BASE_FEATURE_PARAM(std::string,
+                   kFledgeBiddingAndAuctionKeyConfig,
+                   &kFledgeBiddingAndAuctionServer,
+                   "FledgeBiddingAndAuctionKeyConfig",
+                   "");
 
 // See in the header.
 BASE_FEATURE(kFledgeConsiderKAnonymity,
@@ -957,46 +998,61 @@ BASE_FEATURE(kFledgePassRecencyToGenerateBid,
 BASE_FEATURE(kFledgeSampleDebugReports,
              "FledgeSampleDebugReports",
              base::FEATURE_ENABLED_BY_DEFAULT);
-const base::FeatureParam<base::TimeDelta> kFledgeDebugReportLockout{
-    &kFledgeSampleDebugReports, "fledge_debug_report_lockout",
-    base::Days(365 * 3)};
-const base::FeatureParam<base::TimeDelta> kFledgeDebugReportRestrictedCooldown{
-    &kFledgeSampleDebugReports, "fledge_debug_report_restricted_cooldown",
-    base::Days(365)};
-const base::FeatureParam<base::TimeDelta> kFledgeDebugReportShortCooldown{
-    &kFledgeSampleDebugReports, "fledge_debug_report_short_cooldown",
-    base::Days(14)};
-const base::FeatureParam<int> kFledgeDebugReportSamplingRandomMax{
-    &kFledgeSampleDebugReports, "fledge_debug_report_sampling_random_max",
-    1000};
-const base::FeatureParam<int>
-    kFledgeDebugReportSamplingRestrictedCooldownRandomMax{
-        &kFledgeSampleDebugReports,
-        "fledge_debug_report_sampling_restricted_cooldown_random_max", 10};
-const base::FeatureParam<base::TimeDelta>
-    kFledgeEnableFilteringDebugReportStartingFrom{
-        &kFledgeSampleDebugReports,
-        "fledge_enable_filtering_debug_report_starting_from",
-        base::Milliseconds(0)};
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kFledgeDebugReportLockout,
+                   &kFledgeSampleDebugReports,
+                   "fledge_debug_report_lockout",
+                   base::Days(365 * 3));
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kFledgeDebugReportRestrictedCooldown,
+                   &kFledgeSampleDebugReports,
+                   "fledge_debug_report_restricted_cooldown",
+                   base::Days(365));
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kFledgeDebugReportShortCooldown,
+                   &kFledgeSampleDebugReports,
+                   "fledge_debug_report_short_cooldown",
+                   base::Days(14));
+BASE_FEATURE_PARAM(int,
+                   kFledgeDebugReportSamplingRandomMax,
+                   &kFledgeSampleDebugReports,
+                   "fledge_debug_report_sampling_random_max",
+                   1000);
+BASE_FEATURE_PARAM(
+    int,
+    kFledgeDebugReportSamplingRestrictedCooldownRandomMax,
+    &kFledgeSampleDebugReports,
+    "fledge_debug_report_sampling_restricted_cooldown_random_max",
+    10);
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kFledgeEnableFilteringDebugReportStartingFrom,
+                   &kFledgeSampleDebugReports,
+                   "fledge_enable_filtering_debug_report_starting_from",
+                   base::Milliseconds(0));
 
 BASE_FEATURE(kFledgeSplitTrustedSignalsFetchingURL,
              "FledgeSplitTrustedSignalsFetchingURL",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-const base::FeatureParam<int> kFledgeCustomMaxAuctionAdComponentsValue{
-    &kFledgeCustomMaxAuctionAdComponents, "FledgeAdComponentLimit", 40};
+BASE_FEATURE_PARAM(int,
+                   kFledgeCustomMaxAuctionAdComponentsValue,
+                   &kFledgeCustomMaxAuctionAdComponents,
+                   "FledgeAdComponentLimit",
+                   40);
 
 BASE_FEATURE(kFledgeNumberBidderWorkletGroupByOriginContextsToKeep,
              "FledgeBidderWorkletGroupByOriginContextsToKeep",
              base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<int>
-    kFledgeNumberBidderWorkletGroupByOriginContextsToKeepValue{
-        &kFledgeNumberBidderWorkletGroupByOriginContextsToKeep,
-        "GroupByOriginContextLimit", 1};
-const base::FeatureParam<bool>
-    kFledgeNumberBidderWorkletContextsIncludeFacilitedTesting{
-        &kFledgeNumberBidderWorkletGroupByOriginContextsToKeep,
-        "IncludeFacilitatedTestingGroups", false};
+BASE_FEATURE_PARAM(int,
+                   kFledgeNumberBidderWorkletGroupByOriginContextsToKeepValue,
+                   &kFledgeNumberBidderWorkletGroupByOriginContextsToKeep,
+                   "GroupByOriginContextLimit",
+                   10);
+BASE_FEATURE_PARAM(bool,
+                   kFledgeNumberBidderWorkletContextsIncludeFacilitedTesting,
+                   &kFledgeNumberBidderWorkletGroupByOriginContextsToKeep,
+                   "IncludeFacilitatedTestingGroups",
+                   false);
 
 BASE_FEATURE(kFledgeAlwaysReuseBidderContext,
              "FledgeAlwaysReuseBidderContext",
@@ -1006,19 +1062,31 @@ BASE_FEATURE(kFledgeAlwaysReuseSellerContext,
              "FledgeAlwaysReuseSellerContext",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-const base::FeatureParam<int> kFledgeRealTimeReportingNumBuckets{
-    &kFledgeRealTimeReporting, "FledgeRealTimeReportingNumBuckets", 1024};
-const base::FeatureParam<double> kFledgeRealTimeReportingEpsilon{
-    &kFledgeRealTimeReporting, "FledgeRealTimeReportingEpsilon", 1};
-const base::FeatureParam<double>
-    kFledgeRealTimeReportingPlatformContributionPriority{
-        &kFledgeRealTimeReporting,
-        "FledgeRealTimeReportingPlatformContributionPriority", 1};
-const base::FeatureParam<base::TimeDelta> kFledgeRealTimeReportingWindow{
-    &kFledgeRealTimeReporting, "FledgeRealTimeReportingWindow",
-    base::Seconds(20)};
-const base::FeatureParam<int> kFledgeRealTimeReportingMaxReports{
-    &kFledgeRealTimeReporting, "FledgeRealTimeReportingMaxReports", 10};
+BASE_FEATURE_PARAM(int,
+                   kFledgeRealTimeReportingNumBuckets,
+                   &kFledgeRealTimeReporting,
+                   "FledgeRealTimeReportingNumBuckets",
+                   1024);
+BASE_FEATURE_PARAM(double,
+                   kFledgeRealTimeReportingEpsilon,
+                   &kFledgeRealTimeReporting,
+                   "FledgeRealTimeReportingEpsilon",
+                   1);
+BASE_FEATURE_PARAM(double,
+                   kFledgeRealTimeReportingPlatformContributionPriority,
+                   &kFledgeRealTimeReporting,
+                   "FledgeRealTimeReportingPlatformContributionPriority",
+                   1);
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kFledgeRealTimeReportingWindow,
+                   &kFledgeRealTimeReporting,
+                   "FledgeRealTimeReportingWindow",
+                   base::Seconds(20));
+BASE_FEATURE_PARAM(int,
+                   kFledgeRealTimeReportingMaxReports,
+                   &kFledgeRealTimeReporting,
+                   "FledgeRealTimeReportingMaxReports",
+                   10);
 
 // Enable enforcement of permission policy for
 // privateAggregation.contributeToHistogramOnEvent.
@@ -1111,6 +1179,13 @@ BASE_FEATURE(kFrequencyCappingForOverlayPopupDetection,
 
 BASE_FEATURE(kGMSCoreEmoji, "GMSCoreEmoji", base::FEATURE_ENABLED_BY_DEFAULT);
 
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
+// Defers device selection until after permission is granted.
+BASE_FEATURE(kGetUserMediaDeferredDeviceSettingsSelection,
+             "GetUserMediaDeferredDeviceSettingsSelection",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 BASE_FEATURE(kHiddenSelectionBounds,
              "HiddenSelectionBounds",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1118,15 +1193,6 @@ BASE_FEATURE(kHiddenSelectionBounds,
 BASE_FEATURE(kImageLoadingPrioritizationFix,
              "ImageLoadingPrioritizationFix",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kIndexedDBCompressValuesWithSnappy,
-             "IndexedDBCompressValuesWithSnappy",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-constexpr base::FeatureParam<int>
-    kIndexedDBCompressValuesWithSnappyCompressionThreshold{
-        &features::kIndexedDBCompressValuesWithSnappy,
-        /*name=*/"compression-threshold",
-        /*default_value=*/-1};
 
 BASE_FEATURE(kInputPredictorTypeChoice,
              "InputPredictorTypeChoice",
@@ -1388,7 +1454,7 @@ BASE_FEATURE_PARAM(bool,
 
 BASE_FEATURE(kLCPPInitiatorOrigin,
              "LCPPInitiatorOrigin",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 const base::FeatureParam<int> kLcppInitiatorOriginHistogramSlidingWindowSize{
     &kLCPPInitiatorOrigin,
@@ -1710,6 +1776,10 @@ BASE_FEATURE_PARAM(int,
                    "memory_cache_strong_ref_resource_size_threshold",
                    3 * 1024 * 1024);
 
+BASE_FEATURE(kMHTML_Improvements,
+             "MHTML_Improvements",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Used to control the collection of anchor element metrics (crbug.com/856683).
 // If kNavigationPredictor is enabled, then metrics of anchor elements
 // in the first viewport after the page load and the metrics of the clicked
@@ -1733,14 +1803,23 @@ const base::FeatureParam<int> kPredictorTrafficClientEnabledPercent{
 // is disabled.
 BASE_FEATURE(kNavigationPredictorNewViewportFeatures,
              "NavigationPredictorNewViewportFeatures",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 BASE_FEATURE(kNoForcedFrameUpdatesForWebTests,
              "NoForcedFrameUpdatesForWebTests",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kBFCacheOpenBroadcastChannel,
-             "BFCacheOpenBroadcastChannel",
+BASE_FEATURE(kNoThrottlingVisibleAgent,
+             "NoThrottlingVisibleAgent",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kOptimizeLoadingDataUrls,
+             "OptimizeLoadingDataUrls",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kOriginAgentClusterDefaultEnabled,
@@ -1799,13 +1878,9 @@ BASE_FEATURE(kPath2DPaintCache,
 
 // Enable browser-initiated dedicated worker script loading
 // (PlzDedicatedWorker). https://crbug.com/906991
-// TODO(350785857): remove the non-plzdedicatedworker path.
-#if BUILDFLAG(IS_FUCHSIA)
-#define DISABLED_ON_FUCHSIA base::FEATURE_DISABLED_BY_DEFAULT
-#else
-#define DISABLED_ON_FUCHSIA base::FEATURE_ENABLED_BY_DEFAULT
-#endif
-BASE_FEATURE(kPlzDedicatedWorker, "PlzDedicatedWorker", DISABLED_ON_FUCHSIA);
+BASE_FEATURE(kPlzDedicatedWorker,
+             "PlzDedicatedWorker",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDedicatedWorkerAblationStudyEnabled,
              "DedicatedWorkerAblationStudyEnabled",
@@ -2040,15 +2115,6 @@ BASE_FEATURE(kQuoteEmptySecChUaStringHeadersConsistently,
              "QuoteEmptySecChUaStringHeadersConsistently",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables waiting for codec support status notification from GPU factory in RTC
-// codec factories.
-BASE_FEATURE(kRTCGpuCodecSupportWaiter,
-             "kRTCGpuCodecSupportWaiter",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-const base::FeatureParam<int> kRTCGpuCodecSupportWaiterTimeoutParam{
-    &kRTCGpuCodecSupportWaiter, "timeout_ms", 3000};
-
 // Reduce the amount of information in the default 'referer' header for
 // cross-origin requests.
 BASE_FEATURE(kReducedReferrerGranularity,
@@ -2090,6 +2156,10 @@ const base::FeatureParam<int> kMaxFCPDelayMsForRenderBlockingFonts(
     &features::kRenderBlockingFonts,
     "max-fcp-delay",
     100);
+
+BASE_FEATURE(kRenderSizeInScoreAdBrowserSignals,
+             "RenderSizeInScoreAdBrowserSignals",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kResamplingInputEvents,
              "ResamplingInputEvents",
@@ -2264,6 +2334,10 @@ BASE_FEATURE(kSharedStorageAPIEnableWALForDatabase,
              "SharedStorageAPIEnableWALForDatabase",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kSimplifyLoadingTransparentPlaceholderImage,
+             "SimplifyLoadingTransparentPlaceholderImage",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 const char kSkipTouchEventFilterTypeParamName[] = "type";
 const char kSkipTouchEventFilterTypeParamValueDiscrete[] = "discrete";
 const char kSkipTouchEventFilterTypeParamValueAll[] = "all";
@@ -2361,6 +2435,10 @@ BASE_FEATURE(kStreamlineRendererInit,
              "StreamlineRendererInit",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kSubSampleWindowProxyUsageMetrics,
+             "SubSampleWindowProxyUsageMetrics",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kStylusPointerAdjustment,
              "StylusPointerAdjustment",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -2422,6 +2500,10 @@ BASE_FEATURE(kTimedHTMLParserBudget,
              "TimedHTMLParserBudget",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kTreatHTTPExpiresHeaderValueZeroAsExpiredInBlink,
+             "TreatHTTPExpiresHeaderValueZeroAsExpiredInBlink",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Changes behavior of User-Agent Client Hints to send blank headers when the
 // User-Agent string is overridden, instead of disabling the headers altogether.
 BASE_FEATURE(kUACHOverrideBlank,
@@ -2440,13 +2522,9 @@ BASE_FEATURE(kBlinkSchedulerDiscreteInputMatchesResponsivenessMetrics,
              "BlinkSchedulerDiscreteInputMatchesResponsivenessMetrics",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kBlinkSchedulerPrioritizeNavigationIPCs,
-             "BlinkSchedulerPrioritizeNavigationIPCs",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kEnableFileBackedBlobFactory,
-             "EnableFileBackedBlobFactory",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kThreadedScrollPreventRenderingStarvation,
+             "ThreadedScrollPreventRenderingStarvation",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, the usage of unload handlers causes a blocklisted reason for
 // BFCache. The purpose is to capture their source location.
@@ -2545,17 +2623,28 @@ BASE_FEATURE(kWebAppManifestLockScreen,
              "WebAppManifestLockScreen",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enabling this flag bypasses additional buffering when using the Web Audio
-// API, which may reduce audio output latency but may also increase the
-// probability of an audio glitch.
-BASE_FEATURE(kWebAudioBypassOutputBuffering,
-             "WebAudioBypassOutputBuffering",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Update echo cancellation output device on AudioContext construction.
-BASE_FEATURE(kWebAudioContextConstructorEchoCancellation,
-             "WebAudioContextConstructorEchoCancellation",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+// Parameters can be used to control to which latency hints the feature is
+// applied.
+BASE_FEATURE_PARAM(bool,
+                   kWebAudioBypassOutputBufferingInteractive,
+                   &kWebAudioBypassOutputBuffering,
+                   "latency_interactive",
+                   true);
+BASE_FEATURE_PARAM(bool,
+                   kWebAudioBypassOutputBufferingBalanced,
+                   &kWebAudioBypassOutputBuffering,
+                   "latency_balanced",
+                   true);
+BASE_FEATURE_PARAM(bool,
+                   kWebAudioBypassOutputBufferingPlayback,
+                   &kWebAudioBypassOutputBuffering,
+                   "latency_playback",
+                   true);
+BASE_FEATURE_PARAM(bool,
+                   kWebAudioBypassOutputBufferingExact,
+                   &kWebAudioBypassOutputBuffering,
+                   "latency_exact",
+                   true);
 
 /// Enables cache-aware WebFonts loading. See https://crbug.com/570205.
 // The feature is disabled on Android for WebView API issue discussed at
@@ -2627,6 +2716,17 @@ BASE_FEATURE(kWebviewAccelerateSmallCanvases,
              "WebviewAccelerateSmallCanvases",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Whether `blink::MemoryCache` and `blink::ResourceFetcher` release their
+// strong references to resources on memory pressure.
+BASE_FEATURE(kReleaseResourceStrongReferencesOnMemoryPressure,
+             "ReleaseResourceStrongReferencesOnMemoryPressure",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Whether `blink::Resource` deletes its decoded data on memory pressure.
+BASE_FEATURE(kReleaseResourceDecodedDataOnMemoryPressure,
+             "ReleaseResourceDecodedDataOnMemoryPressure",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // When adding new features or constants for features, please keep the features
 // sorted by identifier name (e.g. `kAwesomeFeature`), and the constants for
 // that feature grouped with the associated feature.
@@ -2687,52 +2787,18 @@ bool IsLinkPreviewTriggerTypeEnabled(LinkPreviewTriggerType type) {
          type == blink::features::kLinkPreviewTriggerType.Get();
 }
 
-BASE_FEATURE(kExpandCompositedCullRect,
-             "ExpandCompositedCullRect",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE_PARAM(int,
-                   kCullRectPixelDistanceToExpand,
-                   &kExpandCompositedCullRect,
-                   "pixels",
-                   4000);
-BASE_FEATURE_PARAM(double,
-                   kCullRectExpansionDPRCoef,
-                   &kExpandCompositedCullRect,
-                   "dpr_coef",
-                   0);
-BASE_FEATURE_PARAM(bool,
-                   kSmallScrollersUseMinCullRect,
-                   &kExpandCompositedCullRect,
-                   "small_scroller_opt",
-                   false);
-
-BASE_FEATURE(kTreatHTTPExpiresHeaderValueZeroAsExpiredInBlink,
-             "TreatHTTPExpiresHeaderValueZeroAsExpiredInBlink",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kSimplifyLoadingTransparentPlaceholderImage,
-             "SimplifyLoadingTransparentPlaceholderImage",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kNoThrottlingVisibleAgent,
-             "NoThrottlingVisibleAgent",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kRenderSizeInScoreAdBrowserSignals,
-             "RenderSizeInScoreAdBrowserSignals",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kOptimizeLoadingDataUrls,
-             "OptimizeLoadingDataUrls",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kCanvasSharedBitmapToSharedImage,
-             "CanvasSharedBitmapToSharedImage",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 bool IsCanvasSharedBitmapConversionEnabled() {
   return base::FeatureList::IsEnabled(
       features::kCanvasSharedBitmapToSharedImage);
 }
+
+// DO NOT ADD NEW FEATURES HERE.
+//
+// The section above is for helper functions for querying feature status. The
+// section below should have nothing. Please add new features in the giant block
+// of features that already exist in this file, trying to keep newly-added
+// features in sorted order.
+//
+// DO NOT ADD NEW FEATURES HERE.
 
 }  // namespace blink::features

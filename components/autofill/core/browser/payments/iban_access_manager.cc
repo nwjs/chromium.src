@@ -9,6 +9,7 @@
 #include "components/autofill/core/browser/payments/autofill_error_dialog_context.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/payments_network_interface.h"
+#include "components/autofill/core/browser/payments/payments_requests/payments_request.h"
 #include "components/autofill/core/browser/payments/payments_util.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/browser/ui/suggestion.h"
@@ -94,9 +95,7 @@ void IbanAccessManager::FetchValue(const Suggestion::BackendId& backend_id,
   Iban iban_copy = *iban;
   client_->GetPersonalDataManager()->payments_data_manager().RecordUseOfIban(
       iban_copy);
-  payments::PaymentsNetworkInterface::UnmaskIbanRequestDetails request_details;
-  request_details.billable_service_number =
-      payments::kUnmaskPaymentMethodBillableServiceNumber;
+  payments::UnmaskIbanRequestDetails request_details;
   request_details.billing_customer_number = payments::GetBillingCustomerId(
       &client_->GetPersonalDataManager()->payments_data_manager());
   request_details.instrument_id = instrument_id;
@@ -154,6 +153,11 @@ void IbanAccessManager::OnUnmaskResponseReceived(
     }
     return;
   }
+
+  // Immediately close the progress dialog before showing the error dialog.
+  client_->GetPaymentsAutofillClient()->CloseAutofillProgressDialog(
+      /*show_confirmation_before_closing=*/false,
+      /*no_interactive_authentication_callback=*/base::OnceClosure());
   AutofillErrorDialogContext error_context;
   error_context.type =
       AutofillErrorDialogType::kMaskedServerIbanUnmaskingTemporaryError;

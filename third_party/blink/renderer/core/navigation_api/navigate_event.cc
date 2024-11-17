@@ -57,7 +57,7 @@ NavigateEvent::NavigateEvent(ExecutionContext* context,
                              AbortController* controller)
     : Event(type, init),
       ExecutionContextClient(context),
-      navigation_type_(init->navigationType()),
+      navigation_type_(init->navigationType().AsEnum()),
       destination_(init->destination()),
       can_intercept_(init->canIntercept()),
       user_initiated_(init->userInitiated()),
@@ -293,7 +293,7 @@ void NavigateEvent::React(ScriptState* script_state) {
     // we always go down the 1+ promises path.
     promise = ScriptPromiseUntyped::All(
         script_state, HeapVector<ScriptPromiseUntyped>(
-                          {ScriptPromiseUntyped::CastUndefined(script_state)}));
+                          {ToResolvedUndefinedPromise(script_state)}));
   }
 
   promise.Then(MakeGarbageCollected<ScriptFunction>(
@@ -381,7 +381,7 @@ void NavigateEvent::FinalizeNavigationActionPromisesList() {
   handlers_list.swap(navigation_action_handlers_list_);
 
   for (auto& function : handlers_list) {
-    ScriptPromiseUntyped result;
+    ScriptPromise<IDLUndefined> result;
     if (function->Invoke(this).To(&result))
       navigation_action_promises_list_.push_back(result);
   }
@@ -465,15 +465,18 @@ void NavigateEvent::PotentiallyProcessScrollBehavior() {
   ProcessScrollBehavior();
 }
 
-WebFrameLoadType LoadTypeFromNavigation(const String& navigation_type) {
-  if (navigation_type == "push")
-    return WebFrameLoadType::kStandard;
-  if (navigation_type == "replace")
-    return WebFrameLoadType::kReplaceCurrentItem;
-  if (navigation_type == "traverse")
-    return WebFrameLoadType::kBackForward;
-  if (navigation_type == "reload")
-    return WebFrameLoadType::kReload;
+WebFrameLoadType LoadTypeFromNavigation(
+    V8NavigationType::Enum navigation_type) {
+  switch (navigation_type) {
+    case V8NavigationType::Enum::kPush:
+      return WebFrameLoadType::kStandard;
+    case V8NavigationType::Enum::kReplace:
+      return WebFrameLoadType::kReplaceCurrentItem;
+    case V8NavigationType::Enum::kTraverse:
+      return WebFrameLoadType::kBackForward;
+    case V8NavigationType::Enum::kReload:
+      return WebFrameLoadType::kReload;
+  }
   NOTREACHED();
 }
 

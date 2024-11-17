@@ -167,9 +167,9 @@ constexpr CGFloat preferredCornerRadius = 20;
 
 // Returns the user email.
 - (NSString*)userEmail {
-  ChromeBrowserState* browserState = self.browser->GetBrowserState();
+  ProfileIOS* profile = self.browser->GetProfile();
   AuthenticationService* authService =
-      AuthenticationServiceFactory::GetForBrowserState(browserState);
+      AuthenticationServiceFactory::GetForProfile(profile);
   id<SystemIdentity> authenticatedIdentity =
       authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
 
@@ -241,11 +241,11 @@ constexpr CGFloat preferredCornerRadius = 20;
               kIOSProactivePasswordGenerationBottomSheet)) {
     return;
   }
-  ChromeBrowserState* browserState = self.browser->GetBrowserState();
-  if (!browserState) {
+  ProfileIOS* profile = self.browser->GetProfile();
+  if (!profile) {
     return;
   }
-  PrefService* prefService = browserState->GetPrefs();
+  PrefService* prefService = profile->GetPrefs();
   if (prefService) {
     const int newDismissCount =
         prefService->GetInteger(
@@ -297,12 +297,12 @@ constexpr CGFloat preferredCornerRadius = 20;
   if (!webState) {
     return;
   }
-  ChromeBrowserState* browserState =
-      ChromeBrowserState::FromBrowserState(webState->GetBrowserState());
-  if (!browserState) {
+  ProfileIOS* profile =
+      ProfileIOS::FromBrowserState(webState->GetBrowserState());
+  if (!profile) {
     return;
   }
-  PrefService* prefService = browserState->GetPrefs();
+  PrefService* prefService = profile->GetPrefs();
   if (prefService) {
     const int currentDismissCount = prefService->GetInteger(
         prefs::kIosPasswordGenerationBottomSheetDismissCount);
@@ -348,22 +348,11 @@ constexpr CGFloat preferredCornerRadius = 20;
       // be an option).
       return @[ [self preferredHeightDetent] ];
     }
-    // Having the large detent as an option makes the modal expandable to
-    // the maximum size.
-    return @[
-      [self preferredHeightDetent],
-      UISheetPresentationControllerDetent.largeDetent
-    ];
-  } else if (@available(iOS 16, *)) {
-    // Having the large detent as an option makes the modal expandable to
-    // the maximum size.
-    return @[
-      [self preferredHeightDetent],
-      UISheetPresentationControllerDetent.largeDetent
-    ];
   }
+  // Having the large detent as an option makes the modal expandable to
+  // the maximum size.
   return @[
-    UISheetPresentationControllerDetent.mediumDetent,
+    [self preferredHeightDetent],
     UISheetPresentationControllerDetent.largeDetent
   ];
 }

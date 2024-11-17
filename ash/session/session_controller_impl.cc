@@ -266,6 +266,10 @@ void SessionControllerImpl::NotifyFirstSessionReady() {
   }
 }
 
+void SessionControllerImpl::NotifyUserToBeRemoved(const AccountId& account_id) {
+  observers_.Notify(&SessionObserver::OnUserToBeRemoved, account_id);
+}
+
 bool SessionControllerImpl::ShouldDisplayManagedUI() const {
   if (!IsActiveUserSessionStarted())
     return false;
@@ -656,11 +660,11 @@ LoginStatus SessionControllerImpl::CalculateLoginStatusForActiveSession()
       return LoginStatus::GUEST;
     case user_manager::UserType::kPublicAccount:
       return LoginStatus::PUBLIC;
-    case user_manager::UserType::kKioskApp:
-      return LoginStatus::KIOSK_APP;
     case user_manager::UserType::kChild:
       return LoginStatus::CHILD;
+    case user_manager::UserType::kKioskApp:
     case user_manager::UserType::kWebKioskApp:
+    case user_manager::UserType::kKioskIWA:
       return LoginStatus::KIOSK_APP;
   }
   NOTREACHED();

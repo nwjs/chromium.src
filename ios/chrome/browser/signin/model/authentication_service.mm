@@ -22,7 +22,7 @@
 #import "components/signin/public/identity_manager/account_info.h"
 #import "components/signin/public/identity_manager/device_accounts_synchronizer.h"
 #import "components/signin/public/identity_manager/primary_account_mutator.h"
-#import "components/sync/service/account_pref_utils.h"
+#import "components/sync/base/account_pref_utils.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_user_settings.h"
 #import "google_apis/gaia/gaia_auth_util.h"
@@ -363,10 +363,12 @@ void AuthenticationService::SignIn(id<SystemIdentity> identity,
   CHECK(!primary_account.empty());
   CHECK_EQ(account_id, primary_account);
   pref_service_->SetTime(prefs::kLastSigninTimestamp, base::Time::Now());
-  pref_service_->SetTime(prefs::kIdentityConfirmationSnackbarLastPromptTime,
-                         base::Time::Now());
-  pref_service_->SetInteger(prefs::kIdentityConfirmationSnackbarDisplayCount,
-                            0);
+
+  PrefService* local_pref_service = GetApplicationContext()->GetLocalState();
+  local_pref_service->SetTime(
+      prefs::kIdentityConfirmationSnackbarLastPromptTime, base::Time::Now());
+  local_pref_service->SetInteger(
+      prefs::kIdentityConfirmationSnackbarDisplayCount, 0);
   crash_keys::SetCurrentlySignedIn(true);
 }
 

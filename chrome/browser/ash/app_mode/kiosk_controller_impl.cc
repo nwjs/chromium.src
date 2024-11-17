@@ -29,6 +29,8 @@
 #include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/ash/app_mode/app_launch_utils.h"
 #include "chrome/browser/ash/app_mode/crash_recovery_launcher.h"
+#include "chrome/browser/ash/app_mode/isolated_web_app/kiosk_iwa_data.h"
+#include "chrome/browser/ash/app_mode/isolated_web_app/kiosk_iwa_manager.h"
 #include "chrome/browser/ash/app_mode/kiosk_app.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_launch_error.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_manager_base.h"
@@ -39,12 +41,12 @@
 #include "chrome/browser/ash/app_mode/web_app/web_kiosk_app_data.h"
 #include "chrome/browser/ash/app_mode/web_app/web_kiosk_app_manager.h"
 #include "chrome/browser/ash/login/app_mode/kiosk_launch_controller.h"
+#include "chrome/browser/ash/login/screens/app_launch_splash_screen.h"
+#include "chrome/browser/ash/login/wizard_controller.h"
 #include "chrome/browser/ash/policy/core/device_local_account.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/ui/ash/login/login_display_host.h"
 #include "chrome/common/chrome_switches.h"
-#include "chromeos/ash/components/kiosk/vision/internals_page_processor.h"
-#include "chromeos/ash/components/kiosk/vision/kiosk_vision.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "components/account_id/account_id.h"
 #include "components/user_manager/user.h"
@@ -76,6 +78,18 @@ std::optional<KioskApp> ChromeAppById(const KioskChromeAppManager& manager,
   return KioskApp(
       KioskAppId::ForChromeApp(chrome_app_id, manager_app.account_id),
       manager_app.name, manager_app.icon);
+}
+
+std::optional<KioskApp> IsolatedWebAppById(const KioskIwaManager& manager,
+                                           const AccountId& account_id) {
+  const KioskIwaData* app_data = manager.GetApp(account_id);
+
+  if (!app_data) {
+    return std::nullopt;
+  }
+
+  return KioskApp(KioskAppId::ForIsolatedWebApp(account_id), app_data->name(),
+                  app_data->icon());
 }
 
 KioskApp EmptyKioskApp(const KioskAppId& app_id) {
@@ -124,8 +138,7 @@ std::optional<KioskApp> KioskControllerImpl::GetAppById(
     case KioskAppType::kChromeApp:
       return ChromeAppById(chrome_app_manager_, app_id.app_id.value());
     case KioskAppType::kIsolatedWebApp:
-      // TODO(crbug.com/359774056): add IsolatedWebAppById.
-      return EmptyKioskApp(app_id);
+      return IsolatedWebAppById(iwa_manager_, app_id.account_id);
   }
 }
 
@@ -169,7 +182,8 @@ void KioskControllerImpl::InitializeKioskSystemSession(
 
 void KioskControllerImpl::StartSession(const KioskAppId& app_id,
                                        bool is_auto_launch,
-                                       LoginDisplayHost* host) {
+                                       LoginDisplayHost* host,
+                                       AppLaunchSplashScreen* splash_screen) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   CHECK_EQ(launch_controller_, nullptr);
@@ -181,10 +195,11 @@ void KioskControllerImpl::StartSession(const KioskAppId& app_id,
   KioskApp app = std::move(app_maybe).value_or(EmptyKioskApp(app_id));
 
   launch_controller_ = std::make_unique<KioskLaunchController>(
-      host, host->GetOobeUI(),
+      host,
       /*app_launched_callback=*/
       base::BindOnce(&KioskControllerImpl::OnAppLaunched,
                      base::Unretained(this)),
+      /*splash_screen=*/splash_screen,
       /*done_callback=*/
       base::BindOnce(&KioskControllerImpl::OnLaunchComplete,
                      base::Unretained(this)));
@@ -253,20 +268,12 @@ KioskSystemSession* KioskControllerImpl::GetKioskSystemSession() {
 
 kiosk_vision::TelemetryProcessor*
 KioskControllerImpl::GetKioskVisionTelemetryProcessor() {
-  auto* kiosk_system_session = GetKioskSystemSession();
-  if (!kiosk_system_session) {
-    return nullptr;
-  }
-  return kiosk_system_session->kiosk_vision().GetTelemetryProcessor();
+  return nullptr;
 }
 
 kiosk_vision::InternalsPageProcessor*
 KioskControllerImpl::GetKioskVisionInternalsPageProcessor() {
-  auto* kiosk_system_session = GetKioskSystemSession();
-  if (!kiosk_system_session) {
-    return nullptr;
-  }
-  return kiosk_system_session->kiosk_vision().GetInternalsPageProcessor();
+  return nullptr;
 }
 
 void KioskControllerImpl::OnUserLoggedIn(const user_manager::User& user) {

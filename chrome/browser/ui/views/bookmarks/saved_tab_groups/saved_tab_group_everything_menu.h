@@ -7,10 +7,10 @@
 
 #include <map>
 
+#include "base/uuid.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
-#include "components/saved_tab_groups/features.h"
-#include "components/saved_tab_groups/saved_tab_group_model.h"
+#include "components/saved_tab_groups/public/features.h"
 #include "ui/base/models/simple_menu_model.h"
 #include "ui/views/controls/button/menu_button_controller.h"
 #include "ui/views/controls/menu/menu_delegate.h"
@@ -97,8 +97,8 @@ class STGEverythingMenu : public views::MenuDelegate,
   std::unique_ptr<ui::SimpleMenuModel> CreateMenuModel();
 
   // Returns sorted saved tab groups with the most recently created as the
-  // first.
-  std::vector<base::Uuid> GetSortedTabGroupsByCreationTime(
+  // first, filtering out empty groups.
+  std::vector<base::Uuid> GetGroupsForDisplaySortedByCreationTime(
       TabGroupSyncService* wrapper_service);
 
   // Because all the menu items (i.e. tab group items in the Everything menu -
@@ -129,8 +129,9 @@ class STGEverythingMenu : public views::MenuDelegate,
   // submenu. That's why you have 112 as the first action's id.
   int GetAndIncrementLatestCommandId();
 
-  // Saved tab groups with the most recently created as the first.
-  std::vector<base::Uuid> sorted_tab_groups_;
+  // Saved tab groups with the most recently created as the first, and filtered
+  // by their empty status.
+  std::vector<base::Uuid> sorted_non_empty_tab_groups_;
 
   // Owned by the Everything button.
   raw_ptr<views::MenuButtonController> menu_button_controller_;

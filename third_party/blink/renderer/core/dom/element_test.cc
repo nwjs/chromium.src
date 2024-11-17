@@ -9,6 +9,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/web/web_plugin.h"
 #include "third_party/blink/renderer/core/css/css_style_declaration.h"
+#include "third_party/blink/renderer/core/dom/column_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/dom_token_list.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
@@ -1180,10 +1181,11 @@ TEST_F(ElementTest, GetPseudoElement) {
   }
 }
 
-TEST_F(ElementTest, ColumnScrollMarkers) {
+TEST_F(ElementTest, ColumnPseudoElements) {
   GetDocument().body()->setInnerHTML(R"HTML(
     <style id="test-style">
-    #test::column::scroll-marker { content: "*"; opacity: 0.5; }
+    #test::column { content: "*"; opacity: 0.5; }
+    #test::column::scroll-marker { content: "+"; opacity: 0.3; }
     </style>
     <div id="test"></div>
     )HTML");
@@ -1192,24 +1194,49 @@ TEST_F(ElementTest, ColumnScrollMarkers) {
 
   Element* element = GetElementById("test");
 
-  ScrollMarkerPseudoElement* first_scroll_marker =
-      element->CreateColumnScrollMarker();
-  ASSERT_TRUE(first_scroll_marker);
-  ScrollMarkerPseudoElement* second_scroll_marker =
-      element->CreateColumnScrollMarker();
-  ASSERT_TRUE(second_scroll_marker);
-  ScrollMarkerPseudoElement* third_scroll_marker =
-      element->CreateColumnScrollMarker();
-  ASSERT_TRUE(third_scroll_marker);
+  PhysicalRect dummy_column_rect;
+  PseudoElement* first_column_pseudo_element =
+      element->CreateColumnPseudoElement(dummy_column_rect);
+  ASSERT_TRUE(first_column_pseudo_element);
+  EXPECT_EQ(first_column_pseudo_element->GetComputedStyle()->Opacity(), 0.5f);
+  ASSERT_TRUE(
+      first_column_pseudo_element->GetPseudoElement(kPseudoIdScrollMarker));
+  EXPECT_EQ(first_column_pseudo_element->GetPseudoElement(kPseudoIdScrollMarker)
+                ->GetComputedStyle()
+                ->Opacity(),
+            0.3f);
 
-  ASSERT_TRUE(element->GetColumnScrollMarkers());
-  ASSERT_EQ(element->GetColumnScrollMarkers()->size(), 3u);
+  PseudoElement* second_column_pseudo_element =
+      element->CreateColumnPseudoElement(dummy_column_rect);
+  ASSERT_TRUE(second_column_pseudo_element);
+  EXPECT_EQ(second_column_pseudo_element->GetComputedStyle()->Opacity(), 0.5f);
+  ASSERT_TRUE(
+      second_column_pseudo_element->GetPseudoElement(kPseudoIdScrollMarker));
+  EXPECT_EQ(
+      second_column_pseudo_element->GetPseudoElement(kPseudoIdScrollMarker)
+          ->GetComputedStyle()
+          ->Opacity(),
+      0.3f);
+
+  PseudoElement* third_column_pseudo_element =
+      element->CreateColumnPseudoElement(dummy_column_rect);
+  ASSERT_TRUE(third_column_pseudo_element);
+  EXPECT_EQ(third_column_pseudo_element->GetComputedStyle()->Opacity(), 0.5f);
+  ASSERT_TRUE(
+      third_column_pseudo_element->GetPseudoElement(kPseudoIdScrollMarker));
+  EXPECT_EQ(third_column_pseudo_element->GetPseudoElement(kPseudoIdScrollMarker)
+                ->GetComputedStyle()
+                ->Opacity(),
+            0.3f);
+
+  ASSERT_TRUE(element->GetColumnPseudoElements());
+  EXPECT_EQ(element->GetColumnPseudoElements()->size(), 3u);
 
   Element* style = GetElementById("test-style");
   style->setInnerHTML("");
   GetDocument().UpdateStyleAndLayoutTree();
 
-  ASSERT_EQ(element->GetColumnScrollMarkers()->size(), 0u);
+  EXPECT_EQ(element->GetColumnPseudoElements()->size(), 0u);
 }
 
 }  // namespace blink

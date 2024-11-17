@@ -22,7 +22,6 @@ import org.chromium.chrome.browser.tab.TabLoadIfNeededCaller;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.NextTabPolicy.NextTabPolicySupplier;
-import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.url.GURL;
 
@@ -57,22 +56,21 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
      *
      * @param profileProviderSupplier Provides the Profiles used in this selector.
      * @param tabCreatorManager A {@link TabCreatorManager} instance.
-     * @param tabModelFilterFactory
-     * @param nextTabPolicySupplier
-     * @param asyncTabParamsManager
+     * @param nextTabPolicySupplier Supplier of a policy to decide which tab to select next.
+     * @param asyncTabParamsManager The params manager to use for async tab creation.
      * @param supportUndo Whether a tab closure can be undone.
      * @param activityType Type of the activity for the tab model selector.
+     * @param startIncognito Whether to start in incognito mode.
      */
     public TabModelSelectorImpl(
             OneshotSupplier<ProfileProvider> profileProviderSupplier,
             TabCreatorManager tabCreatorManager,
-            TabModelFilterFactory tabModelFilterFactory,
             NextTabPolicySupplier nextTabPolicySupplier,
             AsyncTabParamsManager asyncTabParamsManager,
             boolean supportUndo,
             @ActivityType int activityType,
             boolean startIncognito) {
-        super(tabCreatorManager, tabModelFilterFactory, startIncognito);
+        super(tabCreatorManager, startIncognito);
         mProfileProviderSupplier = profileProviderSupplier;
         mIsUndoSupported = supportUndo;
         mOrderController = new TabModelOrderControllerImpl(this);
@@ -129,7 +127,7 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
                         /* isArchivedTabModel= */ false);
         regularTabCreator.setTabModel(normalModel, mOrderController);
 
-        IncognitoTabModel incognitoModel =
+        IncognitoTabModelImpl incognitoModel =
                 new IncognitoTabModelImpl(
                         new IncognitoTabModelImplCreator(
                                 profileProvider,
@@ -148,8 +146,8 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
     @VisibleForTesting
     void onNativeLibraryReadyInternal(
             TabContentManager tabContentProvider,
-            TabModel normalModel,
-            IncognitoTabModel incognitoModel) {
+            TabModelInternal normalModel,
+            IncognitoTabModelInternal incognitoModel) {
         mTabContentManager = tabContentProvider;
         initialize(normalModel, incognitoModel);
 
@@ -190,11 +188,10 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
 
                     // Do not currently support moving grouped tabs.
                     TabGroupModelFilter filter =
-                            (TabGroupModelFilter)
-                                    getTabModelFilterProvider()
-                                            .getTabModelFilter(tab.isIncognito());
+                            getTabGroupModelFilterProvider()
+                                    .getTabGroupModelFilter(tab.isIncognito());
                     if (filter.isTabInTabGroup(tab)) {
-                        filter.moveTabOutOfGroup(tab.getId());
+                        filter.moveTabOutOfGroupInDirection(tab.getId(), /* trailing= */ true);
                     }
 
                     tabModel.removeTab(tab);
@@ -223,10 +220,12 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
 
     /**
      * Exposed to allow tests to initialize the selector with different tab models.
+     *
      * @param normalModel The normal tab model.
      * @param incognitoModel The incognito tab model.
      */
-    public void initializeForTesting(TabModel normalModel, IncognitoTabModel incognitoModel) {
+    public void initializeForTesting(
+            TabModelInternal normalModel, IncognitoTabModelInternal incognitoModel) {
         initialize(normalModel, incognitoModel);
     }
 

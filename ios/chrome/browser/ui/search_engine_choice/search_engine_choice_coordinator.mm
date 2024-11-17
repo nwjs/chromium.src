@@ -17,7 +17,6 @@
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
-#import "ios/chrome/browser/ui/scoped_iphone_portrait_only/scoped_iphone_portrait_only.h"
 #import "ios/chrome/browser/ui/search_engine_choice/search_engine_choice_constants.h"
 #import "ios/chrome/browser/ui/search_engine_choice/search_engine_choice_learn_more/search_engine_choice_learn_more_coordinator.h"
 #import "ios/chrome/browser/ui/search_engine_choice/search_engine_choice_learn_more/search_engine_choice_learn_more_view_controller.h"
@@ -47,8 +46,6 @@
   base::Time _lastCallToDidTapPrimaryButtonTimestamp;
   // First run screen delegate.
   __weak id<FirstRunScreenDelegate> _firstRunDelegate;
-  // Force iPhone to be in portrait only for this coordinator.
-  std::unique_ptr<ScopedIphonePortraitOnly> _scopedIphonePortraitOnly;
 }
 
 @synthesize baseNavigationController = _baseNavigationController;
@@ -80,11 +77,10 @@
 
 - (void)start {
   [super start];
-  // Make sure we use the original browser state (non-incognito).
-  ChromeBrowserState* originalBrowserState =
-      self.browser->GetBrowserState()->GetOriginalChromeBrowserState();
+  // Make sure we use the original profile (non-incognito).
+  ProfileIOS* profile = self.browser->GetProfile()->GetOriginalProfile();
   if (!ShouldDisplaySearchEngineChoiceScreen(
-          *originalBrowserState, _firstRun,
+          *profile, _firstRun,
           /*app_started_via_external_intent=*/false)) {
     // If the search engine enterprise pocliy has been loaded, just before to
     // open the Search Engine Choice dialog, it should be skipped.
@@ -95,10 +91,9 @@
       [[SearchEngineChoiceViewController alloc] initWithFirstRunMode:_firstRun];
   _viewController.actionDelegate = self;
   TemplateURLService* templateURLService =
-      ios::TemplateURLServiceFactory::GetForBrowserState(originalBrowserState);
+      ios::TemplateURLServiceFactory::GetForProfile(profile);
   search_engines::SearchEngineChoiceService* searchEngineChoiceService =
-      ios::SearchEngineChoiceServiceFactory::GetForBrowserState(
-          originalBrowserState);
+      ios::SearchEngineChoiceServiceFactory::GetForProfile(profile);
   _mediator = [[SearchEngineChoiceMediator alloc]
       initWithTemplateURLService:templateURLService
        searchEngineChoiceService:searchEngineChoiceService];
@@ -113,12 +108,7 @@
         search_engines::SearchEngineChoiceScreenEvents::
             kFreChoiceScreenWasDisplayed);
   } else {
-    ui::DeviceFormFactor deviceFormFactor = ui::GetDeviceFormFactor();
-    if (deviceFormFactor == ui::DEVICE_FORM_FACTOR_PHONE) {
-      AppState* appState = self.browser->GetSceneState().appState;
-      _scopedIphonePortraitOnly =
-          std::make_unique<ScopedIphonePortraitOnly>(appState);
-    } else {
+    if (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_PHONE) {
       _viewController.modalPresentationStyle = UIModalPresentationFormSheet;
       _viewController.preferredContentSize =
           CGSizeMake(kIPadSearchEngineChoiceScreenPreferredWidth,
@@ -149,7 +139,6 @@
   _viewController = nil;
   _baseNavigationController = nil;
   _firstRunDelegate = nil;
-  _scopedIphonePortraitOnly.reset();
   [super stop];
 }
 

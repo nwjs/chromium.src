@@ -47,7 +47,6 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
     // Headers
     private TextView mPrivacyDisclaimerTextView;
     private View mPrivacyDisclaimerBottomSpace;
-    private Button mHistoryOpenInChromeButton;
     private Button mClearBrowsingDataButton;
     private HeaderItem mPrivacyDisclaimerHeaderItem;
     private HeaderItem mClearBrowsingDataButtonHeaderItem;
@@ -266,8 +265,8 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
             clear(true);
             mClearOnNextQueryComplete = false;
         }
-        if (!mAreHeadersInitialized && items.size() > 0 && !mIsSearching
-                || mIsSearching && mShowAppFilter) {
+        if ((!mAreHeadersInitialized && items.size() > 0 && !mIsSearching)
+                || (mIsSearching && mShowAppFilter)) {
             setHeaders();
             mAreHeadersInitialized = true;
         }
@@ -373,9 +372,6 @@ public class HistoryAdapter extends DateDividedAdapter implements BrowsingHistor
             ViewGroup historyOpenInChromeButtonContainer = getCctOpenInChromeButtonContainer(null);
 
             mHistoryOpenInChromeHeaderItem = new HeaderItem(1, historyOpenInChromeButtonContainer);
-            mHistoryOpenInChromeButton =
-                    historyOpenInChromeButtonContainer.findViewById(
-                            R.id.open_full_chrome_history_button);
         }
 
         updateClearBrowsingDataButtonVisibility();

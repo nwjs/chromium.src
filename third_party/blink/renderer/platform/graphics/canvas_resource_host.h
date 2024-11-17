@@ -117,6 +117,9 @@ class PLATFORM_EXPORT CanvasResourceHost : public cc::TextureLayerClient {
     shared_bitmap_gpu_channel_lost_ = value;
   }
 
+  virtual void SetTransferToGPUTextureWasInvoked() {}
+  virtual bool TransferToGPUTextureWasInvoked() { return false; }
+
  private:
   bool is_displayed_ = false;
   bool context_lost_ = false;

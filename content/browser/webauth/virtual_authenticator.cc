@@ -61,8 +61,9 @@ bool VirtualAuthenticator::AddRegistration(
   std::optional<std::unique_ptr<device::VirtualFidoDevice::PrivateKey>>
       fido_private_key =
           device::VirtualFidoDevice::PrivateKey::FromPKCS8(private_key);
-  if (!fido_private_key)
+  if (!fido_private_key) {
     return false;
+  }
 
   return state_->registrations
       .emplace(
@@ -78,27 +79,56 @@ bool VirtualAuthenticator::AddResidentRegistration(
     std::string rp_id,
     base::span<const uint8_t> private_key,
     int32_t counter,
-    std::vector<uint8_t> user_handle) {
+    std::vector<uint8_t> user_handle,
+    std::optional<std::string> user_name,
+    std::optional<std::string> user_display_name) {
   std::optional<std::unique_ptr<device::VirtualFidoDevice::PrivateKey>>
       fido_private_key =
           device::VirtualFidoDevice::PrivateKey::FromPKCS8(private_key);
-  if (!fido_private_key)
+  if (!fido_private_key) {
     return false;
+  }
 
   return state_->InjectResidentKey(
       std::move(key_handle),
       device::PublicKeyCredentialRpEntity(std::move(rp_id)),
-      device::PublicKeyCredentialUserEntity(std::move(user_handle)), counter,
-      std::move(*fido_private_key));
+      device::PublicKeyCredentialUserEntity(std::move(user_handle),
+                                            std::move(user_name),
+                                            std::move(user_display_name)),
+      counter, std::move(*fido_private_key));
 }
 
 void VirtualAuthenticator::ClearRegistrations() {
-  state_->registrations.clear();
+  device::VirtualFidoDevice::State::RegistrationsMap erased;
+  state_->registrations.swap(erased);
+  for (const auto& registration : erased) {
+    state_->NotifyCredentialDeleted(registration.first);
+  }
 }
 
 bool VirtualAuthenticator::RemoveRegistration(
     const std::vector<uint8_t>& key_handle) {
-  return state_->registrations.erase(key_handle) != 0;
+  bool removed = state_->registrations.erase(key_handle) != 0;
+  if (removed) {
+    state_->NotifyCredentialDeleted(key_handle);
+  }
+  return removed;
+}
+
+void VirtualAuthenticator::UpdateUserDetails(std::string_view relying_party_id,
+                                             base::span<const uint8_t> user_id,
+                                             std::string_view name,
+                                             std::string_view display_name) {
+  for (auto& registration : state_->registrations) {
+    if (registration.second.user && registration.second.rp &&
+        registration.second.rp->id == relying_party_id &&
+        registration.second.user->id == user_id) {
+      registration.second.user->name = name;
+      registration.second.user->display_name = display_name;
+      state_->NotifyCredentialUpdated(
+          std::make_pair(registration.first, &registration.second));
+    }
+  }
 }
 
 void VirtualAuthenticator::SetUserPresence(bool is_user_present) {
@@ -266,6 +296,21 @@ void VirtualAuthenticator::OnCredentialCreated(
     observer.OnCredentialCreated(this, credential);
   }
 }
+
+void VirtualAuthenticator::OnCredentialDeleted(
+    base::span<const uint8_t> credential_id) {
+  for (Observer& observer : observers_) {
+    observer.OnCredentialDeleted(this, credential_id);
+  }
+}
+
+void VirtualAuthenticator::OnCredentialUpdated(
+    const device::VirtualFidoDevice::Credential& credential) {
+  for (Observer& observer : observers_) {
+    observer.OnCredentialUpdated(this, credential);
+  }
+}
+
 void VirtualAuthenticator::OnAssertion(
     const device::VirtualFidoDevice::Credential& credential) {
   for (Observer& observer : observers_) {

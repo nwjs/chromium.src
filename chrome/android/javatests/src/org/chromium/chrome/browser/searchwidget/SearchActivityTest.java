@@ -262,8 +262,7 @@ public class SearchActivityTest {
                         eq(""),
                         any(/* DSE URL*/ ),
                         eq(PageClassification.ANDROID_SEARCH_WIDGET_VALUE),
-                        eq(""),
-                        /* isOnFocusContext= */ eq(false));
+                        eq(""));
 
         ThreadUtils.runOnUiThreadBlocking(
                 () ->
@@ -287,8 +286,7 @@ public class SearchActivityTest {
                         eq(""),
                         any(/* DSE URL*/ ),
                         eq(PageClassification.ANDROID_SEARCH_WIDGET_VALUE),
-                        eq(""),
-                        /* isOnFocusContext= */ eq(false));
+                        eq(""));
 
         ThreadUtils.runOnUiThreadBlocking(
                 () ->
@@ -373,7 +371,9 @@ public class SearchActivityTest {
                 () -> {
                     return WarmupManager.getInstance().hasSpareWebContents()
                             || WarmupManager.getInstance()
-                                    .hasSpareTab(ProfileManager.getLastUsedRegularProfile());
+                                    .hasSpareTab(
+                                            ProfileManager.getLastUsedRegularProfile(),
+                                            /* targetsNetwork= */ false);
                 });
     }
 
@@ -515,8 +515,7 @@ public class SearchActivityTest {
                         eq(""),
                         any(/* DSE URL */ ),
                         eq(PageClassification.ANDROID_SEARCH_WIDGET_VALUE),
-                        any(),
-                        /* isOnFocusContext= */ eq(false));
+                        any());
     }
 
     @Test

@@ -12,93 +12,6 @@
 load("//lib/targets.star", "targets")
 
 targets.legacy_compound_suite(
-    name = "android_12_dbg_emulator_gtests",
-    basic_suites = [
-        "android_trichrome_smoke_tests",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "android_cronet_clang_coverage_gtests",
-    basic_suites = [
-        "cronet_clang_coverage_additional_gtests",
-        "cronet_gtests",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "android_oreo_emulator_gtests",
-    basic_suites = [
-        "android_emulator_specific_chrome_public_tests",
-        "android_emulator_specific_network_enabled_content_browsertests",
-        "android_monochrome_smoke_tests",
-        "android_smoke_tests",
-        "android_specific_chromium_gtests",  # Already includes gl_gtests.
-        "android_wpr_record_replay_tests",
-        "chromium_gtests",
-        "chromium_gtests_for_devices_with_graphical_output",
-        "linux_flavor_specific_chromium_gtests",
-        "system_webview_shell_instrumentation_tests",  # Not an experimental test
-        "webview_cts_tests_gtest",
-        "webview_ui_instrumentation_tests",
-        "webview_instrumentation_test_apk_single_process_mode_gtests",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "android_pie_coverage_instrumentation_tests",
-    basic_suites = [
-        "android_smoke_tests",
-        "android_specific_coverage_java_tests",
-        "chrome_public_tests",
-        "vr_android_specific_chromium_tests",
-        "webview_ui_instrumentation_tests",
-    ],
-)
-
-# Keep in sync with android_pie_rel_gtests below, except for
-# vr_{android,platform}_specific_chromium_gtests which are not applicable
-# to android emulators on x86 & x64.
-targets.legacy_compound_suite(
-    name = "android_pie_rel_emulator_gtests",
-    basic_suites = [
-        "android_emulator_specific_chrome_public_tests",
-        "android_monochrome_smoke_tests",
-        "android_smoke_tests",
-        "android_specific_chromium_gtests",  # Already includes gl_gtests.
-        "chromium_gtests",
-        "chromium_gtests_for_devices_with_graphical_output",
-        "linux_flavor_specific_chromium_gtests",
-        "system_webview_shell_instrumentation_tests",  # Not an experimental test
-        "webview_cts_tests_gtest",
-        "webview_ui_instrumentation_tests",
-        "webview_instrumentation_test_apk_single_process_mode_gtests",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "android_pie_rel_gtests",
-    basic_suites = [
-        # TODO(crbug.com/40142574): Deprecate this when all the test suites below
-        # it are re-enabled.
-        "android_pie_rel_reduced_capacity_gtests",
-        "android_monochrome_smoke_tests",
-        "android_smoke_tests",
-        # "android_specific_chromium_gtests",  # Already includes gl_gtests.
-        # "chromium_gtests",
-        # "chromium_gtests_for_devices_with_graphical_output",
-        "chrome_public_tests",
-        # "linux_flavor_specific_chromium_gtests",
-        "system_webview_shell_instrumentation_tests",
-        # "vr_android_specific_chromium_tests",
-        # "vr_platform_specific_chromium_gtests",
-        "webview_64_cts_tests_gtest",
-        "webview_instrumentation_test_apk_single_process_mode_gtests",
-        "webview_ui_instrumentation_tests",
-    ],
-)
-
-targets.legacy_compound_suite(
     name = "bfcache_linux_gtests",
     basic_suites = [
         "bfcache_generic_gtests",
@@ -145,15 +58,6 @@ targets.legacy_compound_suite(
         "vr_android_specific_chromium_tests",
         "vr_platform_specific_chromium_gtests",
         "webview_instrumentation_test_apk_single_process_mode_gtests",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "chromium_dbg_isolated_scripts",
-    basic_suites = [
-        "desktop_chromium_isolated_scripts",
-        "performance_smoke_test_isolated_scripts",
-        "telemetry_perf_unittests_isolated_scripts",
     ],
 )
 
@@ -245,44 +149,6 @@ targets.legacy_compound_suite(
 )
 
 targets.legacy_compound_suite(
-    name = "chromium_linux_rel_isolated_scripts_code_coverage",
-    basic_suites = [
-        "chromedriver_py_tests_isolated_scripts",
-        "desktop_chromium_isolated_scripts",
-        "linux_specific_chromium_isolated_scripts",
-        "mojo_python_unittests_isolated_scripts",
-        "pytype_tests",
-        "telemetry_perf_unittests_isolated_scripts_xvfb",
-        "vulkan_swiftshader_isolated_scripts",
-        "chromium_web_tests_high_dpi_isolated_scripts",
-        "gpu_dawn_webgpu_blink_web_tests",
-    ],
-)
-
-# Like chromium_linux_rel_isolated_scripts above, but should only
-# include test suites that aren't affected by things like extra GN args
-# (e.g. is_debug) or OS versions (e.g. Mac-12 vs Mac-13). Note: use
-# chromium_linux_rel_isolated_scripts if you're setting up a new builder.
-# This group should only be used across ~3 builders.
-targets.legacy_compound_suite(
-    name = "chromium_linux_rel_isolated_scripts_once",
-    basic_suites = [
-        "chromedriver_py_tests_isolated_scripts",
-        "desktop_chromium_isolated_scripts",
-        "desktop_once_isolated_scripts",
-        "linux_specific_chromium_isolated_scripts",
-        "mojo_python_unittests_isolated_scripts",
-        "pytype_tests",
-        "telemetry_perf_unittests_isolated_scripts",
-        "vulkan_swiftshader_isolated_scripts",
-        "chromium_web_tests_high_dpi_isolated_scripts",
-        # TODO(crbug.com/40287410): Remove this once the BackgroundResourceFetch
-        # feature launches.
-        "chromium_web_tests_brfetch_isolated_scripts",
-    ],
-)
-
-targets.legacy_compound_suite(
     name = "chromium_mac_gtests",
     basic_suites = [
         "chromium_gtests",
@@ -310,18 +176,6 @@ targets.legacy_compound_suite(
 )
 
 targets.legacy_compound_suite(
-    name = "chromium_mac_rel_isolated_scripts",
-    basic_suites = [
-        "chromedriver_py_tests_isolated_scripts",
-        "components_perftests_isolated_scripts",
-        "desktop_chromium_isolated_scripts",
-        "mac_specific_isolated_scripts",
-        "mojo_python_unittests_isolated_scripts",
-        "telemetry_perf_unittests_isolated_scripts",
-    ],
-)
-
-targets.legacy_compound_suite(
     name = "chromium_mac_osxbeta_rel_isolated_scripts",
     basic_suites = [
         "chromedriver_py_tests_isolated_scripts",
@@ -343,13 +197,6 @@ targets.legacy_compound_suite(
         "mac_specific_isolated_scripts",
         "mojo_python_unittests_isolated_scripts",
         "telemetry_perf_unittests_isolated_scripts",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "chromium_mac_rel_isolated_scripts_code_coverage",
-    basic_suites = [
-        # TODO(crbug.com/40249801): Enable gpu_dawn_webgpu_blink_web_tests
     ],
 )
 
@@ -401,17 +248,6 @@ targets.legacy_compound_suite(
 )
 
 targets.legacy_compound_suite(
-    name = "chromium_win_dbg_isolated_scripts",
-    basic_suites = [
-        "chromedriver_py_tests_isolated_scripts",
-        "components_perftests_isolated_scripts",
-        "desktop_chromium_isolated_scripts",
-        "performance_smoke_test_isolated_scripts",
-        "telemetry_perf_unittests_isolated_scripts",
-    ],
-)
-
-targets.legacy_compound_suite(
     name = "chromium_win_gtests",
     basic_suites = [
         "aura_gtests",
@@ -439,32 +275,6 @@ targets.legacy_compound_suite(
 )
 
 targets.legacy_compound_suite(
-    name = "chromium_win_rel_isolated_scripts_code_coverage",
-    basic_suites = [
-        "gpu_dawn_webgpu_blink_web_tests",
-    ],
-)
-
-# Like chromium_win_rel_isolated_scripts above, but should only
-# include test suites that aren't affected by things like extra GN args
-# (e.g. is_debug) or OS versions (e.g. Mac-12 vs Mac-13). Note: use
-# chromium_win_rel_isolated_scripts if you're setting up a new builder.
-# This group should only be used across ~3 builders.
-targets.legacy_compound_suite(
-    name = "chromium_win_rel_isolated_scripts_once",
-    basic_suites = [
-        "chromedriver_py_tests_isolated_scripts",
-        "components_perftests_isolated_scripts",
-        "desktop_chromium_isolated_scripts",
-        "desktop_once_isolated_scripts",
-        "mojo_python_unittests_isolated_scripts",
-        "telemetry_desktop_minidump_unittests_isolated_scripts",
-        "telemetry_perf_unittests_isolated_scripts",
-        "win_specific_isolated_scripts",
-    ],
-)
-
-targets.legacy_compound_suite(
     name = "devtools_gtests",
     basic_suites = [
         "devtools_browser_tests_suite",
@@ -472,65 +282,7 @@ targets.legacy_compound_suite(
     ],
 )
 
-targets.legacy_compound_suite(
-    name = "fuchsia_arm64_isolated_scripts",
-    basic_suites = [
-        "fuchsia_sizes_tests",
-        "gpu_angle_fuchsia_unittests_isolated_scripts",
-    ],
-)
-
-# All gtests that can be run on Fuchsia CI/CQ
-targets.legacy_compound_suite(
-    name = "fuchsia_gtests",
-    basic_suites = [
-        "fuchsia_chrome_gtests",
-        "fuchsia_web_engine_gtests",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "fuchsia_isolated_scripts",
-    basic_suites = [
-        "chromium_webkit_isolated_scripts",
-        "gpu_angle_fuchsia_unittests_isolated_scripts",
-    ],
-)
-
 # BEGIN composition test suites used by the GPU bots
-
-targets.legacy_compound_suite(
-    name = "gpu_angle_linux_telemetry_tests",
-    basic_suites = [
-        "gpu_common_and_optional_telemetry_tests",
-        "gpu_webgl2_conformance_gl_passthrough_telemetry_tests",
-        "gpu_webgl_conformance_gl_passthrough_telemetry_tests",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "gpu_angle_mac_telemetry_tests",
-    basic_suites = [
-        "gpu_info_collection_telemetry_tests",
-        "gpu_webgl2_conformance_gl_passthrough_ganesh_telemetry_tests",
-        "gpu_webgl2_conformance_metal_passthrough_graphite_telemetry_tests",
-        "gpu_webgl_conformance_gl_passthrough_ganesh_telemetry_tests",
-        "gpu_webgl_conformance_metal_passthrough_ganesh_telemetry_tests",
-        "gpu_webgl_conformance_metal_passthrough_graphite_telemetry_tests",
-        "gpu_webgl_conformance_swangle_passthrough_representative_telemetry_tests",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "gpu_angle_win_intel_nvidia_telemetry_tests",
-    basic_suites = [
-        "gpu_info_collection_telemetry_tests",
-        "gpu_webgl2_conformance_d3d11_passthrough_telemetry_tests",
-        "gpu_webgl_conformance_d3d9_passthrough_telemetry_tests",
-        "gpu_webgl_conformance_d3d11_passthrough_telemetry_tests",
-        "gpu_webgl_conformance_vulkan_passthrough_telemetry_tests",
-    ],
-)
 
 targets.legacy_compound_suite(
     name = "gpu_chromeos_telemetry_tests",
@@ -554,33 +306,6 @@ targets.legacy_compound_suite(
         "gpu_common_and_optional_telemetry_tests",
         "gpu_gl_passthrough_ganesh_telemetry_tests",
         "gpu_webgl_conformance_gl_passthrough_ganesh_telemetry_tests",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "gpu_common_linux_telemetry_tests",
-    basic_suites = [
-        "gpu_common_and_optional_telemetry_tests",
-        "gpu_passthrough_telemetry_tests",
-        "gpu_webgl_conformance_telemetry_tests",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "gpu_common_metal_passthrough_graphite_telemetry_tests",
-    basic_suites = [
-        "gpu_common_and_optional_telemetry_tests",
-        "gpu_metal_passthrough_graphite_telemetry_tests",
-        "gpu_webgl_conformance_metal_passthrough_graphite_telemetry_tests",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "gpu_common_win_telemetry_tests",
-    basic_suites = [
-        "gpu_common_and_optional_telemetry_tests",
-        "gpu_passthrough_telemetry_tests",
-        "gpu_webgl_conformance_d3d11_passthrough_telemetry_tests",
     ],
 )
 
@@ -714,15 +439,6 @@ targets.legacy_compound_suite(
     name = "gpu_dawn_tsan_gtests",
     basic_suites = [
         "gpu_dawn_gtests",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "gpu_desktop_passthrough_gtests",
-    basic_suites = [
-        "gpu_angle_unit_gtests",
-        "gpu_common_gtests_passthrough",
-        "gpu_desktop_specific_gtests",
     ],
 )
 
@@ -1005,17 +721,6 @@ targets.legacy_compound_suite(
 )
 
 targets.legacy_compound_suite(
-    name = "gpu_nexus5x_telemetry_tests",
-    basic_suites = [
-        "gpu_common_and_optional_telemetry_tests",
-        "gpu_validating_telemetry_tests",
-        "gpu_webcodecs_validating_telemetry_test",
-        "gpu_webgl_conformance_gles_passthrough_telemetry_tests",
-        "gpu_webgl_conformance_validating_telemetry_tests",
-    ],
-)
-
-targets.legacy_compound_suite(
     name = "gpu_nexus5x_telemetry_tests_v8",
     basic_suites = [
         "gpu_common_and_optional_telemetry_tests",
@@ -1040,35 +745,9 @@ targets.legacy_compound_suite(
 )
 
 targets.legacy_compound_suite(
-    name = "gpu_pixel_6_telemetry_tests",
-    basic_suites = [
-        "gpu_passthrough_graphite_telemetry_tests",
-        "gpu_common_and_optional_telemetry_tests",
-        "gpu_passthrough_telemetry_tests",
-        "gpu_validating_telemetry_tests",
-        "gpu_webcodecs_validating_telemetry_test",
-        "gpu_webgl_conformance_gles_passthrough_graphite_telemetry_tests",
-        "gpu_webgl_conformance_gles_passthrough_telemetry_tests",
-        "gpu_webgl_conformance_validating_telemetry_tests",
-        "gpu_webgl2_conformance_gles_passthrough_telemetry_tests",
-        "gpu_webgl2_conformance_validating_telemetry_tests",
-    ],
-)
-
-targets.legacy_compound_suite(
     name = "gpu_swangle_telemetry_tests",
     basic_suites = [
         "gpu_webgl_conformance_swangle_passthrough_telemetry_tests",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "gpu_win_gtests",
-    basic_suites = [
-        "gpu_angle_unit_gtests",
-        "gpu_common_gtests_passthrough",
-        "gpu_default_and_optional_win_specific_gtests",
-        "gpu_desktop_specific_gtests",
     ],
 )
 
@@ -1161,54 +840,11 @@ targets.legacy_compound_suite(
     ],
 )
 
-targets.legacy_compound_suite(
-    name = "oreo_isolated_scripts",
-    basic_suites = [
-        "android_isolated_scripts",
-        "chromium_junit_tests_scripts",
-        "components_perftests_isolated_scripts",
-        "monochrome_public_apk_checker_isolated_script",
-        "telemetry_android_minidump_unittests_isolated_scripts",
-        "telemetry_perf_unittests_isolated_scripts_android",
-    ],
-)
-
 # Rust tests run on non-cross builds.
 targets.legacy_compound_suite(
     name = "rust_host_gtests",
     basic_suites = [
         "rust_common_gtests",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "webview_fyi_bot_all_gtests",
-    basic_suites = [
-        "system_webview_shell_instrumentation_tests",
-        "webview_bot_instrumentation_test_apk_mutations_gtest",
-        "webview_bot_instrumentation_test_apk_no_field_trial_gtest",
-        "webview_bot_unittests_gtest",
-        "webview_cts_tests_gtest",
-        "webview_cts_tests_gtest_no_field_trial",
-        "webview_ui_instrumentation_tests",
-        "webview_ui_instrumentation_tests_no_field_trial",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "webview_native_coverage_bot_gtests",
-    basic_suites = [
-        "webview_bot_instrumentation_test_apk_mutations_gtest",
-        "webview_bot_instrumentation_test_apk_no_field_trial_gtest",
-        "webview_bot_unittests_gtest",
-    ],
-)
-
-targets.legacy_compound_suite(
-    name = "webview_trichrome_64_cts_gtests",
-    basic_suites = [
-        "webview_trichrome_64_cts_tests_suite",
-        "webview_trichrome_64_cts_tests_no_field_trial_suite",
     ],
 )
 

@@ -769,14 +769,16 @@ bool DecodeIDBKeyPath(std::string_view* slice, IndexedDBKeyPath* value) {
 
   switch (type) {
     case blink::mojom::IDBKeyPathType::Null:
-      DCHECK(slice->empty());
+      if (!slice->empty()) {
+        return false;
+      }
       *value = IndexedDBKeyPath();
       return true;
     case blink::mojom::IDBKeyPathType::String: {
       std::u16string string;
-      if (!DecodeStringWithLength(slice, &string))
+      if (!DecodeStringWithLength(slice, &string) || !slice->empty()) {
         return false;
-      DCHECK(slice->empty());
+      }
       *value = IndexedDBKeyPath(string);
       return true;
     }
@@ -791,12 +793,14 @@ bool DecodeIDBKeyPath(std::string_view* slice, IndexedDBKeyPath* value) {
           return false;
         array.push_back(string);
       }
-      DCHECK(slice->empty());
+      if (!slice->empty()) {
+        return false;
+      }
       *value = IndexedDBKeyPath(array);
       return true;
     }
   }
-  NOTREACHED_IN_MIGRATION();
+
   return false;
 }
 
@@ -2314,7 +2318,7 @@ bool ObjectStoreDataKey::Decode(std::string_view* slice,
 
 std::string ObjectStoreDataKey::Encode(int64_t database_id,
                                        int64_t object_store_id,
-                                       const std::string encoded_user_key) {
+                                       const std::string& encoded_user_key) {
   KeyPrefix prefix(KeyPrefix::CreateWithSpecialIndex(
       database_id, object_store_id, kSpecialIndexNumber));
   std::string ret = prefix.Encode();

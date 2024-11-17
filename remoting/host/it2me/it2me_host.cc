@@ -43,6 +43,7 @@
 #include "remoting/proto/ftl/v1/chromoting_message.pb.h"
 #include "remoting/protocol/auth_util.h"
 #include "remoting/protocol/chromium_port_allocator_factory.h"
+#include "remoting/protocol/ice_config_fetcher_default.h"
 #include "remoting/protocol/it2me_host_authenticator_factory.h"
 #include "remoting/protocol/jingle_session_manager.h"
 #include "remoting/protocol/transport_context.h"
@@ -104,9 +105,8 @@ void It2MeHost::set_chrome_os_enterprise_params(
 #if BUILDFLAG(IS_CHROMEOS_ASH) || !defined(NDEBUG)
   chrome_os_enterprise_params_ = std::move(params);
 #else
-  NOTREACHED_IN_MIGRATION()
-      << "It2MeHost::set_chrome_os_enterprise_params is only "
-      << "supported on ChromeOS";
+  NOTREACHED() << "It2MeHost::set_chrome_os_enterprise_params is only "
+                  "supported on ChromeOS";
 #endif
 }
 
@@ -118,8 +118,7 @@ void It2MeHost::set_reconnect_params(ReconnectParams reconnect_params) {
 #if BUILDFLAG(IS_CHROMEOS_ASH) || !defined(NDEBUG)
   reconnect_params_.emplace(std::move(reconnect_params));
 #else
-  NOTREACHED_IN_MIGRATION()
-      << "It2MeHost::set_reconnect_params is only supported on CrOS";
+  NOTREACHED() << "It2MeHost::set_reconnect_params is only supported on CrOS";
 #endif
 }
 
@@ -296,11 +295,12 @@ void It2MeHost::ConnectOnNetworkThread(
       base::BindOnce(&It2MeHost::OnReceivedSupportID,
                      weak_factory_.GetWeakPtr()));
 
+  auto ice_config_fetcher = std::make_unique<protocol::IceConfigFetcherDefault>(
+      host_context_->url_loader_factory(), oauth_token_getter_.get());
   auto transport_context = base::MakeRefCounted<protocol::TransportContext>(
       std::make_unique<protocol::ChromiumPortAllocatorFactory>(),
       webrtc::ThreadWrapper::current()->SocketServer(),
-      host_context_->url_loader_factory(), oauth_token_getter_.get(),
-      protocol::TransportRole::SERVER);
+      std::move(ice_config_fetcher), protocol::TransportRole::SERVER);
   if (!ice_config.is_null()) {
     transport_context->set_turn_ice_config(ice_config);
   }
@@ -332,8 +332,6 @@ void It2MeHost::ConnectOnNetworkThread(
         !chrome_os_enterprise_params_->suppress_notifications);
     options.set_terminate_upon_input(
         chrome_os_enterprise_params_->terminate_upon_input);
-    options.set_enable_curtaining(
-        chrome_os_enterprise_params_->curtain_local_user_session);
   }
 #endif
 
@@ -454,7 +452,7 @@ void It2MeHost::OnPolicyUpdate(base::Value::Dict policies) {
     HOST_LOG << "Failed to read kRemoteAccessHostAllowRelayedConnection policy";
     relay_policy_value = relay_connections_allowed_;
   }
-  UpdateNatPolicies(nat_policy_value.value(), relay_policy_value.value());
+  UpdateNatPolicies(*nat_policy_value, *relay_policy_value);
 
   const base::Value::List* host_domain_list =
       policies.FindList(policy::key::kRemoteAccessHostDomainList);

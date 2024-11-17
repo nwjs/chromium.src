@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 
+#include "ash/constants/web_app_id_constants.h"
 #include "base/json/json_reader.h"
 #include "base/scoped_observation.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -25,7 +26,6 @@
 #include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
 #include "chrome/browser/web_applications/test/prevent_close_test_base.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
-#include "chrome/browser/web_applications/web_app_id_constants.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/common/chrome_features.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
@@ -33,7 +33,7 @@
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
 #include "components/policy/core/common/policy_map.h"
 #include "components/policy/policy_constants.h"
-#include "components/saved_tab_groups/features.h"
+#include "components/saved_tab_groups/public/features.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/web_contents.h"
@@ -101,12 +101,12 @@ class TabStripModelPreventCloseTest : public PreventCloseTestBase,
 
 IN_PROC_BROWSER_TEST_F(TabStripModelPreventCloseTest,
                        PreventCloseEnforedByPolicy) {
-  InstallPWA(GURL(kCalculatorAppUrl), web_app::kCalculatorAppId);
-  SetPoliciesAndWaitUntilInstalled(web_app::kCalculatorAppId,
+  InstallPWA(GURL(kCalculatorAppUrl), ash::kCalculatorAppId);
+  SetPoliciesAndWaitUntilInstalled(ash::kCalculatorAppId,
                                    kPreventCloseEnabledForCalculator,
                                    kCalculatorForceInstalled);
   Browser* const browser =
-      LaunchPWA(web_app::kCalculatorAppId, /*launch_in_window=*/true);
+      LaunchPWA(ash::kCalculatorAppId, /*launch_in_window=*/true);
   ASSERT_TRUE(browser);
 
   observer_.Observe(browser->tab_strip_model());
@@ -142,12 +142,12 @@ IN_PROC_BROWSER_TEST_F(TabStripModelPreventCloseTest,
 IN_PROC_BROWSER_TEST_F(
     TabStripModelPreventCloseTest,
     MAYBE_PreventCloseEnforcedByPolicyTabbedAppShallBeClosable) {
-  InstallPWA(GURL(kCalculatorAppUrl), web_app::kCalculatorAppId);
-  SetPoliciesAndWaitUntilInstalled(web_app::kCalculatorAppId,
+  InstallPWA(GURL(kCalculatorAppUrl), ash::kCalculatorAppId);
+  SetPoliciesAndWaitUntilInstalled(ash::kCalculatorAppId,
                                    kPreventCloseEnabledForCalculator,
                                    kCalculatorForceInstalled);
   Browser* const browser =
-      LaunchPWA(web_app::kCalculatorAppId, /*launch_in_window=*/false);
+      LaunchPWA(ash::kCalculatorAppId, /*launch_in_window=*/false);
   ASSERT_TRUE(browser);
 
   observer_.Observe(browser->tab_strip_model());
@@ -235,31 +235,4 @@ IN_PROC_BROWSER_TEST_F(TabStripModelBrowserTest, CommandOrganizeTabs) {
                                       true, 1);
   histogram_tester.ExpectUniqueSample("Tab.Organization.TabContextMenu.Clicked",
                                       true, 1);
-}
-
-class SavedTabGroupV2TabStripModelBrowserTest : public InProcessBrowserTest {
- public:
-  SavedTabGroupV2TabStripModelBrowserTest() {
-    feature_list_.InitWithFeatures({tab_groups::kTabGroupsSaveV2}, {});
-  }
-
-  base::test::ScopedFeatureList feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(SavedTabGroupV2TabStripModelBrowserTest,
-                       GroupAutoSaveOnCreate) {
-  // Create a group, expect it to be saved.
-  tab_groups::SavedTabGroupKeyedService* const service =
-      tab_groups::SavedTabGroupServiceFactory::GetForProfile(
-          browser()->profile());
-  ASSERT_NE(service, nullptr);
-
-  TabStripModel* const tab_strip_model = browser()->tab_strip_model();
-  ASSERT_EQ(1, tab_strip_model->count());
-
-  // Create a group.
-  tab_groups::TabGroupId group = tab_strip_model->AddToNewGroup({0});
-
-  // With the V2 flag the group should be saved.
-  EXPECT_TRUE(service->model()->Contains(group));
 }

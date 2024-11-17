@@ -7,11 +7,13 @@ package org.chromium.chrome.browser.omnibox;
 import android.content.Context;
 import android.view.ActionMode;
 import android.view.View;
+import android.view.View.OnLongClickListener;
 import android.view.inputmethod.InputMethodManager;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 
 import org.chromium.base.Callback;
 import org.chromium.chrome.browser.omnibox.UrlBar.ScrollType;
@@ -64,7 +66,8 @@ public class UrlBarCoordinator
      * @param keyboardVisibilityDelegate Delegate that allows querying and changing the keyboard's
      *     visibility.
      * @param isIncognitoBranded Whether incognito mode is initially enabled. This can later be
-     *     changed using {@link #setIncognitoColorsEnabled(boolean)}.
+     *     changed using {@link #setIncognitoColorsEnabled(boolean)}. @{@link OnLongClickListener}
+     *     for the url bar.
      */
     public UrlBarCoordinator(
             @NonNull Context context,
@@ -74,7 +77,8 @@ public class UrlBarCoordinator
             @NonNull Callback<Boolean> focusChangeCallback,
             @NonNull UrlBarDelegate delegate,
             @NonNull KeyboardVisibilityDelegate keyboardVisibilityDelegate,
-            boolean isIncognitoBranded) {
+            boolean isIncognitoBranded,
+            @Nullable OnLongClickListener onLongClickListener) {
         mUrlBar = urlBar;
         mKeyboardVisibilityDelegate = keyboardVisibilityDelegate;
         mFocusChangeCallback = focusChangeCallback;
@@ -85,6 +89,7 @@ public class UrlBarCoordinator
                         .with(UrlBarProperties.WINDOW_DELEGATE, windowDelegate)
                         .with(UrlBarProperties.DELEGATE, delegate)
                         .with(UrlBarProperties.INCOGNITO_COLORS_ENABLED, isIncognitoBranded)
+                        .with(UrlBarProperties.LONG_CLICK_LISTENER, onLongClickListener)
                         .build();
         PropertyModelChangeProcessor.create(model, urlBar, UrlBarViewBinder::bind);
 
@@ -340,5 +345,12 @@ public class UrlBarCoordinator
      */
     public void setUrlBarHintTextColorForNtp() {
         mMediator.setUrlBarHintTextColorForNtp();
+    }
+
+    /**
+     * @see UrlBarMediator#setUrlBarHintText(int)
+     */
+    public void setUrlBarHintText(@StringRes int hintTextRes) {
+        mMediator.setUrlBarHintText(hintTextRes);
     }
 }

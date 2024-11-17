@@ -12,6 +12,7 @@
 #include <string_view>
 #include <vector>
 
+#include "base/containers/span.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -88,14 +89,13 @@ void RemoveWebShareDirectory(const base::FilePath& directory) {
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 base::FilePath StoreSharedFile(const base::FilePath& directory,
-                               const std::string_view name,
-                               const std::string_view content) {
+                               std::string_view name,
+                               std::string_view content) {
   const base::FilePath path = directory.Append(name);
   base::ScopedAllowBlockingForTesting allow_blocking;
   base::File file(path,
                   base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_WRITE);
-  EXPECT_EQ(file.WriteAtCurrentPos(content.data(), content.size()),
-            static_cast<int>(content.size()));
+  EXPECT_TRUE(file.WriteAtCurrentPosAndCheck(base::as_byte_span(content)));
   return path;
 }
 

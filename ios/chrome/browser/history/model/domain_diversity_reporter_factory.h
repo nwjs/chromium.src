@@ -9,6 +9,7 @@
 
 #include "base/no_destructor.h"
 #include "components/keyed_service/ios/browser_state_keyed_service_factory.h"
+#include "ios/chrome/browser/shared/model/profile/profile_ios_forward.h"
 
 class DomainDiversityReporter;
 
@@ -16,16 +17,11 @@ namespace user_prefs {
 class PrefRegistrySyncable;
 }
 
-namespace web {
-class BrowserState;
-}
-
 // Singleton that creates all DomainDiversityReporter instances and associates
 // them with BrowserState.
 class DomainDiversityReporterFactory : public BrowserStateKeyedServiceFactory {
  public:
-  static DomainDiversityReporter* GetForBrowserState(
-      web::BrowserState* browser_state);
+  static DomainDiversityReporter* GetForProfile(ProfileIOS* profile);
 
   static DomainDiversityReporterFactory* GetInstance();
 

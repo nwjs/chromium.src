@@ -39,4 +39,12 @@
   // NO-OP
 }
 
+- (void)resetSelectionAreaToInitialPosition:(void (^)())completion {
+  // NO-OP
+}
+
+- (void)setTopIconsHidden:(BOOL)hidden {
+  // NO-OP
+}
+
 @end

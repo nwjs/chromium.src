@@ -32,48 +32,47 @@ public class LinkToTextIPHController {
             FeatureConstants.SHARED_HIGHLIGHTING_RECEIVER_FEATURE;
 
     private final TabModelSelector mTabModelSelector;
-    private CurrentTabObserver mCurrentTabObserver;
     private Tracker mTracker;
 
     /**
      * Creates an {@link LinkToTextIPHController}.
-     * @param ObservableSupplier<Tab> An {@link ObservableSupplier} for {@link Tab} where the IPH
-     *         will be rendered.
-     * @param TabModelSelector The {@link TabModelSelector} to open a new tab.
+     *
+     * @param tabSupplier An {@link ObservableSupplier} for {@link Tab} where the IPH will be
+     *     rendered.
+     * @param tabModelSelector The {@link TabModelSelector} to open a new tab.
      */
     public LinkToTextIPHController(
             ObservableSupplier<Tab> tabSupplier,
             TabModelSelector tabModelSelector,
             ObservableSupplier<Profile> profileSupplier) {
         mTabModelSelector = tabModelSelector;
-        mCurrentTabObserver =
-                new CurrentTabObserver(
-                        tabSupplier,
-                        new EmptyTabObserver() {
-                            @Override
-                            public void onPageLoadFinished(Tab tab, GURL url) {
-                                if (!LinkToTextHelper.hasTextFragment(url)) return;
+        new CurrentTabObserver(
+                tabSupplier,
+                new EmptyTabObserver() {
+                    @Override
+                    public void onPageLoadFinished(Tab tab, GURL url) {
+                        if (!LinkToTextHelper.hasTextFragment(url)) return;
 
-                                Profile profile = profileSupplier.get();
-                                if (profile == null) {
-                                    assert false : "Unexpected null profile";
-                                    return;
-                                }
-                                mTracker = TrackerFactory.getTrackerForProfile(profile);
-                                if (!mTracker.wouldTriggerHelpUI(FEATURE_NAME)) {
-                                    return;
-                                }
+                        Profile profile = profileSupplier.get();
+                        if (profile == null) {
+                            assert false : "Unexpected null profile";
+                            return;
+                        }
+                        mTracker = TrackerFactory.getTrackerForProfile(profile);
+                        if (!mTracker.wouldTriggerHelpUI(FEATURE_NAME)) {
+                            return;
+                        }
 
-                                LinkToTextHelper.hasExistingSelectors(
-                                        tab,
-                                        (hasSelectors) -> {
-                                            if (mTracker.shouldTriggerHelpUI(FEATURE_NAME)) {
-                                                showMessageIPH(tab);
-                                            }
-                                        });
-                            }
-                        },
-                        null);
+                        LinkToTextHelper.hasExistingSelectors(
+                                tab,
+                                (hasSelectors) -> {
+                                    if (mTracker.shouldTriggerHelpUI(FEATURE_NAME)) {
+                                        showMessageIPH(tab);
+                                    }
+                                });
+                    }
+                },
+                null);
     }
 
     private void showMessageIPH(Tab tab) {

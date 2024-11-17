@@ -1178,8 +1178,6 @@ void WebViewImpl::Close() {
   // want page popups to re-enter WebViewImpl during our shutdown.
   CancelPagePopup();
 
-  // Invalidate any weak ptrs as we are starting to shutdown.
-  weak_ptr_factory_.InvalidateWeakPtrs();
   receiver_.reset();
 
   dev_tools_emulator_->Shutdown();
@@ -1310,7 +1308,7 @@ void WebViewImpl::DidUpdateBrowserControls() {
         GetBrowserControls().UnreportedSizeAdjustment());
   }
 
-  if (RuntimeEnabledFeatures::DynamicSafeAreaInsetsEnabled() &&
+  if (GetPage()->GetSettings().GetDynamicSafeAreaInsetsEnabled() &&
       RuntimeEnabledFeatures::DynamicSafeAreaInsetsOnScrollEnabled()) {
     GetPage()->UpdateSafeAreaInsetWithBrowserControls(GetBrowserControls());
   }
@@ -1332,7 +1330,7 @@ void WebViewImpl::ResizeViewWhileAnchored(
   if (old_viewport_shrink != GetBrowserControls().ShrinkViewport())
     MainFrameImpl()->GetFrameView()->DynamicViewportUnitsChanged();
 
-  if (RuntimeEnabledFeatures::DynamicSafeAreaInsetsEnabled()) {
+  if (GetPage()->GetSettings().GetDynamicSafeAreaInsetsEnabled()) {
     GetPage()->UpdateSafeAreaInsetWithBrowserControls(GetBrowserControls(),
                                                       /* force_update= */ true);
   }
@@ -1845,6 +1843,10 @@ void WebView::ApplyWebPreferences(const web_pref::WebPreferences& prefs,
   settings->SetModalContextMenu(prefs.modal_context_menu);
   settings->SetRequireTransientActivationAndAuthorizationForSubAppsAPIs(
       prefs.subapps_apis_require_user_gesture_and_authorization);
+  if (RuntimeEnabledFeatures::DynamicSafeAreaInsetsEnabled()) {
+    settings->SetDynamicSafeAreaInsetsEnabled(
+        prefs.dynamic_safe_area_insets_enabled);
+  }
 
 #if BUILDFLAG(IS_MAC)
   web_view_impl->SetMaximumLegibleScale(

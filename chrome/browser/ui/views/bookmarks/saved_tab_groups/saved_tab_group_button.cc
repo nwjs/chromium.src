@@ -32,7 +32,7 @@
 #include "chrome/browser/ui/views/location_bar/location_bar_util.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_ink_drop_util.h"
 #include "chrome/grit/generated_resources.h"
-#include "components/saved_tab_groups/saved_tab_group.h"
+#include "components/saved_tab_groups/public/saved_tab_group.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "ui/accessibility/ax_enums.mojom-shared.h"
 #include "ui/accessibility/ax_enums.mojom.h"
@@ -150,8 +150,7 @@ std::u16string SavedTabGroupButton::GetTooltipText(const gfx::Point& p) const {
 
 bool SavedTabGroupButton::OnKeyPressed(const ui::KeyEvent& event) {
   if (event.key_code() == ui::KeyboardCode::VKEY_RETURN) {
-    ShowContextMenu(GetKeyboardContextMenuLocation(),
-                    ui::MenuSourceType::MENU_SOURCE_KEYBOARD);
+    ShowContextMenu(GetKeyboardContextMenuLocation(), ui::MENU_SOURCE_KEYBOARD);
     return true;
   } else if (event.key_code() == ui::KeyboardCode::VKEY_SPACE) {
     NotifyClick(event);

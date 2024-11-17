@@ -72,7 +72,7 @@ std::unique_ptr<TrustedVaultClientBackend> CreateTrustedVaultClientBackend() {
 }
 
 std::unique_ptr<tab_groups::TabGroupSyncService> CreateTabGroupSyncService(
-    ChromeBrowserState* browser_state) {
+    ProfileIOS* profile) {
   return nullptr;
 }
 
@@ -82,7 +82,7 @@ GetOverriddenBulkLeakCheckService() {
 }
 
 std::unique_ptr<plus_addresses::PlusAddressService>
-GetOverriddenPlusAddressService(ProfileIOS* profile) {
+GetOverriddenPlusAddressService() {
   return nullptr;
 }
 

@@ -96,8 +96,17 @@ policy::URLBlocklist::URLBlocklistState OnTaskBlocklist::GetURLBlocklistState(
   return url_blocklist_manager_->GetURLBlocklistState(url);
 }
 
+bool OnTaskBlocklist::IsCurrentRestrictionOneLevelDeep() {
+  return (
+      current_page_restriction_level_ ==
+          OnTaskBlocklist::RestrictionLevel::kOneLevelDeepNavigation ||
+      current_page_restriction_level_ ==
+          OnTaskBlocklist::RestrictionLevel::kDomainAndOneLevelDeepNavigation);
+}
+
 bool OnTaskBlocklist::MaybeSetURLRestrictionLevel(
     content::WebContents* tab,
+    const GURL& url,
     OnTaskBlocklist::RestrictionLevel restriction_level) {
   const SessionID tab_id = sessions::SessionTabHelper::IdForTab(tab);
   if (!tab_id.is_valid()) {
@@ -115,13 +124,14 @@ bool OnTaskBlocklist::MaybeSetURLRestrictionLevel(
           OnTaskBlocklist::RestrictionLevel::kOneLevelDeepNavigation ||
       restriction_level ==
           OnTaskBlocklist::RestrictionLevel::kDomainAndOneLevelDeepNavigation) {
-    one_level_deep_original_url_[tab_id] = tab->GetVisibleURL();
+    one_level_deep_original_url_[tab_id] = url;
   }
   return true;
 }
 
 void OnTaskBlocklist::SetParentURLRestrictionLevel(
     content::WebContents* tab,
+    const GURL& url,
     OnTaskBlocklist::RestrictionLevel restriction_level) {
   const SessionID tab_id = sessions::SessionTabHelper::IdForTab(tab);
   if (!tab_id.is_valid()) {
@@ -132,7 +142,7 @@ void OnTaskBlocklist::SetParentURLRestrictionLevel(
           OnTaskBlocklist::RestrictionLevel::kOneLevelDeepNavigation ||
       restriction_level ==
           OnTaskBlocklist::RestrictionLevel::kDomainAndOneLevelDeepNavigation) {
-    one_level_deep_original_url_[tab_id] = tab->GetVisibleURL();
+    one_level_deep_original_url_[tab_id] = url;
   }
 }
 
@@ -146,7 +156,7 @@ void OnTaskBlocklist::RefreshForUrlBlocklist(content::WebContents* tab) {
   // `previous_tab_` should only be not valid when we first navigate to the
   // first tab when the OnTask SWA is first launched. Every other instance
   // should have a valid `previous_tab_`.
-  if (previous_tab_ && previous_tab_ == tab && previous_url_.is_valid() &&
+  if (previous_tab() && previous_tab() == tab && previous_url_.is_valid() &&
       previous_url_ == url) {
     return;
   }
@@ -195,9 +205,16 @@ void OnTaskBlocklist::RefreshForUrlBlocklist(content::WebContents* tab) {
   }
 
   previous_url_ = url;
-  previous_tab_ = tab;
+  previous_tab_ = tab->GetWeakPtr();
   url_blocklist_manager_->SetOverrideBlockListSource(
       std::move(blocklist_source));
+}
+
+void OnTaskBlocklist::RemoveParentFilter(content::WebContents* tab) {
+  const SessionID tab_id = sessions::SessionTabHelper::IdForTab(tab);
+  if (tab_id.is_valid() && base::Contains(parent_tab_to_nav_filters_, tab_id)) {
+    parent_tab_to_nav_filters_.erase(tab_id);
+  }
 }
 
 void OnTaskBlocklist::RemoveChildFilter(content::WebContents* tab) {
@@ -205,6 +222,23 @@ void OnTaskBlocklist::RemoveChildFilter(content::WebContents* tab) {
   if (tab_id.is_valid() && base::Contains(child_tab_to_nav_filters_, tab_id)) {
     child_tab_to_nav_filters_.erase(tab_id);
   }
+}
+
+bool OnTaskBlocklist::CanPerformOneLevelNavigation(content::WebContents* tab) {
+  // This method should only be called if the current restriction level is set
+  // to either `kOneLevelDeepNavigation` or `kDomainAndOneLevelDeepNavigation`.
+  CHECK(IsCurrentRestrictionOneLevelDeep());
+
+  if (!tab) {
+    return false;
+  }
+
+  const SessionID tab_id = sessions::SessionTabHelper::IdForTab(tab);
+  if (tab_id.is_valid() &&
+      base::Contains(one_level_deep_original_url_, tab_id)) {
+    return one_level_deep_original_url_[tab_id] == tab->GetLastCommittedURL();
+  }
+  return true;
 }
 
 bool OnTaskBlocklist::IsParentTab(content::WebContents* tab) {
@@ -240,7 +274,10 @@ OnTaskBlocklist::current_page_restriction_level() {
 }
 
 content::WebContents* OnTaskBlocklist::previous_tab() {
-  return previous_tab_;
+  if (!previous_tab_) {
+    return nullptr;
+  }
+  return previous_tab_.get();
 }
 
 void OnTaskBlocklist::CleanupBlocklist() {

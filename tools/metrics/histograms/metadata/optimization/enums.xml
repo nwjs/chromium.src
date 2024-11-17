@@ -93,7 +93,7 @@ chromium-metrics-reviews@google.com.
       label="Base model spec was invalid, so adaptation model cannot be
              fetched"/>
   <int value="3" label="Adaptation model was not available"/>
-  <int value="4" label="The recieved adaptation model was invalid"/>
+  <int value="4" label="The received adaptation model was invalid"/>
   <int value="5"
       label="The received adaptation model was incompatible with the base
              model"/>
@@ -721,6 +721,7 @@ chromium-metrics-reviews@google.com.
   <int value="70" label="BUY_NOW_PAY_LATER_ALLOWLIST_ZIP"/>
   <int value="71" label="SAVED_TAB_GROUP"/>
   <int value="73" label="FORMS_ANNOTATIONS"/>
+  <int value="74" label="TEXT_CLASSIFIER_ENTITY_DETECTION"/>
 </enum>
 
 <enum name="PageContentAnnotationsStorageStatus">

@@ -147,6 +147,7 @@ public class RenderTestRule extends TestWatcher {
         Component.UI_BROWSER_MOBILE_APP_MENU,
         Component.UI_BROWSER_MOBILE_CONTEXT_MENU,
         Component.UI_BROWSER_MOBILE_CUSTOM_TABS,
+        Component.UI_BROWSER_MOBILE_EDGE_TO_EDGE,
         Component.UI_BROWSER_MOBILE_HUB,
         Component.UI_BROWSER_MOBILE_MESSAGES,
         Component.UI_BROWSER_MOBILE_RECENT_TABS,
@@ -162,6 +163,7 @@ public class RenderTestRule extends TestWatcher {
         Component.UI_BROWSER_SEARCH_VOICE,
         Component.UI_BROWSER_SHARING,
         Component.UI_BROWSER_SHOPPING,
+        Component.UI_BROWSER_SHOPPING_DEALS,
         Component.UI_BROWSER_SHOPPING_MERCHANT_TRUST,
         Component.UI_BROWSER_SHOPPING_PRICE_TRACKING,
         Component.UI_BROWSER_TOOLBAR,
@@ -194,6 +196,7 @@ public class RenderTestRule extends TestWatcher {
         String UI_BROWSER_MOBILE_APP_MENU = "UI>Browser>Mobile>AppMenu";
         String UI_BROWSER_MOBILE_CONTEXT_MENU = "UI>Browser>Mobile>ContextMenu";
         String UI_BROWSER_MOBILE_CUSTOM_TABS = "UI>Browser>Mobile>CustomTabs";
+        String UI_BROWSER_MOBILE_EDGE_TO_EDGE = "UI>Browser>Mobile>EdgeToEdge";
         String UI_BROWSER_MOBILE_HUB = "UI>Browser>Mobile>Hub";
         String UI_BROWSER_MOBILE_MESSAGES = "UI>Browser>Mobile>Messages";
         String UI_BROWSER_MOBILE_RECENT_TABS = "UI>Browser>Mobile>RecentTabs";
@@ -209,6 +212,7 @@ public class RenderTestRule extends TestWatcher {
         String UI_BROWSER_SEARCH_VOICE = "UI>Browser>Search>Voice";
         String UI_BROWSER_SHARING = "UI>Browser>Sharing";
         String UI_BROWSER_SHOPPING = "UI>Browser>Shopping";
+        String UI_BROWSER_SHOPPING_DEALS = "UI>Browser>Shopping>Deals";
         String UI_BROWSER_SHOPPING_MERCHANT_TRUST = "UI>Browser>Shopping>MerchantTrust";
         String UI_BROWSER_SHOPPING_PRICE_TRACKING = "UI>Browser>Shopping>PriceTracking";
         String UI_BROWSER_THUMBNAIL = "UI>Browser>Thumbnail";

@@ -300,6 +300,17 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//components/attribution_reporting/registrar_info.h:RegistrarIssue) -->
 
+<!-- LINT.IfChange(ConversionReportDebugKeyUsage) -->
+
+<enum name="ConversionReportDebugKeyUsage">
+  <int value="0" label="None"/>
+  <int value="1" label="Source only"/>
+  <int value="2" label="Trigger only"/>
+  <int value="3" label="Both"/>
+</enum>
+
+<!-- LINT.ThenChange(//content/browser/attribution_reporting/attribution_resolver_impl.cc:DebugKeyUsage) -->
+
 <!-- LINT.IfChange(ConversionReportSendOutcome) -->
 
 <enum name="ConversionReportSendOutcome">
@@ -321,6 +332,18 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//content/browser/attribution_reporting/attribution_manager_impl.cc:ConversionReportSendRetryCount) -->
+
+<!-- LINT.IfChange(ConversionReportSendRetryCountThirdRetryEnabled) -->
+
+<enum name="ConversionReportSendRetryCountThirdRetryEnabled">
+  <int value="0" label="None"/>
+  <int value="1" label="One retry"/>
+  <int value="2" label="Two retries"/>
+  <int value="3" label="Three retries"/>
+  <int value="4" label="Failed"/>
+</enum>
+
+<!-- LINT.ThenChange(//content/browser/attribution_reporting/attribution_manager_impl.cc:ConversionReportSendRetryCountThirdRetryEnabled) -->
 
 <!-- LINT.IfChange(ConversionReportStatus) -->
 
@@ -601,6 +624,15 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//components/attribution_reporting/debug_types.mojom:DebugDataType) -->
+
+<!-- LINT.IfChange(DataAvailableCallsite) -->
+
+<enum name="DataAvailableCallsite">
+  <int value="0" label="Blink"/>
+  <int value="1" label="Browser"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/attribution_reporting/data_host.mojom:DataAvailableCallsite) -->
 
 <!-- LINT.IfChange(SourceRegistrationTimeConfig) -->
 

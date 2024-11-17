@@ -66,14 +66,14 @@ void ExtensionOptionsGuest::CreateWebContents(
       create_params.FindString(extensionoptions::kExtensionId);
 
   if (!extension_id || !crx_file::id_util::IdIsValid(*extension_id)) {
-    std::move(callback).Run(std::move(owned_this), nullptr);
+    RejectGuestCreation(std::move(owned_this), std::move(callback));
     return;
   }
 
   GURL extension_url =
       extensions::Extension::GetBaseURLFromExtensionId(*extension_id);
   if (!extension_url.is_valid()) {
-    std::move(callback).Run(std::move(owned_this), nullptr);
+    RejectGuestCreation(std::move(owned_this), std::move(callback));
     return;
   }
 
@@ -85,13 +85,13 @@ void ExtensionOptionsGuest::CreateWebContents(
   if (!extension) {
     // The ID was valid but the extension didn't exist. Typically this will
     // happen when an extension is disabled.
-    std::move(callback).Run(std::move(owned_this), nullptr);
+    RejectGuestCreation(std::move(owned_this), std::move(callback));
     return;
   }
 
   options_page_ = extensions::OptionsPageInfo::GetOptionsPage(extension);
   if (!options_page_.is_valid()) {
-    std::move(callback).Run(std::move(owned_this), nullptr);
+    RejectGuestCreation(std::move(owned_this), std::move(callback));
     return;
   }
 
@@ -159,8 +159,9 @@ WebContents* ExtensionOptionsGuest::AddNewContents(
   // called is WebContentsImpl::ViewSource - which generates a non-guest
   // WebContents.
   DCHECK(!ExtensionOptionsGuest::FromWebContents(new_contents.get()));
-  if (!attached() || !embedder_web_contents()->GetDelegate())
+  if (!attached() || !embedder_web_contents()->GetDelegate()) {
     return nullptr;
+  }
 
   embedder_web_contents()->GetDelegate()->AddNewContents(
       source, std::move(new_contents), target_url, disposition, window_features,
@@ -202,8 +203,9 @@ void ExtensionOptionsGuest::CloseContents(WebContents* source) {
 bool ExtensionOptionsGuest::HandleContextMenu(
     content::RenderFrameHost& render_frame_host,
     const content::ContextMenuParams& params) {
-  if (!extension_options_guest_delegate_)
+  if (!extension_options_guest_delegate_) {
     return false;
+  }
 
   return extension_options_guest_delegate_->HandleContextMenu(render_frame_host,
                                                               params);

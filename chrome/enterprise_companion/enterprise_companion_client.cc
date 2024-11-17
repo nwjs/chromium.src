@@ -31,6 +31,7 @@
 namespace enterprise_companion {
 
 const char kEnableUsageStatsSwitch[] = "enable-usage-stats";
+const char kInstallIfNeededSwitch[] = "install-if-needed";
 
 namespace {
 
@@ -95,6 +96,7 @@ void ConnectWithRetries(
     VLOG(1) << "Failed to connect to EnterpriseCompanionService remote. "
                "The service could not be launched.";
     std::move(callback).Run({});
+    return;
   }
 
   mojo::PlatformChannelEndpoint endpoint =

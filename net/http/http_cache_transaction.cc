@@ -158,9 +158,9 @@ bool HeaderMatches(const HttpRequestHeaders& headers,
       return true;
     }
 
-    HttpUtil::ValuesIterator v(header_value->begin(), header_value->end(), ',');
+    HttpUtil::ValuesIterator v(*header_value, ',');
     while (v.GetNext()) {
-      if (base::EqualsCaseInsensitiveASCII(v.value_piece(), search->value)) {
+      if (base::EqualsCaseInsensitiveASCII(v.value(), search->value)) {
         return true;
       }
     }

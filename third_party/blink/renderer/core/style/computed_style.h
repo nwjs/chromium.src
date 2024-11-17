@@ -1018,26 +1018,19 @@ class ComputedStyle final : public ComputedStyleBase {
     return FlexDirection() == EFlexDirection::kColumn ||
            FlexDirection() == EFlexDirection::kColumnReverse;
   }
-  bool ResolvedIsColumnReverseFlexDirection() const {
-    if (IsDeprecatedWebkitBox()) {
-      return BoxOrient() == EBoxOrient::kVertical &&
-             BoxDirection() == EBoxDirection::kReverse;
-    }
-    return FlexDirection() == EFlexDirection::kColumnReverse;
-  }
-  bool ResolvedIsRowFlexDirection() const {
-    if (IsDeprecatedWebkitBox()) {
-      return BoxOrient() == EBoxOrient::kHorizontal;
-    }
-    return FlexDirection() == EFlexDirection::kRow ||
-           FlexDirection() == EFlexDirection::kRowReverse;
-  }
   bool ResolvedIsRowReverseFlexDirection() const {
     if (IsDeprecatedWebkitBox()) {
       return BoxOrient() == EBoxOrient::kHorizontal &&
              BoxDirection() == EBoxDirection::kReverse;
     }
     return FlexDirection() == EFlexDirection::kRowReverse;
+  }
+  bool ResolvedIsReverseFlexDirection() const {
+    if (IsDeprecatedWebkitBox()) {
+      return BoxDirection() == EBoxDirection::kReverse;
+    }
+    return FlexDirection() == EFlexDirection::kRowReverse ||
+           FlexDirection() == EFlexDirection::kColumnReverse;
   }
   bool HasBoxReflect() const { return BoxReflect(); }
   float ResolvedFlexGrow(const ComputedStyle& box_style) const {
@@ -2824,11 +2817,12 @@ class ComputedStyleBuilder final : public ComputedStyleBuilderBase {
     SetClipInternal(ComputedStyleInitialValues::InitialClip());
   }
 
-  // clip-patch
+  // clip-path
   void SetClipPath(ClipPathOperation* clip_path) {
     SetHasClipPath(clip_path);
     SetClipPathInternal(clip_path);
   }
+  ClipPathOperation* MutableClipPath() { return ClipPathInternal().Get(); }
 
   // color
   blink::Color GetCurrentColor() const {

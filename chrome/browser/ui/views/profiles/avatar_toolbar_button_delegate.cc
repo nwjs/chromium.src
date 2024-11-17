@@ -62,6 +62,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image_skia_operations.h"
+#include "ui/gfx/text_elider.h"
 #include "ui/views/accessibility/view_accessibility.h"
 
 namespace {
@@ -79,11 +80,9 @@ constexpr base::TimeDelta kShowSigninPendingTextDelay = base::Minutes(50);
 static std::optional<base::TimeDelta>
     g_show_signin_pending_text_delay_for_testing;
 
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-constexpr base::TimeDelta kEnterpriseTextTransientDuration = base::Seconds(30);
-static std::optional<base::TimeDelta>
-    g_enterprise_text_transient_duration_for_testing;
-#endif
+// Enterprise custom labels have a limmit of 16 characters, so they will be cut
+// at the 17th characters.
+constexpr int kMaximumEnterpriseCustomLabelLengthCutOff = 17;
 
 ProfileAttributesStorage& GetProfileAttributesStorage() {
   return g_browser_process->profile_manager()->GetProfileAttributesStorage();
@@ -108,12 +107,12 @@ gfx::Image GetGaiaAccountImage(Profile* profile) {
   return gfx::Image();
 }
 
-// Expected to be called when Management is set.
-// Returns:
+// Expected to be called when Management is set and enterprise badging is
+// enabled. Returns:
 // - true for Work.
 // - false for School.
 bool IsManagementWork(Profile* profile) {
-  CHECK(enterprise_util::CanShowEnterpriseBadging(profile));
+  CHECK(enterprise_util::CanShowEnterpriseBadgingForAvatar(profile));
   auto* identity_manager = IdentityManagerFactory::GetForProfile(profile);
   auto management_environment = enterprise_util::GetManagementEnvironment(
       profile, identity_manager->FindExtendedAccountInfoByAccountId(
@@ -140,6 +139,7 @@ enum class ButtonState {
   kShowIdentityName,
   kSigninPending,
   kSyncPaused,
+  kUpgradeClientError,
   kPassphraseError,
   // Catch-all for remaining errors in sync-the-feature or sync-the-transport.
   kSyncError,
@@ -738,19 +738,13 @@ class ManagementStateProvider : public StateProvider,
     BrowserList::AddObserver(this);
     profile_observation_.Observe(&GetProfileAttributesStorage());
 
-    local_state_pref_change_registrar_.Init(g_browser_process->local_state());
-    local_state_pref_change_registrar_.Add(
-        prefs::kToolbarAvatarLabelSettings,
-        base::BindRepeating(&ManagementStateProvider::RequestUpdate,
-                            weak_ptr_factory_.GetWeakPtr()));
-
     profile_pref_change_registrar_.Init(profile_->GetPrefs());
     profile_pref_change_registrar_.Add(
-        prefs::kEnterpriseBadgingTemporarySetting,
+        prefs::kEnterpriseCustomLabelForProfile,
         base::BindRepeating(&ManagementStateProvider::RequestUpdate,
                             weak_ptr_factory_.GetWeakPtr()));
     profile_pref_change_registrar_.Add(
-        prefs::kProfileLabelPreset,
+        prefs::kEnterpriseProfileBadgeToolbarSettings,
         base::BindRepeating(&ManagementStateProvider::RequestUpdate,
                             weak_ptr_factory_.GetWeakPtr()));
   }
@@ -759,14 +753,7 @@ class ManagementStateProvider : public StateProvider,
 
   // StateProvider:
   bool IsActive() const override {
-    return enterprise_util::CanShowEnterpriseBadging(&profile_.get()) &&
-           (!IsTransient() || temporarily_showing_);
-  }
-
-  void ClearTransientTextForTesting() {
-    if (IsTransient()) {
-      ClearTransientText();
-    }
+    return enterprise_util::CanShowEnterpriseBadgingForAvatar(&profile_.get());
   }
 
  private:
@@ -776,54 +763,19 @@ class ManagementStateProvider : public StateProvider,
   void OnBrowserAdded(Browser*) override {
     // This is required so that the enterprise text is shown when a profile is
     // opened.
-    TryShowManagementText();
+    RequestUpdate();
   }
 
   // ProfileAttributesStorage::Observer:
   void OnProfileUserManagementAcceptanceChanged(
       const base::FilePath& profile_path) override {
-    if (!enterprise_util::CanShowEnterpriseBadging(&profile_.get())) {
-      RequestUpdate();
-      return;
-    }
-
-    TryShowManagementText();
-  }
-
-  void TryShowManagementText() {
-    if (IsTransient() && !enterprise_text_hide_scheduled_) {
-      base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
-          FROM_HERE,
-          base::BindOnce(&ManagementStateProvider::ClearTransientText,
-                         weak_ptr_factory_.GetWeakPtr()),
-          g_enterprise_text_transient_duration_for_testing.value_or(
-              kEnterpriseTextTransientDuration));
-      enterprise_text_hide_scheduled_ = true;
-      temporarily_showing_ = true;
-    }
     RequestUpdate();
-  }
-
-  void ClearTransientText() {
-    CHECK(IsTransient());
-
-    temporarily_showing_ = false;
-    RequestUpdate();
-  }
-
-  // Used to determine if the text should be shown permanently or not.
-  bool IsTransient() const {
-    return g_browser_process->local_state()->GetInteger(
-               prefs::kToolbarAvatarLabelSettings) == 1;
   }
 
   raw_ref<Profile> profile_;
   const raw_ref<const AvatarToolbarButton> avatar_toolbar_button_;
 
-  bool enterprise_text_hide_scheduled_ = false;
-  bool temporarily_showing_ = false;
   PrefChangeRegistrar profile_pref_change_registrar_;
-  PrefChangeRegistrar local_state_pref_change_registrar_;
 
   base::ScopedObservation<ProfileAttributesStorage,
                           ProfileAttributesStorage::Observer>
@@ -984,6 +936,10 @@ class StateManager : public StateObserver,
               /*state_observer=*/*this, *profile, avatar_toolbar_button_.get());
 
       if (switches::IsImprovedSigninUIOnDesktopEnabled()) {
+        states_[ButtonState::kUpgradeClientError] =
+            std::make_unique<SyncErrorStateProvider>(
+                /*state_observer=*/*this, *profile,
+                AvatarSyncErrorType::kUpgradeClientError);
         states_[ButtonState::kPassphraseError] =
             std::make_unique<SyncErrorStateProvider>(
                 /*state_observer=*/*this, *profile,
@@ -1005,7 +961,10 @@ class StateManager : public StateObserver,
               /*sync_error_type=*/std::nullopt);
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-      if (base::FeatureList::IsEnabled(features::kEnterpriseProfileBadging)) {
+      if (base::FeatureList::IsEnabled(
+              features::kEnterpriseProfileBadgingForAvatar) ||
+          base::FeatureList::IsEnabled(
+              features::kEnterpriseProfileBadgingPolicies)) {
         // Contains both Work and School.
         states_[ButtonState::kManagement] =
             std::make_unique<ManagementStateProvider>(
@@ -1355,14 +1314,26 @@ AvatarToolbarButtonDelegate::GetTextAndColor(
       color = color_provider->GetColor(kColorAvatarButtonHighlightSyncPaused);
       text = l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SYNC_PAUSED);
       break;
+    case ButtonState::kUpgradeClientError:
+      color = color_provider->GetColor(kColorAvatarButtonHighlightSyncPaused);
+      text = l10n_util::GetStringUTF16(IDS_SYNC_ERROR_USER_MENU_UPGRADE_BUTTON);
+      break;
     case ButtonState::kPassphraseError:
       color = color_provider->GetColor(kColorAvatarButtonHighlightSyncPaused);
       text =
           l10n_util::GetStringUTF16(IDS_SYNC_ERROR_USER_MENU_PASSPHRASE_BUTTON);
       break;
     case ButtonState::kSyncError:
-      color = color_provider->GetColor(kColorAvatarButtonHighlightSyncError);
-      text = l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SYNC_ERROR);
+      if (!IdentityManagerFactory::GetForProfile(profile_)->HasPrimaryAccount(
+              signin::ConsentLevel::kSync) &&
+          switches::IsImprovedSigninUIOnDesktopEnabled()) {
+        color =
+            color_provider->GetColor(kColorAvatarButtonHighlightSigninPaused);
+        text = l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SIGNIN_PAUSED);
+      } else {
+        color = color_provider->GetColor(kColorAvatarButtonHighlightSyncError);
+        text = l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SYNC_ERROR);
+      }
       break;
     case ButtonState::kSigninPending: {
       const internal::SigninPendingStateProvider* signin_pending_state =
@@ -1394,18 +1365,13 @@ AvatarToolbarButtonDelegate::GetTextAndColor(
       break;
     }
     case ButtonState::kManagement: {
-      if (profile_->GetPrefs()
-              ->FindPreference(prefs::kProfileLabelPreset)
-              ->IsManaged()) {
-        const int profile_label_preset =
-            profile_->GetPrefs()->GetInteger(prefs::kProfileLabelPreset);
-        if (profile_label_preset ==
-            AvatarToolbarButton::ProfileLabelType::kWork) {
-          text = l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_WORK);
-        } else if (profile_label_preset ==
-                   AvatarToolbarButton::ProfileLabelType::kSchool) {
-          text = l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SCHOOL);
-        }
+      const std::string enterprise_custom_label =
+          profile_->GetPrefs()->GetString(
+              prefs::kEnterpriseCustomLabelForProfile);
+      if (!enterprise_custom_label.empty()) {
+        text = gfx::TruncateString(base::UTF8ToUTF16(enterprise_custom_label),
+                                   kMaximumEnterpriseCustomLabelLengthCutOff,
+                                   gfx::CHARACTER_BREAK);
       } else if (IsManagementWork(profile_)) {
         text = l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_WORK);
       } else {
@@ -1431,6 +1397,7 @@ AvatarToolbarButtonDelegate::GetAccessibilityLabel() const {
     case ButtonState::kShowIdentityName:
     case ButtonState::kIncognitoProfile:
     case ButtonState::kManagement:
+    case ButtonState::kUpgradeClientError:
     case ButtonState::kPassphraseError:
     case ButtonState::kSyncError:
     case ButtonState::kSyncPaused:
@@ -1467,15 +1434,19 @@ SkColor AvatarToolbarButtonDelegate::GetHighlightTextColor(
     case ButtonState::kIncognitoProfile:
       return color_provider->GetColor(
           kColorAvatarButtonHighlightIncognitoForeground);
-    case ButtonState::kSyncPaused:
-      return color_provider->GetColor(
-          kColorAvatarButtonHighlightNormalForeground);
     case ButtonState::kSyncError:
-      return color_provider->GetColor(
-          kColorAvatarButtonHighlightSyncErrorForeground);
+      if (IdentityManagerFactory::GetForProfile(profile_)->HasPrimaryAccount(
+              signin::ConsentLevel::kSync) ||
+          !switches::IsImprovedSigninUIOnDesktopEnabled()) {
+        return color_provider->GetColor(
+            kColorAvatarButtonHighlightSyncErrorForeground);
+      }
+      [[fallthrough]];
     case ButtonState::kManagement:
     case ButtonState::kSigninPending:
+    case ButtonState::kUpgradeClientError:
     case ButtonState::kPassphraseError:
+    case ButtonState::kSyncPaused:
       return color_provider->GetColor(
           kColorAvatarButtonHighlightNormalForeground);
     case ButtonState::kExplicitTextShowing:
@@ -1495,6 +1466,7 @@ std::u16string AvatarToolbarButtonDelegate::GetAvatarTooltipText() const {
       return l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_GUEST_TOOLTIP);
     case ButtonState::kShowIdentityName:
       return GetShortProfileName();
+    case ButtonState::kUpgradeClientError:
     case ButtonState::kPassphraseError:
     case ButtonState::kSyncPaused:
     case ButtonState::kSyncError: {
@@ -1532,18 +1504,23 @@ AvatarToolbarButtonDelegate::GetInkdropColors() const {
         hover_color_id = kColorAvatarButtonIncognitoHover;
         break;
       case ButtonState::kGuestSession:
+      case ButtonState::kNormal:
       case ButtonState::kExplicitTextShowing:
       case ButtonState::kShowIdentityName:
-      case ButtonState::kSyncError:
         break;
+      case ButtonState::kSyncError:
+        if (IdentityManagerFactory::GetForProfile(profile_)->HasPrimaryAccount(
+                signin::ConsentLevel::kSync) ||
+            !switches::IsImprovedSigninUIOnDesktopEnabled()) {
+          break;
+        }
+        [[fallthrough]];
       case ButtonState::kManagement:
       case ButtonState::kSigninPending:
       case ButtonState::kSyncPaused:
+      case ButtonState::kUpgradeClientError:
       case ButtonState::kPassphraseError:
         ripple_color_id = kColorAvatarButtonNormalRipple;
-        break;
-      case ButtonState::kNormal:
-        ripple_color_id = kColorToolbarInkDropRipple;
         break;
     }
   }
@@ -1565,13 +1542,22 @@ ui::ImageModel AvatarToolbarButtonDelegate::GetAvatarIcon(
     // TODO(crbug.com/40756583): If sync-the-feature is disabled, the icon
     // should be different.
     case ButtonState::kSyncPaused:
-    case ButtonState::kSyncError:
     case ButtonState::kManagement:
     case ButtonState::kNormal:
       return ui::ImageModel::FromImage(profiles::GetSizedAvatarIcon(
           GetProfileAvatarImage(icon_size), icon_size, icon_size,
           profiles::SHAPE_CIRCLE));
+    case ButtonState::kSyncError:
+      if (IdentityManagerFactory::GetForProfile(profile_)->HasPrimaryAccount(
+              signin::ConsentLevel::kSync) ||
+          !switches::IsImprovedSigninUIOnDesktopEnabled()) {
+        return ui::ImageModel::FromImage(profiles::GetSizedAvatarIcon(
+            GetProfileAvatarImage(icon_size), icon_size, icon_size,
+            profiles::SHAPE_CIRCLE));
+      }
+      [[fallthrough]];
     case ButtonState::kPassphraseError:
+    case ButtonState::kUpgradeClientError:
     case ButtonState::kSigninPending:
       // First shrink the icon from it's regular size in order to accommodate
       // for the dotted circle that is drawn around it in `PaintIcon()`.
@@ -1600,6 +1586,7 @@ bool AvatarToolbarButtonDelegate::ShouldPaintBorder() const {
     case ButtonState::kExplicitTextShowing:
     case ButtonState::kManagement:
     case ButtonState::kSigninPending:
+    case ButtonState::kUpgradeClientError:
     case ButtonState::kPassphraseError:
     case ButtonState::kSyncPaused:
     case ButtonState::kSyncError:
@@ -1676,9 +1663,16 @@ void AvatarToolbarButtonDelegate::PaintIcon(
     case ButtonState::kExplicitTextShowing:
     case ButtonState::kManagement:
     case ButtonState::kSyncPaused:
-    case ButtonState::kSyncError:
       return;
+    case ButtonState::kSyncError:
+      if (IdentityManagerFactory::GetForProfile(profile_)->HasPrimaryAccount(
+              signin::ConsentLevel::kSync) ||
+          !switches::IsImprovedSigninUIOnDesktopEnabled()) {
+        return;
+      }
+      [[fallthrough]];
     case ButtonState::kSigninPending:
+    case ButtonState::kUpgradeClientError:
     case ButtonState::kPassphraseError:
       // Paints the dotted circle around the shrunk icon (from
       // `GetAvatarIcon()`).
@@ -1701,12 +1695,6 @@ AvatarToolbarButtonDelegate::CreateScopedInfiniteDelayOverrideForTesting(
       return base::AutoReset<std::optional<base::TimeDelta>>(
           &g_show_signin_pending_text_delay_for_testing,
           kInfiniteTimeForTesting);
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-    case AvatarDelayType::kManagementLabelTransientMode:
-      return base::AutoReset<std::optional<base::TimeDelta>>(
-          &g_enterprise_text_transient_duration_for_testing,
-          kInfiniteTimeForTesting);
-#endif
   }
 }
 
@@ -1735,18 +1723,6 @@ void AvatarToolbarButtonDelegate::TriggerTimeoutForTesting(
         signin_pending_state->ForceTimerTimeoutForTesting();  // IN-TEST
       }
       break;
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-    case AvatarDelayType::kManagementLabelTransientMode:
-      if (state_manager_->GetButtonActiveState() == ButtonState::kManagement) {
-        internal::ManagementStateProvider* management_state =
-            const_cast<internal::ManagementStateProvider*>(
-                internal::StateProviderGetter(
-                    *state_manager_->GetActiveStateProvider())
-                    .AsManagement());
-        management_state->ClearTransientTextForTesting();  // IN-TEST
-      }
-      break;
-#endif
   }
 }
 

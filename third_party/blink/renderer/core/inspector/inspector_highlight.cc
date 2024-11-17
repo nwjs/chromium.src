@@ -1000,16 +1000,18 @@ int GetRotationAngle(LayoutObject* layout_object) {
 
 String GetWritingMode(const ComputedStyle& computed_style) {
   // The grid overlay uses this to flip the grid lines and labels accordingly.
-  // lr, lr-tb, rl, rl-tb, tb, and tb-rl are deprecated and not handled here.
-  // sideways-lr and sideways-rl are not supported yet and not handled here.
-  WritingMode writing_mode = computed_style.GetWritingMode();
-  if (writing_mode == WritingMode::kVerticalLr) {
-    return "vertical-lr";
+  switch (computed_style.GetWritingMode()) {
+    case WritingMode::kVerticalLr:
+      return "vertical-lr";
+    case WritingMode::kVerticalRl:
+      return "vertical-rl";
+    case WritingMode::kSidewaysLr:
+      return "sideways-lr";
+    case WritingMode::kSidewaysRl:
+      return "sideways-rl";
+    case WritingMode::kHorizontalTb:
+      return "horizontal-tb";
   }
-  if (writing_mode == WritingMode::kVerticalRl) {
-    return "vertical-rl";
-  }
-  return "horizontal-tb";
 }
 
 // Gets the list of authored track size values resolving repeat() functions
@@ -1142,9 +1144,7 @@ std::unique_ptr<protocol::DictionaryValue> BuildFlexContainerInfo(
   auto* layout_box = To<LayoutBox>(layout_object);
   DCHECK(layout_object);
   bool is_horizontal = IsHorizontalFlex(layout_object);
-  bool is_reverse =
-      layout_object->StyleRef().ResolvedIsRowReverseFlexDirection() ||
-      layout_object->StyleRef().ResolvedIsColumnReverseFlexDirection();
+  bool is_reverse = layout_object->StyleRef().ResolvedIsReverseFlexDirection();
 
   std::unique_ptr<protocol::DictionaryValue> flex_info =
       protocol::DictionaryValue::create();
@@ -1286,8 +1286,8 @@ std::unique_ptr<protocol::DictionaryValue> BuildGridInfo(
   // The last column in RTL will not go to the extent of the grid if not
   // necessary, and will stop sooner if the tracks don't take up the full size
   // of the grid.
-  LayoutUnit rtl_offset = grid->LogicalWidth() - columns.back() -
-                          grid->BorderAndPaddingLogicalRight();
+  LayoutUnit rtl_offset =
+      grid->LogicalWidth() - columns.back() - grid->BorderAndPaddingInlineEnd();
 
   if (grid_highlight_config.show_track_sizes) {
     StyleResolver& style_resolver = element->GetDocument().GetStyleResolver();
@@ -1838,7 +1838,6 @@ void InspectorHighlight::VisitAndCollectDistanceInfo(Node* node) {
 void InspectorHighlight::VisitAndCollectDistanceInfo(
     PseudoId pseudo_id,
     LayoutObject* layout_object) {
-  protocol::DOM::PseudoType pseudo_type;
   if (pseudo_id == kPseudoIdNone)
     return;
   for (LayoutObject* child = layout_object->SlowFirstChild(); child;

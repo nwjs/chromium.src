@@ -949,6 +949,17 @@ bool PasswordFormManager::WebAuthnCredentialsAvailable() const {
   auto check_credentials_delegate = [=, this]() {
     WebAuthnCredentialsDelegate* delegate =
         client_->GetWebAuthnCredentialsDelegateForDriver(driver_.get());
+#if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
+    const bool passkey_from_another_device_in_context_menu =
+        (base::FeatureList::IsEnabled(
+             features::kPasswordManualFallbackAvailable) &&
+         base::FeatureList::IsEnabled(
+             features::kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu));
+    if (passkey_from_another_device_in_context_menu) {
+      return delegate && delegate->GetPasskeys().has_value() &&
+             !delegate->GetPasskeys()->empty();
+    }
+#endif  //! BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
     return delegate && delegate->GetPasskeys().has_value();
   };
 #if BUILDFLAG(IS_ANDROID)
@@ -969,6 +980,7 @@ bool PasswordFormManager::WebAuthnCredentialsAvailable() const {
       return check_cred_man_delegate() || check_credentials_delegate();
   }
 #else
+
   return check_credentials_delegate();
 #endif  // BUILDFLAG(IS_ANDROID)
 }
@@ -1012,7 +1024,8 @@ bool PasswordFormManager::ProvisionallySave(
   if (form_parsing_result.password_form) {
     metrics_recorder_->CalculateParsingDifferenceOnSavingAndFilling(
         *form_parsing_result.password_form.get());
-    CalculateFillingAssistanceMetric(*form_parsing_result.password_form);
+    CalculateFillingAssistanceAndCorrectnessMetrics(
+        *form_parsing_result.password_form);
   }
 
   if (!client_->IsSavingAndFillingEnabled(submitted_form.url())) {
@@ -1242,14 +1255,7 @@ PasswordFormManager::PasswordFormManager(
     : client_(client),
       observed_form_or_digest_(std::move(observed_form_or_digest)),
       metrics_recorder_(metrics_recorder),
-      owned_form_fetcher_(form_fetcher
-                              ? nullptr
-                              : std::make_unique<FormFetcherImpl>(
-                                    observed_digest()
-                                        ? *observed_digest()
-                                        : PasswordFormDigest(*observed_form()),
-                                    client_,
-                                    true /* should_migrate_http_passwords */)),
+      owned_form_fetcher_(form_fetcher ? nullptr : CreateFormFetcher()),
       form_fetcher_(form_fetcher ? form_fetcher : owned_form_fetcher_.get()),
       password_save_manager_(std::move(password_save_manager)),
       // TODO(crbug.com/40570965): set correctly
@@ -1342,7 +1348,7 @@ void PasswordFormManager::PresaveGeneratedPasswordInternal(
   password_save_manager_->PresaveGeneratedPassword(std::move(*parsed_form));
 }
 
-void PasswordFormManager::CalculateFillingAssistanceMetric(
+void PasswordFormManager::CalculateFillingAssistanceAndCorrectnessMetrics(
     const PasswordForm& parsed_submitted_form) {
   std::set<std::pair<std::u16string, PasswordForm::Store>> saved_usernames;
   std::set<std::pair<std::u16string, PasswordForm::Store>> saved_passwords;
@@ -1362,6 +1368,21 @@ void PasswordFormManager::CalculateFillingAssistanceMetric(
       form_fetcher_->GetInteractionsStats(),
       client_->GetPasswordFeatureManager()
           ->ComputePasswordAccountStorageUsageLevel());
+
+  std::vector<std::u16string> saved_username_values;
+  while (!saved_usernames.empty()) {
+    saved_username_values.emplace_back(std::move(
+        saved_usernames.extract(saved_usernames.begin()).value().first));
+  }
+  std::vector<std::u16string> saved_password_values;
+  while (!saved_passwords.empty()) {
+    saved_password_values.emplace_back(std::move(
+        saved_passwords.extract(saved_passwords.begin()).value().first));
+  }
+
+  metrics_recorder_->CalculateClassificationCorrectnessMetric(
+      parsed_submitted_form.form_data, saved_username_values,
+      saved_password_values);
 }
 
 void PasswordFormManager::CalculateSubmittedFormFrameMetric() {
@@ -1460,10 +1481,6 @@ PasswordFormManager::FindBestPossibleUsernameCandidate(
         possible_usernames) {
   std::optional<UsernameFoundOutsideOfForm> result = std::nullopt;
   // Search for a candidate among all recently user modified fields.
-  // If `kUsernameFirstFlowWithIntermediateValues` feature is off, the most
-  // recent user-typed field is picked if available.
-  // If `kUsernameFirstFlowWithIntermediateValues` feature is on, look for
-  // other field in cache that has a higher priority.
   for (auto [field_identifier, candidate_username] : possible_usernames) {
     if (!IsPossibleSingleUsernameAvailable(candidate_username)) {
       continue;
@@ -1473,11 +1490,7 @@ PasswordFormManager::FindBestPossibleUsernameCandidate(
     auto [priority, password_form_had_matching_username] =
         GivePriorityToUsernameFoundOutsideOfForm(candidate_username,
                                                  *parsed_submitted_form_.get());
-    if (!result.has_value() ||
-        (priority > result.value().priority &&
-         base::FeatureList::IsEnabled(
-             password_manager::features::
-                 kUsernameFirstFlowWithIntermediateValues))) {
+    if (!result.has_value() || priority > result.value().priority) {
       result = {priority, password_form_had_matching_username,
                 candidate_username};
     }
@@ -1747,6 +1760,18 @@ void PasswordFormManager::HandleForgotPasswordFormData() {
       }
     }
   }
+}
+
+std::unique_ptr<FormFetcher> PasswordFormManager::CreateFormFetcher() {
+  auto form_fetcher = std::make_unique<FormFetcherImpl>(
+      observed_digest() ? *observed_digest()
+                        : PasswordFormDigest(*observed_form()),
+      client_, true /* should_migrate_http_passwords */);
+  if (base::FeatureList::IsEnabled(
+          password_manager::features::kPasswordFormGroupedAffiliations)) {
+    form_fetcher->set_filter_grouped_credentials(false);
+  }
+  return form_fetcher;
 }
 
 // Returns bit masks with differences in forms attributes which are important

@@ -718,9 +718,7 @@ PositionWithAffinity LayoutText::PositionForPoint(
   return CreatePositionWithAffinity(0);
 }
 
-PhysicalRect LayoutText::LocalCaretRect(
-    int caret_offset,
-    LayoutUnit* extra_width_to_end_of_line) const {
+PhysicalRect LayoutText::LocalCaretRect(int caret_offset) const {
   NOT_DESTROYED();
   return PhysicalRect();
 }
@@ -1091,11 +1089,6 @@ PhysicalRect LayoutText::VisualOverflowRect() const {
   NOT_DESTROYED();
   DCHECK(IsInLayoutNGInlineFormattingContext());
   return FragmentItem::LocalVisualRectFor(*this);
-}
-
-PhysicalRect LayoutText::LocalVisualRectIgnoringVisibility() const {
-  NOT_DESTROYED();
-  return UnionRect(VisualOverflowRect(), LocalSelectionVisualRect());
 }
 
 PhysicalRect LayoutText::LocalSelectionVisualRect() const {

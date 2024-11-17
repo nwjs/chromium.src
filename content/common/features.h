@@ -59,6 +59,10 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeBidderWorkletThreadPool);
 CONTENT_EXPORT extern const base::FeatureParam<double>
     kFledgeBidderWorkletThreadPoolSizeLogarithmicScalingFactor;
 #if BUILDFLAG(IS_ANDROID)
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kFledgeAndroidWorkletOffMainThread);
+#endif
+
+#if BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kFocusRenderWidgetHostViewAndroidOnActionDown);
 #endif
@@ -85,9 +89,6 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kHidePastePopupOnGSB);
 
 BASE_DECLARE_FEATURE(kHistoryInterventionSameDocumentFix);
 
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kIgnoreDuplicateNavs);
-CONTENT_EXPORT BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
-                                          kDuplicateNavThreshold);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kInMemoryCodeCache);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kInnerFrameCompositorSurfaceEviction);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kInterestGroupUpdateIfOlderThan);
@@ -107,6 +108,7 @@ BASE_DECLARE_FEATURE(kOptimizeImmHideCalls);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPermissionsPolicyVerificationInContent);
 #endif
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPreloadingConfig);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kPriorityOverridePendingViews);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrivacySandboxAdsAPIsM1Override);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kProcessReuseOnPrerenderCOOPSwap);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kProcessSharingWithDefaultSiteInstances);
@@ -119,7 +121,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kContinueGestureOnLosingFocus);
 #endif
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kResourceTimingForCancelledNavigationInFrame);
-BASE_DECLARE_FEATURE(kRestrictCanAccessDataForOriginToUIThread);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kRemoveRendererProcessLimit);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kReuseInitialRenderFrameHostForWebUI);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSendBeaconThrowForBlobWithNonSimpleType);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kServiceWorkerAutoPreload);
@@ -132,7 +134,6 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kServiceWorkerBypassFetchHandlerHashStrings);
 CONTENT_EXPORT extern const base::FeatureParam<std::string>
     kServiceWorkerBypassFetchHandlerBypassedHashStrings;
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kSiteIsolationCitadelEnforcement);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSkipEarlyCommitPendingForCrashedFrame);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSpeculativeServiceWorkerStartup);
 #if BUILDFLAG(IS_MAC)
@@ -150,6 +151,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebOTPAssertionFeaturePolicy);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebRtcUseGpuMemoryBufferVideoFrames);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWindowOpenFileSelectFix);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kScrollBubblingFix);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kLimitCrossOriginNonActivatedPaintHolding);
 
 // Please keep features in alphabetical order.
 

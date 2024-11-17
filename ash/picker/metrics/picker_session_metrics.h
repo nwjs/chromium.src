@@ -9,8 +9,8 @@
 #include <string>
 
 #include "ash/ash_export.h"
-#include "ash/public/cpp/picker/picker_category.h"
-#include "ash/public/cpp/picker/picker_search_result.h"
+#include "ash/picker/picker_category.h"
+#include "ash/picker/picker_search_result.h"
 
 namespace ui {
 class TextInputClient;
@@ -73,6 +73,8 @@ class ASH_EXPORT PickerSessionMetrics {
 
   // Records if caps lock toggle is displayed in the zero state view.
   void SetCapsLockDisplayed(bool displayed);
+
+  SessionOutcome GetOutcomeForTesting() { return outcome_; }
 
  private:
   // Records CrOS event metrics when a picker session finishes.

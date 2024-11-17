@@ -18,6 +18,7 @@
 #include "base/path_service.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/test/test_switches.h"
+#include "base/time/time.h"
 #include "base/values.h"
 #include "base/version.h"
 #include "build/build_config.h"
@@ -145,14 +146,20 @@ class IntegrationTestCommandsSystem : public IntegrationTestCommands {
                      const GURL& crash_upload_url,
                      const GURL& device_management_url,
                      const GURL& app_logo_url,
-                     const base::TimeDelta& idle_timeout) const override {
-    RunCommand("enter_test_mode",
-               {Param("update_url", update_url.spec()),
-                Param("crash_upload_url", crash_upload_url.spec()),
-                Param("device_management_url", device_management_url.spec()),
-                Param("app_logo_url", app_logo_url.spec()),
-                Param("idle_timeout",
-                      base::NumberToString(idle_timeout.InSeconds()))});
+                     base::TimeDelta idle_timeout,
+                     base::TimeDelta server_keep_alive_time,
+                     base::TimeDelta ceca_connection_timeout) const override {
+    RunCommand(
+        "enter_test_mode",
+        {Param("update_url", update_url.spec()),
+         Param("crash_upload_url", crash_upload_url.spec()),
+         Param("device_management_url", device_management_url.spec()),
+         Param("app_logo_url", app_logo_url.spec()),
+         Param("idle_timeout", base::NumberToString(idle_timeout.InSeconds())),
+         Param("server_keep_alive_time",
+               base::NumberToString(server_keep_alive_time.InSeconds())),
+         Param("ceca_connection_timeout",
+               base::NumberToString(ceca_connection_timeout.InSeconds()))});
   }
 
   void ExitTestMode() const override { RunCommand("exit_test_mode"); }
@@ -216,10 +223,11 @@ class IntegrationTestCommandsSystem : public IntegrationTestCommands {
                             UpdateService::Priority priority,
                             const base::Version& from_version,
                             const base::Version& to_version,
-                            bool do_fault_injection) const override {
+                            bool do_fault_injection,
+                            bool skip_download) const override {
     updater::test::ExpectUpdateSequence(
         updater_scope_, test_server, app_id, install_data_index, priority,
-        from_version, to_version, do_fault_injection);
+        from_version, to_version, do_fault_injection, skip_download);
   }
 
   void ExpectUpdateSequenceBadHash(
@@ -240,10 +248,11 @@ class IntegrationTestCommandsSystem : public IntegrationTestCommands {
                              UpdateService::Priority priority,
                              const base::Version& from_version,
                              const base::Version& to_version,
-                             bool do_fault_injection) const override {
+                             bool do_fault_injection,
+                             bool skip_download) const override {
     updater::test::ExpectInstallSequence(
         updater_scope_, test_server, app_id, install_data_index, priority,
-        from_version, to_version, do_fault_injection);
+        from_version, to_version, do_fault_injection, skip_download);
   }
 
   void ExpectVersionActive(const std::string& version) const override {
@@ -522,7 +531,7 @@ class IntegrationTestCommandsSystem : public IntegrationTestCommands {
                 Param("browser_version", version.GetString())});
   }
 
-  void SetLastChecked(const base::Time& time) const override {
+  void SetLastChecked(base::Time time) const override {
     RunCommand(
         "set_last_checked",
         {Param("time", base::NumberToString(
@@ -557,12 +566,24 @@ class IntegrationTestCommandsSystem : public IntegrationTestCommands {
   }
   void DMDeregisterDevice() override { RunCommand("dm_deregister_device"); }
   void DMCleanup() override { RunCommand("dm_cleanup"); }
-  void InstallEnterpriseCompanionApp(
+  void InstallEnterpriseCompanionApp() override {
+    RunCommand("install_enterprise_companion_app");
+  }
+  void InstallBrokenEnterpriseCompanionApp() override {
+    RunCommand("install_broken_enterprise_companion_app");
+  }
+  void UninstallBrokenEnterpriseCompanionApp() override {
+    RunCommand("uninstall_broken_enterprise_companion_app");
+  }
+  void InstallEnterpriseCompanionAppOverrides(
       const base::Value::Dict& external_overrides) override {
     RunCommand(
-        "install_enterprise_companion_app",
+        "install_enterprise_companion_app_overrides",
         {Param("external_overrides",
                StringFromValue(base::Value(external_overrides.Clone())))});
+  }
+  void ExpectEnterpriseCompanionAppNotInstalled() override {
+    RunCommand("expect_enterprise_companion_app_not_installed");
   }
   void UninstallEnterpriseCompanionApp() override {
     RunCommand("uninstall_enterprise_companion_app");

@@ -9,9 +9,11 @@ import android.content.Context;
 import androidx.annotation.IntDef;
 import androidx.annotation.MainThread;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetStrings;
+import org.chromium.components.signin.base.CoreAccountId;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 
 import java.lang.annotation.Retention;
@@ -31,6 +33,7 @@ public interface SigninAndHistorySyncActivityLauncher {
         SigninAccessPoint.NTP_SIGNED_OUT_ICON,
         SigninAccessPoint.NTP_FEED_CARD_MENU_PROMO,
         SigninAccessPoint.SEND_TAB_TO_SELF_PROMO,
+        SigninAccessPoint.CCT_ACCOUNT_MISMATCH_NOTIFICATION,
     })
     @Retention(RetentionPolicy.SOURCE)
     @interface AccessPoint {}
@@ -40,7 +43,7 @@ public interface SigninAndHistorySyncActivityLauncher {
      * UI if sign-in is not allowed. Returns a boolean indicating whether the activity was launched.
      *
      * @param profile the current profile.
-     * @param bottomSheetString the strings shown in the sign-in bottom sheet.
+     * @param bottomSheetStrings the strings shown in the sign-in bottom sheet.
      * @param noAccountSigninMode The type of UI that should be shown for the sign-in step if
      *     there's no account on the device.
      * @param withAccountSigninMode The type of UI that should be shown for the sign-in step if
@@ -48,21 +51,26 @@ public interface SigninAndHistorySyncActivityLauncher {
      * @param historyOptInMode Whether the history opt-in should be always, optionally or never
      *     shown.
      * @param accessPoint The access point from which the sign-in was triggered.
+     * @param selectedCoreAccountId The account that should be displayed in the sign-in bottom
+     *     sheet. If null, the default account will be displayed.
      */
     @MainThread
-    boolean launchActivityIfAllowed(Context context, Profile profile,
+    boolean launchActivityIfAllowed(
+            Context context,
+            Profile profile,
             @NonNull AccountPickerBottomSheetStrings bottomSheetStrings,
             @SigninAndHistorySyncCoordinator.NoAccountSigninMode int noAccountSigninMode,
             @SigninAndHistorySyncCoordinator.WithAccountSigninMode int withAccountSigninMode,
             @SigninAndHistorySyncCoordinator.HistoryOptInMode int historyOptInMode,
-            @AccessPoint int accessPoint);
+            @AccessPoint int accessPoint,
+            @Nullable CoreAccountId selectedCoreAccountId);
 
     /**
      * Launches the {@link SigninAndHistorySyncActivity} from an eligible access point where the
      * flow is dedicated to enabling history sync. Shows error UI if sign-in is not allowed.
      *
      * @param profile the current profile.
-     * @param bottomSheetString the strings shown in the sign-in bottom sheet.
+     * @param bottomSheetStrings the strings shown in the sign-in bottom sheet.
      * @param noAccountSigninMode The type of UI that should be shown for the sign-in step if *
      *     there's no account on the device.
      * @param withAccountSigninMode The type of UI that should be shown for the sign-in step if *
@@ -70,16 +78,18 @@ public interface SigninAndHistorySyncActivityLauncher {
      * @param signinAccessPoint The access point from which the sign-in was triggered.
      */
     @MainThread
-    void launchActivityForHistorySyncDedicatedFlow(@NonNull Context context,
-            @NonNull Profile profile, @NonNull AccountPickerBottomSheetStrings bottomSheetStrings,
+    void launchActivityForHistorySyncDedicatedFlow(
+            @NonNull Context context,
+            @NonNull Profile profile,
+            @NonNull AccountPickerBottomSheetStrings bottomSheetStrings,
             @SigninAndHistorySyncCoordinator.NoAccountSigninMode int noAccountSigninMode,
             @SigninAndHistorySyncCoordinator.WithAccountSigninMode int withAccountSigninMode,
             @SigninAccessPoint int signinAccessPoint);
 
     /**
-     * Launches the upgrade promo flavor of the {@link SigninAndHistorySyncActivity} if sign-in and
+     * Launches the fullscreen flavor of the {@link SigninAndHistorySyncActivity} if sign-in and
      * history opt-in are allowed.
      */
     @MainThread
-    void launchUpgradePromoActivityIfAllowed(Context context, Profile profile);
+    void launchFullscreenSigninActivityIfAllowed(Context context, Profile profile);
 }

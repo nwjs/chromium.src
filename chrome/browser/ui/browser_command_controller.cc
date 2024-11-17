@@ -121,11 +121,9 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "chrome/browser/ash/crosapi/browser_data_migrator.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_context_menu.h"
 #include "chrome/browser/ui/browser_commands_chromeos.h"
-#include "chromeos/ash/components/standalone_browser/migrator_util.h"
 #include "components/session_manager/core/session_manager.h"
 #include "components/user_manager/user_manager.h"
 #endif
@@ -686,6 +684,9 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
     case IDC_ORGANIZE_TABS:
       StartTabOrganizationRequest(browser_);
       break;
+    case IDC_DECLUTTER_TABS:
+      ShowTabDeclutter(browser_);
+      break;
     case IDC_SHOW_TRANSLATE:
       ShowTranslateBubble(browser_);
       break;
@@ -1245,6 +1246,7 @@ void BrowserCommandController::InitCommandState() {
 
   command_updater_.UpdateCommandEnabled(IDC_ORGANIZE_TABS, true);
   command_updater_.UpdateCommandEnabled(IDC_CREATE_NEW_TAB_GROUP, true);
+  command_updater_.UpdateCommandEnabled(IDC_DECLUTTER_TABS, true);
 #if BUILDFLAG(IS_CHROMEOS)
   command_updater_.UpdateCommandEnabled(IDC_TOGGLE_MULTITASK_MENU, true);
 #endif

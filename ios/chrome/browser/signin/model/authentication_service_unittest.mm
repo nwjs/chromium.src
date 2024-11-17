@@ -108,7 +108,7 @@ class AuthenticationServiceTest : public PlatformTest {
     fake_system_identity2_ = [FakeSystemIdentity fakeIdentity2];
     fake_system_identity_manager()->AddIdentity(fake_system_identity2_);
 
-    TestChromeBrowserState::Builder builder;
+    TestProfileIOS::Builder builder;
     builder.SetPrefService(CreatePrefService());
     builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                               base::BindRepeating(&CreateMockSyncService));
@@ -116,14 +116,13 @@ class AuthenticationServiceTest : public PlatformTest {
         AuthenticationServiceFactory::GetInstance(),
         AuthenticationServiceFactory::GetDefaultFactory());
 
-    browser_state_ = std::move(builder).Build();
+    profile_ = std::move(builder).Build();
 
-    account_manager_ = ChromeAccountManagerServiceFactory::GetForBrowserState(
-        browser_state_.get());
+    account_manager_ =
+        ChromeAccountManagerServiceFactory::GetForProfile(profile_.get());
 
-    AuthenticationServiceFactory::CreateAndInitializeForBrowserState(
-        browser_state_.get(),
-        std::make_unique<FakeAuthenticationServiceDelegate>());
+    AuthenticationServiceFactory::CreateAndInitializeForProfile(
+        profile_.get(), std::make_unique<FakeAuthenticationServiceDelegate>());
   }
 
   std::unique_ptr<sync_preferences::PrefServiceSyncable> CreatePrefService() {
@@ -132,14 +131,13 @@ class AuthenticationServiceTest : public PlatformTest {
         new user_prefs::PrefRegistrySyncable);
     std::unique_ptr<sync_preferences::PrefServiceSyncable> prefs =
         factory.CreateSyncable(registry.get());
-    RegisterBrowserStatePrefs(registry.get());
+    RegisterProfilePrefs(registry.get());
     return prefs;
   }
 
   void VerifyLastSigninTimestamp() {
-    EXPECT_EQ(
-        browser_state_.get()->GetPrefs()->GetTime(prefs::kLastSigninTimestamp),
-        base::Time::Now());
+    EXPECT_EQ(profile_.get()->GetPrefs()->GetTime(prefs::kLastSigninTimestamp),
+              base::Time::Now());
   }
 
   void FireApplicationWillEnterForeground() {
@@ -203,12 +201,11 @@ class AuthenticationServiceTest : public PlatformTest {
   }
 
   AuthenticationService* authentication_service() {
-    return AuthenticationServiceFactory::GetForBrowserState(
-        browser_state_.get());
+    return AuthenticationServiceFactory::GetForProfile(profile_.get());
   }
 
   signin::IdentityManager* identity_manager() {
-    return IdentityManagerFactory::GetForProfile(browser_state_.get());
+    return IdentityManagerFactory::GetForProfile(profile_.get());
   }
 
   FakeSystemIdentityManager* fake_system_identity_manager() {
@@ -218,7 +215,7 @@ class AuthenticationServiceTest : public PlatformTest {
 
   syncer::MockSyncService* mock_sync_service() {
     return static_cast<syncer::MockSyncService*>(
-        SyncServiceFactory::GetForBrowserState(browser_state_.get()));
+        SyncServiceFactory::GetForProfile(profile_.get()));
   }
 
   id<SystemIdentity> identity(NSUInteger index) {
@@ -243,7 +240,7 @@ class AuthenticationServiceTest : public PlatformTest {
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   raw_ptr<ChromeAccountManagerService> account_manager_;
   signin::IdentityTestEnvironment identity_test_env_;
-  std::unique_ptr<TestChromeBrowserState> browser_state_;
+  std::unique_ptr<TestProfileIOS> profile_;
   // Used to verify histogram logging.
   base::HistogramTester histogram_tester_;
   FakeSystemIdentity* fake_system_identity1_;
@@ -518,13 +515,9 @@ TEST_F(AuthenticationServiceTest, SignedInManagedAccountSignOut) {
   EXPECT_EQ(ClearBrowsingDataCount(), 0);
 }
 
-// Tests that local data is cleared on signout when
-// `kClearDeviceDataOnSignOutForManagedUsers` is enabled for a managed account.
-TEST_F(
-    AuthenticationServiceTest,
-    SignedInManagedAccountSignOutWithClearDataFeatureEnabled_UnmanagedBrowser) {
-  scoped_feature_list_.InitWithFeatures(
-      {kClearDeviceDataOnSignOutForManagedUsers}, {});
+// Tests that local data is cleared on signout for a managed account.
+TEST_F(AuthenticationServiceTest,
+       SignedInManagedAccountSignOutWithClearData_UnmanagedBrowser) {
   FakeSystemIdentity* fake_system_identity =
       [FakeSystemIdentity fakeManagedIdentity];
   fake_system_identity_manager()->AddIdentity(fake_system_identity);
@@ -548,14 +541,11 @@ TEST_F(
   EXPECT_EQ(ClearBrowsingDataFromSigninCount(), 1);
 }
 
-// Tests that local data is not cleared on managed user's signout when
-// `kClearDeviceDataOnSignOutForManagedUsers` is enabled for a managed account
-// and the browser is managed.
+// Tests that local data is not cleared on managed user's signout for a managed
+// account and the browser is managed.
 TEST_F(
     AuthenticationServiceTest,
     SignedInManagedAccountSignOutWithClearDataFeatureEnabled_ManagedBrowser) {
-  scoped_feature_list_.InitWithFeatures(
-      {kClearDeviceDataOnSignOutForManagedUsers}, {});
   // Add managed configuration so the browser is managed.
   NSUserDefaults* userDefaults = [NSUserDefaults standardUserDefaults];
   NSDictionary* dict = @{@"key" : @"value"};
@@ -588,9 +578,7 @@ TEST_F(
 // Tests that all local data is cleared (not just the data from sign-in time)
 // when the user has the sync consent.
 TEST_F(AuthenticationServiceTest,
-       SignedInManagedAccountSignOutWithClearDataFeatureEnabled_SyncMigration) {
-  scoped_feature_list_.InitWithFeatures(
-      {kClearDeviceDataOnSignOutForManagedUsers}, {});
+       SignedInManagedAccountSignOutWithClearData_SyncMigration) {
   FakeSystemIdentity* fake_system_identity =
       [FakeSystemIdentity fakeManagedIdentity];
   fake_system_identity_manager()->AddIdentity(fake_system_identity);
@@ -848,7 +836,7 @@ TEST_F(AuthenticationServiceTest, SigninAndSyncDecoupled) {
 
 TEST_F(AuthenticationServiceTest, SigninDisallowedCrash) {
   // Disable sign-in.
-  browser_state_->GetPrefs()->SetBoolean(prefs::kSigninAllowed, false);
+  profile_->GetPrefs()->SetBoolean(prefs::kSigninAllowed, false);
 
   // Attempt to sign in, and verify there is a crash.
   EXPECT_CHECK_DEATH(authentication_service()->SignIn(
@@ -891,7 +879,7 @@ TEST_F(AuthenticationServiceTest, TestGetServiceStatus) {
   EXPECT_EQ(AuthenticationService::ServiceStatus::SigninAllowed,
             authentication_service()->GetServiceStatus());
 
-  browser_state_->GetPrefs()->SetBoolean(prefs::kSigninAllowed, false);
+  profile_->GetPrefs()->SetBoolean(prefs::kSigninAllowed, false);
   // Expect sign-in disabled by user.
   EXPECT_EQ(AuthenticationService::ServiceStatus::SigninDisabledByUser,
             authentication_service()->GetServiceStatus());
@@ -916,7 +904,7 @@ TEST_F(AuthenticationServiceTest, TestGetServiceStatus) {
   // Expect onServiceStatus notification called.
   EXPECT_EQ(3, observer_test.GetOnServiceStatusChangedCounter());
 
-  browser_state_->GetPrefs()->SetBoolean(prefs::kSigninAllowed, true);
+  profile_->GetPrefs()->SetBoolean(prefs::kSigninAllowed, true);
   // Expect sign-in to be still forced by policy.
   EXPECT_EQ(AuthenticationService::ServiceStatus::SigninForcedByPolicy,
             authentication_service()->GetServiceStatus());

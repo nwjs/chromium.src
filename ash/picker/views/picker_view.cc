@@ -19,6 +19,8 @@
 #include "ash/picker/model/picker_caps_lock_position.h"
 #include "ash/picker/model/picker_mode_type.h"
 #include "ash/picker/model/picker_search_results_section.h"
+#include "ash/picker/picker_category.h"
+#include "ash/picker/picker_search_result.h"
 #include "ash/picker/views/picker_emoji_bar_view.h"
 #include "ash/picker/views/picker_item_with_submenu_view.h"
 #include "ash/picker/views/picker_key_event_handler.h"
@@ -37,8 +39,6 @@
 #include "ash/picker/views/picker_traversable_item_container.h"
 #include "ash/picker/views/picker_view_delegate.h"
 #include "ash/picker/views/picker_zero_state_view.h"
-#include "ash/public/cpp/picker/picker_category.h"
-#include "ash/public/cpp/picker/picker_search_result.h"
 #include "ash/public/cpp/window_properties.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "base/check.h"
@@ -184,8 +184,7 @@ gfx::Rect GetPickerViewBoundsWithSelectedText(
 PickerCategory GetCategoryForMoreResults(PickerSectionType type) {
   switch (type) {
     case PickerSectionType::kNone:
-    case PickerSectionType::kEditorWrite:
-    case PickerSectionType::kEditorRewrite:
+    case PickerSectionType::kContentEditor:
     case PickerSectionType::kExamples:
       NOTREACHED_NORETURN();
     case PickerSectionType::kClipboard:
@@ -244,6 +243,7 @@ std::u16string GetNoResultsFoundDescription(PickerCategory category) {
       return l10n_util::GetStringUTF16(IDS_PICKER_NO_RESULTS_TEXT);
     case PickerCategory::kEditorWrite:
     case PickerCategory::kEditorRewrite:
+    case PickerCategory::kLobster:
     case PickerCategory::kEmojisGifs:
     case PickerCategory::kEmojis:
       NOTREACHED_NORETURN();
@@ -416,6 +416,9 @@ void PickerView::SelectSearchResult(const PickerSearchResult& result) {
     delegate_->ShowEditor(
         editor_data->preset_query_id,
         base::UTF16ToUTF8(search_field_view_->GetQueryText()));
+  } else if (std::get_if<PickerLobsterResult>(&result)) {
+    delegate_->ShowLobster(
+        base::UTF16ToUTF8(search_field_view_->GetQueryText()));
   } else {
     delegate_->GetSessionMetrics().SetSelectedResult(
         result, search_results_view_->GetIndex(result));
@@ -437,6 +440,10 @@ void PickerView::SelectSearchResult(const PickerSearchResult& result) {
 void PickerView::SelectMoreResults(PickerSectionType type) {
   SelectCategoryWithQuery(GetCategoryForMoreResults(type),
                           search_field_view_->GetQueryText());
+}
+
+void PickerView::ToggleGifs() {
+  ShowEmojiPicker(ui::EmojiPickerCategory::kGifs);
 }
 
 void PickerView::ShowEmojiPicker(ui::EmojiPickerCategory category) {
@@ -736,6 +743,16 @@ void PickerView::SelectCategoryWithQuery(PickerCategory category,
         PickerSessionMetrics::SessionOutcome::kRedirected);
     delegate_->ShowEditor(/*preset_query_id*/ std::nullopt,
                           /*freeform_text=*/std::nullopt);
+    return;
+  }
+
+  if (category == PickerCategory::kLobster) {
+    if (auto* widget = GetWidget()) {
+      widget->CloseWithReason(views::Widget::ClosedReason::kLostFocus);
+    }
+    session_metrics.SetOutcome(
+        PickerSessionMetrics::SessionOutcome::kRedirected);
+    delegate_->ShowLobster(/*query=*/std::nullopt);
     return;
   }
 

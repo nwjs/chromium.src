@@ -36,6 +36,7 @@ namespace viz {
 namespace {
 
 constexpr FrameSinkId kFrameSinkIdRoot(1, 1);
+constexpr FrameSinkId kFrameSinkIdRoot2(2, 2);
 constexpr FrameSinkId kFrameSinkIdA(2, 1);
 constexpr FrameSinkId kFrameSinkIdB(3, 1);
 constexpr FrameSinkId kFrameSinkIdC(4, 1);
@@ -102,6 +103,10 @@ class FrameSinkManagerTest : public testing::Test {
            base::Contains(manager_.root_sink_map_, frame_sink_id);
   }
 
+  CompositorFrameSinkSupport* GetFrameSinkSupport(const FrameSinkId& id) {
+    return manager_.support_map_.find(id)->second;
+  }
+
   bool InputManagerExists() { return manager_.GetInputManager(); }
 
   MockInputManager* GetMockInputManager() {
@@ -119,6 +124,28 @@ class FrameSinkManagerTest : public testing::Test {
     for (auto& id : ids) {
       EXPECT_EQ(interval, manager_.support_map_[id]->begin_frame_interval_);
     }
+  }
+
+  // Creates a CompositorFrameSinkImpl.
+  void CreateCompositorFrameSink(
+      const FrameSinkId& frame_sink_id,
+      input::mojom::RenderInputRouterConfigPtr config) {
+    MockCompositorFrameSinkClient compositor_frame_sink_client;
+    mojo::Remote<mojom::CompositorFrameSink> compositor_frame_sink;
+
+    manager_.CreateCompositorFrameSink(
+        frame_sink_id, /*bundle_id=*/std::nullopt,
+        compositor_frame_sink.BindNewPipeAndPassReceiver(),
+        compositor_frame_sink_client.BindInterfaceRemote(), std::move(config));
+    EXPECT_TRUE(CompositorFrameSinkExists(frame_sink_id));
+  }
+
+  input::mojom::RenderInputRouterConfigPtr CreateRIRConfig(int grouping_id) {
+    auto config = input::mojom::RenderInputRouterConfig::New();
+    mojo::PendingRemote<blink::mojom::RenderInputRouterClient> rir_client;
+    config->rir_client = std::move(rir_client);
+    config->grouping_id = grouping_id;
+    return config;
   }
 
   // testing::Test implementation.
@@ -163,21 +190,16 @@ TEST_F(FrameSinkManagerTest, CreateRootCompositorFrameSink) {
 }
 
 TEST_F(FrameSinkManagerTest, InputManagerCreation) {
-  ASSERT_FALSE(input::TransferInputToViz());
+  ASSERT_FALSE(input::IsTransferInputToVizSupported());
 
   manager_.RegisterFrameSinkId(kFrameSinkIdA, true /* report_activation */);
 
   // Create a CompositorFrameSinkImpl.
-  MockCompositorFrameSinkClient compositor_frame_sink_client;
-  mojo::Remote<mojom::CompositorFrameSink> compositor_frame_sink;
-  manager_.CreateCompositorFrameSink(
-      kFrameSinkIdA, /*bundle_id=*/std::nullopt,
-      compositor_frame_sink.BindNewPipeAndPassReceiver(),
-      compositor_frame_sink_client.BindInterfaceRemote(),
-      /* render_input_router_config= */ nullptr);
-  EXPECT_TRUE(CompositorFrameSinkExists(kFrameSinkIdA));
+  CreateCompositorFrameSink(kFrameSinkIdA,
+                            /* render_input_router_config= */ nullptr);
 
-  // InputManager is not created since TransferInputToViz() returns false.
+  // InputManager is not created since IsTransferInputToVizSupported() returns
+  // false.
   EXPECT_FALSE(InputManagerExists());
 
   // Invalidating should destroy the CompositorFrameSinkImpl.
@@ -188,14 +210,8 @@ TEST_F(FrameSinkManagerTest, CreateCompositorFrameSink) {
   manager_.RegisterFrameSinkId(kFrameSinkIdA, true /* report_activation */);
 
   // Create a CompositorFrameSinkImpl.
-  MockCompositorFrameSinkClient compositor_frame_sink_client;
-  mojo::Remote<mojom::CompositorFrameSink> compositor_frame_sink;
-  manager_.CreateCompositorFrameSink(
-      kFrameSinkIdA, /*bundle_id=*/std::nullopt,
-      compositor_frame_sink.BindNewPipeAndPassReceiver(),
-      compositor_frame_sink_client.BindInterfaceRemote(),
-      /* render_input_router_config= */ nullptr);
-  EXPECT_TRUE(CompositorFrameSinkExists(kFrameSinkIdA));
+  CreateCompositorFrameSink(kFrameSinkIdA,
+                            /* render_input_router_config= */ nullptr);
 
   // Invalidating should destroy the CompositorFrameSinkImpl.
   manager_.InvalidateFrameSinkId(kFrameSinkIdA);
@@ -345,6 +361,135 @@ TEST_F(FrameSinkManagerTest, MultipleDisplays) {
                                         client_a->frame_sink_id());
   manager_.UnregisterFrameSinkHierarchy(client_a->frame_sink_id(),
                                         client_b->frame_sink_id());
+}
+
+TEST_F(FrameSinkManagerTest, FrameSinkParentChildRelationship) {
+  // Create 2 RootCompositorFrameSinks.
+  RootCompositorFrameSinkData root_data1;
+  manager_.CreateRootCompositorFrameSink(
+      root_data1.BuildParams(kFrameSinkIdRoot));
+  EXPECT_TRUE(CompositorFrameSinkExists(kFrameSinkIdRoot));
+
+  RootCompositorFrameSinkData root_data2;
+  manager_.CreateRootCompositorFrameSink(
+      root_data2.BuildParams(kFrameSinkIdRoot2));
+  EXPECT_TRUE(CompositorFrameSinkExists(kFrameSinkIdRoot2));
+
+  auto* root1 = GetFrameSinkSupport(kFrameSinkIdRoot);
+  auto* root2 = GetFrameSinkSupport(kFrameSinkIdRoot2);
+  auto client_a = CreateCompositorFrameSinkSupport(FrameSinkId(3, 3));
+  auto client_b = CreateCompositorFrameSinkSupport(FrameSinkId(4, 4));
+  auto client_c = CreateCompositorFrameSinkSupport(FrameSinkId(5, 5));
+  auto client_d = CreateCompositorFrameSinkSupport(FrameSinkId(6, 6));
+  auto client_e = CreateCompositorFrameSinkSupport(FrameSinkId(7, 7));
+
+  // Set up initial hierarchy.
+  // root1 -> A -> B -> C
+  //               + -> D
+  // root2 -> E
+  manager_.RegisterFrameSinkHierarchy(root1->frame_sink_id(),
+                                      client_a->frame_sink_id());
+  EXPECT_EQ(manager_.GetOldestParentByChildFrameId(client_a->frame_sink_id()),
+            root1->frame_sink_id());
+  manager_.RegisterFrameSinkHierarchy(client_a->frame_sink_id(),
+                                      client_b->frame_sink_id());
+  EXPECT_EQ(manager_.GetOldestParentByChildFrameId(client_b->frame_sink_id()),
+            client_a->frame_sink_id());
+  manager_.RegisterFrameSinkHierarchy(client_b->frame_sink_id(),
+                                      client_c->frame_sink_id());
+  EXPECT_EQ(manager_.GetOldestParentByChildFrameId(client_c->frame_sink_id()),
+            client_b->frame_sink_id());
+  manager_.RegisterFrameSinkHierarchy(client_b->frame_sink_id(),
+                                      client_d->frame_sink_id());
+  EXPECT_EQ(manager_.GetOldestParentByChildFrameId(client_d->frame_sink_id()),
+            client_b->frame_sink_id());
+  manager_.RegisterFrameSinkHierarchy(root2->frame_sink_id(),
+                                      client_e->frame_sink_id());
+  EXPECT_EQ(manager_.GetOldestParentByChildFrameId(client_e->frame_sink_id()),
+            root2->frame_sink_id());
+
+  EXPECT_EQ(
+      manager_.GetOldestRootCompositorFrameSinkId(client_a->frame_sink_id()),
+      root1->frame_sink_id());
+  EXPECT_EQ(
+      manager_.GetOldestRootCompositorFrameSinkId(client_b->frame_sink_id()),
+      root1->frame_sink_id());
+  EXPECT_EQ(
+      manager_.GetOldestRootCompositorFrameSinkId(client_c->frame_sink_id()),
+      root1->frame_sink_id());
+  EXPECT_EQ(
+      manager_.GetOldestRootCompositorFrameSinkId(client_d->frame_sink_id()),
+      root1->frame_sink_id());
+  EXPECT_EQ(
+      manager_.GetOldestRootCompositorFrameSinkId(client_e->frame_sink_id()),
+      root2->frame_sink_id());
+
+  // // Attach A into root2's subtree, like a window moving across displays.
+  // root1 -> A -> B -> C
+  //               + -> D
+  // root2 -> E -> A -> B -> C
+  //                    + -> D
+  manager_.RegisterFrameSinkHierarchy(client_e->frame_sink_id(),
+                                      client_a->frame_sink_id());
+
+  // With the heuristic of just keeping existing parent in the face of multiple,
+  // no client's corresponding RootCompositorFrameSink should change.
+  EXPECT_EQ(
+      manager_.GetOldestRootCompositorFrameSinkId(client_a->frame_sink_id()),
+      root1->frame_sink_id());
+  EXPECT_EQ(
+      manager_.GetOldestRootCompositorFrameSinkId(client_b->frame_sink_id()),
+      root1->frame_sink_id());
+  EXPECT_EQ(
+      manager_.GetOldestRootCompositorFrameSinkId(client_c->frame_sink_id()),
+      root1->frame_sink_id());
+  EXPECT_EQ(
+      manager_.GetOldestRootCompositorFrameSinkId(client_d->frame_sink_id()),
+      root1->frame_sink_id());
+  EXPECT_EQ(
+      manager_.GetOldestRootCompositorFrameSinkId(client_e->frame_sink_id()),
+      root2->frame_sink_id());
+
+  // Detach A from root1.
+  manager_.UnregisterFrameSinkHierarchy(root1->frame_sink_id(),
+                                        client_a->frame_sink_id());
+
+  // root1
+  // root2 -> E -> A -> B -> C
+  //                    + -> D
+  EXPECT_EQ(manager_.GetOldestParentByChildFrameId(client_a->frame_sink_id()),
+            client_e->frame_sink_id());
+
+  EXPECT_EQ(
+      manager_.GetOldestRootCompositorFrameSinkId(client_a->frame_sink_id()),
+      root2->frame_sink_id());
+  EXPECT_EQ(
+      manager_.GetOldestRootCompositorFrameSinkId(client_b->frame_sink_id()),
+      root2->frame_sink_id());
+  EXPECT_EQ(
+      manager_.GetOldestRootCompositorFrameSinkId(client_c->frame_sink_id()),
+      root2->frame_sink_id());
+  EXPECT_EQ(
+      manager_.GetOldestRootCompositorFrameSinkId(client_d->frame_sink_id()),
+      root2->frame_sink_id());
+  EXPECT_EQ(
+      manager_.GetOldestRootCompositorFrameSinkId(client_e->frame_sink_id()),
+      root2->frame_sink_id());
+
+  manager_.UnregisterFrameSinkHierarchy(root2->frame_sink_id(),
+                                        client_e->frame_sink_id());
+  manager_.UnregisterFrameSinkHierarchy(client_e->frame_sink_id(),
+                                        client_a->frame_sink_id());
+  manager_.UnregisterFrameSinkHierarchy(client_a->frame_sink_id(),
+                                        client_b->frame_sink_id());
+  manager_.UnregisterFrameSinkHierarchy(client_b->frame_sink_id(),
+                                        client_d->frame_sink_id());
+  manager_.UnregisterFrameSinkHierarchy(client_b->frame_sink_id(),
+                                        client_c->frame_sink_id());
+
+  // Delete RootCompositorFrameSinks.
+  manager_.InvalidateFrameSinkId(kFrameSinkIdRoot);
+  manager_.InvalidateFrameSinkId(kFrameSinkIdRoot2);
 }
 
 // This test verifies that a BeginFrameSource path to the root from a
@@ -813,14 +958,8 @@ TEST_F(FrameSinkManagerTest,
   manager_.RegisterBeginFrameSource(&source, kFrameSinkIdA);
 
   // Create a CompositorFrameSinkImpl.
-  MockCompositorFrameSinkClient compositor_frame_sink_client;
-  mojo::Remote<mojom::CompositorFrameSink> compositor_frame_sink;
-  manager_.CreateCompositorFrameSink(
-      kFrameSinkIdA, /*bundle_id=*/std::nullopt,
-      compositor_frame_sink.BindNewPipeAndPassReceiver(),
-      compositor_frame_sink_client.BindInterfaceRemote(),
-      /* render_input_router_config= */ nullptr);
-  EXPECT_TRUE(CompositorFrameSinkExists(kFrameSinkIdA));
+  CreateCompositorFrameSink(kFrameSinkIdA,
+                            /* render_input_router_config= */ nullptr);
 
   ParentLocalSurfaceIdAllocator allocator;
   allocator.GenerateId();
@@ -862,14 +1001,8 @@ TEST_F(FrameSinkManagerTest, ExactCopyOutputRequestTakenBySurfaceRightAway) {
   manager_.RegisterBeginFrameSource(&source, kFrameSinkIdA);
 
   // Create a CompositorFrameSinkImpl.
-  MockCompositorFrameSinkClient compositor_frame_sink_client;
-  mojo::Remote<mojom::CompositorFrameSink> compositor_frame_sink;
-  manager_.CreateCompositorFrameSink(
-      kFrameSinkIdA, /*bundle_id=*/std::nullopt,
-      compositor_frame_sink.BindNewPipeAndPassReceiver(),
-      compositor_frame_sink_client.BindInterfaceRemote(),
-      /* render_input_router_config= */ nullptr);
-  EXPECT_TRUE(CompositorFrameSinkExists(kFrameSinkIdA));
+  CreateCompositorFrameSink(kFrameSinkIdA,
+                            /* render_input_router_config= */ nullptr);
 
   ParentLocalSurfaceIdAllocator allocator;
   allocator.GenerateId();
@@ -915,14 +1048,8 @@ TEST_F(FrameSinkManagerTest,
   manager_.RegisterBeginFrameSource(&source, kFrameSinkIdA);
 
   // Create a CompositorFrameSinkImpl.
-  MockCompositorFrameSinkClient compositor_frame_sink_client;
-  mojo::Remote<mojom::CompositorFrameSink> compositor_frame_sink;
-  manager_.CreateCompositorFrameSink(
-      kFrameSinkIdA, /*bundle_id=*/std::nullopt,
-      compositor_frame_sink.BindNewPipeAndPassReceiver(),
-      compositor_frame_sink_client.BindInterfaceRemote(),
-      /* render_input_router_config= */ nullptr);
-  EXPECT_TRUE(CompositorFrameSinkExists(kFrameSinkIdA));
+  CreateCompositorFrameSink(kFrameSinkIdA,
+                            /* render_input_router_config= */ nullptr);
 
   ParentLocalSurfaceIdAllocator allocator;
   allocator.GenerateId();
@@ -961,7 +1088,9 @@ class AndroidFrameSinkManagerTest : public FrameSinkManagerTest,
                                               /* enabled= */ GetParam());
   }
 
-  bool ExpectedInputManagerCreation() { return input::TransferInputToViz(); }
+  bool ExpectedInputManagerCreation() {
+    return input::IsTransferInputToVizSupported();
+  }
 
  private:
   base::test::TracingEnvironment tracing_environment_;
@@ -980,17 +1109,8 @@ TEST_P(AndroidFrameSinkManagerTest, RenderInputRouterLifecycle) {
   manager_.RegisterFrameSinkId(kFrameSinkIdA, true /* report_activation */);
 
   // Create a CompositorFrameSinkImpl.
-  MockCompositorFrameSinkClient compositor_frame_sink_client;
-  mojo::Remote<mojom::CompositorFrameSink> compositor_frame_sink;
-  mojo::PendingRemote<blink::mojom::RenderInputRouterClient> rir_client;
-  auto config = input::mojom::RenderInputRouterConfig::New();
-  config->rir_client = std::move(rir_client);
+  CreateCompositorFrameSink(kFrameSinkIdA, CreateRIRConfig(/*grouping_id=*/1));
 
-  manager_.CreateCompositorFrameSink(
-      kFrameSinkIdA, /*bundle_id=*/std::nullopt,
-      compositor_frame_sink.BindNewPipeAndPassReceiver(),
-      compositor_frame_sink_client.BindInterfaceRemote(), std::move(config));
-  EXPECT_TRUE(CompositorFrameSinkExists(kFrameSinkIdA));
   if (InputManagerExists()) {
     EXPECT_TRUE(GetMockInputManager()->RIRExistsForFrameSinkId(kFrameSinkIdA));
   }
@@ -1023,7 +1143,7 @@ TEST_P(AndroidFrameSinkManagerTest, RenderInputRouterLifecycle) {
   // "client_id", "sink_id"}, {"<num>", "<boolean>" "<clientId>", "<sinkId>"}}.
   EXPECT_EQ(result.value().size(), 2u);
   EXPECT_EQ(result.value()[1].size(), 4u);
-  if (input::TransferInputToViz()) {
+  if (input::IsTransferInputToVizSupported()) {
     // Checks if `InputManger::OnCreateCompositorFrameSink` was called for
     // kFrameSinkIdA.
     EXPECT_THAT(
@@ -1050,7 +1170,7 @@ TEST_P(AndroidFrameSinkManagerTest, RenderInputRouterLifecycle) {
   auto result2 = ttp.RunQuery(query2);
   EXPECT_TRUE(result2.has_value());
 
-  if (input::TransferInputToViz()) {
+  if (input::IsTransferInputToVizSupported()) {
     EXPECT_THAT(result2.value(),
                 testing::ElementsAre(
                     testing::ElementsAre("cnt", "client_id", "sink_id"),
@@ -1070,15 +1190,9 @@ TEST_P(AndroidFrameSinkManagerTest,
   ttp.StartTrace("viz");
 
   // Register a non layer tree frame sink.
-  MockCompositorFrameSinkClient compositor_frame_sink_client;
-  mojo::Remote<mojom::CompositorFrameSink> compositor_frame_sink;
   manager_.RegisterFrameSinkId(kFrameSinkIdB, true /* report_activation */);
-  manager_.CreateCompositorFrameSink(
-      kFrameSinkIdB, /*bundle_id=*/std::nullopt,
-      compositor_frame_sink.BindNewPipeAndPassReceiver(),
-      compositor_frame_sink_client.BindInterfaceRemote(),
-      /* render_input_router_config= */ nullptr);
-  EXPECT_TRUE(CompositorFrameSinkExists(kFrameSinkIdB));
+  CreateCompositorFrameSink(kFrameSinkIdB,
+                            /* render_input_router_config= */ nullptr);
 
   if (InputManagerExists()) {
     // RIR should not be created for non layer tree frame sink.
@@ -1113,7 +1227,7 @@ TEST_P(AndroidFrameSinkManagerTest,
   // "client_id", "sink_id"}, {"<num>", "<boolean>" "<clientId>", "<sinkId>"}}.
   EXPECT_EQ(result.value().size(), 2u);
   EXPECT_EQ(result.value()[1].size(), 4u);
-  if (input::TransferInputToViz()) {
+  if (input::IsTransferInputToVizSupported()) {
     EXPECT_THAT(
         result.value(),
         testing::ElementsAre(
@@ -1124,6 +1238,149 @@ TEST_P(AndroidFrameSinkManagerTest,
                 base::NumberToString(kFrameSinkIdB.sink_id()))));
   } else {
     EXPECT_EQ(result.value()[1][0], "0");
+  }
+}
+
+TEST_P(AndroidFrameSinkManagerTest, RWHIERLifecycleDiffWebContents) {
+  const bool expected_creation = input::IsTransferInputToVizSupported();
+  manager_.RegisterFrameSinkId(kFrameSinkIdA, true /* report_activation */);
+
+  // Create a CompositorFrameSinkImpl.
+  CreateCompositorFrameSink(kFrameSinkIdA, CreateRIRConfig(/*grouping_id=*/1));
+
+  EXPECT_EQ(InputManagerExists(), expected_creation);
+
+  manager_.RegisterFrameSinkId(kFrameSinkIdB, true /* report_activation */);
+
+  // Create another CompositorFrameSinkImpl for a different WebContent.
+  CreateCompositorFrameSink(kFrameSinkIdB, CreateRIRConfig(/*grouping_id=*/2));
+
+  EXPECT_EQ(InputManagerExists(), expected_creation);
+
+  auto* mock_input_manager = GetMockInputManager();
+
+  if (expected_creation) {
+    EXPECT_EQ(mock_input_manager->GetRenderInputRouterMapSize(), 2);
+    EXPECT_EQ(mock_input_manager->GetInputEventRouterMapSize(), 2);
+  }
+
+  // Invalidating should destroy the CompositorFrameSinkImpl.
+  manager_.InvalidateFrameSinkId(kFrameSinkIdA);
+  EXPECT_FALSE(CompositorFrameSinkExists(kFrameSinkIdA));
+
+  if (expected_creation) {
+    EXPECT_EQ(mock_input_manager->GetRenderInputRouterMapSize(), 1);
+    EXPECT_EQ(mock_input_manager->GetInputEventRouterMapSize(), 1);
+  }
+
+  manager_.InvalidateFrameSinkId(kFrameSinkIdB);
+  EXPECT_FALSE(CompositorFrameSinkExists(kFrameSinkIdB));
+
+  if (expected_creation) {
+    EXPECT_EQ(mock_input_manager->GetRenderInputRouterMapSize(), 0);
+    EXPECT_EQ(mock_input_manager->GetInputEventRouterMapSize(), 0);
+  }
+}
+
+TEST_P(AndroidFrameSinkManagerTest, RWHIERLifecycleSameWebContents) {
+  const bool expected_creation = input::IsTransferInputToVizSupported();
+  manager_.RegisterFrameSinkId(kFrameSinkIdA, true /* report_activation */);
+
+  // Create a CompositorFrameSinkImpl.
+  CreateCompositorFrameSink(kFrameSinkIdA, CreateRIRConfig(/*grouping_id=*/1));
+
+  EXPECT_EQ(InputManagerExists(), expected_creation);
+
+  manager_.RegisterFrameSinkId(kFrameSinkIdB, true /* report_activation */);
+
+  // Create another CompositorFrameSinkImpl for the same WebContent.
+  CreateCompositorFrameSink(kFrameSinkIdB, CreateRIRConfig(/*grouping_id=*/1));
+
+  EXPECT_EQ(InputManagerExists(), expected_creation);
+
+  auto* mock_input_manager = GetMockInputManager();
+
+  if (expected_creation) {
+    EXPECT_EQ(mock_input_manager->GetRenderInputRouterMapSize(), 2);
+    EXPECT_EQ(mock_input_manager->GetInputEventRouterMapSize(), 1);
+  }
+
+  // Invalidating should destroy the CompositorFrameSinkImpl.
+  manager_.InvalidateFrameSinkId(kFrameSinkIdA);
+  EXPECT_FALSE(CompositorFrameSinkExists(kFrameSinkIdA));
+
+  if (expected_creation) {
+    EXPECT_EQ(mock_input_manager->GetRenderInputRouterMapSize(), 1);
+    EXPECT_EQ(mock_input_manager->GetInputEventRouterMapSize(), 1);
+  }
+
+  manager_.InvalidateFrameSinkId(kFrameSinkIdB);
+  EXPECT_FALSE(CompositorFrameSinkExists(kFrameSinkIdB));
+
+  if (expected_creation) {
+    EXPECT_EQ(mock_input_manager->GetRenderInputRouterMapSize(), 0);
+    EXPECT_EQ(mock_input_manager->GetInputEventRouterMapSize(), 0);
+  }
+}
+
+TEST_P(AndroidFrameSinkManagerTest, VizRIRDelegateLifecycle) {
+  base::test::TestTraceProcessor ttp;
+  ttp.StartTrace("viz, input");
+
+  const bool expected_creation = input::IsTransferInputToVizSupported();
+  manager_.RegisterFrameSinkId(kFrameSinkIdA, true /* report_activation */);
+
+  // Create a CompositorFrameSinkImpl.
+  CreateCompositorFrameSink(kFrameSinkIdA, CreateRIRConfig(/*grouping_id=*/1));
+
+  EXPECT_EQ(InputManagerExists(), expected_creation);
+  EXPECT_EQ(InputManagerExists(), ExpectedInputManagerCreation());
+
+  // Invalidating should destroy the CompositorFrameSinkImpl.
+  manager_.InvalidateFrameSinkId(kFrameSinkIdA);
+
+  EXPECT_FALSE(CompositorFrameSinkExists(kFrameSinkIdA));
+
+  absl::Status status = ttp.StopAndParseTrace();
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  std::string query = R"(
+    SELECT name
+    FROM slice
+    WHERE
+    (
+      name = 'RenderInputRouter::RenderInputRouter'
+      OR
+      name = 'RenderInputRouter::~RenderInputRouter'
+      OR
+      name = 'RenderInputRouterDelegateImpl::RenderInputRouterDelegateImpl'
+      OR
+      name = 'RenderInputRouterDelegateImpl::~RenderInputRouterDelegateImpl'
+    )
+    ORDER BY ts ASC
+  )";
+
+  auto result = ttp.RunQuery(query);
+  EXPECT_TRUE(result.has_value());
+
+  // `result.value()` would look something like this: {{"name"},
+  // {"<name1>"}, {"<name2>"}, {"<name3>"}, {"<name4>"}}.
+  if (input::IsTransferInputToVizSupported()) {
+    EXPECT_EQ(result.value().size(), 5u);
+    EXPECT_EQ(result.value()[1].size(), 1u);
+
+    EXPECT_THAT(
+        result.value(),
+        testing::ElementsAre(
+            testing::ElementsAre("name"),
+            testing::ElementsAre("RenderInputRouterDelegateImpl::"
+                                 "RenderInputRouterDelegateImpl"),
+            testing::ElementsAre("RenderInputRouter::RenderInputRouter"),
+            testing::ElementsAre("RenderInputRouter::~RenderInputRouter"),
+            testing::ElementsAre("RenderInputRouterDelegateImpl::~"
+                                 "RenderInputRouterDelegateImpl")));
+  } else {
+    EXPECT_EQ(result.value()[0][0], "name");
   }
 }
 

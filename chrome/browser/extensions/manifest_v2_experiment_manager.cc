@@ -145,6 +145,11 @@ bool ManifestV2ExperimentManagerFactory::ServiceIsCreatedWithBrowserContext()
 MV2ExperimentStage CalculateCurrentExperimentStage() {
   // Return the "highest" stage that is currently active for the user.
   if (base::FeatureList::IsEnabled(
+          extensions_features::kExtensionManifestV2Unsupported)) {
+    return MV2ExperimentStage::kUnsupported;
+  }
+
+  if (base::FeatureList::IsEnabled(
           extensions_features::kExtensionManifestV2Disabled)) {
     return MV2ExperimentStage::kDisableWithReEnable;
   }
@@ -168,6 +173,8 @@ PrefMap GetExtensionAcknowledgedPrefFor(MV2ExperimentStage experiment_stage) {
       return kMV2DeprecationExtensionWarningAcknowledgedPref;
     case MV2ExperimentStage::kDisableWithReEnable:
       return kMV2DeprecationExtensionDisabledAcknowledgedPref;
+    case MV2ExperimentStage::kUnsupported:
+      NOTREACHED();
   }
 }
 
@@ -183,19 +190,50 @@ PrefMap GetGlobalNoticeAcknowledgedPrefFor(
       return kMV2DeprecationWarningAcknowledgedGloballyPref;
     case MV2ExperimentStage::kDisableWithReEnable:
       return kMV2DeprecationDisabledAcknowledgedGloballyPref;
+    case MV2ExperimentStage::kUnsupported:
+      return kMV2DeprecationUnsupportedAcknowledgedGloballyPref;
   }
 }
 
-// Returns true if extensions should be disabled if the user is in the given
-// `stage` of the MV2 experiments. Extracted into this method to make it easier
-// to update as we add more stages.
-bool ShouldDisableExtensionsForExperimentStage(MV2ExperimentStage stage) {
+// Returns true if legacy extensions should be disabled, looking at both
+// experiment stage and global state.
+bool ShouldDisableLegacyExtensions(MV2ExperimentStage stage) {
+  if (g_allow_mv2_for_testing) {
+    // We allow legacy MV2 extensions for testing purposes.
+    return false;
+  }
+
+  if (base::FeatureList::IsEnabled(
+          extensions_features::kAllowLegacyMV2Extensions)) {
+    // The user explicitly set the flag to allow legacy MV2 extensions. It's
+    // important we retain this functionality so that developers of MV2
+    // extensions used by enterprises can continue developing (and testing)
+    // them for as long as the ExtensionManifestV2Availability enterprise policy
+    // is supported.
+    return false;
+  }
+
+  // Check the experiment stage to determine if extensions should be disabled.
   switch (stage) {
     case MV2ExperimentStage::kNone:
     case MV2ExperimentStage::kWarning:
       return false;
     case MV2ExperimentStage::kDisableWithReEnable:
+    case MV2ExperimentStage::kUnsupported:
       return true;
+  }
+}
+
+// Returns true if the user is allowed to re-enable disabled extensions in the
+// given experiment `stage`.
+bool UserCanReEnableExtensionsForStage(MV2ExperimentStage stage) {
+  switch (stage) {
+    case MV2ExperimentStage::kNone:
+    case MV2ExperimentStage::kWarning:
+    case MV2ExperimentStage::kDisableWithReEnable:
+      return true;
+    case MV2ExperimentStage::kUnsupported:
+      return false;
   }
 }
 
@@ -260,12 +298,9 @@ bool ManifestV2ExperimentManager::ShouldBlockExtensionInstallation(
     Manifest::Type manifest_type,
     mojom::ManifestLocation manifest_location,
     const HashedExtensionId& hashed_id) {
-  if (g_allow_mv2_for_testing) {
-    return false;
-  }
-
-  // Only block extension installation during the disablement phase.
-  if (!ShouldDisableExtensionsForExperimentStage(experiment_stage_)) {
+  // Only block extension installation during phases in which legacy extensions
+  // are automatically disabled.
+  if (!ShouldDisableLegacyExtensions(experiment_stage_)) {
     return false;
   }
 
@@ -294,7 +329,9 @@ bool ManifestV2ExperimentManager::ShouldBlockExtensionInstallation(
 bool ManifestV2ExperimentManager::DidUserAcknowledgeNotice(
     const ExtensionId& extension_id) {
   // There is no notice for kNone stage, thus it cannot be acknowledged.
-  if (experiment_stage_ == MV2ExperimentStage::kNone) {
+  // The notice cannot be acknowledged in kUnsupported stage.
+  if (experiment_stage_ == MV2ExperimentStage::kNone ||
+      experiment_stage_ == MV2ExperimentStage::kUnsupported) {
     return false;
   }
 
@@ -366,27 +403,25 @@ void ManifestV2ExperimentManager::SetHasTriggeredDisabledDialog(
 }
 
 void ManifestV2ExperimentManager::DisableAffectedExtensions() {
-  // If MV2 extensions are allowed for testing purposes, don't disable any of
-  // them.
-  if (g_allow_mv2_for_testing) {
-    return;
-  }
-
-  if (!ShouldDisableExtensionsForExperimentStage(experiment_stage_)) {
+  if (!ShouldDisableLegacyExtensions(experiment_stage_)) {
     return;
   }
 
   ExtensionRegistry* extension_registry =
       ExtensionRegistry::Get(browser_context_);
   std::set<scoped_refptr<const Extension>> extensions_to_disable;
+
+  bool user_reenable_allowed =
+      UserCanReEnableExtensionsForStage(experiment_stage_);
   for (const auto& extension : extension_registry->enabled_extensions()) {
     if (!impact_checker_.IsExtensionAffected(*extension)) {
       continue;
     }
 
-    if (DidUserReEnableExtension(extension->id())) {
+    if (user_reenable_allowed && DidUserReEnableExtension(extension->id())) {
       // The user explicitly chose to re-enable the extension after it was
-      // disabled. Allow it to remain enabled.
+      // disabled, and that's allowed in this experiment stage. Allow it to
+      // remain enabled.
       continue;
     }
 
@@ -426,12 +461,12 @@ void ManifestV2ExperimentManager::MaybeReEnableExtension(
     return;
   }
 
-  // Check if the extension is still affected *and* whether the experiment
-  // stage is still one in which extensions should be disabled. It's possible
-  // the user moved from a later experiment stage to an earlier one, in which
-  // case extensions should be re-enabled.
+  // Check if the extension is still affected *and* whether the environment is
+  // still one in which extensions should be disabled. It's possible the user
+  // moved from a later experiment stage to an earlier one or set a feature
+  // flag, in which case extensions should be re-enabled.
   if (impact_checker_.IsExtensionAffected(extension) &&
-      ShouldDisableExtensionsForExperimentStage(experiment_stage_)) {
+      ShouldDisableLegacyExtensions(experiment_stage_)) {
     return;
   }
 
@@ -456,9 +491,9 @@ bool ManifestV2ExperimentManager::DidUserReEnableExtension(
 }
 
 void ManifestV2ExperimentManager::EmitMetricsForProfileReady() {
-  if (!ShouldDisableExtensionsForExperimentStage(experiment_stage_)) {
-    // Don't bother reporting MV2-specific metrics if the user isn't at a stage
-    // where extensions could be disabled.
+  if (!ShouldDisableLegacyExtensions(experiment_stage_)) {
+    // Don't bother reporting MV2-specific metrics if the user isn't in an
+    // environment in which extensions could be disabled.
     return;
   }
 
@@ -497,7 +532,11 @@ void ManifestV2ExperimentManager::EmitMetricsForProfileReady() {
                    extension.id(),
                    disable_reason::DISABLE_UNSUPPORTED_MANIFEST_VERSION)) {
       CHECK(!is_enabled);
-      extension_state = MV2ExtensionState::kSoftDisabled;
+      CHECK(experiment_stage_ == MV2ExperimentStage::kUnsupported ||
+            experiment_stage_ == MV2ExperimentStage::kDisableWithReEnable);
+      extension_state = experiment_stage_ == MV2ExperimentStage::kUnsupported
+                            ? MV2ExtensionState::kHardDisabled
+                            : MV2ExtensionState::kSoftDisabled;
     } else {
       extension_state = MV2ExtensionState::kOther;
     }
@@ -520,6 +559,13 @@ void ManifestV2ExperimentManager::EmitMetricsForProfileReady() {
 void ManifestV2ExperimentManager::RecordUkmForExtension(
     const GURL& extension_url,
     ExtensionMV2DeprecationAction action) {
+  if (experiment_stage_ != MV2ExperimentStage::kDisableWithReEnable) {
+    // The UKM is only emitted for the "disable with re-enable" phase. We do
+    // not need UKM for the "hard disable" phase (as the only action available
+    // to the user is to remove or find alternatives).
+    return;
+  }
+
   ukm::builders::Extensions_MV2ExtensionHandledInSoftDisable(
       ukm::UkmRecorder::GetSourceIdForExtensionUrl(
           base::PassKey<ManifestV2ExperimentManager>(), extension_url))

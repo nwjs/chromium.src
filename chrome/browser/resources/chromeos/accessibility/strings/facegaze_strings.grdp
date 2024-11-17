@@ -6,4 +6,118 @@
   <message name="IDS_FACEGAZE_CONFIRMATION_DIALOG_DESC" desc="The visible description of a confirmation dialog that is shown when FaceGaze is enabled.">
     Face control gives you cursor control with face pointing and ability to perform actions, such as left clicking with facial gestures like smile
   </message>
+  <message name="IDS_FACEGAZE_MACRO_TEXT_CUSTOM_KEY_COMBO" desc="This text describes an action to perform a custom key combination.">
+    Perform a custom key combination
+  </message>
+  <message name="IDS_FACEGAZE_MACRO_TEXT_KEY_PRESS_DOWN" desc="This text describes an action to press the down arrow key.">
+    Press the down arrow key
+  </message>
+  <message name="IDS_FACEGAZE_MACRO_TEXT_KEY_PRESS_LEFT" desc="This text describes an action to press the left arrow key.">
+    Press the left arrow key
+  </message>
+  <message name="IDS_FACEGAZE_MACRO_TEXT_MEDIA_PLAY_PAUSE" desc="This text describes an action to play or pause media.">
+    Play or pause media
+  </message>
+  <message name="IDS_FACEGAZE_MACRO_TEXT_KEY_PRESS_RIGHT" desc="This text describes an action to press the right arrow key.">
+    Press the right arrow key
+  </message>
+  <message name="IDS_FACEGAZE_MACRO_TEXT_KEY_PRESS_SPACE" desc="This text describes an action to press the space key.">
+    Press the space key
+  </message>
+  <message name="IDS_FACEGAZE_MACRO_TEXT_TOGGLE_OVERVIEW" desc="This text describes an action to show or hide the overview of current windows.">
+    Show or hide overview of windows
+  </message>
+  <message name="IDS_FACEGAZE_MACRO_TEXT_KEY_PRESS_UP" desc="This text describes an action to press the up arrow key.">
+    Press the up arrow key
+  </message>
+  <message name="IDS_FACEGAZE_MACRO_TEXT_MOUSE_CLICK_LEFT" desc="This text describes an action to left-click the mouse.">
+    Left-click the mouse
+  </message>
+  <message name="IDS_FACEGAZE_MACRO_TEXT_MOUSE_CLICK_LEFT_DOUBLE" desc="This text describes an action to double click the mouse.">
+    Double-click the mouse
+  </message>
+  <message name="IDS_FACEGAZE_MACRO_TEXT_MOUSE_CLICK_RIGHT" desc="This text describes an action to right-click the mouse.">
+    Right-click the mouse
+  </message>
+  <message name="IDS_FACEGAZE_MACRO_TEXT_MOUSE_LONG_CLICK_LEFT" desc="This text describes an action to drag and drop.">
+    Drag and drop
+  </message>
+  <message name="IDS_FACEGAZE_MACRO_TEXT_RESET_CURSOR" desc="This text describes an action to reset the cursor to the center of the screen.">
+    Reset cursor to center
+  </message>
+  <message name="IDS_FACEGAZE_MACRO_TEXT_TOGGLE_DICTATION" desc="This text describes an action to start or stop the Dictation feature.">
+    Start or stop dictation
+  </message>
+  <message name="IDS_FACEGAZE_MACRO_TEXT_TOGGLE_FACEGAZE" desc="This text describes an action to pause or resume FaceGaze.">
+    Pause or resume face control
+  </message>
+  <message name="IDS_FACEGAZE_MACRO_TEXT_TOGGLE_SCROLL_MODE" desc="This text describes an action to pause or resume FaceGaze scroll mode.">
+    Enter or exit scroll mode
+  </message>
+  <message name="IDS_FACEGAZE_MACRO_TEXT_TOGGLE_VIRTUAL_KEYBOARD" desc="This text describes an action to show or hide the on-screen keyboard.">
+    Show or hide on-screen keyboard
+  </message>
+  <message name="IDS_FACEGAZE_GESTURE_TEXT_BROW_INNER_UP" desc="This text describes a gesture, or movement, that a user will make with their face. For this gesture, the user should raise their eyebrows.">
+    Raise eyebrows
+  </message>
+  <message name="IDS_FACEGAZE_GESTURE_TEXT_BROWS_DOWN" desc="This text describes a gesture, or movement, that a user will make with their face. For this gesture, the user should lower their eyebrows.">
+    Lower eyebrows
+  </message>
+  <message name="IDS_FACEGAZE_GESTURE_TEXT_EYE_SQUINT_LEFT" desc="This text describes a gesture, or movement, that a user will make with their face. For this gesture, the user should squint their left eye.">
+    Squint left eye
+  </message>
+  <message name="IDS_FACEGAZE_GESTURE_TEXT_EYE_SQUINT_RIGHT" desc="This text describes a gesture, or movement, that a user will make with their face. For this gesture, the user should squint their right eye.">
+    Squint right eye
+  </message>
+  <message name="IDS_FACEGAZE_GESTURE_TEXT_EYES_BLINK" desc="This text describes a gesture, or movement, that a user will make with their face. For this gesture, the user should raise blink.">
+    Blink both eyes
+  </message>
+  <message name="IDS_FACEGAZE_GESTURE_TEXT_EYES_LOOK_DOWN" desc="This text describes a gesture, or movement, that a user will make with their face. For this gesture, the user should look down.">
+    Look down
+  </message>
+  <message name="IDS_FACEGAZE_GESTURE_TEXT_EYES_LOOK_LEFT" desc="This text describes a gesture, or movement, that a user will make with their face. For this gesture, the user should look left.">
+    Look left
+  </message>
+  <message name="IDS_FACEGAZE_GESTURE_TEXT_EYES_LOOK_RIGHT" desc="This text describes a gesture, or movement, that a user will make with their face. For this gesture, the user should look right.">
+    Look right
+  </message>
+  <message name="IDS_FACEGAZE_GESTURE_TEXT_EYES_LOOK_UP" desc="This text describes a gesture, or movement, that a user will make with their face. For this gesture, the user should look up.">
+    Look up
+  </message>
+  <message name="IDS_FACEGAZE_GESTURE_TEXT_JAW_LEFT" desc="This text describes a gesture, or movement, that a user will make with their face. For this gesture, the user should shift their jaw to the left.">
+    Shift jaw left
+  </message>
+  <message name="IDS_FACEGAZE_GESTURE_TEXT_JAW_OPEN" desc="This text describes a gesture, or movement, that a user will make with their face. For this gesture, the user should open their mouth.">
+    Open your mouth wide
+  </message>
+  <message name="IDS_FACEGAZE_GESTURE_TEXT_JAW_RIGHT" desc="This text describes a gesture, or movement, that a user will make with their face. For this gesture, the user should shift their jaw to the right.">
+    Shift jaw right
+  </message>
+  <message name="IDS_FACEGAZE_GESTURE_TEXT_MOUTH_FUNNEL" desc="This text describes a gesture, or movement, that a user will make with their face. For this gesture, the user should make a circle with their lips.">
+    Make a circle with your lips
+  </message>
+  <message name="IDS_FACEGAZE_GESTURE_TEXT_MOUTH_LEFT" desc="This text describes a gesture, or movement, that a user will make with their face. For this gesture, the user should stretch the left corner of their mouth.">
+    Stretch left corner of your mouth
+  </message>
+  <message name="IDS_FACEGAZE_GESTURE_TEXT_MOUTH_PUCKER" desc="This text describes a gesture, or movement, that a user will make with their face. For this gesture, the user should pucker their lips.">
+    Pucker by squeezing lips together
+  </message>
+  <message name="IDS_FACEGAZE_GESTURE_TEXT_MOUTH_RIGHT" desc="This text describes a gesture, or movement, that a user will make with their face. For this gesture, the user should stretch the right corner of their mouth.">
+    Stretch right corner of your mouth
+  </message>
+  <message name="IDS_FACEGAZE_GESTURE_TEXT_MOUTH_SMILE" desc="This text describes a gesture, or movement, that a user will make with their face. For this gesture, the user should smile.">
+    Smile
+  </message>
+  <message name="IDS_FACEGAZE_GESTURE_TEXT_MOUTH_UPPER_UP" desc="This text describes a gesture, or movement, that a user will make with their face. For this gesture, the user should wrinkle their nose.">
+    Wrinkle your nose
+  </message>
+  <message name="IDS_FACEGAZE_DISPLAY_TEXT" desc="This text is the finalized text that shows up in the FaceGaze bubble UI when a gesture triggers an action. It contains the facial gesture that was recognized and the action that it triggered.">
+    <ph name="action">$1<ex>Left-click the mouse</ex></ph> (<ph name="gesture">$2<ex>Smile</ex></ph>)
+  </message>
+  <message name="IDS_FACEGAZE_STATE_PAUSED" desc="A message displayed in the FaceGaze bubble UI informing the user that FaceGaze is currently paused.">
+    Face control paused
+  </message>
+  <message name="IDS_FACEGAZE_STATE_SCROLL_ACTIVE" desc="A message displayed in the FaceGaze bubble UI informing the user that scroll mode is currently active.">
+    Scroll mode active
+  </message>
 </grit-part>

@@ -32,6 +32,7 @@ class GURL;
 
 namespace base {
 class CommandLine;
+class TimeDelta;
 class Value;
 class Version;
 }  // namespace base
@@ -141,12 +142,17 @@ void Clean(UpdaterScope scope);
 // test.
 void ExpectClean(UpdaterScope scope);
 
+// The overinstall timeout for `EnterTestMode`. Different for windows/mac/linux.
+base::TimeDelta GetOverinstallTimeoutForEnterTestMode();
+
 // Places the updater into test mode (redirect server URLs and disable CUP).
 void EnterTestMode(const GURL& update_url,
                    const GURL& crash_upload_url,
                    const GURL& device_management_url,
                    const GURL& app_logo_url,
-                   const base::TimeDelta& idle_timeout);
+                   base::TimeDelta idle_timeout,
+                   base::TimeDelta server_keep_alive_time,
+                   base::TimeDelta ceca_connection_timeout);
 
 // Takes the updater our of the test mode by deleting the external constants
 // JSON file.
@@ -396,7 +402,8 @@ void ExpectUpdateSequence(UpdaterScope scope,
                           UpdateService::Priority priority,
                           const base::Version& from_version,
                           const base::Version& to_version,
-                          bool do_fault_injection);
+                          bool do_fault_injection,
+                          bool skip_download);
 
 void ExpectUpdateSequenceBadHash(UpdaterScope scope,
                                  ScopedServer* test_server,
@@ -413,7 +420,8 @@ void ExpectInstallSequence(UpdaterScope scope,
                            UpdateService::Priority priority,
                            const base::Version& from_version,
                            const base::Version& to_version,
-                           bool do_fault_injection);
+                           bool do_fault_injection,
+                           bool skip_download);
 
 void ExpectAppsUpdateSequence(UpdaterScope scope,
                               ScopedServer* test_server,
@@ -434,7 +442,8 @@ void RunFakeLegacyUpdater(UpdaterScope scope);
 
 // Dismiss the installation completion dialog, then wait for the process
 // exit.
-void CloseInstallCompleteDialog(const std::wstring& child_window_text_to_find,
+void CloseInstallCompleteDialog(const std::u16string& bundle_name,
+                                const std::wstring& child_window_text_to_find,
                                 bool verify_app_logo_loaded = false);
 #endif  // BUILDFLAG(IS_WIN)
 
@@ -450,7 +459,7 @@ void RunRecoveryComponent(UpdaterScope scope,
                           const std::string& app_id,
                           const base::Version& version);
 
-void SetLastChecked(UpdaterScope scope, const base::Time& time);
+void SetLastChecked(UpdaterScope scope, base::Time time);
 
 void ExpectLastChecked(UpdaterScope scope);
 
@@ -481,11 +490,45 @@ void DMDeregisterDevice(UpdaterScope scope);
 
 void DMCleanup(UpdaterScope scope);
 
-// Installs the enterprise companion app, always at the system scope.
-void InstallEnterpriseCompanionApp(const base::Value::Dict& external_overrides);
+// Installs the enterprise companion app from the test's data deps, always at
+// the system scope.
+void InstallEnterpriseCompanionApp();
+
+// Manually uninstalls the enterprise companion app installed via
+// `InstallBrokenEnterpriseCompanionApp`. This should be done before the updater
+// uninstalls, as the broken companion app is unable to uninstall itself which
+// will cause the updater's uninstaller to return an error.
+void UninstallBrokenEnterpriseCompanionApp();
+
+// Installs a stub enterprise companion app which will fail to launch, always at
+// the system scope.
+void InstallBrokenEnterpriseCompanionApp();
+
+// Installs the constants overrides for the enterprise companion app, always at
+// the system scope.
+void InstallEnterpriseCompanionAppOverrides(
+    const base::Value::Dict& external_overrides);
+
+// Expects that the enterprise companion app is not installed, always at system
+// scope.
+void ExpectEnterpriseCompanionAppNotInstalled();
 
 // Uninstalls the enterprise companion app, always at the system scope.
 void UninstallEnterpriseCompanionApp();
+
+// Expects device management requests from either the Enterprise Companion App
+// or the updater, depending on the build configuration.
+#ifdef INCLUDE_ENTERPRISE_COMPANION_IN_INSTALLER
+#define ExpectDeviceManagementRegistrationRequestFromDefaultPolicyAgent \
+  ExpectDeviceManagementRegistrationRequestViaCompanionApp
+#define ExpectDeviceManagementPolicyFetchRequestFromDefaultPolicyAgent \
+  ExpectDeviceManagementPolicyFetchRequestViaCompanionApp
+#else
+#define ExpectDeviceManagementRegistrationRequestFromDefaultPolicyAgent \
+  ExpectDeviceManagementRegistrationRequest
+#define ExpectDeviceManagementPolicyFetchRequestFromDefaultPolicyAgent \
+  ExpectDeviceManagementPolicyFetchRequest
+#endif
 
 void ExpectDeviceManagementRegistrationRequest(
     ScopedServer* test_server,

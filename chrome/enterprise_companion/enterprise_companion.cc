@@ -21,6 +21,7 @@
 #include "build/build_config.h"
 #include "chrome/enterprise_companion/app/app.h"
 #include "chrome/enterprise_companion/crash_client.h"
+#include "chrome/enterprise_companion/enterprise_companion_client.h"
 #include "chrome/enterprise_companion/enterprise_companion_status.h"
 #include "chrome/enterprise_companion/installer_paths.h"
 #include "chrome/enterprise_companion/ipc_support.h"
@@ -99,6 +100,10 @@ std::unique_ptr<App> CreateAppForCommandLine(base::CommandLine* command_line) {
 
   if (command_line->HasSwitch(kInstallSwitch)) {
     return CreateAppInstall();
+  }
+
+  if (command_line->HasSwitch(kInstallIfNeededSwitch)) {
+    return CreateAppInstallIfNeeded();
   }
 
   if (command_line->HasSwitch(kUninstallSwitch)) {

@@ -50,8 +50,8 @@
 #include "chrome/browser/browsing_data/chrome_browsing_data_remover_delegate_factory.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
-#include "chrome/browser/dips/dips_service.h"
-#include "chrome/browser/dips/dips_service_factory.h"
+#include "chrome/browser/dips/dips_service_impl.h"
+#include "chrome/browser/dips/dips_storage.h"
 #include "chrome/browser/domain_reliability/service_factory.h"
 #include "chrome/browser/download/chrome_download_manager_delegate.h"
 #include "chrome/browser/download/download_core_service_factory.h"
@@ -681,8 +681,7 @@ class ClearDomainReliabilityTester {
 class RemoveDIPSEventsTester {
  public:
   explicit RemoveDIPSEventsTester(Profile* profile) {
-    auto* dips_service = DIPSServiceFactory::GetForBrowserContext(profile);
-    storage_ = dips_service->storage();
+    storage_ = DIPSServiceImpl::Get(profile)->storage();
   }
 
   void WriteEventTimes(GURL url,
@@ -2538,6 +2537,7 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest,
   ASSERT_FALSE(tester.HasProfileAndCard());
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 class ChromeBrowsingDataRemoverDelegateUserAnnotationsTest
     : public ChromeBrowsingDataRemoverDelegateTest {
  public:
@@ -2580,6 +2580,7 @@ TEST_F(ChromeBrowsingDataRemoverDelegateUserAnnotationsTest,
               testing::Pair(testing::Eq(time_now),
                             testing::Eq(time_now + base::Hours(1))));
 }
+#endif
 
 TEST_F(ChromeBrowsingDataRemoverDelegateTest, ZeroSuggestPrefsBasedCacheClear) {
   // Disable in-memory ZPS caching.
@@ -4442,8 +4443,8 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest,
   auto kTestOrigin1 = url::Origin::Create(GURL("https://a.com"));
   auto kTestOrigin2 = url::Origin::Create(GURL("https://b.com"));
 
-  const base::FilePath kTestPath1 = base::FilePath(FILE_PATH_LITERAL("/a/b"));
-  const base::FilePath kTestPath2 = base::FilePath(FILE_PATH_LITERAL("/a/c"));
+  const content::PathInfo kTestPath1(FILE_PATH_LITERAL("/a/b"));
+  const content::PathInfo kTestPath2(FILE_PATH_LITERAL("/a/c"));
 
   // Populate the `grants` object with permissions.
   auto origin1_file_read_grant =

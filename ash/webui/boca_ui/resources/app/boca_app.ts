@@ -31,6 +31,7 @@ export declare interface Identity {
   id: string;
   name: string;
   email: string;
+  photoUrl?: string;
 }
 
 /**
@@ -54,6 +55,11 @@ export enum NavigationType {
   LIMITED = 4,
 }
 
+export enum JoinMethod {
+  ROSTER = 0,
+  ACCESS_CODE = 1,
+}
+
 /**
  * Declare controlled tab
  */
@@ -74,9 +80,9 @@ export declare interface OnTaskConfig {
  * Declare CaptionConfig
  */
 export declare interface CaptionConfig {
-  captionEnabled: boolean;
-  localOnly: boolean;
-  transcriptionEnabled: boolean;
+  sessionCaptionEnabled: boolean;
+  localCaptionEnabled: boolean;
+  sessionTranslationEnabled: boolean;
 }
 
 /**
@@ -91,6 +97,36 @@ export declare interface SessionConfig {
   captionConfig: CaptionConfig;
 }
 
+/**
+ * Declare Session
+ */
+export declare interface Session {
+  sessionConfig: SessionConfig;
+  activity: IdentifiedActivity[];
+}
+
+/**
+ * Declare StudentActivity
+ */
+export declare interface StudentActivity {
+  // Whether the student status have flipped from added to active in the
+  // session.
+  isActive: boolean;
+  activeTab?: string;
+  isCaptionEnabled: boolean;
+  isHandRaised: boolean;
+  // TODO(b/365191878): Remove this after refactoring existing schema to support
+  // multi-group.
+  joinMethod: JoinMethod;
+}
+
+/**
+ * Declare IdentifiedActivity
+ */
+export declare interface IdentifiedActivity {
+  email: string;
+  studentActivity: StudentActivity;
+}
 
 /**
  * The delegate which exposes privileged function to App
@@ -112,9 +148,27 @@ export declare interface ClientApiDelegate {
   getStudentList(courseId: string): Promise<Identity[]>;
 
   /**
-   * Create a new session
+   * Create a new session.
    */
   createSession(sessionConfig: SessionConfig): Promise<boolean>;
+
+  /**
+   * Retrivies the current session.
+   */
+  getSession(): Promise<Session|null>;
+  /**
+   * End the current session
+   */
+  endSession(): Promise<boolean>;
+  /**
+   * Update on task config
+   */
+  updateOnTaskConfig(onTaskConfig: OnTaskConfig): Promise<boolean>;
+
+  /**
+   * Update caption config
+   */
+  updateCaptionConfig(captionConfig: CaptionConfig): Promise<boolean>;
 }
 
 /**
@@ -126,4 +180,16 @@ export declare interface ClientApi {
    * @param delegate
    */
   setDelegate(delegate: ClientApiDelegate|null): void;
+
+  /**
+   * Notify the app that the session config has been updated. Null if the
+   * session has ended.
+   */
+  onSessionConfigUpdated(sessionConfig: SessionConfig|null): void;
+
+  /**
+   * Notify the app that the student activity has been updated.
+   * The entire payload would be sent.
+   */
+  onStudentActivityUpdated(studentActivity: IdentifiedActivity[]): void;
 }

@@ -41,7 +41,7 @@ LayoutUnit ResolveInlineLengthInternal(
   const Length& length =
       original_length.IsAuto() && auto_length ? *auto_length : original_length;
   switch (length.GetType()) {
-    case Length::kFillAvailable: {
+    case Length::kStretch: {
       const LayoutUnit available_size =
           override_available_size == kIndefiniteSize
               ? constraint_space.AvailableSize().inline_size
@@ -157,7 +157,7 @@ LayoutUnit ResolveBlockLengthInternal(
   const Length& length =
       original_length.IsAuto() && auto_length ? *auto_length : original_length;
   switch (length.GetType()) {
-    case Length::kFillAvailable: {
+    case Length::kStretch: {
       const LayoutUnit available_size =
           override_available_size == kIndefiniteSize
               ? constraint_space.AvailableSize().block_size
@@ -451,6 +451,19 @@ MinMaxSizesResult ComputeMinAndMaxContentContributionForSelf(
                                                      MinMaxSizesFunc);
 }
 
+MinMaxSizesResult ComputeMinAndMaxContentContributionForSelf(
+    const BlockNode& child,
+    const ConstraintSpace& space,
+    MinMaxSizesFunctionRef min_max_sizes_func) {
+  DCHECK(child.CreatesNewFormattingContext());
+
+  return child.IsReplaced()
+             ? ComputeMinAndMaxContentContributionForReplaced(child, space)
+             : ComputeMinAndMaxContentContributionInternal(
+                   child.Style().GetWritingMode(), child, space,
+                   min_max_sizes_func);
+}
+
 MinMaxSizes ComputeMinAndMaxContentContributionForTest(
     WritingMode parent_writing_mode,
     const BlockNode& child,
@@ -498,13 +511,13 @@ LayoutUnit ComputeInlineSizeForFragmentInternal(
       return Length::MinContent();
     }
     if (space.InlineAutoBehavior() == AutoSizeBehavior::kStretchExplicit) {
-      return Length::FillAvailable();
+      return Length::Stretch();
     }
     if (may_apply_aspect_ratio) {
       return Length::FitContent();
     }
     if (space.InlineAutoBehavior() == AutoSizeBehavior::kStretchImplicit) {
-      return Length::FillAvailable();
+      return Length::Stretch();
     }
     DCHECK_EQ(space.InlineAutoBehavior(), AutoSizeBehavior::kFitContent);
     return Length::FitContent();
@@ -692,12 +705,14 @@ MinMaxSizes ComputeMinMaxInlineSizesFromAspectRatio(
                                              style.BoxSizingForAspectRatio());
 }
 
-MinMaxSizes ComputeMinMaxInlineSizes(const ConstraintSpace& space,
-                                     const BlockNode& node,
-                                     const BoxStrut& border_padding,
-                                     const Length* auto_min_length,
-                                     MinMaxSizesFunctionRef min_max_sizes_func,
-                                     LayoutUnit override_available_size) {
+MinMaxSizes ComputeMinMaxInlineSizes(
+    const ConstraintSpace& space,
+    const BlockNode& node,
+    const BoxStrut& border_padding,
+    const Length* auto_min_length,
+    MinMaxSizesFunctionRef min_max_sizes_func,
+    TransferredSizesMode transferred_sizes_mode,
+    LayoutUnit override_available_size) {
   const ComputedStyle& style = node.Style();
   MinMaxSizes sizes = {
       ResolveMinInlineLength(space, style, border_padding, min_max_sizes_func,
@@ -713,7 +728,8 @@ MinMaxSizes ComputeMinMaxInlineSizes(const ConstraintSpace& space,
 
   // This implements the transferred min/max sizes per:
   // https://drafts.csswg.org/css-sizing-4/#aspect-ratio-size-transfers
-  if (!style.AspectRatio().IsAuto() && style.LogicalWidth().HasAuto() &&
+  if (transferred_sizes_mode == TransferredSizesMode::kNormal &&
+      !style.AspectRatio().IsAuto() && style.LogicalWidth().HasAuto() &&
       space.InlineAutoBehavior() != AutoSizeBehavior::kStretchExplicit) {
     MinMaxSizes transferred_sizes =
         ComputeMinMaxInlineSizesFromAspectRatio(space, node, border_padding);
@@ -762,13 +778,13 @@ LayoutUnit ComputeBlockSizeForFragmentInternal(
       return Length::FitContent();
     }
     if (space.BlockAutoBehavior() == AutoSizeBehavior::kStretchExplicit) {
-      return Length::FillAvailable();
+      return Length::Stretch();
     }
     if (may_apply_aspect_ratio) {
       return Length::FitContent();
     }
     if (space.BlockAutoBehavior() == AutoSizeBehavior::kStretchImplicit) {
-      return Length::FillAvailable();
+      return Length::Stretch();
     }
     DCHECK_EQ(space.BlockAutoBehavior(), AutoSizeBehavior::kFitContent);
     return Length::FitContent();
@@ -1004,7 +1020,7 @@ LogicalSize ComputeReplacedSizeInternal(const BlockNode& node,
                (space.IsBlockAutoBehaviorStretch() &&
                 space.AvailableSize().block_size != kIndefiniteSize)) {
       const Length& block_length_to_resolve =
-          block_length.HasAuto() ? Length::FillAvailable() : block_length;
+          block_length.HasAuto() ? Length::Stretch() : block_length;
 
       const LayoutUnit main_percentage_resolution_size =
           space.ReplacedPercentageResolutionBlockSize();
@@ -1044,7 +1060,7 @@ LogicalSize ComputeReplacedSizeInternal(const BlockNode& node,
             NOTREACHED_IN_MIGRATION();
             return MinMaxSizesResult();
           },
-          Length::FillAvailable(), /* auto_length */ nullptr,
+          Length::Stretch(), /* auto_length */ nullptr,
           /* override_available_size */ kIndefiniteSize);
     }
 
@@ -1103,7 +1119,7 @@ LogicalSize ComputeReplacedSizeInternal(const BlockNode& node,
                (space.IsInlineAutoBehaviorStretch() &&
                 space.AvailableSize().inline_size != kIndefiniteSize)) {
       const Length& auto_length = space.IsInlineAutoBehaviorStretch()
-                                      ? Length::FillAvailable()
+                                      ? Length::Stretch()
                                       : Length::FitContent();
       const LayoutUnit inline_size =
           ResolveMainInlineLength(space, style, border_padding, MinMaxSizesFunc,

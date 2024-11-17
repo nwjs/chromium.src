@@ -3766,6 +3766,12 @@ be describing additional metrics about the same event.
   <summary>
     Records performance metrics for FedCM(Federated Credential Management) API.
   </summary>
+  <metric name="AccountLabel.NumMatchingAccounts" enum="FedCmNumAccounts">
+    <summary>
+      Records the number of accounts that match an account label. Records at the
+      time the accounts received by the FedCM API are filtered.
+    </summary>
+  </metric>
   <metric name="AccountsDialogShown" enum="BooleanHit">
     <summary>
       Records a 1 each time an accounts dialog is shown.
@@ -3837,6 +3843,12 @@ be describing additional metrics about the same event.
       of the main frame.
     </summary>
   </metric>
+  <metric name="DomainHint.NumMatchingAccounts" enum="FedCmNumAccounts">
+    <summary>
+      Records the number of accounts that match a domain hint. Records at the
+      time the accounts received by the FedCM API are filtered.
+    </summary>
+  </metric>
   <metric name="Error.ErrorDialogResult" enum="FedCmErrorDialogResult">
     <summary>
       Records the outcome of the error dialog. Recorded at most once per API
@@ -3860,6 +3872,12 @@ be describing additional metrics about the same event.
       Records the session ID associated to the FedCM call for which this event
       is recording metrics. Each FedCM call gets a random integer session id,
       which helps group UKM events by the session id.
+    </summary>
+  </metric>
+  <metric name="LoginHint.NumMatchingAccounts" enum="FedCmNumAccounts">
+    <summary>
+      Records the number of accounts that match a login hint. Records at the
+      time the accounts received by the FedCM API are filtered.
     </summary>
   </metric>
   <metric name="MismatchDialogShown" enum="BooleanHit">
@@ -7340,12 +7358,6 @@ be describing additional metrics about the same event.
       True if this page received user activation (click, etc.) during the visit.
     </summary>
   </metric>
-  <metric name="DidSiteHavePreviousUserActivation" enum="Boolean">
-    <summary>
-      True if DIPS had a record of user activation on this page's site prior to
-      this visit to this page.
-    </summary>
-  </metric>
   <metric name="VisitDurationMilliseconds">
     <summary>
       The number of milliseconds this page was the primary page for,
@@ -8376,6 +8388,40 @@ be describing additional metrics about the same event.
       dry-run mode. In dry-run mode, fingerprinting protection filtering policy
       is evaluated against resources loaded on the page, but subresource
       blocking is not actually applied.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="FingerprintingProtectionUsage" singular="True">
+  <owner>rizvis@google.com</owner>
+  <owner>thesalsa@google.com</owner>
+  <summary>
+    Recorded to track heuristics for refreshes where Fingerprinting Protection
+    was enabled.
+  </summary>
+  <metric name="RefreshCount">
+    <summary>
+      The number of times the user refreshed the current page (without
+      navigating elsewhere).
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="SiteEngagementLevel" enum="SiteEngagementLevel">
+    <summary>
+      The site engagement level of the page where this event was triggered.
     </summary>
     <aggregation>
       <history>
@@ -11451,6 +11497,14 @@ be describing additional metrics about the same event.
     invocation source of the session, the duration, and whether a search
     performed in the session.
   </summary>
+  <metric name="GeneratedTabCount">
+    <summary>
+      The number of tabs opened by the user during a Lens Overlay session. On
+      iOS the Lens Overlay opens all non-lens URLs in new tabs. New unimodal
+      searches are also opened in a new tab. Additionally the user can open tabs
+      in the background through the web context menu.
+    </summary>
+  </metric>
   <metric name="InvocationResultedInSearch" enum="Boolean">
     <summary>
       Indicates whether or not a search was performed at any point since the
@@ -11480,6 +11534,20 @@ be describing additional metrics about the same event.
     <summary>
       Measures the elapsed time between when the overlay was invoked and when it
       was dismissed.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="SessionForegroundDuration">
+    <summary>
+      Measures the total time the Lens Overlay is in the foreground, between
+      invocation and dismissal. Sum of all times that the overlay tab is
+      returned to the foreground.
     </summary>
     <aggregation>
       <history>
@@ -11546,6 +11614,18 @@ be describing additional metrics about the same event.
       <history>
         <statistics>
           <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="FirstInteractionType" enum="LensOverlayFirstInteractionType">
+    <summary>
+      The first interaction event type.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
         </statistics>
       </history>
     </aggregation>
@@ -16496,24 +16576,11 @@ be describing additional metrics about the same event.
   <owner>kazinova@google.com</owner>
   <owner>vasilii@chromium.org</owner>
   <summary>
-    Metrics for newly saved passwords, recorded at the moment of saving.
+    Metrics for newly saved credentials, recorded at the moment of saving.
   </summary>
   <metric name="HasEmptyUsername" enum="Boolean">
     <summary>
       Whether the password has an empty username.
-    </summary>
-    <aggregation>
-      <history>
-        <statistics>
-          <enumeration/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="IsPasswordGenerated" enum="Boolean">
-    <summary>
-      Whether the password was generated by Chrome or typed manually by the
-      user.
     </summary>
     <aggregation>
       <history>
@@ -16552,6 +16619,27 @@ be describing additional metrics about the same event.
     <summary>
       A boolean indicating success or failure.
     </summary>
+  </metric>
+</event>
+
+<event name="PasswordManager.SavedPassword">
+  <owner>kazinova@google.com</owner>
+  <owner>vasilii@chromium.org</owner>
+  <summary>
+    Metrics for saved passwords, recorded at the moment of saving.
+  </summary>
+  <metric name="IsPasswordGenerated" enum="Boolean">
+    <summary>
+      Whether the password was generated by Chrome or typed manually by the
+      user.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
 </event>
 
@@ -19007,6 +19095,47 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="SavedTabGroup.Navigation">
+  <owner>qinmin@chromium.org</owner>
+  <owner>shaktisahu@chromium.org</owner>
+  <summary>
+    A collection of metrics which are recorded for navigations inside saved tab
+    groups. The metrics are recorded when a URL is synced from another client
+    and Chrome finishes the navigation to that URL.
+  </summary>
+  <metric name="IsPost" enum="Boolean">
+    <summary>
+      A boolean indicating whether the current navigation is triggered by a POST
+      request.
+    </summary>
+  </metric>
+  <metric name="NumSameUrlLoad">
+    <summary>
+      Records how many times the same URL, including the current navigation, is
+      loaded in the current tab in the past 2 minutes.
+    </summary>
+  </metric>
+  <metric name="NumSameUrlWithoutRefAndQueryParamLoad">
+    <summary>
+      Records how many times the same URL, without ref and query parameters, is
+      loaded in the current tab in the past 2 minutes. The current navigation is
+      also included in this count.
+    </summary>
+  </metric>
+  <metric name="TabGroupType" enum="SavedTabGroupType">
+    <summary>
+      Records the type of the tab group the navigation belongs to, such as
+      shared or synced. See |tab_groups::SavedTabGroupTypes| for enum elements.
+    </summary>
+  </metric>
+  <metric name="WasRedirected" enum="Boolean">
+    <summary>
+      A boolean indicating whether the current navigation involves any
+      redirection.
+    </summary>
+  </metric>
+</event>
+
 <event name="SchemefulSameSiteContextDowngrade">
   <owner>bingler@chromium.org</owner>
   <metric name="RequestPerCookie"
@@ -19744,6 +19873,22 @@ be describing additional metrics about the same event.
       only when the router has matched the incoming resource.
     </summary>
   </metric>
+  <metric name="CacheLookupTime">
+    <summary>
+      Time spent to conduct cache lookup (right before creating the cache lookup
+      request to right after the browser process receives the cache result).
+      Recorded when the service worker has associated routing info with the
+      `cache` as the rule, and the browser or renderer is processing requests.
+      Duration in units of milliseconds.
+    </summary>
+  </metric>
+  <metric name="InitialWorkerStatus" enum="ServiceWorkerStatus">
+    <summary>
+      ServiceWorker running status at the time when the SW is handling the main
+      resource. Recorded regardless of the router existence via Static Routing
+      API.
+    </summary>
+  </metric>
   <metric name="MatchedFirstRouterSourceType"
       enum="ServiceWorkerRouterSourceType">
     <summary>
@@ -19772,6 +19917,11 @@ be describing additional metrics about the same event.
     <summary>
       ServiceWorker running status at the time when router evaluation is
       conducted.
+
+      We expect this is equivalent to `InitialWorkerStatus` in most cases.
+      However, those are set in different tasks (ctor and `StartRequest()` in
+      SWMainResourceLoader) and some other task may update the status between
+      them. We keep both metrics just in case.
     </summary>
   </metric>
 </event>
@@ -19958,6 +20108,24 @@ be describing additional metrics about the same event.
     <summary>
       True if there are service workers handling sub-resource loads of text
       tracks in the page. (boolean value. true: 1 or false: 0)
+    </summary>
+  </metric>
+  <metric name="TotalCacheLookupTime">
+    <summary>
+      Total time spent to conduct cache lookup. Recorded when the service worker
+      has associated routing info with the `cache` as the rule, and the browser
+      or renderer is processing requests. The field is the sum of all cache
+      lookup time of subresources. i.e. if there are X resources whose router
+      source is `cache` for example, this value will be the sum of X cache
+      lookup durations regardless of cache hit or miss. Duration in units of
+      milli seconds.
+    </summary>
+  </metric>
+  <metric name="TotalRouterEvaluationTime">
+    <summary>
+      Total time spent for the router evaluation to handle a request. Recorded
+      when the service worker has associated routing info, and the browser or
+      renderer is processing requests. Duration in units of micro seconds.
     </summary>
   </metric>
   <metric name="TotalSubResourceFallback">
@@ -20168,6 +20336,24 @@ be describing additional metrics about the same event.
     <summary>
       Always true. Recorded when users have visited cart page from Chrome cart
       module.
+    </summary>
+  </metric>
+</event>
+
+<event name="Shopping.Discounts">
+  <owner>meiliang@chromium.org</owner>
+  <owner>ayman@chromium.org</owner>
+  <owner>chrome-shopping-eng@google.com</owner>
+  <summary>
+    Recorded when a user navigates to a product details page with an available
+    discount that is eligible for auto popup. This gives us the true auto popup
+    population.
+  </summary>
+  <metric name="AutoPopupEligibleButSuppressed" enum="Boolean">
+    <summary>
+      Whether the eligible popup bubble was suppressed. This is controlled by a
+      feature flag. Logging the feature flag value to create two groups for data
+      analysis.
     </summary>
   </metric>
 </event>
@@ -20608,17 +20794,41 @@ be describing additional metrics about the same event.
     <summary>
       Whether any familiarity heuristics would trigger on the site.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="OnHighConfidenceAllowlist" enum="Boolean">
     <summary>
       Whether the site is on the safe browsing high confidence allowlist.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="SiteEngagementScore">
     <summary>
       Site engagement score in the range [0, 100], rounded down to a multiple of
       10 to limit granularity.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="SiteFamiliarityHistoryHeuristic"
       enum="SiteFamiliarityHistoryHeuristicName">
@@ -20627,6 +20837,14 @@ be describing additional metrics about the same event.
       would trigger on the site. If no navigation-history heuristic matches then
       the value NO_HEURISTIC_MATCH is recorded.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
 </event>
 
@@ -24456,7 +24674,8 @@ be describing additional metrics about the same event.
   <owner>chrome-webauthn@google.com</owner>
   <summary>
     Information about the completion of a request to register a new Web
-    Authentication credential.
+    Authentication credential. This was added for desktop platforms in M128 and
+    for Android in M131.
   </summary>
   <metric name="RegisterCompletionResult"
       enum="WebAuthenticationMakeCredentialOutcome">
@@ -24477,7 +24696,8 @@ be describing additional metrics about the same event.
   <owner>chrome-webauthn@google.com</owner>
   <summary>
     Information about the completion of a request for a signed assertion by a
-    Web Authentication credential.
+    Web Authentication credential. This was added for desktop platforms in M128
+    and for Android in M131.
   </summary>
   <metric name="RequestMode" enum="WebAuthenticationRequestMode">
     <summary>

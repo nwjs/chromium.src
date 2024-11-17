@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// IMPORTANT: This file should be kept in sync with
+// third_party/data_sharing_sdk/data_sharing_sdk_types.ts
+// Only update this file by copying the content from that file and fix the
+// formatting.
+
 export const enum Code {
   OK = 0,
   CANCELLED = 1,
@@ -38,7 +43,8 @@ export const enum ShareAction {
 }
 
 export declare interface DataSharingSdkResponse {
-  readonly finalShareAction?: {action: ShareAction, status: Code};
+  result?: {shareAction?: ShareAction, groupId?: string, tokenSecret?: string};
+  readonly status: Code;
 }
 
 export declare interface DataSharingSdkSitePreview {
@@ -79,6 +85,7 @@ export declare interface DataSharingSdkGroupMember {
   email: string;
   role: DataSharingMemberRole;
   avatarUrl: string;
+  givenName: string;
 }
 
 export declare interface CreateGroupParams {

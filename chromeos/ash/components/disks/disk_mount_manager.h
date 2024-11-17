@@ -12,6 +12,7 @@
 #include <string_view>
 
 #include "base/component_export.h"
+#include "base/files/file_path.h"
 #include "base/functional/callback_forward.h"
 #include "base/observer_list_types.h"
 #include "chromeos/ash/components/dbus/cros_disks/cros_disks_client.h"
@@ -74,7 +75,7 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DISKS) DiskMountManager {
       return GetKey(a) < GetKey(b);
     }
 
-    static std::string_view GetKey(const std::string_view a) { return a; }
+    static std::string_view GetKey(std::string_view a) { return a; }
 
     static std::string_view GetKey(const std::unique_ptr<Disk>& disk) {
       DCHECK(disk);
@@ -95,7 +96,7 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DISKS) DiskMountManager {
       return GetKey(a) < GetKey(b);
     }
 
-    static std::string_view GetKey(const std::string_view a) { return a; }
+    static std::string_view GetKey(std::string_view a) { return a; }
 
     static std::string_view GetKey(const MountPoint& mp) {
       return mp.mount_path;
@@ -154,6 +155,18 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DISKS) DiskMountManager {
     ~Observer() override;
   };
 
+  // Delegate class for ARC-side operations.
+  class ArcDelegate {
+   public:
+    typedef base::OnceCallback<void(bool success)> PreparationCallback;
+
+    // Instruct ARC to prpeare for removable media unmount mounted on
+    // `mount_path` by dropping any references to the volume.
+    virtual void PrepareForRemovableMediaUnmount(
+        const base::FilePath& mount_path,
+        PreparationCallback callback) {}
+  };
+
   virtual ~DiskMountManager() = default;
 
   // Adds an observer.
@@ -161,6 +174,12 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DISKS) DiskMountManager {
 
   // Removes an observer.
   virtual void RemoveObserver(Observer* observer) = 0;
+
+  // Registers a delegate.
+  virtual void RegisterArcDelegate(ArcDelegate* delegate) {}
+
+  // Unregisters the delegate.
+  virtual void UnregisterArcDelegate() {}
 
   // Gets the list of disks found.
   virtual const Disks& disks() const = 0;

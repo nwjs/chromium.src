@@ -52,12 +52,11 @@
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/plus_addresses/fake_plus_address_service.h"
 #include "components/plus_addresses/features.h"
-#include "components/plus_addresses/plus_address_test_environment.h"
+#include "components/plus_addresses/grit/plus_addresses_strings.h"
 #include "components/plus_addresses/plus_address_test_utils.h"
 #include "components/prefs/pref_service.h"
 #include "components/resources/android/theme_resources.h"
 #include "components/security_state/core/security_state.h"
-#include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/webauthn/android/cred_man_support.h"
 #include "components/webauthn/android/webauthn_cred_man_delegate.h"
@@ -93,9 +92,7 @@ using password_manager::PasswordManagerInterface;
 using password_manager::PasswordStoreInterface;
 using password_manager::TestPasswordStore;
 using plus_addresses::FakePlusAddressService;
-using plus_addresses::PlusAddressSettingService;
 using plus_addresses::PlusProfile;
-using plus_addresses::test::PlusAddressTestEnvironment;
 using testing::_;
 using testing::ByMove;
 using testing::Eq;
@@ -323,12 +320,8 @@ PasswordForm MakeSavedPassword() {
 }
 
 std::unique_ptr<KeyedService> BuildFakePlusAddressService(
-    PrefService* pref_service,
-    signin::IdentityManager* identity_manager,
-    PlusAddressSettingService* setting_service,
     content::BrowserContext* context) {
-  return std::make_unique<FakePlusAddressService>(
-      pref_service, identity_manager, setting_service);
+  return std::make_unique<FakePlusAddressService>();
 }
 
 }  // namespace
@@ -348,11 +341,7 @@ class PasswordAccessoryControllerTest : public ChromeRenderViewHostTestHarness {
     ChromeRenderViewHostTestHarness::SetUp();
 
     PlusAddressServiceFactory::GetInstance()->SetTestingFactory(
-        GetBrowserContext(),
-        base::BindRepeating(&BuildFakePlusAddressService,
-                            &plus_environment_.pref_service(),
-                            plus_environment_.identity_env().identity_manager(),
-                            &plus_environment_.setting_service()));
+        GetBrowserContext(), base::BindRepeating(&BuildFakePlusAddressService));
 
     NavigateAndCommit(GURL(kExampleSite));
     FocusWebContentsOnMainFrame();
@@ -387,7 +376,8 @@ class PasswordAccessoryControllerTest : public ChromeRenderViewHostTestHarness {
         .WillByDefault(Return(webauthn_credentials_delegate()));
     ON_CALL(*password_client(), GetWebAuthnCredManDelegateForDriver)
         .WillByDefault(Return(cred_man_delegate()));
-    ON_CALL(*webauthn_credentials_delegate(), IsAndroidHybridAvailable)
+    ON_CALL(*webauthn_credentials_delegate(),
+            IsSecurityKeyOrHybridFlowAvailable)
         .WillByDefault(Return(false));
     ON_CALL(*password_client()->GetPasswordFeatureManager(),
             IsOptedInForAccountStorage)
@@ -481,7 +471,6 @@ class PasswordAccessoryControllerTest : public ChromeRenderViewHostTestHarness {
     return driver();
   }
 
-  PlusAddressTestEnvironment plus_environment_;
   password_manager::CredentialCache credential_cache_;
   std::unique_ptr<MockPasswordManagerClient> mock_pwd_manager_client_;
   NiceMock<MockPasswordManagerDriver> mock_driver_;
@@ -1603,11 +1592,12 @@ TEST_F(PasswordAccessoryControllerTest, ShowAndSelectCredManReentryOption) {
       autofill::AccessoryAction::CREDMAN_CONDITIONAL_UI_REENTRY);
 }
 
-// Verify that when WebAuthnCredentialsDelegate::IsAndroidHybridAvailable
-// returns true, the hybrid passkey option shows on the sheet, and selecting
-// it triggers hybrid passkey sign-in invocation.
+// Verify that when
+// WebAuthnCredentialsDelegate::IsSecurityKeyOrHybridFlowAvailable returns true,
+// the hybrid passkey option shows on the sheet, and selecting it triggers
+// hybrid passkey sign-in invocation.
 TEST_F(PasswordAccessoryControllerTest, ShowAndSelectHybridPasskeyOption) {
-  ON_CALL(*webauthn_credentials_delegate(), IsAndroidHybridAvailable)
+  ON_CALL(*webauthn_credentials_delegate(), IsSecurityKeyOrHybridFlowAvailable)
       .WillByDefault(Return(true));
   CreateSheetController();
   cache()->SaveCredentialsAndBlocklistedForOrigin(
@@ -1627,7 +1617,7 @@ TEST_F(PasswordAccessoryControllerTest, ShowAndSelectHybridPasskeyOption) {
                                autofill::AccessoryAction::MANAGE_PASSWORDS)
           .Build());
 
-  EXPECT_CALL(*webauthn_credentials_delegate(), ShowAndroidHybridSignIn);
+  EXPECT_CALL(*webauthn_credentials_delegate(), LaunchSecurityKeyOrHybridFlow);
 
   controller()->OnOptionSelected(
       autofill::AccessoryAction::CROSS_DEVICE_PASSKEY);
@@ -1696,8 +1686,9 @@ TEST_F(PasswordAccessoryControllerTest, ShowAndSelectPasskey) {
   controller()->OnPasskeySelected(kTestPasskey.credential_id());
 }
 
-// Verify that when WebAuthnCredentialsDelegate::IsAndroidHybridAvailable
-// returns false, the hybrid passkey option is not shown on the sheet.
+// Verify that when
+// WebAuthnCredentialsDelegate::IsSecurityKeyOrHybridFlowAvailable returns
+// false, the hybrid passkey option is not shown on the sheet.
 TEST_F(PasswordAccessoryControllerTest,
        HybridPasskeyOptionNotShownWhenUnavailable) {
   CreateSheetController();
@@ -1837,8 +1828,11 @@ TEST_F(PasswordAccessoryControllerTest,
       .WillRepeatedly(testing::Return(true));
   EXPECT_CALL(
       *mock_access_loss_warning_bridge_,
-      MaybeShowAccessLossNoticeSheet(profile()->GetPrefs(), _, profile(),
-                                     /*called_at_startup=*/false));
+      MaybeShowAccessLossNoticeSheet(
+          profile()->GetPrefs(), _, profile(),
+          /*called_at_startup=*/false,
+          password_manager_android_util::PasswordAccessLossWarningTriggers::
+              kKeyboardAcessorySheet));
   controller()->OnFillingTriggered(autofill::FieldGlobalId(), selected_field);
 }
 

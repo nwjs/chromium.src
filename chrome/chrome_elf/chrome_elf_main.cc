@@ -55,6 +55,10 @@ bool GetUserDataDirectoryThunk(wchar_t* user_data_dir,
   return true;
 }
 
+bool IsTemporaryUserDataDirectoryCreatedForHeadless() {
+  return install_static::IsTemporaryUserDataDirectoryCreatedForHeadless();
+}
+
 // DllMain
 // -------
 // Warning: The OS loader lock is held during DllMain.  Be careful.

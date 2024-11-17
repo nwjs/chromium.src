@@ -4,6 +4,8 @@
 
 package org.chromium.components.data_sharing;
 
+import androidx.annotation.NonNull;
+
 import org.chromium.base.Callback;
 import org.chromium.base.UserDataHost;
 import org.chromium.url.GURL;
@@ -227,7 +229,7 @@ public interface DataSharingService {
     /**
      * Ensure that an existing group is visible for new user to join.
      *
-     * @param groupName The name of the group to be created.
+     * @param groupId The name of the group to be created.
      * @param callback Return a created group data on success.
      */
     void ensureGroupVisibility(String groupId, Callback<GroupDataOrFailureOutcome> callback);
@@ -241,13 +243,10 @@ public interface DataSharingService {
     void getSharedEntitiesPreview(
             GroupToken groupToken, Callback<SharedDataPreviewOrFailureOutcome> callback);
 
-    /**
-     * @return The current instance of {@link DataSharingUIDelegate}.
-     */
+    /** Returns The current instance of {@link DataSharingUIDelegate}. */
     DataSharingUIDelegate getUIDelegate();
 
-    /**
-     * @return The current {@link ServiceStatus} of the service.
-     */
+    /** Returns the current {@link ServiceStatus} of the service. */
+    @NonNull
     ServiceStatus getServiceStatus();
 }

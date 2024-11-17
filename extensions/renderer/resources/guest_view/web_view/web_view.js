@@ -21,7 +21,6 @@ function WebViewImpl(webviewElement) {
   this.pendingZoomFactor_ = null;
   this.userAgentOverride = null;
   this.setupElementProperties();
-  new WebViewEvents(this, this.viewInstanceId);
 }
 
 WebViewImpl.prototype.__proto__ = GuestViewContainer.prototype;
@@ -51,6 +50,10 @@ WebViewImpl.prototype.setupAttributes = function() {
     this.attributes[attribute] =
         new WebViewAttributes.AutosizeDimensionAttribute(attribute, this);
   }
+};
+
+WebViewImpl.prototype.setupEvents = function() {
+  new WebViewEvents(this);
 };
 
 // Initiates navigation once the <webview> element is attached to the DOM.

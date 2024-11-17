@@ -37,6 +37,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/unload_controller.h"
+#include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "components/paint_preview/buildflags/buildflags.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/sessions/core/session_id.h"
@@ -49,6 +50,7 @@
 #include "extensions/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "third_party/blink/public/mojom/page/draggable_region.mojom-forward.h"
+#include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/base/window_open_disposition.h"
@@ -317,7 +319,8 @@ class Browser : public TabStripModelObserver,
     // Whether to enable the tab group feature in the tab strip.
     bool are_tab_groups_enabled = true;
 
-    ui::WindowShowState initial_show_state = ui::SHOW_STATE_DEFAULT;
+    ui::mojom::WindowShowState initial_show_state =
+        ui::mojom::WindowShowState::kDefault;
 
     CreationSource creation_source = CreationSource::kUnknown;
 
@@ -426,8 +429,10 @@ class Browser : public TabStripModelObserver,
   void set_override_bounds(const gfx::Rect& bounds) {
     override_bounds_ = bounds;
   }
-  ui::WindowShowState initial_show_state() const { return initial_show_state_; }
-  void set_initial_show_state(ui::WindowShowState initial_show_state) {
+  ui::mojom::WindowShowState initial_show_state() const {
+    return initial_show_state_;
+  }
+  void set_initial_show_state(ui::mojom::WindowShowState initial_show_state) {
     initial_show_state_ = initial_show_state;
   }
 
@@ -597,6 +602,7 @@ class Browser : public TabStripModelObserver,
   // Gets the window title of the tab at |index|.
   std::u16string GetWindowTitleForTab(int index) const;
 
+  std::u16string GetTitleForTab(int index) const;
   // Gets the window title for the current tab, to display in a menu. If the
   // title is too long to fit in the required space, the tab title will be
   // elided. The result title might still be a larger width than specified, as
@@ -692,7 +698,7 @@ class Browser : public TabStripModelObserver,
   // but that is done before any of these steps.
   // TODO(crbug.com/40064092): See about unifying IsBrowserClosing() and
   // is_delete_scheduled().
-  bool IsAttemptingToCloseBrowser() const;
+  bool IsAttemptingToCloseBrowser() const override;
   bool IsBrowserClosing() const;
   bool is_delete_scheduled() const { return is_delete_scheduled_; }
 
@@ -878,6 +884,9 @@ class Browser : public TabStripModelObserver,
   Browser* GetBrowserForOpeningWebUi();
 
   StatusBubble* GetStatusBubbleForTesting();
+  UnloadController* GetUnloadControllerForTesting() {
+    return &unload_controller_;
+  }
 
   // Sets or clears the flags to force showing bookmark bar.
   void SetForceShowBookmarkBarFlag(ForceShowBookmarkBarFlag flag);
@@ -896,6 +905,8 @@ class Browser : public TabStripModelObserver,
   bool IsTabStripVisible() override;
   bool ShouldHideUIForFullscreen() const override;
   views::View* TopContainer() override;
+  base::CallbackListSubscription RegisterActiveTabDidChange(
+      ActiveTabChangeCallback callback) override;
   tabs::TabInterface* GetActiveTabInterface() override;
   BrowserWindowFeatures& GetFeatures() override;
   web_modal::WebContentsModalDialogHost*
@@ -908,7 +919,8 @@ class Browser : public TabStripModelObserver,
   ExclusiveAccessManager* GetExclusiveAccessManager() override;
   BrowserActions* GetActions() override;
   Type GetType() const override;
-  user_education::FeaturePromoController* GetFeaturePromoController() override;
+  BrowserUserEducationInterface* GetUserEducationInterface() override;
+  web_app::AppBrowserController* GetAppBrowserController() override;
 
   // Called by BrowserView when on active changes.
   void DidBecomeActive();
@@ -1059,7 +1071,7 @@ class Browser : public TabStripModelObserver,
   void MinimizeFromWebAPI() override;
   void MaximizeFromWebAPI() override;
   void RestoreFromWebAPI() override;
-  ui::WindowShowState GetWindowShowState() const override;
+  ui::mojom::WindowShowState GetWindowShowState() const override;
   bool CanEnterFullscreenModeForTab(
       content::RenderFrameHost* requesting_frame) override;
   void EnterFullscreenModeForTab(
@@ -1092,6 +1104,8 @@ class Browser : public TabStripModelObserver,
                           bool user_gesture,
                           bool last_unlocked_by_target) override;
   void LostPointerLock() override;
+  bool IsWaitingForPointerLockPrompt(
+      content::WebContents* web_contents) override;
   void RequestKeyboardLock(content::WebContents* web_contents,
                            bool esc_key_locked) override;
   void CancelKeyboardLockRequest(content::WebContents* web_contents) override;
@@ -1410,7 +1424,7 @@ class Browser : public TabStripModelObserver,
   // obtained from the last window of the same type, or obtained from the
   // shell shortcut's startup info.
   gfx::Rect override_bounds_;
-  ui::WindowShowState initial_show_state_;
+  ui::mojom::WindowShowState initial_show_state_;
   const std::string initial_workspace_;
   bool initial_visible_on_all_workspaces_state_;
 
@@ -1467,6 +1481,8 @@ class Browser : public TabStripModelObserver,
   std::unique_ptr<chrome::BrowserCommandController> command_controller_;
 
   // Dialog controller that handles the showing of the deletion dialog.
+  // TODO (https://crbug.com/372011320) Move this to be a browser window
+  // feature.
   std::unique_ptr<tab_groups::DeletionDialogController>
       tab_group_deletion_dialog_controller_;
 
@@ -1522,6 +1538,10 @@ class Browser : public TabStripModelObserver,
 #endif
 
   int force_show_bookmark_bar_flags_ = ForceShowBookmarkBarFlag::kNone;
+
+  using DidActiveTabChangeCallbackList =
+      base::RepeatingCallbackList<void(BrowserWindowInterface*)>;
+  DidActiveTabChangeCallbackList did_active_tab_change_callback_list_;
 
   using DidBecomeActiveCallbackList =
       base::RepeatingCallbackList<void(BrowserWindowInterface*)>;

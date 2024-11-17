@@ -288,13 +288,6 @@ bool WebAXObject::IsModal() const {
   return private_->IsModal();
 }
 
-bool WebAXObject::IsOffScreen() const {
-  if (IsDetached())
-    return false;
-
-  return private_->IsOffScreen();
-}
-
 bool WebAXObject::IsVisited() const {
   if (IsDetached())
     return false;
@@ -856,6 +849,12 @@ WebAXObject WebAXObject::NextOnLine() const {
     return WebAXObject();
 
   ScopedFreezeAXCache freeze(private_->AXObjectCache());
+  // Force computation of next/previous on line data, since this API may call
+  // serializations outside of the regular flow. AXObjectCacheImpl may not had
+  // the chance to compute next|previous on line data. Clear the cache and force
+  // the computation.
+  private_->AXObjectCache().ClearCachedNodesOnLine();
+  private_->AXObjectCache().ComputeNodesOnLine(private_->GetLayoutObject());
   return WebAXObject(private_.Get()->NextOnLine());
 }
 
@@ -864,6 +863,12 @@ WebAXObject WebAXObject::PreviousOnLine() const {
     return WebAXObject();
 
   ScopedFreezeAXCache freeze(private_->AXObjectCache());
+  // Force computation of next/previous on line data, since this API may call
+  // serializations outside of the regular flow. AXObjectCacheImpl may not had
+  // the chance to compute next|previous on line data. Clear the cache and force
+  // the computation.
+  private_->AXObjectCache().ClearCachedNodesOnLine();
+  private_->AXObjectCache().ComputeNodesOnLine(private_->GetLayoutObject());
   return WebAXObject(private_.Get()->PreviousOnLine());
 }
 
@@ -1012,13 +1017,6 @@ void WebAXObject::SetPluginTreeSource(
 
 void WebAXObject::MarkPluginDescendantDirty(ui::AXNodeID node_id) {
   private_->AXObjectCache().MarkPluginDescendantDirty(node_id);
-}
-
-bool WebAXObject::CanCallAOMEventListenersForTesting() const {
-  if (IsDetached())
-    return false;
-
-  return private_->AXObjectCache().CanCallAOMEventListeners();
 }
 
 WebString WebAXObject::ToString(bool verbose) const {

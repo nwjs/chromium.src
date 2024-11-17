@@ -55,6 +55,7 @@
 #include "chrome/browser/ui/web_applications/web_app_dialogs.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_integrity_block_data.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_storage_location.h"
+#include "chrome/browser/web_applications/isolated_web_apps/isolation_data.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/proto/web_app.pb.h"
 #include "chrome/browser/web_applications/proto/web_app_isolation_data.pb.h"
@@ -74,6 +75,7 @@
 #include "chrome/browser/web_applications/web_app_registry_update.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "components/base32/base32.h"
 #include "components/prefs/pref_service.h"
@@ -661,6 +663,10 @@ std::unique_ptr<WebApp> CreateRandomWebApp(CreateRandomWebAppParams params) {
     management_types.push_back(WebAppManagement::kSync);
   }
   if (random.next_bool()) {
+    app->AddSource(WebAppManagement::kUserInstalled);
+    management_types.push_back(WebAppManagement::kUserInstalled);
+  }
+  if (random.next_bool()) {
     app->AddSource(WebAppManagement::kDefault);
     management_types.push_back(WebAppManagement::kDefault);
   }
@@ -699,8 +705,14 @@ std::unique_ptr<WebApp> CreateRandomWebApp(CreateRandomWebAppParams params) {
 
   // Must always be at least one source.
   if (!app->HasAnySources()) {
-    app->AddSource(WebAppManagement::kSync);
-    management_types.push_back(WebAppManagement::kSync);
+    if (base::FeatureList::IsEnabled(
+            features::kWebAppDontAddExistingAppsToSync)) {
+      app->AddSource(WebAppManagement::kUserInstalled);
+      management_types.push_back(WebAppManagement::kUserInstalled);
+    } else {
+      app->AddSource(WebAppManagement::kSync);
+      management_types.push_back(WebAppManagement::kSync);
+    }
   }
 
   if (random.next_bool()) {
@@ -939,7 +951,9 @@ std::unique_ptr<WebApp> CreateRandomWebApp(CreateRandomWebAppParams params) {
 
   WebApp::ExternalConfigMap management_to_external_config;
   for (WebAppManagement::Type type : management_types) {
-    if (type == WebAppManagement::kSync || WebAppManagement::IsIwaType(type)) {
+    if (type == WebAppManagement::kSync ||
+        type == WebAppManagement::kUserInstalled ||
+        WebAppManagement::IsIwaType(type)) {
       continue;
     }
     base::flat_set<GURL> install_urls;
@@ -1037,13 +1051,15 @@ std::unique_ptr<WebApp> CreateRandomWebApp(CreateRandomWebAppParams params) {
         random.next_uint(),
     });
 
-    WebApp::IsolationData isolation_data(get_location_type(), version);
-
+    auto idb = IsolationData::Builder(get_location_type(), version);
     std::optional<IsolatedWebAppIntegrityBlockData> integrity_block_data =
         CreateIntegrityBlockData(random);
-    isolation_data.integrity_block_data = integrity_block_data;
+    if (integrity_block_data) {
+      idb.SetIntegrityBlockData(std::move(*integrity_block_data));
+    }
+
     if (random.next_bool()) {
-      isolation_data.controlled_frame_partitions.insert("partition_name");
+      idb.SetControlledFramePartitions({"partition_name"});
     }
     if (random.next_bool()) {
       base::Version pending_version = base::Version({
@@ -1051,11 +1067,14 @@ std::unique_ptr<WebApp> CreateRandomWebApp(CreateRandomWebAppParams params) {
           random.next_uint(),
           random.next_uint(),
       });
-      WebApp::IsolationData::PendingUpdateInfo pending_update_info(
+      IsolationData::PendingUpdateInfo pending_update_info(
           get_location_type(), pending_version, integrity_block_data);
-      isolation_data.SetPendingUpdateInfo(pending_update_info);
+      idb.SetPendingUpdateInfo(std::move(pending_update_info));
     }
-    app->SetIsolationData(isolation_data);
+    if (dev_mode && random.next_bool()) {
+      idb.SetUpdateManifestUrl(GURL("https://update-manifest.com"));
+    }
+    app->SetIsolationData(std::move(idb).Build());
   }
 
   app->SetLinkCapturingUserPreference(NEXT_PROTO_ENUM(
@@ -1133,7 +1152,7 @@ void CheckServiceWorkerStatus(const GURL& url,
   run_loop.Run();
 }
 
-void SetWebAppSettingsListPref(Profile* profile, const std::string_view pref) {
+void SetWebAppSettingsListPref(Profile* profile, std::string_view pref) {
   auto result = base::JSONReader::ReadAndReturnValueWithError(
       pref, base::JSONParserOptions::JSON_ALLOW_TRAILING_COMMAS);
   DCHECK(result.has_value()) << result.error().message;

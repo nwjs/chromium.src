@@ -194,6 +194,9 @@ void OidcAuthenticationSigninInterceptor::MaybeInterceptOidcAuthentication(
           base::Unretained(this)),
       base::BindOnce(
           &OidcAuthenticationSigninInterceptor::FinalizeSigninInterception,
+          base::Unretained(this)),
+      base::BindOnce(
+          &OidcAuthenticationSigninInterceptor::StartOidcRegistration,
           base::Unretained(this)));
 }
 
@@ -329,7 +332,8 @@ void OidcAuthenticationSigninInterceptor::StartOidcRegistration() {
 void OidcAuthenticationSigninInterceptor::OnClientRegistered(
     std::unique_ptr<CloudPolicyClient> client,
     std::string preset_profile_guid,
-    base::TimeTicks registration_start_time) {
+    base::TimeTicks registration_start_time,
+    CloudPolicyClient::Result result) {
   if (kOidcAuthForceErrorUi.Get()) {
     LOG_POLICY(ERROR, OIDC_ENROLLMENT) << "OIDC client registration failure "
                                           "enforced by feature flag parameter.";
@@ -337,6 +341,8 @@ void OidcAuthenticationSigninInterceptor::OnClientRegistered(
   }
 
   if (client->last_dm_status() != policy::DM_STATUS_SUCCESS) {
+    // TODO(358986371): Invoke the timeout dialog instead of error dialog if
+    // net error is a timeout.
     RecordOidcEnrollmentRegistrationLatency(
         std::nullopt, /*success=*/false,
         base::TimeTicks::Now() - registration_start_time);
@@ -426,7 +432,9 @@ void OidcAuthenticationSigninInterceptor::OnProfileCreationChoice(
   if (kOidcAuthStubDmToken.Get().empty()) {
     StartOidcRegistration();
   } else {
-    OnClientRegistered(nullptr, std::string(), base::TimeTicks::Now());
+    OnClientRegistered(
+        nullptr, std::string(), base::TimeTicks::Now(),
+        CloudPolicyClient::Result(policy::DM_STATUS_SUCCESS, /*net_error=*/0));
   }
 }
 

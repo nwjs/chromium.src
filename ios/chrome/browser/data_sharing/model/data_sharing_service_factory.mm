@@ -39,9 +39,8 @@ std::unique_ptr<KeyedService> BuildDataSharingService(
     return std::make_unique<EmptyDataSharingService>();
   }
 
-  ChromeBrowserState* chrome_browser_state =
-      ChromeBrowserState::FromBrowserState(browser_state);
-  DCHECK(chrome_browser_state);
+  ProfileIOS* profile = ProfileIOS::FromBrowserState(browser_state);
+  DCHECK(profile);
 
   std::unique_ptr<DataSharingUIDelegate> ui_delegate =
       std::make_unique<DataSharingUIDelegateIOS>();
@@ -49,20 +48,14 @@ std::unique_ptr<KeyedService> BuildDataSharingService(
       std::make_unique<DataSharingSDKDelegateIOS>();
 
   return std::make_unique<DataSharingServiceImpl>(
+      browser_state->GetStatePath(),
       browser_state->GetSharedURLLoaderFactory(),
-      IdentityManagerFactory::GetForProfile(chrome_browser_state),
-      DataTypeStoreServiceFactory::GetForBrowserState(chrome_browser_state)
-          ->GetStoreFactory(),
+      IdentityManagerFactory::GetForProfile(profile),
+      DataTypeStoreServiceFactory::GetForProfile(profile)->GetStoreFactory(),
       ::GetChannel(), std::move(sdk_delegate), std::move(ui_delegate));
 }
 
 }  // namespace
-
-// static
-DataSharingService* DataSharingServiceFactory::GetForBrowserState(
-    ChromeBrowserState* context) {
-  return GetForProfile(context);
-}
 
 // static
 DataSharingService* DataSharingServiceFactory::GetForProfile(

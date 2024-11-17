@@ -116,6 +116,37 @@ TEST(MediaTypeConvertersTest, ConvertDecoderBuffer_EOS) {
   EXPECT_TRUE(result->end_of_stream());
 }
 
+TEST(MediaTypeConvertersTest, ConvertDecoderBuffer_EOS_Video_NextConfig) {
+  // Original.
+  auto buffer = DecoderBuffer::CreateEOSBuffer(TestVideoConfig::Normal());
+
+  // Convert from and back.
+  auto ptr = mojom::DecoderBuffer::From(*buffer);
+  auto result = ptr.To<scoped_refptr<DecoderBuffer>>();
+
+  // Compare.
+  EXPECT_TRUE(result->end_of_stream());
+  ASSERT_TRUE(result->next_config());
+  EXPECT_TRUE(absl::get<VideoDecoderConfig>(*result->next_config())
+                  .Matches(TestVideoConfig::Normal()));
+}
+
+TEST(MediaTypeConvertersTest, ConvertDecoderBuffer_EOS_Audio_NextConfig) {
+  // Original.
+  auto buffer = DecoderBuffer::CreateEOSBuffer(TestAudioConfig::Normal());
+
+  // Convert from and back.
+  auto ptr = mojom::DecoderBuffer::From(*buffer);
+  ASSERT_TRUE(ptr);
+  auto result = ptr.To<scoped_refptr<DecoderBuffer>>();
+
+  // Compare.
+  EXPECT_TRUE(result->end_of_stream());
+  ASSERT_TRUE(result->next_config());
+  EXPECT_TRUE(absl::get<AudioDecoderConfig>(*result->next_config())
+                  .Matches(TestAudioConfig::Normal()));
+}
+
 TEST(MediaTypeConvertersTest, ConvertDecoderBuffer_KeyFrame) {
   const uint8_t kData[] = "hello, world";
   const size_t kDataSize = std::size(kData);

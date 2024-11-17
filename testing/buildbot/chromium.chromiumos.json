@@ -16,11 +16,6 @@
       "chromiumos_preflight"
     ]
   },
-  "chromeos-amd64-generic-lacros-dbg": {
-    "additional_compile_targets": [
-      "chrome"
-    ]
-  },
   "chromeos-amd64-generic-rel": {
     "additional_compile_targets": [
       "chromiumos_preflight"
@@ -550,7 +545,7 @@
             }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 3
+          "shards": 8
         },
         "test": "net_unittests",
         "test_id_prefix": "ninja://net:net_unittests/"
@@ -1458,21 +1453,6 @@
       }
     ]
   },
-  "lacros-amd64-generic-rel": {
-    "additional_compile_targets": [
-      "chrome"
-    ]
-  },
-  "lacros-arm-generic-rel": {
-    "additional_compile_targets": [
-      "chrome"
-    ]
-  },
-  "lacros-arm64-generic-rel": {
-    "additional_compile_targets": [
-      "chrome"
-    ]
-  },
   "linux-cfm-rel": {
     "gtest_tests": [
       {
@@ -1584,22 +1564,6 @@
         },
         "test": "ash_components_unittests",
         "test_id_prefix": "ninja://ash/components:ash_components_unittests/"
-      },
-      {
-        "ci_only": true,
-        "merge": {
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "ash_crosapi_tests",
-        "swarming": {
-          "dimensions": {
-            "cpu": "x86-64",
-            "os": "Ubuntu-22.04"
-          },
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "ash_crosapi_tests",
-        "test_id_prefix": "ninja://chrome/test:ash_crosapi_tests/"
       },
       {
         "merge": {
@@ -1771,7 +1735,7 @@
             "os": "Ubuntu-22.04"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 110
+          "shards": 140
         },
         "test": "browser_tests",
         "test_id_prefix": "ninja://chrome/test:browser_tests/"
@@ -2258,7 +2222,7 @@
             "os": "Ubuntu-22.04"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 6
+          "shards": 12
         },
         "test": "interactive_ui_tests",
         "test_id_prefix": "ninja://chrome/test:interactive_ui_tests/"
@@ -3068,23 +3032,6 @@
         },
         "test": "ash_components_unittests",
         "test_id_prefix": "ninja://ash/components:ash_components_unittests/"
-      },
-      {
-        "ci_only": true,
-        "isolate_profile_data": true,
-        "merge": {
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "ash_crosapi_tests",
-        "swarming": {
-          "dimensions": {
-            "cpu": "x86-64",
-            "os": "Ubuntu-22.04"
-          },
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "ash_crosapi_tests",
-        "test_id_prefix": "ninja://chrome/test:ash_crosapi_tests/"
       },
       {
         "args": [
@@ -4631,22 +4578,9 @@
     ],
     "scripts": [
       {
-        "isolate_profile_data": true,
         "name": "check_network_annotations",
         "script": "check_network_annotations.py"
       }
-    ]
-  },
-  "linux-lacros-builder-rel": {
-    "additional_compile_targets": [
-      "chrome",
-      "chrome_sandbox",
-      "symupload"
-    ]
-  },
-  "linux-lacros-dbg": {
-    "additional_compile_targets": [
-      "all"
     ]
   }
 }

@@ -377,6 +377,9 @@ const CGFloat kSeparatorHeight = 0.5;
     case ContentSuggestionsModuleType::kPriceTrackingPromo:
       // Price Tracking Promo design does not use title.
       return @"";
+    case ContentSuggestionsModuleType::kTipsWithProductImage:
+    case ContentSuggestionsModuleType::kTips:
+      return l10n_util::GetNSString(IDS_IOS_MAGIC_STACK_TIP_TITLE);
     default:
       NOTREACHED_IN_MIGRATION();
       return @"";
@@ -449,9 +452,23 @@ const CGFloat kSeparatorHeight = 0.5;
 
 #pragma mark - MagicStackModuleContentViewDelegate
 
+- (void)updateNotificationsOptInVisibility:(BOOL)showNotificationsOptIn {
+  _notificationsOptInButton.hidden = !showNotificationsOptIn;
+  _subtitle.hidden = ![self shouldShowSubtitle];
+}
+
 - (void)setSubtitle:(NSString*)subtitle {
   _subtitle.text = subtitle;
   _subtitle.accessibilityIdentifier = subtitle;
+}
+
+- (void)updateSeparatorVisibility:(BOOL)isHidden {
+  // Do nothing if the new value is the same as the old value
+  if (isHidden == _separator.hidden) {
+    return;
+  }
+
+  _separator.hidden = isHidden;
 }
 
 #pragma mark - Helpers
@@ -499,9 +516,12 @@ const CGFloat kSeparatorHeight = 0.5;
     case ContentSuggestionsModuleType::kSetUpListAllSet:
     case ContentSuggestionsModuleType::kSetUpListNotifications:
     case ContentSuggestionsModuleType::kSafetyCheck:
+    case ContentSuggestionsModuleType::kTips:
       return YES;
     case ContentSuggestionsModuleType::kTabResumption:
       return !IsTabResumption1_5Enabled();
+    case ContentSuggestionsModuleType::kTipsWithProductImage:
+      return NO;
     default:
       return NO;
   }

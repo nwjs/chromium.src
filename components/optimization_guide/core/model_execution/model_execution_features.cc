@@ -154,6 +154,7 @@ bool IsOnDeviceModelEnabled(ModelBasedCapabilityKey feature) {
     case ModelBasedCapabilityKey::kTextSafety:
       return false;
     case ModelBasedCapabilityKey::kHistorySearch:
+    case ModelBasedCapabilityKey::kHistoryQueryIntent:
     case ModelBasedCapabilityKey::kPromptApi:
     case ModelBasedCapabilityKey::kSummarize:
       return true;
@@ -178,6 +179,8 @@ bool IsOnDeviceModelAdaptationEnabled(ModelBasedCapabilityKey feature) {
     case ModelBasedCapabilityKey::kSummarize:
       return true;
     case ModelBasedCapabilityKey::kHistorySearch:
+      return true;
+    case ModelBasedCapabilityKey::kHistoryQueryIntent:
       return true;
     case ModelBasedCapabilityKey::kFormsAnnotations:
     case ModelBasedCapabilityKey::kFormsPredictions:

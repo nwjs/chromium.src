@@ -87,6 +87,7 @@ class CORE_EXPORT LayoutInputNode {
   bool IsFlexItem() const { return IsBlock() && box_->IsFlexItem(); }
   bool IsFlexibleBox() const { return IsBlock() && box_->IsFlexibleBox(); }
   bool IsGrid() const { return IsBlock() && box_->IsLayoutGrid(); }
+  bool IsMasonry() const { return IsBlock() && box_->IsLayoutMasonry(); }
   bool ShouldBeConsideredAsReplaced() const {
     return box_->ShouldBeConsideredAsReplaced();
   }
@@ -221,6 +222,12 @@ class CORE_EXPORT LayoutInputNode {
   Document& GetDocument() const { return box_->GetDocument(); }
 
   Node* GetDOMNode() const { return box_->GetNode(); }
+
+  // Return the DOM node of this, or, if none, that of the nearest ancestor that
+  // has one.
+  //
+  // Anonymous objects have no DOM node.
+  Node* EnclosingDOMNode() const { return box_->EnclosingNode(); }
 
   PhysicalSize InitialContainingBlockSize() const;
 

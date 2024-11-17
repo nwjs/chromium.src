@@ -44,7 +44,6 @@ import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.app.metrics.LaunchCauseMetrics;
 import org.chromium.chrome.browser.app.tabmodel.AsyncTabParamsManagerSingleton;
-import org.chromium.chrome.browser.app.tabmodel.ChromeTabModelFilterFactory;
 import org.chromium.chrome.browser.app.tabmodel.TabModelOrchestrator;
 import org.chromium.chrome.browser.app.tabmodel.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelper;
@@ -154,7 +153,7 @@ public class TabPersistentStoreTest {
         private final TabContentManager mMockTabContentManager;
 
         public TestTabModelSelector(Context context) throws Exception {
-            super(new MockTabCreatorManager(), new ChromeTabModelFilterFactory(context), false);
+            super(new MockTabCreatorManager(), false);
             ((MockTabCreatorManager) getTabCreatorManager()).initialize(this);
             mTabPersistentStoreObserver = new MockTabPersistentStoreObserver();
             // Use of a mockito object here is ok as this object is not important to the test. A
@@ -203,7 +202,7 @@ public class TabPersistentStoreTest {
                         }
                     };
             TabModelImpl regularTabModel = ThreadUtils.runOnUiThreadBlocking(callable);
-            IncognitoTabModel incognitoTabModel =
+            IncognitoTabModelImpl incognitoTabModel =
                     new IncognitoTabModelImpl(
                             new IncognitoTabModelImplCreator(
                                     null,
@@ -1459,7 +1458,6 @@ public class TabPersistentStoreTest {
      *     TabPersistentStore currently creates a new tab with the last known URL, in which case the
      *     new tab's id won't match the id in the metadata file.
      * @return A {@link TestTabModelSelector} with the restored tabs.
-     * @throws Exception
      */
     private TestTabModelSelector createAndRestoreRealTabModelImpls(
             TabModelMetaDataInfo info, boolean restoreIncognito, boolean expectMatchingIds)

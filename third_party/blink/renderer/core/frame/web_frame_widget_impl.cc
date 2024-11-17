@@ -97,6 +97,7 @@
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
+#include "third_party/blink/renderer/core/html/anchor_element_viewport_position_tracker.h"
 #include "third_party/blink/renderer/core/html/fenced_frame/document_fenced_frames.h"
 #include "third_party/blink/renderer/core/html/fenced_frame/html_fenced_frame_element.h"
 #include "third_party/blink/renderer/core/html/forms/text_control_element.h"
@@ -113,7 +114,6 @@
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/layout_shift_tracker.h"
 #include "third_party/blink/renderer/core/layout/layout_text.h"
-#include "third_party/blink/renderer/core/loader/anchor_element_interaction_tracker.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/loader/interactive_detector.h"
 #include "third_party/blink/renderer/core/page/context_menu_controller.h"
@@ -140,6 +140,7 @@
 #include "third_party/blink/renderer/platform/graphics/compositor_mutator_client.h"
 #include "third_party/blink/renderer/platform/graphics/paint_worklet_paint_dispatcher.h"
 #include "third_party/blink/renderer/platform/heap/cross_thread_handle.h"
+#include "third_party/blink/renderer/platform/heap/member.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/keyboard_codes.h"
@@ -153,6 +154,7 @@
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom-blink.h"
+#include "ui/base/mojom/menu_source_type.mojom-blink-forward.h"
 #include "ui/base/mojom/window_show_state.mojom-blink.h"
 #include "ui/gfx/geometry/point_conversions.h"
 
@@ -362,7 +364,7 @@ bool WebFrameWidgetImpl::ForTopMostMainFrame() const {
   return ForMainFrame() && !main_data().is_for_nested_main_frame;
 }
 
-void WebFrameWidgetImpl::Close() {
+void WebFrameWidgetImpl::Close(DetachReason detach_reason) {
   TRACE_EVENT0("navigation", "WebFrameWidgetImpl::Close");
   base::ScopedUmaHistogramTimer histogram_timer(
       "Navigation.WebFrameWidgetImpl.Close");
@@ -383,7 +385,15 @@ void WebFrameWidgetImpl::Close() {
 
   mutator_dispatcher_ = nullptr;
   local_root_ = nullptr;
-  widget_base_->Shutdown();
+  // Shut down the widget, but potentially delay the release of the resources
+  // for LayerTreeView if we're closing because of a navigation. This is to
+  // prevent delaying the navigation commit, as releasing the LayerTreeView
+  // resources blocks on the compositor thread.
+  bool delay_release =
+      (base::FeatureList::IsEnabled(
+           blink::features::kDelayLayerTreeViewDeletionOnLocalSwap) &&
+       detach_reason == DetachReason::kNavigation);
+  widget_base_->Shutdown(delay_release);
   widget_base_.reset();
   // These WeakPtrs must be invalidated for WidgetInputHandlerManager at the
   // same time as the WidgetBase is.
@@ -1306,7 +1316,7 @@ void WebFrameWidgetImpl::SendOverscrollEventFromImplSide(
   }
 }
 
-void WebFrameWidgetImpl::SendEndOfScrollEvents(
+void WebFrameWidgetImpl::SendEndOfScrollEventsDeprecated(
     bool affects_outer_viewport,
     bool affects_inner_viewport,
     cc::ElementId scroll_latched_element_id) {
@@ -1321,9 +1331,10 @@ void WebFrameWidgetImpl::SendEndOfScrollEvents(
     scrollable_area->SetImplSnapStrategy(nullptr);
   }
 
-  if (auto* anchor_element_interaction_tracker =
-          target_node->GetDocument().GetAnchorElementInteractionTracker()) {
-    anchor_element_interaction_tracker->OnScrollEnd();
+  if (auto* viewport_position_tracker =
+          AnchorElementViewportPositionTracker::MaybeGetOrCreateFor(
+              target_node->GetDocument())) {
+    viewport_position_tracker->OnScrollEnd();
   }
 
   if (RuntimeEnabledFeatures::ScrollEndEventsEnabled()) {
@@ -1339,6 +1350,40 @@ void WebFrameWidgetImpl::SendEndOfScrollEvents(
     // not receive a scrollend event.
     if (affects_outer_viewport || target_node != document_node) {
       target_node->GetDocument().EnqueueScrollEndEventForNode(target_node);
+    }
+  }
+}
+
+void WebFrameWidgetImpl::SendEndOfScrollEvents(
+    const cc::CompositorCommitData& commit_data) {
+  HeapHashSet<Member<AnchorElementViewportPositionTracker>> handled_trackers;
+  for (const cc::ElementId& id : commit_data.scroll_end_data.done_containers) {
+    Node* target_node = View()->FindNodeFromScrollableCompositorElementId(id);
+    if (!target_node) {
+      continue;
+    }
+
+    if (auto* viewport_position_tracker =
+            AnchorElementViewportPositionTracker::MaybeGetOrCreateFor(
+                target_node->GetDocument())) {
+      if (!handled_trackers.Contains(viewport_position_tracker)) {
+        viewport_position_tracker->OnScrollEnd();
+        handled_trackers.insert(viewport_position_tracker);
+      }
+    }
+
+    if (ScrollableArea* scrollable_area =
+            ScrollableArea::GetForScrolling(target_node->GetLayoutBox())) {
+      scrollable_area->UpdateSnappedTargetsAndEnqueueScrollSnapChange();
+      scrollable_area->SetImplSnapStrategy(nullptr);
+    }
+
+    if (RuntimeEnabledFeatures::ScrollEndEventsEnabled()) {
+      if (GetPage()->GetVisualViewport().GetScrollElementId() == id) {
+        target_node->GetDocument().EnqueueVisualViewportScrollEndEvent();
+      } else {
+        target_node->GetDocument().EnqueueScrollEndEventForNode(target_node);
+      }
     }
   }
 }
@@ -1367,27 +1412,35 @@ void WebFrameWidgetImpl::UpdateCompositorScrollState(
 
   RecordManipulationTypeCounts(commit_data.manipulation_info);
 
-  if (commit_data.scroll_latched_element_id == cc::ElementId())
-    return;
-
-  if (commit_data.snap_strategy) {
-    SendScrollSnapChangingEventIfNeeded(commit_data);
-  }
-
-  if (!commit_data.overscroll_delta.IsZero()) {
-    SendOverscrollEventFromImplSide(commit_data.overscroll_delta,
-                                    commit_data.scroll_latched_element_id);
+  if (commit_data.scroll_latched_element_id != cc::ElementId()) {
+    if (commit_data.snap_strategy) {
+      SendScrollSnapChangingEventIfNeeded(commit_data);
+    }
+    if (!commit_data.overscroll_delta.IsZero()) {
+      SendOverscrollEventFromImplSide(commit_data.overscroll_delta,
+                                      commit_data.scroll_latched_element_id);
+    }
   }
 
   // TODO(bokan): If a scroll ended and a new one began in the same Blink frame
   // (e.g. during a long running main thread task), this will erroneously
   // dispatch the scroll end to the latter (still-scrolling) element.
   // https://crbug.com/1116780.
-  if (commit_data.scroll_end_data.scroll_gesture_did_end) {
-    SendEndOfScrollEvents(
-        commit_data.scroll_end_data.gesture_affects_outer_viewport_scroll,
-        commit_data.scroll_end_data.gesture_affects_inner_viewport_scroll,
-        commit_data.scroll_latched_element_id);
+  // With MultiImplyOnlyScrollAnimations support, a non-latched scroll
+  // container might have finished its snap animation, so we don't check that we
+  // have a latched id.
+  if (::features::MultiImplOnlyScrollAnimationsSupported()) {
+    if (commit_data.scroll_end_data.done_containers.size()) {
+      SendEndOfScrollEvents(commit_data);
+    }
+  } else {
+    if (commit_data.scroll_latched_element_id != cc::ElementId() &&
+        commit_data.scroll_end_data.scroll_gesture_did_end) {
+      SendEndOfScrollEventsDeprecated(
+          commit_data.scroll_end_data.gesture_affects_outer_viewport_scroll,
+          commit_data.scroll_end_data.gesture_affects_inner_viewport_scroll,
+          commit_data.scroll_latched_element_id);
+    }
   }
 }
 

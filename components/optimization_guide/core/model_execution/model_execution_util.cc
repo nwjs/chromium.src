@@ -41,7 +41,14 @@ void SetExecutionRequest(
           log_ai_request, request_metadata);
       return;
     case ModelBasedCapabilityKey::kFormsAnnotations:
+      SetExecutionRequestTemplate<FormsAnnotationsFeatureTypeMap>(
+          log_ai_request, request_metadata);
+      return;
     case ModelBasedCapabilityKey::kFormsPredictions:
+      SetExecutionRequestTemplate<FormsPredictionsFeatureTypeMap>(
+          log_ai_request, request_metadata);
+      return;
+    case ModelBasedCapabilityKey::kHistoryQueryIntent:
     case ModelBasedCapabilityKey::kPromptApi:
     case ModelBasedCapabilityKey::kSummarize:
     case ModelBasedCapabilityKey::kTextSafety:
@@ -74,7 +81,14 @@ void SetExecutionResponse(ModelBasedCapabilityKey feature,
           log_ai_request, response_metadata);
       return;
     case ModelBasedCapabilityKey::kFormsAnnotations:
+      SetExecutionResponseTemplate<FormsAnnotationsFeatureTypeMap>(
+          log_ai_request, response_metadata);
+      return;
     case ModelBasedCapabilityKey::kFormsPredictions:
+      SetExecutionResponseTemplate<FormsPredictionsFeatureTypeMap>(
+          log_ai_request, response_metadata);
+      return;
+    case ModelBasedCapabilityKey::kHistoryQueryIntent:
     case ModelBasedCapabilityKey::kPromptApi:
     case ModelBasedCapabilityKey::kSummarize:
     case ModelBasedCapabilityKey::kTextSafety:

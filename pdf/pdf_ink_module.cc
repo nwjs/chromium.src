@@ -24,23 +24,25 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "pdf/draw_utils/page_boundary_intersect.h"
-#include "pdf/ink/ink_affine_transform.h"
-#include "pdf/ink/ink_brush.h"
-#include "pdf/ink/ink_in_progress_stroke.h"
-#include "pdf/ink/ink_intersects.h"
-#include "pdf/ink/ink_modeled_shape_view.h"
-#include "pdf/ink/ink_rect.h"
-#include "pdf/ink/ink_skia_renderer.h"
-#include "pdf/ink/ink_stroke.h"
-#include "pdf/ink/ink_stroke_input_batch.h"
-#include "pdf/ink/ink_stroke_input_batch_view.h"
 #include "pdf/input_utils.h"
 #include "pdf/pdf_features.h"
 #include "pdf/pdf_ink_brush.h"
+#include "pdf/pdf_ink_conversions.h"
 #include "pdf/pdf_ink_cursor.h"
+#include "pdf/pdf_ink_module_client.h"
 #include "pdf/pdf_ink_transform.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/common/input/web_mouse_event.h"
+#include "third_party/ink/src/ink/brush/brush.h"
+#include "third_party/ink/src/ink/geometry/affine_transform.h"
+#include "third_party/ink/src/ink/geometry/intersects.h"
+#include "third_party/ink/src/ink/geometry/modeled_shape.h"
+#include "third_party/ink/src/ink/geometry/rect.h"
+#include "third_party/ink/src/ink/rendering/skia/native/skia_renderer.h"
+#include "third_party/ink/src/ink/strokes/in_progress_stroke.h"
+#include "third_party/ink/src/ink/strokes/input/stroke_input.h"
+#include "third_party/ink/src/ink/strokes/input/stroke_input_batch.h"
+#include "third_party/ink/src/ink/strokes/stroke.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -55,11 +57,11 @@ namespace chrome_pdf {
 namespace {
 
 PdfInkModule::StrokeInputPoints GetStrokePointsForTesting(  // IN-TEST
-    const InkStrokeInputBatchView& input_batch) {
+    const ink::StrokeInputBatch& input_batch) {
   PdfInkModule::StrokeInputPoints stroke_points;
   stroke_points.reserve(input_batch.Size());
   for (size_t i = 0; i < input_batch.Size(); ++i) {
-    InkStrokeInput stroke_input = input_batch.Get(i);
+    ink::StrokeInput stroke_input = input_batch.Get(i);
     stroke_points.emplace_back(stroke_input.position.x,
                                stroke_input.position.y);
   }
@@ -79,34 +81,15 @@ void CheckColorIsWithinRange(int color) {
   CHECK_LE(color, 255);
 }
 
-InkRect GetEraserRect(const gfx::PointF& center, int distance_to_center) {
-  return {
-      center.x() - distance_to_center,
-      center.y() - distance_to_center,
-      center.x() + distance_to_center,
-      center.y() + distance_to_center,
-  };
+ink::Rect GetEraserRect(const gfx::PointF& center, int distance_to_center) {
+  return ink::Rect::FromTwoPoints(
+      {center.x() - distance_to_center, center.y() - distance_to_center},
+      {center.x() + distance_to_center, center.y() + distance_to_center});
 }
 
-void UnionInkRects(std::optional<InkRect>& result_rect,
-                   const InkRect& new_rect) {
-  if (result_rect.has_value()) {
-    auto& value = result_rect.value();
-    value.x_min = std::min(value.x_min, new_rect.x_min);
-    value.y_min = std::min(value.y_min, new_rect.y_min);
-    value.x_max = std::max(value.x_max, new_rect.x_max);
-    value.y_max = std::max(value.y_max, new_rect.y_max);
-  } else {
-    result_rect = new_rect;
-  }
-}
-
-gfx::Rect InkRectToEnclosingGfxRect(const InkRect& rect) {
-  const float x = rect.x_min;
-  const float y = rect.y_min;
-  const float width = rect.x_max - x;
-  const float height = rect.y_max - y;
-  return gfx::ToEnclosingRect(gfx::RectF(x, y, width, height));
+gfx::Rect InkRectToEnclosingGfxRect(const ink::Rect& rect) {
+  return gfx::ToEnclosingRect(
+      gfx::RectF(rect.XMin(), rect.YMin(), rect.Width(), rect.Height()));
 }
 
 SkRect GetDrawPageClipRect(const gfx::Rect& content_rect,
@@ -118,7 +101,7 @@ SkRect GetDrawPageClipRect(const gfx::Rect& content_rect,
 
 }  // namespace
 
-PdfInkModule::PdfInkModule(Client& client) : client_(client) {
+PdfInkModule::PdfInkModule(PdfInkModuleClient& client) : client_(client) {
   CHECK(base::FeatureList::IsEnabled(features::kPdfInk2));
   CHECK(is_drawing_stroke());
   drawing_stroke_state().brush = CreateDefaultBrush();
@@ -127,7 +110,7 @@ PdfInkModule::PdfInkModule(Client& client) : client_(client) {
 PdfInkModule::~PdfInkModule() = default;
 
 void PdfInkModule::Draw(SkCanvas& canvas) {
-  auto skia_renderer = InkSkiaRenderer::Create();
+  ink::SkiaRenderer skia_renderer;
 
   const gfx::Vector2dF origin_offset = client_->GetViewportOriginOffset();
   const PageOrientation rotation = client_->GetOrientation();
@@ -141,11 +124,8 @@ void PdfInkModule::Draw(SkCanvas& canvas) {
     // Use an updated transform based on the page and its position in the
     // viewport.
     const gfx::Rect content_rect = client_->GetPageContentsRect(page_index);
-    const InkAffineTransform transform =
+    const ink::AffineTransform transform =
         GetInkRenderTransform(origin_offset, rotation, content_rect, zoom);
-    if (draw_render_transform_callback_for_testing_) {
-      draw_render_transform_callback_for_testing_.Run(transform);
-    }
 
     SkAutoCanvasRestore save_restore(&canvas, /*doSave=*/true);
     canvas.clipRect(GetDrawPageClipRect(content_rect, origin_offset));
@@ -154,9 +134,9 @@ void PdfInkModule::Draw(SkCanvas& canvas) {
         continue;
       }
 
-      bool success =
-          skia_renderer->Draw(*finished_stroke.stroke, transform, canvas);
-      CHECK(success);
+      auto status = skia_renderer.Draw(nullptr, finished_stroke.stroke,
+                                       transform, canvas);
+      CHECK(status.ok());
     }
   }
 
@@ -166,17 +146,14 @@ void PdfInkModule::Draw(SkCanvas& canvas) {
 
     const gfx::Rect content_rect =
         client_->GetPageContentsRect(state.page_index);
-    const InkAffineTransform transform =
+    const ink::AffineTransform transform =
         GetInkRenderTransform(origin_offset, rotation, content_rect, zoom);
-    if (draw_render_transform_callback_for_testing_) {
-      draw_render_transform_callback_for_testing_.Run(transform);
-    }
 
     SkAutoCanvasRestore save_restore(&canvas, /*doSave=*/true);
     canvas.clipRect(GetDrawPageClipRect(content_rect, origin_offset));
     for (const auto& segment : in_progress_stroke) {
-      bool success = skia_renderer->Draw(*segment, transform, canvas);
-      CHECK(success);
+      auto status = skia_renderer.Draw(nullptr, segment, transform, canvas);
+      CHECK(status.ok());
     }
   }
 }
@@ -196,22 +173,26 @@ bool PdfInkModule::DrawThumbnail(SkCanvas& canvas, int page_index) {
       std::min(
           static_cast<float>(canvas_info.width()) / content_rect.width(),
           static_cast<float>(canvas_info.height()) / content_rect.height());
-  const InkAffineTransform transform = {ratio, 0, 0, 0, ratio, 0};
+  const ink::AffineTransform transform = {ratio, 0, 0, 0, ratio, 0};
 
-  auto skia_renderer = InkSkiaRenderer::Create();
+  ink::SkiaRenderer skia_renderer;
   for (const FinishedStrokeState& finished_stroke : it->second) {
     if (!finished_stroke.should_draw) {
       continue;
     }
 
-    bool success =
-        skia_renderer->Draw(*finished_stroke.stroke, transform, canvas);
-    CHECK(success);
+    auto status =
+        skia_renderer.Draw(nullptr, finished_stroke.stroke, transform, canvas);
+    CHECK(status.ok());
   }
 
   // No need to draw in-progress strokes, since DrawThumbnail() only gets called
   // after the in-progress strokes finish.
   return true;
+}
+
+PdfInkModule::PageInkStrokeIterator PdfInkModule::GetVisibleStrokesIterator() {
+  return PageInkStrokeIterator(strokes_);
 }
 
 bool PdfInkModule::HandleInputEvent(const blink::WebInputEvent& event) {
@@ -275,7 +256,7 @@ PdfInkModule::GetStrokesInputPositionsForTesting() const {
   for (const auto& [page_index, strokes] : strokes_) {
     for (const auto& stroke : strokes) {
       all_strokes_points[page_index].push_back(
-          GetStrokePointsForTesting(stroke.stroke->GetInputs()));  // IN-TEST
+          GetStrokePointsForTesting(stroke.stroke.GetInputs()));  // IN-TEST
     }
   }
 
@@ -293,16 +274,11 @@ PdfInkModule::GetVisibleStrokesInputPositionsForTesting() const {
       }
 
       all_strokes_points[page_index].push_back(
-          GetStrokePointsForTesting(stroke.stroke->GetInputs()));  // IN-TEST
+          GetStrokePointsForTesting(stroke.stroke.GetInputs()));  // IN-TEST
     }
   }
 
   return all_strokes_points;
-}
-
-void PdfInkModule::SetDrawRenderTransformCallbackForTesting(
-    RenderTransformCallback callback) {
-  draw_render_transform_callback_for_testing_ = std::move(callback);
 }
 
 bool PdfInkModule::OnMouseDown(const blink::WebMouseEvent& event) {
@@ -314,7 +290,7 @@ bool PdfInkModule::OnMouseDown(const blink::WebMouseEvent& event) {
   }
 
   gfx::PointF position = normalized_event.PositionInWidget();
-  return is_drawing_stroke() ? StartStroke(position)
+  return is_drawing_stroke() ? StartStroke(position, event.TimeStamp())
                              : StartEraseStroke(position);
 }
 
@@ -326,7 +302,7 @@ bool PdfInkModule::OnMouseUp(const blink::WebMouseEvent& event) {
   }
 
   gfx::PointF position = event.PositionInWidget();
-  return is_drawing_stroke() ? FinishStroke(position)
+  return is_drawing_stroke() ? FinishStroke(position, event.TimeStamp())
                              : FinishEraseStroke(position);
 }
 
@@ -334,11 +310,12 @@ bool PdfInkModule::OnMouseMove(const blink::WebMouseEvent& event) {
   CHECK(enabled());
 
   gfx::PointF position = event.PositionInWidget();
-  return is_drawing_stroke() ? ContinueStroke(position)
+  return is_drawing_stroke() ? ContinueStroke(position, event.TimeStamp())
                              : ContinueEraseStroke(position);
 }
 
-bool PdfInkModule::StartStroke(const gfx::PointF& position) {
+bool PdfInkModule::StartStroke(const gfx::PointF& position,
+                               base::TimeTicks timestamp) {
   int page_index = client_->VisiblePageIndexFromPoint(position);
   if (page_index < 0) {
     // Do not draw when not on a page.
@@ -352,15 +329,16 @@ bool PdfInkModule::StartStroke(const gfx::PointF& position) {
       ConvertEventPositionToCanonicalPosition(position, page_index);
 
   CHECK(!state.start_time.has_value());
-  state.start_time = base::Time::Now();
+  state.start_time = timestamp;
   state.page_index = page_index;
 
   // Start of the first segment of a stroke.
-  StrokeInputSegment segment;
-  segment.push_back({
-      .position = InkPoint{page_position.x(), page_position.y()},
-      .elapsed_time_seconds = 0,
-  });
+  // TODO(crbug.com/353942909): Set the tool type appropriately.
+  ink::StrokeInputBatch segment;
+  auto result = segment.Append(
+      CreateInkStrokeInput(ink::StrokeInput::ToolType::kMouse, page_position,
+                           /*elapsed_time=*/base::TimeDelta()));
+  CHECK(result.ok());
   state.inputs.push_back(std::move(segment));
 
   // Invalidate area around this one point.
@@ -379,7 +357,8 @@ bool PdfInkModule::StartStroke(const gfx::PointF& position) {
   return true;
 }
 
-bool PdfInkModule::ContinueStroke(const gfx::PointF& position) {
+bool PdfInkModule::ContinueStroke(const gfx::PointF& position,
+                                  base::TimeTicks timestamp) {
   CHECK(is_drawing_stroke());
   DrawingStrokeState& state = drawing_stroke_state();
   if (!state.start_time.has_value()) {
@@ -413,7 +392,7 @@ bool PdfInkModule::ContinueStroke(const gfx::PointF& position) {
     if (boundary_position != last_position) {
       // Record the last point before leaving the page, if `last_position` was
       // not already on the page boundary.
-      RecordStrokePosition(boundary_position);
+      RecordStrokePosition(boundary_position, timestamp);
       client_->Invalidate(
           state.brush->GetInvalidateArea(last_position, boundary_position));
     }
@@ -427,19 +406,19 @@ bool PdfInkModule::ContinueStroke(const gfx::PointF& position) {
   if (last_page_index != state.page_index) {
     // If the stroke left the page and is now re-entering, then start a new
     // segment.
-    CHECK(!state.inputs.back().empty());
-    state.inputs.push_back(StrokeInputSegment());
+    CHECK(!state.inputs.back().IsEmpty());
+    state.inputs.push_back(ink::StrokeInputBatch());
     const gfx::PointF boundary_position = CalculatePageBoundaryIntersectPoint(
         client_->GetPageContentsRect(state.page_index), position,
         last_position);
     if (boundary_position != position) {
       // Record the first point after entering the page.
-      RecordStrokePosition(boundary_position);
+      RecordStrokePosition(boundary_position, timestamp);
       invalidation_position = boundary_position;
     }
   }
 
-  RecordStrokePosition(position);
+  RecordStrokePosition(position, timestamp);
 
   // Invalidate area covering a straight line between this position and the
   // previous one.
@@ -452,10 +431,11 @@ bool PdfInkModule::ContinueStroke(const gfx::PointF& position) {
   return true;
 }
 
-bool PdfInkModule::FinishStroke(const gfx::PointF& position) {
+bool PdfInkModule::FinishStroke(const gfx::PointF& position,
+                                base::TimeTicks timestamp) {
   // Process `position` as though it was the last point of movement first,
   // before moving on to various bookkeeping tasks.
-  if (!ContinueStroke(position)) {
+  if (!ContinueStroke(position, timestamp)) {
     return false;
   }
 
@@ -467,7 +447,7 @@ bool PdfInkModule::FinishStroke(const gfx::PointF& position) {
     for (const auto& segment : in_progress_stroke_segments) {
       size_t id = stroke_id_generator_.GetIdAndAdvance();
       strokes_[state.page_index].push_back(
-          FinishedStrokeState(segment->CopyToStroke(), id));
+          FinishedStrokeState(segment.CopyToStroke(), id));
       bool undo_redo_success = undo_redo_model_.Draw(id);
       CHECK(undo_redo_success);
     }
@@ -566,9 +546,9 @@ bool PdfInkModule::EraseHelper(const gfx::PointF& position, int page_index) {
 
   gfx::PointF canonical_position =
       ConvertEventPositionToCanonicalPosition(position, page_index);
-  const InkRect eraser_rect =
+  const ink::Rect eraser_rect =
       GetEraserRect(canonical_position, erasing_stroke_state().eraser_size);
-  std::optional<InkRect> invalidate_rect;
+  ink::Envelope invalidate_envelope;
   for (auto& stroke : it->second) {
     if (!stroke.should_draw) {
       // Already erased.
@@ -577,20 +557,22 @@ bool PdfInkModule::EraseHelper(const gfx::PointF& position, int page_index) {
 
     // No transform needed, as `eraser_rect` is already using transformed
     // coordinates from `canonical_position`.
-    static constexpr InkAffineTransform kIdentityTransform = {1, 0, 0, 0, 1, 0};
-    const InkModeledShapeView& shape = stroke.stroke->GetShape();
-    if (!InkIntersectsRectWithShape(eraser_rect, shape, kIdentityTransform)) {
+    static constexpr ink::AffineTransform kIdentityTransform;
+    const ink::ModeledShape& shape = stroke.stroke.GetShape();
+    if (!ink::Intersects(eraser_rect, shape, kIdentityTransform)) {
       continue;
     }
 
     stroke.should_draw = false;
 
-    UnionInkRects(invalidate_rect, shape.Bounds());
+    invalidate_envelope.Add(shape.Bounds());
 
     bool undo_redo_success = undo_redo_model_.Erase(stroke.id);
     CHECK(undo_redo_success);
   }
 
+  const std::optional<ink::Rect>& invalidate_rect =
+      invalidate_envelope.AsRect();
   if (!invalidate_rect.has_value()) {
     return false;
   }
@@ -618,7 +600,7 @@ void PdfInkModule::HandleSetAnnotationBrushMessage(
   CHECK(data);
 
   float size = base::checked_cast<float>(data->FindDouble("size").value());
-  PdfInkBrush::CheckToolSizeIsInRange(size);
+  CHECK(PdfInkBrush::IsToolSizeInRange(size));
 
   const std::string& brush_type_string = *data->FindString("type");
   if (brush_type_string == "eraser") {
@@ -661,39 +643,32 @@ void PdfInkModule::HandleSetAnnotationModeMessage(
   MaybeSetCursor();
 }
 
-std::vector<std::unique_ptr<InkInProgressStroke>>
+std::vector<ink::InProgressStroke>
 PdfInkModule::CreateInProgressStrokeSegmentsFromInputs() const {
   if (!is_drawing_stroke()) {
     return {};
   }
 
   const DrawingStrokeState& state = drawing_stroke_state();
-  std::vector<std::unique_ptr<InkInProgressStroke>> stroke_segments;
+  std::vector<ink::InProgressStroke> stroke_segments;
   stroke_segments.reserve(state.inputs.size());
   for (size_t segment_number = 0; const auto& segment : state.inputs) {
     ++segment_number;
-    if (segment.empty()) {
+    if (segment.IsEmpty()) {
       // Only the last segment can possibly be empty, if the stroke left the
       // page but never returned back in.
       CHECK_EQ(segment_number, state.inputs.size());
       break;
     }
 
-    auto stroke = InkInProgressStroke::Create();
-    // TODO(crbug.com/339682315): This should not fail with the wrapper.
-    if (!stroke) {
-      return {};
-    }
-
-    auto input_batch = InkStrokeInputBatch::Create(segment);
-    CHECK(input_batch);
-
-    stroke->Start(state.brush->GetInkBrush());
-    bool enqueue_results = stroke->EnqueueInputs(input_batch.get(), nullptr);
-    CHECK(enqueue_results);
-    stroke->FinishInputs();
-    bool update_results = stroke->UpdateShape(0);
-    CHECK(update_results);
+    ink::InProgressStroke stroke;
+    stroke.Start(state.brush->ink_brush());
+    auto enqueue_results =
+        stroke.EnqueueInputs(segment, /*predicted_inputs=*/{});
+    CHECK(enqueue_results.ok());
+    stroke.FinishInputs();
+    auto update_results = stroke.UpdateShape(ink::Duration32());
+    CHECK(update_results.ok());
     stroke_segments.push_back(std::move(stroke));
   }
   return stroke_segments;
@@ -711,16 +686,17 @@ gfx::PointF PdfInkModule::ConvertEventPositionToCanonicalPosition(
                                           client_->GetZoom());
 }
 
-void PdfInkModule::RecordStrokePosition(const gfx::PointF& position) {
+void PdfInkModule::RecordStrokePosition(const gfx::PointF& position,
+                                        base::TimeTicks timestamp) {
   CHECK(is_drawing_stroke());
   DrawingStrokeState& state = drawing_stroke_state();
   gfx::PointF canonical_position =
       ConvertEventPositionToCanonicalPosition(position, state.page_index);
-  base::TimeDelta time_diff = base::Time::Now() - state.start_time.value();
-  state.inputs.back().push_back({
-      .position = InkPoint{canonical_position.x(), canonical_position.y()},
-      .elapsed_time_seconds = static_cast<float>(time_diff.InSecondsF()),
-  });
+  base::TimeDelta time_diff = timestamp - state.start_time.value();
+  // TODO(crbug.com/353942909): Set the tool type appropriately.
+  auto result = state.inputs.back().Append(CreateInkStrokeInput(
+      ink::StrokeInput::ToolType::kMouse, canonical_position, time_diff));
+  CHECK(result.ok());
 }
 
 void PdfInkModule::ApplyUndoRedoCommands(
@@ -767,7 +743,7 @@ void PdfInkModule::ApplyUndoRedoCommandsHelper(std::set<size_t> ids,
     // `it` is always valid, because all the IDs in `ids_to_apply_command` are
     // in `page_ink_strokes`.
     auto it = page_ink_strokes.begin();
-    std::optional<InkRect> invalidate_rect;
+    ink::Envelope invalidate_envelope;
     for (size_t id : ids_to_apply_command) {
       it = base::ranges::lower_bound(
           it, page_ink_strokes.end(), id, {},
@@ -776,11 +752,13 @@ void PdfInkModule::ApplyUndoRedoCommandsHelper(std::set<size_t> ids,
       CHECK_NE(stroke.should_draw, should_draw);
       stroke.should_draw = should_draw;
 
-      UnionInkRects(invalidate_rect, stroke.stroke->GetShape().Bounds());
+      invalidate_envelope.Add(stroke.stroke.GetShape().Bounds());
 
       ids.erase(id);
     }
 
+    const std::optional<ink::Rect>& invalidate_rect =
+        invalidate_envelope.AsRect();
     CHECK(invalidate_rect.has_value());
     client_->Invalidate(InkRectToEnclosingGfxRect(invalidate_rect.value()));
     client_->UpdateThumbnail(page_index);
@@ -846,8 +824,8 @@ void PdfInkModule::MaybeSetCursor() {
   SkColor color;
   float brush_size;
   if (is_drawing_stroke()) {
-    const auto& ink_brush = drawing_stroke_state().brush->GetInkBrush();
-    color = ink_brush.GetColor();
+    const auto& ink_brush = drawing_stroke_state().brush->ink_brush();
+    color = GetSkColorFromInkBrush(ink_brush);
     brush_size = ink_brush.GetSize();
   } else {
     CHECK(is_erasing_stroke());
@@ -869,9 +847,8 @@ PdfInkModule::EraserState::EraserState() = default;
 
 PdfInkModule::EraserState::~EraserState() = default;
 
-PdfInkModule::FinishedStrokeState::FinishedStrokeState(
-    std::unique_ptr<InkStroke> stroke,
-    size_t id)
+PdfInkModule::FinishedStrokeState::FinishedStrokeState(ink::Stroke stroke,
+                                                       size_t id)
     : stroke(std::move(stroke)), id(id) {}
 
 PdfInkModule::FinishedStrokeState::FinishedStrokeState(
@@ -894,6 +871,73 @@ size_t PdfInkModule::StrokeIdGenerator::GetIdAndAdvance() {
 
 void PdfInkModule::StrokeIdGenerator::ResetIdTo(size_t id) {
   next_stroke_id_ = id;
+}
+
+PdfInkModule::PageInkStrokeIterator::PageInkStrokeIterator(
+    const PdfInkModule::DocumentStrokesMap& strokes)
+    : strokes_(strokes), pages_iterator_(strokes_->cbegin()) {
+  // Set up internal iterators for the first visible stroke, if there is one.
+  AdvanceToNextPageWithVisibleStrokes();
+}
+
+PdfInkModule::PageInkStrokeIterator::~PageInkStrokeIterator() = default;
+
+std::optional<PdfInkModule::PageInkStroke>
+PdfInkModule::PageInkStrokeIterator::GetNextStrokeAndAdvance() {
+  if (pages_iterator_ == strokes_->cend()) {
+    return std::nullopt;
+  }
+
+  // `page_strokes_iterator_` is set up when finding the page, and is updated
+  // after establishing the stroke to return.  So the return value is based
+  // upon the current position of the iterator.  Callers should not get here
+  // if the end of the strokes has been reached for the current page.
+  CHECK(page_strokes_iterator_ != pages_iterator_->second.cend());
+  CHECK(page_strokes_iterator_->should_draw);
+  const ink::Stroke& page_stroke = page_strokes_iterator_->stroke;
+  int page_index = pages_iterator_->first;
+  AdvanceForCurrentPage();
+
+  if (page_strokes_iterator_ == pages_iterator_->second.cend()) {
+    // This was the last stroke for the current page, so advancing requires
+    // moving on to another page and reinitializing `page_strokes_iterator_`.
+    ++pages_iterator_;
+    AdvanceToNextPageWithVisibleStrokes();
+  }
+
+  return PageInkStroke{page_index, raw_ref<const ink::Stroke>(page_stroke)};
+}
+
+void PdfInkModule::PageInkStrokeIterator::
+    AdvanceToNextPageWithVisibleStrokes() {
+  for (; pages_iterator_ != strokes_->cend(); ++pages_iterator_) {
+    // Initialize and scan to the location of the first (if any) visible
+    // stroke for this page.
+    for (page_strokes_iterator_ = pages_iterator_->second.cbegin();
+         page_strokes_iterator_ != pages_iterator_->second.cend();
+         ++page_strokes_iterator_) {
+      if (page_strokes_iterator_->should_draw) {
+        // This page has visible strokes, and `page_strokes_iterator_` has
+        // been initialized to the position of the first visible stroke.
+        return;
+      }
+    }
+  }
+
+  // No pages with visible strokes found.
+}
+
+void PdfInkModule::PageInkStrokeIterator::AdvanceForCurrentPage() {
+  CHECK(pages_iterator_ != strokes_->cend());
+
+  // Advance the iterator to next visible stroke in this page (if any) before
+  // returning.
+  do {
+    ++page_strokes_iterator_;
+    if (page_strokes_iterator_ == pages_iterator_->second.cend()) {
+      break;
+    }
+  } while (!page_strokes_iterator_->should_draw);
 }
 
 }  // namespace chrome_pdf

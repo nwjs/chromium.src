@@ -11,6 +11,7 @@
 #include "base/auto_reset.h"
 #include "base/functional/bind.h"
 #include "base/memory/weak_ptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
@@ -35,6 +36,26 @@
 #include "ui/views/cascading_property.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/widget/widget.h"
+// TODO(crbug.com/365733574): used for debugging the misplaced bubble issue on
+// mac fullscreen.
+#if BUILDFLAG(IS_MAC)
+#include "chrome/browser/platform_util.h"
+#endif  // BUILDFLAG(IS_MAC)
+
+namespace {
+
+#if BUILDFLAG(IS_MAC)
+// Returns true if the browser is in fullscreen. This depends on the fact in mac
+// fullscreen the topchrome UI is hosted in an overlay widget.
+// TODO(crbug.com/365733574): used for debugging the misplaced bubble issue on
+// mac fullscreen.
+bool IsInFullscreen(views::Widget* topchrome_host_widget) {
+  CHECK(topchrome_host_widget);
+  return topchrome_host_widget->GetName() == "mac-fullscreen-overlay";
+}
+#endif  // BUILDFLAG(IS_MAC)
+
+}  // namespace
 
 class OmniboxPopupViewViews::AutocompletePopupWidget final
     : public ThemeCopyingWidget {
@@ -76,6 +97,14 @@ class OmniboxPopupViewViews::AutocompletePopupWidget final
   void SetTargetBounds(const gfx::Rect& bounds) {
     base::AutoReset<bool> reset(&is_setting_popup_bounds_, true);
     SetBounds(bounds);
+#if BUILDFLAG(IS_MAC)
+    // TODO(crbug.com/365733574): debug for the misplaced bubble issue on mac
+    // fullscreen.
+    if (IsInFullscreen(parent())) {
+      base::UmaHistogramSparse("Mac.Fullscreen.OmniboxPopupTargetScreenY",
+                               bounds.y());
+    }
+#endif  // BUILDFLAG(IS_MAC)
   }
 
   void ShowAnimated() {
@@ -182,7 +211,7 @@ OmniboxPopupViewViews::OmniboxPopupViewViews(OmniboxViewViews* omnibox_view,
       views::BoxLayout::Orientation::kVertical));
 
   GetViewAccessibility().SetRole(ax::mojom::Role::kListBox);
-  UpdateExpandedCollapsedAccessibleState();
+  UpdateAccessibleStates();
   UpdateAccessibleActiveDescendantForInvokingView();
 }
 
@@ -263,8 +292,9 @@ void OmniboxPopupViewViews::UpdatePopupAppearance() {
         return;
       }
       popup_->CloseAnimated();  // This will eventually delete the popup.
+      popup_->RemoveObserver(this);
       popup_.reset();
-      UpdateExpandedCollapsedAccessibleState();
+      UpdateAccessibleStates();
       // The active descendant should be cleared when the popup closes.
       UpdateAccessibleActiveDescendantForInvokingView();
       FireAXEventsForNewActiveDescendant(nullptr);
@@ -357,7 +387,7 @@ void OmniboxPopupViewViews::UpdatePopupAppearance() {
     popup_->ShowAnimated();
 
     // Popup is now expanded and first item will be selected.
-    UpdateExpandedCollapsedAccessibleState();
+    UpdateAccessibleStates();
     UpdateAccessibleActiveDescendantForInvokingView();
     OmniboxResultView* result_view = result_view_at(0);
     if (result_view) {
@@ -516,6 +546,15 @@ void OmniboxPopupViewViews::OnWidgetVisibilityChanged(views::Widget* widget,
   }
 }
 
+void OmniboxPopupViewViews::OnWidgetDestroying(views::Widget* widget) {
+  CHECK_EQ(widget, popup_.get());
+  if (popup_) {
+    popup_->RemoveObserver(this);
+    popup_ = nullptr;
+  }
+  UpdateAccessibleStates();
+}
+
 gfx::Rect OmniboxPopupViewViews::GetTargetBounds() const {
   int popup_height = 0;
   const auto* autocomplete_controller = controller()->autocomplete_controller();
@@ -543,6 +582,24 @@ gfx::Rect OmniboxPopupViewViews::GetTargetBounds() const {
 
   // The rounded popup is always offset the same amount from the omnibox.
   gfx::Rect content_rect = location_bar_view_->GetBoundsInScreen();
+
+#if BUILDFLAG(IS_MAC)
+  // TODO(crbug.com/365733574): debug for the misplaced bubble issue on mac
+  // fullscreen.
+  views::Widget* topchrome_host_widget = location_bar_view_->GetWidget();
+  if (IsInFullscreen(topchrome_host_widget)) {
+    base::UmaHistogramSparse(
+        "Mac.Fullscreen.OverlayWidgetScreenY",
+        topchrome_host_widget->GetWindowBoundsInScreen().y());
+    base::UmaHistogramSparse("Mac.Fullscreen.OverlayNSWindowScreenY",
+                             platform_util::GetWindowScreenBounds(
+                                 topchrome_host_widget->GetNativeWindow())
+                                 .y());
+    base::UmaHistogramSparse("Mac.Fullscreen.LocationBarViewScreenY",
+                             content_rect.y());
+  }
+#endif  // BUILDFLAG(IS_MAC)
+
   content_rect.Inset(
       -RoundedOmniboxResultsFrame::GetLocationBarAlignmentInsets());
   content_rect.set_height(popup_height);
@@ -614,17 +671,13 @@ void OmniboxPopupViewViews::SetSuggestionGroupVisibility(
   InvalidateLayout();
 }
 
-void OmniboxPopupViewViews::GetAccessibleNodeData(ui::AXNodeData* node_data) {
-  if (!IsOpen()) {
-    node_data->AddState(ax::mojom::State::kInvisible);
-  }
-}
-
-void OmniboxPopupViewViews::UpdateExpandedCollapsedAccessibleState() const {
+void OmniboxPopupViewViews::UpdateAccessibleStates() const {
   if (IsOpen()) {
     GetViewAccessibility().SetIsExpanded();
+    GetViewAccessibility().SetIsInvisible(false);
   } else {
     GetViewAccessibility().SetIsCollapsed();
+    GetViewAccessibility().SetIsInvisible(true);
   }
 }
 

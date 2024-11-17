@@ -216,13 +216,15 @@ void WebRequestInfoInitParams::InitializeWebViewAndFrameData(
     const ExtensionNavigationUIData* navigation_ui_data) {
   if (navigation_ui_data) {
     is_web_view = navigation_ui_data->is_web_view();
-    web_view_instance_id = navigation_ui_data->web_view_instance_id();
-    web_view_rules_registry_id =
-        navigation_ui_data->web_view_rules_registry_id();
+    if (is_web_view) {
+      web_view_instance_id = navigation_ui_data->web_view_instance_id();
+      web_view_rules_registry_id =
+          navigation_ui_data->web_view_rules_registry_id();
+      web_view_embedder_process_id =
+          navigation_ui_data->web_view_embedder_process_id();
+    }
     frame_data = navigation_ui_data->frame_data();
     parent_routing_id = navigation_ui_data->parent_routing_id();
-    web_view_embedder_process_id =
-        navigation_ui_data->web_view_embedder_process_id();
   } else if (frame_routing_id != MSG_ROUTING_NONE) {
 #if BUILDFLAG(ENABLE_GUEST_VIEW)
     // Grab any WebView-related information if relevant.

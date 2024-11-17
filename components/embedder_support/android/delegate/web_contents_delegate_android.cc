@@ -51,7 +51,7 @@ WebContentsDelegateAndroid::WebContentsDelegateAndroid(
     const jni_zero::JavaRef<jobject>& obj)
     : weak_java_delegate_(env, obj) {}
 
-WebContentsDelegateAndroid::~WebContentsDelegateAndroid() {}
+WebContentsDelegateAndroid::~WebContentsDelegateAndroid() = default;
 
 ScopedJavaLocalRef<jobject> WebContentsDelegateAndroid::GetJavaDelegate(
     JNIEnv* env) const {
@@ -522,6 +522,12 @@ WebContentsDelegateAndroid::GetBackForwardTransitionFallbackUXConfig() {
       .background_color =
           SkColor4f::FromColor(static_cast<SkColor>(page_background)),
   };
+}
+
+void WebContentsDelegateAndroid::ContentsZoomChange(bool zoom_in) {
+  JNIEnv* env = AttachCurrentThread();
+  Java_WebContentsDelegateAndroid_contentsZoomChange(env, GetJavaDelegate(env),
+                                                     zoom_in);
 }
 
 void JNI_WebContentsDelegateAndroid_MaybeCopyContentAreaAsBitmapOutcome(

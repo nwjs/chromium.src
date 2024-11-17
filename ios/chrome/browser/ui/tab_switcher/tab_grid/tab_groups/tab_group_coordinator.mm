@@ -5,7 +5,11 @@
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_groups/tab_group_coordinator.h"
 
 #import "base/check.h"
+#import "base/memory/raw_ptr.h"
 #import "base/metrics/user_metrics.h"
+#import "components/saved_tab_groups/public/saved_tab_group.h"
+#import "components/saved_tab_groups/public/tab_group_sync_service.h"
+#import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
@@ -37,7 +41,7 @@ constexpr CGFloat kTabGroupBackgroundElementDurationFactor = 0.75;
   // Context Menu helper for the tabs.
   TabContextMenuHelper* _tabContextMenuHelper;
   // Tab group to display.
-  const TabGroup* _tabGroup;
+  raw_ptr<const TabGroup> _tabGroup;
 }
 
 #pragma mark - Public
@@ -70,9 +74,21 @@ constexpr CGFloat kTabGroupBackgroundElementDurationFactor = 0.75;
 - (void)start {
   id<TabGroupsCommands> handler = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), TabGroupsCommands);
+  tab_groups::TabGroupSyncService* syncService =
+      tab_groups::TabGroupSyncServiceFactory::GetForProfile(
+          self.browser->GetProfile());
+  BOOL shared = NO;
+  if (syncService) {
+    std::optional<tab_groups::SavedTabGroup> savedTabGroup =
+        syncService->GetGroup(_tabGroup->tab_group_id());
+    shared = savedTabGroup.has_value() &&
+             savedTabGroup->collaboration_id().has_value();
+  }
+
   _viewController = [[TabGroupViewController alloc]
       initWithHandler:handler
-            incognito:self.browser->GetBrowserState()->IsOffTheRecord()
+            incognito:self.browser->GetProfile()->IsOffTheRecord()
+               shared:shared
              tabGroup:_tabGroup];
 
   _viewController.gridViewController.delegate = self;
@@ -88,7 +104,7 @@ constexpr CGFloat kTabGroupBackgroundElementDurationFactor = 0.75;
   _mediator.tabGridIdleStatusHandler = self.tabGridIdleStatusHandler;
 
   _tabContextMenuHelper = [[TabContextMenuHelper alloc]
-        initWithBrowserState:self.browser->GetBrowserState()
+             initWithProfile:self.browser->GetProfile()
       tabContextMenuDelegate:self.tabContextMenuDelegate];
 
   _viewController.mutator = _mediator;
@@ -209,7 +225,7 @@ constexpr CGFloat kTabGroupBackgroundElementDurationFactor = 0.75;
 
 - (void)gridViewController:(BaseGridViewController*)gridViewController
        didSelectItemWithID:(web::WebStateID)itemID {
-  BOOL incognito = self.browser->GetBrowserState()->IsOffTheRecord();
+  BOOL incognito = self.browser->GetProfile()->IsOffTheRecord();
   if ([_mediator isItemWithIDSelected:itemID]) {
     if (incognito) {
       base::RecordAction(base::UserMetricsAction(

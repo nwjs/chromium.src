@@ -129,12 +129,18 @@
 #include "services/device/public/mojom/serial.mojom.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/mojom/bluetooth/web_bluetooth.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/text/bytes_formatting.h"
 #include "ui/webui/webui_allowlist.h"
 #include "url/gurl.h"
+
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/smart_card/smart_card_permission_context.h"
+#include "chrome/browser/smart_card/smart_card_permission_context_factory.h"
+#endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
@@ -228,11 +234,11 @@ void ValidateSitesWithRws(
     auto schemeful_site = ConvertEtldToSchemefulSite(etld_plus1);
 
     if (related_website_sets.count(schemeful_site)) {
-      // Ensure that the `fpsOwner` is set correctly and aligned with
+      // Ensure that the `rwsOwner` is set correctly and aligned with
       // |related_website_sets| mapping of site group owners.
       std::string owner_etldplus1 =
           related_website_sets[schemeful_site].GetURL().host();
-      ASSERT_EQ(owner_etldplus1, *site_group.FindString("fpsOwner"));
+      ASSERT_EQ(owner_etldplus1, *site_group.FindString("rwsOwner"));
       if (owner_etldplus1 == "google.com") {
         ASSERT_EQ(2, *site_group.FindInt("rwsNumMembers"));
         ASSERT_EQ(false, *site_group.FindBool("rwsEnterpriseManaged"));
@@ -241,9 +247,9 @@ void ValidateSitesWithRws(
         ASSERT_EQ(true, *site_group.FindBool("rwsEnterpriseManaged"));
       }
     } else {
-      // The site is not part of a RWS therefore doesn't have `fpsOwner` or
+      // The site is not part of a RWS therefore doesn't have `rwsOwner` or
       // `rwsNumMembers` set. `FindString` and `FindInt` should return null.
-      ASSERT_FALSE(site_group.FindString("fpsOwner"));
+      ASSERT_FALSE(site_group.FindString("rwsOwner"));
       ASSERT_FALSE(site_group.FindInt("rwsNumMembers"));
       ASSERT_FALSE(site_group.FindBool("rwsEnterpriseManaged"));
     }
@@ -4068,17 +4074,17 @@ TEST_F(PersistentPermissionsSiteSettingsHandlerTest,
 
   // Populate the `grants` object with permissions.
   auto file_read_grant = context->GetExtendedReadPermissionGrantForTesting(
-      kTestOrigin1, kTestPath,
+      kTestOrigin1, content::PathInfo(kTestPath),
       ChromeFileSystemAccessPermissionContext::HandleType::kFile);
   auto file_write_grant = context->GetExtendedWritePermissionGrantForTesting(
-      kTestOrigin2, kTestPath2,
+      kTestOrigin2, content::PathInfo(kTestPath2),
       ChromeFileSystemAccessPermissionContext::HandleType::kFile);
   auto directory_read_grant = context->GetExtendedReadPermissionGrantForTesting(
-      kTestOrigin1, kTestPath3,
+      kTestOrigin1, content::PathInfo(kTestPath3),
       ChromeFileSystemAccessPermissionContext::HandleType::kDirectory);
   auto directory_write_grant =
       context->GetExtendedWritePermissionGrantForTesting(
-          kTestOrigin2, kTestPath4,
+          kTestOrigin2, content::PathInfo(kTestPath4),
           ChromeFileSystemAccessPermissionContext::HandleType::kDirectory);
 
   auto kTestOrigin1Grants =
@@ -4168,18 +4174,18 @@ TEST_F(PersistentPermissionsSiteSettingsHandlerTest,
 
   // Populate the `grants` object with permissions.
   auto file_read_grant = context->GetExtendedReadPermissionGrantForTesting(
-      kTestOrigin1, kTestPath,
+      kTestOrigin1, content::PathInfo(kTestPath),
       ChromeFileSystemAccessPermissionContext::HandleType::kFile);
   auto directory_read_grant = context->GetExtendedReadPermissionGrantForTesting(
-      kTestOrigin1, kTestPath2,
+      kTestOrigin1, content::PathInfo(kTestPath2),
       ChromeFileSystemAccessPermissionContext::HandleType::kDirectory);
   auto directory_write_grant =
       context->GetExtendedWritePermissionGrantForTesting(
-          kTestOrigin2, kTestPath3,
+          kTestOrigin2, content::PathInfo(kTestPath3),
           ChromeFileSystemAccessPermissionContext::HandleType::kDirectory);
   auto second_directory_write_grant =
       context->GetExtendedWritePermissionGrantForTesting(
-          kTestOrigin2, kTestPath4,
+          kTestOrigin2, content::PathInfo(kTestPath4),
           ChromeFileSystemAccessPermissionContext::HandleType::kDirectory);
 
   base::Value::List revoke_origin1_grant_permissions_args;
@@ -4250,17 +4256,17 @@ TEST_F(PersistentPermissionsSiteSettingsHandlerTest,
 
   // Populate the `grants` object with permissions.
   auto file_read_grant = context->GetExtendedReadPermissionGrantForTesting(
-      kTestOrigin1, kTestPath,
+      kTestOrigin1, content::PathInfo(kTestPath),
       ChromeFileSystemAccessPermissionContext::HandleType::kFile);
   auto file_write_grant = context->GetExtendedWritePermissionGrantForTesting(
-      kTestOrigin2, kTestPath2,
+      kTestOrigin2, content::PathInfo(kTestPath2),
       ChromeFileSystemAccessPermissionContext::HandleType::kFile);
   auto directory_read_grant = context->GetExtendedReadPermissionGrantForTesting(
-      kTestOrigin1, kTestPath3,
+      kTestOrigin1, content::PathInfo(kTestPath3),
       ChromeFileSystemAccessPermissionContext::HandleType::kDirectory);
   auto directory_write_grant =
       context->GetExtendedWritePermissionGrantForTesting(
-          kTestOrigin2, kTestPath4,
+          kTestOrigin2, content::PathInfo(kTestPath4),
           ChromeFileSystemAccessPermissionContext::HandleType::kDirectory);
 
   base::Value::List get_file_system_grants_permissions_args;
@@ -4299,6 +4305,121 @@ TEST_F(PersistentPermissionsSiteSettingsHandlerTest,
 
   EXPECT_EQ(updated_data.arg1()->GetString(), kCallbackId);
 }
+
+#if BUILDFLAG(IS_CHROMEOS)
+class SmartCardReaderPermissionsSiteSettingsHandlerTest
+    : public SiteSettingsHandlerBaseTest {
+  void SetUp() override {
+    SiteSettingsHandlerBaseTest::SetUp();
+    handler_ = std::make_unique<SiteSettingsHandler>(profile());
+    handler_->set_web_ui(web_ui());
+    handler_->AllowJavascript();
+    web_ui()->ClearTrackedCalls();
+  }
+
+  void TearDown() override {
+    SiteSettingsHandlerBaseTest::TearDown();
+    handler_->DisallowJavascript();
+  }
+
+ protected:
+  void GrantPersistentReaderPermission(SmartCardPermissionContext& context,
+                                       const url::Origin& origin,
+                                       const std::string& reader_name) {
+    return context.GrantPersistentReaderPermission(origin, reader_name);
+  }
+
+ protected:
+  std::unique_ptr<SiteSettingsHandler> handler_;
+
+ private:
+  base::test::ScopedFeatureList feature_list_{blink::features::kSmartCard};
+};
+
+TEST_F(SmartCardReaderPermissionsSiteSettingsHandlerTest,
+       HandleGetSmartCardReaderGrants) {
+  SmartCardPermissionContext& context =
+      SmartCardPermissionContextFactory::GetForProfile(*profile());
+
+  const auto kTestOrigin1 = url::Origin::Create(
+      GURL("isolated-app://"
+           "amoiebz32b7o24tilu257xne2yf3nkblkploanxzm7ebeglseqpfeaacai/"));
+  const auto kTestOrigin2 = url::Origin::Create(
+      GURL("isolated-app://"
+           "anayaszofsyqapbofoli7ljxoxkp32qkothweire2o6t7xy6taz6oaacai/"));
+
+  const std::string kReader0 = "Reader 0";
+  const std::string kReader1 = "Reader 1";
+
+  GrantPersistentReaderPermission(context, kTestOrigin1, kReader0);
+  GrantPersistentReaderPermission(context, kTestOrigin1, kReader1);
+  GrantPersistentReaderPermission(context, kTestOrigin2, kReader1);
+  context.FlushScheduledSaveSettingsCalls();
+
+  handler_->HandleGetSmartCardReaderGrants(
+      base::Value::List().Append(kCallbackId));
+
+  EXPECT_EQ(web_ui()->call_data().back()->arg3()->GetList(),
+            base::Value::List()
+                .Append(base::Value::Dict()
+                            .Set(site_settings::kReaderName, kReader0)
+                            .Set(site_settings::kOrigins,
+                                 base::Value::List().Append(
+                                     kTestOrigin1.Serialize())))
+                .Append(base::Value::Dict()
+                            .Set(site_settings::kReaderName, kReader1)
+                            .Set(site_settings::kOrigins,
+                                 base::Value::List()
+                                     .Append(kTestOrigin1.Serialize())
+                                     .Append(kTestOrigin2.Serialize()))));
+}
+
+TEST_F(SmartCardReaderPermissionsSiteSettingsHandlerTest,
+       HandleRevokeAllSmartCardReaderGrants) {
+  SmartCardPermissionContext& context =
+      SmartCardPermissionContextFactory::GetForProfile(*profile());
+
+  const auto kTestOrigin1 = url::Origin::Create(
+      GURL("isolated-app://"
+           "amoiebz32b7o24tilu257xne2yf3nkblkploanxzm7ebeglseqpfeaacai/"));
+  const auto kTestOrigin2 = url::Origin::Create(
+      GURL("isolated-app://"
+           "anayaszofsyqapbofoli7ljxoxkp32qkothweire2o6t7xy6taz6oaacai/"));
+
+  const std::string kReader1 = "Reader 1";
+  const std::string kReader2 = "Reader 2";
+
+  GrantPersistentReaderPermission(context, kTestOrigin1, kReader1);
+  GrantPersistentReaderPermission(context, kTestOrigin1, kReader2);
+  GrantPersistentReaderPermission(context, kTestOrigin2, kReader2);
+  context.FlushScheduledSaveSettingsCalls();
+
+  EXPECT_EQ(context.GetAllGrantedObjects().size(), 3UL);
+  handler_->HandleRevokeAllSmartCardReaderGrants(base::Value::List());
+  context.FlushScheduledSaveSettingsCalls();
+  EXPECT_TRUE(context.GetAllGrantedObjects().empty());
+}
+
+TEST_F(SmartCardReaderPermissionsSiteSettingsHandlerTest,
+       HandleRevokeSmartCardReaderGrant) {
+  SmartCardPermissionContext& context =
+      SmartCardPermissionContextFactory::GetForProfile(*profile());
+
+  const auto kTestOrigin1 = url::Origin::Create(
+      GURL("isolated-app://"
+           "amoiebz32b7o24tilu257xne2yf3nkblkploanxzm7ebeglseqpfeaacai/"));
+  const std::string kReader1 = "Reader 1";
+
+  GrantPersistentReaderPermission(context, kTestOrigin1, kReader1);
+  context.FlushScheduledSaveSettingsCalls();
+
+  EXPECT_EQ(context.GetAllGrantedObjects().size(), 1UL);
+  handler_->HandleRevokeSmartCardReaderGrant(
+      base::Value::List().Append(kReader1).Append(kTestOrigin1.Serialize()));
+  context.FlushScheduledSaveSettingsCalls();
+  EXPECT_TRUE(context.GetAllGrantedObjects().empty());
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 namespace {
 

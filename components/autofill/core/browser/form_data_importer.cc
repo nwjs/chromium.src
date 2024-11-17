@@ -118,12 +118,6 @@ bool IsValidFieldTypeAndValue(
 bool ShouldOfferVirtualCardEnrollment(
     const std::optional<CreditCard>& extracted_credit_card,
     std::optional<int64_t> fetched_card_instrument_id) {
-#if BUILDFLAG(IS_IOS)
-  if (!base::FeatureList::IsEnabled(features::kAutofillEnableVirtualCards)) {
-    return false;
-  }
-#endif
-
   if (!extracted_credit_card) {
     return false;
   }
@@ -991,7 +985,7 @@ FormDataImporter::ExtractCreditCardFromForm(const FormStructure& form) {
       result.card.SetInfoForMonthInputType(value);
     } else {
       bool saved = result.card.SetInfo(field.Type(), value, app_locale);
-      if (!saved && field.IsSelectOrSelectListElement()) {
+      if (!saved && field.IsSelectElement()) {
         // Saving with the option text (here `value`) may fail for the
         // expiration month. Attempt to save with the option value. First find
         // the index of the option text in the select options and try the

@@ -28,12 +28,12 @@ export class GenaiError extends ReactiveLitElement {
   static override styles: CSSResultGroup = css`
     :host {
       align-items: center;
-      text-align: center;
       display: flex;
       flex-flow: column;
       font: var(--cros-button-1-font);
       gap: 16px;
       padding: 32px;
+      text-align: center;
     }
   `;
 
@@ -60,13 +60,39 @@ export class GenaiError extends ReactiveLitElement {
 
       case ModelResponseError.UNSUPPORTED_TRANSCRIPTION_IS_TOO_SHORT: {
         imageName = 'genai_error_general';
-        message = i18n.genAiErrorTranscriptionTooShortLabel(MIN_WORD_LENGTH);
+        const resultType = assertExists(this.resultType);
+        switch (resultType) {
+          case GenaiResultType.SUMMARY:
+            message =
+              i18n.genAiErrorSummaryTranscriptTooShortLabel(MIN_WORD_LENGTH);
+            break;
+          case GenaiResultType.TITLE_SUGGESTION:
+            message = i18n.genAiErrorTitleSuggestionTranscriptTooShortLabel(
+              MIN_WORD_LENGTH,
+            );
+            break;
+          default:
+            assertExhaustive(resultType);
+        }
         break;
       }
 
       case ModelResponseError.UNSUPPORTED_TRANSCRIPTION_IS_TOO_LONG: {
         imageName = 'genai_error_general';
-        message = i18n.genAiErrorTranscriptionTooLongLabel(MAX_WORD_LENGTH);
+        const resultType = assertExists(this.resultType);
+        switch (resultType) {
+          case GenaiResultType.SUMMARY:
+            message =
+              i18n.genAiErrorSummaryTranscriptTooLongLabel(MAX_WORD_LENGTH);
+            break;
+          case GenaiResultType.TITLE_SUGGESTION:
+            message = i18n.genAiErrorTitleSuggestionTranscriptTooLongLabel(
+              MAX_WORD_LENGTH,
+            );
+            break;
+          default:
+            assertExhaustive(resultType);
+        }
         break;
       }
 

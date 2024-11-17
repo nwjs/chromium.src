@@ -102,6 +102,18 @@ class AndroidNonZPSSection : public Section {
   static size_t num_visible_matches_;
 };
 
+// Android prefix section for Hub search (ZPS).
+class AndroidHubZPSSection : public Section {
+ public:
+  explicit AndroidHubZPSSection(omnibox::GroupConfigMap& group_configs);
+};
+
+// Android prefix section for Hub search (non-ZPS).
+class AndroidHubNonZPSSection : public Section {
+ public:
+  explicit AndroidHubNonZPSSection(omnibox::GroupConfigMap& group_configs);
+};
+
 // Section expressing the Android ZPS limits and grouping for the NTP.
 // - up to 15 + `max_related_queries` + `max_trending_queries` suggestions
 //   total.
@@ -253,6 +265,15 @@ class IOSSRPZpsSection : public ZpsSectionWithMVTiles {
 class IOSWebZpsSection : public ZpsSectionWithMVTiles {
  public:
   explicit IOSWebZpsSection(omnibox::GroupConfigMap& group_configs);
+};
+
+// Section expressing the iOS ZPS limits and grouping for the Lens mutimodal
+// searchbox.
+// - up to 10 suggestions total.
+//  - up to 10 search suggestions.
+class IOSLensMultimodalZpsSection : public ZpsSection {
+ public:
+  explicit IOSLensMultimodalZpsSection(omnibox::GroupConfigMap& group_configs);
 };
 
 // Section expressing the iPad ZPS limits and grouping for the NTP.

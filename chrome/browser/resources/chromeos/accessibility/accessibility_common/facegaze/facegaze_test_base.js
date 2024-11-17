@@ -22,10 +22,10 @@ class Config {
     this.useLandmarkWeights = false;
     /** @type {boolean} */
     this.useVelocityThreshold = false;
-    /** @type {?Map<string, number>} */
-    this.speeds = null;
+    /** @type {Map<string, number>} */
+    this.speeds = {up: 20, down: 20, left: 20, right: 20};
     /** @type {number} */
-    this.repeatDelayMs = -1;
+    this.repeatDelayMs = undefined;
     /** @type {boolean} */
     this.cursorControlEnabled = true;
     /** @type {boolean} */
@@ -185,16 +185,28 @@ FaceGazeTestBase = class extends E2ETestBase {
 
     if (this.overrideIntervalFunctions_) {
       this.intervalCallbacks_ = {};
-      this.nextCallbackId_ = 1;
+      this.nextIntervalId_ = 1;
+      this.timeoutCallbacks_ = {};
+      this.nextTimeoutId_ = 1;
 
       // Save the original set and clear interval functions so they can be used
       // in this file.
       window.setIntervalOriginal = window.setInterval;
       window.clearIntervalOriginal = window.clearInterval;
 
+      window.setTimeout = (callback, timeout) => {
+        const id = this.nextTimeoutId_;
+        ++this.nextTimeoutId_;
+        this.timeoutCallbacks_[id] = callback;
+        return id;
+      };
+      window.clearTimeout = (id) => {
+        delete this.timeoutCallbacks_[id];
+      };
+
       window.setInterval = (callback, timeout) => {
-        const id = this.nextCallbackId_;
-        this.nextCallbackId_++;
+        const id = this.nextIntervalId_;
+        this.nextIntervalId_++;
         this.intervalCallbacks_[id] = callback;
         return id;
       };
@@ -204,8 +216,8 @@ FaceGazeTestBase = class extends E2ETestBase {
     }
 
     assertNotNullNorUndefined(accessibilityCommon);
+    assertNotNullNorUndefined(BubbleController);
     assertNotNullNorUndefined(FaceGaze);
-    assertNotNullNorUndefined(FaceGazeConstants);
     assertNotNullNorUndefined(FacialGesture);
     assertNotNullNorUndefined(FacialGesturesToMediapipeGestures);
     assertNotNullNorUndefined(GestureDetector);
@@ -248,6 +260,11 @@ FaceGazeTestBase = class extends E2ETestBase {
   /** @return {!FaceGaze} */
   getFaceGaze() {
     return accessibilityCommon.getFaceGazeForTest();
+  }
+
+  /** @return {!ScrollModeController} */
+  getScrollModeController() {
+    return this.getFaceGaze().mouseController_.scrollModeController_;
   }
 
   async startFacegazeWithConfigAndForeheadLocation_(
@@ -296,20 +313,21 @@ FaceGazeTestBase = class extends E2ETestBase {
     }
 
     if (config.bufferSize !== -1) {
-      await this.setPref(
-          MouseController.PREF_CURSOR_SMOOTHING, config.bufferSize);
+      faceGaze.mouseController_.setBufferSizeForTesting(config.bufferSize);
     }
 
-    if (config.speeds) {
-      await this.setPref(MouseController.PREF_SPD_UP, config.speeds.up);
-      await this.setPref(MouseController.PREF_SPD_DOWN, config.speeds.down);
-      await this.setPref(MouseController.PREF_SPD_LEFT, config.speeds.left);
-      await this.setPref(MouseController.PREF_SPD_RIGHT, config.speeds.right);
-    }
+    await this.setPref(MouseController.PREF_SPD_UP, config.speeds.up);
+    await this.setPref(MouseController.PREF_SPD_DOWN, config.speeds.down);
+    await this.setPref(MouseController.PREF_SPD_LEFT, config.speeds.left);
+    await this.setPref(MouseController.PREF_SPD_RIGHT, config.speeds.right);
 
-    if (config.repeatDelayMs > 0) {
+    if (config.repeatDelayMs !== undefined) {
       faceGaze.gestureHandler_.repeatDelayMs_ = config.repeatDelayMs;
     }
+
+    // Increase the bubble controller timeout to avoid flaky behavior when
+    // asserting the text content of the bubble.
+    BubbleController.CLEAR_BUBBLE_TIMEOUT_MS = 100 * 1000;
 
     faceGaze.mouseController_.setLandmarkWeightsForTesting(
         config.useLandmarkWeights);
@@ -359,6 +377,12 @@ FaceGazeTestBase = class extends E2ETestBase {
       // No work to do.
       assertEquals(-1, intervalId);
     }
+  }
+
+  triggerBubbleControllerTimeout() {
+    const intervalId =
+        this.getFaceGaze().bubbleController_.resetBubbleTimeoutId_;
+    this.timeoutCallbacks_[intervalId]();
   }
 
   /**

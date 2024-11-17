@@ -15,7 +15,9 @@
 #include "ash/picker/model/picker_action_type.h"
 #include "ash/picker/model/picker_caps_lock_position.h"
 #include "ash/picker/model/picker_search_results_section.h"
+#include "ash/picker/picker_category.h"
 #include "ash/picker/picker_controller.h"
+#include "ash/picker/picker_search_result.h"
 #include "ash/picker/views/picker_category_type.h"
 #include "ash/picker/views/picker_contents_view.h"
 #include "ash/picker/views/picker_emoji_bar_view.h"
@@ -35,8 +37,6 @@
 #include "ash/picker/views/picker_view_delegate.h"
 #include "ash/picker/views/picker_widget.h"
 #include "ash/picker/views/picker_zero_state_view.h"
-#include "ash/public/cpp/picker/picker_category.h"
-#include "ash/public/cpp/picker/picker_search_result.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/icon_button.h"
 #include "ash/test/ash_test_base.h"
@@ -235,6 +235,8 @@ class FakePickerViewDelegate : public PickerViewDelegate {
   void CloseWidgetThenInsertResultOnNextFocus(
       const PickerSearchResult& result) override {
     last_inserted_result_ = result;
+    session_metrics_.SetOutcome(
+        PickerSessionMetrics::SessionOutcome::kInsertedOrCopied);
   }
   void OpenResult(const PickerSearchResult& result) override {
     last_opened_result_ = result;
@@ -248,6 +250,9 @@ class FakePickerViewDelegate : public PickerViewDelegate {
   void ShowEditor(std::optional<std::string> preset_query_id,
                   std::optional<std::string> freeform_text) override {
     showed_editor_ = true;
+  }
+  void ShowLobster(std::optional<std::string> freeform_text) override {
+    showed_lobster_ = true;
   }
 
   PickerAssetFetcher* GetAssetFetcher() override { return &asset_fetcher_; }
@@ -290,6 +295,10 @@ class FakePickerViewDelegate : public PickerViewDelegate {
   }
   bool showed_editor() const { return showed_editor_; }
 
+  // TODO: b/348279987 - Adds unit test once the Lobster entry point is added to
+  // zero state.
+  bool showed_lobster() const { return showed_lobster_; }
+
  private:
   Options options_;
   MockPickerAssetFetcher asset_fetcher_;
@@ -299,6 +308,7 @@ class FakePickerViewDelegate : public PickerViewDelegate {
   std::optional<ui::EmojiPickerCategory> emoji_picker_category_;
   std::optional<std::u16string> emoji_picker_query_;
   bool showed_editor_ = false;
+  bool showed_lobster_ = false;
 };
 
 PickerView* GetPickerViewFromWidget(views::Widget& widget) {
@@ -531,7 +541,8 @@ TEST_F(PickerViewTest, LeftClickSearchResultInsertsResult) {
   }
 
   cros_events::Picker_FinishSession expected_event;
-  expected_event.SetOutcome(cros_events::PickerSessionOutcome::UNKNOWN)
+  expected_event
+      .SetOutcome(cros_events::PickerSessionOutcome::INSERTED_OR_COPIED)
       .SetAction(cros_events::PickerAction::UNKNOWN)
       .SetResultSource(cros_events::PickerResultSource::UNKNOWN)
       .SetResultType(cros_events::PickerResultType::TEXT)
@@ -565,7 +576,8 @@ TEST_F(PickerViewTest, LeftClickZeroStateSuggestedResultInsertsResult) {
   }
 
   cros_events::Picker_FinishSession expected_event;
-  expected_event.SetOutcome(cros_events::PickerSessionOutcome::UNKNOWN)
+  expected_event
+      .SetOutcome(cros_events::PickerSessionOutcome::INSERTED_OR_COPIED)
       .SetAction(cros_events::PickerAction::UNKNOWN)
       .SetResultSource(cros_events::PickerResultSource::UNKNOWN)
       .SetResultType(cros_events::PickerResultType::TEXT)
@@ -636,7 +648,7 @@ TEST_F(PickerViewTest, SwitchesToCategoryView) {
   }
 
   cros_events::Picker_FinishSession expected_event;
-  expected_event.SetOutcome(cros_events::PickerSessionOutcome::UNKNOWN)
+  expected_event.SetOutcome(cros_events::PickerSessionOutcome::ABANDONED)
       .SetAction(cros_events::PickerAction::OPEN_LINKS)
       .SetResultSource(cros_events::PickerResultSource::UNKNOWN)
       .SetResultType(cros_events::PickerResultType::UNKNOWN)

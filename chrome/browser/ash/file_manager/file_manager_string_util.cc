@@ -22,6 +22,7 @@
 #include "chrome/browser/ash/crostini/crostini_util.h"
 #include "chrome/browser/ash/drive/file_system_util.h"
 #include "chrome/browser/ash/guest_os/guest_os_share_path.h"
+#include "chrome/browser/ash/guest_os/guest_os_share_path_factory.h"
 #include "chrome/browser/ash/login/demo_mode/demo_session.h"
 #include "chrome/browser/ash/plugin_vm/plugin_vm_features.h"
 #include "chrome/browser/ash/plugin_vm/plugin_vm_util.h"
@@ -710,6 +711,8 @@ void AddStringsGeneric(base::Value::Dict* dict) {
              IDS_FILE_BROWSER_METADATA_BOX_MODIFICATION_TIME);
   SET_STRING("METADATA_BOX_MODIFIED_BY",
              IDS_FILE_BROWSER_METADATA_BOX_MODIFIED_BY);
+  SET_STRING("METADATA_BOX_DATE_TAKEN",
+             IDS_FILE_BROWSER_METADATA_BOX_DATE_TAKEN);
   SET_STRING("METADATA_BOX_PAGE_COUNT",
              IDS_FILE_BROWSER_METADATA_BOX_PAGE_COUNT);
   SET_STRING("METADATA_BOX_SOURCE", IDS_FILE_BROWSER_METADATA_BOX_SOURCE);
@@ -1407,7 +1410,7 @@ void AddFileManagerFeatureStrings(const std::string& locale,
             base::FeatureList::IsEnabled(features::kSkyVaultV2));
 
   base::Value::List vms;
-  auto* share_path = guest_os::GuestOsSharePath::GetForProfile(profile);
+  auto* share_path = guest_os::GuestOsSharePathFactory::GetForProfile(profile);
   if (share_path) {
     for (const auto& guest : share_path->ListGuests()) {
       base::Value::Dict d;

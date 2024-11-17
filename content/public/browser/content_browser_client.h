@@ -19,6 +19,7 @@
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/functional/callback_forward.h"
+#include "base/memory/read_only_shared_memory_region.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/supports_user_data.h"
 #include "base/time/time.h"
@@ -61,6 +62,7 @@
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/system/message_pipe.h"
+#include "net/base/schemeful_site.h"
 #include "net/cookies/cookie_setting_override.h"
 #include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom-forward.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
@@ -593,6 +595,9 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual bool HasCustomSchemeHandler(content::BrowserContext* browser_context,
                                       const std::string& scheme);
 
+  // Returns whether a browser context involves WebRequest API.
+  virtual bool HasWebRequestAPIProxy(BrowserContext* browser_context);
+
   // Returns whether the given process is allowed to commit |url|.  This is a
   // more conservative check than IsSuitableHost, since it is used after a
   // navigation has committed to ensure that the process did not exceed its
@@ -961,22 +966,12 @@ class CONTENT_EXPORT ContentBrowserClient {
       const url::Origin& api_origin);
 
   // Returns whether |destination_origin| can receive beacons sent through
-  // window.fence.reportEvent() or automatic beacons.
-  // Before M120: The reporting destination is required to be attested for its
-  // invoking API only.
-  // M120 and afterwards: If this is a post-impression reporting beacon invoked
-  // by Protected Audience API, the destination is required to be attested for
-  // either Protected Audience or Attribution Reporting, instead of Protected
-  // Audience only. This is because there are use cases that an adtech may need
-  // to measure Protected Audience ads, but not using any of the ads
-  // personalization or targeting features of Protected Audience. The adtech
-  // should be allowed to receive post-impression beacons if it is attested for
-  // Attribution Reporting.
+  // window.fence.reportEvent() or automatic beacons. The reporting destination
+  // is required to be attested for its invoking API.
   virtual bool IsPrivacySandboxReportingDestinationAttested(
       content::BrowserContext* browser_context,
       const url::Origin& destination_origin,
-      content::PrivacySandboxInvokingAPI invoking_api,
-      bool post_impression_reporting);
+      content::PrivacySandboxInvokingAPI invoking_api);
 
   // Called when a Fledge auction is complete (without being aborted). If there
   // is a winner, `winner_data_key` should be non-null. `is_server_auction`
@@ -1173,6 +1168,35 @@ class CONTENT_EXPORT ContentBrowserClient {
       content::WebContents* web_contents,
       const GURL& url,
       const blink::StorageKey& storage_key);
+
+  // Temporarily allow `accessing_site` to access cookies when embedded on
+  // `top_frame_site` when third-party cookies are otherwise blocked. After
+  // `ttl` has passed, the access will be revoked. If `ignore_schemes` is true,
+  // then cookie access will be allowed for the sites for all schemes.
+  //
+  // Note that this is not a query to check whether cookie access is permitted.
+  // It is a request that such access *be* permitted; i.e., until `ttl` expires,
+  // `IsFullCookieAccessAllowed()` should return true when called with an URL
+  // belonging to `accessing_site` and a storage key belonging to
+  // `top_frame_site`.
+  //
+  // This method will only be called by cookie access heuristics, described at
+  // https://github.com/amaliev/3pcd-exemption-heuristics/blob/main/explainer.md
+  // "DueToHeuristic" is in the name so that embedders can optionally treat
+  // these grants differently from grants due to other causes, if other types
+  // are added in the future.
+  //
+  // This should only be called on the UI thread.
+  //
+  // TODO: crbug.com/40883201 - this is temporarily only called by code in
+  // //chrome. Once the cookie access heuristics move to //content, it will be
+  // called by code in //content.
+  virtual void GrantCookieAccessDueToHeuristic(
+      content::BrowserContext* browser_context,
+      const net::SchemefulSite& top_frame_site,
+      const net::SchemefulSite& accessing_site,
+      base::TimeDelta ttl,
+      bool ignore_schemes);
 
 #if BUILDFLAG(IS_CHROMEOS)
   // Notification that a trust anchor was used by the given user.
@@ -2313,6 +2337,9 @@ class CONTENT_EXPORT ContentBrowserClient {
   // worker. If |web_contents| is not null, it is guaranteed to be associated
   // with the same BrowserContext as |browser_context|.
   // |browser_context| is always set.
+  // |is_request_for_primary_main_frame_navigation| is whether the request is
+  // for a navigation of the primary main frame.
+  // |is_request_for_navigation| is whether the request is for a navigation.
   // |first_auth_attempt| is needed by AwHttpAuthHandler constructor.
   // |auth_required_callback| is used to transfer auth credentials to
   // URLRequest::SetAuth(). The credentials parameter of the callback
@@ -2347,7 +2374,8 @@ class CONTENT_EXPORT ContentBrowserClient {
       WebContents* web_contents,
       BrowserContext* browser_context,
       const GlobalRequestID& request_id,
-      bool is_request_for_primary_main_frame,
+      bool is_request_for_primary_main_frame_navigation,
+      bool is_request_for_navigation,
       const GURL& url,
       scoped_refptr<net::HttpResponseHeaders> response_headers,
       bool first_auth_attempt,
@@ -2384,6 +2412,7 @@ class CONTENT_EXPORT ContentBrowserClient {
       bool has_user_gesture,
       const std::optional<url::Origin>& initiating_origin,
       RenderFrameHost* initiator_document,
+      const net::IsolationInfo& isolation_info,
       mojo::PendingRemote<network::mojom::URLLoaderFactory>* out_factory);
 
   // Creates an OverlayWindow to be used for video or Picture-in-Picture.
@@ -2574,7 +2603,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // https://crsrc.org/c/components/enterprise/common/proto/legacy_tech_events.proto
   virtual void ReportLegacyTechEvent(
       content::RenderFrameHost* render_frame_host,
-      const std::string type,
+      const std::string& type,
       const GURL& url,
       const GURL& frame_url,
       const std::string& filename,
@@ -3039,6 +3068,40 @@ class CONTENT_EXPORT ContentBrowserClient {
   // http POST requests, cannot be synced across machines as the request body
   // is no longer available when reloading the URL.
   virtual bool IsSaveableNavigation(NavigationHandle* navigation_handle);
+
+#if BUILDFLAG(IS_WIN)
+  // Invoked when an accessibility client requests the UI automation root object
+  // for a window. `uia_provider_enabled` is true when the request was
+  // satisfied, and false when the request was refused.
+  virtual void OnUiaProviderRequested(bool uia_provider_enabled);
+#endif
+
+  // Returns a handle to a shared memory region to hold performance scenario
+  // state for the given process, or an invalid handle if there is none. The
+  // result can be transferred to the child process and passed to a
+  // ScopedReadOnlyScenarioMemory object with Scope::kCurrentProcess (see
+  // //third_party/blink/public/common/performance/performance_scenarios.h)
+  virtual base::ReadOnlySharedMemoryRegion
+  GetPerformanceScenarioRegionForProcess(RenderProcessHost* process_host);
+
+  // Returns a handle to a shared memory region to hold performance scenario
+  // state for all processes, or an invalid handle if there is none. The result
+  // can be transferred to a child process and passed to a
+  // ScopedReadOnlyScenarioMemory object with Scope::kGlobal
+  // (see//third_party/blink/public/common/performance/performance_scenarios.h)
+  virtual base::ReadOnlySharedMemoryRegion GetGlobalPerformanceScenarioRegion();
+
+  // Indicates whether this client allows paint holding in cross-origin
+  // navigations even if there was no user activation.
+  virtual bool AllowNonActivatedCrossOriginPaintHolding();
+
+  // Indicates whether this client requires dispatching the pagehide &
+  // visibilitychange events before the commit of a new document, when
+  // navigating same-site to `destination_url` and doing a BrowsingInstance
+  // swap, which used to fire those events at that timing.
+  virtual bool ShouldDispatchPagehideDuringCommit(
+      BrowserContext* browser_context,
+      const GURL& destination_url);
 };
 
 }  // namespace content

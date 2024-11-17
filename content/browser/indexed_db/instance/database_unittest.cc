@@ -73,9 +73,8 @@ class DatabaseTest : public ::testing::Test {
     bucket_context_ = std::make_unique<BucketContext>(
         storage::BucketInfo(), temp_dir_.GetPath(), std::move(delegate),
         quota_manager_proxy_,
-        /*io_task_runner=*/base::SequencedTaskRunner::GetCurrentDefault(),
         /*blob_storage_context=*/mojo::NullRemote(),
-        /*file_system_access_context=*/mojo::NullRemote(), base::DoNothing());
+        /*file_system_access_context=*/mojo::NullRemote());
 
     bucket_context_->InitBackingStoreIfNeeded(true);
     db_ = bucket_context_->AddDatabase(
@@ -428,14 +427,13 @@ TEST_F(DatabaseTest, ForceCloseWhileOpenAndDeletePending) {
   run_loop.Run();
 }
 
-leveldb::Status DummyOperation(Transaction* transaction) {
-  return leveldb::Status::OK();
+Status DummyOperation(Transaction* transaction) {
+  return Status::OK();
 }
 
 class DatabaseOperationTest : public DatabaseTest {
  public:
-  DatabaseOperationTest() : commit_success_(leveldb::Status::OK()) {}
-
+  DatabaseOperationTest() = default;
   DatabaseOperationTest(const DatabaseOperationTest&) = delete;
   DatabaseOperationTest& operator=(const DatabaseOperationTest&) = delete;
 
@@ -482,13 +480,13 @@ class DatabaseOperationTest : public DatabaseTest {
   // to be committed must manually reset this to null to avoid triggering
   // dangling pointer warnings.
   raw_ptr<Transaction> transaction_ = nullptr;
-  leveldb::Status commit_success_;
+  Status commit_success_;
 };
 
 TEST_F(DatabaseOperationTest, CreateObjectStore) {
   EXPECT_EQ(0ULL, db_->metadata().object_stores.size());
   const int64_t store_id = 1001;
-  leveldb::Status s =
+  Status s =
       db_->CreateObjectStoreOperation(store_id, u"store", IndexedDBKeyPath(),
                                       /*auto_increment=*/false, transaction_);
   EXPECT_TRUE(s.ok());
@@ -502,7 +500,7 @@ TEST_F(DatabaseOperationTest, CreateObjectStore) {
 TEST_F(DatabaseOperationTest, CreateIndex) {
   EXPECT_EQ(0ULL, db_->metadata().object_stores.size());
   const int64_t store_id = 1001;
-  leveldb::Status s =
+  Status s =
       db_->CreateObjectStoreOperation(store_id, u"store", IndexedDBKeyPath(),
                                       /*auto_increment=*/false, transaction_);
   EXPECT_TRUE(s.ok());
@@ -528,7 +526,7 @@ TEST_F(DatabaseOperationTest, CreateIndex) {
 class DatabaseOperationAbortTest : public DatabaseOperationTest {
  public:
   DatabaseOperationAbortTest() {
-    commit_success_ = leveldb::Status::NotFound("Bummer.");
+    commit_success_ = Status::NotFound("Bummer.");
   }
 
   DatabaseOperationAbortTest(const DatabaseOperationAbortTest&) = delete;
@@ -539,7 +537,7 @@ class DatabaseOperationAbortTest : public DatabaseOperationTest {
 TEST_F(DatabaseOperationAbortTest, CreateObjectStore) {
   EXPECT_EQ(0ULL, db_->metadata().object_stores.size());
   const int64_t store_id = 1001;
-  leveldb::Status s =
+  Status s =
       db_->CreateObjectStoreOperation(store_id, u"store", IndexedDBKeyPath(),
                                       /*auto_increment=*/false, transaction_);
   EXPECT_TRUE(s.ok());
@@ -554,7 +552,7 @@ TEST_F(DatabaseOperationAbortTest, CreateObjectStore) {
 TEST_F(DatabaseOperationAbortTest, CreateIndex) {
   EXPECT_EQ(0ULL, db_->metadata().object_stores.size());
   const int64_t store_id = 1001;
-  leveldb::Status s =
+  Status s =
       db_->CreateObjectStoreOperation(store_id, u"store", IndexedDBKeyPath(),
                                       /*auto_increment=*/false, transaction_);
   EXPECT_TRUE(s.ok());
@@ -578,7 +576,7 @@ TEST_F(DatabaseOperationTest, CreatePutDelete) {
   EXPECT_EQ(0ULL, db_->metadata().object_stores.size());
   const int64_t store_id = 1001;
 
-  leveldb::Status s =
+  Status s =
       db_->CreateObjectStoreOperation(store_id, u"store", IndexedDBKeyPath(),
                                       /*auto_increment=*/false, transaction_);
   EXPECT_TRUE(s.ok());

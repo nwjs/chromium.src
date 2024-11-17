@@ -14,6 +14,7 @@ export {currentReadHighlightClass, PauseActionSource, previousReadHighlightClass
 export {AppStyleUpdater} from './app_style_updater.js';
 export {getCurrentSpeechRate, playFromSelectionTimeout, ToolbarEvent} from './common.js';
 export type {LanguageMenuElement} from './language_menu.js';
+export type {LanguageToastElement} from './language_toast.js';
 export type {ColorMenu} from './menus/color_menu.js';
 export type {HighlightMenu} from './menus/highlight_menu.js';
 export type {LetterSpacingMenu} from './menus/letter_spacing_menu.js';
@@ -24,5 +25,6 @@ export {MetricsBrowserProxy, MetricsBrowserProxyImpl, ReadAloudHighlightState, R
 export {ReadAnythingLogger, SpeechControls, TimeFrom, TimeTo} from './read_anything_logger.js';
 export type {ReadAnythingToolbarElement} from './read_anything_toolbar.js';
 export {LINK_TOGGLE_BUTTON_ID, LINKS_DISABLED_ICON, LINKS_ENABLED_ICON, moreOptionsClass} from './read_anything_toolbar.js';
-export {AVAILABLE_GOOGLE_TTS_LOCALES, convertLangOrLocaleForVoicePackManager, convertLangOrLocaleToExactVoicePackLocale, convertLangToAnAvailableLangIfPresent, createInitialListOfEnabledLanguages, getFilteredVoiceList, mojoVoicePackStatusToVoicePackStatusEnum, PACK_MANAGER_SUPPORTED_LANGS_AND_LOCALES, VoiceClientSideStatusCode, VoicePackServerStatusErrorCode, VoicePackServerStatusSuccessCode} from './voice_language_util.js';
+export {AVAILABLE_GOOGLE_TTS_LOCALES, convertLangOrLocaleForVoicePackManager, convertLangOrLocaleToExactVoicePackLocale, convertLangToAnAvailableLangIfPresent, createInitialListOfEnabledLanguages, getFilteredVoiceList, getNotification, mojoVoicePackStatusToVoicePackStatusEnum, NotificationType, PACK_MANAGER_SUPPORTED_LANGS_AND_LOCALES, VoiceClientSideStatusCode, VoicePackServerStatusErrorCode, VoicePackServerStatusSuccessCode} from './voice_language_util.js';
+export {VoiceNotificationListener, VoiceNotificationManager} from './voice_notification_manager.js';
 export type {VoiceSelectionMenuElement} from './voice_selection_menu.js';

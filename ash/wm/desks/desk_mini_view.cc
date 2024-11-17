@@ -48,6 +48,7 @@
 #include "ui/aura/window.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/color/color_id.h"
 #include "ui/compositor/layer.h"
@@ -55,6 +56,7 @@
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/size.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/controls/focus_ring.h"
 #include "ui/views/controls/highlight_path_generator.h"
@@ -215,7 +217,8 @@ DeskMiniView::DeskMiniView(
       /*close_all_target_name=*/desk_->name(),
       /*context_menu_callback_=*/
       base::BindRepeating(&DeskMiniView::OpenContextMenu,
-                          base::Unretained(this), ui::MENU_SOURCE_NONE),
+                          base::Unretained(this),
+                          ui::mojom::MenuSourceType::kNone),
       /*combine_desks_callback=*/
       base::BindRepeating(&DeskMiniView::OnRemovingDesk, base::Unretained(this),
                           DeskCloseType::kCombineDesks),
@@ -271,6 +274,9 @@ DeskMiniView::DeskMiniView(
   }
 
   UpdateDeskButtonVisibility();
+  GetViewAccessibility().SetRole(
+      desk_preview_->GetViewAccessibility().GetCachedRole());
+  UpdateAccessibleName();
 }
 
 DeskMiniView::~DeskMiniView() {
@@ -447,7 +453,7 @@ bool DeskMiniView::IsPointOnMiniView(const gfx::Point& screen_location) const {
   return GetWidget() && HitTestPoint(point_in_view);
 }
 
-void DeskMiniView::OpenContextMenu(ui::MenuSourceType source) {
+void DeskMiniView::OpenContextMenu(ui::mojom::MenuSourceType source) {
   DeskActionContextMenu::Config menu_config;
   menu_config.on_context_menu_closed_callback = base::BindRepeating(
       &DeskMiniView::OnContextMenuClosed, base::Unretained(this));
@@ -651,17 +657,6 @@ gfx::Size DeskMiniView::CalculatePreferredSize(
                        desk_name_view_->GetPreferredSize().height()};
 }
 
-void DeskMiniView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
-  if (desk_) {
-    // Add node name for the tast test. In `ash.LaunchSavedDesk`, it should have
-    // a node with the below name for the desk mini view.
-    node_data->AddStringAttribute(
-        ax::mojom::StringAttribute::kName,
-        l10n_util::GetStringFUTF8(IDS_ASH_DESKS_DESK_ACCESSIBLE_NAME,
-                                  desk_->name()));
-  }
-}
-
 void DeskMiniView::OnThemeChanged() {
   views::View::OnThemeChanged();
   UpdateFocusColor();
@@ -692,6 +687,7 @@ void DeskMiniView::OnDeskDestroyed(const Desk* desk) {
 
   DCHECK_EQ(desk_, desk);
   desk_ = nullptr;
+  UpdateAccessibleName();
 
   // No need to remove `this` as an observer; it's done automatically.
 }
@@ -700,6 +696,7 @@ void DeskMiniView::OnDeskNameChanged(const std::u16string& new_name) {
   if (is_desk_name_being_modified_)
     return;
 
+  UpdateAccessibleName();
   desk_name_view_->SetText(new_name);
   desk_preview_->UpdateAccessibleName();
 
@@ -922,6 +919,18 @@ void DeskMiniView::LayoutDeskNameView(const gfx::Rect& preview_bounds) {
                                       kLabelPreviewSpacing,
                                   text_width, desk_name_view_size.height()};
   desk_name_view_->SetBoundsRect(desk_name_view_bounds);
+}
+
+void DeskMiniView::UpdateAccessibleName() {
+  if (desk_) {
+    // Add node name for the tast test. In `ash.LaunchSavedDesk`, it should have
+    // a node with the below name for the desk mini view.
+    GetViewAccessibility().SetName(l10n_util::GetStringFUTF8(
+        IDS_ASH_DESKS_DESK_ACCESSIBLE_NAME, desk_->name()));
+  } else {
+    GetViewAccessibility().SetName(
+        std::string(), ax::mojom::NameFrom::kAttributeExplicitlyEmpty);
+  }
 }
 
 BEGIN_METADATA(DeskMiniView)

@@ -13,8 +13,6 @@
 #include "base/test/test_timeouts.h"
 #include "base/types/expected.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
-#include "chrome/browser/dips/dips_navigation_flow_detector_wrapper.h"
-#include "chrome/browser/dips/dips_service.h"
 #include "chrome/browser/dips/dips_test_utils.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -40,8 +38,8 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ssl/cert_verifier_browser_test.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
-#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "components/network_session_configurator/common/network_switches.h"
 #include "content/public/browser/scoped_authenticator_environment_for_testing.h"
 #include "content/public/common/content_switches.h"
@@ -91,7 +89,6 @@ std::string StringifyEntry(ukm::TestAutoSetUkmRecorder* ukm_recorder,
       " WasEntryUserInitiated: %s\n"
       " WasExitUserInitiated: %s\n"
       " WereEntryAndExitRendererInitiated: %s\n"
-      " DidSiteHavePreviousUserActivation: %s\n"
       " VisitDurationMilliseconds: %s\n"
       "}",
       ukm_recorder->GetSourceForSourceId(entry->source_id)
@@ -106,14 +103,8 @@ std::string StringifyEntry(ukm::TestAutoSetUkmRecorder* ukm_recorder,
       StringifyBooleanMetric(ukm_recorder, entry, "WasExitUserInitiated"),
       StringifyBooleanMetric(ukm_recorder, entry,
                              "WereEntryAndExitRendererInitiated"),
-      StringifyBooleanMetric(ukm_recorder, entry,
-                             "DidSiteHavePreviousUserActivation"),
       StringifyNumericMetric(ukm_recorder, entry, "VisitDurationMilliseconds")
           .c_str());
-}
-
-auto BooleanMetricIsAbsentOr(bool value) {
-  return testing::AnyOf(nullptr, testing::Pointee(value ? 1l : 0l));
 }
 
 const char kUkmEventName[] = "DIPS.NavigationFlowNode";
@@ -190,16 +181,7 @@ class DipsNavigationFlowDetectorTest : public PlatformBrowserTest {
   }
 
   DipsNavigationFlowDetector* GetDetector() {
-#if BUILDFLAG(IS_ANDROID)
     return DipsNavigationFlowDetector::FromWebContents(GetActiveWebContents());
-#else
-    return browser()
-        ->tab_strip_model()
-        ->GetActiveTab()
-        ->tab_features()
-        ->dips_navigation_flow_detector_wrapper()
-        ->GetDetector();
-#endif
   }
 
  private:
@@ -454,8 +436,8 @@ IN_PROC_BROWSER_TEST_F(DipsNavigationFlowDetectorTest,
   ExpectNoNavigationFlowNodeUkmEvents();
 }
 
-// TODO - crbug.com/353556432: flaky on Linux release builds
-#if BUILDFLAG(IS_LINUX) && defined(NDEBUG)
+// TODO - crbug.com/353556432: flaky on Mac and Linux release builds
+#if (BUILDFLAG(IS_LINUX) && defined(NDEBUG)) || BUILDFLAG(IS_MAC)
 #define MAYBE_UkmNotEmittedWhenCookiesReadViaHeaders \
   DISABLED_UkmNotEmittedWhenCookiesReadViaHeaders
 #else
@@ -488,8 +470,8 @@ IN_PROC_BROWSER_TEST_F(DipsNavigationFlowDetectorTest,
   ExpectNoNavigationFlowNodeUkmEvents();
 }
 
-// TODO - crbug.com/353556432: flaky on Linux release builds
-#if BUILDFLAG(IS_LINUX) && defined(NDEBUG)
+// TODO - crbug.com/353556432: flaky on Linux release builds and on Android
+#if (BUILDFLAG(IS_LINUX) && defined(NDEBUG)) || BUILDFLAG(IS_ANDROID)
 #define MAYBE_UkmNotEmittedForCookieAccessInPrerenders \
   DISABLED_UkmNotEmittedForCookieAccessInPrerenders
 #else
@@ -734,9 +716,6 @@ IN_PROC_BROWSER_TEST_F(DipsNavigationFlowDetectorTest,
   ukm_recorder().ExpectEntryMetric(ukm_entry, "WasExitUserInitiated", true);
   ukm_recorder().ExpectEntryMetric(ukm_entry,
                                    "WereEntryAndExitRendererInitiated", false);
-  EXPECT_THAT(ukm_recorder().GetEntryMetric(
-                  ukm_entry, "DidSiteHavePreviousUserActivation"),
-              BooleanMetricIsAbsentOr(false));
   ukm_recorder().ExpectEntryMetric(ukm_entry, "VisitDurationMilliseconds",
                                    ukm::GetExponentialBucketMinForUserTiming(
                                        visit_duration.InMilliseconds()));
@@ -784,9 +763,6 @@ IN_PROC_BROWSER_TEST_F(DipsNavigationFlowDetectorTest,
   ukm_recorder().ExpectEntryMetric(ukm_entry, "WasExitUserInitiated", true);
   ukm_recorder().ExpectEntryMetric(ukm_entry,
                                    "WereEntryAndExitRendererInitiated", false);
-  EXPECT_THAT(ukm_recorder().GetEntryMetric(
-                  ukm_entry, "DidSiteHavePreviousUserActivation"),
-              BooleanMetricIsAbsentOr(false));
   ukm_recorder().ExpectEntryMetric(ukm_entry, "VisitDurationMilliseconds",
                                    ukm::GetExponentialBucketMinForUserTiming(
                                        visit_duration.InMilliseconds()));
@@ -833,9 +809,6 @@ IN_PROC_BROWSER_TEST_F(DipsNavigationFlowDetectorTest,
   ukm_recorder().ExpectEntryMetric(ukm_entry, "WasExitUserInitiated", true);
   ukm_recorder().ExpectEntryMetric(ukm_entry,
                                    "WereEntryAndExitRendererInitiated", false);
-  EXPECT_THAT(ukm_recorder().GetEntryMetric(
-                  ukm_entry, "DidSiteHavePreviousUserActivation"),
-              BooleanMetricIsAbsentOr(false));
   ukm_recorder().ExpectEntryMetric(ukm_entry, "VisitDurationMilliseconds",
                                    ukm::GetExponentialBucketMinForUserTiming(
                                        visit_duration.InMilliseconds()));
@@ -904,9 +877,6 @@ IN_PROC_BROWSER_TEST_F(DipsNavigationFlowDetectorTest,
   ukm_recorder().ExpectEntryMetric(ukm_entry, "WasExitUserInitiated", true);
   ukm_recorder().ExpectEntryMetric(ukm_entry,
                                    "WereEntryAndExitRendererInitiated", false);
-  EXPECT_THAT(ukm_recorder().GetEntryMetric(
-                  ukm_entry, "DidSiteHavePreviousUserActivation"),
-              BooleanMetricIsAbsentOr(false));
   ukm_recorder().ExpectEntryMetric(ukm_entry, "VisitDurationMilliseconds", 0l);
 }
 
@@ -950,9 +920,6 @@ IN_PROC_BROWSER_TEST_F(DipsNavigationFlowDetectorTest,
   ukm_recorder().ExpectEntryMetric(ukm_entry, "WasExitUserInitiated", true);
   ukm_recorder().ExpectEntryMetric(ukm_entry,
                                    "WereEntryAndExitRendererInitiated", false);
-  EXPECT_THAT(ukm_recorder().GetEntryMetric(
-                  ukm_entry, "DidSiteHavePreviousUserActivation"),
-              BooleanMetricIsAbsentOr(false));
   ukm_recorder().ExpectEntryMetric(ukm_entry, "VisitDurationMilliseconds",
                                    ukm::GetExponentialBucketMinForUserTiming(
                                        visit_duration.InMilliseconds()));
@@ -996,9 +963,6 @@ IN_PROC_BROWSER_TEST_F(DipsNavigationFlowDetectorTest,
   ukm_recorder().ExpectEntryMetric(ukm_entry, "WasExitUserInitiated", true);
   ukm_recorder().ExpectEntryMetric(ukm_entry,
                                    "WereEntryAndExitRendererInitiated", false);
-  EXPECT_THAT(ukm_recorder().GetEntryMetric(
-                  ukm_entry, "DidSiteHavePreviousUserActivation"),
-              BooleanMetricIsAbsentOr(false));
   ukm_recorder().ExpectEntryMetric(ukm_entry, "VisitDurationMilliseconds",
                                    ukm::GetExponentialBucketMinForUserTiming(
                                        visit_duration.InMilliseconds()));
@@ -1045,9 +1009,6 @@ IN_PROC_BROWSER_TEST_F(DipsNavigationFlowDetectorTest,
   ukm_recorder().ExpectEntryMetric(ukm_entry, "WasExitUserInitiated", true);
   ukm_recorder().ExpectEntryMetric(ukm_entry,
                                    "WereEntryAndExitRendererInitiated", true);
-  EXPECT_THAT(ukm_recorder().GetEntryMetric(
-                  ukm_entry, "DidSiteHavePreviousUserActivation"),
-              BooleanMetricIsAbsentOr(false));
   ukm_recorder().ExpectEntryMetric(ukm_entry, "VisitDurationMilliseconds", 0l);
 }
 
@@ -1092,9 +1053,6 @@ IN_PROC_BROWSER_TEST_F(DipsNavigationFlowDetectorTest,
   ukm_recorder().ExpectEntryMetric(ukm_entry, "WasExitUserInitiated", true);
   ukm_recorder().ExpectEntryMetric(ukm_entry,
                                    "WereEntryAndExitRendererInitiated", false);
-  EXPECT_THAT(ukm_recorder().GetEntryMetric(
-                  ukm_entry, "DidSiteHavePreviousUserActivation"),
-              BooleanMetricIsAbsentOr(false));
   ukm_recorder().ExpectEntryMetric(ukm_entry, "VisitDurationMilliseconds", 0l);
 }
 
@@ -1138,9 +1096,6 @@ IN_PROC_BROWSER_TEST_F(DipsNavigationFlowDetectorTest,
   ukm_recorder().ExpectEntryMetric(ukm_entry, "WasExitUserInitiated", true);
   ukm_recorder().ExpectEntryMetric(ukm_entry,
                                    "WereEntryAndExitRendererInitiated", false);
-  EXPECT_THAT(ukm_recorder().GetEntryMetric(
-                  ukm_entry, "DidSiteHavePreviousUserActivation"),
-              BooleanMetricIsAbsentOr(false));
   ukm_recorder().ExpectEntryMetric(ukm_entry, "VisitDurationMilliseconds", 0l);
 }
 
@@ -1178,65 +1133,7 @@ IN_PROC_BROWSER_TEST_F(DipsNavigationFlowDetectorTest,
   ukm_recorder().ExpectEntryMetric(ukm_entry, "WasExitUserInitiated", true);
   ukm_recorder().ExpectEntryMetric(ukm_entry,
                                    "WereEntryAndExitRendererInitiated", false);
-  EXPECT_THAT(ukm_recorder().GetEntryMetric(
-                  ukm_entry, "DidSiteHavePreviousUserActivation"),
-              BooleanMetricIsAbsentOr(false));
   ukm_recorder().ExpectEntryMetric(ukm_entry, "VisitDurationMilliseconds", 0l);
-}
-
-IN_PROC_BROWSER_TEST_F(DipsNavigationFlowDetectorTest,
-                       UkmReportsPriorInteraction) {
-  // Record a prior interaction for site B in the DIPS database.
-  content::WebContents* web_contents = GetActiveWebContents();
-  DIPSServiceImpl* dips_service =
-      DIPSServiceImpl::Get(web_contents->GetBrowserContext());
-  ASSERT_TRUE(dips_service != nullptr);
-  base::test::TestFuture<void> record_interaction;
-  GURL site_b_url = embedded_https_test_server_.GetURL(kSiteB, "/");
-  dips_service->storage()
-      ->AsyncCall(&DIPSStorage::RecordInteraction)
-      .WithArgs(site_b_url, test_clock_.Now() - base::Days(1),
-                DIPSCookieMode::kBlock3PC)
-      .Then(record_interaction.GetCallback());
-  ASSERT_TRUE(record_interaction.Wait());
-
-  // Visit A.
-  GURL first_page_url =
-      embedded_https_test_server_.GetURL(kSiteA, "/title1.html");
-  ASSERT_TRUE(content::NavigateToURL(web_contents, first_page_url));
-  // Visit B, where B writes a cookie in its response headers.
-  GURL second_page_url = GetSetCookieUrlForSite(kSiteB);
-  ASSERT_TRUE(
-      NavigateToSetCookieAndAwaitAccessNotification(web_contents, kSiteB));
-  base::TimeDelta visit_duration = base::Milliseconds(100);
-  test_clock_.Advance(visit_duration);
-  // Visit C, and wait for UKM to be recorded.
-  base::RunLoop ukm_loop;
-  ukm_recorder().SetOnAddEntryCallback(kUkmEventName, ukm_loop.QuitClosure());
-  GURL third_page_url =
-      embedded_https_test_server_.GetURL(kSiteC, "/title1.html");
-  ASSERT_TRUE(content::NavigateToURL(web_contents, third_page_url));
-  ukm_loop.Run();
-
-  // Expect metrics to be accurate.
-  auto ukm_entries = ukm_recorder().GetEntriesByName(kUkmEventName);
-  ASSERT_EQ(ukm_entries.size(), 1u);
-  auto ukm_entry = ukm_entries.at(0);
-  ukm_recorder().ExpectEntrySourceHasUrl(ukm_entry, second_page_url);
-  ukm_recorder().ExpectEntryMetric(ukm_entry, "WerePreviousAndNextSiteSame",
-                                   false);
-  ukm_recorder().ExpectEntryMetric(ukm_entry, "DidHaveUserActivation", false);
-  ukm_recorder().ExpectEntryMetric(ukm_entry, "DidHaveSuccessfulWAA", false);
-  ukm_recorder().ExpectEntryMetric(ukm_entry, "WasEntryUserInitiated", true);
-  ukm_recorder().ExpectEntryMetric(ukm_entry, "WasExitUserInitiated", true);
-  ukm_recorder().ExpectEntryMetric(ukm_entry,
-                                   "WereEntryAndExitRendererInitiated", false);
-  EXPECT_THAT(ukm_recorder().GetEntryMetric(
-                  ukm_entry, "DidSiteHavePreviousUserActivation"),
-              BooleanMetricIsAbsentOr(true));
-  ukm_recorder().ExpectEntryMetric(ukm_entry, "VisitDurationMilliseconds",
-                                   ukm::GetExponentialBucketMinForUserTiming(
-                                       visit_duration.InMilliseconds()));
 }
 
 // WebAuthn tests do not work on Android because there is currently no way to
@@ -1374,8 +1271,5 @@ IN_PROC_BROWSER_TEST_F(DipsNavigationFlowDetectorWebAuthnTest, UkmReportsWAA) {
   ukm_recorder().ExpectEntryMetric(ukm_entry, "WasExitUserInitiated", true);
   ukm_recorder().ExpectEntryMetric(ukm_entry,
                                    "WereEntryAndExitRendererInitiated", false);
-  EXPECT_THAT(ukm_recorder().GetEntryMetric(
-                  ukm_entry, "DidSiteHavePreviousUserActivation"),
-              BooleanMetricIsAbsentOr(false));
 }
 #endif  // !BUILDFLAG(IS_ANDROID)

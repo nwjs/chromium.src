@@ -11,7 +11,11 @@
 #import "base/time/time.h"
 #import "components/sync/protocol/webauthn_credential_specifics.pb.h"
 #import "components/webauthn/core/browser/passkey_model_utils.h"
-#import "ios/chrome/common/credential_provider/credential.h"
+#import "ios/chrome/common/app_group/app_group_constants.h"
+#import "ios/chrome/common/credential_provider/archivable_credential+passkey.h"
+#import "ios/chrome/common/credential_provider/constants.h"
+#import "ios/chrome/common/credential_provider/credential_provider_creation_notifier.h"
+#import "ios/chrome/common/credential_provider/user_defaults_credential_store.h"
 
 using base::SysNSStringToUTF8;
 
@@ -22,16 +26,6 @@ void Append(std::vector<uint8_t>& container, NSData* data) {
   base::span<const uint8_t> span = base::apple::NSDataToSpan(data);
   // Use append_range when C++23 is available.
   container.insert(container.end(), span.begin(), span.end());
-}
-
-// Returns the security domain secret from the vault keys.
-NSData* GetSecurityDomainSecret(
-    const PasskeyKeychainProvider::SharedKeyList& keyList) {
-  if (keyList.empty()) {
-    return nil;
-  }
-  // TODO(crbug.com/355041765): Do we need to handle multiple keys?
-  return [NSData dataWithBytes:keyList[0].data() length:keyList[0].size()];
 }
 
 // Wrapper around passkey_model_utils's MakeAuthenticatorDataForAssertion
@@ -96,6 +90,30 @@ NSData* GenerateSignature(NSData* encrypted_private_key,
   return [NSData dataWithBytes:signature->data() length:signature->size()];
 }
 
+// Saves a newly created passkey to the user defaults credential store. This
+// credential store will be read by Chrome if it is currently running, or the
+// next time it runs, to sync the newly created passkeys in the user's account.
+void SaveCredential(id<Credential> credential) {
+  NSString* key = AppGroupUserDefaultsCredentialProviderNewCredentials();
+  UserDefaultsCredentialStore* store = [[UserDefaultsCredentialStore alloc]
+      initWithUserDefaults:app_group::GetGroupUserDefaults()
+                       key:key];
+
+  if ([store credentialWithRecordIdentifier:credential.recordIdentifier]) {
+    [store updateCredential:credential];
+  } else {
+    [store addCredential:credential];
+  }
+
+  [store saveDataWithCompletion:^(NSError* error) {
+    if (error != nil) {
+      return;
+    }
+
+    [CredentialProviderCreationNotifier notifyCredentialCreated];
+  }];
+}
+
 }  // namespace
 
 ASPasskeyRegistrationCredential* PerformPasskeyCreation(
@@ -103,9 +121,8 @@ ASPasskeyRegistrationCredential* PerformPasskeyCreation(
     NSString* rp_id,
     NSString* user_name,
     NSData* user_handle,
-    const PasskeyKeychainProvider::SharedKeyList& keyList)
-    API_AVAILABLE(ios(17.0)) {
-  NSData* security_domain_secret = GetSecurityDomainSecret(keyList);
+    NSString* gaia,
+    NSData* security_domain_secret) API_AVAILABLE(ios(17.0)) {
   if (!security_domain_secret) {
     return nil;
   }
@@ -131,8 +148,9 @@ ASPasskeyRegistrationCredential* PerformPasskeyCreation(
   sync_pb::WebauthnCredentialSpecifics passkey = generated_passkey.first;
   std::vector<uint8_t> public_key_spki_der = generated_passkey.second;
 
-  // TODO(crbug.com/330355124): Save the new credential to a store so that it
-  //                            can be synced.
+  SaveCredential([[ArchivableCredential alloc] initWithFavicon:nil
+                                                          gaia:gaia
+                                                       passkey:passkey]);
 
   base::span<const uint8_t> cred_id =
       base::as_byte_span(passkey.credential_id());
@@ -155,9 +173,7 @@ ASPasskeyAssertionCredential* PerformPasskeyAssertion(
     id<Credential> credential,
     NSData* client_data_hash,
     NSArray<NSData*>* allowed_credentials,
-    const PasskeyKeychainProvider::SharedKeyList& keyList)
-    API_AVAILABLE(ios(17.0)) {
-  NSData* security_domain_secret = GetSecurityDomainSecret(keyList);
+    NSData* security_domain_secret) API_AVAILABLE(ios(17.0)) {
   if (!security_domain_secret) {
     return nil;
   }
@@ -178,8 +194,7 @@ ASPasskeyAssertionCredential* PerformPasskeyAssertion(
   // Update the credential's last used time.
   credential.lastUsedTime =
       base::Time::Now().ToDeltaSinceWindowsEpoch().InMicroseconds();
-  // TODO(crbug.com/355047898): Save the last used time of the credential to
-  //                            update it the next time Chrome syncs.
+  SaveCredential(credential);
 
   return [ASPasskeyAssertionCredential
       credentialWithUserHandle:credential.userId

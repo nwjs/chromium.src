@@ -14,7 +14,6 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/content_settings/generated_cookie_prefs.h"
-#include "chrome/browser/content_settings/generated_notification_pref.h"
 #include "chrome/browser/content_settings/generated_permission_prompting_behavior_pref.h"
 #include "chrome/browser/extensions/api/settings_private/generated_prefs.h"
 #include "chrome/browser/extensions/api/settings_private/generated_prefs_factory.h"
@@ -55,7 +54,7 @@
 #include "components/privacy_sandbox/tracking_protection_prefs.h"
 #include "components/proxy_config/proxy_config_pref_names.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
-#include "components/saved_tab_groups/pref_names.h"
+#include "components/saved_tab_groups/public/pref_names.h"
 #include "components/search_engines/default_search_manager.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/spellcheck/browser/pref_names.h"
@@ -71,7 +70,7 @@
 #include "extensions/browser/management_policy.h"
 #include "extensions/common/extension.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "ash/components/arc/arc_prefs.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_pref_names.h"  // nogncheck
@@ -87,6 +86,7 @@
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/ash/settings/supervised_user_cros_settings_provider.h"
 #include "chrome/browser/ash/system/timezone_util.h"
+#include "chrome/browser/chromeos/extensions/controlled_pref_mapping.h"
 #include "chrome/browser/extensions/api/settings_private/chromeos_resolve_time_zone_by_geolocation_method_short.h"
 #include "chrome/browser/extensions/api/settings_private/chromeos_resolve_time_zone_by_geolocation_on_off.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
@@ -101,13 +101,9 @@
 #include "ui/events/ash/pref_names.h"
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS) || BUILDFLAG(IS_CHROMEOS_ASH)
-#include "chrome/browser/chromeos/extensions/controlled_pref_mapping.h"
-#endif
-
 namespace {
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 bool IsPrivilegedCrosSetting(const std::string& pref_name) {
   // Cros settings are considered privileged and are either policy
   // controlled or owner controlled.
@@ -136,8 +132,7 @@ const base::Value* GetRestrictedCrosSettingValueForChildUser(
       ->supervised_user_cros_settings_provider()
       ->Get(pref_name);
 }
-
-#endif
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 bool IsSettingReadOnly(const std::string& pref_name) {
   // download.default_directory is used to display the directory location and
@@ -145,7 +140,7 @@ bool IsSettingReadOnly(const std::string& pref_name) {
   if (pref_name == prefs::kDownloadDefaultDirectory) {
     return true;
   }
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   // System timezone is never directly changeable by the user.
   if (pref_name == ash::kSystemTimezone) {
     return ash::system::PerUserTimezoneEnabled();
@@ -269,7 +264,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[drive::prefs::kDisableDrive] =
       settings_api::PrefType::kBoolean;
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   (*s_allowlist)[::prefs::kNetworkFileSharesAllowed] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kMostRecentlyUsedNetworkFileShareURL] =
@@ -286,13 +281,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[::prefs::kDownloadBubblePartialViewEnabled] =
       settings_api::PrefType::kBoolean;
 
-  // Miscellaneous. TODO(stevenjb): categorize.
-  (*s_allowlist)[::prefs::kEnableEncryptedMedia] =
-      settings_api::PrefType::kBoolean;
-  (*s_allowlist)[::language::prefs::kApplicationLocale] =
-      settings_api::PrefType::kString;
-  (*s_allowlist)[::prefs::kNetworkPredictionOptions] =
-      settings_api::PrefType::kNumber;
+  // Password Manager settings.
   (*s_allowlist)[password_manager::prefs::kCredentialsEnableService] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[password_manager::prefs::kCredentialsEnableAutosignin] =
@@ -309,10 +298,30 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       [password_manager::prefs::kBiometricAuthenticationBeforeFilling] =
           settings_api::PrefType::kBoolean;
 #endif
+
+#if BUILDFLAG(IS_CHROMEOS)
+  (*s_allowlist)
+      [password_manager::prefs::kBiometricAuthBeforeFillingPromoShownCounter] =
+          settings_api::PrefType::kNumber;
+  (*s_allowlist)
+      [password_manager::prefs::kHasUserInteractedWithBiometricAuthPromo] =
+          settings_api::PrefType::kNumber;
+  (*s_allowlist)[password_manager::prefs::kHadBiometricsAvailable] =
+      settings_api::PrefType::kBoolean;
+#endif
+
 #if BUILDFLAG(IS_MAC)
   (*s_allowlist)[::prefs::kCreatePasskeysInICloudKeychain] =
       settings_api::PrefType::kBoolean;
 #endif
+
+  // Miscellaneous. TODO(stevenjb): categorize.
+  (*s_allowlist)[::prefs::kEnableEncryptedMedia] =
+      settings_api::PrefType::kBoolean;
+  (*s_allowlist)[::language::prefs::kApplicationLocale] =
+      settings_api::PrefType::kString;
+  (*s_allowlist)[::prefs::kNetworkPredictionOptions] =
+      settings_api::PrefType::kNumber;
 
   // Privacy page
   (*s_allowlist)[::prefs::kSigninAllowedOnNextStartup] =
@@ -320,7 +329,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[::prefs::kDnsOverHttpsMode] = settings_api::PrefType::kString;
   (*s_allowlist)[::prefs::kDnsOverHttpsTemplates] =
       settings_api::PrefType::kString;
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   (*s_allowlist)[::prefs::kDnsOverHttpsSalt] = settings_api::PrefType::kString;
   (*s_allowlist)[::prefs::kDnsOverHttpsTemplatesWithIdentifiers] =
       settings_api::PrefType::kString;
@@ -359,8 +368,6 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kNumber;
   (*s_allowlist)[::content_settings::kCookieDefaultContentSetting] =
       settings_api::PrefType::kString;
-  (*s_allowlist)[::content_settings::kCookiePrimarySetting] =
-      settings_api::PrefType::kNumber;
   (*s_allowlist)[::prefs::kPrivacySandboxRelatedWebsiteSetsEnabled] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kBlockAll3pcToggleEnabled] =
@@ -415,7 +422,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kString;
   (*s_allowlist)[translate::prefs::kPrefAlwaysTranslateList] =
       settings_api::PrefType::kList;
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   (*s_allowlist)[::prefs::kLanguageImeMenuActivated] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kAssistPersonalInfoEnabled] =
@@ -433,19 +440,15 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kNextImeShortcutReminderDismissed] =
       settings_api::PrefType::kBoolean;
-#endif
 
   // Files page.
-#if BUILDFLAG(IS_CHROMEOS_ASH)
   (*s_allowlist)[::prefs::kOfficeFilesAlwaysMoveToDrive] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kOfficeFilesAlwaysMoveToOneDrive] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kLocalUserFilesAllowed] =
       settings_api::PrefType::kBoolean;
-#endif
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
   // Nearby Share.
   (*s_allowlist)[::prefs::kNearbySharingEnabledPrefName] =
       settings_api::PrefType::kBoolean;
@@ -464,7 +467,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   // Instant Hotspot
   (*s_allowlist)[::ash::tether::prefs::kNotificationsEnabled] =
       settings_api::PrefType::kBoolean;
-#endif
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   // Search page.
   (*s_allowlist)[DefaultSearchManager::kDefaultSearchProviderDataPrefName] =
@@ -566,7 +569,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[::prefs::kCaretBrowsingEnabled] =
       settings_api::PrefType::kBoolean;
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   // Accounts / Users / People.
   (*s_allowlist)[ash::kAccountsPrefAllowGuest] =
       settings_api::PrefType::kBoolean;
@@ -739,6 +742,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kAccessibilityReducedAnimationsEnabled] =
       settings_api::PrefType::kBoolean;
+  (*s_allowlist)[ash::prefs::kAccessibilityOverlayScrollbarEnabled] =
+      settings_api::PrefType::kBoolean;
   (*s_allowlist)
       [ash::prefs::kAccessibilityFaceGazeAcceleratorDialogHasBeenAccepted] =
           settings_api::PrefType::kBoolean;
@@ -751,8 +756,6 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[ash::prefs::kAccessibilityFaceGazeCursorSpeedLeft] =
       settings_api::PrefType::kNumber;
   (*s_allowlist)[ash::prefs::kAccessibilityFaceGazeCursorSpeedRight] =
-      settings_api::PrefType::kNumber;
-  (*s_allowlist)[ash::prefs::kAccessibilityFaceGazeCursorSmoothing] =
       settings_api::PrefType::kNumber;
   (*s_allowlist)[ash::prefs::kAccessibilityFaceGazeCursorUseAcceleration] =
       settings_api::PrefType::kBoolean;
@@ -768,6 +771,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kAccessibilityFaceGazeActionsEnabled] =
       settings_api::PrefType::kBoolean;
+  (*s_allowlist)[ash::prefs::kAccessibilityFaceGazeVelocityThreshold] =
+      settings_api::PrefType::kNumber;
   (*s_allowlist)[ash::prefs::kAccessibilityCaretBlinkInterval] =
       settings_api::PrefType::kNumber;
   (*s_allowlist)[ash::prefs::kAccessibilityDisableTrackpadEnabled] =
@@ -1050,6 +1055,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kDictionary;
   (*s_allowlist)[ash::kDisplayRotationDefault] =
       settings_api::PrefType::kDictionary;
+  (*s_allowlist)[::prefs::kAllowExcludeDisplayInMirrorMode] =
+      settings_api::PrefType::kBoolean;
   (*s_allowlist)[arc::prefs::kArcVisibleExternalStorages] =
       settings_api::PrefType::kList;
   (*s_allowlist)[ash::prefs::kPowerAdaptiveChargingEnabled] =
@@ -1109,26 +1116,18 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kImportDialogSearchEngine] =
       settings_api::PrefType::kBoolean;
-#endif
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   // Supervised Users.  This setting is queried in our Tast tests (b/241943380).
   (*s_allowlist)[::prefs::kSupervisedUserExtensionsMayRequestPermissions] =
       settings_api::PrefType::kBoolean;
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  (*s_allowlist)[::prefs::kUseAshProxy] = settings_api::PrefType::kBoolean;
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_CHROMEOS_LACROS)
+#if BUILDFLAG(IS_CHROMEOS)
   (*s_allowlist)[::prefs::kDocumentScanAPITrustedExtensions] =
       settings_api::PrefType::kList;
   (*s_allowlist)[::prefs::kPrintingAPIExtensionsAllowlist] =
       settings_api::PrefType::kList;
-#endif
 
-// Accessibility features in ash that can be set in lacros.
-// The Lacros version of these have their own name.
-#if BUILDFLAG(IS_CHROMEOS_LACROS) || BUILDFLAG(IS_CHROMEOS_ASH)
   (*s_allowlist)[chromeos::prefs::kAccessibilityFocusHighlightEnabled] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[chromeos::prefs::kDockedMagnifierEnabled] =
@@ -1159,14 +1158,13 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[chromeos::prefs::kAccessibilityVirtualKeyboardEnabled] =
       settings_api::PrefType::kBoolean;
-#endif
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
-  // This feature exists in all platforms but is enabled in ash above. In lacros
-  // the value in ash can be controlled by extensions.
+#if !BUILDFLAG(IS_CHROMEOS)
+  // This feature exists in all platforms but is enabled in ash above.
   (*s_allowlist)[prefs::kAccessibilityFocusHighlightEnabled] =
       settings_api::PrefType::kBoolean;
-#endif
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
   // Proxy settings.
   (*s_allowlist)[proxy_config::prefs::kProxy] =
@@ -1258,7 +1256,7 @@ std::optional<settings_api::PrefObject> PrefsUtil::GetCrosSettingsPref(
     const std::string& name) {
   std::optional<settings_api::PrefObject> pref_object(std::in_place);
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   const base::Value* value = ash::CrosSettings::Get()->GetPref(name);
   if (!value) {
     LOG(WARNING) << "Cros settings pref not found: " << name;
@@ -1302,7 +1300,7 @@ std::optional<settings_api::PrefObject> PrefsUtil::GetPref(
     pref_object->value = pref->GetValue()->Clone();
   }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   // We first check for enterprise-managed, then for primary-user managed.
   // Otherwise in multiprofile mode enterprise preference for the secondary
   // user will appear primary-user-controlled, which looks strange, because
@@ -1350,7 +1348,7 @@ std::optional<settings_api::PrefObject> PrefsUtil::GetPref(
     return pref_object;
   }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   if (IsPrefOwnerControlled(name)) {
     // Check for owner controlled after managed checks because if there is a
     // device policy there is no "owner". (In the unlikely case that both
@@ -1478,7 +1476,7 @@ settings_private::SetPrefResult PrefsUtil::SetPref(const std::string& pref_name,
 settings_private::SetPrefResult PrefsUtil::SetCrosSettingsPref(
     const std::string& pref_name,
     const base::Value* value) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   if (pref_name == ash::kSystemTimezone) {
     const std::string* string_value = value->GetIfString();
     if (!string_value) {
@@ -1508,7 +1506,7 @@ settings_private::SetPrefResult PrefsUtil::SetCrosSettingsPref(
 
 bool PrefsUtil::AppendToListCrosSetting(const std::string& pref_name,
                                         const base::Value& value) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   ash::OwnerSettingsServiceAsh* service =
       ash::OwnerSettingsServiceAshFactory::GetForBrowserContext(profile_);
 
@@ -1522,7 +1520,7 @@ bool PrefsUtil::AppendToListCrosSetting(const std::string& pref_name,
 
 bool PrefsUtil::RemoveFromListCrosSetting(const std::string& pref_name,
                                           const base::Value& value) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   ash::OwnerSettingsServiceAsh* service =
       ash::OwnerSettingsServiceAshFactory::GetForBrowserContext(profile_);
 
@@ -1538,7 +1536,7 @@ bool PrefsUtil::IsPrefTypeURL(const std::string& pref_name) {
   return GetAllowlistedPrefType(pref_name) == settings_api::PrefType::kUrl;
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 bool PrefsUtil::IsPrefEnterpriseManaged(const std::string& pref_name) {
   policy::BrowserPolicyConnectorAsh* connector =
       g_browser_process->platform_part()->browser_policy_connector_ash();
@@ -1639,14 +1637,14 @@ PrefService* PrefsUtil::FindServiceForPref(const std::string& pref_name) {
   // See http://crbug.com/157147
 
   if (pref_name == proxy_config::prefs::kProxy) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     return user_prefs;
 #else
     return g_browser_process->local_state();
 #endif
   }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   // Secure DNS configurations should apply to the current user session. The
   // secure DNS preferences are mapped to local_state, which is applied to the
   // current user session on all platforms except Chrome OS. On Chrome OS,
@@ -1676,7 +1674,7 @@ PrefService* PrefsUtil::FindServiceForPref(const std::string& pref_name) {
 }
 
 bool PrefsUtil::IsCrosSetting(const std::string& pref_name) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   return ash::CrosSettings::Get()->IsCrosSettings(pref_name);
 #else
   return false;

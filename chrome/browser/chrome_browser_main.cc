@@ -36,7 +36,6 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/path_service.h"
-#include "base/profiler/process_type.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/sys_string_conversions.h"
@@ -156,6 +155,7 @@
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/pref_value_store.h"
+#include "components/sampling_profiler/process_type.h"
 #include "components/sampling_profiler/thread_profiler.h"
 #include "components/site_isolation/site_isolation_policy.h"
 #include "components/spellcheck/spellcheck_buildflags.h"
@@ -356,10 +356,6 @@
 #include "chrome/browser/rlz/chrome_rlz_tracker_delegate.h"
 #include "components/rlz/rlz_tracker.h"  // nogncheck crbug.com/1125897
 #endif  // BUILDFLAG(ENABLE_RLZ)
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "ui/shell_dialogs/select_file_dialog_lacros.h"
-#endif
 
 #if defined(USE_AURA)
 #include "ui/aura/env.h"
@@ -858,7 +854,7 @@ int ChromeBrowserMainParts::PreEarlyInitialization() {
     if (!upgrade_util::RelaunchChromeBrowser(
             *base::CommandLine::ForCurrentProcess())) {
       // The relaunch failed. Feel free to panic now.
-      NOTREACHED_IN_MIGRATION();
+      DUMP_WILL_BE_NOTREACHED();
     }
 
     // Note, cannot return RESULT_CODE_NORMAL_EXIT here as this code needs to
@@ -1071,7 +1067,7 @@ int ChromeBrowserMainParts::PreCreateThreadsImpl() {
   }
 
 #if !BUILDFLAG(IS_ANDROID)
-  chrome::MaybeShowInvalidUserDataDirWarningDialog();
+  MaybeShowInvalidUserDataDirWarningDialog();
 #endif  // !BUILDFLAG(IS_ANDROID)
 
   DCHECK(!user_data_dir_.empty());
@@ -1240,7 +1236,7 @@ void ChromeBrowserMainParts::PostCreateThreads() {
   content::GetIOThreadTaskRunner({})->PostTask(
       FROM_HERE,
       base::BindOnce(&sampling_profiler::ThreadProfiler::StartOnChildThread,
-                     base::ProfilerThreadType::kIo));
+                     sampling_profiler::ProfilerThreadType::kIo));
 // Sampling multiple threads might cause overhead on Android and we don't want
 // to enable it unless the data is needed.
 #if !BUILDFLAG(IS_ANDROID)
@@ -1527,9 +1523,6 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
 
   ui::SelectFileDialog::SetFactory(
       std::make_unique<ChromeSelectFileDialogFactory>());
-#elif BUILDFLAG(IS_CHROMEOS_LACROS)
-  ui::SelectFileDialog::SetFactory(
-      std::make_unique<ui::SelectFileDialogLacros::Factory>());
 #endif  // BUILDFLAG(IS_WIN)
 
   // In headless mode provide alternate SelectFileDialog factory overriding

@@ -19,12 +19,12 @@
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_service_factory.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_action_context_desktop.h"
 #include "chrome/browser/ui/views/bookmarks/saved_tab_groups/saved_tab_group_everything_menu.h"
-#include "components/saved_tab_groups/features.h"
-#include "components/saved_tab_groups/saved_tab_group.h"
-#include "components/saved_tab_groups/saved_tab_group_tab.h"
-#include "components/saved_tab_groups/tab_group_sync_service.h"
-#include "components/saved_tab_groups/tab_group_sync_service_impl.h"
-#include "components/saved_tab_groups/types.h"
+#include "components/saved_tab_groups/internal/tab_group_sync_service_impl.h"
+#include "components/saved_tab_groups/public/features.h"
+#include "components/saved_tab_groups/public/saved_tab_group.h"
+#include "components/saved_tab_groups/public/saved_tab_group_tab.h"
+#include "components/saved_tab_groups/public/tab_group_sync_service.h"
+#include "components/saved_tab_groups/public/types.h"
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
@@ -42,8 +42,13 @@ TabGroupSyncServiceProxy::TabGroupSyncServiceProxy(
 
 TabGroupSyncServiceProxy::~TabGroupSyncServiceProxy() = default;
 
+void TabGroupSyncServiceProxy::SetTabGroupSyncDelegate(
+    std::unique_ptr<TabGroupSyncDelegate> delegate) {
+  NOTIMPLEMENTED();
+}
+
 void TabGroupSyncServiceProxy::AddGroup(SavedTabGroup group) {
-  service_->SaveRestoredGroup(std::move(group));
+  service_->model()->Add(std::move(group));
 }
 
 void TabGroupSyncServiceProxy::RemoveGroup(const LocalTabGroupID& local_id) {
@@ -170,6 +175,14 @@ void TabGroupSyncServiceProxy::OnTabSelected(const LocalTabGroupID& group_id,
   NOTIMPLEMENTED();
 }
 
+void TabGroupSyncServiceProxy::SaveGroup(SavedTabGroup group) {
+  service_->SaveRestoredGroup(std::move(group));
+}
+
+void TabGroupSyncServiceProxy::UnsaveGroup(const LocalTabGroupID& local_id) {
+  service_->UnsaveGroup(local_id, ClosingSource::kClosedByUser);
+}
+
 void TabGroupSyncServiceProxy::MakeTabGroupShared(
     const LocalTabGroupID& local_group_id,
     std::string_view collaboration_id) {
@@ -209,12 +222,14 @@ void TabGroupSyncServiceProxy::OpenTabGroup(
 
 void TabGroupSyncServiceProxy::UpdateLocalTabGroupMapping(
     const base::Uuid& sync_id,
-    const LocalTabGroupID& local_id) {
+    const LocalTabGroupID& local_id,
+    OpeningSource opening_source) {
   service_->model()->OnGroupOpenedInTabStrip(sync_id, local_id);
 }
 
 void TabGroupSyncServiceProxy::RemoveLocalTabGroupMapping(
-    const LocalTabGroupID& local_id) {
+    const LocalTabGroupID& local_id,
+    ClosingSource closing_source) {
   service_->model()->OnGroupClosedInTabStrip(local_id);
 }
 
@@ -229,7 +244,8 @@ void TabGroupSyncServiceProxy::UpdateLocalTabId(
 
 void TabGroupSyncServiceProxy::ConnectLocalTabGroup(
     const base::Uuid& sync_id,
-    const LocalTabGroupID& local_id) {
+    const LocalTabGroupID& local_id,
+    OpeningSource opening_source) {
   service_->ConnectRestoredGroupToSaveId(sync_id, local_id);
 }
 
@@ -239,9 +255,20 @@ bool TabGroupSyncServiceProxy::IsRemoteDevice(
   return false;
 }
 
+bool TabGroupSyncServiceProxy::WasTabGroupClosedLocally(
+    const base::Uuid& sync_id) const {
+  NOTIMPLEMENTED();
+  return false;
+}
+
 void TabGroupSyncServiceProxy::RecordTabGroupEvent(
     const EventDetails& event_details) {
   NOTIMPLEMENTED();
+}
+
+TabGroupSyncMetricsLogger*
+TabGroupSyncServiceProxy::GetTabGroupSyncMetricsLogger() {
+  return service_->GetTabGroupSyncMetricsLogger();
 }
 
 base::WeakPtr<syncer::DataTypeControllerDelegate>
@@ -257,6 +284,12 @@ TabGroupSyncServiceProxy::GetSharedTabGroupControllerDelegate() {
 std::unique_ptr<ScopedLocalObservationPauser>
 TabGroupSyncServiceProxy::CreateScopedLocalObserverPauser() {
   return service_->CreateScopedLocalObserverPauser();
+}
+
+void TabGroupSyncServiceProxy::GetURLRestriction(
+    const GURL& url,
+    TabGroupSyncService::UrlRestrictionCallback callback) {
+  std::move(callback).Run(std::nullopt);
 }
 
 void TabGroupSyncServiceProxy::AddObserver(Observer* observer) {}

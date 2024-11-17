@@ -38,10 +38,11 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
+import org.chromium.chrome.browser.ui.favicon.FaviconHelperJni;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.components.commerce.core.CommerceFeatureUtils;
+import org.chromium.components.commerce.core.CommerceFeatureUtilsJni;
 import org.chromium.components.commerce.core.ShoppingService;
-import org.chromium.components.favicon.LargeIconBridge;
-import org.chromium.components.favicon.LargeIconBridgeJni;
 import org.chromium.components.signin.AccountManagerFacade;
 import org.chromium.components.signin.AccountManagerFacadeProvider;
 import org.chromium.components.signin.identitymanager.IdentityManager;
@@ -59,7 +60,6 @@ import org.chromium.ui.base.TestActivity;
 })
 @EnableFeatures({
     SyncFeatureMap.SYNC_ENABLE_BOOKMARKS_IN_TRANSPORT_MODE,
-    ChromeFeatureList.ANDROID_IMPROVED_BOOKMARKS,
     ChromeFeatureList.ENABLE_PASSWORDS_ACCOUNT_STORAGE_FOR_NON_SYNCING_USERS,
     ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS
 })
@@ -75,7 +75,7 @@ public class BookmarkManagerCoordinatorTest {
 
     @Mock private SnackbarManager mSnackbarManager;
     @Mock private Profile mProfile;
-    @Mock private LargeIconBridge.Natives mMockLargeIconBridgeJni;
+    @Mock private FaviconHelperJni mFaviconHelperJni;
     @Mock private ImageServiceBridge.Natives mImageServiceBridgeJni;
     @Mock private SyncService mSyncService;
     @Mock private IdentityServicesProvider mIdentityServicesProvider;
@@ -84,6 +84,7 @@ public class BookmarkManagerCoordinatorTest {
     @Mock private IdentityManager mIdentityManager;
     @Mock private BookmarkModel mBookmarkModel;
     @Mock private BookmarkUiPrefs mBookmarkUiPrefs;
+    @Mock private CommerceFeatureUtils.Natives mCommerceFeatureUtilsJniMock;
     @Mock private ShoppingService mShoppingService;
 
     private Activity mActivity;
@@ -92,8 +93,9 @@ public class BookmarkManagerCoordinatorTest {
     @Before
     public void setUp() {
         // Setup JNI mocks.
-        mJniMocker.mock(LargeIconBridgeJni.TEST_HOOKS, mMockLargeIconBridgeJni);
+        mJniMocker.mock(FaviconHelperJni.TEST_HOOKS, mFaviconHelperJni);
         mJniMocker.mock(ImageServiceBridgeJni.TEST_HOOKS, mImageServiceBridgeJni);
+        mJniMocker.mock(CommerceFeatureUtilsJni.TEST_HOOKS, mCommerceFeatureUtilsJniMock);
 
         // Setup service mocks.
         doReturn(mProfile).when(mProfile).getOriginalProfile();

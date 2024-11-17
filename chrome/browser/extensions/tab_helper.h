@@ -12,7 +12,6 @@
 #include "third_party/blink/public/mojom/page/draggable_region.mojom.h"
 
 #include "base/memory/raw_ptr.h"
-#include "third_party/blink/public/mojom/page/draggable_region.mojom-forward.h"
 
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
@@ -53,7 +52,8 @@ class TabHelper : public content::WebContentsObserver,
 
   ~TabHelper() override;
 
-  void UpdateDraggableRegions(const std::vector<blink::mojom::DraggableRegionPtr>& regions);
+  void UpdateDraggableRegions(content::RenderFrameHost* sender,
+                              const std::vector<blink::mojom::DraggableRegionPtr>& regions);
 
   // Sets the extension denoting this as an app. If |extension| is non-null this
   // tab becomes an app-tab. WebContents does not listen for unload events for
@@ -123,7 +123,6 @@ class TabHelper : public content::WebContentsObserver,
       content::WebContents* old_web_contents,
       content::WebContents* new_web_contents) override;
   void WebContentsDestroyed() override;
-  void PrimaryPageChanged(content::Page& page) override;
 
   // ExtensionFunctionDispatcher::Delegate overrides.
   WindowController* GetExtensionWindowController() const override;

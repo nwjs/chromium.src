@@ -37,6 +37,7 @@ import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetStrings;
 import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncHelper;
 import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
+import org.chromium.chrome.test.util.browser.signin.TestAccounts;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
@@ -54,7 +55,6 @@ import java.util.Set;
 @RunWith(BaseRobolectricTestRunner.class)
 @DisableFeatures({
     ChromeFeatureList.FORCE_DISABLE_EXTENDED_SYNC_PROMOS,
-    ChromeFeatureList.SYNC_ANDROID_LIMIT_NTP_PROMO_IMPRESSIONS,
     ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS,
 })
 @EnableFeatures(SyncFeatureMap.SYNC_ENABLE_BOOKMARKS_IN_TRANSPORT_MODE)
@@ -63,11 +63,10 @@ public class SyncPromoControllerTest {
             SyncPromoController.NTP_SYNC_PROMO_NTP_SINCE_FIRST_TIME_SHOWN_LIMIT_HOURS;
     private static final long TIME_SINCE_FIRST_SHOWN_LIMIT_MS =
             TIME_SINCE_FIRST_SHOWN_LIMIT_HOURS * DateUtils.HOUR_IN_MILLIS;
-    private static final int RESET_AFTER_HOURS =
-            SyncPromoController.NTP_SYNC_PROMO_NTP_RESET_AFTER_HOURS;
-    private static final long RESET_AFTER_MS = RESET_AFTER_HOURS * DateUtils.HOUR_IN_MILLIS;
+    private static final int RESET_AFTER_DAYS = SyncPromoController.NTP_SYNC_PROMO_RESET_AFTER_DAYS;
+    private static final long RESET_AFTER_MS = RESET_AFTER_DAYS * DateUtils.DAY_IN_MILLIS;
     private static final int MAX_SIGN_IN_PROMO_IMPRESSIONS =
-            SyncPromoController.NTP_SYNC_PROMO_NTP_COUNT_LIMIT;
+            SyncPromoController.SYNC_ANDROID_NTP_PROMO_MAX_IMPRESSIONS;
 
     private static final AccountPickerBottomSheetStrings BOTTOM_SHEET_STRINGS =
             new AccountPickerBottomSheetStrings.Builder(
@@ -182,8 +181,8 @@ public class SyncPromoControllerTest {
     @Test
     @DisableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
     public void shouldHideSyncPromoForNTPWhenDefaultAccountCapabilityIsNotFetched() {
-        mAccountManagerTestRule.addAccount(AccountManagerTestRule.TEST_ACCOUNT_1);
-        mAccountManagerTestRule.addAccount(AccountManagerTestRule.TEST_ACCOUNT_2);
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT2);
 
         Assert.assertFalse(mSyncPromoController.canShowSyncPromo());
     }
@@ -192,8 +191,8 @@ public class SyncPromoControllerTest {
     @EnableFeatures(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
     public void
             shouldShowPromoForNTPWhenDefaultAccountCapabilityIsNotFetched_replaceSyncBySigninEnabled() {
-        mAccountManagerTestRule.addAccount(AccountManagerTestRule.TEST_ACCOUNT_1);
-        mAccountManagerTestRule.addAccount(AccountManagerTestRule.TEST_ACCOUNT_2);
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT2);
 
         Assert.assertTrue(mSyncPromoController.canShowSyncPromo());
     }
@@ -509,14 +508,14 @@ public class SyncPromoControllerTest {
         doReturn(SyncPromoController.GMAIL_DOMAIN)
                 .when(mSigninManager)
                 .extractDomainName(anyString());
-        mAccountManagerTestRule.addAccount(AccountManagerTestRule.TEST_ACCOUNT_1);
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
 
         Assert.assertTrue(
                 SyncPromoController.shouldLaunchSigninFlow(
                         SigninAccessPoint.BOOKMARK_MANAGER,
                         mIdentityManager,
                         mSigninManager,
-                        List.of(AccountManagerTestRule.TEST_ACCOUNT_1),
+                        List.of(TestAccounts.ACCOUNT1),
                         mPrefService));
     }
 
@@ -526,14 +525,14 @@ public class SyncPromoControllerTest {
         doReturn(SyncPromoController.GMAIL_DOMAIN)
                 .when(mSigninManager)
                 .extractDomainName(anyString());
-        mAccountManagerTestRule.addAccount(AccountManagerTestRule.TEST_ACCOUNT_1);
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
 
         Assert.assertTrue(
                 SyncPromoController.shouldLaunchSigninFlow(
                         SigninAccessPoint.BOOKMARK_MANAGER,
                         mIdentityManager,
                         mSigninManager,
-                        List.of(AccountManagerTestRule.TEST_ACCOUNT_1),
+                        List.of(TestAccounts.ACCOUNT1),
                         mPrefService));
     }
 
@@ -544,14 +543,14 @@ public class SyncPromoControllerTest {
         doReturn(SyncPromoController.GMAIL_DOMAIN)
                 .when(mSigninManager)
                 .extractDomainName(anyString());
-        mAccountManagerTestRule.addAccount(AccountManagerTestRule.TEST_ACCOUNT_1);
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
 
         Assert.assertFalse(
                 SyncPromoController.shouldLaunchSigninFlow(
                         SigninAccessPoint.BOOKMARK_MANAGER,
                         mIdentityManager,
                         mSigninManager,
-                        List.of(AccountManagerTestRule.TEST_ACCOUNT_1),
+                        List.of(TestAccounts.ACCOUNT1),
                         mPrefService));
     }
 
@@ -562,14 +561,14 @@ public class SyncPromoControllerTest {
         doReturn(SyncPromoController.GMAIL_DOMAIN)
                 .when(mSigninManager)
                 .extractDomainName(anyString());
-        mAccountManagerTestRule.addAccount(AccountManagerTestRule.TEST_ACCOUNT_1);
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
 
         Assert.assertFalse(
                 SyncPromoController.shouldLaunchSigninFlow(
                         SigninAccessPoint.NTP_FEED_TOP_PROMO,
                         mIdentityManager,
                         mSigninManager,
-                        List.of(AccountManagerTestRule.TEST_ACCOUNT_1),
+                        List.of(TestAccounts.ACCOUNT1),
                         mPrefService));
     }
 
@@ -580,14 +579,14 @@ public class SyncPromoControllerTest {
         doReturn(SyncPromoController.GMAIL_DOMAIN)
                 .when(mSigninManager)
                 .extractDomainName(anyString());
-        mAccountManagerTestRule.addAccount(AccountManagerTestRule.TEST_ACCOUNT_1);
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
 
         Assert.assertFalse(
                 SyncPromoController.shouldLaunchSigninFlow(
                         SigninAccessPoint.BOOKMARK_MANAGER,
                         mIdentityManager,
                         mSigninManager,
-                        List.of(AccountManagerTestRule.TEST_ACCOUNT_1),
+                        List.of(TestAccounts.ACCOUNT1),
                         mPrefService));
     }
 
@@ -595,18 +594,18 @@ public class SyncPromoControllerTest {
     @EnableFeatures(SyncFeatureMap.SYNC_ENABLE_BOOKMARKS_IN_TRANSPORT_MODE)
     public void shouldLaunchBookmarksSigninFlowReturnsFalse_SyncDataLeft() {
         when(mPrefService.getString(Pref.GOOGLE_SERVICES_LAST_SYNCING_GAIA_ID))
-                .thenReturn(AccountManagerTestRule.TEST_ACCOUNT_1.getGaiaId());
+                .thenReturn(TestAccounts.ACCOUNT1.getGaiaId());
         doReturn(SyncPromoController.GMAIL_DOMAIN)
                 .when(mSigninManager)
                 .extractDomainName(anyString());
-        mAccountManagerTestRule.addAccount(AccountManagerTestRule.TEST_ACCOUNT_1);
+        mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
 
         Assert.assertFalse(
                 SyncPromoController.shouldLaunchSigninFlow(
                         SigninAccessPoint.BOOKMARK_MANAGER,
                         mIdentityManager,
                         mSigninManager,
-                        List.of(AccountManagerTestRule.TEST_ACCOUNT_1),
+                        List.of(TestAccounts.ACCOUNT1),
                         mPrefService));
     }
 

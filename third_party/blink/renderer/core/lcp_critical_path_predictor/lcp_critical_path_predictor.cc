@@ -12,6 +12,7 @@
 #include "third_party/blink/renderer/core/html/html_image_element.h"
 #include "third_party/blink/renderer/core/lcp_critical_path_predictor/element_locator.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
+#include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 
 namespace blink {
 
@@ -109,11 +110,13 @@ void LCPCriticalPathPredictor::Reset() {
   lcp_influencer_scripts_.clear();
   fetched_fonts_.clear();
   preconnected_origins_.clear();
+  unused_preloads_.clear();
 
   lcp_predicted_callbacks_.clear();
   are_predicted_callbacks_called_ = false;
   has_lcp_occurred_ = false;
   is_outermost_main_frame_document_loaded_ = false;
+  has_sent_unused_preloads_ = false;
 }
 
 void LCPCriticalPathPredictor::AddLCPPredictedCallback(LCPCallback callback) {
@@ -306,7 +309,9 @@ void LCPCriticalPathPredictor::OnFontFetched(const KURL& url) {
   GetHost().NotifyFetchedFont(url, fetched_fonts_.Contains(url));
 }
 
-void LCPCriticalPathPredictor::OnStartPreload(const KURL& url) {
+void LCPCriticalPathPredictor::OnStartPreload(
+    const KURL& url,
+    const ResourceType& resource_type) {
   if (!base::FeatureList::IsEnabled(
           blink::features::kHttpDiskCachePrewarming)) {
     return;
@@ -330,7 +335,9 @@ void LCPCriticalPathPredictor::OnStartPreload(const KURL& url) {
       base::TimeTicks::Now() -
       document->Loader()->GetTiming().NavigationStart();
   CHECK_GE(resource_load_start, base::Seconds(0));
-  GetHost().NotifyFetchedSubresource(url, resource_load_start);
+  GetHost().NotifyFetchedSubresource(
+      url, resource_load_start,
+      ResourceFetcher::DetermineRequestDestination(resource_type));
 }
 
 mojom::blink::LCPCriticalPathPredictorHost&

@@ -281,7 +281,7 @@ def _validate_test(test: _TestParams):
             r'@assert pixel .* 0,0,0,0;', test['code']):
         print(f'Probable incorrect pixel test in {test["name"]}')
 
-    if 'size' in test and (not isinstance(test['size'], list)
+    if 'size' in test and (not isinstance(test['size'], tuple)
                            or len(test['size']) != 2):
         raise InvalidTestDefinitionError(
             f'Invalid canvas size "{test["size"]}" in test {test["name"]}. '
@@ -332,6 +332,20 @@ def _preprocess_code(jinja_env: jinja2.Environment, code: str,
     return code
 
 
+def _write_cairo_images(pycairo_code: str, output_files: _OutputPaths,
+                        canvas_types: FrozenSet[_CanvasType]) -> None:
+    """Creates a png from pycairo code, for the specified canvas types."""
+    if _CanvasType.HTML_CANVAS in canvas_types:
+        full_code = (f'{pycairo_code}\n'
+                     f'surface.write_to_png("{output_files.element}")\n')
+        eval(compile(full_code, '<string>', 'exec'), {'cairo': cairo})
+
+    if {_CanvasType.OFFSCREEN_CANVAS, _CanvasType.WORKER} & canvas_types:
+        full_code = (f'{pycairo_code}\n'
+                     f'surface.write_to_png("{output_files.offscreen}")\n')
+        eval(compile(full_code, '<string>', 'exec'), {'cairo': cairo})
+
+
 class _Variant():
 
     def __init__(self, params: _MutableTestParams) -> None:
@@ -349,16 +363,25 @@ class _Variant():
         Default values are added for certain parameters, if missing."""
         params = {
             'desc': '',
-            'size': [100, 50],
+            'size': (100, 50),
             # Test name, which ultimately is used as filename. File variant
-            # dimension names are appended to this to produce unique filenames.
+            # dimension names (i.e. the 'file_variant_names' property below) are
+            # appended to this to produce unique filenames.
             'name': '',
+            # List holding the the file variant dimension names.
+            'file_variant_names': [],
             # List of this variant grid dimension names. This uniquely
             # identifies a single variant in a variant grid file.
             'grid_variant_names': [],
             # List of this variant dimension names, including both file and grid
             # dimensions.
             'variant_names': [],
+            # Same as `file_variant_names`, but concatenated into a single
+            # string. This is a useful to easily identify a variant file.
+            'file_variant_name': '',
+            # Same as `grid_variant_names`, but concatenated into a single
+            # string. This is a useful to easily identify a variant in a grid.
+            'grid_variant_name': '',
             # Same as `variant_names`, but concatenated into a single string.
             # This is a useful shorthand for tests having a single variant
             # dimension.
@@ -384,12 +407,17 @@ class _Variant():
     def with_grid_variant_name(self, name: str) -> '_Variant':
         """Addend a variant name to include in the grid element label."""
         self._add_variant_name(name)
+        self._params['grid_variant_name'] += (
+            ('.' if self.params['grid_variant_name'] else '') + name)
         self._params['grid_variant_names'] += [name]
         return self
 
     def with_file_variant_name(self, name: str) -> '_Variant':
         """Addend a variant name to include in the generated file name."""
         self._add_variant_name(name)
+        self._params['file_variant_name'] += (
+            ('.' if self.params['file_variant_name'] else '') + name)
+        self._params['file_variant_names'] += [name]
         if self.params.get('append_variants_to_name', True):
             self._params['name'] += '.' + name
         return self
@@ -445,6 +473,9 @@ class _Variant():
         self._params['canvas_types'] = self._get_canvas_types()
         self._params['template_type'] = self._get_template_type()
 
+        if isinstance(self._params['size'], list):
+            self._params['size'] = tuple(self._params['size'])
+
         if 'reference' in self._params:
             self._params['reference'] = _preprocess_code(
                 jinja_env, self._params['reference'], self._params)
@@ -473,11 +504,7 @@ class _Variant():
 
     def generate_expected_image(self, output_dirs: _OutputPaths) -> None:
         """Creates a reference image using Cairo and save filename in params."""
-        if 'expected' not in self.params:
-            return
-
         expected = self.params['expected']
-        name = self.params['name']
 
         if expected == 'green':
             self._params['expected_img'] = '/images/green-100x50.png'
@@ -485,30 +512,15 @@ class _Variant():
         if expected == 'clear':
             self._params['expected_img'] = '/images/clear-100x50.png'
             return
-        if ';' in expected:
-            print(f'Found semicolon in {name}')
         expected = re.sub(
             r'^size (\d+) (\d+)',
             r'surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, \1, \2)'
             r'\ncr = cairo.Context(surface)', expected)
 
-        output_paths = output_dirs.sub_path(name)
-        if _CanvasType.HTML_CANVAS in self.params['canvas_types']:
-            expected_canvas = (
-                f'{expected}\n'
-                f'surface.write_to_png("{output_paths.element}.png")\n')
-            eval(compile(expected_canvas, f'<test {name}>', 'exec'), {},
-                 {'cairo': cairo})
-
-        if {_CanvasType.OFFSCREEN_CANVAS, _CanvasType.WORKER
-            } & self.params['canvas_types']:
-            expected_offscreen = (
-                f'{expected}\n'
-                f'surface.write_to_png("{output_paths.offscreen}.png")\n')
-            eval(compile(expected_offscreen, f'<test {name}>', 'exec'), {},
-                 {'cairo': cairo})
-
-        self._params['expected_img'] = f'{name}.png'
+        img_filename = f'{self.params["name"]}.png'
+        _write_cairo_images(expected, output_dirs.sub_path(img_filename),
+                            self.params['canvas_types'])
+        self._params['expected_img'] = img_filename
 
 
 class _VariantGrid:
@@ -717,8 +729,15 @@ class _VariantGrid:
 
     def _generate_cairo_images(self, output_dirs: _OutputPaths) -> None:
         """Generates the pycairo images found in the YAML test definition."""
-        for variant in self.variants:
-            variant.generate_expected_image(output_dirs)
+        if any(v.params.get('expected') for v in self._variants):
+            if len(self.variants) != 1:
+                raise InvalidTestDefinitionError(
+                    'Parameter "expected" is not supported for variant grids.')
+            if self.template_type != _TemplateType.TESTHARNESS:
+                raise InvalidTestDefinitionError(
+                    'Parameter "expected" is not supported in reference '
+                    'tests.')
+            self.variants[0].generate_expected_image(output_dirs)
 
     def generate_test(self, jinja_env: jinja2.Environment,
                       output_dirs: _OutputPaths) -> None:

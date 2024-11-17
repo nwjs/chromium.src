@@ -282,7 +282,7 @@
     // See also AnchorScope::Mode.
     anchor_mode: {
       valid_values: [
-        // anchor()
+        // anchor() / anchor-size()
         "left",
         "right",
         "top",
@@ -525,7 +525,7 @@
                        "border-style", "border-width", "contain-intrinsic-size",
                        "inset", "margin", "max-size", "min-size", "overflow",
                        "padding", "scroll-margin", "scroll-padding",
-                       "scroll-start", "scroll-start-target", "size",
+                       "scroll-start", "size",
                        "visited-border-color"],
       },
       // The name of the mapping function used to convert between equivalent
@@ -1793,10 +1793,9 @@
     {
       name: "anchor-scope",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal" ],
-      include_paths: ["third_party/blink/renderer/core/style/scoped_css_name.h"],
-      type_name: "ScopedCSSNameList",
-      wrapper_pointer_name: "Member",
-      default_value: "nullptr",
+      include_paths: ["third_party/blink/renderer/core/style/style_anchor_scope.h"],
+      type_name: "StyleAnchorScope",
+      default_value: "StyleAnchorScope()",
       field_group: "*",
       field_template: "external",
       converter: "ConvertAnchorScope",
@@ -2632,6 +2631,17 @@
       invalidate: ["layout", "paint"],
     },
     {
+      name: "caret-animation",
+      property_methods: ["CSSValueFromComputedStyleInternal"],
+      inherited: true,
+      field_template: "keyword",
+      keywords: ["auto", "manual"],
+      default_value: "auto",
+      typedom_types: ["Keyword"],
+      invalidate: ["paint"],
+      runtime_flag: "CSSCaretAnimation",
+    },
+    {
       name: "caret-color",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal", "ColorIncludingFallback"],
       interpolable: true,
@@ -3016,6 +3026,7 @@
       style_builder_template_args: {
         initial_color: "ComputedStyleInitialValues::InitialFillPaint",
       },
+      style_builder_custom_functions: ["value"],
       valid_for_highlight_legacy: true,
       valid_for_highlight: true,
       invalidate: ["paint"],
@@ -3652,6 +3663,7 @@
       valid_for_limited_page_context: true,
       valid_for_page_context: true,
       invalidate: ["margin", "out-of-flow", "scroll-anchor"],
+      anchor_mode: "height",
     },
     {
       name: "margin-left",
@@ -3676,6 +3688,7 @@
       valid_for_limited_page_context: true,
       valid_for_page_context: true,
       invalidate: ["margin", "out-of-flow", "scroll-anchor"],
+      anchor_mode: "width",
     },
     {
       name: "margin-right",
@@ -3700,6 +3713,7 @@
       valid_for_limited_page_context: true,
       valid_for_page_context: true,
       invalidate: ["margin", "out-of-flow", "scroll-anchor"],
+      anchor_mode: "width",
     },
     {
       name: "margin-top",
@@ -3724,6 +3738,7 @@
       valid_for_limited_page_context: true,
       valid_for_page_context: true,
       invalidate: ["margin", "out-of-flow", "scroll-anchor"],
+      anchor_mode: "height",
     },
     {
       name: "marker-end",
@@ -3736,7 +3751,7 @@
       wrapper_pointer_name: "Member",
       default_value: "nullptr",
       name_for_methods: "MarkerEndResource",
-      converter: "ConvertElementReference",
+      style_builder_custom_functions: ["value"],
       keywords: ["none"],
       typedom_types: ["Keyword"],
       invalidate: ["layout", "paint"],
@@ -3752,7 +3767,7 @@
       wrapper_pointer_name: "Member",
       default_value: "nullptr",
       name_for_methods: "MarkerMidResource",
-      converter: "ConvertElementReference",
+      style_builder_custom_functions: ["value"],
       keywords: ["none"],
       typedom_types: ["Keyword"],
       invalidate: ["layout", "paint"],
@@ -3768,7 +3783,7 @@
       wrapper_pointer_name: "Member",
       default_value: "nullptr",
       name_for_methods: "MarkerStartResource",
-      converter: "ConvertElementReference",
+      style_builder_custom_functions: ["value"],
       keywords: ["none"],
       typedom_types: ["Keyword"],
       invalidate: ["layout", "paint"],
@@ -4580,13 +4595,6 @@
       type_name: "PositionTryFallbacks",
       default_value: "nullptr",
       invalidate: ["layout", "paint"],
-      runtime_flag: "CSSPositionTryFallbacks",
-    },
-    {
-      name: "position-try-options",
-      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      surrogate_for: "position-try-fallbacks",
-      runtime_flag: "CSSPositionTryOptions",
     },
     {
       name: "position-try-order",
@@ -5082,31 +5090,12 @@
       runtime_flag: "CSSScrollStart",
     },
     {
-      name: "scroll-start-target-x",
-      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      field_group: "*->target",
+      name: "scroll-start-target",
+      property_methods: ["CSSValueFromComputedStyleInternal"],
+      field_group: "*",
       field_template: "keyword",
       type_name: "EScrollStartTarget",
       default_value: "none",
-      logical_property_group: {
-        name: "scroll-start-target",
-        resolver: "horizontal"
-      },
-      keywords: ["none", "auto"],
-      invalidate: ["layout"],
-      runtime_flag: "CSSScrollStartTarget",
-    },
-    {
-      name: "scroll-start-target-y",
-      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      field_group: "*->target",
-      field_template: "keyword",
-      type_name: "EScrollStartTarget",
-      default_value: "none",
-      logical_property_group: {
-        name: "scroll-start-target",
-        resolver: "vertical"
-      },
       keywords: ["none", "auto"],
       invalidate: ["layout"],
       runtime_flag: "CSSScrollStartTarget",
@@ -5253,6 +5242,7 @@
       style_builder_template_args: {
         initial_color: "ComputedStyleInitialValues::InitialStrokePaint",
       },
+      style_builder_custom_functions: ["value"],
       valid_for_highlight_legacy: true,
       valid_for_highlight: true,
       invalidate: ["paint", "stroke"],
@@ -5451,7 +5441,7 @@
     {
       name: "text-box-edge",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      inherited: true,
+      inherited: false,
       field_group: "*",
       field_template: "primitive",
       field_size: 6,  // Sync with `TextBoxEdge::kBits`.
@@ -5988,10 +5978,11 @@
       field_group: "*",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       converter: "ConvertViewTransitionName",
-      type_name: "ScopedCSSName",
+      type_name: "StyleViewTransitionName",
       default_value: "nullptr",
       field_template: "external",
-      keywords: ["none"],
+      include_paths: ["third_party/blink/renderer/core/style/style_view_transition_name.h"],
+      keywords: ["none", "auto"],
       typedom_types: ["Keyword"],
       wrapper_pointer_name: "Member",
     },
@@ -6567,7 +6558,6 @@
       default_value: "space-around",
       valid_for_permission_element: true,
       invalidate: ["layout", "paint"],
-      runtime_flag: "CssRubyAlign",
     },
     {
       name: "-webkit-ruby-position",
@@ -7132,24 +7122,6 @@
       runtime_flag: "CSSScrollStart",
     },
     {
-      name: "scroll-start-target-block",
-      property_methods: ["ParseSingleValue"],
-      logical_property_group: {
-        name: "scroll-start-target",
-        resolver: "block",
-      },
-      runtime_flag: "CSSScrollStartTarget",
-    },
-    {
-      name: "scroll-start-target-inline",
-      property_methods: ["ParseSingleValue"],
-      logical_property_group: {
-        name: "scroll-start-target",
-        resolver: "inline",
-      },
-      runtime_flag: "CSSScrollStartTarget",
-    },
-    {
       name: "border-inline-start-width",
       property_methods: ["ParseSingleValue"],
       logical_property_group: {
@@ -7645,7 +7617,6 @@
       ],
       typedom_types: ["Keyword"],
       valid_for_position_try: true,
-      runtime_flag: "CSSPositionAreaProperty",
       valid_for_permission_element: true,
       // position-area needs to be applied before inset properties since
       // anchor() functions compute relative to the containing block that is
@@ -8212,17 +8183,8 @@
     },
     {
       name: "position-try",
-      longhands: ["position-try-order", "position-try-options"],
-      property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
-    },
-    {
-      // Variant of the "position-try" shorthand which has the new
-      // position-try-fallbacks instead of position-try-options.
-      name: "-alternative-position-try",
-      alternative_of: "position-try",
       longhands: ["position-try-order", "position-try-fallbacks"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
-      runtime_flag: "CSSPositionTryFallbacks",
     },
     {
       name: "scroll-margin",
@@ -8262,12 +8224,6 @@
       longhands: ["scroll-start-block", "scroll-start-inline"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       runtime_flag: "CSSScrollStart",
-    },
-    {
-      name: "scroll-start-target",
-      longhands: ["scroll-start-target-block", "scroll-start-target-inline"],
-      property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
-      runtime_flag: "CSSScrollStartTarget",
     },
     {
       name: "scroll-timeline",

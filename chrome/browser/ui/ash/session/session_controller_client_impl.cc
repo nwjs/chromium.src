@@ -22,6 +22,7 @@
 #include "chrome/browser/ash/crosapi/browser_manager.h"
 #include "chrome/browser/ash/crosapi/browser_util.h"
 #include "chrome/browser/ash/floating_workspace/floating_workspace_service.h"
+#include "chrome/browser/ash/floating_workspace/floating_workspace_service_factory.h"
 #include "chrome/browser/ash/floating_workspace/floating_workspace_util.h"
 #include "chrome/browser/ash/login/demo_mode/demo_session.h"
 #include "chrome/browser/ash/login/lock/screen_locker.h"
@@ -210,7 +211,7 @@ void SessionControllerClientImpl::PrepareForLock(base::OnceClosure callback) {
     Profile* profile = ash::ProfileHelper::Get()->GetProfileByUser(active_user);
     if (profile) {
       auto* floating_workspace_service =
-          ash::FloatingWorkspaceService::GetForProfile(profile);
+          ash::FloatingWorkspaceServiceFactory::GetForProfile(profile);
       if (floating_workspace_service) {
         floating_workspace_service->CaptureAndUploadActiveDesk();
       }
@@ -283,7 +284,7 @@ void SessionControllerClientImpl::ShowMultiProfileLogin() {
          session_manager::kMaximumNumberOfUserSessions);
 
   // Launch sign in screen to add another user to current session.
-  DCHECK(!UserManager::Get()->GetUsersAllowedForMultiProfile().empty());
+  DCHECK(!UserManager::Get()->GetUsersAllowedForMultiUserSignIn().empty());
 
   // Lacros and multiprofile are mutually exclusive.
   const auto* primary_user = UserManager::Get()->GetPrimaryUser();
@@ -385,7 +386,7 @@ bool SessionControllerClientImpl::IsMultiProfileAvailable() {
   size_t users_logged_in = UserManager::Get()->GetLoggedInUsers().size();
   // Does not include users that are logged in.
   size_t users_available_to_add =
-      UserManager::Get()->GetUsersAllowedForMultiProfile().size();
+      UserManager::Get()->GetUsersAllowedForMultiUserSignIn().size();
   return (users_logged_in + users_available_to_add) > 1;
 }
 
@@ -425,6 +426,11 @@ void SessionControllerClientImpl::OnUserNotAllowed(
   session_controller_->ShowMultiprofilesSessionAbortedDialog(user_email);
 }
 
+void SessionControllerClientImpl::OnUserToBeRemoved(
+    const AccountId& account_id) {
+  session_controller_->NotifyUserToBeRemoved(account_id);
+}
+
 // static
 bool SessionControllerClientImpl::CanLockScreen() {
   return !UserManager::Get()->GetUnlockUsers().empty();
@@ -450,8 +456,9 @@ SessionControllerClientImpl::GetAddUserSessionPolicy() {
     return ash::AddUserSessionPolicy::ERROR_LOCKED_TO_SINGLE_USER;
 
   UserManager* const user_manager = UserManager::Get();
-  if (user_manager->GetUsersAllowedForMultiProfile().empty())
+  if (user_manager->GetUsersAllowedForMultiUserSignIn().empty()) {
     return ash::AddUserSessionPolicy::ERROR_NO_ELIGIBLE_USERS;
+  }
 
   if (user_manager::GetMultiUserSignInPolicy(user_manager->GetPrimaryUser()) ==
       user_manager::MultiUserSignInPolicy::kNotAllowed) {

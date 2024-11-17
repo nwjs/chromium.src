@@ -7,7 +7,6 @@ package org.chromium.chrome.browser.bookmarks;
 import static org.chromium.components.browser_ui.widget.BrowserUiListMenuUtils.buildMenuListItem;
 
 import android.content.Context;
-import android.content.res.Resources;
 import android.text.TextUtils;
 
 import androidx.annotation.DrawableRes;
@@ -33,7 +32,6 @@ import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs.Observer;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiState.BookmarkUiMode;
 import org.chromium.chrome.browser.bookmarks.ImprovedBookmarkRow.Location;
 import org.chromium.chrome.browser.bookmarks.ImprovedBookmarkRowProperties.ImageVisibility;
-import org.chromium.chrome.browser.commerce.ShoppingFeatures;
 import org.chromium.chrome.browser.partnerbookmarks.PartnerBookmarksReader;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
@@ -50,11 +48,11 @@ import org.chromium.components.browser_ui.widget.dragreorder.DragStateDelegate;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectableListLayout;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate.SelectionObserver;
+import org.chromium.components.commerce.core.CommerceFeatureUtils;
 import org.chromium.components.commerce.core.CommerceSubscription;
 import org.chromium.components.commerce.core.ShoppingService;
 import org.chromium.components.commerce.core.SubscriptionsObserver;
 import org.chromium.components.embedder_support.util.UrlConstants;
-import org.chromium.components.favicon.LargeIconBridge;
 import org.chromium.components.power_bookmarks.PowerBookmarkMeta;
 import org.chromium.components.power_bookmarks.PowerBookmarkType;
 import org.chromium.ui.accessibility.AccessibilityState;
@@ -63,7 +61,6 @@ import org.chromium.ui.listmenu.ListMenuItemProperties;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
-import org.chromium.url.GURL;
 
 import java.util.HashSet;
 import java.util.List;
@@ -269,11 +266,6 @@ class BookmarkManagerMediator
                 @Override
                 public void onBookmarkRowDisplayPrefChanged(
                         @BookmarkRowDisplayPref int displayPref) {
-                    Resources res = mContext.getResources();
-                    mBookmarkImageFetcher.setupFetchProperties(
-                            BookmarkUtils.getRoundedIconGenerator(mContext, displayPref),
-                            BookmarkUtils.getImageIconSize(res, displayPref),
-                            BookmarkUtils.getFaviconDisplaySize(res));
                     refresh();
 
                     if (AccessibilityState.isTouchExplorationEnabled()) {
@@ -350,7 +342,6 @@ class BookmarkManagerMediator
     // Owned by BookmarkManager(Coordinator).
     private final RecyclerView mRecyclerView;
     private final DragReorderableRecyclerViewAdapter mDragReorderableRecyclerViewAdapter;
-    private final LargeIconBridge mLargeIconBridge;
     // Whether we're showing in a dialog UI which is only true for phones.
     private final boolean mIsDialogUi;
     private final ObservableSupplierImpl<Boolean> mBackPressStateSupplier;
@@ -394,7 +385,6 @@ class BookmarkManagerMediator
             SelectionDelegate<BookmarkId> selectionDelegate,
             RecyclerView recyclerView,
             DragReorderableRecyclerViewAdapter dragReorderableRecyclerViewAdapter,
-            LargeIconBridge largeIconBridge,
             boolean isDialogUi,
             ObservableSupplierImpl<Boolean> backPressStateSupplier,
             Profile profile,
@@ -421,7 +411,6 @@ class BookmarkManagerMediator
         mDragReorderableRecyclerViewAdapter.addDragListener(mDragListener);
         mDragReorderableRecyclerViewAdapter.setLongPressDragDelegate(
                 () -> mDragStateDelegate.getDragActive());
-        mLargeIconBridge = largeIconBridge;
         mIsDialogUi = isDialogUi;
         mBackPressStateSupplier = backPressStateSupplier;
         mProfile = profile;
@@ -438,7 +427,7 @@ class BookmarkManagerMediator
         mBookmarkUndoController = bookmarkUndoController;
         mBookmarkMoveSnackbarManager = bookmarkMoveSnackbarManager;
 
-        if (mShoppingService.isShoppingListEligible()) {
+        if (CommerceFeatureUtils.isShoppingListEligible(mShoppingService)) {
             mShoppingService.addSubscriptionsObserver(mSubscriptionsObserver);
         }
 
@@ -493,7 +482,6 @@ class BookmarkManagerMediator
         mBookmarkModel.removeObserver(mBookmarkModelObserver);
 
         mBookmarkImageFetcher.destroy();
-        mLargeIconBridge.destroy();
         PartnerBookmarksReader.removeFaviconUpdateObserver(this);
 
         mBookmarkUndoController.destroy();
@@ -503,7 +491,8 @@ class BookmarkManagerMediator
         mBookmarkUiPrefs.removeObserver(mBookmarkUiPrefsObserver);
         mBookmarkMoveSnackbarManager.destroy();
 
-        if (mShoppingService != null && mShoppingService.isShoppingListEligible()) {
+        if (mShoppingService != null
+                && CommerceFeatureUtils.isShoppingListEligible(mShoppingService)) {
             mShoppingService.removeSubscriptionsObserver(mSubscriptionsObserver);
         }
 
@@ -752,11 +741,6 @@ class BookmarkManagerMediator
     }
 
     @Override
-    public LargeIconBridge getLargeIconBridge() {
-        return mLargeIconBridge;
-    }
-
-    @Override
     public DragStateDelegate getDragStateDelegate() {
         return mDragStateDelegate;
     }
@@ -788,7 +772,6 @@ class BookmarkManagerMediator
     @Override
     public void onUpdateFavicon(String url) {
         assert mBookmarkModel.isBookmarkModelLoaded();
-        mLargeIconBridge.clearFavicon(new GURL(url));
         mFaviconsNeedRefresh = true;
     }
 
@@ -1596,8 +1579,7 @@ class BookmarkManagerMediator
     // properly.
     @VisibleForTesting
     void updateShoppingFilterVisible() {
-        boolean eligible = ShoppingFeatures.isShoppingListEligible(mProfile);
-        if (!eligible) {
+        if (!CommerceFeatureUtils.isShoppingListEligible(mShoppingService)) {
             updateFilterAvailability(false);
             return;
         }

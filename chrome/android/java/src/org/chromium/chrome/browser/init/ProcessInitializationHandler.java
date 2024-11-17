@@ -30,7 +30,6 @@ import org.chromium.base.TraceEvent;
 import org.chromium.base.memory.MemoryPressureUma;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
-import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.base.task.ChainedTasks;
 import org.chromium.base.task.PostTask;
@@ -71,6 +70,7 @@ import org.chromium.chrome.browser.media.MediaViewerUtils;
 import org.chromium.chrome.browser.metrics.LaunchMetrics;
 import org.chromium.chrome.browser.metrics.PackageMetrics;
 import org.chromium.chrome.browser.metrics.UmaUtils;
+import org.chromium.chrome.browser.notifications.TrampolineActivityTracker;
 import org.chromium.chrome.browser.notifications.channels.ChannelsUpdater;
 import org.chromium.chrome.browser.ntp.FeedPositionUtils;
 import org.chromium.chrome.browser.offlinepages.measurements.OfflineMeasurementsBackgroundTask;
@@ -451,16 +451,11 @@ public class ProcessInitializationHandler {
         }
 
         // Initialize UMA settings for survey component.
-        // TODO(crbug.com/40281638): Observe PrivacyPreferencesManagerImpl from SurveyClientFactory.
-        ObservableSupplierImpl<Boolean> crashUploadPermissionSupplier =
-                new ObservableSupplierImpl<>();
-        crashUploadPermissionSupplier.set(
-                PrivacyPreferencesManagerImpl.getInstance().isUsageAndCrashReportingPermitted());
-        PrivacyPreferencesManagerImpl.getInstance().addObserver(crashUploadPermissionSupplier::set);
-        SurveyClientFactory.initialize(crashUploadPermissionSupplier);
+        SurveyClientFactory.initialize(PrivacyPreferencesManagerImpl.getInstance());
 
         AppHooks.get().registerPolicyProviders(CombinedPolicyProvider.get());
         SpeechRecognition.initialize();
+        TrampolineActivityTracker.getInstance().onNativeInitialized();
     }
 
     /**

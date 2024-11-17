@@ -68,6 +68,7 @@
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_session.h"
 #include "ash/wm/overview/overview_utils.h"
+#include "ash/wm/pip/pip_controller.h"
 #include "ash/wm/screen_pinning_controller.h"
 #include "ash/wm/snap_group/snap_group.h"
 #include "ash/wm/snap_group/snap_group_controller.h"
@@ -397,6 +398,12 @@ void ShowToast(const std::string& id,
 void EnterImageCaptureMode(CaptureModeSource source,
                            CaptureModeEntryType entry_type) {
   auto* capture_mode_controller = CaptureModeController::Get();
+  if (!capture_mode_controller->SupportsBehaviorChange(entry_type)) {
+    // If capture mode session is already active with the default behavior,
+    // disallow changing the source. This is needed even if `Start()` is a
+    // no-op, since the session is already active. See http://b/252343022.
+    return;
+  }
   capture_mode_controller->SetSource(source);
   capture_mode_controller->SetType(CaptureModeType::kImage);
   capture_mode_controller->Start(entry_type);
@@ -644,6 +651,10 @@ bool CanMoveActiveWindowBetweenDisplays() {
 bool CanPerformMagnifierZoom() {
   return Shell::Get()->fullscreen_magnifier_controller()->IsEnabled() ||
          Shell::Get()->docked_magnifier_controller()->GetEnabled();
+}
+
+bool CanResizePipWindow() {
+  return Shell::Get()->pip_controller()->CanResizePip();
 }
 
 bool CanScreenshot(bool take_screenshot) {
@@ -914,10 +925,6 @@ void LockScreen() {
 }
 
 void MaybeTakePartialScreenshot() {
-  // If a capture mode session is already running, this shortcut will be treated
-  // as a no-op.
-  if (CaptureModeController::Get()->IsActive())
-    return;
   base::RecordAction(base::UserMetricsAction("Accel_Take_Partial_Screenshot"));
   EnterImageCaptureMode(CaptureModeSource::kRegion,
                         CaptureModeEntryType::kAccelTakePartialScreenshot);
@@ -1151,6 +1158,10 @@ void ResetDisplayZoom() {
   display::Display display =
       display::Screen::GetScreen()->GetDisplayNearestPoint(point);
   display_manager->ResetDisplayZoom(display.id());
+}
+
+void ResizePipWindow() {
+  Shell::Get()->pip_controller()->HandleKeyboardShortcut();
 }
 
 void RestoreTab() {

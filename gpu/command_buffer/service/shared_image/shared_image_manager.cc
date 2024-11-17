@@ -35,7 +35,9 @@
 #endif
 
 #if BUILDFLAG(IS_OZONE)
+#include "gpu/config/gpu_finch_features.h"
 #include "ui/ozone/public/ozone_platform.h"
+#include "ui/ozone/public/surface_factory_ozone.h"
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -604,9 +606,21 @@ bool SharedImageManager::SupportsScanoutImages() {
 #elif BUILDFLAG(IS_ANDROID)
   return base::AndroidHardwareBufferCompat::IsSupportAvailable();
 #elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
-  return ui::OzonePlatform::GetInstance()
-      ->GetPlatformRuntimeProperties()
-      .supports_native_pixmaps;
+  // We are in the process of tightening scanout support on Ozone to be guarded
+  // by overlays being supported rather than merely native pixmaps being
+  // supported, as native pixmap support doesn't always imply that those native
+  // buffers can actually be scanned out. This killswitch guards the rollout.
+  // TODO(crbug.com/330865436): Remove killswitch post-safe rollout.
+  if (base::FeatureList::IsEnabled(
+          features::kSharedImageSupportScanoutOnOzoneOnlyIfOverlaysSupported)) {
+    return ui::OzonePlatform::GetInstance()
+        ->GetSurfaceFactoryOzone()
+        ->SupportsOverlays();
+  } else {
+    return ui::OzonePlatform::GetInstance()
+        ->GetPlatformRuntimeProperties()
+        .supports_native_pixmaps;
+  }
 #elif BUILDFLAG(IS_WIN)
   return gl::DirectCompositionTextureSupported();
 #else

@@ -965,8 +965,9 @@ BuildObjectForResourceRequest(const ResourceRequest& request,
           .setInitialPriority(ResourcePriorityJSON(request.Priority()))
           .setReferrerPolicy(GetReferrerPolicy(request.GetReferrerPolicy()))
           .build();
-  if (url.FragmentIdentifier())
-    result->setUrlFragment("#" + url.FragmentIdentifier());
+  if (url.HasFragmentIdentifier()) {
+    result->setUrlFragment("#" + url.FragmentIdentifier().ToString());
+  }
   if (!data_string.empty())
     result->setPostData(data_string);
   if (data_entries->size())
@@ -1014,6 +1015,7 @@ String AlternateProtocolUsageToString(
 
 static std::unique_ptr<protocol::Network::Response>
 BuildObjectForResourceResponse(const ResourceResponse& response,
+                               const ExecutionContext* context,
                                const Resource* cached_resource = nullptr,
                                bool* is_empty = nullptr) {
   if (response.IsNull())
@@ -1111,7 +1113,8 @@ BuildObjectForResourceResponse(const ResourceResponse& response,
   if (auto* resource_load_timing = response.GetResourceLoadTiming()) {
     auto load_timing = BuildObjectForTiming(*resource_load_timing);
 
-    if (RuntimeEnabledFeatures::ServiceWorkerStaticRouterTimingInfoEnabled()) {
+    if (RuntimeEnabledFeatures::ServiceWorkerStaticRouterTimingInfoEnabled(
+            context)) {
       if (!resource_load_timing->WorkerRouterEvaluationStart().is_null()) {
         load_timing->setWorkerRouterEvaluationStart(
             resource_load_timing->CalculateMillisecondDelta(
@@ -1325,8 +1328,9 @@ void InspectorNetworkAgent::WillSendRequestInternal(
       timestamp.since_origin().InSecondsF(),
       base::Time::Now().InSecondsFSinceUnixEpoch(), std::move(initiator_object),
       redirect_response.EmittedExtraInfo(),
-      BuildObjectForResourceResponse(redirect_response), resource_type,
-      std::move(maybe_frame_id), request.HasUserGesture());
+      BuildObjectForResourceResponse(redirect_response,
+                                     GetTargetExecutionContext()),
+      resource_type, std::move(maybe_frame_id), request.HasUserGesture());
   if (options.synchronous_policy == SynchronousPolicy::kRequestSynchronously)
     GetFrontend()->flush();
 
@@ -1485,8 +1489,8 @@ void InspectorNetworkAgent::DidReceiveResourceResponse(
 
   bool resource_is_empty = true;
   std::unique_ptr<protocol::Network::Response> resource_response =
-      BuildObjectForResourceResponse(response, cached_resource,
-                                     &resource_is_empty);
+      BuildObjectForResourceResponse(response, GetTargetExecutionContext(),
+                                     cached_resource, &resource_is_empty);
 
   InspectorPageAgent::ResourceType type =
       cached_resource
@@ -2436,7 +2440,8 @@ bool InspectorNetworkAgent::FetchResourceContent(Document* document,
   Resource* cached_resource = document->Fetcher()->CachedResource(url);
   if (!cached_resource) {
     cached_resource = MemoryCache::Get()->ResourceForURL(
-        url, document->Fetcher()->GetCacheIdentifier(url));
+        url, document->Fetcher()->GetCacheIdentifier(
+                 url, /*skip_service_worker=*/false));
   }
   if (cached_resource && InspectorPageAgent::CachedResourceContent(
                              cached_resource, content, base64_encoded)) {

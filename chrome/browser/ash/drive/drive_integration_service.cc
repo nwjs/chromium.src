@@ -336,11 +336,13 @@ void UmaEmitMountStatus(DriveMountStatus status) {
 void UmaEmitMountTime(DriveMountStatus status,
                       const base::TimeTicks& time_started) {
   if (status == DriveMountStatus::kSuccess) {
-    UMA_HISTOGRAM_MEDIUM_TIMES("DriveCommon.Lifecycle.MountTime.SuccessTime",
-                               base::TimeTicks::Now() - time_started);
+    DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(
+        "DriveCommon.Lifecycle.MountTime.SuccessTime",
+        base::TimeTicks::Now() - time_started);
   } else {
-    UMA_HISTOGRAM_MEDIUM_TIMES("DriveCommon.Lifecycle.MountTime.FailTime",
-                               base::TimeTicks::Now() - time_started);
+    DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(
+        "DriveCommon.Lifecycle.MountTime.FailTime",
+        base::TimeTicks::Now() - time_started);
   }
 }
 
@@ -357,8 +359,8 @@ void UmaEmitUnmountOutcome(DriveMountStatus status) {
 }
 
 void UmaEmitFirstLaunch(const base::TimeTicks& time_started) {
-  UMA_HISTOGRAM_MEDIUM_TIMES("DriveCommon.Lifecycle.FirstLaunchTime",
-                             base::TimeTicks::Now() - time_started);
+  DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES("DriveCommon.Lifecycle.FirstLaunchTime",
+                                        base::TimeTicks::Now() - time_started);
 }
 
 // Clears the cache folder at |cache_path|, but preserve |logs_path|.
@@ -1150,7 +1152,10 @@ void DriveIntegrationService::CreateOrDeleteBulkPinningManager() {
 
   pinning_manager_->AddObserver(this);
   pinning_manager_->SetDriveFsHost(GetDriveFsHost());
-  pinning_manager_->SetOnline(is_online_);
+
+  const ConnectionStatus status = util::GetDriveConnectionStatus(profile_);
+  pinning_manager_->SetOnline(status == util::ConnectionStatus::kConnected ||
+                              status == util::ConnectionStatus::kMetered);
 
   OnProgress(pinning_manager_->GetProgress());
   StartOrStopBulkPinning();
@@ -1798,11 +1803,12 @@ void DriveIntegrationService::GetMirrorSyncStatusForDirectory(
 }
 
 void DriveIntegrationService::OnNetworkChanged() {
-  const ConnectionStatus status = util::GetDriveConnectionStatus(profile_);
-  VLOG(1) << "OnNetworkChanged: " << status;
+  const ConnectionStatus status =
+      util::GetDriveConnectionStatus(profile_, &is_online_);
+  VLOG(1) << "OnNetworkChanged: status=" << status
+          << " is_online_=" << is_online_;
 
   using enum ConnectionStatus;
-  is_online_ = status == kMetered || status == kConnected;
 
   if (DriveFs* const drivefs = GetDriveFsInterface()) {
     const bool pause_syncing = status == kMetered;
@@ -1821,7 +1827,7 @@ void DriveIntegrationService::OnNetworkChanged() {
   }
 
   if (pinning_manager_) {
-    pinning_manager_->SetOnline(is_online_);
+    pinning_manager_->SetOnline(status == kMetered || status == kConnected);
   }
 }
 

@@ -620,7 +620,9 @@ TEST_F(AcceleratorConfigurationProviderTest, ConnectedKeyboardsUpdated) {
   EXPECT_EQ(1, mojo_observer.num_times_notified());
 }
 
-TEST_F(AcceleratorConfigurationProviderTest, ValidateAllAcceleratorLayouts) {
+// TODO(crbug.com/371040033): Re-enable this test
+TEST_F(AcceleratorConfigurationProviderTest,
+       DISABLED_ValidateAllAcceleratorLayouts) {
   // Initialize with all default accelerators.
   Shell::Get()->ash_accelerator_configuration()->Initialize();
   base::RunLoop().RunUntilIdle();
@@ -1632,6 +1634,12 @@ TEST_F(AcceleratorConfigurationProviderTest, AddSameAccelerator) {
 }
 
 TEST_F(AcceleratorConfigurationProviderTest, AddAcceleratorBadAccelerator) {
+  ui::KeyboardDevice fake_keyboard(
+      /*id=*/1, /*type=*/ui::InputDeviceType::INPUT_DEVICE_USB,
+      /*name=*/"fake_Keyboard");
+  fake_keyboard.sys_path = base::FilePath("path1");
+  fake_keyboard_manager_->AddFakeKeyboard(fake_keyboard, "");
+
   // Initialize default accelerators.
   const AcceleratorData test_data[] = {
       {/*trigger_on_press=*/true, ui::VKEY_SPACE, ui::EF_CONTROL_DOWN,

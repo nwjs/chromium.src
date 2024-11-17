@@ -6,6 +6,7 @@
 
 #import "base/check.h"
 #import "base/i18n/time_formatting.h"
+#import "base/memory/raw_ptr.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
 #import "base/strings/sys_string_conversions.h"
@@ -62,7 +63,7 @@ constexpr CGFloat kSpace = 8;
   // The blur background.
   UIVisualEffectView* _blurView;
   // Currently displayed group.
-  const TabGroup* _tabGroup;
+  raw_ptr<const TabGroup> _tabGroup;
   // Whether the `Back` button or the `Esc` key has been tapped.
   BOOL _backButtonTapped;
   // Title view displayed in the navigation bar containing group title and
@@ -74,6 +75,8 @@ constexpr CGFloat kSpace = 8;
   UIView* _coloredDotView;
   // Whether this is an incognito group.
   BOOL _incognito;
+  // Whether this is shared with other users.
+  BOOL _shared;
   // The bottom toolbar.
   TabGridBottomToolbar* _bottomToolbar;
 }
@@ -82,6 +85,7 @@ constexpr CGFloat kSpace = 8;
 
 - (instancetype)initWithHandler:(id<TabGroupsCommands>)handler
                       incognito:(BOOL)incognito
+                         shared:(BOOL)shared
                        tabGroup:(const TabGroup*)tabGroup {
   CHECK(IsTabGroupInGridEnabled())
       << "You should not be able to create a tab group view controller outside "
@@ -90,6 +94,7 @@ constexpr CGFloat kSpace = 8;
   if ((self = [super init])) {
     _handler = handler;
     _incognito = incognito;
+    _shared = shared;
     _tabGroup = tabGroup;
     _gridViewController = [[TabGroupGridViewController alloc] init];
     if (!incognito) {
@@ -467,6 +472,14 @@ constexpr CGFloat kSpace = 8;
                   [weakSelf openNewTab];
                 }]];
 
+  if (_shared) {
+    [menuElements addObject:[actionFactory actionToShowRecentActivity:^{
+                    [weakSelf showRecentActivity];
+                  }]];
+
+    // TODO(crbug.com/358533115): Add an entry point to the management UI.
+  }
+
   [menuElements addObject:[actionFactory actionToUngroupTabGroupWithBlock:^{
                   [weakSelf ungroup];
                 }]];
@@ -539,6 +552,12 @@ constexpr CGFloat kSpace = 8;
 
   [self.mutator deleteGroup];
   [_handler hideTabGroup];
+}
+
+// Shows the recent activity of a shared tab group.
+- (void)showRecentActivity {
+  CHECK(_shared);
+  [_handler showRecentActivity];
 }
 
 // Updates the safe area inset of the grid based on this VC safe areas and the

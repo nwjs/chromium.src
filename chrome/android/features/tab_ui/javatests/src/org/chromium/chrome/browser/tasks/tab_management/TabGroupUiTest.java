@@ -71,8 +71,8 @@ import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
-import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.toolbar.bottom.BottomControlsCoordinator;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
@@ -86,7 +86,7 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetTestSupport;
 import org.chromium.components.browser_ui.bottomsheet.TestBottomSheetContent;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.LoadUrlParams;
-import org.chromium.ui.test.util.UiRestriction;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.ViewUtils;
 
 import java.io.IOException;
@@ -97,7 +97,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @DisableFeatures({ChromeFeatureList.TAB_GROUP_PARITY_ANDROID})
-@Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
+@Restriction(DeviceFormFactor.PHONE)
 @Batch(Batch.PER_CLASS)
 public class TabGroupUiTest {
 
@@ -331,10 +331,9 @@ public class TabGroupUiTest {
                                             null,
                                             TabModel.INVALID_TAB_INDEX);
                     TabGroupModelFilter filter =
-                            (TabGroupModelFilter)
-                                    cta.getTabModelSelector()
-                                            .getTabModelFilterProvider()
-                                            .getTabModelFilter(false);
+                            cta.getTabModelSelector()
+                                    .getTabGroupModelFilterProvider()
+                                    .getTabGroupModelFilter(false);
                     filter.mergeListOfTabsToGroup(
                             List.of(tab), filter.getTabAt(0), /* notify= */ false);
                 });
@@ -382,7 +381,7 @@ public class TabGroupUiTest {
                         allOf(
                                 withId(R.id.tab_list_recycler_view),
                                 isDescendantOfA(withId(R.id.bottom_controls))))
-                .check(matches(withEffectiveVisibility((INVISIBLE))));
+                .check(matches(withEffectiveVisibility(INVISIBLE)));
     }
 
     @Test

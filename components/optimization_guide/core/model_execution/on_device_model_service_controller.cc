@@ -36,6 +36,7 @@
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "services/on_device_model/public/cpp/model_assets.h"
+#include "services/on_device_model/public/cpp/text_safety_assets.h"
 #include "services/on_device_model/public/mojom/on_device_model.mojom.h"
 #include "services/on_device_model/public/mojom/on_device_model_service.mojom.h"
 
@@ -65,25 +66,6 @@ proto::OnDeviceModelVersions GetModelVersions(
   }
 
   return versions;
-}
-
-const auto& GetTokenLimits() {
-  // TODO(b/302402959): Choose max_tokens based on device.
-  static const TokenLimits token_limits = []() {
-    auto context =
-        static_cast<uint32_t>(features::GetOnDeviceModelMaxTokensForContext());
-    auto execute =
-        static_cast<uint32_t>(features::GetOnDeviceModelMaxTokensForExecute());
-    auto output =
-        static_cast<uint32_t>(features::GetOnDeviceModelMaxTokensForOutput());
-    return TokenLimits{
-        .max_tokens = (context + execute + output),
-        .max_context_tokens = context,
-        .max_execute_tokens = execute,
-        .max_output_tokens = output,
-    };
-  }();
-  return token_limits;
 }
 
 }  // namespace
@@ -126,8 +108,8 @@ OnDeviceModelEligibilityReason OnDeviceModelServiceController::CanCreateSession(
       case optimization_guide::OnDeviceModelStatus::kNotReadyForUnknownReason:
         return OnDeviceModelEligibilityReason::kModelToBeInstalled;
       case optimization_guide::OnDeviceModelStatus::kReady:
-        // This case shouldn't be reached as the model_metadata_ is null.
-        NOTREACHED_IN_MIGRATION();
+        // The model is downloaded but the installation is not completed yet.
+        return OnDeviceModelEligibilityReason::kModelToBeInstalled;
     }
   }
 
@@ -191,6 +173,7 @@ OnDeviceModelServiceController::CreateSession(
   auto adapter = GetFeatureAdapter(feature);
   CHECK(adapter);
 
+  auto ts_params = PopulateTextSafetyParams();
   std::optional<proto::FeatureTextSafetyConfiguration> safety_config;
   if (features::ShouldUseTextSafetyClassifierModel() &&
       !adapter->CanSkipTextSafety()) {
@@ -198,9 +181,9 @@ OnDeviceModelServiceController::CreateSession(
     safety_config =
         safety_model_info_->GetConfig(ToModelExecutionFeatureProto(feature));
     CHECK(safety_config);
-    CHECK(!model_paths.ts_data.empty() && !model_paths.ts_sp_model.empty());
+    CHECK(ts_params.ts_paths);
     if (!safety_config->allowed_languages().empty()) {
-      CHECK(!model_paths.language_detection_model.empty());
+      CHECK(ts_params.language_paths);
     }
   }
 
@@ -216,17 +199,25 @@ OnDeviceModelServiceController::CreateSession(
 
   SessionImpl::OnDeviceOptions opts;
   opts.model_client = std::make_unique<OnDeviceModelClient>(
-      feature, weak_ptr_factory_.GetWeakPtr(), model_paths, adaptation_assets);
+      feature, weak_ptr_factory_.GetWeakPtr(), ts_params, model_paths,
+      adaptation_assets);
   opts.model_versions = GetModelVersions(
       *model_metadata_, safety_model_info_.get(), adaptation_version);
   opts.adapter = std::move(adapter);
-  opts.safety_cfg = SafetyConfig(safety_config);
-  opts.token_limits = GetTokenLimits();
+  opts.safety_checker =
+      std::make_unique<SafetyChecker>(SafetyConfig(safety_config));
+  opts.token_limits = GetFeatureAdapter(feature)->GetTokenLimits();
+
+  base::WeakPtr<ModelQualityLogsUploaderService> log_uploader =
+      (config_params && config_params->logging_mode ==
+                            SessionConfigParams::LoggingMode::kAlwaysDisable
+           ? nullptr
+           : model_quality_uploader_service);
 
   has_started_session_ = true;
   return std::make_unique<SessionImpl>(
       feature, std::move(opts), std::move(execute_remote_fn),
-      optimization_guide_logger, model_quality_uploader_service, config_params);
+      optimization_guide_logger, log_uploader, config_params);
 }
 
 void OnDeviceModelServiceController::GetEstimatedPerformanceClass(
@@ -269,6 +260,32 @@ OnDeviceModelServiceController::GetOrCreateModelRemote(
   return it->second.GetOrCreateModelRemote(*adaptation_assets);
 }
 
+mojo::Remote<on_device_model::mojom::TextSafetyModel>&
+OnDeviceModelServiceController::GetTextSafetyModelRemote(
+    const on_device_model::TextSafetyLoaderParams& params) {
+  if (ts_model_remote_) {
+    return ts_model_remote_;
+  }
+  LaunchService();
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock()},
+      base::BindOnce(&on_device_model::LoadTextSafetyParams, params),
+      base::BindOnce(&OnDeviceModelServiceController::OnTextSafetyParamsLoaded,
+                     weak_ptr_factory_.GetWeakPtr(),
+                     ts_model_remote_.BindNewPipeAndPassReceiver()));
+  ts_model_remote_.reset_on_disconnect();  // Maybe track disconnects?
+  ts_model_remote_.reset_on_idle_timeout(
+      features::GetOnDeviceModelIdleTimeout());
+  return ts_model_remote_;
+}
+
+void OnDeviceModelServiceController::OnTextSafetyParamsLoaded(
+    mojo::PendingReceiver<on_device_model::mojom::TextSafetyModel> model,
+    on_device_model::mojom::TextSafetyModelParamsPtr params) {
+  LaunchService();
+  service_remote_->LoadTextSafetyModel(std::move(params), std::move(model));
+}
+
 void OnDeviceModelServiceController::MaybeCreateBaseModelRemote(
     const on_device_model::ModelAssetPaths& model_paths) {
   if (base_model_remote_) {
@@ -303,13 +320,9 @@ void OnDeviceModelServiceController::OnModelAssetsLoaded(
   }
   auto params = on_device_model::mojom::LoadModelParams::New();
   params->assets = std::move(assets);
-  params->max_tokens = GetTokenLimits().max_tokens;
-  if (safety_model_info_) {
-    params->ts_dimension = safety_model_info_->num_output_categories();
-  }
+  // TODO(crbug.com/302402959): Choose max_tokens based on device.
+  params->max_tokens = features::GetOnDeviceModelMaxTokens();
   params->adaptation_ranks = features::GetOnDeviceModelAllowedAdaptationRanks();
-  params->support_multiple_sessions =
-      features::GetOnDeviceModelSupportMultipleSessions();
   service_remote_->LoadModel(
       std::move(params), std::move(model),
       base::BindOnce(&OnDeviceModelServiceController::OnLoadModelResult,
@@ -324,7 +337,7 @@ void OnDeviceModelServiceController::SetLanguageDetectionModel(
     language_detection_model_path_.reset();
     return;
   }
-  base_model_remote_.reset();  // The remote's assets are outdated.
+  ts_model_remote_.reset();  // The remote's assets are outdated.
   language_detection_model_path_ = model_info->GetModelFilePath();
 }
 
@@ -335,7 +348,7 @@ void OnDeviceModelServiceController::MaybeUpdateSafetyModel(
     safety_model_info_.reset();
     return;
   }
-  base_model_remote_.reset();  // The remote's assets are outdated.
+  ts_model_remote_.reset();  // The remote's assets are outdated.
   safety_model_info_ = std::move(new_info);
 }
 
@@ -343,17 +356,24 @@ on_device_model::ModelAssetPaths
 OnDeviceModelServiceController::PopulateModelPaths() {
   on_device_model::ModelAssetPaths model_paths;
   model_paths.weights = model_metadata_->model_path().Append(kWeightsFile);
+  return model_paths;
+}
 
+on_device_model::TextSafetyLoaderParams
+OnDeviceModelServiceController::PopulateTextSafetyParams() const {
+  on_device_model::TextSafetyLoaderParams params;
   // Populate the model paths even if they are not needed for the current
   // feature, since the base model remote could be used for subsequent features.
   if (safety_model_info_) {
-    model_paths.ts_data = safety_model_info_->GetDataPath();
-    model_paths.ts_sp_model = safety_model_info_->GetSpModelPath();
+    params.ts_paths.emplace();
+    params.ts_paths->data = safety_model_info_->GetDataPath();
+    params.ts_paths->sp_model = safety_model_info_->GetSpModelPath();
   }
   if (language_detection_model_path_) {
-    model_paths.language_detection_model = *language_detection_model_path_;
+    params.language_paths.emplace();
+    params.language_paths->model = *language_detection_model_path_;
   }
-  return model_paths;
+  return params;
 }
 
 void OnDeviceModelServiceController::UpdateModel(
@@ -490,12 +510,14 @@ void OnDeviceModelServiceController::OnModelAdaptationRemoteDisconnected(
 OnDeviceModelServiceController::OnDeviceModelClient::OnDeviceModelClient(
     ModelBasedCapabilityKey feature,
     base::WeakPtr<OnDeviceModelServiceController> controller,
+    const on_device_model::TextSafetyLoaderParams& ts_params,
     const on_device_model::ModelAssetPaths& model_paths,
     base::optional_ref<const on_device_model::AdaptationAssetPaths>
         adaptation_assets)
     : feature_(feature),
       controller_(controller),
       model_paths_(model_paths),
+      ts_params_(ts_params),
       adaptation_assets_(adaptation_assets.CopyAsOptional()) {}
 
 OnDeviceModelServiceController::OnDeviceModelClient::~OnDeviceModelClient() =
@@ -511,6 +533,12 @@ mojo::Remote<on_device_model::mojom::OnDeviceModel>&
 OnDeviceModelServiceController::OnDeviceModelClient::GetModelRemote() {
   return controller_->GetOrCreateModelRemote(feature_, model_paths_,
                                              adaptation_assets_);
+}
+
+mojo::Remote<on_device_model::mojom::TextSafetyModel>&
+OnDeviceModelServiceController::OnDeviceModelClient::
+    GetTextSafetyModelRemote() {
+  return controller_->GetTextSafetyModelRemote(ts_params_);
 }
 
 void OnDeviceModelServiceController::OnDeviceModelClient::

@@ -13,16 +13,16 @@
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
-#include "chrome/browser/chromeos/mahi/mahi_browser_util.h"
-#include "chrome/browser/chromeos/mahi/mahi_web_contents_manager.h"
 #include "chrome/browser/ui/chromeos/magic_boost/magic_boost_constants.h"
 #include "chrome/browser/ui/views/editor_menu/utils/pre_target_handler.h"
 #include "chrome/browser/ui/views/editor_menu/utils/pre_target_handler_view.h"
 #include "chrome/browser/ui/views/editor_menu/utils/utils.h"
 #include "chrome/browser/ui/views/mahi/mahi_menu_constants.h"
 #include "chromeos/components/magic_boost/public/cpp/views/experiment_badge.h"
+#include "chromeos/components/mahi/public/cpp/mahi_browser_util.h"
 #include "chromeos/components/mahi/public/cpp/mahi_manager.h"
 #include "chromeos/components/mahi/public/cpp/mahi_media_app_content_manager.h"
+#include "chromeos/components/mahi/public/cpp/mahi_web_contents_manager.h"
 #include "chromeos/strings/grit/chromeos_strings.h"
 #include "chromeos/ui/vector_icons/vector_icons.h"
 #include "components/vector_icons/vector_icons.h"
@@ -259,6 +259,10 @@ MahiMenuView::MahiMenuView(Surface surface)
   textfield_controller_ =
       std::make_unique<MenuTextfieldController>(weak_ptr_factory_.GetWeakPtr());
   AddChildView(CreateInputContainer());
+
+  GetViewAccessibility().SetRole(ax::mojom::Role::kDialog);
+  GetViewAccessibility().SetName(
+      l10n_util::GetStringUTF16(IDS_ASH_MAHI_MENU_TITLE));
 }
 
 MahiMenuView::~MahiMenuView() {
@@ -304,11 +308,6 @@ void MahiMenuView::RequestFocus() {
   settings_button_->RequestFocus();
 }
 
-void MahiMenuView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
-  node_data->role = ax::mojom::Role::kDialog;
-  node_data->SetName(l10n_util::GetStringUTF16(IDS_ASH_MAHI_MENU_TITLE));
-}
-
 void MahiMenuView::UpdateBounds(const gfx::Rect& anchor_view_bounds) {
   // TODO(b/318733414): Move `editor_menu::GetEditorMenuBounds` to a common
   // place for use
@@ -320,7 +319,7 @@ void MahiMenuView::OnButtonPressed(::chromeos::mahi::ButtonType button_type) {
   auto display = display::Screen::GetScreen()->GetDisplayNearestWindow(
       GetWidget()->GetNativeWindow());
   if (surface_ == Surface::kBrowser) {
-    ::mahi::MahiWebContentsManager::Get()->OnContextMenuClicked(
+    chromeos::MahiWebContentsManager::Get()->OnContextMenuClicked(
         display.id(), button_type,
         /*question=*/std::u16string(), GetBoundsInScreen());
   } else if (surface_ == Surface::kMediaApp) {
@@ -361,7 +360,7 @@ void MahiMenuView::OnQuestionSubmitted() {
   auto display = display::Screen::GetScreen()->GetDisplayNearestWindow(
       GetWidget()->GetNativeWindow());
   if (surface_ == Surface::kBrowser) {
-    ::mahi::MahiWebContentsManager::Get()->OnContextMenuClicked(
+    chromeos::MahiWebContentsManager::Get()->OnContextMenuClicked(
         display.id(), /*button_type=*/::chromeos::mahi::ButtonType::kQA,
         textfield_->GetText(), GetBoundsInScreen());
   } else if (surface_ == Surface::kMediaApp) {

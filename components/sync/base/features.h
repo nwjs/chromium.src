@@ -22,11 +22,6 @@ inline constexpr base::FeatureParam<int>
         "DeferredSyncStartupCustomDelayInSeconds", 1};
 
 #if BUILDFLAG(IS_ANDROID)
-BASE_DECLARE_FEATURE(kSyncAndroidLimitNTPPromoImpressions);
-inline constexpr base::FeatureParam<int> kSyncAndroidNTPPromoMaxImpressions{
-    &kSyncAndroidLimitNTPPromoImpressions, "SyncAndroidNTPPromoMaxImpressions",
-    5};
-
 // Controls whether to show a batch upload card in Android unified settings
 // panel.
 BASE_DECLARE_FEATURE(kEnableBatchUploadFromSettings);
@@ -69,7 +64,6 @@ BASE_DECLARE_FEATURE(kSkipInvalidationOptimizationsWhenDeviceInfoUpdated);
 BASE_DECLARE_FEATURE(kSyncEnableContactInfoDataTypeInTransportMode);
 BASE_DECLARE_FEATURE(kSyncEnableContactInfoDataTypeForCustomPassphraseUsers);
 BASE_DECLARE_FEATURE(kSyncEnableContactInfoDataTypeForDasherUsers);
-BASE_DECLARE_FEATURE(kSyncEnableContactInfoDataTypeForChildUsers);
 
 // For users who support separate "profile" and "account" password stores -
 // see password_manager::features_util::CanCreateAccountStore() - and have
@@ -123,6 +117,11 @@ BASE_DECLARE_FEATURE(kReplaceSyncPromosWithSignInPromos);
 // TODO(crbug.com/40943550): Remove this.
 BASE_DECLARE_FEATURE(kSyncEnableBookmarksInTransportMode);
 
+// Normally, if kReplaceSyncPromosWithSignInPromos is disabled,
+// UserSelectableType::kBookmarks is disabled by default upon sign-in. This
+// flag makes the type enabled by default, for manual testing.
+BASE_DECLARE_FEATURE(kEnableBookmarksSelectedTypeOnSigninForTesting);
+
 // Feature flag used for enabling sync (transport mode) for signed-in users that
 // haven't turned on full sync.
 #if !BUILDFLAG(IS_IOS)
@@ -165,6 +164,9 @@ inline constexpr base::FeatureParam<base::TimeDelta>
 // If enabled, sync-the-transport will auto-start (avoid deferring startup) if
 // sync metadata isn't available (i.e. initial sync never completed).
 BASE_DECLARE_FEATURE(kSyncAlwaysForceImmediateStartIfTransportDataMissing);
+
+// If enabled, distinguishes between local and account themes.
+BASE_DECLARE_FEATURE(kSeparateLocalAndAccountThemes);
 
 // If enabled, the local change nudge delays for single-client users are
 // increased by some factor, specified via the FeatureParam below.

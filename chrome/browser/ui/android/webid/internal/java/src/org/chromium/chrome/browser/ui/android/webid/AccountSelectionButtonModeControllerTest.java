@@ -40,13 +40,13 @@ import org.chromium.ui.modelutil.PropertyModel;
 import java.util.Arrays;
 import java.util.Collections;
 
-/** Controller tests verify that the Account Selection Button Mode delegate modifies the model. */
+/** Controller tests verify that the Account Selection Active Mode delegate modifies the model. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class AccountSelectionButtonModeControllerTest extends AccountSelectionJUnitTestBase {
     @Before
     @Override
     public void setUp() {
-        mRpMode = RpMode.BUTTON;
+        mRpMode = RpMode.ACTIVE;
         super.setUp();
     }
 
@@ -65,7 +65,7 @@ public class AccountSelectionButtonModeControllerTest extends AccountSelectionJU
                     /* newAccounts= */ Collections.EMPTY_LIST);
             mMediator.showVerifySheet(mAnaAccount);
 
-            // There is no account shown in the verify sheet on button mode.
+            // There is no account shown in the verify sheet on active mode.
             assertEquals(0, mSheetAccountItems.size());
             assertEquals(HeaderType.VERIFY, mModel.get(ItemProperties.HEADER).get(TYPE));
             verify(mMockDelegate).onAccountsDisplayed();
@@ -74,7 +74,8 @@ public class AccountSelectionButtonModeControllerTest extends AccountSelectionJU
     }
 
     @Test
-    public void testShowVerifySheetAutoReauthn() {
+    public void testShowLoadingDialogAutoReauthn() {
+        mMediator.showLoadingDialog(mTestEtldPlusOne, mTestEtldPlusOne1, RpContext.SIGN_IN);
         for (int rpContext : RP_CONTEXTS) {
             when(mMockBottomSheetController.requestShowContent(any(), anyBoolean()))
                     .thenReturn(true);
@@ -88,11 +89,9 @@ public class AccountSelectionButtonModeControllerTest extends AccountSelectionJU
                     /* isAutoReauthn= */ true,
                     /* newAccounts= */ Collections.EMPTY_LIST);
 
-            // There is no account shown in the verify sheet on button mode.
+            // There is no account shown on the loading dialog in active mode.
             assertEquals(0, mSheetAccountItems.size());
-            assertEquals(
-                    HeaderType.VERIFY_AUTO_REAUTHN, mModel.get(ItemProperties.HEADER).get(TYPE));
-            verify(mMockDelegate).onAccountsDisplayed();
+            assertEquals(HeaderType.LOADING, mModel.get(ItemProperties.HEADER).get(TYPE));
             assertTrue(containsItemOfType(mModel, ItemProperties.SPINNER_ENABLED));
         }
     }
@@ -203,7 +202,7 @@ public class AccountSelectionButtonModeControllerTest extends AccountSelectionJU
                 /* newAccounts= */ Collections.EMPTY_LIST);
 
         PropertyModel headerModel = mModel.get(ItemProperties.HEADER);
-        // Unlike widget mode, brand icons should not be available because we do not show any
+        // Unlike passive mode, brand icons should not be available because we do not show any
         // placeholder icon.
         assertNull(headerModel.get(IDP_BRAND_ICON));
         assertNull(mModel.get(ItemProperties.HEADER).get(RP_BRAND_ICON));
@@ -229,7 +228,7 @@ public class AccountSelectionButtonModeControllerTest extends AccountSelectionJU
     @Test
     public void testNewAccountsIdpRequestPermissionFalseShowsAccountChooserDialog() {
         mMediator.showLoadingDialog(mTestEtldPlusOne, mTestEtldPlusOne2, RpContext.SIGN_IN);
-        mIdpData.setRequestPermission(false);
+        mIdpData.setDisclosureFields(new int[0]);
         mMediator.showAccounts(
                 mTestEtldPlusOne,
                 mTestEtldPlusOne2,

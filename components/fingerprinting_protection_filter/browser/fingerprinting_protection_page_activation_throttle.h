@@ -11,6 +11,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "components/fingerprinting_protection_filter/browser/fingerprinting_protection_profile_interaction_manager.h"
+#include "components/fingerprinting_protection_filter/browser/fingerprinting_protection_web_contents_helper.h"
 #include "content/public/browser/navigation_throttle.h"
 
 class PrefService;
@@ -41,7 +42,8 @@ class FingerprintingProtectionPageActivationThrottle
   FingerprintingProtectionPageActivationThrottle(
       content::NavigationHandle* handle,
       privacy_sandbox::TrackingProtectionSettings* tracking_protection_settings,
-      PrefService* prefs);
+      PrefService* prefs,
+      bool is_incognito = false);
 
   FingerprintingProtectionPageActivationThrottle(
       const FingerprintingProtectionPageActivationThrottle&) = delete;
@@ -57,12 +59,20 @@ class FingerprintingProtectionPageActivationThrottle
       override;
   const char* GetNameForLogging() override;
 
+  bool GetEnablePerformanceMeasurements(bool is_incognito) const;
+
  private:
   FRIEND_TEST_ALL_PREFIXES(FingerprintingProtectionPageActivationThrottleTest,
                            FlagEnabledDefaultActivatedParams_IsAllowlisted);
 
   void CheckCurrentUrl();
   virtual void NotifyResult(subresource_filter::ActivationDecision decision);
+
+  // Helper function to abstract getting the WebContentsHelper dependency.
+  // This structure is useful for testing.
+  virtual void NotifyPageActivationComputed(
+      subresource_filter::mojom::ActivationState activation_state,
+      subresource_filter::ActivationDecision activation_decision);
 
   void LogMetricsOnChecksComplete(
       subresource_filter::ActivationDecision decision,
@@ -79,6 +89,9 @@ class FingerprintingProtectionPageActivationThrottle
   // Whether this throttle is deferring the navigation. Only set to true in
   // WillProcessResponse if there are ongoing fingerprinting blocking checks.
   bool deferring_ = false;
+
+  // Whether the profile is in Incognito mode.
+  bool is_incognito_;
 
   base::WeakPtrFactory<FingerprintingProtectionPageActivationThrottle>
       weak_ptr_factory_{this};

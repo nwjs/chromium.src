@@ -23,9 +23,11 @@
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/autofill_profile_test_api.h"
 #include "components/autofill/core/browser/data_model/bank_account.h"
+#include "components/autofill/core/browser/data_model/bnpl_issuer.h"
 #include "components/autofill/core/browser/data_model/credit_card.h"
 #include "components/autofill/core/browser/data_model/credit_card_test_api.h"
 #include "components/autofill/core/browser/data_model/iban.h"
+#include "components/autofill/core/browser/data_model/payment_instrument.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/metrics/suggestions_list_metrics.h"
 #include "components/autofill/core/browser/payments/card_unmask_challenge_option.h"
@@ -1035,6 +1037,31 @@ sync_pb::PaymentInstrument CreatePaymentInstrumentWithIban(
   iban->set_length(27);
   iban->set_nickname("nickname");
   return payment_instrument;
+}
+
+sync_pb::PaymentInstrument CreatePaymentInstrumentWithEwalletAccount(
+    int64_t instrument_id) {
+  sync_pb::PaymentInstrument payment_instrument;
+  payment_instrument.set_instrument_id(instrument_id);
+  sync_pb::DeviceDetails* device_details =
+      payment_instrument.mutable_device_details();
+  device_details->set_is_fido_enrolled(true);
+  sync_pb::EwalletDetails* ewallet =
+      payment_instrument.mutable_ewallet_details();
+  ewallet->set_ewallet_name("ewallet_name");
+  ewallet->set_account_display_name("account_display_name");
+  ewallet->add_supported_payment_link_uris("supported_payment_link_uri_1");
+  return payment_instrument;
+}
+
+BnplIssuer GetTestBnplIssuer() {
+  PaymentInstrument payment_instrument = PaymentInstrument(
+      /*instrument_id=*/12345, /*nickname=*/std::u16string(), GURL::EmptyGURL(),
+      DenseSet<PaymentInstrument::PaymentRail>(
+          {PaymentInstrument::PaymentRail::kCardNumber}));
+  return BnplIssuer(/*issuer_id=*/"test_issuer_id", payment_instrument,
+                    /*price_lower_bound=*/50,
+                    /*price_upper_bound=*/200);
 }
 
 }  // namespace test

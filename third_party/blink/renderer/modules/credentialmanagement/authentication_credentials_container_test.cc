@@ -96,7 +96,7 @@ class MockCredentialManager : public mojom::blink::CredentialManager {
              StoreCallback callback) override {}
   void PreventSilentAccess(PreventSilentAccessCallback callback) override {}
   void Get(blink::mojom::blink::CredentialMediationRequirement mediation,
-           bool include_passwords,
+           int requested_credential_types,
            const WTF::Vector<::blink::KURL>& federations,
            GetCallback callback) override {
     get_callback_ = std::move(callback);
@@ -438,18 +438,18 @@ TEST(AuthenticationCredentialsContainerTest, PublicKeyConditionalMediationUkm) {
   mock_authenticator.InvokeGetCallback();
 }
 
-class AuthenticationCredentialsContainerButtonModeMultiIdpTest
+class AuthenticationCredentialsContainerActiveModeMultiIdpTest
     : public testing::Test,
       private ScopedFedCmMultipleIdentityProvidersForTest,
       ScopedFedCmButtonModeForTest {
  protected:
-  AuthenticationCredentialsContainerButtonModeMultiIdpTest()
+  AuthenticationCredentialsContainerActiveModeMultiIdpTest()
       : ScopedFedCmMultipleIdentityProvidersForTest(true),
         ScopedFedCmButtonModeForTest(true) {}
 };
 
-TEST_F(AuthenticationCredentialsContainerButtonModeMultiIdpTest,
-       RejectButtonModeWithMultipleIdps) {
+TEST_F(AuthenticationCredentialsContainerActiveModeMultiIdpTest,
+       RejectActiveModeWithMultipleIdps) {
   test::TaskEnvironment task_environment;
   MockCredentialManager mock_credential_manager;
   CredentialManagerTestingContext context(&mock_credential_manager);
@@ -467,7 +467,7 @@ TEST_F(AuthenticationCredentialsContainerButtonModeMultiIdpTest,
   idp2->setClientId("clientId");
 
   identity->setProviders({idp1, idp2});
-  identity->setMode("button");
+  identity->setMode("active");
   options->setIdentity(identity);
 
   auto promise = AuthenticationCredentialsContainer::credentials(

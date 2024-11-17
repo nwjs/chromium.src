@@ -362,7 +362,9 @@ class AutofillMetrics {
     PREDICTION_SOURCE_SERVER = 2,
     // Overall field-type prediction seen by user.
     PREDICTION_SOURCE_OVERALL = 3,
-    NUM_QUALITY_METRIC_SOURCES
+    // ML based field-type predictions. Only reported separately if the ML model
+    // is evaluated in shadow mode (i.e. it is not the active heuristic).
+    PREDICTION_SOURCE_ML_PREDICTIONS = 4,
   };
 
   // These values are persisted to logs. Entries should not be renumbered and
@@ -930,6 +932,11 @@ class AutofillMetrics {
       const FormStructure& form,
       const AutofillField& field,
       QualityMetricType metric_type);
+  static void LogMlPredictionQualityMetrics(
+      FormInteractionsUkmLogger* form_interactions_ukm_logger,
+      const FormStructure& form,
+      const AutofillField& field,
+      QualityMetricType metric_type);
   static void LogServerPredictionQualityMetrics(
       FormInteractionsUkmLogger* form_interactions_ukm_logger,
       const FormStructure& form,
@@ -1210,16 +1217,6 @@ class AutofillMetrics {
       AutocompleteState autocomplete_state,
       FieldType server_type,
       FieldType heuristic_types);
-
-  // Logs whether a heuristic detection for an NUMERIC_QUANTITY collides with a
-  // server prediction.
-  static void LogNumericQuantityCollidesWithServerPrediction(bool collision);
-
-  // Logs if the filling of a field was accepted even though it had a
-  // NUMERIC_QUANTITY. This metric is only emitted if the feature to grant the
-  // heuristic precedence is disabled.
-  static void LogAcceptedFilledFieldWithNumericQuantityHeuristicPrediction(
-      bool accepted);
 
   // Returns the histogram string for the passed in
   // `payments::PaymentsAutofillClient::PaymentsRpcCardType` or

@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "ash/birch/birch_coral_provider.h"
 #include "ash/birch/birch_item.h"
 #include "ash/birch/birch_item_remover.h"
 #include "ash/birch/birch_model.h"
@@ -94,7 +95,7 @@ class TestBirchItem : public BirchItem {
   std::string ToString() const override {
     return std::string("Test item ") + base::UTF16ToUTF8(title());
   }
-  void PerformAction() override {}
+  void PerformAction(bool is_post_login) override {}
   void LoadIcon(LoadIconCallback callback) const override {
     std::move(callback).Run(
         ui::ImageModel::FromVectorIcon(kSettingsIcon, SK_ColorBLACK, 20),
@@ -112,7 +113,7 @@ class BirchBarTest : public AshTestBase {
   BirchBarTest() {
     feature_list_.InitWithFeatures(
         {features::kForestFeature, features::kBirchWeather,
-         features::kBirchCoral},
+         features::kCoralFeature},
         {});
   }
 
@@ -146,15 +147,6 @@ class BirchBarTest : public AshTestBase {
     weather_provider_ = weather_provider.get();
     birch_model->OverrideWeatherProviderForTest(std::move(weather_provider));
 
-    // TODO(make coral provider)
-    auto coral_provider =
-        std::make_unique<TestBirchDataProvider<BirchCoralItem>>(
-            base::BindRepeating(&BirchModel::SetCoralItems,
-                                base::Unretained(birch_model)),
-            prefs::kBirchUseCoral);
-    coral_provider_ = coral_provider.get();
-    birch_model->OverrideCoralProviderForTest(std::move(coral_provider));
-
     base::RunLoop run_loop;
     Shell::Get()
         ->birch_model()
@@ -169,7 +161,6 @@ class BirchBarTest : public AshTestBase {
   void TearDown() override {
     Shell::Get()->birch_model()->SetClientAndInit(nullptr);
     weather_provider_ = nullptr;
-    coral_provider_ = nullptr;
     birch_client_.reset();
     image_downloader_.reset();
     AshTestBase::TearDown();
@@ -305,22 +296,46 @@ class BirchBarTest : public AshTestBase {
 
   // Adds `num` coral items to data source.
   void SetCoralItems(size_t num) {
-    std::vector<BirchCoralItem> item_list;
-    std::vector<GURL> page_urls;
-    page_urls.emplace_back(("https://www.reddit.com/"));
-    page_urls.emplace_back(("https://www.figma.com/"));
-    page_urls.emplace_back(("https://www.notion.so/"));
-    for (size_t i = 0; i < num; i++) {
-      item_list.emplace_back(
-          /*coral_title=*/u"coral_title",
-          /*coral_text=*/u"coral_text", page_urls);
-      item_list.back().set_ranking(1.0f);
+    // The number of coral items cannot exceed 2.
+    ASSERT_GE(2u, num);
+    auto fake_response = std::make_unique<CoralResponse>();
+    std::vector<coral::mojom::GroupPtr> fake_groups;
+
+    if (num >= 1u) {
+      auto fake_group = coral::mojom::Group::New();
+      fake_group->title = "Coral Group 1";
+      fake_group->entities.push_back(
+          coral::mojom::EntityKey::NewTabUrl(GURL("https://www.reddit.com/")));
+      fake_group->entities.push_back(
+          coral::mojom::EntityKey::NewTabUrl(GURL("https://www.figma.com/")));
+      fake_group->entities.push_back(
+          coral::mojom::EntityKey::NewTabUrl(GURL("https://www.notion.so/")));
+      fake_group->entities.push_back(coral::mojom::EntityKey::NewAppId(
+          "odknhmnlageboeamepcngndbggdpaobj"));
+      fake_groups.push_back(std::move(fake_group));
     }
-    coral_provider_->set_items(item_list);
+
+    if (num == 2u) {
+      auto fake_group = coral::mojom::Group::New();
+      fake_group->title = "Coral Group 2";
+      fake_group->entities.push_back(
+          coral::mojom::EntityKey::NewTabUrl(GURL("https://www.ikea.com/")));
+      fake_group->entities.push_back(
+          coral::mojom::EntityKey::NewTabUrl(GURL("https://www.nhl.com/")));
+      fake_group->entities.push_back(
+          coral::mojom::EntityKey::NewTabUrl(GURL("https://www.google.com/")));
+      fake_group->entities.push_back(coral::mojom::EntityKey::NewAppId(
+          "fkiggjmkendpmbegkagpmagjepfkpmeb"));
+      fake_groups.push_back(std::move(fake_group));
+    }
+
+    fake_response->set_groups(std::move(fake_groups));
+    BirchCoralProvider::Get()->OverrideCoralResponseForTest(
+        std::move(fake_response));
   }
+
   std::unique_ptr<TestBirchClient> birch_client_;
   raw_ptr<TestBirchDataProvider<BirchWeatherItem>> weather_provider_;
-  raw_ptr<TestBirchDataProvider<BirchCoralItem>> coral_provider_;
 
  private:
   base::test::ScopedFeatureList feature_list_;
@@ -359,6 +374,7 @@ TEST_F(BirchBarTest, RecordsHistogramWhenChipsShown) {
                      base::Time::Now() + base::Minutes(30), GURL(), GURL(),
                      std::string(), /*all_day_event=*/false);
   birch_client_->SetCalendarItems(items);
+  SetCoralItems(/*num=*/2);
 
   // Entering overview shows the birch bar.
   EnterOverview();
@@ -367,14 +383,17 @@ TEST_F(BirchBarTest, RecordsHistogramWhenChipsShown) {
   // One impression was recorded for the birch bar.
   histograms.ExpectBucketCount("Ash.Birch.Bar.Impression", true, 1);
 
-  // Two chips were shown.
-  histograms.ExpectBucketCount("Ash.Birch.ChipCount", 2, 1);
+  // Four chips were shown.
+  histograms.ExpectBucketCount("Ash.Birch.ChipCount", 4, 1);
 
   // One impression was recorded for each chip type.
   histograms.ExpectBucketCount("Ash.Birch.Chip.Impression",
                                BirchItemType::kFile, 1);
   histograms.ExpectBucketCount("Ash.Birch.Chip.Impression",
                                BirchItemType::kCalendar, 1);
+  histograms.ExpectBucketCount("Ash.Birch.Chip.Impression",
+                               BirchItemType::kCoral, 2);
+  histograms.ExpectBucketCount("Ash.Birch.Coral.ClusterCount", 2, 1);
 
   // Two rankings were recorded for the current time slot histogram.
   histograms.ExpectBucketCount("Ash.Birch.Ranking.1200to1700", 1, 1);

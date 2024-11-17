@@ -37,19 +37,31 @@ BASE_FEATURE(kTruncateLanguageDetectionSample,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 LanguageDetectionModel::LanguageDetectionModel(
-    language_detection::LanguageDetectionModel* tflite_model_)
-    : tflite_model_(tflite_model_) {}
+    language_detection::LanguageDetectionModel& shared_tflite_model)
+    : tflite_model_(shared_tflite_model) {}
+
+LanguageDetectionModel::LanguageDetectionModel(
+    std::unique_ptr<language_detection::LanguageDetectionModel>
+        owned_tflite_model)
+    : owned_tflite_model_(std::move(owned_tflite_model)),
+      tflite_model_(*owned_tflite_model_.get()) {
+  owned_tflite_model_->DetachFromSequence();
+}
 
 LanguageDetectionModel::~LanguageDetectionModel() = default;
 
-#if !BUILDFLAG(IS_IOS)
 void LanguageDetectionModel::UpdateWithFile(base::File model_file) {
   tflite_model_->UpdateWithFile(std::move(model_file));
 }
-#endif
+
+void LanguageDetectionModel::UpdateWithFileAsync(base::File model_file,
+                                                 base::OnceClosure callback) {
+  tflite_model_->UpdateWithFileAsync(std::move(model_file),
+                                     std::move(callback));
+}
 
 bool LanguageDetectionModel::IsAvailable() const {
-  return tflite_model_ && tflite_model_->IsAvailable();
+  return tflite_model_->IsAvailable();
 }
 
 std::pair<std::string, float> LanguageDetectionModel::DetectTopLanguage(

@@ -138,6 +138,28 @@ bool AppViewGuest::HandleContextMenu(
   return false;
 }
 
+bool AppViewGuest::IsWebContentsCreationOverridden(
+    content::SiteInstance* source_site_instance,
+    content::mojom::WindowContainerType window_container_type,
+    const GURL& opener_url,
+    const std::string& frame_name,
+    const GURL& target_url) {
+  return true;
+}
+
+content::WebContents* AppViewGuest::CreateCustomWebContents(
+    content::RenderFrameHost* opener,
+    content::SiteInstance* source_site_instance,
+    bool is_new_browsing_instance,
+    const GURL& opener_url,
+    const std::string& frame_name,
+    const GURL& target_url,
+    const content::StoragePartitionConfig& partition_config,
+    content::SessionStorageNamespace* session_storage_namespace) {
+  // Suppress window creation.
+  return nullptr;
+}
+
 void AppViewGuest::RequestMediaAccessPermission(
     WebContents* web_contents,
     const content::MediaStreamRequest& request,
@@ -178,18 +200,18 @@ void AppViewGuest::CreateWebContents(std::unique_ptr<GuestViewBase> owned_this,
                                      WebContentsCreatedCallback callback) {
   const std::string* app_id = create_params.FindString(appview::kAppID);
   if (!app_id) {
-    std::move(callback).Run(std::move(owned_this), nullptr);
+    RejectGuestCreation(std::move(owned_this), std::move(callback));
     return;
   }
   // Verifying that the appId is not the same as the host application.
   if (owner_host() == *app_id) {
-    std::move(callback).Run(std::move(owned_this), nullptr);
+    RejectGuestCreation(std::move(owned_this), std::move(callback));
     return;
   }
 
   const base::Value::Dict* data = create_params.FindDict(appview::kData);
   if (!data) {
-    std::move(callback).Run(std::move(owned_this), nullptr);
+    RejectGuestCreation(std::move(owned_this), std::move(callback));
     return;
   }
 
@@ -201,7 +223,7 @@ void AppViewGuest::CreateWebContents(std::unique_ptr<GuestViewBase> owned_this,
 
   if (!guest_extension || !guest_extension->is_platform_app() ||
       !embedder_extension || !embedder_extension->is_platform_app()) {
-    std::move(callback).Run(std::move(owned_this), nullptr);
+    RejectGuestCreation(std::move(owned_this), std::move(callback));
     return;
   }
 
@@ -229,8 +251,9 @@ void AppViewGuest::CreateWebContents(std::unique_ptr<GuestViewBase> owned_this,
 void AppViewGuest::DidInitialize(const base::Value::Dict& create_params) {
   ExtensionsAPIClient::Get()->AttachWebContentsHelpers(web_contents());
 
-  if (!url_.is_valid())
+  if (!url_.is_valid()) {
     return;
+  }
 
   GetController().LoadURL(url_, content::Referrer(), ui::PAGE_TRANSITION_LINK,
                           std::string());
@@ -258,11 +281,11 @@ void AppViewGuest::CompleteCreateWebContents(
   if (!owner_rfh()) {
     // The owner was destroyed before getting a response to the embedding
     // request, so we can't proceed with creating a guest.
-    std::move(callback).Run(std::move(owned_this), nullptr);
+    RejectGuestCreation(std::move(owned_this), std::move(callback));
     return;
   }
   if (!url.is_valid()) {
-    std::move(callback).Run(std::move(owned_this), nullptr);
+    RejectGuestCreation(std::move(owned_this), std::move(callback));
     return;
   }
   url_ = url;
@@ -288,7 +311,7 @@ void AppViewGuest::LaunchAppAndFireEvent(
                                     context_info->extension_id,
                                     app_runtime::OnEmbedRequested::kEventName);
   if (!has_event_listener) {
-    std::move(callback).Run(std::move(owned_this), nullptr);
+    RejectGuestCreation(std::move(owned_this), std::move(callback));
     return;
   }
 

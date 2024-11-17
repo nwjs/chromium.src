@@ -478,7 +478,7 @@ public class WebsitePermissionsFetcherTest {
         waiter.waitForCallback(0, 1, 1000L, TimeUnit.MILLISECONDS);
     }
 
-    class FakeWebsitePreferenceBridge extends WebsitePreferenceBridge {
+    static class FakeWebsitePreferenceBridge extends WebsitePreferenceBridge {
         public List<PermissionInfo> mPermissionInfos;
         public List<ContentSettingException> mContentSettingExceptions;
         public List<ChosenObjectInfo> mChosenObjectInfos;
@@ -707,7 +707,7 @@ public class WebsitePermissionsFetcherTest {
         // Otherwise, just update count in the assert.
         // TODO(https://b/332704817): Add test for Tracking Protection content setting after Android
         // integration.
-        assertEquals(113, ContentSettingsType.MAX_VALUE);
+        assertEquals(114, ContentSettingsType.MAX_VALUE);
         websitePreferenceBridge.addContentSettingException(
                 new ContentSettingException(
                         ContentSettingsType.COOKIES,

@@ -116,6 +116,7 @@ breakBefore
 breakInside
 bufferedRendering
 captionSide
+caretAnimation
 caretColor
 clear
 clip
@@ -236,7 +237,6 @@ initialLetter
 initialValue
 inlineSize
 inset
-insetArea
 insetBlock
 insetBlockEnd
 insetBlockStart
@@ -417,10 +417,6 @@ scrollStart
 scrollStartBlock
 scrollStartInline
 scrollStartTarget
-scrollStartTargetBlock
-scrollStartTargetInline
-scrollStartTargetX
-scrollStartTargetY
 scrollStartX
 scrollStartY
 scrollTimeline

@@ -50,23 +50,25 @@ constexpr int kCurrentLocalTrustedVaultVersion = 2;
 constexpr int kCurrentDeviceRegistrationVersion = 1;
 
 trusted_vault_pb::LocalTrustedVault ReadDataFromDiskImpl(
-    const base::FilePath& file_path) {
+    const base::FilePath& file_path,
+    SecurityDomainId security_domain_id) {
   std::string file_content;
 
   trusted_vault_pb::LocalTrustedVault data_proto;
   if (!base::PathExists(file_path)) {
     RecordTrustedVaultFileReadStatus(
-        TrustedVaultFileReadStatusForUMA::kNotFound);
+        security_domain_id, TrustedVaultFileReadStatusForUMA::kNotFound);
     return data_proto;
   }
   if (!base::ReadFileToString(file_path, &file_content)) {
     RecordTrustedVaultFileReadStatus(
-        TrustedVaultFileReadStatusForUMA::kFileReadFailed);
+        security_domain_id, TrustedVaultFileReadStatusForUMA::kFileReadFailed);
     return data_proto;
   }
   trusted_vault_pb::LocalTrustedVaultFileContent file_proto;
   if (!file_proto.ParseFromString(file_content)) {
     RecordTrustedVaultFileReadStatus(
+        security_domain_id,
         TrustedVaultFileReadStatusForUMA::kFileProtoDeserializationFailed);
     return data_proto;
   }
@@ -74,6 +76,7 @@ trusted_vault_pb::LocalTrustedVault ReadDataFromDiskImpl(
   if (base::MD5String(file_proto.serialized_local_trusted_vault()) !=
       file_proto.md5_digest_hex_string()) {
     RecordTrustedVaultFileReadStatus(
+        security_domain_id,
         TrustedVaultFileReadStatusForUMA::kMD5DigestMismatch);
     return data_proto;
   }
@@ -81,15 +84,18 @@ trusted_vault_pb::LocalTrustedVault ReadDataFromDiskImpl(
   if (!data_proto.ParseFromString(
           file_proto.serialized_local_trusted_vault())) {
     RecordTrustedVaultFileReadStatus(
+        security_domain_id,
         TrustedVaultFileReadStatusForUMA::kDataProtoDeserializationFailed);
     return data_proto;
   }
-  RecordTrustedVaultFileReadStatus(TrustedVaultFileReadStatusForUMA::kSuccess);
+  RecordTrustedVaultFileReadStatus(security_domain_id,
+                                   TrustedVaultFileReadStatusForUMA::kSuccess);
   return data_proto;
 }
 
 void WriteDataToDiskImpl(const trusted_vault_pb::LocalTrustedVault& data,
-                         const base::FilePath& file_path) {
+                         const base::FilePath& file_path,
+                         SecurityDomainId security_domain_id) {
   trusted_vault_pb::LocalTrustedVaultFileContent file_proto;
   file_proto.set_serialized_local_trusted_vault(data.SerializeAsString());
   file_proto.set_md5_digest_hex_string(
@@ -99,7 +105,9 @@ void WriteDataToDiskImpl(const trusted_vault_pb::LocalTrustedVault& data,
   if (!success) {
     DLOG(ERROR) << "Failed to write trusted vault file.";
   }
-  base::UmaHistogramBoolean("Sync.TrustedVaultFileWriteSuccess", success);
+  base::UmaHistogramBoolean("TrustedVault.FileWriteSuccess." +
+                                GetSecurityDomainNameForUma(security_domain_id),
+                            success);
 }
 
 bool HasNonConstantKey(
@@ -293,13 +301,15 @@ StandaloneTrustedVaultBackend::GetDownloadKeysStatusForUMAFromResponse(
 }
 
 StandaloneTrustedVaultBackend::StandaloneTrustedVaultBackend(
+    SecurityDomainId security_domain_id,
     const base::FilePath& file_path,
     std::unique_ptr<Delegate> delegate,
     std::unique_ptr<TrustedVaultConnection> connection,
     std::unique_ptr<RecoveryKeyStoreController::RecoveryKeyProvider>
         recovery_key_provider,
     std::unique_ptr<RecoveryKeyStoreConnection> recovery_key_store_connection)
-    : file_path_(file_path),
+    : security_domain_id_(security_domain_id),
+      file_path_(file_path),
       delegate_(std::move(delegate)),
       connection_(std::move(connection)),
       clock_(base::DefaultClock::GetInstance()) {
@@ -314,10 +324,12 @@ StandaloneTrustedVaultBackend::StandaloneTrustedVaultBackend(
 }
 
 StandaloneTrustedVaultBackend::StandaloneTrustedVaultBackend(
+    SecurityDomainId security_domain_id,
     const base::FilePath& file_path,
     std::unique_ptr<Delegate> delegate,
     std::unique_ptr<TrustedVaultConnection> connection)
-    : StandaloneTrustedVaultBackend(file_path,
+    : StandaloneTrustedVaultBackend(security_domain_id,
+                                    file_path,
                                     std::move(delegate),
                                     std::move(connection),
                                     /*recovery_key_provider=*/nullptr,
@@ -342,7 +354,7 @@ void StandaloneTrustedVaultBackend::OnDegradedRecoverabilityChanged() {
 }
 
 void StandaloneTrustedVaultBackend::ReadDataFromDisk() {
-  data_ = ReadDataFromDiskImpl(file_path_);
+  data_ = ReadDataFromDiskImpl(file_path_, security_domain_id_);
 
   if (data_.user_size() == 0) {
     // No data, set the current version and omit writing the file.
@@ -501,7 +513,6 @@ void StandaloneTrustedVaultBackend::SetPrimaryAccount(
       MaybeRegisterDevice();
 
       CHECK(degraded_recoverability_handler_);
-      // TODO(crbug.com/40790270): Add Integration test.
       degraded_recoverability_handler_->HintDegradedRecoverabilityChanged(
           TrustedVaultHintDegradedRecoverabilityChangedReasonForUMA::
               kPersistentAuthErrorResolved);
@@ -554,9 +565,11 @@ void StandaloneTrustedVaultBackend::SetPrimaryAccount(
       !device_registration_state_recorded_to_uma_) {
     device_registration_state_recorded_to_uma_ = true;
     base::UmaHistogramBoolean(
-        "Sync.TrustedVaultDeviceRegistered",
+        "TrustedVault.DeviceRegistered." +
+            GetSecurityDomainNameForUma(security_domain_id_),
         per_user_vault->local_device_registration_info().device_registered());
-    RecordTrustedVaultDeviceRegistrationState(*registration_state);
+    RecordTrustedVaultDeviceRegistrationState(security_domain_id_,
+                                              *registration_state);
   }
 
   MaybeProcessPendingTrustedRecoveryMethod();
@@ -567,8 +580,9 @@ void StandaloneTrustedVaultBackend::UpdateAccountsInCookieJarInfo(
     const signin::AccountsInCookieJarInfo& accounts_in_cookie_jar_info) {
   const base::flat_set<std::string> gaia_ids_in_cookie_jar =
       base::STLSetUnion<base::flat_set<std::string>>(
-          GetGaiaIDs(accounts_in_cookie_jar_info.signed_in_accounts),
-          GetGaiaIDs(accounts_in_cookie_jar_info.signed_out_accounts));
+          GetGaiaIDs(accounts_in_cookie_jar_info
+                         .GetPotentiallyInvalidSignedInAccounts()),
+          GetGaiaIDs(accounts_in_cookie_jar_info.GetSignedOutAccounts()));
 
   // Primary account data shouldn't be removed immediately, but it needs to be
   // removed once account become non-primary if it was ever removed from cookie
@@ -978,6 +992,7 @@ void StandaloneTrustedVaultBackend::OnDeviceRegistered(
   DCHECK(!per_user_vault->local_device_registration_info()
               .last_registration_returned_local_data_obsolete());
   RecordTrustedVaultDeviceRegistrationOutcome(
+      security_domain_id_,
       GetDeviceRegistrationOutcomeForUMAFromResponse(status));
   switch (status) {
     case TrustedVaultRegistrationStatus::kSuccess:
@@ -1240,7 +1255,7 @@ StandaloneTrustedVaultBackend::FindUserVault(const std::string& gaia_id) {
 }
 
 void StandaloneTrustedVaultBackend::WriteDataToDisk() {
-  WriteDataToDiskImpl(data_, file_path_);
+  WriteDataToDiskImpl(data_, file_path_, security_domain_id_);
   delegate_->NotifyStateChanged();
 }
 

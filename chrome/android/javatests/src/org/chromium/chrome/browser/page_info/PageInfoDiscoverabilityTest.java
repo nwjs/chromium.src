@@ -8,7 +8,6 @@ import static org.chromium.components.permissions.PermissionDialogDelegate.getRe
 
 import android.Manifest;
 import android.content.Context;
-import android.content.res.Resources;
 
 import androidx.test.filters.MediumTest;
 
@@ -91,10 +90,6 @@ public class PageInfoDiscoverabilityTest {
         public List<ParameterSet> getPermissionRequestParameters() {
             List<ParameterSet> parameters = new ArrayList<>();
             // ParameterSet.value = {ContentSettingsType, isInSiteSettings}
-            parameters.add(
-                    new ParameterSet()
-                            .name("RequestType.kAccessibilityEvents")
-                            .value(ContentSettingsType.ACCESSIBILITY_EVENTS, false));
             parameters.add(
                     new ParameterSet()
                             .name("RequestType.kArSession")
@@ -203,7 +198,6 @@ public class PageInfoDiscoverabilityTest {
     @Mock PageInfoIPHController mPageInfoIPHController;
 
     Context mContext;
-    Resources mResources;
     PropertyModel mModel;
     PermissionDialogController mPermissionDialogController;
     StatusMediator mMediator;
@@ -213,7 +207,6 @@ public class PageInfoDiscoverabilityTest {
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
         mContext = sPermissionTestRule.getActivity();
-        mResources = mContext.getResources();
         mPermissionDialogController = PermissionDialogController.getInstance();
 
         ThreadUtils.runOnUiThreadBlocking(
@@ -223,7 +216,6 @@ public class PageInfoDiscoverabilityTest {
                     mMediator =
                             new StatusMediator(
                                     mModel,
-                                    mResources,
                                     mContext,
                                     mUrlBarEditingTextStateProvider,
                                     /* isTablet= */ false,

@@ -151,6 +151,9 @@ class PrivacySandboxSettingsImpl : public PrivacySandboxSettings,
   // Called when the Related Website Sets enabled preference is changed.
   void OnRelatedWebsiteSetsEnabledPrefChanged();
 
+  // Called when the CookieControlsMode preference is changed.
+  void OnCookieControlsModePrefChanged();
+
   void SetTopicsDataAccessibleFromNow() const;
 
   // These values are persisted to logs. Entries should not be renumbered and
@@ -220,6 +223,9 @@ class PrivacySandboxSettingsImpl : public PrivacySandboxSettings,
   // Internal helper for `IsFledgeAllowed`. Used only when
   // `interest_group_api_operation` is `kJoin`.
   bool IsFledgeJoiningAllowed(const url::Origin& top_frame_origin) const;
+
+  // Whether fenced frame local unpartitioned data access is enabled.
+  Status GetLocalUnpartitionedDataAccessEnabledStatus() const;
 
   // From TrackingProtectionSettingsObserver.
   void OnBlockAllThirdPartyCookiesChanged() override;

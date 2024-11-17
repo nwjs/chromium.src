@@ -12,31 +12,27 @@
 #include "chrome/browser/sync/test/integration/shared_tab_group_data_helper.h"
 #include "chrome/browser/sync/test/integration/sync_service_impl_harness.h"
 #include "chrome/browser/sync/test/integration/sync_test.h"
+#include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "components/data_sharing/public/features.h"
-#include "components/saved_tab_groups/saved_tab_group.h"
-#include "components/saved_tab_groups/saved_tab_group_model.h"
-#include "components/saved_tab_groups/saved_tab_group_tab.h"
-#include "components/saved_tab_groups/saved_tab_group_test_utils.h"
-#include "components/saved_tab_groups/tab_group_sync_service.h"
-#include "components/saved_tab_groups/types.h"
+#include "components/saved_tab_groups/public/features.h"
+#include "components/saved_tab_groups/public/saved_tab_group.h"
+#include "components/saved_tab_groups/public/saved_tab_group_tab.h"
+#include "components/saved_tab_groups/public/tab_group_sync_service.h"
+#include "components/saved_tab_groups/public/types.h"
+#include "components/saved_tab_groups/test_support/saved_tab_group_test_utils.h"
 #include "components/sync/base/data_type.h"
 #include "components/sync/protocol/saved_tab_group_specifics.pb.h"
 #include "components/sync/protocol/shared_tab_group_data_specifics.pb.h"
+#include "components/sync/protocol/sync_entity.pb.h"
 #include "components/sync/service/sync_service_impl.h"
 #include "content/public/test/browser_test.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "url/gurl.h"
 
-#if BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
-#else
-#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_keyed_service.h"
-#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_service_factory.h"
-#endif  // BUILDFLAG(IS_ANDROID)
-
 namespace tab_groups {
 namespace {
 
+using testing::Contains;
 using testing::SizeIs;
 using testing::UnorderedElementsAre;
 
@@ -66,11 +62,19 @@ sync_pb::SharedTabGroupDataSpecifics MakeSharedTabGroupTabSpecifics(
   return specifics;
 }
 
+std::string GetClientTag(const sync_pb::SharedTabGroupDataSpecifics& specifics,
+                         const std::string& collaboration_id) {
+  return specifics.guid() + "|" + collaboration_id;
+}
+
 class SingleClientSharedTabGroupDataSyncTest : public SyncTest {
  public:
   SingleClientSharedTabGroupDataSyncTest() : SyncTest(SINGLE_CLIENT) {
-    feature_overrides_.InitAndEnableFeature(
-        data_sharing::features::kDataSharingFeature);
+    feature_overrides_.InitWithFeatures(
+        {data_sharing::features::kDataSharingFeature,
+         tab_groups::kTabGroupsSaveUIUpdate, tab_groups::kTabGroupsSaveV2,
+         tab_groups::kTabGroupSyncServiceDesktopMigration},
+        {});
   }
   ~SingleClientSharedTabGroupDataSyncTest() override = default;
 
@@ -87,48 +91,29 @@ class SingleClientSharedTabGroupDataSyncTest : public SyncTest {
         syncer::PersistentUniqueClientEntity::
             CreateFromSharedSpecificsForTesting(
                 /*non_unique_name=*/"",
-                /*client_tag=*/entity_specifics.shared_tab_group_data().guid(),
+                GetClientTag(entity_specifics.shared_tab_group_data(),
+                             collaboration_id),
                 entity_specifics, /*creation_time=*/0, /*last_modified_time=*/0,
                 collaboration_id));
   }
 
-// TabGroupSyncService is used on Android only.
-#if BUILDFLAG(IS_ANDROID)
   TabGroupSyncService* GetTabGroupSyncService() const {
     return TabGroupSyncServiceFactory::GetForProfile(GetProfile(0));
   }
-#else
-  SavedTabGroupModel* GetSavedTabGroupModel() const {
-    return SavedTabGroupServiceFactory::GetForProfile(GetProfile(0))->model();
-  }
-#endif  // BUILDFLAG(IS_ANDROID)
 
   // Returns both saved and shared tab groups.
   std::vector<SavedTabGroup> GetAllTabGroups() const {
-#if BUILDFLAG(IS_ANDROID)
     return GetTabGroupSyncService()->GetAllGroups();
-#else
-    return GetSavedTabGroupModel()->saved_tab_groups();
-#endif  // BUILDFLAG(IS_ANDROID)
   }
 
   void AddTabGroup(SavedTabGroup group) {
-#if BUILDFLAG(IS_ANDROID)
     GetTabGroupSyncService()->AddGroup(std::move(group));
-#else
-    GetSavedTabGroupModel()->Add(std::move(group));
-#endif  // BUILDFLAG(IS_ANDROID)
   }
 
   void MakeTabGroupShared(const LocalTabGroupID& local_group_id,
                           std::string_view collaboration_id) {
-#if BUILDFLAG(IS_ANDROID)
     GetTabGroupSyncService()->MakeTabGroupShared(local_group_id,
                                                  collaboration_id);
-#else
-    GetSavedTabGroupModel()->MakeTabGroupShared(local_group_id,
-                                                std::string(collaboration_id));
-#endif  // BUILDFLAG(IS_ANDROID)
   }
 
  private:
@@ -198,18 +183,33 @@ IN_PROC_BROWSER_TEST_F(SingleClientSharedTabGroupDataSyncTest,
   // Transition the saved tab group to shared tab group.
   MakeTabGroupShared(group.local_group_id().value(), "collaboration");
 
-  // Only the tab group header is removed for saved tab groups.
-  EXPECT_TRUE(
-      ServerSavedTabGroupMatchChecker(UnorderedElementsAre(HasSpecificsSavedTab(
-                                          "title 1", "https://google.com/1")))
-          .Wait());
-
+  // Saved tab group remains intact, hence verify only that the shared tab group
+  // is committed.
   EXPECT_TRUE(ServerSharedTabGroupMatchChecker(
                   UnorderedElementsAre(
                       HasSpecificsSharedTabGroup("title",
                                                  sync_pb::SharedTabGroup::BLUE),
                       HasSpecificsSharedTab("title 1", "https://google.com/1")))
                   .Wait());
+
+  std::vector<sync_pb::SyncEntity> server_entities =
+      GetFakeServer()->GetSyncEntitiesByDataType(syncer::SHARED_TAB_GROUP_DATA);
+  ASSERT_THAT(server_entities, SizeIs(2));
+  // Put the tab group first for simplicity.
+  if (server_entities[0].specifics().shared_tab_group_data().has_tab()) {
+    server_entities[0].Swap(&server_entities[1]);
+  }
+  const sync_pb::SharedTabGroupDataSpecifics& group_specifics =
+      server_entities[0].specifics().shared_tab_group_data();
+  const sync_pb::SharedTabGroupDataSpecifics& tab_specifics =
+      server_entities[1].specifics().shared_tab_group_data();
+
+  // Verify that GUIDs are different.
+  EXPECT_NE(group_specifics.guid(), group.saved_guid().AsLowercaseString());
+  EXPECT_NE(tab_specifics.guid(), tab.saved_tab_guid().AsLowercaseString());
+
+  EXPECT_EQ(group_specifics.tab_group().originating_tab_group_guid(),
+            group.saved_guid().AsLowercaseString());
 }
 
 #if !BUILDFLAG(IS_ANDROID)

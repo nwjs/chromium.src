@@ -9,11 +9,13 @@
 #import "base/containers/to_vector.h"
 #import "base/memory/ptr_util.h"
 #import "base/memory/raw_ptr.h"
+#import "base/metrics/histogram.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/observer_list.h"
 #import "components/autofill/core/browser/autofill_driver_router.h"
 #import "components/autofill/core/browser/form_filler.h"
 #import "components/autofill/core/browser/form_structure.h"
+#import "components/autofill/core/common/autofill_features.h"
 #import "components/autofill/core/common/field_data_manager.h"
 #import "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #import "components/autofill/core/common/unique_ids.h"
@@ -93,6 +95,7 @@ AutofillDriverIOS::AutofillDriverIOS(
 
 AutofillDriverIOS::~AutofillDriverIOS() {
   Unregister();
+  RecordTriggeredFormExtractionMetrics();
 }
 
 LocalFrameToken AutofillDriverIOS::GetFrameToken() const {
@@ -239,7 +242,11 @@ void AutofillDriverIOS::ExtractForm(
 }
 
 void AutofillDriverIOS::SendTypePredictionsToRenderer(
-    const std::vector<raw_ptr<FormStructure, VectorExperimental>>& forms) {
+    base::span<const raw_ptr<FormStructure, VectorExperimental>> forms) {
+  if (!base::FeatureList::IsEnabled(
+          autofill::features::test::kAutofillShowTypePredictions)) {
+    return;
+  }
   std::vector<FormDataPredictions> preds =
       FormStructure::GetFieldTypePredictions(forms);
 
@@ -268,7 +275,11 @@ void AutofillDriverIOS::TriggerFormExtractionInDriverFrame(
   if (!is_processed()) {
     return;
   }
-  [bridge_ scanFormsInWebState:web_state_ inFrame:web_frame()];
+
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillAcrossIframesIosTriggerFormExtraction)) {
+    [bridge_ scanFormsInWebState:web_state_ inFrame:web_frame()];
+  }
 }
 
 void AutofillDriverIOS::TriggerFormExtractionInAllFrames(
@@ -589,6 +600,10 @@ void AutofillDriverIOS::Unregister() {
   unregistered_ = true;
 }
 
+void AutofillDriverIOS::OnDidTriggerFormFetch() {
+  ++form_extraction_trigger_count_;
+}
+
 void AutofillDriverIOS::UpdateLastInteractedFormFromFieldDataManager() {
   CHECK(last_interacted_form_);
 
@@ -625,6 +640,27 @@ void AutofillDriverIOS::RecordFormRemoval(bool submission_detected,
       /*name=*/kFormRemovalRemovedUnownedFieldsHistogram,
       /*sample=*/removed_unowned_fields_count);
 
+}
+
+void AutofillDriverIOS::RecordTriggeredFormExtractionMetrics() {
+  if (form_extraction_trigger_count_ < 1) {
+    // Do not record anything if no extraction was performed to not pollute
+    // the data with 0 extraction cases that don't really mean anything.
+    // We usually expect at least one extraction to be triggered in the frame
+    // when its content is loaded. We are not interested in tracking the cases
+    // where extraction didn't happen, not for these metrics at least.
+    return;
+  }
+
+  base::UmaHistogramCounts100(
+      "Autofill.iOS.TriggeredFormExtractionFromDriver.SmallRange",
+      form_extraction_trigger_count_);
+  base::UmaHistogramCounts1000(
+      "Autofill.iOS.TriggeredFormExtractionFromDriver.MediumRange",
+      form_extraction_trigger_count_);
+  base::UmaHistogramCounts10000(
+      "Autofill.iOS.TriggeredFormExtractionFromDriver.LargeRange",
+      form_extraction_trigger_count_);
 }
 
 }  // namespace autofill

@@ -62,9 +62,9 @@ class UCharBuffer {
   scoped_refptr<StringImpl> CreateStringImpl() const {
     switch (encoding_) {
       case AtomicStringUCharEncoding::kUnknown:
-        return StringImpl::Create8BitIfPossible(characters_, length_);
+        return StringImpl::Create8BitIfPossible({characters_, length_});
       case AtomicStringUCharEncoding::kIs8Bit:
-        return String::Make8BitFrom16BitSource(characters_, length_)
+        return String::Make8BitFrom16BitSource({characters_, length_})
             .ReleaseImpl();
       case AtomicStringUCharEncoding::kIs16Bit:
         return StringImpl::Create(characters_, length_);
@@ -373,6 +373,25 @@ struct LCharBufferTranslator {
     location->SetIsAtomic();
   }
 };
+
+scoped_refptr<StringImpl> AtomicStringTable::Add(
+    const StringView& string_view) {
+  if (string_view.IsNull()) {
+    return nullptr;
+  }
+
+  if (string_view.empty()) {
+    return StringImpl::empty_;
+  }
+
+  if (string_view.Is8Bit()) {
+    LCharBuffer buffer(string_view.Characters8(), string_view.length());
+    return AddToStringTable<LCharBuffer, LCharBufferTranslator>(buffer);
+  }
+  UCharBuffer buffer(string_view.Characters16(), string_view.length(),
+                     AtomicStringUCharEncoding::kUnknown);
+  return AddToStringTable<UCharBuffer, UCharBufferTranslator>(buffer);
+}
 
 scoped_refptr<StringImpl> AtomicStringTable::Add(const LChar* s,
                                                  unsigned length) {

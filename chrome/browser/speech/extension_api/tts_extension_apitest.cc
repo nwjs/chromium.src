@@ -28,12 +28,14 @@
 #include "extensions/browser/extension_host_test_helper.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/common/mojom/view_type.mojom.h"
+#include "extensions/test/extension_test_message_listener.h"
 #include "net/base/network_change_notifier.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/speech/extension_api/tts_engine_extension_observer_chromeos.h"
+#include "chrome/browser/speech/extension_api/tts_engine_extension_observer_chromeos_factory.h"
 #include "chromeos/services/tts/tts_service.h"
 #endif  // IS_CHROMEOS_ASH
 
@@ -305,7 +307,7 @@ class TtsApiTest : public ExtensionApiTest,
 
   void AddNetworkSpeechSynthesisExtension() {
     ExtensionHostTestHelper host_helper(profile());
-    host_helper.RestrictToType(mojom::ViewType::kOffscreenDocument);
+    host_helper.RestrictToType(mojom::ViewType::kExtensionBackgroundPage);
     ExtensionService* service =
         extensions::ExtensionSystem::Get(profile())->extension_service();
     service->component_loader()->AddNetworkSpeechSynthesisExtension();
@@ -629,6 +631,26 @@ IN_PROC_BROWSER_TEST_P(TtsApiTest, PRE_VoicesAreCached) {
   EXPECT_TRUE(HasVoiceWithName("Dynamic Voice 2"));
 }
 
+IN_PROC_BROWSER_TEST_P(TtsApiTest, LanguageInstallRequestEmitsEvent) {
+  ASSERT_TRUE(StartEmbeddedTestServer());
+
+  ExtensionTestMessageListener validate_lang_param_listener("lang:en");
+  ExtensionTestMessageListener validate_requestor_param_listener(
+      "requestor.id:client ID, requestor.source:chromefeature");
+
+  const Extension* extension = LoadExtension(
+      test_data_dir_.AppendASCII("tts_engine/language_install_request"));
+  ASSERT_TRUE(extension);
+
+  content::TtsController::GetInstance()->InstallLanguageRequest(
+      profile(), /* lang= */ "en", /* client_id= */ "client ID",
+      /* source= */
+      static_cast<int>(tts_engine_events::TtsClientSource::CHROMEFEATURE));
+
+  ASSERT_TRUE(validate_lang_param_listener.WaitUntilSatisfied());
+  ASSERT_TRUE(validate_requestor_param_listener.WaitUntilSatisfied());
+}
+
 IN_PROC_BROWSER_TEST_P(TtsApiTest, VoicesAreCached) {
   // Make sure the dynamically loaded voices are available even though
   // the extension didn't "run". Note that the voices might not be available
@@ -647,7 +669,7 @@ IN_PROC_BROWSER_TEST_P(TtsApiTest, VoicesAreCached) {
 IN_PROC_BROWSER_TEST_P(TtsApiTest, OnSpeakWithAudioStream) {
   TtsExtensionEngine::GetInstance()->DisableBuiltInTTSEngineForTesting();
   TtsEngineExtensionObserverChromeOS* engine_observer =
-      TtsEngineExtensionObserverChromeOS::GetInstance(profile());
+      TtsEngineExtensionObserverChromeOSFactory::GetForProfile(profile());
   mojo::Remote<chromeos::tts::mojom::TtsService>* tts_service_remote =
       engine_observer->tts_service_for_testing();
   chromeos::tts::TtsService tts_service(
@@ -663,7 +685,7 @@ IN_PROC_BROWSER_TEST_P(TtsApiTest, OnSpeakWithAudioStream) {
 IN_PROC_BROWSER_TEST_P(TtsApiTest, OnSpeakWithAudioStreamAudioOptions) {
   TtsExtensionEngine::GetInstance()->DisableBuiltInTTSEngineForTesting();
   TtsEngineExtensionObserverChromeOS* engine_observer =
-      TtsEngineExtensionObserverChromeOS::GetInstance(profile());
+      TtsEngineExtensionObserverChromeOSFactory::GetForProfile(profile());
   mojo::Remote<chromeos::tts::mojom::TtsService>* tts_service_remote =
       engine_observer->tts_service_for_testing();
   chromeos::tts::TtsService tts_service(

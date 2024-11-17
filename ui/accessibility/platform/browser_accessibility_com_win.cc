@@ -1059,6 +1059,7 @@ IFACEMETHODIMP BrowserAccessibilityComWin::get_nodeInfo(
 
 // ISimpleDOMNode::get_attributes()
 // Returns HTML attributes -- not text attributes!
+// TODO(accessibility) Remove a few years after JAWS screen readers stops using.
 IFACEMETHODIMP BrowserAccessibilityComWin::get_attributes(USHORT max_attribs,
                                                           BSTR* attrib_names,
                                                           SHORT* name_space_id,
@@ -1074,25 +1075,36 @@ IFACEMETHODIMP BrowserAccessibilityComWin::get_attributes(USHORT max_attribs,
   if (!attrib_names || !name_space_id || !attrib_values || !num_attribs)
     return E_INVALIDARG;
 
-  *num_attribs = max_attribs;
-  if (*num_attribs > GetOwner()->GetHtmlAttributes().size()) {
-    *num_attribs = GetOwner()->GetHtmlAttributes().size();
+#define ADD_ATTRIBUTE(name, value)                                          \
+  if (index < max_attribs) {                                                \
+    attrib_names[index] = SysAllocString(base::UTF8ToWide(name).c_str());   \
+    attrib_values[index] = SysAllocString(base::UTF8ToWide(value).c_str()); \
+    ++index;                                                                \
   }
 
-  for (USHORT i = 0; i < *num_attribs; ++i) {
-    const std::string& attribute = GetOwner()->GetHtmlAttributes()[i].first;
-    // Work around JAWS crash in JAWS <= 17, and unpatched versions of JAWS
-    // 2018/2019.
-    // TODO(accessibility) Remove once JAWS <= 17 is no longer a concern.
-    // Wait until 2021 for this, as JAWS users are slow to update.
-    if (attribute == "srcdoc" || attribute == "data-srcdoc")
-      continue;
-
-    attrib_names[i] = SysAllocString(base::UTF8ToWide(attribute).c_str());
-    name_space_id[i] = 0;
-    attrib_values[i] = SysAllocString(
-        base::UTF8ToWide(GetOwner()->GetHtmlAttributes()[i].second).c_str());
+  // Add computed attributes first.
+  USHORT index = 0;
+  if (int max_length =
+          GetOwner()->GetIntAttribute(ax::mojom::IntAttribute::kMaxLength)) {
+    ADD_ATTRIBUTE("maxlength", base::NumberToString(max_length));
   }
+
+  // JAWS 2024 and earlier use aria-label directly.
+  // Do not use on image, where kAttribute is used for "alt".
+  if (GetOwner()->GetData().GetNameFrom() == ax::mojom::NameFrom::kAttribute &&
+      !ui::IsImage(GetOwner()->GetRole())) {
+    ADD_ATTRIBUTE("aria-label", GetOwner()->GetStringAttribute(
+                                    ax::mojom::StringAttribute::kName));
+  }
+
+  // Next add serialized attributes.
+  const auto& serialized_attrs = GetOwner()->GetHtmlAttributes();
+  for (const auto& serialized_attr : serialized_attrs) {
+    ADD_ATTRIBUTE(serialized_attr.first, serialized_attr.second);
+  }
+
+  *num_attribs = index;
+
   return S_OK;
 }
 
@@ -1103,34 +1115,7 @@ IFACEMETHODIMP BrowserAccessibilityComWin::get_attributesForNames(
     BSTR* attrib_names,
     SHORT* name_space_id,
     BSTR* attrib_values) {
-  WIN_ACCESSIBILITY_API_TRACE_EVENT("get_attributesForNames");
-  WIN_ACCESSIBILITY_API_HISTOGRAM(UMA_API_GET_ATTRIBUTES_FOR_NAMES);
-  AddAccessibilityModeFlags(kScreenReaderAccessibilityMode | AXMode::kHTML);
-  if (!GetOwner()) {
-    return E_FAIL;
-  }
-
-  if (!attrib_names || !name_space_id || !attrib_values)
-    return E_INVALIDARG;
-
-  for (USHORT i = 0; i < num_attribs; ++i) {
-    name_space_id[i] = 0;
-    bool found = false;
-    std::string name = base::WideToUTF8((LPCWSTR)attrib_names[i]);
-    for (unsigned int j = 0; j < GetOwner()->GetHtmlAttributes().size(); ++j) {
-      if (GetOwner()->GetHtmlAttributes()[j].first == name) {
-        attrib_values[i] = SysAllocString(
-            base::UTF8ToWide(GetOwner()->GetHtmlAttributes()[j].second)
-                .c_str());
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
-      attrib_values[i] = NULL;
-    }
-  }
-  return S_OK;
+  return E_NOTIMPL;
 }
 
 IFACEMETHODIMP BrowserAccessibilityComWin::get_computedStyle(
@@ -1139,31 +1124,10 @@ IFACEMETHODIMP BrowserAccessibilityComWin::get_computedStyle(
     BSTR* style_properties,
     BSTR* style_values,
     USHORT* num_style_properties) {
-  WIN_ACCESSIBILITY_API_TRACE_EVENT("get_computedStyle");
+  // JAWS/NVDA no longer use this (and we only supported "display" property,
+  // which is also exposed via the "display" object attribute).
   WIN_ACCESSIBILITY_API_HISTOGRAM(UMA_API_GET_COMPUTED_STYLE);
-  AddAccessibilityModeFlags(kScreenReaderAccessibilityMode);
-  if (!GetOwner()) {
-    return E_FAIL;
-  }
-
-  if (!style_properties || !style_values)
-    return E_INVALIDARG;
-
-  // We only cache a single style property for now: DISPLAY
-
-  std::u16string display;
-  if (max_style_properties == 0 ||
-      !GetOwner()->GetString16Attribute(ax::mojom::StringAttribute::kDisplay,
-                                        &display)) {
-    *num_style_properties = 0;
-    return S_OK;
-  }
-
-  *num_style_properties = 1;
-  style_properties[0] = SysAllocString(L"display");
-  style_values[0] = SysAllocString(base::as_wcstr(display));
-
-  return S_OK;
+  return E_NOTIMPL;
 }
 
 IFACEMETHODIMP BrowserAccessibilityComWin::get_computedStyleForProperties(
@@ -1171,31 +1135,10 @@ IFACEMETHODIMP BrowserAccessibilityComWin::get_computedStyleForProperties(
     boolean use_alternate_view,
     BSTR* style_properties,
     BSTR* style_values) {
-  WIN_ACCESSIBILITY_API_TRACE_EVENT("get_computedStyleForProperties");
+  // JAWS/NVDA no longer use this (and we only supported "display" property,
+  // which is also exposed via the "display" object attribute).
   WIN_ACCESSIBILITY_API_HISTOGRAM(UMA_API_GET_COMPUTED_STYLE_FOR_PROPERTIES);
-  AddAccessibilityModeFlags(kScreenReaderAccessibilityMode);
-  if (!GetOwner()) {
-    return E_FAIL;
-  }
-
-  if (!style_properties || !style_values)
-    return E_INVALIDARG;
-
-  // We only cache a single style property for now: DISPLAY
-
-  for (USHORT i = 0; i < num_style_properties; ++i) {
-    std::u16string name =
-        base::ToLowerASCII(base::as_u16cstr(style_properties[i]));
-    if (name == u"display") {
-      std::u16string display = GetOwner()->GetString16Attribute(
-          ax::mojom::StringAttribute::kDisplay);
-      style_values[i] = SysAllocString(base::as_wcstr(display));
-    } else {
-      style_values[i] = NULL;
-    }
-  }
-
-  return S_OK;
+  return E_NOTIMPL;
 }
 
 IFACEMETHODIMP BrowserAccessibilityComWin::scrollTo(boolean placeTopLeft) {
@@ -1356,11 +1299,12 @@ IFACEMETHODIMP BrowserAccessibilityComWin::get_innerHTML(BSTR* innerHTML) {
   }
   if (GetOwner()->GetRole() != ax::mojom::Role::kMath &&
       GetOwner()->GetRole() != ax::mojom::Role::kMathMLMath) {
+    // TODO(nektar): Make sure we only get calls for Math nodes.
     return E_NOTIMPL;
   }
 
-  std::u16string inner_html =
-      GetOwner()->GetString16Attribute(ax::mojom::StringAttribute::kInnerHtml);
+  std::u16string inner_html = GetOwner()->GetString16Attribute(
+      ax::mojom::StringAttribute::kMathContent);
   *innerHTML = SysAllocString(base::as_wcstr(inner_html));
   DCHECK(*innerHTML);
   return S_OK;

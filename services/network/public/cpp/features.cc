@@ -99,7 +99,7 @@ BASE_FEATURE(kCrossOriginOpenerPolicyByDefault,
 // https://github.com/whatwg/html/pull/10394
 BASE_FEATURE(kCoopNoopenerAllowPopups,
              "CoopNoopenerAllowPopups",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Introduce a new COOP value: restrict-properties. It restricts window
 // properties that can be accessed by other pages. This also grants
@@ -449,7 +449,7 @@ const base::FeatureParam<bool> kSkipTpcdMitigationsForAdsTopLevelTrial{
 // Avoids copying ResourceRequest when possible.
 BASE_FEATURE(kAvoidResourceRequestCopies,
              "AvoidResourceRequestCopies",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables Document-Isolation-Policy (DIP).
 // https://github.com/explainers-by-googlers/document-isolation-policy
@@ -457,16 +457,42 @@ BASE_FEATURE(kDocumentIsolationPolicy,
              "DocumentIsolationPolicy",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// This feature enables the Prefetch() method on the NetworkContext, and the
-// PrefetchMatchingURLLoaderFactory.
+// This feature enables the Prefetch() method on the NetworkContext, and makes
+// the PrefetchMatchingURLLoaderFactory check the match quality.
 BASE_FEATURE(kNetworkContextPrefetch,
              "NetworkContextPrefetch",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
 // How many prefetches should be cached before old ones are evicted. This
 // provides rough control over the overall memory used by prefetches.
 const base::FeatureParam<int> kNetworkContextPrefetchMaxLoaders{
     &kNetworkContextPrefetch,
     /*name=*/"max_loaders", /*default_value=*/10};
+
+// When "NetworkContextPrefetchUseMatches" is disabled, how long to leave a
+// matched cache entry alive before deleting it. This corresponds to the
+// expected maximum time it will take for a request to reach the HttpCache once
+// it has been initiated. Since it may be delayed by the ResourceScheduler, give
+// the delay is quite large.
+//
+// Why not shorter: the request from the render process may be delayed by the
+// ResourceScheduler.
+//
+// Why not longer: If the prefetch has not yet received response headers, it
+// has an exclusive cache lock. The real request from the render process
+// cannot proceed until the cache lock is released. If the response turns out
+// to be uncacheable, then this time is pure waste.
+const base::FeatureParam<base::TimeDelta> kNetworkContextPrefetchEraseGraceTime{
+    &kNetworkContextPrefetch, /*name=*/"erase_grace_time",
+    /*default_value=*/base::Seconds(1)};
+
+// This feature makes the matching fetches performed by the Prefetch() actually
+// be consumed directly by renderers. When this is disabled, the disk cache
+// entry may be reused but the original URLLoader is cancelled. Does nothing
+// unless "NetworkContextPrefetch" is also enabled.
+BASE_FEATURE(kNetworkContextPrefetchUseMatches,
+             "NetworkContextPrefetchUseMatches",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // This feature enables treating 0.0.0.0/8 as the public address space instead
 // of private or local. This is a killswitch for a tightening of a loophole in
@@ -479,7 +505,7 @@ BASE_FEATURE(kTreatNullIPAsPublicAddressSpace,
 // resource request only if the request includes a DevTools request id.
 BASE_FEATURE(kCloneDevToolsConnectionOnlyIfRequested,
              "CloneDevToolsConnectionOnlyIfRequested",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kStorageAccessHeaders,
              "StorageAccessHeaders",

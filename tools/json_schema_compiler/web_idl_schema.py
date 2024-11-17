@@ -95,43 +95,64 @@ def GetExtendedAttributes(node: IDLNode) -> Optional[List[IDLNode]]:
 class Type:
   """Represents an IDL type and maps it to the corresponding python type.
 
-  Given a Type node representing the type of a dictionary member, function
-  parameter or return, converts it into a Python dictionary the JSON schema
-  compiler expects to see.
+  Given an IDLNode, looks for a Type node on it representing the type of a
+  dictionary member, function parameter or return and converts it into a Python
+  dictionary the JSON schema compiler expects.
 
   Attributes:
     node: The IDLNode that represents this type.
-    additional_properties: A dictionary of additional key value pairs to be
-      included on the resulting dictionary after processing.
+    name: The name of the node this type was on.
   """
 
-  def __init__(self, node: IDLNode, additional_properties: dict) -> None:
-    assert node.GetClass() == 'Type', node.GetLogLine(
-        'Attempted to process a "Type" node, but was passed a "%s" node.' %
-        (node.GetClass()))
-    self.node = node
-    self.additional_properties = additional_properties
+  def __init__(self, node: IDLNode) -> None:
+    type_node = node.GetOneOf('Type')
+    assert type_node is not None, type_node.GetLogLine(
+        'Could not find Type node on IDLNode named: %s.' % (node.GetName()))
+    self.node = type_node
+    self.name = node.GetName()
+    self.optional = node.GetProperty('OPTIONAL')
 
   def process(self) -> dict:
-    properties = self.additional_properties
-    basic_type = self.node.GetOneOf('PrimitiveType', 'StringType')
-    if basic_type:
-      name = basic_type.GetName()
-      if name == 'void':
+    properties = OrderedDict()
+    # TODO(crbug.com/340297705): Add support for extended attributes on types.
+    # TODO(crbug.com/340297705): Add processing of comments to descriptions on
+    #                            types.
+    properties['name'] = self.name
+    # We consider both nullable properties on types or arguments marked as
+    # optional as being "optional" in the schema compiler's logic.
+    if self.node.GetProperty('NULLABLE') or self.optional:
+      properties['optional'] = True
+
+    # The Type node will have a single child, where the class and name
+    # determines the underlying type it represents. This may be a fundamental
+    # type or a custom type.
+    # TODO(crbug.com/340297705): Add support for more types.
+    type_details = self.node.GetChildren()[0]
+    if type_details.IsA('PrimitiveType', 'StringType'):
+      # For fundamental types we translate the name of the node into the
+      # corresponding python type.
+      type_name = type_details.GetName()
+      if type_name == 'void':
         # If it's a void return, we bail early.
         return None
 
-      if name == 'boolean':
+      if type_name == 'boolean':
         properties['type'] = 'boolean'
-      elif name == 'double':
+      elif type_name == 'double':
         properties['type'] = 'number'
-      elif name == 'long':
+      elif type_name == 'long':
         properties['type'] = 'integer'
-      elif name == 'DOMString':
+      elif type_name == 'DOMString':
         properties['type'] = 'string'
       else:
         raise SchemaCompilerError(
-            'Unsupported basic type found when processing type.', basic_type)
+            'Unsupported basic type found when processing type.', type_details)
+    elif type_details.IsA('Typeref'):
+      # For custom types the name indicates the underlying referenced
+      # type.
+      # TODO(crbug.com/340297705): We should verify this ref name is actually a
+      # custom type we have parsed from the IDL.
+      properties['$ref'] = type_details.GetName()
     else:
       unknown_child = self.node.GetChildren()[0]
       raise SchemaCompilerError('Unsupported type class when processing type.',
@@ -158,13 +179,46 @@ class Operation:
     properties = OrderedDict()
     properties['name'] = self.node.GetName()
 
+    parameters = []
+    arguments_node = self.node.GetOneOf('Arguments')
+    for argument in arguments_node.GetListOf('Argument'):
+      parameters.append(Type(argument).process())
+    properties['parameters'] = parameters
+
     # Return type processing.
-    type_node = self.node.GetOneOf('Type')
-    return_type = Type(type_node, {'name': self.node.GetName()}).process()
+    # TODO(crbug.com/340297705): Add support for turning a Promise return into a
+    # returns_async property.
+    return_type = Type(self.node).process()
     if return_type is not None:
       properties['returns'] = return_type
 
     return properties
+
+
+class Dictionary:
+  """Represents an API type and processes the details of it.
+
+  Given an IDLNode of class Dictionary, converts it into a Python dictionary
+  representing a custom "type" for the API.
+
+  Attributes:
+    node: The IDLNode for the Dictionary definition that represents this type.
+  """
+
+  def __init__(self, node: IDLNode) -> None:
+    self.node = node
+
+  def process(self) -> dict:
+    properties = OrderedDict()
+    for property_node in self.node.GetListOf('Key'):
+      properties[property_node.GetName()] = Type(property_node).process()
+
+    result = {
+        'id': self.node.GetName(),
+        'properties': properties,
+        'type': 'object'
+    }
+    return result
 
 
 class Namespace:
@@ -193,9 +247,16 @@ class Namespace:
 
   def process(self) -> dict:
     functions = []
+    types = []
 
     for node in self.namespace.GetListOf('Operation'):
       functions.append(Operation(node).process())
+
+    # Types are defined as dictionaries at the top level of the IDL file, which
+    # are found on the parent node of the Interface being processed for this
+    # namespace.
+    for node in self.namespace.GetParent().GetListOf('Dictionary'):
+      types.append(Dictionary(node).process())
 
     nodoc = 'nodoc' in [
         attribute.GetName()
@@ -205,6 +266,7 @@ class Namespace:
     return {
         'namespace': self.name,
         'functions': functions,
+        'types': types,
         'nodoc': nodoc,
     }
 
@@ -249,7 +311,10 @@ class IDLSchema:
     idl_type = GetTypeName(attributes[0])
 
     namespace_node = GetChildWithName(self.idl, idl_type)
-    namespace = Namespace(api_name, namespace_node)
+    namespace = Namespace(
+        api_name,
+        namespace_node,
+    )
     namespaces.append(namespace.process())
 
     return namespaces

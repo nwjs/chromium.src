@@ -225,11 +225,10 @@ CardUnmaskChallengeOption ParseCardUnmaskChallengeOption(
 }  // namespace
 
 UnmaskCardRequest::UnmaskCardRequest(
-    const PaymentsNetworkInterface::UnmaskRequestDetails& request_details,
+    const UnmaskRequestDetails& request_details,
     const bool full_sync_enabled,
-    base::OnceCallback<
-        void(PaymentsAutofillClient::PaymentsRpcResult,
-             const PaymentsNetworkInterface::UnmaskResponseDetails&)> callback)
+    base::OnceCallback<void(PaymentsAutofillClient::PaymentsRpcResult,
+                            const UnmaskResponseDetails&)> callback)
     : request_details_(request_details),
       full_sync_enabled_(full_sync_enabled),
       callback_(std::move(callback)) {
@@ -358,14 +357,6 @@ std::string UnmaskCardRequest::GetRequestContent() {
             .spec());
     request_dict.Set("virtual_card_request_info",
                      std::move(virtual_card_request_info));
-  }
-
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillEnableMerchantDomainInUnmaskCardRequest) &&
-      request_details_.merchant_domain_for_footprints.has_value()) {
-    request_dict.Set(
-        "merchant_domain",
-        request_details_.merchant_domain_for_footprints->Serialize());
   }
 
   std::string json_request;

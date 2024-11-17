@@ -22,6 +22,7 @@
 #import "ios/chrome/browser/ui/content_suggestions/safety_check/safety_check_consumer_source.h"
 #import "ios/chrome/browser/ui/content_suggestions/safety_check/safety_check_state.h"
 #import "ios/chrome/browser/ui/content_suggestions/safety_check/safety_check_view.h"
+#import "ios/chrome/browser/ui/content_suggestions/set_up_list/constants.h"
 #import "ios/chrome/browser/ui/content_suggestions/set_up_list/set_up_list_config.h"
 #import "ios/chrome/browser/ui/content_suggestions/set_up_list/set_up_list_consumer_source.h"
 #import "ios/chrome/browser/ui/content_suggestions/set_up_list/set_up_list_item_view.h"
@@ -29,6 +30,10 @@
 #import "ios/chrome/browser/ui/content_suggestions/set_up_list/utils.h"
 #import "ios/chrome/browser/ui/content_suggestions/tab_resumption/tab_resumption_item.h"
 #import "ios/chrome/browser/ui/content_suggestions/tab_resumption/tab_resumption_view.h"
+#import "ios/chrome/browser/ui/content_suggestions/tips/tips_module_audience.h"
+#import "ios/chrome/browser/ui/content_suggestions/tips/tips_module_consumer_source.h"
+#import "ios/chrome/browser/ui/content_suggestions/tips/tips_module_state.h"
+#import "ios/chrome/browser/ui/content_suggestions/tips/tips_module_view.h"
 
 @implementation MagicStackModuleContentsFactory
 
@@ -81,6 +86,12 @@
     case ContentSuggestionsModuleType::kSetUpListNotifications: {
       SetUpListConfig* setUpListConfig = static_cast<SetUpListConfig*>(config);
       return [self setUpListViewForConfig:setUpListConfig];
+    }
+    case ContentSuggestionsModuleType::kTipsWithProductImage:
+    case ContentSuggestionsModuleType::kTips: {
+      TipsModuleState* tipsConfig = static_cast<TipsModuleState*>(config);
+      return [self tipsViewForConfig:tipsConfig
+                 contentViewDelegate:contentViewDelegate];
     }
     default:
       NOTREACHED();
@@ -176,7 +187,22 @@
     view.commandHandler = config.commandHandler;
     [compactedSetUpListViews addObject:view];
   }
-  return [[MultiRowContainerView alloc] initWithViews:compactedSetUpListViews];
+  UIView* view =
+      [[MultiRowContainerView alloc] initWithViews:compactedSetUpListViews];
+  view.accessibilityIdentifier = set_up_list::kSetUpListContainerID;
+  return view;
+}
+
+- (UIView*)tipsViewForConfig:(TipsModuleState*)state
+         contentViewDelegate:
+             (id<MagicStackModuleContentViewDelegate>)contentViewDelegate {
+  TipsModuleView* view = [[TipsModuleView alloc] initWithState:state];
+
+  view.audience = state.audience;
+  view.contentViewDelegate = contentViewDelegate;
+  [state.consumerSource addConsumer:view];
+
+  return view;
 }
 
 @end

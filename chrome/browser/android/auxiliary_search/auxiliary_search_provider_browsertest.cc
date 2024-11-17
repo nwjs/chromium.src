@@ -11,6 +11,7 @@
 #include "chrome/browser/android/persisted_tab_data/persisted_tab_data_android.h"
 #include "chrome/browser/android/persisted_tab_data/sensitivity_persisted_tab_data_android.h"
 #include "chrome/browser/android/tab_android.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
@@ -44,8 +45,8 @@ class AuxiliarySearchProviderBrowserTest : public AndroidBrowserTest {
     ASSERT_TRUE(content::NavigateToURL(
         web_contents(),
         embedded_test_server()->GetURL("/android/google.html")));
-    auxiliary_search_provider_ =
-        std::make_unique<AuxiliarySearchProvider>(profile());
+    auxiliary_search_provider_ = std::make_unique<AuxiliarySearchProvider>(
+        BookmarkModelFactory::GetForBrowserContext(profile()));
     PersistedTabDataAndroid::OnDeferredStartup();
     content::RunAllTasksUntilIdle();
   }
@@ -87,14 +88,14 @@ IN_PROC_BROWSER_TEST_F(AuxiliarySearchProviderBrowserTest, QuerySensitiveTab) {
       CreateOneTab(true);
 
   provider()->GetNonSensitiveTabsInternal(
-      tab_vec, base::BindOnce(
-                   [](base::OnceClosure done,
-                      std::unique_ptr<std::vector<base::WeakPtr<TabAndroid>>>
-                          non_Sensitive_tab) {
-                     EXPECT_EQ(0u, non_Sensitive_tab->size());
-                     std::move(done).Run();
-                   },
-                   run_loop.QuitClosure()));
+      tab_vec,
+      base::BindOnce(
+          [](base::OnceClosure done,
+             std::vector<base::WeakPtr<TabAndroid>> non_sensitive_tabs) {
+            EXPECT_EQ(0u, non_sensitive_tabs.size());
+            std::move(done).Run();
+          },
+          run_loop.QuitClosure()));
   run_loop.Run();
 }
 
@@ -116,14 +117,14 @@ IN_PROC_BROWSER_TEST_F(AuxiliarySearchProviderBrowserTest,
   tab_vec.push_back(second_tab);
 
   provider()->GetNonSensitiveTabsInternal(
-      tab_vec, base::BindOnce(
-                   [](base::OnceClosure done,
-                      std::unique_ptr<std::vector<base::WeakPtr<TabAndroid>>>
-                          non_sensitive_tab) {
-                     EXPECT_EQ(2u, non_sensitive_tab->size());
-                     std::move(done).Run();
-                   },
-                   run_loop.QuitClosure()));
+      tab_vec,
+      base::BindOnce(
+          [](base::OnceClosure done,
+             std::vector<base::WeakPtr<TabAndroid>> non_sensitive_tabs) {
+            EXPECT_EQ(2u, non_sensitive_tabs.size());
+            std::move(done).Run();
+          },
+          run_loop.QuitClosure()));
   run_loop.Run();
 }
 
@@ -155,15 +156,15 @@ IN_PROC_BROWSER_TEST_F(AuxiliarySearchProviderBrowserTest,
   tab_vec.push_back(third_tab);
 
   provider()->GetNonSensitiveTabsInternal(
-      tab_vec, base::BindOnce(
-                   [](base::OnceClosure done,
-                      std::unique_ptr<std::vector<base::WeakPtr<TabAndroid>>>
-                          non_sensitive_tab) {
-                     // Only 2 should be here since the flag is set to 2.
-                     EXPECT_EQ(kMaxDonatedTabs, non_sensitive_tab->size());
-                     std::move(done).Run();
-                   },
-                   run_loop.QuitClosure()));
+      tab_vec,
+      base::BindOnce(
+          [](base::OnceClosure done,
+             std::vector<base::WeakPtr<TabAndroid>> non_sensitive_tabs) {
+            // Only 2 should be here since the flag is set to 2.
+            EXPECT_EQ(kMaxDonatedTabs, non_sensitive_tabs.size());
+            std::move(done).Run();
+          },
+          run_loop.QuitClosure()));
   run_loop.Run();
 }
 
@@ -174,9 +175,8 @@ IN_PROC_BROWSER_TEST_F(AuxiliarySearchProviderBrowserTest, QueryEmptyTabList) {
       std::vector<raw_ptr<TabAndroid, VectorExperimental>>(),
       base::BindOnce(
           [](base::OnceClosure done,
-             std::unique_ptr<std::vector<base::WeakPtr<TabAndroid>>>
-                 non_sensitive_tab) {
-            EXPECT_EQ(0u, non_sensitive_tab->size());
+             std::vector<base::WeakPtr<TabAndroid>> non_sensitive_tabs) {
+            EXPECT_EQ(0u, non_sensitive_tabs.size());
             std::move(done).Run();
           },
           run_loop.QuitClosure()));
@@ -191,14 +191,14 @@ IN_PROC_BROWSER_TEST_F(AuxiliarySearchProviderBrowserTest, NativeTabTest) {
       CreateOneTab(false);
 
   provider()->GetNonSensitiveTabsInternal(
-      tab_vec, base::BindOnce(
-                   [](base::OnceClosure done,
-                      std::unique_ptr<std::vector<base::WeakPtr<TabAndroid>>>
-                          non_Sensitive_tab) {
-                     EXPECT_EQ(0u, non_Sensitive_tab->size());
-                     std::move(done).Run();
-                   },
-                   run_loop.QuitClosure()));
+      tab_vec,
+      base::BindOnce(
+          [](base::OnceClosure done,
+             std::vector<base::WeakPtr<TabAndroid>> non_sensitive_tabs) {
+            EXPECT_EQ(0u, non_sensitive_tabs.size());
+            std::move(done).Run();
+          },
+          run_loop.QuitClosure()));
   run_loop.Run();
 }
 
@@ -218,8 +218,7 @@ IN_PROC_BROWSER_TEST_F(AuxiliarySearchProviderBrowserTest, FilterTabsTest) {
     std::vector<raw_ptr<TabAndroid, VectorExperimental>> tab_vec =
         CreateOneTab(false);
 
-    std::vector<base::WeakPtr<TabAndroid>> filtered_tabs =
-        AuxiliarySearchProvider::FilterTabsByScheme(tab_vec);
-    EXPECT_EQ(test_case.should_be_filtered ? 0u : 1u, filtered_tabs.size());
+    AuxiliarySearchProvider::FilterTabsByScheme(tab_vec);
+    EXPECT_EQ(test_case.should_be_filtered ? 0u : 1u, tab_vec.size());
   }
 }

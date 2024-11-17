@@ -164,7 +164,7 @@ void InlineBoxState::ComputeTextMetrics(const ComputedStyle& styleref,
   include_used_fonts = styleref.LineHeight().IsAuto();
 }
 
-void InlineBoxState::AdjustEdges(const ComputedStyle& style,
+void InlineBoxState::AdjustEdges(const TextBoxEdge text_box_edge,
                                  const Font& font,
                                  FontBaseline baseline_type,
                                  bool should_apply_over,
@@ -176,7 +176,6 @@ void InlineBoxState::AdjustEdges(const ComputedStyle& style,
     return;
   }
   const FontMetrics& font_metrics = font_data->GetFontMetrics();
-  const TextBoxEdge text_box_edge = style.GetTextBoxEdge();
   if (should_apply_over) {
     switch (text_box_edge.Over()) {
       case TextBoxEdge::Type::kAuto:
@@ -1091,7 +1090,7 @@ InlineLayoutStateStack::ApplyBaselineShift(InlineBoxState* box,
             baseline_shift = text_bottom - child.metrics.descent;
             break;
           }
-          NOTREACHED_IN_MIGRATION();
+          DUMP_WILL_BE_NOTREACHED();
           break;
         case EVerticalAlign::kTop:
         case EVerticalAlign::kBottom:

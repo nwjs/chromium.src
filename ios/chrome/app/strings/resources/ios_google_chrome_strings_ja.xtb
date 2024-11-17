@@ -2,6 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="ja">
 <translation id="1066101356081285416">Chrome はアクセスしたサイトで追跡番号を検出し、新しいタブページに最新情報を表示します。荷物追跡番号とウェブサイト名は、この機能の提供と Google ショッピング機能の改善を目的として、Google に送信されます。この設定は<ph name="BEGIN_LINK" />荷物追跡設定<ph name="END_LINK" />でいつでも変更できます。</translation>
+<translation id="1086486568852410168">Google レンズで検索</translation>
 <translation id="1143896152279775643">パスワードは、<ph name="EMAIL" /> の Google パスワード マネージャーに保存されます。</translation>
 <translation id="1146503048444965320">Chrome で新しいタブを開く</translation>
 <translation id="1166460004393506534">Chrome の閲覧履歴データを削除する</translation>
@@ -38,6 +39,7 @@
 <translation id="1670609221633730681">Chrome のヒント: アドレスバーの位置を選択</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1790080846677398234">入力した URL を Chrome のブックマークに追加します。</translation>
+<translation id="1799920918471566157">Chrome を使いこなすヒント</translation>
 <translation id="1830634592642484976">この住所は現在、Chrome に保存されています。Google サービス全体で使用するには、Google アカウント（<ph name="USER_EMAIL" />）に保存してください。</translation>
 <translation id="1917964099031477364">このアカウントと保存されていないデータは、Chrome やこのデバイスの他の Google アプリから削除されます。</translation>
 <translation id="1919130412786645364">Chrome へのログインを許可する</translation>
@@ -70,6 +72,7 @@
 <translation id="2689064829982324496">すべてのウェブサイトで Google アカウントからログアウトするには、<ph name="BEGIN_LINK" />Chrome からログアウト<ph name="END_LINK" />します。</translation>
 <translation id="2695886661449553974">Chrome でアップデートを確認できませんでした。しばらくしてからもう一度お試しください。</translation>
 <translation id="2703746758996815929">Chrome を使いこなすヒントを受け取るには、iOS の設定で通知をオンにしてください。</translation>
+<translation id="2728851697704606655">Google レンズを使用して翻訳</translation>
 <translation id="2736805085127235148">現在、デバイスの設定で Chrome の通知がオフになっています。</translation>
 <translation id="2754428955276778271">Chrome データの一部が Google アカウントにまだ保存されていません。
 
@@ -247,6 +250,7 @@ Chrome を使いやすくするためにデータを使用するその他の設�
 <translation id="7581063337314642333">Chrome でタブグリッドにアクセス</translation>
 <translation id="7599894504325210080">Chrome の自動入力拡張ビュー</translation>
 <translation id="7642373780953416937">Chrome で自動的に検出されたプライバシーとセキュリティの問題がある場合は、アラートが表示されます。</translation>
+<translation id="7660356333829433649">Chrome を最大限に活用するヒントをこちらで随時ご紹介します。</translation>
 <translation id="7662994914830945754">どのデバイスからでも Chrome で自分のタブにアクセスするには、ログインして同期をオンにしてください</translation>
 <translation id="7693590760643069321">メッセージ、ドキュメント、他のアプリのリンクをタップしたときに、常に Chrome が使えるようになります。</translation>
 <translation id="7698568245838009292">Chrome がカメラへのアクセス許可を求めています</translation>
@@ -257,10 +261,12 @@ Chrome を使いやすくするためにデータを使用するその他の設�
 <translation id="778855399387580014">新しい Chrome タブで検索を開始します。</translation>
 <translation id="7792140019572081272">Chrome では、Face ID を使用してセンシティブ データを保護します。</translation>
 <translation id="7855730255114109580">Google Chrome は最新版です</translation>
+<translation id="7861998090118873450">Chrome にパスワードを保存</translation>
 <translation id="7897703007638178753">Chrome で最近使ったタブを表示</translation>
 <translation id="7948283758957877064">Chrome の新機能</translation>
 <translation id="8000174216052461231">Chrome のヒント: Chromium の厳重なセキュリティ機能で保護</translation>
 <translation id="8006014511203279255">メッセージや他のアプリ内でリンクをタップしたときに、常に Chrome で開くよう設定できます。</translation>
+<translation id="8014670471808569312">Chrome でパスワードの保存を確認するメッセージが表示されます。</translation>
 <translation id="8018153653741938705">Google Chrome でいつでも安心</translation>
 <translation id="8022947259858476807">Chrome を既定に設定すると、リンクの表示やウィジェットからの検索、他のアプリへのパスワード自動入力に使用できるようになります</translation>
 <translation id="804638182476029347">Chrome の通知設定で値下げアラートの受信を許可する</translation>
@@ -292,6 +298,7 @@ Chrome を使いやすくするためにデータを使用するその他の設�
 <translation id="8558480467877843976">ブラウジングするときや、メッセージ、ドキュメント、他のアプリのリンクをタップしたときに、常に Chrome が使えるようになります。</translation>
 <translation id="8603022514504485810">Google パスワード マネージャーですべてのパスワードを確認できませんでした。明日もう一度お試しいただくか、<ph name="BEGIN_LINK" />Google アカウント内のパスワードをご確認ください<ph name="END_LINK" />。</translation>
 <translation id="8630122478628016441">[Chrome を終了するときにシークレット タブをロックする] をオンにする。</translation>
+<translation id="8673726683583791503">Google レンズを使用して購入</translation>
 <translation id="8727043961453758442">Chrome を最大限に活用</translation>
 <translation id="8765470054473112089">Chrome でアドレスバーや検索ボックスに入力を始めると、入力内容がデフォルトの検索エンジンに送信され、より関連性の高い検索候補が表示されます。シークレット モードの場合、この設定はオフになっています。</translation>
 <translation id="8772179140489533211">Chrome へのログインを促すメッセージが表示されます。</translation>

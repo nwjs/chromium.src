@@ -6,10 +6,10 @@
 
 #include <string_view>
 
+#include "ash/constants/web_app_id_constants.h"
 #include "base/containers/contains.h"
 #include "base/no_destructor.h"
 #include "base/strings/string_util.h"
-#include "chrome/browser/web_applications/web_app_id_constants.h"
 #include "chromeos/constants/chromeos_features.h"
 
 namespace web_app {
@@ -39,7 +39,7 @@ constexpr const char* kMicrosoftOfficeWebAppExperimentDomainScopeExtensions[] =
 bool g_always_enabled_for_testing = false;
 
 bool IsExperimentEnabled(const webapps::AppId& app_id) {
-  return g_always_enabled_for_testing || app_id == kMicrosoft365AppId;
+  return g_always_enabled_for_testing || app_id == ash::kMicrosoft365AppId;
 }
 
 std::optional<std::vector<const char*>>&

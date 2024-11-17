@@ -124,13 +124,16 @@ class AutoPictureInPictureTabHelper
   std::unique_ptr<AutoPipSettingOverlayView>
   CreateOverlayPermissionViewIfNeeded(
       base::OnceClosure close_pip_cb,
-      const gfx::Rect& browser_view_overridden_bounds,
       views::View* anchor_view,
       views::BubbleBorder::Arrow arrow);
 
   // Should be called when the user closes the pip window manually, so that we
   // can keep the auto-pip setting embargo up to date.
   void OnUserClosedWindow();
+
+  // Notification that our tab became active.  This is our signal to close up
+  // any auto-pip window we have open, though there might also not be one.
+  void OnTabBecameActive();
 
  private:
   explicit AutoPictureInPictureTabHelper(content::WebContents* web_contents);
@@ -163,6 +166,10 @@ class AutoPictureInPictureTabHelper
 
   // Returns true if the tab is currently using the camera or microphone.
   bool IsUsingCameraOrMicrophone() const;
+
+  // Returns true if the tab is currently audible, or was audible
+  // recently.
+  bool WasRecentlyAudible() const;
 
   // Returns the current state of the 'Auto Picture-in-Picture' content
   // setting for the current website of the observed WebContents.

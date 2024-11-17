@@ -13,6 +13,8 @@
 #include "base/no_destructor.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
+#include "chrome/browser/android/webapk/webapk_sync_service_factory.h"
+#include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/commerce/product_specifications/product_specifications_service_factory.h"
@@ -61,11 +63,13 @@
 #include "chrome/common/buildflags.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_paths.h"
+#include "components/autofill/core/browser/address_data_manager.h"
+#include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
 #include "components/browser_sync/common_controller_builder.h"
 #include "components/password_manager/core/browser/sharing/password_receiver_service.h"
 #include "components/plus_addresses/webdata/plus_address_webdata_service.h"
-#include "components/saved_tab_groups/features.h"
+#include "components/saved_tab_groups/public/features.h"
 #include "components/send_tab_to_self/send_tab_to_self_sync_service.h"
 #include "components/spellcheck/browser/pref_names.h"
 #include "components/sync/base/command_line_switches.h"
@@ -111,7 +115,7 @@
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #elif BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
-#include "components/saved_tab_groups/features.h"
+#include "components/saved_tab_groups/public/features.h"
 #endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) ||
         // BUILDFLAG(IS_WIN)
 
@@ -177,6 +181,12 @@ tab_groups::TabGroupSyncService* GetTabGroupSyncService(Profile* profile) {
         // BUILDFLAG(IS_WIN)
 }
 
+autofill::AddressDataManager* GetAddressDataManager(Profile* profile) {
+  auto* pdm =
+      autofill::PersonalDataManagerFactory::GetForBrowserContext(profile);
+  return pdm ? &pdm->address_data_manager() : nullptr;
+}
+
 syncer::DataTypeController::TypeVector CreateCommonControllers(
     Profile* profile,
     syncer::SyncService* sync_service) {
@@ -202,6 +212,10 @@ syncer::DataTypeController::TypeVector CreateCommonControllers(
 #endif  // DCHECK_IS_ON()
 
   browser_sync::CommonControllerBuilder builder;
+  // A callback is needed here because `autofill::PersonalDataManagerFactory`
+  // already depends on `SyncServiceFactory`.
+  builder.SetAddressDataManagerGetter(
+      base::BindRepeating(&GetAddressDataManager, profile));
   builder.SetAutofillWebDataService(content::GetUIThreadTaskRunner({}),
                                     profile_web_data_service,
                                     account_web_data_service);
@@ -310,7 +324,7 @@ syncer::DataTypeController::TypeVector CreateChromeControllers(
 #if BUILDFLAG(IS_ANDROID)
   builder.SetWebApkSyncService(
       base::FeatureList::IsEnabled(syncer::kWebApkBackupAndRestoreBackend)
-          ? webapk::WebApkSyncService::GetForProfile(profile)
+          ? webapk::WebApkSyncServiceFactory::GetForProfile(profile)
           : nullptr);
 #endif  // BUILDFLAG(IS_ANDROID)
 

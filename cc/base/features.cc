@@ -12,6 +12,13 @@
 
 namespace features {
 
+// When enabled, this forces composited textures for SurfaceLayerImpls to be
+// aligned to the pixel grid. Lack of alignment can lead to blur, noticeably so
+// in text. https://crbug.com/359279545
+BASE_FEATURE(kAlignSurfaceLayerImplToPixelGrid,
+             "AlignSurfaceLayerImplToPixelGrid",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Uses the Resume method instead of the Catch-up method for animated images.
 // - Catch-up behavior tries to keep animated images in pace with wall-clock
 //   time. This might require decoding several animation frames if the
@@ -117,10 +124,6 @@ BASE_FEATURE(kReclaimResourcesDelayedFlushInBackground,
              "ReclaimResourcesDelayedFlushInBackground",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kReducedFrameRateEstimation,
-             "kReducedFrameRateEstimation",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kDetectHiDpiForMsaa,
              "DetectHiDpiForMsaa",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -170,14 +173,6 @@ BASE_FEATURE(kMetricsTracingCalculationReduction,
              "MetricsTracingCalculationReduction",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPaintWithGainmapShader,
-             "PaintWithGainmapShader",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kPaintWithGlobalToneMapFilter,
-             "PaintWithGlobalToneMapFilter",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kMetricsBackfillAdjustmentHoldback,
              "MetricsBackfillAdjustmentHoldback",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -201,7 +196,7 @@ BASE_FEATURE(kWarmUpCompositor,
              "WarmUpCompositor",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kCCSlimming, "CCSlimming", base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kCCSlimming, "CCSlimming", base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsCCSlimmingEnabled() {
   static const bool enabled = base::FeatureList::IsEnabled(kCCSlimming);
@@ -235,5 +230,13 @@ BASE_FEATURE(kThrottleFrameRateOnManyDidNotProduceFrame,
 const base::FeatureParam<int> kNumDidNotProduceFrameBeforeThrottle{
     &kThrottleFrameRateOnManyDidNotProduceFrame,
     "num_did_not_produce_frame_before_throttle", 4};
+
+BASE_FEATURE(kMultipleImplOnlyScrollAnimations,
+             "MultipleImplOnlyScrollAnimations",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+bool MultiImplOnlyScrollAnimationsSupported() {
+  return base::FeatureList::IsEnabled(
+      features::kMultipleImplOnlyScrollAnimations);
+}
 
 }  // namespace features

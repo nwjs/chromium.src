@@ -26,9 +26,11 @@ source_set("configs") {
   configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   deps = [
+    ":webui",
     "//chrome/browser/ui",
     "//components/compose:buildflags",
     "//components/lens:buildflags",
+    "//components/security_interstitials/content:security_interstitial_page",
     "//content/public/browser",
     "//extensions/buildflags:buildflags",
     "//printing/buildflags",
@@ -41,15 +43,17 @@ source_set("configs") {
       "//chrome/browser/ui/lens",
       "//chrome/browser/ui/views/side_panel",
     ]
+
+    if (!is_chromeos) {
+      deps += [ "//chrome/browser/ui/webui/whats_new" ]
+    }
   }
 
-  # Includes Ash Chrome and Lacros Chrome
   if (is_chromeos) {
-    deps += [ "//chromeos/constants" ]
-  }
-
-  if (is_chromeos_ash) {
-    deps += [ "//chrome/browser/ui/webui/ash/config" ]
+    deps += [
+      "//chrome/browser/ui/webui/ash/config",
+      "//chromeos/constants",
+    ]
   }
 }
 
@@ -71,10 +75,6 @@ source_set("webui_util") {
     "//services/network/public/mojom",
     "//ui/resources",
   ]
-
-  if (is_chromeos_lacros) {
-    deps += [ "//chromeos/startup" ]
-  }
 }
 
 source_set("webui") {
@@ -89,6 +89,7 @@ source_set("webui") {
 
   deps = [
     ":webui_url_hashes",
+    "//chrome/common",
     "//extensions/buildflags",
   ]
   if (enable_extensions) {

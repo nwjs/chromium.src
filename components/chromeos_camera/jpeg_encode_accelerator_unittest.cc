@@ -1,15 +1,19 @@
 // Copyright 2018 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
+#include "components/chromeos_camera/jpeg_encode_accelerator.h"
+
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
-
 #include <sys/mman.h>
+
 #include <memory>
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
+#include "base/containers/span.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
@@ -27,7 +31,6 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/chromeos_camera/gpu_jpeg_encode_accelerator_factory.h"
-#include "components/chromeos_camera/jpeg_encode_accelerator.h"
 #include "media/base/color_plane_layout.h"
 #include "media/base/test_data_util.h"
 #include "media/gpu/buildflags.h"
@@ -219,7 +222,7 @@ void JpegEncodeAcceleratorTestEnvironment::LogToFile(const std::string& key,
   std::string s = base::StringPrintf("%s: %s\n", key.c_str(), value.c_str());
   LOG(INFO) << s;
   if (log_file_) {
-    log_file_->WriteAtCurrentPos(s.data(), static_cast<int>(s.length()));
+    log_file_->WriteAtCurrentPos(base::as_byte_span(s));
   }
 }
 
@@ -248,11 +251,11 @@ std::unique_ptr<TestImage>
 JpegEncodeAcceleratorTestEnvironment::ReadTestYuvImage(
     const base::FilePath& input_file,
     const gfx::Size& image_size) {
-  int64_t file_size = 0;
-  LOG_ASSERT(GetFileSize(input_file, &file_size));
-  std::vector<uint8_t> image_data(file_size);
+  std::optional<int64_t> file_size = base::GetFileSize(input_file);
+  LOG_ASSERT(file_size.has_value());
+  std::vector<uint8_t> image_data(file_size.value());
   LOG_ASSERT(ReadFile(input_file, reinterpret_cast<char*>(image_data.data()),
-                      file_size) == file_size);
+                      file_size.value()) == file_size.value());
 
   base::FilePath output_filename = input_file.AddExtension(".jpg");
   return std::make_unique<TestImage>(std::move(image_data), image_size,
@@ -370,7 +373,7 @@ JpegClient::JpegClient(const std::vector<TestImage*>& test_aligned_images,
       exif_size_(exif_size),
       gpu_memory_buffer_manager_(new media::LocalGpuMemoryBufferManager()) {}
 
-JpegClient::~JpegClient() {}
+JpegClient::~JpegClient() = default;
 
 void JpegClient::CreateJpegEncoder() {
   auto jea_factories =
@@ -715,7 +718,7 @@ class JpegEncodeAcceleratorTest : public ::testing::Test {
       delete;
 
  protected:
-  JpegEncodeAcceleratorTest() {}
+  JpegEncodeAcceleratorTest() = default;
 
   void TestEncode(size_t num_concurrent_encoders,
                   bool is_dma,

@@ -83,9 +83,9 @@ Status FocusToElement(
   if (!is_focused) {
     base::Value::List args;
     args.Append(CreateElement(element_id));
-    std::unique_ptr<base::Value> result;
-    status = web_view->CallFunction(
-        session->GetCurrentFrameId(), kFocusScript, args, &result);
+    std::unique_ptr<base::Value> unused;
+    status = web_view->CallFunction(session->GetCurrentFrameId(), kFocusScript,
+                                    args, &unused);
     if (status.IsError())
       return status;
   }
@@ -115,11 +115,11 @@ Status SendKeysToElement(Session* session,
   if (is_text && !was_previously_focused) {
     base::Value::List args;
     args.Append(CreateElement(element_id));
-    std::unique_ptr<base::Value> result;
+    std::unique_ptr<base::Value> unused;
     Status status = web_view->CallFunction(
         session->GetCurrentFrameId(),
         "elem => elem.setSelectionRange(elem.value.length, elem.value.length)",
-        args, &result);
+        args, &unused);
     if (status.IsError())
       return status;
   }
@@ -183,22 +183,28 @@ Status ExecuteGetElementShadowRoot(Session* session,
   base::Value::List args;
   args.Append(CreateElement(element_id));
 
-  Status status = web_view->CallFunction(
-      session->GetCurrentFrameId(),
-      "function(elem) { return elem.shadowRoot; }", args, value);
+  std::unique_ptr<base::Value> tmp;
+
+  CallFunctionOptions options;
+  options.include_shadow_root = true;
+  Status status = web_view->CallFunctionWithTimeout(
+      session->GetCurrentFrameId(), "function(elem) { return elem; }", args,
+      base::TimeDelta::Max(), options, &tmp);
 
   if (status.IsError()) {
-    if (status.message().find("no such shadow root") != std::string::npos) {
-      return Status(kNoSuchShadowRoot);
-    }
-
     return status;
   }
 
-  if (value->get()->is_none()) {
-    return Status(kNoSuchShadowRoot);
+  if (!tmp->is_dict()) {
+    return Status(kNoSuchShadowRoot, "result is not a dictionary");
   }
 
+  base::Value::Dict* shadow_root = tmp->GetDict().FindDict("shadowRoot");
+  if (shadow_root == nullptr) {
+    return Status(kNoSuchShadowRoot, "shadow root not found");
+  }
+
+  *value = std::make_unique<base::Value>(std::move(*shadow_root));
   return status;
 }
 
@@ -244,26 +250,36 @@ Status ExecuteClickElement(Session* session,
     if (element_type == "file")
       return Status(kInvalidArgument);
   }
-  WebPoint location;
-  status =
-      GetElementClickableLocation(session, web_view, element_id, &location);
+  WebPoint absolute_location;
+  status = GetElementClickableLocation(session, web_view, element_id,
+                                       &absolute_location);
   if (status.IsError())
     return status;
 
+  WebView* containing_web_view =
+      web_view->FindContainerForFrame(session->GetCurrentFrameId());
+
+  WebPoint relative_location;
+  status = GetElementClickableLocation(session, containing_web_view, element_id,
+                                       &relative_location);
+  if (status.IsError()) {
+    return status;
+  }
+
   std::vector<MouseEvent> events;
-  events.push_back(MouseEvent(kMovedMouseEventType, kNoneMouseButton,
-                              location.x, location.y, session->sticky_modifiers,
-                              0, 0));
-  events.push_back(MouseEvent(kPressedMouseEventType, kLeftMouseButton,
-                              location.x, location.y, session->sticky_modifiers,
-                              0, 1));
-  events.push_back(MouseEvent(kReleasedMouseEventType, kLeftMouseButton,
-                              location.x, location.y, session->sticky_modifiers,
-                              1, 1));
-  status = web_view->DispatchMouseEvents(events, session->GetCurrentFrameId(),
-                                         false);
+  events.emplace_back(kMovedMouseEventType, kNoneMouseButton,
+                      relative_location.x, relative_location.y,
+                      session->sticky_modifiers, 0, 0);
+  events.emplace_back(kPressedMouseEventType, kLeftMouseButton,
+                      relative_location.x, relative_location.y,
+                      session->sticky_modifiers, 0, 1);
+  events.emplace_back(kReleasedMouseEventType, kLeftMouseButton,
+                      relative_location.x, relative_location.y,
+                      session->sticky_modifiers, 1, 1);
+  status = containing_web_view->DispatchMouseEvents(
+      events, session->GetCurrentFrameId(), false);
   if (status.IsOk())
-    session->mouse_position = location;
+    session->mouse_position = absolute_location;
   return status;
 }
 
@@ -458,11 +474,10 @@ Status ExecuteClearElement(Session* session,
   }
   base::Value::List args;
   args.Append(CreateElement(element_id));
-  std::unique_ptr<base::Value> result;
+  std::unique_ptr<base::Value> unused;
   return web_view->CallFunction(
       session->GetCurrentFrameId(),
-      webdriver::atoms::asString(webdriver::atoms::CLEAR),
-      args, &result);
+      webdriver::atoms::asString(webdriver::atoms::CLEAR), args, &unused);
 }
 
 Status ExecuteSendKeysToElement(Session* session,
@@ -568,12 +583,12 @@ Status ExecuteSendKeysToElement(Session* session,
     base::Value::List args;
     args.Append(CreateElement(element_id));
     args.Append(text->GetString());
-    std::unique_ptr<base::Value> result;
+    std::unique_ptr<base::Value> unused;
     // Set value to text as given by user; if this does not match the defined
     // format for the input type, results are not defined
     return web_view->CallFunction(session->GetCurrentFrameId(),
                                   "(element, text) => element.value = text",
-                                  args, &result);
+                                  args, &unused);
   }
 
   std::unique_ptr<base::Value> get_content_editable;

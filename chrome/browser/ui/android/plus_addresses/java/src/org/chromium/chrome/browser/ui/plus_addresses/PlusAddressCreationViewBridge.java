@@ -11,6 +11,7 @@ import androidx.annotation.VisibleForTesting;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
+import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.chrome.browser.layouts.LayoutManagerProvider;
@@ -102,7 +103,7 @@ public class PlusAddressCreationViewBridge {
     }
 
     @CalledByNative
-    void updateProposedPlusAddress(String plusAddress) {
+    void updateProposedPlusAddress(@JniType("std::string") String plusAddress) {
         if (mNativePlusAddressCreationPromptAndroid != 0 && mCoordinator != null) {
             mCoordinator.updateProposedPlusAddress(plusAddress);
         }
@@ -154,6 +155,15 @@ public class PlusAddressCreationViewBridge {
         }
     }
 
+    public void tryAgainToReservePlusAddress() {
+        if (mNativePlusAddressCreationPromptAndroid != 0) {
+            PlusAddressCreationViewBridgeJni.get()
+                    .tryAgainToReservePlusAddress(
+                            mNativePlusAddressCreationPromptAndroid,
+                            PlusAddressCreationViewBridge.this);
+        }
+    }
+
     public void onConfirmRequested() {
         if (mNativePlusAddressCreationPromptAndroid != 0) {
             PlusAddressCreationViewBridgeJni.get()
@@ -185,6 +195,9 @@ public class PlusAddressCreationViewBridge {
     @NativeMethods
     interface Natives {
         void onRefreshClicked(
+                long nativePlusAddressCreationViewAndroid, PlusAddressCreationViewBridge caller);
+
+        void tryAgainToReservePlusAddress(
                 long nativePlusAddressCreationViewAndroid, PlusAddressCreationViewBridge caller);
 
         void onConfirmRequested(

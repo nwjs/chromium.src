@@ -5,7 +5,6 @@
 package org.chromium.chrome.browser.omnibox.status;
 
 import android.content.Context;
-import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.text.TextUtils;
@@ -90,7 +89,6 @@ public class StatusMediator
     private @StringRes int mSecurityIconDescriptionRes;
     private @ColorRes int mNavigationIconTintRes;
 
-    private Resources mResources;
     private Context mContext;
 
     private LocationBarDataProvider mLocationBarDataProvider;
@@ -120,7 +118,6 @@ public class StatusMediator
 
     /**
      * @param model The {@link PropertyModel} for this mediator.
-     * @param resources Used to load resources.
      * @param context The {@link Context} for this Status component.
      * @param urlBarEditingTextStateProvider Provides url bar text state.
      * @param isTablet Whether the current device is a tablet.
@@ -136,7 +133,6 @@ public class StatusMediator
      */
     public StatusMediator(
             PropertyModel model,
-            Resources resources,
             Context context,
             UrlBarEditingTextStateProvider urlBarEditingTextStateProvider,
             boolean isTablet,
@@ -159,7 +155,6 @@ public class StatusMediator
                 });
 
         mProfileSupplier = profileSupplier;
-        mResources = resources;
         mContext = context;
         mUrlBarEditingTextStateProvider = urlBarEditingTextStateProvider;
         mPageInfoIPHController = pageInfoIPHController;
@@ -390,7 +385,7 @@ public class StatusMediator
         boolean newVisibility =
                 shouldShowVerboseStatusText()
                         && mVerboseStatusSpaceAvailable
-                        && (!mUrlHasFocus)
+                        && !mUrlHasFocus
                         && (statusText != 0);
 
         // Update status content only if it is visible.
@@ -725,8 +720,8 @@ public class StatusMediator
             @StringRes int stringId,
             boolean canShowIph) {
         if ((window != mWindowAndroid)
-                || (!url.equals(mLocationBarDataProvider.getCurrentGurl().getSpec()))
-                || (mLocationBarDataProvider.isOffTheRecord())) {
+                || !url.equals(mLocationBarDataProvider.getCurrentGurl().getSpec())
+                || mLocationBarDataProvider.isOffTheRecord()) {
             return;
         }
         resetCustomIconsStatus();
@@ -854,5 +849,9 @@ public class StatusMediator
 
     public void onTabCrashed() {
         mCurrentTabCrashed = true;
+    }
+
+    void setShowStatusView(boolean show) {
+        mModel.set(StatusProperties.SHOW_STATUS_VIEW, show);
     }
 }

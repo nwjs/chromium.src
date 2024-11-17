@@ -27,15 +27,17 @@ import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
-import org.chromium.chrome.browser.tab_group_sync.TabGroupUiActionHandler;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabSwitcher;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateProvider;
 import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
+import org.chromium.components.tab_group_sync.TabGroupUiActionHandler;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
 import java.util.function.DoubleConsumer;
@@ -100,6 +102,8 @@ public interface TabManagementDelegate {
      * @param isIncognito Whether this is an incognito pane.
      * @param onToolbarAlphaChange Observer to notify when alpha changes during animations.
      * @param backPressManager Manages different back press handlers throughout the app.
+     * @param edgeToEdgeSupplier Supplier to the {@link EdgeToEdgeController} instance.
+     * @param desktopWindowStateProvider Provider to get desktop window and app header state.
      */
     Pair<TabSwitcher, Pane> createTabSwitcherPane(
             @NonNull Activity activity,
@@ -119,7 +123,9 @@ public interface TabManagementDelegate {
             @NonNull OnClickListener newTabButtonOnClickListener,
             boolean isIncognito,
             @NonNull DoubleConsumer onToolbarAlphaChange,
-            @NonNull BackPressManager backPressManager);
+            @NonNull BackPressManager backPressManager,
+            @NonNull ObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier,
+            @Nullable DesktopWindowStateProvider desktopWindowStateProvider);
 
     /**
      * Create a {@link TabGroupsPane} for the Hub.
@@ -132,6 +138,7 @@ public interface TabManagementDelegate {
      * @param tabGroupUiActionHandlerSupplier Supplier for the controller used to open hidden
      *     groups.
      * @param modalDialogManagerSupplier Used to show confirmation dialogs.
+     * @param edgeToEdgeSupplier Supplier to the {@link EdgeToEdgeController} instance.
      * @return The pane implementation that displays and allows interactions with tab groups.
      */
     Pane createTabGroupsPane(
@@ -141,5 +148,6 @@ public interface TabManagementDelegate {
             @NonNull OneshotSupplier<ProfileProvider> profileProviderSupplier,
             @NonNull LazyOneshotSupplier<HubManager> hubManagerSupplier,
             @NonNull Supplier<TabGroupUiActionHandler> tabGroupUiActionHandlerSupplier,
-            @NonNull Supplier<ModalDialogManager> modalDialogManagerSupplier);
+            @NonNull Supplier<ModalDialogManager> modalDialogManagerSupplier,
+            @NonNull ObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier);
 }

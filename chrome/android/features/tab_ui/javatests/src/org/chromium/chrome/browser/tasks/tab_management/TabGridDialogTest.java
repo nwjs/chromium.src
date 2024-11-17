@@ -42,6 +42,7 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
+import static org.chromium.chrome.browser.flags.ChromeFeatureList.ANDROID_HUB_SEARCH;
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.DATA_SHARING;
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.NAV_BAR_COLOR_MATCHES_TAB_BACKGROUND;
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.TAB_GROUP_PANE_ANDROID;
@@ -74,6 +75,7 @@ import static org.chromium.ui.test.util.ViewUtils.waitForVisibleView;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.graphics.Color;
 import android.graphics.Rect;
 import android.os.Build;
 import android.os.Build.VERSION_CODES;
@@ -141,7 +143,6 @@ import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncFeatures;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
@@ -162,7 +163,6 @@ import org.chromium.ui.modaldialog.DialogDismissalCause;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.test.util.DeviceRestriction;
 import org.chromium.ui.test.util.NightModeTestUtils;
-import org.chromium.ui.test.util.UiDisableIf;
 import org.chromium.ui.test.util.ViewUtils;
 import org.chromium.ui.util.ColorUtils;
 import org.chromium.url.GURL;
@@ -176,7 +176,11 @@ import java.util.concurrent.ExecutionException;
 @ParameterAnnotations.UseRunnerDelegate(ChromeJUnit4RunnerDelegate.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Restriction({Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE})
-@DisableFeatures({TAB_GROUP_PARITY_ANDROID, NAV_BAR_COLOR_MATCHES_TAB_BACKGROUND})
+@DisableFeatures({
+    TAB_GROUP_PARITY_ANDROID,
+    NAV_BAR_COLOR_MATCHES_TAB_BACKGROUND,
+    ANDROID_HUB_SEARCH
+})
 @Batch(Batch.PER_CLASS)
 public class TabGridDialogTest {
     private static final String CUSTOMIZED_TITLE1 = "wfh tips";
@@ -454,8 +458,8 @@ public class TabGridDialogTest {
                                             TabLaunchType.FROM_SYNC_BACKGROUND,
                                             null,
                                             TabModel.INVALID_TAB_INDEX);
-                    ((TabGroupModelFilter)
-                                    selector.getTabModelFilterProvider().getTabModelFilter(false))
+                    selector.getTabGroupModelFilterProvider()
+                            .getTabGroupModelFilter(false)
                             .mergeListOfTabsToGroup(
                                     List.of(tab), destinationTab, /* notify= */ false);
                 });
@@ -521,12 +525,12 @@ public class TabGridDialogTest {
 
         // Setup the callback to verify the animation source Rect.
         TabGridDialogView.setSourceRectCallbackForTesting(
-                (result -> {
+                result -> {
                     mHasReceivedSourceRect = true;
                     assertEquals(expectedTop, result.top, 0.0);
                     assertEquals(expectedHeight, result.height(), 0.0);
                     assertEquals(expectedWidth, result.width(), 0.0);
-                }));
+                });
 
         TabUiTestHelper.clickFirstCardFromTabSwitcher(cta);
         CriteriaHelper.pollUiThread(() -> mHasReceivedSourceRect);
@@ -828,7 +832,7 @@ public class TabGridDialogTest {
 
     @Test
     @MediumTest
-    @DisableIf.Device(type = {UiDisableIf.TABLET}) // https://crbug.com/338998202
+    @DisableIf.Device(DeviceFormFactor.TABLET) // https://crbug.com/338998202
     public void testDialogSelectionEditor_PostLongPressClickNoSelectionEditor()
             throws ExecutionException {
         TabUiFeatureUtilities.setTabListEditorLongPressEntryEnabledForTesting(true);
@@ -1045,12 +1049,12 @@ public class TabGridDialogTest {
         openSelectionEditorAndVerify(cta, 3);
 
         TabListEditorShareAction.setIntentCallbackForTesting(
-                (result -> {
+                result -> {
                     assertEquals(Intent.ACTION_SEND, result.getAction());
                     assertEquals(String.join("\n", urls), result.getStringExtra(Intent.EXTRA_TEXT));
                     assertEquals("text/plain", result.getType());
                     assertEquals("2 links from Chrome", result.getStringExtra(Intent.EXTRA_TITLE));
-                }));
+                });
 
         // Share tabs
         mSelectionEditorRobot
@@ -1487,7 +1491,7 @@ public class TabGridDialogTest {
             sdk_is_greater_than = VERSION_CODES.N_MR1,
             message = "https://crbug.com/1124336")
     @DisableIf.Build(supported_abis_includes = "x86", message = "https://crbug.com/1124336")
-    @DisableIf.Device(type = UiDisableIf.TABLET)
+    @DisableIf.Device(DeviceFormFactor.TABLET)
     public void testDialogInitialShowFromStrip() throws Exception {
         final ChromeTabbedActivity cta = sActivityTestRule.getActivity();
         prepareTabsWithThumbnail(sActivityTestRule, 2, 0, "about:blank");
@@ -1794,7 +1798,7 @@ public class TabGridDialogTest {
 
     @Test
     @MediumTest
-    @DisableIf.Device(type = UiDisableIf.TABLET)
+    @DisableIf.Device(DeviceFormFactor.TABLET)
     public void testStripDialog_TabListEditorCloseAll_NoCustomHomepage() {
         ChromeTabbedActivity cta = sActivityTestRule.getActivity();
         // Create a tab group with 2 tabs.
@@ -1841,7 +1845,7 @@ public class TabGridDialogTest {
 
     @Test
     @MediumTest
-    @DisableIf.Device(type = UiDisableIf.TABLET)
+    @DisableIf.Device(DeviceFormFactor.TABLET)
     public void testStripDialog_TabListEditorCloseAll_CustomHomepage() {
         GURL url =
                 new GURL(
@@ -1897,7 +1901,7 @@ public class TabGridDialogTest {
 
     @Test
     @MediumTest
-    @DisableIf.Device(type = UiDisableIf.TABLET)
+    @DisableIf.Device(DeviceFormFactor.TABLET)
     @RequiresRestart
     public void testDialogSetup_WithStartSurface() throws Exception {
         // Create a tab group with 2 tabs.
@@ -2112,18 +2116,23 @@ public class TabGridDialogTest {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O_MR1
                 || !resources.getBoolean(R.bool.window_light_navigation_bar)
                 || isTablet(cta)
-                || cta.getTabModelSelectorSupplier().get().isIncognitoBrandedModelSelected()
-                || EdgeToEdgeUtils.isEnabled()) {
+                || cta.getTabModelSelectorSupplier().get().isIncognitoBrandedModelSelected()) {
             return;
         }
-        @ColorInt int scrimDefaultColor = cta.getColor(R.color.default_scrim_color);
-        @ColorInt int navigationBarColor = SemanticColorUtils.getBottomSystemNavColor(cta);
-        @ColorInt
-        int navigationBarColorWithScrimOverlay =
-                ColorUtils.overlayColor(navigationBarColor, scrimDefaultColor);
 
-        assertEquals(cta.getWindow().getNavigationBarColor(), navigationBarColorWithScrimOverlay);
-        assertNotEquals(navigationBarColor, navigationBarColorWithScrimOverlay);
+        if (!EdgeToEdgeUtils.isEnabled()) {
+            @ColorInt int scrimDefaultColor = cta.getColor(R.color.default_scrim_color);
+            @ColorInt int navigationBarColor = SemanticColorUtils.getBottomSystemNavColor(cta);
+            @ColorInt
+            int navigationBarColorWithScrimOverlay =
+                    ColorUtils.overlayColor(navigationBarColor, scrimDefaultColor);
+            assertEquals(
+                    navigationBarColorWithScrimOverlay, cta.getWindow().getNavigationBarColor());
+            assertNotEquals(navigationBarColor, navigationBarColorWithScrimOverlay);
+        } else if (cta.getEdgeToEdgeSupplier().get() != null
+                && cta.getEdgeToEdgeSupplier().get().isDrawingToEdge()) {
+            assertEquals(Color.TRANSPARENT, cta.getWindow().getNavigationBarColor());
+        }
     }
 
     private boolean isPhone() {

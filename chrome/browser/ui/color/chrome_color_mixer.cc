@@ -9,6 +9,7 @@
 #include "base/feature_list.h"
 #include "base/strings/string_number_conversions.h"
 #include "build/branding_buildflags.h"
+#include "chrome/browser/task_manager/common/task_manager_features.h"
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/color/chrome_color_provider_utils.h"
@@ -157,6 +158,9 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorChromeSigninBubbleBackground] = {kColorProfileMenuBackground};
   mixer[kColorChromeSigninBubbleInfoBackground] = {
       kColorProfileMenuSyncInfoBackground};
+  mixer[kColorBatchUploadBackground] = {kColorProfileMenuBackground};
+  mixer[kColorBatchUploadDataBackground] = {
+      kColorProfileMenuSyncInfoBackground};
   mixer[kColorDesktopMediaTabListBorder] = {ui::kColorMidground};
   mixer[kColorDesktopMediaTabListPreviewBackground] = {ui::kColorMidground};
   mixer[kColorDownloadItemForeground] = {kColorDownloadShelfForeground};
@@ -290,10 +294,6 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
       PickGoogleColor(ui::kColorAccent, kColorToolbar,
                       color_utils::kMinimumVisibleContrastRatio);
   mixer[kColorMediaRouterIconWarning] = {ui::kColorAlertMediumSeverityIcon};
-  mixer[kColorOmniboxAnswerIconBackground] = {
-      ui::kColorButtonBackgroundProminent};
-  mixer[kColorOmniboxAnswerIconForeground] = {
-      ui::kColorButtonForegroundProminent};
   mixer[kColorOmniboxChipBackground] = {kColorTabBackgroundActiveFrameActive};
   mixer[kColorOmniboxChipBlockedActivityIndicatorBackground] = {
       kColorInfoBarBackground};
@@ -644,6 +644,12 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
       ui::SetAlpha(ui::kColorShadowBase, 0x4D);
   mixer[kColorTabThrobber] = {ui::kColorThrobber};
   mixer[kColorTabThrobberPreconnect] = {ui::kColorThrobberPreconnect};
+  mixer[kColorTaskManagerBackground] = {ui::kColorDialogBackground};
+#if !BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(features::kTaskManagerDesktopRefresh)) {
+    mixer[kColorTaskManagerBackground] = {ui::kColorSysSurface2};
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
   mixer[kColorThumbnailTabBackground] =
       ui::PickGoogleColor(ui::kColorAccent, ui::kColorFrameActive,
                           color_utils::kMinimumVisibleContrastRatio);

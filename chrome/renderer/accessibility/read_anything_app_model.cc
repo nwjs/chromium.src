@@ -10,7 +10,6 @@
 #include "chrome/renderer/accessibility/read_anything_app_model.h"
 
 #include <cstddef>
-#include <regex>
 #include <string>
 
 #include "base/check.h"
@@ -29,6 +28,7 @@
 #include "ui/accessibility/ax_role_properties.h"
 #include "ui/accessibility/ax_serializable_tree.h"
 #include "ui/accessibility/ax_text_utils.h"
+#include "ui/accessibility/ax_tree_observer.h"
 #include "ui/accessibility/ax_tree_update_util.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
@@ -128,18 +128,18 @@ bool ReadAnythingAppModel::PostProcessSelection() {
   bool was_empty = is_empty();
   requires_post_process_selection_ = false;
 
-  // If the new selection came from the side panel, we don't need to draw
+  // If the new selection came from the side panel, we never need to draw
   // anything in the side panel, since whatever was being selected had to have
   // been drawn already.
-  // If the previous selection was inside the distilled content, that means we
-  // are currently displaying the distilled content in Read Anything. We may not
-  // need to redraw the distilled content if the user's new selection is inside
-  // the distilled content.
-  // If the previous selection was non-empty and outside the distilled content,
-  // we will always redraw either a) the new selected content or b) the original
-  // distilled content if the new selection is inside that or if the selection
-  // was cleared.
-  bool need_to_draw = !selection_from_action_ && !SelectionInsideDisplayNodes();
+  // If there is no previous selection, we never need to check whether it was
+  // inside the distilled content. In this case, we will only draw if the new
+  // selection is outside the distilled content. See [1] below.
+  // If there was a previous selection outside the distilled content, we always
+  // redraw. This will be either a) the new selected content or b) the original
+  // distilled content if the new selection is inside that or was cleared.
+  bool need_to_draw = !selection_from_action_ && has_selection_ &&
+                      !SelectionInsideDisplayNodes();
+
   // Save the current selection
   UpdateSelection();
 
@@ -150,7 +150,7 @@ bool ReadAnythingAppModel::PostProcessSelection() {
     tree_infos_.at(active_tree_id_)->num_selections++;
   }
 
-  // If the main panel selection contains content outside of the distilled
+  // [1] If the main panel selection contains content outside of the distilled
   // content, we need to find the selected nodes to display instead of the
   // distilled content.
   if (has_selection_ && !SelectionInsideDisplayNodes()) {
@@ -168,6 +168,10 @@ void ReadAnythingAppModel::UpdateSelection() {
   has_selection_ = selection.anchor_object_id != ui::kInvalidAXNodeID &&
                    selection.focus_object_id != ui::kInvalidAXNodeID &&
                    !selection.IsCollapsed();
+
+  if (!has_selection_) {
+    return;
+  }
 
   // Identify the start and end node ids and offsets. The start node comes
   // earlier than end node in the tree order. We need to send the selection to
@@ -302,9 +306,6 @@ void ReadAnythingAppModel::ComputeDisplayNodeIdsForDistilledTree() {
     return;
   }
 
-  // Clear the map to store new expanded states.
-  aria_expanded_node_states_.clear();
-
   // Display nodes are the nodes which will be displayed by the rendering
   // algorithm of Read Anything app.ts. We wish to create a subtree which
   // stretches down from tree root to every content node and includes the
@@ -323,16 +324,13 @@ void ReadAnythingAppModel::ComputeDisplayNodeIdsForDistilledTree() {
     }
 
     // Ignore aria-expanded for editables.
-    if (content_node->HasHtmlAttribute("aria-expanded") &&
+    if (content_node->data().SupportsExpandCollapse() &&
         !content_node->HasState(ax::mojom::State::kRichlyEditable)) {
       // Capture the expanded state. ARIA expanded is not supported by all
       // element types, but gmail for example uses it anyways. Check the
       // attribute directly for that reason.
-      auto aria_expanded_state =
-          base::UTF16ToUTF8(content_node->GetHtmlAttribute("aria-expanded"));
-      aria_expanded_node_states_[content_node_id] = aria_expanded_state;
-      // Don't include collapsed aria-expanded items.
-      if (aria_expanded_state != "true") {
+      if (!content_node->HasState(ax::mojom::State::kExpanded)) {
+        // Don't include collapsed aria-expanded items.
         continue;
       }
     }
@@ -407,6 +405,11 @@ void ReadAnythingAppModel::AddTree(
     const ui::AXTreeID& tree_id,
     std::unique_ptr<ui::AXSerializableTree> tree) {
   DCHECK(!ContainsTree(tree_id));
+
+  for (auto& observer : observers_) {
+    observer.OnTreeAdded(tree.get());
+  }
+
   std::unique_ptr<ui::AXTreeManager> manager =
       std::make_unique<ui::AXTreeManager>(std::move(tree));
   std::unique_ptr<ReadAnythingAppModel::AXTreeInfo> tree_info =
@@ -415,7 +418,16 @@ void ReadAnythingAppModel::AddTree(
 }
 
 void ReadAnythingAppModel::EraseTree(const ui::AXTreeID& tree_id) {
-  tree_infos_.erase(tree_id);
+  auto it = tree_infos_.find(tree_id);
+  if (it == tree_infos_.end()) {
+    return;
+  }
+  ui::AXTree* ax_tree = it->second->manager->ax_tree();
+  for (auto& observer : observers_) {
+    observer.OnTreeRemoved(ax_tree);
+  }
+
+  tree_infos_.erase(it);
 
   // Ensure any pending updates associated with the erased tree are removed.
   pending_updates_map_.erase(tree_id);
@@ -454,6 +466,13 @@ void ReadAnythingAppModel::AddUrlInformationForTreeId(
 }
 
 bool ReadAnythingAppModel::IsDocs() const {
+  // Sometimes during an initial page load, this may be called before the
+  // tree has been initialized. If this happens, IsDocs should return false
+  // instead of crashing.
+  if (!tree_infos_.contains(active_tree_id_)) {
+    return false;
+  }
+
   return tree_infos_.at(active_tree_id_)->is_docs;
 }
 
@@ -1035,7 +1054,7 @@ void ReadAnythingAppModel::ToggleImagesEnabled() {
   images_enabled_ = !images_enabled_;
 }
 
-void ReadAnythingAppModel::SetBaseLanguageCode(const std::string code) {
+void ReadAnythingAppModel::SetBaseLanguageCode(const std::string& code) {
   DCHECK(!code.empty());
   base_language_code_ = code;
   // Update whether each font is supported by the new language code.
@@ -1058,4 +1077,12 @@ std::vector<std::string> ReadAnythingAppModel::GetSupportedFonts() {
     }
   }
   return font_choices_;
+}
+
+void ReadAnythingAppModel::AddObserver(ModelObserver* observer) {
+  observers_.AddObserver(observer);
+}
+
+void ReadAnythingAppModel::RemoveObserver(ModelObserver* observer) {
+  observers_.RemoveObserver(observer);
 }

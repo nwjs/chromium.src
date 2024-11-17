@@ -22,6 +22,7 @@
 #include "chrome/browser/accessibility/accessibility_state_utils.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/speech/extension_api/tts_engine_extension_observer_chromeos.h"
+#include "chrome/browser/speech/extension_api/tts_engine_extension_observer_chromeos_factory.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/a11y/accessibility_handler.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/a11y/facegaze_settings_handler.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/a11y/select_to_speak_handler.h"
@@ -46,6 +47,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/webui/web_ui_util.h"
 #include "ui/events/ash/keyboard_layout_util.h"
+#include "ui/native_theme/native_theme_features.h"
 
 namespace ash::settings {
 
@@ -562,6 +564,10 @@ bool IsAccessibilityReducedAnimationsEnabled() {
   return ::features::IsAccessibilityReducedAnimationsEnabled();
 }
 
+bool isAccessibilityOverlayScrollbarEnabled() {
+  return ::features::IsOverlayScrollbarOSSettingEnabled();
+}
+
 bool IsAccessibilityMagnifierFollowsChromeVoxEnabled() {
   return ::features::IsAccessibilityMagnifierFollowsChromeVoxEnabled();
 }
@@ -909,6 +915,7 @@ void AccessibilitySection::AddLoadTimeData(
       {"dockedMagnifierLabel", IDS_SETTINGS_DOCKED_MAGNIFIER_LABEL},
       {"dockedMagnifierZoomLabel", IDS_SETTINGS_DOCKED_MAGNIFIER_ZOOM_LABEL},
       {"durationInSeconds", IDS_SETTINGS_DURATION_IN_SECONDS},
+      {"reEnableTrackpadLabel", IDS_SETTINGS_RE_ENABLE_TRACKPAD},
       {"focusHighlightLabel",
        IDS_SETTINGS_ACCESSIBILITY_FOCUS_HIGHLIGHT_DESCRIPTION},
       {"focusHighlightLabelSubtext",
@@ -949,6 +956,8 @@ void AccessibilitySection::AddLoadTimeData(
        IDS_SETTINGS_ACCESSIBILITY_REDUCED_ANIMATIONS_LABEL},
       {"reducedAnimationsDescription",
        IDS_SETTINGS_ACCESSIBILITY_REDUCED_ANIMATIONS_DESCRIPTION},
+      {"overlayScrollbarLabel",
+       IDS_SETTINGS_ACCESSIBILITY_OVERLAY_SCROLLBAR_LABEL},
       {"caretBlinkIntervalLabel", IDS_SETTINGS_CARET_BLINK_INTERVAL_LABEL},
       {"caretBlinkIntervalOff", IDS_SETTINGS_CARET_BLINK_INTERVAL_OFF},
       {"caretBlinkIntervalFast", IDS_SETTINGS_CARET_BLINK_INTERVAL_FAST},
@@ -957,8 +966,18 @@ void AccessibilitySection::AddLoadTimeData(
        IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_ACTIONS_SECTION_TITLE},
       {"faceGazeActionsAddAction",
        IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_ACTIONS_ADD_ACTION},
+      {"faceGazeActionsAssignGestureLabel",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_ACTIONS_ASSIGN_GESTURE_LABEL},
       {"faceGazeActionsDialogTitle",
        IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_ACTIONS_DIALOG_TITLE},
+      {"faceGazeActionsDialogSelectedItemInstruction",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_ACTIONS_DIALOG_SELECTED_ITEM_INSTRUCTION},
+      {"faceGazeActionsDialogNotSelectedItemInstruction",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_ACTIONS_DIALOG_NOT_SELECTED_ITEM_INSTRUCTION},
+      {"faceGazeActionsDialogKeyCombinationTitle",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_ACTIONS_DIALOG_KEY_COMBINATION_TITLE},
+      {"faceGazeActionsDialogKeyCombinationLabel",
+       IDS_SETTINGS_CUSTOMIZE_BUTTONS_DIALOG_DESCRIPTION},
       {"faceGazeActionsDialogSelectGestureTitle",
        IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_ACTIONS_DIALOG_SELECT_GESTURE_TITLE},
       {"faceGazeActionsDialogSelectGestureSubtitle",
@@ -975,14 +994,95 @@ void AccessibilitySection::AddLoadTimeData(
        IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_ACTIONS_DIALOG_GESTURE_DETECTED_COUNT_LABEL},
       {"faceGazeActionsDialogGestureThresholdKnobLabel",
        IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_ACTIONS_DIALOG_GESTURE_THRESHOLD_KNOB_LABEL},
+      {"faceGazeActionsDialogGestureThresholdDecreaseButtonLabel",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_ACTIONS_DIALOG_GESTURE_THRESHOLD_DECREASE_BUTTON_LABEL},
+      {"faceGazeActionsDialogGestureThresholdIncreaseButtonLabel",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_ACTIONS_DIALOG_GESTURE_THRESHOLD_INCREASE_BUTTON_LABEL},
+      {"faceGazeActionsDialogGestureThresholdSliderLabel",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_ACTIONS_DIALOG_GESTURE_THRESHOLD_SLIDER_LABEL},
+      {"faceGazeMacroLabelToggleFaceGaze",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_MACRO_LABEL_TOGGLE_FACEGAZE},
+      {"faceGazeMacroLabelClickLeft",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_MACRO_LABEL_CLICK_LEFT},
+      {"faceGazeMacroLabelClickLeftDouble",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_MACRO_LABEL_CLICK_LEFT_DOUBLE},
+      {"faceGazeMacroLabelClickRight",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_MACRO_LABEL_CLICK_RIGHT},
+      {"faceGazeMacroLabelLongClickLeft",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_MACRO_LABEL_LONG_CLICK_LEFT},
+      {"faceGazeMacroLabelResetCursor",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_MACRO_LABEL_RESET_CURSOR},
+      {"faceGazeMacroLabelToggleDictation",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_MACRO_LABEL_TOGGLE_DICTATION},
+      {"faceGazeMacroLabelToggleOverview",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_MACRO_LABEL_TOGGLE_OVERVIEW},
+      {"faceGazeMacroLabelMediaPlayPause",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_MACRO_LABEL_MEDIA_PLAY_PAUSE},
+      {"faceGazeMacroLabelToggleScrollMode",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_MACRO_LABEL_TOGGLE_SCROLL_MODE},
+      {"faceGazeMacroLabelToggleVirtualKeyboard",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_MACRO_LABEL_TOGGLE_VIRTUAL_KEYBOARD},
+      {"faceGazeMacroLabelCustomKeyCombo",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_MACRO_LABEL_CUSTOM_KEY_COMBO},
+      {"faceGazeMacroLabelScreenshot",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_MACRO_LABEL_SCREENSHOT},
+      {"faceGazeMacroSubLabelToggleScrollMode",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_MACRO_SUB_LABEL_TOGGLE_SCROLL_MODE},
+      {"faceGazeKeyboardLabelOneModifier",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_KEYBOARD_LABEL_ONE_MODIFIER},
+      {"faceGazeKeyboardLabelTwoModifiers",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_KEYBOARD_LABEL_TWO_MODIFIERS},
+      {"faceGazeKeyboardLabelThreeModifiers",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_KEYBOARD_LABEL_THREE_MODIFIERS},
+      {"faceGazeKeyboardLabelFourModifiers",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_KEYBOARD_LABEL_FOUR_MODIFIERS},
+      {"faceGazeKeyboardKeyCtrl",
+       IDS_SETTINGS_PER_DEVICE_KEYBOARD_KEY_LEFT_CTRL},
+      {"faceGazeKeyboardKeyAlt", IDS_SETTINGS_PER_DEVICE_KEYBOARD_KEY_LEFT_ALT},
+      {"faceGazeKeyboardKeyShift",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_KEYBOARD_KEY_SHIFT},
+      {"faceGazeKeyboardKeySearch",
+       IDS_SETTINGS_PER_DEVICE_KEYBOARD_KEY_SEARCH},
+      {"faceGazeGestureLabelBrowInnerUp",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_GESTURE_LABEL_BROW_INNER_UP},
+      {"faceGazeGestureLabelBrowsDown",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_GESTURE_LABEL_BROWS_DOWN},
+      {"faceGazeGestureLabelEyeSquintLeft",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_GESTURE_LABEL_EYE_SQUINT_LEFT},
+      {"faceGazeGestureLabelEyeSquintRight",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_GESTURE_LABEL_EYE_SQUINT_RIGHT},
+      {"faceGazeGestureLabelEyesBlink",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_GESTURE_LABEL_EYES_BLINK},
+      {"faceGazeGestureLabelEyesLookDown",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_GESTURE_LABEL_EYES_LOOK_DOWN},
+      {"faceGazeGestureLabelEyesLookLeft",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_GESTURE_LABEL_EYES_LOOK_LEFT},
+      {"faceGazeGestureLabelEyesLookRight",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_GESTURE_LABEL_EYES_LOOK_RIGHT},
+      {"faceGazeGestureLabelEyesLookUp",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_GESTURE_LABEL_EYES_LOOK_UP},
+      {"faceGazeGestureLabelJawLeft",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_GESTURE_LABEL_JAW_LEFT},
+      {"faceGazeGestureLabelJawOpen",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_GESTURE_LABEL_JAW_OPEN},
+      {"faceGazeGestureLabelJawRight",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_GESTURE_LABEL_JAW_RIGHT},
+      {"faceGazeGestureLabelMouthFunnel",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_GESTURE_LABEL_MOUTH_FUNNEL},
+      {"faceGazeGestureLabelMouthLeft",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_GESTURE_LABEL_MOUTH_LEFT},
+      {"faceGazeGestureLabelMouthPucker",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_GESTURE_LABEL_MOUTH_PUCKER},
+      {"faceGazeGestureLabelMouthRight",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_GESTURE_LABEL_MOUTH_RIGHT},
+      {"faceGazeGestureLabelMouthSmile",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_GESTURE_LABEL_MOUTH_SMILE},
+      {"faceGazeGestureLabelMouthUpperUp",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_GESTURE_LABEL_MOUTH_UPPER_UP},
       {"faceGazeCursorAccelerationLabel",
        IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_CURSOR_ACCELERATION_LABEL},
       {"faceGazeCursorAccelerationDescription",
        IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_CURSOR_ACCELERATION_DESCRIPTION},
-      {"faceGazeCursorSmoothingLabel",
-       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_CURSOR_SMOOTHING_LABEL},
-      {"faceGazeCursorSmoothingDescription",
-       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_CURSOR_SMOOTHING_DESCRIPTION},
       {"faceGazeCursorDownSpeedLabel",
        IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_CURSOR_SPEED_DOWN_LABEL},
       {"faceGazeCursorLeftSpeedLabel",
@@ -995,6 +1095,8 @@ void AccessibilitySection::AddLoadTimeData(
        IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_ACTIONS_ENABLED_LABEL},
       {"faceGazeCursorControlEnabledLabel",
        IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_CURSOR_CONTROL_ENABLED_LABEL},
+      {"faceGazeCursorSectionTitle",
+       IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_CURSOR_SECTION_TITLE},
       {"faceGazeCursorAdjustSeparatelyLabel",
        IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_ADJUST_SEPARATELY_LABEL},
       {"faceGazeCursorSpeedLabel",
@@ -1343,10 +1445,10 @@ void AccessibilitySection::AddLoadTimeData(
 
   html_source->AddInteger("defaultFaceGazeCursorSpeed",
                           ash::kDefaultFaceGazeCursorSpeed);
-  html_source->AddInteger("defaultFaceGazeCursorSmoothing",
-                          ash::kDefaultFaceGazeCursorSmoothing);
   html_source->AddBoolean("defaultFaceGazeCursorUseAcceleration",
                           ash::kDefaultFaceGazeCursorUseAcceleration);
+  html_source->AddInteger("defaultFaceGazeVelocityThreshold",
+                          ash::kDefaultFaceGazeVelocityThreshold);
 
   html_source->AddBoolean(
       "showExperimentalAccessibilitySwitchAccessImprovedTextInput",
@@ -1360,6 +1462,9 @@ void AccessibilitySection::AddLoadTimeData(
 
   html_source->AddBoolean("isAccessibilityReducedAnimationsEnabled",
                           IsAccessibilityReducedAnimationsEnabled());
+
+  html_source->AddBoolean("isAccessibilityOverlayScrollbarEnabled",
+                          isAccessibilityOverlayScrollbarEnabled());
 
   html_source->AddBoolean("isAccessibilityMagnifierFollowsChromeVoxEnabled",
                           IsAccessibilityMagnifierFollowsChromeVoxEnabled());
@@ -1564,6 +1669,11 @@ bool AccessibilitySection::LogMetric(mojom::Setting setting,
           "ChromeOS.Settings.Accessibility.ReducedAnimations.Enabled",
           value.GetBool());
       return true;
+    case mojom::Setting::kOverlayScrollbarEnabled:
+      base::UmaHistogramBoolean(
+          "ChromeOS.Settings.Accessibility.OverlayScrollbar.Enabled",
+          value.GetBool());
+      return true;
     case mojom::Setting::kOverscrollEnabled:
       base::UmaHistogramBoolean(
           "ChromeOS.Settings.OverscrollHistoryNavigation.Enabled",
@@ -1676,6 +1786,7 @@ void AccessibilitySection::RegisterHierarchy(
       mojom::Setting::kColorCorrectionFilterAmount,
       mojom::Setting::kCaretBlinkInterval,
       mojom::Setting::kReducedAnimationsEnabled,
+      mojom::Setting::kOverlayScrollbarEnabled,
       mojom::Setting::kOverscrollEnabled,
       mojom::Setting::kFlashNotifications,
   };
@@ -1755,7 +1866,7 @@ void AccessibilitySection::UpdateTextToSpeechEnginesSearchTags() {
   updater.RemoveSearchTags(GetTextToSpeechEnginesSearchConcepts());
 
   const std::set<std::string>& extensions =
-      TtsEngineExtensionObserverChromeOS::GetInstance(profile())
+      TtsEngineExtensionObserverChromeOSFactory::GetForProfile(profile())
           ->engine_extension_ids();
   if (!extensions.empty()) {
     updater.AddSearchTags(GetTextToSpeechEnginesSearchConcepts());

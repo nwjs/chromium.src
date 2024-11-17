@@ -407,7 +407,8 @@ void PasskeySyncBridge::DeleteAllPasskeys() {
 }
 
 bool PasskeySyncBridge::UpdatePasskey(const std::string& credential_id,
-                                      PasskeyUpdate change) {
+                                      PasskeyUpdate change,
+                                      bool updated_by_user) {
   // Find the credential with the given |credential_id|.
   const auto passkey_it =
       base::ranges::find_if(data_, [&credential_id](const auto& passkey) {
@@ -417,8 +418,43 @@ bool PasskeySyncBridge::UpdatePasskey(const std::string& credential_id,
     DVLOG(1) << "Attempted to update non existent passkey";
     return false;
   }
+  if (passkey_it->second.edited_by_user() && !updated_by_user) {
+    // Respect the user's choice and do not change a passkey's user data if
+    // explicitly set by the user previously.
+    return false;
+  }
+  passkey_it->second.set_edited_by_user(updated_by_user);
   passkey_it->second.set_user_name(std::move(change.user_name));
   passkey_it->second.set_user_display_name(std::move(change.user_display_name));
+  std::unique_ptr<syncer::DataTypeStore::WriteBatch> write_batch =
+      store_->CreateWriteBatch();
+  change_processor()->Put(passkey_it->second.sync_id(),
+                          CreateEntityData(passkey_it->second),
+                          write_batch->GetMetadataChangeList());
+  write_batch->WriteData(passkey_it->second.sync_id(),
+                         passkey_it->second.SerializeAsString());
+  store_->CommitWriteBatch(
+      std::move(write_batch),
+      base::BindOnce(&PasskeySyncBridge::OnStoreCommitWriteBatch,
+                     weak_ptr_factory_.GetWeakPtr()));
+  NotifyPasskeysChanged({PasskeyModelChange(
+      PasskeyModelChange::ChangeType::UPDATE, passkey_it->second)});
+  return true;
+}
+
+bool PasskeySyncBridge::UpdatePasskeyTimestamp(const std::string& credential_id,
+                                               base::Time last_used_time) {
+  const auto passkey_it =
+      base::ranges::find_if(data_, [&credential_id](const auto& passkey) {
+        return passkey.second.credential_id() == credential_id;
+      });
+  if (passkey_it == data_.end()) {
+    DVLOG(1) << "Attempted to update non existent passkey";
+    return false;
+  }
+
+  passkey_it->second.set_last_used_time_windows_epoch_micros(
+      last_used_time.ToDeltaSinceWindowsEpoch().InMicroseconds());
   std::unique_ptr<syncer::DataTypeStore::WriteBatch> write_batch =
       store_->CreateWriteBatch();
   change_processor()->Put(passkey_it->second.sync_id(),
@@ -524,6 +560,8 @@ void PasskeySyncBridge::OnStoreReadAllDataAndMetadata(
   TRACE_EVENT0("sync", "PasskeySyncBridge::OnStoreReadAllDataAndMetadata");
   if (error) {
     change_processor()->ReportError(*error);
+    // Notify observers that the model failed to become ready.
+    NotifyPasskeyModelIsReady(ready_);
     return;
   }
 
@@ -541,6 +579,7 @@ void PasskeySyncBridge::OnStoreReadAllDataAndMetadata(
   ready_ = true;
   NotifyPasskeysChanged(std::move(changes));
   change_processor()->ModelReadyToSync(std::move(metadata_batch));
+  NotifyPasskeyModelIsReady(ready_);
 }
 
 void PasskeySyncBridge::OnStoreCommitWriteBatch(
@@ -556,6 +595,13 @@ void PasskeySyncBridge::NotifyPasskeysChanged(
   TRACE_EVENT0("sync", "PasskeySyncBridge::NotifyPasskeysChanged");
   for (auto& observer : observers_) {
     observer.OnPasskeysChanged(changes);
+  }
+}
+
+void PasskeySyncBridge::NotifyPasskeyModelIsReady(bool is_ready) {
+  TRACE_EVENT0("sync", "PasskeySyncBridge::NotifyPasskeyModelIsReady");
+  for (auto& observer : observers_) {
+    observer.OnPasskeyModelIsReady(is_ready);
   }
 }
 

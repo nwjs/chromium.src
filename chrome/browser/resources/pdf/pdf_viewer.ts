@@ -50,6 +50,7 @@ import type {ViewerToolbarElement} from './elements/viewer_toolbar.js';
 import {InkController, InkControllerEventType} from './ink_controller.js';
 //</if>
 import {LocalStorageProxyImpl} from './local_storage_proxy.js';
+import {convertDocumentDimensionsMessage, convertFormFocusChangeMessage, convertLoadProgressMessage} from './message_converter.js';
 import {record, recordEnumeration, UserAction} from './metrics.js';
 import {NavigatorDelegateImpl, PdfNavigator, WindowOpenDisposition} from './navigator.js';
 import {deserializeKeyEvent, LoadState} from './pdf_scripting_api.js';
@@ -122,8 +123,10 @@ const LOCAL_STORAGE_SIDENAV_COLLAPSED_KEY: string = 'sidenavCollapsed';
 /**
  * The background color used for the regular viewer.
  */
+// LINT.IfChange(PdfBackgroundColor)
 const BACKGROUND_COLOR: number = 0xff525659;
 const CR23_BACKGROUND_COLOR: number = 0xff282828;
+// LINT.ThenChange(//components/pdf/common/pdf_util.cc:PdfBackgroundColor)
 
 export interface PdfViewerElement {
   $: {
@@ -800,8 +803,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
         this.setBookmarks_(bookmarksData.bookmarksData);
         return;
       case 'documentDimensions':
-        this.setDocumentDimensions(
-            data as unknown as DocumentDimensionsMessageData);
+        this.setDocumentDimensions(convertDocumentDimensionsMessage(data));
         return;
       case 'documentFocusChanged':
         const hasFocusData = data as unknown as {hasFocus: boolean};
@@ -836,14 +838,14 @@ export class PdfViewerElement extends PdfViewerBaseElement {
         return;
       // </if>
       case 'formFocusChange':
-        const focusedData = data as unknown as {focused: FormFieldFocusType};
+        const focusedData = convertFormFocusChangeMessage(data);
         this.formFieldFocus_ = focusedData.focused;
         return;
       case 'getPassword':
         this.handlePasswordRequest_();
         return;
       case 'loadProgress':
-        const progressData = data as unknown as {progress: number};
+        const progressData = convertLoadProgressMessage(data);
         this.updateProgress(progressData.progress);
         return;
       case 'metadata':

@@ -537,8 +537,15 @@ bool ElementRuleCollector::CollectMatchingRulesForListInternal(
       continue;
     }
 
+    // We cannot use easy selector matching for VTT elements.
+    // It is also not prepared to deal with the featurelessness
+    // of the host (see comment in SelectorChecker::CheckOne()).
+    bool can_use_easy_selector_matching =
+        context.vtt_originating_element == nullptr &&
+        !(context.scope && context.scope->OwnerShadowHost() == context.element);
+
     SelectorChecker::MatchResult result;
-    if (context.vtt_originating_element == nullptr &&
+    if (can_use_easy_selector_matching &&
         rule_data.IsEntirelyCoveredByBucketing()) {
       // Just by seeing this rule, we know that its selector
       // matched, and that we don't get any flags or a match
@@ -552,8 +559,7 @@ bool ElementRuleCollector::CollectMatchingRulesForListInternal(
       DCHECK(SlowMatchWithNoResultFlags(checker, context, selector, rule_data,
                                         suppress_visited_, result.proximity));
 #endif
-    } else if (context.vtt_originating_element == nullptr &&
-               rule_data.SelectorIsEasy()) {
+    } else if (can_use_easy_selector_matching && rule_data.SelectorIsEasy()) {
       if (pseudo_style_request_.pseudo_id != kPseudoIdNone) {
         continue;
       }
@@ -725,15 +731,17 @@ base::span<const Attribute> GetAttributes(const Element& element,
 }  // namespace
 
 void ElementRuleCollector::CollectMatchingRules(
-    const MatchRequest& match_request) {
-  CollectMatchingRulesInternal</*stop_at_first_match=*/false>(match_request);
+    const MatchRequest& match_request,
+    PartNames* part_names) {
+  CollectMatchingRulesInternal</*stop_at_first_match=*/false>(match_request,
+                                                              part_names);
 }
 
 DISABLE_CFI_PERF
 bool ElementRuleCollector::CheckIfAnyRuleMatches(
     const MatchRequest& match_request) {
   return CollectMatchingRulesInternal</*stop_at_first_match=*/true>(
-      match_request);
+      match_request, /*part_names*/ nullptr);
 }
 
 bool ElementRuleCollector::CanRejectScope(const StyleScope& style_scope) {
@@ -747,10 +755,11 @@ bool ElementRuleCollector::CanRejectScope(const StyleScope& style_scope) {
 
 template <bool stop_at_first_match>
 DISABLE_CFI_PERF bool ElementRuleCollector::CollectMatchingRulesInternal(
-    const MatchRequest& match_request) {
+    const MatchRequest& match_request,
+    PartNames* part_names) {
   DCHECK(!match_request.IsEmpty());
 
-  SelectorChecker checker(nullptr, pseudo_style_request_, mode_,
+  SelectorChecker checker(part_names, pseudo_style_request_, mode_,
                           matching_ua_rules_);
 
   ContextWithStyleScopeFrame context(&context_.GetElement(), match_request,
@@ -912,8 +921,7 @@ DISABLE_CFI_PERF bool ElementRuleCollector::CollectMatchingRulesInternal(
       }
     }
   }
-  if (SelectorChecker::MatchesFocusPseudoClass(
-          element, /*has_scroll_marker_pseudo=*/false)) {
+  if (SelectorChecker::MatchesFocusPseudoClass(element, kPseudoIdNone)) {
     for (const auto bundle : match_request.AllRuleSets()) {
       if (CollectMatchingRulesForList<stop_at_first_match>(
               bundle.rule_set->FocusPseudoClassRules(), match_request,

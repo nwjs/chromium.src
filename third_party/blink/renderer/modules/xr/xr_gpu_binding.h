@@ -15,22 +15,12 @@ namespace blink {
 
 class ExceptionState;
 class GPUDevice;
-class GPUTexture;
+class V8GPUTextureFormat;
 class XRSession;
 class XRView;
 class XRProjectionLayer;
 class XRGPUProjectionLayerInit;
 class XRGPUSubImage;
-
-class XRGPULayerTextureSwapChain
-    : public GarbageCollected<XRGPULayerTextureSwapChain> {
- public:
-  virtual GPUTexture* GetCurrentTexture() = 0;
-  virtual void OnFrameStart();
-  virtual void OnFrameEnd();
-
-  virtual void Trace(Visitor* visitor) const;
-};
 
 class XRGPUBinding final : public ScriptWrappable, public XRGraphicsBinding {
   DEFINE_WRAPPERTYPEINFO();
@@ -50,13 +40,15 @@ class XRGPUBinding final : public ScriptWrappable, public XRGraphicsBinding {
                                  XRView* view,
                                  ExceptionState& exception_state);
 
-  String getPreferredColorFormat();
+  V8GPUTextureFormat getPreferredColorFormat();
 
   GPUDevice* device() const { return device_.Get(); }
 
   void Trace(Visitor*) const override;
 
  private:
+  bool CanCreateLayer(ExceptionState& exception_state);
+
   Member<GPUDevice> device_;
 };
 

@@ -698,7 +698,8 @@ void Display::MaybeLogQuadsProperties(
 
   SkM44 color_matrix;
   // auto resource_provider = std::make_unique<DisplayResourceProviderSkia>();
-  base::flat_map<AggregatedRenderPassId, cc::FilterOperations*>
+  base::flat_map<AggregatedRenderPassId,
+                 raw_ptr<cc::FilterOperations, CtnExperimental>>
       render_pass_filters;
   render_pass_filters[last_render_pass.id] = &(last_render_pass.filters);
   OverlayCandidateFactory candidate_factory = OverlayCandidateFactory(
@@ -1040,12 +1041,29 @@ bool Display::DrawAndSwap(const DrawAndSwapParams& params) {
         pending_presentation_group_timings_.emplace_back();
 
     base::flat_set<base::PlatformThreadId> thread_ids;
+    const auto& main_surfaces =
+        surface_manager_->GetSurfacesReferencedByParent(current_surface_id_);
+    const bool main_frame_only_adpf_renderer_main =
+        base::FeatureList::IsEnabled(
+            features::kEnableMainFrameOnlyADPFRendererMain);
     for (const auto& surface_id : aggregator_->previous_contained_surfaces()) {
       surface = surface_manager_->GetSurfaceForId(surface_id);
       if (surface) {
-        base::flat_set<base::PlatformThreadId> surface_thread_ids =
-            surface->GetThreadIds();
-        thread_ids.insert(surface_thread_ids.begin(), surface_thread_ids.end());
+        // current_surface_id_ is the root surface, and its threads are Browser
+        // threads. Browser threads should always be in the ADPF session.
+        // Direct children of the root surface correspond to Renderers for main
+        // frames.
+        const bool is_for_main_frame =
+            surface_id == current_surface_id_ ||
+            main_surfaces.find(surface_id) != main_surfaces.end();
+        std::vector<Thread> surface_threads = surface->GetThreads();
+        for (const auto& thread : surface_threads) {
+          if (thread.type == Thread::Type::kMain &&
+              main_frame_only_adpf_renderer_main && !is_for_main_frame) {
+            continue;
+          }
+          thread_ids.insert(thread.id);
+        }
       }
     }
 
@@ -1382,7 +1400,7 @@ base::TimeDelta Display::GetPreferredFrameIntervalForFrameSinkId(
 void Display::SetSupportedFrameIntervals(
     base::flat_set<base::TimeDelta> intervals) {
   if (frame_rate_decider_) {
-    frame_rate_decider_->SetSupportedFrameIntervals(intervals);
+    frame_rate_decider_->SetSupportedFrameIntervals(std::move(intervals));
   }
 }
 

@@ -243,14 +243,9 @@ after discussions on the right group.
       <annotation id="network_diagnostics_routines"/>
       <annotation id="trial_group_lookup"/>
       <annotation id="wallpaper_drivefs_delegate"/>
-      <annotation id="chromeos_emoji_picker_categories_fetcher"/>
-      <annotation id="chromeos_emoji_picker_featured_fetcher"/>
-      <annotation id="chromeos_emoji_picker_search_fetcher"/>
       <annotation id="network_diagnostics_stun"/>
       <annotation id="network_diagnostics_tls"/>
-      <annotation id="chromeos_emoji_picker_posts_fetcher"/>
       <annotation id="webapk_minter_install_request"/>
-      <annotation id="network_portal_detector"/>
       <annotation id="android_feedback_connectivity_checker"/>
       <annotation id="printer_config_fetch"/>
       <annotation id="projector_xhr_loader_allow_cookie"/>
@@ -262,7 +257,6 @@ after discussions on the right group.
       <annotation id="back_navigation_cache_query"/>
       <annotation id="cws_info_service"/>
       <annotation id="promise_app_service"/>
-      <annotation id="unified_state_determination_kill_switch"/>
       <annotation id="crash_file_uploader"/>
       <annotation id="glanceables_classroom_integration"/>
       <annotation id="promise_app_service_download_icon"/>
@@ -305,6 +299,7 @@ after discussions on the right group.
       <annotation id="remoting_corp_session_authz_generate_host_token"/>
       <annotation id="remoting_corp_session_authz_verify_session_token"/>
       <annotation id="remoting_corp_session_reauthorize_host"/>
+      <annotation id="chromeos_picker_gif_media_fetcher"/>
       <annotation id="birch_calendar_provider"/>
       <annotation id="recovery_key_store_fetch"/>
       <annotation id="enterprise_logo_fetcher"/>
@@ -342,7 +337,25 @@ after discussions on the right group.
       <annotation id="iwa_web_app_internals_update_manifest"/>
       <annotation id="iwa_web_app_internals_web_bundle"/>
       <annotation id="digital_asset_links_include"/>
+      <annotation id="remoting_cloud_send_heartbeat"/>
+      <annotation id="remoting_cloud_update_remote_access_host"/>
+      <annotation id="remoting_directory_legacy_heartbeat"/>
+      <annotation id="remoting_directory_send_heartbeat"/>
+      <annotation id="remoting_corp_send_heartbeat"/>
+      <annotation id="remoting_corp_update_remote_access_host"/>
+      <annotation id="remoting_cloud_generate_host_token"/>
+      <annotation id="remoting_cloud_reauthorize_host"/>
+      <annotation id="remoting_cloud_verify_session_token"/>
       <annotation id="lens_overlay_gen204"/>
+      <annotation id="policy_proxy_config"/>
+      <annotation id="chromeos_emoji_picker_search_fetcher"/>
+      <annotation id="chromeos_emoji_picker_categories_fetcher"/>
+      <annotation id="chromeos_emoji_picker_featured_fetcher"/>
+      <annotation id="chromeos_emoji_picker_posts_fetcher"/>
+      <annotation id="remoting_cloud_generate_ice_config"/>
+      <annotation id="demo_login_controller"/>
+      <annotation id="forms_annotations_model_execution"/>
+      <annotation id="forms_predictions_model_execution"/>
     </sender>
   </group>
   <group name="Admin Features" hidden="true">

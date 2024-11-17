@@ -710,7 +710,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // or create it if it doesn't already exist.
   ui::BrowserAccessibilityManager* GetOrCreateRootBrowserAccessibilityManager();
 
-  void RejectPointerLockOrUnlockIfNecessary(
+  // Virtual for testing.
+  virtual void RejectPointerLockOrUnlockIfNecessary(
       blink::mojom::PointerLockResult reason);
 
   // Store values received in a child frame RenderWidgetHost from a parent
@@ -870,10 +871,19 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   bool IsContentRenderingTimeoutRunning() const;
 
+  enum class RendererIsUnresponsiveReason {
+    kOnInputEventAckTimeout = 0,
+    kNavigationRequestCommitTimeout = 1,
+    kRendererCancellationThrottleTimeout = 2,
+    kMaxValue = kRendererCancellationThrottleTimeout,
+  };
+
   // Called on delayed response from the renderer by either
   // 1) |hang_monitor_timeout_| (slow to ack input events) or
-  // 2) NavigationHandle::OnCommitTimeout (slow to commit).
+  // 2) NavigationHandle::OnCommitTimeout (slow to commit) or
+  // 3) RendererCancellationThrottle::OnTimeout (slow cancelling navigation).
   void RendererIsUnresponsive(
+      RendererIsUnresponsiveReason reason,
       base::RepeatingClosure restart_hang_monitor_timeout);
 
   // Called if we know the renderer is responsive. When we currently think the
@@ -1497,7 +1507,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   // Stash a request to create a CompositorFrameSink if it arrives before we
   // have a view.
-  base::OnceCallback<void(const viz::FrameSinkId&)> create_frame_sink_callback_;
+  base::OnceCallback<void(uint32_t, const viz::FrameSinkId&)>
+      create_frame_sink_callback_;
 
   std::unique_ptr<FrameTokenMessageQueue> frame_token_message_queue_;
 

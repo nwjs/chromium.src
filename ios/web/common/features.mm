@@ -83,10 +83,6 @@ BASE_FEATURE(kForceSynthesizedRestoreSession,
              "ForceSynthesizedRestoreSession",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kRemoveOldWebStateRestoration,
-             "RemoveOldWebStateRestoration",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kDetectDestroyedNavigationContexts,
              "DetectDestroyedNavigationContexts",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -112,7 +108,7 @@ BASE_FEATURE(kDisableRaccoon,
 
 BASE_FEATURE(kUserAgentBugFixVersion,
              "UserAgentBugFixVersion",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLogJavaScriptErrors,
              "LogJavaScriptErrors",

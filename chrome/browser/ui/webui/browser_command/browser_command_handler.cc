@@ -30,7 +30,7 @@
 #include "components/safe_browsing/core/common/safe_browsing_policy_handler.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/safe_browsing/core/common/safebrowsing_referral_methods.h"
-#include "components/saved_tab_groups/features.h"
+#include "components/saved_tab_groups/public/features.h"
 #include "components/user_education/common/tutorial_identifier.h"
 #include "components/user_education/common/tutorial_service.h"
 #include "ui/base/interaction/element_identifier.h"
@@ -128,6 +128,9 @@ void BrowserCommandHandler::CanExecuteCommand(
     case Command::kOpenPaymentsSettings:
       can_execute = true;
       break;
+    case Command::KOpenHistorySearchSettings:
+      can_execute = true;
+      break;
   }
   std::move(callback).Run(can_execute);
 }
@@ -210,6 +213,10 @@ void BrowserCommandHandler::ExecuteCommandWithDisposition(
       break;
     case Command::kOpenPaymentsSettings:
       NavigateToURL(GURL(chrome::GetSettingsUrl(chrome::kPaymentsSubPage)),
+                    disposition);
+      break;
+    case Command::KOpenHistorySearchSettings:
+      NavigateToURL(GURL(chrome::GetSettingsUrl(chrome::kHistorySearchSubpage)),
                     disposition);
       break;
     default:

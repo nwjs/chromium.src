@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "base/functional/callback_forward.h"
@@ -114,19 +115,6 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
   // Call when a menu closes, to restore focus to where it was previously.
   virtual void FireFocusAfterMenuClose();
 
-  // Deprecated, do not use. Prefer calling SetName, SetDescription, etc.
-  // TODO(crbug.com/325137417): Remove this function, no real benefit is added
-  // anymore now that all event firing is blocked during
-  // construction/initialization.
-  void SetProperties(
-      std::optional<ax::mojom::Role> role = std::nullopt,
-      std::optional<std::u16string> name = std::nullopt,
-      std::optional<std::u16string> description = std::nullopt,
-      std::optional<std::u16string> role_description = std::nullopt,
-      std::optional<ax::mojom::NameFrom> name_from = std::nullopt,
-      std::optional<ax::mojom::DescriptionFrom> description_from =
-          std::nullopt);
-
   // Sets/gets whether or not this view's descendants should be included in
   // the accessibility tree. It is the functional equivalent of calling
   // `SetAccessibleIsIgnored` on each and every view descendant of this
@@ -164,6 +152,10 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
   const std::vector<int32_t>& GetWordEnds() const;
 
   void ClearTextOffsets();
+
+  void SetClipsChildren(bool clips_children);
+
+  void SetClassName(const std::string& class_name);
 
   void SetHasPopup(const ax::mojom::HasPopup has_popup);
 
@@ -246,6 +238,10 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
   void SetIsSelected(bool selected);
 
   void SetIsMultiselectable(bool multiselectable);
+
+  void SetIsModal(bool modal);
+
+  void AddHTMLAttributes(std::pair<std::string, std::string> attribute);
 
   void SetIsHovered(bool is_hovered);
   bool GetIsHovered() const;
@@ -384,7 +380,7 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
       const ax::mojom::DefaultActionVerb default_action_verb);
   void RemoveDefaultActionVerb();
 
-  void SetAutoComplete(const std::string autocomplete);
+  void SetAutoComplete(const std::string& autocomplete);
 
   void SetHierarchicalLevel(int hierarchical_level);
 

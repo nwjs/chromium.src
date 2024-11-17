@@ -753,41 +753,6 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
 
   // Static management functions -----------------------------------------------
 
-  // Possibly start an unbound, spare RenderProcessHost. A subsequent creation
-  // of a RenderProcessHost with a matching browser_context may use this
-  // preinitialized RenderProcessHost, improving performance.
-  //
-  // It is safe to call this multiple times or when it is not certain that the
-  // spare renderer will be used, although calling this too eagerly may reduce
-  // performance as unnecessary RenderProcessHosts are created. The spare
-  // renderer will only be used if it using the default StoragePartition of a
-  // matching BrowserContext.
-  //
-  // The spare RenderProcessHost is meant to be created in a situation where a
-  // navigation is imminent and it is unlikely an existing RenderProcessHost
-  // will be used, for example in a cross-site navigation when a Service Worker
-  // will need to be started.  Note that if ContentBrowserClient opts into
-  // strict site isolation (via ShouldEnableStrictSiteIsolation), then the
-  // //content layer will maintain a warm spare process host at all times
-  // (without a need for separate calls to WarmupSpareRenderProcessHost).
-  static void WarmupSpareRenderProcessHost(BrowserContext* browser_context);
-
-  // Return the spare RenderProcessHost, if it exists. There is at most one
-  // globally-used spare RenderProcessHost at any time.
-  // TODO(crbug.com/41492171): remove the non-test method once the performance
-  // investigation is finished.
-  static RenderProcessHost* GetSpareRenderProcessHost();
-  static RenderProcessHost* GetSpareRenderProcessHostForTesting();
-
-  // Registers a callback to be notified when the spare RenderProcessHost is
-  // changed. If a new spare RenderProcessHost is created, the callback is made
-  // when the host is ready (RenderProcessHostObserver::RenderProcessReady). If
-  // the spare RenderProcessHost is promoted to be a "real" RenderProcessHost or
-  // discarded for any reason, the callback is made with a null pointer.
-  static base::CallbackListSubscription
-  RegisterSpareRenderProcessHostChangedCallback(
-      const base::RepeatingCallback<void(RenderProcessHost*)>& cb);
-
   // Flag to run the renderer in process.  This is primarily
   // for debugging purposes.  When running "in process", the
   // browser maintains a single RenderProcessHost which communicates
@@ -822,11 +787,10 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
   static RenderProcessHost* FromRendererInstanceId(
       const base::Token& instance_id);
 
-  // Returns true if the caller should attempt to use an existing
-  // RenderProcessHost rather than creating a new one.
-  static bool ShouldTryToUseExistingProcessHost(
-      content::BrowserContext* browser_context,
-      const GURL& site_url);
+  // Returns true if the process limit is reached. In that case, site instances
+  // will be assigned to an existing process host instead of a new one when
+  // possible (see MayReuseAndIsSuitable).
+  static bool IsProcessLimitReached();
 
   // Overrides the default heuristic for limiting the max renderer process
   // count.  This is useful for unit testing process limit behaviors.  It is
@@ -844,7 +808,7 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
   static void SetHungRendererAnalysisFunction(
       AnalyzeHungRendererFunction analyze_hung_renderer);
 
-  // Counts current RenderProcessHost(s), ignoring the spare process.
+  // Counts current RenderProcessHost(s), ignoring all spare processes.
   static int GetCurrentRenderProcessCountForTesting();
 
   // Allows tests to override host interface binding behavior. Any interface

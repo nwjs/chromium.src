@@ -16,6 +16,7 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/picker/metrics/picker_session_metrics.h"
+#include "ash/picker/mock_picker_client.h"
 #include "ash/picker/model/picker_action_type.h"
 #include "ash/picker/model/picker_caps_lock_position.h"
 #include "ash/picker/model/picker_model.h"
@@ -26,7 +27,6 @@
 #include "ash/picker/views/picker_search_field_view.h"
 #include "ash/picker/views/picker_view.h"
 #include "ash/public/cpp/clipboard_history_controller.h"
-#include "ash/public/cpp/picker/mock_picker_client.h"
 #include "ash/public/cpp/system/toast_manager.h"
 #include "ash/public/cpp/test/test_new_window_delegate.h"
 #include "ash/shell.h"
@@ -162,7 +162,9 @@ class TestPickerClient : public MockPickerClient {
     controller_->SetClient(this);
     // Set default behaviours. These can be overridden with `WillOnce` and
     // `WillRepeatedly`.
-    ON_CALL(*this, IsFeatureAllowedForDogfood).WillByDefault(Return(true));
+    ON_CALL(*this, GetSharedURLLoaderFactory)
+        .WillByDefault(
+            base::MakeRefCounted<network::TestSharedURLLoaderFactory>);
     ON_CALL(*this, GetPrefs).WillByDefault(Return(prefs_));
   }
   ~TestPickerClient() override { controller_->SetClient(nullptr); }
@@ -174,15 +176,10 @@ class TestPickerClient : public MockPickerClient {
   raw_ptr<sync_preferences::TestingPrefServiceSyncable> prefs_ = nullptr;
 };
 
-class PickerControllerTestBase : public AshTestBase {
+class PickerControllerTest : public AshTestBase {
  public:
-  PickerControllerTestBase()
-      : AshTestBase(base::test::TaskEnvironment::TimeSource::MOCK_TIME) {
-    auto delegate = std::make_unique<MockNewWindowDelegate>();
-    new_window_delegate_ = delegate.get();
-    delegate_provider_ =
-        std::make_unique<TestNewWindowDelegateProvider>(std::move(delegate));
-  }
+  PickerControllerTest()
+      : AshTestBase(base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
 
   void SetUp() override {
     AshTestBase::SetUp();
@@ -204,7 +201,7 @@ class PickerControllerTestBase : public AshTestBase {
   }
 
   MockNewWindowDelegate& mock_new_window_delegate() {
-    return *new_window_delegate_;
+    return new_window_delegate_;
   }
 
   PickerController& controller() { return *controller_; }
@@ -218,22 +215,12 @@ class PickerControllerTestBase : public AshTestBase {
   }
 
  private:
-  std::unique_ptr<TestNewWindowDelegateProvider> delegate_provider_;
-  // Holds a raw ptr to the `MockNewWindowDelegate` owned by
-  // `delegate_provider_`.
-  raw_ptr<MockNewWindowDelegate> new_window_delegate_;
+  MockNewWindowDelegate new_window_delegate_;
   sync_preferences::TestingPrefServiceSyncable prefs_;
   std::unique_ptr<PickerController> controller_;
   std::unique_ptr<NiceMock<TestPickerClient>> client_;
   std::unique_ptr<metrics::structured::TestStructuredMetricsRecorder>
       metrics_recorder_;
-};
-
-class PickerControllerTest : public PickerControllerTestBase {
-  void SetUp() override {
-    PickerControllerTestBase::SetUp();
-    PickerController::DisableFeatureKeyCheck();
-  }
 };
 
 TEST_F(PickerControllerTest, ToggleWidgetShowsWidgetIfClosed) {
@@ -554,6 +541,53 @@ TEST_F(PickerControllerTest,
   waiter.Wait();
 }
 
+TEST_F(PickerControllerTest, InsertGifResultInsertsIntoInputFieldAfterFocus) {
+  controller().ToggleWidget();
+  auto* input_method =
+      Shell::GetPrimaryRootWindow()->GetHost()->GetInputMethod();
+
+  controller().CloseWidgetThenInsertResultOnNextFocus(
+      PickerGifResult(GURL("http://foo.com/fake_preview.gif"),
+                      GURL("http://foo.com/fake_preview_image.png"),
+                      gfx::Size(), GURL("http://foo.com/fake.gif"), gfx::Size(),
+                      /*content_description=*/u""));
+  views::test::WidgetDestroyedWaiter widget_destroyed_waiter(
+      controller().widget_for_testing());
+  ui::FakeTextInputClient input_field(
+      input_method,
+      {.type = ui::TEXT_INPUT_TYPE_TEXT, .can_insert_image = true});
+  input_method->SetFocusedTextInputClient(&input_field);
+
+  EXPECT_EQ(input_field.last_inserted_image_url(),
+            GURL("http://foo.com/fake.gif"));
+}
+
+TEST_F(PickerControllerTest,
+       InsertUnsupportedImageResultTimeoutCopiesToClipboard) {
+  controller().ToggleWidget();
+  auto* input_method =
+      Shell::GetPrimaryRootWindow()->GetHost()->GetInputMethod();
+
+  controller().CloseWidgetThenInsertResultOnNextFocus(PickerGifResult(
+      /*preview_url=*/GURL("http://foo.com/preview"),
+      /*preview_image_url=*/GURL(), gfx::Size(30, 20),
+      /*full_url=*/GURL("http://foo.com"), gfx::Size(60, 40),
+      /*content_description=*/u"a gif"));
+  views::test::WidgetDestroyedWaiter widget_destroyed_waiter(
+      controller().widget_for_testing());
+  ui::FakeTextInputClient input_field(
+      input_method,
+      {.type = ui::TEXT_INPUT_TYPE_TEXT, .can_insert_image = false});
+  input_method->SetFocusedTextInputClient(&input_field);
+  task_environment()->FastForwardBy(PickerController::kInsertMediaTimeout);
+
+  EXPECT_EQ(
+      ReadHtmlFromClipboard(ui::Clipboard::GetForCurrentThread()),
+      uR"html(<img src="http://foo.com/" referrerpolicy="no-referrer" alt="a gif" width="60" height="40"/>)html");
+  EXPECT_TRUE(
+      ash::ToastManager::Get()->IsToastShown("picker_copy_to_clipboard"));
+}
+
 TEST_F(PickerControllerTest,
        InsertBrowsingHistoryResultInsertsIntoInputFieldAfterFocus) {
   controller().ToggleWidget();
@@ -633,22 +667,56 @@ TEST_F(PickerControllerTest, OpenNewGoogleDocOpensGoogleDocs) {
       PickerNewWindowResult(PickerNewWindowResult::Type::kDoc));
 }
 
-TEST_F(PickerControllerTest, OpenCapsLockResultTurnsOnCapsLock) {
+TEST_F(PickerControllerTest, OpenCapsLockResultTurnsOnCapsLockOnNextFocus) {
+  auto* input_method =
+      Shell::GetPrimaryRootWindow()->GetHost()->GetInputMethod();
+  ui::FakeTextInputClient input_field(input_method,
+                                      {.type = ui::TEXT_INPUT_TYPE_TEXT});
   controller().ToggleWidget();
 
   controller().OpenResult(PickerCapsLockResult(
       /*enabled=*/true, PickerCapsLockResult::Shortcut::kAltSearch));
+  input_method->SetFocusedTextInputClient(&input_field);
 
   input_method::ImeKeyboard* ime_keyboard = GetImeKeyboard();
   ASSERT_TRUE(ime_keyboard);
   EXPECT_TRUE(ime_keyboard->IsCapsLockEnabled());
 }
 
-TEST_F(PickerControllerTest, OpenCapsLockResultTurnsOffCapsLock) {
+TEST_F(PickerControllerTest, OpenCapsLockResultTurnsOffCapsLockOnNextFocus) {
+  auto* input_method =
+      Shell::GetPrimaryRootWindow()->GetHost()->GetInputMethod();
+  ui::FakeTextInputClient input_field(input_method,
+                                      {.type = ui::TEXT_INPUT_TYPE_TEXT});
   controller().ToggleWidget();
 
   controller().OpenResult(PickerCapsLockResult(
       /*enabled=*/false, PickerCapsLockResult::Shortcut::kAltSearch));
+  input_method->SetFocusedTextInputClient(&input_field);
+
+  input_method::ImeKeyboard* ime_keyboard = GetImeKeyboard();
+  ASSERT_TRUE(ime_keyboard);
+  EXPECT_FALSE(ime_keyboard->IsCapsLockEnabled());
+}
+
+TEST_F(PickerControllerTest, OpenCapsLockResultTurnsOnCapsLockOnTimeout) {
+  controller().ToggleWidget();
+
+  controller().OpenResult(PickerCapsLockResult(
+      /*enabled=*/true, PickerCapsLockResult::Shortcut::kAltSearch));
+  task_environment()->FastForwardBy(base::Seconds(1));
+
+  input_method::ImeKeyboard* ime_keyboard = GetImeKeyboard();
+  ASSERT_TRUE(ime_keyboard);
+  EXPECT_TRUE(ime_keyboard->IsCapsLockEnabled());
+}
+
+TEST_F(PickerControllerTest, OpenCapsLockResultTurnsOffCapsLockOnTimeout) {
+  controller().ToggleWidget();
+
+  controller().OpenResult(PickerCapsLockResult(
+      /*enabled=*/false, PickerCapsLockResult::Shortcut::kAltSearch));
+  task_environment()->FastForwardBy(base::Seconds(1));
 
   input_method::ImeKeyboard* ime_keyboard = GetImeKeyboard();
   ASSERT_TRUE(ime_keyboard);
@@ -758,6 +826,17 @@ TEST_F(PickerControllerTest, ShowEditorCallsCallbackFromClient) {
                           /*freeform_text=*/"freeform");
 
   EXPECT_THAT(show_editor_future.Get(), FieldsAre("preset", "freeform"));
+}
+
+TEST_F(PickerControllerTest, ShowLobsterCallsCallbackFromClient) {
+  base::test::TestFuture<std::optional<std::string>> show_lobster_future;
+  EXPECT_CALL(client(), GetShowLobsterCallback)
+      .WillOnce(Return(show_lobster_future.GetCallback()));
+
+  controller().ToggleWidget();
+  controller().ShowLobster(/*freeform_text=*/"freeform");
+
+  EXPECT_THAT(show_lobster_future.Get(), "freeform");
 }
 
 TEST_F(PickerControllerTest, GetResultsForCategoryReturnsEmptyForEmptyResults) {
@@ -1090,28 +1169,12 @@ TEST_F(PickerControllerTest,
             PickerCapsLockPosition::kBottom);
 }
 
-class PickerControllerKeyEnabledTest : public PickerControllerTestBase {};
+TEST_F(PickerControllerTest, ReturnCapsLockPositionTopWhenCapsLockIsEnabled) {
+  prefs().SetInteger(prefs::kPickerCapsLockDislayedCountPrefName, 4);
+  prefs().SetInteger(prefs::kPickerCapsLockSelectedCountPrefName, 0);
+  GetImeKeyboard()->SetCapsLockEnabled(true);
 
-TEST_F(PickerControllerKeyEnabledTest,
-       DISABLED_ToggleWidgetShowsWidgetForDogfoodWhenClientAllowed) {
-  base::test::ScopedFeatureList features(ash::features::kPickerDogfood);
-
-  EXPECT_CALL(client(), IsFeatureAllowedForDogfood).WillOnce(Return(true));
-
-  controller().ToggleWidget();
-
-  EXPECT_TRUE(controller().widget_for_testing());
-}
-
-TEST_F(PickerControllerKeyEnabledTest,
-       DISABLED_ToggleWidgetDoesNotShowWidgetWhenClientDisallowsDogfood) {
-  base::test::ScopedFeatureList features(ash::features::kPickerDogfood);
-
-  EXPECT_CALL(client(), IsFeatureAllowedForDogfood).WillOnce(Return(false));
-
-  controller().ToggleWidget();
-
-  EXPECT_FALSE(controller().widget_for_testing());
+  EXPECT_EQ(controller().GetCapsLockPosition(), PickerCapsLockPosition::kTop);
 }
 
 struct ActionTestCase {
@@ -1195,6 +1258,11 @@ INSTANTIATE_TEST_SUITE_P(
                 u"",
                 {},
                 false),
+            .no_selection_action = PickerActionType::kInsert,
+            .has_selection_action = PickerActionType::kInsert,
+        },
+        {
+            .result = PickerGifResult({}, {}, {}, {}, {}, u""),
             .no_selection_action = PickerActionType::kInsert,
             .has_selection_action = PickerActionType::kInsert,
         },

@@ -150,7 +150,7 @@ base::RepeatingCallback<bool(Args...)> WithSwitch(
 template <typename... Args>
 base::RepeatingCallback<bool(Args...)> WithSwitch(
     const std::string& flag,
-    base::RepeatingCallback<bool(const base::Time&, Args...)> callback) {
+    base::RepeatingCallback<bool(base::Time, Args...)> callback) {
   return WithSwitch(
       flag,
       base::BindLambdaForTesting([=](const std::string& flag, Args... args) {
@@ -168,7 +168,7 @@ base::RepeatingCallback<bool(Args...)> WithSwitch(
 template <typename... Args>
 base::RepeatingCallback<bool(Args...)> WithSwitch(
     const std::string& flag,
-    base::RepeatingCallback<bool(const base::TimeDelta&, Args...)> callback) {
+    base::RepeatingCallback<bool(base::TimeDelta, Args...)> callback) {
   return WithSwitch(
       flag,
       base::BindLambdaForTesting([=](const std::string& flag, Args... args) {
@@ -287,13 +287,19 @@ void AppTestHelper::FirstTaskRun() {
           {"clean", WithSystemScope(Wrap(&Clean))},
           {"enter_test_mode",
            WithSwitch(
-               "idle_timeout",
+               "ceca_connection_timeout",
                WithSwitch(
-                   "app_logo_url",
-                   WithSwitch("device_management_url",
-                              WithSwitch("crash_upload_url",
-                                         WithSwitch("update_url",
-                                                    Wrap(&EnterTestMode))))))},
+                   "server_keep_alive_time",
+                   WithSwitch(
+                       "idle_timeout",
+                       WithSwitch(
+                           "app_logo_url",
+                           WithSwitch(
+                               "device_management_url",
+                               WithSwitch(
+                                   "crash_upload_url",
+                                   WithSwitch("update_url",
+                                              Wrap(&EnterTestMode))))))))},
           {"exit_test_mode", WithSystemScope(Wrap(&ExitTestMode))},
           {"set_group_policies", WithSwitch("values", Wrap(&SetGroupPolicies))},
           {"set_platform_policies",
@@ -478,18 +484,26 @@ void AppTestHelper::FirstTaskRun() {
           {"dm_deregister_device", WithSystemScope(Wrap(&DMDeregisterDevice))},
           {"dm_cleanup", WithSystemScope(Wrap(&DMCleanup))},
           {"install_enterprise_companion_app",
+           Wrap(&InstallEnterpriseCompanionApp)},
+          {"install_broken_enterprise_companion_app",
+           Wrap(&InstallBrokenEnterpriseCompanionApp)},
+          {"uninstall_broken_enterprise_companion_app",
+           Wrap(&UninstallBrokenEnterpriseCompanionApp)},
+          {"install_enterprise_companion_app_overrides",
            WithSwitch("external_overrides",
-                      Wrap(&InstallEnterpriseCompanionApp))},
+                      Wrap(&InstallEnterpriseCompanionAppOverrides))},
+          {"expect_enterprise_companion_app_not_installed",
+           Wrap(&ExpectEnterpriseCompanionAppNotInstalled)},
           {"uninstall_enterprise_companion_app",
            Wrap(&UninstallEnterpriseCompanionApp)},
       };
 
   const base::CommandLine* command_line =
       base::CommandLine::ForCurrentProcess();
-  for (const auto& entry : commands) {
-    if (command_line->HasSwitch(entry.first)) {
+  for (const auto& [command, callback] : commands) {
+    if (command_line->HasSwitch(command)) {
       base::ScopedAllowBlockingForTesting allow_blocking;
-      if (!entry.second.Run(base::BindOnce(&AppTestHelper::Shutdown, this))) {
+      if (!callback.Run(base::BindOnce(&AppTestHelper::Shutdown, this))) {
         Shutdown(kBadCommand);
       }
       return;

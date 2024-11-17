@@ -1068,15 +1068,6 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
         ],
     ),
     BanRule(
-        r'/\babsl::StrFormat\b',
-        (
-            'absl::StrFormat() is not allowed yet (https://crbug.com/1371963). ',
-            'Use base::StringPrintf() instead.',
-        ),
-        True,
-        [_THIRD_PARTY_EXCEPT_BLINK],  # Not an error in third_party folders.
-    ),
-    BanRule(
         r'/\babsl::(StrSplit|StrJoin|StrCat|StrAppend|Substitute|StrContains)\b',
         ('Abseil string utilities are banned. Use base/strings instead.', ),
         True,
@@ -1506,6 +1497,13 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             # Don't warn in third_party folders.
             _THIRD_PARTY_EXCEPT_BLINK
         ],
+    ),
+    BanRule(
+        r'/#include <regex>',
+        ('<regex> is not allowed. Use third_party/re2 instead.',
+         ),
+        True,
+        [_THIRD_PARTY_EXCEPT_BLINK],  # Don't warn in third_party folders.
     ),
     BanRule(
         r'/#include <source_location>',
@@ -2091,7 +2089,7 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
           'docs/chrome_browser_design_principles.md for details. If you want '
           'to write a test that has both a Browser and a BrowserView, create '
           'a browser_test. If you want to write a unit_test, your code must '
-          'not reference Browser*.'
+          'not reference Browser*.',
          ),
         treat_as_error=False,
     ),
@@ -2131,7 +2129,26 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             r'^third_party/blink/renderer/modules/webcodecs/test_helpers\.cc',
             r'^third_party/blink/renderer/modules/websockets/websocket_channel_impl_test\.cc',
         ),
-    )
+    ),
+    BanRule(
+        pattern='BUILDFLAG(GOOGLE_CHROME_BRANDING)',
+        explanation=
+        ('Code gated by GOOGLE_CHROME_BRANDING is effectively untested. This '
+         'is typically wrong. Valid use cases are glue for private modules '
+         'shipped alongside Chrome, and installation-related logic.',
+        ),
+        treat_as_error=False,
+    ),
+    BanRule(
+        pattern='defined(OFFICIAL_BUILD)',
+        explanation=
+        ('Code gated by OFFICIAL_BUILD is effectively untested. This '
+         'is typically wrong. One valid use case is low-level code that '
+         'handles subtleties related to high-levels of optimizations that come '
+         'with OFFICIAL_BUILD.',
+        ),
+        treat_as_error=False,
+    ),
 )
 
 _DEPRECATED_SYNC_CONSENT_FUNCTION_WARNING = (
@@ -2216,7 +2233,6 @@ _LONG_PATH_ERROR = (
 )
 
 _JAVA_MULTIPLE_DEFINITION_EXCLUDED_PATHS = [
-    r".*/AppHooksImpl\.java",
     r".*/BuildHooksAndroidImpl\.java",
     r".*/LicenseContentProvider\.java",
     r".*/PlatformServiceBridgeImpl.java",
@@ -2339,6 +2355,7 @@ _GENERIC_PYDEPS_FILES = [
     'tools/binary_size/sizes.pydeps',
     'tools/binary_size/supersize.pydeps',
     'tools/perf/process_perf_results.pydeps',
+    'tools/pgo/generate_profile.pydeps',
 ]
 
 
@@ -6019,30 +6036,6 @@ def CheckAccessibilityTreeTestsAreIncludedForAndroid(input_api, output_api):
         return []
 
     return [output_api.PresubmitPromptWarning(message)]
-
-
-def CheckEsLintConfigChanges(input_api, output_api):
-    """Suggest using "git cl presubmit --files" when .eslintrc.js files are
-    modified. This is important because enabling an error in .eslintrc.js can
-    trigger errors in any .js or .ts files in its directory, leading to hidden
-    presubmit errors."""
-    results = []
-    eslint_filter = lambda f: input_api.FilterSourceFile(
-        f, files_to_check=[r'.*\.eslintrc\.js$'])
-    for f in input_api.AffectedFiles(include_deletes=False,
-                                     file_filter=eslint_filter):
-        local_dir = input_api.os_path.dirname(f.LocalPath())
-        # Use / characters so that the commands printed work on any OS.
-        local_dir = local_dir.replace(input_api.os_path.sep, '/')
-        if local_dir:
-            local_dir += '/'
-        results.append(
-            output_api.PresubmitNotifyResult(
-                '%(file)s modified. Consider running \'git cl presubmit --files '
-                '"%(dir)s*.js;%(dir)s*.ts"\' in order to check and fix the affected '
-                'files before landing this change.' %
-                { 'file' : f.LocalPath(), 'dir' : local_dir}))
-    return results
 
 
 # string pattern, sequence of strings to show when pattern matches,

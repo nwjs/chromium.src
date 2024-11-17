@@ -37,6 +37,7 @@
 #include "components/performance_manager/public/features.h"
 #include "components/performance_manager/public/graph/graph.h"
 #include "components/performance_manager/public/metrics/page_resource_monitor.h"
+#include "components/performance_manager/public/scenarios/performance_scenarios.h"
 #include "components/performance_manager/public/user_tuning/tab_revisit_tracker.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -90,7 +91,9 @@ ChromeBrowserMainExtraPartsPerformanceManager::
     ChromeBrowserMainExtraPartsPerformanceManager()
     : feature_observer_client_(
           std::make_unique<
-              performance_manager::PerformanceManagerFeatureObserverClient>()) {
+              performance_manager::PerformanceManagerFeatureObserverClient>()),
+      global_performance_scenario_memory_(
+          std::make_unique<performance_manager::ScopedGlobalScenarioMemory>()) {
   DCHECK(!g_instance);
   g_instance = this;
 }
@@ -214,9 +217,14 @@ ChromeBrowserMainExtraPartsPerformanceManager::GetFeatureObserverClient() {
 }
 
 void ChromeBrowserMainExtraPartsPerformanceManager::PostCreateThreads() {
+  auto graph_features = performance_manager::GraphFeatures::WithDefault();
+  if (base::FeatureList::IsEnabled(
+          performance_manager::features::kLoadingPerformanceScenario)) {
+    graph_features.EnableLoadingScenario();
+  }
   performance_manager_lifetime_ =
       std::make_unique<performance_manager::PerformanceManagerLifetime>(
-          performance_manager::GraphFeatures::WithDefault(),
+          graph_features,
           base::BindOnce(&ChromeBrowserMainExtraPartsPerformanceManager::
                              CreatePoliciesAndDecorators));
 

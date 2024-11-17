@@ -29,6 +29,7 @@
 #include "components/autofill/core/browser/autofill_external_delegate.h"
 #include "components/autofill/core/browser/autofill_manager.h"
 #include "components/autofill/core/browser/autofill_plus_address_delegate.h"
+#include "components/autofill/core/browser/autofill_prediction_improvements_delegate.h"
 #include "components/autofill/core/browser/autofill_trigger_details.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/filling_product.h"
@@ -62,10 +63,6 @@
 #include "components/autofill/core/common/unique_ids.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 
-namespace optimization_guide::proto {
-class UserAnnotationsEntry;
-}
-
 namespace autofill {
 
 class AutofillField;
@@ -98,7 +95,7 @@ enum class ValuePatternsMetric {
 // forms. One per frame; owned by the AutofillDriver.
 class BrowserAutofillManager : public AutofillManager {
  public:
-  // Triggered when `GenerateSuggestionsAndMaybeShowUI` is complete.
+  // Triggered when `GenerateSuggestionsAndMaybeShowUIPhase2` is complete.
   // `show_suggestions` indicates whether or not the list of `suggestions`
   // should be displayed (via the `external_delegate_`). `ranking_context`
   // contains information regarding the ranking of suggestions and is used for
@@ -109,8 +106,7 @@ class BrowserAutofillManager : public AutofillManager {
       std::optional<autofill_metrics::SuggestionRankingContext>
           ranking_context)>;
 
-  BrowserAutofillManager(AutofillDriver* driver,
-                         const std::string& app_locale);
+  BrowserAutofillManager(AutofillDriver* driver, const std::string& app_locale);
 
   BrowserAutofillManager(const BrowserAutofillManager&) = delete;
   BrowserAutofillManager& operator=(const BrowserAutofillManager&) = delete;
@@ -194,11 +190,10 @@ class BrowserAutofillManager : public AutofillManager {
   /////////////////
   // DO NOT USE! //
   /////////////////
-  // See `FormFiller::FillOrPreviewFormExperimental()`.
-  // TODO(crbug.com/40227071): Clean up the API.
-  virtual void FillOrPreviewFormExperimental(
+  // See `FormFiller::FillOrPreviewFormWithPredictionImprovements()`.
+  // TODO(crbug.com/40227071): Clean up the API and remove this function.
+  virtual void FillOrPreviewFormWithPredictionImprovements(
       mojom::ActionPersistence action_persistence,
-      FillingProduct filling_product,
       const FieldTypeSet& field_types_to_fill,
       const DenseSet<FieldFillingSkipReason>& ignorable_skip_reasons,
       const FormData& form,
@@ -276,8 +271,7 @@ class BrowserAutofillManager : public AutofillManager {
                                      const base::TimeTicks timestamp) override;
   void OnDidEndTextFieldEditingImpl() override;
   void OnHidePopupImpl() override;
-  void OnSelectOrSelectListFieldOptionsDidChangeImpl(
-      const FormData& form) override;
+  void OnSelectFieldOptionsDidChangeImpl(const FormData& form) override;
   void OnJavaScriptChangedAutofilledValueImpl(const FormData& form,
                                               const FieldGlobalId& field_id,
                                               const std::u16string& old_value,
@@ -475,19 +469,6 @@ class BrowserAutofillManager : public AutofillManager {
       const FormStructure* const form_structure,
       bool attempt_to_import_into_form_data_importer);
 
-  // Event handler for
-  // `AutofillPredictionImprovementsDelegate::MaybeImportForm()` which is bound
-  // on form submission if the delegate exists.
-  void OnUserAnnotationsMaybeImportableFormFound(
-      const FormData& form,
-      std::unique_ptr<FormStructure> submitted_form,
-      mojom::SubmissionSource source,
-      base::TimeTicks form_submitted_timestamp,
-      std::vector<optimization_guide::proto::UserAnnotationsEntry>
-          to_be_upserted_entries,
-      base::OnceCallback<void(bool prompt_was_accepted)>
-          prompt_acceptance_callback);
-
   // Method containing logic to be run in `OnFormSubmittedImpl()` after any
   // import attempts of the submitted form occurred.
   void OnFormSubmittedAfterImport(const FormData& form,
@@ -548,7 +529,8 @@ class BrowserAutofillManager : public AutofillManager {
       const FormStructure* form_structure,
       const FormFieldData& trigger_field,
       const AutofillField* trigger_autofill_field,
-      AutofillSuggestionTriggerSource trigger_source);
+      AutofillSuggestionTriggerSource trigger_source,
+      std::optional<std::string> plus_address_email_override);
 
   // Returns a list of values from the stored credit cards that match
   // `trigger_field_type` and the value of `trigger_field` and returns the
@@ -593,6 +575,13 @@ class BrowserAutofillManager : public AutofillManager {
       const AutofillField* autofill_field,
       AutofillSuggestionTriggerSource trigger_source);
 
+  // Evaluates the specifics of the ablation study, updates `context`, and
+  // returns whether the study is enabled/disabled.
+  bool EvaluateAblationStudy(
+      const std::vector<Suggestion>& address_and_credit_card_suggestions,
+      AutofillField* autofill_field,
+      SuggestionsContext& context);
+
   // Returns a list with the suggestions available for `field`. Which fields of
   // the `form` are filled depends on the `trigger_source`. `context` could
   // contain additional information about the suggestions, such as ablation
@@ -604,30 +593,46 @@ class BrowserAutofillManager : public AutofillManager {
       const FormData& form,
       const FormStructure* form_structure,
       const FormFieldData& field,
-      const AutofillField* autofill_field,
+      AutofillField* autofill_field,
       AutofillSuggestionTriggerSource trigger_source,
+      std::optional<std::string> plus_address_email_override,
       SuggestionsContext& context,
       autofill_metrics::SuggestionRankingContext& ranking_context);
 
   // Generates and prioritizes different kinds of suggestions and
-  // suggestion surfaces accordingly (e.g. Fast Checkout,
-  // SingleFieldFormFiller(s), address and credit card popups). Suggestion flows
-  // that handle their own UI flow (e.g. FastCheckout, TTF,
-  // SingleFieldFormFiller) are triggered from within this function. Other flows
-  // that rely on the `external_delegate_` to show their suggestions, pass the
-  // suggestions list to the delegate on `OnGenerateSuggestionsComplete` and
-  // request them to be shown (via `show_suggestions`). Note that the `callback`
-  // is always called regardless of the suggestion surface. The only case when
-  // it's not called is when suggestions are suppressed (See
+  // suggestion surfaces accordingly (e.g. Fast Checkout, Prediction
+  // improvements, SingleFieldFormFiller(s), address and credit card popups).
+  // Suggestion flows that handle their own UI flow (e.g. FastCheckout, TTF,
+  // SingleFieldFormFiller) are triggered from within these functions.
+  //
+  // This process is split into phrases 1 and 2 to support asynchronous
+  // operations in the middle.
+  //
+  // Phase 2 requires the list of `plus_addresses` as these can influence how
+  // address profile suggestions are shown. Other flows that rely on the
+  // `external_delegate_` to show their suggestions, pass the suggestions list
+  // to the delegate via `OnGenerateSuggestionsComplete` and request them to be
+  // shown (via `show_suggestions`). Note that the `callback` is almost always
+  // called, regardless of the suggestion surface. The only case when it's not
+  // called is when suggestions are suppressed (See
   // `ShouldSuppressSuggestions`).
-  void GenerateSuggestionsAndMaybeShowUI(
+  void GenerateSuggestionsAndMaybeShowUIPhase1(
       const FormData& form,
-      const FormStructure* form_structure,
       const FormFieldData& field,
-      const AutofillField* autofill_field,
       AutofillSuggestionTriggerSource trigger_source,
-      SuggestionsContext& context,
-      OnGenerateSuggestionsCallback callback);
+      SuggestionsContext context,
+      OnGenerateSuggestionsCallback callback,
+      AutofillPredictionImprovementsDelegate::HasData
+          has_prediction_improvements_data);
+  void GenerateSuggestionsAndMaybeShowUIPhase2(
+      const FormData& form,
+      const FormFieldData& field,
+      AutofillSuggestionTriggerSource trigger_source,
+      AutofillPredictionImprovementsDelegate::HasData
+          has_prediction_improvements_data,
+      SuggestionsContext context,
+      OnGenerateSuggestionsCallback callback,
+      std::vector<std::string> plus_addresses);
 
   // Receives the lists of plus address and single field form fill suggestions
   // and combines them. It gives priority to the plus address suggestions,
@@ -650,11 +655,11 @@ class BrowserAutofillManager : public AutofillManager {
       SuppressReason suppress_reason);
 
   // The function receives a the list of `suggestions` from
-  // `GenerateSuggestionsAndMaybeShowUI` and displays them if `show_suggestions`
-  // is true (via the `external_delegate_`). It also logs whether there is a
-  // suggestion for the user and whether the suggestion is shown.
-  // `ranking_context` contains information regarding the ranking of suggestions
-  // and is used for metrics logging.
+  // `GenerateSuggestionsAndMaybeShowUIPhase2` and displays them if
+  // `show_suggestions` is true (via the `external_delegate_`). It also logs
+  // whether there is a suggestion for the user and whether the suggestion is
+  // shown. `ranking_context` contains information regarding the ranking of
+  // suggestions and is used for metrics logging.
   void OnGenerateSuggestionsComplete(
       const FormData& form,
       const FormFieldData& field,
@@ -665,14 +670,17 @@ class BrowserAutofillManager : public AutofillManager {
       std::optional<autofill_metrics::SuggestionRankingContext>
           ranking_context);
 
-  void OnGetPlusAddressSuggestions(
+  // Combines plus address and address profile suggestions into a single list,
+  // prioritizing plus address suggestions first. Runs `callback` with the
+  // resulting list of suggestions.
+  void MixPlusAddressAndAddressSuggestions(
+      std::vector<Suggestion> plus_address_suggestions,
+      std::vector<Suggestion> address_suggestions,
       AutofillPlusAddressDelegate::SuggestionContext suggestions_context,
       PasswordFormClassification::Type password_form_type,
       const FormData& form,
       const FormFieldData& field,
-      std::vector<Suggestion> address_suggestions,
-      OnGenerateSuggestionsCallback callback,
-      std::vector<Suggestion> suggestions);
+      OnGenerateSuggestionsCallback callback);
 
   // For each submitted field in the |form_structure|, it determines whether
   // |ADDRESS_HOME_STATE| is a possible matching type.

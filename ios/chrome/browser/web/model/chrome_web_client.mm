@@ -20,7 +20,9 @@
 #import "base/strings/sys_string_conversions.h"
 #import "components/autofill/ios/browser/autofill_java_script_feature.h"
 #import "components/autofill/ios/browser/suggestion_controller_java_script_feature.h"
+#import "components/autofill/ios/common/features.h"
 #import "components/autofill/ios/form_util/form_handlers_java_script_feature.h"
+#import "components/autofill/ios/form_util/programmatic_form_submission_handler_java_script_feature.h"
 #import "components/dom_distiller/core/url_constants.h"
 #import "components/google/core/common/google_util.h"
 #import "components/language/ios/browser/language_detection_java_script_feature.h"
@@ -105,6 +107,7 @@
 #import "ui/base/l10n/l10n_util.h"
 #import "ui/base/resource/resource_bundle.h"
 #import "url/gurl.h"
+
 namespace {
 // The tag describing the product name with a placeholder for the version.
 const char kProductTagWithPlaceholder[] = "CriOS/%s";
@@ -161,8 +164,10 @@ NSString* GetHttpsOnlyModeErrorPageHtml(web::WebState* web_state,
   // Fetch the HTTP URL from the container.
   HttpsOnlyModeContainer* container =
       HttpsOnlyModeContainer::FromWebState(web_state);
-  HttpsUpgradeService* service = HttpsUpgradeServiceFactory::GetForBrowserState(
-      web_state->GetBrowserState());
+  ProfileIOS* profile =
+      ProfileIOS::FromBrowserState(web_state->GetBrowserState());
+  HttpsUpgradeService* service =
+      HttpsUpgradeServiceFactory::GetForProfile(profile);
 
   // Construct the blocking page and associate it with the WebState.
   std::unique_ptr<security_interstitials::IOSSecurityInterstitialPage> page =
@@ -329,13 +334,20 @@ std::vector<web::JavaScriptFeature*> ChromeWebClient::GetJavaScriptFeatures(
 
   ProfileIOS* profile = ProfileIOS::FromBrowserState(browser_state);
   JavaScriptConsoleFeature* java_script_console_feature =
-      JavaScriptConsoleFeatureFactory::GetInstance()->GetForProfile(profile);
+      JavaScriptConsoleFeatureFactory::GetForProfile(profile);
   features.push_back(java_script_console_feature);
 
   features.push_back(print_feature.get());
 
   features.push_back(autofill::AutofillJavaScriptFeature::GetInstance());
   features.push_back(autofill::FormHandlersJavaScriptFeature::GetInstance());
+
+  if (base::FeatureList::IsEnabled(kAutofillIsolatedWorldForJavascriptIos)) {
+    features.push_back(
+        autofill::ProgrammaticFormSubmissionHandlerJavaScriptFeature::
+            GetInstance());
+  }
+
   features.push_back(
       autofill::SuggestionControllerJavaScriptFeature::GetInstance());
   features.push_back(AutofillBottomSheetJavaScriptFeature::GetInstance());
@@ -344,9 +356,7 @@ std::vector<web::JavaScriptFeature*> ChromeWebClient::GetJavaScriptFeatures(
   features.push_back(
       password_manager::PasswordManagerJavaScriptFeature::GetInstance());
   features.push_back(LinkToTextJavaScriptFeature::GetInstance());
-  if (IsPartialTranslateEnabled() || IsSearchWithEnabled()) {
-    features.push_back(WebSelectionJavaScriptFeature::GetInstance());
-  }
+  features.push_back(WebSelectionJavaScriptFeature::GetInstance());
 
   SearchEngineJavaScriptFeature::GetInstance()->SetDelegate(
       SearchEngineTabHelperFactory::GetInstance());

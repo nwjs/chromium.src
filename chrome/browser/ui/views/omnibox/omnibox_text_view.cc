@@ -45,10 +45,6 @@ constexpr int kInherit = INT_MIN;
 // entire font.
 static constexpr int kVerticalPadding = 3;
 
-// Dictionary and translation default number of lines for the FormattedString
-// subhead.
-constexpr size_t kDefaultMaxNumLines = 3;
-
 struct TextStyle {
   OmniboxPart part;
 
@@ -162,10 +158,15 @@ gfx::Size OmniboxTextView::CalculatePreferredSize(
     return gfx::Size(width, GetLineHeight());
   }
 
-  render_text_->SetDisplayRect(gfx::Rect(width, 0));
-  gfx::Size string_size = render_text_->GetStringSize();
-  string_size.Enlarge(0, kVerticalPadding);
-  return string_size;
+  if (cached_available_size_ != available_size ||
+      cached_calculate_preferred_size_.IsEmpty()) {
+    cached_available_size_ = available_size;
+    render_text_->SetDisplayRect(gfx::Rect(width, 0));
+    gfx::Size string_size = render_text_->GetStringSize();
+    string_size.Enlarge(0, kVerticalPadding);
+    cached_calculate_preferred_size_ = string_size;
+  }
+  return cached_calculate_preferred_size_;
 }
 
 bool OmniboxTextView::GetCanProcessEventsWithinSubtree() const {
@@ -195,13 +196,12 @@ const std::u16string& OmniboxTextView::GetText() const {
 void OmniboxTextView::SetText(const std::u16string& new_text) {
   if (cached_classifications_) {
     cached_classifications_.reset();
-  } else if (GetText() == new_text && !use_deemphasized_font_) {
+  } else if (GetText() == new_text) {
     // Only exit early if |cached_classifications_| was empty,
     // i.e. the last time text was set was through this method.
     return;
   }
 
-  use_deemphasized_font_ = false;
   render_text_ = CreateRenderText(new_text);
 
   OnStyleChanged();
@@ -209,27 +209,21 @@ void OmniboxTextView::SetText(const std::u16string& new_text) {
 
 void OmniboxTextView::SetTextWithStyling(
     const std::u16string& new_text,
-    const ACMatchClassifications& classifications,
-    bool deemphasize) {
+    const ACMatchClassifications& classifications) {
   if (GetText() == new_text && cached_classifications_ &&
-      classifications == *cached_classifications_ &&
-      deemphasize == use_deemphasized_font_)
+      classifications == *cached_classifications_)
     return;
-
-  use_deemphasized_font_ = deemphasize;
 
   cached_classifications_ =
       std::make_unique<ACMatchClassifications>(classifications);
   render_text_ = CreateRenderText(new_text);
 
-  // ReapplyStyling will update the preferred size and request a repaint.
+  // `ReapplyStyling()` will update the preferred size and request a repaint.
   ReapplyStyling();
 }
 
 void OmniboxTextView::SetTextWithStyling(
-    const SuggestionAnswer::ImageLine& line,
-    bool deemphasize) {
-  use_deemphasized_font_ = deemphasize;
+    const SuggestionAnswer::ImageLine& line) {
   cached_classifications_.reset();
   wrap_text_lines_ = line.num_text_lines() > 1;
   render_text_ = CreateRenderText(std::u16string());
@@ -237,13 +231,10 @@ void OmniboxTextView::SetTextWithStyling(
   for (const SuggestionAnswer::TextField& text_field : line.text_fields())
     AppendText(text_field, std::u16string());
   if (!line.text_fields().empty()) {
-    const int kMaxDisplayLines =
-        OmniboxFieldTrial::IsUniformRowHeightEnabled() ? 1 : 3;
     const SuggestionAnswer::TextField& first_field = line.text_fields().front();
     if (first_field.has_num_lines() && first_field.num_lines() > 1) {
       render_text_->SetMultiline(true);
-      render_text_->SetMaxLines(
-          std::min(kMaxDisplayLines, first_field.num_lines()));
+      render_text_->SetMaxLines(1);
     }
   }
 
@@ -253,11 +244,10 @@ void OmniboxTextView::SetTextWithStyling(
   OnStyleChanged();
 }
 
-void OmniboxTextView::SetTextWithStyling(
+void OmniboxTextView::AppendTextWithStyling(
     const omnibox::FormattedString& formatted_string,
     size_t fragment_index,
     const omnibox::AnswerType& answer_type) {
-  use_deemphasized_font_ = false;
   cached_classifications_.reset();
   wrap_text_lines_ = AnswerHasDefinedMaxLines(answer_type);
   for (size_t i = fragment_index;
@@ -281,12 +271,31 @@ void OmniboxTextView::SetMultilineText(
   render_text_ = CreateRenderText(u"");
   if (formatted_string.fragments_size() > 0 &&
       AnswerHasDefinedMaxLines(answer_type)) {
-    const size_t kMaxDisplayLines =
-        OmniboxFieldTrial::IsUniformRowHeightEnabled() ? 1 : 3;
     render_text_->SetMultiline(true);
-    render_text_->SetMaxLines(std::min(kMaxDisplayLines, kDefaultMaxNumLines));
+    render_text_->SetMaxLines(1);
   }
-  SetTextWithStyling(formatted_string, /*fragment_index=*/0u, answer_type);
+  AppendTextWithStyling(formatted_string, /*fragment_index=*/0u, answer_type);
+}
+
+void OmniboxTextView::SetMultilineText(const std::u16string& text) {
+  // This is a "dirty" check to check if this call is a no-op and no state
+  // change is required. It works only because `SetMultilineText()` is the only
+  // place to set max lines to 3. It's not 100% correct because some of the
+  // other setters don't reset max lines back to 1. Ideally, all these setter
+  // methods would have a clean and robust way to verify no state change is
+  // required and early exit. See comment at `wrap_text_lines_`'s declaration.
+  if (!cached_classifications_ && GetText() == text && render_text_ &&
+      render_text_->max_lines() == 3) {
+    return;
+  }
+  cached_classifications_.reset();
+  render_text_ = CreateRenderText(text);
+  render_text_->SetColor(result_view_->GetColorProvider()->GetColor(
+      kColorOmniboxResultsTextAnswer));
+  render_text_->SetMultiline(true);
+  render_text_->SetMaxLines(3);
+  wrap_text_lines_ = true;
+  OnStyleChanged();
 }
 
 void OmniboxTextView::AppendExtraText(const SuggestionAnswer::ImageLine& line) {
@@ -353,11 +362,11 @@ std::unique_ptr<gfx::RenderText> OmniboxTextView::CreateRenderText(
   render_text->SetCursorEnabled(false);
   render_text->SetElideBehavior(gfx::ELIDE_TAIL);
   const gfx::FontList& font = views::TypographyProvider::Get().GetFont(
-      (use_deemphasized_font_ ? CONTEXT_OMNIBOX_DEEMPHASIZED
-                              : CONTEXT_OMNIBOX_POPUP),
-      kTextStyle);
+      CONTEXT_OMNIBOX_POPUP, kTextStyle);
   render_text->SetFontList(font);
   render_text->SetText(text);
+  // Increase space between lines for multiline texts.
+  render_text->SetMinLineHeight(19);
   return render_text;
 }
 
@@ -385,7 +394,14 @@ void OmniboxTextView::OnStyleChanged() {
   font_height_ = std::max(height_normal, height_bold);
   font_height_ += kVerticalPadding;
 
-  SetPreferredSize(CalculatePreferredSize({}));
+  // Cache preferred size for 1-line matches only since their heights don't
+  // depend on the available width.
+  if (!wrap_text_lines_) {
+    SetPreferredSize(CalculatePreferredSize({}));
+  } else {
+    SetPreferredSize({});
+    cached_calculate_preferred_size_.SetSize(0, 0);
+  }
   SchedulePaint();
 }
 

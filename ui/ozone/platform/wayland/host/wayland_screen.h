@@ -13,7 +13,6 @@
 #include "base/containers/flat_map.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/observer_list.h"
 #include "base/values.h"
 #include "ui/display/display_list.h"
 #include "ui/display/display_observer.h"
@@ -141,8 +140,6 @@ class WaylandScreen : public PlatformScreen
   base::flat_map<WaylandOutput::Id, int64_t> display_id_map_;
   display::DisplayList display_list_;
 
-  base::ObserverList<display::DisplayObserver> observers_;
-
   std::optional<gfx::BufferFormat> image_format_alpha_;
   std::optional<gfx::BufferFormat> image_format_no_alpha_;
   std::optional<gfx::BufferFormat> image_format_hdr_;
@@ -159,8 +156,6 @@ class WaylandScreen : public PlatformScreen
 #endif
 
 #if BUILDFLAG(IS_LINUX)
-  float font_scale_ = 1.0f;
-
   base::ScopedObservation<ui::LinuxUi, DeviceScaleFactorObserver>
       display_scale_factor_observer_{this};
 #endif

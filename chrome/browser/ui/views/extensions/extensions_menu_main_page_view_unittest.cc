@@ -1144,16 +1144,13 @@ TEST_F(ExtensionsMenuMainPageViewUnitTest, RestrictedSite) {
   auto restricted_origin = url::Origin::Create(restricted_url);
   web_contents_tester()->NavigateAndCommit(restricted_url);
 
-  // By default, site settings is set to "customize by extension".
-  PermissionsManager* permissions_manager = PermissionsManager::Get(profile());
-  EXPECT_EQ(permissions_manager->GetUserSiteSetting(restricted_origin),
-            PermissionsManager::UserSiteSetting::kCustomizeByExtension);
-
   ShowMenu();
   ASSERT_EQ(menu_items().size(), 2u);
 
   // Verify site setting toggle is not visible, since no extension can customize
   // a restricted site.
+  EXPECT_EQ(main_page()->GetSiteSettingLabelForTesting(),
+            u"Extensions are not allowed on chrome://extensions");
   EXPECT_FALSE(main_page()->GetSiteSettingsToggleForTesting()->GetVisible());
 
   // Verify both extensions':
@@ -1209,6 +1206,8 @@ TEST_F(ExtensionsMenuMainPageViewUnitTest, PolicyBlockedSite) {
 
   // Verify site setting toggle is not visible, since no extension can customize
   // a policy-blocked site.
+  EXPECT_EQ(main_page()->GetSiteSettingLabelForTesting(),
+            u"Extensions are not allowed on policy-blocked.com");
   EXPECT_FALSE(main_page()->GetSiteSettingsToggleForTesting()->GetVisible());
 
   // Retrieve menu items.
@@ -1685,7 +1684,10 @@ TEST_F(ExtensionsMenuMainPageViewUnitTest,
   ASSERT_TRUE(extension_entry);
   views::Button* extension_allow_button =
       static_cast<views::Button*>(extension_entry->children()[3]);
+  extensions::PermissionsManagerWaiter waiter(
+      PermissionsManager::Get(profile()));
   ClickButton(extension_allow_button);
+  waiter.WaitForExtensionPermissionsUpdate();
 
   WaitForAnimation();
   LayoutContainerIfNecessary();
@@ -1695,14 +1697,14 @@ TEST_F(ExtensionsMenuMainPageViewUnitTest,
   //   - message section (menu) does not include extension and is hidden
   //   - request access button (toolbar) does not include extension
   //   - action has been run
-  //   - site access is still "on click" since clicking the button grants one
-  //   time access
+  //   - site access is "on site" since clicking the button grants always access
+  //     to the site.
   EXPECT_FALSE(requests_access_container->GetVisible());
   EXPECT_TRUE(GetExtensionsInRequestAccessSection().empty());
   EXPECT_TRUE(GetExtensionsInRequestAccessButton().empty());
   EXPECT_EQ(user_action_tester.GetActionCount(kActivatedUserAction), 1);
   EXPECT_EQ(permissions->GetUserSiteAccess(*extension, url),
-            PermissionsManager::UserSiteAccess::kOnClick);
+            PermissionsManager::UserSiteAccess::kOnSite);
 }
 
 TEST_F(ExtensionsMenuMainPageViewUnitTest,

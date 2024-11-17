@@ -25,6 +25,8 @@ assert(!is_fuchsia, "Fuchsia shouldn't use anything in //chrome")
 
 source_set("extensions") {
   sources = [
+    "account_extension_tracker.cc",
+    "account_extension_tracker.h",
     "active_install_data.cc",
     "active_install_data.h",
     "activity_log/activity_action_constants.cc",
@@ -107,8 +109,6 @@ source_set("extensions") {
     "api/developer_private/inspectable_views_finder.h",
     "api/downloads/downloads_api.cc",
     "api/downloads/downloads_api.h",
-    "api/enterprise_hardware_platform/enterprise_hardware_platform_api.cc",
-    "api/enterprise_hardware_platform/enterprise_hardware_platform_api.h",
     "api/enterprise_reporting_private/conversion_utils.cc",
     "api/enterprise_reporting_private/conversion_utils.h",
     "api/enterprise_reporting_private/enterprise_reporting_private_api.cc",
@@ -158,8 +158,6 @@ source_set("extensions") {
     "api/identity/web_auth_flow.h",
     "api/identity/web_auth_flow_info_bar_delegate.cc",
     "api/identity/web_auth_flow_info_bar_delegate.h",
-    "api/idltest/idltest_api.cc",
-    "api/idltest/idltest_api.h",
     "api/image_writer_private/destroy_partitions_operation.cc",
     "api/image_writer_private/destroy_partitions_operation.h",
     "api/image_writer_private/error_constants.cc",
@@ -247,24 +245,12 @@ source_set("extensions") {
     "api/proxy/proxy_api_helpers.h",
     "api/proxy/proxy_pref_transformer.cc",
     "api/proxy/proxy_pref_transformer.h",
-    "api/reading_list/reading_list_api.cc",
-    "api/reading_list/reading_list_api.h",
-    "api/reading_list/reading_list_api_constants.cc",
-    "api/reading_list/reading_list_api_constants.h",
-    "api/reading_list/reading_list_event_router.cc",
-    "api/reading_list/reading_list_event_router.h",
-    "api/reading_list/reading_list_util.cc",
-    "api/reading_list/reading_list_util.h",
-    "api/resources_private/resources_private_api.cc",
-    "api/resources_private/resources_private_api.h",
     "api/runtime/chrome_runtime_api_delegate.cc",
     "api/runtime/chrome_runtime_api_delegate.h",
     "api/safe_browsing_private/safe_browsing_private_event_router.cc",
     "api/safe_browsing_private/safe_browsing_private_event_router.h",
     "api/safe_browsing_private/safe_browsing_private_event_router_factory.cc",
     "api/safe_browsing_private/safe_browsing_private_event_router_factory.h",
-    "api/search/search_api.cc",
-    "api/search/search_api.h",
     "api/sessions/session_id.cc",
     "api/sessions/session_id.h",
     "api/sessions/sessions_api.cc",
@@ -289,8 +275,6 @@ source_set("extensions") {
     "api/settings_private/settings_private_event_router.h",
     "api/settings_private/settings_private_event_router_factory.cc",
     "api/settings_private/settings_private_event_router_factory.h",
-    "api/side_panel/side_panel_api.cc",
-    "api/side_panel/side_panel_api.h",
     "api/side_panel/side_panel_service.cc",
     "api/side_panel/side_panel_service.h",
     "api/storage/managed_value_store_cache.cc",
@@ -313,8 +297,6 @@ source_set("extensions") {
     "api/streams_private/streams_private_api.h",
     "api/system_private/system_private_api.cc",
     "api/system_private/system_private_api.h",
-    "api/tab_capture/tab_capture_api.cc",
-    "api/tab_capture/tab_capture_api.h",
     "api/tab_capture/tab_capture_registry.cc",
     "api/tab_capture/tab_capture_registry.h",
     "api/tabs/app_base_window.cc",
@@ -334,12 +316,6 @@ source_set("extensions") {
     "api/tabs/windows_util.h",
     "api/top_sites/top_sites_api.cc",
     "api/top_sites/top_sites_api.h",
-    "api/web_authentication_proxy/remote_session_state_change.cc",
-    "api/web_authentication_proxy/remote_session_state_change.h",
-    "api/web_authentication_proxy/web_authentication_proxy_api.cc",
-    "api/web_authentication_proxy/web_authentication_proxy_api.h",
-    "api/web_authentication_proxy/web_authentication_proxy_service.cc",
-    "api/web_authentication_proxy/web_authentication_proxy_service.h",
     "api/web_navigation/frame_navigation_state.cc",
     "api/web_navigation/frame_navigation_state.h",
     "api/web_navigation/web_navigation_api.cc",
@@ -348,10 +324,6 @@ source_set("extensions") {
     "api/web_navigation/web_navigation_api_constants.h",
     "api/web_navigation/web_navigation_api_helpers.cc",
     "api/web_navigation/web_navigation_api_helpers.h",
-    "api/web_view/chrome_web_view_internal_api.cc",
-    "api/web_view/chrome_web_view_internal_api.h",
-    "api/webrtc_audio_private/webrtc_audio_private_api.cc",
-    "api/webrtc_audio_private/webrtc_audio_private_api.h",
     "api/webstore_private/extension_install_status.cc",
     "api/webstore_private/extension_install_status.h",
     "api/webstore_private/webstore_private_api.cc",
@@ -723,6 +695,7 @@ source_set("extensions") {
 
     "//chrome/browser/feedback",
     "//chrome/browser/ui/views/toolbar",
+    "//chrome/browser/ui/safety_hub",
   ]
 
   # Since browser and browser_extensions actually depend on each other,
@@ -737,10 +710,12 @@ source_set("extensions") {
     "//chrome/browser/resource_coordinator:tab_lifecycle_observer",
     "//chrome/browser/task_manager",
     "//chrome/browser/ui:browser_list",
+    "//chrome/browser/ui/global_error",
+    "//chrome/browser/ui/tab_contents",
+    "//chrome/browser/ui/tabs:tab_strip",
     "//chrome/browser/ui/tabs:tab_strip_model_observer",
     "//chrome/common",
     "//chrome/common/extensions/api",
-    "//content/nw/src/api:nw_api_registration",
     "//components/omnibox/browser",
     "//components/safe_browsing/core/browser/db:util",
     "//components/safe_browsing/core/common/proto:csd_proto",
@@ -769,10 +744,14 @@ source_set("extensions") {
     "//chrome/browser:primitives",
     "//chrome/browser/apps:user_type_filter",
     "//chrome/browser/apps/app_service:constants",
+    "//chrome/browser/chooser_controller",
+    "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/feedback",
+    "//chrome/browser/importer",
     "//chrome/browser/picture_in_picture",
     "//chrome/browser/profiles:profile_attributes",
     "//chrome/browser/profiles:profile_util",
+    "//chrome/browser/reading_list",
     "//chrome/browser/search",
     "//chrome/browser/search/background",
     "//chrome/browser/search_engine_choice",
@@ -784,6 +763,11 @@ source_set("extensions") {
     "//chrome/browser/ui/apps",
     "//chrome/browser/ui/autofill",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/hats",
+    "//chrome/browser/ui/prefs",
+    "//chrome/browser/ui/tabs",
+    "//chrome/browser/ui/tabs:tab_group",
+    "//chrome/browser/ui/tabs:tab_model",
     "//chrome/browser/ui/views/side_panel",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/browser/ui/window_sizer",
@@ -807,6 +791,7 @@ source_set("extensions") {
     "//chrome/browser/resource_coordinator:mojo_bindings",
     "//chrome/browser/safe_browsing",
     "//chrome/browser/safe_browsing:metrics_collector",
+    "//chrome/browser/ui/safety_hub",
     "//chrome/browser/ui/tabs:tab_enums",
     "//chrome/browser/web_applications",
     "//components/cbor:cbor",
@@ -815,7 +800,7 @@ source_set("extensions") {
     "//components/optimization_guide/core:features",
     "//components/safe_browsing/content/browser",
     "//components/safe_browsing/core/browser:safe_browsing_metrics_collector",
-    "//components/saved_tab_groups:model",
+    "//components/saved_tab_groups/public",
     "//components/security_interstitials/content:security_interstitial_page",
     "//components/security_state/content",
     "//components/site_engagement/core/mojom:mojo_bindings",
@@ -1009,14 +994,6 @@ source_set("extensions") {
     sources += [
       "api/certificate_provider/certificate_provider_api.cc",
       "api/certificate_provider/certificate_provider_api.h",
-      "api/enterprise_device_attributes/enterprise_device_attributes_api.cc",
-      "api/enterprise_device_attributes/enterprise_device_attributes_api.h",
-      "api/enterprise_kiosk_input/enterprise_kiosk_input_api.cc",
-      "api/enterprise_kiosk_input/enterprise_kiosk_input_api.h",
-      "api/enterprise_networking_attributes/enterprise_networking_attributes_api.cc",
-      "api/enterprise_networking_attributes/enterprise_networking_attributes_api.h",
-      "api/enterprise_platform_keys/enterprise_platform_keys_api.cc",
-      "api/enterprise_platform_keys/enterprise_platform_keys_api.h",
       "api/file_system/consent_provider_impl.cc",
       "api/file_system/consent_provider_impl.h",
       "api/file_system/request_file_system_notification.cc",
@@ -1027,11 +1004,8 @@ source_set("extensions") {
       "api/messaging/native_message_echo_host.h",
       "api/passwords_private/passwords_private_utils_chromeos.cc",
       "api/passwords_private/passwords_private_utils_chromeos.h",
-      "api/platform_keys/platform_keys_api.cc",
-      "api/platform_keys/platform_keys_api.h",
-      "api/platform_keys/verify_trust_api.cc",
-      "api/platform_keys/verify_trust_api.h",
-      "api/shared_storage/shared_storage_private_api.h",
+      "api/platform_keys_core/platform_keys_utils.cc",
+      "api/platform_keys_core/platform_keys_utils.h",
 
       # TODO(crbug.com/40230380): Find an appropriate spot for this.
       "api/chromeos_api_browser_context_keyed_service_factories.cc",
@@ -1056,7 +1030,6 @@ source_set("extensions") {
       "//chrome/browser/chromeos/platform_keys",
       "//chrome/browser/chromeos/policy/dlp",
       "//chrome/browser/chromeos/upload_office_to_cloud",
-      "//chrome/browser/ui/chromeos",
       "//chromeos/components/kiosk",
       "//chromeos/components/mgs",
       "//chromeos/components/quick_answers/public/cpp:prefs",
@@ -1158,10 +1131,8 @@ source_set("extensions") {
     }
   }
 
-  if (is_chromeos_ash) {
+  if (is_chromeos) {
     sources += [
-      "api/enterprise_platform_keys_private/enterprise_platform_keys_private_api.cc",
-      "api/enterprise_platform_keys_private/enterprise_platform_keys_private_api.h",
       "api/file_handlers/non_native_file_system_delegate_chromeos.cc",
       "api/file_handlers/non_native_file_system_delegate_chromeos.h",
       "api/file_system/chrome_file_system_delegate_ash.cc",
@@ -1185,7 +1156,6 @@ source_set("extensions") {
       "api/settings_private/chromeos_resolve_time_zone_by_geolocation_on_off.h",
       "api/settings_private/generated_time_zone_pref_base.cc",
       "api/settings_private/generated_time_zone_pref_base.h",
-      "api/shared_storage/shared_storage_private_api_ash.cc",
       "api/terminal/startup_status.cc",
       "api/terminal/startup_status.h",
       "api/terminal/terminal_private_api.cc",
@@ -1214,6 +1184,7 @@ source_set("extensions") {
     deps += [
       "//ash",
       "//ash/components/arc",
+      "//ash/components/arc:arc_app_constants",
       "//ash/constants",
       "//ash/keyboard/ui:resources_grit_grit",
       "//ash/public/cpp",
@@ -1296,6 +1267,7 @@ source_set("extensions") {
       "//chromeos/ash/components/disks",
       "//chromeos/ash/components/enhanced_network_tts",
       "//chromeos/ash/components/enhanced_network_tts/mojom",
+      "//chromeos/ash/components/file_manager:constants",
       "//chromeos/ash/components/language_packs",
       "//chromeos/ash/components/language_packs/public/mojom",
       "//chromeos/ash/components/login/auth",
@@ -1390,39 +1362,6 @@ source_set("extensions") {
     }
   }
 
-  if (is_chromeos_lacros) {
-    sources += [
-      "api/enterprise_reporting_private/chrome_desktop_report_request_helper.cc",
-      "api/enterprise_reporting_private/chrome_desktop_report_request_helper.h",
-      "api/file_browser_handler/file_browser_handler_flow_lacros.cc",
-      "api/file_browser_handler/file_browser_handler_flow_lacros.h",
-      "api/file_system/chrome_file_system_delegate_lacros.cc",
-      "api/file_system/chrome_file_system_delegate_lacros.h",
-      "api/file_system/volume_list_provider_lacros.cc",
-      "api/file_system/volume_list_provider_lacros.h",
-      "api/image_writer_private/image_writer_controller_lacros.cc",
-      "api/image_writer_private/image_writer_controller_lacros.h",
-      "api/image_writer_private/operation_nonchromeos.cc",
-      "api/messaging/native_message_host_lacros.cc",
-      "api/quick_unlock_private/quick_unlock_private_api_lacros.cc",
-      "api/quick_unlock_private/quick_unlock_private_api_lacros.h",
-      "api/shared_storage/shared_storage_private_api_lacros.cc",
-      "api/virtual_keyboard_private/lacros_virtual_keyboard_delegate.cc",
-      "api/virtual_keyboard_private/lacros_virtual_keyboard_delegate.h",
-      "chrome_kiosk_delegate.cc",
-      "preinstalled_apps.cc",
-      "preinstalled_apps.h",
-    ]
-    deps += [
-      "//chromeos/lacros",
-      "//chromeos/startup",
-      "//chromeos/ui/base",
-      "//components/enterprise",
-      "//components/enterprise/common/proto:connectors_proto",
-      "//components/keep_alive_registry",
-    ]
-  }
-
   if (use_ozone) {
     deps += [ "//ui/ozone" ]
     sources += [
@@ -1443,7 +1382,7 @@ source_set("extensions") {
     ]
   }
 
-  if (is_linux || is_chromeos_lacros) {
+  if (is_linux) {
     sources +=
         [ "api/image_writer_private/removable_storage_provider_linux.cc" ]
   }
@@ -1614,6 +1553,7 @@ static_library("test_support") {
     "//chrome/browser:test_support",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui",
+    "//chrome/browser/ui/tabs:tab_strip",
     "//chrome/common/safe_browsing:proto",
     "//components/crx_file",
     "//components/policy/core/common:test_support",
@@ -1636,9 +1576,7 @@ static_library("test_support") {
       "api/document_scan/document_scan_test_utils.cc",
       "api/document_scan/document_scan_test_utils.h",
     ]
-  }
 
-  if (is_chromeos_ash) {
     deps += [ "//components/user_manager:test_support" ]
   }
 }

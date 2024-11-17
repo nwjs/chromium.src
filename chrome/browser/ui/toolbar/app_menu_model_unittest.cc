@@ -143,7 +143,8 @@ class ExtensionsMenuModelTest : public AppMenuModelTest {
 class TestAppMenuModelCR2023 : public AppMenuModelTest {
  public:
   TestAppMenuModelCR2023() {
-    feature_list_.InitWithFeatures({features::kTabOrganization}, {});
+    feature_list_.InitWithFeatures(
+        {features::kTabOrganization, features::kTabstripDeclutter}, {});
   }
 
   TestAppMenuModelCR2023(const TestAppMenuModelCR2023&) = delete;
@@ -378,12 +379,22 @@ TEST_F(TestAppMenuModelCR2023, OrganizeTabsItem) {
   EXPECT_TRUE(toolModel.IsEnabledAt(organize_tabs_index));
 }
 
+TEST_F(TestAppMenuModelCR2023, DeclutterTabsItem) {
+  TabOrganizationUtils::GetInstance()->SetIgnoreOptGuideForTesting(true);
+  AppMenuModel model(this, browser());
+  model.Init();
+  ToolsMenuModel toolModel(&model, browser());
+  size_t declutter_tabs_index =
+      toolModel.GetIndexOfCommandId(IDC_DECLUTTER_TABS).value();
+  EXPECT_TRUE(toolModel.IsEnabledAt(declutter_tabs_index));
+}
+
 TEST_F(TestAppMenuModelCR2023, ModelHasIcons) {
   // Skip the items that are either not supposed to have an icon, or are not
   // ready to be tested. Remove items once they're ready for testing.
   static const std::vector<int> skip_commands = {
       IDC_RECENT_TABS_NO_DEVICE_TABS, IDC_ABOUT,
-      RecentTabsSubMenuModel::kDisabledRecentlyClosedHeaderCommandId,
+      RecentTabsSubMenuModel::GetDisabledRecentlyClosedHeaderCommandId(),
       IDC_EXTENSIONS_SUBMENU_VISIT_CHROME_WEB_STORE, IDC_TAKE_SCREENSHOT};
   AppMenuModel model(this, browser());
   model.Init();

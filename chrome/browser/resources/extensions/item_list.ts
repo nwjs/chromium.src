@@ -223,6 +223,9 @@ export class ExtensionsItemListElement extends ExtensionsItemListElementBase {
           return extension.isAffectedByMV2Deprecation &&
               extension.disableReasons.unsupportedManifestVersion &&
               !extension.didAcknowledgeMV2DeprecationNotice;
+        case Mv2ExperimentStage.UNSUPPORTED:
+          return extension.isAffectedByMV2Deprecation &&
+              extension.disableReasons.unsupportedManifestVersion;
       }
     });
   }
@@ -288,6 +291,7 @@ export class ExtensionsItemListElement extends ExtensionsItemListElementBase {
         return false;
       case Mv2ExperimentStage.WARNING:
       case Mv2ExperimentStage.DISABLE_WITH_REENABLE:
+      case Mv2ExperimentStage.UNSUPPORTED:
         // Panel is visible when it has not been dismissed and at least one
         // extension is affected by the MV2 deprecation.
         return !this.isMv2DeprecationNoticeDismissed &&

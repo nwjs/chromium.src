@@ -14,6 +14,7 @@
 #include "base/check.h"
 #include "base/containers/span.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/i18n/rtl.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -190,7 +191,9 @@ PasswordAutofillManager::GetDriver() {
 void PasswordAutofillManager::OnSuggestionsShown(
     base::span<const Suggestion> suggestions) {}
 
-void PasswordAutofillManager::OnSuggestionsHidden() {}
+void PasswordAutofillManager::OnSuggestionsHidden() {
+  metrics_util::LogPasswordDropdownHidden();
+}
 
 void PasswordAutofillManager::DidSelectSuggestion(
     const Suggestion& suggestion) {
@@ -301,7 +304,7 @@ void PasswordAutofillManager::DidAcceptSuggestion(
           password_client_->IsOffTheRecord());
       password_client_
           ->GetWebAuthnCredentialsDelegateForDriver(password_manager_driver_)
-          ->LaunchWebAuthnFlow();
+          ->LaunchSecurityKeyOrHybridFlow();
       break;
     default:
       metrics_util::LogPasswordDropdownItemSelected(
@@ -328,12 +331,17 @@ void PasswordAutofillManager::DidAcceptSuggestion(
                            weak_ptr_factory_.GetWeakPtr(),
                            suggestion.main_text.value, suggestion.type);
 
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
         const std::u16string origin =
             base::UTF8ToUTF16(GetShownOrigin(url::Origin::Create(
                 password_manager_driver_->GetLastCommittedURL())));
+#endif
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
         message = l10n_util::GetStringFUTF16(
             IDS_PASSWORD_MANAGER_FILLING_REAUTH, origin);
+#elif BUILDFLAG(IS_CHROMEOS)
+        message = l10n_util::GetStringFUTF16(
+            IDS_PASSWORD_MANAGER_FILLING_REAUTH_CHROMEOS, origin);
 #endif
         authenticator_->AuthenticateWithMessage(
             message,
@@ -581,7 +589,7 @@ bool PasswordAutofillManager::FillSuggestion(const std::u16string& username,
             .IsValidAndroidFacetURI();
     metrics_util::LogFilledPasswordFromAndroidApp(is_android_credential);
     password_manager_driver_->FillSuggestion(
-        username, password_and_meta_data.password_value);
+        username, password_and_meta_data.password_value, base::DoNothing());
     return true;
   }
   return false;

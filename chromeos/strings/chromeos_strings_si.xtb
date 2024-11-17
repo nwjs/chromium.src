@@ -20,6 +20,7 @@
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">ෆයර්වෝලය අනාවරණය කර ගන්නා ලදි</translation>
 <translation id="1075811647922107217">පිටු තරම</translation>
+<translation id="108084407137234521">වචන <ph name="MIN_WORD_LENGTH" />කට වඩා අඩු පිටපතක් සාරාංශ කළ නොහැක</translation>
 <translation id="1082009148392559545">තිර සුරැකුම බාගැනීම</translation>
 <translation id="1094693127011229778">IP ලිපිනය ලබා ගත නොහැකිය</translation>
 <translation id="1100902271996134409">රූප තනමින්...</translation>
@@ -79,6 +80,7 @@
 <translation id="1337912285145772892">ස්කෑන් කළ හැකි ප්‍රදේශයට ගළපන්න</translation>
 <translation id="1343442362630695901">ලුණු විල</translation>
 <translation id="1348657754632799065">පටිගත කිරීමේ තීරුව</translation>
+<translation id="1350909945461913813">ඕනෑම වැඩක් සුරැකීමට වග බලා ගන්න</translation>
 <translation id="1367951781824006909">ගොනුවක් තෝරන්න</translation>
 <translation id="1371650399987522809">Google AI මගින් බල ගැන්වෙන වෝල්පේපරය සඳහා ප්‍රතිපෝෂණය</translation>
 <translation id="1374385338586507108">නිර්වචනය කරන්න</translation>
@@ -127,6 +129,7 @@
 <translation id="1567064801249837505">ඇල්බම</translation>
 <translation id="1572585716423026576">බිතුපත ලෙස සකසන්න</translation>
 <translation id="1578784163189013834">තිර සුරැකුම් පසුබිම තෝරන්න</translation>
+<translation id="1587031308639983732">කාලය පදකම් වන වෙනස්කම් නිරවද්‍ය නොවේවි. මෙම සැකසුම ඔබේ පරිපාලකයා විසින් කළමනා කෙරේ.</translation>
 <translation id="1588438908519853928">සාමාන්‍ය</translation>
 <translation id="1591562245178063882">මෙම මාසය</translation>
 <translation id="1593528591614229756">ඔබේ ජංගම සැපයුම්කරු හෝ පරිපාලක විසින් සපයන ලද APN තේරීමට වග බලා ගන්න. APN එකක් තේරීම ඕනෑම අභිරුචි APN එකක් අබල කරයි. අවලංගු APN ඔබේ ජංගම සම්බන්‍ධතාවට බාධා කරාවි. <ph name="LINK_BEGIN" />තව දැන ගන්න<ph name="LINK_END" /></translation>
@@ -216,6 +219,7 @@
 <translation id="1905710495812624430">ඉඩ දෙන උපරිම උත්සාහයන් ගණන ඉක්මවා ඇත.</translation>
 <translation id="1908234395526491708">UDP ඉල්ලීම් අසාර්ථක වීම්</translation>
 <translation id="1908394185991500139">ඊතලය වමට</translation>
+<translation id="1914144885717544695">සිකුරාදා</translation>
 <translation id="1923388006036088459">අවධාරණ වර්ණ</translation>
 <translation id="1945403655450283000">රෙකෝඩරය</translation>
 <translation id="1947737735496445907">මුද්‍රණය කරන ලදි</translation>
@@ -236,6 +240,7 @@
 <translation id="2011174342667534258">SDK අනුවාදය:</translation>
 <translation id="2016697457005847575">දෝෂාවේක්ෂ පියවර උත්සාහ කරන්න</translation>
 <translation id="202500043506723828">EID</translation>
+<translation id="2041627599411887437">තේමාවක් තෝරා ඉන්පසු ඔබේ AI රූප පුද්ගලායනය කිරීමට යටින් ඉරි ඇඳ ඇති වචන තෝරන්න.</translation>
 <translation id="2045814230297767491">හැඳි ගෑරුප්පු</translation>
 <translation id="2047316797244836561">ජාලයකට සම්බන්ධ වී තිර සුරැකුම බැලීමට පිටුව නැවත පූරණ කරන්න.</translation>
 <translation id="2056550196601855911">IPv4/IPv6</translation>
@@ -243,10 +248,8 @@
 <translation id="2080070583977670716">තවත් සැකසුම්</translation>
 <translation id="2082932131694554252">පවරා ඇති යතුරු පුවරු යතුර</translation>
 <translation id="2085089206770112532">සංදර්ශක දීප්තිය පහළට</translation>
-<translation id="2085876078937250610">සුරකින්න…</translation>
 <translation id="2086091080968010660">කාලය පදකම් වන වෙනස්කම් නිරවද්‍ය නොවේවි. සැකසීම් තුළ පද්ධති ස්ථාන ප්‍රවේශය සක්‍රීය කරන්න.</translation>
 <translation id="2102231663024125441">පෙළ සංස්කරණය</translation>
-<translation id="2102648867808308635">මෙම පිටුව කියවීමට මට උදවු කරන්න</translation>
 <translation id="2105810540595158374">උපාංගය ක්‍රීඩා පාලකයකි.</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, අනුවාදය <ph name="MILESTONE_VERSION" /></translation>
 <translation id="2124643134650336457">දැනට ඉංග්‍රීසියෙන් (එ.ජ.) පමණක් ලැබේ</translation>
@@ -255,9 +258,9 @@
 <translation id="2138109643290557664">පාවී යන්න</translation>
 <translation id="2141644705054017895"><ph name="PERCENTAGE_VALUE" />%</translation>
 <translation id="2148716181193084225">අද</translation>
+<translation id="215206000155329774"><ph name="INTENT" />; <ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" /></translation>
 <translation id="2152882202543497059">ඡායාරූප <ph name="NUMBER" />ක්</translation>
 <translation id="2154460308960858308">සෙවීම හිස් කරන්න</translation>
-<translation id="2156072344042480449">ඔබේ මෑත කාලීන ප්‍රේරක 2. ඔබට මෙම ප්‍රේරක භාවිත කළ හැක්කේ ඔබ මෙම පිටුවේ සිටින විට පමණි.</translation>
 <translation id="2157660087437850958">ඉමොජි තෝරකය</translation>
 <translation id="2157959690810728433">පෙළ ගස්වන ලදි</translation>
 <translation id="2158971754079422508"><ph name="DESC_TEXT" />: යළි උත්සාහ කරන්න</translation>
@@ -265,6 +268,7 @@
 <translation id="2161394479394250669">මුද්‍රණ කාර්යය අවලංගු කරන්න</translation>
 <translation id="2161656808144014275">පාඨය</translation>
 <translation id="2163937499206714165">අඳුරු ප්‍රකාරය ක්‍රියාත්මක කරන්න</translation>
+<translation id="2173302385160625112">ඔබේ අන්තර්ජාල සබැඳුම පරීක්ෂා කරන්න</translation>
 <translation id="2180197493692062006">යම් දෙයක් වැරදිණි. යෙදුම නැවත විවෘත කිරීමට උත්සාහ කරන්න.</translation>
 <translation id="2189104374785738357">APN විස්තර සංස්කරණය කරන්න</translation>
 <translation id="2195732836444333448">දැනට හැකියාව තුළ. ඉක්මනින් ආපසු එන්න.</translation>
@@ -285,7 +289,6 @@
 <translation id="2230624078793142213">තව තනන්න</translation>
 <translation id="2236746079896696523">යතුරු පුවරු පසු ආලෝකය ටොගල කිරීම</translation>
 <translation id="2240366984605217732">පිරිසැලසුම් මාරුව</translation>
-<translation id="2242381852034179222">මෙම විශේෂාංගය ඔබේ පරිපාලකයින් විසින් කළමනාකරණය කරනු ලැබේ</translation>
 <translation id="2244834438220057800">කොළ</translation>
 <translation id="225692081236532131">සක්‍රිය කිරීමේ තත්ත්වය</translation>
 <translation id="2267285889943769271">තිර රුවක් එක් කරන්න</translation>
@@ -320,7 +323,9 @@
 <translation id="242825218556404975">කථනය අනාවරණ නොවිය</translation>
 <translation id="2446553403094072641">පාවෙන ලක්ෂ්‍යය නිරවද්‍යතාව</translation>
 <translation id="2448312741937722512">වර්ගය</translation>
+<translation id="2468124392950503650">නිර්මාණය කිරීමට ප්‍රේරකය තෝරන්න හෝ <ph name="BEGIN_LINK_PROMPTING_GUIDE" />ප්‍රේරක මාර්ගෝපදේශය<ph name="END_LINK_PROMPTING_GUIDE" /> බලන්න</translation>
 <translation id="2472215337771558851">Google AI මගින් බල ගැන්වෙන කෙටුම්පතක් තැනීමට හෝ පවතින වැඩ ප්‍රසාදනය කිරීමට මට ලිවීමට උදවු කරන්න භාවිත කරන්න</translation>
+<translation id="2475982808118771221">දෝෂයක් සිදු විණි</translation>
 <translation id="2480572840229215612">කකුළුවෝ</translation>
 <translation id="248546197012830854">උපාංගය නොබැඳි වේ. උදවු අන්තර්ගතය බැලීමට Wi-Fi ජාලයට සම්බන්ධ වන්න.</translation>
 <translation id="2486301288428798846">දැව</translation>
@@ -372,6 +377,7 @@
 <translation id="2713444072780614174">සුදු</translation>
 <translation id="2715723665057727940">ගඟ</translation>
 <translation id="2717139507051041123">අඳුරු වර්ණ ප්‍රකාරය සබල කරන්න</translation>
+<translation id="2726755229438917165">සඳුදා</translation>
 <translation id="2728460467788544679">මුද්‍රණ ඉතිහාස සියල්ල හිස් කරන්න</translation>
 <translation id="2731700343119398978">කරුණාකර රැඳෙන්න..</translation>
 <translation id="2740531572673183784">හරි</translation>
@@ -411,9 +417,11 @@
 <translation id="3031560714565892478">උපාංගය වීඩියෝ කැමරාවකි.</translation>
 <translation id="3042927241478734594">පටිගත කිරීමෙන් පිටවන්න ද?</translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />mA</translation>
+<translation id="3055176406666937744">වචන <ph name="MAX_WORD_LENGTH" />කට වඩා දිග පිටපතක් සාරාංශ කළ නොහැක</translation>
 <translation id="3056720590588772262">අන්ත ලක්ෂ්‍යය</translation>
 <translation id="3060579846059757016">දළ සටහන්</translation>
 <translation id="3061850252076394168">කථා කිරීමට තෝරන්න සබල කරන්න</translation>
+<translation id="3066772729299747758">අඟහරුවාදා</translation>
 <translation id="3069085583900247081">පරීක්ෂණය අසාර්ථක විය</translation>
 <translation id="3078740164268491126">වගුව</translation>
 <translation id="3081652522083185657">විදුලි පහන</translation>
@@ -447,6 +455,7 @@
 <translation id="3226657629376379887">පිරිසැලසුම් ක්‍රියා මෙනුව</translation>
 <translation id="3227186760713762082"><ph name="CATEGORY_TEXT" /> අගය <ph name="CONVERSION_RATE" />න් බෙදන්න</translation>
 <translation id="3237710083340813756">නැවත ලියන්න</translation>
+<translation id="3245518008592055173">වචන <ph name="MIN_WORD_LENGTH" />කට වඩා අඩු පිටපතක් සඳහා නම් තැනීමට නොහැක</translation>
 <translation id="3246869037381808805">දින 1කට වඩා පැරණි මුද්‍රණ කාර්ය ඉවත් කරනු ඇත</translation>
 <translation id="324961752321393509">ඔබේ පරිපාලකයා මෙම යෙදුම වැසීමට ඉඩ නොදෙයි</translation>
 <translation id="3263941347294171263">යාවත්කාලීන ක්‍රියාවලිය දිගටම කිරීමට <ph name="DEVICE_NAME" /> පේනු නොගත කර නැවත පේනු ගත කරන්න</translation>
@@ -469,6 +478,7 @@
 <translation id="3361618936611118375">සුෂි</translation>
 <translation id="3368922792935385530">සම්බන්ධ කළ</translation>
 <translation id="3369013195428705271">ඔබට මුද්‍රණ ඉතිහාස සියල්ල හිස් කිරීමට අවශ්‍ය බව ඔබට තහවුරුද? ඔබේ පවතින මුද්‍රණ වැඩ හිස් නොකෙරේ.</translation>
+<translation id="3369632935976756339"><ph name="INTENT" />; <ph name="QUERY_TEXT" />; <ph name="SUBTEXT" />; <ph name="RESULT_TEXT" /></translation>
 <translation id="3373141842870501561">පෘථිවි ප්‍රවාහ වෝල්පේපරය</translation>
 <translation id="33736539805963175"><ph name="LETTERS_LETTER" /> අකුර සමග <ph name="LETTERS_COLOR" /> පසුබිම</translation>
 <translation id="3383623117265110236">සුවිශේෂී</translation>
@@ -496,7 +506,6 @@
 <translation id="3502426834823382181">සියලු යෙදුම් බලන්න</translation>
 <translation id="3510890413042482857"><ph name="BEGIN_LINK1" />ක්‍රියාකාරීත්ව අනුරේඛන දත්ත<ph name="END_LINK1" /> යවන්න</translation>
 <translation id="3517001332549868749">ChromeOS යාවත්කාලීනය</translation>
-<translation id="3522508178835057262">දැනට, වචන <ph name="MAX_WORD_LENGTH" />කට වඩා දිග අනුපතකට සහය නොදක්වයි</translation>
 <translation id="3527036260304016759">අසාර්ථක විය - නොදන්නා දෝෂයකි</translation>
 <translation id="353214771040290298">සංස්කරණය අවසන්</translation>
 <translation id="3532980081107202182">මිනිත්තු <ph name="MIN_REMAINING" />ක් පමණ ඉතිරිය</translation>
@@ -608,6 +617,7 @@
 <translation id="409427325554347132">පරීක්ෂණ විස්තර පෙන්වන්න</translation>
 <translation id="409469431304488632">අත්හදා බැලීම</translation>
 <translation id="4095829376260267438">WPA2WPA3</translation>
+<translation id="4105182082354119881">වචන <ph name="MAX_WORD_LENGTH" />කට වඩා දිග පිටපතක් සඳහා නම් තැනීමට නොහැක</translation>
 <translation id="4110686435123617899">ඇල්බමය තෝරන්න <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="4111761024568264522">USB ස්පර්ශ පුවරුව</translation>
 <translation id="4113067922640381334">ඔබට දැන් නව <ph name="BEGIN_LINK_WALLPAPER_SUBPAGE" />බිතුපත්<ph name="END_LINK_WALLPAPER_SUBPAGE" /> වෙත ප්‍රවේශය ඇත</translation>
@@ -616,6 +626,7 @@
 <translation id="4130035430755296270">තවත් පිරිසැලසුම් විකල්ප සඳහා දිගටම උඩින් තබා ගන්න</translation>
 <translation id="4130750466177569591">මම එකඟ වෙමි</translation>
 <translation id="4131410914670010031">කළු සහ සුදු</translation>
+<translation id="4137700675046373159">සෙනසුරාදා</translation>
 <translation id="4143226836069425823">ප්‍රතිස්ථාපන කිරීමට වෙනත් යතුරු පුවරු යතුරකට තට්ටු කරන්න</translation>
 <translation id="4145784616224233563">HTTP ෆයර්වෝලය</translation>
 <translation id="4147897805161313378">Google ඡායාරූප</translation>
@@ -638,6 +649,7 @@
 <translation id="4227825898293920515">මුරපදය <ph name="TIME" /> තුළ කල් ඉකුත් වෙයි</translation>
 <translation id="4238516577297848345">කෙරෙමින් පවතින මුද්‍රණ කාර්යයක් නැත</translation>
 <translation id="4239069858505860023">GPRS</translation>
+<translation id="4249717042534905822">ඉරිදා</translation>
 <translation id="4250229828105606438">තිරරූපය</translation>
 <translation id="4251839292699800785">හැඩකාර කාර්යාලය</translation>
 <translation id="4258281355379922695">HTTP පමාව</translation>
@@ -687,6 +699,7 @@
 <translation id="4474142134969976028">ගැළපෙන ප්‍රතිඵල නැත</translation>
 <translation id="4479639480957787382">ඊදර්නෙට්</translation>
 <translation id="4483049906298469269">පෙරනිමි නොවන ජාල වාහල පින්ග් කිරීම අසාර්ථක විය</translation>
+<translation id="4486524074141928967">ඔබ <ph name="TIME" />ට වරනය වනු ඇත</translation>
 <translation id="4500722292849917410">කෙටිමඟ නොලැබේ. සංස්කාරක යතුරක් භාවිතයෙන් නව කෙටිමඟක් ඔබන්න (ctrl, alt, shift, හෝ <ph name="META_KEY" />).</translation>
 <translation id="4500966230243561393">අතුරු මුහුණත් වර්ණය</translation>
 <translation id="4503223151711056411">වම් ඊතලය</translation>
@@ -750,7 +763,6 @@
 <translation id="4809927044794281115">ආලෝක තේමාව</translation>
 <translation id="4813136279048157860">මගේ රූප</translation>
 <translation id="4813345808229079766">සබඳතාව</translation>
-<translation id="4824527342590024245">දැනට, වචන <ph name="MIN_WORD_LENGTH" />කට වඩා අඩු අනුපතකට සහය නොදක්වයි</translation>
 <translation id="4830894019733815633">කැනියම</translation>
 <translation id="4832079907277790330">ගොනු යෙදුම තුළ ෆෝල්ඩරයක් තෝරන්න...</translation>
 <translation id="4835901797422965222">සක්‍රිය ජාල නැත</translation>
@@ -817,6 +829,7 @@
 <translation id="5108781503443873320">සමාන:</translation>
 <translation id="5130848777448318809">පෝනියෝ</translation>
 <translation id="5137451382116112100">පූර්ණ</translation>
+<translation id="5140788690559353412">ඔබට ඔබේ පාසල් ගිණුමට ප්‍රවේශය අහිමි වූ විට, ඔබට තවදුරටත් සම්බන්ධිත ඉ-තැපෑල සහ Gmail, Docs, Slides වැනි Google Drive ගොනු සහ තවත් බොහෝ දේ වෙත ප්‍රවේශය නොලැබෙනු ඇත.</translation>
 <translation id="5142961317498132443">සත්‍යාපනය</translation>
 <translation id="5144311987923128508">තහවුරු කිරීමේ බොත්තම දැන් අබලිතයි</translation>
 <translation id="5144887194300568405">පරිවර්තනය පිටපත් කරන්න</translation>
@@ -910,6 +923,7 @@
 <translation id="5595623927872580850">අළු</translation>
 <translation id="5596627076506792578">තවත් විකල්ප</translation>
 <translation id="5600027863942488546"><ph name="KEY_NAME" /> යතුර පරීක්ෂා කරන ලදි</translation>
+<translation id="5613201299517339763">ඔබ වරනය වී ඇත</translation>
 <translation id="5620281292257375798">අභ්‍යන්තර පමණයි</translation>
 <translation id="5630438231335788050">බෝහෝස්</translation>
 <translation id="5631759159893697722">උද්ධෘතය</translation>
@@ -942,7 +956,6 @@
 <translation id="57838592816432529">නිහඬ කරන්න</translation>
 <translation id="5784136236926853061">ඉහළ HTTP පමාව</translation>
 <translation id="5790391387506209808">ලැපිස් ලැසූලි</translation>
-<translation id="5810692306010756935">උපාධිය</translation>
 <translation id="5816802250591013230">කෙටිමං කිසිවක් නොපවරන ලදි</translation>
 <translation id="5826644637650799838">කලාව පිළිබඳව</translation>
 <translation id="5832805196449965646">පුද්ගලයා එක් කරන්න</translation>
@@ -974,6 +987,7 @@
 <translation id="5931523347251946569">ගොනුව හමු නොවිණි</translation>
 <translation id="5938286923316838007">මෙම අන්තර්ගතය සඳහා පටිගත කිරීම් නම් සෑදිය නොහැක</translation>
 <translation id="5939518447894949180">නැවත සකසන්න</translation>
+<translation id="5942727615796467094">මෙම <ph name="DEVICE_TYPE" /> භාවිත කළ හැකි වේලාව <ph name="MANAGER" />පරිපාලක විසින් සකසා ඇත</translation>
 <translation id="594552776027197022">අහඹු යතුරු යුගල උත්පාදනය කරන්න</translation>
 <translation id="5946538341867151940">ඔබ තවම සම්බන්ධ වී නැත. ඔබේ ජංගම වාහකයා අභිරුචි APN නිර්දේශ කරන්නේ නම්, "+ නව APN" තේරීමෙන් APN තොරතුරු ඇතුළු කරන්න</translation>
 <translation id="5947266287934282605">මාසයේ අවසාන දිනය මෙම දිනයට පෙර නම්, මාසයේ අවසාන දිනයේ දත්ත යළි සකසනු ලැබේ</translation>
@@ -1003,6 +1017,7 @@
 <translation id="6075872808778243331">(Android) HTTP පමාව</translation>
 <translation id="6078323886959318429">කෙටිමඟක් එක් කරන්න</translation>
 <translation id="6091080061796993741">කහ</translation>
+<translation id="6093853427925392522">ඔබට ප්‍රවේශය අහිමි වීමට පෙර ඔබේ පාසල් ගිණුම් දත්ත ඔබේ පුද්ගලික ගිණුමට ගෙන යාමට Google වෙතින් අන්තර්ගත හුවමාරු යෙදුම භාවිත කිරීමට වග බලා ගන්න.</translation>
 <translation id="6104112872696127344">ස්කෑන් කිරීම අවලංගු කර ඇත</translation>
 <translation id="6106186594183574873">අවසන් කිරීමට, ඔබේ පැරණි මුරපදය ඇතුළත් කරන්න</translation>
 <translation id="6108689792487843350">වාහල වෙත ළඟා විය නොහැකිය</translation>
@@ -1021,6 +1036,7 @@
 <translation id="6137767437444130246">පරිශීලක සහතිකය</translation>
 <translation id="6146993107019042706">අවසන් කිරීමට, ඔබේ නව මුරපදය ඇතුළත් කරන්න</translation>
 <translation id="6147514244879357420">PNG</translation>
+<translation id="6149015141270619212">අන්තර්ජාලය වෙත සම්බන්ධ විය නොහැකි ය</translation>
 <translation id="6156030503438652198">මෙරූන් සහ රෝස</translation>
 <translation id="6165508094623778733">තව දැන ගන්න</translation>
 <translation id="6184793017104303157">B4</translation>
@@ -1066,6 +1082,7 @@
 <translation id="6352210854422428614">වෙනස් ග්‍රහලෝකය</translation>
 <translation id="6359706544163531585">ආලෝක තේමාව අබල කරන්න</translation>
 <translation id="6359919876285606596">මෙම ක්‍රියාව ස්ථිර වන අතර පසුගමනය කළ නොහැක</translation>
+<translation id="6368342879959028556">ඔබ "AI සමග සාදන්න" තෝරා ගත් විට අභිරුචි ප්‍රේරකයක් ලියන්න. නැතහොත් ඔබට තේමාවක් තෝරා ගැනීමට “AI වෝල්පේපර” තෝරා ඉන්පසු ඔබේ AI වෝල්පේපරය පුද්ගලායනය කිරීමට යටින් ඉරි ඇඳ ඇති වචන තෝරන්න.</translation>
 <translation id="636850387210749493">ව්‍යාපාරික බඳවාගැනීම</translation>
 <translation id="6373461326814131011">පොකුණ</translation>
 <translation id="6379086450106841622">ස්පර්ශ තිරය</translation>
@@ -1089,6 +1106,7 @@
 <translation id="6447630859861661624">ගිණුම් සැකසීම් වෙත යන්න</translation>
 <translation id="6462978824459367242">APN එක් කරන්න බොත්තම දැන් සබලයි</translation>
 <translation id="6463239094587744704">{PAGE_NUMBER,plural, =0{පිටුව යළි ස්කෑන් කරන්නද?}=1{{PAGE_NUMBER} පිටුව යළි ස්කෑන් කරන්නද?}one{{PAGE_NUMBER} පිටුව යළි ස්කෑන් කරන්නද?}other{{PAGE_NUMBER} පිටුව යළි ස්කෑන් කරන්නද?}}</translation>
+<translation id="6468146470109254228">ඔබේ වඩාත්ම මෑත ප්‍රේරක සහ ප්‍රතිදාන 3. ඔබට මේවාට ප්‍රවේශ විය හැක්කේ ඔබ වෝල්පේපරය සහ ශෛලිය භාවිත කරන අතරතුර පමණි.</translation>
 <translation id="6472207088655375767">OTP</translation>
 <translation id="6472979596862005515">බෝට්ටු</translation>
 <translation id="64778964625672495">තද රතු</translation>
@@ -1107,6 +1125,7 @@
 <translation id="6527081081771465939">නොදන්නා Wi-Fi ආරක්ෂක ප්‍රොටොකෝලය</translation>
 <translation id="6535178685492749208">ඔබ නොබැඳි වේ. ප්‍රතිපෝෂණ පසුව යවනු ලැබේ.</translation>
 <translation id="6543412779435705598">ටැකොස්</translation>
+<translation id="6550369542114086980">බ්‍රහස්පතින්දා</translation>
 <translation id="6551839203326557324">ඇපල්</translation>
 <translation id="65526652485742171">තහවුරු කිරීමේ බොත්තම දැන් සබලිතයි</translation>
 <translation id="6557784757915238407">APN වර්ගය <ph name="ATTACH" /> වේ.</translation>
@@ -1134,6 +1153,16 @@
 <translation id="6657585470893396449">මුරපදය</translation>
 <translation id="6659594942844771486">ටැබ</translation>
 <translation id="66621959568103627">කොරල් රෝස</translation>
+<translation id="6667885109186363316"><ph name="SEA_PEN_INTRO_FIRST_PARAGRAPH" />
+          <ph name="LINE_BREAK" />
+          <ph name="LINE_BREAK" />
+          වඩාත් අනන්‍ය සහ විවිධ AI රූප විකල්ප ලබා ගැනීමට "මාව පොළඹවන්න" තෝරන්න.
+          <ph name="LINE_BREAK" />
+          <ph name="LINE_BREAK" />
+          ඔබ AI සමගින් නිර්මාණය කරන විට, <ph name="BEGIN_LINK_GOOGLE_PRIVACY_POLICY" />Google හි පෞද්ගලිකත්ව ප්‍රතිපත්තියට<ph name="END_LINK_GOOGLE_PRIVACY_POLICY" /> යටත්ව, රූප ජනනය කිරීමට සහ නිෂ්පාදනය වැඩි දියුණු කිරීමට ප්‍රේරකය Google AI සේවාදායක වෙත යවනු ලැබේ.
+          <ph name="LINE_BREAK" />
+          <ph name="LINE_BREAK" />
+          උත්පාදක AI පර්යේෂණාත්මක, මුල් සංවර්ධන අවධියේ පවතින අතර දැනට සීමිතව ලබා ගත හැක.</translation>
 <translation id="6673898378497337661">යතුරු පුවරු දීප්තිය ඉහළට</translation>
 <translation id="6692996468359469499">ඔබේ තේරීමට අදාළ තොරතුරු ලබා ගන්න</translation>
 <translation id="6694534975463174713">අගුල</translation>
@@ -1167,6 +1196,7 @@
 <translation id="6831043979455480757">පරිවර්තනය කරන්න</translation>
 <translation id="6846843854964504403">සුරක්ෂිත යළි පිහිටුවීම</translation>
 <translation id="6853312040151791195">විසර්ජන වේගය</translation>
+<translation id="6862228900689076919">මෙම විශේෂාංගය ඔබේ පරිපාලක විසින් කළමනාකරණය කරනු ලැබේ</translation>
 <translation id="6862416241246624313">ප්‍රතිචාරය ඉදිරිපත් කළා</translation>
 <translation id="6866732840889595464">ඩේසි</translation>
 <translation id="6871256179359663621">ලා දම්</translation>
@@ -1191,20 +1221,11 @@
 <translation id="6961170852793647506">ආරම්භ කිරීමට, ඔබගේ ලේඛනය ස්කෑනරය මත තබන්න</translation>
 <translation id="6965382102122355670">හරි</translation>
 <translation id="6965978654500191972">උපාංගය</translation>
+<translation id="6972754398087986839">අරඹන්න</translation>
 <translation id="6975620886940770104">දිලිසෙන <ph name="GLOWSCAPES_FEATURE" /> සහිත <ph name="GLOWSCAPES_LANDSCAPE" /></translation>
 <translation id="6975981640379148271">කෝලා</translation>
 <translation id="6977381486153291903">නිත්‍ය මෘදුකාංග සංශෝධනය</translation>
 <translation id="6981982820502123353">ප්‍රවේශ්‍යතාව</translation>
-<translation id="698242338298293034">තේමාවක් තෝරා පසුව ඔබේ AI රූප පුද්ගලායන කිරීමට යටි ඉරැති වචන තෝරන්න.
-          <ph name="LINE_BREAK" />
-          <ph name="LINE_BREAK" />
-          ඉතා අද්විතීය සහ විවිධ AI රූප විකල්ප ලබා ගැනීමට "මා ප්‍රබෝධමත් කරන්න" තෝරන්න.
-          <ph name="LINE_BREAK" />
-          <ph name="LINE_BREAK" />
-          ඔබ AI සමග සාදන විට, <ph name="BEGIN_LINK_GOOGLE_PRIVACY_POLICY" />Google හි පෞද්ගලිකත්ව ප්‍රතිපත්තියට<ph name="END_LINK_GOOGLE_PRIVACY_POLICY" /> යටත්ව රූප ජනන කිරීමට සහ නිෂ්පාදන දියුණු කිරීමට ප්‍රේරකය Google AI සේවාදායක වෙත යවනු ලැබේ.
-          <ph name="LINE_BREAK" />
-          <ph name="LINE_BREAK" />
-          උත්පාදක AI පර්යේෂණාත්මක, මුල් සංවර්ධන අවධියේ පවතින අතර දැනට සීමිත ලැබීම ඇත.</translation>
 <translation id="6982462588253070448">වැලි කඳු</translation>
 <translation id="7005833343836210400">උපාංගය නොබැඳි වේ</translation>
 <translation id="7028979494427204405"><ph name="MANAGER" /> මෙම උපාංගය කළමනාකරණය කරන අතර, එයට පිවිසි වෙබ් පිටු, මුරපද සහ ඉ-තැපෑල ඇතුළුව සියලු පරිශීලක ක්‍රියාකාරකම් වෙත ප්‍රවේශය තිබේ.</translation>
@@ -1228,12 +1249,14 @@
 <translation id="7103252855940681301">උපාංග <ph name="COUNT" />කින් <ph name="INDEX" /> <ph name="NAME" /> ලෙස නම් කර ඇත.</translation>
 <translation id="7107255225945990211"><ph name="PRODUCT_NAME" /> සුවිශේෂී කලා කෘතිය තෝරන්න</translation>
 <translation id="7108668606237948702">ඇතුල් කරන්න</translation>
+<translation id="7117228822971127758">පසුව නැවත උත්සාහ කරන්න</translation>
 <translation id="7118522231018231199">ඔබේ ජංගම සැපයුම්කරු හෝ පරිපාලක විසින් සපයන ලද APN තේරීමට වග බලා ගන්න. APN එකක් තේරීම ඕනෑම අභිරුචි APN එකක් අබල කරයි. අවලංගු APN ඔබේ ජංගම සම්බන්‍ධතාවට බාධා කරාවි.</translation>
 <translation id="7119389851461848805">බලය</translation>
 <translation id="7129287270910503851">ඔබේ දත්ත භාවිතය සෑම මසකම මෙම දිනයේදී යළි සකසනු ලැබේ</translation>
 <translation id="7130438335435247835">ප්‍රවේශ ලක්ෂ්‍ය නම (APN)</translation>
 <translation id="7134436342991564651">{0,plural, =1{නම් සේවාදායකය}one{නම් සේවාදායක}other{නම් සේවාදායක}}</translation>
 <translation id="7135814714616751706">කෙටිමං සොයන්න</translation>
+<translation id="7141470099673912333">අන්තර්ගත හුවමාරුව</translation>
 <translation id="7143207342074048698">සම්බන්ධ වෙමින්…</translation>
 <translation id="7144878232160441200">නැවත උත්සහ කරන්න</translation>
 <translation id="7144954474087165241">දාගැබ</translation>
@@ -1250,6 +1273,7 @@
 <translation id="7180865173735832675">ගැලපුම් කරන්න</translation>
 <translation id="7182063559013288142">ක්ෂණික හොට්ස්පොට්</translation>
 <translation id="7184043045742675738">ඔබේ බොත්තම අභිරුචිකරණය කිරීමට ඕනෑම යතුරක් මත ක්ලික් කරන්න. මූසිකය හෝ ඊතල යතුරු සමග යතුර නැවත ස්ථානගත කරන්න.</translation>
+<translation id="7187669805838282391">බදාදා</translation>
 <translation id="7206979415662233817">සේවා නියම</translation>
 <translation id="7210635925306941239">සියන්</translation>
 <translation id="7212547870105584639">ජාල APN සැකසීම් කළමනා කරන්න. APN සෙලියුලර් ජාලයක් සහ අන්තර්ජාලය අතර සම්බන්‍ධතාවක් ඇති කරයි. <ph name="BEGIN_LINK_LEARN_MORE" />තව දැන ගන්න<ph name="END_LINK_LEARN_MORE" /></translation>
@@ -1296,6 +1320,7 @@
 <translation id="7388959671917308825">එක්ව තැනූ ස්පර්ශ පුවරුව</translation>
 <translation id="7397270852490618635">ආලෝක තේමාව ක්‍රියාවිරහිත කරන්න</translation>
 <translation id="7401543881546089382">කෙටිමඟ මකන්න</translation>
+<translation id="7405493795721832710"><ph name="DEVICE_NAME" /> යාවත්කාලීන කිරීමට සූදානම් වේ</translation>
 <translation id="741244894080940828">පරිවර්තනය</translation>
 <translation id="7415801143053185905">ඉතා ඉහළ HTTP පමාව</translation>
 <translation id="7425037327577270384">මට ලිවීමට උදවු කරන්න</translation>
@@ -1310,6 +1335,7 @@
 <translation id="7500205272584643581">ස්පීකර් හඳුනාගැනීමට සහ ලේබල් කිරීමට රෙකෝඩරයට ඉඩ දෙන්න ද?</translation>
 <translation id="7501957181231305652">හෝ</translation>
 <translation id="7502658306369382406">IPv6 ලිපිනය</translation>
+<translation id="7503342217608032738">උපාංගය භාවිතා කළ නොහැක</translation>
 <translation id="7507061649493508884">විකිරණශීලී <ph name="FLOWER_COLOR" /> <ph name="FLOWER_TYPE" /></translation>
 <translation id="7513770521371759388">පහළ</translation>
 <translation id="7514365320538308">බාගන්න</translation>
@@ -1322,6 +1348,8 @@
 <translation id="7544853251252956727">කලවම් කරන්න</translation>
 <translation id="7550715992156305117">දෝෂ නිර්ණ දින චර්යා</translation>
 <translation id="7551123448725492271">උපාංගය ශ්‍රව්‍ය උපාංගයකි.</translation>
+<translation id="7553094907613575384"><ph name="BEGIN_PARAGRAPH1" /><ph name="MANAGER" /> මෙම <ph name="DEVICE_TYPE" /> භාවිත කළ හැකි වේලාව පරිපාලක විසින් සකසා ඇත.<ph name="END_PARAGRAPH1" />
+        <ph name="BEGIN_PARAGRAPH2" />ඔබට <ph name="TIME" />ට නැවත <ph name="DAY" /> හි මෙම උපාංගය භාවිතා කිරීමට හැකි වනු ඇත.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="7559239713112547082">තිර රුව පෙරදසුන් කරන්න</translation>
 <translation id="7561454561030345039">මෙම ක්‍රියාව ඔබේ පරිපාලක විසින් කළමනාකරණය කරයි</translation>
 <translation id="7569444139234840525"><ph name="QUERY_TEXT" /> · /<ph name="PHONETICS" />/</translation>
@@ -1383,6 +1411,7 @@
 <translation id="7856267634822906833">බ්ලූටූත් ස්පර්ශ තිරය</translation>
 <translation id="7859006200041800233">පතොක් මල</translation>
 <translation id="7869143217755017858">අඳුරු ප්‍රකාරය අබල කරන්න</translation>
+<translation id="7878972877380405573">මට කියවීමට උදවු කරන්න සමග සාරාංශ කරන්න</translation>
 <translation id="7881066108824108340">DNS</translation>
 <translation id="7882358943899516840">සැපයුම්කරු වර්ගය</translation>
 <translation id="7882501334836096755">පොදු යතුර</translation>
@@ -1409,6 +1438,7 @@
 <translation id="7983597390787556680">{NUM_ROOL_APPS,plural, =1{"<ph name="APP_NAME_1" />" ස්වයංක්‍රීයව ආරම්භ කරන ලදි}one{යෙදුම් #ක් ස්වයංක්‍රීයව ආරම්භ කරන ලදි}other{යෙදුම් #ක් ස්වයංක්‍රීයව ආරම්භ කරන ලදි}}</translation>
 <translation id="7994702968232966508">EAP ආකාරය</translation>
 <translation id="8004582292198964060">බ්‍රවුසරය</translation>
+<translation id="8010765388850538088">උත්පාදක AI පිළිබඳව තව දැන ගන්න</translation>
 <translation id="8017679124341497925">කෙටිමඟ සංස්කරණය කෙරිණි</translation>
 <translation id="802154636333426148">බාගැනීම අසමත් විය</translation>
 <translation id="8028993641010258682">ප්‍රමාණය</translation>
@@ -1418,6 +1448,7 @@
 <translation id="8045012663542226664">මයික්‍රෆෝනය නිහඬ කිරීම</translation>
 <translation id="8054112564438735763">බේජ්</translation>
 <translation id="8062968459344882447"><ph name="CHARACTERS_BACKGROUND" /> පසුබිමක් මත <ph name="CHARACTERS_COLOR" /> <ph name="CHARACTERS_SUBJECTS" /></translation>
+<translation id="8064337065720789104"><ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" /></translation>
 <translation id="8067126283828232460">APN සම්බන්ධ වී ඇත.</translation>
 <translation id="8067208048261192356">දුඹුරු</translation>
 <translation id="8067224607978179455"><ph name="ACTION_NAME" /> මකන්න</translation>
@@ -1450,7 +1481,6 @@
 <translation id="8208861521865154048">අමතර වාසි</translation>
 <translation id="8226628635270268143">ඔබේ ප්‍රියතම ඡායාරූප සහ ඇල්බම තෝරන්න</translation>
 <translation id="8227119283605456246">ගොනුව අමුණන්න</translation>
-<translation id="8227488649450500937">මෙම ප්‍රේරක වලින් එකක් උත්සාහ කරන්න හෝ <ph name="BEGIN_LINK_PROMPTING_GUIDE" />ප්‍රේරක මාර්ගෝපදේශය<ph name="END_LINK_PROMPTING_GUIDE" /> බලන්න</translation>
 <translation id="8230672074305416752">පෙරනිමි ජාල වාහල පින්ග් කිරීම අසාර්ථක විය</translation>
 <translation id="8236972776513018241">අනුපත</translation>
 <translation id="8238771987802558562">APN එකක් තෝරන්න</translation>
@@ -1522,11 +1552,13 @@
 <translation id="8557447961879934694">WPA2</translation>
 <translation id="8575298406870537639">ඔබගේ වාහකයට ඔවුන්ගේ ජාලයට සම්බන්ධ වීමට මෙම විකල්පය අවශ්‍ය විය හැකිය. විස්තර සඳහා ඔබගේ වාහකය අමතන්න.</translation>
 <translation id="8576249514688522074">දියත් නොකළ</translation>
+<translation id="8584654835905316966"><ph name="DEVICE_NAME" /> සඳහා <ph name="VERSION" /> අනුවාදයට ස්ථිරාංග ස්ථාපනය සම්පූර්ණ කිරීමට නැවත ආරම්භයක් අවශ්‍ය වේ. ඔබේ පරිගණකය කිහිප වතාවක් නැවත ආරම්භ වන බවක් පෙනෙන්නට තිබේ. මෙම හැසිරීම අපේක්ෂා කෙරේ.</translation>
 <translation id="8593058461203131755">මාධ්‍ය විරාම කරන්න</translation>
 <translation id="8620617069779373398">රෝමිං තත්ත්වය</translation>
 <translation id="8626489604350149811"><ph name="APN_NAME" /> සඳහා තවත් ක්‍රියා</translation>
 <translation id="86356131183441916">ලා දම්</translation>
 <translation id="8647595191512746911">ශ්‍රව්‍ය අනුපත</translation>
+<translation id="8650852232143958317">ඔබේ Gmail සහ Google Drive ගොනු ඔබ සමග රැගෙන යන්න</translation>
 <translation id="8651481478098336970">හඬ පරිමාව නිහඬ කිරීම</translation>
 <translation id="8655295600908251630">නාලිකාව</translation>
 <translation id="8655828773034788261">URL බෙදා ගන්න:</translation>
@@ -1582,6 +1614,7 @@
 <translation id="8881098542468797602">පරීක්ෂණය සාර්ථක විය</translation>
 <translation id="8882789155418924367">බකමූණන්</translation>
 <translation id="8892443466059986410">කෙටිමං සංස්කරණය අවලංගු කරන්න</translation>
+<translation id="8897043028305808902">ගොනුව යළි නම් කරන ලදි</translation>
 <translation id="8898840733695078011">සංඥා ප්‍රබලතාව</translation>
 <translation id="8909114361904403025">ඊතලය උඩට</translation>
 <translation id="8910721771319628100">පමාවේ මායිමට ඉහළ පෙරනිමි ජාලය</translation>
@@ -1654,6 +1687,7 @@
 <translation id="917720651393141712">පරීක්ෂාව</translation>
 <translation id="9188992814426075118">ඔබගේ යතුරු පුවරුව ස්වයංක්‍රීයව ඔබගේ වෝල්පේපරයට ගැළපේ</translation>
 <translation id="9189000703457422362">ස්වයංක්‍රීයව අනාවරණය කරගත් APNs භාවිතයෙන් මෙම ජාලයට සම්බන්ධ විය නොහැක. වැඩිදුර තොරතුරු සඳහා ඔබේ ජංගම වාහකය සම්බන්ධ කර ගන්න.</translation>
+<translation id="9190726385682694354"><ph name="QUERY_TEXT" />; <ph name="SUBTEXT" />; <ph name="RESULT_TEXT" /></translation>
 <translation id="9193744392140377127">APN*</translation>
 <translation id="9195918315673527512">තෝරන ලද ජෝයිස්ටික් යතුරු <ph name="KEYS" /> වෙයි. පාලනය සංස්කරණ කිරීමට බොත්තම මත තට්ටු කරන්න</translation>
 <translation id="9204237731135241582">Android යෙදුම් වෙතින් වාහල සම්බන්ධ කර ගත නොහැකිය</translation>

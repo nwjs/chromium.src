@@ -4,7 +4,7 @@
 
 #include "ash/picker/views/picker_category_type.h"
 
-#include "ash/public/cpp/picker/picker_category.h"
+#include "ash/picker/picker_category.h"
 
 namespace ash {
 
@@ -14,6 +14,8 @@ ASH_EXPORT PickerCategoryType GetPickerCategoryType(PickerCategory category) {
       return PickerCategoryType::kEditorWrite;
     case PickerCategory::kEditorRewrite:
       return PickerCategoryType::kEditorRewrite;
+    case PickerCategory::kLobster:
+      return PickerCategoryType::kEditorWrite;
     case PickerCategory::kLinks:
     case PickerCategory::kEmojisGifs:
     case PickerCategory::kEmojis:

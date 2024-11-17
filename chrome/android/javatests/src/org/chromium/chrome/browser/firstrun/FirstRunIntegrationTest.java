@@ -149,6 +149,7 @@ public class FirstRunIntegrationTest {
         FirstRunStatus.setFirstRunSkippedByPolicy(false);
         FirstRunUtils.setDisableDelayOnExitFreForTest(true);
         FirstRunActivity.setObserverForTest(mTestObserver);
+        FirstRunActivity.disableAnimationForTesting(true);
 
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mContext = mInstrumentation.getTargetContext();
@@ -175,6 +176,7 @@ public class FirstRunIntegrationTest {
                     }
                 });
 
+        FirstRunActivity.disableAnimationForTesting(false);
         FirstRunStatus.setFirstRunSkippedByPolicy(false);
     }
 
@@ -612,7 +614,7 @@ public class FirstRunIntegrationTest {
                 () -> freActivity.getSupportFragmentManager().getFragments().size() > 0);
         // Make sure native is initialized so that the subsequent transition is not blocked.
         CriteriaHelper.pollUiThread(
-                (() -> freActivity.getNativeInitializationPromise().isFulfilled()),
+                () -> freActivity.getNativeInitializationPromise().isFulfilled(),
                 "native never initialized.");
 
         waitForActivity(CustomTabActivity.class);
@@ -790,7 +792,7 @@ public class FirstRunIntegrationTest {
         launchViewIntent(TEST_URL);
         FirstRunActivity firstRunActivity = waitForFirstRunActivity();
         CriteriaHelper.pollUiThread(
-                (() -> firstRunActivity.getNativeInitializationPromise().isFulfilled()),
+                () -> firstRunActivity.getNativeInitializationPromise().isFulfilled(),
                 "native never initialized.");
 
         unblockOnFlowIsKnown();
@@ -858,7 +860,7 @@ public class FirstRunIntegrationTest {
         launchCustomTabs(TEST_URL);
         FirstRunActivity firstRunActivity = waitForFirstRunActivity();
         CriteriaHelper.pollUiThread(
-                (() -> firstRunActivity.getNativeInitializationPromise().isFulfilled()),
+                () -> firstRunActivity.getNativeInitializationPromise().isFulfilled(),
                 "native never initialized.");
 
         unblockOnFlowIsKnown();

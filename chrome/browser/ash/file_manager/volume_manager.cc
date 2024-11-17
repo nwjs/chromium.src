@@ -28,7 +28,6 @@
 #include "chrome/browser/ash/arc/fileapi/arc_documents_provider_util.h"
 #include "chrome/browser/ash/arc/fileapi/arc_file_system_operation_runner.h"
 #include "chrome/browser/ash/arc/fileapi/arc_media_view_util.h"
-#include "chrome/browser/ash/arc/session/arc_session_manager.h"
 #include "chrome/browser/ash/crostini/crostini_manager.h"
 #include "chrome/browser/ash/drive/drive_integration_service.h"
 #include "chrome/browser/ash/file_manager/fileapi_util.h"
@@ -587,8 +586,21 @@ bool VolumeManager::RegisterDownloadsDirectoryForTesting(
   }
 
   const bool ok = RegisterDownloadsMountPoint(profile_, path);
+  // Determine if the local user files directory should be mounted as read-only:
+  //  - SkyVault GA is enabled
+  //  - Local storage of user files is disallowed by policy
+  const bool read_only = IsSkyVaultV2Enabled() && !local_user_files_allowed_;
+
+  // In production, once read_only_local_folders_ is false, the
+  // MyFiles/Downloads are unmounted and not mounted again. However, in tests,
+  // it's possible to call this function after the SkyVault migration has
+  // completed.
+  if (read_only && !read_only_local_folders_) {
+    LOG(WARNING) << "Adding Downloads volume for testing, even though it "
+                    "should've been removed because of SkyVault.";
+  }
   return DoMountEvent(
-      Volume::CreateForDownloads(path),
+      Volume::CreateForDownloads(path, {}, nullptr, read_only),
       ok ? ash::MountError::kSuccess : ash::MountError::kInvalidPath);
 }
 
@@ -1080,6 +1092,10 @@ void VolumeManager::OnArcPlayStoreEnabledChanged(bool enabled) {
 
   documents_provider_root_manager_->SetEnabled(mounting);
   arc_volumes_mounted_ = mounting;
+}
+
+void VolumeManager::OnShutdown() {
+  arc_session_manager_observation_.Reset();
 }
 
 void VolumeManager::OnExternalStorageDisabledChanged() {
@@ -1706,9 +1722,8 @@ void VolumeManager::UnsubscribeFromArcEvents() {
   }
   // TODO(crbug.com/40497410): We need nullptr check here because
   // ArcSessionManager may or may not be alive at this point.
-  if (arc::ArcSessionManager* const session_manager =
-          arc::ArcSessionManager::Get()) {
-    session_manager->RemoveObserver(this);
+  if (arc::ArcSessionManager::Get()) {
+    arc_session_manager_observation_.Reset();
   }
 }
 
@@ -1720,7 +1735,7 @@ void VolumeManager::SubscribeAndMountArc() {
   // Registers a mount point for Android files only when the flag is enabled.
   RegisterAndroidFilesMountPoint();
   if (arc::ArcSessionManager::Get()) {
-    arc::ArcSessionManager::Get()->AddObserver(this);
+    arc_session_manager_observation_.Observe(arc::ArcSessionManager::Get());
   } else {
     // Can be NULL only in tests.
     CHECK_IS_TEST();

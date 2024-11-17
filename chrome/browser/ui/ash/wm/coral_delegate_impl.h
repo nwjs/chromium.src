@@ -7,6 +7,8 @@
 
 #include "ash/public/cpp/coral_delegate.h"
 
+class DesksTemplatesAppLaunchHandler;
+
 class CoralDelegateImpl : public ash::CoralDelegate {
  public:
   CoralDelegateImpl();
@@ -15,12 +17,12 @@ class CoralDelegateImpl : public ash::CoralDelegate {
   ~CoralDelegateImpl() override;
 
   // ash::CoralDelegateImpl:
-  void LaunchPostLoginCluster(
-      const ash::coral_util::CoralCluster& cluster) override;
-  void OpenNewDeskWithCluster(
-      const ash::coral_util::CoralCluster& cluster) override;
-  void CreateSavedDeskFromCluster(
-      const ash::coral_util::CoralCluster& cluster) override;
+  void LaunchPostLoginGroup(coral::mojom::GroupPtr group) override;
+  void MoveTabsInGroupToNewDesk(coral::mojom::GroupPtr group) override;
+  void CreateSavedDeskFromGroup(coral::mojom::GroupPtr group) override;
+
+ private:
+  std::unique_ptr<DesksTemplatesAppLaunchHandler> app_launch_handler_;
 };
 
 #endif  // CHROME_BROWSER_UI_ASH_WM_CORAL_DELEGATE_IMPL_H_

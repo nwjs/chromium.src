@@ -5,7 +5,6 @@
 #include "chrome/browser/ui/views/profiles/profile_menu_view.h"
 
 #include "base/test/scoped_feature_list.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
@@ -32,20 +31,12 @@
 #include "ui/views/test/widget_test.h"
 #include "ui/views/widget/any_widget_observer.h"
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "chromeos/crosapi/mojom/crosapi.mojom.h"
-#include "chromeos/startup/browser_init_params.h"
-#endif
-
 namespace {
 
 enum class ProfileTypePixelTestParam {
   kRegular,
   kIncognito,
   kGuest,
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  kDeviceGuestSession,
-#endif
 };
 
 enum class SigninStatusPixelTestParam {
@@ -58,6 +49,16 @@ enum class SigninStatusPixelTestParam {
   kSignedInSyncNotWorking
 };
 
+enum class ProfileMenuDesignVersion {
+  kImplicitSignin,
+
+  // Enables `switches::kExplicitBrowserSigninUIOnDesktop`.
+  kExplicitSignin,
+
+  // Enables `switches::kImprovedSigninUIOnDesktop`.
+  kExplicitSigninImproved,
+};
+
 struct ProfileMenuViewPixelTestParam {
   PixelTestParam pixel_test_param;
   ProfileTypePixelTestParam profile_type_param =
@@ -67,7 +68,8 @@ struct ProfileMenuViewPixelTestParam {
   // param to be removed when `switches::kExplicitBrowserSigninUIOnDesktop` is
   // enabled by default. Also remove duplicated tests (with "_WithoutUnoDesign"
   // appended to their name) that test the old design without the feature.
-  bool profile_menu_uno_redesign = true;
+  ProfileMenuDesignVersion profile_menu_uno_redesign =
+      ProfileMenuDesignVersion::kExplicitSignin;
   bool use_multiple_profiles = false;
   // param to be removed when `kOutlineSilhouetteIcon` is enabled by default.
   bool outline_silhouette_icon = false;
@@ -85,44 +87,40 @@ std::string ParamToTestSuffix(
 const ProfileMenuViewPixelTestParam kPixelTestParams[] = {
     // Legacy design (to be removed)
     {.pixel_test_param = {.test_suffix = "Regular_WithoutUnoDesign"},
-     .profile_menu_uno_redesign = false},
+     .profile_menu_uno_redesign = ProfileMenuDesignVersion::kImplicitSignin},
     {.pixel_test_param = {.test_suffix = "Regular"}},
     {.pixel_test_param = {.test_suffix = "Guest"},
      .profile_type_param = ProfileTypePixelTestParam::kGuest},
     {.pixel_test_param = {.test_suffix = "Incognito"},
      .profile_type_param = ProfileTypePixelTestParam::kIncognito},
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-    {.pixel_test_param = {.test_suffix = "LacrosDeviceGuestSession"},
-     .profile_type_param = ProfileTypePixelTestParam::kDeviceGuestSession},
-#endif
     {.pixel_test_param = {.test_suffix = "DarkTheme_WithoutUnoDesign",
                           .use_dark_theme = true},
-     .profile_menu_uno_redesign = false},
+     .profile_menu_uno_redesign = ProfileMenuDesignVersion::kImplicitSignin},
     {.pixel_test_param = {.test_suffix = "DarkTheme", .use_dark_theme = true}},
     {.pixel_test_param = {.test_suffix = "RTL_WithoutUnoDesign",
                           .use_right_to_left_language = true},
-     .profile_menu_uno_redesign = false},
+     .profile_menu_uno_redesign = ProfileMenuDesignVersion::kImplicitSignin},
     {.pixel_test_param = {.test_suffix = "RTL",
                           .use_right_to_left_language = true}},
 
     // Signed in tests
     {.pixel_test_param = {.test_suffix = "SignedIn_Sync_WithoutUnoDesign"},
      .signin_status = SigninStatusPixelTestParam::kSignedInWithSync,
-     .profile_menu_uno_redesign = false},
+     .profile_menu_uno_redesign = ProfileMenuDesignVersion::kImplicitSignin},
     {.pixel_test_param = {.test_suffix = "SignedIn_Sync"},
      .signin_status = SigninStatusPixelTestParam::kSignedInWithSync},
     {.pixel_test_param = {.test_suffix =
                               "SignedIn_SyncPaused_DarkTheme_WithoutUnoDesign",
                           .use_dark_theme = true},
      .signin_status = SigninStatusPixelTestParam::kSignedInSyncPaused,
-     .profile_menu_uno_redesign = false},
+     .profile_menu_uno_redesign = ProfileMenuDesignVersion::kImplicitSignin},
     {.pixel_test_param = {.test_suffix = "SignedIn_SyncPaused_DarkTheme",
                           .use_dark_theme = true},
      .signin_status = SigninStatusPixelTestParam::kSignedInSyncPaused},
     {.pixel_test_param = {.test_suffix = "SignedIn_Nosync_RTL_WithoutUnoDesign",
                           .use_right_to_left_language = true},
      .signin_status = SigninStatusPixelTestParam::kSignedInNoSync,
-     .profile_menu_uno_redesign = false},
+     .profile_menu_uno_redesign = ProfileMenuDesignVersion::kImplicitSignin},
     {.pixel_test_param = {.test_suffix = "SignedIn_Nosync_RTL",
                           .use_right_to_left_language = true},
      .signin_status = SigninStatusPixelTestParam::kSignedInNoSync},
@@ -130,7 +128,7 @@ const ProfileMenuViewPixelTestParam kPixelTestParams[] = {
                               "SignedIn_Nosync_DarkTheme_WithoutUnoDesign",
                           .use_dark_theme = true},
      .signin_status = SigninStatusPixelTestParam::kSignedInNoSync,
-     .profile_menu_uno_redesign = false},
+     .profile_menu_uno_redesign = ProfileMenuDesignVersion::kImplicitSignin},
     {.pixel_test_param = {.test_suffix = "SignedIn_Nosync_DarkTheme",
                           .use_dark_theme = true},
      .signin_status = SigninStatusPixelTestParam::kSignedInNoSync},
@@ -140,7 +138,7 @@ const ProfileMenuViewPixelTestParam kPixelTestParams[] = {
           .use_dark_theme = true,
           .use_right_to_left_language = true},
      .signin_status = SigninStatusPixelTestParam::kSignedInSyncNotWorking,
-     .profile_menu_uno_redesign = false},
+     .profile_menu_uno_redesign = ProfileMenuDesignVersion::kImplicitSignin},
     {.pixel_test_param = {.test_suffix =
                               "SignedIn_SyncNotWorking_RTL_DarkTheme",
                           .use_dark_theme = true,
@@ -171,7 +169,34 @@ const ProfileMenuViewPixelTestParam kPixelTestParams[] = {
     {.pixel_test_param = {.test_suffix = "SignInPending_Nosync_DarkTheme",
                           .use_dark_theme = true},
      .signin_status = SigninStatusPixelTestParam::kSignInPendingNoSync},
-};
+
+    // Improved design.
+    {.pixel_test_param = {.test_suffix = "SignedOut_MultipleProfiles_Improved"},
+     .profile_menu_uno_redesign =
+         ProfileMenuDesignVersion::kExplicitSigninImproved,
+     .use_multiple_profiles = true,
+     .outline_silhouette_icon = true},
+    {.pixel_test_param = {.test_suffix =
+                              "SignedOut_MultipleProfiles_DarkTheme_Improved",
+                          .use_dark_theme = true},
+     .profile_menu_uno_redesign =
+         ProfileMenuDesignVersion::kExplicitSigninImproved,
+     .use_multiple_profiles = true,
+     .outline_silhouette_icon = true},
+    {.pixel_test_param = {.test_suffix = "SignedIn_MultipleProfiles_Improved"},
+     .signin_status = SigninStatusPixelTestParam::kSignedInNoSync,
+     .profile_menu_uno_redesign =
+         ProfileMenuDesignVersion::kExplicitSigninImproved,
+     .use_multiple_profiles = true,
+     .outline_silhouette_icon = true},
+    {.pixel_test_param = {.test_suffix =
+                              "SignedIn_MultipleProfiles_DarkTheme_Improved",
+                          .use_dark_theme = true},
+     .signin_status = SigninStatusPixelTestParam::kSignedInNoSync,
+     .profile_menu_uno_redesign =
+         ProfileMenuDesignVersion::kExplicitSigninImproved,
+     .use_multiple_profiles = true,
+     .outline_silhouette_icon = true}};
 
 }  // namespace
 
@@ -185,10 +210,17 @@ class ProfileMenuViewPixelTest
         GetParam().signin_status == SigninStatusPixelTestParam::kWebSignedIn ||
         GetParam().signin_status ==
             SigninStatusPixelTestParam::kSignInPendingNoSync ||
-        GetParam().profile_menu_uno_redesign;
+        GetParam().profile_menu_uno_redesign !=
+            ProfileMenuDesignVersion::kImplicitSignin;
+
+    bool should_enabled_improved_design =
+        should_enable_uno &&
+        GetParam().profile_menu_uno_redesign ==
+            ProfileMenuDesignVersion::kExplicitSigninImproved;
 
     feature_list_.InitWithFeatureStates(
         {{switches::kExplicitBrowserSigninUIOnDesktop, should_enable_uno},
+         {switches::kImprovedSigninUIOnDesktop, should_enabled_improved_design},
          {kOutlineSilhouetteIcon, GetParam().outline_silhouette_icon}});
 
     // The Profile menu view seems not to be resizied properly on changes which
@@ -237,23 +269,6 @@ class ProfileMenuViewPixelTest
     CloseBrowserAsynchronously(tmp_browser);
   }
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  // Enable the guest session.
-  void CreatedBrowserMainParts(
-      content::BrowserMainParts* browser_main_parts) override {
-    if (GetProfileType() != ProfileTypePixelTestParam::kDeviceGuestSession) {
-      return;
-    }
-    crosapi::mojom::BrowserInitParamsPtr init_params =
-        chromeos::BrowserInitParams::GetForTests()->Clone();
-
-    init_params->session_type = crosapi::mojom::SessionType::kGuestSession;
-    chromeos::BrowserInitParams::SetInitParamsForTests(std::move(init_params));
-    ProfilesPixelTestBaseT<DialogBrowserTest>::CreatedBrowserMainParts(
-        browser_main_parts);
-  }
-#endif
-
   void SetUpOnMainThread() override {
     ProfilesPixelTestBaseT<DialogBrowserTest>::SetUpOnMainThread();
 
@@ -278,11 +293,6 @@ class ProfileMenuViewPixelTest
         ASSERT_TRUE(new_browser);
         ASSERT_TRUE(new_browser->profile()->IsGuestSession());
         break;
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-      case ProfileTypePixelTestParam::kDeviceGuestSession:
-        // Nothing to do, the current browser should already be guest.
-        ASSERT_TRUE(browser()->profile()->IsGuestSession());
-#endif
     }
 
     // Close the initial browser and set the new one as default.

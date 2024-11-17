@@ -26,7 +26,9 @@
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/commerce/shopping_service_factory.h"
 #include "chrome/browser/companion/core/features.h"
+#include "chrome/browser/compose/compose_enabling.h"
 #include "chrome/browser/download/bubble/download_bubble_prefs.h"
+#include "chrome/browser/history_embeddings/history_embeddings_utils.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/performance_manager/public/user_tuning/user_performance_tuning_manager.h"
@@ -45,7 +47,9 @@
 #include "chrome/browser/ui/hats/hats_service_factory.h"
 #include "chrome/browser/ui/managed_ui.h"
 #include "chrome/browser/ui/passwords/ui_utils.h"
+#include "chrome/browser/ui/tabs/organization/tab_organization_utils.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.h"
 #include "chrome/browser/ui/webui/cr_components/customize_color_scheme_mode/customize_color_scheme_mode_handler.h"
 #include "chrome/browser/ui/webui/extension_control_handler.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
@@ -92,10 +96,12 @@
 #include "chrome/grit/settings_resources_map.h"
 #include "components/account_manager_core/account_manager_facade.h"
 #include "components/commerce/core/commerce_feature_list.h"
+#include "components/commerce/core/feature_utils.h"
 #include "components/commerce/core/shopping_service.h"
 #include "components/compose/core/browser/compose_features.h"
 #include "components/content_settings/core/common/features.h"
 #include "components/favicon_base/favicon_url_parser.h"
+#include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/performance_manager/public/features.h"
 #include "components/permissions/features.h"
@@ -212,7 +218,7 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       content::WebUIDataSource::CreateAndAdd(
           web_ui->GetWebContents()->GetBrowserContext(),
           chrome::kChromeUISettingsHost);
-#if 0
+#if 0 //nwjs
   html_source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::WorkerSrc,
       "worker-src blob: chrome://resources 'self';");
@@ -375,6 +381,10 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
                           false);
 #endif
 
+  html_source->AddBoolean(
+      "enableEsbAiStringUpdate",
+      base::FeatureList::IsEnabled(safe_browsing::kEsbAiStringUpdate));
+
   html_source->AddBoolean("enableHashPrefixRealTimeLookups",
                           safe_browsing::hash_realtime_utils::
                               IsHashRealTimeLookupEligibleInSession());
@@ -384,7 +394,8 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
 
   html_source->AddBoolean(
       "enableKeyboardAndPointerLockPrompt",
-      base::FeatureList::IsEnabled(features::kKeyboardAndPointerLockPrompt));
+      base::FeatureList::IsEnabled(
+          permissions::features::kKeyboardAndPointerLockPrompt));
 
   html_source->AddBoolean(
       "enableLinkedServicesSetting",
@@ -476,7 +487,7 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
 
   ManagedUIHandler::Initialize(web_ui, html_source);
 
-#endif
+#endif //nwjs
   content::URLDataSource::Add(
       profile, std::make_unique<FaviconSource>(
                    profile, chrome::FaviconUrlFormat::kFavicon2));
@@ -522,6 +533,9 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       "is3pcdCookieSettingsRedesignEnabled",
       TrackingProtectionSettingsFactory::GetForProfile(profile)
           ->IsTrackingProtection3pcdEnabled());
+  html_source->AddBoolean(
+      "isTrackingProtectionUxEnabled",
+      base::FeatureList::IsEnabled(privacy_sandbox::kTrackingProtection3pcdUx));
 
   // ACT UX
   html_source->AddBoolean(
@@ -530,11 +544,6 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   html_source->AddBoolean("isFingerprintingProtectionUxEnabled",
                           base::FeatureList::IsEnabled(
                               privacy_sandbox::kFingerprintingProtectionUx));
-
-  html_source->AddBoolean(
-      "isProactiveTopicsBlockingEnabled",
-      base::FeatureList::IsEnabled(
-          privacy_sandbox::kPrivacySandboxProactiveTopicsBlocking));
 
   // Performance
   AddSettingsPageUIHandler(std::make_unique<PerformanceHandler>());
@@ -578,43 +587,77 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       base::FeatureList::IsEnabled(blink::features::kWebAppInstallation));
 
   // AI
-  optimization_guide::UserVisibleFeatureKey optimization_guide_features[4] = {
-      optimization_guide::UserVisibleFeatureKey::kCompose,
-      optimization_guide::UserVisibleFeatureKey::kTabOrganization,
-      optimization_guide::UserVisibleFeatureKey::kWallpaperSearch,
-      optimization_guide::UserVisibleFeatureKey::kHistorySearch,
-  };
+  const bool ai_settings_refresh_enabled = base::FeatureList::IsEnabled(
+      optimization_guide::features::kAiSettingsPageRefresh);
 
-  auto* optimization_guide_service =
-      OptimizationGuideKeyedServiceFactory::GetForProfile(profile);
-  bool optimization_guide_feature_visible[5] = {false, false, false, false,
-                                                false};
+  if (ai_settings_refresh_enabled) {
+#if 0
+    const bool compose_enabled = ComposeEnabling::IsEnabledForProfile(profile);
+    const bool tab_organization_enabled =
+        TabOrganizationUtils::GetInstance()->IsEnabled(profile);
+    const bool wallpaper_search_enabled =
+        customize_chrome::IsWallpaperSearchEnabledForProfile(profile);
+    const bool history_search_enabled =
+        history_embeddings::IsHistoryEmbeddingsSettingVisible(profile);
+    const bool compare_enabled = commerce::CanFetchProductSpecificationsData(
+        shopping_service->GetAccountChecker());
 
-  for (size_t i = 0; i < 4; i++) {
-    const bool visible = optimization_guide_service &&
-                         optimization_guide_service->IsSettingVisible(
-                             optimization_guide_features[i]);
-    optimization_guide_feature_visible[i + 1] = visible;
+    html_source->AddBoolean("showComposeControl", compose_enabled);
+    html_source->AddBoolean("showTabOrganizationControl",
+                            tab_organization_enabled);
+    html_source->AddBoolean("showWallpaperSearchControl",
+                            wallpaper_search_enabled);
+    html_source->AddBoolean("showHistorySearchControl", history_search_enabled);
+    html_source->AddBoolean("showCompareControl", compare_enabled);
 
-    // The main toggle is visible only if at least one of the sub toggles is
-    // visible.
-    optimization_guide_feature_visible[0] |= visible;
+    const bool show_ai_page = compose_enabled || tab_organization_enabled ||
+                              wallpaper_search_enabled ||
+                              history_search_enabled || compare_enabled;
+    // "showAdvancedFeaturesMainControl", despite the name, controls whether the
+    // AI subpage is shown. We want to show the page if any of the AI features
+    // are enabled.
+    // TODO(crbug.com/363968675): Rename this to be clearer.
+    html_source->AddBoolean("showAdvancedFeaturesMainControl", show_ai_page);
+#endif
+  } else {
+    optimization_guide::UserVisibleFeatureKey optimization_guide_features[4] = {
+        optimization_guide::UserVisibleFeatureKey::kCompose,
+        optimization_guide::UserVisibleFeatureKey::kTabOrganization,
+        optimization_guide::UserVisibleFeatureKey::kWallpaperSearch,
+        optimization_guide::UserVisibleFeatureKey::kHistorySearch,
+    };
+    bool optimization_guide_feature_visible[5] = {false, false, false, false,
+                                                  false};
+
+    auto* optimization_guide_service =
+        OptimizationGuideKeyedServiceFactory::GetForProfile(profile);
+    for (size_t i = 0; i < 4; i++) {
+      const bool visible = optimization_guide_service &&
+                           optimization_guide_service->IsSettingVisible(
+                               optimization_guide_features[i]);
+      optimization_guide_feature_visible[i + 1] = visible;
+
+      // The main toggle is visible only if at least one of the sub toggles is
+      // visible.
+      optimization_guide_feature_visible[0] |= visible;
+    }
+
+    html_source->AddBoolean("showAdvancedFeaturesMainControl",
+                            optimization_guide_feature_visible[0]);
+    html_source->AddBoolean("showComposeControl",
+                            optimization_guide_feature_visible[1]);
+    html_source->AddBoolean("showTabOrganizationControl",
+                            optimization_guide_feature_visible[2]);
+    html_source->AddBoolean("showWallpaperSearchControl",
+                            optimization_guide_feature_visible[3]);
+    html_source->AddBoolean("showHistorySearchControl",
+                            optimization_guide_feature_visible[4]);
+    // Compare is only shown when Synpase ("AiSettingsPageRefresh") is enabled.
+    html_source->AddBoolean("showCompareControl", false);
   }
 
-  html_source->AddBoolean("showAdvancedFeaturesMainControl",
-                          optimization_guide_feature_visible[0]);
-  html_source->AddBoolean("showComposeControl",
-                          optimization_guide_feature_visible[1]);
-  html_source->AddBoolean("showTabOrganizationControl",
-                          optimization_guide_feature_visible[2]);
-  html_source->AddBoolean("showWallpaperSearchControl",
-                          optimization_guide_feature_visible[3]);
-  html_source->AddBoolean("showHistorySearchControl",
-                          optimization_guide_feature_visible[4]);
-
-  html_source->AddBoolean(
-      "enableAiSettingsPageRefresh",
-      base::FeatureList::IsEnabled(features::kAiSettingsPageRefresh));
+  html_source->AddBoolean("enableAiSettingsPageRefresh",
+                          ai_settings_refresh_enabled);
 
   TryShowHatsSurveyWithTimeout();
 }

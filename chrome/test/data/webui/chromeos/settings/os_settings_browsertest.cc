@@ -7,19 +7,24 @@
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/ash/crostini/fake_crostini_features.h"
 #include "chrome/browser/ash/login/test/cryptohome_mixin.h"
+#include "chrome/browser/ash/login/test/user_auth_config.h"
 #include "chrome/browser/nearby_sharing/common/nearby_share_features.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
-#include "chrome/test/base/chromeos/lacros_only_mocha_browser_test.h"
 #include "chrome/test/base/web_ui_mocha_browser_test.h"
 #include "chromeos/ash/components/cryptohome/cryptohome_parameters.h"
+#include "chromeos/ash/components/cryptohome/system_salt_getter.h"
+#include "chromeos/ash/components/dbus/userdataauth/fake_cryptohome_misc_client.h"
 #include "chromeos/ash/components/dbus/userdataauth/userdataauth_client.h"
+#include "chromeos/ash/components/login/auth/public/cryptohome_key_constants.h"
+#include "chromeos/ash/components/login/auth/public/key.h"
 #include "chromeos/ash/components/standalone_browser/standalone_browser_features.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "components/user_manager/user_names.h"
 #include "content/public/test/browser_test.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/native_theme/native_theme_features.h"
 
 namespace ash::settings {
 
@@ -88,9 +93,29 @@ class OSSettingsRevampMochaTestWithExistingUser
 
   void SetUpOnMainThread() override {
     OSSettingsRevampMochaTest::SetUpOnMainThread();
-    FakeUserDataAuthClient::TestApi::Get()->AddExistingUser(
-        cryptohome::CreateAccountIdentifierFromAccountId(
-            user_manager::StubAccountId()));
+    const auto account_id = cryptohome::CreateAccountIdentifierFromAccountId(
+        user_manager::StubAccountId());
+    FakeUserDataAuthClient::TestApi::Get()->AddExistingUser(account_id);
+    AddGaiaPassword(account_id, test::kGaiaPassword);
+  }
+
+  void AddGaiaPassword(const cryptohome::AccountIdentifier& account_id,
+                       std::string password) {
+    user_data_auth::AuthFactor auth_factor;
+    user_data_auth::AuthInput auth_input;
+
+    auth_factor.set_label(ash::kCryptohomeGaiaKeyLabel);
+    auth_factor.set_type(user_data_auth::AUTH_FACTOR_TYPE_PASSWORD);
+
+    ash::Key key(std::move(password));
+    key.Transform(ash::Key::KEY_TYPE_SALTED_SHA256_TOP_HALF,
+                  SystemSaltGetter::ConvertRawSaltToHexString(
+                      FakeCryptohomeMiscClient::GetStubSystemSalt()));
+    auth_input.mutable_password_input()->set_secret(key.GetSecret());
+
+    // Add the password key to the user.
+    FakeUserDataAuthClient::TestApi::Get()->AddAuthFactor(
+        account_id, auth_factor, auth_input);
   }
 };
 
@@ -169,6 +194,19 @@ INSTANTIATE_TEST_SUITE_P(
     testing::Bool(),
     OSSettingsRevampMochaTestReducedAnimationsEnabled::DescribeParams);
 
+class OSSettingsRevampMochaTestOverlayScrollbarEnabled
+    : public OSSettingsRevampMochaTest {
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_{
+      ::features::kOverlayScrollbarsOSSetting};
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    RevampParameterized,
+    OSSettingsRevampMochaTestOverlayScrollbarEnabled,
+    testing::Bool(),
+    OSSettingsRevampMochaTestOverlayScrollbarEnabled::DescribeParams);
+
 class OSSettingsMochaTestMagnifierFollowsChromeVoxEnabled
     : public OSSettingsMochaTest {
  private:
@@ -215,6 +253,18 @@ INSTANTIATE_TEST_SUITE_P(
     testing::Bool(),
     OSSettingsRevampMochaTestFaceGazeEnabled::DescribeParams);
 
+class OSSettingsRevampMochaTestGraduationEnabled
+    : public OSSettingsRevampMochaTest {
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_{features::kGraduation};
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    RevampParameterized,
+    OSSettingsRevampMochaTestGraduationEnabled,
+    testing::Bool(),
+    OSSettingsRevampMochaTestGraduationEnabled::DescribeParams);
+
 class OSSettingsRevampMochaTestCaretBlinkSettingEnabled
     : public OSSettingsRevampMochaTest {
  private:
@@ -240,66 +290,6 @@ INSTANTIATE_TEST_SUITE_P(
     OSSettingsRevampMochaTestFlashNotificationsEnabled,
     testing::Bool(),
     OSSettingsRevampMochaTestFlashNotificationsEnabled::DescribeParams);
-
-class OSSettingsMochaTestLacrosOnlyEnabled : public LacrosOnlyMochaBrowserTest {
- protected:
-  OSSettingsMochaTestLacrosOnlyEnabled() : LacrosOnlyMochaBrowserTest() {
-    set_test_loader_host(chrome::kChromeUIOSSettingsHost);
-  }
-
-  void RunSettingsTest(const std::string& test_path) {
-    // All OS Settings test files are located in the directory
-    // chromeos/settings/.
-    const std::string path_with_parent_directory = base::StrCat({
-        "chromeos/settings/",
-        test_path,
-    });
-    RunTest(path_with_parent_directory, "mocha.run()");
-  }
-};
-
-class OSSettingsMochaTestRevampAndLacrosOnlyDisabled
-    : public OSSettingsMochaTest {
- protected:
-  OSSettingsMochaTestRevampAndLacrosOnlyDisabled() {
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{},
-        /*disabled_features=*/{
-            ash::standalone_browser::features::kLacrosOnly,
-            ash::features::kOsSettingsRevampWayfinding,
-        });
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-class OSSettingsMochaTestLacrosEnabledRevampDisabled
-    : public OSSettingsMochaTestLacrosOnlyEnabled {
- protected:
-  OSSettingsMochaTestLacrosEnabledRevampDisabled() {
-    scoped_feature_list_.InitAndDisableFeature(
-        ash::features::kOsSettingsRevampWayfinding);
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-class OSSettingsMochaTestLacrosAndRevampEnabled
-    : public OSSettingsMochaTestLacrosOnlyEnabled {
- protected:
-  OSSettingsMochaTestLacrosAndRevampEnabled() {
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled=*/
-        {ash::features::kOsSettingsRevampWayfinding},
-        /*disabled=*/
-        {ash::features::kSecondaryAccountAllowedInArcPolicy});
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
 
 class OSSettingsRevampMochaTestAppParentalControlsEnabled
     : public OSSettingsRevampMochaTest {
@@ -466,65 +456,6 @@ INSTANTIATE_TEST_SUITE_P(
     OSSettingsRevampDeviceTestAltAndSplitAndBacklightEnabled,
     testing::Bool(),
     OSSettingsRevampDeviceTestAltAndSplitAndBacklightEnabled::DescribeParams);
-
-class OSSettingsRevampMochaTestApnAndPasspointEnabled
-    : public OSSettingsRevampMochaTest {
- protected:
-  OSSettingsRevampMochaTestApnAndPasspointEnabled() {
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled=*/
-        {
-            ash::features::kApnRevamp,
-            ash::features::kPasspointSettings,
-        },
-        /*disabled=*/{});
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-INSTANTIATE_TEST_SUITE_P(
-    RevampParameterized,
-    OSSettingsRevampMochaTestApnAndPasspointEnabled,
-    testing::Bool(),
-    OSSettingsRevampMochaTestApnAndPasspointEnabled::DescribeParams);
-
-class OSSettingsRevampInternetTestApnAndPasspointEnabled
-    : public OSSettingsRevampMochaTest {
- protected:
-  OSSettingsRevampInternetTestApnAndPasspointEnabled() {
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled=*/
-        {
-            ash::features::kApnRevamp,
-            ash::features::kPasspointSettings,
-        },
-        /*disabled=*/{});
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-INSTANTIATE_TEST_SUITE_P(
-    RevampParameterized,
-    OSSettingsRevampInternetTestApnAndPasspointEnabled,
-    testing::Bool(),
-    OSSettingsRevampInternetTestApnAndPasspointEnabled::DescribeParams);
-
-class OSSettingsRevampInternetTestPasspointEnabled
-    : public OSSettingsRevampMochaTest {
- private:
-  base::test::ScopedFeatureList scoped_feature_list_{
-      ash::features::kPasspointSettings};
-};
-
-INSTANTIATE_TEST_SUITE_P(
-    RevampParameterized,
-    OSSettingsRevampInternetTestPasspointEnabled,
-    testing::Bool(),
-    OSSettingsRevampInternetTestPasspointEnabled::DescribeParams);
 
 class OSSettingsRevampNearbyShareTestSharingEnabled
     : public OSSettingsRevampMochaTest {
@@ -934,8 +865,9 @@ IN_PROC_BROWSER_TEST_P(OSSettingsRevampDeviceTestSplitAndBacklightEnabled,
   RunSettingsTest("device_page/per_device_keyboard_test.js");
 }
 
+// TODO(b/367799335): Re-enable this test.
 IN_PROC_BROWSER_TEST_P(OSSettingsRevampDeviceTestAltAndSplitAndBacklightEnabled,
-                       DevicePagePerDeviceKeyboardRemapKeys) {
+                       DISABLED_DevicePagePerDeviceKeyboardRemapKeys) {
   RunSettingsTest("device_page/per_device_keyboard_remap_keys_test.js");
 }
 
@@ -1028,8 +960,7 @@ IN_PROC_BROWSER_TEST_P(OSSettingsRevampMochaTest, InternetPageApnDetailDialog) {
   RunSettingsTest("internet_page/apn_detail_dialog_test.js");
 }
 
-IN_PROC_BROWSER_TEST_P(OSSettingsRevampMochaTestApnAndPasspointEnabled,
-                       InternetPage) {
+IN_PROC_BROWSER_TEST_P(OSSettingsMochaTestApnRevamp, InternetPage) {
   RunSettingsTest("internet_page/internet_page_test.js");
 }
 
@@ -1086,12 +1017,12 @@ IN_PROC_BROWSER_TEST_P(OSSettingsRevampMochaTest,
   RunSettingsTest("internet_page/internet_detail_menu_test.js");
 }
 
-IN_PROC_BROWSER_TEST_P(OSSettingsRevampInternetTestApnAndPasspointEnabled,
+IN_PROC_BROWSER_TEST_P(OSSettingsMochaTestApnRevamp,
                        InternetPageInternetDetailSubpage) {
   RunSettingsTest("internet_page/internet_detail_subpage_test.js");
 }
 
-IN_PROC_BROWSER_TEST_P(OSSettingsRevampInternetTestPasspointEnabled,
+IN_PROC_BROWSER_TEST_P(OSSettingsRevampMochaTest,
                        InternetPageInternetKnownNetworksSubpage) {
   RunSettingsTest("internet_page/internet_known_networks_subpage_test.js");
 }
@@ -1129,12 +1060,12 @@ IN_PROC_BROWSER_TEST_P(OSSettingsRevampMochaTest,
   RunSettingsTest("internet_page/network_summary_item_test.js");
 }
 
-IN_PROC_BROWSER_TEST_P(OSSettingsRevampInternetTestPasspointEnabled,
+IN_PROC_BROWSER_TEST_P(OSSettingsRevampMochaTest,
                        InternetPagePasspointSubpage) {
   RunSettingsTest("internet_page/passpoint_subpage_test.js");
 }
 
-IN_PROC_BROWSER_TEST_P(OSSettingsRevampInternetTestPasspointEnabled,
+IN_PROC_BROWSER_TEST_P(OSSettingsRevampMochaTest,
                        InternetPagePasspointRemoveDialog) {
   RunSettingsTest("internet_page/passpoint_remove_dialog_test.js");
 }
@@ -1349,6 +1280,11 @@ IN_PROC_BROWSER_TEST_P(OSSettingsRevampMochaTest,
 }
 
 IN_PROC_BROWSER_TEST_P(OSSettingsRevampMochaTestReducedAnimationsEnabled,
+                       OsA11yPageDisplayAndMagnificationSubpage) {
+  RunSettingsTest("os_a11y_page/display_and_magnification_subpage_test.js");
+}
+
+IN_PROC_BROWSER_TEST_P(OSSettingsRevampMochaTestOverlayScrollbarEnabled,
                        OsA11yPageDisplayAndMagnificationSubpage) {
   RunSettingsTest("os_a11y_page/display_and_magnification_subpage_test.js");
 }
@@ -1741,30 +1677,23 @@ IN_PROC_BROWSER_TEST_P(OSSettingsRevampMochaTest, OsPeoplePage) {
   RunSettingsTest("os_people_page/os_people_page_test.js");
 }
 
+IN_PROC_BROWSER_TEST_P(OSSettingsRevampMochaTestGraduationEnabled,
+                       OsPeoplePage) {
+  RunSettingsTest("os_people_page/os_people_page_test.js");
+}
+
 IN_PROC_BROWSER_TEST_P(OSSettingsRevampMochaTest,
                        OsPeoplePageAccountManagerSettingsCard) {
   RunSettingsTest("os_people_page/account_manager_settings_card_test.js");
 }
 
-IN_PROC_BROWSER_TEST_F(OSSettingsMochaTestRevampAndLacrosOnlyDisabled,
+IN_PROC_BROWSER_TEST_F(OSSettingsMochaTestRevampDisabled,
                        OsPeoplePageAccountManagerSubpage) {
-  RunSettingsTest("os_people_page/account_manager_subpage_test.js");
-}
-
-IN_PROC_BROWSER_TEST_F(
-    OSSettingsMochaTestLacrosEnabledRevampDisabled,
-    OsPeoplePageAccountManagerSubpageWithArcAccountRestrictionsEnabled) {
   RunSettingsTest("os_people_page/account_manager_subpage_test.js");
 }
 
 IN_PROC_BROWSER_TEST_F(OSSettingsMochaTest,
                        OsPeoplePageAdditionalAccountsSettingsCard) {
-  RunSettingsTest("os_people_page/additional_accounts_settings_card_test.js");
-}
-
-IN_PROC_BROWSER_TEST_F(
-    OSSettingsMochaTestLacrosAndRevampEnabled,
-    OsPeoplePageAdditionalAccountsSettingsCardWithLacrosEnabled) {
   RunSettingsTest("os_people_page/additional_accounts_settings_card_test.js");
 }
 
@@ -1775,6 +1704,11 @@ IN_PROC_BROWSER_TEST_P(OSSettingsRevampMochaTest, OsPeoplePageAddUserDialog) {
 IN_PROC_BROWSER_TEST_P(OSSettingsRevampMochaTest,
                        OsPeoplePageFingerprintListSubpage) {
   RunSettingsTest("os_people_page/fingerprint_list_subpage_test.js");
+}
+
+IN_PROC_BROWSER_TEST_P(OSSettingsRevampMochaTestGraduationEnabled,
+                       OsPeoplePageGraduationSettingsCard) {
+  RunSettingsTest("os_people_page/graduation_settings_card_test.js");
 }
 
 IN_PROC_BROWSER_TEST_P(OSSettingsRevampMochaTest,

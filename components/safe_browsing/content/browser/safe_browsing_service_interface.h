@@ -60,9 +60,18 @@ class SafeBrowsingServiceInterface
       content::WebContents* web_contents) = 0;
 #endif
 
+  // Report the external app redirect to Safe Browsing if the following
+  // conditions are met:
+  // - User is opted in to ESB and not Incognito
+  // - The user has not redirected to this app recently
+  // - Neither the current page nor the destination app are allowlisted.
+  virtual void ReportExternalAppRedirect(content::WebContents* web_contents,
+                                         std::string_view app_name,
+                                         std::string_view uri) = 0;
+
  protected:
-  SafeBrowsingServiceInterface() {}
-  virtual ~SafeBrowsingServiceInterface() {}
+  SafeBrowsingServiceInterface() = default;
+  virtual ~SafeBrowsingServiceInterface() = default;
 
  private:
   friend struct content::BrowserThread::DeleteOnThread<
@@ -78,13 +87,13 @@ class SafeBrowsingServiceInterface
 // Factory for creating SafeBrowsingServiceInterface.  Useful for tests.
 class SafeBrowsingServiceFactory {
  public:
-  SafeBrowsingServiceFactory() {}
+  SafeBrowsingServiceFactory() = default;
 
   SafeBrowsingServiceFactory(const SafeBrowsingServiceFactory&) = delete;
   SafeBrowsingServiceFactory& operator=(const SafeBrowsingServiceFactory&) =
       delete;
 
-  virtual ~SafeBrowsingServiceFactory() {}
+  virtual ~SafeBrowsingServiceFactory() = default;
 
   // TODO(crbug.com/41437292): Once callers of this function are no longer
   // downcasting it to the SafeBrowsingService, we can make this a

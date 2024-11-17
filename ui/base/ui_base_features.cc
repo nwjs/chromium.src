@@ -151,6 +151,11 @@ BASE_FEATURE(kOzoneBubblesUsePlatformWidgets,
 #endif
 );
 
+// Controls whether support for Wayland's linux-drm-syncobj is enabled.
+BASE_FEATURE(kWaylandLinuxDrmSyncobj,
+             "WaylandLinuxDrmSyncobj",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Controls whether support for Wayland's per-surface scaling is enabled.
 BASE_FEATURE(kWaylandPerSurfaceScale,
              "WaylandPerSurfaceScale",
@@ -159,6 +164,12 @@ BASE_FEATURE(kWaylandPerSurfaceScale,
 // Controls whether Wayland text-input-v3 protocol support is enabled.
 BASE_FEATURE(kWaylandTextInputV3,
              "WaylandTextInputV3",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Controls whether support for "Large Text" accessibility setting via UI
+// scaling is enabled.
+BASE_FEATURE(kWaylandUiScale,
+             "WaylandUiScale",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_OZONE)
 
@@ -277,6 +288,8 @@ BASE_FEATURE(kExperimentalFlingAnimation,
 BASE_FEATURE(kClipboardFiles,
              "ClipboardFiles",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDragDropEmpty, "DragDropEmpty", base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDragDropFiles, "DragDropFiles", base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -529,6 +542,11 @@ BASE_FEATURE(kEnableGestureBeginEndTypes,
 
 BASE_FEATURE(kUseUtf8EncodingForSvgImage,
              "UseUtf8EncodingForSvgImage",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables copy bookmark and writes url format to clipboard with empty title.
+BASE_FEATURE(kWriteBookmarkWithoutTitle,
+             "WriteBookmarkWithoutTitle",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, fullscreen window state is updated asynchronously.

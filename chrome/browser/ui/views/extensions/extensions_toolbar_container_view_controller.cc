@@ -12,6 +12,7 @@
 #include "chrome/browser/ui/views/extensions/extensions_request_access_button.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_button.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_container.h"
+#include "components/user_education/common/feature_promo_controller.h"
 #include "extensions/common/extension_features.h"
 
 ExtensionsToolbarContainerViewController::
@@ -100,8 +101,9 @@ void ExtensionsToolbarContainerViewController::OnTabStripModelChanged(
   }
 
   // Close Extensions menu IPH if it is open.
-  browser_->window()->CloseFeaturePromo(
-      feature_engagement::kIPHExtensionsMenuFeature);
+  browser_->window()->NotifyFeaturePromoFeatureUsed(
+      feature_engagement::kIPHExtensionsMenuFeature,
+      FeaturePromoFeatureUsedAction::kClosePromoIfPresent);
 
   extensions::MaybeShowExtensionControlledNewTabPage(browser_,
                                                      selection.new_contents);
@@ -126,7 +128,7 @@ void ExtensionsToolbarContainerViewController::TabChangedAt(
   }
 
   // Close Extensions menu IPH if it is open.
-  browser_->window()->CloseFeaturePromo(
+  browser_->window()->AbortFeaturePromo(
       feature_engagement::kIPHExtensionsMenuFeature);
 
   // Request access button confirmation is tab-specific for a specific origin.

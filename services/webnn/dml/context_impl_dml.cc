@@ -28,6 +28,7 @@
 #include "services/webnn/public/cpp/operand_descriptor.h"
 #include "services/webnn/public/cpp/supported_data_types.h"
 #include "services/webnn/public/mojom/webnn_tensor.mojom.h"
+#include "services/webnn/webnn_constant_operand.h"
 #include "services/webnn/webnn_context_impl.h"
 
 namespace webnn::dml {
@@ -79,7 +80,7 @@ ContextProperties ContextImplDml::GetProperties(
   static constexpr SupportedDataTypes kUint8To32{OperandDataType::kUint8,
                                                  OperandDataType::kUint32};
 
-  static constexpr SupportedDataTypes kGatherIndicesSupportedDataTypes{
+  static constexpr SupportedDataTypes kGatherScatterIndicesSupportedDataTypes{
       OperandDataType::kInt32, OperandDataType::kUint32,
       OperandDataType::kInt64, OperandDataType::kUint64};
 
@@ -108,8 +109,8 @@ ContextProperties ContextImplDml::GetProperties(
        /*conv2d_input=*/DataTypeConstraint::kFloat16To32,
        /*conv_transpose2d_input=*/DataTypeConstraint::kFloat16To32,
 
-       // CumulativeSum is not implemented.
-       /*cumulative_sum_input=*/{},
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_cumulative_summation_operator_desc#tensor-support
+       /*cumulative_sum_input=*/kFloat16To32Ints32,
 
        // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_dequantize_linear_operator_desc#tensor-support
        /*dequantize_linear_input=*/kInts8To32,
@@ -150,6 +151,14 @@ ContextProperties ContextImplDml::GetProperties(
 
        // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_logical_less_than_or_equal_operator_desc#tensor-support
        /*lesser_or_equal_input=*/kFloat16To32Ints8To32,
+
+       // TODO(crbug.com/368222740): Implement logical binary ops for DML.
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_logical_and_operator_desc#tensor-support
+       /*logical_and_input=*/{},
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_logical_or_operator_desc#tensor-support
+       /*logical_or_input=*/{},
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_logical_xor_operator_desc#tensor-support
+       /*logical_xor_input=*/{},
 
        // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_element_wise_logical_not_operator_desc#tensor-support
        /*logical_not_input=*/kUint8To32,
@@ -210,11 +219,15 @@ ContextProperties ContextImplDml::GetProperties(
 
        // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_gather_operator_desc#tensor-support
        /*gather_input=*/kFloat16To32Ints8To32,
-       /*gather_indices=*/kGatherIndicesSupportedDataTypes,
+       /*gather_indices=*/kGatherScatterIndicesSupportedDataTypes,
 
        // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_gather_elements_operator_desc#tensor-support
        /*gather_elements_input=*/kFloat16To32Ints8To32,
-       /*gather_elements_indices=*/kGatherIndicesSupportedDataTypes,
+       /*gather_elements_indices=*/kGatherScatterIndicesSupportedDataTypes,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_gather_nd_operator_desc#tensor-support
+       /*gather_nd_input=*/kFloat16To32Ints8To32,
+       /*gather_nd_indices=*/kGatherScatterIndicesSupportedDataTypes,
 
        // Gelu is emulated when the feature level is less than 5.1.
        // https://learn.microsoft.com/en-us/windows/ai/directml/api/ns-directml-dml_activation_gelu_operator_desc
@@ -291,9 +304,13 @@ ContextProperties ContextImplDml::GetProperties(
        // Reshape is emulated by identity.
        /*reshape_input=*/kFloat16To32Ints8To32,
 
-       // TODO(crbug.com/363761938): Implement ScatterND.
-       /*scatter_nd_input=*/{},
-       /*scatter_nd_indices=*/{},
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_scatter_operator_desc#tensor-support
+       /*scatter_elements_input=*/kFloat16To32Ints8To32,
+       /*scatter_elements_indices=*/kGatherScatterIndicesSupportedDataTypes,
+
+       // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_scatter_nd_operator_desc#tensor-support
+       /*scatter_nd_input=*/kFloat16To32Ints8To32,
+       /*scatter_nd_indices=*/kGatherScatterIndicesSupportedDataTypes,
 
        // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_activation_sigmoid_operator_desc#tensor-support
        /*sigmoid_input=*/DataTypeConstraint::kFloat16To32,
@@ -357,7 +374,11 @@ ContextProperties ContextImplDml::GetProperties(
     properties.data_type_limits.gather_input = SupportedDataTypes::All();
     properties.data_type_limits.gather_elements_input =
         SupportedDataTypes::All();
+    properties.data_type_limits.gather_nd_input = SupportedDataTypes::All();
     properties.data_type_limits.reshape_input = SupportedDataTypes::All();
+    properties.data_type_limits.scatter_elements_input =
+        SupportedDataTypes::All();
+    properties.data_type_limits.scatter_nd_input = SupportedDataTypes::All();
     properties.data_type_limits.sign_input =
         DataTypeConstraint::kFloat16To32Int8To64;
     properties.data_type_limits.slice_input = SupportedDataTypes::All();
@@ -369,6 +390,8 @@ ContextProperties ContextImplDml::GetProperties(
 
   if (feature_level >= DML_FEATURE_LEVEL_5_0) {
     properties.data_type_limits.clamp_input = SupportedDataTypes::All();
+    properties.data_type_limits.cumulative_sum_input =
+        DataTypeConstraint::kFloat16To32Ints32To64;
     properties.data_type_limits.max_input = SupportedDataTypes::All();
     properties.data_type_limits.min_input = SupportedDataTypes::All();
     properties.data_type_limits.pad_input = SupportedDataTypes::All(),
@@ -438,10 +461,13 @@ base::WeakPtr<WebNNContextImpl> ContextImplDml::AsWeakPtr() {
 void ContextImplDml::CreateGraphImpl(
     mojom::GraphInfoPtr graph_info,
     WebNNGraphImpl::ComputeResourceInfo compute_resource_info,
+    base::flat_map<uint64_t, std::unique_ptr<WebNNConstantOperand>>
+        constant_operands,
     WebNNContextImpl::CreateGraphImplCallback callback) {
   GraphImplDml::CreateAndBuild(
       adapter_, weak_factory_.GetWeakPtr(), std::move(graph_info),
-      std::move(compute_resource_info), std::move(callback),
+      std::move(compute_resource_info), std::move(constant_operands),
+      std::move(callback),
       gpu_feature_info_->IsWorkaroundEnabled(
           gpu::DML_EXECUTION_DISABLE_META_COMMANDS));
 }
@@ -711,20 +737,28 @@ void ContextImplDml::HandleContextLostOrCrash(std::string_view message_for_log,
                                               HRESULT hr) {
   LOG(ERROR) << "[WebNN] " << message_for_log << " "
              << logging::SystemErrorCodeToString(hr);
+
   HRESULT device_removed_reason =
       adapter_->d3d12_device()->GetDeviceRemovedReason();
   if (FAILED(device_removed_reason)) {
     LOG(ERROR) << "[WebNN] Device Removed Reason: "
                << logging::SystemErrorCodeToString(device_removed_reason);
+    // GPU/NPU contexts rely on the same device. If the device enters a
+    // "device-removed" state, all affected contexts become unavailable and
+    // should be destroyed immediately. Additionally, since other components
+    // besides WebNN may reference the device, we have to terminate the GPU
+    // process to allow for the re-creation of the device and recovery from
+    // device removal.
+    // TODO(crbug.com/364445586): Move non-GPU backends like TFLite outside of
+    // the GPU process.
+    context_provider()->DestroyContextsAndKillGpuProcess("device removed.");
+    return;
   }
 
   std::string_view message_for_promise;
   switch (hr) {
     case E_OUTOFMEMORY:
       message_for_promise = "out of memory.";
-      break;
-    case DXGI_ERROR_DEVICE_REMOVED:
-      message_for_promise = "device removed.";
       break;
     case DXGI_ERROR_DEVICE_RESET:
       message_for_promise = "device reset.";
@@ -734,8 +768,7 @@ void ContextImplDml::HandleContextLostOrCrash(std::string_view message_for_log,
   }
 
   OnLost(base::StrCat({"WebNN context is lost due to ", message_for_promise}));
-  CHECK(hr == E_OUTOFMEMORY || hr == DXGI_ERROR_DEVICE_REMOVED ||
-        hr == DXGI_ERROR_DEVICE_RESET);
+  CHECK(hr == E_OUTOFMEMORY || hr == DXGI_ERROR_DEVICE_RESET);
 }
 
 }  // namespace webnn::dml

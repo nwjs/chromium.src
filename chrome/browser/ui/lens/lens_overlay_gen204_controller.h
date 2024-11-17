@@ -6,7 +6,7 @@
 #define CHROME_BROWSER_UI_LENS_LENS_OVERLAY_GEN204_CONTROLLER_H_
 
 #include "chrome/browser/lens/core/mojom/lens.mojom.h"
-#include "chrome/browser/ui/lens/lens_overlay_invocation_source.h"
+#include "components/lens/lens_overlay_invocation_source.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 
 class Profile;
@@ -27,7 +27,10 @@ class LensOverlayGen204Controller {
                         uint64_t gen204_id);
 
   // Sends a Lens objects request latency gen204 request.
-  void SendLatencyGen204IfEnabled(int64_t latency_ms, bool is_translate_query);
+  void SendLatencyGen204IfEnabled(
+      base::TimeDelta full_image_latency,
+      std::optional<base::TimeDelta> cluster_info_latency,
+      bool is_translate_query);
 
   // Sends a task completion gen204 request. The analytics id is the
   // latest Lens request analytics id from the query controller.

@@ -6,6 +6,7 @@ import {html} from '//resources/lit/v3_0/lit.rollup.js';
 import type {ManagedUserProfileNoticeAppElement} from './managed_user_profile_notice_app.js';
 
 export function getHtml(this: ManagedUserProfileNoticeAppElement) {
+  // clang-format off
   return html`<!--_html_template_start_-->
 ${this.useUpdatedUi_ ? html`
   <div class="main-container tangible-sync-style">
@@ -14,7 +15,8 @@ ${this.useUpdatedUi_ ? html`
     <div id="content-container">
       ${this.showValueProposition_ ? html`
         <managed-user-profile-notice-value-prop id="value-prop"
-            title="$i18n{signinIntoChrome}" subtitle="$i18n{valuePropSubtitle}"
+            title="$i18n{valuePropositionTitle}"
+            subtitle="$i18n{valuePropSubtitle}"
             picture-url="${this.pictureUrl_}"
             email="${this.email_}" account-name="${this.accountName_}">
         ` : ''}
@@ -28,9 +30,8 @@ ${this.useUpdatedUi_ ? html`
       ` : ''}
       ${this.showProcessing_ ? html`
         <managed-user-profile-notice-state id="processing"
-            subtitle="$i18n{processingSubtitle}" icon="cr:domain">
-              <paper-spinner-lite active class="thick">
-              </paper-spinner-lite>
+            subtitle="${this.processingSubtitle_}" icon="cr:domain">
+              <div class="spinner"></div>
         </managed-user-profile-notice-state>
       ` : ''}
       ${this.showSuccess_ ? html`
@@ -54,7 +55,7 @@ ${this.useUpdatedUi_ ? html`
       ${this.showUserDataHandling_ ? html`
         <managed-user-profile-notice-data-handling id="user-data-handling"
             title="$i18n{separateBrowsingDataTitle}"
-            .selected-data-handling="${this.selectedDataHandling_}"
+            .selectedDataHandling="${this.selectedDataHandling_}"
             @selected-data-handling-changed="${this.onDataHandlingChanged_}">
         </managed-user-profile-notice-data-handling>
       ` : ''}
@@ -74,4 +75,5 @@ ${this.useUpdatedUi_ ? html`
   </div>
 ` : ''}
 <!--_html_template_end_-->`;
+  // clang-format on
 }

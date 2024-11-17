@@ -224,6 +224,9 @@ void AccountConsistencyService::AccountConsistencyHandler::ShouldAllowResponse(
 
   account_reconcilor_->OnReceivedManageAccountsResponse(params.service_type);
 
+  base::UmaHistogramEnumeration("Signin.ManageAccountsResponse.ServiceType",
+                                params.service_type);
+
   switch (params.service_type) {
     case signin::GAIA_SERVICE_TYPE_INCOGNITO: {
       GURL continue_url = GURL(params.continue_url);
@@ -338,7 +341,7 @@ AccountConsistencyService::AccountConsistencyService(
   }
 }
 
-AccountConsistencyService::~AccountConsistencyService() {}
+AccountConsistencyService::~AccountConsistencyService() = default;
 
 BOOL AccountConsistencyService::RestoreGaiaCookies(
     base::OnceCallback<void(BOOL)> cookies_restored_callback) {
@@ -546,7 +549,8 @@ void AccountConsistencyService::OnAccountsInCookieUpdated(
 
   // If signed-in accounts have been recently restored through GAIA cookie
   // restoration then run the relevant callback to finish the update process.
-  if (accounts_in_cookie_jar_info.signed_in_accounts.size() > 0) {
+  if (accounts_in_cookie_jar_info.GetPotentiallyInvalidSignedInAccounts()
+          .size() > 0) {
     RunGaiaCookiesRestoredCallbacks(/*has_cookie_changed=*/YES);
   }
 }

@@ -12,10 +12,10 @@ import androidx.annotation.VisibleForTesting;
 import org.jni_zero.CalledByNative;
 import org.jni_zero.NativeMethods;
 
-import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.Promise;
 import org.chromium.base.ResettersForTesting;
+import org.chromium.base.ServiceLoaderUtil;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
@@ -24,6 +24,8 @@ import org.chromium.components.search_engines.SearchEngineCountryDelegate.Device
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.time.DateTimeException;
+import java.time.Instant;
 
 /**
  * Singleton responsible for communicating with device APIs to expose device-level properties that
@@ -69,12 +71,16 @@ public class SearchEngineChoiceService {
     public static SearchEngineChoiceService getInstance() {
         ThreadUtils.checkUiThread();
         if (sInstance == null) {
-            var context = ContextUtils.getApplicationContext();
-            var delegate =
-                    SearchEnginesFeatures.isEnabled(SearchEnginesFeatures.CLAY_BLOCKING)
-                                    && SearchEnginesFeatureUtils.clayBlockingUseFakeBackend()
-                            ? new FakeSearchEngineCountryDelegate(/* enableLogging= */ true)
-                            : new SearchEngineCountryDelegateImpl(context);
+            SearchEngineCountryDelegate delegate;
+            if (SearchEnginesFeatures.isEnabled(SearchEnginesFeatures.CLAY_BLOCKING)
+                    && SearchEnginesFeatureUtils.clayBlockingUseFakeBackend()) {
+                delegate = new FakeSearchEngineCountryDelegate(/* enableLogging= */ true);
+            } else {
+                delegate = ServiceLoaderUtil.maybeCreate(SearchEngineCountryDelegate.class);
+                if (delegate == null) {
+                    delegate = new NoOpSearchEngineCountryDelegate();
+                }
+            }
             sInstance = new SearchEngineChoiceService(delegate);
         }
         return sInstance;
@@ -155,6 +161,37 @@ public class SearchEngineChoiceService {
     public Promise<String> getDeviceCountry() {
         ThreadUtils.checkUiThread();
         return mDeviceCountryPromise;
+    }
+
+    /**
+     * Returns whether the promo offering the user to make Chrome their default browser should be
+     * suppressed. Works by checking whether a sufficient amount of time has passed since the user
+     * has completed the OS-level default browser choice.
+     */
+    public boolean isDefaultBrowserPromoSuppressed() {
+        if (!SearchEnginesFeatures.isEnabled(SearchEnginesFeatures.CLAY_BLOCKING)) {
+            return false;
+        }
+
+        long suppressionPeriodMillis =
+                SearchEnginesFeatureUtils.clayBlockingDialogDefaultBrowserPromoSuppressedMillis();
+        if (suppressionPeriodMillis <= 0) {
+            return false;
+        }
+
+        @Nullable
+        Instant deviceBrowserSelectedTimestamp =
+                mDelegate == null ? null : mDelegate.getDeviceBrowserSelectedTimestamp();
+        if (deviceBrowserSelectedTimestamp == null) {
+            return false;
+        }
+
+        try {
+            return Instant.now()
+                    .isBefore(deviceBrowserSelectedTimestamp.plusMillis(suppressionPeriodMillis));
+        } catch (DateTimeException e) {
+            return false;
+        }
     }
 
     /**

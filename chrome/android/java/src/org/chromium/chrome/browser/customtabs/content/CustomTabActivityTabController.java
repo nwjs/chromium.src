@@ -39,7 +39,6 @@ import org.chromium.chrome.browser.cookies.CookiesFetcher;
 import org.chromium.chrome.browser.crypto.CipherFactory;
 import org.chromium.chrome.browser.customtabs.CustomTabCookiesFetcher;
 import org.chromium.chrome.browser.customtabs.CustomTabDelegateFactory;
-import org.chromium.chrome.browser.customtabs.CustomTabIncognitoManager;
 import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider;
 import org.chromium.chrome.browser.customtabs.CustomTabNavigationEventObserver;
 import org.chromium.chrome.browser.customtabs.CustomTabObserver;
@@ -72,7 +71,6 @@ import org.chromium.chrome.browser.tabmodel.TabReparentingParams;
 import org.chromium.chrome.browser.translate.TranslateBridge;
 import org.chromium.content_public.browser.Visibility;
 import org.chromium.content_public.browser.WebContents;
-import org.chromium.net.NetId;
 import org.chromium.ui.base.ActivityWindowAndroid;
 
 import java.lang.annotation.Retention;
@@ -118,7 +116,6 @@ public class CustomTabActivityTabController
     private final ActivityTabProvider mActivityTabProvider;
     private final CustomTabActivityTabProvider mTabProvider;
     private final ReparentingTaskProvider mReparentingTaskProvider;
-    private final Lazy<CustomTabIncognitoManager> mCustomTabIncognitoManager;
     private final Lazy<AsyncTabParamsManager> mAsyncTabParamsManager;
     private final Supplier<Bundle> mSavedInstanceStateSupplier;
     private final ActivityWindowAndroid mWindowAndroid;
@@ -148,7 +145,6 @@ public class CustomTabActivityTabController
             CustomTabNavigationEventObserver tabNavigationEventObserver,
             CustomTabActivityTabProvider tabProvider,
             ReparentingTaskProvider reparentingTaskProvider,
-            Lazy<CustomTabIncognitoManager> customTabIncognitoManager,
             Lazy<AsyncTabParamsManager> asyncTabParamsManager,
             @Named(SAVED_INSTANCE_SUPPLIER) Supplier<Bundle> savedInstanceStateSupplier,
             ActivityWindowAndroid windowAndroid,
@@ -170,7 +166,6 @@ public class CustomTabActivityTabController
         mActivityTabProvider = activityTabProvider;
         mTabProvider = tabProvider;
         mReparentingTaskProvider = reparentingTaskProvider;
-        mCustomTabIncognitoManager = customTabIncognitoManager;
         mAsyncTabParamsManager = asyncTabParamsManager;
         mSavedInstanceStateSupplier = savedInstanceStateSupplier;
         mWindowAndroid = windowAndroid;
@@ -450,7 +445,7 @@ public class CustomTabActivityTabController
                         mProfileProviderSupplier.get(), mIntentDataProvider.isOffTheRecord());
         Tab tab = null;
         if (WarmupManager.getInstance().isCCTPrewarmTabFeatureEnabled(true)
-                && warmupManager.hasSpareTab(profile)) {
+                && warmupManager.hasSpareTab(profile, mIntentDataProvider.hasTargetNetwork())) {
             tab = warmupManager.takeSpareTab(profile, TabLaunchType.FROM_EXTERNAL_APP);
             TabAssociatedApp.from(tab)
                     .setAppId(mConnection.getClientPackageNameForSession(mSession));
@@ -497,20 +492,14 @@ public class CustomTabActivityTabController
             return webContents;
         }
 
-        // Check if any available target network specified via customTabsIntent before creating
-        // web contents, and we only use the spare web contents if the provided network is the
-        // default one.
-        // TODO: this check can be removed once the spare web contents can be created with a
-        // particular target network as well, e.g. via {@link CustomTabsSession#mayLaunchUrl}.
-        long targetNetwork = mIntentDataProvider.getTargetNetwork();
-        if (targetNetwork == NetId.INVALID) {
-            webContents =
-                    mWarmupManager.takeSpareWebContents(
-                            mIntentDataProvider.isOffTheRecord(), /* initiallyHidden= */ false);
-            if (webContents != null) {
-                recordWebContentsStateOnLaunch(WebContentsState.SPARE_WEBCONTENTS);
-                return webContents;
-            }
+        webContents =
+                mWarmupManager.takeSpareWebContents(
+                        mIntentDataProvider.isOffTheRecord(),
+                        /* initiallyHidden= */ false,
+                        mIntentDataProvider.hasTargetNetwork());
+        if (webContents != null) {
+            recordWebContentsStateOnLaunch(WebContentsState.SPARE_WEBCONTENTS);
+            return webContents;
         }
 
         recordWebContentsStateOnLaunch(WebContentsState.NO_WEBCONTENTS);
@@ -518,12 +507,18 @@ public class CustomTabActivityTabController
                 ProfileProvider.getOrCreateProfile(
                         mProfileProviderSupplier.get(), mIntentDataProvider.isOffTheRecord()),
                 /* initiallyHidden= */ false,
-                targetNetwork);
+                mIntentDataProvider.getTargetNetwork());
     }
 
     private @Nullable WebContents takeAsyncWebContents() {
         // Async WebContents are not supported for Incognito/Ephemeral CCT.
         if (mIntentDataProvider.isOffTheRecord()) return null;
+        // Async WebContents are not supported for multi-network CCT. In this case it's better to
+        // always create WebContents from scratch, otherwise we might break the "WebContents
+        // associated with a CCT tab targeting a network will always have
+        // WebContents::GetTargetNetwork == that target network" invariant (see
+        // WebContentsImpl::CreateWithOpener for more info).
+        if (mIntentDataProvider.hasTargetNetwork()) return null;
         int assignedTabId = IntentHandler.getTabId(mIntent);
         AsyncTabParams asyncParams = mAsyncTabParamsManager.get().remove(assignedTabId);
         if (asyncParams == null) return null;

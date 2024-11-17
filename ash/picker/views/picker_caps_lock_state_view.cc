@@ -8,8 +8,8 @@
 
 #include "ash/picker/views/picker_style.h"
 #include "ash/resources/vector_icons/vector_icons.h"
-#include "ash/strings/grit/ash_strings.h"
 #include "base/check.h"
+#include "base/i18n/rtl.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
@@ -22,27 +22,39 @@
 #include "ui/views/background.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/controls/image_view.h"
-#include "ui/views/controls/label.h"
 #include "ui/views/layout/box_layout.h"
 
 namespace ash {
 namespace {
 
 constexpr gfx::Insets kMargins = gfx::Insets::VH(8, 12);
-constexpr int kBetweenChildSpacing = 8;
+constexpr int kArrowGap = 16;
 
-std::u16string GetDisplayText(bool enabled) {
-  return enabled ? l10n_util::GetStringUTF16(IDS_PICKER_CAPS_LOCK_ON_TEXT)
-                 : l10n_util::GetStringUTF16(IDS_PICKER_CAPS_LOCK_OFF_TEXT);
+// The arrow direction should only follow the text direction of the input field,
+// regardless of the locale.
+views::BubbleBorder::Arrow GetArrowForTextDirection(
+    base::i18n::TextDirection text_direction) {
+  switch (text_direction) {
+    case base::i18n::TextDirection::RIGHT_TO_LEFT:
+      return base::i18n::IsRTL() ? views::BubbleBorder::Arrow::RIGHT_CENTER
+                                 : views::BubbleBorder::Arrow::LEFT_CENTER;
+    case base::i18n::TextDirection::LEFT_TO_RIGHT:
+      return base::i18n::IsRTL() ? views::BubbleBorder::Arrow::LEFT_CENTER
+                                 : views::BubbleBorder::Arrow::RIGHT_CENTER;
+    default:
+      return views::BubbleBorder::Arrow::RIGHT_CENTER;
+  }
 }
 
 }  // namespace
 
-PickerCapsLockStateView::PickerCapsLockStateView(gfx::NativeView parent,
-                                                 bool enabled,
-                                                 const gfx::Rect& caret)
+PickerCapsLockStateView::PickerCapsLockStateView(
+    gfx::NativeView parent,
+    bool enabled,
+    gfx::Rect caret_bounds,
+    base::i18n::TextDirection text_direction)
     : BubbleDialogDelegateView(nullptr,
-                               views::BubbleBorder::Arrow::TOP_LEFT,
+                               GetArrowForTextDirection(text_direction),
                                views::BubbleBorder::STANDARD_SHADOW) {
   DCHECK(parent);
   set_parent_window(parent);
@@ -54,20 +66,19 @@ PickerCapsLockStateView::PickerCapsLockStateView(gfx::NativeView parent,
       SetLayoutManager(std::make_unique<views::BoxLayout>(
           views::BoxLayout::Orientation::kHorizontal));
   layout->set_inside_border_insets(kMargins);
-  layout->set_between_child_spacing(kBetweenChildSpacing);
 
-  AddChildView(
+  icon_view_ = AddChildView(
       std::make_unique<views::ImageView>(ui::ImageModel::FromVectorIcon(
           enabled ? kPickerCapsLockOnIcon : kPickerCapsLockOffIcon,
           cros_tokens::kCrosSysOnSurface)));
-  label_ =
-      AddChildView(std::make_unique<views::Label>(GetDisplayText(enabled)));
 
   BubbleDialogDelegateView::CreateBubble(this);
 
   SetBackground(views::CreateThemedRoundedRectBackground(
       kPickerContainerBackgroundColor, kPickerContainerBorderRadius));
-  SetAnchorRect(caret);
+
+  caret_bounds.Outset(kArrowGap);
+  SetAnchorRect(caret_bounds);
 }
 
 PickerCapsLockStateView::~PickerCapsLockStateView() = default;

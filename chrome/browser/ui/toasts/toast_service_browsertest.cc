@@ -12,6 +12,7 @@
 #include "chrome/browser/ui/toasts/api/toast_registry.h"
 #include "chrome/browser/ui/toasts/toast_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "components/commerce/core/commerce_feature_list.h"
 #include "content/public/test/browser_test.h"
 
 namespace {
@@ -22,7 +23,10 @@ using ToastIdEnumSet =
 class ToastServiceBrowserTest : public InProcessBrowserTest {
  public:
   void SetUp() override {
-    feature_list_.InitAndEnableFeature(toast_features::kToastFramework);
+    feature_list_.InitWithFeatures(
+        {toast_features::kToastFramework, commerce::kCompareConfirmationToast,
+         commerce::kProductSpecifications},
+        /*disabled_features*/ {});
     InProcessBrowserTest::SetUp();
   }
 
@@ -43,9 +47,9 @@ IN_PROC_BROWSER_TEST_F(ToastServiceBrowserTest, RegisterAllToastIds) {
 }
 
 // Verifies that the ToastService and ToastController should exist for normal
-// browser windows. The ToastService and ToastController should be null for
-// non-normal browsers since toasts are not supported for those browser types.
-IN_PROC_BROWSER_TEST_F(ToastServiceBrowserTest, ServiceExistForNormalBrowser) {
+// browser windows, and PWAs. The ToastService and ToastController should be
+// null for other browser types since toasts are not supported on them.
+IN_PROC_BROWSER_TEST_F(ToastServiceBrowserTest, ServiceExistForBrowserTypes) {
   BrowserWindowFeatures* const normal_window_features =
       browser()->browser_window_features();
   EXPECT_TRUE(normal_window_features->toast_service());
@@ -59,6 +63,19 @@ IN_PROC_BROWSER_TEST_F(ToastServiceBrowserTest, ServiceExistForNormalBrowser) {
 
   BrowserWindowFeatures* const app_window_features =
       CreateBrowserForApp("test_app_name", profile)->browser_window_features();
-  EXPECT_FALSE(app_window_features->toast_service());
-  EXPECT_FALSE(app_window_features->toast_controller());
+  EXPECT_TRUE(app_window_features->toast_service());
+  EXPECT_TRUE(app_window_features->toast_controller());
+
+  BrowserWindowFeatures* const pip_window_features =
+      Browser::Create(Browser::CreateParams::CreateForPictureInPicture(
+                          "test_app_name", false, profile, false))
+          ->browser_window_features();
+  EXPECT_FALSE(pip_window_features->toast_service());
+  EXPECT_FALSE(pip_window_features->toast_controller());
+
+  BrowserWindowFeatures* const devtools_window_features =
+      Browser::Create(Browser::CreateParams::CreateForDevTools(profile))
+          ->browser_window_features();
+  EXPECT_FALSE(devtools_window_features->toast_service());
+  EXPECT_FALSE(devtools_window_features->toast_controller());
 }

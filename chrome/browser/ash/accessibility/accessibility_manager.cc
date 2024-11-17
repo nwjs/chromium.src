@@ -72,6 +72,7 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/browser_resources.h"
 #include "chrome/grit/generated_resources.h"
+#include "chromeos/ash/components/audio/public/cpp/sounds/sounds_manager.h"
 #include "chromeos/ash/components/audio/sounds.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
@@ -100,7 +101,6 @@
 #include "extensions/common/extension_resource.h"
 #include "media/base/audio_codecs.h"
 #include "services/accessibility/buildflags.h"
-#include "services/audio/public/cpp/sounds/sounds_manager.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/accessibility_switches.h"
 #include "ui/accessibility/ax_enum_util.h"
@@ -112,6 +112,7 @@
 #include "ui/events/devices/device_data_manager.h"
 #include "ui/events/devices/input_device_event_observer.h"
 #include "ui/events/keycodes/keyboard_codes_posix.h"
+#include "ui/native_theme/native_theme_features.h"
 #include "ui/strings/grit/ui_strings.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_observer.h"
@@ -157,6 +158,18 @@ const char kTtsStandardFileName[] = "voice-standard.zvoice";
 // FaceGaze actions. This value needs to be in sync with the MOUSE_CLICK_LEFT
 // action in the above file.
 constexpr int kFaceGazeLeftClickValue = 35;
+
+// The value representing the FaceGaze scroll action. See
+// ash/webui/common/resources/accessibility/macro_names.ts for the full list of
+// FaceGaze actions. This value needs to be in sync with the TOGGLE_SCROLL_MODE
+// action in the above file.
+constexpr int kFaceGazeScrollValue = 50;
+
+// The string representing the FaceGaze jaw open gesture. See
+// ash/webui/common/resources/accessibility/facial_gestures.ts for the full list
+// of FaceGaze gestures. This value needs to be in sync with the JAW_OPEN
+// gesture in the above file.
+constexpr char kFaceGazeJawOpenGesture[] = "jawOpen";
 
 // The string representing the FaceGaze mouth smile gesture. See
 // ash/webui/common/resources/accessibility/facial_gestures.ts for the full list
@@ -684,12 +697,15 @@ void AccessibilityManager::OnFaceGazeChanged() {
     // If FaceGaze is enabled but there isn't a gesture to action mapping, then
     // we should install a minimal mapping to provide a working default
     // experience.
-    pref_service->SetDict(prefs::kAccessibilityFaceGazeGesturesToMacros,
-                          base::Value::Dict().Set(kFaceGazeMouthSmileGesture,
-                                                  kFaceGazeLeftClickValue));
     pref_service->SetDict(
-        prefs::kAccessibilityFaceGazeGesturesToConfidence,
-        base::Value::Dict().Set(kFaceGazeMouthSmileGesture, 60));
+        prefs::kAccessibilityFaceGazeGesturesToMacros,
+        base::Value::Dict()
+            .Set(kFaceGazeMouthSmileGesture, kFaceGazeLeftClickValue)
+            .Set(kFaceGazeJawOpenGesture, kFaceGazeScrollValue));
+    pref_service->SetDict(prefs::kAccessibilityFaceGazeGesturesToConfidence,
+                          base::Value::Dict()
+                              .Set(kFaceGazeMouthSmileGesture, 60)
+                              .Set(kFaceGazeJawOpenGesture, 60));
     pref_service->CommitPendingWrite();
   }
 }
@@ -935,6 +951,23 @@ bool AccessibilityManager::IsReducedAnimationsEnabled() const {
   return ::features::IsAccessibilityReducedAnimationsEnabled() && profile_ &&
          profile_->GetPrefs()->GetBoolean(
              prefs::kAccessibilityReducedAnimationsEnabled);
+}
+
+void AccessibilityManager::EnableOverlayScrollbar(bool enabled) {
+  if (!::features::IsOverlayScrollbarOSSettingEnabled() || !profile_) {
+    return;
+  }
+
+  PrefService* pref_service = profile_->GetPrefs();
+  pref_service->SetBoolean(prefs::kAccessibilityOverlayScrollbarEnabled,
+                           enabled);
+  pref_service->CommitPendingWrite();
+}
+
+bool AccessibilityManager::IsOverlayScrollbarEnabled() const {
+  return ::features::IsOverlayScrollbarOSSettingEnabled() && profile_ &&
+         profile_->GetPrefs()->GetBoolean(
+             prefs::kAccessibilityOverlayScrollbarEnabled);
 }
 
 void AccessibilityManager::EnableFaceGaze(bool enabled) {

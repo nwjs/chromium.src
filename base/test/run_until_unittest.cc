@@ -42,25 +42,25 @@ class RunUntilTest : public ::testing::Test {
 };
 
 TEST_F(RunUntilTest, ShouldReturnTrueIfPredicateIsAlreadyFulfilled) {
-  EXPECT_TRUE(RunUntil([]() { return true; }));
+  EXPECT_TRUE(RunUntil([] { return true; }));
 }
 
 TEST_F(RunUntilTest, ShouldReturnTrueOncePredicateIsFulfilled) {
   bool done = false;
 
-  RunLater([&done]() { done = true; });
+  RunLater([&done] { done = true; });
 
-  EXPECT_TRUE(RunUntil([&done]() { return done; }));
+  EXPECT_TRUE(RunUntil([&done] { return done; }));
 }
 
 TEST_F(RunUntilTest, ShouldNotSimplyActivelyInvokePredicateInALoop) {
   bool done = false;
   int call_count = 0;
 
-  PostDelayedTask(base::BindLambdaForTesting([&done]() { done = true; }),
+  PostDelayedTask(base::BindLambdaForTesting([&done] { done = true; }),
                   base::Milliseconds(50));
 
-  EXPECT_TRUE(RunUntil([&]() {
+  EXPECT_TRUE(RunUntil([&] {
     call_count++;
     return done;
   }));
@@ -74,10 +74,10 @@ TEST_F(RunUntilTest, ShouldNotSimplyReturnOnFirstIdle) {
 
   PostDelayedTask(base::DoNothing(), base::Milliseconds(1));
   PostDelayedTask(base::DoNothing(), base::Milliseconds(5));
-  PostDelayedTask(base::BindLambdaForTesting([&done]() { done = true; }),
+  PostDelayedTask(base::BindLambdaForTesting([&done] { done = true; }),
                   base::Milliseconds(10));
 
-  EXPECT_TRUE(RunUntil([&]() { return done; }));
+  EXPECT_TRUE(RunUntil([&] { return done; }));
 }
 
 TEST_F(RunUntilTest,
@@ -87,7 +87,7 @@ TEST_F(RunUntilTest,
   bool other_job_done = false;
   RunLater([&other_job_done] { other_job_done = true; });
 
-  EXPECT_TRUE(RunUntil([]() { return true; }));
+  EXPECT_TRUE(RunUntil([] { return true; }));
 
   EXPECT_TRUE(other_job_done);
 }
@@ -98,10 +98,10 @@ TEST_F(RunUntilTest, ShouldWorkEvenWhenTimerIsRunning) {
   base::RepeatingTimer timer;
   timer.Start(FROM_HERE, base::Seconds(1), base::DoNothing());
 
-  PostDelayedTask(base::BindLambdaForTesting([&done]() { done = true; }),
+  PostDelayedTask(base::BindLambdaForTesting([&done] { done = true; }),
                   base::Milliseconds(10));
 
-  EXPECT_TRUE(RunUntil([&]() { return done; }));
+  EXPECT_TRUE(RunUntil([&] { return done; }));
 }
 
 TEST_F(RunUntilTest, ShouldReturnFalseIfTimeoutHappens) {
@@ -112,8 +112,8 @@ TEST_F(RunUntilTest, ShouldReturnFalseIfTimeoutHappens) {
   // EXPECT_FATAL_FAILURE only works on static objects.
   static bool success;
 
-  EXPECT_NONFATAL_FAILURE({ success = RunUntil([]() { return false; }); },
-                          "timed out");
+  EXPECT_NONFATAL_FAILURE(
+      { success = RunUntil([] { return false; }); }, "timed out");
 
   EXPECT_FALSE(success);
 }

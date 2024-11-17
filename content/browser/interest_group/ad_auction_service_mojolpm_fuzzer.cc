@@ -82,8 +82,7 @@ class AllowInterestGroupContentBrowserClient
   bool IsPrivacySandboxReportingDestinationAttested(
       content::BrowserContext* browser_context,
       const url::Origin& destination_origin,
-      content::PrivacySandboxInvokingAPI invoking_api,
-      bool post_impression_reporting) override {
+      content::PrivacySandboxInvokingAPI invoking_api) override {
     return true;
   }
 
@@ -175,18 +174,21 @@ class SameProcessAuctionProcessManager : public content::AuctionProcessManager {
   ~SameProcessAuctionProcessManager() override = default;
 
  private:
-  content::RenderProcessHost* LaunchProcess(
-      mojo::PendingReceiver<auction_worklet::mojom::AuctionWorkletService>
-          auction_worklet_service_receiver,
-      const ProcessHandle* handle,
+  scoped_refptr<WorkletProcess> LaunchProcess(
+      const ProcessHandle* process_handle,
       const std::string& display_name) override {
     // Create one AuctionWorkletServiceImpl per Mojo pipe, just like in
     // production code. Don't bother to delete the service on pipe close,
     // though; just keep it in a vector instead.
+    mojo::PendingRemote<auction_worklet::mojom::AuctionWorkletService> service;
     auction_worklet_services_.push_back(
         auction_worklet::AuctionWorkletServiceImpl::CreateForService(
-            std::move(auction_worklet_service_receiver)));
-    return nullptr;
+            service.InitWithNewPipeAndPassReceiver()));
+    return base::MakeRefCounted<WorkletProcess>(
+        this, /*site_instance=*/nullptr, /*render_process_host=*/nullptr,
+        std::move(service), process_handle->worklet_type(),
+        process_handle->origin(),
+        /*uses_shared_process=*/false);
   }
 
   scoped_refptr<content::SiteInstance> MaybeComputeSiteInstance(
@@ -198,6 +200,8 @@ class SameProcessAuctionProcessManager : public content::AuctionProcessManager {
   bool TryUseSharedProcess(ProcessHandle* process_handle) override {
     return false;
   }
+
+  bool UsingDedicatedUtilityProcesses() override { return false; }
 
   std::vector<std::unique_ptr<auction_worklet::AuctionWorkletServiceImpl>>
       auction_worklet_services_;

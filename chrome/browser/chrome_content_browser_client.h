@@ -17,6 +17,7 @@
 #include "base/containers/flat_map.h"
 #include "base/functional/callback.h"
 #include "base/gtest_prod_util.h"
+#include "base/memory/read_only_shared_memory_region.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/supports_user_data.h"
@@ -226,6 +227,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool IsHandledURL(const GURL& url) override;
   bool HasCustomSchemeHandler(content::BrowserContext* browser_context,
                               const std::string& scheme) override;
+  bool HasWebRequestAPIProxy(content::BrowserContext* browser_context) override;
   bool CanCommitURL(content::RenderProcessHost* process_host,
                     const GURL& url) override;
   void OverrideNavigationParams(
@@ -351,8 +353,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool IsPrivacySandboxReportingDestinationAttested(
       content::BrowserContext* browser_context,
       const url::Origin& destination_origin,
-      content::PrivacySandboxInvokingAPI invoking_api,
-      bool post_impression_reporting) override;
+      content::PrivacySandboxInvokingAPI invoking_api) override;
   void OnAuctionComplete(
       content::RenderFrameHost* render_frame_host,
       std::optional<content::InterestGroupManager::InterestGroupDataKey>
@@ -405,6 +406,11 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
                                  content::WebContents* web_contents,
                                  const GURL& url,
                                  const blink::StorageKey& storage_key) override;
+  void GrantCookieAccessDueToHeuristic(content::BrowserContext* browser_context,
+                                       const net::SchemefulSite& top_frame_site,
+                                       const net::SchemefulSite& accessing_site,
+                                       base::TimeDelta ttl,
+                                       bool ignore_schemes) override;
 #if BUILDFLAG(IS_CHROMEOS)
   void OnTrustAnchorUsed(content::BrowserContext* browser_context) override;
 #endif
@@ -765,7 +771,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       content::WebContents* web_contents,
       content::BrowserContext* browser_context,
       const content::GlobalRequestID& request_id,
-      bool is_request_for_primary_main_frame,
+      bool is_request_for_primary_main_frame_navigation,
+      bool is_request_for_navigation,
       const GURL& url,
       scoped_refptr<net::HttpResponseHeaders> response_headers,
       bool first_auth_attempt,
@@ -782,6 +789,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       bool has_user_gesture,
       const std::optional<url::Origin>& initiating_origin,
       content::RenderFrameHost* initiator_document,
+      const net::IsolationInfo& isolation_info,
       mojo::PendingRemote<network::mojom::URLLoaderFactory>* out_factory)
       override;
   std::unique_ptr<content::VideoOverlayWindow>
@@ -1081,6 +1089,19 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool IsSaveableNavigation(
       content::NavigationHandle* navigation_handle) override;
 
+#if BUILDFLAG(IS_WIN)
+  void OnUiaProviderRequested(bool uia_provider_enabled) override;
+#endif
+
+  base::ReadOnlySharedMemoryRegion GetPerformanceScenarioRegionForProcess(
+      content::RenderProcessHost* process_host) override;
+  base::ReadOnlySharedMemoryRegion GetGlobalPerformanceScenarioRegion()
+      override;
+
+  bool ShouldDispatchPagehideDuringCommit(
+      content::BrowserContext* browser_context,
+      const GURL& destination_url) override;
+
   void SetSamplingProfiler(
       std::unique_ptr<MainThreadStackSamplingProfiler> sampling_profiler);
 
@@ -1168,7 +1189,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   // server for admins.
   void ReportLegacyTechEvent(
       content::RenderFrameHost* render_frame_host,
-      const std::string type,
+      const std::string& type,
       const GURL& url,
       const GURL& frame_url,
       const std::string& filename,
@@ -1294,7 +1315,27 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
 
   std::unique_ptr<MainThreadStackSamplingProfiler> sampling_profiler_;
 
+#if BUILDFLAG(IS_WIN)
+  bool handled_uia_provider_request_ = false;
+#endif
+
   base::WeakPtrFactory<ChromeContentBrowserClient> weak_factory_{this};
 };
+
+// DO NOT USE. Functions in this namespace are only for the migration of DIPS to
+// the content/ folder. They will be deleted soon.
+//
+// TODO: crbug.com/369813097 - Remove this after DIPS migrates to //content.
+namespace dips_move {
+void GrantCookieAccessDueToHeuristic(content::BrowserContext* browser_context,
+                                     const net::SchemefulSite& top_frame_site,
+                                     const net::SchemefulSite& accessing_site,
+                                     base::TimeDelta ttl,
+                                     bool ignore_schemes);
+bool IsFullCookieAccessAllowed(content::BrowserContext* browser_context,
+                               content::WebContents* web_contents,
+                               const GURL& url,
+                               const blink::StorageKey& storage_key);
+}  // namespace dips_move
 
 #endif  // CHROME_BROWSER_CHROME_CONTENT_BROWSER_CLIENT_H_

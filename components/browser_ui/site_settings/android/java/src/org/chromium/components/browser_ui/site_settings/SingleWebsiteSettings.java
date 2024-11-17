@@ -35,8 +35,8 @@ import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.components.browser_ui.settings.ChromeImageViewPreference;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.browser_ui.settings.CustomDividerFragment;
+import org.chromium.components.browser_ui.settings.EmbeddableSettingsPage;
 import org.chromium.components.browser_ui.settings.ManagedPreferencesUtils;
-import org.chromium.components.browser_ui.settings.SettingsPage;
 import org.chromium.components.browser_ui.settings.SettingsUtils;
 import org.chromium.components.browser_ui.settings.TextMessagePreference;
 import org.chromium.components.browsing_data.DeleteBrowsingDataAction;
@@ -54,7 +54,7 @@ import java.util.Map;
 
 /** Shows the permissions and other settings for a particular website. */
 public class SingleWebsiteSettings extends BaseSiteSettingsFragment
-        implements SettingsPage,
+        implements EmbeddableSettingsPage,
                 Preference.OnPreferenceChangeListener,
                 Preference.OnPreferenceClickListener,
                 CustomDividerFragment {
@@ -273,51 +273,8 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
-        // Handled in displaySitePermissions. Moving the addPreferencesFromResource call up to here
-        // causes animation jank (crbug.com/985734).
-    }
-
-    @Override
-    public void onSaveInstanceState(Bundle outState) {
-        if (mPreviousNotificationPermission != null) {
-            outState.putInt(PREVIOUS_NOTIFICATION_PERMISSION_KEY, mPreviousNotificationPermission);
-        }
-        super.onSaveInstanceState(outState);
-    }
-
-    @Override
-    public void onViewStateRestored(Bundle savedInstanceState) {
-        super.onViewStateRestored(savedInstanceState);
-
-        if (savedInstanceState == null) return;
-
-        if (savedInstanceState.containsKey(PREVIOUS_NOTIFICATION_PERMISSION_KEY)) {
-            mPreviousNotificationPermission =
-                    savedInstanceState.getInt(PREVIOUS_NOTIFICATION_PERMISSION_KEY);
-        }
-    }
-
-    @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
         mPageTitle.set(getContext().getString(R.string.prefs_site_settings));
-        init();
-        super.onActivityCreated(savedInstanceState);
-    }
 
-    @Override
-    public ObservableSupplier<String> getPageTitle() {
-        return mPageTitle;
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        if (mConfirmationDialog != null) {
-            mConfirmationDialog.dismiss();
-        }
-    }
-
-    private void init() {
         // Remove this Preference if it gets restored without a valid SiteSettingsDelegate. This
         // can happen e.g. when it is included in PageInfo.
         if (!hasSiteSettingsDelegate()) {
@@ -341,9 +298,46 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
         }
 
         mFromGrouped = getArguments().getBoolean(EXTRA_FROM_GROUPED, false);
+    }
 
-        // Disable animations of preference changes.
+    @Override
+    public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+
         getListView().setItemAnimator(null);
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        if (mPreviousNotificationPermission != null) {
+            outState.putInt(PREVIOUS_NOTIFICATION_PERMISSION_KEY, mPreviousNotificationPermission);
+        }
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override
+    public void onViewStateRestored(Bundle savedInstanceState) {
+        super.onViewStateRestored(savedInstanceState);
+
+        if (savedInstanceState == null) return;
+
+        if (savedInstanceState.containsKey(PREVIOUS_NOTIFICATION_PERMISSION_KEY)) {
+            mPreviousNotificationPermission =
+                    savedInstanceState.getInt(PREVIOUS_NOTIFICATION_PERMISSION_KEY);
+        }
+    }
+
+    @Override
+    public ObservableSupplier<String> getPageTitle() {
+        return mPageTitle;
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (mConfirmationDialog != null) {
+            mConfirmationDialog.dismiss();
+        }
     }
 
     @Override
@@ -1293,10 +1287,12 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
 
     private void popBackIfNoSettings() {
         if (!hasPermissionsPreferences() && !hasUsagePreferences() && getActivity() != null) {
-            getActivity().finish();
-            if (mFromGrouped) {
-                Activity groupActivity = GroupedWebsitesActivityHolder.getInstance().getActivity();
-                if (groupActivity != null) groupActivity.finish();
+            // Save the paused fragment before finishing the current fragment as it may cause the
+            // paused fragment to resume.
+            GroupedWebsitesSettings groupFragment = GroupedWebsitesSettings.getPausedInstance();
+            getSettingsNavigation().finishCurrentSettings(this);
+            if (mFromGrouped && groupFragment != null) {
+                getSettingsNavigation().finishCurrentSettings(groupFragment);
             }
         }
     }
@@ -1380,10 +1376,12 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
                 DeleteBrowsingDataAction.SITES_SETTINGS_PAGE,
                 DeleteBrowsingDataAction.MAX_VALUE);
         if (finishActivityImmediately) {
-            getActivity().finish();
-            if (mFromGrouped) {
-                Activity groupActivity = GroupedWebsitesActivityHolder.getInstance().getActivity();
-                if (groupActivity != null) groupActivity.finish();
+            // Save the paused fragment before finishing the current fragment as it may cause the
+            // paused fragment to resume.
+            GroupedWebsitesSettings groupFragment = GroupedWebsitesSettings.getPausedInstance();
+            getSettingsNavigation().finishCurrentSettings(this);
+            if (mFromGrouped && groupFragment != null) {
+                getSettingsNavigation().finishCurrentSettings(groupFragment);
             }
         }
     }

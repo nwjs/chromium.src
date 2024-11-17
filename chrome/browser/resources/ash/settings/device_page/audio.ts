@@ -16,7 +16,7 @@ import 'chrome://resources/ash/common/cr_elements/localized_link/localized_link.
 import 'chrome://resources/ash/common/cr_elements/policy/cr_policy_indicator.js';
 
 import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
-import {CrSliderElement} from 'chrome://resources/ash/common/cr_elements/cr_slider/cr_slider.js';
+import type {CrSliderElement} from 'chrome://resources/ash/common/cr_elements/cr_slider/cr_slider.js';
 import {CrToggleElement} from 'chrome://resources/ash/common/cr_elements/cr_toggle/cr_toggle.js';
 import {I18nMixin} from 'chrome://resources/ash/common/cr_elements/i18n_mixin.js';
 import {WebUiListenerMixin} from 'chrome://resources/ash/common/cr_elements/web_ui_listener_mixin.js';
@@ -27,14 +27,19 @@ import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bu
 
 import {DeepLinkingMixin} from '../common/deep_linking_mixin.js';
 import {RouteObserverMixin} from '../common/route_observer_mixin.js';
-import {AudioDevice, AudioDeviceType, AudioEffectState, AudioSystemProperties, AudioSystemPropertiesObserverReceiver, MuteState} from '../mojom-webui/cros_audio_config.mojom-webui.js';
+import type {AudioDevice, AudioSystemProperties} from '../mojom-webui/cros_audio_config.mojom-webui.js';
+import {AudioDeviceType, AudioEffectState, AudioSystemPropertiesObserverReceiver, MuteState} from '../mojom-webui/cros_audio_config.mojom-webui.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
-import {AudioAndCaptionsPageBrowserProxy, AudioAndCaptionsPageBrowserProxyImpl} from '../os_a11y_page/audio_and_captions_page_browser_proxy.js';
-import {Route, routes} from '../router.js';
+import type {AudioAndCaptionsPageBrowserProxy} from '../os_a11y_page/audio_and_captions_page_browser_proxy.js';
+import {AudioAndCaptionsPageBrowserProxyImpl} from '../os_a11y_page/audio_and_captions_page_browser_proxy.js';
+import type {Route} from '../router.js';
+import {routes} from '../router.js';
 
 import {getTemplate} from './audio.html.js';
-import {CrosAudioConfigInterface, getCrosAudioConfig} from './cros_audio_config.js';
-import {BatteryStatus, DevicePageBrowserProxy, DevicePageBrowserProxyImpl} from './device_page_browser_proxy.js';
+import type {CrosAudioConfigInterface} from './cros_audio_config.js';
+import {getCrosAudioConfig} from './cros_audio_config.js';
+import type {BatteryStatus, DevicePageBrowserProxy} from './device_page_browser_proxy.js';
+import {DevicePageBrowserProxyImpl} from './device_page_browser_proxy.js';
 import {FakeCrosAudioConfig} from './fake_cros_audio_config.js';
 
 /** Utility for keeping percent in inclusive range of [0,100].  */
@@ -129,7 +134,6 @@ export class SettingsAudioElement extends SettingsAudioElementBase {
       isAllowAGCEnabled: {
         type: Boolean,
         value: true,
-        observer: SettingsAudioElement.prototype.onAllowAGCEnabledChanged,
       },
 
       isHfpMicSrEnabled: {
@@ -143,6 +147,15 @@ export class SettingsAudioElement extends SettingsAudioElementBase {
       showStyleTransfer: {
         type: Boolean,
       },
+
+      showSpatialAudio: {
+        type: Boolean,
+      },
+
+      isSpatialAudioEnabled_: {
+        type: Boolean,
+        value: true,
+      },
     };
   }
 
@@ -151,6 +164,7 @@ export class SettingsAudioElement extends SettingsAudioElementBase {
   protected isHfpMicSrEnabled: boolean;
   protected showHfpMicSr: boolean;
   protected showStyleTransfer: boolean;
+  protected showSpatialAudio: boolean;
 
   private audioAndCaptionsBrowserProxy_: AudioAndCaptionsPageBrowserProxy;
   private devicePageBrowserProxy_: DevicePageBrowserProxy;
@@ -164,6 +178,8 @@ export class SettingsAudioElement extends SettingsAudioElementBase {
   private isNoiseCancellationSupported_: boolean;
   private isStyleTransferEnabled_: boolean;
   private isStyleTransferSupported_: boolean;
+  private isSpatialAudioEnabled_: boolean;
+  private isSpatialAudioSupported_: boolean;
   private outputVolume_: number;
   private startupSoundEnabled_: boolean;
   private batteryStatus_: BatteryStatus|undefined;
@@ -233,6 +249,17 @@ export class SettingsAudioElement extends SettingsAudioElementBase {
     this.showHfpMicSr =
         (this.isHfpMicSrSupported_ &&
          loadTimeData.getBoolean('enableAudioHfpMicSRToggle'));
+
+    const activeOutputDevice = this.audioSystemProperties_.outputDevices.find(
+        (device: AudioDevice) => device.isActive);
+    this.isSpatialAudioEnabled_ = activeOutputDevice !== undefined &&
+        activeOutputDevice?.spatialAudioState === AudioEffectState.kEnabled;
+    this.isSpatialAudioSupported_ = activeOutputDevice !== undefined &&
+        activeOutputDevice?.spatialAudioState !==
+            AudioEffectState.kNotSupported;
+    this.showSpatialAudio =
+        (this.isSpatialAudioSupported_ &&
+         loadTimeData.getBoolean('enableSpatialAudioToggle'));
   }
 
   getIsOutputMutedForTest(): boolean {
@@ -272,21 +299,6 @@ export class SettingsAudioElement extends SettingsAudioElementBase {
         '#audioInputDeviceDropdown');
     assert(!!inputDeviceSelect);
     this.crosAudioConfig_.setActiveDevice(BigInt(inputDeviceSelect.value));
-  }
-
-  /** Handles updates to force respect ui gains state. */
-  protected onAllowAGCEnabledChanged(
-      enabled: SettingsAudioElement['isAllowAGCEnabled'],
-      previousEnabled: SettingsAudioElement['isAllowAGCEnabled']): void {
-    // Polymer triggers change event on all assignment to
-    // `isAllowAGCEnabled` even if the value is logically unchanged.
-    // Check previous value before calling `setAllowAGCEnabled` to
-    // test if value actually updated.
-    if (previousEnabled === undefined || previousEnabled === enabled) {
-      return;
-    }
-
-    this.crosAudioConfig_.setForceRespectUiGainsEnabled(!enabled);
   }
 
   /**
@@ -463,6 +475,14 @@ export class SettingsAudioElement extends SettingsAudioElementBase {
     this.audioAndCaptionsBrowserProxy_.setStartupSoundEnabled(e.detail);
   }
 
+  private toggleAllowAgcEnabled_(e: CustomEvent<boolean>): void {
+    this.crosAudioConfig_.setForceRespectUiGainsEnabled(!e.detail);
+  }
+
+  private toggleSpatialAudioEnabled_(e: CustomEvent<boolean>): void {
+    this.crosAudioConfig_.setSpatialAudioEnabled(e.detail);
+  }
+
   private computePowerSoundsHidden_(): boolean {
     return !this.batteryStatus_?.present;
   }
@@ -496,6 +516,12 @@ export class SettingsAudioElement extends SettingsAudioElementBase {
       // Do not toggle if the contained link is clicked.
       event.stopPropagation();
     }
+  }
+
+  private onSpatialAudioRowClicked_(): void {
+    const spatialAudioToggle = strictQuery(
+        '#audioOutputSpatialAudioToggle', this.shadowRoot, CrToggleElement);
+    this.crosAudioConfig_.setSpatialAudioEnabled(!spatialAudioToggle.checked);
   }
 }
 

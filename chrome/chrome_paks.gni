@@ -129,6 +129,7 @@ template("chrome_extra_paks") {
       "$root_gen_dir/net/net_resources.pak",
       "$root_gen_dir/third_party/blink/public/resources/blink_resources.pak",
       "$root_gen_dir/third_party/blink/public/resources/inspector_overlay_resources.pak",
+      "$root_gen_dir/third_party/blink/public/strings/permission_element_generated_strings.pak",
       "$root_gen_dir/ui/resources/webui_resources.pak",
     ]
     deps = [
@@ -145,6 +146,7 @@ template("chrome_extra_paks") {
       "//net:net_resources",
       "//third_party/blink/public:devtools_inspector_resources",
       "//third_party/blink/public:resources",
+      "//third_party/blink/public/strings:permission_element_generated_strings",
       "//ui/resources",
     ]
     if (defined(invoker.deps)) {
@@ -281,6 +283,7 @@ template("chrome_extra_paks") {
         "$root_gen_dir/ash/webui/connectivity_diagnostics_resources.pak",
         "$root_gen_dir/ash/webui/file_manager/resources/file_manager_swa_resources.pak",
         "$root_gen_dir/ash/webui/file_manager/untrusted_resources/file_manager_untrusted_resources.pak",
+        "$root_gen_dir/ash/webui/growth_internals_resources.pak",
         "$root_gen_dir/ash/webui/recorder_app_ui/resources/recorder_app_resources.pak",
         "$root_gen_dir/chrome/add_supervision_resources.pak",
         "$root_gen_dir/chrome/app_install_resources.pak",
@@ -352,6 +355,7 @@ template("chrome_extra_paks") {
         "//ash/webui/focus_mode/resources:resources",
         "//ash/webui/focus_mode/untrusted_resources:resources",
         "//ash/webui/graduation/resources:resources",
+        "//ash/webui/growth_internals:resources",
         "//ash/webui/mall/resources",
         "//ash/webui/os_feedback_ui/resources:resources",
         "//ash/webui/os_feedback_ui/untrusted_resources:resources",
@@ -441,7 +445,10 @@ template("chrome_extra_paks") {
     }
 
     if (is_win || is_mac || is_linux) {
-      sources += [ "$root_gen_dir/chrome/app_settings_resources.pak" ]
+      sources += [
+        "$root_gen_dir/chrome/app_settings_resources.pak",
+        "$root_gen_dir/chrome/on_device_translation_internals_resources.pak",
+      ]
       deps += [ "//chrome/browser/resources/app_settings:resources" ]
     }
 
@@ -473,14 +480,8 @@ template("chrome_extra_paks") {
       deps += [ "//extensions:extensions_resources" ]
     }
     if (enable_extensions) {
-      sources += [
-        "$root_gen_dir/chrome/extensions_resources.pak",
-        "$root_gen_dir/chrome/sync_file_system_internals_resources.pak",
-      ]
-      deps += [
-        "//chrome/browser/resources/extensions:resources",
-        "//chrome/browser/resources/sync_file_system_internals:resources",
-      ]
+      sources += [ "$root_gen_dir/chrome/extensions_resources.pak" ]
+      deps += [ "//chrome/browser/resources/extensions:resources" ]
     }
 
     if (enable_pdf) {

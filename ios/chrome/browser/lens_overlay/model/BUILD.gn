@@ -4,15 +4,20 @@
 
 source_set("model") {
   sources = [
+    "lens_overlay_pan_tracker.h",
+    "lens_overlay_pan_tracker.mm",
     "lens_overlay_snapshot_controller.h",
     "lens_overlay_snapshot_controller.mm",
     "lens_overlay_snapshot_controller_delegate.h",
     "lens_overlay_tab_helper.h",
     "lens_overlay_tab_helper.mm",
+    "snapshot_cover_view_controller.h",
+    "snapshot_cover_view_controller.mm",
   ]
   deps = [
     "//base",
     "//ios/chrome/browser/lens_overlay/coordinator:lens_overlay_availability",
+    "//ios/chrome/browser/ntp/model",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/shared/public/features",
@@ -21,6 +26,18 @@ source_set("model") {
     "//ios/chrome/common/ui/colors",
     "//ios/web/public",
     "//ui/base",
+  ]
+  public_deps = [ "//base" ]
+}
+
+source_set("entrypoint") {
+  sources = [
+    "lens_overlay_entrypoint.h",
+    "lens_overlay_entrypoint.mm",
+  ]
+  deps = [
+    "//base",
+    "//components/lens",
   ]
   public_deps = [ "//base" ]
 }

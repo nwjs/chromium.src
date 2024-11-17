@@ -592,7 +592,8 @@ AX_TEST_F(
       const config = new Config()
                          .withMouseLocation({x: 600, y: 400})
                          .withGestureToMacroName(gestureToMacroName)
-                         .withGestureToConfidence(gestureToConfidence);
+                         .withGestureToConfidence(gestureToConfidence)
+                         .withRepeatDelayMs(0);
       await this.configureFaceGaze(config);
 
       let result =
@@ -613,10 +614,10 @@ AX_TEST_F(
       assertEquals(600, pressEvent.x);
       assertEquals(400, pressEvent.y);
 
-      // Reduce amount of jaw open to get the release event.
+      // Trigger jaw open again to get the release event.
       result =
           new MockFaceLandmarkerResult()
-              .addGestureWithConfidence(MediapipeFacialGesture.JAW_OPEN, 0.4)
+              .addGestureWithConfidence(MediapipeFacialGesture.JAW_OPEN, 0.8)
               .addGestureWithConfidence(
                   MediapipeFacialGesture.BROW_INNER_UP, 0.3);
       this.processFaceLandmarkerResult(result);
@@ -631,6 +632,149 @@ AX_TEST_F(
           releaseEvent.mouseButton);
       assertEquals(600, releaseEvent.x);
       assertEquals(400, releaseEvent.y);
+    });
+
+AX_TEST_F(
+    'FaceGazeTest', 'SendMouseDragFromCursorControlDuringLongClick',
+    async function() {
+      const gestureToMacroName = new Map().set(
+          FacialGesture.JAW_OPEN, MacroName.MOUSE_LONG_CLICK_LEFT);
+      const gestureToConfidence = new Map().set(FacialGesture.JAW_OPEN, 0.6);
+      const config = new Config()
+                         .withMouseLocation({x: 600, y: 400})
+                         .withGestureToMacroName(gestureToMacroName)
+                         .withGestureToConfidence(gestureToConfidence)
+                         .withCursorControlEnabled(true)
+                         .withBufferSize(1)
+                         .withRepeatDelayMs(0);
+      await this.startFacegazeWithConfigAndForeheadLocation_(config, 0.1, 0.2);
+      this.triggerMouseControllerInterval();
+      this.assertLatestCursorPosition({x: 600, y: 400});
+
+      // Cursor control sends two synthetic mouse events.
+      this.assertNumMouseEvents(2);
+
+      let result = new MockFaceLandmarkerResult().addGestureWithConfidence(
+          MediapipeFacialGesture.JAW_OPEN, 0.9);
+      this.processFaceLandmarkerResult(
+          result, /*triggerMouseControllerInterval=*/ false);
+
+      this.assertNumMouseEvents(3);
+      const pressEvent = this.getMouseEvents()[2];
+      assertEquals(
+          this.mockAccessibilityPrivate.SyntheticMouseEventType.PRESS,
+          pressEvent.type);
+      assertEquals(
+          this.mockAccessibilityPrivate.SyntheticMouseEventButton.LEFT,
+          pressEvent.mouseButton);
+      assertEquals(600, pressEvent.x);
+      assertEquals(400, pressEvent.y);
+
+      // Move the cursor to trigger drag event. Cursor control will send another
+      // two synthetic mouse events.
+      result = new MockFaceLandmarkerResult().setNormalizedForeheadLocation(
+          0.11, 0.21);
+      this.processFaceLandmarkerResult(result);
+      this.triggerMouseControllerInterval();
+      this.assertLatestCursorPosition({x: 360, y: 560});
+
+      this.assertNumMouseEvents(5);
+      let dragEvent = this.getMouseEvents()[3];
+      assertEquals(
+          this.mockAccessibilityPrivate.SyntheticMouseEventType.DRAG,
+          dragEvent.type);
+      assertEquals(
+          this.mockAccessibilityPrivate.SyntheticMouseEventButton.LEFT,
+          dragEvent.mouseButton);
+      assertEquals(360, dragEvent.x);
+      assertEquals(560, dragEvent.y);
+      dragEvent = this.getMouseEvents()[4];
+      assertEquals(
+          this.mockAccessibilityPrivate.SyntheticMouseEventType.DRAG,
+          dragEvent.type);
+      assertEquals(
+          this.mockAccessibilityPrivate.SyntheticMouseEventButton.LEFT,
+          dragEvent.mouseButton);
+      assertEquals(360, dragEvent.x);
+      assertEquals(560, dragEvent.y);
+
+      // Trigger jaw open again to get the release event.
+      result = new MockFaceLandmarkerResult().addGestureWithConfidence(
+          MediapipeFacialGesture.JAW_OPEN, 0.8);
+      this.processFaceLandmarkerResult(
+          result, /*triggerMouseControllerInterval=*/ false);
+
+      this.assertNumMouseEvents(6);
+      const releaseEvent = this.getMouseEvents()[5];
+      assertEquals(
+          this.mockAccessibilityPrivate.SyntheticMouseEventType.RELEASE,
+          releaseEvent.type);
+      assertEquals(
+          this.mockAccessibilityPrivate.SyntheticMouseEventButton.LEFT,
+          releaseEvent.mouseButton);
+      assertEquals(360, releaseEvent.x);
+      assertEquals(560, releaseEvent.y);
+    });
+
+AX_TEST_F(
+    'FaceGazeTest', 'SendMouseDragFromUserDuringLongClick', async function() {
+      const gestureToMacroName = new Map().set(
+          FacialGesture.JAW_OPEN, MacroName.MOUSE_LONG_CLICK_LEFT);
+      const gestureToConfidence = new Map().set(FacialGesture.JAW_OPEN, 0.6);
+      const config = new Config()
+                         .withMouseLocation({x: 600, y: 400})
+                         .withGestureToMacroName(gestureToMacroName)
+                         .withGestureToConfidence(gestureToConfidence)
+                         .withRepeatDelayMs(0);
+      await this.configureFaceGaze(config);
+
+      let result = new MockFaceLandmarkerResult().addGestureWithConfidence(
+          MediapipeFacialGesture.JAW_OPEN, 0.9);
+      this.processFaceLandmarkerResult(
+          result, /*triggerMouseControllerInterval=*/ false);
+
+      this.assertNumMouseEvents(1);
+      const pressEvent = this.getMouseEvents()[0];
+      assertEquals(
+          this.mockAccessibilityPrivate.SyntheticMouseEventType.PRESS,
+          pressEvent.type);
+      assertEquals(
+          this.mockAccessibilityPrivate.SyntheticMouseEventButton.LEFT,
+          pressEvent.mouseButton);
+      assertEquals(600, pressEvent.x);
+      assertEquals(400, pressEvent.y);
+
+      // Move the cursor to trigger drag event.
+      this.sendAutomationMouseEvent(
+          {mouseX: 360, mouseY: 560, eventFrom: 'user'});
+
+      this.assertNumMouseEvents(2);
+      const dragEvent = this.getMouseEvents()[1];
+      assertEquals(
+          this.mockAccessibilityPrivate.SyntheticMouseEventType.DRAG,
+          dragEvent.type);
+      assertEquals(
+          this.mockAccessibilityPrivate.SyntheticMouseEventButton.LEFT,
+          dragEvent.mouseButton);
+      assertEquals(360, dragEvent.x);
+      assertEquals(560, dragEvent.y);
+
+      // Trigger jaw open again to get the release event.
+      result = new MockFaceLandmarkerResult().addGestureWithConfidence(
+          MediapipeFacialGesture.JAW_OPEN, 0.8);
+      this.processFaceLandmarkerResult(
+          result, /*triggerMouseControllerInterval=*/ false);
+
+      this.assertNumMouseEvents(3);
+      const releaseEvent = this.getMouseEvents()[2];
+      assertEquals(
+          this.mockAccessibilityPrivate.SyntheticMouseEventType.RELEASE,
+          releaseEvent.type);
+      assertEquals(
+          this.mockAccessibilityPrivate.SyntheticMouseEventButton.LEFT,
+          releaseEvent.mouseButton);
+      assertEquals(360, releaseEvent.x);
+      assertEquals(560, releaseEvent.y);
     });
 
 // The BrowDown gesture is special because it is the combination of two
@@ -804,10 +948,12 @@ AX_TEST_F('FaceGazeTest', 'DoesNotRepeatGesturesTooSoon', async function() {
         pressEvent.mouseButton);
   }
 
-  // Release is generated when the JAW_OPEN ends.
+  this.getFaceGaze().gestureHandler_.repeatDelayMs_ = 0;
+
+  // Release is generated when the JAW_OPEN is triggered again.
   let result =
       new MockFaceLandmarkerResult()
-          .addGestureWithConfidence(MediapipeFacialGesture.JAW_OPEN, 0.5)
+          .addGestureWithConfidence(MediapipeFacialGesture.JAW_OPEN, 0.9)
           .addGestureWithConfidence(MediapipeFacialGesture.BROW_INNER_UP, 0.3);
   this.processFaceLandmarkerResult(result);
   this.assertNumMouseEvents(2);
@@ -818,6 +964,8 @@ AX_TEST_F('FaceGazeTest', 'DoesNotRepeatGesturesTooSoon', async function() {
   assertEquals(
       this.mockAccessibilityPrivate.SyntheticMouseEventButton.LEFT,
       releaseEvent.mouseButton);
+
+  this.getFaceGaze().gestureHandler_.repeatDelayMs_ = 1000;
 
   // Another gesture is let through once and then also throttled.
   for (let i = 0; i < 5; i++) {
@@ -845,7 +993,7 @@ AX_TEST_F('FaceGazeTest', 'DoesNotRepeatGesturesTooSoon', async function() {
         releaseEvent.mouseButton);
   }
 
-  // Release is processed when BROWS_DOWN ends.
+  // No further events are sent when BROWS_DOWN ends.
   result =
       new MockFaceLandmarkerResult()
           .addGestureWithConfidence(MediapipeFacialGesture.BROW_DOWN_LEFT, 0.4)
@@ -864,7 +1012,8 @@ AX_TEST_F('FaceGazeTest', 'DoesNotClickDuringLongClick', async function() {
 
   const config = new Config()
                      .withMouseLocation({x: 600, y: 400})
-                     .withGestureToMacroName(gestureToMacroName);
+                     .withGestureToMacroName(gestureToMacroName)
+                     .withRepeatDelayMs(0);
   await this.configureFaceGaze(config);
 
   // Start the long click.
@@ -887,11 +1036,9 @@ AX_TEST_F('FaceGazeTest', 'DoesNotClickDuringLongClick', async function() {
   assertEquals(600, pressEvent.x);
   assertEquals(400, pressEvent.y);
 
-  // Send a short left click gesture while holding long click left by
-  // keeping the MOUTH_PUCKER gesture.
+  // Send a short left click gesture while long click is active.
   result =
       new MockFaceLandmarkerResult()
-          .addGestureWithConfidence(MediapipeFacialGesture.MOUTH_PUCKER, 0.9)
           .addGestureWithConfidence(MediapipeFacialGesture.EYE_SQUINT_LEFT, 0.9)
           .addGestureWithConfidence(
               MediapipeFacialGesture.EYE_SQUINT_RIGHT, 0.3);
@@ -900,7 +1047,6 @@ AX_TEST_F('FaceGazeTest', 'DoesNotClickDuringLongClick', async function() {
   this.assertNumMouseEvents(1);
   result =
       new MockFaceLandmarkerResult()
-          .addGestureWithConfidence(MediapipeFacialGesture.MOUTH_PUCKER, 0.9)
           .addGestureWithConfidence(MediapipeFacialGesture.EYE_SQUINT_LEFT, 0.3)
           .addGestureWithConfidence(
               MediapipeFacialGesture.EYE_SQUINT_RIGHT, 0.3);
@@ -908,10 +1054,9 @@ AX_TEST_F('FaceGazeTest', 'DoesNotClickDuringLongClick', async function() {
   // No more events are generated.
   this.assertNumMouseEvents(1);
 
-  // Try with short right click gesture while still holding long click left.
+  // Try with short right click gesture while long click is active.
   result =
       new MockFaceLandmarkerResult()
-          .addGestureWithConfidence(MediapipeFacialGesture.MOUTH_PUCKER, 0.9)
           .addGestureWithConfidence(MediapipeFacialGesture.EYE_SQUINT_LEFT, 0.3)
           .addGestureWithConfidence(
               MediapipeFacialGesture.EYE_SQUINT_RIGHT, 0.9);
@@ -921,7 +1066,6 @@ AX_TEST_F('FaceGazeTest', 'DoesNotClickDuringLongClick', async function() {
 
   result =
       new MockFaceLandmarkerResult()
-          .addGestureWithConfidence(MediapipeFacialGesture.MOUTH_PUCKER, 0.9)
           .addGestureWithConfidence(MediapipeFacialGesture.EYE_SQUINT_LEFT, 0.3)
           .addGestureWithConfidence(
               MediapipeFacialGesture.EYE_SQUINT_RIGHT, 0.3);
@@ -929,10 +1073,10 @@ AX_TEST_F('FaceGazeTest', 'DoesNotClickDuringLongClick', async function() {
   // No more events are generated.
   this.assertNumMouseEvents(1);
 
-  // Send the end of the long click by stopping mouth pucker.
+  // Send the end of the long click by triggering mouth pucker again.
   result =
       new MockFaceLandmarkerResult()
-          .addGestureWithConfidence(MediapipeFacialGesture.MOUTH_PUCKER, 0.4)
+          .addGestureWithConfidence(MediapipeFacialGesture.MOUTH_PUCKER, 0.9)
           .addGestureWithConfidence(MediapipeFacialGesture.EYE_SQUINT_LEFT, 0.3)
           .addGestureWithConfidence(
               MediapipeFacialGesture.EYE_SQUINT_RIGHT, 0.3);
@@ -1214,7 +1358,7 @@ AX_TEST_F('FaceGazeTest', 'ToggleFaceGazeGesturesLong', async function() {
                      .withMouseLocation({x: 600, y: 400})
                      .withGestureToMacroName(gestureToMacroName)
                      .withGestureToConfidence(gestureToConfidence)
-                     .withRepeatDelayMs(1);
+                     .withRepeatDelayMs(-1);
   await this.configureFaceGaze(config);
 
   // Trigger a mouse press and a key down.
@@ -1292,10 +1436,11 @@ AX_TEST_F('FaceGazeTest', 'ToggleFaceGazeGesturesLong', async function() {
   this.assertNumKeyEvents(3);
   this.assertKeyDown(this.getKeyEvents()[2]);
 
-  // Release gestures to get the mouse release and the key up events.
+  // Toggle long click gesture again to get the mouse release event.
+  // Release key gesture to get the key up events.
   result =
       new MockFaceLandmarkerResult()
-          .addGestureWithConfidence(MediapipeFacialGesture.BROW_INNER_UP, 0)
+          .addGestureWithConfidence(MediapipeFacialGesture.BROW_INNER_UP, 0.9)
           .addGestureWithConfidence(MediapipeFacialGesture.EYE_SQUINT_LEFT, 0);
   this.processFaceLandmarkerResult(
       result, /*triggerMouseControllerInterval=*/ false);
@@ -1448,4 +1593,370 @@ AX_TEST_F('FaceGazeTest', 'VelocityThreshold', async function() {
       new MockFaceLandmarkerResult().setNormalizedForeheadLocation(0.11, 0.21);
   this.processFaceLandmarkerResult(result);
   this.assertLatestCursorPosition({x: 590, y: 406});
+});
+
+AX_TEST_F('FaceGazeTest', 'BubbleTextSimple', async function() {
+  const gestureToMacroName =
+      new Map().set(FacialGesture.JAW_OPEN, MacroName.MOUSE_CLICK_LEFT);
+  const gestureToConfidence = new Map().set(FacialGesture.JAW_OPEN, 0.6);
+  const config = new Config()
+                     .withMouseLocation({x: 600, y: 400})
+                     .withGestureToMacroName(gestureToMacroName)
+                     .withGestureToConfidence(gestureToConfidence);
+  await this.configureFaceGaze(config);
+
+  assertNullOrUndefined(this.mockAccessibilityPrivate.getFaceGazeBubbleText());
+
+  const result = new MockFaceLandmarkerResult().addGestureWithConfidence(
+      MediapipeFacialGesture.JAW_OPEN, 0.9);
+  this.processFaceLandmarkerResult(result);
+
+  assertEquals(
+      'Left-click the mouse (Open your mouth wide)',
+      this.mockAccessibilityPrivate.getFaceGazeBubbleText());
+
+  this.triggerBubbleControllerTimeout();
+  assertEquals('', this.mockAccessibilityPrivate.getFaceGazeBubbleText());
+});
+
+AX_TEST_F('FaceGazeTest', 'BubbleTextMultiple', async function() {
+  const gestureToMacroName =
+      new Map()
+          .set(FacialGesture.JAW_OPEN, MacroName.MOUSE_CLICK_LEFT)
+          .set(FacialGesture.BROW_INNER_UP, MacroName.MOUSE_CLICK_RIGHT);
+  const gestureToConfidence = new Map()
+                                  .set(FacialGesture.JAW_OPEN, 0.6)
+                                  .set(FacialGesture.BROW_INNER_UP, 0.6);
+  const config = new Config()
+                     .withMouseLocation({x: 600, y: 400})
+                     .withGestureToMacroName(gestureToMacroName)
+                     .withGestureToConfidence(gestureToConfidence);
+  await this.configureFaceGaze(config);
+
+  assertNullOrUndefined(this.mockAccessibilityPrivate.getFaceGazeBubbleText());
+
+  const result =
+      new MockFaceLandmarkerResult()
+          .addGestureWithConfidence(MediapipeFacialGesture.JAW_OPEN, 0.9)
+          .addGestureWithConfidence(MediapipeFacialGesture.BROW_INNER_UP, 0.9);
+  this.processFaceLandmarkerResult(result);
+
+  assertEquals(
+      'Right-click the mouse (Raise eyebrows), ' +
+          'Left-click the mouse (Open your mouth wide)',
+      this.mockAccessibilityPrivate.getFaceGazeBubbleText());
+
+  this.triggerBubbleControllerTimeout();
+  assertEquals('', this.mockAccessibilityPrivate.getFaceGazeBubbleText());
+});
+
+AX_TEST_F('FaceGazeTest', 'ToggleFaceGazeRecognizedTime', async function() {
+  const gestureToMacroName =
+      new Map().set(FacialGesture.JAW_OPEN, MacroName.TOGGLE_FACEGAZE);
+  const gestureToConfidence = new Map().set(FacialGesture.JAW_OPEN, 0.6);
+  const config = new Config()
+                     .withMouseLocation({x: 600, y: 400})
+                     .withGestureToMacroName(gestureToMacroName)
+                     .withGestureToConfidence(gestureToConfidence)
+                     .withRepeatDelayMs(20 * 1000);
+  await this.configureFaceGaze(config);
+
+  const initialResult = new MockFaceLandmarkerResult().addGestureWithConfidence(
+      MediapipeFacialGesture.JAW_OPEN, 0.9);
+  this.processFaceLandmarkerResult(initialResult);
+  const jawOpenTime =
+      this.getFaceGaze().gestureHandler_.gestureLastRecognized_.get(
+          MediapipeFacialGesture.JAW_OPEN);
+  assertTrue(!!jawOpenTime);
+  assertTrue(this.getFaceGaze().gestureHandler_.paused_);
+
+  for (let i = 0; i < 5; i++) {
+    const result = new MockFaceLandmarkerResult().addGestureWithConfidence(
+        MediapipeFacialGesture.JAW_OPEN, 0.9);
+    this.processFaceLandmarkerResult(result);
+
+    // 6 total times in quick succession still only generates one toggle event.
+    assertEquals(
+        jawOpenTime,
+        this.getFaceGaze().gestureHandler_.gestureLastRecognized_.get(
+            MediapipeFacialGesture.JAW_OPEN));
+    assertTrue(this.getFaceGaze().gestureHandler_.paused_);
+  }
+
+  // Check that we can resume after pausing.
+  this.getFaceGaze().gestureHandler_.repeatDelayMs_ = -1;
+  const resumeResult = new MockFaceLandmarkerResult().addGestureWithConfidence(
+      MediapipeFacialGesture.JAW_OPEN, 0.9);
+  this.processFaceLandmarkerResult(
+      resumeResult, /*triggerMouseControllerInterval=*/ false);
+  assertNotEquals(
+      jawOpenTime,
+      this.getFaceGaze().gestureHandler_.gestureLastRecognized_.get(
+          MediapipeFacialGesture.JAW_OPEN));
+  assertFalse(this.getFaceGaze().gestureHandler_.paused_);
+});
+
+AX_TEST_F('FaceGazeTest', 'BubbleTextStateMessages', async function() {
+  const gestureToMacroName =
+      new Map()
+          .set(FacialGesture.JAW_OPEN, MacroName.TOGGLE_FACEGAZE)
+          .set(FacialGesture.BROW_INNER_UP, MacroName.TOGGLE_SCROLL_MODE);
+  const gestureToConfidence = new Map()
+                                  .set(FacialGesture.JAW_OPEN, 0.6)
+                                  .set(FacialGesture.BROW_INNER_UP, 0.6);
+  const config = new Config()
+                     .withMouseLocation({x: 600, y: 400})
+                     .withGestureToMacroName(gestureToMacroName)
+                     .withGestureToConfidence(gestureToConfidence);
+  await this.configureFaceGaze(config);
+
+  assertNullOrUndefined(this.mockAccessibilityPrivate.getFaceGazeBubbleText());
+
+  const result =
+      new MockFaceLandmarkerResult()
+          .addGestureWithConfidence(MediapipeFacialGesture.JAW_OPEN, 0.9)
+          .addGestureWithConfidence(MediapipeFacialGesture.BROW_INNER_UP, 0.9);
+  this.processFaceLandmarkerResult(result);
+
+  assertEquals(
+      'Enter or exit scroll mode (Raise eyebrows), ' +
+          'Pause or resume face control (Open your mouth wide)',
+      this.mockAccessibilityPrivate.getFaceGazeBubbleText());
+
+  // FaceGaze should display important messages about the state after the
+  // timeout has elapsed.
+  this.triggerBubbleControllerTimeout();
+  assertEquals(
+      'Face control paused, Scroll mode active',
+      this.mockAccessibilityPrivate.getFaceGazeBubbleText());
+});
+
+AX_TEST_F('FaceGazeTest', 'BubbleTextStateAndActionMessages', async function() {
+  const gestureToMacroName =
+      new Map()
+          .set(FacialGesture.JAW_OPEN, MacroName.MOUSE_CLICK_LEFT)
+          .set(FacialGesture.BROW_INNER_UP, MacroName.TOGGLE_FACEGAZE);
+  const gestureToConfidence = new Map()
+                                  .set(FacialGesture.JAW_OPEN, 0.6)
+                                  .set(FacialGesture.BROW_INNER_UP, 0.6);
+  const config = new Config()
+                     .withMouseLocation({x: 600, y: 400})
+                     .withGestureToMacroName(gestureToMacroName)
+                     .withGestureToConfidence(gestureToConfidence)
+                     .withRepeatDelayMs(1);
+  await this.configureFaceGaze(config);
+
+  assertNullOrUndefined(this.mockAccessibilityPrivate.getFaceGazeBubbleText());
+
+  let result =
+      new MockFaceLandmarkerResult()
+          .addGestureWithConfidence(MediapipeFacialGesture.JAW_OPEN, 0.9)
+          .addGestureWithConfidence(MediapipeFacialGesture.BROW_INNER_UP, 0.9);
+  this.processFaceLandmarkerResult(result);
+
+  assertEquals(
+      'Pause or resume face control (Raise eyebrows), ' +
+          'Left-click the mouse (Open your mouth wide)',
+      this.mockAccessibilityPrivate.getFaceGazeBubbleText());
+
+  // FaceGaze should display important messages about the state after the
+  // timeout has elapsed.
+  this.triggerBubbleControllerTimeout();
+  assertEquals(
+      'Face control paused',
+      this.mockAccessibilityPrivate.getFaceGazeBubbleText());
+
+  // Send another result. Note that since FaceGaze is paused, no action
+  // will be taken.
+  result = new MockFaceLandmarkerResult().addGestureWithConfidence(
+      MediapipeFacialGesture.JAW_OPEN, 0.9);
+  this.processFaceLandmarkerResult(result);
+
+  assertEquals(
+      'Face control paused',
+      this.mockAccessibilityPrivate.getFaceGazeBubbleText());
+});
+
+AX_TEST_F('FaceGazeTest', 'TurnOffActionsWhileInScrollMode', async function() {
+  const gestureToMacroName =
+      new Map().set(FacialGesture.JAW_OPEN, MacroName.TOGGLE_SCROLL_MODE);
+  const gestureToConfidence = new Map().set(FacialGesture.JAW_OPEN, 0.6);
+  const config = new Config()
+                     .withMouseLocation({x: 600, y: 400})
+                     .withBufferSize(1)
+                     .withCursorControlEnabled(true)
+                     .withGestureToMacroName(gestureToMacroName)
+                     .withGestureToConfidence(gestureToConfidence);
+  await this.startFacegazeWithConfigAndForeheadLocation_(config, 0.1, 0.2);
+
+  // Toggle scroll mode on.
+  const result = new MockFaceLandmarkerResult().addGestureWithConfidence(
+      MediapipeFacialGesture.JAW_OPEN, 0.9);
+  this.processFaceLandmarkerResult(result);
+  assertTrue(this.getScrollModeController().active());
+
+  this.triggerBubbleControllerTimeout();
+  assertEquals(
+      'Scroll mode active',
+      this.mockAccessibilityPrivate.getFaceGazeBubbleText());
+
+  // Turn off actions via pref.
+  await this.setPref(FaceGaze.PREF_ACTIONS_ENABLED, false);
+
+  // Ensure scroll mode automatically toggled off.
+  assertFalse(this.getScrollModeController().active());
+  assertEquals('', this.mockAccessibilityPrivate.getFaceGazeBubbleText());
+});
+
+AX_TEST_F(
+    'FaceGazeTest', 'RemoveScrollModeActionWhileInScrollMode',
+    async function() {
+      const gestureToMacroName =
+          new Map().set(FacialGesture.JAW_OPEN, MacroName.TOGGLE_SCROLL_MODE);
+      const gestureToConfidence = new Map().set(FacialGesture.JAW_OPEN, 0.6);
+      const config = new Config()
+                         .withMouseLocation({x: 600, y: 400})
+                         .withBufferSize(1)
+                         .withCursorControlEnabled(true)
+                         .withGestureToMacroName(gestureToMacroName)
+                         .withGestureToConfidence(gestureToConfidence);
+      await this.startFacegazeWithConfigAndForeheadLocation_(config, 0.1, 0.2);
+
+      // Toggle scroll mode on.
+      const result = new MockFaceLandmarkerResult().addGestureWithConfidence(
+          MediapipeFacialGesture.JAW_OPEN, 0.9);
+      this.processFaceLandmarkerResult(result);
+      assertTrue(this.getScrollModeController().active());
+
+      this.triggerBubbleControllerTimeout();
+      assertEquals(
+          'Scroll mode active',
+          this.mockAccessibilityPrivate.getFaceGazeBubbleText());
+
+      // Remove scroll mode action.
+      await this.setPref(GestureHandler.GESTURE_TO_MACRO_PREF, {});
+
+      // Ensure scroll mode automatically toggled off.
+      assertFalse(this.getScrollModeController().active());
+      assertEquals('', this.mockAccessibilityPrivate.getFaceGazeBubbleText());
+    });
+
+AX_TEST_F('FaceGazeTest', 'GesturesDisabledInScrollMode', async function() {
+  const gestureToMacroName =
+      new Map()
+          .set(FacialGesture.JAW_OPEN, MacroName.TOGGLE_SCROLL_MODE)
+          .set(FacialGesture.MOUTH_PUCKER, MacroName.MOUSE_CLICK_LEFT);
+  const gestureToConfidence = new Map()
+                                  .set(FacialGesture.JAW_OPEN, 0.3)
+                                  .set(FacialGesture.MOUTH_PUCKER, 0.3);
+  const config = new Config()
+                     .withMouseLocation({x: 600, y: 400})
+                     .withBufferSize(1)
+                     .withCursorControlEnabled(false)
+                     .withGestureToMacroName(gestureToMacroName)
+                     .withGestureToConfidence(gestureToConfidence)
+                     .withRepeatDelayMs(-1);
+  await this.startFacegazeWithConfigAndForeheadLocation_(config, 0.1, 0.2);
+
+  // Set the mouse position with an automation event.
+  this.sendAutomationMouseEvent({mouseX: 350, mouseY: 250, eventFrom: 'user'});
+
+  this.assertNumMouseEvents(0);
+
+  // Turn on scroll mode.
+  result = new MockFaceLandmarkerResult().addGestureWithConfidence(
+      MediapipeFacialGesture.JAW_OPEN, 0.9);
+  this.processFaceLandmarkerResult(result);
+  assertTrue(this.getScrollModeController().active());
+  this.assertNumMouseEvents(0);
+
+  // Try to click the mouse. No additional mouse events should have been fired
+  // because gestures are blocked while scroll mode is active.
+  result =
+      new MockFaceLandmarkerResult()
+          .addGestureWithConfidence(MediapipeFacialGesture.JAW_OPEN, 0)
+          .addGestureWithConfidence(MediapipeFacialGesture.MOUTH_PUCKER, 0.9);
+  this.processFaceLandmarkerResult(result);
+  this.assertNumMouseEvents(0);
+
+  // Turn off scroll mode.
+  result =
+      new MockFaceLandmarkerResult()
+          .addGestureWithConfidence(MediapipeFacialGesture.JAW_OPEN, 0.9)
+          .addGestureWithConfidence(MediapipeFacialGesture.MOUTH_PUCKER, 0);
+  this.processFaceLandmarkerResult(result);
+  assertFalse(this.getScrollModeController().active());
+
+  // Ensure the mouse can be clicked using a gesture.
+  result =
+      new MockFaceLandmarkerResult()
+          .addGestureWithConfidence(MediapipeFacialGesture.JAW_OPEN, 0)
+          .addGestureWithConfidence(MediapipeFacialGesture.MOUTH_PUCKER, 0.9);
+  this.processFaceLandmarkerResult(result);
+  this.assertNumMouseEvents(2);
+  const pressEvent = this.getMouseEvents()[0];
+  const releaseEvent = this.getMouseEvents()[1];
+  this.assertMouseClickAt(
+      {pressEvent, releaseEvent, isLeft: true, x: 350, y: 250});
+});
+
+// Ensures that localization works for all gestures and macros that get
+// displayed in the bubble UI.
+AX_TEST_F('FaceGazeTest', 'BubbleTextLocalization', async function() {
+  const gestures = [
+    FacialGesture.BROW_INNER_UP,
+    FacialGesture.BROWS_DOWN,
+    FacialGesture.EYE_SQUINT_LEFT,
+    FacialGesture.EYE_SQUINT_RIGHT,
+    FacialGesture.EYES_BLINK,
+    FacialGesture.EYES_LOOK_DOWN,
+    FacialGesture.EYES_LOOK_LEFT,
+    FacialGesture.EYES_LOOK_RIGHT,
+    FacialGesture.EYES_LOOK_UP,
+    FacialGesture.JAW_LEFT,
+    FacialGesture.JAW_OPEN,
+    FacialGesture.JAW_RIGHT,
+    FacialGesture.MOUTH_FUNNEL,
+    FacialGesture.MOUTH_LEFT,
+    FacialGesture.MOUTH_PUCKER,
+    FacialGesture.MOUTH_RIGHT,
+    FacialGesture.MOUTH_SMILE,
+    FacialGesture.MOUTH_UPPER_UP,
+  ];
+
+  const macros = [
+    MacroName.CUSTOM_KEY_COMBINATION,
+    MacroName.KEY_PRESS_DOWN,
+    MacroName.KEY_PRESS_LEFT,
+    MacroName.KEY_PRESS_MEDIA_PLAY_PAUSE,
+    MacroName.KEY_PRESS_RIGHT,
+    MacroName.KEY_PRESS_SPACE,
+    MacroName.KEY_PRESS_TOGGLE_OVERVIEW,
+    MacroName.KEY_PRESS_UP,
+    MacroName.MOUSE_CLICK_LEFT,
+    MacroName.MOUSE_CLICK_LEFT_DOUBLE,
+    MacroName.MOUSE_CLICK_RIGHT,
+    MacroName.MOUSE_LONG_CLICK_LEFT,
+    MacroName.RESET_CURSOR,
+    MacroName.TOGGLE_DICTATION,
+    MacroName.TOGGLE_FACEGAZE,
+    MacroName.TOGGLE_SCROLL_MODE,
+    MacroName.TOGGLE_VIRTUAL_KEYBOARD,
+  ];
+
+  let lastText = '';
+  for (const macro of macros) {
+    const currentText = BubbleController.getDisplayTextForMacro_(macro);
+    assertNotEquals(currentText, '');
+    assertNotEquals(currentText, lastText);
+    lastText = currentText;
+  }
+
+  lastText = '';
+  for (const gesture of gestures) {
+    const currentText = BubbleController.getDisplayTextForGesture_(gesture);
+    assertNotEquals(currentText, '');
+    assertNotEquals(currentText, lastText);
+    lastText = currentText;
+  }
 });

@@ -29,6 +29,7 @@
 #include "chrome/browser/component_updater/hyphenation_component_installer.h"
 #include "chrome/browser/component_updater/masked_domain_list_component_installer.h"
 #include "chrome/browser/component_updater/mei_preload_component_installer.h"
+#include "chrome/browser/component_updater/open_cookie_database_component_installer.h"
 #include "chrome/browser/component_updater/pki_metadata_component_installer.h"
 #include "chrome/browser/component_updater/pnacl_component_installer.h"
 #include "chrome/browser/component_updater/privacy_sandbox_attestations_component_installer.h"
@@ -41,11 +42,13 @@
 #include "chrome/common/chrome_paths.h"
 #include "components/component_updater/component_updater_service.h"
 #include "components/component_updater/installer_policies/autofill_states_component_installer.h"
+#include "components/component_updater/installer_policies/history_search_strings_component_installer.h"
 #include "components/component_updater/installer_policies/on_device_head_suggest_component_installer.h"
 #include "components/component_updater/installer_policies/optimization_hints_component_installer.h"
 #include "components/component_updater/installer_policies/plus_address_blocklist_component_installer.h"
 #include "components/component_updater/installer_policies/safety_tips_component_installer.h"
 #include "components/component_updater/url_param_filter_remover.h"
+#include "components/history_embeddings/history_embeddings_features.h"
 #include "components/nacl/common/buildflags.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "device/vr/buildflags/buildflags.h"
@@ -74,11 +77,15 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/component_updater/iwa_key_distribution_component_installer.h"
-#include "chrome/browser/component_updater/translate_kit_component_installer.h"
 #include "chrome/browser/component_updater/zxcvbn_data_component_installer.h"
 #include "chrome/browser/resource_coordinator/tab_manager.h"
 #include "media/base/media_switches.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#include "chrome/browser/component_updater/translate_kit_component_installer.h"
+#include "chrome/browser/component_updater/translate_kit_language_pack_component_installer.h"
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/component_updater/smart_dim_component_installer.h"
@@ -143,6 +150,9 @@ void RegisterComponentsForUpdate() {
   RegisterMaskedDomainListComponent(cus);
   RegisterPrivacySandboxAttestationsComponent(cus);
   RegisterAntiFingerprintingBlockedDomainListComponent(cus);
+  if (history_embeddings::IsHistoryEmbeddingsEnabled()) {
+    RegisterHistorySearchStringsComponent(cus);
+  }
 
   base::FilePath path;
   if (base::PathService::Get(chrome::DIR_USER_DATA, &path)) {
@@ -150,6 +160,10 @@ void RegisterComponentsForUpdate() {
 
     // Clean up any remaining desktop sharing hub state.
     component_updater::DeleteDesktopSharingHub(path);
+
+    if (!history_embeddings::IsHistoryEmbeddingsEnabled()) {
+      DeleteHistorySearchStringsComponent(path);
+    }
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
     if (base::SysInfo::IsRunningOnChromeOS()) {
@@ -221,11 +235,16 @@ void RegisterComponentsForUpdate() {
 
   RegisterPlusAddressBlocklistComponent(cus);
 
-#if !BUILDFLAG(IS_ANDROID)
-  // TODO(crbug.com/364795294): Support Android platform.
-  RegisterTranslateKitComponent(cus, g_browser_process->local_state());
-#endif  // !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  // TODO(crbug.com/364795294): Support other platforms.
+  RegisterTranslateKitComponent(cus, g_browser_process->local_state(),
+                                /*force_install=*/false,
+                                /*registered_callback=*/base::OnceClosure());
+  RegisterTranslateKitLanguagePackComponentsForUpdate(
+      cus, g_browser_process->local_state());
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
+  RegisterOpenCookieDatabaseComponent(cus);
 #endif // disable component updater
 }
 

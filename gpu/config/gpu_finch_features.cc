@@ -91,9 +91,6 @@ BASE_FEATURE(kWebViewThreadSafeMediaDefault,
              "WebViewThreadSafeMediaDefault",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Use AImageReader for MediaCodec and MediaPlyer on android.
-BASE_FEATURE(kAImageReader, "AImageReader", base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Used to limit AImageReader max queue size to 1 since many devices especially
 // android Tv devices do not support more than 1 images.
 BASE_FEATURE(kLimitAImageReaderMaxSizeToOne,
@@ -161,28 +158,13 @@ BASE_FEATURE(kDefaultEnableGpuRasterization,
 // Enables the use of out of process rasterization for canvas.
 BASE_FEATURE(kCanvasOopRasterization,
              "CanvasOopRasterization",
-#if BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_IOS) || BUILDFLAG(IS_WIN) ||         \
-    (BUILDFLAG(IS_MAC) && defined(ARCH_CPU_ARM64)) || BUILDFLAG(IS_ANDROID) || \
-    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 // Enables the use of MSAA in skia on Ice Lake and later intel architectures.
 BASE_FEATURE(kEnableMSAAOnNewIntelGPUs,
              "EnableMSAAOnNewIntelGPUs",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled, Dawn SharedImage representations use the internal usages passed
-// by their clients when creating textures rather than using custom hardcoded
-// internal usages. Serves as killswitch while we roll out this transition.
-// TODO(crbug.com/339171225): Remove post-safe rollout.
-BASE_FEATURE(kDawnSIRepsUseClientProvidedInternalUsages,
-             "DawnSIRepsUseClientProvidedInternalUsages",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN)
 BASE_FEATURE(kNoUndamagedOverlayPromotion,
@@ -340,6 +322,17 @@ const base::FeatureParam<std::string> kDrDcBlockListByAndroidBuildFP{
     &kEnableDrDc, "BlockListByAndroidBuildFP", ""};
 #endif  // BUILDFLAG(IS_ANDROID)
 
+#if BUILDFLAG(IS_OZONE)
+// On Ozone, compute SharedImage scanout support based on overlays being
+// supported rather than native pixmaps being supported.
+// TODO(crbug.com/330865436): It turns out that `supports_overlays` is
+// currently set only in the browser process; we need to ensure that it is set
+// in the GPU process before we can re-enable this feature.
+BASE_FEATURE(kSharedImageSupportScanoutOnOzoneOnlyIfOverlaysSupported,
+             "SharedImageSupportScanoutOnOzoneOnlyIfOverlaysSupported",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 // Enable Skia Graphite. This will use the Dawn backend by default, but can be
 // overridden with command line flags for testing on non-official developer
 // builds. See --skia-graphite-backend flag in gpu_switches.h.
@@ -368,10 +361,20 @@ BASE_FEATURE(kSkiaGraphiteDawnUseD3D12,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
+// If enabled, SharedImages created for SW video frames have SCANOUT usage added
+// only if SharedImageCapabilities indicates that there is support. Serves as
+// killswitch for this rollout. Lives in //gpu as backings that are rolling out
+// restrictions on supporting SCANOUT usage must check the value of this
+// base::Feature.
+// TODO(crbug.com/330865436): Remove post-safe rollout.
+BASE_FEATURE(kSWVideoFrameAddScanoutUsageOnlyIfSupportedBySharedImage,
+             "SWVideoFrameAddScanoutUsageOnlyIfSupportedBySharedImage",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Enable persistent storage of VkPipelineCache data.
 BASE_FEATURE(kEnableVkPipelineCache,
              "EnableVkPipelineCache",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enabling this will make the GPU decode path use a mock implementation of
 // discardable memory.
@@ -487,8 +490,10 @@ bool IsDrDcEnabled() {
   // AImageReader is enabled. Also DrDc requires AImageReader max size to be
   // at least 2 for each gpu thread. Hence DrDc is disabled on devices which has
   // only 1 image.
-  if (!IsAImageReaderEnabled() || LimitAImageReaderMaxSizeToOne())
+  if (!base::android::EnableAndroidImageReader() ||
+      LimitAImageReaderMaxSizeToOne()) {
     return false;
+  }
 
   // Check block list against build info.
   const auto* build_info = base::android::BuildInfo::GetInstance();
@@ -526,8 +531,10 @@ bool IsUsingThreadSafeMediaForWebView() {
   // SurfaceTexture can't be thread-safe. Also thread safe media code currently
   // requires AImageReader max size to be at least 2 since one image could be
   // accessed by each gpu thread in webview.
-  if (!IsAImageReaderEnabled() || LimitAImageReaderMaxSizeToOne())
+  if (!base::android::EnableAndroidImageReader() ||
+      LimitAImageReaderMaxSizeToOne()) {
     return false;
+  }
 
   // If the feature is overridden from command line or finch we will use its
   // value. If not we use kWebViewThreadSafeMediaDefault which is set in
@@ -658,21 +665,6 @@ bool IsCanvasOopRasterizationEnabled() {
 }
 
 #if BUILDFLAG(IS_ANDROID)
-bool IsAImageReaderEnabled() {
-  // Device Hammer_Energy_2 seems to be very crash with image reader during
-  // gl::GLImageEGL::BindTexImage(). Disable image reader on that device for
-  // now. crbug.com/1323921
-  // TODO(crbug.com/40224845): Can we revisit this now that GLImage no longer
-  // exists?
-  if (IsDeviceBlocked(base::android::BuildInfo::GetInstance()->device(),
-                      "Hammer_Energy_2")) {
-    return false;
-  }
-
-  return base::FeatureList::IsEnabled(kAImageReader) &&
-         base::android::EnableAndroidImageReader();
-}
-
 bool IsAndroidSurfaceControlEnabled() {
   const auto* build_info = base::android::BuildInfo::GetInstance();
   if (IsDeviceBlocked(build_info->device(),
@@ -689,8 +681,9 @@ bool IsAndroidSurfaceControlEnabled() {
     return false;
 
   // We can use surface control only with AImageReader.
-  if (!IsAImageReaderEnabled())
+  if (!base::android::EnableAndroidImageReader()) {
     return false;
+  }
 
   // SurfaceControl requires at least 3 frames in flight.
   if (LimitAImageReaderMaxSizeToOne())
@@ -766,7 +759,8 @@ bool IncreaseBufferCountForHighFrameRate() {
   static bool increase =
       base::android::BuildInfo::GetInstance()->sdk_int() >=
           base::android::SdkVersion::SDK_VERSION_R &&
-      IsAndroidSurfaceControlEnabled() && IsAImageReaderEnabled() &&
+      IsAndroidSurfaceControlEnabled() &&
+      base::android::EnableAndroidImageReader() &&
       base::android::SysUtils::AmountOfPhysicalMemoryKB() > RAM_8GB_CUTOFF &&
       base::FeatureList::IsEnabled(kIncreaseBufferCountForHighFrameRate) &&
       !IsDeviceBlocked(base::android::BuildInfo::GetInstance()->device(),

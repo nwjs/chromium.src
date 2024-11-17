@@ -12,7 +12,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import static org.chromium.chrome.browser.ui.plus_addresses.PlusAddressCreationProperties.ERROR_STATE_INFO;
-import static org.chromium.chrome.browser.ui.plus_addresses.PlusAddressCreationProperties.PROPOSED_PLUS_ADDRESS;
+import static org.chromium.chrome.browser.ui.plus_addresses.PlusAddressCreationProperties.PLUS_ADDRESS_LOADING_VIEW_VISIBLE;
 import static org.chromium.chrome.browser.ui.plus_addresses.PlusAddressCreationProperties.REFRESH_ICON_VISIBLE;
 import static org.chromium.chrome.browser.ui.plus_addresses.PlusAddressCreationProperties.VISIBLE;
 
@@ -27,6 +27,8 @@ import org.robolectric.RuntimeEnvironment;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Batch;
+import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.tab.Tab;
@@ -42,6 +44,7 @@ import org.chromium.url.GURL;
 
 @RunWith(BaseRobolectricTestRunner.class)
 @Batch(Batch.UNIT_TESTS)
+@EnableFeatures(ChromeFeatureList.PLUS_ADDRESS_ANDROID_ENHANCED_LOADING_STATES_ENABLED)
 public final class PlusAddressCreationMediatorTest {
     private static final PlusAddressCreationNormalStateInfo FIRST_TIME_USAGE_INFO =
             new PlusAddressCreationNormalStateInfo(
@@ -58,7 +61,12 @@ public final class PlusAddressCreationMediatorTest {
     private static final int TAB2_ID = 2;
     private static final String PLUS_ADDRESS = "foo@bar.com";
     private static final PlusAddressCreationErrorStateInfo ERROR_STATE =
-            new PlusAddressCreationErrorStateInfo("Title", "Description", "Ok", "Cancel");
+            new PlusAddressCreationErrorStateInfo(
+                    PlusAddressCreationBottomSheetErrorType.RESERVE_TIMEOUT,
+                    "Title",
+                    "Description",
+                    "Ok",
+                    "Cancel");
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -105,10 +113,10 @@ public final class PlusAddressCreationMediatorTest {
     }
 
     @Test
-    public void testUpdateProposedPlusAddress_callsBottomSheetSetProposedPlusAddress() {
+    public void testUpdateProposedPlusAddress_hidesPlusAddressLoadingView() {
         mMediator.updateProposedPlusAddress(PLUS_ADDRESS);
 
-        assertEquals(mModel.get(PROPOSED_PLUS_ADDRESS), PLUS_ADDRESS);
+        assertEquals(mModel.get(PLUS_ADDRESS_LOADING_VIEW_VISIBLE), false);
     }
 
     @Test
@@ -117,6 +125,7 @@ public final class PlusAddressCreationMediatorTest {
         assertEquals(mModel.get(ERROR_STATE_INFO), ERROR_STATE);
     }
 
+    @Test
     public void testHideRefreshButton_callsBottomSheetHideRefreshButton() {
         mMediator.hideRefreshButton();
         assertFalse(mModel.get(REFRESH_ICON_VISIBLE));

@@ -35,9 +35,9 @@ import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
 import org.chromium.chrome.browser.offlinepages.RequestCoordinatorBridge;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.document.ChromeAsyncTabLauncher;
-import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupCreationDialogManager;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
@@ -240,8 +240,8 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
      * the current page.
      *
      * @param url The URL to open.
+     * @param referrer The attribution impression to associate with the navigation.
      * @param navigateToTab Whether or not to navigate to the new page.
-     * @param impression The attribution impression to associate with the navigation.
      * @param additionalNavigationParams Additional information that needs to be passed to the
      *     navigation request.
      */
@@ -276,8 +276,7 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
         loadUrlParams.setReferrer(referrer);
 
         TabGroupModelFilter filter =
-                (TabGroupModelFilter)
-                        mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter();
+                mTabModelSelector.getTabGroupModelFilterProvider().getCurrentTabGroupModelFilter();
         boolean willMergingCreateNewGroup = filter.willMergingCreateNewGroup(List.of(mTab));
         mTabModelSelector.openNewTab(
                 loadUrlParams,

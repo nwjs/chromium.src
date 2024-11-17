@@ -11,7 +11,6 @@
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "chrome/common/safe_browsing/archive_analyzer_results.h"
 #include "chrome/common/safe_browsing/binary_feature_extractor.h"
 #include "chrome/services/file_util/public/cpp/sandboxed_rar_analyzer.h"
 #include "chrome/services/file_util/public/cpp/sandboxed_seven_zip_analyzer.h"

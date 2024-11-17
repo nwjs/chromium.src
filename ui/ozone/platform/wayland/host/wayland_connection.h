@@ -154,13 +154,19 @@ class WaylandConnection {
       const {
     return linux_explicit_synchronization_.get();
   }
+  wp_linux_drm_syncobj_manager_v1* linux_drm_syncobj_manager_v1() const {
+    return linux_drm_syncobj_manager_.get();
+  }
+  bool SupportsExplicitSync() const {
+    return !!linux_explicit_synchronization_v1();
+  }
   zxdg_decoration_manager_v1* xdg_decoration_manager_v1() const {
     return xdg_decoration_manager_.get();
   }
   zcr_extended_drag_v1* extended_drag_v1() const {
     return extended_drag_v1_.get();
   }
-  xdg_toplevel_drag_manager_v1* xdg_toplevel_drag_manager_v1() const {
+  xdg_toplevel_drag_manager_v1* toplevel_drag_manager_v1() const {
     return xdg_toplevel_drag_manager_v1_.get();
   }
 
@@ -339,6 +345,11 @@ class WaylandConnection {
            UseViewporterSurfaceScaling();
   }
 
+  bool IsUiScaleEnabled() const {
+    return base::FeatureList::IsEnabled(features::kWaylandUiScale) &&
+           UsePerSurfaceScaling();
+  }
+
   bool ShouldUseOverlayDelegation() const;
 
   // True if the client has bound the either aura output manager globals. If
@@ -363,7 +374,7 @@ class WaylandConnection {
   void DumpState(std::ostream& out) const;
 
   bool UseImplicitSyncInterop() const {
-    return !linux_explicit_synchronization_v1() &&
+    return !SupportsExplicitSync() &&
            WaylandBufferManagerHost::SupportsImplicitSyncInterop();
   }
 
@@ -501,6 +512,7 @@ class WaylandConnection {
   wl::Object<zcr_text_input_extension_v1> text_input_extension_v1_;
   wl::Object<zwp_linux_explicit_synchronization_v1>
       linux_explicit_synchronization_;
+  wl::Object<wp_linux_drm_syncobj_manager_v1> linux_drm_syncobj_manager_;
   wl::Object<zxdg_decoration_manager_v1> xdg_decoration_manager_;
   wl::Object<zcr_extended_drag_v1> extended_drag_v1_;
   wl::Object<::xdg_toplevel_drag_manager_v1> xdg_toplevel_drag_manager_v1_;

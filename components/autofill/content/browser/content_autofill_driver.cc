@@ -240,7 +240,7 @@ void RouteToManager(ContentAutofillDriver& source,
                         RouterArgs...),
                     void (AutofillManager::*manager_fun)(ManagerArgs...),
                     ActualArgs&&... args) {
-  if (!bad_message::CheckFieldInForm(args...) ||
+  if (!bad_message::CheckArgs(args...) ||
       !bad_message::CheckFrameNotPrerendering(source.render_frame_host())) {
     return;
   }
@@ -452,11 +452,13 @@ void ContentAutofillDriver::ExtractForm(FormGlobalId form_id,
 }
 
 void ContentAutofillDriver::SendTypePredictionsToRenderer(
-    const std::vector<raw_ptr<FormStructure, VectorExperimental>>& forms) {
+    base::span<const raw_ptr<FormStructure, VectorExperimental>> forms) {
+  if (!base::FeatureList::IsEnabled(
+          features::test::kAutofillShowTypePredictions)) {
+    return;
+  }
   std::vector<FormDataPredictions> type_predictions =
       FormStructure::GetFieldTypePredictions(forms);
-  // TODO(crbug.com/40753022) Send the FormDataPredictions object only if the
-  // debugging flag is enabled.
   RouteToAgent(router(), &AutofillDriverRouter::SendTypePredictionsToRenderer,
                &mojom::AutofillAgent::FieldTypePredictionsAvailable,
                type_predictions);
@@ -543,10 +545,6 @@ void ContentAutofillDriver::AskForValuesToFill(
     FieldRendererId field_id,
     const gfx::Rect& caret_bounds,
     AutofillSuggestionTriggerSource trigger_source) {
-  // `kPlusAddressUpdatedInBrowserProcess` should never be used by the renderer.
-  if (!bad_message::CheckValidTriggerSource(trigger_source)) {
-    return;
-  }
   RouteToManager(*this, router(), &AutofillDriverRouter::AskForValuesToFill,
                  &AutofillManager::OnAskForValuesToFill, form, field_id,
                  caret_bounds, trigger_source);
@@ -585,12 +583,10 @@ void ContentAutofillDriver::DidEndTextFieldEditing() {
                  &AutofillManager::OnDidEndTextFieldEditing);
 }
 
-void ContentAutofillDriver::SelectOrSelectListFieldOptionsDidChange(
-    const FormData& form) {
+void ContentAutofillDriver::SelectFieldOptionsDidChange(const FormData& form) {
   RouteToManager(*this, router(),
-                 &AutofillDriverRouter::SelectOrSelectListFieldOptionsDidChange,
-                 &AutofillManager::OnSelectOrSelectListFieldOptionsDidChange,
-                 form);
+                 &AutofillDriverRouter::SelectFieldOptionsDidChange,
+                 &AutofillManager::OnSelectFieldOptionsDidChange, form);
 }
 
 void ContentAutofillDriver::JavaScriptChangedAutofilledValue(

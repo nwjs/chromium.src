@@ -1711,7 +1711,9 @@
   "chromeos-jacuzzi-chrome": {
     "additional_compile_targets": [
       "chromiumos_preflight"
-    ],
+    ]
+  },
+  "chromeos-jacuzzi-chrome-tests": {
     "skylab_tests": [
       {
         "autotest_name": "chromium",
@@ -1787,7 +1789,9 @@
   "chromeos-octopus-chrome": {
     "additional_compile_targets": [
       "chromiumos_preflight"
-    ],
+    ]
+  },
+  "chromeos-octopus-chrome-tests": {
     "skylab_tests": [
       {
         "autotest_name": "chromium",
@@ -1820,7 +1824,9 @@
   "chromeos-reven-chrome": {
     "additional_compile_targets": [
       "chromiumos_preflight"
-    ],
+    ]
+  },
+  "chromeos-reven-chrome-tests": {
     "skylab_tests": [
       {
         "autotest_name": "tast.chrome-from-gcs",
@@ -1935,6 +1941,11 @@
       }
     ]
   },
+  "chromeos-volteer-chrome": {
+    "additional_compile_targets": [
+      "chromiumos_preflight"
+    ]
+  },
   "chromeos-volteer-chrome-skylab": {
     "additional_compile_targets": [
       "chromiumos_preflight"
@@ -2011,28 +2022,77 @@
       }
     ]
   },
-  "lacros-amd64-generic-chrome": {
-    "additional_compile_targets": [
-      "chrome",
-      "linux_symbols",
-      "symupload",
-      "strip_lacros_files"
-    ]
-  },
-  "lacros-arm-generic-chrome": {
-    "additional_compile_targets": [
-      "chrome",
-      "linux_symbols",
-      "symupload",
-      "strip_lacros_files"
-    ]
-  },
-  "lacros-arm64-generic-chrome": {
-    "additional_compile_targets": [
-      "chrome",
-      "linux_symbols",
-      "symupload",
-      "strip_lacros_files"
+  "chromeos-volteer-chrome-tests": {
+    "skylab_tests": [
+      {
+        "autotest_name": "chromium",
+        "cros_board": "volteer",
+        "name": "base_unittests RELEASE_LKGM",
+        "run_cft": true,
+        "shard_level_retries_on_ctp": 1,
+        "test": "base_unittests",
+        "test_id_prefix": "ninja://base:base_unittests/",
+        "use_lkgm": true,
+        "variant_id": "RELEASE_LKGM"
+      },
+      {
+        "autotest_name": "tast.chrome-from-gcs",
+        "cros_board": "volteer",
+        "name": "chrome_all_tast_tests RELEASE_LKGM",
+        "run_cft": true,
+        "shard_level_retries_on_ctp": 1,
+        "shards": 15,
+        "tast_expr": "STUB_STRING_TO_RUN_TAST_TESTS",
+        "test": "chrome_all_tast_tests",
+        "test_id_prefix": "ninja://chromeos:chrome_all_tast_tests/",
+        "test_level_retries": 1,
+        "timeout_sec": 14400,
+        "use_lkgm": true,
+        "variant_id": "RELEASE_LKGM"
+      },
+      {
+        "autotest_name": "tast.chrome-from-gcs",
+        "ci_only": true,
+        "cros_board": "volteer",
+        "experiment_percentage": 100,
+        "name": "chrome_criticalstaging_tast_tests RELEASE_LKGM",
+        "run_cft": true,
+        "shards": 3,
+        "tast_expr": "STUB_STRING_TO_RUN_TAST_TESTS",
+        "test": "chrome_criticalstaging_tast_tests",
+        "test_id_prefix": "ninja://chromeos:chrome_criticalstaging_tast_tests/",
+        "test_level_retries": 2,
+        "timeout_sec": 14400,
+        "use_lkgm": true,
+        "variant_id": "RELEASE_LKGM"
+      },
+      {
+        "autotest_name": "tast.chrome-from-gcs",
+        "ci_only": true,
+        "cros_board": "volteer",
+        "experiment_percentage": 100,
+        "name": "chrome_disabled_tast_tests RELEASE_LKGM",
+        "run_cft": true,
+        "shards": 2,
+        "tast_expr": "STUB_STRING_TO_RUN_TAST_TESTS",
+        "test": "chrome_disabled_tast_tests",
+        "test_id_prefix": "ninja://chromeos:chrome_disabled_tast_tests/",
+        "test_level_retries": 1,
+        "timeout_sec": 14400,
+        "use_lkgm": true,
+        "variant_id": "RELEASE_LKGM"
+      },
+      {
+        "autotest_name": "chromium",
+        "cros_board": "volteer",
+        "name": "chromeos_integration_tests RELEASE_LKGM",
+        "run_cft": true,
+        "shard_level_retries_on_ctp": 1,
+        "test": "chromeos_integration_tests",
+        "test_id_prefix": "ninja://chrome/test:chromeos_integration_tests/",
+        "use_lkgm": true,
+        "variant_id": "RELEASE_LKGM"
+      }
     ]
   },
   "linux-chrome": {
@@ -2209,23 +2269,6 @@
         },
         "test": "ash_components_unittests",
         "test_id_prefix": "ninja://ash/components:ash_components_unittests/"
-      },
-      {
-        "ci_only": true,
-        "merge": {
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "ash_crosapi_tests",
-        "swarming": {
-          "dimensions": {
-            "os": "Ubuntu-22.04",
-            "pool": "chrome.tests",
-            "ssd": "0"
-          },
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "ash_crosapi_tests",
-        "test_id_prefix": "ninja://chrome/test:ash_crosapi_tests/"
       },
       {
         "merge": {
@@ -3740,61 +3783,6 @@
       }
     ]
   },
-  "linux-lacros-chrome": {
-    "gtest_tests": [
-      {
-        "merge": {
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "browser_tests",
-        "swarming": {
-          "dimensions": {
-            "os": "Ubuntu-22.04",
-            "pool": "chrome.tests",
-            "ssd": "0"
-          },
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 33
-        },
-        "test": "browser_tests",
-        "test_id_prefix": "ninja://chrome/test:browser_tests/"
-      },
-      {
-        "merge": {
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "interactive_ui_tests",
-        "swarming": {
-          "dimensions": {
-            "os": "Ubuntu-22.04",
-            "pool": "chrome.tests",
-            "ssd": "0"
-          },
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 6
-        },
-        "test": "interactive_ui_tests",
-        "test_id_prefix": "ninja://chrome/test:interactive_ui_tests/"
-      },
-      {
-        "merge": {
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "name": "lacros_chrome_browsertests",
-        "swarming": {
-          "dimensions": {
-            "os": "Ubuntu-22.04",
-            "pool": "chrome.tests",
-            "ssd": "0"
-          },
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 6
-        },
-        "test": "lacros_chrome_browsertests",
-        "test_id_prefix": "ninja://chrome/test:lacros_chrome_browsertests/"
-      }
-    ]
-  },
   "mac-chrome": {
     "additional_compile_targets": [
       "chrome",
@@ -3859,8 +3847,7 @@
   },
   "win-chrome": {
     "additional_compile_targets": [
-      "chrome",
-      "chrome_official_builder"
+      "all"
     ],
     "gtest_tests": [
       {
@@ -3931,8 +3918,7 @@
   },
   "win64-chrome": {
     "additional_compile_targets": [
-      "chrome",
-      "chrome_official_builder"
+      "all"
     ],
     "isolated_scripts": [
       {

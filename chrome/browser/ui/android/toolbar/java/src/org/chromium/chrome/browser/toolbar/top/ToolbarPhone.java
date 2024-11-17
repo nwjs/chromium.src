@@ -264,7 +264,6 @@ public class ToolbarPhone extends ToolbarLayout
 
     private float mPreTextureCaptureAlpha = 1f;
     private int mPreTextureCaptureVisibility;
-    private @BrandedColorScheme int mOverlayTabStackDrawableScheme;
 
     private boolean mOptionalButtonAnimationRunning;
     private int mUrlFocusTranslationX;
@@ -1333,7 +1332,7 @@ public class ToolbarPhone extends ToolbarLayout
             int baseInset =
                     resources.getDimensionPixelSize(R.dimen.modern_toolbar_background_size)
                             - resources.getDimensionPixelSize(R.dimen.ntp_search_box_height);
-            int verticalInset = (int) (((float) (baseInset) / 2) * urlExpansionFractionComplement);
+            int verticalInset = (int) (((float) baseInset / 2) * urlExpansionFractionComplement);
 
             int locationBarUrlActionOffsetChange =
                     resources.getDimensionPixelSize(R.dimen.location_bar_url_action_offset_ntp)
@@ -2394,7 +2393,7 @@ public class ToolbarPhone extends ToolbarLayout
     private boolean hideShadowForInterstitial() {
         return getToolbarDataProvider() != null
                 && getToolbarDataProvider().getTab() != null
-                && (getToolbarDataProvider().getTab().isShowingErrorPage());
+                && getToolbarDataProvider().getTab().isShowingErrorPage();
     }
 
     private @VisualState int computeVisualState() {

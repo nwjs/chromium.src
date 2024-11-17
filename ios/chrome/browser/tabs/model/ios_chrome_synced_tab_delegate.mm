@@ -137,20 +137,9 @@ IOSChromeSyncedTabDelegate::GetBlockedNavigations() const {
 }
 
 bool IOSChromeSyncedTabDelegate::IsPlaceholderTab() const {
-  // A tab is considered as "placeholder" if it is not fully loaded. This
-  // corresponds to "unrealized" tabs or tabs that are still restoring their
-  // navigation history.
-  if (!web_state_->IsRealized()) {
-    return true;
-  }
-
-  if (web_state_->GetNavigationManager()->IsRestoreSessionInProgress()) {
-    return true;
-  }
-
-  // The WebState is realized and the navigation history fully loaded, the
-  // tab can be considered as valid for sync.
-  return false;
+  // A tab is considered as "placeholder" if it is not fully
+  // loaded. This corresponds to "unrealized" tabs.
+  return !web_state_->IsRealized();
 }
 
 bool IOSChromeSyncedTabDelegate::ShouldSync(
@@ -169,14 +158,14 @@ bool IOSChromeSyncedTabDelegate::ShouldSync(
     // If fast account switching via the account particle disk on the NTP is
     // enabled, then for managed accounts, only sync tabs that have been updated
     // after the signin.
-    ChromeBrowserState* browser_state =
-        ChromeBrowserState::FromBrowserState(web_state_->GetBrowserState());
+    ProfileIOS* profile =
+        ProfileIOS::FromBrowserState(web_state_->GetBrowserState());
     AuthenticationService* auth_service =
-        AuthenticationServiceFactory::GetForBrowserState(browser_state);
+        AuthenticationServiceFactory::GetForProfile(profile);
     if (auth_service && auth_service->HasPrimaryIdentityManaged(
                             signin::ConsentLevel::kSignin)) {
       base::Time signin_time =
-          browser_state->GetPrefs()->GetTime(prefs::kLastSigninTimestamp);
+          profile->GetPrefs()->GetTime(prefs::kLastSigninTimestamp);
       // Note: Don't use GetLastActiveTime() here: (a) it only tracks when the
       // tab was last made visible (not when it was last used), and (b) it
       // intentionally caches outdated values for a few minutes. Instead, query

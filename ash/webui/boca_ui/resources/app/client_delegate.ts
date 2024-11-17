@@ -2,12 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {Config, Course, Identity, PageHandlerRemote, TabInfo, Window} from '../mojom/boca.mojom-webui.js';
+import {Config, ControlledTab as ControlledTabMojom, Course, Identity as IdentityMojom, PageHandlerRemote, TabInfo, Window} from '../mojom/boca.mojom-webui.js';
 
-import {ClientApiDelegate, ControlledTab, SessionConfig} from './boca_app.js';
+import {CaptionConfig, ClientApiDelegate, ControlledTab, Identity, OnTaskConfig, SessionConfig} from './boca_app.js';
 
 const MICRO_SECS_IN_MINUTES: bigint = 60000000n;
-
 /**
  * A delegate implementation that provides API via privileged mojom API
  */
@@ -44,28 +43,29 @@ export class ClientDelegateFactory {
       },
       getStudentList: async (id: string) => {
         const result = await pageHandler.listStudents(id);
-        return result.students.map((student: Identity) => {
+        return result.students.map((student: IdentityMojom) => {
           return {
             id: student.id,
             name: student.name,
             email: student.email,
+            photoUrl: student.photoUrl ? student.photoUrl.url : undefined,
           };
         });
       },
       createSession: async (sessionConfig: SessionConfig) => {
-        console.log(
-            'Actual session duration is:' +
-            sessionConfig.sessionDurationInMinutes +
-            ', but we overrided it to 2min');
         const result = await pageHandler.createSession({
           sessionDuration: {
-            // TODO(b/365141108) Hardcode session duration to 2 mintes until we
-            // have end session.
-            microseconds: BigInt(2) * MICRO_SECS_IN_MINUTES,
-            // microseconds: BigInt(sessionConfig.sessionDurationInMinutes) *
-            //     MICRO_SECS_IN_MINUTES,
+            microseconds: BigInt(sessionConfig.sessionDurationInMinutes) *
+                MICRO_SECS_IN_MINUTES,
           },
-          students: sessionConfig.students,
+          students: sessionConfig.students?.map((item: Identity) => {
+            return {
+              id: item.id,
+              name: item.name,
+              email: item.email,
+              photoUrl: item.photoUrl ? {url: item.photoUrl} : null,
+            };
+          }),
           onTaskConfig: {
             isLocked: sessionConfig.onTaskConfig?.isLocked,
             tabs:
@@ -83,6 +83,85 @@ export class ClientDelegateFactory {
           captionConfig: sessionConfig.captionConfig,
         } as Config);
         return result.success;
+      },
+      getSession: async () => {
+        const result = (await pageHandler.getSession()).result;
+        if (!result.config) {
+          return null;
+        }
+
+        const session = result.config;
+        return {
+          sessionConfig: {
+            sessionDurationInMinutes: Number(
+                session.sessionDuration.microseconds / MICRO_SECS_IN_MINUTES),
+            sessionStartTime: session.sessionStartTime?.msec ?
+                new Date(session.sessionStartTime.msec) :
+                undefined,
+            teacher: session.teacher ? {
+              id: session.teacher.id,
+              name: session.teacher.name,
+              email: session.teacher.email,
+              photoUrl: session.teacher.photoUrl ?
+                  session.teacher.photoUrl.url :
+                  undefined,
+            } :
+                                       undefined,
+            students: session.students?.map((item: IdentityMojom) => {
+              return {
+                id: item.id,
+                name: item.name,
+                email: item.email,
+                photoUrl: item.photoUrl ? item.photoUrl.url : undefined,
+              };
+            }),
+            onTaskConfig: {
+              isLocked: session.onTaskConfig?.isLocked,
+              tabs:
+                  session.onTaskConfig?.tabs.map((item: ControlledTabMojom) => {
+                    return {
+                      tab: {
+                        url: item.tab.url.url,
+                        title: item.tab.title,
+                        favicon: item.tab.favicon,
+                      },
+                      navigationType: item.navigationType.valueOf(),
+                    };
+                  }),
+            },
+            captionConfig: session.captionConfig,
+            // TODO(b/365191878): Fill in user activity.
+          },
+          activity: [],
+        };
+      },
+      endSession: async () => {
+        const result = await pageHandler.endSession();
+        return !result.error;
+      },
+      updateOnTaskConfig: async (onTaskConfig: OnTaskConfig) => {
+        const result = await pageHandler.updateOnTaskConfig(
+            {
+              isLocked: onTaskConfig.isLocked,
+              tabs: onTaskConfig.tabs.map((item: ControlledTab) => {
+                return {
+                  tab: {
+                    url: {url: item.tab.url},
+                    title: item.tab.title,
+                    favicon: item.tab.favicon,
+                  },
+                  navigationType: item.navigationType.valueOf(),
+                };
+              }),
+            },
+        );
+        return !result.error;
+      },
+      updateCaptionConfig: async (captionConfig: CaptionConfig) => {
+        const result = await pageHandler.updateCaptionConfig(
+            captionConfig,
+        );
+        return !result.error;
       },
     };
   }

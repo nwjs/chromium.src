@@ -16,6 +16,7 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
+#include "ash/constants/web_app_id_constants.h"
 #include "ash/public/cpp/shelf_types.h"
 #include "ash/webui/mall/app_id.h"
 #include "ash/webui/projector_app/public/cpp/projector_app_constants.h"
@@ -38,7 +39,6 @@
 #include "chrome/browser/ash/app_list/app_list_syncable_service_factory.h"
 #include "chrome/browser/ash/app_list/arc/arc_app_list_prefs.h"
 #include "chrome/browser/ash/crosapi/browser_util.h"
-#include "chrome/browser/ash/file_manager/app_id.h"
 #include "chrome/browser/ash/file_manager/prefs_migration_uma.h"
 #include "chrome/browser/ash/login/demo_mode/demo_session.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
@@ -48,8 +48,8 @@
 #include "chrome/browser/ui/ash/default_pinned_apps/default_pinned_apps.h"
 #include "chrome/browser/ui/ash/shelf/shelf_controller_helper.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
-#include "chrome/browser/web_applications/web_app_id_constants.h"
 #include "chrome/common/pref_names.h"
+#include "chromeos/ash/components/file_manager/app_id.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "components/app_constants/constants.h"
 #include "components/pref_registry/pref_registry_syncable.h"
@@ -366,7 +366,7 @@ void AddContainerAppPinIfNeeded(
     ShelfControllerHelper* helper,
     app_list::AppListSyncableService* syncable_service) {
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  if (!chromeos::features::IsContainerAppPreinstallEnabled()) {
+  if (!chromeos::features::IsGeminiAppPreinstallEnabled()) {
     return;
   }
 
@@ -376,7 +376,7 @@ void AddContainerAppPinIfNeeded(
     return;
   }
 
-  const std::string app_id = web_app::kContainerAppId;
+  const std::string app_id = ash::kContainerAppId;
 
   if (!helper->IsAppDefaultInstalled(profile, app_id)) {
     return;
@@ -417,7 +417,7 @@ void AddMallPinIfNeeded(Profile* profile,
   // already pinned. There is no option to unpin the web app.
   if (!chromeos::features::IsCrosMallSwaEnabled()) {
     InsertPinsAfterChromeAndBeforeFirstPinnedApp(syncable_service,
-                                                 {{web_app::kMallAppId}},
+                                                 {{ash::kMallAppId}},
                                                  /*is_policy_initiated=*/false);
     return;
   }

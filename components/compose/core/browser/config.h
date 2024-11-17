@@ -73,13 +73,13 @@ struct Config {
   // Used to randomly hide the nudge in order to reduce exposure, experimental
   // flag for triggering research experiments only. If param is greater than
   // `1`, always shows. If param is negative, never shows.
-  double proactive_nudge_show_probability = 1e-3;
+  double proactive_nudge_show_probability = 0.02;
 
   // When segmentation is enabled and working, this parameter controls how often
   // we randomly decide to show the proactive nudge regardless of the
   // segmentation platform's response. Nudges shown in this way contribute to
   // training data for the segmentation platform.
-  double proactive_nudge_force_show_probability = 1e-5;
+  double proactive_nudge_force_show_probability = 0.004;
 
   // Whether to collect training data for the segmentation platform any time the
   // nudge is shown. If false, training data is only collected when the nudge is

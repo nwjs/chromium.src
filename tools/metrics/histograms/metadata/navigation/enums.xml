@@ -45,6 +45,8 @@ chromium-metrics-reviews@google.com.
   <int value="14" label="Detached From Window"/>
   <int value="15" label="Root Window Visibility Changed"/>
   <int value="16" label="Compositor Detached"/>
+  <int value="17" label="Animation Manager Destroyed"/>
+  <int value="18" label="Physical size changed mid-animation"/>
 </enum>
 
 <enum name="AutomaticBeaconOutcome">
@@ -417,7 +419,7 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Cache Hit"/>
   <int value="1" label="Sent Screenshot Request"/>
   <int value="2" label="Captured Empty Bitmap"/>
-  <int value="3" label="Cache Miss Subframe"/>
+  <int value="3" label="[DEPRECATED] Cache Miss Subframe"/>
   <int value="4" label="Cache Miss Evicted"/>
   <int value="5" label="Cache Miss Purged Memory Pressure"/>
   <int value="6" label="Cache Miss Cold Start"/>
@@ -429,6 +431,9 @@ chromium-metrics-reviews@google.com.
   <int value="12" label="Cache Miss Screenshot Orientation"/>
   <int value="13" label="Navigate away from a crashed page"/>
   <int value="14" label="Navigate away from a crashed page (no early swap)"/>
+  <int value="15" label="Window or compositor is detached"/>
+  <int value="16" label="Browser not embedding a valid LocalSurfaceID"/>
+  <int value="17" label="Not capture non primary main frames"/>
 </enum>
 
 <enum name="NavigationWasServedFromCache">

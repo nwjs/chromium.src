@@ -98,8 +98,8 @@ bool IsSupervisedUserSkipParentApprovalToInstallExtensionsEnabled() {
 }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
-BASE_FEATURE(kCustomWebSignInInterceptForSupervisedUsersUi,
-             "CustomWebSignInInterceptForSupervisedUsersUi",
+BASE_FEATURE(kCustomProfileStringsForSupervisedUsers,
+             "CustomProfileStringsForSupervisedUsers",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSupervisedUserProfileSigninIPH,
@@ -133,11 +133,12 @@ BASE_FEATURE(kForceSupervisedUserReauthenticationForBlockedSites,
 
 BASE_FEATURE(kCloseSignTabsFromReauthenticationInterstitial,
              "CloseSignTabsFromReauthenticationInterstitial",
+             // Enabled by default, flag meant to work as a kill switch.
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAllowSupervisedUserReauthenticationForSubframes,
              "EnableSupervisedUserReauthenticationForSubframes",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 BASE_FEATURE(kUncredentialedFilteringFallbackForSupervisedUsers,
@@ -171,11 +172,16 @@ BASE_FEATURE(kReplaceSupervisionSystemCapabilitiesWithAccountCapabilitiesOnIOS,
 
 BASE_FEATURE(kFetchListFamilyMembersWithCapability,
              "FetchListFamilyMembersWithCapability",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 BASE_FEATURE(kUseFamilyMemberRolePrefsForFeedback,
              "UseFamilyMemberRolePrefsForFeedback",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClassifyUrlOnProcessResponseEvent,
              "ClassifyUrlOnProcessResponseEvent",

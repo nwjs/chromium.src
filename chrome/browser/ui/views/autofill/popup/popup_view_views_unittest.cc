@@ -16,6 +16,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string_util.h"
 #include "base/test/bind.h"
+#include "base/test/gtest_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
@@ -24,6 +25,7 @@
 #include "chrome/browser/ui/autofill/autofill_popup_view.h"
 #include "chrome/browser/ui/autofill/mock_autofill_popup_controller.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/views/autofill/popup/autofill_prediction_improvements/autofill_prediction_improvements_loading_state_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_content_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_search_bar_view.h"
@@ -47,6 +49,7 @@
 #include "content/public/test/web_contents_tester.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/public/common/frame/frame_policy.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/common/input/web_keyboard_event.h"
@@ -61,6 +64,7 @@
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/vector2d.h"
+#include "ui/views/accessibility/ax_event_manager.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/bubble/bubble_border_arrow_utils.h"
@@ -1407,8 +1411,8 @@ TEST_F(PopupViewViewsTest, CellSubPopupResetAfterSuggestionsUpdates) {
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
 // `PopupViewViewsTest` is not used in death tests because it sets up a complex
 // environment (namely creates a `TestingProfile`) that fails to be created in
-// the sub-process (see `ASSERT_DEATH` doc for details). This fail hides
-// the real death reason to be tested.
+// the sub-process (see `EXPECT_CHECK_DEATH_WITH` doc for details). This fail
+// hides the real death reason to be tested.
 using PopupViewViewsDeathTest = ChromeViewsTestBase;
 TEST_F(PopupViewViewsDeathTest, OpenSubPopupWithNoChildrenCheckCrash) {
   NiceMock<MockAutofillPopupController> controller;
@@ -1431,7 +1435,7 @@ TEST_F(PopupViewViewsDeathTest, OpenSubPopupWithNoChildrenCheckCrash) {
   std::string expected_message = "can_open_sub_popup";
 #endif  // defined(NDEBUG) && defined(OFFICIAL_BUILD)
 
-  ASSERT_DEATH(
+  EXPECT_CHECK_DEATH_WITH(
       view_ptr->SetSelectedCell(CellIndex{0, CellType::kControl},
                                 PopupCellSelectionSource::kNonUserInput),
       expected_message);
@@ -1988,6 +1992,48 @@ TEST_F(PopupViewViewsTest, SearchBar_PressedKeysPassedToController) {
                                         ui::DomKey::Key::ARROW_DOWN)));
 
   generator().PressAndReleaseKey(ui::VKEY_DOWN);
+}
+
+TEST_F(PopupViewViewsTest, PredictionImprovementsLoadingOnShowA11yFocus) {
+  views::test::AXEventCounter counter(views::AXEventManager::Get());
+  CreateAndShowView({SuggestionType::kPredictionImprovementsLoadingState});
+
+  ASSERT_EQ(1u, test_api(view()).rows().size());
+  auto* const* row_view =
+      absl::get_if<autofill_prediction_improvements::
+                       PredictionImprovementsLoadingStateView*>(
+          &test_api(view()).rows()[0]);
+  ASSERT_TRUE(row_view);
+
+  EXPECT_EQ(1, counter.GetCount(ax::mojom::Event::kFocus, *row_view));
+}
+
+TEST_F(PopupViewViewsTest,
+       PredictionImprovementsLoadingOnSuggestionsChangedA11yFocus) {
+  views::test::AXEventCounter counter(views::AXEventManager::Get());
+  CreateAndShowView({SuggestionType::kFillPredictionImprovements});
+  UpdateSuggestions({SuggestionType::kPredictionImprovementsLoadingState});
+
+  ASSERT_EQ(1u, test_api(view()).rows().size());
+  auto* const* row_view =
+      absl::get_if<autofill_prediction_improvements::
+                       PredictionImprovementsLoadingStateView*>(
+          &test_api(view()).rows()[0]);
+  ASSERT_TRUE(row_view);
+
+  EXPECT_EQ(1, counter.GetCount(ax::mojom::Event::kFocus, *row_view));
+}
+
+TEST_F(PopupViewViewsTest, WarningOnShowA11yFocus) {
+  views::test::AXEventCounter counter(views::AXEventManager::Get());
+  CreateAndShowView({SuggestionType::kMixedFormMessage});
+
+  ASSERT_EQ(1u, test_api(view()).rows().size());
+  auto* const* row_view =
+      absl::get_if<PopupWarningView*>(&test_api(view()).rows()[0]);
+  ASSERT_TRUE(row_view);
+
+  EXPECT_EQ(1, counter.GetCount(ax::mojom::Event::kFocus, *row_view));
 }
 
 }  // namespace

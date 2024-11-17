@@ -1137,22 +1137,6 @@ const KNOWN_SCREENS: ScreenDefType[] = [
     ],
   },
   {
-    id: 'lacros-data-migration',
-    kind: ScreenKind.OTHER,
-    defaultState: 'default',
-    handledSteps: 'skip-revealed',
-    states: [{
-      id: 'skip-revealed',
-      trigger: (screen: any) => {
-        screen.showSkipButton();
-      },
-    }],
-  },
-  {
-    id: 'lacros-data-backward-migration',
-    kind: ScreenKind.OTHER,
-  },
-  {
     id: 'terms-of-service',
     kind: ScreenKind.NORMAL,
     handledSteps: 'loading,loaded,error',
@@ -1547,6 +1531,33 @@ const KNOWN_SCREENS: ScreenDefType[] = [
         trigger: (screen: any) => {
           (screen.$).pinKeyboard.showProblem_(
               MessageType.TOO_LONG, ProblemType.ERROR);
+        },
+      },
+      {
+        id: 'pin-as-main-factor',
+        data: {
+          authToken: '',
+          isChildAccount: false,
+          hasLoginSupport: true,
+          usingPinAsMainSignInFactor: true,
+        },
+      },
+      {
+        id: 'pin-for-unlock-only',
+        data: {
+          authToken: '',
+          isChildAccount: false,
+          hasLoginSupport: false,
+          usingPinAsMainSignInFactor: false,
+        },
+      },
+      {
+        id: 'pin-default',
+        data: {
+          authToken: '',
+          isChildAccount: false,
+          hasLoginSupport: true,
+          usingPinAsMainSignInFactor: false,
         },
       },
     ],

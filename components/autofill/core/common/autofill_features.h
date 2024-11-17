@@ -16,13 +16,11 @@ namespace autofill::features {
 // All features in alphabetical order.
 COMPONENT_EXPORT(AUTOFILL) BASE_DECLARE_FEATURE(kAutofillAcrossIframesIos);
 COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillGivePrecedenceToNumericQuantities);
+BASE_DECLARE_FEATURE(kAutofillAcrossIframesIosTriggerFormExtraction);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillAddressUserPerceptionSurvey);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillCaretExtraction);
-COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillContentEditableLeftClickFix);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillCreditCardUserPerceptionSurvey);
 COMPONENT_EXPORT(AUTOFILL)
@@ -48,8 +46,6 @@ COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableExpirationDateImprovements);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableImportWhenMultiplePhoneNumbers);
-COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillEnableImprovedPredictionParser);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnablePaymentsFieldSwapping);
 COMPONENT_EXPORT(AUTOFILL)
@@ -95,17 +91,13 @@ BASE_DECLARE_FEATURE(kAutofillFixInitialValueOfSelect);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillFixCurrentValueInImport);
 COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillDontUpdateSelectionRangeOnPreviewClearing);
-COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillDecoupleAutofillCountFromCache);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillGivePrecedenceToEmailOverUsername);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillImportFromAutocompleteUnrecognized);
 COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillSuggestionNStrikeModel);
-COMPONENT_EXPORT(AUTOFILL)
-extern const base::FeatureParam<int> kSuggestionStrikeLimit;
+BASE_DECLARE_FEATURE(kAutofillSupportPhoneticNameForJP);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillChangeDisusedAddressSuggestionTreatment);
 COMPONENT_EXPORT(AUTOFILL)
@@ -116,6 +108,10 @@ COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillFixFormTracking);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillUnifyAndFixFormTracking);
+COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillUseSubmittedFormInHtmlSubmission);
+COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillPreferSavedFormAsSubmittedForm);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillReplaceFormElementObserver);
 COMPONENT_EXPORT(AUTOFILL)
@@ -136,8 +132,6 @@ COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillUseITAddressModel);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillUsePLAddressModel);
-COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillUploadVotesForFieldsWithEmail);
 COMPONENT_EXPORT(AUTOFILL) BASE_DECLARE_FEATURE(kAutofillModelPredictions);
 COMPONENT_EXPORT(AUTOFILL)
 extern const base::FeatureParam<bool> kAutofillModelPredictionsAreActive;
@@ -230,9 +224,11 @@ extern const base::FeatureParam<int>
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillLogDeduplicationMetrics);
 COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillLogDeduplicationMetricsFollowup);
+extern const base::FeatureParam<size_t>
+    kAutofillLogDeduplicationMetricsMaxProfilesSizeParam;
 COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillSilentlyRemoveQuasiDuplicates);
+extern const base::FeatureParam<size_t>
+    kAutofillLogDeduplicationMetricsMaxFieldLengthForMergingParam;
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillUpdateLowQualityTokenOnImport);
 COMPONENT_EXPORT(AUTOFILL)

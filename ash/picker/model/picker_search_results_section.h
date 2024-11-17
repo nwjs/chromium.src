@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "ash/ash_export.h"
-#include "ash/public/cpp/picker/picker_search_result.h"
+#include "ash/picker/picker_search_result.h"
 #include "base/containers/span.h"
 
 namespace ash {
@@ -20,9 +20,8 @@ enum class ASH_EXPORT PickerSectionType {
   kLinks,
   kLocalFiles,
   kDriveFiles,
-  kEditorWrite,
-  kEditorRewrite,
-  kMaxValue = kEditorRewrite,
+  kContentEditor,
+  kMaxValue = kContentEditor,
 };
 
 // Search results are divided into different sections.

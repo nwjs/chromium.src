@@ -55,15 +55,10 @@ BASE_FEATURE(kFeedLoadingPlaceholder,
 BASE_FEATURE(kFeedImageMemoryCacheSizePercentage,
              "FeedImageMemoryCacheSizePercentage",
              base::FEATURE_DISABLED_BY_DEFAULT);
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+#if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kFeedBottomSyncStringRemoval,
              "FeedBottomSyncStringRemoval",
-#if BUILDFLAG(IS_IOS)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 BASE_FEATURE(kFeedStamp, "FeedStamp", base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -132,6 +127,10 @@ BASE_FEATURE(kFeedContainment,
 
 BASE_FEATURE(kWebFeedKillSwitch,
              "WebFeedKillSwitch",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kFeedLowMemoryImprovement,
+             "FeedLowMemoryImprovement",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsWebFeedEnabledForLocale(const std::string& country) {

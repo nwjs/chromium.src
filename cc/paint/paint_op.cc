@@ -36,12 +36,14 @@
 #include "cc/paint/paint_op_writer.h"
 #include "cc/paint/paint_record.h"
 #include "cc/paint/skottie_serialization_history.h"
+#include "cc/paint/tone_map_util.h"
 #include "skia/ext/draw_gainmap_image.h"
 #include "third_party/skia/include/core/SkAnnotation.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkColorFilter.h"
 #include "third_party/skia/include/core/SkColorSpace.h"
 #include "third_party/skia/include/core/SkImage.h"
+#include "third_party/skia/include/core/SkMatrix.h"
 #include "third_party/skia/include/core/SkRefCnt.h"
 #include "third_party/skia/include/core/SkRegion.h"
 #include "third_party/skia/include/core/SkSerialProcs.h"
@@ -51,7 +53,6 @@
 #include "third_party/skia/include/docs/SkPDFDocument.h"
 #include "third_party/skia/include/private/chromium/Slug.h"
 #include "third_party/skia/src/core/SkCanvasPriv.h"
-#include "ui/gfx/color_conversion_sk_filter_cache.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 
 namespace cc {
@@ -133,6 +134,16 @@ void DrawImageRect(SkCanvas* canvas,
                                    constraint);
 }
 
+PaintFlags::ScalingOperation MatrixToScalingOperation(SkMatrix m) {
+  SkSize scale;
+  if (m.decomposeScale(&scale)) {
+    return (scale.width() > 1 && scale.height() > 1)
+               ? PaintFlags::ScalingOperation::kUpscale
+               : PaintFlags::ScalingOperation::kUnknown;
+  }
+  return PaintFlags::ScalingOperation::kUnknown;
+}
+
 #define TYPES(M)             \
   M(AnnotateOp)              \
   M(ClipPathOp)              \
@@ -188,7 +199,7 @@ struct Rasterizer {
         !T::kHasPaintFlags,
         "This function should not be used for a PaintOp that has PaintFlags");
     DCHECK(op->IsValid());
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
   static void Raster(const T* op,
                      SkCanvas* canvas,
@@ -568,7 +579,7 @@ void DrawRecordOp::Serialize(PaintOpWriter& writer,
                              const SkM44& current_ctm,
                              const SkM44& original_ctm) const {
   // These are flattened in PaintOpBufferSerializer.
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void DrawRectOp::Serialize(PaintOpWriter& writer,
@@ -592,7 +603,7 @@ void DrawScrollingContentsOp::Serialize(PaintOpWriter& writer,
                                         const SkM44& current_ctm,
                                         const SkM44& original_ctm) const {
   // These are flattened in PaintOpBufferSerializer.
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void DrawVerticesOp::Serialize(PaintOpWriter& writer,
@@ -1102,8 +1113,7 @@ PaintOp* DrawSlugOp::Deserialize(PaintOpReader& reader, void* output) {
 }
 
 PaintOp* DrawTextBlobOp::Deserialize(PaintOpReader& reader, void* output) {
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 PaintOp* NoopOp::Deserialize(PaintOpReader& reader, void* output) {
@@ -1236,52 +1246,6 @@ void DrawDRRectOp::RasterWithFlags(const DrawDRRectOp* op,
   });
 }
 
-// Helper class for applying tone mapping on the fly in DrawImage and
-// DrawImageRect.
-class DrawImageToneMapUtil {
- public:
-  static bool UseGainmapShader(const PaintImage& image) {
-    if (image.gainmap_sk_image_) {
-      DCHECK(image.cached_sk_image_);
-      DCHECK(image.gainmap_info_.has_value());
-      return true;
-    }
-    return false;
-  }
-  static bool UseGlobalToneMapFilter(const PaintImage& image) {
-    return image.use_global_tone_map_ && image.cached_sk_image_ &&
-           image.cached_sk_image_->colorSpace();
-  }
-  static void AddGlobalToneMapFilterToPaint(
-      SkPaint& paint,
-      const PaintImage& image,
-      sk_sp<SkColorSpace> dst_color_space) {
-    if (!dst_color_space) {
-      dst_color_space = SkColorSpace::MakeSRGB();
-    }
-    // Workaround for b/337538021: Disable tone mapping when the source and
-    // destination spaces are the same, to avoid applying tone mapping when
-    // uploading HLG or PQ frames to textures.
-    if (SkColorSpace::Equals(image.cached_sk_image_->colorSpace(),
-                             dst_color_space.get())) {
-      return;
-    }
-    gfx::ColorConversionSkFilterCache cache;
-    sk_sp<SkColorFilter> filter = cache.Get(
-        gfx::ColorSpace(*image.cached_sk_image_->colorSpace()),
-        gfx::ColorSpace(*dst_color_space.get()),
-        /*src_bit_depth=*/std::nullopt, image.hdr_metadata_,
-        gfx::ColorSpace::kDefaultSDRWhiteLevel, image.target_hdr_headroom_);
-    if (paint.getColorFilter()) {
-      // Perform tone mapping before the existing color filter.
-      paint.setColorFilter(
-          paint.getColorFilter()->makeComposed(std::move(filter)));
-    } else {
-      paint.setColorFilter(std::move(filter));
-    }
-  }
-};
-
 void DrawImageOp::RasterWithFlags(const DrawImageOp* op,
                                   const PaintFlags* flags,
                                   SkCanvas* canvas,
@@ -1308,7 +1272,7 @@ void DrawImageOp::RasterWithFlags(const DrawImageOp* op,
     }
 
     // If this uses a gainmap shader, then replace DrawImage with a shader.
-    if (DrawImageToneMapUtil::UseGainmapShader(op->image)) {
+    if (ToneMapUtil::UseGainmapShader(op->image)) {
       skia::DrawGainmapImage(
           canvas, op->image.cached_sk_image_, op->image.gainmap_sk_image_,
           op->image.gainmap_info_.value(), op->image.target_hdr_headroom_,
@@ -1317,10 +1281,10 @@ void DrawImageOp::RasterWithFlags(const DrawImageOp* op,
     }
 
     // Add a tone mapping filter to `paint` if needed.
-    if (DrawImageToneMapUtil::UseGlobalToneMapFilter(op->image)) {
+    if (ToneMapUtil::UseGlobalToneMapFilter(op->image)) {
       auto dst_color_space = canvas->imageInfo().refColorSpace();
-      DrawImageToneMapUtil::AddGlobalToneMapFilterToPaint(paint, op->image,
-                                                          dst_color_space);
+      ToneMapUtil::AddGlobalToneMapFilterToPaint(paint, op->image,
+                                                 dst_color_space);
       sk_image = sk_image->reinterpretColorSpace(dst_color_space);
     }
 
@@ -1352,10 +1316,12 @@ void DrawImageOp::RasterWithFlags(const DrawImageOp* op,
     canvas->scale(1.f / scale_adjustment.width(),
                   1.f / scale_adjustment.height());
   }
+  PaintFlags::ScalingOperation scale =
+      MatrixToScalingOperation(canvas->getLocalToDeviceAs3x3());
   SkTiledImageUtils::DrawImage(canvas, decoded_image.image().get(), op->left,
                                op->top,
                                PaintFlags::FilterQualityToSkSamplingOptions(
-                                   decoded_image.filter_quality()),
+                                   decoded_image.filter_quality(), scale),
                                &paint);
 }
 
@@ -1365,7 +1331,7 @@ void DrawImageRectOp::RasterWithFlags(const DrawImageRectOp* op,
                                       const PlaybackParams& params) {
   // TODO(crbug.com/40613771): make sure to support the case where paint worklet
   // generated images are used in other raster work such as canvas2d.
-  if (op->image.IsPaintWorklet()) {
+  if (op->image.IsDeferredPaintRecord()) {
     // When rasterizing on the main thread (e.g. paint invalidation checking,
     // see https://crbug.com/990382), an image provider may not be available, so
     // we should draw nothing.
@@ -1416,7 +1382,7 @@ void DrawImageRectOp::RasterWithFlags(const DrawImageRectOp* op,
 
       // If the PaintImage uses a gainmap shader, then replace DrawImage with a
       // shader.
-      if (DrawImageToneMapUtil::UseGainmapShader(op->image)) {
+      if (ToneMapUtil::UseGainmapShader(op->image)) {
         skia::DrawGainmapImageRect(
             c, op->image.cached_sk_image_, op->image.gainmap_sk_image_,
             op->image.gainmap_info_.value(), op->image.target_hdr_headroom_,
@@ -1426,9 +1392,9 @@ void DrawImageRectOp::RasterWithFlags(const DrawImageRectOp* op,
 
       // If this uses a global tone map filter, then incorporate that filter
       // into the paint.
-      if (DrawImageToneMapUtil::UseGlobalToneMapFilter(op->image)) {
+      if (ToneMapUtil::UseGlobalToneMapFilter(op->image)) {
         SkPaint tonemap_paint = p;
-        DrawImageToneMapUtil::AddGlobalToneMapFilterToPaint(
+        ToneMapUtil::AddGlobalToneMapFilterToPaint(
             tonemap_paint, op->image, c->imageInfo().refColorSpace());
         sk_image =
             sk_image->reinterpretColorSpace(c->imageInfo().refColorSpace());
@@ -1467,10 +1433,11 @@ void DrawImageRectOp::RasterWithFlags(const DrawImageRectOp* op,
       op->src.makeOffset(decoded_image.src_rect_offset().width(),
                          decoded_image.src_rect_offset().height());
   adjusted_src = AdjustSrcRectForScale(adjusted_src, scale_adjustment);
-  flags->DrawToSk(canvas, [op, &decoded_image, adjusted_src](SkCanvas* c,
-                                                             const SkPaint& p) {
+  PaintFlags::ScalingOperation scale = MatrixToScalingOperation(matrix.asM33());
+  flags->DrawToSk(canvas, [op, &decoded_image, adjusted_src, scale](
+                              SkCanvas* c, const SkPaint& p) {
     SkSamplingOptions options = PaintFlags::FilterQualityToSkSamplingOptions(
-        decoded_image.filter_quality());
+        decoded_image.filter_quality(), scale);
     DrawImageRect(c, decoded_image.image().get(), adjusted_src, op->dst,
                   options, &p, op->constraint);
   });
@@ -1510,6 +1477,31 @@ void DrawLineLiteOp::Raster(const DrawLineLiteOp* op,
   });
 }
 
+void DrawArcImpl(SkCanvas* canvas,
+                 const SkRect& oval,
+                 float start_angle_degrees,
+                 float sweep_angle_degrees,
+                 const SkPaint& paint,
+                 const PaintFlags& flags) {
+  if (!flags.isArcClosed()) {
+    // drawArc can only handle open arcs.
+    canvas->drawArc(oval, start_angle_degrees, sweep_angle_degrees, false,
+                    paint);
+    return;
+  }
+
+  if (SkScalarNearlyEqual(std::abs(sweep_angle_degrees), 360)) {
+    // Closed ellipses can be rendered using drawOval.
+    canvas->drawOval(oval, paint);
+  } else {
+    // Closed partial arcs -> general SkPath.
+    SkPath path;
+    path.arcTo(oval, start_angle_degrees, sweep_angle_degrees, false);
+    path.close();
+    canvas->drawPath(path, paint);
+  }
+}
+
 void DrawArcOp::RasterWithFlags(const DrawArcOp* op,
                                 const PaintFlags* flags,
                                 SkCanvas* canvas,
@@ -1520,16 +1512,7 @@ void DrawArcOp::RasterWithFlags(const DrawArcOp* op,
 void DrawArcOp::RasterWithFlagsImpl(const PaintFlags* flags,
                                     SkCanvas* canvas) const {
   flags->DrawToSk(canvas, [this, flags](SkCanvas* c, const SkPaint& p) {
-    if (flags->isArcClosed() &&
-        !SkScalarNearlyEqual(sweep_angle_degrees, SkIntToScalar(360)) &&
-        !SkScalarNearlyEqual(sweep_angle_degrees, SkIntToScalar(-360))) {
-      SkPath path;
-      path.arcTo(oval, start_angle_degrees, sweep_angle_degrees, false);
-      path.close();
-      c->drawPath(path, p);
-      return;
-    }
-    c->drawArc(oval, start_angle_degrees, sweep_angle_degrees, false, p);
+    DrawArcImpl(c, oval, start_angle_degrees, sweep_angle_degrees, p, *flags);
   });
 }
 
@@ -1538,18 +1521,8 @@ void DrawArcLiteOp::Raster(const DrawArcLiteOp* op,
                            const PlaybackParams& params) {
   PaintFlags flags(op->core_paint_flags);
   flags.DrawToSk(canvas, [op, &flags](SkCanvas* c, const SkPaint& p) {
-    if (flags.isArcClosed() &&
-        !SkScalarNearlyEqual(op->sweep_angle_degrees, SkIntToScalar(360)) &&
-        !SkScalarNearlyEqual(op->sweep_angle_degrees, SkIntToScalar(-360))) {
-      SkPath path;
-      path.arcTo(op->oval, op->start_angle_degrees, op->sweep_angle_degrees,
-                 false);
-      path.close();
-      c->drawPath(path, p);
-      return;
-    }
-    c->drawArc(op->oval, op->start_angle_degrees, op->sweep_angle_degrees,
-               false, p);
+    DrawArcImpl(c, op->oval, op->start_angle_degrees, op->sweep_angle_degrees,
+                p, flags);
   });
 }
 
@@ -1660,6 +1633,7 @@ SkottieWrapper::FrameDataFetchResult DrawSkottieOp::GetImageAssetForRaster(
     return SkottieWrapper::FrameDataFetchResult::kNoUpdate;
 
   const SkottieFrameData& frame_data = images_iter->second;
+  SkM44 matrix = canvas->getLocalToDevice();
   if (!frame_data.image) {
     sk_image = nullptr;
   } else if (params.image_provider) {
@@ -1668,7 +1642,7 @@ SkottieWrapper::FrameDataFetchResult DrawSkottieOp::GetImageAssetForRaster(
     DrawImage draw_image(
         frame_data.image, /*use_dark_mode=*/false,
         SkIRect::MakeWH(frame_data.image.width(), frame_data.image.height()),
-        frame_data.quality, canvas->getLocalToDevice());
+        frame_data.quality, matrix);
     auto scoped_result = params.image_provider->GetRasterContent(draw_image);
     if (scoped_result) {
       sk_image = scoped_result.decoded_image().image();
@@ -1682,8 +1656,9 @@ SkottieWrapper::FrameDataFetchResult DrawSkottieOp::GetImageAssetForRaster(
     if (!sk_image)
       sk_image = frame_data.image.GetSwSkImage();
   }
+  PaintFlags::ScalingOperation scale = MatrixToScalingOperation(matrix.asM33());
   sampling_out =
-      PaintFlags::FilterQualityToSkSamplingOptions(frame_data.quality);
+      PaintFlags::FilterQualityToSkSamplingOptions(frame_data.quality, scale);
   return SkottieWrapper::FrameDataFetchResult::kNewDataAvailable;
 }
 

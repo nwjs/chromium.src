@@ -2948,6 +2948,39 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_FALSE(storage::test::HasStorageAccessForFrame(GetFrame()));
 }
 
+class StorageAccessAPIAutograntsWithFedCMOriginTrialKillswitchBrowserTest
+    : public StorageAccessAPIAutograntsWithFedCMOriginTrialBrowserTest {
+ public:
+  std::vector<base::test::FeatureRef> GetDisabledFeatures() override {
+    return {blink::features::kFedCmWithStorageAccessAPI};
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(
+    StorageAccessAPIAutograntsWithFedCMOriginTrialKillswitchBrowserTest,
+    KillswitchTakesPrecedenceOverOriginTrialToken) {
+  SetBlockThirdPartyCookies(true);
+  GrantFedCMPermission();
+  prompt_factory()->set_response_type(
+      permissions::PermissionRequestManager::AutoResponseType::DENY_ALL);
+
+  content::URLLoaderInterceptor interceptor(base::BindLambdaForTesting(
+      [this](content::URLLoaderInterceptor::RequestParams* params) {
+        return OnRequest(params);
+      }));
+
+  NavigateToPageWithPermissionsPolicyIframes({kHostA, kHostB});
+  NavigateFrameTo(OriginTrialPage(), browser(),
+                  /*iframe_id=*/"child-0");
+  EXPECT_EQ(ReadCookies(GetFrame(), kHostB), kNoCookies);
+  EXPECT_FALSE(storage::test::HasStorageAccessForFrame(GetFrame()));
+
+  EXPECT_FALSE(content::ExecJs(GetFrame(), "document.requestStorageAccess()"));
+  EXPECT_FALSE(storage::test::HasStorageAccessForFrame(GetFrame()));
+  EXPECT_EQ(prompt_factory()->TotalRequestCount(), 1);
+  EXPECT_EQ(ReadCookies(GetFrame(), kHostB), kNoCookies);
+}
+
 class StorageAccessHeadersDisabledBrowserTest
     : public StorageAccessAPIBrowserTest {
  public:
@@ -3139,11 +3172,12 @@ IN_PROC_BROWSER_TEST_F(StorageAccessHeadersBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(StorageAccessHeadersBrowserTest,
-                       RequestHeadersCookiesBlocked) {
-  BlockAllCookiesOnHost(kHostB);
-
+                       RequestHeadersCredentialsBlocked) {
   NavigateToPageWithFrame(kHostA);
   NavigateFrameTo(GetURL(kHostB));
+  ASSERT_TRUE(content::ExecJs(
+      GetFrame(), content::JsReplace("fetch($1, {'credentials': 'omit'})",
+                                     GetURL(kHostB))));
   EXPECT_THAT(MostRecentRequestHeaders(),
               testing::Not(Contains(testing::Key(
                   net::HttpRequestHeaders::kSecFetchStorageAccess))));
@@ -3181,6 +3215,27 @@ IN_PROC_BROWSER_TEST_F(StorageAccessHeadersBrowserTest,
   // Subsequent navigation should be `inactive`.
   NavigateFrameTo(GetURL(kHostB));
 
+  EXPECT_THAT(MostRecentRequestHeaders(),
+              Contains(Pair(net::HttpRequestHeaders::kSecFetchStorageAccess,
+                            "inactive")));
+}
+
+IN_PROC_BROWSER_TEST_F(StorageAccessHeadersBrowserTest,
+                       NonCookieStorage_Subresource) {
+  SetBlockThirdPartyCookies(true);
+  EnsureUserInteractionOn(kHostB);
+  prompt_factory()->set_response_type(
+      permissions::PermissionRequestManager::ACCEPT_ALL);
+
+  NavigateToPageWithFrame(kHostA);
+  // Header will be 'none' first time we navigate to `kHostB` since the
+  // permission grant does not exist yet.
+  NavigateFrameTo(GetURL(kHostB));
+  ASSERT_TRUE(content::ExecJs(
+      GetFrame(), "document.requestStorageAccess({'localStorage': true})"));
+
+  // Subresource fetches from the embed include the "inactive" header.
+  EXPECT_EQ(CookiesFromFetch(GetFrame(), kHostB), "None");
   EXPECT_THAT(MostRecentRequestHeaders(),
               Contains(Pair(net::HttpRequestHeaders::kSecFetchStorageAccess,
                             "inactive")));

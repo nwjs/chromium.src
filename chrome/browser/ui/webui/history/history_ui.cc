@@ -133,6 +133,8 @@ content::WebUIDataSource* CreateAndAddHistoryUIHTMLSource(Profile* profile) {
       {"searchPrompt", IDS_HISTORY_SEARCH_PROMPT},
       {"searchResult", IDS_HISTORY_SEARCH_RESULT},
       {"searchResults", IDS_HISTORY_SEARCH_RESULTS},
+      {"searchResultExactMatch", IDS_HISTORY_SEARCH_EXACT_MATCH_RESULT},
+      {"searchResultExactMatches", IDS_HISTORY_SEARCH_EXACT_MATCH_RESULTS},
       {"turnOnSyncPromo", IDS_HISTORY_TURN_ON_SYNC_PROMO},
       {"turnOnSyncPromoDesc", IDS_HISTORY_TURN_ON_SYNC_PROMO_DESC},
       {"title", IDS_HISTORY_TITLE},
@@ -197,13 +199,25 @@ content::WebUIDataSource* CreateAndAddHistoryUIHTMLSource(Profile* profile) {
       "maybeShowEmbeddingsIph",
       history_embeddings::IsHistoryEmbeddingsSettingVisible(profile) &&
           !enable_history_embeddings);
+  history_embeddings::PopulateSourceForWebUI(source, profile);
+
   static constexpr webui::LocalizedString kHistoryEmbeddingsStrings[] = {
-      {"historyEmbeddingsSearchPrompt", IDS_HISTORY_EMBEDDINGS_SEARCH_PROMPT},
-      {"historyEmbeddingsDisclaimer", IDS_HISTORY_EMBEDDINGS_DISCLAIMER},
+      {"historyEmbeddingsAnswersSearchAlternativePrompt1",
+       IDS_HISTORY_EMBEDDINGS_SEARCH_ANSWERS_ALTERNATIVE_PROMPT_1},
+      {"historyEmbeddingsAnswersSearchAlternativePrompt2",
+       IDS_HISTORY_EMBEDDINGS_SEARCH_ANSWERS_ALTERNATIVE_PROMPT_2},
+      {"historyEmbeddingsAnswersSearchAlternativePrompt3",
+       IDS_HISTORY_EMBEDDINGS_SEARCH_ANSWERS_ALTERNATIVE_PROMPT_3},
+      {"historyEmbeddingsAnswersSearchAlternativePrompt4",
+       IDS_HISTORY_EMBEDDINGS_SEARCH_ANSWERS_ALTERNATIVE_PROMPT_4},
       {"historyEmbeddingsPromoLabel", IDS_HISTORY_EMBEDDINGS_PROMO_LABEL},
       {"historyEmbeddingsPromoClose", IDS_HISTORY_EMBEDDINGS_PROMO_CLOSE},
       {"historyEmbeddingsPromoHeading", IDS_HISTORY_EMBEDDINGS_PROMO_HEADING},
       {"historyEmbeddingsPromoBody", IDS_HISTORY_EMBEDDINGS_PROMO_BODY},
+      {"historyEmbeddingsAnswersPromoHeading",
+       IDS_HISTORY_EMBEDDINGS_ANSWERS_PROMO_HEADING},
+      {"historyEmbeddingsAnswersPromoBody",
+       IDS_HISTORY_EMBEDDINGS_ANSWERS_PROMO_BODY},
       {"historyEmbeddingsPromoSettingsLinkText",
        IDS_HISTORY_EMBEDDIGNS_PROMO_SETTINGS_LINK_TEXT},
       {"historyEmbeddingsShowByLabel",
@@ -219,19 +233,8 @@ content::WebUIDataSource* CreateAndAddHistoryUIHTMLSource(Profile* profile) {
        IDS_HISTORY_EMBEDDINGS_SUGGESTION_2_ARIA_LABEL},
       {"historyEmbeddingsSuggestion3AriaLabel",
        IDS_HISTORY_EMBEDDINGS_SUGGESTION_3_ARIA_LABEL},
-      {"historyEmbeddingsHeading", IDS_HISTORY_EMBEDDINGS_HEADING},
-      {"historyEmbeddingsHeadingLoading",
-       IDS_HISTORY_EMBEDDINGS_HEADING_LOADING},
-      {"historyEmbeddingsFooter", IDS_HISTORY_EMBEDDINGS_FOOTER},
-      {"learnMore", IDS_LEARN_MORE},
-      {"thumbsUp", IDS_THUMBS_UP_RESULTS_A11Y_LABEL},
-      {"thumbsDown", IDS_THUMBS_DOWN_OPENS_FEEDBACK_FORM_A11Y_LABEL},
   };
   source->AddLocalizedStrings(kHistoryEmbeddingsStrings);
-  source->AddInteger("historyEmbeddingsSearchMinimumWordCount",
-                     history_embeddings::kSearchQueryMinimumWordCount.Get());
-  source->AddString("historyEmbeddingsSettingsUrl",
-                    chrome::kHistorySearchSettingURL);
 
   // History clusters
   HistoryClustersUtil::PopulateSource(source, profile, /*in_side_panel=*/false);
@@ -247,11 +250,10 @@ content::WebUIDataSource* CreateAndAddHistoryUIHTMLSource(Profile* profile) {
   // Product specifications:
   commerce::ShoppingService* service =
       commerce::ShoppingServiceFactory::GetForBrowserContext(profile);
+  // Used to determine when the compare tab on history sidepanel is shown.
   source->AddBoolean("compareHistoryEnabled",
-                     commerce::CanManageProductSpecificationsSets(
-                         service->GetAccountChecker(),
-                         service->GetProductSpecificationsService()));
-
+                     commerce::CanLoadProductSpecificationsFullPageUi(
+                         service->GetAccountChecker()));
   return source;
 }
 
@@ -321,7 +323,8 @@ void HistoryUI::BindInterface(
         pending_page_handler) {
   history_embeddings_handler_ = std::make_unique<HistoryEmbeddingsHandler>(
       std::move(pending_page_handler),
-      Profile::FromWebUI(web_ui())->GetWeakPtr(), web_ui());
+      Profile::FromWebUI(web_ui())->GetWeakPtr(), web_ui(),
+      /*for_side_panel=*/false);
 }
 
 void HistoryUI::BindInterface(

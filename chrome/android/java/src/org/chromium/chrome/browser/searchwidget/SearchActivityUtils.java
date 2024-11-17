@@ -82,6 +82,19 @@ public class SearchActivityUtils {
         return TextUtils.isEmpty(referrer) ? null : referrer;
     }
 
+    /**
+     * @return the incognito status of the associated launching activity.
+     */
+    /* package */ static boolean getIntentIncognitoStatus(@NonNull Intent intent) {
+        boolean isIncognito = false;
+        if (IntentUtils.isTrustedIntentFromSelf(intent)) {
+            isIncognito =
+                    IntentUtils.safeGetBooleanExtra(
+                            intent, SearchActivityExtras.EXTRA_IS_INCOGNITO, false);
+        }
+        return isIncognito;
+    }
+
     /** Returns the caller-supplied initial search query. */
     /* package */ static @Nullable String getIntentQuery(@NonNull Intent intent) {
         // Unlike most other intents, this does not require trusted extras.
@@ -108,7 +121,7 @@ public class SearchActivityUtils {
      * Resolve the {@link requestOmniboxForResult}.
      *
      * @param activity the activity resolving the request
-     * @param url optional URL dictating how to resolve the request: null/invalid/empty value
+     * @param params optional URL dictating how to resolve the request: null/invalid/empty value
      *     results with canceled request; anything else resolves request successfully
      */
     /* package */ static void resolveOmniboxRequestForResult(

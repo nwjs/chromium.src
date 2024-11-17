@@ -52,13 +52,12 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/generated_resources.h"
-#include "components/feature_engagement/public/event_constants.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/feature_engagement/public/tracker.h"
 #include "components/omnibox/browser/autocomplete_classifier.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/performance_manager/public/user_tuning/prefs.h"
-#include "components/saved_tab_groups/features.h"
+#include "components/saved_tab_groups/public/features.h"
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
@@ -388,9 +387,6 @@ void BrowserTabStripController::CloseTab(int model_index) {
 
   // Try to show reading list IPH if needed.
   if (tabstrip_->GetTabCount() >= 7) {
-    browser_view_->NotifyFeatureEngagementEvent(
-        feature_engagement::events::kClosedTabWithEightOrMore);
-
     browser_view_->MaybeShowFeaturePromo(
         feature_engagement::kIPHReadingListEntryPointFeature);
   }
@@ -731,8 +727,6 @@ void BrowserTabStripController::OnTabGroupChanged(
   switch (change.type) {
     case TabGroupChange::kCreated: {
       tabstrip_->OnGroupCreated(change.group);
-      browser_view_->NotifyFeatureEngagementEvent(
-          feature_engagement::events::kTabGroupCreated);
       break;
     }
     case TabGroupChange::kEditorOpened: {

@@ -136,6 +136,12 @@ std::unique_ptr<WebAuthn::Credential> BuildCredentialFromRegistration(
     credential->SetRpId(registration->rp->id);
   if (registration->user) {
     credential->SetUserHandle(Binary::fromVector(registration->user->id));
+    if (registration->user->name) {
+      credential->SetUserName(*registration->user->name);
+    }
+    if (registration->user->display_name) {
+      credential->SetUserDisplayName(*registration->user->display_name);
+    }
   }
 
   return credential;
@@ -356,7 +362,8 @@ void WebAuthnHandler::AddCredential(
 
     credential_created = authenticator->AddResidentRegistration(
         credential_id, credential->GetRpId(""), credential->GetPrivateKey(),
-        credential->GetSignCount(), CopyBinaryToVector(user_handle));
+        credential->GetSignCount(), CopyBinaryToVector(user_handle),
+        credential->GetUserName(""), credential->GetUserDisplayName(""));
   } else {
     credential_created = authenticator->AddRegistration(
         credential_id, credential->GetRpId(""), credential->GetPrivateKey(),
@@ -549,6 +556,21 @@ void WebAuthnHandler::OnCredentialCreated(
     VirtualAuthenticator* authenticator,
     const device::VirtualFidoDevice::Credential& credential) {
   frontend_->CredentialAdded(
+      authenticator->unique_id(),
+      BuildCredentialFromRegistration(credential.first, credential.second));
+}
+
+void WebAuthnHandler::OnCredentialDeleted(
+    VirtualAuthenticator* authenticator,
+    base::span<const uint8_t> credential_id) {
+  frontend_->CredentialDeleted(authenticator->unique_id(),
+                               Binary::fromSpan(credential_id));
+}
+
+void WebAuthnHandler::OnCredentialUpdated(
+    VirtualAuthenticator* authenticator,
+    const device::VirtualFidoDevice::Credential& credential) {
+  frontend_->CredentialUpdated(
       authenticator->unique_id(),
       BuildCredentialFromRegistration(credential.first, credential.second));
 }

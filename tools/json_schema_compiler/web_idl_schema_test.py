@@ -12,12 +12,24 @@ def getFunction(schema, name):
   for item in schema['functions']:
     if item['name'] == name:
       return item
-  raise KeyError('Missing function %s' % name)
+  raise KeyError('Could not find "function" with name "%s" in schema' % name)
+
+
+def getType(schema, name):
+  for item in schema['types']:
+    if item['id'] == name:
+      return item
+  raise KeyError('Could not find "type" with id "%s" in schema' % name)
 
 
 def getReturns(schema, name):
   function = getFunction(schema, name)
   return function.get('returns', None)
+
+
+def getFunctionParameters(schema, name):
+  function = getFunction(schema, name)
+  return function.get('parameters', None)
 
 
 class WebIdlSchemaTest(unittest.TestCase):
@@ -63,9 +75,85 @@ class WebIdlSchemaTest(unittest.TestCase):
         },
         getReturns(schema, 'returnsDOMString'),
     )
+    self.assertEqual({
+        'name': 'returnsCustomType',
+        '$ref': 'ExampleType'
+    }, getReturns(schema, 'returnsCustomType'))
+
+  # Tests function parameters are processed as expected.
+  def testFunctionParameters(self):
+    schema = self.idl_basics
+    # A function with no arguments has an empty array on the "parameters" key.
+    self.assertEqual([], getFunctionParameters(schema, 'takesNoArguments'))
+
+    self.assertEqual([{
+        'name': 'stringArgument',
+        'type': 'string'
+    }], getFunctionParameters(schema, 'takesDOMString'))
+    self.assertEqual([{
+        'name': 'optionalBoolean',
+        'optional': True,
+        'type': 'boolean'
+    }], getFunctionParameters(schema, 'takesOptionalBoolean'))
+    self.assertEqual([{
+        'name': 'argument1',
+        'type': 'string'
+    }, {
+        'name': 'argument2',
+        'optional': True,
+        'type': 'number'
+    }], getFunctionParameters(schema, 'takesMultipleArguments'))
+    self.assertEqual([{
+        'name': 'first',
+        'type': 'string'
+    }, {
+        'name': 'optionalInner',
+        'optional': True,
+        'type': 'string'
+    }, {
+        'name': 'last',
+        'type': 'string'
+    }], getFunctionParameters(schema, 'takesOptionalInnerArgument'))
+    self.assertEqual([{
+        'name': 'customTypeArgument',
+        '$ref': 'ExampleType'
+    }], getFunctionParameters(schema, 'takesCustomType'))
+    self.assertEqual([{
+        'name': 'optionalCustomTypeArgument',
+        'optional': True,
+        '$ref': 'ExampleType'
+    }], getFunctionParameters(schema, 'takesOptionalCustomType'))
+
+
+  # Tests that Dictionaries defined on the top level of the IDL file are
+  # processed into types on the resulting namespace.
+  def testApiTypesOnNamespace(self):
+    schema = self.idl_basics
+    self.assertEqual(
+        {
+            'id': 'ExampleType',
+            'properties': {
+                'someString': {
+                    'name': 'someString',
+                    'type': 'string'
+                },
+                'someNumber': {
+                    'name': 'someNumber',
+                    'type': 'number'
+                },
+                'optionalBoolean': {
+                    'name': 'optionalBoolean',
+                    'type': 'boolean',
+                    'optional': True
+                }
+            },
+            'type': 'object'
+        },
+        getType(schema, 'ExampleType'),
+    )
 
   # Tests that if the nodoc extended attribute is not specified on the API
-  # interface the related attribute is set to false after processing
+  # interface the related attribute is set to false after processing.
   def testNodocUnspecifiedOnNamespace(self):
     self.assertFalse(self.idl_basics['nodoc'])
 

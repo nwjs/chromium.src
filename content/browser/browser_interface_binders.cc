@@ -16,6 +16,7 @@
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "cc/base/switches.h"
+#include "components/viz/host/gpu_client.h"
 #include "content/browser/attribution_reporting/attribution_internals.mojom.h"
 #include "content/browser/attribution_reporting/attribution_internals_ui.h"
 #include "content/browser/background_fetch/background_fetch_service_impl.h"
@@ -249,12 +250,6 @@
 #include "media/mojo/mojom/fuchsia_media.mojom.h"
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS)
-#include "services/webnn/webnn_context_provider_impl.h"
-#else
-#include "components/viz/host/gpu_client.h"
-#endif
-
 namespace blink {
 class StorageKey;
 }  // namespace blink
@@ -306,24 +301,16 @@ void BindTextDetection(
 void BindWebNNContextProviderForRenderFrame(
     RenderFrameHost* host,
     mojo::PendingReceiver<webnn::mojom::WebNNContextProvider> receiver) {
-#if BUILDFLAG(IS_CHROMEOS)
-  webnn::WebNNContextProviderImpl::Create(std::move(receiver));
-#else
   auto* process_host = static_cast<RenderProcessHostImpl*>(host->GetProcess());
   process_host->GetGpuClient()->BindWebNNContextProvider(std::move(receiver));
-#endif
 }
 
 void BindWebNNContextProviderForDedicatedWorker(
     DedicatedWorkerHost* host,
     mojo::PendingReceiver<webnn::mojom::WebNNContextProvider> receiver) {
-#if BUILDFLAG(IS_CHROMEOS)
-  webnn::WebNNContextProviderImpl::Create(std::move(receiver));
-#else
   auto* process_host =
       static_cast<RenderProcessHostImpl*>(host->GetProcessHost());
   process_host->GetGpuClient()->BindWebNNContextProvider(std::move(receiver));
-#endif
 }
 
 #if BUILDFLAG(IS_MAC)
@@ -1081,7 +1068,7 @@ void PopulateFrameBinders(RenderFrameHostImpl* host, mojo::BinderMap* map) {
       base::BindRepeating(&BindTextDetection));
 
   auto* command_line = base::CommandLine::ForCurrentProcess();
-  if (command_line->HasSwitch(cc::switches::kEnableGpuBenchmarking)) {
+  if (command_line->HasSwitch(switches::kEnableGpuBenchmarking)) {
     map->Add<mojom::InputInjector>(
         base::BindRepeating(&RenderFrameHostImpl::BindInputInjectorReceiver,
                             base::Unretained(host)));
@@ -1356,6 +1343,8 @@ void PopulateDedicatedWorkerBinders(DedicatedWorkerHost* host,
 #if !BUILDFLAG(IS_ANDROID)
   map->Add<blink::mojom::SerialService>(base::BindRepeating(
       &DedicatedWorkerHost::BindSerialService, base::Unretained(host)));
+  map->Add<blink::mojom::HidService>(base::BindRepeating(
+      &DedicatedWorkerHost::BindHidService, base::Unretained(host)));
 #endif  // !BUILDFLAG(IS_ANDROID)
   map->Add<blink::mojom::BucketManagerHost>(base::BindRepeating(
       &DedicatedWorkerHost::CreateBucketManagerHost, base::Unretained(host)));

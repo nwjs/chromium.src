@@ -28,6 +28,9 @@ class GURL;
 class IOSChromeScopedTestingLocalState;
 class PlatformTest;
 @class SceneState;
+class TestSceneUrlLoadingService;
+class UrlLoadingBrowserAgent;
+@class FakeURLLoadingDelegate;
 
 namespace web {
 class FakeWebState;
@@ -55,7 +58,7 @@ class GridMediatorTestClass : public PlatformTest {
   web::WebTaskEnvironment task_environment_;
   base::test::ScopedFeatureList scoped_feature_list_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
-  std::unique_ptr<TestChromeBrowserState> browser_state_;
+  std::unique_ptr<TestProfileIOS> profile_;
   FakeTabCollectionConsumer* consumer_;
   std::vector<web::WebStateID> original_identifiers_;
   web::WebStateID original_selected_identifier_;
@@ -66,6 +69,9 @@ class GridMediatorTestClass : public PlatformTest {
   base::UserActionTester user_action_tester_;
   raw_ptr<AuthenticationService> auth_service_;
   FakeTabGridToolbarsMediator* fake_toolbars_mediator_;
+  std::unique_ptr<TestSceneUrlLoadingService> scene_loader_;
+  raw_ptr<UrlLoadingBrowserAgent> loader_;
+  FakeURLLoadingDelegate* url_loading_delegate_;
 };
 
 #endif  // IOS_CHROME_BROWSER_UI_TAB_SWITCHER_TAB_GRID_GRID_GRID_MEDIATOR_TEST_H_

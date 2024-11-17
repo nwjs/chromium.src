@@ -86,7 +86,7 @@ class ActiveSessionAuthControllerTest
   }
 
   void InitializeUserManager() {
-    user_manager::UserManagerBase::RegisterPrefs(local_state_.registry());
+    user_manager::UserManagerImpl::RegisterPrefs(local_state_.registry());
     user_manager_ =
         std::make_unique<user_manager::FakeUserManager>(&local_state_);
     user_manager_->Initialize();
@@ -163,7 +163,8 @@ class ActiveSessionAuthControllerTest
       auto future = std::make_unique<TokenBasedCallback>();
 
       Shell::Get()->active_session_auth_controller()->ShowAuthDialog(
-          std::make_unique<PasswordManagerAuthRequest>(future->GetCallback()));
+          std::make_unique<PasswordManagerAuthRequest>(u"",
+                                                       future->GetCallback()));
 
       return OnAuthComplete{std::move(future)};
     };

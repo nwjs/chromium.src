@@ -880,13 +880,14 @@ static void AdjustStyleForInert(ComputedStyleBuilder& builder,
     return;
   }
 
+  Document& document = element->GetDocument();
   if (element->IsInertRoot()) {
+    UseCounter::Count(document, WebFeature::kInertAttribute);
     builder.SetIsHTMLInert(true);
     builder.SetIsHTMLInertIsInherited(false);
     return;
   }
 
-  Document& document = element->GetDocument();
   const Element* modal_element = document.ActiveModalDialog();
   if (!modal_element) {
     modal_element = Fullscreen::FullscreenElementFrom(document);
@@ -1090,6 +1091,10 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
   if (builder.Overlay() == EOverlay::kAuto ||
       builder.StyleType() == kPseudoIdBackdrop ||
       builder.StyleType() == kPseudoIdViewTransition) {
+    builder.SetForcesStackingContext(true);
+  }
+
+  if (IsCanvasPlacedElement(element)) {
     builder.SetForcesStackingContext(true);
   }
 

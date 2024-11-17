@@ -22,14 +22,15 @@ class AuxiliarySearchBookmarkGroup;
 namespace bookmarks {
 class BookmarkModel;
 }
-class Profile;
 class TabAndroid;
 
 // AuxiliarySearchProvider is responsible for providing the necessary
 // information for the auxiliary search..
 class AuxiliarySearchProvider : public KeyedService {
  public:
-  explicit AuxiliarySearchProvider(Profile* profile);
+  // DO NOT pass a Profile here, keyed services must have explicit dependencies
+  // on other keyed services (crbug.com/368297674).
+  explicit AuxiliarySearchProvider(bookmarks::BookmarkModel* bookmark_model);
   ~AuxiliarySearchProvider() override;
 
   base::android::ScopedJavaLocalRef<jbyteArray> GetBookmarksSearchableData(
@@ -59,24 +60,19 @@ class AuxiliarySearchProvider : public KeyedService {
   FRIEND_TEST_ALL_PREFIXES(AuxiliarySearchProviderBrowserTest, NativeTabTest);
   FRIEND_TEST_ALL_PREFIXES(AuxiliarySearchProviderBrowserTest, FilterTabsTest);
 
-  using NonSensitiveTabsCallback = base::OnceCallback<void(
-      std::unique_ptr<std::vector<base::WeakPtr<TabAndroid>>>)>;
+  using NonSensitiveTabsCallback =
+      base::OnceCallback<void(std::vector<base::WeakPtr<TabAndroid>>)>;
 
-  auxiliary_search::AuxiliarySearchBookmarkGroup GetBookmarks(
-      bookmarks::BookmarkModel* model) const;
+  auxiliary_search::AuxiliarySearchBookmarkGroup GetBookmarks() const;
 
-  static std::vector<base::WeakPtr<TabAndroid>> FilterTabsByScheme(
-      const std::vector<raw_ptr<TabAndroid, VectorExperimental>>& tabs);
+  static void FilterTabsByScheme(
+      std::vector<raw_ptr<TabAndroid, VectorExperimental>>& tabs);
 
   void GetNonSensitiveTabsInternal(
-      const std::vector<raw_ptr<TabAndroid, VectorExperimental>>& all_tabs,
+      std::vector<raw_ptr<TabAndroid, VectorExperimental>> all_tabs,
       NonSensitiveTabsCallback callback) const;
 
-  raw_ptr<Profile> profile_;
-  size_t max_bookmark_donation_count_;
-  size_t max_tab_donation_count_;
-
-  base::WeakPtrFactory<AuxiliarySearchProvider> weak_ptr_factory_{this};
+  const raw_ptr<bookmarks::BookmarkModel> bookmark_model_;
 };
 
 #endif  // CHROME_BROWSER_ANDROID_AUXILIARY_SEARCH_AUXILIARY_SEARCH_PROVIDER_H_

@@ -66,8 +66,6 @@
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/browser/ui/startup/startup_tab.h"
 #include "chrome/browser/ui/startup/startup_types.h"
-#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_keyed_service.h"
-#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_service_factory.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
@@ -80,10 +78,10 @@
 #include "chrome/common/url_constants.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
-#include "components/saved_tab_groups/features.h"
-#include "components/saved_tab_groups/saved_tab_group.h"
-#include "components/saved_tab_groups/tab_group_sync_service.h"
-#include "components/saved_tab_groups/types.h"
+#include "components/saved_tab_groups/public/features.h"
+#include "components/saved_tab_groups/public/saved_tab_group.h"
+#include "components/saved_tab_groups/public/tab_group_sync_service.h"
+#include "components/saved_tab_groups/public/types.h"
 #include "components/sessions/core/session_types.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "content/public/browser/child_process_security_policy.h"
@@ -97,6 +95,7 @@
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/extension_set.h"
+#include "ui/base/mojom/window_show_state.mojom.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/web_applications/web_app_helpers.h"
@@ -641,12 +640,12 @@ class SessionRestoreImpl : public BrowserListObserver {
     Browser* browser_to_activate = nullptr;
 
     // Determine if there is a visible window, or if the active window exists.
-    // Even if all windows are ui::SHOW_STATE_MINIMIZED, if one of them is the
-    // active window it will be made visible by the call to
+    // Even if all windows are ui::mojom::WindowShowState::kMinimized, if one of
+    // them is the active window it will be made visible by the call to
     // browser_to_activate->window()->Activate() later on in this method.
     bool has_visible_browser = false;
     for (const auto& window : *windows) {
-      if (window->show_state != ui::SHOW_STATE_MINIMIZED ||
+      if (window->show_state != ui::mojom::WindowShowState::kMinimized ||
           window->window_id == active_window_id) {
         has_visible_browser = true;
       }
@@ -693,10 +692,10 @@ class SessionRestoreImpl : public BrowserListObserver {
             "SessionRestore-CreateRestoredBrowser-Start", false);
 #endif
         // Change the initial show state of the created browser to
-        // SHOW_STATE_NORMAL if there are no visible browsers.
-        ui::WindowShowState show_state = window->show_state;
+        // WindowShowState::kNormal if there are no visible browsers.
+        ui::mojom::WindowShowState show_state = window->show_state;
         if (!has_visible_browser) {
-          show_state = ui::SHOW_STATE_NORMAL;
+          show_state = ui::mojom::WindowShowState::kNormal;
           has_visible_browser = true;
         }
         browser = CreateRestoredBrowser(
@@ -984,16 +983,30 @@ class SessionRestoreImpl : public BrowserListObserver {
       return;
     }
 
+    SessionService* session_service =
+        SessionServiceFactory::GetForProfile(browser->profile());
+    CHECK(session_service);
+
     for (const std::unique_ptr<sessions::SessionTabGroup>& session_tab_group :
          tab_groups) {
+      const tab_groups::TabGroupId& new_tab_group_id =
+          new_group_ids.at(session_tab_group->id);
+      if (session_tab_group->saved_guid) {
+        // We add this mapping to ensure the call to TabGroup::SetVisualData
+        // results in writing the saved guid to disk. This ensures we do not
+        // duplicate saved tab groups if there is a crash prior to or during
+        // model initialization.
+        session_service->AddSavedTabGroupsMapping(
+            new_tab_group_id, session_tab_group->saved_guid.value());
+      }
+
       TabGroup* model_tab_group =
           browser->tab_strip_model()->group_model()->GetTabGroup(
-              new_group_ids.at(session_tab_group->id));
+              new_tab_group_id);
       CHECK(model_tab_group);
       model_tab_group->SetVisualData(session_tab_group->visual_data);
 
-      ProcessSavedGroup(browser->profile(),
-                        new_group_ids.at(session_tab_group->id),
+      ProcessSavedGroup(browser->profile(), new_tab_group_id,
                         session_tab_group->saved_guid);
     }
   }
@@ -1003,15 +1016,19 @@ class SessionRestoreImpl : public BrowserListObserver {
                          std::optional<std::string> sync_id) {
     tab_groups::TabGroupSyncService* service =
         tab_groups::SavedTabGroupUtils::GetServiceForProfile(profile);
-    CHECK(service);
+    if (!service) {
+      return;
+    }
 
     if (sync_id) {
       const base::Uuid& sync_guid = base::Uuid::ParseLowercase(sync_id.value());
-      service->ConnectLocalTabGroup(sync_guid, local_id);
+      service->ConnectLocalTabGroup(
+          sync_guid, local_id,
+          tab_groups::OpeningSource::kConnectOnSessionRestore);
     } else if (tab_groups::IsTabGroupsSaveV2Enabled()) {
       // Default save any groups that are not saved yet. This happens when
       // a user goes from V1 of SavedTabGroups to V2 through an update.
-      service->AddGroup(
+      service->SaveGroup(
           tab_groups::SavedTabGroupUtils::CreateSavedTabGroupFromLocalId(
               local_id));
     }
@@ -1022,7 +1039,7 @@ class SessionRestoreImpl : public BrowserListObserver {
       gfx::Rect bounds,
       const std::string& workspace,
       bool visible_on_all_workspaces,
-      ui::WindowShowState show_state,
+      ui::mojom::WindowShowState show_state,
       const std::string& app_name,
       const std::string& user_title,
       const std::map<std::string, std::string>& extra_data,

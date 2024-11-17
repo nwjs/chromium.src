@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/containers/contains.h"
+#include "base/cpu_reduction_experiment.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/trace_event/trace_event.h"
 
@@ -50,6 +51,19 @@ enum class DisplayLinkResult {
 void RecordDisplayLinkCreateStatus(DisplayLinkResult result) {
   UMA_HISTOGRAM_ENUMERATION("Viz.ExternalBeginFrameSourceMac.DisplayLink",
                             result);
+}
+
+// Record the delay from the system CVDisplayLink or CADisplaylink source to
+// VizCompositorThread OnDisplayLinkCallback().
+void RecordVSyncCallbackDelay(base::TimeDelta delay) {
+  if (!base::ShouldLogHistogramForCpuReductionExperiment()) {
+    return;
+  }
+
+  UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
+      "Viz.BeginFrameSource.VSyncCallbackDelay", delay,
+      /*min=*/base::Microseconds(10),
+      /*max=*/base::Milliseconds(33), /*bucket_count=*/50);
 }
 
 }  // namespace
@@ -130,20 +144,16 @@ void ExternalBeginFrameSourceMac::SetVSyncDisplayID(int64_t display_id) {
         min_refresh_interval_, max_refresh_interval_, granularity_);
 
     // Call multiple_hw_refresh_rates_callback_ to notify FrameRateDecider
-    // whether the supported refresh rate list will be provided. If the screen
-    // refresh rate granularity is very small ( <= 1 ms or 0 ms), or if
-    // CVDisplayLink refresh rate range will be used, there will not be a list.
-    hw_takes_any_refresh_rate_ =
-        granularity_ <= base::Milliseconds(1) ||
-        (base::FeatureList::IsEnabled(kUseRefreshRateRange) &&
-         (min_refresh_interval_ != max_refresh_interval_));
+    // whether the supported refresh rate list will be provided. If set to
+    // true, there will not be a list.
+    if (base::FeatureList::IsEnabled(kUseRefreshRateRange)) {
+      hw_takes_any_refresh_rate_ =
+          granularity_ <= base::Milliseconds(1) &&
+          min_refresh_interval_ != max_refresh_interval_;
 
-    DCHECK(!hw_takes_any_refresh_rate_ || multiple_hw_refresh_rates_callback_);
-    if (multiple_hw_refresh_rates_callback_) {
-      multiple_hw_refresh_rates_callback_.Run(hw_takes_any_refresh_rate_);
-      // After setting hw_support_for_multiple_refresh_rates_, the supported
-      // interval list should be updated. The callback below
-      // update_vsync_params_callback_ will do it.
+      if (multiple_hw_refresh_rates_callback_) {
+        multiple_hw_refresh_rates_callback_.Run(hw_takes_any_refresh_rate_);
+      }
     }
 
     if (update_vsync_params_callback_) {
@@ -260,7 +270,6 @@ void ExternalBeginFrameSourceMac::OnDisplayLinkCallback(
                                           : nominal_refresh_period_;
   }
 
-  // For the trace only.
   auto callback_delay =
       params.callback_times_valid ? (now - frame_time) : base::Microseconds(0);
   auto time_to_display = params.display_times_valid
@@ -269,6 +278,7 @@ void ExternalBeginFrameSourceMac::OnDisplayLinkCallback(
   TRACE_EVENT2("viz", "ExternalBeginFrameSourceMac::OnDisplayLinkCallback",
                "time_to_display", time_to_display.InMicroseconds(),
                "callback_delay", callback_delay.InMicroseconds());
+  RecordVSyncCallbackDelay(callback_delay);
 
   bool display_link_frame_interval_changed =
       !AlmostEqual(nominal_refresh_period_, interval);
@@ -441,27 +451,30 @@ ExternalBeginFrameSourceMac::GetSupportedFrameIntervals(
   VLOG(kOutputLevel) << "ExternalBeginFrameSourceMac(" << this << ")"
                      << "::GetSupportedFrameIntervals: ID: " << display_id_;
 
-  if (nominal_refresh_period_ > kMaxSupportedFrameInterval) {
+  // When CAdisplayLink will take any preferred refresh rate, return an empty
+  // supported_intervals list.
+  if (display_link_mac_ && hw_takes_any_refresh_rate_) {
+    return {};
+  }
+
+  if (nominal_refresh_period_ > kMaxSupportedFrameInterval &&
+      min_refresh_interval_ == max_refresh_interval_) {
     VLOG(kOutputLevel) << "nominal_refresh_period_: "
                        << nominal_refresh_period_;
     return {nominal_refresh_period_};
   }
 
-  base::flat_set<base::TimeDelta> supported_intervals;
-
-  // When CAdisplayLink will take any preferred refresh rate, return an empty
-  // supported_intervals list.
-  if (display_link_mac_ && hw_takes_any_refresh_rate_) {
-    return supported_intervals;
+  if (granularity_.is_zero()) {
+    return {nominal_refresh_period_};
   }
+
+  base::flat_set<base::TimeDelta> supported_intervals;
 
   // Check if we can set various preferred intervals within the range.
   if (display_link_mac_ && min_refresh_interval_ != max_refresh_interval_) {
     // |max_refresh_interval_| might not be the same as
     // (|min_refresh_interval_| + n*|granularity_|), so add
     // |max_refresh_interval_| separately after the loop.
-    CHECK(!granularity_.is_zero()) << "|hw_takes_any_refresh_rate_| should be "
-                                      "true if |granularity_| is zero";
     auto upper_bound = max_refresh_interval_ - granularity_ / 2;
     for (base::TimeDelta interval = min_refresh_interval_;
          interval < upper_bound; interval += granularity_) {

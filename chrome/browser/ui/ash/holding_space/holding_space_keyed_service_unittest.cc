@@ -723,7 +723,8 @@ class HoldingSpaceKeyedServiceTest : public BrowserWithTestWindowTest {
   }
 
  private:
-  std::map<Profile*, testing::NiceMock<MockDownloadManager>*>
+  std::map<Profile*,
+           raw_ptr<testing::NiceMock<MockDownloadManager>, CtnExperimental>>
       download_managers_;
   arc::ArcServiceManager arc_service_manager_;
   base::ScopedTempDir temp_dir_;
@@ -2857,11 +2858,8 @@ class HoldingSpaceKeyedServiceAddAndRemoveItemTest
                                 file_path, HoldingSpaceProgress())
                 .empty());
         break;
-      case HoldingSpaceItem::Type::kPrintedPdf:
-        holding_space_service->AddPrintedPdf(file_path,
-                                             /*from_incognito_profile=*/false);
-        break;
       case HoldingSpaceItem::Type::kPhotoshopWeb:
+      case HoldingSpaceItem::Type::kPrintedPdf:
       case HoldingSpaceItem::Type::kScan:
       case HoldingSpaceItem::Type::kScreenRecording:
       case HoldingSpaceItem::Type::kScreenRecordingGif:

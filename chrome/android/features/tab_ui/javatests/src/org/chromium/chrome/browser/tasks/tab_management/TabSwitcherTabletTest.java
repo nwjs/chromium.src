@@ -29,7 +29,6 @@ import androidx.test.filters.MediumTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -69,7 +68,7 @@ import org.chromium.chrome.test.util.TabStripUtils;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
 import org.chromium.content_public.browser.LoadUrlParams;
-import org.chromium.ui.test.util.UiRestriction;
+import org.chromium.ui.base.DeviceFormFactor;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -80,10 +79,7 @@ import java.util.concurrent.TimeoutException;
     ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE,
     "force-fieldtrials=Study/Group"
 })
-@Restriction({
-    Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE,
-    UiRestriction.RESTRICTION_TYPE_TABLET
-})
+@Restriction({Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE, DeviceFormFactor.TABLET})
 @Batch(Batch.PER_CLASS)
 public class TabSwitcherTabletTest {
     private static final long CALLBACK_WAIT_TIMEOUT = 15L;
@@ -407,7 +403,7 @@ public class TabSwitcherTabletTest {
         try {
             tabModelSelectedCallback.waitForCallback(0);
         } catch (TimeoutException e) {
-            Assert.fail("Tab model selected event never occurred.");
+            throw new AssertionError("Tab model selected event never occurred.", e);
         }
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {

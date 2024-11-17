@@ -603,6 +603,34 @@ enum class PasswordManagementBubbleInteractions {
   kMaxValue = kManagePasswordButtonClicked,
 };
 
+// Represents different causes for showing the password access loss warning.
+//
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused. Always keep this enum in sync with the
+// corresponding PasswordAccessLossWarningTriggers in enums.xml.
+enum class PasswordAccessLossWarningTriggers {
+  kChromeStartup = 0,
+  kPasswordSaveUpdateMessage = 1,
+  kTouchToFill = 2,
+  kKeyboardAcessorySheet = 3,
+  kKeyboardAcessoryBar = 4,
+  kAllPasswords = 5,
+  kMaxValue = kAllPasswords,
+};
+
+// Represents different actions that the user can take on the password access
+// loss warning.
+//
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused. Always keep this enum in sync with the
+// corresponding PasswordAccessLossWarningUserActions in enums.xml.
+enum class PasswordAccessLossWarningUserActions {
+  kMainAction = 0,
+  kHelpCenter = 1,
+  kDismissed = 2,
+  kMaxValue = kDismissed,
+};
+
 // Represents different causes for showing the password migration warning.
 //
 // These values are persisted to logs. Entries should not be renumbered and
@@ -719,12 +747,12 @@ enum class TouchToFillPasswordGenerationTriggerOutcome {
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
 enum class PasswordManagerCredentialRemovalReason {
-  // TODO(crbug.com/342519805): Add reasons.
   kSettings = 0,                        // Stored as (1<<0) in the bit vector.
   kClearBrowsingData = 1,               // Stored as (1<<1) in the bit vector.
   kSync = 2,                            // Stored as (1<<2) in the bit vector.
   kDeletingUndecryptablePasswords = 3,  // Stored as (1<<3) in the bit vector.
-  kMaxValue = kDeletingUndecryptablePasswords,
+  kDeleteAllPasswordManagerData = 4,    // Stored as (1<<4) in the bit vector.
+  kMaxValue = kDeleteAllPasswordManagerData,
 };
 
 std::string GetPasswordAccountStorageUsageLevelHistogramSuffix(
@@ -864,11 +892,14 @@ void LogPasswordSettingsReauthResult(device_reauth::ReauthResult result);
 void LogDeleteUndecryptableLoginsReturnValue(
     DeleteCorruptedPasswordsResult result);
 
-// Log metrics about a newly saved password (e.g. whether a saved password was
-// generated).
-void LogNewlySavedPasswordMetrics(
+// Log metrics about a newly saved credential (e.g. whether it had a username).
+void LogNewlySavedPasswordMetrics(bool is_generated_password,
+                                  bool is_username_empty,
+                                  ukm::SourceId ukm_source_id);
+
+// Log whether a saved password value was generated.
+void LogIfSavedPasswordWasGenerated(
     bool is_generated_password,
-    bool is_username_empty,
     password_manager::features_util::PasswordAccountStorageUsageLevel
         account_storage_usage_level,
     ukm::SourceId ukm_source_id);
@@ -969,10 +1000,14 @@ void AddPasswordRemovalReason(
     PasswordManagerCredentialRemovalReason removal_reason);
 
 // Emits histograms for the number of password and webauthn credentials in the
-// passwords popup / dropdown.
+// passwords popup / dropdown. Also emits a user action for the displayed
+// dropdown.
 void MaybeLogMetricsForPasswordAndWebauthnCounts(
     const std::vector<autofill::Suggestion>& suggestions,
     bool is_for_webauthn_request);
+
+// Emits a user action that the dropdown was hidden.
+void LogPasswordDropdownHidden();
 
 }  // namespace password_manager::metrics_util
 

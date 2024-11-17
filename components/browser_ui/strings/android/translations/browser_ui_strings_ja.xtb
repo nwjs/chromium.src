@@ -49,6 +49,7 @@
 <translation id="1979673356880165407">アクセスしたすべてのサイトでテキストと画像を拡大または縮小して表示します</translation>
 <translation id="1984937141057606926">サードパーティ以外は許可</translation>
 <translation id="1985247341569771101">オンにすると、サイトはデバイスのモーション センサーを使用できます。オフにすると、サイトはモーション センサーを使用できません。</translation>
+<translation id="1985716030964443178">リストのすべてのサイトがデフォルトのズームにリセットされます</translation>
 <translation id="1989112275319619282">閲覧</translation>
 <translation id="1994173015038366702">サイトの URL</translation>
 <translation id="2004697686368036666">一部のサイトで機能を使用できなくなる可能性があります</translation>
@@ -86,27 +87,29 @@
 <translation id="244264527810019436">シークレット モードでは、一部サイトの機能が使用できなくなる可能性があります</translation>
 <translation id="2442870161001914531">常に PC 版サイトを表示する</translation>
 <translation id="2469312991797799607">この操作を行うと、<ph name="ORIGIN" /> とそのドメインの全サイトのデータと Cookie がすべて削除されます</translation>
-<translation id="2479148705183875116">設定に移動</translation>
 <translation id="2482878487686419369">通知</translation>
 <translation id="2485422356828889247">アンインストール</translation>
 <translation id="2490684707762498678"><ph name="APP_NAME" /> で管理</translation>
 <translation id="2498359688066513246">ヘルプとフィードバック</translation>
 <translation id="2501278716633472235">戻る</translation>
 <translation id="2546283357679194313">Cookie とサイトデータ</translation>
-<translation id="2550150772722917524">タブグループで整理整頓</translation>
 <translation id="2570922361219980984">位置情報へのアクセスがデバイスでもオフになっています。<ph name="BEGIN_LINK" />Android の設定<ph name="END_LINK" />でオンにしてください。</translation>
 <translation id="257931822824936280">展開されています - クリックすると折りたたまれます。</translation>
 <translation id="2586657967955657006">クリップボード</translation>
+<translation id="2588271083332682494">タブグループで整理整頓</translation>
 <translation id="2597457036804169544">ダークモードをサイトに適用しません</translation>
 <translation id="2606760465469169465">自動確認</translation>
 <translation id="2621115761605608342">特定のサイトに対して JavaScript を許可します。</translation>
 <translation id="2653659639078652383">送信</translation>
 <translation id="2677748264148917807">このページを離れる</translation>
 <translation id="2678468611080193228">サードパーティ Cookie を一時的に許可してみてください。保護の強度は低下しますが、サイトの機能が動作する可能性が高くなります</translation>
+<translation id="2682367912565197520">保存したズームレベルを削除</translation>
 <translation id="2683434792633810741">削除してリセットしますか？</translation>
 <translation id="2713106313042589954">カメラをオフにする</translation>
 <translation id="2717722538473713889">メールアドレス</translation>
+<translation id="2726059656860238749">アドレスバーにフォーカスを置いた状態で Chrome を起動し、ローエンド デバイスの起動時間を短縮します。</translation>
 <translation id="2750481671343847896">サイトで ID サービスからのログイン メッセージを表示できるようにします。</translation>
+<translation id="2787357173144933081">ジャンプスタート アドレスバー</translation>
 <translation id="2790501146643349491">オンにすると、最近閉じたサイトのデータの送受信を完了できます。オフにすると、最近閉じたサイトのデータの送受信を完了できません。</translation>
 <translation id="2822354292072154809">「<ph name="CHOSEN_OBJECT_NAME" />」に関するすべてのサイト権限をリセットしてもよろしいですか？</translation>
 <translation id="2850913818900871965">モバイルビューをリクエストする</translation>
@@ -125,6 +128,7 @@
 <translation id="3069226013421428034">特定のサイトのサードパーティのログインを許可します。</translation>
 <translation id="310297983047869047">前のスライド</translation>
 <translation id="3109724472072898302">折りたたみ表示中</translation>
+<translation id="310979712355504754">すべて削除</translation>
 <translation id="3114012059975132928">動画プレーヤー</translation>
 <translation id="3115898365077584848">情報を表示</translation>
 <translation id="3123473560110926937">一部のサイトでブロックされています</translation>
@@ -138,11 +142,13 @@
 <translation id="3242646949159196181">オンにすると、サイトは音声を再生できます。オフにすると、サイトは音声を再生できません。</translation>
 <translation id="3273479183583863618">タブの値下げ情報</translation>
 <translation id="3277252321222022663">サイトによるセンサーへのアクセスを許可する（推奨）</translation>
+<translation id="327891165872793509">Chrome はほとんどのサイトに対してサードパーティ Cookie の使用を制限し、ブラウジング中のユーザーをトラッキングできないようにしています。<ph name="BEGIN_LINK" />サードパーティ Cookie へのアクセスを管理<ph name="END_LINK" />するには、設定に移動してください。</translation>
 <translation id="3285500645985761267">関連サイトにグループ内のアクティビティの確認を許可する</translation>
 <translation id="3295019059349372795">第 11 章: オズの不思議なエメラルド シティ</translation>
 <translation id="3295602654194328831">情報を表示しない</translation>
 <translation id="3328801116991980348">サイト情報</translation>
 <translation id="3333961966071413176">すべての連絡先</translation>
+<translation id="3360338140203645771">保存したズームレベルを削除しますか？</translation>
 <translation id="3362437373201486687">Bluetooth デバイスをスキャンしています</translation>
 <translation id="3386292677130313581">サイトに現在地の認識を許可する前に確認する（推奨）</translation>
 <translation id="3403537308306431953"><ph name="ZOOM_LEVEL" />%%</translation>
@@ -168,7 +174,6 @@
 <translation id="3744111561329211289">バックグラウンド同期</translation>
 <translation id="3763247130972274048">動画の左または右をダブルタップすると 10 秒スキップします</translation>
 <translation id="3779154269823594982">パスワードを変更</translation>
-<translation id="3788473868867338588">関連するページをグループ化できます。グループは保存され、すべてのデバイスで更新されます。</translation>
 <translation id="3797520601150691162">ダークモードを特定のサイトに適用しません</translation>
 <translation id="3803367742635802571">アクセスするサイトが想定どおりに機能しなくなる可能性があります</translation>
 <translation id="3804247818991980532"><ph name="TYPE_1" />。<ph name="TYPE_2" />。</translation>
@@ -209,6 +214,7 @@
 <translation id="4338831206024587507"><ph name="DOMAIN" /> のすべてのサイト</translation>
 <translation id="4402755511846832236">サイトによるこのデバイスのアクティブ状態の検出をブロックする</translation>
 <translation id="4412992751769744546">サードパーティの Cookie を許可する</translation>
+<translation id="4419929467120297501">Chrome では、サードパーティ Cookie の使用を制限し、ブラウジング中のユーザーをトラッキングできないようにしています。<ph name="BEGIN_LINK" />サードパーティ Cookie へのアクセスを管理<ph name="END_LINK" />するには、設定に移動してください。</translation>
 <translation id="4434045419905280838">ポップアップとリダイレクト</translation>
 <translation id="443552056913301231">この操作を行うと、Cookie を含むすべてのローカルデータが削除され、<ph name="ORIGIN" /> のすべての権限がリセットされます</translation>
 <translation id="4468959413250150279">特定のサイトの音声をミュートします。</translation>
@@ -230,15 +236,16 @@
 <translation id="4779083564647765204">ズーム</translation>
 <translation id="4807122856660838973">セーフ ブラウジングをオンにする</translation>
 <translation id="4811450222531576619">ソースとトピックの詳細</translation>
+<translation id="4816495437032298535">サイトの保存済みズーム</translation>
 <translation id="4836046166855586901">サイトからこのデバイスのアクティブ状態の検出を求められたときに確認する</translation>
 <translation id="483914009762354899">このドメインのすべてのサイトを含める</translation>
 <translation id="4883854917563148705">管理者による設定はリセットできません</translation>
 <translation id="4887024562049524730">サイトにバーチャル リアリティ デバイスとデータの使用を許可する前に確認する（推奨）</translation>
+<translation id="4936863036653376783">グループは、お使いのすべてのデバイスのタブグループ セクションに表示されます</translation>
 <translation id="4953688446973710931">オンにすると、サイトは複数のファイルの自動ダウンロードを要求できます。オフにすると、サイトは複数のファイルを自動ダウンロードできません。</translation>
 <translation id="4962975101802056554">デバイスのすべての権限を取り消します</translation>
 <translation id="497421865427891073">次に進む</translation>
 <translation id="4976702386844183910">最終アクセス日: <ph name="DATE" /></translation>
-<translation id="4985206706500620449">このサイトのサードパーティ Cookie を許可しました</translation>
 <translation id="4994033804516042629">連絡先が見つかりませんでした</translation>
 <translation id="4996978546172906250">共有方法</translation>
 <translation id="5001526427543320409">サードパーティ Cookie</translation>
@@ -265,6 +272,7 @@
 <translation id="5246825184569358663">この操作を行うと、Cookie を含むすべてのローカルデータが削除され、<ph name="DOMAIN" /> とその下にある全サイトの全権限がリセットされます</translation>
 <translation id="5264323282659631142"><ph name="CHIP_LABEL" /> を削除</translation>
 <translation id="528192093759286357">全画面表示を終了するには、上からドラッグして、戻るボタンをタップします。</translation>
+<translation id="5292915569214461965">ブラウジング中にトラッキングされないように、サイトによるサードパーティ Cookie の使用をブロックしました。<ph name="BEGIN_LINK" />サードパーティ Cookie へのアクセスを管理<ph name="END_LINK" />するには、設定に移動してください。</translation>
 <translation id="5295729974480418933">オンにすると、サイトはユーザーに関して保存した情報の使用を要求できます。オフにすると、サイトはユーザーに関して保存した情報の使用を要求できません。</translation>
 <translation id="5300589172476337783">表示</translation>
 <translation id="5301954838959518834">OK</translation>
@@ -287,6 +295,7 @@
 <translation id="5553374991681107062">最新</translation>
 <translation id="5556459405103347317">再読み込み</translation>
 <translation id="5591840828808741583"><ph name="SITE_NAME" /> をブロックしました</translation>
+<translation id="560980142378233747">この場合、サイトの機能は想定どおりに動作しますが、ブラウジング保護の強度が低くなる可能性があります。<ph name="BEGIN_LINK" />フィードバックを送信<ph name="END_LINK" /></translation>
 <translation id="5632485077360054581">手順を見る</translation>
 <translation id="5649053991847567735">自動ダウンロード</translation>
 <translation id="5668404140385795438">ウェブサイトのズーム防止リクエストを上書きします</translation>
@@ -354,6 +363,7 @@
 <translation id="6527303717912515753">共有</translation>
 <translation id="652937045869844725">サードパーティ Cookie を許可してみてください。保護の強度は低下しますが、サイトの機能が動作する可能性が高くなります</translation>
 <translation id="6530703012083415527">オンにすると、サイトはポップアップとリダイレクトを使用できます。オフにすると、サイトはポップアップとリダイレクトを使用できません。</translation>
+<translation id="6540488083026747005">このサイトのサードパーティ Cookie を許可しました</translation>
 <translation id="6545864417968258051">Bluetooth のスキャン</translation>
 <translation id="6552800053856095716">{PERMISSIONS_SUMMARY_BLOCKED,plural, =1{<ph name="PERMISSION_1" />、<ph name="PERMISSION_2" />、他 <ph name="NUM_MORE" /> 個の権限がブロックされています}other{<ph name="PERMISSION_1" />、<ph name="PERMISSION_2" />、他 <ph name="NUM_MORE" /> 個の権限がブロックされています}}</translation>
 <translation id="6554732001434021288">最終アクセス日: <ph name="NUM_DAYS" /> 日前</translation>
@@ -370,7 +380,6 @@
 <translation id="6697925417670533197">アクティブなダウンロード</translation>
 <translation id="6709432001666529933">サイトにハンド トラッキングを許可する前に確認する（推奨）</translation>
 <translation id="6722828510648505498">ID サービスからのログイン メッセージをブロックします。</translation>
-<translation id="6729704574271585059">作成したグループはタブグループ セクションに保存され、お使いのすべてのデバイスに反映されます</translation>
 <translation id="6746124502594467657">下に移動</translation>
 <translation id="6749077623962119521">権限をリセットしますか？</translation>
 <translation id="6766622839693428701">閉じるには下にスワイプします。</translation>
@@ -381,6 +390,7 @@
 <translation id="6840760312327750441">タブをグループ化するには、タブを押しながら別のタブにドラッグします。</translation>
 <translation id="6864395892908308021">このデバイスでは NFC を読み込めません</translation>
 <translation id="6870169401250095575">安全チェックカードを非表示にする</translation>
+<translation id="6900883974539674431">タブグループを作成すると、お使いのすべてのデバイスで自動的に保存され、更新されます</translation>
 <translation id="6912998170423641340">サイトによるクリップボードのテキストや画像の読み取りをブロックする</translation>
 <translation id="6945221475159498467">選択</translation>
 <translation id="6950072572526089586">アクセスしたサイトで、想定どおりに機能するよう（サイトへのログイン状態を保持する、ショッピング カートに商品を保存するなど）、行った操作に関する情報が保存されることがあります。多くの場合、こうした情報はデバイスに一時的に保存されます。</translation>
@@ -408,7 +418,6 @@
 <translation id="7250468141469952378"><ph name="ITEM_COUNT" /> 件選択されています</translation>
 <translation id="7260727271532453612"><ph name="PERMISSION_1" />、<ph name="PERMISSION_2" />を許可</translation>
 <translation id="7276071417425470385">オンにすると、サイトはバーチャル リアリティ デバイスの使用を要求できます。オフにすると、サイトはバーチャル リアリティ デバイスを使用できません。</translation>
-<translation id="7284451015630589124">ブラウジング中にトラッキングされないように、サイトによるサードパーティ Cookie の使用をブロックしました。<ph name="BEGIN_LINK" />トラッキング防止機能を管理<ph name="END_LINK" />するには、設定にアクセスしてください。</translation>
 <translation id="7302486331832100261">通知はデフォルトでブロックされています。許可するには [詳細] をタップしてください。</translation>
 <translation id="7366415735885268578">サイトの追加</translation>
 <translation id="7368695150573390554">オフライン データがすべて削除されます</translation>
@@ -418,7 +427,6 @@
 <translation id="7423098979219808738">最初に確認する</translation>
 <translation id="7423538860840206698">クリップボードの読み取りがブロックされています</translation>
 <translation id="7425915948813553151">サイトのダークモード</translation>
-<translation id="7474522811371247902">Chrome ではほとんどのサイトに対してサードパーティ Cookie の使用を制限しています。しかしこのサイトでは、基本的なサービスの提供にサードパーティ Cookie を使用しているため許可されています。\n\n<ph name="BEGIN_LINK" />トラッキング防止機能を管理する<ph name="END_LINK" />には、設定に移動してください。</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7547989957535180761">オンにすると、サイトはログイン メッセージを表示できます。オフにすると、サイトはログイン メッセージを表示できません。</translation>
 <translation id="7554752735887601236">サイトでマイクが使用されています</translation>
@@ -439,10 +447,10 @@
 <translation id="780301667611848630">キャンセル</translation>
 <translation id="7804248752222191302">サイトでカメラが使用されています</translation>
 <translation id="7807060072011926525">Google から提供</translation>
-<translation id="7822573154188733812">Chrome では、サードパーティ Cookie の使用を制限し、ブラウジング中のユーザーをトラッキングできないようにしています。<ph name="BEGIN_LINK" />トラッキング防止機能を管理<ph name="END_LINK" />するには、設定にアクセスしてください。</translation>
 <translation id="7835852323729233924">再生中のメディア</translation>
 <translation id="783819812427904514">動画のミュートを解除</translation>
 <translation id="7846076177841592234">選択解除</translation>
+<translation id="7881140103901777395">Chrome ではほとんどのサイトに対してサードパーティ Cookie の使用を制限しています。しかしこのサイトでは、基本的なサービスの提供に使用されているため、サードパーティ Cookie が許可されています。\n\n<ph name="BEGIN_LINK" />サードパーティ Cookie へのアクセスを管理する<ph name="END_LINK" />には、設定に移動してください。</translation>
 <translation id="7882806643839505685">特定のサイトに対して音声の再生を許可します。</translation>
 <translation id="789180354981963912">シークレット モードでサードパーティの Cookie をブロックする:</translation>
 <translation id="7940722705963108451">リマインダーの設定</translation>
@@ -495,7 +503,6 @@
 <translation id="857943718398505171">許可（推奨）</translation>
 <translation id="8609465669617005112">上に移動</translation>
 <translation id="8617611086246832542">オンにすると、ウェブサイトのデスクトップ ビューが表示されます。オフにすると、ウェブサイトのモバイルビューが表示されます。</translation>
-<translation id="8649036394979866943">Chrome はほとんどのサイトに対してサードパーティ Cookie の使用を制限し、ブラウジング中のユーザーをトラッキングできないようにしています。<ph name="BEGIN_LINK" />トラッキング防止機能を管理<ph name="END_LINK" />するには、設定にアクセスしてください</translation>
 <translation id="8676316391139423634">オンにすると、サイトはハンド トラッキングを要求できます。オフにすると、サイトはハンド トラッキングを要求できません。</translation>
 <translation id="8676374126336081632">入力内容を消去</translation>
 <translation id="8681886425883659911">煩わしい広告や誤解を招く広告が表示されることがわかっているサイトで広告がブロックされます</translation>
@@ -506,6 +513,7 @@
 <translation id="8721719390026067591">オンにすると、サイトは Bluetooth デバイスの検出を要求できます。オフにすると、サイトは Bluetooth デバイスを検出できません。</translation>
 <translation id="8725066075913043281">もう一度試す</translation>
 <translation id="8730621377337864115">完了</translation>
+<translation id="8737426583868847403">カスタムのズームレベルを保存したサイトがここに表示されます</translation>
 <translation id="8751914237388039244">画像を選択</translation>
 <translation id="8800034312320686233">サイトが動作していない場合</translation>
 <translation id="8801436777607969138">特定のサイトで JavaScript をブロックします。</translation>

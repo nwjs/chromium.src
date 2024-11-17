@@ -47,9 +47,6 @@ class AutofillOfferData;
 class AutofillOfferManager;
 class AutofillSaveCardBottomSheetBridge;
 class AutofillSaveIbanBottomSheetBridge;
-#if BUILDFLAG(IS_ANDROID)
-class AutofillSnackbarControllerImpl;
-#endif  // BUILDFLAG(IS_ANDROID)
 class CardUnmaskAuthenticationSelectionDialogControllerImpl;
 struct CardUnmaskChallengeOption;
 class CardUnmaskOtpInputDialogControllerImpl;
@@ -212,9 +209,6 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
       override;
 
 #if BUILDFLAG(IS_ANDROID)
-  // The AutofillSnackbarController is used to show a snackbar notification
-  // on Android.
-  AutofillSnackbarControllerImpl& GetAutofillSnackbarController();
   // The AutofillMessageController is used to show a message notification
   // on Android.
   AutofillMessageController& GetAutofillMessageController();
@@ -241,9 +235,9 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
       std::unique_ptr<AutofillSaveCardBottomSheetBridge>
           autofill_save_card_bottom_sheet_bridge);
 
-  void SetAutofillSnackbarControllerImplForTesting(
-      std::unique_ptr<AutofillSnackbarControllerImpl>
-          autofill_snackbar_controller_impl);
+  void SetAutofillSaveIbanBottomSheetBridgeForTesting(
+      std::unique_ptr<AutofillSaveIbanBottomSheetBridge>
+          autofill_save_iban_bottom_sheet_bridge);
 
   void SetAutofillMessageControllerForTesting(
       std::unique_ptr<AutofillMessageController> autofill_message_controller);
@@ -274,9 +268,6 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
 
   std::unique_ptr<AutofillSaveIbanBottomSheetBridge>
       autofill_save_iban_bottom_sheet_bridge_;
-
-  std::unique_ptr<AutofillSnackbarControllerImpl>
-      autofill_snackbar_controller_impl_;
 
   std::unique_ptr<AutofillMessageController> autofill_message_controller_;
 

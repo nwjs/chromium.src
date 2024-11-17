@@ -130,10 +130,10 @@ public abstract class OverlayPanelAnimation extends OverlayPanelBase {
         // We support resize from any full width to full width, or from narrow width to narrow width
         // when the width does not change (as when the keyboard is shown/hidden).
         boolean isPanelResizeSupported =
-                isFullWidthSizePanel && wasFullWidthSizePanel
-                        || !isFullWidthSizePanel
+                (isFullWidthSizePanel && wasFullWidthSizePanel)
+                        || (!isFullWidthSizePanel
                                 && !wasFullWidthSizePanel
-                                && width == previousWidth;
+                                && width == previousWidth);
 
         // TODO(pedrosimonetti): See crbug.com/568351.
         // We can't keep the panel opened after a viewport size change when the panel's
@@ -270,7 +270,8 @@ public abstract class OverlayPanelAnimation extends OverlayPanelBase {
      * @return The projected state the Panel will be if the given velocity is applied.
      */
     protected @PanelState int getProjectedState(float velocity) {
-        final float kickY = calculateAnimationDisplacement(velocity, BASE_ANIMATION_DURATION_MS);
+        final float kickY =
+                calculateAnimationDisplacement(velocity, (float) BASE_ANIMATION_DURATION_MS);
         final float projectedHeight = getHeight() - kickY;
 
         // Calculate the projected state the Panel will be at the end of the fling movement and the

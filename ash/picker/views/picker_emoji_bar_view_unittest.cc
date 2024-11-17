@@ -8,11 +8,11 @@
 #include <string>
 
 #include "ash/picker/model/picker_action_type.h"
+#include "ash/picker/picker_search_result.h"
 #include "ash/picker/picker_test_util.h"
 #include "ash/picker/views/picker_emoji_bar_view_delegate.h"
 #include "ash/picker/views/picker_emoji_item_view.h"
 #include "ash/picker/views/picker_pseudo_focus.h"
-#include "ash/public/cpp/picker/picker_search_result.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/ash_color_provider.h"
 #include "ash/style/icon_button.h"
@@ -54,6 +54,7 @@ class MockEmojiBarViewDelegate : public PickerEmojiBarViewDelegate {
               SelectSearchResult,
               (const PickerSearchResult&),
               (override));
+  MOCK_METHOD(void, ToggleGifs, (), (override));
   MOCK_METHOD(void, ShowEmojiPicker, (ui::EmojiPickerCategory), (override));
 };
 
@@ -241,8 +242,7 @@ TEST_F(PickerEmojiBarViewTest, ClickingGifsButton) {
           &mock_delegate, kPickerWidth, /*is_gifs_enabled=*/true));
   widget->Show();
 
-  EXPECT_CALL(mock_delegate, ShowEmojiPicker(ui::EmojiPickerCategory::kGifs))
-      .Times(1);
+  EXPECT_CALL(mock_delegate, ToggleGifs()).Times(1);
 
   ViewDrawnWaiter().Wait(emoji_bar->gifs_button_for_testing());
   LeftClickOn(*emoji_bar->gifs_button_for_testing());

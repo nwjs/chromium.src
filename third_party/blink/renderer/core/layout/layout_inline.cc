@@ -265,9 +265,7 @@ void LayoutInline::UpdateShouldCreateBoxFragment() {
   }
 }
 
-PhysicalRect LayoutInline::LocalCaretRect(
-    int,
-    LayoutUnit* extra_width_to_end_of_line) const {
+PhysicalRect LayoutInline::LocalCaretRect(int) const {
   NOT_DESTROYED();
   if (FirstChild()) {
     // This condition is possible if the LayoutInline is at an editing boundary,
@@ -279,11 +277,8 @@ PhysicalRect LayoutInline::LocalCaretRect(
     return PhysicalRect();
   }
 
-  if (extra_width_to_end_of_line)
-    *extra_width_to_end_of_line = LayoutUnit();
-
-  LogicalRect logical_caret_rect = LocalCaretRectForEmptyElement(
-      BorderAndPaddingLogicalWidth(), LayoutUnit());
+  LogicalRect logical_caret_rect =
+      LocalCaretRectForEmptyElement(BorderAndPaddingInlineSize(), LayoutUnit());
 
   if (IsInLayoutNGInlineFormattingContext()) {
     InlineCursor cursor;
@@ -761,21 +756,6 @@ PhysicalRect LayoutInline::LinesVisualOverflowBoundingBox() const {
       result.Unite(child_rect);
     }
     return result;
-  }
-  return PhysicalRect();
-}
-
-PhysicalRect LayoutInline::VisualRectInDocument(VisualRectFlags flags) const {
-  NOT_DESTROYED();
-  PhysicalRect rect = VisualOverflowRect();
-  MapToVisualRectInAncestorSpace(View(), rect, flags);
-  return rect;
-}
-
-PhysicalRect LayoutInline::LocalVisualRectIgnoringVisibility() const {
-  NOT_DESTROYED();
-  if (IsInLayoutNGInlineFormattingContext()) {
-    return FragmentItem::LocalVisualRectFor(*this);
   }
   return PhysicalRect();
 }

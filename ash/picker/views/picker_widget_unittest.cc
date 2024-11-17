@@ -53,6 +53,7 @@ class FakePickerViewDelegate : public PickerViewDelegate {
                        std::u16string_view query) override {}
   void ShowEditor(std::optional<std::string> preset_query_id,
                   std::optional<std::string> freeform_text) override {}
+  void ShowLobster(std::optional<std::string> freeform_text) override {}
   PickerAssetFetcher* GetAssetFetcher() override { return nullptr; }
   PickerSessionMetrics& GetSessionMetrics() override {
     return session_metrics_;
@@ -125,6 +126,8 @@ TEST_F(PickerWidgetTest, LosingFocusClosesPickerWidget) {
   EXPECT_TRUE(window->HasFocus());
 
   EXPECT_TRUE(picker_widget->IsClosed());
+  EXPECT_EQ(delegate.GetSessionMetrics().GetOutcomeForTesting(),
+            PickerSessionMetrics::SessionOutcome::kAbandoned);
 }
 
 TEST_F(PickerWidgetTest, PreviewBubbleDoesNotStealFocusPickerWidget) {

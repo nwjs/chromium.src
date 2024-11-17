@@ -209,7 +209,7 @@ class MahiPanelViewTest : public AshTestBase {
 
   MahiUiController* ui_controller() { return &ui_controller_; }
 
-  MockNewWindowDelegate& new_window_delegate() { return *new_window_delegate_; }
+  MockNewWindowDelegate& new_window_delegate() { return new_window_delegate_; }
 
   MahiPanelView* panel_view() { return panel_view_; }
 
@@ -222,11 +222,6 @@ class MahiPanelViewTest : public AshTestBase {
         /*enabled_features=*/{chromeos::features::kMahi,
                               chromeos::features::kFeatureManagementMahi},
         /*disabled_features=*/{});
-
-    auto delegate = std::make_unique<MockNewWindowDelegate>();
-    new_window_delegate_ = delegate.get();
-    delegate_provider_ =
-        std::make_unique<TestNewWindowDelegateProvider>(std::move(delegate));
 
     AshTestBase::SetUp();
 
@@ -242,8 +237,6 @@ class MahiPanelViewTest : public AshTestBase {
     scoped_setter_.reset();
 
     AshTestBase::TearDown();
-
-    new_window_delegate_ = nullptr;
   }
 
   // Creates a widget hosting `MahiPanelView`. Recreates if there is one.
@@ -286,8 +279,7 @@ class MahiPanelViewTest : public AshTestBase {
   MahiUiController ui_controller_;
   raw_ptr<MahiPanelView> panel_view_ = nullptr;
   std::unique_ptr<views::Widget> widget_;
-  raw_ptr<MockNewWindowDelegate> new_window_delegate_;
-  std::unique_ptr<TestNewWindowDelegateProvider> delegate_provider_;
+  MockNewWindowDelegate new_window_delegate_;
 };
 
 // Checks that the summary text is set correctly in ctor with different texts.
@@ -1995,6 +1987,78 @@ TEST_F(MahiPanelViewTest, FeedbackButtonsAllowed) {
             static_cast<views::Label*>(
                 panel_view()->GetViewByID(mahi_constants::ViewId::kFooterLabel))
                 ->GetText());
+}
+
+TEST_F(MahiPanelViewTest, FeedbackButtonResetWhenRefresh) {
+  IconButton* thumbs_up_button = views::AsViewClass<IconButton>(
+      panel_view()->GetViewByID(mahi_constants::ViewId::kThumbsUpButton));
+  IconButton* thumbs_down_button = views::AsViewClass<IconButton>(
+      panel_view()->GetViewByID(mahi_constants::ViewId::kThumbsDownButton));
+  EXPECT_FALSE(thumbs_up_button->toggled());
+  EXPECT_FALSE(thumbs_down_button->toggled());
+
+  LeftClickOn(thumbs_up_button);
+  EXPECT_TRUE(thumbs_up_button->toggled());
+  EXPECT_FALSE(thumbs_down_button->toggled());
+
+  // Test that the feedback button is reset when content is refreshed.
+  ui_controller()->RefreshContents();
+  EXPECT_FALSE(thumbs_up_button->toggled());
+  EXPECT_FALSE(thumbs_down_button->toggled());
+
+  LeftClickOn(thumbs_down_button);
+  EXPECT_FALSE(thumbs_up_button->toggled());
+  EXPECT_TRUE(thumbs_down_button->toggled());
+
+  ui_controller()->RefreshContents();
+  EXPECT_FALSE(thumbs_up_button->toggled());
+  EXPECT_FALSE(thumbs_down_button->toggled());
+}
+
+TEST_F(MahiPanelViewTest, FeedbackButtonsOnError) {
+  base::HistogramTester histogram_tester;
+
+  base::test::TestFuture<void> summary_waiter;
+  EXPECT_CALL(mock_mahi_manager(), GetSummary)
+      .WillOnce([&summary_waiter](
+                    chromeos::MahiManager::MahiSummaryCallback callback) {
+        ReturnDefaultSummaryAsyncly(summary_waiter,
+                                    MahiResponseStatus::kUnknownError,
+                                    std::move(callback));
+      });
+
+  CreatePanelWidget();
+
+  // Wait until the summary is loaded with an error.
+  ASSERT_TRUE(summary_waiter.Wait());
+
+  // Pressing thumbs up should toggle the button on and update the feedback
+  // histogram.
+  EXPECT_CALL(mock_mahi_manager(), OpenFeedbackDialog).Times(0);
+  IconButton* thumbs_up_button = views::AsViewClass<IconButton>(
+      panel_view()->GetViewByID(mahi_constants::ViewId::kThumbsUpButton));
+  LeftClickOn(thumbs_up_button);
+  Mock::VerifyAndClearExpectations(&mock_mahi_manager());
+
+  EXPECT_TRUE(thumbs_up_button->toggled());
+  histogram_tester.ExpectBucketCount(mahi_constants::kMahiFeedbackHistogramName,
+                                     true, 1);
+  histogram_tester.ExpectBucketCount(mahi_constants::kMahiFeedbackHistogramName,
+                                     false, 0);
+
+  // Pressing thumbs down the first time should open the feedback dialog, toggle
+  // the button off and update the feedback histogram.
+  EXPECT_CALL(mock_mahi_manager(), OpenFeedbackDialog).Times(1);
+  IconButton* thumbs_down_button = views::AsViewClass<IconButton>(
+      panel_view()->GetViewByID(mahi_constants::ViewId::kThumbsDownButton));
+  LeftClickOn(thumbs_down_button);
+  Mock::VerifyAndClearExpectations(&mock_mahi_manager());
+
+  EXPECT_TRUE(thumbs_down_button->toggled());
+  histogram_tester.ExpectBucketCount(mahi_constants::kMahiFeedbackHistogramName,
+                                     true, 1);
+  histogram_tester.ExpectBucketCount(mahi_constants::kMahiFeedbackHistogramName,
+                                     false, 1);
 }
 
 }  // namespace ash

@@ -721,10 +721,10 @@ ci.thin_tester(
         run_tests_serially = True,
     ),
     # Uncomment this entry when this experimental tester is actually in use.
-    console_view_entry = consoles.console_view_entry(
-        category = "ToT|Linux|Intel",
-        short_name = "exp",
-    ),
+    # console_view_entry = consoles.console_view_entry(
+    #     category = "ToT|Linux|Intel",
+    #     short_name = "exp",
+    # ),
     list_view = "chromium.gpu.experimental",
 )
 
@@ -1483,6 +1483,7 @@ ci.gpu.windows_builder(
 
 ci.gpu.windows_builder(
     name = "Dawn Win11 arm64 DEPS Builder",
+    branch_selector = branches.selector.WINDOWS_BRANCHES,
     description_html = "Compiles DEPSed binaries for Windows/ARM64",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(

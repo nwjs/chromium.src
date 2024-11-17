@@ -5,8 +5,8 @@
 #include "ash/picker/metrics/picker_session_metrics.h"
 
 #include "ash/constants/ash_pref_names.h"
-#include "ash/public/cpp/picker/picker_category.h"
-#include "ash/public/cpp/picker/picker_search_result.h"
+#include "ash/picker/picker_category.h"
+#include "ash/picker/picker_search_result.h"
 #include "base/functional/overloaded.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
@@ -109,6 +109,8 @@ cros_events::PickerAction ConvertToCrosEventAction(
       return cros_events::PickerAction::OPEN_EDITOR_WRITE;
     case PickerCategory::kEditorRewrite:
       return cros_events::PickerAction::OPEN_EDITOR_REWRITE;
+    case PickerCategory::kLobster:
+      return cros_events::PickerAction::OPEN_LOBSTER;
     case PickerCategory::kLinks:
       return cros_events::PickerAction::OPEN_LINKS;
     case PickerCategory::kEmojisGifs:
@@ -155,6 +157,9 @@ cros_events::PickerResultSource GetResultSource(
           [](const PickerClipboardResult& data) {
             return cros_events::PickerResultSource::CLIPBOARD;
           },
+          [](const PickerGifResult& data) {
+            return cros_events::PickerResultSource::TENOR;
+          },
           [](const PickerBrowsingHistoryResult& data) {
             return cros_events::PickerResultSource::OMNIBOX;
           },
@@ -169,6 +174,7 @@ cros_events::PickerResultSource GetResultSource(
             NOTREACHED();
           },
           [](const PickerEditorResult& data) -> ReturnType { NOTREACHED(); },
+          [](const PickerLobsterResult& data) -> ReturnType { NOTREACHED(); },
           [](const PickerNewWindowResult& data) -> ReturnType {
             return cros_events::PickerResultSource::UNKNOWN;
           },
@@ -208,13 +214,15 @@ cros_events::PickerResultType GetResultType(
               case PickerClipboardResult::DisplayFormat::kFile:
                 return cros_events::PickerResultType::CLIPBOARD_FILE;
               case PickerClipboardResult::DisplayFormat::kText:
-              case PickerClipboardResult::DisplayFormat::kUrl:
                 return cros_events::PickerResultType::CLIPBOARD_TEXT;
               case PickerClipboardResult::DisplayFormat::kImage:
                 return cros_events::PickerResultType::CLIPBOARD_IMAGE;
               case PickerClipboardResult::DisplayFormat::kHtml:
                 return cros_events::PickerResultType::CLIPBOARD_HTML;
             }
+          },
+          [](const PickerGifResult& data) {
+            return cros_events::PickerResultType::GIF;
           },
           [](const PickerBrowsingHistoryResult& data) {
             return cros_events::PickerResultType::LINK;
@@ -230,6 +238,7 @@ cros_events::PickerResultType GetResultType(
             NOTREACHED();
           },
           [](const PickerEditorResult& data) -> ReturnType { NOTREACHED(); },
+          [](const PickerLobsterResult& data) -> ReturnType { NOTREACHED(); },
           [](const PickerNewWindowResult& data) -> ReturnType {
             return cros_events::PickerResultType::UNKNOWN;
           },

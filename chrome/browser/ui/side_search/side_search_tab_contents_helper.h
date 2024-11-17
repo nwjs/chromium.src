@@ -49,13 +49,6 @@ class SideSearchTabContentsHelper
     virtual void OpenSidePanel() = 0;
   };
 
-  // Holds state reflecting the current current navigation that is the result of
-  // a redirect from the side panel to this helper's tab.
-  struct SidePanelRedirectInfo {
-    GURL initiated_redirect_url;
-    bool initiated_via_link;
-  };
-
   ~SideSearchTabContentsHelper() override;
 
   // SideContentsWrapper::Delegate:
@@ -83,8 +76,6 @@ class SideSearchTabContentsHelper
                            ui::PageTransition transition,
                            bool started_from_context_menu,
                            bool renderer_initiated) override;
-  void DidStartNavigation(
-      content::NavigationHandle* navigation_handle) override;
   void DidFinishNavigation(
       content::NavigationHandle* navigation_handle) override;
 
@@ -116,11 +107,6 @@ class SideSearchTabContentsHelper
 
   void SetDelegate(base::WeakPtr<Delegate> delegate);
 
-  const std::optional<SidePanelRedirectInfo>&
-  side_panel_initiated_redirect_info() const {
-    return side_panel_initiated_redirect_info_;
-  }
-
   int returned_to_previous_srp_count() const {
     return returned_to_previous_srp_count_;
   }
@@ -136,14 +122,6 @@ class SideSearchTabContentsHelper
   }
 
   const std::optional<GURL>& last_search_url() { return last_search_url_; }
-
-  // Takes the search URL passed from context menu and opens search results in
-  // side panel.
-  void OpenSidePanelFromContextMenuSearch(const GURL& url);
-
-  // Returns true when the side panel can be actually opened from context menu
-  // option.
-  bool CanShowSidePanelFromContextMenuSearch();
 
  private:
   friend class content::WebContentsUserData<SideSearchTabContentsHelper>;
@@ -181,13 +159,6 @@ class SideSearchTabContentsHelper
   // A flag to track whether the current tab has its side panel toggled open.
   // Only used with the kSideSearchStatePerTab flag.
   bool toggled_open_ = false;
-
-  // Tracks the URL and initiation state for the side panel initiated redirect.
-  // This is used to determine if any redirects that follow belong to the
-  // initial redirected request from the side panel. It is not sufficient to
-  // rely on NavigationHandles as redirects may be client initiated and new
-  // NavigationHandles are created in these cases.
-  std::optional<SidePanelRedirectInfo> side_panel_initiated_redirect_info_;
 
   // The side panel contents associated with this tab contents.
   // TODO(tluk): Update the way we manage the `side_panel_contents_` to avoid

@@ -13,6 +13,8 @@
 #include "ash/picker/picker_controller.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
+#include "base/test/bind.h"
+#include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/ash/app_list/search/test/test_ranker_manager.h"
@@ -42,6 +44,7 @@
 #include "components/history/core/browser/history_database_params.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/history/core/test/test_history_database.h"
+#include "components/omnibox/browser/autocomplete_provider.h"
 #include "components/user_manager/fake_user_manager.h"
 #include "content/public/test/test_utils.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -64,15 +67,11 @@ using ::testing::Contains;
 using ::testing::Field;
 using ::testing::IsEmpty;
 using ::testing::IsSupersetOf;
-using ::testing::NiceMock;
 using ::testing::Not;
 using ::testing::Property;
 using ::testing::SizeIs;
 using ::testing::UnorderedElementsAre;
 using ::testing::VariantWith;
-
-using MockSearchResultsCallback =
-    testing::MockFunction<PickerClientImpl::CrosSearchResultsCallback>;
 
 namespace fmp = extensions::api::file_manager_private;
 
@@ -105,10 +104,10 @@ bool CreateTestFile(const base::FilePath& path) {
 }
 
 std::unique_ptr<KeyedService> BuildTestHistoryService(
-    base::FilePath profile_path,
     content::BrowserContext* context) {
+  Profile* profile = Profile::FromBrowserContext(context);
   auto service = std::make_unique<history::HistoryService>();
-  service->Init(history::TestHistoryDatabaseParamsForPath(profile_path));
+  service->Init(history::TestHistoryDatabaseParamsForPath(profile->GetPath()));
   return std::move(service);
 }
 
@@ -131,13 +130,12 @@ std::unique_ptr<KeyedService> BuildTestRecentModelFactory(
 }
 
 std::unique_ptr<KeyedService> BuildTestDriveIntegrationService(
-    const base::FilePath& profile_path,
     std::unique_ptr<drive::FakeDriveFsHelper>& fake_drivefs_helper,
     content::BrowserContext* context) {
   Profile* profile = Profile::FromBrowserContext(context);
 
   base::ScopedAllowBlockingForTesting allow_blocking;
-  base::FilePath mount_path = profile_path.Append("drivefs");
+  base::FilePath mount_path = profile->GetPath().Append("drivefs");
   static_cast<ash::disks::FakeDiskMountManager*>(
       ash::disks::DiskMountManager::GetInstance())
       ->RegisterMountPointForNetworkStorageScheme("drivefs",
@@ -197,7 +195,6 @@ class PickerClientImplTest : public BrowserWithTestWindowTest {
   PickerClientImplTest() = default;
 
   void SetUp() override {
-    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
     ash::CrosDisksClient::InitializeFake();
     ash::disks::DiskMountManager::InitializeForTesting(
         new ash::disks::FakeDiskMountManager());
@@ -219,6 +216,13 @@ class PickerClientImplTest : public BrowserWithTestWindowTest {
     return fake_drivefs_helper_->fake_drivefs();
   }
 
+  // Creates a user and profile for a given `email`. Note that this class will
+  // keep the ownership of the created object.
+  TestingProfile* CreateMultiUserProfile(const std::string& email) {
+    LogIn(email);
+    return CreateProfile(email);
+  }
+
   TestingProfile* CreateProfile(const std::string& profile_name) override {
     auto* profile = profile_manager()->CreateTestingProfile(
         profile_name, GetTestingFactories(), /*is_main_profile=*/false,
@@ -231,7 +235,7 @@ class PickerClientImplTest : public BrowserWithTestWindowTest {
     return {
         TestingProfile::TestingFactory{
             HistoryServiceFactory::GetInstance(),
-            base::BindRepeating(&BuildTestHistoryService, temp_dir_.GetPath())},
+            base::BindRepeating(&BuildTestHistoryService)},
         TestingProfile::TestingFactory{
             BookmarkModelFactory::GetInstance(),
             BookmarkModelFactory::GetDefaultFactory()},
@@ -245,7 +249,6 @@ class PickerClientImplTest : public BrowserWithTestWindowTest {
         TestingProfile::TestingFactory{
             drive::DriveIntegrationServiceFactory::GetInstance(),
             base::BindRepeating(&BuildTestDriveIntegrationService,
-                                temp_dir_.GetPath(),
                                 std::ref(fake_drivefs_helper_))},
         TestingProfile::TestingFactory{
             ash::input_method::EditorMediatorFactory::GetInstance(),
@@ -255,8 +258,7 @@ class PickerClientImplTest : public BrowserWithTestWindowTest {
 
   void LogIn(const std::string& email) override {
     // DriveFS needs the account to have an ID.
-    const AccountId account_id =
-        AccountId::FromUserEmailGaiaId(email, "test gaia");
+    const AccountId account_id = AccountId::FromUserEmailGaiaId(email, email);
     user_manager()->AddUser(account_id);
     ash_test_helper()->test_session_controller_client()->AddUserSession(email);
     user_manager()->UserLoggedIn(
@@ -266,12 +268,23 @@ class PickerClientImplTest : public BrowserWithTestWindowTest {
         /*is_child=*/false);
   }
 
+  void SwitchActiveUser(const std::string& email) override {
+    user_manager()->SwitchActiveUser(
+        AccountId::FromUserEmailGaiaId(email, email));
+  }
+
  private:
-  base::ScopedTempDir temp_dir_;
   scoped_refptr<network::SharedURLLoaderFactory>
       test_shared_url_loader_factory_;
   std::unique_ptr<drive::FakeDriveFsHelper> fake_drivefs_helper_;
 };
+
+TEST_F(PickerClientImplTest, GetsSharedURLLoaderFactory) {
+  ash::PickerController controller;
+  PickerClientImpl client(&controller, user_manager());
+
+  EXPECT_EQ(client.GetSharedURLLoaderFactory(), GetSharedURLLoaderFactory());
+}
 
 TEST_F(PickerClientImplTest, StartCrosSearch) {
   ash::PickerController controller;
@@ -286,12 +299,12 @@ TEST_F(PickerClientImplTest, StartCrosSearch) {
   ranker_manager->SetBestMatchString(u"tab");
   client.set_ranker_manager_for_test(std::move(ranker_manager));
 
-  NiceMock<MockSearchResultsCallback> mock_search_callback;
-  EXPECT_CALL(mock_search_callback, Call(_, _)).Times(AnyNumber());
+  base::MockCallback<PickerClientImpl::CrosSearchResultsCallback>
+      mock_search_callback;
+  EXPECT_CALL(mock_search_callback, Run(_, _)).Times(AnyNumber());
   EXPECT_CALL(
       mock_search_callback,
-      Call(
-          ash::AppListSearchResultType::kOmnibox,
+      Run(ash::AppListSearchResultType::kOmnibox,
           IsSupersetOf({
               VariantWith<ash::PickerBrowsingHistoryResult>(AllOf(
                   Field("url", &ash::PickerBrowsingHistoryResult::url,
@@ -314,10 +327,8 @@ TEST_F(PickerClientImplTest, StartCrosSearch) {
           })))
       .WillOnce([&]() { test_done.SetValue(); });
 
-  client.StartCrosSearch(
-      u"foo", /*category=*/std::nullopt,
-      base::BindRepeating(&MockSearchResultsCallback::Call,
-                          base::Unretained(&mock_search_callback)));
+  client.StartCrosSearch(u"foo", /*category=*/std::nullopt,
+                         mock_search_callback.Get());
 
   ASSERT_TRUE(test_done.Wait());
 }
@@ -327,16 +338,15 @@ TEST_F(PickerClientImplTest, IgnoresWhatYouTypedResults) {
   PickerClientImpl client(&controller, user_manager());
   base::test::TestFuture<void> test_done;
 
-  NiceMock<MockSearchResultsCallback> mock_search_callback;
-  EXPECT_CALL(mock_search_callback, Call(_, _)).Times(AnyNumber());
+  base::MockCallback<PickerClientImpl::CrosSearchResultsCallback>
+      mock_search_callback;
+  EXPECT_CALL(mock_search_callback, Run(_, _)).Times(AnyNumber());
   EXPECT_CALL(mock_search_callback,
-              Call(ash::AppListSearchResultType::kOmnibox, IsEmpty()))
+              Run(ash::AppListSearchResultType::kOmnibox, IsEmpty()))
       .WillOnce([&]() { test_done.SetValue(); });
 
-  client.StartCrosSearch(
-      u"a.com", /*category=*/std::nullopt,
-      base::BindRepeating(&MockSearchResultsCallback::Call,
-                          base::Unretained(&mock_search_callback)));
+  client.StartCrosSearch(u"a.com", /*category=*/std::nullopt,
+                         mock_search_callback.Get());
 
   ASSERT_TRUE(test_done.Wait());
 }
@@ -603,6 +613,69 @@ TEST_F(PickerClientImplTest,
                         GURL("https://mail.google.com")))));
 }
 
+TEST_F(PickerClientImplTest,
+       SearchAfterSwitchingActiveUserReturnsResultsFromNewUser) {
+  ash::PickerController controller;
+  PickerClientImpl client(&controller, user_manager());
+  TestingProfile* secondary_profile = CreateMultiUserProfile("secondary@test");
+  AddSearchToHistory(profile(), GURL("https://foo.com/primary"));
+  AddSearchToHistory(secondary_profile, GURL("https://foo.com/secondary"));
+  client.StartCrosSearch(u"foo", /*category=*/std::nullopt, base::DoNothing());
+  SwitchActiveUser("secondary@test");
+
+  base::test::TestFuture<std::vector<ash::PickerSearchResult>> result_future;
+  client.StartCrosSearch(
+      u"foo", /*category=*/std::nullopt,
+      base::BindLambdaForTesting(
+          [&result_future](ash::AppListSearchResultType result_type,
+                           std::vector<ash::PickerSearchResult> results) {
+            if (result_type == ash::AppListSearchResultType::kOmnibox) {
+              result_future.SetValue(std::move(results));
+            }
+          }));
+
+  const auto& results = result_future.Get();
+  ASSERT_THAT(results, Contains(VariantWith<ash::PickerBrowsingHistoryResult>(
+                           Field("url", &ash::PickerBrowsingHistoryResult::url,
+                                 GURL("https://foo.com/secondary")))));
+  ASSERT_THAT(results,
+              Not(Contains(VariantWith<ash::PickerBrowsingHistoryResult>(
+                  Field("url", &ash::PickerBrowsingHistoryResult::url,
+                        GURL("https://foo.com/primary"))))));
+}
+
+TEST_F(PickerClientImplTest,
+       SearchCategoryAfterSwitchingActiveUserReturnsResultsFromNewUser) {
+  ash::PickerController controller;
+  PickerClientImpl client(&controller, user_manager());
+  TestingProfile* secondary_profile = CreateMultiUserProfile("secondary@test");
+  AddSearchToHistory(profile(), GURL("https://foo.com/primary"));
+  AddSearchToHistory(secondary_profile, GURL("https://foo.com/secondary"));
+  client.StartCrosSearch(u"foo", ash::PickerCategory::kLinks,
+                         base::DoNothing());
+  SwitchActiveUser("secondary@test");
+
+  base::test::TestFuture<std::vector<ash::PickerSearchResult>> result_future;
+  client.StartCrosSearch(
+      u"foo", ash::PickerCategory::kLinks,
+      base::BindLambdaForTesting(
+          [&result_future](ash::AppListSearchResultType result_type,
+                           std::vector<ash::PickerSearchResult> results) {
+            if (result_type == ash::AppListSearchResultType::kOmnibox) {
+              result_future.SetValue(std::move(results));
+            }
+          }));
+
+  const auto& results = result_future.Get();
+  ASSERT_THAT(results, Contains(VariantWith<ash::PickerBrowsingHistoryResult>(
+                           Field("url", &ash::PickerBrowsingHistoryResult::url,
+                                 GURL("https://foo.com/secondary")))));
+  ASSERT_THAT(results,
+              Not(Contains(VariantWith<ash::PickerBrowsingHistoryResult>(
+                  Field("url", &ash::PickerBrowsingHistoryResult::url,
+                        GURL("https://foo.com/primary"))))));
+}
+
 class PickerClientImplEditorTest : public PickerClientImplTest {
  public:
   ash::input_method::EditorMediator& GetEditorMediator(Profile* profile) {
@@ -757,6 +830,67 @@ TEST_F(PickerClientImplEditorTest, AnnounceSendsLiveRegionChanges) {
   client.Announce(u"hello");
 
   counter.WaitForEvent(ax::mojom::Event::kLiveRegionChanged);
+}
+
+TEST_F(PickerClientImplEditorTest, LauncherSearchProviderTypesAll) {
+  ash::PickerController controller;
+  PickerClientImpl client(&controller, user_manager());
+  const int types =
+      client.LauncherSearchProviderTypes(/*bookmarks=*/true, /*history=*/true,
+                                         /*open_tabs=*/true);
+
+  EXPECT_TRUE(types & AutocompleteProvider::TYPE_BOOKMARK);
+  EXPECT_TRUE(types & AutocompleteProvider::TYPE_HISTORY_FUZZY);
+  EXPECT_TRUE(types & AutocompleteProvider::TYPE_HISTORY_QUICK);
+  EXPECT_TRUE(types & AutocompleteProvider::TYPE_HISTORY_URL);
+  EXPECT_TRUE(types & AutocompleteProvider::TYPE_OPEN_TAB);
+  EXPECT_FALSE(types & AutocompleteProvider::TYPE_DOCUMENT);
+  EXPECT_FALSE(types & AutocompleteProvider::TYPE_SEARCH);
+}
+
+TEST_F(PickerClientImplEditorTest, LauncherSearchProviderTypesBookmarks) {
+  ash::PickerController controller;
+  PickerClientImpl client(&controller, user_manager());
+  const int types =
+      client.LauncherSearchProviderTypes(/*bookmarks=*/true, /*history=*/false,
+                                         /*open_tabs=*/false);
+  EXPECT_TRUE(types & AutocompleteProvider::TYPE_BOOKMARK);
+  EXPECT_FALSE(types & AutocompleteProvider::TYPE_HISTORY_FUZZY);
+  EXPECT_FALSE(types & AutocompleteProvider::TYPE_HISTORY_QUICK);
+  EXPECT_FALSE(types & AutocompleteProvider::TYPE_HISTORY_URL);
+  EXPECT_FALSE(types & AutocompleteProvider::TYPE_OPEN_TAB);
+  EXPECT_FALSE(types & AutocompleteProvider::TYPE_DOCUMENT);
+  EXPECT_FALSE(types & AutocompleteProvider::TYPE_SEARCH);
+}
+
+TEST_F(PickerClientImplEditorTest, LauncherSearchProviderTypesHistory) {
+  ash::PickerController controller;
+  PickerClientImpl client(&controller, user_manager());
+  const int types =
+      client.LauncherSearchProviderTypes(/*bookmarks=*/false, /*history=*/true,
+                                         /*open_tabs=*/false);
+  EXPECT_FALSE(types & AutocompleteProvider::TYPE_BOOKMARK);
+  EXPECT_TRUE(types & AutocompleteProvider::TYPE_HISTORY_FUZZY);
+  EXPECT_TRUE(types & AutocompleteProvider::TYPE_HISTORY_QUICK);
+  EXPECT_TRUE(types & AutocompleteProvider::TYPE_HISTORY_URL);
+  EXPECT_FALSE(types & AutocompleteProvider::TYPE_OPEN_TAB);
+  EXPECT_FALSE(types & AutocompleteProvider::TYPE_DOCUMENT);
+  EXPECT_FALSE(types & AutocompleteProvider::TYPE_SEARCH);
+}
+
+TEST_F(PickerClientImplEditorTest, LauncherSearchProviderTypesOpenTab) {
+  ash::PickerController controller;
+  PickerClientImpl client(&controller, user_manager());
+  const int types =
+      client.LauncherSearchProviderTypes(/*bookmarks=*/false, /*history=*/false,
+                                         /*open_tabs=*/true);
+  EXPECT_FALSE(types & AutocompleteProvider::TYPE_BOOKMARK);
+  EXPECT_FALSE(types & AutocompleteProvider::TYPE_HISTORY_FUZZY);
+  EXPECT_FALSE(types & AutocompleteProvider::TYPE_HISTORY_QUICK);
+  EXPECT_FALSE(types & AutocompleteProvider::TYPE_HISTORY_URL);
+  EXPECT_TRUE(types & AutocompleteProvider::TYPE_OPEN_TAB);
+  EXPECT_FALSE(types & AutocompleteProvider::TYPE_DOCUMENT);
+  EXPECT_FALSE(types & AutocompleteProvider::TYPE_SEARCH);
 }
 
 // TODO: b/325540366 - Add PickerClientImpl tests.

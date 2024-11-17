@@ -348,20 +348,22 @@ scoped_refptr<StringImpl> StringImpl::Create(
 }
 
 scoped_refptr<StringImpl> StringImpl::Create8BitIfPossible(
-    const UChar* characters,
-    wtf_size_t length) {
-  if (!characters || !length)
+    base::span<const UChar> characters) {
+  if (!characters.data() || characters.empty()) {
     return empty_;
-
-  LChar* data;
-  scoped_refptr<StringImpl> string = CreateUninitialized(length, data);
-
-  for (wtf_size_t i = 0; i < length; ++i) {
-    if (characters[i] & 0xff00)
-      return Create(characters, length);
-    data[i] = static_cast<LChar>(characters[i]);
   }
 
+  base::span<LChar> data;
+  scoped_refptr<StringImpl> string =
+      CreateUninitialized(characters.size(), data);
+
+  for (size_t i = 0; i < characters.size(); ++i) {
+    const UChar c = characters[i];
+    if (c & 0xff00) {
+      return Create(characters);
+    }
+    data[i] = static_cast<LChar>(c);
+  }
   return string;
 }
 
@@ -1697,8 +1699,7 @@ scoped_refptr<StringImpl> StringImpl::Replace(const StringView& pattern,
 
 scoped_refptr<StringImpl> StringImpl::UpconvertedString() {
   if (Is8Bit())
-    return String::Make16BitFrom8BitSource(Characters8(), length_)
-        .ReleaseImpl();
+    return String::Make16BitFrom8BitSource(Span8()).ReleaseImpl();
   return this;
 }
 
@@ -1760,7 +1761,8 @@ bool Equal(const StringImpl* a, const UChar* b, wtf_size_t length) {
   return EqualInternal(a, b, length);
 }
 
-bool Equal(const StringImpl* a, const LChar* b) {
+template <typename StringType>
+bool EqualInternal(const StringType* a, const LChar* b) {
   if (!a)
     return !b;
   if (!b)
@@ -1792,6 +1794,14 @@ bool Equal(const StringImpl* a, const LChar* b) {
   }
 
   return !b[length];
+}
+
+bool Equal(const StringImpl* a, const LChar* b) {
+  return EqualInternal(a, b);
+}
+
+bool Equal(const StringView& a, const LChar* b) {
+  return EqualInternal(&a, b);
 }
 
 bool EqualNonNull(const StringImpl* a, const StringImpl* b) {

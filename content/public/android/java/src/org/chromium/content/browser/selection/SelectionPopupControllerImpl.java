@@ -73,11 +73,11 @@ import org.chromium.content_public.browser.selection.SelectionDropdownMenuDelega
 import org.chromium.content_public.common.ContentFeatures;
 import org.chromium.ui.base.Clipboard;
 import org.chromium.ui.base.DeviceFormFactor;
-import org.chromium.ui.base.MenuSourceType;
 import org.chromium.ui.base.ViewAndroidDelegate;
 import org.chromium.ui.base.ViewAndroidDelegate.ContainerViewObserver;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.MVCListAdapter;
+import org.chromium.ui.mojom.MenuSourceType;
 import org.chromium.ui.touch_selection.SelectionEventType;
 import org.chromium.ui.touch_selection.TouchSelectionDraggableType;
 
@@ -116,11 +116,6 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
     // most such trailing, async delays.
     private static final int SHOW_DELAY_MS = 300;
 
-    // A large value to force text processing menu items to be at the end of the
-    // context menu. Chosen to be bigger than the order of possible items in the
-    // XML template.
-    private static final int MENU_ITEM_ORDER_TEXT_PROCESS_START = 100;
-
     // A flag to determine if we should get readback view from WindowAndroid.
     // The readback view could be the ContainerView, which WindowAndroid has no control on that.
     // Embedders should set this properly to use the correct view for readback.
@@ -128,13 +123,6 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
 
     // Allow using magnifer built using surface control instead of the system-proivded one.
     private static boolean sAllowSurfaceControlMagnifier;
-
-    // A flag to determine if we must only use the context from the associated web contents
-    // to inflate menus. By default we use the context held by the ActionMode, because this
-    // enables correct theming, but in cases where we rely on the wrapping of contexts for
-    // correct resource lookup, this is not correct. In that case we must directly inflate
-    // menus from the context.
-    private static boolean sMustUseWebContentsContext;
 
     private static boolean sDisableMagnifierForTesting;
 
@@ -189,7 +177,7 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
     private boolean mCanSelectAll;
     private boolean mCanEditRichly;
 
-    @MenuSourceType private int mMenuSourceType;
+    private int mMenuSourceType;
 
     // Click or touch down coordinates
     private int mXDip;
@@ -255,16 +243,13 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
         sAllowSurfaceControlMagnifier = true;
     }
 
-    public static void setMustUseWebContentsContext() {
-        sMustUseWebContentsContext = true;
-    }
-
     /**
-     * Get {@link SelectionPopupController} object used for the give WebContents.
-     * {@link #create()} should precede any calls to this.
+     * Get {@link SelectionPopupController} object used for the give WebContents. {@link #create()}
+     * should precede any calls to this.
+     *
      * @param webContents {@link WebContents} object.
-     * @return {@link SelectionPopupController} object. {@code null} if not available because
-     *         {@link #create()} is not called yet.
+     * @return {@link SelectionPopupController} object. {@code null} if not available because {@link
+     *     #create()} is not called yet.
      */
     public static SelectionPopupControllerImpl fromWebContents(WebContents webContents) {
         return ((WebContentsImpl) webContents)
@@ -497,7 +482,7 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
         }
         return mView != null
                 && mDropdownMenuDelegate != null
-                && mMenuSourceType == MenuSourceType.MENU_SOURCE_MOUSE
+                && mMenuSourceType == MenuSourceType.MOUSE
                 && isWindowOnTablet();
     }
 
@@ -528,12 +513,12 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
             boolean canSelectAll,
             boolean canRichlyEdit,
             boolean shouldSuggest,
-            @MenuSourceType int sourceType,
+            int sourceType,
             RenderFrameHost renderFrameHost) {
         RecordHistogram.recordEnumeratedHistogram(
                 "Android.ShowSelectionMenuSourceType",
                 sourceType,
-                MenuSourceType.MENU_SOURCE_TYPE_LAST + 1);
+                MenuSourceType.ADJUST_SELECTION_RESET + 1);
 
         int offsetBottom = bottom;
         offsetBottom += handleHeight;
@@ -555,18 +540,18 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
 
             if (mSmartSelectionEventProcessor != null) {
                 switch (sourceType) {
-                    case MenuSourceType.MENU_SOURCE_ADJUST_SELECTION:
+                    case MenuSourceType.ADJUST_SELECTION:
                         mSmartSelectionEventProcessor.onSelectionModified(
                                 mLastSelectedText, mLastSelectionOffset, mClassificationResult);
                         break;
-                    case MenuSourceType.MENU_SOURCE_ADJUST_SELECTION_RESET:
+                    case MenuSourceType.ADJUST_SELECTION_RESET:
                         mSmartSelectionEventProcessor.onSelectionAction(
                                 mLastSelectedText,
                                 mLastSelectionOffset,
                                 SelectionEvent.ACTION_RESET,
                                 /* SelectionClient.Result = */ null);
                         break;
-                    case MenuSourceType.MENU_SOURCE_TOUCH_HANDLE:
+                    case MenuSourceType.TOUCH_HANDLE:
                         break;
                     default:
                         mSmartSelectionEventProcessor.onSelectionStarted(
@@ -576,7 +561,7 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
 
             // From selection adjustment, show menu directly.
             // Note that this won't happen if it is incognito mode or device is not provisioned.
-            if (sourceType == MenuSourceType.MENU_SOURCE_ADJUST_SELECTION) {
+            if (sourceType == MenuSourceType.ADJUST_SELECTION) {
                 showSelectionMenuInternal();
                 return;
             }

@@ -46,6 +46,7 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.Shee
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
 import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.components.image_fetcher.ImageFetcher;
+import org.chromium.content.webid.IdentityRequestDialogDisclosureField;
 import org.chromium.content.webid.IdentityRequestDialogDismissReason;
 import org.chromium.content.webid.IdentityRequestDialogLinkType;
 import org.chromium.content_public.browser.NavigationHandle;
@@ -156,7 +157,7 @@ class AccountSelectionMediator {
     private boolean mIsAutoReauthn;
     private @RpContext.EnumType int mRpContext;
     private IdentityCredentialTokenError mError;
-    private boolean mRequestPermission;
+    private @IdentityRequestDialogDisclosureField int[] mDisclosureFields;
     private ImageFetcher mImageFetcher;
 
     // All of the user's accounts.
@@ -177,7 +178,7 @@ class AccountSelectionMediator {
     private View mFocusView;
 
     // The current state of the account chooser if opened for metrics purposes. Histogram is only
-    // recorded for button mode.
+    // recorded for active mode.
     private @Nullable Integer mAccountChooserState;
 
     private KeyboardVisibilityListener mKeyboardVisibilityListener =
@@ -263,7 +264,7 @@ class AccountSelectionMediator {
                                 if (reason == BottomSheetController.StateChangeReason.SWIPE) {
                                     dismissReason = IdentityRequestDialogDismissReason.SWIPE;
                                     // mAccountChooserState is not null only if we want to record
-                                    // this metric, that is, a button mode explicit sign-in account
+                                    // this metric, that is, a active mode explicit sign-in account
                                     // chooser was shown.
                                     mAccountChooserState =
                                             mAccountChooserState != null
@@ -273,7 +274,7 @@ class AccountSelectionMediator {
                                         == BottomSheetController.StateChangeReason.BACK_PRESS) {
                                     dismissReason = IdentityRequestDialogDismissReason.BACK_PRESS;
                                     // mAccountChooserState is not null only if we want to record
-                                    // this metric, that is, a button mode explicit sign-in account
+                                    // this metric, that is, a active mode explicit sign-in account
                                     // chooser was shown.
                                     mAccountChooserState =
                                             mAccountChooserState != null
@@ -283,7 +284,7 @@ class AccountSelectionMediator {
                                         == BottomSheetController.StateChangeReason.TAP_SCRIM) {
                                     dismissReason = IdentityRequestDialogDismissReason.TAP_SCRIM;
                                     // mAccountChooserState is not null only if we want to record
-                                    // this metric, that is, a button mode explicit sign-in account
+                                    // this metric, that is, a active mode explicit sign-in account
                                     // chooser was shown.
                                     mAccountChooserState =
                                             mAccountChooserState != null
@@ -421,15 +422,12 @@ class AccountSelectionMediator {
     }
 
     private void updateAccounts(
-            String idpForDisplay,
-            List<Account> accounts,
-            boolean areAccountsClickable,
-            boolean showAddAccountRow) {
+            List<Account> accounts, boolean areAccountsClickable, boolean showAddAccountRow) {
         mSheetAccountItems.clear();
         if (accounts == null) return;
         // In the request permission dialog, account is shown as an account chip instead of in the
-        // accounts list. In the button mode verifying dialog, we do not show accounts.
-        if (mRpMode == RpMode.BUTTON
+        // accounts list. In the active mode verifying dialog, we do not show accounts.
+        if (mRpMode == RpMode.ACTIVE
                 && (mHeaderType == HeaderType.REQUEST_PERMISSION
                         || mHeaderType == HeaderType.VERIFY
                         || mHeaderType == HeaderType.VERIFY_AUTO_REAUTHN)) {
@@ -549,9 +547,9 @@ class AccountSelectionMediator {
             IdentityProviderData idpData,
             boolean isAutoReauthn,
             List<Account> newAccounts) {
-        // On widget mode, show placeholder icon to preserve header text wrapping when icon is
+        // On passive mode, show placeholder icon to preserve header text wrapping when icon is
         // fetched.
-        if (mRpMode == RpMode.WIDGET) {
+        if (mRpMode == RpMode.PASSIVE) {
             showPlaceholderIcon(idpData.getIdpMetadata());
         }
         mRpForDisplay = rpForDisplay;
@@ -561,17 +559,23 @@ class AccountSelectionMediator {
         mClientMetadata = idpData.getClientMetadata();
         mIsAutoReauthn = isAutoReauthn;
         mRpContext = idpData.getRpContext();
-        mRequestPermission = idpData.getRequestPermission();
+        mDisclosureFields = idpData.getDisclosureFields();
         mSelectedAccount = null;
-
-        fetchBrandIcon(mIdpMetadata.getBrandIconUrl(), bitmap -> updateIdpBrandIcon(bitmap));
-        // RP brand icon is fetched here, but not shown until the request permission dialog.
-        if (mRpMode == RpMode.BUTTON) {
-            fetchBrandIcon(mClientMetadata.getBrandIconUrl(), bitmap -> updateRpBrandIcon(bitmap));
-        }
 
         if (accounts.size() == 1 && (isAutoReauthn || !mIdpMetadata.supportsAddAccount())) {
             mSelectedAccount = accounts.get(0);
+        }
+
+        // Auto re-authn in active mode does not update the loading UI.
+        if (mRpMode == RpMode.ACTIVE && isAutoReauthn) {
+            mDelegate.onAccountSelected(mIdpMetadata.getConfigUrl(), mSelectedAccount);
+            return;
+        }
+
+        fetchBrandIcon(mIdpMetadata.getBrandIconUrl(), bitmap -> updateIdpBrandIcon(bitmap));
+        // RP brand icon is fetched here, but not shown until the request permission dialog.
+        if (mRpMode == RpMode.ACTIVE) {
+            fetchBrandIcon(mClientMetadata.getBrandIconUrl(), bitmap -> updateRpBrandIcon(bitmap));
         }
 
         showAccountsInternal(newAccounts);
@@ -666,7 +670,7 @@ class AccountSelectionMediator {
         Account newlySignedInAccount =
                 newAccounts != null && newAccounts.size() == 1 ? newAccounts.get(0) : null;
 
-        if (!mIsAutoReauthn && newlySignedInAccount != null && mRpMode == RpMode.BUTTON) {
+        if (!mIsAutoReauthn && newlySignedInAccount != null && mRpMode == RpMode.ACTIVE) {
             mSelectedAccount = newlySignedInAccount;
 
             // The browser trusted login state controls whether we'd skip the next
@@ -688,7 +692,7 @@ class AccountSelectionMediator {
             // if we do not skip the next dialog. Also skip when request_permission
             // is false (controlled by the fields API).
             boolean shouldShowRequestPermissionDialog =
-                    !newlySignedInAccount.isSignIn() && mRequestPermission;
+                    !newlySignedInAccount.isSignIn() && mDisclosureFields.length > 0;
             if (shouldShowRequestPermissionDialog) {
                 showRequestPermissionSheet(mSelectedAccount);
                 return;
@@ -710,7 +714,7 @@ class AccountSelectionMediator {
         // other account button or swiped down. If we do not receive any of these actions by time
         // onDismissed() is called, it means our placeholder assumption is true i.e. the user has
         // closed the tab.
-        if (mRpMode == RpMode.BUTTON && !mIsAutoReauthn) {
+        if (mRpMode == RpMode.ACTIVE && !mIsAutoReauthn) {
             // If there was already an account chooser state from a previously shown account
             // chooser, record the outcome and reset the state.
             if (mAccountChooserState != null) {
@@ -722,17 +726,14 @@ class AccountSelectionMediator {
 
     private void updateSheet(List<Account> accounts, boolean areAccountsClickable) {
         boolean supportsAddAccount =
-                mRpMode == RpMode.BUTTON
+                mRpMode == RpMode.ACTIVE
                         && mHeaderType == HeaderType.SIGN_IN
                         && areAccountsClickable
                         && mIdpMetadata.supportsAddAccount();
         boolean isSingleAccountChooser = accounts != null && accounts.size() == 1;
 
         updateAccounts(
-                mIdpForDisplay,
-                accounts,
-                areAccountsClickable,
-                supportsAddAccount && !isSingleAccountChooser);
+                accounts, areAccountsClickable, supportsAddAccount && !isSingleAccountChooser);
         // If there is a change in the header, setFocusView() will be called and focus will land on
         // the header when screen reader is on. Since the header is updated before any item is
         // created, the header will always take precedence for focus. Do not reorder this
@@ -744,7 +745,8 @@ class AccountSelectionMediator {
         if (mHeaderType == HeaderType.SIGN_IN && mSelectedAccount != null) {
             // Only show the user data sharing consent text for sign up and only
             // if we're asked to request permission.
-            isDataSharingConsentVisible = !mSelectedAccount.isSignIn() && mRequestPermission;
+            isDataSharingConsentVisible =
+                    !mSelectedAccount.isSignIn() && mDisclosureFields.length > 0;
             continueButtonCallback = this::onClickAccountSelected;
         }
 
@@ -778,15 +780,16 @@ class AccountSelectionMediator {
             continueButtonCallback = this::onClickAccountSelected;
         }
 
-        // On button mode since the disclosure text is above the continue button, create the
+        // On active mode since the disclosure text is above the continue button, create the
         // disclosure text before creating the continue button so setFocusView() will focus
         // in logical linear reading order. Keep the order in mind when adding an item that calls
         // setFocusView() because the first item which calls it will get the focus.
-        if (mRpMode == RpMode.BUTTON) {
+        if (mRpMode == RpMode.ACTIVE) {
             mModel.set(
                     ItemProperties.DATA_SHARING_CONSENT,
                     isDataSharingConsentVisible
-                            ? createDataSharingConsentItem(mIdpForDisplay, mClientMetadata)
+                            ? createDataSharingConsentItem(
+                                    mIdpForDisplay, mClientMetadata, mDisclosureFields)
                             : null);
         }
         mModel.set(
@@ -795,15 +798,16 @@ class AccountSelectionMediator {
                         ? createContinueBtnItem(
                                 mSelectedAccount, mIdpMetadata, continueButtonCallback)
                         : null);
-        // On widget mode since the disclosure text is below the continue button, create the
+        // On passive mode since the disclosure text is below the continue button, create the
         // disclosure text after creating the continue button so setFocusView() will focus
         // in logical linear reading order. Keep the order in mind when adding an item that calls
         // setFocusView() because the first item which calls it will get the focus.
-        if (mRpMode == RpMode.WIDGET) {
+        if (mRpMode == RpMode.PASSIVE) {
             mModel.set(
                     ItemProperties.DATA_SHARING_CONSENT,
                     isDataSharingConsentVisible
-                            ? createDataSharingConsentItem(mIdpForDisplay, mClientMetadata)
+                            ? createDataSharingConsentItem(
+                                    mIdpForDisplay, mClientMetadata, mDisclosureFields)
                             : null);
         }
         mModel.set(
@@ -827,7 +831,7 @@ class AccountSelectionMediator {
                         : null);
         mModel.set(
                 ItemProperties.SPINNER_ENABLED,
-                mRpMode == RpMode.BUTTON
+                mRpMode == RpMode.ACTIVE
                         && (mHeaderType == HeaderType.LOADING
                                 || mHeaderType == HeaderType.VERIFY
                                 || mHeaderType == HeaderType.VERIFY_AUTO_REAUTHN));
@@ -853,15 +857,15 @@ class AccountSelectionMediator {
     private void showContent() {
         if (mWasDismissed) return;
         if (mIsModalDialogOpen) return;
-        // When button mode is triggered, if there's a pending widget mode request, we should
-        // prioritize the button mode since it's gated by user intention. With the UI code, both
+        // When active mode is triggered, if there's a pending passive mode request, we should
+        // prioritize the active mode since it's gated by user intention. With the UI code, both
         // button flow bottom sheet and widget flow bottom sheet have the same predefined priority
         // therefore the consecutive button flow would be dismissed. Here we override the
         // calculation and prioritize the button flow request.
-        boolean prioritizeButtonMode =
-                mRpMode == RpMode.BUTTON && mHeaderType == HeaderType.LOADING;
+        boolean prioritizeActiveMode =
+                mRpMode == RpMode.ACTIVE && mHeaderType == HeaderType.LOADING;
         if (mBottomSheetController.requestShowContent(mBottomSheetContent, true)
-                || prioritizeButtonMode) {
+                || prioritizeActiveMode) {
             if (mRegisteredObservers) return;
 
             mRegisteredObservers = true;
@@ -960,10 +964,10 @@ class AccountSelectionMediator {
         // disclosure text or if the browser doesn't need to request permission because the IDP
         // prefers asking for permission by themselves, skip the disclosure UI and proceed to the
         // verifying sheet.
-        if ((mRpMode == RpMode.WIDGET && oldSelectedAccount != null)
+        if ((mRpMode == RpMode.PASSIVE && oldSelectedAccount != null)
                 || selectedAccount.isSignIn()
                 || mHeaderType == HeaderType.REQUEST_PERMISSION
-                || !mRequestPermission) {
+                || mDisclosureFields.length == 0) {
             mDelegate.onAccountSelected(mIdpMetadata.getConfigUrl(), selectedAccount);
             showVerifySheet(selectedAccount);
             return;
@@ -971,7 +975,7 @@ class AccountSelectionMediator {
 
         // At this point, the account is a non-returning user. If RP mode is button,
         // we'd request permission through the request permission dialog.
-        if (mRpMode == RpMode.BUTTON) {
+        if (mRpMode == RpMode.ACTIVE) {
             showRequestPermissionSheet(selectedAccount);
             return;
         }
@@ -1031,7 +1035,9 @@ class AccountSelectionMediator {
     }
 
     private PropertyModel createDataSharingConsentItem(
-            String idpForDisplay, ClientIdMetadata metadata) {
+            String idpForDisplay,
+            ClientIdMetadata metadata,
+            @IdentityRequestDialogDisclosureField int[] disclosureFields) {
         DataSharingConsentProperties.Properties properties =
                 new DataSharingConsentProperties.Properties();
         properties.mIdpForDisplay = idpForDisplay;
@@ -1052,6 +1058,7 @@ class AccountSelectionMediator {
                             metadata.getPrivacyPolicyUrl());
                 };
         properties.mSetFocusViewCallback = this::setFocusView;
+        properties.mDisclosureFields = disclosureFields;
 
         return new PropertyModel.Builder(DataSharingConsentProperties.ALL_KEYS)
                 .with(DataSharingConsentProperties.PROPERTIES, properties)

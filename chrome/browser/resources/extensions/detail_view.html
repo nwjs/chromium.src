@@ -272,11 +272,12 @@ this text can be found by Ctrl + F because it isn't hidden. -->
       </cr-icon-button>
       <cr-action-menu id="actionMenu">
         <button class="dropdown-item" id="findAlternativeAction"
-            hidden="[[!data.recommendationsUrl]]"
+            hidden="[[!showMv2DeprecationFindAlternativeAction_]]"
             on-click="onFindAlternativeActionClick_">
           $i18n{mv2DeprecationPanelFindAlternativeButton}
         </button>
         <button class="dropdown-item" id="keepAction"
+            hidden="[[!showMv2DeprecationKeepAction_]]"
             on-click="onKeepActionClick_">
           $i18n{mv2DeprecationPanelKeepForNowButton}
         </button>
@@ -311,7 +312,7 @@ this text can be found by Ctrl + F because it isn't hidden. -->
             aria-describedby="name enable-toggle-tooltip"
             checked="[[isEnabled_(data.state)]]"
             on-change="onEnableToggleChange_"
-            disabled$="[[!isEnableToggleEnabled_(data.*)]]"
+            disabled$="[[!isEnableToggleEnabled_(data.*, mv2ExperimentStage_)]]"
             hidden$="[[!showEnableToggle_(data.*)]]">
         </cr-toggle>
         <cr-tooltip id="enable-toggle-tooltip" for="enableToggle"

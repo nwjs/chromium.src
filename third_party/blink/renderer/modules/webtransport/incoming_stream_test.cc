@@ -20,7 +20,6 @@
 #include "third_party/blink/renderer/core/streams/readable_stream.h"
 #include "third_party/blink/renderer/core/streams/readable_stream_byob_reader.h"
 #include "third_party/blink/renderer/core/streams/readable_stream_default_reader.h"
-#include "third_party/blink/renderer/core/streams/stream_promise_resolver.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_typed_array.h"
 #include "third_party/blink/renderer/modules/webtransport/web_transport_error.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
@@ -416,7 +415,7 @@ TEST_F(IncomingStreamTest, CancelWithWebTransportError) {
   v8::Local<v8::Value> error =
       WebTransportError::Create(isolate,
                                 /*stream_error_code=*/std::nullopt, "foobar",
-                                WebTransportError::Source::kStream);
+                                V8WebTransportErrorSource::Enum::kStream);
   auto* reader = incoming_stream->Readable()->GetDefaultReaderForTesting(
       script_state, ASSERT_NO_EXCEPTION);
   ScriptPromiseUntyped promise = reader->cancel(
@@ -438,9 +437,10 @@ TEST_F(IncomingStreamTest, CancelWithWebTransportErrorWithCode) {
 
   EXPECT_CALL(mock_on_abort_, Run(std::make_optional<uint8_t>(19)));
 
-  v8::Local<v8::Value> error = WebTransportError::Create(
-      isolate,
-      /*stream_error_code=*/19, "foobar", WebTransportError::Source::kStream);
+  v8::Local<v8::Value> error =
+      WebTransportError::Create(isolate,
+                                /*stream_error_code=*/19, "foobar",
+                                V8WebTransportErrorSource::Enum::kStream);
   auto* reader = incoming_stream->Readable()->GetDefaultReaderForTesting(
       script_state, ASSERT_NO_EXCEPTION);
   ScriptPromiseUntyped promise = reader->cancel(

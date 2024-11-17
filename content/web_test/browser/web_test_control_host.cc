@@ -981,8 +981,12 @@ void WebTestControlHost::CompositeNodeQueueThen(
       // The renderer is gone. Frames can also crash the renderer after the test
       // claims to be finished.
       frame = nullptr;
-    } else if (frame->GetParent() && frame->GetParent()->GetSiteInstance() ==
-                                         frame->GetSiteInstance()) {
+    } else if (frame->GetParent() &&
+               static_cast<SiteInstanceImpl*>(
+                   frame->GetParent()->GetSiteInstance())
+                       ->group() ==
+                   static_cast<SiteInstanceImpl*>(frame->GetSiteInstance())
+                       ->group()) {
       // The frame is not a local root, so nothing to do.
       frame = nullptr;
     }
@@ -1535,8 +1539,6 @@ void WebTestControlHost::SetPermission(const std::string& name,
     type = blink::PermissionType::PROTECTED_MEDIA_IDENTIFIER;
   } else if (name == "background-sync") {
     type = blink::PermissionType::BACKGROUND_SYNC;
-  } else if (name == "accessibility-events") {
-    type = blink::PermissionType::ACCESSIBILITY_EVENTS;
   } else if (name == "clipboard-read-write") {
     type = blink::PermissionType::CLIPBOARD_READ_WRITE;
   } else if (name == "clipboard-sanitized-write") {

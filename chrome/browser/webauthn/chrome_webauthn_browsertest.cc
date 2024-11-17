@@ -151,8 +151,6 @@ class WebAuthnBrowserTest : public CertVerifierBrowserTest {
   scoped_refptr<device::MockBluetoothAdapter> mock_bluetooth_adapter_ = nullptr;
   device::FidoRequestHandlerBase::ScopedAlwaysAllowBLECalls always_allow_ble_;
   net::EmbeddedTestServer https_server_{net::EmbeddedTestServer::TYPE_HTTPS};
-  const base::test::ScopedFeatureList scoped_feature_list{
-      device::kWebAuthnRelatedOrigin};
 };
 
 static constexpr char kGetAssertionCredID1234[] = R"((() => {
@@ -1024,7 +1022,7 @@ IN_PROC_BROWSER_TEST_F(WebAuthnConditionalUITest,
       base::BindLambdaForTesting(
           [&](device::VirtualFidoDevice* device) { return true; });
   ChromeWebAuthnCredentialsDelegate delegate(web_contents);
-  delegate.LaunchWebAuthnFlow();
+  delegate.LaunchSecurityKeyOrHybridFlow();
 
   std::string result;
   ASSERT_TRUE(message_queue.WaitForMessage(&result));

@@ -23,7 +23,6 @@
 //   (i.e. hopefully just the paths under out/.../gen/... directory)
 //   via the isInGeneratedLocation AST matcher in RewriteRawPtrFields.cpp.
 constexpr const char* const kRawPtrManualPathsToIgnore[] = {
-    "content/nw/",
     // Exclude to prevent PartitionAlloc<->raw_ptr<T> cyclical dependency.
     "base/allocator/",
 

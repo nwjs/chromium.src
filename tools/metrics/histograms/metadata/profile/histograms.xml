@@ -157,6 +157,20 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Profile.GaiaNameShareStatus" enum="ProfileGaiaNameShareStatus"
+    expires_after="2025-10-11">
+  <owner>droger@google.com</owner>
+  <owner>chrome-signin-team@google.com</owner>
+  <summary>
+    For all Gaia first names used as primary account in all profiles, records
+    whether this name is unique or if there are multiple profiles sharing the
+    same first name. Empty names are not considered. Recorded every 24 hours,
+    for each name. For example, if two profiles use the name &quot;A&quot; and
+    one profile uses the name &quot;B&quot;, the histogram is recorded twice
+    (once for &quot;A&quot; and once for &quot;B&quot;).
+  </summary>
+</histogram>
+
 <histogram name="Profile.Guest.ForcedByPolicy" enum="BooleanForced"
     expires_after="2024-10-27">
   <owner>arabm@google.com</owner>
@@ -257,7 +271,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Profile.KeyedService.Count.SystemProfile{ProfileType}"
-    units="services" expires_after="2025-01-26">
+    units="services" expires_after="2025-03-30">
   <owner>droger@chromium.org</owner>
   <owner>rsult@google.com</owner>
   <owner>chrome-signin-team@google.com</owner>
@@ -286,6 +300,17 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Profile.LegacyProfilesCount" units="profiles"
+    expires_after="2024-12-30">
+  <owner>sdefresne@chromium.org</owner>
+  <owner>bling-kiwi-pod@google.com</owner>
+  <summary>
+    Number of legacy Profiles (i.e. Profiles dating back from an old
+    experimental attempt at supporting multi-Profiles before the introduction of
+    the required APIs in iOS 17.0).
+  </summary>
+</histogram>
+
 <histogram name="Profile.LiveProfileCount" units="profiles"
     expires_after="2024-12-30">
   <owner>nicolaso@chromium.org</owner>
@@ -305,7 +330,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Profile.Menu.ClickedActionableItem{ProfileType}"
-    enum="ProfileMenuActionableItem" expires_after="2024-11-27">
+    enum="ProfileMenuActionableItem" expires_after="2025-03-23">
   <owner>droger@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
@@ -422,7 +447,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Profile.NumberOfProfilesAtProfileSwitch" units="profiles"
-    expires_after="2025-02-02">
+    expires_after="2025-04-06">
   <owner>droger@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
@@ -545,16 +570,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Profile.TriggeredReset" enum="BooleanReset"
-    expires_after="2020-05-03">
-  <owner>robertshield@chromium.org</owner>
-  <summary>
-    Indicates whether a profile had a reset trigger that caused it to launch a
-    reset flow. The presence of this trigger is recorded during profile
-    creation.
-  </summary>
-</histogram>
-
 <histogram name="Profile.UserAction.PerProfile" enum="Profile"
     expires_after="never">
 <!-- expires-never: Used by the Chrome Profile Metrics dashboard to track user
@@ -609,7 +624,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Profile.{Database}Size" units="MB" expires_after="2025-01-26">
+<histogram name="Profile.{Database}Size" units="MB" expires_after="2025-03-30">
   <owner>etienneb@chromium.org</owner>
   <owner>gab@chromium.org</owner>
   <summary>
@@ -719,7 +734,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ProfilePicker.FirstRun.ExitStatus" enum="FirstRunExitStatus"
-    expires_after="2025-02-02">
+    expires_after="2025-04-06">
   <owner>dgn@chromium.org</owner>
   <owner>for-you-fre@google.com</owner>
   <summary>
@@ -742,7 +757,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ProfilePicker.FirstRun.OrganizationAvailableTiming" units="ms"
-    expires_after="2025-02-02">
+    expires_after="2025-04-06">
   <owner>dgn@chromium.org</owner>
   <owner>jyammine@google.com</owner>
   <owner>chrome-signin-team@google.com</owner>

@@ -154,8 +154,7 @@ size_t GetAlignmentForColorType(SkColorType color_type) {
     return 4;
   if (bpp <= 16)
     return 16;
-  NOTREACHED_IN_MIGRATION();
-  return 0;
+  NOTREACHED();
 }
 
 bool WritePixmap(PaintOpWriter& writer, const SkPixmap& pixmap) {
@@ -637,51 +636,6 @@ size_t ServiceImageTransferCacheEntry::CachedSize() const {
   return size_;
 }
 
-sk_sp<SkImage> ServiceImageTransferCacheEntry::GetImageWithToneMapApplied(
-    float hdr_headroom,
-    bool needs_mips) const {
-  sk_sp<SkImage> image;
-
-  // Apply tone mapping.
-  // TODO(crbug.com/40210699): Pass a shared cache as a parameter.
-  gfx::ColorConversionSkFilterCache cache;
-  if (has_gainmap_) {
-    image = cache.ApplyGainmap(
-        image_, gainmap_image_, gainmap_info_, hdr_headroom,
-        image_->isTextureBacked() ? gr_context_ : nullptr,
-        image_->isTextureBacked() ? graphite_recorder_ : nullptr);
-  } else if (use_global_tone_map_) {
-    // Images are always rendered as SDR-relative and the output color space
-    // is SDR itself,
-    image = cache.ApplyToneCurve(
-        image_, hdr_metadata_, gfx::ColorSpace::kDefaultSDRWhiteLevel,
-        hdr_headroom, image_->isTextureBacked() ? gr_context_ : nullptr,
-        image_->isTextureBacked() ? graphite_recorder_ : nullptr);
-  }
-  if (!image) {
-    DLOG(ERROR) << "Image tone mapping failed";
-    return nullptr;
-  }
-
-  // Create mipmaps if requested.
-  if (image->isTextureBacked() && needs_mips && !image->hasMipmaps()) {
-    if (gr_context_) {
-      image = SkImages::TextureFromImage(
-          gr_context_, image, skgpu::Mipmapped::kYes, skgpu::Budgeted::kNo);
-    } else {
-      CHECK(graphite_recorder_);
-      SkImage::RequiredProperties props{.fMipmapped = true};
-      image = SkImages::TextureFromImage(graphite_recorder_, image, props);
-    }
-    if (!image) {
-      DLOG(ERROR) << "Failed to generate mipmaps after tone mapping";
-      return nullptr;
-    }
-  }
-
-  return image;
-}
-
 bool ServiceImageTransferCacheEntry::Deserialize(
     GrDirectContext* gr_context,
     skgpu::graphite::Recorder* graphite_recorder,
@@ -744,12 +698,12 @@ bool ServiceImageTransferCacheEntry::Deserialize(
     reader.Read(&gainmap_info_);
   }
 
-  // Save the tone curve parameters, if they are to be used.
-  use_global_tone_map_ =
-      !has_gainmap_ && gfx::ColorConversionSkFilterCache::UseToneCurve(image_);
+  // Determine if this image will be tone mapped.
+  const bool is_tone_mapped =
+      has_gainmap_ || ToneMapUtil::UseGlobalToneMapFilter(image_->colorSpace());
 
   // Perform color conversion (if no tone mapping is needed).
-  if (target_color_space && !NeedsToneMapApplied()) {
+  if (target_color_space && !is_tone_mapped) {
     if (graphite_recorder_) {
       SkImage::RequiredProperties props{.fMipmapped = needs_mips};
       image_ =
@@ -792,7 +746,7 @@ bool ServiceImageTransferCacheEntry::Deserialize(
         }
         SkPixmap pixmap;
         if (!image->peekPixels(&pixmap)) {
-          NOTREACHED_IN_MIGRATION()
+          NOTREACHED()
               << "Image should be referencing transfer buffer SkPixmap";
         }
         image = SkImages::RasterFromPixmapCopy(pixmap);
@@ -827,10 +781,6 @@ const sk_sp<SkImage>& ServiceImageTransferCacheEntry::GetPlaneImage(
 
 void ServiceImageTransferCacheEntry::EnsureMips() {
   if (!image_ || !image_->isTextureBacked()) {
-    return;
-  }
-  // Don't generate mipmaps for images that will not be used directly.
-  if (NeedsToneMapApplied()) {
     return;
   }
   if (image_->hasMipmaps()) {

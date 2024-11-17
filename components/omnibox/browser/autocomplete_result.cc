@@ -20,6 +20,7 @@
 #include "base/debug/stack_trace.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/not_fatal_until.h"
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
@@ -42,6 +43,7 @@
 #include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/omnibox/browser/page_classification_functions.h"
+#include "components/omnibox/browser/suggestion_group_util.h"
 #include "components/omnibox/browser/tab_matcher.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/search_engines/template_url_service.h"
@@ -163,7 +165,6 @@ AutocompleteResult::AutocompleteResult() {
   // on-focus or prefix-suggest mode.
   matches_.reserve(std::max(GetMaxMatches(), GetMaxMatches(true)));
   // Add default static suggestion groups.
-  MergeSuggestionGroupsMap(omnibox::BuildDefaultGroups());
 }
 
 AutocompleteResult::~AutocompleteResult() {
@@ -361,6 +362,7 @@ void AutocompleteResult::SortAndCull(
       !is_zero_suggest;
   const bool use_grouping = is_zero_suggest || use_grouping_for_non_zps;
 
+  MergeSuggestionGroupsMap(omnibox::BuildDefaultGroupsForInput(input));
   // Grouping requires all matches have a group ID. To keep providers 'dumb',
   // they only assign IDs when their ID isn't obvious from the match type.
   // Most matches will instead set IDs here to keep providers 'dumb' and the
@@ -392,6 +394,9 @@ void AutocompleteResult::SortAndCull(
       } else if (omnibox::IsSearchResultsPage(page_classification)) {
         sections.push_back(
             std::make_unique<AndroidSRPZpsSection>(suggestion_groups_map_));
+      } else if (omnibox::IsAndroidHub(page_classification)) {
+        sections.push_back(
+            std::make_unique<AndroidHubZPSSection>(suggestion_groups_map_));
       } else {
         sections.push_back(
             std::make_unique<AndroidWebZpsSection>(suggestion_groups_map_));
@@ -467,7 +472,17 @@ void AutocompleteResult::SortAndCull(
               std::make_unique<IOSIpadWebZpsSection>(suggestion_groups_map_));
         }
       } else {
-        if (omnibox::IsNTPPage(page_classification)) {
+        if (omnibox::IsLensSearchbox(page_classification)) {
+          switch (page_classification) {
+            case OmniboxEventProto::LENS_SIDE_PANEL_SEARCHBOX:
+              sections.push_back(std::make_unique<IOSLensMultimodalZpsSection>(
+                  suggestion_groups_map_));
+              break;
+            default:
+              // kLensOverlayNotFatalUntil update after launch.
+              NOTREACHED(base::NotFatalUntil::M200);
+          }
+        } else if (omnibox::IsNTPPage(page_classification)) {
           sections.push_back(
               std::make_unique<IOSNTPZpsSection>(suggestion_groups_map_));
         } else if (omnibox::IsSearchResultsPage(page_classification)) {
@@ -483,10 +498,15 @@ void AutocompleteResult::SortAndCull(
   } else if (use_grouping_for_non_zps) {
     PSections sections;
     if constexpr (is_android) {
-      bool show_only_search_suggestions =
-          omnibox::IsCustomTab(page_classification);
-      sections.push_back(std::make_unique<AndroidNonZPSSection>(
-          show_only_search_suggestions, suggestion_groups_map_));
+      if (omnibox::IsAndroidHub(page_classification)) {
+        sections.push_back(
+            std::make_unique<AndroidHubNonZPSSection>(suggestion_groups_map_));
+      } else {
+        bool show_only_search_suggestions =
+            omnibox::IsCustomTab(page_classification);
+        sections.push_back(std::make_unique<AndroidNonZPSSection>(
+            show_only_search_suggestions, suggestion_groups_map_));
+      }
     } else {
       sections.push_back(
           std::make_unique<DesktopNonZpsSection>(suggestion_groups_map_));
@@ -790,7 +810,8 @@ void AutocompleteResult::ConvertOpenTabMatches(
     // possibly re-change the description.
     // Note: explicitly check for value rather than deferring to implicit
     // boolean conversion of std::optional.
-    if (match.has_tab_match.has_value()) {
+    if (match.has_tab_match.has_value() ||
+        match.type == AutocompleteMatchType::HISTORY_EMBEDDINGS_ANSWER) {
       continue;
     }
     batch_lookup_map.insert({match.destination_url, {}});
@@ -800,7 +821,8 @@ void AutocompleteResult::ConvertOpenTabMatches(
     client->GetTabMatcher().FindMatchingTabs(&batch_lookup_map, input);
 
     for (auto& match : matches_) {
-      if (match.has_tab_match.has_value()) {
+      if (match.has_tab_match.has_value() ||
+          match.type == AutocompleteMatchType::HISTORY_EMBEDDINGS_ANSWER) {
         continue;
       }
 
@@ -1072,7 +1094,6 @@ void AutocompleteResult::Reset() {
 void AutocompleteResult::ClearMatches() {
   matches_.clear();
   suggestion_groups_map_.clear();
-  MergeSuggestionGroupsMap(omnibox::BuildDefaultGroups());
 #if BUILDFLAG(IS_ANDROID)
   DestroyJavaObject();
 #endif
@@ -1249,7 +1270,7 @@ std::u16string AutocompleteResult::GetHeaderForSuggestionGroup(
 }
 
 bool AutocompleteResult::IsSuggestionGroupHidden(
-    PrefService* prefs,
+    const PrefService* prefs,
     omnibox::GroupId suggestion_group_id) const {
   auto it = suggestion_groups_map().find(suggestion_group_id);
   if (it == suggestion_groups_map().end()) {
@@ -1462,11 +1483,12 @@ void AutocompleteResult::MergeMatchesByProvider(ACMatches* old_matches,
 
 AutocompleteResult::MatchDedupComparator
 AutocompleteResult::GetMatchComparisonFields(const AutocompleteMatch& match) {
-  return std::make_tuple(
-      match.stripped_destination_url.spec(),
-      match.type == ACMatchType::CALCULATOR,
-      match.answer_template.has_value() &&
-          OmniboxFieldTrial::kAnswerActionsShowAboveKeyboard.Get());
+  bool is_answer =
+      (match.answer_template.has_value() &&
+       OmniboxFieldTrial::kAnswerActionsShowAboveKeyboard.Get()) ||
+      match.type == AutocompleteMatchType::HISTORY_EMBEDDINGS_ANSWER;
+  return std::make_tuple(match.stripped_destination_url.spec(),
+                         match.type == ACMatchType::CALCULATOR, is_answer);
 }
 
 void AutocompleteResult::LimitNumberOfURLsShown(

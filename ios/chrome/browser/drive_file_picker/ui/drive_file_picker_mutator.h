@@ -16,8 +16,11 @@
 // item in case of a folder or download it in case of a file.
 - (void)selectDriveItem:(NSString*)itemIdentifier;
 
-// Ask the mutator to fetch the next drive items.
-- (void)fetchNextPage;
+// Ask the mutator to load the first drive items.
+- (void)loadFirstPage;
+
+// Ask the mutator to load the next drive items.
+- (void)loadNextPage;
 
 // Sets the current sorting criteria and direction.
 - (void)setSortingCriteria:(DriveItemsSortingType)criteria
@@ -34,7 +37,19 @@
 // Submits the current file selection to the web page.
 - (void)submitFileSelection;
 
-- (void)browseToParent;
+// Hides search items if search items are displayed. Otherwise browses back to
+// parent.
+- (void)hideSearchItemsOrBrowseBack;
+
+// Hides search items if search items are displayed. Otherwise cancels the file
+// selection altogether.
+- (void)hideSearchItemsOrCancelFileSelection;
+
+// Informs the mutator as to whether the search bar is currently focused.
+- (void)setSearchBarFocused:(BOOL)focused;
+
+// Sets the search text.
+- (void)setSearchText:(NSString*)searchText;
 
 @end
 

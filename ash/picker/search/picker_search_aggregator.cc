@@ -13,9 +13,9 @@
 #include <vector>
 
 #include "ash/picker/model/picker_search_results_section.h"
+#include "ash/picker/picker_search_result.h"
 #include "ash/picker/search/picker_search_source.h"
 #include "ash/picker/views/picker_view_delegate.h"
-#include "ash/public/cpp/picker/picker_search_result.h"
 #include "base/check.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/span.h"
@@ -49,9 +49,9 @@ PickerSectionType SectionTypeFromSearchSource(PickerSearchSource source) {
     case PickerSearchSource::kDrive:
       return PickerSectionType::kDriveFiles;
     case PickerSearchSource::kEditorWrite:
-      return PickerSectionType::kEditorWrite;
     case PickerSearchSource::kEditorRewrite:
-      return PickerSectionType::kEditorRewrite;
+    case PickerSearchSource::kLobster:
+      return PickerSectionType::kContentEditor;
   }
 }
 
@@ -188,7 +188,8 @@ void PickerSearchAggregator::HandleSearchSourceResults(
       accumulated_results_[base::to_underlying(section_type)];
   // Suggested results have multiple sources, which we store in any order and
   // explicitly do not append if post-burn-in.
-  if (section_type == PickerSectionType::kNone) {
+  if (section_type == PickerSectionType::kNone ||
+      section_type == PickerSectionType::kContentEditor) {
     // Suggested results cannot have more results, since it's not a proper
     // category.
     CHECK(!has_more_results);
@@ -320,8 +321,7 @@ void PickerSearchAggregator::PublishBurnInResults() {
            PickerSectionType::kDriveFiles,
            PickerSectionType::kLocalFiles,
            PickerSectionType::kClipboard,
-           PickerSectionType::kEditorWrite,
-           PickerSectionType::kEditorRewrite,
+           PickerSectionType::kContentEditor,
        }) {
     if (published_types.contains(type)) {
       continue;

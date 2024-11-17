@@ -35,6 +35,8 @@ LanguageTranslator::GetTranslatorReceiver() {
   return translator_remote_.BindNewPipeAndPassReceiver(task_runner_);
 }
 
+// TODO(crbug.com/322229993): The new version is AITranslator::translate().
+// Delete this old version.
 ScriptPromise<IDLString> LanguageTranslator::translate(
     ScriptState* script_state,
     const WTF::String& input,

@@ -56,6 +56,7 @@ import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
 import org.chromium.chrome.browser.download.DownloadTestRule;
 import org.chromium.chrome.browser.download.DownloadTestRule.CustomMainActivityStart;
+import org.chromium.chrome.browser.download.DownloadUtils;
 import org.chromium.chrome.browser.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -87,8 +88,8 @@ import org.chromium.content_public.browser.test.util.TestTouchUtils;
 import org.chromium.content_public.common.ContentFeatures;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.ui.base.Clipboard;
-import org.chromium.ui.base.MenuSourceType;
-import org.chromium.ui.test.util.UiDisableIf;
+import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.ui.mojom.MenuSourceType;
 import org.chromium.url.GURL;
 
 import java.io.IOException;
@@ -187,6 +188,7 @@ public class ContextMenuTest {
         Tab tab = sDownloadTestRule.getActivity().getActivityTab();
         CriteriaHelper.pollUiThread(() -> tab.isUserInteractable() && !tab.isLoading());
         setupLensChipDelegate();
+        DownloadUtils.setIsDownloadRestrictedByPolicyForTesting(false);
     }
 
     @After
@@ -199,6 +201,7 @@ public class ContextMenuTest {
                         mMenuCoordinator = null;
                     }
                 });
+        DownloadUtils.setIsDownloadRestrictedByPolicyForTesting(null);
     }
 
     @Test
@@ -296,7 +299,7 @@ public class ContextMenuTest {
         try {
             newTabCallback.waitForCallback(callbackCount);
         } catch (TimeoutException ex) {
-            Assert.fail("New tab never created from context menu press");
+            throw new AssertionError("New tab never created from context menu press", ex);
         }
 
         // Only check for the URL matching as the tab will not be fully created in svelte mode.
@@ -573,6 +576,28 @@ public class ContextMenuTest {
         saveMediaFromContextMenu("videoDOMElement", R.id.contextmenu_save_video, FILENAME_WEBM);
     }
 
+    @Test
+    @MediumTest
+    public void testSaveImageBlockedByPolicy()
+            throws TimeoutException, SecurityException, IOException {
+        DownloadUtils.setIsDownloadRestrictedByPolicyForTesting(true);
+        int downloadCount = sDownloadTestRule.getAllDownloads().size();
+        Tab tab = sDownloadTestRule.getActivity().getActivityTab();
+        mMenuCoordinator = ContextMenuUtils.openContextMenu(tab, "testImage");
+
+        // Click should not trigger any download
+        InstrumentationRegistry.getInstrumentation()
+                .runOnMainSync(
+                        () ->
+                                mMenuCoordinator.clickListItemForTesting(
+                                        R.id.contextmenu_save_image));
+        int newCount = sDownloadTestRule.getAllDownloads().size();
+        Assert.assertEquals(downloadCount, newCount);
+
+        // The context menu should still show.
+        Assert.assertTrue(mMenuCoordinator.getDialogForTest().isShowing());
+    }
+
     /**
      * Opens a link and image in new tabs and verifies the order of the tabs. Also verifies that the
      * parent page remains in front after opening links in new tabs.
@@ -654,7 +679,7 @@ public class ContextMenuTest {
 
     @Test
     @SmallTest
-    @DisableIf.Device(type = {UiDisableIf.TABLET}) // https://crbug.com/338969612
+    @DisableIf.Device(DeviceFormFactor.TABLET) // https://crbug.com/338969612
     @Feature({"Browser", "ContextMenu"})
     public void testContextMenuRetrievesLinkOptions() throws TimeoutException {
         Tab tab = sDownloadTestRule.getActivity().getActivityTab();
@@ -748,7 +773,7 @@ public class ContextMenuTest {
 
     @Test
     @SmallTest
-    @DisableIf.Device(type = {UiDisableIf.TABLET}) // https://crbug.com/338969612
+    @DisableIf.Device(DeviceFormFactor.TABLET) // https://crbug.com/338969612
     @Feature({"Browser", "ContextMenu"})
     public void testContextMenuRetrievesImageLinkOptions() throws TimeoutException {
         LensUtils.setFakePassableLensEnvironmentForTesting(true);
@@ -886,7 +911,7 @@ public class ContextMenuTest {
                         false,
                         0,
                         0,
-                        MenuSourceType.MENU_SOURCE_TOUCH,
+                        MenuSourceType.TOUCH,
                         /* getOpenedFromHighlight= */ true,
                         /* additionalNavigationParams= */ null);
         ContextMenuPopulatorFactory populatorFactory =

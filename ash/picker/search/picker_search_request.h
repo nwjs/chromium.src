@@ -12,11 +12,11 @@
 #include <vector>
 
 #include "ash/ash_export.h"
+#include "ash/picker/picker_category.h"
+#include "ash/picker/picker_search_result.h"
 #include "ash/picker/search/picker_search_debouncer.h"
 #include "ash/picker/search/picker_search_source.h"
 #include "ash/public/cpp/app_list/app_list_types.h"
-#include "ash/public/cpp/picker/picker_category.h"
-#include "ash/public/cpp/picker/picker_search_result.h"
 #include "base/containers/span.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ref.h"
@@ -71,6 +71,8 @@ class ASH_EXPORT PickerSearchRequest {
   void HandleClipboardSearchResults(std::vector<PickerSearchResult> results);
   void HandleEditorSearchResults(PickerSearchSource source,
                                  std::optional<PickerSearchResult> result);
+  void HandleLobsterSearchResults(PickerSearchSource source,
+                                  std::optional<PickerSearchResult> result);
 
   // Sets the search for the source to be started right now.
   // `CHECK` fails if a search was already started.

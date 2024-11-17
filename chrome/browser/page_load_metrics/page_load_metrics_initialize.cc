@@ -18,7 +18,6 @@
 #include "chrome/browser/page_load_metrics/observers/core/ukm_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/document_write_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/foreground_duration_ukm_observer.h"
-#include "chrome/browser/page_load_metrics/observers/formfill_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/from_gws_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/gws_hp_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/gws_page_load_metrics_observer.h"
@@ -29,6 +28,7 @@
 #include "chrome/browser/page_load_metrics/observers/local_network_requests_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/multi_tab_loading_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/new_tab_page_initiated_page_load_metrics_observer.h"
+#include "chrome/browser/page_load_metrics/observers/new_tab_page_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/omnibox_suggestion_used_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/optimization_guide_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/page_anchors_metrics_observer.h"
@@ -77,11 +77,6 @@
 #include "extensions/common/constants.h"
 #endif
 
-#if defined(TOOLKIT_VIEWS)
-#include "chrome/browser/page_load_metrics/observers/side_search_page_load_metrics_observer.h"
-#include "chrome/browser/ui/side_search/side_search_utils.h"
-#endif  // defined(TOOLKIT_VIEWS)
-
 namespace {
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -126,7 +121,6 @@ class PageLoadMetricsEmbedder
   bool IsNewTabPageUrl(const GURL& url) override;
   bool IsNoStatePrefetch(content::WebContents* web_contents) override;
   bool IsExtensionUrl(const GURL& url) override;
-  bool IsSidePanel(content::WebContents* web_contents) override;
   bool IsNonTabWebUI() override;
   page_load_metrics::PageLoadMetricsMemoryTracker*
   GetMemoryTrackerForBrowserContext(
@@ -134,8 +128,8 @@ class PageLoadMetricsEmbedder
 
  protected:
   // page_load_metrics::PageLoadMetricsEmbedderBase:
-  void RegisterEmbedderObservers(
-      page_load_metrics::PageLoadTracker* tracker) override;
+  void RegisterObservers(page_load_metrics::PageLoadTracker* tracker,
+                         content::NavigationHandle* navigation_handle) override;
 };
 
 PageLoadMetricsEmbedder::PageLoadMetricsEmbedder(
@@ -144,32 +138,33 @@ PageLoadMetricsEmbedder::PageLoadMetricsEmbedder(
 
 PageLoadMetricsEmbedder::~PageLoadMetricsEmbedder() = default;
 
-void PageLoadMetricsEmbedder::RegisterEmbedderObservers(
-    page_load_metrics::PageLoadTracker* tracker) {
-  // TODO(crbug.com/40823327): Integrate side panel metrics with UKM.
-  if (IsSidePanel(web_contents())) {
-#if defined(TOOLKIT_VIEWS)
-    if (auto side_search_observer =
-            SideSearchPageLoadMetricsObserver::CreateIfNeeded(
-                tracker->GetWebContents())) {
-      tracker->AddObserver(std::move(side_search_observer));
-    }
-#endif  // defined(TOOLKIT_VIEWS)
-    return;
-  }
+void PageLoadMetricsEmbedder::RegisterObservers(
+    page_load_metrics::PageLoadTracker* tracker,
+    content::NavigationHandle* navigation_handle) {
+  // Page-specific observers.
+  //
+  // Other observers don't get installed because they measure things that
+  // don't apply to this type of page, rely on invariants that aren't true
+  // about WebUI chrome pages (such as visibility-related things),
+  // or because they depend on objects that don't exist for WebUI pages
+  // (namely `TabHelper`s).
 
 #if !BUILDFLAG(IS_ANDROID)
   if (IsNonTabWebUI()) {
-    // This embedder is for a non-tab chrome:// page. Other observers don't get
-    // installed because they measure things that don't apply to this type of
-    // page, rely on invariants that aren't true about non-tab chrome pages
-    // (such as visibility-related things), or because they depend on objects
-    // that don't exist for non-tab pages (namely `TabHelper`s).
+    // This embedder is for a non-tab chrome:// page.
     tracker->AddObserver(std::make_unique<NonTabPageLoadMetricsObserver>(
         GetNonTabWebUIName(web_contents())));
     return;
   }
 #endif
+
+  if (IsNewTabPageUrl(navigation_handle->GetURL())) {
+    tracker->AddObserver(std::make_unique<NewTabPagePageLoadMetricsObserver>());
+    return;
+  }
+
+  // Observers for regular web pages.
+  RegisterCommonObservers(tracker);
 
   if (!IsNoStatePrefetch(web_contents())) {
     tracker->AddObserver(std::make_unique<AMPPageLoadMetricsObserver>());
@@ -208,7 +203,6 @@ void PageLoadMetricsEmbedder::RegisterEmbedderObservers(
       tracker->AddObserver(std::move(ads_observer));
 
     tracker->AddObserver(std::make_unique<ThirdPartyMetricsObserver>());
-    tracker->AddObserver(std::make_unique<FormfillPageLoadMetricsObserver>());
 
     std::unique_ptr<page_load_metrics::PageLoadMetricsObserver> ukm_observer =
         UkmPageLoadMetricsObserver::CreateIfNeeded();
@@ -287,14 +281,6 @@ bool PageLoadMetricsEmbedder::IsExtensionUrl(const GURL& url) {
 #else
   return false;
 #endif
-}
-
-bool PageLoadMetricsEmbedder::IsSidePanel(content::WebContents* web_contents) {
-#if defined(TOOLKIT_VIEWS)
-  return side_search::IsSidePanelWebContents(web_contents);
-#else
-  return false;
-#endif  // defined(TOOLKIT_VIEWS)
 }
 
 bool PageLoadMetricsEmbedder::IsNonTabWebUI() {

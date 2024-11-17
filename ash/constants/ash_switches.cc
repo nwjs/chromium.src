@@ -8,6 +8,7 @@
 #include <optional>
 #include <string>
 
+#include "ash/constants/ash_features.h"
 #include "base/auto_reset.h"
 #include "base/command_line.h"
 #include "base/hash/sha1.h"
@@ -54,6 +55,15 @@ bool g_ignore_modifier_split_secret_key = true;
 constexpr char kSparkyHashKey[] =
     "\x3b\xcc\x52\x86\xf0\x4d\xfd\xd2\xcf\xd7\x05\xe0\xcc\x97\x95\xfd\x8a\x78"
     "\x44\x77";
+
+// The hash value for the secret key of the Scanner feature update.
+constexpr std::string_view kScannerUpdateHashKey(
+    "\xF0\xC9\xFD\x45\x31\x92\x95\xAC\xBB\xD8\xD4\xB3\x5F\xF8\x98\x3B\x3B\x4F"
+    "\x02\xF1",
+    base::kSHA1Length);
+
+// Whether checking the Scanner update secret key is ignored.
+bool g_ignore_scanner_update_secret_key = false;
 
 }  // namespace
 
@@ -409,6 +419,12 @@ const char kDemoModeForceArcOfflineProvision[] =
 // App ID to use for highlights app in demo mode.
 const char kDemoModeHighlightsApp[] = "demo-mode-highlights-extension";
 
+// API key for demo mode server.
+const char kDemoModeServerAPIKey[] = "demo-mode-server-api-key";
+
+// Override the prodution demo mode api url fo demo account sign in.
+const char kDemoModeServerUrl[] = "demo-mode-server-url";
+
 // App ID to use for screensaver app in demo mode.
 const char kDemoModeScreensaverApp[] = "demo-mode-screensaver-extension";
 
@@ -510,6 +526,9 @@ const char kEnableArc[] = "enable-arc";
 
 // Enables ARCVM.
 const char kEnableArcVm[] = "enable-arcvm";
+
+// Enables ARCVM DLC.
+const char kEnableArcVmDlc[] = "enable-arcvm-dlc";
 
 // Enables ARCVM realtime VCPU feature.
 const char kEnableArcVmRtVcpu[] = "enable-arcvm-rt-vcpu";
@@ -662,8 +681,11 @@ const char kFingerprintSensorLocation[] = "fingerprint-sensor-location";
 // Not passed on restart after sign out.
 const char kFirstExecAfterBoot[] = "first-exec-after-boot";
 
-// Forces a chip with fake coral data to be shown.
-const char kForceBirchFakeCoral[] = "force-birch-fake-coral";
+// Forces a fake backend to generate coral groups.
+const char kForceBirchFakeCoralBackend[] = "force-birch-fake-coral-backend";
+
+// Forces a chip with fake coral group to be shown.
+const char kForceBirchFakeCoralGroup[] = "force-birch-fake-coral-group";
 
 // Forces a fetch of Birch data whenever an informed restore session starts.
 const char kForceBirchFetch[] = "force-birch-fetch";
@@ -687,11 +709,6 @@ const char kForceHWIDCheckResultForTest[] = "force-hwid-check-result-for-test";
 // user profile check and time limits and shows the notification every time
 // for any type of user. Should be used only for testing.
 const char kForceHappinessTrackingSystem[] = "force-happiness-tracking-system";
-
-// Forces prelaunching Lacros at login screen regardless
-// of whether there are or aren't users with Lacros enabled.
-const char kForceLacrosLaunchAtLoginScreenForTesting[] =
-    "force-lacros-launch-at-login-screen-for-testing";
 
 // Forces FullRestoreService to launch browser for telemetry tests.
 const char kForceLaunchBrowser[] = "force-launch-browser";
@@ -963,6 +980,9 @@ const char kBrowserDataBackwardMigrationMode[] =
 const char kForceBrowserDataMigrationForTesting[] =
     "force-browser-data-migration-for-testing";
 
+// The base URL for the App Mall.
+const char kMallUrl[] = "mall-url";
+
 // Determines the URL to be used when calling the backend.
 const char kMarketingOptInUrl[] = "marketing-opt-in-url";
 
@@ -1041,8 +1061,6 @@ const char kHiddenNetworkMigrationInterval[] =
 // follow the format "--hidden-network-migration-age=#", and should be >= 0.
 const char kHiddenNetworkMigrationAge[] = "hidden-network-migration-age";
 
-const char kPickerFeatureKey[] = "picker-feature-key";
-
 // Sets the channel from which the PPD files are loaded.
 const char kPrintingPpdChannel[] = "printing-ppd-channel";
 const char kPrintingPpdChannelProduction[] = "production";
@@ -1103,6 +1121,9 @@ const char kSamlPasswordChangeUrl[] = "saml-password-change-url";
 // New modular design for the shelf with apps separated into a hotseat UI and
 // smaller shelf in clamshell mode.
 const char kShelfHotseat[] = "shelf-hotseat";
+
+// Supply the secret key for Scanner (for more details see b/363103871).
+const char kScannerUpdateKey[] = "scanner-update-key";
 
 // Supply secret key for Seal feature.
 const char kSealKey[] = "seal-key";
@@ -1528,6 +1549,30 @@ std::optional<std::string> ObtainSparkyServerUrl() {
             kSparkyServerUrl));
   }
   return std::nullopt;
+}
+
+bool IsScannerUpdateSecretKeyMatched() {
+  if (g_ignore_scanner_update_secret_key) {
+    return true;
+  }
+
+  // Commandline looks like:
+  //  out/Default/chrome --user-data-dir=/tmp/tmp123
+  //  --scanner-update-key="INSERT KEY HERE" --enable-features=ScannerUpdate
+  const std::string provided_key_hash = base::SHA1HashString(
+      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          kScannerUpdateKey));
+
+  const bool scanner_key_matched = (provided_key_hash == kScannerUpdateHashKey);
+  if (!scanner_key_matched) {
+    LOG(ERROR) << "Provided secret key does not match with the expected one.";
+  }
+
+  return scanner_key_matched;
+}
+
+base::AutoReset<bool> SetIgnoreScannerUpdateSecretKeyForTest() {
+  return {&g_ignore_scanner_update_secret_key, true};
 }
 
 }  // namespace ash::switches

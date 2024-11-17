@@ -62,6 +62,12 @@ String MLOperator::OperatorKindToString(
           return "lesser";
         case webnn::mojom::blink::ElementWiseBinary::Kind::kLesserOrEqual:
           return "lesserOrEqual";
+        case webnn::mojom::blink::ElementWiseBinary::Kind::kLogicalAnd:
+          return "logicalAnd";
+        case webnn::mojom::blink::ElementWiseBinary::Kind::kLogicalOr:
+          return "logicalOr";
+        case webnn::mojom::blink::ElementWiseBinary::Kind::kLogicalXor:
+          return "logicalXor";
       }
     }
     case webnn::mojom::blink::Operation::Tag::kClamp:
@@ -151,6 +157,9 @@ String MLOperator::OperatorKindToString(
     case webnn::mojom::blink::Operation::Tag::kGatherElements:
       CHECK(absl::holds_alternative<absl::monostate>(sub_kind));
       return "gatherElements";
+    case webnn::mojom::blink::Operation::Tag::kGatherNd:
+      CHECK(absl::holds_alternative<absl::monostate>(sub_kind));
+      return "gatherND";
     case webnn::mojom::blink::Operation::Tag::kGelu:
       CHECK(absl::holds_alternative<absl::monostate>(sub_kind));
       return "gelu";
@@ -224,6 +233,9 @@ String MLOperator::OperatorKindToString(
     case webnn::mojom::blink::Operation::Tag::kResample2d:
       CHECK(absl::holds_alternative<absl::monostate>(sub_kind));
       return "resample2d";
+    case webnn::mojom::blink::Operation::Tag::kScatterElements:
+      CHECK(absl::holds_alternative<absl::monostate>(sub_kind));
+      return "scatterElements";
     case webnn::mojom::blink::Operation::Tag::kScatterNd:
       CHECK(absl::holds_alternative<absl::monostate>(sub_kind));
       return "scatterND";

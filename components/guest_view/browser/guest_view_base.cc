@@ -334,6 +334,21 @@ GuestViewBase* GuestViewBase::FromRenderFrameHostId(
 }
 
 // static
+GuestViewBase* GuestViewBase::FromNavigationHandle(
+    content::NavigationHandle* navigation_handle) {
+  return navigation_handle
+             ? FromWebContents(navigation_handle->GetWebContents())
+             : nullptr;
+}
+
+// static
+GuestViewBase* GuestViewBase::FromFrameTreeNodeId(
+    content::FrameTreeNodeId frame_tree_node_id) {
+  return FromWebContents(
+      content::WebContents::FromFrameTreeNodeId(frame_tree_node_id));
+}
+
+// static
 GuestViewBase* GuestViewBase::FromInstanceID(int owner_process_id,
                                              int guest_instance_id) {
   auto* host = content::RenderProcessHost::FromID(owner_process_id);
@@ -364,6 +379,16 @@ bool GuestViewBase::IsGuest(content::RenderFrameHost* rfh) {
 // static
 bool GuestViewBase::IsGuest(const content::GlobalRenderFrameHostId& rfh_id) {
   return !!FromRenderFrameHostId(rfh_id);
+}
+
+// static
+bool GuestViewBase::IsGuest(content::NavigationHandle* navigation_handle) {
+  return !!FromNavigationHandle(navigation_handle);
+}
+
+// static
+bool GuestViewBase::IsGuest(content::FrameTreeNodeId frame_tree_node_id) {
+  return !!FromFrameTreeNodeId(frame_tree_node_id);
 }
 
 bool GuestViewBase::IsAutoSizeSupported() const {
@@ -594,15 +619,6 @@ bool GuestViewBase::HandleKeyboardEvent(
       embedder_web_contents(), event);
 }
 
-void GuestViewBase::LoadingStateChanged(WebContents* source,
-                                        bool should_show_loading_ui) {
-  if (!attached() || !embedder_web_contents()->GetDelegate())
-    return;
-
-  embedder_web_contents()->GetDelegate()->LoadingStateChanged(
-      embedder_web_contents(), should_show_loading_ui);
-}
-
 void GuestViewBase::ResizeDueToAutoResize(WebContents* web_contents,
                                           const gfx::Size& new_size) {
   UpdateGuestSize(new_size, auto_size_enabled_);
@@ -704,6 +720,12 @@ void GuestViewBase::SendQueuedEvents() {
     pending_events_.pop_front();
     event_ptr->Dispatch(this, view_instance_id_);
   }
+}
+
+void GuestViewBase::RejectGuestCreation(
+    std::unique_ptr<GuestViewBase> owned_this,
+    WebContentsCreatedCallback callback) {
+  std::move(callback).Run(std::move(owned_this), nullptr);
 }
 
 void GuestViewBase::CompleteInit(

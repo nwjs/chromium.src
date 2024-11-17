@@ -45,6 +45,7 @@ import org.chromium.content_public.browser.SelectAroundCaretResult;
 import org.chromium.content_public.browser.SelectionClient;
 import org.chromium.content_public.browser.SelectionMenuGroup;
 import org.chromium.content_public.browser.SelectionMenuItem;
+import org.chromium.content_public.browser.Visibility;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.selection.SelectionActionMenuDelegate;
 import org.chromium.content_public.browser.test.ContentJUnit4ClassRunner;
@@ -300,8 +301,8 @@ public class ContentTextSelectionTest {
         Assert.assertTrue(mSelectionPopupController.hasSelection());
 
         View webContentsView = mWebContents.getViewAndroidDelegate().getContainerView();
-        float mCurrentX = webContentsView.getWidth() / 2;
-        float mCurrentY = webContentsView.getHeight() / 2;
+        float mCurrentX = webContentsView.getWidth() / 2f;
+        float mCurrentY = webContentsView.getHeight() / 2f;
 
         // Perform a scroll.
         TouchCommon.performDrag(
@@ -329,8 +330,8 @@ public class ContentTextSelectionTest {
         waitForSelectActionBarVisible(false);
 
         View webContentsView = mWebContents.getViewAndroidDelegate().getContainerView();
-        float mCurrentX = webContentsView.getWidth() / 2;
-        float mCurrentY = webContentsView.getHeight() / 2;
+        float mCurrentX = webContentsView.getWidth() / 2f;
+        float mCurrentY = webContentsView.getHeight() / 2f;
 
         // Perform a scroll.
         TouchCommon.performDrag(
@@ -1153,9 +1154,9 @@ public class ContentTextSelectionTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     if (show) {
-                        webContents.onShow();
+                        webContents.updateWebContentsVisibility(Visibility.VISIBLE);
                     } else {
-                        webContents.onHide();
+                        webContents.updateWebContentsVisibility(Visibility.HIDDEN);
                     }
                 });
     }

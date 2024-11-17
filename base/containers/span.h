@@ -24,12 +24,13 @@
 #include "base/check.h"
 #include "base/compiler_specific.h"
 #include "base/containers/checked_iterators.h"
-#include "base/containers/dynamic_extent.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/types/to_address.h"
-#include "third_party/abseil-cpp/absl/base/attributes.h"
 
 namespace base {
+
+// [span.syn]: Constants
+inline constexpr size_t dynamic_extent = std::numeric_limits<size_t>::max();
 
 template <typename T,
           size_t Extent = dynamic_extent,
@@ -1376,15 +1377,6 @@ span(R&& r) noexcept
 template <typename T, size_t N>
 span(const T (&)[N]) -> span<const T, N>;
 
-// span can be printed and will print each of its values, including in Gtests.
-//
-// TODO(danakj): This could move to a ToString() member method if gtest printers
-// were hooked up to base::ToString().
-template <class T, size_t N>
-constexpr std::ostream& operator<<(std::ostream& l, span<T, N> r) {
-  return internal::span_stream(l, r);
-}
-
 // [span.objectrep], views of object representation
 template <typename T, size_t X, typename InternalPtrType>
 constexpr auto as_bytes(span<T, X, InternalPtrType> s) noexcept {
@@ -1438,7 +1430,7 @@ constexpr auto as_chars(span<T, X, InternalPtrType> s) noexcept {
 // If you want to view an arbitrary span type as a string, first explicitly
 // convert it to bytes via `base::as_bytes()`.
 //
-// For spans over byte-sized primitives, this is sugar for:
+// For spans over bytes, this is sugar for:
 // ```
 // std::string_view(as_chars(span).begin(), as_chars(span).end())
 // ```
@@ -1449,6 +1441,12 @@ constexpr std::string_view as_string_view(
     span<const unsigned char> s) noexcept {
   const auto c = as_chars(s);
   return std::string_view(c.begin(), c.end());
+}
+constexpr std::u16string_view as_string_view(span<const char16_t> s) noexcept {
+  return std::u16string_view(s.begin(), s.end());
+}
+constexpr std::wstring_view as_string_view(span<const wchar_t> s) noexcept {
+  return std::wstring_view(s.begin(), s.end());
 }
 
 // as_writable_chars() is the equivalent of as_writable_bytes(), except that
@@ -1521,8 +1519,7 @@ constexpr auto make_span(Container&& container) noexcept {
 // non-std helper that is inspired by the `std::slice::from_ref()` function from
 // Rust.
 template <typename T>
-constexpr span<T, 1u> span_from_ref(
-    T& single_object ABSL_ATTRIBUTE_LIFETIME_BOUND) noexcept {
+constexpr span<T, 1u> span_from_ref(T& single_object LIFETIME_BOUND) noexcept {
   // SAFETY: Given a valid reference to `single_object` the span of size 1 will
   // be a valid span that points to the `single_object`.
   return UNSAFE_BUFFERS(span<T, 1u>(std::addressof(single_object), 1u));
@@ -1536,12 +1533,12 @@ constexpr span<T, 1u> span_from_ref(
 // references are turned into a `span<T, sizeof(T)>`.
 template <typename T>
 constexpr span<const uint8_t, sizeof(T)> byte_span_from_ref(
-    const T& single_object ABSL_ATTRIBUTE_LIFETIME_BOUND) noexcept {
+    const T& single_object LIFETIME_BOUND) noexcept {
   return as_bytes(span_from_ref(single_object));
 }
 template <typename T>
 constexpr span<uint8_t, sizeof(T)> byte_span_from_ref(
-    T& single_object ABSL_ATTRIBUTE_LIFETIME_BOUND) noexcept {
+    T& single_object LIFETIME_BOUND) noexcept {
   return as_writable_bytes(span_from_ref(single_object));
 }
 
@@ -1559,7 +1556,7 @@ constexpr span<uint8_t, sizeof(T)> byte_span_from_ref(
 // always preserved.
 template <class CharT, size_t N>
 constexpr span<const CharT, N - 1> span_from_cstring(
-    const CharT (&lit ABSL_ATTRIBUTE_LIFETIME_BOUND)[N])
+    const CharT (&lit LIFETIME_BOUND)[N])
     ENABLE_IF_ATTR(lit[N - 1u] == CharT{0},
                    "requires string literal as input") {
   return span(lit).template first<N - 1>();
@@ -1582,7 +1579,7 @@ constexpr span<const CharT, N - 1> span_from_cstring(
 // always preserved.
 template <class CharT, size_t N>
 constexpr span<const CharT, N> span_with_nul_from_cstring(
-    const CharT (&lit ABSL_ATTRIBUTE_LIFETIME_BOUND)[N])
+    const CharT (&lit LIFETIME_BOUND)[N])
     ENABLE_IF_ATTR(lit[N - 1u] == CharT{0},
                    "requires string literal as input") {
   return span(lit);
@@ -1602,7 +1599,7 @@ constexpr span<const CharT, N> span_with_nul_from_cstring(
 // always preserved.
 template <size_t N>
 constexpr span<const uint8_t, N - 1> byte_span_from_cstring(
-    const char (&lit ABSL_ATTRIBUTE_LIFETIME_BOUND)[N])
+    const char (&lit LIFETIME_BOUND)[N])
     ENABLE_IF_ATTR(lit[N - 1u] == '\0', "requires string literal as input") {
   return as_bytes(span(lit).template first<N - 1>());
 }
@@ -1624,7 +1621,7 @@ constexpr span<const uint8_t, N - 1> byte_span_from_cstring(
 // always preserved.
 template <size_t N>
 constexpr span<const uint8_t, N> byte_span_with_nul_from_cstring(
-    const char (&lit ABSL_ATTRIBUTE_LIFETIME_BOUND)[N])
+    const char (&lit LIFETIME_BOUND)[N])
     ENABLE_IF_ATTR(lit[N - 1u] == '\0', "requires string literal as input") {
   return as_bytes(span(lit));
 }
@@ -1642,7 +1639,7 @@ constexpr auto as_byte_span(const Spannable& arg) {
 
 template <int&... ExplicitArgumentBarrier, typename T, size_t N>
 constexpr span<const uint8_t, N * sizeof(T)> as_byte_span(
-    const T (&arr ABSL_ATTRIBUTE_LIFETIME_BOUND)[N]) {
+    const T (&arr LIFETIME_BOUND)[N]) {
   return as_bytes(make_span(arr));
 }
 
@@ -1664,13 +1661,13 @@ constexpr auto as_writable_byte_span(Spannable&& arg) {
 // the span type signature span<uint8_t, N>.
 template <int&... ExplicitArgumentBarrier, typename T, size_t N>
 constexpr span<uint8_t, N * sizeof(T)> as_writable_byte_span(
-    T (&arr ABSL_ATTRIBUTE_LIFETIME_BOUND)[N]) {
+    T (&arr LIFETIME_BOUND)[N]) {
   return as_writable_bytes(make_span(arr));
 }
 
 template <int&... ExplicitArgumentBarrier, typename T, size_t N>
 constexpr span<uint8_t, N * sizeof(T)> as_writable_byte_span(
-    T (&&arr ABSL_ATTRIBUTE_LIFETIME_BOUND)[N]) {
+    T (&&arr LIFETIME_BOUND)[N]) {
   return as_writable_bytes(make_span(arr));
 }
 
@@ -1694,11 +1691,21 @@ constexpr auto span_cmp(span<T, N> l, span<U, M> r)
                                                 r.end());
 }
 
+template <class T>
+concept SpanConvertsToStringView = requires {
+  { ::base::as_string_view(span<T>()) };
+};
+
+template <class T>
+concept StringViewCanStreamToCharStream = requires(std::ostream& s) {
+  { s << ::base::as_string_view(span<T>()) };
+};
+
 // Template helper for implementing printing.
 template <class T, size_t N>
 constexpr std::ostream& span_stream(std::ostream& l, span<T, N> r) {
   l << "[";
-  if constexpr (!std::same_as<std::remove_cvref_t<T>, char>) {
+  if constexpr (!SpanConvertsToStringView<T>) {
     if (!r.empty()) {
       l << base::ToString(r.front());
       for (const T& e : r.subspan(1u)) {
@@ -1707,6 +1714,19 @@ constexpr std::ostream& span_stream(std::ostream& l, span<T, N> r) {
       }
     }
   } else {
+    // Note: Since we don't always have that header included, we can't branch on
+    // whether streaming is available, as it would create UB if different parts
+    // of the TU see a different answer. So we just try catch it with an assert.
+    static_assert(StringViewCanStreamToCharStream<T>,
+                  "include base/strings/utf_ostream_operators.h when streaming "
+                  "spans of wide chars");
+    if constexpr (std::same_as<wchar_t, std::remove_cvref_t<T>>) {
+      l << "L";
+    } else if constexpr (std::same_as<char16_t, std::remove_cvref_t<T>>) {
+      l << "u";
+    } else if constexpr (std::same_as<char32_t, std::remove_cvref_t<T>>) {
+      l << "U";
+    }
     l << '\"';
     l << as_string_view(r);
     l << '\"';
@@ -1716,6 +1736,18 @@ constexpr std::ostream& span_stream(std::ostream& l, span<T, N> r) {
 }
 
 }  // namespace internal
+
+// span can be printed and will print each of its values, including in Gtests.
+//
+// TODO(danakj): This could move to a ToString() member method if gtest printers
+// were hooked up to base::ToString().
+template <class T, size_t N>
+  requires internal::SpanConvertsToStringView<T> || requires(T t) {
+    { base::ToString(t) };
+  }
+constexpr std::ostream& operator<<(std::ostream& l, span<T, N> r) {
+  return internal::span_stream(l, r);
+}
 
 }  // namespace base
 

@@ -9,14 +9,13 @@
 
 #include "base/feature_list.h"
 #include "base/time/time.h"
-#include "chrome/browser/profiles/profile_selections.h"
-#include "chrome/browser/tpcd/heuristics/opener_heuristic_tab_helper.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/cookie_access_details.h"
 #include "content/public/browser/web_contents.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "services/network/public/cpp/features.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 base::FilePath GetDIPSFilePath(content::BrowserContext* context) {
   return context->GetPath().Append(kDIPSFilename);
@@ -148,6 +147,12 @@ std::string GetSiteForDIPS(const GURL& url) {
   const auto domain = net::registry_controlled_domains::GetDomainAndRegistry(
       url, net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
   return domain.empty() ? url.host() : domain;
+}
+
+std::string GetSiteForDIPS(const url::Origin& origin) {
+  const auto domain = net::registry_controlled_domains::GetDomainAndRegistry(
+      origin, net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
+  return domain.empty() ? origin.host() : domain;
 }
 
 bool HasSameSiteIframe(content::WebContents* web_contents, const GURL& url) {

@@ -294,6 +294,18 @@
       <message name="IDS_QUICK_ANSWERS_VIEW_A11Y_INFO_DESC_TEMPLATE_V2" desc="A11y description template for the Quick Answers view (V2 version).">
         <ph name="QUERY_TEXT">$1<ex>interested</ex></ph>; <ph name="RESULT_TEXT">$2<ex>showing curiosity or concern about something or someone; having a feeling of interest.</ex></ph>; Press Search plus Space to see result in Google Search.
       </message>
+      <message name="IDS_QUICK_ANSWERS_VIEW_A11Y_INFO_DESCRIPTION_WITH_INTENT_TEMPLATE" desc="A11y description template for the refreshed Quick Answers view. Note that this text is not rendered in UI but passed to a11y service.">
+        <ph name="INTENT">$1<ex>Unit Conversion</ex></ph>; <ph name="QUERY_TEXT">$2<ex>10 kg</ex></ph>; <ph name="RESULT_TEXT">$3<ex>22.04 pounds</ex></ph>
+      </message>
+      <message name="IDS_QUICK_ANSWERS_VIEW_A11Y_INFO_DESCRIPTION_WITH_INTENT_AND_SUBTEXT_TEMPLATE" desc="A11y description template for the refreshed Quick Answers view with sub text. Note that this text is not rendered in UI but passed to a11y service.">
+        <ph name="INTENT">$1<ex>Translate</ex></ph>; <ph name="QUERY_TEXT">$2<ex>信息</ex></ph>; <ph name="SUBTEXT">$3<ex>Chinese</ex></ph>; <ph name="RESULT_TEXT">$4<ex>information</ex></ph>
+      </message>
+      <message name="IDS_QUICK_ANSWERS_VIEW_A11Y_INFO_DESCRIPTION_TEMPLATE" desc="A11y description template for the Quick Answers view. Note that this text is not rendered in UI but passed to a11y service.">
+        <ph name="QUERY_TEXT">$1<ex>10 kg</ex></ph>; <ph name="RESULT_TEXT">$2<ex>22.04 pounds</ex></ph>
+      </message>
+      <message name="IDS_QUICK_ANSWERS_VIEW_A11Y_INFO_DESCRIPTION_WITH_SUBTEXT_TEMPLATE" desc="A11y description template for the Quick Answers view with sub text. Note that this text is not rendered in UI but passed to a11y service.">
+        <ph name="QUERY_TEXT">$1<ex>信息</ex></ph>; <ph name="SUBTEXT">$2<ex>Chinese</ex></ph>; <ph name="RESULT_TEXT">$3<ex>information</ex></ph>
+      </message>
       <!-- TODO(b/259440976): Remove navigation directions once the QA Rich Card feature launches. -->
       <message name="IDS_QUICK_ANSWERS_VIEW_A11Y_NAME_TEXT" desc="A11y name text for the Quick Answers view.">
         Info related to your selection
@@ -454,7 +466,7 @@
         Help me read
       </message>
       <message name="IDS_ASH_MAHI_CONDENSED_MENU_BUTTON_LABEL" desc="The label that appears on the condensed Mahi menu button">
-        Help me read this page
+        Summarize with Help me read
       </message>
 
       <!-- Multitask Menu -->
@@ -680,18 +692,42 @@
           ChromeOS Input Method Service
         </message>
 
-        <!-- Graduation App -->
-        <message name="IDS_GRADUATION_APP_TITLE" desc="Name of the Graduation app in the app shelf. Graduation allows user to transfer data from their EDU account to their consumer account.">
-          Graduation
+        <!-- Content Transfer App -->
+        <message name="IDS_GRADUATION_APP_TITLE" desc="Name of the Content Transfer app in the app shelf. The Content Transfer app allows user to transfer data from their EDU account to their consumer account.">
+          Content Transfer
         </message>
-        <message name="IDS_GRADUATION_APP_BACK_BUTTON_LABEL" desc="Text for a button that navigates to the previous step of the Graduation flow.">
+        <message name="IDS_GRADUATION_APP_BACK_BUTTON_LABEL" desc="Text for a button that navigates to the previous step of the Transfer flow.">
           Back
         </message>
-        <message name="IDS_GRADUATION_APP_DONE_BUTTON_LABEL" desc="Text for a button that is clicked to indicate that the Graduation flow is complete.">
+        <message name="IDS_GRADUATION_APP_DONE_BUTTON_LABEL" desc="Text for a button that is clicked to indicate that the Transfer flow is complete.">
           Done
+        </message>
+        <message name="IDS_GRADUATION_APP_GET_STARTED_BUTTON_LABEL" desc="Text for a button that is clicked to navigate to the Transfer tool.">
+          Get Started
         </message>
         <message name="IDS_GRADUATION_APP_WEBVIEW_LOADING_MESSAGE" desc="Message shown while the Takeout webview is loading.">
           Please wait...
+        </message>
+        <message name="IDS_GRADUATION_APP_WELCOME_PAGE_TITLE" desc="The title of the welcome page shown when the Content Transfer app is opened.">
+          Take your Gmail and Google Drive files with you
+        </message>
+        <message name="IDS_GRADUATION_APP_WELCOME_PAGE_DESCRIPTION" desc="The description of the welcome page shown when the Content Transfer app is opened.">
+          When you lose access to your school account, you will no longer have access to the associated email and Google Drive files such as Gmail, Docs, Slides, and more.
+        </message>
+        <message name="IDS_GRADUATION_APP_WELCOME_PAGE_SUB_DESCRIPTION" desc="An additional description shown on the welcome page when the Content Transfer app is opened.">
+          Make sure to use the Content Transfer app by Google to move your school account data to your personal account before you lose access.
+        </message>
+        <message name="IDS_GRADUATION_APP_ERROR_PAGE_TITLE" desc="The title of the page shown in the Content Transfer app when an error has occurred.">
+          An error occurred
+        </message>
+        <message name="IDS_GRADUATION_APP_ERROR_PAGE_DESCRIPTION" desc="The description of the page shown in the Content Transfer app when an error has occurred.">
+          Please try again later
+        </message>
+        <message name="IDS_GRADUATION_APP_OFFLINE_PAGE_TITLE" desc="The title of the page shown in the Content Transfer app when the network is not available.">
+          Can’t connect to the internet
+        </message>
+        <message name="IDS_GRADUATION_APP_OFFLINE_PAGE_DESCRIPTION" desc="The description of the page shown in the Content Transfer app when the network is not available.">
+          Check your internet connection
         </message>
 
         <!-- Help App -->
@@ -2798,7 +2834,7 @@
           Please connect to a network and reload the page to view screen saver.
         </message>
         <message name="IDS_PERSONALIZATION_APP_MANAGED_FEATURE" desc="Message to show in the personalization hub for a feature which is enterprise managed by administrators.">
-          This feature is managed by your administrators
+          This feature is managed by your administrator
         </message>
         <message name="IDS_PERSONALIZATION_APP_MANAGED_SETTING" desc="Message to show in the personalization hub for a setting which is enterprise managed by administrators.">
           This setting is managed by your administrators
@@ -3412,8 +3448,11 @@
         <message name="IDS_SEA_PEN_INTRODUCTION_DIALOG_TITLE" desc="The title of the introduction dialog displayed on the first time the user enters Sea Pen subpage.">
           How to create with AI and a few things to keep in mind
         </message>
-        <message name="IDS_SEA_PEN_INTRODUCTION_DIALOG_CONTENT" desc="The content of the introduction dialog.">
+        <message name="IDS_SEA_PEN_INTRODUCTION_DIALOG_FIRST_PARAGRAPH" desc="Option to fill in the SEA_PEN_INTRO_FIRST_PARAGRAPH of the IDS_SEA_PEN_INTRODUCTION_DIALOG_CONTENT.">
           Choose a theme and then select the underlined words to personalize your AI images.
+        </message>
+        <message name="IDS_SEA_PEN_INTRODUCTION_DIALOG_CONTENT" desc="The content of the introduction dialog.">
+          <ph name="SEA_PEN_INTRO_FIRST_PARAGRAPH">$1<ex>Choose a theme and then select the underlined words to personalize your AI images.</ex></ph>
           <ph name="LINE_BREAK">&lt;br&gt;</ph>
           <ph name="LINE_BREAK">&lt;br&gt;</ph>
           Select "Inspire me" to get more unique and varied AI images options.
@@ -3460,16 +3499,19 @@
           Previous prompts
         </message>
         <message name="IDS_SEA_PEN_FREEFORM_PREVIOUS_PROMPTS_TOOLTIP" desc="Tooltip for IDS_SEA_PEN_FREEFORM_PREVIOUS_PROMPTS">
-          Your 2 most recent prompts. You can only use these prompts while you're on this page.
+          Your 3 most recent prompts and outputs. You can only access these while you're using Wallpaper &amp; style.
         </message>
         <message name="IDS_SEA_PEN_FREEFORM_MORE_SUGGESTIONS_BUTTON" desc="Description for a button that will show more options">
           More
         </message>
         <message name="IDS_SEA_PEN_FREEFORM_PROMPTING_GUIDE" desc="A link to a guide with instructions on how to write a prompt to generate AI images.">
-          Try one of these prompts or see the <ph name="BEGIN_LINK_PROMPTING_GUIDE">&lt;a target="_blank" href="https://cloud.google.com/vertex-ai/generative-ai/docs/image/img-gen-prompt-guide"&gt;</ph>prompting guide<ph name="END_LINK_PROMPTING_GUIDE">&lt;/a&gt;</ph>
+          Select prompt to create or see the <ph name="BEGIN_LINK_PROMPTING_GUIDE">&lt;a target="_blank" href="https://cloud.google.com/vertex-ai/generative-ai/docs/image/img-gen-prompt-guide"&gt;</ph>prompt guide<ph name="END_LINK_PROMPTING_GUIDE">&lt;/a&gt;</ph>
         </message>
         <message name="IDS_SEA_PEN_FREEFORM_NAVIGATION_DESCRIPTION" desc="Description shown in each template page to help users navigate to freeform page.">
           You can also <ph name="BEGIN_LINK_FREEFORM_SUBPAGE">&lt;a href="chrome://personalization/wallpaper/sea-pen/freeform"&gt;</ph>write your own prompt<ph name="END_LINK_FREEFORM_SUBPAGE">&lt;/a&gt;</ph>
+        </message>
+        <message name="IDS_SEA_PEN_FREEFORM_INTRODUCTION_DIALOG_FIRST_PARAGRAPH" desc="Option to fill in the SEA_PEN_INTRO_FIRST_PARAGRAPH of the IDS_SEA_PEN_INTRODUCTION_DIALOG_CONTENT.">
+          When you select “Create with AI,” write a custom prompt. Or you can select “AI wallpapers,” to choose a theme and then select the underlined words to personalize your AI wallpaper.
         </message>
 
         <!-- Sea Pen Templates (AUTOGENERATED - contact assistive-eng@google.com before editing) -->
@@ -5733,6 +5775,12 @@
         <message name="IDS_FIRMWARE_DEVICE_UP_TO_DATE_TEXT" desc="Label for when a device is up to date.">
           Your <ph name="DEVICE_NAME">$1<ex>Logitech keyboard</ex></ph> is now up to date
         </message>
+        <message name="IDS_FIRMWARE_DEVICE_READY_TO_INSTALL_UPDATE_TEXT" desc="Label for when a device needs a reboot to complete an update.">
+          <ph name="DEVICE_NAME">$1<ex>system firmware</ex></ph> is ready to be updated
+        </message>
+        <message name="IDS_FIRMWARE_DEVICE_NEEDS_REBOOT_TEXT" desc="Label for displaying which version the device will update to after the necessary reboot.">
+          A restart is required to complete the installation of firmware for <ph name="DEVICE_NAME">$1<ex>system</ex></ph> to version <ph name="VERSION">$2<ex>2.0.12</ex></ph>. Your computer may appear to reboot several times. This behavior is expected.
+        </message>
         <message name="IDS_FIRMWARE_HAS_BEEN_UPDATED_TEXT" desc="Label for displaying which version the device has been updated to.">
           Firmware <ph name="DEVICE_NAME">$1<ex>Logitech keyboard</ex></ph> has been updated to version <ph name="VERSION">$2<ex>2.0.12</ex></ph>
         </message>
@@ -6768,6 +6816,47 @@
       <message name="IDS_DEEP_SCANNING_PROMPT_REMOVAL_NOTIFICATION"
                desc="Notification text shown on Lacros indicating to the users that future suspicious downloads will scan automatically">
         Suspicious files will be scanned automatically by Google Safe Browsing as part of the enhanced protection you chose
+      </message>
+
+      <message name="IDS_DEVICE_RESTRICTION_SCHEDULE_UPCOMING_LOGOUT_NOTIFICATION_TITLE" desc="Title of the notification telling the user they will be signed out soon.">
+        You will be signed out at <ph name="TIME">$1<ex>7:30 PM</ex></ph>
+      </message>
+      <message name="IDS_DEVICE_RESTRICTION_SCHEDULE_UPCOMING_LOGOUT_NOTIFICATION_BODY" desc="Body of the notification telling the user they will be signed out soon.">
+        Make sure to save any work
+      </message>
+      <message name="IDS_DEVICE_RESTRICTION_SCHEDULE_POST_LOGOUT_NOTIFICATION_TITLE" desc="Title of the notification telling the user that they were logged out.">
+        You've been signed out
+      </message>
+      <message name="IDS_DEVICE_RESTRICTION_SCHEDULE_POST_LOGOUT_NOTIFICATION_BODY" desc="Body of the notification telling the user that they were logged out.">
+        The <ph name="MANAGER">$1<ex>google.com</ex></ph> administrator has set when this <ph name="DEVICE_TYPE">$2<ex>Chromebook</ex></ph> can be used
+      </message>
+      <message name="IDS_DEVICE_DISABLED_HEADING_RESTRICTION_SCHEDULE" desc="Heading of the message shown to the user when the device has been disabled because it is inside restriction schedule.">
+        Device can't be used
+      </message>
+      <message name="IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE" desc="Explanation shown to the user when the device has been disabled because it is inside restriction schedule.">
+        <ph name="BEGIN_PARAGRAPH1">&lt;p&gt;</ph>The <ph name="MANAGER">$1<ex>google.com</ex></ph> administrator has set when this <ph name="DEVICE_TYPE">$2<ex>Chromebook</ex></ph> can be used.<ph name="END_PARAGRAPH1">&lt;/p&gt;</ph>
+        <ph name="BEGIN_PARAGRAPH2">&lt;p&gt;</ph>You'll be able to use this device again <ph name="DAY">$3<ex>tomorrow</ex></ph> at <ph name="TIME">$4<ex>8:00 AM</ex></ph>.<ph name="END_PARAGRAPH2">&lt;/p&gt;</ph>
+      </message>
+      <message name="IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE_MONDAY" desc="Message part DAY for IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE.">
+        on Monday
+      </message>
+      <message name="IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE_TUESDAY" desc="Message part DAY for IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE.">
+        on Tuesday
+      </message>
+      <message name="IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE_WEDNESDAY" desc="Message part DAY for IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE.">
+        on Wednesday
+      </message>
+      <message name="IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE_THURSDAY" desc="Message part DAY for IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE.">
+        on Thursday
+      </message>
+      <message name="IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE_FRIDAY" desc="Message part DAY for IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE.">
+        on Friday
+      </message>
+      <message name="IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE_SATURDAY" desc="Message part DAY for IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE.">
+        on Saturday
+      </message>
+      <message name="IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE_SUNDAY" desc="Message part DAY for IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE.">
+        on Sunday
       </message>
 
     </messages>

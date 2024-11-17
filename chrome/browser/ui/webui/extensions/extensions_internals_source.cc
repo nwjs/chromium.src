@@ -127,7 +127,7 @@ base::Value::List CreationFlagsToList(int creation_flags) {
 }
 
 base::Value::List DisableReasonsToList(int disable_reasons) {
-  static_assert(extensions::disable_reason::DISABLE_REASON_LAST == 1 << 24,
+  static_assert(extensions::disable_reason::DISABLE_REASON_LAST == 1 << 25,
                 "Please add your new disable reason here.");
 
   base::Value::List disable_reasons_value;
@@ -197,6 +197,10 @@ base::Value::List DisableReasonsToList(int disable_reasons) {
   if (disable_reasons &
       extensions::disable_reason::DISABLE_UNSUPPORTED_MANIFEST_VERSION) {
     disable_reasons_value.Append("DISABLE_UNSUPPORTED_MANIFEST_VERSION");
+  }
+  if (disable_reasons &
+      extensions::disable_reason::DISABLE_UNSUPPORTED_DEVELOPER_EXTENSION) {
+    disable_reasons_value.Append("DISABLE_UNSUPPORTED_DEVELOPER_EXTENSION");
   }
 
   return disable_reasons_value;

@@ -29,7 +29,7 @@
 - (void)viewDidLoad {
   [super viewDidLoad];
 
-  self.view.backgroundColor = [UIColor colorWithWhite:0 alpha:0.5];
+  self.view.backgroundColor = [UIColor clearColor];
   self.view.accessibilityIdentifier = kLenscontainerViewAccessibilityIdentifier;
 
   if (!self.selectionViewController) {
@@ -85,7 +85,9 @@
 #pragma mark - Actions
 
 - (void)closeOverlayRequested {
-  [_overlayCommandsHandler destroyLensUI:YES];
+  [_overlayCommandsHandler destroyLensUI:YES
+                                  reason:lens::LensOverlayDismissalSource::
+                                             kAccessibilityEscapeGesture];
 }
 
 - (void)escapeButtonPressed {

@@ -393,6 +393,9 @@ TEST(BiddingAndAuctionResponseTest, ParseFails) {
 }
 
 TEST(BiddingAndAuctionResponseTest, ParseSucceeds) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kEnableBandATriggeredUpdates);
   static const struct {
     base::Value input;
     BiddingAndAuctionResponse output;
@@ -799,6 +802,103 @@ TEST(BiddingAndAuctionResponseTest, ParseSucceeds) {
           []() {
             BiddingAndAuctionResponse response = CreateExpectedValidResponse();
             response.buyer_and_seller_reporting_id = "bar";
+            return response;
+          }(),
+      },
+      {
+          base::Value(CreateValidResponseDict().Set("updateGroups", "invalid")),
+          CreateExpectedValidResponse(),  // ignore error
+      },
+      {
+          base::Value(CreateValidResponseDict().Set(
+              "updateGroups",
+              base::Value(base::Value::Dict().Set(
+                  "invalid", base::Value(base::Value::List()))))),
+          CreateExpectedValidResponse(),  // ignore error
+      },
+      {
+          base::Value(CreateValidResponseDict().Set(
+              "updateGroups",
+              base::Value(base::Value::Dict().Set(
+                  kOwnerOrigin, base::Value(base::Value::List()))))),
+          CreateExpectedValidResponse(),
+      },
+      {
+          base::Value(CreateValidResponseDict().Set(
+              "updateGroups",
+              base::Value(base::Value::Dict().Set(
+                  kOwnerOrigin,
+                  base::Value(base::Value::List().Append(
+                      base::Value(base::Value::Dict().Set("index", 0)))))))),
+          CreateExpectedValidResponse(),  // ignore error
+      },
+      {
+          base::Value(CreateValidResponseDict().Set(
+              "updateGroups",
+              base::Value(base::Value::Dict().Set(
+                  kOwnerOrigin,
+                  base::Value(base::Value::List().Append(base::Value(
+                      base::Value::Dict().Set("updateIfOlderThanMs", 0)))))))),
+          CreateExpectedValidResponse(),  // ignore error
+      },
+      {
+          base::Value(CreateValidResponseDict().Set(
+              "updateGroups",
+              base::Value(base::Value::Dict().Set(
+                  kOwnerOrigin,
+                  base::Value(base::Value::List().Append(
+                      base::Value(base::Value::Dict()
+                                      .Set("index", "invalid")
+                                      .Set("updateIfOlderThanMs", 0)))))))),
+          CreateExpectedValidResponse(),  // ignore error
+      },
+      {
+          base::Value(CreateValidResponseDict().Set(
+              "updateGroups",
+              base::Value(base::Value::Dict().Set(
+                  kOwnerOrigin,
+                  base::Value(base::Value::List().Append(base::Value(
+                      base::Value::Dict()
+                          .Set("index", 0)
+                          .Set("updateIfOlderThanMs", "invalid")))))))),
+          CreateExpectedValidResponse(),  // ignore error
+      },
+      {
+          base::Value(CreateValidResponseDict().Set(
+              "updateGroups",
+              base::Value(base::Value::Dict().Set(
+                  kOwnerOrigin,
+                  base::Value(base::Value::List().Append(
+                      base::Value(base::Value::Dict()
+                                      .Set("index", -1)
+                                      .Set("updateIfOlderThanMs", 0)))))))),
+          CreateExpectedValidResponse(),  // ignore error
+      },
+      {
+          base::Value(CreateValidResponseDict().Set(
+              "updateGroups",
+              base::Value(base::Value::Dict().Set(
+                  kOwnerOrigin,
+                  base::Value(base::Value::List().Append(
+                      base::Value(base::Value::Dict()
+                                      .Set("index", 10)
+                                      .Set("updateIfOlderThanMs", 0)))))))),
+          CreateExpectedValidResponse(),  // ignore error
+      },
+      {
+          base::Value(CreateValidResponseDict().Set(
+              "updateGroups",
+              base::Value(base::Value::Dict().Set(
+                  kOwnerOrigin,
+                  base::Value(base::Value::List().Append(
+                      base::Value(base::Value::Dict()
+                                      .Set("index", 0)
+                                      .Set("updateIfOlderThanMs", 0)))))))),
+          []() {
+            BiddingAndAuctionResponse response = CreateExpectedValidResponse();
+            response.triggered_updates[blink::InterestGroupKey(
+                url::Origin::Create(GURL(kOwnerOrigin)), "name")] =
+                base::Milliseconds(0);
             return response;
           }(),
       },

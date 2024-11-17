@@ -33,6 +33,7 @@
 #include "net/log/net_log_with_source.h"
 #include "net/nqe/network_quality_estimator.h"
 #include "net/ssl/ssl_private_key.h"
+#include "net/url_request/redirect_info.h"
 #include "net/url_request/redirect_util.h"
 #include "net/url_request/url_request_context.h"
 
@@ -86,12 +87,7 @@ class URLRequestJob::URLRequestJobSourceStream : public SourceStream {
   const raw_ptr<URLRequestJob> job_;
 };
 
-URLRequestJob::URLRequestJob(URLRequest* request)
-    : request_(request),
-      request_initiator_site_(request->initiator().has_value()
-                                  ? std::make_optional(net::SchemefulSite(
-                                        request->initiator().value()))
-                                  : std::nullopt) {}
+URLRequestJob::URLRequestJob(URLRequest* request) : request_(request) {}
 
 URLRequestJob::~URLRequestJob() = default;
 
@@ -240,19 +236,6 @@ void URLRequestJob::ContinueDespiteLastError() {
   NOTREACHED_IN_MIGRATION();
 }
 
-void URLRequestJob::FollowDeferredRedirect(
-    const std::optional<std::vector<std::string>>& removed_headers,
-    const std::optional<net::HttpRequestHeaders>& modified_headers) {
-  // OnReceivedRedirect must have been called.
-  DCHECK(deferred_redirect_info_);
-
-  // It is possible that FollowRedirect will delete |this|, so it is not safe to
-  // pass along a reference to |deferred_redirect_info_|.
-  std::optional<RedirectInfo> redirect_info =
-      std::move(deferred_redirect_info_);
-  FollowRedirect(*redirect_info, removed_headers, modified_headers);
-}
-
 int64_t URLRequestJob::prefilter_bytes_read() const {
   return prefilter_bytes_read_;
 }
@@ -397,10 +380,6 @@ GURL URLRequestJob::ComputeReferrerForPolicy(
   return GURL();
 }
 
-cookie_util::StorageAccessStatus URLRequestJob::StorageAccessStatus() const {
-  return cookie_util::StorageAccessStatus::kNone;
-}
-
 int URLRequestJob::NotifyConnected(const TransportInfo& info,
                                    CompletionOnceCallback callback) {
   return request_->NotifyConnected(info, std::move(callback));
@@ -468,21 +447,14 @@ void URLRequestJob::NotifyHeadersComplete() {
     // so it does not treat being stopped as an error.
     DoneReadingRedirectResponse();
 
-    // Invalid redirect targets are failed early before
-    // NotifyReceivedRedirect. This means the delegate can assume that, if it
-    // accepts the redirect, future calls to OnResponseStarted correspond to
-    // |redirect_info.new_url|.
+    // Invalid redirect targets are failed early. This means the delegate can
+    // assume that, if it accepts the redirect, future calls to
+    // OnResponseStarted correspond to |redirect_info.new_url|.
     int redirect_check_result = CanFollowRedirect(new_location);
     if (redirect_check_result != OK) {
       OnDone(redirect_check_result, true /* notify_done */);
       return;
     }
-
-    // When notifying the URLRequest::Delegate, it can destroy the request,
-    // which will destroy |this|.  After calling to the URLRequest::Delegate,
-    // pointer must be checked to see if |this| still exists, and if not, the
-    // code must return immediately.
-    base::WeakPtr<URLRequestJob> weak_this(weak_factory_.GetWeakPtr());
 
     RedirectInfo redirect_info = RedirectInfo::ComputeRedirectInfo(
         request_->method(), request_->url(), request_->site_for_cookies(),
@@ -491,20 +463,8 @@ void URLRequestJob::NotifyHeadersComplete() {
         net::RedirectUtil::GetReferrerPolicyHeader(
             request_->response_headers()),
         insecure_scheme_was_upgraded, CopyFragmentOnRedirect(new_location));
-    bool defer_redirect = false;
-    request_->NotifyReceivedRedirect(redirect_info, &defer_redirect);
-
-    // Ensure that the request wasn't detached, destroyed, or canceled in
-    // NotifyReceivedRedirect.
-    if (!weak_this || request_->failed())
-      return;
-
-    if (defer_redirect) {
-      deferred_redirect_info_ = std::move(redirect_info);
-    } else {
-      FollowRedirect(redirect_info, std::nullopt, /*  removed_headers */
-                     std::nullopt /* modified_headers */);
-    }
+    request_->ReceivedRedirect(redirect_info);
+    // |this| may be destroyed at this point.
     return;
   }
 
@@ -748,13 +708,6 @@ int URLRequestJob::CanFollowRedirect(const GURL& new_url) {
   }
 
   return OK;
-}
-
-void URLRequestJob::FollowRedirect(
-    const RedirectInfo& redirect_info,
-    const std::optional<std::vector<std::string>>& removed_headers,
-    const std::optional<net::HttpRequestHeaders>& modified_headers) {
-  request_->Redirect(redirect_info, removed_headers, modified_headers);
 }
 
 void URLRequestJob::GatherRawReadStats(int bytes_read) {

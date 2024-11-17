@@ -51,6 +51,7 @@ class SelectType;
 class V8UnionHTMLElementOrLong;
 class V8UnionHTMLOptGroupElementOrHTMLOptionElement;
 class HTMLSelectedOptionElement;
+class SelectDescendantsObserver;
 
 class CORE_EXPORT HTMLSelectElement final
     : public HTMLFormControlElementWithState,
@@ -213,15 +214,18 @@ class CORE_EXPORT HTMLSelectElement final
   void CloneNonAttributePropertiesFrom(const Element&,
                                        NodeCloningData&) override;
 
-  // These should be called only if UsesMenuList().
-  // TODO(crbug.com/1511354): Audit usage of InnerElementForAppearanceAuto to
-  // make sure it correctly handles the appearance:base-select case.
-  Element& InnerElementForAppearanceAuto() const;
+  // InnerElement and PopupRootAXObject should be called only if UsesMenuList().
+  // InnerElement is the in-page <div> element in the UA shadowroot for MenuList
+  // rendering. It is excluded from the layout tree if the author sets
+  // appearance:base-select on this <select> and provides their own child
+  // <button>.
+  Element& InnerElement() const;
   AXObject* PopupRootAXObject() const;
 
   bool IsRichlyEditableForAccessibility() const override { return false; }
 
-  bool IsValidCommand(HTMLElement& invoker, CommandEventType command) override;
+  bool IsValidBuiltinCommand(HTMLElement& invoker,
+                             CommandEventType command) override;
   bool HandleCommandInternal(HTMLElement& invoker,
                              CommandEventType command) override;
 
@@ -241,13 +245,6 @@ class CORE_EXPORT HTMLSelectElement final
   // Returns true if the provided element is some select element's
   // PopoverForAppearanceBase.
   static bool IsPopoverForAppearanceBase(const Element*);
-
-  // DisplayedButton returns whatever <button> is included in the flat tree
-  // based on the result of slot assignment. If a child <button> is present,
-  // then the return value will be that <button>. Otherwise, the fallback
-  // <button> in the UA shadowroot will be returned. This <button> is the one
-  // which will get rendered as a popover.
-  HTMLButtonElement* DisplayedButton() const;
 
   // <select> supports appearance:base-select on both the main element and
   // ::picker(select). When the main element has appearance:base-select,
@@ -386,6 +383,8 @@ class CORE_EXPORT HTMLSelectElement final
 
   Member<SelectType> select_type_;
   int index_to_select_on_cancel_;
+
+  Member<SelectDescendantsObserver> descendants_observer_;
 
   friend class ListBoxSelectType;
   friend class MenuListSelectType;

@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "ash/components/arc/app/arc_app_constants.h"
 #include "ash/components/arc/session/arc_service_manager.h"
 #include "ash/constants/ash_features.h"
 #include "ash/public/cpp/app_list/app_list_metrics.h"
@@ -42,7 +43,6 @@
 #include "chrome/browser/ash/crosapi/hosted_app_util.h"
 #include "chrome/browser/ash/crostini/crostini_util.h"
 #include "chrome/browser/ash/extensions/gfx_utils.h"
-#include "chrome/browser/ash/file_manager/app_id.h"
 #include "chrome/browser/ash/file_manager/file_browser_handlers.h"
 #include "chrome/browser/ash/file_manager/fileapi_util.h"
 #include "chrome/browser/browser_process.h"
@@ -175,6 +175,7 @@ ash::ShelfLaunchSource ConvertLaunchSource(apps::LaunchSource launch_source) {
     case apps::LaunchSource::kFromWelcomeTour:
     case apps::LaunchSource::kFromFocusMode:
     case apps::LaunchSource::kFromSparky:
+    case apps::LaunchSource::kFromNavigationCapturing:
       return ash::LAUNCH_FROM_UNKNOWN;
   }
 }

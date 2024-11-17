@@ -181,7 +181,9 @@ inline constexpr char kLoggingModuleSwitchValue[] =
 #if BUILDFLAG(IS_WIN)
     "*/components/winhttp/*=1,"
 #endif
-    "*/components/update_client/*=2,*/chrome/updater/*=2";
+    "*/components/update_client/*=2,"
+    "*/chrome/enterprise_companion/*=2,"
+    "*/chrome/updater/*=2";
 
 // Specifies the application that the Updater needs to install.
 inline constexpr char kAppIdSwitch[] = "app-id";
@@ -278,6 +280,8 @@ inline constexpr char kDevOverrideKeyIdleCheckPeriodSeconds[] =
 inline constexpr char kDevOverrideKeyManagedDevice[] = "managed_device";
 inline constexpr char kDevOverrideKeyEnableDiffUpdates[] =
     "enable_diff_updates";
+inline constexpr char kDevOverrideKeyCecaConnectionTimeout[] =
+    "ceca_connection_timeout";
 
 // Timing constants.
 // How long to wait for an application installer (such as chrome_installer.exe)
@@ -588,6 +592,8 @@ inline constexpr int kErrorFailedToWriteFile = 6;
 
 inline constexpr base::TimeDelta kInitialDelay = base::Minutes(1);
 inline constexpr base::TimeDelta kServerKeepAliveTime = base::Seconds(10);
+
+inline constexpr base::TimeDelta kCecaConnectionTimeout = base::Seconds(30);
 
 // The maximum number of server starts before the updater uninstalls itself
 // while waiting for the first app registration.

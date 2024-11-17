@@ -807,6 +807,10 @@ inline constexpr char kAccessibilitySelectToSpeakWordHighlight[] =
 inline constexpr char kAccessibilityReducedAnimationsEnabled[] =
     "settings.a11y.reduced_animations.enabled";
 
+// A boolean pref which determines whether overlay scrollbars is enabled.
+inline constexpr char kAccessibilityOverlayScrollbarEnabled[] =
+    "settings.a11y.overlay_scrollbar.enabled";
+
 // A boolean pref which determines whether FaceGaze is enabled.
 inline constexpr char kAccessibilityFaceGazeEnabled[] =
     "settings.a11y.face_gaze.enabled";
@@ -822,10 +826,6 @@ inline constexpr char kAccessibilityFaceGazeCursorSpeedLeft[] =
 // An integer pref which scales the cursor speed when moving right.
 inline constexpr char kAccessibilityFaceGazeCursorSpeedRight[] =
     "settings.a11y.face_gaze.cursor_speed_right";
-// An integer pref which determines how much FaceGaze should smooth cursor
-// movements.
-inline constexpr char kAccessibilityFaceGazeCursorSmoothing[] =
-    "settings.a11y.face_gaze.cursor_smoothing";
 // A boolean pref which determines whether FaceGaze should use cursor
 // acceleration, which makes the cursor move faster when the tracked point moves
 // quickly.
@@ -868,6 +868,10 @@ inline constexpr char kFaceGazeDlcSuccessNotificationHasBeenShown[] =
 // has ever been shown.
 inline constexpr char kFaceGazeDlcFailureNotificationHasBeenShown[] =
     "settings.a11y.face_gaze.dlc_failure_notification_has_been_shown";
+// An integer pref which determines the FaceGaze cursor controller movement
+// threshold.
+inline constexpr char kAccessibilityFaceGazeVelocityThreshold[] =
+    "settings.a11y.face_gaze.velocity_threshold";
 
 // A boolean pref which determines whether the accessibility menu shows
 // regardless of the state of a11y features.
@@ -1979,6 +1983,13 @@ inline constexpr char kCameraAppDevToolsOpen[] =
 inline constexpr char kRecoveryFactorBehavior[] =
     "ash.recovery.recovery_factor_behavior";
 
+// A boolean pref that specifies if the the improved management disclosure
+// should be shown on the login/lock screen. When pref is set to true the
+// improved management disclosure is shown. Otherwise it is the existing
+// disclosure.
+inline constexpr char kImprovedManagementDisclosure[] =
+    "ash.login.improved_management_disclosure";
+
 // Pref which stores ICCIDs of cellular networks that have been migrated to the
 // APN Revamp feature.
 inline constexpr char kApnMigratedIccids[] = "ash.cellular.apn_migrated_iccids";
@@ -2163,6 +2174,9 @@ inline constexpr char kAshLoginSessionStartedIsFirstSession[] =
 // A boolean pref that controls whether input force respect ui gains is enabled.
 inline constexpr char kInputForceRespectUiGainsEnabled[] =
     "ash.input_force_respect_ui_gains_enabled";
+
+// A boolean pref that controls whether spatial audio is enabled.
+inline constexpr char kSpatialAudioEnabled[] = "ash.spatial_audio_enabled";
 
 // An integer pref that tracks how many times (3) we'll show the user a
 // notification when an incoming event would have been remapped to a right
@@ -2493,6 +2507,9 @@ inline constexpr char kDnsOverHttpsIncludedDomains[] =
 // GraduationEnablementStatus.yaml.
 inline constexpr char kGraduationEnablementStatus[] =
     "ash.graduation.enablement_status";
+
+// Boolean pref representing if the nudge for the Graduation app has been shown.
+inline constexpr char kGraduationNudgeShown[] = "ash.graduation.nudge_shown";
 
 //-----------------------------------------------------------------------------
 // Language related Prefs

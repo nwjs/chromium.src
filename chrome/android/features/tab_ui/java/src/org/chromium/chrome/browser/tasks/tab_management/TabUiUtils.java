@@ -4,16 +4,19 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
+import android.app.Activity;
+import android.content.Context;
 import android.text.TextUtils;
 import android.view.Gravity;
-import android.view.View;
 import android.widget.FrameLayout;
 
 import androidx.annotation.Nullable;
 
 import org.chromium.base.Callback;
 import org.chromium.chrome.browser.data_sharing.DataSharingServiceFactory;
+import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
 import org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles.SharedImageTilesCoordinator;
+import org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles.SharedImageTilesView;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
@@ -23,18 +26,23 @@ import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncUtils;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
+import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
-import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationManager.ConfirmationResult;
+import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.data_sharing.DataSharingService;
+import org.chromium.components.data_sharing.PeopleGroupActionOutcome;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
+import org.chromium.components.tab_group_sync.LocalTabGroupId;
 import org.chromium.components.tab_group_sync.SavedTabGroup;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.content_public.browser.LoadUrlParams;
+import org.chromium.ui.modaldialog.ModalDialogManager;
+import org.chromium.ui.modaldialog.ModalDialogUtils;
 
 import java.util.List;
 import java.util.Objects;
@@ -119,7 +127,7 @@ public class TabUiUtils {
 
         if (isIncognito || !isSyncEnabled || actionConfirmationManager == null) {
             for (Tab tab : tabs) {
-                filter.moveTabOutOfGroup(tab.getId());
+                filter.moveTabOutOfGroupInDirection(tab.getId(), /* trailing= */ true);
             }
         } else {
             // Present a confirmation dialog to the user before ungrouping the tab group.
@@ -136,7 +144,8 @@ public class TabUiUtils {
                                                                     && filter.isTabInTabGroup(tab))
                                             .collect(Collectors.toList());
                             for (Tab tab : tabsToUngroup) {
-                                filter.moveTabOutOfGroup(tab.getId());
+                                filter.moveTabOutOfGroupInDirection(
+                                        tab.getId(), /* trailing= */ true);
                             }
                         }
                     };
@@ -202,13 +211,17 @@ public class TabUiUtils {
     /**
      * Deletes a shared tab group, prompting to user to verify first.
      *
+     * @param context Used to load resources.
      * @param filter Used to pull dependencies from.
      * @param actionConfirmationManager Used to show a confirmation dialog.
+     * @param modalDialogManager Used to show error dialogs.
      * @param tabId The local id of the tab being deleted.
      */
     public static void deleteSharedTabGroup(
+            Context context,
             TabGroupModelFilter filter,
             ActionConfirmationManager actionConfirmationManager,
+            ModalDialogManager modalDialogManager,
             int tabId) {
         assert ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING);
         TabModel tabModel = filter.getTabModel();
@@ -227,7 +240,9 @@ public class TabUiUtils {
                 savedTabGroup.title,
                 (@ConfirmationResult Integer result) -> {
                     if (result != ConfirmationResult.CONFIRMATION_NEGATIVE) {
-                        dataSharingService.deleteGroup(savedTabGroup.collaborationId, null);
+                        dataSharingService.deleteGroup(
+                                savedTabGroup.collaborationId,
+                                bindOnLeaveOrDeleteGroup(context, modalDialogManager));
                     }
                 });
     }
@@ -235,13 +250,17 @@ public class TabUiUtils {
     /**
      * Leaves a shared tab group, prompting to user to verify first.
      *
+     * @param context Used to load resources.
      * @param filter Used to pull dependencies from.
      * @param actionConfirmationManager Used to show a confirmation dialog.
+     * @param modalDialogManager Used to show error dialogs.
      * @param tabId The local id of the tab being left.
      */
     public static void leaveTabGroup(
+            Context context,
             TabGroupModelFilter filter,
             ActionConfirmationManager actionConfirmationManager,
+            ModalDialogManager modalDialogManager,
             int tabId) {
         assert ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING);
         TabModel tabModel = filter.getTabModel();
@@ -266,9 +285,37 @@ public class TabUiUtils {
                 (@ConfirmationResult Integer result) -> {
                     if (result != ConfirmationResult.CONFIRMATION_NEGATIVE) {
                         dataSharingService.removeMember(
-                                savedTabGroup.collaborationId, account.getEmail(), null);
+                                savedTabGroup.collaborationId,
+                                account.getEmail(),
+                                bindOnLeaveOrDeleteGroup(context, modalDialogManager));
                     }
                 });
+    }
+
+    /**
+     * Create share flows to initiate tab group share.
+     *
+     * @param activity that contains the current tab group.
+     * @param filter The {@link TabGroupModelFilter} to act on.
+     * @param dataSharingTabManager The {@link} DataSharingTabManager managing communication between
+     *     UI and DataSharing services.
+     * @param tabId The local id of the tab.
+     * @param tabGroupDisplayName The display name of the current group title.
+     * @param onGroupSharedCallback The callback to execute after the create share flow is
+     *     completed.
+     */
+    public static void startShareTabGroupFlow(
+            Activity activity,
+            TabGroupModelFilter filter,
+            DataSharingTabManager dataSharingTabManager,
+            int tabId,
+            String tabGroupDisplayName,
+            Callback<Boolean> onGroupSharedCallback) {
+        Tab tab = filter.getTabModel().getTabById(tabId);
+        LocalTabGroupId localTabGroupId = TabGroupSyncUtils.getLocalTabGroupId(tab);
+
+        dataSharingTabManager.createGroupFlow(
+                activity, tabGroupDisplayName, localTabGroupId, onGroupSharedCallback);
     }
 
     /**
@@ -279,12 +326,36 @@ public class TabUiUtils {
      */
     public static void attachSharedImageTilesCoordinatorToFrameLayout(
             SharedImageTilesCoordinator sharedImageTilesCoordinator, FrameLayout container) {
-        View imageTilesView = sharedImageTilesCoordinator.getView();
+        attachSharedImageTilesViewToFrameLayout(sharedImageTilesCoordinator.getView(), container);
+    }
+
+    /**
+     * {@link #attachSharedImageTilesCoordinatorToFrameLayout(SharedImageTilesCoordinator,
+     * FrameLayout)}
+     */
+    public static void attachSharedImageTilesViewToFrameLayout(
+            SharedImageTilesView imageTilesView, FrameLayout container) {
         var layoutParams =
                 new FrameLayout.LayoutParams(
                         FrameLayout.LayoutParams.WRAP_CONTENT,
                         FrameLayout.LayoutParams.WRAP_CONTENT,
                         Gravity.CENTER);
         container.addView(imageTilesView, layoutParams);
+    }
+
+    private static Callback<Integer> bindOnLeaveOrDeleteGroup(
+            Context context, ModalDialogManager modalDialogManager) {
+        return (@PeopleGroupActionOutcome Integer outcome) -> {
+            if (outcome == PeopleGroupActionOutcome.SUCCESS) {
+                // TODO(crbug.com/345854578): Do we need to actively remove things from the UI?
+            } else {
+                ModalDialogUtils.showOneButtonConfirmation(
+                        modalDialogManager,
+                        context.getResources(),
+                        R.string.data_sharing_generic_failure_title,
+                        R.string.data_sharing_generic_failure_description,
+                        R.string.data_sharing_invitation_failure_button);
+            }
+        };
     }
 }

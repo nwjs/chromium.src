@@ -258,8 +258,14 @@ from the file picker.
 
 <a name="TOC-I-can-download-a-file-with-an-unsafe-extension-but-a-different-extension-or-file-type-is-shown-to-the-user-"></a>
 ### I can download a file with an unsafe extension but a different extension or file type is shown to the user - is this a security bug?
+
+See [file types](#TOC-The-wrong-description-for-a-file-type-is-added-by-Chrome-).
+
 <a name="TOC-Extensions-for-downloaded-files-are-not-shown-in-a-file-dialog-"></a>
 ### Extensions for downloaded files are not shown in a file dialog - is this a security bug?
+
+See [file types](#TOC-The-wrong-description-for-a-file-type-is-added-by-Chrome-).
+
 <a name="TOC-The-wrong-description-for-a-file-type-is-added-by-Chrome-"></a>
 ### The wrong description for a file type is added by Chrome - is this a security bug?
 
@@ -329,7 +335,7 @@ These browser's actions/shortcuts are specific to Chrome. They are different
 from the behavior specified by the web-platform, such as using executing
 `window.open()` or opening a link with the `target=_blank` attribute.
 
-<a name="TOC-What-is-the-threat-model-for-Chrome-for-Testing"</a>
+<a name="TOC-What-is-the-threat-model-for-Chrome-for-Testing"></a>
 ### What is the threat model for Chrome for Testing?
 
 [Chrome for Testing](https://developer.chrome.com/blog/chrome-for-testing) is a

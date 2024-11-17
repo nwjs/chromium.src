@@ -6,7 +6,8 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker] [INTERFACES]
 [Worker] interface AI
 [Worker]     attribute @@toStringTag
-[Worker]     getter assistant
+[Worker]     getter languageDetector
+[Worker]     getter languageModel
 [Worker]     getter rewriter
 [Worker]     getter summarizer
 [Worker]     getter writer
@@ -20,6 +21,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter topK
 [Worker]     method clone
 [Worker]     method constructor
+[Worker]     method countPromptTokens
 [Worker]     method destroy
 [Worker]     method prompt
 [Worker]     method promptStreaming
@@ -31,6 +33,21 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter maxTopK
 [Worker]     method constructor
 [Worker] interface AIAssistantFactory
+[Worker]     attribute @@toStringTag
+[Worker]     method capabilities
+[Worker]     method constructor
+[Worker]     method create
+[Worker] interface AILanguageDetector
+[Worker]     attribute @@toStringTag
+[Worker]     method constructor
+[Worker]     method destroy
+[Worker]     method detect
+[Worker] interface AILanguageDetectorCapabilities
+[Worker]     attribute @@toStringTag
+[Worker]     getter available
+[Worker]     method canDetect
+[Worker]     method constructor
+[Worker] interface AILanguageDetectorFactory
 [Worker]     attribute @@toStringTag
 [Worker]     method capabilities
 [Worker]     method constructor
@@ -69,6 +86,15 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker] interface AISummarizerFactory
 [Worker]     attribute @@toStringTag
 [Worker]     method capabilities
+[Worker]     method constructor
+[Worker]     method create
+[Worker] interface AITranslator
+[Worker]     attribute @@toStringTag
+[Worker]     method constructor
+[Worker]     method destroy
+[Worker]     method translate
+[Worker] interface AITranslatorFactory
+[Worker]     attribute @@toStringTag
 [Worker]     method constructor
 [Worker]     method create
 [Worker] interface AIWriter
@@ -649,7 +675,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter isFallbackAdapter
 [Worker]     getter limits
 [Worker]     method constructor
-[Worker]     method requestAdapterInfo
 [Worker]     method requestDevice
 [Worker] interface GPUAdapterInfo
 [Worker]     attribute @@toStringTag
@@ -685,6 +710,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter canvas
 [Worker]     method configure
 [Worker]     method constructor
+[Worker]     method getConfiguration
 [Worker]     method getCurrentTexture
 [Worker]     method unconfigure
 [Worker] interface GPUCommandBuffer
@@ -854,6 +880,8 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method endOcclusionQuery
 [Worker]     method executeBundles
 [Worker]     method insertDebugMarker
+[Worker]     method multiDrawIndexedIndirect
+[Worker]     method multiDrawIndirect
 [Worker]     method popDebugGroup
 [Worker]     method pushDebugGroup
 [Worker]     method setBindGroup
@@ -1678,6 +1706,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter cache
 [Worker]     getter credentials
 [Worker]     getter destination
+[Worker]     getter duplex
 [Worker]     getter headers
 [Worker]     getter integrity
 [Worker]     getter isHistoryNavigation
@@ -1692,6 +1721,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter url
 [Worker]     method arrayBuffer
 [Worker]     method blob
+[Worker]     method bytes
 [Worker]     method clone
 [Worker]     method constructor
 [Worker]     method formData
@@ -1712,6 +1742,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter url
 [Worker]     method arrayBuffer
 [Worker]     method blob
+[Worker]     method bytes
 [Worker]     method clone
 [Worker]     method constructor
 [Worker]     method formData
@@ -1836,6 +1867,20 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter priority
 [Worker]     method constructor
 [Worker]     setter onprioritychange
+[Worker] interface TextCluster
+[Worker]     attribute @@toStringTag
+[Worker]     getter align
+[Worker]     getter baseline
+[Worker]     getter begin
+[Worker]     getter end
+[Worker]     getter text
+[Worker]     getter x
+[Worker]     getter y
+[Worker]     method constructor
+[Worker]     setter begin
+[Worker]     setter end
+[Worker]     setter x
+[Worker]     setter y
 [Worker] interface TextDecoder
 [Worker]     attribute @@toStringTag
 [Worker]     getter encoding
@@ -1885,6 +1930,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method constructor
 [Worker]     method getActualBoundingBox
 [Worker]     method getSelectionRects
+[Worker]     method getTextClusters
 [Worker] interface TimestampTrigger
 [Worker]     attribute @@toStringTag
 [Worker]     getter timestamp

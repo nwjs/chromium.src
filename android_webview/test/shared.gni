@@ -18,7 +18,6 @@ testonly = true
 #   apk_name: Desired apk name.
 template("base_webview_instrumentation_apk") {
   android_apk(target_name) {
-    target_sdk_version = 34
     apk_name = invoker.apk_name
     deps = [
              "//android_webview:android_webview_java",
@@ -39,6 +38,7 @@ template("base_webview_instrumentation_apk") {
              "//components/policy/android:policy_java_test_support",
              "//content/public/android:content_java",
              "//third_party/androidx:androidx_annotation_annotation_java",
+             "//third_party/androidx:androidx_core_core_java",
              "//third_party/androidx:androidx_test_monitor_java",
              "//third_party/androidx_javascriptengine:javascriptengine_java",
              "//third_party/jni_zero:jni_zero_java",

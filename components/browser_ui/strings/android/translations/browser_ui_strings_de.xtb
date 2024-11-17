@@ -49,6 +49,7 @@
 <translation id="1979673356880165407">Damit können Text und Bilder auf allen Websites, die du besuchst, vergrößert oder verkleinert werden</translation>
 <translation id="1984937141057606926">Zugelassen, außer Drittanbieter-Cookies</translation>
 <translation id="1985247341569771101">Wenn dieser Schalter aktiviert ist, können Websites die Bewegungssensoren deines Geräts verwenden. Wenn er deaktiviert ist, können Websites keine Bewegungssensoren verwenden.</translation>
+<translation id="1985716030964443178">Dadurch werden alle Websites in deiner Liste auf den Standardzoom zurückgesetzt</translation>
 <translation id="1989112275319619282">Durchsuchen</translation>
 <translation id="1994173015038366702">Website-URL</translation>
 <translation id="2004697686368036666">Einige Websites funktionieren dann möglicherweise nicht mehr richtig</translation>
@@ -86,27 +87,29 @@
 <translation id="244264527810019436">Einige Websites funktionieren im Inkognitomodus möglicherweise nicht richtig</translation>
 <translation id="2442870161001914531">Desktopwebsite immer anfordern</translation>
 <translation id="2469312991797799607">Durch diesen Schritt werden alle Daten und Cookies für <ph name="ORIGIN" /> und alle untergeordneten Websites gelöscht</translation>
-<translation id="2479148705183875116">Zu den Einstellungen</translation>
 <translation id="2482878487686419369">Benachrichtigungen</translation>
 <translation id="2485422356828889247">Deinstallieren</translation>
 <translation id="2490684707762498678">Über <ph name="APP_NAME" /> verwaltet</translation>
 <translation id="2498359688066513246">Hilfe &amp; Feedback</translation>
 <translation id="2501278716633472235">Zurück</translation>
 <translation id="2546283357679194313">Cookies und Websitedaten</translation>
-<translation id="2550150772722917524">Tabgruppen sorgen für Ordnung</translation>
 <translation id="2570922361219980984">Der Standortzugriff ist für dieses Gerät ebenfalls deaktiviert. Du kannst ihn in den <ph name="BEGIN_LINK" />Android-Einstellungen<ph name="END_LINK" /> aktivieren.</translation>
 <translation id="257931822824936280">Maximiert – zum Minimieren klicken</translation>
 <translation id="2586657967955657006">Zwischenablage</translation>
+<translation id="2588271083332682494">Mit Tabgruppen den Überblick behalten</translation>
 <translation id="2597457036804169544">Dunkles Design nicht auf Websites anwenden</translation>
 <translation id="2606760465469169465">Automatische Bestätigung</translation>
 <translation id="2621115761605608342">JavaScript für eine bestimmte Website zulassen.</translation>
 <translation id="2653659639078652383">Senden</translation>
 <translation id="2677748264148917807">Verlassen</translation>
 <translation id="2678468611080193228">Versuche, Drittanbieter-Cookies vorübergehend zuzulassen. Das bedeutet zwar weniger Schutz, aber dadurch erhöht sich die Wahrscheinlichkeit, dass Websites richtig funktionieren.</translation>
+<translation id="2682367912565197520">Gespeicherte Zoomstufe löschen</translation>
 <translation id="2683434792633810741">Löschen und zurücksetzen?</translation>
 <translation id="2713106313042589954">Kamera ausschalten</translation>
 <translation id="2717722538473713889">E-Mail-Adressen</translation>
+<translation id="2726059656860238749">Chrome wird mit der Omnibox im Fokus gestartet, was die Startzeit auf leistungsschwachen Geräten verkürzt.</translation>
 <translation id="2750481671343847896">Websites dürfen Anmeldungsaufforderungen von Identitätsdiensten anzeigen.</translation>
+<translation id="2787357173144933081">Direkt mit Omnibox starten</translation>
 <translation id="2790501146643349491">Wenn dieser Schalter aktiviert ist, können vor Kurzem geschlossene Websites das Senden und Empfangen von Daten abschließen. Wenn er deaktiviert ist, können vor Kurzem geschlossene Websites das Senden oder Empfangen von Daten nicht abschließen.</translation>
 <translation id="2822354292072154809">Möchtest du wirklich alle Websiteberechtigungen für <ph name="CHOSEN_OBJECT_NAME" /> zurücksetzen?</translation>
 <translation id="2850913818900871965">Mobile Ansicht anfordern</translation>
@@ -125,6 +128,7 @@
 <translation id="3069226013421428034">Hier kannst du Websites angeben, für die die Anmeldung über Drittanbieter erlaubt werden soll.</translation>
 <translation id="310297983047869047">Vorherige Folie</translation>
 <translation id="3109724472072898302">Minimiert</translation>
+<translation id="310979712355504754">Alle löschen</translation>
 <translation id="3114012059975132928">Videoplayer</translation>
 <translation id="3115898365077584848">Informationen anzeigen</translation>
 <translation id="3123473560110926937">Auf einigen Websites blockiert</translation>
@@ -138,11 +142,13 @@
 <translation id="3242646949159196181">Wenn dieser Schalter aktiviert ist, können Websites Ton wiedergeben. Wenn er deaktiviert ist, können Websites keinen Ton wiedergeben.</translation>
 <translation id="3273479183583863618">Preissenkungen auf Tabs</translation>
 <translation id="3277252321222022663">Websites den Zugriff auf Sensoren erlauben (empfohlen)</translation>
+<translation id="327891165872793509">Chrome schränkt die Verwendung von Drittanbieter-Cookies, mit denen deine Aktivitäten während des Surfens erfasst werden, für die meisten Websites ein. In den Einstellungen kannst du den <ph name="BEGIN_LINK" />Zugriff auf Drittanbieter-Cookies verwalten<ph name="END_LINK" />.</translation>
 <translation id="3285500645985761267">Ähnliche Websites dürfen meine Aktivitäten in der Gruppe sehen</translation>
 <translation id="3295019059349372795">Kapitel 11: Die wundervolle Smaragdstadt von Oz</translation>
 <translation id="3295602654194328831">Informationen ausblenden</translation>
 <translation id="3328801116991980348">Websiteinformationen</translation>
 <translation id="3333961966071413176">Alle Kontakte</translation>
+<translation id="3360338140203645771">Gespeicherte Zoomstufen löschen?</translation>
 <translation id="3362437373201486687">Nach Bluetooth-Geräten wird gesucht</translation>
 <translation id="3386292677130313581">Nachfragen, bevor Websites mein Standort angezeigt wird (empfohlen)</translation>
 <translation id="3403537308306431953"><ph name="ZOOM_LEVEL" /> %%</translation>
@@ -168,7 +174,6 @@
 <translation id="3744111561329211289">Hintergrundsynchronisierung</translation>
 <translation id="3763247130972274048">Tippe links oder rechts im Video doppelt, um 10 s zu überspringen</translation>
 <translation id="3779154269823594982">Passwörter ändern</translation>
-<translation id="3788473868867338588">Du kannst ähnliche Websites gruppieren und deine Gruppen werden auf allen deinen Geräten gespeichert und synchronisiert</translation>
 <translation id="3797520601150691162">Dunkles Design auf eine bestimmte Website nicht anwenden</translation>
 <translation id="3803367742635802571">Websites funktionieren möglicherweise nicht mehr erwartungsgemäß</translation>
 <translation id="3804247818991980532"><ph name="TYPE_1" />. <ph name="TYPE_2" />.</translation>
@@ -209,6 +214,7 @@
 <translation id="4338831206024587507">Alle Websites unter <ph name="DOMAIN" /></translation>
 <translation id="4402755511846832236">Websites daran hindern, Informationen zu deiner aktiven Nutzung dieses Geräts abzurufen</translation>
 <translation id="4412992751769744546">Drittanbieter-Cookies zulassen</translation>
+<translation id="4419929467120297501">Chrome verhindert, dass Websites Drittanbieter-Cookies verwenden, um deine Aktivitäten während des Surfens zu erfassen. Rufe die Einstellungen auf, um den <ph name="BEGIN_LINK" />Zugriff auf Drittanbieter-Cookies zu verwalten<ph name="END_LINK" />.</translation>
 <translation id="4434045419905280838">Pop-ups und Weiterleitungen</translation>
 <translation id="443552056913301231">Durch diesen Schritt werden alle lokalen Daten, einschließlich Cookies, gelöscht und alle Berechtigungen für <ph name="ORIGIN" /> zurückgesetzt</translation>
 <translation id="4468959413250150279">Eine bestimmte Website stummschalten.</translation>
@@ -230,15 +236,16 @@
 <translation id="4779083564647765204">Zoomen</translation>
 <translation id="4807122856660838973">Safe Browsing aktivieren</translation>
 <translation id="4811450222531576619">Informationen zur Quelle und zum Thema</translation>
+<translation id="4816495437032298535">Gespeicherter Zoom für Websites</translation>
 <translation id="4836046166855586901">Nachfragen, wenn eine Website Informationen zu deiner aktiven Nutzung dieses Geräts abrufen möchte</translation>
 <translation id="483914009762354899">Alle Websites unter dieser Domain einschließen</translation>
 <translation id="4883854917563148705">Verwaltete Einstellungen können nicht zurückgesetzt werden</translation>
 <translation id="4887024562049524730">Nachfragen, bevor Websites erlaubt wird, mein Virtual-Reality-Gerät und meine Virtual-Reality-Daten zu verwenden (empfohlen)</translation>
+<translation id="4936863036653376783">Du findest deine Gruppen auf allen deinen Geräten im Bereich „Tabgruppen“</translation>
 <translation id="4953688446973710931">Wenn dieser Schalter aktiviert ist, können Websites anfragen, ob sie automatisch mehrere Dateien herunterladen dürfen. Wenn er deaktiviert ist, können Websites nicht automatisch mehrere Dateien herunterladen.</translation>
 <translation id="4962975101802056554">Alle Berechtigungen für Gerät entziehen</translation>
 <translation id="497421865427891073">Weiter</translation>
 <translation id="4976702386844183910">Zuletzt besucht am <ph name="DATE" /></translation>
-<translation id="4985206706500620449">Du hast Drittanbieter-Cookies für diese Website zugelassen</translation>
 <translation id="4994033804516042629">Keine Kontakte gefunden</translation>
 <translation id="4996978546172906250">Teilen über</translation>
 <translation id="5001526427543320409">Drittanbieter-Cookies</translation>
@@ -265,6 +272,7 @@
 <translation id="5246825184569358663">Durch diesen Schritt werden alle lokalen Daten, einschließlich Cookies, gelöscht und alle Berechtigungen für die Domain <ph name="DOMAIN" /> und alle ihr untergeordneten Websites zurückgesetzt</translation>
 <translation id="5264323282659631142">"<ph name="CHIP_LABEL" />" entfernen</translation>
 <translation id="528192093759286357">Ziehe zum Beenden des Vollbildmodus von oben und tippe auf die Zurück-Taste.</translation>
+<translation id="5292915569214461965">Du hast Websites daran gehindert, Drittanbieter-Cookies zu verwenden, mit denen deine Aktivitäten während des Surfens erfasst werden. Rufe die Einstellungen auf, um den <ph name="BEGIN_LINK" />Zugriff auf Drittanbieter-Cookies zu verwalten<ph name="END_LINK" />.</translation>
 <translation id="5295729974480418933">Wenn dieser Schalter aktiviert ist, können Websites anfragen, ob sie Informationen verwenden dürfen, die sie über dich gespeichert haben. Wenn er deaktiviert ist, können Websites nicht anfragen, ob sie Informationen verwenden dürfen, die sie über dich gespeichert haben.</translation>
 <translation id="5300589172476337783">Anzeigen</translation>
 <translation id="5301954838959518834">Ok</translation>
@@ -287,6 +295,7 @@
 <translation id="5553374991681107062">Letzte</translation>
 <translation id="5556459405103347317">Neu laden</translation>
 <translation id="5591840828808741583"><ph name="SITE_NAME" /> blockiert</translation>
+<translation id="560980142378233747">Das bedeutet, dass die Websitefunktionen wie erwartet funktionieren sollten, der Browserschutz aber möglicherweise geringer ist. <ph name="BEGIN_LINK" />Feedback geben<ph name="END_LINK" /></translation>
 <translation id="5632485077360054581">Zeigen</translation>
 <translation id="5649053991847567735">Auto-Downloads</translation>
 <translation id="5668404140385795438">Website-Anfrage zum Verhindern des Vergrößerns übergehen</translation>
@@ -354,6 +363,7 @@
 <translation id="6527303717912515753">Teilen</translation>
 <translation id="652937045869844725">Versuche, Drittanbieter-Cookies zuzulassen. Das bedeutet zwar weniger Schutz, aber dadurch erhöht sich die Wahrscheinlichkeit, dass Websites richtig funktionieren.</translation>
 <translation id="6530703012083415527">Wenn dieser Schalter aktiviert ist, können Websites Pop-ups und Weiterleitungen verwenden. Wenn er deaktiviert ist, können Websites keine Pop-ups und Weiterleitungen verwenden.</translation>
+<translation id="6540488083026747005">Du hast Drittanbieter-Cookies auf dieser Website zugelassen</translation>
 <translation id="6545864417968258051">Bluetooth-Suche</translation>
 <translation id="6552800053856095716">{PERMISSIONS_SUMMARY_BLOCKED,plural, =1{<ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> und <ph name="NUM_MORE" /> weitere blockiert}other{<ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> und <ph name="NUM_MORE" /> weitere blockiert}}</translation>
 <translation id="6554732001434021288">Vor <ph name="NUM_DAYS" /> Tagen zuletzt besucht</translation>
@@ -370,7 +380,6 @@
 <translation id="6697925417670533197">Aktive Downloads</translation>
 <translation id="6709432001666529933">Nachfragen, bevor Websites erlaubt wird, deine Handbewegungen zu verfolgen (empfohlen)</translation>
 <translation id="6722828510648505498">Anmeldungsaufforderungen von Identitätsdiensten blockieren.</translation>
-<translation id="6729704574271585059">Von dir erstellte Gruppen sind im Bereich „Tabgruppen“ gespeichert und werden auf allen deinen Geräten aktualisiert</translation>
 <translation id="6746124502594467657">Nach unten</translation>
 <translation id="6749077623962119521">Berechtigungen zurücksetzen?</translation>
 <translation id="6766622839693428701">Zum Schließen nach unten wischen.</translation>
@@ -381,6 +390,7 @@
 <translation id="6840760312327750441">Wenn du Tabs gruppieren möchtest, halte einen Tab gedrückt. Ziehe ihn dann auf einen anderen Tab.</translation>
 <translation id="6864395892908308021">NFC wird von diesem Gerät nicht unterstützt</translation>
 <translation id="6870169401250095575">Karte „Sicherheitscheck“ ausblenden</translation>
+<translation id="6900883974539674431">Erstelle Tabgruppen, die automatisch auf allen deinen Geräten gespeichert und aktualisiert werden</translation>
 <translation id="6912998170423641340">Websites dürfen keine Texte oder Bilder aus der Zwischenablage abrufen</translation>
 <translation id="6945221475159498467">Auswählen</translation>
 <translation id="6950072572526089586">Websites, die du besuchst, können Informationen zu deinen Aktivitäten speichern, um erwartungsgemäß zu funktionieren – beispielsweise um dafür zu sorgen, dass du angemeldet bleibst oder um Artikel in deinem Einkaufswagen zu speichern. Oft speichern Websites diese Informationen vorübergehend auf deinem Gerät.</translation>
@@ -408,7 +418,6 @@
 <translation id="7250468141469952378"><ph name="ITEM_COUNT" /> ausgewählt</translation>
 <translation id="7260727271532453612"><ph name="PERMISSION_1" /> und <ph name="PERMISSION_2" /> zugelassen</translation>
 <translation id="7276071417425470385">Wenn dieser Schalter aktiviert ist, können Websites anfragen, ob sie Virtual-Reality-Geräte verwenden dürfen. Wenn er deaktiviert ist, können Websites keine Virtual-Reality-Geräte verwenden.</translation>
-<translation id="7284451015630589124">Du hast Websites daran gehindert, Drittanbieter-Cookies zu verwenden, mit denen deine Aktivitäten während des Surfens erfasst werden. Rufe die Einstellungen auf, <ph name="BEGIN_LINK" />um deinen Schutz vor Tracking zu verwalten<ph name="END_LINK" />.</translation>
 <translation id="7302486331832100261">Normalerweise blockierst du Benachrichtigungen. Du kannst auf Details tippen, um sie zuzulassen.</translation>
 <translation id="7366415735885268578">Website hinzufügen</translation>
 <translation id="7368695150573390554">Sämtliche Offlinedaten werden gelöscht</translation>
@@ -418,7 +427,6 @@
 <translation id="7423098979219808738">Zuerst fragen</translation>
 <translation id="7423538860840206698">Es dürfen keine Dateien aus der Zwischenablage abgerufen werden</translation>
 <translation id="7425915948813553151">Dunkles Design für Websites</translation>
-<translation id="7474522811371247902">In Chrome ist die Verwendung von Drittanbieter-Cookies für die meisten Websites eingeschränkt. Drittanbieter-Cookies sind jedoch auf dieser Website erlaubt, weil sie für die Bereitstellung grundlegender Dienste erforderlich sind.\n\nRufe die Einstellungen auf, <ph name="BEGIN_LINK" />um deinen Schutz vor Tracking zu verwalten<ph name="END_LINK" />.</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7547989957535180761">Wenn dieser Schalter aktiviert ist, können Websites Aufforderungen zur Anmeldung anzeigen. Wenn er deaktiviert ist, können Websites keine Aufforderungen zur Anmeldung anzeigen.</translation>
 <translation id="7554752735887601236">Eine Website verwendet dein Mikrofon</translation>
@@ -439,10 +447,10 @@
 <translation id="780301667611848630">Nein danke</translation>
 <translation id="7804248752222191302">Eine Website verwendet deine Kamera</translation>
 <translation id="7807060072011926525">Von Google bereitgestellt</translation>
-<translation id="7822573154188733812">Chrome verhindert, dass Websites Drittanbieter-Cookies verwenden, um deine Aktivitäten während des Surfens zu erfassen. Rufe die Einstellungen auf, <ph name="BEGIN_LINK" />um deinen Schutz vor Tracking zu verwalten<ph name="END_LINK" />.</translation>
 <translation id="7835852323729233924">Medien werden wiedergegeben</translation>
 <translation id="783819812427904514">Stummschaltung des Videos aufheben</translation>
 <translation id="7846076177841592234">Auswahl aufheben</translation>
+<translation id="7881140103901777395">In Chrome ist die Verwendung von Drittanbieter-Cookies für die meisten Websites eingeschränkt. Drittanbieter-Cookies sind jedoch auf dieser Website erlaubt, weil sie für die Bereitstellung grundlegender Dienste erforderlich sind.\n\nRufe die Einstellungen auf, um den <ph name="BEGIN_LINK" />Zugriff auf Drittanbieter-Cookies zu verwalten<ph name="END_LINK" />.</translation>
 <translation id="7882806643839505685">Wiedergabe von Ton auf einer bestimmten Website zulassen.</translation>
 <translation id="789180354981963912">Cookies von Drittanbietern im Inkognitomodus blockieren:</translation>
 <translation id="7940722705963108451">Erinnern</translation>
@@ -495,7 +503,6 @@
 <translation id="857943718398505171">Zugelassen (empfohlen)</translation>
 <translation id="8609465669617005112">Nach oben</translation>
 <translation id="8617611086246832542">Wenn dieser Schalter aktiviert ist, wird die Desktop-Ansicht von Websites angezeigt. Wenn er deaktiviert ist, wird die mobile Ansicht von Websites angezeigt.</translation>
-<translation id="8649036394979866943">Chrome schränkt die Verwendung von Drittanbieter-Cookies, mit denen deine Aktivitäten während des Surfens erfasst werden, für die meisten Websites ein. Rufe die Einstellungen auf, <ph name="BEGIN_LINK" />um deinen Schutz vor Tracking zu verwalten<ph name="END_LINK" />.</translation>
 <translation id="8676316391139423634">Wenn dieser Schalter aktiviert ist, können Websites anfragen, ob sie deine Handbewegungen verfolgen dürfen. Wenn er deaktiviert ist, können Websites deine Handbewegungen nicht verfolgen.</translation>
 <translation id="8676374126336081632">Eingabe löschen</translation>
 <translation id="8681886425883659911">Werbung auf Websites, die bekanntermaßen aufdringliche oder irreführende Anzeigen präsentieren, wird blockiert</translation>
@@ -506,6 +513,7 @@
 <translation id="8721719390026067591">Wenn dieser Schalter aktiviert ist, können Websites anfragen, ob sie nach Bluetooth-Geräten suchen dürfen. Wenn er deaktiviert ist, können Websites nicht nach Bluetooth-Geräten suchen.</translation>
 <translation id="8725066075913043281">Erneut versuchen</translation>
 <translation id="8730621377337864115">Fertig</translation>
+<translation id="8737426583868847403">Websites, für die du eine benutzerdefinierte Zoomstufe speicherst, werden hier angezeigt</translation>
 <translation id="8751914237388039244">Bild auswählen</translation>
 <translation id="8800034312320686233">Website funktioniert nicht?</translation>
 <translation id="8801436777607969138">Hier kannst du Websites angeben, für die JavaScript blockiert werden soll.</translation>

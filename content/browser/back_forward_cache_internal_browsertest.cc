@@ -44,6 +44,7 @@
 #include "net/test/embedded_test_server/controllable_http_response.h"
 #include "third_party/blink/public/common/features.h"
 #include "ui/accessibility/ax_action_data.h"
+#include "ui/accessibility/ax_location_and_scroll_updates.h"
 #include "ui/accessibility/ax_node_id_forward.h"
 #include "ui/accessibility/platform/browser_accessibility.h"
 
@@ -2900,10 +2901,6 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
 
   RenderViewHostDeletedObserver delete_observer_rvh_b1(b1->GetRenderViewHost());
 
-  RenderProcessHost* process = b1->GetProcess();
-  RenderProcessHostWatcher destruction_observer(
-      process, RenderProcessHostWatcher::WATCH_FOR_HOST_DESTRUCTION);
-
   // 2) Navigate to URL B.
   EXPECT_TRUE(NavigateToURL(shell(), url_b));
   EXPECT_TRUE(a1->IsInBackForwardCache());
@@ -2913,9 +2910,8 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
   // on eviction.
   EXPECT_TRUE(a1->IsInactiveAndDisallowActivation(
       DisallowActivationReasonId::kForTesting));
-  destruction_observer.Wait();
-  ASSERT_TRUE(delete_observer_rvh_b1.deleted());
   delete_observer_rfh_b1.WaitUntilDeleted();
+  ASSERT_TRUE(delete_observer_rvh_b1.deleted());
 }
 
 // Tests that same-process sub-frame's RenderViewHost is deleted on root
@@ -3853,7 +3849,8 @@ IN_PROC_BROWSER_TEST_P(BackForwardCacheBrowserTestWithFlagForAXEvents,
   // in the same task of |HandleAXEventsForTests()| and and result in a test
   // fail.
   rfh_a->HandleAXEventsForTests(rfh_a->GetAXTreeID(),
-                                std::move(updates_and_events));
+                                std::move(updates_and_events),
+                                ui::AXLocationAndScrollUpdates());
 
   // Reset the callback before restoring the page so that we will not fail when
   // events are generated.
@@ -3946,22 +3943,22 @@ IN_PROC_BROWSER_TEST_P(BackForwardCacheBrowserTestWithFlagForAXLocationChange,
       &location_change_counter_for_testing));
 
   // Generate a location change event.
-  std::vector<blink::mojom::LocationChangesPtr> changes_1;
+  ui::AXLocationAndScrollUpdates changes_1;
   ui::AXRelativeBounds relative_bounds_1;
   relative_bounds_1.bounds =
       gfx::RectF(/*x=*/1, /*y=*/2, /*width=*/3, /*height=*/4);
-  changes_1.push_back(blink::mojom::LocationChanges::New(0, relative_bounds_1));
+  changes_1.location_changes.emplace_back(0, relative_bounds_1);
   rfh_a->HandleAXLocationChanges(rfh_a->GetAXTreeID(), std::move(changes_1),
-                                 /*reset_token=*/1);
+                                 /*reset_token=*/1, {});
 
   // Generate another location change event.
-  std::vector<blink::mojom::LocationChangesPtr> changes_2;
+  ui::AXLocationAndScrollUpdates changes_2;
   ui::AXRelativeBounds relative_bounds_2;
   relative_bounds_2.bounds =
       gfx::RectF(/*x=*/2, /*y=*/3, /*width=*/4, /*height=*/5);
-  changes_2.push_back(blink::mojom::LocationChanges::New(0, relative_bounds_2));
+  changes_2.location_changes.emplace_back(0, relative_bounds_2);
   rfh_a->HandleAXLocationChanges(rfh_a->GetAXTreeID(), std::move(changes_2),
-                                 /*reset_token=*/1);
+                                 /*reset_token=*/1, {});
 
   // 4) Navigate back.
   ASSERT_TRUE(HistoryGoBack(web_contents()));

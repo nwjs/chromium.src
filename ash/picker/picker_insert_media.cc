@@ -12,7 +12,7 @@
 #include "ash/picker/picker_clipboard_insertion.h"
 #include "ash/picker/picker_copy_media.h"
 #include "ash/picker/picker_rich_media.h"
-#include "ash/public/cpp/picker/picker_web_paste_target.h"
+#include "ash/picker/picker_web_paste_target.h"
 #include "base/base64.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -109,6 +109,14 @@ void InsertMediaToInputFieldNoClipboard(
                                   kMoveCursorAfterText);
             std::move(callback).Run(InsertMediaResult::kSuccess);
           },
+          [&client, &callback](PickerImageMedia media) mutable {
+            if (!client.CanInsertImage()) {
+              std::move(callback).Run(InsertMediaResult::kUnsupported);
+              return;
+            }
+            client.InsertImage(media.url);
+            std::move(callback).Run(InsertMediaResult::kSuccess);
+          },
           [&client, &callback](PickerLinkMedia media) mutable {
             client.InsertText(base::UTF8ToUTF16(media.url.spec()),
                               ui::TextInputClient::InsertTextCursorBehavior::
@@ -155,6 +163,9 @@ bool InputFieldSupportsInsertingMedia(const PickerRichMedia& media,
                                       ui::TextInputClient& client) {
   return std::visit(base::Overloaded{
                         [](const PickerTextMedia& media) { return true; },
+                        [&client](const PickerImageMedia& media) {
+                          return client.CanInsertImage();
+                        },
                         [](const PickerLinkMedia& media) { return true; },
                         [&client](const PickerLocalFileMedia& media) {
                           return client.CanInsertImage();

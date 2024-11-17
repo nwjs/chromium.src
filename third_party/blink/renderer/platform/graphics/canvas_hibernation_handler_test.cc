@@ -50,12 +50,11 @@ class CanvasHibernationHandlerTest
   std::unique_ptr<Canvas2DLayerBridge> MakeBridge(const gfx::Size& size,
                                                   RasterModeHint raster_mode,
                                                   OpacityMode opacity_mode) {
-    std::unique_ptr<Canvas2DLayerBridge> bridge =
-        std::make_unique<Canvas2DLayerBridge>();
     host_ = std::make_unique<FakeCanvasResourceHost>(size);
     host_->SetPreferred2DRasterMode(raster_mode);
     host_->SetOpacityMode(opacity_mode);
-    bridge->SetCanvasResourceHost(host_.get());
+    std::unique_ptr<Canvas2DLayerBridge> bridge =
+        std::make_unique<Canvas2DLayerBridge>(host_.get());
     return bridge;
   }
 
@@ -92,16 +91,23 @@ void SetPageVisible(
     bool page_visible) {
   host->SetPageVisible(page_visible);
 
-  // Temporary plumbing until hibernation logic is moved to CanvasResourceHost.
-  bridge->PageVisibilityChanged();
-
-  // Make sure that idle tasks run when hidden.
+  // TODO(crbug.com/40280152): Make a custom FakeCanvasResourceHost subclass
+  // that encapsulates the logic for starting/ending hibernation in its
+  // SetPageVisible() implementation and change the tests to directly call
+  // SetPageVisible() on the host.
+  CanvasHibernationHandler& hibernation_handler =
+      bridge->GetHibernationHandler();
   if (!page_visible) {
-    ThreadScheduler::Current()
-        ->ToMainThreadScheduler()
-        ->StartIdlePeriodForTesting();
-    platform->RunUntilIdle();
-    EXPECT_TRUE(bridge->IsHibernating());
+    // Trigger hibernation.
+    scoped_refptr<StaticBitmapImage> snapshot =
+        host->ResourceProvider()->Snapshot(FlushReason::kHibernating);
+    hibernation_handler.SaveForHibernation(
+        snapshot->PaintImageForCurrentFrame().GetSwSkImage(),
+        host->ResourceProvider()->ReleaseRecorder());
+    EXPECT_TRUE(hibernation_handler.IsHibernating());
+  } else {
+    // End hibernation.
+    hibernation_handler.Clear();
   }
 }
 
@@ -140,7 +146,10 @@ class TestSingleThreadTaskRunner : public base::SingleThreadTaskRunner {
                                   base::TimeDelta delay) override {
     return false;
   }
-  bool RunsTasksInCurrentSequence() const override { return false; }
+
+  // Since this is mocking a SingleThreadTaskRunner, tasks will always be run
+  // in the same sequence they are posted from.
+  bool RunsTasksInCurrentSequence() const override { return true; }
 
   static size_t RunAll(std::list<base::OnceClosure>& tasks) {
     size_t count = 0;
@@ -188,12 +197,12 @@ TEST_P(CanvasHibernationHandlerTest, SimpleTest) {
       MakeBridge(gfx::Size(300, 200), RasterModeHint::kPreferGPU, kNonOpaque);
   DrawSomething(bridge.get());
 
-  auto& handler = bridge->GetHibernationHandlerForTesting();
+  auto& handler = bridge->GetHibernationHandler();
   handler.SetTaskRunnersForTesting(task_runner, task_runner);
 
   SetPageVisible(Host(), bridge.get(), platform, false);
 
-  EXPECT_TRUE(bridge->IsHibernating());
+  EXPECT_TRUE(handler.IsHibernating());
   // Triggers a delayed task for encoding.
   EXPECT_FALSE(task_runner->delayed().empty());
   EXPECT_TRUE(task_runner->immediate().empty());
@@ -223,13 +232,16 @@ TEST_P(CanvasHibernationHandlerTest, SimpleTest) {
   histogram_tester.ExpectTotalCount(
       "Blink.Canvas.2DLayerBridge.Compression.DecompressionTime", 0);
 
-  SetPageVisible(Host(), bridge.get(), platform, true);
-  EXPECT_FALSE(handler.is_encoded());
+  // It should be possible to decompress the encoded image.
+  EXPECT_TRUE(bridge->GetHibernationHandler().GetImage());
   histogram_tester.ExpectTotalCount(
       "Blink.Canvas.2DLayerBridge.Compression.DecompressionTime", 1);
 
+  SetPageVisible(Host(), bridge.get(), platform, true);
+  EXPECT_FALSE(handler.is_encoded());
+
   EXPECT_TRUE(Host()->GetRasterMode() == RasterMode::kGPU);
-  EXPECT_FALSE(bridge->IsHibernating());
+  EXPECT_FALSE(handler.IsHibernating());
   EXPECT_TRUE(Host()->IsResourceValid());
 }
 
@@ -243,14 +255,14 @@ TEST_P(CanvasHibernationHandlerTest, ForegroundTooEarly) {
       MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferGPU, kNonOpaque);
   DrawSomething(bridge.get());
 
-  auto& handler = bridge->GetHibernationHandlerForTesting();
+  auto& handler = bridge->GetHibernationHandler();
   handler.SetTaskRunnersForTesting(task_runner, task_runner);
   SetPageVisible(Host(), bridge.get(), platform, false);
 
   // Triggers a delayed task for encoding.
   EXPECT_FALSE(task_runner->delayed().empty());
 
-  EXPECT_TRUE(bridge->IsHibernating());
+  EXPECT_TRUE(handler.IsHibernating());
   SetPageVisible(Host(), bridge.get(), platform, true);
 
   // Nothing happens, because the page came to foreground in-between.
@@ -269,7 +281,7 @@ TEST_P(CanvasHibernationHandlerTest, BackgroundForeground) {
       MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferGPU, kNonOpaque);
   DrawSomething(bridge.get());
 
-  auto& handler = bridge->GetHibernationHandlerForTesting();
+  auto& handler = bridge->GetHibernationHandler();
   handler.SetTaskRunnersForTesting(task_runner, task_runner);
 
   // Background -> Foreground -> Background
@@ -294,7 +306,7 @@ TEST_P(CanvasHibernationHandlerTest, ForegroundAfterEncoding) {
       MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferGPU, kNonOpaque);
   DrawSomething(bridge.get());
 
-  auto& handler = bridge->GetHibernationHandlerForTesting();
+  auto& handler = bridge->GetHibernationHandler();
   handler.SetTaskRunnersForTesting(task_runner, task_runner);
 
   SetPageVisible(Host(), bridge.get(), platform, false);
@@ -309,7 +321,7 @@ TEST_P(CanvasHibernationHandlerTest, ForegroundAfterEncoding) {
   EXPECT_EQ(1u, TestSingleThreadTaskRunner::RunAll(task_runner->immediate()));
   // But the encoded version is dropped.
   EXPECT_FALSE(handler.is_encoded());
-  EXPECT_FALSE(bridge->IsHibernating());
+  EXPECT_FALSE(handler.IsHibernating());
 }
 
 TEST_P(CanvasHibernationHandlerTest, ForegroundFlipForAfterEncoding) {
@@ -322,7 +334,7 @@ TEST_P(CanvasHibernationHandlerTest, ForegroundFlipForAfterEncoding) {
       MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferGPU, kNonOpaque);
   DrawSomething(bridge.get());
 
-  auto& handler = bridge->GetHibernationHandlerForTesting();
+  auto& handler = bridge->GetHibernationHandler();
   handler.SetTaskRunnersForTesting(task_runner, task_runner);
 
   SetPageVisible(Host(), bridge.get(), platform, false);
@@ -334,20 +346,20 @@ TEST_P(CanvasHibernationHandlerTest, ForegroundFlipForAfterEncoding) {
   SetPageVisible(Host(), bridge.get(), platform, true);
   // And back to background.
   SetPageVisible(Host(), bridge.get(), platform, false);
-  EXPECT_TRUE(bridge->IsHibernating());
+  EXPECT_TRUE(handler.IsHibernating());
 
   // The callback is still pending.
   EXPECT_EQ(1u, TestSingleThreadTaskRunner::RunAll(task_runner->immediate()));
   // But the encoded version is dropped (epoch mismatch).
   EXPECT_FALSE(handler.is_encoded());
   // Yet we are hibernating (since the bridge is in background).
-  EXPECT_TRUE(bridge->IsHibernating());
+  EXPECT_TRUE(handler.IsHibernating());
 
   EXPECT_EQ(1u, TestSingleThreadTaskRunner::RunAll(task_runner->delayed()));
   EXPECT_EQ(2u, TestSingleThreadTaskRunner::RunAll(task_runner->immediate()));
   EXPECT_TRUE(handler.is_encoded());
   // Yet we are hibernating (since the bridge is in background).
-  EXPECT_TRUE(bridge->IsHibernating());
+  EXPECT_TRUE(handler.IsHibernating());
 }
 
 TEST_P(CanvasHibernationHandlerTest, ForegroundFlipForBeforeEncoding) {
@@ -360,7 +372,7 @@ TEST_P(CanvasHibernationHandlerTest, ForegroundFlipForBeforeEncoding) {
       MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferGPU, kNonOpaque);
   DrawSomething(bridge.get());
 
-  auto& handler = bridge->GetHibernationHandlerForTesting();
+  auto& handler = bridge->GetHibernationHandler();
   handler.SetTaskRunnersForTesting(task_runner, task_runner);
 
   SetPageVisible(Host(), bridge.get(), platform, false);
@@ -370,7 +382,7 @@ TEST_P(CanvasHibernationHandlerTest, ForegroundFlipForBeforeEncoding) {
   SetPageVisible(Host(), bridge.get(), platform, true);
   // And back to background.
   SetPageVisible(Host(), bridge.get(), platform, false);
-  EXPECT_TRUE(bridge->IsHibernating());
+  EXPECT_TRUE(handler.IsHibernating());
   // Compression still happens, since it's a static task, doesn't look at the
   // epoch before compressing.
   EXPECT_EQ(2u, TestSingleThreadTaskRunner::RunAll(task_runner->immediate()));
@@ -378,10 +390,10 @@ TEST_P(CanvasHibernationHandlerTest, ForegroundFlipForBeforeEncoding) {
   // But the encoded version is dropped (epoch mismatch).
   EXPECT_FALSE(handler.is_encoded());
   // Yet we are hibernating (since the bridge is in background).
-  EXPECT_TRUE(bridge->IsHibernating());
+  EXPECT_TRUE(handler.IsHibernating());
 }
 
-TEST_P(CanvasHibernationHandlerTest, CanvasSnapshottedInBackground) {
+TEST_P(CanvasHibernationHandlerTest, ClearEndsHibernation) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures({features::kCanvas2DHibernation}, {});
 
@@ -391,48 +403,23 @@ TEST_P(CanvasHibernationHandlerTest, CanvasSnapshottedInBackground) {
       MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferGPU, kNonOpaque);
   DrawSomething(bridge.get());
 
-  auto& handler = bridge->GetHibernationHandlerForTesting();
+  auto& handler = bridge->GetHibernationHandler();
   handler.SetTaskRunnersForTesting(task_runner, task_runner);
 
   SetPageVisible(Host(), bridge.get(), platform, false);
   // Wait for the canvas to be encoded.
   EXPECT_EQ(1u, TestSingleThreadTaskRunner::RunAll(task_runner->delayed()));
   EXPECT_EQ(2u, TestSingleThreadTaskRunner::RunAll(task_runner->immediate()));
+  EXPECT_TRUE(handler.IsHibernating());
   EXPECT_TRUE(handler.is_encoded());
 
-  EXPECT_TRUE(bridge->IsHibernating());
-  auto image = bridge->NewImageSnapshot(FlushReason::kTesting);
-  EXPECT_TRUE(bridge->IsHibernating());
-  // Do not discard the encoded representation.
-  EXPECT_TRUE(handler.is_encoded());
-}
+  handler.Clear();
 
-TEST_P(CanvasHibernationHandlerTest, CanvasWriteInBackground) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures({features::kCanvas2DHibernation}, {});
-
-  auto task_runner = base::MakeRefCounted<TestSingleThreadTaskRunner>();
-  ScopedTestingPlatformSupport<GpuMemoryBufferTestPlatform> platform;
-  std::unique_ptr<Canvas2DLayerBridge> bridge =
-      MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferGPU, kNonOpaque);
-  DrawSomething(bridge.get());
-
-  auto& handler = bridge->GetHibernationHandlerForTesting();
-  handler.SetTaskRunnersForTesting(task_runner, task_runner);
-
-  SetPageVisible(Host(), bridge.get(), platform, false);
-  // Wait for the canvas to be encoded.
-  EXPECT_EQ(1u, TestSingleThreadTaskRunner::RunAll(task_runner->delayed()));
-  EXPECT_EQ(2u, TestSingleThreadTaskRunner::RunAll(task_runner->immediate()));
-  EXPECT_TRUE(handler.is_encoded());
-
-  bridge->WritePixels(SkImageInfo::MakeN32Premul(10, 10), nullptr, 10, 0, 0);
-
-  EXPECT_FALSE(bridge->IsHibernating());
+  EXPECT_FALSE(handler.IsHibernating());
   EXPECT_FALSE(handler.is_encoded());
 }
 
-TEST_P(CanvasHibernationHandlerTest, CanvasWriteWhileCompressing) {
+TEST_P(CanvasHibernationHandlerTest, ClearWhileCompressingEndsHibernation) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures({features::kCanvas2DHibernation}, {});
 
@@ -442,20 +429,30 @@ TEST_P(CanvasHibernationHandlerTest, CanvasWriteWhileCompressing) {
       MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferGPU, kNonOpaque);
   DrawSomething(bridge.get());
 
-  auto& handler = bridge->GetHibernationHandlerForTesting();
+  auto& handler = bridge->GetHibernationHandler();
   handler.SetTaskRunnersForTesting(task_runner, task_runner);
 
+  // Set the page to hidden to kick off hibernation.
   SetPageVisible(Host(), bridge.get(), platform, false);
-  // Wait for the canvas to be encoded.
+  EXPECT_TRUE(handler.IsHibernating());
+  EXPECT_FALSE(handler.is_encoded());
+
+  // Run the task that kicks off compression, then run the compression task
+  // itself, but *don't* run the callback for compression completing.
   EXPECT_EQ(1u, TestSingleThreadTaskRunner::RunAll(task_runner->delayed()));
-  // Run the compression task, not the callback.
   EXPECT_TRUE(TestSingleThreadTaskRunner::RunOne(task_runner->immediate()));
+  EXPECT_TRUE(handler.IsHibernating());
+  EXPECT_FALSE(handler.is_encoded());
 
-  bridge->WritePixels(SkImageInfo::MakeN32Premul(10, 10), nullptr, 10, 0, 0);
+  // A clear while compression is in progress should end hibernation.
+  handler.Clear();
+  EXPECT_FALSE(handler.IsHibernating());
+  EXPECT_FALSE(handler.is_encoded());
+
+  // Compression finishing should then be a no-op because the canvas is no
+  // longer in hibernation.
   EXPECT_EQ(1u, TestSingleThreadTaskRunner::RunAll(task_runner->immediate()));
-
-  // No hibernation, read happened in-between.
-  EXPECT_FALSE(bridge->IsHibernating());
+  EXPECT_FALSE(handler.IsHibernating());
   EXPECT_FALSE(handler.is_encoded());
 }
 
@@ -469,7 +466,7 @@ TEST_P(CanvasHibernationHandlerTest, HibernationMemoryMetrics) {
       MakeBridge(gfx::Size(300, 200), RasterModeHint::kPreferGPU, kNonOpaque);
   DrawSomething(bridge.get());
 
-  auto& handler = bridge->GetHibernationHandlerForTesting();
+  auto& handler = bridge->GetHibernationHandler();
   handler.SetTaskRunnersForTesting(task_runner, task_runner);
 
   SetPageVisible(Host(), bridge.get(), platform, false);
@@ -508,7 +505,9 @@ TEST_P(CanvasHibernationHandlerTest, HibernationMemoryMetrics) {
     EXPECT_EQ(entries["is_encoded"], 1u);
   }
 
-  DrawSomething(bridge.get());
+  // End hibernation to be able to verify that hibernation dumps will no longer
+  // occur.
+  SetPageVisible(Host(), bridge.get(), platform, true);
   EXPECT_FALSE(handler.IsHibernating());
 
   {
@@ -519,7 +518,6 @@ TEST_P(CanvasHibernationHandlerTest, HibernationMemoryMetrics) {
     EXPECT_FALSE(pmd.GetAllocatorDump("canvas/hibernated/canvas_0"));
   }
 
-  SetPageVisible(Host(), bridge.get(), platform, true);
   SetPageVisible(Host(), bridge.get(), platform, false);
   // Wait for the canvas to be encoded.
   EXPECT_EQ(1u, TestSingleThreadTaskRunner::RunAll(task_runner->delayed()));

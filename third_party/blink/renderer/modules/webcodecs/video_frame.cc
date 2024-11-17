@@ -70,7 +70,7 @@
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
 #include "third_party/libyuv/include/libyuv/planar_functions.h"
-#include "third_party/skia/include/gpu/GrDirectContext.h"
+#include "third_party/skia/include/gpu/ganesh/GrDirectContext.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "v8/include/v8.h"
 
@@ -444,19 +444,23 @@ const base::TimeDelta CanvasResourceProviderCache::kIdleTimeout =
 std::optional<media::VideoPixelFormat> CopyToFormat(
     const media::VideoFrame& frame) {
   const bool mappable = frame.IsMappable() || frame.HasMappableGpuBuffer();
-  const bool texturable = frame.HasTextures();
-  if (!(mappable || texturable))
+  const bool texturable = frame.HasSharedImage();
+  if (!(mappable || texturable)) {
     return std::nullopt;
+  }
 
   // Readback is not supported for high bit-depth formats.
   if (!mappable && frame.BitDepth() != 8u) {
     return std::nullopt;
   }
 
+  bool si_prefers_external_sampler =
+      frame.HasSharedImage() &&
+      frame.shared_image()->format().PrefersExternalSampler();
   // Externally-sampled frames read back as RGB, regardless of the format.
   // TODO(crbug.com/40215121): Enable alpha readback for supported formats.
-  if (!mappable && frame.RequiresExternalSampler()) {
-    DCHECK_EQ(frame.NumTextures(), 1u);
+  if (!mappable && si_prefers_external_sampler) {
+    DCHECK(frame.HasSharedImage());
     return media::PIXEL_FORMAT_XRGB;
   }
 
@@ -468,17 +472,6 @@ std::optional<media::VideoPixelFormat> CopyToFormat(
     DCHECK_EQ(frame.layout().num_planes(),
               media::VideoFrame::NumPlanes(frame.format()));
     return frame.format();
-  }
-
-  // Per-plane readback is not possible for multiplanar SI with external
-  // sampling. Similarly, for legacy shared image formats, readback is only
-  // possible when planes and textures are 1:1.
-  auto format_type = frame.shared_image_format_type();
-  if (format_type ==
-          media::SharedImageFormatType::kSharedImageFormatExternalSampler ||
-      (format_type == media::SharedImageFormatType::kLegacy &&
-       frame.NumTextures() != media::VideoFrame::NumPlanes(frame.format()))) {
-    return std::nullopt;
   }
 
   return frame.format();
@@ -633,10 +626,10 @@ VideoFrame::VideoFrame(scoped_refptr<media::VideoFrame> frame,
   handle_ = base::MakeRefCounted<VideoFrameHandle>(
       frame, std::move(sk_image), context, std::move(monitoring_source_id),
       use_capture_timestamp);
-  external_allocated_memory_ =
+  size_t external_allocated_memory =
       media::VideoFrame::AllocationSize(frame->format(), frame->coded_size());
-  context->GetIsolate()->AdjustAmountOfExternalAllocatedMemory(
-      external_allocated_memory_);
+  external_memory_accounter_.Increase(context->GetIsolate(),
+                                      external_allocated_memory);
 }
 
 VideoFrame::VideoFrame(scoped_refptr<VideoFrameHandle> handle)
@@ -649,10 +642,10 @@ VideoFrame::VideoFrame(scoped_refptr<VideoFrameHandle> handle)
   if (!local_frame)
     return;
 
-  external_allocated_memory_ = media::VideoFrame::AllocationSize(
+  size_t external_allocated_memory = media::VideoFrame::AllocationSize(
       local_frame->format(), local_frame->coded_size());
-  v8::Isolate::GetCurrent()->AdjustAmountOfExternalAllocatedMemory(
-      external_allocated_memory_);
+  external_memory_accounter_.Increase(v8::Isolate::GetCurrent(),
+                                      external_allocated_memory);
 }
 
 VideoFrame::~VideoFrame() {
@@ -832,16 +825,11 @@ VideoFrame* VideoFrame::Create(ScriptState* script_state,
             std::move(image))));
 
     auto client_shared_image = sbi->GetSharedImage();
-    if (client_shared_image) {
-      frame = media::VideoFrame::WrapSharedImage(
-          format, std::move(client_shared_image), mailbox_holder.sync_token,
-          mailbox_holder.texture_target, std::move(release_cb), coded_size,
-          parsed_init.visible_rect, parsed_init.display_size, timestamp);
-    } else {
-      frame = media::VideoFrame::WrapNativeTexture(
-          format, mailbox_holder, std::move(release_cb), coded_size,
-          parsed_init.visible_rect, parsed_init.display_size, timestamp);
-    }
+    CHECK(client_shared_image);
+    frame = media::VideoFrame::WrapSharedImage(
+        format, std::move(client_shared_image), mailbox_holder.sync_token,
+        std::move(release_cb), coded_size, parsed_init.visible_rect,
+        parsed_init.display_size, timestamp);
 
     if (frame)
       frame->metadata().texture_origin_is_top_left = is_origin_top_left;
@@ -927,10 +915,7 @@ VideoFrame* VideoFrame::Create(ScriptState* script_state,
                                ExceptionState& exception_state) {
   ExecutionContext* execution_context = ExecutionContext::From(script_state);
   auto* isolate = script_state->GetIsolate();
-
-  // Handle format; the string was validated by the V8 binding.
-  auto typed_fmt = V8VideoPixelFormat::Create(init->format());
-  auto media_fmt = ToMediaPixelFormat(typed_fmt->AsEnum());
+  auto media_fmt = ToMediaPixelFormat(init->format().AsEnum());
 
   if (!IsFormatEnabled(media_fmt)) {
     exception_state.ThrowTypeError("Unsupported format.");
@@ -1137,6 +1122,37 @@ DOMRectReadOnly* VideoFrame::visibleRect() {
   return visible_rect_.Get();
 }
 
+uint32_t VideoFrame::rotation() const {
+  auto local_frame = handle_->frame();
+  if (!local_frame) {
+    return 0;
+  }
+
+  const auto transform =
+      local_frame->metadata().transformation.value_or(media::kNoTransformation);
+  switch (transform.rotation) {
+    case media::VIDEO_ROTATION_0:
+      return 0;
+    case media::VIDEO_ROTATION_90:
+      return 90;
+    case media::VIDEO_ROTATION_180:
+      return 180;
+    case media::VIDEO_ROTATION_270:
+      return 270;
+  }
+}
+
+bool VideoFrame::flip() const {
+  auto local_frame = handle_->frame();
+  if (!local_frame) {
+    return false;
+  }
+
+  const auto transform =
+      local_frame->metadata().transformation.value_or(media::kNoTransformation);
+  return transform.mirrored;
+}
+
 uint32_t VideoFrame::displayWidth() const {
   auto local_frame = handle_->frame();
   if (!local_frame)
@@ -1144,8 +1160,7 @@ uint32_t VideoFrame::displayWidth() const {
 
   const auto transform =
       local_frame->metadata().transformation.value_or(media::kNoTransformation);
-  if (transform == media::kNoTransformation ||
-      transform.rotation == media::VIDEO_ROTATION_0 ||
+  if (transform.rotation == media::VIDEO_ROTATION_0 ||
       transform.rotation == media::VIDEO_ROTATION_180) {
     return local_frame->natural_size().width();
   }
@@ -1156,10 +1171,10 @@ uint32_t VideoFrame::displayHeight() const {
   auto local_frame = handle_->frame();
   if (!local_frame)
     return 0;
+
   const auto transform =
       local_frame->metadata().transformation.value_or(media::kNoTransformation);
-  if (transform == media::kNoTransformation ||
-      transform.rotation == media::VIDEO_ROTATION_0 ||
+  if (transform.rotation == media::VIDEO_ROTATION_0 ||
       transform.rotation == media::VIDEO_ROTATION_180) {
     return local_frame->natural_size().height();
   }
@@ -1240,9 +1255,11 @@ void VideoFrame::ConvertAndCopyToRGB(scoped_refptr<media::VideoFrame> frame,
   cc::SkiaPaintCanvas canvas(sk_canvas.get());
   // TODO(crbug.com/1442991): Cache this instance of PaintCanvasVideoRenderer
   media::PaintCanvasVideoRenderer renderer;
+  media::PaintCanvasVideoRenderer::PaintParams paint_params;
+  paint_params.dest_rect = gfx::RectF(src_rect.size());
   auto context_provider = GetRasterContextProvider();
-  renderer.Paint(std::move(frame), &canvas, gfx::RectF(src_rect.size()), flags,
-                 media::kNoTransformation, context_provider.get());
+  renderer.Paint(std::move(frame), &canvas, flags, paint_params,
+                 context_provider.get());
 }
 
 bool VideoFrame::CopyToAsync(
@@ -1341,7 +1358,7 @@ ScriptPromise<IDLSequence<PlaneLayout>> VideoFrame::copyTo(
     }
     CopyMappablePlanes(*mapped_frame, src_rect, dest_layout, buffer);
   } else {
-    DCHECK(local_frame->HasTextures());
+    DCHECK(local_frame->HasSharedImage());
 
     if (base::FeatureList::IsEnabled(kVideoFrameAsyncCopyTo)) {
       if (CopyToAsync(resolver, local_frame, src_rect, destination,
@@ -1475,11 +1492,7 @@ bool VideoFrame::IsAccelerated() const {
 }
 
 void VideoFrame::ResetExternalMemory() {
-  if (external_allocated_memory_) {
-    v8::Isolate::GetCurrent()->AdjustAmountOfExternalAllocatedMemory(
-        -external_allocated_memory_);
-    external_allocated_memory_ = 0;
-  }
+  external_memory_accounter_.Clear(v8::Isolate::GetCurrent());
 }
 
 gfx::Size VideoFrame::BitmapSourceSize() const {

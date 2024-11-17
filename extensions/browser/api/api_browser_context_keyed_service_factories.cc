@@ -7,6 +7,8 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "extensions/browser/api/declarative_net_request/rules_monitor_service.h"
+#include "extensions/browser/api/storage/session_storage_manager.h"  // nogncheck
+#include "extensions/browser/api/storage/storage_frontend.h"  // nogncheck
 #include "extensions/browser/api/web_request/web_request_api.h"
 #include "extensions/browser/api/web_request/web_request_proxying_url_loader_factory.h"
 #include "extensions/buildflags/buildflags.h"
@@ -42,11 +44,10 @@
 #include "extensions/browser/api/socket/socket.h"
 #include "extensions/browser/api/socket/tcp_socket.h"
 #include "extensions/browser/api/socket/udp_socket.h"
+#include "extensions/browser/api/socket/write_quota_checker.h"
 #include "extensions/browser/api/sockets_tcp/tcp_socket_event_dispatcher.h"
 #include "extensions/browser/api/sockets_tcp_server/tcp_server_socket_event_dispatcher.h"
 #include "extensions/browser/api/sockets_udp/udp_socket_event_dispatcher.h"
-#include "extensions/browser/api/storage/session_storage_manager.h"  // nogncheck
-#include "extensions/browser/api/storage/storage_frontend.h"  // nogncheck
 #include "extensions/browser/api/system_info/system_info_api.h"
 #include "extensions/browser/api/usb/usb_device_manager.h"
 #include "extensions/browser/api/usb/usb_device_resource.h"
@@ -59,7 +60,7 @@
 #include "extensions/browser/api/webcam_private/webcam_private_api.h"
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "extensions/browser/api/feedback_private/log_source_resource.h"
 #include "extensions/browser/api/media_perception_private/media_perception_api_manager.h"
 #include "extensions/browser/api/virtual_keyboard_private/virtual_keyboard_private_api.h"  // nogncheck
@@ -69,6 +70,8 @@ namespace extensions {
 
 void EnsureApiBrowserContextKeyedServiceFactoriesBuilt() {
   declarative_net_request::RulesMonitorService::GetFactoryInstance();
+  SessionStorageManager::GetFactory();
+  StorageFrontend::GetFactoryInstance();
   WebRequestAPI::GetFactoryInstance();
   WebRequestProxyingURLLoaderFactory::EnsureAssociatedFactoryBuilt();
 
@@ -81,7 +84,7 @@ void EnsureApiBrowserContextKeyedServiceFactoriesBuilt() {
   ApiResourceManager<BluetoothLowEnergyConnection>::GetFactoryInstance();
   ApiResourceManager<BluetoothLowEnergyNotifySession>::GetFactoryInstance();
   ApiResourceManager<HidConnectionResource>::GetFactoryInstance();
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   ApiResourceManager<LogSourceResource>::GetFactoryInstance();
 #endif
   ApiResourceManager<ResumableTCPServerSocket>::GetFactoryInstance();
@@ -109,7 +112,7 @@ void EnsureApiBrowserContextKeyedServiceFactoriesBuilt() {
   HidDeviceManager::GetFactoryInstance();
   IdleManagerFactory::GetInstance();
   ManagementAPI::GetFactoryInstance();
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   MediaPerceptionAPIManager::GetFactoryInstance();
 #endif
   MessageService::GetFactoryInstance();
@@ -122,17 +125,14 @@ void EnsureApiBrowserContextKeyedServiceFactoriesBuilt() {
   PrinterProviderAPIFactory::GetInstance();
   RulesRegistryService::GetFactoryInstance();
   RuntimeAPI::GetFactoryInstance();
-  SessionStorageManager::GetFactory();
-  StorageFrontend::GetFactoryInstance();
   SystemInfoAPI::GetFactoryInstance();
   UsbDeviceManager::GetFactoryInstance();
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  VirtualKeyboardAPI::GetFactoryInstance();
-#endif
 #if BUILDFLAG(IS_CHROMEOS)
+  VirtualKeyboardAPI::GetFactoryInstance();
   WebcamPrivateAPI::GetFactoryInstance();
 #endif
   WebRequestProxyingWebSocket::EnsureAssociatedFactoryBuilt();
+  WriteQuotaChecker::GetFactoryInstance();
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 }
 

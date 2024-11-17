@@ -127,8 +127,12 @@ void WebNNContextImpl::DisconnectAndDestroyWebNNTensorImpl(
   tensor_impls_.erase(it);
 }
 
-void WebNNContextImpl::OnLost(std::string_view message) {
+void WebNNContextImpl::ResetReceiverWithReason(std::string_view message) {
   receiver_.ResetWithReason(/*custom_reason_code=*/0, message);
+}
+
+void WebNNContextImpl::OnLost(std::string_view message) {
+  ResetReceiverWithReason(message);
   context_provider_->OnConnectionError(this);
 }
 
@@ -191,6 +195,8 @@ ContextProperties WebNNContextImpl::IntersectWithBaseProperties(
       DataTypeConstraint::kGatherScatterIndicesSupportedDataTypes);
   backend_context_properties.data_type_limits.gather_elements_indices.RetainAll(
       DataTypeConstraint::kGatherScatterIndicesSupportedDataTypes);
+  backend_context_properties.data_type_limits.gather_nd_indices.RetainAll(
+      DataTypeConstraint::kGatherScatterIndicesSupportedDataTypes);
   backend_context_properties.data_type_limits.gelu_input.RetainAll(
       DataTypeConstraint::kFloat16To32);
   backend_context_properties.data_type_limits.gemm_input.RetainAll(
@@ -247,6 +253,8 @@ ContextProperties WebNNContextImpl::IntersectWithBaseProperties(
       DataTypeConstraint::kFloat16To32Int8To32);
   backend_context_properties.data_type_limits.resample2d_input.RetainAll(
       DataTypeConstraint::kFloat16To32);
+  backend_context_properties.data_type_limits.scatter_elements_indices
+      .RetainAll(DataTypeConstraint::kGatherScatterIndicesSupportedDataTypes);
   backend_context_properties.data_type_limits.scatter_nd_indices.RetainAll(
       DataTypeConstraint::kGatherScatterIndicesSupportedDataTypes);
   backend_context_properties.data_type_limits.sigmoid_input.RetainAll(

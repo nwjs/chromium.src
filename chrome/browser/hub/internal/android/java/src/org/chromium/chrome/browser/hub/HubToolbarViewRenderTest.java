@@ -4,6 +4,9 @@
 
 package org.chromium.chrome.browser.hub;
 
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
 import android.app.Activity;
 import android.graphics.drawable.Drawable;
 import android.view.LayoutInflater;
@@ -16,12 +19,17 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.BaseActivityTestRule;
 import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.toolbar.TabSwitcherDrawable;
 import org.chromium.chrome.browser.toolbar.TabSwitcherDrawable.TabSwitcherDrawableLocation;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
@@ -36,6 +44,7 @@ import java.util.List;
 /** Render tests for {@link HubPaneHostView}. */
 @RunWith(BaseJUnit4ClassRunner.class)
 @Batch(Batch.PER_CLASS)
+@DisableFeatures(ChromeFeatureList.ANDROID_HUB_SEARCH)
 public class HubToolbarViewRenderTest {
     @Rule
     public BaseActivityTestRule<BlankUiTestActivity> mActivityTestRule =
@@ -45,8 +54,10 @@ public class HubToolbarViewRenderTest {
     public ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
                     .setBugComponent(ChromeRenderTestRule.Component.UI_BROWSER_MOBILE_HUB)
-                    .setRevision(6)
+                    .setRevision(7)
                     .build();
+
+    @Mock private TabSwitcherDrawable.Observer mTabSwitcherDrawableObserver;
 
     private Activity mActivity;
     private HubToolbarView mToolbar;
@@ -54,6 +65,7 @@ public class HubToolbarViewRenderTest {
 
     @Before
     public void setUp() {
+        MockitoAnnotations.initMocks(this);
         mActivityTestRule.launchActivity(null);
         mActivity = mActivityTestRule.getActivity();
         mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
@@ -194,8 +206,10 @@ public class HubToolbarViewRenderTest {
                         mActivity,
                         BrandedColorScheme.APP_DEFAULT,
                         TabSwitcherDrawableLocation.HUB_TOOLBAR);
+        tabSwitcherDrawable.addTabSwitcherDrawableObserver(mTabSwitcherDrawableObserver);
         tabSwitcherDrawable.updateForTabCount(/* tabCount= */ 1, /* incognito= */ false);
         tabSwitcherDrawable.setNotificationIconStatus(/* shouldShow= */ true);
+        verify(mTabSwitcherDrawableObserver, times(2)).onDrawableStateChanged();
 
         FullButtonData actionButtonData = enabledButtonData(R.drawable.new_tab_icon);
         List<FullButtonData> paneSwitcherButtonData = new ArrayList<>();
@@ -213,7 +227,9 @@ public class HubToolbarViewRenderTest {
         mRenderTestRule.render(mToolbar, "onGTSTabSwitcherDrawableNotificationOn");
 
         tabSwitcherDrawable.setNotificationIconStatus(/* shouldShow= */ false);
+        verify(mTabSwitcherDrawableObserver, times(3)).onDrawableStateChanged();
         mRenderTestRule.render(mToolbar, "onGTSTabSwitcherDrawableNotificationOff");
+        tabSwitcherDrawable.removeTabSwitcherDrawableObserver(mTabSwitcherDrawableObserver);
     }
 
     @Test
@@ -225,8 +241,10 @@ public class HubToolbarViewRenderTest {
                         mActivity,
                         BrandedColorScheme.INCOGNITO,
                         TabSwitcherDrawableLocation.HUB_TOOLBAR);
+        tabSwitcherDrawable.addTabSwitcherDrawableObserver(mTabSwitcherDrawableObserver);
         tabSwitcherDrawable.updateForTabCount(/* tabCount= */ 1, /* incognito= */ true);
         tabSwitcherDrawable.setNotificationIconStatus(/* shouldShow= */ true);
+        verify(mTabSwitcherDrawableObserver, times(2)).onDrawableStateChanged();
 
         FullButtonData actionButtonData = enabledButtonData(R.drawable.new_tab_icon);
         List<FullButtonData> paneSwitcherButtonData = new ArrayList<>();
@@ -245,6 +263,31 @@ public class HubToolbarViewRenderTest {
         mRenderTestRule.render(mToolbar, "onIncognitoTabSwitcherDrawableNotificationOn");
 
         tabSwitcherDrawable.setNotificationIconStatus(/* shouldShow= */ false);
+        verify(mTabSwitcherDrawableObserver, times(3)).onDrawableStateChanged();
         mRenderTestRule.render(mToolbar, "onIncognitoTabSwitcherDrawableNotificationOff");
+        tabSwitcherDrawable.removeTabSwitcherDrawableObserver(mTabSwitcherDrawableObserver);
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"RenderTest"})
+    @EnableFeatures(ChromeFeatureList.ANDROID_HUB_SEARCH)
+    public void testSearchBox() throws Exception {
+        FullButtonData actionButtonData = enabledButtonData(R.drawable.new_tab_icon);
+        List<FullButtonData> paneSwitcherButtonData = new ArrayList<>();
+        paneSwitcherButtonData.add(enabledButtonData(R.drawable.new_tab_icon));
+        paneSwitcherButtonData.add(enabledButtonData(R.drawable.incognito_small));
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mPropertyModel.set(HubToolbarProperties.ACTION_BUTTON_DATA, actionButtonData);
+                    mPropertyModel.set(HubToolbarProperties.MENU_BUTTON_VISIBLE, true);
+                    mPropertyModel.set(HubToolbarProperties.PANE_SWITCHER_INDEX, 0);
+                    mPropertyModel.set(
+                            HubToolbarProperties.PANE_SWITCHER_BUTTON_DATA, paneSwitcherButtonData);
+                    mPropertyModel.set(HubToolbarProperties.SEARCH_BOX_VISIBLE, true);
+                    mPropertyModel.set(HubToolbarProperties.IS_INCOGNITO, false);
+                });
+        mRenderTestRule.render(mToolbar, "searchBox");
     }
 }

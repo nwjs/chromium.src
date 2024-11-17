@@ -8,8 +8,8 @@
 
 #include "base/command_line.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "build/chromeos_buildflags.h"
-#include "chrome/browser/chromeos/mahi/mahi_web_contents_manager.h"
 #include "chrome/browser/ui/chromeos/read_write_cards/read_write_cards_ui_controller.h"
 #include "chrome/browser/ui/views/mahi/mahi_condensed_menu_view.h"
 #include "chrome/browser/ui/views/mahi/mahi_menu_constants.h"
@@ -17,6 +17,7 @@
 #include "chromeos/components/magic_boost/public/cpp/magic_boost_state.h"
 #include "chromeos/components/mahi/public/cpp/mahi_manager.h"
 #include "chromeos/components/mahi/public/cpp/mahi_switches.h"
+#include "chromeos/components/mahi/public/cpp/mahi_web_contents_manager.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "ui/views/view_utils.h"
 
@@ -44,15 +45,6 @@ void MahiMenuController::OnContextMenuShown(Profile* profile) {}
 void MahiMenuController::OnTextAvailable(const gfx::Rect& anchor_bounds,
                                          const std::string& selected_text,
                                          const std::string& surrounding_text) {
-  if (!chromeos::features::IsMahiEnabled() ||
-      !::mahi::MahiWebContentsManager::Get()->GetPrefValue()) {
-    return;
-  }
-
-  // TODO(b:356035887): `MahiManager::Get()->IsEnabled()` is the source of truth
-  // because it checks flag & prefs, as well as age & country restrictions. But
-  // it is not accessible from lacros. Let's remove the macros and the checks
-  // above when the lacros support is removed.
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   if (!MahiManager::Get() || !MahiManager::Get()->IsEnabled()) {
     return;
@@ -61,11 +53,14 @@ void MahiMenuController::OnTextAvailable(const gfx::Rect& anchor_bounds,
 
   // Only shows mahi menu for distillable pages or when the switch
   // `kUseFakeMahiManager` is enabled.
-  if (!::mahi::MahiWebContentsManager::Get()->IsFocusedPageDistillable() &&
+  if (!chromeos::MahiWebContentsManager::Get()->IsFocusedPageDistillable() &&
       !base::CommandLine::ForCurrentProcess()->HasSwitch(
           chromeos::switches::kUseFakeMahiManager)) {
     return;
   }
+
+  chromeos::MahiWebContentsManager::Get()->SetSelectedText(
+      base::UTF8ToUTF16(selected_text));
 
   if (selected_text.empty()) {
     menu_widget_ = MahiMenuView::CreateWidget(anchor_bounds);
@@ -97,8 +92,7 @@ void MahiMenuController::OnDismiss(bool is_other_command_executed) {
 }
 
 void MahiMenuController::OnPdfContextMenuShown(const gfx::Rect& anchor) {
-  if (!chromeos::features::IsMahiEnabled() ||
-      !::mahi::MahiWebContentsManager::Get()->GetPrefValue()) {
+  if (!MahiManager::Get() || !MahiManager::Get()->IsEnabled()) {
     return;
   }
 
@@ -120,7 +114,7 @@ bool MahiMenuController::IsFocusedPageDistillable() {
     return is_distillable_for_testing_.value();
   }
 
-  return ::mahi::MahiWebContentsManager::Get()->IsFocusedPageDistillable() ||
+  return chromeos::MahiWebContentsManager::Get()->IsFocusedPageDistillable() ||
          base::CommandLine::ForCurrentProcess()->HasSwitch(
              chromeos::switches::kUseFakeMahiManager);
 }

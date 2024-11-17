@@ -10,6 +10,8 @@
 
 #include "ash/bubble/bubble_utils.h"
 #include "ash/picker/picker_asset_fetcher.h"
+#include "ash/picker/picker_category.h"
+#include "ash/picker/picker_search_result.h"
 #include "ash/picker/views/picker_async_preview_image_view.h"
 #include "ash/picker/views/picker_gif_view.h"
 #include "ash/picker/views/picker_icons.h"
@@ -23,8 +25,6 @@
 #include "ash/picker/views/picker_shortcut_hint_view.h"
 #include "ash/picker/views/picker_strings.h"
 #include "ash/picker/views/picker_traversable_item_container.h"
-#include "ash/public/cpp/picker/picker_category.h"
-#include "ash/public/cpp/picker/picker_search_result.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/typography.h"
@@ -155,9 +155,8 @@ const gfx::VectorIcon& GetIconForClipboardData(
     const PickerClipboardResult& data) {
   switch (data.display_format) {
     case PickerClipboardResult::DisplayFormat::kText:
-      return chromeos::kTextIcon;
-    case PickerClipboardResult::DisplayFormat::kUrl:
-      return vector_icons::kLinkIcon;
+      return GURL(data.display_text).is_valid() ? vector_icons::kLinkIcon
+                                                : chromeos::kTextIcon;
     case PickerClipboardResult::DisplayFormat::kImage:
       return chromeos::kFiletypeImageIcon;
     case PickerClipboardResult::DisplayFormat::kFile:
@@ -232,7 +231,6 @@ std::unique_ptr<PickerItemView> PickerSectionView::CreateItemFromResult(
             switch (data.display_format) {
               case PickerClipboardResult::DisplayFormat::kFile:
               case PickerClipboardResult::DisplayFormat::kText:
-              case PickerClipboardResult::DisplayFormat::kUrl:
                 item_view->SetPrimaryText(data.display_text);
                 break;
               case PickerClipboardResult::DisplayFormat::kImage:
@@ -249,6 +247,21 @@ std::unique_ptr<PickerItemView> PickerSectionView::CreateItemFromResult(
                 GetIconForClipboardData(data), cros_tokens::kCrosSysOnSurface,
                 kIconSize));
             return item_view;
+          },
+          [&](const PickerGifResult& data) -> ReturnType {
+            // `base::Unretained` is safe because `asset_fetcher` outlives the
+            // return value.
+            auto gif_view = std::make_unique<PickerGifView>(
+                base::BindRepeating(&PickerAssetFetcher::FetchGifFromUrl,
+                                    base::Unretained(asset_fetcher),
+                                    data.preview_url),
+                base::BindRepeating(
+                    &PickerAssetFetcher::FetchGifPreviewImageFromUrl,
+                    base::Unretained(asset_fetcher), data.preview_image_url),
+                data.preview_dimensions);
+            return std::make_unique<PickerImageItemView>(
+                std::move(gif_view), data.content_description,
+                std::move(select_result_callback));
           },
           [&](const PickerBrowsingHistoryResult& data) -> ReturnType {
             auto item_view = std::make_unique<PickerListItemView>(
@@ -332,6 +345,15 @@ std::unique_ptr<PickerItemView> PickerSectionView::CreateItemFromResult(
               item_view->SetPrimaryText(GetLabelForPickerCategory(category));
               item_view->SetLeadingIcon(GetIconForPickerCategory(category));
             }
+            return item_view;
+          },
+          [&](const PickerLobsterResult& data) -> ReturnType {
+            auto item_view = std::make_unique<PickerListItemView>(
+                std::move(select_result_callback));
+
+            const PickerCategory category = PickerCategory::kLobster;
+            item_view->SetPrimaryText(GetLabelForPickerCategory(category));
+            item_view->SetLeadingIcon(GetIconForPickerCategory(category));
             return item_view;
           },
           [&](const PickerNewWindowResult& data) -> ReturnType {

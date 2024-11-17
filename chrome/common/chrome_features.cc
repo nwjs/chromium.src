@@ -32,18 +32,19 @@ BASE_FEATURE(kAdaptiveScreenBrightnessLogging,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-#if !BUILDFLAG(IS_ANDROID)
-// Enable revamp of AI settings page.
-BASE_FEATURE(kAiSettingsPageRefresh,
-             "AiSettingsPageRefresh",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 BASE_FEATURE(kAppPreloadService,
              "AppPreloadService",
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
+#if BUILDFLAG(IS_WIN)
+// When enabled, notifications from PWA's will use the PWA icon and name,
+// as long as the PWA is on the start menu.  b/40285965.
+BASE_FEATURE(kAppSpecificNotifications,
+             "AppSpecificNotifications",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_MAC)
 // Can be used to disable RemoteCocoa (hosting NSWindows for apps in the app
@@ -139,7 +140,12 @@ BASE_FEATURE(kChangePictureVideoMode,
 
 BASE_FEATURE(kEnableCertManagementUIV2,
              "EnableCertManagementUIV2",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 BASE_FEATURE(kEnableCertManagementUIV2Write,
              "EnableCertManagementUIV2Write",
@@ -494,23 +500,11 @@ BASE_FEATURE(kHappinessTrackingSurveysForWallpaperSearch,
 // Enables or disables the Happiness Tracking System for Chrome What's New.
 BASE_FEATURE(kHappinessTrackingSurveysForDesktopWhatsNew,
              "HappinessTrackingSurveysForDesktopWhatsNew",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<base::TimeDelta>
     kHappinessTrackingSurveysForDesktopWhatsNewTime{
         &kHappinessTrackingSurveysForDesktopWhatsNew, "whats-new-time",
         base::Seconds(20)};
-constexpr base::FeatureParam<int>
-    kHappinessTrackingSurveysForDesktopWhatsNewEnActivationPercentage{
-        &kHappinessTrackingSurveysForDesktopWhatsNew,
-        "en_activation_percentage", 40};
-constexpr base::FeatureParam<int>
-    kHappinessTrackingSurveysForDesktopWhatsNewDeActivationPercentage{
-        &kHappinessTrackingSurveysForDesktopWhatsNew,
-        "de_activation_percentage", 100};
-constexpr base::FeatureParam<int>
-    kHappinessTrackingSurveysForDesktopWhatsNewJpActivationPercentage{
-        &kHappinessTrackingSurveysForDesktopWhatsNew,
-        "jp_activation_percentage", 80};
 
 // Happiness tracking surveys for the M1 Privacy Sandbox settings.
 BASE_FEATURE(kHappinessTrackingSurveysForDesktopM1AdPrivacyPage,
@@ -682,7 +676,7 @@ BASE_FEATURE(kHideWebAppOriginText,
 // HTTP when HTTPS can't be reasonably expected.
 BASE_FEATURE(kHttpsFirstBalancedMode,
              "HttpsFirstBalancedMode",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Automatically enables HTTPS-First Mode in a balanced configuration when
 // possible.
@@ -698,7 +692,7 @@ BASE_FEATURE(kHttpsFirstDialogUi,
 // Enables the new interstitial UI for HTTPS-First Mode.
 BASE_FEATURE(kHttpsFirstModeInterstitialAugust2024Refresh,
              "HttpsFirstModeInterstitialAugust2024Refresh",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Kill switch for crbug.com/1414633.
 BASE_FEATURE(kHttpsFirstModeForAdvancedProtectionUsers,
@@ -758,6 +752,8 @@ BASE_FEATURE(kImmersiveFullscreenPWAs,
 // Slide tabs out of the way during the reveal of the close, minimize and
 // maximize (traffic lights) buttons. kImmersiveFullscreenTabs must be enabled
 // for this feature to have an effect.
+// If remote_cocoa::features::kFullscreenAlwaysShowTrafficLights is enabled,
+// this feature has no effect.
 BASE_FEATURE(kFullscreenAnimateTabs,
              "FullscreenAnimateTabs",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -976,16 +972,6 @@ BASE_FEATURE(kOnConnectNative,
              "OnConnectNative",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
-
-// Enables/disables marketing emails for other countries other than US,CA,UK.
-BASE_FEATURE(kOobeMarketingAdditionalCountriesSupported,
-             "kOobeMarketingAdditionalCountriesSupported",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables/disables marketing emails for double opt-in countries.
-BASE_FEATURE(kOobeMarketingDoubleOptInCountriesSupported,
-             "kOobeMarketingDoubleOptInCountriesSupported",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
 // Enables or disables the OOM intervention.
@@ -1621,6 +1607,10 @@ BASE_FEATURE(kUserActivityEventLogging,
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kWebAppDontAddExistingAppsToSync,
+             "WebAppDontAddExistingAppsToSync",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kWebAppManifestIconUpdating,
              "WebAppManifestIconUpdating",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1646,15 +1636,6 @@ BASE_FEATURE(kWebAppUniversalInstall,
 BASE_FEATURE(kWebAppManifestPolicyAppIdentityUpdate,
              "WebAppManifestPolicyAppIdentityUpdate",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-#if BUILDFLAG(IS_CHROMEOS)
-// Enables Isolated Web App context APIs in web kiosk sessions.
-// When enabled, Web App (PWA) kiosk session passes an isolated context check,
-// which makes blink expose IWA APIs to be used by the web app.
-BASE_FEATURE(kWebKioskEnableIwaApis,
-             "WebKioskEnableIwaApis",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
 
 #if !BUILDFLAG(IS_ANDROID)
 // Allow capturing of WebRTC event logs, and uploading of those logs to Crash.

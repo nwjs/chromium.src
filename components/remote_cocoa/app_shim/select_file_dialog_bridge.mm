@@ -335,7 +335,7 @@ void SelectFileDialogBridge::Show(
 
   if (type_ == SelectFileDialogType::kSaveAsFile) {
 #if 1 //NWJS#6091: extension was hidden
-    panel_.extensionHidden = NO;
+    [dialog setExtensionHidden:NO];
 #else
     // When file extensions are hidden and removing the extension from
     // the default filename gives one which still has an extension

@@ -27,10 +27,20 @@ BASE_FEATURE(kEnableBandASampleDebugReports,
              "EnableBandASampleDebugReports",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enable parsing triggered updates from B&A response.
+BASE_FEATURE(kEnableBandATriggeredUpdates,
+             "EnableBandATriggeredUpdates",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enable parsing ad auction response headers for an iframe navigation request.
 BASE_FEATURE(kEnableIFrameAdAuctionHeaders,
              "EnableIFrameAdAuctionHeaders",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enable the user agent header in auction requests to be overridden.
+BASE_FEATURE(kFledgeEnableUserAgentAndClientHints,
+             "FledgeEnableUserAgentAndClientHints",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable write ahead logging for interest group storage.
 BASE_FEATURE(kFledgeEnableWALForInterestGroupStorage,
@@ -45,6 +55,18 @@ BASE_FEATURE(kFledgeFacilitatedTestingSignalsHeaders,
 BASE_FEATURE(kFledgePrefetchBandAKeys,
              "FledgePrefetchBandAKeys",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables starting worklet processes at auction start time in anticipation
+// of needing them for future worklets.
+BASE_FEATURE(kFledgeStartAnticipatoryProcesses,
+             "FledgeStartAnticipatoryProcesses",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+// How long to hold onto anticipatory processes that are unused.
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kFledgeStartAnticipatoryProcessExpirationTime,
+                   &kFledgeStartAnticipatoryProcesses,
+                   "AnticipatoryProcessHoldTime",
+                   base::Seconds(5));
 
 // Enable storing a retrieving B&A keys for the interest group
 // database.

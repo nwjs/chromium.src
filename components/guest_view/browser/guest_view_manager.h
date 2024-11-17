@@ -214,13 +214,15 @@ class GuestViewManager : public content::BrowserPluginGuestManager,
 
   // Contains guests, mapping from their instance ids.
 public:
-  using GuestInstanceMap = std::map<int, GuestViewBase*>;
+  using GuestInstanceMap =
+      std::map<int, raw_ptr<GuestViewBase, CtnExperimental>>;
   const GuestInstanceMap& guests_by_instance_id() { return guests_by_instance_id_; }
  protected:
   GuestInstanceMap guests_by_instance_id_;
 
   using WebContentsGuestViewMap =
-      std::map<const content::WebContents*, GuestViewBase*>;
+      std::map<const content::WebContents*,
+               raw_ptr<GuestViewBase, CtnExperimental>>;
   WebContentsGuestViewMap webcontents_guestview_map_;
 
   struct ElementInstanceKey {

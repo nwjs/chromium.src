@@ -49,6 +49,8 @@ namespace privacy_sandbox {
 
 namespace {
 
+using ::content_settings::CookieControlsMode;
+
 constexpr char kBlockedTopicsTopicKey[] = "topic";
 constexpr char kBlockedTopicsBlockTimeKey[] = "blockedOn";
 
@@ -190,6 +192,11 @@ PrivacySandboxSettingsImpl::PrivacySandboxSettingsImpl(
       prefs::kPrivacySandboxRelatedWebsiteSetsEnabled,
       base::BindRepeating(
           &PrivacySandboxSettingsImpl::OnRelatedWebsiteSetsEnabledPrefChanged,
+          base::Unretained(this)));
+  pref_change_registrar_.Add(
+      prefs::kCookieControlsMode,
+      base::BindRepeating(
+          &PrivacySandboxSettingsImpl::OnCookieControlsModePrefChanged,
           base::Unretained(this)));
 }
 
@@ -581,6 +588,19 @@ PrivacySandboxSettingsImpl::GetM1FledgeAllowedStatus(
   return GetSiteAccessAllowedStatus(top_frame_origin, auction_party.GetURL());
 }
 
+PrivacySandboxSettingsImpl::Status
+PrivacySandboxSettingsImpl::GetLocalUnpartitionedDataAccessEnabledStatus()
+    const {
+  // User has turned on the setting to block all third party cookies.
+  if (cookie_settings_->ShouldBlockThirdPartyCookies() &&
+      !cookie_settings_->AreThirdPartyCookiesLimited()) {
+    return Status::kApisDisabled;
+  }
+
+  // This feature is default enabled when 3PCs are not blocked.
+  return Status::kAllowed;
+}
+
 bool PrivacySandboxSettingsImpl::IsEventReportingDestinationAttested(
     const url::Origin& destination_origin,
     privacy_sandbox::PrivacySandboxAttestationsGatedAPI invoking_api) const {
@@ -718,9 +738,18 @@ bool PrivacySandboxSettingsImpl::IsLocalUnpartitionedDataAccessAllowed(
     const url::Origin& top_frame_origin,
     const url::Origin& accessing_origin,
     content::RenderFrameHost* console_frame) const {
-  // TODO(crbug.com/365788691): Before checking the attestation status, check
-  // the 3PC setting here. If the toggle "Block all third-party cookies" is
-  // enabled, the local unpartitioned data access feature will be disabled.
+  if (Status status = GetLocalUnpartitionedDataAccessEnabledStatus();
+      !IsAllowed(status)) {
+    JoinHistogram(kIsLocalUnpartitionedDataAccessAllowedHistogram, status);
+    if (console_frame) {
+      console_frame->AddMessageToConsole(
+          blink::mojom::ConsoleMessageLevel::kError,
+          "Fenced frame local unpartitioned data access is disabled because "
+          "all third-party cookies are blocked.");
+    }
+    return false;
+  }
+
   Status attestation_status =
       PrivacySandboxAttestations::GetInstance()->IsSiteAttested(
           net::SchemefulSite(accessing_origin),
@@ -847,6 +876,23 @@ void PrivacySandboxSettingsImpl::OnRelatedWebsiteSetsEnabledPrefChanged() {
   }
 }
 
+void PrivacySandboxSettingsImpl::OnCookieControlsModePrefChanged() {
+  if (!base::FeatureList::IsEnabled(privacy_sandbox::kAddLimit3pcsSetting)) {
+    return;
+  }
+
+  CookieControlsMode mode = static_cast<CookieControlsMode>(
+      pref_change_registrar_.prefs()->GetInteger(prefs::kCookieControlsMode));
+  if (mode == CookieControlsMode::kOff ||
+      mode == CookieControlsMode::kIncognitoOnly) {
+    return;
+  }
+
+  for (Observer& obs : observers_) {
+    obs.OnFirstPartySetsEnabledChanged(AreRelatedWebsiteSetsEnabled());
+  }
+}
+
 void PrivacySandboxSettingsImpl::AddObserver(Observer* observer) {
   observers_.AddObserver(observer);
 }
@@ -959,10 +1005,11 @@ void PrivacySandboxSettingsImpl::OnBlockAllThirdPartyCookiesChanged() {
 }
 
 bool PrivacySandboxSettingsImpl::AreRelatedWebsiteSetsEnabled() const {
-  // FPS should be on in the 3PCD experiment unless all 3PC are blocked.
-  if (tracking_protection_settings_->IsTrackingProtection3pcdEnabled()) {
-    return !tracking_protection_settings_->AreAllThirdPartyCookiesBlocked();
+  if (tracking_protection_settings_->IsTrackingProtection3pcdEnabled() ||
+      base::FeatureList::IsEnabled(privacy_sandbox::kAddLimit3pcsSetting)) {
+    return cookie_settings_->AreThirdPartyCookiesLimited();
   }
+
   return pref_service_->GetBoolean(
       prefs::kPrivacySandboxRelatedWebsiteSetsEnabled);
 }

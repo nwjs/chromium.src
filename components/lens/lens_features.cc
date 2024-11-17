@@ -6,6 +6,7 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/numerics/safe_conversions.h"
 #include "build/build_config.h"
 
 namespace lens::features {
@@ -61,6 +62,10 @@ BASE_FEATURE(kLensOverlayImageContextMenuActions,
 
 BASE_FEATURE(kLensOverlayContextualSearchbox,
              "LensOverlayContextualSearchbox",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLensOverlaySurvey,
+             "LensOverlaySurvey",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<int> kLensOverlayMinRamMb{&kLensOverlay, "min_ram_mb",
@@ -146,7 +151,7 @@ const base::FeatureParam<bool> kUseLensOverlayForVideoFrameSearch{
     &kLensOverlay, "use-for-video-frame-search", true};
 
 const base::FeatureParam<bool> kIsFindInPageEntryPointEnabled{
-    &kLensOverlay, "find-in-page-entry-point", true};
+    &kLensOverlay, "find-in-page-entry-point", false};
 
 const base::FeatureParam<bool> kIsOmniboxEntryPointEnabled{
     &kLensOverlay, "omnibox-entry-point", true};
@@ -179,20 +184,6 @@ constexpr base::FeatureParam<bool> kUseOauthForLensOverlayRequests{
 
 constexpr base::FeatureParam<int> kLensOverlayClusterInfoLifetimeSeconds{
     &kLensOverlay, "cluster-info-lifetime-seconds", 600};
-
-constexpr base::FeatureParam<bool>
-    kUseSearchContextForTextOnlyLensOverlayRequests{
-        &kLensOverlay, "use-search-context-for-text-only-requests", false};
-
-constexpr base::FeatureParam<bool>
-    kUseSearchContextForMultimodalLensOverlayRequests{
-        &kLensOverlay, "use-search-context-for-multimodal-requests", false};
-
-constexpr base::FeatureParam<bool> kUsePdfsAsContext{
-    &kLensOverlay, "use-pdfs-as-context", false};
-
-constexpr base::FeatureParam<bool> kUseInnerTextAsContext{
-    &kLensOverlay, "use-inner-text-as-context", false};
 
 constexpr base::FeatureParam<int> kLensOverlayTapRegionHeight{
     &kLensOverlay, "tap-region-height", 300};
@@ -257,6 +248,50 @@ constexpr base::FeatureParam<bool>
 constexpr base::FeatureParam<int>
     kLensOverlayImageContextMenuActionsTextReceivedTimeout{
         &kLensOverlayImageContextMenuActions, "text-received-timeout", 2000};
+
+constexpr base::FeatureParam<bool> kUsePdfsAsContext{
+    &kLensOverlayContextualSearchbox, "use-pdfs-as-context", false};
+
+constexpr base::FeatureParam<bool> kUseInnerTextAsContext{
+    &kLensOverlayContextualSearchbox, "use-inner-text-as-context", false};
+
+constexpr base::FeatureParam<bool> kUseInnerHtmlAsContext{
+    &kLensOverlayContextualSearchbox, "use-inner-html-as-context", false};
+
+constexpr base::FeatureParam<bool>
+    kUseVideoContextForTextOnlyLensOverlayRequests{
+        &kLensOverlayContextualSearchbox,
+        "use-video-context-for-text-only-requests", false};
+
+constexpr base::FeatureParam<bool>
+    kUseVideoContextForMultimodalLensOverlayRequests{
+        &kLensOverlayContextualSearchbox,
+        "use-video-context-for-multimodal-requests", false};
+
+constexpr base::FeatureParam<bool> kUseOptimizedRequestFlow{
+    &kLensOverlayContextualSearchbox, "use-optimized-request-flow", false};
+
+constexpr base::FeatureParam<std::string> kLensOverlayClusterInfoEndpointUrl{
+    &kLensOverlayContextualSearchbox, "cluster-info-endpoint-url",
+    "https://lensfrontend-pa.googleapis.com/v1/gsessionid"};
+
+constexpr base::FeatureParam<size_t> kLensOverlayFileUploadLimitBytes{
+    &kLensOverlayContextualSearchbox, "file-upload-limit-bytes", 2000000};
+
+const base::FeatureParam<base::TimeDelta> kLensOverlaySurveyResultsTime{
+    &kLensOverlaySurvey, "results-time", base::Seconds(1)};
+
+constexpr base::FeatureParam<bool> kUsePdfVitParam{
+    &kLensOverlayContextualSearchbox, "use-pdf-vit-param", false};
+
+constexpr base::FeatureParam<bool> kUseWebpageVitParam{
+    &kLensOverlayContextualSearchbox, "use-webpage-vit-param", false};
+
+constexpr base::FeatureParam<bool> kUsePdfInteractionType{
+    &kLensOverlayContextualSearchbox, "use-pdf-interaction-type", false};
+
+constexpr base::FeatureParam<bool> kUseWebpageInteractionType{
+    &kLensOverlayContextualSearchbox, "use-webpage-interaction-type", false};
 
 constexpr base::FeatureParam<std::string> kHomepageURLForLens{
     &kLensStandalone, "lens-homepage-url", "https://lens.google.com/v3/"};
@@ -483,12 +518,43 @@ int GetLensOverlayClusterInfoLifetimeSeconds() {
   return kLensOverlayClusterInfoLifetimeSeconds.Get();
 }
 
-bool UseSearchContextForTextOnlyLensOverlayRequests() {
-  return kUseSearchContextForTextOnlyLensOverlayRequests.Get();
+bool UseVideoContextForTextOnlyLensOverlayRequests() {
+  return kUseVideoContextForTextOnlyLensOverlayRequests.Get();
 }
 
-bool UseSearchContextForMultimodalLensOverlayRequests() {
-  return kUseSearchContextForMultimodalLensOverlayRequests.Get();
+bool UseVideoContextForMultimodalLensOverlayRequests() {
+  return kUseVideoContextForMultimodalLensOverlayRequests.Get();
+}
+
+bool UseOptimizedRequestFlow() {
+  return kUseOptimizedRequestFlow.Get();
+}
+
+std::string GetLensOverlayClusterInfoEndpointUrl() {
+  return kLensOverlayClusterInfoEndpointUrl.Get();
+}
+
+uint32_t GetLensOverlayFileUploadLimitBytes() {
+  size_t limit = kLensOverlayFileUploadLimitBytes.Get();
+  return base::IsValueInRangeForNumericType<uint32_t>(limit)
+             ? static_cast<uint32_t>(limit)
+             : 0;
+}
+
+bool UsePdfVitParam() {
+  return kUsePdfVitParam.Get();
+}
+
+bool UseWebpageVitParam() {
+  return kUseWebpageVitParam.Get();
+}
+
+bool UsePdfInteractionType() {
+  return kUsePdfInteractionType.Get();
+}
+
+bool UseWebpageInteractionType() {
+  return kUseWebpageInteractionType.Get();
 }
 
 bool UsePdfsAsContext() {
@@ -497,6 +563,10 @@ bool UsePdfsAsContext() {
 
 bool UseInnerTextAsContext() {
   return kUseInnerTextAsContext.Get();
+}
+
+bool UseInnerHtmlAsContext() {
+  return kUseInnerHtmlAsContext.Get();
 }
 
 int GetLensOverlayVerticalTextMargin() {
@@ -660,6 +730,10 @@ int GetLensOverlayImageContextMenuActionsTextReceivedTimeout() {
 
 bool IsLensOverlayContextualSearchboxEnabled() {
   return base::FeatureList::IsEnabled(kLensOverlayContextualSearchbox);
+}
+
+base::TimeDelta GetLensOverlaySurveyResultsTime() {
+  return kLensOverlaySurveyResultsTime.Get();
 }
 
 }  // namespace lens::features

@@ -4,12 +4,12 @@
 
 #import "ios/chrome/browser/saved_tab_groups/model/ios_tab_group_sync_util.h"
 
-#import "components/saved_tab_groups/saved_tab_group.h"
-#import "components/saved_tab_groups/saved_tab_group_tab.h"
-#import "components/saved_tab_groups/tab_group_sync_delegate.h"
-#import "components/saved_tab_groups/tab_group_sync_service.h"
-#import "components/saved_tab_groups/types.h"
-#import "components/saved_tab_groups/utils.h"
+#import "components/saved_tab_groups/delegate/tab_group_sync_delegate.h"
+#import "components/saved_tab_groups/public/saved_tab_group.h"
+#import "components/saved_tab_groups/public/saved_tab_group_tab.h"
+#import "components/saved_tab_groups/public/tab_group_sync_service.h"
+#import "components/saved_tab_groups/public/types.h"
+#import "components/saved_tab_groups/public/utils.h"
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
@@ -93,7 +93,8 @@ void CloseTabGroupLocally(const TabGroup* tab_group,
                           TabGroupSyncService* sync_service) {
   // `sync_service` is nullptr in incognito.
   if (sync_service && sync_service->GetGroup(tab_group->tab_group_id())) {
-    sync_service->RemoveLocalTabGroupMapping(tab_group->tab_group_id());
+    sync_service->RemoveLocalTabGroupMapping(tab_group->tab_group_id(),
+                                             ClosingSource::kClosedByUser);
   }
   CloseAllWebStatesInGroup(*web_state_list, tab_group,
                            WebStateList::CLOSE_USER_ACTION);
@@ -163,12 +164,11 @@ void MoveTabGroupAcrossBrowsers(const TabGroup* source_tab_group,
 void MoveTabGroupToBrowser(const TabGroup* source_tab_group,
                            Browser* destination_browser,
                            int destination_tab_group_index) {
-  ChromeBrowserState* browser_state = destination_browser->GetBrowserState();
-  BrowserList* browser_list =
-      BrowserListFactory::GetForBrowserState(browser_state);
+  ProfileIOS* profile = destination_browser->GetProfile();
+  BrowserList* browser_list = BrowserListFactory::GetForProfile(profile);
   const BrowserList::BrowserType browser_types =
-      browser_state->IsOffTheRecord() ? BrowserList::BrowserType::kIncognito
-                                      : BrowserList::BrowserType::kRegular;
+      profile->IsOffTheRecord() ? BrowserList::BrowserType::kIncognito
+                                : BrowserList::BrowserType::kRegular;
   std::set<Browser*> browsers = browser_list->BrowsersOfType(browser_types);
 
   // Retrieve the `source_browser`.
@@ -204,11 +204,9 @@ void MoveTabGroupToBrowser(const TabGroup* source_tab_group,
   }
 
   // Lock tab group sync service observer.
-  CHECK_EQ(source_browser->GetBrowserState(),
-           destination_browser->GetBrowserState());
-  auto* sync_service =
-      tab_groups::TabGroupSyncServiceFactory::GetForBrowserState(
-          source_browser->GetBrowserState());
+  CHECK_EQ(source_browser->GetProfile(), destination_browser->GetProfile());
+  auto* sync_service = tab_groups::TabGroupSyncServiceFactory::GetForProfile(
+      source_browser->GetProfile());
   auto lock = sync_service->CreateScopedLocalObserverPauser();
 
   MoveTabGroupAcrossBrowsers(source_tab_group, source_browser,

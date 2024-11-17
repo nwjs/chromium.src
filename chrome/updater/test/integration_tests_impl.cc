@@ -272,7 +272,8 @@ void ExpectUpdateSequence(UpdaterScope scope,
                           int event_type,
                           const base::Version& from_version,
                           const base::Version& to_version,
-                          bool do_fault_injection) {
+                          bool do_fault_injection,
+                          bool skip_download) {
   base::FilePath test_data_path;
   ASSERT_TRUE(base::PathService::Get(chrome::DIR_TEST_DATA, &test_data_path));
   base::FilePath crx_path = test_data_path.Append(FILE_PATH_LITERAL("updater"))
@@ -302,14 +303,16 @@ void ExpectUpdateSequence(UpdaterScope scope,
                         crx_path, kDoNothingCRXRun, {}));
 
   // Second request: update download.
-  if (do_fault_injection) {
-    test_server->ExpectOnce({}, "", net::HTTP_INTERNAL_SERVER_ERROR);
+  if (!skip_download) {
+    if (do_fault_injection) {
+      test_server->ExpectOnce({}, "", net::HTTP_INTERNAL_SERVER_ERROR);
+    }
+    std::string crx_bytes;
+    base::ReadFileToString(crx_path, &crx_bytes);
+    test_server->ExpectOnce({request::GetUpdaterUserAgentMatcher(),
+                             request::GetContentMatcher({""})},
+                            crx_bytes);
   }
-  std::string crx_bytes;
-  base::ReadFileToString(crx_path, &crx_bytes);
-  test_server->ExpectOnce(
-      {request::GetUpdaterUserAgentMatcher(), request::GetContentMatcher({""})},
-      crx_bytes);
 
   // Third request: event ping.
   if (do_fault_injection) {
@@ -466,6 +469,29 @@ void RegisterAppByValue(UpdaterScope scope, const base::Value::Dict& value) {
   return RegisterApp(scope, registration);
 }
 
+void EnterTestMode(const GURL& update_url,
+                   const GURL& crash_upload_url,
+                   const GURL& device_management_url,
+                   const GURL& app_logo_url,
+                   base::TimeDelta idle_timeout,
+                   base::TimeDelta server_keep_alive_time,
+                   base::TimeDelta ceca_connection_timeout) {
+  ASSERT_TRUE(
+      ExternalConstantsBuilder()
+          .SetUpdateURL(std::vector<std::string>{update_url.spec()})
+          .SetCrashUploadURL(crash_upload_url.spec())
+          .SetDeviceManagementURL(device_management_url.spec())
+          .SetAppLogoURL(app_logo_url.spec())
+          .SetUseCUP(false)
+          .SetInitialDelay(base::Milliseconds(100))
+          .SetServerKeepAliveTime(server_keep_alive_time)
+          .SetCrxVerifierFormat(crx_file::VerifierFormat::CRX3)
+          .SetOverinstallTimeout(GetOverinstallTimeoutForEnterTestMode())
+          .SetIdleCheckPeriod(idle_timeout)
+          .SetCecaConnectionTimeout(ceca_connection_timeout)
+          .Modify());
+}
+
 void SetGroupPolicies(const base::Value::Dict& values) {
   ASSERT_TRUE(ExternalConstantsBuilder().SetGroupPolicies(values).Modify());
 }
@@ -544,7 +570,16 @@ void InstallUpdaterAndApp(UpdaterScope scope,
 #if BUILDFLAG(IS_WIN)
     ASSERT_TRUE(wait_for_the_installer);
     Run(scope, command_line, nullptr);
-    CloseInstallCompleteDialog(base::ASCIIToWide(child_window_text_to_find),
+
+    std::u16string bundle_name;
+    if (!tag.empty()) {
+      tagging::TagArgs tag_args;
+      ASSERT_EQ(tagging::ErrorCode::kSuccess,
+                tagging::Parse(tag, {}, tag_args));
+      bundle_name = base::UTF8ToUTF16(tag_args.bundle_name);
+    }
+    CloseInstallCompleteDialog(bundle_name,
+                               base::ASCIIToWide(child_window_text_to_find),
                                verify_app_logo_loaded);
 #else
     NOTREACHED_IN_MIGRATION();
@@ -1243,10 +1278,11 @@ void ExpectUpdateSequence(UpdaterScope scope,
                           UpdateService::Priority priority,
                           const base::Version& from_version,
                           const base::Version& to_version,
-                          bool do_fault_injection) {
+                          bool do_fault_injection,
+                          bool skip_download) {
   ExpectUpdateSequence(scope, test_server, app_id, install_data_index, priority,
                        /*event_type=*/3, from_version, to_version,
-                       do_fault_injection);
+                       do_fault_injection, skip_download);
 }
 
 void ExpectUpdateSequenceBadHash(UpdaterScope scope,
@@ -1307,10 +1343,11 @@ void ExpectInstallSequence(UpdaterScope scope,
                            UpdateService::Priority priority,
                            const base::Version& from_version,
                            const base::Version& to_version,
-                           bool do_fault_injection) {
+                           bool do_fault_injection,
+                           bool skip_download) {
   ExpectUpdateSequence(scope, test_server, app_id, install_data_index, priority,
                        /*event_type=*/2, from_version, to_version,
-                       do_fault_injection);
+                       do_fault_injection, skip_download);
 }
 
 // Runs multiple cycles of instantiating the update service, calling
@@ -1421,7 +1458,7 @@ void RunRecoveryComponent(UpdaterScope scope,
   ASSERT_EQ(exit_code, kErrorOk);
 }
 
-void SetLastChecked(UpdaterScope updater_scope, const base::Time& time) {
+void SetLastChecked(UpdaterScope updater_scope, base::Time time) {
   base::MakeRefCounted<PersistedData>(
       updater_scope, CreateGlobalPrefs(updater_scope)->GetPrefService(),
       nullptr)
@@ -1587,7 +1624,44 @@ void DMCleanup(UpdaterScope scope) {
 #endif
 }
 
-void InstallEnterpriseCompanionApp(
+void InstallEnterpriseCompanionApp() {
+  base::FilePath exe_path;
+  ASSERT_TRUE(base::PathService::Get(base::DIR_EXE, &exe_path));
+  int exit_code = -1;
+  base::CommandLine command(exe_path.Append(kCompanionAppTestExecutableName));
+  command.AppendSwitch("install");
+  base::Process process = base::LaunchProcess(command, {});
+  EXPECT_TRUE(process.IsValid());
+  EXPECT_TRUE(process.WaitForExitWithTimeout(TestTimeouts::action_timeout(),
+                                             &exit_code));
+}
+
+void InstallBrokenEnterpriseCompanionApp() {
+  std::optional<base::FilePath> install_dir =
+      enterprise_companion::GetInstallDirectory();
+  ASSERT_TRUE(install_dir);
+  ASSERT_TRUE(base::CreateDirectory(*install_dir));
+  ASSERT_TRUE(
+      base::WriteFile(install_dir->AppendASCII(kCompanionAppExecutableName),
+                      "broken enterprise companion app"));
+  VLOG(1) << "Broken enterprise companion app installed.";
+}
+
+void UninstallBrokenEnterpriseCompanionApp() {
+  std::optional<base::FilePath> install_dir =
+      enterprise_companion::GetInstallDirectory();
+  ASSERT_TRUE(install_dir);
+  for (const base::FilePath::StringType& process_name :
+       GetCompanionAppProcessNames()) {
+    KillProcesses(process_name, -1);
+    WaitForProcessesToExit(process_name, TestTimeouts::action_timeout());
+    EXPECT_FALSE(IsProcessRunning(process_name)) << process_name;
+  }
+  ASSERT_TRUE(base::DeletePathRecursively(*install_dir));
+  VLOG(1) << "Enterprise companion app manually uninstalled.";
+}
+
+void InstallEnterpriseCompanionAppOverrides(
     const base::Value::Dict& external_overrides) {
   std::optional<base::FilePath> json_path =
       enterprise_companion::GetOverridesFilePath();
@@ -1602,18 +1676,19 @@ void InstallEnterpriseCompanionApp(
 #else
   EXPECT_TRUE(json_serializer.Serialize(external_overrides));
 #endif
+  VLOG(1) << "Enterprise companion app overrides installed.";
+}
 
-  base::FilePath exe_path;
-  EXPECT_TRUE(base::PathService::Get(base::DIR_EXE, &exe_path));
-  int exit_code = -1;
-  base::CommandLine command(exe_path.Append(kCompanionAppTestExecutableName));
-  command.AppendSwitch("install");
-  base::Process process = base::LaunchProcess(command, {});
-  EXPECT_TRUE(process.IsValid());
-  EXPECT_TRUE(process.WaitForExitWithTimeout(TestTimeouts::action_timeout(),
-                                             &exit_code));
-  EXPECT_EQ(exit_code, 0);
-  VLOG(1) << "Enterprise companion app installed.";
+void ExpectEnterpriseCompanionAppNotInstalled() {
+  std::optional<base::FilePath> install_dir =
+      enterprise_companion::GetInstallDirectory();
+  if (!install_dir) {
+    VLOG(1) << "Cannot find enterprise companion app installation directory, "
+            << "assume it does not exist.";
+    return;
+  }
+  EXPECT_FALSE(
+      base::PathExists(install_dir->Append(kCompanionAppTestExecutableName)));
 }
 
 void UninstallEnterpriseCompanionApp() {
@@ -1629,23 +1704,13 @@ void UninstallEnterpriseCompanionApp() {
       install_dir->AppendASCII(kCompanionAppExecutableName));
   command_line.AppendSwitch(kUninstallCompanionAppSwitch);
   base::Process uninstall_process = base::LaunchProcess(command_line, {});
-  if (!uninstall_process.IsValid()) {
-    VLOG(1) << "Failed to launch enterprise companion app for uninstall, "
-            << "assume it does not exist.";
+  if (uninstall_process.IsValid() && WaitForProcess(uninstall_process) == 0) {
+    VLOG(1) << "Enterprise companion app is removed.";
     return;
   }
 
-  if (WaitForProcess(uninstall_process) != 0) {
-    VLOG(1) << "Failed to uninstall companion app, nuke it.";
-    for (const base::FilePath::StringType& process_name :
-         GetCompanionAppProcessNames()) {
-      KillProcesses(process_name, -1);
-      WaitForProcessesToExit(process_name, TestTimeouts::action_timeout());
-      EXPECT_FALSE(IsProcessRunning(process_name)) << process_name;
-    }
-    base::DeletePathRecursively(*install_dir);
-  }
-  VLOG(1) << "Enterprise companion app is removed.";
+  // Forcefully remove the installation in case a broken one exists.
+  ASSERT_NO_FATAL_FAILURE(UninstallBrokenEnterpriseCompanionApp());
 }
 
 void ExpectDeviceManagementRegistrationRequest(

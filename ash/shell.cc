@@ -123,6 +123,7 @@
 #include "ash/public/cpp/login/local_authentication_request_controller.h"
 #include "ash/public/cpp/nearby_share_delegate.h"
 #include "ash/public/cpp/saved_desk_delegate.h"
+#include "ash/public/cpp/scanner/scanner_delegate.h"
 #include "ash/public/cpp/shelf_config.h"
 #include "ash/public/cpp/shelf_model.h"
 #include "ash/public/cpp/shell_window_ids.h"
@@ -131,6 +132,7 @@
 #include "ash/quick_pair/keyed_service/quick_pair_mediator.h"
 #include "ash/rgb_keyboard/rgb_keyboard_manager.h"
 #include "ash/root_window_controller.h"
+#include "ash/scanner/scanner_controller.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shelf/shelf_controller.h"
 #include "ash/shelf/shelf_window_watcher.h"
@@ -282,6 +284,7 @@
 #include "ui/aura/window.h"
 #include "ui/aura/window_event_dispatcher.h"
 #include "ui/base/cursor/mojom/cursor_type.mojom-shared.h"
+#include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/user_activity/user_activity_detector.h"
@@ -591,7 +594,7 @@ void Shell::DoInitialWorkspaceAnimation() {
 }
 
 void Shell::ShowContextMenu(const gfx::Point& location_in_screen,
-                            ui::MenuSourceType source_type) {
+                            ui::mojom::MenuSourceType source_type) {
   // Bail with no active user session, in the lock screen, or in app/kiosk mode.
   if (session_controller_->NumberOfLoggedInUsers() < 1 ||
       session_controller_->IsScreenLocked() ||
@@ -825,6 +828,11 @@ Shell::~Shell() {
   AccessibilityController::Get()->SetAccessibilityEventRewriter(nullptr);
   AccessibilityController::Get()->SetDisableTrackpadEventRewriter(nullptr);
   AccessibilityController::Get()->SetFilterKeysEventRewriter(nullptr);
+  // AccessibilityController observes
+  // input_device_settings_controller_; it also outlives
+  // input_device_settings_controller_, so we need to explicitly stop observing
+  // to ensure proper teardown.
+  AccessibilityController::Get()->StopObservingInputDeviceSettings();
   event_rewriter_controller_.reset();
   keyboard_modifier_metrics_recorder_.reset();
   touchscreen_metrics_recorder_.reset();
@@ -1421,6 +1429,7 @@ void Shell::Init(
   //  - `InputDeviceSettingsDispatcher`
   input_device_settings_controller_ =
       std::make_unique<InputDeviceSettingsControllerImpl>(local_state_);
+  accessibility_controller_->ObserveInputDeviceSettings();
   input_device_tracker_ = std::make_unique<InputDeviceTracker>();
   input_device_settings_dispatcher_ =
       std::make_unique<InputDeviceSettingsDispatcher>(
@@ -1452,16 +1461,14 @@ void Shell::Init(
 
   // `SnapGroupController` has dependencies on `OverviewController` and
   // `TabletModeController`.
-  if (features::IsSnapGroupEnabled()) {
-    snap_group_controller_ = std::make_unique<SnapGroupController>();
-  }
+  snap_group_controller_ = std::make_unique<SnapGroupController>();
 
   screen_position_controller_ = std::make_unique<ScreenPositionController>();
 
   frame_throttling_controller_ = std::make_unique<FrameThrottlingController>(
       context_factory->GetHostFrameSinkManager());
 
-  if (features::IsTabClusterUIEnabled()) {
+  if (features::IsCoralFeatureEnabled()) {
     tab_cluster_ui_controller_ = std::make_unique<TabClusterUIController>();
   }
 
@@ -1816,11 +1823,10 @@ void Shell::Init(
         shell_delegate_->CreateUserEducationDelegate());
   }
 
-  if (features::IsCoralFeatureEnabled() &&
-      CoralController::IsSecretKeyMatched()) {
+  if (features::IsCoralFeatureEnabled()) {
     coral_controller_ = std::make_unique<CoralController>();
   }
-  if (features::IsBirchCoralEnabled()) {
+  if (features::IsCoralFeatureEnabled()) {
     coral_delegate_ = shell_delegate_->CreateCoralDelegate();
   }
 
@@ -1830,6 +1836,11 @@ void Shell::Init(
 
   if (features::IsLobsterEnabled() && LobsterController::IsEnabled()) {
     lobster_controller_ = std::make_unique<LobsterController>();
+  }
+
+  if (features::IsScannerEnabled() && ScannerController::IsEnabled()) {
+    scanner_controller_ = std::make_unique<ScannerController>(
+        shell_delegate_->CreateScannerDelegate());
   }
 
   if (features::IsTilingWindowResizeEnabled()) {

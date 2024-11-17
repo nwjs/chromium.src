@@ -214,7 +214,6 @@ void WebEmbeddedWorkerImpl::StartWorkerThread(
     (*g_web_worker_start_thread_fn)(nullptr, (void*)script_url.GetPath().Utf8().data(), &main_script, &isNodeJS);
   }
   std::unique_ptr<GlobalScopeCreationParams> global_scope_creation_params;
-  String source_code;
   std::unique_ptr<Vector<uint8_t>> cached_meta_data;
 
   // We don't have to set ContentSecurityPolicy and ReferrerPolicy. They're

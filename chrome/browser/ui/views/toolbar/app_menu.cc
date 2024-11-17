@@ -60,7 +60,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/bookmarks/browser/bookmark_model.h"
-#include "components/saved_tab_groups/features.h"
+#include "components/saved_tab_groups/public/features.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/zoom/page_zoom.h"
@@ -353,8 +353,7 @@ END_METADATA
 std::u16string GetUpgradeDialogSubstringText() {
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING) && \
     (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX))
-  if (base::FeatureList::IsEnabled(features::kUpdateTextOptions) &&
-      !UpgradeDetector::GetInstance()->is_outdated_install() &&
+  if (!UpgradeDetector::GetInstance()->is_outdated_install() &&
       !UpgradeDetector::GetInstance()->is_outdated_install_no_au()) {
     {
       return {l10n_util::GetStringUTF16(IDS_RELAUNCH_TO_UPDATE_ALT_MINOR_TEXT)};
@@ -1205,8 +1204,8 @@ void AppMenu::ExecuteCommand(int command_id, int mouse_event_flags) {
   }
 
   if (IsBookmarkCommand(command_id)) {
-    UMA_HISTOGRAM_MEDIUM_TIMES("WrenchMenu.TimeToAction.OpenBookmark",
-                               menu_opened_timer_.Elapsed());
+    DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(
+        "WrenchMenu.TimeToAction.OpenBookmark", menu_opened_timer_.Elapsed());
     UMA_HISTOGRAM_ENUMERATION("WrenchMenu.MenuAction",
                               MENU_ACTION_BOOKMARK_OPEN, LIMIT_MENU_ACTION);
     bookmark_menu_delegate_->ExecuteCommand(command_id, mouse_event_flags);
@@ -1259,8 +1258,9 @@ bool AppMenu::GetAccelerator(int command_id,
 
 void AppMenu::WillShowMenu(MenuItemView* menu) {
   if (menu == saved_tab_groups_menu_) {
-    UMA_HISTOGRAM_MEDIUM_TIMES("WrenchMenu.TimeToAction.ShowSavedTabGroups",
-                               menu_opened_timer_.Elapsed());
+    DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(
+        "WrenchMenu.TimeToAction.ShowSavedTabGroups",
+        menu_opened_timer_.Elapsed());
     UMA_HISTOGRAM_ENUMERATION("WrenchMenu.MenuAction",
                               MENU_ACTION_SHOW_SAVED_TAB_GROUPS,
                               LIMIT_MENU_ACTION);

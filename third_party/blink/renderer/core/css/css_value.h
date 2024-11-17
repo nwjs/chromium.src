@@ -52,6 +52,9 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
     return IsNumericLiteralValue() || IsMathFunctionValue();
   }
   bool IsIdentifierValue() const { return class_type_ == kIdentifierClass; }
+  bool IsScopedKeywordValue() const {
+    return class_type_ == kScopedKeywordClass;
+  }
   bool IsValuePair() const { return class_type_ == kValuePairClass; }
   bool IsValueList() const { return class_type_ >= kValueListClass; }
 
@@ -215,6 +218,8 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
     return class_type_ == kRelativeColorClass;
   }
 
+  bool IsRepeatValue() const { return class_type_ == kRepeatClass; }
+
   bool HasFailedOrCanceledSubresources() const;
   bool MayContainUrl() const;
   void ReResolveUrl(const Document&) const;
@@ -232,6 +237,8 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
   }
   bool IsScopedValue() const { return !needs_tree_scope_population_; }
 
+  const CSSValue* UntaintedCopy() const;
+
 #if DCHECK_IS_ON()
   WTF::String ClassTypeToString() const;
 #endif
@@ -247,6 +254,7 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
     kNumericLiteralClass,
     kMathFunctionClass,
     kIdentifierClass,
+    kScopedKeywordClass,
     kColorClass,
     kColorMixClass,
     kCounterClass,
@@ -337,6 +345,7 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
     kGridAutoRepeatClass,
     kGridIntegerRepeatClass,
     kAxisClass,
+    kRepeatClass,
     // Do not append non-list class types here.
   };
 
@@ -381,6 +390,9 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
   // Used for use counting of such situations (to see if we can try to remove
   // the functionality).
   uint8_t was_quirky_ : 1 = false;
+
+  // See css_attr_value_tainting.h.
+  uint8_t attr_tainted_ : 1 = false;
 
  private:
   const uint8_t class_type_;  // ClassType

@@ -4148,6 +4148,9 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, DownloadTest_PauseResumeCancel) {
     defined(ARCH_CPU_ARM_FAMILY)
 // Timing out on ARM linux: http://crbug.com/238459
 #define MAYBE_DownloadTest_PercentComplete DISABLED_DownloadTest_PercentComplete
+#elif BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER)
+// Stack overflow on Win/ASan: http://crbug.com/367746304
+#define MAYBE_DownloadTest_PercentComplete DISABLED_DownloadTest_PercentComplete
 #else
 #define MAYBE_DownloadTest_PercentComplete DownloadTest_PercentComplete
 #endif
@@ -5090,39 +5093,6 @@ IN_PROC_BROWSER_TEST_F(DownloadTestWithFakeSafeBrowsing,
             actual_report.download_verdict());
   EXPECT_EQ(download_url.spec(), actual_report.url());
   EXPECT_FALSE(actual_report.did_proceed());
-}
-
-IN_PROC_BROWSER_TEST_F(DownloadTestWithFakeSafeBrowsing,
-                       NoUncommonDownloadReportIfIncognito) {
-  Browser* incognito_browser = CreateIncognitoBrowser();
-  incognito_browser->profile()->GetPrefs()->SetBoolean(
-      prefs::kSafeBrowsingEnabled, true);
-  // Make a dangerous file.
-  embedded_test_server()->ServeFilesFromDirectory(GetTestDataDirectory());
-  ASSERT_TRUE(embedded_test_server()->Start());
-  GURL download_url =
-      embedded_test_server()->GetURL(DownloadTestBase::kDangerousMockFilePath);
-
-  std::unique_ptr<content::DownloadTestObserver> dangerous_observer(
-      DangerousDownloadWaiter(
-          incognito_browser, 1,
-          content::DownloadTestObserver::ON_DANGEROUS_DOWNLOAD_QUIT));
-  SetPromptForDownload(incognito_browser, false);
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(incognito_browser, download_url));
-  dangerous_observer->WaitForFinished();
-
-  std::vector<raw_ptr<DownloadItem, VectorExperimental>> downloads;
-  DownloadManagerForBrowser(incognito_browser)->GetAllDownloads(&downloads);
-  ASSERT_EQ(1u, downloads.size());
-  DownloadItem* download = downloads[0];
-  DownloadItemModel model(download);
-  DownloadCommands(model.GetWeakPtr()).ExecuteCommand(DownloadCommands::KEEP);
-
-  EXPECT_TRUE(test_safe_browsing_factory_->fake_safe_browsing_service()
-                  ->serialized_download_report()
-                  .empty());
-
-  download->Cancel(true);
 }
 
 #endif  // FULL_SAFE_BROWSING

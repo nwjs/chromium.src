@@ -12,11 +12,11 @@
 class BrowserList;
 
 // Keyed service factory for BrowserList.
-// This factory returns the same instance for regular and OTR browser states.
+// This factory returns the same instance for regular and OTR profiles.
 class BrowserListFactory final : public BrowserStateKeyedServiceFactory {
  public:
   // TODO(crbug.com/358301380): remove this method.
-  static BrowserList* GetForBrowserState(ChromeBrowserState* browser_state);
+  static BrowserList* GetForBrowserState(ProfileIOS* profile);
 
   static BrowserList* GetForProfile(ProfileIOS* profile);
 

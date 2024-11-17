@@ -63,7 +63,7 @@ auto WaitForDownloadBubbleShow(views::NamedWidgetShownWaiter& waiter) {
 
 bool IsExclusiveAccessBubbleVisible(ExclusiveAccessBubbleViews* bubble) {
   bool is_hiding = bubble->animation_for_test()->IsClosing();
-  return bubble->IsShowing() || (bubble->IsVisibleForTesting() && !is_hiding);
+  return bubble->IsShowing() || (bubble->IsVisible() && !is_hiding);
 }
 #endif
 
@@ -163,7 +163,7 @@ class DownloadBubbleInteractiveUiTest
         [](DownloadToolbarButtonView* download_toolbar_button, Browser* browser,
            bool active, const base::Feature& feature) {
           return active == BrowserView::GetBrowserViewForBrowser(browser)
-                               ->GetFeaturePromoController()
+                               ->GetFeaturePromoControllerForTesting()
                                ->IsPromoActive(feature);
         },
         download_toolbar_button(), browser(), active, std::cref(feature));

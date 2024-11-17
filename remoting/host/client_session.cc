@@ -547,6 +547,9 @@ void ClientSession::OnConnectionAuthenticated(
 
   DesktopEnvironmentOptions options = desktop_environment_options_;
   options.ApplySessionOptions(session_options);
+  if (effective_policies_.curtain_required.has_value()) {
+    options.set_enable_curtaining(*effective_policies_.curtain_required);
+  }
   // Create the desktop environment. Drop the connection if it could not be
   // created for any reason (for instance the curtain could not initialize).
   desktop_environment_ = desktop_environment_factory_->Create(
@@ -1013,9 +1016,7 @@ void ClientSession::OnLocalSessionPoliciesChanged(
     const SessionPolicies& new_policies) {
   DCHECK(local_session_policy_update_subscription_);
   HOST_LOG << "Effective policies have changed. Terminating session.";
-  // TODO: crbug.com/359977809 - create a new error code for session policy
-  // changed.
-  DisconnectSession(ErrorCode::HOST_CONFIGURATION_ERROR);
+  DisconnectSession(ErrorCode::SESSION_POLICIES_CHANGED);
 }
 
 void ClientSession::OnVideoSizeChanged(protocol::VideoStream* video_stream,

@@ -32,6 +32,7 @@
 #include "ui/ozone/platform/wayland/host/wayland_buffer_manager_host.h"
 #include "ui/ozone/platform/wayland/host/wayland_connection.h"
 #include "ui/ozone/platform/wayland/host/wayland_event_source.h"
+#include "ui/ozone/platform/wayland/host/wayland_frame_manager.h"
 #include "ui/ozone/platform/wayland/host/wayland_output.h"
 #include "ui/ozone/platform/wayland/host/wayland_output_manager.h"
 #include "ui/ozone/platform/wayland/host/wayland_popup.h"
@@ -311,12 +312,6 @@ void WaylandToplevelWindow::Restore() {
 
 void WaylandToplevelWindow::ActivateWithToken(std::string token) {
   DCHECK(connection()->xdg_activation());
-  // xdg-activation implementation in some compositors is still buggy and
-  // Mutter crashes were observed when windows are activated during window
-  // dragging sessions. See https://crbug.com/1366504.
-  if (connection()->IsDragInProgress()) {
-    return;
-  }
   connection()->xdg_activation()->Activate(root_surface()->surface(), token);
 }
 
@@ -568,17 +563,17 @@ void WaylandToplevelWindow::HandleToplevelConfigure(
     int32_t width_dip,
     int32_t height_dip,
     const WindowStates& window_states) {
-  HandleAuraToplevelConfigure(0, 0, width_dip, height_dip, window_states);
+  HandleToplevelConfigureWithOrigin(0, 0, width_dip, height_dip, window_states);
 }
 
-void WaylandToplevelWindow::HandleAuraToplevelConfigure(
+void WaylandToplevelWindow::HandleToplevelConfigureWithOrigin(
     int32_t x,
     int32_t y,
     int32_t width_dip,
     int32_t height_dip,
     const WindowStates& window_states) {
-  VLOG(1) << "Wayland XDG/Aura toplevel configure: states="
-          << window_states.ToString();
+  // TODO(crbug.com/369952980): Remove once arrays get logged by libwayland.
+  VLOG(3) << __func__ << " states=[ " << window_states.ToString() << "]";
 
   PlatformWindowState window_state = PlatformWindowState::kUnknown;
   if ((!SupportsConfigureMinimizedState() &&
@@ -664,6 +659,10 @@ void WaylandToplevelWindow::HandleAuraToplevelConfigure(
       bounds_dip.Inset(-insets);
       bounds_dip.set_origin({x, y});
     }
+    // UI Scale must be applied only for size coming from the server. Restored
+    // and current dip bounds (used below) are already ui-scale'd.
+    bounds_dip = gfx::ScaleToEnclosingRectIgnoringError(
+        bounds_dip, 1.f / applied_state().ui_scale);
   } else if (ShouldSetBounds(window_state)) {
     bounds_dip = !restored_bounds_dip().IsEmpty() ? restored_bounds_dip()
                                                   : GetBoundsInDIP();
@@ -687,6 +686,7 @@ void WaylandToplevelWindow::HandleAuraToplevelConfigure(
   }
 
   if (did_active_change) {
+    frame_manager()->OnWindowActivationChanged();
     if (active_bubble()) {
       ActivateBubble(is_active_ ? active_bubble() : nullptr);
     } else {
@@ -785,7 +785,8 @@ void WaylandToplevelWindow::SetWindowGeometry(
   if (!shell_toplevel_)
     return;
 
-  gfx::Rect geometry_dip(state.bounds_dip.size());
+  gfx::Rect geometry_dip = gfx::ScaleToEnclosingRectIgnoringError(
+      gfx::Rect(state.bounds_dip.size()), state.ui_scale);
 
   auto insets_dip = delegate()->CalculateInsetsInDIP(state.window_state);
   if (!insets_dip.IsEmpty()) {
@@ -858,8 +859,7 @@ void WaylandToplevelWindow::HideTooltip() {
 bool WaylandToplevelWindow::IsClientControlledWindowMovementSupported() const {
   auto* window_drag_controller = connection()->window_drag_controller();
   DCHECK(window_drag_controller);
-  return window_drag_controller->IsExtendedDragAvailable() ||
-         window_drag_controller->IsXdgToplevelDragAvailable();
+  return window_drag_controller->IsWindowDragProtocolAvailable();
 }
 
 bool WaylandToplevelWindow::ShouldReleaseCaptureForDrag(

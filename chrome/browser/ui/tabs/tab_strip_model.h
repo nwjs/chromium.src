@@ -587,11 +587,21 @@ class TabStripModel : public TabGroupController {
   std::vector<tab_groups::TabGroupId> GetGroupsDestroyedFromRemovingIndices(
       const std::vector<int>& indices) const;
 
+  // This should be called after GetGroupsDestroyedFromRemovingIndices(). Marks
+  // all groups in `group_ids` as closing. This is useful in the event you need
+  // to know if a group is currently closing or not such as when a grouped tab
+  // is closed which has an unload handler.
+  void MarkTabGroupsForClosing(
+      const std::vector<tab_groups::TabGroupId> group_ids);
+
   // There are multiple commands that close by indices. They all must check the
   // Group affiliation of the indices, confirm that they can delete groups, and
-  // then perform the close of the indices.
+  // then perform the close of the indices. A bulk operation is denoted
+  // as an operation that closes multiple tabs while leaving one or more
+  // tabs open in this window.
   void ExecuteCloseTabsByIndicesCommand(
-      const std::vector<int>& indices_to_delete);
+      base::RepeatingCallback<std::vector<int>()> get_indices_to_close,
+      bool is_bulk_operation);
 
   // Adds the tab at |context_index| to the given tab group |group|. If
   // |context_index| is selected the command applies to all selected tabs.
@@ -652,7 +662,8 @@ class TabStripModel : public TabGroupController {
   // Serialise this object into a trace.
   void WriteIntoTrace(perfetto::TracedValue context) const;
 
-  // Returns the tab at `index` in the tabstrip.
+  // Convert between tabs and indices.
+  int GetIndexOfTab(const tabs::TabModel* tab) const;
   tabs::TabModel* GetTabAtIndex(int index) const;
 
   // TODO(349161508) remove this method once tabs dont need to be converted
@@ -765,6 +776,14 @@ class TabStripModel : public TabGroupController {
   // into this method.
   void CloseTabs(base::span<content::WebContents* const> items,
                  uint32_t close_types);
+
+  // Executes a call to CloseTabs on the web contentses contained in tabs
+  // returned from |get_indices_to_close|. This is a helper method
+  // bound by ExecuteCloseTabsByIndicesCommand in order to properly
+  // protect the stack from reentrancy.
+  void ExecuteCloseTabsByIndices(
+      base::RepeatingCallback<std::vector<int>()> get_indices_to_close,
+      uint32_t close_types);
 
   // |close_types| is a bitmask of the types in CloseTypes.
   // Returns true if all the tabs have been deleted. A return value of false
@@ -948,7 +967,7 @@ class TabStripModel : public TabGroupController {
   // The model for tab groups hosted within this TabStripModel.
   std::unique_ptr<TabGroupModel> group_model_;
 
-  raw_ptr<TabStripModelDelegate, DanglingUntriaged> delegate_;
+  raw_ptr<TabStripModelDelegate> delegate_;
 
   bool tab_strip_ui_was_set_ = false;
 

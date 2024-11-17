@@ -59,6 +59,7 @@
 #endif
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+#include "pdf/pdfium/pdfium_searchify.h"
 #include "services/screen_ai/public/mojom/screen_ai_service.mojom-forward.h"
 #endif
 
@@ -78,14 +79,13 @@ class Thumbnail;
 enum class AccessibilityScrollAlignment;
 struct AccessibilityActionData;
 struct AccessibilityFocusInfo;
-struct AccessibilityHighlightInfo;
-struct AccessibilityImageInfo;
-struct AccessibilityLinkInfo;
-struct AccessibilityTextFieldInfo;
-struct AccessibilityTextRunInfo;
 struct DocumentAttachmentInfo;
 struct DocumentMetadata;
 struct PageCharacterIndex;
+
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+class PDFiumOnDemandSearchifier;
+#endif
 
 namespace draw_utils {
 class ShadowMatrix;
@@ -285,9 +285,6 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   // Gets the current layout orientation.
   PageOrientation GetCurrentOrientation() const;
 
-  // Gets the rectangle of the page not including the shadow.
-  gfx::Rect GetPageBoundsRect(int index);
-
   // Gets the rectangle of the page excluding any additional areas.
   virtual gfx::Rect GetPageContentsRect(int index);
 
@@ -295,57 +292,11 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   // border areas and bottom separator.
   virtual gfx::Rect GetPageScreenRect(int page_index) const;
 
-  // Return a page's bounding box rectangle, or an empty rectangle if
-  // `page_index` is invalid.
-  gfx::RectF GetPageBoundingBox(int page_index);
-
   // Set color / grayscale rendering modes.
   virtual void SetGrayscale(bool grayscale);
 
-  // Get the number of characters on a given page.
-  int GetCharCount(int page_index);
-
-  // Get the bounds in page pixels of a character on a given page.
-  gfx::RectF GetCharBounds(int page_index, int char_index);
-
-  // Get a given unicode character on a given page.
-  uint32_t GetCharUnicode(int page_index, int char_index);
-
-  // Given a start char index, find the longest continuous run of text that's
-  // in a single direction and with the same text style. Return a filled out
-  // AccessibilityTextRunInfo on success or std::nullopt on failure. e.g. When
-  // `start_char_index` is out of bounds.
-  std::optional<AccessibilityTextRunInfo> GetTextRunInfo(int page_index,
-                                                         int start_char_index);
-
-  // For all the links on page `page_index`, get their urls, underlying text
-  // ranges and bounding boxes.
-  std::vector<AccessibilityLinkInfo> GetLinkInfo(
-      int page_index,
-      const std::vector<AccessibilityTextRunInfo>& text_runs);
-
-  // For all the images in page `page_index`, get their alt texts and bounding
-  // boxes. If the alt text is empty or unavailable, and if the user has
-  // requested that the OCR service tag the PDF so that it is made accessible,
-  // transfer the raw image pixels in the `image_data` field. Otherwise do not
-  // populate the `image_data` field.
-  std::vector<AccessibilityImageInfo> GetImageInfo(int page_index,
-                                                   uint32_t text_run_count);
-
   // Returns the image as a 32-bit bitmap format for OCR.
   SkBitmap GetImageForOcr(int page_index, int image_index);
-
-  // For all the highlights in page `page_index`, get their underlying text
-  // ranges and bounding boxes.
-  std::vector<AccessibilityHighlightInfo> GetHighlightInfo(
-      int page_index,
-      const std::vector<AccessibilityTextRunInfo>& text_runs);
-
-  // For all the text fields in page `page_index`, get their properties like
-  // name, value, bounding boxes etc.
-  std::vector<AccessibilityTextFieldInfo> GetTextFieldInfo(
-      int page_index,
-      uint32_t text_run_count);
 
   // Gets the PDF document's print scaling preference. True if the document can
   // be scaled to fit.
@@ -417,6 +368,29 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
 #if defined(PDF_ENABLE_XFA)
   void UpdatePageCount();
 #endif  // defined(PDF_ENABLE_XFA)
+
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+  // Starts the searchify process and passes a callback to a function that
+  // performs OCR. This function is expected to be called only once.
+  void StartSearchify(PerformOcrCallbackAsync perform_ocr_callback);
+
+  // Returns a function to pass OCR disconnection events to the searchifier.
+  base::RepeatingClosure GetOcrDisconnectHandler();
+
+  // Tells if the page is waiting to be searchified.
+  bool PageNeedsSearchify(int page_index) const;
+
+  // Schedules searchify for the page if it has no text.
+  void ScheduleSearchifyIfNeeded(PDFiumPage* page);
+
+  // Cancels a pending searchify if it has not started yet. Ignores the request
+  // if the page is not scheduled for searchify.
+  void CancelPendingSearchify(int page_index);
+
+  PDFiumOnDemandSearchifier* GetSearchifierForTesting() {
+    return searchifier_.get();
+  }
+#endif
 
   void UnsupportedFeature(const std::string& feature);
 
@@ -491,6 +465,7 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
 
   friend class FormFillerTest;
   friend class PDFiumEngineTabbingTest;
+  friend class PDFiumEngineTest;
   friend class PDFiumFormFiller;
   friend class PDFiumTestBase;
   friend class SelectionChangeInvalidator;
@@ -602,7 +577,7 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   void ContinueFind(bool case_sensitive);
 
   // Inserts a find result into `find_results_`, which is sorted.
-  void AddFindResult(const PDFiumRange& result);
+  void AddFindResult(PDFiumRange result);
 
   // Search a page using PDFium's methods.  Doesn't work with unicode.  This
   // function is just kept arount in case PDFium code is fixed.
@@ -661,16 +636,16 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   bool OnRightMouseDown(const blink::WebMouseEvent& event);
 
   // Starts a progressive paint operation given a rectangle in screen
-  // coordinates. Returns the index in progressive_rects_.
-  int StartPaint(int page_index, const gfx::Rect& dirty);
+  // coordinates. Returns the index in `progressive_paints_`.
+  size_t StartPaint(int page_index, const gfx::Rect& dirty);
 
   // Continues a paint operation that was started earlier.  Returns true if the
   // paint is done, or false if it needs to be continued.
-  bool ContinuePaint(int progressive_index, SkBitmap& image_data);
+  bool ContinuePaint(size_t progressive_index, SkBitmap& image_data);
 
   // Called once PDFium is finished rendering a page so that we draw our
   // borders, highlighting etc.
-  void FinishPaint(int progressive_index, SkBitmap& image_data);
+  void FinishPaint(size_t progressive_index, SkBitmap& image_data);
 
   // Stops any paints that are in progress.
   void CancelPaints();
@@ -683,19 +658,19 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   // with the page background.
   void FillPageSides(int progressive_index);
 
-  void PaintPageShadow(int progressive_index, SkBitmap& image_data);
+  void PaintPageShadow(size_t progressive_index, SkBitmap& image_data);
 
   // Highlight visible find results and selections.
-  void DrawSelections(int progressive_index, SkBitmap& image_data) const;
+  void DrawSelections(size_t progressive_index, SkBitmap& image_data) const;
 
   // Paints an page that hasn't finished downloading.
   void PaintUnavailablePage(int page_index,
                             const gfx::Rect& dirty,
                             SkBitmap& image_data);
 
-  // Given a page index, returns the corresponding index in progressive_rects_,
-  // or -1 if it doesn't exist.
-  int GetProgressiveIndex(int page_index) const;
+  // Given a page index, returns the corresponding index in
+  // `progressive_paints_`, or nullopt if it does not exist.
+  std::optional<size_t> GetProgressiveIndex(int page_index) const;
 
   // Creates a FPDF_BITMAP from a rectangle in screen coordinates.
   ScopedFPDFBitmap CreateBitmap(const gfx::Rect& rect,
@@ -704,12 +679,7 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
 
   // Given a rectangle in screen coordinates, returns the coordinates in the
   // units that PDFium rendering functions expect.
-  void GetPDFiumRect(int page_index,
-                     const gfx::Rect& rect,
-                     int* start_x,
-                     int* start_y,
-                     int* size_x,
-                     int* size_y) const;
+  gfx::Rect GetPDFiumRect(int page_index, const gfx::Rect& rect) const;
 
   // Returns the rendering flags to pass to PDFium.
   int GetRenderingFlags() const;
@@ -855,6 +825,11 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   // requests the thumbnail for that page.
   void MaybeRequestPendingThumbnail(int page_index);
 
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+  // Called if OCR service gets disconnected.
+  void OnOcrDisconnected();
+#endif
+
   const raw_ptr<PDFiumEngineClient> client_;
 
   // The current document layout.
@@ -884,6 +859,10 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   // Needs to be above pages_, as destroying a page may call some methods of
   // form filler.
   PDFiumFormFiller form_filler_;
+
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+  std::unique_ptr<PDFiumOnDemandSearchifier> searchifier_;
+#endif
 
   std::unique_ptr<PDFiumDocument> document_;
   bool document_pending_ = false;

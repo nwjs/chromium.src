@@ -28,6 +28,7 @@
 
 #include "third_party/blink/renderer/core/css/css_alternate_value.h"
 #include "third_party/blink/renderer/core/css/css_appearance_auto_base_select_value_pair.h"
+#include "third_party/blink/renderer/core/css/css_attr_value_tainting.h"
 #include "third_party/blink/renderer/core/css/css_axis_value.h"
 #include "third_party/blink/renderer/core/css/css_basic_shape_values.h"
 #include "third_party/blink/renderer/core/css/css_border_image_slice_value.h"
@@ -78,8 +79,10 @@
 #include "third_party/blink/renderer/core/css/css_reflect_value.h"
 #include "third_party/blink/renderer/core/css/css_relative_color_value.h"
 #include "third_party/blink/renderer/core/css/css_repeat_style_value.h"
+#include "third_party/blink/renderer/core/css/css_repeat_value.h"
 #include "third_party/blink/renderer/core/css/css_revert_layer_value.h"
 #include "third_party/blink/renderer/core/css/css_revert_value.h"
+#include "third_party/blink/renderer/core/css/css_scoped_keyword_value.h"
 #include "third_party/blink/renderer/core/css/css_scroll_value.h"
 #include "third_party/blink/renderer/core/css/css_shadow_value.h"
 #include "third_party/blink/renderer/core/css/css_string_value.h"
@@ -106,7 +109,7 @@ CSSValue* CSSValue::Create(const Length& value, float zoom) {
     case Length::kAuto:
     case Length::kMinContent:
     case Length::kMaxContent:
-    case Length::kFillAvailable:
+    case Length::kStretch:
     case Length::kFitContent:
     case Length::kContent:
     case Length::kExtendToZoom:
@@ -178,6 +181,9 @@ inline static bool CompareCSSValues(const CSSValue& first,
 }
 
 bool CSSValue::operator==(const CSSValue& other) const {
+  if (attr_tainted_ != other.attr_tainted_) {
+    return false;
+  }
   if (class_type_ == other.class_type_) {
     switch (GetClassType()) {
       case kAxisClass:
@@ -275,6 +281,8 @@ bool CSSValue::operator==(const CSSValue& other) const {
         return CompareCSSValues<cssvalue::CSSRayValue>(*this, other);
       case kIdentifierClass:
         return CompareCSSValues<CSSIdentifierValue>(*this, other);
+      case kScopedKeywordClass:
+        return CompareCSSValues<cssvalue::CSSScopedKeywordValue>(*this, other);
       case kKeyframeShorthandClass:
         return CompareCSSValues<CSSKeyframeShorthandValue>(*this, other);
       case kInitialColorValueClass:
@@ -344,6 +352,8 @@ bool CSSValue::operator==(const CSSValue& other) const {
         return CompareCSSValues<CSSRepeatStyleValue>(*this, other);
       case kRelativeColorClass:
         return CompareCSSValues<cssvalue::CSSRelativeColorValue>(*this, other);
+      case kRepeatClass:
+        return CompareCSSValues<cssvalue::CSSRepeatValue>(*this, other);
     }
     NOTREACHED_IN_MIGRATION();
     return false;
@@ -439,6 +449,8 @@ String CSSValue::CssText() const {
       return To<cssvalue::CSSRayValue>(this)->CustomCSSText();
     case kIdentifierClass:
       return To<CSSIdentifierValue>(this)->CustomCSSText();
+    case kScopedKeywordClass:
+      return To<cssvalue::CSSScopedKeywordValue>(this)->CustomCSSText();
     case kKeyframeShorthandClass:
       return To<CSSKeyframeShorthandValue>(this)->CustomCSSText();
     case kInitialColorValueClass:
@@ -502,14 +514,29 @@ String CSSValue::CssText() const {
       return To<CSSRepeatStyleValue>(this)->CustomCSSText();
     case kRelativeColorClass:
       return To<cssvalue::CSSRelativeColorValue>(this)->CustomCSSText();
+    case kRepeatClass:
+      return To<cssvalue::CSSRepeatValue>(this)->CustomCSSText();
   }
   NOTREACHED_IN_MIGRATION();
   return String();
 }
 
+const CSSValue* CSSValue::UntaintedCopy() const {
+  if (const auto* v = DynamicTo<CSSValueList>(this)) {
+    return v->UntaintedCopy();
+  }
+  if (const auto* v = DynamicTo<CSSStringValue>(this)) {
+    return v->UntaintedCopy();
+  }
+  return this;
+}
+
 const CSSValue& CSSValue::PopulateWithTreeScope(
     const TreeScope* tree_scope) const {
   switch (GetClassType()) {
+    case kScopedKeywordClass:
+      return To<cssvalue::CSSScopedKeywordValue>(this)->PopulateWithTreeScope(
+          tree_scope);
     case kCounterClass:
       return To<cssvalue::CSSCounterValue>(this)->PopulateWithTreeScope(
           tree_scope);
@@ -661,6 +688,9 @@ void CSSValue::Trace(Visitor* visitor) const {
     case kIdentifierClass:
       To<CSSIdentifierValue>(this)->TraceAfterDispatch(visitor);
       return;
+    case kScopedKeywordClass:
+      To<cssvalue::CSSScopedKeywordValue>(this)->TraceAfterDispatch(visitor);
+      return;
     case kKeyframeShorthandClass:
       To<CSSKeyframeShorthandValue>(this)->TraceAfterDispatch(visitor);
       return;
@@ -761,6 +791,9 @@ void CSSValue::Trace(Visitor* visitor) const {
     case kRelativeColorClass:
       To<cssvalue::CSSRelativeColorValue>(this)->TraceAfterDispatch(visitor);
       return;
+    case kRepeatClass:
+      To<cssvalue::CSSRepeatValue>(this)->TraceAfterDispatch(visitor);
+      return;
   }
   NOTREACHED_IN_MIGRATION();
 }
@@ -774,6 +807,8 @@ String CSSValue::ClassTypeToString() const {
       return "MathFunctionClass";
     case kIdentifierClass:
       return "IdentifierClass";
+    case kScopedKeywordClass:
+      return "ScopedKeywordClass";
     case kColorClass:
       return "ColorClass";
     case kColorMixClass:
@@ -906,6 +941,8 @@ String CSSValue::ClassTypeToString() const {
       return "GridAutoRepeatClass";
     case kGridIntegerRepeatClass:
       return "GridIntegerRepeatClass";
+    case kRepeatClass:
+      return "RepeatClass";
     case kAxisClass:
       return "AxisClass";
     default:

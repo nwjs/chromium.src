@@ -228,6 +228,10 @@ viz_component("service") {
     "hit_test/hit_test_manager.h",
     "input/input_manager.cc",
     "input/input_manager.h",
+    "input/render_input_router_delegate_impl.cc",
+    "input/render_input_router_delegate_impl.h",
+    "input/render_input_router_support_base.cc",
+    "input/render_input_router_support_base.h",
     "layers/layer_context_impl.cc",
     "layers/layer_context_impl.h",
     "performance_hint/boost_manager.cc",
@@ -267,6 +271,7 @@ viz_component("service") {
   deps = [
     "//build:chromecast_buildflags",
     "//build:chromeos_buildflags",
+    "//cc/animation",
     "//cc/base",
     "//cc/paint",
     "//components/crash/core/common:crash_key",
@@ -299,6 +304,7 @@ viz_component("service") {
     "//third_party/libyuv",
     "//ui/base:ozone_buildflags",
     "//ui/display/types",
+    "//ui/gfx/animation",
     "//ui/gfx/animation/keyframe",
   ]
 
@@ -307,7 +313,6 @@ viz_component("service") {
     ":viz_service_export",
     "//base",
     "//cc",
-    "//cc/animation",
     "//cc/debug",
     "//components/viz/common",
     "//gpu/command_buffer/service:gles2",

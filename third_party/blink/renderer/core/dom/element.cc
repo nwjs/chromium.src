@@ -53,8 +53,6 @@
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/animation/css/css_animations.h"
 #include "third_party/blink/renderer/core/animation/element_animations.h"
-#include "third_party/blink/renderer/core/aom/accessible_node.h"
-#include "third_party/blink/renderer/core/aom/computed_accessible_node.h"
 #include "third_party/blink/renderer/core/css/container_query_data.h"
 #include "third_party/blink/renderer/core/css/container_query_evaluator.h"
 #include "third_party/blink/renderer/core/css/css_identifier_value.h"
@@ -85,6 +83,7 @@
 #include "third_party/blink/renderer/core/display_lock/display_lock_document_state.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
 #include "third_party/blink/renderer/core/dom/attr.h"
+#include "third_party/blink/renderer/core/dom/column_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/container_node.h"
 #include "third_party/blink/renderer/core/dom/dataset_dom_string_map.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -110,6 +109,7 @@
 #include "third_party/blink/renderer/core/dom/presentation_attribute_style.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/scriptable_document_parser.h"
+#include "third_party/blink/renderer/core/dom/scroll_marker_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/dom/slot_assignment.h"
 #include "third_party/blink/renderer/core/dom/space_split_string.h"
@@ -153,7 +153,6 @@
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_options_collection.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
-#include "third_party/blink/renderer/core/html/forms/html_select_list_element.h"
 #include "third_party/blink/renderer/core/html/html_anchor_element.h"
 #include "third_party/blink/renderer/core/html/html_area_element.h"
 #include "third_party/blink/renderer/core/html/html_body_element.h"
@@ -178,6 +177,7 @@
 #include "third_party/blink/renderer/core/html/parser/html_element_stack.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
 #include "third_party/blink/renderer/core/html/shadow/shadow_element_names.h"
+#include "third_party/blink/renderer/core/html/shadow/shadow_element_utils.h"
 #include "third_party/blink/renderer/core/html_element_type_helpers.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
@@ -186,6 +186,7 @@
 #include "third_party/blink/renderer/core/intersection_observer/intersection_observer_controller.h"
 #include "third_party/blink/renderer/core/keywords.h"
 #include "third_party/blink/renderer/core/layout/adjust_for_absolute_zoom.h"
+#include "third_party/blink/renderer/core/layout/forms/layout_fieldset.h"
 #include "third_party/blink/renderer/core/layout/layout_text_combine.h"
 #include "third_party/blink/renderer/core/layout/layout_text_fragment.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
@@ -551,6 +552,13 @@ bool IsValidShadowHostName(const AtomicString& local_name) {
                           html_names::kSpanTag.LocalName(),
                       }));
   return shadow_root_tags.Contains(local_name);
+}
+
+const AtomicString& V8ShadowRootModeToString(V8ShadowRootMode::Enum mode) {
+  if (mode == V8ShadowRootMode::Enum::kOpen) {
+    return keywords::kOpen;
+  }
+  return keywords::kClosed;
 }
 
 }  // namespace
@@ -1494,16 +1502,32 @@ void Element::ScrollIntoViewNoVisualUpdate(
     return;
   }
 
+  Element* originating_element = this;
+  LayoutObject* target = nullptr;
+  auto* pseudo_element = DynamicTo<PseudoElement>(this);
+  if (pseudo_element) {
+    originating_element = pseudo_element->OriginatingElement();
+    if (pseudo_element->parentNode()->IsColumnPseudoElement()) {
+      // The originating element of a ::column is a multicol container. See if
+      // it also is the scrollable container that is to be scrolled, or if it's
+      // a descendant (in the latter case `target` will remain nullptr here).
+      target = originating_element->GetLayoutBoxForScrolling();
+    }
+  }
+  if (!target) {
+    target = originating_element->GetLayoutObject();
+  }
+
   if (DisplayLockUtilities::ShouldIgnoreNodeDueToDisplayLock(
-          *this, DisplayLockActivationReason::kScrollIntoView)) {
+          *originating_element, DisplayLockActivationReason::kScrollIntoView)) {
     return;
   }
 
   PhysicalRect bounds = BoundingBoxForScrollIntoView();
-  scroll_into_view_util::ScrollRectToVisible(*GetLayoutObject(), bounds,
+  scroll_into_view_util::ScrollRectToVisible(*target, bounds,
                                              std::move(params));
 
-  GetDocument().SetSequentialFocusNavigationStartingPoint(this);
+  GetDocument().SetSequentialFocusNavigationStartingPoint(originating_element);
 }
 
 void Element::scrollIntoViewIfNeeded(bool center_if_needed) {
@@ -2186,9 +2210,8 @@ void Element::ScrollLayoutBoxBy(const ScrollToOptions* scroll_to_options) {
   }
 
   mojom::blink::ScrollBehavior scroll_behavior =
-      mojom::blink::ScrollBehavior::kAuto;
-  ScrollableArea::ScrollBehaviorFromString(scroll_to_options->behavior(),
-                                           scroll_behavior);
+      ScrollableArea::V8EnumToScrollBehavior(
+          scroll_to_options->behavior().AsEnum());
   LayoutBox* box = GetLayoutBoxForScrolling();
   if (!box) {
     return;
@@ -2213,9 +2236,8 @@ void Element::ScrollLayoutBoxBy(const ScrollToOptions* scroll_to_options) {
 
 void Element::ScrollLayoutBoxTo(const ScrollToOptions* scroll_to_options) {
   mojom::blink::ScrollBehavior scroll_behavior =
-      mojom::blink::ScrollBehavior::kAuto;
-  ScrollableArea::ScrollBehaviorFromString(scroll_to_options->behavior(),
-                                           scroll_behavior);
+      ScrollableArea::V8EnumToScrollBehavior(
+          scroll_to_options->behavior().AsEnum());
 
   LayoutBox* box = GetLayoutBoxForScrolling();
   if (!box) {
@@ -2287,9 +2309,8 @@ void Element::ScrollFrameBy(const ScrollToOptions* scroll_to_options) {
   }
 
   mojom::blink::ScrollBehavior scroll_behavior =
-      mojom::blink::ScrollBehavior::kAuto;
-  ScrollableArea::ScrollBehaviorFromString(scroll_to_options->behavior(),
-                                           scroll_behavior);
+      ScrollableArea::V8EnumToScrollBehavior(
+          scroll_to_options->behavior().AsEnum());
   LocalFrame* frame = GetDocument().GetFrame();
   if (!frame || !frame->View() || !GetDocument().GetPage()) {
     return;
@@ -2316,9 +2337,8 @@ void Element::ScrollFrameBy(const ScrollToOptions* scroll_to_options) {
 
 void Element::ScrollFrameTo(const ScrollToOptions* scroll_to_options) {
   mojom::blink::ScrollBehavior scroll_behavior =
-      mojom::blink::ScrollBehavior::kAuto;
-  ScrollableArea::ScrollBehaviorFromString(scroll_to_options->behavior(),
-                                           scroll_behavior);
+      ScrollableArea::V8EnumToScrollBehavior(
+          scroll_to_options->behavior().AsEnum());
   LocalFrame* frame = GetDocument().GetFrame();
   if (!frame || !frame->View() || !GetDocument().GetPage()) {
     return;
@@ -2607,26 +2627,6 @@ String Element::ComputedNameNoLifecycleUpdate() {
   DCHECK_GE(document.Lifecycle().GetState(), DocumentLifecycle::kPrePaintClean)
       << " State was: " << document.Lifecycle().GetState();
   return ax_context.GetAXObjectCache().ComputedNameForNode(this);
-}
-
-AccessibleNode* Element::ExistingAccessibleNode() const {
-  if (!RuntimeEnabledFeatures::AccessibilityObjectModelEnabled()) {
-    return nullptr;
-  }
-
-  if (const ElementRareDataVector* data = GetElementRareData()) {
-    return data->GetAccessibleNode();
-  }
-  return nullptr;
-}
-
-AccessibleNode* Element::accessibleNode() {
-  if (!RuntimeEnabledFeatures::AccessibilityObjectModelEnabled()) {
-    return nullptr;
-  }
-
-  ElementRareDataVector& rare_data = EnsureElementRareData();
-  return rare_data.EnsureAccessibleNode(this);
 }
 
 void Element::ariaNotify(const String& announcement,
@@ -3242,10 +3242,6 @@ void Element::RemovedFrom(ContainerNode& insertion_point) {
     DCHECK(!data->HasPseudoElements() ||
            GetDocument().StatePreservingAtomicMoveInProgress());
 
-    if (AccessibleNode* accessible_node = ExistingAccessibleNode()) {
-      accessible_node->DetachedFromDocument();
-      data->ClearAccessibleNode();
-    }
   }
 
   if (auto* const frame = document.GetFrame()) {
@@ -3348,8 +3344,8 @@ void Element::AttachLayoutTree(AttachContext& context) {
     return;
   }
 
-  if (!IsPseudoElement()) {
-    context.counters_context.EnterElement(*this);
+  if (!IsPseudoElement() && layout_object) {
+    context.counters_context.EnterObject(*layout_object);
   }
 
   AttachPrecedingPseudoElements(children_context);
@@ -3370,8 +3366,8 @@ void Element::AttachLayoutTree(AttachContext& context) {
 
   AttachSucceedingPseudoElements(children_context);
 
-  if (!IsPseudoElement()) {
-    context.counters_context.LeaveElement(*this);
+  if (!IsPseudoElement() && layout_object) {
+    context.counters_context.LeaveObject(*layout_object);
   }
 
   if (layout_object) {
@@ -3386,6 +3382,11 @@ void Element::AttachLayoutTree(AttachContext& context) {
 
 void Element::DetachLayoutTree(bool performing_reattach) {
   HTMLFrameOwnerElement::PluginDisposeSuspendScope suspend_plugin_dispose;
+
+  // Pseudo elements that may have child pseudo elements (such as ::column) must
+  // be cleared before clearing the rare data vector below.
+  ClearColumnPseudoElements();
+
   if (ElementRareDataVector* data = GetElementRareData()) {
     if (!performing_reattach) {
       data->ClearPseudoElements();
@@ -3479,14 +3480,16 @@ void Element::ReattachLayoutTreeChildren(base::PassKey<StyleEngine>) {
 
   DetachSucceedingPseudoElements(performing_reattach);
 
+  LayoutObject* layout_object = GetLayoutObject();
   AttachContext context;
-  context.parent = GetLayoutObject();
+  context.parent = layout_object;
   context.performing_reattach = performing_reattach;
   context.use_previous_in_flow = true;
   context.next_sibling_valid = true;
 
   if (!IsPseudoElement()) {
-    context.counters_context.EnterElement(*this);
+    DCHECK(layout_object);
+    context.counters_context.EnterObject(*layout_object);
   }
 
   AttachPrecedingPseudoElements(context);
@@ -3504,7 +3507,8 @@ void Element::ReattachLayoutTreeChildren(base::PassKey<StyleEngine>) {
   AttachSucceedingPseudoElements(context);
 
   if (!IsPseudoElement()) {
-    context.counters_context.LeaveElement(*this);
+    DCHECK(layout_object);
+    context.counters_context.LeaveObject(*layout_object);
   }
 
   ClearChildNeedsReattachLayoutTree();
@@ -3817,7 +3821,9 @@ void Element::RecalcStyle(const StyleRecalcChange change,
     }
   }
 
-  if (child_change.TraversePseudoElements(*this)) {
+  bool update_pseudo_elements =
+      child_change.TraversePseudoElements(*this) && !IsColumnPseudoElement();
+  if (update_pseudo_elements) {
     UpdateBackdropPseudoElement(child_change, child_recalc_context);
     UpdatePseudoElement(kPseudoIdScrollPrevButton, child_change,
                         child_recalc_context);
@@ -3844,7 +3850,10 @@ void Element::RecalcStyle(const StyleRecalcChange change,
     }
   }
 
-  if (child_change.TraversePseudoElements(*this)) {
+  DCHECK_EQ(
+      update_pseudo_elements,
+      child_change.TraversePseudoElements(*this) && !IsColumnPseudoElement());
+  if (update_pseudo_elements) {
     UpdatePseudoElement(kPseudoIdAfter, child_change, child_recalc_context);
     UpdatePseudoElement(kPseudoIdScrollMarkerGroupAfter, child_change,
                         child_recalc_context);
@@ -4133,15 +4142,13 @@ StyleRecalcChange Element::RecalcOwnStyle(
     }
   }
 
-  // If element doesn't have ::column::scroll-marker rules anymore,
-  // clear column scroll markers.
-  if (old_style &&
-      old_style->CanGeneratePseudoElement(kPseudoIdColumnScrollMarker) &&
-      new_style &&
-      !new_style->CanGeneratePseudoElement(kPseudoIdColumnScrollMarker)) {
-    if (ElementRareDataVector* data = GetElementRareData()) {
-      data->ClearColumnScrollMarkers();
-    }
+  // If element doesn't have ::column rules anymore clear column pseudo
+  // elements.
+  if ((old_style && old_style->CanGeneratePseudoElement(kPseudoIdColumn) &&
+       new_style && !new_style->CanGeneratePseudoElement(kPseudoIdColumn)) ||
+      (old_style && old_style->CanGeneratePseudoElement(kPseudoIdColumn) &&
+       !new_style)) {
+    ClearColumnPseudoElements();
   }
 
   ProcessContainIntrinsicSizeChanges();
@@ -4198,38 +4205,9 @@ StyleRecalcChange Element::RecalcOwnStyle(
             .EnsureContainerQueryData()
             .SetContainerQueryEvaluator(nullptr);
       } else if (old_style) {
-        evaluator->MarkFontDirtyIfNeeded(*old_style, *new_style);
-        if (RuntimeEnabledFeatures::CSSStickyContainerQueriesEnabled() ||
-            RuntimeEnabledFeatures::CSSSnapContainerQueriesEnabled()) {
-          switch (evaluator->ApplyScrollState()) {
-            case ContainerQueryEvaluator::Change::kNone:
-              break;
-            case ContainerQueryEvaluator::Change::kNearestContainer:
-              child_change = child_change.ForceRecalcStateContainer();
-              break;
-            case ContainerQueryEvaluator::Change::kDescendantContainers:
-              child_change =
-                  child_change.ForceRecalcDescendantStateContainers();
-              break;
-          }
-        }
-        if (diff != ComputedStyle::Difference::kEqual &&
-            (!base::ValuesEquivalent(old_style->InheritedVariables(),
-                                     new_style->InheritedVariables()) ||
-             !base::ValuesEquivalent(old_style->NonInheritedVariables(),
-                                     new_style->NonInheritedVariables()))) {
-          switch (evaluator->StyleContainerChanged()) {
-            case ContainerQueryEvaluator::Change::kNone:
-              break;
-            case ContainerQueryEvaluator::Change::kNearestContainer:
-              child_change = child_change.ForceRecalcStyleContainerChildren();
-              break;
-            case ContainerQueryEvaluator::Change::kDescendantContainers:
-              child_change =
-                  child_change.ForceRecalcStyleContainerDescendants();
-              break;
-          }
-        }
+        child_change = evaluator->ApplyStateAndStyleChanges(
+            child_change, *old_style, *new_style,
+            diff != ComputedStyle::Difference::kEqual);
       }
     }
   }
@@ -4400,7 +4378,7 @@ void Element::RebuildLayoutTree(WhitespaceAttacher& whitespace_attacher) {
       RebuildChildrenLayoutTrees(*child_attacher);
     }
     RebuildPseudoElementLayoutTree(kPseudoIdBefore, *child_attacher);
-    RebuildMarkerLayoutTree(*child_attacher);
+    RebuildPseudoElementLayoutTree(kPseudoIdMarker, *child_attacher);
     RebuildPseudoElementLayoutTree(kPseudoIdScrollMarkerGroupBefore,
                                    local_attacher);
     RebuildPseudoElementLayoutTree(kPseudoIdScrollPrevButton, *child_attacher);
@@ -4427,9 +4405,7 @@ void Element::RebuildPseudoElementLayoutTree(
     PseudoId pseudo_id,
     WhitespaceAttacher& whitespace_attacher) {
   if (PseudoElement* element = GetPseudoElement(pseudo_id)) {
-    if (element->NeedsRebuildLayoutTree(whitespace_attacher)) {
-      element->RebuildLayoutTree(whitespace_attacher);
-    }
+    RebuildLayoutTreeForChild(element, whitespace_attacher);
   }
 }
 
@@ -4456,14 +4432,6 @@ void Element::RebuildFirstLetterLayoutTree() {
     WhitespaceAttacher whitespace_attacher;
     if (element->NeedsRebuildLayoutTree(whitespace_attacher)) {
       element->RebuildLayoutTree(whitespace_attacher);
-    }
-  }
-}
-
-void Element::RebuildMarkerLayoutTree(WhitespaceAttacher& whitespace_attacher) {
-  if (PseudoElement* marker = GetPseudoElement(kPseudoIdMarker)) {
-    if (marker->NeedsRebuildLayoutTree(whitespace_attacher)) {
-      marker->RebuildLayoutTree(whitespace_attacher);
     }
   }
 }
@@ -4498,9 +4466,7 @@ void Element::NotifyIfMatchedDocumentRulesSelectorsChanged(
     return;
   }
 
-  HTMLAnchorElement* link = HasTagName(html_names::kATag)
-                                ? To<HTMLAnchorElement>(this)
-                                : To<HTMLAreaElement>(this);
+  HTMLAnchorElementBase* link = To<HTMLAnchorElementBase>(this);
   auto* document_rules = DocumentSpeculationRules::FromIfExists(GetDocument());
   if (!document_rules) {
     return;
@@ -5612,9 +5578,9 @@ const char* Element::ErrorMessageForAttachShadow(
       return "attachShadow() is disabled by disabledFeatures static field.";
     }
   }
-  if (EqualIgnoringASCIICase(mode, "open")) {
+  if (EqualIgnoringASCIICase(mode, keywords::kOpen)) {
     mode_out = ShadowRootMode::kOpen;
-  } else if (EqualIgnoringASCIICase(mode, "closed")) {
+  } else if (EqualIgnoringASCIICase(mode, keywords::kClosed)) {
     mode_out = ShadowRootMode::kClosed;
   } else {
     CHECK(for_declarative);
@@ -5643,7 +5609,8 @@ const char* Element::ErrorMessageForAttachShadow(
 ShadowRoot* Element::attachShadow(const ShadowRootInit* shadow_root_init_dict,
                                   ExceptionState& exception_state) {
   DCHECK(shadow_root_init_dict->hasMode());
-  String mode_string = shadow_root_init_dict->mode();
+  String mode_string =
+      V8ShadowRootModeToString(shadow_root_init_dict->mode().AsEnum());
   bool serializable = shadow_root_init_dict->getSerializableOr(false);
   if (serializable) {
     UseCounter::Count(GetDocument(),
@@ -5916,17 +5883,10 @@ void Element::ChildrenChanged(const ChildrenChange& change) {
           removed ? kSiblingElementRemoved : kSiblingElementInserted,
           changed_element, change.sibling_before_change,
           change.sibling_after_change);
-      if (removed) {
-        GetDocument()
-            .GetStyleEngine()
-            .ScheduleInvalidationsForHasPseudoAffectedByRemoval(
-                this, change.sibling_before_change, *changed_element);
-      } else {
-        GetDocument()
-            .GetStyleEngine()
-            .ScheduleInvalidationsForHasPseudoAffectedByInsertion(
-                this, change.sibling_before_change, *changed_element);
-      }
+      GetDocument()
+          .GetStyleEngine()
+          .ScheduleInvalidationsForHasPseudoAffectedByInsertionOrRemoval(
+              this, change.sibling_before_change, *changed_element, removed);
     } else if (change.type == ChildrenChangeType::kAllChildrenRemoved) {
       GetDocument()
           .GetStyleEngine()
@@ -5953,8 +5913,8 @@ void Element::FinishParsingChildren() {
   }
   GetDocument()
       .GetStyleEngine()
-      .ScheduleInvalidationsForHasPseudoAffectedByInsertion(
-          parentElement(), previousSibling(), *this);
+      .ScheduleInvalidationsForHasPseudoAffectedByInsertionOrRemoval(
+          parentElement(), previousSibling(), *this, /* removal */ false);
 }
 
 AttrNodeList* Element::GetAttrNodeList() {
@@ -6049,7 +6009,7 @@ void Element::setAttributeNS(const AtomicString& namespace_uri,
 
   AtomicString trusted_value(TrustedTypesCheckFor(
       ExpectedTrustedTypeForAttribute(*parsed_name), std::move(value),
-      GetExecutionContext(), exception_state));
+      GetExecutionContext(), "Element", "setAttributeNS", exception_state));
   if (exception_state.HadException()) {
     return;
   }
@@ -6069,7 +6029,7 @@ void Element::setAttributeNS(const AtomicString& namespace_uri,
 
   AtomicString value(TrustedTypesCheckFor(
       ExpectedTrustedTypeForAttribute(*parsed_name), trusted_string,
-      GetExecutionContext(), exception_state));
+      GetExecutionContext(), "Element", "setAttributeNS", exception_state));
   if (exception_state.HadException()) {
     return;
   }
@@ -6757,7 +6717,7 @@ FocusableState Element::SupportsFocus(UpdateBehavior update_behavior) const {
   }
   if (HasElementFlag(ElementFlags::kTabIndexWasSetExplicitly) ||
       IsRootEditableElementWithCounting(*this) ||
-      IsScrollMarkerPseudoElement() || SupportsSpatialNavigationFocus()) {
+      IsScrollControlPseudoElement() || SupportsSpatialNavigationFocus()) {
     return FocusableState::kFocusable;
   }
   if (CanBeKeyboardFocusableScroller(update_behavior)) {
@@ -6947,35 +6907,59 @@ void Element::SetPseudoElementStylesChangeCounters(bool value) {
   EnsureElementRareData().SetPseudoElementStylesChangeCounters(value);
 }
 
-ScrollMarkerPseudoElement* Element::CreateColumnScrollMarker() {
-  const ComputedStyle* style =
-      CachedStyleForPseudoElement(kPseudoIdColumnScrollMarker);
+ColumnPseudoElement* Element::CreateColumnPseudoElement(
+    const PhysicalRect& column_rect) {
+  const ComputedStyle* style = CachedStyleForPseudoElement(kPseudoIdColumn);
   if (!style) {
     return nullptr;
   }
-  auto* scroll_marker = MakeGarbageCollected<ScrollMarkerPseudoElement>(
-      /*originating_element=*/this);
-  scroll_marker->SetComputedStyle(style);
+  auto* column_pseudo_element = MakeGarbageCollected<ColumnPseudoElement>(
+      /*originating_element=*/this, column_rect);
+  column_pseudo_element->SetComputedStyle(style);
   ElementRareDataVector& data = EnsureElementRareData();
-  data.AddColumnScrollMarker(*scroll_marker);
-  return scroll_marker;
+  data.AddColumnPseudoElement(*column_pseudo_element);
+  column_pseudo_element->InsertedInto(*this);
+  probe::PseudoElementCreated(column_pseudo_element);
+
+  const ComputedStyle* scroll_marker_style =
+      CachedStyleForPseudoElement(kPseudoIdColumnScrollMarker);
+  if (!scroll_marker_style) {
+    return column_pseudo_element;
+  }
+  auto* scroll_marker =
+      MakeGarbageCollected<ScrollMarkerPseudoElement>(column_pseudo_element);
+  scroll_marker->SetComputedStyle(scroll_marker_style);
+  column_pseudo_element->EnsureElementRareData().SetPseudoElement(
+      kPseudoIdScrollMarker, scroll_marker);
+  scroll_marker->InsertedInto(*column_pseudo_element);
+  probe::PseudoElementCreated(scroll_marker);
+
+  return column_pseudo_element;
 }
 
-const PseudoElementData::ColumnScrollMarkersVector*
-Element::GetColumnScrollMarkers() const {
+const ColumnPseudoElementsVector* Element::GetColumnPseudoElements() const {
   ElementRareDataVector* data = GetElementRareData();
   if (!data) {
     return nullptr;
   }
-  return data->GetColumnScrollMarkers();
+  return data->GetColumnPseudoElements();
 }
 
-void Element::ClearColumnScrollMarkers() {
+void Element::ClearColumnPseudoElements() {
   ElementRareDataVector* data = GetElementRareData();
   if (!data) {
     return;
   }
-  data->ClearColumnScrollMarkers();
+  if (const ColumnPseudoElementsVector* column_pseudo_elements =
+          data->GetColumnPseudoElements()) {
+    for (PseudoElement* column_pseudo_element : *column_pseudo_elements) {
+      if (ElementRareDataVector* column_data =
+              column_pseudo_element->GetElementRareData()) {
+        column_data->ClearPseudoElements();
+      }
+    }
+  }
+  data->ClearColumnPseudoElements();
 }
 
 void Element::SetScrollbarPseudoElementStylesDependOnFontMetrics(bool value) {
@@ -7320,6 +7304,10 @@ Node* Element::InsertAdjacent(const String& where,
 }
 
 void Element::HideNonce() {
+  if (GetDocument().StatePreservingAtomicMoveInProgress()) {
+    return;
+  }
+
   const AtomicString& nonce_value = FastGetAttribute(html_names::kNonceAttr);
   if (nonce_value.empty()) {
     return;
@@ -7608,8 +7596,6 @@ void Element::SetShadowPseudoId(const AtomicString& id) {
     DCHECK(type == CSSSelector::kPseudoWebKitCustomElement ||
            type == CSSSelector::kPseudoBlinkInternalElement ||
            type == CSSSelector::kPseudoDetailsContent ||
-           type == CSSSelector::kPseudoSelectFallbackButton ||
-           type == CSSSelector::kPseudoSelectFallbackButtonText ||
            id == shadow_element_names::kPickerSelect)
         << "type: " << type << ", id: " << id;
   }
@@ -8205,25 +8191,6 @@ void Element::DetachPseudoElement(PseudoId pseudo_id,
   }
 }
 
-const AtomicString& StringForPseudoId(PseudoId pseudo_id) {
-  switch (pseudo_id) {
-    case kPseudoIdPlaceholder:
-      return shadow_element_names::kPseudoInputPlaceholder;
-    case kPseudoIdFileSelectorButton:
-      return shadow_element_names::kPseudoFileUploadButton;
-    case kPseudoIdDetailsContent:
-      return shadow_element_names::kIdDetailsContent;
-    case kPseudoIdSelectFallbackButton:
-      return shadow_element_names::kSelectFallbackButton;
-    case kPseudoIdSelectFallbackButtonText:
-      return shadow_element_names::kSelectFallbackButtonText;
-    case kPseudoIdPickerSelect:
-      return shadow_element_names::kPickerSelect;
-    default:
-      return g_null_atom;
-  }
-}
-
 PseudoElement* Element::GetPseudoElement(
     PseudoId pseudo_id,
     const AtomicString& view_transition_name) const {
@@ -8241,7 +8208,8 @@ Element* Element::GetStyledPseudoElement(
             GetPseudoElement(pseudo_id, view_transition_name)) {
       return result;
     }
-    const AtomicString& pseudo_string = StringForPseudoId(pseudo_id);
+    const AtomicString& pseudo_string =
+        shadow_element_utils::StringForUAShadowPseudoId(pseudo_id);
     if (pseudo_string != g_null_atom) {
       // This is a pseudo-element that refers to an element in the UA shadow
       // tree (such as a part-like pseudo-element).  Find it in the shadow
@@ -8392,8 +8360,20 @@ const ComputedStyle* Element::CachedStyleForPseudoElement(
 
   const ComputedStyle* style = GetComputedStyle();
 
-  if (!style || (pseudo_id <= kLastTrackedPublicPseudoId &&
-                 !style->HasPseudoElementStyle(pseudo_id))) {
+  if (!style) {
+    return nullptr;
+  }
+  if (pseudo_id <= kLastTrackedPublicPseudoId &&
+      !style->HasPseudoElementStyle(pseudo_id)) {
+    if (pseudo_id == kPseudoIdColumn) {
+      if (CachedStyleForPseudoElement(kPseudoIdColumnScrollMarker)) {
+        // If there is a ::column::scroll-marker, but no ::column declarations,
+        // we still want a ::column pseudo element. It doesn't really matter all
+        // that much what style it has, although one could argue that it should
+        // inherit from its originating element rather than using initial style.
+        return &GetDocument().GetStyleResolver().InitialStyle();
+      }
+    }
     return nullptr;
   }
 
@@ -9703,7 +9683,7 @@ void Element::LogAddElementIfIsolatedWorldAndInDocument(
   argv.push_back(element);
   argv.push_back(FastGetAttribute(attr1));
   activity_logger->LogEvent(GetDocument().GetExecutionContext(),
-                            "blinkAddElement", argv.size(), argv.data());
+                            "blinkAddElement", argv);
 }
 
 void Element::LogAddElementIfIsolatedWorldAndInDocument(
@@ -9725,7 +9705,7 @@ void Element::LogAddElementIfIsolatedWorldAndInDocument(
   argv.push_back(FastGetAttribute(attr1));
   argv.push_back(FastGetAttribute(attr2));
   activity_logger->LogEvent(GetDocument().GetExecutionContext(),
-                            "blinkAddElement", argv.size(), argv.data());
+                            "blinkAddElement", argv);
 }
 
 void Element::LogAddElementIfIsolatedWorldAndInDocument(
@@ -9749,7 +9729,7 @@ void Element::LogAddElementIfIsolatedWorldAndInDocument(
   argv.push_back(FastGetAttribute(attr2));
   argv.push_back(FastGetAttribute(attr3));
   activity_logger->LogEvent(GetDocument().GetExecutionContext(),
-                            "blinkAddElement", argv.size(), argv.data());
+                            "blinkAddElement", argv);
 }
 
 void Element::LogUpdateAttributeIfIsolatedWorldAndInDocument(
@@ -9771,7 +9751,7 @@ void Element::LogUpdateAttributeIfIsolatedWorldAndInDocument(
   argv.push_back(params.old_value);
   argv.push_back(params.new_value);
   activity_logger->LogEvent(GetDocument().GetExecutionContext(),
-                            "blinkSetAttribute", argv.size(), argv.data());
+                            "blinkSetAttribute", argv);
 }
 
 void Element::Trace(Visitor* visitor) const {
@@ -10246,9 +10226,9 @@ void Element::setAttribute(const QualifiedName& name,
                            ExceptionState& exception_state) {
   SynchronizeAttribute(name);
 
-  AtomicString trusted_value(
-      TrustedTypesCheckFor(ExpectedTrustedTypeForAttribute(name), value,
-                           GetExecutionContext(), exception_state));
+  AtomicString trusted_value(TrustedTypesCheckFor(
+      ExpectedTrustedTypeForAttribute(name), value, GetExecutionContext(),
+      "Element", "setAttribute", exception_state));
   if (exception_state.HadException()) {
     return;
   }
@@ -10281,7 +10261,7 @@ void Element::SetAttributeHinted(AtomicString local_name,
 
   AtomicString trusted_value(TrustedTypesCheckFor(
       ExpectedTrustedTypeForAttribute(q_name), std::move(value),
-      GetExecutionContext(), exception_state));
+      GetExecutionContext(), "Element", "setAttribute", exception_state));
   if (exception_state.HadException()) {
     return;
   }
@@ -10310,7 +10290,7 @@ void Element::SetAttributeHinted(AtomicString local_name,
       LookupAttributeQNameHinted(std::move(local_name), hint);
   AtomicString value(TrustedTypesCheckFor(
       ExpectedTrustedTypeForAttribute(q_name), trusted_string,
-      GetExecutionContext(), exception_state));
+      GetExecutionContext(), "Element", "setAttribute", exception_state));
   if (exception_state.HadException()) {
     return;
   }
@@ -10405,7 +10385,8 @@ Attr* Element::setAttributeNode(Attr* attr_node,
 
   AtomicString value(TrustedTypesCheckFor(
       ExpectedTrustedTypeForAttribute(attr_node->GetQualifiedName()),
-      attr_node->value(), GetExecutionContext(), exception_state));
+      attr_node->value(), GetExecutionContext(), "Element", "setAttributeNode",
+      exception_state));
   if (exception_state.HadException()) {
     return nullptr;
   }
@@ -10540,7 +10521,7 @@ Element* Element::ImplicitAnchorElement() const {
     return anchor;
   }
   if (const HTMLElement* html_element = DynamicTo<HTMLElement>(this)) {
-    if (Element* internal_anchor = html_element->internalImplicitAnchor()) {
+    if (Element* internal_anchor = html_element->implicitAnchor()) {
       return internal_anchor;
     }
   }
@@ -10564,6 +10545,7 @@ Element* Element::ImplicitAnchorElement() const {
 
 void Element::setHTMLUnsafe(const String& html,
                             ExceptionState& exception_state) {
+  UseCounter::Count(GetDocument(), WebFeature::kHTMLUnsafeMethods);
   SetInnerHTMLInternal(html, ParseDeclarativeShadowRoots::kParse,
                        ForceHtml::kForce, exception_state);
 }

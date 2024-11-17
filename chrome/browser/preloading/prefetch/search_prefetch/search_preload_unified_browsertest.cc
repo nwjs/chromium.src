@@ -150,6 +150,11 @@ class SearchPreloadUnifiedBrowserTest : public PlatformBrowserTest,
             chrome_preloading_predictor::kDefaultSearchEngine);
     scoped_test_timer_ =
         std::make_unique<base::ScopedMockElapsedTimersForTest>();
+
+    // Reset pointer position to avoid the pointer hover on the back button
+    // that unintentionally triggers `kBackButtonHover` preloading, which may
+    // cause flaky tests due to UKM mismatch.
+    ResetPointerPosition();
   }
 
   std::unique_ptr<net::test_server::HttpResponse> HandleSearchRequest(
@@ -397,6 +402,22 @@ class SearchPreloadUnifiedBrowserTest : public PlatformBrowserTest,
   }
 
  private:
+  void ResetPointerPosition() {
+#if !BUILDFLAG(IS_ANDROID)
+    content::WebContents* contents = GetActiveWebContents();
+    content::InputEventAckWaiter waiter(
+        contents->GetPrimaryMainFrame()->GetRenderWidgetHost(),
+        blink::WebInputEvent::Type::kMouseMove);
+    SimulateMouseEvent(contents, blink::WebMouseEvent::Type::kMouseMove,
+                       blink::WebMouseEvent::Button::kNoButton,
+                       gfx::Point(0, 0));
+    waiter.Wait();
+#else
+    // TODO(crbug.com/339718083): Simulate |WebGestureEvent| to make this
+    // function work for Android.
+#endif  // !BUILDFLAG(IS_ANDROID)
+  }
+
   AutocompleteMatch CreateSearchSuggestionMatch(
       const std::string& original_query,
       const std::string& search_terms,
@@ -1718,8 +1739,14 @@ IN_PROC_BROWSER_TEST_F(SearchPreloadUnifiedBrowserTest,
 
 // Tests that prefetched response can be served to prerender client
 // successfully.
+// TODO(crbug.com/370067813): enable the flaky test.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_FetchPrerenderActivated DISABLED_FetchPrerenderActivated
+#else
+#define MAYBE_FetchPrerenderActivated FetchPrerenderActivated
+#endif
 IN_PROC_BROWSER_TEST_F(SearchPreloadUnifiedBrowserTest,
-                       FetchPrerenderActivated) {
+                       MAYBE_FetchPrerenderActivated) {
   base::HistogramTester histogram_tester;
   const GURL kInitialUrl = embedded_test_server()->GetURL("/empty.html");
   const GURL kNavigatedUrl = embedded_test_server()->GetURL("/title1.html");

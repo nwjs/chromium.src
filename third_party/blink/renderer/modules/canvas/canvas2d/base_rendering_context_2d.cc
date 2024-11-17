@@ -46,6 +46,8 @@
 #include "cc/paint/paint_image.h"
 #include "cc/paint/record_paint_canvas.h"
 #include "cc/paint/refcounted_buffer.h"
+#include "components/viz/common/resources/shared_image_format_utils.h"
+#include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/common/sync_token.h"
 #include "media/base/video_frame.h"
 #include "media/base/video_frame_metadata.h"
@@ -1653,22 +1655,23 @@ void BaseRenderingContext2D::DrawPathInternal(
       CanvasPerformanceMonitor::DrawType::kPath);
 }
 
-static SkPathFillType ParseWinding(const String& winding_rule_string) {
-  if (winding_rule_string == "nonzero")
-    return SkPathFillType::kWinding;
-  if (winding_rule_string == "evenodd")
-    return SkPathFillType::kEvenOdd;
-
-  NOTREACHED_IN_MIGRATION();
-  return SkPathFillType::kEvenOdd;
+static SkPathFillType CanvasFillRuleToSkiaFillType(
+    const V8CanvasFillRule& winding_rule) {
+  switch (winding_rule.AsEnum()) {
+    case V8CanvasFillRule::Enum::kNonzero:
+      return SkPathFillType::kWinding;
+    case V8CanvasFillRule::Enum::kEvenodd:
+      return SkPathFillType::kEvenOdd;
+  }
+  NOTREACHED();
 }
 
 void BaseRenderingContext2D::fill() {
   FillImpl(SkPathFillType::kWinding);
 }
 
-void BaseRenderingContext2D::fill(const String& winding) {
-  FillImpl(ParseWinding(winding));
+void BaseRenderingContext2D::fill(const V8CanvasFillRule& winding) {
+  FillImpl(CanvasFillRuleToSkiaFillType(winding));
 }
 
 void BaseRenderingContext2D::FillImpl(SkPathFillType winding_rule) {
@@ -1683,8 +1686,9 @@ void BaseRenderingContext2D::fill(Path2D* dom_path) {
   FillPathImpl(dom_path, SkPathFillType::kWinding);
 }
 
-void BaseRenderingContext2D::fill(Path2D* dom_path, const String& winding) {
-  FillPathImpl(dom_path, ParseWinding(winding));
+void BaseRenderingContext2D::fill(Path2D* dom_path,
+                                  const V8CanvasFillRule& winding) {
+  FillPathImpl(dom_path, CanvasFillRuleToSkiaFillType(winding));
 }
 
 void BaseRenderingContext2D::FillPathImpl(Path2D* dom_path,
@@ -1817,7 +1821,7 @@ void BaseRenderingContext2D::strokeRect(double x,
 }
 
 void BaseRenderingContext2D::ClipInternal(const Path& path,
-                                          const String& winding_rule_string,
+                                          const V8CanvasFillRule& winding_rule,
                                           UsePaintCache use_paint_cache) {
   cc::PaintCanvas* c = GetOrCreatePaintCanvas();
   if (!c) {
@@ -1828,50 +1832,51 @@ void BaseRenderingContext2D::ClipInternal(const Path& path,
   }
 
   SkPath sk_path = path.GetSkPath();
-  sk_path.setFillType(ParseWinding(winding_rule_string));
+  sk_path.setFillType(CanvasFillRuleToSkiaFillType(winding_rule));
   GetState().ClipPath(sk_path, clip_antialiasing_);
   c->clipPath(sk_path, SkClipOp::kIntersect, clip_antialiasing_ == kAntiAliased,
               use_paint_cache);
 }
 
-void BaseRenderingContext2D::clip(const String& winding_rule_string) {
+void BaseRenderingContext2D::clip(const V8CanvasFillRule& winding_rule) {
   if (identifiability_study_helper_.ShouldUpdateBuilder()) [[unlikely]] {
     identifiability_study_helper_.UpdateBuilder(
         CanvasOps::kClip,
-        IdentifiabilitySensitiveStringToken(winding_rule_string));
+        IdentifiabilitySensitiveStringToken(winding_rule.AsString()));
   }
-  ClipInternal(GetPath(), winding_rule_string, UsePaintCache::kDisabled);
+  ClipInternal(GetPath(), winding_rule, UsePaintCache::kDisabled);
 }
 
 void BaseRenderingContext2D::clip(Path2D* dom_path,
-                                  const String& winding_rule_string) {
+                                  const V8CanvasFillRule& winding_rule) {
   if (identifiability_study_helper_.ShouldUpdateBuilder()) [[unlikely]] {
     identifiability_study_helper_.UpdateBuilder(
         CanvasOps::kClip__Path, dom_path->GetIdentifiableToken(),
-        IdentifiabilitySensitiveStringToken(winding_rule_string));
+        IdentifiabilitySensitiveStringToken(winding_rule.AsString()));
   }
-  ClipInternal(dom_path->GetPath(), winding_rule_string,
-               path2d_use_paint_cache_);
+  ClipInternal(dom_path->GetPath(), winding_rule, path2d_use_paint_cache_);
 }
 
-bool BaseRenderingContext2D::isPointInPath(const double x,
-                                           const double y,
-                                           const String& winding_rule_string) {
-  return IsPointInPathInternal(GetPath(), x, y, winding_rule_string);
+bool BaseRenderingContext2D::isPointInPath(
+    const double x,
+    const double y,
+    const V8CanvasFillRule& winding_rule) {
+  return IsPointInPathInternal(GetPath(), x, y, winding_rule);
 }
 
-bool BaseRenderingContext2D::isPointInPath(Path2D* dom_path,
-                                           const double x,
-                                           const double y,
-                                           const String& winding_rule_string) {
-  return IsPointInPathInternal(dom_path->GetPath(), x, y, winding_rule_string);
+bool BaseRenderingContext2D::isPointInPath(
+    Path2D* dom_path,
+    const double x,
+    const double y,
+    const V8CanvasFillRule& winding_rule) {
+  return IsPointInPathInternal(dom_path->GetPath(), x, y, winding_rule);
 }
 
 bool BaseRenderingContext2D::IsPointInPathInternal(
     const Path& path,
     const double x,
     const double y,
-    const String& winding_rule_string) {
+    const V8CanvasFillRule& winding_rule) {
   cc::PaintCanvas* c = GetOrCreatePaintCanvas();
   if (!c)
     return false;
@@ -1885,8 +1890,9 @@ bool BaseRenderingContext2D::IsPointInPathInternal(
   AffineTransform ctm = GetState().GetTransform();
   gfx::PointF transformed_point = ctm.Inverse().MapPoint(point);
 
-  return path.Contains(transformed_point,
-                       SkFillTypeToWindRule(ParseWinding(winding_rule_string)));
+  return path.Contains(
+      transformed_point,
+      SkFillTypeToWindRule(CanvasFillRuleToSkiaFillType(winding_rule)));
 }
 
 bool BaseRenderingContext2D::isPointInStroke(const double x, const double y) {
@@ -2327,10 +2333,20 @@ void BaseRenderingContext2D::drawImage(CanvasImageSource* image_source,
       [this, image_source, image, src_rect, dst_rect](
           cc::PaintCanvas* c, const cc::PaintFlags* flags)  // draw lambda
       {
+        // TODO: investigate relocating this adjustment to paint_op.cc.
+        cc::PaintFlags::ScalingOperation scaling_option =
+            cc::PaintFlags::ScalingOperation::kUnknown;
+        SkSize scale;
+        if (c->getLocalToDevice().asM33().decomposeScale(&scale)) {
+          scaling_option = (scale.width() > 1 && scale.height() > 1)
+                               ? cc::PaintFlags::ScalingOperation::kUpscale
+                               : cc::PaintFlags::ScalingOperation::kUnknown;
+        }
         SkSamplingOptions sampling =
             cc::PaintFlags::FilterQualityToSkSamplingOptions(
                 flags ? flags->getFilterQuality()
-                      : cc::PaintFlags::FilterQuality::kNone);
+                      : cc::PaintFlags::FilterQuality::kNone,
+                scaling_option);
         DrawImageInternal(c, image_source, image.get(), src_rect, dst_rect,
                           sampling, flags);
       },
@@ -3093,11 +3109,12 @@ void BaseRenderingContext2D::setImageSmoothingEnabled(bool enabled) {
   state.SetImageSmoothingEnabled(enabled);
 }
 
-String BaseRenderingContext2D::imageSmoothingQuality() const {
+V8ImageSmoothingQuality BaseRenderingContext2D::imageSmoothingQuality() const {
   return GetState().ImageSmoothingQuality();
 }
 
-void BaseRenderingContext2D::setImageSmoothingQuality(const String& quality) {
+void BaseRenderingContext2D::setImageSmoothingQuality(
+    const V8ImageSmoothingQuality& quality) {
   CanvasRenderingContext2DState& state = GetState();
   if (quality == state.ImageSmoothingQuality()) {
     return;
@@ -3106,7 +3123,7 @@ void BaseRenderingContext2D::setImageSmoothingQuality(const String& quality) {
   if (identifiability_study_helper_.ShouldUpdateBuilder()) [[unlikely]] {
     identifiability_study_helper_.UpdateBuilder(
         CanvasOps::kSetImageSmoothingQuality,
-        IdentifiabilitySensitiveStringToken(quality));
+        IdentifiabilitySensitiveStringToken(quality.AsString()));
   }
   state.SetImageSmoothingQuality(quality);
 }
@@ -3119,8 +3136,12 @@ String BaseRenderingContext2D::wordSpacing() const {
   return GetState().GetWordSpacing();
 }
 
-String BaseRenderingContext2D::textRendering() const {
+String BaseRenderingContext2D::textRenderingAsString() const {
   return GetState().GetTextRendering().AsString();
+}
+
+V8CanvasTextRendering BaseRenderingContext2D::textRendering() const {
+  return GetState().GetTextRendering();
 }
 
 float BaseRenderingContext2D::GetFontBaseline(
@@ -3170,7 +3191,11 @@ String BaseRenderingContext2D::fontKerning() const {
   return FontDescription::ToString(GetState().GetFontKerning()).LowerASCII();
 }
 
-String BaseRenderingContext2D::fontStretch() const {
+V8CanvasFontStretch BaseRenderingContext2D::fontStretch() const {
+  return GetState().GetFontStretch();
+}
+
+String BaseRenderingContext2D::fontStretchAsString() const {
   return GetState().GetFontStretch().AsString();
 }
 
@@ -3185,6 +3210,7 @@ void BaseRenderingContext2D::Trace(Visitor* visitor) const {
   visitor->Trace(try_restore_context_event_timer_);
   visitor->Trace(color_cache_);
   visitor->Trace(webgpu_access_texture_);
+  visitor->Trace(placed_elements_);
   CanvasPath::Trace(visitor);
 }
 
@@ -3634,8 +3660,19 @@ void BaseRenderingContext2D::setWordSpacing(const String& word_spacing) {
   state.SetWordSpacing(word_spacing);
 }
 
-void BaseRenderingContext2D::setTextRendering(
+void BaseRenderingContext2D::setTextRenderingAsString(
     const String& text_rendering_string) {
+  std::optional<blink::V8CanvasTextRendering> text_value =
+      V8CanvasTextRendering::Create(text_rendering_string);
+
+  if (!text_value.has_value()) {
+    return;
+  }
+  setTextRendering(text_value.value());
+}
+
+void BaseRenderingContext2D::setTextRendering(
+    const V8CanvasTextRendering& text_rendering) {
   UseCounter::Count(GetTopExecutionContext(),
                     WebFeature::kCanvasRenderingContext2DTextRendering);
   // TODO(crbug.com/1234113): Instrument new canvas APIs.
@@ -3645,17 +3682,10 @@ void BaseRenderingContext2D::setTextRendering(
     setFont(font());
   }
 
-  std::optional<blink::V8CanvasTextRendering> text_value =
-      V8CanvasTextRendering::Create(text_rendering_string);
-
-  if (!text_value.has_value()) {
+  if (state.GetTextRendering() == text_rendering) {
     return;
   }
-
-  if (state.GetTextRendering() == text_value.value()) {
-    return;
-  }
-  state.SetTextRendering(text_value.value(), GetFontSelector());
+  state.SetTextRendering(text_rendering, GetFontSelector());
 }
 
 void BaseRenderingContext2D::setFontKerning(const String& font_kerning_string) {
@@ -3685,7 +3715,19 @@ void BaseRenderingContext2D::setFontKerning(const String& font_kerning_string) {
   state.SetFontKerning(kerning, GetFontSelector());
 }
 
-void BaseRenderingContext2D::setFontStretch(const String& font_stretch) {
+void BaseRenderingContext2D::setFontStretchAsString(
+    const String& font_stretch) {
+  std::optional<V8CanvasFontStretch> font_value =
+      V8CanvasFontStretch::Create(font_stretch);
+
+  if (!font_value.has_value()) {
+    return;
+  }
+  setFontStretch(font_value.value());
+}
+
+void BaseRenderingContext2D::setFontStretch(
+    const V8CanvasFontStretch& font_stretch) {
   UseCounter::Count(GetTopExecutionContext(),
                     WebFeature::kCanvasRenderingContext2DFontStretch);
   // TODO(crbug.com/1234113): Instrument new canvas APIs.
@@ -3695,16 +3737,10 @@ void BaseRenderingContext2D::setFontStretch(const String& font_stretch) {
     setFont(font());
   }
 
-  std::optional<blink::V8CanvasFontStretch> font_value =
-      V8CanvasFontStretch::Create(font_stretch);
-
-  if (!font_value.has_value()) {
+  if (state.GetFontStretch() == font_stretch) {
     return;
   }
-  if (state.GetFontStretch() == font_value.value()) {
-    return;
-  }
-  state.SetFontStretch(font_value.value(), GetFontSelector());
+  state.SetFontStretch(font_stretch, GetFontSelector());
 }
 
 void BaseRenderingContext2D::setFontVariantCaps(
@@ -3760,15 +3796,14 @@ V8GPUTextureFormat BaseRenderingContext2D::getTextureFormat() const {
   std::optional<V8GPUTextureFormat> format;
   if (const CanvasRenderingContextHost* host =
           GetCanvasRenderingContextHost()) {
-    format = V8GPUTextureFormat::Create(FromDawnEnum(
-        AsDawnType(host->GetRenderingContextSkColorInfo().colorType())));
+    format = FromDawnEnum(
+        AsDawnType(host->GetRenderingContextSkColorInfo().colorType()));
   }
 
   // If that did not work (e.g., the canvas host does not yet exist), we can
   // return the preferred canvas format.
   if (!format.has_value()) {
-    format = V8GPUTextureFormat::Create(
-        FromDawnEnum(GPU::preferred_canvas_format()));
+    format = FromDawnEnum(GPU::preferred_canvas_format());
   }
 
   // If the preferred canvas format cannot be represented as a GPUTextureFormat,
@@ -3805,6 +3840,25 @@ GPUTexture* BaseRenderingContext2D::transferToGPUTexture(
   constexpr wgpu::TextureUsage kSupportedUsageFlags =
       wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::CopyDst |
       wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::RenderAttachment;
+
+  // If `transferToGPUTexture` is called twice without an intervening call to
+  // `transferBackFromGPUTexture`, the semantics are that the current ongoing
+  // transfer should be discarded and the new transfer given the 2D canvas in
+  // its current state (defined to be blank post-initiation of the first
+  // transfer but then incorporating any canvas 2D operations that have
+  // subsequently occurred on the canvas). Implement that semantics here.
+  // Note that the canvas will have been made blank by the removal of the
+  // CanvasResourceProvider at the initiation of the first transfer but will
+  // then incorporate any canvas 2D operations that have subsequently occurred
+  // on the canvas via the usage of the CanvasResourceProvider that those
+  // operations would have caused to be created as the source for the new
+  // transfer below.
+  if (webgpu_access_texture_) {
+    webgpu_access_texture_->destroy();
+    webgpu_access_texture_ = nullptr;
+    resource_provider_from_webgpu_access_.reset();
+  }
+
   wgpu::TextureUsage tex_usage =
       AsDawnFlags<wgpu::TextureUsage>(access_options->usage());
   if (tex_usage & ~kSupportedUsageFlags) {
@@ -3816,14 +3870,14 @@ GPUTexture* BaseRenderingContext2D::transferToGPUTexture(
   // Prepare to flush the canvas to a WebGPU texture.
   FinalizeFrame(FlushReason::kWebGPUTexture);
 
-  // We will need to access the canvas' resource provider in order to snapshot
-  // its image below.
+  // We will need to access the canvas' resource provider.
   CanvasRenderingContextHost* host = GetCanvasRenderingContextHost();
   if (!host) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       "Unable to access canvas image.");
     return nullptr;
   }
+  host->SetTransferToGPUTextureWasInvoked();
 
   // Ensure that the canvas host lives on the GPU. This call is a no-op if the
   // host is already accelerated.
@@ -3842,42 +3896,54 @@ GPUTexture* BaseRenderingContext2D::transferToGPUTexture(
     return nullptr;
   }
 
-  // Snapshot the image from the CanvasResourceProvider.
-  // We use Snapshot instead of GetImage here to ensure that we get an image,
-  // even if the canvas is empty.
-  // TODO(crbug.com/340922308): when possible, we should steal the existing
-  // texture from the resource provider, instead of cloning it.
-  scoped_refptr<StaticBitmapImage> image =
-      provider->Snapshot(FlushReason::kWebGPUTexture);
-  if (!image) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
-                                      "Unable to snapshot the canvas image.");
+  // Get the SharedImage backing this canvas resource, signaling that an
+  // external write will occur. This call will ensure that a copy occurs if
+  // needed for CopyOnWrite or for creation of a SharedImage with WebGPU usage
+  // and will end the canvas access.
+  gpu::SyncToken canvas_access_sync_token;
+  bool performed_copy = false;
+  scoped_refptr<gpu::ClientSharedImage> client_si =
+      host->ResourceProvider()->GetBackingClientSharedImageForExternalWrite(
+          &canvas_access_sync_token,
+          gpu::SHARED_IMAGE_USAGE_WEBGPU_READ |
+              gpu::SHARED_IMAGE_USAGE_WEBGPU_WRITE,
+          &performed_copy);
+  if (access_options->requireZeroCopy() && performed_copy) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kInvalidStateError,
+        "Transferring canvas to GPU was not zero-copy.");
     return nullptr;
   }
 
-  SkImageInfo image_info = image->GetSkImageInfo();
+  // If the backing SharedImage is not available (e.g., because the GPU context
+  // has been lost), zero-copy transfer is not possible.
+  if (!client_si) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "Unable to transfer canvas to GPU.");
+    return nullptr;
+  }
+
+  wgpu::TextureFormat dawn_format =
+      AsDawnType(viz::ToClosestSkColorType(true, client_si->format()));
+  wgpu::TextureDescriptor desc = {
+      .usage = tex_usage,
+      .size = {base::checked_cast<uint32_t>(client_si->size().width()),
+               base::checked_cast<uint32_t>(client_si->size().height())},
+      .format = dawn_format,
+  };
+
+  // Create a WebGPU texture backed by the resource's SharedImage.
   scoped_refptr<WebGPUMailboxTexture> texture =
-      WebGPUMailboxTexture::FromStaticBitmapImage(
-          blink_device->GetDawnControlClient(), blink_device->GetHandle(),
-          tex_usage, image, image_info,
-          gfx::Rect(image_info.width(), image_info.height()),
-          /*is_dummy_mailbox_texture=*/false);
-  if (!texture) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
-                                      "Unable to transfer canvas to WebGPU.");
-    return nullptr;
-  }
-
-  // If `transferToGPUTexture` is called twice without an intervening call to
-  // `transferBackFromGPUTexture`, the previously-generated texture is
-  // immediately destroyed.
-  if (webgpu_access_texture_) {
-    webgpu_access_texture_->destroy();
-  }
+      WebGPUMailboxTexture::FromExistingMailbox(
+          blink_device->GetDawnControlClient(), blink_device->GetHandle(), desc,
+          client_si->mailbox(),
+          // Ensure that WebGPU waits for the 2D canvas service-side operations
+          // on this resource to complete.
+          canvas_access_sync_token);
 
   webgpu_access_texture_ = MakeGarbageCollected<GPUTexture>(
-      blink_device, AsDawnType(image_info.colorType()), tex_usage,
-      std::move(texture), access_options->getLabelOr(String()));
+      blink_device, dawn_format, tex_usage, std::move(texture),
+      access_options->getLabelOr(String()));
 
   // We take away the canvas' resource provider here, which will cause the
   // canvas to be treated as a brand new surface if additional draws occur.
@@ -3891,46 +3957,6 @@ GPUTexture* BaseRenderingContext2D::transferToGPUTexture(
   resource_provider_from_webgpu_access_->ClearRecycledResources();
 
   return webgpu_access_texture_;
-}
-
-bool BaseRenderingContext2D::CopyGPUTextureToResourceProvider(
-    GPUTexture& texture,
-    CanvasResourceProvider& resource_provider) {
-  // Get the GPU mailbox associated with the WebGPU access texture. This texture
-  // always originates from `transferToWebGPU`, so we should always find a
-  // shared-image mailbox here.
-  scoped_refptr<WebGPUMailboxTexture> mailbox_texture =
-      texture.GetMailboxTexture();
-  CHECK(mailbox_texture);
-
-  const gpu::Mailbox& mailbox = mailbox_texture->GetMailbox();
-
-  // Dissociating the mailbox texture from WebGPU forces the GPU queue to drain,
-  // and yields a sync token for OverwriteImage.
-  gpu::SyncToken ready_sync_token = mailbox_texture->Dissociate();
-  if (!ready_sync_token.HasData()) {
-    return false;
-  }
-
-  // Overwrite the resource provider's shared image with the WebGPU texture.
-  const bool unpack_flip_y = !resource_provider.IsOriginTopLeft();
-  gfx::Rect copy_rect(texture.width(), texture.height());
-
-  gpu::SyncToken completion_sync_token;
-  if (!resource_provider.OverwriteImage(mailbox, copy_rect, unpack_flip_y,
-                                        /*unpack_premultiply_alpha=*/false,
-                                        ready_sync_token,
-                                        completion_sync_token)) {
-    return false;
-  }
-
-  // Ensure that the mailbox texture lives until OverwriteImage fully completes.
-  // Note that `mailbox_texture->Dissociate` above has already set a completion
-  // sync token on the mailbox texture (our `ready_sync_token`), but we are
-  // deliberately replacing it here with a newer sync token that also includes
-  // completion of the image overwrite operation.
-  mailbox_texture->SetCompletionSyncToken(completion_sync_token);
-  return true;
 }
 
 void BaseRenderingContext2D::transferBackFromGPUTexture(
@@ -3984,12 +4010,15 @@ void BaseRenderingContext2D::transferBackFromGPUTexture(
       std::move(resource_provider_from_webgpu_access_));
   resource_provider->SetCanvasResourceHost(host);
 
-  // Copy the contents of the GPUTexture into this ResourceProvider.
-  if (!CopyGPUTextureToResourceProvider(*webgpu_access_texture_,
-                                        *resource_provider)) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
-                                      "Unable to replace canvas image.");
-  }
+  // Disassociate the WebGPU texture from the SharedImage to end its
+  // SharedImage access.
+  gpu::SyncToken webgpu_completion_sync_token =
+      webgpu_access_texture_->GetMailboxTexture()->Dissociate();
+
+  // Signal to the resource provider that the external write to the resource has
+  // completed to ensure that it waits on the WebGPU service-side operations to
+  // complete before any further canvas operations occur.
+  resource_provider->EndExternalWrite(webgpu_completion_sync_token);
 
   // Destroy the WebGPU texture to prevent it from being used after
   // `transferBackFromGPUTexture`.

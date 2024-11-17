@@ -9,8 +9,6 @@ proto_library("translate_kit_api_proto") {
 
 source_set("on_device_translation_service") {
   sources = [
-    "mock_translator.cc",
-    "mock_translator.h",
     "on_device_translation_service.cc",
     "on_device_translation_service.h",
     "translate_kit_client.cc",
@@ -24,6 +22,15 @@ source_set("on_device_translation_service") {
     "//components/services/on_device_translation/public/mojom",
     "//mojo/public/cpp/bindings",
   ]
+
+  if (is_linux) {
+    sources += [
+      "sandbox_hook.cc",
+      "sandbox_hook.h",
+    ]
+    deps += [ "//sandbox/linux:sandbox_services" ]
+    public_deps += [ "//sandbox/policy" ]
+  }
 }
 
 source_set("unit_tests") {
@@ -38,4 +45,14 @@ source_set("unit_tests") {
     "//testing/gmock",
     "//testing/gtest",
   ]
+  data_deps = [ ":mock_translate_kit_lib" ]
+}
+
+shared_library("mock_translate_kit_lib") {
+  testonly = true
+  sources = [
+    "mock_translate_kit_lib.cc",
+    "translate_kit_structs.h",
+  ]
+  public_deps = [ "//base" ]
 }

@@ -60,11 +60,22 @@ inline int snprintf(char* buffer, size_t size, const char* format, ...) {
 }
 
 // BSD-style safe and consistent string copy functions.
+
+// Copies `src` to `dst`, truncating `dst` if it does not fit, and ensuring that
+// `dst` is NUL-terminated if it's not an empty span. Returns the length of
+// `src` in characters. If the return value is `>= dst.size()`, then the output
+// was truncated. NOTE: All sizes are in number of characters, NOT in bytes.
+BASE_EXPORT size_t strlcpy(span<char> dst, std::string_view src);
+BASE_EXPORT size_t u16cstrlcpy(span<char16_t> dst, std::u16string_view src);
+BASE_EXPORT size_t wcslcpy(span<wchar_t> dst, std::wstring_view src);
+
 // Copies |src| to |dst|, where |dst_size| is the total allocated size of |dst|.
 // Copies at most |dst_size|-1 characters, and always NULL terminates |dst|, as
 // long as |dst_size| is not 0.  Returns the length of |src| in characters.
 // If the return value is >= dst_size, then the output was truncated.
 // NOTE: All sizes are in number of characters, NOT in bytes.
+//
+// TODO: crbug.com/40284755 - Make these UNSAFE_BUFFER_USAGE.
 BASE_EXPORT size_t strlcpy(char* dst, const char* src, size_t dst_size);
 BASE_EXPORT size_t u16cstrlcpy(char16_t* dst,
                                const char16_t* src,
@@ -397,7 +408,7 @@ BASE_EXPORT bool EndsWith(
 // Determines the type of ASCII character, independent of locale (the C
 // library versions will change based on locale).
 template <typename Char>
-inline bool IsAsciiWhitespace(Char c) {
+constexpr bool IsAsciiWhitespace(Char c) {
   // kWhitespaceASCII is a null-terminated string.
   for (const char* cur = kWhitespaceASCII; *cur; ++cur) {
     if (*cur == c)
@@ -406,32 +417,32 @@ inline bool IsAsciiWhitespace(Char c) {
   return false;
 }
 template <typename Char>
-inline bool IsAsciiAlpha(Char c) {
+constexpr bool IsAsciiAlpha(Char c) {
   return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
 }
 template <typename Char>
-inline bool IsAsciiUpper(Char c) {
+constexpr bool IsAsciiUpper(Char c) {
   return c >= 'A' && c <= 'Z';
 }
 template <typename Char>
-inline bool IsAsciiLower(Char c) {
+constexpr bool IsAsciiLower(Char c) {
   return c >= 'a' && c <= 'z';
 }
 template <typename Char>
-inline bool IsAsciiDigit(Char c) {
+constexpr bool IsAsciiDigit(Char c) {
   return c >= '0' && c <= '9';
 }
 template <typename Char>
-inline bool IsAsciiAlphaNumeric(Char c) {
+constexpr bool IsAsciiAlphaNumeric(Char c) {
   return IsAsciiAlpha(c) || IsAsciiDigit(c);
 }
 template <typename Char>
-inline bool IsAsciiPrintable(Char c) {
+constexpr bool IsAsciiPrintable(Char c) {
   return c >= ' ' && c <= '~';
 }
 
 template <typename Char>
-inline bool IsAsciiControl(Char c) {
+constexpr bool IsAsciiControl(Char c) {
   if constexpr (std::is_signed_v<Char>) {
     if (c < 0) {
       return false;
@@ -441,19 +452,19 @@ inline bool IsAsciiControl(Char c) {
 }
 
 template <typename Char>
-inline bool IsUnicodeControl(Char c) {
+constexpr bool IsUnicodeControl(Char c) {
   return IsAsciiControl(c) ||
          // C1 control characters: http://unicode.org/charts/PDF/U0080.pdf
          (c >= 0x80 && c <= 0x9F);
 }
 
 template <typename Char>
-inline bool IsAsciiPunctuation(Char c) {
+constexpr bool IsAsciiPunctuation(Char c) {
   return c > 0x20 && c < 0x7f && !IsAsciiAlphaNumeric(c);
 }
 
 template <typename Char>
-inline bool IsHexDigit(Char c) {
+constexpr bool IsHexDigit(Char c) {
   return (c >= '0' && c <= '9') ||
          (c >= 'A' && c <= 'F') ||
          (c >= 'a' && c <= 'f');
@@ -477,7 +488,7 @@ inline char HexDigitToInt(char16_t c) {
 // values known to hold the full code point before calling this.
 template <typename Char>
   requires(sizeof(Char) > 1)
-inline bool IsUnicodeWhitespace(Char c) {
+constexpr bool IsUnicodeWhitespace(Char c) {
   // kWhitespaceWide is a null-terminated string.
   for (const auto* cur = kWhitespaceWide; *cur; ++cur) {
     if (static_cast<typename std::make_unsigned_t<wchar_t>>(*cur) ==
@@ -487,11 +498,11 @@ inline bool IsUnicodeWhitespace(Char c) {
   return false;
 }
 
-// DANGEROUS: Assumes ASCII or not base on the size of `Char`.  You should
+// DANGEROUS: Assumes ASCII or not based on the size of `Char`.  You should
 // probably be explicitly calling IsUnicodeWhitespace() or IsAsciiWhitespace()
 // instead!
 template <typename Char>
-inline bool IsWhitespace(Char c) {
+constexpr bool IsWhitespace(Char c) {
   if constexpr (sizeof(Char) > 1) {
     return IsUnicodeWhitespace(c);
   } else {

@@ -107,6 +107,7 @@ buildflag_header("buildflags") {
     "CHROME_ROOT_STORE_SUPPORTED=$chrome_root_store_supported",
     "ENABLE_DEVICE_BOUND_SESSIONS=$enable_device_bound_sessions",
     "ENABLE_BRACKETED_PROXY_URIS=$enable_bracketed_proxy_uris",
+    "ENABLE_QUIC_PROXY_SUPPORT=$enable_quic_proxy_support",
   ]
 }
 
@@ -202,6 +203,8 @@ component("net") {
     "base/isolation_info.h",
     "base/load_flags.h",
     "base/load_flags_list.h",
+    "base/load_flags_to_string.cc",
+    "base/load_flags_to_string.h",
     "base/load_states.h",
     "base/load_states_list.h",
     "base/load_timing_info.cc",
@@ -427,6 +430,8 @@ component("net") {
     "cookies/static_cookie_policy.h",
     "disk_cache/backend_cleanup_tracker.cc",
     "disk_cache/backend_cleanup_tracker.h",
+    "disk_cache/backend_experiment.cc",
+    "disk_cache/backend_experiment.h",
     "disk_cache/blockfile/addr.cc",
     "disk_cache/blockfile/addr.h",
     "disk_cache/blockfile/backend_impl.cc",
@@ -1188,13 +1193,18 @@ component("net") {
       "device_bound_sessions/session_service.h",
       "device_bound_sessions/session_service_impl.cc",
       "device_bound_sessions/session_service_impl.h",
+      "device_bound_sessions/session_store.h",
+      "device_bound_sessions/session_store_impl.cc",
+      "device_bound_sessions/session_store_impl.h",
       "device_bound_sessions/unexportable_key_service_factory.cc",
       "device_bound_sessions/unexportable_key_service_factory.h",
     ]
 
     deps += [
       ":device_bound_sessions_storage_proto",
+      "//components/sqlite_proto",
       "//components/unexportable_keys:unexportable_keys",
+      "//sql:sql",
     ]
   }
 
@@ -1361,6 +1371,8 @@ component("net") {
       "proxy_resolution/win/windows_system_proxy_resolution_service.h",
       "proxy_resolution/win/windows_system_proxy_resolver.h",
       "proxy_resolution/win/winhttp_status.h",
+      "socket/tcp_socket_io_completion_port_win.cc",
+      "socket/tcp_socket_io_completion_port_win.h",
       "socket/tcp_socket_win.cc",
       "socket/tcp_socket_win.h",
       "socket/udp_socket_win.cc",
@@ -1720,6 +1732,7 @@ source_set("net_export_header") {
 source_set("net_deps") {
   visibility = [
     ":net",
+    "//crypto",
     "//net/dns",
     "//net/dns:dns_client",
     "//net/dns:host_resolver",
@@ -1839,7 +1852,7 @@ proto_library("net_nqe_proto") {
   cc_include = "net/base/net_export.h"
   component_build_force_source_set = true
 
-  deps = [ ":net_export_header" ]
+  link_deps = [ ":net_export_header" ]
 
   defines = [ "NET_IMPLEMENTATION" ]
 
@@ -2583,6 +2596,7 @@ target(_test_target_type, "net_unittests") {
     "base/ip_address_unittest.cc",
     "base/ip_endpoint_unittest.cc",
     "base/isolation_info_unittest.cc",
+    "base/load_flags_to_string_unittest.cc",
     "base/lookup_string_in_fixed_set_unittest.cc",
     "base/mime_sniffer_unittest.cc",
     "base/mime_util_unittest.cc",
@@ -3332,6 +3346,7 @@ target(_test_target_type, "net_unittests") {
       "device_bound_sessions/session_inclusion_rules_unittest.cc",
       "device_bound_sessions/session_service_impl_unittest.cc",
       "device_bound_sessions/session_service_unittest.cc",
+      "device_bound_sessions/session_store_impl_unittest.cc",
       "device_bound_sessions/session_unittest.cc",
       "device_bound_sessions/test_util.cc",
       "device_bound_sessions/test_util.h",
@@ -3377,6 +3392,16 @@ if (!is_ios) {
       # Needed for isolate script to execute.
       "//testing:run_perf_test",
     ]
+
+    if (enable_device_bound_sessions) {
+      sources += [ "device_bound_sessions/session_store_impl_perftest.cc" ]
+      deps += [
+        ":device_bound_sessions_storage_proto",
+        "//components/unexportable_keys:unexportable_keys",
+        "//crypto:test_support",
+      ]
+    }
+
     if (enable_websockets) {
       sources += [ "websockets/websocket_frame_perftest.cc" ]
     }
@@ -3437,6 +3462,7 @@ if (enable_websockets && use_fuzzing_engine) {
     ]
     dict = "//net/data/fuzzer_dictionaries/net_http_server_fuzzer.dict"
     seed_corpus = "//net/data/fuzzer_data/http_server_requests/"
+    libfuzzer_options = [ "max_len=32768" ]
   }
 }
 
@@ -3984,6 +4010,7 @@ proto_library("reporting_policy_proto") {
   proto_in_dir = "//"
   sources = [ "reporting/reporting_policy.proto" ]
   link_deps = [ "//testing/libfuzzer/proto:json_proto" ]
+  proto_data_sources = [ "//testing/libfuzzer/proto/json.proto" ]
 }
 
 fuzzer_test("net_reporting_header_parser_fuzzer") {

@@ -80,8 +80,8 @@ public class UndoTabModelUnitTest {
     /** Required to handle some actions and initialize {@link TabModelOrderControllerImpl}. */
     @Mock private TabModelSelector mTabModelSelector;
 
-    @Mock private TabModelFilterProvider mTabModelFilterProvider;
-    @Mock private TabModelFilter mTabModelFilter;
+    @Mock private TabGroupModelFilterProvider mTabGroupModelFilterProvider;
+    @Mock private TabGroupModelFilter mTabGroupModelFilter;
 
     @Mock private Callback<Tab> mTabSupplierObserver;
 
@@ -102,22 +102,25 @@ public class UndoTabModelUnitTest {
 
         when(mTabModelDelegate.isReparentingInProgress()).thenReturn(false);
 
-        when(mTabModelSelector.getTabModelFilterProvider()).thenReturn(mTabModelFilterProvider);
-        when(mTabModelFilterProvider.getTabModelFilter(false)).thenReturn(mTabModelFilter);
-        when(mTabModelFilterProvider.getTabModelFilter(true)).thenReturn(mTabModelFilter);
-        when(mTabModelFilter.getValidPosition(any(), anyInt()))
+        when(mTabModelSelector.getTabGroupModelFilterProvider())
+                .thenReturn(mTabGroupModelFilterProvider);
+        when(mTabGroupModelFilterProvider.getTabGroupModelFilter(false))
+                .thenReturn(mTabGroupModelFilter);
+        when(mTabGroupModelFilterProvider.getTabGroupModelFilter(true))
+                .thenReturn(mTabGroupModelFilter);
+        when(mTabGroupModelFilter.getValidPosition(any(), anyInt()))
                 .thenAnswer(i -> i.getArguments()[1]);
 
         mNextTabId = 0;
     }
 
     /** Create a {@link TabModel} to use for the test. */
-    private TabModel createTabModel(boolean isIncognito) {
+    private TabModelImpl createTabModel(boolean isIncognito) {
         AsyncTabParamsManager realAsyncTabParamsManager =
                 AsyncTabParamsManagerFactory.createAsyncTabParamsManager();
         TabModelOrderControllerImpl orderController =
                 new TabModelOrderControllerImpl(mTabModelSelector);
-        TabModel tabModel;
+        TabModelImpl tabModel;
         final boolean supportUndo = !isIncognito;
         if (isIncognito) {
             // TODO(crbug.com/40222755): Consider using an incognito tab model.
@@ -1546,7 +1549,7 @@ public class UndoTabModelUnitTest {
     @SmallTest
     public void testInactiveModelCloseAndUndoForTabSupplier() throws TimeoutException {
         final boolean isIncognito = false;
-        final TabModel model = createTabModel(isIncognito);
+        final TabModelImpl model = createTabModel(isIncognito);
         assertEquals(0, model.getTabCountSupplier().get().intValue());
         model.getCurrentTabSupplier().addObserver(mTabSupplierObserver);
         model.setActive(false);

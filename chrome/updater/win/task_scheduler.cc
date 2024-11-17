@@ -61,7 +61,7 @@ const size_t kDeleteRetryDelayInMs = 100;
 }
 
 // Returns |timestamp| in the format YYYY-MM-DDTHH:MM:SS.
-std::wstring GetTimestampString(const base::Time& timestamp) {
+std::wstring GetTimestampString(base::Time timestamp) {
   // This intentionally avoids depending on the facilities in
   // base/i18n/time_formatting.h so the updater will not need to depend on the
   // ICU data file.
@@ -1361,7 +1361,7 @@ std::ostream& operator<<(std::ostream& stream,
   stream << "TaskInfo: name: " << t.name << ", description: " << t.description
          << ", exec_actions: ";
 
-  for (auto exec_action : t.exec_actions) {
+  for (const auto& exec_action : t.exec_actions) {
     stream << ", exec_action: " << exec_action;
   }
 

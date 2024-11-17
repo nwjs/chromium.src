@@ -41,6 +41,15 @@ void DataSharingPageHandler::ShowUI() {
   }
 }
 
+void DataSharingPageHandler::CloseUI(int status_code) {
+  // TODO(crbug.com/368634445): In addition to closing the WebUI bubble some special
+  // codes should trigger follow up native info dialogs.
+  auto embedder = webui_controller_->embedder();
+  if (embedder) {
+    embedder->CloseUI();
+  }
+}
+
 void DataSharingPageHandler::ApiInitComplete() {
   api_initialized_ = true;
   webui_controller_->ApiInitComplete();
@@ -123,4 +132,11 @@ void DataSharingPageHandler::ReadGroups(
     data_sharing::mojom::Page::ReadGroupsCallback callback) {
   CHECK(api_initialized_);
   page_->ReadGroups(group_ids, std::move(callback));
+}
+
+void DataSharingPageHandler::DeleteGroup(
+    std::string group_id,
+    data_sharing::mojom::Page::DeleteGroupCallback callback) {
+  CHECK(api_initialized_);
+  page_->DeleteGroup(group_id, std::move(callback));
 }

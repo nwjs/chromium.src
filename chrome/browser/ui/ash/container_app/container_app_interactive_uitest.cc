@@ -12,6 +12,7 @@
 #include "ash/app_list/views/app_list_item_view.h"
 #include "ash/app_list/views/apps_grid_view.h"
 #include "ash/ash_element_identifiers.h"
+#include "ash/constants/web_app_id_constants.h"
 #include "ash/public/cpp/app_menu_constants.h"
 #include "ash/public/cpp/shelf_item.h"
 #include "ash/public/cpp/shelf_model.h"
@@ -31,7 +32,6 @@
 #include "base/types/expected.h"
 #include "chrome/browser/ash/app_list/app_list_client_impl.h"
 #include "chrome/browser/ash/app_restore/full_restore_app_launch_handler.h"
-#include "chrome/browser/ash/file_manager/app_id.h"
 #include "chrome/browser/ash/login/test/guest_session_mixin.h"
 #include "chrome/browser/ash/login/test/logged_in_user_mixin.h"
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
@@ -46,11 +46,11 @@
 #include "chrome/browser/web_applications/preinstalled_web_apps/container.h"
 #include "chrome/browser/web_applications/preinstalled_web_apps/preinstalled_web_apps.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
-#include "chrome/browser/web_applications/web_app_id_constants.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/mixin_based_in_process_browser_test.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
+#include "chromeos/ash/components/file_manager/app_id.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "components/app_constants/constants.h"
 #include "components/session_manager/session_manager_types.h"
@@ -212,11 +212,9 @@ class ContainerAppInteractiveUiTestBase
   ContainerAppInteractiveUiTestBase(
       std::optional<ash::LoggedInUserMixin::LogInType> login_type)
       : user_session_mixin_(CreateUserSessionMixin(login_type)) {
-    // Enable container app preinstallation.
-    scoped_feature_list_.InitWithFeatures(
-        {chromeos::features::kContainerAppPreinstall,
-         chromeos::features::kFeatureManagementContainerAppPreinstall},
-        {});
+    // Enable Gemini app preinstallation.
+    scoped_feature_list_.InitAndEnableFeature(
+        chromeos::features::kGeminiAppPreinstall);
 
     // Use a consistent context for element tracking. Otherwise each widget has
     // its own context, greatly increasing the complexity of tracking
@@ -359,7 +357,7 @@ class ContainerAppInteractiveUiTestBase
   absl::variant<ash::GuestSessionMixin, ash::LoggedInUserMixin>
       user_session_mixin_;
 
-  // Used to enable the container app preinstallation.
+  // Used to enable the Gemini app preinstallation.
   base::test::ScopedFeatureList scoped_feature_list_;
 
   // Used to retrieve expected title/URL for the container app.
@@ -383,11 +381,11 @@ class ContainerAppInteractiveUiTest
   ContainerAppInteractiveUiTest()
       : ContainerAppInteractiveUiTestBase(
             ash::LoggedInUserMixin::LogInType::kConsumer) {
-    // Disable the container app during the PRE_ session so that the subsequent
+    // Disable the Gemini app during the PRE_ session so that the subsequent
     // session containing test logic is when the app preinstallation occurs.
     if (IsPreSession()) {
       scoped_feature_list_.InitAndDisableFeature(
-          chromeos::features::kContainerAppPreinstall);
+          chromeos::features::kGeminiAppPreinstall);
     }
   }
 
@@ -427,7 +425,7 @@ class ContainerAppInteractiveUiTest
   }
 
  private:
-  // Used to disable container app preinstallation for the PRE_ session.
+  // Used to disable Gemini app preinstallation for the PRE_ session.
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
@@ -472,7 +470,7 @@ IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiTest, LaunchFromAppList) {
       // Find container app.
       NameDescendantView(kAppsGridViewElementName, kContainerAppElementName,
                          base::BindRepeating(&IsAppListItemViewForWebApp,
-                                             web_app::kContainerAppId)),
+                                             ash::kContainerAppId)),
 
       // Cache container app.
       AssignView(kContainerAppElementName, std::ref(container_app)),
@@ -487,9 +485,9 @@ IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiTest, LaunchFromAppList) {
       AssignView(kFilesAppElementName, std::ref(files_app)),
 
       // Find Gmail app.
-      NameDescendantView(kAppsGridViewElementName, kGmailAppElementName,
-                         base::BindRepeating(&IsAppListItemViewForWebApp,
-                                             web_app::kGmailAppId)),
+      NameDescendantView(
+          kAppsGridViewElementName, kGmailAppElementName,
+          base::BindRepeating(&IsAppListItemViewForWebApp, ash::kGmailAppId)),
 
       // Cache Gmail app.
       AssignView(kGmailAppElementName, std::ref(gmail_app)),
@@ -522,13 +520,13 @@ IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiTest, LaunchFromAppList) {
       DoDefaultAction(kContainerAppElementName),
 
       // Check container app browser.
-      CheckElement(kContainerAppWebContentsElementId,
-                   base::BindOnce(&AsInstrumentedWebContents)
-                       .Then(base::BindOnce(
-                           &WebContentsInteractionTestUtil::web_contents))
-                       .Then(base::BindOnce(&chrome::FindBrowserWithTab))
-                       .Then(base::BindOnce(&IsBrowserForWebApp,
-                                            web_app::kContainerAppId))),
+      CheckElement(
+          kContainerAppWebContentsElementId,
+          base::BindOnce(&AsInstrumentedWebContents)
+              .Then(
+                  base::BindOnce(&WebContentsInteractionTestUtil::web_contents))
+              .Then(base::BindOnce(&chrome::FindBrowserWithTab))
+              .Then(base::BindOnce(&IsBrowserForWebApp, ash::kContainerAppId))),
 
       // Check container app launch URL.
       WaitForWebContentsReady(kContainerAppWebContentsElementId,
@@ -555,7 +553,7 @@ IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiTest, LaunchFromShelf) {
       NameDescendantView(
           ash::kShelfViewElementId, kContainerAppElementName,
           base::BindRepeating(&IsShelfAppButtonForWebApp, std::cref(shelf),
-                              web_app::kContainerAppId)),
+                              ash::kContainerAppId)),
 
       // Cache container app.
       AssignView(kContainerAppElementName, std::ref(container_app)),
@@ -573,7 +571,7 @@ IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiTest, LaunchFromShelf) {
       NameDescendantView(
           ash::kShelfViewElementId, kGmailAppElementName,
           base::BindRepeating(&IsShelfAppButtonForWebApp, std::cref(shelf),
-                              web_app::kGmailAppId)),
+                              ash::kGmailAppId)),
 
       // Cache Gmail app.
       AssignView(kGmailAppElementName, std::ref(gmail_app)),
@@ -597,13 +595,13 @@ IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiTest, LaunchFromShelf) {
       DoDefaultAction(kContainerAppElementName),
 
       // Check container app browser.
-      CheckElement(kContainerAppWebContentsElementId,
-                   base::BindOnce(&AsInstrumentedWebContents)
-                       .Then(base::BindOnce(
-                           &WebContentsInteractionTestUtil::web_contents))
-                       .Then(base::BindOnce(&chrome::FindBrowserWithTab))
-                       .Then(base::BindOnce(&IsBrowserForWebApp,
-                                            web_app::kContainerAppId))),
+      CheckElement(
+          kContainerAppWebContentsElementId,
+          base::BindOnce(&AsInstrumentedWebContents)
+              .Then(
+                  base::BindOnce(&WebContentsInteractionTestUtil::web_contents))
+              .Then(base::BindOnce(&chrome::FindBrowserWithTab))
+              .Then(base::BindOnce(&IsBrowserForWebApp, ash::kContainerAppId))),
 
       // Check container app launch URL.
       WaitForWebContentsReady(kContainerAppWebContentsElementId,
@@ -657,13 +655,13 @@ IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiTest,
                     std::ref(container_app_browser)),
 
       // Check container app browser.
-      CheckElement(kContainerAppWebContentsElementId,
-                   base::BindOnce(&AsInstrumentedWebContents)
-                       .Then(base::BindOnce(
-                           &WebContentsInteractionTestUtil::web_contents))
-                       .Then(base::BindOnce(&chrome::FindBrowserWithTab))
-                       .Then(base::BindOnce(&IsBrowserForWebApp,
-                                            web_app::kContainerAppId))),
+      CheckElement(
+          kContainerAppWebContentsElementId,
+          base::BindOnce(&AsInstrumentedWebContents)
+              .Then(
+                  base::BindOnce(&WebContentsInteractionTestUtil::web_contents))
+              .Then(base::BindOnce(&chrome::FindBrowserWithTab))
+              .Then(base::BindOnce(&IsBrowserForWebApp, ash::kContainerAppId))),
 
       // Check container app launch URL.
       WaitForWebContentsReady(kContainerAppWebContentsElementId,
@@ -692,7 +690,7 @@ IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiTest, UninstallFromAppList) {
       // Find container app.
       NameDescendantView(kAppsGridViewElementName, kContainerAppElementName,
                          base::BindRepeating(&IsAppListItemViewForWebApp,
-                                             web_app::kContainerAppId)),
+                                             ash::kContainerAppId)),
 
       // Open menu.
       MoveMouseTo(kContainerAppElementName), ClickMouse(ui_controls::RIGHT),
@@ -745,7 +743,7 @@ IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiTest, UninstallFromSettings) {
       NameDescendantView(
           ash::kShelfViewElementId, kContainerAppElementName,
           base::BindRepeating(&IsShelfAppButtonForWebApp, std::cref(shelf),
-                              web_app::kContainerAppId)),
+                              ash::kContainerAppId)),
 
       // Open menu.
       MoveMouseTo(kContainerAppElementName), ClickMouse(ui_controls::RIGHT),
@@ -771,14 +769,14 @@ IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiTest, UninstallFromSettings) {
                            &WebContentsInteractionTestUtil::web_contents))
                        .Then(base::BindOnce(&chrome::FindBrowserWithTab))
                        .Then(base::BindOnce(&IsBrowserForWebApp,
-                                            web_app::kOsSettingsAppId))),
+                                            ash::kOsSettingsAppId))),
 
       // Check Settings app launch URL.
       WaitForWebContentsReady(
           kSettingsAppWebContentsElementId,
           chrome::GetOSSettingsUrl(
               base::StrCat({chromeos::settings::mojom::kAppDetailsSubpagePath,
-                            "?id=", web_app::kContainerAppId}))),
+                            "?id=", ash::kContainerAppId}))),
 
       // Check container app title.
       CheckJsResultAt(
@@ -813,7 +811,7 @@ IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiTest, UninstallFromShelf) {
       NameDescendantView(
           ash::kShelfViewElementId, kContainerAppElementName,
           base::BindRepeating(&IsShelfAppButtonForWebApp, std::cref(shelf),
-                              web_app::kContainerAppId)),
+                              ash::kContainerAppId)),
 
       // Open menu.
       MoveMouseTo(kContainerAppElementName), ClickMouse(ui_controls::RIGHT),
@@ -835,8 +833,7 @@ IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiTest, UninstallFromShelf) {
 // Reasons why the user may be ineligible for container app preinstallation.
 enum class IneligibilityReason {
   kMinValue = 0,
-  kFeatureDebugAndManagementFlagsDisabled = kMinValue,
-  kFeatureFlagDisabled,
+  kFeatureFlagDisabled = kMinValue,
   kUserManaged,
   kUserTypeChild,
   kUserTypeGuest,
@@ -849,7 +846,6 @@ enum class IneligibilityReason {
 
 inline std::ostream& operator<<(std::ostream& os, IneligibilityReason reason) {
   switch (reason) {
-    INELIGIBILITY_REASON_CASE(kFeatureDebugAndManagementFlagsDisabled);
     INELIGIBILITY_REASON_CASE(kFeatureFlagDisabled);
     INELIGIBILITY_REASON_CASE(kUserManaged);
     INELIGIBILITY_REASON_CASE(kUserTypeChild);
@@ -864,12 +860,8 @@ class ContainerAppInteractiveUiIneligibilityTest
  public:
   ContainerAppInteractiveUiIneligibilityTest()
       : ContainerAppInteractiveUiTestBase(GetLoginType()) {
-    scoped_feature_list_.InitWithFeatureStates(
-        {{chromeos::features::kContainerAppPreinstall, IsFeatureFlagEnabled()},
-         {chromeos::features::kContainerAppPreinstallDebug,
-          IsFeatureDebugFlagEnabled()},
-         {chromeos::features::kFeatureManagementContainerAppPreinstall,
-          IsFeatureManagementFlagEnabled()}});
+    scoped_feature_list_.InitWithFeatureState(
+        chromeos::features::kGeminiAppPreinstall, IsFeatureFlagEnabled());
   }
 
  private:
@@ -903,23 +895,9 @@ class ContainerAppInteractiveUiIneligibilityTest
     }
   }
 
-  // Returns whether the feature debug flag is enabled given test
-  // parameterization.
-  bool IsFeatureDebugFlagEnabled() const {
-    return GetParam() !=
-           IneligibilityReason::kFeatureDebugAndManagementFlagsDisabled;
-  }
-
   // Returns whether the feature flag is enabled given test parameterization.
   bool IsFeatureFlagEnabled() const {
     return GetParam() != IneligibilityReason::kFeatureFlagDisabled;
-  }
-
-  // Returns whether the feature management flag is enabled given test
-  // parameterization.
-  bool IsFeatureManagementFlagEnabled() const {
-    return GetParam() !=
-           IneligibilityReason::kFeatureDebugAndManagementFlagsDisabled;
   }
 
   // Used to enable/disable the container app preinstallation based on test
@@ -968,7 +946,7 @@ IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiIneligibilityTest,
             FindDescendantsOfClass(apps_grid_view, apps);
             return apps.size() &&
                    base::ranges::none_of(apps, [&](ash::AppListItemView* app) {
-                     return IsAppListItemViewForWebApp(web_app::kContainerAppId,
+                     return IsAppListItemViewForWebApp(ash::kContainerAppId,
                                                        app);
                    });
           }));
@@ -986,7 +964,7 @@ IN_PROC_BROWSER_TEST_P(ContainerAppInteractiveUiIneligibilityTest,
                base::ranges::none_of(
                    apps, [&, shelf = raw_ptr(shelf)](ash::ShelfAppButton* app) {
                      return IsShelfAppButtonForWebApp(
-                         std::cref(shelf), web_app::kContainerAppId, app);
+                         std::cref(shelf), ash::kContainerAppId, app);
                    });
       }));
 }

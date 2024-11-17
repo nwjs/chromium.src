@@ -8,6 +8,7 @@
 #import <Foundation/Foundation.h>
 
 #import "components/plus_addresses/plus_address_types.h"
+#import "ios/chrome/browser/plus_addresses/coordinator/plus_address_error_alert_delegate.h"
 #import "ios/chrome/browser/plus_addresses/ui/plus_address_bottom_sheet_delegate.h"
 #import "url/gurl.h"
 
@@ -19,10 +20,31 @@ class PlusAddressSettingService;
 @protocol PlusAddressBottomSheetConsumer;
 class UrlLoadingBrowserAgent;
 
+// Delegate for this mediator.
+@protocol PlusAddressBottomSheetMediatorDelegate
+
+// Shows an alert asking the user to use an affiliated plus address.
+- (void)displayPlusAddressAffiliationErrorAlert:
+    (const plus_addresses::PlusProfile&)plusProfile;
+
+// Shows alert for the quota error.
+- (void)displayPlusAddressQuotaErrorAlert:(BOOL)shouldDismissBottomSheet;
+
+// Shows alert for the timeout error.
+- (void)displayPlusAddressTimeoutErrorAlert:(BOOL)shouldDismissBottomSheet;
+
+// Shows generic alert with the message.
+- (void)displayPlusAddressGenericErrorAlert:(BOOL)shouldDismissBottomSheet;
+
+// Runs the callback once the plus address is confirmed.
+- (void)runAutofillCallback:(NSString*)confirmedPlusAddress;
+
+@end
+
 // Mediator for the plus_addresses bottom sheet. It is responsible for service
 // interactions underlying the UI.
 @interface PlusAddressBottomSheetMediator
-    : NSObject <PlusAddressBottomSheetDelegate>
+    : NSObject <PlusAddressBottomSheetDelegate, PlusAddressErrorAlertDelegate>
 
 // Designated initializer of the mediator, with `service` used to interface with
 // the underlying data (and, transitively, the service that backs it).
@@ -31,8 +53,9 @@ class UrlLoadingBrowserAgent;
     initWithPlusAddressService:(plus_addresses::PlusAddressService*)service
      plusAddressSettingService:
          (plus_addresses::PlusAddressSettingService*)plusAddressSettingService
+                      delegate:
+                          (id<PlusAddressBottomSheetMediatorDelegate>)delegate
                      activeUrl:(GURL)activeUrl
-              autofillCallback:(plus_addresses::PlusAddressCallback)callback
                      urlLoader:(UrlLoadingBrowserAgent*)urlLoader
                      incognito:(BOOL)incognito NS_DESIGNATED_INITIALIZER;
 

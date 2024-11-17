@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include "ash/components/arc/app/arc_app_constants.h"
 #include "ash/components/arc/arc_features.h"
 #include "ash/components/arc/arc_prefs.h"
 #include "ash/components/arc/arc_util.h"
@@ -50,7 +51,9 @@
 #include "chrome/browser/ash/arc/optin/arc_terms_of_service_oobe_negotiator.h"
 #include "chrome/browser/ash/arc/policy/arc_policy_util.h"
 #include "chrome/browser/ash/arc/session/arc_provisioning_result.h"
+#include "chrome/browser/ash/arc/session/arc_reven_hardware_checker.h"
 #include "chrome/browser/ash/guest_os/public/guest_os_service.h"
+#include "chrome/browser/ash/guest_os/public/guest_os_service_factory.h"
 #include "chrome/browser/ash/login/demo_mode/demo_components.h"
 #include "chrome/browser/ash/login/demo_mode/demo_session.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
@@ -63,6 +66,7 @@
 #include "chrome/browser/ui/webui/ash/diagnostics_dialog/diagnostics_dialog.h"
 #include "chromeos/ash/components/cryptohome/cryptohome_parameters.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
+#include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "chromeos/ash/components/memory/swap_configuration.h"
 #include "components/account_id/account_id.h"
 #include "components/exo/wm_helper.h"
@@ -92,6 +96,9 @@ constexpr const char kArcSaltPath[] = "/var/lib/misc/arc_salt";
 
 constexpr const char kArcPrepareHostGeneratedDirJobName[] =
     "arc_2dprepare_2dhost_2dgenerated_2ddir";
+
+constexpr const char kArcvmInstallAndroidImageDlc[] =
+    "arcvm_2dinstall_2dandroid_2dimage_2ddlc";
 
 // Maximum amount of time we'll wait for ARC to finish booting up. Once this
 // timeout expires, keep ARC running in case the user wants to file feedback,
@@ -900,6 +907,9 @@ void ArcSessionManager::Shutdown() {
     scoped_opt_in_tracker_->TrackShutdown();
     scoped_opt_in_tracker_.reset();
   }
+  for (auto& observer : observer_list_) {
+    observer.OnShutdown();
+  }
 }
 
 void ArcSessionManager::ShutdownSession() {
@@ -1120,13 +1130,13 @@ void ArcSessionManager::OnVmStarted(
       // called (due to concierge crash etc.). Unregister the old instance
       // before registering a new one to prevent multiple registration like
       // b/279378611.
-      guest_os::GuestOsService::GetForProfile(profile())
+      guest_os::GuestOsServiceFactory::GetForProfile(profile())
           ->MountProviderRegistry()
           ->Unregister(*arcvm_mount_provider_id_);
     }
     arcvm_mount_provider_id_ =
         std::optional<guest_os::GuestOsMountProviderRegistry::Id>(
-            guest_os::GuestOsService::GetForProfile(profile())
+            guest_os::GuestOsServiceFactory::GetForProfile(profile())
                 ->MountProviderRegistry()
                 ->Register(std::make_unique<ArcMountProvider>(
                     profile(), vm_signal.vm_info().cid())));
@@ -1138,7 +1148,7 @@ void ArcSessionManager::OnVmStopped(
   // When ARCVM stops, unregister GuestOsMountProvider for Play files.
   if (vm_signal.name() == kArcVmName) {
     if (arcvm_mount_provider_id_.has_value()) {
-      guest_os::GuestOsService::GetForProfile(profile())
+      guest_os::GuestOsServiceFactory::GetForProfile(profile())
           ->MountProviderRegistry()
           ->Unregister(*arcvm_mount_provider_id_);
       arcvm_mount_provider_id_.reset();
@@ -1960,9 +1970,47 @@ void ArcSessionManager::ExpandPropertyFilesAndReadSalt() {
               UpstartOperation::JOB_STOP_AND_START,
               {std::string("IS_ARCVM=") + (is_arcvm ? "1" : "0")}},
   };
-  ConfigureUpstartJobs(std::move(jobs),
-                       base::BindOnce(&ArcSessionManager::OnExpandPropertyFiles,
-                                      weak_ptr_factory_.GetWeakPtr()));
+
+  if (!arc::IsArcVmDlcEnabled()) {
+    ConfigureUpstartJobs(
+        std::move(jobs),
+        base::BindOnce(&ArcSessionManager::OnExpandPropertyFiles,
+                       weak_ptr_factory_.GetWeakPtr()));
+    return;
+  }
+
+  // Only the reven board can install arcvm images from DLC. Other boards can
+  // implement their own checking logic after supporting DLC installation later.
+  if (ash::switches::IsRevenBranding() &&
+      ash::InstallAttributes::Get()->IsEnterpriseManaged()) {
+    // Check if the Reven device is compatible for ARC.
+    hardware_checker_->IsRevenDeviceCompatibleForArc(
+        base::BindOnce(&ArcSessionManager::OnEnableArcOnReven,
+                       weak_ptr_factory_.GetWeakPtr(), std::move(jobs)));
+  } else {
+    VLOG(1) << "Reven device is not managed and cannot install arcvm images.";
+    OnExpandPropertyFilesAndReadSalt(
+        ArcSessionManager::ExpansionResult{{}, false});
+  }
+}
+
+void ArcSessionManager::OnEnableArcOnReven(std::deque<JobDesc> jobs,
+                                           bool is_compatible) {
+  if (is_compatible) {
+    VLOG(1) << "Reven device is compatible for ARC. Adding and starting the "
+               "Android DLC install job.";
+    jobs.emplace_front(JobDesc{kArcvmInstallAndroidImageDlc,
+                               UpstartOperation::JOB_STOP_AND_START,
+                               {}});
+    ConfigureUpstartJobs(
+        std::move(jobs),
+        base::BindOnce(&ArcSessionManager::OnExpandPropertyFiles,
+                       weak_ptr_factory_.GetWeakPtr()));
+  } else {
+    VLOG(1) << "Reven device is not compatible for ARC.";
+    OnExpandPropertyFilesAndReadSalt(
+        ArcSessionManager::ExpansionResult{{}, false});
+  }
 }
 
 void ArcSessionManager::OnExpandPropertyFiles(bool result) {

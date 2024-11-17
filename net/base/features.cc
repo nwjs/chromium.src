@@ -152,10 +152,6 @@ BASE_FEATURE(kPartitionConnectionsByNetworkIsolationKey,
              "PartitionConnectionsByNetworkIsolationKey",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kTLS13KeyUpdate,
-             "TLS13KeyUpdate",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kPostQuantumKyber,
              "PostQuantumKyber",
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
@@ -164,7 +160,7 @@ BASE_FEATURE(kPostQuantumKyber,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-BASE_FEATURE(kUseMLKEM, "UseMLKEM", base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kUseMLKEM, "UseMLKEM", base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kNetUnusedIdleSocketTimeout,
              "NetUnusedIdleSocketTimeout",
@@ -300,6 +296,10 @@ BASE_FEATURE(kEnableGetNetworkConnectivityHintAPI,
 
 BASE_FEATURE(kEnableTcpPortRandomization,
              "EnableTcpPortRandomization",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kTcpSocketIoCompletionPortWin,
+             "TcpSocketIoCompletionPortWin",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
@@ -595,5 +595,25 @@ BASE_FEATURE(kKeepWhitespaceForDataUrls,
 BASE_FEATURE(kNoVarySearchIgnoreUnrecognizedKeys,
              "NoVarySearchIgnoreUnrecognizedKeys",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kEncryptedAndPlaintextValuesAreInvalid,
+             "EncryptedAndPlaintextValuesAreInvalid",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kEnableStaticCTAPIEnforcement,
+             "EnableStaticCTAPIEnforcement",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDiskCacheBackendExperiment,
+             "DiskCacheBackendExperiment",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+constexpr base::FeatureParam<DiskCacheBackend>::Option
+    kDiskCacheBackendOptions[] = {
+        {DiskCacheBackend::kSimple, "simple"},
+        {DiskCacheBackend::kBlockfile, "blockfile"},
+};
+const base::FeatureParam<DiskCacheBackend> kDiskCacheBackendParam{
+    &kDiskCacheBackendExperiment, "backend", DiskCacheBackend::kBlockfile,
+    &kDiskCacheBackendOptions};
 
 }  // namespace net::features

@@ -21,17 +21,18 @@
 #include "chrome/browser/ui/find_bar/find_bar_state_factory.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_entry_point_controller.h"
-#include "chrome/browser/ui/lens/lens_overlay_invocation_source.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/find_bar_host.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/user_education/user_education_service.h"
+#include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/find_in_page/find_notification_details.h"
 #include "components/find_in_page/find_tab_helper.h"
 #include "components/find_in_page/find_types.h"
 #include "components/lens/lens_features.h"
+#include "components/lens/lens_overlay_invocation_source.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/accessibility/ax_enums.mojom.h"
@@ -332,7 +333,7 @@ FindBarView::FindBarView(FindBarHost* host) {
 
                           controller->ShowUI(
                               lens::LensOverlayInvocationSource::kFindInPage);
-                          UserEducationService::MaybeNotifyPromoFeatureUsed(
+                          UserEducationService::MaybeNotifyNewBadgeFeatureUsed(
                               web_contents->GetBrowserContext(),
                               lens::features::kLensOverlay);
 

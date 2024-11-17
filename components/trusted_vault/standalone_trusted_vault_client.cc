@@ -120,9 +120,8 @@ void IdentityManagerObserver::OnAccountsCookieDeletedByUserAction() {
   // TODO(crbug.com/40156992): remove this handler once tests can mimic
   // OnAccountInCookieUpdated() properly.
   UpdateAccountsInCookieJarInfoIfNeeded(
-      signin::AccountsInCookieJarInfo(/*accounts_are_fresh_param=*/true,
-                                      /*signed_in_accounts_param=*/{},
-                                      /*signed_out_accounts_param=*/{}));
+      signin::AccountsInCookieJarInfo(/*accounts_are_fresh=*/true,
+                                      /*accounts=*/{}));
   notify_keys_changed_callback_.Run();
 }
 
@@ -192,7 +191,7 @@ void IdentityManagerObserver::UpdatePrimaryAccountIfNeeded() {
 
 void IdentityManagerObserver::UpdateAccountsInCookieJarInfoIfNeeded(
     const signin::AccountsInCookieJarInfo& accounts_in_cookie_jar_info) {
-  if (accounts_in_cookie_jar_info.accounts_are_fresh) {
+  if (accounts_in_cookie_jar_info.AreAccountsFresh()) {
     backend_task_runner_->PostTask(
         FROM_HERE,
         base::BindOnce(
@@ -294,7 +293,7 @@ StandaloneTrustedVaultClient::StandaloneTrustedVaultClient(
   }
 
   backend_ = base::MakeRefCounted<StandaloneTrustedVaultBackend>(
-      GetBackendFilePath(base_dir, security_domain),
+      security_domain, GetBackendFilePath(base_dir, security_domain),
       std::make_unique<BackendDelegate>(
           base::BindPostTaskToCurrentDefault(
               base::BindRepeating(&StandaloneTrustedVaultClient::

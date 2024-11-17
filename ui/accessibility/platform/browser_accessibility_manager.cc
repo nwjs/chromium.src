@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/check_deref.h"
 #include "base/containers/adapters.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
@@ -296,9 +297,6 @@ BrowserAccessibility* BrowserAccessibilityManager::GetFromID(int32_t id) const {
     DCHECK(iter->second);
     return iter->second.get();
   }
-  DCHECK(!ax_tree()->GetFromId(id))
-      << "BAM's map was missing id " << id
-      << ", but AXTree's map had it: " << *ax_tree()->GetFromId(id);
 
   return nullptr;
 }
@@ -649,7 +647,7 @@ void BrowserAccessibilityManager::BeforeAccessibilityEvents() {}
 void BrowserAccessibilityManager::FinalizeAccessibilityEvents() {}
 
 void BrowserAccessibilityManager::OnLocationChanges(
-    const std::vector<AXLocationChanges>& changes) {
+    const AXLocationAndScrollUpdates& changes) {
   TRACE_EVENT0("accessibility",
                is_post_load_
                    ? "BrowserAccessibilityManager::OnLocationChanges"
@@ -657,26 +655,59 @@ void BrowserAccessibilityManager::OnLocationChanges(
   SCOPED_UMA_HISTOGRAM_TIMER_MICROS(
       "Accessibility.Performance.BrowserAccessibilityManager::"
       "OnLocationChanges");
-  for (auto& change : changes) {
+  bool can_fire_events = CanFireEvents();
+  for (auto& change : changes.scroll_changes) {
     BrowserAccessibility* obj = GetFromID(change.id);
-    if (!obj)
+    if (!obj) {
       continue;
+    }
+
+    AXNode* node = obj->node();
+    int old_scrollx, old_scrolly;
+    node->GetScrollInfo(&old_scrollx, &old_scrolly);
+    node->SetScrollInfo(change.scroll_x, change.scroll_y);
+
+    if (can_fire_events) {
+      if (change.scroll_x != old_scrollx) {
+        FireGeneratedEvent(
+            ui::AXEventGenerator::Event::SCROLL_HORIZONTAL_POSITION_CHANGED,
+            node);
+      }
+      if (change.scroll_y != old_scrolly) {
+        FireGeneratedEvent(
+            ui::AXEventGenerator::Event::SCROLL_VERTICAL_POSITION_CHANGED,
+            node);
+      }
+    }
+  }
+
+  for (auto& change : changes.location_changes) {
+    BrowserAccessibility* obj = GetFromID(change.id);
+    if (!obj) {
+      continue;
+    }
     AXNode* node = obj->node();
     node->SetLocation(change.new_location.offset_container_id,
                       change.new_location.bounds,
                       change.new_location.transform.get());
   }
+
   // Only send location change events when the page is not in back/forward
   // cache.
-  if (CanFireEvents()) {
-    SendLocationChangeEvents(changes);
+  if (can_fire_events && !changes.location_changes.empty()) {
+    SendLocationChangeEvents(changes.location_changes);
   }
-  if (!location_change_callback_for_testing_.is_null())
+
+  // Only send location change callback when there's actually changed locations.
+  // Required for tests to detect location change that's not scrolling.
+  if (!location_change_callback_for_testing_.is_null() &&
+      !changes.location_changes.empty()) {
     location_change_callback_for_testing_.Run();
+  }
 }
 
 void BrowserAccessibilityManager::SendLocationChangeEvents(
-    const std::vector<AXLocationChanges>& changes) {
+    const std::vector<AXLocationChange>& changes) {
   for (auto& change : changes) {
     BrowserAccessibility* obj = GetFromID(change.id);
     if (obj)
@@ -1553,17 +1584,8 @@ void BrowserAccessibilityManager::OnNodeCreated(AXTree* tree, AXNode* node) {
   }
 }
 
-void BrowserAccessibilityManager::OnNodeDeleted(AXTree* tree, int32_t node_id) {
-  DCHECK_NE(node_id, kInvalidAXNodeID);
-  id_wrapper_map_.erase(node_id);
-  popup_root_ids_.erase(node_id);
-
-  node_id_delegate_->OnAXNodeDeleted(node_id);
-}
-
 void BrowserAccessibilityManager::OnNodeReparented(AXTree* tree, AXNode* node) {
-  DCHECK(node);
-  auto iter = id_wrapper_map_.find(node->id());
+  auto iter = id_wrapper_map_.find(CHECK_DEREF(node).id());
   // TODO(crbug.com/40833630): This condition should never occur.
   // Identify why we are entering this code path and fix the root cause, then
   // remove the early return. Will need to update
@@ -1572,11 +1594,27 @@ void BrowserAccessibilityManager::OnNodeReparented(AXTree* tree, AXNode* node) {
   SANITIZER_CHECK(iter != id_wrapper_map_.end())
       << "Missing BrowserAccessibility* for node: " << *node
       << "\nTree: " << tree->ToString(/*verbose*/ false);
-  if (iter == id_wrapper_map_.end())
+  if (iter == id_wrapper_map_.end()) {
     return;
-  BrowserAccessibility* wrapper = iter->second.get();
-  DCHECK(wrapper);
-  wrapper->SetNode(*node);
+  }
+  CHECK_DEREF(iter->second.get()).SetNode(*node);
+}
+
+void BrowserAccessibilityManager::OnAtomicUpdateStarting(
+    AXTree* tree,
+    const std::set<AXNodeID>& deleted_node_ids,
+    const std::set<AXNodeID>& reparented_node_ids) {
+  for (const auto& id : deleted_node_ids) {
+    id_wrapper_map_.erase(id);
+    popup_root_ids_.erase(id);
+    node_id_delegate_->OnAXNodeDeleted(id);
+  }
+
+  for (const auto& id : reparented_node_ids) {
+    if (auto iter = id_wrapper_map_.find(id); iter != id_wrapper_map_.end()) {
+      CHECK_DEREF(iter->second.get()).reset_node();
+    }
+  }
 }
 
 void BrowserAccessibilityManager::OnAtomicUpdateFinished(

@@ -240,7 +240,7 @@ bool DeserializeWindowShowState(int show_state_int,
       *show_state = ui::mojom::WindowShowState::kFullscreen;
       return true;
     case kSerializedShowStateHidden:
-      *show_state = ui::SHOW_STATE_HIDDEN;
+      *show_state = ui::mojom::WindowShowState::kHidden;
       return true;
     case kSerializedShowStateInvalid:
     default:

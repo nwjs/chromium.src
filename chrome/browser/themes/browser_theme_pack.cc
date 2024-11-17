@@ -355,8 +355,10 @@ scoped_refptr<base::RefCountedMemory> ReadFileData(const base::FilePath& path) {
         std::vector<unsigned char> raw_data;
         raw_data.resize(size);
         char* data = reinterpret_cast<char*>(&(raw_data.front()));
-        if (file.ReadAtCurrentPos(data, size) == length)
-          return base::RefCountedBytes::TakeVector(&raw_data);
+        if (file.ReadAtCurrentPos(data, size) == length) {
+          return base::MakeRefCounted<base::RefCountedBytes>(
+              std::move(raw_data));
+        }
       }
     }
   }
@@ -765,8 +767,7 @@ scoped_refptr<BrowserThemePack> BrowserThemePack::BuildFromDataPack(
     return nullptr;
   }
 
-  std::optional<std::string_view> pointer =
-      data_pack->GetStringPiece(kHeaderID);
+  std::optional<std::string_view> pointer = data_pack->GetStringView(kHeaderID);
   if (!pointer) {
     return nullptr;
   }
@@ -786,35 +787,35 @@ scoped_refptr<BrowserThemePack> BrowserThemePack::BuildFromDataPack(
     return nullptr;
   }
 
-  pointer = data_pack->GetStringPiece(kTintsID);
+  pointer = data_pack->GetStringView(kTintsID);
   if (!pointer) {
     return nullptr;
   }
   pack->tints_ =
       reinterpret_cast<TintEntry*>(const_cast<char*>(pointer->data()));
 
-  pointer = data_pack->GetStringPiece(kColorsID);
+  pointer = data_pack->GetStringView(kColorsID);
   if (!pointer) {
     return nullptr;
   }
   pack->colors_ =
       reinterpret_cast<ColorPair*>(const_cast<char*>(pointer->data()));
 
-  pointer = data_pack->GetStringPiece(kDisplayPropertiesID);
+  pointer = data_pack->GetStringView(kDisplayPropertiesID);
   if (!pointer) {
     return nullptr;
   }
   pack->display_properties_ = reinterpret_cast<DisplayPropertyPair*>(
       const_cast<char*>(pointer->data()));
 
-  pointer = data_pack->GetStringPiece(kSourceImagesID);
+  pointer = data_pack->GetStringView(kSourceImagesID);
   if (!pointer) {
     return nullptr;
   }
   pack->source_images_ =
       reinterpret_cast<SourceImage*>(const_cast<char*>(pointer->data()));
 
-  pointer = data_pack->GetStringPiece(kScaleFactorsID);
+  pointer = data_pack->GetStringView(kScaleFactorsID);
   if (!pointer) {
     return nullptr;
   }
@@ -1973,7 +1974,7 @@ void BrowserThemePack::RepackImages(const ImageCache& images,
       int raw_id = GetRawIDByPersistentID(
           image.first, ui::GetSupportedResourceScaleFactor(rep.scale()));
       (*reencoded_images)[raw_id] =
-          base::RefCountedBytes::TakeVector(&bitmap_data);
+          base::MakeRefCounted<base::RefCountedBytes>(std::move(bitmap_data));
     }
   }
 }
@@ -2104,6 +2105,6 @@ void BrowserThemePack::GenerateRawImageForAllSupportedScales(
       break;
     }
     image_memory_[scaled_raw_id] =
-        base::RefCountedBytes::TakeVector(&bitmap_data);
+        base::MakeRefCounted<base::RefCountedBytes>(std::move(bitmap_data));
   }
 }

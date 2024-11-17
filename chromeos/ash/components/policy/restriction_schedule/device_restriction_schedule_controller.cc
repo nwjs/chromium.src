@@ -6,11 +6,14 @@
 
 #include <algorithm>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "base/functional/bind.h"
+#include "base/i18n/time_formatting.h"
 #include "base/location.h"
 #include "base/memory/raw_ref.h"
+#include "base/observer_list.h"
 #include "base/time/time.h"
 #include "base/timer/wall_clock_timer.h"
 #include "base/values.h"
@@ -18,9 +21,12 @@
 #include "chromeos/ash/components/policy/weekly_time/weekly_time_checked.h"
 #include "chromeos/ash/components/policy/weekly_time/weekly_time_interval_checked.h"
 #include "chromeos/constants/pref_names.h"
+#include "chromeos/strings/grit/chromeos_strings.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
+#include "ui/base/l10n/l10n_util.h"
+#include "ui/strings/grit/ui_strings.h"
 
 namespace policy {
 
@@ -31,7 +37,28 @@ constexpr base::TimeDelta kNotificationLeadTime = base::Minutes(30);
 
 using ::policy::weekly_time::ExtractIntervalsFromList;
 using ::policy::weekly_time::GetDurationToNextEvent;
+using ::policy::weekly_time::GetNextEvent;
 using ::policy::weekly_time::IntervalsContainTime;
+using Day = ::policy::WeeklyTimeChecked::Day;
+
+int GetDayOfWeekStringId(Day day_of_week) {
+  switch (day_of_week) {
+    case Day::kMonday:
+      return IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE_MONDAY;
+    case Day::kTuesday:
+      return IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE_TUESDAY;
+    case Day::kWednesday:
+      return IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE_WEDNESDAY;
+    case Day::kThursday:
+      return IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE_THURSDAY;
+    case Day::kFriday:
+      return IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE_FRIDAY;
+    case Day::kSaturday:
+      return IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE_SATURDAY;
+    case Day::kSunday:
+      return IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE_SUNDAY;
+  }
+}
 
 }  // namespace
 
@@ -63,6 +90,52 @@ void DeviceRestrictionScheduleController::RegisterLocalStatePrefs(
       false);
 }
 
+bool DeviceRestrictionScheduleController::RestrictionScheduleEnabled() const {
+  return state_ == State::kRestricted;
+}
+
+// Returns "Today", "Tomorrow", or the specific day of week with a preposition
+// for later days (eg. "on Wednesday").
+std::u16string DeviceRestrictionScheduleController::RestrictionScheduleEndDay()
+    const {
+  const WeeklyTimeChecked current_weekly_time =
+      WeeklyTimeChecked::FromTimeAsLocalTime(base::Time::Now());
+  std::optional<WeeklyTimeChecked> next_event =
+      GetNextEvent(intervals_, current_weekly_time);
+  if (state_ == State::kRegular || !next_event.has_value()) {
+    return std::u16string();
+  }
+
+  const Day week_day_today = current_weekly_time.day_of_week();
+  const Day week_day_next_event = next_event.value().day_of_week();
+
+  if (week_day_today == week_day_next_event) {
+    return l10n_util::GetStringUTF16(IDS_PAST_TIME_TODAY);
+  }
+
+  if (WeeklyTimeChecked::NextDay(week_day_today) == week_day_next_event) {
+    return l10n_util::GetStringUTF16(IDS_TIME_TOMORROW);
+  }
+
+  return l10n_util::GetStringUTF16(GetDayOfWeekStringId(week_day_next_event));
+}
+
+std::u16string DeviceRestrictionScheduleController::RestrictionScheduleEndTime()
+    const {
+  if (state_ == State::kRegular || !next_run_time_.has_value()) {
+    return std::u16string();
+  }
+  return base::TimeFormatTimeOfDay(next_run_time_.value());
+}
+
+void DeviceRestrictionScheduleController::AddObserver(Observer* observer) {
+  observers_.AddObserver(observer);
+}
+
+void DeviceRestrictionScheduleController::RemoveObserver(Observer* observer) {
+  observers_.RemoveObserver(observer);
+}
+
 void DeviceRestrictionScheduleController::OnPolicyUpdated() {
   const base::Value::List& policy_value =
       registrar_.prefs()->GetList(chromeos::prefs::kDeviceRestrictionSchedule);
@@ -81,22 +154,22 @@ void DeviceRestrictionScheduleController::Run() {
 
   // Update state.
   const base::Time current_time = base::Time::Now();
-  const std::optional<base::Time> next_run_time = GetNextRunTime(current_time);
-  const State state = GetCurrentState(current_time);
+  next_run_time_ = GetNextRunTime(current_time);
+  state_ = GetCurrentState(current_time);
 
   // Set up timers if there's a schedule (`intervals_` isn't empty).
-  if (next_run_time.has_value()) {
+  if (next_run_time_.has_value()) {
     // Show end session notification in regular state.
-    if (state == State::kRegular) {
-      StartNotificationTimer(current_time, next_run_time.value());
+    if (state_ == State::kRegular) {
+      StartNotificationTimer(current_time, next_run_time_.value());
     }
 
     // Set up next run of the function.
-    StartRunTimer(next_run_time.value());
+    StartRunTimer(next_run_time_.value());
   }
 
   // Schedule a post-logout notification if necessary.
-  if (state == State::kRestricted && delegate_->IsUserLoggedIn()) {
+  if (state_ == State::kRestricted && delegate_->IsUserLoggedIn()) {
     registrar_.prefs()->SetBoolean(
         chromeos::prefs::kDeviceRestrictionScheduleShowPostLogoutNotification,
         true);
@@ -104,7 +177,9 @@ void DeviceRestrictionScheduleController::Run() {
 
   // Block or unblock login. This needs to be the last statement since it could
   // cause a restart to the login-screen.
-  delegate_->BlockLogin(state == State::kRestricted);
+  for (auto& observer : observers_) {
+    observer.OnRestrictionScheduleStateChanged(state_ == State::kRestricted);
+  }
 }
 
 void DeviceRestrictionScheduleController::MaybeShowUpcomingLogoutNotification(
@@ -125,6 +200,8 @@ void DeviceRestrictionScheduleController::MaybeShowPostLogoutNotification() {
   }
 }
 
+// TODO(isandrk): Pass in `intervals_` and convert to pure function in the empty
+// namespace.
 std::optional<base::Time> DeviceRestrictionScheduleController::GetNextRunTime(
     base::Time current_time) const {
   const WeeklyTimeChecked current_weekly_time_checked =
@@ -140,6 +217,8 @@ std::optional<base::Time> DeviceRestrictionScheduleController::GetNextRunTime(
   return current_time + time_to_next_run.value();
 }
 
+// TODO(isandrk): Pass in `intervals_` and convert to pure function in the empty
+// namespace.
 DeviceRestrictionScheduleController::State
 DeviceRestrictionScheduleController::GetCurrentState(
     base::Time current_time) const {

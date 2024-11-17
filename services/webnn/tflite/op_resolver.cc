@@ -64,6 +64,10 @@ OpResolver::OpResolver(const mojom::CreateContextOptions& options) {
              ::tflite::ops::builtin::Register_DIV(),
              /* min_version */ 1,
              /* max_version */ 2);
+  AddBuiltin(::tflite::BuiltinOperator_DEQUANTIZE,
+             ::tflite::ops::builtin::Register_DEQUANTIZE(),
+             /* min_version = */ 1,
+             /* max_version = */ 6);
   AddBuiltin(::tflite::BuiltinOperator_ELU,
              ::tflite::ops::builtin::Register_ELU());
   AddBuiltin(::tflite::BuiltinOperator_EQUAL,
@@ -223,6 +227,10 @@ OpResolver::OpResolver(const mojom::CreateContextOptions& options) {
              /* max_version = */ 2);
   AddBuiltin(::tflite::BuiltinOperator_TANH,
              ::tflite::ops::builtin::Register_TANH(), /* min_version = */ 1,
+             /* max_version = */ 3);
+  AddBuiltin(::tflite::BuiltinOperator_TILE,
+             ::tflite::ops::builtin::Register_TILE(),
+             /* min_version = */ 1,
              /* max_version = */ 3);
   AddBuiltin(::tflite::BuiltinOperator_TRANSPOSE,
              ::tflite::ops::builtin::Register_TRANSPOSE(),

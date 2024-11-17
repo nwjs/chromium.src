@@ -113,34 +113,6 @@
 //     kUpdateError                    kCanUpdate
 
 namespace update_client {
-namespace {
-
-base::Value::Dict MakeEvent(
-    UpdateClient::PingParams ping_params,
-    const std::optional<base::Version>& previous_version,
-    const std::optional<base::Version>& next_version) {
-  base::Value::Dict event;
-  event.Set("eventtype", ping_params.event_type);
-  event.Set("eventresult", ping_params.result);
-  if (ping_params.error_code) {
-    event.Set("errorcode", ping_params.error_code);
-  }
-  if (ping_params.extra_code1) {
-    event.Set("extracode1", ping_params.extra_code1);
-  }
-  if (!ping_params.app_command_id.empty()) {
-    event.Set("appcommandid", ping_params.app_command_id);
-  }
-  if (previous_version) {
-    event.Set("previousversion", previous_version->GetString());
-  }
-  if (next_version) {
-    event.Set("nextversion", next_version->GetString());
-  }
-  return event;
-}
-
-}  // namespace
 
 Component::Component(const UpdateContext& update_context, const std::string& id)
     : id_(id),
@@ -267,19 +239,6 @@ void Component::SetParseResult(const ProtocolParser::Result& result) {
   }
 }
 
-void Component::PingOnly(const CrxComponent& crx_component,
-                         UpdateClient::PingParams ping_params) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK_EQ(ComponentState::kNew, state());
-  crx_component_ = crx_component;
-  previous_version_ = crx_component_->version;
-  error_category_ = ping_params.error_category;
-  error_code_ = ping_params.error_code;
-  extra_code1_ = ping_params.extra_code1;
-  state_ = std::make_unique<StatePingOnly>(this);
-  AppendEvent(MakeEvent(ping_params, previous_version_, std::nullopt));
-}
-
 void Component::SetUpdateCheckResult(
     const std::optional<ProtocolParser::Result>& result,
     ErrorCategory error_category,
@@ -293,11 +252,6 @@ void Component::SetUpdateCheckResult(
   if (result) {
     SetParseResult(result.value());
   }
-}
-
-void Component::NotifyWait() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  NotifyObservers(Events::COMPONENT_WAIT);
 }
 
 bool Component::HasDiffUpdate() const {
@@ -314,18 +268,9 @@ void Component::AppendEvent(base::Value::Dict event) {
   events_.push_back(std::move(event));
 }
 
-void Component::NotifyObservers(UpdateClient::Observer::Events event) const {
+void Component::NotifyObservers() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
-  // There is no corresponding component state for the COMPONENT_WAIT event.
-  if (update_context_->crx_state_change_callback &&
-      event != UpdateClient::Observer::Events::COMPONENT_WAIT) {
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE,
-        base::BindRepeating(update_context_->crx_state_change_callback,
-                            GetCrxUpdateItem()));
-  }
-  update_context_->notify_observers_callback.Run(event, id_);
+  update_context_->crx_state_change_callback.Run(GetCrxUpdateItem());
 }
 
 base::TimeDelta Component::GetUpdateDuration() const {
@@ -461,12 +406,8 @@ void Component::StateNew::DoHandle() {
     // new state is entered. Hence, posting the task below is a workaround for
     // this design oversight.
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE,
-        base::BindOnce(
-            [](Component& component) {
-              component.NotifyObservers(Events::COMPONENT_CHECKING_FOR_UPDATES);
-            },
-            std::ref(component)));
+        FROM_HERE, base::BindOnce(&Component::NotifyObservers,
+                                  base::Unretained(&component)));
   } else {
     component.error_code_ = static_cast<int>(Error::CRX_NOT_FOUND);
     component.error_category_ = ErrorCategory::kService;
@@ -545,7 +486,7 @@ void Component::StateUpdateError::DoHandle() {
   }
 
   EndState();
-  component.NotifyObservers(Events::COMPONENT_UPDATE_ERROR);
+  component.NotifyObservers();
 }
 
 Component::StateCanUpdate::StateCanUpdate(Component* component)
@@ -562,7 +503,7 @@ void Component::StateCanUpdate::DoHandle() {
   CHECK(component.crx_component());
 
   component.is_update_available_ = true;
-  component.NotifyObservers(Events::COMPONENT_UPDATE_FOUND);
+  component.NotifyObservers();
 
   if (!component.crx_component()->updates_enabled ||
       (!component.crx_component()->allow_updates_on_metered_connection &&
@@ -599,12 +540,10 @@ void Component::StateCanUpdate::DoHandle() {
 
   // Start computing the cost of the this update from here on.
   component.update_begin_ = base::TimeTicks::Now();
-  CHECK(component.update_context_->crx_cache_);
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
       base::BindOnce(
-          &update_client::CrxCache::Get,
-          component.update_context_->crx_cache_.value(),
+          &update_client::CrxCache::Get, component.update_context_->crx_cache_,
           component.crx_component()->app_id, component.next_fp_,
           base::BindOnce(
               &Component::StateCanUpdate::GetNextCrxFromCacheComplete,
@@ -615,27 +554,21 @@ void Component::StateCanUpdate::DoHandle() {
 // and the configuration allows this update.
 bool Component::StateCanUpdate::CanTryDiffUpdate() const {
   const auto& component = Component::State::component();
-  return component.HasDiffUpdate() && !component.diff_error_code_ &&
-         component.update_context_->crx_cache_.has_value() &&
-         component.update_context_->config->EnabledDeltas();
+  return component.HasDiffUpdate() && !component.diff_error_code_;
 }
 
 void Component::StateCanUpdate::GetNextCrxFromCacheComplete(
-    const CrxCache::Result& result) {
+    const base::expected<base::FilePath, UnpackerError>& result) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   auto& component = State::component();
-  if (result.error == UnpackerError::kNone) {
-    component.payload_path_ = result.crx_cache_path;
+  if (result.has_value()) {
+    component.payload_path_ = result.value();
     TransitionState(std::make_unique<StateUpdating>(&component));
     return;
   }
   if (CanTryDiffUpdate()) {
-    base::ThreadPool::PostTaskAndReplyWithResult(
-        FROM_HERE, {base::MayBlock()},
-        base::BindOnce(&update_client::CrxCache::Contains,
-                       component.update_context_->crx_cache_.value(),
-                       component.crx_component()->app_id,
-                       component.previous_fp_),
+    component.update_context_->crx_cache_->Get(
+        component.crx_component()->app_id, component.previous_fp_,
         base::BindOnce(
             &Component::StateCanUpdate::CheckIfCacheContainsPreviousCrxComplete,
             base::Unretained(this)));
@@ -645,10 +578,10 @@ void Component::StateCanUpdate::GetNextCrxFromCacheComplete(
 }
 
 void Component::StateCanUpdate::CheckIfCacheContainsPreviousCrxComplete(
-    bool crx_is_in_cache) {
+    const base::expected<base::FilePath, UnpackerError>& result) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   auto& component = State::component();
-  if (crx_is_in_cache) {
+  if (result.has_value()) {
     TransitionState(std::make_unique<StateDownloading>(&component, true));
   } else {
     // If the configuration allows diff update, but the previous crx
@@ -673,7 +606,7 @@ void Component::StateUpToDate::DoHandle() {
   auto& component = State::component();
   CHECK(component.crx_component());
 
-  component.NotifyObservers(Events::COMPONENT_ALREADY_UP_TO_DATE);
+  component.NotifyObservers();
   EndState();
 }
 
@@ -707,14 +640,12 @@ void Component::StateDownloading::DoHandle() {
              int64_t total_bytes) {
             component->downloaded_bytes_ = downloaded_bytes;
             component->total_bytes_ = total_bytes;
-            component->NotifyObservers(
-                UpdateClient::Observer::Events::COMPONENT_UPDATE_DOWNLOADING);
+            component->NotifyObservers();
           },
           base::raw_ref(component)),
       base::BindOnce(&Component::StateDownloading::DownloadComplete,
                      base::Unretained(this)));
-  component.NotifyObservers(
-      UpdateClient::Observer::Events::COMPONENT_UPDATE_DOWNLOADING);
+  component.NotifyObservers();
 }
 
 void Component::StateDownloading::DownloadComplete(
@@ -762,7 +693,7 @@ void Component::StateUpdatingDiff::DoHandle() {
   CHECK(component.crx_component());
 
   component.install_progress_ = -1;
-  component.NotifyObservers(Events::COMPONENT_UPDATE_READY);
+  component.NotifyObservers();
 
   PuffOperation(
       component.update_context_->crx_cache_,
@@ -809,7 +740,7 @@ void Component::StateUpdatingDiff::InstallProgress(int install_progress) {
   if (install_progress >= 0 && install_progress <= 100) {
     component.install_progress_ = install_progress;
   }
-  component.NotifyObservers(Events::COMPONENT_UPDATE_UPDATING);
+  component.NotifyObservers();
 }
 
 void Component::StateUpdatingDiff::InstallComplete(
@@ -854,13 +785,10 @@ void Component::StateUpdating::DoHandle() {
   CHECK(component.crx_component());
 
   component.install_progress_ = -1;
-  component.NotifyObservers(Events::COMPONENT_UPDATE_READY);
+  component.NotifyObservers();
 
   InstallOperation(
-      component.crx_component()->allow_cached_copies &&
-              update_context.config->EnabledDeltas()
-          ? update_context.crx_cache_
-          : std::nullopt,
+      update_context.crx_cache_,
       component.update_context_->config->GetUnzipperFactory()->Create(),
       component.crx_component()->crx_format_requirement,
       component.crx_component()->app_id, component.crx_component()->pk_hash,
@@ -882,7 +810,7 @@ void Component::StateUpdating::InstallProgress(int install_progress) {
   if (install_progress >= 0 && install_progress <= 100) {
     component.install_progress_ = install_progress;
   }
-  component.NotifyObservers(Events::COMPONENT_UPDATE_UPDATING);
+  component.NotifyObservers();
 }
 
 void Component::StateUpdating::InstallComplete(
@@ -897,13 +825,9 @@ void Component::StateUpdating::InstallComplete(
   component.installer_result_ = result;
 
   CHECK(component.crx_component_);
-  if (!component.crx_component_->allow_cached_copies &&
-      component.update_context_->crx_cache_) {
-    base::ThreadPool::CreateSequencedTaskRunner(kTaskTraits)
-        ->PostTask(FROM_HERE,
-                   base::BindOnce(&CrxCache::RemoveAll,
-                                  component.update_context_->crx_cache_->get(),
-                                  component.crx_component()->app_id));
+  if (!component.crx_component_->allow_cached_copies) {
+    component.update_context_->crx_cache_->RemoveAll(
+        component.crx_component()->app_id);
   }
 
   if (component.error_category_ != ErrorCategory::kNone) {
@@ -947,23 +871,8 @@ void Component::StateUpdated::DoHandle() {
 
   component.AppendEvent(component.MakeEventUpdateComplete());
 
-  component.NotifyObservers(Events::COMPONENT_UPDATED);
+  component.NotifyObservers();
   metrics::RecordComponentUpdated();
-  EndState();
-}
-
-Component::StatePingOnly::StatePingOnly(Component* component)
-    : State(component, ComponentState::kPingOnly) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-}
-
-Component::StatePingOnly::~StatePingOnly() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-}
-
-void Component::StatePingOnly::DoHandle() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK(State::component().crx_component());
   EndState();
 }
 

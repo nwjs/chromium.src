@@ -128,6 +128,8 @@ bool SupportsInvalidation(CSSSelector::PseudoType type) {
     case CSSSelector::kPseudoFullScreenAncestor:
     case CSSSelector::kPseudoFullscreen:
     case CSSSelector::kPseudoPaused:
+    case CSSSelector::kPseudoPermissionElementInvalidStyle:
+    case CSSSelector::kPseudoPermissionElementOccluded:
     case CSSSelector::kPseudoPermissionGranted:
     case CSSSelector::kPseudoPictureInPicture:
     case CSSSelector::kPseudoPlaying:
@@ -149,8 +151,7 @@ bool SupportsInvalidation(CSSSelector::PseudoType type) {
     case CSSSelector::kPseudoOpen:
     case CSSSelector::kPseudoClosed:
     case CSSSelector::kPseudoDialogInTopLayer:
-    case CSSSelector::kPseudoSelectFallbackButton:
-    case CSSSelector::kPseudoSelectFallbackButtonText:
+    case CSSSelector::kPseudoSelectHasChildButton:
     case CSSSelector::kPseudoPicker:
     case CSSSelector::kPseudoPopoverInTopLayer:
     case CSSSelector::kPseudoPopoverOpen:
@@ -176,6 +177,7 @@ bool SupportsInvalidation(CSSSelector::PseudoType type) {
     case CSSSelector::kPseudoViewTransitionOld:
     case CSSSelector::kPseudoActiveViewTransition:
     case CSSSelector::kPseudoActiveViewTransitionType:
+    case CSSSelector::kPseudoHasSlotted:
       return true;
     case CSSSelector::kPseudoUnknown:
     case CSSSelector::kPseudoLeftPage:
@@ -249,6 +251,14 @@ scoped_refptr<InvalidationSet> CopyInvalidationSet(
   scoped_refptr<InvalidationSet> copy = DescendantInvalidationSet::Create();
   copy->Combine(invalidation_set);
   return copy;
+}
+
+bool IsSimpleSelectorValidAfterHost(const CSSSelector* simple_selector) {
+  // TODO(blee@igalia.com) Need to support logical combinations after :host
+  // (e.g. ':host:not(:has(.a))')
+  return simple_selector->Match() == CSSSelector::kPseudoElement ||
+         simple_selector->IsHostPseudoClass() ||
+         simple_selector->GetPseudoType() == CSSSelector::kPseudoHas;
 }
 
 }  // anonymous namespace
@@ -353,6 +363,10 @@ RuleInvalidationDataVisitor<VisitorType>::CollectMetadataFromSelector(
        current = current->NextSimpleSelector()) {
     switch (current->GetPseudoType()) {
       case CSSSelector::kPseudoHas:
+        if (found_host_pseudo && !current->IsLastInComplexSelector() &&
+            !IsSimpleSelectorValidAfterHost(current->NextSimpleSelector())) {
+          return SelectorPreMatch::kNeverMatches;
+        }
         break;
       case CSSSelector::kPseudoFirstLine:
         metadata.uses_first_line_rules = true;
@@ -366,9 +380,7 @@ RuleInvalidationDataVisitor<VisitorType>::CollectMetadataFromSelector(
           return SelectorPreMatch::kNeverMatches;
         }
         if (!current->IsLastInComplexSelector() &&
-            current->NextSimpleSelector()->Match() !=
-                CSSSelector::kPseudoElement &&
-            !current->NextSimpleSelector()->IsHostPseudoClass()) {
+            !IsSimpleSelectorValidAfterHost(current->NextSimpleSelector())) {
           return SelectorPreMatch::kNeverMatches;
         }
         found_host_pseudo = true;
@@ -886,6 +898,9 @@ void RuleInvalidationDataVisitor<VisitorType>::
     AddFeaturesToInvalidationSetsForHasPseudoClass(
         simple_selector, &compound, sibling_features, descendant_features,
         in_nth_child);
+    if (simple_selector.HasArgumentMatchInShadowTree()) {
+      descendant_features.invalidation_flags.SetTreeBoundaryCrossing(true);
+    }
   }
 
   if (InvalidationSetType* invalidation_set = InvalidationSetForSimpleSelector(
@@ -1602,6 +1617,8 @@ RuleInvalidationDataVisitor<VisitorType>::InvalidationSetForSimpleSelector(
       case CSSSelector::kPseudoFullScreenAncestor:
       case CSSSelector::kPseudoFullscreen:
       case CSSSelector::kPseudoPaused:
+      case CSSSelector::kPseudoPermissionElementInvalidStyle:
+      case CSSSelector::kPseudoPermissionElementOccluded:
       case CSSSelector::kPseudoPermissionGranted:
       case CSSSelector::kPseudoPictureInPicture:
       case CSSSelector::kPseudoPlaying:
@@ -1620,6 +1637,7 @@ RuleInvalidationDataVisitor<VisitorType>::InvalidationSetForSimpleSelector(
       case CSSSelector::kPseudoSelectorFragmentAnchor:
       case CSSSelector::kPseudoActiveViewTransition:
       case CSSSelector::kPseudoActiveViewTransitionType:
+      case CSSSelector::kPseudoHasSlotted:
         return EnsurePseudoInvalidationSet(selector.GetPseudoType(), type,
                                            position, in_nth_child);
       case CSSSelector::kPseudoFirstOfType:

@@ -85,8 +85,7 @@ class HeadlessContentBrowserClient : public content::ContentBrowserClient {
   bool IsPrivacySandboxReportingDestinationAttested(
       content::BrowserContext* browser_context,
       const url::Origin& destination_origin,
-      content::PrivacySandboxInvokingAPI invoking_api,
-      bool post_impression_reporting) override;
+      content::PrivacySandboxInvokingAPI invoking_api) override;
 
   bool IsSharedStorageAllowed(
       content::BrowserContext* browser_context,
@@ -135,6 +134,8 @@ class HeadlessContentBrowserClient : public content::ContentBrowserClient {
   std::unique_ptr<content::VideoOverlayWindow>
   CreateWindowForVideoPictureInPicture(
       content::VideoPictureInPictureWindowController* controller) override;
+
+  bool ShouldSandboxNetworkService() override;
 
  private:
   class StubBadgeService;

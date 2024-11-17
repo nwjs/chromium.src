@@ -20,6 +20,7 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -76,6 +77,7 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.JniMocker;
+import org.chromium.chrome.browser.device_reauth.BiometricStatus;
 import org.chromium.chrome.browser.device_reauth.ReauthenticatorBridge;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -103,6 +105,7 @@ import org.chromium.chrome.test.util.ActivityTestUtils;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
 import org.chromium.chrome.test.util.browser.sync.SyncTestUtil;
+import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.policy.test.annotations.Policies;
 import org.chromium.components.prefs.PrefService;
@@ -116,6 +119,7 @@ import org.chromium.components.sync.TransportState;
 import org.chromium.components.sync.UserSelectableType;
 import org.chromium.components.sync.internal.SyncPrefNames;
 import org.chromium.components.user_prefs.UserPrefs;
+import org.chromium.ui.modaldialog.ModalDialogManagerHolder;
 import org.chromium.ui.test.util.ViewUtils;
 
 import java.io.IOException;
@@ -233,6 +237,21 @@ public class ManageSyncSettingsTest {
         }
 
         mJniMocker.mock(PasswordManagerUtilBridgeJni.TEST_HOOKS, mPasswordManagerUtilBridgeJniMock);
+    }
+
+    /**
+     * Test opening sync settings without sync consent when `mIsFromSigninScreen` is true doesn't
+     * crash.
+     *
+     * <p>This is a regression test for crbug.com/362220452.
+     */
+    @Test
+    @SmallTest
+    @Feature({"Sync"})
+    @EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
+    public void testOpenSyncSettingsIsFromSigninScreenIsTrueWithoutSyncConsent() {
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+        mSettingsActivityTestRule.startSettingsActivity(ManageSyncSettings.createArguments(true));
     }
 
     @Test
@@ -896,7 +915,8 @@ public class ManageSyncSettingsTest {
     public void testSigninSettingsBatchUploadCardVisibilityWhenSyncIsConfiguring()
             throws Exception {
         ReauthenticatorBridge.setInstanceForTesting(mReauthenticatorMock);
-        when(mReauthenticatorMock.canUseAuthenticationWithBiometricOrScreenLock()).thenReturn(true);
+        when(mReauthenticatorMock.getBiometricAvailabilityStatus())
+                .thenReturn(BiometricStatus.ONLY_LSKF_AVAILABLE);
         SyncServiceFactory.setInstanceForTesting(mSyncService);
         when(mSyncService.getTransportState()).thenReturn(TransportState.CONFIGURING);
         doAnswer(
@@ -1008,13 +1028,41 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"Sync", "RenderTest"})
+    public void testBottomOfAccountSyncSettingsPage() throws Exception {
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+        final ManageSyncSettings fragment = startManageSyncPreferences();
+        onView(withId(R.id.recycler_view)).perform(RecyclerViewActions.scrollToLastPosition());
+        render(fragment, "bottom_of_account_sync_settings_page");
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync", "RenderTest"})
+    @EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
+    public void testSignoutButton() throws Exception {
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+        final ManageSyncSettings fragment = startManageSyncPreferences();
+        onView(withId(R.id.recycler_view)).perform(RecyclerViewActions.scrollToLastPosition());
+        ViewUtils.waitForVisibleView(withId(R.id.sign_out_button));
+        View view =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> {
+                            return fragment.getActivity().findViewById(R.id.sign_out_button);
+                        });
+        mRenderTestRule.render(view, "sign_out_button");
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync", "RenderTest"})
     @EnableFeatures({
         ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS,
         ChromeFeatureList.ENABLE_BATCH_UPLOAD_FROM_SETTINGS
     })
     public void testSigninSettingsBatchUploadEntryDescriptionPassword() throws Exception {
         ReauthenticatorBridge.setInstanceForTesting(mReauthenticatorMock);
-        when(mReauthenticatorMock.canUseAuthenticationWithBiometricOrScreenLock()).thenReturn(true);
+        when(mReauthenticatorMock.getBiometricAvailabilityStatus())
+                .thenReturn(BiometricStatus.BIOMETRICS_AVAILABLE);
         SyncServiceFactory.setInstanceForTesting(mSyncService);
         doAnswer(
                         args -> {
@@ -1058,7 +1106,8 @@ public class ManageSyncSettingsTest {
     })
     public void testSigninSettingsBatchUploadEntryDescriptionOther() throws Exception {
         ReauthenticatorBridge.setInstanceForTesting(mReauthenticatorMock);
-        when(mReauthenticatorMock.canUseAuthenticationWithBiometricOrScreenLock()).thenReturn(true);
+        when(mReauthenticatorMock.getBiometricAvailabilityStatus())
+                .thenReturn(BiometricStatus.BIOMETRICS_AVAILABLE);
         SyncServiceFactory.setInstanceForTesting(mSyncService);
         doAnswer(
                         args -> {
@@ -1102,7 +1151,8 @@ public class ManageSyncSettingsTest {
     })
     public void testSigninSettingsBatchUploadEntryDescriptionPasswordAndOther() throws Exception {
         ReauthenticatorBridge.setInstanceForTesting(mReauthenticatorMock);
-        when(mReauthenticatorMock.canUseAuthenticationWithBiometricOrScreenLock()).thenReturn(true);
+        when(mReauthenticatorMock.getBiometricAvailabilityStatus())
+                .thenReturn(BiometricStatus.BIOMETRICS_AVAILABLE);
         SyncServiceFactory.setInstanceForTesting(mSyncService);
         doAnswer(
                         args -> {
@@ -1135,6 +1185,191 @@ public class ManageSyncSettingsTest {
                             return fragment.getActivity().findViewById(R.id.signin_settings_card);
                         });
         mRenderTestRule.render(view, "batch_upload_entry_description_password_and_other");
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync", "RenderTest"})
+    @EnableFeatures({
+        ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS,
+        ChromeFeatureList.ENABLE_BATCH_UPLOAD_FROM_SETTINGS
+    })
+    public void testSigninSettingsBatchUploadDialogShouldShowPasswordsToggle() throws Exception {
+        ReauthenticatorBridge.setInstanceForTesting(mReauthenticatorMock);
+        when(mReauthenticatorMock.getBiometricAvailabilityStatus())
+                .thenReturn(BiometricStatus.BIOMETRICS_AVAILABLE);
+        SyncServiceFactory.setInstanceForTesting(mSyncService);
+        doAnswer(
+                        args -> {
+                            HashMap<Integer, LocalDataDescription> localDataDescription =
+                                    new HashMap<>();
+                            localDataDescription.put(
+                                    DataType.PASSWORDS,
+                                    new LocalDataDescription(1, new String[] {"example.com"}, 1));
+                            localDataDescription.put(
+                                    DataType.BOOKMARKS,
+                                    new LocalDataDescription(0, new String[] {}, 0));
+                            localDataDescription.put(
+                                    DataType.READING_LIST,
+                                    new LocalDataDescription(0, new String[] {}, 0));
+                            args.getArgument(1, Callback.class).onResult(localDataDescription);
+                            return null;
+                        })
+                .when(mSyncService)
+                .getLocalDataDescriptions(
+                        eq(Set.of(DataType.BOOKMARKS, DataType.PASSWORDS, DataType.READING_LIST)),
+                        any(Callback.class));
+
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+        final ManageSyncSettings fragment = startManageSyncPreferences();
+
+        ViewUtils.waitForVisibleView(withId(R.id.signin_settings_card));
+        onView(withText(R.string.account_settings_bulk_upload_section_save_button))
+                .perform(click());
+        ViewUtils.waitForVisibleView(withId(R.id.batch_upload_dialog));
+
+        View view =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> {
+                            AppModalPresenter presenter =
+                                    (AppModalPresenter)
+                                            ((ModalDialogManagerHolder) fragment.getActivity())
+                                                    .getModalDialogManager()
+                                                    .getCurrentPresenterForTest();
+                            return presenter.getDialogViewForTesting();
+                        });
+        mRenderTestRule.render(view, "batch_upload_passwords_dialog");
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync", "RenderTest"})
+    @EnableFeatures({
+        ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS,
+        ChromeFeatureList.ENABLE_BATCH_UPLOAD_FROM_SETTINGS
+    })
+    public void testSigninSettingsBatchUploadDialogShouldShowBookmarksAndReadingListToggles()
+            throws Exception {
+        ReauthenticatorBridge.setInstanceForTesting(mReauthenticatorMock);
+        when(mReauthenticatorMock.getBiometricAvailabilityStatus())
+                .thenReturn(BiometricStatus.BIOMETRICS_AVAILABLE);
+        SyncServiceFactory.setInstanceForTesting(mSyncService);
+        doAnswer(
+                        args -> {
+                            HashMap<Integer, LocalDataDescription> localDataDescription =
+                                    new HashMap<>();
+                            localDataDescription.put(
+                                    DataType.PASSWORDS,
+                                    new LocalDataDescription(0, new String[] {}, 0));
+                            localDataDescription.put(
+                                    DataType.BOOKMARKS,
+                                    new LocalDataDescription(1, new String[] {"example.com"}, 1));
+                            localDataDescription.put(
+                                    DataType.READING_LIST,
+                                    new LocalDataDescription(1, new String[] {"example.com"}, 1));
+                            args.getArgument(1, Callback.class).onResult(localDataDescription);
+                            return null;
+                        })
+                .when(mSyncService)
+                .getLocalDataDescriptions(
+                        eq(Set.of(DataType.BOOKMARKS, DataType.PASSWORDS, DataType.READING_LIST)),
+                        any(Callback.class));
+
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+        final ManageSyncSettings fragment = startManageSyncPreferences();
+
+        ViewUtils.waitForVisibleView(withId(R.id.signin_settings_card));
+        onView(withText(R.string.account_settings_bulk_upload_section_save_button))
+                .perform(click());
+        ViewUtils.waitForVisibleView(withId(R.id.batch_upload_dialog));
+
+        View view =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> {
+                            AppModalPresenter presenter =
+                                    (AppModalPresenter)
+                                            ((ModalDialogManagerHolder) fragment.getActivity())
+                                                    .getModalDialogManager()
+                                                    .getCurrentPresenterForTest();
+                            return presenter.getDialogViewForTesting();
+                        });
+        mRenderTestRule.render(view, "batch_upload_bookmarks_and_reading_list_dialog");
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync", "RenderTest"})
+    @EnableFeatures({
+        ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS,
+        ChromeFeatureList.ENABLE_BATCH_UPLOAD_FROM_SETTINGS
+    })
+    public void testSigninSettingsBatchUploadDialogShouldShowAllToggles() throws Exception {
+        ReauthenticatorBridge.setInstanceForTesting(mReauthenticatorMock);
+        when(mReauthenticatorMock.getBiometricAvailabilityStatus())
+                .thenReturn(BiometricStatus.BIOMETRICS_AVAILABLE);
+        SyncServiceFactory.setInstanceForTesting(mSyncService);
+        doAnswer(
+                        args -> {
+                            HashMap<Integer, LocalDataDescription> localDataDescription =
+                                    new HashMap<>();
+                            localDataDescription.put(
+                                    DataType.PASSWORDS,
+                                    new LocalDataDescription(1, new String[] {"example.com"}, 1));
+                            localDataDescription.put(
+                                    DataType.BOOKMARKS,
+                                    new LocalDataDescription(1, new String[] {"example.com"}, 1));
+                            localDataDescription.put(
+                                    DataType.READING_LIST,
+                                    new LocalDataDescription(1, new String[] {"example.com"}, 1));
+                            args.getArgument(1, Callback.class).onResult(localDataDescription);
+                            return null;
+                        })
+                .when(mSyncService)
+                .getLocalDataDescriptions(
+                        eq(Set.of(DataType.BOOKMARKS, DataType.PASSWORDS, DataType.READING_LIST)),
+                        any(Callback.class));
+
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+        final ManageSyncSettings fragment = startManageSyncPreferences();
+
+        ViewUtils.waitForVisibleView(withId(R.id.signin_settings_card));
+        onView(withText(R.string.account_settings_bulk_upload_section_save_button))
+                .perform(click());
+        ViewUtils.waitForVisibleView(withId(R.id.batch_upload_dialog));
+
+        View view =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> {
+                            AppModalPresenter presenter =
+                                    (AppModalPresenter)
+                                            ((ModalDialogManagerHolder) fragment.getActivity())
+                                                    .getModalDialogManager()
+                                                    .getCurrentPresenterForTest();
+                            return presenter.getDialogViewForTesting();
+                        });
+        mRenderTestRule.render(view, "batch_upload_all_toggles_dialog");
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync"})
+    @EnableFeatures({
+        ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS,
+        ChromeFeatureList.ENABLE_BATCH_UPLOAD_FROM_SETTINGS
+    })
+    public void
+            testSigninSettingsBatchUploadEntryDescriptionForPasswordsNotRequestedWhenAuthUnavailable()
+                    throws Exception {
+        ReauthenticatorBridge.setInstanceForTesting(mReauthenticatorMock);
+        when(mReauthenticatorMock.getBiometricAvailabilityStatus())
+                .thenReturn(BiometricStatus.UNAVAILABLE);
+        SyncServiceFactory.setInstanceForTesting(mSyncService);
+
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+        startManageSyncPreferences();
+        verify(mSyncService, atLeast(1))
+                .getLocalDataDescriptions(
+                        eq(Set.of(DataType.BOOKMARKS, DataType.READING_LIST)), any(Callback.class));
     }
 
     @Test

@@ -420,17 +420,15 @@ void SetAndroidPayMethodData(v8::Isolate* isolate,
 
 void MeasureGooglePlayBillingPriceChangeConfirmation(
     ExecutionContext& execution_context,
-    const ScriptValue& input,
-    ExceptionState& exception_state) {
-  DCHECK(!exception_state.HadException());
-
+    const ScriptValue& input) {
+  v8::Isolate* isolate = execution_context.GetIsolate();
+  v8::TryCatch try_catch(isolate);
   GooglePlayBillingMethodData* google_play_billing =
       NativeValueTraits<GooglePlayBillingMethodData>::NativeValue(
-          execution_context.GetIsolate(), input.V8Value(), exception_state);
-  if (exception_state.HadException()) {
+          isolate, input.V8Value(), PassThroughException(isolate));
+  if (try_catch.HasCaught()) {
     // No need to report this exception, because this function is
     // only for measuring usage of a deprecated field.
-    exception_state.ClearException();
     return;
   }
 
@@ -452,8 +450,7 @@ void StringifyAndParseMethodSpecificData(ExecutionContext& execution_context,
   }
 
   if (supported_method == kGooglePlayBillingMethod) {
-    MeasureGooglePlayBillingPriceChangeConfirmation(execution_context, input,
-                                                    exception_state);
+    MeasureGooglePlayBillingPriceChangeConfirmation(execution_context, input);
   }
 
   // Serialize payment method specific data to be sent to the payment apps. The
@@ -463,10 +460,7 @@ void StringifyAndParseMethodSpecificData(ExecutionContext& execution_context,
       supported_method == kAndroidPayMethod ||
       supported_method == kGooglePayAuthenticationMethod) {
     SetAndroidPayMethodData(execution_context.GetIsolate(), input, output,
-                            exception_state);
-    if (exception_state.HadException()) {
-      exception_state.ClearException();
-    }
+                            IGNORE_EXCEPTION);
   }
 
   // Parse method data to avoid parsing JSON in the browser.
@@ -757,6 +751,11 @@ void ValidateAndConvertPaymentMethodData(
     }
 
     method_names.insert(payment_method_data->supportedMethod());
+
+    if (payment_method_data->supportedMethod() == kAndroidPayMethod) {
+      UseCounter::Count(&execution_context,
+                        WebFeature::kPaymentRequestDeprecatedPaymentMethod);
+    }
 
     output.push_back(payments::mojom::blink::PaymentMethodData::New());
     output.back()->supported_method = payment_method_data->supportedMethod();
@@ -1175,13 +1174,16 @@ void PaymentRequest::OnUpdatePaymentDetails(
   update_payment_details_timer_.Stop();
 
   v8::Isolate* isolate = resolver->GetScriptState()->GetIsolate();
-  ExceptionState exception_state(isolate, v8::ExceptionContext::kConstructor,
-                                 "PaymentDetailsUpdate");
+  v8::TryCatch try_catch(isolate);
   PaymentDetailsUpdate* details =
       NativeValueTraits<PaymentDetailsUpdate>::NativeValue(
-          isolate, details_script_value.V8Value(), exception_state);
-  if (exception_state.HadException()) {
-    resolver->Reject(exception_state.GetException());
+          isolate, details_script_value.V8Value(),
+          PassThroughException(isolate));
+  if (try_catch.HasCaught()) {
+    ApplyContextToException(resolver->GetScriptState(), try_catch.Exception(),
+                            ExceptionContext(v8::ExceptionContext::kConstructor,
+                                             "PaymentDetailsUpdate"));
+    resolver->Reject(try_catch.Exception());
     ClearResolversAndCloseMojoConnection();
     return;
   }
@@ -1190,9 +1192,12 @@ void PaymentRequest::OnUpdatePaymentDetails(
       payments::mojom::blink::PaymentDetails::New();
   ValidateAndConvertPaymentDetailsUpdate(
       details, options_, validated_details, shipping_option_, ignore_total_,
-      *GetExecutionContext(), exception_state);
-  if (exception_state.HadException()) {
-    resolver->Reject(exception_state.GetException());
+      *GetExecutionContext(), PassThroughException(isolate));
+  if (try_catch.HasCaught()) {
+    ApplyContextToException(resolver->GetScriptState(), try_catch.Exception(),
+                            ExceptionContext(v8::ExceptionContext::kConstructor,
+                                             "PaymentDetailsUpdate"));
+    resolver->Reject(try_catch.Exception());
     ClearResolversAndCloseMojoConnection();
     return;
   }
@@ -1359,9 +1364,6 @@ PaymentRequest::PaymentRequest(
   } else {
     validated_details->shipping_options = std::nullopt;
   }
-
-  DCHECK(shipping_type_.IsNull() || shipping_type_ == "shipping" ||
-         shipping_type_ == "delivery" || shipping_type_ == "pickup");
 
   scoped_refptr<base::SingleThreadTaskRunner> task_runner =
       execution_context->GetTaskRunner(TaskType::kUserInteraction);

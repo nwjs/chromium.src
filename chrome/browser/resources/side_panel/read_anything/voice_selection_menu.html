@@ -7,8 +7,11 @@
         accessibility-label="$i18n{voiceSelectionLabel}"
         role-description="$i18n{menu}"
     >
+      ${this.errorMessages_.map((item) => html`
+        <p class="dropdown-line notification error-message">${item}</p>
+      `)}
       ${this.downloadingMessages_.map((item) => html`
-        <span class="dropdown-line download-message">${item}</span>
+        <span class="dropdown-line notification download-message">${item}</span>
       `)}
 
       ${this.voiceGroups_.map((voiceGroup, groupIndex) => html`
@@ -18,6 +21,7 @@
 
         ${voiceGroup.voices.map((voice, voiceIndex) => html`
             <button data-test-id="${voice.id}"
+                tabindex="${this.voiceItemTabIndex_(groupIndex, voiceIndex)}"
                 class="dropdown-item dropdown-voice-selection-button"
                 data-group-index="${groupIndex}"
                 data-voice-index="${voiceIndex}"
@@ -32,6 +36,7 @@
               </span>
 
               <cr-icon-button id="preview-icon"
+                  tabindex="${this.voiceItemTabIndex_(groupIndex, voiceIndex)}"
                   @click="${this.onVoicePreviewClick_}"
                   data-group-index="${groupIndex}"
                   data-voice-index="${voiceIndex}"
@@ -46,6 +51,7 @@
       <hr class="menu-divider">
       <button
           class="dropdown-item dropdown-voice-selection-button language-menu-button"
+          tabindex="0"
           @click="${this.openLanguageMenu_}">
         $i18n{readingModeLanguageMenu}
       </button>
@@ -58,9 +64,7 @@ ${this.showLanguageMenuDialog_
   ?  html`
   <language-menu id="languageMenu"
       .enabledLangs="${this.enabledLangs}"
-      .voicePackInstallStatus="${this.voicePackInstallStatus}"
       .localeToDisplayName="${this.localeToDisplayName}"
-      .lastDownloadedLang="${this.lastDownloadedLang}"
       .selectedLang="${this.selectedVoice?.lang}"
       .availableVoices="${this.availableVoices}"
       @close="${this.onLanguageMenuClose_}">

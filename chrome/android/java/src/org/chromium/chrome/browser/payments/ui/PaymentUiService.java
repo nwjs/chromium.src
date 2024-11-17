@@ -35,7 +35,7 @@ import org.chromium.chrome.browser.payments.handler.PaymentHandlerCoordinator;
 import org.chromium.chrome.browser.payments.handler.PaymentHandlerCoordinator.PaymentHandlerUiObserver;
 import org.chromium.chrome.browser.payments.ui.PaymentRequestSection.OptionSection.FocusChangedObserver;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.settings.SettingsLauncherFactory;
+import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
@@ -47,7 +47,7 @@ import org.chromium.components.autofill.AddressNormalizer.NormalizedAddressReque
 import org.chromium.components.autofill.AutofillProfile;
 import org.chromium.components.autofill.Completable;
 import org.chromium.components.autofill.EditableOption;
-import org.chromium.components.browser_ui.settings.SettingsLauncher;
+import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.payments.AbortReason;
 import org.chromium.components.payments.CurrencyFormatter;
 import org.chromium.components.payments.ErrorStrings;
@@ -117,7 +117,7 @@ public class PaymentUiService
 
     // Reverse order of the comparator to sort in descending order of completeness scores.
     private static final Comparator<Completable> COMPLETENESS_COMPARATOR =
-            (a, b) -> (PaymentAppComparator.compareCompletablesByCompleteness(b, a));
+            (a, b) -> PaymentAppComparator.compareCompletablesByCompleteness(b, a);
     private final Comparator<PaymentApp> mPaymentAppComparator;
 
     private final boolean mIsOffTheRecord;
@@ -1533,8 +1533,9 @@ public class PaymentUiService
             return;
         }
 
-        SettingsLauncher settingsLauncher = SettingsLauncherFactory.createSettingsLauncher();
-        settingsLauncher.launchSettingsActivity(context);
+        SettingsNavigation settingsNavigation =
+                SettingsNavigationFactory.createSettingsNavigation();
+        settingsNavigation.startSettings(context);
     }
 
     // Implements PersonalDataManager.NormalizedAddressRequestDelegate:

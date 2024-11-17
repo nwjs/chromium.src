@@ -170,7 +170,7 @@ class ToolbarView : public views::AccessiblePaneView,
   PerformanceInterventionButton* performance_intervention_button() const {
     return performance_intervention_button_;
   }
-  media_router::CastToolbarButton* cast_button() const { return cast_; }
+  ToolbarButton* GetCastButton() const;
   PinnedToolbarActionsContainer* pinned_toolbar_actions_container() const {
     return pinned_toolbar_actions_container_;
   }
@@ -258,7 +258,6 @@ class ToolbarView : public views::AccessiblePaneView,
   views::View* GetAnchorView(std::optional<PageActionIconType> type) override;
   void ZoomChangedForActiveTab(bool can_show_bubble) override;
   AvatarToolbarButton* GetAvatarToolbarButton() override;
-  ManagementToolbarButton* GetManagementToolbarButton() override;
   ToolbarButton* GetBackButton() override;
   ReloadButton* GetReloadButton() override;
   IntentChipButton* GetIntentChipButton() override;

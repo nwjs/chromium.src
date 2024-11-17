@@ -94,7 +94,7 @@ class FeaturePromoLifecycleUiTest : public TestBase {
         browser(),
         user_education::FeaturePromoSpecification::CreateForSnoozePromo(
             kFeaturePromoLifecycleTestPromo, kToolbarAppMenuButtonElementId,
-            IDS_TAB_GROUPS_NEW_GROUP_PROMO));
+            IDS_OK));
   }
 
   auto InBrowser(base::OnceCallback<void(Browser*)> callback) {
@@ -243,7 +243,7 @@ class FeaturePromoLifecycleUiTest : public TestBase {
 
   static BrowserFeaturePromoController* GetPromoController(Browser* browser) {
     return static_cast<BrowserFeaturePromoController*>(
-        browser->window()->GetFeaturePromoController());
+        browser->window()->GetFeaturePromoControllerForTesting());
   }
 
   static user_education::FeaturePromoStorageService* GetStorageService(
@@ -524,12 +524,12 @@ IN_PROC_BROWSER_TEST_F(FeaturePromoLifecycleUiTest,
                        DismissInRegionRecordsHistogram) {
   RunTestSequence(
       ShowPromoRecordingTime(kFeaturePromoLifecycleTestPromo),
-      WithView(user_education::HelpBubbleView::kHelpBubbleElementIdForTesting,
-               [](user_education::HelpBubbleView* bubble) {
-                 BrowserFeaturePromoController::GetForView(bubble)
-                     ->DismissNonCriticalBubbleInRegion(
-                         bubble->GetBoundsInScreen());
-               }),
+      WithView(
+          user_education::HelpBubbleView::kHelpBubbleElementIdForTesting,
+          [](user_education::HelpBubbleView* bubble) {
+            BrowserFeaturePromoController::MaybeCloseOverlappingHelpBubbles(
+                bubble);
+          }),
       WaitForHide(
           user_education::HelpBubbleView::kHelpBubbleElementIdForTesting),
       CheckMessageActionHistogram(
@@ -576,7 +576,7 @@ class FeaturePromoLifecycleAppUiTest : public FeaturePromoLifecycleUiTest {
         std::move(
             user_education::FeaturePromoSpecification::CreateForLegacyPromo(
                 &kFeaturePromoLifecycleTestPromo,
-                kToolbarAppMenuButtonElementId, IDS_TAB_GROUPS_NEW_GROUP_PROMO)
+                kToolbarAppMenuButtonElementId, IDS_OK)
                 .set_promo_subtype_for_testing(
                     user_education::FeaturePromoSpecification::PromoSubtype::
                         kKeyedNotice)));
@@ -648,7 +648,7 @@ class FeaturePromoLifecycleCriticalUiTest : public FeaturePromoLifecycleUiTest {
         std::move(
             user_education::FeaturePromoSpecification::CreateForLegacyPromo(
                 &kFeaturePromoLifecycleTestPromo,
-                kToolbarAppMenuButtonElementId, IDS_TAB_GROUPS_NEW_GROUP_PROMO)
+                kToolbarAppMenuButtonElementId, IDS_OK)
                 .set_promo_subtype_for_testing(
                     user_education::FeaturePromoSpecification::PromoSubtype::
                         kLegalNotice)));
@@ -657,8 +657,7 @@ class FeaturePromoLifecycleCriticalUiTest : public FeaturePromoLifecycleUiTest {
         std::move(
             user_education::FeaturePromoSpecification::CreateForLegacyPromo(
                 &kFeaturePromoLifecycleTestPromo2,
-                kToolbarAppMenuButtonElementId,
-                IDS_TAB_GROUPS_NAMED_GROUP_TOOLTIP)
+                kToolbarAppMenuButtonElementId, IDS_CANCEL)
                 .set_promo_subtype_for_testing(
                     user_education::FeaturePromoSpecification::PromoSubtype::
                         kLegalNotice)));
@@ -666,13 +665,13 @@ class FeaturePromoLifecycleCriticalUiTest : public FeaturePromoLifecycleUiTest {
         browser(),
         user_education::FeaturePromoSpecification::CreateForLegacyPromo(
             &kFeaturePromoLifecycleTestPromo3, kToolbarAppMenuButtonElementId,
-            IDS_TAB_GROUPS_UNNAMED_GROUP_TOOLTIP));
+            IDS_CLEAR));
     RegisterTestFeature(
         browser(),
         std::move(
             user_education::FeaturePromoSpecification::CreateForCustomAction(
                 kFeaturePromoLifecycleTestAlert, kToolbarAppMenuButtonElementId,
-                IDS_TAB_GROUPS_NEW_GROUP_PROMO, IDS_OK, base::DoNothing())
+                IDS_OK, IDS_CLEAR, base::DoNothing())
                 .set_promo_subtype_for_testing(
                     user_education::FeaturePromoSpecification::PromoSubtype::
                         kActionableAlert)));
@@ -681,19 +680,13 @@ class FeaturePromoLifecycleCriticalUiTest : public FeaturePromoLifecycleUiTest {
         std::move(
             user_education::FeaturePromoSpecification::CreateForCustomAction(
                 kFeaturePromoLifecycleTestAlert2,
-                kToolbarAppMenuButtonElementId,
-                IDS_TAB_GROUPS_NAMED_GROUP_TOOLTIP, IDS_OK, base::DoNothing())
+                kToolbarAppMenuButtonElementId, IDS_CANCEL, IDS_OK,
+                base::DoNothing())
                 .set_promo_subtype_for_testing(
                     user_education::FeaturePromoSpecification::PromoSubtype::
                         kActionableAlert)));
   }
 };
-
-IN_PROC_BROWSER_TEST_F(FeaturePromoLifecycleCriticalUiTest, ShowCriticalPromo) {
-  RunTestSequence(CheckDismissed(false),
-                  MaybeShowPromo(kFeaturePromoLifecycleTestPromo), DismissIPH(),
-                  CheckDismissed(true));
-}
 
 IN_PROC_BROWSER_TEST_F(FeaturePromoLifecycleCriticalUiTest,
                        CannotRepeatDismissedPromo) {

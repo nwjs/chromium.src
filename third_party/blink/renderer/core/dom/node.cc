@@ -28,7 +28,6 @@
 
 #include <algorithm>
 
-#include "base/memory/raw_ptr.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_get_root_node_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_node_string_trustedscript.h"
@@ -148,7 +147,6 @@
 #include "third_party/blink/renderer/platform/graphics/dom_node_id.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_set.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/instrumentation/instance_counters.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/traced_value.h"
@@ -726,15 +724,14 @@ Node* Node::moveBefore(Node* new_child,
   DCHECK(new_child);
 
   // Only perform a state-preserving atomic move if the child is ALREADY
-  // connected to this document, and doesn't cross shadow boundaries.
-  // If the child is NOT connected to this document, then script can run during
-  // the node's initial post-insertion steps (i.e.,
+  // connected to this document, and its document is the same as `this`'s. If
+  // the child is NOT connected to this document, then script can run during the
+  // node's initial post-insertion steps (i.e.,
   // `Node::DidNotifySubtreeInsertionsToDocument()`), and no script is permitted
   // to run during atomic moves.
   const bool perform_state_preserving_atomic_move =
       isConnected() && new_child->isConnected() && GetDocument().IsActive() &&
-      (GetTreeScope() == new_child->GetTreeScope()) &&
-      new_child->IsElementNode();
+      (GetDocument() == new_child->GetDocument()) && new_child->IsElementNode();
 
   if (perform_state_preserving_atomic_move) {
     // When `moveBefore()` is called, AND we're actually performing a
@@ -743,12 +740,6 @@ Node* Node::moveBefore(Node* new_child,
     // occur. Assert that no atomic move is already in progress.
     DCHECK(!GetDocument().StatePreservingAtomicMoveInProgress());
     GetDocument().SetStatePreservingAtomicMoveInProgress(true);
-  } else if (GetTreeScope() != new_child->GetTreeScope() &&
-             GetDocument() == new_child->GetDocument()) {
-    // Currently we disable atomic move for same-document cross-shadow use
-    // cases, but this UseCounter can help use discern if this is an interesting
-    // use case in the future.
-    UseCounter::Count(&GetDocument(), WebFeature::kCrossShadowAtomicMove);
   }
 
   // Mutation events are disabled during the `moveBefore()` API.
@@ -849,6 +840,7 @@ static Node* NodeOrStringToNode(
     const V8UnionNodeOrStringOrTrustedScript* node_or_string,
     Document& document,
     bool needs_trusted_types_check,
+    const char* property_name,
     ExceptionState& exception_state) {
   if (!needs_trusted_types_check) {
     // Without trusted type checks, we simply extract the string from whatever
@@ -880,8 +872,9 @@ static Node* NodeOrStringToNode(
                             ? node_or_string->GetAsString()
                             : node_or_string->GetAsNode()->textContent();
 
-  string_value = TrustedTypesCheckForScript(
-      string_value, document.GetExecutionContext(), exception_state);
+  string_value =
+      TrustedTypesCheckForScript(string_value, document.GetExecutionContext(),
+                                 "Node", property_name, exception_state);
   if (exception_state.HadException())
     return nullptr;
   return Text::Create(document, string_value);
@@ -916,14 +909,15 @@ VectorOf<Node> ConvertNodeUnionsIntoNodes(
     const Node* parent,
     const HeapVector<Member<V8UnionNodeOrStringOrTrustedScript>>& node_unions,
     Document& document,
+    const char* property_name,
     ExceptionState& exception_state) {
   bool needs_check = IsA<HTMLScriptElement>(parent) &&
                      document.GetExecutionContext() &&
                      document.GetExecutionContext()->RequireTrustedTypes();
   VectorOf<Node> nodes;
   for (const auto& node_union : node_unions) {
-    Node* node =
-        NodeOrStringToNode(node_union, document, needs_check, exception_state);
+    Node* node = NodeOrStringToNode(node_union, document, needs_check,
+                                    property_name, exception_state);
     if (exception_state.HadException()) {
       nodes.clear();
       return nodes;
@@ -935,48 +929,6 @@ VectorOf<Node> ConvertNodeUnionsIntoNodes(
   return nodes;
 }
 
-// When instantiating an AutoAtomicMoveScope (and the AtomicMoveAutoEnabled flag
-// is on), the node insertion operations that occur in the scope act like a
-// "state preserving atomic move". This means that some of the usual effects of
-// removal+insertion, such as iframe reloading and losing focus, are skipped.
-// See https://github.com/whatwg/dom/issues/1255
-struct AutoAtomicMoveScope {
-  bool CheckNode(const Node* node, const TreeScope* tree_scope) {
-    return node->isConnected() && node->GetDocument().IsActive() &&
-           (!tree_scope || node->GetTreeScope() == *tree_scope);
-  }
-  AutoAtomicMoveScope(
-      Node* base_node,
-      const HeapVector<Member<V8UnionNodeOrStringOrTrustedScript>>&
-          node_unions) {
-    if (!RuntimeEnabledFeatures::AtomicMoveAutoEnabled()) {
-      return;
-    }
-
-    CHECK(base_node);
-    if (!CheckNode(base_node, /*tree_scope=*/nullptr)) {
-      return;
-    }
-    for (const auto& node_or_string : node_unions) {
-      if (node_or_string->IsNode() &&
-          !CheckNode(node_or_string->GetAsNode(), &base_node->GetTreeScope())) {
-        return;
-      }
-    }
-    document = base_node->ownerDocument();
-    CHECK(!document->StatePreservingAtomicMoveInProgress());
-    document->SetStatePreservingAtomicMoveInProgress(true);
-  }
-
-  ~AutoAtomicMoveScope() {
-    if (document) {
-      document->SetStatePreservingAtomicMoveInProgress(false);
-    }
-  }
-
-  Persistent<Document> document;
-};
-
 }  // namespace
 
 // static
@@ -985,9 +937,10 @@ Node* Node::ConvertNodeUnionsIntoNode(
     const Node* parent,
     const HeapVector<Member<V8UnionNodeOrStringOrTrustedScript>>& node_unions,
     Document& document,
+    const char* property_name,
     ExceptionState& exception_state) {
-  VectorOf<Node> nodes = ConvertNodeUnionsIntoNodes(parent, node_unions,
-                                                    document, exception_state);
+  VectorOf<Node> nodes = ConvertNodeUnionsIntoNodes(
+      parent, node_unions, document, property_name, exception_state);
   if (exception_state.HadException()) {
     return nullptr;
   }
@@ -1005,9 +958,8 @@ void Node::prepend(
     return;
   }
 
-  AutoAtomicMoveScope atomic_move_auto_scope(this, nodes);
   if (Node* node = ConvertNodeUnionsIntoNode(this, nodes, GetDocument(),
-                                             exception_state)) {
+                                             "prepend", exception_state)) {
     this_node->InsertBefore(node, this_node->firstChild(), exception_state);
   }
 }
@@ -1023,9 +975,8 @@ void Node::append(
     return;
   }
 
-  AutoAtomicMoveScope atomic_move_auto_scope(this, nodes);
   if (Node* node = ConvertNodeUnionsIntoNode(this, nodes, GetDocument(),
-                                             exception_state)) {
+                                             "append", exception_state)) {
     this_node->AppendChild(node, exception_state);
   }
 }
@@ -1036,11 +987,9 @@ void Node::before(
   ContainerNode* parent = parentNode();
   if (!parent)
     return;
-
-  AutoAtomicMoveScope atomic_move_auto_scope(parent, nodes);
   Node* viable_previous_sibling = FindViablePreviousSibling(*this, nodes);
   if (Node* node = ConvertNodeUnionsIntoNode(parent, nodes, GetDocument(),
-                                             exception_state)) {
+                                             "before", exception_state)) {
     parent->InsertBefore(node,
                          viable_previous_sibling
                              ? viable_previous_sibling->nextSibling()
@@ -1055,10 +1004,9 @@ void Node::after(
   ContainerNode* parent = parentNode();
   if (!parent)
     return;
-  AutoAtomicMoveScope atomic_move_auto_scope(parent, nodes);
   Node* viable_next_sibling = FindViableNextSibling(*this, nodes);
   if (Node* node = ConvertNodeUnionsIntoNode(parent, nodes, GetDocument(),
-                                             exception_state)) {
+                                             "after", exception_state)) {
     parent->InsertBefore(node, viable_next_sibling, exception_state);
   }
 }
@@ -1070,8 +1018,8 @@ void Node::replaceWith(
   if (!parent)
     return;
   Node* viable_next_sibling = FindViableNextSibling(*this, nodes);
-  Node* node =
-      ConvertNodeUnionsIntoNode(parent, nodes, GetDocument(), exception_state);
+  Node* node = ConvertNodeUnionsIntoNode(parent, nodes, GetDocument(),
+                                         "replaceWith", exception_state);
   if (exception_state.HadException())
     return;
   if (parent == parentNode())
@@ -1093,7 +1041,7 @@ void Node::replaceChildren(
   }
 
   VectorOf<Node> nodes = ConvertNodeUnionsIntoNodes(
-      this, node_unions, GetDocument(), exception_state);
+      this, node_unions, GetDocument(), "replace", exception_state);
   if (!exception_state.HadException()) {
     this_node->ReplaceChildren(nodes, exception_state);
   }

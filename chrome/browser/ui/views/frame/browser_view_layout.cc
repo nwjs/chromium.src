@@ -102,13 +102,11 @@ class BrowserViewLayout::WebContentsModalDialogHostViews
       const WebContentsModalDialogHostViews&) = delete;
 
   ~WebContentsModalDialogHostViews() override {
-    for (ModalDialogHostObserver& observer : observer_list_)
-      observer.OnHostDestroying();
+    observer_list_.Notify(&ModalDialogHostObserver::OnHostDestroying);
   }
 
   void NotifyPositionRequiresUpdate() {
-    for (ModalDialogHostObserver& observer : observer_list_)
-      observer.OnPositionRequiresUpdate();
+    observer_list_.Notify(&ModalDialogHostObserver::OnPositionRequiresUpdate);
   }
 
   gfx::Point GetDialogPosition(const gfx::Size& size) override {
@@ -221,14 +219,6 @@ BrowserViewLayout::BrowserViewLayout(
       contents_separator_(contents_separator),
       tab_strip_(tab_strip),
       dialog_host_(std::make_unique<WebContentsModalDialogHostViews>(this)) {
-  if (base::FeatureList::IsEnabled(features::kCompactMode)) {
-    registrar_.Init(browser_view_->browser()->profile()->GetPrefs());
-    registrar_.Add(prefs::kCompactModeEnabled,
-                   base::BindRepeating(&BrowserViewLayout::OnCompactModeChanged,
-                                       base::Unretained(this)));
-    is_compact_mode_ =
-        chrome::ShouldUseCompactMode(browser_view_->browser()->profile());
-  }
 }
 
 BrowserViewLayout::~BrowserViewLayout() = default;
@@ -978,10 +968,6 @@ int BrowserViewLayout::GetMinWebContentsWidth() const {
       right_aligned_side_panel_separator_->GetPreferredSize().width();
   DCHECK_GE(min_width, 0);
   return min_width;
-}
-
-void BrowserViewLayout::OnCompactModeChanged() {
-  is_compact_mode_ = !is_compact_mode_;
 }
 
 bool BrowserViewLayout::IsInfobarVisible() const {

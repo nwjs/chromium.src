@@ -81,6 +81,16 @@ chrome_internal_verifier(
 ### Optional builders ###
 
 chrome_internal_verifier(
+    branch_selector = branches.selector.ANDROID_BRANCHES,
+    builder = "android-arm32-pgo",
+)
+
+chrome_internal_verifier(
+    branch_selector = branches.selector.ANDROID_BRANCHES,
+    builder = "android-arm64-pgo",
+)
+
+chrome_internal_verifier(
     builder = "android-internal-binary-size",
 )
 
@@ -114,6 +124,12 @@ chrome_internal_verifier(
     builder = "chromeos-betty-cfi-thin-lto-chrome",
 )
 
+chrome_internal_verifier(
+    builder = "chromeos-brya-chrome",
+)
+
+# TODO(b/339354038): Remove once migration to un-suffixed try biulder
+# completes.
 chrome_internal_verifier(
     builder = "chromeos-brya-chrome-skylab",
 )
@@ -216,36 +232,6 @@ chrome_internal_verifier(
 )
 
 chrome_internal_verifier(
-    branch_selector = branches.selector.CROS_BRANCHES,
-    builder = "lacros-amd64-generic-chrome",
-)
-
-chrome_internal_verifier(
-    branch_selector = branches.selector.CROS_BRANCHES,
-    builder = "lacros-arm-generic-chrome",
-)
-
-chrome_internal_verifier(
-    branch_selector = branches.selector.CROS_BRANCHES,
-    builder = "lacros-arm32-rel-ready",
-)
-
-chrome_internal_verifier(
-    branch_selector = branches.selector.CROS_BRANCHES,
-    builder = "lacros-arm64-generic-chrome",
-)
-
-chrome_internal_verifier(
-    branch_selector = branches.selector.CROS_BRANCHES,
-    builder = "lacros-arm64-rel-ready",
-)
-
-chrome_internal_verifier(
-    branch_selector = branches.selector.CROS_BRANCHES,
-    builder = "lacros64-rel-ready",
-)
-
-chrome_internal_verifier(
     builder = "linux-autofill-captured-sites-rel",
 )
 
@@ -260,10 +246,6 @@ chrome_internal_verifier(
 
 chrome_internal_verifier(
     builder = "linux-chromeos-chrome",
-)
-
-chrome_internal_verifier(
-    builder = "linux-lacros-chrome",
 )
 
 chrome_internal_verifier(

@@ -18,6 +18,8 @@
 
 namespace blink {
 
+using mojom::blink::CanCreateTranslatorResult;
+
 Translation::Translation(ExecutionContext* context)
     : ExecutionContextClient(context),
       task_runner_(context->GetTaskRunner(TaskType::kInternalDefault)) {}
@@ -39,6 +41,8 @@ Translation::GetTranslationManagerRemote() {
   return translation_manager_remote_;
 }
 
+// TODO(crbug.com/322229993): The new version is
+// AITranslatorCapabilities::languagePairAvailable(). Delete this old version.
 ScriptPromise<V8TranslationAvailability> Translation::canTranslate(
     ScriptState* script_state,
     TranslationLanguageOptions* options,
@@ -63,13 +67,28 @@ ScriptPromise<V8TranslationAvailability> Translation::canTranslate(
         options->sourceLanguage(), options->targetLanguage(),
         WTF::BindOnce(
             [](ScriptPromiseResolver<V8TranslationAvailability>* resolver,
-               bool can_create) {
-              if (can_create) {
-                resolver->Resolve(V8TranslationAvailability(
-                    V8TranslationAvailability::Enum::kReadily));
-              } else {
-                resolver->Resolve(V8TranslationAvailability(
-                    V8TranslationAvailability::Enum::kNo));
+               CanCreateTranslatorResult result) {
+              // TODO(crbug.com/369761976): Record UMAs.
+              switch (result) {
+                case CanCreateTranslatorResult::kReadily:
+                  resolver->Resolve(V8TranslationAvailability(
+                      V8TranslationAvailability::Enum::kReadily));
+                  break;
+                case CanCreateTranslatorResult::kAfterDownloadLibraryNotReady:
+                case CanCreateTranslatorResult::
+                    kAfterDownloadLanguagePackNotReady:
+                case CanCreateTranslatorResult::
+                    kAfterDownloadLibraryAndLanguagePackNotReady:
+                  resolver->Resolve(V8TranslationAvailability(
+                      V8TranslationAvailability::Enum::kAfterDownload));
+                  break;
+                case CanCreateTranslatorResult::kNoNotSupportedLanguage:
+                case CanCreateTranslatorResult::kNoAcceptLanguagesCheckFailed:
+                case CanCreateTranslatorResult::
+                    kNoExceedsLanguagePackCountLimitation:
+                  resolver->Resolve(V8TranslationAvailability(
+                      V8TranslationAvailability::Enum::kNo));
+                  break;
               }
             },
             WrapPersistent(resolver)));
@@ -78,6 +97,8 @@ ScriptPromise<V8TranslationAvailability> Translation::canTranslate(
   return promise;
 }
 
+// TODO(crbug.com/349927087): The new version is
+// AITranslatorFactory::create(). Delete this old version.
 ScriptPromise<LanguageTranslator> Translation::createTranslator(
     ScriptState* script_state,
     TranslationLanguageOptions* options,
@@ -116,6 +137,8 @@ ScriptPromise<LanguageTranslator> Translation::createTranslator(
   return promise;
 }
 
+// TODO(crbug.com/349927087): The new version is
+// AILanguageDetectorCapabilities::canDetect(). Delete this old version.
 ScriptPromise<V8TranslationAvailability> Translation::canDetect(
     ScriptState* script_state,
     ExceptionState& exception_state) {
@@ -136,6 +159,8 @@ ScriptPromise<V8TranslationAvailability> Translation::canDetect(
   return promise;
 }
 
+// TODO(crbug.com/349927087): The new version is
+// AILanguageDetectorFactory::create(). Delete this old version.
 ScriptPromise<LanguageDetector> Translation::createDetector(
     ScriptState* script_state,
     ExceptionState& exception_state) {

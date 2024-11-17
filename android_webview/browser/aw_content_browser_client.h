@@ -188,7 +188,8 @@ class AwContentBrowserClient : public content::ContentBrowserClient {
       content::WebContents* web_contents,
       content::BrowserContext* browser_context,
       const content::GlobalRequestID& request_id,
-      bool is_request_for_primary_main_frame,
+      bool is_request_for_primary_main_frame_navigation,
+      bool is_request_for_navigation,
       const GURL& url,
       scoped_refptr<net::HttpResponseHeaders> response_headers,
       bool first_auth_attempt,
@@ -205,6 +206,7 @@ class AwContentBrowserClient : public content::ContentBrowserClient {
       bool has_user_gesture,
       const std::optional<url::Origin>& initiating_origin,
       content::RenderFrameHost* initiator_document,
+      const net::IsolationInfo& isolation_info,
       mojo::PendingRemote<network::mojom::URLLoaderFactory>* out_factory)
       override;
   void RegisterNonNetworkSubresourceURLLoaderFactories(
@@ -299,6 +301,7 @@ class AwContentBrowserClient : public content::ContentBrowserClient {
                                  content::WebContents* web_contents,
                                  const GURL& url,
                                  const blink::StorageKey& storage_key) override;
+  bool AllowNonActivatedCrossOriginPaintHolding() override;
 
   AwFeatureListCreator* aw_feature_list_creator() {
     return aw_feature_list_creator_;

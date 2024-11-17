@@ -242,7 +242,7 @@ class AutofillManager
                                     const FieldGlobalId& field_id);
   virtual void OnSelectControlDidChange(const FormData& form,
                                         const FieldGlobalId& field_id);
-  void OnSelectOrSelectListFieldOptionsDidChange(const FormData& form);
+  void OnSelectFieldOptionsDidChange(const FormData& form);
   virtual void OnFocusOnFormField(const FormData& form,
                                   const FieldGlobalId& field_id);
   void OnFocusOnNonFormField();
@@ -276,7 +276,8 @@ class AutofillManager
   // Invoked when the language has been detected by the Translate component.
   // As this usually happens after Autofill has parsed the forms for the first
   // time, the heuristics need to be re-run by this function in order to use
-  // language-specific patterns.
+  // language-specific patterns. Since the ML model doesn't depend on the page
+  // language, its predictions are not recomputed.
   void OnLanguageDetermined(
       const translate::LanguageDetectionDetails& details) override;
 
@@ -358,8 +359,7 @@ class AutofillManager
                                         const FieldGlobalId& field_id) = 0;
   virtual void OnSelectControlDidChangeImpl(const FormData& form,
                                             const FieldGlobalId& field_id) = 0;
-  virtual void OnSelectOrSelectListFieldOptionsDidChangeImpl(
-      const FormData& form) = 0;
+  virtual void OnSelectFieldOptionsDidChangeImpl(const FormData& form) = 0;
   virtual void OnFocusOnFormFieldImpl(const FormData& form,
                                       const FieldGlobalId& field_id) = 0;
   virtual void OnFocusOnNonFormFieldImpl() = 0;
@@ -455,6 +455,24 @@ class AutofillManager
 
   std::unique_ptr<AutofillMetrics::FormInteractionsUkmLogger>
   CreateFormInteractionsUkmLogger();
+
+  // Returns a callback that runs `callback` on the main thread after all
+  // ongoing async parsing operations have finished.
+  template <typename... Args>
+  base::OnceCallback<void(Args...)> AfterParsingFinishes(
+      base::OnceCallback<void(Args...)> callback) {
+    return base::BindOnce(
+        [](base::WeakPtr<AutofillManager> self,
+           base::OnceCallback<void(Args...)> callback, Args... args) {
+          if (self) {
+            self->parsing_task_runner_->PostTaskAndReply(
+                FROM_HERE, base::DoNothing(),
+                base::BindOnce(std::move(callback),
+                               std::forward<Args>(args)...));
+          }
+        },
+        GetWeakPtr(), std::move(callback));
+  }
 
   // Provides driver-level context to the shared code of the component.
   // `*driver_` owns this object.

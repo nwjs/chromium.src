@@ -41,6 +41,7 @@
 #include "ui/accessibility/platform/ax_system_caret_win.h"
 #include "ui/base/ime/text_input_client.h"
 #include "ui/base/ime/text_input_type.h"
+#include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/view_prop.h"
 #include "ui/base/win/hwnd_metrics.h"
@@ -547,7 +548,7 @@ gfx::Rect HWNDMessageHandler::GetClientAreaBounds() const {
 
 void HWNDMessageHandler::GetWindowPlacement(
     gfx::Rect* bounds,
-    ui::WindowShowState* show_state) const {
+    ui::mojom::WindowShowState* show_state) const {
   WINDOWPLACEMENT wp;
   wp.length = sizeof(wp);
   bool succeeded = !!::GetWindowPlacement(hwnd(), &wp);
@@ -580,11 +581,11 @@ void HWNDMessageHandler::GetWindowPlacement(
 
   if (show_state) {
     if (wp.showCmd == SW_SHOWMAXIMIZED)
-      *show_state = ui::SHOW_STATE_MAXIMIZED;
+      *show_state = ui::mojom::WindowShowState::kMaximized;
     else if (wp.showCmd == SW_SHOWMINIMIZED)
-      *show_state = ui::SHOW_STATE_MINIMIZED;
+      *show_state = ui::mojom::WindowShowState::kMinimized;
     else
-      *show_state = ui::SHOW_STATE_NORMAL;
+      *show_state = ui::mojom::WindowShowState::kNormal;
   }
 }
 
@@ -654,12 +655,12 @@ void HWNDMessageHandler::StackAtTop() {
                SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
 }
 
-void HWNDMessageHandler::Show(ui::WindowShowState show_state,
+void HWNDMessageHandler::Show(ui::mojom::WindowShowState show_state,
                               const gfx::Rect& pixel_restore_bounds) {
   TRACE_EVENT0("views", "HWNDMessageHandler::Show");
 
   int native_show_state;
-  if (show_state == ui::SHOW_STATE_MAXIMIZED &&
+  if (show_state == ui::mojom::WindowShowState::kMaximized &&
       !pixel_restore_bounds.IsEmpty()) {
     WINDOWPLACEMENT placement = {0};
     placement.length = sizeof(WINDOWPLACEMENT);
@@ -672,20 +673,21 @@ void HWNDMessageHandler::Show(ui::WindowShowState show_state,
 
     // Use SW_SHOW/SW_SHOWNA instead of SW_SHOWNORMAL/SW_SHOWNOACTIVATE so that
     // the window is not restored to its original position if it is maximized.
-    // This could be used unconditionally for ui::SHOW_STATE_INACTIVE, but
-    // cross-platform behavior when showing a minimized window is inconsistent,
-    // some platforms restore the position, some do not. See crbug.com/1296710
+    // This could be used unconditionally for
+    // ui::mojom::WindowShowState::kInactive, but cross-platform behavior when
+    // showing a minimized window is inconsistent, some platforms restore the
+    // position, some do not. See crbug.com/1296710
     switch (show_state) {
-      case ui::SHOW_STATE_INACTIVE:
+      case ui::mojom::WindowShowState::kInactive:
         native_show_state = is_maximized ? SW_SHOWNA : SW_SHOWNOACTIVATE;
         break;
-      case ui::SHOW_STATE_MAXIMIZED:
+      case ui::mojom::WindowShowState::kMaximized:
         native_show_state = SW_SHOWMAXIMIZED;
         break;
-      case ui::SHOW_STATE_MINIMIZED:
+      case ui::mojom::WindowShowState::kMinimized:
         native_show_state = SW_SHOWMINIMIZED;
         break;
-      case ui::SHOW_STATE_NORMAL:
+      case ui::mojom::WindowShowState::kNormal:
         if ((GetWindowLong(hwnd(), GWL_EXSTYLE) & WS_EX_TRANSPARENT) ||
             (GetWindowLong(hwnd(), GWL_EXSTYLE) & WS_EX_NOACTIVATE)) {
           native_show_state = is_maximized ? SW_SHOWNA : SW_SHOWNOACTIVATE;
@@ -693,7 +695,7 @@ void HWNDMessageHandler::Show(ui::WindowShowState show_state,
           native_show_state = is_maximized ? SW_SHOW : SW_SHOWNORMAL;
         }
         break;
-      case ui::SHOW_STATE_FULLSCREEN:
+      case ui::mojom::WindowShowState::kFullscreen:
         native_show_state = SW_SHOWNORMAL;
         SetFullscreen(true, display::kInvalidDisplayId);
         break;
@@ -1394,9 +1396,13 @@ void HWNDMessageHandler::OnAppbarAutohideEdgesChanged() {
   // This triggers querying WM_NCCALCSIZE again.
   RECT client;
   GetWindowRect(hwnd(), &client);
+
+  // Add SWP_NOZORDER and SWP_NOACTIVATE flags to SetWindowPos to preserve the
+  // correct Z-order after restarting maximized browsers. Without these flags,
+  // SetWindowPos would always bring the current window to the top.
   SetWindowPos(hwnd(), nullptr, client.left, client.top,
                client.right - client.left, client.bottom - client.top,
-               SWP_FRAMECHANGED);
+               SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 void HWNDMessageHandler::SetInitialFocus() {
@@ -1964,14 +1970,20 @@ LRESULT HWNDMessageHandler::OnGetObject(UINT message,
   // because it sometimes gets sign-extended incorrectly (but not always).
   DWORD obj_id = static_cast<DWORD>(static_cast<DWORD_PTR>(l_param));
 
-  bool is_uia_request = static_cast<DWORD>(UiaRootObjectId) == obj_id;
-  bool is_msaa_request = static_cast<DWORD>(OBJID_CLIENT) == obj_id;
+  const bool is_uia_request = static_cast<DWORD>(UiaRootObjectId) == obj_id;
+  const bool is_uia_active =
+      is_uia_request && ::ui::AXPlatform::GetInstance().IsUiaProviderEnabled();
+  const bool is_msaa_request = static_cast<DWORD>(OBJID_CLIENT) == obj_id;
+
+  if (is_uia_request) {
+    ::ui::AXPlatform::GetInstance().OnUiaProviderRequested(is_uia_active);
+  }
+
   if ((is_uia_request || is_msaa_request) &&
       delegate_->GetNativeViewAccessible()) {
     // Expose either the UIA or the MSAA implementation, but not both, depending
     // on the state of the feature flag.
-    if (is_uia_request &&
-        ::ui::AXPlatform::GetInstance().IsUiaProviderEnabled()) {
+    if (is_uia_active) {
       // Retrieve UIA object for the root view.
       Microsoft::WRL::ComPtr<IRawElementProviderSimple> root;
       ax_fragment_root_->GetNativeViewAccessible()->QueryInterface(
@@ -2724,12 +2736,12 @@ void HWNDMessageHandler::OnSizing(UINT param, RECT* rect) {
   *rect = window_rect.ToRECT();
 }
 
-void HWNDMessageHandler::OnStyleChanging(UINT nStyleType, LPSTYLESTRUCT lpStyleStruct) {
+void HWNDMessageHandler::OnStyleChanging(int nStyleType, LPSTYLESTRUCT lpStyleStruct) {
   if (!content::g_support_transparency)
     return;
-  if (nStyleType == (UINT)GWL_EXSTYLE)
+  if (nStyleType == GWL_EXSTYLE)
     set_window_ex_style(lpStyleStruct->styleNew);
-  else if (nStyleType == (UINT)GWL_STYLE)
+  else if (nStyleType == GWL_STYLE)
     set_window_style(lpStyleStruct->styleNew);
 }
 
@@ -3533,7 +3545,7 @@ void HWNDMessageHandler::PerformDwmTransition() {
 
   dwm_transition_desired_ = false;
   if (content::g_support_transparency && !content::g_force_cpu_draw && is_translucent_) {
-    const int im = -1;
+    const int im = ui::win::IsAeroGlassEnabled() ? -1 : 0;
     MARGINS m = { im, im, im, im };
     DwmExtendFrameIntoClientArea(hwnd(), &m);
   }

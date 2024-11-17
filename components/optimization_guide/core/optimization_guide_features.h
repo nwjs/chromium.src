@@ -18,6 +18,7 @@
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/time/time.h"
+#include "build/build_config.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/proto/hints.pb.h"
@@ -77,6 +78,11 @@ COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 BASE_DECLARE_FEATURE(kTextSafetyRemoteFallback);
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 BASE_DECLARE_FEATURE(kOnDeviceModelValidation);
+
+#if !BUILDFLAG(IS_ANDROID)
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+BASE_DECLARE_FEATURE(kAiSettingsPageRefresh);
+#endif
 
 typedef base::EnumSet<proto::RequestContext,
                       proto::RequestContext_MIN,
@@ -357,10 +363,6 @@ bool ShouldLoadOnDeviceModelExecutionConfigWithHigherPriority();
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 base::TimeDelta GetOnDeviceModelIdleTimeout();
 
-// Returns whether to enable multiple sessions support with the on device model.
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-bool GetOnDeviceModelSupportMultipleSessions();
-
 // Returns the delay before starting the on device model inference when
 // running validation.
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
@@ -384,6 +386,10 @@ int GetOnDeviceModelMaxTokensForExecute();
 // The maximum tokens the model will output if the maximum input is given.
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 int GetOnDeviceModelMaxTokensForOutput();
+
+// The maximum total tokens, for input and output combined.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+uint32_t GetOnDeviceModelMaxTokens();
 
 // Returns the number of crashes without a successful response before the
 // on-device model won't be used.

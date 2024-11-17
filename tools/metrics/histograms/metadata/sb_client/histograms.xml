@@ -94,7 +94,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SBClientDownload.AutoOpen{State}FileType"
-    enum="SBClientDownloadExtensions" expires_after="2024-11-03">
+    enum="SBClientDownloadExtensions" expires_after="2025-11-03">
   <owner>drubery@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -109,7 +109,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SBClientDownload.CancelEphemeralWarning"
-    enum="CancelEphemeralWarningEvent" expires_after="2025-01-26">
+    enum="CancelEphemeralWarningEvent" expires_after="2025-03-30">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -445,7 +445,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SBClientDownload.Warning.FileType.{DangerType}.{Action}"
-    enum="SBClientDownloadExtensions" expires_after="2025-01-26">
+    enum="SBClientDownloadExtensions" expires_after="2025-03-30">
   <owner>xinghuilu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -538,7 +538,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SBClientPhishing.ApplyTfliteTime.Classify" units="ms"
-    expires_after="2025-01-26">
+    expires_after="2025-03-30">
   <owner>andysjlim@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -557,17 +557,6 @@ chromium-metrics-reviews@google.com.
     &quot;CLASSIFIER_NOT_READY&quot;, this histogram is logged with whether or
     not the browser process had a valid model. This can help to identify
     problems distributing the model from browser process to the renderers.
-  </summary>
-</histogram>
-
-<histogram name="SBClientPhishing.CancelClassificationReason"
-    enum="SBClientPhishingCancelClassificationReason"
-    expires_after="2024-11-03">
-  <owner>drubery@chromium.org</owner>
-  <owner>chrome-counter-abuse-alerts@google.com</owner>
-  <summary>
-    The counts for various reasons why an in-progress phishing classification
-    was canceled.
   </summary>
 </histogram>
 
@@ -593,7 +582,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SBClientPhishing.Classifier.ReadyAfterRetryTimeout"
-    units="bool" expires_after="2025-01-12">
+    units="bool" expires_after="2025-03-23">
   <owner>andysjlim@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -627,7 +616,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SBClientPhishing.ClientSideDetectionTypeRequest"
-    enum="ClientSideDetectionType" expires_after="2025-01-23">
+    enum="ClientSideDetectionType" expires_after="2025-03-30">
   <owner>andysjlim@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -691,7 +680,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SBClientPhishing.ImageEmbedder.Event"
-    enum="SBPhishingClassifierEvent" expires_after="2024-11-12">
+    enum="SBPhishingClassifierEvent" expires_after="2025-11-12">
   <owner>andysjlim@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -712,24 +701,13 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SBClientPhishing.ImageEmbeddingModelVersionMatch"
-    enum="BooleanMatched" expires_after="2024-12-08">
+    enum="BooleanMatched" expires_after="2025-03-23">
   <owner>andysjlim@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
     Logs whether the image embedding model version is matched or not so that the
     correctly paired trigger and image embedidng model are sent together to the
     renderer process
-  </summary>
-</histogram>
-
-<histogram
-    name="SBClientPhishing.LoadReportTimesFromPrefAtServiceCreationSuccessful"
-    enum="BooleanSuccess" expires_after="2025-05-17">
-  <owner>andysjlim@chromium.org</owner>
-  <owner>chrome-counter-abuse-alerts@google.com</owner>
-  <summary>
-    Records whether phishing report times load from profile at client side
-    detection service creation is successful or not.
   </summary>
 </histogram>
 
@@ -849,7 +827,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="SBClientPhishing.PreClassificationCheckResult"
     enum="SBClientDetectionPreClassificationCheckResult"
-    expires_after="2025-01-26">
+    expires_after="2025-03-30">
   <owner>drubery@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -884,16 +862,6 @@ chromium-metrics-reviews@google.com.
     Safe Browsing to evaluate whether a site is phishing.
   </summary>
   <token key="RequestType" variants="ClientSideDetectionRequestType"/>
-</histogram>
-
-<histogram name="SBClientPhishing.SkipPhishingRequestCheck"
-    enum="BooleanSuccess" expires_after="2025-05-17">
-  <owner>andysjlim@chromium.org</owner>
-  <owner>chrome-counter-abuse-alerts@google.com</owner>
-  <summary>
-    Records whether phishing request was skipped because the profile prefs for
-    report times was not loaded at service creation.
-  </summary>
 </histogram>
 
 <histogram name="SBClientPhishing.TimeSinceLastReportAtLimit" units="ms"

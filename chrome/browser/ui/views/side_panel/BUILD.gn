@@ -92,7 +92,6 @@ source_set("side_panel") {
     "side_panel_prefs.h",
     "side_panel_registry.cc",
     "side_panel_registry.h",
-    "side_panel_registry_observer.h",
     "side_panel_resize_area.cc",
     "side_panel_resize_area.h",
     "side_panel_rounded_corner.cc",
@@ -117,12 +116,13 @@ source_set("side_panel") {
     "//chrome/browser:browser_public_dependencies",
     "//chrome/browser:primitives",
     "//chrome/browser/companion/core/mojom:mojo_bindings",
-    "//chrome/browser/companion/visual_query",
+    "//chrome/browser/optimization_guide",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui:browser_list",
     "//chrome/browser/ui/actions:actions_headers",
     "//chrome/browser/ui/color:color_headers",
     "//chrome/browser/ui/customize_chrome",
+    "//chrome/browser/ui/tabs:tab_model",
     "//chrome/browser/ui/webui/side_panel/customize_chrome",
     "//chrome/common",
     "//chrome/common/accessibility:mojo_bindings",
@@ -140,6 +140,12 @@ source_set("side_panel") {
     "//ui/gfx/geometry",
     "//ui/views",
     "//ui/views/controls/webview",
+
+    # TODO(crbug.com/345487716): This is needed here because of the
+    # dependency in history_clusters_side_panel_ui.h; that file is
+    # part of //chrome/browser/ui:ui, but we can't depend on that
+    # because that depends on this.
+    "//ui/webui/resources/cr_components/history_embeddings:mojo_bindings",
     "//url",
   ]
   deps = [
@@ -163,7 +169,9 @@ source_set("side_panel") {
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/actions",
     "//chrome/browser/ui/browser_window",
-    "//chrome/browser/ui/tabs",
+    "//chrome/browser/ui/tabs:tab_strip",
+    "//chrome/browser/ui/tabs:tabs_public",
+    "//chrome/browser/ui/user_education",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/browser/ui/webui/top_chrome",
     "//chrome/common",

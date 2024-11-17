@@ -88,11 +88,12 @@ targets.variant(
 
 targets.variant(
     name = "IPHONE_15_PRO_18_0",
-    identifier = "iPhone 15 Pro 18.0",
+    identifier = "iPhone 15 Pro 17.5.1 or 17.6.1 or 18.0",
+    generate_pyl_entry = False,
     swarming = targets.swarming(
         dimensions = {
-            "os": "iOS-18.0",
-            "device": "iPhone15 Pro",
+            "os": "iOS-17.5.1|iOS-17.6.1|iOS-18.0",
+            "device": "iPhone16,1",
         },
     ),
 )
@@ -123,7 +124,7 @@ targets.variant(
 
 targets.variant(
     name = "MAC_RETINA_AMD_GPU_STABLE",
-    identifier = "1002:67ef",
+    identifier = "1002:7340",
     mixins = [
         "mac_retina_amd_gpu_stable",
     ],
@@ -148,6 +149,7 @@ targets.variant(
 targets.variant(
     name = "SIM_IPAD_AIR_5TH_GEN_16_4",
     identifier = "iPad Air (5th generation) 16.4",
+    generate_pyl_entry = False,
     mixins = [
         "ios_runtime_cache_16_4",
     ],
@@ -204,6 +206,7 @@ targets.variant(
 targets.variant(
     name = "SIM_IPAD_PRO_6TH_GEN_16_4",
     identifier = "iPad Pro (12.9-inch) (6th generation) 16.4",
+    generate_pyl_entry = False,
     mixins = [
         "ios_runtime_cache_16_4",
     ],
@@ -260,6 +263,7 @@ targets.variant(
 targets.variant(
     name = "SIM_IPHONE_14_16_4",
     identifier = "iPhone 14 16.4",
+    generate_pyl_entry = False,
     mixins = [
         "ios_runtime_cache_16_4",
     ],
@@ -288,6 +292,7 @@ targets.variant(
 targets.variant(
     name = "SIM_IPHONE_14_18_0",
     identifier = "iPhone 14 18.0",
+    generate_pyl_entry = False,
     mixins = [
         "ios_runtime_cache_18_0",
     ],
@@ -330,6 +335,7 @@ targets.variant(
 targets.variant(
     name = "SIM_IPHONE_14_PLUS_16_4",
     identifier = "iPhone 14 Plus 16.4",
+    generate_pyl_entry = False,
     mixins = [
         "ios_runtime_cache_16_4",
     ],
@@ -344,6 +350,7 @@ targets.variant(
 targets.variant(
     name = "SIM_IPHONE_14_PLUS_17_5",
     identifier = "iPhone 14 Plus 17.5",
+    generate_pyl_entry = False,
     mixins = [
         "ios_runtime_cache_17_5",
     ],
@@ -358,6 +365,7 @@ targets.variant(
 targets.variant(
     name = "SIM_IPHONE_14_PLUS_18_0",
     identifier = "iPhone 14 Plus 18.0",
+    generate_pyl_entry = False,
     mixins = [
         "ios_runtime_cache_18_0",
     ],
@@ -400,6 +408,7 @@ targets.variant(
 targets.variant(
     name = "SIM_IPHONE_SE_3RD_GEN_16_4",
     identifier = "iPhone SE (3rd generation) 16.4",
+    generate_pyl_entry = False,
     mixins = [
         "ios_runtime_cache_16_4",
     ],
@@ -414,6 +423,7 @@ targets.variant(
 targets.variant(
     name = "SIM_IPHONE_SE_3RD_GEN_17_5",
     identifier = "iPhone SE (3rd generation) 17.5",
+    generate_pyl_entry = False,
     mixins = [
         "ios_runtime_cache_17_5",
     ],
@@ -456,6 +466,7 @@ targets.variant(
 targets.variant(
     name = "SIM_IPHONE_X_16_4",
     identifier = "iPhone X 16.4",
+    generate_pyl_entry = False,
     mixins = [
         "ios_runtime_cache_16_4",
     ],
@@ -470,6 +481,7 @@ targets.variant(
 targets.variant(
     name = "WEBVIEW_TRICHROME_FULL_CTS_TESTS",
     identifier = "full_mode",
+    generate_pyl_entry = False,
     swarming = targets.swarming(
         shards = 2,
     ),
@@ -478,6 +490,7 @@ targets.variant(
 targets.variant(
     name = "WEBVIEW_TRICHROME_INSTANT_CTS_TESTS",
     identifier = "instant_mode",
+    generate_pyl_entry = False,
     args = [
         "--exclude-annotation",
         "AppModeFull",
@@ -500,14 +513,6 @@ targets.variant(
         if k != "cros_chrome_version"
     }),
 ) for name, variant in json.decode(io.read_file("./cros-skylab-variants.json")).items()]
-
-targets.variant(
-    name = "LACROS_ASH_TOT",
-    identifier = "Ash ToT",
-    args = [
-        "--deploy-lacros",
-    ],
-)
 
 targets.variant(
     name = "WIN10_INTEL_UHD_630_STABLE",

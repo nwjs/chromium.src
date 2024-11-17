@@ -18,7 +18,17 @@
       <if expr="not is_android">
         <structure name="IDR_INCOGNITO_TAB_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" />
         <structure name="IDR_INCOGNITO_TAB_THEME_CSS" file="resources\new_tab_page_incognito_guest\incognito_tab_theme.css" flattenhtml="true" type="chrome_html" />
+        <structure name="IDR_MD_INCOGNITO_TAB_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" />
         <structure name="IDR_GUEST_TAB_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" />
+      </if>
+      <if expr="chromeos_ash">
+        <structure name="IDR_LOGIN_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" variables="OOBE=login" expand_variables="true"/>
+        <structure name="IDR_LOGIN_JS" file="resources\empty.js" flattenhtml="true" type="chrome_html" />
+      </if>
+      <if expr="not is_android">
+        <structure name="IDR_NEW_INCOGNITO_TAB_THEME_CSS" file="resources\empty.css" flattenhtml="true" type="chrome_html" />
+        <structure name="IDR_NEW_TAB_4_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" />
+        <structure name="IDR_NEW_TAB_4_THEME_CSS" file="resources\empty.css" flattenhtml="true" type="chrome_html" />
         <!-- WebAuthn Lottie resources -->
         <structure type="lottie" name="IDR_WEBAUTHN_HYBRID_CONNECTING_LIGHT" file="resources/webauthn/hybrid_connecting_light.json" compress="brotli" />
         <structure type="lottie" name="IDR_WEBAUTHN_HYBRID_CONNECTING_DARK" file="resources/webauthn/hybrid_connecting_dark.json" compress="brotli" />
@@ -35,15 +45,6 @@
         <structure type="lottie" name="IDR_WEBAUTHN_GPM_PIN_LOCKED_DARK" file="resources/webauthn/gpm_pin_locked_dark.json" compress="brotli" />
       </if>
       <if expr="chromeos_ash">
-        <structure name="IDR_LOGIN_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" variables="OOBE=login" expand_variables="true"/>
-        <structure name="IDR_LOGIN_JS" file="resources\empty.js" flattenhtml="true" type="chrome_html" />
-      </if>
-      <if expr="not is_android">
-        <structure name="IDR_NEW_INCOGNITO_TAB_THEME_CSS" file="resources\empty.css" flattenhtml="true" type="chrome_html" />
-        <structure name="IDR_NEW_TAB_4_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" />
-        <structure name="IDR_NEW_TAB_4_THEME_CSS" file="resources\empty.css" flattenhtml="true" type="chrome_html" />
-      </if>
-      <if expr="chromeos_ash">
         <structure name="IDR_OOBE_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" variables="OOBE=oobe" expand_variables="true"/>
         <structure name="IDR_OOBE_JS" file="resources\empty.js" flattenhtml="true" type="chrome_html" />
         <structure name="IDR_OOBE_ENROLLMENT_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" />
@@ -58,8 +59,8 @@
       <structure name="IDR_READER_OUT_OF_DATE_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" />
     </structures>
     <includes>
-      <include name="IDR_NWJS_DEFAPP_MANIFEST" file="resources\nwjs_default_app\manifest.json" type="BINDATA" />
-      <include name="IDR_NWJS_DEFAPP_MANIFEST_NEWWIN" file="resources\nwjs_newwin_app\manifest.json" type="BINDATA" />
+      <include name="IDR_NWJS_DEFAPP_MANIFEST" file="resources\nwjs_default_app\manifest.json" type="BINDATA" compress="false" />
+      <include name="IDR_NWJS_DEFAPP_MANIFEST_NEWWIN" file="resources\nwjs_newwin_app\manifest.json" type="BINDATA" compress="false" />
       <if expr="is_win">
         <include name="IDR_ABOUT_CONFLICTS_HTML" file="resources\conflicts\about_conflicts.html" type="BINDATA" />
         <include name="IDR_ABOUT_CONFLICTS_JS" file="${root_gen_dir}\chrome\browser\resources\conflicts\tsc\about_conflicts.js" use_base_dir="false" type="BINDATA" />
@@ -67,6 +68,7 @@
       </if>
       <if expr="enable_webui_certificate_viewer">
         <include name="IDR_CERTIFICATE_VIEWER_HTML" file="resources\certificate_viewer\certificate_viewer.html" type="BINDATA" />
+        <include name="IDR_CERTIFICATE_VIEWER_JS" file="${root_gen_dir}\chrome\browser\resources\certificate_viewer\tsc\certificate_viewer.js" use_base_dir="false" type="BINDATA" />
         <include name="IDR_CERTIFICATE_VIEWER_CSS" file="resources\certificate_viewer\certificate_viewer.css" type="BINDATA" />
       </if>
       <include name="IDR_ABOUT_MEMORY_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
@@ -79,6 +81,9 @@
       <include name="IDR_ABOUT_VOICESEARCH_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_ABOUT_VOICESEARCH_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_AD_NETWORK_HASHES" file="resources\ad_networks.dat" type="BINDATA" />
+      <include name="IDR_BLUETOOTH_ADAPTER_MOJO_JS" file="${root_gen_dir}\device\bluetooth\public\mojom\adapter.mojom.js" use_base_dir="false" type="BINDATA" compress="gzip" />
+      <include name="IDR_BLUETOOTH_DEVICE_MOJO_JS" file="${root_gen_dir}\device\bluetooth\public\mojom\device.mojom.js" use_base_dir="false" type="BINDATA" compress="gzip" />
+      <include name="IDR_BLUETOOTH_UUID_MOJO_JS" file="${root_gen_dir}\device\bluetooth\public\mojom\uuid.mojom.js" use_base_dir="false" type="BINDATA" compress="gzip" />
       <include name="IDR_BLUETOOTH_INTERNALS_CSS" file="resources\bluetooth_internals\bluetooth_internals.css" type="BINDATA" compress="gzip" />
       <include name="IDR_BLUETOOTH_INTERNALS_ADAPTER_BROKER_JS" file="resources\bluetooth_internals\adapter_broker.js" type="BINDATA" compress="gzip" />
       <include name="IDR_BLUETOOTH_INTERNALS_ADAPTER_PAGE_JS" file="resources\bluetooth_internals\adapter_page.js" type="BINDATA" compress="gzip" />
@@ -92,6 +97,7 @@
       <include name="IDR_BLUETOOTH_INTERNALS_EXPANDABLE_LIST_JS" file="resources\bluetooth_internals\expandable_list.js" type="BINDATA" compress="gzip" />
       <include name="IDR_BLUETOOTH_INTERNALS_HTML" file="resources\bluetooth_internals\bluetooth_internals.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" compress="gzip" />
       <include name="IDR_BLUETOOTH_INTERNALS_JS" file="resources\bluetooth_internals\bluetooth_internals.js" type="BINDATA" compress="gzip" />
+      <include name="IDR_BLUETOOTH_INTERNALS_MOJO_JS" file="${root_gen_dir}\chrome\browser\ui\webui\bluetooth_internals\bluetooth_internals.mojom.js" use_base_dir="false" type="BINDATA" compress="gzip" />
       <include name="IDR_BLUETOOTH_INTERNALS_OBJECT_FIELDSET_JS" file="resources\bluetooth_internals\object_fieldset.js" type="BINDATA" compress="gzip" />
       <include name="IDR_BLUETOOTH_INTERNALS_SERVICE_LIST_JS" file="resources\bluetooth_internals\service_list.js" type="BINDATA" compress="gzip" />
       <include name="IDR_BLUETOOTH_INTERNALS_SIDEBAR_JS" file="resources\bluetooth_internals\sidebar.js" type="BINDATA" compress="gzip" />
@@ -106,6 +112,8 @@
       <if expr="not is_android">
         <!-- Page not available for guest. -->
         <include name="IDR_PAGE_NOT_AVAILABLE_FOR_GUEST_APP_HTML" file="resources\page_not_available_for_guest\app.html" type="BINDATA" />
+        <include name="IDR_INLINE_LOGIN_HTML" file="resources\inline_login\inline_login.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_INLINE_LOGIN_APP_JS" file="${root_gen_dir}\chrome\browser\resources\inline_login\inline_login_app.js" use_base_dir="false" type ="BINDATA" preprocess="true" />
       </if>
       <include name="IDR_CRASHES_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_CRASHES_JS" file="resources\empty.js" type="BINDATA" />
@@ -122,6 +130,7 @@
       <if expr="not is_android">
         <include name="IDR_DOWNLOADS_IMAGES_INCOGNITO_MARKER_SVG" file="resources\downloads\images\incognito_marker.svg" type="BINDATA" />
         <include name="IDR_DOWNLOADS_IMAGES_NO_DOWNLOADS_SVG" file="resources\downloads\images\no_downloads.svg" type="BINDATA" />
+        <include name="IDR_DOWNLOADS_MOJO_LITE_JS" file="${root_gen_dir}\chrome\browser\ui\webui\downloads\downloads.mojom-lite.js" use_base_dir="false" type="BINDATA" />
         <if expr="optimize_webui">
           <then>
           </then>
@@ -137,11 +146,6 @@
             <include name="IDR_DOWNLOADS_TOOLBAR_JS" file="resources\downloads\toolbar.js" type="BINDATA" />
           </else>
         </if>
-      </if>
-      <if expr="safe_browsing_mode == 1">
-        <include name="IDR_RESET_PASSWORD_HTML" file="resources\reset_password\reset_password.html" type="BINDATA" />
-        <include name="IDR_RESET_PASSWORD_JS" file="${root_gen_dir}\chrome\browser\resources\reset_password\tsc\reset_password.js" use_base_dir="false" type="BINDATA" />
-        <include name="IDR_RESET_PASSWORD_MOJOM_WEBUI_JS" file="${root_gen_dir}\chrome\browser\resources\reset_password\tsc\reset_password.mojom-webui.js" use_base_dir="false" type="BINDATA" />
       </if>
       <include name="IDR_FEEDBACK_MANIFEST" file="resources\empty.json" type="BINDATA" />
       <include name="IDR_SUPERVISED_USER_INTERNALS_HTML" file="resources\empty.html" allowexternalscript="true" type="BINDATA" />
@@ -194,12 +198,10 @@
       <include name="IDR_MOST_VISITED_THUMBNAIL_CSS" file="resources\empty.css" type="BINDATA" />
       <include name="IDR_MOST_VISITED_THUMBNAIL_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_MOST_VISITED_WINDOW_DISPOSITION_UTIL_JS" file="resources\empty.js" type="BINDATA" />
-      <include name="IDR_OMNIBOX_OUTPUT_JS" file="resources\empty.js" type="BINDATA" compress="gzip" />
       <include name="IDR_OMNIBOX_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_OMNIBOX_CSS" file="resources\empty.css" type="BINDATA" />
       <include name="IDR_OMNIBOX_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_OMNIBOX_MOJO_JS" file="resources\empty.js" type="BINDATA"/>
-      <include name="IDR_OMNIBOX_INPUT_CSS" file="resources\omnibox\omnibox_input.css" type="BINDATA" compress="gzip" />
       <include name="IDR_OUTPUT_RESULTS_GROUP_CSS" file="resources\omnibox\output_results_group.css" type="BINDATA" compress="gzip" />
       <include name="IDR_OMNIBOX_OUTPUT_COLUMN_WIDTHS_CSS" file="resources\omnibox\omnibox_output_column_widths.css" type="BINDATA" compress="gzip" />
       <include name="IDR_COMPONENTS_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
@@ -207,6 +209,11 @@
       <include name="IDR_MEMORY_INTERNALS_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" />
       <include name="IDR_MEMORY_INTERNALS_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_READING_MODE_GDOCS_HELPER_MANIFEST" file="resources\reading_mode_gdocs_helper\manifest.json" type="BINDATA" />
+      <if expr="safe_browsing_mode == 1">
+        <include name="IDR_RESET_PASSWORD_HTML" file="resources\reset_password\reset_password.html" type="BINDATA" />
+        <include name="IDR_RESET_PASSWORD_JS" file="${root_gen_dir}\chrome\browser\resources\reset_password\tsc\reset_password.js" use_base_dir="false" type="BINDATA" />
+        <include name="IDR_RESET_PASSWORD_MOJOM_WEBUI_JS" file="${root_gen_dir}\chrome\browser\resources\reset_password\tsc\reset_password.mojom-webui.js" use_base_dir="false" type="BINDATA" />
+      </if>
       <if expr="enable_pdf">
         <include name="IDR_PDF_MANIFEST" file="resources\pdf\manifest.json" type="BINDATA" />
       </if>
@@ -220,6 +227,9 @@
       <include name="IDR_POLICY_BASE_JS" file="resources\empty.js" type="BINDATA"/>
       <include name="IDR_POLICY_JS" file="resources\empty.js" type="BINDATA"/>
       <include name="IDR_POLICY_COMMON_CSS" file="resources\empty.css" type="BINDATA"/>
+      <if expr="not is_android">
+        <include name="IDR_MANAGEMENT_HTML" file="resources\management\management.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" compress="gzip" />
+      </if>
       <include name="IDR_PROFILER_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_PROFILER_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
         <include name="IDR_PROFILE_CUSTOMIZATION_HTML" file="resources\signin\profile_customization\profile_customization.html" type="BINDATA" />
@@ -346,6 +356,7 @@
       <if expr="not is_android">
         <include name="IDR_MEDIA_ROUTER_INTERNALS_HTML" file="resources\media_router\internals\media_router_internals.html" type="BINDATA" />
         <include name="IDR_MEDIA_ROUTER_INTERNALS_CSS" file="resources\media_router\internals\media_router_internals.css" type="BINDATA" />
+        <include name="IDR_MEDIA_ROUTER_INTERNALS_JS" file="${root_gen_dir}\chrome\browser\resources\media_router\internals\tsc\media_router_internals.js" use_base_dir="false" type="BINDATA" />
       </if>
       <if expr="not is_android and not is_ios and not chromeos_ash">
         <include name="IDR_IME_WINDOW_CLOSE" file="resources\input_ime\ime_window_close.png" type="BINDATA" />
@@ -354,10 +365,13 @@
       </if>
       <include name="IDR_MEDIA_ENGAGEMENT_HTML" file="resources\empty.html" flattenhtml="true" type="BINDATA" compress="gzip" allowexternalscript="true" />
       <include name="IDR_MEDIA_ENGAGEMENT_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" compress="gzip" />
+      <include name="IDR_MEDIA_ENGAGEMENT_SCORE_DETAILS_MOJOM_LITE_JS" file="${root_gen_dir}\chrome\browser\media\media_engagement_score_details.mojom-lite.js" use_base_dir="false" type="BINDATA" compress="gzip" />
       <if expr="not is_android">
         <!-- Chrome Cart -->
         <part file="cart/resources/cart_resources.grdp" />
-        <!-- FedCM -->
+      </if>
+      <if expr="not is_android">
+        <include name="IDR_DESKTOP_SHARING_HUB_PB" file="${root_gen_dir}\chrome\browser\share\core\resources\desktop_sharing_hub.pb" use_base_dir="false" type="BINDATA" compress="gzip" />
         <part file="ui/views/webid/resources/webid_resources.grdp" />
       </if>
       <if expr="chrome_root_store_cert_management_ui">

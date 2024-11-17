@@ -25,7 +25,6 @@
 #include "third_party/blink/renderer/core/streams/readable_stream_default_controller_with_script_scope.h"
 #include "third_party/blink/renderer/core/streams/readable_stream_transferring_optimizer.h"
 #include "third_party/blink/renderer/core/streams/stream_algorithms.h"
-#include "third_party/blink/renderer/core/streams/stream_promise_resolver.h"
 #include "third_party/blink/renderer/core/streams/underlying_source_base.h"
 #include "third_party/blink/renderer/core/streams/writable_stream.h"
 #include "third_party/blink/renderer/core/streams/writable_stream_default_controller.h"
@@ -148,16 +147,15 @@ void PackAndPostMessage(ScriptState* script_state,
 void CrossRealmTransformSendError(ScriptState* script_state,
                                   MessagePort* port,
                                   v8::Local<v8::Value> error) {
-  ExceptionState exception_state(script_state->GetIsolate(),
-                                 v8::ExceptionContext::kUnknown, "", "");
+  v8::TryCatch try_catch(script_state->GetIsolate());
 
   // https://streams.spec.whatwg.org/#abstract-opdef-crossrealmtransformsenderror
   // 1. Perform PackAndPostMessage(port, "error", error), discarding the result.
   PackAndPostMessage(script_state, port, MessageType::kError, error,
-                     AllowPerChunkTransferring(false), exception_state);
-  if (exception_state.HadException()) {
+                     AllowPerChunkTransferring(false),
+                     PassThroughException(script_state->GetIsolate()));
+  if (try_catch.HasCaught()) {
     DLOG(WARNING) << "Disregarding exception while sending error";
-    exception_state.ClearException();
   }
 }
 
@@ -176,21 +174,19 @@ bool PackAndPostMessageHandlingError(
     v8::Local<v8::Value> value,
     AllowPerChunkTransferring allow_per_chunk_transferring,
     v8::Local<v8::Value>* error) {
-  ExceptionState exception_state(script_state->GetIsolate(),
-                                 v8::ExceptionContext::kUnknown, "", "");
-
+  v8::TryCatch try_catch(script_state->GetIsolate());
   // https://streams.spec.whatwg.org/#abstract-opdef-packandpostmessagehandlingerror
   // 1. Let result be PackAndPostMessage(port, type, value).
   PackAndPostMessage(script_state, port, type, value,
-                     allow_per_chunk_transferring, exception_state);
+                     allow_per_chunk_transferring,
+                     PassThroughException(script_state->GetIsolate()));
 
   // 2. If result is an abrupt completion,
-  if (exception_state.HadException()) {
+  if (try_catch.HasCaught()) {
     //   1. Perform ! CrossRealmTransformSendError(port, result.[[Value]]).
     // 3. Return result as a completion record.
-    *error = exception_state.GetException();
-    CrossRealmTransformSendError(script_state, port, *error);
-    exception_state.ClearException();
+    *error = try_catch.Exception();
+    CrossRealmTransformSendError(script_state, port, try_catch.Exception());
     return false;
   }
 
@@ -341,7 +337,8 @@ class CrossRealmTransformWritable final : public CrossRealmTransformStream {
       : script_state_(script_state),
         message_port_(port),
         backpressure_promise_(
-            MakeGarbageCollected<StreamPromiseResolver>(script_state)),
+            MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(
+                script_state)),
         allow_per_chunk_transferring_(allow_per_chunk_transferring) {}
 
   WritableStream* CreateWritableStream(ExceptionState&);
@@ -366,7 +363,7 @@ class CrossRealmTransformWritable final : public CrossRealmTransformStream {
 
   const Member<ScriptState> script_state_;
   const Member<MessagePort> message_port_;
-  Member<StreamPromiseResolver> backpressure_promise_;
+  Member<ScriptPromiseResolver<IDLUndefined>> backpressure_promise_;
   Member<WritableStreamDefaultController> controller_;
   const AllowPerChunkTransferring allow_per_chunk_transferring_;
 };
@@ -398,14 +395,12 @@ class CrossRealmTransformWritable::WriteAlgorithm final
       return DoWrite(script_state, chunk);
     }
 
-    auto* isolate = script_state->GetIsolate();
-
     // 2. Return the result of reacting to backpressurePromise with the
     //    following fulfillment steps:
 
     return StreamThenPromise(
         script_state->GetContext(),
-        writable_->backpressure_promise_->V8Promise(isolate),
+        writable_->backpressure_promise_->V8Promise(),
         MakeGarbageCollected<ScriptFunction>(
             script_state,
             MakeGarbageCollected<DoWriteOnResolve>(script_state, chunk, this)));
@@ -451,7 +446,7 @@ class CrossRealmTransformWritable::WriteAlgorithm final
     //      following fulfillment steps:
     //     1. Set backpressurePromise to a new promise.
     writable_->backpressure_promise_ =
-        MakeGarbageCollected<StreamPromiseResolver>(script_state);
+        MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(script_state);
 
     v8::Local<v8::Value> error;
 
@@ -617,7 +612,7 @@ void CrossRealmTransformWritable::HandleMessage(MessageType type,
       // 1. If backpressurePromise is not undefined,
       if (backpressure_promise_) {
         // 1. Resolve backpressurePromise with undefined.
-        backpressure_promise_->ResolveWithUndefined(script_state_);
+        backpressure_promise_->Resolve();
         // 2. Set backpressurePromise to undefined.
         backpressure_promise_ = nullptr;
       }
@@ -633,7 +628,7 @@ void CrossRealmTransformWritable::HandleMessage(MessageType type,
       if (backpressure_promise_) {
         // 1. Resolve backpressurePromise with undefined.
         // 2. Set backpressurePromise to undefined.
-        backpressure_promise_->ResolveWithUndefined(script_state_);
+        backpressure_promise_->Resolve();
         backpressure_promise_ = nullptr;
       }
       return;
@@ -808,14 +803,14 @@ class ConcatenatingUnderlyingSource final : public UnderlyingSourceBase {
    public:
     explicit ConcatenatingUnderlyingSourceReadRequest(
         ConcatenatingUnderlyingSource* source,
-        StreamPromiseResolver* resolver)
+        ScriptPromiseResolver<IDLPromise<IDLAny>>* resolver)
         : source_(source), resolver_(resolver) {}
 
     void ChunkSteps(ScriptState* script_state,
                     v8::Local<v8::Value> chunk,
                     ExceptionState&) const override {
       source_->Controller()->Enqueue(chunk);
-      resolver_->ResolveWithUndefined(script_state);
+      resolver_->Resolve();
     }
 
     void CloseSteps(ScriptState* script_state) const override {
@@ -828,21 +823,18 @@ class ConcatenatingUnderlyingSource final : public UnderlyingSourceBase {
         ExceptionState exception_state(script_state->GetIsolate(),
                                        v8::ExceptionContext::kUnknown, "", "");
         resolver_->Resolve(
-            script_state,
             source_->source2_
                 ->StartWrapper(script_state, controller, exception_state)
-                .Then(CreateFunction<PullSource2>(script_state, source_,
-                                                  exception_state.GetContext()))
-                .V8Value());
+                .Then(CreateFunction<PullSource2>(
+                    script_state, source_, exception_state.GetContext())));
       } else {
         // TODO(crbug.com/1418910): Investigate how to handle cases when the
         // controller is cleared.
-        resolver_->Reject(script_state,
-                          v8::Exception::TypeError(V8String(
-                              isolate,
-                              "The readable stream controller has been cleared "
-                              "and cannot be used to start reading the second "
-                              "stream.")));
+        resolver_->Reject(v8::Exception::TypeError(
+            V8String(isolate,
+                     "The readable stream controller has been cleared "
+                     "and cannot be used to start reading the second "
+                     "stream.")));
       }
     }
 
@@ -853,17 +845,13 @@ class ConcatenatingUnderlyingSource final : public UnderlyingSourceBase {
               script_state, source_->source2_,
               /*high_water_mark=*/0);
 
-      ExceptionState exception_state(script_state->GetIsolate(),
-                                     v8::ExceptionContext::kUnknown, "", "");
-      dummy_stream->cancel(
-          script_state,
-          ScriptValue(script_state->GetIsolate(),
-                      v8::Undefined(script_state->GetIsolate())),
-          exception_state);
+      v8::Isolate* isolate = script_state->GetIsolate();
       // We don't care about the result of the cancellation, including
       // exceptions.
-      exception_state.ClearException();
-      resolver_->Reject(script_state, e);
+      dummy_stream->cancel(script_state,
+                           ScriptValue(isolate, v8::Undefined(isolate)),
+                           IGNORE_EXCEPTION);
+      resolver_->Reject(e);
     }
 
     void Trace(Visitor* visitor) const override {
@@ -874,7 +862,7 @@ class ConcatenatingUnderlyingSource final : public UnderlyingSourceBase {
 
    private:
     Member<ConcatenatingUnderlyingSource> source_;
-    Member<StreamPromiseResolver> resolver_;
+    Member<ScriptPromiseResolver<IDLPromise<IDLAny>>> resolver_;
   };
 
   ConcatenatingUnderlyingSource(ScriptState* script_state,
@@ -885,14 +873,16 @@ class ConcatenatingUnderlyingSource final : public UnderlyingSourceBase {
         source2_(source2) {}
 
   ScriptPromiseUntyped Start(ScriptState* script_state,
-                             ExceptionState& exception_state) override {
+                             ExceptionState&) override {
+    v8::TryCatch try_catch(script_state->GetIsolate());
     reader_for_stream1_ = ReadableStream::AcquireDefaultReader(
-        script_state, stream1_, exception_state);
-    if (exception_state.HadException()) {
-      return ScriptPromiseUntyped::Reject(script_state, exception_state);
+        script_state, stream1_,
+        PassThroughException(script_state->GetIsolate()));
+    if (try_catch.HasCaught()) {
+      return ScriptPromiseUntyped::Reject(script_state, try_catch.Exception());
     }
     DCHECK(reader_for_stream1_);
-    return ScriptPromiseUntyped::CastUndefined(script_state);
+    return ToResolvedUndefinedPromise(script_state);
   }
 
   ScriptPromiseUntyped Pull(ScriptState* script_state,
@@ -900,13 +890,15 @@ class ConcatenatingUnderlyingSource final : public UnderlyingSourceBase {
     if (has_finished_reading_stream1_) {
       return source2_->Pull(script_state, exception_state);
     }
-    auto* promise = MakeGarbageCollected<StreamPromiseResolver>(script_state);
+    auto* promise =
+        MakeGarbageCollected<ScriptPromiseResolver<IDLPromise<IDLAny>>>(
+            script_state);
     auto* read_request =
         MakeGarbageCollected<ConcatenatingUnderlyingSourceReadRequest>(this,
                                                                        promise);
     ReadableStreamDefaultReader::Read(script_state, reader_for_stream1_,
                                       read_request, exception_state);
-    return promise->GetScriptPromiseUntyped(script_state);
+    return promise->Promise();
   }
 
   ScriptPromiseUntyped Cancel(ScriptState* script_state,
@@ -915,21 +907,22 @@ class ConcatenatingUnderlyingSource final : public UnderlyingSourceBase {
     if (has_finished_reading_stream1_) {
       return source2_->Cancel(script_state, reason, exception_state);
     }
-    ScriptPromiseUntyped cancel_promise1 =
-        reader_for_stream1_->cancel(script_state, reason, exception_state);
-    if (exception_state.HadException()) {
+    v8::TryCatch try_catch(script_state->GetIsolate());
+    ScriptPromiseUntyped cancel_promise1 = reader_for_stream1_->cancel(
+        script_state, reason, PassThroughException(script_state->GetIsolate()));
+    if (try_catch.HasCaught()) {
       cancel_promise1 =
-          ScriptPromiseUntyped::Reject(script_state, exception_state);
+          ScriptPromiseUntyped::Reject(script_state, try_catch.Exception());
     }
 
     ReadableStream* dummy_stream =
         ReadableStream::CreateWithCountQueueingStrategy(script_state, source2_,
                                                         /*high_water_mark=*/0);
-    ScriptPromiseUntyped cancel_promise2 =
-        dummy_stream->cancel(script_state, reason, exception_state);
-    if (exception_state.HadException()) {
+    ScriptPromiseUntyped cancel_promise2 = dummy_stream->cancel(
+        script_state, reason, PassThroughException(script_state->GetIsolate()));
+    if (try_catch.HasCaught()) {
       cancel_promise2 =
-          ScriptPromiseUntyped::Reject(script_state, exception_state);
+          ScriptPromiseUntyped::Reject(script_state, try_catch.Exception());
     }
 
     return ScriptPromiseUntyped::All(script_state,

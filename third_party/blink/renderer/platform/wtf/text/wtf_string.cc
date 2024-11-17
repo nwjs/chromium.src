@@ -125,10 +125,11 @@ void String::Ensure16Bit() {
     return;
   if (!Is8Bit())
     return;
-  if (unsigned length = this->length())
-    impl_ = Make16BitFrom8BitSource(impl_->Characters8(), length).ReleaseImpl();
-  else
+  if (!empty()) {
+    impl_ = Make16BitFrom8BitSource(impl_->Span8()).ReleaseImpl();
+  } else {
     impl_ = StringImpl::empty16_bit_;
+  }
 }
 
 void String::Truncate(unsigned length) {
@@ -452,26 +453,30 @@ std::string String::Latin1() const {
   return latin1;
 }
 
-String String::Make8BitFrom16BitSource(const UChar* source, wtf_size_t length) {
-  if (!length)
+String String::Make8BitFrom16BitSource(base::span<const UChar> source) {
+  if (source.empty()) {
     return g_empty_string;
+  }
 
-  LChar* destination;
+  const wtf_size_t length = base::checked_cast<wtf_size_t>(source.size());
+  base::span<LChar> destination;
   String result = String::CreateUninitialized(length, destination);
 
-  CopyLCharsFromUCharSource(destination, source, length);
+  CopyLCharsFromUCharSource(destination.data(), source.data(), length);
 
   return result;
 }
 
-String String::Make16BitFrom8BitSource(const LChar* source, wtf_size_t length) {
-  if (!length)
+String String::Make16BitFrom8BitSource(base::span<const LChar> source) {
+  if (source.empty()) {
     return g_empty_string16_bit;
+  }
 
-  UChar* destination;
+  const wtf_size_t length = base::checked_cast<wtf_size_t>(source.size());
+  base::span<UChar> destination;
   String result = String::CreateUninitialized(length, destination);
 
-  StringImpl::CopyChars(destination, source, length);
+  StringImpl::CopyChars(destination.data(), source.data(), length);
 
   return result;
 }
@@ -523,6 +528,10 @@ String String::FromUTF8WithLatin1Fallback(const LChar* string, size_t size) {
   return utf8;
 }
 
+String String::FromUTF8WithLatin1Fallback(std::string_view s) {
+  return FromUTF8WithLatin1Fallback(s.data(), s.size());
+}
+
 std::ostream& operator<<(std::ostream& out, const String& string) {
   return out << string.EncodeForDebugging().Utf8();
 }
@@ -542,8 +551,8 @@ void String::WriteIntoTrace(perfetto::TracedValue context) const {
   // Avoid the default String to StringView conversion since it calls
   // AddRef() on the StringImpl and this method is sometimes called in
   // places where that triggers DCHECKs.
-  StringUTF8Adaptor adaptor(Is8Bit() ? StringView(Characters8(), length())
-                                     : StringView(Characters16(), length()));
+  StringUTF8Adaptor adaptor(Is8Bit() ? StringView(Span8())
+                                     : StringView(Span16()));
   std::move(context).WriteString(adaptor.data(), adaptor.size());
 }
 

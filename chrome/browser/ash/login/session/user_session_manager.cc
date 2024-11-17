@@ -50,6 +50,7 @@
 #include "chrome/browser/ash/app_list/app_list_client_impl.h"
 #include "chrome/browser/ash/app_list/arc/arc_app_utils.h"
 #include "chrome/browser/ash/app_restore/full_restore_service.h"
+#include "chrome/browser/ash/app_restore/full_restore_service_factory.h"
 #include "chrome/browser/ash/arc/arc_migration_guide_notification.h"
 #include "chrome/browser/ash/arc/arc_util.h"
 #include "chrome/browser/ash/base/locale_util.h"
@@ -59,6 +60,7 @@
 #include "chrome/browser/ash/eol/eol_notification.h"
 #include "chrome/browser/ash/first_run/first_run.h"
 #include "chrome/browser/ash/floating_workspace/floating_workspace_service.h"
+#include "chrome/browser/ash/floating_workspace/floating_workspace_service_factory.h"
 #include "chrome/browser/ash/floating_workspace/floating_workspace_util.h"
 #include "chrome/browser/ash/hats/hats_config.h"
 #include "chrome/browser/ash/logging/logging.h"
@@ -2325,7 +2327,7 @@ void UserSessionManager::DoBrowserLaunchInternal(Profile* profile,
         floating_workspace_util::IsFloatingWorkspaceV2Enabled()) {
       // If floating workspace is enabled, it will override full restore.
       FloatingWorkspaceService* floating_workspace_service =
-          FloatingWorkspaceService::GetForProfile(profile);
+          FloatingWorkspaceServiceFactory::GetForProfile(profile);
       if (floating_workspace_util::IsFloatingWorkspaceV1Enabled() &&
           floating_workspace_service) {
         floating_workspace_service->SubscribeToForeignSessionUpdates();
@@ -2334,7 +2336,7 @@ void UserSessionManager::DoBrowserLaunchInternal(Profile* profile,
       LaunchBrowser(profile);
       PerformPostBrowserLaunchOOBEActions(profile);
     } else {
-      full_restore::FullRestoreService::GetForProfile(profile)
+      full_restore::FullRestoreServiceFactory::GetForProfile(profile)
           ->LaunchBrowserWhenReady();
     }
   }
@@ -2592,7 +2594,7 @@ void UserSessionManager::UpdateTokenHandle(Profile* const profile,
 
 bool UserSessionManager::IsFullRestoreEnabled(Profile* profile) {
   auto* full_restore_service =
-      full_restore::FullRestoreService::GetForProfile(profile);
+      full_restore::FullRestoreServiceFactory::GetForProfile(profile);
   return full_restore_service != nullptr;
 }
 

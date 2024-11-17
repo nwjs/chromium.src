@@ -6,7 +6,7 @@
 #define ASH_PICKER_SEARCH_MOCK_SEARCH_PICKER_CLIENT_H_
 
 #include "ash/ash_export.h"
-#include "ash/public/cpp/picker/mock_picker_client.h"
+#include "ash/picker/mock_picker_client.h"
 
 namespace ash {
 
@@ -14,7 +14,8 @@ namespace ash {
 // By default:
 // - `StartCrosSearch` will store the supplied callback which can be obtained
 //   using `cros_search_callback()`.
-// - `ShowEditor` will cause the current test to fail.
+// - `GetSharedURLLoaderFactory` and `ShowEditor` will cause the current test to
+//   fail.
 // These behaviours can be overridden with `WillOnce` and `WillRepeatedly` if
 // necessary.
 class ASH_EXPORT MockSearchPickerClient : public MockPickerClient {

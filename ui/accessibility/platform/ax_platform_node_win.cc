@@ -290,17 +290,13 @@ GetWinAccessibilityAPIUsageObserverList() {
 // Used to simplify calling StartFiringUIAEvents and EndFiringEvents
 WinAccessibilityAPIUsageScopedUIAEventsNotifier::
     WinAccessibilityAPIUsageScopedUIAEventsNotifier() {
-  for (WinAccessibilityAPIUsageObserver& observer :
-       GetWinAccessibilityAPIUsageObserverList()) {
-    observer.StartFiringUIAEvents();
-  }
+  GetWinAccessibilityAPIUsageObserverList().Notify(
+      &WinAccessibilityAPIUsageObserver::StartFiringUIAEvents);
 }
 WinAccessibilityAPIUsageScopedUIAEventsNotifier::
     ~WinAccessibilityAPIUsageScopedUIAEventsNotifier() {
-  for (WinAccessibilityAPIUsageObserver& observer :
-       GetWinAccessibilityAPIUsageObserverList()) {
-    observer.EndFiringUIAEvents();
-  }
+  GetWinAccessibilityAPIUsageObserverList().Notify(
+      &WinAccessibilityAPIUsageObserver::EndFiringUIAEvents);
 }
 
 //
@@ -921,9 +917,13 @@ AXPlatformNodeWin::UIARoleProperties AXPlatformNodeWin::GetUIARoleProperties() {
 
     case ax::mojom::Role::kDisclosureTriangle:
     case ax::mojom::Role::kDisclosureTriangleGrouped:
-      return {UIALocalizationStrategy::kSupply, UIA_ButtonControlTypeId,
-              L"button"};
-
+      if (::features::IsAccessibilityExposeSummaryAsHeadingEnabled()) {
+        return {UIALocalizationStrategy::kSupply, UIA_ButtonControlTypeId,
+                L"heading"};
+      } else {
+        return {UIALocalizationStrategy::kSupply, UIA_ButtonControlTypeId,
+                L"button"};
+      }
     case ax::mojom::Role::kDocCover:
       return {UIALocalizationStrategy::kSupply, UIA_ImageControlTypeId, L"img"};
 
@@ -1790,10 +1790,8 @@ IFACEMETHODIMP AXPlatformNodeWin::get_accName(VARIANT var_id, BSTR* name_bstr) {
   COM_OBJECT_VALIDATE_VAR_ID_1_ARG_AND_GET_TARGET(var_id, name_bstr, target);
   NotifyObserverForMSAAUsage();
 
-  for (WinAccessibilityAPIUsageObserver& observer :
-       GetWinAccessibilityAPIUsageObserverList()) {
-    observer.OnAccNameCalled();
-  }
+  GetWinAccessibilityAPIUsageObserverList().Notify(
+      &WinAccessibilityAPIUsageObserver::OnAccNameCalled);
 
   if (!IsNameExposed())
     return S_FALSE;
@@ -6133,6 +6131,12 @@ LONG AXPlatformNodeWin::ComputeUIAStyleId() const {
   const AXPlatformNodeBase* current_node = this;
   do {
     switch (current_node->GetRole()) {
+      case ax::mojom::Role::kDisclosureTriangle:
+      case ax::mojom::Role::kDisclosureTriangleGrouped:
+        if (!::features::IsAccessibilityExposeSummaryAsHeadingEnabled()) {
+          break;
+        }
+        [[fallthrough]];  // Expose heading level.
       case ax::mojom::Role::kHeading:
         return AXHierarchicalLevelToUIAStyleId(current_node->GetIntAttribute(
             ax::mojom::IntAttribute::kHierarchicalLevel));
@@ -7006,6 +7010,14 @@ int32_t AXPlatformNodeWin::ComputeIA2Role() {
     case ax::mojom::Role::kDate:
     case ax::mojom::Role::kDateTime:
       ia2_role = IA2_ROLE_DATE_EDITOR;
+      break;
+    case ax::mojom::Role::kDisclosureTriangle:
+    case ax::mojom::Role::kDisclosureTriangleGrouped:
+      if (::features::IsAccessibilityExposeSummaryAsHeadingEnabled()) {
+        // TODO(accessibility): Consider keeping as button if inside list item
+        // or table cell.
+        ia2_role = IA2_ROLE_HEADING;
+      }
       break;
     case ax::mojom::Role::kDocPageFooter:
       ia2_role = IA2_ROLE_FOOTER;
@@ -8411,10 +8423,8 @@ void AXPlatformNodeWin::SanitizeTextAttributeValue(const std::string& input,
 }
 
 void AXPlatformNodeWin::NotifyObserverForMSAAUsage() const {
-  for (WinAccessibilityAPIUsageObserver& observer :
-       GetWinAccessibilityAPIUsageObserverList()) {
-    observer.OnMSAAUsed();
-  }
+  GetWinAccessibilityAPIUsageObserverList().Notify(
+      &WinAccessibilityAPIUsageObserver::OnMSAAUsed);
 }
 
 void AXPlatformNodeWin::NotifyAddAXModeFlagsForIA2(
@@ -8471,7 +8481,6 @@ void AXPlatformNodeWin::NotifyAPIObserverForPropertyRequest(
 
   bool probable_advanced_client_detected = false;
   bool probable_screen_reader_detected = false;
-  bool uiautomation_id_requested = false;
   switch (property_id) {
     // These properties are used by non-screenreader UIA clients. They should
     // not cause additional enablement.
@@ -8543,7 +8552,6 @@ void AXPlatformNodeWin::NotifyAPIObserverForPropertyRequest(
     case UIA_LocalizedLandmarkTypePropertyId:
     case UIA_FullDescriptionPropertyId:
     case UIA_IsDialogPropertyId:
-      uiautomation_id_requested = true;
       probable_screen_reader_detected = true;
       probable_advanced_client_detected = true;
       break;
@@ -8555,8 +8563,6 @@ void AXPlatformNodeWin::NotifyAPIObserverForPropertyRequest(
       observer.OnAdvancedUIAutomationUsed();
     if (probable_screen_reader_detected)
       observer.OnProbableUIAutomationScreenReaderDetected();
-    if (uiautomation_id_requested)
-      observer.OnUIAutomationIdRequested();
   }
 }
 

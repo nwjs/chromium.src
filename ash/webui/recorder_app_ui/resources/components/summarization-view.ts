@@ -18,6 +18,7 @@ import {
   css,
   CSSResultGroup,
   html,
+  map,
   nothing,
   PropertyDeclarations,
   ref,
@@ -125,8 +126,9 @@ export class SummarizationView extends ReactiveLitElement {
 
     #summary {
       font: var(--cros-body-1-font);
-      padding: 12px 16px;
-      white-space: pre-wrap;
+      list-style-position: outside;
+      margin: 12px 12px 12px 22px;
+      padding: 0 0 0 10px;
     }
 
     #footer {
@@ -201,13 +203,11 @@ export class SummarizationView extends ReactiveLitElement {
   override updated(): void {
     const summaryState = this.platformHandler.summaryModelLoader.state;
     if (settings.value.summaryEnabled === SummaryEnableState.ENABLED &&
-      summaryState.value.kind === 'installing') {
+        summaryState.value.kind === 'installing') {
       this.downloadRequested.value = true;
-    } else if (
-      this.downloadRequested.value &&
-      !this.downloadPerfCollected.value &&
-      summaryState.value.kind === 'installed'
-    ) {
+    } else if (this.downloadRequested.value &&
+               !this.downloadPerfCollected.value &&
+               summaryState.value.kind === 'installed') {
       // TODO: b/367263595 - Collect perf in PlatformHandler instead.
       this.platformHandler.perfLogger.finish('summaryModelDownload');
       this.downloadPerfCollected.value = true;
@@ -246,11 +246,25 @@ export class SummarizationView extends ReactiveLitElement {
     return html`
       <div id="footer">
         ${i18n.genAiDisclaimerText}
-        <a href=${HELP_URL} target="_blank">${i18n.genAiLearnMoreLink}</a>
+        <a
+          href=${HELP_URL}
+          target="_blank"
+          aria-label=${i18n.genAiLearnMoreLinkTooltip}
+        >
+          ${i18n.genAiLearnMoreLink}
+        </a>
       </div>
       <genai-feedback-buttons .resultType=${GenaiResultType.SUMMARY}>
       </genai-feedback-buttons>
     `;
+  }
+
+  private renderSummaryResult(result: string) {
+    const sentences = result.split('\n');
+    return map(sentences, (sentence) => {
+      // Remove the leading hyphen and space from the sentence, if any.
+      return html`<li>${sentence.replace(/^-\s+/, '')}</li>`;
+    });
   }
 
   private renderSummaryContent() {
@@ -275,15 +289,12 @@ export class SummarizationView extends ReactiveLitElement {
           >
           </genai-error>`;
       case 'success':
-        // Don't add space around ${summary.result}
-        // prettier-ignore
         return html`<spoken-message role="status" aria-live="polite">
             ${i18n.summaryFinishedStatusMessage}
           </spoken-message>
-          <div
-            id="summary"
-            ${ref(this.summaryContainer)}
-          >${summary.result}</div>
+          <ul id="summary" ${ref(this.summaryContainer)}>
+            ${this.renderSummaryResult(summary.result)}
+          </ul>
           ${this.renderSummaryFooter()}`;
       default:
         assertExhaustive(summary);
@@ -307,9 +318,10 @@ export class SummarizationView extends ReactiveLitElement {
     // TODO: b/336963138 - Implement error state.
     const downloadStatus = html`<spoken-message
       role="status"
-      aria-live="polite">
-        ${i18n.summaryDownloadFinishedStatusMessage}
-      </spoken-message>`;
+      aria-live="polite"
+    >
+      ${i18n.summaryDownloadFinishedStatusMessage}
+    </spoken-message>`;
     return html`
       <cros-accordion variant="compact">
         <cros-accordion-item

@@ -36,6 +36,7 @@ const noArgStringNames = [
   'genAiErrorTitleSuggestionTrustAndSafetyLabel',
   'genAiExperimentBadge',
   'genAiLearnMoreLink',
+  'genAiLearnMoreLinkTooltip',
   'genaiNegativeFeedbackButtonTooltip',
   'genaiPositiveFeedbackButtonTooltip',
   'mainRecordingBarLandmarkAriaLabel',
@@ -154,6 +155,7 @@ const noArgStringNames = [
   'systemAudioConsentDialogConsentButton',
   'systemAudioConsentDialogDescription',
   'systemAudioConsentDialogHeader',
+  'titleRenameSnackbarMessage',
   'titleRenameTooltip',
   'titleSuggestionButtonTooltip',
   'titleSuggestionFailedStatusMessage',
@@ -174,8 +176,10 @@ const withArgsStringNames = {
   // Usage example:
   // Add `fooBar: withArgs<[number, string]>(),` here,
   // then `i18n.fooBar(1, '2')` works.
-  genAiErrorTranscriptionTooLongLabel: withArgs<[number]>(),
-  genAiErrorTranscriptionTooShortLabel: withArgs<[number]>(),
+  genAiErrorSummaryTranscriptTooLongLabel: withArgs<[number]>(),
+  genAiErrorSummaryTranscriptTooShortLabel: withArgs<[number]>(),
+  genAiErrorTitleSuggestionTranscriptTooLongLabel: withArgs<[number]>(),
+  genAiErrorTitleSuggestionTranscriptTooShortLabel: withArgs<[number]>(),
   recordingItemOptionsButtonAriaLabel: withArgs<[string]>(),
   recordingItemPauseButtonAriaLabel: withArgs<[string]>(),
   recordingItemPlayButtonAriaLabel: withArgs<[string]>(),

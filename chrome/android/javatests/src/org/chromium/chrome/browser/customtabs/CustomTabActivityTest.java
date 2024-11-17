@@ -73,6 +73,7 @@ import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.browser.customtabs.CustomTabsService;
 import androidx.browser.customtabs.CustomTabsSession;
 import androidx.browser.customtabs.CustomTabsSessionToken;
+import androidx.browser.customtabs.PrefetchOptions;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.MediumTest;
@@ -184,13 +185,14 @@ import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.test.util.ClickUtils;
 import org.chromium.content_public.browser.test.util.DOMUtils;
 import org.chromium.content_public.browser.test.util.JavaScriptUtils;
+import org.chromium.content_public.browser.test.util.PrefetchTestUtil;
 import org.chromium.content_public.common.ContentSwitches;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.net.test.util.TestWebServer;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.mojom.WindowOpenDisposition;
 import org.chromium.ui.test.util.BlankUiTestActivity;
 import org.chromium.ui.test.util.DeviceRestriction;
-import org.chromium.ui.test.util.UiRestriction;
 import org.chromium.ui.util.ColorUtils;
 import org.chromium.url.GURL;
 
@@ -257,7 +259,7 @@ public class CustomTabActivityTest {
 
     @Captor ArgumentCaptor<Intent> mIntentCaptor;
 
-    private class CustomTabsExtraCallbackHelper<T> extends CallbackHelper {
+    private static class CustomTabsExtraCallbackHelper<T> extends CallbackHelper {
         private T mValue;
 
         public T getValue() {
@@ -1256,6 +1258,38 @@ public class CustomTabActivityTest {
         mayLaunchUrlWithoutWarmup(true);
     }
 
+    @Test
+    @LargeTest
+    @EnableFeatures({
+        ChromeFeatureList.PREFETCH_BROWSER_INITIATED_TRIGGERS,
+        ChromeFeatureList.CCT_NAVIGATIONAL_PREFETCH
+    })
+    public void testNavigationalPrefetch() throws Exception {
+        Context context = getInstrumentation().getTargetContext().getApplicationContext();
+        Intent intent = CustomTabsIntentTestUtils.createMinimalCustomTabIntent(context, mTestPage);
+
+        CustomTabsConnection connection = CustomTabsTestUtils.setUpConnection();
+        CustomTabsSessionToken token = CustomTabsSessionToken.getSessionTokenFromIntent(intent);
+        connection.newSession(token);
+
+        // Start prefetch and wait until the prefetch request is completed.
+        connection.prefetch(
+                token, List.of(Uri.parse(mTestPage)), new PrefetchOptions.Builder().build());
+        PrefetchTestUtil.waitUntilPrefetchResponseCompleted(new GURL(mTestPage));
+
+        // Open custom tabs, and check prefetch result is served as expected.
+        HistogramWatcher histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Preloading.Prefetch.Attempt.ChromeCustomTabs.TriggeringOutcome",
+                                /*kSuccess*/ 5)
+                        .build();
+        mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
+        Tab tab = mCustomTabActivityTestRule.getActivity().getActivityTab();
+        assertEquals(mTestPage, ChromeTabUtils.getUrlStringOnUiThread(tab));
+        histogramWatcher.assertExpected();
+    }
+
     /**
      * Tests that launching a regular Chrome tab after warmup() gives the right layout.
      *
@@ -1267,7 +1301,7 @@ public class CustomTabActivityTest {
      */
     @Test
     @DisabledTest(message = "crbug.com/692025")
-    @Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
+    @Restriction(DeviceFormFactor.PHONE)
     @CommandLineFlags.Add(ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE)
     public void testWarmupAndLaunchRegularChrome() throws Exception {
         CustomTabsTestUtils.warmUpAndWait();
@@ -1297,7 +1331,7 @@ public class CustomTabActivityTest {
      */
     @Test
     @SmallTest
-    @Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
+    @Restriction(DeviceFormFactor.PHONE)
     @CommandLineFlags.Add(ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE)
     public void testWarmupAndLaunchRightToolbarLayout() throws Exception {
         CustomTabsTestUtils.warmUpAndWait();
@@ -1591,7 +1625,9 @@ public class CustomTabActivityTest {
             CriteriaHelper.pollUiThread(
                     () ->
                             WarmupManager.getInstance()
-                                    .hasSpareTab(ProfileManager.getLastUsedRegularProfile()),
+                                    .hasSpareTab(
+                                            ProfileManager.getLastUsedRegularProfile(),
+                                            /* targetsNetwork= */ false),
                     "No new spare tab");
         } else {
             CriteriaHelper.pollUiThread(
@@ -2679,7 +2715,7 @@ public class CustomTabActivityTest {
                         .getHandlersForTesting()[BackPressHandler.Type.TAB_HISTORY];
         ObservableSupplierImpl<Boolean> handleBackPressChangedSupplier =
                 (ObservableSupplierImpl<Boolean>)
-                        (navigationHandler.getHandleBackPressChangedSupplier());
+                        navigationHandler.getHandleBackPressChangedSupplier();
         HistogramWatcher histogramWatcher =
                 HistogramWatcher.newSingleRecordWatcher(
                         "Android.BackPress.Failure",
@@ -2726,7 +2762,7 @@ public class CustomTabActivityTest {
                         .getHandlersForTesting()[BackPressHandler.Type.TAB_HISTORY];
         ObservableSupplierImpl<Boolean> handleBackPressChangedSupplier =
                 (ObservableSupplierImpl<Boolean>)
-                        (navigationHandler.getHandleBackPressChangedSupplier());
+                        navigationHandler.getHandleBackPressChangedSupplier();
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     handleBackPressChangedSupplier.set(false);

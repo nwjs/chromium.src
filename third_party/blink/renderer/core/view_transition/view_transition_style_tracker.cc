@@ -11,7 +11,9 @@
 #include "components/viz/common/view_transition_element_resource_id.h"
 #include "third_party/blink/public/resources/grit/blink_resources.h"
 #include "third_party/blink/renderer/core/animation/element_animations.h"
+#include "third_party/blink/renderer/core/animation/property_handle.h"
 #include "third_party/blink/renderer/core/css/css_default_style_sheets.h"
+#include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
@@ -25,6 +27,7 @@
 #include "third_party/blink/renderer/core/frame/page_scale_constraints_set.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
+#include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
 #include "third_party/blink/renderer/core/layout/layout_text.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/layout/layout_view_transition_root.h"
@@ -69,8 +72,19 @@ CSSPropertyID kPropertiesToCapture[] = {
     CSSPropertyID::kWritingMode,
 };
 
+CSSPropertyID kLayeredCaptureProperties[] = {
+    CSSPropertyID::kOpacity,
+    CSSPropertyID::kClipPath,
+    CSSPropertyID::kFilter,
+    // Deliberately capturing the shorthand, to include all the mask-related
+    // properties.
+    CSSPropertyID::kMask,
+};
+
 CSSPropertyID kPropertiesToAnimate[] = {
-    CSSPropertyID::kBackdropFilter,
+    CSSPropertyID::kBackdropFilter, CSSPropertyID::kOpacity,
+    CSSPropertyID::kClipPath,       CSSPropertyID::kFilter,
+    CSSPropertyID::kMask,
 };
 
 template <typename K, typename V>
@@ -104,6 +118,14 @@ mojom::blink::ViewTransitionPropertyId ToTranstionPropertyId(CSSPropertyID id) {
       return mojom::blink::ViewTransitionPropertyId::kTextOrientation;
     case CSSPropertyID::kWritingMode:
       return mojom::blink::ViewTransitionPropertyId::kWritingMode;
+    case CSSPropertyID::kOpacity:
+      return mojom::blink::ViewTransitionPropertyId::kOpacity;
+    case CSSPropertyID::kClipPath:
+      return mojom::blink::ViewTransitionPropertyId::kClipPath;
+    case CSSPropertyID::kFilter:
+      return mojom::blink::ViewTransitionPropertyId::kFilter;
+    case CSSPropertyID::kMask:
+      return mojom::blink::ViewTransitionPropertyId::kMask;
     default:
       NOTREACHED_IN_MIGRATION() << "Unknown id " << static_cast<uint32_t>(id);
   }
@@ -123,6 +145,14 @@ CSSPropertyID FromTransitionPropertyId(
       return CSSPropertyID::kTextOrientation;
     case mojom::blink::ViewTransitionPropertyId::kWritingMode:
       return CSSPropertyID::kWritingMode;
+    case mojom::blink::ViewTransitionPropertyId::kOpacity:
+      return CSSPropertyID::kOpacity;
+    case mojom::blink::ViewTransitionPropertyId::kClipPath:
+      return CSSPropertyID::kClipPath;
+    case mojom::blink::ViewTransitionPropertyId::kFilter:
+      return CSSPropertyID::kFilter;
+    case mojom::blink::ViewTransitionPropertyId::kMask:
+      return CSSPropertyID::kMask;
   }
   return CSSPropertyID::kInvalid;
 }
@@ -499,15 +529,16 @@ ViewTransitionStyleTracker::ViewTransitionStyleTracker(
     element_data->captured_rect_in_layout_space =
         transition_state_element.captured_rect_in_layout_space;
 
-    CHECK_LE(transition_state_element.captured_css_properties.size(),
-             std::size(kPropertiesToCapture));
+    CHECK_LE(
+        transition_state_element.captured_css_properties.size(),
+        std::size(kPropertiesToCapture) + std::size(kLayeredCaptureProperties));
 
     FlatMapBuilder<CSSPropertyID, String> css_property_builder(
         transition_state_element.captured_css_properties.size());
     for (const auto& [id, value] :
          transition_state_element.captured_css_properties) {
       css_property_builder.Insert(FromTransitionPropertyId(id),
-                                  String::FromUTF8(value.c_str()));
+                                  String::FromUTF8(value));
     }
     element_data->captured_css_properties =
         std::move(css_property_builder).Finish();
@@ -650,6 +681,25 @@ void ViewTransitionStyleTracker::AddTransitionElementsFromCSS() {
       containing_group_stack, /*nearest_group_with_contain=*/g_null_atom);
 }
 
+AtomicString ViewTransitionStyleTracker::GenerateAutoName(
+    Element& element,
+    const TreeScope* scope) {
+  // The flag should be checked much earlier than this, in the CSS parser.
+  CHECK(RuntimeEnabledFeatures::CSSViewTransitionAutoNameEnabled());
+  if (element.HasID() && scope && *scope == element.GetTreeScope()) {
+    return element.GetIdAttribute();
+  }
+  StringBuilder builder;
+  builder.Append("-ua-auto-");
+  if (token_.is_zero()) {
+    token_ = base::Token::CreateRandom();
+  }
+  builder.Append(token_.ToString().c_str());
+  builder.Append("-");
+  builder.AppendNumber(element.GetDomNodeId());
+  return builder.ToAtomicString();
+}
+
 void ViewTransitionStyleTracker::AddTransitionElementsFromCSSRecursive(
     PaintLayer* root,
     const TreeScope* tree_scope,
@@ -685,7 +735,9 @@ void ViewTransitionStyleTracker::AddTransitionElementsFromCSSRecursive(
             : &node->GetTreeScope();
 
     if (relevant_tree_scope == tree_scope || !relevant_tree_scope) {
-      current_name = root_style.ViewTransitionName()->GetName();
+      current_name = view_transition_name->IsAuto()
+                         ? GenerateAutoName(*To<Element>(node), tree_scope)
+                         : view_transition_name->CustomName();
       AddTransitionElement(DynamicTo<Element>(node), current_name,
                            containing_group_stack.empty()
                                ? g_null_atom
@@ -707,9 +759,8 @@ void ViewTransitionStyleTracker::AddTransitionElementsFromCSSRecursive(
   while (auto* child = child_iterator.Next()) {
     AddTransitionElementsFromCSSRecursive(
         child, tree_scope, containing_group_stack,
-        root_style.ViewTransitionGroup().IsContain()
-            ? current_name
-            : nearest_group_with_contain);
+        root_style.ViewTransitionGroup().IsNormal() ? nearest_group_with_contain
+                                                    : current_name);
   }
 
   if (current_name) {
@@ -783,7 +834,7 @@ bool ViewTransitionStyleTracker::FlattenAndVerifyElements(
         }
       }
 
-      AddConsoleError(message.ReleaseString(), nodes);
+      AddConsoleError(message.ReleaseString(), std::move(nodes));
       return false;
     }
 
@@ -1315,18 +1366,28 @@ bool ViewTransitionStyleTracker::RunPostPrePaintSteps() {
 
     FlatMapBuilder<CSSPropertyID, String> css_property_builder(
         std::size(kPropertiesToCapture));
-    for (CSSPropertyID id : kPropertiesToCapture) {
-      const CSSValue* css_value =
-          CSSProperty::Get(id).CSSValueFromComputedStyle(
-              layout_object->StyleRef(),
-              /*layout_object=*/nullptr,
-              /*allow_visited_style=*/false, CSSValuePhase::kComputedValue);
 
-      if (!css_value) {
-        continue;
+    auto capture_property = [&](CSSPropertyID id) {
+      if (const CSSValue* css_value =
+              CSSProperty::Get(id).CSSValueFromComputedStyle(
+                  layout_object->StyleRef(),
+                  /*layout_object=*/nullptr,
+                  /*allow_visited_style=*/false,
+                  CSSValuePhase::kComputedValue)) {
+        css_property_builder.Insert(id, css_value->CssText());
       }
-      css_property_builder.Insert(id, css_value->CssText());
+    };
+
+    for (CSSPropertyID id : kPropertiesToCapture) {
+      capture_property(id);
     }
+
+    if (RuntimeEnabledFeatures::ViewTransitionLayeredCaptureEnabled()) {
+      for (CSSPropertyID id : kLayeredCaptureProperties) {
+        capture_property(id);
+      }
+    }
+
     auto css_properties = std::move(css_property_builder).Finish();
 
     if (!element_data->container_properties.empty() &&
@@ -1487,8 +1548,8 @@ bool ViewTransitionStyleTracker::HasActiveAnimations() const {
     for (auto& animation_pair : animations->Animations()) {
       auto animation_play_state =
           animation_pair.key->CalculateAnimationPlayState();
-      if (animation_play_state == Animation::kRunning ||
-          animation_play_state == Animation::kPaused) {
+      if (animation_play_state == V8AnimationPlayState::Enum::kRunning ||
+          animation_play_state == V8AnimationPlayState::Enum::kPaused) {
         return true;
       }
     }
@@ -1909,8 +1970,22 @@ CSSStyleSheet& ViewTransitionStyleTracker::UAStyleSheet() {
     }
   }
 
-  ua_style_sheet_ = MakeGarbageCollected<CSSStyleSheet>(
-      CSSDefaultStyleSheets::ParseUASheet(builder.Build()));
+  // We can't use the default UA parser, because it doesn't work for CSS URLs.
+  // Filters & clip-path can have local (#) URLs and are copied into a UA
+  // stylesheet, So we need to parse the stylesheet with a base URL override.
+  auto* ua_parser_context = MakeGarbageCollected<CSSParserContext>(
+      kUASheetMode, SecureContextMode::kInsecureContext);
+
+  auto* ua_parser_context_with_base_url =
+      MakeGarbageCollected<CSSParserContext>(
+          ua_parser_context, document_->BaseURL(),
+          ua_parser_context->IsOriginClean(), ua_parser_context->GetReferrer(),
+          ua_parser_context->Charset(), nullptr);
+
+  auto* sheet =
+      MakeGarbageCollected<StyleSheetContents>(ua_parser_context_with_base_url);
+  sheet->ParseString(builder.Build());
+  ua_style_sheet_ = MakeGarbageCollected<CSSStyleSheet>(sheet);
   return *ua_style_sheet_;
 }
 
@@ -2013,24 +2088,31 @@ PhysicalRect ViewTransitionStyleTracker::ComputeVisualOverflowRect(
   const bool visible =
       box.StyleRef().UsedVisibility() == EVisibility::kVisible ||
       !box.VisualRectRespectsVisibility();
-  if (auto clip_path_bounds = ClipPathClipper::LocalClipPathBoundingBox(box)) {
-    // TODO(crbug.com/1326514): This is just the bounds of the clip-path, as
-    // opposed to the intersection between the clip-path and the border box
-    // bounds. This seems suboptimal, but that's the rect that we use further
-    // down the pipeline to generate the texture.
-    // TODO(khushalsagar): This doesn't account for CSS clip property.
-    PhysicalRect bounds;
-    if (visible) {
-      bounds = PhysicalRect::EnclosingRect(*clip_path_bounds);
-      if (ancestor) {
-        box.MapToVisualRectInAncestorSpace(ancestor, bounds,
-                                           kUseGeometryMapper);
+  const bool layered_effects_contribute_to_visual_overflow =
+      ancestor ||
+      !RuntimeEnabledFeatures::ViewTransitionLayeredCaptureEnabled();
+  PhysicalRect result;
+
+  if (layered_effects_contribute_to_visual_overflow) {
+    if (auto clip_path_bounds =
+            ClipPathClipper::LocalClipPathBoundingBox(box)) {
+      // TODO(crbug.com/40840594): This is just the bounds of the clip-path, as
+      // opposed to the intersection between the clip-path and the border box
+      // bounds. This seems suboptimal, but that's the rect that we use further
+      // down the pipeline to generate the texture.
+      // TODO(khushalsagar): This doesn't account for CSS clip property.
+      if (visible) {
+        result = PhysicalRect::EnclosingRect(*clip_path_bounds);
+        if (ancestor) {
+          box.MapToVisualRectInAncestorSpace(ancestor, result,
+                                             kUseGeometryMapper);
+        }
       }
+
+      return result;
     }
-    return bounds;
   }
 
-  PhysicalRect result;
   auto* paint_layer = box.Layer();
   if (!paint_layer || (!box.ChildPaintBlockedByDisplayLock() &&
                        !paint_layer->KnownToClipSubtreeToPaddingBox())) {
@@ -2112,7 +2194,10 @@ PhysicalRect ViewTransitionStyleTracker::ComputeVisualOverflowRect(
     if (visible) {
       result.Unite(overflow_rect);
     }
-    result = box.ApplyFiltersToRect(result);
+
+    if (layered_effects_contribute_to_visual_overflow) {
+      result = box.ApplyFiltersToRect(result);
+    }
 
     // TODO(crbug.com/1432868): This captures a couple of common cases --
     // box-shadow and no box shadow on the element. However, this isn't at all

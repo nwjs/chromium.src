@@ -10,6 +10,7 @@
 #include "chrome/browser/ui/autofill/autofill_bubble_base.h"
 #include "chrome/browser/ui/autofill/payments/virtual_card_manual_fallback_bubble_controller.h"
 #include "chrome/browser/ui/views/autofill/autofill_location_bar_bubble.h"
+#include "ui/base/metadata/metadata_header_macros.h"
 
 namespace content {
 class WebContents;
@@ -24,6 +25,8 @@ namespace autofill {
 // This class implements the desktop bubble that displays the information of the
 // virtual card that was sent to Chrome from Payments.
 class VirtualCardManualFallbackBubbleViews : public AutofillLocationBarBubble {
+  METADATA_HEADER(VirtualCardManualFallbackBubbleViews,
+                  AutofillLocationBarBubble)
  public:
   // The bubble will be anchored to the |anchor_view|.
   VirtualCardManualFallbackBubbleViews(
@@ -77,7 +80,8 @@ class VirtualCardManualFallbackBubbleViews : public AutofillLocationBarBubble {
 
   // The map keeping the references to each button with card information text in
   // the bubble.
-  std::map<VirtualCardManualFallbackBubbleField, views::MdTextButton*>
+  std::map<VirtualCardManualFallbackBubbleField,
+           raw_ptr<views::MdTextButton, CtnExperimental>>
       fields_to_buttons_map_;
 
   base::WeakPtrFactory<VirtualCardManualFallbackBubbleViews> weak_ptr_factory_{

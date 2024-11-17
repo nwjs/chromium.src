@@ -9,6 +9,7 @@
 
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ref.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
@@ -46,6 +47,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/unified_consent/pref_names.h"
+#include "components/user_education/common/feature_promo_result.h"
 #include "components/user_education/test/mock_feature_promo_controller.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/render_frame_host.h"
@@ -81,6 +83,7 @@ using ::testing::Field;
 using ::testing::InSequence;
 using ::testing::Ref;
 using ::testing::Return;
+using ::testing::ReturnRef;
 using user_education::test::MockFeaturePromoController;
 
 #if BUILDFLAG(IS_ANDROID)
@@ -120,6 +123,8 @@ class MockAutofillFieldPromoController : public AutofillFieldPromoController {
   ~MockAutofillFieldPromoController() override = default;
   MOCK_METHOD(void, Show, (const gfx::RectF&), (override));
   MOCK_METHOD(void, Hide, (), (override));
+  MOCK_METHOD(bool, IsMaybeShowing, (), (const override));
+  MOCK_METHOD(const base::Feature&, GetFeaturePromo, (), (const override));
 };
 
 class TestChromeAutofillClient : public ChromeAutofillClient {
@@ -160,13 +165,6 @@ class ChromeAutofillClientTest : public ChromeRenderViewHostTestHarness {
     // Creates the AutofillDriver and AutofillManager.
     NavigateAndCommit(GURL("about:blank"));
 
-    auto autofill_field_promo_controller_manual_fallback =
-        std::make_unique<MockAutofillFieldPromoController>();
-    autofill_field_promo_controller_manual_fallback_ =
-        autofill_field_promo_controller_manual_fallback.get();
-    client()->SetAutofillFieldPromoControllerManualFallbackForTesting(
-        std::move(autofill_field_promo_controller_manual_fallback));
-
 #if !BUILDFLAG(IS_ANDROID)
     ChromeSecurityStateTabHelper::CreateForWebContents(web_contents());
 
@@ -177,10 +175,22 @@ class ChromeAutofillClientTest : public ChromeRenderViewHostTestHarness {
 #endif
   }
 
+  void SetUpIphForTesting(const base::Feature& feature_promo) {
+    auto autofill_field_promo_controller =
+        std::make_unique<MockAutofillFieldPromoController>();
+    autofill_field_promo_controller_ = autofill_field_promo_controller.get();
+    ON_CALL(*autofill_field_promo_controller_, IsMaybeShowing)
+        .WillByDefault(Return(false));
+    ON_CALL(*autofill_field_promo_controller_, GetFeaturePromo)
+        .WillByDefault(ReturnRef(feature_promo));
+    client()->SetAutofillFieldPromoTesting(
+        std::move(autofill_field_promo_controller));
+  }
+
   void TearDown() override {
     // Avoid that the raw pointer becomes dangling.
     personal_data_manager_ = nullptr;
-    autofill_field_promo_controller_manual_fallback_ = nullptr;
+    autofill_field_promo_controller_ = nullptr;
     ChromeRenderViewHostTestHarness::TearDown();
   }
 
@@ -197,9 +207,8 @@ class ChromeAutofillClientTest : public ChromeRenderViewHostTestHarness {
     return personal_data_manager_;
   }
 
-  MockAutofillFieldPromoController*
-  autofill_field_promo_controller_manual_fallback() {
-    return autofill_field_promo_controller_manual_fallback_;
+  MockAutofillFieldPromoController* autofill_field_promo_controller() {
+    return autofill_field_promo_controller_;
   }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -234,8 +243,7 @@ class ChromeAutofillClientTest : public ChromeRenderViewHostTestHarness {
   autofill::test::AutofillUnitTestEnvironment autofill_environment_{
       {.disable_server_communication = true}};
   raw_ptr<TestPersonalDataManager> personal_data_manager_ = nullptr;
-  raw_ptr<MockAutofillFieldPromoController>
-      autofill_field_promo_controller_manual_fallback_;
+  raw_ptr<MockAutofillFieldPromoController> autofill_field_promo_controller_;
   TestAutofillClientInjector<TestChromeAutofillClient>
       test_autofill_client_injector_;
   base::OnceCallback<void()> setup_flags_;
@@ -490,24 +498,60 @@ TEST_F(ChromeAutofillClientTest, EditAddressDialogFooter) {
                 base::ASCIIToUTF16(account->email)));
 }
 
+TEST_F(ChromeAutofillClientTest,
+       AutofillManualFallbackIPH_NotShownByPromoController) {
+  SetUpIphForTesting(feature_engagement::kIPHAutofillManualFallbackFeature);
+
+  EXPECT_CALL(*autofill_field_promo_controller(), IsMaybeShowing)
+      .WillRepeatedly(Return(false));
+
+  EXPECT_FALSE(client()->ShowAutofillFieldIphForFeature(
+      FormFieldData{}, AutofillClient::IphFeature::kManualFallback));
+}
+
 TEST_F(ChromeAutofillClientTest, AutofillManualFallbackIPH_IsShown) {
-  EXPECT_CALL(*autofill_field_promo_controller_manual_fallback(), Show);
-  client()->ShowAutofillFieldIphForManualFallbackFeature(FormFieldData{});
+  SetUpIphForTesting(feature_engagement::kIPHAutofillManualFallbackFeature);
+
+  InSequence sequence;
+  EXPECT_CALL(*autofill_field_promo_controller(), IsMaybeShowing)
+      .WillOnce(Return(false));
+  EXPECT_CALL(*autofill_field_promo_controller(), Show);
+  EXPECT_CALL(*autofill_field_promo_controller(), IsMaybeShowing)
+      .WillOnce(Return(true));
+
+  EXPECT_TRUE(client()->ShowAutofillFieldIphForFeature(
+      FormFieldData{}, AutofillClient::IphFeature::kManualFallback));
+}
+
+TEST_F(ChromeAutofillClientTest, AutofillImprovedPredictionsIPH_IsShown) {
+  SetUpIphForTesting(
+      feature_engagement::kIPHAutofillPredictionImprovementsFeature);
+
+  InSequence sequence;
+  EXPECT_CALL(*autofill_field_promo_controller(), IsMaybeShowing)
+      .WillOnce(Return(false));
+  EXPECT_CALL(*autofill_field_promo_controller(), Show);
+  EXPECT_CALL(*autofill_field_promo_controller(), IsMaybeShowing)
+      .WillOnce(Return(true));
+
+  EXPECT_TRUE(client()->ShowAutofillFieldIphForFeature(
+      FormFieldData{}, AutofillClient::IphFeature::kPredictionImprovements));
 }
 
 TEST_F(ChromeAutofillClientTest,
        AutofillManualFallbackIPH_HideOnShowAutofillSuggestions) {
+  SetUpIphForTesting(
+      feature_engagement::kIPHAutofillPredictionImprovementsFeature);
   auto delegate = std::make_unique<MockAutofillSuggestionDelegate>();
 
-  EXPECT_CALL(*autofill_field_promo_controller_manual_fallback(), Hide);
+  EXPECT_CALL(*autofill_field_promo_controller(), Hide);
   client()->ShowAutofillSuggestions(AutofillClient::PopupOpenArgs(),
                                     delegate->GetWeakPtr());
 
   // Showing the Autofill Popup is an asynchronous task.
   task_environment()->RunUntilIdle();
 
-  testing::Mock::VerifyAndClearExpectations(
-      autofill_field_promo_controller_manual_fallback());
+  testing::Mock::VerifyAndClearExpectations(autofill_field_promo_controller());
 }
 
 TEST_F(ChromeAutofillClientTest, AutofillManualFallbackIPH_NotifyFeatureUsed) {
@@ -521,7 +565,7 @@ TEST_F(ChromeAutofillClientTest, AutofillManualFallbackIPH_NotifyFeatureUsed) {
       *static_cast<feature_engagement::test::MockTracker*>(
           feature_engagement::TrackerFactory::GetForBrowserContext(profile())),
       NotifyUsedEvent);
-  client()->NotifyAutofillManualFallbackUsed();
+  client()->NotifyIphFeatureUsed(AutofillClient::IphFeature::kManualFallback);
 }
 #endif
 }  // namespace

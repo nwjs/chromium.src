@@ -35,22 +35,18 @@ bool IsOtherWebPage(OEP::PageClassification classification) {
 }
 
 bool IsLensSearchbox(OEP::PageClassification classification) {
-  return IsLensContextualSearchbox(classification) ||
-         IsLensMultiModalSearchbox(classification);
-}
-
-bool IsLensContextualSearchbox(OEP::PageClassification classification) {
-  return classification == OEP::CONTEXTUAL_SEARCHBOX;
-}
-
-bool IsLensMultiModalSearchbox(OEP::PageClassification classification) {
-  return (classification == OEP::SEARCH_SIDE_PANEL_SEARCHBOX) ||
+  return (classification == OEP::CONTEXTUAL_SEARCHBOX) ||
+         (classification == OEP::SEARCH_SIDE_PANEL_SEARCHBOX) ||
          (classification == OEP::LENS_SIDE_PANEL_SEARCHBOX);
 }
 
 bool IsCustomTab(OEP::PageClassification classification) {
   return classification == OEP::SEARCH_RESULT_PAGE_ON_CCT ||
          classification == OEP::OTHER_ON_CCT;
+}
+
+bool IsAndroidHub(OEP::PageClassification classification) {
+  return classification == OEP::ANDROID_HUB;
 }
 
 void CheckObsoletePageClass(OEP::PageClassification classification) {

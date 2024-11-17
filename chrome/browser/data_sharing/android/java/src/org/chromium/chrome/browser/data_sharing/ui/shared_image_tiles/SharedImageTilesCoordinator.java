@@ -9,16 +9,19 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
+import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.data_sharing.DataSharingService;
 import org.chromium.components.data_sharing.DataSharingUIDelegate;
 import org.chromium.components.data_sharing.GroupData;
 import org.chromium.components.data_sharing.GroupMember;
 import org.chromium.components.data_sharing.PeopleGroupActionFailure;
+import org.chromium.components.data_sharing.configs.AvatarConfig;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 
@@ -33,19 +36,13 @@ public class SharedImageTilesCoordinator {
 
     // The maximum amount of tiles that can show, including icon tile and count tile.
     private static final int MAX_TILES_UI_LIMIT = 3;
-    // The maximum number appearing on the count number tile.
-    private static final int MAX_COUNT_TILE_NUMBER = 99;
-    // The maximum single digit number for the count number tile.
-    private static final int MAX_SINGLE_DIGIT_NUMBER = 9;
 
-    private final SharedImageTilesMediator mMediator;
     private final Context mContext;
     private final PropertyModel mModel;
     private final SharedImageTilesView mView;
-    private final @SharedImageTilesType int mType;
     private final @NonNull DataSharingService mDataSharingService;
     private @NonNull String mCollaborationId;
-    private int mAvailableTileCount;
+    private int mAvailableMemberCount;
     private int mIconTilesCount;
 
     /**
@@ -66,7 +63,6 @@ public class SharedImageTilesCoordinator {
                         .with(SharedImageTilesProperties.COLOR_THEME, color)
                         .build();
         mContext = context;
-        mType = type;
         mDataSharingService = dataSharingService;
 
         mView =
@@ -74,8 +70,11 @@ public class SharedImageTilesCoordinator {
                         LayoutInflater.from(mContext).inflate(R.layout.shared_image_tiles, null);
 
         PropertyModelChangeProcessor.create(mModel, mView, SharedImageTilesViewBinder::bind);
-        mMediator = new SharedImageTilesMediator(mModel);
+        new SharedImageTilesMediator(mModel);
     }
+
+    /** Cleans up any resources or observers this class used. */
+    public void destroy() {}
 
     /**
      * Update the collaborationId for a SharedImageTiles component.
@@ -85,7 +84,7 @@ public class SharedImageTilesCoordinator {
     public void updateCollaborationId(@Nullable String collaborationId) {
         mCollaborationId = collaborationId;
         if (mCollaborationId == null) {
-            updateTilesCount(0);
+            updateMembersCount(0);
             return;
         }
 
@@ -95,7 +94,7 @@ public class SharedImageTilesCoordinator {
                 (result) -> {
                     if (result.actionFailure != PeopleGroupActionFailure.UNKNOWN) {
                         // Error occurred. Remove all view.
-                        updateTilesCount(0);
+                        updateMembersCount(0);
                         return;
                     }
 
@@ -111,39 +110,66 @@ public class SharedImageTilesCoordinator {
                 emails.add(member.email);
             }
         }
-        updateTilesCount(emails.size());
+        updateMembersCount(emails.size());
 
         // Let the UI delegate draw the icon tiles.
-        DataSharingUIDelegate dataSharingUIDelegate = mDataSharingService.getUIDelegate();
-        assert dataSharingUIDelegate != null;
+        DataSharingUIDelegate dataSharingUiDelegate = mDataSharingService.getUIDelegate();
+        assert dataSharingUiDelegate != null;
 
         Callback<Boolean> successCallback =
                 (success) -> {
                     if (!success) {
-                        updateTilesCount(0);
+                        assert false;
                     }
                 };
 
-        dataSharingUIDelegate.showAvatars(
+        List<ViewGroup> iconViews = getAllIconViews();
+        AvatarConfig config =
+                new AvatarConfig.Builder()
+                        .setAvatarSizeInPixels(getAvatarSizeInPixels())
+                        .setAvatarBackgroundColor(getAvatarBackgroundColor())
+                        .setBorderColor(getBorderColor())
+                        .setBorderWidthInPixels(getBorderWidthInPixels())
+                        .build();
+
+        dataSharingUiDelegate.showAvatars(
                 mContext,
-                getAllIconViews(),
-                emails,
+                iconViews,
+                emails.subList(0, iconViews.size()),
                 /* success= */ successCallback,
-                /* config= */ null);
+                config);
+    }
+
+    private int getAvatarSizeInPixels() {
+        return mContext.getResources()
+                .getDimensionPixelSize(R.dimen.shared_image_tiles_icon_total_height);
+    }
+
+    private @ColorInt int getAvatarBackgroundColor() {
+        return SemanticColorUtils.getColorPrimaryContainer(mContext);
+    }
+
+    private @ColorInt int getBorderColor() {
+        return SemanticColorUtils.getDefaultBgColor(mContext);
+    }
+
+    private int getBorderWidthInPixels() {
+        return mContext.getResources()
+                .getDimensionPixelSize(R.dimen.shared_image_tiles_icon_border);
     }
 
     /** Populate the shared_image_tiles container with the specific icons. */
     private void initializeSharedImageTiles() {
-        if (mAvailableTileCount == 0) {
+        if (mAvailableMemberCount == 0) {
             return;
         }
 
         int maxTilesToShowWithNumberTile = MAX_TILES_UI_LIMIT - 1;
-        boolean showNumberTile = mAvailableTileCount > MAX_TILES_UI_LIMIT;
+        boolean showNumberTile = mAvailableMemberCount > MAX_TILES_UI_LIMIT;
         mIconTilesCount =
                 showNumberTile
                         ? MAX_TILES_UI_LIMIT - 1
-                        : Math.min(mAvailableTileCount, MAX_TILES_UI_LIMIT);
+                        : Math.min(mAvailableMemberCount, MAX_TILES_UI_LIMIT);
 
         // Add icon tile(s).
         mModel.set(SharedImageTilesProperties.ICON_TILES, mIconTilesCount);
@@ -153,7 +179,7 @@ public class SharedImageTilesCoordinator {
             // Compute a count bubble.
             mModel.set(
                     SharedImageTilesProperties.REMAINING_TILES,
-                    mAvailableTileCount - maxTilesToShowWithNumberTile);
+                    mAvailableMemberCount - maxTilesToShowWithNumberTile);
         }
     }
 
@@ -179,10 +205,8 @@ public class SharedImageTilesCoordinator {
     }
 
     @VisibleForTesting
-    void updateTilesCount(int count) {
-        // TODO(b/325533985): |mAvailableTileCount| should be replace by the actual number of icons
-        // needed.
-        mAvailableTileCount = count;
+    void updateMembersCount(int count) {
+        mAvailableMemberCount = count;
         mModel.set(SharedImageTilesProperties.REMAINING_TILES, 0);
         mModel.set(SharedImageTilesProperties.ICON_TILES, 0);
         initializeSharedImageTiles();

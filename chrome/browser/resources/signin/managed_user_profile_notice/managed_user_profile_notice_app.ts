@@ -9,7 +9,6 @@ import './managed_user_profile_notice_disclosure.js';
 import './managed_user_profile_notice_value_prop.js';
 import './managed_user_profile_notice_state.js';
 import './managed_user_profile_notice_data_handling.js';
-import '//resources/polymer/v3_0/paper-spinner/paper-spinner-lite.js';
 
 import {I18nMixinLit} from 'chrome://resources/cr_elements/i18n_mixin_lit.js';
 import {WebUiListenerMixinLit} from 'chrome://resources/cr_elements/web_ui_listener_mixin_lit.js';
@@ -96,6 +95,8 @@ export class ManagedUserProfileNoticeAppElement extends
       showTimeout_: {type: Boolean},
       showError_: {type: Boolean},
 
+      processingSubtitle_: {type: String},
+
       showUserDataHandling_: {type: Boolean},
 
       useUpdatedUi_: {
@@ -128,6 +129,8 @@ export class ManagedUserProfileNoticeAppElement extends
   protected showTimeout_: boolean = false;
   protected showError_: boolean = false;
   protected useUpdatedUi_: boolean = loadTimeData.getBoolean('useUpdatedUi');
+  protected processingSubtitle_: string =
+      loadTimeData.getString('processingSubtitle');
   protected showUserDataHandling_: boolean = false;
   protected selectedDataHandling_: BrowsingDataHandling;
   private managedUserProfileNoticeBrowserProxy_:
@@ -158,6 +161,10 @@ export class ManagedUserProfileNoticeAppElement extends
     this.addWebUiListener(
         'on-profile-info-changed',
         (info: ManagedUserProfileInfo) => this.setProfileInfo_(info));
+
+    this.addWebUiListener(
+        'on-long-processing', () => this.updateProcessingText_());
+
     this.managedUserProfileNoticeBrowserProxy_.initialized().then(info => {
       this.setProfileInfo_(info);
       this.updateCurrentState_(loadTimeData.getInteger('initialState'));
@@ -233,6 +240,10 @@ export class ManagedUserProfileNoticeAppElement extends
       case State.ERROR:
         return this.i18n('confirmLabel');
     }
+  }
+
+  private updateProcessingText_() {
+    this.processingSubtitle_ = this.i18n('longProcessingSubtitle');
   }
 
   protected onDataHandlingChanged_(

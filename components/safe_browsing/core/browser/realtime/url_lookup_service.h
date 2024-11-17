@@ -88,6 +88,7 @@ class RealTimeUrlLookupService : public RealTimeUrlLookupServiceBase {
   std::unique_ptr<enterprise_connectors::ClientMetadata> GetClientMetadata()
       const override;
   std::string GetMetricSuffix() const override;
+  bool CanCheckUrl(const GURL& url) override;
 
 #if defined(UNIT_TEST)
   void set_bypass_probability_for_tests(
@@ -160,10 +161,6 @@ class RealTimeUrlLookupService : public RealTimeUrlLookupServiceBase {
   // Bypasses the check for probability when sending Protego sample pings.
   // Only for unit tests.
   bool bypass_protego_probability_for_tests_ = false;
-
-  // True if Shutdown() has already been called, or started running. This allows
-  // us to skip unnecessary calls to SendRequest().
-  bool shutting_down_ = false;
 
   friend class RealTimeUrlLookupServiceTest;
 

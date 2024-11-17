@@ -6,7 +6,7 @@
 
 #include "ash/constants/ash_pref_names.h"
 #include "ash/picker/model/picker_mode_type.h"
-#include "ash/public/cpp/picker/picker_category.h"
+#include "ash/picker/picker_category.h"
 #include "base/check_deref.h"
 #include "chromeos/components/editor_menu/public/cpp/editor_helpers.h"
 #include "components/prefs/pref_service.h"
@@ -59,7 +59,8 @@ bool GetIsGifsEnabled(PrefService* prefs) {
 PickerModel::PickerModel(PrefService* prefs,
                          ui::TextInputClient* focused_client,
                          input_method::ImeKeyboard* ime_keyboard,
-                         EditorStatus editor_status)
+                         EditorStatus editor_status,
+                         LobsterStatus lobster_status)
     : has_focus_(focused_client != nullptr &&
                  focused_client->GetTextInputType() !=
                      ui::TextInputType::TEXT_INPUT_TYPE_NONE),
@@ -69,6 +70,7 @@ PickerModel::PickerModel(PrefService* prefs,
       selection_range_(GetSelectionRange(focused_client)),
       is_caps_lock_enabled_(CHECK_DEREF(ime_keyboard).IsCapsLockEnabled()),
       editor_status_(editor_status),
+      lobster_status_(lobster_status),
       text_input_type_(GetTextInputType(focused_client)),
       is_gifs_enabled_(GetIsGifsEnabled(prefs)) {}
 
@@ -85,6 +87,10 @@ std::vector<PickerCategory> PickerModel::GetAvailableCategories() const {
       if (editor_status_ == EditorStatus::kEnabled) {
         categories.push_back(PickerCategory::kEditorRewrite);
       }
+
+      if (lobster_status_ == LobsterStatus::kEnabled) {
+        categories.push_back(PickerCategory::kLobster);
+      }
       return categories;
     }
     case PickerModeType::kNoSelection: {
@@ -92,6 +98,11 @@ std::vector<PickerCategory> PickerModel::GetAvailableCategories() const {
       if (editor_status_ == EditorStatus::kEnabled) {
         categories.push_back(PickerCategory::kEditorWrite);
       }
+
+      if (lobster_status_ == LobsterStatus::kEnabled) {
+        categories.push_back(PickerCategory::kLobster);
+      }
+
       categories.push_back(PickerCategory::kLinks);
       if (text_input_type_ != ui::TextInputType::TEXT_INPUT_TYPE_URL) {
         categories.push_back(is_gifs_enabled_ ? PickerCategory::kEmojisGifs

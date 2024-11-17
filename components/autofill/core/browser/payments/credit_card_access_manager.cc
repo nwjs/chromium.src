@@ -89,7 +89,7 @@ void CreditCardAccessManager::UpdateCreditCardFormEventLogger() {
       payments_data_manager().GetCreditCards();
   size_t server_record_type_count = 0;
   size_t local_record_type_count = 0;
-  for (CreditCard* credit_card : credit_cards) {
+  for (const CreditCard* credit_card : credit_cards) {
     if (credit_card->record_type() == CreditCard::RecordType::kLocalCard) {
       local_record_type_count++;
     } else {
@@ -248,7 +248,7 @@ void CreditCardAccessManager::LogMetricsAndFillFormForServerUnmaskFlows(
 
 void CreditCardAccessManager::OnDidGetUnmaskDetails(
     PaymentsRpcResult result,
-    payments::PaymentsNetworkInterface::UnmaskDetails& unmask_details) {
+    payments::UnmaskDetails& unmask_details) {
   // Log latency for preflight call.
   if (preflight_call_timestamp_.has_value()) {
     autofill_metrics::LogCardUnmaskPreflightDuration(
@@ -424,25 +424,11 @@ void CreditCardAccessManager::CacheUnmaskedCardInfo(const CreditCard& card,
   unmasked_card_cache_[identifier] = card_info;
 }
 
-bool AreVirtualCardsSupported() {
-#if BUILDFLAG(IS_IOS)
-  return base::FeatureList::IsEnabled(features::kAutofillEnableVirtualCards);
-#else
-  return true;
-#endif
-}
-
 void CreditCardAccessManager::StartAuthenticationFlow(bool fido_auth_enabled) {
-  if (AreVirtualCardsSupported()) {
-    if (card_->record_type() == CreditCard::RecordType::kVirtualCard) {
-      StartAuthenticationFlowForVirtualCard(fido_auth_enabled);
-    } else {
-      StartAuthenticationFlowForMaskedServerCard(fido_auth_enabled);
-    }
+  if (card_->record_type() == CreditCard::RecordType::kVirtualCard) {
+    StartAuthenticationFlowForVirtualCard(fido_auth_enabled);
   } else {
-    // There is no FIDO auth available on iOS and until the feature is live
-    // there are no virtual cards, so offer CVC auth.
-    Authenticate(UnmaskAuthFlowType::kCvc);
+    StartAuthenticationFlowForMaskedServerCard(fido_auth_enabled);
   }
 }
 
@@ -1355,8 +1341,7 @@ void CreditCardAccessManager::OnRiskBasedAuthenticationResponseReceived(
 void CreditCardAccessManager::
     OnVirtualCardRiskBasedAuthenticationResponseReceived(
         PaymentsRpcResult result,
-        const payments::PaymentsNetworkInterface::UnmaskResponseDetails&
-            response_details) {
+        const payments::UnmaskResponseDetails& response_details) {
   selected_challenge_option_ = nullptr;
   virtual_card_unmask_response_details_ = response_details;
   if (result == PaymentsRpcResult::kSuccess) {
@@ -1583,7 +1568,7 @@ void CreditCardAccessManager::OnVirtualCardUnmaskCancelled() {
     case UnmaskAuthFlowType::kFido:
     case UnmaskAuthFlowType::kCvcThenFido:
     case UnmaskAuthFlowType::kCvcFallbackFromFido:
-      NOTREACHED_IN_MIGRATION();
+      DUMP_WILL_BE_NOTREACHED();
       ABSL_FALLTHROUGH_INTENDED;
     case UnmaskAuthFlowType::kThreeDomainSecure:
       // TODO(crbug.com/40240970): Add a flow type for the kThreeDomainSecure
@@ -1612,12 +1597,10 @@ void CreditCardAccessManager::Reset() {
 #if !BUILDFLAG(IS_IOS)
   opt_in_intention_ = UserOptInIntention::kUnspecified;
 #endif
-  unmask_details_ = payments::PaymentsNetworkInterface::UnmaskDetails();
-  virtual_card_unmask_request_details_ =
-      payments::PaymentsNetworkInterface::UnmaskRequestDetails();
+  unmask_details_ = payments::UnmaskDetails();
+  virtual_card_unmask_request_details_ = payments::UnmaskRequestDetails();
   selected_challenge_option_ = nullptr;
-  virtual_card_unmask_response_details_ =
-      payments::PaymentsNetworkInterface::UnmaskResponseDetails();
+  virtual_card_unmask_response_details_ = payments::UnmaskResponseDetails();
   ready_to_start_authentication_.Reset();
   can_fetch_unmask_details_ = true;
   card_.reset();

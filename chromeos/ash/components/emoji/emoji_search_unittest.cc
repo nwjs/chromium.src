@@ -14,9 +14,10 @@
 namespace emoji {
 namespace {
 
-using ::testing::DoubleNear;
+using ::testing::_;
 using ::testing::ElementsAre;
 using ::testing::FieldsAre;
+using ::testing::FloatNear;
 using ::testing::Gt;
 using ::testing::IsEmpty;
 using ::testing::Return;
@@ -560,10 +561,35 @@ TEST_F(EmojiSearchTest, KeywordPartialScoresHigherThanFullKeywordMatch) {
   EmojiSearchResult result = search.SearchEmoji(u"grinning face", {{"en"}});
 
   EXPECT_THAT(result.emojis,
-              ElementsAre(FieldsAre(DoubleNear(0.0029, 0.00005), "😀"),
-                          FieldsAre(DoubleNear(0.0021, 0.00005), "😀a")));
+              ElementsAre(FieldsAre(FloatNear(0.0029f, 0.00005f), "😀"),
+                          FieldsAre(FloatNear(0.0021f, 0.00005f), "😀a")));
   EXPECT_THAT(result.symbols, IsEmpty());
   EXPECT_THAT(result.emoticons, IsEmpty());
+}
+
+TEST_F(EmojiSearchTest, BreakTiesByNameLength) {
+  ScopedFakeResourceBundleDelegate mock_resource_delegate(
+      {{FakeResource{IDR_EMOJI_PICKER_EMOJI_15_0_ORDERING_JSON_START, R"([])"},
+        FakeResource{IDR_EMOJI_PICKER_EMOJI_15_0_ORDERING_JSON_REMAINING,
+                     R"([])"},
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+        FakeResource{IDR_EMOJI_PICKER_EN_INTERNAL, R"([])"},
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+        FakeResource{IDR_EMOJI_PICKER_SYMBOL_ORDERING_JSON,
+                     R"([{"emoji":[
+                     {"base": {"string":"ab","name":"a b"}},
+                     {"base": {"string":"abc","name":"a b c"}},
+                     {"base": {"string":"abcd","name":"a b c d"}}
+                     ]}])"},
+        FakeResource{IDR_EMOJI_PICKER_EMOTICON_ORDERING_JSON, R"([])"}}});
+
+  EmojiSearch search;
+
+  EmojiSearchResult result = search.SearchEmoji(u"a b", {{"en"}});
+
+  EXPECT_THAT(result.symbols,
+              ElementsAre(FieldsAre(_, "ab"), FieldsAre(_, "abc"),
+                          FieldsAre(_, "abcd")));
 }
 
 }  // namespace

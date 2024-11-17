@@ -57,6 +57,7 @@ import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabUtils;
 import org.chromium.chrome.browser.toolbar.ControlContainer;
 import org.chromium.components.embedder_support.util.UrlConstants;
+import org.chromium.content_public.browser.Visibility;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.net.NetId;
@@ -337,16 +338,24 @@ public class WarmupManager {
     }
 
     /**
+     * @param targetsNetwork whether the activity/tab associated with this WebContents targets a
+     *     network (supported only by multi-network CCT, see @{link
+     *     BrowserServicesIntentDataProvider#getTargetNetwork).
      * @return Whether a spare tab is available for the given profile.
      */
-    public boolean hasSpareTab(Profile profile) {
+    public boolean hasSpareTab(Profile profile, boolean targetsNetwork) {
+        // Spare Tabs are not supported for multi-network CCT. In this case it's better to
+        // always create Tabs from scratch, otherwise we might break the "WebContents
+        // associated with a CCT tab targeting a network will always have
+        // WebContents::GetTargetNetwork == that target network" invariant (see
+        // WebContentsImpl::CreateWithOpener for more info).
+        if (targetsNetwork) return false;
         if (mSpareTab == null) return false;
         return mSpareTab.getProfile() == profile;
     }
 
     /**
      * @param tab Tab to compare with SpareTab with.
-     *
      * @return Returns true if tab is same as spare tab.
      */
     public boolean isSpareTab(Tab tab) {
@@ -705,21 +714,28 @@ public class WarmupManager {
     /**
      * Returns a spare WebContents or null, depending on the availability of one.
      *
-     * The parameters are the same as for {@link WebContentsFactory#createWebContents()}.
-     * @param forCCT Whether this WebContents is being taken by CCT.
-     *
+     * @param targetsNetwork whether the activity/tab associated with this WebContents targets a
+     *     network (supported only by multi-network CCT, see @{link
+     *     BrowserServicesIntentDataProvider#getTargetNetwork).
      * @return a WebContents, or null.
      */
-    public WebContents takeSpareWebContents(boolean incognito, boolean initiallyHidden) {
+    public WebContents takeSpareWebContents(
+            boolean incognito, boolean initiallyHidden, boolean targetsNetwork) {
         try (TraceEvent e = TraceEvent.scoped("WarmupManager.takeSpareWebContents")) {
             ThreadUtils.assertOnUiThread();
             if (incognito) return null;
+            // Spare WebContents are not supported for multi-network CCT. In this case it's better
+            // to always create WebContents from scratch, otherwise we might break the "WebContents
+            // associated with a CCT tab targeting a network will always have
+            // WebContents::GetTargetNetwork == that target network" invariant (see
+            // WebContentsImpl::CreateWithOpener for more info).
+            if (targetsNetwork) return null;
             WebContents result = mSpareWebContents;
             if (result == null) return null;
             mSpareWebContents = null;
             result.removeObserver(mObserver);
             mObserver = null;
-            if (!initiallyHidden) result.onShow();
+            if (!initiallyHidden) result.updateWebContentsVisibility(Visibility.VISIBLE);
             return result;
         }
     }
@@ -754,12 +770,13 @@ public class WarmupManager {
     interface Natives {
         void startPreconnectPredictorInitialization(@JniType("Profile*") Profile profile);
 
-        void preconnectUrlAndSubresources(@JniType("Profile*") Profile profile, String url);
+        void preconnectUrlAndSubresources(
+                @JniType("Profile*") Profile profile, @JniType("std::string") String url);
 
         void startPrefetchFromCCT(
-                WebContents webcontents,
-                GURL url,
+                @JniType("content::WebContents*") WebContents webContents,
+                @JniType("GURL") GURL url,
                 boolean usePrefetchProxy,
-                org.chromium.url.Origin verifiedSourceOrigin);
+                @JniType("std::optional<url::Origin>") Origin verifiedSourceOrigin);
     }
 }

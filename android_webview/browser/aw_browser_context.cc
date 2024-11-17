@@ -464,6 +464,11 @@ AwBrowserContext::GetBrowsingDataRemoverDelegate() {
   return nullptr;
 }
 
+content::FileSystemAccessPermissionContext*
+AwBrowserContext::GetFileSystemAccessPermissionContext() {
+  return &fsa_permission_context_;
+}
+
 content::ReduceAcceptLanguageControllerDelegate*
 AwBrowserContext::GetReduceAcceptLanguageControllerDelegate() {
   return nullptr;
@@ -586,8 +591,7 @@ void AwBrowserContext::ConfigureNetworkContextParams(
     aw_ipp_core_host->AddNetworkService(
         context_params->ip_protection_config_getter
             .InitWithNewPipeAndPassReceiver(),
-        context_params->ip_protection_proxy_delegate
-            .InitWithNewPipeAndPassRemote());
+        context_params->ip_protection_control.InitWithNewPipeAndPassRemote());
     context_params->enable_ip_protection =
         aw_ipp_core_host->IsIpProtectionEnabled();
   }

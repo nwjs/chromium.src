@@ -79,7 +79,7 @@ bool HasJavascriptMimeType(const Response* response) {
 
 void ValidateRequestForPut(const Request* request,
                            ExceptionState& exception_state) {
-  KURL url(NullURL(), request->url());
+  const KURL& url = request->url();
   if (!url.ProtocolIsInHTTPFamily()) {
     exception_state.ThrowTypeError("Request scheme '" + url.Protocol() +
                                    "' is unsupported");
@@ -547,17 +547,16 @@ class Cache::FetchHandler final : public ScriptFunction::Callable {
       return rtn;
     }
 
-    ExceptionState exception_state(script_state->GetIsolate(),
-                                   exception_context_);
+    v8::TryCatch try_catch(script_state->GetIsolate());
 
     // Resolve handler, so try to process a Response.
     Response* response = NativeValueTraits<Response>::NativeValue(
-        script_state->GetIsolate(), value.V8Value(), exception_state);
-    if (exception_state.HadException()) {
-      barrier_callback_->OnError(exception_state.GetException());
-      exception_state.ClearException();
+        script_state->GetIsolate(), value.V8Value(),
+        PassThroughException(script_state->GetIsolate()));
+    if (try_catch.HasCaught()) {
+      barrier_callback_->OnError(try_catch.Exception());
     } else {
-      response_loader_->OnResponse(response, exception_state);
+      response_loader_->OnResponse(response, ASSERT_NO_EXCEPTION);
     }
 
     return rtn;

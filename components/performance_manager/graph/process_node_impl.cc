@@ -33,13 +33,6 @@ content::ProcessType ValidateBrowserChildProcessType(
   return process_type;
 }
 
-void FireBackgroundTracingTriggerOnUI(const std::string& trigger_name) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-
-  base::trace_event::EmitNamedTrigger(
-      content::BackgroundTracingManager::kContentTriggerConfig);
-}
-
 }  // namespace
 
 ProcessNodeImpl::ProcessNodeImpl(BrowserProcessNodeTag tag)
@@ -180,15 +173,6 @@ void ProcessNodeImpl::OnRemoteIframeDetached(
   }
 }
 
-void ProcessNodeImpl::FireBackgroundTracingTrigger(
-    const std::string& trigger_name) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK_EQ(process_type_, content::PROCESS_TYPE_RENDERER);
-  content::GetUIThreadTaskRunner({})->PostTask(
-      FROM_HERE,
-      base::BindOnce(&FireBackgroundTracingTriggerOnUI, trigger_name));
-}
-
 content::ProcessType ProcessNodeImpl::GetProcessType() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return process_type_;
@@ -239,6 +223,11 @@ uint64_t ProcessNodeImpl::GetPrivateFootprintKb() const {
 uint64_t ProcessNodeImpl::GetResidentSetKb() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return resident_set_kb_;
+}
+
+uint64_t ProcessNodeImpl::GetPrivateSwapKb() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return private_swap_kb_;
 }
 
 RenderProcessHostId ProcessNodeImpl::GetRenderProcessHostId() const {
@@ -353,12 +342,6 @@ void ProcessNodeImpl::add_hosted_content_type(ContentType content_type) {
   hosted_content_types_.Put(content_type);
 }
 
-// static
-void ProcessNodeImpl::FireBackgroundTracingTriggerOnUIForTesting(
-    const std::string& trigger_name) {
-  FireBackgroundTracingTriggerOnUI(trigger_name);
-}
-
 base::WeakPtr<ProcessNodeImpl> ProcessNodeImpl::GetWeakPtrOnUIThread() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   return weak_this_;
@@ -384,6 +367,7 @@ void ProcessNodeImpl::SetProcessImpl(base::Process process,
   // process.
   private_footprint_kb_ = 0;
   resident_set_kb_ = 0;
+  private_swap_kb_ = 0;
 
   process_id_ = new_pid;
   launch_time_ = launch_time;

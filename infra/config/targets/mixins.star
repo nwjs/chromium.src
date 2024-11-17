@@ -6,6 +6,7 @@ load("//lib/targets.star", "targets")
 
 targets.mixin(
     name = "10-x86-emulator",
+    generate_pyl_entry = False,
     args = [
         "--avd-config=../../tools/android/avd/proto/android_29_google_apis_x86.textpb",
     ],
@@ -48,6 +49,7 @@ targets.mixin(
 
 targets.mixin(
     name = "12-google-atd-x64-emulator",
+    generate_pyl_entry = False,
     args = [
         "--avd-config=../../tools/android/avd/proto/android_31_google_atd_x64.textpb",
     ],
@@ -113,6 +115,7 @@ targets.mixin(
 
 targets.mixin(
     name = "12l-fyi-x64-emulator",
+    generate_pyl_entry = False,
     args = [
         "--avd-config=../../tools/android/avd/proto/android_32_google_apis_x64_foldable_fyi.textpb",
     ],
@@ -134,6 +137,7 @@ targets.mixin(
 
 targets.mixin(
     name = "12l-x64-emulator",
+    generate_pyl_entry = False,
     args = [
         "--avd-config=../../tools/android/avd/proto/android_32_google_apis_x64_foldable.textpb",
     ],
@@ -155,6 +159,7 @@ targets.mixin(
 
 targets.mixin(
     name = "12l-landscape-x64-emulator",
+    generate_pyl_entry = False,
     args = [
         "--avd-config=../../tools/android/avd/proto/android_32_google_apis_x64_foldable_landscape.textpb",
     ],
@@ -176,6 +181,7 @@ targets.mixin(
 
 targets.mixin(
     name = "13-google-atd-x64-emulator",
+    generate_pyl_entry = False,
     args = [
         "--avd-config=../../tools/android/avd/proto/android_33_google_atd_x64.textpb",
     ],
@@ -195,8 +201,33 @@ targets.mixin(
     ),
 )
 
+# TODO(crbug.com/370084605): Remove this mixin after the migration is done.
+targets.mixin(
+    name = "13-swangle-x64-emulator",
+    generate_pyl_entry = False,
+    description = "Run with android_33_google_apis_x64_swangle",
+    args = [
+        "--avd-config=../../tools/android/avd/proto/android_33_google_apis_x64_swangle.textpb",
+    ],
+    swarming = targets.swarming(
+        # soft affinity so that bots with caches will be picked first
+        optional_dimensions = {
+            60: {
+                "caches": "android_33_google_apis_x64_swangle",
+            },
+        },
+        named_caches = [
+            swarming.cache(
+                name = "android_33_google_apis_x64_swangle",
+                path = ".android_emulator/android_33_google_apis_x64_swangle",
+            ),
+        ],
+    ),
+)
+
 targets.mixin(
     name = "13-x64-emulator",
+    generate_pyl_entry = False,
     description = "Run with android_33_google_apis_x64",
     args = [
         "--avd-config=../../tools/android/avd/proto/android_33_google_apis_x64.textpb",
@@ -217,8 +248,33 @@ targets.mixin(
     ),
 )
 
+# TODO(crbug.com/370084605): Remove this mixin after the migration is done.
+targets.mixin(
+    name = "14-swangle-x64-emulator",
+    generate_pyl_entry = False,
+    description = "Run with android_34_google_apis_x64_swangle",
+    args = [
+        "--avd-config=../../tools/android/avd/proto/android_34_google_apis_x64_swangle.textpb",
+    ],
+    swarming = targets.swarming(
+        # soft affinity so that bots with caches will be picked first
+        optional_dimensions = {
+            60: {
+                "caches": "android_34_google_apis_x64_swangle",
+            },
+        },
+        named_caches = [
+            swarming.cache(
+                name = "android_34_google_apis_x64_swangle",
+                path = ".android_emulator/android_34_google_apis_x64_swangle",
+            ),
+        ],
+    ),
+)
+
 targets.mixin(
     name = "14-x64-emulator",
+    generate_pyl_entry = False,
     description = "Run with android_34_google_apis_x64",
     args = [
         "--avd-config=../../tools/android/avd/proto/android_34_google_apis_x64.textpb",
@@ -241,8 +297,8 @@ targets.mixin(
 
 targets.mixin(
     name = "14-desktop-x64-emulator",
-    description = "Run with android_34_desktop_x64",
     generate_pyl_entry = False,
+    description = "Run with android_34_desktop_x64",
     args = [
         "--avd-config=../../tools/android/avd/proto/android_34_desktop_x64.textpb",
     ],
@@ -264,6 +320,7 @@ targets.mixin(
 
 targets.mixin(
     name = "15-x64-emulator",
+    generate_pyl_entry = False,
     description = "Run with android_35_google_apis_x64",
     args = [
         "--avd-config=../../tools/android/avd/proto/android_35_google_apis_x64.textpb",
@@ -279,6 +336,30 @@ targets.mixin(
             swarming.cache(
                 name = "android_35_google_apis_x64",
                 path = ".android_emulator/android_35_google_apis_x64",
+            ),
+        ],
+    ),
+)
+
+# TODO(crbug.com/370084605): Remove this mixin after the migration is done.
+targets.mixin(
+    name = "15-swangle-x64-emulator",
+    generate_pyl_entry = False,
+    description = "Run with android_35_google_apis_x64_swangle",
+    args = [
+        "--avd-config=../../tools/android/avd/proto/android_35_google_apis_x64_swangle.textpb",
+    ],
+    swarming = targets.swarming(
+        # soft affinity so that bots with caches will be picked first
+        optional_dimensions = {
+            60: {
+                "caches": "android_35_google_apis_x64_swangle",
+            },
+        },
+        named_caches = [
+            swarming.cache(
+                name = "android_35_google_apis_x64_swangle",
+                path = ".android_emulator/android_35_google_apis_x64_swangle",
             ),
         ],
     ),
@@ -334,6 +415,18 @@ targets.mixin(
     swarming = targets.swarming(
         dimensions = {
             "pool": "chrome.tests.finch",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "chrome-flame-fleet-pool",
+    swarming = targets.swarming(
+        dimensions = {
+            "device_type": "flame",
+            "device_os": "R",
+            "pool": "chrome.tests",
+            "os": "Android",
         },
     ),
 )
@@ -450,16 +543,6 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "chromeos-jacuzzi",
-    swarming = targets.swarming(
-        dimensions = {
-            "os": "ChromeOS",
-            "device_type": "jacuzzi",
-        },
-    ),
-)
-
-targets.mixin(
     name = "chromeos-tast-public-builder",
     skylab = targets.skylab(
         args = [
@@ -479,11 +562,27 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "chromeos-octopus",
+    name = "chromium_nexus_5x_oreo",
     swarming = targets.swarming(
         dimensions = {
-            "os": "ChromeOS",
-            "device_type": "octopus",
+            "device_os": "OPR4.170623.020",
+            "device_os_flavor": "google",
+            "device_type": "bullhead",
+            "os": "Android",
+            "pool": "chromium.tests",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "chromium_pixel_2_pie",
+    swarming = targets.swarming(
+        dimensions = {
+            "device_os": "PQ3A.190801.002",
+            "device_os_flavor": "google",
+            "device_type": "walleye",
+            "os": "Android",
+            "pool": "chromium.tests",
         },
     ),
 )
@@ -497,6 +596,7 @@ targets.mixin(
 
 targets.mixin(
     name = "chromium-tester-service-account",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         service_account = "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
     ),
@@ -506,6 +606,7 @@ targets.mixin(
 # test_suite_exceptions.pyl to select tests that are allowed on CQ builders.
 targets.mixin(
     name = "ci_only",
+    generate_pyl_entry = False,
     ci_only = True,
 )
 
@@ -544,6 +645,7 @@ targets.mixin(
 
 targets.mixin(
     name = "docker",
+    generate_pyl_entry = False,
     swarming = targets.swarming(
         dimensions = {
             "inside_docker": "1",
@@ -553,6 +655,7 @@ targets.mixin(
 
 targets.mixin(
     name = "emulator-4-cores",
+    generate_pyl_entry = False,
     swarming = targets.swarming(
         dimensions = {
             "device_os": None,
@@ -577,12 +680,25 @@ targets.mixin(
 
 targets.mixin(
     name = "emulator-enable-network",
+    generate_pyl_entry = False,
     args = [
         "--emulator-enable-network",
     ],
     swarming = targets.swarming(
         idempotent = False,  # Set to False because network is enabled.
     ),
+)
+
+# In //testing/buildbot, what test type a test is expanded as depends on the
+# test_suites key that the builder puts it under, so gtests included under the
+# isolated_scripts suite type would get expanded as isolated scripts. In
+# starlark, tests know what type they are and their type determines how they are
+# expanded, which allows tests of different types to in the same bundle. This
+# mixin enables using gtests as isolated script tests.
+targets.mixin(
+    name = "expand-as-isolated-script",
+    generate_pyl_entry = False,
+    expand_as_isolated_script = True,
 )
 
 targets.mixin(
@@ -596,6 +712,7 @@ targets.mixin(
 
 targets.mixin(
     name = "fuchsia-code-coverage",
+    generate_pyl_entry = False,
     args = [
         "--code-coverage-dir=${ISOLATED_OUTDIR}",
     ],
@@ -606,6 +723,7 @@ targets.mixin(
 # only.
 targets.mixin(
     name = "fuchsia-large-device-spec",
+    generate_pyl_entry = False,
     args = [
         "--device-spec=virtual_device_large",
     ],
@@ -685,6 +803,7 @@ targets.mixin(
 
 targets.mixin(
     name = "gpu_pixel_4_stable",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
             "os": "Android",
@@ -698,6 +817,7 @@ targets.mixin(
 
 targets.mixin(
     name = "gpu_pixel_6_experimental",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
             "os": "Android",
@@ -711,6 +831,7 @@ targets.mixin(
 
 targets.mixin(
     name = "gpu_pixel_6_stable",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
             "os": "Android",
@@ -750,6 +871,7 @@ targets.mixin(
 
 targets.mixin(
     name = "gpu_samsung_s23_stable",
+    generate_pyl_entry = False,
     swarming = targets.swarming(
         dimensions = {
             # Unfortunately, "s23" is not exposed as a dimension. "dm1q" appears
@@ -782,6 +904,7 @@ targets.mixin(
 
 targets.mixin(
     name = "gpu-swarming-pool",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
             "pool": "chromium.tests.gpu",
@@ -829,6 +952,7 @@ targets.mixin(
 
 targets.mixin(
     name = "ios_output_disabled_tests",
+    generate_pyl_entry = False,
     args = [
         "--output-disabled-tests",
     ],
@@ -844,6 +968,7 @@ targets.mixin(
 
 targets.mixin(
     name = "ios_restart_device",
+    generate_pyl_entry = False,
     args = [
         "--restart",
     ],
@@ -851,6 +976,7 @@ targets.mixin(
 
 targets.mixin(
     name = "ios_runtime_cache_16_4",
+    generate_pyl_entry = False,
     swarming = targets.swarming(
         named_caches = [
             swarming.cache(
@@ -913,6 +1039,7 @@ targets.mixin(
 
 targets.mixin(
     name = "junit-swarming-emulator",
+    generate_pyl_entry = False,
     swarming = targets.swarming(
         dimensions = {
             "cores": "8",
@@ -923,6 +1050,7 @@ targets.mixin(
 
 targets.mixin(
     name = "limited_capacity_bot",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     # Some FYI bot configurations have a limited number of bots in the swarming
     # pool. Increase the default expiration_sec time from 1 hour to 6 hours to
     # prevent shards from timing out.
@@ -933,6 +1061,7 @@ targets.mixin(
 
 targets.mixin(
     name = "linux-focal",
+    generate_pyl_entry = False,
     swarming = targets.swarming(
         dimensions = {
             "os": "Ubuntu-20.04",
@@ -942,6 +1071,7 @@ targets.mixin(
 
 targets.mixin(
     name = "linux-jammy",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
             "os": "Ubuntu-22.04",
@@ -951,6 +1081,7 @@ targets.mixin(
 
 targets.mixin(
     name = "linux-jammy-or-focal",
+    generate_pyl_entry = False,
     swarming = targets.swarming(
         dimensions = {
             "os": "Ubuntu-22.04|Ubuntu-20.04",
@@ -980,6 +1111,7 @@ targets.mixin(
 
 targets.mixin(
     name = "linux_amd_rx_5500_xt",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
             "gpu": "1002:7340-23.2.1",
@@ -992,10 +1124,11 @@ targets.mixin(
 
 targets.mixin(
     name = "linux_intel_uhd_630_experimental",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
             "gpu": "8086:9bc5-23.2.1",
-            "os": "Ubuntu-22.04.4",
+            "os": "Ubuntu-22.04.5",
             "display_attached": "1",
             "pool": "chromium.tests.gpu",
         },
@@ -1004,10 +1137,11 @@ targets.mixin(
 
 targets.mixin(
     name = "linux_intel_uhd_630_stable",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
-            "gpu": "8086:9bc5-20.0.8|8086:9bc5-23.2.1",
-            "os": "Ubuntu-18.04.6|Ubuntu-22.04.4",
+            "gpu": "8086:9bc5-23.2.1",
+            "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu",
         },
     ),
@@ -1027,6 +1161,7 @@ targets.mixin(
 
 targets.mixin(
     name = "linux_nvidia_gtx_1660_experimental",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
             "gpu": "10de:2184-535.183.01",
@@ -1038,6 +1173,7 @@ targets.mixin(
 
 targets.mixin(
     name = "linux_nvidia_gtx_1660_stable",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     # TODO(crbug.com/40888390): The swarming dimensions for
     # webgpu_blink_web_tests and webgpu_cts_tests on linux-code-coverage
     # must be kept manually in sync with the appropriate mixin; currently,
@@ -1083,6 +1219,17 @@ targets.mixin(
 targets.mixin(
     name = "long_skylab_timeout",
     timeout_sec = 10800,
+)
+
+targets.mixin(
+    name = "mac_vm",
+    swarming = targets.swarming(
+        dimensions = {
+            "cpu": "arm64-64-Apple_M1_(Virtual)",
+            "os": "Mac-14",
+            "pool": "chromium.tests.macvm",
+        },
+    ),
 )
 
 targets.mixin(
@@ -1308,6 +1455,7 @@ targets.mixin(
 
 targets.mixin(
     name = "mac_mini_intel_gpu_experimental",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
             "cpu": "x86-64",
@@ -1320,6 +1468,7 @@ targets.mixin(
 
 targets.mixin(
     name = "mac_mini_intel_gpu_stable",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     # TODO(crbug.com/40888390): The swarming dimensions for
     # webgpu_blink_web_tests and webgpu_cts_tests on mac-code-coverage
     # must be kept manually in sync with the appropriate mixin; currently,
@@ -1349,20 +1498,7 @@ targets.mixin(
 
 targets.mixin(
     name = "mac_retina_amd_gpu_experimental",
-    swarming = targets.swarming(
-        dimensions = {
-            "cpu": "x86-64",
-            "gpu": "1002:7340",
-            "hidpi": "1",
-            "os": "Mac-14.4.1",
-            "pool": "chromium.tests.gpu",
-            "display_attached": "1",
-        },
-    ),
-)
-
-targets.mixin(
-    name = "mac_retina_amd_gpu_stable",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
             "cpu": "x86-64",
@@ -1376,7 +1512,23 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "mac_retina_amd_gpu_stable",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
+    swarming = targets.swarming(
+        dimensions = {
+            "cpu": "x86-64",
+            "gpu": "1002:7340",
+            "hidpi": "1",
+            "os": "Mac-14.4.1",
+            "pool": "chromium.tests.gpu",
+            "display_attached": "1",
+        },
+    ),
+)
+
+targets.mixin(
     name = "mac_retina_nvidia_gpu_experimental",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     # Currently the same as the stable version.
     swarming = targets.swarming(
         dimensions = {
@@ -1392,6 +1544,7 @@ targets.mixin(
 
 targets.mixin(
     name = "mac_retina_nvidia_gpu_stable",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
             "cpu": "x86-64",
@@ -1429,6 +1582,7 @@ targets.mixin(
 
 targets.mixin(
     name = "marshmallow-x86-emulator",
+    generate_pyl_entry = False,
     args = [
         "--avd-config=../../tools/android/avd/proto/generic_android23.textpb",
     ],
@@ -1450,6 +1604,7 @@ targets.mixin(
 
 targets.mixin(
     name = "motorola_moto_g_power_5g",
+    generate_pyl_entry = False,
     swarming = targets.swarming(
         dimensions = {
             "device_type": "devonn",
@@ -1464,6 +1619,7 @@ targets.mixin(
 
 targets.mixin(
     name = "no_gpu",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
             "gpu": "none",
@@ -1513,6 +1669,7 @@ targets.mixin(
 
 targets.mixin(
     name = "oreo-x86-emulator",
+    generate_pyl_entry = False,
     args = [
         "--avd-config=../../tools/android/avd/proto/generic_android26.textpb",
     ],
@@ -1533,16 +1690,6 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "oreo_fleet",
-    swarming = targets.swarming(
-        dimensions = {
-            "device_os": "OPR4.170623.020",
-            "device_os_flavor": "google",
-        },
-    ),
-)
-
-targets.mixin(
     name = "oreo_mr1_fleet",
     generate_pyl_entry = False,
     swarming = targets.swarming(
@@ -1556,6 +1703,7 @@ targets.mixin(
 # Pixel 8
 targets.mixin(
     name = "shiba",
+    generate_pyl_entry = False,
     swarming = targets.swarming(
         dimensions = {
             "device_type": "shiba",
@@ -1575,6 +1723,7 @@ targets.mixin(
 # Pixel 7 on Android 14
 targets.mixin(
     name = "panther_on_14",
+    generate_pyl_entry = False,
     swarming = targets.swarming(
         dimensions = {
             "device_type": "panther",
@@ -1583,8 +1732,10 @@ targets.mixin(
         },
     ),
 )
+
 targets.mixin(
     name = "pie-x86-emulator",
+    generate_pyl_entry = False,
     args = [
         "--avd-config=../../tools/android/avd/proto/android_28_google_apis_x86.textpb",
     ],
@@ -1605,17 +1756,8 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "pie_fleet",
-    swarming = targets.swarming(
-        dimensions = {
-            "device_os": "PQ3A.190801.002",
-            "device_os_flavor": "google",
-        },
-    ),
-)
-
-targets.mixin(
     name = "puppet_production",
+    generate_pyl_entry = False,
     swarming = targets.swarming(
         dimensions = {
             "puppet_env": "production",
@@ -1650,6 +1792,7 @@ targets.mixin(
 
 targets.mixin(
     name = "swarming_containment_auto",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         containment_type = "AUTO",
     ),
@@ -1672,6 +1815,7 @@ targets.mixin(
 # Pixel Tablet
 targets.mixin(
     name = "tangorpro",
+    generate_pyl_entry = False,
     swarming = targets.swarming(
         dimensions = {
             "device_type": "tangorpro",
@@ -1683,6 +1827,7 @@ targets.mixin(
 
 targets.mixin(
     name = "timeout_15m",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         hard_timeout_sec = 900,
         io_timeout_sec = 900,
@@ -1847,6 +1992,7 @@ targets.mixin(
 
 targets.mixin(
     name = "win10_gce_gpu_pool",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
             "cpu": "x86-64",
@@ -1871,6 +2017,7 @@ targets.mixin(
 
 targets.mixin(
     name = "win10_intel_uhd_630_stable",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
             "display_attached": "1",
@@ -1883,6 +2030,7 @@ targets.mixin(
 
 targets.mixin(
     name = "win10_intel_uhd_770_stable",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
             "display_attached": "1",
@@ -1907,6 +2055,7 @@ targets.mixin(
 
 targets.mixin(
     name = "win10_nvidia_gtx_1660_stable",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     # TODO(crbug.com/40888390): The swarming dimensions for
     # webgpu_blink_web_tests and webgpu_cts_tests on win10-code-coverage
     # must be kept manually in sync with the appropriate mixin; currently,
@@ -1935,6 +2084,7 @@ targets.mixin(
 
 targets.mixin(
     name = "win11_qualcomm_adreno_690_stable",
+    generate_pyl_entry = False,
     swarming = targets.swarming(
         dimensions = {
             "display_attached": "1",
@@ -1992,6 +2142,7 @@ targets.mixin(
 
 targets.mixin(
     name = "x86-64",
+    generate_pyl_entry = targets.IGNORE_UNUSED,
     swarming = targets.swarming(
         dimensions = {
             "cpu": "x86-64",
@@ -2019,12 +2170,12 @@ targets.mixin(
     name = "xcode_16_main",
     args = [
         "--xcode-build-version",
-        "16a242",
+        "16a242d",
     ],
     swarming = targets.swarming(
         named_caches = [
             swarming.cache(
-                name = "xcode_ios_16a242",
+                name = "xcode_ios_16a242d",
                 path = "Xcode.app",
             ),
         ],
@@ -2035,12 +2186,12 @@ targets.mixin(
     name = "xcode_16_beta",
     args = [
         "--xcode-build-version",
-        "16a242",
+        "16a242d",
     ],
     swarming = targets.swarming(
         named_caches = [
             swarming.cache(
-                name = "xcode_ios_16a242",
+                name = "xcode_ios_16a242d",
                 path = "Xcode.app",
             ),
         ],
@@ -2051,12 +2202,12 @@ targets.mixin(
     name = "xcode_16_1_beta",
     args = [
         "--xcode-build-version",
-        "16b5001e",
+        "16b5029d",
     ],
     swarming = targets.swarming(
         named_caches = [
             swarming.cache(
-                name = "xcode_ios_16b5001e",
+                name = "xcode_ios_16b5029d",
                 path = "Xcode.app",
             ),
         ],

@@ -219,7 +219,7 @@ SyncTest::~SyncTest() = default;
 void SyncTest::SetUp() {
 #if BUILDFLAG(IS_ANDROID)
   if (server_type_ == IN_PROCESS_FAKE_SERVER) {
-    sync_test_utils_android::SetUpAuthForTesting();
+    sync_test_utils_android::SetUpFakeAuthForTesting();
   }
 #endif
 
@@ -268,8 +268,14 @@ void SyncTest::PostRunTestOnMainThread() {
   PlatformBrowserTest::PostRunTestOnMainThread();
 
 #if BUILDFLAG(IS_ANDROID)
-  if (server_type_ == IN_PROCESS_FAKE_SERVER) {
-    sync_test_utils_android::TearDownAuthForTesting();
+  // TODO(crbug.com/368091420): Consider moving into SyncSigninDelegateAndroid.
+  switch (server_type_) {
+    case EXTERNAL_LIVE_SERVER:
+      sync_test_utils_android::ShutdownLiveAuthForTesting();
+      break;
+    case IN_PROCESS_FAKE_SERVER:
+      sync_test_utils_android::TearDownFakeAuthForTesting();
+      break;
   }
 #endif
 }
@@ -1077,13 +1083,9 @@ void SyncTest::CheckForDataTypeFailures(size_t client_index) const {
   syncer::DataTypeSet types_to_check = service->GetRegisteredDataTypesForTest();
   types_to_check.RemoveAll(excluded_types_from_check_for_data_type_failures_);
 
-  if (service->HasAnyDatatypeErrorForTest(types_to_check)) {
-    ADD_FAILURE() << "Data types failed during tests: "
-                  << GetClient(client_index)
-                         ->service()
-                         ->GetTypeStatusMapForDebugging()
-                         .DebugString();
-  }
+  ASSERT_FALSE(service->HasAnyModelErrorForTest(types_to_check))
+      << " for client " << client_index << " and types "
+      << syncer::DataTypeSetToDebugString(types_to_check);
 }
 
 void SyncTest::ExcludeDataTypesFromCheckForDataTypeFailures(

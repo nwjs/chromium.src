@@ -50,7 +50,6 @@
       "components/test/data/.*",
       "components/version_ui/resources/.*(css|html|js)",
       "content/test/data/.*",
-      "content/test/gpu/.*",
       "extensions/test/data/.*",
       "media/test/data/.*",
       "mojo/tools/.*",

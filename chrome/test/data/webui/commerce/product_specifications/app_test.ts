@@ -39,6 +39,7 @@ function createProductInfo(overrides?: Partial<ProductInfo>): ProductInfo {
         currentPrice: '',
         previousPrice: '',
         categoryLabels: [],
+        priceSummary: '',
       },
       overrides);
 }
@@ -377,6 +378,8 @@ suite('AppTest', () => {
       title: 'foobar',
       productUrl: {url: 'https://example2.com/'},
       imageUrl: {url: 'foobar.com/image'},
+      currentPrice: '$15',
+      priceSummary: '$10 - $20',
     });
 
     const promiseValues = createAppPromiseValues({
@@ -405,7 +408,13 @@ suite('AppTest', () => {
               imageUrl: productInfo1.imageUrl.url,
             },
             productDetails: [
-              {title: 'price', content: '$100'},
+              {
+                title: 'price',
+                content: {
+                  price: '$100',
+                  jackpotUrl: specsProduct1.buyingOptionsUrl.url,
+                },
+              },
               {
                 title: 'summary',
                 content: {
@@ -431,10 +440,6 @@ suite('AppTest', () => {
                   }],
                 },
               },
-              {
-                title: null,
-                content: {jackpotUrl: specsProduct1.buyingOptionsUrl.url},
-              },
             ],
           },
           {
@@ -447,13 +452,11 @@ suite('AppTest', () => {
             },
             // Since this item's product dimension values have no ID, its
             // `productDetails` should have empty strings for `description` and
-            // summary`. Its `jackpotUrl` should also be empty since no price
-            // insights are available.
+            // summary`.
             productDetails: [
-              {title: 'price', content: null},
+              {title: 'price', content: {price: '$10 - $20', jackpotUrl: ''}},
               {title: 'summary', content: {attributes: [], summary: []}},
               {title: detailTitle, content: null},
-              {title: null, content: {jackpotUrl: ''}},
             ],
           },
         ],
@@ -522,7 +525,7 @@ suite('AppTest', () => {
               imageUrl: productInfo1.imageUrl.url,
             },
             productDetails: [
-              {title: 'price', content: null},
+              {title: 'price', content: {price: '', jackpotUrl: ''}},
               {title: 'summary', content: {attributes: [], summary: []}},
               {
                 title: detailTitle,
@@ -531,7 +534,6 @@ suite('AppTest', () => {
                   summary: [],
                 },
               },
-              {title: null, content: {jackpotUrl: ''}},
             ],
           },
         ],
@@ -570,7 +572,6 @@ suite('AppTest', () => {
       productClusterId: BigInt(123),
       title: 'Product 1',
       productDimensionValues: dimensionValuesMap1,
-      buyingOptionsUrl: {url: 'https://example.com/jackpot1'},
     });
     const productInfo1 = createProductInfo({
       clusterId: BigInt(123),
@@ -611,7 +612,6 @@ suite('AppTest', () => {
       productClusterId: BigInt(456),
       title: 'Product 2',
       productDimensionValues: dimensionValuesMap2,
-      buyingOptionsUrl: {url: 'https://example.com/jackpot2'},
     });
     const productInfo2 = createProductInfo({
       clusterId: BigInt(456),
@@ -647,7 +647,7 @@ suite('AppTest', () => {
               imageUrl: productInfo1.imageUrl.url,
             },
             productDetails: [
-              {title: 'price', content: null},
+              {title: 'price', content: {price: '', jackpotUrl: ''}},
               {title: 'summary', content: {attributes: [], summary: []}},
               {
                 title: detailTitle,
@@ -655,10 +655,6 @@ suite('AppTest', () => {
                   attributes: [{label: '', value: 'desc 1'}],
                   summary: [],
                 },
-              },
-              {
-                title: null,
-                content: {jackpotUrl: specsProduct1.buyingOptionsUrl.url},
               },
             ],
           },
@@ -669,7 +665,7 @@ suite('AppTest', () => {
               imageUrl: productInfo2.imageUrl.url,
             },
             productDetails: [
-              {title: 'price', content: null},
+              {title: 'price', content: {price: '', jackpotUrl: ''}},
               {title: 'summary', content: {attributes: [], summary: []}},
               {
                 title: detailTitle,
@@ -677,10 +673,6 @@ suite('AppTest', () => {
                   attributes: [{label: '', value: 'desc 2'}],
                   summary: [],
                 },
-              },
-              {
-                title: null,
-                content: {jackpotUrl: specsProduct2.buyingOptionsUrl.url},
               },
             ],
           },
@@ -763,7 +755,6 @@ suite('AppTest', () => {
       productClusterId: BigInt(123),
       title: 'Product 1',
       productDimensionValues: dimensionValuesMap1,
-      buyingOptionsUrl: {url: 'https://example.com/jackpot1'},
     });
     const productInfo1 = createProductInfo({
       clusterId: BigInt(123),
@@ -804,7 +795,6 @@ suite('AppTest', () => {
       productClusterId: BigInt(456),
       title: 'Product 2',
       productDimensionValues: dimensionValuesMap2,
-      buyingOptionsUrl: {url: 'https://example.com/jackpot2'},
     });
     const productInfo2 = createProductInfo({
       clusterId: BigInt(456),
@@ -867,7 +857,7 @@ suite('AppTest', () => {
               imageUrl: productInfo2.imageUrl.url,
             },
             productDetails: [
-              {title: 'price', content: null},
+              {title: 'price', content: {price: '', jackpotUrl: ''}},
               {title: 'summary', content: {attributes: [], summary: []}},
               {
                 title: rowTitle,
@@ -875,10 +865,6 @@ suite('AppTest', () => {
                   attributes: [{label: '', value: 'desc 2'}],
                   summary: [],
                 },
-              },
-              {
-                title: null,
-                content: {jackpotUrl: specsProduct2.buyingOptionsUrl.url},
               },
             ],
           },
@@ -889,7 +875,7 @@ suite('AppTest', () => {
               imageUrl: productInfo1.imageUrl.url,
             },
             productDetails: [
-              {title: 'price', content: null},
+              {title: 'price', content: {price: '', jackpotUrl: ''}},
               {title: 'summary', content: {attributes: [], summary: []}},
               {
                 title: rowTitle,
@@ -897,10 +883,6 @@ suite('AppTest', () => {
                   attributes: [{label: '', value: 'desc 1'}],
                   summary: [],
                 },
-              },
-              {
-                title: null,
-                content: {jackpotUrl: specsProduct1.buyingOptionsUrl.url},
               },
             ],
           },

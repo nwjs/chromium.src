@@ -20,8 +20,8 @@ import '../settings_shared.css.js';
 import 'chrome://resources/ash/common/cr_elements/localized_link/localized_link.js';
 
 import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
-import {CrLinkRowElement} from 'chrome://resources/ash/common/cr_elements/cr_link_row/cr_link_row.js';
-import {SliderTick} from 'chrome://resources/ash/common/cr_elements/cr_slider/cr_slider.js';
+import type {CrLinkRowElement} from 'chrome://resources/ash/common/cr_elements/cr_link_row/cr_link_row.js';
+import type {SliderTick} from 'chrome://resources/ash/common/cr_elements/cr_slider/cr_slider.js';
 import {I18nMixin} from 'chrome://resources/ash/common/cr_elements/i18n_mixin.js';
 import {WebUiListenerMixin} from 'chrome://resources/ash/common/cr_elements/web_ui_listener_mixin.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
@@ -29,16 +29,19 @@ import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bu
 
 import {DeepLinkingMixin} from '../common/deep_linking_mixin.js';
 import {RouteOriginMixin} from '../common/route_origin_mixin.js';
-import {SettingsToggleButtonElement} from '../controls/settings_toggle_button.js';
-import {DevicePageBrowserProxy, DevicePageBrowserProxyImpl} from '../device_page/device_page_browser_proxy.js';
+import type {SettingsToggleButtonElement} from '../controls/settings_toggle_button.js';
+import type {DevicePageBrowserProxy} from '../device_page/device_page_browser_proxy.js';
+import {DevicePageBrowserProxyImpl} from '../device_page/device_page_browser_proxy.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
-import {Route, Router, routes} from '../router.js';
+import type {Route} from '../router.js';
+import {Router, routes} from '../router.js';
 
 import {getTemplate} from './cursor_and_touchpad_page.html.js';
-import {CursorAndTouchpadPageBrowserProxy, CursorAndTouchpadPageBrowserProxyImpl} from './cursor_and_touchpad_page_browser_proxy.js';
+import type {CursorAndTouchpadPageBrowserProxy} from './cursor_and_touchpad_page_browser_proxy.js';
+import {CursorAndTouchpadPageBrowserProxyImpl} from './cursor_and_touchpad_page_browser_proxy.js';
+import {DisableTouchpadMode} from './disable_touchpad_constants.js';
 
 const DEFAULT_BLACK_CURSOR_COLOR = 0;
-
 interface Option {
   name: string;
   value: number;
@@ -613,6 +616,10 @@ export class SettingsCursorAndTouchpadPageElement extends
         DEFAULT_BLACK_CURSOR_COLOR;
     this.set(
         'prefs.settings.a11y.cursor_color_enabled.value', a11yCursorColorOn);
+  }
+
+  private showTrackpadEnableMessage_(trackpadMode: number): boolean {
+    return trackpadMode !== DisableTouchpadMode.NEVER;
   }
 }
 

@@ -99,8 +99,8 @@ namespace {
 
 class LenientMockObserver : public ProcessNodeImpl::Observer {
  public:
-  LenientMockObserver() {}
-  ~LenientMockObserver() override {}
+  LenientMockObserver() = default;
+  ~LenientMockObserver() override = default;
 
   MOCK_METHOD(void, OnProcessNodeAdded, (const ProcessNode*), (override));
   MOCK_METHOD(void, OnProcessLifetimeChange, (const ProcessNode*), (override));
@@ -270,39 +270,6 @@ TEST_F(ProcessNodeImplTest, PublicInterface) {
     const FrameNode* public_frame_node = frame_node;
     EXPECT_TRUE(base::Contains(public_frame_nodes, public_frame_node));
   }
-}
-
-namespace {
-
-class LenientFakeNamedTriggerManager
-    : public base::trace_event::NamedTriggerManager {
- public:
-  LenientFakeNamedTriggerManager() { NamedTriggerManager::SetInstance(this); }
-  ~LenientFakeNamedTriggerManager() {
-    NamedTriggerManager::SetInstance(nullptr);
-  }
-
-  // Functions we want to intercept.
-  MOCK_METHOD(bool,
-              DoEmitNamedTrigger,
-              (const std::string& trigger_name, std::optional<int32_t> value),
-              (override));
-};
-
-using FakeBackgroundTracingManager =
-    ::testing::StrictMock<LenientFakeNamedTriggerManager>;
-
-}  // namespace
-
-TEST_F(ProcessNodeImplTest, FireBackgroundTracingTriggerOnUI) {
-  const std::string kTrigger1("trigger1");
-
-  LenientFakeNamedTriggerManager manager;
-
-  // Expect a new trigger to be registered and triggered.
-  EXPECT_CALL(manager, DoEmitNamedTrigger(_, _));
-  ProcessNodeImpl::FireBackgroundTracingTriggerOnUIForTesting(kTrigger1);
-  testing::Mock::VerifyAndClear(&manager);
 }
 
 }  // namespace performance_manager

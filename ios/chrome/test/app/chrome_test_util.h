@@ -13,6 +13,7 @@
 @protocol ApplicationCommands;
 @protocol CountryCodePickerCommands;
 @protocol UnitConversionCommands;
+@protocol DriveFilePickerCommands;
 
 class Browser;
 @class MainController;
@@ -34,14 +35,6 @@ SceneController* GetForegroundActiveSceneController();
 
 // Returns the number of regular Browsers for the default profile.
 NSUInteger RegularBrowserCount();
-
-// Returns the current, non-incognito ChromeBrowserState.
-// TODO(crbug.com/358299863): Remove when fully migrated.
-ChromeBrowserState* GetOriginalBrowserState();
-
-// Returns the current incognito ChromeBrowserState
-// TODO(crbug.com/358299863): Remove when fully migrated.
-ChromeBrowserState* GetCurrentIncognitoBrowserState();
 
 // Returns the current, non-incognito Profile.
 ProfileIOS* GetOriginalProfile();
@@ -65,7 +58,8 @@ id<ApplicationCommands,
    BrowserCommands,
    BrowserCoordinatorCommands,
    UnitConversionCommands,
-   CountryCodePickerCommands>
+   CountryCodePickerCommands,
+   DriveFilePickerCommands>
 HandlerForActiveBrowser();
 
 // Removes all presented infobars.

@@ -207,6 +207,7 @@ FormStructureBrowserTest::FormStructureBrowserTest()
       // Enabled
       {
           features::kAutofillPageLanguageDetection,
+          features::kAutofillFixValueSemantics,
           // TODO(crbug.com/40741721): Remove once shared labels are launched.
           features::kAutofillEnableSupportForParsingWithSharedLabels,
           // TODO(crbug.com/40230674): Remove once launched.
@@ -216,6 +217,7 @@ FormStructureBrowserTest::FormStructureBrowserTest()
           features::kAutofillInferCountryCallingCode,
           // TODO(crbug.com/40266396): Remove once launched.
           features::kAutofillEnableExpirationDateImprovements,
+          features::kAutofillUseITAddressModel,
       },
       // Disabled
       {// TODO(crbug.com/40220393): Remove once launched.
@@ -289,13 +291,7 @@ std::unique_ptr<HttpResponse> FormStructureBrowserTest::HandleRequest(
   return std::move(response);
 }
 
-// TODO(https://crbug.com/41493195): Re-enable this test
-#if BUILDFLAG(IS_CHROMEOS_ASH) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
-#define MAYBE_DataDrivenHeuristics DISABLED_DataDrivenHeuristics
-#else
-#define MAYBE_DataDrivenHeuristics DataDrivenHeuristics
-#endif
-IN_PROC_BROWSER_TEST_P(FormStructureBrowserTest, MAYBE_DataDrivenHeuristics) {
+IN_PROC_BROWSER_TEST_P(FormStructureBrowserTest, DataDrivenHeuristics) {
 #if !BUILDFLAG(USE_INTERNAL_AUTOFILL_PATTERNS)
   if (GetActiveHeuristicSource() != HeuristicSource::kLegacyRegexes) {
     GTEST_SKIP() << "DataDrivenHeuristics tests are only supported with legacy "

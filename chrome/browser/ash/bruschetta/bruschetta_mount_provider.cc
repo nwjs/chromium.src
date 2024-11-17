@@ -9,8 +9,10 @@
 #include "chrome/browser/ash/bruschetta/bruschetta_launcher.h"
 #include "chrome/browser/ash/bruschetta/bruschetta_pref_names.h"
 #include "chrome/browser/ash/bruschetta/bruschetta_service.h"
+#include "chrome/browser/ash/bruschetta/bruschetta_service_factory.h"
 #include "chrome/browser/ash/bruschetta/bruschetta_util.h"
 #include "chrome/browser/ash/guest_os/guest_os_session_tracker.h"
+#include "chrome/browser/ash/guest_os/guest_os_session_tracker_factory.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 
 namespace bruschetta {
@@ -55,7 +57,7 @@ BruschettaMountProvider::CreateFileWatcher(base::FilePath mount_path,
 
 // guest_os::GuestOsMountProvider override.
 void BruschettaMountProvider::Prepare(PrepareCallback callback) {
-  auto* service = BruschettaService::GetForProfile(profile_);
+  auto* service = BruschettaServiceFactory::GetForProfile(profile_);
   auto launcher = service->GetLauncher(guest_id_.vm_name);
   if (launcher) {
     launcher->EnsureRunning(base::BindOnce(&BruschettaMountProvider::OnRunning,
@@ -73,7 +75,8 @@ void BruschettaMountProvider::OnRunning(PrepareCallback callback,
     std::move(callback).Run(false, 0, 0, base::FilePath());
     return;
   }
-  auto* tracker = guest_os::GuestOsSessionTracker::GetForProfile(profile_);
+  auto* tracker =
+      guest_os::GuestOsSessionTrackerFactory::GetForProfile(profile_);
 
   auto info = tracker->GetInfo(guest_id_);
   if (!info) {

@@ -115,8 +115,9 @@ class AccessibilityActionBrowserTest : public ContentBrowserTest {
     action_data.vertical_scroll_alignment = vertical_alignment;
     node->AccessibilityPerformAction(action_data);
 
-    if (wait_for_event)
+    if (wait_for_event) {
       ASSERT_TRUE(waiter.WaitForNotification());
+    }
   }
 
   void ScrollToTop(bool will_scroll_horizontally = false) {
@@ -158,8 +159,9 @@ class AccessibilityActionBrowserTest : public ContentBrowserTest {
     for (unsigned int i = 0; i < node.PlatformChildCount(); ++i) {
       ui::BrowserAccessibility* result =
           FindNodeInSubtree(*node.PlatformGetChild(i), role, name_or_value);
-      if (result)
+      if (result) {
         return result;
+      }
     }
     return nullptr;
   }
@@ -742,8 +744,7 @@ IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest, ShowContextMenu) {
   blink::UntrustworthyContextMenuParams context_menu_params =
       context_menu_interceptor->get_params();
   EXPECT_EQ(u"2", context_menu_params.link_text);
-  EXPECT_EQ(ui::MenuSourceType::MENU_SOURCE_KEYBOARD,
-            context_menu_params.source_type);
+  EXPECT_EQ(ui::MENU_SOURCE_KEYBOARD, context_menu_params.source_type);
 }
 
 IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest,
@@ -774,8 +775,7 @@ IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest,
   std::string link_text = base::UTF16ToUTF8(context_menu_params.link_text);
   base::ReplaceChars(link_text, "\n", "\\n", &link_text);
   EXPECT_EQ("This is a\\n\\n\\n\\nmultiline link.", link_text);
-  EXPECT_EQ(ui::MenuSourceType::MENU_SOURCE_KEYBOARD,
-            context_menu_params.source_type);
+  EXPECT_EQ(ui::MENU_SOURCE_KEYBOARD, context_menu_params.source_type);
   // Expect the context menu to open on the same line as the first line of link
   // text. Check that the y coordinate of the context menu is near the line
   // height.
@@ -809,8 +809,7 @@ IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest,
   blink::UntrustworthyContextMenuParams context_menu_params =
       context_menu_interceptor->get_params();
   EXPECT_EQ(u"Offscreen", context_menu_params.link_text);
-  EXPECT_EQ(ui::MenuSourceType::MENU_SOURCE_KEYBOARD,
-            context_menu_params.source_type);
+  EXPECT_EQ(ui::MENU_SOURCE_KEYBOARD, context_menu_params.source_type);
   // Expect the context menu point to be 0, 0.
   EXPECT_EQ(0, context_menu_params.x);
   EXPECT_EQ(0, context_menu_params.y);
@@ -843,8 +842,7 @@ IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest,
   blink::UntrustworthyContextMenuParams context_menu_params =
       context_menu_interceptor->get_params();
   EXPECT_EQ(u"Obscured", context_menu_params.link_text);
-  EXPECT_EQ(ui::MenuSourceType::MENU_SOURCE_KEYBOARD,
-            context_menu_params.source_type);
+  EXPECT_EQ(ui::MENU_SOURCE_KEYBOARD, context_menu_params.source_type);
   // Expect the context menu to open on the same line as the link text. Check
   // that the y coordinate of the context menu is near the line height.
   EXPECT_NEAR(16, context_menu_params.y, 15);

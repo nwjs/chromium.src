@@ -16,7 +16,6 @@
 #import "base/strings/utf_string_conversions.h"
 #import "base/test/gtest_util.h"
 #import "base/test/ios/wait_util.h"
-#import "base/test/scoped_feature_list.h"
 #import "base/test/test_timeouts.h"
 #import "base/values.h"
 #import "components/autofill/core/browser/autofill_test_utils.h"
@@ -104,7 +103,7 @@ FormSuggestion* SimpleFormSuggestion(std::u16string value,
 // Test fixture for AutofillAgent testing.
 class AutofillAgentTests : public web::WebTest {
  public:
-  AutofillAgentTests() {}
+  AutofillAgentTests() = default;
 
   AutofillAgentTests(const AutofillAgentTests&) = delete;
   AutofillAgentTests& operator=(const AutofillAgentTests&) = delete;
@@ -487,10 +486,6 @@ TEST_F(AutofillAgentTests, onSuggestionsReady_ShowAccountCards) {
 // is the 'Virtual card' string and the minor_text is the card name + last 4 or
 // the card holder's name
 TEST_F(AutofillAgentTests, showAutofillPopup_ShowVirtualCards) {
-  base::test::ScopedFeatureList feature_list_;
-  feature_list_.InitAndEnableFeature(
-      autofill::features::kAutofillEnableVirtualCards);
-
   __block NSUInteger suggestion_array_size = 0;
   __block FormSuggestion* virtual_card_suggestion = nil;
   __block FormSuggestion* credit_card_suggestion = nil;
@@ -525,25 +520,27 @@ TEST_F(AutofillAgentTests, showAutofillPopup_ShowVirtualCards) {
                              id<FormSuggestionProvider> delegate) {
     suggestion_array_size = suggestions.count;
     virtual_card_suggestion = [FormSuggestion
-               suggestionWithValue:[suggestions[0].value copy]
-                        minorValue:[suggestions[0].minorValue copy]
-                displayDescription:[suggestions[0].displayDescription copy]
-                              icon:[suggestions[0].icon copy]
-                              type:suggestions[0].type
-                 backendIdentifier:suggestions[0].backendIdentifier
-                    requiresReauth:suggestions[0].requiresReauth
-        acceptanceA11yAnnouncement:[suggestions[0]
-                                           .acceptanceA11yAnnouncement copy]];
+                suggestionWithValue:[suggestions[0].value copy]
+                         minorValue:[suggestions[0].minorValue copy]
+                 displayDescription:[suggestions[0].displayDescription copy]
+                               icon:[suggestions[0].icon copy]
+                               type:suggestions[0].type
+                  backendIdentifier:suggestions[0].backendIdentifier
+        fieldByFieldFillingTypeUsed:autofill::EMPTY_TYPE
+                     requiresReauth:suggestions[0].requiresReauth
+         acceptanceA11yAnnouncement:[suggestions[0]
+                                            .acceptanceA11yAnnouncement copy]];
     credit_card_suggestion = [FormSuggestion
-               suggestionWithValue:[suggestions[1].value copy]
-                        minorValue:[suggestions[1].minorValue copy]
-                displayDescription:[suggestions[1].displayDescription copy]
-                              icon:[suggestions[1].icon copy]
-                              type:suggestions[1].type
-                 backendIdentifier:suggestions[1].backendIdentifier
-                    requiresReauth:suggestions[1].requiresReauth
-        acceptanceA11yAnnouncement:[suggestions[1]
-                                           .acceptanceA11yAnnouncement copy]];
+                suggestionWithValue:[suggestions[1].value copy]
+                         minorValue:[suggestions[1].minorValue copy]
+                 displayDescription:[suggestions[1].displayDescription copy]
+                               icon:[suggestions[1].icon copy]
+                               type:suggestions[1].type
+                  backendIdentifier:suggestions[1].backendIdentifier
+        fieldByFieldFillingTypeUsed:autofill::EMPTY_TYPE
+                     requiresReauth:suggestions[1].requiresReauth
+         acceptanceA11yAnnouncement:[suggestions[1]
+                                            .acceptanceA11yAnnouncement copy]];
   };
 
   // Make credit card suggestion.

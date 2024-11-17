@@ -84,12 +84,14 @@ BASE_DECLARE_FEATURE(kProductSpecifications);
 BASE_DECLARE_FEATURE(kProductSpecificationsClearMetadataOnNewlySupportedFields);
 BASE_DECLARE_FEATURE(kProductSpecificationsMultiSpecifics);
 BASE_DECLARE_FEATURE(kProductSpecificationsSyncTitle);
+BASE_DECLARE_FEATURE(kCompareConfirmationToast);
 BASE_DECLARE_FEATURE(kProductSpecificationsCache);
 
 BASE_DECLARE_FEATURE(kShoppingIconColorVariant);
 BASE_DECLARE_FEATURE(kShoppingList);
 BASE_DECLARE_FEATURE(kShoppingListRegionLaunched);
 BASE_DECLARE_FEATURE(kPriceTrackingSubscriptionServiceLocaleKey);
+BASE_DECLARE_FEATURE(kPriceTrackingSubscriptionServiceProductVersion);
 BASE_DECLARE_FEATURE(kShoppingPageTypes);
 BASE_DECLARE_FEATURE(kShoppingPageTypesRegionLaunched);
 BASE_DECLARE_FEATURE(kShoppingPDPMetrics);
@@ -111,6 +113,7 @@ enum class DiscountDialogAutoPopupBehavior {
 BASE_DECLARE_FEATURE(kEnableDiscountInfoApi);
 BASE_DECLARE_FEATURE(kEnableDiscountInfoApiRegionLaunched);
 BASE_DECLARE_FEATURE(kDiscountDialogAutoPopupBehaviorSetting);
+BASE_DECLARE_FEATURE(kDiscountDialogAutoPopupCounterfactual);
 extern const char kHistoryClustersBehaviorParam[];
 extern const base::FeatureParam<int> kHistoryClustersBehavior;
 extern const char kMerchantWideBehaviorParam[];

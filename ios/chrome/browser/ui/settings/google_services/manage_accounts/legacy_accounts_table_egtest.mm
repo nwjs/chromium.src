@@ -19,7 +19,7 @@
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/ui/authentication/signin_matchers.h"
-#import "ios/chrome/browser/ui/settings/google_services/manage_accounts/accounts_table_view_controller_constants.h"
+#import "ios/chrome/browser/ui/settings/google_services/manage_accounts/manage_accounts_table_view_controller_constants.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_sync_settings_constants.h"
 #import "ios/chrome/grit/ios_branded_strings.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -266,7 +266,7 @@ constexpr base::TimeDelta kSyncOperationTimeout = base::Seconds(10);
 
 // Tests to open the account details twice in a row.
 // TODO(crbug.com/357145635): Test failing on builders.
-- (void)DISABLED_testOpenTwiceAccountDetails {
+- (void)testOpenTwiceAccountDetails {
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
 
   // Sign In `fakeIdentity`, then open the Account Settings.

@@ -35,10 +35,10 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
-#include "components/saved_tab_groups/features.h"
-#include "components/saved_tab_groups/pref_names.h"
-#include "components/saved_tab_groups/saved_tab_group_tab.h"
-#include "components/saved_tab_groups/utils.h"
+#include "components/saved_tab_groups/public/features.h"
+#include "components/saved_tab_groups/public/pref_names.h"
+#include "components/saved_tab_groups/public/saved_tab_group_tab.h"
+#include "components/saved_tab_groups/public/utils.h"
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
@@ -63,6 +63,14 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(SavedTabGroupUtils,
                                       kToggleGroupPinStateMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(SavedTabGroupUtils, kTabsTitleItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(SavedTabGroupUtils, kTab);
+
+bool SavedTabGroupUtils::IsEnabledForProfile(Profile* profile) {
+  if (!profile) {
+    return false;
+  }
+
+  return SavedTabGroupUtils::GetServiceForProfile(profile) != nullptr;
+}
 
 // static
 TabGroupSyncService* SavedTabGroupUtils::GetServiceForProfile(
@@ -193,7 +201,6 @@ void SavedTabGroupUtils::DeleteSavedGroup(const Browser* browser,
   }
 }
 
-// See comment for TabStripModelDelegate::ConfirmGroupDeletion
 void SavedTabGroupUtils::MaybeShowSavedTabGroupDeletionDialog(
     Browser* browser,
     DeletionDialogController::DialogType type,
@@ -491,6 +498,25 @@ std::vector<content::WebContents*> SavedTabGroupUtils::GetWebContentsesInGroup(
     contentses.push_back(browser->tab_strip_model()->GetWebContentsAt(index));
   }
   return contentses;
+}
+
+// static
+std::vector<tabs::TabModel*> SavedTabGroupUtils::GetTabsInGroup(
+    tab_groups::TabGroupId group_id) {
+  Browser* browser = GetBrowserWithTabGroupId(group_id);
+  if (!browser || !browser->tab_strip_model() ||
+      !browser->tab_strip_model()->SupportsTabGroups()) {
+    return {};
+  }
+
+  const gfx::Range local_tab_group_indices =
+      SavedTabGroupUtils::GetTabGroupWithId(group_id)->ListTabs();
+  std::vector<tabs::TabModel*> local_tabs;
+  for (size_t index = local_tab_group_indices.start();
+       index < local_tab_group_indices.end(); index++) {
+    local_tabs.push_back(browser->tab_strip_model()->GetTabAtIndex(index));
+  }
+  return local_tabs;
 }
 
 SavedTabGroup SavedTabGroupUtils::CreateSavedTabGroupFromLocalId(

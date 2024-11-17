@@ -42,6 +42,10 @@ BASE_FEATURE(kAndroidBcivPhoneOnly,
              "AndroidBcivPhoneOnly",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kAndroidBcivWithSimpleScheduler,
+             "AndroidBcivWithSimpleScheduler",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kAndroidBcivWithSuppression,
              "AndroidBcivWithSuppression",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -68,6 +72,10 @@ BASE_FEATURE(kUseDrmBlackFullscreenOptimization,
 BASE_FEATURE(kUseFrameIntervalDecider,
              "UseFrameIntervalDecider",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kTemporalSkipOverlaysWithRootCopyOutputRequests,
+             "TemporalSkipOverlaysWithRootCopyOutputRequests",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUseMultipleOverlays,
              "UseMultipleOverlays",
@@ -294,9 +302,20 @@ BASE_FEATURE(kOnBeginFrameThrottleVideo,
 #endif
              );
 
-BASE_FEATURE(kSharedBitmapToSharedImage,
-             "SharedBitmapToSharedImage",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+// If enabled, Chrome uses ADPF(Android Dynamic Performance Framework) if the
+// device's SOC manufacturer satisifes the allowlist and blocklist rules.
+// If disabled, Chrome never uses ADPF.
+// The allowlist takes precedence - i.e. if the allowlist is non-empty, the
+// soc must be in the allowlist for Chrome to use ADPF, and the blocklist is
+// ignored. If there's no allowlist, the soc must be absent from the blocklist.
+BASE_FEATURE(kAdpf, "Adpf", base::FEATURE_ENABLED_BY_DEFAULT);
+
+const base::FeatureParam<std::string> kADPFSocManufacturerAllowlist{
+    &kAdpf, "soc_manufacturer_allowlist", "Google"};
+
+const base::FeatureParam<std::string> kADPFSocManufacturerBlocklist{
+    &kAdpf, "soc_manufacturer_blocklist", ""};
+
 // Used to enable the HintSession::Mode::BOOST mode. BOOST mode try to force
 // the ADPF(Android Dynamic Performance Framework) to give Chrome more CPU
 // resources during a scroll.
@@ -314,6 +333,12 @@ const base::FeatureParam<base::TimeDelta> kADPFBoostTimeout{
 BASE_FEATURE(kEnableADPFRendererMain,
              "EnableADPFRendererMain",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// If enabled, Chrome includes only main frame's Renderer Main thread(s) into
+// the ADPF(Android Dynamic Performance Framework) hint session.
+BASE_FEATURE(kEnableMainFrameOnlyADPFRendererMain,
+             "EnableMainFrameOnlyADPFRendererMain",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, Chrome includes the Compositor GPU Thread into the
 // ADPF(Android Dynamic Performance Framework) hint session, instead
@@ -347,13 +372,6 @@ const base::FeatureParam<int>
 // as the HDR metadata NDWL nits.
 BASE_FEATURE(kUseDisplaySDRMaxLuminanceNits,
              "UseDisplaySDRMaxLuminanceNits",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Invalidate the `viz::LocalSurfaceId` on the browser side when the page is
-// navigated away. This flag serves as the kill-switch for the uncaught edge
-// cases in production.
-BASE_FEATURE(kInvalidateLocalSurfaceIdPreCommit,
-             "InvalidateLocalSurfaceIdPreCommit",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // On mac, when the RenderWidgetHostViewMac is hidden, also hide the

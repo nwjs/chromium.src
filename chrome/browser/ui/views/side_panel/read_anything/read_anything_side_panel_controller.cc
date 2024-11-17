@@ -81,9 +81,8 @@ ReadAnythingSidePanelController::~ReadAnythingSidePanelController() {
   }
 
   // Inform observers when |this| is destroyed so they can do their own cleanup.
-  for (ReadAnythingSidePanelController::Observer& obs : observers_) {
-    obs.OnSidePanelControllerDestroyed();
-  }
+  observers_.Notify(&ReadAnythingSidePanelController::Observer::
+                        OnSidePanelControllerDestroyed);
 }
 
 void ReadAnythingSidePanelController::ResetForTabDiscard() {
@@ -125,9 +124,8 @@ void ReadAnythingSidePanelController::OnEntryShown(SidePanelEntry* entry) {
   if (service) {
     service->OnReadAnythingSidePanelEntryShown();
   }
-  for (ReadAnythingSidePanelController::Observer& obs : observers_) {
-    obs.Activate(true);
-  }
+
+  observers_.Notify(&ReadAnythingSidePanelController::Observer::Activate, true);
 }
 
 void ReadAnythingSidePanelController::OnEntryHidden(SidePanelEntry* entry) {
@@ -141,9 +139,8 @@ void ReadAnythingSidePanelController::OnEntryHidden(SidePanelEntry* entry) {
   if (service) {
     service->OnReadAnythingSidePanelEntryHidden();
   }
-  for (ReadAnythingSidePanelController::Observer& obs : observers_) {
-    obs.Activate(false);
-  }
+  observers_.Notify(&ReadAnythingSidePanelController::Observer::Activate,
+                    false);
 }
 
 std::unique_ptr<views::View>
@@ -220,18 +217,14 @@ void ReadAnythingSidePanelController::UpdateIphVisibility() {
   bool should_show_iph = loading_ ? previous_page_distillable_ : distillable_;
 
   // Promo controller does not exist for incognito windows.
-  auto* promo_controller =
-      tab_->GetBrowserWindowInterface()->GetFeaturePromoController();
-  if (!promo_controller) {
-    return;
-  }
+  auto* const user_ed =
+      tab_->GetBrowserWindowInterface()->GetUserEducationInterface();
 
   if (should_show_iph) {
-    promo_controller->MaybeShowPromo(
+    user_ed->MaybeShowFeaturePromo(
         feature_engagement::kIPHReadingModeSidePanelFeature);
   } else {
-    promo_controller->EndPromo(
-        feature_engagement::kIPHReadingModeSidePanelFeature,
-        user_education::EndFeaturePromoReason::kAbortPromo);
+    user_ed->AbortFeaturePromo(
+        feature_engagement::kIPHReadingModeSidePanelFeature);
   }
 }

@@ -565,14 +565,6 @@ public final class ChromePreferenceKeys {
     public static final String PRICE_TRACKING_IDS_FOR_TABS_WITH_PRICE_DROP =
             "Chrome.PriceTracking.IDsForTabsWithPriceDrop";
 
-    /** Whether the PriceAlertsMessageCard is enabled. */
-    public static final String PRICE_TRACKING_PRICE_ALERTS_MESSAGE_CARD =
-            "Chrome.PriceTracking.PriceAlerts";
-
-    /** Indicates how many times the PriceAlertsMessageCard has shown in the tab switcher. */
-    public static final String PRICE_TRACKING_PRICE_ALERTS_MESSAGE_CARD_SHOW_COUNT =
-            "Chrome.PriceTracking.PriceAlertsShowCount";
-
     /** Whether the PriceWelcomeMessageCard is enabled. */
     public static final String PRICE_TRACKING_PRICE_WELCOME_MESSAGE_CARD =
             "Chrome.PriceTracking.PriceWelcome";
@@ -669,6 +661,13 @@ public final class ChromePreferenceKeys {
      */
     public static final String SEARCH_ENGINE_CHOICE_OS_CHOICE_APPLIED_TIMESTAMP =
             "Chrome.SearchEngineChoice.OsChoiceAppliedTimestamp";
+
+    /**
+     * Key used to store the number of sessions that have been blocked by the dialog requiring the
+     * user to complete the OS level default apps choice.
+     */
+    public static final String SEARCH_ENGINE_CHOICE_PENDING_OS_CHOICE_DIALOG_SHOWN_ATTEMPTS =
+            "Chrome.SearchEngineChoice.PendingOsChoiceDialogShownAttempts";
 
     public static final String SEARCH_WIDGET_IS_VOICE_SEARCH_AVAILABLE =
             "org.chromium.chrome.browser.searchwidget.IS_VOICE_SEARCH_AVAILABLE";
@@ -1014,8 +1013,6 @@ public final class ChromePreferenceKeys {
                 PRICE_TRACKING_ANNOTATIONS_ENABLED_METRICS_TIMESTAMP,
                 PRICE_TRACKING_CHROME_MANAGED_NOTIFICATIONS_TIMESTAMPS,
                 PRICE_TRACKING_IDS_FOR_TABS_WITH_PRICE_DROP,
-                PRICE_TRACKING_PRICE_ALERTS_MESSAGE_CARD,
-                PRICE_TRACKING_PRICE_ALERTS_MESSAGE_CARD_SHOW_COUNT,
                 PRICE_TRACKING_PRICE_WELCOME_MESSAGE_CARD,
                 PRICE_TRACKING_PRICE_WELCOME_MESSAGE_CARD_SHOW_COUNT,
                 PRICE_TRACKING_TRACK_PRICES_ON_TABS,
@@ -1028,6 +1025,7 @@ public final class ChromePreferenceKeys {
                 PWA_RESTORE_APPS_AVAILABLE,
                 PWA_RESTORE_PROMO_STAGE,
                 SEARCH_ENGINE_CHOICE_OS_CHOICE_APPLIED_TIMESTAMP,
+                SEARCH_ENGINE_CHOICE_PENDING_OS_CHOICE_DIALOG_SHOWN_ATTEMPTS,
                 SEGMENTATION_FEED_ACTIVE_USER,
                 SETTINGS_SAFETY_CHECK_LAST_RUN_TIMESTAMP,
                 SETTINGS_SAFETY_CHECK_RUN_COUNTER,

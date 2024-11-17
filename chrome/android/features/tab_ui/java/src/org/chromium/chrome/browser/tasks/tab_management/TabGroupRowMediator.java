@@ -8,13 +8,13 @@ import static org.chromium.chrome.browser.tasks.tab_management.TabGroupRowProper
 import static org.chromium.chrome.browser.tasks.tab_management.TabGroupRowProperties.LEAVE_RUNNABLE;
 
 import android.content.Context;
-import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.util.Pair;
 import androidx.core.util.Supplier;
 
+import org.chromium.base.CallbackController;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.LazyOneshotSupplier;
 import org.chromium.chrome.R;
@@ -25,9 +25,8 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.hub.PaneId;
 import org.chromium.chrome.browser.hub.PaneManager;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab_group_sync.TabGroupUiActionHandler;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
-import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
+import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationManager.ConfirmationResult;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupFaviconCluster.ClusterData;
 import org.chromium.components.data_sharing.DataSharingService;
@@ -39,6 +38,7 @@ import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.tab_group_sync.SavedTabGroup;
 import org.chromium.components.tab_group_sync.SavedTabGroupTab;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
+import org.chromium.components.tab_group_sync.TabGroupUiActionHandler;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogUtils;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -49,6 +49,7 @@ import java.util.List;
 
 /** Contains the logic to set the state of the model and react to actions. */
 class TabGroupRowMediator {
+    private final CallbackController mCallbackController = new CallbackController();
     private final Context mContext;
     private final SavedTabGroup mSavedTabGroup;
     private final TabGroupModelFilter mTabGroupModelFilter;
@@ -62,9 +63,10 @@ class TabGroupRowMediator {
     private final Supplier<Integer> mFetchGroupState;
     private final PropertyModel mPropertyModel;
 
+    private SharedImageTilesCoordinator mSharedImageTilesCoordinator;
+
     /**
      * @param context Used to load resources and create views.
-     * @param savedTabGroup
      * @param tabGroupModelFilter Used to read current tab groups.
      * @param tabGroupSyncService Used to fetch synced copy of tab groups.
      * @param dataSharingService Used to fetch shared group data.
@@ -123,20 +125,33 @@ class TabGroupRowMediator {
 
         builder.with(TabGroupRowProperties.CREATION_MILLIS, savedTabGroup.creationTimeMs);
         builder.with(TabGroupRowProperties.OPEN_RUNNABLE, this::openGroup);
+        builder.with(TabGroupRowProperties.DESTROYABLE, this::destroy);
         mPropertyModel = builder.build();
 
         String collaborationId = savedTabGroup.collaborationId;
         if (mDataSharingService != null
                 && ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING)
                 && TabShareUtils.isCollaborationIdValid(savedTabGroup.collaborationId)) {
-            mDataSharingService.readGroup(collaborationId, this::onReadGroup);
+            mDataSharingService.readGroup(
+                    collaborationId, mCallbackController.makeCancelable(this::onReadGroup));
         } else {
             setSharedProperties(GroupSharedState.NOT_SHARED, /* groupData= */ null);
         }
     }
 
+    /**
+     * Note that this model may contain a {@link TabGroupRowProperties.DESTROYABLE} that needs to be
+     * cleaned up.
+     */
     public PropertyModel getModel() {
         return mPropertyModel;
+    }
+
+    private void destroy() {
+        mCallbackController.destroy();
+        if (mSharedImageTilesCoordinator != null) {
+            mSharedImageTilesCoordinator.destroy();
+        }
     }
 
     private void onReadGroup(@NonNull GroupDataOrFailureOutcome outcome) {
@@ -150,9 +165,7 @@ class TabGroupRowMediator {
             mPropertyModel.set(DELETE_RUNNABLE, this::processDeleteGroup);
             mPropertyModel.set(LEAVE_RUNNABLE, null);
             mPropertyModel.set(TabGroupRowProperties.DISPLAY_AS_SHARED, false);
-            mPropertyModel.set(
-                    TabGroupRowProperties.GET_IMAGE_TILE_CONTAINER_CALLBACK,
-                    (container) -> container.removeAllViews());
+            mPropertyModel.set(TabGroupRowProperties.SHARED_IMAGE_TILES_VIEW, null);
             return;
         }
 
@@ -176,27 +189,22 @@ class TabGroupRowMediator {
 
         if (sharedState == GroupSharedState.COLLABORATION_ONLY) {
             mPropertyModel.set(TabGroupRowProperties.DISPLAY_AS_SHARED, false);
-            mPropertyModel.set(
-                    TabGroupRowProperties.GET_IMAGE_TILE_CONTAINER_CALLBACK,
-                    (container) -> container.removeAllViews());
+            mPropertyModel.set(TabGroupRowProperties.SHARED_IMAGE_TILES_VIEW, null);
         } else if (sharedState == GroupSharedState.HAS_OTHER_USERS) {
             mPropertyModel.set(TabGroupRowProperties.DISPLAY_AS_SHARED, true);
+            if (mSharedImageTilesCoordinator == null) {
+                mSharedImageTilesCoordinator =
+                        new SharedImageTilesCoordinator(
+                                mContext,
+                                SharedImageTilesType.DEFAULT,
+                                SharedImageTilesColor.DYNAMIC,
+                                mDataSharingService);
+            }
+            mSharedImageTilesCoordinator.updateCollaborationId(mSavedTabGroup.collaborationId);
             mPropertyModel.set(
-                    TabGroupRowProperties.GET_IMAGE_TILE_CONTAINER_CALLBACK,
-                    this::attachImageTilesOnContainer);
+                    TabGroupRowProperties.SHARED_IMAGE_TILES_VIEW,
+                    mSharedImageTilesCoordinator.getView());
         }
-    }
-
-    private void attachImageTilesOnContainer(FrameLayout container) {
-        SharedImageTilesCoordinator sharedImageTilesCoordinator =
-                new SharedImageTilesCoordinator(
-                        mContext,
-                        SharedImageTilesType.DEFAULT,
-                        SharedImageTilesColor.DYNAMIC,
-                        mDataSharingService);
-        sharedImageTilesCoordinator.updateCollaborationId(mSavedTabGroup.collaborationId);
-        TabUiUtils.attachSharedImageTilesCoordinatorToFrameLayout(
-                sharedImageTilesCoordinator, container);
     }
 
     private void openGroup() {

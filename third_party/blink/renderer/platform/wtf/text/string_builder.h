@@ -54,7 +54,12 @@ class WTF_EXPORT StringBuilder {
 
   bool DoesAppendCauseOverflow(unsigned length) const;
 
+  void Append(base::span<const UChar> chars);
+  void Append(base::span<const LChar> chars);
+
+  // This is deprecated. Use a base::span overload.
   void Append(const UChar*, unsigned length);
+  // This is deprecated. Use a base::span overload.
   void Append(const LChar*, unsigned length);
 
   ALWAYS_INLINE void Append(const char* characters, unsigned length) {
@@ -152,7 +157,7 @@ class WTF_EXPORT StringBuilder {
   template <typename IntegerType>
   void AppendNumber(IntegerType number) {
     IntegerToStringConverter<IntegerType> converter(number);
-    Append(converter.Characters8(), converter.length());
+    Append(converter.Span());
   }
 
   void AppendNumber(bool);
@@ -178,9 +183,9 @@ class WTF_EXPORT StringBuilder {
 
   operator StringView() const {
     if (Is8Bit()) {
-      return StringView(Characters8(), length());
+      return StringView(Span8());
     } else {
-      return StringView(Characters16(), length());
+      return StringView(Span16());
     }
   }
 
@@ -232,6 +237,30 @@ class WTF_EXPORT StringBuilder {
     return buffer16_.data();
   }
 
+  base::span<const LChar> Span8() const {
+    DCHECK(is_8bit_);
+    if (!length()) {
+      return {};
+    }
+    if (!string_.IsNull()) {
+      return string_.Span8();
+    }
+    DCHECK(has_buffer_);
+    return base::span(buffer8_).first(length());
+  }
+
+  base::span<const UChar> Span16() const {
+    DCHECK(!is_8bit_);
+    if (!length()) {
+      return {};
+    }
+    if (!string_.IsNull()) {
+      return string_.Span16();
+    }
+    DCHECK(has_buffer_);
+    return base::span(buffer16_).first(length());
+  }
+
   bool Is8Bit() const { return is_8bit_; }
   void Ensure16Bit();
 
@@ -264,9 +293,9 @@ class WTF_EXPORT StringBuilder {
   template <typename StringType>
   void BuildString() {
     if (is_8bit_)
-      string_ = StringType(Characters8(), length_);
+      string_ = StringType(Span8());
     else
-      string_ = StringType(Characters16(), length_);
+      string_ = StringType(Span16());
     ClearBuffer();
   }
 

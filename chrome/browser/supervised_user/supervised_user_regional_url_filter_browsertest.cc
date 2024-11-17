@@ -24,9 +24,9 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/supervised_user/supervision_mixin.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
+#include "components/supervised_user/core/browser/family_link_user_capabilities.h"
 #include "components/supervised_user/core/browser/fetcher_config.h"
 #include "components/supervised_user/core/browser/proto/kidsmanagement_messages.pb.h"
-#include "components/supervised_user/core/browser/supervised_user_capabilities.h"
 #include "components/supervised_user/core/common/features.h"
 #include "components/supervised_user/test_support/kids_management_api_server_mock.h"
 #include "components/variations/variations_switches.h"
@@ -46,17 +46,6 @@ using ::kidsmanagement::ClassifyUrlRequest;
 using ::testing::_;
 using ::testing::NiceMock;
 using ::testing::Pointee;
-
-// Surprisingly, we don't have proto-comparators from gtest available. Remove
-// once they're available.
-MATCHER_P(EqualsProto,
-          message,
-          "Match a proto Message equal to the matcher's argument.") {
-  std::string expected_serialized, actual_serialized;
-  message.SerializeToString(&expected_serialized);
-  arg.SerializeToString(&actual_serialized);
-  return expected_serialized == actual_serialized;
-}
 
 // Wrapper class; introducing fluent aliases for test parameters.
 class TestCase {

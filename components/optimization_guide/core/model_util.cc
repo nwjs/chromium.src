@@ -141,6 +141,13 @@ std::string GetStringNameForOptimizationTarget(
       return "SegmentationMetricsClustering";
     case proto::OPTIMIZATION_TARGET_MODEL_EXECUTION_FEATURE_SUMMARIZE:
       return "ModelExecutionFeatureSummarize";
+    case proto::OPTIMIZATION_TARGET_PASSWORD_MANAGER_FORM_CLASSIFICATION:
+      return "PasswordManagerFormClassification";
+    case proto::OPTIMIZATION_TARGET_NOTIFICATION_CONTENT_DETECTION:
+      return "NotificationContentDetection";
+    case proto::
+        OPTIMIZATION_TARGET_MODEL_EXECUTION_FEATURE_HISTORY_QUERY_INTENT:
+      return "ModelExecutionFeatureHistoryQueryIntent";
       // Whenever a new value is added, make sure to add it to the OptTarget
       // variant list in
       // //tools/metrics/histograms/metadata/optimization/histograms.xml.

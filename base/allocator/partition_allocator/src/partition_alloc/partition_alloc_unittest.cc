@@ -273,11 +273,11 @@ using SlotSpan = SlotSpanMetadata<MetadataKind::kReadOnly>;
 const size_t kTestAllocSize = 16;
 
 constexpr size_t kPointerOffset = 0;
-#if !PA_BUILDFLAG(DCHECKS_ARE_ON)
+#if !PA_BUILDFLAG(USE_PARTITION_COOKIE)
 constexpr size_t kExtraAllocSizeWithoutMetadata = 0ull;
 #else
 constexpr size_t kExtraAllocSizeWithoutMetadata = kCookieSize;
-#endif
+#endif  // !PA_BUILDFLAG(USE_PARTITION_COOKIE)
 
 const char* type_name = nullptr;
 
@@ -1832,7 +1832,7 @@ TEST_P(PartitionAllocTest, Realloc) {
   char_ptr2 = static_cast<char*>(ptr2);
   EXPECT_EQ('A', char_ptr2[0]);
   EXPECT_EQ('A', char_ptr2[size / 2 - 1]);
-#if PA_BUILDFLAG(DCHECKS_ARE_ON)
+#if PA_BUILDFLAG(USE_PARTITION_COOKIE)
   // For single-slot slot spans, the cookie is always placed immediately after
   // the allocation.
   EXPECT_EQ(kCookieValue[0], static_cast<unsigned char>(char_ptr2[size / 2]));
@@ -2392,7 +2392,7 @@ TEST_P(PartitionAllocTest, FreeCache) {
 
   // Also check that a slot span that is bouncing immediately between empty and
   // used does not get freed.
-  for (size_t i = 0; i < kMaxFreeableSpans * 2; ++i) {
+  for (size_t i = 0; i < kMaxEmptySlotSpanRingSize * 2; ++i) {
     ptr = allocator.root()->Alloc(big_size, type_name);
     EXPECT_TRUE(slot_span->get_freelist_head());
     allocator.root()->Free(ptr);
@@ -2751,9 +2751,9 @@ TEST_P(PartitionAllocDeathTest, FreelistCorruption) {
   allocator.root()->Free(fake_freelist_entry);
 }
 
-// With PA_BUILDFLAG(DCHECKS_ARE_ON), cookie already handles off-by-one
+// With PA_BUILDFLAG(USE_PARTITION_COOKIE), cookie already handles off-by-one
 // detection.
-#if !PA_BUILDFLAG(DCHECKS_ARE_ON)
+#if !PA_BUILDFLAG(USE_PARTITION_COOKIE)
 TEST_P(PartitionAllocDeathTest, OffByOneDetection) {
   base::CPU cpu;
   const size_t alloc_size = 2 * sizeof(void*);
@@ -2795,10 +2795,60 @@ TEST_P(PartitionAllocDeathTest, OffByOneDetectionWithRealisticData) {
     array[2] = previous_value;
   }
 }
-#endif  // !PA_BUILDFLAG(DCHECKS_ARE_ON)
+#endif  // !PA_BUILDFLAG(USE_PARTITION_COOKIE)
 
 #endif  // !PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT) &&
         // PA_CONFIG(HAS_FREELIST_SHADOW_ENTRY)
+
+#if PA_BUILDFLAG(USE_PARTITION_COOKIE)
+// Similar to PartitionAllocDeathTest/OffByOneDetection, but for cookie.
+TEST_P(PartitionAllocDeathTest, OffByOneDetectionByCookie) {
+  base::CPU cpu;
+  const size_t alloc_size = 2 * sizeof(void*);
+  char* array = static_cast<char*>(allocator.root()->Alloc(alloc_size));
+
+  auto* slot_span =
+      PartitionRoot::ReadOnlySlotSpanMetadata::FromObjectInnerPtr(array);
+  size_t usable_size = allocator.root()->GetSlotUsableSize(slot_span);
+
+  char previous_value = array[usable_size];
+  // volatile is required to prevent the compiler from getting too clever and
+  // eliding the out-of-bounds write. The root cause is that the PA_MALLOC_FN
+  // annotation tells the compiler (among other things) that the returned
+  // value cannot alias anything.
+  *const_cast<volatile char*>(&array[usable_size]) = 'A';
+  // Crash at `free()`, either by cookie check failure or InSlotMetadata
+  // corruption.
+  EXPECT_DEATH(allocator.root()->Free(array), "");
+  // Restore integrity, otherwise the process will crash in TearDown().
+  array[usable_size] = previous_value;
+  allocator.root()->Free(array);
+}
+
+// Similar to PartitionAllocDeathTest/OffByOneDetectionWithRealisticData, but
+// for cookie.
+TEST_P(PartitionAllocDeathTest, OffByOneDetectionByCookieWithRealisticData) {
+  base::CPU cpu;
+  const size_t alloc_size = 2 * sizeof(void*);
+  void** array = static_cast<void**>(allocator.root()->Alloc(alloc_size));
+  char valid;
+
+  auto* slot_span =
+      PartitionRoot::ReadOnlySlotSpanMetadata::FromObjectInnerPtr(array);
+  size_t usable_size =
+      allocator.root()->GetSlotUsableSize(slot_span) / sizeof(void*);
+
+  void* previous_value = array[usable_size];
+  // As above, needs volatile to convince the compiler to perform the write.
+  *const_cast<void* volatile*>(&array[usable_size]) = &valid;
+  // Crash at `free()`, either by cookie check failure or InSlotMetadata
+  // corruption.
+  EXPECT_DEATH(allocator.root()->Free(array), "");
+  // Restore integrity, otherwise the process will crash in TearDown().
+  array[usable_size] = previous_value;
+  allocator.root()->Free(array);
+}
+#endif  // PA_BUILDFLAG(USE_PARTITION_COOKIE)
 
 #endif  // PA_USE_DEATH_TESTS()
 
@@ -3932,14 +3982,9 @@ TEST_P(PartitionAllocTest, FundamentalAlignment) {
     // Since slot size is multiples of kAlignment,
     // C % kAlignment == (slot_size - ExtraAllocSize(allocator)) % kAlignment.
     // C % kAlignment == (-ExtraAllocSize(allocator)) % kAlignment.
-    // Since kCookieSize is a multiple of kAlignment,
-    // C % kAlignment == (-sizeof(InSlotMetadata)) % kAlignment
-    // == (kAlignment - sizeof(InSlotMetadata)) % kAlignment.
     EXPECT_EQ(allocator.root()->AllocationCapacityFromSlotStart(slot_start) %
                   fundamental_alignment,
-              UseBRPPool()
-                  ? (-ExtraAllocSize(allocator) % fundamental_alignment)
-                  : 0);
+              -ExtraAllocSize(allocator) % fundamental_alignment);
 
     allocator.root()->Free(ptr);
     allocator.root()->Free(ptr2);
@@ -5488,7 +5533,7 @@ TEST_P(PartitionAllocTest, IncreaseEmptySlotSpanRingSize) {
 
   // Constants used here don't work with USE_LARGE_EMPTY_SLOT_SPAN_RING.
 #if !PA_BUILDFLAG(USE_LARGE_EMPTY_SLOT_SPAN_RING)
-  constexpr size_t single_slot_too_many_count = kMaxFreeableSpans + 10;
+  constexpr size_t single_slot_too_many_count = kMaxEmptySlotSpanRingSize + 10;
   for (size_t i = 0; i < single_slot_too_many_count; i++) {
     void* ptr = root->Alloc(single_slot_size);
     single_slot_allocated_memory.push_back(ptr);
@@ -5501,7 +5546,7 @@ TEST_P(PartitionAllocTest, IncreaseEmptySlotSpanRingSize) {
 
   // Overflow still works.
   EXPECT_EQ(PA_TS_UNCHECKED_READ(root->empty_slot_spans_dirty_bytes),
-            kMaxFreeableSpans * bucket_size);
+            kMaxEmptySlotSpanRingSize * bucket_size);
 #endif
 }
 
@@ -5888,7 +5933,7 @@ TEST_P(PartitionAllocTest, GlobalEmptySlotSpanRingIndexResets) {
   // global_empty_slot_span_ring_index to one less than max.
   allocator.root()->AdjustForForeground();
   allocator.root()->SetGlobalEmptySlotSpanRingIndexForTesting(
-      internal::kMaxFreeableSpans - 1);
+      internal::kMaxEmptySlotSpanRingSize - 1);
 
   // Switch to the smaller size, allocate, free, and clear the empty cache.
   allocator.root()->AdjustForBackground();
@@ -5906,7 +5951,7 @@ TEST_P(PartitionAllocTest, GlobalEmptySlotSpanRingIndexResets) {
 TEST_P(PartitionAllocTest, FastReclaim) {
   static base::TimeTicks now = base::TimeTicks();
   // Advances times by the same amount every time.
-  allocator.root()->now_maybe_overridden_for_testing = []() {
+  allocator.root()->now_maybe_overridden_for_testing = [] {
     now += PartitionRoot::kMaxPurgeDuration / 10;
     return now;
   };
@@ -5949,7 +5994,7 @@ TEST_P(PartitionAllocTest, FastReclaim) {
 TEST_P(PartitionAllocTest, FastReclaimEventuallyLooksAtAllBuckets) {
   static base::TimeTicks now = base::TimeTicks();
   // Advances times by the same amount every time.
-  allocator.root()->now_maybe_overridden_for_testing = []() {
+  allocator.root()->now_maybe_overridden_for_testing = [] {
     now += PartitionRoot::kMaxPurgeDuration / 10;
     return now;
   };

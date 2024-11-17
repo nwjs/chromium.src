@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include <stddef.h>
+
 #include <memory>
 
 #include "ash/public/cpp/keyboard/keyboard_switches.h"
@@ -48,7 +49,7 @@
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/user_manager/user_manager.h"
-#include "components/user_manager/user_manager_base.h"
+#include "components/user_manager/user_manager_impl.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/download_test_observer.h"
@@ -384,26 +385,7 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
         TestCase("fileDisplayCheckReadOnlyIconOnFakeDirectory"),
         TestCase("fileDisplayCheckNoReadOnlyIconOnDownloads"),
         TestCase("fileDisplayCheckNoReadOnlyIconOnLinuxFiles"),
-        TestCase("fileDisplayCheckNoReadOnlyIconOnGuestOs"),
-        TestCase("fileDisplayLocalFilesDisabledUnmountRemovable")
-            .DontMountVolumes()
-            .EnableSkyVault(),
-        // TODO(b/347643334): Enable.
-        // TestCase("fileDisplayLocalFilesDisableInMyFiles")
-        //     .DontMountVolumes()
-        //     .EnableSkyVault(),
-        // TestCase("fileDisplayOneDrivePlaceholder")
-        //     .DontMountVolumes()
-        //     .EnableSkyVault(),
-        TestCase("fileDisplayFileSystemDisabled")
-            .DontMountVolumes()
-            .EnableSkyVault(),
-        TestCase("fileDisplaySkyVaultMigrationToGoogleDrive")
-            .DontMountVolumes()
-            .EnableSkyVault(),
-        TestCase("fileDisplaySkyVaultMigrationToOneDrive")
-            .DontMountVolumes()
-            .EnableSkyVault()));
+        TestCase("fileDisplayCheckNoReadOnlyIconOnGuestOs")));
 
 WRAPPED_INSTANTIATE_TEST_SUITE_P(
     OpenVideoMediaApp, /* open_video_media_app.ts */

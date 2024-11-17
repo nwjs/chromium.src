@@ -61,8 +61,9 @@ NSString* const kDeferredInitializationBlocksComplete =
 }
 
 - (void)appState:(AppState*)appState
-    didTransitionFromInitStage:(InitStage)previousInitStage {
-  if (appState.initStage == InitStageBrowserObjectsForBackgroundHandlers) {
+    didTransitionFromInitStage:(AppInitStage)previousInitStage {
+  if (appState.initStage ==
+      AppInitStage::kBrowserObjectsForBackgroundHandlers) {
     // Log session start if the app is already foreground.
     if (self.appState.foregroundScenes.count > 0) {
       [self handleSessionStart];
@@ -79,12 +80,13 @@ NSString* const kDeferredInitializationBlocksComplete =
         base::TimeTicks::Now();
     self.firstSceneHasConnected = YES;
     if (self.appState.initStage >=
-        InitStageBrowserObjectsForBackgroundHandlers) {
+        AppInitStage::kBrowserObjectsForBackgroundHandlers) {
       [MetricsMediator createStartupTrackingTask];
     }
   }
 
-  if (self.appState.initStage < InitStageBrowserObjectsForBackgroundHandlers) {
+  if (self.appState.initStage <
+      AppInitStage::kBrowserObjectsForBackgroundHandlers) {
     return;
   }
 
@@ -133,11 +135,10 @@ NSString* const kDeferredInitializationBlocksComplete =
 - (void)handleSessionStart {
   self.appState.lastTimeInForeground = base::TimeTicks::Now();
 
-  for (ChromeBrowserState* browserState :
+  for (ProfileIOS* profile :
        GetApplicationContext()->GetProfileManager()->GetLoadedProfiles()) {
     IOSProfileSessionDurationsService* psdService =
-        IOSProfileSessionDurationsServiceFactory::GetForBrowserState(
-            browserState);
+        IOSProfileSessionDurationsServiceFactory::GetForProfile(profile);
     if (psdService) {
       psdService->OnSessionStarted(self.appState.lastTimeInForeground);
     }
@@ -154,11 +155,10 @@ NSString* const kDeferredInitializationBlocksComplete =
   UMA_HISTOGRAM_CUSTOM_TIMES("Session.TotalDurationMax1Day", duration,
                              base::Milliseconds(1), base::Hours(24), 50);
 
-  for (ChromeBrowserState* browserState :
+  for (ProfileIOS* profile :
        GetApplicationContext()->GetProfileManager()->GetLoadedProfiles()) {
     IOSProfileSessionDurationsService* psdService =
-        IOSProfileSessionDurationsServiceFactory::GetForBrowserState(
-            browserState);
+        IOSProfileSessionDurationsServiceFactory::GetForProfile(profile);
     if (psdService) {
       psdService->OnSessionEnded(duration);
     }

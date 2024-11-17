@@ -45,12 +45,15 @@ chromium-metrics-reviews@google.com.
       summary="Plus address manual fallback entry point in the context menu."/>
   <variant name="TabOrganization"
       summary="Promotion for Organize Tabs in the app menu."/>
+  <variant name="TabstripDeclutter"
+      summary="Promotion for Close Unused Tabs in the app menu."/>
 </variants>
 
 <variants name="TutorialID">
   <variant name="" summary="any tutorial"/>
   <variant name="CustomizeChromeSidePanel"
       summary="the tutorial for the customize chrome side panel"/>
+  <variant name="LensOverlay" summary="the tutorial for the Lens Overlay"/>
   <variant name="PasswordManager"
       summary="the tutorial for the password manager"/>
   <variant name="SavedTabGroup" summary="the tutorial for the saved tab group"/>
@@ -67,8 +70,10 @@ chromium-metrics-reviews@google.com.
   <variant name="GenerativeTheming"
       summary="the module for Generative Theming"/>
   <variant name="GoogleLens" summary="the module for Google Lens"/>
-  <variant name="GooglePayReauth" summary="the module for Google Pay Re-auth"/>
+  <variant name="Googlepayreauth" summary="the module for Google Pay Re-auth"/>
   <variant name="HelpMeWrite" summary="the module for Help Me Write"/>
+  <variant name="HistoryEmbeddings"
+      summary="the module for History Embeddings Search"/>
   <variant name="SafetyCheck" summary="the module for Safety Check"/>
   <variant name="SaveTabGroups" summary="the module for Saved Tab Groups"/>
   <variant name="SearchBoxSuggestions"
@@ -106,7 +111,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tutorial.{TutorialID}.Completion" enum="BooleanSuccess"
-    expires_after="2025-02-02">
+    expires_after="2025-04-06">
   <owner>dpenning@chromium.org</owner>
   <owner>dfried@chromium.org</owner>
   <summary>
@@ -141,7 +146,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UserEducation.MessageNotShown" enum="PromoFailure"
-    expires_after="2025-02-02">
+    expires_after="2025-04-06">
   <owner>mickeyburks@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>
   <summary>
@@ -378,8 +383,44 @@ chromium-metrics-reviews@google.com.
   <token key="ModuleName" variants="WhatsNewModule"/>
 </histogram>
 
+<histogram name="UserEducation.WhatsNew.PauseClicked.{ModuleName}"
+    enum="WhatsNewModulePosition" expires_after="2024-12-03">
+  <owner>mickeyburks@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    Records that the user clicked pause on a video in the {ModuleName} module on
+    the What's New page. The value indicates the module's position in its
+    section.
+  </summary>
+  <token key="ModuleName" variants="WhatsNewModule"/>
+</histogram>
+
+<histogram name="UserEducation.WhatsNew.PlayClicked.{ModuleName}"
+    enum="WhatsNewModulePosition" expires_after="2024-12-03">
+  <owner>mickeyburks@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    Records that the user clicked play on a video in the {ModuleName} module on
+    the What's New page. The value indicates the module's position in its
+    section.
+  </summary>
+  <token key="ModuleName" variants="WhatsNewModule"/>
+</histogram>
+
+<histogram name="UserEducation.WhatsNew.RestartClicked.{ModuleName}"
+    enum="WhatsNewModulePosition" expires_after="2024-12-03">
+  <owner>mickeyburks@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    Records that the user clicked restart on a video in the {ModuleName} module
+    on the What's New page. The value indicates the module's position in its
+    section.
+  </summary>
+  <token key="ModuleName" variants="WhatsNewModule"/>
+</histogram>
+
 <histogram name="UserEducation.WhatsNew.ScrollDepth" enum="ScrollDepthQuartile"
-    expires_after="2025-02-02">
+    expires_after="2025-04-06">
   <owner>mickeyburks@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>
   <summary>
@@ -389,7 +430,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UserEducation.WhatsNew.TimeOnPage" units="ms"
-    expires_after="2025-02-02">
+    expires_after="2025-04-06">
   <owner>mickeyburks@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>
   <summary>
@@ -408,8 +449,30 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="UserEducation.WhatsNew.VideoEnded.{ModuleName}"
+    enum="WhatsNewModulePosition" expires_after="2024-12-03">
+  <owner>mickeyburks@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    Records that a video in the {ModuleName} module on the What's New page
+    ended. The value indicates the module's position in its section.
+  </summary>
+  <token key="ModuleName" variants="WhatsNewModule"/>
+</histogram>
+
+<histogram name="UserEducation.WhatsNew.VideoStarted.{ModuleName}"
+    enum="WhatsNewModulePosition" expires_after="2024-12-03">
+  <owner>mickeyburks@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    Records that a video in the {ModuleName} module on the What's New page
+    started. The value indicates the module's position in its section.
+  </summary>
+  <token key="ModuleName" variants="WhatsNewModule"/>
+</histogram>
+
 <histogram name="WhatsNew.LoadEvent" enum="WhatsNewLoadEvent"
-    expires_after="2025-02-02">
+    expires_after="2025-04-06">
   <owner>mickeyburks@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>
   <summary>
@@ -424,7 +487,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WhatsNew.LoadResponseCode"
-    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2025-02-02">
+    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2025-04-06">
   <owner>mickeyburks@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>
   <summary>
@@ -435,7 +498,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WhatsNew.StartupType" enum="WhatsNewStartupType"
-    expires_after="2025-02-02">
+    expires_after="2025-04-06">
   <owner>mickeyburks@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>
   <summary>

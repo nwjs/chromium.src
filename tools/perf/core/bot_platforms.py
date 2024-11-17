@@ -375,10 +375,11 @@ def _views_perftests(estimated_runtime=7):
                           estimated_runtime=estimated_runtime)
 
 
-def _crossbench_speedometer3_0(estimated_runtime=60):
+def _crossbench_speedometer3_0(estimated_runtime=60, arguments=None):
   return CrossbenchConfig('speedometer3.crossbench',
                           'speedometer_3.0',
-                          estimated_runtime=estimated_runtime)
+                          estimated_runtime=estimated_runtime,
+                          arguments=arguments)
 
 
 def _crossbench_motionmark1_3(estimated_runtime=360):
@@ -411,7 +412,7 @@ _CROSSBENCH_BENCHMARKS_ALL = frozenset([
 
 # TODO(b/338630584): Remove it when other benchmarks can be run on Android.
 _CROSSBENCH_SPEEDOMETER = frozenset([
-    _crossbench_speedometer3_0(),
+    _crossbench_speedometer3_0(arguments=['--fileserver']),
 ])
 
 _CHROME_HEALTH_BENCHMARK_CONFIGS_DESKTOP = PerfSuite(
@@ -501,6 +502,17 @@ _MAC_LOW_END_BENCHMARK_CONFIGS = PerfSuite(OFFICIAL_BENCHMARK_CONFIGS).Remove([
     'v8.runtime_stats.top_25',
 ])
 _MAC_LOW_END_EXECUTABLE_CONFIGS = frozenset([
+    _load_library_perf_tests(),
+])
+_MAC_INTEL_BENCHMARK_CONFIGS = PerfSuite(OFFICIAL_BENCHMARK_CONFIGS).Remove([
+    'blink_perf.display_locking',
+    'v8.runtime_stats.top_25',
+])
+_MAC_INTEL_EXECUTABLE_CONFIGS = frozenset([
+    _base_perftests(300),
+    # _dawn_perf_tests(330),    # b/332611618
+    _tint_benchmark(),
+    _views_perftests(),
     _load_library_perf_tests(),
 ])
 _MAC_M1_MINI_2020_BENCHMARK_CONFIGS = PerfSuite(
@@ -739,6 +751,13 @@ MAC_LOW_END_LAPTOP_PGO = PerfPlatform(
     'mac',
     executables=_MAC_LOW_END_EXECUTABLE_CONFIGS,
     pinpoint_only=True)
+MAC_INTEL = PerfPlatform('mac-intel-perf',
+                         'Mac Mini 8,1, Core i7 3.2 GHz',
+                         _MAC_INTEL_BENCHMARK_CONFIGS,
+                         24,
+                         'mac',
+                         executables=_MAC_INTEL_EXECUTABLE_CONFIGS,
+                         crossbench=_CROSSBENCH_BENCHMARKS_ALL)
 MAC_M1_MINI_2020 = PerfPlatform(
     'mac-m1_mini_2020-perf',
     'Mac M1 Mini 2020',
@@ -850,7 +869,10 @@ ANDROID_PIXEL4_PGO = PerfPlatform(
     pinpoint_only=True)
 ANDROID_PIXEL4_WEBVIEW = PerfPlatform(
     'android-pixel4_webview-perf', 'Android R',
-    _ANDROID_PIXEL4_WEBVIEW_BENCHMARK_CONFIGS, 40, 'android')
+    _ANDROID_PIXEL4_WEBVIEW_BENCHMARK_CONFIGS, 23, 'android')
+ANDROID_PIXEL4_WEBVIEW_PGO = PerfPlatform(
+    'android-pixel4_webview-perf-pgo', 'Android R',
+    _ANDROID_PIXEL4_WEBVIEW_BENCHMARK_CONFIGS, 20, 'android')
 # TODO(crbug.com/307958700): Switch shard number back to a higher number around
 #                            28 once more devices are procured. Temporarily use
 #                            15 to avoid high contention in the pixel6 pool.

@@ -20,7 +20,6 @@
 #include "base/time/time.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/extensions/api/sessions/session_id.h"
-#include "chrome/browser/extensions/api/tabs/tabs_constants.h"
 #include "chrome/browser/extensions/api/tabs/windows_util.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/window_controller.h"
@@ -47,6 +46,7 @@
 #include "extensions/browser/extension_system.h"
 #include "extensions/common/error_utils.h"
 #include "extensions/common/mojom/context_type.mojom.h"
+#include "ui/base/mojom/window_show_state.mojom.h"
 
 namespace extensions {
 
@@ -329,7 +329,7 @@ SessionsGetDevicesFunction::CreateWindowModel(
       type = api::windows::WindowType::kDevtools;
       break;
     case sessions::SessionWindow::TYPE_APP_POPUP:
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     case sessions::SessionWindow::TYPE_CUSTOM_TAB:
 #endif
       NOTREACHED_IN_MIGRATION();
@@ -337,24 +337,24 @@ SessionsGetDevicesFunction::CreateWindowModel(
 
   api::windows::WindowState state = api::windows::WindowState::kNone;
   switch (window.show_state) {
-    case ui::SHOW_STATE_HIDDEN:
+    case ui::mojom::WindowShowState::kHidden:
       state = api::windows::WindowState::kHidden;
       break;
-    case ui::SHOW_STATE_NORMAL:
+    case ui::mojom::WindowShowState::kNormal:
       state = api::windows::WindowState::kNormal;
       break;
-    case ui::SHOW_STATE_MINIMIZED:
+    case ui::mojom::WindowShowState::kMinimized:
       state = api::windows::WindowState::kMinimized;
       break;
-    case ui::SHOW_STATE_MAXIMIZED:
+    case ui::mojom::WindowShowState::kMaximized:
       state = api::windows::WindowState::kMaximized;
       break;
-    case ui::SHOW_STATE_FULLSCREEN:
+    case ui::mojom::WindowShowState::kFullscreen:
       state = api::windows::WindowState::kFullscreen;
       break;
-    case ui::SHOW_STATE_DEFAULT:
-    case ui::SHOW_STATE_INACTIVE:
-    case ui::SHOW_STATE_END:
+    case ui::mojom::WindowShowState::kDefault:
+    case ui::mojom::WindowShowState::kInactive:
+    case ui::mojom::WindowShowState::kEnd:
       break;
   }
 
@@ -613,7 +613,7 @@ ExtensionFunction::ResponseAction SessionsRestoreFunction::Run() {
     return RespondNow(Error(kRestoreInIncognitoError));
 
   if (!ExtensionTabUtil::IsTabStripEditable())
-    return RespondNow(Error(tabs_constants::kTabStripNotEditableError));
+    return RespondNow(Error(ExtensionTabUtil::kTabStripNotEditableError));
 
   if (!params->session_id)
     return RespondNow(RestoreMostRecentlyClosed(browser));

@@ -27,12 +27,12 @@
 #include "chrome/browser/ash/input_method/editor_mediator_factory.h"
 #include "chrome/browser/ash/input_method/editor_switch.h"
 #include "chrome/browser/ash/login/quick_unlock/quick_unlock_utils.h"
+#include "chrome/browser/ash/scalable_iph/scalable_iph_factory_impl.h"
 #include "chrome/browser/ash/system_web_apps/apps/personalization_app/personalization_app_utils.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/upload_office_to_cloud/upload_office_to_cloud.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/scalable_iph/scalable_iph_factory_impl.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/pref_names.h"
@@ -147,6 +147,8 @@ void PopulateLoadTimeData(content::WebUI* web_ui,
     source->AddBoolean(
         "HelpAppOnboardingRevamp",
         base::FeatureList::IsEnabled(ash::features::kHelpAppOnboardingRevamp));
+    source->AddBoolean("HelpAppAppMall",
+                       chromeos::features::IsCrosMallSwaEnabled());
     // Only use the action URL if the install URI is enabled.
     // TODO(b/346687914): Clean up flag in Showoff code.
     source->AddBoolean("UseActionUrl", true);

@@ -746,6 +746,10 @@ bool IsShowForceRespectUiGainsToggleEnabled() {
   return base::FeatureList::IsEnabled(media::kShowForceRespectUiGainsToggle);
 }
 
+bool IsShowSpatialAudioToggleEnabled() {
+  return base::FeatureList::IsEnabled(ash::features::kShowSpatialAudioToggle);
+}
+
 void AddDeviceKeyboardStrings(content::WebUIDataSource* html_source) {
   const bool kIsRevampEnabled =
       ash::features::IsOsSettingsRevampWayfindingEnabled();
@@ -1035,6 +1039,8 @@ void AddDeviceAudioStrings(content::WebUIDataSource* html_source) {
        IDS_SETTINGS_AUDIO_OUTPUT_MUTE_BUTTON_ARIA_LABEL_MUTED},
       {"audioOutputMuteButtonAriaLabelNotMuted",
        IDS_SETTINGS_AUDIO_OUTPUT_MUTE_BUTTON_ARIA_LABEL_NOT_MUTED},
+      {"audioOutputSpatialAudioTitle",
+       IDS_SETTINGS_AUDIO_OUTPUT_ENABLE_SPATIAL_AUDIO_TITLE},
       {"audioTitle", IDS_SETTINGS_AUDIO_TITLE},
       {"audioToggleToMuteTooltip", IDS_SETTINGS_AUDIO_TOGGLE_TO_MUTE_TOOLTIP},
       {"audioToggleToUnmuteTooltip",
@@ -1715,6 +1721,7 @@ void DeviceSection::AddDevicePointersStrings(
       {"builtInPointingStickName", IDS_SETTINGS_BUILT_IN_POINTING_STICK_NAME},
       {"pointingStickTitle", IDS_SETTINGS_POINTING_STICK_TITLE},
       {"builtInTouchpadName", IDS_SETTINGS_BUILT_IN_TOUCHPAD_NAME},
+      {"builtInTouchpadDisabled", IDS_SETTINGS_BUILT_IN_TOUCHPAD_DISABLED},
       {"touchpadTitle", IDS_SETTINGS_TOUCHPAD_TITLE},
       {"mouseAndTouchpadTitle", IDS_SETTINGS_MOUSE_AND_TOUCHPAD_TITLE},
       {"touchpadTapToClickEnabledLabel",
@@ -2027,6 +2034,9 @@ void DeviceSection::AddDeviceDisplayStrings(
 
   html_source->AddBoolean("enableAudioHfpMicSRToggle",
                           features::IsAudioHFPMicSRToggleEnabled());
+
+  html_source->AddBoolean("enableSpatialAudioToggle",
+                          IsShowSpatialAudioToggleEnabled());
 
   html_source->AddBoolean("enableTouchCalibrationSetting",
                           IsTouchCalibrationAvailable());

@@ -555,7 +555,9 @@ chromium-metrics-reviews@google.com.
   <int value="106" label="WebSettingsCompat.setBackForwardCacheEnabled"/>
   <int value="107" label="WebSettingsCompat.getBackForwardCacheEnabled"/>
   <int value="108" label="Profile.prefetchUrl"/>
-  <int value="109" label="Profile.clearPrefetchCache"/>
+  <int value="109" label="Profile.prefetchUrlWithParams"/>
+  <int value="110" label="Profile.clearPrefetch"/>
+  <int value="111" label="Profile.cancelPrefetch"/>
 <!-- LINT.ThenChange(/android_webview/support_library/java/src/org/chromium/support_lib_glue/SupportLibWebViewChromiumFactory.java:ApiCall) -->
 
 </enum>
@@ -681,6 +683,8 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Not enrolled"/>
   <int value="6" label="Security update required"/>
   <int value="7" label="Android version not supported"/>
+  <int value="8" label="Biometric auth is mandatory"/>
+  <int value="9" label="Biometric auth is mandatory, but has an error"/>
 </enum>
 
 <enum name="BooleanGranted">
@@ -703,6 +707,16 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="HIDDEN"/>
   <int value="2" label="VISIBLE_FULL_HEIGHT"/>
   <int value="3" label="VISIBLE_PARTIAL_HEIGHT"/>
+</enum>
+
+<enum name="BrowserControlsForcedUponFullscreenExitState">
+  <summary>
+    The state when browser controls were forced upon fullscreen exit.
+  </summary>
+  <int value="0" label="Multi-Window and Edge-to-Edge"/>
+  <int value="1" label="Not Multi-Window, Edge-to-Edge"/>
+  <int value="2" label="Multi-Window, not Edge-to-Edge"/>
+  <int value="3" label="Neither Multi-Window nor Edge-to-Edge"/>
 </enum>
 
 <enum name="ChromeActivityType">
@@ -766,6 +780,15 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="32-bit only"/>
   <int value="2" label="64-bit only"/>
   <int value="3" label="Both 32-bit and 64-bit"/>
+</enum>
+
+<enum name="CreateAndroidInputReceiverResult">
+  <int value="0" label="SuccessfullyCreated"/>
+  <int value="1" label="FailedUnknown"/>
+  <int value="2" label="FailedNullSurfaceControl"/>
+  <int value="3" label="FailedNullLooper"/>
+  <int value="4" label="FailedNullInputTransferToken"/>
+  <int value="5" label="FailedNullCallbacks"/>
 </enum>
 
 <enum name="DebuggingEnabled">
@@ -1055,6 +1078,8 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Android Media Picker indirectly (ACTION_GET_CONTENT)"/>
 </enum>
 
+<!-- LINT.IfChange(MessageIdentifier) -->
+
 <enum name="MessageIdentifier">
   <int value="0" label="InvalidMessage"/>
   <int value="1" label="SavePassword"/>
@@ -1107,7 +1132,14 @@ chromium-metrics-reviews@google.com.
   <int value="50" label="VirtualCardEnrollFailure"/>
   <int value="51" label="PromptHatsQuickDelete"/>
   <int value="52" label="PromptHatsSafetyHub"/>
+  <int value="53" label="DefaultBrowserPromo"/>
+  <int value="54" label="TabRemovedThroughCollaboration"/>
+  <int value="55" label="TabNavigatedThroughCollaboration"/>
+  <int value="56" label="CollaborationUserJoined"/>
+  <int value="57" label="CollaborationRemoved"/>
 </enum>
+
+<!-- LINT.ThenChange(//components/messages/android/message_enums.h:MessageIdentifier) -->
 
 <enum name="MinimizeAppAndCloseTabType">
   <int value="0" label="App is minimized but current tab is not closed"/>
@@ -1132,6 +1164,7 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Created external intent with tab clobbering"/>
   <int value="2" label="Created async dialog for confirming external intent"/>
   <int value="3" label="Navigation not intercepted"/>
+  <int value="4" label="Tab closed after successful authentication"/>
 </enum>
 
 <enum name="NavigationInterceptScheme">
@@ -1333,6 +1366,7 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Search Widget"/>
   <int value="2" label="Shortcuts Widget"/>
   <int value="3" label="Custom Tab"/>
+  <int value="4" label="Hub"/>
 </enum>
 
 <enum name="SearchActivitySearchType">

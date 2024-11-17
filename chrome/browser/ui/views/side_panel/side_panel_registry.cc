@@ -5,22 +5,24 @@
 #include "chrome/browser/ui/views/side_panel/side_panel_registry.h"
 
 #include "base/containers/unique_ptr_adapters.h"
-#include "base/observer_list.h"
 #include "base/ranges/algorithm.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/public/tab_interface.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_registry_observer.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/common/extension_id.h"
 
-SidePanelRegistry::SidePanelRegistry() = default;
+SidePanelRegistry::SidePanelRegistry(tabs::TabInterface* tab_interface)
+    : owner_(tab_interface) {}
 
-SidePanelRegistry::~SidePanelRegistry() {
-  for (SidePanelRegistryObserver& observer : observers_) {
-    observer.OnRegistryDestroying(this);
-  }
-}
+SidePanelRegistry::SidePanelRegistry(
+    BrowserWindowInterface* browser_window_interface)
+    : owner_(browser_window_interface) {}
+
+SidePanelRegistry::~SidePanelRegistry() = default;
 
 // static
 SidePanelRegistry* SidePanelRegistry::GetDeprecated(
@@ -53,14 +55,6 @@ void SidePanelRegistry::ClearCachedEntryViews() {
   }
 }
 
-void SidePanelRegistry::AddObserver(SidePanelRegistryObserver* observer) {
-  observers_.AddObserver(observer);
-}
-
-void SidePanelRegistry::RemoveObserver(SidePanelRegistryObserver* observer) {
-  observers_.RemoveObserver(observer);
-}
-
 bool SidePanelRegistry::Register(std::unique_ptr<SidePanelEntry> entry) {
   if (GetEntryForKey(entry->key()))
     return false;
@@ -68,35 +62,23 @@ bool SidePanelRegistry::Register(std::unique_ptr<SidePanelEntry> entry) {
   // SidePanelRegistryObservers of the entry's registration because some
   // registry observers can call SidePanelEntryObserver methods for `entry`.
   entry->AddObserver(this);
-  SidePanelEntry* entry_ptr = entry.get();
   entries_.push_back(std::move(entry));
-  for (SidePanelRegistryObserver& observer : observers_) {
-    observer.OnEntryRegistered(this, entry_ptr);
-  }
   return true;
 }
 
 bool SidePanelRegistry::Deregister(const SidePanelEntry::Key& key) {
+  auto* entry = GetEntryForKey(key);
+
   // An observer can trigger this to be called while a deregister for the key
   // is ongoing. An example is an observer listening to `OnSidePanelDidClose()`
   // since a sidepanel can be closed during the deregistering process.
-  if (!GetEntryForKey(key) || (deregistering_entry_key_.has_value() &&
-                               deregistering_entry_key_.value() == key)) {
+  if (!entry || (deregistering_entry_key_.has_value() &&
+                 deregistering_entry_key_.value() == key)) {
     return false;
   }
 
   base::AutoReset<std::optional<SidePanelEntryKey>> deregistering_entry_key(
       &deregistering_entry_key_, key);
-  DeregisterAndReturnEntry(key);
-  return true;
-}
-
-std::unique_ptr<SidePanelEntry> SidePanelRegistry::DeregisterAndReturnEntry(
-    const SidePanelEntry::Key& key) {
-  auto* entry = GetEntryForKey(key);
-  if (!entry) {
-    return nullptr;
-  }
 
   entry->RemoveObserver(this);
   if (active_entry_.has_value() &&
@@ -108,15 +90,33 @@ std::unique_ptr<SidePanelEntry> SidePanelRegistry::DeregisterAndReturnEntry(
     last_active_entry_.reset();
   }
 
-  // If `entry` is currently shown, then its view is owned by the browser's side
-  // panel view instead of being cached.
-  // SidePanelCoordinator::OnEntryWillDeregister will retrieve the view from the
-  // side panel and cache it into `entry`.
-  for (SidePanelRegistryObserver& observer : observers_) {
-    observer.OnEntryWillDeregister(this, entry);
+  // TODO(https://crbug.com/360163254): This is nullptr in
+  // BrowserWithTestWindowTest. When the test suite goes away the nullptr check
+  // can be removed.
+  if (auto* coordinator = GetCoordinator()) {
+    auto unique_key = coordinator->current_key();
+    // If the entry is showing with the same key.
+    if (unique_key && unique_key->key == key) {
+      tabs::TabInterface* const* tab_ptr =
+          std::get_if<tabs::TabInterface*>(&owner_);
+      tabs::TabInterface* tab = tab_ptr ? *tab_ptr : nullptr;
+      // And it's for the active tab/window registry.
+      bool is_for_window_coordinator = !unique_key->tab_handle && !tab;
+      bool is_for_active_tab = unique_key->tab_handle && tab &&
+                               tab->GetTabHandle() == *unique_key->tab_handle;
+      // Synchronously close.
+      if (is_for_window_coordinator || is_for_active_tab) {
+        coordinator->Close(/*suppress_animations=*/true);
+      }
+    }
   }
 
-  return RemoveEntry(entry);
+  auto it = std::find_if(entries_.begin(), entries_.end(),
+                         base::MatchesUniquePtr(entry));
+  if (it != entries_.end()) {
+    entries_.erase(it);
+  }
+  return true;
 }
 
 void SidePanelRegistry::SetActiveEntry(SidePanelEntry* entry) {
@@ -127,14 +127,13 @@ void SidePanelRegistry::OnEntryShown(SidePanelEntry* entry) {
   active_entry_ = entry;
 }
 
-std::unique_ptr<SidePanelEntry> SidePanelRegistry::RemoveEntry(
-    SidePanelEntry* entry) {
-  auto it = std::find_if(entries_.begin(), entries_.end(),
-                         base::MatchesUniquePtr(entry));
-  if (it == entries_.end()) {
-    return nullptr;
+SidePanelCoordinator* SidePanelRegistry::GetCoordinator() {
+  BrowserWindowInterface* browser_window_interface = nullptr;
+  if (auto* ptr = std::get_if<BrowserWindowInterface*>(&owner_)) {
+    browser_window_interface = *ptr;
+  } else {
+    browser_window_interface =
+        std::get<tabs::TabInterface*>(owner_)->GetBrowserWindowInterface();
   }
-  std::unique_ptr<SidePanelEntry> return_entry = std::move(*it);
-  entries_.erase(it);
-  return return_entry;
+  return browser_window_interface->GetFeatures().side_panel_coordinator();
 }

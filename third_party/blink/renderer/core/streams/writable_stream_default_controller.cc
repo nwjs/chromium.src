@@ -142,8 +142,8 @@ void WritableStreamDefaultController::SetUp(
            .ToLocal(&start_promise)) {
     if (!exception_state.HadException()) {
       // Is this block really needed? Can we make this a DCHECK?
-      exception_state.ThrowException(
-          static_cast<int>(DOMExceptionCode::kInvalidStateError),
+      exception_state.ThrowDOMException(
+          DOMExceptionCode::kInvalidStateError,
           "start algorithm failed with no exception thrown");
     }
     return;
@@ -394,8 +394,7 @@ void WritableStreamDefaultController::Close(
 double WritableStreamDefaultController::GetChunkSize(
     ScriptState* script_state,
     WritableStreamDefaultController* controller,
-    v8::Local<v8::Value> chunk,
-    ExceptionState& exception_state) {
+    v8::Local<v8::Value> chunk) {
   if (!controller->strategy_size_algorithm_) {
     DCHECK_NE(controller->controlled_writable_stream_->GetState(),
               WritableStream::kWritable);
@@ -407,15 +406,15 @@ double WritableStreamDefaultController::GetChunkSize(
   //  1. Let returnValue be the result of performing
   //     controller.[[strategySizeAlgorithm]], passing in chunk, and
   //     interpreting the result as an ECMAScript completion value.
-  auto return_value = controller->strategy_size_algorithm_->Run(
-      script_state, chunk, exception_state);
+  v8::TryCatch try_catch(script_state->GetIsolate());
+  auto return_value =
+      controller->strategy_size_algorithm_->Run(script_state, chunk);
 
   //  2. If returnValue is an abrupt completion,
   if (!return_value.has_value()) {
     //      a. Perform ! WritableStreamDefaultControllerErrorIfNeeded(
     //         controller, returnValue.[[Value]]).
-    ErrorIfNeeded(script_state, controller, exception_state.GetException());
-    exception_state.ClearException();
+    ErrorIfNeeded(script_state, controller, try_catch.Exception());
 
     //      b. Return 1.
     return 1;
@@ -445,16 +444,17 @@ void WritableStreamDefaultController::Write(
   {
     //  2. Let enqueueResult be EnqueueValueWithSize(controller, writeRecord,
     //     chunkSize).
-    controller->queue_->EnqueueValueWithSize(script_state->GetIsolate(), chunk,
-                                             chunk_size, exception_state);
+    v8::Isolate* isolate = script_state->GetIsolate();
+    v8::TryCatch try_catch(isolate);
+    controller->queue_->EnqueueValueWithSize(isolate, chunk, chunk_size,
+                                             PassThroughException(isolate));
 
     //  3. If enqueueResult is an abrupt completion,
-    if (exception_state.HadException()) {
+    if (try_catch.HasCaught()) {
       //      a. Perform ! WritableStreamDefaultControllerErrorIfNeeded(
       //         controller, enqueueResult.[[Value]]).
 
-      ErrorIfNeeded(script_state, controller, exception_state.GetException());
-      exception_state.ClearException();
+      ErrorIfNeeded(script_state, controller, try_catch.Exception());
 
       //      b. Return.
       return;

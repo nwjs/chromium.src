@@ -38,10 +38,11 @@ import org.chromium.ui.base.WindowAndroid;
 /**
  * Tab observer that tracks and sends engagement signal via the CCT service connection. The
  * engagement signal includes:
+ *
  * <ul>
- *    <li>User scrolling direction; </li>
- *    <li>Max scroll percent on a specific tab;</li>
- *    <li>Whether user had interaction with any tab when CCT closes.</li>
+ *   <li>User scrolling direction;
+ *   <li>Max scroll percent on a specific tab;
+ *   <li>Whether user had interaction with any tab when CCT closes.
  * </ul>
  *
  * The engagement signal will reset in navigation.
@@ -126,8 +127,7 @@ class RealtimeEngagementSignalObserver extends CustomTabTabObserver {
     @Override
     protected void onAllTabsClosed() {
         notifySessionEnded(mDidGetUserInteraction);
-        mDidGetUserInteraction = false;
-        mConnection.setEngagementSignalsAvailableSupplier(mSession, null);
+        resetEngagementSignals();
         removeWebContentsDependencies(mWebContents);
     }
 
@@ -165,13 +165,25 @@ class RealtimeEngagementSignalObserver extends CustomTabTabObserver {
 
     @Override
     public void onDestroyed(Tab tab) {
+        collectUserInteraction(tab);
+        notifySessionEnded(mDidGetUserInteraction);
+        resetEngagementSignals();
         removeWebContentsDependencies(tab.getWebContents());
-        mConnection.setEngagementSignalsAvailableSupplier(mSession, null);
     }
 
     /** Prevents sending the next #onSessionEnded call. */
     void suppressNextSessionEndedCall() {
         mSuspendSessionEnded = true;
+    }
+
+    /** Collect any user interaction on the given tab. */
+    void collectUserInteraction(Tab tab) {
+        if (!shouldSendEngagementSignal(tab)) return;
+
+        TabInteractionRecorder recorder = TabInteractionRecorder.getFromTab(tab);
+        if (recorder == null) return;
+
+        mDidGetUserInteraction |= recorder.didGetUserInteraction();
     }
 
     /**
@@ -281,15 +293,6 @@ class RealtimeEngagementSignalObserver extends CustomTabTabObserver {
         mWebContents.addObserver(mEngagementSignalWebContentsObserver);
     }
 
-    private void collectUserInteraction(Tab tab) {
-        if (!shouldSendEngagementSignal(tab)) return;
-
-        TabInteractionRecorder recorder = TabInteractionRecorder.getFromTab(tab);
-        if (recorder == null) return;
-
-        mDidGetUserInteraction |= recorder.didGetUserInteraction();
-    }
-
     private void removeWebContentsDependencies(@Nullable WebContents webContents) {
         if (webContents != null) {
             if (mGestureStateListener != null) {
@@ -361,8 +364,17 @@ class RealtimeEngagementSignalObserver extends CustomTabTabObserver {
         }
     }
 
+    private void resetEngagementSignals() {
+        mDidGetUserInteraction = false;
+        mConnection.setEngagementSignalsAvailableSupplier(mSession, null);
+    }
+
     boolean getSuspendSessionEndedForTesting() {
         return mSuspendSessionEnded;
+    }
+
+    public boolean getDidGetUserInteractionForTesting() {
+        return mDidGetUserInteraction;
     }
 
     /** Parameter tracking the entire scrolling journey for the associated tab. */

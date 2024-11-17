@@ -26,6 +26,7 @@
 #include "device/fido/fido_transport_protocol.h"
 #include "device/fido/fido_types.h"
 #include "google_apis/gaia/google_service_auth_error.h"
+#include "third_party/blink/public/mojom/credentialmanagement/credential_type_flags.mojom.h"
 
 class AuthenticatorRequestDialogController;
 class GPMEnclaveController;
@@ -62,6 +63,31 @@ class PrefRegistrySyncable;
 class ChromeWebAuthenticationDelegate final
     : public content::WebAuthenticationDelegate {
  public:
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  enum class SignalUnknownCredentialResult {
+    kPasskeyNotFound = 0,
+    kPasskeyRemoved = 1,
+    kMaxValue = kPasskeyRemoved,
+  };
+
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  enum class SignalAllAcceptedCredentialsResult {
+    kNoPasskeyRemoved = 0,
+    kPasskeyRemoved = 1,
+    kMaxValue = kPasskeyRemoved,
+  };
+
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  enum class SignalCurrentUserDetailsResult {
+    kQuotaExceeded = 0,
+    kPasskeyUpdated = 1,
+    kPasskeyNotUpdated = 2,
+    kMaxValue = kPasskeyNotUpdated,
+  };
+
 #if BUILDFLAG(IS_MAC)
   // Returns a configuration struct for instantiating the macOS WebAuthn
   // platform authenticator for the given Profile.
@@ -236,6 +262,7 @@ class ChromeAuthenticatorRequestDelegate
   void DisableUI() override;
   bool IsWebAuthnUIEnabled() override;
   void SetConditionalRequest(bool is_conditional) override;
+  void SetAmbientCredentialTypes(int credential_type_flags) override;
   void SetCredentialIdFilter(std::vector<device::PublicKeyCredentialDescriptor>
                                  credential_list) override;
   void SetUserEntityForMakeCredentialRequest(
@@ -267,14 +294,6 @@ class ChromeAuthenticatorRequestDelegate
   void OnModelDestroyed(AuthenticatorRequestDialogModel* model) override;
   void OnCancelRequest() override;
   void OnManageDevicesClicked() override;
-
-  // SetPassEmptyUsbDeviceManagerForTesting controls whether the
-  // `DiscoveryFactory` will be given an empty USB device manager. This is
-  // needed in tests because creating a real `device::mojom::UsbDeviceManager`
-  // can create objects on thread-pool threads. Those objects aren't scheduled
-  // for deletion until after the thread-pool is shutdown when testing, causing
-  // "leaks" to be reported.
-  void SetPassEmptyUsbDeviceManagerForTesting(bool value);
 
   // Allows setting a mock `TrustedVaultConnection` so a real one will not be
   // created. This is only used for a single request, and is destroyed
@@ -380,13 +399,16 @@ class ChromeAuthenticatorRequestDelegate
   // credentials on the device.
   bool is_conditional_ = false;
 
+  // The number of credential types that have been requested to be displayed
+  // in the Ambient credential UI.
+  int ambient_credential_types_ =
+      static_cast<int>(blink::mojom::CredentialTypeFlags::kNone);
+
   // A list of credentials used to filter passkeys by ID. When non-empty,
   // non-matching passkeys will not be displayed during conditional mediation
   // requests. When empty, no filter is applied and all passkeys are displayed.
   std::vector<device::PublicKeyCredentialDescriptor> credential_filter_;
 
-  // See `SetPassEmptyUsbDeviceManagerForTesting`.
-  bool pass_empty_usb_device_manager_ = false;
 
   // cable_device_ready_ is true if a caBLE handshake has completed. At this
   // point we assume that any errors were communicated on the caBLE device and

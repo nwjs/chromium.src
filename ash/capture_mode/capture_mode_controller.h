@@ -50,6 +50,7 @@ class CaptureModeBehavior;
 class CaptureModeCameraController;
 class CaptureModeObserver;
 class BaseCaptureModeSession;
+class ScannerActionViewModel;
 
 // Defines a callback type that will be invoked when an attempt to delete the
 // given `path` is completed with the given status `delete_successful`.
@@ -153,6 +154,10 @@ class ASH_EXPORT CaptureModeController
 
   // Returns true if the camera preview is visible, false otherwise.
   bool IsShowingCameraPreview() const;
+
+  // Returns true if this supports the new behavior provided by
+  // `new_entry_type`.
+  bool SupportsBehaviorChange(CaptureModeEntryType new_entry_type) const;
 
   // Sets the capture source/type, and recording type, which will be applied to
   // an ongoing capture session (if any), or to a future capture session when
@@ -476,6 +481,11 @@ class ASH_EXPORT CaptureModeController
   void OnImageCapturedForSearch(
       bool was_cursor_originally_blocked,
       scoped_refptr<base::RefCountedMemory> jpeg_bytes);
+
+  // Called back when the Scanner feature has processed a captured image to
+  // suggest available Scanner actions.
+  void OnScannerActionsFetched(
+      std::vector<ScannerActionViewModel> scanner_actions);
 
   // Called back when an attempt to save the image file has been completed, with
   // `file_saved_path` indicating whether the attempt succeeded or failed. If

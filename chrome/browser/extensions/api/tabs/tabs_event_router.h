@@ -14,7 +14,6 @@
 #include "base/scoped_observation.h"
 #include "chrome/browser/extensions/api/tabs/tabs_api.h"
 #include "chrome/browser/resource_coordinator/tab_lifecycle_observer.h"
-#include "chrome/browser/resource_coordinator/tab_manager.h"
 #include "chrome/browser/ui/browser_list_observer.h"
 #include "chrome/browser/ui/browser_tab_strip_tracker.h"
 #include "chrome/browser/ui/browser_tab_strip_tracker_delegate.h"
@@ -27,6 +26,10 @@
 
 namespace content {
 class WebContents;
+}
+
+namespace resource_coordinator {
+class TabManager;
 }
 
 namespace extensions {
@@ -141,9 +144,8 @@ class TabsEventRouter : public TabStripModelObserver,
 
   // Packages |changed_property_names| as a tab updated event for the tab
   // |contents| and dispatches the event to the extension.
-  void DispatchTabUpdatedEvent(
-      content::WebContents* contents,
-      const std::set<std::string> changed_property_names);
+  void DispatchTabUpdatedEvent(content::WebContents* contents,
+                               std::set<std::string> changed_property_names);
 
   // Register ourselves to receive the various notifications we are interested
   // in for a tab. Also create tab entry to observe web contents notifications.

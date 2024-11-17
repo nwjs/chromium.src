@@ -19,6 +19,7 @@ import org.chromium.components.browser_ui.site_settings.WebsitePermissionsFetche
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge;
 import org.chromium.components.browsing_data.DeleteBrowsingDataAction;
 import org.chromium.components.content_settings.CookieControlsBridge;
+import org.chromium.components.content_settings.CookieControlsEnforcement;
 import org.chromium.components.content_settings.CookieControlsObserver;
 import org.chromium.components.embedder_support.util.Origin;
 import org.chromium.components.user_prefs.UserPrefs;
@@ -38,9 +39,7 @@ public class PageInfoTrackingProtectionController extends PageInfoPreferenceSubp
     private boolean mCookieControlsVisible;
     private boolean mThirdPartyCookiesBlocked;
     private int mEnforcement;
-    private boolean mIsEnforced;
     private long mExpiration;
-    private boolean mShouldDisplaySiteBreakageString;
     private Website mWebsite;
     private boolean mBlockAll3PC;
     private boolean mIsIncognito;
@@ -61,17 +60,22 @@ public class PageInfoTrackingProtectionController extends PageInfoPreferenceSubp
         mTitle =
                 mRowView.getContext()
                         .getResources()
-                        .getString(R.string.page_info_tracking_protection_title);
+                        .getString(
+                                delegate.shouldShowTrackingProtectionBrandedUI()
+                                        ? R.string.page_info_tracking_protection_title
+                                        : R.string.page_info_cookies_title);
         mBridge = delegate.createCookieControlsBridge(this);
 
         PageInfoRowView.ViewParams rowParams = new PageInfoRowView.ViewParams();
         rowParams.visible = delegate.isSiteSettingsAvailable();
         rowParams.title = mTitle;
-        rowParams.iconResId = R.drawable.ic_eye_crossed;
+        rowParams.iconResId =
+                delegate.shouldShowTrackingProtectionBrandedUI()
+                        ? R.drawable.ic_eye_crossed
+                        : R.drawable.permission_cookie;
         rowParams.decreaseIconSize = true;
         rowParams.clickCallback = this::launchSubpage;
         mRowView.setParams(rowParams);
-        mShouldDisplaySiteBreakageString = false;
         updateRowViewSubtitle();
     }
 
@@ -201,7 +205,6 @@ public class PageInfoTrackingProtectionController extends PageInfoPreferenceSubp
 
     @Override
     public void onHighlightCookieControl(boolean shouldHighlight) {
-        mShouldDisplaySiteBreakageString = shouldHighlight;
         updateRowViewSubtitle();
     }
 
@@ -211,6 +214,11 @@ public class PageInfoTrackingProtectionController extends PageInfoPreferenceSubp
     }
 
     private void updateRowViewSubtitle() {
+        if (mEnforcement == CookieControlsEnforcement.ENFORCED_BY_TPCD_GRANT) {
+            mRowView.updateSubtitle(
+                    mRowView.getContext().getString(R.string.page_info_cookies_subtitle_allowed));
+            return;
+        }
         if (!mCookieControlsVisible) return;
         if (!mThirdPartyCookiesBlocked) {
             mRowView.updateSubtitle(
@@ -228,6 +236,10 @@ public class PageInfoTrackingProtectionController extends PageInfoPreferenceSubp
 
     public void setFixedExceptionExpirationForTesting(boolean fixed) {
         mFixedExpirationForTesting = fixed;
+    }
+
+    public void setEnforcementForTesting(@CookieControlsEnforcement int enforcement) {
+        mEnforcement = enforcement;
     }
 
     void destroy() {

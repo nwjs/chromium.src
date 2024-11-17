@@ -50,6 +50,7 @@ import org.chromium.base.SysUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.base.task.ChainedTasks;
 import org.chromium.base.task.PostTask;
@@ -77,6 +78,7 @@ import org.chromium.chrome.browser.prefetch.settings.PreloadPagesState;
 import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManagerImpl;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
+import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.google_bottom_bar.proto.IntentParams.GoogleBottomBarIntentParams;
 import org.chromium.components.content_settings.CookieControlsMode;
@@ -89,6 +91,7 @@ import org.chromium.content_public.browser.ChildProcessLauncherHelper;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.Referrer;
 import org.chromium.network.mojom.ReferrerPolicy;
+import org.chromium.ui.base.WindowAndroid;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -409,7 +412,7 @@ public class CustomTabsConnection {
 
     public boolean warmup(long flags) {
         try (TraceEvent e = TraceEvent.scoped("CustomTabsConnection.warmup")) {
-            boolean success = warmupInternal(true);
+            boolean success = warmupInternal(true, null);
             logCall("warmup()", success);
             return success;
         }
@@ -426,9 +429,11 @@ public class CustomTabsConnection {
      * Starts as much as possible in anticipation of a future navigation.
      *
      * @param mayCreateSpareWebContents true if warmup() can create a spare renderer.
+     * @param internalCallback callback to be called after all processes are finished.
      * @return true for success.
      */
-    private boolean warmupInternal(final boolean mayCreateSpareWebContents) {
+    private boolean warmupInternal(
+            final boolean mayCreateSpareWebContents, Runnable internalCallback) {
         // Here and in mayLaunchUrl(), don't do expensive work for background applications.
         if (!isCallerForegroundOrSelf()) return false;
         int uid = Binder.getCallingUid();
@@ -508,7 +513,7 @@ public class CustomTabsConnection {
                     });
         }
 
-        tasks.add(TaskTraits.UI_DEFAULT, () -> notifyWarmupIsDone(uid));
+        tasks.add(TaskTraits.UI_DEFAULT, () -> notifyWarmupIsDone(uid, internalCallback));
         tasks.start(false);
         mWarmupTasks = tasks;
         return true;
@@ -528,14 +533,11 @@ public class CustomTabsConnection {
     }
 
     /**
-     * High confidence mayLaunchUrl() call, that is:
-     * - Tries to speculate if possible.
-     * - An empty URL cancels the current prerender if any.
-     * - Start a spare renderer if necessary.
+     * High confidence mayLaunchUrl() call, that is: - Tries to speculate if possible. - An empty
+     * URL cancels the current prerender if any. - Start a spare renderer if necessary.
      */
     private void highConfidenceMayLaunchUrl(
             CustomTabsSessionToken session,
-            int uid,
             String url,
             Bundle extras,
             List<Bundle> otherLikelyBundles) {
@@ -567,7 +569,6 @@ public class CustomTabsConnection {
                     url,
                     canUseHiddenTab,
                     extras,
-                    uid,
                     useSeparateStoragePartitionForExperiment);
         }
         preconnectUrls(otherLikelyBundles);
@@ -644,7 +645,7 @@ public class CustomTabsConnection {
         // Forbids warmup() from creating a spare renderer, as prerendering wouldn't reuse
         // it. Checking whether prerendering is enabled requires the native library to be loaded,
         // which is not necessarily the case yet.
-        if (!warmupInternal(false)) return false; // Also does the foreground check.
+        if (!warmupInternal(false, null)) return false; // Also does the foreground check.
 
         if (!mClientManager.updateStatsAndReturnWhetherAllowed(
                 session, uid, urlString, otherLikelyBundles != null)) {
@@ -667,8 +668,8 @@ public class CustomTabsConnection {
     }
 
     @androidx.browser.customtabs.ExperimentalPrefetch
-    public boolean prefetch(
-            CustomTabsSessionToken session, Uri uri, @Nullable PrefetchOptions options) {
+    public void prefetch(
+            CustomTabsSessionToken session, List<Uri> urls, @Nullable PrefetchOptions options) {
         try (TraceEvent e = TraceEvent.scoped("CustomTabsConnection.prefetch")) {
             if (!ChromeFeatureList.sPrefetchBrowserInitiatedTriggers.isEnabled()
                     || !ChromeFeatureList.sCctNavigationalPrefetch.isEnabled()) {
@@ -676,42 +677,70 @@ public class CustomTabsConnection {
                         TAG,
                         "Prefetch failed because PrefetchBrowserInitiatedTriggers and/or"
                                 + " CCTNavigationalPrefetch is not enabled.");
-                return false;
+                return;
             }
-            return prefetchInternal(session, uri, options);
+            prefetchInternal(session, urls, options);
         }
     }
 
     @androidx.browser.customtabs.ExperimentalPrefetch
-    private boolean prefetchInternal(
-            CustomTabsSessionToken session, Uri uri, PrefetchOptions options) {
-        String uriString = isValid(uri) ? uri.toString() : null;
-        if (uriString == null) return false;
-
+    private void prefetchInternal(
+            CustomTabsSessionToken session, List<Uri> urls, PrefetchOptions options) {
         boolean usePrefetchProxy = options.requiresAnonymousIpWhenCrossOrigin;
-        String verifiedSourceOrigin =
-                verifySourceOriginOfPrefetch(session, options.sourceOrigin)
-                        ? options.sourceOrigin.toString()
+        Origin sourceOrigin =
+                options.sourceOrigin != null
+                        ? Origin.create(options.sourceOrigin.toString())
                         : null;
-        PostTask.postTask(
-                TaskTraits.UI_DEFAULT,
+
+        // We should call
+        // (1) warmupInternal to initialize browser and prepare spare WebContents for (2), (3)
+        // (2) validateSourceOriginOfPrefetch to register source origin of prefetch to
+        //     OriginVerifier
+        // (3) startPrefetchFromCCT
+        // sequentially.
+
+        // (3)
+        Runnable startPrefetch =
                 () -> {
-                    WarmupManager.getInstance()
-                            .startPrefetchFromCCT(
-                                    uriString, usePrefetchProxy, verifiedSourceOrigin);
-                });
-        return true;
+                    String verifiedSourceOrigin =
+                            isValidForPrefetchSourceOrigin(session, sourceOrigin)
+                                    ? sourceOrigin.toString()
+                                    : null;
+                    for (Uri url : urls) {
+                        String urlString = isValid(url) ? url.toString() : null;
+                        if (urlString == null) continue;
+                        PostTask.postTask(
+                                TaskTraits.UI_DEFAULT,
+                                () -> {
+                                    WarmupManager.getInstance()
+                                            .startPrefetchFromCCT(
+                                                    urlString,
+                                                    usePrefetchProxy,
+                                                    verifiedSourceOrigin);
+                                });
+                    }
+                };
+
+        // (2)
+        Runnable validateOrigin =
+                () -> {
+                    if (sourceOrigin != null) {
+                        mClientManager.validateSourceOriginOfPrefetch(
+                                session, sourceOrigin, startPrefetch);
+                    } else {
+                        startPrefetch.run();
+                    }
+                };
+
+        // (1)
+        warmupInternal(true, validateOrigin);
     }
 
     @VisibleForTesting
     @androidx.browser.customtabs.ExperimentalPrefetch
-    boolean verifySourceOriginOfPrefetch(
-            CustomTabsSessionToken session, @Nullable Uri rawSourceOrigin) {
-        if (rawSourceOrigin == null) return false;
-        String sourceOriginString = rawSourceOrigin.toString();
-        Origin sourceOrigin = Origin.create(sourceOriginString);
-        return sourceOrigin != null
-                && mClientManager.isFirstPartyOriginForSession(session, sourceOrigin);
+    boolean isValidForPrefetchSourceOrigin(
+            CustomTabsSessionToken session, @Nullable Origin origin) {
+        return origin != null && mClientManager.isFirstPartyOriginForSession(session, origin);
     }
 
     private void enableExperimentIdsIfNecessary(Bundle extras) {
@@ -763,7 +792,7 @@ public class CustomTabsConnection {
             if (lowConfidence) {
                 lowConfidenceMayLaunchUrl(otherLikelyBundles);
             } else {
-                highConfidenceMayLaunchUrl(session, uid, urlString, extras, otherLikelyBundles);
+                highConfidenceMayLaunchUrl(session, urlString, extras, otherLikelyBundles);
             }
         }
     }
@@ -1326,13 +1355,45 @@ public class CustomTabsConnection {
 
     /**
      * Shows a toast about any possible sign in issues encountered during custom tab startup.
-     * @param session The session that corresponding custom tab is assigned.
+     *
+     * @param session The session that the corresponding custom tab is assigned to.
      * @param intent The intent that launched the custom tab.
+     * @param profileProviderSupplier The supplier of the current profile.
      */
-    void showSignInToastIfNecessary(CustomTabsSessionToken session, Intent intent) {}
+    void showSignInToastIfNecessary(
+            CustomTabsSessionToken session,
+            Intent intent,
+            Supplier<ProfileProvider> profileProviderSupplier) {}
+
+    /**
+     * @param session The session that the corresponding custom tab is assigned to.
+     * @param intent The intent that launched the custom tab.
+     * @param windowAndroid The android window.
+     * @param profileProviderSupplier The supplier of the current profile.
+     */
+    void maybeShowAccountMismatchNotification(
+            CustomTabsSessionToken session,
+            Intent intent,
+            WindowAndroid windowAndroid,
+            OneshotSupplier<ProfileProvider> profileProviderSupplier) {}
+
+    /**
+     * @param session The session that the corresponding custom tab is assigned to.
+     * @param intent The intent that launched the custom tab.
+     * @param context the Android context.
+     * @param windowAndroid The android window.
+     * @param profileProviderSupplier The supplier of the current profile.
+     */
+    void maybeShowAccountMismatchNotification(
+            CustomTabsSessionToken session,
+            Intent intent,
+            Context context,
+            WindowAndroid windowAndroid,
+            OneshotSupplier<ProfileProvider> profileProviderSupplier) {}
 
     /**
      * Sends a callback using {@link CustomTabsCallback} with the first run result if necessary.
+     *
      * @param intentExtras The extras for the initial VIEW intent that initiated first run.
      * @param resultOK Whether first run was successful.
      */
@@ -1617,7 +1678,7 @@ public class CustomTabsConnection {
         return extras;
     }
 
-    private void notifyWarmupIsDone(int uid) {
+    private void notifyWarmupIsDone(int uid, Runnable internalCallback) {
         ThreadUtils.assertOnUiThread();
         final Bundle args = new Bundle(); // Empty one - safe to reuse for all the callbacks.
 
@@ -1637,6 +1698,11 @@ public class CustomTabsConnection {
                 continue;
             }
         }
+
+        if (internalCallback != null) {
+            internalCallback.run();
+        }
+
         logCallback("onWarmupCompleted()", bundleToJson(args).toString());
     }
 
@@ -1700,16 +1766,23 @@ public class CustomTabsConnection {
     }
 
     /**
-     * Notifies the application that the user has selected to open the page in their browser.
+     * Notifies the application and {@link EngagementSignalsHandler} that the user has selected to
+     * open the page in their browser. This method should be called before initiating the transfer.
      *
      * @param session Session identifier.
-     * @param webContents the WebContents of the tab being taken out of CCT.
-     * @return true if success. To protect Chrome exceptions in the client application are swallowed
-     *     and false is returned.
+     * @param tab the tab being taken out of CCT.
+     * @return true if application was successfully notified. To protect Chrome exceptions in the
+     *     client application are swallowed and false is returned.
      */
-    public boolean notifyOpenInBrowser(CustomTabsSessionToken session, WebContents webContents) {
+    public boolean notifyOpenInBrowser(CustomTabsSessionToken session, Tab tab) {
+        EngagementSignalsHandler engagementSignalsHandler = getEngagementSignalsHandler(session);
+        if (tab != null && engagementSignalsHandler != null) {
+            engagementSignalsHandler.notifyOpenInBrowser(tab);
+        }
         // Reset the client data header for the WebContents since it's not a CCT tab anymore.
-        if (webContents != null) CustomTabsConnectionJni.get().setClientDataHeader(webContents, "");
+        if (tab != null && tab.getWebContents() != null) {
+            CustomTabsConnectionJni.get().setClientDataHeader(tab.getWebContents(), "");
+        }
         return safeExtraCallback(
                 session,
                 OPEN_IN_BROWSER_CALLBACK,
@@ -1901,7 +1974,6 @@ public class CustomTabsConnection {
             String url,
             boolean useHiddenTab,
             Bundle extras,
-            int uid,
             boolean useSeparateStoragePartitionForExperiment) {
         WarmupManager warmupManager = WarmupManager.getInstance();
         Profile profile = ProfileManager.getLastUsedRegularProfile();

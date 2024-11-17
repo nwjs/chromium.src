@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/check.h"
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
@@ -32,6 +33,7 @@
 #include "ui/base/ime/constants.h"
 #include "ui/base/ime/input_method.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/ui_base_switches.h"
@@ -902,10 +904,9 @@ void Textfield::OnGestureEvent(ui::GestureEvent* event) {
       }
       break;
     case ui::EventType::kGestureScrollEnd:
-    case ui::EventType::kScrollFlingStart:
-      if (HandleGestureForSelectionDragging(event)) {
-        NOTREACHED();
-      }
+    case ui::EventType::kScrollFlingStart: {
+      const bool gesture_handled = HandleGestureForSelectionDragging(event);
+      CHECK(!gesture_handled);
       if (HasFocus()) {
         if (show_touch_handles_after_scroll_) {
           CreateTouchSelectionControllerAndNotifyIt();
@@ -914,11 +915,12 @@ void Textfield::OnGestureEvent(ui::GestureEvent* event) {
         event->SetHandled();
       }
       break;
-    case ui::EventType::kGestureEnd:
-      if (HandleGestureForSelectionDragging(event)) {
-        NOTREACHED();
-      }
+    }
+    case ui::EventType::kGestureEnd: {
+      const bool gesture_handled = HandleGestureForSelectionDragging(event);
+      CHECK(!gesture_handled);
       break;
+    }
     default:
       return;
   }
@@ -1223,9 +1225,10 @@ void Textfield::OnTextChanged() {
 ////////////////////////////////////////////////////////////////////////////////
 // Textfield, ContextMenuController overrides:
 
-void Textfield::ShowContextMenuForViewImpl(View* source,
-                                           const gfx::Point& point,
-                                           ui::MenuSourceType source_type) {
+void Textfield::ShowContextMenuForViewImpl(
+    View* source,
+    const gfx::Point& point,
+    ui::mojom::MenuSourceType source_type) {
   UpdateContextMenu();
   context_menu_runner_->RunMenuAt(GetWidget(), nullptr,
                                   gfx::Rect(point, gfx::Size()),
@@ -1520,7 +1523,7 @@ void Textfield::ConvertPointFromScreen(gfx::Point* point) {
 
 void Textfield::OpenContextMenu(const gfx::Point& anchor) {
   DestroyTouchSelection();
-  ShowContextMenu(anchor, ui::MENU_SOURCE_TOUCH_EDIT_MENU);
+  ShowContextMenu(anchor, ui::mojom::MenuSourceType::kTouchEditMenu);
 }
 
 void Textfield::DestroyTouchSelection() {

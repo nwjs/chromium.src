@@ -15,11 +15,13 @@
 #include "ash/capture_mode/capture_mode_metrics.h"
 #include "ash/capture_mode/capture_mode_types.h"
 #include "ash/capture_mode/capture_mode_util.h"
+#include "ash/capture_mode/capture_region_overlay_controller.h"
 #include "ash/capture_mode/game_capture_bar_view.h"
 #include "ash/capture_mode/normal_capture_bar_view.h"
 #include "ash/capture_mode/sunfish_capture_bar_view.h"
 #include "ash/constants/ash_features.h"
 #include "ash/projector/projector_controller_impl.h"
+#include "ash/scanner/scanner_controller.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shelf/shelf.h"
 #include "ash/shelf/shelf_layout_manager.h"
@@ -29,6 +31,7 @@
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/notreached.h"
 #include "base/task/single_thread_task_runner.h"
@@ -82,6 +85,14 @@ class DefaultBehavior : public CaptureModeBehavior {
   DefaultBehavior(const DefaultBehavior&) = delete;
   DefaultBehavior& operator=(const DefaultBehavior&) = delete;
   ~DefaultBehavior() override = default;
+
+  // CaptureModeBehavior:
+  void AttachToSession() override {
+    // Do not override the session configs in `DefaultBehavior`, since the
+    // source and type may have been set before the session was started and
+    // initialized.
+  }
+  void DetachFromSession() override {}
 };
 
 // -----------------------------------------------------------------------------
@@ -100,24 +111,6 @@ class ProjectorBehavior : public CaptureModeBehavior {
   ProjectorBehavior(const ProjectorBehavior&) = delete;
   ProjectorBehavior& operator=(const ProjectorBehavior&) = delete;
   ~ProjectorBehavior() override = default;
-
-  // CaptureModeBehavior:
-  void AttachToSession() override {
-    cached_configs_ = GetCaptureModeSessionConfigs();
-
-    // Overwrite the current capture mode session with the projector
-    // configurations.
-    SetCaptureModeSessionConfigs(capture_mode_configs_);
-  }
-
-  void DetachFromSession() override {
-    CHECK(cached_configs_);
-
-    // Restore the capture mode configurations after being overwritten with the
-    // projector-specific configurations.
-    SetCaptureModeSessionConfigs(cached_configs_.value());
-    cached_configs_.reset();
-  }
 
   bool ShouldImageCaptureTypeBeAllowed() const override { return false; }
   bool ShouldSaveToSettingsBeIncluded() const override { return false; }
@@ -195,9 +188,7 @@ class GameDashboardBehavior : public CaptureModeBehavior,
 
   // CaptureModeBehavior:
   void AttachToSession() override {
-    cached_configs_ = GetCaptureModeSessionConfigs();
-
-    SetCaptureModeSessionConfigs(capture_mode_configs_);
+    CaptureModeBehavior::AttachToSession();
 
     CaptureModeController* controller = CaptureModeController::Get();
     BaseCaptureModeSession* session = controller->capture_mode_session();
@@ -219,9 +210,7 @@ class GameDashboardBehavior : public CaptureModeBehavior,
   }
 
   void DetachFromSession() override {
-    CHECK(cached_configs_);
-    SetCaptureModeSessionConfigs(cached_configs_.value());
-    cached_configs_.reset();
+    CaptureModeBehavior::DetachFromSession();
 
     if (pre_selected_window_) {
       pre_selected_window_->RemoveObserver(this);
@@ -317,8 +306,23 @@ class SunfishBehavior : public CaptureModeBehavior {
   ~SunfishBehavior() override = default;
 
   // CaptureModeBehavior:
+  void AttachToSession() override {
+    CaptureModeBehavior::AttachToSession();
+    if (auto* scanner_controller = Shell::Get()->scanner_controller()) {
+      scanner_controller->StartNewSession();
+    }
+  }
+  void DetachFromSession() override {
+    CaptureModeBehavior::DetachFromSession();
+    if (auto* scanner_controller = Shell::Get()->scanner_controller()) {
+      scanner_controller->OnSessionUIClosed();
+    }
+  }
   bool ShouldShowUserNudge() const override { return false; }
   bool ShouldReShowUisAtPerformingCapture() const override { return true; }
+  bool ShouldShowCaptureButtonAfterRegionSelected() const override {
+    return false;
+  }
   const std::u16string GetCaptureLabelRegionText() const override {
     return l10n_util::GetStringUTF16(IDS_ASH_SUNFISH_CAPTURE_LABEL);
   }
@@ -329,12 +333,23 @@ class SunfishBehavior : public CaptureModeBehavior {
   std::unique_ptr<CaptureModeBarView> CreateCaptureModeBarView() override {
     return std::make_unique<SunfishCaptureBarView>();
   }
+  void PaintCaptureRegionOverlay(
+      gfx::Canvas& canvas,
+      const gfx::Rect& region_bounds_in_canvas) const override {
+    capture_region_overlay_controller_.PaintCaptureRegionOverlay(
+        canvas, region_bounds_in_canvas);
+  }
   void OnRegionSelected() override {
     // `CaptureModeController` will perform DLP restriction checks and determine
     // whether the image can be sent for search.
     CaptureModeController::Get()->PerformCapture();
   }
   void OnEnterKeyPressed() override {}
+
+ private:
+  // Controls the overlay shown on the capture region to indicate detected text,
+  // translations, etc.
+  CaptureRegionOverlayController capture_region_overlay_controller_;
 };
 
 }  // namespace
@@ -362,9 +377,22 @@ std::unique_ptr<CaptureModeBehavior> CaptureModeBehavior::Create(
   }
 }
 
-void CaptureModeBehavior::AttachToSession() {}
+void CaptureModeBehavior::AttachToSession() {
+  cached_configs_ = GetCaptureModeSessionConfigs();
 
-void CaptureModeBehavior::DetachFromSession() {}
+  // Overwrite the current capture mode session with the behavior
+  // configurations.
+  SetCaptureModeSessionConfigs(capture_mode_configs_);
+}
+
+void CaptureModeBehavior::DetachFromSession() {
+  CHECK(cached_configs_);
+
+  // Restore the capture mode configurations after being overwritten with the
+  // behavior-specific configurations.
+  SetCaptureModeSessionConfigs(cached_configs_.value());
+  cached_configs_.reset();
+}
 
 bool CaptureModeBehavior::ShouldImageCaptureTypeBeAllowed() const {
   return true;
@@ -447,6 +475,10 @@ bool CaptureModeBehavior::ShouldReShowUisAtPerformingCapture() const {
   // of video recording, we need to reshow the UIs so that we can start the
   // 3-second count down animation.
   return CaptureModeController::Get()->type() != CaptureModeType::kImage;
+}
+
+bool CaptureModeBehavior::ShouldShowCaptureButtonAfterRegionSelected() const {
+  return true;
 }
 
 void CaptureModeBehavior::CreateCaptureFolder(
@@ -542,6 +574,10 @@ int CaptureModeBehavior::GetCaptureBarBottomPadding() const {
 int CaptureModeBehavior::GetCaptureBarWidth() const {
   return kFullCaptureBarWidth;
 }
+
+void CaptureModeBehavior::PaintCaptureRegionOverlay(
+    gfx::Canvas& canvas,
+    const gfx::Rect& region_bounds_in_canvas) const {}
 
 void CaptureModeBehavior::OnAudioRecordingModeChanged() {}
 

@@ -14,9 +14,8 @@
 #import "base/strings/sys_string_conversions.h"
 #import "components/bookmarks/common/bookmark_features.h"
 #import "components/reading_list/features/reading_list_switches.h"
-#import "components/signin/public/base/signin_switches.h"
 #import "components/signin/public/identity_manager/tribool.h"
-#import "components/sync/service/account_pref_utils.h"
+#import "components/sync/base/account_pref_utils.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_user_settings.h"
 #import "ios/chrome/browser/flags/ios_chrome_flag_descriptions.h"
@@ -43,7 +42,7 @@
 #import "ios/public/provider/chrome/browser/signin/signin_error_api.h"
 #import "ui/base/l10n/l10n_util.h"
 
-using signin_ui::CompletionCallback;
+using signin_ui::SigninCompletionCallback;
 
 namespace {
 
@@ -78,6 +77,15 @@ enum class SigninAccountType {
   kMaxValue = kManaged,
 };
 
+enum class CancelationReason {
+  // Not canceled.
+  kNotCanceled,
+  // Canceled by the user.
+  kUserCanceled,
+  // Canceled, but not by the user.
+  kFailed,
+};
+
 // Returns yes if the browser has machine level policies.
 bool HasMachineLevelPolicies() {
   BrowserPolicyConnectorIOS* policy_connector =
@@ -103,11 +111,11 @@ bool HasMachineLevelPolicies() {
 // `_signInCompletion` when finished.
 - (void)continueSignin;
 
-// Runs `_signInCompletion` asynchronously with `success` argument.
-- (void)completeSignInWithSuccess:(BOOL)success;
+// Runs `_signInCompletion` asynchronously with `result` argument.
+- (void)completeSignInWithResult:(SigninCoordinatorResult)result;
 
 // Cancels the current sign-in flow.
-- (void)cancelFlow;
+- (void)cancelFlowWithReason:(CancelationReason)byUser;
 
 // Handles an authentication error and show an alert to the user.
 - (void)handleAuthenticationError:(NSError*)error;
@@ -116,13 +124,13 @@ bool HasMachineLevelPolicies() {
 
 @implementation AuthenticationFlow {
   UIViewController* _presentingViewController;
-  CompletionCallback _signInCompletion;
+  SigninCompletionCallback _signInCompletion;
   AuthenticationFlowPerformer* _performer;
 
   // State machine tracking.
   AuthenticationState _state;
   BOOL _didSignIn;
-  BOOL _failedOrCancelled;
+  CancelationReason _cancelationReason;
   BOOL _shouldSignOut;
   BOOL _alreadySignedInWithTheSameAccount;
   // YES if the signed in account is a managed account and the sign-in flow
@@ -176,11 +184,12 @@ bool HasMachineLevelPolicies() {
     _postSignInActions = postSignInActions;
     _presentingViewController = presentingViewController;
     _state = BEGIN;
+    _cancelationReason = CancelationReason::kNotCanceled;
   }
   return self;
 }
 
-- (void)startSignInWithCompletion:(CompletionCallback)completion {
+- (void)startSignInWithCompletion:(SigninCompletionCallback)completion {
   DCHECK_EQ(BEGIN, _state);
   DCHECK(!_signInCompletion);
   DCHECK(completion);
@@ -215,7 +224,7 @@ bool HasMachineLevelPolicies() {
     // The performer might not have been able to continue the flow if it was
     // waiting for a callback (e.g. waiting for AccountReconcilor). In this
     // case, we force the flow to finish synchronously.
-    [self cancelFlow];
+    [self cancelFlowWithReason:CancelationReason::kFailed];
   }
   DCHECK_EQ(DONE, _state);
 }
@@ -227,8 +236,8 @@ bool HasMachineLevelPolicies() {
 
 #pragma mark - State machine management
 
-- (AuthenticationState)nextStateFailedOrCancelled {
-  DCHECK(_failedOrCancelled);
+- (AuthenticationState)nextStateFailedOrCanceled {
+  DCHECK([self canceled]);
   switch (_state) {
     case BEGIN:
     case CHECK_SIGNIN_STEPS:
@@ -252,10 +261,10 @@ bool HasMachineLevelPolicies() {
 
 - (AuthenticationState)nextState {
   DCHECK(!self.handlingError);
-  if (_failedOrCancelled) {
-    return [self nextStateFailedOrCancelled];
+  if ([self canceled]) {
+    return [self nextStateFailedOrCanceled];
   }
-  DCHECK(!_failedOrCancelled);
+  DCHECK(![self canceled]);
   switch (_state) {
     case BEGIN:
       return CHECK_SIGNIN_STEPS;
@@ -367,13 +376,26 @@ bool HasMachineLevelPolicies() {
       [self fetchCapabilities];
       return;
     case COMPLETE_WITH_SUCCESS:
-      [self completeSignInWithSuccess:YES];
+      [self completeSignInWithResult:SigninCoordinatorResult::
+                                         SigninCoordinatorResultSuccess];
       return;
     case COMPLETE_WITH_FAILURE:
       if (_didSignIn) {
         [_performer signOutImmediatelyFromProfile:profile];
       }
-      [self completeSignInWithSuccess:NO];
+      SigninCoordinatorResult result;
+      switch (_cancelationReason) {
+        case CancelationReason::kFailed:
+          result = SigninCoordinatorResult::SigninCoordinatorResultInterrupted;
+          break;
+        case CancelationReason::kUserCanceled:
+          result =
+              SigninCoordinatorResult::SigninCoordinatorResultCanceledByUser;
+          break;
+        case CancelationReason::kNotCanceled:
+          NOTREACHED();
+      }
+      [self completeSignInWithResult:result];
       return;
     case CLEANUP_BEFORE_DONE: {
       // Clean up asynchronously to ensure that `self` does not die while
@@ -393,7 +415,7 @@ bool HasMachineLevelPolicies() {
 
 - (void)checkSigninSteps {
   id<SystemIdentity> currentIdentity =
-      AuthenticationServiceFactory::GetForBrowserState([self originalProfile])
+      AuthenticationServiceFactory::GetForProfile([self originalProfile])
           ->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
   if (currentIdentity && ![currentIdentity isEqual:_identityToSignIn]) {
     // If the identity to sign-in is different than the current identity,
@@ -405,9 +427,12 @@ bool HasMachineLevelPolicies() {
 }
 
 - (void)signInIdentity:(id<SystemIdentity>)identity {
+  if (self.userDecisionCompletion) {
+    self.userDecisionCompletion();
+  }
   ProfileIOS* profile = [self originalProfile];
   ChromeAccountManagerService* accountManagerService =
-      ChromeAccountManagerServiceFactory::GetForBrowserState(profile);
+      ChromeAccountManagerServiceFactory::GetForProfile(profile);
 
   if (accountManagerService->IsValidIdentity(identity)) {
     [_performer signInIdentity:identity
@@ -443,19 +468,19 @@ bool HasMachineLevelPolicies() {
       })];
 }
 
-- (void)completeSignInWithSuccess:(BOOL)success {
+- (void)completeSignInWithResult:(SigninCoordinatorResult)result {
   DCHECK(_signInCompletion)
-      << "`completeSignInWithSuccess` should not be called twice.";
-  if (success) {
+      << "`completeSignInWithResult` should not be called twice.";
+  if (result == SigninCoordinatorResult::SigninCoordinatorResultSuccess) {
     base::UmaHistogramEnumeration("Signin.AccountType.SigninConsent",
                                   _identityToSignInHostedDomain.length > 0
                                       ? SigninAccountType::kManaged
                                       : SigninAccountType::kRegular);
   }
   if (_signInCompletion) {
-    CompletionCallback signInCompletion = _signInCompletion;
+    SigninCompletionCallback signInCompletion = _signInCompletion;
     _signInCompletion = nil;
-    signInCompletion(success);
+    signInCompletion(result);
   }
   if (_shouldShowSigninSnackbar) {
     [_performer completePostSignInActions:_postSignInActions
@@ -465,22 +490,27 @@ bool HasMachineLevelPolicies() {
   [self continueSignin];
 }
 
-- (void)cancelFlow {
-  if (_failedOrCancelled) {
+- (BOOL)canceled {
+  return _cancelationReason != CancelationReason::kNotCanceled;
+}
+
+- (void)cancelFlowWithReason:(CancelationReason)reason {
+  CHECK_NE(reason, CancelationReason::kNotCanceled);
+  if ([self canceled]) {
     // Avoid double handling of cancel or error.
     return;
   }
-  _failedOrCancelled = YES;
+  _cancelationReason = reason;
   [self continueSignin];
 }
 
 - (void)handleAuthenticationError:(NSError*)error {
-  if (_failedOrCancelled) {
+  if ([self canceled]) {
     // Avoid double handling of cancel or error.
     return;
   }
   DCHECK(error);
-  _failedOrCancelled = YES;
+  _cancelationReason = CancelationReason::kFailed;
   self.handlingError = YES;
   __weak AuthenticationFlow* weakSelf = self;
   [_performer showAuthenticationError:error
@@ -541,7 +571,7 @@ bool HasMachineLevelPolicies() {
 }
 
 - (void)didCancelManagedConfirmation {
-  [self cancelFlow];
+  [self cancelFlowWithReason:CancelationReason::kUserCanceled];
 }
 
 - (void)didRegisterForUserPolicyWithDMToken:(NSString*)dmToken
@@ -566,7 +596,7 @@ bool HasMachineLevelPolicies() {
 
 // The original profile used for services that don't exist in incognito mode.
 - (ProfileIOS*)originalProfile {
-  return _browser->GetProfile()->GetOriginalChromeBrowserState();
+  return _browser->GetProfile()->GetOriginalProfile();
 }
 
 - (PrefService*)prefs {
@@ -611,14 +641,12 @@ bool HasMachineLevelPolicies() {
 
 // Return YES if capabilities should be fetched for the History Sync screen.
 - (BOOL)shouldFetchCapabilities {
-  if (!self.precedingHistorySync ||
-      !base::FeatureList::IsEnabled(
-          switches::kMinorModeRestrictionsForHistorySyncOptIn)) {
+  if (!self.precedingHistorySync) {
     return NO;
   }
 
   syncer::SyncService* syncService =
-      SyncServiceFactory::GetForBrowserState([self originalProfile]);
+      SyncServiceFactory::GetForProfile([self originalProfile]);
   syncer::SyncUserSettings* userSettings = syncService->GetUserSettings();
 
   if (userSettings->GetSelectedTypes().HasAll(

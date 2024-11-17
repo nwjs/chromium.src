@@ -305,8 +305,11 @@ TEST_F(AutofillManagerTest, FormCacheUpdatesValue) {
 }
 
 TEST_F(AutofillManagerTest, ObserverReceiveCalls) {
-  base::test::ScopedFeatureList feature_list{
-      features::kAutofillPageLanguageDetection};
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kAutofillPageLanguageDetection,
+                            features::kAutofillFixValueSemantics},
+      /*disabled_features=*/{});
 
   std::vector<FormData> forms = CreateTestForms(2);
   FormData form = forms[0];
@@ -359,8 +362,7 @@ TEST_F(AutofillManagerTest, ObserverReceiveCalls) {
   EXPECT_CALL(manager(), OnFocusOnNonFormFieldImpl).Times(AtLeast(0));
   EXPECT_CALL(manager(), OnDidFillAutofillFormDataImpl).Times(AtLeast(0));
   EXPECT_CALL(manager(), OnDidEndTextFieldEditingImpl).Times(AtLeast(0));
-  EXPECT_CALL(manager(), OnSelectOrSelectListFieldOptionsDidChangeImpl)
-      .Times(AtLeast(0));
+  EXPECT_CALL(manager(), OnSelectFieldOptionsDidChangeImpl).Times(AtLeast(0));
   EXPECT_CALL(manager(), OnJavaScriptChangedAutofilledValueImpl)
       .Times(AtLeast(0));
   EXPECT_CALL(manager(), OnFormSubmittedImpl).Times(AtLeast(0));

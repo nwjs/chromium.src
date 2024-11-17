@@ -54,6 +54,7 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom-test-utils.h"
+#include "ui/android/fake_modal_dialog_manager_bridge.h"
 #include "ui/android/progress_bar_config.h"
 #include "ui/android/ui_android_features.h"
 #include "ui/android/window_android.h"
@@ -70,6 +71,7 @@ namespace content {
 namespace {
 
 using SwipeEdge = ui::BackGestureEventSwipeEdge;
+using AnimationStage = BackForwardTransitionAnimationManager::AnimationStage;
 using NavType = BackForwardTransitionAnimationManager::NavigationDirection;
 using base::test::TestFuture;
 using testing::AssertionFailure;
@@ -90,10 +92,11 @@ static constexpr float kFloatTolerance = 0.001f;
   EXPECT_TRANSFORM_NEAR(ViewportTranslationX(expected), (actual), \
                         kFloatTolerance)
 
-#define EXPECT_STATE_EQ(expected, actual)                                  \
-  EXPECT_EQ(expected, actual)                                              \
-      << "Expected: " << BackForwardTransitionAnimator::ToString(expected) \
-      << " but got " << BackForwardTransitionAnimator::ToString(actual);
+#define EXPECT_STATE_EQ(expected, actual)                                      \
+  EXPECT_EQ(expected, actual)                                                  \
+      << "Expected: "                                                          \
+      << BackForwardTransitionAnimator::StateToString(expected) << " but got " \
+      << BackForwardTransitionAnimator::StateToString(actual);
 
 // TODO(liuwilliam): 99 seconds seems arbitrary. Pick a meaningful constant
 // instead.
@@ -3115,6 +3118,33 @@ IN_PROC_BROWSER_TEST_F(BackForwardTransitionAnimationManagerBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(BackForwardTransitionAnimationManagerBrowserTest,
+                       AbortAnimationOnPhysicalSizeChange) {
+  DisableBackForwardCacheForTesting(
+      web_contents(),
+      BackForwardCache::DisableForTestingReason::TEST_REQUIRES_NO_CACHING);
+
+  GetAnimationManager()->OnGestureStarted(ui::BackGestureEvent(0),
+                                          SwipeEdge::LEFT, NavType::kBackward);
+  GetAnimationManager()->OnGestureProgressed(ui::BackGestureEvent(0.3));
+
+  TestNavigationManager back_nav_to_red(web_contents(), RedURL());
+
+  TestFuture<AnimatorState> destroyed;
+  GetAnimator()->set_on_impl_destroyed(destroyed.GetCallback());
+  GetAnimationManager()->OnGestureInvoked();
+  EXPECT_TRUE(back_nav_to_red.WaitForRequestStart());
+
+  web_contents()->GetNativeView()->OnPhysicalBackingSizeChanged(
+      gfx::Size(1, 1));
+
+  // The navigation should proceed regardless of the animation.
+  EXPECT_TRUE(back_nav_to_red.WaitForNavigationFinished());
+
+  EXPECT_TRUE(destroyed.Wait());
+  EXPECT_STATE_EQ(kAnimationAborted, destroyed.Get());
+}
+
+IN_PROC_BROWSER_TEST_F(BackForwardTransitionAnimationManagerBrowserTest,
                        ScreenshotCompression) {
   SkBitmap expected_pixels;
   {
@@ -4300,6 +4330,17 @@ IN_PROC_BROWSER_TEST_F(
             ChildrenInOrder(*GetViewLayer()));
 
   ASSERT_TRUE(did_cancel.Wait());
+  EXPECT_EQ("[Screenshot[Scrim],LivePage,EmbedderContentLayer]",
+            ChildrenInOrder(*GetViewLayer()));
+
+  EXPECT_EQ(GetAnimationManager()->GetCurrentAnimationStage(),
+            AnimationStage::kWaitingForEmbedderContentForCommittedEntry);
+  TestFuture<AnimatorForTesting::State> did_finish;
+  GetAnimator()->set_on_impl_destroyed(did_finish.GetCallback());
+
+  GetAnimationManager()->OnContentForNavigationEntryShown();
+
+  EXPECT_EQ(did_finish.Get(), AnimatorForTesting::State::kAnimationFinished);
   EXPECT_EQ("[LivePage]", ChildrenInOrder(*GetViewLayer()));
 }
 
@@ -4334,6 +4375,202 @@ IN_PROC_BROWSER_TEST_F(
   GetAnimator()->set_on_impl_destroyed(did_finish.GetCallback());
   EXPECT_EQ(did_finish.Get(), AnimatorForTesting::State::kAnimationFinished);
   EXPECT_EQ("[LivePage]", ChildrenInOrder(*GetViewLayer()));
+}
+
+namespace {
+
+using ModalDialogType = ui::ModalDialogManagerBridge::ModalDialogType;
+
+// Note: This set of tests are unittesting ModalDialogManager#suspendType()
+// and ModalDialogManager#resumeType(), as `ShellJavaScriptDialogManager` is
+// not wired to Java UI code.
+class BackForwardTransitionAnimationManagerBrowserTestSuspendDialog
+    : public BackForwardTransitionAnimationManagerBrowserTest {
+ public:
+  ~BackForwardTransitionAnimationManagerBrowserTestSuspendDialog() override =
+      default;
+
+  void SetUpOnMainThread() override {
+    BackForwardTransitionAnimationManagerBrowserTest::SetUpOnMainThread();
+    fake_dialog_manager_ = ui::FakeModalDialogManagerBridge::CreateForTab(
+        web_contents()->GetTopLevelNativeWindow(),
+        /*use_empty_java_presenter=*/true);
+  }
+
+  void TearDown() override {
+    // If the tests are skipped on emulators, `fake_dialog_manager()` is null.
+    if (fake_dialog_manager()) {
+      EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kTab));
+      EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kApp));
+    }
+  }
+
+  ui::FakeModalDialogManagerBridge* fake_dialog_manager() {
+    return fake_dialog_manager_.get();
+  }
+
+ private:
+  std::unique_ptr<ui::FakeModalDialogManagerBridge> fake_dialog_manager_;
+};
+
+}  // namespace
+
+IN_PROC_BROWSER_TEST_F(
+    BackForwardTransitionAnimationManagerBrowserTestSuspendDialog,
+    JavascriptDialogSuspendedDuringTransition) {
+  DisableBackForwardCacheForTesting(
+      web_contents(),
+      BackForwardCache::DisableForTestingReason::TEST_REQUIRES_NO_CACHING);
+
+  TestNavigationManager back_nav_to_red(web_contents(), RedURL());
+
+  GetAnimationManager()->OnGestureStarted(ui::BackGestureEvent(0),
+                                          SwipeEdge::LEFT, NavType::kBackward);
+  EXPECT_EQ("[Screenshot[Scrim],LivePage]", ChildrenInOrder(*GetViewLayer()));
+
+  TestFuture<AnimatorForTesting::State> on_destroyed;
+  GetAnimator()->set_on_impl_destroyed(on_destroyed.GetCallback());
+  EXPECT_TRUE(fake_dialog_manager()->IsSuspend(ModalDialogType::kTab));
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kApp));
+
+  GetAnimationManager()->OnGestureProgressed(ui::BackGestureEvent(0.6f));
+  EXPECT_TRUE(fake_dialog_manager()->IsSuspend(ModalDialogType::kTab));
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kApp));
+
+  GetAnimationManager()->OnGestureInvoked();
+  ASSERT_TRUE(back_nav_to_red.WaitForRequestStart());
+  EXPECT_TRUE(fake_dialog_manager()->IsSuspend(ModalDialogType::kTab));
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kApp));
+
+  ASSERT_TRUE(back_nav_to_red.WaitForNavigationFinished());
+  ASSERT_TRUE(back_nav_to_red.was_successful());
+  // The navigation has finished. Tab level dialogs are resumed immediately.
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kTab));
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kApp));
+  ASSERT_TRUE(on_destroyed.Wait());
+  EXPECT_EQ(on_destroyed.Get(), kAnimationFinished);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    BackForwardTransitionAnimationManagerBrowserTestSuspendDialog,
+    JavascriptDialogResumedOnCancel) {
+  GetAnimationManager()->OnGestureStarted(ui::BackGestureEvent(0),
+                                          SwipeEdge::LEFT, NavType::kBackward);
+  EXPECT_EQ("[Screenshot[Scrim],LivePage]", ChildrenInOrder(*GetViewLayer()));
+
+  TestFuture<AnimatorForTesting::State> on_destroyed;
+  GetAnimator()->set_on_impl_destroyed(on_destroyed.GetCallback());
+  EXPECT_TRUE(fake_dialog_manager()->IsSuspend(ModalDialogType::kTab));
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kApp));
+
+  GetAnimationManager()->OnGestureProgressed(ui::BackGestureEvent(0.6f));
+  EXPECT_TRUE(fake_dialog_manager()->IsSuspend(ModalDialogType::kTab));
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kApp));
+
+  GetAnimationManager()->OnGestureCancelled();
+  // Tab level dialogs are resumed immediately after the gesture is cancelled.
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kTab));
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kApp));
+  ASSERT_TRUE(on_destroyed.Wait());
+  EXPECT_EQ(on_destroyed.Get(), kAnimationFinished);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    BackForwardTransitionAnimationManagerBrowserTestSuspendDialog,
+    JavascriptDialogResumedOnAbort) {
+  DisableBackForwardCacheForTesting(
+      web_contents(),
+      BackForwardCache::DisableForTestingReason::TEST_REQUIRES_NO_CACHING);
+
+  TestNavigationManager back_nav_to_red(web_contents(), RedURL());
+
+  GetAnimationManager()->OnGestureStarted(ui::BackGestureEvent(0),
+                                          SwipeEdge::LEFT, NavType::kBackward);
+  EXPECT_EQ("[Screenshot[Scrim],LivePage]", ChildrenInOrder(*GetViewLayer()));
+
+  TestFuture<AnimatorForTesting::State> on_destroyed;
+  GetAnimator()->set_on_impl_destroyed(on_destroyed.GetCallback());
+  EXPECT_TRUE(fake_dialog_manager()->IsSuspend(ModalDialogType::kTab));
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kApp));
+
+  GetAnimationManager()->OnGestureProgressed(ui::BackGestureEvent(0.6f));
+  EXPECT_TRUE(fake_dialog_manager()->IsSuspend(ModalDialogType::kTab));
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kApp));
+
+  GetAnimationManager()->OnGestureInvoked();
+  ASSERT_TRUE(back_nav_to_red.WaitForRequestStart());
+  EXPECT_TRUE(fake_dialog_manager()->IsSuspend(ModalDialogType::kTab));
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kApp));
+
+  GetAnimationManager()->OnDetachCompositor();
+  ASSERT_TRUE(on_destroyed.Wait());
+  EXPECT_EQ(on_destroyed.Get(), kAnimationAborted);
+  // Dialogs are resumed when the transition is aborted.
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kTab));
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kApp));
+}
+
+// For subframe navigations, we resume the dialogs as soon as the subframe
+// navigation starts.
+IN_PROC_BROWSER_TEST_F(
+    BackForwardTransitionAnimationManagerBrowserTestSuspendDialog,
+    JavascriptDialogNotSuppressedForSubframeNavs) {
+  DisableBackForwardCacheForTesting(
+      web_contents(),
+      BackForwardCache::DisableForTestingReason::TEST_REQUIRES_NO_CACHING);
+
+  FrameTreeNode* iframe = nullptr;
+  {
+    ASSERT_TRUE(NavigateToURL(web_contents(), RedURL()));
+    web_contents()->GetController().PruneAllButLastCommitted();
+    static constexpr char kAddIframeScript[] = R"({
+      (()=>{
+          return new Promise((resolve) => {
+            const frame = document.createElement('iframe');
+            frame.addEventListener('load', () => {resolve();});
+            frame.src = $1;
+            document.body.appendChild(frame);
+          });
+      })();
+    })";
+    ASSERT_TRUE(ExecJs(web_contents()->GetPrimaryMainFrame(),
+                       JsReplace(kAddIframeScript, BlueURL())));
+    ASSERT_EQ(
+        web_contents()->GetPrimaryMainFrame()->frame_tree_node()->child_count(),
+        1u);
+    iframe =
+        web_contents()->GetPrimaryMainFrame()->frame_tree_node()->child_at(0);
+    ASSERT_TRUE(
+        NavigateToURLFromRenderer(iframe->current_frame_host(), GreenURL()));
+  }
+
+  // [red(blue), red(green)*] -> [red(blue)*, red(green)]
+  TestNavigationManager iframe_back_to_blue(web_contents(), BlueURL());
+
+  GetAnimationManager()->OnGestureStarted(ui::BackGestureEvent(0),
+                                          SwipeEdge::LEFT, NavType::kBackward);
+  EXPECT_EQ("[Screenshot[Scrim],LivePage]", ChildrenInOrder(*GetViewLayer()));
+  EXPECT_TRUE(fake_dialog_manager()->IsSuspend(ModalDialogType::kTab));
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kApp));
+
+  GetAnimationManager()->OnGestureProgressed(ui::BackGestureEvent(0.6f));
+  EXPECT_TRUE(fake_dialog_manager()->IsSuspend(ModalDialogType::kTab));
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kApp));
+
+  TestFuture<AnimatorForTesting::State> on_destroyed;
+  GetAnimator()->set_on_impl_destroyed(on_destroyed.GetCallback());
+  GetAnimationManager()->OnGestureInvoked();
+  ASSERT_TRUE(iframe_back_to_blue.WaitForRequestStart());
+  // As soon as `OnGestureInvoked()` is called the dialogs are resumed.
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kTab));
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kApp));
+
+  GetAnimationManager()->OnDetachCompositor();
+  ASSERT_TRUE(on_destroyed.Wait());
+  EXPECT_EQ(on_destroyed.Get(), kAnimationAborted);
+  // Dialogs are resumed when the transition is aborted.
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kTab));
+  EXPECT_FALSE(fake_dialog_manager()->IsSuspend(ModalDialogType::kApp));
 }
 
 }  // namespace content

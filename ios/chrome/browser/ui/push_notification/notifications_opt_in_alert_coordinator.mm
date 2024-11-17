@@ -31,13 +31,13 @@
 
 namespace {
 
-// Returns the gaia id used for `browser_state`.
-NSString* GetGaiaIdForBrowserState(ChromeBrowserState* browser_state) {
+// Returns the gaia id used for `profile`.
+NSString* GetGaiaIdForProfile(ProfileIOS* profile) {
   const ProfileAttributesIOS attributes =
       GetApplicationContext()
           ->GetProfileManager()
           ->GetProfileAttributesStorage()
-          ->GetAttributesForProfileWithName(browser_state->GetProfileName());
+          ->GetAttributesForProfileWithName(profile->GetProfileName());
 
   return base::SysUTF8ToNSString(attributes.GetGaiaId());
 }
@@ -141,15 +141,14 @@ NSString* GetGaiaIdForBrowserState(ChromeBrowserState* browser_state) {
 
 // Enables notifications in prefs for the client with `clientID`.
 - (void)enableNotifications {
-  NSString* gaiaID = GetGaiaIdForBrowserState(self.browser->GetBrowserState());
+  NSString* gaiaID = GetGaiaIdForProfile(self.browser->GetProfile());
   std::vector<PushNotificationClientId> clientIDs = self.clientIds.value();
   for (PushNotificationClientId clientID : clientIDs) {
     GetApplicationContext()->GetPushNotificationService()->SetPreference(
         gaiaID, clientID, true);
     if (clientID == PushNotificationClientId::kSendTab) {
       // Refresh enabled status in DeviceInfo.
-      DeviceInfoSyncServiceFactory::GetForBrowserState(
-          self.browser->GetProfile())
+      DeviceInfoSyncServiceFactory::GetForProfile(self.browser->GetProfile())
           ->RefreshLocalDeviceInfo();
     }
   }

@@ -7,13 +7,13 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
-#include "chrome/browser/ui/lens/lens_overlay_invocation_source.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/base/web_ui_mocha_browser_test.h"
 #include "components/lens/lens_features.h"
+#include "components/lens/lens_overlay_invocation_source.h"
 #include "components/lens/lens_overlay_permission_utils.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/common/url_constants.h"
@@ -34,6 +34,9 @@ class LensWebUIBrowserTest : public WebUIMochaBrowserTest {
  protected:
   LensWebUIBrowserTest() {
     set_test_loader_scheme(content::kChromeUIUntrustedScheme);
+    scoped_feature_list_.InitWithFeatures(
+        {lens::features::kLensOverlay},
+        {lens::features::kLensOverlayContextualSearchbox});
   }
 
   void SetUp() override {
@@ -60,8 +63,7 @@ class LensWebUIBrowserTest : public WebUIMochaBrowserTest {
   }
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list_{
-      lens::features::kLensOverlay};
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 class LensOverlayTest : public LensWebUIBrowserTest {
@@ -123,7 +125,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayTest, OverlayCloseButton) {
   RunOverlayTest("lens/overlay/overlay_close_button_test.js", "mocha.run()");
 }
 
-#if BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
 #define MAYBE_OverlayCursor DISABLED_OverlayCursor
 #else
 #define MAYBE_OverlayCursor OverlayCursor
@@ -175,7 +177,18 @@ IN_PROC_BROWSER_TEST_F(LensOverlayTest, CubicBezier) {
   RunOverlayTest("lens/overlay/cubic_bezier_test.js", "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(LensOverlayTest, TranslateButton) {
+IN_PROC_BROWSER_TEST_F(LensOverlayTest, TranslatePromo) {
+  RunOverlayTest("lens/overlay/overlay_show_translate_promo_test.js",
+                 "mocha.run()");
+}
+
+#if defined(UNDEFINED_SANITIZER)
+#define MAYBE_TranslateButton DISABLED_TranslateButton
+#else
+#define MAYBE_TranslateButton TranslateButton
+#endif
+// TODO(crbug.com/370882134): flaky on ubsan.
+IN_PROC_BROWSER_TEST_F(LensOverlayTest, MAYBE_TranslateButton) {
   RunOverlayTest("lens/overlay/translate_button_test.js", "mocha.run()");
 }
 

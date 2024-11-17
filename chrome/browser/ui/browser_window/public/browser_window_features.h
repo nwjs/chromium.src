@@ -13,13 +13,16 @@ class Browser;
 class BrowserView;
 class BrowserWindowInterface;
 class ChromeLabsCoordinator;
+class MemorySaverOptInIPHController;
 class SidePanelCoordinator;
 class SidePanelUI;
 class TabStripModel;
 class ToastController;
 class ToastService;
+class DataSharingOpenGroupHelper;
 
 namespace extensions {
+class ExtensionSidePanelManager;
 class Mv2DisabledDialogController;
 }  // namespace extensions
 
@@ -38,6 +41,10 @@ class LensOverlayEntryPointController;
 namespace tab_groups {
 class SessionServiceTabGroupSyncObserver;
 }  // namespace tab_groups
+
+namespace send_tab_to_self {
+class SendTabToSelfToolbarBubbleController;
+}  // namespace send_tab_to_self
 
 // This class owns the core controllers for features that are scoped to a given
 // browser window on desktop. It can be subclassed by tests to perform
@@ -118,6 +125,19 @@ class BrowserWindowFeatures {
   // supported for those cases.
   ToastService* toast_service() { return toast_service_.get(); }
 
+  send_tab_to_self::SendTabToSelfToolbarBubbleController*
+  send_tab_to_self_toolbar_bubble_controller() {
+    return send_tab_to_self_toolbar_bubble_controller_.get();
+  }
+
+  extensions::ExtensionSidePanelManager* extension_side_panel_manager() {
+    return extension_side_panel_manager_.get();
+  }
+
+  DataSharingOpenGroupHelper* data_sharing_open_group_helper() {
+    return data_sharing_open_group_helper_.get();
+  }
+
  protected:
   BrowserWindowFeatures();
 
@@ -128,6 +148,9 @@ class BrowserWindowFeatures {
  private:
   // Features that are per-browser window will each have a controller. e.g.
   // std::unique_ptr<FooFeature> foo_feature_;
+
+  std::unique_ptr<send_tab_to_self::SendTabToSelfToolbarBubbleController>
+      send_tab_to_self_toolbar_bubble_controller_;
 
   std::unique_ptr<ChromeLabsCoordinator> chrome_labs_coordinator_;
 
@@ -142,6 +165,9 @@ class BrowserWindowFeatures {
 
   std::unique_ptr<tabs::TabDeclutterController> tab_declutter_controller_;
 
+  std::unique_ptr<MemorySaverOptInIPHController>
+      memory_saver_opt_in_iph_controller_;
+
   std::unique_ptr<SidePanelCoordinator> side_panel_coordinator_;
 
   std::unique_ptr<tab_groups::SessionServiceTabGroupSyncObserver>
@@ -149,6 +175,13 @@ class BrowserWindowFeatures {
 
   raw_ptr<TabStripModel> tab_strip_model_;
   std::unique_ptr<ToastService> toast_service_;
+
+  // The window-scoped extension side-panel manager. There is a separate
+  // tab-scoped extension side-panel manager.
+  std::unique_ptr<extensions::ExtensionSidePanelManager>
+      extension_side_panel_manager_;
+
+  std::unique_ptr<DataSharingOpenGroupHelper> data_sharing_open_group_helper_;
 };
 
 #endif  // CHROME_BROWSER_UI_BROWSER_WINDOW_PUBLIC_BROWSER_WINDOW_FEATURES_H_

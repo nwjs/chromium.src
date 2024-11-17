@@ -282,6 +282,8 @@ class QuickStartMetrics {
 
   static void RecordEntryPoint(EntryPoint entry_point);
 
+  static void RecordEntryPointVisible(EntryPoint entry_point);
+
   static void RecordAuthenticationMethod(AuthenticationMethod auth_method);
 
   static void RecordAbortFlowReason(AbortFlowReason reason);
@@ -291,6 +293,8 @@ class QuickStartMetrics {
   static void RecordConsumerUpdateCancelled();
 
   static void RecordEstablishConnection(bool success, bool is_automatic_resume);
+
+  static void RecordSetupComplete();
 
   QuickStartMetrics();
   QuickStartMetrics(const QuickStartMetrics&) = delete;

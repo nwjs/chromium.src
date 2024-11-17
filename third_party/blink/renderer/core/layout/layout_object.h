@@ -1748,6 +1748,10 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     return IsPseudoElement() ? GetNode()->ParentOrShadowHostNode() : GetNode();
   }
 
+  // Return the Node of this object, or, if it has none (anonymous object),
+  // return that of the nearest ancestor that has one.
+  Node* EnclosingNode() const;
+
   Document& GetDocument() const {
     NOT_DESTROYED();
     DCHECK(node_ || Parent());  // crbug.com/402056
@@ -2525,26 +2529,6 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
 
   virtual CursorDirective GetCursor(const PhysicalOffset&, ui::Cursor&) const;
 
-  // Returns the rect that should have raster invalidated whenever this object
-  // changes. The rect is in the coordinate space of the document's scrolling
-  // contents. This method deals with outlines and overflow.
-  virtual PhysicalRect VisualRectInDocument(
-      VisualRectFlags = kDefaultVisualRectFlags) const;
-
-  // Returns the rect that should have raster invalidated whenever this object
-  // changes. The rect is in the object's local physical coordinate space.
-  // This is for non-SVG objects and LayoutSVGRoot only. SVG objects (except
-  // LayoutSVGRoot) should use VisualRectInLocalSVGCoordinates() and map with
-  // SVG transforms instead.
-  PhysicalRect LocalVisualRect() const {
-    NOT_DESTROYED();
-    if (StyleRef().UsedVisibility() != EVisibility::kVisible &&
-        VisualRectRespectsVisibility()) {
-      return PhysicalRect();
-    }
-    return LocalVisualRectIgnoringVisibility();
-  }
-
   // Given a rect in the object's physical coordinate space, mutates the rect
   // into one representing the size of its visual painted output as if
   // |ancestor| was the root of the page: the rect is modified by any
@@ -2596,7 +2580,6 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
 
   // Do a rect-based hit test with this object as the stop node.
   HitTestResult HitTestForOcclusion(const PhysicalRect&) const;
-  HitTestResult HitTestForOcclusion() const;
 
   // Return the offset to the column in which the specified point (in
   // flow-thread coordinates) lives. This is used to convert a flow-thread point
@@ -2667,12 +2650,8 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
    * Returns the local coordinates of the caret within this layout object.
    * @param caret_offset zero-based offset determining position within the
    * layout object.
-   * @param extra_width_to_end_of_line optional out arg to give extra width to
-   * end of line - useful for character range rect computations
    */
-  virtual PhysicalRect LocalCaretRect(
-      int caret_offset,
-      LayoutUnit* extra_width_to_end_of_line = nullptr) const;
+  virtual PhysicalRect LocalCaretRect(int caret_offset) const;
 
   // When performing a global document tear-down, the layoutObject of the
   // document is cleared. We use this as a hook to detect the case of document
@@ -3525,9 +3504,6 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     NOT_DESTROYED();
     bitfields_.SetEverHadLayout(true);
   }
-
-  // See LocalVisualRect().
-  virtual PhysicalRect LocalVisualRectIgnoringVisibility() const;
 
   virtual bool CanBeSelectionLeafInternal() const {
     NOT_DESTROYED();

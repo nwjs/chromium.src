@@ -9,6 +9,7 @@
 #include "base/command_line.h"
 #include "build/build_config.h"
 #include "ui/base/l10n/l10n_util_win.h"
+#include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/display/display.h"
@@ -34,10 +35,12 @@ void CalculateWindowStylesFromInitParams(
   // Set type-independent style attributes.
   if (params.child)
     *style |= WS_CHILD;
-  if (params.show_state == ui::SHOW_STATE_MAXIMIZED)
+  if (params.show_state == ui::mojom::WindowShowState::kMaximized) {
     *style |= WS_MAXIMIZE;
-  if (params.show_state == ui::SHOW_STATE_MINIMIZED)
+  }
+  if (params.show_state == ui::mojom::WindowShowState::kMinimized) {
     *style |= WS_MINIMIZE;
+  }
   if (!params.accept_events)
     *ex_style |= WS_EX_TRANSPARENT;
   DCHECK_NE(Widget::InitParams::Activatable::kDefault, params.activatable);
@@ -45,8 +48,6 @@ void CalculateWindowStylesFromInitParams(
     *ex_style |= WS_EX_NOACTIVATE;
   if (params.EffectiveZOrderLevel() != ui::ZOrderLevel::kNormal)
     *ex_style |= WS_EX_TOPMOST;
-  if (params.mirror_origin_in_rtl)
-    *ex_style |= l10n_util::GetExtendedTooltipStyles();
   if (params.shadow_type == Widget::InitParams::ShadowType::kDrop)
     *class_style |= CS_DROPSHADOW;
 
@@ -85,7 +86,7 @@ void CalculateWindowStylesFromInitParams(
       // See layered window comment below.
       if (content::g_support_transparency && is_translucent) {
         if (params.remove_standard_frame) {
-          *style &= static_cast<DWORD>(~(WS_CAPTION));
+          *style &= ~(WS_CAPTION);
         }
         if (!native_widget_delegate->IsDialogBox() && !native_widget_delegate->IsModal()) {
           if (content::g_force_cpu_draw)

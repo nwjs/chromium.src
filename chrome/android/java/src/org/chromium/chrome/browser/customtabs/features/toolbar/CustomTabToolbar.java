@@ -99,6 +99,7 @@ import org.chromium.chrome.browser.toolbar.top.ToolbarLayout;
 import org.chromium.chrome.browser.toolbar.top.ToolbarPhone;
 import org.chromium.chrome.browser.toolbar.top.ToolbarSnapshotDifference;
 import org.chromium.chrome.browser.toolbar.top.TopToolbarCoordinator.ToolbarColorObserver;
+import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.IntentOrigin;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.components.browser_ui.styles.ChromeColors;
@@ -161,7 +162,6 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
     private boolean mMaximizeButtonEnabled;
     private boolean mMinimizeButtonEnabled;
 
-    private OnClickListener mCloseClickListener;
     private CookieControlsBridge mCookieControlsBridge;
     private boolean mShouldHighlightCookieControlsIcon;
     private boolean mCookieControlsVisible;
@@ -329,7 +329,6 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
      * Initialize the maximize button for side sheet CCT. Create one if not instantiated.
      *
      * @param maximizedOnInit {@code true} if the side sheet is starting in maximized state.
-     * @param onMaximizeClicked Callback to invoke when maximize button gets clicked.
      */
     public void initSideSheetMaximizeButton(
             boolean maximizedOnInit, MaximizeButtonCallback callback) {
@@ -1296,7 +1295,8 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
                             /* focusChangeCallback= */ (unused) -> {},
                             this,
                             new NoOpkeyboardVisibilityDelegate(),
-                            isIncognitoBranded());
+                            isIncognitoBranded(),
+                            /* onLongClickListener= */ null);
             mTabCreator = tabCreator;
             mTouchTargetSize = getResources().getDimensionPixelSize(R.dimen.min_touch_target_size);
             updateColors();
@@ -1925,10 +1925,13 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
                         if (tapHandler != null) {
                             tapHandler.accept(tab);
                         } else {
-                            SearchActivityClientImpl.requestOmniboxForResult(
-                                    tab.getWindowAndroid().getActivity().get(),
-                                    tab.getUrl(),
-                                    clientPackageName);
+                            new SearchActivityClientImpl()
+                                    .requestOmniboxForResult(
+                                            tab.getWindowAndroid().getActivity().get(),
+                                            tab.getUrl(),
+                                            IntentOrigin.CUSTOM_TAB,
+                                            clientPackageName,
+                                            tab.isIncognitoBranded());
                         }
                     });
 

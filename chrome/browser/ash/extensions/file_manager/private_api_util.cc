@@ -5,6 +5,7 @@
 #include "chrome/browser/ash/extensions/file_manager/private_api_util.h"
 
 #include <stddef.h>
+
 #include <memory>
 #include <string>
 #include <utility>
@@ -23,7 +24,6 @@
 #include "chrome/browser/ash/drive/file_system_util.h"
 #include "chrome/browser/ash/extensions/file_manager/event_router.h"
 #include "chrome/browser/ash/extensions/file_manager/event_router_factory.h"
-#include "chrome/browser/ash/file_manager/app_id.h"
 #include "chrome/browser/ash/file_manager/fileapi_util.h"
 #include "chrome/browser/ash/file_manager/filesystem_api_util.h"
 #include "chrome/browser/ash/file_manager/path_util.h"
@@ -34,6 +34,7 @@
 #include "chrome/browser/ash/guest_os/public/guest_os_mount_provider.h"
 #include "chrome/browser/ash/guest_os/public/guest_os_mount_provider_registry.h"
 #include "chrome/browser/ash/guest_os/public/guest_os_service.h"
+#include "chrome/browser/ash/guest_os/public/guest_os_service_factory.h"
 #include "chrome/browser/ash/guest_os/public/types.h"
 #include "chrome/browser/ash/policy/skyvault/policy_utils.h"
 #include "chrome/browser/profiles/profile.h"
@@ -776,7 +777,7 @@ drive::EventLogger* GetLogger(Profile* profile) {
 }
 
 std::vector<fmp::MountableGuest> CreateMountableGuestList(Profile* profile) {
-  auto* service = guest_os::GuestOsService::GetForProfile(profile);
+  auto* service = guest_os::GuestOsServiceFactory::GetForProfile(profile);
   if (!service) {
     return {};
   }

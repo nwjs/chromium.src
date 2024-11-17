@@ -39,7 +39,6 @@ class PageLoadMetricsEmbedder
   bool IsNewTabPageUrl(const GURL& url) override;
   bool IsNoStatePrefetch(content::WebContents* web_contents) override;
   bool IsExtensionUrl(const GURL& url) override;
-  bool IsSidePanel(content::WebContents* web_contents) override;
   bool IsNonTabWebUI() override;
   page_load_metrics::PageLoadMetricsMemoryTracker*
   GetMemoryTrackerForBrowserContext(
@@ -47,8 +46,8 @@ class PageLoadMetricsEmbedder
 
  protected:
   // page_load_metrics::PageLoadMetricsEmbedderBase:
-  void RegisterEmbedderObservers(
-      page_load_metrics::PageLoadTracker* tracker) override;
+  void RegisterObservers(page_load_metrics::PageLoadTracker* tracker,
+                         content::NavigationHandle* navigation_handle) override;
 };
 
 PageLoadMetricsEmbedder::PageLoadMetricsEmbedder(
@@ -57,8 +56,10 @@ PageLoadMetricsEmbedder::PageLoadMetricsEmbedder(
 
 PageLoadMetricsEmbedder::~PageLoadMetricsEmbedder() = default;
 
-void PageLoadMetricsEmbedder::RegisterEmbedderObservers(
-    page_load_metrics::PageLoadTracker* tracker) {
+void PageLoadMetricsEmbedder::RegisterObservers(
+    page_load_metrics::PageLoadTracker* tracker,
+    content::NavigationHandle* navigation_handle) {
+  RegisterCommonObservers(tracker);
   tracker->AddObserver(std::make_unique<ThirdPartyMetricsObserver>());
   tracker->AddObserver(std::make_unique<AbandonedPageLoadMetricsObserver>());
   tracker->AddObserver(std::make_unique<GWSAbandonedPageLoadMetricsObserver>());
@@ -74,11 +75,6 @@ bool PageLoadMetricsEmbedder::IsNoStatePrefetch(
 }
 
 bool PageLoadMetricsEmbedder::IsExtensionUrl(const GURL& url) {
-  return false;
-}
-
-bool PageLoadMetricsEmbedder::IsSidePanel(content::WebContents* web_contents) {
-  // The side panel is not supported on Android so this always returns false.
   return false;
 }
 

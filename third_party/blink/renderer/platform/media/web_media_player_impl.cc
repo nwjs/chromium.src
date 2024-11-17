@@ -362,7 +362,6 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
     scoped_refptr<base::SingleThreadTaskRunner> compositor_task_runner,
     scoped_refptr<base::SingleThreadTaskRunner>
         video_frame_compositor_task_runner,
-    WebMediaPlayerBuilder::AdjustAllocatedMemoryCB adjust_allocated_memory_cb,
     WebContentDecryptionModule* initial_cdm,
     media::RequestRoutingTokenCallback request_routing_token_cb,
     base::WeakPtr<media::MediaObserver> media_observer,
@@ -388,7 +387,7 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
       delegate_(delegate),
       delegate_has_audio_(HasUnmutedAudio()),
       defer_load_cb_(std::move(defer_load_cb)),
-      adjust_allocated_memory_cb_(std::move(adjust_allocated_memory_cb)),
+      isolate_(frame_->GetAgentGroupScheduler()->Isolate()),
       demuxer_manager_(std::make_unique<media::DemuxerManager>(
           this,
           media_task_runner_,
@@ -424,7 +423,7 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
                               base::Unretained(this))),
       will_play_helper_(nullptr) {
   DVLOG(1) << __func__;
-  DCHECK(adjust_allocated_memory_cb_);
+  DCHECK(isolate_);
   DCHECK(renderer_factory_selector_);
   DCHECK(client_);
   DCHECK(delegate_);
@@ -578,8 +577,10 @@ WebMediaPlayerImpl::~WebMediaPlayerImpl() {
   // after trampolining through the media thread.
   pipeline_controller_->Stop();
 
-  if (last_reported_memory_usage_)
-    adjust_allocated_memory_cb_.Run(-last_reported_memory_usage_);
+  if (last_reported_memory_usage_) {
+    external_memory_accounter_.Decrease(isolate_.get(),
+                                        last_reported_memory_usage_);
+  }
 
   // Destruct compositor resources in the proper order.
   client_->SetCcLayer(nullptr);
@@ -792,8 +793,8 @@ void WebMediaPlayerImpl::OnDisplayTypeChanged(DisplayType display_type) {
       }
 
       // Resumes playback if it was paused when hidden.
-      if (paused_when_hidden_) {
-        paused_when_hidden_ = false;
+      if (IsPausedBecauseFrameHidden() || IsPausedBecausePageHidden()) {
+        visibility_pause_reason_.reset();
         client_->ResumePlayback();
       }
     } else {
@@ -982,7 +983,7 @@ void WebMediaPlayerImpl::Pause() {
   paused_ = true;
 
   // No longer paused because it was hidden.
-  paused_when_hidden_ = false;
+  visibility_pause_reason_.reset();
 
   UpdateSmoothnessHelper();
 
@@ -1156,10 +1157,10 @@ void WebMediaPlayerImpl::SetVolume(double volume) {
     delegate_has_audio_ = HasUnmutedAudio();
     DidMediaMetadataChange();
 
-    // If we paused a background video since it was muted, the volume change
-    // should resume the playback.
-    if (paused_when_hidden_) {
-      paused_when_hidden_ = false;
+    // If we paused a background video in a non-visible page since it was muted,
+    // the volume change should resume the playback.
+    if (IsPausedBecausePageHidden()) {
+      visibility_pause_reason_.reset();
       // Calls UpdatePlayState() so return afterwards.
       client_->ResumePlayback();
       return;
@@ -1302,10 +1303,6 @@ gfx::Size WebMediaPlayerImpl::VisibleSize() const {
 bool WebMediaPlayerImpl::Paused() const {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
   return paused_;
-}
-
-bool WebMediaPlayerImpl::PausedWhenHidden() const {
-  return paused_when_hidden_;
 }
 
 bool WebMediaPlayerImpl::Seeking() const {
@@ -1501,10 +1498,12 @@ void WebMediaPlayerImpl::Paint(cc::PaintCanvas* canvas,
   video_frame_readback_count_++;
   pipeline_controller_->OnExternalVideoFrameRequest();
 
-  video_renderer_.Paint(
-      video_frame, canvas, gfx::RectF(rect), flags,
-      pipeline_metadata_.video_decoder_config.video_transformation(),
-      raster_context_provider_.get());
+  media::PaintCanvasVideoRenderer::PaintParams paint_params;
+  paint_params.dest_rect = gfx::RectF(rect);
+  paint_params.transformation =
+      pipeline_metadata_.video_decoder_config.video_transformation();
+  video_renderer_.Paint(video_frame, canvas, flags, paint_params,
+                        raster_context_provider_.get());
 }
 
 scoped_refptr<media::VideoFrame>
@@ -1625,13 +1624,17 @@ void WebMediaPlayerImpl::OnEncryptedMediaInitData(
       base::saturated_cast<unsigned int>(init_data.size()));
 }
 
-#if BUILDFLAG(ENABLE_FFMPEG)
+#if BUILDFLAG(ENABLE_FFMPEG) || BUILDFLAG(ENABLE_HLS_DEMUXER)
 
 void WebMediaPlayerImpl::AddMediaTrack(const media::MediaTrack& track) {
   client_->AddMediaTrack(track);
 }
 
-#endif  // BUILDFLAG(ENABLE_FFMPEG)
+void WebMediaPlayerImpl::RemoveMediaTrack(const media::MediaTrack& track) {
+  client_->RemoveMediaTrack(track);
+}
+
+#endif  // BUILDFLAG(ENABLE_FFMPEG) || BUILDFLAG(ENABLE_HLS_DEMUXER)
 
 #if BUILDFLAG(ENABLE_HLS_DEMUXER)
 
@@ -2585,10 +2588,13 @@ void WebMediaPlayerImpl::OnPageShown() {
       base::BindOnce(&VideoFrameCompositor::SetIsPageVisible,
                      base::Unretained(compositor_.get()), !IsPageHidden()));
 
+  // UpdateBackgroundVideoOptimizationState will set `visibility_pause_reason_`
+  // to the updated correct value. However, we need to know the previous one to
+  // decide if we should resume playback.
+  bool was_paused_because_page_hidden = IsPausedBecausePageHidden();
   UpdateBackgroundVideoOptimizationState();
 
-  if (paused_when_hidden_) {
-    paused_when_hidden_ = false;
+  if (!visibility_pause_reason_ && was_paused_because_page_hidden) {
     client_->ResumePlayback();  // Calls UpdatePlayState() so return afterwards.
     return;
   }
@@ -3396,7 +3402,7 @@ void WebMediaPlayerImpl::FinishMemoryUsageReport(int64_t demuxer_memory_usage) {
 
   const int64_t delta = current_memory_usage - last_reported_memory_usage_;
   last_reported_memory_usage_ = current_memory_usage;
-  adjust_allocated_memory_cb_.Run(delta);
+  external_memory_accounter_.Update(isolate_.get(), delta);
 }
 
 void WebMediaPlayerImpl::OnMainThreadMemoryDump(
@@ -3444,7 +3450,7 @@ void WebMediaPlayerImpl::OnMediaThreadMemoryDump(
 void WebMediaPlayerImpl::ScheduleIdlePauseTimer() {
   // Only schedule the pause timer if we're not paused or paused but going to
   // resume when foregrounded, and are suspended and have audio.
-  if ((paused_ && !paused_when_hidden_) ||
+  if ((paused_ && !IsPausedBecausePageHidden()) ||
       !pipeline_controller_->IsSuspended() || !HasAudio()) {
     return;
   }
@@ -3546,6 +3552,18 @@ bool WebMediaPlayerImpl::IsFrameHidden() const {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
 
   return delegate_->IsFrameHidden() && !was_suspended_for_frame_closed_;
+}
+
+bool WebMediaPlayerImpl::IsPausedBecausePageHidden() const {
+  return visibility_pause_reason_ &&
+         visibility_pause_reason_ ==
+             WebMediaPlayerClient::PauseReason::kPageHidden;
+}
+
+bool WebMediaPlayerImpl::IsPausedBecauseFrameHidden() const {
+  return visibility_pause_reason_ &&
+         visibility_pause_reason_ ==
+             WebMediaPlayerClient::PauseReason::kFrameHidden;
 }
 
 bool WebMediaPlayerImpl::IsStreaming() const {
@@ -3744,6 +3762,9 @@ void WebMediaPlayerImpl::UpdateBackgroundVideoOptimizationState() {
   } else {
     update_background_status_cb_.Cancel();
     is_background_status_change_cancelled_ = true;
+    // There no visibility-related reason to pause the video.
+    visibility_pause_reason_.reset();
+
     EnableVideoTrackIfNeeded();
   }
 }
@@ -3757,17 +3778,19 @@ void WebMediaPlayerImpl::PauseVideoIfNeeded() {
       seeking_ || paused_)
     return;
 
-  auto pause_reason =
-      WebMediaPlayerClient::PauseReason::kBackgroundVideoOptimization;
+  auto pause_reason = WebMediaPlayerClient::PauseReason::kPageHidden;
   if (IsFrameHidden() && should_pause_when_frame_is_hidden_) {
     pause_reason = WebMediaPlayerClient::PauseReason::kFrameHidden;
   }
 
-  // client_->PausePlayback() will get `paused_when_hidden_` set to
-  // false and UpdatePlayState() called, so set the flag to true after and then
-  // return.
+  // client_->PausePlayback() will get `visibility_pause_reason_` set to
+  // std::nullopt and UpdatePlayState() called, so set
+  // `visibility_pause_reason_` to the correct value after and then return.
+  // TODO(crbug.com/351354996): To avoid resetting `visibility_pause_reason_`,
+  // we should plumb the pause reason from here all the way through to
+  // `WebMediaPlayerImpl::Pause`, where the reset is done.
   client_->PausePlayback(pause_reason);
-  paused_when_hidden_ = true;
+  visibility_pause_reason_ = pause_reason;
 }
 
 void WebMediaPlayerImpl::EnableVideoTrackIfNeeded() {

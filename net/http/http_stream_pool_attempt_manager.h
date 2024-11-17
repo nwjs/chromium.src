@@ -31,7 +31,6 @@
 #include "net/socket/connection_attempts.h"
 #include "net/socket/stream_attempt.h"
 #include "net/socket/stream_socket_handle.h"
-#include "net/socket/tls_stream_attempt.h"
 #include "net/ssl/ssl_cert_request_info.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_versions.h"
 #include "url/gurl.h"
@@ -44,8 +43,7 @@ class HttpStreamKey;
 
 // Maintains in-flight Jobs. Peforms DNS resolution.
 class HttpStreamPool::AttemptManager
-    : public HostResolver::ServiceEndpointRequest::Delegate,
-      public TlsStreamAttempt::SSLConfigProvider {
+    : public HostResolver::ServiceEndpointRequest::Delegate {
  public:
   // Time to delay connection attempts more than one when the destination is
   // known to support HTTP/2, to avoid unnecessary socket connection
@@ -103,9 +101,9 @@ class HttpStreamPool::AttemptManager
   void OnServiceEndpointsUpdated() override;
   void OnServiceEndpointRequestFinished(int rv) override;
 
-  // TlsStreamAttempt::SSLConfigProvider implementation:
-  int WaitForSSLConfigReady(CompletionOnceCallback callback) override;
-  SSLConfig GetSSLConfig() override;
+  int WaitForSSLConfigReady(CompletionOnceCallback callback);
+
+  SSLConfig GetSSLConfig();
 
   // Tries to process a single pending request/preconnect.
   void ProcessPendingJob();
@@ -149,7 +147,7 @@ class HttpStreamPool::AttemptManager
   void OnRequiredHttp11();
 
   // Called when the QuicTask owned by `this` is completed.
-  void OnQuicTaskComplete(int rv);
+  void OnQuicTaskComplete(int rv, NetErrorDetails details);
 
   // Retrieves information on the current state of `this` as a base::Value.
   base::Value::Dict GetInfoAsValue();
@@ -175,9 +173,17 @@ class HttpStreamPool::AttemptManager
     kReachedPoolLimit,
   };
 
+  // The state of TCP/TLS connection attempts.
+  enum class TcpBasedAttemptState {
+    kNotStarted,
+    kAttempting,
+    kSucceededAtLeastOnce,
+    kAllAttemptsFailed,
+  };
+
   using JobQueue = PriorityQueue<raw_ptr<Job>>;
 
-  struct InFlightAttempt;
+  class InFlightAttempt;
   struct PreconnectEntry;
 
   const HttpStreamKey& stream_key() const;
@@ -317,13 +323,15 @@ class HttpStreamPool::AttemptManager
 
   bool CanUseExistingQuicSession();
 
+  // Mark QUIC brokenness if QUIC attempts failed but TCP/TLS attempts succeeded
+  // or not attempted.
+  void MaybeMarkQuicBroken();
+
   void MaybeComplete();
 
   const raw_ptr<Group> group_;
 
   const NetLogWithSource net_log_;
-
-  ProxyInfo proxy_info_;
 
   RespectLimits respect_limits_ = RespectLimits::kRespect;
 
@@ -396,6 +404,10 @@ class HttpStreamPool::AttemptManager
   // Updated when a stream attempt is considered slow. Used to calculate next
   // IPEndPoint to attempt.
   std::set<IPEndPoint> slow_ip_endpoints_;
+
+  // The current state of TCP/TLS connection attempts.
+  TcpBasedAttemptState tcp_based_attempt_state_ =
+      TcpBasedAttemptState::kNotStarted;
 
   // Initialized when one of an attempt is negotiated to use HTTP/2.
   base::WeakPtr<SpdySession> spdy_session_;

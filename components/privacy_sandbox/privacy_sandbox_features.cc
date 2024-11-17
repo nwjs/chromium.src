@@ -148,7 +148,7 @@ BASE_FEATURE(kAlwaysBlock3pcsIncognito,
 
 BASE_FEATURE(kTrackingProtection3pcdUx,
              "TrackingProtection3pcdUx",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kFingerprintingProtectionUserBypass,
              "FingerprintingProtectionUserBypass",
@@ -196,12 +196,6 @@ BASE_FEATURE(kTrackingProtectionUserBypassPwaTrigger,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
-BASE_FEATURE(kPsRedesignAdPrivacyPage,
-             "PsRedesignAdPrivacyPage",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<bool> kPsRedesignAdPrivacyPageEnableToggles{
-    &kPsRedesignAdPrivacyPage, "enable-toggles", false};
-
 BASE_FEATURE(kPsDualWritePrefsToNoticeStorage,
              "PsDualWritePrefsToNoticeStorage",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -212,7 +206,7 @@ BASE_FEATURE(kPrivateStateTokensDevUI,
 
 BASE_FEATURE(kPrivacySandboxActivityTypeStorage,
              "PrivacySandboxActivityTypeStorage",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 const char kPrivacySandboxActivityTypeStorageLastNLaunchesName[] =
     "last-n-launches";
@@ -246,6 +240,10 @@ BASE_FEATURE(kPrivacySandboxMigratePrefsToNoticeConsentDataModel,
 
 BASE_FEATURE(kPrivacySandboxPrivacyPolicy,
              "PrivacySandboxPrivacyPolicy",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPrivacySandboxNoticeQueue,
+             "PrivacySandboxNoticeQueue",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPrivacySandboxSentimentSurvey,

@@ -7,9 +7,9 @@
 #include <optional>
 
 #include "ash/picker/model/picker_search_results_section.h"
+#include "ash/picker/picker_search_result.h"
 #include "ash/picker/search/picker_search_source.h"
 #include "ash/picker/views/picker_view_delegate.h"
-#include "ash/public/cpp/picker/picker_search_result.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/test/task_environment.h"
@@ -78,14 +78,6 @@ const TestCase kNamedSectionTestCases[] = {
         .section_type = PickerSectionType::kDriveFiles,
     },
     TestCase{
-        .source = PickerSearchSource::kEditorWrite,
-        .section_type = PickerSectionType::kEditorWrite,
-    },
-    TestCase{
-        .source = PickerSearchSource::kEditorRewrite,
-        .section_type = PickerSectionType::kEditorRewrite,
-    },
-    TestCase{
         .source = PickerSearchSource::kClipboard,
         .section_type = PickerSectionType::kClipboard,
     },
@@ -106,6 +98,21 @@ const TestCase kNoneSectionTestCases[] = {
     },
 };
 
+const TestCase kContentEditorSectionTestCases[] = {
+    TestCase{
+        .source = PickerSearchSource::kEditorWrite,
+        .section_type = PickerSectionType::kContentEditor,
+    },
+    TestCase{
+        .source = PickerSearchSource::kEditorRewrite,
+        .section_type = PickerSectionType::kContentEditor,
+    },
+    TestCase{
+        .source = PickerSearchSource::kLobster,
+        .section_type = PickerSectionType::kContentEditor,
+    },
+};
+
 INSTANTIATE_TEST_SUITE_P(NamedSections,
                          PickerSearchAggregatorTest,
                          testing::ValuesIn(kNamedSectionTestCases));
@@ -113,6 +120,10 @@ INSTANTIATE_TEST_SUITE_P(NamedSections,
 INSTANTIATE_TEST_SUITE_P(NoneSections,
                          PickerSearchAggregatorTest,
                          testing::ValuesIn(kNoneSectionTestCases));
+
+INSTANTIATE_TEST_SUITE_P(ContentEditorSections,
+                         PickerSearchAggregatorTest,
+                         testing::ValuesIn(kContentEditorSectionTestCases));
 
 class PickerSearchAggregatorNamedSectionTest
     : public PickerSearchAggregatorTest {};
@@ -509,18 +520,20 @@ TEST_F(PickerSearchAggregatorMultipleSourcesTest,
                        ElementsAre(VariantWith<PickerClipboardResult>(Field(
                            "display_text", &PickerClipboardResult::display_text,
                            u"clipboard"))))),
-          AllOf(Property("type", &PickerSearchResultsSection::type,
-                         PickerSectionType::kEditorWrite),
-                Property("results", &PickerSearchResultsSection::results,
-                         ElementsAre(VariantWith<PickerTextResult>(Field(
-                             "primary_text", &PickerTextResult::primary_text,
-                             u"write"))))),
-          AllOf(Property("type", &PickerSearchResultsSection::type,
-                         PickerSectionType::kEditorRewrite),
-                Property("results", &PickerSearchResultsSection::results,
-                         ElementsAre(VariantWith<PickerTextResult>(Field(
-                             "primary_text", &PickerTextResult::primary_text,
-                             u"rewrite"))))))))
+          AllOf(
+              Property("type", &PickerSearchResultsSection::type,
+                       PickerSectionType::kContentEditor),
+              Property("results", &PickerSearchResultsSection::results,
+                       ElementsAre(
+                           VariantWith<PickerTextResult>(Field(
+                               "primary_text", &PickerTextResult::primary_text,
+                               u"write")),
+                           VariantWith<PickerTextResult>(Field(
+                               "primary_text", &PickerTextResult::primary_text,
+                               u"rewrite")),
+                           VariantWith<PickerTextResult>(Field(
+                               "primary_text", &PickerTextResult::primary_text,
+                               u"lobster"))))))))
       .Times(1);
 
   PickerSearchAggregator aggregator(
@@ -561,6 +574,9 @@ TEST_F(PickerSearchAggregatorMultipleSourcesTest,
   aggregator.HandleSearchSourceResults(PickerSearchSource::kEditorRewrite,
                                        {PickerTextResult(u"rewrite")},
                                        /*has_more_results=*/false);
+  aggregator.HandleSearchSourceResults(PickerSearchSource::kLobster,
+                                       {PickerTextResult(u"lobster")},
+                                       /*has_more_results=*/false);
   task_environment().FastForwardBy(kBurnInPeriod);
 }
 
@@ -590,7 +606,7 @@ TEST_F(PickerSearchAggregatorMultipleSourcesTest,
                            "display_text", &PickerClipboardResult::display_text,
                            u"clipboard"))))),
           AllOf(Property("type", &PickerSearchResultsSection::type,
-                         PickerSectionType::kEditorWrite),
+                         PickerSectionType::kContentEditor),
                 Property("results", &PickerSearchResultsSection::results,
                          ElementsAre(VariantWith<PickerTextResult>(Field(
                              "primary_text", &PickerTextResult::primary_text,
@@ -649,7 +665,7 @@ TEST_F(PickerSearchAggregatorMultipleSourcesTest,
                              "primary_text", &PickerTextResult::primary_text,
                              u"omnibox"))))),
           AllOf(Property("type", &PickerSearchResultsSection::type,
-                         PickerSectionType::kEditorWrite),
+                         PickerSectionType::kContentEditor),
                 Property("results", &PickerSearchResultsSection::results,
                          ElementsAre(VariantWith<PickerTextResult>(Field(
                              "primary_text", &PickerTextResult::primary_text,
@@ -724,24 +740,6 @@ TEST_F(PickerSearchAggregatorMultipleSourcesTest,
                                "primary_text", &PickerTextResult::primary_text,
                                u"local"))))))))
       .Times(1);
-  EXPECT_CALL(search_results_callback,
-              Call(ElementsAre(AllOf(
-                  Property("type", &PickerSearchResultsSection::type,
-                           PickerSectionType::kEditorWrite),
-                  Property("results", &PickerSearchResultsSection::results,
-                           ElementsAre(VariantWith<PickerTextResult>(Field(
-                               "primary_text", &PickerTextResult::primary_text,
-                               u"write"))))))))
-      .Times(1);
-  EXPECT_CALL(search_results_callback,
-              Call(ElementsAre(AllOf(
-                  Property("type", &PickerSearchResultsSection::type,
-                           PickerSectionType::kEditorRewrite),
-                  Property("results", &PickerSearchResultsSection::results,
-                           ElementsAre(VariantWith<PickerTextResult>(Field(
-                               "primary_text", &PickerTextResult::primary_text,
-                               u"rewrite"))))))))
-      .Times(1);
 
   PickerSearchAggregator aggregator(
       kBurnInPeriod,
@@ -775,6 +773,9 @@ TEST_F(PickerSearchAggregatorMultipleSourcesTest,
                                        /*has_more_results=*/false);
   aggregator.HandleSearchSourceResults(PickerSearchSource::kEditorRewrite,
                                        {PickerTextResult(u"rewrite")},
+                                       /*has_more_results=*/false);
+  aggregator.HandleSearchSourceResults(PickerSearchSource::kLobster,
+                                       {PickerTextResult(u"lobster")},
                                        /*has_more_results=*/false);
 }
 

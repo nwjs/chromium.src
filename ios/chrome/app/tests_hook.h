@@ -112,7 +112,7 @@ std::unique_ptr<TrustedVaultClientBackend> CreateTrustedVaultClientBackend();
 // Allows overriding the TabGroupSyncService factory. The real factory will be
 // used if this hook returns null.
 std::unique_ptr<tab_groups::TabGroupSyncService> CreateTabGroupSyncService(
-    ChromeBrowserState* browser_state);
+    ProfileIOS* profile);
 
 // Returns a bulk leak check service that should be used when testing. The real
 // factory will be used if this hook returns a nullptr.
@@ -122,7 +122,7 @@ GetOverriddenBulkLeakCheckService();
 // Returns a plus address service that should be used when testing. The real
 // factory will be used if this hook returns a nullptr.
 std::unique_ptr<plus_addresses::PlusAddressService>
-GetOverriddenPlusAddressService(ProfileIOS* profile);
+GetOverriddenPlusAddressService();
 
 // Returns a recipients fetcher instance that should be used in EG tests. The
 // real instance will be used if this hook returns a nullptr.

@@ -55,9 +55,26 @@ class GWSPageLoadMetricsObserver
     kFromNewTabPage,
     kStartedInBackground,
     kStartedInBackgroundFromNewTabPage,
-    kMaxValue = kStartedInBackground,
+    kFromGWSPage,
+    kStartedInBackgroundFromGWSPage,
+    kMaxValue = kStartedInBackgroundFromGWSPage,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/page/enums.xml:NavigationSourceTypeEnum)
+
+  // The state of the preconnect. Keeps track of the possible state of
+  // preconnect before commit.
+  //
+  // These values are persisted to logs. Entries should not be renumbered
+  // and numeric values should never be reused.
+  //
+  // LINT.IfChange(ConnectionReuseStatus)
+  enum class ConnectionReuseStatus {
+    kNonReuse,
+    kDNSReused,
+    kReused,
+    kMaxValue = kReused,
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/page/enums.xml:ConnectionReuseStatus)
 
   GWSPageLoadMetricsObserver();
 
@@ -109,18 +126,23 @@ class GWSPageLoadMetricsObserver
  private:
   void LogMetricsOnComplete();
   void RecordNavigationTimingHistograms();
-  void RecordLatencyTraceEvents(base::TimeTicks response_start_time);
+  void RecordLatencyHitograms(base::TimeTicks response_start_time);
 
   // Records the histograms required before commit. This is to ensure that we
   // are getting the metrics only for GWS navigations.
   void RecordPreCommitHistograms();
 
+  // Records the histograms for possible connection reuse.
+  void RecordConnectionReuseHistograms();
+
   bool IsFromNewTabPage(content::NavigationHandle* navigation_handle);
-  std::string AddHistogramSuffix(const std::string histogram_name);
+  std::string AddHistogramSuffix(const std::string& histogram_name);
 
   content::NavigationHandleTiming navigation_handle_timing_;
 
   bool is_first_navigation_ = false;
+  bool was_cached_ = false;
+  bool is_safesites_filter_enabled_ = false;
 
   NavigationSourceType source_type_ = kUnknown;
 

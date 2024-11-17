@@ -33,6 +33,7 @@ import org.mockito.MockitoAnnotations;
 
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisableIf;
+import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.PayloadCallbackHelper;
 import org.chromium.base.test.util.Restriction;
@@ -46,13 +47,18 @@ import org.chromium.chrome.browser.sync.SyncTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.R;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.DeviceRestriction;
 import org.chromium.ui.test.util.GmsCoreVersionRestriction;
-import org.chromium.ui.test.util.UiDisableIf;
 
-/** Integration test for accessing credential manager. */
+/**
+ * Integration test for accessing credential manager.
+ *
+ * <p>TODO(crbug.com/376173733): Change the tests to use the fake GMS version instead, add a couple
+ * more test cases.
+ */
 @RunWith(ChromeJUnit4ClassRunner.class)
-// TODO(crbug.com/344665935): Failing when batched, batch this again.
+@DoNotBatch(reason = "TODO(crbug.com/344665935): Failing when batched, batch this again.")
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE, "show-autofill-signatures"})
 public class CredentialManagerIntegrationTest {
     @Rule public SyncTestRule mSyncTestRule = new SyncTestRule();
@@ -92,7 +98,7 @@ public class CredentialManagerIntegrationTest {
     @LargeTest
     @Restriction({
         DeviceRestriction.RESTRICTION_TYPE_NON_AUTO,
-        GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_22W30
+        GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_24W15
     })
     public void testUseCredentialManagerFromChromeSettings() {
         mSettingsActivityTestRule.startSettingsActivity();
@@ -109,9 +115,9 @@ public class CredentialManagerIntegrationTest {
     @LargeTest
     @Restriction({
         DeviceRestriction.RESTRICTION_TYPE_NON_AUTO,
-        GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_22W30
+        GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_24W15
     })
-    @DisableIf.Device(type = {UiDisableIf.TABLET}) // https://crbug.com/339278945
+    @DisableIf.Device(DeviceFormFactor.TABLET) // https://crbug.com/339278945
     @DisableFeatures(ChromeFeatureList.SAFETY_HUB)
     public void testUseCredentialManagerFromSafetyCheckForLocal() {
         mSettingsActivityTestRule.startSettingsActivity();
@@ -129,9 +135,9 @@ public class CredentialManagerIntegrationTest {
     @LargeTest
     @Restriction({
         DeviceRestriction.RESTRICTION_TYPE_NON_AUTO,
-        GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_22W30
+        GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_24W15
     })
-    @DisableIf.Device(type = {UiDisableIf.TABLET}) // https://crbug.com/339278945
+    @DisableIf.Device(DeviceFormFactor.TABLET) // https://crbug.com/339278945
     @DisableFeatures(ChromeFeatureList.SAFETY_HUB)
     public void testUseCredentialManagerFromSafetyCheckForAccount() {
         mSettingsActivityTestRule.startSettingsActivity();

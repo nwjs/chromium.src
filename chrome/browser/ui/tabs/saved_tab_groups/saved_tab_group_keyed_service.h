@@ -12,12 +12,12 @@
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_controller.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_model_listener.h"
 #include "components/keyed_service/core/keyed_service.h"
-#include "components/saved_tab_groups/saved_tab_group_model.h"
-#include "components/saved_tab_groups/saved_tab_group_sync_bridge.h"
-#include "components/saved_tab_groups/tab_group_sync_bridge_mediator.h"
-#include "components/saved_tab_groups/tab_group_sync_metrics_logger.h"
-#include "components/saved_tab_groups/tab_group_sync_service.h"
-#include "components/saved_tab_groups/types.h"
+#include "components/saved_tab_groups/internal/saved_tab_group_model.h"
+#include "components/saved_tab_groups/internal/saved_tab_group_sync_bridge.h"
+#include "components/saved_tab_groups/internal/tab_group_sync_bridge_mediator.h"
+#include "components/saved_tab_groups/public/tab_group_sync_metrics_logger.h"
+#include "components/saved_tab_groups/public/tab_group_sync_service.h"
+#include "components/saved_tab_groups/public/types.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "ui/gfx/range/range.h"
 
@@ -93,6 +93,8 @@ class SavedTabGroupKeyedService : public KeyedService,
 
   // Saves a restored group. This can be called prior to the saved tab
   // group model is loaded. These groups are saved when the model is loaded.
+  // This method will also connect an opened tab group to the saved group if the
+  // local id is provided via `group`.
   void SaveRestoredGroup(SavedTabGroup group);
 
   void UpdateAttributions(
@@ -120,6 +122,9 @@ class SavedTabGroupKeyedService : public KeyedService,
   void OnTabGroupVisualsChanged(const base::Uuid& group_guid);
 
   TabGroupSyncServiceProxy* proxy() { return service_proxy_.get(); }
+  TabGroupSyncMetricsLogger* GetTabGroupSyncMetricsLogger() {
+    return metrics_logger_.get();
+  }
 
  private:
   // Adds tabs to `tab_group` if `saved_group` was modified and has more tabs

@@ -59,7 +59,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Histogram.MismatchedConstructionArguments"
-    enum="HistogramNameHash" expires_after="2025-01-26">
+    enum="HistogramNameHash" expires_after="2025-03-30">
   <owner>asvitkine@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -162,7 +162,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.CleanExitBeaconConsistency3"
-    enum="UmaCleanExitConsistency3" expires_after="2025-02-02">
+    enum="UmaCleanExitConsistency3" expires_after="2025-04-06">
   <owner>caitlinfischer@google.com</owner>
   <owner>justincohen@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
@@ -626,7 +626,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="UMA.PersistentAllocator.EarlyHistograms.{PersistentAllocatorType}"
-    units="histograms" expires_after="2025-02-02">
+    units="histograms" expires_after="2025-04-06">
   <owner>rogerm@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -737,7 +737,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.ProtoCompressionRatio" units="%"
-    expires_after="2025-01-19">
+    expires_after="2025-03-23">
   <owner>asvitkine@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -798,6 +798,21 @@ chromium-metrics-reviews@google.com.
     one. As such, the sampling rate emitted in a previous-session log record may
     not be the right one that should've applied to that record.
   </summary>
+</histogram>
+
+<histogram name="UMA.SeekPenaltyResult.{Implementation}"
+    enum="SeekPenaltyRecord" expires_after="2025-02-28">
+  <owner>spvw@chromium.org</owner>
+  <owner>chrome-catan@chromium.org</owner>
+  <summary>
+    Whether the hard drive containing either the user profile or chrome binary
+    was able to be queried for seek delay using the {Implementation}
+    implementation, and if so, the result of this query.
+  </summary>
+  <token key="Implementation">
+    <variant name="Base"/>
+    <variant name="Provider"/>
+  </token>
 </histogram>
 
 <histogram name="UMA.Startup.LocalStateFileExistence" enum="BooleanExists"
@@ -940,8 +955,30 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="UMA.TPMMetricsProvider.ReadSuccess" enum="Boolean"
+    expires_after="2025-06-29">
+  <owner>psarouthakis@google.com</owner>
+  <owner>kristianm@google.com</owner>
+  <summary>
+    Records if Chrome was able to read the manufacturer ID on the devices TPM.
+    This is recorded once during metrics initialization.
+  </summary>
+</histogram>
+
+<histogram name="UMA.TPMMetricsProvider.UnknownID" enum="Boolean"
+    expires_after="2025-06-29">
+  <owner>psarouthakis@google.com</owner>
+  <owner>kristianm@google.com</owner>
+  <summary>
+    Records if the Windows device has a unknown TPM. TPM ID's are compared to a
+    list of trusted ID provided by the Trusted Computing Group. This is recorded
+    once during metrics initialization if the TPMMetricsProvider was able to
+    read the TPM ID.
+  </summary>
+</histogram>
+
 <histogram name="UMA.TruncatedEvents.UserAction" units="events"
-    expires_after="2025-03-09">
+    expires_after="2025-04-06">
   <owner>rkaplow@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>

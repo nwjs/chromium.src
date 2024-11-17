@@ -117,10 +117,6 @@ std::vector<const char*> GetEnabledToggles(
     // Use packed D24_UNORM_S8_UINT DXGI format for Depth24PlusStencil8
     // format.
     enabled_toggles.push_back("use_packed_depth24_unorm_stencil8_format");
-    // ClearRenderTargetView() is buggy with some GPUs, so use draw instead.
-    // TODO(crbug.com/329702368): only enable color_clear_with_draw for GPUs
-    // with the issue.
-    enabled_toggles.push_back("clear_color_with_draw");
   }
 #endif
 
@@ -142,7 +138,6 @@ std::vector<wgpu::FeatureName> GetRequiredFeatures(
   std::vector<wgpu::FeatureName> features = {
       wgpu::FeatureName::DawnInternalUsages,
       wgpu::FeatureName::ImplicitDeviceSynchronization,
-      wgpu::FeatureName::SurfaceCapabilities,
 #if BUILDFLAG(IS_ANDROID)
       wgpu::FeatureName::TextureCompressionETC2,
 #endif
@@ -395,15 +390,24 @@ class DawnSharedContext : public base::RefCountedThreadSafe<DawnSharedContext>,
 
   // Provided to wgpu::Device as logging callback.
   static void LogInfo(WGPULoggingType type,
-                      char const* message,
-                      void* userdata) {
+#if defined(WGPU_BREAKING_CHANGE_STRING_VIEW_CALLBACKS)
+                      WGPUStringView message,
+#else   // defined(WGPU_BREAKING_CHANGE_STRING_VIEW_CALLBACKS)
+                      const char* message,
+#endif  // defined(WGPU_BREAKING_CHANGE_STRING_VIEW_CALLBACKS)
+                      void*) {
+#if defined(WGPU_BREAKING_CHANGE_STRING_VIEW_CALLBACKS)
+    std::string_view view = {message.data, message.length};
+#else   // defined(WGPU_BREAKING_CHANGE_STRING_VIEW_CALLBACKS)
+    std::string_view view = message;
+#endif  // defined(WGPU_BREAKING_CHANGE_STRING_VIEW_CALLBACKS)
     switch (static_cast<wgpu::LoggingType>(type)) {
       case wgpu::LoggingType::Warning:
-        LOG(WARNING) << message;
+        LOG(WARNING) << view;
         break;
       case wgpu::LoggingType::Error:
-        LOG(ERROR) << message;
-        SetDawnErrorCrashKey(message);
+        LOG(ERROR) << view;
+        SetDawnErrorCrashKey(view);
         base::debug::DumpWithoutCrashing();
         break;
       default:

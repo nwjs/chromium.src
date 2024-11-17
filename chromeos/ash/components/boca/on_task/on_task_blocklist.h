@@ -8,8 +8,8 @@
 #include <map>
 #include <memory>
 
-#include "base/memory/raw_ptr.h"
 #include "base/memory/singleton.h"
+#include "base/memory/weak_ptr.h"
 #include "components/policy/core/browser/url_blocklist_manager.h"
 #include "components/sessions/core/session_id.h"
 #include "content/public/browser/web_contents.h"
@@ -67,22 +67,35 @@ class OnTaskBlocklist {
   // otherwise. It should only be true if it's a new tab.
   bool MaybeSetURLRestrictionLevel(
       content::WebContents* tab,
+      const GURL& url,
       OnTaskBlocklist::RestrictionLevel restriction_level);
 
   // Sets the url restrictions for the given `url` with `restriction_level`.
   // Should only be called for the set of urls sent by the boca producer.
   void SetParentURLRestrictionLevel(
       content::WebContents* tab,
+      const GURL& url,
       OnTaskBlocklist::RestrictionLevel restriction_level);
 
   // Updates the blocklist that is associated with the given `tab`. This is
   // triggered on an active tab change or when the current tab changes.
   void RefreshForUrlBlocklist(content::WebContents* tab);
 
+  // Remove the `tab` from the `parent_tab_to_nav_filters_`;
+  void RemoveParentFilter(content::WebContents* tab);
+
   // Remove the `tab` from the `child_tab_to_nav_filters_`;
   void RemoveChildFilter(content::WebContents* tab);
 
   void CleanupBlocklist();
+
+  // Returns true if the tab can perform one level deep. If the current
+  // restriction level is not `kOneLevelDeepNavigation`, then this will return
+  // false. This should only be called in a block that checks that the current
+  // restriction level is for one level deep navigation.
+  bool CanPerformOneLevelNavigation(content::WebContents* tab);
+
+  bool IsCurrentRestrictionOneLevelDeep();
 
   // Returns true if the `tab` is a parent tab. A parent tab is any tab that was
   // sent as part of a session bundle. Any other tab created (either via
@@ -104,7 +117,7 @@ class OnTaskBlocklist {
  private:
   OnTaskBlocklist::RestrictionLevel current_page_restriction_level_ =
       OnTaskBlocklist::RestrictionLevel::kNoRestrictions;
-  raw_ptr<content::WebContents> previous_tab_;
+  base::WeakPtr<content::WebContents> previous_tab_;
   GURL previous_url_;
   bool first_time_popup_ = true;
   std::map<SessionID, OnTaskBlocklist::RestrictionLevel>

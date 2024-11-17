@@ -57,7 +57,8 @@ class ReadAnythingWebContentsObserver : public content::WebContentsObserver {
   void AccessibilityEventReceived(
       const ui::AXUpdatesAndEvents& details) override;
   void AccessibilityLocationChangesReceived(
-      const std::vector<ui::AXLocationChanges>& details) override;
+      const ui::AXTreeID& tree_id,
+      ui::AXLocationAndScrollUpdates& details) override;
   void PrimaryPageChanged(content::Page& page) override;
   void WebContentsDestroyed() override;
 
@@ -102,7 +103,8 @@ class ReadAnythingUntrustedPageHandler :
 
   void AccessibilityEventReceived(const ui::AXUpdatesAndEvents& details);
   void AccessibilityLocationChangesReceived(
-      const std::vector<ui::AXLocationChanges>& details);
+      const ui::AXTreeID& tree_id,
+      ui::AXLocationAndScrollUpdates& details);
   void PrimaryPageChanged();
   void WebContentsDestroyed();
 
@@ -110,11 +112,22 @@ class ReadAnythingUntrustedPageHandler :
   void OnVoiceChange(const std::string& voice,
                      const std::string& lang) override;
   void OnLanguagePrefChange(const std::string& lang, bool enabled) override;
+  void OnImageDataRequested(const ui::AXTreeID& target_tree_id,
+                            ui::AXNodeID target_node_id) override;
 
   // ash::SessionObserver
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   void OnLockStateChanged(bool locked) override;
 #endif
+
+ protected:
+  void OnImageDataDownloaded(const ui::AXTreeID& target_tree_id,
+                             ui::AXNodeID,
+                             int id,
+                             int http_status_code,
+                             const GURL& image_url,
+                             const std::vector<SkBitmap>& bitmaps,
+                             const std::vector<gfx::Size>& sizes);
 
  private:
   // TranslateDriver::LanguageDetectionObserver:
@@ -147,15 +160,6 @@ class ReadAnythingUntrustedPageHandler :
       read_anything::mojom::HighlightGranularity granularity) override;
   void OnLinkClicked(const ui::AXTreeID& target_tree_id,
                      ui::AXNodeID target_node_id) override;
-  void OnImageDataRequested(const ui::AXTreeID& target_tree_id,
-                            ui::AXNodeID target_node_id) override;
-  void OnImageDataDownloaded(const ui::AXTreeID& target_tree_id,
-                             ui::AXNodeID,
-                             int id,
-                             int http_status_code,
-                             const GURL& image_url,
-                             const std::vector<SkBitmap>& bitmaps,
-                             const std::vector<gfx::Size>& sizes);
   void ScrollToTargetNode(const ui::AXTreeID& target_tree_id,
                           ui::AXNodeID target_node_id) override;
   void OnSelectionChange(const ui::AXTreeID& target_tree_id,

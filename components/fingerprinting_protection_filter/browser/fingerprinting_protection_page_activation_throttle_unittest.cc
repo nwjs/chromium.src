@@ -19,7 +19,6 @@
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/subresource_filter/core/common/activation_decision.h"
 #include "components/subresource_filter/core/mojom/subresource_filter.mojom.h"
-#include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/mock_navigation_handle.h"
@@ -30,6 +29,7 @@
 namespace fingerprinting_protection_filter {
 
 namespace {
+using ::testing::_;
 
 class MockFingerprintingProtectionPageActivationThrottle
     : public FingerprintingProtectionPageActivationThrottle {
@@ -37,6 +37,19 @@ class MockFingerprintingProtectionPageActivationThrottle
   MOCK_METHOD(void,
               NotifyResult,
               (subresource_filter::ActivationDecision),
+              (override));
+  using FingerprintingProtectionPageActivationThrottle::
+      FingerprintingProtectionPageActivationThrottle;
+  using FingerprintingProtectionPageActivationThrottle::WillProcessResponse;
+};
+
+class MockActivationThrottleMockingNotifyPageActivationComputed
+    : public FingerprintingProtectionPageActivationThrottle {
+ public:
+  MOCK_METHOD(void,
+              NotifyPageActivationComputed,
+              (subresource_filter::mojom::ActivationState,
+               subresource_filter::ActivationDecision),
               (override));
   using FingerprintingProtectionPageActivationThrottle::
       FingerprintingProtectionPageActivationThrottle;
@@ -283,6 +296,149 @@ TEST_F(FingerprintingProtectionPageActivationThrottleTest,
   histograms.ExpectBucketCount(
       ActivationLevelHistogramName,
       subresource_filter::mojom::ActivationLevel::kDisabled, 1);
+}
+
+MATCHER_P(HasEnableLogging,
+          enable_logging,
+          "Matches an object `obj` such that `obj.enable_logging == "
+          "enable_logging`") {
+  return arg.enable_logging == enable_logging;
+}
+
+TEST_F(FingerprintingProtectionPageActivationThrottleTest,
+       LoggingParamEnabledNonIncognito_PassesEnableLoggingInActivationState) {
+  // Enable non-incognito feature with `enable_console_logging` param.
+  scoped_feature_list_.InitAndEnableFeatureWithParameters(
+      {features::kEnableFingerprintingProtectionFilter},
+      {{"enable_console_logging", "true"}});
+
+  // Use a mock throttle to mock NotifyPageActivationComputed
+  auto mock_throttle =
+      MockActivationThrottleMockingNotifyPageActivationComputed(
+          mock_nav_handle_.get(), test_support_.tracking_protection_settings(),
+          test_support_.prefs());
+
+  // Expect that NotifyPageActivationComputed is called with an ActivationState
+  // with enable_logging == true.
+  EXPECT_CALL(mock_throttle,
+              NotifyPageActivationComputed(HasEnableLogging(true), _))
+      .Times(1);
+
+  // Make call to `WillProcessResponse`, which leads to
+  // `NotifyPageActivationComputed`.
+  mock_throttle.WillProcessResponse();
+}
+
+TEST_F(FingerprintingProtectionPageActivationThrottleTest,
+       LoggingParamEnabledIncognito_PassesEnableLoggingInActivationState) {
+  // Enable incognito feature with `enable_console_logging` param.
+  scoped_feature_list_.InitAndEnableFeatureWithParameters(
+      {features::kEnableFingerprintingProtectionFilterInIncognito},
+      {{"enable_console_logging", "true"}});
+
+  // Use a mock throttle to mock NotifyPageActivationComputed
+  auto mock_throttle =
+      MockActivationThrottleMockingNotifyPageActivationComputed(
+          mock_nav_handle_.get(), test_support_.tracking_protection_settings(),
+          test_support_.prefs());
+
+  // Expect that NotifyPageActivationComputed is called with an ActivationState
+  // with enable_logging == true.
+  EXPECT_CALL(mock_throttle,
+              NotifyPageActivationComputed(HasEnableLogging(true), _))
+      .Times(1);
+
+  // Make call to `WillProcessResponse`, which leads to
+  // `NotifyPageActivationComputed`.
+  mock_throttle.WillProcessResponse();
+}
+
+TEST_F(
+    FingerprintingProtectionPageActivationThrottleTest,
+    LoggingParamDisabledNonIncognito_DoesntPassEnableLoggingInActivationState) {
+  // Enable non-incognito feature without `enable_console_logging` param.
+  scoped_feature_list_.InitAndEnableFeature(
+      {features::kEnableFingerprintingProtectionFilter});
+
+  // Use a mock throttle to mock NotifyPageActivationComputed
+  auto mock_throttle =
+      MockActivationThrottleMockingNotifyPageActivationComputed(
+          mock_nav_handle_.get(), test_support_.tracking_protection_settings(),
+          test_support_.prefs());
+
+  // Expect that NotifyPageActivationComputed is called with an ActivationState
+  // with enable_logging == false.
+  EXPECT_CALL(mock_throttle,
+              NotifyPageActivationComputed(HasEnableLogging(false), _))
+      .Times(1);
+
+  // Make call to `WillProcessResponse`, which leads to
+  // `NotifyPageActivationComputed`.
+  mock_throttle.WillProcessResponse();
+}
+
+TEST_F(FingerprintingProtectionPageActivationThrottleTest,
+       FlagEnabled_MeasurePerformanceRate) {
+  scoped_feature_list_.InitAndEnableFeatureWithParameters(
+      features::kEnableFingerprintingProtectionFilter,
+      {{"performance_measurement_rate", "1.0"}});
+
+  auto mock_throttle = MockFingerprintingProtectionPageActivationThrottle(
+      /*dealer_handle_=*/nullptr, test_support_.tracking_protection_settings(),
+      test_support_.prefs());
+
+  EXPECT_EQ(
+      mock_throttle.GetEnablePerformanceMeasurements(/*is_incognito=*/false),
+      true);
+}
+
+TEST_F(FingerprintingProtectionPageActivationThrottleTest,
+       IncognitoFlagEnabled_MeasurePerformanceRate) {
+  scoped_feature_list_.InitAndEnableFeatureWithParameters(
+      features::kEnableFingerprintingProtectionFilterInIncognito,
+      {{"performance_measurement_rate", "1.0"}});
+
+  auto mock_throttle = MockFingerprintingProtectionPageActivationThrottle(
+      /*dealer_handle_=*/nullptr, test_support_.tracking_protection_settings(),
+      test_support_.prefs());
+
+  EXPECT_EQ(
+      mock_throttle.GetEnablePerformanceMeasurements(/*is_incognito=*/true),
+      true);
+}
+
+TEST_F(
+    FingerprintingProtectionPageActivationThrottleTest,
+    PerformancemanceMeasurementRateNotSet_NonIncognito_DoNotMeasurePerformance) {
+  scoped_feature_list_.InitAndEnableFeatureWithParameters(
+      features::kEnableFingerprintingProtectionFilter,
+      /*params*/ {});
+
+  auto mock_throttle = MockFingerprintingProtectionPageActivationThrottle(
+      /*dealer_handle_=*/nullptr, test_support_.tracking_protection_settings(),
+      test_support_.prefs());
+
+  EXPECT_EQ(
+      mock_throttle.GetEnablePerformanceMeasurements(/*is_incognito=*/false),
+      false);
+}
+
+TEST_F(
+    FingerprintingProtectionPageActivationThrottleTest,
+    PerformancemanceMeasurementRateNotSet_Incognito_DoNotMeasurePerformance) {
+  base::HistogramTester histograms;
+
+  scoped_feature_list_.InitAndEnableFeatureWithParameters(
+      features::kEnableFingerprintingProtectionFilterInIncognito,
+      /*params*/ {});
+
+  auto mock_throttle = MockFingerprintingProtectionPageActivationThrottle(
+      /*dealer_handle_=*/nullptr, test_support_.tracking_protection_settings(),
+      test_support_.prefs());
+
+  EXPECT_EQ(
+      mock_throttle.GetEnablePerformanceMeasurements(/*is_incognito=*/true),
+      false);
 }
 
 }  // namespace fingerprinting_protection_filter

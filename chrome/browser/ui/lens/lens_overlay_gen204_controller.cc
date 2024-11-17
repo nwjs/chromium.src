@@ -40,10 +40,13 @@ constexpr int kTextGleamsViewEndSemanticEventID = 234180;
 
 // Query parameter keys.
 constexpr char kGen204IdentifierQueryParameter[] = "plla";
-constexpr char kSemanticEventIdParameter[] = "rid";
 constexpr char kRequestTypeQueryParameter[] = "rt";
+constexpr char kSemanticEventIdParameter[] = "rid";
+
+// Request type parameter values.
 constexpr char kFullPageObjectsFetchRequestType[] = "fpof";
 constexpr char kFullPageTranslateFetchRequestType[] = "fptf";
+constexpr char kFetchStickyClusterInfoRequestType[] = "sct";
 
 constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotationTag =
     net::DefineNetworkTrafficAnnotation("lens_overlay_gen204", R"(
@@ -109,16 +112,25 @@ void LensOverlayGen204Controller::OnQueryFlowStart(
 }
 
 void LensOverlayGen204Controller::SendLatencyGen204IfEnabled(
-    int64_t latency_ms,
+    base::TimeDelta full_image_latency,
+    std::optional<base::TimeDelta> cluster_info_latency,
     bool is_translate_query) {
   if (profile_ && lens::features::GetLensOverlaySendLatencyGen204()) {
+    std::string cluster_info_latency_string =
+        cluster_info_latency.has_value() && !is_translate_query
+            ? base::StringPrintf(
+                  ",%s.%s", kFetchStickyClusterInfoRequestType,
+                  base::NumberToString(cluster_info_latency->InMilliseconds())
+                      .c_str())
+            : "";
     std::string query = base::StringPrintf(
-        "gen_204?atyp=csi&%s=%s&%s=%s.%s&s=web",
+        "gen_204?atyp=csi&%s=%s&%s=%s.%s%s&s=web",
         kGen204IdentifierQueryParameter,
         base::NumberToString(gen204_id_).c_str(), kRequestTypeQueryParameter,
         is_translate_query ? kFullPageTranslateFetchRequestType
                            : kFullPageObjectsFetchRequestType,
-        base::NumberToString(latency_ms).c_str());
+        base::NumberToString(full_image_latency.InMilliseconds()).c_str(),
+        cluster_info_latency_string.c_str());
     auto fetch_url = GURL(TemplateURLServiceFactory::GetForProfile(profile_)
                               ->search_terms_data()
                               .GoogleBaseURLValue())
@@ -182,10 +194,11 @@ void LensOverlayGen204Controller::SendSemanticEventGen204IfEnabled(
         event_id = kTextGleamsViewEndSemanticEventID;
         break;
     }
-    std::string query = base::StringPrintf(
-        "gen_204?%s=%d&zx=%" PRId64 "&%s=%" PRIu64, kSemanticEventIdParameter,
-        event_id, base::Time::Now().InMillisecondsSinceUnixEpoch(),
-        kGen204IdentifierQueryParameter, gen204_id_);
+    std::string query =
+        base::StringPrintf("gen_204?uact=1&%s=%d&zx=%" PRId64 "&%s=%" PRIu64,
+                           kSemanticEventIdParameter, event_id,
+                           base::Time::Now().InMillisecondsSinceUnixEpoch(),
+                           kGen204IdentifierQueryParameter, gen204_id_);
     auto fetch_url = GURL(TemplateURLServiceFactory::GetForProfile(profile_)
                               ->search_terms_data()
                               .GoogleBaseURLValue())

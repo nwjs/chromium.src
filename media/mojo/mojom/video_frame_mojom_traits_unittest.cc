@@ -217,11 +217,11 @@ TEST_F(VideoFrameStructTraitsTest, InvalidOffsets) {
                                                          &new_frame));
 }
 
-TEST_F(VideoFrameStructTraitsTest, MailboxVideoFrame) {
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
+TEST_F(VideoFrameStructTraitsTest, OOPVDMailboxVideoFrame) {
   gpu::Mailbox mailbox = gpu::Mailbox::Generate();
-  gpu::MailboxHolder mailbox_holder(mailbox, gpu::SyncToken(), 0);
-  scoped_refptr<VideoFrame> frame = VideoFrame::WrapNativeTexture(
-      PIXEL_FORMAT_ARGB, mailbox_holder, VideoFrame::ReleaseMailboxCB(),
+  scoped_refptr<VideoFrame> frame = VideoFrame::WrapOOPVDMailbox(
+      PIXEL_FORMAT_ARGB, mailbox, VideoFrame::ReleaseMailboxCB(),
       gfx::Size(100, 100), gfx::Rect(10, 10, 80, 80), gfx::Size(200, 100),
       base::Seconds(100));
 
@@ -233,15 +233,16 @@ TEST_F(VideoFrameStructTraitsTest, MailboxVideoFrame) {
   EXPECT_EQ(frame->visible_rect(), gfx::Rect(10, 10, 80, 80));
   EXPECT_EQ(frame->natural_size(), gfx::Size(200, 100));
   EXPECT_EQ(frame->timestamp(), base::Seconds(100));
-  ASSERT_TRUE(frame->HasTextures());
-  ASSERT_EQ(frame->mailbox_holder(0).mailbox, mailbox);
+  ASSERT_TRUE(frame->HasOOPVDMailbox());
+  ASSERT_EQ(frame->oopvd_mailbox(), mailbox);
 }
+#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
 
 TEST_F(VideoFrameStructTraitsTest, SharedImageVideoFrame) {
   scoped_refptr<gpu::ClientSharedImage> shared_image =
       gpu::ClientSharedImage::CreateForTesting();
   scoped_refptr<VideoFrame> frame = VideoFrame::WrapSharedImage(
-      PIXEL_FORMAT_ARGB, shared_image, gpu::SyncToken(), 0,
+      PIXEL_FORMAT_ARGB, shared_image, gpu::SyncToken(),
       VideoFrame::ReleaseMailboxCB(), gfx::Size(100, 100),
       gfx::Rect(10, 10, 80, 80), gfx::Size(200, 100), base::Seconds(100));
 
@@ -253,7 +254,7 @@ TEST_F(VideoFrameStructTraitsTest, SharedImageVideoFrame) {
   EXPECT_EQ(frame->visible_rect(), gfx::Rect(10, 10, 80, 80));
   EXPECT_EQ(frame->natural_size(), gfx::Size(200, 100));
   EXPECT_EQ(frame->timestamp(), base::Seconds(100));
-  ASSERT_TRUE(frame->HasTextures());
+  ASSERT_TRUE(frame->HasSharedImage());
   ASSERT_EQ(frame->shared_image()->mailbox(), shared_image->mailbox());
 }
 
@@ -262,39 +263,8 @@ TEST_F(VideoFrameStructTraitsTest, SharedImageVideoFrame) {
 // GpuMemoryBufferHandle only. !BUILDFLAG(IS_OZONE) so as to force
 // GpuMemoryBufferSupport to select gfx::ClientNativePixmapFactoryDmabuf for
 // gfx::ClientNativePixmapFactory.
+// TODO(crbug.com/40286368): Allow this test without !BUILDFLAG(IS_OZONE)
 #if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)) && !BUILDFLAG(IS_OZONE)
-TEST_F(VideoFrameStructTraitsTest, GpuMemoryBufferVideoFrame) {
-  gfx::Size coded_size = gfx::Size(256, 256);
-  gfx::Rect visible_rect(coded_size);
-  auto timestamp = base::Milliseconds(1);
-  std::unique_ptr<gfx::GpuMemoryBuffer> gmb =
-      std::make_unique<FakeGpuMemoryBuffer>(
-          coded_size, gfx::BufferFormat::YUV_420_BIPLANAR);
-  gfx::BufferFormat expected_gmb_format = gmb->GetFormat();
-  gfx::Size expected_gmb_size = gmb->GetSize();
-  gpu::MailboxHolder mailbox_holders[media::VideoFrame::kMaxPlanes] = {
-      gpu::MailboxHolder(gpu::Mailbox::Generate(), gpu::SyncToken(), 5),
-      gpu::MailboxHolder(gpu::Mailbox::Generate(), gpu::SyncToken(), 10)};
-  auto frame = VideoFrame::WrapExternalGpuMemoryBuffer(
-      visible_rect, visible_rect.size(), std::move(gmb), mailbox_holders,
-      base::NullCallback(), timestamp);
-  ASSERT_TRUE(RoundTrip(&frame));
-  ASSERT_TRUE(frame);
-  ASSERT_EQ(frame->storage_type(), VideoFrame::STORAGE_GPU_MEMORY_BUFFER);
-  EXPECT_TRUE(frame->HasMappableGpuBuffer());
-  EXPECT_FALSE(frame->metadata().end_of_stream);
-  EXPECT_EQ(frame->format(), PIXEL_FORMAT_NV12);
-  EXPECT_EQ(frame->coded_size(), coded_size);
-  EXPECT_EQ(frame->visible_rect(), visible_rect);
-  EXPECT_EQ(frame->natural_size(), visible_rect.size());
-  EXPECT_EQ(frame->timestamp(), timestamp);
-  ASSERT_TRUE(frame->HasTextures());
-  EXPECT_EQ(frame->mailbox_holder(0).mailbox, mailbox_holders[0].mailbox);
-  EXPECT_EQ(frame->mailbox_holder(1).mailbox, mailbox_holders[1].mailbox);
-  EXPECT_EQ(frame->GetGpuMemoryBuffer()->GetFormat(), expected_gmb_format);
-  EXPECT_EQ(frame->GetGpuMemoryBuffer()->GetSize(), expected_gmb_size);
-}
-
 TEST_F(VideoFrameStructTraitsTest, GpuMemoryBufferSharedImageVideoFrame) {
   gfx::Size coded_size = gfx::Size(256, 256);
   gfx::Rect visible_rect(coded_size);
@@ -304,13 +274,11 @@ TEST_F(VideoFrameStructTraitsTest, GpuMemoryBufferSharedImageVideoFrame) {
           coded_size, gfx::BufferFormat::YUV_420_BIPLANAR);
   gfx::BufferFormat expected_gmb_format = gmb->GetFormat();
   gfx::Size expected_gmb_size = gmb->GetSize();
-  scoped_refptr<gpu::ClientSharedImage>
-      shared_images[media::VideoFrame::kMaxPlanes] = {
-          gpu::ClientSharedImage::CreateForTesting(),
-          gpu::ClientSharedImage::CreateForTesting()};
+  scoped_refptr<gpu::ClientSharedImage> shared_image =
+      gpu::ClientSharedImage::CreateForTesting();
   auto frame = VideoFrame::WrapExternalGpuMemoryBuffer(
-      visible_rect, visible_rect.size(), std::move(gmb), shared_images,
-      gpu::SyncToken(), 5, base::NullCallback(), timestamp);
+      visible_rect, visible_rect.size(), std::move(gmb), shared_image,
+      gpu::SyncToken(), base::NullCallback(), timestamp);
   ASSERT_TRUE(RoundTrip(&frame));
   ASSERT_TRUE(frame);
   ASSERT_EQ(frame->storage_type(), VideoFrame::STORAGE_GPU_MEMORY_BUFFER);
@@ -321,11 +289,12 @@ TEST_F(VideoFrameStructTraitsTest, GpuMemoryBufferSharedImageVideoFrame) {
   EXPECT_EQ(frame->visible_rect(), visible_rect);
   EXPECT_EQ(frame->natural_size(), visible_rect.size());
   EXPECT_EQ(frame->timestamp(), timestamp);
-  ASSERT_TRUE(frame->HasTextures());
-  EXPECT_EQ(frame->mailbox_holder(0).mailbox, shared_images[0]->mailbox());
-  EXPECT_EQ(frame->mailbox_holder(1).mailbox, shared_images[1]->mailbox());
-  EXPECT_EQ(frame->GetGpuMemoryBuffer()->GetFormat(), expected_gmb_format);
-  EXPECT_EQ(frame->GetGpuMemoryBuffer()->GetSize(), expected_gmb_size);
+  ASSERT_TRUE(frame->HasSharedImage());
+  EXPECT_EQ(frame->mailbox_holder(0).mailbox, shared_image->mailbox());
+  EXPECT_EQ(frame->GetGpuMemoryBufferForTesting()->GetFormat(),
+            expected_gmb_format);
+  EXPECT_EQ(frame->GetGpuMemoryBufferForTesting()->GetSize(),
+            expected_gmb_size);
 }
 #endif  // (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)) &&
         // !BUILDFLAG(IS_OZONE)

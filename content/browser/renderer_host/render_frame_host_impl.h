@@ -81,6 +81,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/frame_tree_node_id.h"
+#include "content/public/browser/frame_type.h"
 #include "content/public/browser/global_request_id.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/javascript_dialog_manager.h"
@@ -377,6 +378,25 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   // Clears the all prefetched cached signed exchanges.
   static void ClearAllPrefetchedSignedExchangeCache();
+
+  // Walk through all RenderFrameHosts in the specified `browser_context` and
+  // cancel navigations that are happening in them. This is assumed to be called
+  // on a `browser_context` that's shutting down.
+  //
+  // Ideally, this shouldn't be necessary, as BrowserContext cleanup should also
+  // trigger features above //content to clean up their WebContents, and
+  // destroying a WebContents cancels any ongoing navigations as part of
+  // destroying the frame tree. Unfortunately, there are bugs where this isn't
+  // happening and where the culprits are difficult to find (e.g.,
+  // https://crbug.com/40062641, https://crbug.com/40243371,
+  // https://crbug.com/358487779). This code attempts to limit potential damage
+  // when this happens by at least making sure that any ongoing navigations are
+  // canceled, since allowing them to proceed may lead to broken assumptions in
+  // the navigation stack. For example, the navigation response might attempt to
+  // create a RenderFrameHost in a new process in the destroyed BrowserContext
+  // and crash.
+  static void CancelAllNavigationsForBrowserContextShutdown(
+      BrowserContext* browser_context);
 
   // TODO(crbug.com/40183788): Get/SetCodeCacheHostReceiverHandler are used only
   // for a test in content/browser/service_worker/service_worker_browsertest
@@ -1367,7 +1387,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // LifecycleStateImpl is not immediately determined. This boolean is reset
   // when this RenderFrameHost enters the back-forward-cache or the pending
   // deletion list.
-  void SetHasPendingLifecycleStateUpdate();
+  // `last_frame_type` is the type of the frame from which this RenderFrameHost
+  // was just unset. This is null when called recursively for the children.
+  void SetHasPendingLifecycleStateUpdate(
+      std::optional<FrameType> last_frame_type);
 
   enum class BeforeUnloadType {
     BROWSER_INITIATED_NAVIGATION,
@@ -2883,10 +2906,13 @@ class CONTENT_EXPORT RenderFrameHostImpl
                                  JavaScriptResultAndTypeCallback callback);
 
   // Call |HandleAXEvents()| for tests.
-  void HandleAXEventsForTests(const ui::AXTreeID& tree_id,
-                              ui::AXUpdatesAndEvents updates_and_events) {
+  void HandleAXEventsForTests(
+      const ui::AXTreeID& tree_id,
+      ui::AXUpdatesAndEvents updates_and_events,
+      ui::AXLocationAndScrollUpdates location_and_scroll_updates) {
     HandleAXEvents(tree_id, std::move(updates_and_events),
-                   *accessibility_reset_token_);
+                   std::move(location_and_scroll_updates),
+                   *accessibility_reset_token_, {});
   }
 
   // BucketContext:
@@ -3460,13 +3486,17 @@ class CONTENT_EXPORT RenderFrameHostImpl
 #endif
 
   friend class RenderAccessibilityHost;
-  void HandleAXEvents(const ui::AXTreeID& tree_id,
-                      ui::AXUpdatesAndEvents updates_and_events,
-                      uint32_t reset_token);
+  void HandleAXEvents(
+      const ui::AXTreeID& tree_id,
+      ui::AXUpdatesAndEvents updates_and_events,
+      ui::AXLocationAndScrollUpdates location_and_scroll_updates,
+      uint32_t reset_token,
+      mojo::ReportBadMessageCallback report_bad_message_callback);
   void HandleAXLocationChanges(
       const ui::AXTreeID& tree_id,
-      std::vector<blink::mojom::LocationChangesPtr> changes,
-      uint32_t reset_token);
+      ui::AXLocationAndScrollUpdates changes,
+      uint32_t reset_token,
+      mojo::ReportBadMessageCallback report_bad_message_callback);
 
   void SetNodeJS(bool node) override;
   void SetContextCreated(bool created) override;
@@ -4649,6 +4679,14 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // we don't know what the old RenderFrameHost's next lifecycle state should
   // be.
   bool has_pending_lifecycle_state_update_ = false;
+  // When `has_pending_lifecycle_state_update_` is true and this RenderFrameHost
+  // is not a subframe, this is the type of frame from which this
+  // RenderFrameHost was just unset. This is used by `IsInPrimaryMainFrame` as
+  // it needs to know what the frame type was during this pending update window
+  // when we don't have an `owner_`.
+  // TODO(crbug.com/40168690): This can be removed alongside
+  // `has_pending_lifecycle_state_update_`.
+  std::optional<FrameType> last_main_frame_type_pending_lifecycle_update_;
 
   // Used for tracking the latest size of the RenderFrame.
   std::optional<gfx::Size> frame_size_;

@@ -54,13 +54,13 @@ using ::testing::_;
 @interface FakeAppStateForAgent : AppState
 
 // Init stage that will be returned by the initStage getter when testing.
-@property(nonatomic, assign) InitStage initStageForTesting;
+@property(nonatomic, assign) AppInitStage initStageForTesting;
 
 @end
 
 @implementation FakeAppStateForAgent
 
-- (InitStage)initStage {
+- (AppInitStage)initStage {
   return self.initStageForTesting;
 }
 
@@ -93,7 +93,7 @@ class IdleTimeoutPolicySceneAgentTest : public PlatformTest {
 
   void SetUpAppState() {
     // Set up scene state.
-    browser_state_ = TestChromeBrowserState::Builder().Build();
+    profile_ = TestProfileIOS::Builder().Build();
     startup_information_ = [[FakeStartupInformation alloc] init];
     app_state_ = [[FakeAppStateForAgent alloc]
         initWithStartupInformation:startup_information_];
@@ -101,13 +101,13 @@ class IdleTimeoutPolicySceneAgentTest : public PlatformTest {
 
   void InitIdleService() {
     idle_service_ = std::make_unique<enterprise_idle::IdleService>(
-        browser_state_->GetOriginalChromeBrowserState());
+        profile_->GetOriginalProfile());
     idle_service_->SetActionRunnerForTesting(
         base::WrapUnique(new MockActionRunner()));
   }
 
   void SetIdleTimeoutPolicies() {
-    PrefService* prefs = browser_state_->GetPrefs();
+    PrefService* prefs = profile_->GetPrefs();
     prefs->SetTimeDelta(enterprise_idle::prefs::kIdleTimeout, base::Minutes(1));
     base::Value::List actions;
     actions.Append(
@@ -119,9 +119,8 @@ class IdleTimeoutPolicySceneAgentTest : public PlatformTest {
   }
 
   void InitSceneWithAgent() {
-    scene_state_ =
-        [[FakeSceneState alloc] initWithAppState:app_state_
-                                    browserState:browser_state_.get()];
+    scene_state_ = [[FakeSceneState alloc] initWithAppState:app_state_
+                                                    profile:profile_.get()];
     scene_state_.scene = static_cast<UIWindowScene*>(
         [[[UIApplication sharedApplication] connectedScenes] anyObject]);
 
@@ -161,7 +160,7 @@ class IdleTimeoutPolicySceneAgentTest : public PlatformTest {
 
  protected:
   base::test::TaskEnvironment task_environment_;
-  std::unique_ptr<TestChromeBrowserState> browser_state_;
+  std::unique_ptr<TestProfileIOS> profile_;
   std::unique_ptr<enterprise_idle::IdleService> idle_service_;
   FakeStartupInformation* startup_information_;
   FakeAppStateForAgent* app_state_;
@@ -178,7 +177,7 @@ class IdleTimeoutPolicySceneAgentTest : public PlatformTest {
 // state has not reached its final init stage.
 TEST_F(IdleTimeoutPolicySceneAgentTest, DialogDoesNotShowWhenAppStateNotReady) {
   scene_state_.activationLevel = SceneActivationLevelForegroundActive;
-  app_state_.initStageForTesting = InitStageEnterprise;
+  app_state_.initStageForTesting = AppInitStage::kEnterprise;
   OCMReject([mock_application_handler_
       dismissModalDialogsWithCompletion:[OCMArg any]]);
   idle_service_->RunActionsForStateForTesting(
@@ -191,7 +190,7 @@ TEST_F(IdleTimeoutPolicySceneAgentTest, DialogDoesNotShowWhenAppStateNotReady) {
 // reached its final init stage.
 TEST_F(IdleTimeoutPolicySceneAgentTest, DialogShowsWhenAppStateReady) {
   scene_state_.activationLevel = SceneActivationLevelForegroundActive;
-  app_state_.initStageForTesting = InitStageFinal;
+  app_state_.initStageForTesting = AppInitStage::kFinal;
   OCMExpect([mock_application_handler_
       dismissModalDialogsWithCompletion:[OCMArg any]]);
   idle_service_->RunActionsForStateForTesting(
@@ -204,7 +203,7 @@ TEST_F(IdleTimeoutPolicySceneAgentTest, DialogShowsWhenAppStateReady) {
 // This case will likely never happen.
 TEST_F(IdleTimeoutPolicySceneAgentTest,
        DialogDoesNotShowWhenSceneStateNotInForeground) {
-  app_state_.initStageForTesting = InitStageFinal;
+  app_state_.initStageForTesting = AppInitStage::kFinal;
   scene_state_.activationLevel = SceneActivationLevelForegroundInactive;
   OCMReject([mock_application_handler_
       dismissModalDialogsWithCompletion:[OCMArg any]]);
@@ -216,7 +215,7 @@ TEST_F(IdleTimeoutPolicySceneAgentTest,
 
 // The UI should show the dialog when the scene is foregrounded.
 TEST_F(IdleTimeoutPolicySceneAgentTest, DialogShowsWhenSceneStateInForeground) {
-  app_state_.initStageForTesting = InitStageFinal;
+  app_state_.initStageForTesting = AppInitStage::kFinal;
   scene_state_.activationLevel = SceneActivationLevelForegroundActive;
   OCMExpect([mock_application_handler_
       dismissModalDialogsWithCompletion:[OCMArg any]]);
@@ -229,7 +228,7 @@ TEST_F(IdleTimeoutPolicySceneAgentTest, DialogShowsWhenSceneStateInForeground) {
 // The UI should not show on a scene that is blocked by an overlay modal.
 TEST_F(IdleTimeoutPolicySceneAgentTest,
        DialogDoesNotShowWhenSceneStateBlockedByOtherScene) {
-  app_state_.initStageForTesting = InitStageFinal;
+  app_state_.initStageForTesting = AppInitStage::kFinal;
   scene_state_.activationLevel = SceneActivationLevelForegroundActive;
   scene_state_.presentingModalOverlay = true;
   OCMReject([mock_application_handler_
@@ -243,7 +242,7 @@ TEST_F(IdleTimeoutPolicySceneAgentTest,
 // The snackbar should show when the actions are completed.
 TEST_F(IdleTimeoutPolicySceneAgentTest,
        SnackbarShowsOnActionsCompletedWhenUIAvailable) {
-  app_state_.initStageForTesting = InitStageFinal;
+  app_state_.initStageForTesting = AppInitStage::kFinal;
   scene_state_.activationLevel = SceneActivationLevelForegroundActive;
   // Simulate that app ran actions on reforeground, and action bar showed
   // after actions ran since the app is foregrounded and active.
@@ -259,7 +258,7 @@ TEST_F(IdleTimeoutPolicySceneAgentTest,
 // not foregrounded yet.
 TEST_F(IdleTimeoutPolicySceneAgentTest,
        NoSnackbarShowsOnActionsCompletedWhenUINotAvailable) {
-  app_state_.initStageForTesting = InitStageFinal;
+  app_state_.initStageForTesting = AppInitStage::kFinal;
   scene_state_.activationLevel = SceneActivationLevelForegroundInactive;
   // Simulate that app ran actions on reforeground. The snack bar does not show
   // after actions run since the app is not foregrounded. The snackbar will be
@@ -276,7 +275,7 @@ TEST_F(IdleTimeoutPolicySceneAgentTest,
 // is foregrounded.
 TEST_F(IdleTimeoutPolicySceneAgentTest,
        PendingSnackbarShowsOnTransitionToActiveForegroundedScene) {
-  app_state_.initStageForTesting = InitStageFinal;
+  app_state_.initStageForTesting = AppInitStage::kFinal;
   scene_state_.activationLevel = SceneActivationLevelForegroundInactive;
   // Simulate that app ran actions on reforeground. If a snackbar is pending
   // after actions run to completion, it should show when the scebe state

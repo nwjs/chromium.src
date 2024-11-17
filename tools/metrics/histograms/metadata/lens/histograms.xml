@@ -22,6 +22,14 @@ chromium-metrics-reviews@google.com.
 
 <histograms>
 
+<variants name="FirstInteractionType">
+  <variant name="LensMenu"/>
+  <variant name="Permission"/>
+  <variant name="RegionSelect"/>
+  <variant name="Searchbox"/>
+  <variant name="TextSelect"/>
+</variants>
+
 <variants name="InvocationSources">
   <variant name="AppMenu"/>
   <variant name="ContentAreaContextMenuImage"/>
@@ -115,6 +123,20 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
+    name="Lens.Overlay.ByInvocationSource.{InvocationSource}.SessionForegroundDuration"
+    units="ms" expires_after="2025-05-06">
+  <owner>christianxu@chromium.org</owner>
+  <owner>lens-chrome@google.com</owner>
+  <summary>
+    Recorded once when the Lens Overlay feature is dismissed, sliced by
+    invocation source. It measures the total duration that the overlay is in the
+    foreground. Sum of all times that the overlay tab is returned to the
+    foreground.
+  </summary>
+  <token key="InvocationSource" variants="InvocationSources"/>
+</histogram>
+
+<histogram
     name="Lens.Overlay.ByInvocationSource.{InvocationSource}.TimeToFirstInteraction"
     units="ms" expires_after="2025-05-06">
   <owner>jdonnelly@chromium.org</owner>
@@ -137,6 +159,31 @@ chromium-metrics-reviews@google.com.
     UI entry point used or the event that triggered the dimissal. In general, it
     should not be possible to attempt to dismiss the feature if the overlay is
     not currently showing but if this happens, nothing will be recorded.
+
+    In M130 and later, the &quot;Error: Renderer exited&quot; bucket is no
+    longer recorded, replaced by the more fine-grained &quot;overlay renderer
+    exited&quot; and &quot;page renderer exited&quot; buckets (two each for
+    normal and unexpected shutdown).
+  </summary>
+</histogram>
+
+<histogram name="Lens.Overlay.GeneratedTab" enum="LensOverlayNewTabSource"
+    expires_after="2025-05-06">
+  <owner>christianxu@chromium.org</owner>
+  <owner>lens-chrome@google.com</owner>
+  <summary>
+    Recorded when the lens overlay opens a new tab, enumerated by the source
+    that opened it.
+  </summary>
+</histogram>
+
+<histogram name="Lens.Overlay.GeneratedTab.SessionCount" units="count"
+    expires_after="2025-05-06">
+  <owner>christianxu@chromium.org</owner>
+  <owner>lens-chrome@google.com</owner>
+  <summary>
+    Recorded once the Lens Overlay is dismissed. Measures the number of tabs
+    opened by the lens overlay from invocation to dismissal.
   </summary>
 </histogram>
 
@@ -259,6 +306,17 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Lens.Overlay.SessionForegroundDuration" units="ms"
+    expires_after="2025-05-06">
+  <owner>christianxu@chromium.org</owner>
+  <owner>lens-chrome@google.com</owner>
+  <summary>
+    Recorded once when the Lens Overlay feature is dismissed. It measures the
+    total duration that the overlay is in the foreground. Sum of all times that
+    the overlay tab is returned to the foreground.
+  </summary>
+</histogram>
+
 <histogram name="Lens.Overlay.Shown" enum="BooleanEnabled" expires_after="M135">
   <owner>erikchen@chromium.org</owner>
   <owner>mercerd@google.com</owner>
@@ -280,13 +338,26 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Lens.Overlay.TimeToFirstInteraction.{FirstInteractionType}"
+    units="ms" expires_after="2025-05-06">
+  <owner>christianxu@chromium.org</owner>
+  <owner>lens-chrome@google.com</owner>
+  <summary>
+    Recorded once when the user first interacts with the overlay, sliced by
+    interaction type. Measures the elapsed time between when the overlay was
+    invoked and when the user first interacts with the overlay.
+  </summary>
+  <token key="FirstInteractionType" variants="FirstInteractionType"/>
+</histogram>
+
 <histogram name="Lens.Overlay.TimeToWebUIReady" units="ms"
     expires_after="2025-05-06">
   <owner>jdonnelly@chromium.org</owner>
   <owner>lens-chrome@google.com</owner>
   <summary>
     Recorded once when the Lens Overlay WebUI is ready. Measures the elapsed
-    time between when the overlay was invoked and when its WebUI was ready.
+    time between when the overlay was invoked and when its WebUI was ready. On
+    iOS, when the LensUI is ready.
   </summary>
 </histogram>
 

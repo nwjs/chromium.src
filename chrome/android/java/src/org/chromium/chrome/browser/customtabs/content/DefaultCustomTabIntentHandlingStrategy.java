@@ -53,13 +53,14 @@ public class DefaultCustomTabIntentHandlingStrategy implements CustomTabIntentHa
         }
 
         if (initialTabCreationMode == TabCreationMode.HIDDEN) {
-            handleInitialLoadForHiddenTab(initialTabCreationMode, intentDataProvider);
+            handleInitialLoadForHiddenTab(intentDataProvider);
         } else {
             LoadUrlParams params = new LoadUrlParams(intentDataProvider.getUrlToLoad());
             mNavigationController.navigate(params, intentDataProvider.getIntent());
         }
 
         CustomTabAuthUrlHeuristics.recordUrlParamsHistogram(intentDataProvider.getUrlToLoad());
+        CustomTabAuthUrlHeuristics.recordRedirectUriSchemeHistogram(intentDataProvider);
     }
 
     // TODO(yfriedman): Remove & inline once CustomTabs junit tests can be created from a provided
@@ -72,7 +73,6 @@ public class DefaultCustomTabIntentHandlingStrategy implements CustomTabIntentHa
 
     // The hidden tab case needs a bit of special treatment.
     private void handleInitialLoadForHiddenTab(
-            @TabCreationMode int initialTabCreationMode,
             BrowserServicesIntentDataProvider intentDataProvider) {
         Tab tab = mTabProvider.getTab();
         if (tab == null) {

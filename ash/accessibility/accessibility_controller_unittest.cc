@@ -29,6 +29,7 @@
 #include "ash/session/test_pref_service_provider.h"
 #include "ash/shell.h"
 #include "ash/system/toast/anchored_nudge_manager_impl.h"
+#include "ash/system/toast/toast_manager_impl.h"
 #include "ash/system/unified/unified_system_tray.h"
 #include "ash/system/unified/unified_system_tray_bubble.h"
 #include "ash/test/ash_test_base.h"
@@ -45,8 +46,12 @@
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/aura/aura_window_properties.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/events/devices/device_data_manager_test_api.h"
+#include "ui/events/devices/touchpad_device.h"
 #include "ui/gfx/animation/animation_test_api.h"
 #include "ui/message_center/message_center.h"
+#include "ui/message_center/public/cpp/notification.h"
+#include "ui/message_center/public/cpp/notification_types.h"
 
 using message_center::MessageCenter;
 
@@ -56,6 +61,27 @@ namespace {
 
 constexpr char kDictationLanguageUpgradedNudgeId[] =
     "dictation_language_upgraded.nudge_id";
+
+const int kUsbMouseDeviceId = 20;
+const int kInternalTrackpadDeviceId = 30;
+
+ui::InputDevice GetSampleMouseUsb() {
+  return {kUsbMouseDeviceId, ui::INPUT_DEVICE_USB, "SampleMouseUsb"};
+}
+
+ui::TouchpadDevice GetSampleTrackpadInternal() {
+  return {kInternalTrackpadDeviceId, ui::INPUT_DEVICE_INTERNAL, "touchpad"};
+}
+
+void SimulateOnlyInternalTrackpadConnected() {
+  ui::DeviceDataManagerTestApi().SetTouchpadDevices(
+      {GetSampleTrackpadInternal()});
+}
+
+void SimulateExternalMouseConnected() {
+  ui::DeviceDataManagerTestApi().SetMouseDevices({GetSampleMouseUsb()});
+  SimulateOnlyInternalTrackpadConnected();
+}
 
 }  // namespace
 
@@ -137,6 +163,18 @@ class AccessibilityControllerTest : public AshTestBase {
         "Accessibility." + feature_name + ".SessionDuration", count);
   }
 
+  void ShowNotification(const message_center::RichNotificationData& data) {
+    const std::string notification_id("id");
+    const std::string notification_title("title");
+    message_center::MessageCenter::Get()->AddNotification(
+        std::make_unique<message_center::Notification>(
+            message_center::NOTIFICATION_TYPE_SIMPLE, notification_id,
+            base::UTF8ToUTF16(notification_title), u"test message",
+            ui::ImageModel(), std::u16string() /* display_source */, GURL(),
+            message_center::NotifierId(), data,
+            new message_center::NotificationDelegate()));
+  }
+
   void ExpectFlashNotificationShown() {
     gfx::AnimationTestApi animation_api(
         AccessibilityController::Get()
@@ -151,6 +189,15 @@ class AccessibilityControllerTest : public AshTestBase {
       const cc::FilterOperation::Matrix* matrix =
           root_window->layer()->GetLayerCustomColorMatrix();
       EXPECT_TRUE(matrix);
+    }
+  }
+
+  void ExpectFlashNotificationNotShown() {
+    // A custom color matrix has not been shown.
+    for (aura::Window* root_window : Shell::GetAllRootWindows()) {
+      const cc::FilterOperation::Matrix* matrix =
+          root_window->layer()->GetLayerCustomColorMatrix();
+      EXPECT_FALSE(matrix);
     }
   }
 
@@ -291,10 +338,10 @@ TEST_F(AccessibilityControllerTest, PrefsAreRegistered) {
       prefs->FindPreference(prefs::kAccessibilityFaceGazeCursorSpeedLeft));
   EXPECT_TRUE(
       prefs->FindPreference(prefs::kAccessibilityFaceGazeCursorSpeedRight));
-  EXPECT_TRUE(
-      prefs->FindPreference(prefs::kAccessibilityFaceGazeCursorSmoothing));
   EXPECT_TRUE(prefs->FindPreference(
       prefs::kAccessibilityFaceGazeCursorUseAcceleration));
+  EXPECT_TRUE(
+      prefs->FindPreference(prefs::kAccessibilityFaceGazeGesturesToKeyCombos));
   EXPECT_TRUE(
       prefs->FindPreference(prefs::kAccessibilityFaceGazeGesturesToMacros));
   EXPECT_TRUE(
@@ -305,6 +352,8 @@ TEST_F(AccessibilityControllerTest, PrefsAreRegistered) {
       prefs->FindPreference(prefs::kAccessibilityFaceGazeActionsEnabled));
   EXPECT_TRUE(prefs->FindPreference(
       prefs::kAccessibilityFaceGazeAdjustSpeedSeparately));
+  EXPECT_TRUE(
+      prefs->FindPreference(prefs::kAccessibilityFaceGazeVelocityThreshold));
   EXPECT_TRUE(prefs->FindPreference(prefs::kAccessibilityCaretBlinkInterval));
   EXPECT_TRUE(
       prefs->FindPreference(prefs::kAccessibilityFlashNotificationsEnabled));
@@ -1746,9 +1795,7 @@ TEST_F(AccessibilityControllerTest, FlashNotificationsWhenEnabled) {
       prefs->GetBoolean(prefs::kAccessibilityFlashNotificationsEnabled));
 
   // Show a normal notification. Flashing should occur.
-  // Use dictation notification as an easy way to show any notification.
-  accessibility_controller->ShowNotificationForDictation(
-      DictationNotificationType::kAllDlcsDownloaded, u"en-us");
+  ShowNotification(message_center::RichNotificationData());
 
   ExpectFlashNotificationShown();
 
@@ -1780,15 +1827,50 @@ TEST_F(AccessibilityControllerTest, DoesNotFlashNotificationsWhenNotEnabled) {
   EXPECT_FALSE(
       prefs->GetBoolean(prefs::kAccessibilityFlashNotificationsEnabled));
 
+  ShowNotification(message_center::RichNotificationData());
+
+  ExpectFlashNotificationNotShown();
+}
+
+TEST_F(AccessibilityControllerTest, DoesNotFlashSilentNotifications) {
   auto* accessibility_controller = Shell::Get()->accessibility_controller();
-  accessibility_controller->ShowNotificationForDictation(
-      DictationNotificationType::kAllDlcsDownloaded, u"en-us");
-  // A custom color matrix has been shown.
-  for (aura::Window* root_window : Shell::GetAllRootWindows()) {
-    const cc::FilterOperation::Matrix* matrix =
-        root_window->layer()->GetLayerCustomColorMatrix();
-    EXPECT_FALSE(matrix);
-  }
+  accessibility_controller->flash_notifications().SetEnabled(true);
+
+  message_center::RichNotificationData data =
+      message_center::RichNotificationData();
+  data.silent = true;
+  ShowNotification(data);
+  ExpectFlashNotificationNotShown();
+
+  // Send a second notification that is similar in order to create a group.
+  // Ensure that the screen is still not flashed.
+  ShowNotification(data);
+  ExpectFlashNotificationNotShown();
+}
+
+TEST_F(AccessibilityControllerTest, DoesNotLowPriorityNotifications) {
+  auto* accessibility_controller = Shell::Get()->accessibility_controller();
+  accessibility_controller->flash_notifications().SetEnabled(true);
+
+  message_center::RichNotificationData data =
+      message_center::RichNotificationData();
+  data.priority = message_center::LOW_PRIORITY;
+  ShowNotification(data);
+  ExpectFlashNotificationNotShown();
+}
+
+TEST_F(AccessibilityControllerTest, DoesNotFlashWhenInQuietMode) {
+  auto* accessibility_controller = Shell::Get()->accessibility_controller();
+  accessibility_controller->flash_notifications().SetEnabled(true);
+
+  message_center::MessageCenter::Get()->SetQuietMode(true);
+  ShowNotification(message_center::RichNotificationData());
+  ExpectFlashNotificationNotShown();
+
+  // Turn off quiet mode and notifications will be shown.
+  message_center::MessageCenter::Get()->SetQuietMode(false);
+  ShowNotification(message_center::RichNotificationData());
+  ExpectFlashNotificationShown();
 }
 
 TEST_F(AccessibilityControllerTest, EnableOrToggleDictation) {
@@ -2298,7 +2380,26 @@ class AccessibilityControllerDisableTrackpadTest : public AshTestBase {
   void SetUp() override {
     scoped_feature_list_.InitAndEnableFeature(
         ::features::kAccessibilityDisableTrackpad);
+
     AshTestBase::SetUp();
+
+    EventRewriterController::Get()->Initialize(nullptr, nullptr);
+    ASSERT_NE(disable_trackpad_event_rewriter(), nullptr);
+    ASSERT_FALSE(disable_trackpad_event_rewriter()->IsEnabled());
+  }
+
+  AccessibilityController* controller() {
+    return Shell::Get()->accessibility_controller();
+  }
+
+  PrefService* prefs() {
+    return Shell::Get()->session_controller()->GetLastActiveUserPrefService();
+  }
+
+  DisableTrackpadEventRewriter* disable_trackpad_event_rewriter() {
+    return Shell::Get()
+        ->accessibility_controller()
+        ->GetDisableTrackpadEventRewriterForTest();
   }
 
  private:
@@ -2307,37 +2408,173 @@ class AccessibilityControllerDisableTrackpadTest : public AshTestBase {
 
 TEST_F(AccessibilityControllerDisableTrackpadTest,
        PrefChangesEventRewriterEnabledState) {
-  // Initialize the EventRewriterController manually so that all EventRewriters
-  // get initialized.
-  EventRewriterController::Get()->Initialize(nullptr, nullptr);
-  AccessibilityController* controller =
-      Shell::Get()->accessibility_controller();
-
   // Verify that the disable trackpad feature is off by default.
-  PrefService* prefs =
-      Shell::Get()->session_controller()->GetLastActiveUserPrefService();
-  ASSERT_FALSE(prefs->GetBoolean(prefs::kAccessibilityDisableTrackpadEnabled));
-  ASSERT_FALSE(controller->disable_trackpad().enabled());
-  ASSERT_EQ(prefs->GetInteger(prefs::kAccessibilityDisableTrackpadMode),
+  ASSERT_FALSE(
+      prefs()->GetBoolean(prefs::kAccessibilityDisableTrackpadEnabled));
+  ASSERT_FALSE(controller()->disable_trackpad().enabled());
+  ASSERT_EQ(prefs()->GetInteger(prefs::kAccessibilityDisableTrackpadMode),
             static_cast<int>(DisableTrackpadMode::kNever));
 
   // AccessibilityController should have a reference to the
   // DisableTrackpadEventRewriter and it should also be off by default.
-  auto* disable_trackpad_event_rewriter =
-      controller->GetDisableTrackpadEventRewriterForTest();
-  ASSERT_NE(disable_trackpad_event_rewriter, nullptr);
-  ASSERT_FALSE(disable_trackpad_event_rewriter->IsEnabled());
+  ASSERT_NE(disable_trackpad_event_rewriter(), nullptr);
+  ASSERT_FALSE(disable_trackpad_event_rewriter()->IsEnabled());
 
   // Enabling the disable trackpad feature should enable the
   // DisableTrackpadEventRewriter.
-  prefs->SetBoolean(prefs::kAccessibilityDisableTrackpadEnabled, true);
-  ASSERT_TRUE(controller->disable_trackpad().enabled());
-  ASSERT_TRUE(disable_trackpad_event_rewriter->IsEnabled());
+  prefs()->SetBoolean(prefs::kAccessibilityDisableTrackpadEnabled, true);
+  ASSERT_TRUE(controller()->disable_trackpad().enabled());
+  ASSERT_TRUE(disable_trackpad_event_rewriter()->IsEnabled());
 
   // Disabling the feature should disable the event rewriter.
-  prefs->SetBoolean(prefs::kAccessibilityDisableTrackpadEnabled, false);
-  ASSERT_FALSE(controller->disable_trackpad().enabled());
-  ASSERT_FALSE(disable_trackpad_event_rewriter->IsEnabled());
+  prefs()->SetBoolean(prefs::kAccessibilityDisableTrackpadEnabled, false);
+  ASSERT_FALSE(controller()->disable_trackpad().enabled());
+  ASSERT_FALSE(disable_trackpad_event_rewriter()->IsEnabled());
+}
+
+TEST_F(AccessibilityControllerDisableTrackpadTest, NoDialogOnNeverMode) {
+  prefs()->SetInteger(prefs::kAccessibilityDisableTrackpadMode,
+                      static_cast<int>(DisableTrackpadMode::kNever));
+
+  ASSERT_EQ(nullptr, controller()->GetConfirmationDialogForTest());
+  ASSERT_FALSE(disable_trackpad_event_rewriter()->IsEnabled());
+}
+
+TEST_F(AccessibilityControllerDisableTrackpadTest,
+       DialogShowsWhenSetToAlwaysMode) {
+  prefs()->SetInteger(prefs::kAccessibilityDisableTrackpadMode,
+                      static_cast<int>(DisableTrackpadMode::kAlways));
+
+  ASSERT_NE(nullptr, controller()->GetConfirmationDialogForTest());
+  ASSERT_TRUE(disable_trackpad_event_rewriter()->IsEnabled());
+}
+
+TEST_F(AccessibilityControllerDisableTrackpadTest,
+       EventRewriterDisabledWhenDialogDismissed) {
+  prefs()->SetInteger(prefs::kAccessibilityDisableTrackpadMode,
+                      static_cast<int>(DisableTrackpadMode::kAlways));
+
+  ASSERT_NE(nullptr, controller()->GetConfirmationDialogForTest());
+  ASSERT_TRUE(disable_trackpad_event_rewriter()->IsEnabled());
+
+  controller()->DismissDisableTrackpadDialogForTesting();
+  ASSERT_FALSE(disable_trackpad_event_rewriter()->IsEnabled());
+}
+
+TEST_F(AccessibilityControllerDisableTrackpadTest,
+       EventRewriterEnabledWhenDialogAccepted) {
+  prefs()->SetInteger(prefs::kAccessibilityDisableTrackpadMode,
+                      static_cast<int>(DisableTrackpadMode::kAlways));
+
+  ASSERT_NE(nullptr, controller()->GetConfirmationDialogForTest());
+  ASSERT_TRUE(disable_trackpad_event_rewriter()->IsEnabled());
+
+  controller()->AcceptDisableTrackpadDialogForTesting();
+  ASSERT_TRUE(disable_trackpad_event_rewriter()->IsEnabled());
+}
+
+TEST_F(AccessibilityControllerDisableTrackpadTest,
+       DialogShowsWhenExternalMouseAlreadyConnected) {
+  SimulateExternalMouseConnected();
+  prefs()->SetInteger(
+      prefs::kAccessibilityDisableTrackpadMode,
+      static_cast<int>(DisableTrackpadMode::kOnExternalMouseConnected));
+
+  ASSERT_NE(nullptr, controller()->GetConfirmationDialogForTest());
+  ASSERT_TRUE(disable_trackpad_event_rewriter()->IsEnabled());
+}
+
+TEST_F(AccessibilityControllerDisableTrackpadTest,
+       NoDialogWithNoExternalMouseConnected) {
+  SimulateOnlyInternalTrackpadConnected();
+  prefs()->SetInteger(
+      prefs::kAccessibilityDisableTrackpadMode,
+      static_cast<int>(DisableTrackpadMode::kOnExternalMouseConnected));
+
+  ASSERT_EQ(nullptr, controller()->GetConfirmationDialogForTest());
+  ASSERT_FALSE(disable_trackpad_event_rewriter()->IsEnabled());
+}
+
+TEST_F(AccessibilityControllerDisableTrackpadTest,
+       ShowNotificationWhenDialogAccepted) {
+  message_center::NotificationList::Notifications notifications =
+      MessageCenter::Get()->GetVisibleNotifications();
+
+  ASSERT_EQ(0u, notifications.size());
+
+  SimulateOnlyInternalTrackpadConnected();
+  prefs()->SetInteger(prefs::kAccessibilityDisableTrackpadMode,
+                      static_cast<int>(DisableTrackpadMode::kAlways));
+
+  ASSERT_NE(nullptr, controller()->GetConfirmationDialogForTest());
+  ASSERT_TRUE(disable_trackpad_event_rewriter()->IsEnabled());
+
+  controller()->AcceptDisableTrackpadDialogForTesting();
+  ASSERT_TRUE(disable_trackpad_event_rewriter()->IsEnabled());
+
+  const std::u16string kTouchpadDisabled = u"Built-in touchpad is disabled";
+  const std::u16string kPressEscape = u"Esc 5 times";
+
+  notifications = MessageCenter::Get()->GetVisibleNotifications();
+
+  ASSERT_EQ(1u, notifications.size());
+  EXPECT_EQ(kTouchpadDisabled, (*notifications.begin())->title());
+  EXPECT_EQ(kPressEscape, (*notifications.begin())->message());
+}
+
+TEST_F(AccessibilityControllerDisableTrackpadTest,
+       NoNotificationWhenDialogRejected) {
+  prefs()->SetInteger(prefs::kAccessibilityDisableTrackpadMode,
+                      static_cast<int>(DisableTrackpadMode::kAlways));
+
+  ASSERT_NE(nullptr, controller()->GetConfirmationDialogForTest());
+  ASSERT_TRUE(disable_trackpad_event_rewriter()->IsEnabled());
+
+  controller()->DismissDisableTrackpadDialogForTesting();
+  ASSERT_FALSE(disable_trackpad_event_rewriter()->IsEnabled());
+
+  message_center::NotificationList::Notifications notifications =
+      MessageCenter::Get()->GetVisibleNotifications();
+  ASSERT_EQ(0u, notifications.size());
+}
+
+TEST_F(AccessibilityControllerDisableTrackpadTest,
+       ToastShowsWhenPrefIsSwitchedToNeverMode) {
+  // Default kNever mode should not show a toast.
+  ASSERT_EQ(static_cast<int>(DisableTrackpadMode::kNever),
+            prefs()->GetInteger(prefs::kAccessibilityDisableTrackpadMode));
+
+  auto* toast_manager = Shell::Get()->toast_manager();
+  ASSERT_FALSE(toast_manager->IsToastShown("AccessibilityToast"));
+
+  // Switch the mode to kAlways, then back to kNever.
+  prefs()->SetInteger(prefs::kAccessibilityDisableTrackpadMode,
+                      static_cast<int>(DisableTrackpadMode::kAlways));
+
+  ASSERT_NE(nullptr, controller()->GetConfirmationDialogForTest());
+  ASSERT_TRUE(disable_trackpad_event_rewriter()->IsEnabled());
+  ASSERT_FALSE(toast_manager->IsToastShown("AccessibilityToast"));
+
+  controller()->DismissDisableTrackpadDialogForTesting();
+  ASSERT_FALSE(disable_trackpad_event_rewriter()->IsEnabled());
+
+  ASSERT_EQ(nullptr, controller()->GetConfirmationDialogForTest());
+  ASSERT_TRUE(toast_manager->IsToastShown("AccessibilityToast"));
+}
+
+TEST_F(AccessibilityControllerDisableTrackpadTest,
+       DialogShowsWhenExternalMouseLaterConnected) {
+  SimulateOnlyInternalTrackpadConnected();
+  prefs()->SetInteger(
+      prefs::kAccessibilityDisableTrackpadMode,
+      static_cast<int>(DisableTrackpadMode::kOnExternalMouseConnected));
+
+  ASSERT_EQ(nullptr, controller()->GetConfirmationDialogForTest());
+  ASSERT_FALSE(disable_trackpad_event_rewriter()->IsEnabled());
+
+  SimulateExternalMouseConnected();
+  ASSERT_NE(nullptr, controller()->GetConfirmationDialogForTest());
+  ASSERT_TRUE(disable_trackpad_event_rewriter()->IsEnabled());
 }
 
 }  // namespace ash

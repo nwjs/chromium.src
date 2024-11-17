@@ -21,17 +21,13 @@ extern const char kHatsSurveyTriggerAutofillCreditCardUserPerception[];
 extern const char kHatsSurveyTriggerAutofillPasswordUserPerception[];
 extern const char kHatsSurveyTriggerAutofillCard[];
 extern const char kHatsSurveyTriggerAutofillPassword[];
-extern const char kHatsSurveyTriggerDevToolsIssuesCOEP[];
-extern const char kHatsSurveyTriggerDevToolsIssuesMixedContent[];
-extern const char kHatsSurveyTriggerDevToolsIssuesCookiesSameSite[];
-extern const char kHatsSurveyTriggerDevToolsIssuesHeavyAd[];
-extern const char kHatsSurveyTriggerDevToolsIssuesCSP[];
 extern const char kHatsSurveyTriggerDownloadWarningBubbleBypass[];
 extern const char kHatsSurveyTriggerDownloadWarningBubbleHeed[];
 extern const char kHatsSurveyTriggerDownloadWarningBubbleIgnore[];
 extern const char kHatsSurveyTriggerDownloadWarningPageBypass[];
 extern const char kHatsSurveyTriggerDownloadWarningPageHeed[];
 extern const char kHatsSurveyTriggerDownloadWarningPageIgnore[];
+extern const char kHatsSurveyTriggerLensOverlayResults[];
 extern const char kHatsSurveyTriggerM1AdPrivacyPage[];
 extern const char kHatsSurveyTriggerM1TopicsSubpage[];
 extern const char kHatsSurveyTriggerM1FledgeSubpage[];
@@ -81,7 +77,6 @@ extern const char kHatsSurveyTriggerComposeClose[];
 extern const char kHatsSurveyTriggerComposeNudgeClose[];
 #endif  // BUILDFLAG(ENABLE_COMPOSE)
 extern const char kHatsSurveyTriggerWhatsNew[];
-extern const char kHatsSurveyTriggerWhatsNewAlternate[];
 #else
 extern const char kHatsSurveyTriggerAndroidStartupSurvey[];
 extern const char kHatsSurveyTriggerQuickDelete[];

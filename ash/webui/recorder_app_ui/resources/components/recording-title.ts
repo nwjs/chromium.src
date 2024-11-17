@@ -3,11 +3,15 @@
 // found in the LICENSE file.
 
 import 'chrome://resources/cros_components/textfield/textfield.js';
+import 'chrome://resources/cros_components/snackbar/snackbar.js';
 import './cra/cra-icon.js';
 import './cra/cra-icon-button.js';
 import './cra/cra-tooltip.js';
 import './recording-title-suggestion.js';
 
+import {
+  Snackbar,
+} from 'chrome://resources/cros_components/snackbar/snackbar.js';
 import {
   Textfield,
 } from 'chrome://resources/cros_components/textfield/textfield.js';
@@ -33,7 +37,6 @@ import {computed, signal} from '../core/reactive/signal.js';
 import {RecordingMetadata} from '../core/recording_data_manager.js';
 import {settings, SummaryEnableState} from '../core/state/settings.js';
 import {assertExists, assertInstanceof} from '../core/utils/assert.js';
-
 import {CraIconButton} from './cra/cra-icon-button.js';
 import {RecordingTitleSuggestion} from './recording-title-suggestion.js';
 
@@ -53,11 +56,6 @@ export class RecordingTitle extends ReactiveLitElement {
     }
 
     recording-title-suggestion {
-      /*
-       * TODO: b/361221415 - Remove the old properties when stable Chrome
-       * supports new one.
-       */
-      inset-area: bottom span-right;
       position: absolute;
       position-anchor: --title-textfield;
       position-area: bottom span-right;
@@ -109,6 +107,8 @@ export class RecordingTitle extends ReactiveLitElement {
   private readonly platformHandler = usePlatformHandler();
 
   private readonly renameContainer = createRef<HTMLDivElement>();
+
+  private readonly snackBar = createRef<Snackbar>();
 
   private readonly suggestTitleButton = createRef<CraIconButton>();
 
@@ -209,6 +209,26 @@ export class RecordingTitle extends ReactiveLitElement {
     this.requestUpdate();
   }
 
+  private onTextfieldKeyDown(ev: KeyboardEvent) {
+    const target = assertInstanceof(ev.target, Textfield);
+    if (ev.key === 'Escape') {
+      // Revert back to the old name and exit textfield.
+      target.value = this.recordingMetadata?.title ?? '';
+      target.blurTextfield();
+    } else if (ev.key === 'Enter') {
+      // Exit text field.
+      target.blurTextfield();
+    }
+  }
+
+  private onSuggestTitleButtonKeyDown(ev: KeyboardEvent) {
+    ev.stopPropagation();
+    if (ev.key === 'Escape') {
+      // Turn focus back to text field.
+      this.editTextfield?.focusTextfield();
+    }
+  }
+
   private setTitle(title: string) {
     const meta = this.recordingMetadata;
     if (meta === null) {
@@ -218,11 +238,16 @@ export class RecordingTitle extends ReactiveLitElement {
       ...meta,
       title,
     });
+    const snackBar = assertExists(this.snackBar.value);
+    snackBar.showPopover();
   }
 
   private onChangeTitle(ev: Event) {
     const target = assertInstanceof(ev.target, Textfield);
-    this.setTitle(target.value);
+    // Change title when the text field is not empty.
+    if (target.value !== '') {
+      this.setTitle(target.value);
+    }
   }
 
   private onSuggestTitle(ev: CustomEvent<string>) {
@@ -254,7 +279,7 @@ export class RecordingTitle extends ReactiveLitElement {
     ></recording-title-suggestion>`;
   }
 
-  override render(): RenderResult {
+  private renderTitle(): RenderResult {
     if (this.editing.value) {
       const suggestionIconButton =
         this.suggestionShown.value || !this.shouldShowTitleSuggestion.value ?
@@ -265,17 +290,18 @@ export class RecordingTitle extends ReactiveLitElement {
               slot="trailing"
               shape="circle"
               @click=${this.openSuggestionDialog}
+              @keydown=${this.onSuggestTitleButtonKeyDown}
               ${ref(this.suggestTitleButton)}
               aria-label=${i18n.titleSuggestionButtonTooltip}
             >
               <cra-icon slot="icon" name="pen_spark"></cra-icon>
             </cra-icon-button>`;
-      // TODO(pihsun): Handle keyboard event like "enter".
       return html`<cros-textfield
           type="text"
           .value=${this.recordingMetadata?.title ?? ''}
           @change=${this.onChangeTitle}
           @focusout=${this.onFocusout}
+          @keydown=${this.onTextfieldKeyDown}
           aria-label=${i18n.titleTextfieldAriaLabel}
         >
           ${suggestionIconButton}
@@ -295,6 +321,17 @@ export class RecordingTitle extends ReactiveLitElement {
         ${this.recordingMetadata?.title ?? ''}
         <cra-tooltip>${i18n.titleRenameTooltip}</cra-tooltip>
       </div>
+    `;
+  }
+
+  override render(): RenderResult {
+    return html`
+      <cros-snackbar
+        message=${i18n.titleRenameSnackbarMessage}
+        timeoutMs="4000"
+        ${ref(this.snackBar)}
+      ></cros-snackbar>
+      ${this.renderTitle()}
     `;
   }
 }

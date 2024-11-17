@@ -230,8 +230,16 @@ TEST_F(GrpcServerStreamingTest, ServerStreamingCallIsCancelledByClient) {
   task_environment_.RunUntilIdle();
 }
 
+// Flaky on Android and Linux, see https://crbug.com/374999320.
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
+#define MAYBE_ServerStreamingCallIsCancelledByClientInActiveReactor \
+  DISABLED_ServerStreamingCallIsCancelledByClientInActiveReactor
+#else
+#define MAYBE_ServerStreamingCallIsCancelledByClientInActiveReactor \
+  ServerStreamingCallIsCancelledByClientInActiveReactor
+#endif
 TEST_F(GrpcServerStreamingTest,
-       ServerStreamingCallIsCancelledByClientInActiveReactor) {
+       MAYBE_ServerStreamingCallIsCancelledByClientInActiveReactor) {
   GrpcServer server;
 
   base::WaitableEvent server_request_received;
@@ -271,9 +279,12 @@ TEST_F(GrpcServerStreamingTest,
         ASSERT_THAT(status, StatusIs(grpc::StatusCode::ABORTED));
         reactor_aborted.Signal();
       }));
+  // The handler might have already been called by gRPC framework, so write an
+  // empty message to release its deferred state.
+  cancelled_reactor->Write(TestResponse());
+
   ASSERT_TRUE(reactor_aborted.TimedWait(kEventTimeout));
 
-  cancelled_reactor->Write(TestResponse());
   test::StopGrpcServer(server, kServerStopTimeout);
 }
 

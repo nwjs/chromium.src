@@ -270,7 +270,7 @@ public class PdfUtils {
      * @return the decoded download url; or null if the original url is not a pdf page url.
      */
     public static String decodePdfPageUrl(String originalUrl) {
-        if (!originalUrl.startsWith(UrlConstants.PDF_URL)) {
+        if (originalUrl == null || !originalUrl.startsWith(UrlConstants.PDF_URL)) {
             return null;
         }
         Uri uri = Uri.parse(originalUrl);
@@ -279,7 +279,7 @@ public class PdfUtils {
             String decodedUrl = URLDecoder.decode(encodedUrl, "UTF-8");
             recordIsPdfDownloadUrlDecoded(true);
             return decodedUrl;
-        } catch (java.io.UnsupportedEncodingException e) {
+        } catch (Exception e) {
             recordIsPdfDownloadUrlDecoded(false);
             Log.e(TAG, "Unsupported encoding: " + e.getMessage());
             return null;
@@ -294,8 +294,17 @@ public class PdfUtils {
         RecordHistogram.recordBooleanHistogram("Android.Pdf.DocumentLoadResult", isLoadSuccess);
     }
 
+    static void recordPdfLoadResultPaired(boolean isLoadSuccess) {
+        RecordHistogram.recordBooleanHistogram(
+                "Android.Pdf.DocumentLoadResult.Paired", isLoadSuccess);
+    }
+
     static void recordPdfLoadTime(long duration) {
         RecordHistogram.recordTimesHistogram("Android.Pdf.DocumentLoadTime", duration);
+    }
+
+    static void recordPdfLoadTimePaired(long duration) {
+        RecordHistogram.recordTimesHistogram("Android.Pdf.DocumentLoadTime.Paired", duration);
     }
 
     static void recordFindInPage(int findInPageCounts) {

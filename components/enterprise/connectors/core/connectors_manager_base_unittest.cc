@@ -16,7 +16,7 @@ namespace {
 constexpr ReportingConnector kAllReportingConnectors[] = {
     ReportingConnector::SECURITY_EVENT};
 
-#if !BUILDFLAG(IS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 constexpr char kNormalReportingSettingsPref[] = R"([
   {
     "service_provider": "google"
@@ -30,14 +30,6 @@ class ConnectorsManagerBaseTest : public testing::Test {
   ConnectorsManagerBaseTest() { RegisterProfilePrefs(prefs_.registry()); }
 
   PrefService* pref_service() { return &prefs_; }
-
-  void ValidateSettings(const ReportingSettings& settings) {
-    // For now, the URL is the same for both legacy and new policies, so
-    // checking the specific URL here.  When service providers become
-    // configurable this will change.
-    ASSERT_EQ(GURL("https://chromereporting-pa.googleapis.com/v1/events"),
-              settings.reporting_url);
-  }
 
   class ScopedConnectorPref {
    public:
@@ -83,8 +75,8 @@ class ConnectorsManagerBaseReportingTest
 };
 
 TEST_P(ConnectorsManagerBaseReportingTest, DynamicPolicies) {
-  // TODO(b/344593927): Re-enable this test for Android.
-#if BUILDFLAG(IS_ANDROID)
+  // TODO(b/344593927): Re-enable this test for Android and iOS
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   ASSERT_FALSE(pref_service()->FindPreference(
       "enterprise_connectors.on_security_event"));
 #else
@@ -105,7 +97,6 @@ TEST_P(ConnectorsManagerBaseReportingTest, DynamicPolicies) {
     auto settings =
         cached_settings.at(connector()).at(0).GetReportingSettings();
     ASSERT_TRUE(settings.has_value());
-    ValidateSettings(settings.value());
   }
 
   // The cache should be empty again after the pref is reset.

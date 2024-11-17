@@ -17,10 +17,6 @@
 // your feature needs. This comment will be deleted after there are 10+ features
 // in BrowserWindowFeatures.
 
-namespace user_education {
-class FeaturePromoController;
-}  // namespace user_education
-
 namespace tabs {
 class TabInterface;
 }  // namespace tabs
@@ -30,11 +26,16 @@ class WebView;
 class View;
 }  // namespace views
 
+namespace web_app {
+class AppBrowserController;
+}  // namespace web_app
+
 namespace web_modal {
 class WebContentsModalDialogHost;
 }  // namespace web_modal
 
 class BrowserActions;
+class BrowserUserEducationInterface;
 class BrowserWindowFeatures;
 class ExclusiveAccessManager;
 class GURL;
@@ -73,8 +74,16 @@ class BrowserWindowInterface : public content::PageNavigator {
   // Returns true if the browser controls are hidden due to being in fullscreen.
   virtual bool ShouldHideUIForFullscreen() const = 0;
 
+  // See Browser::IsAttemptingToCloseBrowser() for more details.
+  virtual bool IsAttemptingToCloseBrowser() const = 0;
+
   // Returns the top container view.
   virtual views::View* TopContainer() = 0;
+
+  using ActiveTabChangeCallback =
+      base::RepeatingCallback<void(BrowserWindowInterface*)>;
+  virtual base::CallbackListSubscription RegisterActiveTabDidChange(
+      ActiveTabChangeCallback callback) = 0;
 
   // Returns the foreground tab. This can be nullptr very early during
   // BrowserWindow initialization, and very late during BrowserWindow teardown.
@@ -163,10 +172,12 @@ class BrowserWindowInterface : public content::PageNavigator {
   };
   virtual Type GetType() const = 0;
 
-  // Gets the windows's FeaturePromoController which manages display of
-  // in-product help. Will return null in incognito and guest profiles.
-  virtual user_education::FeaturePromoController*
-  GetFeaturePromoController() = 0;
+  // Gets an object that provides common per-browser-window functionality for
+  // user education. The remainder of functionality is provided directly by the
+  // UserEducationService, which can be retrieved directly from the profile.
+  virtual BrowserUserEducationInterface* GetUserEducationInterface() = 0;
+
+  virtual web_app::AppBrowserController* GetAppBrowserController() = 0;
 };
 
 #endif  // CHROME_BROWSER_UI_BROWSER_WINDOW_PUBLIC_BROWSER_WINDOW_INTERFACE_H_

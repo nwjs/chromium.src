@@ -76,10 +76,6 @@ COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kChromeOsPasskeys);
 #endif
 
-// Support cross-domain RP ID assertions.
-COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_DECLARE_FEATURE(kWebAuthnRelatedOrigin);
-
 // Enable the Chrome Android cable authenticator. This lets a Chrome module
 // handle cable requests from scanning a QR code, tapping on an FCM
 // notification, or coming from Play Services. The Chrome Android cable
@@ -116,11 +112,6 @@ BASE_DECLARE_FEATURE(kWebAuthnRecoverFromICloudRecoveryKey);
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnCacheSecurityDomain);
 
-// Whether to enable the Android Open Accessory protocol, a.k.a
-// "caBLE-over-cable".
-COMPONENT_EXPORT(DEVICE_FIDO)
-BASE_DECLARE_FEATURE(kWebAuthnAndroidOpenAccessory);
-
 // Send enclave requests with 5 seconds delay. For development purposes only.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnEnclaveAuthenticatorDelay);
@@ -128,6 +119,15 @@ BASE_DECLARE_FEATURE(kWebAuthnEnclaveAuthenticatorDelay);
 // Enable non-autofill sign-in UI for conditional mediation.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnAmbientSignin);
+
+// Support the PRF extension with iCloud Keychain credentials.
+COMPONENT_EXPORT(DEVICE_FIDO)
+BASE_DECLARE_FEATURE(kWebAuthniCloudKeychainPrf);
+
+// Enables linking of hybrid devices to Chrome, both pre-linking (i.e. through
+// Sync) and through hybrid.
+COMPONENT_EXPORT(DEVICE_FIDO)
+BASE_DECLARE_FEATURE(kWebAuthnHybridLinking);
 
 }  // namespace device
 

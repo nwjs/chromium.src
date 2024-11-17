@@ -92,6 +92,7 @@
 #include "third_party/blink/renderer/platform/geometry/layout_unit.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_2d_layer_bridge.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
+#include "third_party/blink/renderer/platform/graphics/gpu/shared_context_rate_limiter.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_types.h"
 #include "third_party/blink/renderer/platform/graphics/image_orientation.h"
@@ -102,6 +103,7 @@
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/stroke_data.h"
+#include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/timer.h"
@@ -338,8 +340,41 @@ bool CanvasRenderingContext2D::WritePixels(const SkImageInfo& orig_info,
                                            int x,
                                            int y) {
   DCHECK(IsPaintable());
-  return canvas()->GetCanvas2DLayerBridge()->WritePixels(orig_info, pixels,
-                                                         row_bytes, x, y);
+  CanvasRenderingContextHost* host = Host();
+  CHECK(host);
+
+  CanvasResourceProvider* provider =
+      canvas()->GetCanvas2DLayerBridge()->GetOrCreateResourceProvider();
+  if (provider == nullptr) {
+    return false;
+  }
+
+  if (x <= 0 && y <= 0 && x + orig_info.width() >= host->Size().width() &&
+      y + orig_info.height() >= host->Size().height()) {
+    MemoryManagedPaintRecorder& recorder = provider->Recorder();
+    if (recorder.HasSideRecording()) {
+      // Even with opened layers, WritePixels would write to the main canvas
+      // surface under the layers. We can therefore clear the paint ops recorded
+      // before the first `beginLayer`, but the layers themselves must be kept
+      // untouched. Note that this operation makes little sense and is actually
+      // disabled in `putImageData` by raising an exception if layers are
+      // opened. Still, it's preferable to handle this scenario here because the
+      // alternative would be to crash or leave the canvas in an invalid state.
+      recorder.ReleaseMainRecording();
+    } else {
+      recorder.RestartRecording();
+    }
+  } else {
+    host->FlushRecording(FlushReason::kWritePixels);
+
+    // Short-circuit out if an error occurred while flushing the recording.
+    if (!host->ResourceProvider()->IsValid()) {
+      return false;
+    }
+  }
+
+  return host->ResourceProvider()->WritePixels(orig_info, pixels, row_bytes, x,
+                                               y);
 }
 
 void CanvasRenderingContext2D::Reset() {
@@ -688,7 +723,27 @@ scoped_refptr<StaticBitmapImage> blink::CanvasRenderingContext2D::GetImage(
     FlushReason reason) {
   if (!IsPaintable())
     return nullptr;
-  return canvas()->GetCanvas2DLayerBridge()->NewImageSnapshot(reason);
+
+  Canvas2DLayerBridge* bridge = canvas()->GetCanvas2DLayerBridge();
+
+  CanvasHibernationHandler& hibernation_handler =
+      bridge->GetHibernationHandler();
+
+  if (hibernation_handler.IsHibernating()) {
+    return UnacceleratedStaticBitmapImage::Create(
+        hibernation_handler.GetImage());
+  }
+
+  if (!Host()->IsResourceValid()) {
+    return nullptr;
+  }
+  // GetOrCreateResourceProvider needs to be called before FlushRecording, to
+  // make sure "hint" is properly taken into account.
+  if (!bridge->GetOrCreateResourceProvider()) {
+    return nullptr;
+  }
+  Host()->FlushRecording(reason);
+  return Host()->ResourceProvider()->Snapshot(reason);
 }
 
 ImageData* CanvasRenderingContext2D::getImageDataInternal(
@@ -708,8 +763,36 @@ ImageData* CanvasRenderingContext2D::getImageDataInternal(
 
 void CanvasRenderingContext2D::FinalizeFrame(FlushReason reason) {
   TRACE_EVENT0("blink", "CanvasRenderingContext2D::FinalizeFrame");
-  if (IsPaintable())
-    canvas()->GetCanvas2DLayerBridge()->FinalizeFrame(reason);
+  if (!IsPaintable()) {
+    return;
+  }
+
+  // Make sure surface is ready for painting: fix the rendering mode now
+  // because it will be too late during the paint invalidation phase.
+  if (!canvas()->GetCanvas2DLayerBridge()->GetOrCreateResourceProvider()) {
+    return;
+  }
+
+  CanvasRenderingContextHost* host = Host();
+  CHECK(host);
+
+  host->FlushRecording(reason);
+  if (reason == FlushReason::kCanvasPushFrame) {
+    if (host->IsDisplayed()) {
+      // Make sure the GPU is never more than two animation frames behind.
+      constexpr unsigned kMaxCanvasAnimationBacklog = 2;
+      if (host->IncrementFramesSinceLastCommit() >=
+          static_cast<int>(kMaxCanvasAnimationBacklog)) {
+        if (host->IsComposited() && !host->RateLimiter()) {
+          host->CreateRateLimiter();
+        }
+      }
+    }
+
+    if (host->RateLimiter()) {
+      host->RateLimiter()->Tick();
+    }
+  }
 }
 
 CanvasRenderingContextHost*

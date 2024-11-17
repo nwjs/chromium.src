@@ -200,7 +200,7 @@ GaiaIdToPushNotificationPreferenceMapFromCache(
 }
 
 - (void)applicationDidRegisterWithAPNS:(NSData*)deviceToken
-                          browserState:(ChromeBrowserState*)browserState {
+                               profile:(ProfileIOS*)profile {
   ProfileAttributesStorageIOS* storage = GetApplicationContext()
                                              ->GetProfileManager()
                                              ->GetProfileAttributesStorage();
@@ -230,12 +230,12 @@ GaiaIdToPushNotificationPreferenceMapFromCache(
   config.singleSignOnService =
       GetApplicationContext()->GetSingleSignOnService();
 
-  if (browserState) {
+  if (profile) {
     config.shouldRegisterContentNotification =
-        [self isContentNotificationAvailable:browserState];
+        [self isContentNotificationAvailable:profile];
     if (config.shouldRegisterContentNotification) {
       AuthenticationService* authService =
-          AuthenticationServiceFactory::GetForBrowserState(browserState);
+          AuthenticationServiceFactory::GetForProfile(profile);
       id<SystemIdentity> identity =
           authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
       config.primaryAccount = identity;
@@ -243,7 +243,7 @@ GaiaIdToPushNotificationPreferenceMapFromCache(
       // the server. Send an NAU on every foreground to report the OS Auth
       // Settings.
       ContentNotificationService* contentNotificationService =
-          ContentNotificationServiceFactory::GetForBrowserState(browserState);
+          ContentNotificationServiceFactory::GetForProfile(profile);
       [self sendSettingsChangeNAUWithService:contentNotificationService];
     }
   }
@@ -257,7 +257,7 @@ GaiaIdToPushNotificationPreferenceMapFromCache(
                                 true);
       if (base::FeatureList::IsEnabled(
               send_tab_to_self::kSendTabToSelfIOSPushNotifications)) {
-        [self setUpAndEnableSendTabNotificationsWithBrowserState:browserState];
+        [self setUpAndEnableSendTabNotificationsWithProfile:profile];
       }
     }
   });
@@ -266,8 +266,8 @@ GaiaIdToPushNotificationPreferenceMapFromCache(
 #pragma mark - AppStateObserver
 
 - (void)appState:(AppState*)appState
-    didTransitionFromInitStage:(InitStage)previousInitStage {
-  if (appState.initStage < InitStageFinal) {
+    didTransitionFromInitStage:(AppInitStage)previousInitStage {
+  if (appState.initStage < AppInitStage::kFinal) {
     return;
   }
   SceneState* sceneState = appState.foregroundActiveScene;
@@ -279,7 +279,7 @@ GaiaIdToPushNotificationPreferenceMapFromCache(
 
 - (void)appState:(AppState*)appState
     sceneDidBecomeActive:(SceneState*)sceneState {
-  if (appState.initStage < InitStageFinal) {
+  if (appState.initStage < AppInitStage::kFinal) {
     return;
   }
   [self appDidEnterForeground:sceneState];
@@ -295,12 +295,11 @@ GaiaIdToPushNotificationPreferenceMapFromCache(
           ->GetPushNotificationClientManager();
   DCHECK(clientManager);
   clientManager->OnSceneActiveForegroundBrowserReady();
-  ChromeBrowserState* browserState =
-      sceneState.browserProviderInterface.mainBrowserProvider.browser
-          ->GetBrowserState();
-  if (IsContentNotificationEnabled(browserState)) {
+  ProfileIOS* profile = sceneState.browserProviderInterface.mainBrowserProvider
+                            .browser->GetProfile();
+  if (IsContentNotificationEnabled(profile)) {
     ContentNotificationService* contentNotificationService =
-        ContentNotificationServiceFactory::GetForBrowserState(browserState);
+        ContentNotificationServiceFactory::GetForProfile(profile);
     int maxNauSentPerSession = base::GetFieldTrialParamByFeatureAsInt(
         kContentNotificationDeliveredNAU, kDeliveredNAUMaxPerSession,
         kDeliveredNAUMaxSendsPerSession);
@@ -341,11 +340,7 @@ GaiaIdToPushNotificationPreferenceMapFromCache(
     // Send an NAU on every foreground to report the OS Auth Settings.
     [self sendSettingsChangeNAUWithService:contentNotificationService];
   }
-  [PushNotificationUtil
-      getPermissionSettings:^(UNNotificationSettings* settings) {
-        [PushNotificationUtil
-            updateAuthorizationStatusPref:settings.authorizationStatus];
-      }];
+  [PushNotificationUtil updateAuthorizationStatusPref];
 }
 
 - (void)sendSettingsChangeNAUWithService:
@@ -370,19 +365,19 @@ GaiaIdToPushNotificationPreferenceMapFromCache(
   base::UmaHistogramEnumeration(kLifecycleEventsHistogram, event);
 }
 
-- (BOOL)isContentNotificationAvailable:(ChromeBrowserState*)browserState {
-  return IsContentNotificationEnabled(browserState) ||
-         IsContentNotificationRegistered(browserState);
+- (BOOL)isContentNotificationAvailable:(ProfileIOS*)profile {
+  return IsContentNotificationEnabled(profile) ||
+         IsContentNotificationRegistered(profile);
 }
 
 // Returns YES if there is a foreground active browser. Checks all profiles.
 - (BOOL)isSceneLevelForegroundActive {
-  std::vector<ChromeBrowserState*> loaded_profiles =
+  std::vector<ProfileIOS*> loaded_profiles =
       GetApplicationContext()->GetProfileManager()->GetLoadedProfiles();
 
-  for (ChromeBrowserState* profile : loaded_profiles) {
+  for (ProfileIOS* profile : loaded_profiles) {
     std::set<Browser*> browsers =
-        BrowserListFactory::GetForBrowserState(profile)->BrowsersOfType(
+        BrowserListFactory::GetForProfile(profile)->BrowsersOfType(
             BrowserList::BrowserType::kRegular);
     for (Browser* browser : browsers) {
       if (browser->GetSceneState().activationLevel ==
@@ -398,27 +393,26 @@ GaiaIdToPushNotificationPreferenceMapFromCache(
 // has authorized full notification permissions, enables Send Tab notifications
 // OR 2) enrolls user in provisional notifications for Send Tab notification
 // type.
-- (void)setUpAndEnableSendTabNotificationsWithBrowserState:
-    (ChromeBrowserState*)browserState {
-  if (!browserState) {
+- (void)setUpAndEnableSendTabNotificationsWithProfile:(ProfileIOS*)profile {
+  if (!profile) {
     return;
   }
 
   // Refresh the local device info now that the client has a Chime
   // Representative Target ID.
   syncer::DeviceInfoSyncService* deviceInfoSyncService =
-      DeviceInfoSyncServiceFactory::GetForBrowserState(browserState);
+      DeviceInfoSyncServiceFactory::GetForProfile(profile);
   deviceInfoSyncService->RefreshLocalDeviceInfo();
 
   AuthenticationService* authService =
-      AuthenticationServiceFactory::GetForBrowserState(browserState);
+      AuthenticationServiceFactory::GetForProfile(profile);
   NSString* gaiaID =
       authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin).gaiaID;
 
   // Early return if 1) the user has previously disabled Send Tab push
   // notifications, because in that case we don't want to automatically enable
   // the notification type or 2) if Send Tab notifications are already enabled.
-  if (browserState->GetPrefs()->GetBoolean(
+  if (profile->GetPrefs()->GetBoolean(
           prefs::kSendTabNotificationsPreviouslyDisabled) ||
       push_notification_settings::
           GetMobileNotificationPermissionStatusForClient(

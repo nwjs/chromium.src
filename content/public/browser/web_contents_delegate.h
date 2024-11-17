@@ -446,6 +446,11 @@ class CONTENT_EXPORT WebContentsDelegate {
                               scoped_refptr<FileSelectListener> listener,
                               const blink::mojom::FileChooserParams& params);
 
+#if BUILDFLAG(IS_ANDROID)
+  // Set to true if RunFileChooser() should be used for FileSystemAccess APIs.
+  virtual bool UseFileChooserForFileSystemAccess() const;
+#endif
+
   // Request to enumerate a directory.  This is equivalent to running the file
   // chooser in directory-enumeration mode and having the user select the given
   // directory.
@@ -572,6 +577,10 @@ class CONTENT_EXPORT WebContentsDelegate {
 
   // Notification that the page has lost the pointer lock.
   virtual void LostPointerLock() {}
+
+  // Returns true if we are waiting for the user to make a selection on the
+  // pointer lock permission request dialog.
+  virtual bool IsWaitingForPointerLockPrompt(WebContents* web_contents);
 
   // Requests keyboard lock. Once the request is approved or rejected,
   // GotResponseToKeyboardLockRequest() will be called on |web_contents|.

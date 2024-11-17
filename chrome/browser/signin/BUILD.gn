@@ -28,7 +28,7 @@ source_set("signin") {
     public_deps += [
       "//base",
       "//chrome/browser/search_engine_choice",
-      "//chrome/browser/ui/webui/signin",
+      "//chrome/browser/ui/webui/signin:signin_utils",
       "//components/keyed_service/core",
       "//components/policy/core/browser",
       "//components/search_engines",
@@ -61,6 +61,7 @@ source_set("impl") {
       "//chrome/browser/search_engines",
       "//chrome/browser/themes",
       "//chrome/browser/ui:browser_list",
+      "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/signin",
       "//chrome/common:channel_info",
       "//chrome/common:constants",

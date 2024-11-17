@@ -86,7 +86,7 @@ TEST_F(
   EXPECT_TRUE(config.is_mode_with_manual_fallback());
   EXPECT_TRUE(config.is_automatic_enrollment());
   EXPECT_FALSE(config.is_mode_oauth());
-  EXPECT_EQ(EnrollmentConfig::GetManualFallbackMode(config.mode),
+  EXPECT_EQ(config.GetManualFallbackConfig().mode,
             EnrollmentConfig::MODE_ENROLLMENT_TOKEN_INITIAL_MANUAL_FALLBACK);
 }
 
@@ -142,8 +142,8 @@ TEST_F(EnrollmentConfigTest, GetPrescribedEnrollmentConfigDuringOOBE) {
     const auto config = GetPrescribedConfig();
     EXPECT_EQ(EnrollmentConfig::MODE_NONE, config.mode);
     EXPECT_TRUE(config.management_domain.empty());
-    EXPECT_EQ(EnrollmentConfig::AUTH_MECHANISM_INTERACTIVE,
-              config.auth_mechanism);
+    EXPECT_FALSE(config.is_automatic_enrollment());
+    EXPECT_FALSE(config.is_mode_oauth());
   }
 
   // Set signals in increasing order of precedence, check results.
@@ -155,8 +155,8 @@ TEST_F(EnrollmentConfigTest, GetPrescribedEnrollmentConfigDuringOOBE) {
     const auto config = GetPrescribedConfig();
     EXPECT_EQ(EnrollmentConfig::MODE_LOCAL_ADVERTISED, config.mode);
     EXPECT_TRUE(config.management_domain.empty());
-    EXPECT_EQ(EnrollmentConfig::AUTH_MECHANISM_INTERACTIVE,
-              config.auth_mechanism);
+    EXPECT_TRUE(config.is_mode_oauth());
+    EXPECT_CHECK_DEATH(config.GetManualFallbackConfig());
   }
 
   // Pref: advertised enrollment. The resulting |config| is indistinguishable
@@ -169,8 +169,8 @@ TEST_F(EnrollmentConfigTest, GetPrescribedEnrollmentConfigDuringOOBE) {
     const auto config = GetPrescribedConfig();
     EXPECT_EQ(EnrollmentConfig::MODE_LOCAL_ADVERTISED, config.mode);
     EXPECT_TRUE(config.management_domain.empty());
-    EXPECT_EQ(EnrollmentConfig::AUTH_MECHANISM_INTERACTIVE,
-              config.auth_mechanism);
+    EXPECT_TRUE(config.is_mode_oauth());
+    EXPECT_CHECK_DEATH(config.GetManualFallbackConfig());
   }
 
   // Server-backed state: advertised enrollment.
@@ -183,8 +183,8 @@ TEST_F(EnrollmentConfigTest, GetPrescribedEnrollmentConfigDuringOOBE) {
     const auto config = GetPrescribedConfig();
     EXPECT_EQ(EnrollmentConfig::MODE_SERVER_ADVERTISED, config.mode);
     EXPECT_EQ(kTestDomain, config.management_domain);
-    EXPECT_EQ(EnrollmentConfig::AUTH_MECHANISM_INTERACTIVE,
-              config.auth_mechanism);
+    EXPECT_TRUE(config.is_mode_oauth());
+    EXPECT_CHECK_DEATH(config.GetManualFallbackConfig());
   }
 
   // OEM manifest: forced enrollment.
@@ -196,8 +196,8 @@ TEST_F(EnrollmentConfigTest, GetPrescribedEnrollmentConfigDuringOOBE) {
     const auto config = GetPrescribedConfig();
     EXPECT_EQ(EnrollmentConfig::MODE_LOCAL_FORCED, config.mode);
     EXPECT_TRUE(config.management_domain.empty());
-    EXPECT_EQ(EnrollmentConfig::AUTH_MECHANISM_INTERACTIVE,
-              config.auth_mechanism);
+    EXPECT_TRUE(config.is_mode_oauth());
+    EXPECT_CHECK_DEATH(config.GetManualFallbackConfig());
   }
 
   // Pref: forced enrollment. The resulting |config| is indistinguishable from
@@ -210,8 +210,8 @@ TEST_F(EnrollmentConfigTest, GetPrescribedEnrollmentConfigDuringOOBE) {
     const auto config = GetPrescribedConfig();
     EXPECT_EQ(EnrollmentConfig::MODE_LOCAL_FORCED, config.mode);
     EXPECT_TRUE(config.management_domain.empty());
-    EXPECT_EQ(EnrollmentConfig::AUTH_MECHANISM_INTERACTIVE,
-              config.auth_mechanism);
+    EXPECT_TRUE(config.is_mode_oauth());
+    EXPECT_CHECK_DEATH(config.GetManualFallbackConfig());
   }
 
   // Server-backed state: forced initial attestation-based enrollment.
@@ -225,8 +225,14 @@ TEST_F(EnrollmentConfigTest, GetPrescribedEnrollmentConfigDuringOOBE) {
     EXPECT_EQ(EnrollmentConfig::MODE_ATTESTATION_INITIAL_SERVER_FORCED,
               config.mode);
     EXPECT_EQ(kTestDomain, config.management_domain);
-    EXPECT_EQ(EnrollmentConfig::AUTH_MECHANISM_ATTESTATION_PREFERRED,
-              config.auth_mechanism);
+    EXPECT_TRUE(config.is_automatic_enrollment());
+    EXPECT_TRUE(config.is_mode_attestation());
+
+    const auto manual_fallback_config = config.GetManualFallbackConfig();
+    EXPECT_TRUE(manual_fallback_config.is_manual_fallback());
+    EXPECT_EQ(EnrollmentConfig::MODE_ATTESTATION_INITIAL_MANUAL_FALLBACK,
+              manual_fallback_config.mode);
+    EXPECT_TRUE(manual_fallback_config.is_mode_oauth());
   }
 
   // Server-backed state: forced attestation-based re-enrollment.
@@ -239,8 +245,14 @@ TEST_F(EnrollmentConfigTest, GetPrescribedEnrollmentConfigDuringOOBE) {
     const auto config = GetPrescribedConfig();
     EXPECT_EQ(EnrollmentConfig::MODE_ATTESTATION_SERVER_FORCED, config.mode);
     EXPECT_EQ(kTestDomain, config.management_domain);
-    EXPECT_EQ(EnrollmentConfig::AUTH_MECHANISM_ATTESTATION_PREFERRED,
-              config.auth_mechanism);
+    EXPECT_TRUE(config.is_automatic_enrollment());
+    EXPECT_TRUE(config.is_mode_attestation());
+
+    const auto manual_fallback_config = config.GetManualFallbackConfig();
+    EXPECT_TRUE(manual_fallback_config.is_manual_fallback());
+    EXPECT_EQ(EnrollmentConfig::MODE_ATTESTATION_MANUAL_FALLBACK,
+              manual_fallback_config.mode);
+    EXPECT_TRUE(manual_fallback_config.is_mode_oauth());
   }
 
   // Server-backed state: forced initial enrollment.
@@ -253,8 +265,8 @@ TEST_F(EnrollmentConfigTest, GetPrescribedEnrollmentConfigDuringOOBE) {
     const auto config = GetPrescribedConfig();
     EXPECT_EQ(EnrollmentConfig::MODE_INITIAL_SERVER_FORCED, config.mode);
     EXPECT_EQ(kTestDomain, config.management_domain);
-    EXPECT_EQ(EnrollmentConfig::AUTH_MECHANISM_INTERACTIVE,
-              config.auth_mechanism);
+    EXPECT_TRUE(config.is_mode_oauth());
+    EXPECT_CHECK_DEATH(config.GetManualFallbackConfig());
   }
 
   // Server-backed state: forced re-enrollment.
@@ -267,8 +279,8 @@ TEST_F(EnrollmentConfigTest, GetPrescribedEnrollmentConfigDuringOOBE) {
     const auto config = GetPrescribedConfig();
     EXPECT_EQ(EnrollmentConfig::MODE_SERVER_FORCED, config.mode);
     EXPECT_EQ(kTestDomain, config.management_domain);
-    EXPECT_EQ(EnrollmentConfig::AUTH_MECHANISM_INTERACTIVE,
-              config.auth_mechanism);
+    EXPECT_TRUE(config.is_mode_oauth());
+    EXPECT_CHECK_DEATH(config.GetManualFallbackConfig());
   }
 
   // OOBE config: rollback re-enrollment.
@@ -278,8 +290,14 @@ TEST_F(EnrollmentConfigTest, GetPrescribedEnrollmentConfigDuringOOBE) {
     const auto config = GetPrescribedConfig();
     EXPECT_EQ(EnrollmentConfig::MODE_ATTESTATION_ROLLBACK_FORCED, config.mode);
     EXPECT_TRUE(config.management_domain.empty());
-    EXPECT_EQ(EnrollmentConfig::AUTH_MECHANISM_ATTESTATION_PREFERRED,
-              config.auth_mechanism);
+    EXPECT_TRUE(config.is_automatic_enrollment());
+    EXPECT_TRUE(config.is_mode_attestation());
+
+    const auto manual_fallback_config = config.GetManualFallbackConfig();
+    EXPECT_TRUE(manual_fallback_config.is_manual_fallback());
+    EXPECT_EQ(EnrollmentConfig::MODE_ATTESTATION_ROLLBACK_MANUAL_FALLBACK,
+              manual_fallback_config.mode);
+    EXPECT_TRUE(manual_fallback_config.is_mode_oauth());
   }
 }
 
@@ -292,8 +310,7 @@ TEST_F(EnrollmentConfigTest, GetPrescribedEnrollmentConfigAfterOOBE) {
     const auto config = GetPrescribedConfig();
     EXPECT_EQ(EnrollmentConfig::MODE_NONE, config.mode);
     EXPECT_TRUE(config.management_domain.empty());
-    EXPECT_EQ(EnrollmentConfig::AUTH_MECHANISM_INTERACTIVE,
-              config.auth_mechanism);
+    EXPECT_FALSE(config.should_enroll());
   }
 
   // Advertised enrollment gets ignored.
@@ -304,8 +321,7 @@ TEST_F(EnrollmentConfigTest, GetPrescribedEnrollmentConfigAfterOOBE) {
     const auto config = GetPrescribedConfig();
     EXPECT_EQ(EnrollmentConfig::MODE_NONE, config.mode);
     EXPECT_TRUE(config.management_domain.empty());
-    EXPECT_EQ(EnrollmentConfig::AUTH_MECHANISM_INTERACTIVE,
-              config.auth_mechanism);
+    EXPECT_FALSE(config.should_enroll());
   }
 
   // If the device is enterprise-managed, the management domain gets pulled from
@@ -315,8 +331,7 @@ TEST_F(EnrollmentConfigTest, GetPrescribedEnrollmentConfigAfterOOBE) {
     const auto config = GetPrescribedConfig();
     EXPECT_EQ(EnrollmentConfig::MODE_NONE, config.mode);
     EXPECT_EQ(kTestDomain, config.management_domain);
-    EXPECT_EQ(EnrollmentConfig::AUTH_MECHANISM_INTERACTIVE,
-              config.auth_mechanism);
+    EXPECT_FALSE(config.should_enroll());
   }
 
   // If enrollment recovery is on, this is signaled in |config.mode|.
@@ -325,8 +340,8 @@ TEST_F(EnrollmentConfigTest, GetPrescribedEnrollmentConfigAfterOOBE) {
     const auto config = GetPrescribedConfig();
     EXPECT_EQ(EnrollmentConfig::MODE_RECOVERY, config.mode);
     EXPECT_EQ(kTestDomain, config.management_domain);
-    EXPECT_EQ(EnrollmentConfig::AUTH_MECHANISM_INTERACTIVE,
-              config.auth_mechanism);
+    EXPECT_TRUE(config.is_mode_oauth());
+    EXPECT_CHECK_DEATH(config.GetManualFallbackConfig());
   }
 }
 
@@ -335,8 +350,54 @@ TEST_F(EnrollmentConfigTest, GetDemoModeEnrollmentConfig) {
 
   EXPECT_EQ(EnrollmentConfig::MODE_ATTESTATION, config.mode);
   EXPECT_EQ(policy::kDemoModeDomain, config.management_domain);
-  EXPECT_EQ(EnrollmentConfig::AUTH_MECHANISM_ATTESTATION,
-            config.auth_mechanism);
+  EXPECT_TRUE(config.is_automatic_enrollment());
+  EXPECT_TRUE(config.is_mode_attestation());
+  EXPECT_CHECK_DEATH(config.GetManualFallbackConfig());
+}
+
+TEST_F(EnrollmentConfigTest, GetEffectivePrescribedEnrollmentConfig) {
+  EnrollmentConfig config;
+  config.mode = EnrollmentConfig::MODE_ATTESTATION_SERVER_FORCED;
+  config.management_domain = kTestDomain;
+
+  ASSERT_TRUE(config.should_enroll());
+  EXPECT_EQ(config, config.GetEffectiveConfig());
+}
+
+// Test that partially filled prescribed config that does not prescribe
+// enrollment produces correct manual enrollment config.
+TEST_F(EnrollmentConfigTest, GetEffectiveManualEnrollmentConfig) {
+  {
+    const auto config = GetPrescribedConfig();
+    ASSERT_FALSE(config.should_enroll());
+
+    const auto manual_config = config.GetEffectiveConfig();
+
+    EXPECT_EQ(EnrollmentConfig::MODE_MANUAL, manual_config.mode);
+    EXPECT_TRUE(manual_config.management_domain.empty());
+    EXPECT_TRUE(manual_config.is_mode_oauth());
+    EXPECT_EQ(LicenseType::kNone, manual_config.license_type);
+    EXPECT_CHECK_DEATH(manual_config.GetManualFallbackConfig());
+  }
+
+  local_state_.SetDict(
+      prefs::kServerBackedDeviceState,
+      base::Value::Dict()
+          .Set(kDeviceStateManagementDomain, kTestDomain)
+          .Set(kDeviceStateLicenseType, kDeviceStateLicenseTypeEducation));
+
+  {
+    const auto config = GetPrescribedConfig();
+    ASSERT_FALSE(config.should_enroll());
+
+    const auto manual_config = config.GetEffectiveConfig();
+
+    EXPECT_EQ(EnrollmentConfig::MODE_MANUAL, manual_config.mode);
+    EXPECT_TRUE(manual_config.management_domain.empty());
+    EXPECT_TRUE(manual_config.is_mode_oauth());
+    EXPECT_EQ(LicenseType::kEducation, manual_config.license_type);
+    EXPECT_CHECK_DEATH(manual_config.GetManualFallbackConfig());
+  }
 }
 
 }  // namespace policy

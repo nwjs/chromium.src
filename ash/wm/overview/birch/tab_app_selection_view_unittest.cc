@@ -4,6 +4,7 @@
 
 #include "ash/wm/overview/birch/tab_app_selection_view.h"
 
+#include "ash/birch/birch_coral_provider.h"
 #include "ash/birch/birch_item_remover.h"
 #include "ash/birch/birch_model.h"
 #include "ash/birch/test_birch_client.h"
@@ -14,8 +15,10 @@
 #include "ash/wm/overview/birch/birch_bar_controller.h"
 #include "ash/wm/overview/birch/birch_chip_button.h"
 #include "ash/wm/overview/birch/birch_chip_button_base.h"
+#include "ash/wm/overview/birch/tab_app_selection_host.h"
 #include "ash/wm/overview/birch/tab_app_selection_view.h"
 #include "ash/wm/overview/overview_grid_test_api.h"
+#include "ash/wm/overview/overview_utils.h"
 #include "base/test/scoped_feature_list.h"
 #include "ui/views/view_utils.h"
 
@@ -31,37 +34,43 @@ class TabAppSelectionViewTest : public AshTestBase {
     birch_client_ = std::make_unique<TestBirchClient>(birch_model);
     birch_model->SetClientAndInit(birch_client_.get());
 
-    auto coral_provider =
-        std::make_unique<TestBirchDataProvider<BirchCoralItem>>(
-            base::BindRepeating(&BirchModel::SetCoralItems,
-                                base::Unretained(birch_model)),
-            prefs::kBirchUseCoral);
-    coral_provider_ = coral_provider.get();
-    birch_model->OverrideCoralProviderForTest(std::move(coral_provider));
-
     base::RunLoop run_loop;
     birch_model->GetItemRemoverForTest()->SetProtoInitCallbackForTest(
         run_loop.QuitClosure());
     run_loop.Run();
 
-    // Prepare a coral item so we have a coral glanceable to click.
-    std::vector<GURL> page_urls;
-    page_urls.emplace_back(("https://www.reddit.com/"));
-    page_urls.emplace_back(("https://www.figma.com/"));
-    page_urls.emplace_back(("https://www.notion.so/"));
-    coral_provider_->set_items({BirchCoralItem(u"Title", u"Text", page_urls)});
+    // Prepare a coral group so we have a coral glanceable to click.
+    auto fake_response = std::make_unique<CoralResponse>();
+    auto fake_group = coral::mojom::Group::New();
+    fake_group->title = "Coral Group";
+    fake_group->entities.push_back(
+        coral::mojom::EntityKey::NewTabUrl(GURL("https://www.reddit.com/")));
+    fake_group->entities.push_back(
+        coral::mojom::EntityKey::NewTabUrl(GURL("https://www.figma.com/")));
+    fake_group->entities.push_back(
+        coral::mojom::EntityKey::NewTabUrl(GURL("https://www.notion.so/")));
+    // OS settings.
+    fake_group->entities.push_back(
+        coral::mojom::EntityKey::NewAppId("odknhmnlageboeamepcngndbggdpaobj"));
+    // Files.
+    fake_group->entities.push_back(
+        coral::mojom::EntityKey::NewAppId("lgnggepjiihbfdbedefdhcffnmhcahbm"));
+
+    std::vector<coral::mojom::GroupPtr> fake_groups;
+    fake_groups.push_back(std::move(fake_group));
+    fake_response->set_groups(std::move(fake_groups));
+    BirchCoralProvider::Get()->OverrideCoralResponseForTest(
+        std::move(fake_response));
   }
 
   void TearDown() override {
     Shell::Get()->birch_model()->SetClientAndInit(nullptr);
-    coral_provider_ = nullptr;
     birch_client_.reset();
     AshTestBase::TearDown();
   }
 
   // Brings up the selector menu host object by entering overview and clicking
-  // the birch coral chip. Note that the overview session is a temporary owner
-  // for the host object.
+  // the birch coral chip.
   TabAppSelectionHost* ShowAndGetSelectorMenu() {
     EnterOverview();
 
@@ -72,18 +81,39 @@ class TabAppSelectionViewTest : public AshTestBase {
     auto* coral_button = views::AsViewClass<BirchChipButton>(birch_chips[0]);
     CHECK_EQ(BirchItemType::kCoral, coral_button->GetItem()->GetType());
 
-    LeftClickOn(coral_button->addon_view_for_testing());
-    return OverviewController::Get()
-        ->overview_session()
-        ->tab_app_selection_widget_.get();
+    LeftClickOn(coral_button->addon_view());
+    return coral_button->tab_app_selection_widget_.get();
   }
 
  private:
   std::unique_ptr<TestBirchClient> birch_client_;
   raw_ptr<TestBirchDataProvider<BirchCoralItem>> coral_provider_;
 
-  base::test::ScopedFeatureList feature_list_{features::kBirchCoral};
+  base::test::ScopedFeatureList feature_list_{features::kCoralFeature};
 };
+
+// Tests that the menu can be toggled to show and hide.
+TEST_F(TabAppSelectionViewTest, ToggleMenu) {
+  TabAppSelectionHost* menu = ShowAndGetSelectorMenu();
+  ASSERT_TRUE(menu);
+  EXPECT_TRUE(menu->IsVisible());
+
+  LeftClickOn(menu->owner_for_testing()->addon_view());
+  EXPECT_FALSE(menu->IsVisible());
+
+  LeftClickOn(menu->owner_for_testing()->addon_view());
+  EXPECT_TRUE(menu->IsVisible());
+}
+
+TEST_F(TabAppSelectionViewTest, EscapeHidesMenu) {
+  TabAppSelectionHost* menu = ShowAndGetSelectorMenu();
+  ASSERT_TRUE(menu);
+  EXPECT_TRUE(menu->IsVisible());
+
+  PressAndReleaseKey(ui::VKEY_ESCAPE);
+  EXPECT_FALSE(menu->IsVisible());
+  EXPECT_TRUE(IsInOverviewSession());
+}
 
 // Tests clicking the close buttons on the selector menu.
 TEST_F(TabAppSelectionViewTest, CloseSelectorItems) {
@@ -94,25 +124,45 @@ TEST_F(TabAppSelectionViewTest, CloseSelectorItems) {
       views::AsViewClass<TabAppSelectionView>(menu->GetContentsView());
   ASSERT_TRUE(selection_view);
 
-  // Currently there are 3 tabs and 2 apps and they are hardcoded. There should
-  // be 2 subtitles.
+  // Currently there are 3 tabs and 2 apps and they are hardcoded in
+  // `TabAppSelectionViewTest`. There should be 2 subtitles.
   ASSERT_TRUE(selection_view->GetViewByID(TabAppSelectionView::kTabSubtitleID));
   ASSERT_TRUE(selection_view->GetViewByID(TabAppSelectionView::kAppSubtitleID));
-  EXPECT_EQ(3u, selection_view->tab_item_views_.size());
-  EXPECT_EQ(2u, selection_view->app_item_views_.size());
+  EXPECT_EQ(5u, selection_view->item_views_.size());
 
   // Simulate clicking the close button on the 3 tab items. We do this since
   // `TabAppSelectionItemView` is not exposed. Verify that the tab items are
   // gone, the tab subtitle is also gone, and all the close buttons are gone
   // since we need at least 2 items.
-  selection_view->OnCloseButtonPressed(selection_view->tab_item_views_.front());
-  selection_view->OnCloseButtonPressed(selection_view->tab_item_views_.front());
-  selection_view->OnCloseButtonPressed(selection_view->tab_item_views_.front());
-  EXPECT_TRUE(selection_view->tab_item_views_.empty());
+  selection_view->OnCloseButtonPressed(selection_view->item_views_.front());
+  selection_view->OnCloseButtonPressed(selection_view->item_views_.front());
+  selection_view->OnCloseButtonPressed(selection_view->item_views_.front());
+  EXPECT_EQ(2u, selection_view->item_views_.size());
   EXPECT_FALSE(
       selection_view->GetViewByID(TabAppSelectionView::kTabSubtitleID));
   EXPECT_FALSE(
       selection_view->GetViewByID(TabAppSelectionView::kCloseButtonID));
+}
+
+// Tests clicking outside the selector view closes it.
+TEST_F(TabAppSelectionViewTest, PressToHideMenu) {
+  TabAppSelectionHost* menu = ShowAndGetSelectorMenu();
+  ASSERT_TRUE(menu);
+
+  // Clicks on the selector itself should not hide it.
+  LeftClickOn(menu->GetContentsView());
+  EXPECT_TRUE(menu->IsVisible());
+
+  // Test clicking outside the selector.
+  GetEventGenerator()->MoveMouseTo(gfx::Point(1, 1));
+  GetEventGenerator()->ClickLeftButton();
+  EXPECT_TRUE(!menu->IsVisible());
+
+  // Test tapping outside the selector.
+  menu = ShowAndGetSelectorMenu();
+  ASSERT_TRUE(menu);
+  GetEventGenerator()->GestureTapAt(gfx::Point(1, 1));
+  EXPECT_TRUE(!menu->IsVisible());
 }
 
 }  // namespace ash

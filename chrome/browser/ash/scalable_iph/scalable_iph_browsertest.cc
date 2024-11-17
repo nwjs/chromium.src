@@ -8,6 +8,7 @@
 
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
+#include "ash/constants/web_app_id_constants.h"
 #include "ash/game_dashboard/game_dashboard_controller.h"
 #include "ash/public/cpp/app_list/app_list_controller.h"
 #include "ash/public/cpp/app_list/app_list_metrics.h"
@@ -21,6 +22,7 @@
 #include "ash/system/toast/anchored_nudge_manager_impl.h"
 #include "ash/test/test_widget_builder.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "base/scoped_observation.h"
 #include "base/strings/pattern.h"
 #include "chrome/browser/apps/app_service/app_registry_cache_waiter.h"
@@ -40,12 +42,10 @@
 #include "chrome/browser/ash/scalable_iph/scalable_iph_delegate_impl.h"
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/scalable_iph/scalable_iph_factory.h"
 #include "chrome/browser/ui/ash/login/user_adding_screen.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_window_manager_helper.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/web_applications/web_app_id_constants.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -54,13 +54,16 @@
 #include "chromeos/ash/components/scalable_iph/iph_session.h"
 #include "chromeos/ash/components/scalable_iph/scalable_iph_constants.h"
 #include "chromeos/ash/components/scalable_iph/scalable_iph_delegate.h"
+#include "chromeos/ash/components/scalable_iph/scalable_iph_factory.h"
 #include "chromeos/dbus/power/fake_power_manager_client.h"
 #include "chromeos/printing/printer_configuration.h"
 #include "components/account_id/account_id.h"
+#include "components/feature_engagement/public/tracker.h"
 #include "components/feature_engagement/test/mock_tracker.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
 #include "components/variations/service/variations_service.h"
+#include "content/public/browser/browser_context.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/test/browser_test.h"
 #include "extensions/common/constants.h"
@@ -892,6 +895,35 @@ IN_PROC_BROWSER_TEST_F(ScalableIphBrowserTest, NoTimeTickEventWithLockScreen) {
   testing::Mock::VerifyAndClearExpectations(mock_tracker());
 }
 
+class ScalableIphBrowserTestUnlock : public ScalableIphBrowserTest {
+ protected:
+  ScalableIphBrowserTestBase::MockTrackerFactoryMethod
+  GetMockTrackerFactoryMethod() override {
+    return base::BindRepeating(&ScalableIphBrowserTestUnlock::CreateMockTracker,
+                               base::Unretained(this));
+  }
+
+ private:
+  std::unique_ptr<KeyedService> CreateMockTracker(
+      content::BrowserContext* browser_context) {
+    std::unique_ptr<feature_engagement::test::MockTracker> mock_tracker =
+        ScalableIphBrowserTestBase::SetUpFakeInitializationCalls(
+            std::make_unique<feature_engagement::test::MockTracker>());
+
+    EXPECT_CALL(*mock_tracker, NotifyEvent(scalable_iph::kEventNameUnlocked));
+
+    return mock_tracker;
+  }
+};
+
+// Session start should be recorded as an unlock event in `ScalableIph`.
+IN_PROC_BROWSER_TEST_F(ScalableIphBrowserTestUnlock,
+                       SessionStartUnlockedEvent) {
+  // The expectation is set in
+  // `ScalableIphBrowserTestUnlock::CreateMockTracker`.
+  testing::Mock::VerifyAndClearExpectations(mock_tracker());
+}
+
 // TODO(crbug.com/40924957): Flaky test.
 IN_PROC_BROWSER_TEST_F(ScalableIphBrowserTest, DISABLED_UnlockedEvent) {
   // We test unlocked event inside ScalableIph service. Make sure that
@@ -1187,15 +1219,15 @@ IN_PROC_BROWSER_TEST_F(ScalableIphBrowserTestPreinstallApps,
   // Those constants in `scalable_iph` must be synced with ones in `web_app`.
   // Test them in this test case.
   EXPECT_EQ(std::string(scalable_iph::kWebAppYouTubeAppId),
-            std::string(web_app::kYoutubeAppId));
+            std::string(ash::kYoutubeAppId));
   EXPECT_EQ(std::string(scalable_iph::kWebAppGoogleDocsAppId),
-            std::string(web_app::kGoogleDocsAppId));
+            std::string(ash::kGoogleDocsAppId));
 
   AppListClientImpl* app_list_client_impl = AppListClientImpl::GetInstance();
   AppListModelUpdater* app_list_model_updater =
       test::GetModelUpdater(app_list_client_impl);
 
-  AppListItemWaiter app_list_item_waiter(web_app::kYoutubeAppId,
+  AppListItemWaiter app_list_item_waiter(ash::kYoutubeAppId,
                                          app_list_model_updater);
   app_list_item_waiter.Wait();
 
@@ -1205,7 +1237,7 @@ IN_PROC_BROWSER_TEST_F(ScalableIphBrowserTestPreinstallApps,
       *mock_tracker(),
       NotifyEvent(scalable_iph::kEventNameAppListItemActivationYouTube));
   app_list_client_impl->ActivateItem(
-      /*profile_id=*/0, web_app::kYoutubeAppId, /*event_flags=*/0,
+      /*profile_id=*/0, ash::kYoutubeAppId, /*event_flags=*/0,
       ash::AppListLaunchedFrom::kLaunchedFromGrid, /*is_above_the_fold=*/true);
 }
 
@@ -1233,7 +1265,7 @@ IN_PROC_BROWSER_TEST_F(ScalableIphBrowserTestHelpApp, HelpAppPinnedToShelf) {
         << "Google Chrome is required for preinstall apps used by this test";
   }
 
-  EXPECT_TRUE(ash::ShelfModel::Get()->IsAppPinned(web_app::kHelpAppId));
+  EXPECT_TRUE(ash::ShelfModel::Get()->IsAppPinned(ash::kHelpAppId));
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -1984,5 +2016,5 @@ INSTANTIATE_TEST_SUITE_P(
 
 IN_PROC_BROWSER_TEST_P(ScalableIphBrowserTestHelpAppParameterized,
                        HelpAppNotPinnedToShelf) {
-  EXPECT_FALSE(ash::ShelfModel::Get()->IsAppPinned(web_app::kHelpAppId));
+  EXPECT_FALSE(ash::ShelfModel::Get()->IsAppPinned(ash::kHelpAppId));
 }

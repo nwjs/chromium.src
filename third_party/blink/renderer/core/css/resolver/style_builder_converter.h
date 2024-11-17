@@ -50,10 +50,12 @@
 #include "third_party/blink/renderer/core/style/named_grid_lines_map.h"
 #include "third_party/blink/renderer/core/style/ordered_named_grid_lines.h"
 #include "third_party/blink/renderer/core/style/shadow_list.h"
+#include "third_party/blink/renderer/core/style/style_anchor_scope.h"
 #include "third_party/blink/renderer/core/style/style_offset_rotation.h"
 #include "third_party/blink/renderer/core/style/style_overflow_clip_margin.h"
 #include "third_party/blink/renderer/core/style/style_reflection.h"
 #include "third_party/blink/renderer/core/style/style_view_transition_group.h"
+#include "third_party/blink/renderer/core/style/style_view_transition_name.h"
 #include "third_party/blink/renderer/core/style/transform_origin.h"
 #include "third_party/blink/renderer/platform/fonts/font_description.h"
 #include "third_party/blink/renderer/platform/fonts/font_variant_emoji.h"
@@ -129,7 +131,8 @@ class StyleBuilderConverter {
   static DynamicRangeLimit ConvertDynamicRangeLimit(StyleResolverState&,
                                                     const CSSValue&);
   static StyleSVGResource* ConvertElementReference(StyleResolverState&,
-                                                   const CSSValue&);
+                                                   const CSSValue&,
+                                                   CSSPropertyID);
   static FilterOperations ConvertFilterOperations(StyleResolverState&,
                                                   const CSSValue&,
                                                   CSSPropertyID);
@@ -246,8 +249,8 @@ class StyleBuilderConverter {
                                                       const CSSValue& value);
   static ScopedCSSNameList* ConvertAnchorName(StyleResolverState&,
                                               const CSSValue&);
-  static ScopedCSSNameList* ConvertAnchorScope(StyleResolverState&,
-                                               const CSSValue&);
+  static StyleAnchorScope ConvertAnchorScope(StyleResolverState&,
+                                             const CSSValue&);
   static StyleInitialLetter ConvertInitialLetter(StyleResolverState&,
                                                  const CSSValue&);
   static StyleOffsetRotation ConvertOffsetRotate(StyleResolverState&,
@@ -281,7 +284,8 @@ class StyleBuilderConverter {
                                               bool for_visited_link = false);
   static SVGPaint ConvertSVGPaint(StyleResolverState&,
                                   const CSSValue&,
-                                  bool for_visited_link);
+                                  bool for_visited_link,
+                                  CSSPropertyID = CSSPropertyID::kInvalid);
   static TextBoxEdge ConvertTextBoxEdge(StyleResolverState&, const CSSValue&);
   static TextDecorationThickness ConvertTextDecorationThickness(
       StyleResolverState&,
@@ -368,8 +372,8 @@ class StyleBuilderConverter {
       const StyleResolverState&,
       const CSSValue&);
 
-  static ScopedCSSName* ConvertViewTransitionName(StyleResolverState&,
-                                                  const CSSValue&);
+  static StyleViewTransitionName* ConvertViewTransitionName(StyleResolverState&,
+                                                            const CSSValue&);
   static ScopedCSSNameList* ConvertViewTransitionClass(StyleResolverState&,
                                                        const CSSValue&);
   static StyleViewTransitionGroup ConvertViewTransitionGroup(

@@ -15,9 +15,12 @@
 #include "base/functional/bind.h"
 #include "base/strings/string_util.h"
 #include "base/values.h"
+#include "chrome/browser/platform_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
+#include "chromeos/ash/components/boca/activity/active_tab_tracker.h"
 #include "content/public/browser/browser_thread.h"
 
 // static
@@ -76,11 +79,14 @@ void LockedSessionWindowTracker::RefreshUrlBlocklist() {
 void LockedSessionWindowTracker::MaybeCloseBrowser(
     base::WeakPtr<Browser> weak_browser_ptr) {
   Browser* const browser = weak_browser_ptr.get();
-  // We may need to explicitly close a browser when either a new window is
-  // opened from the OnTask SWA that is blocked, but is not closed or when an
-  // OAuth is completed, but since OnTask prevents windows from closing, we need
-  // to manually close that window when the OAuth is completed.
-  if (!browser || browser == browser_ || (browser->is_type_app_popup())) {
+  // If tracking browser is in locked fullscreen mode, we may need to explicitly
+  // close a browser when either a new window is opened from the OnTask SWA that
+  // is blocked, but is not closed or when an OAuth is completed, but since
+  // OnTask prevents windows from closing, we need to manually close that window
+  // when the OAuth is completed.
+  if (!browser || browser == browser_ ||
+      (browser_ && !platform_util::IsBrowserLockedFullscreen(browser_)) ||
+      (browser->is_type_app_popup() && oauth_in_progress_)) {
     return;
   }
   browser->window()->Close();
@@ -105,6 +111,17 @@ void LockedSessionWindowTracker::ObserveWebContents(
   Observe(web_content);
 }
 
+void LockedSessionWindowTracker::set_can_start_navigation_throttle(
+    bool is_ready) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  can_start_navigation_throttle_ = is_ready;
+}
+
+void LockedSessionWindowTracker::SetActiveTabTracker(
+    ash::boca::ActiveTabTracker* active_tab_tracker) {
+  active_tab_tracker_ = active_tab_tracker;
+}
+
 OnTaskBlocklist* LockedSessionWindowTracker::on_task_blocklist() {
   return on_task_blocklist_.get();
 }
@@ -113,8 +130,8 @@ Browser* LockedSessionWindowTracker::browser() {
   return browser_;
 }
 
-bool LockedSessionWindowTracker::CanProcessPopup() {
-  return can_process_popup_;
+bool LockedSessionWindowTracker::CanOpenNewPopup() {
+  return can_open_new_popup_;
 }
 
 void LockedSessionWindowTracker::CleanupWindowTracker() {
@@ -122,9 +139,13 @@ void LockedSessionWindowTracker::CleanupWindowTracker() {
     browser_->tab_strip_model()->RemoveObserver(this);
     browser_list_observation_.Reset();
   }
-  on_task_blocklist_->CleanupBlocklist();
+  if (on_task_blocklist_) {
+    on_task_blocklist_->CleanupBlocklist();
+  }
   browser_ = nullptr;
-  can_process_popup_ = true;
+  can_open_new_popup_ = true;
+  oauth_in_progress_ = false;
+  active_tab_tracker_ = nullptr;
   if (ash::Shell::HasInstance()) {
     ash::Shell::Get()
         ->screen_pinning_controller()
@@ -147,7 +168,29 @@ void LockedSessionWindowTracker::OnTabStripModelChanged(
     const TabStripSelectionChange& selection) {
   if (selection.active_tab_changed()) {
     RefreshUrlBlocklist();
+    if (active_tab_tracker_ && selection.new_contents) {
+      active_tab_tracker_->OnActiveTabChanged(
+          selection.new_contents->GetTitle());
+    }
   }
+}
+
+void LockedSessionWindowTracker::OnTabWillBeRemoved(
+    content::WebContents* contents,
+    int index) {
+  on_task_blocklist()->RemoveParentFilter(contents);
+}
+
+void LockedSessionWindowTracker::WillCloseAllTabs(
+    TabStripModel* tab_strip_model) {
+  CHECK(tab_strip_model);
+
+  // We block tab unload when the browser instance is locked for OnTask. We need
+  // to unset the relevant boolean to unblock tab unload so it can proceed with
+  // the close operation.
+  Browser* const browser = static_cast<Browser*>(
+      tab_strip_model->delegate()->GetBrowserWindowInterface());
+  browser->SetLockedForOnTask(false);
 }
 
 // BrowserListObserver Implementation
@@ -158,8 +201,9 @@ void LockedSessionWindowTracker::OnBrowserClosing(Browser* browser) {
   if (browser->type() == Browser::Type::TYPE_APP_POPUP) {
     ash::Shell::Get()
         ->screen_pinning_controller()
-        ->SetAllowWindowStackingWithPinnedWindow(true);
-    can_process_popup_ = true;
+        ->SetAllowWindowStackingWithPinnedWindow(false);
+    can_open_new_popup_ = true;
+    oauth_in_progress_ = false;
   }
 }
 
@@ -176,7 +220,7 @@ void LockedSessionWindowTracker::OnBrowserAdded(Browser* browser) {
         ash::Shell::GetContainer(ash::Shell::GetPrimaryRootWindow(),
                                  ash::kShellWindowId_AlwaysOnTopContainer);
     top_container->StackChildAtTop(browser->window()->GetNativeWindow());
-    can_process_popup_ = false;
+    can_open_new_popup_ = false;
   } else {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,

@@ -73,8 +73,6 @@ namespace {
 
 RequestTypeForUma GetUmaValueForRequestType(RequestType request_type) {
   switch (request_type) {
-    case RequestType::kAccessibilityEvents:
-      return RequestTypeForUma::PERMISSION_ACCESSIBILITY_EVENTS;
     case RequestType::kArSession:
       return RequestTypeForUma::PERMISSION_AR;
 #if !BUILDFLAG(IS_ANDROID)
@@ -230,8 +228,6 @@ std::string GetPermissionRequestString(RequestTypeForUma type) {
       return "LocalFonts";
     case RequestTypeForUma::PERMISSION_IDLE_DETECTION:
       return "IdleDetection";
-    case RequestTypeForUma::PERMISSION_ACCESSIBILITY_EVENTS:
-      return "AccessibilityEvents";
     case RequestTypeForUma::PERMISSION_FILE_SYSTEM_ACCESS:
       return "FileSystemAccess";
     case RequestTypeForUma::CAPTURED_SURFACE_CONTROL:
@@ -1394,10 +1390,6 @@ void PermissionUmaUtil::RecordPermissionAction(
       base::UmaHistogramEnumeration("Permissions.Action.IdleDetection", action,
                                     PermissionAction::NUM);
       break;
-    case ContentSettingsType::ACCESSIBILITY_EVENTS:
-      base::UmaHistogramEnumeration("Permissions.Action.AccessibilityEvents",
-                                    action, PermissionAction::NUM);
-      break;
     case ContentSettingsType::CAPTURED_SURFACE_CONTROL:
       base::UmaHistogramEnumeration("Permissions.Action.CapturedSurfaceControl",
                                     action, PermissionAction::NUM);
@@ -1584,8 +1576,18 @@ std::string PermissionUmaUtil::GetOneTimePermissionEventHistogram(
   DCHECK(permissions::PermissionUtil::DoesSupportTemporaryGrants(type) ||
          type == ContentSettingsType::FILE_SYSTEM_WRITE_GUARD);
 
+#if BUILDFLAG(IS_ANDROID)
+  // TODO(b/40101963): Special case for FILE_SYSTEM_WRITE_GUARD required for
+  // android until permission RequestType::kFileSystemAccess is implemented.
+  RequestTypeForUma type_for_uma =
+      type == ContentSettingsType::FILE_SYSTEM_WRITE_GUARD
+          ? RequestTypeForUma::PERMISSION_FILE_SYSTEM_ACCESS
+          : GetUmaValueForRequestType(ContentSettingsTypeToRequestType(type));
+  std::string permission_type = GetPermissionRequestString(type_for_uma);
+#else
   std::string permission_type = GetPermissionRequestString(
       GetUmaValueForRequestType(ContentSettingsTypeToRequestType(type)));
+#endif
   return "Permissions.OneTimePermission." + permission_type + ".Event";
 }
 

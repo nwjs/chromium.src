@@ -25,6 +25,9 @@ import static org.chromium.chrome.browser.tasks.tab_management.TabGroupRowProper
 import static org.chromium.chrome.browser.tasks.tab_management.TabGroupRowProperties.OPEN_RUNNABLE;
 import static org.chromium.chrome.browser.tasks.tab_management.TabGroupRowProperties.TITLE_DATA;
 
+import android.content.Context;
+import android.view.ContextThemeWrapper;
+
 import androidx.core.util.Pair;
 import androidx.test.core.app.ApplicationProvider;
 
@@ -48,11 +51,10 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.hub.PaneId;
 import org.chromium.chrome.browser.hub.PaneManager;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab_group_sync.TabGroupUiActionHandler;
+import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
-import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationManager.ConfirmationResult;
 import org.chromium.components.data_sharing.DataSharingService;
 import org.chromium.components.data_sharing.DataSharingService.GroupDataOrFailureOutcome;
@@ -69,6 +71,7 @@ import org.chromium.components.tab_group_sync.LocalTabGroupId;
 import org.chromium.components.tab_group_sync.SavedTabGroup;
 import org.chromium.components.tab_group_sync.SavedTabGroupTab;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
+import org.chromium.components.tab_group_sync.TabGroupUiActionHandler;
 import org.chromium.components.tab_group_sync.TriggerSource;
 import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -131,9 +134,14 @@ public class TabGroupListMediatorUnitTest {
 
     private PropertyModel mPropertyModel;
     private ModelList mModelList;
+    private Context mContext;
 
     @Before
     public void setUp() {
+        mContext =
+                new ContextThemeWrapper(
+                        ApplicationProvider.getApplicationContext(),
+                        R.style.Theme_BrowserUI_DayNight);
         mPropertyModel = new PropertyModel(TabGroupListProperties.ALL_KEYS);
         mModelList = new ModelList();
         when(mPaneManager.getPaneForId(PaneId.TAB_SWITCHER)).thenReturn(mTabSwitcherPaneBase);
@@ -144,7 +152,7 @@ public class TabGroupListMediatorUnitTest {
 
     private TabGroupListMediator createMediator() {
         return new TabGroupListMediator(
-                ApplicationProvider.getApplicationContext(),
+                mContext,
                 mModelList,
                 mPropertyModel,
                 mTabGroupModelFilter,
@@ -691,7 +699,8 @@ public class TabGroupListMediatorUnitTest {
                         /* displayName= */ null,
                         EMAIL,
                         MemberRole.OWNER,
-                        /* avatarUrl= */ null);
+                        /* avatarUrl= */ null,
+                        /* givenName= */ null);
         GroupMember[] groupMemberArray = new GroupMember[] {groupMember};
         GroupData groupData =
                 new GroupData(
@@ -757,14 +766,16 @@ public class TabGroupListMediatorUnitTest {
                         /* displayName= */ null,
                         EMAIL,
                         MemberRole.MEMBER,
-                        /* avatarUrl= */ null);
+                        /* avatarUrl= */ null,
+                        /* givenName= */ null);
         GroupMember groupMember2 =
                 new GroupMember(
                         GAIA_ID2,
                         /* displayName= */ null,
                         EMAIL,
                         MemberRole.OWNER,
-                        /* avatarUrl= */ null);
+                        /* avatarUrl= */ null,
+                        /* givenName= */ null);
         GroupMember[] groupMemberArray = new GroupMember[] {groupMember1, groupMember2};
         GroupData groupData =
                 new GroupData(

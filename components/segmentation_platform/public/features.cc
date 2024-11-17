@@ -4,7 +4,9 @@
 
 #include "components/segmentation_platform/public/features.h"
 
+#include "base/strings/strcat.h"
 #include "build/build_config.h"
+#include "components/segmentation_platform/embedder/home_modules/constants.h"
 
 namespace segmentation_platform::features {
 
@@ -166,7 +168,6 @@ const char kEphemeralCardRankerForceShowCardParam[] =
     "EphemeralCardRankerForceShowCardParam";
 const char kEphemeralCardRankerForceHideCardParam[] =
     "EphemeralCardRankerForceHideCardParam";
-const char kPriceTrackingPromoForceOverride[] = "price-tracking-promo";
 
 // Feature flag for enabling the Emphemeral Card ranker.
 BASE_FEATURE(kSegmentationPlatformEphemeralCardRanker,
@@ -177,11 +178,49 @@ BASE_FEATURE(kSegmentationPlatformEphemeralCardRanker,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
+// Feature flag for enabling the Tips Emphemeral Card.
+BASE_FEATURE(kSegmentationPlatformTipsEphemeralCard,
+             "SegmentationPlatformTipsEphemeralCard",
+#if BUILDFLAG(IS_IOS)
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
+const char kTipsEphemeralCardExperimentTrainParam[] =
+    "TipsEphemeralCardExperimentTrainParam";
+
+std::string TipsExperimentTrainEnabled() {
+  return base::GetFieldTrialParamByFeatureAsString(
+      segmentation_platform::features::kSegmentationPlatformTipsEphemeralCard,
+      kTipsEphemeralCardExperimentTrainParam,
+      /*default_value=*/
+      base::StrCat({kLensEphemeralModuleSearchVariation, ",",
+                    kSavePasswordsEphemeralModule, ",",
+                    kEnhancedSafeBrowsingEphemeralModule, ",",
+                    kAddressBarPositionEphemeralModule}));
+}
+
+const char kTipsEphemeralCardModuleMaxImpressionCount[] =
+    "TipsEphemeralCardModuleMaxImpressionCount";
+
+int GetTipsEphemeralCardModuleMaxImpressionCount() {
+  return base::GetFieldTrialParamByFeatureAsInt(
+      segmentation_platform::features::kSegmentationPlatformTipsEphemeralCard,
+      kTipsEphemeralCardModuleMaxImpressionCount, /*default_value=*/3);
+}
+
 BASE_FEATURE(kSegmentationSurveyPage,
              "SegmentationSurveyPage",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 constexpr base::FeatureParam<bool> kSegmentationSurveyInternalsPage{
     &kSegmentationSurveyPage, "survey_internals_page", /*default_value=*/true};
+
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kEducationalTipModule,
+             "EducationalTipModule",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace segmentation_platform::features

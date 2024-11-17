@@ -86,8 +86,6 @@ const DeepQuery kSearchEngineChoiceActionButton{"search-engine-choice-app",
 
 enum class SyncButtonsFeatureConfig : int {
   // Deprecated: kDisabled = 0,
-  // For the rest of the cases the kMinorModeRestrictionsForHistorySyncOptIn
-  // feature shall be enabled.
   // Simulate async load resulting in not-equal buttons.
   kAsyncNotEqualButtons = 1,
   // Simulate async load resulting in equal buttons.
@@ -932,8 +930,14 @@ IN_PROC_BROWSER_TEST_P(FirstRunParameterizedInteractiveUiTest,
       ProfilePicker::FirstRunExitStatus::kCompleted, 1);
 }
 
+// TODO(crbug.com/366119368): Re-enable this test
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_DeclineProfileManagement DISABLED_DeclineProfileManagement
+#else
+#define MAYBE_DeclineProfileManagement DeclineProfileManagement
+#endif
 IN_PROC_BROWSER_TEST_P(FirstRunParameterizedInteractiveUiTest,
-                       DeclineProfileManagement) {
+                       MAYBE_DeclineProfileManagement) {
   base::test::TestFuture<bool> proceed_future;
 
   policy::UserPolicySigninServiceFactory::GetInstance()->SetTestingFactory(

@@ -99,15 +99,18 @@
 #include "chrome/browser/ash/assistant/assistant_util.h"
 #include "chrome/browser/ash/borealis/borealis_installer.h"
 #include "chrome/browser/ash/borealis/borealis_service.h"
+#include "chrome/browser/ash/borealis/borealis_service_factory.h"
 #include "chrome/browser/ash/borealis/borealis_types.mojom.h"
 #include "chrome/browser/ash/bruschetta/bruschetta_installer.h"
 #include "chrome/browser/ash/bruschetta/bruschetta_service.h"
+#include "chrome/browser/ash/bruschetta/bruschetta_service_factory.h"
 #include "chrome/browser/ash/bruschetta/bruschetta_util.h"
 #include "chrome/browser/ash/crosapi/automation_ash.h"
 #include "chrome/browser/ash/crosapi/browser_util.h"
 #include "chrome/browser/ash/crosapi/crosapi_ash.h"
 #include "chrome/browser/ash/crosapi/crosapi_manager.h"
 #include "chrome/browser/ash/crostini/crostini_export_import.h"
+#include "chrome/browser/ash/crostini/crostini_export_import_factory.h"
 #include "chrome/browser/ash/crostini/crostini_features.h"
 #include "chrome/browser/ash/crostini/crostini_installer.h"
 #include "chrome/browser/ash/crostini/crostini_manager.h"
@@ -238,6 +241,7 @@
 #include "ui/base/ime/ash/ime_bridge.h"
 #include "ui/base/ime/ash/input_method_manager.h"
 #include "ui/base/ime/ash/text_input_method.h"
+#include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/compositor/compositor.h"
 #include "ui/compositor/layer.h"
@@ -2075,8 +2079,6 @@ AutotestPrivateGetLacrosInfoFunction::ToLacrosState(
   switch (state) {
     case crosapi::BrowserManager::State::NOT_INITIALIZED:
       return api::autotest_private::LacrosState::kNotInitialized;
-    case crosapi::BrowserManager::State::RELOADING:
-      return api::autotest_private::LacrosState::kReloading;
     case crosapi::BrowserManager::State::MOUNTING:
       return api::autotest_private::LacrosState::kMounting;
     case crosapi::BrowserManager::State::UNAVAILABLE:
@@ -2085,8 +2087,6 @@ AutotestPrivateGetLacrosInfoFunction::ToLacrosState(
       return api::autotest_private::LacrosState::kStopped;
     case crosapi::BrowserManager::State::PREPARING_FOR_LAUNCH:
       return api::autotest_private::LacrosState::kPreparingForLaunch;
-    case crosapi::BrowserManager::State::PRE_LAUNCHED:
-      return api::autotest_private::LacrosState::kPreLaunched;
     case crosapi::BrowserManager::State::STARTING:
       return api::autotest_private::LacrosState::kStarting;
     case crosapi::BrowserManager::State::RUNNING:
@@ -2715,11 +2715,13 @@ ExtensionFunction::ResponseAction AutotestPrivateExportCrostiniFunction::Run() {
     return RespondNow(Error("Invalid export path must not reference parent"));
   }
 
-  crostini::CrostiniExportImport::GetForProfile(profile)->ExportContainer(
-      crostini::DefaultContainerId(),
-      file_manager::util::GetDownloadsFolderForProfile(profile).Append(path),
-      base::BindOnce(&AutotestPrivateExportCrostiniFunction::CrostiniExported,
-                     this));
+  crostini::CrostiniExportImportFactory::GetForProfile(profile)
+      ->ExportContainer(
+          crostini::DefaultContainerId(),
+          file_manager::util::GetDownloadsFolderForProfile(profile).Append(
+              path),
+          base::BindOnce(
+              &AutotestPrivateExportCrostiniFunction::CrostiniExported, this));
 
   return RespondLater();
 }
@@ -2756,11 +2758,13 @@ ExtensionFunction::ResponseAction AutotestPrivateImportCrostiniFunction::Run() {
   if (path.ReferencesParent()) {
     return RespondNow(Error("Invalid import path must not reference parent"));
   }
-  crostini::CrostiniExportImport::GetForProfile(profile)->ImportContainer(
-      crostini::DefaultContainerId(),
-      file_manager::util::GetDownloadsFolderForProfile(profile).Append(path),
-      base::BindOnce(&AutotestPrivateImportCrostiniFunction::CrostiniImported,
-                     this));
+  crostini::CrostiniExportImportFactory::GetForProfile(profile)
+      ->ImportContainer(
+          crostini::DefaultContainerId(),
+          file_manager::util::GetDownloadsFolderForProfile(profile).Append(
+              path),
+          base::BindOnce(
+              &AutotestPrivateImportCrostiniFunction::CrostiniImported, this));
 
   return RespondLater();
 }
@@ -2842,15 +2846,16 @@ class AutotestPrivateInstallBorealisFunction::InstallationObserver
       : observation_(this),
         completion_callback_(std::move(completion_callback)) {
     observation_.Observe(
-        &borealis::BorealisService::GetForProfile(profile)->Installer());
+        &borealis::BorealisServiceFactory::GetForProfile(profile)->Installer());
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(
-                       [](Profile* profile) {
-                         borealis::BorealisService::GetForProfile(profile)
-                             ->Installer()
-                             .Start();
-                       },
-                       profile));
+        FROM_HERE,
+        base::BindOnce(
+            [](Profile* profile) {
+              borealis::BorealisServiceFactory::GetForProfile(profile)
+                  ->Installer()
+                  .Start();
+            },
+            profile));
   }
 
   void OnProgressUpdated(double fraction_complete) override {}
@@ -5704,7 +5709,7 @@ AutotestPrivateSetWindowBoundsFunction::Run() {
 
   auto* state = ash::WindowState::Get(window);
   if (!state || chromeos::ToWindowShowState(state->GetStateType()) !=
-                    ui::SHOW_STATE_NORMAL) {
+                    ui::mojom::WindowShowState::kNormal) {
     return RespondNow(
         Error("Cannot set bounds of window not in normal show state."));
   }
@@ -6861,7 +6866,7 @@ AutotestPrivateRemoveBruschettaFunction::Run() {
 
   Profile* profile = Profile::FromBrowserContext(browser_context());
 
-  auto* service = bruschetta::BruschettaService::GetForProfile(profile);
+  auto* service = bruschetta::BruschettaServiceFactory::GetForProfile(profile);
   if (!service) {
     return RespondNow(Error("Couldn't get BruschettaService instance"));
   }

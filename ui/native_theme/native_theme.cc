@@ -65,7 +65,7 @@ ColorProviderKey NativeTheme::GetColorProviderKey(
             {{PageColors::kOff, ColorProviderKey::ForcedColors::kNone},
              {PageColors::kDusk, ColorProviderKey::ForcedColors::kDusk},
              {PageColors::kDesert, ColorProviderKey::ForcedColors::kDesert},
-             {PageColors::kBlack, ColorProviderKey::ForcedColors::kBlack},
+             {PageColors::kNightSky, ColorProviderKey::ForcedColors::kNightSky},
              {PageColors::kWhite, ColorProviderKey::ForcedColors::kWhite},
              {PageColors::kHighContrast,
               ColorProviderKey::ForcedColors::kActive}});
@@ -141,8 +141,8 @@ void NativeTheme::NotifyOnNativeThemeUpdated() {
   // Reset the ColorProviderManager's cache so that ColorProviders requested
   // from this point onwards incorporate the changes to the system theme.
   color_provider_manager.ResetColorProviderCache();
-  for (NativeThemeObserver& observer : native_theme_observers_)
-    observer.OnNativeThemeUpdated(this);
+  native_theme_observers_.Notify(&NativeThemeObserver::OnNativeThemeUpdated,
+                                 this);
 
   RecordNumColorProvidersInitializedDuringOnNativeThemeUpdated(
       color_provider_manager.num_providers_initialized() -
@@ -155,8 +155,7 @@ void NativeTheme::NotifyOnCaptionStyleUpdated() {
   // sequence, because it is often invoked from a platform-specific event
   // listener, and those events may be delivered on unexpected sequences.
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  for (NativeThemeObserver& observer : native_theme_observers_)
-    observer.OnCaptionStyleUpdated();
+  native_theme_observers_.Notify(&NativeThemeObserver::OnCaptionStyleUpdated);
 }
 
 void NativeTheme::NotifyOnPreferredContrastUpdated() {
@@ -164,8 +163,8 @@ void NativeTheme::NotifyOnPreferredContrastUpdated() {
   // sequence, because it is often invoked from a platform-specific event
   // listener, and those events may be delivered on unexpected sequences.
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  for (NativeThemeObserver& observer : native_theme_observers_)
-    observer.OnPreferredContrastChanged();
+  native_theme_observers_.Notify(
+      &NativeThemeObserver::OnPreferredContrastChanged);
 }
 
 float NativeTheme::AdjustBorderWidthByZoom(float border_width,
@@ -381,9 +380,9 @@ bool NativeTheme::UpdateContrastRelatedStates(
       preferred_contrast = PreferredContrast::kNoPreference;
     } else if (page_colors != PageColors::kHighContrast) {
       // Set other states based on the selected theme (i.e. `kDusk`, `kDesert`,
-      // `kBlack`, or `kWhite`). This block is only executed when one of these
-      // themes is chosen. `kHighContrast` is not a valid theme here, as it is
-      // only available in forced colors mode.
+      // `kNightSky`, or `kWhite`). This block is only executed when one of
+      // these themes is chosen. `kHighContrast` is not a valid theme here, as
+      // it is only available in forced colors mode.
       CHECK_GE(page_colors, ui::NativeTheme::PageColors::kDusk);
       CHECK_LE(page_colors, ui::NativeTheme::PageColors::kWhite);
       forced_colors = true;
@@ -400,8 +399,8 @@ bool NativeTheme::UpdateContrastRelatedStates(
     // Only update the color scheme if page colors is a selected theme.
     if (page_colors != PageColors::kOff &&
         page_colors != PageColors::kHighContrast) {
-      bool is_dark_color =
-          page_colors == PageColors::kBlack || page_colors == PageColors::kDusk;
+      bool is_dark_color = page_colors == PageColors::kNightSky ||
+                           page_colors == PageColors::kDusk;
       PreferredColorScheme page_colors_theme_scheme =
           is_dark_color ? PreferredColorScheme::kDark
                         : PreferredColorScheme::kLight;

@@ -18,7 +18,7 @@
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/ui/settings/google_services/google_services_settings_constants.h"
-#import "ios/chrome/browser/ui/settings/google_services/manage_accounts/accounts_table_view_controller_constants.h"
+#import "ios/chrome/browser/ui/settings/google_services/manage_accounts/manage_accounts_table_view_controller_constants.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey_ui.h"
@@ -131,24 +131,24 @@ id<GREYMatcher> snackbarMessageMatcher(FakeSystemIdentity* identity) {
 // displaying it.
 - (void)prepareSnackbarParamsForNextDisplayWithLastCount:(int)lastCount {
   [ChromeEarlGrey
-      setIntegerValue:lastCount
-          forUserPref:prefs::kIdentityConfirmationSnackbarDisplayCount];
+        setIntegerValue:lastCount
+      forLocalStatePref:prefs::kIdentityConfirmationSnackbarDisplayCount];
 
   if (lastCount == 0) {
     // Set params for reminder after 1 day.
     [ChromeEarlGrey
-        setTimeValue:base::Time::Now() - base::Days(1)
-         forUserPref:prefs::kIdentityConfirmationSnackbarLastPromptTime];
+             setTimeValue:base::Time::Now() - base::Days(1)
+        forLocalStatePref:prefs::kIdentityConfirmationSnackbarLastPromptTime];
   } else if (lastCount == 1) {
     // Set params for reminder after 7 days.
     [ChromeEarlGrey
-        setTimeValue:base::Time::Now() - base::Days(7)
-         forUserPref:prefs::kIdentityConfirmationSnackbarLastPromptTime];
+             setTimeValue:base::Time::Now() - base::Days(7)
+        forLocalStatePref:prefs::kIdentityConfirmationSnackbarLastPromptTime];
   } else if (lastCount == 2) {
     // Set params for reminder after 30 days.
     [ChromeEarlGrey
-        setTimeValue:base::Time::Now() - base::Days(30)
-         forUserPref:prefs::kIdentityConfirmationSnackbarLastPromptTime];
+             setTimeValue:base::Time::Now() - base::Days(30)
+        forLocalStatePref:prefs::kIdentityConfirmationSnackbarLastPromptTime];
   }
 }
 

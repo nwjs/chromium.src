@@ -477,6 +477,14 @@ at least `kMaxServerStartsBeforeFirstReg` wakes. This feature is used to expose
 the COM API to a process that will install applications via that API.
 
 ### Installer User Interface
+During the initialization of the installer, the user is shown a splash screen UI
+briefly before a full-fledged UI is shown. Installer initialization involves
+unzipping and unpacking the installer files.
+
+The splash screen logo can be customized by editing
+[logo.bmp](https://source.chromium.org/chromium/chromium/src/+/main:chrome/updater/win/installer/logo.bmp)
+.
+
 During installation, the user is presented with a UI that displays the progress
 of the download and installation. The user may close the dialog, which cancels
 the installation. A cancelled installation still results in an event ping to
@@ -631,6 +639,12 @@ BELOW_NORMAL_PRIORITY_CLASS if the update flow is a background flow.
 #### Updater UI behavior
 
 The updater UI does the following:
+*   The title of the UI is derived from the `bundlename` if specified, or
+    otherwise the `appname` from the metainstaller `tag`. For instance, if no
+    `bundlename` is specified, and the `appname` is "Sample App", the title of
+    the UI will be "Sample App Installer". If no `bundlename` or `appname` is
+    specified, the UI title will be a generic `Chromium Installer` for
+    unbranded, or `Google Installer` for branded.
 *   on successful installs that do not specify an installer API launch command:
     *   Displays a "Thank you for installing" message that the user must click
         to close.
@@ -867,9 +881,9 @@ The `EnrollmentMandatory` `REG_DWORD` value is also read from
 #### macOS
 The enrollment token is searched in the order:
 
-* Managed Preference value with key `CloudManagementEnrollmentToken` in domain
+* Managed Preferences value with key `CloudManagementEnrollmentToken` in domain
  `{MAC_BROWSER_BUNDLE_IDENTIFIER}`.
-* Managed Preference value with key `EnrollmentToken` in domain
+* Managed Preferences value with key `EnrollmentToken` in domain
  `{MAC_BROWSER_BUNDLE_IDENTIFIER}`.
 * File
  `/Library/{COMPANY_SHORTNAME}/{BROWSER_NAME}/CloudManagementEnrollmentToken`.
@@ -932,11 +946,13 @@ Enterprise policies can control the updates of applications:
 * If the default update policy is unset, the application may be updated.
 * Updates and qualification are always enabled for the updater itself and can't
   be disabled by policy.
+* If the update check period is set to zero, the updater is qualified without
+  an update check.
 
 Refer to chrome/updater/protos/omaha\_settings.proto for more details.
 
-Policies may be set by platform-specific means (group policy on Windows, managed
-preferences on macOS), or by communication with the device management server.
+Policies may be set by platform-specific means (Group Policy on Windows, Managed
+Preferences on macOS), or by communication with the device management server.
 
 For device management, the enterprise policies for Google applications are
 downloaded from the device management server periodically and stored at a fixed
@@ -953,17 +969,17 @@ The policy searching order:
 * Policy dictionary defined in
  [External constants](#external-constants-overrides)(testing overrides)
 * Group Policy
-* Device Management policy
+* Device Management policy (cloud policy)
 * Policy from default value provider
 >**_NOTE:_** If the global policy `CloudPolicyOverridesPlatformPolicy` is set
-to a non-zero DWORD value, then the search order of `Group policy` and
+to a non-zero DWORD value, then the search order of `Group Policy` and
 `Device Management policy` is reversed.
 
 
 ##### macOS
 * Policy dictionary defined in
  [External constants](#external-constants-overrides)(testing overrides)
-* Device management policy
+* Device management policy (cloud policy)
 * Policy from Managed Preferences
 * Policy from default value provider
 
@@ -1313,6 +1329,14 @@ POSIX platforms, they will additionally lchown the existence checker path
 registered by the application to be owned by the root user. User-scope updaters
 use this as a signal that the application is managed by a system-scope updater.
 
+#### Windows
+
+Application installers are expected to register with the updater by setting
+[HKCU or HKLM]\SOFTWARE\{Company}\Update\Clients\{AppID} → pv to the installed
+version of the application. If pv is present and valid in the app's Clients
+key it will be used by the updater as the source of truth for the registered
+version.
+
 For backwards compatibility with third party software, on Windows, after a
 successful registration and on each update, the updater will set
 [HKCU or HKLM]\SOFTWARE\{Company}\Update\ClientState\{AppID} → pv to the
@@ -1438,9 +1462,10 @@ If a user installs an app using an online installer, the updater will transition
 out of eula-required mode and begin normal operation.
 
 On Windows, applications can signal the updater that the user has accepted Terms
-of Service by writing `HKCU\SOFTWARE\{Company}\Update\ClientState\{AppID}` →
-`usagestats` (DWORD): `1`. The updater will then transition out of eula-required
-mode and begin normal operation the next time it runs periodic tasks.
+of Service by writing
+`HKLM\SOFTWARE\{Company}\Update\ClientStateMedium\{AppID}` → `eulaaccepted`
+(DWORD): `1`. The updater will then transition out of eula-required mode and
+begin normal operation the next time it runs periodic tasks.
 
 Once operating normally, the updater only returns to eula-required mode when
 it is uninstalled and then reinstalled with `--eularequired`.

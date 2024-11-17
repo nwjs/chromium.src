@@ -20,6 +20,7 @@
 #include "base/strings/strcat.h"
 #include "base/test/bind.h"
 #include "base/test/test_timeouts.h"
+#include "base/time/time.h"
 #include "build/branding_buildflags.h"
 #include "chrome/updater/activity.h"
 #include "chrome/updater/activity_impl_util_posix.h"
@@ -97,10 +98,10 @@ void Uninstall(UpdaterScope scope) {
 
 void ExpectCandidateUninstalled(UpdaterScope scope) {
   std::optional<base::FilePath> path = GetVersionedInstallDirectory(scope);
-  EXPECT_TRUE(path);
-  if (path) {
-    EXPECT_FALSE(base::PathExists(*path));
-  }
+  ASSERT_TRUE(path);
+  ASSERT_TRUE(WaitFor(
+      [&] { return !base::PathExists(*path); },
+      [] { VLOG(0) << "Waiting for the candidate to be uninstalled."; }));
 }
 
 void ExpectInstalled(UpdaterScope scope) {
@@ -119,6 +120,10 @@ void Clean(UpdaterScope scope) {
   }
 
   EXPECT_TRUE(UninstallSystemdUnits(scope));
+
+  if (IsSystemInstall(scope)) {
+    ASSERT_NO_FATAL_FAILURE(UninstallEnterpriseCompanionApp());
+  }
 }
 
 // The uninstaller cannot reliably completely remove the installer directory
@@ -147,25 +152,11 @@ void ExpectClean(UpdaterScope scope) {
   ExpectMostlyClean(GetInstallDirectory(scope));
   ExpectMostlyClean(GetCacheBaseDirectory(scope));
   EXPECT_FALSE(SystemdUnitsInstalled(scope));
+  ASSERT_NO_FATAL_FAILURE(ExpectEnterpriseCompanionAppNotInstalled());
 }
 
-void EnterTestMode(const GURL& update_url,
-                   const GURL& crash_upload_url,
-                   const GURL& device_management_url,
-                   const GURL& app_logo_url,
-                   const base::TimeDelta& idle_timeout) {
-  ASSERT_TRUE(ExternalConstantsBuilder()
-                  .SetUpdateURL({update_url.spec()})
-                  .SetCrashUploadURL(crash_upload_url.spec())
-                  .SetDeviceManagementURL(device_management_url.spec())
-                  .SetAppLogoURL(app_logo_url.spec())
-                  .SetUseCUP(false)
-                  .SetInitialDelay(base::Milliseconds(100))
-                  .SetServerKeepAliveTime(base::Seconds(2))
-                  .SetCrxVerifierFormat(crx_file::VerifierFormat::CRX3)
-                  .SetOverinstallTimeout(TestTimeouts::action_timeout())
-                  .SetIdleCheckPeriod(idle_timeout)
-                  .Modify());
+base::TimeDelta GetOverinstallTimeoutForEnterTestMode() {
+  return TestTimeouts::action_timeout();
 }
 
 void SetActive(UpdaterScope scope, const std::string& app_id) {

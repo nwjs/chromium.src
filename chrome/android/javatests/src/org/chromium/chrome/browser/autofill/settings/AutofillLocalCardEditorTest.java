@@ -99,7 +99,9 @@ public class AutofillLocalCardEditorTest {
                     /* productDescription= */ "",
                     /* cardNameForAutofillDisplay= */ "",
                     /* obfuscatedLastFourDigits= */ "",
-                    /* cvc= */ "123");
+                    /* cvc= */ "123",
+                    /* issuerId= */ "",
+                    /* productTermsUrl= */ null);
     private static final CreditCard SAMPLE_AMEX_CARD_WITH_CVC =
             new CreditCard(
                     /* guid= */ "",
@@ -124,7 +126,9 @@ public class AutofillLocalCardEditorTest {
                     /* productDescription= */ "",
                     /* cardNameForAutofillDisplay= */ "",
                     /* obfuscatedLastFourDigits= */ "",
-                    /* cvc= */ "1234");
+                    /* cvc= */ "1234",
+                    /* issuerId= */ "",
+                    /* productTermsUrl= */ null);
 
     private static final CreditCard SAMPLE_MASKED_SERVER_CARD =
             new CreditCard(
@@ -149,7 +153,9 @@ public class AutofillLocalCardEditorTest {
                     /* productDescription= */ "",
                     /* cardNameForAutofillDisplay= */ "",
                     /* obfuscatedLastFourDigits= */ "• • • • 1111",
-                    /* cvc= */ "");
+                    /* cvc= */ "",
+                    /* issuerId= */ "",
+                    /* productTermsUrl= */ null);
 
     private static final String AMEX_CARD_NUMBER = "378282246310005";
     private static final String AMEX_CARD_NUMBER_PREFIX = "37";
@@ -233,7 +239,7 @@ public class AutofillLocalCardEditorTest {
                     try {
                         autofillLocalCardEditorFragment.mNicknameText.setText("Nickname 123");
                     } catch (Exception e) {
-                        Assert.fail("Failed to set the nickname");
+                        throw new AssertionError("Failed to set the nickname", e);
                     }
                 });
 
@@ -258,7 +264,7 @@ public class AutofillLocalCardEditorTest {
                     try {
                         autofillLocalCardEditorFragment.mNicknameText.setText("Nickname 123");
                     } catch (Exception e) {
-                        Assert.fail("Failed to set the nickname");
+                        throw new AssertionError("Failed to set the nickname", e);
                     }
                 });
         assertThat(autofillLocalCardEditorFragment.mNicknameLabel.getError())
@@ -272,7 +278,7 @@ public class AutofillLocalCardEditorTest {
                     try {
                         autofillLocalCardEditorFragment.mNicknameText.setText("Valid Nickname");
                     } catch (Exception e) {
-                        Assert.fail("Failed to set the nickname");
+                        throw new AssertionError("Failed to set the nickname", e);
                     }
                 });
 
@@ -293,7 +299,7 @@ public class AutofillLocalCardEditorTest {
                     try {
                         autofillLocalCardEditorFragment.mNicknameText.setText("Nickname 123");
                     } catch (Exception e) {
-                        Assert.fail("Failed to set the nickname");
+                        throw new AssertionError("Failed to set the nickname", e);
                     }
                 });
         assertThat(autofillLocalCardEditorFragment.mNicknameLabel.getError())
@@ -307,7 +313,7 @@ public class AutofillLocalCardEditorTest {
                     try {
                         autofillLocalCardEditorFragment.mNicknameText.setText(null);
                     } catch (Exception e) {
-                        Assert.fail("Failed to set the nickname");
+                        throw new AssertionError("Failed to set the nickname", e);
                     }
                 });
 
@@ -331,7 +337,7 @@ public class AutofillLocalCardEditorTest {
                     try {
                         autofillLocalCardEditorFragment.mNicknameText.setText(veryLongNickname);
                     } catch (Exception e) {
-                        Assert.fail("Failed to set the nickname");
+                        throw new AssertionError("Failed to set the nickname", e);
                     }
                 });
 
@@ -953,7 +959,7 @@ public class AutofillLocalCardEditorTest {
                         autofillLocalCardEditorFragment.mExpirationMonth.setSelection(
                                 monthSelection);
                     } catch (Exception e) {
-                        Assert.fail("Failed to set the Expiration Month");
+                        throw new AssertionError("Failed to set the Expiration Month", e);
                     }
                 });
     }
@@ -965,7 +971,7 @@ public class AutofillLocalCardEditorTest {
                     try {
                         autofillLocalCardEditorFragment.mExpirationYear.setSelection(yearSelection);
                     } catch (Exception e) {
-                        Assert.fail("Failed to set the Expiration Year");
+                        throw new AssertionError("Failed to set the Expiration Year", e);
                     }
                 });
     }
@@ -977,7 +983,7 @@ public class AutofillLocalCardEditorTest {
                     try {
                         autofillLocalCardEditorFragment.mExpirationDate.setText(date);
                     } catch (Exception e) {
-                        Assert.fail("Failed to set the Expiration Date");
+                        throw new AssertionError("Failed to set the Expiration Date", e);
                     }
                 });
     }
@@ -989,7 +995,7 @@ public class AutofillLocalCardEditorTest {
                     try {
                         autofillLocalCardEditorFragment.mNicknameText.setText(nickname);
                     } catch (Exception e) {
-                        Assert.fail("Failed to set the nickname");
+                        throw new AssertionError("Failed to set the nickname", e);
                     }
                 });
     }
@@ -1022,7 +1028,7 @@ public class AutofillLocalCardEditorTest {
                         assertThat(AutofillLocalCardEditor.isAmExCard(AMEX_CARD_NUMBER_PREFIX))
                                 .isTrue();
                     } catch (Exception e) {
-                        Assert.fail("Failed to verify AmEx card.");
+                        throw new AssertionError("Failed to verify AmEx card.", e);
                     }
                 });
     }
@@ -1036,7 +1042,7 @@ public class AutofillLocalCardEditorTest {
                         assertThat(AutofillLocalCardEditor.isAmExCard(NON_AMEX_CARD_NUMBER_PREFIX))
                                 .isFalse();
                     } catch (Exception e) {
-                        Assert.fail("Failed to verify AmEx card.");
+                        throw new AssertionError("Failed to verify AmEx card.", e);
                     }
                 });
     }
@@ -1048,7 +1054,7 @@ public class AutofillLocalCardEditorTest {
                     try {
                         autofillLocalCardEditorFragment.mNumberText.setText(cardNumber);
                     } catch (Exception e) {
-                        Assert.fail("Failed to set the card number");
+                        throw new AssertionError("Failed to set the card number", e);
                     }
                 });
     }
@@ -1060,7 +1066,7 @@ public class AutofillLocalCardEditorTest {
                     try {
                         autofillLocalCardEditorFragment.mCvc.setText(code);
                     } catch (Exception e) {
-                        Assert.fail("Failed to set the security code");
+                        throw new AssertionError("Failed to set the security code", e);
                     }
                 });
     }
@@ -1071,7 +1077,7 @@ public class AutofillLocalCardEditorTest {
                     try {
                         button.performClick();
                     } catch (Exception e) {
-                        Assert.fail("Failed to click the button");
+                        throw new AssertionError("Failed to click the button", e);
                     }
                 });
     }

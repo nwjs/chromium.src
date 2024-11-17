@@ -181,6 +181,16 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Account is uknown with an invalid token"/>
 </enum>
 
+<enum name="BatchUploadTypes">
+  <int value="0" label="Passwords"/>
+  <int value="1" label="Addresses"/>
+</enum>
+
+<enum name="BooleanBoundToTheSameKey">
+  <int value="0" label="Bound to different keys"/>
+  <int value="1" label="Bound to the same key"/>
+</enum>
+
 <enum name="BooleanGetAccountsSucceeded">
   <int value="0" label="Account fetching failed"/>
   <int value="1" label="Account fetching succeeded"/>
@@ -571,6 +581,8 @@ chromium-metrics-reviews@google.com.
   <int value="68" label="Product Specifications"/>
   <int value="69" label="Account menu failed switch"/>
   <int value="70" label="Address bubble"/>
+  <int value="71" label="CCT account mismatch notification"/>
+  <int value="72" label="Drive file picker iOS"/>
 </enum>
 
 <enum name="SigninAccountReconcilorState">
@@ -603,6 +615,8 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Failed"/>
   <int value="4" label="Cancelled"/>
   <int value="5" label="Returned null account name"/>
+  <int value="6" label="Returned after sign-in activity destroyed"/>
+  <int value="7" label="Returned and sign-in activity was not destroyed"/>
 </enum>
 
 <enum name="SigninDiceResponseHeader">
@@ -976,6 +990,9 @@ chromium-metrics-reviews@google.com.
   <int value="22"
       label="DiceResponseHandler::Signin from sign in promo after password
              save (obsolete)"/>
+  <int value="23"
+      label="DiceWebSigninInterceptor::OnEnterpriseProfileCreationResult from
+             enterprise forced profile creation dialog"/>
 </enum>
 
 <enum name="SyncButtonClicked">
@@ -1031,6 +1048,30 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Engine Initialized With Auto Start"/>
   <int value="5" label="Restored backup of a syncing device on Android"/>
 </enum>
+
+<!-- LINT.IfChange(TokenBindingBoundTokenPrevalence) -->
+
+<enum name="TokenBindingBoundTokenPrevalence">
+  <int value="0" label="Token list is empty"/>
+  <int value="1" label="None of the tokens are bound"/>
+  <int value="2" label="Some tokens are bound, some unbound"/>
+  <int value="3" label="All tokens are bound"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.cc:BoundTokenPrevalence) -->
+
+<!-- LINT.IfChange(TokenBindingGenerateAssertionResult) -->
+
+<enum name="TokenBindingGenerateAssertionResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="Binding key is not registered for an account"/>
+  <int value="2" label="Failed to load the binding key"/>
+  <int value="3" label="Failed to create an unsigned assertion token"/>
+  <int value="4" label="Failed to sign an assertion token"/>
+  <int value="5" label="Failed to attach the signature to an assertion token"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/signin/internal/identity_manager/token_binding_helper.h:Error) -->
 
 </enums>
 

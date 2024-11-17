@@ -4,6 +4,8 @@
 
 static_library("browser") {
   sources = [
+    "ewallet_manager.cc",
+    "ewallet_manager.h",
     "facilitated_payments_api_client.h",
     "facilitated_payments_client.cc",
     "facilitated_payments_client.h",
@@ -32,7 +34,6 @@ static_library("browser") {
     "//components/signin/public/identity_manager",
     "//services/data_decoder/public/cpp",
     "//services/metrics/public/cpp:metrics_cpp",
-    "//services/metrics/public/cpp:ukm_builders",
     "//services/network/public/cpp",
     "//url",
   ]

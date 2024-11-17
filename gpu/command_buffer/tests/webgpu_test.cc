@@ -226,12 +226,16 @@ void WebGPUTest::PollUntilIdle() {
   context_->GetTaskRunner()->RunPendingTasks();
 }
 
-wgpu::Device WebGPUTest::GetNewDevice() {
+wgpu::Device WebGPUTest::GetNewDevice(
+    std::vector<wgpu::FeatureName> requiredFeatures) {
   wgpu::Device device;
   bool done = false;
 
   DCHECK(adapter_);
   wgpu::DeviceDescriptor device_desc = {};
+  device_desc.requiredFeatureCount = requiredFeatures.size();
+  device_desc.requiredFeatures = requiredFeatures.data();
+
   device_desc.SetDeviceLostCallback(
       wgpu::CallbackMode::AllowSpontaneous,
       [](const wgpu::Device&, wgpu::DeviceLostReason reason,
@@ -392,15 +396,6 @@ TEST_F(WebGPUTest, RequestDeviceWithUnsupportedFeature) {
 }
 
 TEST_F(WebGPUTest, SPIRVIsDisallowed) {
-  auto ExpectSPIRVDisallowedError = [](WGPUErrorType type, const char* message,
-                                       void* userdata) {
-    // We match on this string to make sure the shader module creation fails
-    // because SPIR-V is disallowed and not because codeSize=0.
-    EXPECT_THAT(message, testing::HasSubstr("SPIR"));
-    EXPECT_EQ(type, WGPUErrorType_Validation);
-    *static_cast<bool*>(userdata) = true;
-  };
-
   auto options = WebGPUTest::Options();
   options.enable_unsafe_webgpu = false;
   Initialize(options);
@@ -419,7 +414,16 @@ TEST_F(WebGPUTest, SPIRVIsDisallowed) {
   device.PushErrorScope(wgpu::ErrorFilter::Validation);
   device.CreateShaderModule(&desc);
   bool got_error = false;
-  device.PopErrorScope(ExpectSPIRVDisallowedError, &got_error);
+  device.PopErrorScope(wgpu::CallbackMode::AllowSpontaneous,
+                       [&](wgpu::PopErrorScopeStatus status,
+                           wgpu::ErrorType type, const char* message) {
+                         // We match on this string to make sure the shader
+                         // module creation fails because SPIR-V is disallowed
+                         // and not because codeSize=0.
+                         EXPECT_THAT(message, testing::HasSubstr("SPIR"));
+                         EXPECT_EQ(type, wgpu::ErrorType::Validation);
+                         got_error = true;
+                       });
 
   WaitForCompletion(device);
   EXPECT_TRUE(got_error);

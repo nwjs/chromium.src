@@ -14,6 +14,7 @@
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_value_map.h"
 #include "components/prefs/testing_pref_service.h"
+#include "components/saved_tab_groups/public/pref_names.h"
 #include "components/signin/public/base/gaia_id_hash.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_switches.h"
@@ -46,9 +47,13 @@ class SyncPrefsTest : public testing::Test {
  protected:
   SyncPrefsTest() {
     SyncPrefs::RegisterProfilePrefs(pref_service_.registry());
-    // TODO(crbug.com/337034860): This is required due to a workaround in
-    // KeepAccountSettingsPrefsOnlyForUsers(); see TODO there.
+    // TODO(crbug.com/368409110): These prefs are required due to a workaround
+    // in KeepAccountSettingsPrefsOnlyForUsers(); see TODOs there.
     SyncTransportDataPrefs::RegisterProfilePrefs(pref_service_.registry());
+    pref_service_.registry()->RegisterDictionaryPref(
+        tab_groups::prefs::kLocallyClosedRemoteTabGroupIds,
+        base::Value::Dict());
+
     // Pref is registered in signin internal `PrimaryAccountManager`.
     pref_service_.registry()->RegisterBooleanPref(
         ::prefs::kExplicitBrowserSignin, false);

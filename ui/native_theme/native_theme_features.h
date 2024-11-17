@@ -13,6 +13,12 @@
 namespace features {
 
 NATIVE_THEME_EXPORT BASE_DECLARE_FEATURE(kOverlayScrollbar);
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+NATIVE_THEME_EXPORT BASE_DECLARE_FEATURE(kOverlayScrollbarsOSSetting);
+NATIVE_THEME_EXPORT bool IsOverlayScrollbarOSSettingEnabled();
+#endif
+
 NATIVE_THEME_EXPORT BASE_DECLARE_FEATURE(kFluentScrollbar);
 NATIVE_THEME_EXPORT BASE_DECLARE_FEATURE(kFluentOverlayScrollbar);
 

@@ -33,6 +33,39 @@ consoles.list_view(
 )
 
 try_.builder(
+    name = "compile-size",
+    branch_selector = branches.selector.MAIN,
+    # TODO: crbug.com/370594503 - Add documents for compile-size.
+    description_html = "Measures and prevents unexpected compile input size " +
+                       "growth. See docs for details.",
+    executable = "recipe:build_size_trybot",
+    gn_args = gn_args.config(
+        configs = [
+            "release_try_builder",
+            "remoteexec",
+            "system_headers_in_deps",
+            "dcheck_off",
+            "linux",
+            "x64",
+        ],
+    ),
+    # TODO: crbug.com/40190002 - Make builderful before productionizing.
+    builderless = True,
+    cores = 8,
+    contact_team_email = "build@chromium.org",
+    properties = {
+        "$build/binary_size": {
+            "analyze_targets": [
+                "chrome",
+            ],
+            "compile_targets": [
+                "chrome",
+            ],
+        },
+    },
+)
+
+try_.builder(
     name = "layout_test_leak_detection",
     mirrors = [
         "ci/WebKit Linux Leak",
@@ -291,6 +324,8 @@ try_.builder(
     experiments = {
         # crbug/940930
         "chromium.enable_cleandead": 100,
+        # crbug.com/355218109
+        "chromium.use_per_builder_build_dir_name": 100,
     },
     main_list_view = "try",
     tryjob = try_.job(),
@@ -344,8 +379,11 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # b/346598710
         "chromium.luci_analysis_v2": 100,
+        # crbug.com/355218109
+        "chromium.use_per_builder_build_dir_name": 100,
     },
     main_list_view = "try",
+    siso_remote_linking = True,
     # TODO(crbug.com/40241638): Use orchestrator pool once overloaded test pools
     # are addressed
     # use_orchestrator_pool = True,
@@ -366,16 +404,10 @@ try_.orchestrator_builder(
     builder_config_settings = builder_config.try_settings(
         is_compile_only = True,
     ),
-    gn_args = gn_args.config(
-        configs = [
-            "try/linux-rel",
-            "no_reclient",
-        ],
-    ),
+    gn_args = "try/linux-rel",
     compilator = "linux-full-remote-rel-compilator",
     contact_team_email = "chrome-build-team@google.com",
-    siso_configs = ["builder", "remote-library-link", "remote-exec-link"],
-    siso_output_local_strategy = "minimum",
+    siso_remote_linking = True,
     tryjob = try_.job(
         experiment_percentage = 10,
     ),
@@ -517,8 +549,11 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # b/346598710
         "chromium.luci_analysis_v2": 100,
+        # crbug.com/355218109
+        "chromium.use_per_builder_build_dir_name": 100,
     },
     main_list_view = "try",
+    siso_remote_linking = True,
     # TODO (crbug.com/1372179): Use orchestrator pool once overloaded test pools
     # are addressed
     # use_orchestrator_pool = True,
@@ -640,6 +675,8 @@ try_.builder(
     experiments = {
         # crbug/940930
         "chromium.enable_cleandead": 100,
+        # crbug.com/355218109
+        "chromium.use_per_builder_build_dir_name": 100,
     },
     main_list_view = "try",
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
@@ -737,6 +774,8 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # b/346598710
         "chromium.luci_analysis_v2": 100,
+        # crbug.com/355218109
+        "chromium.use_per_builder_build_dir_name": 100,
     },
     main_list_view = "try",
     # TODO (crbug.com/1372179): Use orchestrator pool once overloaded test pools
@@ -892,7 +931,6 @@ try_.gpu.optional_tests_builder(
             cq.location_filter(path_regexp = "third_party/blink/renderer/modules/webgpu/.+"),
             cq.location_filter(path_regexp = "third_party/blink/renderer/platform/graphics/gpu/.+"),
             cq.location_filter(path_regexp = "tools/clang/scripts/update.py"),
-            cq.location_filter(path_regexp = "tools/mb/mb_config_expectations/tryserver.chromium.linux.json"),
             cq.location_filter(path_regexp = "ui/gl/.+"),
 
             # Exclusion filters.

@@ -2939,8 +2939,9 @@ IN_PROC_BROWSER_TEST_F(EnclaveICloudRecoveryKeyTest,
   EXPECT_EQ(recovery_keys.size(), 2u);
 }
 
+// TODO(crbug.com/368799197): The test is flaky.
 // Tests enrolling an iCloud recovery key, then recovering from it.
-IN_PROC_BROWSER_TEST_F(EnclaveICloudRecoveryKeyTest, Recovery) {
+IN_PROC_BROWSER_TEST_F(EnclaveICloudRecoveryKeyTest, DISABLED_Recovery) {
   {
     // Do a make credential request and enroll a PIN.
     trusted_vault::DownloadAuthenticationFactorsRegistrationStateResult
@@ -2997,11 +2998,19 @@ IN_PROC_BROWSER_TEST_F(EnclaveICloudRecoveryKeyTest, Recovery) {
     // factor that should have been added.
     trusted_vault::DownloadAuthenticationFactorsRegistrationStateResult
         registration_state_result;
+    const auto pin_member = std::ranges::find_if(
+        security_domain_service_->members(),
+        [](const trusted_vault_pb::SecurityDomainMember& member) {
+          return member.member_type() ==
+                 trusted_vault_pb::SecurityDomainMember::
+                     MEMBER_TYPE_GOOGLE_PASSWORD_MANAGER_PIN;
+        });
+    const auto& pin_metadata =
+        pin_member->member_metadata().google_password_manager_pin_metadata();
     registration_state_result.gpm_pin_metadata = trusted_vault::GpmPinMetadata(
-        "public key",
-        EnclaveManager::MakeWrappedPINForTesting(kSecurityDomainSecret,
-                                                 "123456"),
-        /*expiry=*/base::Time::Now() + base::Seconds(10000));
+        pin_member->public_key(), pin_metadata.encrypted_pin_hash(),
+        base::Time::FromSecondsSinceUnixEpoch(
+            pin_metadata.expiration_time().seconds()));
     registration_state_result.state =
         trusted_vault::DownloadAuthenticationFactorsRegistrationStateResult::
             State::kRecoverable;
@@ -3035,7 +3044,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveICloudRecoveryKeyTest, Recovery) {
     content::WebContents* web_contents =
         browser()->tab_strip_model()->GetActiveWebContents();
     content::DOMMessageQueue message_queue(web_contents);
-    content::ExecuteScriptAsync(web_contents, kMakeCredentialUvDiscouraged);
+    content::ExecuteScriptAsync(web_contents, kMakeCredentialUvRequired);
     delegate_observer()->WaitForUI();
 
     EXPECT_EQ(
@@ -3045,11 +3054,17 @@ IN_PROC_BROWSER_TEST_F(EnclaveICloudRecoveryKeyTest, Recovery) {
                   ->enclave_controller_for_testing()
                   ->account_state_for_testing(),
               GPMEnclaveController::AccountState::kRecoverable);
+
+    // User verification must not be skipped when recovering from an iCloud key.
+    model_observer()->SetStepToObserve(
+        AuthenticatorRequestDialogModel::Step::kGPMEnterPin);
     dialog_model()->OnTrustThisComputer();
+    model_observer()->WaitForStep();
+    dialog_model()->OnGPMPinEntered(u"123456");
 
     std::string script_result;
     ASSERT_TRUE(message_queue.WaitForMessage(&script_result));
-    EXPECT_EQ(script_result, "\"webauthn: OK\"");
+    EXPECT_EQ(script_result, "\"webauthn: uv=true\"");
 
     delegate_observer()->WaitForDelegateDestruction();
 

@@ -100,7 +100,6 @@ class LoginDisplayHostMojo : public LoginDisplayHostCommon,
                                     bool online_password_mismatch) override;
   void RunLocalAuthentication(
       std::unique_ptr<UserContext> user_context) override;
-  void StartBrowserDataMigration() override;
   void AddObserver(LoginDisplayHost::Observer* observer) override;
   void RemoveObserver(LoginDisplayHost::Observer* observer) override;
   SigninUI* GetSigninUI() final;
@@ -200,6 +199,9 @@ class LoginDisplayHostMojo : public LoginDisplayHostCommon,
 
   // Checks the auth factors availability and updates the user pod.
   void UpdateAuthFactorsAvailability(const user_manager::User* user);
+  void OnAuthSessionStarted(bool user_exists,
+                            std::unique_ptr<ash::UserContext> user_context,
+                            std::optional<ash::AuthenticationError> error);
 
   base::ObserverList<LoginDisplayHost::Observer> observers_;
 

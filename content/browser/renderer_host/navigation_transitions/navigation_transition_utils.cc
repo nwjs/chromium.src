@@ -75,10 +75,6 @@ bool SupportsETC1NonPowerOfTwo(const NavigationRequest& navigation_request) {
   auto* rfh = navigation_request.frame_tree_node()->current_frame_host();
   auto* rwhv = rfh->GetView();
   auto* window_android = rwhv->GetNativeView()->GetWindowAndroid();
-  if (!window_android) {
-    // Can happen on x86 Android bots.
-    return false;
-  }
   auto* compositor = window_android->GetCompositor();
   return static_cast<CompositorImpl*>(compositor)->SupportsETC1NonPowerOfTwo();
 #else
@@ -296,7 +292,7 @@ bool NavigationTransitionUtils::
 
   NavigationControllerImpl& navigation_controller =
       navigation_request.frame_tree_node()->navigator().controller();
-  auto* entry = navigation_controller.GetLastCommittedEntry();
+  auto* last_committed_entry = navigation_controller.GetLastCommittedEntry();
 
   // Remove the screenshot from the destination before checking the conditions.
   // We might not capture for this navigation due to some conditions, but the
@@ -305,8 +301,9 @@ bool NavigationTransitionUtils::
   RemoveScreenshotFromDestination(navigation_controller, destination_entry);
 
   if (gfx::Animation::PrefersReducedMotion()) {
-    entry->navigation_transition_data().set_cache_hit_or_miss_reason(
-        CacheHitOrMissReason::kCacheMissPrefersReducedMotion);
+    last_committed_entry->navigation_transition_data()
+        .set_cache_hit_or_miss_reason(
+            CacheHitOrMissReason::kCacheMissPrefersReducedMotion);
     InvokeTestCallbackForNoScreenshot(navigation_request);
     return false;
   }
@@ -314,30 +311,23 @@ bool NavigationTransitionUtils::
   if (navigation_request.frame_tree_node()
           ->GetParentOrOuterDocumentOrEmbedder()) {
     // No support for embedded pages (including GuestView or fenced frames).
-    entry->navigation_transition_data().set_cache_hit_or_miss_reason(
-        CacheHitOrMissReason::kCacheMissEmbeddedPages);
+    last_committed_entry->navigation_transition_data()
+        .set_cache_hit_or_miss_reason(
+            CacheHitOrMissReason::kCacheMissEmbeddedPages);
     InvokeTestCallbackForNoScreenshot(navigation_request);
     return false;
   }
 
-  if (!navigation_request.IsInMainFrame()) {
+  if (!navigation_request.IsInPrimaryMainFrame()) {
     // See crbug.com/40896219: We will present the fallback UX for navigations
     // in the subframes.
-    if (!entry->navigation_transition_data()
+    if (!last_committed_entry->navigation_transition_data()
              .cache_hit_or_miss_reason()
              .has_value()) {
-      entry->navigation_transition_data().set_cache_hit_or_miss_reason(
-          CacheHitOrMissReason::kCacheMissSubframe);
+      last_committed_entry->navigation_transition_data()
+          .set_cache_hit_or_miss_reason(
+              CacheHitOrMissReason::kCacheMissNonPrimaryMainFrame);
     }
-    InvokeTestCallbackForNoScreenshot(navigation_request);
-    return false;
-  }
-
-  if (navigation_request.frame_tree_node()
-          ->current_frame_host()
-          ->LoadedWithCacheControlNoStoreHeader()) {
-    entry->navigation_transition_data().set_cache_hit_or_miss_reason(
-        CacheHitOrMissReason::kCacheMissCCNS);
     InvokeTestCallbackForNoScreenshot(navigation_request);
     return false;
   }
@@ -355,8 +345,9 @@ bool NavigationTransitionUtils::
       // If we're navigating away from a crashed frame, it's not possible to
       // get a screenshot and fallback UI should be used instead.
       InvokeTestCallbackForNoScreenshot(navigation_request);
-      entry->navigation_transition_data().set_cache_hit_or_miss_reason(
-          CacheHitOrMissReason::kNavigateAwayFromCrashedPage);
+      last_committed_entry->navigation_transition_data()
+          .set_cache_hit_or_miss_reason(
+              CacheHitOrMissReason::kNavigateAwayFromCrashedPage);
       return false;
     case NavigationRequest::EarlyRenderFrameHostSwapType::kInitialFrame:
       // TODO(khushalsagar): Confirm whether this is needed for Chrome's NTP
@@ -375,22 +366,53 @@ bool NavigationTransitionUtils::
     // navigation.
     CHECK(!current_rfh->IsRenderFrameLive());
     InvokeTestCallbackForNoScreenshot(navigation_request);
-    entry->navigation_transition_data().set_cache_hit_or_miss_reason(
-        CacheHitOrMissReason::kNavigateAwayFromCrashedPageNoEarlySwap);
+    last_committed_entry->navigation_transition_data()
+        .set_cache_hit_or_miss_reason(
+            CacheHitOrMissReason::kNavigateAwayFromCrashedPageNoEarlySwap);
     return false;
   }
 
-  int request_sequence = navigation_controller.GetLastCommittedEntry()
-                             ->navigation_transition_data()
+#if BUILDFLAG(IS_ANDROID)
+  if (auto* window_android = rwhv->GetNativeView()->GetWindowAndroid();
+      !window_android || !window_android->GetCompositor()) {
+    InvokeTestCallbackForNoScreenshot(navigation_request);
+    last_committed_entry->navigation_transition_data()
+        .set_cache_hit_or_miss_reason(
+            CacheHitOrMissReason::kNoRootWindowOrCompositor);
+    return false;
+  }
+#endif
+
+  if (!rwhv->IsSurfaceAvailableForCopy()) {
+    // See https://crbug.com/368289857: If we hide the WebContents after a
+    // same-RFH navigation starts, we invalidate the `viz::LocalSurfaceID`
+    // and the browser UI will not be embedding a new ID when the navigation
+    // finishes (`WebContentsImpl::DidNavigateMainFramePreCommit()` and
+    // `RenderWidgetHostViewAndroid::DidNavigate()`). We won't be able to
+    // screenshot the page if we navigate the WebContents again before the UI
+    // embeds
+    InvokeTestCallbackForNoScreenshot(navigation_request);
+    last_committed_entry->navigation_transition_data()
+        .set_cache_hit_or_miss_reason(
+            CacheHitOrMissReason::kBrowserNotEmbeddingValidSurfaceId);
+    return false;
+  }
+
+  // https://crbug.com/369356401: It's possible to issue two CopyOutputRequests
+  // against the last committed entry. Bump the `copy_output_request_sequence()`
+  // to prevent double-caching the screenshot.
+  last_committed_entry->navigation_transition_data()
+      .increment_copy_output_request_sequence();
+  int request_sequence = last_committed_entry->navigation_transition_data()
                              .copy_output_request_sequence();
   bool copied_via_delegate =
       navigation_request.GetDelegate()->MaybeCopyContentAreaAsBitmap(
-          base::BindOnce(
-              &CacheScreenshotImpl, navigation_controller.GetWeakPtr(),
-              navigation_request.GetWeakPtr(),
-              navigation_controller.GetLastCommittedEntry()->GetUniqueID(),
-              /*is_copied_from_embedder=*/true, request_sequence,
-              SupportsETC1NonPowerOfTwo(navigation_request)));
+          base::BindOnce(&CacheScreenshotImpl,
+                         navigation_controller.GetWeakPtr(),
+                         navigation_request.GetWeakPtr(),
+                         last_committed_entry->GetUniqueID(),
+                         /*is_copied_from_embedder=*/true, request_sequence,
+                         SupportsETC1NonPowerOfTwo(navigation_request)));
 
   if (!copied_via_delegate && only_use_embedder_screenshot) {
     InvokeTestCallbackForNoScreenshot(navigation_request);
@@ -408,22 +430,19 @@ bool NavigationTransitionUtils::
   // meaning we will capture at full-size, unless specified by tests.
   const gfx::Size output_size = g_output_size_for_test;
 
-  // Make sure the browser is actively embedding a surface.
-  CHECK(rwhv->IsSurfaceAvailableForCopy());
-
   static_cast<RenderWidgetHostViewBase*>(rwhv)->CopyFromExactSurface(
       /*src_rect=*/gfx::Rect(), output_size,
-      base::BindOnce(
-          &CacheScreenshotImpl, navigation_controller.GetWeakPtr(),
-          navigation_request.GetWeakPtr(),
-          navigation_controller.GetLastCommittedEntry()->GetUniqueID(),
-          /*is_copied_from_embedder=*/false, request_sequence,
-          SupportsETC1NonPowerOfTwo(navigation_request)));
+      base::BindOnce(&CacheScreenshotImpl, navigation_controller.GetWeakPtr(),
+                     navigation_request.GetWeakPtr(),
+                     last_committed_entry->GetUniqueID(),
+                     /*is_copied_from_embedder=*/false, request_sequence,
+                     SupportsETC1NonPowerOfTwo(navigation_request)));
 
   ++g_num_copy_requests_issued_for_testing;
 
-  entry->navigation_transition_data().set_cache_hit_or_miss_reason(
-      CacheHitOrMissReason::kSentScreenshotRequest);
+  last_committed_entry->navigation_transition_data()
+      .set_cache_hit_or_miss_reason(
+          CacheHitOrMissReason::kSentScreenshotRequest);
 
   return true;
 }
@@ -460,10 +479,11 @@ void NavigationTransitionUtils::SetSameDocumentNavigationEntryScreenshotToken(
     return;
   }
 
+  auto* last_committed_entry = nav_controller.GetLastCommittedEntry();
   if (gfx::Animation::PrefersReducedMotion()) {
-    auto* entry = nav_controller.GetLastCommittedEntry();
-    entry->navigation_transition_data().set_cache_hit_or_miss_reason(
-        CacheHitOrMissReason::kCacheMissPrefersReducedMotion);
+    last_committed_entry->navigation_transition_data()
+        .set_cache_hit_or_miss_reason(
+            CacheHitOrMissReason::kCacheMissPrefersReducedMotion);
     return;
   }
 
@@ -476,27 +496,53 @@ void NavigationTransitionUtils::SetSameDocumentNavigationEntryScreenshotToken(
     return;
   }
 
+#if BUILDFLAG(IS_ANDROID)
+  RenderFrameHostImpl* current_rfh =
+      navigation_request.frame_tree_node()->current_frame_host();
+  RenderWidgetHostView* rwhv = current_rfh->GetView();
+  if (auto* window_android = rwhv->GetNativeView()->GetWindowAndroid();
+      !window_android || !window_android->GetCompositor()) {
+    last_committed_entry->navigation_transition_data()
+        .set_cache_hit_or_miss_reason(
+            CacheHitOrMissReason::kNoRootWindowOrCompositor);
+    return;
+  }
+#endif
+
   // NOTE: `destination_token` is to set on the last committed entry (the
   // screenshot's destination), instead of the destination entry of this
   // `navigation_request` (`navigation_request.GetNavigationEntry()`).
 
   // `blink::SameDocNavigationScreenshotDestinationToken` is guaranteed
   // non-empty.
-  nav_controller.GetLastCommittedEntry()
-      ->navigation_transition_data()
+  last_committed_entry->navigation_transition_data()
       .SetSameDocumentNavigationEntryScreenshotToken(*destination_token);
 
   CHECK(GetHostFrameSinkManager());
 
-  int request_sequence = nav_controller.GetLastCommittedEntry()
-                             ->navigation_transition_data()
+  // It is possible to issue two CopyOutputRequests against the last committed
+  // entry. This happens when a same-RFH navigation commits in the browser at
+  // the same time as a same-document navigation commits in the renderer. For
+  // example,
+  // 1. Browser has a navigation A->B. At ready to commit, browser sends a
+  // screenshot request for A.
+  // 2. Renderer commits a same-document navigation from A->A'. The renderer
+  // issues a copy request for A at the same time as sending the commit message.
+  // Bump the `copy_output_request_sequence()` to prevent double-caching the
+  // screenshot for A.
+  //
+  // TODO(https://crbug.com/372301997): We will miss caching a screenshot for A'
+  // in this case. Record that reason explicitly.
+  last_committed_entry->navigation_transition_data()
+      .increment_copy_output_request_sequence();
+  int request_sequence = last_committed_entry->navigation_transition_data()
                              .copy_output_request_sequence();
 
   GetHostFrameSinkManager()->SetOnCopyOutputReadyCallback(
       *destination_token,
       base::BindOnce(&CacheScreenshotImpl, nav_controller.GetWeakPtr(),
                      navigation_request.GetWeakPtr(),
-                     nav_controller.GetLastCommittedEntry()->GetUniqueID(),
+                     last_committed_entry->GetUniqueID(),
                      /*is_copied_from_embedder=*/false, request_sequence,
                      SupportsETC1NonPowerOfTwo(navigation_request)));
 }

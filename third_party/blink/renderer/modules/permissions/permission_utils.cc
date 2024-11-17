@@ -97,8 +97,6 @@ String PermissionNameToString(PermissionName name) {
       return "background_sync";
     case PermissionName::SENSORS:
       return "sensors";
-    case PermissionName::ACCESSIBILITY_EVENTS:
-      return "accessibility_events";
     case PermissionName::CLIPBOARD_READ:
       return "clipboard_read";
     case PermissionName::CLIPBOARD_WRITE:
@@ -289,14 +287,6 @@ PermissionDescriptorPtr ParsePermissionDescriptor(
 
     return CreatePermissionDescriptor(PermissionName::SENSORS);
   }
-  if (name == V8PermissionName::Enum::kAccessibilityEvents) {
-    if (!RuntimeEnabledFeatures::AccessibilityObjectModelEnabled()) {
-      exception_state.ThrowTypeError(
-          "Accessibility Object Model is not enabled.");
-      return nullptr;
-    }
-    return CreatePermissionDescriptor(PermissionName::ACCESSIBILITY_EVENTS);
-  }
   if (name == V8PermissionName::Enum::kClipboardRead ||
       name == V8PermissionName::Enum::kClipboardWrite) {
     PermissionName permission_name = PermissionName::CLIPBOARD_READ;
@@ -398,11 +388,25 @@ PermissionDescriptorPtr ParsePermissionDescriptor(
     return CreatePermissionDescriptor(PermissionName::SPEAKER_SELECTION);
   }
   if (name == V8PermissionName::Enum::kKeyboardLock) {
+#if !BUILDFLAG(IS_ANDROID)
     return CreatePermissionDescriptor(PermissionName::KEYBOARD_LOCK);
+#else
+    exception_state.ThrowTypeError(
+        "The Keyboard Lock permission isn't available on Android.");
+    return nullptr;
+#endif
   }
+
   if (name == V8PermissionName::Enum::kPointerLock) {
+#if !BUILDFLAG(IS_ANDROID)
     return CreatePermissionDescriptor(PermissionName::POINTER_LOCK);
+#else
+    exception_state.ThrowTypeError(
+        "The Pointer Lock permission isn't available on Android.");
+    return nullptr;
+#endif
   }
+
   if (name == V8PermissionName::Enum::kFullscreen) {
     FullscreenPermissionDescriptor* fullscreen_permission =
         NativeValueTraits<FullscreenPermissionDescriptor>::NativeValue(

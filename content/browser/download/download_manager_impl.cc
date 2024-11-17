@@ -240,11 +240,11 @@ CreatePendingSharedURLLoaderFactory(StoragePartitionImpl* storage_partition,
         rfh->GetSiteInstance()->GetBrowserContext(), rfh,
         rfh->GetProcess()->GetID(),
         ContentBrowserClient::URLLoaderFactoryType::kDownload, url::Origin(),
-        net::IsolationInfo(), std::nullopt /* navigation_id */,
-        ukm::kInvalidSourceIdObj, factory_builder, nullptr /* header_client */,
-        nullptr /* bypass_redirect_checks */, nullptr /* disable_secure_dns */,
-        nullptr /* factory_override */,
-        nullptr /* navigation_response_task_runner */);
+        net::IsolationInfo(), /*navigation_id=*/std::nullopt,
+        ukm::kInvalidSourceIdObj, factory_builder, /*header_client=*/nullptr,
+        /*bypass_redirect_checks=*/nullptr, /*disable_secure_dns=*/nullptr,
+        /*factory_override=*/nullptr,
+        /*navigation_response_task_runner=*/nullptr);
   }
 
   return std::make_unique<network::PendingSharedURLLoaderFactoryWithBuilder>(
@@ -722,6 +722,9 @@ void DownloadManagerImpl::OnNewDownloadIdRetrieved(
     } else {
       for (const auto& iter : downloads_by_guid_) {
         download::DownloadItem* item = iter.second;
+        if (!item) {
+          continue;
+        }
         if (item->GetFileExternallyRemoved() ||
             item->GetState() != download::DownloadItem::COMPLETE) {
           continue;
@@ -766,6 +769,7 @@ void DownloadManagerImpl::CreateNewDownloadItemToStart(
   if (delegate_ && info->save_info) {
     info->save_info->needs_obfuscation =
         delegate_->ShouldObfuscateDownload(download);
+    info->save_info->total_bytes = info->total_bytes;
   }
   content::devtools_instrumentation::WillBeginDownload(info.get(), download);
   std::move(callback).Run(

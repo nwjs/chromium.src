@@ -19,6 +19,7 @@
 #include "base/time/time.h"
 #include "media/audio/simple_sources.h"
 #include "media/base/audio_bus.h"
+#include "media/base/decoder_buffer.h"
 #include "media/base/video_color_space.h"
 #include "media/base/video_frame.h"
 #include "media/formats/mp4/box_definitions.h"
@@ -163,9 +164,7 @@ class MockMediaRecorder : public MediaRecorder {
                       scope.GetExceptionState()) {}
   ~MockMediaRecorder() override = default;
 
-  MOCK_METHOD(void,
-              WriteData,
-              (base::span<const uint8_t>, bool, double, ErrorEvent*));
+  MOCK_METHOD(void, WriteData, (base::span<const uint8_t>, bool, ErrorEvent*));
   MOCK_METHOD(void, OnError, (DOMExceptionCode code, const String& message));
 };
 
@@ -238,20 +237,19 @@ class MediaRecorderHandlerFixture : public ScopedMockOverlayScrollbars {
 
   void OnEncodedVideoForTesting(
       const media::Muxer::VideoParameters& params,
-      std::string encoded_data,
-      std::string encoded_alpha,
+      scoped_refptr<media::DecoderBuffer> encoded_data,
       base::TimeTicks timestamp,
-      bool is_key_frame,
       std::optional<media::VideoEncoder::CodecDescription> codec_description =
           std::nullopt) {
-    media_recorder_handler_->OnEncodedVideo(
-        params, std::move(encoded_data), std::move(encoded_alpha),
-        std::move(codec_description), timestamp, is_key_frame);
+    media_recorder_handler_->OnEncodedVideo(params, std::move(encoded_data),
+                                            std::move(codec_description),
+                                            timestamp);
   }
 
-  void OnEncodedAudioForTesting(const media::AudioParameters& params,
-                                std::string encoded_data,
-                                base::TimeTicks timestamp) {
+  void OnEncodedAudioForTesting(
+      const media::AudioParameters& params,
+      scoped_refptr<media::DecoderBuffer> encoded_data,
+      base::TimeTicks timestamp) {
     media::AudioEncoder::CodecDescription codec_description = {99};
     media_recorder_handler_->OnEncodedAudio(params, std::move(encoded_data),
                                             std::move(codec_description),
@@ -260,7 +258,7 @@ class MediaRecorderHandlerFixture : public ScopedMockOverlayScrollbars {
 
   void OnEncodedAudioNoCodeDescriptionForTesting(
       const media::AudioParameters& params,
-      std::string encoded_data,
+      scoped_refptr<media::DecoderBuffer> encoded_data,
       base::TimeTicks timestamp) {
     media_recorder_handler_->OnEncodedAudio(params, std::move(encoded_data),
                                             std::nullopt, timestamp);
@@ -310,13 +308,17 @@ class MediaRecorderHandlerFixture : public ScopedMockOverlayScrollbars {
       base::MemoryMappedFile mapped_h264_file;
       LoadEncodedFile("h264-320x180-frame-0", mapped_h264_file);
       h264_video_stream_ =
-          std::string(reinterpret_cast<const char*>(mapped_h264_file.data()),
-                      mapped_h264_file.length());
+          base::HeapArray<uint8_t>::CopiedFrom(mapped_h264_file.bytes());
     }
     media::Muxer::VideoParameters video_params(
         gfx::Size(), 1, media::VideoCodec::kH264, gfx::ColorSpace());
-    OnEncodedVideoForTesting(video_params, h264_video_stream_, "alpha",
-                             timestamp, true, std::move(codec_description));
+    auto buffer = media::DecoderBuffer::CopyFrom(h264_video_stream_);
+    std::string alpha_data = "alpha";
+    buffer->WritableSideData().alpha_data.assign(alpha_data.begin(),
+                                                 alpha_data.end());
+    buffer->set_is_key_frame(true);
+    OnEncodedVideoForTesting(video_params, buffer, timestamp,
+                             std::move(codec_description));
   }
 
 #if BUILDFLAG(USE_PROPRIETARY_CODECS)
@@ -362,7 +364,7 @@ class MediaRecorderHandlerFixture : public ScopedMockOverlayScrollbars {
   media::SineWaveAudioSource audio_source_;
   raw_ptr<MockMediaStreamVideoSource, DanglingUntriaged> video_source_ =
       nullptr;
-  std::string h264_video_stream_;
+  base::HeapArray<uint8_t> h264_video_stream_;
 
  private:
   void LoadEncodedFile(std::string_view filename,
@@ -592,11 +594,11 @@ TEST_P(MediaRecorderHandlerTest, EncodeVideoFrames) {
       base::RunLoop run_loop;
       // WriteData is called as many as fragments (`moof` box) in addition
       // to 3 times of `ftyp`, `moov`, `mfra` boxes.
-      EXPECT_CALL(*recorder, WriteData(SizeIs(Lt(kMfraBoxSize)), _, _, _))
+      EXPECT_CALL(*recorder, WriteData(SizeIs(Lt(kMfraBoxSize)), _, _))
           .Times(AtLeast(1));
-      EXPECT_CALL(*recorder, WriteData(SizeIs(Gt(kMfraBoxSize)), _, _, _))
+      EXPECT_CALL(*recorder, WriteData(SizeIs(Gt(kMfraBoxSize)), _, _))
           .Times(AtLeast(1));
-      EXPECT_CALL(*recorder, WriteData(SizeIs(kMfraBoxSize), _, _, _))
+      EXPECT_CALL(*recorder, WriteData(SizeIs(kMfraBoxSize), _, _))
           .Times(1)
           .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
 
@@ -613,11 +615,9 @@ TEST_P(MediaRecorderHandlerTest, EncodeVideoFrames) {
       base::RunLoop run_loop;
       // writeData() is pinged a number of times as the WebM header is written;
       // the last time it is called it has the encoded data.
-      EXPECT_CALL(*recorder,
-                  WriteData(SizeIs(Lt(kEncodedSizeThreshold)), _, _, _))
+      EXPECT_CALL(*recorder, WriteData(SizeIs(Lt(kEncodedSizeThreshold)), _, _))
           .Times(AtLeast(1));
-      EXPECT_CALL(*recorder,
-                  WriteData(SizeIs(Gt(kEncodedSizeThreshold)), _, _, _))
+      EXPECT_CALL(*recorder, WriteData(SizeIs(Gt(kEncodedSizeThreshold)), _, _))
           .Times(1)
           .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
 
@@ -630,11 +630,9 @@ TEST_P(MediaRecorderHandlerTest, EncodeVideoFrames) {
       base::RunLoop run_loop;
       // The second time around writeData() is called a number of times to write
       // the WebM frame header, and then is pinged with the encoded data.
-      EXPECT_CALL(*recorder,
-                  WriteData(SizeIs(Lt(kEncodedSizeThreshold)), _, _, _))
+      EXPECT_CALL(*recorder, WriteData(SizeIs(Lt(kEncodedSizeThreshold)), _, _))
           .Times(AtLeast(1));
-      EXPECT_CALL(*recorder,
-                  WriteData(SizeIs(Gt(kEncodedSizeThreshold)), _, _, _))
+      EXPECT_CALL(*recorder, WriteData(SizeIs(Gt(kEncodedSizeThreshold)), _, _))
           .Times(1)
           .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
 
@@ -650,19 +648,17 @@ TEST_P(MediaRecorderHandlerTest, EncodeVideoFrames) {
       base::RunLoop run_loop;
       // The second time around writeData() is called a number of times to write
       // the WebM frame header, and then is pinged with the encoded data.
-      EXPECT_CALL(*recorder,
-                  WriteData(SizeIs(Lt(kEncodedSizeThreshold)), _, _, _))
+      EXPECT_CALL(*recorder, WriteData(SizeIs(Lt(kEncodedSizeThreshold)), _, _))
           .Times(AtLeast(1));
-      EXPECT_CALL(*recorder,
-                  WriteData(SizeIs(Gt(kEncodedSizeThreshold)), _, _, _))
+      EXPECT_CALL(*recorder, WriteData(SizeIs(Gt(kEncodedSizeThreshold)), _, _))
           .Times(1)
           .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
       if (GetParam().encoder_supports_alpha) {
         EXPECT_CALL(*recorder,
-                    WriteData(SizeIs(Lt(kEncodedSizeThreshold)), _, _, _))
+                    WriteData(SizeIs(Lt(kEncodedSizeThreshold)), _, _))
             .Times(AtLeast(1));
         EXPECT_CALL(*recorder,
-                    WriteData(SizeIs(Gt(kEncodedSizeThreshold)), _, _, _))
+                    WriteData(SizeIs(Gt(kEncodedSizeThreshold)), _, _))
             .Times(1)
             .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
       }
@@ -711,11 +707,9 @@ TEST_P(MediaRecorderHandlerTest, OpusEncodeAudioFrames) {
     base::RunLoop run_loop;
     // WriteData is called as many as fragments (`moof` box) in addition
     // to 2 times of `ftyp`, `moov` boxes (no 'mfra'box as it is audio only).
-    EXPECT_CALL(*recorder,
-                WriteData(SizeIs(Lt(kEncodedSizeThreshold)), _, _, _))
+    EXPECT_CALL(*recorder, WriteData(SizeIs(Lt(kEncodedSizeThreshold)), _, _))
         .Times(AtLeast(1));
-    EXPECT_CALL(*recorder,
-                WriteData(SizeIs(Gt(kEncodedSizeThreshold)), _, _, _))
+    EXPECT_CALL(*recorder, WriteData(SizeIs(Gt(kEncodedSizeThreshold)), _, _))
         .Times(2)
         .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
 
@@ -725,7 +719,8 @@ TEST_P(MediaRecorderHandlerTest, OpusEncodeAudioFrames) {
         kTestAudioSampleRate * kTestAudioBufferDurationMs / 1000);
 
     // Null codec_description is used for Opus.
-    OnEncodedAudioNoCodeDescriptionForTesting(audio_params, "audio",
+    auto buffer = media::DecoderBuffer::CopyFrom(base::as_byte_span("audio"));
+    OnEncodedAudioNoCodeDescriptionForTesting(audio_params, buffer,
                                               base::TimeTicks::Now());
 
     media_recorder_handler_->Stop();
@@ -739,11 +734,9 @@ TEST_P(MediaRecorderHandlerTest, OpusEncodeAudioFrames) {
       base::RunLoop run_loop;
       // writeData() is pinged a number of times as the WebM header is written;
       // the last time it is called it has the encoded data.
-      EXPECT_CALL(*recorder,
-                  WriteData(SizeIs(Lt(kEncodedSizeThreshold)), _, _, _))
+      EXPECT_CALL(*recorder, WriteData(SizeIs(Lt(kEncodedSizeThreshold)), _, _))
           .Times(AtLeast(1));
-      EXPECT_CALL(*recorder,
-                  WriteData(SizeIs(Gt(kEncodedSizeThreshold)), _, _, _))
+      EXPECT_CALL(*recorder, WriteData(SizeIs(Gt(kEncodedSizeThreshold)), _, _))
           .Times(1)
           .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
 
@@ -758,11 +751,9 @@ TEST_P(MediaRecorderHandlerTest, OpusEncodeAudioFrames) {
       base::RunLoop run_loop;
       // The second time around writeData() is called a number of times to write
       // the WebM frame header, and then is pinged with the encoded data.
-      EXPECT_CALL(*recorder,
-                  WriteData(SizeIs(Lt(kEncodedSizeThreshold)), _, _, _))
+      EXPECT_CALL(*recorder, WriteData(SizeIs(Lt(kEncodedSizeThreshold)), _, _))
           .Times(AtLeast(1));
-      EXPECT_CALL(*recorder,
-                  WriteData(SizeIs(Gt(kEncodedSizeThreshold)), _, _, _))
+      EXPECT_CALL(*recorder, WriteData(SizeIs(Gt(kEncodedSizeThreshold)), _, _))
           .Times(1)
           .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
 
@@ -805,8 +796,7 @@ TEST_P(MediaRecorderHandlerTest, WebmMuxerErrorWhileEncoding) {
     const size_t kEncodedSizeThreshold = 16;
     base::RunLoop run_loop;
     EXPECT_CALL(*recorder, WriteData).Times(AtLeast(1));
-    EXPECT_CALL(*recorder,
-                WriteData(SizeIs(Gt(kEncodedSizeThreshold)), _, _, _))
+    EXPECT_CALL(*recorder, WriteData(SizeIs(Gt(kEncodedSizeThreshold)), _, _))
         .Times(1)
         .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
 
@@ -915,8 +905,13 @@ TEST_P(MediaRecorderHandlerTest, PauseRecorderForVideo) {
     if (IsAvc1CodecSupported(codecs)) {
       OnEncodedH264VideoForTesting(base::TimeTicks::Now());
     } else {
-      OnEncodedVideoForTesting(params, "vp9 frame", "alpha",
-                               base::TimeTicks::Now(), true);
+      auto buffer =
+          media::DecoderBuffer::CopyFrom(base::as_byte_span("vp9 frame"));
+      std::string alpha_data = "alpha";
+      buffer->WritableSideData().alpha_data.assign(alpha_data.begin(),
+                                                   alpha_data.end());
+      buffer->set_is_key_frame(true);
+      OnEncodedVideoForTesting(params, buffer, base::TimeTicks::Now());
     }
   }
 
@@ -961,8 +956,13 @@ TEST_P(MediaRecorderHandlerTest, StartStopStartRecorderForVideo) {
   if (IsAvc1CodecSupported(codecs)) {
     OnEncodedH264VideoForTesting(base::TimeTicks::Now());
   } else {
-    OnEncodedVideoForTesting(params, "vp9 frame", "alpha",
-                             base::TimeTicks::Now(), true);
+    auto buffer =
+        media::DecoderBuffer::CopyFrom(base::as_byte_span("vp9 frame"));
+    std::string alpha_data = "alpha";
+    buffer->WritableSideData().alpha_data.assign(alpha_data.begin(),
+                                                 alpha_data.end());
+    buffer->set_is_key_frame(true);
+    OnEncodedVideoForTesting(params, buffer, base::TimeTicks::Now());
   }
 
   Mock::VerifyAndClearExpectations(recorder);
@@ -1314,7 +1314,12 @@ class MediaRecorderHandlerAudioVideoTest : public testing::Test,
   void FeedVideo() {
     media::Muxer::VideoParameters video_params(
         gfx::Size(), 1, media::VideoCodec::kVP9, gfx::ColorSpace());
-    OnEncodedVideoForTesting(video_params, "video", "alpha", timestamp_, true);
+    auto buffer = media::DecoderBuffer::CopyFrom(base::as_byte_span("video"));
+    std::string alpha_data = "alpha";
+    buffer->WritableSideData().alpha_data.assign(alpha_data.begin(),
+                                                 alpha_data.end());
+    buffer->set_is_key_frame(true);
+    OnEncodedVideoForTesting(video_params, buffer, timestamp_);
     timestamp_ += base::Milliseconds(10);
   }
 
@@ -1323,7 +1328,8 @@ class MediaRecorderHandlerAudioVideoTest : public testing::Test,
         media::AudioParameters::AUDIO_PCM_LINEAR,
         media::ChannelLayoutConfig::Stereo(), kTestAudioSampleRate,
         kTestAudioSampleRate * kTestAudioBufferDurationMs / 1000);
-    OnEncodedAudioForTesting(audio_params, "audio", timestamp_);
+    auto buffer = media::DecoderBuffer::CopyFrom(base::as_byte_span("audio"));
+    OnEncodedAudioForTesting(audio_params, buffer, timestamp_);
     timestamp_ += base::Milliseconds(10);
   }
 
@@ -1635,7 +1641,7 @@ TEST_P(MediaRecorderHandlerPassthroughTest, PassesThrough) {
   {
     base::RunLoop run_loop;
     EXPECT_CALL(*recorder, WriteData).Times(AtLeast(1));
-    EXPECT_CALL(*recorder, WriteData(SizeIs(Ge(kFrameSize)), _, _, _))
+    EXPECT_CALL(*recorder, WriteData(SizeIs(Ge(kFrameSize)), _, _))
         .Times(1)
         .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
     OnVideoFrameForTesting(frame);

@@ -478,6 +478,8 @@ static std::optional<unsigned> GetTextContentOffset(const Position& position) {
   DCHECK(ShouldUseLayoutNGTextContent(*position.AnchorNode()));
   const OffsetMapping* const offset_mapping = OffsetMapping::GetFor(position);
   DCHECK(offset_mapping);
+  if (offset_mapping == nullptr)
+    return std::nullopt;
   const std::optional<unsigned>& ng_offset =
       offset_mapping->GetTextContentOffset(position);
   return ng_offset;
@@ -665,6 +667,11 @@ LayoutSelectionStatus LayoutSelection::ComputeSelectionStatus(
   // hyphen is generated from it, or the character before the hyphen if
   // automatic hyphenation.
   const unsigned offset = current->StartOffsetInContainer(cursor);
+  if (offset == 0) {
+    // StartOffsetInContainer() didn't find the offset.
+    // See crbug.com/372586875.
+    return {0, 0, SelectSoftLineBreak::kNotSelected};
+  }
   DCHECK_GT(offset, 0u);
   LayoutSelectionStatus status =
       ComputeSelectionStatus(cursor, {offset - 1, offset});

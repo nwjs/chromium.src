@@ -426,6 +426,10 @@ inline constexpr char kAddressesAndPaymentMethodsLearnMoreURL[] =
     "https://support.google.com/chrome?p=settings_autofill";
 #endif
 
+// Help URL for Autofill Prediction Improvements.
+inline constexpr char16_t kAutofillPredictionImprovementsLearnMoreURL[] =
+    u"https://support.google.com/chrome?p=autofill_ai";
+
 // "Learn more" URL for the performance intervention notification setting.
 inline constexpr char16_t kPerformanceInterventionLearnMoreUrl[] =
     u"https://support.google.com/chrome?p=performance_personalization";
@@ -537,6 +541,19 @@ inline constexpr char kHistorySearchLearnMorePageURL[] =
 inline constexpr char16_t kHistorySearchSettingURL[] =
     u"chrome://settings/historySearch";
 
+// The URL for the Settings page to enable history search when
+// AiSettingsPageRefresh flag is enabled.
+inline constexpr char16_t kHistorySearchV2SettingURL[] =
+    u"chrome://settings/ai/historySearch";
+
+// The URL for the "Learn more" page for Wallpaper Search.
+inline constexpr char kWallpaperSearchLearnMorePageURL[] =
+    "https://support.google.com/chrome?p=create_themes_with_ai";
+
+// The URL for the "Learn more" page for Tab Organization.
+inline constexpr char kTabOrganizationLearnMorePageURL[] =
+    "https://support.google.com/chrome?p=auto_tab_group";
+
 // The URL for the "Learn more" link in the enterprise disclaimer for managed
 // profile in the Signin Intercept bubble.
 inline constexpr char kSigninInterceptManagedDisclaimerLearnMoreURL[] =
@@ -587,6 +604,10 @@ inline constexpr char16_t kCwsEnhancedSafeBrowsingLearnMoreURL[] =
 // The URL path to online privacy policy.
 inline constexpr char kPrivacyPolicyOnlineURLPath[] =
     "https://policies.google.com/privacy/embedded";
+
+// The URL path to online privacy policy dark mode.
+inline constexpr char kPrivacyPolicyOnlineDarkModeURLPath[] =
+    "https://policies.google.com/privacy/embedded?color_scheme=dark";
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS_ASH)
 // "Learn more" URL for the enhanced playback notification dialog.

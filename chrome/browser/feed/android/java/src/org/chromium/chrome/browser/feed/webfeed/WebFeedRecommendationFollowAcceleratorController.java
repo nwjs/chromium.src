@@ -12,6 +12,7 @@ import android.view.View;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.CallbackUtils;
 import org.chromium.base.UserData;
 import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.Supplier;
@@ -44,8 +45,8 @@ public class WebFeedRecommendationFollowAcceleratorController {
         }
     }
 
-    @VisibleForTesting
     /** Put the web feed name into a passed in UserDataHost. */
+    @VisibleForTesting
     public static void associateWebFeedWithUserData(UserDataHost host, byte[] webFeedName) {
         host.setUserData(AssociatedWebFeedData.class, new AssociatedWebFeedData(webFeedName));
     }
@@ -87,7 +88,7 @@ public class WebFeedRecommendationFollowAcceleratorController {
                         appMenuHandler,
                         menuButtonAnchorView,
                         /* featureEngagementTracker= */ null,
-                        /* introDismissedCallback= */ () -> {});
+                        /* introDismissedCallback= */ CallbackUtils.emptyRunnable());
     }
 
     /** Dismiss the Follow bubble if it is showing. */
@@ -162,8 +163,8 @@ public class WebFeedRecommendationFollowAcceleratorController {
 
         mWebFeedFollowIntroView.showAccelerator(
                 onTouchListener,
-                /* introShownCallback= */ () -> {},
-                /*introNotShownCallback*/ () -> {});
+                /* introShownCallback= */ CallbackUtils.emptyRunnable(),
+                /*introNotShownCallback*/ CallbackUtils.emptyRunnable());
     }
 
     private void performFollowWithAccelerator(byte[] webFeedId) {
@@ -190,10 +191,6 @@ public class WebFeedRecommendationFollowAcceleratorController {
                                                 == WebFeedSubscriptionRequestStatus.SUCCESS) {
                                             mWebFeedFollowIntroView.showFollowingBubble();
                                         }
-                                        byte[] followId =
-                                                results.metadata != null
-                                                        ? results.metadata.id
-                                                        : null;
                                         mWebFeedSnackbarController.showPostFollowHelp(
                                                 currentTab,
                                                 results,

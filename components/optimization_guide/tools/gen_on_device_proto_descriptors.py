@@ -182,7 +182,7 @@ def GenerateProtoDescriptors(out, includes: set[str], messages: KnownMessages,
                              requests: set[str], responses: set[str]):
     """Generate the on_device_model_execution_proto_descriptors.cc content."""
 
-    readable_messages = messages.GetAllTransitiveDeps(requests)
+    readable_messages = messages.GetAllTransitiveDeps(requests | responses)
     writable_messages = messages.GetAllTransitiveDeps(responses)
 
     out.write(
@@ -469,7 +469,7 @@ class _SetProtoValue:
 
     @classmethod
     def _FieldCase(cls, out, msg: Message, field: Field):
-        if field.type == Type.STRING:
+        if field.type == Type.STRING and not field.is_repeated:
             out.write(f'case {field.tag_number}: {{\n')
             out.write('proto::Any any;\n')
             out.write(

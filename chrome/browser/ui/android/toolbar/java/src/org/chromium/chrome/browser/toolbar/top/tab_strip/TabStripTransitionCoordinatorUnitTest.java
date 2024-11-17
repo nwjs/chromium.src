@@ -57,9 +57,9 @@ import org.chromium.chrome.browser.toolbar.ControlContainer;
 import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
 import org.chromium.chrome.browser.toolbar.top.tab_strip.TabStripTransitionCoordinator.TabStripHeightObserver;
 import org.chromium.chrome.browser.toolbar.top.tab_strip.TabStripTransitionCoordinator.TabStripTransitionDelegate;
-import org.chromium.chrome.browser.ui.desktop_windowing.AppHeaderState;
 import org.chromium.chrome.browser.ui.desktop_windowing.AppHeaderUtils.DesktopWindowModeState;
-import org.chromium.chrome.browser.ui.desktop_windowing.DesktopWindowStateProvider;
+import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
+import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateProvider;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.resources.Resource;
 import org.chromium.ui.resources.dynamics.ViewResourceAdapter;
@@ -830,7 +830,7 @@ public class TabStripTransitionCoordinatorUnitTest {
     private Configuration setConfigurationWithNewWidth(int widthDp) {
         Resources res = mActivity.getResources();
         DisplayMetrics displayMetrics = res.getDisplayMetrics();
-        displayMetrics.widthPixels = (int) displayMetrics.density * widthDp;
+        displayMetrics.widthPixels = (int) (displayMetrics.density * widthDp);
 
         Configuration configuration = res.getConfiguration();
         configuration.screenWidthDp = widthDp;

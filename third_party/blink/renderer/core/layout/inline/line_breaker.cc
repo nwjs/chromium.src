@@ -38,6 +38,7 @@
 #include "third_party/blink/renderer/core/svg/svg_text_content_element.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result_view.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shaping_line_breaker.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/bidi_paragraph.h"
 #include "third_party/blink/renderer/platform/text/character.h"
 
@@ -450,7 +451,7 @@ LineBreaker::LineBreaker(InlineNode node,
       is_svg_text_(node.IsSvgText()),
       is_text_combine_(node.IsTextCombine()),
       is_first_formatted_line_(
-          (!break_token || break_token->Start().IsZero()) &&
+          (!break_token || !break_token->IsPastFirstFormattedLine()) &&
           node.CanContainFirstFormattedLine()),
       use_first_line_style_(is_first_formatted_line_ &&
                             node.UseFirstLineStyle()),
@@ -777,8 +778,16 @@ void LineBreaker::PrepareNextLine(LineInfo* line_info) {
     // We're past the first line
     previous_line_had_forced_break_ = is_after_forced_break_;
     is_after_forced_break_ = false;
-    is_first_formatted_line_ = false;
-    use_first_line_style_ = false;
+    // If we resumed at a break token, and we're past the resume point stored
+    // there, we're also past the first formatted line (otherwise, there may be
+    // lines solely consisting of leading floats, and those don't count as
+    // "formatted lines", since they aren't actually lines, as far as the spec
+    // is concerned).
+    if (!RuntimeEnabledFeatures::LineBoxBelowLeadingFloatsEnabled() ||
+        !break_token_ || current_ != break_token_->Start()) {
+      is_first_formatted_line_ = false;
+      use_first_line_style_ = false;
+    }
   }
 
   line_info->SetStart(current_);
@@ -816,7 +825,8 @@ void LineBreaker::PrepareNextLine(LineInfo* line_info) {
 
   // Use 'text-indent' as the initial position. This lets tab positions to align
   // regardless of 'text-indent'.
-  position_ = line_info->TextIndent();
+  applied_text_indent_ = line_info->TextIndent();
+  position_ = applied_text_indent_;
 
   has_cloned_box_decorations_ = false;
   if ((break_token_ && break_token_->HasClonedBoxDecorations()) ||
@@ -1813,7 +1823,9 @@ bool LineBreaker::HandleTextForFastMinContent(InlineItemResult* item_result,
       }
     }
     DCHECK_EQ(should_break_at_first_opportunity,
-              is_at_mid_word || has_cloned_box_decorations_);
+              is_at_mid_word ||
+                  (has_cloned_box_decorations_ &&
+                   cloned_box_decorations_initial_size_ > LayoutUnit()));
 #endif  // EXPENSIVE_DCHECKS_ARE_ON()
   }
 
@@ -3578,6 +3590,10 @@ void LineBreaker::HandleFloat(const InlineItem& item,
     item_result->exclusion_space_before_position_float.CopyFrom(
         *exclusion_space_);
 
+    if (RuntimeEnabledFeatures::LineBoxBelowLeadingFloatsEnabled()) {
+      return;
+    }
+
     // Don't break after leading floats if indented.
     if (position_ != 0)
       item_result->can_break_after = false;
@@ -3591,9 +3607,7 @@ void LineBreaker::HandleFloat(const InlineItem& item,
   // before clamp, we now that if the line's BFC offset is equal or greater than
   // the clamp BFC offset in the final relayout, the line will be hidden.
   bool is_hidden_for_paint =
-      constraint_space_.GetLineClampData().ShouldHideForPaint(
-          bfc_block_offset,
-          /*is_float*/ true);
+      constraint_space_.GetLineClampData().ShouldHideForPaint();
   UnpositionedFloat unpositioned_float(
       BlockNode(To<LayoutBox>(item.GetLayoutObject())), float_break_token,
       constraint_space_.AvailableSize(),
@@ -3854,17 +3868,8 @@ void LineBreaker::HandleCloseTag(const InlineItem& item, LineInfo* line_info) {
 // At this point, item_results does not fit into the current line, and there
 // are no break opportunities in item_results.back().
 void LineBreaker::HandleOverflow(LineInfo* line_info) {
-  // Compute the width needing to rewind. When |width_to_rewind| goes negative,
-  // items can fit within the line.
-  LayoutUnit available_width = AvailableWidthToFit();
-  LayoutUnit width_to_rewind = position_ - available_width;
-  DCHECK_GT(width_to_rewind, 0);
-
-  // Keep track of the shortest break opportunity.
-  unsigned break_before = 0;
-
-  // True if there is at least one item that has `break-word`.
-  bool has_break_anywhere_if_overflow = break_anywhere_if_overflow_;
+  const LayoutUnit available_width = AvailableWidthToFit();
+  DCHECK_GT(position_, available_width);
 
   // Save the hyphenation states before we may make changes.
   InlineItemResults* item_results = line_info->MutableResults();
@@ -3872,6 +3877,16 @@ void LineBreaker::HandleOverflow(LineInfo* line_info) {
   if (HasHyphen()) [[unlikely]] {
     position_ -= RemoveHyphen(item_results);
   }
+
+  // Compute the width needing to rewind. When |width_to_rewind| goes negative,
+  // items can fit within the line.
+  LayoutUnit width_to_rewind = position_ - available_width;
+
+  // Keep track of the shortest break opportunity.
+  unsigned break_before = 0;
+
+  // True if there is at least one item that has `break-word`.
+  bool has_break_anywhere_if_overflow = break_anywhere_if_overflow_;
 
   // Search for a break opportunity that can fit.
   for (unsigned i = item_results->size(); i;) {
@@ -3990,6 +4005,30 @@ void LineBreaker::HandleOverflow(LineInfo* line_info) {
           return;
         }
       }
+    }
+  }
+
+  if (applied_text_indent_ && width_to_rewind > LayoutUnit() &&
+      is_first_formatted_line_ && !leading_floats_.floats.empty() &&
+      RuntimeEnabledFeatures::LineBoxBelowLeadingFloatsEnabled()) {
+    // If there is no inflow content and there are only leading floats, also
+    // rewind text indentation. The idea here is that text-indent alone
+    // shouldn't contribute to overflow (and it doesn't even belong on this
+    // line, since we've rewound past everything else), so that we won't attempt
+    // to place inline content in the layout opportunity below the floats, but
+    // rather create a "line" with just the leading floats, and then another
+    // line for any real inline content.
+    //
+    // This matters for block fragmentation. If there's one line box with both
+    // leading floats and a real inline content below them, the fragmentation
+    // engine has no means of inserting a fragmentation break between the float
+    // and the inline content, since lines are monolithic.
+    position_ -= applied_text_indent_;
+    width_to_rewind -= applied_text_indent_;
+    applied_text_indent_ = LayoutUnit();
+    if (width_to_rewind <= LayoutUnit()) {
+      state_ = LineBreakState::kDone;
+      return;
     }
   }
 
@@ -4498,6 +4537,9 @@ const InlineBreakToken* LineBreaker::CreateBreakToken(
     sub_break_token = block_in_inline_fragment.GetBreakToken();
   }
 
+  bool is_past_first_formatted_line =
+      !is_first_formatted_line_ || !line_info.IsEmptyLine();
+
   DCHECK_EQ(line_info.HasForcedBreak(), is_after_forced_break_);
   unsigned flags =
       (is_after_forced_break_ ? InlineBreakToken::kIsForcedBreak : 0) |
@@ -4505,6 +4547,9 @@ const InlineBreakToken* LineBreaker::CreateBreakToken(
                                      : 0) |
       (cloned_box_decorations_count_
            ? InlineBreakToken::kHasClonedBoxDecorations
+           : 0) |
+      (is_past_first_formatted_line
+           ? InlineBreakToken::kIsPastFirstFormattedLine
            : 0);
 
   return InlineBreakToken::Create(node_, current_style_, current_, flags,

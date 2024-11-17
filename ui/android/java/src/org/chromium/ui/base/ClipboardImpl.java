@@ -439,9 +439,7 @@ public class ClipboardImpl extends Clipboard
     public void setPassword(final String password) {
         ClipData clipData = ClipData.newPlainText("password", password);
         PersistableBundle extras = new PersistableBundle();
-        // TODO(crbug.com/40228096): Replace to ClipDescription.EXTRA_IS_SENSITIVE once
-        // chromium import Android T SDK.
-        extras.putBoolean("android.content.extra.IS_SENSITIVE", true);
+        extras.putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true);
         clipData.getDescription().setExtras(extras);
         setPrimaryClipNoException(clipData);
     }
@@ -750,8 +748,6 @@ public class ClipboardImpl extends Clipboard
     /**
      * Conditionally show a toast to avoid duplicate notifications in Android 13+
      * https://developer.android.com/develop/ui/views/touch-and-input/copy-paste#duplicate-notifications
-     *
-     * @param stringId
      */
     private void showToastIfNeeded(@StringRes int stringId) {
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.S_V2) return;

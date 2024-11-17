@@ -532,6 +532,8 @@ experimental domain Audits
       WarnDomainNonASCII
       WarnThirdPartyPhaseout
       WarnCrossSiteRedirectDowngradeChangesInclusion
+      WarnDeprecationTrialMetadata
+      WarnThirdPartyCookieHeuristic
 
   type CookieOperation extends string
     enum
@@ -916,7 +918,7 @@ experimental domain Audits
       ThirdPartyCookiesBlocked
       NotSignedInWithIdp
       MissingTransientUserActivation
-      ReplacedByButtonMode
+      ReplacedByActiveMode
       InvalidFieldsSpecified
       RelyingPartyOriginIsOpaque
       TypeNotMatching
@@ -4221,7 +4223,6 @@ domain Emulation
       gyroscope
       linear-acceleration
       magnetometer
-      proximity
       relative-orientation
 
   experimental type SensorMetadata extends object
@@ -7924,8 +7925,8 @@ experimental domain Overlay
       # True for showing hit-test borders
       boolean show
 
-  # Request that backend shows an overlay with web vital metrics.
-  command setShowWebVitals
+  # Deprecated, no longer has any effect.
+  deprecated command setShowWebVitals
     parameters
       boolean show
 
@@ -8089,6 +8090,7 @@ domain Page
       deferred-fetch
       digital-credentials-get
       direct-sockets
+      direct-sockets-private
       display-capture
       document-domain
       encrypted-media
@@ -9519,6 +9521,7 @@ domain Page
       EmbedderExtensionMessagingForOpenPort
       EmbedderExtensionSentMessageToCachedFrame
       RequestedByWebViewClient
+      PostMessageByWebViewClient
 
   # Types of not restored reasons for back-forward cache.
   experimental type BackForwardCacheNotRestoredReasonType extends string
@@ -11992,6 +11995,13 @@ experimental domain WebAuthn
       # flag set to this value. Defaults to the authenticator's
       # defaultBackupState value.
       optional boolean backupState
+      # The credential's user.name property. Equivalent to empty if not set.
+      # https://w3c.github.io/webauthn/#dom-publickeycredentialentity-name
+      optional string userName
+      # The credential's user.displayName property. Equivalent to empty if
+      # not set.
+      # https://w3c.github.io/webauthn/#dom-publickeycredentialuserentity-displayname
+      optional string userDisplayName
 
   # Enable the WebAuthn domain and start intercepting credential storage and
   # retrieval with a virtual authenticator.
@@ -12091,6 +12101,20 @@ experimental domain WebAuthn
 
   # Triggered when a credential is added to an authenticator.
   event credentialAdded
+    parameters
+      AuthenticatorId authenticatorId
+      Credential credential
+
+  # Triggered when a credential is deleted, e.g. through
+  # PublicKeyCredential.signalUnknownCredential().
+  event credentialDeleted
+    parameters
+      AuthenticatorId authenticatorId
+      binary credentialId
+
+  # Triggered when a credential is updated, e.g. through
+  # PublicKeyCredential.signalCurrentUserDetails().
+  event credentialUpdated
     parameters
       AuthenticatorId authenticatorId
       Credential credential
@@ -12408,6 +12432,8 @@ experimental domain Preload
       WindowClosed
       SlowNetwork
       OtherPrerenderedPageActivated
+      V8OptimizerDisabled
+      PrerenderFailedDuringPrefetch
 
   # Fired when a preload enabled state is updated.
   event preloadEnabledStateUpdated

@@ -411,11 +411,8 @@ void RenderWidgetHostViewIOS::UpdateCALayerTree(
 }
 
 void RenderWidgetHostViewIOS::OnOldViewDidNavigatePreCommit() {
-  if (base::FeatureList::IsEnabled(
-          features::kInvalidateLocalSurfaceIdPreCommit)) {
-    CHECK(browser_compositor_) << "Shouldn't be called during destruction!";
-    browser_compositor_->DidNavigateMainFramePreCommit();
-  }
+  CHECK(browser_compositor_) << "Shouldn't be called during destruction!";
+  browser_compositor_->DidNavigateMainFramePreCommit();
 }
 
 void RenderWidgetHostViewIOS::OnNewViewDidNavigatePostCommit() {
@@ -499,8 +496,8 @@ bool RenderWidgetHostViewIOS::TransformPointToCoordSpaceForView(
     return true;
   }
 
-  return target_view->TransformPointToLocalCoordSpace(
-      point, GetCurrentSurfaceId(), transformed_point);
+  return target_view->TransformPointToLocalCoordSpace(point, GetFrameSinkId(),
+                                                      transformed_point);
 }
 
 display::ScreenInfo RenderWidgetHostViewIOS::GetCurrentScreenInfo() const {

@@ -422,6 +422,8 @@ class GameDashboardContextTest : public GameDashboardTestBase {
     frame_header_height_ =
         game_dashboard_utils::GetFrameHeaderHeight(game_window_.get());
     DCHECK_GT(frame_header_height_, 0);
+    EXPECT_NEAR(test_api_->GetGameDashboardButtonCornerRadius(),
+                frame_header_height_ / 2, /*abs_error=*/0.000001f);
 
     if (is_arc_window && set_arc_game_controls_flags_prop) {
       // Initially, Game Controls is not available.
@@ -2137,8 +2139,8 @@ TEST_F(GameDashboardContextTest, OverviewModeWithTwoWindows) {
   EnterOverview();
   ExitOverview();
   ASSERT_FALSE(gfn_game_window->HasFocus());
-  ASSERT_FALSE(arc_game_window->HasFocus());
-  ASSERT_TRUE(arc_gamepad_button->HasFocus());
+  ASSERT_TRUE(arc_game_window->HasFocus());
+  ASSERT_FALSE(arc_gamepad_button->HasFocus());
 }
 
 TEST_F(GameDashboardContextTest, TabNavigationMainMenu) {
@@ -2277,20 +2279,7 @@ TEST_F(GameDashboardContextTest, TabNavigationToolbar) {
   EXPECT_TRUE(test_api_->GetToolbarScreenshotButton()->HasFocus());
 }
 
-class SnapGroupGameDashboardContextTest : public GameDashboardContextTest {
- public:
-  SnapGroupGameDashboardContextTest()
-      : scoped_feature_list_(features::kSnapGroup) {}
-
-  SnapGroupGameDashboardContextTest(const SnapGroupGameDashboardContextTest&) =
-      delete;
-  SnapGroupGameDashboardContextTest& operator=(
-      const SnapGroupGameDashboardContextTest&) = delete;
-  ~SnapGroupGameDashboardContextTest() override = default;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
+using SnapGroupGameDashboardContextTest = GameDashboardContextTest;
 
 // Tests no crash when the game window in a snap group is fullscreen'ed then
 // forces a work area change. Regression test for http://b/348668590.
@@ -3096,8 +3085,8 @@ class OnOverviewModeEndedWaiter : public OverviewObserver {
   const raw_ptr<OverviewController> overview_controller_;
 };
 
-// Verifies that in overview mode, the Game Dashboard button is not visible, the
-// main menu is closed, and the toolbar visibility is unchanged.
+// Verifies that in overview mode, the Game Dashboard button
+// and toolbar are not visible and the main menu is closed.
 TEST_P(GameTypeGameDashboardContextTest, OverviewMode) {
   auto* game_dashboard_button_widget =
       test_api_->GetGameDashboardButtonWidget();
@@ -3126,7 +3115,7 @@ TEST_P(GameTypeGameDashboardContextTest, OverviewMode) {
   // Verify states in overview mode.
   EXPECT_FALSE(game_dashboard_button_widget->IsVisible());
   ASSERT_EQ(toolbar_widget, test_api_->GetToolbarWidget());
-  EXPECT_TRUE(toolbar_widget->IsVisible());
+  EXPECT_FALSE(toolbar_widget->IsVisible());
   EXPECT_FALSE(test_api_->GetMainMenuWidget());
 
   OnOverviewModeEndedWaiter waiter;
@@ -3150,7 +3139,7 @@ TEST_P(GameTypeGameDashboardContextTest, OverviewModeWithTabletMode) {
   ASSERT_FALSE(display::Screen::GetScreen()->InTabletMode());
   EnterOverview();
   ASSERT_TRUE(overview_controller->InOverviewSession());
-  VerifyFeaturesEnabled(/*expect_enabled=*/false, /*toolbar_visible=*/true);
+  VerifyFeaturesEnabled(/*expect_enabled=*/false, /*toolbar_visible=*/false);
   ash::TabletModeControllerTestApi().EnterTabletMode();
   VerifyFeaturesEnabled(/*expect_enabled=*/false);
   ExitOverview();
@@ -3178,7 +3167,7 @@ TEST_P(GameTypeGameDashboardContextTest, OverviewModeWithTabletMode) {
   ash::TabletModeControllerTestApi().LeaveTabletMode();
   ASSERT_FALSE(display::Screen::GetScreen()->InTabletMode());
   ASSERT_TRUE(overview_controller->InOverviewSession());
-  VerifyFeaturesEnabled(/*expect_enabled=*/false, /*toolbar_visible=*/true);
+  VerifyFeaturesEnabled(/*expect_enabled=*/false, /*toolbar_visible=*/false);
   ExitOverview();
   ASSERT_FALSE(overview_controller->InOverviewSession());
   VerifyFeaturesEnabled(/*expect_enabled=*/true, /*toolbar_visible=*/true);

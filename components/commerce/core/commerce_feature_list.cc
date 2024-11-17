@@ -228,6 +228,10 @@ BASE_FEATURE(kProductSpecificationsMultiSpecifics,
              "ProductSpecificationsMultiSpecifics",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kCompareConfirmationToast,
+             "CompareConfirmationToast",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kProductSpecificationsCache,
              "ProductSpecificationsCache",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -272,6 +276,10 @@ const base::FeatureParam<int> kNonMerchantWideBehavior{
     &commerce::kDiscountDialogAutoPopupBehaviorSetting,
     kNonMerchantWideBehaviorParam, 2};
 
+BASE_FEATURE(kDiscountDialogAutoPopupCounterfactual,
+             "DiscountDialogAutoPopupCounterfactual",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kDiscountsUiRefactor,
              "DiscountsUiRefactor",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -293,6 +301,10 @@ BASE_FEATURE(kShoppingListRegionLaunched,
 
 BASE_FEATURE(kPriceTrackingSubscriptionServiceLocaleKey,
              "PriceTrackingSubscriptionServiceLocaleKey",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPriceTrackingSubscriptionServiceProductVersion,
+             "PriceTrackingSubscriptionServiceProductVersion",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kShoppingPDPMetrics,

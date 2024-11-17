@@ -17,7 +17,6 @@
 #include "third_party/blink/renderer/core/layout/oof_positioned_node.h"
 #include "third_party/blink/renderer/core/layout/physical_fragment.h"
 #include "third_party/blink/renderer/core/layout/style_variant.h"
-#include "third_party/blink/renderer/core/scroll/scroll_start_targets.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/text/writing_direction_mode.h"
@@ -143,11 +142,6 @@ class CORE_EXPORT FragmentBuilder {
   void SetLinesUntilClamp(const std::optional<int>& value) {
     lines_until_clamp_ = value;
   }
-
-  bool HasContentAfterLineClamp() const {
-    return has_content_after_line_clamp_;
-  }
-  void SetHasContentAfterLineClamp() { has_content_after_line_clamp_ = true; }
 
   bool IsBlockStartTrimmed() const { return is_block_start_trimmed_; }
   void SetIsBlockStartTrimmed() { is_block_start_trimmed_ = true; }
@@ -523,7 +517,6 @@ class CORE_EXPORT FragmentBuilder {
   HeapVector<Member<LayoutBoxModelObject>>& EnsureStickyDescendants();
   HeapVector<Member<LayoutBox>>& EnsureSnapAreas();
   LogicalAnchorQuery& EnsureAnchorQuery();
-  ScrollStartTargetCandidates& EnsureScrollStartTargets();
 
   void PropagateFromLayoutResultAndFragment(
       const LayoutResult&,
@@ -552,6 +545,8 @@ class CORE_EXPORT FragmentBuilder {
       const OofInlineContainer<LogicalOffset>* current_inline_container =
           nullptr) const;
 
+  void UpdateScrollStartTarget(const LayoutObject* new_target);
+
   LayoutInputNode node_;
   const ConstraintSpace& space_;
   const ComputedStyle* style_;
@@ -569,6 +564,8 @@ class CORE_EXPORT FragmentBuilder {
 
   HeapVector<Member<LayoutBoxModelObject>>* sticky_descendants_ = nullptr;
   HeapVector<Member<LayoutBox>>* snap_areas_ = nullptr;
+  // [1] https://drafts.csswg.org/css-scroll-snap-2/#scroll-start-target
+  const LayoutObject* scroll_start_target_ = nullptr;
   LogicalAnchorQuery* anchor_query_ = nullptr;
   LayoutUnit bfc_line_offset_;
   std::optional<LayoutUnit> bfc_block_offset_;
@@ -576,7 +573,6 @@ class CORE_EXPORT FragmentBuilder {
   ExclusionSpace exclusion_space_;
   std::optional<int> lines_until_clamp_;
 
-  ScrollStartTargetCandidates* scroll_start_targets_ = nullptr;
 
   ChildrenVector children_;
 
@@ -639,7 +635,6 @@ class CORE_EXPORT FragmentBuilder {
   bool has_out_of_flow_in_fragmentainer_subtree_ = false;
   bool is_block_start_trimmed_ = false;
   bool is_block_end_trimmed_ = false;
-  bool has_content_after_line_clamp_ = false;
 
   bool oof_candidates_may_have_anchor_queries_ = false;
   bool oof_fragmentainer_descendants_may_have_anchor_queries_ = false;

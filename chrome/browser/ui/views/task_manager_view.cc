@@ -12,16 +12,19 @@
 #include <stddef.h>
 
 #include "base/containers/adapters.h"
+#include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile_window.h"
+#include "chrome/browser/task_manager/common/task_manager_features.h"
 #include "chrome/browser/task_manager/task_manager_interface.h"
 #include "chrome/browser/task_manager/task_manager_observer.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/task_manager/task_manager_columns.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
@@ -35,6 +38,8 @@
 #include "ui/base/models/image_model.h"
 #include "ui/base/models/table_model_observer.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
+#include "ui/compositor/layer.h"
+#include "ui/compositor/layer_type.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/scroll_view.h"
@@ -42,6 +47,7 @@
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/window/dialog_client_view.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/public/cpp/shelf_item.h"
@@ -61,7 +67,6 @@
 #endif  // BUILDFLAG(IS_WIN)
 
 namespace task_manager {
-
 namespace {
 
 TaskManagerView* g_task_manager_view = nullptr;
@@ -89,6 +94,8 @@ task_manager::TaskManagerTableModel* TaskManagerView::Show(Browser* browser) {
   gfx::NativeWindow context =
       browser ? browser->window()->GetNativeWindow() : nullptr;
   CreateDialogWidget(g_task_manager_view, context, nullptr);
+  g_task_manager_view->GetDialogClientView()->SetBackgroundColor(
+      kColorTaskManagerBackground);
   g_task_manager_view->InitAlwaysOnTopState();
 
 #if BUILDFLAG(IS_WIN)
@@ -362,12 +369,37 @@ void TaskManagerView::Init() {
   tab_table->set_context_menu_controller(this);
   set_context_menu_controller(this);
 
-  tab_table_parent_ = AddChildView(
-      views::TableView::CreateScrollViewWithTable(std::move(tab_table)));
+  const auto* provider = ChromeLayoutProvider::Get();
+  const bool tm_refresh_enabled =
+      base::FeatureList::IsEnabled(features::kTaskManagerDesktopRefresh);
+
+  // Has a border if the feature is disabled, since the redesign version doesn't
+  // have a border.
+  bool table_has_border = !tm_refresh_enabled,
+       large_header_padding = tm_refresh_enabled,
+       scroll_view_rounded = tm_refresh_enabled;
+
+  if (large_header_padding) {
+    views::TableHeaderStyle header_style = {/*vertical_padding=*/16,
+                                            /*horizontal_padding=*/8};
+    tab_table->SetHeaderStyle(header_style);
+  }
+
+  tab_table_parent_ = AddChildView(views::TableView::CreateScrollViewWithTable(
+      std::move(tab_table), table_has_border));
+
+  if (scroll_view_rounded) {
+    tab_table_parent_->SetPaintToLayer(ui::LAYER_TEXTURED);
+    ui::Layer* scroll_view_layer = tab_table_parent_->layer();
+
+    scroll_view_layer->SetRoundedCornerRadius(gfx::RoundedCornersF(
+        provider->GetCornerRadiusMetric(views::Emphasis::kHigh)));
+
+    scroll_view_layer->SetIsFastRoundedCorner(true);
+  }
 
   SetUseDefaultFillLayout(true);
 
-  const ChromeLayoutProvider* provider = ChromeLayoutProvider::Get();
   const gfx::Insets dialog_insets =
       provider->GetInsetsMetric(views::INSETS_DIALOG);
   // We don't use ChromeLayoutProvider::GetDialogInsetsForContentType because we

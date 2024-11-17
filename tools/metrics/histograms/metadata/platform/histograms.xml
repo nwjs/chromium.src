@@ -123,7 +123,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.Chaps.ReinitializingToken"
-    enum="ChapsReinitializingToken" expires_after="2025-01-19">
+    enum="ChapsReinitializingToken" expires_after="2025-03-23">
   <owner>chenyian@google.com</owner>
   <owner>cros-hwsec-userland-eng+uma@google.com</owner>
   <summary>
@@ -132,7 +132,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.Chaps.Session.{Operation}" enum="ChapsSessionStatus"
-    expires_after="2025-01-19">
+    expires_after="2025-03-23">
   <owner>chenyian@google.com</owner>
   <owner>cros-hwsec-userland-eng+uma@google.com</owner>
   <summary>
@@ -156,7 +156,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.Chaps.TokenManager.LoadToken"
-    enum="TokenManagerStatus" expires_after="2025-01-19">
+    enum="TokenManagerStatus" expires_after="2025-03-23">
   <owner>chenyian@google.com</owner>
   <owner>cros-hwsec-userland-eng+uma@google.com</owner>
   <summary>
@@ -178,7 +178,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.Chaps.TPMAvailability" enum="ChapsTPMAvailability"
-    expires_after="2025-01-19">
+    expires_after="2025-03-23">
   <owner>chenyian@google.com</owner>
   <owner>cros-hwsec-userland-eng+uma@google.com</owner>
   <summary>Each sample is the TPM Availability status.</summary>
@@ -337,7 +337,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.DeviceManagement.InstallAttributesStatus"
-    enum="InstallAttributesStatus" expires_after="2025-01-12">
+    enum="InstallAttributesStatus" expires_after="2025-03-16">
   <owner>sadmansakib@google.com</owner>
   <owner>cros-hwsec-userland-eng+uma@google.com</owner>
   <summary>
@@ -400,7 +400,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.DlcService.InstallResult"
-    enum="DlcService.InstallResult" expires_after="2025-02-01">
+    enum="DlcService.InstallResult" expires_after="2025-04-06">
   <owner>kimjae@chromium.org</owner>
   <owner>chromeos-core-services@google.com</owner>
   <summary>
@@ -509,8 +509,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.Featured.BootAttemptsSinceLastSafeSeed"
-    units="number of boot attempts" expires_after="2024-10-06">
-  <owner>iby@google.com</owner>
+    units="number of boot attempts" expires_after="2025-10-06">
   <owner>shraash@google.com</owner>
   <owner>chromeos-data-eng@google.com</owner>
   <summary>
@@ -676,7 +675,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.FlexPartitionSize.{Partition}" units="MiB"
-    expires_after="2025-01-26">
+    expires_after="2025-03-30">
   <owner>nicholasbishop@google.com</owner>
   <owner>chromeos-flex-eng@google.com</owner>
   <summary>
@@ -830,7 +829,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Platform.Libhwsec.PinWeaverManager.SyncHashTree.ReplayLogResult{ReplayType}"
-    enum="HwsecPinWeaverLogReplayResultEnum" expires_after="2025-01-26">
+    enum="HwsecPinWeaverLogReplayResultEnum" expires_after="2025-03-30">
   <owner>chensa@google.com</owner>
   <owner>cros-hwsec-userland-eng+uma@google.com</owner>
   <summary>
@@ -849,7 +848,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.Libhwsec.PinWeaverManager.SyncHashTree.SyncOutcome"
-    enum="HwsecPinWeaverSyncOutcomeEnum" expires_after="2025-01-19">
+    enum="HwsecPinWeaverSyncOutcomeEnum" expires_after="2025-03-23">
   <owner>chensa@google.com</owner>
   <owner>cros-hwsec-userland-eng+uma@google.com</owner>
   <summary>
@@ -1351,7 +1350,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.Missive.DeleteEmptyMultigenerationQueueDirectories"
-    enum="Boolean" expires_after="2025-02-02">
+    enum="Boolean" expires_after="2025-04-06">
   <owner>jrhilke@chromium.org</owner>
   <owner>cros-reporting-team@google.com</owner>
   <summary>
@@ -1365,7 +1364,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.Missive.KeyDeliveryResult"
-    enum="EnterpriseCloudReportingStatusCode" expires_after="2025-01-26">
+    enum="EnterpriseCloudReportingStatusCode" expires_after="2025-03-30">
   <owner>jrhilke@chromium.org</owner>
   <owner>cros-reporting-team@google.com</owner>
   <summary>
@@ -1375,7 +1374,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.Missive.MemoryUsage" units="0.1MiB"
-    expires_after="2025-02-02">
+    expires_after="2025-04-06">
   <owner>lbaraz@chromium.org</owner>
   <owner>cros-reporting-team@google.com</owner>
   <summary>
@@ -1462,7 +1461,7 @@ chromium-metrics-reviews@google.com.
 <histogram name="Platform.Modemfwd.CheckForWedgedModemResult"
     enum="ModemfwdCheckForWedgedModemResult" expires_after="2025-03-02">
   <owner>andrewlassalle@google.com</owner>
-  <owner>cros-connectivity@google.com</owner>
+  <owner>cros-device-enablement@google.com</owner>
   <summary>
     Result of the |CheckForWedgedModem| function. The function checks the modem
     state after modemfwd starts, and tries to recover the modem if the modem is
@@ -1495,25 +1494,27 @@ chromium-metrics-reviews@google.com.
 <histogram name="Platform.Modemfwd.FWInstallResult"
     enum="ModemfwdFWInstallResult" expires_after="2025-03-09">
   <owner>andrewlassalle@google.com</owner>
-  <owner>cros-connectivity@google.com</owner>
+  <owner>cros-device-enablement@google.com</owner>
   <summary>The result of each modem FW install attempt.</summary>
 </histogram>
 
 <histogram name="Platform.Modemfwd.FWInstallTime" units="seconds"
-    expires_after="2023-06-17">
+    expires_after="2025-09-17">
   <owner>ujjwalpande@google.com</owner>
-  <owner>cros-connectivity@google.com</owner>
+  <owner>cros-device-enablement@google.com</owner>
   <summary>
     Metric to track time taken by modemfwd helpers in seconds to flash the
     firmwares to modem. Values will be reported only for successful flashing
-    cases as flashing times in case of failures could be misleading.
+    cases as flashing times in case of failures could be misleading. Warning:
+    this histogram was expired from 2023-06-17 to 2024-09-17, data may be
+    missing.
   </summary>
 </histogram>
 
 <histogram name="Platform.Modemfwd.FWUpdateLocation"
     enum="ModemfwdFWUpdateLocation" expires_after="2025-03-09">
   <owner>andrewlassalle@google.com</owner>
-  <owner>cros-connectivity@google.com</owner>
+  <owner>cros-device-enablement@google.com</owner>
   <summary>
     The location that modemfwd uses for the FW install. After modemfwd
     determines if a DLC will be used or not, a metric is logged with the
@@ -1522,14 +1523,14 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.Modemfwd.ModemRecoveryState"
-    enum="ModemfwdModemRecoveryState" expires_after="2025-01-26">
+    enum="ModemfwdModemRecoveryState" expires_after="2025-03-30">
   <owner>ujjwalpande@google.com</owner>
-  <owner>cros-connectivity@google.com</owner>
+  <owner>cros-device-enablement@google.com</owner>
   <summary>Report state of modem recovery operation.</summary>
 </histogram>
 
 <histogram name="Platform.MountEncrypted.EncryptionKeyStatus"
-    enum="MountEncryptedEncryptionKeyStatus" expires_after="2025-01-26">
+    enum="MountEncryptedEncryptionKeyStatus" expires_after="2025-03-30">
   <owner>apronin@chromium.org</owner>
   <owner>cros-hwsec+uma@google.com</owner>
   <summary>
@@ -1540,7 +1541,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.MountEncrypted.SystemKeyStatus"
-    enum="MountEncryptedSystemKeyStatus" expires_after="2025-01-26">
+    enum="MountEncryptedSystemKeyStatus" expires_after="2025-03-30">
   <owner>apronin@chromium.org</owner>
   <owner>cros-hwsec+uma@google.com</owner>
   <summary>
@@ -1579,7 +1580,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.Resourced.VmmsReclaimMemoryDuration.{PressureLevel}"
-    units="ms" expires_after="2025-01-12">
+    units="ms" expires_after="2025-03-23">
   <owner>vovoy@chromium.org</owner>
   <owner>chromeos-memory@google.com</owner>
   <summary>
@@ -1972,7 +1973,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.TPM.AuthErrorCode" enum="TPMResultCodeEnum"
-    expires_after="2025-01-26">
+    expires_after="2025-03-30">
   <owner>yich@google.com</owner>
   <owner>cros-hwsec-userland-eng+uma@google.com</owner>
   <summary>
@@ -2023,7 +2024,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.TPM.DictionaryAttackCounter" units="units"
-    expires_after="2025-01-26">
+    expires_after="2025-03-30">
   <owner>yich@google.com</owner>
   <owner>cros-hwsec-userland-eng+uma@google.com</owner>
   <summary>
@@ -2033,7 +2034,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.TPM.DictionaryAttackResetStatus"
-    enum="CrosTPMDictionaryAttackResetStatusEnum" expires_after="2025-01-19">
+    enum="CrosTPMDictionaryAttackResetStatusEnum" expires_after="2025-03-23">
   <owner>yich@google.com</owner>
   <owner>cros-hwsec-userland-eng+uma@google.com</owner>
   <summary>
@@ -2052,7 +2053,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.TPM.ErrorCode" enum="TPMResultCodeEnum"
-    expires_after="2025-01-26">
+    expires_after="2025-03-30">
   <owner>yich@google.com</owner>
   <owner>cros-hwsec-userland-eng+uma@google.com</owner>
   <summary>
@@ -2116,7 +2117,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.TPM.PowerWashResult" enum="TPMPowerWashResult"
-    expires_after="2025-01-19">
+    expires_after="2025-03-23">
   <owner>chenyian@google.com</owner>
   <owner>cros-hwsec-userland-eng+uma@google.com</owner>
   <summary>
@@ -2126,7 +2127,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.TPM.TakeOwnershipResult"
-    enum="TPMTakeOwnershipResult" expires_after="2025-01-26">
+    enum="TPMTakeOwnershipResult" expires_after="2025-03-30">
   <owner>yich@google.com</owner>
   <owner>cros-hwsec-userland-eng+uma@google.com</owner>
   <summary>
@@ -2252,7 +2253,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.Trunks.FirstTimeoutWritingCommand"
-    enum="TPMCommandCode" expires_after="2025-01-19">
+    enum="TPMCommandCode" expires_after="2025-03-23">
   <owner>chingkang@chromium.org</owner>
   <owner>cros-hwsec+uma@google.com</owner>
   <summary>Command code of the first timeout writing TPM command</summary>
@@ -2387,7 +2388,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Platform.WiFiDeviceCount" units="wifi devices"
-    expires_after="2025-02-02">
+    expires_after="2025-04-06">
   <owner>norvez@chromium.org</owner>
   <owner>cros-network-metrics@google.com</owner>
   <summary>

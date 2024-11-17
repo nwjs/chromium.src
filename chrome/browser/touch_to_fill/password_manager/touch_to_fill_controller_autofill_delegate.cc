@@ -197,7 +197,7 @@ void TouchToFillControllerAutofillDelegate::OnHybridSignInSelected(
     return;
   }
 
-  webauthn_delegate_->ShowAndroidHybridSignIn();
+  webauthn_delegate_->LaunchSecurityKeyOrHybridFlow();
 
   CleanUpFillerAndReportOutcome(TouchToFillOutcome::kHybridSignInSelected,
                                 /*show_virtual_keyboard=*/false);
@@ -319,23 +319,34 @@ void TouchToFillControllerAutofillDelegate::FillCredential(
       !local_password_migration::ShouldShowWarning(profile) &&
       !access_loss_warning_bridge_->ShouldShowAccessLossNoticeSheet(
           prefs, /*called_at_startup=*/false));
-  filler_->FillUsernameAndPassword(credential.username(),
-                                   credential.password());
+  filler_->FillUsernameAndPassword(
+      credential.username(), credential.password(),
+      base::BindOnce(
+          &TouchToFillControllerAutofillDelegate::OnFillingCredentialComplete,
+          base::Unretained(this), credential.username()));
+}
+
+void TouchToFillControllerAutofillDelegate::OnFillingCredentialComplete(
+    const std::u16string& username,
+    bool triggered_submission) {
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents_->GetBrowserContext());
+  PrefService* prefs = profile->GetPrefs();
   if (access_loss_warning_bridge_->ShouldShowAccessLossNoticeSheet(
           prefs, /*called_at_startup=*/false)) {
     access_loss_warning_bridge_->MaybeShowAccessLossNoticeSheet(
         prefs, web_contents_->GetTopLevelNativeWindow(), profile,
-        /*called_at_startup=*/false);
+        /*called_at_startup=*/false,
+        password_manager_android_util::PasswordAccessLossWarningTriggers::
+            kTouchToFill);
   } else {
     // TODO: crbug.com/340437382 - Deprecate the migration warning sheet.
     ShowPasswordMigrationWarningIfNeeded();
   }
 
-  if (ShouldTriggerSubmission()) {
-    password_client_->StartSubmissionTrackingAfterTouchToFill(
-        credential.username());
+  if (triggered_submission) {
+    password_client_->StartSubmissionTrackingAfterTouchToFill(username);
   }
-
   CleanUpFillerAndReportOutcome(TouchToFillOutcome::kCredentialFilled,
                                 /*show_virtual_keyboard=*/false);
   std::move(action_complete_).Run();

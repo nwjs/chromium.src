@@ -174,7 +174,7 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
     case CSSPropertyID::kAnchorName:
       return base::ValuesEquivalent(a.AnchorName(), b.AnchorName());
     case CSSPropertyID::kAnchorScope:
-      return base::ValuesEquivalent(a.AnchorScope(), b.AnchorScope());
+      return a.AnchorScope() == b.AnchorScope();
     case CSSPropertyID::kAppearance:
       return a.Appearance() == b.Appearance();
     case CSSPropertyID::kAppRegion:
@@ -289,6 +289,8 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
       return a.BufferedRendering() == b.BufferedRendering();
     case CSSPropertyID::kCaptionSide:
       return a.CaptionSide() == b.CaptionSide();
+    case CSSPropertyID::kCaretAnimation:
+      return a.CaretAnimation() == b.CaretAnimation();
     case CSSPropertyID::kCaretColor:
       return a.CaretColor() == b.CaretColor() &&
              a.InternalVisitedCaretColor() == b.InternalVisitedCaretColor();
@@ -647,14 +649,12 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
       return a.ScrollSnapStop() == b.ScrollSnapStop();
     case CSSPropertyID::kScrollSnapType:
       return a.GetScrollSnapType() == b.GetScrollSnapType();
+    case CSSPropertyID::kScrollStartTarget:
+      return a.ScrollStartTarget() == b.ScrollStartTarget();
     case CSSPropertyID::kScrollStartX:
       return a.ScrollStartX() == b.ScrollStartX();
     case CSSPropertyID::kScrollStartY:
       return a.ScrollStartY() == b.ScrollStartY();
-    case CSSPropertyID::kScrollStartTargetX:
-      return a.ScrollStartTargetX() == b.ScrollStartTargetX();
-    case CSSPropertyID::kScrollStartTargetY:
-      return a.ScrollStartTargetY() == b.ScrollStartTargetY();
     case CSSPropertyID::kShapeImageThreshold:
       return a.ShapeImageThreshold() == b.ShapeImageThreshold();
     case CSSPropertyID::kShapeMargin:
@@ -922,7 +922,6 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
       return a.Zoom() == b.Zoom();
     case CSSPropertyID::kPositionTryOrder:
       return a.PositionTryOrder() == b.PositionTryOrder();
-    case CSSPropertyID::kPositionTryOptions:
     case CSSPropertyID::kPositionTryFallbacks:
       return base::ValuesEquivalent(a.GetPositionTryFallbacks(),
                                     b.GetPositionTryFallbacks());
@@ -1157,8 +1156,6 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
     case CSSPropertyID::kScrollPaddingInlineStart:
     case CSSPropertyID::kScrollStartBlock:
     case CSSPropertyID::kScrollStartInline:
-    case CSSPropertyID::kScrollStartTargetBlock:
-    case CSSPropertyID::kScrollStartTargetInline:
     case CSSPropertyID::kInlineSize:
     case CSSPropertyID::kInsetBlock:
     case CSSPropertyID::kInsetInline:
@@ -1253,11 +1250,9 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
     case CSSPropertyID::kPlaceItems:
     case CSSPropertyID::kPlaceSelf:
     case CSSPropertyID::kPositionTry:
-    case CSSPropertyID::kAlternativePositionTry:
     case CSSPropertyID::kScrollMargin:
     case CSSPropertyID::kScrollPadding:
     case CSSPropertyID::kScrollStart:
-    case CSSPropertyID::kScrollStartTarget:
     case CSSPropertyID::kScrollTimeline:
     case CSSPropertyID::kTextBox:
     case CSSPropertyID::kTextDecoration:

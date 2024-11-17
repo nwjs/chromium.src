@@ -11,55 +11,68 @@
 #include "base/functional/callback.h"
 #include "chrome/browser/profiles/batch_upload/batch_upload_data_provider.h"
 #include "chrome/browser/profiles/batch_upload/batch_upload_delegate.h"
+#include "components/sync/service/local_data_description.h"
 
 namespace {
 
-// Data providers with no local data will be filtered out.
-std::vector<raw_ptr<const BatchUploadDataProvider>>
-GetOrderedListOfDataProvider(
-    const base::flat_map<BatchUploadDataType,
-                         std::unique_ptr<BatchUploadDataProvider>>&
-        data_providers_map) {
+// Data descriptions with no local data will be filtered out.
+std::vector<syncer::LocalDataDescription>
+GetOrderedListOfNonEmptyDataDescriptions(
+    std::map<syncer::DataType, syncer::LocalDataDescription>
+        local_data_descriptions_map) {
   // TODO(b/361340640): make the data type entry point the first one.
-  std::vector<raw_ptr<const BatchUploadDataProvider>> providers_list;
-  for (const auto& it : data_providers_map) {
-    if (it.second->HasLocalData()) {
-      providers_list.push_back(it.second.get());
+  // TODO(crbug.com/374133537): Use `kBatchUploadOrderedAvailableTypes` types
+  // order to reorder the returned list for display order.
+  std::vector<syncer::LocalDataDescription> local_data_description_list;
+  for (auto& [type, local_data_description] : local_data_descriptions_map) {
+    if (!local_data_description.local_data_models.empty()) {
+      CHECK_EQ(type, local_data_description.type)
+          << "Non empty data description's data type and the keyed mapping "
+             "value should always match.";
+
+      local_data_description_list.push_back(std::move(local_data_description));
     }
   }
-  return providers_list;
+  return local_data_description_list;
+}
+
+// Whether there exist a current local data item of any type.
+bool HasLocalDataToShow(
+    const std::map<syncer::DataType, syncer::LocalDataDescription>&
+        local_data_descriptions) {
+  // As long as a data type has at least a single item to show, the dialog can
+  // be shown.
+  return std::ranges::any_of(
+      local_data_descriptions, [](const auto& local_data_description) {
+        return !local_data_description.second.local_data_models.empty();
+      });
 }
 
 }  // namespace
 
-BatchUploadController::BatchUploadController(
-    base::flat_map<BatchUploadDataType,
-                   std::unique_ptr<BatchUploadDataProvider>> data_providers)
-    : data_providers_(std::move(data_providers)) {
-  for (const auto& it : data_providers_) {
-    CHECK_EQ(it.first, it.second->GetDataType())
-        << "Data providers data type and the keyed mapping value should always "
-           "match.";
-  }
-}
+BatchUploadController::BatchUploadController() = default;
 
 BatchUploadController::~BatchUploadController() = default;
 
 bool BatchUploadController::ShowDialog(
     BatchUploadDelegate& delegate,
     Browser* browser,
-    base::OnceCallback<void(bool)> done_callback) {
-  CHECK(done_callback);
+    std::map<syncer::DataType, syncer::LocalDataDescription>
+        local_data_descriptions,
+    BatchUploadSelectedDataTypeItemsCallback selected_items_callback) {
+  CHECK(selected_items_callback);
 
-  if (!HasLocalDataToShow()) {
-    std::move(done_callback).Run(false);
+  if (!HasLocalDataToShow(local_data_descriptions)) {
+    std::move(selected_items_callback).Run({});
     return false;
   }
 
-  done_callback_ = std::move(done_callback);
+  selected_items_callback_ = std::move(selected_items_callback);
 
   delegate.ShowBatchUploadDialog(
-      browser, GetOrderedListOfDataProvider(data_providers_),
+      browser,
+      GetOrderedListOfNonEmptyDataDescriptions(
+          std::move(local_data_descriptions)),
       /*complete_callback=*/
       base::BindOnce(&BatchUploadController::MoveItemsToAccountStorage,
                      base::Unretained(this)));
@@ -67,25 +80,9 @@ bool BatchUploadController::ShowDialog(
 }
 
 void BatchUploadController::MoveItemsToAccountStorage(
-    const base::flat_map<BatchUploadDataType,
-                         std::vector<BatchUploadDataItemModel::Id>>&
+    const std::map<syncer::DataType,
+                   std::vector<syncer::LocalDataItemModel::DataId>>&
         items_to_move) {
-  CHECK(done_callback_);
-
-  // Delegate all the move actions to each data type provider.
-  for (const auto& [type, items] : items_to_move) {
-    auto it = data_providers_.find(type);
-    CHECK(it != data_providers_.end());
-    it->second->MoveToAccountStorage(items);
-  }
-
-  std::move(done_callback_).Run(/*move_requested=*/!items_to_move.empty());
-}
-
-bool BatchUploadController::HasLocalDataToShow() const {
-  // As long as a data type has at least a single item to show, the dialog can
-  // be shown.
-  return std::ranges::any_of(data_providers_, [](const auto& entry) {
-    return entry.second->HasLocalData();
-  });
+  CHECK(selected_items_callback_);
+  std::move(selected_items_callback_).Run(items_to_move);
 }

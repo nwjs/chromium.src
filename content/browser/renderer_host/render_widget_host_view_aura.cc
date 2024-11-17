@@ -1687,7 +1687,7 @@ void RenderWidgetHostViewAura::ExtendSelectionAndDelete(
 void RenderWidgetHostViewAura::ExtendSelectionAndReplace(
     size_t before,
     size_t after,
-    const std::u16string_view replacement_text) {
+    std::u16string_view replacement_text) {
   auto* input_handler = GetFrameWidgetInputHandlerForFocusedWidget();
   if (!input_handler) {
     return;
@@ -2152,8 +2152,8 @@ bool RenderWidgetHostViewAura::TransformPointToCoordSpaceForView(
   // In TransformPointToLocalCoordSpace() there is a Point-to-Pixel conversion,
   // but it is not necessary here because the final target view is responsible
   // for converting before computing the final transform.
-  return target_view->TransformPointToLocalCoordSpace(
-      point, GetCurrentSurfaceId(), transformed_point);
+  return target_view->TransformPointToLocalCoordSpace(point, GetFrameSinkId(),
+                                                      transformed_point);
 }
 
 viz::FrameSinkId RenderWidgetHostViewAura::GetRootFrameSinkId() {

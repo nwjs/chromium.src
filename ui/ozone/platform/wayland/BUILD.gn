@@ -274,6 +274,7 @@ source_set("wayland") {
     "//third_party/wayland-protocols:keyboard_extension_protocol",
     "//third_party/wayland-protocols:keyboard_shortcuts_inhibit_protocol",
     "//third_party/wayland-protocols:linux_dmabuf_protocol",
+    "//third_party/wayland-protocols:linux_drm_syncobj_protocol",
     "//third_party/wayland-protocols:linux_explicit_synchronization_protocol",
     "//third_party/wayland-protocols:org_kde_kwin_idle",
     "//third_party/wayland-protocols:pointer_constraints_protocol",
@@ -368,10 +369,10 @@ source_set("wayland") {
   if (use_wayland_gbm) {
     defines += [ "WAYLAND_GBM" ]
     sources += [
-      "gpu/drm_render_node_handle.cc",
-      "gpu/drm_render_node_handle.h",
-      "gpu/drm_render_node_path_finder.cc",
-      "gpu/drm_render_node_path_finder.h",
+      "common/drm_render_node_handle.cc",
+      "common/drm_render_node_handle.h",
+      "common/drm_render_node_path_finder.cc",
+      "common/drm_render_node_path_finder.h",
       "gpu/gbm_pixmap_wayland.cc",
       "gpu/gbm_pixmap_wayland.h",
       "gpu/gbm_surfaceless_wayland.cc",
@@ -465,6 +466,8 @@ source_set("test_support") {
     "test/test_data_offer.h",
     "test/test_data_source.cc",
     "test/test_data_source.h",
+    "test/test_fractional_scale.cc",
+    "test/test_fractional_scale.h",
     "test/test_gtk_primary_selection.cc",
     "test/test_gtk_primary_selection.h",
     "test/test_keyboard.cc",
@@ -547,6 +550,7 @@ source_set("test_support") {
     "test/test_zxdg_output_manager.h",
     "test/wayland_connection_test_api.cc",
     "test/wayland_connection_test_api.h",
+    "test/wayland_window_drag_controller_test_api.h",
   ]
 
   deps = [
@@ -566,6 +570,7 @@ source_set("test_support") {
     "//third_party/wayland:wayland_client",
     "//third_party/wayland:wayland_server",
     "//third_party/wayland-protocols:alpha_compositing_protocol",
+    "//third_party/wayland-protocols:fractional_scale_protocol",
     "//third_party/wayland-protocols:gtk_primary_selection_protocol",
     "//third_party/wayland-protocols:linux_dmabuf_protocol",
     "//third_party/wayland-protocols:linux_explicit_synchronization_protocol",
@@ -597,6 +602,7 @@ source_set("wayland_unittests") {
     "host/wayland_event_source_unittest.cc",
     "host/wayland_event_watcher_unittest.cc",
     "host/wayland_exchange_data_provider_unittest.cc",
+    "host/wayland_frame_manager_unittest.cc",
     "host/wayland_input_method_context_unittest.cc",
     "host/wayland_keyboard_unittest.cc",
     "host/wayland_output_unittest.cc",

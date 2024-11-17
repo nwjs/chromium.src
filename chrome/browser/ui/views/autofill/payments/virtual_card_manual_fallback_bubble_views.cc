@@ -13,6 +13,7 @@
 #include "components/autofill/core/browser/ui/payments/bubble_show_options.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -126,8 +127,9 @@ void VirtualCardManualFallbackBubbleViews::Init() {
 }
 
 void VirtualCardManualFallbackBubbleViews::AddedToWidget() {
-  GetBubbleFrameView()->SetTitleView(CreateTitleView(
-      GetWindowTitle(), TitleWithIconAndSeparatorView::Icon::GOOGLE_PAY));
+  GetBubbleFrameView()->SetTitleView(
+      std::make_unique<TitleWithIconAfterLabelView>(
+          GetWindowTitle(), TitleWithIconAfterLabelView::Icon::GOOGLE_PAY));
 }
 
 std::u16string VirtualCardManualFallbackBubbleViews::GetWindowTitle() const {
@@ -305,5 +307,8 @@ void VirtualCardManualFallbackBubbleViews::LearnMoreLinkClicked() {
         autofill::payments::GetVirtualCardEnrollmentSupportUrl());
   }
 }
+
+BEGIN_METADATA(VirtualCardManualFallbackBubbleViews)
+END_METADATA
 
 }  // namespace autofill

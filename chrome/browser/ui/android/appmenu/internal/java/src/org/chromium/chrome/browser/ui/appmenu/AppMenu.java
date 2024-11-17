@@ -70,7 +70,6 @@ class AppMenu implements OnItemClickListener, OnKeyListener, AppMenuClickHandler
     private final int mItemRowHeight;
     private final int mVerticalFadeDistance;
     private final int mNegativeSoftwareVerticalOffset;
-    private final int mNegativeVerticalOffsetNotTopAnchored;
     private final int mChipHighlightExtension;
     private final int[] mTempLocation;
 
@@ -101,8 +100,6 @@ class AppMenu implements OnItemClickListener, OnKeyListener, AppMenuClickHandler
         mNegativeSoftwareVerticalOffset =
                 res.getDimensionPixelSize(R.dimen.menu_negative_software_vertical_offset);
         mVerticalFadeDistance = res.getDimensionPixelSize(R.dimen.menu_vertical_fade_distance);
-        mNegativeVerticalOffsetNotTopAnchored =
-                res.getDimensionPixelSize(R.dimen.menu_negative_vertical_offset_not_top_anchored);
         mChipHighlightExtension =
                 res.getDimensionPixelOffset(R.dimen.menu_chip_highlight_extension);
 
@@ -725,7 +722,7 @@ class AppMenu implements OnItemClickListener, OnKeyListener, AppMenuClickHandler
                 "Mobile.AppMenu.TimeToTakeAction."
                         + (mSelectedItemBeforeDismiss ? "SelectedItem" : "Abandoned");
         final long timeToTakeActionMs = SystemClock.elapsedRealtime() - mMenuShownTimeMs;
-        RecordHistogram.recordMediumTimesHistogram(histogramName, timeToTakeActionMs);
+        RecordHistogram.deprecatedRecordMediumTimesHistogram(histogramName, timeToTakeActionMs);
     }
 
     private int getMenuItemHeight(

@@ -71,10 +71,8 @@ public class HistoryNavigationCoordinator
             Supplier<TouchEventProvider> touchEventProvider) {
         HistoryNavigationCoordinator coordinator = new HistoryNavigationCoordinator();
         coordinator.init(
-                window,
                 lifecycleDispatcher,
                 parentView,
-                requestRunnable,
                 tabSupplier,
                 insetObserver,
                 backActionDelegate,
@@ -84,10 +82,8 @@ public class HistoryNavigationCoordinator
 
     /** Initializes the navigation layout and internal objects. */
     private void init(
-            WindowAndroid window,
             ActivityLifecycleDispatcher lifecycleDispatcher,
             ViewGroup parentView,
-            Runnable requestRunnable,
             ObservableSupplier<Tab> tabSupplier,
             InsetObserver insetObserver,
             BackActionDelegate backActionDelegate,
@@ -242,13 +238,13 @@ public class HistoryNavigationCoordinator
      * Makes UI visible when an edge swipe is made big enough to trigger it.
      *
      * @param initiatingEdge The edge of the screen from which navigation UI is being initiated.
-     * @param x X coordinate of the current position.
-     * @param y Y coordinate of the current position.
      * @return {@code true} if history navigation is possible, even if there are no further session
      *     history entries in the given direction.
      */
     public boolean triggerUi(@BackGestureEventSwipeEdge int initiatingEdge) {
-        return mNavigationHandler != null && mNavigationHandler.triggerUi(initiatingEdge);
+        return mNavigationHandler != null
+                && mNavigationHandler.triggerUi(
+                        initiatingEdge, NavigationHandler.TriggerUiCallSource.WEBPAGE_OVERSCROLL);
     }
 
     /**

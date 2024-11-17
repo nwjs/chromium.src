@@ -38,6 +38,7 @@
 #include "ui/gfx/image/image_unittest_util.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "ash/components/arc/app/arc_app_constants.h"
 #include "ash/components/arc/mojom/intent_helper.mojom.h"
 #include "ash/constants/ash_features.h"
 #include "chrome/browser/apps/app_service/app_icon/app_icon_decoder.h"
@@ -82,7 +83,7 @@ class AppIconFactoryTest : public testing::Test {
     return fallback_called;
   }
 
-  std::string GetPngData(const std::string file_name) {
+  std::string GetPngData(const std::string& file_name) {
     base::FilePath base_path;
     std::string png_data_as_string;
     CHECK(base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT, &base_path));
@@ -98,7 +99,7 @@ class AppIconFactoryTest : public testing::Test {
     return png_data_as_string;
   }
 
-  void RunLoadIconFromCompressedData(const std::string png_data_as_string,
+  void RunLoadIconFromCompressedData(const std::string& png_data_as_string,
                                      apps::IconType icon_type,
                                      apps::IconEffects icon_effects,
                                      apps::IconValuePtr& output_icon) {

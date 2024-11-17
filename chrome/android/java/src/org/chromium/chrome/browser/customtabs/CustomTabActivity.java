@@ -32,7 +32,6 @@ import androidx.browser.customtabs.CustomTabsSessionToken;
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.IntentUtils;
-import org.chromium.base.cached_flags.AllCachedFieldTrialParameters;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.task.PostTask;
@@ -63,7 +62,10 @@ import org.chromium.chrome.browser.searchwidget.SearchActivityClientImpl;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TrustedCdn;
 import org.chromium.chrome.browser.ui.google_bottom_bar.GoogleBottomBarCoordinator;
+import org.chromium.components.cached_flags.AllCachedFieldTrialParameters;
 import org.chromium.components.page_info.PageInfoController.OpenedFromSource;
+import org.chromium.components.signin.SigninFeatureMap;
+import org.chromium.components.signin.SigninFeatures;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.PageTransition;
@@ -167,7 +169,12 @@ public class CustomTabActivity extends BaseCustomTabActivity {
 
         mSession = mIntentDataProvider.getSession();
 
-        CustomTabNavigationBarController.update(getWindow(), mIntentDataProvider, this);
+        boolean drawEdgeToEdge =
+                mEdgeToEdgeControllerSupplier.get() != null
+                        && mEdgeToEdgeControllerSupplier.get().isDrawingToEdge()
+                        && mEdgeToEdgeControllerSupplier.get().isPageOptedIntoEdgeToEdge();
+        CustomTabNavigationBarController.update(
+                getWindow(), mIntentDataProvider, this, drawEdgeToEdge);
     }
 
     @Override
@@ -220,7 +227,7 @@ public class CustomTabActivity extends BaseCustomTabActivity {
             BackupSigninProcessor.start(this);
         }
 
-        mConnection.showSignInToastIfNecessary(mSession, getIntent());
+        mConnection.showSignInToastIfNecessary(mSession, getIntent(), getProfileProviderSupplier());
 
         new CustomTabTrustedCdnPublisherUrlVisibility(
                 getWindowAndroid(),
@@ -237,6 +244,10 @@ public class CustomTabActivity extends BaseCustomTabActivity {
                                     mConnection.getClientPackageNameForSession(mSession));
                 });
         super.finishNativeInitialization();
+        if (SigninFeatureMap.isEnabled(SigninFeatures.CCT_SIGN_IN_PROMPT)) {
+            mConnection.maybeShowAccountMismatchNotification(
+                    mSession, getIntent(), this, getWindowAndroid(), getProfileProviderSupplier());
+        }
     }
 
     @Override
@@ -294,10 +305,12 @@ public class CustomTabActivity extends BaseCustomTabActivity {
         } else if (id == R.id.open_in_browser_id) {
             // Need to get tab before calling openCurrentUrlInBrowser or else it will be null.
             Tab tab = mTabProvider.getTab();
-            if (mNavigationController.openCurrentUrlInBrowser()) {
+            if (tab != null) {
                 RecordUserAction.record("CustomTabsMenuOpenInChrome");
-                WebContents webContents = tab == null ? null : tab.getWebContents();
-                mConnection.notifyOpenInBrowser(mSession, webContents);
+                // Need to notify *before* opening in browser, to ensure engagement signal will be
+                // fired correctly.
+                mConnection.notifyOpenInBrowser(mSession, tab);
+                mNavigationController.openCurrentUrlInBrowser();
             }
             return true;
         } else if (id == R.id.info_menu_id) {

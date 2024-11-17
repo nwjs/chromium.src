@@ -735,9 +735,9 @@ void OmniboxEditModel::StartAutocomplete(bool has_selected_text,
   input_.set_allow_exact_keyword_match(is_keyword_selected() ||
                                        allow_exact_keyword_match_);
   input_.set_keyword_mode_entry_method(keyword_mode_entry_method_);
-  if (std::optional<lens::proto::LensOverlayInteractionResponse> response =
-          controller_->client()->GetLensOverlayInteractionResponse()) {
-    input_.set_lens_overlay_interaction_response(*response);
+  if (std::optional<lens::proto::LensOverlaySuggestInputs> suggest_inputs =
+          controller_->client()->GetLensOverlaySuggestInputs()) {
+    input_.set_lens_overlay_suggest_inputs(*suggest_inputs);
   }
 
   controller_->StartAutocomplete(input_);
@@ -1110,6 +1110,11 @@ void OmniboxEditModel::StartZeroSuggestRequest(
   input_.set_focus_type(user_clobbered_permanent_text
                             ? metrics::OmniboxFocusType::INTERACTION_CLOBBER
                             : metrics::OmniboxFocusType::INTERACTION_FOCUS);
+  // Set the lens overlay suggest inputs, if available.
+  if (std::optional<lens::proto::LensOverlaySuggestInputs> suggest_inputs =
+          controller_->client()->GetLensOverlaySuggestInputs()) {
+    input_.set_lens_overlay_suggest_inputs(*suggest_inputs);
+  }
   controller_->StartAutocomplete(input_);
 }
 
@@ -1733,6 +1738,7 @@ gfx::Image OmniboxEditModel::GetMatchIcon(const AutocompleteMatch& match,
   if (!AutocompleteMatch::IsSearchType(match.type) &&
       match.type != AutocompleteMatchType::DOCUMENT_SUGGESTION &&
       match.type != AutocompleteMatchType::HISTORY_CLUSTER &&
+      match.type != AutocompleteMatchType::HISTORY_EMBEDDINGS_ANSWER &&
       !AutocompleteMatch::IsStarterPackType(match.type)) {
     // Because the Views UI code calls GetMatchIcon in both the layout and
     // painting code, we may generate multiple `OnFaviconFetched` callbacks,
@@ -2143,7 +2149,11 @@ void OmniboxEditModel::SetPopupSuggestionGroupVisibility(
   }
 }
 
-PrefService* OmniboxEditModel::GetPrefService() const {
+PrefService* OmniboxEditModel::GetPrefService() {
+  return controller_->client()->GetPrefs();
+}
+
+const PrefService* OmniboxEditModel::GetPrefService() const {
   return controller_->client()->GetPrefs();
 }
 
@@ -2546,8 +2556,8 @@ void OmniboxEditModel::OpenMatch(OmniboxPopupSelection selection,
   if (!last_omnibox_focus_.is_null()) {
     // Only record focus to open time when a focus actually happened (as
     // opposed to, say, dragging a link onto the omnibox).
-    UMA_HISTOGRAM_MEDIUM_TIMES(kFocusToOpenTimeHistogram,
-                               now - last_omnibox_focus_);
+    DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(kFocusToOpenTimeHistogram,
+                                          now - last_omnibox_focus_);
   }
 
   IDNA2008DeviationCharacter deviation_char_in_hostname =

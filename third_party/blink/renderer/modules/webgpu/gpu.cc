@@ -23,6 +23,7 @@
 #include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_request_adapter_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_texture_format.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/execution_context/agent.h"
@@ -229,8 +230,8 @@ void GPU::RecordAdapterForIdentifiability(
 
   IdentifiableTokenBuilder input_builder;
   if (options && options->hasPowerPreference()) {
-    input_builder.AddToken(
-        IdentifiabilityBenignStringToken(options->powerPreference()));
+    input_builder.AddToken(IdentifiabilityBenignStringToken(
+        options->powerPreference().AsString()));
   }
   const auto surface =
       IdentifiableSurface::FromTypeAndToken(type, input_builder.GetToken());
@@ -398,7 +399,7 @@ ScriptPromise<IDLNullable<GPUAdapter>> GPU::requestAdapter(
   return promise;
 }
 
-String GPU::getPreferredCanvasFormat() {
+V8GPUTextureFormat GPU::getPreferredCanvasFormat() {
   return FromDawnEnum(preferred_canvas_format());
 }
 

@@ -43,9 +43,8 @@ import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.MockTab;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
-import org.chromium.chrome.browser.tab_group_sync.TabGroupUiActionHandler;
+import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
-import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
@@ -66,6 +65,7 @@ import org.chromium.components.tab_group_sync.LocalTabGroupId;
 import org.chromium.components.tab_group_sync.SavedTabGroup;
 import org.chromium.components.tab_group_sync.SavedTabGroupTab;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
+import org.chromium.components.tab_group_sync.TabGroupUiActionHandler;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -284,13 +284,6 @@ public class DataSharingTabManagerUnitTest {
 
         verify(mBottomSheetController).requestShowContent(any(), eq(true));
         verify(mBottomSheetController).addObserver(mBottomSheetObserverCaptor.capture());
-        verify(mDataSharingUIDelegate)
-                .createGroupMemberListView(
-                        eq(mActivity),
-                        /* view= */ any(),
-                        eq(GROUP_ID),
-                        /* tokenSecret= */ any(),
-                        /* config= */ any());
         mBottomSheetObserverCaptor.getValue().onSheetClosed(StateChangeReason.SWIPE);
     }
 
@@ -308,6 +301,7 @@ public class DataSharingTabManagerUnitTest {
         verify(mTabGroupSyncService).removeObserver(any());
     }
 
+    @Test
     public void testCreateFlowWithExistingGroup() {
         doReturn(mProfile).when(mProfile).getOriginalProfile();
         doReturn(mSavedTabGroup).when(mTabGroupSyncService).getGroup(LOCAL_ID);
@@ -317,7 +311,8 @@ public class DataSharingTabManagerUnitTest {
                         /* displayName= */ null,
                         EMAIL,
                         MemberRole.OWNER,
-                        /* avatarUrl= */ null);
+                        /* avatarUrl= */ null,
+                        /* givenName= */ null);
         GroupMember[] groupMemberArray = new GroupMember[] {groupMember};
         GroupData groupData =
                 new GroupData(GROUP_ID, TEST_GROUP_DISPLAY_NAME, groupMemberArray, ACCESS_TOKEN);
@@ -347,7 +342,8 @@ public class DataSharingTabManagerUnitTest {
                         /* displayName= */ null,
                         EMAIL,
                         MemberRole.OWNER,
-                        /* avatarUrl= */ null);
+                        /* avatarUrl= */ null,
+                        /* givenName= */ null);
         GroupMember[] groupMemberArray = new GroupMember[] {groupMember};
         GroupData groupData =
                 new GroupData(GROUP_ID, TEST_GROUP_DISPLAY_NAME, groupMemberArray, ACCESS_TOKEN);

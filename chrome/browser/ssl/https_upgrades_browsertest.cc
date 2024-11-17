@@ -17,6 +17,7 @@
 #include "chrome/browser/extensions/api/settings_private/generated_prefs.h"
 #include "chrome/browser/interstitials/security_interstitial_page_test_utils.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ssl/chrome_security_blocking_page_factory.h"
 #include "chrome/browser/ssl/generated_https_first_mode_pref.h"
 #include "chrome/browser/ssl/https_first_mode_settings_tracker.h"
 #include "chrome/browser/ssl/https_upgrades_interceptor.h"
@@ -138,6 +139,13 @@ enum class HttpsUpgradesTestType {
   // Disables HFM pref, HFM with Site Engagement heuristic, the HFM for
   // typically secure users feature, and the HFM in Incognito feature.
   kNone,
+
+  // HttpsUpgradesBrowserTest tests don't run in these modes. They are used to
+  // instantiate individual tests instead:
+
+  // Enables HFM with Site Engagement heuristic without Balanced Mode. This
+  // should be a no-op.
+  kHttpsFirstModeWithSiteEngagementWithoutBalancedMode,
 };
 
 // Stores the number of times the HTTPS-First Mode interstitial is shown for the
@@ -168,6 +176,13 @@ class HttpsUpgradesBrowserTest
   ~HttpsUpgradesBrowserTest() override = default;
 
   void SetUp() override {
+    // HFM heuristics are disabled on enterprise managed machines, so some of
+    // the tests may fail on bots. Explicitly set management status to false.
+    // Some of the tests check enterprise policies, so this configuration is
+    // unusual because non-enterprise machines are unlikely to have an
+    // enterprise allowlist, but it's good for test coverage.
+    ChromeSecurityBlockingPageFactory::SetEnterpriseManagedForTesting(false);
+
     // HFM is controlled by a pref (configured in SetUpOnMainThread).
     switch (https_upgrades_test_type()) {
       case HttpsUpgradesTestType::kHttpsFirstModeOnly:
@@ -183,16 +198,28 @@ class HttpsUpgradesBrowserTest
       case HttpsUpgradesTestType::kHttpsFirstModeWithSiteEngagement:
         // HFM pref is disabled in SetUpOnMainThread.
         feature_list_.InitWithFeatures(
-            /*enabled_features=*/{features::kHttpsFirstModeV2ForEngagedSites},
+            /*enabled_features=*/{features::kHttpsFirstModeV2ForEngagedSites,
+                                  features::kHttpsFirstBalancedMode},
             /*disabled_features=*/{
                 features::kHttpsFirstModeV2ForTypicallySecureUsers});
+        break;
+
+      case HttpsUpgradesTestType::
+          kHttpsFirstModeWithSiteEngagementWithoutBalancedMode:
+        // HFM pref is disabled in SetUpOnMainThread.
+        feature_list_.InitWithFeatures(
+            /*enabled_features=*/{features::kHttpsFirstModeV2ForEngagedSites},
+            /*disabled_features=*/{
+                features::kHttpsFirstModeV2ForTypicallySecureUsers,
+                features::kHttpsFirstBalancedMode});
         break;
 
       case HttpsUpgradesTestType::kHttpsFirstModeForTypicallySecureUsers:
         // HFM pref is disabled in SetUpOnMainThread.
         feature_list_.InitWithFeatures(
             /*enabled_features=*/{features::
-                                      kHttpsFirstModeV2ForTypicallySecureUsers},
+                                      kHttpsFirstModeV2ForTypicallySecureUsers,
+                                  features::kHttpsFirstBalancedMode},
             /*disabled_features=*/{features::kHttpsFirstModeV2ForEngagedSites});
         break;
 
@@ -201,8 +228,9 @@ class HttpsUpgradesBrowserTest
         feature_list_.InitWithFeatures(
             /*enabled_features=*/{features::
                                       kHttpsFirstModeV2ForTypicallySecureUsers,
-                                  features::kHttpsFirstModeV2ForEngagedSites},
-            /*disabled_features=*/{features::kHttpsFirstBalancedMode});
+                                  features::kHttpsFirstModeV2ForEngagedSites,
+                                  features::kHttpsFirstBalancedMode},
+            /*disabled_features=*/{});
         break;
 
       case HttpsUpgradesTestType::kHttpsFirstModeIncognito:
@@ -486,6 +514,7 @@ class HttpsUpgradesBrowserTest
   net::EmbeddedTestServer* http_server() { return &http_server_; }
   net::EmbeddedTestServer* https_server() { return &https_server_; }
   base::HistogramTester* histograms() { return &histograms_; }
+  base::test::ScopedFeatureList* feature_list() { return &feature_list_; }
 
   void EnableCaptivePortalDetection(Browser* browser);
 
@@ -498,6 +527,8 @@ class HttpsUpgradesBrowserTest
   raw_ptr<Browser, AcrossTasksDanglingUntriaged> incognito_browser_ = nullptr;
 };
 
+// HttpsUpgradesBrowserTest is NOT instantiated for unusual configurations like
+// kHttpsFirstModeWithSiteEngagementWithoutBalancedMode.
 INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     HttpsUpgradesBrowserTest,
@@ -530,6 +561,9 @@ INSTANTIATE_TEST_SUITE_P(
           return "AllFeatures";
         case HttpsUpgradesTestType::kNone:
           return "None";
+        case HttpsUpgradesTestType::
+            kHttpsFirstModeWithSiteEngagementWithoutBalancedMode:
+          return "kHttpsFirstModeWithSiteEngagementWithoutBalancedMode";
       }
     });
 
@@ -943,17 +977,18 @@ IN_PROC_BROWSER_TEST_P(
   HttpsFirstModeService* hfm_service =
       HttpsFirstModeServiceFactory::GetForProfile(profile);
   MaybeEnableHttpsFirstModeForEngagedSitesAndWait(hfm_service);
+  const bool is_interstitial_due_to_se_heuristic =
+      IsSiteEngagementHeuristicEnabled() && !IsHttpsFirstModePrefEnabled() &&
+      !InBalancedMode();
 
   NavigateAndWaitForFallback(contents, http_url);
   EXPECT_EQ(http_url, contents->GetLastCommittedURL());
+
   if (IsHttpsFirstModeInterstitialEnabledAcrossSites() ||
       IsSiteEngagementHeuristicEnabled()) {
     EXPECT_TRUE(
         chrome_browser_interstitials::IsShowingHttpsFirstModeInterstitial(
             contents));
-    bool is_interstitial_due_to_se_heuristic =
-        IsSiteEngagementHeuristicEnabled() && !IsHttpsFirstModePrefEnabled() &&
-        !InBalancedMode();
     EXPECT_EQ(is_interstitial_due_to_se_heuristic
                   ? HFMInterstitialType::kSiteEngagement
                   : HFMInterstitialType::kStandard,
@@ -970,8 +1005,9 @@ IN_PROC_BROWSER_TEST_P(
   histograms()->ExpectBucketCount(kEventHistogram, Event::kUpgradeCertError, 1);
 
   // Check engagement heuristic metrics. These are only recorded when the
-  // interstitial isn't enabled by the user pref.
-  if (!IsHttpsFirstModeInterstitialEnabledAcrossSites()) {
+  // site engagement heuristic is enabled and the interstitial is due to this
+  // heuristic and not because of prefs.
+  if (is_interstitial_due_to_se_heuristic) {
     histograms()->ExpectTotalCount(kEventHistogramWithEngagementHeuristic, 3);
     histograms()->ExpectBucketCount(kEventHistogramWithEngagementHeuristic,
                                     Event::kUpgradeAttempted, 1);
@@ -1064,15 +1100,15 @@ IN_PROC_BROWSER_TEST_P(
     }
   }
 
-  // Event histogram shouldn't change because Site Engagement heuristic didn't
-  // kick in.
-  if (!IsHttpsFirstModeInterstitialEnabledAcrossSites()) {
+  // Check engagement heuristic metrics. These are only recorded when the
+  // site engagement heuristic is enabled and the interstitial is due to this
+  // heuristic and not because of prefs.
+  if (IsSiteEngagementHeuristicEnabled() &&
+      !IsHttpsFirstModeInterstitialEnabledAcrossSites()) {
+    // Event histogram shouldn't change because Site Engagement heuristic didn't
+    // kick in.
     histograms()->ExpectTotalCount(kEventHistogramWithEngagementHeuristic, 3);
-  } else {
-    histograms()->ExpectTotalCount(kEventHistogramWithEngagementHeuristic, 0);
-  }
 
-  if (!IsHttpsFirstModeInterstitialEnabledAcrossSites()) {
     // Check host count.
     histograms()->ExpectTotalCount(kSiteEngagementHeuristicHostCountHistogram,
                                    2);
@@ -1099,6 +1135,10 @@ IN_PROC_BROWSER_TEST_P(
         kSiteEngagementHeuristicEnforcementDurationHistogram, base::Hours(1),
         1);
   } else {
+    // Event histogram shouldn't change because Site Engagement heuristic didn't
+    // kick in.
+    histograms()->ExpectTotalCount(kEventHistogramWithEngagementHeuristic, 0);
+
     // If HFM pref was enabled, no SE metrics should be recorded because HFM
     // won't be auto-enabled.
     histograms()->ExpectTotalCount(kSiteEngagementHeuristicHostCountHistogram,
@@ -1175,8 +1215,9 @@ IN_PROC_BROWSER_TEST_P(
   histograms()->ExpectTotalCount(kEventHistogramWithEngagementHeuristic, 0);
 
   // Check engagement heuristic metrics. These are only recorded when the
-  // interstitial isn't enabled across all sites.
-  if (!IsHttpsFirstModeInterstitialEnabledAcrossSites()) {
+  // site engagement interstitial is enabled.
+  if (IsSiteEngagementHeuristicEnabled() &&
+      !IsHttpsFirstModeInterstitialEnabledAcrossSites()) {
     // Check the heuristic state. The heuristic should enable HFM for
     // example.com
     histograms()->ExpectTotalCount(kSiteEngagementHeuristicStateHistogram, 1);
@@ -1334,7 +1375,7 @@ IN_PROC_BROWSER_TEST_P(
   // HFM service runs this on startup, but we can't set the test clock before it
   // runs, and we need to move the clock forward for this to work. So call it
   // explicitly again here.
-  hfm_service->CheckUserIsTypicallySecureAndMaybeEnableHttpsFirstMode();
+  hfm_service->CheckUserIsTypicallySecureAndMaybeEnableHttpsFirstBalancedMode();
   size_t initial_navigation_count = hfm_service->GetRecentNavigationCount();
 
   // Use a different hostname than the PRE_ test so that we don't hit the
@@ -1502,7 +1543,7 @@ IN_PROC_BROWSER_TEST_P(
 
   // Advance the clock and try auto-enabling HFM.
   clock.Advance(base::Days(1));
-  hfm_service->CheckUserIsTypicallySecureAndMaybeEnableHttpsFirstMode();
+  hfm_service->CheckUserIsTypicallySecureAndMaybeEnableHttpsFirstBalancedMode();
 
   // The interstitial should only be displayed if HFM is enabled by the pref
   // and not by the Typically Secure User heuristic.
@@ -3753,4 +3794,73 @@ IN_PROC_BROWSER_TEST_F(TypicallySecureUserBrowserTest,
   HttpsFirstModeService* hfm_service =
       HttpsFirstModeServiceFactory::GetForProfile(browser()->profile());
   EXPECT_EQ(10u, hfm_service->GetRecentNavigationCount());
+}
+
+// Tests for HFM heuristics without Balanced Mode enabled. These are unusual
+// configurations and shouldn't appear in production.
+// TODO(crbug.com/349860796): Remove after balanced mode is fully launched.
+using HttpsUpgradesHeuristicsWithoutBalancedModeBrowserTest =
+    HttpsUpgradesBrowserTest;
+
+INSTANTIATE_TEST_SUITE_P(
+    /* no prefix */,
+    HttpsUpgradesHeuristicsWithoutBalancedModeBrowserTest,
+    ::testing::Values(
+        HttpsUpgradesTestType::
+            kHttpsFirstModeWithSiteEngagementWithoutBalancedMode));
+
+// Test that Site Engagement Heuristic without Balanced Mode is a no-op.
+IN_PROC_BROWSER_TEST_P(
+    HttpsUpgradesHeuristicsWithoutBalancedModeBrowserTest,
+    UrlWithHttpScheme_BrokenSSL_SiteEngagementHeuristicWithoutBalancedMode_ShouldIgnore) {
+  ASSERT_FALSE(IsIncognito() || IsHttpsFirstModePrefEnabled());
+
+  // Disable the testing port configuration, as this test doesn't use the
+  // EmbeddedTestServer.
+  HttpsUpgradesInterceptor::SetHttpsPortForTesting(0);
+  HttpsUpgradesInterceptor::SetHttpPortForTesting(0);
+  auto url_loader_interceptor = MakeInterceptorForSiteEngagementHeuristic();
+
+  content::WebContents* contents =
+      GetBrowser()->tab_strip_model()->GetActiveWebContents();
+  Profile* profile = GetBrowser()->profile();
+  content::SSLHostStateDelegate* state = profile->GetSSLHostStateDelegate();
+
+  // Set test clock.
+  auto clock = std::make_unique<base::SimpleTestClock>();
+  auto* clock_ptr = clock.get();
+  StatefulSSLHostStateDelegate* chrome_state =
+      static_cast<StatefulSSLHostStateDelegate*>(state);
+  chrome_state->SetClockForTesting(std::move(clock));
+
+  // Start the clock at standard system time.
+  clock_ptr->SetNow(base::Time::NowFromSystemTime());
+
+  // Set site engagement scores so that this site would have HFM enabled if
+  // HFM+SE kicked in.
+  GURL http_url("http://example.com");
+  GURL https_url("https://example.com");
+
+  SetSiteEngagementScore(http_url, kLowSiteEngagementScore);
+  SetSiteEngagementScore(https_url, kHighSiteEnagementScore);
+  HttpsFirstModeService* hfm_service =
+      HttpsFirstModeServiceFactory::GetForProfile(profile);
+  MaybeEnableHttpsFirstModeForEngagedSitesAndWait(hfm_service);
+
+  // This URL should be upgraded by HTTPS-Upgrades and should fall back to HTTP,
+  // but not have HFM auto-enabled on it because balanced mode isn't enabled.
+  NavigateAndWaitForFallback(contents, http_url);
+  EXPECT_EQ(http_url, contents->GetLastCommittedURL());
+
+  EXPECT_EQ(HFMInterstitialType::kNone,
+            chrome_browser_interstitials::GetHFMInterstitialType(contents));
+
+  // Verify that navigation event metrics were correctly recorded.
+  histograms()->ExpectTotalCount(kEventHistogram, 3);
+  histograms()->ExpectBucketCount(kEventHistogram, Event::kUpgradeAttempted, 1);
+  histograms()->ExpectBucketCount(kEventHistogram, Event::kUpgradeFailed, 1);
+  histograms()->ExpectBucketCount(kEventHistogram, Event::kUpgradeCertError, 1);
+
+  // Engagement heuristic shouldn't handle any navigation events.
+  histograms()->ExpectTotalCount(kEventHistogramWithEngagementHeuristic, 0);
 }

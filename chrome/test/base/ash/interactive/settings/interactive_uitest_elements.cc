@@ -188,6 +188,10 @@ WebContentsInteractionTestUtil::DeepQuery ApnSubpageCreateApnButton() {
   return InternetPage() + "button#createCustomApnButton";
 }
 
+WebContentsInteractionTestUtil::DeepQuery ApnSubpagePolicyIcon() {
+  return InternetPage() + "cr-tooltip-icon#apnManagedIcon";
+}
+
 WebContentsInteractionTestUtil::DeepQuery ApnSubpageShowKnownApnsButton() {
   return InternetPage() + "button#discoverMoreApnsButton";
 }
@@ -276,6 +280,11 @@ WebContentsInteractionTestUtil::DeepQuery CellularNetworkListItemPolicyIcon() {
 
 WebContentsInteractionTestUtil::DeepQuery CellularSubpagePsimListTitle() {
   return CellularNetworksList() + "div#pSimLabel";
+}
+
+WebContentsInteractionTestUtil::DeepQuery
+CellularDetailsSubpageApnPolicyIcon() {
+  return InternetDetailsSubpage() + "cr-policy-indicator#apnManagedIcon";
 }
 
 WebContentsInteractionTestUtil::DeepQuery
@@ -714,6 +723,13 @@ WebContentsInteractionTestUtil::DeepQuery BluetoothDeviceDetailSubpage() {
 
 WebContentsInteractionTestUtil::DeepQuery BluetoothChangeDeviceNameButton() {
   return BluetoothDeviceDetailSubpage() + "cr-button#changeNameBtn";
+}
+
+WebContentsInteractionTestUtil::DeepQuery BluetoothBatteryPercentage() {
+  return BluetoothDeviceDetailSubpage() +
+         "bluetooth-device-battery-info#batteryInfo" +
+         "bluetooth-battery-icon-percentage#defaultBattery" +
+         "span#batteryPercentage";
 }
 
 WebContentsInteractionTestUtil::DeepQuery BluetoothForgetDeviceButton() {

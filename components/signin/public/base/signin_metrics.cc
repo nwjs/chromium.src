@@ -12,6 +12,7 @@
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/strings/strcat.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 
@@ -294,6 +295,32 @@ void RecordSignoutForceClearDataChoice(bool force_clear_data) {
 }
 #endif  // BUILDFLAG(IS_IOS)
 
+void RecordOpenTabCountOnSignin(signin_metrics::AccessPoint access_point,
+                                signin::ConsentLevel consent_level,
+                                size_t tabs_count) {
+  std::string_view consent_level_token =
+      consent_level == signin::ConsentLevel::kSignin ? ".OnSignin" : ".OnSync";
+  base::UmaHistogramCounts1000(
+      base::StrCat({"Signin.OpenTabsCount", consent_level_token}), tabs_count);
+}
+
+void RecordHistoryOptInStateOnSignin(signin_metrics::AccessPoint access_point,
+                                     signin::ConsentLevel consent_level,
+                                     bool opted_in) {
+  std::string_view consent_level_token =
+      consent_level == signin::ConsentLevel::kSignin ? ".OnSignin" : ".OnSync";
+  base::UmaHistogramBoolean(
+      base::StrCat({"Signin.HistoryOptInState", consent_level_token}),
+      opted_in);
+
+  if (opted_in) {
+    base::UmaHistogramEnumeration(
+        base::StrCat(
+            {"Signin.HistoryAlreadyOptedInAccessPoint", consent_level_token}),
+        access_point, AccessPoint::ACCESS_POINT_MAX);
+  }
+}
+
 // --------------------------------------------------------------
 // User actions
 // --------------------------------------------------------------
@@ -414,6 +441,8 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::ACCESS_POINT_PROFILE_MENU_SIGNOUT_CONFIRMATION_PROMPT:
     case AccessPoint::ACCESS_POINT_SETTINGS_SIGNOUT_CONFIRMATION_PROMPT:
     case AccessPoint::ACCESS_POINT_WEBAUTHN_MODAL_DIALOG:
+    case AccessPoint::ACCESS_POINT_CCT_ACCOUNT_MISMATCH_NOTIFICATION:
+    case AccessPoint::ACCESS_POINT_DRIVE_FILE_PICKER_IOS:
       NOTREACHED_IN_MIGRATION()
           << "Access point " << static_cast<int>(access_point)
           << " is not supposed to log signin user actions.";
@@ -692,6 +721,8 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN_WITH_SYNC_PROMO:
     case AccessPoint::ACCESS_POINT_ACCOUNT_MENU:
     case AccessPoint::ACCESS_POINT_ACCOUNT_MENU_FAILED_SWITCH:
+    case AccessPoint::ACCESS_POINT_CCT_ACCOUNT_MISMATCH_NOTIFICATION:
+    case AccessPoint::ACCESS_POINT_DRIVE_FILE_PICKER_IOS:
     case AccessPoint::ACCESS_POINT_MAX:
       NOTREACHED_IN_MIGRATION() << "Signin_Impression_From* user actions"
                                 << " are not recorded for access point "

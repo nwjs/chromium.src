@@ -29,6 +29,7 @@ import androidx.preference.PreferenceFragmentCompat;
 
 import org.chromium.base.BuildInfo;
 import org.chromium.base.Callback;
+import org.chromium.base.CallbackUtils;
 import org.chromium.base.Log;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
@@ -50,7 +51,7 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerFactory;
 import org.chromium.components.browser_ui.bottomsheet.ManagedBottomSheetController;
 import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
-import org.chromium.components.browser_ui.settings.SettingsPage;
+import org.chromium.components.browser_ui.settings.EmbeddableSettingsPage;
 import org.chromium.components.browser_ui.util.TraceEventVectorDrawableCompat;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
@@ -67,15 +68,15 @@ import java.util.Locale;
  *
  * <p>This activity displays a single {@link Fragment}, typically a {@link
  * PreferenceFragmentCompat}. There are two types of fragments shown in the activity:
- * <i>embeddable</i> fragments that implement {@link SettingsPage}, and <i>standalone</i> fragments
- * that do not implement it. Embeddable fragments may be embedded into a column in the multi-column
- * settings UI, if it is enabled and the window is large enough. Standalone fragments, in contrast,
- * are always shown as occupying the whole window.
+ * <i>embeddable</i> fragments that implement {@link EmbeddableSettingsPage}, and <i>standalone</i>
+ * fragments that do not implement it. Embeddable fragments may be embedded into a column in the
+ * multi-column settings UI, if it is enabled and the window is large enough. Standalone fragments,
+ * in contrast, are always shown as occupying the whole window.
  *
  * <p>Embeddable fragments must not modify the activity UI outside of the fragment, e.g. the
  * activity title and the action bar, because the same activity instance is shared among multiple
  * fragments as the user navigates through the settings. Instead, fragments should implement methods
- * in {@link SettingsPage} to ask the activity to update its UI appropriately.
+ * in {@link EmbeddableSettingsPage} to ask the activity to update its UI appropriately.
  *
  * <p>Standalone fragments may modify the activity UI as needed. A standalone fragment is always
  * launched with a fresh settings activity instance that is not shared with other fragments.
@@ -105,6 +106,11 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
 
     private final OneshotSupplierImpl<SnackbarManager> mSnackbarManagerSupplier =
             new OneshotSupplierImpl<>();
+
+    // An intent that was received in onNewIntent and would cause fragment transactions, but is
+    // pending for processing in the next onResume call. See onNewIntent for why we can not directly
+    // process those intents in onNewIntent.
+    private Intent mPendingNewIntent;
 
     // This is only used on automotive.
     private @Nullable MissingDeviceLockLauncher mMissingDeviceLockLauncher;
@@ -163,6 +169,11 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
             fragmentManager
                     .beginTransaction()
                     .replace(R.id.content, fragment, MAIN_FRAGMENT_TAG)
+                    .setCustomAnimations(
+                            R.anim.shared_x_axis_open_enter,
+                            R.anim.shared_x_axis_open_exit,
+                            R.anim.shared_x_axis_close_enter,
+                            R.anim.shared_x_axis_close_exit)
                     .commit();
         }
 
@@ -192,14 +203,11 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
             return;
         }
 
-        Fragment fragment = instantiateMainFragment(intent);
-        // TODO(b/356743945): Enable transition.
-        getSupportFragmentManager()
-                .beginTransaction()
-                .setReorderingAllowed(true)
-                .replace(R.id.content, fragment, MAIN_FRAGMENT_TAG)
-                .addToBackStack(null)
-                .commit();
+        // Android system briefly pauses an activity before calling its onNewIntent, then resume it
+        // soon. We defer making a fragment transaction to onResume because doing it here breaks
+        // fragment animations as all pending animations are cleared when an activity is resumed.
+        assert mPendingNewIntent == null;
+        mPendingNewIntent = intent;
     }
 
     private Fragment instantiateMainFragment(Intent intent) {
@@ -237,11 +245,12 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
         mManagedBottomSheetController =
                 BottomSheetControllerFactory.createBottomSheetController(
                         () -> mScrim,
-                        (sheet) -> {},
+                        CallbackUtils.emptyCallback(),
                         getWindow(),
                         KeyboardVisibilityDelegate.getInstance(),
                         () -> sheetContainer,
-                        () -> 0);
+                        () -> 0,
+                        /* desktopWindowStateProvider= */ null);
         mBottomSheetControllerSupplier.set(mManagedBottomSheetController);
     }
 
@@ -250,17 +259,17 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
     @Override
     public boolean onPreferenceStartFragment(
             PreferenceFragmentCompat caller, Preference preference) {
-        startFragment(preference.getFragment(), preference.getExtras());
+        startSettings(preference.getFragment(), preference.getExtras());
         return true;
     }
 
     /**
-     * Starts a new Settings activity showing the desired fragment.
+     * Starts a new settings showing the desired fragment.
      *
      * @param fragmentClass The Class of the fragment to show.
      * @param args Arguments to pass to Fragment.instantiate(), or null.
      */
-    public void startFragment(@Nullable String fragmentClass, @Nullable Bundle args) {
+    public void startSettings(@Nullable String fragmentClass, @Nullable Bundle args) {
         Intent intent = SettingsIntentUtil.createIntent(this, fragmentClass, args);
         startActivity(intent);
     }
@@ -294,6 +303,23 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
         }
 
         checkForMissingDeviceLockOnAutomotive();
+
+        // If there is a pending intent to process from onNewIntent, process it now.
+        if (mPendingNewIntent != null) {
+            Fragment fragment = instantiateMainFragment(mPendingNewIntent);
+            mPendingNewIntent = null;
+            getSupportFragmentManager()
+                    .beginTransaction()
+                    .setReorderingAllowed(true)
+                    .setCustomAnimations(
+                            R.anim.shared_x_axis_open_enter,
+                            R.anim.shared_x_axis_open_exit,
+                            R.anim.shared_x_axis_close_enter,
+                            R.anim.shared_x_axis_close_exit)
+                    .replace(R.id.content, fragment, MAIN_FRAGMENT_TAG)
+                    .addToBackStack(null)
+                    .commit();
+        }
     }
 
     private void checkForMissingDeviceLockOnAutomotive() {
@@ -367,16 +393,7 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
         }
 
         if (item.getItemId() == android.R.id.home) {
-            if (ChromeFeatureList.sSettingsSingleActivity.isEnabled()) {
-                FragmentManager fragmentManager = getSupportFragmentManager();
-                if (fragmentManager.getBackStackEntryCount() == 0) {
-                    finish();
-                } else {
-                    fragmentManager.popBackStack();
-                }
-            } else {
-                finish();
-            }
+            finishCurrentSettings(mainFragment);
             return true;
         } else if (item.getItemId() == R.id.menu_id_general_help) {
             HelpAndFeedbackLauncherImpl.getForProfile(mProfile)
@@ -395,6 +412,9 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
     private void registerMainFragmentBackPressHandler() {
         Fragment activeFragment = getMainFragment();
         if (activeFragment instanceof BackPressHandler) {
+            // We do not support embeddable fragments to implement BackPressHandler as it requires
+            // keeping track of the main fragment while there is no real use case for it.
+            assert !ChromeFeatureList.sSettingsSingleActivity.isEnabled() || mStandalone;
             BackPressHelper.create(
                     activeFragment.getViewLifecycleOwner(),
                     getOnBackPressedDispatcher(),
@@ -458,6 +478,40 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
         return new ModalDialogManager(new AppModalPresenter(this), ModalDialogType.APP);
     }
 
+    /**
+     * Finishes the current fragment.
+     *
+     * <p>This method asks the activity to show the previous fragment. If the back stack is empty,
+     * the activity itself is finished.
+     *
+     * <p>If the given fragment is not the current one, this method does nothing.
+     *
+     * <p>This method is package-private because it is used by {@link SettingsNavigationImpl}. Use
+     * {@link SettingsNavigation} to call this method from fragments, instead of calling it
+     * directly.
+     *
+     * @param fragment The expected current fragment.
+     */
+    @SuppressLint("ReferenceEquality")
+    void finishCurrentSettings(Fragment fragment) {
+        if (getMainFragment() != fragment) {
+            return;
+        }
+
+        if (ChromeFeatureList.sSettingsSingleActivity.isEnabled()) {
+            FragmentManager fragmentManager = getSupportFragmentManager();
+            if (fragmentManager.getBackStackEntryCount() == 0) {
+                finish();
+            } else {
+                // Execute the pop operation immediately to avoid popping the back stack N times
+                // when the current fragment calls this method N times in a row.
+                fragmentManager.popBackStackImmediate();
+            }
+        } else {
+            finish();
+        }
+    }
+
     private class TitleUpdater extends FragmentManager.FragmentLifecycleCallbacks {
         private final Callback<String> mSetTitleCallback =
                 (title) -> {
@@ -476,8 +530,8 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                 return;
             }
 
-            // TitleUpdater is enabled only when the fragment implements SettingsPage.
-            SettingsPage settingsFragment = (SettingsPage) fragment;
+            // TitleUpdater is enabled only when the fragment implements EmbeddableSettingsPage.
+            EmbeddableSettingsPage settingsFragment = (EmbeddableSettingsPage) fragment;
 
             if (mCurrentPageTitle != null) {
                 mCurrentPageTitle.removeObserver(mSetTitleCallback);

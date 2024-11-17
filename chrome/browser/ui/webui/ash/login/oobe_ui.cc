@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/ui/webui/ash/login/account_selection_screen_handler.h"
 #ifdef UNSAFE_BUFFERS_BUILD
 // TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
 #pragma allow_unsafe_buffers
@@ -86,8 +87,6 @@
 #include "chrome/browser/ui/webui/ash/login/hardware_data_collection_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/hid_detection_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/install_attributes_error_screen_handler.h"
-#include "chrome/browser/ui/webui/ash/login/lacros_data_backward_migration_screen_handler.h"
-#include "chrome/browser/ui/webui/ash/login/lacros_data_migration_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/local_password_setup_handler.h"
 #include "chrome/browser/ui/webui/ash/login/local_state_error_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/locale_switch_screen_handler.h"
@@ -379,6 +378,9 @@ void CreateAndAddOobeUIDataSource(Profile* profile,
   source->AddBoolean("isSplitModifierKeyboardInfoEnabled",
                      features::IsOobeSplitModifierKeyboardInfoEnabled());
 
+  source->AddBoolean("isOobeAddUserDuringEnrollmentEnabled",
+                     features::IsOobeAddUserDuringEnrollmentEnabled());
+
   // Configure shared resources
   AddProductLogoResources(source);
   if (ash::features::IsBootAnimationEnabled()) {
@@ -484,11 +486,6 @@ void OobeUI::ConfigureOobeDisplay() {
 
   AddScreenHandler(std::make_unique<LocaleSwitchScreenHandler>());
 
-  AddScreenHandler(std::make_unique<LacrosDataMigrationScreenHandler>());
-
-  AddScreenHandler(
-      std::make_unique<LacrosDataBackwardMigrationScreenHandler>());
-
   AddScreenHandler(std::make_unique<TermsOfServiceScreenHandler>());
 
   AddScreenHandler(std::make_unique<SyncConsentScreenHandler>());
@@ -544,8 +541,7 @@ void OobeUI::ConfigureOobeDisplay() {
 
   AddWebUIHandler(std::make_unique<SshConfiguredHandler>());
 
-  AddScreenHandler(std::make_unique<AppLaunchSplashScreenHandler>(
-      network_state_informer_, error_screen));
+  AddScreenHandler(std::make_unique<AppLaunchSplashScreenHandler>());
 
   AddScreenHandler(std::make_unique<DeviceDisabledScreenHandler>());
 
@@ -622,6 +618,10 @@ void OobeUI::ConfigureOobeDisplay() {
   AddScreenHandler(std::make_unique<CryptohomeRecoveryScreenHandler>());
 
   AddScreenHandler(std::make_unique<SplitModifierKeyboardInfoScreenHandler>());
+
+  if (features::IsOobeAddUserDuringEnrollmentEnabled()) {
+    AddScreenHandler(std::make_unique<AccountSelectionScreenHandler>());
+  }
 
   if (base::FeatureList::IsEnabled(
           remoting::features::kEnableCrdAdminRemoteAccessV2)) {

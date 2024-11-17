@@ -1028,8 +1028,7 @@ public class IntentHandler {
             context = ContextUtils.getApplicationContext();
         }
 
-        PowerManager powerManager =
-                (PowerManager) (context.getSystemService(Context.POWER_SERVICE));
+        PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
 
         return powerManager.isInteractive();
     }
@@ -1127,7 +1126,6 @@ public class IntentHandler {
      * @param text Text to examine.
      * @param prefix The prefix on which to extract Strings.
      * @param results The list to insert results into.
-     * @return A possibly empty list of URL Strings.
      */
     private static void extractStringsWithPrefix(String text, String prefix, List<String> results) {
         int i = 0;
@@ -1358,7 +1356,8 @@ public class IntentHandler {
 
     /**
      * @param intent An Intent to be checked.
-     * @return The launch type of the tab to be created.
+     * @return The launch type of the tab to be created. If null a reasonable default should be
+     *     chosen downstream.
      */
     public static @Nullable @TabLaunchType Integer getTabLaunchType(Intent intent) {
         return IntentUtils.safeGetSerializableExtra(intent, EXTRA_TAB_LAUNCH_TYPE);

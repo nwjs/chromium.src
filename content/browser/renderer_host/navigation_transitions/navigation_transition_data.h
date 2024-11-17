@@ -32,8 +32,8 @@ class NavigationTransitionData {
     // Received an empty bitmap when capturing the screenshot.
     kCapturedEmptyBitmap = 2,
 
-    // Screenshot is not captured for subframes.
-    kCacheMissSubframe = 3,
+    // [DEPRECATED] Screenshot is not captured for subframes.
+    // kCacheMissSubframe = 3,
 
     // Screenshot was evicted because of memory constraints.
     kCacheMissEvicted = 4,
@@ -53,9 +53,9 @@ class NavigationTransitionData {
     // Screenshot is not captured for embedded pages.
     kCacheMissEmbeddedPages = 8,
 
-    // Screenshot is not captured since the page has opted-out of BFCache.
+    // [DEPRECATED] Screenshot is not captured since the page has
     // Cache-Control: no-store
-    kCacheMissCCNS = 9,
+    // kCacheMissCCNS = 9,
 
     // Screenshot was evicted because the tab was invisible for a long duration.
     kCacheMissInvisible = 10,
@@ -73,7 +73,19 @@ class NavigationTransitionData {
     kNavigateAwayFromCrashedPage = 13,
     kNavigateAwayFromCrashedPageNoEarlySwap = 14,
 
-    kMaxValue = kNavigateAwayFromCrashedPageNoEarlySwap
+    // Screenshot is not captured when the root window or compositor is
+    // detached.
+    kNoRootWindowOrCompositor = 15,
+
+    // The browser isn't embedding a valid `viz::LocalSurfaceID` when we try
+    // to capture the screenshot from the browser.
+    kBrowserNotEmbeddingValidSurfaceId = 16,
+
+    // We only cache screenshots for navigations targeting the primary main
+    // frame.
+    kCacheMissNonPrimaryMainFrame = 17,
+
+    kMaxValue = kCacheMissNonPrimaryMainFrame
   };
 
   NavigationTransitionData() = default;

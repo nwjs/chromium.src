@@ -16,6 +16,7 @@
 #include "build/branding_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/tabs/organization/tab_declutter_controller.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_service_factory.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_utils.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -153,6 +154,9 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
       {"thumbsDown", IDS_TAB_ORGANIZATION_THUMBS_DOWN},
       {"thumbsUp", IDS_TAB_ORGANIZATION_THUMBS_UP},
       // Declutter UI strings
+      {"declutterEmptyBody", IDS_DECLUTTER_EMPTY_BODY},
+      {"declutterEmptyTitle", IDS_DECLUTTER_EMPTY_TITLE},
+      {"declutterTimestamp", IDS_DECLUTTER_TIMESTAMP},
       {"declutterTitle", IDS_DECLUTTER_TITLE},
       // Selector UI strings
       {"autoTabGroupsSelectorHeading", IDS_AUTO_TAB_GROUPS_SELECTOR_HEADING},
@@ -188,10 +192,10 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
       "tabOrganizationModelStrategyEnabled",
       base::FeatureList::IsEnabled(features::kTabOrganizationModelStrategy));
 
-  source->AddInteger("tabIndex", TabIndex());
   source->AddBoolean("showTabOrganizationFRE", ShowTabOrganizationFRE());
-  source->AddBoolean("declutterEnabled",
-                     features::IsTabstripDeclutterEnabled());
+  source->AddBoolean(
+      "declutterEnabled",
+      features::IsTabstripDeclutterEnabled() && !profile->IsIncognitoProfile());
 
   ui::Accelerator accelerator(ui::VKEY_A,
                               ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR);
@@ -276,7 +280,15 @@ bool TabSearchUI::ShowTabOrganizationFRE() {
   return prefs->GetBoolean(tab_search_prefs::kTabOrganizationShowFRE);
 }
 
-int TabSearchUI::TabIndex() {
-  PrefService* prefs = Profile::FromWebUI(web_ui())->GetPrefs();
-  return prefs->GetInteger(tab_search_prefs::kTabSearchTabIndex);
+void TabSearchUI::InstallTabDeclutterController(
+    tabs::TabDeclutterController* tab_declutter_controller) {
+  if (tab_declutter_controller_ == tab_declutter_controller) {
+    return;
+  }
+
+  tab_declutter_controller_ = tab_declutter_controller;
+
+  if (page_handler_) {
+    page_handler_->TabDeclutterControllerInstalled();
+  }
 }

@@ -259,14 +259,11 @@ ParkableStringImpl::HashString(StringImpl* string) {
   DigestValue digest_result;
 
   Digestor digestor(kHashAlgorithmSha256);
-  digestor.Update(base::make_span(static_cast<const uint8_t*>(string->Bytes()),
-                                  string->CharactersSizeInBytes()));
+  digestor.Update(string->RawByteSpan());
   // Also include encoding in the digest, otherwise two strings with identical
   // byte content but different encoding will be assumed equal, leading to
   // crashes when one is replaced by the other one.
-  std::array<uint8_t, 1> is_8bit;
-  is_8bit[0] = string->Is8Bit();
-  digestor.Update(is_8bit);
+  UpdateDigestWithEncoding(&digestor, string->Is8Bit());
   digestor.Finish(digest_result);
 
   // The only case where this can return false in BoringSSL is an allocation
@@ -280,6 +277,14 @@ ParkableStringImpl::HashString(StringImpl* string) {
   // Unless SHA256 is... not 256 bits?
   DCHECK(digest_result.size() == kDigestSize);
   return std::make_unique<SecureDigest>(digest_result);
+}
+
+// static
+void ParkableStringImpl::UpdateDigestWithEncoding(Digestor* digestor,
+                                                  bool is_8bit) {
+  std::array<uint8_t, 1> extra_data;
+  extra_data[0] = is_8bit ? 1 : 0;
+  digestor->Update(extra_data);
 }
 
 // static
@@ -643,22 +648,20 @@ String ParkableStringImpl::UnparkInternal() {
       reinterpret_cast<const char*>(metadata_->compressed_->data()),
       metadata_->compressed_->size() * sizeof(uint8_t));
   String uncompressed;
-  std::string_view uncompressed_string_piece;
-  size_t size = CharactersSizeInBytes();
-  char* char_data;
+  base::span<char> chars;
   if (is_8bit()) {
-    LChar* data;
+    base::span<LChar> data;
     uncompressed = String::CreateUninitialized(length(), data);
-    char_data = reinterpret_cast<char*>(data);
+    chars = base::as_writable_chars(data);
   } else {
-    UChar* data;
+    base::span<UChar> data;
     uncompressed = String::CreateUninitialized(length(), data);
-    char_data = reinterpret_cast<char*>(data);
+    chars = base::as_writable_chars(data);
   }
-  uncompressed_string_piece = std::string_view(char_data, size);
 
   switch (GetCompressionAlgorithm()) {
     case CompressionAlgorithm::kZlib: {
+      const auto uncompressed_string_piece = base::as_string_view(chars);
       // If the buffer size is incorrect, then we have a corrupted data issue,
       // and in such case there is nothing else to do than crash.
       CHECK_EQ(compression::GetUncompressedSize(compressed_string_piece),
@@ -676,7 +679,8 @@ String ParkableStringImpl::UnparkInternal() {
         // us crash anywhere else.
         OOM_CRASH(uncompressed_string_piece.size());
       }
-    } break;
+      break;
+    }
     case CompressionAlgorithm::kSnappy: {
       size_t uncompressed_size;
 
@@ -685,9 +689,9 @@ String ParkableStringImpl::UnparkInternal() {
       CHECK(snappy::GetUncompressedLength(compressed_string_piece.data(),
                                           compressed_string_piece.size(),
                                           &uncompressed_size));
-      CHECK_EQ(uncompressed_size, size);
+      CHECK_EQ(uncompressed_size, chars.size());
       CHECK(snappy::RawUncompress(compressed_string_piece.data(),
-                                  compressed_string_piece.size(), char_data))
+                                  compressed_string_piece.size(), chars.data()))
           << "Decompression failed, corrupted data?";
       break;
     }
@@ -698,14 +702,13 @@ String ParkableStringImpl::UnparkInternal() {
       // The CHECK()s below indicate memory corruption, terminate.
       CHECK_NE(content_size, ZSTD_CONTENTSIZE_UNKNOWN);
       CHECK_NE(content_size, ZSTD_CONTENTSIZE_ERROR);
-      CHECK_EQ(content_size, static_cast<uint64_t>(size));
+      CHECK_EQ(content_size, static_cast<uint64_t>(chars.size()));
 
       size_t uncompressed_size = ZSTD_decompress(
-          const_cast<char*>(uncompressed_string_piece.data()),
-          uncompressed_string_piece.size(), compressed_string_piece.data(),
+          chars.data(), chars.size(), compressed_string_piece.data(),
           compressed_string_piece.size());
       CHECK(!ZSTD_isError(uncompressed_size));
-      CHECK_EQ(uncompressed_size, size);
+      CHECK_EQ(uncompressed_size, chars.size());
       break;
     }
 #endif  // BUILDFLAG(HAS_ZSTD_COMPRESSION)

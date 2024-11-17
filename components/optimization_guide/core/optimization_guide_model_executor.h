@@ -8,6 +8,7 @@
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/observer_list_types.h"
+#include "base/time/time.h"
 #include "base/types/expected.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
@@ -95,6 +96,21 @@ struct SessionConfigParams {
 
   // How the execution of this feature should be configured.
   ExecutionMode execution_mode = ExecutionMode::kDefault;
+
+  // The amount of time to wait before the initial response is received from the
+  // on device model. If unset, a default value will be used.
+  //
+  // If `execution_mode` allows, model execution will fall back to the server
+  // instead of failing entirely when this timeout is reached.
+  std::optional<base::TimeDelta> on_device_execution_timeout;
+
+  enum class LoggingMode {
+    // Enable logging if it's enabled for ModelBasedCapability.
+    kDefault,
+    // Always disable logging.
+    kAlwaysDisable,
+  };
+  LoggingMode logging_mode = LoggingMode::kDefault;
 };
 
 // Reasons why the on-device model was not available for use.
@@ -163,6 +179,9 @@ class OnDeviceModelAvailabilityObserver : public base::CheckedObserver {
 struct TokenLimits {
   // The full combined limit for input and output tokens.
   uint32_t max_tokens = 0;
+  // The number of context tokens guaranteed to be processed before context
+  // processing can be cancelled to begin execution.
+  uint32_t min_context_tokens = 0;
   // The maximum number of tokens that can be used by AddContext.
   uint32_t max_context_tokens = 0;
   // The maximum number of tokens that can be used by ExecuteModel.
@@ -247,6 +266,7 @@ class OptimizationGuideModelExecutor {
   virtual void ExecuteModel(
       ModelBasedCapabilityKey feature,
       const google::protobuf::MessageLite& request_metadata,
+      const std::optional<base::TimeDelta>& execution_timeout,
       OptimizationGuideModelExecutionResultCallback callback) = 0;
 
   // Observer for on-device model availability changes.

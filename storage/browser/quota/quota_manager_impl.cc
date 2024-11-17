@@ -146,15 +146,6 @@ void DidGetUsageAndQuotaStripOverride(
 int64_t QuotaManagerImpl::kSyncableStorageDefaultStorageKeyQuota =
     500 * kMBytes;
 
-constexpr int64_t QuotaManagerImpl::kGBytes;
-constexpr int64_t QuotaManagerImpl::kNoLimit;
-constexpr int QuotaManagerImpl::kEvictionIntervalInMilliSeconds;
-constexpr int QuotaManagerImpl::kThresholdOfErrorsToBeDenylisted;
-constexpr int QuotaManagerImpl::kThresholdRandomizationPercent;
-constexpr char QuotaManagerImpl::kDatabaseName[];
-constexpr char QuotaManagerImpl::kEvictedBucketAccessedCountHistogram[];
-constexpr char QuotaManagerImpl::kEvictedBucketDaysSinceAccessHistogram[];
-
 QuotaManagerImpl::QuotaOverride::QuotaOverride() = default;
 QuotaManagerImpl::QuotaOverride::~QuotaOverride() = default;
 
@@ -838,14 +829,14 @@ class QuotaManagerImpl::BucketSetDataDeleter {
   void ScheduleBucketsDeletion() {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     for (const auto& bucket : buckets_) {
-      // base::Unretained() is safe here because `this` is guaranteed to outlive
-      // the callback, thanks to an indirect ownership chain. `this` owns the
-      // BucketDataDeleter created here, which guarantees it will only use the
-      // callback when it's alive.
+      // Weak pointer is used here because the callback will be invoked when
+      // `bucket_deleters_` is being destroyed during `BucketSetDataDeleter`
+      // destruction. In this case, we don't need `DidDeleteBucketData` to be
+      // called. See crbug.com/373754859
       auto bucket_deleter = std::make_unique<BucketDataDeleter>(
           manager_, bucket, AllQuotaClientTypes(), /*commit_immediately=*/false,
           base::BindOnce(&BucketSetDataDeleter::DidDeleteBucketData,
-                         base::Unretained(this)));
+                         weak_factory_.GetWeakPtr()));
       auto* bucket_deleter_ptr = bucket_deleter.get();
       bucket_deleters_[bucket_deleter_ptr] = std::move(bucket_deleter);
       bucket_deleter_ptr->Run();
@@ -1721,16 +1712,7 @@ void QuotaManagerImpl::GetBucketUsageWithBreakdown(
 bool QuotaManagerImpl::IsStorageUnlimited(const StorageKey& storage_key,
                                           StorageType type) const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
-  // For syncable storage we should always enforce quota (since the
-  // quota must be capped by the server limit).
-  if (type == StorageType::kSyncable) {
-    return false;
-  }
-  if (type == StorageType::kDeprecatedQuotaNotManaged) {
-    return true;
-  }
-  return special_storage_policy_.get() &&
+  return type == StorageType::kTemporary && special_storage_policy_.get() &&
          special_storage_policy_->IsStorageUnlimited(
              storage_key.origin().GetURL());
 }
@@ -1800,9 +1782,8 @@ bool QuotaManagerImpl::ResetUsageTracker(StorageType type) {
       syncable_usage_tracker_ = std::move(usage_tracker);
       return true;
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
-  return true;
 }
 
 QuotaManagerImpl::~QuotaManagerImpl() {
@@ -1953,7 +1934,7 @@ void QuotaManagerImpl::RunDatabaseCallbacks() {
 void QuotaManagerImpl::RegisterClient(
     mojo::PendingRemote<mojom::QuotaClient> client,
     QuotaClientType client_type,
-    const std::vector<blink::mojom::StorageType>& storage_types) {
+    const base::flat_set<blink::mojom::StorageType>& storage_types) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(!database_.get())
       << "All clients must be registered before the database is initialized";
@@ -1974,10 +1955,9 @@ UsageTracker* QuotaManagerImpl::GetUsageTracker(StorageType type) const {
     case StorageType::kSyncable:
       return syncable_usage_tracker_.get();
     case StorageType::kDeprecatedQuotaNotManaged:
-      return nullptr;
     case StorageType::kDeprecatedPersistent:
     case StorageType::kUnknown:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
   return nullptr;
 }
@@ -2619,11 +2599,8 @@ void QuotaManagerImpl::GetEvictionBuckets(int64_t target_usage,
 
   // The usage map should have been cached recently due to
   // `GetEvictionRoundInfo()`.
-  std::map<BucketLocator, int64_t> usage_map;
-  if (base::FeatureList::IsEnabled(features::kNewQuotaEvictionRoutine)) {
-    usage_map =
-        GetUsageTracker(StorageType::kTemporary)->GetCachedBucketsUsage();
-  }
+  std::map<BucketLocator, int64_t> usage_map =
+      GetUsageTracker(StorageType::kTemporary)->GetCachedBucketsUsage();
 
   GetBucketsForEvictionFromDatabase(
       target_usage, std::move(usage_map),

@@ -10,6 +10,7 @@
 #import <optional>
 
 #import "base/check_deref.h"
+#import "base/functional/callback_helpers.h"
 #import "base/memory/raw_ptr.h"
 #import "base/memory/weak_ptr.h"
 #import "base/metrics/histogram_functions.h"
@@ -27,6 +28,7 @@
 #import "components/prefs/pref_service.h"
 #import "components/profile_metrics/browser_profile_type.h"
 #import "components/safe_browsing/core/common/features.h"
+#import "components/segmentation_platform/embedder/home_modules/tips_manager/signal_constants.h"
 #import "components/translate/core/browser/translate_manager.h"
 #import "components/trusted_vault/trusted_vault_server_constants.h"
 #import "ios/chrome/browser/app_launcher/model/app_launcher_tab_helper_browser_presentation_provider.h"
@@ -202,6 +204,8 @@
 #import "ios/chrome/browser/tabs/ui_bundled/tab_strip_legacy_coordinator.h"
 #import "ios/chrome/browser/text_fragments/ui_bundled/text_fragments_coordinator.h"
 #import "ios/chrome/browser/text_zoom/ui_bundled/text_zoom_coordinator.h"
+#import "ios/chrome/browser/tips_manager/model/tips_manager_ios.h"
+#import "ios/chrome/browser/tips_manager/model/tips_manager_ios_factory.h"
 #import "ios/chrome/browser/tips_notifications/coordinator/enhanced_safe_browsing_promo_coordinator.h"
 #import "ios/chrome/browser/tips_notifications/coordinator/lens_promo_coordinator.h"
 #import "ios/chrome/browser/translate/model/chrome_ios_translate_client.h"
@@ -598,6 +602,12 @@ enum class ToolbarKind {
   ContextualSheetCoordinator* _contextualSheetCoordinator;
   RootDriveFilePickerCoordinator* _driveFilePickerCoordinator;
   SafeAreaProvider* _safeAreaProvider;
+  // Number of time `showActivityOverlay` was called and its callback not
+  // called.
+  int _numberOfActivityOverly;
+  // Callback to remove the activity overlay started by the browser coordinator
+  // itself.
+  base::ScopedClosureRunner _activityOverlayCallback;
 
   // The coordinator for the new Delete Browsing Data screen, also called Quick
   // Delete.
@@ -670,6 +680,7 @@ enum class ToolbarKind {
   [self destroyViewController];
   [self destroyViewControllerDependencies];
   _webUsageEnablerObserver.reset();
+  _activityOverlayCallback.RunAndReset();
 }
 
 - (void)dealloc {
@@ -692,9 +703,9 @@ enum class ToolbarKind {
   // If not active, display an activity indicator overlay over the view to
   // prevent interaction with the web page.
   if (active) {
-    [self hideActivityOverlay];
-  } else if (!self.activityOverlayCoordinator) {
-    [self showActivityOverlay];
+    _activityOverlayCallback.RunAndReset();
+  } else if (!_activityOverlayCallback) {
+    _activityOverlayCallback = [self showActivityOverlay];
   }
 
   ProfileIOS* profile = self.browser->GetProfile();
@@ -860,7 +871,6 @@ enum class ToolbarKind {
   if (!_NTPCoordinator) {
     return;
   }
-  [_NTPCoordinator dismissAccountMenu];
 }
 
 - (void)setWebUsageEnabled:(BOOL)webUsageEnabled {
@@ -872,17 +882,26 @@ enum class ToolbarKind {
 }
 
 // Displays activity overlay.
-- (void)showActivityOverlay {
+- (base::ScopedClosureRunner)showActivityOverlay {
+  _numberOfActivityOverly++;
   self.activityOverlayCoordinator = [[ActivityOverlayCoordinator alloc]
       initWithBaseViewController:self.viewController
                          browser:self.browser];
   [self.activityOverlayCoordinator start];
+  return base::ScopedClosureRunner(base::BindOnce(
+      [](BrowserCoordinator* strongSelf) {
+        [strongSelf decreaseActivityOverlay];
+      },
+      self));
 }
 
-// Hides activity overlay.
-- (void)hideActivityOverlay {
-  [self.activityOverlayCoordinator stop];
-  self.activityOverlayCoordinator = nil;
+// Hides activity overlay number. Remove it if the number becomes 0..
+- (void)decreaseActivityOverlay {
+  _numberOfActivityOverly--;
+  if (_numberOfActivityOverly == 0) {
+    [self.activityOverlayCoordinator stop];
+    self.activityOverlayCoordinator = nil;
+  }
 }
 
 // Instantiates a BrowserViewController.
@@ -1997,6 +2016,15 @@ enum class ToolbarKind {
     translateManager->ShowTranslateUI(/*auto_translate=*/true,
                                       /*triggered_from_menu=*/true);
   }
+
+  // Records the usage of Google Translate. This notifies the Tips Manager,
+  // which may trigger tips or guidance related to translation features.
+  if (IsSegmentationTipsManagerEnabled()) {
+    TipsManagerIOS* tipsManager = TipsManagerIOSFactory::GetForProfile(profile);
+
+    tipsManager->NotifySignal(
+        segmentation_platform::tips_manager::signals::kUsedGoogleTranslation);
+  }
 }
 
 - (void)showHelpPage {
@@ -2965,7 +2993,7 @@ enum class ToolbarKind {
       }
       commerce::ShoppingService* shoppingService =
           commerce::ShoppingServiceFactory::GetForBrowserState(
-              activeWebState->GetBrowserState());
+              ProfileIOS::FromBrowserState(activeWebState->GetBrowserState()));
       // Track parcels and display infobar if successful.
       TrackParcels(
           shoppingService, parcels, std::string(),
@@ -3888,6 +3916,42 @@ enum class ToolbarKind {
   CHECK(IsIosQuickDeleteEnabled());
   [_quickDeleteCoordinator stop];
   _quickDeleteCoordinator = nil;
+}
+
+- (void)stopQuickDeleteForAnimationWithCompletion:(ProceduralBlock)completion {
+  CHECK(IsIosQuickDeleteEnabled());
+
+  // TODO(crbug.com/335387869): Remove NotFatalUntil and the if below when we're
+  // sure this code path is infeasible. The BrowserViewController should always
+  // have at least the QuickDeleteViewController on top of it.
+  CHECK(self.viewController.presentedViewController, base::NotFatalUntil::M133);
+
+  // If BrowserViewController has not presented any view controller, then
+  // trigger `completion` immediately.
+  if (!self.viewController.presentedViewController) {
+    completion();
+    [self stopQuickDelete];
+    return;
+  }
+
+  // If BrowserViewController has presented a view controller, then dismiss
+  // every VC on top of it.
+  id<ApplicationCommands> applicationCommandsHandler =
+      HandlerForProtocol(self.dispatcher, ApplicationCommands);
+  __weak __typeof(self) weakSelf = self;
+  ProceduralBlock dismissalCompletion = ^{
+    if (completion) {
+      completion();
+    }
+
+    // Properly shutdown all coordinators started either by this coordinator or
+    // by the scene controller. This should include Quick Delete, History and
+    // the Privacy Settings.
+    [weakSelf clearPresentedStateWithCompletion:nil dismissOmnibox:YES];
+    [applicationCommandsHandler dismissModalDialogsWithCompletion:nil];
+  };
+  [self.viewController dismissViewControllerAnimated:YES
+                                          completion:dismissalCompletion];
 }
 
 #pragma mark - WhatsNewCommands

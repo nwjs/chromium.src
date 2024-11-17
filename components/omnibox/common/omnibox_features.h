@@ -75,32 +75,14 @@ BASE_DECLARE_FEATURE(kPrefBasedDataCollectionConsentHelper);
 // Suggestions UI - these affect the UI or function of the suggestions popup.
 BASE_DECLARE_FEATURE(kClipboardSuggestionContentHidden);
 BASE_DECLARE_FEATURE(kSuppressClipboardSuggestionAfterFirstUsed);
-BASE_DECLARE_FEATURE(kCr2023ActionChips);
-BASE_DECLARE_FEATURE(kCr2023ActionChipsIcons);
 BASE_DECLARE_FEATURE(kMostVisitedTilesHorizontalRenderGroup);
 BASE_DECLARE_FEATURE(kRichAutocompletion);
 BASE_DECLARE_FEATURE(kNtpRealboxPedals);
-BASE_DECLARE_FEATURE(kSquareSuggestIcons);
-BASE_DECLARE_FEATURE(kUniformRowHeight);
 BASE_DECLARE_FEATURE(kWebUIOmniboxPopup);
-BASE_DECLARE_FEATURE(kExpandedStateHeight);
-BASE_DECLARE_FEATURE(kExpandedStateShape);
-BASE_DECLARE_FEATURE(kExpandedStateColors);
-BASE_DECLARE_FEATURE(kExpandedStateSuggestIcons);
-BASE_DECLARE_FEATURE(kExpandedLayout);
-BASE_DECLARE_FEATURE(kSuggestionHoverFillShape);
 
 // Omnibox UI - these affect the UI or function of the location bar (not the
 // popup).
 BASE_DECLARE_FEATURE(kOmniboxAssistantVoiceSearch);
-
-BASE_DECLARE_FEATURE(kOmniboxCR23SteadyStateIcons);
-BASE_DECLARE_FEATURE(kOmniboxSteadyStateBackgroundColor);
-
-BASE_DECLARE_FEATURE(kOmniboxSteadyStateHeight);
-BASE_DECLARE_FEATURE(kOmniboxSteadyStateTextStyle);
-
-BASE_DECLARE_FEATURE(kOmniboxSteadyStateTextColor);
 
 // Android only flag that controls whether the new security indicator should be
 // used, on non-Android platforms this is controlled through the
@@ -154,7 +136,6 @@ BASE_DECLARE_FEATURE(kStarterPackIPH);
 
 // Search and Suggest requests and params.
 BASE_DECLARE_FEATURE(kAblateSearchProviderWarmup);
-BASE_DECLARE_FEATURE(kDropUnrecognizedTemplateUrlParameters);
 BASE_DECLARE_FEATURE(kReportApplicationLanguageInSearchRequest);
 
 BASE_DECLARE_FEATURE(kOmniboxAsyncViewInflation);
@@ -162,6 +143,7 @@ BASE_DECLARE_FEATURE(kUseFusedLocationProvider);
 
 #if BUILDFLAG(IS_ANDROID)
 BASE_DECLARE_FEATURE(kRetainOmniboxOnFocus);
+BASE_DECLARE_FEATURE(kJumpStartOmnibox);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // `ShortcutsProvider` features.

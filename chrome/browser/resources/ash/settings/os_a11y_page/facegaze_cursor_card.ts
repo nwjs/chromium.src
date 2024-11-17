@@ -21,7 +21,8 @@ import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bu
 
 import {DeepLinkingMixin} from '../common/deep_linking_mixin.js';
 import {RouteObserverMixin} from '../common/route_observer_mixin.js';
-import {Route, routes} from '../router.js';
+import type {Route} from '../router.js';
+import {routes} from '../router.js';
 
 import {getTemplate} from './facegaze_cursor_card.html.js';
 
@@ -52,6 +53,36 @@ export class FaceGazeCursorCardElement extends FaceGazeCursorCardElementBase {
             key: 'synthetic_combined_cursor_speed_pref',
           };
         },
+      },
+
+      minCursorSpeed: {
+        type: Number,
+        value: 5,
+      },
+
+      maxCursorSpeed: {
+        type: Number,
+        value: 50,
+      },
+
+      cursorSpeedTicks: {
+        type: Object,
+        value: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50],
+      },
+
+      minCursorTuning: {
+        type: Number,
+        value: 4,
+      },
+
+      maxCursorTuning: {
+        type: Number,
+        value: 13,
+      },
+
+      tuningTicks: {
+        type: Object,
+        value: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
       },
     };
   }
@@ -121,8 +152,8 @@ export class FaceGazeCursorCardElement extends FaceGazeCursorCardElementBase {
         'settings.a11y.face_gaze.cursor_use_acceleration',
         loadTimeData.getBoolean('defaultFaceGazeCursorUseAcceleration'));
     this.setPrefValue(
-        'settings.a11y.face_gaze.cursor_smoothing',
-        loadTimeData.getInteger('defaultFaceGazeCursorSmoothing'));
+        'settings.a11y.face_gaze.velocity_threshold',
+        loadTimeData.getInteger('defaultFaceGazeVelocityThreshold'));
   }
 }
 

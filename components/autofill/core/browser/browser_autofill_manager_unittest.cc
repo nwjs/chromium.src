@@ -51,6 +51,7 @@
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/filling_product.h"
 #include "components/autofill/core/browser/form_data_importer_test_api.h"
+#include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/form_structure_test_api.h"
 #include "components/autofill/core/browser/geo/alternative_state_name_map_test_utils.h"
 #include "components/autofill/core/browser/metrics/form_events/form_events.h"
@@ -135,7 +136,6 @@ using test::CreateTestFormField;
 using test::CreateTestIbanFormData;
 using test::CreateTestPersonalInformationFormData;
 using test::CreateTestSelectField;
-using test::CreateTestSelectOrSelectListField;
 using ::testing::_;
 using ::testing::AllOf;
 using ::testing::AnyNumber;
@@ -168,6 +168,7 @@ using upload_contents_matchers::ObservedSubmissionIs;
 const std::string kArbitraryNickname = "Grocery Card";
 const std::u16string kArbitraryNickname16 = u"Grocery Card";
 constexpr Suggestion::Icon kAddressEntryIcon = Suggestion::Icon::kAccount;
+constexpr char kPlusAddress[] = "plus+remote@plus.plus";
 
 // Action `SaveArgElementsTo<k>(pointer)` saves the value pointed to by the
 // `k`th (0-based) argument of the mock function by moving it to `*pointer`.
@@ -546,19 +547,26 @@ class MockAutofillClient : public TestAutofillClient {
               (FillingProduct, (const std::map<std::string, std::string>&)),
               (override));
   MOCK_METHOD(AutofillComposeDelegate*, GetComposeDelegate, (), (override));
-  MOCK_METHOD(void,
-              ShowAutofillFieldIphForManualFallbackFeature,
-              (const FormFieldData& field),
+  MOCK_METHOD(bool,
+              ShowAutofillFieldIphForFeature,
+              (const FormFieldData& field, AutofillClient::IphFeature feature),
               (override));
+  MOCK_METHOD(void, HideAutofillFieldIph, (), (override));
   MOCK_METHOD(void,
-              HideAutofillFieldIphForManualFallbackFeature,
-              (),
+              NotifyIphFeatureUsed,
+              (AutofillClient::IphFeature),
               (override));
-  MOCK_METHOD(void, NotifyAutofillManualFallbackUsed, (), (override));
   MOCK_METHOD(MockAutofillPredictionImprovementsDelegate*,
               GetAutofillPredictionImprovementsDelegate,
               (),
               (override));
+  MOCK_METHOD(
+      void,
+      ShowSaveAutofillPredictionImprovementsBubble,
+      (const std::vector<optimization_guide::proto::UserAnnotationsEntry>&
+           to_be_upserted_entries,
+       user_annotations::PromptAcceptanceCallback prompt_acceptance_callback),
+      (override));
 };
 
 class MockTouchToFillDelegate : public TouchToFillDelegate {
@@ -706,8 +714,9 @@ void ExpectFilledForm(
       std::string exp_year = card_fill_data->expiration_year;
       std::string exp_month = card_fill_data->expiration_month;
       std::string date;
-      if (!exp_year.empty() && !exp_month.empty())
+      if (!exp_year.empty() && !exp_month.empty()) {
         date = exp_year + "-" + exp_month;
+      }
 
       ExpectFilledField("Expiration Date", "ccmonth", date.c_str(),
                         FormControlType::kInputMonth,
@@ -798,11 +807,10 @@ class MockAutofillDriver : public TestAutofillDriver {
                const FieldGlobalId& field_id,
                const std::u16string& value),
               (override));
-  MOCK_METHOD(
-      void,
-      SendTypePredictionsToRenderer,
-      ((const std::vector<raw_ptr<FormStructure, VectorExperimental>>&)),
-      (override));
+  MOCK_METHOD(void,
+              SendTypePredictionsToRenderer,
+              ((base::span<const raw_ptr<FormStructure, VectorExperimental>>)),
+              (override));
 };
 
 }  // namespace
@@ -1041,7 +1049,7 @@ class BrowserAutofillManagerTest : public testing::Test {
         CreateTestFormField("CVC", "cvc", "", FormControlType::kInputText));
   }
 
-  void PrepareForRealPanResponse(FormData* form, CreditCard* card) {
+  void PrepareForRealPanResponse(FormData* form) {
     // This line silences the warning from PaymentsNetworkInterface about
     // matching sync and Payments server types.
     base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
@@ -1050,14 +1058,15 @@ class BrowserAutofillManagerTest : public testing::Test {
     CreateTestCreditCardFormData(form, /*is_https=*/true,
                                  /*use_month_type=*/false);
     FormsSeen({*form});
-    *card = CreditCard(CreditCard::RecordType::kMaskedServerCard, "a123");
-    test::SetCreditCardInfo(card, "John Dillinger", "1881" /* Visa */, "01",
+    CreditCard card =
+        CreditCard(CreditCard::RecordType::kMaskedServerCard, "a123");
+    test::SetCreditCardInfo(&card, "John Dillinger", "1881" /* Visa */, "01",
                             "2017", "1");
-    card->SetNetworkForMaskedCard(kVisaCard);
+    card.SetNetworkForMaskedCard(kVisaCard);
 
     EXPECT_CALL(*autofill_driver_, ApplyFormAction).Times(AtLeast(1));
     browser_autofill_manager_->AuthenticateThenFillCreditCardForm(
-        *form, form->fields()[0], *card,
+        *form, form->fields()[0], card,
         {.trigger_source = AutofillTriggerSource::kPopup});
   }
 
@@ -1078,7 +1087,7 @@ class BrowserAutofillManagerTest : public testing::Test {
     full_card_request->OnUnmaskPromptAccepted(details);
 
     // Mock payments response.
-    payments::PaymentsNetworkInterface::UnmaskResponseDetails response;
+    payments::UnmaskResponseDetails response;
     response.card_type = is_virtual_card ? payments::PaymentsAutofillClient::
                                                PaymentsRpcCardType::kVirtualCard
                                          : payments::PaymentsAutofillClient::
@@ -1358,9 +1367,11 @@ class BrowserAutofillManagerTest : public testing::Test {
 
  private:
   int ToHistogramSample(autofill_metrics::CardUploadDecision metric) {
-    for (int sample = 0; sample < metric + 1; ++sample)
-      if (metric & (1 << sample))
+    for (int sample = 0; sample < metric + 1; ++sample) {
+      if (metric & (1 << sample)) {
         return sample;
+      }
+    }
 
     NOTREACHED_IN_MIGRATION();
     return 0;
@@ -1490,6 +1501,8 @@ TEST_F(BrowserAutofillManagerTest, OnFormsSeen_DifferentFormStructures) {
 // Test that when forms are seen, the renderer is updated with the predicted
 // field types
 TEST_F(BrowserAutofillManagerTest, OnFormsSeen_SendTypePredictionsToRenderer) {
+  base::test::ScopedFeatureList features;
+  features.InitAndEnableFeature(features::test::kAutofillShowTypePredictions);
   // Set up a queryable form.
   FormData form1 = CreateTestAddressFormData();
 
@@ -1558,12 +1571,6 @@ TEST_F(BrowserAutofillManagerTest,
 // AddressSuggestionStrikeDatabase logic.
 TEST_F(BrowserAutofillManagerTest,
        GetProfileSuggestions_BlockSuggestionsAfterStrikeLimit) {
-  // Initialize the feature, setting the effective "strike limit" to 3.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeatureWithParameters(
-      features::kAutofillSuggestionNStrikeModel,
-      base::FieldTrialParams{{features::kSuggestionStrikeLimit.name, "3"}});
-
   auto simulate_user_ignored_suggestions = [&](const FormData& form,
                                                const FormFieldData& field) {
     test_api(*browser_autofill_manager_).Reset();
@@ -1807,13 +1814,11 @@ TEST_F(BrowserAutofillManagerTest,
   MockFunction<void(int)> check;
   {
     InSequence s;
-    EXPECT_CALL(autofill_client_, ShowAutofillFieldIphForManualFallbackFeature)
-        .Times(0);
+    EXPECT_CALL(autofill_client_, ShowAutofillFieldIphForFeature).Times(0);
     EXPECT_CALL(check, Call(1));
-    EXPECT_CALL(autofill_client_, ShowAutofillFieldIphForManualFallbackFeature);
+    EXPECT_CALL(autofill_client_, ShowAutofillFieldIphForFeature);
     EXPECT_CALL(check, Call(2));
-    EXPECT_CALL(autofill_client_, ShowAutofillFieldIphForManualFallbackFeature)
-        .Times(0);
+    EXPECT_CALL(autofill_client_, ShowAutofillFieldIphForFeature).Times(0);
   }
 
   // IPH should not be shown for correct autocomplete value.
@@ -1838,7 +1843,9 @@ TEST_F(BrowserAutofillManagerTest, AutofillManualFallback_NotifyFeatureUsed) {
   FormData form = CreateTestAddressFormData();
   FormsSeen({form});
 
-  EXPECT_CALL(autofill_client_, NotifyAutofillManualFallbackUsed).Times(2);
+  EXPECT_CALL(autofill_client_,
+              NotifyIphFeatureUsed(AutofillClient::IphFeature::kManualFallback))
+      .Times(2);
   GetAutofillSuggestions(
       form, form.fields()[0],
       AutofillSuggestionTriggerSource::kManualFallbackAddress);
@@ -2037,8 +2044,8 @@ TEST_P(SuggestionMatchingTest,
        CreateSeparator(), CreateManageAddressesSuggestion()});
 }
 
-// Tests that we return address profile suggestions values when the section
-// is already autofilled, and that they have no label.
+// Tests that we return address field swapping suggestions when the field
+// is already autofilled.
 TEST_P(SuggestionMatchingTest,
        GetProfileSuggestions_AlreadyAutofilledNoLabels) {
   // Set up our form data.
@@ -2051,7 +2058,26 @@ TEST_P(SuggestionMatchingTest,
   firstname_field.set_value(u"E");
   FormsSeen({form});
 
+  FormStructure* form_structure =
+      browser_autofill_manager_->FindCachedFormById(form.global_id());
+  ASSERT_TRUE(form_structure);
+  AutofillField* autofill_field = form_structure->field(0);
+  ASSERT_TRUE(autofill_field);
+  ASSERT_TRUE(firstname_field.global_id() == autofill_field->global_id());
+  autofill_field->set_autofilled_type(autofill_field->Type().GetStorableType());
+
   GetAutofillSuggestions(form, firstname_field);
+#if !BUILDFLAG(IS_IOS)
+  // Test that we sent the right values to the external delegate.
+  external_delegate()->CheckSuggestions(
+      firstname_field.global_id(),
+      {Suggestion("Charles", "", Suggestion::Icon::kNoIcon,
+                  SuggestionType::kAddressFieldByFieldFilling),
+       Suggestion("Elvis", "", Suggestion::Icon::kNoIcon,
+                  SuggestionType::kAddressFieldByFieldFilling),
+       CreateSeparator(), CreateUndoOrClearFormSuggestion(),
+       CreateManageAddressesSuggestion()});
+#else
   // Test that we sent the right values to the external delegate.
   external_delegate()->CheckSuggestions(
       firstname_field.global_id(),
@@ -2059,6 +2085,7 @@ TEST_P(SuggestionMatchingTest,
                   SuggestionType::kAddressEntry),
        CreateSeparator(), CreateUndoOrClearFormSuggestion(),
        CreateManageAddressesSuggestion()});
+#endif  // !BUILDFLAG(IS_IOS)
 }
 
 // Test that we return no suggestions when the form has no relevant fields.
@@ -3179,8 +3206,9 @@ TEST_P(BrowserAutofillManagerLogAblationTest, TestLogging) {
   // Advance time and possibly submit the form.
   base::TimeDelta time_delta = base::Seconds(42);
   task_environment_.FastForwardBy(time_delta);
-  if (params.submit_form)
+  if (params.submit_form) {
     FormSubmitted(form);
+  }
 
   // Flush FormEventLoggers.
   test_api(*browser_autofill_manager_).Reset();
@@ -3402,10 +3430,29 @@ TEST_P(SuggestionMatchingTest, GetFieldSuggestionsWithDuplicateValues) {
   profile.set_guid(MakeGuid(101));
   personal_data().address_data_manager().AddProfile(profile);
 
+  FormStructure* form_structure =
+      browser_autofill_manager_->FindCachedFormById(form.global_id());
+  ASSERT_TRUE(form_structure);
+
   FormFieldData& field = test_api(form).field(0);
+  AutofillField* autofill_field = form_structure->field(0);
+  ASSERT_TRUE(autofill_field);
+  ASSERT_TRUE(field.global_id() == autofill_field->global_id());
   field.set_is_autofilled(true);
+  autofill_field->set_autofilled_type(autofill_field->Type().GetStorableType());
   field.set_value(u"Elvis");
   GetAutofillSuggestions(form, field);
+#if !BUILDFLAG(IS_IOS)
+  // Test that we sent the right values to the external delegate.
+  external_delegate()->CheckSuggestions(
+      field.global_id(),
+      {Suggestion("Elvis", "", Suggestion::Icon::kNoIcon,
+                  SuggestionType::kAddressFieldByFieldFilling),
+       Suggestion("Charles", "", Suggestion::Icon::kNoIcon,
+                  SuggestionType::kAddressFieldByFieldFilling),
+       CreateSeparator(), CreateUndoOrClearFormSuggestion(),
+       CreateManageAddressesSuggestion()});
+#else
   // Test that we sent the right values to the external delegate.
   external_delegate()->CheckSuggestions(
       field.global_id(),
@@ -3413,8 +3460,9 @@ TEST_P(SuggestionMatchingTest, GetFieldSuggestionsWithDuplicateValues) {
                   SuggestionType::kAddressEntry),
        CreateSeparator(), CreateUndoOrClearFormSuggestion(),
        CreateManageAddressesSuggestion()});
+#endif  // !BUILDFLAG(IS_IOS)
 }
-#endif
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 // Tests that we return email profile suggestions values
 // when the email field with username autocomplete attribute exist.
@@ -5193,13 +5241,6 @@ TEST_F(BrowserAutofillManagerTest, FormSubmittedSelectWithDefaultValue) {
   DoTestFormSubmittedControlWithDefaultValue(this, FormControlType::kSelectOne);
 }
 
-// Test that we save form data when a <selectlist> in the form contains the
-// default value.
-TEST_F(BrowserAutofillManagerTest, FormSubmittedSelectListWithDefaultValue) {
-  DoTestFormSubmittedControlWithDefaultValue(this,
-                                             FormControlType::kSelectList);
-}
-
 void DoTestFormSubmittedNonAddressControlWithDefaultValue(
     BrowserAutofillManagerTest* test,
     FormControlType form_control_type) {
@@ -5249,14 +5290,6 @@ TEST_F(BrowserAutofillManagerTest,
        FormSubmittedNonAddressSelectWithDefaultValue) {
   DoTestFormSubmittedNonAddressControlWithDefaultValue(
       this, FormControlType::kSelectOne);
-}
-
-// Test that we save form data when a non-country, non-state <selectlist> in the
-// form contains the default value.
-TEST_F(BrowserAutofillManagerTest,
-       FormSubmittedNonAddressSelectListWithDefaultValue) {
-  DoTestFormSubmittedNonAddressControlWithDefaultValue(
-      this, FormControlType::kSelectList);
 }
 
 // Tests that DeterminePossibleFieldTypesForUpload is called when a form is
@@ -5629,8 +5662,7 @@ TEST_F(BrowserAutofillManagerTest, DontSaveCvcInAutocompleteHistory) {
 
 TEST_F(BrowserAutofillManagerTest, DontOfferToSavePaymentsCard) {
   FormData form;
-  CreditCard card;
-  PrepareForRealPanResponse(&form, &card);
+  PrepareForRealPanResponse(&form);
 
   // Manually fill out |form| so we can use it in OnFormSubmitted.
   for (auto& field : test_api(form).fields()) {
@@ -6684,8 +6716,10 @@ class BrowserAutofillManagerTestPageLanguageDetection
       public testing::WithParamInterface<bool> {
  public:
   BrowserAutofillManagerTestPageLanguageDetection() {
-    scoped_features_.InitAndEnableFeature(
-        features::kAutofillPageLanguageDetection);
+    scoped_features_.InitWithFeatures(
+        /*enabled_features=*/{features::kAutofillPageLanguageDetection,
+                              features::kAutofillFixValueSemantics},
+        /*disabled_features=*/{});
   }
 
   bool is_active() const { return GetParam(); }
@@ -6706,10 +6740,10 @@ TEST_P(BrowserAutofillManagerTestPageLanguageDetection, GetsCorrectlyDetected) {
 
   translate::LanguageDetectionDetails language_detection_details;
   language_detection_details.adopted_language = "hu";
+  autofill_client_.GetLanguageState()->SetCurrentLanguage("hu");
+
   autofill_driver_->SetIsActive(is_active());
   browser_autofill_manager_->OnLanguageDetermined(language_detection_details);
-
-  autofill_client_.GetLanguageState()->SetCurrentLanguage("hu");
 
   parsed_form = browser_autofill_manager_->FindCachedFormById(form.global_id());
 
@@ -6935,7 +6969,7 @@ TEST_F(BrowserAutofillManagerTest, GetSuggestions_AboutBlankTarget) {
 TEST_F(BrowserAutofillManagerTest, HideAutofillSuggestionsAndOtherPopups) {
   EXPECT_CALL(autofill_client_,
               HideAutofillSuggestions(SuggestionHidingReason::kRendererEvent));
-  EXPECT_CALL(autofill_client_, HideAutofillFieldIphForManualFallbackFeature);
+  EXPECT_CALL(autofill_client_, HideAutofillFieldIph);
   EXPECT_CALL(touch_to_fill_delegate(), HideTouchToFill);
   EXPECT_CALL(fast_checkout_delegate(),
               HideFastCheckout(/*allow_further_runs=*/false));
@@ -7198,16 +7232,14 @@ TEST_F(BrowserAutofillManagerTest, ShowPredictionImprovementsSuggestions) {
   NiceMock<MockAutofillPredictionImprovementsDelegate> delegate;
   ON_CALL(autofill_client_, GetAutofillPredictionImprovementsDelegate)
       .WillByDefault(Return(&delegate));
-  ON_CALL(delegate, ShouldProvidePredictionImprovements)
+  ON_CALL(delegate, IsPredictionImprovementsEligible)
       .WillByDefault(Return(true));
-  EXPECT_CALL(delegate, MaybeUpdateSuggestions)
-      .WillOnce([](std::vector<Suggestion>& address_suggestions,
-                   const FormFieldData& field,
-                   bool should_add_trigger_suggestion) {
-        address_suggestions = {Suggestion(
-            u"Autocomplete", SuggestionType::kRetrievePredictionImprovements)};
-        return true;
-      });
+  EXPECT_CALL(delegate, HasDataStored)
+      .WillOnce(RunOnceCallback<0>(
+          AutofillPredictionImprovementsDelegate::HasData(true)));
+  EXPECT_CALL(delegate, GetSuggestions)
+      .WillOnce(Return(std::vector<Suggestion>{Suggestion(
+          u"Autocomplete", SuggestionType::kRetrievePredictionImprovements)}));
 
   GetAutofillSuggestions(
       form, form.fields().front(),
@@ -7218,21 +7250,44 @@ TEST_F(BrowserAutofillManagerTest, ShowPredictionImprovementsSuggestions) {
                         Eq(SuggestionType::kRetrievePredictionImprovements))));
 }
 
+// Tests that the prediction improvements IPH is shown when the user and form
+// are eligible but the pref is disabled.
+TEST_F(BrowserAutofillManagerTest, ShowPredictionImprovementsIPH) {
+  FormData form = CreateTestAddressFormData();
+  FormsSeen({form});
+
+  NiceMock<MockAutofillPredictionImprovementsDelegate> delegate;
+  ON_CALL(autofill_client_, GetAutofillPredictionImprovementsDelegate)
+      .WillByDefault(Return(&delegate));
+  ON_CALL(delegate, IsPredictionImprovementsEligible)
+      .WillByDefault(Return(false));
+  ON_CALL(delegate, ShouldDisplayIph).WillByDefault(Return(true));
+
+  EXPECT_CALL(autofill_client_,
+              ShowAutofillFieldIphForFeature(
+                  _, AutofillClient::IphFeature::kPredictionImprovements));
+
+  GetAutofillSuggestions(
+      form, form.fields().front(),
+      AutofillSuggestionTriggerSource::kPredictionImprovements);
+}
+
 // Tests that an Autofill profile is not imported into the address data manager
 // when the submitted form was imported into user annotations successfully.
 TEST_F(BrowserAutofillManagerTest,
        ProfileNotImportedOnSuccessfulUserAnnotationsImport) {
+  using optimization_guide::proto::UserAnnotationsEntry;
   TestAddressDataManager& adm = personal_data().test_address_data_manager();
   FormData form = CreateTestAddressFormData();
   FormsSeen({form});
 
   NiceMock<MockAutofillPredictionImprovementsDelegate> delegate;
-  AutofillPredictionImprovementsDelegate::ImportFormCallback
-      import_form_callback;
+  user_annotations::ImportFormCallback import_form_callback;
   ON_CALL(autofill_client_, GetAutofillPredictionImprovementsDelegate)
       .WillByDefault(Return(&delegate));
+  ON_CALL(delegate, IsUserEligible).WillByDefault(Return(true));
   EXPECT_CALL(delegate, MaybeImportForm)
-      .WillOnce(MoveArg<2>(&import_form_callback));
+      .WillOnce(MoveArg<1>(&import_form_callback));
 
   // Fill the form.
   FormData response_data =
@@ -7247,12 +7302,21 @@ TEST_F(BrowserAutofillManagerTest,
   adm.ClearProfiles();
   EXPECT_TRUE(adm.GetProfiles().empty());
   FormSubmitted(response_data);
-  optimization_guide::proto::UserAnnotationsEntry entry;
+  UserAnnotationsEntry entry;
   entry.set_entry_id(1LL);
   entry.set_key("key");
   entry.set_value("value");
+  EXPECT_CALL(
+      autofill_client_,
+      ShowSaveAutofillPredictionImprovementsBubble(
+          ElementsAre(AllOf(
+              Property(&UserAnnotationsEntry::entry_id, Eq(entry.entry_id())),
+              Property(&UserAnnotationsEntry::key, Eq(entry.key())),
+              Property(&UserAnnotationsEntry::value, Eq(entry.value())))),
+          _));
   std::move(import_form_callback)
-      .Run(/*to_be_upserted_entries=*/{std::move(entry)},
+      .Run(std::make_unique<FormStructure>(response_data),
+           /*to_be_upserted_entries=*/{std::move(entry)},
            /*prompt_acceptance_callback=*/base::DoNothing());
   EXPECT_TRUE(adm.GetProfiles().empty());
 }
@@ -7266,12 +7330,19 @@ TEST_F(BrowserAutofillManagerTest,
   FormsSeen({form});
 
   NiceMock<MockAutofillPredictionImprovementsDelegate> delegate;
-  AutofillPredictionImprovementsDelegate::ImportFormCallback
-      import_form_callback;
   ON_CALL(autofill_client_, GetAutofillPredictionImprovementsDelegate)
       .WillByDefault(Return(&delegate));
-  EXPECT_CALL(delegate, MaybeImportForm)
-      .WillOnce(MoveArg<2>(&import_form_callback));
+  ON_CALL(delegate, IsUserEligible).WillByDefault(Return(true));
+  // This simulates that UserAnnotations failed to import data from the
+  // submitted form.
+  ON_CALL(delegate, MaybeImportForm)
+      .WillByDefault([](std::unique_ptr<autofill::FormStructure> form,
+                        user_annotations::ImportFormCallback callback) {
+        std::move(callback).Run(
+            std::move(form),
+            /*to_be_upserted_entries=*/{},
+            /*prompt_acceptance_callback=*/base::DoNothing());
+      });
 
   // Fill the form.
   FormData response_data =
@@ -7285,10 +7356,32 @@ TEST_F(BrowserAutofillManagerTest,
   adm.ClearProfiles();
   EXPECT_TRUE(adm.GetProfiles().empty());
   FormSubmitted(response_data);
-  std::move(import_form_callback)
-      .Run(/*to_be_upserted_entries=*/{},
-           /*prompt_acceptance_callback=*/base::DoNothing());
   EXPECT_FALSE(adm.GetProfiles().empty());
+}
+
+// Tests that the filled-in form is not imported into user annotations if
+// the user is not eligible for the improved autofill prediction experience.
+TEST_F(BrowserAutofillManagerTest, CC) {
+  TestAddressDataManager& adm = personal_data().test_address_data_manager();
+  FormData form = CreateTestAddressFormData();
+  FormsSeen({form});
+
+  NiceMock<MockAutofillPredictionImprovementsDelegate> delegate;
+  ON_CALL(autofill_client_, GetAutofillPredictionImprovementsDelegate)
+      .WillByDefault(Return(&delegate));
+  ON_CALL(delegate, IsUserEligible).WillByDefault(Return(false));
+  EXPECT_CALL(delegate, MaybeImportForm).Times(0);
+
+  // Fill the form.
+  FormData response_data =
+      FillAutofillFormDataAndGetResults(form, form.fields()[0], MakeGuid(1));
+
+  // Remove the filled profile and simulate form submission. Since the
+  // `personal_data()`'s auto accept imports for testing is enabled, expect
+  // that the profile is imported again.
+  adm.ClearProfiles();
+  ASSERT_TRUE(adm.GetProfiles().empty());
+  FormSubmitted(response_data);
 }
 
 // Test param indicates if there is an active screen reader.
@@ -7999,7 +8092,7 @@ class BrowserAutofillManagerPlusAddressTest
         std::make_unique<NiceMock<MockAutofillPlusAddressDelegate>>();
     ON_CALL(*plus_address_delegate, GetManagePlusAddressSuggestion)
         .WillByDefault(Return(Suggestion(SuggestionType::kManagePlusAddress)));
-    ON_CALL(*plus_address_delegate, ShouldMixWithSingleFieldFormFillSuggestions)
+    ON_CALL(*plus_address_delegate, IsPlusAddressFillingEnabled)
         .WillByDefault(Return(true));
     autofill_client_.set_plus_address_delegate(
         std::move(plus_address_delegate));
@@ -8013,8 +8106,12 @@ class BrowserAutofillManagerPlusAddressTest
 
 // Ensure that plus address options aren't queried for non-email fields.
 TEST_F(BrowserAutofillManagerPlusAddressTest, NoPlusAddressesWithNameFields) {
-  EXPECT_CALL(plus_address_delegate(), GetSuggestions).Times(0);
-
+  const std::vector<std::string> plus_addresses = {kPlusAddress};
+  EXPECT_CALL(plus_address_delegate(), GetAffiliatedPlusAddresses)
+      .WillOnce(RunOnceCallback<1>(plus_addresses));
+  EXPECT_CALL(plus_address_delegate(), GetSuggestionsFromPlusAddresses(
+                                           plus_addresses, _, _, _, _, _, _, _))
+      .Times(0);
   // Set up our form data.
   FormData form = test::GetFormData(
       {.fields = {{.role = NAME_FIRST, .autocomplete_attribute = "given-name"},
@@ -8045,8 +8142,12 @@ TEST_F(BrowserAutofillManagerPlusAddressTest,
   using enum PasswordFormClassification::Type;
 
   // Plus address suggestions request.
-  EXPECT_CALL(plus_address_delegate(), GetSuggestions)
-      .WillOnce(RunOnceCallback<5>(std::vector<Suggestion>{
+  const std::vector<std::string> plus_addresses = {kPlusAddress};
+  EXPECT_CALL(plus_address_delegate(), GetAffiliatedPlusAddresses)
+      .WillOnce(RunOnceCallback<1>(plus_addresses));
+  EXPECT_CALL(plus_address_delegate(), GetSuggestionsFromPlusAddresses(
+                                           plus_addresses, _, _, _, _, _, _, _))
+      .WillOnce(Return(std::vector<Suggestion>{
           Suggestion(SuggestionType::kFillExistingPlusAddress)}));
   // No single field form fill suggestions requests.
   EXPECT_CALL(single_field_form_fill_router(), OnGetSingleFieldSuggestions)
@@ -8090,8 +8191,10 @@ TEST_F(BrowserAutofillManagerPlusAddressTest,
   personal_data().test_address_data_manager().ClearProfiles();
 
   // Plus address suggestions request.
-  EXPECT_CALL(plus_address_delegate(), GetSuggestions)
-      .WillOnce(RunOnceCallback<5>(std::vector<Suggestion>{
+  EXPECT_CALL(plus_address_delegate(), GetAffiliatedPlusAddresses)
+      .WillOnce(RunOnceCallback<1>(std::vector<std::string>{}));
+  EXPECT_CALL(plus_address_delegate(), GetSuggestionsFromPlusAddresses)
+      .WillOnce(Return(std::vector<Suggestion>{
           Suggestion(SuggestionType::kCreateNewPlusAddress)}));
   // Single field form fill suggestions request - No results.
   EXPECT_CALL(single_field_form_fill_router(), OnGetSingleFieldSuggestions)
@@ -8130,7 +8233,9 @@ TEST_F(BrowserAutofillManagerPlusAddressTest,
   personal_data().test_address_data_manager().ClearProfiles();
 
   // No plus address suggestions request.
-  EXPECT_CALL(plus_address_delegate(), GetSuggestions).Times(0);
+  EXPECT_CALL(plus_address_delegate(), GetAffiliatedPlusAddresses).Times(0);
+  EXPECT_CALL(plus_address_delegate(), GetSuggestionsFromPlusAddresses)
+      .Times(0);
   // Single field form fill suggestions request.
   EXPECT_CALL(single_field_form_fill_router(), OnGetSingleFieldSuggestions)
       .WillRepeatedly([&](const FormStructure*, const FormFieldData& field,
@@ -8173,7 +8278,9 @@ TEST_F(BrowserAutofillManagerPlusAddressTest,
   personal_data().test_address_data_manager().ClearProfiles();
 
   // No plus address suggestions request.
-  EXPECT_CALL(plus_address_delegate(), GetSuggestions).Times(0);
+  EXPECT_CALL(plus_address_delegate(), GetAffiliatedPlusAddresses).Times(0);
+  EXPECT_CALL(plus_address_delegate(), GetSuggestionsFromPlusAddresses)
+      .Times(0);
   // Single field form fill suggestions request.
   EXPECT_CALL(single_field_form_fill_router(), OnGetSingleFieldSuggestions)
       .WillRepeatedly([&](const FormStructure*, const FormFieldData& field,
@@ -8219,8 +8326,12 @@ TEST_F(BrowserAutofillManagerPlusAddressTest,
   personal_data().test_address_data_manager().ClearProfiles();
 
   // Plus address suggestions request.
-  EXPECT_CALL(plus_address_delegate(), GetSuggestions)
-      .WillOnce(RunOnceCallback<5>(std::vector<Suggestion>{
+  const std::vector<std::string> plus_addresses = {kPlusAddress};
+  EXPECT_CALL(plus_address_delegate(), GetAffiliatedPlusAddresses)
+      .WillOnce(RunOnceCallback<1>(plus_addresses));
+  EXPECT_CALL(plus_address_delegate(), GetSuggestionsFromPlusAddresses(
+                                           plus_addresses, _, _, _, _, _, _, _))
+      .WillOnce(Return(std::vector<Suggestion>{
           Suggestion(SuggestionType::kFillExistingPlusAddress)}));
   // Single field form fill suggestions request.
   EXPECT_CALL(single_field_form_fill_router(), OnGetSingleFieldSuggestions)
@@ -8269,8 +8380,10 @@ TEST_F(BrowserAutofillManagerPlusAddressTest,
   using enum AutofillPlusAddressDelegate::SuggestionContext;
   using enum PasswordFormClassification::Type;
   personal_data().test_address_data_manager().ClearProfiles();
-  EXPECT_CALL(plus_address_delegate(), GetSuggestions)
-      .WillOnce(RunOnceCallback<5>(std::vector<Suggestion>{}));
+  EXPECT_CALL(plus_address_delegate(), GetAffiliatedPlusAddresses)
+      .WillOnce(RunOnceCallback<1>(std::vector<std::string>{}));
+  EXPECT_CALL(plus_address_delegate(), GetSuggestionsFromPlusAddresses)
+      .WillOnce(Return(std::vector<Suggestion>{}));
   EXPECT_CALL(plus_address_delegate(), GetManagePlusAddressSuggestion).Times(0);
   EXPECT_CALL(plus_address_delegate(), OnPlusAddressSuggestionShown).Times(0);
   // Single field form fill suggestions request - No results.
@@ -8297,12 +8410,14 @@ TEST_F(BrowserAutofillManagerPlusAddressTest,
 TEST_F(BrowserAutofillManagerPlusAddressTest, ManualFallbackPlusAddress) {
   using enum AutofillPlusAddressDelegate::SuggestionContext;
   using enum PasswordFormClassification::Type;
+  EXPECT_CALL(plus_address_delegate(), GetAffiliatedPlusAddresses)
+      .WillOnce(RunOnceCallback<1>(std::vector<std::string>{}));
   EXPECT_CALL(
       plus_address_delegate(),
-      GetSuggestions(
-          _, _, _, _,
-          AutofillSuggestionTriggerSource::kManualFallbackPlusAddresses, _))
-      .WillOnce(RunOnceCallback<5>(std::vector<Suggestion>{
+      GetSuggestionsFromPlusAddresses(
+          _, _, _, _, _, _, _,
+          AutofillSuggestionTriggerSource::kManualFallbackPlusAddresses))
+      .WillOnce(Return(std::vector<Suggestion>{
           Suggestion(SuggestionType::kCreateNewPlusAddress)}));
   EXPECT_CALL(plus_address_delegate(),
               OnPlusAddressSuggestionShown(

@@ -109,7 +109,7 @@ class VIZ_HOST_EXPORT GpuHostImpl : public mojom::GpuHost
 #endif
 
    protected:
-    virtual ~Delegate() {}
+    virtual ~Delegate() = default;
   };
 
   struct VIZ_HOST_EXPORT InitParams {
@@ -316,8 +316,6 @@ class VIZ_HOST_EXPORT GpuHostImpl : public mojom::GpuHost
 
   std::multimap<int32_t, scoped_refptr<gpu::GpuDiskCache>> client_id_to_caches_;
   std::string shader_prefix_key_;
-
-  const bool shared_bitmap_to_shared_image_flag_;
 
   // These are the channel requests that we have already sent to the GPU
   // service, but haven't heard back about yet.

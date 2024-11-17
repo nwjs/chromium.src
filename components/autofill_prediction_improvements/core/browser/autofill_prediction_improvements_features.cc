@@ -4,7 +4,12 @@
 
 #include "components/autofill_prediction_improvements/core/browser/autofill_prediction_improvements_features.h"
 
-#include "base/metrics/field_trial_params.h"
+#include "base/types/cxx23_to_underlying.h"
+#include "build/build_config.h"
+#include "components/autofill/core/common/autofill_prefs.h"
+#include "components/optimization_guide/core/feature_registry/feature_registration.h"
+#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
+#include "components/prefs/pref_service.h"
 
 namespace autofill_prediction_improvements {
 
@@ -14,14 +19,28 @@ BASE_FEATURE(kAutofillPredictionImprovements,
              "AutofillPredictionImprovements",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-bool IsAutofillPredictionImprovementsEnabled() {
-  return base::FeatureList::IsEnabled(kAutofillPredictionImprovements);
-}
+// Bootstrap autofill prediction while opt-ing in for improvements.
+BASE_FEATURE(kAutofillPredictionBootstrapping,
+             "AutofillPredictionBootstrapping",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
-bool ShouldSkipAllowlist() {
-  // TODO(crbug.com/362659272): Change default value to `false`.
-  return base::GetFieldTrialParamByFeatureAsBool(
-      kAutofillPredictionImprovements, "skip_allowlist", true);
+bool IsAutofillPredictionImprovementsSupported(const PrefService* prefs) {
+  constexpr bool is_supported_platform = BUILDFLAG(IS_CHROMEOS) ||
+                                         BUILDFLAG(IS_LINUX) ||
+                                         BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN);
+  if constexpr (!is_supported_platform) {
+    return false;
+  }
+  constexpr int kAutofillPredictionSettingsDisabled =
+      base::to_underlying(optimization_guide::model_execution::prefs::
+                              ModelExecutionEnterprisePolicyValue::kDisable);
+  static_assert(kAutofillPredictionSettingsDisabled == 2);
+  return base::FeatureList::IsEnabled(kAutofillPredictionImprovements) &&
+         prefs->GetInteger(
+             optimization_guide::prefs::
+                 kAutofillPredictionImprovementsEnterprisePolicyAllowed) !=
+             kAutofillPredictionSettingsDisabled &&
+         prefs->GetBoolean(autofill::prefs::kAutofillProfileEnabled);
 }
 
 }  // namespace autofill_prediction_improvements

@@ -18,7 +18,11 @@
 /// Data containing the suggest signals.
 @property(nonatomic, strong) NSData* suggestSignals;
 /// Query text.
-@property(nonatomic, strong) NSString* queryText;
+@property(nonatomic, copy, readwrite) NSString* queryText;
+/// Whether the result represents a text selection.
+@property(nonatomic, readonly) BOOL isTextSelection;
+/// The selection rect of the lens region.
+@property(nonatomic, assign) CGRect selectionRect;
 
 @end
 
@@ -40,6 +44,10 @@
 }
 
 #pragma mark - ChromeLensOverlay
+
+- (BOOL)isTextSelection {
+  return NO;
+}
 
 - (BOOL)isPanningSelectionUI {
   return NO;
@@ -77,10 +85,28 @@
   // NO-OP
 }
 
+// Resets the selection area to the initial position.
+- (void)resetSelectionAreaToInitialPosition:(void (^)())completion {
+  // NO-OP
+}
+
+- (void)setTopIconsHidden:(BOOL)hidden {
+  // NO-OP
+}
+
 #pragma mark - Public
 
 - (void)simulateSelectionUpdate {
   [self sendNewResult];
+}
+
+- (void)simulateSuggestSignalsUpdate:(NSData*)signals {
+  TestChromeLensOverlayResult* mutableResult =
+      base::apple::ObjCCastStrict<TestChromeLensOverlayResult>(self.lastResult);
+
+  mutableResult.suggestSignals = signals;
+  [self.lensOverlayDelegate lensOverlay:self
+        suggestSignalsAvailableOnResult:self.lastResult];
 }
 
 #pragma mark - Private

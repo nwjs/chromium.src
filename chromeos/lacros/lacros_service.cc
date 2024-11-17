@@ -73,7 +73,6 @@
 #include "chromeos/crosapi/mojom/fullscreen_controller.mojom.h"
 #include "chromeos/crosapi/mojom/geolocation.mojom.h"
 #include "chromeos/crosapi/mojom/guest_os_sk_forwarder.mojom.h"
-#include "chromeos/crosapi/mojom/holding_space_service.mojom.h"
 #include "chromeos/crosapi/mojom/identity_manager.mojom.h"
 #include "chromeos/crosapi/mojom/image_writer.mojom.h"
 #include "chromeos/crosapi/mojom/input_methods.mojom.h"
@@ -112,10 +111,8 @@
 #include "chromeos/crosapi/mojom/resource_manager.mojom.h"
 #include "chromeos/crosapi/mojom/screen_ai_downloader.mojom.h"
 #include "chromeos/crosapi/mojom/screen_manager.mojom.h"
-#include "chromeos/crosapi/mojom/select_file.mojom.h"
 #include "chromeos/crosapi/mojom/sharesheet.mojom.h"
 #include "chromeos/crosapi/mojom/smart_reader.mojom.h"
-#include "chromeos/crosapi/mojom/speech_recognition.mojom.h"
 #include "chromeos/crosapi/mojom/suggestion_service.mojom.h"
 #include "chromeos/crosapi/mojom/sync.mojom.h"
 #include "chromeos/crosapi/mojom/task_manager.mojom.h"
@@ -125,7 +122,6 @@
 #include "chromeos/crosapi/mojom/test_controller.mojom.h"
 #include "chromeos/crosapi/mojom/timezone.mojom.h"
 #include "chromeos/crosapi/mojom/trusted_vault.mojom.h"
-#include "chromeos/crosapi/mojom/tts.mojom.h"
 #include "chromeos/crosapi/mojom/url_handler.mojom.h"
 #include "chromeos/crosapi/mojom/video_conference.mojom.h"
 #include "chromeos/crosapi/mojom/virtual_keyboard.mojom.h"
@@ -441,10 +437,6 @@ LacrosService::LacrosService()
   ConstructRemote<device::mojom::HidManager,
                   &crosapi::mojom::Crosapi::BindHidManager,
                   Crosapi::MethodMinVersions::kBindHidManagerMinVersion>();
-  ConstructRemote<
-      crosapi::mojom::HoldingSpaceService,
-      &crosapi::mojom::Crosapi::BindHoldingSpaceService,
-      Crosapi::MethodMinVersions::kBindHoldingSpaceServiceMinVersion>();
   ConstructRemote<crosapi::mojom::IdentityManager,
                   &crosapi::mojom::Crosapi::BindIdentityManager,
                   Crosapi::MethodMinVersions::kBindIdentityManagerMinVersion>();
@@ -590,9 +582,6 @@ LacrosService::LacrosService()
   ConstructRemote<crosapi::mojom::ScreenManager,
                   &crosapi::mojom::Crosapi::BindScreenManager,
                   Crosapi::MethodMinVersions::kBindScreenManagerMinVersion>();
-  ConstructRemote<crosapi::mojom::SelectFile,
-                  &crosapi::mojom::Crosapi::BindSelectFile,
-                  Crosapi::MethodMinVersions::kBindSelectFileMinVersion>();
   ConstructRemote<
       crosapi::mojom::SearchControllerRegistry,
       &crosapi::mojom::Crosapi::BindSearchControllerRegistry,
@@ -600,10 +589,6 @@ LacrosService::LacrosService()
   ConstructRemote<crosapi::mojom::Sharesheet,
                   &crosapi::mojom::Crosapi::BindSharesheet,
                   Crosapi::MethodMinVersions::kBindSharesheetMinVersion>();
-  ConstructRemote<
-      crosapi::mojom::SpeechRecognition,
-      &crosapi::mojom::Crosapi::BindSpeechRecognition,
-      Crosapi::MethodMinVersions::kBindSpeechRecognitionMinVersion>();
   ConstructRemote<
       crosapi::mojom::StructuredMetricsService,
       &crosapi::mojom::Crosapi::BindStructuredMetricsService,

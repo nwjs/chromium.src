@@ -7,10 +7,12 @@ package org.chromium.chrome.browser.omnibox.suggestions;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
+import android.os.Build;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.view.View;
+import android.view.Window;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
@@ -102,10 +104,11 @@ class AutocompleteMediator
     private final @NonNull Supplier<TabWindowManager> mTabWindowManagerSupplier;
     private final @NonNull OmniboxActionDelegate mOmniboxActionDelegate;
     private final @NonNull ActivityLifecycleDispatcher mLifecycleDispatcher;
-    private final @NonNull SuggestionsListAnimationDriver mAnimationDriver;
+    private @Nullable SuggestionsListAnimationDriver mAnimationDriver;
     private final @NonNull WindowAndroid mWindowAndroid;
     private final @NonNull DeferredIMEWindowInsetApplicationCallback
             mDeferredIMEWindowInsetApplicationCallback;
+    private final @NonNull OmniboxSuggestionsDropdownEmbedder mEmbedder;
 
     private @NonNull Optional<AutocompleteController> mAutocomplete = Optional.empty();
     private @NonNull Optional<AutocompleteResult> mAutocompleteResult = Optional.empty();
@@ -207,6 +210,7 @@ class AutocompleteMediator
         mSuggestionModels = mListPropertyModel.get(SuggestionListProperties.SUGGESTION_MODELS);
         mOmniboxActionDelegate = omniboxActionDelegate;
         mWindowAndroid = windowAndroid;
+        mEmbedder = embedder;
         mDropdownViewInfoListBuilder =
                 new DropdownItemViewInfoListBuilder(activityTabSupplier, bookmarkState);
         mDropdownViewInfoListBuilder.setShareDelegateSupplier(shareDelegateSupplier);
@@ -224,17 +228,11 @@ class AutocompleteMediator
         mListPropertyModel.set(
                 SuggestionListProperties.DRAW_OVER_ANCHOR,
                 DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext));
-        int addedVerticalOffset =
-                context.getResources()
-                        .getDimensionPixelOffset(
-                                R.dimen.omnibox_suggestion_list_animation_added_vertical_offset);
-        mAnimationDriver =
-                new SuggestionsListAnimationDriver(
-                        windowAndroid,
-                        mListPropertyModel,
-                        embedder::getVerticalTranslationForAnimation,
-                        () -> propagateOmniboxSessionStateChange(true),
-                        addedVerticalOffset);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+                && OmniboxFeatures.shouldAnimateSuggestionsListAppearance()) {
+            initializeAnimationDriver(mWindowAndroid.getWindow());
+        }
     }
 
     /**
@@ -295,6 +293,19 @@ class AutocompleteMediator
     }
 
     /**
+     * Check if the suggestion is a link created from clipboard. It can be either a suggested
+     * clipboard URL, or pasting an URL into the omnibox.
+     *
+     * @param suggestion The AutocompleteMatch to check.
+     * @return Whether or not the suggestion is a link from clipboard.
+     */
+    private boolean isSuggestionLinkFromClipboard(AutocompleteMatch suggestion) {
+        return suggestion.getType() == OmniboxSuggestionType.CLIPBOARD_URL
+                || (suggestion.getType() == OmniboxSuggestionType.URL_WHAT_YOU_TYPED
+                        && mUrlBarEditingTextProvider.wasLastEditPaste());
+    }
+
+    /**
      * @return The number of current autocomplete suggestions.
      */
     public int getSuggestionCount() {
@@ -343,14 +354,10 @@ class AutocompleteMediator
      * presented suggestions in the event where Native counterpart is not yet initialized.
      *
      * <p>Note: the only supported page context right now is the ANDROID_SEARCH_WIDGET.
-     *
-     * @param isOnFocusContext Whether the request is made on focus (as opposed to on a text
-     *     change).
      */
-    void startCachedZeroSuggest(boolean isOnFocusContext) {
+    void startCachedZeroSuggest() {
         maybeServeCachedResult();
-        postAutocompleteRequest(
-                () -> startZeroSuggest(isOnFocusContext), SCHEDULE_FOR_IMMEDIATE_EXECUTION);
+        postAutocompleteRequest(this::startZeroSuggest, SCHEDULE_FOR_IMMEDIATE_EXECUTION);
     }
 
     private void maybeCacheResult(@NonNull AutocompleteResult result) {
@@ -406,7 +413,7 @@ class AutocompleteMediator
         // - before stopAutocomplete() (when current suggestions are erased).
         mDropdownViewInfoListBuilder.onOmniboxSessionStateChange(activated);
 
-        if (OmniboxFeatures.shouldAnimateSuggestionsListAppearance()) {
+        if (mAnimationDriver != null && mAnimationDriver.isImeAnimationEnabled()) {
             mAnimationDriver.onOmniboxSessionStateChange(activated);
             if (activated) {
                 mDelegate.setKeyboardVisibility(true, false);
@@ -431,8 +438,7 @@ class AutocompleteMediator
             // This is tracked by MobileStartup.LaunchCause / EXTERNAL_SEARCH_ACTION_INTENT
             // metric.
             String text = mUrlBarEditingTextProvider.getTextWithoutAutocomplete();
-            onTextChanged(
-                    text, /* isOnFocusContext= */ OmniboxFeatures.shouldRetainOmniboxOnFocus());
+            onTextChanged(text);
         } else {
             mDeferredIMEWindowInsetApplicationCallback.detach();
             stopMeasuringSuggestionRequestToUiModelTime();
@@ -464,6 +470,11 @@ class AutocompleteMediator
      *     org.chromium.chrome.browser.omnibox.UrlFocusChangeListener#onUrlAnimationFinished(boolean)
      */
     void onUrlAnimationFinished(boolean hasFocus) {
+        // mAnimationDriver has the responsibility of calling propagateOmniboxSessionStateChange if
+        // it's present and currently active.
+        if (hasFocus && mAnimationDriver != null && mAnimationDriver.isImeAnimationEnabled()) {
+            return;
+        }
         propagateOmniboxSessionStateChange(hasFocus);
     }
 
@@ -604,9 +615,7 @@ class AutocompleteMediator
         if (isSearchSuggestion) refineText = TextUtils.concat(refineText, " ").toString();
 
         mDelegate.setOmniboxEditingText(refineText);
-        onTextChanged(
-                mUrlBarEditingTextProvider.getTextWithoutAutocomplete(),
-                /* isOnFocusContext= */ false);
+        onTextChanged(mUrlBarEditingTextProvider.getTextWithoutAutocomplete());
 
         if (isSearchSuggestion) {
             // Note: the logic below toggles assumes individual values to be represented by
@@ -804,7 +813,7 @@ class AutocompleteMediator
      * @return The url to navigate to.
      */
     private @NonNull GURL updateSuggestionUrlIfNeeded(
-            @NonNull AutocompleteMatch suggestion, int matchIndex, @NonNull GURL url) {
+            @NonNull AutocompleteMatch suggestion, @NonNull GURL url) {
         if (mAutocomplete.isEmpty()) return url;
         // TODO(crbug.com/40279214): this should exclude TILE variants when horizontal render group
         // is
@@ -826,9 +835,8 @@ class AutocompleteMediator
      * autocomplete suggestions should be updated.
      *
      * @param textWithoutAutocomplete The text that does not include autocomplete information.
-     * @param isOnFocusContext Whether the request is made on focus (as opposed to on text change).
      */
-    public void onTextChanged(@NonNull String textWithoutAutocomplete, boolean isOnFocusContext) {
+    public void onTextChanged(@NonNull String textWithoutAutocomplete) {
         if (mShouldPreventOmniboxAutocomplete) return;
 
         mIgnoreOmniboxItemSelection = true;
@@ -842,13 +850,11 @@ class AutocompleteMediator
 
         stopAutocomplete(false);
 
-        boolean isTextWithoutAutocompleteEmpty = TextUtils.isEmpty(textWithoutAutocomplete);
-        mIsInZeroPrefixContext = isOnFocusContext || isTextWithoutAutocompleteEmpty;
-        isOnFocusContext = isOnFocusContext && !isTextWithoutAutocompleteEmpty;
+        mIsInZeroPrefixContext = TextUtils.isEmpty(textWithoutAutocomplete);
 
         if (mIsInZeroPrefixContext) {
             clearSuggestions();
-            startCachedZeroSuggest(isOnFocusContext);
+            startCachedZeroSuggest();
         } else if (mDataProvider.hasTab()) {
             boolean preventAutocomplete = !mUrlBarEditingTextProvider.shouldAutocomplete();
             int cursorPosition =
@@ -981,7 +987,7 @@ class AutocompleteMediator
 
             mOmniboxFocusResultedInNavigation = true;
             if (shouldUpdateSuggestionUrl) {
-                url = updateSuggestionUrlIfNeeded(suggestion, matchIndex, url);
+                url = updateSuggestionUrlIfNeeded(suggestion, url);
             }
 
             // loadUrl modifies AutocompleteController's state clearing the native
@@ -1011,6 +1017,10 @@ class AutocompleteMediator
                 // where we want the transition type to be LINK.
 
                 transition = PageTransition.LINK;
+            }
+
+            if (isSuggestionLinkFromClipboard(suggestion)) {
+                mDelegate.maybeShowDefaultBrowserPromo();
             }
 
             // Kick off an action to clear focus and dismiss the suggestions list.
@@ -1069,10 +1079,8 @@ class AutocompleteMediator
      * Make a zero suggest request if: - The URL bar has focus. - The the tab/overview is not
      * incognito. This method should not be called directly. Schedule execution using
      * postAutocompleteRequest.
-     *
-     * @param isOnFocusContext Whether the request is made on focus (as opposed to on text change).
      */
-    private void startZeroSuggest(boolean isOnFocusContext) {
+    private void startZeroSuggest() {
         // Reset "edited" state in the omnibox if zero suggest is triggered -- new edits
         // now count as a new session.
         mEditSessionState = EditSessionState.INACTIVE;
@@ -1087,8 +1095,7 @@ class AutocompleteMediator
                                 mUrlBarEditingTextProvider.getTextWithAutocomplete(),
                                 mDataProvider.getCurrentGurl(),
                                 mPageClassification.getAsInt(),
-                                mDataProvider.getTitle(),
-                                isOnFocusContext);
+                                mDataProvider.getTitle());
                     });
         }
     }
@@ -1161,7 +1168,7 @@ class AutocompleteMediator
      *
      * <p>This typically happens as a result of soft keyboard being shown or hidden.
      *
-     * @param newHeightPx New height of the suggestion list in pixels.
+     * @param newHeight New height of the suggestion list in pixels.
      */
     public void onSuggestionDropdownHeightChanged(@Px int newHeight) {
         // Report the dropdown height whenever we intend to - or do show soft keyboard. This
@@ -1361,6 +1368,24 @@ class AutocompleteMediator
     private void stopMeasuringSuggestionRequestToUiModelTime() {
         mLastSuggestionRequestTime = null;
         mFirstSuggestionListModelCreatedTime = null;
+    }
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    SuggestionsListAnimationDriver initializeAnimationDriver(Window window) {
+        int addedVerticalOffset =
+                mContext.getResources()
+                        .getDimensionPixelOffset(
+                                R.dimen.omnibox_suggestion_list_animation_added_vertical_offset);
+        mAnimationDriver =
+                new SuggestionsListAnimationDriver(
+                        mWindowAndroid.getInsetObserver(),
+                        mListPropertyModel,
+                        mEmbedder::getVerticalTranslationForAnimation,
+                        () -> propagateOmniboxSessionStateChange(true),
+                        addedVerticalOffset,
+                        new Handler(),
+                        window);
+        return mAnimationDriver;
     }
 
     @Override

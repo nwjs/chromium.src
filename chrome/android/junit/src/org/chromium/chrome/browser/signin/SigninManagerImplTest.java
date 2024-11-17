@@ -40,6 +40,7 @@ import org.robolectric.shadows.ShadowApplication;
 import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.Callback;
+import org.chromium.base.CallbackUtils;
 import org.chromium.base.Promise;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -440,9 +441,6 @@ public class SigninManagerImplTest {
     }
 
     @Test
-    @EnableFeatures({
-        ChromeFeatureList.SYNC_ANDROID_LIMIT_NTP_PROMO_IMPRESSIONS,
-    })
     public void syncPromoShowCountResetWhenSignOutSyncingAccount() {
         createSigninManager();
         ChromeSharedPreferences.getInstance()
@@ -597,7 +595,8 @@ public class SigninManagerImplTest {
                         eq(NATIVE_IDENTITY_MANAGER), anyInt()))
                 .thenReturn(ACCOUNT_INFO);
 
-        mSigninManager.wipeSyncUserData(() -> {}, SigninManager.DataWipeOption.WIPE_SYNC_DATA);
+        mSigninManager.wipeSyncUserData(
+                CallbackUtils.emptyRunnable(), SigninManager.DataWipeOption.WIPE_SYNC_DATA);
 
         // Passwords should be among the cleared types.
         int[] expectedClearedTypes =
@@ -630,7 +629,8 @@ public class SigninManagerImplTest {
                         eq(NATIVE_IDENTITY_MANAGER), anyInt()))
                 .thenReturn(ACCOUNT_INFO);
 
-        mSigninManager.wipeSyncUserData(() -> {}, SigninManager.DataWipeOption.WIPE_SYNC_DATA);
+        mSigninManager.wipeSyncUserData(
+                CallbackUtils.emptyRunnable(), SigninManager.DataWipeOption.WIPE_SYNC_DATA);
 
         // Passwords should not be among the cleared types.
         int[] expectedClearedTypes =
@@ -706,11 +706,6 @@ public class SigninManagerImplTest {
     }
 
     @Test
-    // TODO(crbug.com/40858677): Disabling the feature explicitly, because native is not available
-    // to
-    // provide a default value. This should be enabled if the feature is enabled by default or
-    // removed if the flag is removed.
-    @DisableFeatures(ChromeFeatureList.SYNC_ANDROID_LIMIT_NTP_PROMO_IMPRESSIONS)
     public void callbackNotifiedOnSignout() {
         createSigninManager();
         doAnswer(
@@ -815,7 +810,6 @@ public class SigninManagerImplTest {
     }
 
     @Test
-    @DisableFeatures(ChromeFeatureList.SYNC_ANDROID_LIMIT_NTP_PROMO_IMPRESSIONS)
     public void signInStateObserverCallOnSignOut() {
         createSigninManager();
         when(mIdentityManagerNativeMock.getPrimaryAccountInfo(

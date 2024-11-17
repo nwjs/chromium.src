@@ -12,14 +12,11 @@ import androidx.annotation.VisibleForTesting;
 import org.jni_zero.CalledByNative;
 
 import org.chromium.base.ApplicationStatus;
-import org.chromium.base.cached_flags.CachedFieldTrialParameter;
-import org.chromium.base.cached_flags.CachedFlag;
-import org.chromium.base.cached_flags.CachedFlagUtils;
-import org.chromium.base.cached_flags.CachedFlagsSafeMode;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.build.BuildConfig;
 import org.chromium.chrome.browser.ChromeBaseAppCompatActivity;
 import org.chromium.chrome.browser.JankTrackerExperiment;
+import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchProvider;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
 import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider;
@@ -42,12 +39,17 @@ import org.chromium.chrome.browser.suggestions.SuggestionsNavigationDelegate;
 import org.chromium.chrome.browser.tab.state.ShoppingPersistedTabDataService;
 import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleUtils;
 import org.chromium.chrome.browser.tabbed_mode.TabbedSystemUiCoordinator;
+import org.chromium.chrome.browser.tabmodel.TabGroupFeatureUtils;
 import org.chromium.chrome.browser.tabpersistence.TabStateFileManager;
 import org.chromium.chrome.browser.tasks.ReturnToChromeUtil;
-import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.TabManagementFieldTrial;
+import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
 import org.chromium.chrome.browser.ui.google_bottom_bar.BottomBarConfigCreator;
 import org.chromium.chrome.browser.webapps.WebappLauncherActivity;
+import org.chromium.components.cached_flags.CachedFieldTrialParameter;
+import org.chromium.components.cached_flags.CachedFlag;
+import org.chromium.components.cached_flags.CachedFlagUtils;
+import org.chromium.components.cached_flags.CachedFlagsSafeMode;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.signin.SigninFeatureMap;
 
@@ -64,7 +66,7 @@ public class ChromeCachedFlags {
      * A list of field trial parameters that will be cached when starting minimal browser mode. See
      * {@link #cacheMinimalBrowserFlags()}.
      */
-    private static final List<CachedFieldTrialParameter> MINIMAL_BROWSER_FIELD_TRIALS =
+    private static final List<CachedFieldTrialParameter<?>> MINIMAL_BROWSER_FIELD_TRIALS =
             List.of(
                     // This is used by CustomTabsConnection implementation, which does not
                     // necessarily start chrome.
@@ -92,8 +94,9 @@ public class ChromeCachedFlags {
                 SigninFeatureMap.sCachedFlags);
         cacheAdditionalNativeFlags();
 
-        List<CachedFieldTrialParameter> fieldTrialsToCache =
+        List<CachedFieldTrialParameter<?>> fieldTrialsToCache =
                 List.of(
+                        AuxiliarySearchProvider.MAX_FAVICON_NUMBER,
                         BackPressManager.TAB_HISTORY_RECOVER,
                         ChimeFeatures.ALWAYS_REGISTER,
                         ChromeBaseAppCompatActivity.DEFAULT_FONT_FAMILY_TESTING,
@@ -111,6 +114,12 @@ public class ChromeCachedFlags {
                         BottomBarConfigCreator
                                 .GOOGLE_BOTTOM_BAR_SINGLE_DECKER_HEIGHT_DP_PARAM_VALUE,
                         BottomBarConfigCreator.IS_GOOGLE_DEFAULT_SEARCH_ENGINE_CHECK_ENABLED,
+                        EdgeToEdgeUtils.DISABLE_CCT_MEDIA_VIEWER_E2E,
+                        EdgeToEdgeUtils.DISABLE_HUB_E2E,
+                        EdgeToEdgeUtils.DISABLE_INCOGNITO_NTP_E2E,
+                        EdgeToEdgeUtils.DISABLE_NTP_E2E,
+                        EdgeToEdgeUtils.E2E_FIELD_TRIAL_OEM_LIST,
+                        EdgeToEdgeUtils.E2E_FIELD_TRIAL_OEM_MIN_VERSIONS,
                         HubFieldTrial.ALTERNATIVE_FAB_COLOR,
                         HubFieldTrial.PANE_SWITCHER_USES_TEXT,
                         HubFieldTrial.SUPPORTS_OTHER_TABS,
@@ -135,8 +144,8 @@ public class ChromeCachedFlags {
                         TabManagementFieldTrial.DELAY_TEMP_STRIP_TIMEOUT_MS,
                         HomeModulesMetricsUtils.HOME_MODULES_SHOW_ALL_MODULES,
                         HomeModulesMetricsUtils.TAB_RESUMPTION_COMBINE_TABS,
-                        TabGroupModelFilter.SHOW_TAB_GROUP_CREATION_DIALOG_SETTING,
-                        TabGroupModelFilter.SKIP_TAB_GROUP_CREATION_DIALOG,
+                        TabGroupFeatureUtils.SHOW_TAB_GROUP_CREATION_DIALOG_SETTING,
+                        TabGroupFeatureUtils.SKIP_TAB_GROUP_CREATION_DIALOG,
                         TabResumptionModuleUtils.TAB_RESUMPTION_DISABLE_BLEND,
                         TabResumptionModuleUtils.TAB_RESUMPTION_FETCH_HISTORY_BACKEND,
                         TabResumptionModuleUtils.TAB_RESUMPTION_MAX_TILES_NUMBER,
@@ -159,11 +168,11 @@ public class ChromeCachedFlags {
     }
 
     private void tryToCatchMissingParameters(
-            List<CachedFieldTrialParameter>... listsOfParamsToTest) {
+            List<CachedFieldTrialParameter<?>>... listsOfParamsToTest) {
         if (!BuildConfig.ENABLE_ASSERTS) return;
 
-        var paramsToTest = new ArrayList<CachedFieldTrialParameter>();
-        for (List<CachedFieldTrialParameter> list : listsOfParamsToTest) {
+        var paramsToTest = new ArrayList<CachedFieldTrialParameter<?>>();
+        for (List<CachedFieldTrialParameter<?>> list : listsOfParamsToTest) {
             paramsToTest.addAll(list);
         }
 
@@ -172,10 +181,10 @@ public class ChromeCachedFlags {
         // attempt to try to catch accidental omissions. It cannot replace the list because some
         // instances might not be instantiated if the classes they belong to are not accessed yet.
         List<String> omissions = new ArrayList<>();
-        for (CachedFieldTrialParameter trial : CachedFieldTrialParameter.getAllInstances()) {
+        for (CachedFieldTrialParameter<?> trial : CachedFieldTrialParameter.getAllInstances()) {
             if (paramsToTest.contains(trial)) continue;
             if (MINIMAL_BROWSER_FIELD_TRIALS.contains(trial)) continue;
-            omissions.add(trial.getFeatureName() + ":" + trial.getParameterName());
+            omissions.add(trial.getFeatureName() + ":" + trial.getName());
         }
         assert omissions.isEmpty()
                 : "The following trials are not correctly cached: "

@@ -11,15 +11,15 @@ import androidx.annotation.VisibleForTesting;
 import androidx.browser.customtabs.CustomTabsSessionToken;
 import androidx.browser.customtabs.EngagementSignalsCallback;
 
+import org.chromium.base.Callback;
 import org.chromium.chrome.browser.customtabs.CustomTabsConnection;
 import org.chromium.chrome.browser.customtabs.content.TabObserverRegistrar.CustomTabTabObserver;
-import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManager;
-import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManager.Observer;
 import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManagerImpl;
+import org.chromium.chrome.browser.tab.Tab;
 
 /**
- * Handles the initialization of Engagement Signals when the client sets an
- * {@link androidx.browser.customtabs.EngagementSignalsCallback}.
+ * Handles the initialization of Engagement Signals when the client sets an {@link
+ * androidx.browser.customtabs.EngagementSignalsCallback}.
  */
 public class EngagementSignalsHandler {
     private final CustomTabsConnection mConnection;
@@ -28,7 +28,7 @@ public class EngagementSignalsHandler {
     @Nullable private RealtimeEngagementSignalObserver mObserver;
     private TabObserverRegistrar mTabObserverRegistrar;
     private EngagementSignalsCallback mCallback;
-    private PrivacyPreferencesManager.Observer mPrivacyPreferencesObserver;
+    private Callback<Boolean> mPrivacyPreferencesObserver;
 
     public EngagementSignalsHandler(
             CustomTabsConnection connection, CustomTabsSessionToken session) {
@@ -72,6 +72,19 @@ public class EngagementSignalsHandler {
         }
     }
 
+    /** Notify that Open in Browser is being invoked on the given tab. */
+    public void notifyOpenInBrowser(Tab tab) {
+        // When Open in Browser is tapped we need to manually collect user interactions, to ensure
+        // the ensuing invocation of EngagementSignalsCallback#onSessionEnded correctly signals
+        // whether user interactions occurred. We need to do this manually because the usual
+        // triggers for collecting user interactions (TabObserver#webContentsWillSwap,
+        // TabObserver#onClosingStateChanged, and TabObserver#onDestroyed) do not get invoked when
+        // Open in Browser is used.
+        if (mObserver != null) {
+            mObserver.collectUserInteraction(tab);
+        }
+    }
+
     private void createEngagementSignalsObserver() {
         if (!PrivacyPreferencesManagerImpl.getInstance().isUsageAndCrashReportingPermitted()) {
             return;
@@ -95,24 +108,24 @@ public class EngagementSignalsHandler {
         }
 
         mPrivacyPreferencesObserver =
-                new Observer() {
-                    @Override
-                    public void onIsUsageAndCrashReportingPermittedChanged(boolean permitted) {
-                        if (!permitted) {
-                            if (mObserver != null) {
-                                if (mCallback != null) {
-                                    mCallback.onSessionEnded(false, Bundle.EMPTY);
-                                }
-                                mObserver.destroy();
-                                mObserver = null;
+                (permitted) -> {
+                    if (!permitted) {
+                        if (mObserver != null) {
+                            if (mCallback != null) {
+                                mCallback.onSessionEnded(false, Bundle.EMPTY);
                             }
-                            PrivacyPreferencesManagerImpl.getInstance()
-                                    .removeObserver(mPrivacyPreferencesObserver);
-                            mPrivacyPreferencesObserver = null;
+                            mObserver.destroy();
+                            mObserver = null;
                         }
+                        PrivacyPreferencesManagerImpl.getInstance()
+                                .getUsageAndCrashReportingPermittedObservableSupplier()
+                                .removeObserver(mPrivacyPreferencesObserver);
+                        mPrivacyPreferencesObserver = null;
                     }
                 };
-        PrivacyPreferencesManagerImpl.getInstance().addObserver(mPrivacyPreferencesObserver);
+        PrivacyPreferencesManagerImpl.getInstance()
+                .getUsageAndCrashReportingPermittedObservableSupplier()
+                .addObserver(mPrivacyPreferencesObserver);
         mTabObserverRegistrar.registerActivityTabObserver(
                 new CustomTabTabObserver() {
                     @Override
@@ -127,6 +140,7 @@ public class EngagementSignalsHandler {
                         }
                         if (mPrivacyPreferencesObserver != null) {
                             PrivacyPreferencesManagerImpl.getInstance()
+                                    .getUsageAndCrashReportingPermittedObservableSupplier()
                                     .removeObserver(mPrivacyPreferencesObserver);
                             mPrivacyPreferencesObserver = null;
                         }

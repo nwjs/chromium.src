@@ -13,6 +13,8 @@
 #include "cc/paint/display_item_list.h"
 #include "cc/paint/paint_op_buffer.h"
 #include "cc/paint/render_surface_filters.h"
+#include "cc/trees/layer_tree_host.h"
+#include "cc/trees/property_tree.h"
 #include "third_party/blink/renderer/platform/graphics/compositing/chunk_to_layer_mapper.h"
 #include "third_party/blink/renderer/platform/graphics/compositing/property_tree_manager.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
@@ -1274,7 +1276,18 @@ void LayerPropertiesUpdater::UpdateScrollHitTestData(const PaintChunk& chunk) {
     if (!scroll_node) {
       return;
     }
+
     auto scroll_element_id = scroll_node->GetCompositorElementId();
+    auto& scroll_tree =
+        layer_.layer_tree_host()->property_trees()->scroll_tree_mutable();
+    if (hit_test_data.scrolling_contents_cull_rect.Contains(
+            scroll_node->ContentsRect())) {
+      scroll_tree.ClearScrollingContentsCullRect(scroll_element_id);
+    } else {
+      scroll_tree.SetScrollingContentsCullRect(
+          scroll_element_id, hit_test_data.scrolling_contents_cull_rect);
+    }
+
     if (layer_.element_id() == scroll_element_id) {
       // layer_ is the composited layer of the scroll hit test chunk.
       return;

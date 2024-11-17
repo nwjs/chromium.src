@@ -329,7 +329,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.ClearBrowsingData.ImportantDialogShown"
-    enum="BooleanShown" expires_after="2025-01-26">
+    enum="BooleanShown" expires_after="2025-03-30">
   <owner>ayui@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <component>1456716</component>
@@ -417,7 +417,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.Clusters.Actions.DidMakeQuery" enum="BooleanQueried"
-    expires_after="2025-02-02">
+    expires_after="2025-04-06">
   <owner>mcrouse@chromium.org</owner>
   <owner>chrome-journeys@google.com</owner>
   <component>1457319</component>
@@ -783,7 +783,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.Clusters.Backend.NumVisitsBelowFold"
-    units="number visits" expires_after="2025-02-02">
+    units="number visits" expires_after="2025-04-06">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-journeys@google.com</owner>
   <component>1457319</component>
@@ -1236,7 +1236,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.Clusters.KeywordCache.LoadCachesFromPrefs.Latency"
-    units="ms" expires_after="2025-01-26">
+    units="ms" expires_after="2025-03-30">
   <owner>pnoland@chromium.org</owner>
   <owner>chrome-journeys@google.com</owner>
   <component>1457319</component>
@@ -1355,7 +1355,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="History.Clusters.UIActions.RelatedSearch.{RelatedSearchAction}"
-    units="index" expires_after="2025-01-12">
+    units="index" expires_after="2025-03-23">
   <owner>mahmadi@chromium.org</owner>
   <owner>chrome-journeys@google.com</owner>
   <component>1457319</component>
@@ -1427,7 +1427,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.Clusters.WebUISessionDuration" units="ms"
-    expires_after="2025-02-02">
+    expires_after="2025-04-06">
   <owner>manukh@chromium.org</owner>
   <owner>chrome-journeys@google.com</owner>
   <component>1457319</component>
@@ -1740,6 +1740,47 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="History.Embeddings.ComputeAnswerStatus"
+    enum="ComputeAnswerStatus" expires_after="2024-12-31">
+  <owner>orinj@chromium.org</owner>
+  <owner>src/components/history_embeddings/OWNERS</owner>
+  <summary>
+    The status returned by the answerer after calling ComputeAnswer.
+
+    ComputeAnswer is called once for each query as it is entered in a
+    history_embeddings UI (history page, side panel). This is not once per
+    keystroke due to debouncing logic and other constraints on query acceptance
+    (minimum length, number of terms, etc.) but is still frequent enough that
+    cancellation is common and expected.
+  </summary>
+</histogram>
+
+<histogram name="History.Embeddings.ComputeAnswerTime{ComputeAnswerStatus}"
+    units="ms" expires_after="2024-12-31">
+  <owner>orinj@chromium.org</owner>
+  <owner>src/components/history_embeddings/OWNERS</owner>
+  <summary>
+    The time the HistoryEmbeddingsService waited to receive a response from the
+    answerer after calling ComputeAnswer.
+
+    ComputeAnswer is called once for each query as it is entered in a
+    history_embeddings UI (history page, side panel). This is not once per
+    keystroke due to debouncing logic and other constraints on query acceptance
+    (minimum length, number of terms, etc.) but is still frequent enough that
+    cancellation is common and expected.
+  </summary>
+  <token key="ComputeAnswerStatus">
+    <variant name="" summary="Any status, unsliced"/>
+    <variant name=".ExecutionCancelled" summary="ExecutionCancelled"/>
+    <variant name=".ExecutionFailure" summary="ExecutionFailure"/>
+    <variant name=".Filtered" summary="Filtered"/>
+    <variant name=".Loading" summary="Loading"/>
+    <variant name=".ModelUnavailable" summary="ModelUnavailable"/>
+    <variant name=".Success" summary="Success"/>
+    <variant name=".Unanswerable" summary="Unanswerable"/>
+  </token>
+</histogram>
+
 <histogram name="History.Embeddings.DatabaseAsCacheAccessTime.StorageRead"
     units="ms" expires_after="2024-12-31">
   <owner>orinj@chromium.org</owner>
@@ -1766,7 +1807,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.Embeddings.DatabaseCachedPassageHitCount"
-    units="passages" expires_after="2024-12-31">
+    units="passages" expires_after="2025-03-23">
   <owner>orinj@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -1791,7 +1832,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.Embeddings.DatabaseCachedPassageTryCount"
-    units="passages" expires_after="2024-12-31">
+    units="passages" expires_after="2025-03-30">
   <owner>orinj@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -1814,7 +1855,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.Embeddings.DatabaseInitialized" enum="Boolean"
-    expires_after="2024-12-31">
+    expires_after="2025-03-23">
   <owner>orinj@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -1891,6 +1932,48 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="History.Embeddings.DatabaseStoredAsciiPassages"
+    units="passages" expires_after="2025-03-30">
+  <owner>orinj@chromium.org</owner>
+  <owner>src/components/history_embeddings/OWNERS</owner>
+  <summary>
+    Number of passages that contained only ASCII characters when passages are
+    stored to the database. Logged each time passages are successfully inserted
+    or replaced in the database. This happens for each page visit when the tab
+    is kept open for several seconds after all tabs finish loading. See also the
+    related metrics History.Embeddings.DatabaseStoredNonAsciiPassages and
+    History.Embeddings.DatabaseStoredNonAsciiPassageRatio.
+  </summary>
+</histogram>
+
+<histogram name="History.Embeddings.DatabaseStoredNonAsciiPassageRatio"
+    units="%" expires_after="2025-03-30">
+  <owner>orinj@chromium.org</owner>
+  <owner>src/components/history_embeddings/OWNERS</owner>
+  <summary>
+    Percentage of passages that contain non-ASCII characters when passages are
+    stored to the database. Logged each time passages are successfully inserted
+    or replaced in the database. This happens for each page visit when the tab
+    is kept open for several seconds after all tabs finish loading. See also the
+    related metrics History.Embeddings.DatabaseStoredAsciiPassages and
+    History.Embeddings.DatabaseStoredNonAsciiPassages.
+  </summary>
+</histogram>
+
+<histogram name="History.Embeddings.DatabaseStoredNonAsciiPassages"
+    units="passages" expires_after="2025-03-30">
+  <owner>orinj@chromium.org</owner>
+  <owner>src/components/history_embeddings/OWNERS</owner>
+  <summary>
+    Number of passages that contained any non-ASCII characters when passages are
+    stored to the database. Logged each time passages are successfully inserted
+    or replaced in the database. This happens for each page visit when the tab
+    is kept open for several seconds after all tabs finish loading. See also the
+    related metrics History.Embeddings.DatabaseStoredAsciiPassages and
+    History.Embeddings.DatabaseStoredNonAsciiPassageRatio.
+  </summary>
+</histogram>
+
 <histogram name="History.Embeddings.Embedder.CacheHit" enum="Boolean"
     expires_after="2025-03-02">
   <owner>sophiechang@chromium.org</owner>
@@ -1900,6 +1983,17 @@ chromium-metrics-reviews@google.com.
     Logged each time the embedder attempts to generate one embeddings vector. On
     a cache hit, no tokenization or model execution will be attempted so the
     relevant histograms won't be recorded either.
+  </summary>
+</histogram>
+
+<histogram name="History.Embeddings.Embedder.CpuUsage" units="1/100 %"
+    expires_after="2025-03-02">
+  <owner>sophiechang@chromium.org</owner>
+  <owner>zekunjiang@google.com</owner>
+  <summary>
+    Periodically samples CPU utilization of the embedder process. A sample is
+    taken every 2 minutes. The utilization is in 0-100% range per CPU, which is
+    then summed up and multiplied by 100.
   </summary>
 </histogram>
 
@@ -2152,12 +2246,23 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.Embeddings.Quality.LogEntryPrepared" enum="Boolean"
-    expires_after="2024-12-31">
+    expires_after="2025-03-23">
   <owner>orinj@chromium.org</owner>
   <owner>manukh@chromium.org</owner>
   <summary>
     Whether a quality log entry was prepared when a history embeddings result
     was selected while quality logging was enabled.
+  </summary>
+</histogram>
+
+<histogram name="History.Embeddings.QueryAnswerable" enum="Boolean"
+    expires_after="2024-12-31">
+  <owner>orinj@chromium.org</owner>
+  <owner>src/components/history_embeddings/OWNERS</owner>
+  <summary>
+    Indicates query was answerable and passed to answerer. Logged each time a
+    query could be passed to the answerer, i.e. when search is complete and top
+    passages are ready to provide the context.
   </summary>
 </histogram>
 
@@ -2210,6 +2315,20 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="History.Embeddings.Search.ModifiedNonAsciiPassageCount"
+    units="passages" expires_after="2025-03-09">
+  <owner>orinj@chromium.org</owner>
+  <owner>src/components/history_embeddings/OWNERS</owner>
+  <summary>
+    The number of passages that were modified by removing non-ASCII characters.
+    Note that this value is still useful even when the passage text itself is
+    not used in the search (word match boosting is optimized for speed) because
+    passages counted by this metric also indicate embeddings that were
+    calculated from modified source passages. Logged each time a vector database
+    search is performed.
+  </summary>
+</histogram>
+
 <histogram name="History.Embeddings.Search.PassageScanningTime" units="ms"
     expires_after="2025-03-09">
   <owner>orinj@chromium.org</owner>
@@ -2255,7 +2374,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.Embeddings.Search.UrlCount" units="urls"
-    expires_after="2024-12-31">
+    expires_after="2025-03-23">
   <owner>orinj@chromium.org</owner>
   <owner>src/components/history_embeddings/OWNERS</owner>
   <summary>
@@ -2264,8 +2383,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="History.Embeddings.UserActions" enum="EmbeddingsUserActions"
-    expires_after="2025-04-15">
+<histogram name="History.Embeddings.UserActions{UiSurface}"
+    enum="EmbeddingsUserActions" expires_after="2025-04-15">
   <owner>orinj@chromium.org</owner>
   <owner>src/components/history_embeddings/OWNERS</owner>
   <summary>
@@ -2276,6 +2395,11 @@ chromium-metrics-reviews@google.com.
     Embeddings disabled too, to provide a baseline, and to serve as a guardian
     metric for the Embeddings experiments.
   </summary>
+  <token key="UiSurface">
+    <variant name="" summary="Unsliced"/>
+    <variant name=".HistoryPage" summary="History page"/>
+    <variant name=".SidePanel" summary="Side panel"/>
+  </token>
 </histogram>
 
 <histogram name="History.Embeddings.VisibilityModelAvailableAtQuery"
@@ -2378,7 +2502,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.InitializationFailureStep" enum="HistoryInitStep"
-    expires_after="2025-01-05">
+    expires_after="2025-04-06">
   <owner>sky@chromium.org</owner>
   <owner>sdefresne@chromium.org</owner>
   <component>1456716</component>
@@ -2391,7 +2515,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.InMemoryDBItemCount" units="typed URLs"
-    expires_after="2025-01-26">
+    expires_after="2025-03-30">
   <owner>sky@chromium.org</owner>
   <owner>mpearson@chromium.org</owner>
   <component>1456716</component>
@@ -2530,7 +2654,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.TopSites.QueryFromHistoryTime" units="ms"
-    expires_after="2025-01-26">
+    expires_after="2025-03-30">
   <owner>mahmadi@chromium.org</owner>
   <owner>chrome-omnibox-team@google.com</owner>
   <summary>
@@ -2599,7 +2723,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.VisitedLinks.TryToAddFingerprint"
-    enum="AddFingerprint" expires_after="2025-01-12">
+    enum="AddFingerprint" expires_after="2025-03-16">
   <owner>kyraseevers@chromium.org</owner>
   <owner>brgoldstein@google.com</owner>
   <summary>

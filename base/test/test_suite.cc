@@ -256,7 +256,7 @@ class CheckProcessPriority : public testing::EmptyTestEventListener {
 #endif  // !BUILDFLAG(IS_APPLE)
 
 const std::string& GetProfileName() {
-  static const NoDestructor<std::string> profile_name([]() {
+  static const NoDestructor<std::string> profile_name([] {
     const CommandLine& command_line = *CommandLine::ForCurrentProcess();
     if (command_line.HasSwitch(switches::kProfilingFile))
       return command_line.GetSwitchValueASCII(switches::kProfilingFile);
@@ -443,8 +443,8 @@ void TestSuite::DisableCheckForLeakedGlobals() {
 
 void TestSuite::UnitTestAssertHandler(const char* file,
                                       int line,
-                                      const std::string_view summary,
-                                      const std::string_view stack_trace) {
+                                      std::string_view summary,
+                                      std::string_view stack_trace) {
 #if BUILDFLAG(IS_ANDROID)
   // Correlating test stdio with logcat can be difficult, so we emit this
   // helpful little hint about what was running.  Only do this for Android

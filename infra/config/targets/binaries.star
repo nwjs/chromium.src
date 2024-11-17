@@ -27,6 +27,8 @@ targets.binaries.windowed_test_launcher(
 targets.binaries.generated_script(
     name = "android_webview_junit_tests",
     label = "//android_webview/test:android_webview_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
@@ -112,6 +114,8 @@ targets.binaries.windowed_test_launcher(
 targets.binaries.windowed_test_launcher(
     name = "angle_white_box_tests",
     label = "//third_party/angle/src/tests:angle_white_box_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.windowed_test_launcher(
@@ -122,11 +126,6 @@ targets.binaries.windowed_test_launcher(
 targets.binaries.windowed_test_launcher(
     name = "ash_components_unittests",
     label = "//ash/components:ash_components_unittests",
-)
-
-targets.binaries.windowed_test_launcher(
-    name = "ash_crosapi_tests",
-    label = "//chrome/test:ash_crosapi_tests",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -152,6 +151,8 @@ targets.binaries.windowed_test_launcher(
 targets.binaries.generated_script(
     name = "base_junit_tests",
     label = "//base:base_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.script(
@@ -269,6 +270,8 @@ targets.binaries.windowed_test_launcher(
 targets.binaries.generated_script(
     name = "build_junit_tests",
     label = "//build/android:build_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.windowed_test_launcher(
@@ -287,63 +290,94 @@ targets.binaries.windowed_test_launcher(
 targets.binaries.console_test_launcher(
     name = "cast_runner_browsertests",
     label = "//fuchsia_web/runners:cast_runner_browsertests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
     name = "cast_runner_integration_tests",
     label = "//fuchsia_web/runners:cast_runner_integration_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
     name = "cast_runner_unittests",
     label = "//fuchsia_web/runners:cast_runner_unittests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 # TODO(issues.chromium.org/1516671): Remove unneeded cast_* suites.
 
 targets.binaries.console_test_launcher(
-    name = "cast_display_settings_unittests",
-    label = "//chromecast/ui/display_settings:cast_display_settings_unittests",
+    name = "cast_android_cma_backend_unittests",
+    label = "//chromecast/media/cma/backend/android:cast_android_cma_backend_unittests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
     name = "cast_audio_backend_unittests",
     label = "//chromecast/media/cma/backend:cast_audio_backend_unittests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
     name = "cast_base_unittests",
     label = "//chromecast/base:cast_base_unittests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
     name = "cast_cast_core_unittests",
     label = "//chromecast/cast_core:cast_cast_core_unittests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
     name = "cast_crash_unittests",
     label = "//chromecast/crash:cast_crash_unittests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
+)
+
+targets.binaries.console_test_launcher(
+    name = "cast_display_settings_unittests",
+    label = "//chromecast/ui/display_settings:cast_display_settings_unittests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
     name = "cast_graphics_unittests",
     label = "//chromecast/graphics:cast_graphics_unittests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
     name = "cast_media_unittests",
     label = "//chromecast/media:cast_media_unittests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
     name = "cast_shell_browsertests",
     label = "//chromecast:cast_shell_browsertests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
     name = "cast_shell_unittests",
     label = "//chromecast:cast_shell_unittests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.windowed_test_launcher(
@@ -393,16 +427,22 @@ targets.binaries.console_test_launcher(
 targets.binaries.generated_script(
     name = "chrome_java_test_pagecontroller_junit_tests",
     label = "//chrome/test/android:chrome_java_test_pagecontroller_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
     name = "chrome_java_test_wpr_tests",
     label = "//chrome/test/android:chrome_java_test_wpr_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.generated_script(
     name = "chrome_junit_tests",
     label = "//chrome/android:chrome_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
@@ -418,6 +458,8 @@ targets.binaries.generated_script(
 targets.binaries.console_test_launcher(
     name = "chrome_public_apk_baseline_profile_generator",
     label = "//chrome/test/android:chrome_public_apk_baseline_profile_generator",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
@@ -434,6 +476,8 @@ targets.binaries.console_test_launcher(
 targets.binaries.console_test_launcher(
     name = "chrome_public_test_vr_apk",
     label = "//chrome/android:chrome_public_test_vr_apk",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
@@ -444,6 +488,8 @@ targets.binaries.console_test_launcher(
 targets.binaries.generated_script(
     name = "chrome_public_wpt",
     label = "//chrome/android:chrome_public_wpt",
+    # All references have been moved to starlark
+    skip_usage_check = True,
     results_handler = "layout tests",
     args = [
         "--results-directory",
@@ -580,6 +626,8 @@ targets.binaries.windowed_test_launcher(
 targets.binaries.generated_script(
     name = "components_junit_tests",
     label = "//components:components_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.script(
@@ -617,6 +665,8 @@ targets.binaries.windowed_test_launcher(
 targets.binaries.generated_script(
     name = "content_junit_tests",
     label = "//content/public/android:content_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.script(
@@ -647,11 +697,15 @@ targets.binaries.console_test_launcher(
 targets.binaries.console_test_launcher(
     name = "cronet_sample_test_apk",
     label = "//components/cronet/android:cronet_sample_test_apk",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.generated_script(
     name = "cronet_sizes",
     label = "//components/cronet/android:cronet_sizes",
+    # All references have been moved to starlark
+    skip_usage_check = True,
     merge = targets.merge(
         script = "//tools/perf/process_perf_results.py",
     ),
@@ -665,21 +719,29 @@ targets.binaries.generated_script(
 targets.binaries.console_test_launcher(
     name = "cronet_smoketests_apk",
     label = "//components/cronet/android:cronet_smoketests_apk",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
     name = "cronet_smoketests_missing_native_library_instrumentation_apk",
     label = "//components/cronet/android:cronet_smoketests_missing_native_library_instrumentation_apk",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
     name = "cronet_smoketests_platform_only_instrumentation_apk",
     label = "//components/cronet/android:cronet_smoketests_platform_only_instrumentation_apk",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
     name = "cronet_test_instrumentation_apk",
     label = "//components/cronet/android:cronet_test_instrumentation_apk",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
@@ -690,6 +752,8 @@ targets.binaries.console_test_launcher(
 targets.binaries.console_test_launcher(
     name = "cronet_tests_android",
     label = "//components/cronet/android:cronet_tests_android",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
@@ -700,6 +764,8 @@ targets.binaries.console_test_launcher(
 targets.binaries.console_test_launcher(
     name = "cronet_unittests_android",
     label = "//components/cronet/android:cronet_unittests_android",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
@@ -745,6 +811,8 @@ targets.binaries.console_test_launcher(
 targets.binaries.generated_script(
     name = "device_junit_tests",
     label = "//device:device_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
@@ -766,6 +834,11 @@ targets.binaries.generated_script(
 targets.binaries.console_test_launcher(
     name = "display_unittests",
     label = "//ui/display:display_unittests",
+)
+
+targets.binaries.windowed_test_launcher(
+    name = "elevated_tracing_service_unittests",
+    label = "//chrome/windows_services/elevated_tracing_service:elevated_tracing_service_unittests",
 )
 
 targets.binaries.windowed_test_launcher(
@@ -866,6 +939,8 @@ targets.binaries.script(
 targets.binaries.generated_script(
     name = "fuchsia_sizes",
     label = "//tools/fuchsia/size_tests:fuchsia_sizes",
+    # All references have been moved to starlark
+    skip_usage_check = True,
     merge = targets.merge(
         script = "//tools/perf/process_perf_results.py",
     ),
@@ -1087,19 +1162,13 @@ targets.binaries.console_test_launcher(
 targets.binaries.generated_script(
     name = "junit_unit_tests",
     label = "//testing/android/junit:junit_unit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.windowed_test_launcher(
     name = "keyboard_unittests",
     label = "//ash/keyboard/ui:keyboard_unittests",
-)
-
-targets.binaries.windowed_test_launcher(
-    name = "lacros_chrome_browsertests",
-    label = "//chrome/test:lacros_chrome_browsertests",
-    args = [
-        "--test-launcher-jobs=1",
-    ],
 )
 
 targets.binaries.console_test_launcher(
@@ -1147,6 +1216,8 @@ targets.binaries.generated_script(
 targets.binaries.generated_script(
     name = "media_base_junit_tests",
     label = "//media/base/android:media_base_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.script(
@@ -1201,11 +1272,15 @@ targets.binaries.script(
 targets.binaries.console_test_launcher(
     name = "minidump_uploader_test",
     label = "//components/minidump_uploader:minidump_uploader_test",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
     name = "jni_zero_sample_apk_test",
     label = "//third_party/jni_zero/sample:jni_zero_sample_apk_test",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.generated_script(
@@ -1221,16 +1296,22 @@ targets.binaries.generated_script(
 targets.binaries.generated_script(
     name = "module_installer_junit_tests",
     label = "//components/module_installer/android:module_installer_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
     name = "monochrome_public_smoke_test",
     label = "//chrome/android:monochrome_public_smoke_test",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
     name = "monochrome_public_bundle_smoke_test",
     label = "//chrome/android:monochrome_public_bundle_smoke_test",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.script(
@@ -1269,6 +1350,8 @@ targets.binaries.script(
     name = "monochrome_public_apk_checker",
     label = "//chrome/android/monochrome:monochrome_public_apk_checker",
     script = "//testing/scripts/run_isolated_script_test.py",
+    # All references have been moved to starlark
+    skip_usage_check = True,
     args = [
         "../../chrome/android/monochrome/scripts/monochrome_python_tests.py",
         "--chrome-apk",
@@ -1289,6 +1372,8 @@ targets.binaries.script(
 targets.binaries.console_test_launcher(
     name = "monochrome_public_test_ar_apk",
     label = "//chrome/android:monochrome_public_test_ar_apk",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
@@ -1309,6 +1394,8 @@ targets.binaries.windowed_test_launcher(
 targets.binaries.generated_script(
     name = "net_junit_tests",
     label = "//net/android:net_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.script(
@@ -1396,16 +1483,22 @@ targets.binaries.windowed_test_launcher(
 targets.binaries.generated_script(
     name = "paint_preview_junit_tests",
     label = "//components/paint_preview/player/android:paint_preview_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.generated_script(
     name = "password_check_junit_tests",
     label = "//chrome/browser/password_check/android:password_check_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.generated_script(
     name = "password_manager_junit_tests",
     label = "//chrome/browser/password_manager/android:password_manager_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
@@ -1513,6 +1606,8 @@ targets.binaries.console_test_launcher(
 targets.binaries.generated_script(
     name = "private_code_failure_test",
     label = "//build/private_code_test:private_code_failure_test",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
@@ -1533,6 +1628,8 @@ targets.binaries.windowed_test_launcher(
 targets.binaries.generated_script(
     name = "resource_sizes_cronet_sample_apk",
     label = "//components/cronet/android:resource_sizes_cronet_sample_apk",
+    # All references have been moved to starlark
+    skip_usage_check = True,
     merge = targets.merge(
         script = "//tools/perf/process_perf_results.py",
     ),
@@ -1575,6 +1672,8 @@ targets.binaries.console_test_launcher(
 targets.binaries.generated_script(
     name = "services_junit_tests",
     label = "//services:services_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.windowed_test_launcher(
@@ -1648,6 +1747,8 @@ targets.binaries.console_test_launcher(
 targets.binaries.generated_script(
     name = "system_webview_wpt",
     label = "//android_webview/test:system_webview_wpt",
+    # All references have been moved to starlark
+    skip_usage_check = True,
     results_handler = "layout tests",
     args = [
         "--results-directory",
@@ -1664,6 +1765,8 @@ targets.binaries.generated_script(
 targets.binaries.generated_script(
     name = "trichrome_webview_wpt_64",
     label = "//android_webview/test:trichrome_webview_wpt_64",
+    # All references have been moved to starlark
+    skip_usage_check = True,
     results_handler = "layout tests",
     args = [
         "--results-directory",
@@ -1700,6 +1803,8 @@ targets.binaries.script(
     name = "telemetry_gpu_integration_test_fuchsia",
     label = "//content/test:telemetry_gpu_integration_test_fuchsia",
     script = "//testing/scripts/run_gpu_integration_test_as_googletest.py",
+    # All references have been moved to starlark
+    skip_usage_check = True,
     args = [
         "../../content/test/gpu/run_gpu_integration_test_fuchsia.py",
         "--logs-dir",
@@ -1736,46 +1841,23 @@ targets.binaries.generated_script(
     label = "//chrome/test:telemetry_perf_unittests",
 )
 
-targets.binaries.script(
+targets.binaries.generated_script(
     name = "telemetry_perf_unittests_android_chrome",
     label = "//chrome/test:telemetry_perf_unittests_android_chrome",
-    script = "//testing/scripts/run_telemetry_as_googletest.py",
-    args = [
-        "../../tools/perf/run_tests",
-        "-v",
-    ],
-    resultdb = targets.resultdb(
-        enable = True,
-    ),
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
-targets.binaries.script(
+targets.binaries.generated_script(
     name = "telemetry_perf_unittests_android_monochrome",
     label = "//chrome/test:telemetry_perf_unittests_android_monochrome",
-    script = "//testing/scripts/run_telemetry_as_googletest.py",
-    args = [
-        "../../tools/perf/run_tests",
-        "-v",
-    ],
-    resultdb = targets.resultdb(
-        enable = True,
-    ),
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
-targets.binaries.script(
+targets.binaries.generated_script(
     name = "telemetry_unittests",
     label = "//chrome/test:telemetry_unittests",
-    script = "//testing/scripts/run_telemetry_as_googletest.py",
-    args = [
-        "--xvfb",
-        "../../tools/perf/run_telemetry_tests",
-        "-v",
-        # TODO(nedn, eyaich): Remove this flag once crbug.com/549140 is fixed &
-        # Telemetry no longer downloads files in parallel. (crbug.com/661434#c24)
-        "--jobs=1",
-        "--chrome-root",
-        "../../",
-    ],
 )
 
 targets.binaries.console_test_launcher(
@@ -1805,6 +1887,8 @@ targets.binaries.script(
 targets.binaries.generated_script(
     name = "touch_to_fill_junit_tests",
     label = "//chrome/browser/touch_to_fill/password_manager/android:touch_to_fill_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.script(
@@ -1824,6 +1908,8 @@ targets.binaries.script(
 targets.binaries.console_test_launcher(
     name = "trichrome_chrome_bundle_smoke_test",
     label = "//chrome/android:trichrome_chrome_bundle_smoke_test",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
@@ -1844,6 +1930,8 @@ targets.binaries.windowed_test_launcher(
 targets.binaries.generated_script(
     name = "ui_junit_tests",
     label = "//ui:ui_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.windowed_test_launcher(
@@ -2032,31 +2120,43 @@ targets.binaries.windowed_test_launcher(
 targets.binaries.console_test_launcher(
     name = "web_engine_browsertests",
     label = "//fuchsia_web/webengine:web_engine_browsertests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
     name = "web_engine_integration_tests",
     label = "//fuchsia_web/webengine:web_engine_integration_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.console_test_launcher(
     name = "web_engine_unittests",
     label = "//fuchsia_web/webengine:web_engine_unittests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.generated_script(
     name = "webapk_client_junit_tests",
     label = "//chrome/android/webapk/libs/client:webapk_client_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.generated_script(
     name = "webapk_shell_apk_h2o_junit_tests",
     label = "//chrome/android/webapk/shell_apk:webapk_shell_apk_h2o_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.generated_script(
     name = "webapk_shell_apk_junit_tests",
     label = "//chrome/android/webapk/shell_apk:webapk_shell_apk_junit_tests",
+    # All references have been moved to starlark
+    skip_usage_check = True,
 )
 
 targets.binaries.generated_script(
@@ -2072,6 +2172,8 @@ targets.binaries.script(
     name = "webview_cts_tests",
     label = "//android_webview/test:webview_cts_tests",
     script = "//android_webview/tools/run_cts.py",
+    # All references have been moved to starlark
+    skip_usage_check = True,
     args = [
         "--skip-expected-failures",
         "--use-webview-provider",
@@ -2090,6 +2192,8 @@ targets.binaries.script(
     name = "webview_trichrome_cts_tests",
     label = "//android_webview/test:webview_trichrome_cts_tests",
     script = "//android_webview/tools/run_cts.py",
+    # All references have been moved to starlark
+    skip_usage_check = True,
     args = [
         "--skip-expected-failures",
         "--additional-apk",
@@ -2098,6 +2202,28 @@ targets.binaries.script(
         "apks/TrichromeWebView.apk",
         "--apk-under-test",
         "apks/TrichromeWebView.apk",
+        "--use-apk-under-test-flags-file",
+        "-v",
+        # Required for stack.py to find build artifacts for symbolization.
+        "--output-directory",
+        ".",
+    ],
+)
+
+targets.binaries.script(
+    name = "webview_trichrome_64_32_cts_tests",
+    label = "//android_webview/test:webview_trichrome_64_32_cts_tests",
+    script = "//android_webview/tools/run_cts.py",
+    # All references have been moved to starlark
+    skip_usage_check = True,
+    args = [
+        "--skip-expected-failures",
+        "--additional-apk",
+        "apks/TrichromeLibrary6432.apk",
+        "--use-webview-provider",
+        "apks/TrichromeWebView6432.apk",
+        "--apk-under-test",
+        "apks/TrichromeWebView6432.apk",
         "--use-apk-under-test-flags-file",
         "-v",
         # Required for stack.py to find build artifacts for symbolization.
@@ -2130,6 +2256,8 @@ targets.binaries.script(
     name = "webview_trichrome_64_cts_hostside_tests",
     label = "//android_webview/test:webview_trichrome_64_cts_hostside_tests",
     script = "//android_webview/tools/run_cts.py",
+    # All references have been moved to starlark
+    skip_usage_check = True,
     args = [
         "--cts-gcs-path",
         "../../android_webview/tools/cts_config/webview_cts_hostside_gcs_path.json",
@@ -2147,6 +2275,8 @@ targets.binaries.script(
     name = "webview_64_cts_tests",
     label = "//android_webview/test:webview_64_cts_tests",
     script = "//android_webview/tools/run_cts.py",
+    # All references have been moved to starlark
+    skip_usage_check = True,
     args = [
         "--skip-expected-failures",
         "--use-webview-provider",

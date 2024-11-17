@@ -7,6 +7,8 @@
 
 #import <UIKit/UIKit.h>
 
+class GURL;
+
 @protocol ChromeLensOverlayResult;
 @protocol ChromeLensOverlay;
 @class LensConfiguration;
@@ -29,6 +31,14 @@
 // The lens overlay has suggest signals available for the given result.
 - (void)lensOverlay:(id<ChromeLensOverlay>)lensOverlay
     suggestSignalsAvailableOnResult:(id<ChromeLensOverlayResult>)result;
+
+// The lens overlay requested to open a URL (e.g. after a selection in the
+// flyout menu).
+- (void)lensOverlay:(id<ChromeLensOverlay>)lensOverlay
+    didRequestToOpenURL:(GURL)URL;
+
+// The lens overlay requested to open the overlay menu.
+- (void)lensOverlayDidOpenOverlayMenu:(id<ChromeLensOverlay>)lensOverlay;
 
 @end
 
@@ -59,6 +69,12 @@
 - (void)setOcclusionInsets:(UIEdgeInsets)occlusionInsets
                 reposition:(BOOL)reposition
                   animated:(BOOL)animated;
+
+// Resets the selection area to the initial position.
+- (void)resetSelectionAreaToInitialPosition:(void (^)())completion;
+
+// Updates the visibility of the top icons.
+- (void)setTopIconsHidden:(BOOL)hidden;
 
 @end
 

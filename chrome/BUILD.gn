@@ -60,7 +60,7 @@ if (is_android) {
 
 # b/365489014: CrOS' chrome.sections_embedded target breaks on component builds;
 # there's no clear value of supporting it there, so disable it.
-_cros_generate_embed_section_target = is_chromeos_ash && !is_component_build
+_cros_generate_embed_section_target = is_chromeos && !is_component_build
 
 if (_cros_generate_embed_section_target) {
   import("//build/chromeos/embed_sections.gni")
@@ -174,7 +174,7 @@ if (!is_android && !is_mac) {
       data = [ "$root_out_dir/resources.pak" ]
       data_deps = []
 
-      if (is_chromeos_ash) {
+      if (is_chromeos) {
         data_deps += [
           "//components/variations/cros_evaluate_seed:evaluate_seed",
           "//sandbox/linux:chrome_sandbox",
@@ -186,10 +186,6 @@ if (!is_android && !is_mac) {
           "//components/exo/wayland:test_controller_stub",
           "//components/exo/wayland:ui_controls_protocol_stub",
         ]
-      }
-
-      if (also_build_lacros_chrome_for_architecture != "") {
-        data_deps += [ "//chrome:chrome(//build/toolchain/cros:lacros_clang)" ]
       }
 
       if (is_win) {
@@ -341,9 +337,8 @@ if (!is_android && !is_mac) {
 
         ldflags = []
 
-        # On Chrome OS builds (for both ash-chrome and lacros-chrome), put
-        # priority to the library in the installed directory.
-        # This will avoid conflicting of exposed symbols.
+        # On Chrome OS builds put priority to the library in the installed
+        # directory. This will avoid conflicting of exposed symbols.
         if (is_chromeos_device) {
           ldflags += [ "-L" + rebase_path(root_out_dir) ]
         }
@@ -356,33 +351,22 @@ if (!is_android && !is_mac) {
 
         # Chrome OS debug builds for arm need to pass --long-plt to the linker.
         # See https://bugs.chromium.org/p/chromium/issues/detail?id=583532
-        if (is_chromeos_ash && is_debug && target_cpu == "arm") {
+        if (is_chromeos && is_debug && target_cpu == "arm") {
           ldflags += [ "-Wl,--long-plt" ]
         }
 
-        if ((is_linux || is_chromeos_lacros) && !is_component_build &&
-            !using_sanitizer) {
+        if (is_linux && !is_component_build && !using_sanitizer) {
           version_script = "//build/linux/chrome.map"
           inputs = [ version_script ]
           ldflags += [ "-Wl,--version-script=" +
                        rebase_path(version_script, root_build_dir) ]
         }
 
-        if (is_chromeos_ash) {
+        if (is_chromeos) {
           public_deps += [ "//ui/lottie" ]
           deps += [
             "//chrome/browser/ash/locale",
             "//chrome/browser/ash/schedqos",
-          ]
-        }
-
-        if (is_chromeos_lacros) {
-          deps += [
-            "//chromeos/crosapi/cpp:crosapi_constants",
-            "//chromeos/crosapi/mojom",
-            "//chromeos/lacros:lacros_paths",
-            "//chromeos/startup",
-            "//ui/base",
           ]
         }
 
@@ -406,12 +390,8 @@ if (!is_android && !is_mac) {
 
       # ChromeOS by design is safe to have rpath=$ORIGIN. This simplifies shared
       # library usage.
-      if (is_chromeos_ash && !is_component_build) {
+      if (is_chromeos && !is_component_build) {
         configs += [ "//build/config/gcc:rpath_for_built_shared_libraries" ]
-      }
-
-      if (is_chromeos_lacros && is_chromeos_device) {
-        configs += [ "//build/lacros:optional_shared_libgcc" ]
       }
 
       data_deps += [
@@ -513,7 +493,7 @@ if (is_win || (is_linux && !is_component_build)) {
       deps += [ "//ui/compositor" ]
     }
 
-    if (is_chromeos_ash) {
+    if (is_chromeos) {
       deps += [ "//chrome/browser/ash/schedqos" ]
     }
 
@@ -678,7 +658,7 @@ if (is_win || (is_linux && !is_component_build)) {
           "-v",
           chrome_version_full,
           "-g",
-          rebase_path("$root_gen_dir/chrome", root_build_dir),
+          rebase_path("$root_gen_dir/nw", root_build_dir),
           "-o",
           rebase_path("$target_gen_dir/app_infoplist_strings", root_build_dir),
           "-t",
@@ -1223,10 +1203,9 @@ if (is_win || (is_linux && !is_component_build)) {
       "//headless:headless_shell_lib",
       #"//third_party/cld_3/src/src:cld_3",
       "//ui/events:dom_keycode_converter",
-      "//tools/v8_context_snapshot:buildflags",
     ]
 
-    if (is_chromeos_ash) {
+    if (is_chromeos) {
       deps += [ "//chrome/browser/ash/schedqos" ]
     }
 
@@ -1240,10 +1219,10 @@ if (is_win || (is_linux && !is_component_build)) {
       ":chrome_dll_symbol_order",
       "//build/config/compiler:wexit_time_destructors",
     ]
-    if (false && !is_component_build && !using_sanitizer) {
+    if (!is_component_build && !using_sanitizer) {
       configs += [ ":chrome_dll_symbol_exports" ]
     }
-    configs += [ "//v8:external_startup_data" ]
+    configs += [ "//tools/v8_context_snapshot:use_v8_context_snapshot" ]
   }
 
   mac_framework_bundle("chrome_framework") {
@@ -1284,6 +1263,8 @@ if (is_win || (is_linux && !is_component_build)) {
       ":optimization_guide_library",
       ":swiftshader_binaries",
       ":widevine_cdm_library",
+      "//chrome/browser/resources/media/mei_preload:component_bundle",
+      "//components/privacy_sandbox/privacy_sandbox_attestations/preload:component_bundle",
     ]
 
     if (is_chrome_branded) {
@@ -1291,7 +1272,7 @@ if (is_win || (is_linux && !is_component_build)) {
     }
 
     configs += [ ":chrome_dll_symbol_order" ]
-    if (false && !is_component_build && !using_sanitizer) {
+    if (!is_component_build && !using_sanitizer) {
       configs += [ ":chrome_dll_symbol_exports" ]
     }
 
@@ -1401,6 +1382,7 @@ if (is_win || (is_linux && !is_component_build)) {
                            root_build_dir),
                "-d",
                "-m",
+               "-a", "x86_64",
                "-g",
                rebase_path(
                    "$root_out_dir/{{source_file_part}}.dSYM/Contents/Resources/DWARF/{{source_file_part}}",
@@ -1558,24 +1540,14 @@ group("dependencies") {
   }
 
   if (is_chromeos) {
-    public_deps += [ "//chromeos/dbus/constants" ]
-  }
-
-  if (is_chromeos_lacros) {
-    public_deps += [
-      "//chromeos/lacros",
-      "//chromeos/lacros/dbus",
-    ]
-  }
-
-  if (is_chromeos_ash) {
     public_deps += [
       "//ash/constants",
-      "//chrome/browser/ash",
       "//chrome/browser/ash/boot_times_recorder",
+      "//chrome/browser/ash/dbus",
       "//chrome/browser/ash/schedqos",
       "//chromeos",
       "//chromeos/ash/components/memory",
+      "//chromeos/dbus/constants",
     ]
   }
 }
@@ -1799,7 +1771,7 @@ if (is_android) {
       ]
     }
 
-    if (is_chromeos_ash) {
+    if (is_chromeos) {
       public_deps += [ "//ui/lottie" ]
       deps += [ "//chrome/browser/ash/schedqos" ]
     }
@@ -1817,7 +1789,7 @@ if (is_win && enable_resource_allowlist_generation) {
 }
 
 if (is_linux || is_chromeos) {
-  if (is_official_build) {
+  if (!(is_debug && use_debug_fission)) {
     group("linux_symbols") {
       deps = [
         ":angle_egl_symbols",
@@ -1860,7 +1832,7 @@ if (is_linux || is_chromeos) {
       deps = [ "//components/crash/core/app:chrome_crashpad_handler" ]
     }
     extract_symbols("swiftshader_vk_symbols") {
-      binary = "$root_out_dir/libvk_swiftshader.so"
+      binary = "$root_out_dir/lib/libvk_swiftshader.so"
 
       if (current_cpu == "x86") {
         # GYP used "ia32" so keep that naming for back-compat.
@@ -1872,7 +1844,7 @@ if (is_linux || is_chromeos) {
       deps = [ "//third_party/swiftshader/src/Vulkan:swiftshader_libvulkan" ]
     }
     extract_symbols("angle_egl_symbols") {
-      binary = "$root_out_dir/libEGL.so"
+      binary = "$root_out_dir/lib/libEGL.so"
 
       if (current_cpu == "x86") {
         # GYP used "ia32" so keep that naming for back-compat.
@@ -1884,7 +1856,7 @@ if (is_linux || is_chromeos) {
       deps = [ "//third_party/angle:libEGL" ]
     }
     extract_symbols("angle_gles_symbols") {
-      binary = "$root_out_dir/libGLESv2.so"
+      binary = "$root_out_dir/lib/libGLESv2.so"
 
       if (current_cpu == "x86") {
         # GYP used "ia32" so keep that naming for back-compat.
@@ -1897,7 +1869,7 @@ if (is_linux || is_chromeos) {
     }
     if (!is_chromeos) {
       extract_symbols("angle_libvulkan_symbols") {
-        binary = "$root_out_dir/libvulkan.so.1"
+        binary = "$root_out_dir/lib/libvulkan.so.1"
 
         if (current_cpu == "x86") {
           # GYP used "ia32" so keep that naming for back-compat.
@@ -1911,7 +1883,7 @@ if (is_linux || is_chromeos) {
     }
     if (build_with_internal_optimization_guide) {
       extract_symbols("optimization_guide_symbols") {
-        binary = "$root_out_dir/liboptimization_guide_internal.so"
+        binary = "$root_out_dir/lib/liboptimization_guide_internal.so"
         if (current_cpu == "x86") {
           # GYP used "ia32" so keep that naming for back-compat.
           symbol_file =
@@ -1950,67 +1922,5 @@ if (_cros_generate_embed_section_target) {
     binary_input = "$root_out_dir/chrome"
     sections_embedded_binary_output = "$root_out_dir/chrome.sections_embedded"
     deps = [ ":chrome" ]
-  }
-}
-
-if (is_chromeos_lacros && is_official_build) {
-  # This target is responsible for stripping symbols out of lacros files.
-  # Adding/removing targets here, you also need a corresponding change
-  # in src-internal for the release builder.
-  group("strip_lacros_files") {
-    deps = [
-      ":strip_chrome_binary",
-      ":strip_chrome_crashpad_handler",
-      ":strip_libegl_so",
-      ":strip_libglesv2_so",
-      ":strip_nacl_helper",
-    ]
-    if (target_cpu == "arm" || target_cpu == "arm64") {
-      deps += [ ":strip_nacl_helper_bootstrap" ]
-    }
-  }
-
-  # This will strip chrome binary and produce chrome.debug with symbols.
-  strip_binary("strip_chrome_binary") {
-    binary_input = "$root_out_dir/chrome"
-    symbol_output = "$root_out_dir/chrome.debug"
-    stripped_binary_output = "$root_out_dir/chrome.stripped"
-    deps = [ ":chrome" ]
-  }
-  strip_binary("strip_chrome_crashpad_handler") {
-    binary_input = "$root_out_dir/chrome_crashpad_handler"
-    symbol_output = "$root_out_dir/chrome_crashpad_handler.debug"
-    stripped_binary_output = "$root_out_dir/chrome_crashpad_handler.stripped"
-    deps = [ "//components/crash/core/app:chrome_crashpad_handler" ]
-  }
-  strip_binary("strip_libegl_so") {
-    binary_input = "$root_out_dir/libEGL.so"
-    symbol_output = "$root_out_dir/libEGL.so.debug"
-    stripped_binary_output = "$root_out_dir/libEGL.so.stripped"
-    deps = [ "//third_party/angle:libEGL" ]
-  }
-  strip_binary("strip_libglesv2_so") {
-    binary_input = "$root_out_dir/libGLESv2.so"
-    symbol_output = "$root_out_dir/libGLESv2.so.debug"
-    stripped_binary_output = "$root_out_dir/libGLESv2.so.stripped"
-    deps = [ "//third_party/angle:libGLESv2" ]
-  }
-  strip_binary("strip_nacl_helper") {
-    binary_input = "$root_out_dir/nacl_helper"
-    symbol_output = "$root_out_dir/nacl_helper.debug"
-    stripped_binary_output = "$root_out_dir/nacl_helper.stripped"
-    deps = [ "//components/nacl/loader:nacl_helper" ]
-  }
-  if (target_cpu == "arm" || target_cpu == "arm64") {
-    strip_binary("strip_nacl_helper_bootstrap") {
-      binary_input = "$root_out_dir/nacl_helper_bootstrap"
-      symbol_output = "$root_out_dir/nacl_helper_bootstrap.debug"
-      stripped_binary_output = "$root_out_dir/nacl_helper_bootstrap.stripped"
-      if (target_cpu == "arm") {
-        deps = [ "//native_client/src/trusted/service_runtime/linux:bootstrap" ]
-      } else {
-        deps = [ "//components/nacl/loader:nacl_helper_bootstrap" ]
-      }
-    }
   }
 }

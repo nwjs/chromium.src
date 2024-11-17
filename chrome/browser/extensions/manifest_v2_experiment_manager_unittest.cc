@@ -23,10 +23,10 @@
 #include "extensions/common/extension_features.h"
 #include "extensions/common/mojom/manifest.mojom.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "components/account_id/account_id.h"
 #include "components/user_manager/user.h"
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 namespace extensions {
 
@@ -46,7 +46,7 @@ class ManifestV2ExperimentManagerUnitTestBase
     // testing PrefService.
     InitializeExtensionService(ExtensionServiceInitParams{});
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     // Log in the user on CrOS. This is necessary for the profile to be
     // considered one that can install extensions, which itself is
     // necessary for metrics testing.
@@ -130,6 +130,17 @@ class ManifestV2ExperimentManagerDisableWithReEnableAndWarningUnitTest
             {}) {}
   ~ManifestV2ExperimentManagerDisableWithReEnableAndWarningUnitTest() override =
       default;
+};
+
+// Test suite for cases where the user is in the "unsupported" experiment phase.
+class ManifestV2ExperimentManagerUnsupportedUnitTest
+    : public ManifestV2ExperimentManagerUnitTestBase {
+ public:
+  ManifestV2ExperimentManagerUnsupportedUnitTest()
+      : ManifestV2ExperimentManagerUnitTestBase(
+            {extensions_features::kExtensionManifestV2Unsupported},
+            {}) {}
+  ~ManifestV2ExperimentManagerUnsupportedUnitTest() override = default;
 };
 
 // Tests that the experiment stage is properly set when the manifest V2
@@ -783,6 +794,14 @@ TEST_F(ManifestV2ExperimentManagerDisableWithReEnableAndPolicyUnitTest,
   histogram_tester.ExpectBucketCount(
       "Extensions.MV2Deprecation.MV2ExtensionState.Internal",
       ManifestV2ExperimentManager::MV2ExtensionState::kUnaffected, 1);
+}
+
+// Tests that the experiment phase is properly set for a user in the
+// "unsupported" experiment phase.
+TEST_F(ManifestV2ExperimentManagerUnsupportedUnitTest,
+       ExperimentStageIsSetToUnsupported) {
+  EXPECT_EQ(MV2ExperimentStage::kUnsupported,
+            experiment_manager()->GetCurrentExperimentStage());
 }
 
 }  // namespace extensions

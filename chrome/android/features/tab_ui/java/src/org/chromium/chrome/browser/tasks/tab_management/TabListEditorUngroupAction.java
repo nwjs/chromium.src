@@ -11,7 +11,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
+import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationManager.ConfirmationResult;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiMetricsHelper.TabListEditorActionMetricGroups;
 import org.chromium.chrome.tab_ui.R;
@@ -85,7 +85,7 @@ public class TabListEditorUngroupAction extends TabListEditorAction {
         if (relatedTabs.size() <= tabsToUngroup.size()) {
             List<Integer> tabIdList =
                     tabsToUngroup.stream().map(Tab::getId).collect(Collectors.toList());
-            mActionConfirmationManager.processRemoveTabAttempt(
+            mActionConfirmationManager.processUngroupTabAttempt(
                     tabIdList,
                     (@ConfirmationResult Integer result) -> {
                         if (result != ConfirmationResult.CONFIRMATION_NEGATIVE) {
@@ -102,7 +102,7 @@ public class TabListEditorUngroupAction extends TabListEditorAction {
     private void doRemoveTabs(List<Tab> tabs) {
         TabGroupModelFilter filter = getTabGroupModelFilter();
         for (Tab tab : tabs) {
-            filter.moveTabOutOfGroup(tab.getId());
+            filter.moveTabOutOfGroupInDirection(tab.getId(), /* trailing= */ true);
         }
         TabUiMetricsHelper.recordSelectionEditorActionMetrics(
                 TabListEditorActionMetricGroups.UNGROUP);

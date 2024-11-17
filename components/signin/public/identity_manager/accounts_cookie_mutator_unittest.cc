@@ -82,7 +82,7 @@ class AccountsCookieMutatorTest
   AccountsCookieMutatorTest& operator=(const AccountsCookieMutatorTest&) =
       delete;
 
-  ~AccountsCookieMutatorTest() override {}
+  ~AccountsCookieMutatorTest() override = default;
 
   // Make an account available and returns the account ID.
   CoreAccountId AddAcountWithRefreshToken(const std::string& email) {
@@ -251,9 +251,10 @@ TEST_F(AccountsCookieMutatorTest, TriggerCookieJarUpdate_NoListedAccounts) {
   const AccountsInCookieJarInfo& accounts_in_jar_info =
       identity_manager_observer()
           ->AccountsInfoFromAccountsInCookieUpdatedCallback();
-  EXPECT_EQ(accounts_in_jar_info.signed_in_accounts.size(), 0U);
-  EXPECT_EQ(accounts_in_jar_info.signed_out_accounts.size(), 0U);
-  EXPECT_TRUE(accounts_in_jar_info.accounts_are_fresh);
+  EXPECT_EQ(accounts_in_jar_info.GetPotentiallyInvalidSignedInAccounts().size(),
+            0U);
+  EXPECT_EQ(accounts_in_jar_info.GetSignedOutAccounts().size(), 0U);
+  EXPECT_TRUE(accounts_in_jar_info.AreAccountsFresh());
 
   EXPECT_EQ(identity_manager_observer()
                 ->ErrorFromAccountsInCookieUpdatedCallback()
@@ -276,14 +277,17 @@ TEST_F(AccountsCookieMutatorTest, TriggerCookieJarUpdate_OneListedAccounts) {
   const AccountsInCookieJarInfo& accounts_in_jar_info =
       identity_manager_observer()
           ->AccountsInfoFromAccountsInCookieUpdatedCallback();
-  EXPECT_EQ(accounts_in_jar_info.signed_in_accounts.size(), 1U);
-  EXPECT_EQ(accounts_in_jar_info.signed_in_accounts[0].gaia_id,
-            kTestAccountGaiaId);
-  EXPECT_EQ(accounts_in_jar_info.signed_in_accounts[0].email,
-            kTestAccountEmail);
+  EXPECT_EQ(accounts_in_jar_info.GetPotentiallyInvalidSignedInAccounts().size(),
+            1U);
+  EXPECT_EQ(
+      accounts_in_jar_info.GetPotentiallyInvalidSignedInAccounts()[0].gaia_id,
+      kTestAccountGaiaId);
+  EXPECT_EQ(
+      accounts_in_jar_info.GetPotentiallyInvalidSignedInAccounts()[0].email,
+      kTestAccountEmail);
 
-  EXPECT_EQ(accounts_in_jar_info.signed_out_accounts.size(), 0U);
-  EXPECT_TRUE(accounts_in_jar_info.accounts_are_fresh);
+  EXPECT_EQ(accounts_in_jar_info.GetSignedOutAccounts().size(), 0U);
+  EXPECT_TRUE(accounts_in_jar_info.AreAccountsFresh());
 
   EXPECT_EQ(identity_manager_observer()
                 ->ErrorFromAccountsInCookieUpdatedCallback()

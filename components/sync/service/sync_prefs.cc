@@ -21,15 +21,16 @@
 #include "components/prefs/pref_service.h"
 #include "components/prefs/pref_value_map.h"
 #include "components/prefs/scoped_user_pref_update.h"
+#include "components/saved_tab_groups/public/pref_names.h"
 #include "components/signin/public/base/gaia_id_hash.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_switches.h"
+#include "components/sync/base/account_pref_utils.h"
 #include "components/sync/base/features.h"
 #include "components/sync/base/passphrase_enums.h"
 #include "components/sync/base/pref_names.h"
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/protocol/nigori_specifics.pb.h"
-#include "components/sync/service/account_pref_utils.h"
 #include "components/sync/service/glue/sync_transport_data_prefs.h"
 #include "components/sync/service/sync_feature_status_for_migrations_recorder.h"
 
@@ -311,7 +312,9 @@ UserSelectableTypeSet SyncPrefs::GetSelectedTypesForAccount(
         // at the time the feature transitions from disabled to enabled, the
         // state at the time is captured as explicit value in
         // `MaybeMigratePrefsForSyncToSigninPart1()`.
-        if (!base::FeatureList::IsEnabled(kReplaceSyncPromosWithSignInPromos)) {
+        if (!base::FeatureList::IsEnabled(kReplaceSyncPromosWithSignInPromos) &&
+            !base::FeatureList::IsEnabled(
+                kEnableBookmarksSelectedTypeOnSigninForTesting)) {
           type_enabled = false;
         }
       } else if (type == UserSelectableType::kExtensions) {
@@ -371,6 +374,19 @@ bool SyncPrefs::IsTypeManagedByCustodian(UserSelectableType type) const {
   const char* pref_name = GetPrefNameForType(type);
   CHECK(pref_name);
   return pref_service_->IsPreferenceManagedByCustodian(pref_name);
+}
+
+bool SyncPrefs::DoesTypeHaveDefaultValueForAccount(
+    const UserSelectableType type,
+    const signin::GaiaIdHash& gaia_id_hash) {
+  const char* pref_name = GetPrefNameForType(type);
+  DCHECK(pref_name);
+
+  const base::Value* value = GetAccountKeyedPrefDictEntry(
+      pref_service_, prefs::internal::kSelectedTypesPerAccount, gaia_id_hash,
+      pref_name);
+
+  return !value;
 }
 
 bool SyncPrefs::IsTypeDisabledByUserForAccount(
@@ -453,11 +469,17 @@ void SyncPrefs::KeepAccountSettingsPrefsOnlyForUsers(
       pref_service_, prefs::internal::kSyncEncryptionBootstrapTokenPerAccount,
       available_gaia_ids);
 
-  // TODO(crbug.com/337034860): This is not the right place for clearing
+  // TODO(crbug.com/368409110): This is not the right place for clearing
   // transport-data-related prefs - ideally there'd be an observer API for
   // "accounts on this device".
   SyncTransportDataPrefs::KeepAccountSettingsPrefsOnlyForUsers(
       pref_service_, available_gaia_ids);
+
+  // TODO(crbug.com/368409110): This is *absolutely* not the right place for
+  // clearing not-sync-related prefs. Move this elsewhere once signin code
+  // provides an observer API for "accounts on this device".
+  tab_groups::prefs::KeepAccountSettingsPrefsOnlyForUsers(pref_service_,
+                                                          available_gaia_ids);
 }
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)

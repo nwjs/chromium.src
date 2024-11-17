@@ -24,10 +24,12 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.WindowInsetsCompat;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
 
@@ -47,6 +49,7 @@ import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeControllerImpl;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeSupplier.ChangeObserver;
+import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeStateProvider;
 import org.chromium.ui.InsetObserver;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.base.TestActivity;
@@ -69,6 +72,8 @@ public class BottomControlsMediatorTest {
                     .setInsets(WindowInsetsCompat.Type.statusBars(), STATUS_BAR_INSETS)
                     .build();
 
+    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
+
     @Mock BottomControlsStacker mBottomControlsStacker;
     @Mock BrowserControlsStateProvider mBrowserControlsStateProvider;
     @Mock BrowserStateBrowserControlsVisibilityDelegate mBrowserControlsVisibilityDelegate;
@@ -80,6 +85,7 @@ public class BottomControlsMediatorTest {
     @Mock KeyboardVisibilityDelegate mKeyboardDelegate;
     @Mock Supplier<Boolean> mReadAloudRestoringSupplier;
     @Mock InsetObserver mInsetObserver;
+    @Mock EdgeToEdgeStateProvider mEdgeToEdgeStateProvider;
 
     private ObservableSupplierImpl<EdgeToEdgeController> mEdgeToEdgeControllerSupplier;
     private ObservableSupplierImpl<Tab> mTabObservableSupplier = new ObservableSupplierImpl();
@@ -91,7 +97,6 @@ public class BottomControlsMediatorTest {
 
     @Before
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
         doReturn(mKeyboardDelegate).when(mWindowAndroid).getKeyboardDelegate();
         doReturn(SYSTEM_BARS_WINDOW_INSETS).when(mInsetObserver).getLastRawWindowInsets();
         doReturn(mInsetObserver).when(mWindowAndroid).getInsetObserver();
@@ -167,8 +172,9 @@ public class BottomControlsMediatorTest {
                         mWindowAndroid,
                         mTabObservableSupplier,
                         null,
+                        mEdgeToEdgeStateProvider,
                         mBrowserControlsStateProvider,
-                        mLayoutManager,
+                        new ObservableSupplierImpl<>(mLayoutManager),
                         mFullscreenManager);
         BottomControlsMediator plainMediator =
                 new BottomControlsMediator(
@@ -198,8 +204,9 @@ public class BottomControlsMediatorTest {
                         mWindowAndroid,
                         mTabObservableSupplier,
                         null,
+                        mEdgeToEdgeStateProvider,
                         mBrowserControlsStateProvider,
-                        mLayoutManager,
+                        new ObservableSupplierImpl<>(mLayoutManager),
                         mFullscreenManager);
         new BottomControlsMediator(
                 mWindowAndroid,

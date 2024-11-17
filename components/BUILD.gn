@@ -69,33 +69,29 @@ if (is_ios) {
   }
 }
 
-# Omit Lacros because it allows //components to depend on //chrome, which in
-# turn depends on //extensions.
-if (!is_chromeos_lacros) {
-  disallowed_extension_deps_ = [
-    # Components should largely not depend on //extensions. Since // extensions
-    # is not a component target and is linked with //chrome, depending on most
-    # //extensions targets will result in duplicate code. See
-    # //docs/component_build.md#dependencies-between-targets and
-    # https://bugs.chromium.org/p/chromium/issues/detail?id=1215550#c6 for an
-    # example of this going awry.
-    # However, there are two //extensions targets we allow:
-    # //extensions/buildflags (needed to see if extensions are enabled) and
-    # //extensions/common:common_constants (which *is* a component target, and
-    # is needed by a number of components).
-    # Since there's no way to say "no //extensions targets _except_", we
-    # instead list ~all the other targets here.
-    "//extensions/browser/*",
-    "//extensions/common",
-    "//extensions/common:mojom",
-    "//extensions/common:core_api_provider",
-    "//extensions/common/api/*",
-    "//extensions/renderer/*",
-    "//extensions/shell/*",
-    "//extensions/components/*",
-    "//extensions/strings/*",
-  ]
-}
+disallowed_extension_deps_ = [
+  # Components should largely not depend on //extensions. Since // extensions
+  # is not a component target and is linked with //chrome, depending on most
+  # //extensions targets will result in duplicate code. See
+  # //docs/component_build.md#dependencies-between-targets and
+  # https://bugs.chromium.org/p/chromium/issues/detail?id=1215550#c6 for an
+  # example of this going awry.
+  # However, there are two //extensions targets we allow:
+  # //extensions/buildflags (needed to see if extensions are enabled) and
+  # //extensions/common:common_constants (which *is* a component target, and
+  # is needed by a number of components).
+  # Since there's no way to say "no //extensions targets _except_", we
+  # instead list ~all the other targets here.
+  "//extensions/browser/*",
+  "//extensions/common",
+  "//extensions/common:mojom",
+  "//extensions/common:core_api_provider",
+  "//extensions/common/api/*",
+  "//extensions/renderer/*",
+  "//extensions/shell/*",
+  "//extensions/components/*",
+  "//extensions/strings/*",
+]
 
 # To add a unit test to this target, make a "unit_tests" source_set in your
 # component(it's important to use a source_set instead of a static library or
@@ -222,6 +218,7 @@ test("components_unittests") {
     "//components/encrypted_messages:unit_tests",
     "//components/enterprise:unit_tests",
     "//components/enterprise/common:unit_tests",
+    "//components/enterprise/connectors/core:unit_tests",
     "//components/enterprise/obfuscation/core:unit_tests",
     "//components/facilitated_payments/core/metrics:unit_tests",
     "//components/facilitated_payments/core/util:unit_tests",
@@ -317,8 +314,8 @@ test("components_unittests") {
     "//components/safe_browsing/core/common:unit_tests",
     "//components/safe_browsing/core/common/hashprefix_realtime:unit_tests",
     "//components/safe_search_api:unit_tests",
-    "//components/sampling_profiler:unit_tests",
     "//components/saved_tab_groups:unit_tests",
+    "//components/saved_tab_groups/messaging:unit_tests",
     "//components/search:unit_tests",
     "//components/search_engines:unit_tests",
     "//components/search_provider_logos:unit_tests",
@@ -326,7 +323,6 @@ test("components_unittests") {
     "//components/security_state/core:unit_tests",
     "//components/segmentation_platform:unit_tests",
     "//components/services/heap_profiling/public/cpp:unit_tests",
-    "//components/services/on_device_translation:unit_tests",
     "//components/services/unzip:unit_tests",
     "//components/sessions:unit_tests",
     "//components/shared_highlighting/core/common:unit_tests",
@@ -381,6 +377,10 @@ test("components_unittests") {
       "//components/supervised_user/core/browser:unit_tests",
       "//components/supervised_user/core/common:unit_tests",
     ]
+
+    if (is_ios || is_win || is_linux) {
+      deps += [ "//components/supervised_user/test_support:account_repository_unit_tests" ]
+    }
   }
 
   if (build_allocation_stack_trace_recorder) {
@@ -658,7 +658,8 @@ test("components_unittests") {
       "//components/permissions/android:java",
       "//components/policy/android:native_test_support_java",
       "//components/policy/android:policy_java",
-      "//components/saved_tab_groups:native_java_unittests_java",
+      "//components/saved_tab_groups/internal:native_java_unittests_java",
+      "//components/saved_tab_groups/messaging/android:native_java_unittests_java",
       "//components/search_engines/android:java",
       "//components/search_engines/android:test_utils_java",
       "//components/sensitive_content:unit_tests",
@@ -738,24 +739,19 @@ test("components_unittests") {
     deps += [ "//components/rlz:unit_tests" ]
   }
 
-  if (is_chromeos_ash) {
+  if (is_chromeos) {
     deps += [
+      "//components/account_manager_core:unit_tests",
       "//components/arc:unit_tests",
+      "//components/arc/common:unit_tests",
       "//components/cross_device/nearby:unit_tests",
       "//components/desks_storage:unit_tests",
       "//components/guest_os:unit_tests",
       "//components/ownership:unit_tests",
       "//components/peripherals/logging:unit_tests",
+      "//components/reporting/health:unit_tests",
       "//components/user_manager:unit_tests",
       "//components/variations/cros_evaluate_seed:unit_tests",
-    ]
-  }
-
-  if (is_chromeos) {
-    deps += [
-      "//components/account_manager_core:unit_tests",
-      "//components/arc/common:unit_tests",
-      "//components/reporting/health:unit_tests",
     ]
   }
 
@@ -846,6 +842,7 @@ test("components_unittests") {
 
   if (is_win || is_mac || is_linux || is_chromeos) {
     deps += [
+      "//components/metrics/dwa:unit_tests",
       "//components/metrics/structured:unit_tests",
       "//components/metrics/structured/mojom:unit_tests",
       "//components/user_notes/browser:unit_tests",
@@ -873,14 +870,15 @@ test("components_unittests") {
     deps += [ "//components/tpcd/enterprise_reporting:unit_tests" ]
   }
 
-  # On LaCrOS, tests use ash - chrome as a window manager, thus the dependency.
-  # On other platforms, no components should depend on Chrome.
-  # Since //chrome depends on //extensions, we also only assert_no_deps on
-  # extensions targets for non-lacros builds.
-  if (!is_chromeos_lacros) {
-    assert_no_deps = [ "//chrome/*" ]
-    assert_no_deps += disallowed_extension_deps_
+  if (is_linux || is_win || is_mac) {
+    deps += [ "//components/services/on_device_translation:unit_tests" ]
   }
+
+  # No components should depend on Chrome.
+  # Since //chrome depends on //extensions, we also only assert_no_deps on
+  # extensions targets.
+  assert_no_deps = [ "//chrome/*" ]
+  assert_no_deps += disallowed_extension_deps_
 
   if (is_ios) {
     assert_no_deps += ios_assert_no_deps
@@ -893,6 +891,7 @@ repack("components_tests_pak") {
     "$root_gen_dir/components/autofill/core/browser/autofill_address_rewriter_resources.pak",
     "$root_gen_dir/components/components_resources.pak",
     "$root_gen_dir/components/omnibox/resources/omnibox_pedal_synonyms_en-US.pak",
+    "$root_gen_dir/components/plus_addresses/resources/strings/plus_addresses_strings_en-US.pak",
     "$root_gen_dir/components/strings/components_locale_settings_en-US.pak",
     "$root_gen_dir/components/strings/components_strings_en-US.pak",
   ]
@@ -904,6 +903,7 @@ repack("components_tests_pak") {
     "//ash/components/arc/input_overlay/resources:resources_grit",
     "//components/autofill/core/browser:autofill_address_rewriter_resources",
     "//components/omnibox/resources:omnibox_pedal_synonyms",
+    "//components/plus_addresses/resources/strings",
     "//components/resources",
     "//components/strings",
   ]
@@ -1166,14 +1166,11 @@ if (use_blink) {
       ]
     }
 
-    # On LaCrOS, tests use ash - chrome as a window manager, thus the
-    # dependency. On other platforms, no components should depend on Chrome.
+    # No components should depend on Chrome.
     # Since //chrome depends on //extensions, we also only assert_no_deps on
-    # extensions targets for non-lacros builds.
-    if (!is_chromeos_lacros) {
-      assert_no_deps = [ "//chrome/*" ]
-      assert_no_deps += disallowed_extension_deps_
-    }
+    # extensions targets.
+    assert_no_deps = [ "//chrome/*" ]
+    assert_no_deps += disallowed_extension_deps_
 
     if (is_fuchsia) {
       additional_manifest_fragments = [
@@ -1268,6 +1265,7 @@ if (is_android) {
       "//components/background_task_scheduler:components_background_task_scheduler_junit_tests",
       "//components/browser_ui/bottomsheet/android/internal:junit_tests",
       "//components/browser_ui/client_certificate/android:junit",
+      "//components/browser_ui/desktop_windowing/android:junit",
       "//components/browser_ui/media/android:junit",
       "//components/browser_ui/photo_picker/android:junit",
       "//components/browser_ui/settings/android:junit",
@@ -1292,10 +1290,12 @@ if (is_android) {
       "//components/permissions/android:components_permissions_junit_tests",
       "//components/policy/android:components_policy_junit_tests",
       "//components/prefs/android:junit",
+      "//components/saved_tab_groups/internal:junit",
       "//components/sensitive_content:junit",
       "//components/signin/public/android:junit",
       "//components/stylus_handwriting/android:stylus_handwriting_junit_tests",
       "//components/subresource_filter/android:junit",
+      "//components/ukm/android:ukm_junit_tests",
       "//components/variations/android:components_variations_junit_tests",
       "//components/webapk/android/libs/client:junit",
       "//components/webapps/browser/android:junit",

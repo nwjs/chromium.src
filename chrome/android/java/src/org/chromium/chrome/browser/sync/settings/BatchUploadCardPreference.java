@@ -17,6 +17,7 @@ import androidx.preference.PreferenceViewHolder;
 
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.device_reauth.BiometricStatus;
 import org.chromium.chrome.browser.device_reauth.DeviceAuthSource;
 import org.chromium.chrome.browser.device_reauth.ReauthenticatorBridge;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -154,9 +155,10 @@ public class BatchUploadCardPreference extends Preference
         }
 
         mSyncService.getLocalDataDescriptions(
-                mReauthenticatorBridge.canUseAuthenticationWithBiometricOrScreenLock()
-                        ? Set.of(DataType.BOOKMARKS, DataType.READING_LIST, DataType.PASSWORDS)
-                        : Set.of(DataType.BOOKMARKS, DataType.READING_LIST),
+                mReauthenticatorBridge.getBiometricAvailabilityStatus()
+                                == BiometricStatus.UNAVAILABLE
+                        ? Set.of(DataType.BOOKMARKS, DataType.READING_LIST)
+                        : Set.of(DataType.BOOKMARKS, DataType.READING_LIST, DataType.PASSWORDS),
                 localDataDescriptionsMap -> {
                     mLocalDataDescriptionsMap = localDataDescriptionsMap;
                     int sum =
@@ -173,7 +175,13 @@ public class BatchUploadCardPreference extends Preference
     }
 
     private void setupBatchUploadCardView(View card) {
-        if (mLocalDataDescriptionsMap == null) {
+        // It does not make sense to set the card text when there are no local data. An early return
+        // here would also avoid showing the card with a wrong text before it hides.
+        if (mLocalDataDescriptionsMap == null
+                || mLocalDataDescriptionsMap.values().stream()
+                                .map(LocalDataDescription::itemCount)
+                                .reduce(0, Integer::sum)
+                        == 0) {
             return;
         }
 
@@ -195,7 +203,7 @@ public class BatchUploadCardPreference extends Preference
         button.setOnClickListener(
                 v -> {
                     BatchUploadDialogCoordinator.show(
-                            context, mProfile, mLocalDataDescriptionsMap, mDialogManager, this);
+                            context, mLocalDataDescriptionsMap, mDialogManager, this);
                 });
 
         ImageView image = (ImageView) card.findViewById(R.id.signin_settings_card_icon);

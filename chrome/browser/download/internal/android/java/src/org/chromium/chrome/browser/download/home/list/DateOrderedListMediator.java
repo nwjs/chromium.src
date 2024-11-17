@@ -12,6 +12,7 @@ import androidx.annotation.Nullable;
 import androidx.core.util.Pair;
 
 import org.chromium.base.Callback;
+import org.chromium.base.CallbackUtils;
 import org.chromium.base.CollectionUtil;
 import org.chromium.base.DiscardableReferencePool;
 import org.chromium.base.supplier.ObservableSupplier;
@@ -107,7 +108,6 @@ class DateOrderedListMediator implements BackPressHandler {
     private final DateOrderedListMutator mListMutator;
     private final ListMutationController mListMutationController;
     private final ThumbnailProvider mThumbnailProvider;
-    private final MediatorSelectionObserver mSelectionObserver;
     private final SelectionDelegate<ListItem> mSelectionDelegate;
     private final DownloadManagerUiConfig mUiConfig;
 
@@ -217,7 +217,7 @@ class DateOrderedListMediator implements BackPressHandler {
                         discardableReferencePool,
                         config.inMemoryThumbnailCacheSizeBytes,
                         ThumbnailProviderImpl.ClientType.DOWNLOAD_HOME);
-        mSelectionObserver = new MediatorSelectionObserver(selectionDelegate);
+        new MediatorSelectionObserver(selectionDelegate);
 
         mModel.getProperties().set(ListProperties.ENABLE_ITEM_ANIMATIONS, true);
         mModel.getProperties().set(ListProperties.CALLBACK_OPEN, this::onOpenItem);
@@ -412,7 +412,7 @@ class DateOrderedListMediator implements BackPressHandler {
             OfflineItem item, int iconWidthPx, int iconHeightPx, VisualsCallback callback) {
         if (!UiUtils.canHaveThumbnails(item) || iconWidthPx == 0 || iconHeightPx == 0) {
             mHandler.post(() -> callback.onVisualsAvailable(item.id, null));
-            return () -> {};
+            return CallbackUtils.emptyRunnable();
         }
 
         ThumbnailRequest request =

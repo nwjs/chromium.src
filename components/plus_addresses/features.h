@@ -8,19 +8,26 @@
 #include "base/component_export.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/time/time.h"
 
 namespace plus_addresses::features {
 
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
+BASE_DECLARE_FEATURE(kPlusAddressAndroidEnhancedLoadingStatesEnabled);
+
+COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
 BASE_DECLARE_FEATURE(kPlusAddressAndroidErrorStatesEnabled);
 
 COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
 BASE_DECLARE_FEATURE(kPlusAddressAndroidManualFallbackEnabled);
-#endif  // BUILDFLAG(IS_ANDROID)
 
 COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
-BASE_DECLARE_FEATURE(kPlusAddressAndSingleFieldFormFill);
+BASE_DECLARE_FEATURE(kPlusAddressAndroidOpenGmsCoreManagementPage);
+
+COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
+BASE_DECLARE_FEATURE(kPlusAddressAndroidSettingsEntry);
+#endif  // BUILDFLAG(IS_ANDROID)
 
 COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
 BASE_DECLARE_FEATURE(kPlusAddressBlocklistEnabled);
@@ -53,6 +60,11 @@ extern const base::FeatureParam<std::string> kPlusAddressExcludedSites;
 COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
 extern const base::FeatureParam<std::string> kPlusAddressErrorReportUrl;
 
+// The amount of time before the client aborts a request to the plus address
+// server.
+COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
+extern const base::FeatureParam<base::TimeDelta> kPlusAddressRequestTimeout;
+
 // Used to disable this feature when requests to the server repeatedly fail with
 // a 403.
 COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
@@ -60,6 +72,9 @@ extern const base::FeatureParam<bool> kDisableForForbiddenUsers;
 
 COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
 BASE_DECLARE_FEATURE(kPlusAddressFallbackFromContextMenu);
+
+COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
+BASE_DECLARE_FEATURE(kPlusAddressFullFormFill);
 
 COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
 BASE_DECLARE_FEATURE(kPlusAddressGlobalToggle);
@@ -71,6 +86,9 @@ BASE_DECLARE_FEATURE(kPlusAddressInlineCreation);
 
 #if BUILDFLAG(IS_IOS)
 COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
+BASE_DECLARE_FEATURE(kPlusAddressIOSErrorAndLoadingStatesEnabled);
+
+COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
 BASE_DECLARE_FEATURE(kPlusAddressIOSManualFallbackEnabled);
 #endif  // BUILDFLAG(IS_IOS)
 
@@ -81,13 +99,16 @@ COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
 BASE_DECLARE_FEATURE(kPlusAddressOfferCreationOnSingleUsernameForms);
 
 COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
+BASE_DECLARE_FEATURE(kPlusAddressParseExistingProfilesFromCreateResponse);
+
+COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
 BASE_DECLARE_FEATURE(kPlusAddressPreallocation);
 
 COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
 extern const base::FeatureParam<int> kPlusAddressPreallocationMinimumSize;
 
 COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
-BASE_DECLARE_FEATURE(kPlusAddressProfileAwareFeatureCheck);
+BASE_DECLARE_FEATURE(kPlusAddressRefinedPasswordFormClassification);
 
 COMPONENT_EXPORT(PLUS_ADDRESSES_FEATURES)
 BASE_DECLARE_FEATURE(kPlusAddressSuggestionRedesign);

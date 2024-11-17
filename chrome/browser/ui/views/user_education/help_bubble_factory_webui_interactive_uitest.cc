@@ -14,7 +14,6 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/side_search/side_search_config.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
 #include "chrome/browser/ui/toolbar/bookmark_sub_menu_model.h"
 #include "chrome/browser/ui/toolbar/reading_list_sub_menu_model.h"
@@ -170,7 +169,8 @@ class HelpBubbleFactoryWebUIInteractiveUiTest : public InteractiveBrowserTest {
   }
 
   user_education::HelpBubbleFactoryRegistry* GetHelpBubbleFactory() {
-    auto* const controller = browser()->window()->GetFeaturePromoController();
+    auto* const controller =
+        browser()->window()->GetFeaturePromoControllerForTesting();
     return static_cast<BrowserFeaturePromoController*>(controller)
         ->bubble_factory_registry();
   }

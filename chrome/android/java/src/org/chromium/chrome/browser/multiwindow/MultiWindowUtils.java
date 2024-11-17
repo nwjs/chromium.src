@@ -33,7 +33,6 @@ import org.chromium.base.BuildInfo;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.ResettersForTesting;
-import org.chromium.base.cached_flags.IntCachedFieldTrialParameter;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
@@ -49,8 +48,9 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabWindowManager;
 import org.chromium.chrome.browser.ui.desktop_windowing.AppHeaderUtils;
-import org.chromium.chrome.browser.ui.desktop_windowing.DesktopWindowStateProvider;
 import org.chromium.chrome.browser.util.AndroidTaskUtils;
+import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateProvider;
+import org.chromium.components.cached_flags.IntCachedFieldTrialParameter;
 import org.chromium.components.ukm.UkmRecorder;
 import org.chromium.ui.display.DisplayAndroidManager;
 
@@ -641,7 +641,7 @@ public class MultiWindowUtils implements ActivityStateListener {
     }
 
     /**
-     * @returns A map taskID : boolean containing the visible tasks.
+     * @return A map taskID : boolean containing the visible tasks.
      */
     public static SparseBooleanArray getVisibleTasks() {
         SparseBooleanArray visibleTasks = new SparseBooleanArray();

@@ -38,6 +38,7 @@ static_library("settings_manager") {
     "//chrome/browser/nearby_sharing/common",
     "//chrome/browser/ui/webui/ash/settings/pages",
     "//chrome/browser/ui/webui/ash/settings/pages/apps",
+    "//chrome/browser/ui/webui/ash/settings/pages/people",
     "//chrome/browser/ui/webui/ash/settings/pages/privacy",
     "//chrome/browser/ui/webui/ash/settings/search",
     "//chrome/browser/ui/webui/ash/settings/services/metrics",
@@ -54,6 +55,8 @@ source_set("unit_tests") {
   testonly = true
 
   sources = [ "os_settings_manager_unittest.cc" ]
+
+  data = [ "//tools/metrics/histograms/metadata/chromeos_settings/enums.xml" ]
 
   deps = [
     ":settings_manager",

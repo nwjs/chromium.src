@@ -8,13 +8,11 @@
 #import <UIKit/UIKit.h>
 
 #include "base/ios/block_types.h"
-#include "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #include "ios/public/provider/chrome/browser/user_feedback/user_feedback_sender.h"
 
 class GURL;
 @class OpenNewTabCommand;
 @class ShowSigninCommand;
-@protocol SystemIdentity;
 @class UIViewController;
 namespace password_manager {
 enum class PasswordCheckReferrer;
@@ -164,15 +162,10 @@ enum class TabGridOpeningMode {
 - (void)showSignin:(ShowSigninCommand*)command
     baseViewController:(UIViewController*)baseViewController;
 
-// Switch from managed account.
-- (void)
-    switchAccountWithBaseViewController:(UIViewController*)baseViewController
-                            newIdentity:(id<SystemIdentity>)newIdentity
-                                   rect:(CGRect)rect
-                         rectAnchorView:(UIView*)rectAnchorView
-        viewWillBeDismissedAfterSignout:(BOOL)viewWillBeDismissedAfterSignout
-                       signInCompletion:(ShowSigninCommandCompletionCallback)
-                                            signInCompletion;
+// Shows the account menu. On scene with regular width, the account menu appears
+// as a popover near the anchor view.
+- (void)showAccountMenuWithAnchorView:(UIView*)anchorView
+                           completion:(void (^)())completion;
 
 // TODO(crbug.com/41352590) : Do not pass baseViewController through dispatcher.
 // Shows the consistency promo UI that allows users to sign in to Chrome using

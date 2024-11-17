@@ -26,6 +26,7 @@
 #include "chrome/browser/extensions/convert_user_script.h"
 #include "chrome/browser/extensions/extension_assets_manager.h"
 #include "chrome/browser/extensions/extension_service.h"
+#include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/forced_extensions/install_stage_tracker.h"
 #include "chrome/browser/extensions/install_tracker.h"
 #include "chrome/browser/extensions/install_tracker_factory.h"
@@ -72,7 +73,7 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "components/user_manager/user_manager.h"
 #endif
 
@@ -715,8 +716,10 @@ void CrxInstaller::OnInstallChecksComplete(const PreloadCheck::Errors& errors) {
       ReportFailureFromUIThread(CrxInstallError(
           CrxInstallErrorType::DECLINED,
           CrxInstallErrorDetail::EXTENSION_IS_BLOCKLISTED,
-          l10n_util::GetStringFUTF16(IDS_EXTENSION_IS_BLOCKLISTED,
-                                     base::UTF8ToUTF16(extension()->name()))));
+          l10n_util::GetStringFUTF16(
+              IDS_EXTENSION_IS_BLOCKLISTED,
+              extensions::util::GetFixupExtensionNameForUIDisplay(
+                  extension()->name()))));
       UMA_HISTOGRAM_ENUMERATION("ExtensionBlacklist.BlockCRX",
                                 extension()->location());
       return;
@@ -750,7 +753,7 @@ void CrxInstaller::ConfirmInstall() {
 
   if (KioskModeInfo::IsKioskOnly(extension())) {
     bool in_kiosk_mode = false;
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     user_manager::UserManager* user_manager = user_manager::UserManager::Get();
     in_kiosk_mode = user_manager && user_manager->IsLoggedInAsKioskApp();
 #endif

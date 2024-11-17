@@ -30,15 +30,74 @@ void LogSuggestRequestSent(RemoteRequestType request_type) {
   base::UmaHistogramEnumeration("Omnibox.SuggestRequestsSent", request_type);
 }
 
-void AddVariationHeaders(network::ResourceRequest* request) {
-  // Note: It's OK to pass InIncognito::kNo since we are expected to be in
-  // non-incognito state here (i.e. remote suggestions are not served in
-  // incognito mode).
+void AddVariationHeaders(network::ResourceRequest* request,
+                         bool is_off_the_record) {
+  // We only care about the experiment IDs from the variations server which do
+  // not require knowing the signed-in state.
   variations::AppendVariationsHeaderUnknownSignedIn(
-      request->url, variations::InIncognito::kNo, request);
+      request->url,
+      is_off_the_record ? variations::InIncognito::kYes
+                        : variations::InIncognito::kNo,
+      request);
+}
+
+// Adds query params to the url from the search terms args
+// Lens overlay suggest inputs.
+GURL AddLensOverlaySuggestInputsDataToEndpointUrl(
+    TemplateURLRef::SearchTermsArgs search_terms_args,
+    const GURL& url_to_modify) {
+  auto lens_overlay_suggest_inputs =
+      search_terms_args.lens_overlay_suggest_inputs;
+  if (!lens_overlay_suggest_inputs.has_value()) {
+    return url_to_modify;
+  }
+  GURL modified_url = GURL(url_to_modify);
+  bool send_request_and_session_ids = false;
+
+  if (search_terms_args.page_classification ==
+      metrics::OmniboxEventProto::CONTEXTUAL_SEARCHBOX) {
+    send_request_and_session_ids =
+        lens_overlay_suggest_inputs
+            ->send_gsession_vsrid_for_contextual_suggest();
+  } else if (search_terms_args.page_classification ==
+             metrics::OmniboxEventProto::LENS_SIDE_PANEL_SEARCHBOX) {
+    send_request_and_session_ids =
+        lens_overlay_suggest_inputs->send_gsession_vsrid_for_lens_suggest();
+    if (lens_overlay_suggest_inputs->has_encoded_image_signals()) {
+      modified_url = net::AppendOrReplaceQueryParameter(
+          modified_url, "iil",
+          lens_overlay_suggest_inputs->encoded_image_signals());
+    }
+    if (lens_overlay_suggest_inputs->send_vsint_for_lens_suggest() &&
+        lens_overlay_suggest_inputs
+            ->has_encoded_visual_search_interaction_log_data()) {
+      modified_url = net::AppendOrReplaceQueryParameter(
+          modified_url, "vsint",
+          lens_overlay_suggest_inputs
+              ->encoded_visual_search_interaction_log_data());
+    }
+  }
+
+  if (send_request_and_session_ids) {
+    if (lens_overlay_suggest_inputs->has_encoded_request_id()) {
+      modified_url = net::AppendOrReplaceQueryParameter(
+          modified_url, "vsrid",
+          lens_overlay_suggest_inputs->encoded_request_id());
+    }
+    if (lens_overlay_suggest_inputs->has_search_session_id()) {
+      modified_url = net::AppendOrReplaceQueryParameter(
+          modified_url, "gsessionid",
+          lens_overlay_suggest_inputs->search_session_id());
+    }
+  }
+  return modified_url;
 }
 
 }  // namespace
+
+RemoteSuggestionsService::Delegate::Delegate() = default;
+
+RemoteSuggestionsService::Delegate::~Delegate() = default;
 
 RemoteSuggestionsService::RemoteSuggestionsService(
     DocumentSuggestionsService* document_suggestions_service,
@@ -63,36 +122,37 @@ GURL RemoteSuggestionsService::EndpointUrl(
     return url;
   }
 
-  // Append or replace query params based on `page_classification`.
+  // Append or replace client= and sclient= based on `page_classification`.
   switch (search_terms_args.page_classification) {
     case metrics::OmniboxEventProto::CHROMEOS_APP_LIST: {
       // Append `sclient=cros-launcher` for CrOS app_list launcher entry point.
       url = net::AppendOrReplaceQueryParameter(url, "sclient", "cros-launcher");
       break;
     }
+    case metrics::OmniboxEventProto::CONTEXTUAL_SEARCHBOX:
+    case metrics::OmniboxEventProto::SEARCH_SIDE_PANEL_SEARCHBOX:
+      // Append `client=chrome-contextual` for non-multimodal and contextual
+      // lens searchboxes.
+      url = net::AppendOrReplaceQueryParameter(url, "client",
+                                               "chrome-contextual");
+      break;
     case metrics::OmniboxEventProto::LENS_SIDE_PANEL_SEARCHBOX: {
-      // Append `iil=` for the multimodal searchbox entry point, if available.
-      // TODO(b/328763711): Replace this with a TemplateURL substitution.
-      if (search_terms_args.lens_overlay_interaction_response.has_value() &&
-          search_terms_args.lens_overlay_interaction_response
-              ->has_suggest_signals()) {
-        url = net::AppendOrReplaceQueryParameter(
-            url, "iil",
-            search_terms_args.lens_overlay_interaction_response
-                ->suggest_signals());
-      }
+      // Append `client=chrome-multimodal` for the multimodal lens searchbox.
+      url = net::AppendOrReplaceQueryParameter(url, "client",
+                                               "chrome-multimodal");
       break;
     }
     default:
       break;
   }
-
+  url = AddLensOverlaySuggestInputsDataToEndpointUrl(search_terms_args, url);
   return url;
 }
 
 std::unique_ptr<network::SimpleURLLoader>
 RemoteSuggestionsService::StartSuggestionsRequest(
     RemoteRequestType request_type,
+    bool is_off_the_record,
     const TemplateURL* template_url,
     TemplateURLRef::SearchTermsArgs search_terms_args,
     const SearchTermsData& search_terms_data,
@@ -139,7 +199,7 @@ RemoteSuggestionsService::StartSuggestionsRequest(
   // Set the SiteForCookies to the request URL's site to avoid cookie blocking.
   request->site_for_cookies = net::SiteForCookies::FromUrl(suggest_url);
   // Add Chrome experiment state to the request headers.
-  AddVariationHeaders(request.get());
+  AddVariationHeaders(request.get(), is_off_the_record);
 
   // Create a unique identifier for the request.
   const base::UnguessableToken request_id = base::UnguessableToken::Create();
@@ -170,6 +230,7 @@ RemoteSuggestionsService::StartSuggestionsRequest(
 std::unique_ptr<network::SimpleURLLoader>
 RemoteSuggestionsService::StartZeroPrefixSuggestionsRequest(
     RemoteRequestType request_type,
+    bool is_off_the_record,
     const TemplateURL* template_url,
     TemplateURLRef::SearchTermsArgs search_terms_args,
     const SearchTermsData& search_terms_data,
@@ -221,7 +282,7 @@ RemoteSuggestionsService::StartZeroPrefixSuggestionsRequest(
   // Set the SiteForCookies to the request URL's site to avoid cookie blocking.
   request->site_for_cookies = net::SiteForCookies::FromUrl(suggest_url);
   // Add Chrome experiment state to the request headers.
-  AddVariationHeaders(request.get());
+  AddVariationHeaders(request.get(), is_off_the_record);
 
   // Create a unique identifier for the request.
   const base::UnguessableToken request_id = base::UnguessableToken::Create();
@@ -251,14 +312,18 @@ RemoteSuggestionsService::StartZeroPrefixSuggestionsRequest(
 
 void RemoteSuggestionsService::CreateDocumentSuggestionsRequest(
     const std::u16string& query,
-    bool is_incognito,
+    bool is_off_the_record,
     DocumentStartCallback start_callback,
     CompletionCallback completion_callback) {
+  if (!document_suggestions_service_) {
+    return;
+  }
+
   // Create a unique identifier for the request.
   const base::UnguessableToken request_id = base::UnguessableToken::Create();
 
   document_suggestions_service_->CreateDocumentSuggestionsRequest(
-      query, is_incognito,
+      query, is_off_the_record,
       base::BindOnce(
           &RemoteSuggestionsService::OnDocumentSuggestionsRequestAvailable,
           weak_ptr_factory_.GetWeakPtr(), request_id),
@@ -272,12 +337,15 @@ void RemoteSuggestionsService::CreateDocumentSuggestionsRequest(
 }
 
 void RemoteSuggestionsService::StopCreatingDocumentSuggestionsRequest() {
-  document_suggestions_service_->StopCreatingDocumentSuggestionsRequest();
+  if (document_suggestions_service_) {
+    document_suggestions_service_->StopCreatingDocumentSuggestionsRequest();
+  }
 }
 
 std::unique_ptr<network::SimpleURLLoader>
 RemoteSuggestionsService::StartDeletionRequest(
     const std::string& deletion_url,
+    bool is_off_the_record,
     CompletionCallback completion_callback) {
   const GURL url(deletion_url);
   DCHECK(url.is_valid());
@@ -322,7 +390,7 @@ RemoteSuggestionsService::StartDeletionRequest(
   // Set the SiteForCookies to the request URL's site to avoid cookie blocking.
   request->site_for_cookies = net::SiteForCookies::FromUrl(url);
   // Add Chrome experiment state to the request headers.
-  AddVariationHeaders(request.get());
+  AddVariationHeaders(request.get(), is_off_the_record);
 
   // Create a unique identifier for the request.
   const base::UnguessableToken request_id = base::UnguessableToken::Create();
@@ -356,6 +424,10 @@ void RemoteSuggestionsService::AddObserver(Observer* observer) {
 
 void RemoteSuggestionsService::RemoveObserver(Observer* observer) {
   observers_.RemoveObserver(observer);
+}
+
+void RemoteSuggestionsService::SetDelegate(base::WeakPtr<Delegate> delegate) {
+  delegate_ = std::move(delegate);
 }
 
 void RemoteSuggestionsService::set_url_loader_factory_for_testing(
@@ -401,6 +473,13 @@ void RemoteSuggestionsService::OnURLLoadComplete(
                                        response_body);
   }
 
-  std::move(completion_callback)
-      .Run(source, response_code, std::move(response_body));
+  // Call the completion callback or delegate it.
+  if (delegate_) {
+    delegate_->OnSuggestRequestCompleted(source, response_code,
+                                         std::move(response_body),
+                                         std::move(completion_callback));
+  } else {
+    std::move(completion_callback)
+        .Run(source, response_code, std::move(response_body));
+  }
 }

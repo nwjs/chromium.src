@@ -21,7 +21,6 @@ import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.NextTabPolicy.NextTabPolicySupplier;
-import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.test.ChromeBrowserTestRule;
 import org.chromium.content_public.browser.LoadUrlParams;
 
@@ -72,7 +71,7 @@ public class TabModelSelectorObserverTestRule extends ChromeBrowserTestRule {
 
     private void initialize() {
         mSelector =
-                new TabModelSelectorBase(null, TabGroupModelFilter::new, false) {
+                new TabModelSelectorBase(null, false) {
                     @Override
                     public void requestToShowTab(Tab tab, int type) {}
 
@@ -158,7 +157,8 @@ public class TabModelSelectorObserverTestRule extends ChromeBrowserTestRule {
     }
 
     /** Test TabModel that exposes the needed capabilities for testing. */
-    public static class TabModelSelectorTestTabModel extends TabModelImpl {
+    public static class TabModelSelectorTestTabModel extends TabModelImpl
+            implements IncognitoTabModelInternal {
         private Set<TabModelObserver> mObserverSet = new HashSet<>();
 
         public TabModelSelectorTestTabModel(
@@ -194,6 +194,12 @@ public class TabModelSelectorObserverTestRule extends ChromeBrowserTestRule {
             super.removeObserver(observer);
             mObserverSet.remove(observer);
         }
+
+        @Override
+        public void addIncognitoObserver(IncognitoTabModelObserver observer) {}
+
+        @Override
+        public void removeIncognitoObserver(IncognitoTabModelObserver observer) {}
 
         public Set<TabModelObserver> getObservers() {
             return mObserverSet;

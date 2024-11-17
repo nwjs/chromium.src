@@ -80,7 +80,6 @@
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/intent_picker_tab_helper.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
-#include "chrome/browser/ui/lens/lens_overlay_invocation_source.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 #include "chrome/browser/ui/qrcode_generator/qrcode_generator_bubble_controller.h"
@@ -103,10 +102,12 @@
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_tabbed_utils.h"
 #include "chrome/browser/ui/webui/commerce/product_specifications_disclosure_dialog.h"
+#include "chrome/browser/ui/webui/tab_search/tab_search.mojom.h"
 #include "chrome/browser/upgrade_detector/upgrade_detector.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
@@ -136,6 +137,7 @@
 #include "components/google/core/common/google_util.h"
 #include "components/lens/buildflags.h"
 #include "components/lens/lens_features.h"
+#include "components/lens/lens_overlay_invocation_source.h"
 #include "components/media_router/browser/media_router_dialog_controller.h"  // nogncheck
 #include "components/media_router/browser/media_router_metrics.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
@@ -144,7 +146,7 @@
 #include "components/reading_list/core/reading_list_entry.h"
 #include "components/reading_list/core/reading_list_model.h"
 #include "components/reading_list/core/reading_list_pref_names.h"
-#include "components/saved_tab_groups/tab_group_sync_service.h"
+#include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/services/app_service/public/cpp/app_launch_util.h"
 #include "components/sessions/core/live_tab_context.h"
 #include "components/sessions/core/tab_restore_service.h"
@@ -245,8 +247,6 @@ namespace {
 
 const char kOsOverrideForTabletSite[] = "Linux; Android 9; Chrome tablet";
 const char kChPlatformOverrideForTabletSite[] = "Android";
-const char kBackForwardNavigationIsTriggered[] =
-    "back_forward_navigation_is_triggered";
 
 // Creates a new tabbed browser window, with the same size, type and profile as
 // |original_browser|'s window, inserts |contents| into it, and shows it.
@@ -721,8 +721,6 @@ void GoBack(Browser* browser, WindowOpenDisposition disposition) {
     WebContents* new_tab = GetTabAndRevertIfNecessary(browser, disposition);
     new_tab->GetController().GoBack();
     MaybeShowFeatureBackNavigationMenuPromo(browser, new_tab);
-    browser->window()->NotifyFeatureEngagementEvent(
-        kBackForwardNavigationIsTriggered);
   }
 }
 
@@ -733,8 +731,6 @@ void GoBack(content::WebContents* web_contents) {
     web_contents->GetController().GoBack();
     Browser* browser = chrome::FindBrowserWithTab(web_contents);
     if (browser) {
-      browser->window()->NotifyFeatureEngagementEvent(
-          kBackForwardNavigationIsTriggered);
       MaybeShowFeatureBackNavigationMenuPromo(browser, web_contents);
     }
   }
@@ -757,8 +753,6 @@ void GoForward(Browser* browser, WindowOpenDisposition disposition) {
     GetTabAndRevertIfNecessary(browser, disposition)
         ->GetController()
         .GoForward();
-    browser->window()->NotifyFeatureEngagementEvent(
-        kBackForwardNavigationIsTriggered);
   }
 }
 
@@ -766,11 +760,6 @@ void GoForward(content::WebContents* web_contents) {
   base::RecordAction(UserMetricsAction("Forward"));
   if (CanGoForward(web_contents)) {
     web_contents->GetController().GoForward();
-    Browser* browser = chrome::FindBrowserWithTab(web_contents);
-    if (browser) {
-      browser->window()->NotifyFeatureEngagementEvent(
-          kBackForwardNavigationIsTriggered);
-    }
   }
 }
 
@@ -1615,7 +1604,7 @@ void StartTabOrganizationRequest(Browser* browser) {
       TabOrganizationServiceFactory::GetForProfile(browser->profile());
   UMA_HISTOGRAM_BOOLEAN("Tab.Organization.AllEntrypoints.Clicked", true);
   UMA_HISTOGRAM_BOOLEAN("Tab.Organization.ThreeDotMenu.Clicked", true);
-  browser->window()->NotifyPromoFeatureUsed(features::kTabOrganization);
+  browser->window()->NotifyNewBadgeFeatureUsed(features::kTabOrganization);
 
   service->RestartSessionAndShowUI(browser,
                                    TabOrganizationEntryPoint::kThreeDotMenu);
@@ -1669,12 +1658,15 @@ void ShowTranslateBubble(Browser* browser) {
 }
 
 void ManagePasswordsForPage(Browser* browser) {
-  browser->window()->CloseFeaturePromo(
-      feature_engagement::kIPHPasswordsManagementBubbleAfterSaveFeature);
-  browser->window()->CloseFeaturePromo(
-      feature_engagement::kIPHPasswordsManagementBubbleDuringSigninFeature);
-  browser->window()->CloseFeaturePromo(
-      feature_engagement::kIPHPasswordManagerShortcutFeature);
+  browser->window()->NotifyFeaturePromoFeatureUsed(
+      feature_engagement::kIPHPasswordsManagementBubbleAfterSaveFeature,
+      FeaturePromoFeatureUsedAction::kClosePromoIfPresent);
+  browser->window()->NotifyFeaturePromoFeatureUsed(
+      feature_engagement::kIPHPasswordsManagementBubbleDuringSigninFeature,
+      FeaturePromoFeatureUsedAction::kClosePromoIfPresent);
+  browser->window()->NotifyFeaturePromoFeatureUsed(
+      feature_engagement::kIPHPasswordManagerShortcutFeature,
+      FeaturePromoFeatureUsedAction::kClosePromoIfPresent);
   WebContents* web_contents =
       browser->tab_strip_model()->GetActiveWebContents();
   ManagePasswordsUIController* controller =
@@ -1873,12 +1865,19 @@ void FindInPage(Browser* browser, bool find_next, bool forward_direction) {
 }
 
 void ShowTabSearch(Browser* browser) {
-  const int tab_search_tab_index = 0;
-  browser->window()->CreateTabSearchBubble(tab_search_tab_index);
+  browser->window()->CreateTabSearchBubble(
+      tab_search::mojom::TabSearchSection::kSearch,
+      tab_search::mojom::TabOrganizationFeature::kNone);
 }
 
 void CloseTabSearch(Browser* browser) {
   browser->window()->CloseTabSearchBubble();
+}
+
+void ShowTabDeclutter(Browser* browser) {
+  browser->window()->CreateTabSearchBubble(
+      tab_search::mojom::TabSearchSection::kOrganize,
+      tab_search::mojom::TabOrganizationFeature::kDeclutter);
 }
 
 bool CanCloseFind(Browser* browser) {
@@ -2167,37 +2166,10 @@ Browser* OpenInChrome(Browser* hosted_app_browser) {
         Browser::CreateParams(hosted_app_browser->profile(), true));
   }
 
-  TabStripModel* source_tabstrip = hosted_app_browser->tab_strip_model();
-
-  // Clear bounds once a PWA with window controls overlay display override opens
-  // in browser.
-  if (hosted_app_browser->app_controller()->IsWindowControlsOverlayEnabled()) {
-    source_tabstrip->GetActiveWebContents()->UpdateWindowControlsOverlay(
-        gfx::Rect());
-  }
-
-  std::unique_ptr<tabs::TabModel> tab_model =
-      source_tabstrip->DetachTabAtForInsertion(source_tabstrip->active_index());
-  std::unique_ptr<content::WebContents> contents_move =
-      tabs::TabModel::DestroyAndTakeWebContents(std::move(tab_model));
-  // This method moves a WebContents from a non-normal browser window to a
-  // normal browser window. We cannot move the Tab over directly since TabModel
-  // enforces the requirement that it cannot move between window types.
-  // https://crbug.com/334281979): Non-normal browser windows should not have a
-  // tab to begin with.
-  target_browser->tab_strip_model()->AppendWebContents(std::move(contents_move),
-                                                       true);
-  auto* web_contents =
-      target_browser->tab_strip_model()->GetActiveWebContents();
-  CHECK(web_contents);
-  IntentPickerTabHelper* helper =
-      IntentPickerTabHelper::FromWebContents(web_contents);
-  CHECK(helper);
-  helper->MaybeShowIntentPickerIcon();
-#if !BUILDFLAG(IS_CHROMEOS)
-  apps::EnableLinkCapturingInfoBarDelegate::RemoveInfoBar(web_contents);
-#endif
-  target_browser->window()->Show();
+  web_app::ReparentWebContentsIntoBrowserImpl(
+      hosted_app_browser,
+      hosted_app_browser->tab_strip_model()->GetActiveWebContents(),
+      target_browser);
   return target_browser;
 }
 
@@ -2324,7 +2296,7 @@ void ExecLensOverlay(Browser* browser) {
       LensOverlayController::GetController(web_contents);
   CHECK(controller);
   controller->ShowUI(lens::LensOverlayInvocationSource::kAppMenu);
-  browser->window()->NotifyPromoFeatureUsed(lens::features::kLensOverlay);
+  browser->window()->NotifyNewBadgeFeatureUsed(lens::features::kLensOverlay);
 }
 
 void ExecLensRegionSearch(Browser* browser) {

@@ -24,6 +24,7 @@ import("//url/features.gni")
 
 _templates_dir = "$target_gen_dir/templates"
 _gn_path = "//buildtools/linux64/gn"
+_ninja_path = "//third_party/ninja/ninja"
 
 assert(!is_component_build)
 assert(is_cronet_build)
@@ -232,9 +233,10 @@ source_set("cronet_static") {
 }
 
 config("hide_all_but_jni_onload_and_cronet") {
-  ldflags = [ "-Wl,--version-script=" +
-              rebase_path("android_only_jni_onload_and_cronet_exports.lst",
-                          root_out_dir) ]
+  _version_script = "android_only_jni_onload_and_cronet_exports.lst"
+  inputs = [ _version_script ]
+  ldflags =
+      [ "-Wl,--version-script=" + rebase_path(_version_script, root_out_dir) ]
 }
 
 _cronet_shared_lib_name = "cronet.$chrome_version_full"
@@ -1396,7 +1398,7 @@ cronet_instrumentation_test_apk("cronet_test_instrumentation_apk") {
   lint_baseline_file = "lint-baseline.xml"
   lint_suppressions_file = "lint-suppressions.xml"
 
-  lint_min_sdk_version = 21
+  lint_min_sdk_version = 23
 
   apk_name = "CronetTestInstrumentation"
   android_manifest = "test/javatests/AndroidManifest.xml"
@@ -1975,8 +1977,10 @@ action("gn2bp_check") {
   script = "//components/cronet/gn2bp/validate_gn2bp.py"
   sources = [
     "$_gn_path",
+    "$_ninja_path",
     "//components/cronet/gn2bp/gen_android_bp.py",
     "//components/cronet/gn2bp/gen_desc_json.sh",
+    "//components/cronet/gn2bp/generate_build_scripts_output.py",
     "//components/cronet/gn2bp/gn_utils.py",
     "//components/cronet/gn2bp/update_results.sh",
     "//components/cronet/license/constants.py",
@@ -2099,6 +2103,11 @@ group("cronet_package_android") {
 # Everything added here will be executed in the CI.
 group("cronet_package_ci") {
   deps = [ ":gn2bp_check" ]
+
+  if (enable_rust) {
+    deps +=
+        [ "//components/cronet/gn2bp/tests/test_rlib_crate:rust_test_targets" ]
+  }
 }
 
 group("cronet_android_mainline") {

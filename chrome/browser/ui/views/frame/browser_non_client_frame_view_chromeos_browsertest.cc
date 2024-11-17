@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "ash/constants/web_app_id_constants.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/run_until.h"
@@ -58,7 +59,6 @@
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/web_applications/test/prevent_close_test_base.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
-#include "chrome/browser/web_applications/web_app_id_constants.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -1006,6 +1006,10 @@ IN_PROC_BROWSER_TEST_P(BrowserNonClientFrameViewChromeOSTest,
     EXPECT_TRUE(frame_view->caption_button_container()->GetVisible());
   }
 
+  // Ensure the current layout is finished before entering overview mode.
+  views::test::RunScheduledLayout(browser_view);
+  ASSERT_FALSE(browser_view->needs_layout());
+
   EnterOverviewMode();
   EXPECT_FALSE(frame_view->caption_button_container()->GetVisible());
 #if !BUILDFLAG(IS_CHROMEOS_LACROS)
@@ -1139,13 +1143,13 @@ class PreventCloseBrowserNonClientFrameViewChromeOSTest
 
 IN_PROC_BROWSER_TEST_F(PreventCloseBrowserNonClientFrameViewChromeOSTest,
                        CloseButtonIsDisabled) {
-  InstallPWA(GURL(kCalculatorAppUrl), web_app::kCalculatorAppId);
-  SetPoliciesAndWaitUntilInstalled(web_app::kCalculatorAppId,
+  InstallPWA(GURL(kCalculatorAppUrl), ash::kCalculatorAppId);
+  SetPoliciesAndWaitUntilInstalled(ash::kCalculatorAppId,
                                    kPreventCloseEnabledForCalculator,
                                    kCalculatorForceInstalled);
 
   Browser* const browser =
-      LaunchPWA(web_app::kCalculatorAppId, /*launch_in_window=*/true);
+      LaunchPWA(ash::kCalculatorAppId, /*launch_in_window=*/true);
   ASSERT_TRUE(browser);
 
   {
@@ -1156,7 +1160,7 @@ IN_PROC_BROWSER_TEST_F(PreventCloseBrowserNonClientFrameViewChromeOSTest,
 
   {
     apps::AppUpdateWaiter waiter(
-        browser->profile(), web_app::kCalculatorAppId,
+        browser->profile(), ash::kCalculatorAppId,
         base::BindRepeating([](const apps::AppUpdate& update) {
           return update.AllowClose().has_value() && update.AllowClose().value();
         }));
@@ -1173,10 +1177,10 @@ IN_PROC_BROWSER_TEST_F(PreventCloseBrowserNonClientFrameViewChromeOSTest,
 
 IN_PROC_BROWSER_TEST_F(PreventCloseBrowserNonClientFrameViewChromeOSTest,
                        CloseButtonIsEnabled) {
-  InstallPWA(GURL(kCalculatorAppUrl), web_app::kCalculatorAppId);
+  InstallPWA(GURL(kCalculatorAppUrl), ash::kCalculatorAppId);
 
   Browser* const browser =
-      LaunchPWA(web_app::kCalculatorAppId, /*launch_in_window=*/true);
+      LaunchPWA(ash::kCalculatorAppId, /*launch_in_window=*/true);
   ASSERT_TRUE(browser);
 
   auto* const close_button = GetWindowCloseButton(browser);

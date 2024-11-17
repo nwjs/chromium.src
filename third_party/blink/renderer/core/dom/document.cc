@@ -27,11 +27,6 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "third_party/blink/renderer/core/dom/document.h"
 
 #include <memory>
@@ -44,6 +39,7 @@
 #include "base/debug/dump_without_crashing.h"
 #include "base/i18n/time_formatting.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/not_fatal_until.h"
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
 #include "base/task/single_thread_task_runner.h"
@@ -104,7 +100,6 @@
 #include "third_party/blink/renderer/core/animation/pending_animations.h"
 #include "third_party/blink/renderer/core/animation/worklet_animation_controller.h"
 #include "third_party/blink/renderer/core/annotation/annotation_agent_container_impl.h"
-#include "third_party/blink/renderer/core/aom/computed_accessible_node.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_font_selector.h"
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
@@ -386,6 +381,7 @@
 #include "third_party/blink/renderer/platform/wtf/hash_functions.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
 #include "third_party/blink/renderer/platform/wtf/text/character_names.h"
+#include "third_party/blink/renderer/platform/wtf/text/character_visitor.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_buffer.h"
 #include "third_party/blink/renderer/platform/wtf/text/text_encoding_registry.h"
 
@@ -397,8 +393,6 @@ static WeakDocumentSet& LiveDocumentSet();
 namespace blink {
 
 namespace {
-
-constexpr char kTextHtml[] = "text/html";
 
 class IntrinsicSizeResizeObserverDelegate : public ResizeObserver::Delegate {
  public:
@@ -560,33 +554,27 @@ static inline bool IsValidNamePart(UChar32 c) {
 // Tests whether |name| is something the HTML parser would accept as a
 // tag name.
 template <typename CharType>
-static inline bool IsValidElementNamePerHTMLParser(const CharType* characters,
-                                                   unsigned length) {
+static inline bool IsValidElementNamePerHTMLParser(
+    base::span<const CharType> characters) {
   CharType c = characters[0] | 0x20;
   if (!('a' <= c && c <= 'z'))
     return false;
 
-  for (unsigned i = 1; i < length; ++i) {
+  for (size_t i = 1; i < characters.size(); ++i) {
     c = characters[i];
     if (c == '\t' || c == '\n' || c == '\f' || c == '\r' || c == ' ' ||
         c == '/' || c == '>')
       return false;
   }
-
   return true;
 }
 
 static bool IsValidElementNamePerHTMLParser(const String& name) {
-  unsigned length = name.length();
-  if (!length)
+  if (name.empty()) {
     return false;
-
-  if (name.Is8Bit()) {
-    const LChar* characters = name.Characters8();
-    return IsValidElementNamePerHTMLParser(characters, length);
   }
-  const UChar* characters = name.Characters16();
-  return IsValidElementNamePerHTMLParser(characters, length);
+  return WTF::VisitCharacters(
+      name, [](auto chars) { return IsValidElementNamePerHTMLParser(chars); });
 }
 
 // Tests whether |name| is a valid name per DOM spec. Also checks
@@ -1566,10 +1554,7 @@ bool Document::IsLoadCompleted() const {
 }
 
 AtomicString Document::EncodingName() const {
-  // TextEncoding::name() returns a char*, no need to allocate a new
-  // String for it each time.
-  // FIXME: We should fix TextEncoding to speak AtomicString anyway.
-  return AtomicString(Encoding().GetName());
+  return Encoding().GetName();
 }
 
 void Document::SetContentLanguage(const AtomicString& language) {
@@ -1629,9 +1614,13 @@ void Document::SetContentFromDOMParser(const String& content) {
     // fast-path parser fails, the full parser will adjust the mode
     // appropriately.
     SetCompatibilityMode(kQuirksMode);
+    // Set the state so that the attribute cache is enabled for fragments.
+    // TODO(sesse): Should we do this also for the non-fastpath parser?
+    SetParsingState(kParsing);
     const bool success = TryParsingHTMLFragment(content, *this, *body, *body,
                                                 kAllowScriptingContent,
                                                 parser_behavior, nullptr);
+    SetParsingState(kFinishedParsing);
     if (success) {
       // When DCHECK is enabled, use SetContent() and verify fast-path
       // content matches. This effectively means the results of the fast-path
@@ -1664,12 +1653,12 @@ String Document::SuggestedMIMEType() const {
       return "application/xhtml+xml";
     if (IsSVGDocument())
       return "image/svg+xml";
-    return "application/xml";
+    return keywords::kApplicationXml;
   }
   if (xmlStandalone())
     return "text/xml";
   if (IsA<HTMLDocument>(this))
-    return kTextHtml;
+    return keywords::kTextHtml;
 
   if (DocumentLoader* document_loader = Loader())
     return document_loader->MimeType();
@@ -1691,7 +1680,7 @@ AtomicString Document::contentType() const {
   if (!mime_type.empty())
     return AtomicString(mime_type);
 
-  return AtomicString("application/xml");
+  return keywords::kApplicationXml;
 }
 
 Range* Document::caretRangeFromPoint(int x, int y) {
@@ -1783,17 +1772,15 @@ bool Document::StandardizedBrowserZoomEnabled() const {
  *  3. Collapse internal whitespace.
  */
 template <typename CharacterType>
-static inline String CanonicalizedTitle(Document* document,
-                                        const String& title) {
-  unsigned length = title.length();
+static inline String CanonicalizedTitle(
+    base::span<const CharacterType> characters) {
   unsigned builder_index = 0;
-  const CharacterType* characters = title.GetCharacters<CharacterType>();
-
-  StringBuffer<CharacterType> buffer(length);
+  StringBuffer<CharacterType> buffer(
+      base::checked_cast<unsigned>(characters.size()));
 
   // Replace control characters with spaces and collapse whitespace.
   bool pending_whitespace = false;
-  for (unsigned i = 0; i < length; ++i) {
+  for (size_t i = 0; i < characters.size(); ++i) {
     UChar32 c = characters[i];
     if ((c <= WTF::unicode::kSpaceCharacter &&
          c != WTF::unicode::kLineTabulationCharacter) ||
@@ -1820,12 +1807,12 @@ void Document::UpdateTitle(const String& title) {
   raw_title_ = title;
 
   String old_title = title_;
-  if (raw_title_.empty())
+  if (raw_title_.empty()) {
     title_ = String();
-  else if (raw_title_.Is8Bit())
-    title_ = CanonicalizedTitle<LChar>(this, raw_title_);
-  else
-    title_ = CanonicalizedTitle<UChar>(this, raw_title_);
+  } else {
+    title_ = WTF::VisitCharacters(
+        raw_title_, [](auto chars) { return CanonicalizedTitle(chars); });
+  }
 
   if (!dom_window_ || old_title == title_)
     return;
@@ -2762,7 +2749,7 @@ void Document::UpdateStyleAndLayout(DocumentUpdateReason reason) {
   LocalFrameView* frame_view = View();
 
   if (reason != DocumentUpdateReason::kBeginMainFrame && frame_view)
-    frame_view->WillStartForcedLayout();
+    frame_view->WillStartForcedLayout(reason);
 
   HTMLFrameOwnerElement::PluginDisposeSuspendScope suspend_plugin_dispose;
   ScriptForbiddenScope forbid_script;
@@ -2776,7 +2763,7 @@ void Document::UpdateStyleAndLayout(DocumentUpdateReason reason) {
 
   if (!IsActive()) {
     if (reason != DocumentUpdateReason::kBeginMainFrame && frame_view)
-      frame_view->DidFinishForcedLayout(reason);
+      frame_view->DidFinishForcedLayout();
     return;
   }
 
@@ -2797,7 +2784,7 @@ void Document::UpdateStyleAndLayout(DocumentUpdateReason reason) {
   }
 
   if (reason != DocumentUpdateReason::kBeginMainFrame && frame_view)
-    frame_view->DidFinishForcedLayout(reason);
+    frame_view->DidFinishForcedLayout();
 
   if (should_update_selection_after_layout_)
     UpdateSelectionAfterLayout();
@@ -4153,11 +4140,8 @@ bool Document::DispatchBeforeUnloadEvent(ChromeClient* chrome_client,
   if (!before_unload_event.defaultPrevented())
     DefaultEventHandler(before_unload_event);
 
-  bool cancelled_by_script =
-      RuntimeEnabledFeatures::BeforeunloadEventCancelByPreventDefaultEnabled()
-          ? !before_unload_event.returnValue().empty() ||
-                before_unload_event.defaultPrevented()
-          : !before_unload_event.returnValue().IsNull();
+  bool cancelled_by_script = !before_unload_event.returnValue().empty() ||
+                             before_unload_event.defaultPrevented();
 
   if (cancelled_by_script) {
     RecordBeforeUnloadUse(BeforeUnloadUse::kNoDialogNoText);
@@ -4205,7 +4189,7 @@ bool Document::DispatchBeforeUnloadEvent(ChromeClient* chrome_client,
   if (did_allow_navigation) {
     // Only record when a navigation occurs, since we want to understand
     // the impact of the before unload dialog on overall input to navigation.
-    UMA_HISTOGRAM_MEDIUM_TIMES(
+    DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(
         "DocumentEventTiming.BeforeUnloadDialogDuration.ByNavigation",
         beforeunload_confirmpanel_end - beforeunload_confirmpanel_start);
     return true;
@@ -4464,8 +4448,9 @@ void Document::write(v8::Isolate* isolate,
   StringBuilder builder;
   for (const String& string : text)
     builder.Append(string);
-  String string = TrustedTypesCheckForHTML(
-      builder.ReleaseString(), GetExecutionContext(), exception_state);
+  String string =
+      TrustedTypesCheckForHTML(builder.ReleaseString(), GetExecutionContext(),
+                               "Document", "write", exception_state);
   if (exception_state.HadException())
     return;
 
@@ -4478,8 +4463,9 @@ void Document::writeln(v8::Isolate* isolate,
   StringBuilder builder;
   for (const String& string : text)
     builder.Append(string);
-  String string = TrustedTypesCheckForHTML(
-      builder.ReleaseString(), GetExecutionContext(), exception_state);
+  String string =
+      TrustedTypesCheckForHTML(builder.ReleaseString(), GetExecutionContext(),
+                               "Document", "writeln", exception_state);
   if (exception_state.HadException())
     return;
 
@@ -4565,6 +4551,7 @@ void Document::UpdateBaseURL() {
     // Base URL change changes any relative visited links.
     // FIXME: There are other URLs in the tree that would need to be
     // re-evaluated on dynamic base URL change. Style should be invalidated too.
+    // TODO(crbug.com/369219144): Should this be using HTMLAnchorElementBase?
     for (HTMLAnchorElement& anchor :
          Traversal<HTMLAnchorElement>::StartsAfter(*this))
       anchor.InvalidateCachedVisitedLinkHash();
@@ -6281,7 +6268,8 @@ void Document::setDomain(const String& raw_domain,
   }
 
   bool success = false;
-  String new_domain = SecurityOrigin::CanonicalizeHost(raw_domain, &success);
+  String new_domain = SecurityOrigin::CanonicalizeHost(
+      raw_domain, dom_window_->GetSecurityOrigin()->Protocol(), &success);
   if (!success) {
     exception_state.ThrowSecurityError("'" + raw_domain +
                                        "' could not be parsed properly.");
@@ -6737,11 +6725,11 @@ void Document::ariaNotify(const String& announcement,
   }
 }
 
-static bool IsValidNameNonASCII(const LChar* characters, unsigned length) {
+static bool IsValidNameNonASCII(base::span<const LChar> characters) {
   if (!IsValidNameStart(characters[0]))
     return false;
 
-  for (unsigned i = 1; i < length; ++i) {
+  for (size_t i = 1; i < characters.size(); ++i) {
     if (!IsValidNamePart(characters[i]))
       return false;
   }
@@ -6749,11 +6737,11 @@ static bool IsValidNameNonASCII(const LChar* characters, unsigned length) {
   return true;
 }
 
-static bool IsValidNameNonASCII(const UChar* characters, unsigned length) {
-  for (unsigned i = 0; i < length;) {
+static bool IsValidNameNonASCII(base::span<const UChar> characters) {
+  for (size_t i = 0; i < characters.size();) {
     bool first = i == 0;
     UChar32 c;
-    U16_NEXT(characters, i, length, c);  // Increments i.
+    U16_NEXT(characters, i, characters.size(), c);  // Increments i.
     if (first ? !IsValidNameStart(c) : !IsValidNamePart(c))
       return false;
   }
@@ -6762,13 +6750,12 @@ static bool IsValidNameNonASCII(const UChar* characters, unsigned length) {
 }
 
 template <typename CharType>
-static inline bool IsValidNameASCII(const CharType* characters,
-                                    unsigned length) {
+static inline bool IsValidNameASCII(base::span<const CharType> characters) {
   CharType c = characters[0];
   if (!(IsASCIIAlpha(c) || c == ':' || c == '_'))
     return false;
 
-  for (unsigned i = 1; i < length; ++i) {
+  for (size_t i = 1; i < characters.size(); ++i) {
     c = characters[i];
     if (!(IsASCIIAlphanumeric(c) || c == ':' || c == '_' || c == '-' ||
           c == '.'))
@@ -6782,22 +6769,12 @@ bool Document::IsValidName(const StringView& name) {
   unsigned length = name.length();
   if (!length)
     return false;
-
-  if (name.Is8Bit()) {
-    const LChar* characters = name.Characters8();
-
-    if (IsValidNameASCII(characters, length))
+  return WTF::VisitCharacters(name, [](auto chars) {
+    if (IsValidNameASCII(chars)) {
       return true;
-
-    return IsValidNameNonASCII(characters, length);
-  }
-
-  const UChar* characters = name.Characters16();
-
-  if (IsValidNameASCII(characters, length))
-    return true;
-
-  return IsValidNameNonASCII(characters, length);
+    }
+    return IsValidNameNonASCII(chars);
+  });
 }
 
 enum QualifiedNameStatus {
@@ -6822,17 +6799,16 @@ struct ParseQualifiedNameResult {
 template <typename CharType>
 static ParseQualifiedNameResult ParseQualifiedNameInternal(
     const AtomicString& qualified_name,
-    const CharType* characters,
-    unsigned length,
+    base::span<const CharType> characters,
     AtomicString& prefix,
     AtomicString& local_name) {
   bool name_start = true;
   bool saw_colon = false;
-  unsigned colon_pos = 0;
+  size_t colon_pos = 0;
 
-  for (unsigned i = 0; i < length;) {
+  for (size_t i = 0; i < characters.size();) {
     UChar32 c;
-    U16_NEXT(characters, i, length, c);
+    U16_NEXT(characters, i, characters.size(), c);
     if (c == ':') {
       if (saw_colon)
         return ParseQualifiedNameResult(kQNMultipleColons);
@@ -6853,11 +6829,11 @@ static ParseQualifiedNameResult ParseQualifiedNameInternal(
     prefix = g_null_atom;
     local_name = qualified_name;
   } else {
-    prefix = AtomicString(characters, colon_pos);
+    auto [prefix_span, rest] = characters.split_at(colon_pos);
+    prefix = AtomicString(prefix_span);
     if (prefix.empty())
       return ParseQualifiedNameResult(kQNEmptyPrefix);
-    int prefix_start = colon_pos + 1;
-    local_name = AtomicString(characters + prefix_start, length - prefix_start);
+    local_name = AtomicString(rest.subspan(1u));
   }
 
   if (local_name.empty())
@@ -6870,23 +6846,17 @@ bool Document::ParseQualifiedName(const AtomicString& qualified_name,
                                   AtomicString& prefix,
                                   AtomicString& local_name,
                                   ExceptionState& exception_state) {
-  unsigned length = qualified_name.length();
-
-  if (!length) {
+  if (qualified_name.empty()) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidCharacterError,
                                       "The qualified name provided is empty.");
     return false;
   }
 
-  ParseQualifiedNameResult return_value;
-  if (qualified_name.Is8Bit())
-    return_value =
-        ParseQualifiedNameInternal(qualified_name, qualified_name.Characters8(),
-                                   length, prefix, local_name);
-  else
-    return_value = ParseQualifiedNameInternal(qualified_name,
-                                              qualified_name.Characters16(),
-                                              length, prefix, local_name);
+  ParseQualifiedNameResult return_value = WTF::VisitCharacters(
+      qualified_name, [&qualified_name, &prefix, &local_name](auto chars) {
+        return ParseQualifiedNameInternal(qualified_name, chars, prefix,
+                                          local_name);
+      });
   if (return_value.status == kQNValid)
     return true;
 
@@ -6930,10 +6900,8 @@ void Document::SetEncodingData(const DocumentEncodingData& new_data) {
       title_element_->textContent().ContainsOnlyLatin1OrEmpty()) {
     std::string original_bytes = title_element_->textContent().Latin1();
     std::unique_ptr<TextCodec> codec = NewTextCodec(new_data.Encoding());
-    String correctly_decoded_title =
-        codec->Decode(original_bytes.c_str(),
-                      static_cast<wtf_size_t>(original_bytes.length()),
-                      WTF::FlushBehavior::kDataEOF);
+    String correctly_decoded_title = codec->Decode(
+        base::as_byte_span(original_bytes), WTF::FlushBehavior::kDataEOF);
     title_element_->setTextContent(correctly_decoded_title);
   }
 
@@ -7088,15 +7056,15 @@ void Document::SetTransformSource(std::unique_ptr<TransformSource> source) {
 }
 
 String Document::designMode() const {
-  return InDesignMode() ? "on" : "off";
+  return InDesignMode() ? keywords::kOn : keywords::kOff;
 }
 
 void Document::setDesignMode(const String& value) {
   bool new_value = design_mode_;
-  if (EqualIgnoringASCIICase(value, "on")) {
+  if (EqualIgnoringASCIICase(value, keywords::kOn)) {
     new_value = true;
     UseCounter::Count(*this, WebFeature::kDocumentDesignModeEnabeld);
-  } else if (EqualIgnoringASCIICase(value, "off")) {
+  } else if (EqualIgnoringASCIICase(value, keywords::kOff)) {
     new_value = false;
   }
   if (new_value == design_mode_)
@@ -7735,9 +7703,9 @@ FontMatchingMetrics* Document::GetFontMatchingMetrics() {
 }
 
 void Document::MaybeRecordShapeTextElapsedTime(base::TimeDelta elapsed_time) {
-    data_->accumulated_shape_text_elapsed_time_ += elapsed_time;
-    data_->max_shape_text_elapsed_time_ =
-        std::max(data_->max_shape_text_elapsed_time_, elapsed_time);
+  data_->accumulated_shape_text_elapsed_time_ += elapsed_time;
+  data_->max_shape_text_elapsed_time_ =
+      std::max(data_->max_shape_text_elapsed_time_, elapsed_time);
 }
 
 void Document::MaybeRecordSvgImageProcessingTime(
@@ -8668,9 +8636,14 @@ PropertyRegistry& Document::EnsurePropertyRegistry() {
 }
 
 DocumentResourceCoordinator* Document::GetResourceCoordinator() {
-  if (!resource_coordinator_ && GetFrame()) {
-    resource_coordinator_ = DocumentResourceCoordinator::MaybeCreate(
-        GetFrame()->GetBrowserInterfaceBroker());
+  // `resource_coordinator_` is cleared in Shutdown() and must not be recreated
+  // afterwards, when the Document is no longer active.
+  if (!resource_coordinator_ && IsActive()) {
+    CHECK(GetFrame(), base::NotFatalUntil::M135);
+    if (auto* frame = GetFrame()) {
+      resource_coordinator_ = DocumentResourceCoordinator::MaybeCreate(
+          frame->GetBrowserInterfaceBroker());
+    }
   }
   return resource_coordinator_.get();
 }
@@ -8926,15 +8899,6 @@ bool Document::ChildrenCanHaveStyle() const {
   if (LayoutObject* view = GetLayoutView())
     return view->CanHaveChildren();
   return false;
-}
-
-ComputedAccessibleNode* Document::GetOrCreateComputedAccessibleNode(AXID axid) {
-  DCHECK(axid) << "Invalid ax_id";
-  if (AXObjectCache* cache = ExistingAXObjectCache()) {
-    return cache->GetOrCreateComputedAccessibleNode(axid);
-  }
-
-  return nullptr;
 }
 
 void Document::SetShowBeforeUnloadDialog(bool show_dialog) {
@@ -9331,14 +9295,15 @@ void Document::ScheduleSelectionchangeEvent() {
 // static
 Document* Document::parseHTMLUnsafe(ExecutionContext* context,
                                     const String& html) {
+  UseCounter::Count(context, WebFeature::kHTMLUnsafeMethods);
   Document* doc = DocumentInit::Create()
-                      .WithTypeFrom(kTextHtml)
+                      .WithTypeFrom(keywords::kTextHtml)
                       .WithExecutionContext(context)
                       .WithAgent(*context->GetAgent())
                       .CreateDocument();
   doc->setAllowDeclarativeShadowRoots(true);
   doc->SetContent(html);
-  doc->SetMimeType(AtomicString(kTextHtml));
+  doc->SetMimeType(keywords::kTextHtml);
   return doc;
 }
 

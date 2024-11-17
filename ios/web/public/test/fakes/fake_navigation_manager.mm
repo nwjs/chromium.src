@@ -51,6 +51,7 @@ void FakeNavigationManager::DiscardNonCommittedItems() {
 void FakeNavigationManager::LoadURLWithParams(
     const NavigationManager::WebLoadParams& params) {
   load_url_with_params_was_called_ = true;
+  load_URL_params_ = params;
 }
 
 void FakeNavigationManager::LoadIfNecessary() {
@@ -157,15 +158,6 @@ void FakeNavigationManager::Restore(
   NOTREACHED_IN_MIGRATION();
 }
 
-bool FakeNavigationManager::IsRestoreSessionInProgress() const {
-  return restore_session_in_progress_;
-}
-
-void FakeNavigationManager::AddRestoreCompletionCallback(
-    base::OnceClosure callback) {
-  NOTREACHED_IN_MIGRATION();
-}
-
 // Adds a new navigation item of `transition` type at the end of this
 // navigation manager.
 void FakeNavigationManager::AddItem(const GURL& url,
@@ -180,12 +172,13 @@ void FakeNavigationManager::SetBrowserState(web::BrowserState* browser_state) {
   browser_state_ = browser_state;
 }
 
-void FakeNavigationManager::SetIsRestoreSessionInProgress(bool in_progress) {
-  restore_session_in_progress_ = in_progress;
-}
-
 bool FakeNavigationManager::LoadURLWithParamsWasCalled() {
   return load_url_with_params_was_called_;
+}
+
+std::optional<NavigationManager::WebLoadParams>
+FakeNavigationManager::GetLastLoadURLWithParams() {
+  return load_URL_params_;
 }
 
 bool FakeNavigationManager::LoadIfNecessaryWasCalled() {

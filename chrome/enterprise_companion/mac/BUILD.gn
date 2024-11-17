@@ -34,6 +34,21 @@ mac_app_bundle("enterprise_companion_bundle") {
   ]
 }
 
+mac_app_bundle("enterprise_companion_bundle_test") {
+  info_plist_target = ":enterprise_companion_plist"
+  output_name = enterprise_companion_product_full_name + "_test"
+  extra_substitutions =
+      [ "MAC_BUNDLE_IDENTIFIER=$mac_enterprise_companion_bundle_identifier" ]
+
+  sources = [ "//chrome/enterprise_companion/main.cc" ]
+  deps = [
+    "//chrome/enterprise_companion:base",
+    "//chrome/enterprise_companion:constants_test",
+    "//chrome/updater:constants_test",
+  ]
+  defines = [ "ENTERPRISE_COMPANION_TEST_ONLY" ]
+}
+
 process_version("postinstall") {
   extra_args = [
     "-e",
@@ -52,4 +67,12 @@ if (host_os == "mac") {
     install_location = "/Library/Application Support/$enterprise_companion_company_short_name/$enterprise_companion_product_full_name/PkgStaging.app"
     postinstall_script_target = ":postinstall"
   }
+}
+
+copy("copy_signing") {
+  sources = [
+    "//chrome/installer/mac/pkg-dmg",
+    "sign.py",
+  ]
+  outputs = [ "$root_out_dir/EnterpriseCompanionSigning/{{source_file_part}}" ]
 }

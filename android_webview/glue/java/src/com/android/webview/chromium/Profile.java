@@ -16,8 +16,6 @@ import org.chromium.android_webview.AwBrowserContext;
 import org.chromium.android_webview.common.Lifetime;
 import org.chromium.base.ThreadUtils;
 
-import java.util.concurrent.Executor;
-
 /**
  * An abstraction of {@link AwBrowserContext}, this class reflects the state needed for the
  * multi-profile public API.
@@ -80,11 +78,18 @@ public class Profile {
         return mServiceWorkerController;
     }
 
-    public void prefetchUrl(String url, PrefetchCallback callback, Executor callbackExecutor) {
+    public void prefetchUrl(
+            String url,
+            PrefetchParams params,
+            ValueCallback<PrefetchOperationResult> resultCallback) {
+        // TODO(334016945): do the actual implementation AND add the params validation.
+    }
+
+    public void clearPrefetch(String url, ValueCallback<PrefetchOperationResult> resultCallback) {
         // TODO(334016945): do the actual implementation
     }
 
-    public void clearPrefetch(String url, ValueCallback<Void> resultCallback) {
+    public void cancelPrefetch(String url, ValueCallback<PrefetchOperationResult> resultCallback) {
         // TODO(334016945): do the actual implementation
     }
 }

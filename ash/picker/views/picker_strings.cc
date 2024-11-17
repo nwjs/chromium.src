@@ -7,8 +7,8 @@
 #include <string>
 
 #include "ash/picker/model/picker_search_results_section.h"
+#include "ash/picker/picker_category.h"
 #include "ash/picker/views/picker_category_type.h"
-#include "ash/public/cpp/picker/picker_category.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "base/notreached.h"
 #include "build/branding_buildflags.h"
@@ -32,6 +32,12 @@ std::u16string GetLabelForPickerCategory(PickerCategory category) {
     case PickerCategory::kEditorRewrite:
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
       return l10n_util::GetStringUTF16(IDS_EDITOR_MENU_REWRITE_CARD_TITLE);
+#else
+      return u"";
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+    case PickerCategory::kLobster:
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+      return l10n_util::GetStringUTF16(IDS_PICKER_LOBSTER_SELECTION_LABEL);
 #else
       return u"";
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -77,6 +83,7 @@ std::u16string GetSearchFieldPlaceholderTextForPickerCategory(
           IDS_PICKER_UNITS_MATHS_CATEGORY_SEARCH_FIELD_PLACEHOLDER_TEXT);
     case PickerCategory::kEditorWrite:
     case PickerCategory::kEditorRewrite:
+    case PickerCategory::kLobster:
     case PickerCategory::kEmojisGifs:
     case PickerCategory::kEmojis:
       NOTREACHED_NORETURN();
@@ -100,6 +107,14 @@ std::u16string GetSectionTitleForPickerCategoryType(
 #else
       return u"";
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+    case PickerCategoryType::kLobster:
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+      return l10n_util::GetStringUTF16(
+          IDS_PICKER_EDITOR_WRITE_CATEGORY_TYPE_SECTION_TITLE);
+#else
+      return u"";
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+
     case PickerCategoryType::kGeneral:
       return l10n_util::GetStringUTF16(
           IDS_PICKER_GENERAL_CATEGORY_TYPE_SECTION_TITLE);
@@ -124,17 +139,11 @@ std::u16string GetSectionTitleForPickerSectionType(
     case PickerSectionType::kExamples:
       return l10n_util::GetStringUTF16(
           IDS_PICKER_EXAMPLES_CATEGORY_TYPE_SECTION_TITLE);
-    case PickerSectionType::kEditorWrite:
+    case PickerSectionType::kContentEditor:
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+      // TODO: b/369726248 - Rename the IDS variable name to a generic name.
       return l10n_util::GetStringUTF16(
           IDS_PICKER_EDITOR_WRITE_CATEGORY_TYPE_SECTION_TITLE);
-#else
-      return u"";
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
-    case PickerSectionType::kEditorRewrite:
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-      return l10n_util::GetStringUTF16(
-          IDS_PICKER_EDITOR_REWRITE_CATEGORY_TYPE_SECTION_TITLE);
 #else
       return u"";
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)

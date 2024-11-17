@@ -66,19 +66,13 @@ public class SearchActivityClientImpl implements SearchActivityClient {
         return intent;
     }
 
-    /**
-     * Call up SearchActivity/Omnibox on behalf of the current Activity.
-     *
-     * <p>Allows the caller to instantiate the Omnibox and retrieve Suggestions for the supplied
-     * webpage. Response will be delivered via {@link Activity#onActivityResult}.
-     *
-     * @param activity the current activity; may be {@code null}, in which case intent will not be
-     *     issued
-     * @param url the URL of the page to retrieve suggestions for
-     * @param referrer the referrer package name
-     */
-    public static void requestOmniboxForResult(
-            @Nullable Activity activity, @NonNull GURL currentUrl, @Nullable String referrer) {
+    @Override
+    public void requestOmniboxForResult(
+            @Nullable Activity activity,
+            @NonNull GURL currentUrl,
+            @IntentOrigin int intentOrigin,
+            @Nullable String referrer,
+            boolean isIncognito) {
         if (activity == null) return;
 
         if (referrer != null && !referrer.matches(SearchActivityExtras.REFERRER_VALIDATION_REGEX)) {
@@ -94,18 +88,16 @@ public class SearchActivityClientImpl implements SearchActivityClient {
         var intent =
                 buildTrustedIntent(
                                 activity,
-                                String.format(
-                                        ACTION_SEARCH_FORMAT,
-                                        IntentOrigin.CUSTOM_TAB,
-                                        SearchType.TEXT))
+                                String.format(ACTION_SEARCH_FORMAT, intentOrigin, SearchType.TEXT))
                         .putExtra(
                                 SearchActivityExtras.EXTRA_CURRENT_URL,
                                 GURL.isEmptyOrInvalid(currentUrl) ? null : currentUrl.getSpec())
-                        .putExtra(SearchActivityExtras.EXTRA_ORIGIN, IntentOrigin.CUSTOM_TAB)
+                        .putExtra(SearchActivityExtras.EXTRA_ORIGIN, intentOrigin)
                         .putExtra(
                                 SearchActivityExtras.EXTRA_REFERRER,
                                 TextUtils.isEmpty(referrer) ? null : referrer)
                         .putExtra(SearchActivityExtras.EXTRA_SEARCH_TYPE, SearchType.TEXT)
+                        .putExtra(SearchActivityExtras.EXTRA_IS_INCOGNITO, isIncognito)
                         .addFlags(
                                 Intent.FLAG_ACTIVITY_NO_HISTORY
                                         | Intent.FLAG_ACTIVITY_PREVIOUS_IS_TOP);

@@ -25,6 +25,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/metrics/histogram_functions_internal_overloads.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
@@ -250,15 +251,6 @@ enum class ContentEncodingType {
   kMaxValue = kZstd,
 };
 
-bool IsSameSiteIgnoringWebSocketProtocol(const net::SchemefulSite& initiator,
-                                         const GURL& request_url) {
-  net::SchemefulSite request_site = net::SchemefulSite(
-      request_url.SchemeIsHTTPOrHTTPS()
-          ? request_url
-          : net::ChangeWebSocketSchemeToHttpScheme(request_url));
-  return initiator == request_site;
-}
-
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
 enum class HttpRequestStsState {
@@ -460,16 +452,6 @@ void URLRequestHttpJob::Start() {
   request_info_.reporting_upload_depth = request_->reporting_upload_depth();
 #endif
 
-  // Add/remove the Storage Access override enum based on whether the request's
-  // url and initiator are same-site, to prevent cross-site sibling iframes
-  // benefit from each other's storage access API grants.
-  request()->cookie_setting_overrides().PutOrRemove(
-      CookieSettingOverride::kStorageAccessGrantEligible,
-      request()->storage_access_api_status() ==
-              StorageAccessApiStatus::kAccessViaAPI &&
-          request_initiator_site().has_value() &&
-          IsSameSiteIgnoringWebSocketProtocol(request_initiator_site().value(),
-                                              request()->url()));
   CookieStore* cookie_store = request()->context()->cookie_store();
   const CookieAccessDelegate* delegate =
       cookie_store ? cookie_store->cookie_access_delegate() : nullptr;
@@ -500,24 +482,11 @@ bool ShouldBlockAllCookies(PrivacyMode privacy_mode) {
 }  // namespace
 
 void URLRequestHttpJob::MaybeSetSecFetchStorageAccessHeader() {
-  if (!request_->network_delegate()->IsStorageAccessHeaderEnabled(
-          base::OptionalToPtr(request_->isolation_info().top_frame_origin()),
-          request_->url())) {
-    return;
-  }
-  // Avoid attaching the header in cases where the Cookie header is not included
-  // in the request.
-  if (!ShouldAddCookieHeader() ||
-      ShouldBlockAllCookies(request_info_.privacy_mode)) {
-    return;
-  }
-  std::optional<cookie_util::StorageAccessStatus> storage_access_status =
-      request_->network_delegate()->GetStorageAccessStatus(*request_);
-  if (storage_access_status) {
-    storage_access_status_ = storage_access_status.value();
+  if (request_->storage_access_status()) {
     request_info_.extra_headers.SetHeader(
         HttpRequestHeaders::kSecFetchStorageAccess,
-        GetSecFetchStorageAccessHeaderValue(storage_access_status_));
+        GetSecFetchStorageAccessHeaderValue(
+            request_->storage_access_status().value()));
   }
 }
 
@@ -1213,9 +1182,11 @@ void URLRequestHttpJob::ProcessStrictTransportSecurityHeader() {
   //   message over secure transport, then the UA MUST process only the
   //   first such header field.
   HttpResponseHeaders* headers = GetResponseHeaders();
-  std::string value;
-  if (headers->EnumerateHeader(nullptr, "Strict-Transport-Security", &value))
-    security_state->AddHSTSHeader(request_info_.url.host(), value);
+  std::optional<std::string_view> value;
+  if ((value =
+           headers->EnumerateHeader(nullptr, "Strict-Transport-Security"))) {
+    security_state->AddHSTSHeader(request_info_.url.host(), *value);
+  }
 }
 
 void URLRequestHttpJob::OnStartCompleted(int result) {
@@ -1543,11 +1514,6 @@ std::unique_ptr<SourceStream> URLRequestHttpJob::SetUpSourceStream() {
   return upstream;
 }
 
-cookie_util::StorageAccessStatus URLRequestHttpJob::StorageAccessStatus()
-    const {
-  return storage_access_status_;
-}
-
 bool URLRequestHttpJob::CopyFragmentOnRedirect(const GURL& location) const {
   // Allow modification of reference fragments by default, unless
   // |preserve_fragment_on_redirect_url_| is set and equal to the redirect URL.
@@ -1596,29 +1562,43 @@ bool URLRequestHttpJob::NeedsAuth() {
 }
 
 bool URLRequestHttpJob::NeedsRetryWithStorageAccess() {
-  if (!request_->network_delegate()->IsStorageAccessHeaderEnabled(
-          base::OptionalToPtr(request_->isolation_info().top_frame_origin()),
-          request_->url())) {
-    return false;
-  }
-  if (!ShouldAddCookieHeader() ||
-      storage_access_status_ != cookie_util::StorageAccessStatus::kInactive ||
-      request_->cookie_setting_overrides().Has(
-          CookieSettingOverride::kStorageAccessGrantEligible) ||
-      request_->cookie_setting_overrides().Has(
-          CookieSettingOverride::kStorageAccessGrantEligibleViaHeader)) {
-    // We're not allowed to read cookies for this request, or this request
-    // already had all the relevant settings overrides, so retrying it wouldn't
-    // change anything.
+  // We use the Origin header's value directly, rather than
+  // `request_.initiator()`, because the header may be "null" in some cases.
+  if (!request_->response_headers() ||
+      !request_->response_headers()->HasStorageAccessRetryHeader(
+          base::OptionalToPtr(request_info_.extra_headers.GetHeader(
+              HttpRequestHeaders::kOrigin)))) {
     return false;
   }
 
-  HttpResponseHeaders* headers = request_->response_headers();
-  // We use the Origin header's value directly, rather than
-  // `request_.initiator()`, because the header may be "null" in some cases.
-  return headers && headers->HasStorageAccessRetryHeader(base::OptionalToPtr(
-                        request_info_.extra_headers.GetHeader(
-                            HttpRequestHeaders::kOrigin)));
+  auto determine_storage_access_retry_outcome =
+      [&]() -> cookie_util::ActivateStorageAccessRetryOutcome {
+    using enum cookie_util::ActivateStorageAccessRetryOutcome;
+    if (!request_->network_delegate()->IsStorageAccessHeaderEnabled(
+            base::OptionalToPtr(request_->isolation_info().top_frame_origin()),
+            request_->url())) {
+      return kFailureHeaderDisabled;
+    }
+    if (!ShouldAddCookieHeader() ||
+        request_->storage_access_status() !=
+            cookie_util::StorageAccessStatus::kInactive ||
+        request_->cookie_setting_overrides().Has(
+            CookieSettingOverride::kStorageAccessGrantEligible) ||
+        request_->cookie_setting_overrides().Has(
+            CookieSettingOverride::kStorageAccessGrantEligibleViaHeader)) {
+      // We're not allowed to read cookies for this request, or this request
+      // already had all the relevant settings overrides, so retrying it
+      // wouldn't change anything.
+      return kFailureIneffectiveRetry;
+    }
+    return kSuccess;
+  };
+
+  auto outcome = determine_storage_access_retry_outcome();
+
+  base::UmaHistogramEnumeration(
+      "API.StorageAccessHeader.ActivateStorageAccessRetryOutcome", outcome);
+  return outcome == cookie_util::ActivateStorageAccessRetryOutcome::kSuccess;
 }
 
 void URLRequestHttpJob::SetSharedDictionaryGetter(
@@ -1841,7 +1821,7 @@ void URLRequestHttpJob::RecordTimer() {
   base::TimeDelta to_start = base::Time::Now() - request_creation_time_;
   request_creation_time_ = base::Time();
 
-  UMA_HISTOGRAM_MEDIUM_TIMES("Net.HttpTimeToFirstByte", to_start);
+  DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES("Net.HttpTimeToFirstByte", to_start);
 
   // Record additional metrics for TLS 1.3 servers for Google hosts. Most
   // Google hosts are known to implement 0-RTT, so this gives more targeted
@@ -1992,12 +1972,23 @@ void URLRequestHttpJob::RecordCompletionHistograms(CompletionCause reason) {
             "Net.HttpJob.IpProtection.AllowListMatch.PrefilterBytesRead.Net",
             prefilter_bytes_read(), 1, 50000000, 50);
       }
-      if (response_info_->proxy_chain.is_for_ip_protection()) {
+
+      auto& proxy_chain = response_info_->proxy_chain;
+      bool direct_only = net::features::kIpPrivacyDirectOnly.Get();
+      // To enable measuring how much traffic would be proxied (for
+      // experimentation and planning purposes), treat use of the direct
+      // proxy chain as success only when `kIpPrivacyDirectOnly` is
+      // true. When it is false, we only care about traffic that actually went
+      // through the IP Protection proxies, so a direct chain must be a
+      // fallback.
+      bool protection_success = proxy_chain.is_for_ip_protection() &&
+                                (!proxy_chain.is_direct() || direct_only);
+      if (protection_success) {
         base::UmaHistogramTimes("Net.HttpJob.IpProtection.TotalTimeNotCached",
                                 total_time);
         // Log specific times for non-zero chains. The zero chain is the
         // default and is still counted in the base `TotalTimeNotCached`.
-        int chain_id = response_info_->proxy_chain.ip_protection_chain_id();
+        int chain_id = proxy_chain.ip_protection_chain_id();
         if (chain_id != ProxyChain::kNotIpProtectionChainId) {
           UmaHistogramTimes(
               base::StrCat({"Net.HttpJob.IpProtection.TotalTimeNotCached.Chain",
@@ -2024,6 +2015,20 @@ void URLRequestHttpJob::RecordCompletionHistograms(CompletionCause reason) {
         base::UmaHistogramMediumTimes(
             "Net.HttpJob.TotalTimeNotCached.Secure.Quic", total_time);
       }
+
+      // Log the result of an IP-Protected request.
+      IpProtectionJobResult ipp_result;
+      if (proxy_chain.is_for_ip_protection()) {
+        if (protection_success) {
+          ipp_result = IpProtectionJobResult::kProtectionSuccess;
+        } else {
+          ipp_result = IpProtectionJobResult::kDirectFallback;
+        }
+      } else {
+        ipp_result = IpProtectionJobResult::kProtectionNotAttempted;
+      }
+      base::UmaHistogramEnumeration("Net.HttpJob.IpProtection.JobResult",
+                                    ipp_result);
     }
   }
 

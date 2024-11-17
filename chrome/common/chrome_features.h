@@ -38,14 +38,14 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kAdaptiveScreenBrightnessLogging);
 #endif
 
-#if !BUILDFLAG(IS_ANDROID)
-COMPONENT_EXPORT(CHROME_FEATURES)
-BASE_DECLARE_FEATURE(kAiSettingsPageRefresh);
-#endif
-
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kAppPreloadService);
 #endif
+
+#if BUILDFLAG(IS_WIN)
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kAppSpecificNotifications);
+#endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_MAC)
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kAppShimRemoteCocoa);
@@ -288,15 +288,6 @@ BASE_DECLARE_FEATURE(kHappinessTrackingSurveysForDesktopWhatsNew);
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<base::TimeDelta>
     kHappinessTrackingSurveysForDesktopWhatsNewTime;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<int>
-    kHappinessTrackingSurveysForDesktopWhatsNewEnActivationPercentage;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<int>
-    kHappinessTrackingSurveysForDesktopWhatsNewDeActivationPercentage;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<int>
-    kHappinessTrackingSurveysForDesktopWhatsNewJpActivationPercentage;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kHappinessTrackingSurveysForDesktopM1AdPrivacyPage);
@@ -574,12 +565,6 @@ BASE_DECLARE_FEATURE(kOfflineAutoFetch);
 #if !BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kOnConnectNative);
 #endif
-
-COMPONENT_EXPORT(CHROME_FEATURES)
-BASE_DECLARE_FEATURE(kOobeMarketingAdditionalCountriesSupported);
-
-COMPONENT_EXPORT(CHROME_FEATURES)
-BASE_DECLARE_FEATURE(kOobeMarketingDoubleOptInCountriesSupported);
 
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kOomIntervention);
@@ -998,6 +983,9 @@ BASE_DECLARE_FEATURE(kUserTypeByDeviceTypeMetricsProvider);
 
 #if !BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kWebAppDontAddExistingAppsToSync);
+
+COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kWebAppManifestIconUpdating);
 
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -1015,10 +1003,6 @@ BASE_DECLARE_FEATURE(kWebAppUniversalInstall);
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kWebAppManifestPolicyAppIdentityUpdate);
-
-#if BUILDFLAG(IS_CHROMEOS)
-COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kWebKioskEnableIwaApis);
-#endif
 
 #if !BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kWebRtcRemoteEventLog);

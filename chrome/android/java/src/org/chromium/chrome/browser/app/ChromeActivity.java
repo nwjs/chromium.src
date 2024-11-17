@@ -41,6 +41,7 @@ import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.BuildInfo;
 import org.chromium.base.Callback;
+import org.chromium.base.CallbackUtils;
 import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.InputHintChecker;
@@ -48,7 +49,6 @@ import org.chromium.base.Log;
 import org.chromium.base.PowerMonitor;
 import org.chromium.base.SysUtils;
 import org.chromium.base.TraceEvent;
-import org.chromium.base.cached_flags.CachedFlagsSafeMode;
 import org.chromium.base.memory.MemoryPurgeManager;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
@@ -85,6 +85,7 @@ import org.chromium.chrome.browser.base.ColdStartTracker;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.PowerBookmarkUtils;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
@@ -144,7 +145,7 @@ import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.readaloud.ReadAloudController;
 import org.chromium.chrome.browser.selection.SelectionPopupBackPressHandler;
-import org.chromium.chrome.browser.settings.SettingsLauncherFactory;
+import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.share.ShareDelegateImpl;
 import org.chromium.chrome.browser.share.ShareDelegateSupplier;
@@ -160,7 +161,6 @@ import org.chromium.chrome.browser.tab.TabState;
 import org.chromium.chrome.browser.tab.TabUtils;
 import org.chromium.chrome.browser.tab.TabUtils.UseDesktopUserAgentCaller;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
-import org.chromium.chrome.browser.tabmodel.EmptyTabModel;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManagerSupplier;
@@ -172,7 +172,6 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelectorSupplier;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tinker_tank.TinkerTankDelegate;
-import org.chromium.chrome.browser.tinker_tank.TinkerTankDelegateImpl;
 import org.chromium.chrome.browser.toolbar.ControlContainer;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.translate.TranslateBridge;
@@ -194,13 +193,14 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerProvi
 import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
 import org.chromium.components.browser_ui.notifications.NotificationManagerProxy;
 import org.chromium.components.browser_ui.notifications.NotificationManagerProxyImpl;
-import org.chromium.components.browser_ui.settings.SettingsLauncher;
+import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.Type;
 import org.chromium.components.browser_ui.widget.gesture.SwipeGestureListener.SwipeHandler;
 import org.chromium.components.browser_ui.widget.textbubble.TextBubble;
 import org.chromium.components.browser_ui.widget.textbubble.TextBubbleBackPressHandler;
+import org.chromium.components.cached_flags.CachedFlagsSafeMode;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.feature_engagement.EventConstants;
@@ -449,7 +449,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
     protected ActivityWindowAndroid createWindowAndroid() {
         return new ChromeWindow(
                 /* activity= */ this,
-                mActivityTabProvider,
                 mCompositorViewHolderSupplier,
                 getModalDialogManagerSupplier(),
                 mManualFillingComponentSupplier,
@@ -483,8 +482,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         // insets.
         rootView.setFitsSystemWindows(false);
 
-        if (BuildInfo.getInstance().isAutomotive
-                && ChromeFeatureList.sVerticalAutomotiveBackButtonToolbar.isEnabled()) {
+        if (BuildInfo.getInstance().isAutomotive) {
             mBaseChromeLayout = new FrameLayout(this);
         }
 
@@ -563,7 +561,8 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         mBrowserControlsManagerSupplier.attach(getWindowAndroid().getUnownedUserDataHost());
         // BrowserControlsManager is ready immediately.
         mBrowserControlsManagerSupplier.set(
-                new BrowserControlsManager(this, BrowserControlsManager.ControlsPosition.TOP));
+                new BrowserControlsManager(
+                        this, BrowserControlsStateProvider.ControlsPosition.TOP));
     }
 
     /** Subclasses must create a {@link RootUiCoordinator}. */
@@ -688,8 +687,8 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             mSnackbarManager = new SnackbarManager(this, mBottomContainer, getWindowAndroid());
             getWindowAndroid().getInsetObserver().addObserver(mSnackbarManager);
             SnackbarManagerProvider.attach(getWindowAndroid(), mSnackbarManager);
-            // TODO (crbug/359973775): Pass InsetObserver as a ModalDialogManager ctor arg so that
-            // all instances are registered as inset observers.
+            // TODO (crbug.com/365110749): Remove wiring the InsetObserver when the dialog window
+            // returns expected system insets.
             getModalDialogManager().setInsetObserver(getWindowAndroid().getInsetObserver());
 
             // Make the activity listen to policy change events
@@ -1169,8 +1168,15 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             WebContents webContents = tab.getWebContents();
             LaunchMetrics.commitLaunchMetrics(webContents);
 
-            // For picture-in-picture mode / auto-darken web contents.
-            if (webContents != null) webContents.notifyRendererPreferenceUpdate();
+            if (webContents != null) {
+                // For picture-in-picture mode / auto-darken web contents.
+                webContents.notifyRendererPreferenceUpdate();
+                // Update input state to bind a new input connection if necessary.
+                var renderWidgetHostView = webContents.getRenderWidgetHostView();
+                if (renderWidgetHostView != null) {
+                    renderWidgetHostView.onResume();
+                }
+            }
         }
 
         boolean inMultiWindowMode = MultiWindowUtils.getInstance().isInMultiWindowMode(this);
@@ -1738,7 +1744,9 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
     protected ModalDialogManager createModalDialogManager() {
         var dialogManager =
                 new ModalDialogManager(
-                        new AppModalPresenter(this), ModalDialogManager.ModalDialogType.APP);
+                        new AppModalPresenter(this),
+                        ModalDialogManager.ModalDialogType.APP,
+                        getEdgeToEdgeStateProvider());
         return dialogManager;
     }
 
@@ -2011,14 +2019,15 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
     }
 
     /**
-     * Gets the current (inner) TabModel.  This is a convenience function for
-     * getModelSelector().getCurrentModel().  It is *not* equivalent to the former getModel()
-     * @return Never null, if modelSelector or its field is uninstantiated returns a
-     *         {@link EmptyTabModel} singleton
+     * Gets the current (inner) TabModel. This is a convenience function for
+     * getModelSelector().getCurrentModel(). It is *not* equivalent to the former getModel()
+     *
+     * @return Never null, if modelSelector or its field is uninstantiated returns a {@link
+     *     EmptyTabModel} singleton
      */
     public TabModel getCurrentTabModel() {
         TabModelSelector modelSelector = getTabModelSelector();
-        if (modelSelector == null) return EmptyTabModel.getInstance(false);
+        if (modelSelector == null) return TabModelUtils.getEmptyTabModel();
         return modelSelector.getCurrentModel();
     }
 
@@ -2485,8 +2494,9 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         int type = Profile.getBrowserProfileTypeFromProfile(getCurrentTabModel().getProfile());
 
         if (id == R.id.preferences_id) {
-            SettingsLauncher settingsLauncher = SettingsLauncherFactory.createSettingsLauncher();
-            settingsLauncher.launchSettingsActivity(this);
+            SettingsNavigation settingsNavigation =
+                    SettingsNavigationFactory.createSettingsNavigation();
+            settingsNavigation.startSettings(this);
             RecordUserAction.record("MobileMenuSettings");
             RecordHistogram.recordEnumeratedHistogram(
                     "Settings.OpenSettingsFromMenu.PerProfileType",
@@ -2528,7 +2538,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         }
 
         if (id == R.id.tinker_tank_menu_id) {
-            TinkerTankDelegate delegate = new TinkerTankDelegateImpl();
+            TinkerTankDelegate delegate = TinkerTankDelegate.create();
             delegate.maybeShowBottomSheet(
                     this,
                     getProfileProviderSupplier().get().getOriginalProfile(),
@@ -2574,7 +2584,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
                     mSnackbarManager,
                     getResources(),
                     currentTab.getProfile(),
-                    (success) -> {});
+                    CallbackUtils.emptyCallback());
             RecordUserAction.record("MobileMenuDisablePriceTracking");
             return true;
         }
@@ -2630,8 +2640,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
         if (id == R.id.universal_install) {
             RecordUserAction.record("UniversalInstallFromMenu");
-            return doUniversalInstall(
-                    currentTab, AppMenuVerbiage.APP_MENU_OPTION_UNIVERSAL_INSTALL);
+            return doUniversalInstall(currentTab);
         }
 
         if (id == R.id.open_webapk_id) {
@@ -2961,7 +2970,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         return mCompositorViewHolderSupplier.get();
     }
 
-    private boolean doUniversalInstall(Tab currentTab, int menuItemType) {
+    private boolean doUniversalInstall(Tab currentTab) {
         BottomSheetController controller = BottomSheetControllerProvider.from(getWindowAndroid());
         if (controller == null) {
             // We have three options when this function fails. One is to abort the operation and do
@@ -3060,9 +3069,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
     @Override
     protected int getAutomotiveToolbarImplementation() {
-        return ChromeFeatureList.sVerticalAutomotiveBackButtonToolbar.isEnabled()
-                ? AutomotiveToolbarImplementation.WITH_TOOLBAR_VIEW
-                : AutomotiveToolbarImplementation.WITH_ACTION_BAR;
+        return AutomotiveToolbarImplementation.WITH_TOOLBAR_VIEW;
     }
 
     /**

@@ -93,7 +93,7 @@ export class PlatformHandler extends PlatformHandlerBase {
     ColorChangeUpdater.forDocument().start();
 
     this.canUseSpeakerLabel.value =
-      (await this.remote.canUseSpeakerLabelForCurrentProfile()).supported;
+      (await this.remote.canUseSpeakerLabel()).supported;
 
     this.canCaptureSystemAudioWithLoopback.value =
       (await this.remote.canCaptureSystemAudioWithLoopback()).supported;
@@ -174,7 +174,10 @@ export class PlatformHandler extends PlatformHandlerBase {
         stackTrace: stackStr,
         columnNumber: colNo,
       },
-      /* callback= */ () => {}
+      /* callback= */
+      () => {
+        // Do nothing after error reported.
+      },
     );
   }
 

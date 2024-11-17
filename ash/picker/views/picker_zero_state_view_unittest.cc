@@ -15,6 +15,8 @@
 #include "ash/constants/ash_features.h"
 #include "ash/picker/mock_picker_asset_fetcher.h"
 #include "ash/picker/model/picker_caps_lock_position.h"
+#include "ash/picker/picker_category.h"
+#include "ash/picker/picker_search_result.h"
 #include "ash/picker/picker_test_util.h"
 #include "ash/picker/views/picker_category_type.h"
 #include "ash/picker/views/picker_image_item_view.h"
@@ -26,8 +28,6 @@
 #include "ash/picker/views/picker_section_view.h"
 #include "ash/picker/views/picker_submenu_controller.h"
 #include "ash/picker/views/picker_zero_state_view_delegate.h"
-#include "ash/public/cpp/picker/picker_category.h"
-#include "ash/public/cpp/picker/picker_search_result.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/ash_color_provider.h"
 #include "ash/style/pill_button.h"
@@ -36,6 +36,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
+#include "build/branding_buildflags.h"
 #include "chromeos/components/editor_menu/public/cpp/preset_text_query.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/testing_pref_service.h"
@@ -47,6 +48,10 @@
 #include "ui/views/test/views_test_base.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
+
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#include "chromeos/ash/resources/internal/strings/grit/ash_internal_strings.h"
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 namespace ash {
 namespace {
@@ -79,6 +84,7 @@ auto AsView(Matcher matcher) {
 constexpr base::span<const PickerCategory> kAllCategories = {(PickerCategory[]){
     PickerCategory::kEditorWrite,
     PickerCategory::kEditorRewrite,
+    PickerCategory::kLobster,
     PickerCategory::kLinks,
     PickerCategory::kEmojisGifs,
     PickerCategory::kClipboard,
@@ -467,6 +473,49 @@ TEST_F(PickerZeroStateViewTest, ShowsEditorSuggestionsBehindSubmenu) {
                               &PickerItemWithSubmenuView::GetTextForTesting,
                               l10n_util::GetStringUTF16(
                                   IDS_PICKER_CHANGE_TONE_MENU_LABEL))))))));
+}
+
+TEST_F(PickerZeroStateViewTest, DoesntShowLobsterCategoryForEmptySuggestions) {
+  MockZeroStateViewDelegate mock_delegate;
+  EXPECT_CALL(mock_delegate, GetZeroStateSuggestedResults)
+      .WillOnce(
+          [](MockZeroStateViewDelegate::SuggestedResultsCallback callback) {
+            std::move(callback).Run({});
+          });
+  PickerZeroStateView view(&mock_delegate, {{PickerCategory::kLobster}},
+                           kPickerWidth, &asset_fetcher_, &submenu_controller_,
+                           &preview_controller_);
+
+  EXPECT_THAT(view.primary_section_view_for_testing(), IsNull());
+}
+
+TEST_F(PickerZeroStateViewTest, ShowLobsterCategoryAsItemWithSubMenu) {
+  MockZeroStateViewDelegate mock_delegate;
+  EXPECT_CALL(mock_delegate, GetZeroStateSuggestedResults)
+      .WillOnce(
+          [](MockZeroStateViewDelegate::SuggestedResultsCallback callback) {
+            std::move(callback).Run({PickerLobsterResult(
+                /*display_name=*/u"lobster")});
+          });
+  PickerZeroStateView view(&mock_delegate, {{PickerCategory::kLobster}},
+                           kPickerWidth, &asset_fetcher_, &submenu_controller_,
+                           &preview_controller_);
+
+  EXPECT_THAT(
+      view.primary_section_view_for_testing(),
+      Pointee(AllOf(
+          Property("GetVisible", &views::View::GetVisible, true),
+          Property(
+              "item_views_for_testing",
+              &PickerSectionView::item_views_for_testing,
+              ElementsAre(AsView<PickerListItemView>(Property(
+                  &PickerListItemView::GetPrimaryTextForTesting,
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+                  l10n_util::GetStringUTF16(IDS_PICKER_LOBSTER_SELECTION_LABEL)
+#else
+                  u""
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+                      )))))));
 }
 
 TEST_F(PickerZeroStateViewTest, ShowsCaseTransformationBehindSubmenu) {

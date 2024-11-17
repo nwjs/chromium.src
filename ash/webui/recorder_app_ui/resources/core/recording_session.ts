@@ -45,10 +45,13 @@ interface RecordingProgress {
   transcription: Transcription|null;
 }
 
-function getMicrophoneStream(micId: string, echoCancellation: boolean):
-  Promise<MediaStream> {
+function getMicrophoneStream(
+  micId: string,
+  echoCancellation: boolean,
+): Promise<MediaStream> {
   return navigator.mediaDevices.getUserMedia({
     audio: {
+      autoGainControl: {exact: false},
       deviceId: {exact: micId},
       echoCancellation: {exact: echoCancellation},
     },
@@ -68,8 +71,10 @@ let audioCtxGlobal: AudioContext|null = null;
 async function getAudioContext(): Promise<AudioContext> {
   if (audioCtxGlobal === null) {
     // Set null output device when recording.
-    audioCtxGlobal =
-      new AudioContext({sampleRate: SAMPLE_RATE, sinkId: {type: 'none'}});
+    audioCtxGlobal = new AudioContext({
+      sampleRate: SAMPLE_RATE,
+      sinkId: {type: 'none'},
+    });
     await audioCtxGlobal.audioWorklet.addModule('./static/audio_worklet.js');
   }
   return audioCtxGlobal;
@@ -203,7 +208,8 @@ export class RecordingSession {
 
     // Turn on AEC when capturing system audio via getDisplayMedia.
     const micStream = await getMicrophoneStream(
-      this.config.micId, this.config.canCaptureSystemAudioWithLoopback
+      this.config.micId,
+      this.config.canCaptureSystemAudioWithLoopback,
     );
     this.micAudioSourceNode = this.audioCtx.createMediaStreamSource(micStream);
     this.connectSourceNode(this.micAudioSourceNode);
@@ -218,7 +224,7 @@ export class RecordingSession {
     }
 
     if (!this.config.includeSystemAudio ||
-      !this.config.canCaptureSystemAudioWithLoopback) {
+        !this.config.canCaptureSystemAudioWithLoopback) {
       return;
     }
 
@@ -353,7 +359,7 @@ export class RecordingSession {
       // TODO: b/369277555 - Investigate why SODA does not convert all results
       // to final.
       this.transcription.value = this.sodaEventTransformer.getTranscription(
-        /* shouldFinalizeTranscription= */ true
+        /* shouldFinalizeTranscription= */ true,
       );
       this.currentSodaSession = null;
     });

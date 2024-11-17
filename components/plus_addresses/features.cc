@@ -17,12 +17,19 @@ constexpr char kPlusAddressManagementUrlName[] = "manage-url";
 constexpr char kPlusAddressLearnMoreUrlName[] = "learn-more";
 constexpr char kPlusAddressExcludedSitesName[] = "excluded-sites";
 constexpr char kPlusAddressErrorReportUrlName[] = "error-report-url";
+constexpr char kPlusAddressRequestTimeoutName[] = "request-timeout";
 constexpr char kDisableForForbiddenUsersName[] = "disable-for-forbidden-users";
 constexpr char kShowForwardingEmailInSuggestionName[] = "show-forwarding-email";
 
 }  // namespace
 
 #if BUILDFLAG(IS_ANDROID)
+// When enabled, mobile plus address creation bottom sheet shows enhanced UI for
+// different plus address loading states.
+BASE_FEATURE(kPlusAddressAndroidEnhancedLoadingStatesEnabled,
+             "PlusAddressAndroidEnhancedLoadingStatesEnabled",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, mobile plus address creation bottom sheet shows enhanced UI for
 // different error states.
 BASE_FEATURE(kPlusAddressAndroidErrorStatesEnabled,
@@ -34,14 +41,19 @@ BASE_FEATURE(kPlusAddressAndroidErrorStatesEnabled,
 BASE_FEATURE(kPlusAddressAndroidManualFallbackEnabled,
              "PlusAddressAndroidManualFallbackEnabled",
              base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_ANDROID)
 
-// When enabled, autofill stops overriding single field form fill suggestions
-// with plus address suggestions. Instead, it shows them together in the same
-// context menu.
-BASE_FEATURE(kPlusAddressAndSingleFieldFormFill,
-             "PlusAddressAndSingleFieldFormFill",
+// When enabled, the user is shown the GMS core plus address management activity
+// instead of the web page in a Chrome custom tab.
+BASE_FEATURE(kPlusAddressAndroidOpenGmsCoreManagementPage,
+             "PlusAddressAndroidOpenGmsCoreManagementPage",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, the mobile autofill profiles fragment shows a link to open plus
+// address management page.
+BASE_FEATURE(kPlusAddressAndroidSettingsEntry,
+             "PlusAddressAndroidSettingsEntry",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
 
 // When enabled, Chrome will fetch the blocklist data using the Component
 // Updater and employ that for blocking Plus Addresses. Otherwise, the blocklist
@@ -67,12 +79,22 @@ const base::FeatureParam<std::string> kPlusAddressExcludedSites{
     &kPlusAddressesEnabled, kPlusAddressExcludedSitesName, ""};
 const base::FeatureParam<std::string> kPlusAddressErrorReportUrl{
     &kPlusAddressesEnabled, kPlusAddressErrorReportUrlName, ""};
+const base::FeatureParam<base::TimeDelta> kPlusAddressRequestTimeout{
+    &kPlusAddressesEnabled, kPlusAddressRequestTimeoutName, base::Seconds(5)};
 const base::FeatureParam<bool> kDisableForForbiddenUsers{
     &kPlusAddressesEnabled, kDisableForForbiddenUsersName, false};
 
 // When enabled, plus addresses are supported within the context menu.
 BASE_FEATURE(kPlusAddressFallbackFromContextMenu,
              "PlusAddressFallbackFromContextMenu",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, if the user has an existing plus address for the current
+// domain, address profile suggestions will be updated to reflect the plus
+// address email instead of the stored one. Note that only profile emails
+// matching the user's GAIA account will be replaced.
+BASE_FEATURE(kPlusAddressFullFormFill,
+             "PlusAddressFullFormFill",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, the `PlusAddressSettingService` will be consulted on whether
@@ -91,6 +113,12 @@ BASE_FEATURE(kPlusAddressInlineCreation,
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_IOS)
+// When enabled, plus address creation bottom sheet shows enhanced UI for
+// different error states as well as loading states on iOS.
+BASE_FEATURE(kPlusAddressIOSErrorAndLoadingStatesEnabled,
+             "PlusAddressIOSErrorAndLoadingStatesEnabled",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, mobile manual fallbacks for addresses and passwords show plus
 // address filling information.
 BASE_FEATURE(kPlusAddressIOSManualFallbackEnabled,
@@ -112,6 +140,12 @@ BASE_FEATURE(kPlusAddressOfferCreationOnSingleUsernameForms,
              "PlusAddressOfferCreationOnSingleUsernameForms",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, we check whether the server response to a Create call returned
+// information about existing profiles and return those as the parsing result.
+BASE_FEATURE(kPlusAddressParseExistingProfilesFromCreateResponse,
+             "PlusAddressParseExistingProfilesFromCreateResponse",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // When enabled, plus addresses are preallocated to avoid having to query the
 // server for every reserve call.
 BASE_FEATURE(kPlusAddressPreallocation,
@@ -125,12 +159,16 @@ extern const base::FeatureParam<int> kPlusAddressPreallocationMinimumSize(
     "minimum-size",
     10);
 
-// When enabled, `GoogleGroupsManager::IsFeatureEnabledForProfile` is used to
-// check whether `kPlusAddressesEnabled` is enabled. Used as a killswitch.
-// TODO: crbug.com/348575889 - Clean up.
-BASE_FEATURE(kPlusAddressProfileAwareFeatureCheck,
-             "PlusAddressProfileAwareFeatureCheck",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+// When enabled, plus address creation will be offered on forms that Password
+// Manager classifies as login forms if those forms have a predicted field
+// types that we believe not to be consistent with a login form - for example,
+// FIRST_NAME or LAST_NAME.
+// This therefore "refines" Password Manager predictions.
+// TODO(crbug.com/364555384): Eventually, this should either be removed or
+// integrated into Password Manager's own logic.
+BASE_FEATURE(kPlusAddressRefinedPasswordFormClassification,
+             "PlusAddressRefinedPasswordFormClassification",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, creation suggestions do not contain a label prior to the user
 // acknowledging the notice.

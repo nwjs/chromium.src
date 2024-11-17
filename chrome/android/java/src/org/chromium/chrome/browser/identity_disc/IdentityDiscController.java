@@ -23,7 +23,7 @@ import org.chromium.chrome.browser.lifecycle.NativeInitObserver;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.settings.MainSettings;
-import org.chromium.chrome.browser.settings.SettingsLauncherFactory;
+import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.signin.SigninAndHistorySyncActivityLauncherImpl;
 import org.chromium.chrome.browser.signin.SyncConsentActivityLauncherImpl;
 import org.chromium.chrome.browser.signin.services.DisplayableProfileData;
@@ -41,7 +41,7 @@ import org.chromium.chrome.browser.ui.signin.SigninUtils;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetStrings;
 import org.chromium.chrome.browser.user_education.IPHCommandBuilder;
 import org.chromium.chrome.browser.util.BrowserUiUtils;
-import org.chromium.components.browser_ui.settings.SettingsLauncher;
+import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
@@ -221,8 +221,8 @@ public class IdentityDiscController
         assert mProfileDataCache != null;
 
         if (accountEmail.equals(CoreAccountInfo.getEmailFrom(getSignedInAccountInfo()))) {
-            /**
-             * We need to call {@link notifyObservers(false)} before caling
+            /*
+             * We need to call {@link notifyObservers(false)} before calling
              * {@link notifyObservers(true)}. This is because {@link notifyObservers(true)} has been
              * called in {@link setProfile()}, and without calling {@link notifyObservers(false)},
              * the ObservableSupplierImpl doesn't propagate the call. See https://cubug.com/1137535.
@@ -375,14 +375,16 @@ public class IdentityDiscController
                                 SigninAndHistorySyncCoordinator.WithAccountSigninMode
                                         .DEFAULT_ACCOUNT_BOTTOM_SHEET,
                                 SigninAndHistorySyncCoordinator.HistoryOptInMode.OPTIONAL,
-                                SigninAccessPoint.NTP_SIGNED_OUT_ICON);
+                                SigninAccessPoint.NTP_SIGNED_OUT_ICON,
+                                /* selectedCoreAccountId= */ null);
             } else {
                 SyncConsentActivityLauncherImpl.get()
                         .launchActivityIfAllowed(mContext, SigninAccessPoint.NTP_SIGNED_OUT_ICON);
             }
         } else {
-            SettingsLauncher settingsLauncher = SettingsLauncherFactory.createSettingsLauncher();
-            settingsLauncher.launchSettingsActivity(mContext, MainSettings.class);
+            SettingsNavigation settingsNavigation =
+                    SettingsNavigationFactory.createSettingsNavigation();
+            settingsNavigation.startSettings(mContext, MainSettings.class);
         }
     }
 

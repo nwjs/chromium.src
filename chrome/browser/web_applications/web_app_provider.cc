@@ -31,11 +31,13 @@
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_installation_manager.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_update_manager.h"
 #include "chrome/browser/web_applications/manifest_update_manager.h"
+#include "chrome/browser/web_applications/navigation_capturing_log.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
 #include "chrome/browser/web_applications/os_integration/web_app_file_handler_manager.h"
 #include "chrome/browser/web_applications/os_integration/web_app_protocol_handler_manager.h"
 #include "chrome/browser/web_applications/policy/web_app_policy_manager.h"
 #include "chrome/browser/web_applications/preinstalled_web_app_manager.h"
+#include "chrome/browser/web_applications/visited_manifest_manager.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_audio_focus_id_map.h"
 #include "chrome/browser/web_applications/web_app_command_manager.h"
@@ -58,9 +60,9 @@
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "base/feature_list.h"
+#include "chrome/browser/web_applications/ash/migrations/adobe_express_oem_to_default_migration.h"
+#include "chrome/browser/web_applications/ash/migrations/migrate_preinstalls_to_aps.h"
 #include "chrome/browser/web_applications/isolated_web_apps/policy/isolated_web_app_policy_manager.h"
-#include "chrome/browser/web_applications/migrations/adobe_express_oem_to_default_migration.h"
-#include "chrome/browser/web_applications/migrations/migrate_preinstalls_to_aps.h"
 #include "chrome/browser/web_applications/web_app_run_on_os_login_manager.h"
 #include "chromeos/constants/chromeos_features.h"
 #endif
@@ -242,6 +244,11 @@ WebAppUiManager& WebAppProvider::ui_manager() {
   return *ui_manager_;
 }
 
+WebAppUiStateManager& WebAppProvider::ui_state_manager() {
+  CheckIsConnected();
+  return *ui_state_manager_;
+}
+
 WebAppAudioFocusIdMap& WebAppProvider::audio_focus_id_map() {
   CheckIsConnected();
   return *audio_focus_id_map_;
@@ -294,6 +301,16 @@ GeneratedIconFixManager& WebAppProvider::generated_icon_fix_manager() {
 
 AbstractWebAppDatabaseFactory& WebAppProvider::database_factory() {
   return *database_factory_;
+}
+
+VisitedManifestManager& WebAppProvider::visited_manifest_manager() {
+  CheckIsConnected();
+  return *visited_manifest_manager_;
+}
+
+NavigationCapturingLog& WebAppProvider::navigation_capturing_log() {
+  CheckIsConnected();
+  return *navigation_capturing_log_;
 }
 
 void WebAppProvider::Shutdown() {
@@ -374,6 +391,8 @@ void WebAppProvider::CreateSubsystems(Profile* profile) {
 
   web_contents_manager_ = std::make_unique<WebContentsManager>();
   ui_state_manager_ = std::make_unique<WebAppUiStateManager>();
+  visited_manifest_manager_ = std::make_unique<VisitedManifestManager>();
+  navigation_capturing_log_ = std::make_unique<NavigationCapturingLog>();
 }
 
 void WebAppProvider::ConnectSubsystems() {

@@ -13,10 +13,6 @@ BASE_FEATURE(kDeferredSyncStartupCustomDelay,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kSyncAndroidLimitNTPPromoImpressions,
-             "SyncAndroidLimitNTPPromoImpressions",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kEnableBatchUploadFromSettings,
              "EnableBatchUploadFromSettings",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -58,7 +54,7 @@ BASE_FEATURE(kSkipInvalidationOptimizationsWhenDeviceInfoUpdated,
 
 BASE_FEATURE(kSyncEnableContactInfoDataTypeInTransportMode,
              "SyncEnableContactInfoDataTypeInTransportMode",
-#if BUILDFLAG(IS_IOS)
+#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -67,7 +63,7 @@ BASE_FEATURE(kSyncEnableContactInfoDataTypeInTransportMode,
 
 BASE_FEATURE(kSyncEnableContactInfoDataTypeForCustomPassphraseUsers,
              "SyncEnableContactInfoDataTypeForCustomPassphraseUsers",
-#if BUILDFLAG(IS_IOS)
+#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -85,20 +81,11 @@ BASE_FEATURE(kEnablePasswordsAccountStorageForSyncingUsers,
 
 BASE_FEATURE(kEnablePasswordsAccountStorageForNonSyncingUsers,
              "EnablePasswordsAccountStorageForNonSyncingUsers",
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_DISABLED_BY_DEFAULT
-#else
-             base::FEATURE_ENABLED_BY_DEFAULT
-#endif
-);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncEnableContactInfoDataTypeForDasherUsers,
              "SyncEnableContactInfoDataTypeForDasherUsers",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kSyncEnableContactInfoDataTypeForChildUsers,
-             "SyncEnableContactInfoDataTypeForChildUsers",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnablePreferencesAccountStorage,
              "EnablePreferencesAccountStorage",
@@ -130,7 +117,7 @@ BASE_FEATURE(kTabGroupsSaveNudgeDelay,
 
 BASE_FEATURE(kReplaceSyncPromosWithSignInPromos,
              "ReplaceSyncPromosWithSignInPromos",
-#if BUILDFLAG(IS_IOS)
+#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -146,10 +133,19 @@ BASE_FEATURE(kSyncEnableBookmarksInTransportMode,
 #endif  // BUILDFLAG(IS_IOS)
 );
 
+BASE_FEATURE(kEnableBookmarksSelectedTypeOnSigninForTesting,
+             "EnableBookmarksSelectedTypeOnSigninForTesting",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if !BUILDFLAG(IS_IOS)
 BASE_FEATURE(kReadingListEnableSyncTransportModeUponSignIn,
              "ReadingListEnableSyncTransportModeUponSignIn",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 bool IsReadingListAccountStorageEnabled() {
   return base::FeatureList::IsEnabled(
@@ -163,7 +159,7 @@ BASE_FEATURE(kSyncSharedTabGroupDataInTransportMode,
 
 BASE_FEATURE(kSyncEnableWalletMetadataInTransportMode,
              "SyncEnableWalletMetadataInTransportMode",
-#if BUILDFLAG(IS_IOS)
+#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -172,7 +168,7 @@ BASE_FEATURE(kSyncEnableWalletMetadataInTransportMode,
 
 BASE_FEATURE(kSyncEnableWalletOfferInTransportMode,
              "SyncEnableWalletOfferInTransportMode",
-#if BUILDFLAG(IS_IOS)
+#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -185,6 +181,10 @@ BASE_FEATURE(kSyncEntityMetadataRecordDeletedByVersionOnLocalDeletion,
 
 BASE_FEATURE(kSyncPasswordCleanUpAccidentalBatchDeletions,
              "SyncPasswordCleanUpAccidentalBatchDeletions",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSeparateLocalAndAccountThemes,
+             "SeparateLocalAndAccountThemes",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncIncreaseNudgeDelayForSingleClient,

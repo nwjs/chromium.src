@@ -46,11 +46,12 @@ import org.chromium.url.GURL;
 public class PriceInsightsBottomSheetMediator {
     private final Context mContext;
     private final Tab mTab;
-    private final ShoppingService mShoppingService;
     private final TabModelSelector mTabModelSelector;
     private final PropertyModel mPropertyModel;
     private final PriceInsightsDelegate mPriceInsightsDelegate;
     private final ObservableSupplier<Boolean> mPriceTrackingStateSupplier;
+    private final Callback<Boolean> mUpdatePriceTrackingButtonModelCallback =
+            this::updatePriceTrackingButtonModel;
 
     private @PriceBucket int mPriceBucket;
 
@@ -64,12 +65,11 @@ public class PriceInsightsBottomSheetMediator {
         mContext = context;
         mTab = tab;
         mTabModelSelector = tabModelSelector;
-        mShoppingService = shoppingService;
         mPriceInsightsDelegate = priceInsightsDelegate;
         mPropertyModel = propertyModel;
 
         mPriceTrackingStateSupplier = priceInsightsDelegate.getPriceTrackingStateSupplier(tab);
-        mPriceTrackingStateSupplier.addObserver(this::updatePriceTrackingButtonModel);
+        mPriceTrackingStateSupplier.addObserver(mUpdatePriceTrackingButtonModelCallback);
     }
 
     public void requestShowContent() {
@@ -86,7 +86,7 @@ public class PriceInsightsBottomSheetMediator {
     }
 
     public void closeContent() {
-        mPriceTrackingStateSupplier.removeObserver(this::updatePriceTrackingButtonModel);
+        mPriceTrackingStateSupplier.removeObserver(mUpdatePriceTrackingButtonModelCallback);
     }
 
     private void updatePriceTrackingButtonModel(boolean isPriceTracked) {

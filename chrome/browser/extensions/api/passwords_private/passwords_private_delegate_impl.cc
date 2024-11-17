@@ -9,6 +9,7 @@
 #include <string>
 #include <utility>
 
+#include "ash/constants/web_app_id_constants.h"
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -42,7 +43,6 @@
 #include "chrome/browser/ui/hats/trust_safety_sentiment_service_factory.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_dialog_utils.h"
-#include "chrome/browser/web_applications/web_app_id_constants.h"
 #include "chrome/browser/web_applications/web_app_install_params.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/webauthn/change_pin_controller.h"
@@ -161,6 +161,17 @@ std::u16string GetReauthPurpose(
     case extensions::api::passwords_private::PlaintextReason::kNone:
       NOTREACHED();
   }
+#elif BUILDFLAG(IS_CHROMEOS)
+  switch (reason) {
+    case extensions::api::passwords_private::PlaintextReason::kView:
+      return l10n_util::GetStringUTF16(
+          IDS_PASSWORDS_PAGE_AUTHENTICATION_PROMPT_CHROMEOS);
+    case extensions::api::passwords_private::PlaintextReason::kCopy:
+    case extensions::api::passwords_private::PlaintextReason::kEdit:
+      return std::u16string();
+    case extensions::api::passwords_private::PlaintextReason::kNone:
+      NOTREACHED();
+  }
 #else
   return std::u16string();
 #endif
@@ -265,8 +276,13 @@ std::u16string GetMessageForBiometricAuthenticationBeforeFillingSetting(
   message = l10n_util::GetStringUTF16(
       pref_enabled ? IDS_PASSWORD_MANAGER_TURN_OFF_FILLING_REAUTH_WIN
                    : IDS_PASSWORD_MANAGER_TURN_ON_FILLING_REAUTH_WIN);
+#elif BUILDFLAG(IS_CHROMEOS)
+  const bool pref_enabled =
+      prefs->GetBoolean(kBiometricAuthenticationBeforeFilling);
+  message = l10n_util::GetStringUTF16(
+      pref_enabled ? IDS_PASSWORD_MANAGER_TURN_OFF_FILLING_REAUTH_CHROMEOS
+                   : IDS_PASSWORD_MANAGER_TURN_ON_FILLING_REAUTH_CHROMEOS);
 #endif
-  // TODO(lziest, b/366209336): Add ChromeOS Strings
   return message;
 }
 
@@ -275,7 +291,7 @@ std::u16string GetMessageForBiometricAuthenticationBeforeFillingSetting(
 void MaybeShowProfileSwitchIPH(Profile* profile) {
 #if !BUILDFLAG(IS_CHROMEOS)
   Browser* launched_app = web_app::AppBrowserController::FindForWebApp(
-      *profile, web_app::kPasswordManagerAppId);
+      *profile, ash::kPasswordManagerAppId);
 
   ProfileManager* profile_manager = g_browser_process->profile_manager();
   // Try to show promo only if there is profile menu button and there are
@@ -836,32 +852,32 @@ PasswordsPrivateDelegateImpl::GetExportProgressStatus() {
   return ConvertStatus(password_manager_porter_->GetExportProgressStatus());
 }
 
-bool PasswordsPrivateDelegateImpl::IsOptedInForAccountStorage() {
+bool PasswordsPrivateDelegateImpl::IsAccountStorageEnabled() {
   return password_manager::features_util::IsOptedInForAccountStorage(
       profile_->GetPrefs(), SyncServiceFactory::GetForProfile(profile_));
 }
 
-void PasswordsPrivateDelegateImpl::SetAccountStorageOptIn(
-    bool opt_in,
+void PasswordsPrivateDelegateImpl::SetAccountStorageEnabled(
+    bool enabled,
     content::WebContents* web_contents) {
   auto* client = ChromePasswordManagerClient::FromWebContents(web_contents);
   DCHECK(client);
-  if (opt_in ==
+  if (enabled ==
       client->GetPasswordFeatureManager()->IsOptedInForAccountStorage()) {
     return;
   }
-  if (!opt_in) {
+  if (!enabled) {
     client->GetPasswordFeatureManager()->OptOutOfAccountStorage();
     return;
   }
 
   if (!password_manager::features_util::AreAccountStorageOptInPromosAllowed()) {
-    // No need to show a reauth dialog in this case, just opt-in directly.
+    // No need to show a reauth dialog in this case, just enable directly.
     client->GetPasswordFeatureManager()->OptInToAccountStorage();
     return;
   }
 
-  // The opt in pref is automatically set upon successful reauth.
+  // The enabled pref is automatically set upon successful reauth.
   client->TriggerReauthForPrimaryAccount(
       signin_metrics::ReauthAccessPoint::kPasswordSettings, base::DoNothing());
 }
@@ -1023,6 +1039,18 @@ void PasswordsPrivateDelegateImpl::OnDeleteAllDataAuthResult(
   }
 
   saved_passwords_presenter_.DeleteAllData(std::move(success_callback));
+
+  // Record password removal from both stores. "Delete all" requires UI
+  // confirmation and re-authentication, indicating strong user intent to
+  // remove all password data.
+  AddPasswordRemovalReason(
+      profile_->GetPrefs(), password_manager::IsAccountStore(true),
+      password_manager::metrics_util::PasswordManagerCredentialRemovalReason::
+          kDeleteAllPasswordManagerData);
+  AddPasswordRemovalReason(
+      profile_->GetPrefs(), password_manager::IsAccountStore(false),
+      password_manager::metrics_util::PasswordManagerCredentialRemovalReason::
+          kDeleteAllPasswordManagerData);
 }
 
 base::WeakPtr<PasswordsPrivateDelegate>
@@ -1176,7 +1204,7 @@ void PasswordsPrivateDelegateImpl::OnStateChanged(
   PasswordsPrivateEventRouter* router =
       PasswordsPrivateEventRouterFactory::GetForProfile(profile_);
   if (router) {
-    router->OnAccountStorageOptInStateChanged(IsOptedInForAccountStorage());
+    router->OnAccountStorageEnabledStateChanged(IsAccountStorageEnabled());
   }
 }
 
@@ -1197,7 +1225,7 @@ void PasswordsPrivateDelegateImpl::OnSavedPasswordsChanged(
 
 void PasswordsPrivateDelegateImpl::OnWebAppInstalledWithOsHooks(
     const webapps::AppId& app_id) {
-  if (app_id != web_app::kPasswordManagerAppId) {
+  if (app_id != ash::kPasswordManagerAppId) {
     return;
   }
   // Post task with delay because new browser window for an app isn't created

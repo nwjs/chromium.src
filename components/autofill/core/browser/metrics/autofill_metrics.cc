@@ -517,7 +517,6 @@ namespace {
 const char* GetQualityMetricPredictionSource(
     AutofillMetrics::QualityMetricPredictionSource source) {
   switch (source) {
-    default:
     case AutofillMetrics::PREDICTION_SOURCE_UNKNOWN:
       NOTREACHED_IN_MIGRATION();
       return "Unknown";
@@ -528,6 +527,8 @@ const char* GetQualityMetricPredictionSource(
       return "Server";
     case AutofillMetrics::PREDICTION_SOURCE_OVERALL:
       return "Overall";
+    case AutofillMetrics::PREDICTION_SOURCE_ML_PREDICTIONS:
+      return "ML";
   }
 }
 
@@ -1278,7 +1279,20 @@ void AutofillMetrics::LogHeuristicPredictionQualityMetrics(
   LogPredictionQualityMetrics(
       PREDICTION_SOURCE_HEURISTIC, field.heuristic_type(),
       form_interactions_ukm_logger, form, field, metric_type,
-      false /*log_rationalization_metrics*/);
+      /*log_rationalization_metrics=*/false);
+}
+
+// static
+void AutofillMetrics::LogMlPredictionQualityMetrics(
+    FormInteractionsUkmLogger* form_interactions_ukm_logger,
+    const FormStructure& form,
+    const AutofillField& field,
+    QualityMetricType metric_type) {
+  LogPredictionQualityMetrics(
+      PREDICTION_SOURCE_ML_PREDICTIONS,
+      field.heuristic_type(HeuristicSource::kMachineLearning),
+      form_interactions_ukm_logger, form, field, metric_type,
+      /*log_rationalization_metrics=*/false);
 }
 
 // static
@@ -1290,7 +1304,7 @@ void AutofillMetrics::LogServerPredictionQualityMetrics(
   LogPredictionQualityMetrics(PREDICTION_SOURCE_SERVER, field.server_type(),
                               form_interactions_ukm_logger, form, field,
                               metric_type,
-                              false /*log_rationalization_metrics*/);
+                              /*log_rationalization_metrics=*/false);
 }
 
 // static
@@ -1302,7 +1316,7 @@ void AutofillMetrics::LogOverallPredictionQualityMetrics(
   LogPredictionQualityMetrics(
       PREDICTION_SOURCE_OVERALL, field.Type().GetStorableType(),
       form_interactions_ukm_logger, form, field, metric_type,
-      true /*log_rationalization_metrics*/);
+      /*log_rationalization_metrics=*/true);
 }
 
 void AutofillMetrics::LogEmailFieldPredictionMetrics(
@@ -1338,11 +1352,6 @@ void AutofillMetrics::LogEditedAutofilledFieldAtSubmission(
     FormInteractionsUkmLogger* form_interactions_ukm_logger,
     const FormStructure& form,
     const AutofillField& field) {
-  const std::string aggregate_histogram =
-      "Autofill.EditedAutofilledFieldAtSubmission2.Aggregate";
-  const std::string type_specific_histogram =
-      "Autofill.EditedAutofilledFieldAtSubmission2.ByFieldType";
-
   AutofilledFieldUserEditingStatusMetric editing_metric =
       field.previously_autofilled()
           ? AutofilledFieldUserEditingStatusMetric::AUTOFILLED_FIELD_WAS_EDITED
@@ -1350,12 +1359,20 @@ void AutofillMetrics::LogEditedAutofilledFieldAtSubmission(
                 AUTOFILLED_FIELD_WAS_NOT_EDITED;
 
   // Record the aggregated UMA statistics.
-  base::UmaHistogramEnumeration(aggregate_histogram, editing_metric);
+  base::UmaHistogramEnumeration(
+      "Autofill.EditedAutofilledFieldAtSubmission2.Aggregate", editing_metric);
 
   // Record the type specific UMA statistics.
-  base::UmaHistogramSparse(type_specific_histogram,
-                           GetFieldTypeUserEditStatusMetric(
-                               field.Type().GetStorableType(), editing_metric));
+  base::UmaHistogramSparse(
+      "Autofill.EditedAutofilledFieldAtSubmission2.ByFieldType",
+      GetFieldTypeUserEditStatusMetric(field.Type().GetStorableType(),
+                                       editing_metric));
+
+  // Record the metric for FormsAI specific fields.
+  if (field.filling_product() == FillingProduct::kPredictionImprovements) {
+    base::UmaHistogramEnumeration(
+        "Autofill.FormsAI.EditedAutofilledFieldAtSubmission", editing_metric);
+  }
 
   // Record the UMA statistics spliced by the autocomplete attribute value.
   FormType form_type = FieldTypeGroupToFormType(field.Type().group());
@@ -3241,22 +3258,6 @@ const std::string PaymentsRpcResultToMetricsSuffix(PaymentsRpcResult result) {
 }
 
 // static
-void AutofillMetrics::LogNumericQuantityCollidesWithServerPrediction(
-    bool collision) {
-  base::UmaHistogramBoolean(
-      "Autofill.NumericQuantityCollidesWithServerPrediction", collision);
-}
-
-// static
-void AutofillMetrics::
-    LogAcceptedFilledFieldWithNumericQuantityHeuristicPrediction(
-        bool accepted) {
-  base::UmaHistogramBoolean(
-      "Autofill.AcceptedFilledFieldWithNumericQuantityHeuristicPrediction",
-      accepted);
-}
-
-// static
 std::string AutofillMetrics::GetHistogramStringForCardType(
     absl::variant<PaymentsRpcCardType, CreditCard::RecordType> card_type) {
   if (absl::holds_alternative<PaymentsRpcCardType>(card_type)) {
@@ -3266,7 +3267,7 @@ std::string AutofillMetrics::GetHistogramStringForCardType(
       case PaymentsRpcCardType::kVirtualCard:
         return ".VirtualCard";
       case PaymentsRpcCardType::kUnknown:
-        NOTREACHED_IN_MIGRATION();
+        DUMP_WILL_BE_NOTREACHED();
         break;
     }
   } else if (absl::holds_alternative<CreditCard::RecordType>(card_type)) {

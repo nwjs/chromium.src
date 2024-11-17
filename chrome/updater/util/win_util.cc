@@ -76,6 +76,7 @@
 #include "chrome/updater/win/scoped_handle.h"
 #include "chrome/updater/win/user_info.h"
 #include "chrome/updater/win/win_constants.h"
+#include "chrome/windows_services/service_program/scoped_client_impersonation.h"
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 
 namespace updater {
@@ -428,19 +429,17 @@ HResultOr<bool> IsUserNonElevatedAdmin() {
 }
 
 HResultOr<bool> IsCOMCallerAdmin() {
-  HRESULT hr = ::CoImpersonateClient();
-  if (hr == RPC_E_CALL_COMPLETE) {
+  ScopedClientImpersonation impersonate_client;
+  if (!impersonate_client.is_valid()) {
     // RPC_E_CALL_COMPLETE indicates that the caller is in-proc.
+    if (impersonate_client.result() != RPC_E_CALL_COMPLETE) {
+      return base::unexpected(impersonate_client.result());
+    }
     return base::ok(::IsUserAnAdmin());
-  }
-
-  if (FAILED(hr)) {
-    return base::unexpected(hr);
   }
 
   HResultOr<ScopedKernelHANDLE> token = []() -> decltype(token) {
     ScopedKernelHANDLE token;
-    absl::Cleanup co_revert_to_self = [] { ::CoRevertToSelf(); };
     if (!::OpenThreadToken(::GetCurrentThread(), TOKEN_QUERY, TRUE,
                            ScopedKernelHANDLE::Receiver(token).get())) {
       HRESULT hr = HRESULTFromLastError();
@@ -496,16 +495,12 @@ std::string GetUACState() {
 }
 
 std::wstring GetServiceName(bool is_internal_service) {
-  std::wstring service_name = GetServiceDisplayName(is_internal_service);
-  std::erase_if(service_name, base::IsAsciiWhitespace<wchar_t>);
-  return service_name;
-}
-
-std::wstring GetServiceDisplayName(bool is_internal_service) {
-  return base::StrCat(
+  std::wstring service_name = base::StrCat(
       {base::ASCIIToWide(PRODUCT_FULLNAME_STRING), L" ",
        is_internal_service ? kWindowsInternalServiceName : kWindowsServiceName,
        L" ", kUpdaterVersionUtf16});
+  std::erase_if(service_name, base::IsAsciiWhitespace<wchar_t>);
+  return service_name;
 }
 
 REGSAM Wow6432(REGSAM access) {
@@ -836,7 +831,7 @@ bool IsShutdownEventSignaled(UpdaterScope scope) {
 }
 
 void StopProcessesUnderPath(const base::FilePath& path,
-                            const base::TimeDelta& wait_period) {
+                            base::TimeDelta wait_period) {
   // Filters processes running under `path_prefix`.
   class PathPrefixProcessFilter : public base::ProcessFilter {
    public:
@@ -1472,6 +1467,21 @@ std::optional<base::FilePath> GetUniqueTempFilePath(base::FilePath file) {
       {file.RemoveExtension().BaseName().value(),
        base::UTF8ToWide(base::Uuid::GenerateRandomV4().AsLowercaseString()),
        file.Extension()}));
+}
+
+std::optional<base::FilePath> GetBundledEnterpriseCompanionExecutablePath(
+    UpdaterScope scope) {
+  std::optional<base::FilePath> install_dir =
+      GetVersionedInstallDirectory(scope);
+  if (!install_dir) {
+    return std::nullopt;
+  }
+
+  return install_dir->AppendASCII(
+      base::StrCat({base::FilePath::FromASCII(kCompanionAppExecutableName)
+                        .RemoveExtension()
+                        .MaybeAsASCII(),
+                    kExecutableSuffix, ".exe"}));
 }
 
 }  // namespace updater

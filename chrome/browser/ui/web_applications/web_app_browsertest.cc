@@ -1413,7 +1413,12 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest,
   // install source.
   EXPECT_FALSE(provider->registrar_unsafe().CanUserUninstallWebApp(app_id));
   const WebApp& web_app = *provider->registrar_unsafe().GetAppById(app_id);
-  EXPECT_TRUE(web_app.IsSynced());
+  if (base::FeatureList::IsEnabled(
+          features::kWebAppDontAddExistingAppsToSync)) {
+    EXPECT_TRUE(web_app.GetSources().Has(WebAppManagement::kUserInstalled));
+  } else {
+    EXPECT_TRUE(web_app.IsSynced());
+  }
   EXPECT_TRUE(web_app.IsPolicyInstalledApp());
 }
 
@@ -2489,9 +2494,9 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest_PageInfoManagementLink, Reparenting) {
       browser()->tab_strip_model()->GetActiveWebContents();
   ASSERT_EQ(tab_contents->GetLastCommittedURL(), app_url);
 
-  // After a normal (e.g. typed) navigation, should not show the app settings
+  // After a normal (e.g. typed) navigation, should show the app settings
   // link.
-  EXPECT_FALSE(ShowingAppManagementLink(browser()));
+  EXPECT_TRUE(ShowingAppManagementLink(browser()));
   // Reparent into app browser window.
   Browser* const app_browser = ReparentWebAppForActiveTab(browser());
   // The leftover tab in the tabbed browser window should not be appy.

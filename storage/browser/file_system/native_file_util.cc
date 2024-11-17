@@ -120,6 +120,7 @@ class NativeFileEnumerator : public FileSystemFileUtil::AbstractFileEnumerator {
   ~NativeFileEnumerator() override = default;
 
   base::FilePath Next() override;
+  base::FilePath GetName() override;
   int64_t Size() override;
   base::Time LastModifiedTime() override;
   bool IsDirectory() override;
@@ -134,6 +135,10 @@ base::FilePath NativeFileEnumerator::Next() {
   if (!rv.empty())
     file_util_info_ = file_enum_.GetInfo();
   return rv;
+}
+
+base::FilePath NativeFileEnumerator::GetName() {
+  return file_util_info_.GetName();
 }
 
 int64_t NativeFileEnumerator::Size() {
@@ -181,14 +186,14 @@ base::File::Error NativeFileUtil::EnsureFileExists(const base::FilePath& path,
                                                    bool* created) {
 #if BUILDFLAG(IS_ANDROID)
   if (path.IsContentUri()) {
-    if (ContentUriExists(path)) {
+    if (base::PathExists(path)) {
       if (created) {
         *created = false;
       }
       return base::File::FILE_OK;
     }
-    base::File file = OpenContentUri(
-        path, base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_WRITE);
+    base::File file(path,
+                    base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_WRITE);
     if (file.IsValid()) {
       if (created) {
         *created = true;
@@ -290,8 +295,8 @@ base::File::Error NativeFileUtil::Truncate(const base::FilePath& path,
     if (length != 0) {
       return base::File::FILE_ERROR_FAILED;
     }
-    base::File file = OpenContentUri(
-        path, base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_WRITE);
+    base::File file(path,
+                    base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_WRITE);
     return file.error_details();
   }
 #endif

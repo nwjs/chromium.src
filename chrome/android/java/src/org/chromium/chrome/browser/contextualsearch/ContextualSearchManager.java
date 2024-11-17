@@ -69,6 +69,7 @@ import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationEntry;
 import org.chromium.content_public.browser.SelectAroundCaretResult;
 import org.chromium.content_public.browser.SelectionClient;
+import org.chromium.content_public.browser.Visibility;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.net.NetworkChangeNotifier;
@@ -184,7 +185,6 @@ public class ContextualSearchManager
     private boolean mWereInfoBarsHidden;
     private boolean mDidPromoteSearchNavigation;
 
-    private boolean mWasActivatedByTap;
     private boolean mIsInitialized;
     private boolean mReceivedContextualCardsEntityData;
 
@@ -196,8 +196,6 @@ public class ContextualSearchManager
      * loaded.
      */
     private boolean mShouldLoadDelayedSearch;
-
-    private boolean mIsShowingPromo;
 
     /**
      * Whether contextual search manager is currently promoting a tab. We should be ignoring hide
@@ -379,7 +377,6 @@ public class ContextualSearchManager
 
         mRedirectHandler = RedirectHandler.create();
 
-        mIsShowingPromo = false;
         mDidStartLoadingResolvedSearchRequest = false;
         mWereSearchResultsSeen = false;
         mIsInitialized = true;
@@ -509,7 +506,6 @@ public class ContextualSearchManager
         mRelatedSearches = null;
         mIsRelatedSearchesSerp = false;
 
-        mIsShowingPromo = false;
         mSearchPanel.setIsPromoActive(false);
         mSearchPanel.clearRelatedSearches();
         notifyHideContextualSearch();
@@ -584,15 +580,12 @@ public class ContextualSearchManager
 
         // Note: now that the contextual search has properly started, set the promo involvement.
         if (mPolicy.isPromoAvailable()) {
-            mIsShowingPromo = true;
             mSearchPanel.setIsPromoActive(true);
-            mSearchPanel.setDidSearchInvolvePromo();
         }
 
         mSearchPanel.requestPanelShow(stateChangeReason);
 
         assert mSelectionController.getSelectionType() != SelectionType.UNDETERMINED;
-        mWasActivatedByTap = mSelectionController.getSelectionType() == SelectionType.TAP;
     }
 
     @Override
@@ -989,13 +982,13 @@ public class ContextualSearchManager
         mSearchPanel.loadUrlInPanel(mSearchRequest.getSearchUrl());
         mDidStartLoadingResolvedSearchRequest = true;
 
-        // TODO(donnd): If the user taps on a word and quickly after that taps on the
-        // peeking Search Bar, the Search Content View will not be displayed. It seems that
-        // calling WebContents.onShow() while it's being created has no effect.
-        // For now, we force the ContentView to be displayed by calling onShow() again
-        // when a URL is being loaded. See: crbug.com/398206
+        // TODO(donnd): If the user taps on a word and quickly after that taps on the peeking Search
+        // Bar, the Search Content View will not be displayed. It seems that calling
+        // WebContents.updateWebContentsVisibility() while it's being created has no effect. For
+        // now, we force the ContentView to be displayed by calling updateWebContentsVisibility()
+        // again when a URL is being loaded. See: crbug.com/398206
         if (mSearchPanel.isContentShowing() && getSearchPanelWebContents() != null) {
-            getSearchPanelWebContents().onShow();
+            getSearchPanelWebContents().updateWebContentsVisibility(Visibility.VISIBLE);
         }
     }
 
@@ -1209,9 +1202,12 @@ public class ContextualSearchManager
     private void removeLastSearchVisit() {
         assert mSearchPanel != null;
         if (mLastSearchRequestLoaded != null) {
-            // TODO(pedrosimonetti): Consider having this feature builtin into OverlayPanelContent.
-            mSearchPanel.removeLastHistoryEntry(
-                    mLastSearchRequestLoaded.getSearchUrl(), mLoadedSearchUrlTimeMs);
+            ContextualSearchManagerJni.get()
+                    .removeLastHistoryEntry(
+                            mNativeContextualSearchManagerPtr,
+                            this,
+                            mLastSearchRequestLoaded.getSearchUrl(),
+                            mLoadedSearchUrlTimeMs);
         }
     }
 
@@ -1413,7 +1409,7 @@ public class ContextualSearchManager
 
         // Make sure we show the serp contents
         if (getSearchPanelWebContents() != null) {
-            getSearchPanelWebContents().onShow();
+            getSearchPanelWebContents().updateWebContentsVisibility(Visibility.VISIBLE);
         }
     }
 
@@ -2032,5 +2028,11 @@ public class ContextualSearchManager
                 ContextualSearchManager caller,
                 ContextualSearchContext contextualSearchContext,
                 WebContents baseWebContents);
+
+        void removeLastHistoryEntry(
+                long nativeContextualSearchManager,
+                ContextualSearchManager caller,
+                String historyUrl,
+                long urlTimeMs);
     }
 }

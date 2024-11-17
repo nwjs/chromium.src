@@ -8,6 +8,8 @@
 #import "base/ios/crb_protocol_observers.h"
 #import "base/memory/weak_ptr.h"
 #import "base/types/cxx23_to_underlying.h"
+#import "ios/chrome/app/application_delegate/app_state.h"
+#import "ios/chrome/app/application_delegate/startup_information.h"
 #import "ios/chrome/app/profile/profile_state_agent.h"
 #import "ios/chrome/app/profile/profile_state_observer.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
@@ -38,26 +40,25 @@
 @end
 
 @implementation ProfileState {
-  base::WeakPtr<ChromeBrowserState> _browserState;
+  base::WeakPtr<ProfileIOS> _profile;
 
   // Agents attached to this profile state.
   NSMutableArray<id<ProfileStateAgent>>* _agents;
 
+  // List of connected scenes.
+  NSMutableArray<SceneState*>* _connectedSceneStates;
+
   // Observers registered with this profile state.
   ProfileStateObserverList* _observers;
-
-  // YES if `-sceneStateDidEnableUI` been called.
-  BOOL _firstSceneHasInitializedUI;
-
-  // Set of connected scenes.
-  std::set<SceneState*> _connectedSceneStates;
 }
 
 #pragma mark - NSObject
 
-- (instancetype)init {
+- (instancetype)initWithAppState:(AppState*)appState {
   if ((self = [super init])) {
+    _appState = appState;
     _agents = [[NSMutableArray alloc] init];
+    _connectedSceneStates = [[NSMutableArray alloc] init];
     _observers = [ProfileStateObserverList observers];
   }
   return self;
@@ -65,13 +66,49 @@
 
 #pragma mark - Properties
 
-- (ChromeBrowserState*)browserState {
-  return _browserState.get();
+- (ProfileIOS*)profile {
+  return _profile.get();
 }
 
-- (void)setBrowserState:(ChromeBrowserState*)browserState {
-  CHECK(browserState);
-  _browserState = browserState->AsWeakPtr();
+- (void)setProfile:(ProfileIOS*)profile {
+  CHECK(profile);
+  _profile = profile->AsWeakPtr();
+}
+
+- (SceneState*)foregroundActiveScene {
+  if (_initStage < ProfileInitStage::kUIReady) {
+    return nil;
+  }
+
+  for (SceneState* sceneState in _connectedSceneStates) {
+    if (sceneState.activationLevel == SceneActivationLevelForegroundActive) {
+      return sceneState;
+    }
+  }
+
+  return nil;
+}
+
+- (NSArray<SceneState*>*)connectedScenes {
+  if (_initStage < ProfileInitStage::kUIReady) {
+    return nil;
+  }
+
+  return [_connectedSceneStates copy];
+}
+
+- (NSArray<SceneState*>*)foregroundScenes {
+  if (_initStage < ProfileInitStage::kUIReady) {
+    return nil;
+  }
+
+  NSMutableArray<SceneState*>* foregroundScenes = [[NSMutableArray alloc] init];
+  for (SceneState* sceneState in _connectedSceneStates) {
+    if (sceneState.activationLevel >= SceneActivationLevelForegroundInactive) {
+      [foregroundScenes addObject:sceneState];
+    }
+  }
+  return foregroundScenes;
 }
 
 - (NSArray<id<ProfileStateAgent>>*)connectedAgents {
@@ -79,15 +116,15 @@
 }
 
 - (void)setInitStage:(ProfileInitStage)initStage {
-  CHECK_GE(initStage, ProfileInitStage::InitStageLoadProfile);
-  CHECK_LE(initStage, ProfileInitStage::InitStageFinal);
+  CHECK_GE(initStage, ProfileInitStage::kStart);
+  CHECK_LE(initStage, ProfileInitStage::kFinal);
 
-  if (initStage == ProfileInitStage::InitStageLoadProfile) {
-    // Support setting the initStage to InitStageLoadProfile for startup.
-    CHECK_EQ(_initStage, ProfileInitStage::InitStageLoadProfile);
+  if (initStage == ProfileInitStage::kStart) {
+    // Support setting the initStage to kStart for startup.
+    CHECK_EQ(_initStage, ProfileInitStage::kStart);
   } else {
-    // After InitStageLoadProfile, the init stages must be incremented by one
-    // only. If a stage needs to be skipped, it can just be a no-op.
+    // After kLoadProfile, the init stages must be incremented by one only. If a
+    // stage needs to be skipped, it can just be a no-op.
     CHECK_EQ(base::to_underlying(initStage),
              base::to_underlying(_initStage) + 1);
   }
@@ -103,15 +140,18 @@
       didTransitionToInitStage:initStage
                  fromInitStage:fromStage];
 
-  if (initStage == ProfileInitStage::InitStageUIReady) {
-    for (SceneState* sceneState : _connectedSceneStates) {
+  if (initStage == ProfileInitStage::kUIReady) {
+    for (SceneState* sceneState in _connectedSceneStates) {
       [_observers profileState:self sceneConnected:sceneState];
       if (sceneState.activationLevel >= SceneActivationLevelForegroundActive) {
         [_observers profileState:self sceneDidBecomeActive:sceneState];
       }
     }
-    _connectedSceneStates.clear();
   }
+}
+
+- (id<StartupInformation>)startupInformation {
+  return _appState.startupInformation;
 }
 
 #pragma mark - Public
@@ -134,16 +174,15 @@
   CHECK(observer);
   [_observers addObserver:observer];
 
-  const ProfileInitStage initStage = self.initStage;
-  if (initStage > ProfileInitStage::InitStageLoadProfile &&
+  if (_initStage > ProfileInitStage::kStart &&
       [observer respondsToSelector:@selector
                 (profileState:didTransitionToInitStage:fromInitStage:)]) {
     const ProfileInitStage prevStage =
-        static_cast<ProfileInitStage>(base::to_underlying(initStage) - 1);
+        static_cast<ProfileInitStage>(base::to_underlying(_initStage) - 1);
 
     // Trigger an update on the newly added observer.
     [observer profileState:self
-        didTransitionToInitStage:initStage
+        didTransitionToInitStage:_initStage
                    fromInitStage:prevStage];
   }
 }
@@ -155,9 +194,20 @@
 
 - (void)sceneStateConnected:(SceneState*)sceneState {
   [sceneState addObserver:self];
-  _connectedSceneStates.insert(sceneState);
-  if (self.initStage >= ProfileInitStage::InitStageUIReady) {
+  [_connectedSceneStates addObject:sceneState];
+  if (_initStage >= ProfileInitStage::kUIReady) {
     [_observers profileState:self sceneConnected:sceneState];
+  }
+}
+
+- (void)queueTransitionToNextInitStage {
+  // TODO(crbug.com/353683675): once ProfileInitStage and AppInitStage
+  // have been decoupled, then this method should only update the current
+  // object. Until then forward the call to AppState if the object is the
+  // "main" profile. This allow converting incrementally the AppAgents to
+  // ProfileStateAgents.
+  if (_appState.mainProfile == self) {
+    [_appState queueTransitionToNextInitStage];
   }
 }
 
@@ -165,20 +215,31 @@
 
 - (void)sceneState:(SceneState*)sceneState
     transitionedToActivationLevel:(SceneActivationLevel)level {
-  if (level == SceneActivationLevelForegroundActive) {
-    const ProfileInitStage initStage = self.initStage;
-    if (initStage >= ProfileInitStage::InitStageUIReady) {
-      [_observers profileState:self sceneDidBecomeActive:sceneState];
-    } else {
-      _connectedSceneStates.insert(sceneState);
-    }
-  } else {
-    _connectedSceneStates.erase(sceneState);
+  switch (level) {
+    case SceneActivationLevelUnattached:
+      // Nothing to do.
+      break;
+
+    case SceneActivationLevelDisconnected:
+      [_connectedSceneStates removeObject:sceneState];
+      [sceneState removeObserver:self];
+      break;
+
+    case SceneActivationLevelBackground:
+    case SceneActivationLevelForegroundInactive:
+      // Nothing to do.
+      break;
+
+    case SceneActivationLevelForegroundActive:
+      if (_initStage >= ProfileInitStage::kUIReady) {
+        [_observers profileState:self sceneDidBecomeActive:sceneState];
+      }
+      break;
   }
 }
 
 - (void)sceneStateDidEnableUI:(SceneState*)sceneState {
-  DCHECK_GE(self.initStage, ProfileInitStage::InitStagePrepareUI);
+  DCHECK_GE(_initStage, ProfileInitStage::kPrepareUI);
   if (!_firstSceneHasInitializedUI) {
     _firstSceneHasInitializedUI = YES;
     [_observers profileState:self firstSceneHasInitializedUI:sceneState];

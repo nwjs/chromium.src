@@ -21,8 +21,8 @@
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "components/saved_tab_groups/tab_group_sync_service.h"
-#include "components/saved_tab_groups/types.h"
+#include "components/saved_tab_groups/public/tab_group_sync_service.h"
+#include "components/saved_tab_groups/public/types.h"
 #include "ui/gfx/range/range.h"
 
 namespace tab_groups {
@@ -114,6 +114,11 @@ void TabGroupSyncDelegateDesktop::CloseLocalTabGroup(
     const LocalTabGroupID& local_id) {
   CHECK(!service_->GetGroup(local_id));
   listener_->RemoveLocalGroupFromSync(local_id);
+}
+
+void TabGroupSyncDelegateDesktop::DisconnectLocalTabGroup(
+    const LocalTabGroupID& local_id) {
+  listener_->DisconnectLocalTabGroup(local_id, ClosingSource::kDeletedByUser);
 }
 
 void TabGroupSyncDelegateDesktop::UpdateLocalTabGroup(
@@ -225,7 +230,8 @@ TabGroupId TabGroupSyncDelegateDesktop::AddOpenedTabsToGroup(
   TabGroupId tab_group_id = TabGroupId::GenerateNew();
   tab_strip_model->AddToGroupForRestore(tab_indices, tab_group_id);
 
-  service_->UpdateLocalTabGroupMapping(saved_group.saved_guid(), tab_group_id);
+  service_->UpdateLocalTabGroupMapping(saved_group.saved_guid(), tab_group_id,
+                                       OpeningSource::kOpenedFromRevisitUi);
 
   TabGroup* const tab_group =
       tab_strip_model->group_model()->GetTabGroup(tab_group_id);

@@ -29,8 +29,8 @@
 #import "components/autofill/ios/browser/autofill_agent.h"
 #import "components/autofill/ios/browser/autofill_driver_ios.h"
 #import "components/autofill/ios/browser/autofill_driver_ios_factory.h"
+#import "components/autofill/ios/browser/autofill_util.h"
 #import "components/autofill/ios/browser/test_autofill_manager_injector.h"
-#import "components/autofill/ios/form_util/form_util_java_script_feature.h"
 #import "components/password_manager/core/browser/password_manager_test_utils.h"
 #import "components/password_manager/core/browser/password_store/mock_password_store_interface.h"
 #import "components/sync_user_events/fake_user_event_service.h"
@@ -207,6 +207,7 @@ FormStructureBrowserTest::FormStructureBrowserTest()
           // TODO(crbug.com/40741721): Remove once shared labels are launched.
           features::kAutofillEnableSupportForParsingWithSharedLabels,
           features::kAutofillPageLanguageDetection,
+          features::kAutofillFixValueSemantics,
           // TODO(crbug.com/40220393): Remove once launched.
           features::kAutofillEnableSupportForPhoneNumberTrunkTypes,
           features::kAutofillInferCountryCallingCode,
@@ -275,11 +276,9 @@ bool FormStructureBrowserTest::LoadHtmlWithoutSubresourcesAndInitRendererIds(
     return false;
   }
 
-  autofill::FormUtilJavaScriptFeature* feature =
-      autofill::FormUtilJavaScriptFeature::GetInstance();
   return WaitUntilConditionOrTimeout(kWaitForJSCompletionTimeout, ^bool {
     web::WebFramesManager* frames_manager =
-        feature->GetWebFramesManager(web_state());
+        GetWebFramesManagerForAutofill(web_state());
     return frames_manager->GetMainWebFrame() != nullptr;
   });
 }
@@ -370,6 +369,10 @@ const auto& GetFailingTestNames() {
       "115_checkout_walgreens.com.html",
       "116_cc_checkout_walgreens.com.html",
       "150_checkout_venus.com_search_field.html",
+      // TODO(crbug.com/360322019): Even though the page language detection
+      // feature is enabled, is it not triggered properly for this test on iOS.
+      "153_fmm-en_inm.gob.mx.html",
+      "155_fmm-ja_inm.gob.mx.html",
   };
   return failing_test_names;
 }

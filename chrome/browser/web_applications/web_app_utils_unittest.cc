@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "ash/constants/web_app_id_constants.h"
 #include "base/containers/adapters.h"
 #include "base/files/file_path.h"
 #include "base/test/scoped_feature_list.h"
@@ -14,7 +15,6 @@
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/test/web_app_test.h"
 #include "chrome/browser/web_applications/test/web_app_test_utils.h"
-#include "chrome/browser/web_applications/web_app_id_constants.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_features.h"
@@ -382,16 +382,17 @@ TEST_F(WebAppUtilsTest, GetBrowserContextForWebAppMetrics) {
 // TODO(http://b/331208955): Remove after migration.
 TEST_F(WebAppUtilsTest, CanUserUninstallContainerApp) {
   EXPECT_FALSE(CanUserUninstallWebApp(
-      kContainerAppId, WebAppManagementTypes({WebAppManagement::kDefault})));
+      ash::kContainerAppId,
+      WebAppManagementTypes({WebAppManagement::kDefault})));
   EXPECT_TRUE(CanUserUninstallWebApp(
-      kContainerAppId, WebAppManagementTypes({WebAppManagement::kSync})));
+      ash::kContainerAppId, WebAppManagementTypes({WebAppManagement::kSync})));
 }
 
 // TODO(http://b/331208955): Remove after migration.
 TEST_F(WebAppUtilsTest, ContainerAppWillBeSystemWebApp) {
   for (auto src : WebAppManagementTypes::All()) {
     EXPECT_THAT(
-        WillBeSystemWebApp(kContainerAppId, WebAppManagementTypes({src})),
+        WillBeSystemWebApp(ash::kContainerAppId, WebAppManagementTypes({src})),
         src == WebAppManagement::kDefault);
   }
 }

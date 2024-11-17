@@ -31,6 +31,7 @@
 #include "components/account_id/account_id.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
+#include "components/signin/public/identity_manager/tribool.h"
 #include "components/user_manager/user_manager.h"
 
 namespace growth {
@@ -316,17 +317,41 @@ void CampaignsManager::ClearEvent(std::string_view event) {
 
 void CampaignsManager::RecordEvent(const std::string& event,
                                    bool trigger_campaigns) {
-  // TODO: b/366053058 - Implementing the logic to wait for `campaigns_loaded_`.
+  const bool should_trigger_campaigns =
+      trigger_campaigns &&
+      ash::features::IsGrowthCampaignsTriggerByRecordEventEnabled();
+
   if (!campaigns_loaded_) {
+    // Event is recorded before campaigns are loaded and feature engagement
+    // tracker is initialized, defer recording and trigger to
+    // `OnCampaignsComponentLoaded()` where campaigns are loaded and feature
+    // engagement is ready.
+    if (should_trigger_campaigns) {
+      queued_events_record_and_trigger_.insert(event);
+    } else {
+      queued_events_record_only_.insert(event);
+    }
+
+    RecordCampaignsManagerError(
+        CampaignsManagerError::kRecordEventBeforeCampaignsLoaded);
     return;
   }
 
-  if (trigger_campaigns &&
-      !ash::features::IsGrowthCampaignsTriggerByRecordEventEnabled()) {
-    return;
-  }
+  client_->RecordEvent(event, should_trigger_campaigns);
+}
 
-  client_->RecordEvent(event, trigger_campaigns);
+void CampaignsManager::RecordQueuedEventsAndMaybeTrigger() {
+  CHECK(campaigns_loaded_);
+
+  for (const auto& event : queued_events_record_only_) {
+    RecordEvent(event, /*trigger_campaigns=*/false);
+  }
+  queued_events_record_only_.clear();
+
+  for (const auto& event : queued_events_record_and_trigger_) {
+    RecordEvent(event, /*trigger_campaigns=*/true);
+  }
+  queued_events_record_and_trigger_.clear();
 }
 
 void CampaignsManager::OnCampaignsComponentLoaded(
@@ -377,6 +402,7 @@ void CampaignsManager::OnCampaignsLoaded(
   campaigns_loaded_ = true;
 
   std::move(load_callback).Run();
+  RecordQueuedEventsAndMaybeTrigger();
   NotifyCampaignsLoaded();
 }
 
@@ -423,6 +449,14 @@ void CampaignsManager::NotifyCampaignsLoaded() {
   for (auto& observer : observers_) {
     observer.OnCampaignsLoadCompleted();
   }
+}
+
+void CampaignsManager::SetMantaCapabilityForTesting(signin::Tribool value) {
+  matcher_.SetMantaCapabilityForTesting(value);  // IN-TEST
+}
+
+void CampaignsManager::SetBoardForTesting(std::optional<std::string> board) {
+  matcher_.SetBoardForTesting(board);  // IN-TEST
 }
 
 void CampaignsManager::SetOobeCompleteTimeForTesting(base::Time time) {
@@ -485,9 +519,9 @@ void CampaignsManager::RegisterTrialForCampaign(
 
   client_->RegisterSyntheticFieldTrial(trial_name, group_name);
 
-  std::optional<bool> register_with_app_id =
+  std::optional<bool> register_with_trigger_event =
       ShouldRegisterTrialWithTriggerEventName(campaign);
-  if (!register_with_app_id.value_or(false)) {
+  if (!register_with_trigger_event.value_or(false)) {
     return;
   }
 
@@ -499,7 +533,12 @@ void CampaignsManager::RegisterTrialForCampaign(
     return;
   }
 
-  group_name += GetTrigger().event;
+  // The first event name is used to register the synthetic field trail.
+  // TODO: b/367838684 - Currently, this is only used for the G1 campaigns,
+  // where it triggers at app open and has only one event. Extend this to
+  // support multiple events.
+  CHECK(!GetTrigger().events.empty());
+  group_name += GetTrigger().events[0];
   client_->RegisterSyntheticFieldTrial(trial_name, group_name);
 }
 

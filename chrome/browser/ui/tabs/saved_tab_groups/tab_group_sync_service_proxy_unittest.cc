@@ -13,15 +13,16 @@
 #include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_action_context_desktop.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/views/frame/test_with_browser_view.h"
-#include "components/saved_tab_groups/features.h"
-#include "components/saved_tab_groups/tab_group_sync_service.h"
-#include "components/saved_tab_groups/types.h"
+#include "components/saved_tab_groups/public/features.h"
+#include "components/saved_tab_groups/public/tab_group_sync_service.h"
+#include "components/saved_tab_groups/public/types.h"
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/web_contents_tester.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/mojom/window_show_state.mojom.h"
 
 namespace tab_groups {
 class TabGroupSyncServiceProxyUnitTest
@@ -51,7 +52,7 @@ class TabGroupSyncServiceProxyUnitTest
 
   Browser* AddBrowser() {
     Browser::CreateParams native_params(profile_.get(), true);
-    native_params.initial_show_state = ui::SHOW_STATE_DEFAULT;
+    native_params.initial_show_state = ui::mojom::WindowShowState::kDefault;
     std::unique_ptr<Browser> browser =
         CreateBrowserWithTestWindowForParams(native_params);
     Browser* browser_ptr = browser.get();
@@ -473,7 +474,8 @@ TEST_P(TabGroupSyncServiceProxyUnitTest, UpdateLocalTabGroupMapping) {
   const base::Uuid sync_id = retrieved_group->saved_guid();
 
   tab_groups::TabGroupId new_local_id = tab_groups::TabGroupId::GenerateNew();
-  service()->UpdateLocalTabGroupMapping(sync_id, new_local_id);
+  service()->UpdateLocalTabGroupMapping(sync_id, new_local_id,
+                                        OpeningSource::kOpenedFromRevisitUi);
 
   retrieved_group = service()->GetGroup(sync_id);
   EXPECT_TRUE(retrieved_group.has_value());
@@ -494,7 +496,7 @@ TEST_P(TabGroupSyncServiceProxyUnitTest, RemoveLocalTabGroupMapping) {
   EXPECT_EQ(1u, retrieved_group->saved_tabs().size());
 
   const base::Uuid sync_id = retrieved_group->saved_guid();
-  service()->RemoveLocalTabGroupMapping(local_id);
+  service()->RemoveLocalTabGroupMapping(local_id, ClosingSource::kClosedByUser);
 
   retrieved_group = service()->GetGroup(sync_id);
   EXPECT_TRUE(retrieved_group.has_value());

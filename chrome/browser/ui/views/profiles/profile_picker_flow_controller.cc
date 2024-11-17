@@ -120,12 +120,13 @@ void ShowCustomizationBubble(std::optional<SkColor> new_profile_color,
   }
 }
 
-void MaybeShowProfileSwitchIPH(Browser* browser) {
+void MaybeShowProfileIPHs(Browser* browser) {
   DCHECK(browser);
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
   if (!browser_view) {
     return;
   }
+  browser_view->MaybeShowSupervisedUserProfileSignInIPH();
   browser_view->MaybeShowProfileSwitchIPH();
 }
 
@@ -212,13 +213,8 @@ class ProfileCreationSignedInFlowController
     callback =
         callback->is_null()
             ? CreateFreshProfileExperienceCallback()
-            : PostHostClearedCallback(base::BindOnce(
-                  [](PostHostClearedCallback cb1, PostHostClearedCallback cb2,
-                     Browser* browser) {
-                    std::move(*cb1).Run(browser);
-                    std::move(*cb2).Run(browser);
-                  },
-                  std::move(callback), CreateFreshProfileExperienceCallback()));
+            : CombinePostHostClearedCallbacks(
+                  std::move(callback), CreateFreshProfileExperienceCallback());
 
     profile_name_resolver_->RunWithProfileName(base::BindOnce(
         &ProfileCreationSignedInFlowController::FinishFlow,
@@ -232,8 +228,7 @@ class ProfileCreationSignedInFlowController
     // bubble and trigger an IPH, instead.
     if (ThemeServiceFactory::GetForProfile(profile())->UsingPolicyTheme() ||
         !GetProfileColor().has_value()) {
-      return PostHostClearedCallback(
-          base::BindOnce(&MaybeShowProfileSwitchIPH));
+      return PostHostClearedCallback(base::BindOnce(&MaybeShowProfileIPHs));
     } else {
       // If sync cannot start, we apply `GetProfileColor()` right away before
       // opening a browser window to avoid flicker. Otherwise, it's applied

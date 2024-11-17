@@ -172,6 +172,13 @@ class UrlBarProperties {
     public static final WritableBooleanPropertyKey SELECT_ALL_ON_FOCUS =
             new WritableBooleanPropertyKey();
 
+    /** Handler receiving long-click events for the url bar. */
+    public static final WritableObjectPropertyKey<View.OnLongClickListener> LONG_CLICK_LISTENER =
+            new WritableObjectPropertyKey<>();
+
+    /** Specifies the resource ID for the url bar hint text. */
+    public static final WritableIntPropertyKey HINT_TEXT = new WritableIntPropertyKey();
+
     public static final PropertyKey[] ALL_KEYS =
             new PropertyKey[] {
                 ACTION_MODE_CALLBACK,
@@ -191,6 +198,8 @@ class UrlBarProperties {
                 HAS_URL_SUGGESTIONS,
                 TEXT_COLOR,
                 HINT_TEXT_COLOR,
-                SELECT_ALL_ON_FOCUS
+                SELECT_ALL_ON_FOCUS,
+                LONG_CLICK_LISTENER,
+                HINT_TEXT
             };
 }

@@ -230,6 +230,7 @@ ExtensionMenuItemView::ExtensionMenuItemView(
                   .CopyAddressTo(&primary_action_button_)
                   .SetProperty(views::kFlexBehaviorKey,
                                views::FlexSpecification(
+                                   views::LayoutOrientation::kHorizontal,
                                    views::MinimumFlexSizeRule::kScaleToZero,
                                    views::MaximumFlexSizeRule::kUnbounded)),
               views::Builder<HoverButton>(
@@ -339,6 +340,7 @@ ExtensionMenuItemView::ExtensionMenuItemView(
                                          kColorExtensionsMenuText)
                       .SetProperty(views::kFlexBehaviorKey,
                                    views::FlexSpecification(
+                                       views::LayoutOrientation::kHorizontal,
                                        views::MinimumFlexSizeRule::kScaleToZero,
                                        views::MaximumFlexSizeRule::kUnbounded)),
                   // Site access toggle.
@@ -532,7 +534,7 @@ void ExtensionMenuItemView::OnContextMenuPressed() {
   // TODO(crbug.com/41478477): Cleanup the menu source type.
   context_menu_controller_->ShowContextMenuForViewImpl(
       context_menu_button_, context_menu_button_->GetMenuPosition(),
-      ui::MenuSourceType::MENU_SOURCE_MOUSE);
+      ui::MENU_SOURCE_MOUSE);
 }
 
 void ExtensionMenuItemView::OnPinButtonPressed() {

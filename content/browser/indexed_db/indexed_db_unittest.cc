@@ -60,6 +60,7 @@
 #include "content/browser/indexed_db/indexed_db_context_impl.h"
 #include "content/browser/indexed_db/indexed_db_data_format_version.h"
 #include "content/browser/indexed_db/indexed_db_leveldb_coding.h"
+#include "content/browser/indexed_db/indexed_db_leveldb_operations.h"
 #include "content/browser/indexed_db/instance/backing_store.h"
 #include "content/browser/indexed_db/instance/backing_store_pre_close_task_queue.h"
 #include "content/browser/indexed_db/instance/bucket_context.h"
@@ -265,7 +266,6 @@ class IndexedDBTest
             quota_manager_proxy_.get(),
             /*blob_storage_context=*/mojo::NullRemote(),
             /*file_system_access_context=*/mojo::NullRemote(),
-            base::SequencedTaskRunner::GetCurrentDefault(),
             base::SequencedTaskRunner::GetCurrentDefault())) {
     scoped_feature_list_.InitWithFeatureStates(
         {{net::features::kThirdPartyStoragePartitioning,
@@ -364,7 +364,6 @@ class IndexedDBTest
         base::FilePath(), quota_manager_proxy_.get(),
         /*blob_storage_context=*/mojo::NullRemote(),
         /*file_system_access_context=*/mojo::NullRemote(),
-        base::SequencedTaskRunner::GetCurrentDefault(),
         base::SequencedTaskRunner::GetCurrentDefault());
   }
 
@@ -373,6 +372,8 @@ class IndexedDBTest
     context_->IDBTaskRunner()->PostTask(FROM_HERE, loop.QuitClosure());
     loop.Run();
   }
+
+  void SetUp() override { ResetGlobalSweepAndCompactionTimesForTest(); }
 
   void TearDown() override {
     factory_remote_.reset();
@@ -856,8 +857,8 @@ TEST_P(IndexedDBTest, DISABLED_PutWithInvalidBlob) {
   // an invalid blob.
   std::ignore = blob.InitWithNewPipeAndPassReceiver();
   external_objects.push_back(blink::mojom::IDBExternalObject::NewBlobOrFile(
-      blink::mojom::IDBBlobInfo::New(std::move(blob), "fakeUUID",
-                                     std::u16string(), 100, nullptr)));
+      blink::mojom::IDBBlobInfo::New(std::move(blob), std::u16string(), 100,
+                                     nullptr)));
 
   std::string value = "hello";
   const char* value_data = value.data();
@@ -1520,9 +1521,8 @@ TEST_P(IndexedDBTestFirstOrThirdParty, ForceCloseOpenDatabasesOnCommitFailure) {
           [](IndexedDBContextImpl* context, storage::BucketInfo* bucket_info) {
             context->GetBucketContextForTesting(bucket_info->id)
                 ->AsyncCall(&BucketContext::OnDatabaseError)
-                .WithArgs(
-                    leveldb::Status::NotSupported("operation not supported"),
-                    std::string());
+                .WithArgs(Status::NotSupported("operation not supported"),
+                          std::string());
           },
           context(), &bucket_info),
       &bucket_info);
@@ -1773,8 +1773,7 @@ TEST_P(IndexedDBTest, PreCloseTasksStart) {
   // Move the clock to run the tasks in the next close sequence.
   // NOTE: The constants rate-limiting sweeps and compaction are currently the
   // same. This test may need to be restructured if these values diverge.
-  task_environment_.FastForwardBy(
-      BucketContext::kMaxEarliestGlobalSweepFromNow);
+  task_environment_.FastForwardBy(kMaxGlobalSweepDelay);
 
   // Note that once the closing sequence has started, as is the case in the next
   // block, and if the test does anything to spin the message loop, such as
@@ -1809,8 +1808,7 @@ TEST_P(IndexedDBTest, PreCloseTasksStart) {
 
     // Move clock forward to trigger next sweep, but storage key has longer
     // sweep minimum, so no tasks should execute.
-    task_environment_.FastForwardBy(
-        BucketContext::kMaxEarliestGlobalSweepFromNow);
+    task_environment_.FastForwardBy(kMaxGlobalSweepDelay);
 
     bucket_context_handle.Release();
     EXPECT_EQ(BucketContext::ClosingState::kPreCloseGracePeriod,
@@ -1828,8 +1826,7 @@ TEST_P(IndexedDBTest, PreCloseTasksStart) {
 
   {
     //  Finally, move the clock forward so the storage key should allow a sweep.
-    task_environment_.FastForwardBy(
-        BucketContext::kMaxEarliestBucketSweepFromNow);
+    task_environment_.FastForwardBy(kMaxBucketSweepDelay);
     BucketContextHandle bucket_context_handle = CreateBucketHandle();
     bucket_context = bucket_context_handle.bucket_context();
     storage::BucketId bucket_id = bucket_context_handle->bucket_locator().id;
@@ -1847,53 +1844,48 @@ TEST_P(IndexedDBTest, PreCloseTasksStart) {
 TEST_P(IndexedDBTest, TombstoneSweeperTiming) {
   // Open a connection.
   BucketContextHandle bucket_context_handle = CreateBucketHandle();
-  EXPECT_FALSE(bucket_context_handle->ShouldRunTombstoneSweeper());
+  BackingStore* backing_store = bucket_context_handle->backing_store();
+  EXPECT_FALSE(backing_store->ShouldRunTombstoneSweeper());
 
   // Move the clock to run the tasks in the next close sequence.
-  task_environment_.FastForwardBy(
-      BucketContext::kMaxEarliestGlobalSweepFromNow);
+  task_environment_.FastForwardBy(kMaxGlobalSweepDelay);
 
-  EXPECT_TRUE(bucket_context_handle->ShouldRunTombstoneSweeper());
+  EXPECT_TRUE(backing_store->ShouldRunTombstoneSweeper());
 
   // Move clock forward to trigger next sweep, but storage key has longer
   // sweep minimum, so no tasks should execute.
-  task_environment_.FastForwardBy(
-      BucketContext::kMaxEarliestGlobalSweepFromNow);
+  task_environment_.FastForwardBy(kMaxGlobalSweepDelay);
 
-  EXPECT_FALSE(bucket_context_handle->ShouldRunTombstoneSweeper());
+  EXPECT_FALSE(backing_store->ShouldRunTombstoneSweeper());
 
   //  Finally, move the clock forward so the storage key should allow a sweep.
-  task_environment_.FastForwardBy(
-      BucketContext::kMaxEarliestBucketSweepFromNow);
+  task_environment_.FastForwardBy(kMaxBucketSweepDelay);
 
-  EXPECT_TRUE(bucket_context_handle->ShouldRunTombstoneSweeper());
+  EXPECT_TRUE(backing_store->ShouldRunTombstoneSweeper());
 }
 
 TEST_P(IndexedDBTest, CompactionTaskTiming) {
   // Open a connection.
   BucketContextHandle bucket_context_handle = CreateBucketHandle();
-  bucket_context_handle->InitBackingStoreIfNeeded(/*create_if_missing=*/true);
-  EXPECT_FALSE(bucket_context_handle->ShouldRunCompaction());
+  BackingStore* backing_store = bucket_context_handle->backing_store();
+  EXPECT_FALSE(backing_store->ShouldRunCompaction());
 
   // Move the clock to run the tasks in the next close sequence.
-  task_environment_.FastForwardBy(
-      BucketContext::kMaxEarliestGlobalCompactionFromNow);
+  task_environment_.FastForwardBy(kMaxGlobalCompactionDelay);
 
-  EXPECT_TRUE(bucket_context_handle->ShouldRunCompaction());
+  EXPECT_TRUE(backing_store->ShouldRunCompaction());
 
   // Move clock forward to trigger next compaction, but storage key has longer
   // compaction minimum, so no tasks should execute.
-  task_environment_.FastForwardBy(
-      BucketContext::kMaxEarliestGlobalCompactionFromNow);
+  task_environment_.FastForwardBy(kMaxGlobalCompactionDelay);
 
-  EXPECT_FALSE(bucket_context_handle->ShouldRunCompaction());
+  EXPECT_FALSE(backing_store->ShouldRunCompaction());
 
   // Finally, move the clock forward so the storage key should allow a
   // compaction.
-  task_environment_.FastForwardBy(
-      BucketContext::kMaxEarliestBucketCompactionFromNow);
+  task_environment_.FastForwardBy(kMaxBucketCompactionDelay);
 
-  EXPECT_TRUE(bucket_context_handle->ShouldRunCompaction());
+  EXPECT_TRUE(backing_store->ShouldRunCompaction());
 }
 
 TEST_P(IndexedDBTest, InMemoryFactoriesStay) {
@@ -1948,7 +1940,7 @@ TEST_P(IndexedDBTest, TooLongOrigin) {
 
   BucketContextHandle bucket_context_handle(GetOrCreateBucketContext(
       ToBucketInfo(bucket_locator), context()->GetDataPath(bucket_locator)));
-  leveldb::Status s;
+  Status s;
   std::tie(s, std::ignore, std::ignore) =
       bucket_context_handle->InitBackingStoreIfNeeded(
           /*create_if_missing=*/true);

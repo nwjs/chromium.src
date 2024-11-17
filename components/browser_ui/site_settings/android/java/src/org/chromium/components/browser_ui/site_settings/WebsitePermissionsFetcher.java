@@ -448,7 +448,7 @@ public class WebsitePermissionsFetcher {
          * to be serialized, as we need to have all the origins in place prior to populating the
          * hosts.
          */
-        private abstract class Task {
+        private abstract static class Task {
             /** Override this method to implement a synchronous task. */
             void run() {}
 
@@ -466,7 +466,7 @@ public class WebsitePermissionsFetcher {
          * A queue used to store the sequence of tasks to run to fetch the website preferences. Each
          * task is run sequentially, and some of the tasks may run asynchronously.
          */
-        private class TaskQueue extends LinkedList<Task> {
+        private static class TaskQueue extends LinkedList<Task> {
             void next() {
                 if (!isEmpty()) removeFirst().runAsync(this);
             }
@@ -474,7 +474,6 @@ public class WebsitePermissionsFetcher {
 
         private class PermissionInfoFetcher extends Task {
             final @ContentSettingsType.EnumType int mType;
-            private boolean mIsEmbeddedPermission;
 
             public PermissionInfoFetcher(@ContentSettingsType.EnumType int type) {
                 mType = type;

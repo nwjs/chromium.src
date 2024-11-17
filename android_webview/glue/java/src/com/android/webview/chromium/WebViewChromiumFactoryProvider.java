@@ -122,8 +122,8 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
     // WebLayerImpl.java for more info.
     private static final int SHARED_LIBRARY_MAX_ID = 36;
 
-    // When true, WebView will return Resources from its own Context rather than using the embedding
-    // app's.
+    // Stores the value of the cached SharedPref denoting whether we should use WebView's own
+    // Context for querying resources.
     private static boolean sUseWebViewContext;
 
     /**
@@ -181,7 +181,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
 
     private ServiceWorkerController mServiceWorkerController;
 
-    public class InitInfo {
+    public static class InitInfo {
         // Timestamp of init start and duration, used in the
         // 'WebView.Startup.CreationTime.Stage1.FactoryInit' trace event.
         public long mStartTime;
@@ -284,7 +284,8 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
     }
 
     void setWebViewContextExperimentValue(boolean enabled) {
-        if (enabled == sUseWebViewContext) return;
+        if (enabled == sUseWebViewContext
+                || Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) return;
         if (enabled) {
             mWebViewPrefs.edit().putBoolean(WEBVIEW_CONTEXT_EXPERIMENT_PREF, true).apply();
         } else {
@@ -337,8 +338,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
                 mWebViewPrefs = ctx.getSharedPreferences(CHROMIUM_PREFS_NAME, Context.MODE_PRIVATE);
                 // Read the experiment value and use it to determine which Context to use.
                 sUseWebViewContext =
-                        mWebViewPrefs.getBoolean(WEBVIEW_CONTEXT_EXPERIMENT_PREF, false)
-                                && Build.VERSION.SDK_INT <= Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
+                        mWebViewPrefs.getBoolean(WEBVIEW_CONTEXT_EXPERIMENT_PREF, false);
             }
 
             if (shouldEnableContextExperiment(ctx)) {
@@ -347,23 +347,24 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
                             ctx.createPackageContext(
                                     packageInfo.packageName,
                                     Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
-                    // Don't enable for standalone WebView. Check package id of the theme resource
-                    // to determine.
-                    // TODO(crbug.com/343756896): Make this work for standalone too.
-                    if ((override.getResources()
-                                            .getIdentifier(
-                                                    "WebViewBaseTheme",
-                                                    "style",
-                                                    packageInfo.packageName)
-                                    & 0xff000000)
-                            == 0x7f000000) {
-                        ClassLoaderContextWrapperFactory.setOverrideInfo(
-                                packageInfo.packageName,
-                                R.style.WebViewBaseTheme,
-                                Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
-                        // Use this to report the actual state of the feature at runtime.
-                        AwBrowserMainParts.setUseWebViewContext(true);
-                    }
+                    // Use standard Android theme for standalone WebView, use custom theme for
+                    // everything else. Check package id of the theme resource to determine.
+                    boolean isStandaloneWebView =
+                            (override.getResources()
+                                                    .getIdentifier(
+                                                            "WebViewBaseTheme",
+                                                            "style",
+                                                            packageInfo.packageName)
+                                            & 0xff000000)
+                                    != 0x7f000000;
+                    ClassLoaderContextWrapperFactory.setOverrideInfo(
+                            packageInfo.packageName,
+                            isStandaloneWebView || Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                                    ? android.R.style.Theme_DeviceDefault_DayNight
+                                    : R.style.WebViewBaseTheme,
+                            Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
+                    // Use this to report the actual state of the feature at runtime.
+                    AwBrowserMainParts.setUseWebViewContext(true);
                 } catch (PackageManager.NameNotFoundException e) {
                     Log.e(TAG, "Could not get resource override context.");
                 }
@@ -896,25 +897,34 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
     }
 
     private boolean shouldEnableContextExperiment(Context ctx) {
+        // Command line switch overrides all other conditions.
+        if (CommandLine.getInstance().hasSwitch(AwSwitches.WEBVIEW_USE_SEPARATE_RESOURCE_CONTEXT)) {
+            return true;
+        }
+
         // Disable for Samsung devices.
         if ("SAMSUNG".equalsIgnoreCase(Build.MANUFACTURER)) {
             return false;
         }
 
-        ManifestMetadataUtil.ensureMetadataCacheInitialized(ctx);
-        if (ManifestMetadataUtil.isAppOptedOutFromContextExperiment()) {
+        // Don't enable on V+.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
             return false;
         }
 
-        // The command line switch overrides the pref/Android version check.
+        // Allow the developer to opt in or opt out of the experiment.
+        ManifestMetadataUtil.ensureMetadataCacheInitialized(ctx);
+        Boolean valueFromManifest = ManifestMetadataUtil.shouldEnableContextExperiment();
+        if (valueFromManifest != null) {
+            return valueFromManifest;
+        }
+
         // We also want to enable by default on the listed package names.
-        if (sUseWebViewContext
-                || CommandLine.getInstance()
-                        .hasSwitch(AwSwitches.WEBVIEW_USE_SEPARATE_RESOURCE_CONTEXT)
-                || "com.aurora.launcher".equals(ctx.getPackageName())
+        if ("com.aurora.launcher".equals(ctx.getPackageName())
                 || "com.qiku.android.launcher3".equals(ctx.getPackageName())) {
             return true;
         }
-        return false;
+
+        return sUseWebViewContext;
     }
 }

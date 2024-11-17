@@ -49,6 +49,7 @@
 <translation id="1979673356880165407">Agrandir ou réduire le texte et les images pour tous les sites que vous visitez</translation>
 <translation id="1984937141057606926">Autorisés, sauf témoins tiers</translation>
 <translation id="1985247341569771101">Lorsque cette option est activée, les sites peuvent utiliser les capteurs de mouvement de votre appareil. Lorsqu'elle est désactivée, les sites ne peuvent pas utiliser de capteurs de mouvement.</translation>
+<translation id="1985716030964443178">Cette action réinitialisera tous les sites de votre liste au zoom par défaut</translation>
 <translation id="1989112275319619282">Parcourir</translation>
 <translation id="1994173015038366702">URL du site</translation>
 <translation id="2004697686368036666">Des fonctionnalités de certains sites pourraient ne pas fonctionner</translation>
@@ -86,27 +87,29 @@
 <translation id="244264527810019436">Les fonctionnalités de certains sites peuvent ne pas fonctionner en mode de navigation privée</translation>
 <translation id="2442870161001914531">Toujours demander le site pour ordinateurs de bureau</translation>
 <translation id="2469312991797799607">Cette action supprimera l'ensemble des données et des témoins de connexion pour <ph name="ORIGIN" /> et tous les sites qui lui sont subordonnés</translation>
-<translation id="2479148705183875116">Accéder aux paramètres</translation>
 <translation id="2482878487686419369">Notifications</translation>
 <translation id="2485422356828889247">Désinstaller</translation>
 <translation id="2490684707762498678">Les notifications sont gérées par <ph name="APP_NAME" /></translation>
 <translation id="2498359688066513246">Aide et commentaires</translation>
 <translation id="2501278716633472235">Retour</translation>
 <translation id="2546283357679194313">Témoins et données des sites</translation>
-<translation id="2550150772722917524">Les groupes d'onglets permettent de garder les choses en ordre</translation>
 <translation id="2570922361219980984">L'accès à la localisation est également désactivé pour cet appareil. Activez-le dans les <ph name="BEGIN_LINK" />paramètres Android<ph name="END_LINK" />.</translation>
 <translation id="257931822824936280">Développé : cliquer pour réduire</translation>
 <translation id="2586657967955657006">Presse-papiers</translation>
+<translation id="2588271083332682494">Rester organisé avec des groupes d'onglets</translation>
 <translation id="2597457036804169544">Ne pas appliquer le thème sombre aux sites</translation>
 <translation id="2606760465469169465">Vérification automatique</translation>
 <translation id="2621115761605608342">Autoriser JavaScript pour un site en particulier.</translation>
 <translation id="2653659639078652383">Envoyer</translation>
 <translation id="2677748264148917807">Quitter</translation>
 <translation id="2678468611080193228">Essayez d'autoriser temporairement les témoins tiers, ce qui signifie moins de protection, mais les fonctionnalités du site sont plus susceptibles de fonctionner</translation>
+<translation id="2682367912565197520">Supprimer le niveau de zoom enregistré</translation>
 <translation id="2683434792633810741">Supprimer et réinitialiser?</translation>
 <translation id="2713106313042589954">Désactiver la caméra</translation>
 <translation id="2717722538473713889">Adresses de courriel</translation>
+<translation id="2726059656860238749">Lancez Chrome avec l'omnibox focalisé, réduisant ainsi le temps de démarrage sur les appareils bas de gamme.</translation>
 <translation id="2750481671343847896">Les sites peuvent afficher des invites de connexion provenant de services de vérification d'identité.</translation>
+<translation id="2787357173144933081">Démarrage rapide d'omnibox</translation>
 <translation id="2790501146643349491">Lorsque cette option est activée, les sites récemment fermés peuvent terminer l'envoi et la réception de données. Lorsqu'elle est désactivée, les sites récemment fermés ne peuvent pas terminer l'envoi ni la réception de données.</translation>
 <translation id="2822354292072154809">Voulez-vous vraiment réinitialiser toutes les autorisations de site pour <ph name="CHOSEN_OBJECT_NAME" />?</translation>
 <translation id="2850913818900871965">Demander l'affichage sur un appareil mobile</translation>
@@ -125,6 +128,7 @@
 <translation id="3069226013421428034">Autorisez la connexion de tiers pour un site particulier.</translation>
 <translation id="310297983047869047">Diapositive précédente</translation>
 <translation id="3109724472072898302">Réduit</translation>
+<translation id="310979712355504754">Tout supprimer</translation>
 <translation id="3114012059975132928">Lecteur vidéo</translation>
 <translation id="3115898365077584848">Afficher les renseignements</translation>
 <translation id="3123473560110926937">Annonces bloquées sur certains sites</translation>
@@ -138,11 +142,13 @@
 <translation id="3242646949159196181">Lorsque cette option est activée, les sites peuvent faire jouer du son. Lorsqu'elle est désactivée, les sites ne peuvent pas faire jouer de son.</translation>
 <translation id="3273479183583863618">Baisse de prix sur les onglets</translation>
 <translation id="3277252321222022663">Autoriser les sites à accéder aux capteurs (recommandé)</translation>
+<translation id="327891165872793509">Chrome empêche la plupart des sites d'utiliser des témoins tiers pour vous suivre pendant votre navigation. Accédez aux paramètres pour <ph name="BEGIN_LINK" />gérer l'accès aux témoins tiers<ph name="END_LINK" />.</translation>
 <translation id="3285500645985761267">Autoriser les sites connexes à voir votre activité dans le groupe</translation>
 <translation id="3295019059349372795">Chapitre 11 : La merveilleuse cité d'émeraude d'Oz</translation>
 <translation id="3295602654194328831">Masquer les renseignements</translation>
 <translation id="3328801116991980348">Information sur le site</translation>
 <translation id="3333961966071413176">Tous les contacts</translation>
+<translation id="3360338140203645771">Supprimer les niveaux de zoom enregistrés?</translation>
 <translation id="3362437373201486687">Recherche d'appareils Bluetooth en cours…</translation>
 <translation id="3386292677130313581">Demander avant d'autoriser des sites à connaître votre emplacement (recommandé)</translation>
 <translation id="3403537308306431953"><ph name="ZOOM_LEVEL" /> %%</translation>
@@ -168,7 +174,6 @@
 <translation id="3744111561329211289">Synchronisation en arrière-plan</translation>
 <translation id="3763247130972274048">Touchez deux fois à gauche ou à droite de la vidéo pour sauter 10 secondes</translation>
 <translation id="3779154269823594982">Modifier les mots de passe</translation>
-<translation id="3788473868867338588">Vous pouvez regrouper des pages connexes, et vos groupes sont enregistrés et mis à jour sur tous vos appareils</translation>
 <translation id="3797520601150691162">Ne pas appliquer le thème sombre à un site particulier</translation>
 <translation id="3803367742635802571">Les sites que vous visitez peuvent cesser de fonctionner comme prévu</translation>
 <translation id="3804247818991980532"><ph name="TYPE_1" />. <ph name="TYPE_2" />.</translation>
@@ -209,6 +214,7 @@
 <translation id="4338831206024587507">Tous les sites associés à <ph name="DOMAIN" /></translation>
 <translation id="4402755511846832236">Empêcher les sites de savoir quand vous êtes en train d'utiliser cet appareil</translation>
 <translation id="4412992751769744546">Autoriser les témoins tiers</translation>
+<translation id="4419929467120297501">Chrome empêche les sites d'utiliser des témoins tiers pour vous suivre pendant votre navigation. Accédez aux paramètres pour <ph name="BEGIN_LINK" />gérer l'accès aux témoins tiers<ph name="END_LINK" />.</translation>
 <translation id="4434045419905280838">Fenêt. context. et redirections</translation>
 <translation id="443552056913301231">Cette action supprimera toutes les données locales, y compris les témoins, et réinitialisera toutes les autorisations pour <ph name="ORIGIN" /></translation>
 <translation id="4468959413250150279">Désactivez le son sur un site précis.</translation>
@@ -230,15 +236,16 @@
 <translation id="4779083564647765204">Zoom</translation>
 <translation id="4807122856660838973">Activer la navigation sécurisée</translation>
 <translation id="4811450222531576619">En savoir plus sur sa source et son sujet</translation>
+<translation id="4816495437032298535">Zoom enregistré pour les sites</translation>
 <translation id="4836046166855586901">Demander une autorisation lorsqu'un site veut savoir si vous êtes en train d'utiliser cet appareil</translation>
 <translation id="483914009762354899">Inclure tous les sites sous ce domaine</translation>
 <translation id="4883854917563148705">Les paramètres gérés ne peuvent pas être réinitialisés</translation>
 <translation id="4887024562049524730">Demander avant d'autoriser les sites à utiliser votre appareil et vos données de réalité virtuelle (recommandé)</translation>
+<translation id="4936863036653376783">Vous trouverez vos groupes dans la section des groupes d'onglets sur tous vos appareils</translation>
 <translation id="4953688446973710931">Lorsque cette option est activée, les sites peuvent demander de télécharger automatiquement plusieurs fichiers. Lorsqu'elle est désactivée, les sites ne peuvent pas télécharger automatiquement plusieurs fichiers.</translation>
 <translation id="4962975101802056554">Révoquer toutes les autorisations pour l'appareil</translation>
 <translation id="497421865427891073">Avancer</translation>
 <translation id="4976702386844183910">Dernière visite : <ph name="DATE" /></translation>
-<translation id="4985206706500620449">Vous avez autorisé les témoins tiers pour ce site</translation>
 <translation id="4994033804516042629">Aucun contact trouvé</translation>
 <translation id="4996978546172906250">Partager par</translation>
 <translation id="5001526427543320409">Témoins tiers</translation>
@@ -265,6 +272,7 @@
 <translation id="5246825184569358663">Cette action supprimera toutes les données locales, y compris les témoins, et réinitialisera toutes les autorisations pour <ph name="DOMAIN" /> et pour tous les sites qui y sont subordonnés</translation>
 <translation id="5264323282659631142">Retirer « <ph name="CHIP_LABEL" /> »</translation>
 <translation id="528192093759286357">Faites glisser du haut vers le bas et appuyez sur le bouton de retour pour quitter le mode plein écran.</translation>
+<translation id="5292915569214461965">Vous avez empêché des sites d'utiliser des témoins tiers pour vous suivre pendant votre navigation. Accédez aux paramètres pour <ph name="BEGIN_LINK" />gérer l'accès aux témoins tiers<ph name="END_LINK" />.</translation>
 <translation id="5295729974480418933">Lorsque cette option est activée, les sites peuvent demander d'utiliser les informations qu'ils ont enregistrées à votre sujet. Lorsqu'elle est désactivée, les sites ne peuvent pas vous demander d'utiliser les informations qu'ils ont enregistrées à votre sujet.</translation>
 <translation id="5300589172476337783">Afficher</translation>
 <translation id="5301954838959518834">J'ai compris.</translation>
@@ -287,6 +295,7 @@
 <translation id="5553374991681107062">Plus récentes</translation>
 <translation id="5556459405103347317">Actualiser</translation>
 <translation id="5591840828808741583"><ph name="SITE_NAME" /> bloqué</translation>
+<translation id="560980142378233747">Cela signifie que les fonctionnalités du site devraient fonctionner comme prévu, mais que le niveau de protection de la navigation est moins élevé. <ph name="BEGIN_LINK" />Envoyer des commentaires<ph name="END_LINK" /></translation>
 <translation id="5632485077360054581">Afficher la marche à suivre</translation>
 <translation id="5649053991847567735">Téléchargements automatiques</translation>
 <translation id="5668404140385795438">Ignorer la demande d'un site refusant de faire un zoom avant</translation>
@@ -354,6 +363,7 @@
 <translation id="6527303717912515753">Partager</translation>
 <translation id="652937045869844725">Essayez d'autoriser les témoins tiers, ce qui signifie moins de protection, mais les fonctionnalités du site sont plus susceptibles de fonctionner</translation>
 <translation id="6530703012083415527">Lorsque cette option est activée, les sites peuvent utiliser des fenêtres contextuelles et des redirections. Lorsqu'elle est désactivée, les sites ne peuvent pas utiliser des fenêtres contextuelles ni des redirections.</translation>
+<translation id="6540488083026747005">Vous avez autorisé les témoins tiers pour ce site</translation>
 <translation id="6545864417968258051">Recherche d'appareils Bluetooth</translation>
 <translation id="6552800053856095716">{PERMISSIONS_SUMMARY_BLOCKED,plural, =1{<ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> et <ph name="NUM_MORE" /> autre autorisation bloquée}one{<ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> et <ph name="NUM_MORE" /> autre autorisation bloquée}other{<ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> et <ph name="NUM_MORE" /> autres autorisations bloquées}}</translation>
 <translation id="6554732001434021288">Dernière visite il y a <ph name="NUM_DAYS" /> jours</translation>
@@ -370,7 +380,6 @@
 <translation id="6697925417670533197">Téléchargements actifs</translation>
 <translation id="6709432001666529933">Demander une autorisation avant de permettre aux sites de suivre vos mains (recommandé)</translation>
 <translation id="6722828510648505498">Bloquez les invites de connexion provenant de services de vérification d'identité.</translation>
-<translation id="6729704574271585059">Les groupes que vous avez créés sont enregistrés dans la section des groupes d'onglets et mis à jour sur vos appareils</translation>
 <translation id="6746124502594467657">Déplacer vers le bas</translation>
 <translation id="6749077623962119521">Réinitialiser les autorisations?</translation>
 <translation id="6766622839693428701">Glissez le doigt vers le bas pour fermer.</translation>
@@ -381,6 +390,7 @@
 <translation id="6840760312327750441">Pour regrouper des onglets, maintenez le doigt sur un onglet, puis faites-le glisser vers un autre.</translation>
 <translation id="6864395892908308021">Cet appareil ne prend pas en charge la technologie CCP</translation>
 <translation id="6870169401250095575">Masquer la carte Vérification de sécurité</translation>
+<translation id="6900883974539674431">Créez des groupes d'onglets qui s'enregistrent et se mettent à jour automatiquement sur tous vos appareils</translation>
 <translation id="6912998170423641340">Empêcher les sites de lire du texte et des images du presse-papiers</translation>
 <translation id="6945221475159498467">Sélectionner</translation>
 <translation id="6950072572526089586">Un site que vous visitez peut enregistrer des informations en fonction de votre activité pour fonctionner comme prévu : par exemple, pour maintenir votre connexion à un site ou pour conserver des articles dans votre panier. Souvent, les sites enregistrent temporairement ces données sur votre appareil.</translation>
@@ -408,7 +418,6 @@
 <translation id="7250468141469952378"><ph name="ITEM_COUNT" /> élément(s) sélectionné(s)</translation>
 <translation id="7260727271532453612">Autorisations <ph name="PERMISSION_1" /> et <ph name="PERMISSION_2" /> accordées</translation>
 <translation id="7276071417425470385">Lorsque cette option est activée, les sites peuvent demander à utiliser des appareils de réalité virtuelle. Lorsqu'elle est désactivée, les sites ne peuvent pas utiliser d'appareils de réalité virtuelle.</translation>
-<translation id="7284451015630589124">Vous avez empêché des sites d'utiliser des témoins tiers pour vous suivre pendant votre navigation. Accédez aux paramètres pour <ph name="BEGIN_LINK" />gérer vos Protections contre le suivi<ph name="END_LINK" />.</translation>
 <translation id="7302486331832100261">Vous bloquez habituellement les notifications. Pour les autoriser, touchez Détails.</translation>
 <translation id="7366415735885268578">Ajouter un site</translation>
 <translation id="7368695150573390554">Toutes les données hors ligne seront supprimées</translation>
@@ -418,7 +427,6 @@
 <translation id="7423098979219808738">Demander d'abord</translation>
 <translation id="7423538860840206698">La lecture du presse-papiers a été bloquée</translation>
 <translation id="7425915948813553151">Thème sombre pour les sites</translation>
-<translation id="7474522811371247902">Chrome empêche la plupart des sites d'utiliser des témoins tiers. Toutefois, les témoins tiers sont autorisés sur ce site parce qu'il en dépend pour fournir des services de base.\n\nAccédez aux paramètres pour <ph name="BEGIN_LINK" />gérer vos Protections contre le suivi<ph name="END_LINK" />.</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7547989957535180761">Lorsque cette option est activée, les sites peuvent afficher des invites de connexion. Lorsqu'elle est désactivée, les sites ne peuvent pas afficher d'invites de connexion.</translation>
 <translation id="7554752735887601236">Un site utilise votre microphone</translation>
@@ -439,10 +447,10 @@
 <translation id="780301667611848630">Non merci</translation>
 <translation id="7804248752222191302">Un site utilise votre appareil photo</translation>
 <translation id="7807060072011926525">Fourni par Google</translation>
-<translation id="7822573154188733812">Chrome empêche les sites d'utiliser des témoins tiers pour vous suivre pendant votre navigation. Accédez aux paramètres pour <ph name="BEGIN_LINK" />gérer vos Protections contre le suivi<ph name="END_LINK" />.</translation>
 <translation id="7835852323729233924">Élém. multim. en cours de lecture</translation>
 <translation id="783819812427904514">Réactiver le son de la vidéo</translation>
 <translation id="7846076177841592234">Annuler la sélection</translation>
+<translation id="7881140103901777395">Chrome empêche la plupart des sites d'utiliser des témoins tiers. Toutefois, les témoins tiers sont autorisés sur ce site parce qu'il en dépend pour fournir des services de base.\n\nAccédez aux paramètres pour <ph name="BEGIN_LINK" />gérer l'accès aux témoins tiers<ph name="END_LINK" />.</translation>
 <translation id="7882806643839505685">Autorisez le son sur un site précis.</translation>
 <translation id="789180354981963912">Bloquer les témoins tiers en navigation privée :</translation>
 <translation id="7940722705963108451">Me le rappeler</translation>
@@ -495,7 +503,6 @@
 <translation id="857943718398505171">Autorisée (recommandé)</translation>
 <translation id="8609465669617005112">Déplacer vers le haut</translation>
 <translation id="8617611086246832542">Lorsque cette option est activée, les sites Web s'afficheront au moyen de l'affichage sur ordinateur de bureau. Lorsqu'elle est désactivée, les sites Web s'afficheront au moyen de l'affichage sur appareil mobile.</translation>
-<translation id="8649036394979866943">Chrome empêche la plupart des sites d'utiliser des témoins tiers pour vous suivre pendant votre navigation. Accédez aux paramètres pour <ph name="BEGIN_LINK" />gérer vos Protections contre le suivi<ph name="END_LINK" /></translation>
 <translation id="8676316391139423634">Lorsque cette option est activée, les sites peuvent demander l'autorisation de suivre vos mains. Lorsque cette option est désactivée, les sites ne peuvent pas suivre vos mains.</translation>
 <translation id="8676374126336081632">Effacer l'entrée</translation>
 <translation id="8681886425883659911">Les annonces sont bloquées sur les sites connus pour présenter des annonces intrusives ou trompeuses</translation>
@@ -506,6 +513,7 @@
 <translation id="8721719390026067591">Lorsque cette option est activée, les sites peuvent demander à rechercher des appareils Bluetooth. Lorsqu'elle est désactivée, les sites ne peuvent pas rechercher d'appareils Bluetooth.</translation>
 <translation id="8725066075913043281">Réessayer</translation>
 <translation id="8730621377337864115">Terminé</translation>
+<translation id="8737426583868847403">Les sites pour lesquels vous enregistrez un niveau de zoom personnalisé s'afficheront ici</translation>
 <translation id="8751914237388039244">Sélectionner une image</translation>
 <translation id="8800034312320686233">Le site ne fonctionne pas?</translation>
 <translation id="8801436777607969138">Bloquez JavaScript sur un site en particulier.</translation>

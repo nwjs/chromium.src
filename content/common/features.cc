@@ -228,6 +228,13 @@ BASE_FEATURE(kFledgeBidderWorkletThreadPool,
              "FledgeBidderWorkletThreadPool",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_ANDROID)
+// Makes FLEDGE worklets on Android not use the main thread for their mojo.
+BASE_FEATURE(kFledgeAndroidWorkletOffMainThread,
+             "FledgeAndroidWorkletOffMainThread",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 // The scaling factor for calculating the number of bidder worklet threads based
 // on the number of Interest Groups.
 // Formula: #threads = 1 + scaling_factor * log10(#IGs)
@@ -305,16 +312,11 @@ BASE_FEATURE(kHandleChildThreadTypeChangesInBrowser,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-// Controls whether we ignore duplicate navigations or not, in favor of
-// preserving the already ongoing navigation.
-BASE_FEATURE(kIgnoreDuplicateNavs,
-             "IgnoreDuplicateNavs",
+// A feature to experiment with removing the soft process limit. See
+// https://crbug.com/369342694.
+BASE_FEATURE(kRemoveRendererProcessLimit,
+             "RemoveRendererProcessLimit",
              base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE_PARAM(base::TimeDelta,
-                   kDuplicateNavThreshold,
-                   &kIgnoreDuplicateNavs,
-                   "duplicate_nav_threshold",
-                   base::Milliseconds(2000));
 
 // A feature flag for the memory-backed code cache.
 BASE_FEATURE(kInMemoryCodeCache,
@@ -403,6 +405,12 @@ BASE_FEATURE(kPreloadingConfig,
              "PreloadingConfig",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// This feature makes it so that having pending views increase the priority of a
+// RenderProcessHost even when there is a priority override.
+BASE_FEATURE(kPriorityOverridePendingViews,
+             "PriorityOverridePendingViews",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables exposure of the core milestone 1 (M1) APIs in the renderer without an
 // origin trial token: Attribution Reporting, FLEDGE, Topics.
 BASE_FEATURE(kPrivacySandboxAdsAPIsM1Override,
@@ -424,12 +432,6 @@ BASE_FEATURE(kResourceTimingForCancelledNavigationInFrame,
              "ResourceTimingForCancelledNavigationInFrame",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// When enabled, CanAccessDataForOrigin can only be called from the UI thread.
-// This is related to Citadel desktop protections. See
-// https://crbug.com/1286501.
-BASE_FEATURE(kRestrictCanAccessDataForOriginToUIThread,
-             "RestrictCanAccessDataForOriginToUIThread",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Make sendBeacon throw for a Blob with a non simple type.
 BASE_FEATURE(kSendBeaconThrowForBlobWithNonSimpleType,
@@ -538,12 +540,6 @@ const base::FeatureParam<std::string>
         &kServiceWorkerBypassFetchHandlerHashStrings,
         "script_checksum_to_bypass", ""};
 
-// When enabled, ensures that an unlocked process cannot access data for
-// sites that require a dedicated process.
-BASE_FEATURE(kSiteIsolationCitadelEnforcement,
-             "kSiteIsolationCitadelEnforcement",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables skipping the early call to CommitPending when navigating away from a
 // crashed frame.
 BASE_FEATURE(kSkipEarlyCommitPendingForCrashedFrame,
@@ -610,6 +606,11 @@ BASE_FEATURE(kWindowOpenFileSelectFix,
 // Flag guard for fix for crbug.com/346629231.
 BASE_FEATURE(kScrollBubblingFix,
              "ScrollBubblingFix",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Flag guard for fix for crbug.com/40942531.
+BASE_FEATURE(kLimitCrossOriginNonActivatedPaintHolding,
+             "LimitCrossOriginNonActivatedPaintHolding",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Please keep features in alphabetical order.

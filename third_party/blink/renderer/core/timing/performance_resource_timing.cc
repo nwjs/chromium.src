@@ -33,12 +33,14 @@
 
 #include "base/notreached.h"
 #include "services/network/public/mojom/service_worker_router_info.mojom-blink-forward.h"
+#include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/public/mojom/timing/performance_mark_or_measure.mojom-blink.h"
 #include "third_party/blink/public/mojom/timing/resource_timing.mojom-blink-forward.h"
 #include "third_party/blink/renderer/bindings/core/v8/idl_types.h"
 #include "third_party/blink/renderer/bindings/core/v8/to_v8_traits.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_object_builder.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_render_blocking_status_type.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/performance_entry_names.h"
@@ -121,7 +123,17 @@ uint64_t PerformanceResourceTiming::GetTransferSize(
   return 0;
 }
 
+bool PerformanceResourceTiming::IsResponseFromCacheStorage() const {
+  return info_->service_worker_response_source ==
+         network::mojom::blink::FetchResponseSource::kCacheStorage;
+}
+
 AtomicString PerformanceResourceTiming::GetDeliveryType() const {
+  if (RuntimeEnabledFeatures::ServiceWorkerStaticRouterTimingInfoEnabled(
+          DynamicTo<LocalDOMWindow>(source())) &&
+      IsResponseFromCacheStorage()) {
+    return delivery_type_names::kCacheStorage;
+  }
   return info_->cache_state == mojom::blink::CacheState::kNone
              ? g_empty_atom
              : delivery_type_names::kCache;
@@ -131,9 +143,12 @@ AtomicString PerformanceResourceTiming::deliveryType() const {
   return info_->allow_timing_details ? GetDeliveryType() : g_empty_atom;
 }
 
-AtomicString PerformanceResourceTiming::renderBlockingStatus() const {
-  return AtomicString(info_->render_blocking_status ? "blocking"
-                                                    : "non-blocking");
+V8RenderBlockingStatusType PerformanceResourceTiming::renderBlockingStatus()
+    const {
+  return V8RenderBlockingStatusType(
+      info_->render_blocking_status
+          ? V8RenderBlockingStatusType::Enum::kBlocking
+          : V8RenderBlockingStatusType::Enum::kNonBlocking);
 }
 
 AtomicString PerformanceResourceTiming::contentType() const {
@@ -200,7 +215,7 @@ DOMHighResTimeStamp PerformanceResourceTiming::workerCacheLookupStart() const {
       info_->allow_negative_values, CrossOriginIsolatedCapability());
 }
 
-AtomicString PerformanceResourceTiming::matchedSourceType() const {
+AtomicString PerformanceResourceTiming::workerMatchedSourceType() const {
   if (!info_->service_worker_router_info ||
       !info_->service_worker_router_info->matched_source_type) {
     return AtomicString();
@@ -210,7 +225,7 @@ AtomicString PerformanceResourceTiming::matchedSourceType() const {
       *info_->service_worker_router_info->matched_source_type));
 }
 
-AtomicString PerformanceResourceTiming::finalSourceType() const {
+AtomicString PerformanceResourceTiming::workerFinalSourceType() const {
   if (!info_->service_worker_router_info ||
       !info_->service_worker_router_info->actual_source_type) {
     return AtomicString();
@@ -264,6 +279,19 @@ DOMHighResTimeStamp PerformanceResourceTiming::fetchStart() const {
 
   if (DOMHighResTimeStamp worker_ready_time = WorkerReady())
     return worker_ready_time;
+
+  // If the fetch came from service worker static routing API and the actual
+  // source type is cache, we will not have a fetch start. For compatibility,
+  // we set this to responseStart (as written in explainer
+  // https://github.com/WICG/service-worker-static-routing-api/blob/main/resource-timing-api.md
+  // ).
+  if (RuntimeEnabledFeatures::ServiceWorkerStaticRouterTimingInfoEnabled(
+          DynamicTo<LocalDOMWindow>(source())) &&
+      info_->service_worker_router_info &&
+      info_->service_worker_router_info->actual_source_type ==
+          network::mojom::ServiceWorkerRouterSourceType::kCache) {
+    return responseStart();
+  }
 
   return PerformanceEntry::startTime();
 }
@@ -462,18 +490,20 @@ void PerformanceResourceTiming::BuildJSONValue(V8ObjectBuilder& builder) const {
   builder.AddString("deliveryType", deliveryType());
   builder.AddString("nextHopProtocol", nextHopProtocol());
   if (RuntimeEnabledFeatures::RenderBlockingStatusEnabled()) {
-    builder.AddString("renderBlockingStatus", renderBlockingStatus());
+    builder.AddString("renderBlockingStatus",
+                      renderBlockingStatus().AsString());
   }
   if (RuntimeEnabledFeatures::ResourceTimingContentTypeEnabled()) {
     builder.AddString("contentType", contentType());
   }
   builder.AddNumber("workerStart", workerStart());
-  if (RuntimeEnabledFeatures::ServiceWorkerStaticRouterTimingInfoEnabled()) {
+  if (RuntimeEnabledFeatures::ServiceWorkerStaticRouterTimingInfoEnabled(
+          ExecutionContext::From(builder.GetScriptState()))) {
     builder.AddNumber("workerRouterEvaluationStart",
                       workerRouterEvaluationStart());
     builder.AddNumber("workerCacheLookupStart", workerCacheLookupStart());
-    builder.AddString("matchedSourceType", matchedSourceType());
-    builder.AddString("finalSourceType", finalSourceType());
+    builder.AddString("matchedSourceType", workerMatchedSourceType());
+    builder.AddString("finalSourceType", workerFinalSourceType());
   }
   builder.AddNumber("redirectStart", redirectStart());
   builder.AddNumber("redirectEnd", redirectEnd());

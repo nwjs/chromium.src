@@ -177,14 +177,6 @@ RealTimeUrlLookupServiceBase::RealTimeUrlLookupServiceBase(
 RealTimeUrlLookupServiceBase::~RealTimeUrlLookupServiceBase() = default;
 
 // static
-bool RealTimeUrlLookupServiceBase::CanCheckUrl(const GURL& url) {
-  if (VerdictCacheManager::has_artificial_cached_url()) {
-    return true;
-  }
-  return CanGetReputationOfUrl(url);
-}
-
-// static
 SBThreatType RealTimeUrlLookupServiceBase::GetSBThreatTypeForRTThreatType(
     RTLookupResponse::ThreatInfo::ThreatType rt_threat_type,
     RTLookupResponse::ThreatInfo::VerdictType rt_verdict_type) {
@@ -427,6 +419,9 @@ void RealTimeUrlLookupServiceBase::MaybeSendRequest(
 
   auto resource_request = GetResourceRequest();
   if (!access_token_string.empty()) {
+    LogAuthenticatedCookieResets(
+        *resource_request,
+        SafeBrowsingAuthenticatedEndpoint::kRealtimeUrlLookup);
     SetAccessTokenAndClearCookieInResourceRequest(resource_request.get(),
                                                   access_token_string);
   }
@@ -521,11 +516,6 @@ void RealTimeUrlLookupServiceBase::OnURLLoaderComplete(
   bool sent_with_token = access_token_string && !access_token_string->empty();
   MaybeLogProtegoPingCookieHistograms(request_had_cookie, was_first_request,
                                       sent_with_token);
-
-  if (sent_with_token) {
-    MaybeLogCookieReset(*url_loader,
-                        SafeBrowsingAuthenticatedEndpoint::kRealtimeUrlLookup);
-  }
 
   if (response_code == net::HTTP_UNAUTHORIZED &&
       access_token_string.has_value()) {
@@ -708,6 +698,8 @@ void RealTimeUrlLookupServiceBase::OnResponseUnauthorized(
     const std::string& invalid_access_token) {}
 
 void RealTimeUrlLookupServiceBase::Shutdown() {
+  shutting_down_ = true;
+
   pending_requests_.clear();
 
   // Clear references to other KeyedServices.

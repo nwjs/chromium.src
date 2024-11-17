@@ -246,7 +246,8 @@ bool AutofillExternalDelegate::IsAutofillAndFirstLayerSuggestionId(
     case SuggestionType::kRetrievePredictionImprovements:
     case SuggestionType::kPredictionImprovementsLoadingState:
     case SuggestionType::kFillPredictionImprovements:
-    case SuggestionType::kPredictionImprovementsDetails:
+    case SuggestionType::kPredictionImprovementsError:
+    case SuggestionType::kEditPredictionImprovementsInformation:
       return false;
   }
 }
@@ -504,6 +505,19 @@ void AutofillExternalDelegate::OnSuggestionsShown(
     }
   }
 
+  if (base::ranges::any_of(shown_suggestion_types,
+                           [](const SuggestionType& type) {
+                             return GetFillingProductFromSuggestionType(type) ==
+                                    FillingProduct::kPredictionImprovements;
+                           })) {
+    if (auto* prediction_improvements_delegate =
+            manager_->client().GetAutofillPredictionImprovementsDelegate()) {
+      prediction_improvements_delegate->OnSuggestionsShown(
+          shown_suggestion_types, query_form_, query_field_,
+          CreateUpdateSuggestionsCallback());
+    }
+  }
+
   // If the popup was manually triggered on an unclassified field, the chances
   // are high that it has no regular suggestions, as it is the main usecase for
   // the manual fallback functionality. It is considered an acceptable
@@ -588,7 +602,7 @@ void AutofillExternalDelegate::DidSelectSuggestion(
       break;
     case SuggestionType::kFillFullAddress:
       FillAutofillFormData(
-          suggestion.type, suggestion.GetPayload<Suggestion::BackendId>(),
+          suggestion.type, backend_id,
           /*metadata=*/std::nullopt, /*is_preview=*/true,
           {.trigger_source =
                TriggerSourceFromSuggestionTriggerSource(trigger_source_),
@@ -596,7 +610,7 @@ void AutofillExternalDelegate::DidSelectSuggestion(
       break;
     case SuggestionType::kFillFullName:
       FillAutofillFormData(
-          suggestion.type, suggestion.GetPayload<Suggestion::BackendId>(),
+          suggestion.type, backend_id,
           /*metadata=*/std::nullopt, /*is_preview=*/true,
           {.trigger_source =
                TriggerSourceFromSuggestionTriggerSource(trigger_source_),
@@ -604,7 +618,7 @@ void AutofillExternalDelegate::DidSelectSuggestion(
       break;
     case SuggestionType::kFillFullPhoneNumber:
       FillAutofillFormData(
-          suggestion.type, suggestion.GetPayload<Suggestion::BackendId>(),
+          suggestion.type, backend_id,
           /*metadata=*/std::nullopt, /*is_preview=*/true,
           {.trigger_source =
                TriggerSourceFromSuggestionTriggerSource(trigger_source_),
@@ -613,7 +627,7 @@ void AutofillExternalDelegate::DidSelectSuggestion(
       break;
     case SuggestionType::kFillFullEmail:
       FillAutofillFormData(
-          suggestion.type, suggestion.GetPayload<Suggestion::BackendId>(),
+          suggestion.type, backend_id,
           /*metadata=*/std::nullopt, /*is_preview=*/true,
           {.trigger_source =
                TriggerSourceFromSuggestionTriggerSource(trigger_source_),
@@ -628,10 +642,13 @@ void AutofillExternalDelegate::DidSelectSuggestion(
                                    /*field_type_used=*/std::nullopt);
       break;
     case SuggestionType::kIbanEntry:
+      // Always shows the masked IBAN value as the preview of the suggestion.
       manager_->FillOrPreviewField(
           mojom::ActionPersistence::kPreview,
           mojom::FieldActionType::kReplaceAll, query_form_, query_field_,
-          suggestion.main_text.value, suggestion.type, IBAN_VALUE);
+          suggestion.labels.empty() ? suggestion.main_text.value
+                                    : suggestion.labels[0][0].value,
+          suggestion.type, IBAN_VALUE);
       break;
     case SuggestionType::kMerchantPromoCodeEntry:
       manager_->FillOrPreviewField(
@@ -685,7 +702,8 @@ void AutofillExternalDelegate::DidSelectSuggestion(
     case SuggestionType::kDevtoolsTestAddressByCountry:
     case SuggestionType::kDevtoolsTestAddresses:
     case SuggestionType::kEditAddressProfile:
-    case SuggestionType::kPredictionImprovementsDetails:
+    case SuggestionType::kPredictionImprovementsError:
+    case SuggestionType::kEditPredictionImprovementsInformation:
     case SuggestionType::kInsecureContextPaymentDisabledMessage:
     case SuggestionType::kManageAddress:
     case SuggestionType::kManageCreditCard:
@@ -852,6 +870,12 @@ void AutofillExternalDelegate::DidAcceptSuggestion(
     case SuggestionType::kFillPredictionImprovements:
       FillPredictionImprovements(suggestion);
       break;
+    case SuggestionType::kEditPredictionImprovementsInformation:
+      if (AutofillPredictionImprovementsDelegate* delegate =
+              manager_->client().GetAutofillPredictionImprovementsDelegate()) {
+        delegate->GoToSettings();
+      }
+      break;
     case SuggestionType::kInsecureContextPaymentDisabledMessage:
     case SuggestionType::kMixedFormMessage:
       // If the selected element is a warning we don't want to do anything.
@@ -875,7 +899,7 @@ void AutofillExternalDelegate::DidAcceptSuggestion(
     case SuggestionType::kPredictionImprovementsFeedback:
     case SuggestionType::kViewPasswordDetails:
     case SuggestionType::kPredictionImprovementsLoadingState:
-    case SuggestionType::kPredictionImprovementsDetails:
+    case SuggestionType::kPredictionImprovementsError:
       NOTREACHED();  // Should be handled elsewhere.
   }
   // Note that some suggestion types return early.
@@ -909,9 +933,7 @@ void AutofillExternalDelegate::DidPerformButtonActionForSuggestion(
             CreateUpdateSuggestionsCallback());
       }
       return;
-    // TODO(crbug.com/362468426): Update the suggestion type in case it is
-    // decided that feedback will be its own suggestion.
-    case SuggestionType::kFillPredictionImprovements: {
+    case SuggestionType::kPredictionImprovementsFeedback: {
       AutofillPredictionImprovementsDelegate* delegate =
           manager_->client().GetAutofillPredictionImprovementsDelegate();
       if (!delegate) {
@@ -935,21 +957,6 @@ void AutofillExternalDelegate::DidPerformButtonActionForSuggestion(
           delegate->UserClickedLearnMore();
           break;
       }
-      break;
-    }
-    case SuggestionType::kPredictionImprovementsDetails: {
-      AutofillPredictionImprovementsDelegate* delegate =
-          manager_->client().GetAutofillPredictionImprovementsDelegate();
-      if (!delegate) {
-        break;
-      }
-      CHECK(absl::holds_alternative<PredictionImprovementsButtonActions>(
-          button_action));
-      PredictionImprovementsButtonActions action =
-          absl::get<PredictionImprovementsButtonActions>(button_action);
-      CHECK_EQ(action, PredictionImprovementsButtonActions::kLearnMoreClicked);
-
-      delegate->UserClickedLearnMore();
       break;
     }
     default:
@@ -1024,7 +1031,8 @@ bool AutofillExternalDelegate::RemoveSuggestion(const Suggestion& suggestion) {
     case SuggestionType::kRetrievePredictionImprovements:
     case SuggestionType::kPredictionImprovementsLoadingState:
     case SuggestionType::kFillPredictionImprovements:
-    case SuggestionType::kPredictionImprovementsDetails:
+    case SuggestionType::kPredictionImprovementsError:
+    case SuggestionType::kEditPredictionImprovementsInformation:
       return false;
   }
 }
@@ -1376,9 +1384,8 @@ void AutofillExternalDelegate::FillPredictionImprovements(
     // Full form filling.
     Suggestion::PredictionImprovementsPayload payload =
         suggestion.GetPayload<Suggestion::PredictionImprovementsPayload>();
-    manager_->FillOrPreviewFormExperimental(
-        mojom::ActionPersistence::kFill,
-        FillingProduct::kPredictionImprovements, payload.field_types_to_fill,
+    manager_->FillOrPreviewFormWithPredictionImprovements(
+        mojom::ActionPersistence::kFill, payload.field_types_to_fill,
         payload.ignorable_skip_reasons, query_form_, query_field_,
         payload.values_to_fill);
   }

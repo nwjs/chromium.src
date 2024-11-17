@@ -72,6 +72,7 @@
 - (void)start {
   autofill::AutofillSaveUpdateAddressProfileDelegateIOS* delegate =
       [self fetchDelegate];
+  CHECK(delegate);
   _autofillProfile =
       std::make_unique<autofill::AutofillProfile>(*delegate->GetProfile());
 
@@ -119,14 +120,9 @@
       [[TableViewNavigationController alloc] initWithTable:_viewController];
   BOOL isIPad =
       UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad;
-  if (isIPad) {
-    _navigationController.modalPresentationStyle = UIModalPresentationFormSheet;
-    _navigationController.modalInPresentation = YES;
-  } else {
-    _navigationController.modalPresentationStyle =
-        UIModalPresentationFullScreen;
-  }
-
+  _navigationController.modalPresentationStyle =
+      isIPad ? UIModalPresentationFormSheet : UIModalPresentationPageSheet;
+  _navigationController.modalInPresentation = YES;
   _navigationController.modalTransitionStyle =
       UIModalTransitionStyleCoverVertical;
 
@@ -171,8 +167,10 @@
   autofill::AutofillSaveUpdateAddressProfileDelegateIOS* delegate =
       [self fetchDelegateAndAcceptInfobar];
 
-  delegate->SetProfile(_autofillProfile.get());
-  delegate->EditAccepted();
+  if (delegate) {
+    delegate->SetProfile(_autofillProfile.get());
+    delegate->EditAccepted();
+  }
 
   [self stop];
 }
@@ -191,8 +189,10 @@
       [self fetchDelegate];
   if (delegate->IsMigrationToAccount()) {
     delegate->Never();
-    InfoBarManagerImpl::FromWebState(_webState)->RemoveInfoBar(
-        [self addressInfobar]);
+    infobars::InfoBar* infobar = [self addressInfobar];
+    if (infobar) {
+      InfoBarManagerImpl::FromWebState(_webState)->RemoveInfoBar(infobar);
+    }
   } else {
     delegate->EditDeclined();
   }
@@ -205,17 +205,31 @@
 - (autofill::AutofillSaveUpdateAddressProfileDelegateIOS*)
     fetchDelegateAndAcceptInfobar {
   InfoBarIOS* infobar = static_cast<InfoBarIOS*>([self addressInfobar]);
-  infobar->set_accepted(YES);
+  if (!infobar) {
+    return nullptr;
+  }
 
+  infobar->set_accepted(YES);
   return [self fetchDelegateFromInfobar:infobar];
 }
 
 - (autofill::AutofillSaveUpdateAddressProfileDelegateIOS*)fetchDelegate {
   InfoBarIOS* infobar = static_cast<InfoBarIOS*>([self addressInfobar]);
+  if (!infobar) {
+    return nullptr;
+  }
+
   return [self fetchDelegateFromInfobar:infobar];
 }
 
 - (infobars::InfoBar*)addressInfobar {
+  if (!_webState) {
+    // Stop here if the '_webState' was deleted. Doing anything further is
+    // unsafe.
+    base::debug::DumpWithoutCrashing();
+    return nullptr;
+  }
+
   InfoBarManagerImpl* manager = InfoBarManagerImpl::FromWebState(_webState);
   CHECK(manager);
   const auto it = base::ranges::find(
@@ -224,8 +238,7 @@
         return static_cast<const InfoBarIOS*>(infobar)->infobar_type();
       });
 
-  CHECK(it != manager->infobars().cend());
-  return *it;
+  return it != manager->infobars().cend() ? *it : nullptr;
 }
 
 - (autofill::AutofillSaveUpdateAddressProfileDelegateIOS*)
@@ -233,7 +246,7 @@
   autofill::AutofillSaveUpdateAddressProfileDelegateIOS* delegate =
       autofill::AutofillSaveUpdateAddressProfileDelegateIOS::
           FromInfobarDelegate(infobar->delegate());
-  CHECK(delegate);
+
   return delegate;
 }
 

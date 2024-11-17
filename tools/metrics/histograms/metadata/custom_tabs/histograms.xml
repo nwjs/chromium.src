@@ -35,8 +35,53 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="CustomTabs.AuthTab.ExternalNavigationScheme"
+    enum="CustomTabsAuthScheme" expires_after="2025-02-02">
+  <owner>sinansahin@google.com</owner>
+  <owner>chrome-connective-tissue@google.com</owner>
+  <summary>
+    Records the scheme of the external navigation URL for Custom Tabs that were
+    launched with a redirect_uri param. Not recorded for Auth Tabs. Recorded
+    when a URL is sent as an intent to the system. Android only.
+  </summary>
+</histogram>
+
+<histogram name="CustomTabs.AuthTab.RedirectUriScheme"
+    enum="CustomTabsAuthScheme" expires_after="2025-02-02">
+  <owner>sinansahin@google.com</owner>
+  <owner>chrome-connective-tissue@google.com</owner>
+  <summary>
+    Records the scheme of the redirect_uri param within the URL used to launch
+    the Custom Tab. Recorded when the Custom Tab receives and handles the
+    initial intent. Android only.
+  </summary>
+</histogram>
+
+<histogram name="CustomTabs.AuthTab.TimeToDalVerification.SinceFlowCompletion"
+    units="ms" expires_after="2025-02-02">
+  <owner>sinansahin@google.com</owner>
+  <owner>chrome-connective-tissue@google.com</owner>
+  <summary>
+    Records the time it took to complete the DAL verification since the auth
+    flow in the Auth Tab was completed, i.e. navigation to the redirect_uri
+    happened. Unlike CustomTabs.AuthTab.TimeToDalVerification.SinceNativeInit,
+    this is only recorded when the verification isn't done before the auth flow
+    completion. Recorded when OriginVerifier returns a result. Android only.
+  </summary>
+</histogram>
+
+<histogram name="CustomTabs.AuthTab.TimeToDalVerification.SinceStart"
+    units="ms" expires_after="2025-02-02">
+  <owner>sinansahin@google.com</owner>
+  <owner>chrome-connective-tissue@google.com</owner>
+  <summary>
+    Records the total time it took to complete the DAL verification, regardless
+    of the success status, when OriginVerifier returns a result. Android only.
+  </summary>
+</histogram>
+
 <histogram name="CustomTabs.AuthView.UrlParams" units="bit field"
-    expires_after="2025-02-02">
+    expires_after="2025-04-06">
   <owner>sinansahin@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -86,7 +131,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.Branding.BrandingCheckDuration" units="ms"
-    expires_after="2025-01-05">
+    expires_after="2025-04-06">
   <owner>wenyufu@chromium.org</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -194,7 +239,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.DetachedResourceRequest.FinalStatus"
-    enum="NetErrorCodes" expires_after="2025-01-26">
+    enum="NetErrorCodes" expires_after="2025-03-30">
   <owner>lizeb@chromium.org</owner>
   <owner>cct-team@google.com</owner>
   <summary>
@@ -376,7 +421,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.IncognitoCCTCallerId" enum="IncognitoCCTCallerId"
-    expires_after="2025-01-12">
+    expires_after="2025-03-23">
   <owner>arabm@google.com</owner>
   <owner>chrome-incognito@google.com</owner>
   <owner>cct-team@google.com</owner>
@@ -389,7 +434,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.IncognitoCCTCallerIsTrusted" enum="Boolean"
-    expires_after="2025-01-12">
+    expires_after="2025-03-23">
   <owner>dullweber@google.com</owner>
   <owner>chrome-incognito@google.com</owner>
   <owner>cct-team@google.com</owner>
@@ -535,7 +580,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.PageNavigation.ErrorCode" enum="NetErrorCodes"
-    expires_after="2025-01-12">
+    expires_after="2025-03-23">
   <owner>jinsukkim@chromium.org</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -557,7 +602,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.PartialCustomTabType"
-    enum="CustomTabsPartialCustomTabType" expires_after="2025-01-05">
+    enum="CustomTabsPartialCustomTabType" expires_after="2025-03-30">
   <owner>kgrosu@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -706,6 +751,10 @@ chromium-metrics-reviews@google.com.
     It is recommended to limit analysis of data to Android P+ because on prior
     versions the cold start detection is less robust.
 
+    NOTE: This metric is broken before October 2024 on Pixel 6+ on Android 14+
+    due to an issue with the recording of BrowserProcessCreationReason affecting
+    ColdStartTracker downstream.
+
     {suffix}.
   </summary>
   <token key="suffix">
@@ -734,6 +783,10 @@ chromium-metrics-reviews@google.com.
 
     It is recommended to limit analysis of data to Android P+ because on prior
     versions the cold start detection is less robust.
+
+    NOTE: This metric is broken before October 2024 on Pixel 6+ on Android 14+
+    due to an issue with the recording of BrowserProcessCreationReason affecting
+    ColdStartTracker downstream.
 
     {suffix}.
   </summary>
@@ -844,8 +897,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TrustedWebActivity.ExtraCommandSuccess.{command}"
-    enum="BooleanSuccess" expires_after="2024-11-14">
-  <owner>mvanouwerkerk@google.com</owner>
+    enum="BooleanSuccess" expires_after="2025-10-01">
   <owner>peconn@chromium.org</owner>
   <owner>
     src/chrome/android/java/src/org/chromium/chrome/browser/browserservices/OWNERS
@@ -861,8 +913,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TrustedWebActivity.Notification.PermissionRequestResult"
-    enum="ContentSetting" expires_after="2024-11-14">
-  <owner>mvanouwerkerk@chromium.org</owner>
+    enum="ContentSetting" expires_after="2025-10-01">
   <owner>peconn@chromium.org</owner>
   <owner>
     src/chrome/android/java/src/org/chromium/chrome/browser/browserservices/OWNERS

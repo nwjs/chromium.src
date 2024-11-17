@@ -106,6 +106,7 @@
 #include "third_party/blink/renderer/platform/graphics/memory_managed_paint_recorder.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_canvas.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image_to_video_frame_copier.h"
+#include "third_party/blink/renderer/platform/graphics/static_bitmap_image_transform.h"
 #include "third_party/blink/renderer/platform/graphics/web_graphics_context_3d_video_frame_pool.h"
 #include "third_party/blink/renderer/platform/heap/thread_state.h"
 #include "third_party/blink/renderer/platform/image-encoders/image_encoder_utils.h"
@@ -214,6 +215,41 @@ class DisabledAccelerationCounterSupplement final
 const char DisabledAccelerationCounterSupplement::kSupplementName[] =
     "DisabledAccelerationCounterSupplement";
 
+// Tracks whether `transferToGPUTexture()` has been invoked on any canvas
+// element created within the associated Document.
+class TransferToGPUTextureInvokedSupplement final
+    : public GarbageCollected<TransferToGPUTextureInvokedSupplement>,
+      public Supplement<Document> {
+ public:
+  static constexpr char kSupplementName[] =
+      "TransferToGPUTextureInvokedSupplement";
+
+  static TransferToGPUTextureInvokedSupplement& From(Document& d) {
+    TransferToGPUTextureInvokedSupplement* supplement =
+        Supplement<Document>::From<TransferToGPUTextureInvokedSupplement>(d);
+    if (!supplement) {
+      supplement =
+          MakeGarbageCollected<TransferToGPUTextureInvokedSupplement>(d);
+      ProvideTo(d, supplement);
+    }
+    return *supplement;
+  }
+
+  explicit TransferToGPUTextureInvokedSupplement(Document& d)
+      : Supplement<Document>(d) {}
+
+  void SetTransferToGPUTextureWasInvoked() {
+    transfer_to_gpu_texture_was_invoked_ = true;
+  }
+
+  bool TransferToGPUTextureWasInvoked() {
+    return transfer_to_gpu_texture_was_invoked_;
+  }
+
+ private:
+  bool transfer_to_gpu_texture_was_invoked_ = false;
+};
+
 }  // namespace
 
 HTMLCanvasElement::HTMLCanvasElement(Document& document)
@@ -229,9 +265,10 @@ HTMLCanvasElement::HTMLCanvasElement(Document& document)
       surface_layer_bridge_(nullptr),
       externally_allocated_memory_(0) {
   UseCounter::Count(document, WebFeature::kHTMLCanvasElement);
-  // Create DisabledAccelerationCounterSupplement now, as it may be needed at a
+  // Create supplements now, as they may be needed at a
   // time when garbage collected objects can not be created.
   DisabledAccelerationCounterSupplement::From(GetDocument());
+  TransferToGPUTextureInvokedSupplement::From(GetDocument());
   GetDocument().IncrementNumberOfCanvases();
   auto* execution_context = GetExecutionContext();
   if (execution_context) {
@@ -242,8 +279,10 @@ HTMLCanvasElement::HTMLCanvasElement(Document& document)
 }
 
 HTMLCanvasElement::~HTMLCanvasElement() {
-  v8::Isolate::GetCurrent()->AdjustAmountOfExternalAllocatedMemory(
-      -externally_allocated_memory_);
+  if (externally_allocated_memory_ > 0) {
+    external_memory_accounter_.Decrease(v8::Isolate::GetCurrent(),
+                                        externally_allocated_memory_);
+  }
 }
 
 void HTMLCanvasElement::Dispose() {
@@ -465,8 +504,10 @@ CanvasRenderingContext* HTMLCanvasElement::GetCanvasRenderingContextInternal(
   // If this context is cross-origin, it should prefer to use the low-power GPU
   LocalFrame* frame = GetDocument().GetFrame();
   CanvasContextCreationAttributesCore recomputed_attributes = attributes;
-  if (frame && frame->IsCrossOriginToOutermostMainFrame())
-    recomputed_attributes.power_preference = "low-power";
+  if (frame && frame->IsCrossOriginToOutermostMainFrame()) {
+    recomputed_attributes.power_preference =
+        CanvasContextCreationAttributesCore::PowerPreference::kLowPower;
+  }
 
   context_ = factory->Create(this, recomputed_attributes);
   if (!context_)
@@ -1011,8 +1052,11 @@ void HTMLCanvasElement::PaintInternal(GraphicsContext& context,
             : SkBlendMode::kSrc;
     gfx::RectF src_rect((gfx::SizeF(Size())));
     scoped_refptr<StaticBitmapImage> snapshot =
+        // TODO(crbug.com/40280152): Port this check away from checking
+        // `canvas2d_bridge_` directly as part of eliminating
+        // Canvas2DLayerBridge.
         canvas2d_bridge_
-            ? canvas2d_bridge_->NewImageSnapshot(FlushReason::kPaint)
+            ? context_->GetImage(FlushReason::kPaint)
             : (ResourceProvider()
                    ? ResourceProvider()->Snapshot(FlushReason::kPaint)
                    : nullptr);
@@ -1381,7 +1425,7 @@ bool HTMLCanvasElement::ShouldDisableAccelerationBecauseOfReadback() const {
 }
 
 std::unique_ptr<Canvas2DLayerBridge> HTMLCanvasElement::Create2DLayerBridge() {
-  return std::make_unique<Canvas2DLayerBridge>();
+  return std::make_unique<Canvas2DLayerBridge>(this);
 }
 
 void HTMLCanvasElement::SetCanvas2DLayerBridgeInternal(
@@ -1420,8 +1464,6 @@ void HTMLCanvasElement::SetCanvas2DLayerBridgeInternal(
 
   if (!canvas2d_bridge_)
     return;
-
-  canvas2d_bridge_->SetCanvasResourceHost(this);
 
   did_fail_to_create_resource_provider_ = false;
   UpdateMemoryUsage();
@@ -1642,10 +1684,11 @@ HTMLCanvasElement::GetSourceImageForCanvasInternal(
   }
 
   *status = kNormalSourceImageStatus;
+
   // If the alpha_disposition is already correct, or the image is opaque, this
   // is a no-op.
-  return GetImageWithAlphaDisposition(reason, std::move(image),
-                                      alpha_disposition);
+  return StaticBitmapImageTransform::GetWithAlphaDisposition(
+      reason, std::move(image), alpha_disposition);
 }
 
 bool HTMLCanvasElement::WouldTaintOrigin() const {
@@ -1802,8 +1845,7 @@ void HTMLCanvasElement::UpdateMemoryUsage() {
     // AdjustAmountOfExternalAllocatedMemory is safe, hence the
     // 'diposing_' condition in the DCHECK below.
     DCHECK(ThreadState::Current()->IsAllocationAllowed() || disposing_);
-    v8::Isolate::GetCurrent()->AdjustAmountOfExternalAllocatedMemory(
-        delta_bytes);
+    external_memory_accounter_.Update(v8::Isolate::GetCurrent(), delta_bytes);
     externally_allocated_memory_ = externally_allocated_memory;
   }
 }
@@ -1822,9 +1864,11 @@ void HTMLCanvasElement::ReplaceExisting2dLayerBridge(
 
   scoped_refptr<StaticBitmapImage> image;
   std::unique_ptr<Canvas2DLayerBridge> old_layer_bridge;
+  // TODO(crbug.com/40280152): Port this check away from checking
+  // `canvas2d_bridge_` directly as part of eliminating
+  // Canvas2DLayerBridge.
   if (canvas2d_bridge_) {
-    image =
-        canvas2d_bridge_->NewImageSnapshot(FlushReason::kReplaceLayerBridge);
+    image = context_->GetImage(FlushReason::kReplaceLayerBridge);
     // image can be null if allocation failed in which case we should just
     // abort the surface switch to retain the old surface which is still
     // functional.
@@ -1837,7 +1881,6 @@ void HTMLCanvasElement::ReplaceExisting2dLayerBridge(
   ResetLayer();
   ReplaceResourceProvider(nullptr);
   canvas2d_bridge_ = std::move(new_layer_bridge);
-  canvas2d_bridge_->SetCanvasResourceHost(this);
 
   if (new_provider_for_testing) {
     ReplaceResourceProvider(std::move(new_provider_for_testing));
@@ -1850,7 +1893,6 @@ void HTMLCanvasElement::ReplaceExisting2dLayerBridge(
   if (!new_provider) {
     if (old_layer_bridge) {
       canvas2d_bridge_ = std::move(old_layer_bridge);
-      canvas2d_bridge_->SetCanvasResourceHost(this);
     }
     return;
   }
@@ -1918,7 +1960,18 @@ RespectImageOrientationEnum HTMLCanvasElement::RespectImageOrientation() const {
 
 // Temporary plumbing
 bool HTMLCanvasElement::IsHibernating() const {
-  return canvas2d_bridge_ && canvas2d_bridge_->IsHibernating();
+  return canvas2d_bridge_ &&
+         canvas2d_bridge_->GetHibernationHandler().IsHibernating();
+}
+
+void HTMLCanvasElement::SetTransferToGPUTextureWasInvoked() {
+  TransferToGPUTextureInvokedSupplement::From(GetDocument())
+      .SetTransferToGPUTextureWasInvoked();
+}
+
+bool HTMLCanvasElement::TransferToGPUTextureWasInvoked() {
+  return TransferToGPUTextureInvokedSupplement::From(GetDocument())
+      .TransferToGPUTextureWasInvoked();
 }
 
 bool HTMLCanvasElement::IsAccelerated() const {

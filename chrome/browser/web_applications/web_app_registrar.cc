@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "ash/constants/web_app_id_constants.h"
 #include "base/check_op.h"
 #include "base/containers/contains.h"
 #include "base/containers/enum_set.h"
@@ -39,7 +40,6 @@
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
-#include "chrome/browser/web_applications/web_app_id_constants.h"
 #include "chrome/browser/web_applications/web_app_install_utils.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar_observer.h"
@@ -630,11 +630,13 @@ void WebAppRegistrar::SetProvider(base::PassKey<WebAppProvider>,
 }
 
 void WebAppRegistrar::Start() {
+  auto user_installed_app_count = CountTotalUserInstalledAppsIncludingDiy();
   int num_user_installed_apps =
-      std::get<InstallableAppCount>(CountTotalUserInstalledAppsIncludingDiy())
-          .value();
+      std::get<InstallableAppCount>(user_installed_app_count).value();
   int num_user_installed_diy_apps =
-      std::get<DiyAppCount>(CountTotalUserInstalledAppsIncludingDiy()).value();
+      std::get<DiyAppCount>(user_installed_app_count).value();
+  int num_non_syncing_apps =
+      std::get<NonSyncingAppCount>(user_installed_app_count).value();
   int num_non_locally_installed = CountUserInstalledNotLocallyInstalledApps();
 
   base::UmaHistogramCounts1000("WebApp.InstalledCount.ByUser",
@@ -644,6 +646,15 @@ void WebAppRegistrar::Start() {
       num_non_locally_installed);
   base::UmaHistogramCounts1000("WebApp.DiyAppsInstalledCount.ByUser",
                                num_user_installed_diy_apps);
+
+  if (IsSyncEnabledForApps(profile_)) {
+    base::UmaHistogramCounts1000("WebApp.InstalledCount.NotSyncing.SyncEnabled",
+                                 num_non_syncing_apps);
+  } else {
+    base::UmaHistogramCounts1000(
+        "WebApp.InstalledCount.ByUserNotLocallyInstalled.SyncDisabled",
+        num_non_locally_installed);
+  }
 
 #if BUILDFLAG(IS_MAC)
   auto multi_profile_app_ids =
@@ -1049,7 +1060,7 @@ WebAppRegistrar::GetIsolatedWebAppStoragePartitionConfigs(
 
   // Get all on-disk Controlled Frame partitions.
   for (const std::string& partition :
-       isolated_web_app->isolation_data()->controlled_frame_partitions) {
+       isolated_web_app->isolation_data()->controlled_frame_partitions()) {
     partitions.push_back(url_info->GetStoragePartitionConfigForControlledFrame(
         profile_, partition, /*in_memory=*/false));
   }
@@ -1774,6 +1785,13 @@ bool IsRegistryEqual(const Registry& registry,
     if (exclude_current_os_integration) {
       web_app.SetCurrentOsIntegrationStates(proto::WebAppOsIntegrationState());
       web_app2.SetCurrentOsIntegrationStates(proto::WebAppOsIntegrationState());
+      // Tests that want to ignore current os integration state usually also
+      // want to ignore the presence/absece of the "user installed" source, as
+      // that is something else that is not synced across.
+      // TODO(https://crbug.com/372062068): Figure out a better way to handle
+      // differences in installed state.
+      web_app.RemoveSource(WebAppManagement::kUserInstalled);
+      web_app2.RemoveSource(WebAppManagement::kUserInstalled);
     }
     if (web_app != web_app2) {
       LOG(ERROR) << "Web apps are not equal:\n" << web_app << "\n" << web_app2;
@@ -1806,10 +1824,11 @@ int WebAppRegistrar::CountUserInstalledNotLocallyInstalledApps() const {
   return num_non_locally_installed;
 }
 
-std::tuple<DiyAppCount, InstallableAppCount>
+std::tuple<DiyAppCount, InstallableAppCount, NonSyncingAppCount>
 WebAppRegistrar::CountTotalUserInstalledAppsIncludingDiy() const {
   InstallableAppCount num_user_installed(0);
   DiyAppCount num_diy_apps_user_installed(0);
+  NonSyncingAppCount num_non_syncing_user_installed(0);
   for (const WebApp& app : GetApps()) {
     if ((app.install_state() == proto::INSTALLED_WITH_OS_INTEGRATION ||
          app.install_state() == proto::INSTALLED_WITHOUT_OS_INTEGRATION) &&
@@ -1817,10 +1836,14 @@ WebAppRegistrar::CountTotalUserInstalledAppsIncludingDiy() const {
       if (app.is_diy_app()) {
         ++num_diy_apps_user_installed.value();
       }
+      if (!app.IsSynced()) {
+        ++num_non_syncing_user_installed.value();
+      }
       ++num_user_installed.value();
     }
   }
-  return std::make_tuple(num_diy_apps_user_installed, num_user_installed);
+  return std::make_tuple(num_diy_apps_user_installed, num_user_installed,
+                         num_non_syncing_user_installed);
 }
 
 }  // namespace web_app

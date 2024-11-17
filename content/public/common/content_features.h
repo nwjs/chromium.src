@@ -63,8 +63,6 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kBrowserVerifiedUserActivationMouse);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCacheControlNoStoreEnterBackForwardCache);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCapturedSurfaceControlStickyPermissions);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCapturedSurfaceControlKillswitch);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kCdmStorageDatabase);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kCdmStorageDatabaseMigration);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kClearCrossSiteCrossBrowsingContextGroupWindowName);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCompositeBGColorAnimation);
@@ -110,6 +108,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kEarlyEstablishGpuChannel);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnableCanvas2DLayers);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnableServiceWorkersForChromeScheme);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnableServiceWorkersForChromeUntrusted);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnsureExistingRendererAlive);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCm);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmAuthz);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmButtonMode);
@@ -121,10 +120,14 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmSelectiveDisclosure);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmUseOtherAccount);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFedCmWithoutWellKnownEnforcement);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFencedFramesEnforceFocus);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kForwardMemoryPressureToBlinkIsolates);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebIdentityDigitalCredentials);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFractionalScrollOffsets);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kGreaseUACH);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kIdbPrioritizeForegroundClients);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kIgnoreDuplicateNavs);
+CONTENT_EXPORT BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
+                                          kDuplicateNavThreshold);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kInstalledApp);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kInstalledAppProvider);
 // LINT.IfChange
@@ -134,7 +137,6 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kAutomaticFullscreenContentSetting);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kIsolateFencedFrames);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kIsolateOrigins);
 CONTENT_EXPORT extern const char kIsolateOriginsFieldTrialParamName[];
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kJavaScriptExperimentalSharedMemory);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kLazyInitializeMediaControls);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kLegacyTechReportEnableCookieIssueReports);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kLegacyWindowsDWriteFontFallback);
@@ -174,6 +176,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kNotificationTriggers);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kNoStatePrefetchHoldback);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kOriginIsolationHeader);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kOverscrollHistoryNavigation);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kPartitionedPopinsHeaderPolicyBypass);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPdfEnforcements);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPeriodicBackgroundSync);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFeaturePolicyHeader);
@@ -249,6 +252,7 @@ CONTENT_EXPORT extern const base::FeatureParam<double>
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSuppressDifferentOriginSubframeJSDialogs);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSyntheticPointerActions);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kTouchDragAndContextMenu);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kUseBrowserCalculatedOrigin);
 #if BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT extern const base::FeatureParam<int>
     kTouchDragMovementThresholdDip;
@@ -282,6 +286,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kAccessibilityPageZoom);
 CONTENT_EXPORT extern const base::FeatureParam<bool>
     kAccessibilityPageZoomOSLevelAdjustment;
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAccessibilityPageZoomEnhancements);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kAccessibilityPageZoomV2);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAccessibilityUnifiedSnapshots);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kAccessibilityManageBroadcastReceiverOnBackground);

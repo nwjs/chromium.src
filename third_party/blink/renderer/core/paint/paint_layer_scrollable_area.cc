@@ -194,7 +194,7 @@ void PaintLayerScrollableArea::DisposeImpl() {
       frame_view->RemoveUserScrollableArea(this);
       frame_view->RemoveAnimatingScrollableArea(this);
       frame_view->RemovePendingSnapUpdate(this);
-      probe::UpdateScrollableFlag(GetLayoutBox()->GetNode());
+      probe::UpdateScrollableFlag(GetLayoutBox()->GetNode(), false);
     }
   }
 
@@ -527,9 +527,6 @@ void PaintLayerScrollableArea::UpdateScrollOffset(
                                            .LocalFrameRoot()
                                            .GetOrResetContentCaptureManager()) {
     manager->OnScrollPositionChanged();
-  }
-  if (GetLayoutBox()->IsScrollContainerWithScrollMarkerGroup()) {
-    GetLayoutBox()->UpdateScrollMarkerControlsAfterScroll();
   }
   if (AXObjectCache* cache =
           GetLayoutBox()->GetDocument().ExistingAXObjectCache())
@@ -1141,7 +1138,7 @@ bool PaintLayerScrollableArea::IsApplyingScrollStart() const {
       return false;
     }
     if (RuntimeEnabledFeatures::CSSScrollStartTargetEnabled() &&
-        GetScrollStartTargets()) {
+        GetScrollStartTarget()) {
       return true;
     }
     return RuntimeEnabledFeatures::CSSScrollStartEnabled() &&
@@ -2565,7 +2562,7 @@ void PaintLayerScrollableArea::UpdateScrollableAreaSet() {
   } else {
     frame_view->RemoveUserScrollableArea(this);
   }
-  probe::UpdateScrollableFlag(GetLayoutBox()->GetNode());
+  probe::UpdateScrollableFlag(GetLayoutBox()->GetNode(), std::nullopt);
 
   layer_->DidUpdateScrollsOverflow();
 
@@ -3356,6 +3353,11 @@ PaintLayerScrollableArea::EnsureSnappedQueryScrollSnapshot() {
   return *rare_data.snapped_query_snapshot_;
 }
 
+SnappedQueryScrollSnapshot*
+PaintLayerScrollableArea::GetSnappedQueryScrollSnapshot() {
+  return RareData() ? RareData()->snapped_query_snapshot_ : nullptr;
+}
+
 void PaintLayerScrollableArea::CreateAndSetSnappedQueryScrollSnapshotIfNeeded(
     cc::TargetSnapAreaElementIds ids) {
   if (!RuntimeEnabledFeatures::CSSSnapContainerQueriesEnabled()) {
@@ -3378,8 +3380,7 @@ void PaintLayerScrollableArea::CreateAndSetSnappedQueryScrollSnapshotIfNeeded(
     if (ContainerQueryEvaluator* evaluator =
             target->GetContainerQueryEvaluator()) {
       if (evaluator->DependsOnSnapped()) {
-        evaluator->SetPendingSnappedStateFromScrollSnapshot(
-            EnsureSnappedQueryScrollSnapshot());
+        EnsureSnappedQueryScrollSnapshot();
       }
     }
   }

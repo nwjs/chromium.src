@@ -97,15 +97,6 @@ bool InitExperiment(disk_cache::IndexHeader* header, bool cache_created) {
     return false;
   }
 
-  if (base::FieldTrialList::FindFullName("SimpleCacheTrial") ==
-          "ExperimentControl") {
-    if (cache_created) {
-      header->experiment = disk_cache::EXPERIMENT_SIMPLE_CONTROL;
-      return true;
-    }
-    return header->experiment == disk_cache::EXPERIMENT_SIMPLE_CONTROL;
-  }
-
   header->experiment = disk_cache::NO_EXPERIMENT;
   return true;
 }
@@ -549,7 +540,7 @@ scoped_refptr<EntryImpl> BackendImpl::CreateEntryImpl(const std::string& key) {
     DCHECK(!error);
     if (!parent && data_->table[hash & mask_]) {
       // We should have corrected the problem.
-      NOTREACHED_IN_MIGRATION();
+      DUMP_WILL_BE_NOTREACHED();
       return nullptr;
     }
   }
@@ -704,7 +695,7 @@ bool BackendImpl::SetMaxSize(int64_t max_bytes) {
 
 base::FilePath BackendImpl::GetFileName(Addr address) const {
   if (!address.is_separate_file() || !address.is_initialized()) {
-    NOTREACHED_IN_MIGRATION();
+    DUMP_WILL_BE_NOTREACHED();
     return base::FilePath();
   }
 

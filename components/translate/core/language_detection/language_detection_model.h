@@ -22,14 +22,24 @@ BASE_DECLARE_FEATURE(kTruncateLanguageDetectionSample);
 class LanguageDetectionModel {
  public:
   explicit LanguageDetectionModel(
-      language_detection::LanguageDetectionModel* tflite_model_);
+      language_detection::LanguageDetectionModel& shared_tflite_model);
+  explicit LanguageDetectionModel(
+      std::unique_ptr<language_detection::LanguageDetectionModel>
+          owned_tflite_model);
   ~LanguageDetectionModel();
 
-#if !BUILDFLAG(IS_IOS)
   // Updates the language detection model for use by memory-mapping
   // |model_file| used to detect the language of the page.
+  //
+  // This method is blocking and should only be called in context where
+  // it is valid to block the current thread. If this is not the case,
+  // use UpdateWithFileAsync(...) instead.
   void UpdateWithFile(base::File model_file);
-#endif
+
+  // Asynchronously updates the language detection model for use by
+  // memory-mapping |model_file| used to detect the language of the
+  // page and invokes |callback| when the update is done.
+  void UpdateWithFileAsync(base::File model_file, base::OnceClosure callback);
 
   // Returns whether |this| is initialized and is available to handle requests
   // to determine the language of the page.
@@ -57,7 +67,9 @@ class LanguageDetectionModel {
       const std::u16string& sampled_str) const;
 
   // The tflite classifier that can determine the language of text.
-  const raw_ptr<language_detection::LanguageDetectionModel> tflite_model_;
+  std::unique_ptr<language_detection::LanguageDetectionModel>
+      owned_tflite_model_;
+  const raw_ref<language_detection::LanguageDetectionModel> tflite_model_;
 };
 
 }  // namespace translate

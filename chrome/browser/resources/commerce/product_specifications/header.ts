@@ -6,7 +6,7 @@ import '../strings.m.js';
 import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import 'chrome://resources/cr_elements/cr_input/cr_input.js';
 import 'chrome://resources/cr_elements/cr_shared_style.css.js';
-import 'chrome://resources/cr_elements/icons.html.js';
+import 'chrome://resources/cr_elements/icons_lit.html.js';
 import './header_menu.js';
 
 import type {CrIconButtonElement} from 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
@@ -101,6 +101,8 @@ export class HeaderElement extends PolymerElement {
     if (!inputValue) {
       if (this.subtitle) {
         this.getInput_().value = this.subtitle;
+        // Move the cursor back to the end of the input.
+        this.getInput_().select(this.subtitle.length, this.subtitle.length);
       }
       return;
     }

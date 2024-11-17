@@ -234,7 +234,8 @@ public class NativePageFactory {
                     mHomeSurfaceTracker,
                     mTabContentManagerSupplier,
                     mTabStripHeightSupplier,
-                    mModuleRegistrySupplier);
+                    mModuleRegistrySupplier,
+                    mEdgeToEdgeControllerSupplier);
         }
 
         protected NativePage buildBookmarksPage(Tab tab) {
@@ -279,11 +280,7 @@ public class NativePageFactory {
                                             tab,
                                             mTabModelSelector.isIncognitoSelected()));
             return new RecentTabsPage(
-                    mActivity,
-                    recentTabsManager,
-                    new TabShim(tab, mBrowserControlsManager, mTabModelSelector),
-                    mBrowserControlsManager,
-                    mTabStripHeightSupplier);
+                    mActivity, recentTabsManager, mBrowserControlsManager, mTabStripHeightSupplier);
         }
 
         protected NativePage buildManagementPage(Tab tab) {

@@ -31,13 +31,6 @@
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/actions/actions.h"
 #include "chrome/browser/ui/views/side_panel/extensions/extension_side_panel_manager.h"
-#include "extensions/common/extension_features.h"
-
-DEFINE_UI_CLASS_PROPERTY_TYPE(SidePanelContentState)
-DEFINE_UI_CLASS_PROPERTY_KEY(std::underlying_type_t<SidePanelContentState>,
-                             kSidePanelContentStateKey,
-                             std::underlying_type_t<SidePanelContentState>(
-                                 SidePanelContentState::kReadyToShow))
 
 // static
 void SidePanelUtil::PopulateGlobalEntries(Browser* browser,
@@ -65,14 +58,6 @@ void SidePanelUtil::PopulateGlobalEntries(Browser* browser,
           /*include_runtime_checks=*/false)) {
     SearchCompanionSidePanelCoordinator::GetOrCreateForBrowser(browser);
   }
-
-  if (base::FeatureList::IsEnabled(
-          extensions_features::kExtensionSidePanelIntegration)) {
-    extensions::ExtensionSidePanelManager::CreateForBrowser(browser,
-                                                            window_registry);
-  }
-
-  return;
 }
 
 SidePanelContentProxy* SidePanelUtil::GetSidePanelContentProxy(
@@ -83,14 +68,6 @@ SidePanelContentProxy* SidePanelUtil::GetSidePanelContentProxy(
         std::make_unique<SidePanelContentProxy>(true).release());
   }
   return content_view->GetProperty(kSidePanelContentProxyKey);
-}
-
-std::unique_ptr<views::View> SidePanelUtil::DeregisterAndReturnView(
-    SidePanelRegistry* registry,
-    SidePanelEntry::Key key) {
-  std::unique_ptr<SidePanelEntry> entry =
-      registry->DeregisterAndReturnEntry(key);
-  return entry->CachedView() ? entry->GetContent() : nullptr;
 }
 
 void SidePanelUtil::RecordSidePanelOpen(

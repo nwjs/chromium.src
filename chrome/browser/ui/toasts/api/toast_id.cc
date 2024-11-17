@@ -22,6 +22,10 @@ std::string GetToastName(ToastId toast_id) {
       return "LensOverlay";
     case ToastId::kNonMilestoneUpdate:
       return "NonMilestoneUpdate";
+    case ToastId::kAddedToComparisonTable:
+      return "AddedToComparisonTable";
+    case ToastId::kClearBrowsingData:
+      return "ClearBrowsingData";
   }
 
   NOTREACHED();

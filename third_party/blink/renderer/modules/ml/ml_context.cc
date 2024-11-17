@@ -176,6 +176,11 @@ ScriptPromise<MLComputeResult> MLContext::compute(
     return EmptyPromise();
   }
 
+  LogConsoleWarning(script_state,
+                    "WARNING: MLContext.compute() is deprecated. Use "
+                    "MLContext.dispatch() instead.",
+                    mojom::blink::ConsoleMessageSource::kDeprecation);
+
   return graph->Compute(std::move(scoped_trace), inputs, outputs, script_state,
                         exception_state);
 }
@@ -403,11 +408,35 @@ const MLOpSupportLimits* MLContext::opSupportLimits(ScriptState* script_state) {
   lesser_or_equal->setOutput(
       SupportedDataTypesToSupportLimits(data_type_limits.logical_output));
   op_support_limits->setLesserOrEqual(lesser_or_equal);
+  MLBinarySupportLimits* logical_and = MLBinarySupportLimits::Create();
+  logical_and->setA(
+      SupportedDataTypesToSupportLimits(data_type_limits.logical_and_input));
+  logical_and->setB(
+      SupportedDataTypesToSupportLimits(data_type_limits.logical_and_input));
+  logical_and->setOutput(
+      SupportedDataTypesToSupportLimits(data_type_limits.logical_output));
+  op_support_limits->setLogicalAnd(logical_and);
+  MLBinarySupportLimits* logical_or = MLBinarySupportLimits::Create();
+  logical_or->setA(
+      SupportedDataTypesToSupportLimits(data_type_limits.logical_or_input));
+  logical_or->setB(
+      SupportedDataTypesToSupportLimits(data_type_limits.logical_or_input));
+  logical_or->setOutput(
+      SupportedDataTypesToSupportLimits(data_type_limits.logical_output));
+  op_support_limits->setLogicalOr(logical_or);
+  MLBinarySupportLimits* logical_xor = MLBinarySupportLimits::Create();
+  logical_xor->setA(
+      SupportedDataTypesToSupportLimits(data_type_limits.logical_xor_input));
+  logical_xor->setB(
+      SupportedDataTypesToSupportLimits(data_type_limits.logical_xor_input));
+  logical_xor->setOutput(
+      SupportedDataTypesToSupportLimits(data_type_limits.logical_output));
+  op_support_limits->setLogicalXor(logical_xor);
   MLLogicalNotSupportLimits* logical_not = MLLogicalNotSupportLimits::Create();
   logical_not->setA(
       SupportedDataTypesToSupportLimits(data_type_limits.logical_not_input));
   logical_not->setOutput(
-      SupportedDataTypesToSupportLimits(data_type_limits.logical_not_input));
+      SupportedDataTypesToSupportLimits(data_type_limits.logical_output));
   op_support_limits->setLogicalNot(logical_not);
 
   // Element-wise unary ops.
@@ -509,6 +538,15 @@ const MLOpSupportLimits* MLContext::opSupportLimits(ScriptState* script_state) {
   gather_elements->setOutput(SupportedDataTypesToSupportLimits(
       data_type_limits.gather_elements_input));
   op_support_limits->setGatherElements(gather_elements);
+
+  MLGatherSupportLimits* gather_nd = MLGatherSupportLimits::Create();
+  gather_nd->setInput(
+      SupportedDataTypesToSupportLimits(data_type_limits.gather_nd_input));
+  gather_nd->setIndices(
+      SupportedDataTypesToSupportLimits(data_type_limits.gather_nd_indices));
+  gather_nd->setOutput(
+      SupportedDataTypesToSupportLimits(data_type_limits.gather_nd_input));
+  op_support_limits->setGatherND(gather_nd);
 
   MLSingleInputSupportLimits* gelu = MLSingleInputSupportLimits::Create();
   gelu->setInput(
@@ -800,6 +838,17 @@ const MLOpSupportLimits* MLContext::opSupportLimits(ScriptState* script_state) {
       SupportedDataTypesToSupportLimits(data_type_limits.reshape_input));
   op_support_limits->setReshape(reshape);
 
+  MLScatterSupportLimits* scatter_elements = MLScatterSupportLimits::Create();
+  scatter_elements->setInput(SupportedDataTypesToSupportLimits(
+      data_type_limits.scatter_elements_input));
+  scatter_elements->setIndices(SupportedDataTypesToSupportLimits(
+      data_type_limits.scatter_elements_indices));
+  scatter_elements->setUpdates(SupportedDataTypesToSupportLimits(
+      data_type_limits.scatter_elements_input));
+  scatter_elements->setOutput(SupportedDataTypesToSupportLimits(
+      data_type_limits.scatter_elements_input));
+  op_support_limits->setScatterElements(scatter_elements);
+
   MLScatterSupportLimits* scatter_nd = MLScatterSupportLimits::Create();
   scatter_nd->setInput(
       SupportedDataTypesToSupportLimits(data_type_limits.scatter_nd_input));
@@ -923,14 +972,21 @@ ScriptPromise<MLTensor> MLContext::createTensor(
     return EmptyPromise();
   }
 
-  ASSIGN_OR_RETURN(webnn::OperandDescriptor validated_descriptor,
-                   webnn::OperandDescriptor::Create(
-                       FromBlinkDataType(descriptor->dataType().AsEnum()),
-                       descriptor->dimensions()),
-                   [&exception_state](std::string error) {
-                     exception_state.ThrowTypeError(String(error));
-                     return ScriptPromise<MLTensor>();
-                   });
+  ASSIGN_OR_RETURN(
+      Vector<uint32_t> shape, GetShapeFromDescriptor(script_state, *descriptor),
+      [&exception_state](std::string error) -> ScriptPromise<MLTensor> {
+        exception_state.ThrowTypeError(String::FromUTF8(error));
+        return EmptyPromise();
+      });
+
+  ASSIGN_OR_RETURN(
+      webnn::OperandDescriptor validated_descriptor,
+      webnn::OperandDescriptor::Create(
+          FromBlinkDataType(descriptor->dataType().AsEnum()), shape),
+      [&exception_state](std::string error) {
+        exception_state.ThrowTypeError(String(error));
+        return ScriptPromise<MLTensor>();
+      });
 
   RETURN_IF_ERROR(webnn::ValidateTensor(properties_, validated_descriptor),
                   [&exception_state](std::string error) {

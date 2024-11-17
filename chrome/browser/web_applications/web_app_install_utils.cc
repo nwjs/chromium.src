@@ -39,6 +39,7 @@
 #include "chrome/browser/favicon/favicon_utils.h"
 #include "chrome/browser/shortcuts/shortcut_icon_generator.h"
 #include "chrome/browser/ssl/chrome_security_state_tab_helper.h"
+#include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
 #include "chrome/browser/web_applications/os_integration/web_app_file_handler_manager.h"
 #include "chrome/browser/web_applications/policy/pre_redirection_url_observer.h"
@@ -59,6 +60,8 @@
 #include "components/services/app_service/public/cpp/share_target.h"
 #include "components/services/app_service/public/cpp/url_handler_info.h"
 #include "components/sync/protocol/web_app_specifics.pb.h"
+#include "components/sync/service/sync_service.h"
+#include "components/sync/service/sync_user_settings.h"
 #include "components/webapps/browser/banners/app_banner_settings_helper.h"
 #include "components/webapps/browser/installable/installable_evaluator.h"
 #include "components/webapps/browser/installable/installable_manager.h"
@@ -600,7 +603,7 @@ void PopulateFileHandlerInfoFromManifest(
 // If any icons are correctly specified in the manifest, they take precedence
 // over any we picked up from web page metadata.
 void UpdateWebAppInstallInfoIconsFromManifestIfNeeded(
-    const std::vector<blink::Manifest::ImageResource> icons,
+    const std::vector<blink::Manifest::ImageResource>& icons,
     WebAppInstallInfo* web_app_info) {
   std::vector<apps::IconInfo> web_app_icons;
   for (const auto& icon : icons) {
@@ -1022,6 +1025,9 @@ webapps::WebappUninstallSource ConvertExternalInstallSourceToUninstallSource(
 WebAppManagement::Type ConvertInstallSurfaceToWebAppSource(
     webapps::WebappInstallSource install_source) {
   switch (install_source) {
+    case webapps::WebappInstallSource::SYNC:
+      return WebAppManagement::kSync;
+
     case webapps::WebappInstallSource::MENU_BROWSER_TAB:
     case webapps::WebappInstallSource::MENU_CUSTOM_TAB:
     case webapps::WebappInstallSource::AUTOMATIC_PROMPT_BROWSER_TAB:
@@ -1035,14 +1041,18 @@ WebAppManagement::Type ConvertInstallSurfaceToWebAppSource(
     case webapps::WebappInstallSource::RICH_INSTALL_UI_WEBLAYER:
     case webapps::WebappInstallSource::ML_PROMOTION:
     case webapps::WebappInstallSource::OMNIBOX_INSTALL_ICON:
-    case webapps::WebappInstallSource::SYNC:
     case webapps::WebappInstallSource::MENU_CREATE_SHORTCUT:
     case webapps::WebappInstallSource::CHROME_SERVICE:
     case webapps::WebappInstallSource::PROFILE_MENU:
     case webapps::WebappInstallSource::ALMANAC_INSTALL_APP_URI:
     case webapps::WebappInstallSource::WEBAPK_RESTORE:
     case webapps::WebappInstallSource::OOBE_APP_RECOMMENDATIONS:
-      return WebAppManagement::kSync;
+      if (base::FeatureList::IsEnabled(
+              features::kWebAppDontAddExistingAppsToSync)) {
+        return WebAppManagement::kUserInstalled;
+      } else {
+        return WebAppManagement::kSync;
+      }
 
     case webapps::WebappInstallSource::IWA_GRAPHICAL_INSTALLER:
     case webapps::WebappInstallSource::IWA_DEV_UI:
@@ -1086,7 +1096,7 @@ WebAppManagement::Type ConvertInstallSurfaceToWebAppSource(
 
     case webapps::WebappInstallSource::COUNT:
       NOTREACHED_IN_MIGRATION();
-      return WebAppManagement::kSync;
+      return WebAppManagement::kUserInstalled;
   }
 }
 
@@ -1292,6 +1302,21 @@ bool HomeTabIconsExistInTabStrip(const WebAppInstallInfo& web_app_info) {
   }
 
   return true;
+}
+
+bool IsSyncEnabledForApps(Profile* profile) {
+  if (!SyncServiceFactory::HasSyncService(profile)) {
+    return false;
+  }
+  syncer::SyncService* sync_service =
+      SyncServiceFactory::GetForProfile(profile);
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  return sync_service->GetUserSettings()->GetSelectedOsTypes().Has(
+      syncer::UserSelectableOsType::kOsApps);
+#else
+  return sync_service->GetUserSettings()->GetSelectedTypes().Has(
+      syncer::UserSelectableType::kApps);
+#endif
 }
 
 }  // namespace web_app

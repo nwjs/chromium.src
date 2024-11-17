@@ -14,6 +14,9 @@
 // Object.prototype.
 //
 // Note that the properties and methods we taint are not exhaustive.
+//
+// Controlled Frame has a test derived from this at:
+// //chrome/browser/controlled_frame/controlled_frame_apitest.cc
 
 window.onload = () => {
   chrome.test.sendMessage('LAUNCHED');

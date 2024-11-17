@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 
+#include "base/feature_list.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/observer_list.h"
@@ -20,8 +21,8 @@
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_entry_id.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_registry.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_registry_observer.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_util.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_view_state_observer.h"
@@ -55,8 +56,7 @@ class View;
 // registry's active_entry() then global registry's. These values are reset when
 // the side panel is closed and |last_active_global_entry_id_| is used to
 // determine what entry is seen when the panel is reopened.
-class SidePanelCoordinator final : public SidePanelRegistryObserver,
-                                   public TabStripModelObserver,
+class SidePanelCoordinator final : public TabStripModelObserver,
                                    public views::ViewObserver,
                                    public PinnedToolbarActionsModel::Observer,
                                    public SidePanelUI,
@@ -67,9 +67,7 @@ class SidePanelCoordinator final : public SidePanelRegistryObserver,
   SidePanelCoordinator& operator=(const SidePanelCoordinator&) = delete;
   ~SidePanelCoordinator() override;
 
-  // Exposed for testing.
-  static constexpr int kSidePanelContentWrapperViewId = 43;
-
+  void Init(Browser* browser);
   void TearDownPreBrowserViewDestruction();
 
   SidePanelRegistry* GetWindowRegistry();
@@ -127,13 +125,6 @@ class SidePanelCoordinator final : public SidePanelRegistryObserver,
 
   void Close(bool suppress_animations);
 
- private:
-  friend class SidePanelCoordinatorTest;
-  FRIEND_TEST_ALL_PREFIXES(UserNoteUICoordinatorTest,
-                           ShowEmptyUserNoteSidePanel);
-  FRIEND_TEST_ALL_PREFIXES(UserNoteUICoordinatorTest,
-                           PopulateUserNoteSidePanel);
-
   // The side panel entry to be shown is uniquely specified via a tuple:
   //  (tab or window-scoped registry, SidePanelEntry::Key). `tab_handle` is
   //  necessary since it's possible for a Key to be present in both the
@@ -144,12 +135,23 @@ class SidePanelCoordinator final : public SidePanelRegistryObserver,
     SidePanelEntry::Key key;
     friend bool operator==(const UniqueKey&, const UniqueKey&) = default;
   };
+
   // This method does not show the side panel. Instead, it queues the side panel
   // to be shown once the contents has been loaded. This process may be either
   // synchronous or asynchronous.
   void Show(const UniqueKey& entry,
             std::optional<SidePanelUtil::SidePanelOpenTrigger> open_trigger,
             bool suppress_animations);
+
+  std::optional<UniqueKey> current_key() { return current_key_; }
+
+ private:
+  friend class SidePanelCoordinatorTest;
+  FRIEND_TEST_ALL_PREFIXES(UserNoteUICoordinatorTest,
+                           ShowEmptyUserNoteSidePanel);
+  FRIEND_TEST_ALL_PREFIXES(UserNoteUICoordinatorTest,
+                           PopulateUserNoteSidePanel);
+
   void OnClosed();
 
   // Returns the corresponding entry for `entry_key` or a nullptr if this key is
@@ -161,9 +163,6 @@ class SidePanelCoordinator final : public SidePanelRegistryObserver,
 
   SidePanelEntry* GetActiveContextualEntryForKey(
       const SidePanelEntry::Key& entry_key) const;
-
-  // Creates header and SidePanelEntry content container within the side panel.
-  void InitializeSidePanel();
 
   // Removes existing SidePanelEntry contents from the side panel if any exist
   // and populates the side panel with the provided SidePanelEntry and
@@ -200,14 +199,6 @@ class SidePanelCoordinator final : public SidePanelRegistryObserver,
 
   std::unique_ptr<views::View> CreateHeader();
 
-  // Returns the new entry to be shown after the active entry is deregistered,
-  // or nullopt if no suitable entry is found. Called from
-  // `OnEntryWillDeregister()` when there's an active entry being shown in the
-  // side panel.
-  std::optional<UniqueKey> GetNewActiveKeyOnDeregister(
-      SidePanelRegistry* deregistering_registry,
-      const SidePanelEntry::Key& key);
-
   // Returns the new entry key to be shown after the active tab has changed, or
   // nullopt if no suitable entry is found. Called from
   // `OnTabStripModelChanged()` when there's an active entry being shown in the
@@ -224,13 +215,6 @@ class SidePanelCoordinator final : public SidePanelRegistryObserver,
   // Opens the more info menu. This is called by the header button, when it's
   // visible.
   void OpenMoreInfoMenu();
-
-  // SidePanelRegistryObserver:
-  void OnEntryRegistered(SidePanelRegistry* registry,
-                         SidePanelEntry* entry) override;
-  void OnEntryWillDeregister(SidePanelRegistry* registry,
-                             SidePanelEntry* entry) override;
-  void OnRegistryDestroying(SidePanelRegistry* registry) override;
 
   // TabStripModelObserver:
   void OnTabStripModelChanged(
@@ -250,9 +234,11 @@ class SidePanelCoordinator final : public SidePanelRegistryObserver,
   // Returns the SidePanelEntry uniquely specified by UniqueKey.
   SidePanelEntry* GetEntryForUniqueKey(const UniqueKey& unique_key) const;
 
-  // When true, prevent loading delays when switching between side panel
-  // entries.
-  bool no_delays_for_testing_ = false;
+  // Closes `promo_feature` if showing and if actual_id == promo_id, also
+  // notifies the User Education system that the feature was used.
+  void ClosePromoAndMaybeNotifyUsed(const base::Feature& promo_feature,
+                                    SidePanelEntryId promo_id,
+                                    SidePanelEntryId actual_id);
 
   // Timestamp of when the side panel was opened. Updated when the side panel is
   // triggered to be opened, not when visibility changes. These can differ due
@@ -306,6 +292,10 @@ class SidePanelCoordinator final : public SidePanelRegistryObserver,
   // Provides delay on pinning promo.
   base::OneShotTimer pin_promo_timer_;
 
+  // Inner class that waits for side panel entries to load.
+  class SidePanelEntryWaiter;
+  std::unique_ptr<SidePanelEntryWaiter> waiter_;
+
   // Set to the appropriate pin promo for the current side panel entry, or null
   // if none. (Not set if e.g. already pinned.)
   raw_ptr<const base::Feature> pending_pin_promo_ = nullptr;
@@ -314,10 +304,6 @@ class SidePanelCoordinator final : public SidePanelRegistryObserver,
       extensions_model_observation_{this};
 
   base::ObserverList<SidePanelViewStateObserver> view_state_observers_;
-
-  base::ScopedMultiSourceObservation<SidePanelRegistry,
-                                     SidePanelRegistryObserver>
-      registry_observations_{this};
 
   base::ScopedObservation<PinnedToolbarActionsModel,
                           PinnedToolbarActionsModel::Observer>

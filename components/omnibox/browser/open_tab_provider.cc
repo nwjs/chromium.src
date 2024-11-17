@@ -6,12 +6,14 @@
 
 #include "base/i18n/case_conversion.h"
 #include "base/ranges/algorithm.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/autocomplete_match_classification.h"
 #include "components/omnibox/browser/in_memory_url_index_types.h"
 #include "components/omnibox/browser/keyword_provider.h"
+#include "components/omnibox/browser/match_compare.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/scoring_functor.h"
 #include "components/omnibox/browser/tab_matcher.h"
@@ -19,19 +21,22 @@
 #include "components/search_engines/template_url.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/url_formatter/url_formatter.h"
+#include "third_party/omnibox_proto/groups.pb.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-#include "content/public/browser/web_contents.h"
-#endif
-
 namespace {
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-int Score(const query_parser::QueryNodeVector& input_query_nodes,
+constexpr bool is_android = !!BUILDFLAG(IS_ANDROID);
+constexpr int kOpenTabDefaultScore = 1500;
+
+int Score(const AutocompleteInput& input,
+          const query_parser::QueryNodeVector& input_query_nodes,
           const std::u16string& title,
           const GURL& url) {
+  if ((input.IsZeroSuggest() || input.text().empty()) && is_android) {
+    return kOpenTabDefaultScore;
+  }
   // TODO(crbug.com/40211187): The bookmark provider also uses on `query_parser`
   // and
   //  `ScoringFunctor` to compute its scores. However, it uses normalized match
@@ -83,7 +88,11 @@ int Score(const query_parser::QueryNodeVector& input_query_nodes,
       std::min((title_factor + url_factor) / (lower_title.length() + 10), 1.0);
   return normalized_factors * kMaxScore;
 }
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+
+bool ShouldRunProvider(const AutocompleteInput& input,
+                       const AutocompleteInput& adjusted_input) {
+  return is_android || !(input.IsZeroSuggest() || input.text().empty());
+}
 
 }  // namespace
 
@@ -96,20 +105,16 @@ OpenTabProvider::~OpenTabProvider() = default;
 void OpenTabProvider::Start(const AutocompleteInput& input,
                             bool minimal_changes) {
   matches_.clear();
-  if (input.IsZeroSuggest() || input.text().empty()) {
-    return;
-  }
 
   // Remove the keyword from input if we're in keyword mode for a starter pack
   // engine.
   const auto [adjusted_input, template_url] =
       KeywordProvider::AdjustInputForStarterPackEngines(
           input, client_->GetTemplateURLService());
-  if (adjusted_input.text().empty()) {
+  if (!ShouldRunProvider(input, adjusted_input)) {
     return;
   }
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   // Preprocess the query into query nodes.
   const auto adjusted_input_text = std::u16string(
       base::TrimWhitespace(base::i18n::ToLower(adjusted_input.text()),
@@ -121,16 +126,15 @@ void OpenTabProvider::Start(const AutocompleteInput& input,
       &input_query_nodes);
 
   // Perform basic substring matching on the query terms.
-  for (auto* web_contents : client_->GetTabMatcher().GetOpenTabs()) {
-    const GURL& url = web_contents->GetLastCommittedURL();
+  for (auto& open_tab : client_->GetTabMatcher().GetOpenTabs()) {
+    const GURL& url = open_tab.url;
     if (!url.is_valid()) {
       continue;
     }
-    int score = Score(input_query_nodes, web_contents->GetTitle(),
-                      web_contents->GetLastCommittedURL());
+    int score = Score(input, input_query_nodes, open_tab.title, url);
     if (score > 0) {
-      matches_.push_back(CreateOpenTabMatch(
-          adjusted_input, web_contents->GetTitle(), url, score, template_url));
+      matches_.push_back(CreateOpenTabMatch(adjusted_input, open_tab.title, url,
+                                            score, template_url));
     }
   }
 
@@ -141,7 +145,6 @@ void OpenTabProvider::Start(const AutocompleteInput& input,
     matches_.push_back(
         CreateNullResultMessageMatch(adjusted_input, template_url));
   }
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 }
 
 AutocompleteMatch OpenTabProvider::CreateOpenTabMatch(
@@ -194,6 +197,13 @@ AutocompleteMatch OpenTabProvider::CreateOpenTabMatch(
   if (input.InKeywordMode()) {
     match.from_keyword = true;
   }
+
+#if BUILDFLAG(IS_ANDROID)
+  if (input.current_page_classification() ==
+      ::metrics::OmniboxEventProto::ANDROID_HUB) {
+    match.suggestion_group_id = omnibox::GROUP_MOBILE_OPEN_TABS;
+  }
+#endif
 
   return match;
 }

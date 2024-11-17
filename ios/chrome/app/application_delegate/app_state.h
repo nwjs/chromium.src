@@ -7,10 +7,11 @@
 
 #import <UIKit/UIKit.h>
 
+#import "ios/chrome/app/application_delegate/app_init_stage.h"
 #import "ios/chrome/app/application_delegate/app_state_agent.h"
 #import "ios/chrome/app/application_delegate/app_state_observer.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state_observer.h"
-#import "ios/chrome/browser/ui/scoped_iphone_portrait_only/iphone_portrait_only_manager.h"
+#import "ios/chrome/browser/ui/device_orientation/portait_orientation_manager.h"
 #import "ios/chrome/browser/ui/scoped_ui_blocker/ui_blocker_manager.h"
 
 @class CommandDispatcher;
@@ -42,8 +43,9 @@ enum class PostCrashAction {
 
 // Represents the application state and responds to application state changes
 // and system events.
-@interface AppState
-    : NSObject <IphonePortraitOnlyManager, SceneStateObserver, UIBlockerManager>
+@interface AppState : NSObject <PortraitOrientationManager,
+                                SceneStateObserver,
+                                UIBlockerManager>
 
 - (instancetype)init NS_UNAVAILABLE;
 
@@ -85,7 +87,7 @@ enum class PostCrashAction {
 @property(nonatomic, assign) base::TimeTicks lastTimeInForeground;
 
 // The initialization stage the app is currently at.
-@property(nonatomic, readonly) InitStage initStage;
+@property(nonatomic, readonly) AppInitStage initStage;
 
 // This flag is set when the first scene has initialized its UI and never
 // resets.
@@ -97,7 +99,6 @@ enum class PostCrashAction {
 
 // YES if the application is getting terminated.
 @property(nonatomic, readonly) BOOL appIsTerminating;
-@property(nonatomic, assign, readwrite) BOOL overridePortraitOnly;
 
 // All agents that have been attached. Use -addAgent: and -removeAgent: to
 // add and remove agents.

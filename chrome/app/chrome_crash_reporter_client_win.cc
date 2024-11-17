@@ -44,10 +44,12 @@ void ChromeCrashReporterClient::InitializeCrashReportingForProcess() {
   instance = new ChromeCrashReporterClient();
   ANNOTATE_LEAKING_OBJECT_PTR(instance);
 
-  std::wstring process_type = install_static::GetSwitchValueFromCommandLine(
+  std::wstring process_type = install_static::GetCommandLineSwitchValue(
       ::GetCommandLine(), install_static::kProcessType);
+
   std::wstring disable_crash_handler = install_static::GetSwitchValueFromCommandLine(
     ::GetCommandLine(), L"disable-crash-handler");
+
   // Don't set up Crashpad crash reporting in the Crashpad handler itself, nor
   // in the fallback crash handler for the Crashpad handler process.
   if (process_type != install_static::kCrashpadHandler &&
@@ -238,5 +240,5 @@ std::wstring ChromeCrashReporterClient::GetWerRuntimeExceptionModule() {
     return std::wstring();
 
   // file_start points to the start of the filename in the elf_dir buffer.
-  return std::wstring(elf_dir, file_start).append(chrome::kWerDll);
+  return std::wstring(elf_dir, file_start).append(kWerDll);
 }

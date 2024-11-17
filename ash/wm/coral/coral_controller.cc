@@ -5,105 +5,182 @@
 #include "ash/wm/coral/coral_controller.h"
 
 #include "ash/constants/ash_switches.h"
-#include "ash/constants/notifier_catalogs.h"
-#include "ash/public/cpp/notification_utils.h"
-#include "ash/resources/vector_icons/vector_icons.h"
+#include "ash/public/cpp/coral_delegate.h"
+#include "ash/shell.h"
+#include "ash/wm/coral/fake_coral_service.h"
+#include "ash/wm/desks/desks_controller.h"
 #include "base/command_line.h"
-#include "base/hash/sha1.h"
-#include "base/logging.h"
-#include "base/memory/scoped_refptr.h"
-#include "base/time/time.h"
-#include "ui/message_center/message_center.h"
-#include "ui/message_center/public/cpp/notification.h"
+#include "base/json/json_writer.h"
+#include "chromeos/ash/components/mojo_service_manager/connection.h"
+#include "chromeos/ash/services/coral/public/mojom/coral_service.mojom.h"
+#include "mojo/public/cpp/bindings/remote.h"
+#include "third_party/cros_system_api/mojo/service_constants.h"
 
 namespace ash {
 
 namespace {
-
-// The hash value for the secret key of the coral feature.
-constexpr char kCoralKeyHash[] =
-    "\x3A\x92\xA0\xFA\x8A\x13\x53\x56\x8B\x7A\x14\x7C\x18\x7B\x0B\x31\x0A\x3B"
-    "\xE9\x59";
-
-// Every 4 hours, we try to collect the data.
-constexpr base::TimeDelta record_duration = base::Hours(4);
-
+constexpr int kMinItemsInGroup = 4;
+constexpr int kMaxItemsInGroup = 10;
+constexpr int kMaxGroupsToGenerate = 2;
+// Too many items in 1 request could result in poor performance.
+constexpr size_t kMaxItemsInRequest = 100;
 }  // namespace
 
-CoralController::CoralController() {
-  // If it's created, the secret key must have matched.
-  CHECK(IsSecretKeyMatched());
+CoralRequest::CoralRequest() = default;
 
-  data_collection_timer_.Start(
-      FROM_HERE, record_duration,
-      base::BindRepeating(&CoralController::CollectDataPeriodically,
-                          weak_factory_.GetWeakPtr()));
-}
+CoralRequest::~CoralRequest() = default;
 
-CoralController::~CoralController() {}
-
-// basic
-const char CoralController::kDataCollectionNotificationId[] =
-    "data_collection_notification_id";
-
-// static
-bool CoralController::IsSecretKeyMatched() {
-  // Commandline looks like:
-  //  out/Default/chrome --user-data-dir=/tmp/tmp123
-  //  --coral-feature-key="INSERT KEY HERE" --enable-features=CoralFeature
-  const std::string& provided_key_hash = base::SHA1HashString(
-      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
-          switches::kCoralFeatureKey));
-
-  bool coral_key_matched = (provided_key_hash == kCoralKeyHash);
-  if (!coral_key_matched) {
-    LOG(ERROR) << "Provided secret key does not match with the expected one.";
+std::string CoralRequest::ToString() const {
+  auto list = base::Value::List();
+  for (const ContentItem& item : content_) {
+    auto item_value = base::Value::Dict();
+    if (item->is_tab()) {
+      item_value.Set("Tab", base::Value::Dict()
+                                .Set("Title", item->get_tab()->title)
+                                .Set("Url", item->get_tab()->url.spec()));
+    }
+    if (item->is_app()) {
+      item_value.Set("App", base::Value::Dict()
+                                .Set("Title", item->get_app()->title)
+                                .Set("Id", item->get_app()->id));
+    }
+    list.Append(std::move(item_value));
   }
 
-  return coral_key_matched;
+  auto root = base::Value::Dict().Set("Coral request", std::move(list));
+  return base::WriteJsonWithOptions(root,
+                                    base::JSONWriter::OPTIONS_PRETTY_PRINT)
+      .value_or(std::string());
 }
 
-void CoralController::Click(const std::optional<int>& button_index,
-                            const std::optional<std::u16string>& reply) {
-  if (!button_index) {
+CoralResponse::CoralResponse() = default;
+
+CoralResponse::~CoralResponse() = default;
+
+CoralController::CoralController() = default;
+
+CoralController::~CoralController() = default;
+
+void CoralController::GenerateContentGroups(const CoralRequest& request,
+                                            CoralResponseCallback callback) {
+  // There couldn't be valid groups, skip generating and return an empty
+  // response.
+  if (request.content().size() < kMinItemsInGroup) {
+    std::move(callback).Run(std::make_unique<CoralResponse>());
     return;
   }
-  // TODO: bring up
+
+  CoralService* coral_service = EnsureCoralService();
+  if (!coral_service) {
+    LOG(ERROR) << "Failed to connect to coral service.";
+    std::move(callback).Run(nullptr);
+    return;
+  }
+
+  auto group_request = coral::mojom::GroupRequest::New();
+  group_request->embedding_options = coral::mojom::EmbeddingOptions::New();
+  group_request->clustering_options = coral::mojom::ClusteringOptions::New();
+  group_request->clustering_options->min_items_in_cluster = kMinItemsInGroup;
+  group_request->clustering_options->max_items_in_cluster = kMaxItemsInGroup;
+  group_request->clustering_options->max_clusters = kMaxGroupsToGenerate;
+  group_request->title_generation_options =
+      coral::mojom::TitleGenerationOptions::New();
+  const size_t items_in_request =
+      std::min(request.content().size(), kMaxItemsInRequest);
+  for (size_t i = 0; i < items_in_request; i++) {
+    group_request->entities.push_back(request.content()[i]->Clone());
+  }
+  coral_service->Group(
+      std::move(group_request),
+      base::BindOnce(&CoralController::HandleGroupResult,
+                     weak_factory_.GetWeakPtr(), std::move(callback)));
 }
 
-void CoralController::CollectDataPeriodically() {
-  // Show a notification to users.
-  message_center::RichNotificationData notification_data;
+void CoralController::CacheEmbeddings(const CoralRequest& request,
+                                      base::OnceCallback<void(bool)> callback) {
+  CoralService* coral_service = EnsureCoralService();
+  if (!coral_service) {
+    LOG(ERROR) << "Failed to connect to coral service.";
+    std::move(callback).Run(false);
+    return;
+  }
 
-  message_center::ButtonInfo confirm_button(u"Yes");
-  notification_data.buttons.push_back(confirm_button);
-  message_center::ButtonInfo cancel_button(u"No");
-  notification_data.buttons.push_back(cancel_button);
+  auto cache_embeddings_request = coral::mojom::CacheEmbeddingsRequest::New();
+  cache_embeddings_request->embedding_options =
+      coral::mojom::EmbeddingOptions::New();
+  for (const auto& entity : request.content()) {
+    cache_embeddings_request->entities.push_back(entity->Clone());
+  }
 
-  std::u16string title(u"Share your task groups with us?");
-  std::u16string message(u"Share your tabs and apps groups with us. ");
+  coral_service->CacheEmbeddings(
+      std::move(cache_embeddings_request),
+      base::BindOnce(&CoralController::HandleCacheEmbeddingsResult,
+                     weak_factory_.GetWeakPtr(), std::move(callback)));
+}
 
-  std::unique_ptr<message_center::Notification> notification =
-      CreateSystemNotificationPtr(
-          message_center::NOTIFICATION_TYPE_SIMPLE,
-          CoralController::kDataCollectionNotificationId, title, message,
-          /*display_source=*/std::u16string(), /*origin_url=*/GURL(),
-          message_center::NotifierId(
-              message_center::NotifierType::SYSTEM_COMPONENT,
-              CoralController::kDataCollectionNotificationId,
-              NotificationCatalogName::kCoralFeature),
-          notification_data,
-          base::MakeRefCounted<message_center::ThunkNotificationDelegate>(
-              weak_factory_.GetWeakPtr()),
-          kUnifiedMenuInfoIcon,
-          message_center::SystemNotificationWarningLevel::NORMAL);
-  notification->set_priority(message_center::SYSTEM_PRIORITY);
+CoralController::CoralService* CoralController::EnsureCoralService() {
+  // Generate a fake service if --force-birch-fake-coral-backend is enabled.
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kForceBirchFakeCoralBackend)) {
+    if (!fake_service_) {
+      fake_service_ = std::make_unique<FakeCoralService>();
+    }
+    return fake_service_.get();
+  }
 
-  // Add the notification to the message center
-  auto* message_center = message_center::MessageCenter::Get();
-  message_center->RemoveNotification(notification->id(),
-                                     /*by_user=*/false);
-  message_center->AddNotification(std::move(notification));
+  if (!coral_service_) {
+    auto pipe_handle = coral_service_.BindNewPipeAndPassReceiver().PassPipe();
+    coral_service_.reset_on_disconnect();
+    ash::mojo_service_manager::GetServiceManagerProxy()->Request(
+        chromeos::mojo_services::kCrosCoralService, std::nullopt,
+        std::move(pipe_handle));
+  }
+  return coral_service_.get();
+}
+
+void CoralController::HandleGroupResult(CoralResponseCallback callback,
+                                        coral::mojom::GroupResultPtr result) {
+  if (result->is_error()) {
+    LOG(ERROR) << "Coral group request failed with CoralError code: "
+               << static_cast<int>(result->get_error());
+    std::move(callback).Run(nullptr);
+    return;
+  }
+  coral::mojom::GroupResponsePtr group_response =
+      std::move(result->get_response());
+  auto response = std::make_unique<CoralResponse>();
+  response->set_groups(std::move(group_response->groups));
+  std::move(callback).Run(std::move(response));
+}
+
+void CoralController::HandleCacheEmbeddingsResult(
+    base::OnceCallback<void(bool)> callback,
+    coral::mojom::CacheEmbeddingsResultPtr result) {
+  if (result->is_error()) {
+    LOG(ERROR) << "Coral cache embeddings request failed with CoralError code: "
+               << static_cast<int>(result->get_error());
+    std::move(callback).Run(false);
+    return;
+  }
+  std::move(callback).Run(true);
+}
+
+void CoralController::OpenNewDeskWithGroup(CoralResponse::Group group) {
+  if (group->entities.empty()) {
+    return;
+  }
+
+  DesksController* desks_controller = DesksController::Get();
+  if (!desks_controller->CanCreateDesks()) {
+    return;
+  }
+  desks_controller->NewDesk(DesksCreationRemovalSource::kCoral,
+                            base::UTF8ToUTF16(group->title));
+  Shell::Get()->coral_delegate()->MoveTabsInGroupToNewDesk(std::move(group));
+
+  // TODO(zxdan): move the apps in group to the new desk.
+  desks_controller->ActivateDesk(desks_controller->desks().back().get(),
+                                 DesksSwitchSource::kCoral);
 }
 
 }  // namespace ash

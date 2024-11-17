@@ -91,6 +91,7 @@
 #include "ui/gfx/color_transform.h"
 #include "ui/gfx/geometry/axis_transform2d.h"
 #include "ui/gfx/geometry/linear_gradient.h"
+#include "ui/gfx/geometry/point_conversions.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/rect_f.h"
@@ -1147,7 +1148,7 @@ gpu::Mailbox SkiaRenderer::GetProtectedSharedImage(bool is_10bit) {
 
   protected_buffer_queue_->Reshape(
       gfx::Size(kMaxProtectedContentWidth, kMaxProtectedContentHeight),
-      gfx::ColorSpace::CreateSRGB(),
+      gfx::ColorSpace::CreateSRGB(), RenderPassAlphaType::kPremul,
       (is_10bit &&
        base::FeatureList::IsEnabled(media::kEnableArmHwdrm10bitOverlays))
           ? SinglePlaneFormat::kBGRA_1010102
@@ -3445,10 +3446,19 @@ void SkiaRenderer::FinishDrawingRenderPass() {
 
   // Drawing the delegated ink trail must happen after the final
   // FlushBatchedQuads() call so that the trail can always be on top of
-  // everything else that has already been drawn on the page. For the same
-  // reason, it should only happen on the root render pass.
-  if (is_root_render_pass && UsingSkiaForDelegatedInk())
-    DrawDelegatedInkTrail();
+  // everything else that has already been drawn on the page.
+  if (UsingSkiaForDelegatedInk()) {
+    if (const auto pass_id = delegated_ink_handler_->GetInkRenderer()
+                                 ->GetLatestMetadataRenderPassId();
+        current_frame()->current_render_pass->id == pass_id) {
+      gfx::Transform root_target_to_render_pass_draw_transform;
+      if (current_frame()
+              ->current_render_pass->transform_to_root_target.GetInverse(
+                  &root_target_to_render_pass_draw_transform)) {
+        DrawDelegatedInkTrail(root_target_to_render_pass_draw_transform);
+      }
+    }
+  }
 
   // Pops a layer that is pushed at the start of |BeginDrawingRenderPass|. This
   // applies color space conversion for HDR passes, if present.
@@ -4197,12 +4207,13 @@ void SkiaRenderer::SetDelegatedInkPointRendererSkiaForTest(
       std::move(renderer));
 }
 
-void SkiaRenderer::DrawDelegatedInkTrail() {
+void SkiaRenderer::DrawDelegatedInkTrail(
+    const gfx::Transform& root_target_to_render_pass_transform) {
   if (!delegated_ink_handler_ || !delegated_ink_handler_->GetInkRenderer())
     return;
 
   delegated_ink_handler_->GetInkRenderer()->DrawDelegatedInkTrail(
-      current_canvas_);
+      current_canvas_, root_target_to_render_pass_transform);
 }
 
 DelegatedInkPointRendererBase* SkiaRenderer::GetDelegatedInkPointRenderer(
@@ -4248,8 +4259,15 @@ gfx::Rect SkiaRenderer::GetCurrentFramebufferDamage() const {
 
 void SkiaRenderer::Reshape(const OutputSurface::ReshapeParams& reshape_params) {
   if (buffer_queue_) {
+#if BUILDFLAG(IS_CHROMEOS)
+    // CrOS assumes that we (almost) never reallocate buffers, so we force
+    // |kPremul| to never trigger a reallocation due to root opacity changes.
+    const RenderPassAlphaType alpha_type = RenderPassAlphaType::kPremul;
+#else
+    const RenderPassAlphaType alpha_type = reshape_params.alpha_type;
+#endif
     buffer_queue_->Reshape(reshape_params.size, reshape_params.color_space,
-                           reshape_params.format);
+                           alpha_type, reshape_params.format);
   }
   // Even if we have our own BufferQueue, we still need to forward the Reshape()
   // call down to the OutputPresenter.

@@ -37,7 +37,9 @@ class IntegrationTestCommands
                              const GURL& crash_upload_url,
                              const GURL& device_management_url,
                              const GURL& app_logo_url,
-                             const base::TimeDelta& idle_timeout) const = 0;
+                             base::TimeDelta idle_timeout,
+                             base::TimeDelta server_keep_alive_time,
+                             base::TimeDelta ceca_connection_timeout) const = 0;
   virtual void ExitTestMode() const = 0;
   virtual void SetGroupPolicies(const base::Value::Dict& values) const = 0;
   virtual void SetPlatformPolicies(const base::Value::Dict& values) const = 0;
@@ -83,7 +85,8 @@ class IntegrationTestCommands
                                     UpdateService::Priority priority,
                                     const base::Version& from_version,
                                     const base::Version& to_version,
-                                    bool do_fault_injection) const = 0;
+                                    bool do_fault_injection,
+                                    bool skip_download) const = 0;
   virtual void ExpectUpdateSequenceBadHash(
       ScopedServer* test_server,
       const std::string& app_id,
@@ -97,7 +100,8 @@ class IntegrationTestCommands
                                      UpdateService::Priority priority,
                                      const base::Version& from_version,
                                      const base::Version& to_version,
-                                     bool do_fault_injection) const = 0;
+                                     bool do_fault_injection,
+                                     bool skip_download) const = 0;
   virtual void ExpectVersionActive(const std::string& version) const = 0;
   virtual void ExpectVersionNotActive(const std::string& version) const = 0;
   virtual void Uninstall() const = 0;
@@ -186,7 +190,7 @@ class IntegrationTestCommands
   virtual void ExpectLegacyUpdaterMigrated() const = 0;
   virtual void RunRecoveryComponent(const std::string& app_id,
                                     const base::Version& version) const = 0;
-  virtual void SetLastChecked(const base::Time& time) const = 0;
+  virtual void SetLastChecked(base::Time time) const = 0;
   virtual void ExpectLastChecked() const = 0;
   virtual void ExpectLastStarted() const = 0;
   virtual void UninstallApp(const std::string& app_id) const = 0;
@@ -197,8 +201,12 @@ class IntegrationTestCommands
   virtual void DMPushEnrollmentToken(const std::string& enrollment_token) = 0;
   virtual void DMDeregisterDevice() = 0;
   virtual void DMCleanup() = 0;
-  virtual void InstallEnterpriseCompanionApp(
+  virtual void InstallEnterpriseCompanionApp() = 0;
+  virtual void InstallBrokenEnterpriseCompanionApp() = 0;
+  virtual void UninstallBrokenEnterpriseCompanionApp() = 0;
+  virtual void InstallEnterpriseCompanionAppOverrides(
       const base::Value::Dict& external_overrides) = 0;
+  virtual void ExpectEnterpriseCompanionAppNotInstalled() = 0;
   virtual void UninstallEnterpriseCompanionApp() = 0;
 
  protected:

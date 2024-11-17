@@ -1959,24 +1959,24 @@ class FakeSafeBrowsingService : public safe_browsing::TestSafeBrowsingService {
   FakeSafeBrowsingService(const FakeSafeBrowsingService&) = delete;
   FakeSafeBrowsingService& operator=(const FakeSafeBrowsingService&) = delete;
 
-  bool SendDownloadReport(
+  void SendDownloadReport(
       download::DownloadItem* download,
       ReportType report_type,
       bool did_proceed,
       std::optional<bool> show_download_in_folder) override {
     actual_sent_report_type_ = report_type;
     actual_sent_did_proceed_ = did_proceed;
-    return true;
+    return;
   }
 
-  bool PersistDownloadReportAndSendOnNextStartup(
+  void PersistDownloadReportAndSendOnNextStartup(
       download::DownloadItem* download,
       ReportType report_type,
       bool did_proceed,
       std::optional<bool> show_download_in_folder) override {
     actual_persisted_report_type_ = report_type;
     actual_persisted_did_proceed_ = did_proceed;
-    return true;
+    return;
   }
 
   std::optional<ReportType> GetActualSentReportType() {
@@ -2352,23 +2352,6 @@ TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
 }
 
 TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
-       AutoCanceledReport_NotSentStandardProtection) {
-  safe_browsing::SetSafeBrowsingState(
-      profile()->GetPrefs(),
-      safe_browsing::SafeBrowsingState::STANDARD_PROTECTION);
-  std::unique_ptr<download::MockDownloadItem> download_item =
-      SetUpDangerousDownloadItemForCanceledReport();
-
-  delegate()->ScheduleCancelForEphemeralWarning(download_item->GetGuid());
-  EXPECT_CALL(*download_item, Cancel(false)).Times(1);
-  task_environment()->FastForwardBy(base::Hours(1));
-
-  EXPECT_FALSE(safe_browsing_service()->GetActualSentReportType().has_value());
-  EXPECT_FALSE(
-      safe_browsing_service()->GetActualSentDidProceedValue().has_value());
-}
-
-TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
        AutoCanceledReport_NotSentNotDangerous) {
   safe_browsing::SetSafeBrowsingState(
       profile()->GetPrefs(),
@@ -2554,6 +2537,68 @@ TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
   EXPECT_FALSE(delegate()->ShouldObfuscateDownload(download_item.get()));
 }
 #endif  // FULL_SAFE_BROWSING
+
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+TEST_F(ChromeDownloadManagerDelegateTest, DeobfuscationBeforeCompletion) {
+  base::test::ScopedFeatureList enable_feature(
+      enterprise_obfuscation::kEnterpriseFileObfuscation);
+
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+
+  // Setup obfuscated file with dummy data.
+  std::vector<uint8_t> original_contents(5000, 'a');
+  base::FilePath file_path = temp_dir.GetPath().AppendASCII("obfuscated");
+  enterprise_obfuscation::DownloadObfuscator obfuscator;
+  auto obfuscation_result =
+      obfuscator.ObfuscateChunk(base::span(original_contents), true);
+  ASSERT_TRUE(obfuscation_result.has_value());
+  ASSERT_TRUE(base::WriteFile(file_path, obfuscation_result.value()));
+
+  // Create a validated dangerous download item.
+  std::unique_ptr<download::MockDownloadItem> download_item =
+      CreateActiveDownloadItem(0);
+  EXPECT_CALL(*download_item, GetDangerType())
+      .WillRepeatedly(Return(download::DOWNLOAD_DANGER_TYPE_USER_VALIDATED));
+  EXPECT_CALL(*download_item, GetFullPath())
+      .WillRepeatedly(ReturnRef(file_path));
+  EXPECT_CALL(*download_item, RequireSafetyChecks())
+      .WillRepeatedly(Return(true));
+
+  // Set up obfuscation data and safebrowsing state, as user validation should
+  // happen after these are set.
+  auto obfuscation_data =
+      std::make_unique<enterprise_obfuscation::DownloadObfuscationData>(true);
+  download_item->SetUserData(
+      enterprise_obfuscation::DownloadObfuscationData::kUserDataKey,
+      std::move(obfuscation_data));
+  auto sb_state =
+      std::make_unique<ChromeDownloadManagerDelegate::SafeBrowsingState>();
+  download_item->SetUserData(&ChromeDownloadManagerDelegate::SafeBrowsingState::
+                                 kSafeBrowsingUserDataKey,
+                             std::move(sb_state));
+
+  base::RunLoop run_loop;
+  EXPECT_FALSE(delegate()->ShouldCompleteDownload(download_item.get(),
+                                                  run_loop.QuitClosure()));
+  run_loop.Run();
+
+  // Verify obfuscation flag was cleared.
+  auto* final_data =
+      static_cast<enterprise_obfuscation::DownloadObfuscationData*>(
+          download_item->GetUserData(
+              enterprise_obfuscation::DownloadObfuscationData::kUserDataKey));
+  ASSERT_TRUE(final_data);
+  EXPECT_FALSE(final_data->is_obfuscated);
+
+  // Verify that the file was deobfuscated correctly.
+  std::string deobfuscated_content;
+  ASSERT_TRUE(base::ReadFileToString(file_path, &deobfuscated_content));
+  EXPECT_EQ(original_contents,
+            std::vector<uint8_t>(deobfuscated_content.begin(),
+                                 deobfuscated_content.end()));
+}
+#endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 
 #if BUILDFLAG(IS_ANDROID)
 

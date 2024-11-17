@@ -27,12 +27,17 @@ public @interface SearchActivityExtras {
     // Must be at least 2 characters long, and begin and end with an alphanumeric character.
     String REFERRER_VALIDATION_REGEX = "^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$";
 
+    /** The incognito status (boolean) associated with the origin activity. */
+    String EXTRA_IS_INCOGNITO = "org.chromium.chrome.browser.ui.searchactivityutils.is_incognito";
+
+    // LINT.IfChange(IntentOrigin)
     /** ID of the calling component */
     @IntDef({
         IntentOrigin.UNKNOWN,
         IntentOrigin.SEARCH_WIDGET,
         IntentOrigin.QUICK_ACTION_SEARCH_WIDGET,
         IntentOrigin.CUSTOM_TAB,
+        IntentOrigin.HUB,
         IntentOrigin.COUNT
     })
     @Retention(RetentionPolicy.SOURCE)
@@ -49,9 +54,14 @@ public @interface SearchActivityExtras {
         /** Calling component is Chrome Custom Tab. */
         int CUSTOM_TAB = 3;
 
+        /** Calling component is Hub. */
+        int HUB = 4;
+
         /** Total count of items, used for histogram recording. */
-        int COUNT = 4;
+        int COUNT = 5;
     }
+
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml)
 
     /** The requested typ of service. */
     @IntDef({SearchType.TEXT, SearchType.VOICE, SearchType.LENS, SearchType.COUNT})

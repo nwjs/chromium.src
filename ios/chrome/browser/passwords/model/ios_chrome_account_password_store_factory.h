@@ -17,14 +17,13 @@ class PasswordStoreInterface;
 }
 
 // Singleton that owns all Gaia-account-scoped PasswordStores and associates
-// them with ChromeBrowserState.
+// them with ProfileIOS.
 class IOSChromeAccountPasswordStoreFactory
     : public RefcountedBrowserStateKeyedServiceFactory {
  public:
-  static scoped_refptr<password_manager::PasswordStoreInterface>
-  GetForBrowserState(ChromeBrowserState* browser_state,
-                     ServiceAccessType access_type);
-
+  static scoped_refptr<password_manager::PasswordStoreInterface> GetForProfile(
+      ProfileIOS* profile,
+      ServiceAccessType access_type);
   static IOSChromeAccountPasswordStoreFactory* GetInstance();
 
   IOSChromeAccountPasswordStoreFactory(

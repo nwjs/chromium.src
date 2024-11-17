@@ -206,6 +206,7 @@ source_set("policy_specific_browser_tests") {
     "test/policy_statistics_collector_browsertest.cc",
     "test/proxy_policies_browsertest.cc",
     "test/safe_browsing_policy_browsertest.cc",
+    "test/select_parser_relaxation_policy_browsertest.cc",
     "test/shared_clipboard_enabled_browsertest.cc",
     "test/ssl_error_overriding_allowed_policy_browsertest.cc",
     "test/standardized_browser_zoom_browsertest.cc",
@@ -259,6 +260,7 @@ source_set("policy_specific_browser_tests") {
   if (!is_android) {
     sources += [
       "test/autofill_policy_browsertest.cc",
+      "test/autofill_prediction_improvements_policy_browsertest.cc",
       "test/automatic_fullscreen_policy_browsertest.cc",
       "test/autoplay_policy_browsertest.cc",
       "test/bookmark_bar_enabled_browsertest.cc",
@@ -282,10 +284,12 @@ source_set("policy_specific_browser_tests") {
 
     deps += [
       "//chrome/browser/autofill",
+      "//chrome/browser/content_settings:content_settings_factory",
       "//chrome/browser/devtools:test_support",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/task_manager",
       "//components/autofill/content/browser:test_support",
+      "//components/autofill_prediction_improvements/core/browser",
       "//components/bookmarks/common:common",
       "//components/enterprise",
       "//components/enterprise:test_support",
@@ -480,7 +484,10 @@ source_set("browser_tests") {
     # tabs policy are win/mac/linux only.
     sources += [ "test/promotional_tabs_enabled_policy_browsertest.cc" ]
 
-    deps += [ "//chrome/common:version_header" ]
+    deps += [
+      "//chrome/browser/ui/webui/whats_new",
+      "//chrome/common:version_header",
+    ]
   }
 
   if (!is_android && !is_chromeos_ash) {

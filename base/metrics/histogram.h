@@ -236,7 +236,7 @@ class BASE_EXPORT Histogram : public HistogramBase {
   void MarkSamplesAsLogged(const HistogramSamples& samples) final;
   std::unique_ptr<HistogramSamples> SnapshotDelta() override;
   std::unique_ptr<HistogramSamples> SnapshotFinalDelta() const override;
-  void AddSamples(const HistogramSamples& samples) override;
+  bool AddSamples(const HistogramSamples& samples) override;
   bool AddSamplesFromPickle(base::PickleIterator* iter) override;
   base::Value::Dict ToGraphDict() const override;
 
@@ -651,6 +651,11 @@ namespace internal {
 // best-effort range will be suffixed with ".BestEffort".
 BASE_EXPORT void SetSharedLastForegroundTimeForMetrics(
     const std::atomic<TimeTicks>* last_foreground_time_ref);
+
+// Returns the pointer passed to SetSharedLastForegroundTimeForMetrics, or
+// nullptr if it was never called.
+BASE_EXPORT const std::atomic<TimeTicks>*
+GetSharedLastForegroundTimeForMetricsForTesting();
 
 // Reports whether the interval [`now - range`, `now`] overlaps with a period
 // where this process was running at Process::Priority::kBestEffort. Defaults to

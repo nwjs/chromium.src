@@ -7,6 +7,7 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/system/media/media_notification_provider.h"
+#include "base/debug/crash_logging.h"
 #include "base/files/file_util.h"
 #include "base/path_service.h"
 #include "base/system/sys_info.h"
@@ -15,6 +16,7 @@
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "chrome/browser/ash/accessibility/live_caption/system_live_caption_service_factory.h"
+#include "chrome/browser/ash/accessibility/live_caption/user_microphone_caption_service_factory.h"
 #include "chrome/browser/ash/arc/session/arc_service_launcher.h"
 #include "chrome/browser/ash/boca/boca_manager_factory.h"
 #include "chrome/browser/ash/calendar/calendar_keyed_service_factory.h"
@@ -26,6 +28,7 @@
 #include "chrome/browser/ash/crostini/crostini_manager.h"
 #include "chrome/browser/ash/eche_app/eche_app_manager_factory.h"
 #include "chrome/browser/ash/guest_os/guest_os_session_tracker.h"
+#include "chrome/browser/ash/guest_os/guest_os_session_tracker_factory.h"
 #include "chrome/browser/ash/lock_screen_apps/state_controller.h"
 #include "chrome/browser/ash/login/startup_utils.h"
 #include "chrome/browser/ash/phonehub/phone_hub_manager_factory.h"
@@ -41,7 +44,6 @@
 #include "chrome/browser/net/nss_service.h"
 #include "chrome/browser/net/nss_service_factory.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/scalable_iph/scalable_iph_factory.h"
 #include "chrome/browser/screen_ai/screen_ai_dlc_installer.h"
 #include "chrome/browser/ui/ash/birch/birch_keyed_service_factory.h"
 #include "chrome/browser/ui/ash/glanceables/glanceables_keyed_service_factory.h"
@@ -57,6 +59,7 @@
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "chromeos/ash/components/network/network_cert_loader.h"
 #include "chromeos/ash/components/peripheral_notification/peripheral_notification_manager.h"
+#include "chromeos/ash/components/scalable_iph/scalable_iph_factory.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "components/live_caption/caption_util.h"
@@ -141,8 +144,33 @@ UserSessionInitializer* UserSessionInitializer::Get() {
 }
 
 void UserSessionInitializer::OnUserProfileLoaded(const AccountId& account_id) {
+  // TODO(b/371636008): Remove after fixing the crash.
+  using user_manager::UserManager;
+  SCOPED_CRASH_KEY_NUMBER("UserSessionInitializer", "LoggedInUsers",
+                          UserManager::Get()->GetLoggedInUsers().size());
+  SCOPED_CRASH_KEY_NUMBER(
+      "UserSessionInitializer", "LoadedProfiles",
+      g_browser_process->profile_manager()->GetLoadedProfiles().size());
+  SCOPED_CRASH_KEY_BOOL("UserSessionInitializer", "FindUser",
+                        UserManager::Get()->FindUser(account_id) != nullptr);
+  if (auto* found_user = UserManager::Get()->FindUser(account_id);
+      found_user != nullptr) {
+    SCOPED_CRASH_KEY_NUMBER("UserSessionInitializer", "UserType",
+                            static_cast<int>(found_user->GetType()));
+    SCOPED_CRASH_KEY_BOOL("UserSessionInitializer", "ProfileCreated",
+                          found_user->is_profile_created());
+    SCOPED_CRASH_KEY_BOOL("UserSessionInitializer", "IsPrimary",
+                          UserManager::Get()->GetPrimaryUser() == found_user);
+    SCOPED_CRASH_KEY_BOOL("UserSessionInitializer", "IsActive",
+                          UserManager::Get()->GetActiveUser() == found_user);
+    SCOPED_CRASH_KEY_NUMBER("UserSessionInitializer", "NameHashSize",
+                            found_user->username_hash().size());
+  }
+
   Profile* profile = ProfileHelper::Get()->GetProfileByAccountId(account_id);
+  CHECK(profile);
   user_manager::User* user = ProfileHelper::Get()->GetUserByProfile(profile);
+  CHECK(user);
 
   if (user_manager::UserManager::Get()->GetPrimaryUser() == user) {
     // TODO(https://crbug.com/1208416): Investigate why OnUserProfileLoaded
@@ -249,7 +277,7 @@ void UserSessionInitializer::InitializePrimaryProfileServices(
   }
 
   arc::ArcServiceLauncher::Get()->OnPrimaryUserProfilePrepared(profile);
-  guest_os::GuestOsSessionTracker::GetForProfile(profile);
+  guest_os::GuestOsSessionTrackerFactory::GetForProfile(profile);
 
   crostini::CrostiniManager* crostini_manager =
       crostini::CrostiniManager::GetForProfile(profile);
@@ -259,6 +287,7 @@ void UserSessionInitializer::InitializePrimaryProfileServices(
   if (captions::IsLiveCaptionFeatureSupported() &&
       features::IsSystemLiveCaptionEnabled()) {
     SystemLiveCaptionServiceFactory::GetInstance()->GetForProfile(profile);
+    UserMicrophoneCaptionServiceFactory::GetInstance()->GetForProfile(profile);
   }
 
   g_browser_process->platform_part()->InitializePrimaryProfileServices(profile);
@@ -267,7 +296,7 @@ void UserSessionInitializer::InitializePrimaryProfileServices(
 void UserSessionInitializer::InitializeScalableIph(Profile* profile) {
   ScalableIphFactory* scalable_iph_factory = ScalableIphFactory::GetInstance();
   CHECK(scalable_iph_factory);
-  scalable_iph_factory->InitializeServiceForProfile(profile);
+  scalable_iph_factory->InitializeServiceForBrowserContext(profile);
 }
 
 void UserSessionInitializer::OnUserSessionStarted(bool is_primary_user) {
@@ -339,6 +368,9 @@ void UserSessionInitializer::OnUserSessionStarted(bool is_primary_user) {
     }
 
     CrasAudioHandler::Get()->RefreshStyleTransferState();
+    if (base::FeatureList::IsEnabled(ash::features::kShowSpatialAudioToggle)) {
+      CrasAudioHandler::Get()->RefreshSpatialAudioState();
+    }
   }
 }
 

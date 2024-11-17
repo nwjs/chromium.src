@@ -11,6 +11,8 @@
 #include "base/time/time.h"
 #include "net/base/connection_endpoint_metadata.h"
 #include "net/base/ip_endpoint.h"
+#include "net/base/net_error_details.h"
+#include "net/base/net_errors.h"
 #include "net/dns/host_resolver.h"
 #include "net/dns/public/host_resolver_results.h"
 #include "net/http/http_network_session.h"
@@ -66,11 +68,13 @@ void HttpStreamPool::QuicTask::MaybeAttempt() {
   std::optional<QuicEndpoint> quic_endpoint = GetQuicEndpointToAttempt();
   if (!quic_endpoint.has_value()) {
     if (manager_->is_service_endpoint_request_finished()) {
-      // TODO(crbug.com/346835898): Use a different error code?
+      if (!start_result_.has_value()) {
+        start_result_ = ERR_DNS_NO_MATCHING_SUPPORTED_ALPN;
+      }
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-          FROM_HERE,
-          base::BindOnce(&QuicTask::OnSessionAttemptComplete,
-                         weak_ptr_factory_.GetWeakPtr(), ERR_FAILED));
+          FROM_HERE, base::BindOnce(&QuicTask::OnSessionAttemptComplete,
+                                    weak_ptr_factory_.GetWeakPtr(),
+                                    ERR_DNS_NO_MATCHING_SUPPORTED_ALPN));
     }
     return;
   }
@@ -104,9 +108,7 @@ void HttpStreamPool::QuicTask::MaybeAttempt() {
   int rv = session_attempt_->Start(base::BindOnce(
       &QuicTask::OnSessionAttemptComplete, weak_ptr_factory_.GetWeakPtr()));
   if (rv != ERR_IO_PENDING) {
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(&QuicTask::OnSessionAttemptComplete,
-                                  weak_ptr_factory_.GetWeakPtr(), rv));
+    OnSessionAttemptComplete(rv);
   }
 }
 
@@ -185,13 +187,32 @@ std::optional<IPEndPoint> HttpStreamPool::QuicTask::GetPreferredIPEndPoint(
 }
 
 void HttpStreamPool::QuicTask::OnSessionAttemptComplete(int rv) {
+  if (rv == OK) {
+    QuicChromiumClientSession* session =
+        quic_session_pool()->FindExistingSession(quic_session_key(),
+                                                 stream_key().destination());
+    if (!session) {
+      // QUIC session is closed before stream can be created.
+      rv = ERR_CONNECTION_CLOSED;
+    }
+  }
+
   net_log_.AddEventWithNetErrorCode(
       NetLogEventType::HTTP_STREAM_POOL_QUIC_ATTEMPT_END, rv);
 
   // TODO(crbug.com/346835898): Attempt other endpoints when failed.
-  quic_session_pool()->set_is_quic_known_to_work_on_current_network(rv == OK);
+
+  if (rv == OK &&
+      !quic_session_pool()->has_quic_ever_worked_on_current_network()) {
+    quic_session_pool()->set_has_quic_ever_worked_on_current_network(true);
+  }
+
+  NetErrorDetails details;
+  if (session_attempt_) {
+    session_attempt_->PopulateNetErrorDetails(&details);
+  }
   session_attempt_.reset();
-  manager_->OnQuicTaskComplete(rv);
+  manager_->OnQuicTaskComplete(rv, std::move(details));
   // `this` is deleted.
 }
 

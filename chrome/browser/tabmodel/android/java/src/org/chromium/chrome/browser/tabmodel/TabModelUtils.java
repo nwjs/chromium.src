@@ -9,6 +9,11 @@ import androidx.annotation.Nullable;
 
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.OneShotCallback;
+import org.chromium.base.supplier.OneshotSupplier;
+import org.chromium.base.supplier.OneshotSupplierImpl;
+import org.chromium.base.supplier.Supplier;
+import org.chromium.base.supplier.SupplierUtils;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.content_public.browser.WebContents;
@@ -22,6 +27,11 @@ import java.util.List;
  */
 public class TabModelUtils {
     private TabModelUtils() {}
+
+    /** Returns the non-incognito instance of the {@link EmptyTabModel}. */
+    public static @NonNull TabModel getEmptyTabModel() {
+        return EmptyTabModel.getInstance(/* isIncognito= */ false);
+    }
 
     /**
      * @param model The {@link TabModel} to act on.
@@ -110,8 +120,9 @@ public class TabModelUtils {
 
     /**
      * Get the currently selected {@link Tab}.
+     *
      * @param model The {@link TabModel} to act on.
-     * @returns     The current {@link Tab} or {@code null} if no {@link Tab} is selected
+     * @return The current {@link Tab} or {@code null} if no {@link Tab} is selected
      */
     public static Tab getCurrentTab(TabList model) {
         int index = model.index();
@@ -230,12 +241,58 @@ public class TabModelUtils {
     }
 
     /**
-     * @param tab The {@link Tab} to find the {@link TabModelFilter} for.
-     * @return the associated {@link TabModelFilter} if found.
+     * Similar to {@link #runOnTabStateInitialized(TabModelSelector, Callback)} but instead of
+     * taking a callback, it exposes a {@link OneshotSupplier}. This can be convenient for callers
+     * that want to combine multiple suppliers with something like {@link
+     * SupplierUtils#waitForAll(Runnable, Supplier[])}.
+     *
+     * <p>Note that, unlike {@link #runOnTabStateInitialized(TabModelSelector, Callback)}, this
+     * approach does not take care to ensure synchronous execution even when things are already
+     * satisfied. Depending on the input supplier type, this approach is likely to get stuck on the
+     * resulting post from adding the {@link OneShotCallback} observer.
+     *
+     * @param tabModelSelectorSupplier A supplier of a maybe initialized tab model selector.
+     * @return A oneshot supplier that will only be set when initialization is done.
      */
-    public static TabModelFilter getTabModelFilterByTab(@NonNull Tab tab) {
+    public static OneshotSupplier<TabModelSelector> onInitializedTabModelSelector(
+            ObservableSupplier<TabModelSelector> tabModelSelectorSupplier) {
+        OneshotSupplierImpl<TabModelSelector> delegate = new OneshotSupplierImpl<>();
+        new OneShotCallback<>(
+                tabModelSelectorSupplier,
+                (tabModelSelector) -> {
+                    if (tabModelSelector.isTabStateInitialized()) {
+                        delegate.set(tabModelSelector);
+                    } else {
+                        tabModelSelector.addObserver(
+                                new TabModelSelectorObserver() {
+                                    @Override
+                                    public void onTabStateInitialized() {
+                                        tabModelSelector.removeObserver(this);
+                                        delegate.set(tabModelSelector);
+                                    }
+                                });
+                    }
+                });
+        return delegate;
+    }
+
+    /**
+     * @param tab The {@link Tab} to find the {@link TabGroupModelFilter} for.
+     * @return the associated {@link TabGroupModelFilter} if found.
+     */
+    public static TabGroupModelFilter getTabGroupModelFilterByTab(@NonNull Tab tab) {
         final WindowAndroid windowAndroid = tab.getWindowAndroid();
         if (windowAndroid == null) return null;
+
+        // Support archived tab model querying
+        final TabModelSelector archivedTabModelSelector =
+                ArchivedTabModelSelectorHolder.getInstance(tab.getProfile());
+        if (archivedTabModelSelector != null
+                && archivedTabModelSelector.getTabById(tab.getId()) != null) {
+            return archivedTabModelSelector
+                    .getTabGroupModelFilterProvider()
+                    .getTabGroupModelFilter(/* isIncognito= */ false);
+        }
 
         final ObservableSupplier<TabModelSelector> supplier =
                 TabModelSelectorSupplier.from(windowAndroid);
@@ -244,7 +301,7 @@ public class TabModelUtils {
         final TabModelSelector selector = supplier.get();
         if (selector == null) return null;
 
-        return selector.getTabModelFilterProvider().getTabModelFilter(tab.isIncognito());
+        return selector.getTabGroupModelFilterProvider().getTabGroupModelFilter(tab.isIncognito());
     }
 
     /** Converts a {@link TabList} to a {@link List<Tab>}. A null input returns an empty list. */

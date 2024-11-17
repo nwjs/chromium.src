@@ -14,11 +14,13 @@
 #include "ash/ash_export.h"
 #include "ash/constants/ash_constants.h"
 #include "ash/public/cpp/accelerator_actions.h"
+#include "ash/public/cpp/input_device_settings_controller.h"
 #include "ash/public/cpp/session/session_observer.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
+#include "base/scoped_observation.h"
 #include "base/time/time.h"
 #include "ui/display/display_observer.h"
 #include "ui/events/keycodes/keyboard_codes.h"
@@ -63,6 +65,7 @@ enum class DictationBubbleIconType;
 enum class DictationNotificationType;
 class DisableTrackpadEventRewriter;
 enum class DisableTrackpadMode;
+class FaceGazeBubbleController;
 class FilterKeysEventRewriter;
 class FlashScreenController;
 class FloatingAccessibilityController;
@@ -106,13 +109,17 @@ enum class A11yNotificationType {
   kSpokenFeedbackBrailleEnabled,
   // Shown when Switch Access is enabled.
   kSwitchAccessEnabled,
+  // Shown when the internal trackpad is disabled.
+  kTrackpadDisabled,
 };
 
 // The controller for accessibility features in ash. Features can be enabled
 // in chrome's webui settings or the system tray menu (see TrayAccessibility).
 // Uses preferences to communicate with chrome to support mash.
-class ASH_EXPORT AccessibilityController : public SessionObserver,
-                                           public display::DisplayObserver {
+class ASH_EXPORT AccessibilityController
+    : public SessionObserver,
+      public display::DisplayObserver,
+      public InputDeviceSettingsController::Observer {
  public:
   // Common interface for all features.
   class Feature {
@@ -207,11 +214,17 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
     A11yNotificationWrapper();
     A11yNotificationWrapper(A11yNotificationType type_in,
                             std::vector<std::u16string> replacements_in);
+    A11yNotificationWrapper(
+        A11yNotificationType type_in,
+        std::vector<std::u16string> replacements_in,
+        std::optional<base::RepeatingCallback<void(std::optional<int>)>>
+            callback_in);
     ~A11yNotificationWrapper();
     A11yNotificationWrapper(const A11yNotificationWrapper&);
 
     A11yNotificationType type = A11yNotificationType::kNone;
     std::vector<std::u16string> replacements;
+    std::optional<base::RepeatingCallback<void(std::optional<int>)>> callback;
   };
 
   static AccessibilityController* Get();
@@ -347,6 +360,8 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
 
   bool IsReducedAnimationsSettingVisibleInTray();
   bool IsEnterpriseIconVisibleForReducedAnimations();
+
+  void OnTrackpadNotificationClicked(std::optional<int> button_index);
 
   // Switch access may be disabled in prefs but still running when the disable
   // dialog is displaying.
@@ -511,6 +526,9 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
   // nothing if the Select to Speak is currently enabled.
   void EnableSelectToSpeakWithDialog();
 
+  // Disables the internal trackpad with a dialog.
+  void DisableTrackpadWithDialog();
+
   // Enables Dictation if the feature is currently disabled. Toggles (starts or
   // stops) Dictation if the feature is currently enabled.
   void EnableOrToggleDictationFromSource(DictationToggleSource source);
@@ -578,6 +596,9 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
       const std::optional<std::u16string>& text,
       const std::optional<std::vector<DictationBubbleHintType>>& hints);
 
+  // Updates the FaceGaze UI bubble.
+  void UpdateFaceGazeBubble(const std::u16string& text);
+
   // Shows a notification notifying the user about the FaceGaze DLC download.
   void ShowNotificationForFaceGaze(FaceGazeNotificationType type);
 
@@ -622,6 +643,10 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
   void OnActiveUserPrefServiceChanged(PrefService* prefs) override;
   void OnSessionStateChanged(session_manager::SessionState state) override;
 
+  // InputDeviceSettingsController::Observer:
+  void OnMouseConnected(const mojom::Mouse& mouse) override;
+  void OnTouchpadConnected(const mojom::Touchpad& touchpad) override;
+
   // Test helpers:
   AccessibilityEventRewriter* GetAccessibilityEventRewriterForTest();
   DisableTrackpadEventRewriter* GetDisableTrackpadEventRewriterForTest();
@@ -657,6 +682,8 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
 
   DictationBubbleController* GetDictationBubbleControllerForTest();
 
+  FaceGazeBubbleController* GetFaceGazeBubbleControllerForTest();
+
   bool IsDictationKeyboardDialogShowingForTesting() {
     return dictation_keyboard_dialog_showing_for_testing_;
   }
@@ -665,6 +692,12 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
   }
   void DismissDictationKeyboardDialogForTesting() {
     OnDictationKeyboardDialogDismissed();
+  }
+  void AcceptDisableTrackpadDialogForTesting() {
+    OnDisableTrackpadDialogAccepted();
+  }
+  void DismissDisableTrackpadDialogForTesting() {
+    OnDisableTrackpadDialogDismissed();
   }
 
   void AddShowToastCallbackForTesting(
@@ -689,6 +722,11 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
   // Scrolls at the target location in the specified direction.
   void ScrollAtPoint(const gfx::Point& target,
                      AccessibilityScrollDirection direction);
+
+  void ObserveInputDeviceSettings();
+  void StopObservingInputDeviceSettings() {
+    input_device_settings_observer_.Reset();
+  }
 
  private:
   // Populate |features_| with the feature of the correct type.
@@ -750,6 +788,11 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
   void ShowSelectToSpeakKeyboardDialog();
   void OnSelectToSpeakKeyboardDialogAccepted();
   void OnSelectToSpeakKeyboardDialogDismissed();
+
+  void ShowDisableTrackpadDialog();
+  void OnDisableTrackpadDialogAccepted();
+  void OnDisableTrackpadDialogDismissed();
+  void ExternalDeviceConnected();
 
   void RecordSelectToSpeakSpeechDuration(SelectToSpeakState old_state,
                                          SelectToSpeakState new_state);
@@ -819,6 +862,9 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
   // Used to control the Dictation bubble UI.
   std::unique_ptr<DictationBubbleController> dictation_bubble_controller_;
 
+  // Used to control the FaceGaze bubble UI.
+  std::unique_ptr<FaceGazeBubbleController> facegaze_bubble_controller_;
+
   // Used to control accessibility-related notifications.
   std::unique_ptr<AccessibilityNotificationController>
       accessibility_notification_controller_;
@@ -845,6 +891,10 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
       show_confirmation_dialog_callback_for_testing_;
 
   base::Time select_to_speak_speech_start_time_;
+
+  base::ScopedObservation<InputDeviceSettingsController,
+                          InputDeviceSettingsController::Observer>
+      input_device_settings_observer_{this};
 
   base::WeakPtrFactory<AccessibilityController> weak_ptr_factory_{this};
 };

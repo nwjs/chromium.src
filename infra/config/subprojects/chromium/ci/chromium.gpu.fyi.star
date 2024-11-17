@@ -5,11 +5,12 @@
 
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
+load("//lib/builder_health_indicators.star", "health_spec")
 load("//lib/builders.star", "cpu", "gardener_rotations", "siso")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
-load("//lib/builder_health_indicators.star", "health_spec")
+load("//lib/targets.star", "targets")
 
 ci.defaults.set(
     executable = ci.DEFAULT_EXECUTABLE,
@@ -28,6 +29,18 @@ ci.defaults.set(
     siso_project = siso.project.DEFAULT_TRUSTED,
     siso_remote_jobs = siso.remote_jobs.DEFAULT,
     thin_tester_cores = 2,
+)
+
+targets.builder_defaults.set(
+    mixins = [
+        "chromium-tester-service-account",
+        "swarming_containment_auto",
+        "timeout_30m",
+    ],
+)
+
+targets.settings_defaults.set(
+    allow_script_tests = False,
 )
 
 consoles.console_view(
@@ -115,6 +128,42 @@ ci.thin_tester(
             config = "arm64_builder_rel_mb",
         ),
     ),
+    targets = targets.bundle(
+        targets = [
+            "gpu_fyi_android_gtests",
+            "gpu_nexus5x_telemetry_tests",
+            "android_webview_gpu_telemetry_tests",
+        ],
+        mixins = [
+            "chromium_nexus_5x_oreo",
+            "has_native_resultdb_integration",
+        ],
+        per_test_modifications = {
+            "angle_unittests": targets.remove(
+                reason = "On Android, these are already run on the main waterfall.",
+            ),
+            "gl_unittests": targets.remove(
+                reason = [
+                    "On Android, these are already run on the main waterfall.",
+                    "Run them on the one-off Android FYI bots, though.",
+                ],
+            ),
+            # The browser is restarted after every test in this suite, which
+            # includes re-applying permissions. Nexus 5Xs are very slow to apply
+            # permissions compared to other devices, so increase sharding to
+            # offset the increased runtime.
+            "trace_test": targets.mixin(
+                swarming = targets.swarming(
+                    shards = 2,
+                ),
+            ),
+        },
+    ),
+    targets_settings = targets.settings(
+        browser_config = targets.browser_config.ANDROID_CHROMIUM,
+        os_type = targets.os_type.ANDROID,
+        use_android_merge_script_by_default = False,
+    ),
     console_view_entry = consoles.console_view_entry(
         category = "Android|M64|QCOM",
         short_name = "N5X",
@@ -195,6 +244,37 @@ ci.thin_tester(
         ),
         run_tests_serially = True,
     ),
+    targets = targets.bundle(
+        targets = [
+            "gpu_fyi_android_gtests",
+            "gpu_pixel_6_telemetry_tests",
+        ],
+        mixins = [
+            "has_native_resultdb_integration",
+            "gpu_pixel_6_stable",
+        ],
+        per_test_modifications = {
+            "webgl2_conformance_gles_passthrough_tests": targets.remove(
+                reason = [
+                    "Currently not enough capacity to run these tests on this config.",
+                    "TODO(crbug.com/40208926): Re-enable once more of the Pixel 6 capacity",
+                    "is deployed.",
+                ],
+            ),
+            "webgl2_conformance_validating_tests": targets.remove(
+                reason = [
+                    "Currently not enough capacity to run these tests on this config.",
+                    "TODO(crbug.com/40208926): Re-enable once more of the Pixel 6 capacity",
+                    "is deployed.",
+                ],
+            ),
+        },
+    ),
+    targets_settings = targets.settings(
+        browser_config = targets.browser_config.ANDROID_CHROMIUM,
+        os_type = targets.os_type.ANDROID,
+        use_android_merge_script_by_default = False,
+    ),
     console_view_entry = consoles.console_view_entry(
         category = "Android|S64|ARM",
         short_name = "P6",
@@ -225,6 +305,41 @@ ci.thin_tester(
         ),
         run_tests_serially = True,
     ),
+    targets = targets.bundle(
+        # If the experimental configuration is the same as stable, this should
+        # only be running 'gpu_noop_sleep_telemetry_test'. Otherwise, this
+        # should be running the same tests as 'Android FYI Release (Pixel 6)'.
+        targets = [
+            "gpu_fyi_android_gtests",
+            "gpu_pixel_6_telemetry_tests",
+        ],
+        mixins = [
+            "has_native_resultdb_integration",
+            "gpu_pixel_6_experimental",
+            "limited_capacity_bot",
+        ],
+        per_test_modifications = {
+            "webgl2_conformance_gles_passthrough_tests": targets.remove(
+                reason = [
+                    "Currently not enough capacity to run these tests on this config.",
+                    "TODO(crbug.com/40208926): Re-enable once more of the Pixel 6 capacity",
+                    "is deployed.",
+                ],
+            ),
+            "webgl2_conformance_validating_tests": targets.remove(
+                reason = [
+                    "Currently not enough capacity to run these tests on this config.",
+                    "TODO(crbug.com/40208926): Re-enable once more of the Pixel 6 capacity",
+                    "is deployed.",
+                ],
+            ),
+        },
+    ),
+    targets_settings = targets.settings(
+        browser_config = targets.browser_config.ANDROID_CHROMIUM,
+        os_type = targets.os_type.ANDROID,
+        use_android_merge_script_by_default = False,
+    ),
     # Uncomment this entry when this experimental tester is actually in use.
     console_view_entry = consoles.console_view_entry(
         category = "Android|S64|ARM",
@@ -253,6 +368,21 @@ ci.thin_tester(
             config = "arm64_builder_rel_mb",
         ),
         run_tests_serially = True,
+    ),
+    targets = targets.bundle(
+        targets = [
+            "gpu_noop_sleep_telemetry_test",
+        ],
+        mixins = [
+            "has_native_resultdb_integration",
+            "motorola_moto_g_power_5g",
+            "limited_capacity_bot",
+        ],
+    ),
+    targets_settings = targets.settings(
+        browser_config = targets.browser_config.ANDROID_CHROMIUM,
+        os_type = targets.os_type.ANDROID,
+        use_android_merge_script_by_default = False,
     ),
     # Uncomment this entry when this experimental tester is actually in use.
     # console_view_entry = consoles.console_view_entry(
@@ -336,6 +466,22 @@ ci.thin_tester(
             config = "arm64_builder_rel_mb",
         ),
         run_tests_serially = True,
+    ),
+    targets = targets.bundle(
+        targets = [
+            "gpu_fyi_android_gtests",
+            "gpu_common_android_telemetry_tests",
+        ],
+        mixins = [
+            "has_native_resultdb_integration",
+            "gpu_samsung_s23_stable",
+            "limited_capacity_bot",
+        ],
+    ),
+    targets_settings = targets.settings(
+        browser_config = targets.browser_config.ANDROID_CHROMIUM,
+        os_type = targets.os_type.ANDROID,
+        use_android_merge_script_by_default = False,
     ),
     console_view_entry = consoles.console_view_entry(
         category = "Android|U64|QCOM",
@@ -543,6 +689,7 @@ ci.gpu.linux_builder(
             "static_angle",
         ],
     ),
+    targets = targets.bundle(),
     console_view_entry = consoles.console_view_entry(
         category = "Android|Builder",
         short_name = "arm64",
@@ -918,10 +1065,10 @@ ci.thin_tester(
         run_tests_serially = True,
     ),
     # Uncomment this entry when this experimental tester is actually in use.
-    console_view_entry = consoles.console_view_entry(
-        category = "Linux|Intel",
-        short_name = "exp",
-    ),
+    # console_view_entry = consoles.console_view_entry(
+    #     category = "Linux|Intel",
+    #     short_name = "exp",
+    # ),
     list_view = "chromium.gpu.experimental",
 )
 
@@ -1769,6 +1916,76 @@ ci.thin_tester(
             target_platform = builder_config.target_platform.WIN,
         ),
         run_tests_serially = True,
+    ),
+    targets = targets.bundle(
+        targets = [
+            "gpu_fyi_win_gtests",
+            "gpu_fyi_win_release_telemetry_tests",
+        ],
+        mixins = [
+            "win11_qualcomm_adreno_690_stable",
+        ],
+        per_test_modifications = {
+            "context_lost_passthrough_graphite_tests": targets.remove(
+                reason = "Test is not high priority and win11/arm has limited capacity.",
+            ),
+            "context_lost_passthrough_tests": targets.per_test_modification(
+                mixins = targets.mixin(
+                    # These devices have issues running these tests in parallel.
+                    args = [
+                        "--jobs=1",
+                    ],
+                ),
+                replacements = targets.replacements(
+                    # Magic substitution happens after regular replacement, so remove it
+                    # now since we are manually applying the number of jobs above.
+                    args = {
+                        targets.magic_args.GPU_PARALLEL_JOBS: None,
+                    },
+                ),
+            ),
+            "gl_unittests": targets.mixin(
+                args = [
+                    # crbug.com/1523061
+                    "--test-launcher-filter-file=../../testing/buildbot/filters/win.win_arm64.gl_unittests.filter",
+                ],
+            ),
+            "services_webnn_unittests": targets.mixin(
+                args = [
+                    # crbug.com/1522972
+                    "--test-launcher-filter-file=../../testing/buildbot/filters/win.win_arm64.services_webnn_unittests.filter",
+                ],
+            ),
+            "webcodecs_tests": targets.per_test_modification(
+                mixins = targets.mixin(
+                    # These devices have issues running these tests in parallel.
+                    # TODO(crbug.com/346406092): Once addressed, remove this block.
+                    args = [
+                        "--jobs=1",
+                    ],
+                ),
+                replacements = targets.replacements(
+                    # Magic substitution happens after regular replacement, so remove it
+                    # now since we are manually applying the number of jobs above.
+                    args = {
+                        targets.magic_args.GPU_PARALLEL_JOBS: None,
+                    },
+                ),
+            ),
+            "webgl_conformance_d3d9_passthrough_tests": targets.remove(
+                reason = "Per discussion on crbug.com/1523698, we aren't interested in testing D3D9 on this newer hardware.",
+            ),
+            "webgl_conformance_vulkan_passthrough_tests": targets.remove(
+                reason = "Vulkan is not supported on these devices.",
+            ),
+            "xr_browser_tests": targets.remove(
+                reason = "No Windows arm64 devices currently support XR features, so don't bother running related tests.",
+            ),
+        },
+    ),
+    targets_settings = targets.settings(
+        browser_config = targets.browser_config.RELEASE,
+        os_type = targets.os_type.WINDOWS,
     ),
     console_view_entry = consoles.console_view_entry(
         category = "Windows|11|arm64|Qualcomm",

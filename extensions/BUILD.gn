@@ -78,6 +78,8 @@ static_library("test_support") {
   sources = [
     "browser/api/declarative/test_rules_registry.cc",
     "browser/api/declarative/test_rules_registry.h",
+    "browser/api/storage/settings_test_util.cc",
+    "browser/api/storage/settings_test_util.h",
     "browser/api_test_utils.cc",
     "browser/api_test_utils.h",
     "browser/api_unittest.cc",
@@ -154,6 +156,8 @@ static_library("test_support") {
     "//components/prefs:test_support",
     "//components/sync_preferences:test_support",
     "//components/update_client",
+    "//components/user_annotations",
+    "//components/user_annotations:test_support",
     "//components/user_prefs",
     "//content/public/common",
     "//content/test:test_support",
@@ -196,8 +200,6 @@ static_library("test_support") {
   # not be included and place them under a more appropriate if-block.
   if (enable_extensions) {
     sources += [
-      "browser/api/storage/settings_test_util.cc",
-      "browser/api/storage/settings_test_util.h",
       "browser/test_runtime_api_delegate.cc",
       "browser/test_runtime_api_delegate.h",
     ]
@@ -291,6 +293,7 @@ test("extensions_unittests") {
     "//build:android_buildflags",
     "//content/public/common",
     "//content/test:test_support",
+    "//extensions/browser:unit_tests",
     "//extensions/common",
     "//extensions/common:unit_tests",
     "//extensions/renderer:unit_tests",
@@ -312,6 +315,7 @@ test("extensions_unittests") {
 
   if (is_android) {
     deps += [
+      "//content/public/android:content_full_java",
       "//gin:v8_snapshot_assets",
       "//services/data_decoder/public/cpp/android:safe_json_java",
       "//ui/android:ui_full_java",
@@ -321,10 +325,7 @@ test("extensions_unittests") {
   # TODO(https://crbug.com/356905053): Gradually include more of these sources
   # in the desktop-android build.
   if (enable_extensions) {
-    deps += [
-      "//extensions/browser:unit_tests",
-      "//extensions/shell:unit_tests",
-    ]
+    deps += [ "//extensions/shell:unit_tests" ]
   }
 }
 

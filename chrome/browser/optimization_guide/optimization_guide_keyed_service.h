@@ -135,6 +135,7 @@ class OptimizationGuideKeyedService
   void ExecuteModel(
       optimization_guide::ModelBasedCapabilityKey feature,
       const google::protobuf::MessageLite& request_metadata,
+      const std::optional<base::TimeDelta>& execution_timeout,
       optimization_guide::OptimizationGuideModelExecutionResultCallback
           callback) override;
   void AddOnDeviceModelAvailabilityChangeObserver(
@@ -151,6 +152,11 @@ class OptimizationGuideKeyedService
   virtual bool ShouldFeatureBeCurrentlyEnabledForUser(
       optimization_guide::UserVisibleFeatureKey feature) const;
 
+  // Returns true if signed-in user is allowed to execute models, disregarding
+  // the `allow_unsigned_user` switch.
+  bool ShouldFeatureAllowModelExecutionForSignedInUser(
+      optimization_guide::UserVisibleFeatureKey feature) const;
+
   // Returns whether the `feature` should be currently allowed for showing the
   // Feedback UI (and sending Feedback reports).
   virtual bool ShouldFeatureBeCurrentlyAllowedForFeedback(
@@ -160,6 +166,11 @@ class OptimizationGuideKeyedService
   // given `feature`. This should only be called by settings UX.
   bool IsSettingVisible(
       optimization_guide::UserVisibleFeatureKey feature) const;
+
+  // Returns true if the user passes all sign-in checks and is allowed to use
+  // model execution. This does not perform any feature related checks such as
+  // allowed by enterprise policy.
+  bool ShouldModelExecutionBeAllowedForUser() const;
 
   // Adds `observer` which can observe the change in feature settings.
   void AddModelExecutionSettingsEnabledObserver(
@@ -188,6 +199,9 @@ class OptimizationGuideKeyedService
   void SetModelQualityLogsUploaderServiceForTesting(
       std::unique_ptr<optimization_guide::ModelQualityLogsUploaderService>
           uploader);
+
+  void AllowUnsignedUserForTesting(
+      optimization_guide::UserVisibleFeatureKey feature);
 
   // Creates the platform specific push notification manager. May returns
   // nullptr for desktop or when the push notification feature is disabled.
@@ -286,7 +300,7 @@ class OptimizationGuideKeyedService
   // `feature_name`.
   void RecordModelExecutionFeatureSyntheticFieldTrial(
       optimization_guide::UserVisibleFeatureKey feature,
-      const std::string_view feature_name);
+      std::string_view feature_name);
 
   raw_ptr<content::BrowserContext> browser_context_;
 

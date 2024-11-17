@@ -4,6 +4,7 @@
 
 package org.chromium.components.privacy_sandbox;
 
+import static org.chromium.components.browser_ui.settings.SearchUtils.handleSearchNavigation;
 import static org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge.SITE_WILDCARD;
 
 import android.content.Intent;
@@ -12,10 +13,15 @@ import android.os.Bundle;
 import android.provider.Browser;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
+import android.text.style.ClickableSpan;
 import android.text.style.ForegroundColorSpan;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 
 import androidx.annotation.ColorInt;
+import androidx.annotation.VisibleForTesting;
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.preference.Preference;
 import androidx.preference.Preference.OnPreferenceClickListener;
@@ -26,20 +32,22 @@ import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.browser_ui.settings.CustomDividerFragment;
+import org.chromium.components.browser_ui.settings.EmbeddableSettingsPage;
 import org.chromium.components.browser_ui.settings.ExpandablePreferenceGroup;
-import org.chromium.components.browser_ui.settings.SettingsPage;
+import org.chromium.components.browser_ui.settings.SearchUtils;
 import org.chromium.components.browser_ui.settings.SettingsUtils;
 import org.chromium.components.browser_ui.settings.TextMessagePreference;
 import org.chromium.components.browser_ui.site_settings.AddExceptionPreference;
 import org.chromium.components.browser_ui.site_settings.AddExceptionPreference.SiteAddedCallback;
+import org.chromium.components.browser_ui.site_settings.BaseSiteSettingsFragment.CustomTabIntentHelper;
 import org.chromium.components.browser_ui.site_settings.SiteSettingsCategory;
 import org.chromium.components.browser_ui.site_settings.Website;
 import org.chromium.components.browser_ui.site_settings.WebsitePermissionsFetcher;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
+import org.chromium.components.browser_ui.util.TraceEventVectorDrawableCompat;
 import org.chromium.components.content_settings.ContentSettingValues;
 import org.chromium.components.content_settings.ContentSettingsType;
-import org.chromium.ui.text.NoUnderlineClickableSpan;
 import org.chromium.ui.text.SpanApplier;
 import org.chromium.ui.widget.Toast;
 
@@ -53,9 +61,7 @@ public class TrackingProtectionSettings extends PreferenceFragmentCompat
         implements CustomDividerFragment,
                 OnPreferenceClickListener,
                 SiteAddedCallback,
-                SettingsPage {
-    // Must match keys in tracking_protection_preferences.xml.
-    private static final String OFFBOARDING_NOTICE = "offboarding_notice";
+                EmbeddableSettingsPage {
     private static final String PREF_BLOCK_ALL_TOGGLE = "block_all_3pcd_toggle";
     private static final String PREF_IP_PROTECTION_TOGGLE = "ip_protection_toggle";
     private static final String PREF_IP_PROTECTION_LEARN_MORE = "ip_protection_learn_more";
@@ -63,19 +69,25 @@ public class TrackingProtectionSettings extends PreferenceFragmentCompat
             "fingerprinting_protection_toggle";
     private static final String PREF_FINGERPRINTING_PROTECTION_LEARN_MORE =
             "fingerprinting_protection_learn_more";
-    private static final String PREF_DNT_TOGGLE = "dnt_toggle";
     private static final String PREF_BULLET_TWO = "bullet_point_two";
     private static final String ALLOWED_GROUP = "allowed_group";
     public static final String ADD_EXCEPTION_KEY = "add_exception";
+    @VisibleForTesting static final String PREF_DNT_TOGGLE = "dnt_toggle";
 
     public static final String LEARN_MORE_URL =
-            "https://support.google.com/chrome/?p=tracking_protection";
+            "https://support.google.com/chrome/?p=pause_protections";
 
     // The number of sites that are on the Allowed list.
     private int mAllowedSiteCount;
 
     // Whether the Allowed list should be shown expanded.
     private boolean mAllowListExpanded = true;
+
+    // The item for searching the list of items.
+    private MenuItem mSearchItem;
+
+    // If not blank, represents a substring to use to search for site names.
+    private String mSearch;
 
     private TrackingProtectionDelegate mDelegate;
 
@@ -86,7 +98,13 @@ public class TrackingProtectionSettings extends PreferenceFragmentCompat
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         SettingsUtils.addPreferencesFromResource(this, R.xml.tracking_protection_preferences);
-        mPageTitle.set(getString(R.string.privacy_sandbox_tracking_protection_title));
+        if (mDelegate.shouldShowTrackingProtectionBrandedUi()) {
+            mPageTitle.set(getString(R.string.privacy_sandbox_tracking_protection_title));
+        } else {
+            mPageTitle.set(getString(R.string.third_party_cookies_page_title));
+        }
+
+        setHasOptionsMenu(true);
 
         // Format the Learn More link in the second bullet point.
         TextMessagePreference bulletTwo = (TextMessagePreference) findPreference(PREF_BULLET_TWO);
@@ -99,8 +117,12 @@ public class TrackingProtectionSettings extends PreferenceFragmentCompat
                         new SpanApplier.SpanInfo(
                                 "<link>",
                                 "</link>",
-                                new NoUnderlineClickableSpan(
-                                        getContext(), this::onLearnMoreClicked))));
+                                new ClickableSpan() {
+                                    @Override
+                                    public void onClick(View view) {
+                                        onLearnMoreClicked(view);
+                                    }
+                                })));
 
         ChromeSwitchPreference blockAll3PCookiesSwitch =
                 (ChromeSwitchPreference) findPreference(PREF_BLOCK_ALL_TOGGLE);
@@ -142,8 +164,12 @@ public class TrackingProtectionSettings extends PreferenceFragmentCompat
                             new SpanApplier.SpanInfo(
                                     "<link>",
                                     "</link>",
-                                    new NoUnderlineClickableSpan(
-                                            getContext(), this::onLearnMoreClicked))));
+                                    new ClickableSpan() {
+                                        @Override
+                                        public void onClick(View view) {
+                                            onLearnMoreClicked(view);
+                                        }
+                                    })));
         }
 
         // Fingerprinting protection switch.
@@ -167,17 +193,24 @@ public class TrackingProtectionSettings extends PreferenceFragmentCompat
                             new SpanApplier.SpanInfo(
                                     "<link>",
                                     "</link>",
-                                    new NoUnderlineClickableSpan(
-                                            getContext(), this::onLearnMoreClicked))));
+                                    new ClickableSpan() {
+                                        @Override
+                                        public void onClick(View view) {
+                                            onLearnMoreClicked(view);
+                                        }
+                                    })));
         }
 
         // Do not track switch.
-        doNotTrackSwitch.setChecked(mDelegate.isDoNotTrackEnabled());
-        doNotTrackSwitch.setOnPreferenceChangeListener(
-                (preference, newValue) -> {
-                    mDelegate.setDoNotTrack((boolean) newValue);
-                    return true;
-                });
+        if (mDelegate.shouldShowTrackingProtectionBrandedUi()) {
+            doNotTrackSwitch.setVisible(true);
+            doNotTrackSwitch.setChecked(mDelegate.isDoNotTrackEnabled());
+            doNotTrackSwitch.setOnPreferenceChangeListener(
+                    (preference, newValue) -> {
+                        mDelegate.setDoNotTrack((boolean) newValue);
+                        return true;
+                    });
+        }
 
         mAllowListExpanded = true;
         mAllowedSiteCount = 0;
@@ -206,6 +239,59 @@ public class TrackingProtectionSettings extends PreferenceFragmentCompat
     @Override
     public ObservableSupplier<String> getPageTitle() {
         return mPageTitle;
+    }
+
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        menu.clear();
+        inflater.inflate(R.menu.tracking_protection_menu, menu);
+
+        mSearchItem = menu.findItem(R.id.search);
+        SearchUtils.initializeSearchView(
+                mSearchItem,
+                mSearch,
+                getActivity(),
+                (query) -> {
+                    boolean queryHasChanged =
+                            mSearch == null
+                                    ? query != null && !query.isEmpty()
+                                    : !mSearch.equals(query);
+                    mSearch = query;
+                    if (queryHasChanged) refreshBlockingExceptions();
+                });
+
+        MenuItem help =
+                menu.add(Menu.NONE, R.id.menu_id_site_settings_help, Menu.NONE, R.string.menu_help);
+        help.setIcon(
+                TraceEventVectorDrawableCompat.create(
+                        getResources(), R.drawable.ic_help_and_feedback, getContext().getTheme()));
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.menu_id_site_settings_help) {
+            mDelegate
+                    .getSiteSettingsDelegate(getContext())
+                    .launchSettingsHelpAndFeedbackActivity(getActivity());
+            return true;
+        }
+        if (handleSearchNavigation(item, mSearchItem, mSearch, getActivity())) {
+            boolean queryHasChanged = mSearch != null && !mSearch.isEmpty();
+            mSearch = null;
+            if (queryHasChanged) refreshBlockingExceptions();
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (mSearch == null && mSearchItem != null) {
+            SearchUtils.clearSearch(mSearchItem, getActivity());
+            mSearch = null;
+        }
+        refreshBlockingExceptions();
     }
 
     @Override
@@ -260,10 +346,12 @@ public class TrackingProtectionSettings extends PreferenceFragmentCompat
     private void onExceptionsFetched(Collection<Website> sites) {
         List<WebsiteExceptionRowPreference> websites = new ArrayList<>();
         for (Website site : sites) {
-            WebsiteExceptionRowPreference preference =
-                    new WebsiteExceptionRowPreference(
-                            getContext(), site, mDelegate, this::refreshBlockingExceptions);
-            websites.add(preference);
+            if (mSearch == null || mSearch.isEmpty() || site.getTitle().contains(mSearch)) {
+                WebsiteExceptionRowPreference preference =
+                        new WebsiteExceptionRowPreference(
+                                getContext(), site, mDelegate, this::refreshBlockingExceptions);
+                websites.add(preference);
+            }
         }
 
         ExpandablePreferenceGroup allowedGroup =

@@ -9,6 +9,7 @@
 #include <memory>
 #include <vector>
 
+#include "ash/birch/birch_coral_item.h"
 #include "ash/birch/birch_coral_provider.h"
 #include "ash/birch/birch_data_provider.h"
 #include "ash/birch/birch_icon_cache.h"
@@ -16,6 +17,7 @@
 #include "ash/birch/birch_item_remover.h"
 #include "ash/birch/birch_ranker.h"
 #include "ash/birch/birch_weather_provider.h"
+#include "ash/birch/coral_item_remover.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/session/session_controller_impl.h"
@@ -70,7 +72,7 @@ BirchModel::BirchModel()
   if (features::IsBirchWeatherEnabled()) {
     weather_provider_ = std::make_unique<BirchWeatherProvider>(this);
   }
-  if (features::IsBirchCoralEnabled()) {
+  if (features::IsCoralFeatureEnabled()) {
     coral_provider_ = std::make_unique<BirchCoralProvider>(this);
   }
   Shell::Get()->session_controller()->AddObserver(this);
@@ -296,6 +298,11 @@ void BirchModel::RequestBirchDataFetch(bool is_post_login,
   StartDataFetchIfNeeded(coral_data_, coral_provider_.get());
   StartDataFetchIfNeeded(weather_data_, weather_provider_.get());
   MaybeRespondToDataFetchRequest();
+}
+
+CoralItemRemover* BirchModel::GetCoralItemRemoverForTest() {
+  return static_cast<BirchCoralProvider*>(coral_provider_.get())
+      ->GetCoralItemRemoverForTest();
 }
 
 std::vector<std::unique_ptr<BirchItem>> BirchModel::GetAllItems() {
@@ -530,6 +537,10 @@ void BirchModel::RemoveItem(BirchItem* item) {
     if (birch_client_) {
       birch_client_->RemoveFileItemFromLauncher(file_item->file_path());
     }
+  }
+  if (item->GetType() == BirchItemType::kCoral) {
+    BirchCoralProvider::Get()->RemoveGroup(
+        static_cast<BirchCoralItem*>(item)->group_id());
   }
 }
 

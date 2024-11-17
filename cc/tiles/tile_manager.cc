@@ -76,7 +76,7 @@ class DispatchingImageProvider : public ImageProvider {
       const DrawImage& draw_image) override {
     return draw_image.paint_image().IsPaintWorklet()
                ? paint_worklet_image_provider_.GetPaintRecordResult(
-                     draw_image.paint_image().paint_worklet_input())
+                     draw_image.paint_image().GetPaintWorkletInput())
                : playback_image_provider_.GetRasterContent(draw_image);
   }
 
@@ -225,8 +225,7 @@ bool IsForegroundCategory(uint16_t category) {
       return false;
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return false;
+  NOTREACHED();
 }
 
 // Task priorities that make sure that the task set done tasks run before any
@@ -248,78 +247,11 @@ void InsertNodeForTask(TaskGraph* graph,
   graph->nodes.emplace_back(task, category, priority, dependencies);
 }
 
-void InsertNodeForDecodeTask(TaskGraph* graph,
-                             TileTask* task,
-                             bool use_foreground_category,
-                             uint16_t priority) {
-  uint32_t dependency_count = 0u;
-  if (task->dependencies().size()) {
-    DCHECK_EQ(task->dependencies().size(), 1u);
-    auto* dependency = task->dependencies()[0].get();
-    if (!dependency->HasCompleted()) {
-      InsertNodeForDecodeTask(graph, dependency, use_foreground_category,
-                              priority);
-      graph->edges.emplace_back(dependency, task);
-      dependency_count = 1u;
-    }
-  }
-  InsertNodeForTask(graph, task,
-                    TaskCategoryForTileTask(task, use_foreground_category),
-                    priority, dependency_count);
-}
-
-void InsertNodesForRasterTask(TaskGraph* graph,
-                              TileTask* raster_task,
-                              const TileTask::Vector& decode_tasks,
-                              size_t priority,
-                              bool use_foreground_category) {
-  size_t dependencies = 0u;
-
-  // Insert image decode tasks.
-  for (auto it = decode_tasks.begin(); it != decode_tasks.end(); ++it) {
-    TileTask* decode_task = it->get();
-
-    // Skip if already decoded.
-    if (decode_task->HasCompleted())
-      continue;
-
-    dependencies++;
-
-    // Add decode task if it doesn't already exist in graph.
-    auto decode_it =
-        base::ranges::find(graph->nodes, decode_task, &TaskGraph::Node::task);
-
-    // In rare circumstances, a background category task may come in before a
-    // foreground category task. In these cases, upgrade any background category
-    // dependencies of the current task.
-    // TODO(ericrk): Task iterators should be updated to avoid this.
-    // crbug.com/594851
-    // TODO(ericrk): This should handle dependencies recursively.
-    // crbug.com/605234
-    if (decode_it != graph->nodes.end() && use_foreground_category &&
-        !IsForegroundCategory(decode_it->category)) {
-      decode_it->category = TASK_CATEGORY_FOREGROUND;
-    }
-
-    if (decode_it == graph->nodes.end()) {
-      InsertNodeForDecodeTask(graph, decode_task, use_foreground_category,
-                              priority);
-    }
-
-    graph->edges.emplace_back(decode_task, raster_task);
-  }
-
-  InsertNodeForTask(
-      graph, raster_task,
-      TaskCategoryForTileTask(raster_task, use_foreground_category), priority,
-      dependencies);
-}
-
 class TaskSetFinishedTaskImpl : public TileTask {
  public:
   explicit TaskSetFinishedTaskImpl(
       base::SequencedTaskRunner* task_runner,
-      base::RepeatingClosure on_task_set_finished_callback)
+      base::OnceClosure on_task_set_finished_callback)
       : TileTask(TileTask::SupportsConcurrentExecution::kYes,
                  TileTask::SupportsBackgroundThreadPriority::kYes),
         task_runner_(task_runner),
@@ -341,12 +273,14 @@ class TaskSetFinishedTaskImpl : public TileTask {
   ~TaskSetFinishedTaskImpl() override = default;
 
   void TaskSetFinished() {
-    task_runner_->PostTask(FROM_HERE, on_task_set_finished_callback_);
+    CHECK(on_task_set_finished_callback_);
+    task_runner_->PostTask(FROM_HERE,
+                           std::move(on_task_set_finished_callback_));
   }
 
  private:
   raw_ptr<base::SequencedTaskRunner> task_runner_;
-  const base::RepeatingClosure on_task_set_finished_callback_;
+  base::OnceClosure on_task_set_finished_callback_;
 };
 
 class DidFinishRunningAllTilesTask : public TileTask {
@@ -846,8 +780,7 @@ bool TileManager::TilePriorityViolatesMemoryPolicy(
       return priority.distance_to_visible ==
              std::numeric_limits<float>::infinity();
   }
-  NOTREACHED_IN_MIGRATION();
-  return true;
+  NOTREACHED();
 }
 
 TileManager::PrioritizedWorkToSchedule TileManager::AssignGpuMemoryToTiles() {
@@ -1261,8 +1194,7 @@ void TileManager::ScheduleTasks(PrioritizedWorkToSchedule work_to_schedule) {
     bool use_foreground_category =
         tile->required_for_draw() || tile->required_for_activation() ||
         prioritized_tile.priority().priority_bin == TilePriority::NOW;
-    InsertNodesForRasterTask(&graph_, task, task->dependencies(), priority++,
-                             use_foreground_category);
+    InsertNodesForRasterTask(task, priority++, use_foreground_category);
   }
 
   const std::vector<PrioritizedTile>& tiles_to_process_for_images =
@@ -1317,7 +1249,7 @@ void TileManager::ScheduleTasks(PrioritizedWorkToSchedule work_to_schedule) {
     if (decode_it != graph_.nodes.end())
       continue;
 
-    InsertNodeForDecodeTask(&graph_, task.get(), false, priority++);
+    InsertNodeForDecodeTask(task.get(), false, priority++);
     all_count++;
     graph_.edges.emplace_back(task.get(), all_done_task.get());
   }
@@ -1542,6 +1474,70 @@ scoped_refptr<TileTask> TileManager::CreateRasterTask(
       &decode_tasks, use_gpu_rasterization_,
       std::move(dispatching_image_provider), active_url_,
       prioritized_tile.GetRasterInducingScrollOffsets());
+}
+
+void TileManager::InsertNodeForDecodeTask(TileTask* task,
+                                          uint16_t priority,
+                                          bool use_foreground_category) {
+  uint32_t dependency_count = 0u;
+  if (task->dependencies().size()) {
+    DCHECK_EQ(task->dependencies().size(), 1u);
+    auto* dependency = task->dependencies()[0].get();
+    if (!dependency->HasCompleted()) {
+      InsertNodeForDecodeTask(dependency, priority, use_foreground_category);
+      graph_.edges.emplace_back(dependency, task);
+      dependency_count = 1u;
+    }
+  }
+  InsertNodeForTask(&graph_, task,
+                    TaskCategoryForTileTask(task, use_foreground_category),
+                    priority, dependency_count);
+}
+
+void TileManager::InsertNodesForRasterTask(TileTask* raster_task,
+                                           uint16_t priority,
+                                           bool use_foreground_category) {
+  size_t dependencies = 0u;
+
+  // Insert image decode tasks.
+  for (auto it = raster_task->dependencies().begin();
+       it != raster_task->dependencies().end(); ++it) {
+    TileTask* decode_task = it->get();
+
+    // Skip if already decoded.
+    if (decode_task->HasCompleted()) {
+      continue;
+    }
+
+    dependencies++;
+
+    // Add decode task if it doesn't already exist in graph_.
+    auto decode_it =
+        base::ranges::find(graph_.nodes, decode_task, &TaskGraph::Node::task);
+
+    // In rare circumstances, a background category task may come in before a
+    // foreground category task. In these cases, upgrade any background category
+    // dependencies of the current task.
+    // TODO(ericrk): Task iterators should be updated to avoid this.
+    // crbug.com/594851
+    // TODO(ericrk): This should handle dependencies recursively.
+    // crbug.com/605234
+    if (decode_it != graph_.nodes.end() && use_foreground_category &&
+        !IsForegroundCategory(decode_it->category)) {
+      decode_it->category = TASK_CATEGORY_FOREGROUND;
+    }
+
+    if (decode_it == graph_.nodes.end()) {
+      InsertNodeForDecodeTask(decode_task, priority, use_foreground_category);
+    }
+
+    graph_.edges.emplace_back(decode_task, raster_task);
+  }
+
+  InsertNodeForTask(
+      &graph_, raster_task,
+      TaskCategoryForTileTask(raster_task, use_foreground_category), priority,
+      dependencies);
 }
 
 void TileManager::ResetSignalsForTesting() {
@@ -1999,8 +1995,8 @@ scoped_refptr<TileTask> TileManager::CreateTaskSetFinishedTask(
     void (TileManager::*callback)()) {
   return base::MakeRefCounted<TaskSetFinishedTaskImpl>(
       task_runner_,
-      base::BindRepeating(callback,
-                          task_set_finished_weak_ptr_factory_.GetWeakPtr()));
+      base::BindOnce(callback,
+                     task_set_finished_weak_ptr_factory_.GetWeakPtr()));
 }
 
 std::unique_ptr<base::trace_event::ConvertableToTraceFormat>

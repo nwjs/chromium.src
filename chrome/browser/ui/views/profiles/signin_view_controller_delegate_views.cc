@@ -84,12 +84,15 @@ int GetSyncConfirmationDialogPreferredHeight(Profile* profile) {
 void CloseModalSigninInBrowser(
     base::WeakPtr<Browser> browser,
     bool show_profile_switch_iph,
+    bool show_supervised_user_iph,
     ProfileCustomizationHandler::CustomizationResult result) {
   if (!browser)
     return;
 
   browser->signin_view_controller()->CloseModalSignin();
-
+  if (show_supervised_user_iph) {
+    browser->window()->MaybeShowSupervisedUserProfileSignInIPH();
+  }
   if (show_profile_switch_iph) {
     browser->window()->MaybeShowProfileSwitchIPH();
   }
@@ -151,7 +154,8 @@ std::unique_ptr<views::WebView>
 SigninViewControllerDelegateViews::CreateProfileCustomizationWebView(
     Browser* browser,
     bool is_local_profile_creation,
-    bool show_profile_switch_iph) {
+    bool show_profile_switch_iph,
+    bool show_supervised_user_iph) {
   GURL url = GURL(chrome::kChromeUIProfileCustomizationURL);
   if (is_local_profile_creation) {
     url = AppendProfileCustomizationQueryParams(
@@ -167,9 +171,9 @@ SigninViewControllerDelegateViews::CreateProfileCustomizationWebView(
                                        ->GetController()
                                        ->GetAs<ProfileCustomizationUI>();
   DCHECK(web_ui);
-  web_ui->Initialize(base::BindOnce(&CloseModalSigninInBrowser,
-                                    browser->AsWeakPtr(),
-                                    show_profile_switch_iph));
+  web_ui->Initialize(
+      base::BindOnce(&CloseModalSigninInBrowser, browser->AsWeakPtr(),
+                     show_profile_switch_iph, show_supervised_user_iph));
   return web_view;
 }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT) || BUILDFLAG(IS_CHROMEOS_LACROS)
@@ -180,14 +184,11 @@ SigninViewControllerDelegateViews::CreateProfileCustomizationWebView(
 std::unique_ptr<views::WebView>
 SigninViewControllerDelegateViews::CreateManagedUserNoticeConfirmationWebView(
     Browser* browser,
-    const AccountInfo& account_info,
-    bool is_oidc_account,
-    bool profile_creation_required_by_policy,
-    bool show_link_data_option,
-    signin::SigninChoiceCallbackVariant process_user_choice_callback,
-    base::OnceClosure done_callback) {
+    std::unique_ptr<signin::EnterpriseProfileCreationDialogParams>
+        create_param) {
   bool enable_updated_dialog = base::FeatureList::IsEnabled(
       features::kEnterpriseUpdatedProfileCreationScreen);
+  bool is_oidc_account = create_param->is_oidc_account;
 #if !BUILDFLAG(IS_CHROMEOS_LACROS)
   enable_updated_dialog |=
       is_oidc_account &&
@@ -215,8 +216,7 @@ SigninViewControllerDelegateViews::CreateManagedUserNoticeConfirmationWebView(
       is_oidc_account
           ? ManagedUserProfileNoticeUI::ScreenType::kEnterpriseOIDC
           : ManagedUserProfileNoticeUI::ScreenType::kEnterpriseAccountCreation,
-      account_info, profile_creation_required_by_policy, show_link_data_option,
-      std::move(process_user_choice_callback), std::move(done_callback));
+      std::move(create_param));
 
   return web_view;
 }
@@ -492,10 +492,12 @@ SigninViewControllerDelegate*
 SigninViewControllerDelegate::CreateProfileCustomizationDelegate(
     Browser* browser,
     bool is_local_profile_creation,
-    bool show_profile_switch_iph) {
+    bool show_profile_switch_iph,
+    bool show_supervised_user_iph) {
   return new SigninViewControllerDelegateViews(
       SigninViewControllerDelegateViews::CreateProfileCustomizationWebView(
-          browser, is_local_profile_creation, show_profile_switch_iph),
+          browser, is_local_profile_creation, show_profile_switch_iph,
+          show_supervised_user_iph),
       browser, ui::mojom::ModalType::kWindow, false, false,
       is_local_profile_creation);
 }
@@ -507,19 +509,12 @@ SigninViewControllerDelegate::CreateProfileCustomizationDelegate(
 SigninViewControllerDelegate*
 SigninViewControllerDelegate::CreateManagedUserNoticeDelegate(
     Browser* browser,
-    const AccountInfo& account_info,
-    bool is_oidc_account,
-    bool profile_creation_required_by_policy,
-    bool show_link_data_option,
-    signin::SigninChoiceCallbackVariant process_user_choice_callback,
-    base::OnceClosure done_callback) {
+    std::unique_ptr<signin::EnterpriseProfileCreationDialogParams>
+        create_param) {
   return new SigninViewControllerDelegateViews(
       SigninViewControllerDelegateViews::
-          CreateManagedUserNoticeConfirmationWebView(
-              browser, account_info, is_oidc_account,
-              profile_creation_required_by_policy, show_link_data_option,
-              std::move(process_user_choice_callback),
-              std::move(done_callback)),
+          CreateManagedUserNoticeConfirmationWebView(browser,
+                                                     std::move(create_param)),
       browser, ui::mojom::ModalType::kWindow, true, false);
 }
 #endif

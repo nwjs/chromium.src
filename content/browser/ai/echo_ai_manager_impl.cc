@@ -7,50 +7,51 @@
 #include "base/no_destructor.h"
 #include "base/supports_user_data.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
+#include "content/browser/ai/echo_ai_assistant.h"
 #include "content/browser/ai/echo_ai_rewriter.h"
 #include "content/browser/ai/echo_ai_summarizer.h"
-#include "content/browser/ai/echo_ai_text_session.h"
 #include "content/browser/ai/echo_ai_writer.h"
 #include "content/public/browser/browser_context.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
-#include "third_party/blink/public/mojom/ai/ai_text_session_info.mojom.h"
+#include "third_party/blink/public/mojom/ai/ai_assistant.mojom.h"
 
 namespace content {
 
-EchoAIManagerImpl::EchoAIManagerImpl(content::BrowserContext* browser_context,
-                                     ReceiverContext context) {}
+EchoAIManagerImpl::EchoAIManagerImpl() = default;
 
 EchoAIManagerImpl::~EchoAIManagerImpl() = default;
 
 // static
 void EchoAIManagerImpl::Create(
-    content::BrowserContext* browser_context,
     ReceiverContext context,
     mojo::PendingReceiver<blink::mojom::AIManager> receiver) {
-  static base::NoDestructor<EchoAIManagerImpl> ai(browser_context, context);
+  static base::NoDestructor<EchoAIManagerImpl> ai;
   ai->receivers_.Add(ai.get(), std::move(receiver), context);
 }
 
-void EchoAIManagerImpl::CanCreateTextSession(
-    CanCreateTextSessionCallback callback) {
+void EchoAIManagerImpl::CanCreateAssistant(
+    CanCreateAssistantCallback callback) {
   std::move(callback).Run(
       /*result=*/blink::mojom::ModelAvailabilityCheckResult::kReadily);
 }
 
-void EchoAIManagerImpl::CreateTextSession(
-    mojo::PendingReceiver<blink::mojom::AITextSession> receiver,
-    blink::mojom::AITextSessionSamplingParamsPtr sampling_params,
-    const std::optional<std::string>& system_prompt,
-    std::vector<blink::mojom::AIAssistantInitialPromptPtr> initial_prompts,
-    CreateTextSessionCallback callback) {
-  mojo::MakeSelfOwnedReceiver(std::make_unique<EchoAITextSession>(),
-                              std::move(receiver));
-  std::move(callback).Run(blink::mojom::AITextSessionInfo::New(
-      optimization_guide::features::GetOnDeviceModelMaxTokensForContext(),
-      blink::mojom::AITextSessionSamplingParams::New(
-          optimization_guide::features::GetOnDeviceModelDefaultTopK(),
-          optimization_guide::features::GetOnDeviceModelDefaultTemperature())));
+void EchoAIManagerImpl::CreateAssistant(
+    mojo::PendingRemote<blink::mojom::AIManagerCreateAssistantClient> client,
+    blink::mojom::AIAssistantCreateOptionsPtr options) {
+  mojo::Remote<blink::mojom::AIManagerCreateAssistantClient> client_remote(
+      std::move(client));
+  mojo::PendingRemote<blink::mojom::AIAssistant> assistant;
+  mojo::MakeSelfOwnedReceiver(std::make_unique<EchoAIAssistant>(),
+                              assistant.InitWithNewPipeAndPassReceiver());
+  client_remote->OnResult(
+      std::move(assistant),
+      blink::mojom::AIAssistantInfo::New(
+          optimization_guide::features::GetOnDeviceModelMaxTokensForContext(),
+          blink::mojom::AIAssistantSamplingParams::New(
+              optimization_guide::features::GetOnDeviceModelDefaultTopK(),
+              optimization_guide::features::
+                  GetOnDeviceModelDefaultTemperature())));
 }
 
 void EchoAIManagerImpl::CanCreateSummarizer(
@@ -64,14 +65,14 @@ void EchoAIManagerImpl::CreateSummarizer(
     blink::mojom::AISummarizerCreateOptionsPtr options) {
   mojo::Remote<blink::mojom::AIManagerCreateSummarizerClient> client_remote(
       std::move(client));
-  mojo::PendingRemote<blink::mojom::AISummarizer> summarzier;
+  mojo::PendingRemote<blink::mojom::AISummarizer> summarizer;
   mojo::MakeSelfOwnedReceiver(std::make_unique<EchoAISummarizer>(),
-                              summarzier.InitWithNewPipeAndPassReceiver());
-  client_remote->OnResult(std::move(summarzier));
+                              summarizer.InitWithNewPipeAndPassReceiver());
+  client_remote->OnResult(std::move(summarizer));
 }
 
-void EchoAIManagerImpl::GetTextModelInfo(GetTextModelInfoCallback callback) {
-  std::move(callback).Run(blink::mojom::AITextModelInfo::New(
+void EchoAIManagerImpl::GetModelInfo(GetModelInfoCallback callback) {
+  std::move(callback).Run(blink::mojom::AIModelInfo::New(
       optimization_guide::features::GetOnDeviceModelDefaultTopK(),
       optimization_guide::features::GetOnDeviceModelMaxTopK(),
       optimization_guide::features::GetOnDeviceModelDefaultTemperature()));

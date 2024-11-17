@@ -36,6 +36,7 @@ import androidx.preference.PreferenceFragmentCompat;
 
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.Callback;
+import org.chromium.base.CallbackUtils;
 import org.chromium.base.CollectionUtil;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
@@ -50,6 +51,7 @@ import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.quick_delete.QuickDeleteController;
 import org.chromium.chrome.browser.settings.ProfileDependentSetting;
+import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
@@ -57,7 +59,7 @@ import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.signin.SignOutCoordinator;
 import org.chromium.components.browser_ui.settings.ClickableSpansTextMessagePreference;
 import org.chromium.components.browser_ui.settings.CustomDividerFragment;
-import org.chromium.components.browser_ui.settings.SettingsPage;
+import org.chromium.components.browser_ui.settings.EmbeddableSettingsPage;
 import org.chromium.components.browser_ui.settings.SettingsUtils;
 import org.chromium.components.browser_ui.settings.SpinnerPreference;
 import org.chromium.components.browser_ui.util.TraceEventVectorDrawableCompat;
@@ -85,7 +87,7 @@ public abstract class ClearBrowsingDataFragment extends PreferenceFragmentCompat
                 Preference.OnPreferenceChangeListener,
                 SigninManager.SignInStateObserver,
                 CustomDividerFragment,
-                SettingsPage,
+                EmbeddableSettingsPage,
                 ProfileDependentSetting {
     static final String FETCHER_SUPPLIED_FROM_OUTSIDE =
             "ClearBrowsingDataFetcherSuppliedFromOutside";
@@ -418,7 +420,7 @@ public abstract class ClearBrowsingDataFragment extends PreferenceFragmentCompat
         RecordHistogram.recordEnumeratedHistogram(
                 "History.ClearBrowsingData.UserDeletedCookieOrCacheFromDialog",
                 choice,
-                CookieOrCacheDeletionChoice.MAX_CHOICE_VALUE);
+                CookieOrCacheDeletionChoice.MAX_VALUE);
 
         RecordHistogram.recordEnumeratedHistogram(
                 "Privacy.DeleteBrowsingData.Action",
@@ -496,7 +498,7 @@ public abstract class ClearBrowsingDataFragment extends PreferenceFragmentCompat
             RecordHistogram.recordBooleanHistogram(DIALOG_HISTOGRAM, true);
         } else {
             dismissProgressDialog();
-            getActivity().onBackPressed();
+            SettingsNavigationFactory.createSettingsNavigation().finishCurrentSettings(this);
             RecordHistogram.recordBooleanHistogram(DIALOG_HISTOGRAM, false);
         }
     }
@@ -795,12 +797,12 @@ public abstract class ClearBrowsingDataFragment extends PreferenceFragmentCompat
                 SignOutCoordinator.startSignOutFlow(
                         requireContext(),
                         mProfile,
-                        getFragmentManager(),
+                        getActivity().getSupportFragmentManager(),
                         ((ModalDialogManagerHolder) getActivity()).getModalDialogManager(),
                         ((SnackbarManager.SnackbarManageable) getActivity()).getSnackbarManager(),
                         SignoutReason.USER_CLICKED_SIGNOUT_FROM_CLEAR_BROWSING_DATA_PAGE,
                         /* showConfirmDialog= */ true,
-                        () -> {});
+                        CallbackUtils.emptyRunnable());
     }
 
     /**

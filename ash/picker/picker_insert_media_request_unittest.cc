@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "ash/picker/picker_rich_media.h"
-#include "ash/public/cpp/picker/picker_web_paste_target.h"
+#include "ash/picker/picker_web_paste_target.h"
 #include "ash/test/ash_test_base.h"
 #include "base/base64.h"
 #include "base/check.h"
@@ -176,6 +176,11 @@ const TestCaseCallback kTextTestCases[] = {
 };
 
 const TestCaseCallback kImageTestCases[] = {
+    BasicTestCase(
+        /*media_to_insert=*/PickerImageMedia(GURL("http://foo.com/fake.jpg"),
+                                             gfx::Size(10, 10)),
+        /*expected_image_url=*/GURL("http://foo.com/fake.jpg"))
+        .ToCallback(),
     MakeLocalImageTestCaseCallback(
         "png",
         base::BindRepeating(

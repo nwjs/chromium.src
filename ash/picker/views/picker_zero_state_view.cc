@@ -15,6 +15,7 @@
 #include "ash/picker/metrics/picker_session_metrics.h"
 #include "ash/picker/model/picker_caps_lock_position.h"
 #include "ash/picker/picker_asset_fetcher.h"
+#include "ash/picker/picker_category.h"
 #include "ash/picker/picker_clipboard_history_provider.h"
 #include "ash/picker/views/picker_category_type.h"
 #include "ash/picker/views/picker_icons.h"
@@ -29,7 +30,6 @@
 #include "ash/picker/views/picker_strings.h"
 #include "ash/picker/views/picker_traversable_item_container.h"
 #include "ash/picker/views/picker_zero_state_view_delegate.h"
-#include "ash/public/cpp/picker/picker_category.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "base/feature_list.h"
@@ -109,7 +109,10 @@ PickerZeroStateView::PickerZeroStateView(
   for (PickerCategory category : available_categories) {
     // kEditorRewrite is not visible in the zero-state, since it's replaced with
     // the rewrite suggestions.
-    if (category == PickerCategory::kEditorRewrite) {
+    // TODO: b/369701127 - Shows kLobster entry once its implementation is
+    // ready.
+    if (category == PickerCategory::kEditorRewrite ||
+        category == PickerCategory::kLobster) {
       continue;
     }
 
@@ -326,6 +329,12 @@ void PickerZeroStateView::OnFetchSuggestedResults(
           tone_submenu->AddEntry(result, std::move(callback));
           break;
       }
+    } else if (std::holds_alternative<PickerLobsterResult>(result)) {
+      primary_section_view_->AddResult(
+          result, preview_controller_,
+          PickerSectionView::LocalFileResultStyle::kList,
+          base::BindRepeating(&PickerZeroStateView::OnResultSelected,
+                              weak_ptr_factory_.GetWeakPtr(), result));
     } else if (std::holds_alternative<PickerCaseTransformResult>(result)) {
       if (case_transform_submenu == nullptr) {
         case_transform_submenu =

@@ -167,13 +167,8 @@ class WTF_EXPORT StringImpl {
       const LChar*,
       wtf_size_t length,
       ASCIIStringAttributes ascii_attributes);
-  static scoped_refptr<StringImpl> Create8BitIfPossible(const UChar*,
-                                                        wtf_size_t length);
-  template <wtf_size_t inlineCapacity>
   static scoped_refptr<StringImpl> Create8BitIfPossible(
-      const Vector<UChar, inlineCapacity>& vector) {
-    return Create8BitIfPossible(vector.data(), vector.size());
-  }
+      base::span<const UChar>);
 
   ALWAYS_INLINE static scoped_refptr<StringImpl> Create(const char* s,
                                                         wtf_size_t length) {
@@ -222,6 +217,10 @@ class WTF_EXPORT StringImpl {
   }
   ALWAYS_INLINE const void* Bytes() const {
     return reinterpret_cast<const void*>(this + 1);
+  }
+  ALWAYS_INLINE base::span<const uint8_t> RawByteSpan() const {
+    return {reinterpret_cast<const uint8_t*>(this + 1),
+            CharactersSizeInBytes()};
   }
 
   template <typename CharType>
@@ -655,6 +654,17 @@ template <>
 ALWAYS_INLINE size_t StringImpl::AllocationSize<LChar>(wtf_size_t length) {
   static_assert(sizeof(LChar) == 1, "sizeof(LChar) should be 1.");
   return base::CheckAdd(sizeof(StringImpl), length).ValueOrDie();
+}
+
+WTF_EXPORT bool Equal(const StringView& a, const LChar* b);
+inline bool Equal(const StringView& a, const char* b) {
+  return Equal(a, reinterpret_cast<const LChar*>(b));
+}
+inline bool Equal(const char* a, const StringView& b) {
+  return Equal(b, reinterpret_cast<const LChar*>(a));
+}
+inline bool Equal(const LChar* a, const StringView& b) {
+  return Equal(b, a);
 }
 
 WTF_EXPORT bool Equal(const StringImpl*, const StringImpl*);

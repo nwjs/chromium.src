@@ -129,7 +129,7 @@ struct FileMetricsProvider::SourceInfo {
   SourceInfo(const SourceInfo&) = delete;
   SourceInfo& operator=(const SourceInfo&) = delete;
 
-  ~SourceInfo() {}
+  ~SourceInfo() = default;
 
   struct FoundFile {
     base::FilePath path;
@@ -243,9 +243,8 @@ void FileMetricsProvider::RegisterSource(const Params& params,
 }
 
 // static
-void FileMetricsProvider::RegisterSourcePrefs(
-    PrefRegistrySimple* prefs,
-    const std::string_view prefs_key) {
+void FileMetricsProvider::RegisterSourcePrefs(PrefRegistrySimple* prefs,
+                                              std::string_view prefs_key) {
   prefs->RegisterInt64Pref(
       metrics::prefs::kMetricsLastSeenPrefix + std::string(prefs_key), 0);
 }

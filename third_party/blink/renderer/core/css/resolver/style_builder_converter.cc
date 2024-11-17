@@ -65,6 +65,7 @@
 #include "third_party/blink/renderer/core/css/css_ratio_value.h"
 #include "third_party/blink/renderer/core/css/css_reflect_value.h"
 #include "third_party/blink/renderer/core/css/css_relative_color_value.h"
+#include "third_party/blink/renderer/core/css/css_scoped_keyword_value.h"
 #include "third_party/blink/renderer/core/css/css_shadow_value.h"
 #include "third_party/blink/renderer/core/css/css_uri_value.h"
 #include "third_party/blink/renderer/core/css/css_value_list.h"
@@ -242,7 +243,8 @@ DynamicRangeLimit StyleBuilderConverterBase::ConvertDynamicRangeLimit(
 
 StyleSVGResource* StyleBuilderConverter::ConvertElementReference(
     StyleResolverState& state,
-    const CSSValue& value) {
+    const CSSValue& value,
+    CSSPropertyID property_id) {
   if (auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
     DCHECK_EQ(identifier_value->GetValueID(), CSSValueID::kNone);
     return nullptr;
@@ -250,8 +252,8 @@ StyleSVGResource* StyleBuilderConverter::ConvertElementReference(
 
   const auto& url_value = To<cssvalue::CSSURIValue>(value);
   SVGResource* resource =
-      state.GetElementStyleResources().GetSVGResourceFromValue(
-          CSSPropertyID::kInvalid, url_value);
+      state.GetElementStyleResources().GetSVGResourceFromValue(property_id,
+                                                               url_value);
   return MakeGarbageCollected<StyleSVGResource>(
       resource, url_value.ValueForSerialization());
 }
@@ -292,7 +294,6 @@ ClipPathOperation* StyleBuilderConverter::ConvertClipPath(
     SVGResource* resource =
         state.GetElementStyleResources().GetSVGResourceFromValue(
             CSSPropertyID::kClipPath, *url_value);
-    // TODO(fs): Doesn't work with external SVG references (crbug.com/109212.)
     return MakeGarbageCollected<ReferenceClipPathOperation>(
         url_value->ValueForSerialization(), resource);
   }
@@ -1850,7 +1851,7 @@ Length StyleBuilderConverter::ConvertLengthSizing(StyleResolverState& state,
     case CSSValueID::kWebkitMaxContent:
       return Length::MaxContent();
     case CSSValueID::kWebkitFillAvailable:
-      return Length::FillAvailable();
+      return Length::Stretch();
     case CSSValueID::kWebkitFitContent:
     case CSSValueID::kFitContent:
       return Length::FitContent();
@@ -2041,25 +2042,30 @@ ScopedCSSNameList* StyleBuilderConverter::ConvertAnchorName(
   return MakeGarbageCollected<ScopedCSSNameList>(std::move(names));
 }
 
-ScopedCSSNameList* StyleBuilderConverter::ConvertAnchorScope(
+StyleAnchorScope StyleBuilderConverter::ConvertAnchorScope(
     StyleResolverState& state,
     const CSSValue& value) {
   CHECK(value.IsScopedValue());
+  if (const auto* scoped_keyword_value =
+          DynamicTo<cssvalue::CSSScopedKeywordValue>(value)) {
+    CHECK_EQ(scoped_keyword_value->GetValueID(), CSSValueID::kAll);
+    state.SetHasTreeScopedReference();
+    return StyleAnchorScope(StyleAnchorScope::Type::kAll,
+                            scoped_keyword_value->GetTreeScope(),
+                            /* names */ nullptr);
+  }
   if (const auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
-    if (identifier_value->GetValueID() == CSSValueID::kAll) {
-      // An empty list represents "all".
-      return MakeGarbageCollected<ScopedCSSNameList>(
-          HeapVector<Member<const ScopedCSSName>>());
-    }
     CHECK_EQ(identifier_value->GetValueID(), CSSValueID::kNone);
-    return nullptr;
+    return StyleAnchorScope();
   }
   CHECK(value.IsBaseValueList());
   HeapVector<Member<const ScopedCSSName>> names;
   for (const Member<const CSSValue>& item : To<CSSValueList>(value)) {
     names.push_back(ConvertCustomIdent(state, *item));
   }
-  return MakeGarbageCollected<ScopedCSSNameList>(std::move(names));
+  return StyleAnchorScope(
+      StyleAnchorScope::Type::kNames, /* all_tree_scope */ nullptr,
+      /* names */ MakeGarbageCollected<ScopedCSSNameList>(std::move(names)));
 }
 
 StyleInitialLetter StyleBuilderConverter::ConvertInitialLetter(
@@ -2389,10 +2395,23 @@ StyleViewTransitionGroup StyleBuilderConverter::ConvertViewTransitionGroup(
       ConvertCustomIdent(state, value)->GetName());
 }
 
-ScopedCSSName* StyleBuilderConverter::ConvertViewTransitionName(
+StyleViewTransitionName* StyleBuilderConverter::ConvertViewTransitionName(
     StyleResolverState& state,
     const CSSValue& value) {
-  return ConvertNoneOrCustomIdent(state, value);
+  state.SetHasTreeScopedReference();
+  if (auto* ident = DynamicTo<CSSIdentifierValue>(value)) {
+    switch (ident->GetValueID()) {
+      case CSSValueID::kNone:
+        return nullptr;
+      case CSSValueID::kAuto:
+        // TODO: tree scope for auto
+        return StyleViewTransitionName::Auto(&state.GetDocument());
+      default:
+        NOTREACHED();
+    }
+  }
+  ScopedCSSName* name = ConvertCustomIdent(state, value);
+  return StyleViewTransitionName::Create(name->GetName(), name->GetTreeScope());
 }
 
 ScopedCSSNameList* StyleBuilderConverter::ConvertViewTransitionClass(
@@ -2411,8 +2430,13 @@ ScopedCSSNameList* StyleBuilderConverter::ConvertViewTransitionClass(
   return MakeGarbageCollected<ScopedCSSNameList>(std::move(names));
 }
 
-StyleColor ResolveColorValue(const CSSValue& value,
-                             const ResolveColorValueContext& context) {
+namespace {
+
+const CSSValue& ResolveLightDarkPair(const CSSLightDarkValuePair& value,
+                                     const ResolveColorValueContext& context);
+
+StyleColor ResolveColorValueImpl(const CSSValue& value,
+                                 const ResolveColorValueContext& context) {
   if (auto* color_value = DynamicTo<cssvalue::CSSColor>(value)) {
     Color result_color = color_value->Value();
     result_color.ResolveNonFiniteValues();
@@ -2442,9 +2466,9 @@ StyleColor ResolveColorValue(const CSSValue& value,
 
   if (auto* color_mix_value = DynamicTo<cssvalue::CSSColorMixValue>(value)) {
     const StyleColor style_color1 =
-        ResolveColorValue(color_mix_value->Color1(), context);
+        ResolveColorValueImpl(color_mix_value->Color1(), context);
     const StyleColor style_color2 =
-        ResolveColorValue(color_mix_value->Color2(), context);
+        ResolveColorValueImpl(color_mix_value->Color2(), context);
     double alpha_multiplier = 0.0;
     double mix_amount = 0.0;
     // TODO(crbug.com/40238188): Not sure what is appropriate to return when
@@ -2470,7 +2494,7 @@ StyleColor ResolveColorValue(const CSSValue& value,
   if (auto* relative_color_value =
           DynamicTo<cssvalue::CSSRelativeColorValue>(value)) {
     const StyleColor origin_color =
-        ResolveColorValue(relative_color_value->OriginColor(), context);
+        ResolveColorValueImpl(relative_color_value->OriginColor(), context);
     const StyleColor::UnresolvedRelativeColor* unresolved_relative_color =
         MakeGarbageCollected<StyleColor::UnresolvedRelativeColor>(
             origin_color, relative_color_value->ColorInterpolationSpace(),
@@ -2488,11 +2512,43 @@ StyleColor ResolveColorValue(const CSSValue& value,
   }
 
   auto& light_dark_pair = To<CSSLightDarkValuePair>(value);
-  const CSSValue& color_value =
-      context.used_color_scheme == mojom::blink::ColorScheme::kLight
-          ? light_dark_pair.First()
-          : light_dark_pair.Second();
-  return ResolveColorValue(color_value, context);
+  const CSSValue& color_value = ResolveLightDarkPair(light_dark_pair, context);
+  return ResolveColorValueImpl(color_value, context);
+}
+
+const CSSValue& ResolveLightDarkPair(
+    const CSSLightDarkValuePair& light_dark_pair,
+    const ResolveColorValueContext& context) {
+  return context.used_color_scheme == mojom::blink::ColorScheme::kLight
+             ? light_dark_pair.First()
+             : light_dark_pair.Second();
+}
+
+bool ShouldConvertLegacyColorSpaceToSRGB(const CSSValue& value) {
+  return value.IsRelativeColorValue() || value.IsColorMixValue();
+}
+
+}  // anonymous namespace
+
+StyleColor ResolveColorValue(const CSSValue& value,
+                             const ResolveColorValueContext& context) {
+  // The rules for converting at the top level should apply transitively through
+  // light-dark().
+  if (auto* light_dark_pair = DynamicTo<CSSLightDarkValuePair>(value)) {
+    const CSSValue& light_dark_result =
+        ResolveLightDarkPair(*light_dark_pair, context);
+    return ResolveColorValue(light_dark_result, context);
+  }
+
+  StyleColor result = ResolveColorValueImpl(value, context);
+  if (ShouldConvertLegacyColorSpaceToSRGB(value) && result.IsAbsoluteColor()) {
+    Color color = result.GetColor();
+    if (Color::IsLegacyColorSpace(color.GetColorSpace())) {
+      color.ConvertToColorSpace(Color::ColorSpace::kSRGB);
+      result = StyleColor(color);
+    }
+  }
+  return result;
 }
 
 StyleColor StyleBuilderConverter::ConvertStyleColor(StyleResolverState& state,
@@ -2525,18 +2581,19 @@ StyleAutoColor StyleBuilderConverter::ConvertStyleAutoColor(
 
 SVGPaint StyleBuilderConverter::ConvertSVGPaint(StyleResolverState& state,
                                                 const CSSValue& value,
-                                                bool for_visited_link) {
+                                                bool for_visited_link,
+                                                CSSPropertyID property_id) {
   const CSSValue* local_value = &value;
   SVGPaint paint;
   if (const auto* list = DynamicTo<CSSValueList>(value)) {
     DCHECK_EQ(list->length(), 2u);
-    paint.resource = ConvertElementReference(state, list->Item(0));
+    paint.resource = ConvertElementReference(state, list->Item(0), property_id);
     local_value = &list->Item(1);
   }
 
   if (local_value->IsURIValue()) {
     paint.type = SVGPaintType::kUri;
-    paint.resource = ConvertElementReference(state, *local_value);
+    paint.resource = ConvertElementReference(state, *local_value, property_id);
   } else {
     auto* local_identifier_value = DynamicTo<CSSIdentifierValue>(local_value);
     if (local_identifier_value) {
@@ -2941,7 +2998,7 @@ static const CSSValue& ComputeColorValue(
       .is_in_web_app_scope = document.IsInWebAppScope(),
       .for_visited_link = false};
   const StyleColor style_color = ResolveColorValue(color_value, context);
-  return *ComputedStyleUtils::ValueForColor(style_color);
+  return *style_color.ToCSSValue();
 }
 
 static const CSSValue& ComputeRegisteredPropertyValue(
@@ -2997,7 +3054,8 @@ static const CSSValue& ComputeRegisteredPropertyValue(
       // Note that GetDoubleValue automatically clamps according to the
       // permitted range.
       return *CSSNumericLiteralValue::Create(
-          math_value.GetDoubleValue(), CSSPrimitiveValue::UnitType::kNumber);
+          math_value.ComputeNumber(css_to_length_conversion_data),
+          CSSPrimitiveValue::UnitType::kNumber);
     }
 
     if (primitive_value->IsAngle()) {
@@ -3008,13 +3066,13 @@ static const CSSValue& ComputeRegisteredPropertyValue(
 
     if (primitive_value->IsTime()) {
       return *CSSNumericLiteralValue::Create(
-          primitive_value->ComputeSeconds(),
+          primitive_value->ComputeSeconds(css_to_length_conversion_data),
           CSSPrimitiveValue::UnitType::kSeconds);
     }
 
     if (primitive_value->IsResolution()) {
       return *CSSNumericLiteralValue::Create(
-          primitive_value->ComputeDotsPerPixel(),
+          primitive_value->ComputeDotsPerPixel(css_to_length_conversion_data),
           CSSPrimitiveValue::UnitType::kDotsPerPixel);
     }
   }

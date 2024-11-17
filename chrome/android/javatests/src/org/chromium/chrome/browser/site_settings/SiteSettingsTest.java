@@ -75,6 +75,7 @@ import org.mockito.MockitoAnnotations;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.base.test.util.ApplicationTestUtils;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisableIf;
@@ -99,7 +100,7 @@ import org.chromium.chrome.browser.permissions.PermissionTestRule.PermissionUpda
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.settings.SettingsActivity;
-import org.chromium.chrome.browser.settings.SettingsLauncherFactory;
+import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.R;
@@ -111,7 +112,7 @@ import org.chromium.components.browser_ui.settings.ChromeBaseCheckBoxPreference;
 import org.chromium.components.browser_ui.settings.ChromeImageViewPreference;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.browser_ui.settings.ExpandablePreferenceGroup;
-import org.chromium.components.browser_ui.settings.SettingsLauncher;
+import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.browser_ui.site_settings.ContentSettingException;
 import org.chromium.components.browser_ui.site_settings.ContentSettingsResources;
 import org.chromium.components.browser_ui.site_settings.GroupedWebsitesSettings;
@@ -143,10 +144,10 @@ import org.chromium.content_public.browser.BrowserContextHandle;
 import org.chromium.content_public.common.ContentSwitches;
 import org.chromium.device.geolocation.LocationProviderOverrider;
 import org.chromium.device.geolocation.MockLocationProvider;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.DeviceRestriction;
 import org.chromium.ui.test.util.RenderTestRule;
 import org.chromium.ui.test.util.RenderTestRule.Component;
-import org.chromium.ui.test.util.UiDisableIf;
 import org.chromium.url.GURL;
 
 import java.io.IOException;
@@ -179,7 +180,7 @@ public class SiteSettingsTest {
                     .setBugComponent(Component.UI_BROWSER_MOBILE_SETTINGS)
                     .build();
 
-    @Mock private SettingsLauncher mSettingsLauncher;
+    @Mock private SettingsNavigation mSettingsNavigation;
 
     @Rule public JniMocker mocker = new JniMocker();
 
@@ -718,8 +719,8 @@ public class SiteSettingsTest {
                             websitePreferences.findPreference(
                                     SingleCategorySettings.TRI_STATE_COOKIE_TOGGLE);
 
-                    Mockito.clearInvocations(mSettingsLauncher);
-                    websitePreferences.setSettingsLauncher(mSettingsLauncher);
+                    Mockito.clearInvocations(mSettingsNavigation);
+                    websitePreferences.setSettingsNavigation(mSettingsNavigation);
 
                     SiteSettingsTestUtils.getCookieRadioButtonFrom(
                                     cookies, expectedCookieControlMode)
@@ -730,8 +731,8 @@ public class SiteSettingsTest {
                     fragmentArgs.putInt(
                             RWSCookieSettings.EXTRA_COOKIE_PAGE_STATE, expectedCookieControlMode);
 
-                    Mockito.verify(mSettingsLauncher)
-                            .launchSettingsActivity(
+                    Mockito.verify(mSettingsNavigation)
+                            .startSettings(
                                     eq(websitePreferences.getContext()),
                                     eq(RWSCookieSettings.class),
                                     refEq(fragmentArgs));
@@ -921,6 +922,7 @@ public class SiteSettingsTest {
     @SmallTest
     @Feature({"Preferences"})
     @Policies.Add({@Policies.Item(key = "DefaultCookiesSetting", string = "1")})
+    @DisabledTest(message = "https://crbug.com/373414947")
     public void testDefaultCookiesSettingManagedAllowWithIncognitoDisabled() throws Exception {
         IncognitoUtils.setEnabledForTesting(false);
         setTriStateCookieToggle(CookieControlsMode.INCOGNITO_ONLY);
@@ -1194,7 +1196,14 @@ public class SiteSettingsTest {
     public void testSiteSettingsMenuWithTrackingProtectionEnabled() {
         final SettingsActivity settingsActivity = SiteSettingsTestUtils.startSiteSettingsMenu("");
         SiteSettings websitePreferences = (SiteSettings) settingsActivity.getMainFragment();
-        assertNotNull(websitePreferences.findPreference("tracking_protection"));
+        final Preference trackingProtectionPreference =
+                websitePreferences.findPreference("tracking_protection");
+        assertNotNull(trackingProtectionPreference);
+        Assert.assertEquals(
+                trackingProtectionPreference.getTitle(),
+                websitePreferences
+                        .getContext()
+                        .getString(R.string.third_party_cookies_link_row_label));
         settingsActivity.finish();
     }
 
@@ -1816,11 +1825,7 @@ public class SiteSettingsTest {
         resetSite(address);
     }
 
-    /**
-     * Sets Allow Camera Enabled to be false and make sure it is set correctly.
-     *
-     * @throws Exception
-     */
+    /** Sets Allow Camera Enabled to be false and make sure it is set correctly. */
     @Test
     @SmallTest
     @Feature({"Preferences"})
@@ -1844,11 +1849,7 @@ public class SiteSettingsTest {
                 /* isDialog= */ true);
     }
 
-    /**
-     * Sets Allow Camera Enabled to be true and make sure it is set correctly.
-     *
-     * @throws Exception
-     */
+    /** Sets Allow Camera Enabled to be true and make sure it is set correctly. */
     @Test
     @SmallTest
     @Feature({"Preferences"})
@@ -1871,11 +1872,7 @@ public class SiteSettingsTest {
                 /* isDialog= */ true);
     }
 
-    /**
-     * Sets Allow Mic Enabled to be false and make sure it is set correctly.
-     *
-     * @throws Exception
-     */
+    /** Sets Allow Mic Enabled to be false and make sure it is set correctly. */
     @Test
     @SmallTest
     @Feature({"Preferences"})
@@ -1899,11 +1896,7 @@ public class SiteSettingsTest {
                 true);
     }
 
-    /**
-     * Sets Allow Mic Enabled to be true and make sure it is set correctly.
-     *
-     * @throws Exception
-     */
+    /** Sets Allow Mic Enabled to be true and make sure it is set correctly. */
     @Test
     @SmallTest
     @Feature({"Preferences"})
@@ -2295,10 +2288,11 @@ public class SiteSettingsTest {
 
         triggerEmbargoForOrigin(url);
 
-        SettingsLauncher settingsLauncher = SettingsLauncherFactory.createSettingsLauncher();
+        SettingsNavigation settingsNavigation =
+                SettingsNavigationFactory.createSettingsNavigation();
         Context context = ApplicationProvider.getApplicationContext();
         Intent intent =
-                settingsLauncher.createSettingsActivityIntent(
+                settingsNavigation.createSettingsIntent(
                         context,
                         SingleWebsiteSettings.class,
                         SingleWebsiteSettings.createFragmentArgsForSite(url));
@@ -2422,10 +2416,11 @@ public class SiteSettingsTest {
                     FederatedIdentityTestUtils.embargoFedCmForRelyingParty(new GURL(rpUrl));
                 });
 
-        SettingsLauncher settingsLauncher = SettingsLauncherFactory.createSettingsLauncher();
+        SettingsNavigation settingsNavigation =
+                SettingsNavigationFactory.createSettingsNavigation();
         Context context = ApplicationProvider.getApplicationContext();
         Intent intent =
-                settingsLauncher.createSettingsActivityIntent(
+                settingsNavigation.createSettingsIntent(
                         context,
                         SingleWebsiteSettings.class,
                         SingleWebsiteSettings.createFragmentArgsForSite(rpUrl));
@@ -2534,7 +2529,7 @@ public class SiteSettingsTest {
     @DisableIf.Build(
             message = "https://crbug.com/1269556,https://crbug.com/1414569",
             sdk_is_greater_than = Build.VERSION_CODES.N_MR1)
-    @DisableIf.Device(type = {UiDisableIf.TABLET}) // https://crbug.com/1234530
+    @DisableIf.Device(DeviceFormFactor.TABLET) // https://crbug.com/1234530
     public void testProtectedContentAllowThenBlock() throws Exception {
         initializeUpdateWaiter(/* expectGranted= */ true);
         mPermissionRule.runNoPromptTest(
@@ -2771,7 +2766,7 @@ public class SiteSettingsTest {
         // resolved.
     }
 
-    public void testTwoStateToggleDisabledByPolicy(@SiteSettingsCategory.Type int type) {
+    private void testTwoStateToggleDisabledByPolicy(@SiteSettingsCategory.Type int type) {
         final SettingsActivity settingsActivity =
                 SiteSettingsTestUtils.startSiteSettingsCategory(type);
         SingleCategorySettings singleCategorySettings =
@@ -2782,6 +2777,8 @@ public class SiteSettingsTest {
                                 SingleCategorySettings.BINARY_TOGGLE_KEY);
 
         Assert.assertFalse(binaryToggle.isEnabled());
+
+        ApplicationTestUtils.finishActivity(settingsActivity);
     }
 
     /**

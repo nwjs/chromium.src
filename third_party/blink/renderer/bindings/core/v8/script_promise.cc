@@ -49,8 +49,8 @@ class PromiseAllHandler final : public GarbageCollected<PromiseAllHandler> {
       ScriptState* script_state,
       const HeapVector<ScriptPromiseUntyped>& promises) {
     if (promises.empty()) {
-      return ScriptPromiseUntyped::FromUntypedValueForBindings(
-          script_state, v8::Array::New(script_state->GetIsolate()));
+      return ToResolvedPromise<IDLSequence<IDLAny>>(script_state,
+                                                    HeapVector<ScriptValue>());
     }
     auto* resolver =
         MakeGarbageCollected<ScriptPromiseResolver<IDLSequence<IDLAny>>>(
@@ -200,25 +200,6 @@ ScriptPromise<IDLAny> ScriptPromiseUntyped::Then(ScriptFunction* on_fulfilled,
                                               result_promise);
 }
 
-ScriptPromiseUntyped ScriptPromiseUntyped::CastUndefined(
-    ScriptState* script_state) {
-  return FromUntypedValueForBindings(script_state,
-                                     v8::Undefined(script_state->GetIsolate()));
-}
-
-ScriptPromiseUntyped ScriptPromiseUntyped::FromUntypedValueForBindings(
-    ScriptState* script_state,
-    v8::Local<v8::Value> value) {
-  if (value.IsEmpty())
-    return ScriptPromiseUntyped();
-  if (value->IsPromise()) {
-    return ScriptPromiseUntyped(script_state->GetIsolate(),
-                                value.As<v8::Promise>());
-  }
-  return ScriptPromiseUntyped(script_state->GetIsolate(),
-                              ResolveRaw(script_state, value));
-}
-
 ScriptPromiseUntyped ScriptPromiseUntyped::Reject(ScriptState* script_state,
                                                   const ScriptValue& value) {
   return ScriptPromiseUntyped::Reject(script_state, value.V8Value());
@@ -228,16 +209,6 @@ ScriptPromiseUntyped ScriptPromiseUntyped::Reject(ScriptState* script_state,
                                                   v8::Local<v8::Value> value) {
   return ScriptPromiseUntyped(script_state->GetIsolate(),
                               RejectRaw(script_state, value));
-}
-
-ScriptPromiseUntyped ScriptPromiseUntyped::Reject(
-    ScriptState* script_state,
-    ExceptionState& exception_state) {
-  DCHECK(exception_state.HadException());
-  ScriptPromiseUntyped promise =
-      Reject(script_state, exception_state.GetException());
-  exception_state.ClearException();
-  return promise;
 }
 
 v8::Local<v8::Promise> ScriptPromiseUntyped::ResolveRaw(

@@ -640,8 +640,8 @@ class HeaderAndFooterContext {
     void BindToFrame(blink::WebNavigationControl* frame) override {
       frame_ = frame;
     }
-    void FrameDetached() override {
-      frame_->Close();
+    void FrameDetached(blink::DetachReason detach_reason) override {
+      frame_->Close(detach_reason);
       frame_ = nullptr;
     }
 
@@ -844,7 +844,7 @@ class PrepareFrameAndViewForPrint : public blink::WebViewClient,
       blink::WebPolicyContainerBindParams policy_container_bind_params,
       ukm::SourceId document_ukm_source_id,
       FinishChildFrameCreationFn finish_creation) override;
-  void FrameDetached() override;
+  void FrameDetached(blink::DetachReason detach_reason) override;
   scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory() override;
 
   void CallOnReady();
@@ -1036,10 +1036,11 @@ blink::WebLocalFrame* PrepareFrameAndViewForPrint::CreateChildFrame(
   return nullptr;
 }
 
-void PrepareFrameAndViewForPrint::FrameDetached() {
+void PrepareFrameAndViewForPrint::FrameDetached(
+    blink::DetachReason detach_reason) {
   blink::WebLocalFrame* frame = frame_.GetFrame();
   DCHECK(frame);
-  frame->Close();
+  frame->Close(detach_reason);
   navigation_control_ = nullptr;
   frame_.Reset(nullptr);
 }
@@ -1130,7 +1131,7 @@ PrintRenderFrameHelper::PrintRenderFrameHelper(
           weak_ptr_factory_.GetWeakPtr()));
 }
 
-PrintRenderFrameHelper::~PrintRenderFrameHelper() {}
+PrintRenderFrameHelper::~PrintRenderFrameHelper() = default;
 
 const mojo::AssociatedRemote<mojom::PrintManagerHost>&
 PrintRenderFrameHelper::GetPrintManagerHost() {
@@ -2578,19 +2579,41 @@ void PrintRenderFrameHelper::RequestPrintPreview(PrintPreviewRequestType type,
       return;
     }
 
-    is_loading_ = print_preview_context_.source_frame()->WillPrintSoon();
-    if (is_loading_) {
-      // Wait for DidStopLoading, for two reasons:
-      // * To give the document time to finish loading any pending resources
-      //   that are desired for printing.
-      // * Plugins may not know the correct `is_modifiable` value until they
-      //   are fully loaded, which occurs when DidStopLoading() is called.
-      //   Defer showing the preview until then.
-      on_stop_loading_closure_ =
-          base::BindOnce(&PrintRenderFrameHelper::RequestPrintPreview,
-                         weak_ptr_factory_.GetWeakPtr(), type, true);
-      SetupOnStopLoadingTimeout();
-      return;
+    if (type != PrintPreviewRequestType::kScripted) {
+      // Since currently we can not block the `window.print()` call and load
+      // the print only resources at the same time, no need to call
+      // `WillPrintSoon()`.
+      //
+      // This is a conscious tradeoff between rendering correctness and
+      // expected blocking behavior.
+      //
+      // The main Bugs that led us to taking this tradeoff are:
+      // crbug.com/357784797
+      // crbug.com/361375802
+      //
+      // Potential solutions to these bugs and the current chosen tradeoff
+      // were discussed on:
+      // https://groups.google.com/u/0/a/chromium.org/g/platform-architecture-dev/c/O45yJShVmZg
+      //
+      // Bug tracking further investigation into a solution that satisfies
+      // both the blocking of the `window.print()` call and loading of
+      // print only resources:
+      // crbug.com/369111067
+
+      is_loading_ = print_preview_context_.source_frame()->WillPrintSoon();
+      if (is_loading_) {
+        // Wait for DidStopLoading, for two reasons:
+        // * To give the document time to finish loading any pending resources
+        //   that are desired for printing.
+        // * Plugins may not know the correct `is_modifiable` value until they
+        //   are fully loaded, which occurs when DidStopLoading() is called.
+        //   Defer showing the preview until then.
+        on_stop_loading_closure_ =
+            base::BindOnce(&PrintRenderFrameHelper::RequestPrintPreview,
+                           weak_ptr_factory_.GetWeakPtr(), type, true);
+        SetupOnStopLoadingTimeout();
+        return;
+      }
     }
   }
 

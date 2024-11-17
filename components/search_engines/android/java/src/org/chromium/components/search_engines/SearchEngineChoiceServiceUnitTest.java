@@ -19,6 +19,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import android.content.Context;
 
+import androidx.annotation.Nullable;
 import androidx.test.filters.SmallTest;
 
 import org.junit.Before;
@@ -37,9 +38,13 @@ import org.chromium.base.Promise;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.components.search_engines.SearchEngineCountryDelegate.DeviceChoiceEventType;
+import org.chromium.components.search_engines.test.util.SearchEnginesFeaturesTestUtil;
 
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 @SmallTest
 @RunWith(ParameterizedRobolectricTestRunner.class)
@@ -63,7 +68,10 @@ public class SearchEngineChoiceServiceUnitTest {
     @Before
     public void setUp() {
         FeatureList.setDisableNativeForTesting(true);
-        configureClayBlockingFeature(mIsClayBlockingEnabled, /* isDarkLaunchEnabled= */ false);
+        configureClayBlockingFeature(
+                mIsClayBlockingEnabled,
+                /* isDarkLaunchEnabled= */ false,
+                /* defaultBrowserPromoSuppressedMillis= */ null);
 
         doReturn(Promise.rejected()).when(mDelegate).getDeviceCountry();
         doReturn(new ObservableSupplierImpl<>(false))
@@ -189,7 +197,10 @@ public class SearchEngineChoiceServiceUnitTest {
 
     @Test
     public void testGetIsDeviceChoiceRequiredSupplier_darkLaunch() {
-        configureClayBlockingFeature(mIsClayBlockingEnabled, /* isDarkLaunchEnabled= */ true);
+        configureClayBlockingFeature(
+                mIsClayBlockingEnabled,
+                /* isDarkLaunchEnabled= */ true,
+                /* defaultBrowserPromoSuppressedMillis= */ null);
         ObservableSupplierImpl<Boolean> fakeSupplier = new ObservableSupplierImpl<>();
         doReturn(fakeSupplier).when(mDelegate).getIsDeviceChoiceRequiredSupplier();
 
@@ -232,17 +243,76 @@ public class SearchEngineChoiceServiceUnitTest {
                 .notifyDeviceChoiceEvent(DeviceChoiceEventType.BLOCK_CLEARED);
     }
 
+    @Test
+    public void testIsDefaultBrowserPromoSuppressed() {
+        final int defaultBrowserPromoSuppressedMillis = 24_000;
+        // Param state: A suppression period is specified.
+        configureClayBlockingFeature(
+                mIsClayBlockingEnabled,
+                /* isDarkLaunchEnabled= */ false,
+                defaultBrowserPromoSuppressedMillis);
+
+        {
+            // Default browser selection did not happen => promo should not be suppressed.
+            var service = new SearchEngineChoiceService(mDelegate);
+            doReturn(null).when(mDelegate).getDeviceBrowserSelectedTimestamp();
+            assertFalse(service.isDefaultBrowserPromoSuppressed());
+        }
+
+        {
+            // Default browser selection happened a long time ago => promo should not be suppressed.
+            var service = new SearchEngineChoiceService(mDelegate);
+            doReturn(Instant.MIN).when(mDelegate).getDeviceBrowserSelectedTimestamp();
+            assertFalse(service.isDefaultBrowserPromoSuppressed());
+        }
+
+        {
+            // Selection date + suppression period overflow => promo should not be suppressed.
+            // Would indicate a configuration issue.
+            var service = new SearchEngineChoiceService(mDelegate);
+            doReturn(Instant.MAX).when(mDelegate).getDeviceBrowserSelectedTimestamp();
+            assertFalse(service.isDefaultBrowserPromoSuppressed());
+        }
+
+        {
+            // Default browser selection happened too recently (simulated by being a date in the
+            // future) => promo should be suppressed if the feature is enabled.
+            Instant futureInstant = Instant.now().plusMillis(defaultBrowserPromoSuppressedMillis);
+            var service = new SearchEngineChoiceService(mDelegate);
+            doReturn(futureInstant).when(mDelegate).getDeviceBrowserSelectedTimestamp();
+            assertEquals(mIsClayBlockingEnabled, service.isDefaultBrowserPromoSuppressed());
+        }
+
+        // Param state: An invalid suppression period is specified.
+        configureClayBlockingFeature(
+                mIsClayBlockingEnabled,
+                /* isDarkLaunchEnabled= */ false,
+                /* defaultBrowserPromoSuppressedMillis= */ -24);
+        {
+            // Recent selection but invalid suppression period => promo should not be suppressed.
+            Instant futureInstant = Instant.now().plusMillis(defaultBrowserPromoSuppressedMillis);
+            var service = new SearchEngineChoiceService(mDelegate);
+            doReturn(futureInstant).when(mDelegate).getDeviceBrowserSelectedTimestamp();
+            assertFalse(service.isDefaultBrowserPromoSuppressed());
+        }
+    }
+
     private static void configureClayBlockingFeature(
-            boolean isClayBlockingEnabled, boolean isDarkLaunchEnabled) {
-        var testFeatures = new FeatureList.TestValues();
-        testFeatures.addFeatureFlagOverride(
-                SearchEnginesFeatures.CLAY_BLOCKING, isClayBlockingEnabled);
-        testFeatures.addFieldTrialParamOverride(
-                SearchEnginesFeatures.CLAY_BLOCKING,
-                "is_dark_launch",
-                isDarkLaunchEnabled ? "true" : "");
-        testFeatures.addFieldTrialParamOverride(
-                SearchEnginesFeatures.CLAY_BLOCKING, "dialog_timeout_millis", "0");
-        FeatureList.setTestValues(testFeatures);
+            boolean isClayBlockingEnabled,
+            boolean isDarkLaunchEnabled,
+            @Nullable Integer defaultBrowserPromoSuppressedMillis) {
+        if (isClayBlockingEnabled) {
+            Map<String, String> params = new HashMap<>();
+            params.put("is_dark_launch", isDarkLaunchEnabled ? "true" : "");
+            params.put("dialog_timeout_millis", "0");
+            if (defaultBrowserPromoSuppressedMillis != null) {
+                params.put(
+                        "default_browser_promo_suppressed_millis",
+                        defaultBrowserPromoSuppressedMillis.toString());
+            }
+            SearchEnginesFeaturesTestUtil.configureClayBlockingFeatureParams(params);
+        } else {
+            FeatureList.setTestFeatures(Map.of(SearchEnginesFeatures.CLAY_BLOCKING, false));
+        }
     }
 }

@@ -23,6 +23,7 @@
 #include "base/notreached.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
+#include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/views/controls/menu/menu_controller.h"
 
 namespace ash {
@@ -151,10 +152,11 @@ void BirchBarController::OnBarDestroying(BirchBarView* bar_view) {
   }
 }
 
-void BirchBarController::ShowChipContextMenu(BirchChipButton* chip,
-                                             BirchSuggestionType chip_type,
-                                             const gfx::Point& point,
-                                             ui::MenuSourceType source_type) {
+void BirchBarController::ShowChipContextMenu(
+    BirchChipButton* chip,
+    BirchSuggestionType chip_type,
+    const gfx::Point& point,
+    ui::mojom::MenuSourceType source_type) {
   chip_menu_model_adapter_ = std::make_unique<BirchBarMenuModelAdapter>(
       std::make_unique<BirchChipContextMenuModel>(
           /*delegate=*/chip, chip_type),
@@ -335,6 +337,18 @@ void BirchBarController::OnItemsFetchedFromModel() {
   base::UmaHistogramCustomCounts("Ash.Birch.ChipCount", items.size(),
                                  /*min=*/0, /*exclusive_max=*/10,
                                  /*buckets=*/10);
+
+  // Record the number of coral items shown.
+  auto num_coral_items =
+      std::count_if(items.begin(), items.end(),
+                    [](const std::unique_ptr<ash::BirchItem>& item) {
+                      return item->GetType() == BirchItemType::kCoral;
+                    });
+  base::UmaHistogramCustomCounts("Ash.Birch.Coral.ClusterCount",
+                                 num_coral_items,
+                                 /*min=*/0, /*exclusive_max=*/3,
+                                 /*buckets=*/3);
+
   RecordTimeOfDayRankingHistogram(items);
 
   for (auto& bar_view : bar_views_) {

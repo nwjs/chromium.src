@@ -7,6 +7,7 @@
 #include "ash/picker/model/picker_action_type.h"
 #include "ash/picker/model/picker_search_results_section.h"
 #include "ash/picker/picker_controller.h"
+#include "ash/picker/picker_search_result.h"
 #include "ash/picker/views/mock_picker_search_results_view_delegate.h"
 #include "ash/picker/views/picker_emoji_bar_view.h"
 #include "ash/picker/views/picker_emoji_item_view.h"
@@ -23,7 +24,6 @@
 #include "ash/picker/views/picker_section_list_view.h"
 #include "ash/picker/views/picker_section_view.h"
 #include "ash/picker/views/picker_view_delegate.h"
-#include "ash/public/cpp/picker/picker_search_result.h"
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/icon_button.h"
@@ -62,12 +62,7 @@ namespace {
 // announcements.
 class PickerAccessibilityBrowserTest : public InProcessBrowserTest {
  public:
-  PickerAccessibilityBrowserTest() {
-    // This is needed to turn off Dogfood checks that prevents Picker from being
-    // toggled.
-    scoped_feature_list_.InitWithFeatureState(ash::features::kPickerDogfood,
-                                              false);
-  }
+  PickerAccessibilityBrowserTest() = default;
 
   void SetUpOnMainThread() override {
     InProcessBrowserTest::SetUpOnMainThread();
@@ -877,7 +872,6 @@ IN_PROC_BROWSER_TEST_F(PickerAccessibilityBrowserTest,
 IN_PROC_BROWSER_TEST_F(PickerAccessibilityBrowserTest,
                        InsertingAnnouncesInsertionBeforeTextfieldRefocus) {
   ash::PickerController controller;
-  controller.DisableFeatureKeyCheck();
   PickerClientImpl client(&controller, user_manager::UserManager::Get());
   std::unique_ptr<views::Widget> textfield_widget =
       ash::TestWidgetBuilder()

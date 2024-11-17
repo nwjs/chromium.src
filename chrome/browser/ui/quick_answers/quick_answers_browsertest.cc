@@ -8,18 +8,26 @@
 #include "ash/system/notification_center/ash_message_popup_collection.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
+#include "base/scoped_observation.h"
+#include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "build/build_config.h"
+#include "chrome/browser/ash/accessibility/accessibility_manager.h"
+#include "chrome/browser/ash/accessibility/speech_monitor.h"
 #include "chrome/browser/notifications/notification_display_service.h"
+#include "chrome/browser/notifications/notification_display_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/chromeos/read_write_cards/read_write_cards_ui_controller.h"
 #include "chrome/browser/ui/quick_answers/quick_answers_browsertest_base.h"
 #include "chrome/browser/ui/quick_answers/quick_answers_controller_impl.h"
 #include "chrome/browser/ui/quick_answers/quick_answers_ui_controller.h"
+#include "chrome/browser/ui/quick_answers/test/mock_quick_answers_client.h"
 #include "chrome/browser/ui/quick_answers/ui/quick_answers_view.h"
 #include "chrome/browser/ui/quick_answers/ui/rich_answers_view.h"
 #include "chrome/browser/ui/quick_answers/ui/user_consent_view.h"
@@ -30,20 +38,29 @@
 #include "chromeos/components/quick_answers/public/cpp/quick_answers_prefs.h"
 #include "chromeos/components/quick_answers/public/cpp/quick_answers_state.h"
 #include "chromeos/components/quick_answers/quick_answers_model.h"
+#include "chromeos/components/quick_answers/utils/quick_answers_utils.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "chromeos/strings/grit/chromeos_strings.h"
 #include "chromeos/ui/vector_icons/vector_icons.h"
 #include "components/omnibox/browser/vector_icons.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/test/browser_test.h"
+#include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
+#include "services/network/test/test_url_loader_factory.h"
+#include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/accessibility/ax_enums.mojom.h"
+#include "ui/accessibility/ax_event.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/color/color_id.h"
+#include "ui/events/event_constants.h"
 #include "ui/events/keycodes/keyboard_codes_posix.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/message_center/public/cpp/notification.h"
 #include "ui/message_center/public/cpp/notification_delegate.h"
+#include "ui/views/accessibility/ax_event_manager.h"
+#include "ui/views/accessibility/ax_event_observer.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/widget/any_widget_observer.h"
@@ -274,6 +291,36 @@ std::unique_ptr<QuickAnswersSession> CreateQuickAnswerUnitConversionResponse() {
   return quick_answers_session;
 }
 
+class ConsentStatusWaiter : public QuickAnswersStateObserver {
+ public:
+  explicit ConsentStatusWaiter(quick_answers::prefs::ConsentStatus status)
+      : status_(status) {
+    observation_.Observe(QuickAnswersState::Get());
+  }
+
+  void Wait() {
+    if (QuickAnswersState::Get()->GetConsentStatus() == status_) {
+      return;
+    }
+
+    run_loop_.Run();
+  }
+
+  void OnConsentStatusUpdated(
+      quick_answers::prefs::ConsentStatus status) override {
+    if (status == status_) {
+      run_loop_.Quit();
+    }
+  }
+
+ private:
+  quick_answers::prefs::ConsentStatus status_;
+  base::RunLoop run_loop_;
+
+  base::ScopedObservation<QuickAnswersState, QuickAnswersStateObserver>
+      observation_{this};
+};
+
 }  // namespace
 
 class QuickAnswersBrowserTest : public QuickAnswersBrowserTestBase {
@@ -292,6 +339,13 @@ class QuickAnswersBrowserTest : public QuickAnswersBrowserTestBase {
     }
   }
 
+  std::unique_ptr<MockQuickAnswersClient> CreateMockQuickAnswersClient() {
+    return std::make_unique<MockQuickAnswersClient>(
+        base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
+            &test_url_loader_factory_),
+        controller()->GetQuickAnswersDelegate());
+  }
+
   void SendTestImageNotification() {
     message_center::RichNotificationData rich_notification_data;
     rich_notification_data.image = CreateFakeImage();
@@ -305,7 +359,7 @@ class QuickAnswersBrowserTest : public QuickAnswersBrowserTestBase {
         rich_notification_data,
         base::MakeRefCounted<message_center::NotificationDelegate>());
 
-    NotificationDisplayService::GetForProfile(
+    NotificationDisplayServiceFactory::GetForProfile(
         chrome_test_utils::GetProfile(this))
         ->Display(NotificationHandler::Type::TRANSIENT, notification,
                   /*metadata=*/nullptr);
@@ -321,7 +375,7 @@ class QuickAnswersBrowserTest : public QuickAnswersBrowserTestBase {
     params.selected_text = kTestQuery;
     params.x = kCursorXToOverlapWithANotification;
     params.y = kCursorYToOverlapWithANotification;
-    ShowMenu(params);
+    ShowMenuAndWait(params);
 
     return quick_answers_view_widget_waiter.WaitIfNeededAndGet();
   }
@@ -355,6 +409,9 @@ class QuickAnswersBrowserTest : public QuickAnswersBrowserTestBase {
         ->quick_answers_ui_controller()
         ->quick_answers_view();
   }
+
+ protected:
+  network::TestURLLoaderFactory test_url_loader_factory_;
 
  private:
   base::TimeTicks fake_time_tick_;
@@ -408,7 +465,7 @@ IN_PROC_BROWSER_TEST_P(QuickAnswersBrowserTest,
   params.selected_text = kTestQuery;
   params.x = kCursorXToOverlapWithANotification;
   params.y = kCursorYToOverlapWithANotification;
-  ShowMenu(params);
+  ShowMenuAndWait(params);
 
   views::Widget* user_consent_view_widget =
       user_consent_view_widget_waiter.WaitIfNeededAndGet();
@@ -489,7 +546,7 @@ IN_PROC_BROWSER_TEST_P(QuickAnswersBrowserTest, ClickAllowOnUserConsentView) {
   params.selected_text = kTestQuery;
   params.x = kCursorXToOverlapWithANotification;
   params.y = kCursorYToOverlapWithANotification;
-  ShowMenu(params);
+  ShowMenuAndWait(params);
 
   views::Widget* user_consent_view_widget =
       user_consent_view_widget_waiter.WaitIfNeededAndGet();
@@ -531,7 +588,7 @@ IN_PROC_BROWSER_TEST_P(QuickAnswersBrowserTest,
   params.selected_text = kTestQuery;
   params.x = kCursorXToOverlapWithANotification;
   params.y = kCursorYToOverlapWithANotification;
-  ShowMenu(params);
+  ShowMenuAndWait(params);
 
   views::Widget* user_consent_view_widget =
       user_consent_view_widget_waiter.WaitIfNeededAndGet();
@@ -551,6 +608,157 @@ IN_PROC_BROWSER_TEST_P(QuickAnswersBrowserTest,
   EXPECT_FALSE(chrome_test_utils::GetProfile(this)->GetPrefs()->GetBoolean(
       prefs::kQuickAnswersEnabled));
   EXPECT_EQ(QuickAnswersVisibility::kClosed,
+            controller()->GetQuickAnswersVisibility());
+}
+
+IN_PROC_BROWSER_TEST_P(QuickAnswersBrowserTest, SpokenFeedback) {
+  constexpr char kSeparator[] = "; ";
+
+  std::string expected_result_a11y_text =
+      IsMagicBoostEnabled()
+          ? base::JoinString({base::ReplaceStringPlaceholders(
+                                  "$1 · slash $2 slash ",
+                                  {base::UTF16ToUTF8(kQueryText),
+                                   base::UTF16ToUTF8(kPhoneticsText)},
+                                  nullptr),
+                              kDefinitionText},
+                             kSeparator)
+          : base::JoinString({"Define",
+                              base::ReplaceStringPlaceholders(
+                                  "$1 · slash $2 slash ",
+                                  {base::UTF16ToUTF8(kQueryText),
+                                   base::UTF16ToUTF8(kPhoneticsText)},
+                                  nullptr),
+                              kDefinitionText},
+                             kSeparator);
+
+  SetQuickAnswersEnabled(true);
+
+  std::unique_ptr<MockQuickAnswersClient> mock_quick_answers_client =
+      CreateMockQuickAnswersClient();
+  base::test::TestFuture<void> on_quick_answers_click_future;
+  EXPECT_CALL(*(mock_quick_answers_client.get()), OnQuickAnswerClick)
+      .WillOnce(base::test::InvokeFuture(on_quick_answers_click_future));
+  controller()->SetClient(std::move(mock_quick_answers_client));
+
+  ash::test::SpeechMonitor speech_monitor;
+  speech_monitor.Call(
+      []() { ash::AccessibilityManager::Get()->EnableSpokenFeedback(true); });
+  speech_monitor.ExpectSpeech("ChromeVox spoken feedback is ready");
+  speech_monitor.Call([this]() {
+    ShowMenuParams params;
+    params.selected_text = kTestQuery;
+    params.x = kCursorXToOverlapWithANotification;
+    params.y = kCursorYToOverlapWithANotification;
+
+    // Use `ShowMenu` instead of `ShowMenuAndWait`. `ShowMenuAndWait` creates a
+    // `RunLoop`. `SpeechMonitor` might already have a message loop. Nested
+    // `RunLoop` is not enabled by default. We wait menu shown with menu opened
+    // spoken feedback.
+    ShowMenu(params);
+  });
+  speech_monitor.ExpectSpeech("menu opened");
+  speech_monitor.Call([this]() {
+    controller()->GetQuickAnswersDelegate()->OnQuickAnswerReceived(
+        CreateQuickAnswerDefinitionResponse());
+  });
+  speech_monitor.ExpectSpeech(
+      "Info related to your selection available. Use Up arrow key to access.");
+  speech_monitor.Call([]() {
+    ui::test::EventGenerator event_generator(
+        ash::Shell::GetPrimaryRootWindow());
+    ui::test::EmulateFullKeyPressReleaseSequence(
+        &event_generator, ui::KeyboardCode::VKEY_UP, /*control=*/false,
+        /*shift=*/false, /*alt=*/false, /*command=*/false);
+  });
+  speech_monitor.ExpectSpeech("Info related to your selection");
+  speech_monitor.ExpectSpeech("Dialog");
+  speech_monitor.ExpectSpeech(expected_result_a11y_text);
+  speech_monitor.ExpectSpeech("Press Search plus Space to activate");
+  speech_monitor.Call([]() {
+    ui::test::EventGenerator event_generator(
+        ash::Shell::GetPrimaryRootWindow());
+    ui::test::EmulateFullKeyPressReleaseSequence(
+        &event_generator, ui::KeyboardCode::VKEY_SPACE, /*control=*/false,
+        /*shift=*/false, /*alt=*/false, /*command=*/true);
+  });
+  speech_monitor.Replay();
+
+  // Wait after `SpeechMonitor::Replay`. `Replay` can create a message loop. If
+  // we wait inside reply, it can create a nested `RunLoop`, which is not
+  // enabled by default.
+  EXPECT_TRUE(on_quick_answers_click_future.Wait())
+      << "Expected OnQuickAnswersClick. But it is not called";
+  EXPECT_EQ(controller()->GetQuickAnswersVisibility(),
+            QuickAnswersVisibility::kClosed);
+}
+
+IN_PROC_BROWSER_TEST_P(QuickAnswersBrowserTest, SpokenFeedbackUserConsent) {
+  if (IsMagicBoostEnabled()) {
+    GTEST_SKIP() << "User consent is handled by Magic Boost if it's on.";
+  }
+
+  ash::test::SpeechMonitor speech_monitor;
+  speech_monitor.Call(
+      []() { ash::AccessibilityManager::Get()->EnableSpokenFeedback(true); });
+  speech_monitor.ExpectSpeech("ChromeVox spoken feedback is ready");
+  speech_monitor.Call([this]() {
+    ShowMenuParams params;
+    params.selected_text = kTestQuery;
+    params.x = kCursorXToOverlapWithANotification;
+    params.y = kCursorYToOverlapWithANotification;
+
+    // Use `ShowMenu` instead of `ShowMenuAndWait`. `ShowMenuAndWait` creates a
+    // `RunLoop`. `SpeechMonitor` might already have a message loop. Nested
+    // `RunLoop` is not enabled by default. We wait menu shown with menu opened
+    // spoken feedback.
+    ShowMenu(params);
+  });
+  speech_monitor.ExpectSpeech("menu opened");
+  // message id: IDS_QUICK_ANSWERS_USER_NOTICE_VIEW_A11Y_INFO_ALERT_TEXT
+  speech_monitor.ExpectSpeech(
+      "New feature available, use Up arrow key to learn more.");
+  speech_monitor.Call([]() {
+    ui::test::EventGenerator event_generator(
+        ash::Shell::GetPrimaryRootWindow());
+    ui::test::EmulateFullKeyPressReleaseSequence(
+        &event_generator, ui::KeyboardCode::VKEY_UP, /*control=*/false,
+        /*shift=*/false, /*alt=*/false, /*command=*/false);
+  });
+  speech_monitor.ExpectSpeech("No thanks");
+  speech_monitor.ExpectSpeech("Button");
+  speech_monitor.ExpectSpeech("Get info related to your selection");
+  speech_monitor.ExpectSpeech("Dialog");
+  speech_monitor.ExpectSpeech(
+      "Right-click or press and hold to get definitions, translations, or unit "
+      "conversions Use Left or Right arrow keys to manage this feature.");
+  speech_monitor.Call([]() {
+    ui::test::EventGenerator event_generator(
+        ash::Shell::GetPrimaryRootWindow());
+    ui::test::EmulateFullKeyPressReleaseSequence(
+        &event_generator, ui::KeyboardCode::VKEY_RIGHT, /*control=*/false,
+        /*shift=*/false, /*alt=*/false, /*command=*/false);
+  });
+  speech_monitor.ExpectSpeech("Try it");
+  speech_monitor.ExpectSpeech("Button");
+  speech_monitor.Call([]() {
+    ui::test::EventGenerator event_generator(
+        ash::Shell::GetPrimaryRootWindow());
+    ui::test::EmulateFullKeyPressReleaseSequence(
+        &event_generator, ui::KeyboardCode::VKEY_SPACE, /*control=*/false,
+        /*shift=*/false, /*alt=*/false, /*command=*/true);
+  });
+  speech_monitor.Replay();
+
+  // Activation (Search + Space) is done as an async operatnion. Wait for the
+  // consent status change.
+  ConsentStatusWaiter consent_status_waiter(
+      quick_answers::prefs::ConsentStatus::kAccepted);
+  consent_status_waiter.Wait();
+
+  EXPECT_TRUE(chrome_test_utils::GetProfile(this)->GetPrefs()->GetBoolean(
+      prefs::kQuickAnswersEnabled));
+  EXPECT_EQ(QuickAnswersVisibility::kQuickAnswersVisible,
             controller()->GetQuickAnswersVisibility());
 }
 

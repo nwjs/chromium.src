@@ -74,6 +74,7 @@ BASE_DECLARE_FEATURE(kNtpTabResumptionModuleTimeLimit);
 BASE_DECLARE_FEATURE(kNtpWallpaperSearchButton);
 BASE_DECLARE_FEATURE(kNtpWallpaperSearchButtonAnimation);
 BASE_DECLARE_FEATURE(kNtpWallpaperSearchButtonAnimationShownThreshold);
+BASE_DECLARE_FEATURE(kNtpMobilePromo);
 
 // Parameter for controlling the luminosity difference for NTP elements on light
 // backgrounds.
@@ -163,6 +164,8 @@ extern const char kNtpWallpaperSearchButtonAnimationShownThresholdParam[];
 extern const char kNtpWallpaperSearchButtonHideConditionParam[];
 // Parameter determining the trigger delay of the Wallpaper Search HaTS survey.
 extern const char kWallpaperSearchHatsDelayParam[];
+// Parameter determining the target url to go to from the Ntp Mobile Promo.
+extern const char kNtpMobilePromoTargetUrlParam[];
 
 // Parameter determining the experiment name to pass to the Google Calendar
 // API.
@@ -182,6 +185,9 @@ extern const base::FeatureParam<bool>
     kNtpRealboxCr23ExpandedStateBgMatchesOmnibox;
 // Parameter determining the whether the steady state realbox has a shadow.
 extern const base::FeatureParam<bool> kNtpRealboxCr23SteadyStateShadow;
+// Parameter determining the impression limit for the NTP mobile promo. The
+// promo will not be shown again after the impression limit is reached.
+extern const base::FeatureParam<int> kNtpMobilePromoImpressionLimit;
 
 // Returns the timeout after which the load of a module should be aborted.
 base::TimeDelta GetModulesLoadTimeout();

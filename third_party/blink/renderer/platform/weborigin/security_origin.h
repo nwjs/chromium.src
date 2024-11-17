@@ -381,7 +381,10 @@ class PLATFORM_EXPORT SecurityOrigin : public RefCounted<SecurityOrigin> {
 
   // Only used for document.domain setting. The method should probably be moved
   // if we need it for something more general.
-  static String CanonicalizeHost(const String& host, bool* success);
+  static String CanonicalizeSpecialHost(const String& host, bool* success);
+  static String CanonicalizeHost(const String& host,
+                                 const String& scheme,
+                                 bool* success);
 
   // Return a security origin that is assigned to the agent cluster. This will
   // be a copy of this security origin if the current agent doesn't match the
@@ -402,6 +405,10 @@ class PLATFORM_EXPORT SecurityOrigin : public RefCounted<SecurityOrigin> {
   // To be removed after shipping DocumentOpenSandboxInheritanceRemoval feature.
   void set_aliased_by_document_open() { aliased_by_document_open_ = true; }
   bool aliased_by_document_open() const { return aliased_by_document_open_; }
+
+  bool block_local_access_from_local_origin() const {
+    return block_local_access_from_local_origin_;
+  }
 
  private:
   // Various serialisation and test routines that need direct nonce access.

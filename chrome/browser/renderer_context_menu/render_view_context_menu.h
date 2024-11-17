@@ -348,7 +348,6 @@ class RenderViewContextMenu
   bool IsPrintPreviewEnabled() const;
   bool IsQRCodeGeneratorEnabled() const;
   bool IsRouteMediaEnabled() const;
-  bool IsOpenLinkOTREnabled() const;
   bool IsOpenLinkAllowedByDlp(const GURL& link_url) const;
   bool IsRegionSearchEnabled() const;
   bool IsAddANoteEnabled() const;
@@ -356,7 +355,6 @@ class RenderViewContextMenu
 
   // Command execution functions.
   void ExecSearchWebInCompanionSidePanel(const GURL& url);
-  void ExecSearchWebInSidePanel(const GURL& url);
   void ExecOpenWebApp();
   void ExecOpenLinkPreview();
   void ExecProtocolHandler(int event_flags, int handler_index);

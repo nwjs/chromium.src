@@ -228,17 +228,9 @@ COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kTrackingProtectionUserBypassPwaTrigger);
 #endif  // BUILDFLAG(IS_ANDROID)
 
-// Enables visibility for toggles on the top-level Ad Privacy page.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kPsRedesignAdPrivacyPage);
-
 // Enables the notice storage for pref storage.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kPsDualWritePrefsToNoticeStorage);
-
-// Enables setting the toggles on the top-level Ad Privacy page.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-extern const base::FeatureParam<bool> kPsRedesignAdPrivacyPageEnableToggles;
 
 // Enables Activity Type Storage
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
@@ -276,6 +268,11 @@ BASE_DECLARE_FEATURE(kPrivacySandboxMigratePrefsToNoticeConsentDataModel);
 // If true, provides a link to the Privacy Policy on the Topics Consent notice.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kPrivacySandboxPrivacyPolicy);
+
+// If true, adds the privacy sandbox notice to product messaging controller
+// queue.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+BASE_DECLARE_FEATURE(kPrivacySandboxNoticeQueue);
 
 // Enables the `Always on` sentiment survey
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)

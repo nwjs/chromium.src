@@ -34,6 +34,7 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/passwords/ui_utils.h"
+#include "chrome/browser/ui/views/autofill/popup/autofill_prediction_improvements/autofill_prediction_improvements_loading_state_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_base_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_no_suggestions_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_factory_utils.h"
@@ -103,6 +104,8 @@ constexpr int kAutofillPopupMinWidth = 156;
 static_assert(kAutofillPopupMinWidth > 128);
 // TODO(crbug.com/41382463): move handling the max width to the base class.
 constexpr int kAutofillPopupMaxWidth = 456;
+
+constexpr int kMaxPopupWithSearchBarHeight = 400;
 
 // Preferred position relative to the control sides of the sub-popup.
 constexpr std::array<views::BubbleArrowSide, 2> kDefaultSubPopupSides = {
@@ -276,16 +279,6 @@ bool PopupViewViews::Show(
     }
   }
 
-  // Check for the special "warning bubble" mode: single warning suggestion
-  // which content should be just announced to the user. Triggering
-  // Event::kAlert on such a row makes screen readers read its content out.
-  // TODO(crbug.com/40281426): Consider supporting "warning mode" explicitly.
-  if (rows_.size() == 1 &&
-      absl::holds_alternative<PopupWarningView*>(rows_[0])) {
-    absl::get<PopupWarningView*>(rows_[0])->NotifyAccessibilityEvent(
-        ax::mojom::Event::kAlert, true);
-  }
-
   // Compose has separate on show announcements.
   // TODO(crbug.com/340359989): Replace with AutofillComposeDelegate::OnShow
   if (controller_->GetMainFillingProduct() == FillingProduct::kCompose) {
@@ -323,6 +316,8 @@ bool PopupViewViews::Show(
         NOTREACHED();
     }
   }
+
+  MaybeA11yFocusInformationalSuggestion();
 
   return !CanActivate() || (GetWidget() && GetWidget()->IsActive());
 }
@@ -692,6 +687,8 @@ void PopupViewViews::OnSuggestionsChanged(bool prefer_prev_arrow_side) {
 
   CreateSuggestionViews();
   DoUpdateBoundsAndRedrawPopup(prefer_prev_arrow_side);
+
+  MaybeA11yFocusInformationalSuggestion();
 }
 
 bool PopupViewViews::OverlapsWithPictureInPictureWindow() const {
@@ -1016,6 +1013,13 @@ void PopupViewViews::CreateSuggestionViews() {
                   kSuggestions[current_line_number])));
           break;
 
+        case SuggestionType::kPredictionImprovementsLoadingState:
+          rows_.push_back(body_container->AddChildView(
+              std::make_unique<autofill_prediction_improvements::
+                                   PredictionImprovementsLoadingStateView>(
+                  kSuggestions[current_line_number])));
+          break;
+
         // The default section contains all selectable rows and includes
         // autocomplete, address, credit cards and passwords.
         default:
@@ -1031,6 +1035,23 @@ void PopupViewViews::CreateSuggestionViews() {
                   /*selection_delegate=*/*this, current_line_number,
                   std::move(filter_match), password_favicon_loader_.get()));
           rows_.push_back(row_view);
+
+          // Set element identifiers for tests.
+          if (kSuggestions[current_line_number].type ==
+              SuggestionType::kRetrievePredictionImprovements) {
+            row_view->SetProperty(
+                views::kElementIdentifierKey,
+                kAutofillPredictionImprovementsTriggerElementId);
+          } else if (kSuggestions[current_line_number].type ==
+                     SuggestionType::kFillPredictionImprovements) {
+            row_view->SetProperty(views::kElementIdentifierKey,
+                                  kAutofillPredictionImprovementsFillElementId);
+          } else if (kSuggestions[current_line_number].type ==
+                     SuggestionType::kPredictionImprovementsError) {
+            row_view->SetProperty(
+                views::kElementIdentifierKey,
+                kAutofillPredictionImprovementsErrorElementId);
+          }
 
           const base::Feature* const feature_for_iph =
               kSuggestions[current_line_number].feature_for_iph;
@@ -1151,8 +1172,19 @@ gfx::Size PopupViewViews::CalculatePreferredSize(
     // TODO(crbug.com/40232718): When we set the vertical axis to stretch,
     // BoxLayout will occupy the entire vertical axis size. Two calculations are
     // needed to correct this.
-    return views::View::CalculatePreferredSize(
+    //
+    // Following crrev.com/c/5828724, the dialog box will fit the text more
+    // closely. But this will break the pixel test, so make it a fixed size.
+    size = views::View::CalculatePreferredSize(
         views::SizeBounds(kAutofillPopupMaxWidth, {}));
+    size.set_width(kAutofillPopupMaxWidth);
+  }
+
+  // This popup height limiting for popups with a search bar addresses a minor
+  // UX concern when a potentially long list makes the search bar appear far
+  // away from the field and thus less obvious what the search bar belongs to.
+  if (search_bar_) {
+    size.set_height(std::min(kMaxPopupWithSearchBarHeight, size.height()));
   }
 
   return size;
@@ -1381,6 +1413,27 @@ bool PopupViewViews::SelectParentPopupContentCell() {
                   AutoselectFirstSuggestion(false),
                   /*suppress_popup=*/true);
   return true;
+}
+
+void PopupViewViews::MaybeA11yFocusInformationalSuggestion() {
+  if (rows_.size() != 1) {
+    return;
+  }
+
+  RowPointer first_row = rows_[0];
+  views::View* view_to_focus = nullptr;
+  if (auto* loading_view =
+          absl::get_if<autofill_prediction_improvements::
+                           PredictionImprovementsLoadingStateView*>(
+              &first_row)) {
+    view_to_focus = *loading_view;
+  } else if (auto* warning_view = absl::get_if<PopupWarningView*>(&first_row)) {
+    view_to_focus = *warning_view;
+  }
+  if (view_to_focus) {
+    NotifyAXSelection(*view_to_focus);
+    view_to_focus->NotifyAccessibilityEvent(ax::mojom::Event::kFocus, true);
+  }
 }
 
 base::WeakPtr<AutofillPopupView> PopupViewViews::GetWeakPtr() {

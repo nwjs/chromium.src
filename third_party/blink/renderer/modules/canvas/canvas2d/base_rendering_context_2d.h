@@ -22,6 +22,8 @@
 #include "cc/paint/paint_record.h"
 #include "cc/paint/record_paint_canvas.h"
 #include "third_party/blink/public/mojom/frame/color_scheme.mojom-blink.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_canvas_fill_rule.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_image_smoothing_quality.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_typedefs.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_performance_monitor.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context.h"
@@ -30,10 +32,12 @@
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_path.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_rendering_context_2d_state.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_deferred_paint_record.h"
 #include "third_party/blink/renderer/platform/graphics/color.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_types.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_filter.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
+#include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_linked_hash_set.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/heap/forward.h"  // IWYU pragma: keep (blink::Visitor)
@@ -119,6 +123,8 @@ enum class ColorParseResult;
 enum RespectImageOrientationEnum : uint8_t;
 template <typename T>
 class NotShared;
+class V8CanvasFontStretch;
+class V8CanvasTextRendering;
 
 class MODULES_EXPORT BaseRenderingContext2D : public CanvasPath {
  public:
@@ -224,21 +230,26 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasPath {
   void beginPath();
 
   void fill();
-  void fill(const String& winding);
+  void fill(const V8CanvasFillRule& winding);
   void fill(Path2D*);
-  void fill(Path2D*, const String& winding);
+  void fill(Path2D*, const V8CanvasFillRule& winding);
   void stroke();
   void stroke(Path2D*);
-  void clip(const String& winding = "nonzero");
-  void clip(Path2D*, const String& winding = "nonzero");
+  void clip(const V8CanvasFillRule& winding =
+                V8CanvasFillRule(V8CanvasFillRule::Enum::kNonzero));
+  void clip(Path2D*,
+            const V8CanvasFillRule& winding =
+                V8CanvasFillRule(V8CanvasFillRule::Enum::kNonzero));
 
   bool isPointInPath(const double x,
                      const double y,
-                     const String& winding = "nonzero");
+                     const V8CanvasFillRule& winding =
+                         V8CanvasFillRule(V8CanvasFillRule::Enum::kNonzero));
   bool isPointInPath(Path2D*,
                      const double x,
                      const double y,
-                     const String& winding = "nonzero");
+                     const V8CanvasFillRule& winding =
+                         V8CanvasFillRule(V8CanvasFillRule::Enum::kNonzero));
   bool isPointInStroke(const double x, const double y);
   bool isPointInStroke(Path2D*, const double x, const double y);
 
@@ -350,8 +361,8 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasPath {
 
   bool imageSmoothingEnabled() const;
   void setImageSmoothingEnabled(bool);
-  String imageSmoothingQuality() const;
-  void setImageSmoothingQuality(const String&);
+  V8ImageSmoothingQuality imageSmoothingQuality() const;
+  void setImageSmoothingQuality(const V8ImageSmoothingQuality&);
 
   // Transfers a canvas' existing back-buffer to a GPUTexture for use in a
   // WebGPU pipeline. The canvas' image can be used as a texture, or the texture
@@ -450,14 +461,20 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasPath {
   String wordSpacing() const;
   void setWordSpacing(const String&);
 
-  String textRendering() const;
-  void setTextRendering(const String&);
+  V8CanvasTextRendering textRendering() const;
+  void setTextRendering(const V8CanvasTextRendering&);
+
+  String textRenderingAsString() const;
+  void setTextRenderingAsString(const String&);
 
   String fontKerning() const;
   void setFontKerning(const String&);
 
-  String fontStretch() const;
-  void setFontStretch(const String&);
+  V8CanvasFontStretch fontStretch() const;
+  void setFontStretch(const V8CanvasFontStretch&);
+
+  String fontStretchAsString() const;
+  void setFontStretchAsString(const String&);
 
   String fontVariantCaps() const;
   void setFontVariantCaps(const String&);
@@ -695,6 +712,11 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasPath {
   CanvasRenderingContext::LostContextMode context_lost_mode_{
       CanvasRenderingContext::kNotLostContext};
 
+  // TODO(issues.chromium.org/issues/349835587): Add an observer to know if the
+  // element is detached and then remove it.
+  HeapHashMap<WeakMember<Element>, scoped_refptr<CanvasDeferredPaintRecord>>
+      placed_elements_;
+
  private:
   void FillImpl(SkPathFillType winding_rule);
   void FillPathImpl(Path2D* dom_path, SkPathFillType winding_rule);
@@ -797,13 +819,13 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasPath {
                          const SkSamplingOptions&,
                          const cc::PaintFlags*);
   void ClipInternal(const Path&,
-                    const String& winding_rule_string,
+                    const V8CanvasFillRule& winding_rule,
                     cc::UsePaintCache);
 
   bool IsPointInPathInternal(const Path&,
                              const double x,
                              const double y,
-                             const String& winding_rule_string);
+                             const V8CanvasFillRule& winding_rule);
   bool IsPointInStrokeInternal(const Path&, const double x, const double y);
 
   static bool IsFullCanvasCompositeMode(SkBlendMode);
@@ -856,10 +878,6 @@ class MODULES_EXPORT BaseRenderingContext2D : public CanvasPath {
                                             Color& color) const;
 
   cc::PaintFlags GetClearFlags() const;
-
-  bool CopyGPUTextureToResourceProvider(
-      GPUTexture& src_texture,
-      CanvasResourceProvider& resource_provider);
 
   bool origin_tainted_by_content_ = false;
   cc::UsePaintCache path2d_use_paint_cache_;

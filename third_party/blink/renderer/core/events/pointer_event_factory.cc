@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "third_party/blink/renderer/core/events/pointer_event_factory.h"
 
 #include "base/trace_event/trace_event.h"
@@ -302,10 +297,7 @@ void PointerEventFactory::SetEventSpecificFields(
       type != event_type_names::kPointerrawupdate &&
       type != event_type_names::kGotpointercapture &&
       type != event_type_names::kLostpointercapture);
-  pointer_event_init->setComposed(
-      RuntimeEnabledFeatures::NonComposedEnterLeaveEventsEnabled()
-          ? !is_pointer_enter_or_leave
-          : true);
+  pointer_event_init->setComposed(!is_pointer_enter_or_leave);
   pointer_event_init->setDetail(0);
 }
 

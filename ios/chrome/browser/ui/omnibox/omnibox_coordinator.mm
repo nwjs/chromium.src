@@ -33,6 +33,7 @@
 #import "ios/chrome/browser/shared/public/commands/qr_scanner_commands.h"
 #import "ios/chrome/browser/shared/public/commands/toolbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/browser/ui/omnibox/keyboard_assist/omnibox_assistive_keyboard_delegate.h"
 #import "ios/chrome/browser/ui/omnibox/keyboard_assist/omnibox_assistive_keyboard_mediator.h"
 #import "ios/chrome/browser/ui/omnibox/keyboard_assist/omnibox_assistive_keyboard_views.h"
@@ -96,6 +97,9 @@
 
   // The handler for ToolbarCommands.
   id<ToolbarCommands> _toolbarHandler;
+
+  // Whether it's the lens overlay omnibox.
+  BOOL _isLensOverlay;
 }
 @synthesize viewController = _viewController;
 @synthesize mediator = _mediator;
@@ -105,10 +109,12 @@
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
                                    browser:(Browser*)browser
                              omniboxClient:
-                                 (std::unique_ptr<OmniboxClient>)client {
+                                 (std::unique_ptr<OmniboxClient>)client
+                             isLensOverlay:(BOOL)isLensOverlay {
   self = [super initWithBaseViewController:viewController browser:browser];
   if (self) {
     _client = std::move(client);
+    _isLensOverlay = isLensOverlay;
   }
   return self;
 }
@@ -119,7 +125,8 @@
   _toolbarHandler =
       HandlerForProtocol(self.browser->GetCommandDispatcher(), ToolbarCommands);
 
-  self.viewController = [[OmniboxViewController alloc] init];
+  self.viewController =
+      [[OmniboxViewController alloc] initWithIsLensOverlay:_isLensOverlay];
   self.viewController.defaultLeadingImage =
       GetOmniboxSuggestionIcon(OmniboxSuggestionIconType::kDefaultFavicon);
   self.viewController.textInputDelegate = self;
@@ -127,19 +134,20 @@
       LayoutGuideCenterForBrowser(self.browser);
   self.viewController.isSearchOnlyUI = self.isSearchOnlyUI;
 
-  BOOL isIncognito = self.browser->GetBrowserState()->IsOffTheRecord();
+  BOOL isIncognito = self.browser->GetProfile()->IsOffTheRecord();
   self.mediator = [[OmniboxMediator alloc]
       initWithIncognito:isIncognito
                 tracker:feature_engagement::TrackerFactory::GetForBrowserState(
-                            self.browser->GetBrowserState())];
+                            self.browser->GetProfile())
+          isLensOverlay:_isLensOverlay];
 
   TemplateURLService* templateURLService =
       ios::TemplateURLServiceFactory::GetForBrowserState(
-          self.browser->GetBrowserState());
+          self.browser->GetProfile());
   self.mediator.templateURLService = templateURLService;
   self.mediator.faviconLoader =
       IOSChromeFaviconLoaderFactory::GetForBrowserState(
-          self.browser->GetBrowserState());
+          self.browser->GetProfile());
   self.mediator.consumer = self.viewController;
   self.mediator.omniboxCommandsHandler =
       HandlerForProtocol(self.browser->GetCommandDispatcher(), OmniboxCommands);
@@ -157,8 +165,9 @@
   id<OmniboxCommands> omniboxHandler =
       HandlerForProtocol(self.browser->GetCommandDispatcher(), OmniboxCommands);
   _editView = std::make_unique<OmniboxViewIOS>(
-      self.textField, std::move(_client), self.browser->GetBrowserState(),
-      omniboxHandler, self.focusDelegate, _toolbarHandler, self.viewController);
+      self.textField, std::move(_client), self.browser->GetProfile(),
+      omniboxHandler, self.focusDelegate, _toolbarHandler, self.viewController,
+      _isLensOverlay);
   self.pasteDelegate = [[OmniboxTextFieldPasteDelegate alloc] init];
   [self.textField setPasteDelegate:self.pasteDelegate];
 
@@ -224,10 +233,12 @@
 }
 
 - (void)focusOmnibox {
-  if (!self.keyboardAccessoryView && !self.isSearchOnlyUI) {
+  if (!self.keyboardAccessoryView &&
+      (!self.isSearchOnlyUI ||
+       experimental_flags::IsOmniboxDebuggingEnabled())) {
     TemplateURLService* templateURLService =
         ios::TemplateURLServiceFactory::GetForBrowserState(
-            self.browser->GetBrowserState());
+            self.browser->GetProfile());
     self.keyboardAccessoryView = ConfigureAssistiveKeyboardViews(
         self.textField, kDotComTLD, _keyboardMediator, templateURLService,
         HandlerForProtocol(self.browser->GetCommandDispatcher(), HelpCommands));

@@ -340,8 +340,7 @@ String ScanTextResult<LChar>::TextToString() const {
 
 template <>
 String ScanTextResult<UChar>::TextToString() const {
-  return String(StringImpl::Create8BitIfPossible(
-      text.data(), static_cast<wtf_size_t>(text.size())));
+  return String(StringImpl::Create8BitIfPossible(text));
 }
 
 // This HTML parser is used as a fast-path for setting innerHTML.
@@ -1263,8 +1262,7 @@ class HTMLFastPathParser {
     QualifiedName name = LookupHTMLAttributeName(
         name_span.data(), static_cast<unsigned>(name_span.size()));
     if (name == g_null_name) {
-      name = QualifiedName(AtomicString(
-          name_span.data(), static_cast<unsigned>(name_span.size())));
+      name = QualifiedName(AtomicString(name_span));
     }
 
     // The string pointer in |value| is null for attributes with no values, but
@@ -1272,11 +1270,9 @@ class HTMLFastPathParser {
     // no values have the value set to an empty atom instead.
     AtomicString value;
     if (value_span.second.empty()) {
-      value = AtomicString(value_span.first.data(),
-                           static_cast<unsigned>(value_span.first.size()));
+      value = AtomicString(value_span.first);
     } else {
-      value = AtomicString(value_span.second.data(),
-                           static_cast<unsigned>(value_span.second.size()));
+      value = AtomicString(value_span.second);
     }
     if (value.IsNull()) {
       value = g_empty_atom;

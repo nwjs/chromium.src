@@ -24,7 +24,10 @@ enum class HistoryEmbeddingsUserActions {
   kEmbeddingsSearch = 1,
   kEmbeddingsNonEmptyResultsShown = 2,
   kEmbeddingsResultClicked = 3,
-  kMaxValue = kEmbeddingsResultClicked,
+  kAnswerShown = 4,
+  kAnswerCitationClicked = 5,
+  kOtherHistoryResultClicked = 6,
+  kMaxValue = kOtherHistoryResultClicked,
 };
 
 class HistoryEmbeddingsHandler : public history_embeddings::mojom::PageHandler {
@@ -33,7 +36,8 @@ class HistoryEmbeddingsHandler : public history_embeddings::mojom::PageHandler {
       mojo::PendingReceiver<history_embeddings::mojom::PageHandler>
           pending_page_handler,
       base::WeakPtr<Profile> profile,
-      content::WebUI* web_ui);
+      content::WebUI* web_ui,
+      bool for_side_panel);
   HistoryEmbeddingsHandler(const HistoryEmbeddingsHandler&) = delete;
   HistoryEmbeddingsHandler& operator=(const HistoryEmbeddingsHandler&) = delete;
   ~HistoryEmbeddingsHandler() override;
@@ -43,19 +47,33 @@ class HistoryEmbeddingsHandler : public history_embeddings::mojom::PageHandler {
                    pending_page) override;
   void Search(history_embeddings::mojom::SearchQueryPtr query) override;
   void RecordSearchResultsMetrics(bool non_empty_results,
-                                  bool user_clicked_results) override;
+                                  bool user_clicked_results,
+                                  bool answer_shown,
+                                  bool answer_citation_clicked,
+                                  bool other_history_result_clicked) override;
   void SetUserFeedback(
       history_embeddings::mojom::UserFeedback user_feedback) override;
   void MaybeShowFeaturePromo() override;
   void SendQualityLog(const std::vector<uint32_t>& selected_indices,
                       uint32_t num_chars_for_query) override;
+  void OpenSettingsPage() override;
+
+  void PublishResultToPageForTesting(
+      const history_embeddings::SearchResult& native_search_result);
+
+ private:
+  // Builds mojom result and publishes it to the browser page UI.
+  void PublishResultToPage(
+      const history_embeddings::SearchResult& native_search_result);
 
   // Callback for querying `HistoryEmbeddingsService::Search()`.
   void OnReceivedSearchResult(history_embeddings::SearchResult result);
 
- private:
   mojo::Receiver<history_embeddings::mojom::PageHandler> page_handler_;
   mojo::Remote<history_embeddings::mojom::Page> page_;
+
+  // Indicates whether this handler is used for side panel.
+  bool for_side_panel_;
 
   // The profile is used to get the HistoryEmbeddingsService to fulfill
   // search requests.

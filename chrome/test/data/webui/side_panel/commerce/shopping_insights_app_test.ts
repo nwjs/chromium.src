@@ -33,6 +33,7 @@ suite('ShoppingInsightsAppTest', () => {
     previousPrice: '$34',
     clusterId: BigInt(12345),
     categoryLabels: [],
+    priceSummary: '',
   };
   const priceInsights1: PriceInsightsInfo = {
     clusterId: BigInt(123),
@@ -168,7 +169,7 @@ suite('ShoppingInsightsAppTest', () => {
     assertEquals(
         loadTimeData.getString('buyOptions'), buyOption.textContent!.trim());
 
-    const button = attributesRow.shadowRoot!.querySelector('iron-icon');
+    const button = attributesRow.shadowRoot!.querySelector('cr-icon');
     assertTrue(!!button);
     button.click();
     const url = await shoppingServiceApi.whenCalled('openUrlInNewTab');

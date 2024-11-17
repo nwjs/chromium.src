@@ -1425,7 +1425,6 @@ void InlineCursor::SlowMoveToNextForSameLayoutObject(
 void InlineCursor::MoveTo(const LayoutObject& layout_object) {
   DCHECK(layout_object.IsInLayoutNGInlineFormattingContext());
   if (layout_object.IsOutOfFlowPositioned()) [[unlikely]] {
-    NOTREACHED_IN_MIGRATION();
     MakeNull();
     return;
   }
@@ -1779,8 +1778,7 @@ void InlineCursor::MoveToVisualFirstOrLastForCulledInline(bool last) {
   }
 
   DCHECK(found_position);
-  if (RuntimeEnabledFeatures::InlineCursorMultiColFixEnabled() &&
-      fragment_index_ > found_fragment_index) {
+  if (fragment_index_ > found_fragment_index) {
     while (fragment_index_ > found_fragment_index) {
       DecrementFragmentIndex();
     }

@@ -148,6 +148,10 @@ em::DevicePolicyRequest::Reason TranslateFetchReason(PolicyFetchReason reason) {
       return Request::USER_REQUEST;
     case PolicyFetchReason::kRetry:
       return Request::RETRY;
+    case PolicyFetchReason::kSchemaUpdated:
+      return Request::UNNECESSARY_SCHEMA_UPDATED;
+    case PolicyFetchReason::kDisconnect:
+      return Request::UNNECESSARY_DISCONNECT;
   }
   NOTREACHED();
 }
@@ -280,6 +284,8 @@ CloudPolicyClient::Observer::~Observer() = default;
 
 CloudPolicyClient::Result::Result(DeviceManagementStatus status)
     : result_(status) {}
+CloudPolicyClient::Result::Result(DeviceManagementStatus status, int net_error)
+    : result_(status), net_error_(net_error) {}
 CloudPolicyClient::Result::Result(NotRegistered) : result_(NotRegistered()) {}
 
 bool CloudPolicyClient::Result::IsSuccess() const {
@@ -298,6 +304,10 @@ bool CloudPolicyClient::Result::IsDMServerError() const {
 
 DeviceManagementStatus CloudPolicyClient::Result::GetDMServerError() const {
   return absl::get<DeviceManagementStatus>(result_);
+}
+
+int CloudPolicyClient::Result::GetNetError() const {
+  return net_error_;
 }
 
 CloudPolicyClient::CloudPolicyClient(
@@ -548,7 +558,8 @@ void CloudPolicyClient::RegisterWithOidcResponse(
     const std::string& oauth_token,
     const std::string& oidc_id_token,
     const std::string& client_id,
-    const base::TimeDelta& timeout_duration) {
+    const base::TimeDelta& timeout_duration,
+    CloudPolicyClient::ResultCallback callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK(!oidc_id_token.empty());
   CHECK(!oauth_token.empty());
@@ -559,8 +570,14 @@ void CloudPolicyClient::RegisterWithOidcResponse(
   params.profile_id = profile_id_;
   params.oauth_token = oauth_token;
   params.auth_data = DMAuth::FromOidcResponse(oidc_id_token);
-  params.callback = base::BindOnce(&CloudPolicyClient::OnRegisterCompleted,
-                                   weak_ptr_factory_.GetWeakPtr());
+  params.callback = base::BindOnce(
+      [](CloudPolicyClient* client, CloudPolicyClient::ResultCallback callback,
+         DMServerJobResult result) {
+        client->OnRegisterCompleted(result);
+        std::move(callback).Run(
+            CloudPolicyClient::Result(result.dm_status, result.net_error));
+      },
+      base::Unretained(this), std::move(callback));
 
   auto config =
       std::make_unique<RegistrationJobConfiguration>(std::move(params));
@@ -976,7 +993,6 @@ void CloudPolicyClient::UploadChromeProfileReport(
 }
 
 void CloudPolicyClient::UploadSecurityEventReport(
-    content::BrowserContext* context,
     bool include_device_info,
     base::Value::Dict report,
     ResultCallback callback) {
@@ -989,7 +1005,7 @@ void CloudPolicyClient::UploadSecurityEventReport(
 
   CreateNewRealtimeReportingJob(
       std::move(report),
-      service()->configuration()->GetReportingConnectorServerUrl(context),
+      service()->configuration()->GetRealtimeReportingServerUrl(),
       include_device_info, std::move(callback));
 }
 

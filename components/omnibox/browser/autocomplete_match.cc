@@ -70,7 +70,12 @@ namespace {
 #if (!BUILDFLAG(IS_ANDROID) || BUILDFLAG(ENABLE_VR)) && !BUILDFLAG(IS_IOS)
 // Used for `SEARCH_SUGGEST_TAIL` and `NULL_RESULT_MESSAGE` (e.g. starter pack)
 // type suggestion icons.
-static gfx::VectorIcon empty_icon;
+
+const gfx::VectorIcon& GetEmptyIcon() {
+  static const gfx::VectorIcon instance;
+  return instance;
+}
+
 #endif
 
 bool IsTrivialClassification(const ACMatchClassifications& classifications) {
@@ -336,6 +341,10 @@ AutocompleteMatch::AutocompleteMatch(const AutocompleteMatch& match)
       iph_type(match.iph_type),
       iph_link_text(match.iph_link_text),
       iph_link_url(match.iph_link_url),
+      history_embeddings_answer_header_text(
+          match.history_embeddings_answer_header_text),
+      history_embeddings_answer_header_loading(
+          match.history_embeddings_answer_header_loading),
       feedback_type(match.feedback_type) {}
 
 AutocompleteMatch::AutocompleteMatch(AutocompleteMatch&& match) noexcept {
@@ -399,6 +408,10 @@ AutocompleteMatch& AutocompleteMatch::operator=(
   iph_type = std::move(match.iph_type);
   iph_link_text = std::move(match.iph_link_text);
   iph_link_url = std::move(match.iph_link_url);
+  history_embeddings_answer_header_text =
+      std::move(match.history_embeddings_answer_header_text);
+  history_embeddings_answer_header_loading =
+      std::move(match.history_embeddings_answer_header_loading);
   feedback_type = std::move(match.feedback_type);
 #if BUILDFLAG(IS_ANDROID)
   DestroyJavaObject();
@@ -480,6 +493,10 @@ AutocompleteMatch& AutocompleteMatch::operator=(
   iph_type = match.iph_type;
   iph_link_text = match.iph_link_text;
   iph_link_url = match.iph_link_url;
+  history_embeddings_answer_header_text =
+      match.history_embeddings_answer_header_text;
+  history_embeddings_answer_header_loading =
+      match.history_embeddings_answer_header_loading;
   feedback_type = match.feedback_type;
 
 #if BUILDFLAG(IS_ANDROID)
@@ -520,7 +537,9 @@ const gfx::VectorIcon& AutocompleteMatch::AnswerTypeToAnswerIcon(int type) {
 const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
     bool is_bookmark,
     const TemplateURL* turl) const {
-  if (is_bookmark)
+  // If the user bookmarks 'chrome://history/q=query', a/ corresponding answer
+  // match shouldn't show the bookmark star.
+  if (is_bookmark && type != Type::HISTORY_EMBEDDINGS_ANSWER)
     return omnibox::kBookmarkChromeRefreshIcon;
   if (answer_type != omnibox::ANSWER_TYPE_UNSPECIFIED) {
     return AnswerTypeToAnswerIcon(answer_type);
@@ -582,7 +601,7 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
       // Found), fallthrough to use the empty icon.
       switch (iph_type) {
         case IphType::kNone:
-          return empty_icon;
+          return GetEmptyIcon();
         case IphType::kGemini:
           return omnibox::kSparkIcon;
         case IphType::kFeaturedEnterpriseSearch:
@@ -590,7 +609,7 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
         case IphType::kHistoryEmbeddingsSettingsPromo:
           return omnibox::kSparkIcon;
         case IphType::kHistoryEmbeddingsDisclaimer:
-          return empty_icon;
+          return GetEmptyIcon();
         case IphType::kHistoryScopePromo:
           return vector_icons::kHistoryChromeRefreshIcon;
         case IphType::kHistoryEmbeddingsScopePromo:
@@ -598,7 +617,8 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
       }
 
     case Type::SEARCH_SUGGEST_TAIL:
-      return empty_icon;
+    case Type::HISTORY_EMBEDDINGS_ANSWER:
+      return GetEmptyIcon();
 
     case Type::DOCUMENT_SUGGESTION:
       switch (document_type) {
@@ -1446,6 +1466,8 @@ AutocompleteMatch::GetOmniboxEventResultType(int action_index) const {
       return OmniboxEventProto::Suggestion::FEATURED_ENTERPRISE_SEARCH;
     case AutocompleteMatchType::NULL_RESULT_MESSAGE:
       return OmniboxEventProto::Suggestion::NULL_RESULT_MESSAGE;
+    case AutocompleteMatchType::HISTORY_EMBEDDINGS_ANSWER:
+      return OmniboxEventProto::Suggestion::HISTORY_EMBEDDINGS_ANSWER;
     case AutocompleteMatchType::CONTACT_DEPRECATED:
     case AutocompleteMatchType::PHYSICAL_WEB_DEPRECATED:
     case AutocompleteMatchType::PHYSICAL_WEB_OVERFLOW_DEPRECATED:
@@ -1521,14 +1543,16 @@ int AutocompleteMatch::GetSortingOrder() const {
       shortcut_boosted) {
     return 2;
   }
-  if (IsIPHSuggestion())
+  if (type == AutocompleteMatchType::HISTORY_EMBEDDINGS_ANSWER)
     return 5;
+  if (IsIPHSuggestion())
+    return 6;
   return 4;
 }
 
 bool AutocompleteMatch::IsMlSignalLoggingEligible() const {
   const auto& ml_config = OmniboxFieldTrial::GetMLConfig();
-  if (answer.has_value()) {
+  if (answer_type != omnibox::ANSWER_TYPE_UNSPECIFIED) {
     return false;
   }
   return type == AutocompleteMatchType::URL_WHAT_YOU_TYPED ||
@@ -1553,7 +1577,8 @@ bool AutocompleteMatch::IsMlScoringEligible() const {
   // Do not apply ML scoring to calculator or answer suggestions as the ML model
   // currently doesn't provide accurate scores for suggestions that have a low
   // click-through rate.
-  if (type == AutocompleteMatchType::CALCULATOR || answer.has_value()) {
+  if (type == AutocompleteMatchType::CALCULATOR ||
+      answer_type != omnibox::ANSWER_TYPE_UNSPECIFIED) {
     return false;
   }
 

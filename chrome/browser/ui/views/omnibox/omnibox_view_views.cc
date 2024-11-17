@@ -46,7 +46,7 @@
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_view_webui.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_result_view.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_bubble_controller.h"
-#include "chrome/grit/generated_resources.h"
+#include "chrome/grit/branded_strings.h"
 #include "components/lens/lens_features.h"
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_match.h"
@@ -209,6 +209,14 @@ OmniboxViewViews::OmniboxViewViews(std::unique_ptr<OmniboxClient> client,
   } else {
     GetViewAccessibility().SetIsEditable(true);
   }
+  GetViewAccessibility().SetAutoComplete("both");
+  GetViewAccessibility().AddHTMLAttributes(std::make_pair("type", "url"));
+  // Expose keyboard shortcut where it makes sense.
+#if BUILDFLAG(IS_MAC)
+  GetViewAccessibility().SetKeyShortcuts("⌘L");
+#else
+  GetViewAccessibility().SetKeyShortcuts("Ctrl+L");
+#endif
 }
 
 OmniboxViewViews::~OmniboxViewViews() {
@@ -1271,17 +1279,6 @@ bool OmniboxViewViews::SkipDefaultKeyEventProcessing(
 
 void OmniboxViewViews::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   Textfield::GetAccessibleNodeData(node_data);
-  node_data->AddStringAttribute(ax::mojom::StringAttribute::kAutoComplete,
-                                "both");
-// Expose keyboard shortcut where it makes sense.
-#if BUILDFLAG(IS_MAC)
-  node_data->AddStringAttribute(ax::mojom::StringAttribute::kKeyShortcuts,
-                                "⌘L");
-#else
-  node_data->AddStringAttribute(ax::mojom::StringAttribute::kKeyShortcuts,
-                                "Ctrl+L");
-#endif
-  node_data->html_attributes.push_back(std::make_pair("type", "url"));
 
   if (model()->PopupIsOpen()) {
     popup_view_->AddPopupAccessibleNodeData(node_data);
@@ -1997,10 +1994,7 @@ void OmniboxViewViews::OnPopupOpened() {
   // drop-down after showing the promo. This especially causes issues on Mac and
   // Linux due to z-order/rendering issues, see crbug.com/1225046 and
   // crbug.com/332769403 for examples.
-  if (auto* const promo_controller =
-          BrowserFeaturePromoController::GetForView(this)) {
-    promo_controller->DismissNonCriticalBubbleInRegion(GetBoundsInScreen());
-  }
+  BrowserFeaturePromoController::MaybeCloseOverlappingHelpBubbles(this);
 #endif
 }
 

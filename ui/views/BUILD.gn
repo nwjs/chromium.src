@@ -25,6 +25,7 @@ aggregate_vector_icons("views_vector_icons") {
   icon_directory = "vector_icons"
 
   sources = [
+    "arrow_drop_down.icon",
     "checkbox_active.icon",
     "checkbox_check_cr2023.icon",
     "checkbox_normal.icon",
@@ -42,7 +43,6 @@ aggregate_vector_icons("views_vector_icons") {
     "linux_high_density.icon",
     "linux_low_density.icon",
     "menu_check.icon",
-    "menu_drop_arrow.icon",
     "menu_radio_empty.icon",
     "menu_radio_selected.icon",
     "new_incognito_window.icon",
@@ -1152,6 +1152,7 @@ source_set("test_support") {
     "//testing/gmock",
     "//testing/gtest",
     "//ui/base/mojom:mojom",
+    "//ui/base/mojom:ui_base_types",
   ]
 
   if (is_win) {
@@ -1382,6 +1383,7 @@ test("views_unittests") {
     "//ui/base/emoji",
     "//ui/base/ime/init",
     "//ui/base/mojom:mojom",
+    "//ui/base/mojom:ui_base_types",
     "//ui/color",
     "//ui/color:mixers",
     "//ui/compositor:test_support",

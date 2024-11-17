@@ -20,6 +20,7 @@
 <translation id="1070066693520972135">WEP</translation>
 <translation id="1071587090247825784">Firewall ਦਾ ਪਤਾ ਲੱਗਾ</translation>
 <translation id="1075811647922107217">ਪੰਨੇ ਦਾ ਆਕਾਰ</translation>
+<translation id="108084407137234521"><ph name="MIN_WORD_LENGTH" /> ਨਾਲੋਂ ਘੱਟ ਸ਼ਬਦਾਂ ਵਾਲੀ ਪ੍ਰਤੀਲਿਪੀ ਦਾ ਸਾਰਾਂਸ਼ ਨਹੀਂ ਬਣਾਇਆ ਜਾ ਸਕਦਾ</translation>
 <translation id="1082009148392559545">ਸਕ੍ਰੀਨ ਸੇਵਰ ਡਾਊਨਲੋਡ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ</translation>
 <translation id="1094693127011229778">IP ਪਤਾ ਉਪਲਬਧ ਨਹੀਂ</translation>
 <translation id="1100902271996134409">ਚਿੱਤਰ ਬਣਾਏ ਜਾ ਰਹੇ ਹਨ...</translation>
@@ -79,6 +80,7 @@
 <translation id="1337912285145772892">ਸਕੈਨ ਕਰਨ ਯੋਗ ਖੇਤਰ ਵਿੱਚ ਫਿੱਟ ਕਰੋ</translation>
 <translation id="1343442362630695901">ਸਾਲਟ ਲੇਕ</translation>
 <translation id="1348657754632799065">ਰਿਕਾਰਡਿੰਗ ਪੱਟੀ</translation>
+<translation id="1350909945461913813">ਕੰਮ ਨੂੰ ਰੱਖਿਅਤ ਕਰਨਾ ਪੱਕਾ ਕਰੋ</translation>
 <translation id="1367951781824006909">ਇੱਕ ਫਾਈਲ ਚੁਣੋ</translation>
 <translation id="1371650399987522809">Google AI ਵੱਲੋਂ ਸੰਚਾਲਿਤ ਵਾਲਪੇਪਰ ਲਈ ਵਿਚਾਰ</translation>
 <translation id="1374385338586507108">ਪਰਿਭਾਸ਼ਾ ਦਿਓ</translation>
@@ -127,6 +129,7 @@
 <translation id="1567064801249837505">ਐਲਬਮਾਂ</translation>
 <translation id="1572585716423026576">ਵਾਲਪੇਪਰ ਵਜੋਂ ਸੈੱਟ ਕਰੋ</translation>
 <translation id="1578784163189013834">ਸਕ੍ਰੀਨ ਸੇਵਰ ਬੈਕਗ੍ਰਾਊਂਡ ਚੁਣੋ</translation>
+<translation id="1587031308639983732">ਸਮੇਂ ਦੇ ਆਧਾਰ 'ਤੇ ਕੀਤੀਆਂ ਗਈਆਂ ਤਬਦੀਲੀਆਂ ਸ਼ਾਇਦ ਸਟੀਕ ਨਾ ਹੋਣ। ਤੁਹਾਡਾ ਪ੍ਰਸ਼ਾਸਕ ਇਸ ਸੈਟਿੰਗ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰਦਾ ਹੈ।</translation>
 <translation id="1588438908519853928">ਸਧਾਰਨ</translation>
 <translation id="1591562245178063882">ਇਸ ਮਹੀਨੇ</translation>
 <translation id="1593528591614229756">ਸਿਰਫ਼ ਤੁਹਾਡੇ ਮੋਬਾਈਲ ਸੇਵਾ ਪ੍ਰਦਾਨਕ ਜਾਂ ਪ੍ਰਸ਼ਾਸਕ ਵੱਲੋਂ ਮੁਹੱਈਆ ਕਰਵਾਏ ਗਏ APN ਨੂੰ ਚੁਣਨਾ ਪੱਕਾ ਕਰੋ। ਕਿਸੇ APN ਨੂੰ ਚੁਣਨ ਨਾਲ ਕਿਸੇ ਵੀ ਤਰ੍ਹਾਂ ਦਾ ਵਿਉਂਤਬੱਧ APN ਬੰਦ ਹੋ ਜਾਵੇਗਾ। ਅਵੈਧ APN ਤੁਹਾਡੇ ਮੋਬਾਈਲ ਕਨੈਕਸ਼ਨ ਵਿੱਚ ਵਿਘਨ ਪਾ ਸਕਦਾ ਹੈ। <ph name="LINK_BEGIN" />ਹੋਰ ਜਾਣੋ<ph name="LINK_END" /></translation>
@@ -216,6 +219,7 @@
 <translation id="1905710495812624430">ਅਧਿਕਤਮ ਮਨਜ਼ੂਰ ਕੀਤੀਆਂ ਕੋਸ਼ਿਸ਼ਾਂ ਵਧੀਆਂ।</translation>
 <translation id="1908234395526491708">UDP ਬੇਨਤੀ ਦੀਆਂ ਅਸਫਲਤਾਵਾਂ</translation>
 <translation id="1908394185991500139">ਖੱਬਾ ਤੀਰ</translation>
+<translation id="1914144885717544695">ਸ਼ੁੱਕਰਵਾਰ ਨੂੰ</translation>
 <translation id="1923388006036088459">ਐਕਸੈਂਟ ਰੰਗ</translation>
 <translation id="1945403655450283000">Recorder</translation>
 <translation id="1947737735496445907">ਪ੍ਰਿੰਟ ਕੀਤੀ ਗਈ</translation>
@@ -236,6 +240,7 @@
 <translation id="2011174342667534258">SDK ਵਰਜਨ:</translation>
 <translation id="2016697457005847575">ਸਮੱਸਿਆਵਾਂ ਦੇ ਨਿਪਟਾਰੇ ਸੰਬੰਧੀ ਪੜਾਅ ਵਰਤ ਕੇ ਦੇਖੋ</translation>
 <translation id="202500043506723828">EID</translation>
+<translation id="2041627599411887437">ਕੋਈ ਥੀਮ ਚੁਣੋ ਅਤੇ ਫਿਰ ਆਪਣੇ AI ਚਿੱਤਰਾਂ ਨੂੰ ਵਿਅਕਤੀਗਤ ਬਣਾਉਣ ਲਈ ਰੇਖਾਂਕਿਤ ਕੀਤੇ ਸ਼ਬਦ ਚੁਣੋ।</translation>
 <translation id="2045814230297767491">ਕਟਲਰੀ</translation>
 <translation id="2047316797244836561">ਸਕ੍ਰੀਨ ਸੇਵਰ ਦੇਖਣ ਲਈ ਕਿਰਪਾ ਕਰਕੇ ਕਿਸੇ ਨੈੱਟਵਰਕ ਨਾਲ ਕਨੈਕਟ ਕਰੋ ਅਤੇ ਪੰਨੇ ਨੂੰ ਰੀਲੋਡ ਕਰੋ।</translation>
 <translation id="2056550196601855911">IPv4/IPv6</translation>
@@ -243,10 +248,8 @@
 <translation id="2080070583977670716">ਹੋਰ ਸੈਟਿੰਗਾਂ</translation>
 <translation id="2082932131694554252">ਜਿੰਮੇ ਲਗਾਈ ਗਈ ਕੀ-ਬੋਰਡ ਕੁੰਜੀ</translation>
 <translation id="2085089206770112532">ਡਿਸਪਲੇ ਦੀ ਚਮਕ ਘਟਾਉਣ ਵਾਲੀ ਕੁੰਜੀ</translation>
-<translation id="2085876078937250610">ਰੱਖਿਅਤ ਕਰੋ…</translation>
 <translation id="2086091080968010660">ਸਮੇਂ ਦੇ ਆਧਾਰ 'ਤੇ ਕੀਤੀਆਂ ਗਈਆਂ ਤਬਦੀਲੀਆਂ ਸ਼ਾਇਦ ਸਟੀਕ ਨਾ ਹੋਣ। ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਸਿਸਟਮ ਟਿਕਾਣਾ ਪਹੁੰਚ ਨੂੰ ਚਾਲੂ ਕਰੋ।</translation>
 <translation id="2102231663024125441">ਲਿਖਤ ਸੰਪਾਦਨ</translation>
-<translation id="2102648867808308635">ਇਸ ਪੰਨੇ ਨੂੰ ਪੜ੍ਹਨ ਵਿੱਚ ਮੇਰੀ ਮਦਦ ਕਰੋ</translation>
 <translation id="2105810540595158374">ਡੀਵਾਈਸ ਇੱਕ ਗੇਮ ਕੰਟਰੋਲਰ ਹੈ।</translation>
 <translation id="2119172414412204879"><ph name="BOARD_NAME" />, ਵਰਜਨ <ph name="MILESTONE_VERSION" /></translation>
 <translation id="2124643134650336457">ਫ਼ਿਲਹਾਲ ਸਿਰਫ਼ ਅੰਗਰੇਜ਼ੀ (US) ਵਿੱਚ ਉਪਲਬਧ ਹੈ</translation>
@@ -255,9 +258,9 @@
 <translation id="2138109643290557664">ਐਨੀਮੇਸ਼ਨ ਰਾਹੀਂ ਦਿਖਾਓ</translation>
 <translation id="2141644705054017895"><ph name="PERCENTAGE_VALUE" />%</translation>
 <translation id="2148716181193084225">ਅੱਜ</translation>
+<translation id="215206000155329774"><ph name="INTENT" />; <ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" /></translation>
 <translation id="2152882202543497059"><ph name="NUMBER" /> ਫ਼ੋਟੋਆਂ</translation>
 <translation id="2154460308960858308">ਖੋਜ ਕਲੀਅਰ ਕਰੋ</translation>
-<translation id="2156072344042480449">ਤੁਹਾਡੇ 2 ਸਭ ਤੋਂ ਹਾਲੀਆ ਉਤਪ੍ਰੇਰਕ। ਤੁਹਾਡੇ ਇਸ ਪੰਨੇ 'ਤੇ ਹੋਣ ਵੇਲੇ ਹੀ ਤੁਸੀਂ ਇਨ੍ਹਾਂ ਉਤਪ੍ਰੇਰਕਾਂ ਦੀ ਵਰਤੋਂ ਕਰ ਸਕਦੇ ਹੋ।</translation>
 <translation id="2157660087437850958">ਇਮੋਜੀ ਚੋਣਕਾਰ</translation>
 <translation id="2157959690810728433">ਕਤਾਰਬੱਧ</translation>
 <translation id="2158971754079422508"><ph name="DESC_TEXT" />: ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ</translation>
@@ -265,6 +268,7 @@
 <translation id="2161394479394250669">ਪ੍ਰਿੰਟ ਜੌਬ ਰੱਦ ਕਰੋ</translation>
 <translation id="2161656808144014275">ਲਿਖਤ</translation>
 <translation id="2163937499206714165">ਗੂੜ੍ਹਾ ਮੋਡ ਚਾਲੂ ਕਰੋ</translation>
+<translation id="2173302385160625112">ਆਪਣੇ ਇੰਟਰਨੈੱਟ ਕਨੈਕਸ਼ਨ ਦੀ ਜਾਂਚ ਕਰੋ</translation>
 <translation id="2180197493692062006">ਕੋਈ ਗੜਬੜ ਹੋ ਗਈ। ਐਪ ਨੂੰ ਮੁੜ-ਖੋਲ੍ਹਣ ਦੀ ਕੋਸ਼ਿਸ਼ ਕਰੋ।</translation>
 <translation id="2189104374785738357">APN ਵੇਰਵਿਆਂ ਦਾ ਸੰਪਾਦਨ ਕਰੋ</translation>
 <translation id="2195732836444333448">ਸਾਡੇ ਕੋਲ ਹਾਲੇ ਜਗ੍ਹਾ ਨਹੀਂ ਹੈ। ਬਾਅਦ ਵਿੱਚ ਫਿਰ ਵਾਪਸ ਆਓ।</translation>
@@ -285,7 +289,6 @@
 <translation id="2230624078793142213">ਹੋਰ ਬਣਾਓ</translation>
 <translation id="2236746079896696523">ਕੀ-ਬੋਰਡ ਬੈਕਲਾਈਟ ਨੂੰ ਟੌਗਲ ਕਰਨ ਵਾਲਾ ਬਟਨ</translation>
 <translation id="2240366984605217732">ਖਾਕਾ ਸਵਿੱਚ ਕਰਨ ਵਾਲੀ ਕੁੰਜੀ</translation>
-<translation id="2242381852034179222">ਇਸ ਵਿਸ਼ੇਸ਼ਤਾ ਦਾ ਪ੍ਰਬੰਧਨ ਤੁਹਾਡੇ ਪ੍ਰਸ਼ਾਸਕ ਵੱਲੋਂ ਕੀਤਾ ਜਾਂਦਾ ਹੈ</translation>
 <translation id="2244834438220057800">ਹਰਾ</translation>
 <translation id="225692081236532131">ਕਿਰਿਆਸ਼ੀਲਤਾ ਸਥਿਤੀ</translation>
 <translation id="2267285889943769271">ਸਕ੍ਰੀਨਸ਼ਾਟ ਸ਼ਾਮਲ ਕਰੋ</translation>
@@ -320,7 +323,9 @@
 <translation id="242825218556404975">ਕੋਈ ਬੋਲੀ ਨਹੀਂ ਮਿਲੀ</translation>
 <translation id="2446553403094072641">ਫ਼ਲੋਟਿੰਗ ਪੁਆਇੰਟ ਸਟੀਕਤਾ</translation>
 <translation id="2448312741937722512">ਟਾਈਪ ਕਰੋ</translation>
+<translation id="2468124392950503650"><ph name="BEGIN_LINK_PROMPTING_GUIDE" />ਉਤਪ੍ਰੇਰਕ ਗਾਈਡ<ph name="END_LINK_PROMPTING_GUIDE" /> ਬਣਾਉਣ ਜਾਂ ਦੇਖਣ ਲਈ ਉਤਪ੍ਰੇਰਕ ਚੁਣੋ</translation>
 <translation id="2472215337771558851">ਡਰਾਫਟ ਬਣਾਉਣ ਜਾਂ ਮੌਜੂਦਾ ਕੰਮ ਨੂੰ ਸੋਧਣ ਲਈ 'ਲਿਖਣ ਵਿੱਚ ਮੇਰੀ ਮਦਦ ਕਰੋ' ਵਰਤੋ, Google AI ਵੱਲੋਂ ਸੰਚਾਲਿਤ</translation>
+<translation id="2475982808118771221">ਇੱਕ ਗੜਬੜ ਹੋਈ</translation>
 <translation id="2480572840229215612">ਕੇਕੜੇ</translation>
 <translation id="248546197012830854">ਡੀਵਾਈਸ ਆਫ਼ਲਾਈਨ ਹੈ। ਮਦਦ ਸਮੱਗਰੀ ਦੇਖਣ ਲਈ ਵਾਈ-ਫਾਈ ਨੈੱਟਵਰਕ ਨਾਲ ਕਨੈਕਟ ਕਰੋ।</translation>
 <translation id="2486301288428798846">ਲੱਕੜ</translation>
@@ -372,6 +377,7 @@
 <translation id="2713444072780614174">ਸਫ਼ੈਦ</translation>
 <translation id="2715723665057727940">ਨਦੀ</translation>
 <translation id="2717139507051041123">ਗੂੜ੍ਹੇ ਰੰਗ ਵਾਲੇ ਮੋਡ ਨੂੰ ਚਾਲੂ ਕਰੋ</translation>
+<translation id="2726755229438917165">ਸੋਮਵਾਰ ਨੂੰ</translation>
 <translation id="2728460467788544679">ਸਾਰੇ ਪ੍ਰਿੰਟ ਇਤਿਹਾਸ ਨੂੰ ਕਲੀਅਰ ਕਰੋ</translation>
 <translation id="2731700343119398978">ਕਿਰਪਾ ਕਰਕੇ ਠਹਿਰੋ…</translation>
 <translation id="2740531572673183784">ਠੀਕ</translation>
@@ -411,9 +417,11 @@
 <translation id="3031560714565892478">ਡੀਵਾਈਸ ਇੱਕ ਵੀਡੀਓ ਕੈਮਰਾ ਹੈ।</translation>
 <translation id="3042927241478734594">ਕੀ ਰਿਕਾਰਡਿੰਗ ਤੋਂ ਬਾਹਰ ਜਾਣਾ ਹੈ?</translation>
 <translation id="3054177598518735801"><ph name="CURRENT_VALUE" />mA</translation>
+<translation id="3055176406666937744"><ph name="MAX_WORD_LENGTH" /> ਨਾਲੋਂ ਜ਼ਿਆਦਾ ਸ਼ਬਦਾਂ ਵਾਲੀ ਪ੍ਰਤੀਲਿਪੀ ਦਾ ਸਾਰਾਂਸ਼ ਨਹੀਂ ਬਣਾਇਆ ਜਾ ਸਕਦਾ</translation>
 <translation id="3056720590588772262">ਅਖੀਰਲਾ ਬਿੰਦੂ</translation>
 <translation id="3060579846059757016">ਖਾਕੇ</translation>
 <translation id="3061850252076394168">'ਚੁਣੋ ਅਤੇ ਸੁਣੋ' ਨੂੰ ਚਾਲੂ ਕਰੋ</translation>
+<translation id="3066772729299747758">ਮੰਗਲਵਾਰ ਨੂੰ</translation>
 <translation id="3069085583900247081">ਟੈਸਟ ਅਸਫਲ ਰਿਹਾ</translation>
 <translation id="3078740164268491126">ਸਾਰਨੀ</translation>
 <translation id="3081652522083185657">ਲਾਈਟ</translation>
@@ -447,6 +455,7 @@
 <translation id="3226657629376379887">ਖਾਕਾ ਕਾਰਵਾਈ ਮੀਨੂ</translation>
 <translation id="3227186760713762082"><ph name="CATEGORY_TEXT" /> ਮੁੱਲ ਨੂੰ <ph name="CONVERSION_RATE" /> ਨਾਲ ਭਾਗ ਕਰੋ</translation>
 <translation id="3237710083340813756">ਦੁਬਾਰਾ ਲਿਖੋ</translation>
+<translation id="3245518008592055173"><ph name="MIN_WORD_LENGTH" /> ਨਾਲੋਂ ਘੱਟ ਸ਼ਬਦਾਂ ਵਾਲੀ ਪ੍ਰਤੀਲਿਪੀ ਦੇ ਨਾਮ ਨਹੀਂ ਬਣਾਏ ਜਾ ਸਕਦੇ</translation>
 <translation id="3246869037381808805">1 ਦਿਨ ਤੋਂ ਜ਼ਿਆਦਾ ਪੁਰਾਣੀਆਂ ਪ੍ਰਿੰਟ ਜੌਬਾਂ ਨੂੰ ਹਟਾ ਦਿੱਤਾ ਜਾਵੇਗਾ</translation>
 <translation id="324961752321393509">ਤੁਹਾਡਾ ਪ੍ਰਸ਼ਾਸਕ ਇਸ ਐਪ ਨੂੰ ਬੰਦ ਕਰਨ ਦੀ ਆਗਿਆ ਨਹੀਂ ਦਿੰਦਾ</translation>
 <translation id="3263941347294171263">ਅੱਪਡੇਟ ਦੀ ਪ੍ਰਕਿਰਿਆ ਜਾਰੀ ਰੱਖਣ ਲਈ <ph name="DEVICE_NAME" /> ਨੂੰ ਅਣਪਲੱਗ ਕਰੋ ਅਤੇ ਦੁਬਾਰਾ ਲਗਾਓ</translation>
@@ -469,6 +478,7 @@
 <translation id="3361618936611118375">ਸੁਸ਼ੀ</translation>
 <translation id="3368922792935385530">ਕਨੈਕਟ ਕੀਤਾ</translation>
 <translation id="3369013195428705271">ਕੀ ਤੁਸੀਂ ਪੱਕਾ ਆਪਣਾ ਸਾਰਾ ਪ੍ਰਿੰਟ ਇਤਿਹਾਸ ਕਲੀਅਰ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ? ਤੁਹਾਡੀਆਂ ਚੱਲ ਰਹੀਆਂ ਪ੍ਰਿੰਟ ਜੌਬਾਂ ਨੂੰ ਕਲੀਅਰ ਨਹੀਂ ਕੀਤਾ ਜਾਵੇਗਾ।</translation>
+<translation id="3369632935976756339"><ph name="INTENT" />; <ph name="QUERY_TEXT" />; <ph name="SUBTEXT" />; <ph name="RESULT_TEXT" /></translation>
 <translation id="3373141842870501561">ਧਰਤੀ ਪ੍ਰਵਾਹ ਦਾ ਵਾਲਪੇਪਰ</translation>
 <translation id="33736539805963175">ਅੱਖਰ <ph name="LETTERS_LETTER" /> ਨਾਲ <ph name="LETTERS_COLOR" /> ਬੈਕਗ੍ਰਾਊਂਡ</translation>
 <translation id="3383623117265110236">ਵਿਸ਼ੇਸ਼</translation>
@@ -496,7 +506,6 @@
 <translation id="3502426834823382181">ਸਾਰੀਆਂ ਐਪਾਂ ਦੇਖੋ</translation>
 <translation id="3510890413042482857"><ph name="BEGIN_LINK1" />ਕਾਰਗੁਜ਼ਾਰੀ ਟ੍ਰੇਸ ਡਾਟਾ<ph name="END_LINK1" /> ਭੇਜੋ</translation>
 <translation id="3517001332549868749">ChromeOS ਸੰਬੰਧੀ ਅੱਪਡੇਟ</translation>
-<translation id="3522508178835057262">ਫ਼ਿਲਹਾਲ, <ph name="MAX_WORD_LENGTH" /> ਤੋਂ ਵੱਧ ਸ਼ਬਦਾਂ ਵਾਲੀ ਪ੍ਰਤੀਲਿਪੀ ਸਮਰਥਿਤ ਨਹੀਂ ਹੈ</translation>
 <translation id="3527036260304016759">ਅਸਫਲ ਰਹੀ - ਅਗਿਆਤ ਗੜਬੜ</translation>
 <translation id="353214771040290298">ਸੰਪਾਦਨ ਪੂਰਾ ਹੋਇਆ</translation>
 <translation id="3532980081107202182">ਲਗਭਗ <ph name="MIN_REMAINING" /> ਮਿੰਟ ਬਾਕੀ</translation>
@@ -608,6 +617,7 @@
 <translation id="409427325554347132">ਟੈਸਟ ਦੇ ਵੇਰਵੇ ਰੱਖਿਅਤ ਕਰੋ</translation>
 <translation id="409469431304488632">ਪ੍ਰਯੋਗ</translation>
 <translation id="4095829376260267438">WPA2WPA3</translation>
+<translation id="4105182082354119881"><ph name="MAX_WORD_LENGTH" /> ਨਾਲੋਂ ਜ਼ਿਆਦਾ ਸ਼ਬਦਾਂ ਵਾਲੀ ਪ੍ਰਤੀਲਿਪੀ ਦੇ ਨਾਮ ਨਹੀਂ ਬਣਾਏ ਜਾ ਸਕਦੇ</translation>
 <translation id="4110686435123617899">ਐਲਬਮ ਚੁਣੋ <ph name="TITLE" /> <ph name="DESC" /></translation>
 <translation id="4111761024568264522">USB ਟੱਚਪੈਡ</translation>
 <translation id="4113067922640381334">ਤੁਹਾਡੇ ਕੋਲ ਹੁਣ ਨਵੇਂ <ph name="BEGIN_LINK_WALLPAPER_SUBPAGE" />ਵਾਲਪੇਪਰਾਂ<ph name="END_LINK_WALLPAPER_SUBPAGE" /> ਤੱਕ ਪਹੁੰਚ ਹੈ</translation>
@@ -616,6 +626,7 @@
 <translation id="4130035430755296270">ਖਾਕੇ ਸੰਬੰਧੀ ਹੋਰ ਵਿਕਲਪਾਂ ਲਈ ਕਰਸਰ ਘੁਮਾਉਂਦੇ ਰਹੋ</translation>
 <translation id="4130750466177569591">ਮੈਂ ਸਹਿਮਤ ਹਾਂ</translation>
 <translation id="4131410914670010031">ਕਾਲਾ ਅਤੇ ਚਿੱਟਾ</translation>
+<translation id="4137700675046373159">ਸ਼ਨੀਵਾਰ ਨੂੰ</translation>
 <translation id="4143226836069425823">ਬਦਲਣ ਲਈ ਕੀ-ਬੋਰਡ ਦੀ ਕਿਸੇ ਹੋਰ ਕੁੰਜੀ 'ਤੇ ਟੈਪ ਕਰੋ</translation>
 <translation id="4145784616224233563">HTTP ਫ਼ਾਇਰਵਾਲ</translation>
 <translation id="4147897805161313378">Google Photos</translation>
@@ -638,6 +649,7 @@
 <translation id="4227825898293920515">ਪਾਸਵਰਡ ਦੀ ਮਿਆਦ <ph name="TIME" /> ਵਿੱਚ ਮੁੱਕ ਜਾਵੇਗੀ</translation>
 <translation id="4238516577297848345">ਕੋਈ ਪ੍ਰਿੰਟ ਜੌਬ ਪ੍ਰਕਿਰਿਆ-ਅਧੀਨ ਨਹੀਂ ਹੈ</translation>
 <translation id="4239069858505860023">GPRS</translation>
+<translation id="4249717042534905822">ਐਤਵਾਰ ਨੂੰ</translation>
 <translation id="4250229828105606438">ਸਕ੍ਰੀਨਸ਼ਾਟ</translation>
 <translation id="4251839292699800785">ਸਟਾਈਲਿਸ਼ ਦਫ਼ਤਰ</translation>
 <translation id="4258281355379922695">HTTP ਵਿਲੰਬਤਾ</translation>
@@ -687,6 +699,7 @@
 <translation id="4474142134969976028">ਕੋਈ ਮੇਲ ਖਾਂਦਾ ਨਤੀਜਾ ਨਹੀਂ</translation>
 <translation id="4479639480957787382">ਈਥਰਨੈਟ</translation>
 <translation id="4483049906298469269">ਗੈਰ-ਪੂਰਵ-ਨਿਰਧਾਰਤ ਨੈੱਟਵਰਕ ਗੇਟਵੇ ਨੂੰ ਪਿੰਗ ਕਰਨਾ ਅਸਫਲ ਰਿਹਾ</translation>
+<translation id="4486524074141928967">ਤੁਹਾਨੂੰ <ph name="TIME" /> ਵਜੇ 'ਤੇ ਸਾਈਨ-ਆਊਟ ਕਰ ਦਿੱਤਾ ਜਾਵੇਗਾ</translation>
 <translation id="4500722292849917410">ਸ਼ਾਰਟਕੱਟ ਉਪਲਬਧ ਨਹੀਂ। ਸੋਧਕ ਕੁੰਜੀ (ctrl, alt, shift ਜਾਂ <ph name="META_KEY" />) ਦੀ ਵਰਤੋਂ ਕਰ ਕੇ ਨਵਾਂ ਸ਼ਾਰਟਕੱਟ ਦਬਾਓ।</translation>
 <translation id="4500966230243561393">ਇੰਟਰਫ਼ੇਸ ਦਾ ਰੰਗ</translation>
 <translation id="4503223151711056411">ਖੱਬਾ ਤੀਰ</translation>
@@ -750,7 +763,6 @@
 <translation id="4809927044794281115">ਹਲਕਾ ਥੀਮ</translation>
 <translation id="4813136279048157860">ਮੇਰੇ ਚਿੱਤਰ</translation>
 <translation id="4813345808229079766">ਕਨੈਕਸ਼ਨ</translation>
-<translation id="4824527342590024245">ਫ਼ਿਲਹਾਲ, <ph name="MIN_WORD_LENGTH" /> ਤੋਂ ਘੱਟ ਸ਼ਬਦਾਂ ਵਾਲੀ ਪ੍ਰਤੀਲਿਪੀ ਸਮਰਥਿਤ ਨਹੀਂ ਹੈ</translation>
 <translation id="4830894019733815633">ਘਾਟੀ</translation>
 <translation id="4832079907277790330">Files ਐਪ ਵਿੱਚ ਫੋਲਡਰ ਨੂੰ ਚੁਣੋ...</translation>
 <translation id="4835901797422965222">ਕੋਈ ਕਿਰਿਆਸ਼ੀਲ ਨੈੱਟਵਰਕ ਨਹੀਂ ਹਨ</translation>
@@ -817,6 +829,7 @@
 <translation id="5108781503443873320">ਮਿਲਦੇ-ਜੁਲਦੇ:</translation>
 <translation id="5130848777448318809">ਟੱਟੂ</translation>
 <translation id="5137451382116112100">ਪੂਰੀ ਸਕ੍ਰੀਨ</translation>
+<translation id="5140788690559353412">ਜਦੋਂ ਤੁਸੀਂ ਆਪਣੇ ਸਕੂਲ ਖਾਤੇ ਤੱਕ ਪਹੁੰਚ ਗੁਆ ਦਿੰਦੇ ਹੋ, ਤਾਂ ਤੁਹਾਡੇ ਕੋਲ ਸੰਬੰਧਿਤ ਈਮੇਲ ਅਤੇ Google Drive ਫ਼ਾਈਲਾਂ ਜਿਵੇਂ ਕਿ Gmail, Docs, Slides ਅਤੇ ਹੋਰ ਬਹੁਤ ਕੁਝ ਤੱਕ ਪਹੁੰਚ ਨਹੀਂ ਹੋਵੇਗੀ।</translation>
 <translation id="5142961317498132443">ਪ੍ਰਮਾਣੀਕਰਨ</translation>
 <translation id="5144311987923128508">ਤਸਦੀਕ ਕਰੋ ਬਟਨ ਹੁਣ ਬੰਦ ਹੈ</translation>
 <translation id="5144887194300568405">ਅਨੁਵਾਦ ਕਾਪੀ ਕਰੋ</translation>
@@ -910,6 +923,7 @@
 <translation id="5595623927872580850">ਸਲੇਟੀ</translation>
 <translation id="5596627076506792578">ਹੋਰ ਵਿਕਲਪ</translation>
 <translation id="5600027863942488546"><ph name="KEY_NAME" /> ਕੁੰਜੀ ਦੀ ਜਾਂਚ ਕੀਤੀ ਗਈ</translation>
+<translation id="5613201299517339763">ਤੁਹਾਨੂੰ ਸਾਈਨ ਆਊਟ ਕਰ ਦਿੱਤਾ ਗਿਆ ਹੈ</translation>
 <translation id="5620281292257375798">ਸਿਰਫ਼ ਅੰਦਰੂਨੀ</translation>
 <translation id="5630438231335788050">ਬੌਹੌਸ</translation>
 <translation id="5631759159893697722">ਸਾਰਾਂਸ਼</translation>
@@ -942,7 +956,6 @@
 <translation id="57838592816432529">ਮਿਊਟ ਕਰੋ</translation>
 <translation id="5784136236926853061">ਜ਼ਿਆਦਾ HTTP ਵਿਲੰਬਤਾ</translation>
 <translation id="5790391387506209808">ਲੈਪਿਸ ਲਜ਼ੂਲੀ</translation>
-<translation id="5810692306010756935">ਗ੍ਰੈਜੂਏਸ਼ਨ</translation>
 <translation id="5816802250591013230">ਕੋਈ ਸ਼ਾਰਟਕੱਟ ਜ਼ਿੰਮੇ ਨਹੀਂ ਲਗਾਇਆ ਗਿਆ</translation>
 <translation id="5826644637650799838">ਕਲਾ ਬਾਰੇ</translation>
 <translation id="5832805196449965646">ਵਿਅਕਤੀ ਜੋੜੋ</translation>
@@ -974,6 +987,7 @@
 <translation id="5931523347251946569">ਫ਼ਾਈਲ ਨਹੀਂ ਮਿਲੀ</translation>
 <translation id="5938286923316838007">ਇਸ ਸਮੱਗਰੀ ਲਈ ਰਿਕਾਰਡਿੰਗ ਨਾਮਾਂ ਨੂੰ ਨਹੀਂ ਬਣਾਇਆ ਜਾ ਸਕਦਾ</translation>
 <translation id="5939518447894949180">ਰੀਸੈਟ ਕਰੋ</translation>
+<translation id="5942727615796467094"><ph name="MANAGER" /> ਪ੍ਰਸ਼ਾਸਕ ਨੇ ਇਸ <ph name="DEVICE_TYPE" /> ਦੀ ਵਰਤੋਂ ਕਰਨ ਦਾ ਸਮਾਂ ਸੈੱਟ ਕੀਤਾ ਹੈ</translation>
 <translation id="594552776027197022">ਬੇਤਰਤੀਬ ਕੁੰਜੀਆਂ ਦਾ ਜੋੜਾ ਸਿਰਜੋ</translation>
 <translation id="5946538341867151940">ਤੁਸੀਂ ਹਾਲੇ ਕਨੈਕਟ ਨਹੀਂ ਹੋ। ਜੇ ਤੁਹਾਡਾ ਮੋਬਾਈਲ ਕੈਰੀਅਰ ਵਿਉਂਤਬੱਧ APN ਦੀ ਸਿਫ਼ਾਰਸ਼ ਕਰਦਾ ਹੈ, ਤਾਂ "+ ਨਵਾਂ APN" ਨੂੰ ਚੁਣ ਕੇ APN ਜਾਣਕਾਰੀ ਦਾਖਲ ਕਰੋ</translation>
 <translation id="5947266287934282605">ਜੇ ਮਹੀਨੇ ਦਾ ਆਖਰੀ ਦਿਨ ਇਸ ਦਿਨ ਤੋਂ ਪਹਿਲਾਂ ਹੈ, ਤਾਂ ਡਾਟੇ ਨੂੰ ਮਹੀਨੇ ਦੇ ਆਖਰੀ ਦਿਨ ਰੀਸੈੱਟ ਕੀਤਾ ਜਾਵੇਗਾ</translation>
@@ -1003,6 +1017,7 @@
 <translation id="6075872808778243331">(Android) HTTP ਵਿਲੰਬਤਾ</translation>
 <translation id="6078323886959318429">ਸ਼ਾਰਟਕੱਟ ਸ਼ਾਮਲ ਕਰੋ</translation>
 <translation id="6091080061796993741">ਪੀਲਾ</translation>
+<translation id="6093853427925392522">ਆਪਣੇ ਸਕੂਲ ਖਾਤੇ ਦੇ ਡਾਟੇ ਨੂੰ ਆਪਣੇ ਨਿੱਜੀ ਖਾਤੇ ਵਿੱਚ ਟ੍ਰਾਂਸਫ਼ਰ ਕਰਨ ਲਈ Google ਦੀ Content Transfer ਐਪ ਦੀ ਵਰਤੋਂ ਕਰਨਾ ਪੱਕਾ ਕਰੋ ਅਤੇ ਅਜਿਹਾ ਪਹੁੰਚ ਗੁਆਉਣ ਤੋਂ ਪਹਿਲਾਂ ਕਰ ਲਓ।</translation>
 <translation id="6104112872696127344">ਸਕੈਨਿੰਗ ਰੱਦ ਕੀਤੀ ਗਈ</translation>
 <translation id="6106186594183574873">ਪੂਰਾ ਕਰਨ ਲਈ, ਆਪਣਾ ਪੁਰਾਣਾ ਪਾਸਵਰਡ ਦਾਖਲ ਕਰੋ</translation>
 <translation id="6108689792487843350">ਗੇਟਵੇ ਪਹੁੰਚਯੋਗ ਨਹੀਂ ਹੈ</translation>
@@ -1021,6 +1036,7 @@
 <translation id="6137767437444130246">ਵਰਤੋਂਕਾਰ ਪ੍ਰਮਾਣ-ਪੱਤਰ</translation>
 <translation id="6146993107019042706">ਪੂਰਾ ਕਰਨ ਲਈ, ਆਪਣਾ ਨਵਾਂ ਪਾਸਵਰਡ ਦਾਖਲ ਕਰੋ</translation>
 <translation id="6147514244879357420">PNG</translation>
+<translation id="6149015141270619212">ਇੰਟਰਨੈੱਟ ਨਾਲ ਕਨੈਕਟ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ</translation>
 <translation id="6156030503438652198">ਉਨਾਬੀ ਅਤੇ ਗੁਲਾਬੀ</translation>
 <translation id="6165508094623778733">ਹੋਰ ਜਾਣੋ</translation>
 <translation id="6184793017104303157">B4</translation>
@@ -1066,6 +1082,7 @@
 <translation id="6352210854422428614">ਵੱਖਰਾ ਗ੍ਰਹਿ</translation>
 <translation id="6359706544163531585">ਹਲਕਾ ਥੀਮ ਬੰਦ ਕਰੋ</translation>
 <translation id="6359919876285606596">ਇਹ ਕਾਰਵਾਈ ਸਥਾਈ ਹੈ ਅਤੇ ਇਸਨੂੰ ਅਣਕੀਤਾ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ</translation>
+<translation id="6368342879959028556">"AI ਨਾਲ ਬਣਾਓ" ਦੀ ਚੋਣ ਕਰਨ ਵੇਲੇ, ਵਿਉਂਤਿਆ ਉਤਪ੍ਰੇਰਕ ਲਿਖੋ। ਜਾਂ ਤੁਸੀਂ ਥੀਮ ਚੁਣਨ ਲਈ “AI ਵਾਲਪੇਪਰ” ਚੁਣ ਸਕਦੇ ਹੋ ਅਤੇ ਫਿਰ ਆਪਣੇ AI ਵਾਲਪੇਪਰ ਨੂੰ ਵਿਅਕਤੀਗਤ ਬਣਾਉਣ ਲਈ ਰੇਖਾਂਕਿਤ ਸ਼ਬਦਾਂ ਨੂੰ ਚੁਣ ਸਕਦੇ ਹੋ।</translation>
 <translation id="636850387210749493">ਐਂਟਰਪ੍ਰਾਈਜ਼ ਐਨਰੌਲਮੈਂਟ</translation>
 <translation id="6373461326814131011">ਤਲਾਬ</translation>
 <translation id="6379086450106841622">ਟੱਚਸਕ੍ਰੀਨ</translation>
@@ -1089,6 +1106,7 @@
 <translation id="6447630859861661624">ਖਾਤਾ ਸੈਟਿੰਗਾਂ 'ਤੇ ਜਾਓ</translation>
 <translation id="6462978824459367242">'APN ਸ਼ਾਮਲ ਕਰੋ' ਬਟਨ ਹੁਣ ਚਾਲੂ ਹੈ</translation>
 <translation id="6463239094587744704">{PAGE_NUMBER,plural, =0{ਕੀ ਪੰਨਾ ਮੁੜ-ਸਕੈਨ ਕਰਨਾ ਹੈ?}=1{ਕੀ ਪੰਨਾ {PAGE_NUMBER} ਮੁੜ-ਸਕੈਨ ਕਰਨਾ ਹੈ?}other{ਕੀ ਪੰਨਾ {PAGE_NUMBER} ਮੁੜ-ਸਕੈਨ ਕਰਨਾ ਹੈ?}}</translation>
+<translation id="6468146470109254228">ਤੁਹਾਡੇ 3 ਸਭ ਤੋਂ ਹਾਲੀਆ ਉਤਪ੍ਰੇਰਕ ਅਤੇ ਆਊਟਪੁੱਟ। ਤੁਸੀਂ ਸਿਰਫ਼ ਵਾਲਪੇਪਰ ਅਤੇ ਸਟਾਈਲ ਦੀ ਵਰਤੋਂ ਕਰਨ ਵੇਲੇ ਹੀ ਇਨ੍ਹਾਂ ਤੱਕ ਪਹੁੰਚ ਕਰ ਸਕਦੇ ਹੋ।</translation>
 <translation id="6472207088655375767">OTP</translation>
 <translation id="6472979596862005515">ਕਿਸ਼ਤੀਆਂ</translation>
 <translation id="64778964625672495">ਗੂੜ੍ਹਾ ਲਾਲ</translation>
@@ -1107,6 +1125,7 @@
 <translation id="6527081081771465939">ਅਗਿਆਤ ਵਾਈ-ਫਾਈ ਦੀ ਸੁਰੱਖਿਆ ਸੰਬੰਧੀ ਪ੍ਰੋਟੋਕੋਲ</translation>
 <translation id="6535178685492749208">ਤੁਸੀਂ ਆਫ਼ਲਾਈਨ ਹੋ। ਵਿਚਾਰ ਬਾਅਦ ਵਿੱਚ ਭੇਜਿਆ ਜਾਵੇਗਾ।</translation>
 <translation id="6543412779435705598">ਟਾਕੋ</translation>
+<translation id="6550369542114086980">ਵੀਰਵਾਰ ਨੂੰ</translation>
 <translation id="6551839203326557324">ਸੇਬ</translation>
 <translation id="65526652485742171">'ਤਸਦੀਕ ਕਰੋ' ਬਟਨ ਹੁਣ ਚਾਲੂ ਹੈ</translation>
 <translation id="6557784757915238407">APN ਦੀ ਕਿਸਮ <ph name="ATTACH" /> ਹੈ।</translation>
@@ -1134,6 +1153,16 @@
 <translation id="6657585470893396449">ਪਾਸਵਰਡ</translation>
 <translation id="6659594942844771486">ਟੈਬ</translation>
 <translation id="66621959568103627">ਕੋਰਲ ਗੁਲਾਬੀ</translation>
+<translation id="6667885109186363316"><ph name="SEA_PEN_INTRO_FIRST_PARAGRAPH" />
+          <ph name="LINE_BREAK" />
+          <ph name="LINE_BREAK" />
+          ਹੋਰ ਵਿਲੱਖਣ ਅਤੇ ਵੱਖ-ਵੱਖ AI ਚਿੱਤਰਾਂ ਦੇ ਵਿਕਲਪ ਪ੍ਰਾਪਤ ਕਰਨ ਲਈ "ਮੈਨੂੰ ਪ੍ਰੇਰਿਤ ਕਰੋ" ਚੁਣੋ।
+          <ph name="LINE_BREAK" />
+          <ph name="LINE_BREAK" />
+          ਜਦੋਂ ਤੁਸੀਂ AI ਨਾਲ ਚਿੱਤਰ ਬਣਾਉਂਦੇ ਹੋ, ਤਾਂ <ph name="BEGIN_LINK_GOOGLE_PRIVACY_POLICY" />Google ਦੀ ਪਰਦੇਦਾਰੀ ਨੀਤੀ<ph name="END_LINK_GOOGLE_PRIVACY_POLICY" /> ਦੇ ਅਧੀਨ, ਚਿੱਤਰ ਤਿਆਰ ਕਰਨ ਅਤੇ ਉਤਪਾਦ ਨੂੰ ਬਿਹਤਰ ਬਣਾਉਣ ਲਈ ਉਤਪ੍ਰੇਰਕ Google AI ਸਰਵਰਾਂ ਨੂੰ ਭੇਜਿਆ ਜਾਂਦਾ ਹੈ।
+          <ph name="LINE_BREAK" />
+          <ph name="LINE_BREAK" />
+          ਜਨਰੇਟਿਵ AI ਪ੍ਰਯੋਗਮਈ ਹੈ, ਸ਼ੁਰੂਆਤੀ ਵਿਕਾਸ ਵਿੱਚ ਹੈ ਅਤੇ ਫ਼ਿਲਹਾਲ ਇਸਦੀ ਉਪਲਬਧਤਾ ਸੀਮਤ ਹੈ।</translation>
 <translation id="6673898378497337661">ਕੀ-ਬੋਰਡ ਦੀ ਚਮਕ ਵਧਾਓ</translation>
 <translation id="6692996468359469499">ਆਪਣੀ ਚੋਣ ਨਾਲ ਸੰਬੰਧਿਤ ਜਾਣਕਾਰੀ ਪ੍ਰਾਪਤ ਕਰੋ</translation>
 <translation id="6694534975463174713">ਲਾਕ</translation>
@@ -1167,6 +1196,7 @@
 <translation id="6831043979455480757">ਅਨੁਵਾਦ ਕਰੋ</translation>
 <translation id="6846843854964504403">ਸੁਰੱਖਿਆ ਰੀਸੈੱਟ</translation>
 <translation id="6853312040151791195">ਡਿਸਚਾਰਜ ਹੋਣ ਦੀ ਦਰ</translation>
+<translation id="6862228900689076919">ਇਸ ਵਿਸ਼ੇਸ਼ਤਾ ਦਾ ਪ੍ਰਬੰਧਨ ਤੁਹਾਡੇ ਪ੍ਰਸ਼ਾਸਕ ਵੱਲੋਂ ਕੀਤਾ ਜਾਂਦਾ ਹੈ</translation>
 <translation id="6862416241246624313">ਵਿਚਾਰ ਸਪੁਰਦ ਕੀਤਾ ਗਿਆ</translation>
 <translation id="6866732840889595464">ਡੇਜ਼ੀ</translation>
 <translation id="6871256179359663621">ਹਲਕਾ ਜਾਮਨੀ</translation>
@@ -1191,20 +1221,11 @@
 <translation id="6961170852793647506">ਸ਼ੁਰੂਆਤ ਕਰਨ ਲਈ, ਆਪਣੇ ਦਸਤਾਵੇਜ਼ ਨੂੰ ਸਕੈਨਰ 'ਤੇ ਰੱਖੋ</translation>
 <translation id="6965382102122355670">ਠੀਕ</translation>
 <translation id="6965978654500191972">ਡੀਵਾਈਸ</translation>
+<translation id="6972754398087986839">ਸ਼ੁਰੂ ਕੀਤਾ</translation>
 <translation id="6975620886940770104">ਚਮਕਦਾਰ <ph name="GLOWSCAPES_FEATURE" /> ਨਾਲ ਇੱਕ <ph name="GLOWSCAPES_LANDSCAPE" /></translation>
 <translation id="6975981640379148271">ਕੋਆਲਾ</translation>
 <translation id="6977381486153291903">ਫਰਮਵੇਅਰ ਸੁਧਾਈ</translation>
 <translation id="6981982820502123353">ਪਹੁੰਚਯੋਗਤਾ</translation>
-<translation id="698242338298293034">ਕੋਈ ਥੀਮ ਚੁਣੋ ਅਤੇ ਫਿਰ ਆਪਣੇ AI ਚਿੱਤਰਾਂ ਨੂੰ ਵਿਅਕਤੀਗਤ ਬਣਾਉਣ ਲਈ ਰੇਖਾਂਕਿਤ ਕੀਤੇ ਸ਼ਬਦ ਚੁਣੋ।
-          <ph name="LINE_BREAK" />
-          <ph name="LINE_BREAK" />
-          ਹੋਰ ਵਿਲੱਖਣ ਅਤੇ ਵੱਖ-ਵੱਖ AI ਚਿੱਤਰਾਂ ਦੇ ਵਿਕਲਪ ਪ੍ਰਾਪਤ ਕਰਨ ਲਈ "ਮੈਨੂੰ ਪ੍ਰੇਰਿਤ ਕਰੋ" ਚੁਣੋ।
-          <ph name="LINE_BREAK" />
-          <ph name="LINE_BREAK" />
-          ਜਦੋਂ ਤੁਸੀਂ AI ਨਾਲ ਚਿੱਤਰ ਬਣਾਉਂਦੇ ਹੋ, ਤਾਂ <ph name="BEGIN_LINK_GOOGLE_PRIVACY_POLICY" />Google ਦੀ ਪਰਦੇਦਾਰੀ ਨੀਤੀ<ph name="END_LINK_GOOGLE_PRIVACY_POLICY" /> ਦੇ ਅਧੀਨ, ਚਿੱਤਰ ਤਿਆਰ ਕਰਨ ਅਤੇ ਉਤਪਾਦ ਨੂੰ ਬਿਹਤਰ ਬਣਾਉਣ ਲਈ ਉਤਪ੍ਰੇਰਕ Google AI ਸਰਵਰਾਂ ਨੂੰ ਭੇਜਿਆ ਜਾਂਦਾ ਹੈ।
-          <ph name="LINE_BREAK" />
-          <ph name="LINE_BREAK" />
-          ਜਨਰੇਟਿਵ AI ਪ੍ਰਯੋਗਮਈ ਹੈ, ਸ਼ੁਰੂਆਤੀ ਵਿਕਾਸ ਵਿੱਚ ਹੈ ਅਤੇ ਫ਼ਿਲਹਾਲ ਇਸਦੀ ਉਪਲਬਧਤਾ ਸੀਮਤ ਹੈ।</translation>
 <translation id="6982462588253070448">ਰੇਤ ਦੇ ਟਿੱਬੇ</translation>
 <translation id="7005833343836210400">ਡੀਵਾਈਸ ਆਫ਼ਲਾਈਨ ਹੈ</translation>
 <translation id="7028979494427204405"><ph name="MANAGER" /> ਇਸ ਡੀਵਾਈਸ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰਦਾ ਹੈ ਅਤੇ ਇਸਨੂੰ ਦੇਖੇ ਗਏ ਵੈੱਬ-ਪੰਨਿਆਂ, ਪਾਸਵਰਡਾਂ ਅਤੇ ਈਮੇਲ ਸਮੇਤ ਵਰਤੋਂਕਾਰ ਦੀਆਂ ਸਾਰੀਆਂ ਸਰਗਰਮੀਆਂ ਤੱਕ ਪਹੁੰਚ ਹਾਸਲ ਹੈ।</translation>
@@ -1228,12 +1249,14 @@
 <translation id="7103252855940681301"><ph name="COUNT" /> ਵਿੱਚੋਂ <ph name="INDEX" /> ਡੀਵਾਈਸ ਨੂੰ <ph name="NAME" /> ਨਾਮ ਦਿੱਤਾ ਗਿਆ।</translation>
 <translation id="7107255225945990211"><ph name="PRODUCT_NAME" /> ਦਾ ਵਿਸ਼ੇਸ਼ ਆਰਟਵਰਕ ਚੁਣੋ</translation>
 <translation id="7108668606237948702">ਦਰਜ ਕਰੋ</translation>
+<translation id="7117228822971127758">ਕਿਰਪਾ ਕਰਕੇ ਬਾਅਦ ਵਿੱਚ ਮੁੜ-ਕੋਸ਼ਿਸ਼ ਕਰੋ</translation>
 <translation id="7118522231018231199">ਸਿਰਫ਼ ਤੁਹਾਡੇ ਮੋਬਾਈਲ ਸੇਵਾ ਪ੍ਰਦਾਨਕ ਜਾਂ ਪ੍ਰਸ਼ਾਸਕ ਵੱਲੋਂ ਮੁਹੱਈਆ ਕਰਵਾਏ ਗਏ APN ਨੂੰ ਚੁਣਨਾ ਪੱਕਾ ਕਰੋ। ਕਿਸੇ APN ਨੂੰ ਚੁਣਨ ਨਾਲ ਕਿਸੇ ਵੀ ਤਰ੍ਹਾਂ ਦਾ ਵਿਉਂਤਬੱਧ APN ਬੰਦ ਹੋ ਜਾਵੇਗਾ। ਅਵੈਧ APN ਤੁਹਾਡੇ ਮੋਬਾਈਲ ਕਨੈਕਸ਼ਨ ਵਿੱਚ ਵਿਘਨ ਪਾ ਸਕਦਾ ਹੈ।</translation>
 <translation id="7119389851461848805">ਪਾਵਰ</translation>
 <translation id="7129287270910503851">ਤੁਹਾਡੀ ਡਾਟਾ ਵਰਤੋਂ ਹਰ ਮਹੀਨੇ ਇਸ ਦਿਨ ਰੀਸੈੱਟ ਕੀਤੀ ਜਾਵੇਗੀ</translation>
 <translation id="7130438335435247835">ਐਕਸੈੱਸ ਪੁਆਇੰਟ ਨਾਮ (APN)</translation>
 <translation id="7134436342991564651">{0,plural, =1{ਨਾਮ ਸਰਵਰ}one{ਨਾਮ ਸਰਵਰ}other{ਨਾਮ ਸਰਵਰ}}</translation>
 <translation id="7135814714616751706">ਸ਼ਾਰਟਕੱਟ ਖੋਜੋ</translation>
+<translation id="7141470099673912333">Content Transfer</translation>
 <translation id="7143207342074048698">ਕਨੈਕਟ ਕਰ ਰਿਹਾ ਹੈ</translation>
 <translation id="7144878232160441200">ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ</translation>
 <translation id="7144954474087165241">ਪੈਗੋਡਾ</translation>
@@ -1250,6 +1273,7 @@
 <translation id="7180865173735832675">ਵਿਉਂਤਬੱਧ ਕਰੋ</translation>
 <translation id="7182063559013288142">ਤਤਕਾਲ ਹੌਟਸਪੌਟ</translation>
 <translation id="7184043045742675738">ਆਪਣੇ ਬਟਨ ਨੂੰ ਵਿਉਂਤਬੱਧ ਕਰਨ ਲਈ ਕਿਸੇ ਵੀ ਕੁੰਜੀ 'ਤੇ ਕਲਿੱਕ ਕਰੋ। ਮਾਊਸ ਜਾਂ ਤੀਰ ਕੁੰਜੀਆਂ ਨਾਲ ਕੁੰਜੀ ਦੀ ਥਾਂ ਬਦਲੋ।</translation>
+<translation id="7187669805838282391">ਬੁੱਧਵਾਰ ਨੂੰ</translation>
 <translation id="7206979415662233817">ਸੇਵਾ ਦੇ ਨਿਯਮ</translation>
 <translation id="7210635925306941239">ਸੀਆਨ</translation>
 <translation id="7212547870105584639">ਨੈੱਟਵਰਕ APN ਸੈਟਿੰਗਾਂ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ। APN ਸੈਲਿਊਲਰ ਨੈੱਟਵਰਕ ਅਤੇ ਇੰਟਰਨੈੱਟ ਵਿਚਕਾਰ ਕਨੈਕਸ਼ਨ ਸਥਾਪਤ ਕਰਦੇ ਹਨ। <ph name="BEGIN_LINK_LEARN_MORE" />ਹੋਰ ਜਾਣੋ<ph name="END_LINK_LEARN_MORE" /></translation>
@@ -1296,6 +1320,7 @@
 <translation id="7388959671917308825">ਬਿਲਟ-ਇਨ ਟੱਚਪੈਡ</translation>
 <translation id="7397270852490618635">ਹਲਕਾ ਥੀਮ ਬੰਦ ਕਰੋ</translation>
 <translation id="7401543881546089382">ਸ਼ਾਰਟਕੱਟ ਮਿਟਾਓ</translation>
+<translation id="7405493795721832710"><ph name="DEVICE_NAME" /> ਅੱਪਡੇਟ ਕੀਤੇ ਜਾਣ ਲਈ ਤਿਆਰ ਹੈ</translation>
 <translation id="741244894080940828">ਰੂਪਾਂਤਰਨ</translation>
 <translation id="7415801143053185905">ਬਹੁਤ ਜ਼ਿਆਦਾ HTTP ਵਿਲੰਬਤਾ</translation>
 <translation id="7425037327577270384">ਲਿਖਣ ਵਿੱਚ ਮੇਰੀ ਮਦਦ ਕਰੋ</translation>
@@ -1310,6 +1335,7 @@
 <translation id="7500205272584643581">ਕੀ Recorder ਨੂੰ ਸਪੀਕਰਾਂ ਦਾ ਪਤਾ ਲਗਾਉਣ ਅਤੇ ਉਨ੍ਹਾਂ ਨੂੰ ਲੇਬਲਬੱਧ ਕਰਨ ਦੀ ਆਗਿਆ ਦੇਣੀ ਹੈ?</translation>
 <translation id="7501957181231305652">ਜਾਂ</translation>
 <translation id="7502658306369382406">IPv6 ਪਤਾ</translation>
+<translation id="7503342217608032738">ਡੀਵਾਈਸ ਦੀ ਵਰਤੋਂ ਨਹੀਂ ਕੀਤੀ ਜਾ ਸਕਦੀ</translation>
 <translation id="7507061649493508884">ਰੇਡੀਐਂਟ <ph name="FLOWER_COLOR" /> <ph name="FLOWER_TYPE" /></translation>
 <translation id="7513770521371759388">ਹੇਠਲੇ ਪਾਸੇ</translation>
 <translation id="7514365320538308">ਡਾਊਨਲੋਡ ਕਰੋ</translation>
@@ -1322,6 +1348,8 @@
 <translation id="7544853251252956727">ਸ਼ੱਫਲ ਕਰੋ</translation>
 <translation id="7550715992156305117">ਤਸ਼ਖੀਸ ਸੰਬੰਧੀ ਨਿਯਮਬੱਧ ਕੰਮ</translation>
 <translation id="7551123448725492271">ਡੀਵਾਈਸ ਇੱਕ ਆਡੀਓ ਡੀਵਾਈਸ ਹੈ।</translation>
+<translation id="7553094907613575384"><ph name="BEGIN_PARAGRAPH1" /><ph name="MANAGER" /> ਪ੍ਰਸ਼ਾਸਕ ਨੇ ਇਸ <ph name="DEVICE_TYPE" /> ਦੀ ਵਰਤੋਂ ਕਰਨ ਦਾ ਸਮਾਂ ਸੈੱਟ ਕੀਤਾ ਹੈ।<ph name="END_PARAGRAPH1" />
+        <ph name="BEGIN_PARAGRAPH2" />ਤੁਸੀਂ ਇਸ ਡੀਵਾਈਸ ਨੂੰ <ph name="DAY" /> ਨੂੰ <ph name="TIME" /> ਵਜੇ ਦੁਬਾਰਾ ਵਰਤ ਸਕੋਗੇ।<ph name="END_PARAGRAPH2" /></translation>
 <translation id="7559239713112547082">ਸਕ੍ਰੀਨਸ਼ਾਟ ਦੀ ਪੂਰਵ-ਝਲਕ ਦੇਖੋ</translation>
 <translation id="7561454561030345039">ਤੁਹਾਡਾ ਪ੍ਰਸ਼ਾਸਕ ਇਸ ਕਾਰਵਾਈ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰਦਾ ਹੈ</translation>
 <translation id="7569444139234840525"><ph name="QUERY_TEXT" /> · /<ph name="PHONETICS" />/</translation>
@@ -1383,6 +1411,7 @@
 <translation id="7856267634822906833">ਬਲੂਟੁੱਥ ਟੱਚਸਕ੍ਰੀਨ</translation>
 <translation id="7859006200041800233">ਕੈਕਟਸ ਦਾ ਫੁੱਲ</translation>
 <translation id="7869143217755017858">ਗੂੜ੍ਹਾ ਮੋਡ ਬੰਦ ਕਰੋ</translation>
+<translation id="7878972877380405573">'ਪੜ੍ਹਨ ਵਿੱਚ ਮੇਰੀ ਮਦਦ ਕਰੋ' ਨਾਲ ਸਾਰਾਂਸ਼ ਦਿਓ</translation>
 <translation id="7881066108824108340">DNS</translation>
 <translation id="7882358943899516840">ਪ੍ਰਦਾਨਕ ਕਿਸਮ</translation>
 <translation id="7882501334836096755">ਜਨਤਕ ਕੁੰਜੀ</translation>
@@ -1409,6 +1438,7 @@
 <translation id="7983597390787556680">{NUM_ROOL_APPS,plural, =1{"<ph name="APP_NAME_1" />" ਨੂੰ ਸਵੈਚਲਿਤ ਤੌਰ 'ਤੇ ਸ਼ੁਰੂ ਕੀਤਾ ਗਿਆ ਸੀ}one{# ਐਪ ਨੂੰ ਸਵੈਚਲਿਤ ਤੌਰ 'ਤੇ ਸ਼ੁਰੂ ਕੀਤਾ ਗਿਆ ਸੀ}other{# ਐਪਾਂ ਨੂੰ ਸਵੈਚਲਿਤ ਤੌਰ 'ਤੇ ਸ਼ੁਰੂ ਕੀਤਾ ਗਿਆ ਸੀ}}</translation>
 <translation id="7994702968232966508">EAP ਵਿਧੀ</translation>
 <translation id="8004582292198964060">ਬ੍ਰਾਊਜ਼ਰ</translation>
+<translation id="8010765388850538088">ਜਨਰੇਟਿਵ AI ਬਾਰੇ ਹੋਰ ਜਾਣੋ</translation>
 <translation id="8017679124341497925">ਸ਼ਾਰਟਕੱਟ ਦਾ ਸੰਪਾਦਨ ਕੀਤਾ ਗਿਆ</translation>
 <translation id="802154636333426148">ਡਾਊਨਲੋਡ ਅਸਫਲ ਰਿਹਾ</translation>
 <translation id="8028993641010258682">ਆਕਾਰ</translation>
@@ -1418,6 +1448,7 @@
 <translation id="8045012663542226664">ਮਾਈਕ੍ਰੋਫ਼ੋਨ ਮਿਊਟ ਕਰਨ ਵਾਲਾ ਬਟਨ</translation>
 <translation id="8054112564438735763">ਬੇਜ</translation>
 <translation id="8062968459344882447">ਇੱਕ <ph name="CHARACTERS_BACKGROUND" /> ਬੈਕਗ੍ਰਾਊਂਡ 'ਤੇ <ph name="CHARACTERS_COLOR" /> <ph name="CHARACTERS_SUBJECTS" /></translation>
+<translation id="8064337065720789104"><ph name="QUERY_TEXT" />; <ph name="RESULT_TEXT" /></translation>
 <translation id="8067126283828232460">APN ਕਨੈਕਟ ਹੈ।</translation>
 <translation id="8067208048261192356">ਭੂਰਾ</translation>
 <translation id="8067224607978179455"><ph name="ACTION_NAME" /> ਨੂੰ ਮਿਟਾਓ</translation>
@@ -1450,7 +1481,6 @@
 <translation id="8208861521865154048">ਫ਼ਾਇਦੇ</translation>
 <translation id="8226628635270268143">ਆਪਣੀਆਂ ਮਨਪਸੰਦ ਫ਼ੋਟੋਆਂ ਅਤੇ ਐਲਬਮਾਂ ਚੁਣੋ</translation>
 <translation id="8227119283605456246">ਫ਼ਾਈਲ ਨੱਥੀ ਕਰੋ</translation>
-<translation id="8227488649450500937">ਇਨ੍ਹਾਂ ਵਿੱਚੋਂ ਕੋਈ ਇੱਕ ਉਤਪ੍ਰੇਰਕ ਅਜ਼ਮਾਓ ਜਾਂ <ph name="BEGIN_LINK_PROMPTING_GUIDE" />ਉਤਪ੍ਰੇਰਕ ਸੰਬੰਧੀ ਗਾਈਡ<ph name="END_LINK_PROMPTING_GUIDE" /> ਦੇਖੋ</translation>
 <translation id="8230672074305416752">ਪੂਰਵ-ਨਿਰਧਾਰਤ ਨੈੱਟਵਰਕ ਗੇਟਵੇ ਨੂੰ ਪਿੰਗ ਕਰਨਾ ਅਸਫਲ ਰਿਹਾ</translation>
 <translation id="8236972776513018241">ਪ੍ਰਤੀਲਿਪੀ</translation>
 <translation id="8238771987802558562">ਕੋਈ APN ਚੁਣੋ</translation>
@@ -1522,11 +1552,13 @@
 <translation id="8557447961879934694">WPA2</translation>
 <translation id="8575298406870537639">ਤੁਹਾਡੇ ਕੈਰੀਅਰ ਨੂੰ ਆਪਣੇ ਨੈੱਟਵਰਕ ਨਾਲ ਕਨੈਕਟ ਕਰਨ ਲਈ ਇਸ ਵਿਕਲਪ ਦੀ ਲੋੜ ਹੋ ਸਕਦੀ ਹੈ। ਵੇਰਵਿਆਂ ਲਈ ਆਪਣੇ ਕੈਰੀਅਰ ਨਾਲ ਸੰਪਰਕ ਕਰੋ।</translation>
 <translation id="8576249514688522074">ਸ਼ੁਰੂ ਨਹੀਂ ਕੀਤਾ ਗਿਆ</translation>
+<translation id="8584654835905316966"><ph name="DEVICE_NAME" /> ਦੇ ਲਈ <ph name="VERSION" /> ਵਰਜਨ 'ਤੇ ਫ਼ਰਮਵੇਅਰ ਦੀ ਸਥਾਪਨਾ ਨੂੰ ਪੂਰਾ ਕਰਨ ਲਈ, ਉਸਨੂੰ ਇੱਕ ਵਾਰ ਮੁੜ-ਸ਼ੁਰੂ ਕਰਨ ਦੀ ਲੋੜ ਹੈ। ਅਜਿਹਾ ਲੱਗ ਸਕਦਾ ਹੈ ਕਿ ਤੁਹਾਡਾ ਕੰਪਿਊਟਰ ਕਈ ਵਾਰ ਰੀਬੂਟ ਹੋ ਰਿਹਾ ਹੈ। ਅਜਿਹਾ ਹੋਣਾ ਆਮ ਗੱਲ ਹੈ।</translation>
 <translation id="8593058461203131755">ਮੀਡੀਆ ਰੋਕੋ</translation>
 <translation id="8620617069779373398">ਰੋਮਿੰਗ ਅਵਸਥਾ</translation>
 <translation id="8626489604350149811"><ph name="APN_NAME" /> ਲਈ ਹੋਰ ਕਾਰਵਾਈਆਂ</translation>
 <translation id="86356131183441916">ਹਲਕਾ ਜਾਮਨੀ</translation>
 <translation id="8647595191512746911">ਆਡੀਓ ਪ੍ਰਤੀਲਿਪੀਕਰਨ</translation>
+<translation id="8650852232143958317">ਆਪਣੀਆਂ Gmail ਅਤੇ Google Drive ਫ਼ਾਈਲਾਂ ਨੂੰ ਆਪਣੇ ਨਿੱਜੀ ਖਾਤੇ ਵਿੱਚ ਲਿਜਾਓ</translation>
 <translation id="8651481478098336970">ਅਵਾਜ਼ ਮਿਊਟ ਕਰੋ</translation>
 <translation id="8655295600908251630">ਚੈਨਲ</translation>
 <translation id="8655828773034788261">URL ਸਾਂਝਾ ਕਰੋ:</translation>
@@ -1582,6 +1614,7 @@
 <translation id="8881098542468797602">ਟੈਸਟ ਸਫਲ ਰਿਹਾ</translation>
 <translation id="8882789155418924367">ਉੱਲੂ</translation>
 <translation id="8892443466059986410">ਸ਼ਾਰਟਕੱਟ ਸੰਪਾਦਨ ਨੂੰ ਰੱਦ ਕਰੋ</translation>
+<translation id="8897043028305808902">ਫ਼ਾਈਲ ਦਾ ਨਾਮ ਬਦਲਿਆ ਗਿਆ</translation>
 <translation id="8898840733695078011">ਸਿਗਨਲ ਸ਼ਕਤੀ</translation>
 <translation id="8909114361904403025">ਉੱਪਰ ਤੀਰ</translation>
 <translation id="8910721771319628100">ਪੂਰਵ-ਨਿਰਧਾਰਤ ਨੈੱਟਵਰਕ ਵਿਲੰਬਤਾ ਨਿਊਨਤਮ ਸੀਮਾ ਤੋਂ ਉੱਤੇ ਹੈ</translation>
@@ -1654,6 +1687,7 @@
 <translation id="917720651393141712">ਜਾਂਚ</translation>
 <translation id="9188992814426075118">ਤੁਹਾਡਾ ਕੀ-ਬੋਰਡ ਤੁਹਾਡੇ ਵਾਲਪੇਪਰ ਨਾਲ ਸਵੈਚਲਿਤ ਤੌਰ 'ਤੇ ਮੇਲ ਖਾ ਸਕਦਾ ਹੈ</translation>
 <translation id="9189000703457422362">ਸਵੈਚਲਿਤ ਤੌਰ 'ਤੇ ਪਛਾਣੇ ਗਏ APN ਦੀ ਵਰਤੋਂ ਕਰ ਕੇ ਇਸ ਨੈੱਟਵਰਕ ਨਾਲ ਕਨੈਕਟ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ। ਹੋਰ ਜਾਣਕਾਰੀ ਲਈ ਆਪਣੇ ਮੋਬਾਈਲ ਕੈਰੀਅਰ ਨਾਲ ਸੰਪਰਕ ਕਰੋ।</translation>
+<translation id="9190726385682694354"><ph name="QUERY_TEXT" />; <ph name="SUBTEXT" />; <ph name="RESULT_TEXT" /></translation>
 <translation id="9193744392140377127">APN*</translation>
 <translation id="9195918315673527512">ਚੁਣੀਆਂ ਹੋਈਆਂ ਜਾਏਸਟਿੱਕ ਕੁੰਜੀਆਂ <ph name="KEYS" /> ਹਨ। ਕੰਟਰੋਲ ਦਾ ਸੰਪਾਦਨ ਕਰਨ ਲਈ ਬਟਨ 'ਤੇ ਟੈਪ ਕਰੋ</translation>
 <translation id="9204237731135241582">Android ਐਪਾਂ ਤੋਂ ਗੇਟਵੇ ਨਾਲ ਸੰਪਰਕ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ</translation>

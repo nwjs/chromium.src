@@ -124,7 +124,7 @@
 #pragma mark - AppStateObserver
 
 - (void)appState:(AppState*)appState
-    didTransitionFromInitStage:(InitStage)previousInitStage {
+    didTransitionFromInitStage:(AppInitStage)previousInitStage {
   // Monitor the app intialization stages to consider showing the sign-in
   // prompts at a point in the initialization of the app that allows it.
   [self handleSigninPromptsIfUIAvailable];
@@ -156,16 +156,16 @@
 - (void)setupObservers {
   DCHECK(self.mainBrowser);
 
-  ChromeBrowserState* browserState = self.mainBrowser->GetBrowserState();
+  ProfileIOS* profile = self.mainBrowser->GetProfile();
   // Set observer for service status changes.
   AuthenticationService* authService =
-      AuthenticationServiceFactory::GetForBrowserState(browserState);
+      AuthenticationServiceFactory::GetForProfile(profile);
   _authenticationServiceObserverBridge =
       std::make_unique<AuthenticationServiceObserverBridge>(authService, self);
 
   // Set observer for primary account changes.
   signin::IdentityManager* identityManager =
-      IdentityManagerFactory::GetForProfile(browserState);
+      IdentityManagerFactory::GetForProfile(profile);
   _identityObserverBridge =
       std::make_unique<signin::IdentityManagerObserverBridge>(identityManager,
                                                               self);
@@ -179,8 +179,8 @@
 - (BOOL)isForcedSignInRequiredByPolicy {
   DCHECK(self.mainBrowser);
   AuthenticationService* authService =
-      AuthenticationServiceFactory::GetForBrowserState(
-          self.mainBrowser->GetBrowserState());
+      AuthenticationServiceFactory::GetForProfile(
+          self.mainBrowser->GetProfile());
   switch (authService->GetServiceStatus()) {
     case AuthenticationService::ServiceStatus::SigninAllowed:
     case AuthenticationService::ServiceStatus::SigninDisabledByInternal:
@@ -258,7 +258,7 @@
 // YES if the scene and the app are in a state where the UI of the scene is
 // available to show sign-in related prompts.
 - (BOOL)isUIAvailableToPrompt {
-  if (self.sceneState.appState.initStage < InitStageFinal) {
+  if (self.sceneState.appState.initStage < AppInitStage::kFinal) {
     return NO;
   }
 

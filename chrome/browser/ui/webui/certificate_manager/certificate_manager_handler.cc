@@ -18,6 +18,7 @@
 #include "chrome/browser/ui/webui/certificate_manager/client_cert_sources.h"
 #include "chrome/browser/ui/webui/certificate_manager/enterprise_cert_sources.h"
 #include "chrome/browser/ui/webui/certificate_manager/platform_cert_sources.h"
+#include "chrome/common/pref_names.h"
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/web_contents.h"
 
@@ -42,7 +43,6 @@ void GetCertManagementMetadataAsync(
   // TODO(crbug.com/40928765): figure out how this should be displayed for
   // ChromeOS
   metadata->include_system_trust_store = true;
-  metadata->is_include_system_trust_store_managed = false;
 #endif
 
   metadata->num_policy_certs =
@@ -106,6 +106,14 @@ void CertificateManagerPageHandler::ImportAndBindCertificate(
     ImportCertificateCallback callback) {
   GetCertSource(source_id).ImportAndBindCertificate(web_contents_->GetWeakPtr(),
                                                     std::move(callback));
+}
+
+void CertificateManagerPageHandler::DeleteCertificate(
+    certificate_manager_v2::mojom::CertificateSource source_id,
+    const std::string& sha256hash_hex,
+    DeleteCertificateCallback callback) {
+  GetCertSource(source_id).DeleteCertificate(sha256hash_hex,
+                                             std::move(callback));
 }
 
 CertificateManagerPageHandler::CertSource::~CertSource() = default;
@@ -188,16 +196,30 @@ void CertificateManagerPageHandler::ShowNativeManageCertificates() {
 }
 #endif
 
+#if !BUILDFLAG(IS_CHROMEOS)
+void CertificateManagerPageHandler::SetIncludeSystemTrustStore(bool include) {
+  auto* prefs = profile_->GetPrefs();
+  prefs->SetBoolean(prefs::kCAPlatformIntegrationEnabled, include);
+}
+#endif
+
 void CertificateManagerPageHandler::CertSource::ImportCertificate(
     base::WeakPtr<content::WebContents> web_contents,
     CertificateManagerPageHandler::ImportCertificateCallback callback) {
   std::move(callback).Run(
-      certificate_manager_v2::mojom::ImportResult::NewError("not implemented"));
+      certificate_manager_v2::mojom::ActionResult::NewError("not implemented"));
 }
 
 void CertificateManagerPageHandler::CertSource::ImportAndBindCertificate(
     base::WeakPtr<content::WebContents> web_contents,
     CertificateManagerPageHandler::ImportCertificateCallback callback) {
   std::move(callback).Run(
-      certificate_manager_v2::mojom::ImportResult::NewError("not implemented"));
+      certificate_manager_v2::mojom::ActionResult::NewError("not implemented"));
+}
+
+void CertificateManagerPageHandler::CertSource::DeleteCertificate(
+    const std::string& sha256hash_hex,
+    CertificateManagerPageHandler::DeleteCertificateCallback callback) {
+  std::move(callback).Run(
+      certificate_manager_v2::mojom::ActionResult::NewError("not implemented"));
 }

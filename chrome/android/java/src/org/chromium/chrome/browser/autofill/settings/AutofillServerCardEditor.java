@@ -28,6 +28,7 @@ import org.chromium.chrome.browser.autofill.PersonalDataManagerFactory;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
+import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.components.autofill.AutofillProfile;
 import org.chromium.components.autofill.ImageSize;
 import org.chromium.components.autofill.VirtualCardEnrollmentLinkType;
@@ -151,7 +152,7 @@ public class AutofillServerCardEditor extends AutofillCreditCardEditor {
             LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         final View v = super.onCreateView(inflater, container, savedInstanceState);
         if (mCard == null) {
-            getActivity().finish();
+            SettingsNavigationFactory.createSettingsNavigation().finishCurrentSettings(this);
             return v;
         }
 
@@ -322,15 +323,9 @@ public class AutofillServerCardEditor extends AutofillCreditCardEditor {
     private String getEditCardLink() {
         // Check if sandbox is enabled.
         if (CommandLine.getInstance().hasSwitch(ChromeSwitches.USE_SANDBOX_WALLET_ENVIRONMENT)) {
-            return new StringBuilder(AUTOFILL_MANAGE_PAYMENTS_CARDS_SANDBOX_URL)
-                    .append("&id=")
-                    .append(mCard.getInstrumentId())
-                    .toString();
+            return AUTOFILL_MANAGE_PAYMENTS_CARDS_SANDBOX_URL + "&id=" + mCard.getInstrumentId();
         }
-        return new StringBuilder(AUTOFILL_MANAGE_PAYMENTS_CARDS_URL)
-                .append("&id=")
-                .append(mCard.getInstrumentId())
-                .toString();
+        return AUTOFILL_MANAGE_PAYMENTS_CARDS_URL + "&id=" + mCard.getInstrumentId();
     }
 
     @Override

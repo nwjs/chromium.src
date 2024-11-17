@@ -123,14 +123,6 @@ public interface TabModel extends TabList {
     void moveTab(int id, int newIndex);
 
     /**
-     * To be called when this model should be destroyed. The model should no longer be used after
-     * this.
-     *
-     * <p>As a result of this call, all {@link Tab}s owned by this model should be destroyed.
-     */
-    void destroy();
-
-    /**
      * Returns a supplier for the number of tabs in this tab model. This does not count tabs that
      * are pending closure.
      */
@@ -162,20 +154,10 @@ public interface TabModel extends TabList {
 
     /**
      * Unsubscribes a previously subscribed {@link TabModelObserver}.
+     *
      * @param observer The observer to be unsubscribed.
      */
     void removeObserver(TabModelObserver observer);
-
-    /**
-     * Set when tab model become active and inactive.
-     *
-     * @param active Whether the tab model is active.
-     *     <p>TODO(crbug.com/40726458): This function is only called by TabModelSelectorBase class,
-     *     so we should create a package private TabModelInternal interface which inherits from
-     *     TabModel. TabModelInternal interface should have this method and change
-     *     TabModelSelectorBase#mTabModels to hold the impls.
-     */
-    void setActive(boolean active);
 
     /**
      * Returns the count of non-custom tabs that have a {@link

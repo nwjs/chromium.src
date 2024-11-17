@@ -20,6 +20,7 @@
 #include "third_party/blink/renderer/core/frame/screen.h"
 #include "third_party/blink/renderer/core/html/anchor_element_metrics.h"
 #include "third_party/blink/renderer/core/html/anchor_element_metrics_sender.h"
+#include "third_party/blink/renderer/core/html/anchor_element_viewport_position_tracker.h"
 #include "third_party/blink/renderer/core/pointer_type_names.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 
@@ -246,13 +247,15 @@ void AnchorElementInteractionTracker::OnPointerEvent(
     last_pointer_down_locations_[1] = last_pointer_down_locations_[0];
     last_pointer_down_locations_[0] = pointer_event.screenY();
 
-    if (auto* sender = AnchorElementMetricsSender::GetForFrame(
-            GetDocument()->GetFrame())) {
-      sender->RecordPointerDown(pointer_event);
+    if (auto* viewport_position_tracker =
+            AnchorElementViewportPositionTracker::MaybeGetOrCreateFor(
+                *GetDocument())) {
+      viewport_position_tracker->RecordPointerDown(pointer_event);
     }
   }
 
-  HTMLAnchorElement* anchor = FirstAnchorElementIncludingSelf(target.ToNode());
+  HTMLAnchorElementBase* anchor =
+      FirstAnchorElementIncludingSelf(target.ToNode());
   if (!anchor) {
     return;
   }
@@ -286,11 +289,6 @@ void AnchorElementInteractionTracker::OnPointerEvent(
     return;
   }
 
-  if (!base::FeatureList::IsEnabled(
-          features::kSpeculationRulesPointerHoverHeuristics)) {
-    return;
-  }
-
   if (event_type == event_type_names::kPointerover) {
     hover_event_candidates_.insert(
         url, HoverEventCandidate{
@@ -309,7 +307,7 @@ void AnchorElementInteractionTracker::OnPointerEvent(
 }
 
 void AnchorElementInteractionTracker::OnClickEvent(
-    HTMLAnchorElement& anchor,
+    HTMLAnchorElementBase& anchor,
     const MouseEvent& click_event) {
   if (auto* sender =
           AnchorElementMetricsSender::GetForFrame(GetDocument()->GetFrame())) {
@@ -349,13 +347,6 @@ void AnchorElementInteractionTracker::OnClickEvent(
                       ".ClickDistanceFromPreviousPointerDown",
                       orientation_pattern}),
         shifted_normalized_click_distance);
-  }
-}
-
-void AnchorElementInteractionTracker::OnScrollEnd() {
-  if (auto* sender =
-          AnchorElementMetricsSender::GetForFrame(GetDocument()->GetFrame())) {
-    sender->MaybeReportAnchorElementsPositionOnScrollEnd();
   }
 }
 
@@ -409,18 +400,18 @@ void AnchorElementInteractionTracker::SetTaskRunnerForTesting(
   clock_ = clock;
 }
 
-HTMLAnchorElement*
+HTMLAnchorElementBase*
 AnchorElementInteractionTracker::FirstAnchorElementIncludingSelf(Node* node) {
-  HTMLAnchorElement* anchor = nullptr;
+  HTMLAnchorElementBase* anchor = nullptr;
   while (node && !anchor) {
-    anchor = DynamicTo<HTMLAnchorElement>(node);
+    anchor = DynamicTo<HTMLAnchorElementBase>(node);
     node = node->parentNode();
   }
   return anchor;
 }
 
 KURL AnchorElementInteractionTracker::GetHrefEligibleForPreloading(
-    const HTMLAnchorElement& anchor) {
+    const HTMLAnchorElementBase& anchor) {
   KURL url = anchor.Href();
   if (url.ProtocolIsInHTTPFamily()) {
     return url;

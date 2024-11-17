@@ -13,6 +13,7 @@
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/clipboard/clipboard.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_supported_type.h"
 #include "third_party/blink/renderer/core/clipboard/clipboard_mime_types.h"
 #include "third_party/blink/renderer/core/clipboard/system_clipboard.h"
 #include "third_party/blink/renderer/core/dom/document_fragment.h"
@@ -22,6 +23,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap.h"
+#include "third_party/blink/renderer/core/keywords.h"
 #include "third_party/blink/renderer/core/typed_arrays/array_buffer/array_buffer_contents.h"
 #include "third_party/blink/renderer/core/xml/dom_parser.h"
 #include "third_party/blink/renderer/modules/clipboard/clipboard.h"
@@ -174,7 +176,8 @@ class ClipboardHtmlWriter final : public ClipboardWriter {
                          html_data->ByteLength());
     const KURL& url = local_frame->GetDocument()->Url();
     DOMParser* dom_parser = DOMParser::Create(promise_->GetScriptState());
-    const Document* doc = dom_parser->parseFromString(html_string, "text/html");
+    const Document* doc = dom_parser->parseFromString(
+        html_string, V8SupportedType(V8SupportedType::Enum::kTextHtml));
     DCHECK(doc);
     String serialized_html = CreateMarkup(doc, kIncludeNode, kResolveAllURLs);
     Write(serialized_html, url);
@@ -211,8 +214,8 @@ class ClipboardSvgWriter final : public ClipboardWriter {
     }
 
     DOMParser* dom_parser = DOMParser::Create(promise_->GetScriptState());
-    const Document* doc =
-        dom_parser->parseFromString(svg_string, "image/svg+xml");
+    const Document* doc = dom_parser->parseFromString(
+        svg_string, V8SupportedType(V8SupportedType::Enum::kImageSvgXml));
     Write(CreateMarkup(doc, kIncludeNode, kResolveAllURLs));
   }
 

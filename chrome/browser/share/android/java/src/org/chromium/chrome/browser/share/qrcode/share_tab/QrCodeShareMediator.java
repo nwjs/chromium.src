@@ -52,11 +52,11 @@ class QrCodeShareMediator {
 
     /**
      * The QrCodeScanMediator constructor.
+     *
      * @param context The context to use.
      * @param propertyModel The property model to use to communicate with views.
      * @param closeDialog The {@link Runnable} to close the dialog.
      * @param url The url to create the QRCode.
-     * @param permissionDelegate The delegate to help with downloading QRCode.
      */
     QrCodeShareMediator(
             Context context,
@@ -225,7 +225,7 @@ class QrCodeShareMediator {
     }
 
     // Helps to limit number of text lines and shows ellipsis for only the last line.
-    class FixedLineCountLayout extends DynamicLayout {
+    static class FixedLineCountLayout extends DynamicLayout {
         int mMaxLines;
 
         FixedLineCountLayout(

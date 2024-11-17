@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/ash/system/system_tray_client_impl.h"
 
 #include "ash/constants/ash_features.h"
+#include "ash/constants/web_app_id_constants.h"
 #include "ash/public/cpp/ash_view_ids.h"
 #include "ash/public/cpp/login_screen_test_api.h"
 #include "ash/public/cpp/login_types.h"
@@ -39,7 +40,6 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/web_applications/web_app_id_constants.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
@@ -476,7 +476,7 @@ IN_PROC_BROWSER_TEST_F(SystemTrayClientShowCalendarTest, NoEventUrl) {
   EXPECT_EQ(final_url.spec(), GURL(kExpectedUrlStr).spec());
 
   // Now install the calendar PWA.
-  InstallApp(web_app::kGoogleCalendarAppId, "Google Calendar");
+  InstallApp(ash::kGoogleCalendarAppId, "Google Calendar");
   opened_pwa = false;
   final_url = GURL();
   ash::Shell::Get()->system_tray_model()->client()->ShowCalendarEvent(
@@ -505,7 +505,7 @@ IN_PROC_BROWSER_TEST_F(SystemTrayClientShowCalendarTest, OfficialEventUrl) {
   EXPECT_EQ(final_url.spec(), event_url.spec());
 
   // Install the calendar PWA.
-  InstallApp(web_app::kGoogleCalendarAppId, "Google Calendar");
+  InstallApp(ash::kGoogleCalendarAppId, "Google Calendar");
   opened_pwa = false;
   final_url = GURL();
   ash::Shell::Get()->system_tray_model()->client()->ShowCalendarEvent(
@@ -536,7 +536,7 @@ IN_PROC_BROWSER_TEST_F(SystemTrayClientShowCalendarTest, UnofficialEventUrl) {
   EXPECT_EQ(final_url.spec(), GURL(kOfficialCalendarEventUrl).spec());
 
   // Install the calendar PWA.
-  InstallApp(web_app::kGoogleCalendarAppId, "Google Calendar");
+  InstallApp(ash::kGoogleCalendarAppId, "Google Calendar");
   opened_pwa = false;
   final_url = GURL();
   ash::Shell::Get()->system_tray_model()->client()->ShowCalendarEvent(
@@ -581,7 +581,7 @@ IN_PROC_BROWSER_TEST_F(
     SystemTrayClientShowVideoConferenceTest,
     LaunchGoogleMeetUrlInBrowser_WhenAppIsInstalledButNotPreferred) {
   const auto kVideoConferenceUrl = GURL("https://meet.google.com/abc-123");
-  InstallApp(web_app::kGoogleMeetAppId, "Google Meet");
+  InstallApp(ash::kGoogleMeetAppId, "Google Meet");
 
   ash::Shell::Get()->system_tray_model()->client()->ShowVideoConference(
       kVideoConferenceUrl);
@@ -595,11 +595,11 @@ IN_PROC_BROWSER_TEST_F(
     SystemTrayClientShowVideoConferenceTest,
     LaunchGoogleMeetUrlInApp_WhenAppIsInstalledAndPreferred) {
   const auto kVideoConferenceUrl = GURL("https://meet.google.com/abc-123");
-  InstallApp(web_app::kGoogleMeetAppId, "Google Meet");
-  SetPreferredApp(web_app::kGoogleMeetAppId);
+  InstallApp(ash::kGoogleMeetAppId, "Google Meet");
+  SetPreferredApp(ash::kGoogleMeetAppId);
 
   ASSERT_EQ(
-      web_app::kGoogleMeetAppId,
+      ash::kGoogleMeetAppId,
       proxy()->PreferredAppsList().FindPreferredAppForUrl(kVideoConferenceUrl));
 
   ash::Shell::Get()->system_tray_model()->client()->ShowVideoConference(

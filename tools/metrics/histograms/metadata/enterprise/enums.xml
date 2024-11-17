@@ -489,6 +489,7 @@ chromium-metrics-reviews@google.com.
   <int value="29" label="FAILURE_UNKNOWN_ERROR"/>
   <int value="30" label="FAILURE_REAUTHZ_POLICY_CHECK_FAILED"/>
   <int value="31" label="FAILURE_NO_COMMON_AUTH_METHOD"/>
+  <int value="32" label="FAILURE_SESSION_POLICIES_CHANGED"/>
 </enum>
 
 <enum name="EnterpriseDeviceManagementStatus">
@@ -2162,6 +2163,15 @@ chromium-metrics-reviews@google.com.
   <int value="1296" label="GenAiDefaultSettings"/>
   <int value="1297" label="KioskActiveWiFiCredentialsScopeChangeEnabled"/>
   <int value="1298" label="DataURLWhitespacePreservationEnabled"/>
+  <int value="1299" label="AllowExcludeDisplayInMirrorMode"/>
+  <int value="1300" label="AutofillPredictionSettings"/>
+  <int value="1301" label="ArcOpenLinksInBrowserByDefault"/>
+  <int value="1302" label="EnterpriseProfileBadgeToolbarSettings"/>
+  <int value="1303" label="DefaultDirectSocketsPrivateNetworkAccessSetting"/>
+  <int value="1304" label="DirectSocketsPrivateNetworkAccessAllowedForUrls"/>
+  <int value="1305" label="DirectSocketsPrivateNetworkAccessBlockedForUrls"/>
+  <int value="1306" label="SelectParserRelaxationEnabled"/>
+  <int value="1310" label="WebAudioOutputBufferingEnabled"/>
 </enum>
 
 <enum name="EnterprisePoliciesSources">
@@ -2301,6 +2311,35 @@ chromium-metrics-reviews@google.com.
   <int value="11" label="Browser crash event"/>
   <int value="12" label="Extension telemetry event"/>
 </enum>
+
+<!-- LINT.IfChange(EnterpriseSkyVaultMigrationState) -->
+
+<enum name="EnterpriseSkyVaultMigrationState">
+  <int value="0" label="Uninitialized"/>
+  <int value="1" label="Pending"/>
+  <int value="2" label="InProgress"/>
+  <int value="3" label="Cleanup"/>
+  <int value="4" label="Completed"/>
+  <int value="5" label="Failure"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ash/policy/skyvault/policy_utils.h:State) -->
+
+<!-- LINT.IfChange(EnterpriseSkyVaultMigrationStateErrorContext) -->
+
+<enum name="EnterpriseSkyVaultMigrationStateErrorContext">
+  <int value="0" label="Show dialog"/>
+  <int value="1" label="On dialog click"/>
+  <int value="2" label="On timeout skip"/>
+  <int value="3" label="On timeout"/>
+  <int value="4" label="List files"/>
+  <int value="5" label="Migration start"/>
+  <int value="6" label="Migration done"/>
+  <int value="7" label="Cleanup start"/>
+  <int value="8" label="Cleanup done"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ash/policy/skyvault/policy_utils.h:StateErrorContext) -->
 
 <enum name="EnterpriseUserInfoFetchStatus">
   <int value="0" label="Success"/>

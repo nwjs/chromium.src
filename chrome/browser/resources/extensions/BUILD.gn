@@ -55,6 +55,7 @@ build_webui("build") {
     "drag_and_drop_handler.ts",
     "extensions.ts",
     "item_mixin.ts",
+    "item_mixin_lit.ts",
     "item_util.ts",
     "mv2_deprecation_delegate.ts",
     "mv2_deprecation_util.ts",
@@ -63,15 +64,39 @@ build_webui("build") {
     "service.ts",
     "shortcut_util.ts",
     "site_permissions/site_settings_mixin.ts",
+    "site_permissions/site_settings_mixin_lit.ts",
     "url_util.ts",
   ]
 
   icons_html_files = [ "icons.html" ]
+  html_to_wrapper_template = "detect"
 
   # Files that are passed as input to css_to_wrapper().
   css_files = [
+    "code_section.css",
+    "drop_overlay.css",
+    "error_page.css",
+    "install_warnings_dialog.css",
+    "item.css",
+    "keyboard_shortcuts.css",
+    "load_error.css",
+    "mv2_deprecation_panel.css",
+    "options_dialog.css",
+    "pack_dialog.css",
+    "pack_dialog_alert.css",
+    "review_panel.css",
     "shared_style.css",
+    "shared_style_lit.css",
     "shared_vars.css",
+    "runtime_host_permissions.css",
+    "shortcut_input.css",
+    "sidebar.css",
+    "site_permissions/site_permissions.css",
+    "site_permissions/site_permissions_by_site.css",
+    "site_permissions/site_permissions_edit_permissions_dialog.css",
+    "site_permissions/site_permissions_list.css",
+    "site_permissions/site_permissions_site_group.css",
+    "toolbar.css",
   ]
 
   ts_composite = true
@@ -88,6 +113,7 @@ build_webui("build") {
   ]
 
   ts_deps = [
+    "//third_party/lit/v3_0:build_ts",
     "//third_party/polymer/v3_0:library",
     "//ui/webui/resources/cr_components/managed_footnote:build_ts",
     "//ui/webui/resources/cr_elements:build_ts",

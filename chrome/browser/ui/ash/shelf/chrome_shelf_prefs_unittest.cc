@@ -8,9 +8,11 @@
 #include <memory>
 #include <vector>
 
+#include "ash/components/arc/app/arc_app_constants.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
+#include "ash/constants/web_app_id_constants.h"
 #include "ash/public/cpp/shelf_types.h"
 #include "ash/webui/mall/app_id.h"
 #include "base/containers/contains.h"
@@ -27,13 +29,12 @@
 #include "chrome/browser/ash/app_list/app_list_syncable_service.h"
 #include "chrome/browser/ash/app_list/app_list_syncable_service_factory.h"
 #include "chrome/browser/ash/app_list/arc/arc_app_utils.h"
-#include "chrome/browser/ash/file_manager/app_id.h"
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
 #include "chrome/browser/prefs/browser_prefs.h"
 #include "chrome/browser/ui/ash/shelf/shelf_controller_helper.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
-#include "chrome/browser/web_applications/web_app_id_constants.h"
 #include "chrome/common/pref_names.h"
+#include "chromeos/ash/components/file_manager/app_id.h"
 #include "chromeos/ash/components/scalable_iph/scalable_iph_constants.h"
 #include "chromeos/ash/components/standalone_browser/feature_refs.h"
 #include "chromeos/constants/chromeos_features.h"
@@ -215,14 +216,14 @@ class ChromeShelfPrefsTest : public testing::Test {
     static const base::NoDestructor<std::map<std::string, std::string>> kAppMap(
         {
             {app_constants::kChromeAppId, "chrome"},
-            {web_app::kContainerAppId, "container"},
-            {web_app::kGmailAppId, "gmail"},
-            {web_app::kGoogleCalendarAppId, "cal"},
+            {ash::kContainerAppId, "container"},
+            {ash::kGmailAppId, "gmail"},
+            {ash::kGoogleCalendarAppId, "cal"},
             {file_manager::kFileManagerSwaAppId, "files"},
-            {web_app::kMessagesAppId, "messages"},
-            {web_app::kGoogleMeetAppId, "meet"},
+            {ash::kMessagesAppId, "messages"},
+            {ash::kGoogleMeetAppId, "meet"},
             {arc::kPlayStoreAppId, "play"},
-            {web_app::kYoutubeAppId, "youtube"},
+            {ash::kYoutubeAppId, "youtube"},
             {arc::kGooglePhotosAppId, "photos"},
         });
     std::vector<std::string> apps;
@@ -288,7 +289,7 @@ TEST_F(ChromeShelfPrefsTest, AddDefaultApps) {
 
   // Check that a pin was added for the gmail app.
   ASSERT_TRUE(syncable_service()
-                  .item_map_[web_app::kGmailAppId]
+                  .item_map_[ash::kGmailAppId]
                   ->item_pin_ordinal.IsValid());
 }
 
@@ -303,7 +304,7 @@ TEST_F(ChromeShelfPrefsTest, ProfileChanged) {
   EXPECT_EQ(pinned_apps_strs[0], app_constants::kChromeAppId);
 
   // Pinned apps should have the gmail app.
-  EXPECT_TRUE(base::Contains(pinned_apps_strs, web_app::kGmailAppId));
+  EXPECT_TRUE(base::Contains(pinned_apps_strs, ash::kGmailAppId));
 
   // Migration is no longer necessary.
   ASSERT_FALSE(shelf_prefs_->ShouldPerformConsistencyMigrations());
@@ -332,7 +333,7 @@ TEST_F(ChromeShelfPrefsTest, LacrosOnlyPinnedApp) {
   EXPECT_EQ(pinned_apps_strs[0], app_constants::kLacrosAppId);
 
   // Pinned apps should have the gmail app.
-  EXPECT_TRUE(base::Contains(pinned_apps_strs, web_app::kGmailAppId));
+  EXPECT_TRUE(base::Contains(pinned_apps_strs, ash::kGmailAppId));
 }
 
 // When moving from ash-only to lacros-only, the shelf position of the chrome
@@ -378,7 +379,7 @@ TEST_F(ChromeShelfPrefsTest, PinMallBeforeDefaultApps) {
         /*disabled_features=*/{chromeos::features::kCrosMallSwa});
 
     std::vector<std::string> pinned_apps_strs = GetPinnedAppIds();
-    EXPECT_EQ(pinned_apps_strs[1], web_app::kMallAppId);
+    EXPECT_EQ(pinned_apps_strs[1], ash::kMallAppId);
     // Mall should have pushed back any default apps.
     EXPECT_EQ(pinned_apps_strs[2], second_pin_app_id);
   }

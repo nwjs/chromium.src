@@ -8,7 +8,7 @@ import org.jni_zero.JNINamespace;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.FeatureMap;
-import org.chromium.base.cached_flags.CachedFlag;
+import org.chromium.components.cached_flags.CachedFlag;
 
 import java.util.List;
 
@@ -22,7 +22,7 @@ public final class SigninFeatureMap extends FeatureMap {
                     sInstance,
                     SigninFeatures
                             .DONT_FALLBACK_TO_DEFAULT_IMPLEMENTATION_IN_ACCOUNT_MANAGER_FACADE,
-                    false);
+                    true);
 
     public static final List<CachedFlag> sCachedFlags =
             List.of(sDontFallbackToDefaultImplementationInAccountManagerFacade);

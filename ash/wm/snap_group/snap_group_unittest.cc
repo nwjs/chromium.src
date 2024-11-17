@@ -29,7 +29,6 @@
 #include "ash/shell.h"
 #include "ash/shell_delegate.h"
 #include "ash/style/close_button.h"
-#include "ash/style/system_toast_style.h"
 #include "ash/system/toast/toast_manager_impl.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/test/ash_test_util.h"
@@ -102,6 +101,7 @@
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "chromeos/ui/base/display_util.h"
 #include "chromeos/ui/base/window_properties.h"
 #include "chromeos/ui/base/window_state_type.h"
@@ -312,12 +312,7 @@ class SnapGroupTestBase : public OverviewTestBase {
 
 class FasterSplitScreenTest : public SnapGroupTestBase {
  public:
-  FasterSplitScreenTest() {
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kSnapGroup,
-                              features::kOsSettingsRevampWayfinding},
-        /*disabled_features=*/{});
-  }
+  FasterSplitScreenTest() = default;
   FasterSplitScreenTest(const FasterSplitScreenTest&) = delete;
   FasterSplitScreenTest& operator=(const FasterSplitScreenTest&) = delete;
   ~FasterSplitScreenTest() override = default;
@@ -330,9 +325,6 @@ class FasterSplitScreenTest : public SnapGroupTestBase {
 
  protected:
   base::HistogramTester histogram_tester_;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Tests the behavior in existing partial overview, i.e. overview -> drag to
@@ -2102,35 +2094,6 @@ TEST_F(FasterSplitScreenTest, RecordWindowIndexAndCount) {
 }
 
 // -----------------------------------------------------------------------------
-// SnapGroupDisabledTest:
-
-class SnapGroupDisabledTest : public AshTestBase {
- public:
-  SnapGroupDisabledTest() {
-    scoped_feature_list_.InitWithFeatures(/*enabled_features=*/
-                                          {},
-                                          /*disabled_features=*/{
-                                              features::kSnapGroup});
-  }
-  SnapGroupDisabledTest(const SnapGroupDisabledTest&) = delete;
-  SnapGroupDisabledTest& operator=(const SnapGroupDisabledTest&) = delete;
-  ~SnapGroupDisabledTest() override = default;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-// Tests that faster splitscreen still works with `SnapGroup` disabled.
-TEST_F(SnapGroupDisabledTest, FasterSplitScreenSetup) {
-  std::unique_ptr<aura::Window> w1(CreateAppWindow());
-  std::unique_ptr<aura::Window> w2(CreateAppWindow());
-  SnapOneTestWindow(w1.get(), WindowStateType::kPrimarySnapped,
-                    chromeos::kDefaultSnapRatio,
-                    WindowSnapActionSource::kSnapByWindowLayoutMenu);
-  VerifySplitViewOverviewSession(w1.get());
-}
-
-// -----------------------------------------------------------------------------
 // SnapGroupTest:
 
 // A test fixture to test the snap group feature.
@@ -2141,9 +2104,9 @@ class SnapGroupTest : public SnapGroupTestBase {
       : SnapGroupTestBase(std::forward<TaskEnvironmentTraits>(traits)...) {
     scoped_feature_list_
         .InitWithFeatures(/*enabled_features=*/
-                          {features::kSnapGroup,
-                           features::kOsSettingsRevampWayfinding,
-                           features::kSameAppWindowCycle},
+                          {features::kSameAppWindowCycle,
+                           chromeos::features::
+                               kOverviewSessionInitOptimizations},
                           /*disabled_features=*/{});
   }
   SnapGroupTest(const SnapGroupTest&) = delete;
@@ -6856,8 +6819,9 @@ TEST_F(SnapGroupDesksTest, SaveDeskForSnapGroupWithAnotherSavedDeskOld) {
 
   // Create `w0` and save `w0` in a saved desk by activing "Save desk for later"
   // button in Overview.
-  std::unique_ptr<aura::Window> w0(
-      CreateAppWindow(gfx::Rect(10, 10, 500, 300)));
+  aura::WindowTracker window_tracker;
+  aura::Window* w0 = CreateAppWindow(gfx::Rect(10, 10, 500, 300)).release();
+  window_tracker.Add(w0);
 
   overview_controller->StartOverview(OverviewStartAction::kOverviewButton);
   OverviewSession* overview_session = overview_controller->overview_session();
@@ -6876,10 +6840,12 @@ TEST_F(SnapGroupDesksTest, SaveDeskForSnapGroupWithAnotherSavedDeskOld) {
   auto* desks_bar_view = overview_grid->desks_bar_view();
   ASSERT_TRUE(desks_bar_view);
 
-  auto* library_button = desks_bar_view->library_button();
-  ASSERT_TRUE(library_button);
+  ASSERT_TRUE(WaitForLibraryButtonVisible());
 
   overview_controller->EndOverview(OverviewEndAction::kOverviewButton);
+  // `w0` should have been destroyed automatically when the
+  // `save_for_later_button` was clicked.
+  ASSERT_FALSE(window_tracker.Contains(w0));
 
   // Create a Snap Group and enter Overview again, click on the library button
   // on the virtual desks bar and verify that there is no crash.
@@ -6895,16 +6861,14 @@ TEST_F(SnapGroupDesksTest, SaveDeskForSnapGroupWithAnotherSavedDeskOld) {
   desks_bar_view = overview_grid->desks_bar_view();
   ASSERT_TRUE(desks_bar_view);
 
-  library_button = desks_bar_view->library_button();
-  ASSERT_TRUE(library_button);
-
   auto* overview_group_item = GetOverviewItemForWindow(w1.get());
   ASSERT_TRUE(overview_group_item);
   ASSERT_FALSE(GetTopmostSnapGroupDivider()->divider_widget()->IsVisible());
 
   const auto cached_group_item_bounds = overview_group_item->target_bounds();
 
-  LeftClickOn(library_button);
+  ASSERT_TRUE(WaitForLibraryButtonVisible());
+  LeftClickOn(desks_bar_view->library_button());
 
   // Click the point outside of `cached_group_item_bounds` will exit Overview
   // and bring back the Snap Group.

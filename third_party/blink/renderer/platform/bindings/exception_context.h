@@ -5,6 +5,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_BINDINGS_EXCEPTION_CONTEXT_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_BINDINGS_EXCEPTION_CONTEXT_H_
 
+#include <variant>
+
 #include "base/check_op.h"
 #include "base/dcheck_is_on.h"
 #include "base/notreached.h"
@@ -34,13 +36,6 @@ class PLATFORM_EXPORT ExceptionContext final {
       case v8::ExceptionContext::kAttributeGet:
       case v8::ExceptionContext::kAttributeSet:
       case v8::ExceptionContext::kOperation:
-        DCHECK(class_name);
-        DCHECK(property_name);
-        break;
-      case v8::ExceptionContext::kConstructor:
-      case v8::ExceptionContext::kNamedEnumerator:
-        DCHECK(class_name);
-        break;
       case v8::ExceptionContext::kIndexedGetter:
       case v8::ExceptionContext::kIndexedDescriptor:
       case v8::ExceptionContext::kIndexedSetter:
@@ -53,9 +48,12 @@ class PLATFORM_EXPORT ExceptionContext final {
       case v8::ExceptionContext::kNamedDefiner:
       case v8::ExceptionContext::kNamedDeleter:
       case v8::ExceptionContext::kNamedQuery:
-        // Named and indexed property interceptors go through the constructor
-        // variant that takes a const String&, never this one.
-        NOTREACHED_IN_MIGRATION();
+        DCHECK(class_name);
+        DCHECK(property_name);
+        break;
+      case v8::ExceptionContext::kConstructor:
+      case v8::ExceptionContext::kNamedEnumerator:
+        DCHECK(class_name);
         break;
       case v8::ExceptionContext::kUnknown:
         break;
@@ -97,19 +95,9 @@ class PLATFORM_EXPORT ExceptionContext final {
     }
     return property_name_string_;
   }
-  int16_t GetArgumentIndex() const { return argument_index_; }
-
-  // This is used for a performance hack to reduce the number of construction
-  // and destruction times of ExceptionContext when iterating over properties.
-  // Only the generated bindings code is allowed to use this hack.
-  void ChangePropertyNameAsOptimizationHack(const char* property_name) {
-    DCHECK(property_name_string_.IsNull());
-    property_name_ = property_name;
-  }
 
  private:
   v8::ExceptionContext type_;
-  int16_t argument_index_ = 0;
   const char* class_name_ = nullptr;
   const char* property_name_ = nullptr;
   String property_name_string_;

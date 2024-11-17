@@ -9,7 +9,7 @@ import type {ExperimentalFeaturesData, Feature} from 'chrome://flags/flags_brows
 import {FlagsBrowserProxyImpl} from 'chrome://flags/flags_browser_proxy.js';
 import {getDeepActiveElement} from 'chrome://resources/js/util.js';
 import {assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
+import {eventToPromise, isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {TestFlagsBrowserProxy} from './test_flags_browser_proxy.js';
 
@@ -83,10 +83,10 @@ suite('FlagsAppTest', function() {
   let browserProxy: TestFlagsBrowserProxy;
 
   setup(async function() {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
     browserProxy = new TestFlagsBrowserProxy();
     browserProxy.setFeatureData(experimentalFeaturesData);
     FlagsBrowserProxyImpl.setInstance(browserProxy);
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
     app = document.createElement('flags-app');
     document.body.appendChild(app);
     app.setAnnounceStatusDelayMsForTesting(0);
@@ -102,12 +102,6 @@ suite('FlagsAppTest', function() {
     searchTextArea.value = text;
     searchTextArea.dispatchEvent(
         new CustomEvent('input', {composed: true, bubbles: true}));
-  }
-
-  function selectChange(selectEl: HTMLSelectElement, index: number) {
-    selectEl.selectedIndex = index;
-    selectEl.dispatchEvent(
-        new CustomEvent('change', {composed: true, bubbles: true}));
   }
 
   test('Layout', function() {
@@ -135,67 +129,34 @@ suite('FlagsAppTest', function() {
     // </if>
   });
 
-  test('check available/unavailable tabs are rendered properly', function() {
-    const availableTab = app.getRequiredElement('#tab-available');
-    const unavailableTab = app.getRequiredElement('#tab-unavailable');
-
-    assertTrue(isVisible(availableTab));
-    assertTrue(isVisible(unavailableTab));
-
-    const defaultAvailableExperimentsContainer =
-        app.getRequiredElement('#default-experiments');
-    assertTrue(isVisible(defaultAvailableExperimentsContainer));
-
-    const nonDefaultAvailableExperimentsContainer =
-        app.getRequiredElement('#non-default-experiments');
-    assertFalse(isVisible(nonDefaultAvailableExperimentsContainer));
-
-    const unavailableExperimentsContainer =
-        app.getRequiredElement('#unavailable-experiments');
-    assertFalse(isVisible(unavailableExperimentsContainer));
-
-    // Toggle unavailable tab and the unavailable experiments container becomes
-    // visible.
-    unavailableTab.click();
-    assertTrue(isVisible(unavailableExperimentsContainer));
-    assertFalse(isVisible(defaultAvailableExperimentsContainer));
-  });
-
   test(
-      'enable experiment and selectExperimentalFeature event fired',
-      function() {
-        const experimentWithDefault =
-            app.getRequiredElement('#default-experiments')
-                .querySelectorAll('flags-experiment')[0];
-        assertTrue(!!experimentWithDefault);
-        const select =
-            experimentWithDefault.getRequiredElement<HTMLSelectElement>(
-                '.experiment-select');
-        assertTrue(!!select);
+      'check available/unavailable tabs are rendered properly',
+      async function() {
+        const crTabs = app.getRequiredElement('cr-tabs');
+        assertTrue(isVisible(crTabs));
+        assertEquals(2, crTabs.tabNames.length);
+        assertEquals(0, crTabs.selected);
 
-        // Initially, the selected option is "Default" at index 0
-        assertEquals(0, select.selectedIndex);
+        const defaultAvailableExperimentsContainer =
+            app.getRequiredElement('#default-experiments');
+        const nonDefaultAvailableExperimentsContainer =
+            app.getRequiredElement('#non-default-experiments');
+        const unavailableExperimentsContainer =
+            app.getRequiredElement('#unavailable-experiments');
+        assertFalse(isVisible(nonDefaultAvailableExperimentsContainer));
+        assertTrue(isVisible(defaultAvailableExperimentsContainer));
+        assertFalse(isVisible(unavailableExperimentsContainer));
 
-        // Select the "Enabled" option at index 1
-        selectChange(select, 1);
-        return browserProxy.whenCalled('selectExperimentalFeature');
-      });
-
-  test(
-      'enable experiment and enableExperimentalFeature event fired',
-      function() {
-        const experimentWithNoDefault =
-            app.getRequiredElement('#default-experiments')
-                .querySelectorAll('flags-experiment')[1];
-        assertTrue(!!experimentWithNoDefault);
-        const select =
-            experimentWithNoDefault.getRequiredElement<HTMLSelectElement>(
-                '.experiment-enable-disable');
-        assertTrue(!!select);
-
-        // Select the non-default option at index 1
-        selectChange(select, 1);
-        return browserProxy.whenCalled('enableExperimentalFeature');
+        // Toggle unavailable tab and the unavailable experiments container
+        // becomes visible.
+        const tabs = crTabs.shadowRoot!.querySelectorAll<HTMLElement>('.tab');
+        assertEquals(2, tabs.length);
+        tabs[1]!.click();
+        await microtasksFinished();
+        assertEquals(1, crTabs.selected);
+        assertFalse(isVisible(nonDefaultAvailableExperimentsContainer));
+        assertFalse(isVisible(defaultAvailableExperimentsContainer));
+        assertTrue(isVisible(unavailableExperimentsContainer));
       });
 
   test('clear search button shown/hidden', async function() {
@@ -209,14 +170,14 @@ suite('FlagsAppTest', function() {
     await searchEventPromise;
     assertTrue(isVisible(clearSearch));
 
-    // The clear search button is pressed then search text is cleared and button
-    // is hidden
+    // The clear search button is hidden after clicked.
     clearSearch.click();
+    await microtasksFinished();
     assertEquals('', searchTextArea.value);
     assertFalse(isVisible(clearSearch));
   });
 
-  test('restart toast shown and relaunch event fired', function() {
+  test('ResetAllClick', async function() {
     const restartToast = app.getRequiredElement('#needs-restart');
     const restartButton =
         app.getRequiredElement<HTMLButtonElement>('#experiment-restart-button');
@@ -226,11 +187,30 @@ suite('FlagsAppTest', function() {
     // The restartButton should be disabled so that it is not in the tab order.
     assertTrue(restartButton.disabled);
 
-    // The reset all button is clicked and restart toast becomes visible.
+    let defaultExperiments = app.getRequiredElement('#default-experiments')
+                                 .querySelectorAll('flags-experiment');
+    assertEquals(supportedFeatures.length, defaultExperiments.length);
+
+    // Need to turn `needsRestart` to true, so that the toast is not dismissed
+    // after re-fetching the backend data below.
+    const data: ExperimentalFeaturesData =
+        structuredClone(experimentalFeaturesData);
+    data.needsRestart = true;
+    browserProxy.setFeatureData(data);
+
+    // The "Reset all" button is clicked, the restart toast becomes visible and
+    // the experiment data is re-requested from the backend.
+    browserProxy.reset();
     resetAllButton.click();
     assertTrue(restartToast.classList.contains('show'));
+    await browserProxy.whenCalled('requestExperimentalFeatures');
 
-    // The restart button is clicked and a browserRestart event fired.
+    // Check that the same number of experiments is rendered after re-rendering.
+    defaultExperiments = app.getRequiredElement('#default-experiments')
+                             .querySelectorAll('flags-experiment');
+    assertEquals(supportedFeatures.length, defaultExperiments.length);
+
+    // The restart button is clicked and a request to restart is sent.
     assertFalse(restartButton.disabled);
     restartButton.click();
     return browserProxy.whenCalled('restartBrowser');
@@ -241,17 +221,21 @@ suite('FlagsAppTest', function() {
     searchBoxInput('available');
     return promise.then(() => {
       assertFalse(isVisible(app.getRequiredElement('.no-match')));
-      const noMatchMsg: NodeListOf<HTMLElement> =
-          app.$all('.tab-content .no-match');
+      const noMatchMsg = app.shadowRoot!.querySelectorAll<HTMLElement>(
+          '.tab-content .no-match');
       assertTrue(!!noMatchMsg[0]);
       assertEquals(
           2,
-          app.$all(`#tab-content-available flags-experiment:not(.hidden)`)
+          app.shadowRoot!
+              .querySelectorAll(
+                  `#tab-content-available flags-experiment:not([hidden])`)
               .length);
       assertTrue(!!noMatchMsg[1]);
       assertEquals(
           1,
-          app.$all(`#tab-content-unavailable flags-experiment:not(.hidden)`)
+          app.shadowRoot!
+              .querySelectorAll(
+                  `#tab-content-unavailable flags-experiment:not([hidden])`)
               .length);
     });
   });
@@ -261,17 +245,21 @@ suite('FlagsAppTest', function() {
     searchBoxInput('none');
     return promise.then(() => {
       assertTrue(isVisible(app.getRequiredElement('.no-match')));
-      const noMatchMsg: NodeListOf<HTMLElement> =
-          app.$all('.tab-content .no-match');
+      const noMatchMsg = app.shadowRoot!.querySelectorAll<HTMLElement>(
+          '.tab-content .no-match');
       assertTrue(!!noMatchMsg[0]);
       assertEquals(
           0,
-          app.$all(`#tab-content-available flags-experiment:not(.hidden)`)
+          app.shadowRoot!
+              .querySelectorAll(
+                  `#tab-content-available flags-experiment:not([hidden])`)
               .length);
       assertTrue(!!noMatchMsg[1]);
       assertEquals(
           0,
-          app.$all(`#tab-content-unavailable flags-experiment:not(.hidden)`)
+          app.shadowRoot!
+              .querySelectorAll(
+                  `#tab-content-unavailable flags-experiment:not([hidden])`)
               .length);
     });
   });

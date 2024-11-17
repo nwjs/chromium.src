@@ -8,6 +8,7 @@ include_rules = [
   "+gpu/webgpu",
   "+media/base",
   "+media/capture/mojom",
+  "+services/on_device_model/ml/chrome_ml.h",
   "+services/viz/public/cpp/gpu",
   "+services/viz/public/mojom",
   "+services/video_effects/public/mojom",
@@ -23,4 +24,12 @@ specific_include_rules = {
   ".*_unittest\.cc": [
     "+gpu/ipc/common",
   ],
+  "video_effects_processor_webgpu.cc": [
+    # Included within #if MEDIAPIPE_USE_WEBGPU.
+    "+third_party/mediapipe/src/mediapipe/gpu/webgpu/webgpu_device_registration.h"
+  ],
+  "video_effects_sandbox_hook_linux\.[cc|h]": [
+    "+sandbox/linux",
+    "+sandbox/policy/linux",
+  ]
 }

@@ -21,6 +21,7 @@
 #include "base/metrics/user_metrics_action.h"
 #include "base/one_shot_event.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/types/pass_key.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/apps/app_service/app_launch_params.h"
@@ -50,6 +51,7 @@
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/user_education/common/feature_promo_controller.h"
 #include "components/user_education/common/feature_promo_data.h"
+#include "components/user_education/common/feature_promo_result.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "components/webapps/browser/uninstall_result_code.h"
 #include "components/webapps/common/web_app_id.h"
@@ -335,6 +337,14 @@ Browser* WebAppUiManagerImpl::ReparentAppTabToWindow(
   DCHECK(CanReparentAppTabToWindow(app_id, shortcut_created));
   // Reparent the tab into an app window immediately.
   return ReparentWebContentsIntoAppBrowser(contents, app_id);
+}
+
+Browser* WebAppUiManagerImpl::ReparentAppTabToWindow(
+    content::WebContents* contents,
+    const webapps::AppId& app_id,
+    base::OnceCallback<void(content::WebContents*)> completion_callback) {
+  return ReparentWebContentsIntoAppBrowser(contents, app_id,
+                                           std::move(completion_callback));
 }
 
 void WebAppUiManagerImpl::ShowWebAppFileLaunchDialog(
@@ -813,13 +823,15 @@ void WebAppUiManagerImpl::ShowIPHPromoForAppsLaunchedViaLinkCapturing(
   promo_params.close_callback =
       base::BindOnce(&WebAppUiManagerImpl::OnIPHPromoResponseForLinkCapturing,
                      weak_ptr_factory_.GetWeakPtr(), browser, app_id);
+  promo_params.show_promo_result_callback =
+      base::BindOnce([](user_education::FeaturePromoResult result) {
+        if (result) {
+          base::RecordAction(
+              base::UserMetricsAction("LinkCapturingIPHAppBubbleShown"));
+        }
+      });
 
-  user_education::FeaturePromoResult promo_result =
-      browser->window()->MaybeShowFeaturePromo(std::move(promo_params));
-  if (promo_result) {
-    base::RecordAction(
-        base::UserMetricsAction("LinkCapturingIPHAppBubbleShown"));
-  }
+  browser->window()->MaybeShowFeaturePromo(std::move(promo_params));
 }
 
 void WebAppUiManagerImpl::OnIPHPromoResponseForLinkCapturing(
@@ -830,7 +842,8 @@ void WebAppUiManagerImpl::OnIPHPromoResponseForLinkCapturing(
   }
 
   const auto* const feature_promo_controller =
-      browser->window()->GetFeaturePromoController();
+      browser->window()->GetFeaturePromoController(
+          base::PassKey<WebAppUiManagerImpl>());
   if (!feature_promo_controller) {
     return;
   }

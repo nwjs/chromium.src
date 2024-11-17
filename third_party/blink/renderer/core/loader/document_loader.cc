@@ -2270,15 +2270,7 @@ scoped_refptr<SecurityOrigin> DocumentLoader::CalculateOrigin(
   // true, we won't try to compare the nonce of this origin (if it's opaque) to
   // the browser-calculated origin later on.
   bool origin_is_newly_created = false;
-  if (origin_to_commit_) {
-    // Origin to commit is specified by the browser process, it must be taken
-    // and used directly. It is currently supplied only for failed navigations
-    // and data: URL navigations.
-    CHECK(is_error_page_for_failed_navigation_ || url_.ProtocolIsData());
-    CHECK(origin_to_commit_->IsOpaque());
-    origin = origin_to_commit_;
-    debug_info_builder.Append("use_origin_to_commit");
-  } else if (IsPagePopupRunningInWebTest(frame_)) {
+  if (IsPagePopupRunningInWebTest(frame_)) {
     // If we are a page popup in LayoutTests ensure we use the popup
     // owner's security origin so the tests can possibly access the
     // document via internals API.
@@ -2316,6 +2308,15 @@ scoped_refptr<SecurityOrigin> DocumentLoader::CalculateOrigin(
     debug_info_builder.Append(", url=");
     debug_info_builder.Append(owner_document->Url().BaseAsString());
     debug_info_builder.Append(")");
+  } else if (origin_to_commit_) {
+    // Origin to commit is specified by the browser process, it must be taken
+    // and used directly. An exception is when the owner origin should be
+    // inherited in the cases above, since we want to also inherit renderer-only
+    // information such as document.domain value. This is OK because the
+    // non-renderer only origin bits will be the same, which will be asserted at
+    // the end of this function.
+    origin = origin_to_commit_;
+    debug_info_builder.Append("use_origin_to_commit");
   } else {
     debug_info_builder.Append("use_url_with_precursor");
     // Otherwise, create an origin that propagates precursor information
@@ -2331,7 +2332,11 @@ scoped_refptr<SecurityOrigin> DocumentLoader::CalculateOrigin(
        network::mojom::blink::WebSandboxFlags::kOrigin) !=
       network::mojom::blink::WebSandboxFlags::kNone) {
     debug_info_builder.Append(", add_sandbox[new_origin_precursor=");
-    auto sandbox_origin = origin->DeriveNewOpaqueOrigin();
+    // If `origin_to_commit_` is set, don't create a new opaque origin, but just
+    // use `origin_to_commit_`, which is already opaque.
+    auto sandbox_origin =
+        origin_to_commit_ ? origin_to_commit_ : origin->DeriveNewOpaqueOrigin();
+    CHECK(sandbox_origin->IsOpaque());
     debug_info_builder.Append(
         sandbox_origin->GetOriginOrPrecursorOriginIfOpaque()->ToString());
     debug_info_builder.Append("]");
@@ -2346,11 +2351,11 @@ scoped_refptr<SecurityOrigin> DocumentLoader::CalculateOrigin(
     // Note: Sandboxed about:srcdoc iframe without "allow-same-origin" aren't
     // allowed to load user's file, even if its parent can.
     if (url_.IsAboutSrcdocURL()) {
-      // We should only have a sandboxed, srcdoc frame without an owner document
-      // if isolated-sandboxed-iframes is enabled. Only cases that would
-      // normally inherit the origin need to be handled here, and a sandboxed
-      // about:blank document won't be moved out of process. Also, data: urls
-      // don't get secure contexts, so needn't be considered here.
+      // We should only have a sandboxed, srcdoc frame without an owner
+      // document if isolated-sandboxed-iframes is enabled. Only cases that
+      // would normally inherit the origin need to be handled here, and a
+      // sandboxed about:blank document won't be moved out of process. Also,
+      // data: urls don't get secure contexts, so needn't be considered here.
       CHECK(owner_document ||
             base::FeatureList::IsEnabled(features::kIsolateSandboxedIframes));
 
@@ -2372,7 +2377,7 @@ scoped_refptr<SecurityOrigin> DocumentLoader::CalculateOrigin(
       }
     }
     origin = sandbox_origin;
-    origin_is_newly_created = true;
+    origin_is_newly_created = !origin_to_commit_;
   }
 
   if (commit_reason_ == CommitReason::kInitialization &&
@@ -2401,6 +2406,13 @@ scoped_refptr<SecurityOrigin> DocumentLoader::CalculateOrigin(
       // Some clients do not want local URLs to have access to other local
       // URLs.
       origin->BlockLocalAccessFromLocalOrigin();
+      if (origin_to_commit_) {
+        // This information does not exist on `origin_to_commit_` as it comes
+        // from the browser side. To make sure the `IsSameOriginWith()` check
+        // at the end of the function will pass, also block access for
+        // `origin_to_commit_`.
+        origin_to_commit_->BlockLocalAccessFromLocalOrigin();
+      }
       debug_info_builder.Append(", universal_access_block_file");
     }
   }
@@ -2426,6 +2438,47 @@ scoped_refptr<SecurityOrigin> DocumentLoader::CalculateOrigin(
     debug_info_builder.Append(", is_newly_created");
   }
   origin_calculation_debug_info_ = debug_info_builder.ToAtomicString();
+  if (origin_to_commit_) {
+    SCOPED_CRASH_KEY_STRING256("OriginCalc", "debug_info",
+                               origin_calculation_debug_info_.Ascii());
+    SCOPED_CRASH_KEY_STRING256("OriginCalc", "url_stripped",
+                               url_.StrippedForUseAsReferrer().Ascii());
+    SCOPED_CRASH_KEY_BOOL("OriginCalc", "same_ptr",
+                          origin == origin_to_commit_);
+    SCOPED_CRASH_KEY_STRING256("OriginCalc", "origin",
+                               origin->ToString().Ascii());
+    SCOPED_CRASH_KEY_STRING256("OriginCalc", "origin_to_commit",
+                               origin_to_commit_->ToString().Ascii());
+    SCOPED_CRASH_KEY_BOOL("OriginCalc", "origin_local", origin->IsLocal());
+    SCOPED_CRASH_KEY_BOOL("OriginCalc", "origin_to_commit_local",
+                          origin_to_commit_->IsLocal());
+    SCOPED_CRASH_KEY_BOOL("OriginCalc", "origin_opaque", origin->IsOpaque());
+    SCOPED_CRASH_KEY_BOOL("OriginCalc", "origin_to_commit_opaque",
+                          origin_to_commit_->IsOpaque());
+    SCOPED_CRASH_KEY_BOOL("OriginCalc", "origin_block",
+                          origin->block_local_access_from_local_origin());
+    SCOPED_CRASH_KEY_BOOL(
+        "OriginCalc", "origin_to_commit_block",
+        origin_to_commit_->block_local_access_from_local_origin());
+    if (origin->IsLocal() && !origin->IsOpaque() &&
+        origin->block_local_access_from_local_origin() &&
+        origin != origin_to_commit_) {
+      // For local non-opaque origins that block local access, we can't use the
+      // IsSameOrigin check directly if the ptr is not the same (e.g. when the
+      // origin is inherited from the owner, instead of using
+      // `origin_to_commit_`), since the blocking will apply within that check.
+      // Instead, check that all the important properties are the same.
+      CHECK(owner_document && owner_document->domWindow());
+      CHECK(origin_to_commit_->IsLocal());
+      CHECK(!origin_to_commit_->IsOpaque());
+      CHECK(origin_to_commit_->block_local_access_from_local_origin());
+      CHECK_EQ(origin->Protocol(), origin_to_commit_->Protocol());
+      CHECK_EQ(origin->Host(), origin_to_commit_->Host());
+      CHECK_EQ(origin->Domain(), origin_to_commit_->Domain());
+    } else {
+      CHECK(origin->IsSameOriginWith(origin_to_commit_.get()));
+    }
+  }
   return origin;
 }
 
@@ -3138,6 +3191,16 @@ void DocumentLoader::CreateParserPostCommit() {
       window->GetOriginTrialContext()->AddFeature(
           mojom::blink::OriginTrialFeature::kTouchEventFeatureDetection);
     }
+
+#if BUILDFLAG(IS_CHROMEOS)
+    // TODO(crbug.com/371971653): Remove the force enabling of
+    // getAllScreensMedia once the feature is moved to stable in runtime enabled
+    // features.
+    if (window->GetExecutionContext()->IsIsolatedContext()) {
+      window->GetOriginTrialContext()->AddFeature(
+          mojom::blink::OriginTrialFeature::kGetAllScreensMedia);
+    }
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
     // Enable any origin trials that have been force enabled for this commit.
     window->GetOriginTrialContext()->AddForceEnabledTrials(

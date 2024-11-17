@@ -12,7 +12,6 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
-#include "chrome/browser/chromeos/launcher_search/search_util.h"
 #include "chrome/browser/chromeos/mahi/mahi_web_contents_manager.h"
 #include "chrome/browser/chromeos/printing/print_preview/print_preview_webcontents_manager.h"
 #include "chrome/browser/chromeos/reporting/metric_reporting_manager_lacros_factory.h"
@@ -49,7 +48,6 @@
 #include "chrome/browser/lacros/launcher_search/search_controller_lacros.h"
 #include "chrome/browser/lacros/media_app_lacros.h"
 #include "chrome/browser/lacros/multitask_menu_nudge_delegate_lacros.h"
-#include "chrome/browser/lacros/net/network_change_manager_bridge.h"
 #include "chrome/browser/lacros/net/network_settings_observer.h"
 #include "chrome/browser/lacros/screen_orientation_delegate_lacros.h"
 #include "chrome/browser/lacros/suggestion_service_lacros.h"
@@ -223,8 +221,6 @@ void ChromeBrowserMainExtraPartsLacros::PostBrowserStart() {
       std::make_unique<FullscreenControllerClientLacros>();
   kiosk_session_service_ = std::make_unique<KioskSessionServiceLacros>();
   media_app_ = std::make_unique<crosapi::MediaAppLacros>();
-  network_change_manager_bridge_ =
-      std::make_unique<NetworkChangeManagerBridge>();
   screen_orientation_delegate_ =
       std::make_unique<ScreenOrientationDelegateLacros>();
   search_controller_ = std::make_unique<crosapi::SearchControllerLacros>(
@@ -320,7 +316,7 @@ void ChromeBrowserMainExtraPartsLacros::PostBrowserStart() {
   if (chromeos::features::IsMahiEnabled() &&
       chromeos::LacrosService::Get()
           ->IsAvailable<crosapi::mojom::MahiBrowserDelegate>()) {
-    mahi::MahiWebContentsManager::Get()->Initialize();
+    chromeos::MahiWebContentsManager::Get()->Initialize();
   }
 
   if (base::FeatureList::IsEnabled(::features::kPrintPreviewCrosPrimary) &&

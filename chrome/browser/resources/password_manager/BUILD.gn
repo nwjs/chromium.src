@@ -29,6 +29,10 @@ build_webui("build") {
       "images/access_on_any_device_promo_dark.svg",
       "images/password_checkup_promo.svg",
       "images/password_checkup_promo_dark.svg",
+      "images/password_manager_screenshot_checkup_1x_en.png",
+      "images/password_manager_screenshot_checkup_2x_en.png",
+      "images/password_manager_screenshot_passwords_1x_en.png",
+      "images/password_manager_screenshot_passwords_2x_en.png",
       "images/password_shortcut_promo.svg",
       "images/password_shortcut_promo_dark.svg",
       "images/passwords_on_web_promo.svg",
@@ -46,7 +50,7 @@ build_webui("build") {
     ]
   }
 
-  if (is_mac || is_win) {
+  if (is_mac || is_win || is_chromeos) {
     if (is_chrome_branded) {
       static_files += [
         "images/screenlock_reauth_promo.svg",
@@ -127,6 +131,7 @@ build_webui("build") {
   ]
 
   icons_html_files = [ "icons.html" ]
+  html_to_wrapper_template = "detect"
 
   ts_composite = true
 

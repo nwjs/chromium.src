@@ -147,6 +147,9 @@ ContentSettingsType kPermissionType[] = {
     ContentSettingsType::POINTER_LOCK,
     ContentSettingsType::WEB_APP_INSTALLATION,
 #endif  // !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_CHROMEOS)
+    ContentSettingsType::WEB_PRINTING,
+#endif  // BUILDFLAG(IS_CHROMEOS)
 };
 
 // The list of setting types which request permission for a pair of requesting
@@ -572,6 +575,10 @@ void PageInfo::RecordPageInfoAction(page_info::PageInfoAction action) {
       base::RecordAction(base::UserMetricsAction(
           "PageInfo.CookiesSubpage.AllSitesFilteredOpened"));
       break;
+    case page_info::PAGE_INFO_SHOW_FULL_HISTORY_CLICKED:
+      base::RecordAction(
+          base::UserMetricsAction("PageInfo.History.ShowFullHistoryClicked"));
+      break;
   }
 }
 
@@ -790,10 +797,10 @@ void PageInfo::OpenAllSitesViewFilteredToRws() {
 #if BUILDFLAG(IS_ANDROID)
   NOTREACHED_IN_MIGRATION();
 #else
-  auto fps_owner = delegate_->GetRwsOwner(site_url_);
+  auto rws_owner = delegate_->GetRwsOwner(site_url_);
   RecordPageInfoAction(page_info::PAGE_INFO_ALL_SITES_WITH_FPS_FILTER_OPENED);
-  if (fps_owner) {
-    delegate_->ShowAllSitesSettingsFilteredByRwsOwner(*fps_owner);
+  if (rws_owner) {
+    delegate_->ShowAllSitesSettingsFilteredByRwsOwner(*rws_owner);
   } else {
     delegate_->ShowAllSitesSettingsFilteredByRwsOwner(std::u16string());
   }
@@ -1277,6 +1284,13 @@ bool PageInfo::ShouldShowPermission(
     return false;
   }
 
+#if BUILDFLAG(IS_CHROMEOS)
+  if (info.type == ContentSettingsType::WEB_PRINTING &&
+      !base::FeatureList::IsEnabled(blink::features::kWebPrinting)) {
+    return false;
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
   const bool is_incognito =
       web_contents_->GetBrowserContext()->IsOffTheRecord();
 #if BUILDFLAG(IS_ANDROID)
@@ -1471,9 +1485,9 @@ void PageInfo::PresentSiteDataInternal(base::OnceClosure done) {
 #if !BUILDFLAG(IS_ANDROID)
   if (base::FeatureList::IsEnabled(
           privacy_sandbox::kPrivacySandboxFirstPartySetsUI)) {
-    auto fps_owner = delegate_->GetRwsOwner(site_url_);
-    if (fps_owner) {
-      cookies_info.rws_info = PageInfoUI::CookiesRwsInfo(*fps_owner);
+    auto rws_owner = delegate_->GetRwsOwner(site_url_);
+    if (rws_owner) {
+      cookies_info.rws_info = PageInfoUI::CookiesRwsInfo(*rws_owner);
       cookies_info.rws_info->is_managed = delegate_->IsRwsManaged();
     }
   }

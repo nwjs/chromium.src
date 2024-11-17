@@ -70,16 +70,6 @@ BASE_FEATURE(kBlinkExtensionKiosk,
              "BlinkExtensionKiosk",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Feature flag used to gate preinstallation of the container app.
-BASE_FEATURE(kContainerAppPreinstall,
-             "ContainerAppPreinstall",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Feature flag used to gate debugging preinstallation of the container app.
-BASE_FEATURE(kContainerAppPreinstallDebug,
-             "ContainerAppPreinstallDebug",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables handling of key press event in background.
 BASE_FEATURE(kCrosAppsBackgroundEventHandling,
              "CrosAppsBackgroundEventHandling",
@@ -150,6 +140,11 @@ BASE_FEATURE(kExperimentalWebAppStoragePartitionIsolation,
              "ExperimentalWebAppStoragePartitionIsolation",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Feature flag used to gate preinstallation of the Gemini app.
+BASE_FEATURE(kGeminiAppPreinstall,
+             "GeminiAppPreinstall",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Enables Jelly features. go/jelly-flags
 BASE_FEATURE(kJelly, "Jelly", base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -218,10 +213,17 @@ BASE_FEATURE(kOverviewSessionInitOptimizations,
              "OverviewSessionInitOptimizations",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// TODO(crbug.com/345010938): Remove after migrating feature management flag.
 // Feature management flag used to gate preinstallation of the container app.
 // This flag is meant to be enabled by the feature management module.
 BASE_FEATURE(kFeatureManagementContainerAppPreinstall,
              "FeatureManagementContainerAppPreinstall",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Feature management flag used to gate preinstallation of the Gemini app. This
+// flag is meant to be enabled by the feature management module.
+BASE_FEATURE(kFeatureManagementGeminiAppPreinstall,
+             "FeatureManagementGeminiAppPreinstall",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls enabling / disabling the history embedding feature from the
@@ -265,7 +267,7 @@ BASE_FEATURE(kQuickAnswersRichCard,
 // Controls whether to enable Material Next UI for Quick Answers.
 BASE_FEATURE(kQuickAnswersMaterialNextUI,
              "QuickAnswersMaterialNextUI",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables Quick Share v2, which defaults Quick Share to 'Your Devices'
 // visibility, removes the 'Selected Contacts' visibility, removes the Quick
@@ -360,25 +362,6 @@ bool IsBlinkExtensionDiagnosticsEnabled() {
          base::FeatureList::IsEnabled(kBlinkExtensionDiagnostics);
 }
 
-bool IsContainerAppPreinstallEnabled() {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  return chromeos::BrowserParamsProxy::Get()->IsContainerAppPreinstallEnabled();
-#else  // BUILDFLAG(IS_CHROMEOS_LACROS)
-  return (base::FeatureList::IsEnabled(
-              kFeatureManagementContainerAppPreinstall) ||
-          IsContainerAppPreinstallDebugEnabled()) &&
-         base::FeatureList::IsEnabled(kContainerAppPreinstall);
-#endif  // !BUILDFLAG(IS_CHROMEOS_LACROS)
-}
-
-bool IsContainerAppPreinstallDebugEnabled() {
-  // NOTE: Feature management takes precedence over debugging.
-  if (base::FeatureList::IsEnabled(kFeatureManagementContainerAppPreinstall)) {
-    return false;
-  }
-  return base::FeatureList::IsEnabled(kContainerAppPreinstallDebug);
-}
-
 bool IsCrosComponentsEnabled() {
   return base::FeatureList::IsEnabled(kCrosComponents) && IsJellyEnabled();
 }
@@ -438,6 +421,16 @@ bool IsFileSystemProviderContentCacheEnabled() {
 #else
   return base::FeatureList::IsEnabled(kFileSystemProviderContentCache);
 #endif
+}
+
+bool IsGeminiAppPreinstallFeatureManagementEnabled() {
+  return base::FeatureList::IsEnabled(
+             kFeatureManagementContainerAppPreinstall) ||
+         base::FeatureList::IsEnabled(kFeatureManagementGeminiAppPreinstall);
+}
+
+bool IsGeminiAppPreinstallEnabled() {
+  return base::FeatureList::IsEnabled(kGeminiAppPreinstall);
 }
 
 bool IsJellyEnabled() {

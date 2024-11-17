@@ -17,7 +17,7 @@ namespace blink {
 
 class Document;
 class EventTarget;
-class HTMLAnchorElement;
+class HTMLAnchorElementBase;
 class KURL;
 class MouseEvent;
 class Node;
@@ -83,8 +83,8 @@ class BLINK_EXPORT AnchorElementInteractionTracker
 
   void OnMouseMoveEvent(const WebMouseEvent& mouse_event);
   void OnPointerEvent(EventTarget& target, const PointerEvent& pointer_event);
-  void OnClickEvent(HTMLAnchorElement& anchor, const MouseEvent& click_event);
-  void OnScrollEnd();
+  void OnClickEvent(HTMLAnchorElementBase& anchor,
+                    const MouseEvent& click_event);
 
   void HoverTimerFired(TimerBase*);
   void Trace(Visitor* visitor) const;
@@ -94,11 +94,11 @@ class BLINK_EXPORT AnchorElementInteractionTracker
   Document* GetDocument() { return document_.Get(); }
 
  private:
-  HTMLAnchorElement* FirstAnchorElementIncludingSelf(Node* node);
+  HTMLAnchorElementBase* FirstAnchorElementIncludingSelf(Node* node);
 
   // Gets the `anchor's` href attribute if it is part
   // of the HTTP family
-  KURL GetHrefEligibleForPreloading(const HTMLAnchorElement& anchor);
+  KURL GetHrefEligibleForPreloading(const HTMLAnchorElementBase& anchor);
 
   Member<MouseMotionEstimator> mouse_motion_estimator_;
   HeapMojoRemote<mojom::blink::AnchorElementInteractionHost> interaction_host_;

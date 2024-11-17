@@ -42,7 +42,6 @@ import org.chromium.chrome.browser.tab.TabDelegateFactory;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
-import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.ui.base.WindowAndroid;
 
 import java.lang.ref.WeakReference;
@@ -75,11 +74,10 @@ public class TabModelImplUnitTest {
     /** Required to handle some actions and initialize {@link TabModelOrderControllerImpl}. */
     @Mock private TabModelSelector mTabModelSelector;
 
-    @Mock private TabModelFilterProvider mTabModelFilterProvider;
-    @Mock private TabModelFilter mTabModelFilter;
+    @Mock private TabGroupModelFilterProvider mTabGroupModelFilterProvider;
+    @Mock private TabGroupModelFilter mTabGroupModelFilter;
 
     @Mock private Callback<Tab> mTabSupplierObserver;
-    @Mock private TabGroupModelFilter mTabGroupModelFilter;
     @Mock private WindowAndroid mWindowAndroid;
     @Mock private TabDelegateFactory mTabDelegateFactory;
     @Mock private WeakReference<Context> mWeakReferenceContext;
@@ -101,10 +99,13 @@ public class TabModelImplUnitTest {
 
         when(mTabModelDelegate.isReparentingInProgress()).thenReturn(false);
 
-        when(mTabModelSelector.getTabModelFilterProvider()).thenReturn(mTabModelFilterProvider);
-        when(mTabModelFilterProvider.getTabModelFilter(false)).thenReturn(mTabModelFilter);
-        when(mTabModelFilterProvider.getTabModelFilter(true)).thenReturn(mTabModelFilter);
-        when(mTabModelFilter.getValidPosition(any(), anyInt()))
+        when(mTabModelSelector.getTabGroupModelFilterProvider())
+                .thenReturn(mTabGroupModelFilterProvider);
+        when(mTabGroupModelFilterProvider.getTabGroupModelFilter(false))
+                .thenReturn(mTabGroupModelFilter);
+        when(mTabGroupModelFilterProvider.getTabGroupModelFilter(true))
+                .thenReturn(mTabGroupModelFilter);
+        when(mTabGroupModelFilter.getValidPosition(any(), anyInt()))
                 .thenAnswer(i -> i.getArguments()[1]);
 
         when(mWindowAndroid.getActivity()).thenReturn(mWeakReferenceActivity);
@@ -139,13 +140,13 @@ public class TabModelImplUnitTest {
     }
 
     /** Create a {@link TabModel} to use for the test. */
-    private TabModel createTabModel(boolean isActive, boolean isIncognito) {
+    private TabModelImpl createTabModel(boolean isActive, boolean isIncognito) {
         AsyncTabParamsManager realAsyncTabParamsManager =
                 AsyncTabParamsManagerFactory.createAsyncTabParamsManager();
         TabModelOrderControllerImpl orderController =
                 new TabModelOrderControllerImpl(mTabModelSelector);
         Profile profile = isIncognito ? mIncognitoProfile : mProfile;
-        TabModel tabModel =
+        TabModelImpl tabModel =
                 new TabModelImpl(
                         profile,
                         ActivityType.TABBED,
@@ -384,7 +385,7 @@ public class TabModelImplUnitTest {
     @Test
     @SmallTest
     public void testGetTabById() {
-        TabModel tabModel = createTabModel(/* isActive= */ true, /* isIncognito= */ false);
+        TabModelImpl tabModel = createTabModel(/* isActive= */ true, /* isIncognito= */ false);
         createTabModel(/* isActive= */ false, /* isIncognito= */ true);
 
         Tab tab1 = createTab(tabModel);
@@ -403,8 +404,7 @@ public class TabModelImplUnitTest {
     @Test
     @SmallTest
     public void testGetTabsNavigatedInTimeWindow() {
-        TabModelImpl tabModel =
-                (TabModelImpl) createTabModel(/* isActive= */ true, /* isIncognito= */ false);
+        TabModelImpl tabModel = createTabModel(/* isActive= */ true, /* isIncognito= */ false);
         MockTab tab1 = (MockTab) createTab(tabModel, 0, Tab.INVALID_TAB_ID);
         tab1.setLastNavigationCommittedTimestampMillis(200);
 
@@ -427,11 +427,10 @@ public class TabModelImplUnitTest {
     @Test
     @SmallTest
     public void testCloseTabsNavigatedInTimeWindow() {
-        when(mTabModelFilterProvider.getTabModelFilter(/* isIncognito= */ false))
+        when(mTabGroupModelFilterProvider.getTabGroupModelFilter(/* isIncognito= */ false))
                 .thenReturn(mTabGroupModelFilter);
 
-        TabModelImpl tabModel =
-                (TabModelImpl) createTabModel(/* isActive= */ true, /* isIncognito= */ false);
+        TabModelImpl tabModel = createTabModel(/* isActive= */ true, /* isIncognito= */ false);
 
         MockTab tab1 = (MockTab) createTab(tabModel, 0, Tab.INVALID_TAB_ID);
         tab1.setLastNavigationCommittedTimestampMillis(200);

@@ -194,7 +194,8 @@ public class FeedActionDelegateImpl implements FeedActionDelegate {
                         SigninAndHistorySyncCoordinator.WithAccountSigninMode
                                 .DEFAULT_ACCOUNT_BOTTOM_SHEET,
                         SigninAndHistorySyncCoordinator.HistoryOptInMode.NONE,
-                        signinAccessPoint);
+                        signinAccessPoint,
+                        /* selectedCoreAccountId= */ null);
     }
 
     @Override
@@ -222,7 +223,8 @@ public class FeedActionDelegateImpl implements FeedActionDelegate {
                             SigninAndHistorySyncCoordinator.WithAccountSigninMode
                                     .DEFAULT_ACCOUNT_BOTTOM_SHEET,
                             SigninAndHistorySyncCoordinator.HistoryOptInMode.NONE,
-                            signinAccessPoint);
+                            signinAccessPoint,
+                            /* selectedCoreAccountId= */ null);
             return;
         }
         AccountPickerBottomSheetStrings bottomSheetStrings =
@@ -252,7 +254,7 @@ public class FeedActionDelegateImpl implements FeedActionDelegate {
      * A {@link TabObserver} that observes navigation related events that originate from Feed
      * interactions. Calls reportPageLoaded when navigation completes.
      */
-    private class FeedTabNavigationObserver extends EmptyTabObserver {
+    private static class FeedTabNavigationObserver extends EmptyTabObserver {
         private final boolean mInNewTab;
         private final int mPageId;
         private final PageLoadObserver mPageLoadObserver;

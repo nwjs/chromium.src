@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/spotlight_debugger/ui_bundled/spotlight_debugger_view_controller.h"
 
 #import "base/apple/foundation_util.h"
+#import "base/memory/raw_ptr.h"
 #import "base/notreached.h"
 #import "base/time/time.h"
 #import "components/prefs/pref_service.h"
@@ -54,8 +55,8 @@ typedef NS_ENUM(NSUInteger, DebugCommandsRows) {
 @end
 
 @implementation SpotlightDebuggerViewController {
-  // PrefService per a browser state.
-  PrefService* _prefService;
+  // PrefService per a profile.
+  raw_ptr<PrefService> _prefService;
 }
 
 - (instancetype)initWithPrefService:(PrefService*)prefService {

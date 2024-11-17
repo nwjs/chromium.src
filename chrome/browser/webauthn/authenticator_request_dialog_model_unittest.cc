@@ -454,7 +454,6 @@ TEST_F(AuthenticatorRequestDialogControllerTest, Mechanisms) {
   const auto usb = AuthenticatorTransport::kUsbHumanInterfaceDevice;
   const auto internal = AuthenticatorTransport::kInternal;
   const auto cable = AuthenticatorTransport::kHybrid;
-  const auto aoa = AuthenticatorTransport::kAndroidAccessory;
   const auto cred1 = CredentialInfoFrom(kCred1);
   const auto cred2 = CredentialInfoFrom(kCred2);
   const auto phonecred1 = CredentialInfoFrom(kPhoneCred1);
@@ -465,7 +464,6 @@ TEST_F(AuthenticatorRequestDialogControllerTest, Mechanisms) {
   [[maybe_unused]] const auto touchid_cred1 = CredentialInfoFrom(kTouchIDCred1);
   [[maybe_unused]] const auto enclave_cred1 = CredentialInfoFrom(kEnclaveCred1);
   const auto v1 = TransportAvailabilityParam::kHasCableV1Extension;
-  const auto v2 = TransportAvailabilityParam::kHasCableV2Extension;
   const auto has_winapi =
       TransportAvailabilityParam::kHasWinNativeAuthenticator;
   const auto win_hybrid = TransportAvailabilityParam::kWindowsHandlesHybrid;
@@ -660,32 +658,6 @@ TEST_F(AuthenticatorRequestDialogControllerTest, Mechanisms) {
 
       // A caBLEv1 extension should cause us to go directly to caBLE.
       {L, ga, {usb, cable}, {v1}, {}, {t(cable), t(usb)}, cable_ui},
-      // A caBLEv2 extension should cause us to go directly to caBLE, but also
-      // show the AOA option.
-      {L,
-       ga,
-       {usb, aoa, cable},
-       {v2},
-       {},
-       {t(aoa), t(cable), t(usb)},
-       cable_ui},
-
-      // If there are linked phones then AOA doesn't show up, but the phones do,
-      // and sorted. The selection sheet should show.
-      {L,
-       mc,
-       {usb, aoa, cable},
-       {},
-       {pqr("a"), pqr("b")},
-       {p("a"), p("b"), add},
-       mss},
-      {L,
-       ga,
-       {usb, aoa, cable},
-       {},
-       {pqr("a"), pqr("b")},
-       {p("a"), p("b"), add},
-       mss},
 
       // If this is a Conditional UI request, don't offer the platform
       // authenticator.
@@ -713,15 +685,6 @@ TEST_F(AuthenticatorRequestDialogControllerTest, Mechanisms) {
       // TODO(NEWUI): we should maintain this behaviour on Windows.
       {L, ga, {cable}, {has_winapi}, {}, {add, winapi}, mss},
       {L, ga, {}, {has_winapi}, {}, {winapi}, plat_ui},
-      // Except when the request is legacy cable.
-      {L, ga, {cable, aoa}, {has_winapi, v1}, {}, {t(cable), winapi}, cable_ui},
-      {L,
-       ga,
-       {cable, aoa},
-       {has_winapi, v2},
-       {},
-       {t(aoa), t(cable), winapi},
-       cable_ui},
 
        // With attachment=undefined, the UI should still default to a platform
        // authenticator.
@@ -2983,9 +2946,13 @@ TEST_F(ListPasskeysFromSyncTest, ListGPMPasskeysInConditionalUI) {
     EXPECT_EQ(passkey.credential_id(), kPhoneCred1.cred_id);
     EXPECT_EQ(passkey.display_name(), "");
     EXPECT_EQ(passkey.username(), kPhoneCred1.user.name);
-    EXPECT_EQ(passkey.GetAuthenticatorLabel(),
-              l10n_util::GetStringFUTF16(
-                  IDS_PASSWORD_MANAGER_PASSKEY_FROM_PHONE, u"Phone from sync"));
+    EXPECT_EQ(
+        passkey.GetAuthenticatorLabel(),
+        l10n_util::GetStringFUTF16(
+            base::FeatureList::IsEnabled(device::kWebAuthnEnclaveAuthenticator)
+                ? IDS_PASSWORD_MANAGER_PASSKEY_FROM_PHONE_NEW
+                : IDS_PASSWORD_MANAGER_PASSKEY_FROM_PHONE,
+            u"Phone from sync"));
     EXPECT_EQ(passkey.user_id(), kPhoneCred1.user.id);
     EXPECT_EQ(passkey.rp_id(), kPhoneCred1.rp_id);
     EXPECT_EQ(passkey.source(),

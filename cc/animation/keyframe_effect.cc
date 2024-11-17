@@ -83,6 +83,10 @@ void KeyframeEffect::SetNeedsPushProperties() {
   animation_->SetNeedsPushProperties();
 }
 
+void KeyframeEffect::ResetNeedsPushProperties() {
+  needs_push_properties_ = false;
+}
+
 void KeyframeEffect::BindElementAnimations(
     ElementAnimations* element_animations) {
   DCHECK(element_animations);
@@ -458,8 +462,7 @@ bool KeyframeEffect::DispatchAnimationEventToKeyframeModel(
       // TIME_UPDATED events are used to synchronize effect time between cc and
       // main thread worklet animations. Keyframe models are not involved in
       // this process.
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
   return dispatched;
 }
@@ -732,6 +735,8 @@ void KeyframeEffect::PushPropertiesTo(
   if (!needs_push_properties_)
     return;
   needs_push_properties_ = false;
+
+  keyframe_effect_impl->SetNeedsPushProperties();
 
   // Synchronize the keyframe_model target between main and impl side.
   if (element_id_ != keyframe_effect_impl->element_id_) {

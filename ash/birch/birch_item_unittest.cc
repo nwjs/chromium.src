@@ -19,7 +19,6 @@
 #include "ash/test/ash_test_base.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
-#include "base/memory/raw_ptr.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
@@ -95,11 +94,6 @@ class BirchItemTest : public testing::Test {
   BirchItemTest()
       : ash_timezone_(u"America/Los_Angeles"),
         scoped_libc_timezone_("America/Los_Angeles") {
-    auto new_window_delegate = std::make_unique<TestNewWindowDelegateImpl>();
-    new_window_delegate_ = new_window_delegate.get();
-    new_window_delegate_provider_ =
-        std::make_unique<TestNewWindowDelegateProvider>(
-            std::move(new_window_delegate));
     BirchItem::set_action_count_for_test(0);
 
     // The mock clock starts with a fixed but arbitrary time. Adjust the time
@@ -109,8 +103,13 @@ class BirchItemTest : public testing::Test {
 
   ~BirchItemTest() override { BirchItem::set_action_count_for_test(0); }
 
-  std::unique_ptr<TestNewWindowDelegateProvider> new_window_delegate_provider_;
-  raw_ptr<TestNewWindowDelegateImpl> new_window_delegate_ = nullptr;
+  TestNewWindowDelegateImpl& new_window_delegate() {
+    return new_window_delegate_;
+  }
+
+ private:
+  TestNewWindowDelegateImpl new_window_delegate_;
+
   // Use an arbitrary but fixed "now" time for tests.
   base::ScopedMockClockOverride mock_clock_override_;
 
@@ -179,13 +178,13 @@ TEST_F(BirchItemTest, Calendar_PerformAction_BothConferenceAndCalendar) {
                          /*conference_url=*/GURL("http://meet.com"),
                          /*event_id=*/"000",
                          /*all_day_event=*/false);
-  item.PerformAction();
-  EXPECT_EQ(new_window_delegate_->last_opened_url_,
+  item.PerformAction(/*is_post_login=*/false);
+  EXPECT_EQ(new_window_delegate().last_opened_url_,
             GURL("http://calendar.com/"));
 
   EXPECT_TRUE(item.addon_label());
   item.PerformAddonAction();
-  EXPECT_EQ(new_window_delegate_->last_opened_url_, GURL("http://meet.com/"));
+  EXPECT_EQ(new_window_delegate().last_opened_url_, GURL("http://meet.com/"));
 }
 
 TEST_F(BirchItemTest, Calendar_PerformAction_Histograms) {
@@ -196,7 +195,7 @@ TEST_F(BirchItemTest, Calendar_PerformAction_Histograms) {
                          /*conference_url=*/GURL("http://meet.com"),
                          /*event_id=*/"000",
                          /*all_day_event=*/false);
-  item.PerformAction();
+  item.PerformAction(/*is_post_login=*/false);
   histograms.ExpectBucketCount("Ash.Birch.Bar.Activate", true, 1);
   histograms.ExpectBucketCount("Ash.Birch.Chip.Activate",
                                BirchItemType::kCalendar, 1);
@@ -215,13 +214,13 @@ TEST_F(BirchItemTest, Calendar_PerformAction_CalendarOnly) {
                          /*conference_url=*/GURL(),
                          /*event_id=*/"000",
                          /*all_day_event=*/false);
-  item.PerformAction();
-  EXPECT_EQ(new_window_delegate_->last_opened_url_,
+  item.PerformAction(/*is_post_login=*/false);
+  EXPECT_EQ(new_window_delegate().last_opened_url_,
             GURL("http://calendar.com/"));
 
   EXPECT_FALSE(item.addon_label());
   item.PerformAddonAction();
-  EXPECT_EQ(new_window_delegate_->last_opened_url_,
+  EXPECT_EQ(new_window_delegate().last_opened_url_,
             GURL("http://calendar.com/"));
 }
 
@@ -233,8 +232,8 @@ TEST_F(BirchItemTest, Calendar_PerformAction_NoURL) {
                          /*conference_url=*/GURL(),
                          /*event_id=*/"000",
                          /*all_day_event=*/false);
-  item.PerformAction();
-  EXPECT_EQ(new_window_delegate_->last_opened_url_, GURL());
+  item.PerformAction(/*is_post_login=*/false);
+  EXPECT_EQ(new_window_delegate().last_opened_url_, GURL());
 }
 
 TEST_F(BirchItemTest, Calendar_ShouldShowAddonAction) {
@@ -339,8 +338,8 @@ TEST_F(BirchItemTest, Attachment_PerformAction_ValidUrl) {
                            /*start_time=*/base::Time(),
                            /*end_time=*/base::Time(),
                            /*file_id=*/"");
-  item.PerformAction();
-  EXPECT_EQ(new_window_delegate_->last_opened_url_, GURL("http://file.com/"));
+  item.PerformAction(/*is_post_login=*/false);
+  EXPECT_EQ(new_window_delegate().last_opened_url_, GURL("http://file.com/"));
 }
 
 TEST_F(BirchItemTest, Attachment_PerformAction_Histograms) {
@@ -351,7 +350,7 @@ TEST_F(BirchItemTest, Attachment_PerformAction_Histograms) {
                            /*start_time=*/base::Time(),
                            /*end_time=*/base::Time(),
                            /*file_id=*/"");
-  item.PerformAction();
+  item.PerformAction(/*is_post_login=*/false);
   histograms.ExpectBucketCount("Ash.Birch.Bar.Activate", true, 1);
   histograms.ExpectBucketCount("Ash.Birch.Chip.Activate",
                                BirchItemType::kAttachment, 1);
@@ -364,8 +363,8 @@ TEST_F(BirchItemTest, Attachment_PerformAction_EmptyUrl) {
                            /*start_time=*/base::Time(),
                            /*end_time=*/base::Time(),
                            /*file_id=*/"");
-  item.PerformAction();
-  EXPECT_EQ(new_window_delegate_->last_opened_url_, GURL());
+  item.PerformAction(/*is_post_login=*/false);
+  EXPECT_EQ(new_window_delegate().last_opened_url_, GURL());
 }
 
 TEST_F(BirchItemTest, Attachment_Subtitle_Now) {
@@ -411,8 +410,8 @@ TEST_F(BirchItemTest, File_PerformAction) {
   EXPECT_EQ(u"suggested", item.subtitle());
   EXPECT_EQ("id_1", item.file_id());
 
-  item.PerformAction();
-  EXPECT_EQ(new_window_delegate_->last_opened_file_path_,
+  item.PerformAction(/*is_post_login=*/false);
+  EXPECT_EQ(new_window_delegate().last_opened_file_path_,
             base::FilePath("file_path"));
 }
 
@@ -420,7 +419,7 @@ TEST_F(BirchItemTest, File_PerformAction_Histograms) {
   base::HistogramTester histograms;
   BirchFileItem item(base::FilePath("file_path"), "title", u"suggested",
                      base::Time(), "id_1", "icon_url");
-  item.PerformAction();
+  item.PerformAction(/*is_post_login=*/false);
   histograms.ExpectBucketCount("Ash.Birch.Bar.Activate", true, 1);
   histograms.ExpectBucketCount("Ash.Birch.Chip.Activate", BirchItemType::kFile,
                                1);
@@ -428,15 +427,15 @@ TEST_F(BirchItemTest, File_PerformAction_Histograms) {
 
 TEST_F(BirchItemTest, Weather_PerformAction) {
   BirchWeatherItem item(u"item", 72.f, GURL("http://icon.com/"));
-  item.PerformAction();
-  EXPECT_EQ(new_window_delegate_->last_opened_url_,
+  item.PerformAction(/*is_post_login=*/false);
+  EXPECT_EQ(new_window_delegate().last_opened_url_,
             GURL("https://google.com/search?q=weather"));
 }
 
 TEST_F(BirchItemTest, Weather_PerformAction_Histograms) {
   base::HistogramTester histograms;
   BirchWeatherItem item(u"item", 72.f, GURL("http://icon.com/"));
-  item.PerformAction();
+  item.PerformAction(/*is_post_login=*/false);
   histograms.ExpectBucketCount("Ash.Birch.Bar.Activate", true, 1);
   histograms.ExpectBucketCount("Ash.Birch.Chip.Activate",
                                BirchItemType::kWeather, 1);
@@ -495,8 +494,8 @@ TEST_F(BirchItemTest, Tab_PerformAction_ValidUrl) {
                     /*timestamp=*/base::Time(),
                     /*favicon_url=*/GURL(), /*session_name=*/"",
                     /*form_factor=*/BirchTabItem::DeviceFormFactor::kDesktop);
-  item.PerformAction();
-  EXPECT_EQ(new_window_delegate_->last_opened_url_,
+  item.PerformAction(/*is_post_login=*/false);
+  EXPECT_EQ(new_window_delegate().last_opened_url_,
             GURL("http://example.com/"));
 }
 
@@ -505,8 +504,8 @@ TEST_F(BirchItemTest, Tab_PerformAction_EmptyUrl) {
                     /*timestamp=*/base::Time(),
                     /*favicon_url=*/GURL(), /*session_name=*/"",
                     /*form_factor=*/BirchTabItem::DeviceFormFactor::kDesktop);
-  item.PerformAction();
-  EXPECT_EQ(new_window_delegate_->last_opened_url_, GURL());
+  item.PerformAction(/*is_post_login=*/false);
+  EXPECT_EQ(new_window_delegate().last_opened_url_, GURL());
 }
 
 TEST_F(BirchItemTest, Tab_PerformAction_Histograms) {
@@ -515,7 +514,7 @@ TEST_F(BirchItemTest, Tab_PerformAction_Histograms) {
                     /*timestamp=*/base::Time(),
                     /*favicon_url=*/GURL(), /*session_name=*/"",
                     /*form_factor=*/BirchTabItem::DeviceFormFactor::kDesktop);
-  item.PerformAction();
+  item.PerformAction(/*is_post_login=*/false);
   histograms.ExpectBucketCount("Ash.Birch.Bar.Activate", true, 1);
   histograms.ExpectBucketCount("Ash.Birch.Chip.Activate", BirchItemType::kTab,
                                1);
@@ -541,8 +540,8 @@ TEST_F(BirchItemTest, LastActive_Subtitle_OneHourAgo) {
 
 TEST_F(BirchItemTest, LastActive_PerformAction) {
   BirchLastActiveItem item(u"item", GURL("http://example.com/"), base::Time());
-  item.PerformAction();
-  EXPECT_EQ(new_window_delegate_->last_opened_url_,
+  item.PerformAction(/*is_post_login=*/false);
+  EXPECT_EQ(new_window_delegate().last_opened_url_,
             GURL("http://example.com/"));
 }
 
@@ -555,8 +554,8 @@ TEST_F(BirchItemTest, SelfShare_PerformAction) {
       /*secondary_icon_type=*/SecondaryIconType::kTabFromDesktop,
       /*activation_callback=*/activation_callback.Get());
   EXPECT_CALL(activation_callback, Run).Times(1);
-  item.PerformAction();
-  EXPECT_EQ(new_window_delegate_->last_opened_url_,
+  item.PerformAction(/*is_post_login=*/false);
+  EXPECT_EQ(new_window_delegate().last_opened_url_,
             GURL("https://www.example.com/"));
 }
 

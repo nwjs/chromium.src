@@ -111,29 +111,51 @@ std::string_view ActionPersistenceToString(
   }
 }
 
-// Returns `true` if `autofill_field`'s pre-filled value is classified as
-// meaningful (guarded by `features::kAutofillOverwritePlaceholdersOnly`) and
-// Autofill's behavior for filling pre-filled fields is overwriting them by
-// default.
-bool IsMeaningfullyPreFilled(const autofill::AutofillField& autofill_field) {
-  return autofill_field.may_use_prefilled_placeholder().has_value() &&
-         !autofill_field.may_use_prefilled_placeholder().value() &&
-         !base::FeatureList::IsEnabled(
-             features::kAutofillSkipPreFilledFields) &&
-         base::FeatureList::IsEnabled(
-             features::kAutofillOverwritePlaceholdersOnly);
-}
+// Returns true iff `field` should be skipped during filling because its
+// non-empty initial value is considered to be meaningful.
+bool ShouldSkipFieldBecauseOfMeaningfulInitialValue(
+    const autofill::AutofillField& field,
+    bool is_trigger_field) {
+  // Assume that the trigger field can always be overwritten.
+  if (is_trigger_field) {
+    return false;
+  }
+  // Select (list) elements are currently not supported.
+  if (field.IsSelectElement()) {
+    return false;
+  }
+  // By default, empty initial values are not considered to be meaningful. A
+  // value only consisting of whitespace is considered empty.
+  if (base::TrimWhitespace(field.value(ValueSemantics::kInitial),
+                           base::TrimPositions::TRIM_ALL)
+          .empty()) {
+    return false;
+  }
+  // If the field's initial value coincides with the value of its placeholder
+  // attribute, don't consider the initial value to be meaningful.
+  if (field.value(ValueSemantics::kInitial) == field.placeholder()) {
+    return false;
+  }
 
-// Returns `true` if `autofill_field`'s pre-filled value is classified as a
-// placeholder (guarded by `features::kAutofillOverwritePlaceholdersOnly`) and
-// Autofill's behavior for filling pre-filled fields is skipping them by
-// default.
-bool IsNotAPlaceholder(const autofill::AutofillField& autofill_field) {
-  return (!autofill_field.may_use_prefilled_placeholder().has_value() ||
-          !autofill_field.may_use_prefilled_placeholder().value() ||
-          !base::FeatureList::IsEnabled(
-              features::kAutofillOverwritePlaceholdersOnly)) &&
-         base::FeatureList::IsEnabled(features::kAutofillSkipPreFilledFields);
+  // If kAutofillOverwritePlaceholdersOnly is enabled:
+  // Fields that are non-empty on page load are only overwritten if
+  // crowdsourcing classified them as "placeholder" fields (meaning that users
+  // typically modify the value).
+  //
+  // At this point the field is known to contain a non-empty initial value at
+  // page load.
+  if (field.may_use_prefilled_placeholder().has_value() &&
+      base::FeatureList::IsEnabled(
+          features::kAutofillOverwritePlaceholdersOnly)) {
+    return !field.may_use_prefilled_placeholder().value();
+  }
+
+  // If kAutofillSkipPreFilledFields is enabled:
+  // Fields that are non-empty on page load are not meant to be overwritten.
+  //
+  // At this point the field is known to contain a non-empty initial value at
+  // page load.
+  return base::FeatureList::IsEnabled(features::kAutofillSkipPreFilledFields);
 }
 
 bool AllowPaymentSwapping(const AutofillField& trigger_field,
@@ -154,6 +176,7 @@ bool ShouldRecordFillingHistory(FillingProduct filling_product) {
   switch (filling_product) {
     case FillingProduct::kAddress:
     case FillingProduct::kCreditCard:
+    case FillingProduct::kPlusAddresses:
       return true;
     case FillingProduct::kNone:
     case FillingProduct::kMerchantPromoCode:
@@ -161,7 +184,6 @@ bool ShouldRecordFillingHistory(FillingProduct filling_product) {
     case FillingProduct::kAutocomplete:
     case FillingProduct::kPassword:
     case FillingProduct::kCompose:
-    case FillingProduct::kPlusAddresses:
     case FillingProduct::kStandaloneCvc:
     case FillingProduct::kPredictionImprovements:
       return false;
@@ -284,10 +306,8 @@ FieldFillingSkipReason FormFiller::GetFieldFillingSkipReason(
   // that this check happens after the `kFieldTypeUnrelated` check.
 
   // Don't fill meaningfully pre-filled fields but overwrite placeholders.
-  if (!is_trigger_field && !autofill_field.IsSelectOrSelectListElement() &&
-      !autofill_field.value(ValueSemantics::kInitial).empty() &&
-      (IsNotAPlaceholder(autofill_field) ||
-       IsMeaningfullyPreFilled(autofill_field))) {
+  if (ShouldSkipFieldBecauseOfMeaningfulInitialValue(autofill_field,
+                                                     is_trigger_field)) {
     return FieldFillingSkipReason::kValuePrefilled;
   }
 
@@ -496,9 +516,8 @@ void FormFiller::FillOrPreviewField(mojom::ActionPersistence action_persistence,
                                       field.global_id(), value);
 }
 
-void FormFiller::FillOrPreviewFormExperimental(
+void FormFiller::FillOrPreviewFormWithPredictionImprovements(
     mojom::ActionPersistence action_persistence,
-    FillingProduct filling_product,
     const FieldTypeSet& field_types_to_fill,
     const DenseSet<FieldFillingSkipReason>& ignorable_skip_reasons,
     const FormData& form,
@@ -507,13 +526,22 @@ void FormFiller::FillOrPreviewFormExperimental(
     const AutofillField& autofill_trigger_field,
     const base::flat_map<FieldGlobalId, std::u16string>& values_to_fill) {
   std::vector<FormFieldData> result_fields = form.fields();
-  CHECK_EQ(result_fields.size(), form_structure.field_count());
+  // Previously, the following if statement wasn't there and instead a CHECK
+  // expecting equal number of fields in `form` and `form_structure`. However,
+  // dynamic form changes can cause the numbers of fields to differ which caused
+  // a crash when this method was called by Autofill prediction improvements.
+  // Return early here to mitigate further crashes.
+  // TODO(crbug.com/372026861): Properly handle this case.
+  if (result_fields.size() != form_structure.field_count()) {
+    return;
+  }
 
   base::flat_map<FieldGlobalId, FieldFillingSkipReason> skip_reasons =
       GetFieldFillingSkipReasons(
           result_fields, form_structure, autofill_trigger_field,
           field_types_to_fill,
-          /*type_groups_originally_filled=*/std::nullopt, filling_product,
+          /*type_groups_originally_filled=*/std::nullopt,
+          FillingProduct::kPredictionImprovements,
           /*skip_unrecognized_autocomplete_fields=*/false,
           /*is_refill=*/false,
           /*is_expired_credit_card=*/false);
@@ -543,7 +571,8 @@ void FormFiller::FillOrPreviewFormExperimental(
       // TODO(crbug.com/40227496): Set also `AutofillField::value_` here.
       AutofillField& autofill_field = *form_structure.field(i);
       autofill_field.set_is_autofilled(true);
-      autofill_field.set_filling_product(filling_product);
+      autofill_field.set_filling_product(
+          FillingProduct::kPredictionImprovements);
     }
 
     const bool autofilled_value_did_not_change =
@@ -973,7 +1002,7 @@ void FormFiller::ScheduleRefill(const FormData& form,
   // If a timer for the refill was already running, it means the form
   // changed again. Stop the timer and start it again.
   if (filling_context->on_refill_timer.IsRunning()) {
-    filling_context->on_refill_timer.AbandonAndStop();
+    filling_context->on_refill_timer.Stop();
   }
   // Start a new timer to trigger refill.
   filling_context->on_refill_timer.Start(

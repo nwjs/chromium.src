@@ -480,7 +480,6 @@ UpdateService::UpdateState::State ToUpdateState(
 
     case update_client::ComponentState::kDownloading:
     case update_client::ComponentState::kDownloadingDiff:
-    case update_client::ComponentState::kDownloaded:
       return UpdateService::UpdateState::State::kDownloading;
 
     case update_client::ComponentState::kCanUpdate:
@@ -499,7 +498,6 @@ UpdateService::UpdateState::State ToUpdateState(
     case update_client::ComponentState::kUpdateError:
       return UpdateService::UpdateState::State::kUpdateError;
 
-    case update_client::ComponentState::kPingOnly:
     case update_client::ComponentState::kRun:
     case update_client::ComponentState::kLastStatus:
       NOTREACHED_IN_MIGRATION();
@@ -538,7 +536,7 @@ MakeUpdateClientCrxStateChangeCallback(
          scoped_refptr<PersistedData> persisted_data, const bool new_install,
          base::RepeatingCallback<void(const UpdateService::UpdateState&)>
              callback,
-         update_client::CrxUpdateItem crx_update_item) {
+         const update_client::CrxUpdateItem& crx_update_item) {
         UpdateService::UpdateState update_state;
         update_state.app_id = crx_update_item.id;
         update_state.state = ToUpdateState(crx_update_item.state);
@@ -747,14 +745,25 @@ void UpdateServiceImplImpl::RunPeriodicTasks(base::OnceClosure callback) {
       base::BindOnce(&CheckForUpdatesTask::Run,
                      base::MakeRefCounted<CheckForUpdatesTask>(
                          config_, GetUpdaterScope(),
-                         base::BindOnce(&UpdateServiceImplImpl::ForceInstall,
-                                        this, base::DoNothing()))));
-  new_tasks.push_back(
-      base::BindOnce(&CheckForUpdatesTask::Run,
-                     base::MakeRefCounted<CheckForUpdatesTask>(
-                         config_, GetUpdaterScope(),
+                         /*task_name=*/"UpdateAll",
                          base::BindOnce(&UpdateServiceImplImpl::UpdateAll, this,
                                         base::DoNothing()))));
+  new_tasks.push_back(base::BindOnce(
+      [](scoped_refptr<UpdateServiceImplImpl> self,
+         base::OnceClosure callback) {
+        base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+            FROM_HERE,
+            base::BindOnce(
+                &UpdateServiceImplImpl::ForceInstall, self, base::DoNothing(),
+                base::BindOnce(
+                    [](base::OnceClosure closure,
+                       UpdateService::Result result) {
+                      VLOG(0) << "ForceInstall task complete: " << result;
+                      std::move(closure).Run();
+                    },
+                    std::move(callback))));
+      },
+      base::WrapRefCounted(this)));
   new_tasks.push_back(base::BindOnce(
       &AutoRunOnOsUpgradeTask::Run,
       base::MakeRefCounted<AutoRunOnOsUpgradeTask>(
@@ -992,9 +1001,8 @@ void UpdateServiceImplImpl::Install(
 void UpdateServiceImplImpl::CancelInstalls(const std::string& app_id) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   VLOG(1) << __func__;
-  auto range = cancellation_callbacks_.equal_range(app_id);
-  base::ranges::for_each(range.first, range.second,
-                         [](const auto& i) { i.second.Run(); });
+  auto [first, last] = cancellation_callbacks_.equal_range(app_id);
+  base::ranges::for_each(first, last, [](const auto& i) { i.second.Run(); });
 }
 
 void UpdateServiceImplImpl::RunInstaller(

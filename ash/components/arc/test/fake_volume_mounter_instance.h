@@ -25,17 +25,25 @@ class FakeVolumeMounterInstance : public mojom::VolumeMounterInstance {
 
   int num_on_mount_event_called() { return num_on_mount_event_called_; }
 
+  void set_call_prepare_for_removable_media_unmount_callback(bool call) {
+    call_prepare_for_removable_media_unmount_callback_ = call;
+  }
+
   mojom::MountPointInfoPtr GetMountPointInfo(const std::string& mount_path);
 
   // mojom::VolumeMounterInstance overrides:
   void Init(::mojo::PendingRemote<mojom::VolumeMounterHost> host_remote,
             InitCallback callback) override;
   void OnMountEvent(mojom::MountPointInfoPtr mount_point_info) override;
+  void PrepareForRemovableMediaUnmount(
+      const base::FilePath& mount_path,
+      PrepareForRemovableMediaUnmountCallback callback) override;
 
  private:
   mojo::Remote<mojom::VolumeMounterHost> host_remote_;
   int num_on_mount_event_called_ = 0;
   std::map<std::string, mojom::MountPointInfoPtr> mount_path_to_info_;
+  bool call_prepare_for_removable_media_unmount_callback_ = true;
 };
 
 }  // namespace arc

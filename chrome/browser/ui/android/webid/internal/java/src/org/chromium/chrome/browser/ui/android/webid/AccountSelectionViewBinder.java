@@ -17,6 +17,7 @@ import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.icu.text.ListFormatter;
 import android.text.SpannableString;
 import android.text.method.LinkMovementMethod;
 import android.view.View;
@@ -44,6 +45,7 @@ import org.chromium.chrome.browser.ui.android.webid.data.IdentityProviderMetadat
 import org.chromium.components.browser_ui.util.AvatarGenerator;
 import org.chromium.components.browser_ui.widget.RoundedIconGenerator;
 import org.chromium.components.browser_ui.widget.TintedDrawable;
+import org.chromium.content.webid.IdentityRequestDialogDisclosureField;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModel.WritableObjectPropertyKey;
@@ -56,6 +58,7 @@ import org.chromium.url.GURL;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Consumer;
 
 /**
@@ -265,6 +268,26 @@ class AccountSelectionViewBinder {
                     model.get(DataSharingConsentProperties.PROPERTIES);
 
             Context context = view.getContext();
+            ArrayList<String> fieldStrings = new ArrayList<String>();
+            for (@IdentityRequestDialogDisclosureField int field : properties.mDisclosureFields) {
+                switch (field) {
+                    case IdentityRequestDialogDisclosureField.NAME:
+                        fieldStrings.add(
+                                context.getString(R.string.account_selection_data_sharing_name));
+                        break;
+                    case IdentityRequestDialogDisclosureField.EMAIL:
+                        fieldStrings.add(
+                                context.getString(R.string.account_selection_data_sharing_email));
+                        break;
+                    case IdentityRequestDialogDisclosureField.PICTURE:
+                        fieldStrings.add(
+                                context.getString(R.string.account_selection_data_sharing_picture));
+                        break;
+                }
+            }
+            ListFormatter formatter = ListFormatter.getInstance(Locale.getDefault());
+            String allFields = formatter.format(fieldStrings);
+
             SpanApplier.SpanInfo privacyPolicySpan =
                     createLink(
                             context,
@@ -288,7 +311,8 @@ class AccountSelectionViewBinder {
             } else {
                 consentTextId = R.string.account_selection_data_sharing_consent;
             }
-            String consentText = context.getString(consentTextId, properties.mIdpForDisplay);
+            String consentText =
+                    context.getString(consentTextId, properties.mIdpForDisplay, allFields);
 
             List<SpanApplier.SpanInfo> spans = new ArrayList<>();
             if (privacyPolicySpan != null) {
@@ -636,8 +660,8 @@ class AccountSelectionViewBinder {
         Resources resources = view.getResources();
         View headerView = view.findViewById(R.id.header);
 
-        // Reuse the same header from previous dialog if button mode verify sheet.
-        if (model.get(HeaderProperties.RP_MODE) == RpMode.BUTTON
+        // Reuse the same header from previous dialog if active mode verify sheet.
+        if (model.get(HeaderProperties.RP_MODE) == RpMode.ACTIVE
                 && (model.get(HeaderProperties.TYPE) == HeaderProperties.HeaderType.VERIFY
                         || model.get(HeaderProperties.TYPE)
                                 == HeaderProperties.HeaderType.VERIFY_AUTO_REAUTHN)) {
@@ -662,9 +686,7 @@ class AccountSelectionViewBinder {
             String subtitle =
                     computeHeaderSubtitle(
                             resources,
-                            headerType,
                             model.get(HeaderProperties.RP_FOR_DISPLAY),
-                            model.get(HeaderProperties.IDP_FOR_DISPLAY),
                             model.get(HeaderProperties.RP_MODE),
                             model.get(HeaderProperties.IS_MULTIPLE_ACCOUNT_CHOOSER));
             if (!subtitle.isEmpty()) {
@@ -716,8 +738,8 @@ class AccountSelectionViewBinder {
             }
 
             if (key == HeaderProperties.TYPE) {
-                // There is no progress bar or divider in the header for button mode.
-                if (model.get(HeaderProperties.RP_MODE) == RpMode.BUTTON) return;
+                // There is no progress bar or divider in the header for active mode.
+                if (model.get(HeaderProperties.RP_MODE) == RpMode.ACTIVE) return;
 
                 boolean progressBarVisible =
                         (headerType == HeaderProperties.HeaderType.VERIFY
@@ -732,7 +754,7 @@ class AccountSelectionViewBinder {
             if (brandIcon != null) {
                 int iconSize =
                         resources.getDimensionPixelSize(
-                                model.get(HeaderProperties.RP_MODE) == RpMode.BUTTON
+                                model.get(HeaderProperties.RP_MODE) == RpMode.ACTIVE
                                         ? R.dimen.account_selection_button_mode_sheet_icon_size
                                         : R.dimen.account_selection_sheet_icon_size);
                 Drawable croppedBrandIcon =
@@ -742,8 +764,8 @@ class AccountSelectionViewBinder {
                 headerIconView.setVisibility(View.VISIBLE);
             }
         } else if (key == HeaderProperties.RP_BRAND_ICON) {
-            // RP icon is not shown in widget mode.
-            if (model.get(HeaderProperties.RP_MODE) == RpMode.WIDGET) return;
+            // RP icon is not shown in passive mode.
+            if (model.get(HeaderProperties.RP_MODE) == RpMode.PASSIVE) return;
 
             Bitmap brandIcon = model.get(HeaderProperties.RP_BRAND_ICON);
             ImageView headerIconView = (ImageView) view.findViewById(R.id.header_rp_icon);
@@ -764,8 +786,8 @@ class AccountSelectionViewBinder {
             headerIconView.setVisibility(isRpIconVisible ? View.VISIBLE : View.GONE);
             arrowRangeIcon.setVisibility(isRpIconVisible ? View.VISIBLE : View.GONE);
         } else if (key == HeaderProperties.CLOSE_ON_CLICK_LISTENER) {
-            // There is no explicit close button for button mode, user swipes to close instead.
-            if (model.get(HeaderProperties.RP_MODE) == RpMode.BUTTON) return;
+            // There is no explicit close button for active mode, user swipes to close instead.
+            if (model.get(HeaderProperties.RP_MODE) == RpMode.ACTIVE) return;
 
             final Runnable closeOnClickRunnable =
                     (Runnable) model.get(HeaderProperties.CLOSE_ON_CLICK_LISTENER);
@@ -797,7 +819,7 @@ class AccountSelectionViewBinder {
             @RpContext.EnumType int rpContext,
             @RpMode.EnumType int rpMode) {
         @StringRes int titleStringId;
-        if (rpMode == RpMode.BUTTON) {
+        if (rpMode == RpMode.ACTIVE) {
             switch (rpContext) {
                 case RpContext.SIGN_UP:
                     titleStringId =
@@ -842,12 +864,10 @@ class AccountSelectionViewBinder {
 
     private static String computeHeaderSubtitle(
             Resources resources,
-            HeaderProperties.HeaderType type,
             String rpUrl,
-            String idpUrl,
             @RpMode.EnumType int rpMode,
             Boolean isMultipleAccountChooser) {
-        if (rpMode == RpMode.WIDGET) return "";
+        if (rpMode == RpMode.PASSIVE) return "";
 
         if (isMultipleAccountChooser) {
             return String.format(

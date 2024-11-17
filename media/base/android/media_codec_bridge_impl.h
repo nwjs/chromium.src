@@ -70,6 +70,9 @@ class MEDIA_EXPORT VideoCodecConfig {
 
   // Enables Block Model (LinearBlock).
   bool use_block_model = false;
+
+  // The profile of decoder.
+  VideoCodecProfile profile;
 };
 
 // A bridge to a Java MediaCodec.
@@ -161,6 +164,7 @@ class MEDIA_EXPORT MediaCodecBridgeImpl : public MediaCodecBridge {
                                         void* dst,
                                         size_t num) override;
   std::string GetName() override;
+  bool IsSoftwareCodec() override;
   bool SetSurface(const base::android::JavaRef<jobject>& surface) override;
   void SetVideoBitrate(int bps, int frame_rate) override;
   void RequestKeyFrameSoon() override;

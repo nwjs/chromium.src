@@ -4,7 +4,7 @@
 
 import {stringToMojoString16} from 'chrome://resources/js/mojo_type_util.js';
 
-import type {ProfileData, SwitchToTabInfo, Tab, TabOrganizationModelStrategy, TabOrganizationSession, UserFeedback} from './tab_search.mojom-webui.js';
+import type {ProfileData, SwitchToTabInfo, Tab, TabOrganizationFeature, TabOrganizationModelStrategy, TabOrganizationSession, TabSearchSection, UserFeedback} from './tab_search.mojom-webui.js';
 import {PageCallbackRouter, PageHandlerFactory, PageHandlerRemote} from './tab_search.mojom-webui.js';
 
 /**
@@ -35,6 +35,10 @@ export interface TabSearchApiProxy {
 
   getStaleTabs(): Promise<{tabs: Tab[]}>;
 
+  getTabSearchSection(): Promise<{section: TabSearchSection}>;
+
+  getTabOrganizationFeature(): Promise<{feature: TabOrganizationFeature}>;
+
   getTabOrganizationSession(): Promise<{session: TabOrganizationSession}>;
 
   getTabOrganizationModelStrategy():
@@ -58,7 +62,9 @@ export interface TabSearchApiProxy {
 
   saveRecentlyClosedExpandedPref(expanded: boolean): void;
 
-  setTabIndex(index: number): void;
+  setTabSearchSection(section: TabSearchSection): void;
+
+  setOrganizationFeature(feature: TabOrganizationFeature): void;
 
   startTabGroupTutorial(): void;
 
@@ -124,6 +130,14 @@ export class TabSearchApiProxyImpl implements TabSearchApiProxy {
     return this.handler.getStaleTabs();
   }
 
+  getTabSearchSection() {
+    return this.handler.getTabSearchSection();
+  }
+
+  getTabOrganizationFeature() {
+    return this.handler.getTabOrganizationFeature();
+  }
+
   getTabOrganizationSession() {
     return this.handler.getTabOrganizationSession();
   }
@@ -177,8 +191,12 @@ export class TabSearchApiProxyImpl implements TabSearchApiProxy {
     this.handler.saveRecentlyClosedExpandedPref(expanded);
   }
 
-  setTabIndex(index: number) {
-    this.handler.setTabIndex(index);
+  setTabSearchSection(section: TabSearchSection) {
+    this.handler.setTabSearchSection(section);
+  }
+
+  setOrganizationFeature(feature: TabOrganizationFeature) {
+    this.handler.setOrganizationFeature(feature);
   }
 
   startTabGroupTutorial() {

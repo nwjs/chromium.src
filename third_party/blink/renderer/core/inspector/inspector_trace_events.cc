@@ -322,6 +322,7 @@ const char* PseudoTypeToString(CSSSelector::PseudoType pseudo_type) {
     DEFINE_STRING_MAPPING(PseudoWebKitAutofill)
     DEFINE_STRING_MAPPING(PseudoAutofillPreviewed)
     DEFINE_STRING_MAPPING(PseudoAutofillSelected)
+    DEFINE_STRING_MAPPING(PseudoHasSlotted)
     DEFINE_STRING_MAPPING(PseudoHover)
     DEFINE_STRING_MAPPING(PseudoDrag)
     DEFINE_STRING_MAPPING(PseudoFocus)
@@ -387,6 +388,8 @@ const char* PseudoTypeToString(CSSSelector::PseudoType pseudo_type) {
     DEFINE_STRING_MAPPING(PseudoFullScreenAncestor)
     DEFINE_STRING_MAPPING(PseudoFullscreen)
     DEFINE_STRING_MAPPING(PseudoPaused)
+    DEFINE_STRING_MAPPING(PseudoPermissionElementInvalidStyle)
+    DEFINE_STRING_MAPPING(PseudoPermissionElementOccluded)
     DEFINE_STRING_MAPPING(PseudoPermissionGranted)
     DEFINE_STRING_MAPPING(PseudoPictureInPicture)
     DEFINE_STRING_MAPPING(PseudoPlaying)
@@ -409,8 +412,7 @@ const char* PseudoTypeToString(CSSSelector::PseudoType pseudo_type) {
     DEFINE_STRING_MAPPING(PseudoMultiSelectFocus)
     DEFINE_STRING_MAPPING(PseudoOpen)
     DEFINE_STRING_MAPPING(PseudoClosed)
-    DEFINE_STRING_MAPPING(PseudoSelectFallbackButton)
-    DEFINE_STRING_MAPPING(PseudoSelectFallbackButtonText)
+    DEFINE_STRING_MAPPING(PseudoSelectHasChildButton)
     DEFINE_STRING_MAPPING(PseudoPicker)
     DEFINE_STRING_MAPPING(PseudoDialogInTopLayer)
     DEFINE_STRING_MAPPING(PseudoPopoverInTopLayer)
@@ -1668,7 +1670,9 @@ void inspector_animation_event::Data(perfetto::TracedValue context,
                                      const Animation& animation) {
   auto dict = std::move(context).WriteDictionary();
   dict.Add("id", String::Number(animation.SequenceNumber()));
-  dict.Add("state", animation.PlayStateString());
+  dict.Add(
+      "state",
+      V8AnimationPlayState(animation.CalculateAnimationPlayState()).AsCStr());
   if (const AnimationEffect* effect = animation.effect()) {
     dict.Add("displayName",
              InspectorAnimationAgent::AnimationDisplayName(animation));
@@ -1683,7 +1687,9 @@ void inspector_animation_event::Data(perfetto::TracedValue context,
 void inspector_animation_state_event::Data(perfetto::TracedValue context,
                                            const Animation& animation) {
   auto dict = std::move(context).WriteDictionary();
-  dict.Add("state", animation.PlayStateString());
+  dict.Add(
+      "state",
+      V8AnimationPlayState(animation.CalculateAnimationPlayState()).AsCStr());
 }
 
 void inspector_animation_compositor_event::Data(

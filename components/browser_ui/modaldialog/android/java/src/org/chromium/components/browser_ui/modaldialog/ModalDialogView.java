@@ -28,6 +28,7 @@ import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.BoundedLinearLayout;
 import org.chromium.components.browser_ui.widget.FadingEdgeScrollView;
 import org.chromium.ui.UiUtils;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.modaldialog.ModalDialogProperties;
 import org.chromium.ui.modaldialog.ModalDialogProperties.ButtonType;
 import org.chromium.ui.widget.ButtonCompat;
@@ -79,18 +80,19 @@ public class ModalDialogView extends BoundedLinearLayout implements View.OnClick
     /** Constructor for inflating from XML. */
     public ModalDialogView(Context context, AttributeSet attrs) {
         super(context, attrs);
-        if (ModalDialogFeatureMap.isEnabled(
-                ModalDialogFeatureList.MODAL_DIALOG_LAYOUT_WITH_SYSTEM_INSETS)) {
-            // Set new max width (600dp) for when feature is enabled. This can be added to the xml
-            // once the feature is default-enabled.
-            // TODO (crbug/359976267): Update new min / max width constraints properly.
-            getResources().getValue(R.dimen.modal_dialog_max_width, mMaxWidthLandscape, true);
-            getResources().getValue(R.dimen.modal_dialog_max_width, mMaxWidthPortrait, true);
-        }
     }
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(getContext())) {
+            // On tablets, we set the android:windowMinWidth* attrs in the modal dialog style to
+            // 280dp, so a measure mode of AT_MOST applies this value if it is smaller than the
+            // measured width (which would typically be the case), causing the dialog to be shorter
+            // width-wise than expected. Use MeasureSpec.EXACTLY to ensure that the measured width
+            // is used, as long as it doesn't violate other width constraints.
+            // TODO (crbug/369842880): Remove the check when this attr is added for phones.
+            widthMeasureSpec = MeasureSpec.makeMeasureSpec(widthMeasureSpec, MeasureSpec.EXACTLY);
+        }
         if (!ModalDialogFeatureMap.isEnabled(
                         ModalDialogFeatureList.MODAL_DIALOG_LAYOUT_WITH_SYSTEM_INSETS)
                 || (mHorizontalMargin <= 0 && mVerticalMargin <= 0)) {

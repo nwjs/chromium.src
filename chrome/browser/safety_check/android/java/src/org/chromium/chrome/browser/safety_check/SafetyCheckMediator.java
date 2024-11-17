@@ -48,7 +48,7 @@ import org.chromium.chrome.browser.safe_browsing.settings.SafeBrowsingSettingsFr
 import org.chromium.chrome.browser.safety_check.PasswordsCheckPreferenceProperties.PasswordsState;
 import org.chromium.chrome.browser.safety_check.SafetyCheckProperties.SafeBrowsingState;
 import org.chromium.chrome.browser.safety_check.SafetyCheckProperties.UpdatesState;
-import org.chromium.chrome.browser.settings.SettingsLauncherFactory;
+import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncActivityLauncher;
 import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncCoordinator;
 import org.chromium.chrome.browser.ui.signin.SyncConsentActivityLauncher;
@@ -126,9 +126,6 @@ class SafetyCheckMediator {
 
     /** Callbacks and related objects to show the checking state for at least 1 second. */
     private Handler mHandler;
-
-    /** Stores the callback updating the password check state in the UI after the delay. */
-    private Runnable mRunnablePasswords;
 
     /** Stores the callback updating the safe browsing check state in the UI after the delay. */
     private Runnable mRunnableSafeBrowsing;
@@ -331,8 +328,8 @@ class SafetyCheckMediator {
                                     SafetyCheckInteractions.MAX_VALUE + 1);
                             // Open the Safe Browsing settings.
                             Intent intent =
-                                    SettingsLauncherFactory.createSettingsLauncher()
-                                            .createSettingsActivityIntent(
+                                    SettingsNavigationFactory.createSettingsNavigation()
+                                            .createSettingsIntent(
                                                     p.getContext(),
                                                     SafeBrowsingSettingsFragment.class,
                                                     SafeBrowsingSettingsFragment.createArguments(
@@ -621,7 +618,8 @@ class SafetyCheckMediator {
                                     SigninAndHistorySyncCoordinator.WithAccountSigninMode
                                             .DEFAULT_ACCOUNT_BOTTOM_SHEET,
                                     SigninAndHistorySyncCoordinator.HistoryOptInMode.NONE,
-                                    SigninAccessPoint.SAFETY_CHECK);
+                                    SigninAccessPoint.SAFETY_CHECK,
+                                    /* selectedCoreAccountId= */ null);
                         } else {
                             // Open the sync page.
                             mSyncLauncher.launchActivityIfAllowed(

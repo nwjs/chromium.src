@@ -83,7 +83,7 @@ bool IsSubDomainOrEqual(std::string_view sub_domain, std::string_view domain) {
 //  (2) The right-most domain label, which is defined as the empty string if
 //      |domain| is empty or ends in a dot.
 std::tuple<std::optional<std::string_view>, std::string_view>
-SplitDomainOnLastDot(const std::string_view domain) {
+SplitDomainOnLastDot(std::string_view domain) {
   size_t index_of_last_dot = domain.rfind('.');
   if (index_of_last_dot == std::string_view::npos) {
     return std::make_tuple(std::nullopt, domain);
@@ -265,8 +265,13 @@ bool ContentSettingsPattern::Builder::Canonicalize(PatternParts* parts) {
 
   // Canonicalize the host part.
   url::CanonHostInfo host_info;
-  std::string canonicalized_host(
-      net::CanonicalizeHost(parts->host, &host_info));
+  std::string canonicalized_host;
+  if (parts->scheme == url::kFileScheme) {
+    canonicalized_host = net::CanonicalizeFileHost(parts->host, &host_info);
+  } else {
+    canonicalized_host = net::CanonicalizeHost(parts->host, &host_info);
+  }
+
   if (host_info.IsIPAddress() && parts->has_domain_wildcard)
     return false;
 

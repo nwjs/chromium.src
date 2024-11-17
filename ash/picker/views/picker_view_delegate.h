@@ -12,8 +12,8 @@
 
 #include "ash/ash_export.h"
 #include "ash/picker/model/picker_mode_type.h"
-#include "ash/public/cpp/picker/picker_category.h"
-#include "ash/public/cpp/picker/picker_search_result.h"
+#include "ash/picker/picker_category.h"
+#include "ash/picker/picker_search_result.h"
 #include "ui/base/emoji/emoji_panel_helper.h"
 
 namespace ash {
@@ -81,6 +81,8 @@ class ASH_EXPORT PickerViewDelegate {
   // Shows the Editor.
   virtual void ShowEditor(std::optional<std::string> preset_query_id,
                           std::optional<std::string> freeform_text) = 0;
+
+  virtual void ShowLobster(std::optional<std::string> freeform_text) = 0;
 
   // Returns the current action for `result`.
   virtual PickerActionType GetActionForResult(

@@ -45,20 +45,15 @@
 #import "ios/chrome/app/background_refresh/test_refresher.h"
 #import "ios/chrome/app/blocking_scene_commands.h"
 #import "ios/chrome/app/deferred_initialization_runner.h"
-#import "ios/chrome/app/docking_promo_app_agent.h"
 #import "ios/chrome/app/enterprise_app_agent.h"
 #import "ios/chrome/app/fast_app_terminate_buildflags.h"
 #import "ios/chrome/app/features.h"
-#import "ios/chrome/app/feed_app_agent.h"
-#import "ios/chrome/app/first_run_app_state_agent.h"
 #import "ios/chrome/app/identity_confirmation_app_agent.h"
 #import "ios/chrome/app/launch_screen_view_controller.h"
 #import "ios/chrome/app/memory_monitor.h"
-#import "ios/chrome/app/post_restore_app_agent.h"
 #import "ios/chrome/app/profile/profile_controller.h"
 #import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/app/safe_mode_app_state_agent.h"
-#import "ios/chrome/app/search_engine_choice_app_agent.h"
 #import "ios/chrome/app/spotlight/spotlight_manager.h"
 #import "ios/chrome/app/startup/chrome_app_startup_parameters.h"
 #import "ios/chrome/app/startup/chrome_main_starter.h"
@@ -83,6 +78,7 @@
 #import "ios/chrome/browser/crash_report/model/crash_report_helper.h"
 #import "ios/chrome/browser/credential_provider/model/credential_provider_buildflags.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
+#import "ios/chrome/browser/discover_feed/model/discover_feed_app_agent.h"
 #import "ios/chrome/browser/download/model/download_directory_util.h"
 #import "ios/chrome/browser/enterprise/model/idle/idle_service_factory.h"
 #import "ios/chrome/browser/external_files/model/external_file_remover_factory.h"
@@ -100,14 +96,12 @@
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/omaha/model/omaha_service.h"
 #import "ios/chrome/browser/passwords/model/password_manager_util_ios.h"
-#import "ios/chrome/browser/profile_metrics/model/profile_activity_app_agent.h"
-#import "ios/chrome/browser/promos_manager/model/promos_manager_factory.h"
+#import "ios/chrome/browser/profile/model/constants.h"
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/screenshot/model/screenshot_metrics_recorder.h"
 #import "ios/chrome/browser/search_engines/model/extension_search_engine_data_updater.h"
 #import "ios/chrome/browser/search_engines/model/search_engines_util.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
-#import "ios/chrome/browser/sessions/model/features.h"
 #import "ios/chrome/browser/sessions/model/session_restoration_service.h"
 #import "ios/chrome/browser/sessions/model/session_restoration_service_factory.h"
 #import "ios/chrome/browser/sessions/model/session_util.h"
@@ -122,6 +116,7 @@
 #import "ios/chrome/browser/shared/model/browser/browser_provider.h"
 #import "ios/chrome/browser/shared/model/paths/paths.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/model/profile/profile_attributes_storage_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_manager_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
@@ -132,12 +127,13 @@
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/signin/model/authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
-#import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_browser_agent.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
+#import "ios/chrome/browser/ui/device_orientation/scoped_force_portrait_orientation.h"
 #import "ios/chrome/browser/ui/main/browser_view_wrangler.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
 #import "ios/chrome/browser/web/model/certificate_policy_app_agent.h"
+#import "ios/chrome/browser/web/model/choose_file/choose_file_file_utils.h"
 #import "ios/chrome/browser/web_state_list/model/web_usage_enabler/web_usage_enabler_browser_agent.h"
 #import "ios/chrome/browser/webui/ui_bundled/chrome_web_ui_ios_controller_factory.h"
 #import "ios/chrome/common/app_group/app_group_constants.h"
@@ -155,6 +151,7 @@
 #import "ios/web/public/webui/web_ui_ios_controller_factory.h"
 #import "net/base/apple/url_conversions.h"
 #import "services/network/public/cpp/shared_url_loader_factory.h"
+#import "ui/base/device_form_factor.h"
 
 #if BUILDFLAG(IOS_CREDENTIAL_PROVIDER_ENABLED)
 #import "ios/chrome/app/credential_provider_migrator_app_agent.h"
@@ -201,6 +198,9 @@ NSString* const kSendInstallPingIfNecessary = @"SendInstallPingIfNecessary";
 
 // Constants for deferred deletion of leftover user downloaded files.
 NSString* const kDeleteDownloads = @"DeleteDownloads";
+
+// Constants for deferred deletion of leftover user chosen files for upload.
+NSString* const kDeleteChooseFile = @"DeleteChooseFile";
 
 // Constants for deferred deletion of leftover temporary passwords files.
 NSString* const kDeleteTempPasswords = @"DeleteTempPasswords";
@@ -279,8 +279,7 @@ void BeginMemoryExperimentationAfterDelay() {
 class MainControllerAuthenticationServiceDelegate
     : public AuthenticationServiceDelegate {
  public:
-  explicit MainControllerAuthenticationServiceDelegate(
-      ChromeBrowserState* browser_state);
+  explicit MainControllerAuthenticationServiceDelegate(ProfileIOS* profile);
 
   MainControllerAuthenticationServiceDelegate(
       const MainControllerAuthenticationServiceDelegate&) = delete;
@@ -295,13 +294,12 @@ class MainControllerAuthenticationServiceDelegate
       base::OnceClosure completion) override;
 
  private:
-  const raw_ptr<ChromeBrowserState> browser_state_ = nullptr;
+  const raw_ptr<ProfileIOS> profile_ = nullptr;
 };
 
 MainControllerAuthenticationServiceDelegate::
-    MainControllerAuthenticationServiceDelegate(
-        ChromeBrowserState* browser_state)
-    : browser_state_(browser_state) {}
+    MainControllerAuthenticationServiceDelegate(ProfileIOS* profile)
+    : profile_(profile) {}
 
 MainControllerAuthenticationServiceDelegate::
     ~MainControllerAuthenticationServiceDelegate() = default;
@@ -309,7 +307,7 @@ MainControllerAuthenticationServiceDelegate::
 void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
     base::OnceClosure completion) {
   BrowsingDataRemover* browsingDataRemover =
-      BrowsingDataRemoverFactory::GetForBrowserState(browser_state_);
+      BrowsingDataRemoverFactory::GetForProfile(profile_);
   browsingDataRemover->Remove(browsing_data::TimePeriod::ALL_TIME,
                               BrowsingDataRemoveMask::REMOVE_ALL,
                               (std::move(completion)));
@@ -318,7 +316,7 @@ void MainControllerAuthenticationServiceDelegate::ClearBrowsingData(
 void MainControllerAuthenticationServiceDelegate::
     ClearBrowsingDataForSignedinPeriod(base::OnceClosure completion) {
   base::Time last_signin_timestamp =
-      browser_state_->GetPrefs()->GetTime(prefs::kLastSigninTimestamp);
+      profile_->GetPrefs()->GetTime(prefs::kLastSigninTimestamp);
 
   BrowsingDataRemoveMask remove_mask =
       BrowsingDataRemoveMask::REMOVE_ALL_FOR_TIME_PERIOD;
@@ -333,7 +331,7 @@ void MainControllerAuthenticationServiceDelegate::
   // If `kLastSigninTimestamp` has the default base::Time() value, data will be
   // cleared for all time, which is intended to happen in this case.
   BrowsingDataRemover* browsingDataRemover =
-      BrowsingDataRemoverFactory::GetForBrowserState(browser_state_);
+      BrowsingDataRemoverFactory::GetForProfile(profile_);
   BrowsingDataRemover::RemovalParams params;
   params.keep_active_tab =
       BrowsingDataRemover::KeepActiveTabPolicy::kKeepActiveTab;
@@ -366,7 +364,7 @@ void MainControllerAuthenticationServiceDelegate::
   PrefChangeRegistrar _localStatePrefChangeRegistrar;
 
   // Vector updating search engine data (to be accessed in extensions)
-  // for all loaded browserStates.
+  // for all loaded profiles.
   std::vector<std::unique_ptr<ExtensionSearchEngineDataUpdater>>
       _extensionSearchEngineDataUpdaters;
 
@@ -375,7 +373,7 @@ void MainControllerAuthenticationServiceDelegate::
   MemoryDebuggerManager* _memoryDebuggerManager;
 
   // Responsible for indexing chrome links (such as bookmarks, most likely...)
-  // in system Spotlight index for all loaded browser states.
+  // in system Spotlight index for all loaded profiles.
   NSMutableArray<SpotlightManager*>* _spotlightManagers;
 
   // Variable backing metricsMediator property.
@@ -413,7 +411,7 @@ void MainControllerAuthenticationServiceDelegate::
 - (void)scheduleAppDistributionPings;
 // Asynchronously schedule the init of the memoryDebuggerManager.
 - (void)scheduleMemoryDebuggingTools;
-// Creates the MailtoHandlerService for all loaded browserStates.
+// Creates the MailtoHandlerService for all loaded profiles.
 - (void)createMailtoHandlerServices;
 // Asynchronously kick off regular free memory checks.
 - (void)startFreeMemoryMonitoring;
@@ -434,6 +432,9 @@ void MainControllerAuthenticationServiceDelegate::
 // Schedules the deletion of user downloaded files that might be leftover
 // from the last time Chrome was run.
 - (void)scheduleDeleteTempDownloadsDirectory;
+// Schedules the deletion of file user chosed to upload that might be leftover
+// from the last time Chrome was run.
+- (void)scheduleDeleteTempChooseFileDirectory;
 // Schedule the deletion of the temporary passwords files that might
 // be left over from incomplete export operations.
 - (void)scheduleDeleteTempPasswordsDirectory;
@@ -441,8 +442,8 @@ void MainControllerAuthenticationServiceDelegate::
 - (void)scheduleMemoryExperimentation;
 // Crashes the application if requested.
 - (void)crashIfRequested;
-// Performs synchronous browser state initialization steps.
-- (void)initializeBrowserState:(ChromeBrowserState*)browserState;
+// Performs synchronous profile initialization steps.
+- (void)initializeBrowserState:(ProfileIOS*)profile;
 // Initializes the application to the minimum initialization needed in all
 // cases.
 - (void)startUpBrowserBasicInitialization;
@@ -459,7 +460,10 @@ void MainControllerAuthenticationServiceDelegate::
 - (void)performBrowserBackgroundInitialisation:(ProceduralBlock)completion;
 @end
 
-@implementation MainController
+@implementation MainController {
+  // Used to force the device orientation in portrait mode on iPhone.
+  std::unique_ptr<ScopedForcePortraitOrientation> _scopedForceOrientation;
+}
 
 // Defined by public protocols.
 // - StartupInformation
@@ -504,7 +508,7 @@ SEQUENCE_CHECKER(_sequenceChecker);
 }
 
 - (void)startUpBrowserBackgroundInitialization {
-  DCHECK(self.appState.initStage > InitStageSafeMode);
+  DCHECK(self.appState.initStage > AppInitStage::kSafeMode);
 
   NSBundle* baseBundle = base::apple::OuterBundle();
   base::apple::SetBaseBundleID(
@@ -526,22 +530,15 @@ SEQUENCE_CHECKER(_sequenceChecker);
   // Start recording field trial info.
   [[PreviousSessionInfo sharedInstance] beginRecordingFieldTrials];
 
-  const std::vector<ChromeBrowserState*> loadedProfiles =
-      GetApplicationContext()->GetProfileManager()->GetLoadedProfiles();
-  CHECK(!loadedProfiles.empty());
-  for (ChromeBrowserState* chromeBrowserState : loadedProfiles) {
-    [self initializeBrowserState:chromeBrowserState];
+  ProfileManagerIOS* manager = GetApplicationContext()->GetProfileManager();
+  for (ProfileIOS* profile : manager->GetLoadedProfiles()) {
+    [self initializeBrowserState:profile];
   }
+  DCHECK(!_profileControllers.empty());
 
-  // TODO(crbug.com/343166723): Support having multiple profiles.
-  ChromeBrowserState* browserState =
-      GetApplicationContext()
-          ->GetProfileManager()
-          ->GetLastUsedProfileDeprecatedDoNotUse();
-  auto iterator = _profileControllers.find(browserState->GetProfileName());
-  DCHECK(iterator != _profileControllers.end());
-
-  self.appState.mainProfile = iterator->second.state;
+  for (SceneState* sceneState in self.appState.connectedScenes) {
+    [self attachProfileToSceneState:sceneState];
+  }
 
   // Give tests a chance to prepare for testing.
   tests_hook::SetUpTestsIfPresent();
@@ -564,37 +561,14 @@ SEQUENCE_CHECKER(_sequenceChecker);
   //
   // TODO(crbug.com/40190949): Stop watching for a crash if this is a background
   // fetch.
-  if (_appState.userInteracted)
+  if (_appState.userInteracted) {
     GetApplicationContext()->GetMetricsService()->OnAppEnterForeground();
+  }
 
   web::WebUIIOSControllerFactory::RegisterFactory(
       ChromeWebUIIOSControllerFactory::GetInstance());
 
   [NSURLCache setSharedURLCache:[EmptyNSURLCache emptyNSURLCache]];
-
-  // TODO(crbug.com/325616341): Update PostRestoreAppAgent for multi-identity.
-  ChromeBrowserState* chromeBrowserState =
-      self.appState.mainProfile.browserState;
-  [self.appState
-      addAgent:
-          [[PostRestoreAppAgent alloc]
-              initWithPromosManager:PromosManagerFactory::GetForBrowserState(
-                                        chromeBrowserState)
-              authenticationService:AuthenticationServiceFactory::
-                                        GetForBrowserState(chromeBrowserState)
-                    identityManager:IdentityManagerFactory::GetForProfile(
-                                        chromeBrowserState)
-                        prefService:chromeBrowserState->GetPrefs()]];
-
-  if (IsDockingPromoEnabled()) {
-    switch (DockingPromoExperimentTypeEnabled()) {
-      case DockingPromoDisplayTriggerArm::kDuringFRE:
-        break;
-      case DockingPromoDisplayTriggerArm::kAfterFRE:
-      case DockingPromoDisplayTriggerArm::kAppLaunch:
-        [self.appState addAgent:[[DockingPromoAppAgent alloc] init]];
-    }
-  }
 
   // Perform any background initialisation that is required and then
   // migrate to the next stage.
@@ -605,13 +579,7 @@ SEQUENCE_CHECKER(_sequenceChecker);
 }
 
 - (void)performBrowserBackgroundInitialisation:(ProceduralBlock)completion {
-  // Migrate the session storage based on the feature.
-  const SessionRestorationServiceFactory::StorageFormat requested_format =
-      session::features::UseSessionSerializationOptimizations()
-          ? SessionRestorationServiceFactory::kOptimized
-          : SessionRestorationServiceFactory::kLegacy;
-
-  const std::vector<ChromeBrowserState*> loadedProfiles =
+  const std::vector<ProfileIOS*> loadedProfiles =
       GetApplicationContext()->GetProfileManager()->GetLoadedProfiles();
 
   // `completion` should be called only once all BrowserStates have been
@@ -622,9 +590,10 @@ SEQUENCE_CHECKER(_sequenceChecker);
   // MigrateSessionStorageFormat is synchronous if the storage is already in
   // the requested format, so this is safe to call and won't block the app
   // startup.
-  for (ChromeBrowserState* browserState : loadedProfiles) {
+  for (ProfileIOS* profile : loadedProfiles) {
     SessionRestorationServiceFactory::GetInstance()
-        ->MigrateSessionStorageFormat(browserState, requested_format, closure);
+        ->MigrateSessionStorageFormat(
+            profile, SessionRestorationServiceFactory::kOptimized, closure);
   }
 }
 
@@ -652,11 +621,10 @@ SEQUENCE_CHECKER(_sequenceChecker);
 
   [[PreviousSessionInfo sharedInstance] resetConnectedSceneSessionIDs];
 
-  for (ChromeBrowserState* chromeBrowserState :
+  for (ProfileIOS* chromeBrowserState :
        GetApplicationContext()->GetProfileManager()->GetLoadedProfiles()) {
     feature_engagement::Tracker* tracker =
-        feature_engagement::TrackerFactory::GetForBrowserState(
-            chromeBrowserState);
+        feature_engagement::TrackerFactory::GetForProfile(chromeBrowserState);
     // Send "Chrome Opened" event to the feature_engagement::Tracker on cold
     // start.
     tracker->NotifyEvent(feature_engagement::events::kChromeOpened);
@@ -665,15 +633,15 @@ SEQUENCE_CHECKER(_sequenceChecker);
 
     [_spotlightManagers
         addObject:[SpotlightManager
-                      spotlightManagerWithBrowserState:chromeBrowserState]];
+                      spotlightManagerWithProfile:chromeBrowserState]];
 
     ShareExtensionService* service =
-        ShareExtensionServiceFactory::GetForBrowserState(chromeBrowserState);
+        ShareExtensionServiceFactory::GetForProfile(chromeBrowserState);
     service->Initialize();
 
 #if BUILDFLAG(IOS_CREDENTIAL_PROVIDER_ENABLED)
     if (IsCredentialProviderExtensionSupported()) {
-      CredentialProviderServiceFactory::GetForBrowserState(chromeBrowserState);
+      CredentialProviderServiceFactory::GetForProfile(chromeBrowserState);
     }
 #endif
   }
@@ -699,9 +667,9 @@ SEQUENCE_CHECKER(_sequenceChecker);
   [self scheduleLowPriorityStartupTasks];
 
   // Run after UI created to avoid trying to update UI before it is available.
-  for (ChromeBrowserState* browserState :
+  for (ProfileIOS* profile :
        GetApplicationContext()->GetProfileManager()->GetLoadedProfiles()) {
-    enterprise_idle::IdleServiceFactory::GetForBrowserState(browserState)
+    enterprise_idle::IdleServiceFactory::GetForProfile(profile)
         ->OnApplicationWillEnterForeground();
   }
 
@@ -736,17 +704,17 @@ SEQUENCE_CHECKER(_sequenceChecker);
                                 self.appState.postCrashAction);
 }
 
-- (void)initializeBrowserState:(ChromeBrowserState*)browserState {
-  DCHECK(!browserState->IsOffTheRecord());
+- (void)initializeBrowserState:(ProfileIOS*)profile {
+  DCHECK(!profile->IsOffTheRecord());
 
-  ProfileController* controller = [[ProfileController alloc] init];
-  controller.state.browserState = browserState;
+  ProfileController* controller =
+      [[ProfileController alloc] initWithAppState:self.appState];
+  controller.state.profile = profile;
   auto insertion_result = _profileControllers.insert(
-      std::make_pair(browserState->GetProfileName(), controller));
+      std::make_pair(profile->GetProfileName(), controller));
   DCHECK(insertion_result.second);
 
-  search_engines::UpdateSearchEngineCountryCodeIfNeeded(
-      browserState->GetPrefs());
+  search_engines::UpdateSearchEngineCountryCodeIfNeeded(profile->GetPrefs());
 
   // Force an obvious initialization of the AuthenticationService. This must
   // be done before creation of the UI to ensure the service is initialised
@@ -758,24 +726,23 @@ SEQUENCE_CHECKER(_sequenceChecker);
   // this during background initialization when the app is launched into the
   // foreground.
   AuthenticationServiceFactory::CreateAndInitializeForBrowserState(
-      browserState,
-      std::make_unique<MainControllerAuthenticationServiceDelegate>(
-          browserState));
+      profile,
+      std::make_unique<MainControllerAuthenticationServiceDelegate>(profile));
 
   // Force desktop mode when raccoon is enabled.
   if (ios::provider::IsRaccoonEnabled()) {
-    if (!browserState->GetPrefs()->GetBoolean(prefs::kUserAgentWasChanged)) {
+    if (!profile->GetPrefs()->GetBoolean(prefs::kUserAgentWasChanged)) {
       HostContentSettingsMap* settingsMap =
-          ios::HostContentSettingsMapFactory::GetForBrowserState(browserState);
+          ios::HostContentSettingsMapFactory::GetForProfile(profile);
       settingsMap->SetDefaultContentSetting(
           ContentSettingsType::REQUEST_DESKTOP_SITE, CONTENT_SETTING_ALLOW);
-      browserState->GetPrefs()->SetBoolean(prefs::kUserAgentWasChanged, true);
+      profile->GetPrefs()->SetBoolean(prefs::kUserAgentWasChanged, true);
     }
   }
 
   if (IsTabGroupSyncEnabled()) {
     // Ensure that the tab group sync services are created to observe updates.
-    tab_groups::TabGroupSyncServiceFactory::GetForBrowserState(browserState);
+    tab_groups::TabGroupSyncServiceFactory::GetForProfile(profile);
   }
 }
 
@@ -787,20 +754,24 @@ SEQUENCE_CHECKER(_sequenceChecker);
   // If the application is not yet ready to present the UI, install
   // a LaunchScreenViewController as the root view of the connected
   // SceneState. This ensures that there is no "blank" window.
-  if (self.appState.initStage < InitStageBrowserObjectsForUI) {
+  if (self.appState.initStage < AppInitStage::kBrowserObjectsForUI) {
     LaunchScreenViewController* launchScreen =
         [[LaunchScreenViewController alloc] init];
     [sceneState.window setRootViewController:launchScreen];
     [sceneState.window makeKeyAndVisible];
+  }
+
+  if (self.appState.initStage >= AppInitStage::kEnterprise) {
+    [self attachProfileToSceneState:sceneState];
   }
 }
 
 // Called when the first scene becomes active.
 - (void)appState:(AppState*)appState
     firstSceneHasInitializedUI:(SceneState*)sceneState {
-  DCHECK(self.appState.initStage > InitStageSafeMode);
+  DCHECK(self.appState.initStage > AppInitStage::kSafeMode);
 
-  if (self.appState.initStage <= InitStageNormalUI) {
+  if (self.appState.initStage <= AppInitStage::kNormalUI) {
     return;
   }
 
@@ -810,44 +781,49 @@ SEQUENCE_CHECKER(_sequenceChecker);
 }
 
 - (void)appState:(AppState*)appState
-    didTransitionFromInitStage:(InitStage)previousInitStage {
+    didTransitionFromInitStage:(AppInitStage)previousInitStage {
   // TODO(crbug.com/40769058): Remove this once the bug fixed.
-  if (previousInitStage == InitStageNormalUI &&
+  if (previousInitStage == AppInitStage::kNormalUI &&
       appState.firstSceneHasInitializedUI) {
     [self startUpAfterFirstWindowCreated];
   }
 
   switch (appState.initStage) {
-    case InitStageStart:
+    case AppInitStage::kStart:
       [appState queueTransitionToNextInitStage];
       break;
-    case InitStageBrowserBasic:
+    case AppInitStage::kBrowserBasic:
       [self startUpBrowserBasicInitialization];
       break;
-    case InitStageSafeMode:
+    case AppInitStage::kSafeMode:
       [self addPostSafeModeAgents];
       break;
-    case InitStageVariationsSeed:
+    case AppInitStage::kVariationsSeed:
       break;
-    case InitStageBrowserObjectsForBackgroundHandlers:
+    case AppInitStage::kBrowserObjectsForBackgroundHandlers:
       [self startUpBrowserBackgroundInitialization];
       break;
-    case InitStageEnterprise:
+    case AppInitStage::kEnterprise:
       break;
-    case InitStageBrowserObjectsForUI:
+    case AppInitStage::kBrowserObjectsForUI:
       [self maybeContinueForegroundInitialization];
       break;
-    case InitStageNormalUI:
+    case AppInitStage::kNormalUI:
+      // Stop forcing the orientation at the application level. If needed,
+      // the ProfileControllers will be forcing the orientation until they
+      // also are ready.
+      _scopedForceOrientation.reset();
+
       // Scene controllers use this stage to create the normal UI if needed.
       // There is no specific agent (other than SceneController) handling
       // this stage.
       [appState queueTransitionToNextInitStage];
       break;
-    case InitStageFirstRun:
+    case AppInitStage::kFirstRun:
       break;
-    case InitStageChoiceScreen:
+    case AppInitStage::kChoiceScreen:
       break;
-    case InitStageFinal:
+    case AppInitStage::kFinal:
       // In a multi-window environment we have the correct number of
       // connectedScenes only at this stage.
       [MetricsMediator
@@ -860,7 +836,6 @@ SEQUENCE_CHECKER(_sequenceChecker);
 - (void)addPostSafeModeAgents {
   [self.appState addAgent:[[EnterpriseAppAgent alloc] init]];
   [self.appState addAgent:[[IncognitoUsageAppStateAgent alloc] init]];
-  [self.appState addAgent:[[FirstRunAppAgent alloc] init]];
   [self.appState addAgent:[[CertificatePolicyAppAgent alloc] init]];
 #if BUILDFLAG(IOS_CREDENTIAL_PROVIDER_ENABLED)
   [self.appState addAgent:[[CredentialProviderMigratorAppAgent alloc] init]];
@@ -890,10 +865,11 @@ SEQUENCE_CHECKER(_sequenceChecker);
   _appState = appState;
   [appState addObserver:self];
 
+  _scopedForceOrientation = ForcePortraitOrientationOnIphone(_appState);
+
   // Create app state agents.
   [appState addAgent:[[AppMetricsAppStateAgent alloc] init]];
   [appState addAgent:[[SafeModeAppAgent alloc] init]];
-  [appState addAgent:[[SearchEngineChoiceAppAgent alloc] init]];
   [appState addAgent:[[VariationsAppStateAgent alloc] init]];
   [appState addAgent:[[IdentityConfirmationAppAgent alloc] init]];
 
@@ -904,16 +880,14 @@ SEQUENCE_CHECKER(_sequenceChecker);
   [refreshAgent addAppRefreshProvider:[[TestRefresher alloc]
                                           initWithAppState:self.appState]];
 
-  // TODO(crbug.com/355142171): Remove the FeedAppAgent.
-  [appState addAgent:[[FeedAppAgent alloc] init]];
+  // TODO(crbug.com/355142171): Remove the DiscoverFeedAppAgent.
+  [appState addAgent:[[DiscoverFeedAppAgent alloc] init]];
 
   // Create the window accessibility agent only when multiple windows are
   // possible.
   if (base::ios::IsMultipleScenesSupported()) {
     [appState addAgent:[[WindowAccessibilityChangeNotifierAppAgent alloc] init]];
   }
-
-  [appState addAgent:[[ProfileActivityAppAgent alloc] init]];
 }
 
 // TODO(crbug.com/325614311): Get rid of this method/property completely.
@@ -964,7 +938,7 @@ SEQUENCE_CHECKER(_sequenceChecker);
   _extensionSearchEngineDataUpdaters.clear();
 
   // _localStatePrefChangeRegistrar is observing the PrefService, which is owned
-  // indirectly by _chromeMain (through the ChromeBrowserState).
+  // indirectly by _chromeMain (through the ProfileIOS).
   // Unregister the observer before the service is destroyed.
   _localStatePrefChangeRegistrar.RemoveAll();
 
@@ -986,18 +960,18 @@ SEQUENCE_CHECKER(_sequenceChecker);
     // number of services that needs to be waited for.
     uint32_t expectedCount = 0;
 
-    // MetricsService doesn't depend on a browser state.
+    // MetricsService doesn't depend on a profile.
     metrics::MetricsService* metrics =
         GetApplicationContext()->GetMetricsService();
     if (metrics) {
       expectedCount += 1;
     }
 
-    const std::vector<ChromeBrowserState*> loadedProfiles =
+    const std::vector<ProfileIOS*> loadedProfiles =
         GetApplicationContext()->GetProfileManager()->GetLoadedProfiles();
-    for (ChromeBrowserState* browserState : loadedProfiles) {
+    for (ProfileIOS* profile : loadedProfiles) {
       expectedCount += 1;
-      if (browserState->HasOffTheRecordChromeBrowserState()) {
+      if (profile->HasOffTheRecordProfile()) {
         expectedCount += 1;
       }
     }
@@ -1010,14 +984,13 @@ SEQUENCE_CHECKER(_sequenceChecker);
                                dispatch_semaphore_signal(semaphore);
                              }));
 
-    for (ChromeBrowserState* browserState : loadedProfiles) {
-      SessionRestorationServiceFactory::GetForBrowserState(browserState)
+    for (ProfileIOS* profile : loadedProfiles) {
+      SessionRestorationServiceFactory::GetForProfile(profile)
           ->InvokeClosureWhenBackgroundProcessingDone(closure);
 
-      if (browserState->HasOffTheRecordChromeBrowserState()) {
-        ChromeBrowserState* otrBrowserState =
-            browserState->GetOffTheRecordChromeBrowserState();
-        SessionRestorationServiceFactory::GetForBrowserState(otrBrowserState)
+      if (profile->HasOffTheRecordProfile()) {
+        ProfileIOS* otrBrowserState = profile->GetOffTheRecordProfile();
+        SessionRestorationServiceFactory::GetForProfile(otrBrowserState)
             ->InvokeClosureWhenBackgroundProcessingDone(closure);
       }
     }
@@ -1049,7 +1022,7 @@ SEQUENCE_CHECKER(_sequenceChecker);
 // level are ready.
 - (void)maybeContinueForegroundInitialization {
   if (self.appState.foregroundScenes.count > 0 &&
-      self.appState.initStage == InitStageBrowserObjectsForUI) {
+      self.appState.initStage == AppInitStage::kBrowserObjectsForUI) {
     DCHECK(self.appState.userInteracted);
     [self startUpBrowserForegroundInitialization];
     [self.appState queueTransitionToNextInitStage];
@@ -1117,11 +1090,11 @@ SEQUENCE_CHECKER(_sequenceChecker);
     [self onPreferenceChanged:metrics::prefs::kMetricsReportingEnabled];
   }
 
-  // Track changes to default search engine for all loaded browserStates.
-  for (ChromeBrowserState* browserState :
+  // Track changes to default search engine for all loaded profiles.
+  for (ProfileIOS* profile :
        GetApplicationContext()->GetProfileManager()->GetLoadedProfiles()) {
     TemplateURLService* service =
-        ios::TemplateURLServiceFactory::GetForBrowserState(browserState);
+        ios::TemplateURLServiceFactory::GetForProfile(profile);
     _extensionSearchEngineDataUpdaters.push_back(
         std::make_unique<ExtensionSearchEngineDataUpdater>(service));
   }
@@ -1182,14 +1155,12 @@ SEQUENCE_CHECKER(_sequenceChecker);
   [self scheduleCrashReportUpload];
 
   // ClearSessionCookies() is not synchronous.
-  for (ChromeBrowserState* browserState :
+  for (ProfileIOS* profile :
        GetApplicationContext()->GetProfileManager()->GetLoadedProfiles()) {
-    if (cookie_util::ShouldClearSessionCookies(browserState->GetPrefs())) {
-      cookie_util::ClearSessionCookies(
-          browserState->GetOriginalChromeBrowserState());
-      if (browserState->HasOffTheRecordChromeBrowserState()) {
-        cookie_util::ClearSessionCookies(
-            browserState->GetOffTheRecordChromeBrowserState());
+    if (cookie_util::ShouldClearSessionCookies(profile->GetPrefs())) {
+      cookie_util::ClearSessionCookies(profile->GetOriginalProfile());
+      if (profile->HasOffTheRecordProfile()) {
+        cookie_util::ClearSessionCookies(profile->GetOffTheRecordProfile());
       }
     }
   }
@@ -1231,9 +1202,9 @@ SEQUENCE_CHECKER(_sequenceChecker);
 }
 
 - (void)createMailtoHandlerServices {
-  for (ChromeBrowserState* browserState :
+  for (ProfileIOS* profile :
        GetApplicationContext()->GetProfileManager()->GetLoadedProfiles()) {
-    MailtoHandlerServiceFactory::GetForBrowserState(browserState);
+    MailtoHandlerServiceFactory::GetForProfile(profile);
   }
 }
 
@@ -1319,12 +1290,12 @@ SEQUENCE_CHECKER(_sequenceChecker);
   // Deferred tasks.
   [self scheduleMemoryDebuggingTools];
   [StartupTasks
-      scheduleDeferredBrowserStateInitialization:self.appState.mainProfile
-                                                     .browserState];
+      scheduleDeferredProfileInitialization:self.appState.mainProfile.profile];
   [self sendQueuedFeedback];
   [self scheduleSpotlightResync];
   [self scheduleDeleteTempDownloadsDirectory];
   [self scheduleDeleteTempPasswordsDirectory];
+  [self scheduleDeleteTempChooseFileDirectory];
   [self scheduleLogSiriShortcuts];
   [self scheduleStartupAttemptReset];
   [self startFreeMemoryMonitoring];
@@ -1346,11 +1317,11 @@ SEQUENCE_CHECKER(_sequenceChecker);
   if (GetApplicationContext()->WasLastShutdownClean()) {
     // Delay the cleanup of the unreferenced files to not impact startup
     // performance.
-    for (ChromeBrowserState* browserState :
+    for (ProfileIOS* profile :
          GetApplicationContext()->GetProfileManager()->GetLoadedProfiles()) {
-      ExternalFileRemoverFactory::GetForBrowserState(browserState)
-          ->RemoveAfterDelay(base::Seconds(kExternalFilesCleanupDelaySeconds),
-                             base::OnceClosure());
+      ExternalFileRemoverFactory::GetForProfile(profile)->RemoveAfterDelay(
+          base::Seconds(kExternalFilesCleanupDelaySeconds),
+          base::OnceClosure());
     }
   }
 }
@@ -1360,6 +1331,14 @@ SEQUENCE_CHECKER(_sequenceChecker);
       enqueueBlockNamed:kDeleteDownloads
                   block:^{
                     DeleteTempDownloadsDirectory();
+                  }];
+}
+
+- (void)scheduleDeleteTempChooseFileDirectory {
+  [[DeferredInitializationRunner sharedInstance]
+      enqueueBlockNamed:kDeleteChooseFile
+                  block:^{
+                    DeleteTempChooseFileDirectory();
                   }];
 }
 
@@ -1432,9 +1411,9 @@ SEQUENCE_CHECKER(_sequenceChecker);
   if (!base::FeatureList::IsEnabled(kLogApplicationStorageSizeMetrics)) {
     return;
   }
-  for (ChromeBrowserState* browserState :
+  for (ProfileIOS* profile :
        GetApplicationContext()->GetProfileManager()->GetLoadedProfiles()) {
-    PrefService* prefService = browserState->GetPrefs();
+    PrefService* prefService = profile->GetPrefs();
     const base::Time lastLogged =
         prefService->GetTime(prefs::kLastApplicationStorageMetricsLogTime);
     if (lastLogged != base::Time() &&
@@ -1447,9 +1426,8 @@ SEQUENCE_CHECKER(_sequenceChecker);
     // only ifif metrics are enabled.
     prefService->SetTime(prefs::kLastApplicationStorageMetricsLogTime,
                          base::Time::Now());
-    base::FilePath profilePath = browserState->GetStatePath();
-    base::FilePath offTheRecordStatePath =
-        browserState->GetOffTheRecordStatePath();
+    base::FilePath profilePath = profile->GetStatePath();
+    base::FilePath offTheRecordStatePath = profile->GetOffTheRecordStatePath();
     LogApplicationStorageMetrics(profilePath, offTheRecordStatePath);
   }
 }
@@ -1491,9 +1469,9 @@ SEQUENCE_CHECKER(_sequenceChecker);
 #pragma mark - Helper methods.
 
 - (void)cleanupSessionStateCache {
-  for (ChromeBrowserState* browserState :
+  for (ProfileIOS* profile :
        GetApplicationContext()->GetProfileManager()->GetLoadedProfiles()) {
-    SessionRestorationServiceFactory::GetForBrowserState(browserState)
+    SessionRestorationServiceFactory::GetForProfile(profile)
         ->PurgeUnassociatedData(base::DoNothing());
   }
 }
@@ -1501,10 +1479,9 @@ SEQUENCE_CHECKER(_sequenceChecker);
 - (void)cleanupSnapshots {
   // TODO(crbug.com/40144759): Browsers for disconnected scenes are not in the
   // BrowserList, so this may not reach all folders.
-  for (ChromeBrowserState* browserState :
+  for (ProfileIOS* profile :
        GetApplicationContext()->GetProfileManager()->GetLoadedProfiles()) {
-    BrowserList* browserList =
-        BrowserListFactory::GetForBrowserState(browserState);
+    BrowserList* browserList = BrowserListFactory::GetForProfile(profile);
     for (Browser* browser :
          browserList->BrowsersOfType(BrowserList::BrowserType::kAll)) {
       SnapshotBrowserAgent::FromBrowser(browser)->PerformStorageMaintenance();
@@ -1548,16 +1525,15 @@ SEQUENCE_CHECKER(_sequenceChecker);
   // completed.
   base::ConcurrentClosures concurrent;
 
-  for (ChromeBrowserState* browserState :
+  for (ProfileIOS* profile :
        GetApplicationContext()->GetProfileManager()->GetLoadedProfiles()) {
-    SessionRestorationServiceFactory::GetForBrowserState(browserState)
+    SessionRestorationServiceFactory::GetForProfile(profile)
         ->DeleteDataForDiscardedSessions(identifiers,
                                          concurrent.CreateClosure());
 
-    if (browserState->HasOffTheRecordChromeBrowserState()) {
-      ChromeBrowserState* otrBrowserState =
-          browserState->GetOffTheRecordChromeBrowserState();
-      SessionRestorationServiceFactory::GetForBrowserState(otrBrowserState)
+    if (profile->HasOffTheRecordProfile()) {
+      ProfileIOS* otrBrowserState = profile->GetOffTheRecordProfile();
+      SessionRestorationServiceFactory::GetForProfile(otrBrowserState)
           ->DeleteDataForDiscardedSessions(identifiers,
                                            concurrent.CreateClosure());
     }
@@ -1588,10 +1564,10 @@ SEQUENCE_CHECKER(_sequenceChecker);
 
 #if BUILDFLAG(IOS_CREDENTIAL_PROVIDER_ENABLED)
 - (void)performFaviconsCleanup {
-  for (ChromeBrowserState* browserState :
+  for (ProfileIOS* profile :
        GetApplicationContext()->GetProfileManager()->GetLoadedProfiles()) {
     syncer::SyncService* syncService =
-        SyncServiceFactory::GetForBrowserState(browserState);
+        SyncServiceFactory::GetForProfile(profile);
     // Only use the fallback to the Google server when fetching favicons for
     // normal encryption users saving to the account, because they are the only
     // users who consented to share data to Google.
@@ -1602,7 +1578,7 @@ SEQUENCE_CHECKER(_sequenceChecker);
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
           FROM_HERE,
           base::BindOnce(&UpdateFaviconsStorageForBrowserState,
-                         browserState->AsWeakPtr(), fallbackToGoogleServer));
+                         profile->AsWeakPtr(), fallbackToGoogleServer));
     }
   }
 }
@@ -1629,6 +1605,78 @@ SEQUENCE_CHECKER(_sequenceChecker);
         base::SysNSStringToUTF8(sceneState.sceneSessionID));
   }
   return connectedSessionIDs;
+}
+
+- (void)attachProfileToSceneState:(SceneState*)sceneState {
+  ProfileAttributesStorageIOS* storage = GetApplicationContext()
+                                             ->GetProfileManager()
+                                             ->GetProfileAttributesStorage();
+
+  const std::string sceneID =
+      base::SysNSStringToUTF8(sceneState.sceneSessionID);
+  std::string profileName = storage->GetProfileNameForSceneID(sceneID);
+
+  auto iterator = _profileControllers.find(profileName);
+  if (iterator == _profileControllers.end()) {
+    if (profileName.empty()) {
+      // TODO(crbug.com/41492447): provide an API to mark a profile as the
+      // profile to use by default when a new SceneState is open.
+      profileName = GetApplicationContext()->GetLocalState()->GetString(
+          prefs::kLastUsedProfile);
+      if (profileName.empty()) {
+        profileName = kIOSChromeInitialProfile;
+      }
+
+      iterator = _profileControllers.find(profileName);
+      storage->SetProfileNameForSceneID(sceneID, profileName);
+    }
+
+    DCHECK(!profileName.empty());
+    if (iterator == _profileControllers.end()) {
+      __weak __typeof(self) weakSelf = self;
+      GetApplicationContext()->GetProfileManager()->CreateProfileAsync(
+          profileName, base::BindOnce(^(ProfileIOS* profile) {
+            [weakSelf profileLoaded:profile forSceneState:sceneState];
+          }));
+      return;
+    }
+  }
+
+  DCHECK(iterator != _profileControllers.end());
+  ProfileState* profileState = iterator->second.state;
+
+  // TODO(crbug.com/343166723): remove the global mainProfile when it is only
+  // accessed per scene.
+  if (!self.appState.mainProfile) {
+    self.appState.mainProfile = profileState;
+  }
+
+  // TODO(crbug.com/353683675) Improve this logic once ProfileInitStage and
+  // AppInitStage are fully decoupled.
+  AppInitStage initStage = self.appState.initStage;
+  if (initStage >= AppInitStage::kBrowserObjectsForBackgroundHandlers) {
+    ProfileInitStage currStage = profileState.initStage;
+    ProfileInitStage nextStage = ProfileInitStageFromAppInitStage(initStage);
+    while (currStage != nextStage) {
+      // The ProfileInitStage enum has more values than AppInitStage, so move
+      // over all stage that have no representation in AppInitStage to avoid
+      // failing CHECK in -[ProfileState setInitStage:].
+      currStage =
+          static_cast<ProfileInitStage>(base::to_underlying(currStage) + 1);
+      profileState.initStage = currStage;
+    }
+  }
+
+  [sceneState.controller setProfileState:profileState];
+  storage->SetProfileNameForSceneID(sceneID, iterator->first);
+}
+
+// TODO(crbug.com/353683675) Improve this logic once ProfileInitStage and
+// AppInitStage are fully decoupled.
+- (void)profileLoaded:(ProfileIOS*)profile
+        forSceneState:(SceneState*)sceneState {
+  [self initializeBrowserState:profile];
+  [self attachProfileToSceneState:sceneState];
 }
 
 @end

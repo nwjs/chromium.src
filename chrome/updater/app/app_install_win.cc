@@ -35,7 +35,6 @@
 #include "base/strings/escape.h"
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
-#include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/sequenced_task_runner.h"
@@ -94,7 +93,7 @@ class InstallProgressSilentObserver : public AppInstallProgress {
                      int pos) override;
   void OnWaitingRetryDownload(const std::string& app_id,
                               const std::u16string& app_name,
-                              const base::Time& next_retry_time) override;
+                              base::Time next_retry_time) override;
   void OnWaitingToInstall(const std::string& app_id,
                           const std::u16string& app_name) override;
   void OnInstalling(const std::string& app_id,
@@ -145,7 +144,7 @@ void InstallProgressSilentObserver::OnDownloading(
 void InstallProgressSilentObserver::OnWaitingRetryDownload(
     const std::string& app_id,
     const std::u16string& app_name,
-    const base::Time& next_retry_time) {
+    base::Time next_retry_time) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 }
 
@@ -220,9 +219,8 @@ class AppInstallProgressIPC : public AppInstallProgress {
   void OnCheckingForUpdate() override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     CHECK(observer_);
-    PostClosure(base::BindOnce(&AppInstallProgress::OnUpdateAvailable,
-                               base::Unretained(observer_), std::string(),
-                               std::u16string(), base::Version()));
+    PostClosure(base::BindOnce(&AppInstallProgress::OnCheckingForUpdate,
+                               base::Unretained(observer_)));
   }
 
   void OnUpdateAvailable(const std::string& app_id,
@@ -253,7 +251,7 @@ class AppInstallProgressIPC : public AppInstallProgress {
 
   void OnWaitingRetryDownload(const std::string& app_id,
                               const std::u16string& app_name,
-                              const base::Time& next_retry_time) override {
+                              base::Time next_retry_time) override {
     NOTREACHED_IN_MIGRATION();
   }
 
@@ -314,7 +312,7 @@ void SetUsageStats(UpdaterScope scope,
   const LONG result =
       base::win::RegKey(
           UpdaterScopeToHKeyRoot(scope),
-          base::StrCat({CLIENT_STATE_KEY, base::SysUTF8ToWide(app_id)}).c_str(),
+          base::StrCat({CLIENT_STATE_KEY, base::UTF8ToWide(app_id)}).c_str(),
           Wow6432(KEY_WRITE))
           .WriteValue(L"usagestats", usage_stats.value() ? 1 : 0);
   if (result != ERROR_SUCCESS) {
@@ -325,7 +323,7 @@ void SetUsageStats(UpdaterScope scope,
   if (IsSystemInstall(scope)) {
     base::win::RegKey(
         UpdaterScopeToHKeyRoot(scope),
-        base::StrCat({CLIENT_STATE_MEDIUM_KEY, base::SysUTF8ToWide(app_id)})
+        base::StrCat({CLIENT_STATE_MEDIUM_KEY, base::UTF8ToWide(app_id)})
             .c_str(),
         Wow6432(KEY_WRITE))
         .DeleteValue(L"usagestats");
@@ -813,7 +811,7 @@ void AppInstallControllerImpl::StateChange(
 // the resultant image onto the app bitmap for the progress window.
 void AppInstallControllerImpl::LoadLogo(const std::string& app_id,
                                         HWND progress_hwnd) {
-  std::wstring url = base::SysUTF8ToWide(base::StringPrintf(
+  std::wstring url = base::UTF8ToWide(base::StringPrintf(
       "%s%s.bmp?lang=%s",
       CreateExternalConstants()->AppLogoURL().possibly_invalid_spec().c_str(),
       base::EscapeUrlEncodedData(app_id, false).c_str(),
@@ -867,6 +865,11 @@ void AppInstallControllerImpl::InitializeUI() {
   } else {
     auto progress_wnd =
         std::make_unique<ui::ProgressWnd>(ui_message_loop_.get(), nullptr);
+
+    std::optional<tagging::TagArgs> tag_args = GetTagArgs().tag_args;
+    if (tag_args) {
+      progress_wnd->set_bundle_name(base::UTF8ToUTF16(tag_args->bundle_name));
+    }
     progress_wnd->SetEventSink(this);
     progress_wnd->Initialize();
     progress_wnd->Show();
@@ -919,8 +922,7 @@ DWORD AppInstallControllerImpl::GetUIThreadID() const {
 bool AppInstallControllerImpl::DoLaunchBrowser(const std::string& url) {
   CHECK_EQ(GetUIThreadID(), GetCurrentThreadId());
 
-  return SUCCEEDED(
-      base::win::RunDeElevatedNoWait(base::SysUTF8ToWide(url), {}));
+  return SUCCEEDED(base::win::RunDeElevatedNoWait(base::UTF8ToWide(url), {}));
 }
 
 bool AppInstallControllerImpl::DoRestartBrowser(bool restart_all_browsers,

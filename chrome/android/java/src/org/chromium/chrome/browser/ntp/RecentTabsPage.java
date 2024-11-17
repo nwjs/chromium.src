@@ -14,13 +14,15 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ExpandableListView;
 
+import androidx.annotation.Nullable;
+
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.tab_ui.InvalidationAwareThumbnailProvider;
+import org.chromium.chrome.browser.ui.native_page.BasicSmoothTransitionDelegate;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
-import org.chromium.chrome.browser.ui.native_page.NativePageHost;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.ui.base.DeviceFormFactor;
@@ -41,14 +43,13 @@ public class RecentTabsPage
                 InvalidationAwareThumbnailProvider,
                 BrowserControlsStateProvider.Observer {
     private final Activity mActivity;
-    private final BrowserControlsStateProvider mBrowserControlsStateProvider;
+    @Nullable private final BrowserControlsStateProvider mBrowserControlsStateProvider;
     private final ExpandableListView mListView;
     private final String mTitle;
     private final ViewGroup mView;
 
     private RecentTabsManager mRecentTabsManager;
     private RecentTabsRowAdapter mAdapter;
-    private NativePageHost mPageHost;
 
     private boolean mSnapshotContentChanged;
     private int mSnapshotListPosition;
@@ -61,13 +62,13 @@ public class RecentTabsPage
 
     private final ObservableSupplier<Integer> mTabStripHeightSupplier;
     private Callback<Integer> mTabStripHeightChangeCallback;
+    private SmoothTransitionDelegate mSmoothTransitionDelegate;
 
     /**
      * Constructor returns an instance of RecentTabsPage.
      *
      * @param activity The activity this view belongs to.
      * @param recentTabsManager The RecentTabsManager which provides the model data.
-     * @param pageHost The NativePageHost used to provide a history navigation delegate object.
      * @param browserControlsStateProvider The {@link BrowserControlsStateProvider} used to provide
      *     offset values.
      * @param tabStripHeightSupplier Supplier for the tab strip height.
@@ -75,12 +76,10 @@ public class RecentTabsPage
     public RecentTabsPage(
             Activity activity,
             RecentTabsManager recentTabsManager,
-            NativePageHost pageHost,
             BrowserControlsStateProvider browserControlsStateProvider,
             ObservableSupplier<Integer> tabStripHeightSupplier) {
         mActivity = activity;
         mRecentTabsManager = recentTabsManager;
-        mPageHost = pageHost;
         Resources resources = activity.getResources();
 
         mTitle = resources.getString(R.string.recent_tabs);
@@ -155,11 +154,18 @@ public class RecentTabsPage
     }
 
     @Override
+    public SmoothTransitionDelegate enableSmoothTransition() {
+        if (mSmoothTransitionDelegate == null) {
+            mSmoothTransitionDelegate = new BasicSmoothTransitionDelegate(getView());
+        }
+        return mSmoothTransitionDelegate;
+    }
+
+    @Override
     public void destroy() {
         assert !mIsAttachedToWindow : "Destroy called before removed from window";
         mRecentTabsManager.destroy();
         mRecentTabsManager = null;
-        mPageHost = null;
         mAdapter.notifyDataSetInvalidated();
         mAdapter = null;
         mListView.setAdapter((RecentTabsRowAdapter) null);
@@ -177,7 +183,9 @@ public class RecentTabsPage
 
     @Override
     public int getHeightOverlappedWithTopControls() {
-        return mBrowserControlsStateProvider.getTopControlsHeight();
+        return mBrowserControlsStateProvider == null
+                ? 0
+                : mBrowserControlsStateProvider.getTopControlsHeight();
     }
 
     // View.OnAttachStateChangeListener

@@ -5,6 +5,7 @@
 #ifndef CHROME_RENDERER_ACCESSIBILITY_READ_ANYTHING_APP_CONTROLLER_H_
 #define CHROME_RENDERER_ACCESSIBILITY_READ_ANYTHING_APP_CONTROLLER_H_
 
+#include <deque>
 #include <map>
 #include <memory>
 #include <set>
@@ -13,6 +14,7 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/safe_ref.h"
+#include "base/scoped_observation.h"
 #include "chrome/common/accessibility/read_anything.mojom.h"
 #include "chrome/renderer/accessibility/read_aloud_app_model.h"
 #include "chrome/renderer/accessibility/read_anything_app_model.h"
@@ -23,6 +25,7 @@
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/accessibility/ax_location_and_scroll_updates.h"
 #include "ui/accessibility/ax_node_id_forward.h"
 #include "ui/accessibility/ax_node_position.h"
 #include "ui/accessibility/ax_position.h"
@@ -72,6 +75,7 @@ class ReadAnythingAppControllerScreen2xDataCollectionModeTest;
 class ReadAnythingAppController
     : public content::RenderFrameObserver,
       public gin::Wrappable<ReadAnythingAppController>,
+      public ReadAnythingAppModel::ModelObserver,
       public read_anything::mojom::UntrustedPage,
       public ui::AXTreeObserver {
  public:
@@ -87,6 +91,10 @@ class ReadAnythingAppController
 
   // content::RenderFrameObserver:
   void OnDestruct() override;
+
+  // ReadAnythingAppModel::ModelObserver:
+  void OnTreeAdded(ui::AXTree* tree) override;
+  void OnTreeRemoved(ui::AXTree* tree) override;
 
  private:
   friend ReadAnythingAppControllerTest;
@@ -114,7 +122,11 @@ class ReadAnythingAppController
       const std::vector<ui::AXTreeUpdate>& updates,
       const std::vector<ui::AXEvent>& events) override;
   void AccessibilityLocationChangesReceived(
-      const std::vector<ui::AXLocationChanges>& details) override;
+      const ui::AXTreeID& tree_id,
+      ui::AXLocationAndScrollUpdates& details) override;
+  void AccessibilityLocationChangesReceived(
+      const ui::AXTreeID& tree_id,
+      const ui::AXLocationAndScrollUpdates& details) override;
   void OnActiveAXTreeIDChanged(const ui::AXTreeID& tree_id,
                                ukm::SourceId ukm_source_id,
                                bool is_pdf) override;
@@ -137,6 +149,8 @@ class ReadAnythingAppController
   void SetLanguageCode(const std::string& code) override;
   void SetDefaultLanguageCode(const std::string& code) override;
   void ScreenAIServiceReady() override;
+  void OnGetVoicePackInfo(
+      read_anything::mojom::VoicePackInfoPtr voice_pack_info) override;
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   void OnDeviceLocked() override;
 #endif
@@ -189,8 +203,6 @@ class ReadAnythingAppController
   std::string GetUrl(ui::AXNodeID ax_node_id) const;
   std::string GetAltText(ui::AXNodeID ax_node_id) const;
   void SendGetVoicePackInfoRequest(const std::string& language) const;
-  void OnGetVoicePackInfoResponse(
-      read_anything::mojom::VoicePackInfoPtr voice_pack_info);
   void SendInstallVoicePackRequest(const std::string& language) const;
   void OnInstallVoicePackResponse(
       read_anything::mojom::VoicePackInfoPtr voice_pack_info);
@@ -386,6 +398,17 @@ class ReadAnythingAppController
   // Model that holds Reading mode state for this controller.
   ReadAnythingAppModel model_;
 
+  // Observer of `model_`, which gets notified when trees are added / removed.
+  base::ScopedObservation<ReadAnythingAppModel,
+                          ReadAnythingAppModel::ModelObserver>
+      model_observer_{this};
+
+  // Observers of AXTrees, which are added / removed  as the `model_` changes
+  // state.
+  std::deque<
+      std::unique_ptr<base::ScopedObservation<ui::AXTree, ui::AXTreeObserver>>>
+      tree_observers_;
+
   // For metrics logging
   std::unique_ptr<ukm::MojoUkmRecorder> ukm_recorder_;
 
@@ -397,7 +420,7 @@ class ReadAnythingAppController
 
   // A timer that causes a distillation after a user stops typing for a set
   // number of seconds.
-  base::RetainingOneShotTimer post_user_entry_draw_timer_;
+  std::unique_ptr<base::RetainingOneShotTimer> post_user_entry_draw_timer_;
 
   base::WeakPtrFactory<ReadAnythingAppController> weak_ptr_factory_{this};
 };

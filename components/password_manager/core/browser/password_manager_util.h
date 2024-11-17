@@ -136,8 +136,7 @@ password_manager::PasswordForm MakeNormalizedBlocklistedForm(
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
 bool ShouldBiometricAuthenticationForFillingToggleBeVisible(
     const PrefService* local_state);
-#endif
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+
 bool ShouldShowBiometricAuthenticationBeforeFillingPromo(
     password_manager::PasswordManagerClient* client);
 #endif
@@ -157,11 +156,12 @@ std::string GetSignonRealm(const GURL& url);
 #if BUILDFLAG(IS_IOS)
 // Returns a boolean indicating whether the user had enabled the credential
 // provider in their iOS settings at startup.
-bool IsCredentialProviderEnabledOnStartup(const PrefService* prefs);
+bool IsCredentialProviderEnabledOnStartup(const PrefService* local_state);
 
 // Sets the boolean indicating whether the user had enabled the credential
 // provider in their iOS settings at startup.
-void SetCredentialProviderEnabledOnStartup(PrefService* prefs, bool enabled);
+void SetCredentialProviderEnabledOnStartup(PrefService* local_state,
+                                           bool enabled);
 #endif
 
 // Contains all special symbols considered for password-generation.

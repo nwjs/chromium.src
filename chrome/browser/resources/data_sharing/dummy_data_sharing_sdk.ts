@@ -14,14 +14,14 @@ function appendTextForTesting(text: string) {
 }
 
 export function buildDataSharingSdk() {
-  return new DataSharingSdkImpl();
+  return DataSharingSdkImpl.getInstance();
 }
 
 window.data_sharing_sdk = {
   buildDataSharingSdk,
 };
 
-class DataSharingSdkImpl implements DataSharingSdk {
+export class DataSharingSdkImpl implements DataSharingSdk {
   createGroup(
       _params: CreateGroupParams,
       ): Promise<{result?: CreateGroupResult, status: Code}> {
@@ -46,6 +46,7 @@ class DataSharingSdkImpl implements DataSharingSdk {
                                           email: 'test@gmail.com',
                                           role: 'member',
                                           avatarUrl: 'http://example.com',
+                                          givenName: 'MEMBER_NAME',
                                         },
                                       ],
                                     })),
@@ -77,7 +78,7 @@ class DataSharingSdkImpl implements DataSharingSdk {
       },
       ): Promise<DataSharingSdkResponse> {
     appendTextForTesting('A fake join dialog');
-    return Promise.resolve({});
+    return new Promise(() => {});
   }
   runInviteFlow(_params: {
     parent?: HTMLElement,
@@ -86,7 +87,7 @@ class DataSharingSdkImpl implements DataSharingSdk {
     learnMoreUrlMap?: {[type in LearnMoreUrlType]?: () => string},
   }): Promise<DataSharingSdkResponse> {
     appendTextForTesting('A fake invite dialog');
-    return Promise.resolve({});
+    return new Promise(() => {});
   }
   runManageFlow(
       _params: DataSharingSdkGroupId&{
@@ -96,10 +97,21 @@ class DataSharingSdkImpl implements DataSharingSdk {
       },
       ): Promise<DataSharingSdkResponse> {
     appendTextForTesting('A fake manage dialog');
-    return Promise.resolve({});
+    return new Promise(() => {});
   }
 
   // Setup Helpers
   setOauthAccessToken(_params: {accessToken: string}): void {}
   updateClearcut(_params: {enabled: boolean}): void {}
+
+  static getInstance(): DataSharingSdk {
+    return dataSharingSdkInstance ||
+        (dataSharingSdkInstance = new DataSharingSdkImpl());
+  }
+
+  static setInstance(obj: DataSharingSdk) {
+    dataSharingSdkInstance = obj;
+  }
 }
+
+let dataSharingSdkInstance: DataSharingSdk|null = null;

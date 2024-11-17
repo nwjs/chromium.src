@@ -166,8 +166,10 @@ bool D3D11VideoDecoder::InitializeAcceleratedDecoder(
         profile_, config.color_space_info());
   } else if (config.codec() == VideoCodec::kAV1) {
     accelerated_video_decoder_ = std::make_unique<AV1Decoder>(
-        std::make_unique<D3D11AV1Accelerator>(this, media_log_.get()), profile_,
-        config.color_space_info());
+        std::make_unique<D3D11AV1Accelerator>(
+            this, media_log_.get(),
+            gpu_workarounds_.use_current_picture_for_av1_invalid_ref),
+        profile_, config.color_space_info());
 #if BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
   } else if (config.codec() == VideoCodec::kHEVC) {
     DCHECK(base::FeatureList::IsEnabled(kPlatformHEVCDecoderSupport));
@@ -498,7 +500,8 @@ void D3D11VideoDecoder::Decode(scoped_refptr<DecoderBuffer> buffer,
   }
 
   const bool is_spatial_layer_buffer =
-      buffer->has_side_data() && !buffer->side_data()->spatial_layers.empty();
+      !buffer->end_of_stream() && buffer->has_side_data() &&
+      !buffer->side_data()->spatial_layers.empty();
 
   input_buffer_queue_.push_back(
       std::make_pair(std::move(buffer), std::move(decode_cb)));
@@ -866,9 +869,8 @@ bool D3D11VideoDecoder::OutputResult(const CodecPicture* picture,
 
   scoped_refptr<VideoFrame> frame = VideoFrame::WrapSharedImage(
       texture_selector_->PixelFormat(), shared_image,
-      shared_image->creation_sync_token(), GL_TEXTURE_EXTERNAL_OES,
-      VideoFrame::ReleaseMailboxCB(), picture_buffer->size(), visible_rect,
-      natural_size, timestamp);
+      shared_image->creation_sync_token(), VideoFrame::ReleaseMailboxCB(),
+      picture_buffer->size(), visible_rect, natural_size, timestamp);
 
   if (!frame) {
     // This can happen if, somehow, we get an unsupported combination of

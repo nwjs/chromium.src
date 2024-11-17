@@ -232,7 +232,7 @@ bool IsolatedContext::Instance::ResolvePathForName(const std::string& name,
         *path = base::FilePath();
         break;
       default:
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
     }
 
     return file_info_.name == name;

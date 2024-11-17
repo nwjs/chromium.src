@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import type {PageRemote, ProfileData, SwitchToTabInfo, Tab, TabOrganizationSession, TabSearchApiProxy, UserFeedback} from 'chrome://tab-search.top-chrome/tab_search.js';
-import {PageCallbackRouter, TabOrganizationModelStrategy} from 'chrome://tab-search.top-chrome/tab_search.js';
+import {PageCallbackRouter, TabOrganizationFeature, TabOrganizationModelStrategy, TabSearchSection} from 'chrome://tab-search.top-chrome/tab_search.js';
 import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 
 export class TestTabSearchApiProxy extends TestBrowserProxy implements
@@ -24,6 +24,8 @@ export class TestTabSearchApiProxy extends TestBrowserProxy implements
       'excludeFromStaleTabs',
       'getProfileData',
       'getStaleTabs',
+      'getTabSearchSection',
+      'getTabOrganizationFeature',
       'getTabOrganizationSession',
       'getTabOrganizationModelStrategy',
       'openRecentlyClosedEntry',
@@ -33,7 +35,8 @@ export class TestTabSearchApiProxy extends TestBrowserProxy implements
       'restartSession',
       'switchToTab',
       'saveRecentlyClosedExpandedPref',
-      'setTabIndex',
+      'setTabSearchSection',
+      'setOrganizationFeature',
       'startTabGroupTutorial',
       'triggerFeedback',
       'triggerSignIn',
@@ -88,6 +91,16 @@ export class TestTabSearchApiProxy extends TestBrowserProxy implements
     return Promise.resolve({tabs: this.staleTabs_});
   }
 
+  getTabSearchSection() {
+    this.methodCalled('getTabSearchSection');
+    return Promise.resolve({section: TabSearchSection.kSearch});
+  }
+
+  getTabOrganizationFeature() {
+    this.methodCalled('getTabOrganizationFeature');
+    return Promise.resolve({feature: TabOrganizationFeature.kSelector});
+  }
+
   getTabOrganizationSession() {
     this.methodCalled('getTabOrganizationSession');
     return Promise.resolve({session: this.tabOrganizationSession_!});
@@ -131,8 +144,12 @@ export class TestTabSearchApiProxy extends TestBrowserProxy implements
     this.methodCalled('saveRecentlyClosedExpandedPref', [expanded]);
   }
 
-  setTabIndex(index: number) {
-    this.methodCalled('setTabIndex', [index]);
+  setTabSearchSection(section: TabSearchSection) {
+    this.methodCalled('setTabSearchSection', [section]);
+  }
+
+  setOrganizationFeature(feature: TabOrganizationFeature) {
+    this.methodCalled('setOrganizationFeature', [feature]);
   }
 
   startTabGroupTutorial() {

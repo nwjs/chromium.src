@@ -118,8 +118,8 @@ public class LayoutManagerImpl
             };
     private TabModelSelectorTabObserver mTabModelSelectorTabObserver;
 
-    // An observer for watching TabModelFilters changes events.
-    private TabModelObserver mTabModelFilterObserver;
+    // An observer for watching TabGroupModelFilters changes events.
+    private TabModelObserver mTabGroupModelFilterObserver;
 
     // External Observers
     private final ObserverList<LayoutStateObserver> mLayoutObservers = new ObserverList<>();
@@ -225,12 +225,15 @@ public class LayoutManagerImpl
             } else {
                 boolean incognito = tab.isIncognito();
                 boolean willBeSelected =
-                        launchType != TabLaunchType.FROM_LONGPRESS_BACKGROUND
+                        (launchType != TabLaunchType.FROM_LONGPRESS_BACKGROUND
                                         && launchType
                                                 != TabLaunchType.FROM_LONGPRESS_BACKGROUND_IN_GROUP
                                         && launchType != TabLaunchType.FROM_RECENT_TABS
                                         && launchType != TabLaunchType.FROM_RESTORE_TABS_UI
                                         && launchType != TabLaunchType.FROM_SYNC_BACKGROUND
+                                        && launchType
+                                                != TabLaunchType
+                                                        .FROM_COLLABORATION_BACKGROUND_IN_GROUP)
                                 || (!getTabModelSelector().isIncognitoSelected() && incognito);
                 float lastTapX = LocalizationUtils.isLayoutRtl() ? mHost.getWidth() * mPxToDp : 0.f;
                 float lastTapY = 0.f;
@@ -662,10 +665,10 @@ public class LayoutManagerImpl
 
         selector.getCurrentTabModelSupplier().addObserver(mCurrentTabModelObserver);
 
-        mTabModelFilterObserver = createTabModelObserver();
+        mTabGroupModelFilterObserver = createTabModelObserver();
         getTabModelSelector()
-                .getTabModelFilterProvider()
-                .addTabModelFilterObserver(mTabModelFilterObserver);
+                .getTabGroupModelFilterProvider()
+                .addTabGroupModelFilterObserver(mTabGroupModelFilterObserver);
     }
 
     @Override
@@ -680,10 +683,10 @@ public class LayoutManagerImpl
                     .getCurrentTabModelSupplier()
                     .removeObserver(mCurrentTabModelObserver);
         }
-        if (mTabModelFilterObserver != null) {
+        if (mTabGroupModelFilterObserver != null) {
             getTabModelSelector()
-                    .getTabModelFilterProvider()
-                    .removeTabModelFilterObserver(mTabModelFilterObserver);
+                    .getTabGroupModelFilterProvider()
+                    .removeTabGroupModelFilterObserver(mTabGroupModelFilterObserver);
         }
     }
 
@@ -843,8 +846,8 @@ public class LayoutManagerImpl
     /**
      * Should be called when a tab creating event is triggered (called before the tab is done being
      * created).
-     * @param sourceId    The id of the creating tab if any.
-     * @param url         The url of the created tab.
+     *
+     * @param sourceId The id of the creating tab if any.
      * @param isIncognito Whether or not created tab will be incognito.
      */
     protected void tabCreating(int sourceId, boolean isIncognito) {

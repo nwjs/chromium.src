@@ -115,7 +115,7 @@ class ProcessHandleTestPeer {
       : handle_(handle) {}
 
   void CallOnLaunchedWithPidForCurrentProcess() {
-    handle_->OnBaseProcessLaunched(base::Process::Current());
+    handle_->OnBaseProcessLaunchedForTesting(base::Process::Current());
   }
 
  private:
@@ -1358,15 +1358,16 @@ BuildPrivateAggregationForEventRequest(
 }
 
 auction_worklet::mojom::PrivateAggregationRequestPtr
-BuildPrivateAggregationForBaseValue(
+BuildPrivateAggregationForScaledBaseValue(
     absl::uint128 bucket,
+    double scale,
     auction_worklet::mojom::BaseValue base_value,
     auction_worklet::mojom::EventTypePtr event_type,
     std::optional<uint64_t> filtering_id = std::nullopt) {
   auction_worklet::mojom::AggregatableReportForEventContribution contribution(
       auction_worklet::mojom::ForEventSignalBucket::NewIdBucket(bucket),
       auction_worklet::mojom::ForEventSignalValue::NewSignalValue(
-          auction_worklet::mojom::SignalValue::New(base_value, /*scale=*/1.0,
+          auction_worklet::mojom::SignalValue::New(base_value, scale,
                                                    /*offset=*/0)),
       filtering_id, std::move(event_type));
 
@@ -1375,6 +1376,16 @@ BuildPrivateAggregationForBaseValue(
           NewForEventContribution(contribution.Clone()),
       blink::mojom::AggregationServiceMode::kDefault,
       blink::mojom::DebugModeDetails::New());
+}
+
+auction_worklet::mojom::PrivateAggregationRequestPtr
+BuildPrivateAggregationForBaseValue(
+    absl::uint128 bucket,
+    auction_worklet::mojom::BaseValue base_value,
+    auction_worklet::mojom::EventTypePtr event_type,
+    std::optional<uint64_t> filtering_id = std::nullopt) {
+  return BuildPrivateAggregationForScaledBaseValue(
+      bucket, /*scale=*/1.0, base_value, std::move(event_type), filtering_id);
 }
 
 // Builds a RealTimeReportingContribution with given `bucket` and
@@ -1471,18 +1482,21 @@ class SameProcessAuctionProcessManager : public AuctionProcessManager {
   }
 
  private:
-  RenderProcessHost* LaunchProcess(
-      mojo::PendingReceiver<auction_worklet::mojom::AuctionWorkletService>
-          auction_worklet_service_receiver,
-      const ProcessHandle* handle,
+  scoped_refptr<WorkletProcess> LaunchProcess(
+      const ProcessHandle* process_handle,
       const std::string& display_name) override {
     // Create one AuctionWorkletServiceImpl per Mojo pipe, just like in
     // production code. Don't bother to delete the service on pipe close,
     // though; just keep it in a vector instead.
+    mojo::PendingRemote<auction_worklet::mojom::AuctionWorkletService> service;
     auction_worklet_services_.push_back(
         auction_worklet::AuctionWorkletServiceImpl::CreateForService(
-            std::move(auction_worklet_service_receiver)));
-    return nullptr;
+            service.InitWithNewPipeAndPassReceiver()));
+    return base::MakeRefCounted<WorkletProcess>(
+        this, /*site_instance=*/nullptr, /*render_process_host=*/nullptr,
+        std::move(service), process_handle->worklet_type(),
+        process_handle->origin(),
+        /*uses_shared_process=*/false);
   }
 
   void OnNewProcessAssigned(const ProcessHandle* handle) override {
@@ -1498,6 +1512,8 @@ class SameProcessAuctionProcessManager : public AuctionProcessManager {
   bool TryUseSharedProcess(ProcessHandle* process_handle) override {
     return false;
   }
+
+  bool UsingDedicatedUtilityProcesses() override { return false; }
 
   std::vector<std::unique_ptr<auction_worklet::AuctionWorkletServiceImpl>>
       auction_worklet_services_;
@@ -1575,8 +1591,7 @@ class EventReportingAttestationBrowserClient : public TestContentBrowserClient {
   bool IsPrivacySandboxReportingDestinationAttested(
       content::BrowserContext* browser_context,
       const url::Origin& destination_origin,
-      content::PrivacySandboxInvokingAPI invoking_api,
-      bool post_impression_reporting) override {
+      content::PrivacySandboxInvokingAPI invoking_api) override {
     return true;
   }
 };
@@ -2263,22 +2278,22 @@ class AuctionRunnerTest : public RenderViewHostTestHarness,
   StorageInterestGroup MakeInterestGroup(blink::InterestGroup interest_group) {
     // Create fake previous wins. The time of these wins is ignored, since the
     // InterestGroupManager attaches the current time when logging a win.
-    std::vector<auction_worklet::mojom::PreviousWinPtr> previous_wins;
+    std::vector<blink::mojom::PreviousWinPtr> previous_wins;
     // Log a time that's before now, so that any new entry will have the largest
     // time.
     base::Time the_past = base::Time::Now() - base::Milliseconds(1);
     previous_wins.push_back(
-        auction_worklet::mojom::PreviousWin::New(the_past, R"({"winner": 0})"));
-    previous_wins.push_back(auction_worklet::mojom::PreviousWin::New(
-        the_past, R"({"winner": -1})"));
-    previous_wins.push_back(auction_worklet::mojom::PreviousWin::New(
-        the_past, R"({"winner": -2})"));
+        blink::mojom::PreviousWin::New(the_past, R"({"winner": 0})"));
+    previous_wins.push_back(
+        blink::mojom::PreviousWin::New(the_past, R"({"winner": -1})"));
+    previous_wins.push_back(
+        blink::mojom::PreviousWin::New(the_past, R"({"winner": -2})"));
 
     StorageInterestGroup storage_group;
     storage_group.interest_group = std::move(interest_group);
     storage_group.bidding_browser_signals =
-        auction_worklet::mojom::BiddingBrowserSignals::New(
-            3, 5, std::move(previous_wins), false);
+        blink::mojom::BiddingBrowserSignals::New(3, 5, std::move(previous_wins),
+                                                 false);
     storage_group.joining_origin = storage_group.interest_group.owner;
     return storage_group;
   }
@@ -2492,6 +2507,13 @@ class AuctionRunnerTest : public RenderViewHostTestHarness,
   }
   std::optional<std::string> GetCookieDeprecationLabel() override {
     return std::nullopt;
+  }
+  void GetBiddingAndAuctionServerKey(
+      const std::optional<url::Origin>& coordinator,
+      base::OnceCallback<void(base::expected<BiddingAndAuctionServerKey,
+                                             std::string>)> callback) override {
+    // Not implemented because this method is not called in this test fixture.
+    NOTREACHED();
   }
 
   // DebuggableAuctionWorkletTracker::Observer implementation
@@ -13123,7 +13145,9 @@ TEST_F(AuctionRunnerTest, PerBuyerCumulativeTimeouts) {
 }
 
 // Test the case where two out of three bids for a bidder timeout due to the
-// perBuyerCumulativeTimeouts and how it interacts with reserved.once.
+// perBuyerCumulativeTimeouts, how it interacts with reserved.once, and the
+// corresponding PA metric. This is also an opportunity to test
+// kCumulativeBuyerTime when things time out.
 TEST_F(AuctionRunnerTest, PerBuyerTwoThirdsCumulativeTimeouts) {
   interest_group_buyers_ = {{kBidder1}};
   UseMockWorkletService();
@@ -13161,9 +13185,17 @@ TEST_F(AuctionRunnerTest, PerBuyerTwoThirdsCumulativeTimeouts) {
   // Generate one bid before the timeout.
   std::vector<auction_worklet::mojom::PrivateAggregationRequestPtr>
       bidder_pa_requests;
+  bidder_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
+      /*bucket=*/100,
+      auction_worklet::mojom::BaseValue::
+          kPercentInterestGroupsCumulativeTimeout,
+      Reserved(auction_worklet::mojom::ReservedEventType::kReservedOnce)));
   bidder_pa_requests.push_back(BuildPrivateAggregationForEventRequest(
       /*bucket=*/101,
       /*value=*/1,
+      Reserved(auction_worklet::mojom::ReservedEventType::kReservedOnce)));
+  bidder_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
+      /*bucket=*/102, auction_worklet::mojom::BaseValue::kCumulativeBuyerTime,
       Reserved(auction_worklet::mojom::ReservedEventType::kReservedOnce)));
   bidder1_worklet->InvokeGenerateBidCallback(
       /*bid=*/2, /*bid_currency=*/std::nullopt,
@@ -13236,8 +13268,17 @@ TEST_F(AuctionRunnerTest, PerBuyerTwoThirdsCumulativeTimeouts) {
       testing::UnorderedElementsAre(
           testing::Pair(
               kBidder1,
-              ElementsAreRequests(BuildPrivateAggregationRequest(/*bucket=*/101,
-                                                                 /*value=*/1))),
+              // 66% of bids timed out. This also means that bidder time is
+              // cumulative timeout + 1000.
+              ElementsAreRequests(
+                  BuildPrivateAggregationRequest(/*bucket=*/100,
+                                                 /*value=*/66),
+                  BuildPrivateAggregationRequest(/*bucket=*/101,
+                                                 /*value=*/1),
+                  BuildPrivateAggregationRequest(
+                      /*bucket=*/102,
+                      /*value=*/kBidder1CumulativeTimeout.InMilliseconds() +
+                          1000))),
           testing::Pair(kSeller,
                         ElementsAreRequests(
                             BuildPrivateAggregationRequest(/*bucket=*/201,
@@ -13255,7 +13296,8 @@ TEST_F(AuctionRunnerTest, PerBuyerTwoThirdsCumulativeTimeouts) {
 }
 
 // Test the case where the perBuyerCumulativeTimeout expires during the
-// scoreAd() call. The bid should not be timed out.
+// scoreAd() call. The bid should not be timed out. This is also a convenient
+// time to check the measured bidder time.
 TEST_F(AuctionRunnerTest,
        PerBuyerCumulativeTimeoutsTimeoutPassesDuringScoreAd) {
   interest_group_buyers_ = {{kBidder1}};
@@ -13268,13 +13310,31 @@ TEST_F(AuctionRunnerTest,
   ASSERT_TRUE(bidder1_worklet);
 
   // The timeout isn't quite hit.
-  task_environment()->FastForwardBy(kBidder1CumulativeTimeout - kTinyTime);
+  base::TimeDelta buyer_time = kBidder1CumulativeTimeout - kTinyTime;
+  task_environment()->FastForwardBy(buyer_time);
   EXPECT_FALSE(auction_complete_);
 
   // Bid generation completes.
+  std::vector<auction_worklet::mojom::PrivateAggregationRequestPtr>
+      bidder_pa_requests;
+  bidder_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
+      /*bucket=*/100,
+      auction_worklet::mojom::BaseValue::
+          kPercentInterestGroupsCumulativeTimeout,
+      Reserved(auction_worklet::mojom::ReservedEventType::kReservedOnce)));
+  bidder_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
+      /*bucket=*/101, auction_worklet::mojom::BaseValue::kCumulativeBuyerTime,
+      Reserved(auction_worklet::mojom::ReservedEventType::kReservedOnce)));
   bidder1_worklet->InvokeGenerateBidCallback(
       /*bid=*/2, /*bid_currency=*/std::nullopt,
-      blink::AdDescriptor(GURL("https://ad1.com/")));
+      blink::AdDescriptor(GURL("https://ad1.com/")),
+      auction_worklet::mojom::BidRole::kUnenforcedKAnon,
+      /*further_bids=*/{},
+      /*ad_component_descriptors=*/std::nullopt,
+      /*duration=*/base::Seconds(1),
+      /*bidding_signals_data_version=*/std::nullopt,
+      /*debug_loss_report_url=*/std::nullopt,
+      /*debug_win_report_url=*/std::nullopt, std::move(bidder_pa_requests));
 
   // More than the timeout time passes, but since the bid is being blocked on
   // the seller, there should be no timeout.
@@ -13322,6 +13382,17 @@ TEST_F(AuctionRunnerTest,
   EXPECT_THAT(result_.errors, testing::UnorderedElementsAre());
   EXPECT_EQ(kBidder1Key, result_.winning_group_id);
   EXPECT_EQ(GURL("https://ad1.com/"), result_.ad_descriptor->url);
+
+  EXPECT_THAT(
+      private_aggregation_manager_.TakePrivateAggregationRequests(),
+      testing::UnorderedElementsAre(testing::Pair(
+          kBidder1,
+          // 0% of bids timed out.
+          ElementsAreRequests(BuildPrivateAggregationRequest(/*bucket=*/100,
+                                                             /*value=*/0),
+                              BuildPrivateAggregationRequest(
+                                  /*bucket=*/101,
+                                  /*value=*/buyer_time.InMilliseconds())))));
 
   CheckMetrics(MetricsExpectations(AuctionResult::kSuccess)
                    .SetNumInterestGroups(1)
@@ -16865,7 +16936,8 @@ TEST_F(AuctionRunnerTest, PrivateAggregationTimeMetrics) {
             /*score_ad_timing_metrics=*/
             auction_worklet::mojom::SellerTimingMetrics::New(
                 /*js_fetch_latency=*/std::nullopt,
-                /*scoring_latency=*/base::Milliseconds(100 * i + 20)),
+                /*scoring_latency=*/base::Milliseconds(100 * i + 20),
+                /*script_timed_out=*/false),
             /*score_ad_dependency_latencies=*/
             auction_worklet::mojom::ScoreAdDependencyLatencies::New(
                 /*code_ready_latency=*/std::nullopt,
@@ -17051,7 +17123,8 @@ TEST_F(AuctionRunnerTest, PrivateAggregationTimeMetricsPerParticipant) {
             /*score_ad_timing_metrics=*/
             auction_worklet::mojom::SellerTimingMetrics::New(
                 /*js_fetch_latency=*/base::Milliseconds(100 * i + 45),
-                /*scoring_latency=*/base::Milliseconds(100 * i + 20)),
+                /*scoring_latency=*/base::Milliseconds(100 * i + 20),
+                /*script_timed_out=*/false),
             /*score_ad_dependency_latencies=*/
             auction_worklet::mojom::ScoreAdDependencyLatencies::New(
                 /*code_ready_latency=*/std::nullopt,
@@ -17115,6 +17188,10 @@ TEST_F(AuctionRunnerTest, PrivateAggregationTimeMetricsPerParticipant) {
                                                            /*value=*/95),
                             BuildPrivateAggregationRequest(/*bucket=*/60,
                                                            /*value=*/400)))));
+
+  histogram_tester_->ExpectUniqueSample(
+      "Ads.InterestGroup.Auction.PABaseValueUsed",
+      auction_worklet::mojom::BaseValue::kAverageCodeFetchTime, 5);
 }
 
 TEST_F(AuctionRunnerTest, PrivateAggregationMetricsPerParticipant) {
@@ -17126,8 +17203,8 @@ TEST_F(AuctionRunnerTest, PrivateAggregationMetricsPerParticipant) {
   // Create multiple IGs per buyers with different properties, to test IG-count
   // related metrics.
   std::vector<StorageInterestGroup> bidders;
-  // bidder1 has 4 IGs with ads, one without; but the limit is 3 so we expect
-  // only 3 to participate.
+  // bidder1 has 4 IGs with ads, one without, and further one negative one;
+  // but the limit is 3 so we expect only 3 to participate.
   bidders.emplace_back(MakeInterestGroup(
       kBidder1, kBidder1Name, kBidder1Url,
       /*trusted_bidding_signals_url=*/std::nullopt,
@@ -17144,6 +17221,11 @@ TEST_F(AuctionRunnerTest, PrivateAggregationMetricsPerParticipant) {
   bidders.emplace_back(MakeInterestGroup(
       kBidder1, "5", kBidder1Url, /*trusted_bidding_signals_url=*/std::nullopt,
       /*trusted_bidding_signals_keys=*/{}, GURL("https://ad1.com")));
+  bidders.emplace_back(
+      MakeInterestGroup(blink::TestInterestGroupBuilder(kBidder1, "neg1")
+                            .SetAdditionalBidKey(make_optional(
+                                blink::InterestGroup::AdditionalBidKey()))
+                            .Build()));
   mock_auction_process_manager_->SetExpectedBuyerBidTimeout(
       "2", base::Milliseconds(500));
   mock_auction_process_manager_->SetExpectedBuyerBidTimeout(
@@ -17159,7 +17241,7 @@ TEST_F(AuctionRunnerTest, PrivateAggregationMetricsPerParticipant) {
     --priority;
   }
 
-  // bidder2 has 2 IGs with ads.
+  // bidder2 has 2 IGs with ads, 1 w/o ads, plus two negative ones.
   bidders.emplace_back(MakeInterestGroup(
       kBidder2, kBidder2Name, kBidder2Url,
       /*trusted_bidding_signals_url=*/std::nullopt,
@@ -17170,10 +17252,29 @@ TEST_F(AuctionRunnerTest, PrivateAggregationMetricsPerParticipant) {
   bidders.emplace_back(MakeInterestGroup(
       kBidder2, "7", kBidder2Url, /*trusted_bidding_signals_url=*/std::nullopt,
       /*trusted_bidding_signals_keys=*/{}, /*ad_url=*/std::nullopt));
+  bidders.emplace_back(
+      MakeInterestGroup(blink::TestInterestGroupBuilder(kBidder2, "neg1")
+                            .SetAdditionalBidKey(make_optional(
+                                blink::InterestGroup::AdditionalBidKey()))
+                            .Build()));
+  bidders.emplace_back(MakeInterestGroup(
+      blink::TestInterestGroupBuilder(kBidder2, "neg2")
+          .SetAdditionalBidKey(blink::InterestGroup::AdditionalBidKey())
+          .Build()));
   mock_auction_process_manager_->SetExpectedBuyerBidTimeout(
       "6", base::Milliseconds(150));
   mock_auction_process_manager_->SetExpectedBuyerBidTimeout(
       "7", base::Milliseconds(150));
+
+  // Compute how much storage we used for each owner.
+  size_t size1 = 0, size2 = 0;
+  for (const auto& ig : bidders) {
+    if (ig.interest_group.owner.IsSameOriginWith(kBidder1)) {
+      size1 += ig.interest_group.EstimateSize();
+    } else {
+      size2 += ig.interest_group.EstimateSize();
+    }
+  }
 
   StartAuction(kSellerUrl, std::move(bidders));
 
@@ -17197,6 +17298,44 @@ TEST_F(AuctionRunnerTest, PrivateAggregationMetricsPerParticipant) {
           /*bucket=*/100 * i,
           auction_worklet::mojom::BaseValue::kParticipatingInterestGroupCount,
           Reserved(auction_worklet::mojom::ReservedEventType::kReservedOnce)));
+      bidder_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
+          /*bucket=*/100 * i + 1,
+          auction_worklet::mojom::BaseValue::kPercentScriptsTimeout,
+          Reserved(auction_worklet::mojom::ReservedEventType::kReservedOnce)));
+      bidder_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
+          /*bucket=*/100 * i + 2,
+          auction_worklet::mojom::BaseValue::kRegularInterestGroupsUsed,
+          Reserved(auction_worklet::mojom::ReservedEventType::kReservedOnce)));
+      bidder_pa_requests.push_back(BuildPrivateAggregationForScaledBaseValue(
+          /*bucket=*/100 * i + 3,
+          /*scale=*/InterestGroupStorage::MaxOwnerRegularInterestGroups() /
+              100.0,
+          auction_worklet::mojom::BaseValue::
+              kPercentRegularInterestGroupQuotaUsed,
+          Reserved(auction_worklet::mojom::ReservedEventType::kReservedOnce)));
+      bidder_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
+          /*bucket=*/100 * i + 4,
+          auction_worklet::mojom::BaseValue::kNegativeInterestGroupsUsed,
+          Reserved(auction_worklet::mojom::ReservedEventType::kReservedOnce)));
+      bidder_pa_requests.push_back(BuildPrivateAggregationForScaledBaseValue(
+          /*bucket=*/100 * i + 5,
+          /*scale=*/InterestGroupStorage::MaxOwnerNegativeInterestGroups() /
+              100.0,
+          auction_worklet::mojom::BaseValue::
+              kPercentNegativeInterestGroupQuotaUsed,
+          Reserved(auction_worklet::mojom::ReservedEventType::kReservedOnce)));
+      bidder_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
+          /*bucket=*/100 * i + 6,
+          auction_worklet::mojom::BaseValue::kInterestGroupStorageUsed,
+          Reserved(auction_worklet::mojom::ReservedEventType::kReservedOnce)));
+      bidder_pa_requests.push_back(BuildPrivateAggregationForScaledBaseValue(
+          /*bucket=*/100 * i + 7,
+          /*scale=*/InterestGroupStorage::MaxOwnerStorageSize() / 100.0,
+          auction_worklet::mojom::BaseValue::
+              kPercentInterestGroupStorageQuotaUsed,
+          Reserved(auction_worklet::mojom::ReservedEventType::kReservedOnce)));
+      // For bidder 0, mark 2 as timed out, for bidder 1 mark all as timed out.
+      bidder_worklets[i]->SetScriptTimedOut(i == 1 ? true : ig == 2);
       bidder_worklets[i]->InvokeGenerateBidCallback(
           ig == 0 ? std::make_optional<double>(i + 1) : std::nullopt,
           /*bid_currency=*/std::nullopt,
@@ -17217,6 +17356,10 @@ TEST_F(AuctionRunnerTest, PrivateAggregationMetricsPerParticipant) {
         /*bucket=*/10,
         auction_worklet::mojom::BaseValue::kParticipatingInterestGroupCount,
         Reserved(auction_worklet::mojom::ReservedEventType::kReservedOnce)));
+    seller_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
+        /*bucket=*/11,
+        auction_worklet::mojom::BaseValue::kPercentScriptsTimeout,
+        Reserved(auction_worklet::mojom::ReservedEventType::kReservedOnce)));
 
     auto score_ad_params = seller_worklet->WaitForScoreAd();
     mojo::Remote<auction_worklet::mojom::ScoreAdClient>(
@@ -17235,7 +17378,8 @@ TEST_F(AuctionRunnerTest, PrivateAggregationMetricsPerParticipant) {
             /*score_ad_timing_metrics=*/
             auction_worklet::mojom::SellerTimingMetrics::New(
                 /*js_fetch_latency=*/base::Milliseconds(100 * i + 45),
-                /*scoring_latency=*/base::Milliseconds(100 * i + 20)),
+                /*scoring_latency=*/base::Milliseconds(100 * i + 20),
+                /*script_timed_out=*/i == 0),
             /*score_ad_dependency_latencies=*/
             auction_worklet::mojom::ScoreAdDependencyLatencies::New(
                 /*code_ready_latency=*/std::nullopt,
@@ -17254,14 +17398,21 @@ TEST_F(AuctionRunnerTest, PrivateAggregationMetricsPerParticipant) {
       /*bucket=*/50,
       auction_worklet::mojom::BaseValue::kParticipatingInterestGroupCount,
       Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
+  bidder_report_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
+      /*bucket=*/51, auction_worklet::mojom::BaseValue::kPercentScriptsTimeout,
+      Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
   seller_report_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
       /*bucket=*/60,
       auction_worklet::mojom::BaseValue::kParticipatingInterestGroupCount,
+      Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
+  seller_report_pa_requests.push_back(BuildPrivateAggregationForBaseValue(
+      /*bucket=*/61, auction_worklet::mojom::BaseValue::kPercentScriptsTimeout,
       Reserved(auction_worklet::mojom::ReservedEventType::kReservedAlways)));
 
   // Need to flush the service pipe to make sure the AuctionRunner has
   // received the score.
   seller_worklet->Flush();
+  seller_worklet->SetScriptTimedOut(true);
   seller_worklet->WaitForReportResult();
   seller_worklet->InvokeReportResultCallback(
       /*report_url=*/std::nullopt,
@@ -17270,6 +17421,7 @@ TEST_F(AuctionRunnerTest, PrivateAggregationMetricsPerParticipant) {
   auto winning_bidder_worklet =
       mock_auction_process_manager_->TakeBidderWorklet(kBidder2Url);
   ASSERT_TRUE(winning_bidder_worklet);
+  winning_bidder_worklet->SetScriptTimedOut(false);
   winning_bidder_worklet->WaitForReportWin();
   winning_bidder_worklet->InvokeReportWinCallback(
       /*report_url=*/std::nullopt,
@@ -17280,25 +17432,86 @@ TEST_F(AuctionRunnerTest, PrivateAggregationMetricsPerParticipant) {
   EXPECT_THAT(
       private_aggregation_manager_.TakePrivateAggregationRequests(),
       testing::UnorderedElementsAre(
-          testing::Pair(
-              kBidder1,
-              // 3 IGs are actually useful.
-              ElementsAreRequests(BuildPrivateAggregationRequest(/*bucket=*/0,
-                                                                 /*value=*/3))),
-          testing::Pair(
-              kBidder2,
-              // 2 IGs w/ads
-              ElementsAreRequests(BuildPrivateAggregationRequest(/*bucket=*/100,
-                                                                 /*value=*/2),
-                                  BuildPrivateAggregationRequest(/*bucket=*/50,
-                                                                 /*value=*/2))),
+          testing::Pair(kBidder1,
+                        // 3 IGs are actually useful; 1 times out so 33% timed
+                        // out. 5 regular IGs, 1 negative.
+                        ElementsAreRequests(
+                            BuildPrivateAggregationRequest(/*bucket=*/0,
+                                                           /*value=*/3),
+                            BuildPrivateAggregationRequest(/*bucket=*/1,
+                                                           /*value=*/33),
+                            BuildPrivateAggregationRequest(/*bucket=*/2,
+                                                           /*value=*/5),
+                            BuildPrivateAggregationRequest(/*bucket=*/3,
+                                                           /*value=*/5),
+                            BuildPrivateAggregationRequest(/*bucket=*/4,
+                                                           /*value=*/1),
+                            BuildPrivateAggregationRequest(/*bucket=*/5,
+                                                           /*value=*/1),
+                            BuildPrivateAggregationRequest(/*bucket=*/6,
+                                                           /*value=*/size1),
+                            BuildPrivateAggregationRequest(/*bucket=*/7,
+                                                           /*value=*/size1))),
+          testing::Pair(kBidder2,
+                        // 2 participating IGs; all "time out"; but reporting
+                        // doesn't. 3 positive IGs, 2 negative total.
+                        ElementsAreRequests(
+                            BuildPrivateAggregationRequest(/*bucket=*/100,
+                                                           /*value=*/2),
+                            BuildPrivateAggregationRequest(/*bucket=*/101,
+                                                           /*value=*/100),
+                            BuildPrivateAggregationRequest(/*bucket=*/102,
+                                                           /*value=*/3),
+                            BuildPrivateAggregationRequest(/*bucket=*/103,
+                                                           /*value=*/3),
+                            BuildPrivateAggregationRequest(/*bucket=*/104,
+                                                           /*value=*/2),
+                            BuildPrivateAggregationRequest(/*bucket=*/105,
+                                                           /*value=*/2),
+                            BuildPrivateAggregationRequest(/*bucket=*/106,
+                                                           /*value=*/size2),
+                            BuildPrivateAggregationRequest(/*bucket=*/107,
+                                                           /*value=*/size2),
+                            BuildPrivateAggregationRequest(/*bucket=*/50,
+                                                           /*value=*/2),
+                            BuildPrivateAggregationRequest(/*bucket=*/51,
+                                                           /*value=*/0))),
           testing::Pair(kSeller,
-                        // No IG metric for sellers.
+                        // No IG metric for sellers; timeouts do exist.
+                        // Seller scoring timeouts is 1 out of 2.
                         ElementsAreRequests(
                             BuildPrivateAggregationRequest(/*bucket=*/10,
                                                            /*value=*/0),
+                            BuildPrivateAggregationRequest(/*bucket=*/11,
+                                                           /*value=*/50),
                             BuildPrivateAggregationRequest(/*bucket=*/60,
-                                                           /*value=*/0)))));
+                                                           /*value=*/0),
+                            BuildPrivateAggregationRequest(/*bucket=*/61,
+                                                           /*value=*/100)))));
+
+  // Things that are requested on 2 buyers, seller, plus 2 reporting occur
+  // 5 times; even if some of those reports are 0 because they're not computed
+  // for some clients.
+  //
+  // Those that are per-generateBid() occur 2 times.
+  //
+  // The list below is not exhaustive.
+  histogram_tester_->ExpectBucketCount(
+      "Ads.InterestGroup.Auction.PABaseValueUsed",
+      auction_worklet::mojom::BaseValue::kParticipatingInterestGroupCount, 5);
+  histogram_tester_->ExpectBucketCount(
+      "Ads.InterestGroup.Auction.PABaseValueUsed",
+      auction_worklet::mojom::BaseValue::kPercentScriptsTimeout, 5);
+  histogram_tester_->ExpectBucketCount(
+      "Ads.InterestGroup.Auction.PABaseValueUsed",
+      auction_worklet::mojom::BaseValue::kRegularInterestGroupsUsed, 2);
+  histogram_tester_->ExpectBucketCount(
+      "Ads.InterestGroup.Auction.PABaseValueUsed",
+      auction_worklet::mojom::BaseValue::kPercentRegularInterestGroupQuotaUsed,
+      2);
+  histogram_tester_->ExpectBucketCount(
+      "Ads.InterestGroup.Auction.PABaseValueUsed",
+      auction_worklet::mojom::BaseValue::kBidRejectReason, 0);
 }
 
 TEST_F(AuctionRunnerTest, ComponentAuctionPrivateAggregationTimeMetrics) {
@@ -17388,7 +17601,8 @@ TEST_F(AuctionRunnerTest, ComponentAuctionPrivateAggregationTimeMetrics) {
             /*score_ad_timing_metrics=*/
             auction_worklet::mojom::SellerTimingMetrics::New(
                 /*js_fetch_latency=*/base::Milliseconds(100 * i + 50),
-                /*scoring_latency=*/base::Milliseconds(100 * i + 20)),
+                /*scoring_latency=*/base::Milliseconds(100 * i + 20),
+                /*script_timed_out=*/false),
             /*score_ad_dependency_latencies=*/
             auction_worklet::mojom::ScoreAdDependencyLatencies::New(
                 /*code_ready_latency=*/std::nullopt,
@@ -17430,7 +17644,8 @@ TEST_F(AuctionRunnerTest, ComponentAuctionPrivateAggregationTimeMetrics) {
           /*score_ad_timing_metrics=*/
           auction_worklet::mojom::SellerTimingMetrics::New(
               /*js_fetch_latency=*/base::Milliseconds(50),
-              /*scoring_latency=*/base::Milliseconds(30)),
+              /*scoring_latency=*/base::Milliseconds(30),
+              /*script_timed_out=*/false),
           /*score_ad_dependency_latencies=*/
           auction_worklet::mojom::ScoreAdDependencyLatencies::New(
               /*code_ready_latency=*/std::nullopt,
@@ -23651,6 +23866,61 @@ TEST_P(AuctionRunnerKAnonTest, Basic) {
     EXPECT_THAT(result_.report_urls,
                 testing::UnorderedElementsAreArray(expected_report_urls));
   }
+}
+
+// Test on not running into trouble if there is a k-anon winner but no
+// non-k-anon winner, which was previously possible in component auctions with
+// some top-level scoring functions. This particular one had a 25% chance of
+// hitting the problem.
+//
+// See https://crbug.com/367302752
+TEST_P(AuctionRunnerKAnonTest, NoNonKAnonWinner) {
+  auction_worklet::AddJavascriptResponse(
+      &url_loader_factory_, kBidder1Url,
+      MakeFilteringBidScript(1) + kSimpleReportWin);
+  auction_worklet::AddJavascriptResponse(
+      &url_loader_factory_, kComponentSeller1Url,
+      std::string(kMinimumDecisionScript) + kBasicReportResult);
+
+  const char kTopLevelScript[] = R"(
+    function scoreAd() {
+      // Accept the bid with 50% chance.
+      return {
+        allowComponentAuction: true,
+        desirability: Math.random() - 0.5
+      };
+    }
+  )";
+
+  auction_worklet::AddJavascriptResponse(
+      &url_loader_factory_, kSellerUrl,
+      std::string(kTopLevelScript) + kBasicReportResult);
+
+  std::vector<StorageInterestGroup> bidders;
+  bidders.emplace_back(MakeInterestGroup(
+      kBidder1, kBidder1Name, kBidder1Url,
+      /*trusted_bidding_signals_url=*/std::nullopt,
+      /*trusted_bidding_signals_keys=*/{}, GURL("https://ad1.com")));
+
+  // Authorize ad 1.
+  AuthorizeKAnonAd(bidders[0].interest_group.ads.value()[0], "https://ad1.com/",
+                   bidders[0]);
+
+  std::vector<std::string> ad1_k_anon_keys = {
+      blink::HashedKAnonKeyForAdBid(
+          bidders[0].interest_group,
+          bidders[0].interest_group.ads.value()[0].render_url()),
+      blink::HashedKAnonKeyForAdNameReporting(
+          bidders[0].interest_group, bidders[0].interest_group.ads.value()[0],
+          /*selected_buyer_and_seller_reporting_id=*/std::nullopt),
+  };
+
+  component_auctions_.emplace_back(
+      CreateAuctionConfig(kComponentSeller1Url, {{kBidder1}}));
+  interest_group_buyers_->clear();
+  StartAuction(kSellerUrl, bidders);
+  auction_run_loop_->Run();
+  EXPECT_THAT(result_.errors, testing::ElementsAre());
 }
 
 // Test where the k-anon ad has a higher bid.

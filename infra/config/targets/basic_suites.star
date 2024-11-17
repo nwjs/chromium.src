@@ -15,135 +15,9 @@ load("//lib/targets.star", "targets")
 # consistent and move the information onto the binaries
 
 targets.legacy_basic_suite(
-    name = "android_ci_only_fieldtrial_webview_tests",
-    tests = {
-        "webview_trichrome_64_cts_tests_no_field_trial": targets.legacy_test_config(
-            args = [
-                "--store-tombstones",
-            ],
-            ci_only = True,
-            swarming = targets.swarming(
-                shards = 2,
-            ),
-        ),
-        "webview_ui_test_app_test_apk_no_field_trial": targets.legacy_test_config(
-            ci_only = True,
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "android_emulator_specific_chrome_public_tests",
-    tests = {
-        "chrome_public_test_apk": targets.legacy_test_config(
-            mixins = [
-                "emulator-8-cores",  # Use 8-core to shorten test runtime.
-            ],
-            swarming = targets.swarming(
-                shards = 20,
-            ),
-        ),
-        "chrome_public_unit_test_apk": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 4,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "android_emulator_specific_network_enabled_content_browsertests",
-    tests = {
-        "content_browsertests_with_emulator_network": targets.legacy_test_config(),
-    },
-)
-
-# Test suites that need to run on hardware that is close to real Android device.
-# See https://crbug.com/40204012#comment5 for details.
-targets.legacy_basic_suite(
-    name = "android_hardware_specific_gtests",
-    tests = {
-        "cc_unittests": targets.legacy_test_config(),
-        "viz_unittests": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "android_isolated_scripts",
-    tests = {
-        "content_shell_crash_test": targets.legacy_test_config(
-            args = [
-                "--platform=android",
-            ],
-        ),
-    },
-)
-
-# Used when the device capacity is limited, e.g. for CQ.
-# TODO(crbug.com/352811552): Revisit after Android 14 on device promoted to CQ.
-targets.legacy_basic_suite(
-    name = "android_limited_capacity_gtests",
-    tests = {
-        "android_browsertests": targets.legacy_test_config(),
-        "blink_platform_unittests": targets.legacy_test_config(),
-        "content_browsertests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 20,
-            ),
-        ),
-        "webview_instrumentation_test_apk_multiple_process_mode": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 6,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "android_monochrome_smoke_tests",
-    tests = {
-        "monochrome_public_bundle_smoke_test": targets.legacy_test_config(),
-        "monochrome_public_smoke_test": targets.legacy_test_config(),
-    },
-)
-
-# TODO(crbug.com/40142574): Deprecate this group in favor of
-# android_pie_rel_gtests if/when android Pie capacity is fully restored.
-targets.legacy_basic_suite(
-    name = "android_pie_rel_reduced_capacity_gtests",
-    tests = {
-        "android_browsertests": targets.legacy_test_config(),
-        "blink_platform_unittests": targets.legacy_test_config(),
-        "cc_unittests": targets.legacy_test_config(),
-        "content_browsertests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 20,
-            ),
-        ),
-        "viz_unittests": targets.legacy_test_config(),
-        "webview_instrumentation_test_apk_multiple_process_mode": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 5,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
     name = "android_smoke_tests",
     tests = {
         "chrome_public_smoke_test": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "android_browsertests_fyi",
-    tests = {
-        "android_browsertests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 4,
-            ),
-        ),
     },
 )
 
@@ -190,35 +64,6 @@ targets.legacy_basic_suite(
 )
 
 targets.legacy_basic_suite(
-    name = "android_specific_coverage_java_tests",
-    tests = {
-        "content_shell_test_apk": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 3,
-            ),
-        ),
-        "mojo_test_apk": targets.legacy_test_config(),
-        "webview_instrumentation_test_apk_multiple_process_mode": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 5,
-            ),
-        ),
-        "webview_instrumentation_test_apk_single_process_mode": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 3,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "android_trichrome_smoke_tests",
-    tests = {
-        "trichrome_chrome_bundle_smoke_test": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
     name = "android_webview_gpu_telemetry_tests",
     tests = {
         "android_webview_pixel_skia_gold_test": targets.legacy_test_config(
@@ -231,13 +76,6 @@ targets.legacy_basic_suite(
                 "${buildername}",
             ],
         ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "android_wpr_record_replay_tests",
-    tests = {
-        "chrome_java_test_wpr_tests": targets.legacy_test_config(),
     },
 )
 
@@ -333,16 +171,6 @@ targets.legacy_basic_suite(
 )
 
 targets.legacy_basic_suite(
-    name = "chrome_profile_generator_tests",
-    tests = {
-        "chrome_public_apk_profile_tests": targets.legacy_test_config(
-            ci_only = True,
-            experiment_percentage = 100,
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
     name = "chrome_public_tests",
     tests = {
         "chrome_public_test_apk": targets.legacy_test_config(
@@ -359,50 +187,9 @@ targets.legacy_basic_suite(
 )
 
 targets.legacy_basic_suite(
-    name = "chrome_public_wpt_suite",
-    tests = {
-        "chrome_public_wpt": targets.legacy_test_config(
-            args = [
-                "--no-wpt-internal",
-            ],
-            swarming = targets.swarming(
-                shards = 36,
-                expiration_sec = 18000,
-                hard_timeout_sec = 14400,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
     name = "chrome_sizes_suite",
     tests = {
         "chrome_sizes": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "chrome_sizes_android",
-    tests = {
-        "chrome_sizes": targets.legacy_test_config(
-            remove_mixins = [
-                "bullhead",
-                "marshmallow",
-                "oreo_fleet",
-                "oreo_mr1_fleet",
-                "pie_fleet",
-                "walleye",
-            ],
-            args = [
-                "--platform=android",
-            ],
-            swarming = targets.swarming(
-                dimensions = {
-                    "cpu": "x86-64",
-                    "os": "Ubuntu-22.04",
-                },
-            ),
-        ),
     },
 )
 
@@ -640,17 +427,6 @@ targets.legacy_basic_suite(
     },
 )
 
-targets.legacy_basic_suite(
-    name = "chromeos_js_code_coverage_browser_tests_suite",
-    tests = {
-        "chromeos_js_code_coverage_browser_tests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 32,
-            ),
-        ),
-    },
-)
-
 # Tests that run on Chrome OS systems (ie: VMs, Chromebooks), *not*
 # linux-chromeos.
 # NOTE: We only want a small subset of test suites here, because most
@@ -846,13 +622,6 @@ targets.legacy_basic_suite(
 )
 
 targets.legacy_basic_suite(
-    name = "chromium_android_scripts",
-    tests = {
-        "check_network_annotations": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
     name = "chromium_android_webkit_gtests",
     tests = {
         "blink_heap_unittests": targets.legacy_test_config(),
@@ -953,17 +722,6 @@ targets.legacy_basic_suite(
                 dimensions = {
                     "cores": "2",
                 },
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "android_content_browsertests_fyi",
-    tests = {
-        "content_browsertests": targets.legacy_test_config(
-            android_swarming = targets.swarming(
-                shards = 15,
             ),
         ),
     },
@@ -1129,398 +887,11 @@ targets.legacy_basic_suite(
 )
 
 targets.legacy_basic_suite(
-    name = "chromium_ios_scripts",
-    tests = {
-        "check_static_initializers": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "chromium_junit_tests_scripts",
-    tests = {
-        "android_webview_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "base_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "build_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "chrome_java_test_pagecontroller_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "chrome_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "components_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "content_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "device_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "junit_unit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "keyboard_accessory_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "media_base_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "module_installer_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "net_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "paint_preview_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "password_check_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "password_manager_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "services_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "touch_to_fill_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "ui_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "webapk_client_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "webapk_shell_apk_h2o_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-        "webapk_shell_apk_junit_tests": targets.legacy_test_config(
-            mixins = [
-                "x86-64",
-                "linux-jammy",
-                "junit-swarming-emulator",
-            ],
-            remove_mixins = [
-                "emulator-4-cores",
-                "nougat-x86-emulator",
-                "oreo-x86-emulator",
-                "walleye",
-                "pie_fleet",
-            ],
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "chromium_linux_scripts",
-    tests = {
-        "check_network_annotations": targets.legacy_test_config(),
-        "check_static_initializers": targets.legacy_test_config(),
-        "checkdeps": targets.legacy_test_config(),
-        "checkperms": targets.legacy_test_config(),
-        "metrics_python_tests": targets.legacy_test_config(),
-        "webkit_lint": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
     name = "chromium_mac_scripts",
     tests = {
         "check_static_initializers": targets.legacy_test_config(),
         "metrics_python_tests": targets.legacy_test_config(),
         "webkit_lint": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "chromium_web_tests_brfetch_isolated_scripts",
-    tests = {
-        # brfetch_blink_web_tests provides coverage for
-        # running Layout Tests with BackgroundResourceFetch feature.
-        "brfetch_blink_web_tests": targets.legacy_test_config(
-            ci_only = True,
-            swarming = targets.swarming(
-                shards = 1,
-            ),
-            experiment_percentage = 100,
-        ),
-        # brfetch_blink_wpt_tests provides coverage for
-        # running Layout Tests with BackgroundResourceFetch feature.
-        "brfetch_blink_wpt_tests": targets.legacy_test_config(
-            ci_only = True,
-            swarming = targets.swarming(
-                shards = 3,
-            ),
-            experiment_percentage = 100,
-        ),
-        # brfetch_headless_shell_wpt_tests provides coverage for
-        # running WPTs with BackgroundResourceFetch feature.
-        "brfetch_headless_shell_wpt_tests": targets.legacy_test_config(
-            ci_only = True,
-            swarming = targets.swarming(
-                shards = 1,
-            ),
-            experiment_percentage = 100,
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "chromium_web_tests_graphite_isolated_scripts",
-    tests = {
-        "graphite_enabled_blink_web_tests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 2,
-            ),
-        ),
-        "graphite_enabled_blink_wpt_tests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 7,
-            ),
-        ),
-        "graphite_enabled_headless_shell_wpt_tests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 1,
-            ),
-        ),
     },
 )
 
@@ -1691,45 +1062,6 @@ targets.legacy_basic_suite(
             args = [
                 "--gtest-benchmark-name=components_perftests",
             ],
-        ),
-    },
-)
-
-# Compilable unit tests of cronet dependencies in:
-# //components/cronet/android/dependencies.txt
-# TODO(b/333888734): Add component_unittests or a subset of it.
-# TODO(b/333887705): Make base_unittests compilable and add it.
-# TODO(b/333888747): Make url_unittests compilable and add it.
-targets.legacy_basic_suite(
-    name = "cronet_clang_coverage_additional_gtests",
-    tests = {
-        "absl_hardening_tests": targets.legacy_test_config(),
-        "crypto_unittests": targets.legacy_test_config(),
-        "zlib_unittests": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "cronet_gtests",
-    tests = {
-        "cronet_sample_test_apk": targets.legacy_test_config(),
-        "cronet_smoketests_apk": targets.legacy_test_config(),
-        "cronet_smoketests_missing_native_library_instrumentation_apk": targets.legacy_test_config(),
-        "cronet_smoketests_platform_only_instrumentation_apk": targets.legacy_test_config(),
-        "cronet_test_instrumentation_apk": targets.legacy_test_config(
-            mixins = [
-                "emulator-enable-network",
-            ],
-            swarming = targets.swarming(
-                shards = 3,
-            ),
-        ),
-        "cronet_tests_android": targets.legacy_test_config(),
-        "cronet_unittests_android": targets.legacy_test_config(),
-        "net_unittests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 4,
-            ),
         ),
     },
 )
@@ -1947,146 +1279,6 @@ targets.legacy_basic_suite(
 )
 
 targets.legacy_basic_suite(
-    # chromium gtests running on fuchsia.
-    name = "fuchsia_chrome_gtests",
-    tests = {
-        "headless_unittests": targets.legacy_test_config(),
-        "message_center_unittests": targets.legacy_test_config(),
-        "views_examples_unittests": targets.legacy_test_config(
-            args = [
-                "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.views_examples_unittests.filter",
-            ],
-        ),
-        "views_unittests": targets.legacy_test_config(
-            args = [
-                "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.views_unittests.filter",
-            ],
-        ),
-        "absl_hardening_tests": targets.legacy_test_config(),
-        "accessibility_unittests": targets.legacy_test_config(),
-        "aura_unittests": targets.legacy_test_config(),
-        "base_unittests": targets.legacy_test_config(),
-        "blink_common_unittests": targets.legacy_test_config(),
-        "blink_fuzzer_unittests": targets.legacy_test_config(),
-        "blink_heap_unittests": targets.legacy_test_config(),
-        "blink_platform_unittests": targets.legacy_test_config(),
-        "blink_unittests": targets.legacy_test_config(),
-        "boringssl_crypto_tests": targets.legacy_test_config(),
-        "boringssl_ssl_tests": targets.legacy_test_config(),
-        "capture_unittests": targets.legacy_test_config(),
-        "components_browsertests": targets.legacy_test_config(
-            args = [
-                "--test-arg=--disable-gpu",
-                "--test-arg=--headless",
-                "--test-arg=--ozone-platform=headless",
-            ],
-        ),
-        "components_unittests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 2,
-            ),
-        ),
-        "compositor_unittests": targets.legacy_test_config(),
-        "content_browsertests": targets.legacy_test_config(
-            args = [
-                "--test-arg=--disable-gpu",
-                "--test-arg=--headless",
-                "--test-arg=--ozone-platform=headless",
-            ],
-            swarming = targets.swarming(
-                shards = 14,
-            ),
-        ),
-        "content_unittests": targets.legacy_test_config(),
-        "crypto_unittests": targets.legacy_test_config(),
-        "events_unittests": targets.legacy_test_config(),
-        "filesystem_service_unittests": targets.legacy_test_config(),
-        "gcm_unit_tests": targets.legacy_test_config(),
-        "gin_unittests": targets.legacy_test_config(),
-        "google_apis_unittests": targets.legacy_test_config(),
-        "gpu_unittests": targets.legacy_test_config(),
-        "gwp_asan_unittests": targets.legacy_test_config(),
-        "headless_browsertests": targets.legacy_test_config(),
-        "ipc_tests": targets.legacy_test_config(),
-        "latency_unittests": targets.legacy_test_config(),
-        "media_unittests": targets.legacy_test_config(),
-        "midi_unittests": targets.legacy_test_config(),
-        "mojo_unittests": targets.legacy_test_config(),
-        "native_theme_unittests": targets.legacy_test_config(),
-        "net_unittests": targets.legacy_test_config(
-            args = [
-                "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.net_unittests.filter",
-            ],
-            swarming = targets.swarming(
-                shards = 4,
-            ),
-        ),
-        "ozone_gl_unittests": targets.legacy_test_config(
-            args = [
-                "--test-arg=--ozone-platform=headless",
-            ],
-        ),
-        "ozone_unittests": targets.legacy_test_config(),
-        "perfetto_unittests": targets.legacy_test_config(),
-        # TODO(crbug.com/40274401): Enable this.
-        # "rust_gtest_interop_unittests": None,
-        "services_unittests": targets.legacy_test_config(
-            args = [
-                "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.services_unittests.filter",
-            ],
-        ),
-        "shell_dialogs_unittests": targets.legacy_test_config(),
-        "skia_unittests": targets.legacy_test_config(),
-        "snapshot_unittests": targets.legacy_test_config(),
-        "sql_unittests": targets.legacy_test_config(),
-        "storage_unittests": targets.legacy_test_config(),
-        "ui_base_unittests": targets.legacy_test_config(
-            args = [
-                "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.ui_base_unittests.filter",
-            ],
-        ),
-        "ui_touch_selection_unittests": targets.legacy_test_config(),
-        "ui_unittests": targets.legacy_test_config(),
-        "url_unittests": targets.legacy_test_config(),
-        "wm_unittests": targets.legacy_test_config(),
-        "wtf_unittests": targets.legacy_test_config(),
-        "zlib_unittests": targets.legacy_test_config(),
-        "cc_unittests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 2,
-            ),
-        ),
-        "display_unittests": targets.legacy_test_config(),
-        "gfx_unittests": targets.legacy_test_config(),
-        "viz_unittests": targets.legacy_test_config(
-            args = [
-                "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.viz_unittests.filter",
-            ],
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    # dedicated fuchsia gtests for web-engine and its related components.
-    name = "fuchsia_web_engine_gtests",
-    tests = {
-        "cast_runner_browsertests": targets.legacy_test_config(),
-        "cast_runner_integration_tests": targets.legacy_test_config(),
-        "cast_runner_unittests": targets.legacy_test_config(),
-        "web_engine_browsertests": targets.legacy_test_config(),
-        "web_engine_integration_tests": targets.legacy_test_config(),
-        "web_engine_unittests": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "fuchsia_sizes_tests",
-    tests = {
-        "fuchsia_sizes": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
     name = "gl_gtests_passthrough",
     tests = {
         "gl_tests_passthrough": targets.legacy_test_config(
@@ -2102,37 +1294,6 @@ targets.legacy_basic_suite(
 )
 
 # BEGIN tests which run on the GPU bots
-
-targets.legacy_basic_suite(
-    name = "gpu_angle_fuchsia_unittests_isolated_scripts",
-    tests = {
-        "angle_unittests": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "gpu_angle_ios_end2end_gtests",
-    tests = {
-        "angle_end2end_tests": targets.legacy_test_config(
-            args = [
-                "--release",
-            ],
-            use_isolated_scripts_api = True,
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "gpu_angle_ios_white_box_gtests",
-    tests = {
-        "angle_white_box_tests": targets.legacy_test_config(
-            args = [
-                "--release",
-            ],
-            use_isolated_scripts_api = True,
-        ),
-    },
-)
 
 targets.legacy_basic_suite(
     name = "gpu_angle_unit_gtests",
@@ -2467,7 +1628,7 @@ targets.legacy_basic_suite(
                 "--extra-browser-args=--enable-features=WebGPUExperimentalFeatures --use-webgpu-adapter=opengles",
             ],
             android_args = [
-                "--extra-browser-args=--use-angle=gles-egl",
+                "--extra-browser-args=--use-angle=gles --disable-features=Vulkan",
             ],
             linux_args = [
                 "--extra-browser-args=--use-angle=gl",
@@ -2816,23 +1977,6 @@ targets.legacy_basic_suite(
 )
 
 targets.legacy_basic_suite(
-    name = "gpu_info_collection_telemetry_tests",
-    tests = {
-        "info_collection_tests": targets.legacy_test_config(
-            mixins = [
-                "gpu_integration_test_common_args",
-            ],
-            args = [
-                targets.magic_args.GPU_EXPECTED_VENDOR_ID,
-                targets.magic_args.GPU_EXPECTED_DEVICE_ID,
-                # On dual-GPU devices we want the high-performance GPU to be active
-                "--extra-browser-args=--force_high_performance_gpu",
-            ],
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
     name = "gpu_metal_passthrough_ganesh_telemetry_tests",
     tests = {
         "context_lost_metal_passthrough_ganesh_tests": targets.legacy_test_config(
@@ -2971,7 +2115,6 @@ targets.legacy_basic_suite(
             args = [
                 "--extra-browser-args=--use-cmd-decoder=passthrough --use-gl=angle --enable-features=SkiaGraphite",
             ],
-            ci_only = True,
         ),
         "expected_color_pixel_passthrough_graphite_test": targets.legacy_test_config(
             mixins = [
@@ -3102,34 +2245,6 @@ targets.legacy_basic_suite(
             ],
             linux_args = [
                 "--no-xvfb",
-            ],
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "gpu_pixel_passthrough_telemetry_tests",
-    tests = {
-        "expected_color_pixel_passthrough_test": targets.legacy_test_config(
-            mixins = [
-                "gpu_integration_test_common_args",
-            ],
-            args = [
-                "--dont-restore-color-profile-after-test",
-                "--test-machine-name",
-                "${buildername}",
-                "--extra-browser-args=--use-cmd-decoder=passthrough --use-gl=angle",
-            ],
-        ),
-        "pixel_skia_gold_passthrough_test": targets.legacy_test_config(
-            mixins = [
-                "gpu_integration_test_common_args",
-            ],
-            args = [
-                "--dont-restore-color-profile-after-test",
-                "--test-machine-name",
-                "${buildername}",
-                "--extra-browser-args=--use-cmd-decoder=passthrough --use-gl=angle",
             ],
         ),
     },
@@ -3492,25 +2607,6 @@ targets.legacy_basic_suite(
             ],
             swarming = targets.swarming(
                 shards = 6,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "gpu_webgl_conformance_gles_passthrough_graphite_telemetry_tests",
-    tests = {
-        "webgl_conformance_gles_passthrough_graphite_tests": targets.legacy_test_config(
-            mixins = [
-                "gpu_integration_test_common_args",
-            ],
-            args = [
-                # On dual-GPU devices we want the high-performance GPU to be active
-                "--extra-browser-args=--use-gl=angle --use-angle=gles --use-cmd-decoder=passthrough --force_high_performance_gpu --enable-features=SkiaGraphite",
-                targets.magic_args.GPU_WEBGL_RUNTIME_FILE,
-            ],
-            swarming = targets.swarming(
-                shards = 3,
             ),
         ),
     },
@@ -3899,13 +2995,9 @@ targets.legacy_basic_suite(
 # END tests which run on the GPU bots
 
 targets.legacy_basic_suite(
-    name = "js_code_coverage_browser_tests_suite",
+    name = "ios_vm_tests",
     tests = {
-        "js_code_coverage_browser_tests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 16,
-            ),
-        ),
+        "base_unittests": targets.legacy_test_config(),
     },
 )
 
@@ -3958,10 +3050,6 @@ targets.legacy_basic_suite(
     tests = {
         # Chrome OS only.
         "ash_components_unittests": targets.legacy_test_config(),
-        # TODO(crbug.com/40234627) Enable on CQ when stable.
-        "ash_crosapi_tests": targets.legacy_test_config(
-            ci_only = True,
-        ),
         "ash_unittests": targets.legacy_test_config(
             swarming = targets.swarming(
                 shards = 5,
@@ -3995,27 +3083,6 @@ targets.legacy_basic_suite(
     tests = {
         # Android, Chrome OS and Linux
         "sandbox_linux_unittests": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "linux_lacros_chrome_gtests",
-    tests = {
-        "browser_tests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 33,
-            ),
-        ),
-        "lacros_chrome_browsertests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 6,
-            ),
-        ),
-        "interactive_ui_tests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 6,
-            ),
-        ),
     },
 )
 
@@ -4106,20 +3173,6 @@ targets.legacy_basic_suite(
 )
 
 targets.legacy_basic_suite(
-    name = "minidump_uploader_tests",
-    tests = {
-        "minidump_uploader_test": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "jni_zero_sample_apk_test_suite",
-    tests = {
-        "jni_zero_sample_apk_test": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
     name = "model_validation_tests_light_suite",
     tests = {
         "model_validation_tests_light": targets.legacy_test_config(
@@ -4173,32 +3226,6 @@ targets.legacy_basic_suite(
     name = "mojo_python_unittests_isolated_scripts",
     tests = {
         "mojo_python_unittests": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "monochrome_public_apk_checker_isolated_script",
-    tests = {
-        "monochrome_public_apk_checker": targets.legacy_test_config(
-            remove_mixins = [
-                "bullhead",
-                "marshmallow",
-                "oreo_fleet",
-                "oreo_mr1_fleet",
-                "pie_fleet",
-                "walleye",
-            ],
-            swarming = targets.swarming(
-                dimensions = {
-                    "os": "Ubuntu-22.04",
-                    "cpu": "x86-64",
-                    "device_os": None,
-                    "device_os_flavor": None,
-                    "device_playstore_version": None,
-                    "device_type": None,
-                },
-            ),
-        ),
     },
 )
 
@@ -4445,6 +3472,9 @@ targets.legacy_basic_suite(
     name = "optimization_guide_gpu_gtests",
     tests = {
         "optimization_guide_gpu_unittests": targets.legacy_test_config(
+            args = [
+                "--ui-test-action-timeout=30000",
+            ],
             linux_args = [
                 "-use-xvfb",
             ],
@@ -4497,25 +3527,6 @@ targets.legacy_basic_suite(
 )
 
 targets.legacy_basic_suite(
-    name = "performance_smoke_test_isolated_scripts",
-    tests = {
-        "performance_test_suite": targets.legacy_test_config(
-            args = [
-                "--pageset-repeat=1",
-                "--test-shard-map-filename=smoke_test_benchmark_shard_map.json",
-            ],
-            swarming = targets.swarming(
-                shards = 2,
-                hard_timeout_sec = 960,
-            ),
-            resultdb = targets.resultdb(
-                enable = True,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
     name = "pixel_browser_tests_gtests",
     tests = {
         "pixel_browser_tests": targets.legacy_test_config(
@@ -4531,29 +3542,6 @@ targets.legacy_basic_suite(
     name = "pixel_experimental_browser_tests_gtests",
     tests = {
         "pixel_experimental_browser_tests": targets.legacy_test_config(
-            experiment_percentage = 100,
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "android_rel_isolated_scripts",
-    tests = {
-        "private_code_failure_test": targets.legacy_test_config(),
-        "android_blink_wpt_tests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 4,
-            ),
-            # TODO(crbug.com/40279492): Remove experimental status once this
-            # suite is stable on CQ and gardened CI.
-            experiment_percentage = 100,
-        ),
-        "webview_blink_wpt_tests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 4,
-            ),
-            # TODO(crbug.com/40279492): Remove experimental status once this
-            # suite is stable on CQ and gardened CI.
             experiment_percentage = 100,
         ),
     },
@@ -4739,30 +3727,6 @@ targets.legacy_basic_suite(
 )
 
 targets.legacy_basic_suite(
-    name = "system_webview_wpt_suite",
-    tests = {
-        "system_webview_wpt": targets.legacy_test_config(
-            args = [
-                "--no-wpt-internal",
-            ],
-            swarming = targets.swarming(
-                shards = 25,
-                expiration_sec = 18000,
-                hard_timeout_sec = 14400,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "telemetry_android_minidump_unittests_isolated_scripts",
-    tests = {
-        "telemetry_chromium_minidump_unittests": targets.legacy_test_config(),
-        "telemetry_monochrome_minidump_unittests": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
     name = "telemetry_desktop_minidump_unittests_isolated_scripts",
     tests = {
         # Takes ~2.5 minutes of bot time to run.
@@ -4781,42 +3745,6 @@ targets.legacy_basic_suite(
             args = [
                 # TODO(crbug.com/40129085): Remove this once Crashpad is the default.
                 "--extra-browser-args=--enable-crashpad",
-            ],
-            swarming = targets.swarming(
-                shards = 12,
-                idempotent = False,  # https://crbug.com/549140
-            ),
-            resultdb = targets.resultdb(
-                enable = True,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "telemetry_perf_unittests_isolated_scripts_android",
-    tests = {
-        "telemetry_perf_unittests_android_chrome": targets.legacy_test_config(
-            args = [
-                # TODO(crbug.com/40129085): Remove this once Crashpad is the default.
-                "--extra-browser-args=--enable-crashpad",
-            ],
-            swarming = targets.swarming(
-                shards = 12,
-                idempotent = False,  # https://crbug.com/549140
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "telemetry_perf_unittests_isolated_scripts_xvfb",
-    tests = {
-        "telemetry_perf_unittests": targets.legacy_test_config(
-            args = [
-                # TODO(crbug.com/40129085): Remove this once Crashpad is the default.
-                "--extra-browser-args=--enable-crashpad",
-                "--xvfb",
             ],
             swarming = targets.swarming(
                 shards = 12,
@@ -4878,6 +3806,10 @@ targets.legacy_basic_suite(
                 "integrity_high",
                 "updater-default-pool",
             ],
+            swarming = targets.swarming(
+                shards = 2,
+                hard_timeout_sec = 7200,
+            ),
         ),
     },
 )
@@ -5028,20 +3960,6 @@ targets.legacy_basic_suite(
 )
 
 targets.legacy_basic_suite(
-    name = "webview_64_cts_tests_gtest",
-    tests = {
-        "webview_64_cts_tests": targets.legacy_test_config(
-            args = [
-                "--store-tombstones",
-            ],
-            swarming = targets.swarming(
-                shards = 2,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
     name = "webview_bot_instrumentation_test_apk_gtest",
     tests = {
         "webview_instrumentation_test_apk": targets.legacy_test_config(
@@ -5050,68 +3968,6 @@ targets.legacy_basic_suite(
             ],
             swarming = targets.swarming(
                 shards = 12,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "webview_bot_instrumentation_test_apk_mutations_gtest",
-    tests = {
-        "webview_instrumentation_test_apk_mutations": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 12,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "webview_bot_instrumentation_test_apk_no_field_trial_gtest",
-    tests = {
-        "webview_instrumentation_test_apk_no_field_trial": targets.legacy_test_config(
-            # TODO(b/40282232): Make the target infer the correct flag file
-            # from the build config.
-            args = [
-                "--use-apk-under-test-flags-file",
-            ],
-            swarming = targets.swarming(
-                shards = 12,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "webview_bot_unittests_gtest",
-    tests = {
-        "android_webview_unittests": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "webview_cts_tests_gtest",
-    tests = {
-        "webview_cts_tests": targets.legacy_test_config(
-            args = [
-                "--store-tombstones",
-            ],
-            swarming = targets.swarming(
-                shards = 2,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "webview_cts_tests_gtest_no_field_trial",
-    tests = {
-        "webview_cts_tests_no_field_trial": targets.legacy_test_config(
-            args = [
-                "--store-tombstones",
-            ],
-            swarming = targets.swarming(
-                shards = 2,
             ),
         ),
     },
@@ -5145,62 +4001,9 @@ targets.legacy_basic_suite(
 )
 
 targets.legacy_basic_suite(
-    name = "webview_trichrome_64_cts_hostside_tests_suite",
-    tests = {
-        "webview_trichrome_64_cts_hostside_tests": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "webview_trichrome_64_cts_tests_suite",
-    tests = {
-        "webview_trichrome_64_cts_tests": targets.legacy_test_config(
-            args = [
-                "--store-tombstones",
-            ],
-            swarming = targets.swarming(
-                shards = 2,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "webview_trichrome_64_cts_tests_no_field_trial_suite",
-    tests = {
-        "webview_trichrome_64_cts_tests_no_field_trial": targets.legacy_test_config(
-            args = [
-                "--store-tombstones",
-            ],
-            swarming = targets.swarming(
-                shards = 2,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "webview_trichrome_cts_tests_suite",
-    tests = {
-        "webview_trichrome_cts_tests": targets.legacy_test_config(
-            args = [
-                "--store-tombstones",
-            ],
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
     name = "webview_ui_instrumentation_tests",
     tests = {
         "webview_ui_test_app_test_apk": targets.legacy_test_config(),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "webview_ui_instrumentation_tests_no_field_trial",
-    tests = {
-        "webview_ui_test_app_test_apk_no_field_trial": targets.legacy_test_config(),
     },
 )
 
@@ -5209,6 +4012,7 @@ targets.legacy_basic_suite(
     tests = {
         "chrome_elf_unittests": targets.legacy_test_config(),
         "delayloads_unittests": targets.legacy_test_config(),
+        "elevated_tracing_service_unittests": targets.legacy_test_config(),
         "elevation_service_unittests": targets.legacy_test_config(),
         "gcp_unittests": targets.legacy_test_config(),
         "install_static_unittests": targets.legacy_test_config(),
@@ -5237,7 +4041,12 @@ targets.legacy_basic_suite(
             ),
         ),
         "updater_tests": targets.legacy_test_config(),
-        "updater_tests_system": targets.legacy_test_config(),
+        "updater_tests_system": targets.legacy_test_config(
+            swarming = targets.swarming(
+                shards = 2,
+                hard_timeout_sec = 7200,
+            ),
+        ),
         "zucchini_unittests": targets.legacy_test_config(),
     },
 )
@@ -5279,28 +4088,6 @@ targets.legacy_basic_suite(
                 shards = 36,
                 expiration_sec = 18000,
                 hard_timeout_sec = 14400,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "wpt_web_tests_android",
-    tests = {
-        "android_blink_wpt_tests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 4,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "wpt_web_tests_webview",
-    tests = {
-        "webview_blink_wpt_tests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                shards = 4,
             ),
         ),
     },

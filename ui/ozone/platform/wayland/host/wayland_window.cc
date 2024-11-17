@@ -15,6 +15,7 @@
 
 #include "base/auto_reset.h"
 #include "base/containers/contains.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/notimplemented.h"
@@ -29,6 +30,7 @@
 #include "ui/base/cursor/platform_cursor.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/display/screen.h"
 #include "ui/events/event.h"
 #include "ui/events/event_target_iterator.h"
@@ -144,10 +146,13 @@ void WaylandWindow::OnWindowLostCapture() {
 }
 
 void WaylandWindow::UpdateWindowScale(bool update_bounds) {
-  const auto scale_factor = connection_->UsePerSurfaceScaling()
+  // `window_scale` is provided authoritatively by the Wayland compositor,
+  // either via fractional-scale-v1 extension (ie: per-surface-scaling), or
+  // inferred from the currently entereed wl_outputs (deprecated).
+  const auto window_scale = connection_->UsePerSurfaceScaling()
                                 ? GetPreferredScaleFactor()
                                 : GetScaleFactorFromEnteredOutputs();
-  SetWindowScale(scale_factor.value_or(1.0f));
+  SetWindowScale(window_scale.value_or(1.0f));
 
   // Propagate update to the popups.
   if (child_popup_) {
@@ -429,9 +434,16 @@ void WaylandWindow::OnChannelDestroyed() {
                                      std::move(subsurfaces_to_overlays)));
 }
 
-// TODO(crbug.com/40856031): Implement ui scaling.
-void WaylandWindow::OnFontScaleFactorChanged(float new_font_scale) {
-  NOTIMPLEMENTED_LOG_ONCE();
+// Plumbs LinuxUi's font scale into Wayland platform window's `ui_scale`, such
+// that the window dip size is preserved but its UI contents gets resized and
+// relaid out accordingly. It's supported only when per-surface scaling is
+// enabled, and it's fully transparent for upper layers and GPU code, thus
+// needing special handling when passing coordinates to/from API boundaries,
+// such as, PlatformWindowDelegate, PlatforEventDispatcher, Wayland requests and
+// events.
+void WaylandWindow::OnFontScaleFactorChanged() {
+  CHECK(connection_->IsUiScaleEnabled());
+  UpdateWindowScale(/*update_bounds=*/false);
 }
 
 void WaylandWindow::DumpState(std::ostream& out) const {
@@ -543,6 +555,14 @@ void WaylandWindow::ReleaseCapture() {
     connection_->window_manager()->UngrabLocatedEvents(this);
   }
   // See comment in SetCapture() for details on wayland and grabs.
+}
+
+void WaylandWindow::SetVideoCapture() {
+  frame_manager_->SetVideoCapture();
+}
+
+void WaylandWindow::ReleaseVideoCapture() {
+  frame_manager_->ReleaseVideoCapture();
 }
 
 bool WaylandWindow::HasCapture() const {
@@ -827,7 +847,7 @@ void WaylandWindow::HandleToplevelConfigure(int32_t widht,
       << "Only shell toplevels must receive HandleToplevelConfigure calls.";
 }
 
-void WaylandWindow::HandleAuraToplevelConfigure(
+void WaylandWindow::HandleToplevelConfigureWithOrigin(
     int32_t x,
     int32_t y,
     int32_t width,
@@ -851,7 +871,12 @@ void WaylandWindow::OnDragEnter(const gfx::PointF& point, int operations) {
   if (!drop_handler) {
     return;
   }
-  drop_handler->OnDragEnter(point, operations, kWaylandDndModifiers);
+  // Wayland sends locations in DIP and drag handler also expects DIP locations,
+  // though the Wayland compositor is not aware of chromium's internal UI scale,
+  // hence the translation below.
+  const gfx::PointF scaled_point_dip =
+      gfx::ScalePoint(point, 1.0f / applied_state().ui_scale);
+  drop_handler->OnDragEnter(scaled_point_dip, operations, kWaylandDndModifiers);
 }
 
 void WaylandWindow::OnDragDataAvailable(std::unique_ptr<OSExchangeData> data) {
@@ -859,7 +884,6 @@ void WaylandWindow::OnDragDataAvailable(std::unique_ptr<OSExchangeData> data) {
   if (!drop_handler) {
     return;
   }
-  // TODO(crbug.com/40073696): Factor DataFetched out of Enter callback.
   drop_handler->OnDragDataAvailable(std::move(data));
 }
 
@@ -868,7 +892,13 @@ int WaylandWindow::OnDragMotion(const gfx::PointF& point, int operations) {
   if (!drop_handler) {
     return 0;
   }
-  return drop_handler->OnDragMotion(point, operations, kWaylandDndModifiers);
+  // Wayland sends locations in DIP and drag handler also expects DIP locations,
+  // though the Wayland compositor is not aware of chromium's internal UI scale,
+  // hence the translation below.
+  const gfx::PointF scaled_point_dip =
+      gfx::ScalePoint(point, 1.0f / applied_state().ui_scale);
+  return drop_handler->OnDragMotion(scaled_point_dip, operations,
+                                    kWaylandDndModifiers);
 }
 
 void WaylandWindow::OnDragDrop() {
@@ -938,11 +968,6 @@ bool WaylandWindow::Initialize(PlatformWindowInitProperties properties) {
     state.bounds_dip = gfx::Rect(origin, {1, 1});
   }
 
-  // Properties contain DIP bounds but the buffer scale is initially 1 so it's
-  // OK to assign.  The bounds will be recalculated when the buffer scale
-  // changes.
-  state.size_px = state.bounds_dip.size();
-
   opacity_ = properties.opacity;
   type_ = properties.type;
 
@@ -964,6 +989,16 @@ bool WaylandWindow::Initialize(PlatformWindowInitProperties properties) {
   if (!OnInitialize(std::move(properties), &state)) {
     return false;
   }
+
+  // Properties contain DIP bounds, whose value is derived from the current
+  // window's DIP bounds, which is ui-scale'd. Thus, besides initializing ui
+  // scale, the pixel size must be scaled accordingly. Both scale and bounds
+  // might get updated later in the window configuration process.
+  state.ui_scale = connection_->window_manager()->DetermineUiScale();
+  state.size_px = gfx::ScaleToEnclosingRectIgnoringError(
+                      gfx::Rect(state.bounds_dip.size()),
+                      state.window_scale * state.ui_scale)
+                      .size();
 
   applied_state_ = state;
   latched_state_ = state;
@@ -1405,8 +1440,17 @@ void WaylandWindow::RequestState(PlatformWindowDelegate::State state,
     CHECK_EQ(applied_state_copy, latched_state_);
   }
 
+  // ui_scale determines how the window content, ie: UI, will be laid out and
+  // sized. See WaylandWindowManager::DetermineUiScale docs for more details.
+  const float new_ui_scale = connection_->window_manager()->DetermineUiScale();
+  state.bounds_dip = gfx::ScaleToEnclosingRectIgnoringError(
+      state.bounds_dip, state.ui_scale / new_ui_scale);
+  state.ui_scale = new_ui_scale;
+
   // Adjust state values if necessary.
   state.bounds_dip = AdjustBoundsToConstraintsDIP(state.bounds_dip);
+
+  const float scale = state.window_scale * state.ui_scale;
 
   // Upper layers (eg //cc) convert the window size from DIP to pixels
   // independently from the window origin. For example, for a window whose
@@ -1415,7 +1459,7 @@ void WaylandWindow::RequestState(PlatformWindowDelegate::State state,
   // whole rect from DIPs to pixels might generate a 1px difference that cause
   // render artifacts - see https://issues.chromium.org/40876438 for details.
   state.size_px = gfx::ScaleToEnclosingRectIgnoringError(
-                      gfx::Rect(state.bounds_dip.size()), state.window_scale)
+                      gfx::Rect(state.bounds_dip.size()), scale)
                       .size();
 
   StateRequest req{.state = state, .serial = serial};

@@ -4,13 +4,16 @@
 
 package org.chromium.chrome.browser.bottom_sheet;
 
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.text.SpannableString;
+import android.view.MotionEvent;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -24,11 +27,13 @@ import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.CallbackUtils;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
@@ -74,7 +79,9 @@ public class SimpleNoticeSheetCoordinatorRobolectricTest {
                         .with(SimpleNoticeSheetProperties.SHEET_TITLE, sTitle)
                         .with(SimpleNoticeSheetProperties.SHEET_TEXT, sText)
                         .with(SimpleNoticeSheetProperties.BUTTON_TITLE, sButtonText)
-                        .with(SimpleNoticeSheetProperties.BUTTON_ACTION, () -> {})
+                        .with(
+                                SimpleNoticeSheetProperties.BUTTON_ACTION,
+                                CallbackUtils.emptyRunnable())
                         .build();
         mCoordinator.showSheet(model);
         verify(mBottomSheetController).requestShowContent(any(), anyBoolean());
@@ -82,5 +89,28 @@ public class SimpleNoticeSheetCoordinatorRobolectricTest {
 
         mCoordinator.onDismissed(StateChangeReason.SWIPE);
         verify(mBottomSheetController).removeObserver(mBottomSheetObserverCaptor.getValue());
+    }
+
+    @Test
+    public void testConsumesGenericMotionEventsToPreventMouseClicksThroughSheet() {
+        ArgumentCaptor<BottomSheetContent> contentCaptor =
+                ArgumentCaptor.forClass(BottomSheetContent.class);
+
+        when(mBottomSheetController.requestShowContent(contentCaptor.capture(), anyBoolean()))
+                .thenReturn(true);
+
+        mCoordinator.showSheet(
+                new PropertyModel.Builder(SimpleNoticeSheetProperties.ALL_KEYS)
+                        .with(SimpleNoticeSheetProperties.SHEET_TITLE, sTitle)
+                        .with(SimpleNoticeSheetProperties.SHEET_TEXT, sText)
+                        .with(SimpleNoticeSheetProperties.BUTTON_TITLE, sButtonText)
+                        .with(SimpleNoticeSheetProperties.BUTTON_ACTION, () -> {})
+                        .build());
+
+        assertTrue(
+                contentCaptor
+                        .getValue()
+                        .getContentView()
+                        .dispatchGenericMotionEvent(mock(MotionEvent.class)));
     }
 }

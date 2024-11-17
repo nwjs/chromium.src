@@ -70,7 +70,7 @@ UtilitySandboxedProcessLauncherDelegate::
       sandbox_type_ == sandbox::mojom::Sandbox::kPrintBackend ||
 #endif
       sandbox_type_ == sandbox::mojom::Sandbox::kPrintCompositor ||
-#if BUILDFLAG(ENABLE_PPAPI)
+#if BUILDFLAG(ENABLE_PPAPI) && !BUILDFLAG(IS_WIN)
       sandbox_type_ == sandbox::mojom::Sandbox::kPpapi ||
 #endif
 #if BUILDFLAG(IS_FUCHSIA)
@@ -93,7 +93,12 @@ UtilitySandboxedProcessLauncherDelegate::
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
       sandbox_type_ == sandbox::mojom::Sandbox::kScreenAI ||
 #endif
+#if BUILDFLAG(IS_LINUX)
       sandbox_type_ == sandbox::mojom::Sandbox::kVideoEffects ||
+#endif
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)
+      sandbox_type_ == sandbox::mojom::Sandbox::kOnDeviceTranslation ||
+#endif
       sandbox_type_ == sandbox::mojom::Sandbox::kAudio ||
       sandbox_type_ == sandbox::mojom::Sandbox::kSpeechRecognition;
   DCHECK(supported_sandbox_type);
@@ -158,6 +163,10 @@ ZygoteCommunication* UtilitySandboxedProcessLauncherDelegate::GetZygote() {
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
       sandbox_type_ == sandbox::mojom::Sandbox::kScreenAI ||
 #endif
+#if BUILDFLAG(IS_LINUX)
+      sandbox_type_ == sandbox::mojom::Sandbox::kVideoEffects ||
+      sandbox_type_ == sandbox::mojom::Sandbox::kOnDeviceTranslation ||
+#endif  // BUILDFLAG(IS_LINUX)
       sandbox_type_ == sandbox::mojom::Sandbox::kSpeechRecognition) {
     return GetUnsandboxedZygote();
   }

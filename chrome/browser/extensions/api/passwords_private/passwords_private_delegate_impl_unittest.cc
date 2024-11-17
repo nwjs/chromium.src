@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "ash/constants/web_app_id_constants.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
@@ -26,6 +27,7 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/mock_callback.h"
+#include "base/test/test_future.h"
 #include "base/types/cxx23_to_underlying.h"
 #include "base/values.h"
 #include "chrome/browser/affiliations/affiliation_service_factory.h"
@@ -46,7 +48,6 @@
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/test/web_app_test.h"
 #include "chrome/browser/web_applications/web_app_command_manager.h"
-#include "chrome/browser/web_applications/web_app_id_constants.h"
 #include "chrome/browser/web_applications/web_contents/web_contents_manager.h"
 #include "chrome/browser/webapps/webapps_client_desktop.h"
 #include "chrome/browser/webauthn/change_pin_controller.h"
@@ -1058,12 +1059,12 @@ TEST_F(PasswordsPrivateDelegateImplTest,
       .Times(0);
 
   auto delegate = CreateDelegate();
-  delegate->SetAccountStorageOptIn(true, web_contents.get());
+  delegate->SetAccountStorageEnabled(true, web_contents.get());
 
   profile()->GetPrefs()->SetBoolean(prefs::kExplicitBrowserSignin, true);
 
   // Implicit and explicit sign-ins are treated alike.
-  delegate->SetAccountStorageOptIn(true, web_contents.get());
+  delegate->SetAccountStorageEnabled(true, web_contents.get());
 }
 
 TEST_F(PasswordsPrivateDelegateImplTest,
@@ -1083,7 +1084,7 @@ TEST_F(PasswordsPrivateDelegateImplTest,
   EXPECT_CALL(*feature_manager, OptOutOfAccountStorage);
 
   auto delegate = CreateDelegate();
-  delegate->SetAccountStorageOptIn(false, web_contents.get());
+  delegate->SetAccountStorageEnabled(false, web_contents.get());
 }
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
@@ -1596,14 +1597,14 @@ TEST_F(PasswordsPrivateDelegateImplTest, PasswordManagerAppInstalled) {
   base::HistogramTester histogram_tester;
   auto delegate = CreateDelegate();
   static_cast<web_app::WebAppInstallManagerObserver*>(delegate.get())
-      ->OnWebAppInstalledWithOsHooks(web_app::kPasswordManagerAppId);
+      ->OnWebAppInstalledWithOsHooks(ash::kPasswordManagerAppId);
 
   EXPECT_THAT(histogram_tester.GetAllSamples("PasswordManager.ShortcutMetric"),
               base::BucketsAre(base::Bucket(1, 1)));
 
   // Check that installing other app doesn't get recorded.
   static_cast<web_app::WebAppInstallManagerObserver*>(delegate.get())
-      ->OnWebAppInstalledWithOsHooks(web_app::kYoutubeMusicAppId);
+      ->OnWebAppInstalledWithOsHooks(ash::kYoutubeMusicAppId);
 
   histogram_tester.ExpectUniqueSample("PasswordManager.ShortcutMetric", 1, 1);
 }
@@ -2343,6 +2344,31 @@ TEST_F(PasswordsPrivateDelegateImplTest, DeleteAllData) {
   EXPECT_THAT(profile_store_->stored_passwords(), testing::IsEmpty());
   EXPECT_THAT(account_store_->stored_passwords(), testing::IsEmpty());
   EXPECT_THAT(passkey_model->GetAllPasskeys(), testing::IsEmpty());
+}
+
+TEST_F(PasswordsPrivateDelegateImplTest,
+       DeleteAllDataRecordsPasswordRemovalReason) {
+  base::test::ScopedFeatureList scoped_feature_list{
+      syncer::kSyncWebauthnCredentials};
+  std::unique_ptr<content::WebContents> web_contents = CreateWebContents();
+  auto delegate = CreateDelegate();
+
+  ExpectAuthentication(delegate, /*successful=*/true);
+  base::test::TestFuture<bool> completion_future;
+  delegate->DeleteAllPasswordManagerData(web_contents.get(),
+                                         completion_future.GetCallback());
+  ASSERT_TRUE(completion_future.Take());
+
+  int expected_reason =
+      1 << static_cast<int>(password_manager::metrics_util::
+                                PasswordManagerCredentialRemovalReason::
+                                    kDeleteAllPasswordManagerData);
+  EXPECT_EQ(profile()->GetPrefs()->GetInteger(
+                password_manager::prefs::kPasswordRemovalReasonForAccount),
+            expected_reason);
+  EXPECT_EQ(profile()->GetPrefs()->GetInteger(
+                password_manager::prefs::kPasswordRemovalReasonForProfile),
+            expected_reason);
 }
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)

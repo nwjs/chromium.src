@@ -298,11 +298,10 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
     _inactiveBrowser = inactiveBrowser;
     _incognitoBrowser = incognitoBrowser;
 
-    if (IsIncognitoModeDisabled(
-            _regularBrowser->GetBrowserState()->GetPrefs())) {
+    if (IsIncognitoModeDisabled(_regularBrowser->GetProfile()->GetPrefs())) {
       _pageConfiguration = TabGridPageConfiguration::kIncognitoPageDisabled;
     } else if (IsIncognitoModeForced(
-                   _incognitoBrowser->GetBrowserState()->GetPrefs())) {
+                   _incognitoBrowser->GetProfile()->GetPrefs())) {
       _pageConfiguration = TabGridPageConfiguration::kIncognitoPageOnly;
     } else {
       _pageConfiguration = TabGridPageConfiguration::kAllPagesEnabled;
@@ -334,6 +333,11 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
 - (void)setIncognitoBrowser:(Browser*)incognitoBrowser {
   DCHECK(_incognitoGridCoordinator);
+  if (incognitoBrowser) {
+    [incognitoBrowser->GetCommandDispatcher()
+        startDispatchingToTarget:self
+                     forProtocol:@protocol(TabGridCommands)];
+  }
   [_incognitoGridCoordinator setIncognitoBrowser:incognitoBrowser];
 
   if (self.incognitoSnackbarCoordinator) {
@@ -351,9 +355,6 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
     [incognitoBrowser->GetCommandDispatcher()
         startDispatchingToTarget:[self bookmarksCoordinator]
                      forProtocol:@protocol(BookmarksCommands)];
-    [incognitoBrowser->GetCommandDispatcher()
-        startDispatchingToTarget:self
-                     forProtocol:@protocol(TabGridCommands)];
   }
 }
 
@@ -424,8 +425,8 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   if (currentActivePage == TabGridPageRegularTabs &&
       !_bringAndroidTabsPromptCoordinator) {
     BringAndroidTabsToIOSService* bringAndroidTabsService =
-        BringAndroidTabsToIOSServiceFactory::GetForBrowserState(
-            self.regularBrowser->GetBrowserState());
+        BringAndroidTabsToIOSServiceFactory::GetForProfile(
+            self.regularBrowser->GetProfile());
     if (bringAndroidTabsService != nil) {
       bringAndroidTabsService->LoadTabs();
       shouldDisplayBringAndroidTabsPrompt =
@@ -783,13 +784,12 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
       startDispatchingToTarget:self
                    forProtocol:@protocol(TabGridCommands)];
 
-  ChromeBrowserState* browser_state = self.regularBrowser->GetBrowserState();
+  ProfileIOS* profile = self.regularBrowser->GetProfile();
   _mediator = [[TabGridMediator alloc]
-       initWithIdentityManager:IdentityManagerFactory::GetForProfile(
-                                   browser_state)
-                   prefService:browser_state->GetPrefs()
+       initWithIdentityManager:IdentityManagerFactory::GetForProfile(profile)
+                   prefService:profile->GetPrefs()
       featureEngagementTracker:feature_engagement::TrackerFactory::
-                                   GetForBrowserState(browser_state)
+                                   GetForProfile(profile)
                     modeHolder:_modeHolder];
 
   id<ApplicationCommands> applicationCommandsHandler =
@@ -841,8 +841,8 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   baseViewController.regularGridHandler = _regularGridCoordinator.gridHandler;
   self.regularTabsMediator = _regularGridCoordinator.regularGridMediator;
 
-  ChromeBrowserState* regularBrowserState =
-      _regularBrowser ? _regularBrowser->GetBrowserState() : nullptr;
+  ProfileIOS* regularProfile =
+      _regularBrowser ? _regularBrowser->GetProfile() : nullptr;
   WebStateList* regularWebStateList =
       _regularBrowser ? _regularBrowser->GetWebStateList() : nullptr;
   self.priceCardMediator =
@@ -879,8 +879,8 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
   self.incognitoTabsMediator = _incognitoGridCoordinator.incognitoGridMediator;
   [self.incognitoTabsMediator
-      initializeSupervisedUserCapabilitiesObserver:
-          IdentityManagerFactory::GetForProfile(browser_state)];
+      initializeFamilyLinkUserCapabilitiesObserver:IdentityManagerFactory::
+                                                       GetForProfile(profile)];
 
   baseViewController.incognitoGridHandler =
       _incognitoGridCoordinator.gridHandler;
@@ -926,22 +926,21 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
     _hackRecentTabsTableViewController = remoteTabsViewController;
   } else {
     // TODO(crbug.com/41390276) : Remove RecentTabsTableViewController
-    // dependency on ChromeBrowserState so that we don't need to expose the view
+    // dependency on ProfileIOS so that we don't need to expose the view
     // controller.
     baseViewController.remoteTabsViewController.browser = self.regularBrowser;
     sync_sessions::SessionSyncService* syncService =
-        SessionSyncServiceFactory::GetForBrowserState(regularBrowserState);
+        SessionSyncServiceFactory::GetForProfile(regularProfile);
     signin::IdentityManager* identityManager =
-        IdentityManagerFactory::GetForProfile(regularBrowserState);
+        IdentityManagerFactory::GetForProfile(regularProfile);
     sessions::TabRestoreService* restoreService =
-        IOSChromeTabRestoreServiceFactory::GetForBrowserState(
-            regularBrowserState);
+        IOSChromeTabRestoreServiceFactory::GetForProfile(regularProfile);
     FaviconLoader* faviconLoader =
-        IOSChromeFaviconLoaderFactory::GetForBrowserState(regularBrowserState);
+        IOSChromeFaviconLoaderFactory::GetForProfile(regularProfile);
     syncer::SyncService* service =
-        SyncServiceFactory::GetForBrowserState(regularBrowserState);
+        SyncServiceFactory::GetForProfile(regularProfile);
     BrowserList* browserList =
-        BrowserListFactory::GetForBrowserState(regularBrowserState);
+        BrowserListFactory::GetForProfile(regularProfile);
     SceneState* currentSceneState = self.regularBrowser->GetSceneState();
     // TODO(crbug.com/40273478): Rename in recentTabsMediator.
     self.remoteTabsMediator = [[RecentTabsMediator alloc]
@@ -955,7 +954,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
                   disabledByPolicy:_pageConfiguration ==
                                    TabGridPageConfiguration::kIncognitoPageOnly
                  engagementTracker:feature_engagement::TrackerFactory::
-                                       GetForBrowserState(regularBrowserState)
+                                       GetForProfile(regularProfile)
                         modeHolder:_modeHolder];
     self.remoteTabsMediator.consumer = baseViewController.remoteTabsConsumer;
     self.remoteTabsMediator.tabGridHandler = self;
@@ -999,7 +998,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   // hierarchy. As a workaround, the view controller hierarchy is loaded here
   // before `RecentTabsMediator` updates are started.
   self.window.rootViewController = self.baseViewController;
-  if (regularBrowserState) {
+  if (regularProfile) {
     [self.remoteTabsMediator initObservers];
     [self.remoteTabsMediator refreshSessionsView];
   }
@@ -1278,15 +1277,15 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 - (BOOL)tabGridIsUserEligibleForSwipeToIncognitoIPH {
   return _pageConfiguration == TabGridPageConfiguration::kAllPagesEnabled &&
          IsFirstRunRecent(base::Days(60)) &&
-         feature_engagement::TrackerFactory::GetForBrowserState(
-             self.regularBrowser->GetBrowserState())
+         feature_engagement::TrackerFactory::GetForProfile(
+             self.regularBrowser->GetProfile())
              ->WouldTriggerHelpUI(
                  feature_engagement::kIPHiOSTabGridSwipeRightForIncognito);
 }
 
 - (BOOL)tabGridShouldPresentSwipeToIncognitoIPH {
-  return feature_engagement::TrackerFactory::GetForBrowserState(
-             self.regularBrowser->GetBrowserState())
+  return feature_engagement::TrackerFactory::GetForProfile(
+             self.regularBrowser->GetProfile())
       ->ShouldTriggerHelpUI(
           feature_engagement::kIPHiOSTabGridSwipeRightForIncognito);
 }
@@ -1294,8 +1293,8 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 - (void)tabGridDidDismissSwipeToIncognitoIPHWithReason:
     (IPHDismissalReasonType)reason {
   feature_engagement::Tracker* tracker =
-      feature_engagement::TrackerFactory::GetForBrowserState(
-          self.regularBrowser->GetBrowserState());
+      feature_engagement::TrackerFactory::GetForProfile(
+          self.regularBrowser->GetProfile());
   if (tracker) {
     tracker->DismissedWithSnooze(
         feature_engagement::kIPHiOSTabGridSwipeRightForIncognito,
@@ -1392,7 +1391,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
       "Mobile.RecentTabsManager.TotalTabsFromOtherDevicesOpenAll",
       session->tabs.size());
 
-  BOOL inIncognito = self.regularBrowser->GetBrowserState()->IsOffTheRecord();
+  BOOL inIncognito = self.regularBrowser->GetProfile()->IsOffTheRecord();
   OpenDistantSessionInBackground(
       session, inIncognito, GetDefaultNumberOfTabsToLoadSimultaneously(),
       UrlLoadingBrowserAgent::FromBrowser(self.regularBrowser),
@@ -1412,6 +1411,10 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
     [weakSelf.historyCoordinator stop];
     weakSelf.historyCoordinator = nil;
   }];
+}
+
+- (void)closeHistory {
+  [self closeHistoryWithCompletion:nil];
 }
 
 #pragma mark - TabContextMenuDelegate
@@ -1441,8 +1444,8 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
 - (void)bookmarkURL:(const GURL&)URL title:(NSString*)title {
   bookmarks::BookmarkModel* bookmarkModel =
-      ios::BookmarkModelFactory::GetForBrowserState(
-          self.regularBrowser->GetBrowserState());
+      ios::BookmarkModelFactory::GetForProfile(
+          self.regularBrowser->GetProfile());
   if (bookmarkModel->IsBookmarked(URL)) {
     [self editBookmarkWithURL:URL];
   } else {
@@ -1605,7 +1608,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
     // The user journey to bring recent tabs on Android to iOS has finished.
     // Reload the service to update/clear the tabs.
     BringAndroidTabsToIOSServiceFactory::GetForProfileIfExists(
-        self.regularBrowser->GetBrowserState())
+        self.regularBrowser->GetProfile())
         ->LoadTabs();
   }
   [_bringAndroidTabsPromptCoordinator stop];
@@ -1648,8 +1651,8 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
 - (void)showWebSearchForText:(NSString*)text {
   TemplateURLService* templateURLService =
-      ios::TemplateURLServiceFactory::GetForBrowserState(
-          self.regularBrowser->GetBrowserState());
+      ios::TemplateURLServiceFactory::GetForProfile(
+          self.regularBrowser->GetProfile());
 
   const TemplateURL* searchURLTemplate =
       templateURLService->GetDefaultSearchProvider();

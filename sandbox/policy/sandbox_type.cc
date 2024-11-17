@@ -51,7 +51,7 @@ bool IsUnsandboxedSandboxType(Sandbox sandbox_type) {
     case Sandbox::kServiceWithJit:
     case Sandbox::kUtility:
     case Sandbox::kGpu:
-#if BUILDFLAG(ENABLE_PPAPI)
+#if BUILDFLAG(ENABLE_PPAPI) && !BUILDFLAG(IS_WIN)
     case Sandbox::kPpapi:
 #endif
     case Sandbox::kCdm:
@@ -81,7 +81,12 @@ bool IsUnsandboxedSandboxType(Sandbox sandbox_type) {
     case Sandbox::kScreenAI:
 #endif
     case Sandbox::kSpeechRecognition:
+#if BUILDFLAG(IS_LINUX)
     case Sandbox::kVideoEffects:
+#endif
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)
+    case Sandbox::kOnDeviceTranslation:
+#endif
       return false;
   }
 }
@@ -108,7 +113,7 @@ void SetCommandLineFlagsForSandboxType(base::CommandLine* command_line,
       DCHECK(command_line->GetSwitchValueASCII(switches::kProcessType) ==
              switches::kGpuProcess);
       break;
-#if BUILDFLAG(ENABLE_PPAPI)
+#if BUILDFLAG(ENABLE_PPAPI) && !BUILDFLAG(IS_WIN)
     case Sandbox::kPpapi:
       if (command_line->GetSwitchValueASCII(switches::kProcessType) ==
           switches::kUtilityProcess) {
@@ -163,7 +168,12 @@ void SetCommandLineFlagsForSandboxType(base::CommandLine* command_line,
     case Sandbox::kScreenAI:
 #endif
     case Sandbox::kSpeechRecognition:
+#if BUILDFLAG(IS_LINUX)
     case Sandbox::kVideoEffects:
+#endif
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)
+    case Sandbox::kOnDeviceTranslation:
+#endif
       DCHECK(command_line->GetSwitchValueASCII(switches::kProcessType) ==
              switches::kUtilityProcess);
       DCHECK(!command_line->HasSwitch(switches::kServiceSandboxType));
@@ -201,7 +211,7 @@ sandbox::mojom::Sandbox SandboxTypeFromCommandLine(
     return Sandbox::kGpu;
   }
 
-#if BUILDFLAG(ENABLE_PPAPI)
+#if BUILDFLAG(ENABLE_PPAPI) && !BUILDFLAG(IS_WIN)
   if (process_type == switches::kPpapiPluginProcess)
     return Sandbox::kPpapi;
 #endif
@@ -224,11 +234,9 @@ sandbox::mojom::Sandbox SandboxTypeFromCommandLine(
   }
 #endif
 
-  CHECK(false)
+  NOTREACHED()
       << "Command line does not provide a valid sandbox configuration: "
       << command_line.GetCommandLineString();
-  NOTREACHED_IN_MIGRATION();
-  return Sandbox::kNoSandbox;
 }
 
 std::string StringFromUtilitySandboxType(Sandbox sandbox_type) {
@@ -243,7 +251,7 @@ std::string StringFromUtilitySandboxType(Sandbox sandbox_type) {
       return switches::kNetworkSandbox;
     case Sandbox::kOnDeviceModelExecution:
       return switches::kOnDeviceModelExecutionSandbox;
-#if BUILDFLAG(ENABLE_PPAPI)
+#if BUILDFLAG(ENABLE_PPAPI) && !BUILDFLAG(IS_WIN)
     case Sandbox::kPpapi:
       return switches::kPpapiSandbox;
 #endif
@@ -273,8 +281,14 @@ std::string StringFromUtilitySandboxType(Sandbox sandbox_type) {
     case Sandbox::kScreenAI:
       return switches::kScreenAISandbox;
 #endif
+#if BUILDFLAG(IS_LINUX)
     case Sandbox::kVideoEffects:
       return switches::kVideoEffectsSandbox;
+#endif
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)
+    case Sandbox::kOnDeviceTranslation:
+      return switches::kOnDeviceTranslationSandbox;
+#endif
 #if BUILDFLAG(IS_WIN)
     case Sandbox::kXrCompositing:
       return switches::kXrCompositingSandbox;
@@ -317,8 +331,7 @@ std::string StringFromUtilitySandboxType(Sandbox sandbox_type) {
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
     case Sandbox::kZygoteIntermediateSandbox:
 #endif
-      NOTREACHED_IN_MIGRATION();
-      return std::string();
+      NOTREACHED();
   }
 }
 
@@ -350,7 +363,7 @@ sandbox::mojom::Sandbox UtilitySandboxTypeFromString(
   if (sandbox_string == switches::kOnDeviceModelExecutionSandbox) {
     return Sandbox::kOnDeviceModelExecution;
   }
-#if BUILDFLAG(ENABLE_PPAPI)
+#if BUILDFLAG(ENABLE_PPAPI) && !BUILDFLAG(IS_WIN)
   if (sandbox_string == switches::kPpapiSandbox)
     return Sandbox::kPpapi;
 #endif
@@ -386,9 +399,16 @@ sandbox::mojom::Sandbox UtilitySandboxTypeFromString(
   if (sandbox_string == switches::kScreenAISandbox)
     return Sandbox::kScreenAI;
 #endif
+#if BUILDFLAG(IS_LINUX)
   if (sandbox_string == switches::kVideoEffectsSandbox) {
     return Sandbox::kVideoEffects;
   }
+#endif
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)
+  if (sandbox_string == switches::kOnDeviceTranslationSandbox) {
+    return Sandbox::kOnDeviceTranslation;
+  }
+#endif
 #if BUILDFLAG(IS_FUCHSIA)
   if (sandbox_string == switches::kVideoCaptureSandbox)
     return Sandbox::kVideoCapture;
@@ -414,11 +434,9 @@ sandbox::mojom::Sandbox UtilitySandboxTypeFromString(
     return Sandbox::kLibassistant;
 #endif  // BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-  CHECK(false)
+  NOTREACHED()
       << "Command line does not provide a valid sandbox configuration: "
       << sandbox_string;
-  NOTREACHED_IN_MIGRATION();
-  return Sandbox::kUtility;
 }
 
 }  // namespace policy

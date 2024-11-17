@@ -31,7 +31,7 @@ scoped_refptr<base::RefCountedBytes> UserImage::Encode(
   std::vector<unsigned char> output;
   if (image_format == FORMAT_JPEG) {
     if (gfx::JPEGCodec::Encode(bitmap, kDefaultEncodingQuality, &output)) {
-      return base::RefCountedBytes::TakeVector(&output);
+      return base::MakeRefCounted<base::RefCountedBytes>(std::move(output));
     }
   } else if (image_format == FORMAT_PNG) {
     auto* bitmap_data =
@@ -43,7 +43,7 @@ scoped_refptr<base::RefCountedBytes> UserImage::Encode(
             bitmap.width() * bitmap.bytesPerPixel(),
             false,  // discard_transparency
             std::vector<gfx::PNGCodec::Comment>(), &output)) {
-      return base::RefCountedBytes::TakeVector(&output);
+      return base::MakeRefCounted<base::RefCountedBytes>(std::move(output));
     }
   } else {
     LOG(FATAL) << "Invalid image format: " << image_format;
@@ -89,7 +89,7 @@ UserImage::UserImage(const gfx::ImageSkia& image,
       image_format_(image_format) {
 }
 
-UserImage::~UserImage() {}
+UserImage::~UserImage() = default;
 
 void UserImage::MarkAsSafe() {
   is_safe_format_ = true;

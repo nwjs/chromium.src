@@ -68,7 +68,6 @@ public class InputMethodManagerWrapperImpl implements InputMethodManagerWrapper 
     /**
      * Get an Activity from WindowAndroid.
      *
-     * @param windowAndroid
      * @return The Activity. May return null if it fails.
      */
     private static Activity getActivityFromWindowAndroid(WindowAndroid windowAndroid) {
@@ -173,7 +172,7 @@ public class InputMethodManagerWrapperImpl implements InputMethodManagerWrapper 
         if (DEBUG_LOGS) Log.i(TAG, "hideSoftInputFromWindow");
         mPendingRunnableOnInputConnection = null;
         InputMethodManager manager = getInputMethodManager();
-        if (manager == null || mOptimizeImmHideCalls && !manager.isAcceptingText()) return false;
+        if (manager == null || (mOptimizeImmHideCalls && !manager.isAcceptingText())) return false;
         StrictMode.ThreadPolicy oldPolicy = StrictMode.allowThreadDiskWrites(); // crbug.com/616283
         try {
             return manager.hideSoftInputFromWindow(windowToken, flags, resultReceiver);

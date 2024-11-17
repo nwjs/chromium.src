@@ -21,6 +21,7 @@
 #include "base/types/optional_util.h"
 #include "build/branding_buildflags.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/privacy_sandbox/privacy_sandbox_countries.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_notice_confirmation.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/webui_url_constants.h"
@@ -49,6 +50,8 @@
 #include "net/base/schemeful_site.h"
 #include "net/first_party_sets/first_party_set_entry.h"
 #include "net/first_party_sets/global_first_party_sets.h"
+#include "privacy_sandbox_countries_impl.h"
+#include "privacy_sandbox_service_impl.h"
 #include "third_party/blink/public/common/features.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -183,20 +186,16 @@ std::string GetTopicsSettingsText(bool did_consent,
 
   int blocked_topics_description =
       has_blocked_topics
-          ? IDS_SETTINGS_TOPICS_PAGE_BLOCKED_TOPICS_DESCRIPTION
-          : IDS_SETTINGS_TOPICS_PAGE_BLOCKED_TOPICS_DESCRIPTION_EMPTY;
+          ? IDS_SETTINGS_TOPICS_PAGE_BLOCKED_TOPICS_DESCRIPTION_NEW
+          : IDS_SETTINGS_TOPICS_PAGE_BLOCKED_TOPICS_DESCRIPTION_EMPTY_TEXT_V2;
 
   std::vector<int> string_ids = {
       IDS_SETTINGS_TOPICS_PAGE_TITLE,
       IDS_SETTINGS_TOPICS_PAGE_TOGGLE_LABEL,
-      IDS_SETTINGS_TOPICS_PAGE_TOGGLE_SUB_LABEL,
-      IDS_SETTINGS_TOPICS_PAGE_CURRENT_TOPICS_HEADING,
+      IDS_SETTINGS_TOPICS_PAGE_TOGGLE_SUB_LABEL_V2,
+      IDS_SETTINGS_TOPICS_PAGE_ACTIVE_TOPICS_HEADING,
       IDS_SETTINGS_TOPICS_PAGE_CURRENT_TOPICS_DESCRIPTION_CANONICAL,
-      IDS_SETTINGS_TOPICS_PAGE_LEARN_MORE_HEADING,
-      IDS_SETTINGS_TOPICS_PAGE_LEARN_MORE_BULLET_1,
-      IDS_SETTINGS_TOPICS_PAGE_LEARN_MORE_BULLET_2,
-      IDS_SETTINGS_TOPICS_PAGE_LEARN_MORE_BULLET_3_CANONICAL,
-      IDS_SETTINGS_TOPICS_PAGE_BLOCKED_TOPICS_HEADING,
+      IDS_SETTINGS_TOPICS_PAGE_BLOCKED_TOPICS_HEADING_NEW,
       blocked_topics_description,
       IDS_SETTINGS_TOPICS_PAGE_FOOTER_CANONICAL};
 
@@ -210,7 +209,7 @@ std::string GetTopicsSettingsText(bool did_consent,
   } else if (!has_current_topics) {
     string_ids.insert(
         string_ids.begin() + 5,
-        IDS_SETTINGS_TOPICS_PAGE_CURRENT_TOPICS_DESCRIPTION_EMPTY);
+        IDS_SETTINGS_TOPICS_PAGE_CURRENT_TOPICS_DESCRIPTION_EMPTY_TEXT_V2);
   }
 
   return std::accumulate(string_ids.begin(), string_ids.end(), std::string(),
@@ -363,7 +362,8 @@ PrivacySandboxServiceImpl::PrivacySandboxServiceImpl(
     TrustSafetySentimentService* sentiment_service,
 #endif
     browsing_topics::BrowsingTopicsService* browsing_topics_service,
-    first_party_sets::FirstPartySetsPolicyService* first_party_sets_service)
+    first_party_sets::FirstPartySetsPolicyService* first_party_sets_service,
+    PrivacySandboxCountries* privacy_sandbox_countries)
     : privacy_sandbox_settings_(privacy_sandbox_settings),
       tracking_protection_settings_(tracking_protection_settings),
       cookie_settings_(cookie_settings),
@@ -376,8 +376,8 @@ PrivacySandboxServiceImpl::PrivacySandboxServiceImpl(
       sentiment_service_(sentiment_service),
 #endif
       browsing_topics_service_(browsing_topics_service),
-      first_party_sets_policy_service_(first_party_sets_service) {
-
+      first_party_sets_policy_service_(first_party_sets_service),
+      privacy_sandbox_countries_(privacy_sandbox_countries) {
   // Create notice storage
   notice_storage_ =
       std::make_unique<privacy_sandbox::PrivacySandboxNoticeStorage>();
@@ -1146,6 +1146,18 @@ void PrivacySandboxServiceImpl::SetTopicAllowed(
   privacy_sandbox_settings_->SetTopicAllowed(topic, allowed);
 }
 
+PrivacySandboxCountries*
+PrivacySandboxServiceImpl::GetPrivacySandboxCountries() {
+  return privacy_sandbox_countries_;
+}
+
+bool PrivacySandboxServiceImpl::
+    PrivacySandboxPrivacyGuideShouldShowAdTopicsCard() {
+  return GetPrivacySandboxCountries()->IsConsentCountry() &&
+         base::FeatureList::IsEnabled(
+             privacy_sandbox::kPrivacySandboxPrivacyGuideAdTopics);
+}
+
 void PrivacySandboxServiceImpl::TopicsToggleChanged(bool new_value) const {
   RecordUpdatedTopicsConsent(
       privacy_sandbox::TopicsConsentUpdateSource::kSettings, new_value);
@@ -1424,7 +1436,7 @@ void PrivacySandboxServiceImpl::MaybeCloseOpenPrompts() {
   // not cross task boundaries.
   auto browsers_to_open_prompts_copy = browsers_to_open_prompts_;
   for (const auto& browser_prompt : browsers_to_open_prompts_copy) {
-    auto* prompt = browser_prompt.second;
+    auto* prompt = browser_prompt.second.get();
     CHECK(prompt);
     prompt->CloseWithReason(views::Widget::ClosedReason::kUnspecified);
   }
@@ -1569,6 +1581,11 @@ void PrivacySandboxServiceImpl::RecordPromptActionMetrics(PromptAction action) {
           "Settings.PrivacySandbox.RestrictedNotice.MoreButtonClicked"));
       break;
     }
+    case PromptAction::kPrivacyPolicyLinkClicked: {
+      base::RecordAction(base::UserMetricsAction(
+          "Settings.PrivacySandbox.Consent.PrivacyPolicyLinkClicked"));
+      break;
+    }
   }
 }
 
@@ -1694,8 +1711,9 @@ void RecordUserSegmentMetrics(const base::Value::List& activity_type_record,
                               int records_in_a_row) {
   // If a different value for records_in_a_row is needed for these metrics,
   // tools/metrics/histograms/metadata/privacy/histograms.xml needs to be
-  // updated with new histograms. Currently, only 10MostRecentRecordsUserSegment
-  // and 20MostRecentRecordsUserSegment histograms are necessary.
+  // updated with new histograms. Currently, only
+  // 10MostRecentRecordsUserSegment2 and 20MostRecentRecordsUserSegment2
+  // histograms are necessary.
   DCHECK(records_in_a_row == 10 || records_in_a_row == 20);
   // Can't emit user segment metrics when the size of the list is less than
   // records_in_a_row

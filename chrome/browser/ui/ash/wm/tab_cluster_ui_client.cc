@@ -20,8 +20,7 @@ ash::TabClusterUIItem::Info GenerateTabItemInfo(
     content::WebContents* web_contents) {
   ash::TabClusterUIItem::Info info;
   info.title = base::UTF16ToUTF8(web_contents->GetTitle());
-  info.source = base::StrCat({web_contents->GetVisibleURL().host(),
-                              web_contents->GetVisibleURL().path()});
+  info.source = web_contents->GetVisibleURL().spec();
   info.browser_window =
       chrome::FindBrowserWithTab(web_contents)->window()->GetNativeWindow();
   return info;
@@ -66,7 +65,7 @@ void TabClusterUIClient::OnTabStripModelChanged(
       {
         auto* replace = change.GetReplace();
         DCHECK(base::Contains(contents_item_map_, replace->old_contents));
-        auto* item = contents_item_map_[replace->old_contents];
+        auto* item = contents_item_map_[replace->old_contents].get();
 
         item->Init(GenerateTabItemInfo(replace->new_contents));
         controller_->UpdateTabItem(item);
@@ -91,7 +90,7 @@ void TabClusterUIClient::TabChangedAt(content::WebContents* contents,
                                       int index,
                                       TabChangeType change_type) {
   DCHECK(base::Contains(contents_item_map_, contents));
-  auto* item = contents_item_map_[contents];
+  auto* item = contents_item_map_[contents].get();
   item->Init(GenerateTabItemInfo(contents));
   controller_->UpdateTabItem(item);
 }

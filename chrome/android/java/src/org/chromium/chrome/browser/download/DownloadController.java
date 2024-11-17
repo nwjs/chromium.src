@@ -58,11 +58,14 @@ public class DownloadController {
         if (nativePage == null || !nativePage.isPdf()) {
             return;
         }
-        assert nativePage instanceof PdfPage;
-        ((PdfPage) nativePage)
-                .onDownloadComplete(
-                        downloadInfo.getFileName(), downloadInfo.getFilePath(), isDownloadSafe);
-        tab.updateTitle();
+        // The PdfPage may become a FrozenNativePage while downloading.
+        // Need to check before cast to PdfPage.
+        if (nativePage instanceof PdfPage) {
+            ((PdfPage) nativePage)
+                    .onDownloadComplete(
+                            downloadInfo.getFileName(), downloadInfo.getFilePath(), isDownloadSafe);
+            tab.updateTitle();
+        }
     }
 
     /**
@@ -103,9 +106,9 @@ public class DownloadController {
 
     /**
      * Enqueue a request to download a file using Android DownloadManager.
+     *
      * @param url Url to download.
      * @param userAgent User agent to use.
-     * @param contentDisposition Content disposition of the request.
      * @param mimeType MIME type.
      * @param cookie Cookie to use.
      * @param referrer Referrer to use.

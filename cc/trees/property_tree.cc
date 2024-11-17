@@ -1940,8 +1940,9 @@ bool ScrollTree::SetScrollOffset(ElementId id,
   }
 
   if (property_trees()->is_active()) {
-    DCHECK(GetSyncedScrollOffset(id));
-    return GetSyncedScrollOffset(id)->SetCurrent(scroll_offset);
+    if (auto* synced_scroll_offset = GetSyncedScrollOffset(id)) {
+      return synced_scroll_offset->SetCurrent(scroll_offset);
+    }
   }
 
   return false;
@@ -1950,6 +1951,10 @@ bool ScrollTree::SetScrollOffset(ElementId id,
 void ScrollTree::SetScrollingContentsCullRect(ElementId id,
                                               const gfx::Rect& cull_rect) {
   scrolling_contents_cull_rects_[id] = cull_rect;
+}
+
+void ScrollTree::ClearScrollingContentsCullRect(ElementId id) {
+  scrolling_contents_cull_rects_.erase(id);
 }
 
 const gfx::Rect* ScrollTree::ScrollingContentsCullRect(ElementId id) const {

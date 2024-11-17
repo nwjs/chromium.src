@@ -103,20 +103,6 @@ BASE_FEATURE(kDisableErrorHandlingForReadback,
              "kDisableErrorHandlingForReadback",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPaintCacheBudgetConfigurableFeature,
-             "PaintCacheBudgetConfigurableFeature",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-MIRACLE_PARAMETER_FOR_INT(GetNormalPaintCacheBudget,
-                          kPaintCacheBudgetConfigurableFeature,
-                          "NormalPaintCacheBudgetBytes",
-                          4 * 1024 * 1024)
-
-MIRACLE_PARAMETER_FOR_INT(GetLowEndPaintCacheBudget,
-                          kPaintCacheBudgetConfigurableFeature,
-                          "LowEndPaintCacheBudgetBytes",
-                          256 * 1024)
-
 const uint32_t kMaxTransferCacheEntrySizeForTransferBuffer = 1024;
 const size_t kMaxImmediateDeletedPaintCachePaths = 1024;
 
@@ -1353,73 +1339,6 @@ void RasterImplementation::WritePixelsYUV(const gpu::Mailbox& dest_mailbox,
       plane_offsets[1], plane_offsets[2], plane_offsets[3], dest_mailbox.name);
 }
 
-namespace {
-constexpr size_t kNumMailboxes = SkYUVAInfo::kMaxPlanes + 1;
-}  // namespace
-
-void RasterImplementation::ConvertYUVAMailboxesToRGB(
-    const gpu::Mailbox& dest_mailbox,
-    GLint src_x,
-    GLint src_y,
-    GLsizei width,
-    GLsizei height,
-    SkYUVColorSpace planes_yuv_color_space,
-    const SkColorSpace* planes_rgb_color_space,
-    SkYUVAInfo::PlaneConfig plane_config,
-    SkYUVAInfo::Subsampling subsampling,
-    const gpu::Mailbox yuva_plane_mailboxes[]) {
-  skcms_Matrix3x3 primaries = {{{0}}};
-  skcms_TransferFunction transfer = {0};
-  if (planes_rgb_color_space) {
-    planes_rgb_color_space->toXYZD50(&primaries);
-    planes_rgb_color_space->transferFn(&transfer);
-  } else {
-    // Specify an invalid transfer function exponent, to ensure that when
-    // SkColorSpace::MakeRGB is called in the decoder, the result is nullptr.
-    transfer.g = -99;
-  }
-
-  constexpr size_t kByteSize = sizeof(gpu::Mailbox) * (kNumMailboxes) +
-                               sizeof(skcms_TransferFunction) +
-                               sizeof(skcms_Matrix3x3);
-  static_assert(kByteSize == 144);
-  GLbyte bytes[kByteSize] = {0};
-  size_t offset = 0;
-  for (int i = 0; i < SkYUVAInfo::NumPlanes(plane_config); ++i) {
-    memcpy(bytes + offset, yuva_plane_mailboxes + i, sizeof(gpu::Mailbox));
-    offset += sizeof(gpu::Mailbox);
-  }
-  offset = SkYUVAInfo::kMaxPlanes * sizeof(gpu::Mailbox);
-  memcpy(bytes + offset, &dest_mailbox, sizeof(gpu::Mailbox));
-  offset += sizeof(gpu::Mailbox);
-  memcpy(bytes + offset, &transfer, sizeof(transfer));
-  offset += sizeof(transfer);
-  memcpy(bytes + offset, &primaries, sizeof(primaries));
-  offset += sizeof(primaries);
-  DCHECK_EQ(offset, kByteSize);
-
-  helper_->ConvertYUVAMailboxesToRGBINTERNALImmediate(
-      src_x, src_y, width, height, planes_yuv_color_space,
-      static_cast<GLenum>(plane_config), static_cast<GLenum>(subsampling),
-      reinterpret_cast<GLbyte*>(bytes));
-}
-
-void RasterImplementation::ConvertRGBAToYUVAMailboxes(
-    SkYUVColorSpace planes_yuv_color_space,
-    SkYUVAInfo::PlaneConfig plane_config,
-    SkYUVAInfo::Subsampling subsampling,
-    const gpu::Mailbox yuva_plane_mailboxes[],
-    const gpu::Mailbox& source_mailbox) {
-  gpu::Mailbox mailboxes[kNumMailboxes]{};
-  for (int i = 0; i < SkYUVAInfo::NumPlanes(plane_config); ++i) {
-    mailboxes[i] = yuva_plane_mailboxes[i];
-  }
-  mailboxes[kNumMailboxes - 1] = source_mailbox;
-  helper_->ConvertRGBAToYUVAMailboxesINTERNALImmediate(
-      planes_yuv_color_space, static_cast<GLenum>(plane_config),
-      static_cast<GLenum>(subsampling), reinterpret_cast<GLbyte*>(mailboxes));
-}
-
 void RasterImplementation::BeginRasterCHROMIUM(
     SkColor4f sk_color_4f,
     GLboolean needs_clear,
@@ -2007,9 +1926,9 @@ cc::ClientPaintCache* RasterImplementation::GetOrCreatePaintCache() {
   if (!paint_cache_) {
     size_t paint_cache_budget = 0u;
     if (base::SysInfo::IsLowEndDevice()) {
-      paint_cache_budget = GetLowEndPaintCacheBudget();
+      paint_cache_budget = 256 * 1024;
     } else {
-      paint_cache_budget = GetNormalPaintCacheBudget();
+      paint_cache_budget = 4 * 1024 * 1024;
     }
     paint_cache_ = std::make_unique<cc::ClientPaintCache>(paint_cache_budget);
   }

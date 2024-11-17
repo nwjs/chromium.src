@@ -75,8 +75,13 @@ public final class InputHintCheckerTest {
                         InputHintChecker.hasInputWithThrottlingForTesting();
                     } else {
                         InputHintChecker.hasInputForTesting();
+                        // Only assert on |mCallCount| in non-throttled case. Oftentimes
+                        // the hasInputWithThrottlingForTesting() call above is preceded by another
+                        // input hint poll from MessagePumpAndroid. This would prevent incrementing
+                        // the poll count for a few milliseconds.
+                        // See https://crbug.com/372637659#comment5.
+                        Assert.assertEquals(1, view.mCallCount);
                     }
-                    Assert.assertEquals(1, view.mCallCount);
                 });
     }
 

@@ -23,6 +23,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/version_info/version_info.h"
+#include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/geometry/rect.h"
@@ -83,10 +84,11 @@ ChromeViewsDelegate::~ChromeViewsDelegate() {
   DCHECK_EQ(0u, ref_count_);
 }
 
-void ChromeViewsDelegate::SaveWindowPlacement(const views::Widget* window,
-                                              const std::string& window_name,
-                                              const gfx::Rect& bounds,
-                                              ui::WindowShowState show_state) {
+void ChromeViewsDelegate::SaveWindowPlacement(
+    const views::Widget* window,
+    const std::string& window_name,
+    const gfx::Rect& bounds,
+    ui::mojom::WindowShowState show_state) {
   PrefService* prefs = GetPrefsForWindow(window);
   if (!prefs)
     return;
@@ -99,8 +101,9 @@ void ChromeViewsDelegate::SaveWindowPlacement(const views::Widget* window,
   window_preferences.Set("top", bounds.y());
   window_preferences.Set("right", bounds.right());
   window_preferences.Set("bottom", bounds.bottom());
-  window_preferences.Set("maximized", show_state == ui::SHOW_STATE_MAXIMIZED);
-  window_preferences.Set("fullscreen", show_state == ui::SHOW_STATE_FULLSCREEN);
+  window_preferences.Set("maximized",
+                         show_state == ui::mojom::WindowShowState::kMaximized);
+  window_preferences.Set("fullscreen", show_state == ui::mojom::WindowShowState::kFullscreen);
 
   gfx::Rect work_area(display::Screen::GetScreen()
                           ->GetDisplayNearestView(window->GetNativeView())
@@ -115,7 +118,7 @@ bool ChromeViewsDelegate::GetSavedWindowPlacement(
     const views::Widget* widget,
     const std::string& window_name,
     gfx::Rect* bounds,
-    ui::WindowShowState* show_state) const {
+    ui::mojom::WindowShowState* show_state) const {
   PrefService* prefs = g_browser_process->local_state();
   if (!prefs)
     return false;
@@ -131,11 +134,12 @@ bool ChromeViewsDelegate::GetSavedWindowPlacement(
 
   bounds->SetRect(*left, *top, *right - *left, *bottom - *top);
 
-  bool maximized = dictionary.FindBool("maximized").value_or(false);
+  const bool maximized = dictionary.FindBool("maximized").value_or(false);
   bool fullscreen = dictionary.FindBool("fullscreen").value_or(false);
-  *show_state = maximized ? ui::SHOW_STATE_MAXIMIZED : ui::SHOW_STATE_NORMAL;
+  *show_state = maximized ? ui::mojom::WindowShowState::kMaximized
+                          : ui::mojom::WindowShowState::kNormal;
   if (fullscreen)
-    *show_state = ui::SHOW_STATE_FULLSCREEN;
+    *show_state = ui::mojom::WindowShowState::kFullscreen;
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   AdjustSavedWindowPlacementChromeOS(widget, bounds);

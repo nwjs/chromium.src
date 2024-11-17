@@ -65,9 +65,6 @@ import org.chromium.ui.text.EmptyTextWatcher;
 public class NewTabPageLayout extends LinearLayout {
     private static final String TAG = "NewTabPageLayout";
 
-    // Used to signify the cached resource value is unset.
-    private static final int UNSET_RESOURCE_FLAG = -1;
-
     private int mSearchBoxTwoSideMargin;
     private final Context mContext;
 
@@ -123,8 +120,6 @@ public class NewTabPageLayout extends LinearLayout {
     private int mSearchBoxBoundsVerticalInset;
 
     private FeedSurfaceScrollDelegate mScrollDelegate;
-
-    private NewTabPageUma mNewTabPageUma;
 
     private int mTileViewWidth;
     private Integer mInitialTileNum;
@@ -189,7 +184,6 @@ public class NewTabPageLayout extends LinearLayout {
      *     events are allowed.
      * @param uiConfig UiConfig that provides display information about this view.
      * @param lifecycleDispatcher Activity lifecycle dispatcher.
-     * @param uma {@link NewTabPageUma} object recording user metrics.
      * @param profile The {@link Profile} associated with the NTP.
      * @param windowAndroid An instance of a {@link WindowAndroid}.
      * @param isTablet {@code true} if the NTP surface is in tablet mode.
@@ -205,7 +199,6 @@ public class NewTabPageLayout extends LinearLayout {
             TouchEnabledDelegate touchEnabledDelegate,
             UiConfig uiConfig,
             ActivityLifecycleDispatcher lifecycleDispatcher,
-            NewTabPageUma uma,
             Profile profile,
             WindowAndroid windowAndroid,
             boolean isTablet,
@@ -216,7 +209,6 @@ public class NewTabPageLayout extends LinearLayout {
         mActivity = activity;
         mProfile = profile;
         mUiConfig = uiConfig;
-        mNewTabPageUma = uma;
         mWindowAndroid = windowAndroid;
         mIsLogoPolishFlagEnabled = LogoUtils.isLogoPolishEnabled();
         mIsLogoPolishEnabled =
@@ -675,7 +667,7 @@ public class NewTabPageLayout extends LinearLayout {
     }
 
     void onUrlFocusAnimationChanged() {
-        /**
+        /*
          * Avoid Y-translation when animation is disabled, view is moving or on tablet form-factor.
          * Context for tablets - Unlike phones, this method is not called on tablets during URL
          * focus post NTP load. However when physical keyboard is present, we try to auto-focus URL

@@ -325,11 +325,6 @@ BASE_FEATURE(kWebAssemblyDeopt,
              "WebAssemblyDeopt",
              kFeatureDefaultStateControlledByV8);
 
-// Enable WebAssembly inlining (not user visible).
-BASE_FEATURE(kWebAssemblyInlining,
-             ("WebAssemblyInlining"),
-             kFeatureDefaultStateControlledByV8);
-
 // Feature for WebAssembly speculative inlining of indirect calls (see
 // https://crbug.com/335082212; and https://crbug.com/40898108 for direct call
 // and call_ref inlining, which has already launched above). Not user visible.
@@ -340,11 +335,6 @@ BASE_FEATURE(kWebAssemblyInliningCallIndirect,
 // Enable WebAssembly code flushing.
 BASE_FEATURE(kWebAssemblyLiftoffCodeFlushing,
              ("WebAssemblyLiftoffCodeFlushing"),
-             kFeatureDefaultStateControlledByV8);
-
-// Enable the generic wasm-to-js wrapper.
-BASE_FEATURE(kWebAssemblyGenericWrapper,
-             ("WebAssemblyGenericWrapper"),
              kFeatureDefaultStateControlledByV8);
 
 // Enable support for multiple memories according to the multi-memory proposal:

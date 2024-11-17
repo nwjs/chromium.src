@@ -38,6 +38,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/side_panel/history_clusters/history_clusters_side_panel_coordinator.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/favicon/core/history_ui_favicon_request_handler.h"
 #include "components/favicon_base/favicon_types.h"
@@ -63,6 +64,14 @@
 #include "ui/resources/grit/ui_resources.h"
 
 namespace {
+// Command ID for recently closed items header or disabled item to which the
+// accelerator string will be appended.
+static constexpr int kDisabledRecentlyClosedHeaderCommandId =
+    AppMenuModel::kMinRecentTabsCommandId;
+static constexpr int kFirstMenuEntryCommandId =
+    kDisabledRecentlyClosedHeaderCommandId +
+    AppMenuModel::kNumUnboundedMenuTypes;
+
 // The index of the first tab in the group menu item. Before the tab item is the
 // "Restore group" item and a separator.
 constexpr int kInitialGroupItem = 2;
@@ -240,6 +249,10 @@ bool RecentTabsSubMenuModel::ExecuteCustomCommand(int command_id,
   if (!custom_commands.contains(command_id)) {
     return false;
   }
+  if (command_id == IDC_SHOW_HISTORY_CLUSTERS_SIDE_PANEL &&
+      !HistoryClustersSidePanelCoordinator::IsSupported(browser_->profile())) {
+    return false;
+  }
   if (log_menu_metrics_callback_) {
     log_menu_metrics_callback_.Run(command_id);
   }
@@ -315,6 +328,11 @@ void RecentTabsSubMenuModel::ExecuteCommand(int command_id, int event_flags) {
   }
 }
 
+// static
+int RecentTabsSubMenuModel::GetDisabledRecentlyClosedHeaderCommandId() {
+  return kDisabledRecentlyClosedHeaderCommandId;
+}
+
 int RecentTabsSubMenuModel::GetFirstRecentTabsCommandId() {
   return local_window_items_.begin()->first;
 }
@@ -337,11 +355,12 @@ void RecentTabsSubMenuModel::Build() {
   InsertItemWithStringIdAt(0, IDC_SHOW_HISTORY, IDS_HISTORY_SHOW_HISTORY);
   SetCommandIcon(this, IDC_SHOW_HISTORY,
                  vector_icons::kHistoryChromeRefreshIcon);
-
-  InsertItemWithStringIdAt(1, IDC_SHOW_HISTORY_CLUSTERS_SIDE_PANEL,
-                           IDS_HISTORY_CLUSTERS_SHOW_SIDE_PANEL);
-  SetCommandIcon(this, IDC_SHOW_HISTORY_CLUSTERS_SIDE_PANEL,
-                 vector_icons::kHistoryChromeRefreshIcon);
+  if (HistoryClustersSidePanelCoordinator::IsSupported(browser_->profile())) {
+    InsertItemWithStringIdAt(1, IDC_SHOW_HISTORY_CLUSTERS_SIDE_PANEL,
+                             IDS_HISTORY_CLUSTERS_SHOW_SIDE_PANEL);
+    SetCommandIcon(this, IDC_SHOW_HISTORY_CLUSTERS_SIDE_PANEL,
+                   vector_icons::kHistoryChromeRefreshIcon);
+  }
 
   AddSeparator(ui::NORMAL_SEPARATOR);
   history_separator_index_ = GetItemCount() - 1;

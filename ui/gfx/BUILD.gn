@@ -47,6 +47,8 @@ component("color_utils") {
 component("gfx_skia") {
   sources = [
     "gfx_skia_export.h",
+    "skia_span_util.cc",
+    "skia_span_util.h",
     "skia_util.cc",
     "skia_util.h",
   ]
@@ -870,6 +872,7 @@ test("gfx_unittests") {
       "image/image_util_unittest.cc",
       "mojom/mojom_traits_unittest.cc",
       "overlay_transform_utils_unittest.cc",
+      "paint_throbber_unittest.cc",
       "paint_vector_icon_unittest.cc",
       "range/range_unittest.cc",
       "render_text_unittest.cc",

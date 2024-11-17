@@ -18,6 +18,7 @@
 #import "ios/chrome/browser/shared/coordinator/scene/scene_controller.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state_observer.h"
+#import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_provider.h"
 #import "ios/chrome/browser/shared/model/browser/browser_provider_interface.h"
@@ -49,7 +50,7 @@
 
 - (void)sceneState:(SceneState*)sceneState
     transitionedToActivationLevel:(SceneActivationLevel)level {
-  if (self.appState.initStage != InitStageFinal) {
+  if (self.appState.initStage != AppInitStage::kFinal) {
     return;
   }
   id<BrowserProvider> presentingInterface =
@@ -81,11 +82,11 @@
 }
 
 - (void)appState:(AppState*)appState
-    didTransitionFromInitStage:(InitStage)previousInitStage {
+    didTransitionFromInitStage:(AppInitStage)previousInitStage {
   if (!appState.foregroundActiveScene) {
     return;
   }
-  if (self.appState.initStage != InitStageFinal) {
+  if (self.appState.initStage != AppInitStage::kFinal) {
     return;
   }
 
@@ -102,7 +103,7 @@
   [super appState:appState didTransitionFromInitStage:previousInitStage];
   if (!_foregroundActiveEventAlreadyHandled) {
     // In case of having a foregroundActiveScene before reaching an
-    // InitStageFinal, this will be the fallback to show the snackbar.
+    // AppInitStage::kFinal, this will be the fallback to show the snackbar.
     [self maybeShowIdentityConfirmationSnackbarWithBrowser:browser];
     _foregroundActiveEventAlreadyHandled = YES;
   }
@@ -128,16 +129,14 @@ enum class IdentityConfirmationSnackbarDecision {
 - (IdentityConfirmationSnackbarDecision)
     shouldShowIdentityConfirmationSnackbarWithBrowser:(Browser*)browser {
   AuthenticationService* authenticationService =
-      AuthenticationServiceFactory::GetForBrowserState(
-          browser->GetBrowserState());
+      AuthenticationServiceFactory::GetForProfile(browser->GetProfile());
   if (!authenticationService->HasPrimaryIdentity(
           signin::ConsentLevel::kSignin)) {
     return IdentityConfirmationSnackbarDecision::kDontShowNoAccount;
   }
 
   ChromeAccountManagerService* accountManagerService =
-      ChromeAccountManagerServiceFactory::GetForBrowserState(
-          browser->GetBrowserState());
+      ChromeAccountManagerServiceFactory::GetForProfile(browser->GetProfile());
   NSArray<id<SystemIdentity>>* allIdentities =
       accountManagerService->GetAllIdentities();
   if ([allIdentities count] <= 1) {
@@ -148,12 +147,12 @@ enum class IdentityConfirmationSnackbarDecision {
     return IdentityConfirmationSnackbarDecision::kDontShowNotOnStartPage;
   }
 
-  PrefService* prefService = browser->GetBrowserState()->GetPrefs();
+  PrefService* localState = GetApplicationContext()->GetLocalState();
 
   const int displayCount =
-      prefService->GetInteger(prefs::kIdentityConfirmationSnackbarDisplayCount);
+      localState->GetInteger(prefs::kIdentityConfirmationSnackbarDisplayCount);
   const base::Time lastPrompted =
-      prefService->GetTime(prefs::kIdentityConfirmationSnackbarLastPromptTime);
+      localState->GetTime(prefs::kIdentityConfirmationSnackbarLastPromptTime);
 
   base::TimeDelta identityConfirmationMinDisplayInterval;
   if (displayCount == 0) {
@@ -183,10 +182,10 @@ enum class IdentityConfirmationSnackbarDecision {
   // At this point, the snackbar will be shown, except if the feature flag is
   // disabled. Either way, update the prefs, so that the metrics remain
   // comparable between enabled and disabled groups.
-  prefService->SetInteger(prefs::kIdentityConfirmationSnackbarDisplayCount,
-                          displayCount + 1);
-  prefService->SetTime(prefs::kIdentityConfirmationSnackbarLastPromptTime,
-                       base::Time::Now());
+  localState->SetInteger(prefs::kIdentityConfirmationSnackbarDisplayCount,
+                         displayCount + 1);
+  localState->SetTime(prefs::kIdentityConfirmationSnackbarLastPromptTime,
+                      base::Time::Now());
 
   if (!base::FeatureList::IsEnabled(kIdentityConfirmationSnackbar)) {
     return IdentityConfirmationSnackbarDecision::kDontShowFeatureDisabled;

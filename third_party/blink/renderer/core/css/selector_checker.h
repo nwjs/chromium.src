@@ -139,7 +139,10 @@ class CORE_EXPORT SelectorChecker {
     // https://crrev.com/c/3362008
     const CSSSelector* selector = nullptr;
 
-    // Used to match the :scope pseudo-class.
+    // TODO(dbaron): I'm suspicious of how accurate the comments describing
+    // the following three members are.  We should review them for accuracy.
+    // Used to match the :scope pseudo-class.  It also tells us which
+    // TreeScope the selectors are associated with.
     const ContainerNode* scope = nullptr;
     // If `style_scope` is specified, that is used to match the :scope
     // pseudo-class instead (and `scope` is ignored).
@@ -153,16 +156,18 @@ class CORE_EXPORT SelectorChecker {
     ContainerNode* relative_anchor_element = nullptr;
 
     AtomicString* pseudo_argument = nullptr;
+    // The pseudo element type of pseudo element we are matching styles for.
     PseudoId pseudo_id = kPseudoIdNone;
+    // The last pseudo element selector we saw. This is not necessarily the
+    // pseudo_id above since we may have nested pseudo elements. Also, this may
+    // be the pseudo element selector we are looking at while matching styles
+    // for the originating element.
+    PseudoId previously_matched_pseudo_element = kPseudoIdNone;
     Impact impact = Impact::kSubject;
 
     bool is_sub_selector = false;
     bool in_rightmost_compound = true;
     bool has_scrollbar_pseudo = false;
-    bool has_selection_pseudo = false;
-    bool has_search_text_pseudo = false;
-    bool has_scroll_marker_pseudo = false;
-    bool has_column_pseudo = false;
     bool treat_shadow_host_as_normal_scope = false;
     bool in_nested_complex_selector = false;
     // If true, elements that are links will match :visited. Otherwise,
@@ -289,7 +294,7 @@ class CORE_EXPORT SelectorChecker {
   }
 
   static bool MatchesFocusPseudoClass(const Element&,
-                                      bool has_scroll_marker_pseudo);
+                                      PseudoId matching_for_pseudo_element);
   static bool MatchesFocusVisiblePseudoClass(const Element&);
   static bool MatchesSelectorFragmentAnchorPseudoClass(const Element&);
 
@@ -440,7 +445,8 @@ class CORE_EXPORT EasySelectorChecker {
                                            const QualifiedName& attr);
   ALWAYS_INLINE static bool AttributeMatches(const Element& element,
                                              const QualifiedName& attr,
-                                             const AtomicString& value);
+                                             const AtomicString& value,
+                                             bool insensitive_match);
   ALWAYS_INLINE static bool AttributeItemHasName(
       const Attribute& attribute_item,
       const Element& element,

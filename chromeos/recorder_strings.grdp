@@ -27,7 +27,7 @@
     Export recording
   </message>
   <message desc="Button to start exporting in the export dialog." name="IDS_RECORDER_EXPORT_DIALOG_SAVE_BUTTON">
-    Save…
+    Save
   </message>
   <message desc="Label of the menu item to choose txt as transcription format in the export dialog." name="IDS_RECORDER_EXPORT_DIALOG_TRANSCRIPTION_FORMAT_TXT_OPTION">
     TXT
@@ -47,23 +47,32 @@
   <message desc="Error message for general error in generative AI features." name="IDS_RECORDER_GEN_AI_ERROR_GENERAL_LABEL">
     Something went wrong
   </message>
+  <message desc="Error message for too-long transcript input for summary." name="IDS_RECORDER_GEN_AI_ERROR_SUMMARY_TRANSCRIPT_TOO_LONG_LABEL">
+    Can’t summarize a transcript longer than <ph name="MAX_WORD_LENGTH">$1<ex>1461</ex></ph> words
+  </message>
+  <message desc="Error message for too-short transcript input for summary." name="IDS_RECORDER_GEN_AI_ERROR_SUMMARY_TRANSCRIPT_TOO_SHORT_LABEL">
+    Can’t summarize a transcript fewer than <ph name="MIN_WORD_LENGTH">$1<ex>150</ex></ph> words
+  </message>
   <message desc="Error message for trust and safety related error for summary generative AI feature." name="IDS_RECORDER_GEN_AI_ERROR_SUMMARY_TRUST_AND_SAFETY_LABEL">
     Can’t create summary for this content
   </message>
+  <message desc="Error message for too-long transcript input for title suggestion." name="IDS_RECORDER_GEN_AI_ERROR_TITLE_SUGGESTION_TRANSCRIPT_TOO_LONG_LABEL">
+    Can’t create names for a transcript longer than <ph name="MAX_WORD_LENGTH">$1<ex>1461</ex></ph> words
+  </message>
+  <message desc="Error message for too-short transcript input for title suggestion." name="IDS_RECORDER_GEN_AI_ERROR_TITLE_SUGGESTION_TRANSCRIPT_TOO_SHORT_LABEL">
+    Can’t create names for a transcript fewer than <ph name="MIN_WORD_LENGTH">$1<ex>150</ex></ph> words
+  </message>
   <message desc="Error message for trust and safety related error for title suggestion generative AI feature." name="IDS_RECORDER_GEN_AI_ERROR_TITLE_SUGGESTION_TRUST_AND_SAFETY_LABEL">
     Can’t create recording names for this content
-  </message>
-  <message desc="Error message for too-long transcript length in generative AI features." name="IDS_RECORDER_GEN_AI_ERROR_TRANSCRIPTION_TOO_LONG_LABEL">
-    For now, a transcript longer than <ph name="MAX_WORD_LENGTH">$1<ex>1461</ex></ph> words is not supported
-  </message>
-  <message desc="Error message for too-short transcript length in generative AI features." name="IDS_RECORDER_GEN_AI_ERROR_TRANSCRIPTION_TOO_SHORT_LABEL">
-    For now, a transcript fewer than <ph name="MIN_WORD_LENGTH">$1<ex>150</ex></ph> words is not supported
   </message>
   <message desc="Badge for experimental state of generative AI features." name="IDS_RECORDER_GEN_AI_EXPERIMENT_BADGE">
     Experiment
   </message>
   <message desc="Link to more information about generative AI disclaimer." name="IDS_RECORDER_GEN_AI_LEARN_MORE_LINK">
     Learn more
+  </message>
+  <message desc="Tooltip of the link to more information about generative AI disclaimer." name="IDS_RECORDER_GEN_AI_LEARN_MORE_LINK_TOOLTIP">
+    Learn more about Generative AI
   </message>
   <message desc="Accessibility label of the landmark for the list of recordings in the main page." name="IDS_RECORDER_MAIN_RECORDINGS_LIST_LANDMARK_ARIA_LABEL">
     List of audio recordings
@@ -431,6 +440,9 @@ Download the transcription model (up to 100MB) to get these transcriptions.
   </message>
   <message desc="Header of the system audio consent dialog." name="IDS_RECORDER_SYSTEM_AUDIO_CONSENT_DIALOG_HEADER">
     Recording all Chromebook audio
+  </message>
+  <message desc="Message after users rename the title of a recording." name="IDS_RECORDER_TITLE_RENAME_SNACKBAR_MESSAGE">
+    File renamed
   </message>
   <message desc="Tooltip of the record title renaming text input." name="IDS_RECORDER_TITLE_RENAME_TOOLTIP">
     Rename

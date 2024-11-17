@@ -104,6 +104,10 @@ void ChromeAutofillClientIOS::SetBaseViewController(
   base_view_controller_ = base_view_controller;
 }
 
+base::WeakPtr<autofill::AutofillClient> ChromeAutofillClientIOS::GetWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
+}
+
 version_info::Channel ChromeAutofillClientIOS::GetChannel() const {
   return ::GetChannel();
 }
@@ -154,6 +158,12 @@ syncer::SyncService* ChromeAutofillClientIOS::GetSyncService() {
 }
 
 signin::IdentityManager* ChromeAutofillClientIOS::GetIdentityManager() {
+  return const_cast<signin::IdentityManager*>(
+      std::as_const(*this).GetIdentityManager());
+}
+
+const signin::IdentityManager* ChromeAutofillClientIOS::GetIdentityManager()
+    const {
   return identity_manager_;
 }
 
@@ -301,6 +311,13 @@ ChromeAutofillClientIOS::ShowAutofillSuggestions(
     base::WeakPtr<AutofillSuggestionDelegate> delegate) {
   [bridge_ showAutofillPopup:open_args.suggestions suggestionDelegate:delegate];
   return SuggestionUiSessionId();
+}
+
+void ChromeAutofillClientIOS::ShowPlusAddressEmailOverrideNotification(
+    const std::string& original_email,
+    EmailOverrideUndoCallback email_override_undo_callback) {
+  // TODO(crbug.com/324557053): Implement.
+  NOTIMPLEMENTED();
 }
 
 AutofillPlusAddressDelegate* ChromeAutofillClientIOS::GetPlusAddressDelegate() {

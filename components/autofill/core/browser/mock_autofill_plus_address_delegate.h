@@ -19,21 +19,30 @@ class MockAutofillPlusAddressDelegate : public AutofillPlusAddressDelegate {
   ~MockAutofillPlusAddressDelegate() override;
 
   MOCK_METHOD(bool, IsPlusAddress, (const std::string&), (const override));
+  MOCK_METHOD(bool,
+              IsPlusAddressFillingEnabled,
+              (const url::Origin& origin),
+              (const override));
+  MOCK_METHOD(bool, IsPlusAddressFullFormFillingEnabled, (), (const override));
   MOCK_METHOD(void,
-              GetSuggestions,
-              (const url::Origin&,
+              GetAffiliatedPlusAddresses,
+              (const url::Origin& origin,
+               base::OnceCallback<void(std::vector<std::string>)> callback),
+              (override));
+  MOCK_METHOD(std::vector<Suggestion>,
+              GetSuggestionsFromPlusAddresses,
+              (const std::vector<std::string>&,
+               const url::Origin&,
                bool,
+               const FormData&,
+               (const base::flat_map<autofill::FieldGlobalId,
+                                     autofill::FieldTypeGroup>&),
                const PasswordFormClassification&,
-               const FormFieldData&,
-               AutofillSuggestionTriggerSource,
-               GetSuggestionsCallback),
+               const FieldGlobalId&,
+               AutofillSuggestionTriggerSource),
               (override));
   MOCK_METHOD(autofill::Suggestion,
               GetManagePlusAddressSuggestion,
-              (),
-              (const override));
-  MOCK_METHOD(bool,
-              ShouldMixWithSingleFieldFormFillSuggestions,
               (),
               (const override));
   MOCK_METHOD(void,

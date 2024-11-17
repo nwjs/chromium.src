@@ -315,9 +315,9 @@ class BrowserEditMenuHandlerTest : public PlatformTest {
   BrowserEditMenuHandlerTest()
       : web_client_(std::make_unique<ChromeWebClient>()),
         web_state_list_(&web_state_list_delegate_) {
-    browser_state_ = TestChromeBrowserState::Builder().Build();
+    profile_ = TestProfileIOS::Builder().Build();
 
-    web::WebState::CreateParams params(browser_state_.get());
+    web::WebState::CreateParams params(profile_.get());
     web_state_ = web::WebState::Create(params);
   }
 
@@ -364,7 +364,7 @@ class BrowserEditMenuHandlerTest : public PlatformTest {
   web::WebTaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   web::ScopedTestingWebClient web_client_;
-  std::unique_ptr<TestChromeBrowserState> browser_state_;
+  std::unique_ptr<TestProfileIOS> profile_;
   FakeWebStateListDelegate web_state_list_delegate_;
   WebStateList web_state_list_;
   std::unique_ptr<web::WebState> web_state_;
@@ -374,51 +374,45 @@ class BrowserEditMenuHandlerTest : public PlatformTest {
 
 // Test the base structure of the menu.
 TEST_F(BrowserEditMenuHandlerTest, CheckBaseMenuDescription) {
-  if (@available(iOS 16, *)) {
-    NSMutableArray* expectedMenuDescription = GetExpectedMenu();
-    AddOpenInNewCanvas(expectedMenuDescription);
-    [base_view_controller_.view addSubview:web_state_->GetView()];
-    web::test::LoadHtml(kPageHTML, web_state_.get());
+  NSMutableArray* expectedMenuDescription = GetExpectedMenu();
+  AddOpenInNewCanvas(expectedMenuDescription);
+  [base_view_controller_.view addSubview:web_state_->GetView()];
+  web::test::LoadHtml(kPageHTML, web_state_.get());
 
-    EXPECT_NSEQ(expectedMenuDescription, GetMenuDescription());
-  }
+  EXPECT_NSEQ(expectedMenuDescription, GetMenuDescription());
 }
 
 // Test the structure of the menu with Chrome actions.
 TEST_F(BrowserEditMenuHandlerTest, CheckCustomizedMenuDescription) {
-  if (@available(iOS 16, *)) {
-    NSMutableArray* expectedMenuDescription = GetExpectedMenu();
-    AddOpenInNewCanvas(expectedMenuDescription);
-    AddPartialTranslate(expectedMenuDescription);
-    AddLinkToText(expectedMenuDescription);
-    base::test::ScopedFeatureList feature_list_;
-    feature_list_.InitWithFeatures({kIOSEditMenuPartialTranslate}, {});
-    SetupTranslateControllerFactory();
-    PartialTranslateMediator* partial_translate_mediator =
-        [[PartialTranslateMediator alloc]
-              initWithWebStateList:&web_state_list_
-            withBaseViewController:base_view_controller_
-                       prefService:browser_state_->GetPrefs()
-              fullscreenController:nullptr
-                         incognito:NO];
+  NSMutableArray* expectedMenuDescription = GetExpectedMenu();
+  AddOpenInNewCanvas(expectedMenuDescription);
+  AddPartialTranslate(expectedMenuDescription);
+  AddLinkToText(expectedMenuDescription);
+  SetupTranslateControllerFactory();
+  PartialTranslateMediator* partial_translate_mediator =
+      [[PartialTranslateMediator alloc]
+            initWithWebStateList:&web_state_list_
+          withBaseViewController:base_view_controller_
+                     prefService:profile_->GetPrefs()
+            fullscreenController:nullptr
+                       incognito:NO];
 
-    LinkToTextMediator* link_to_text_mediator =
-        [[LinkToTextMediator alloc] initWithWebStateList:&web_state_list_];
-    BrowserEditMenuHandler* handler = [[BrowserEditMenuHandler alloc] init];
-    handler.partialTranslateDelegate = partial_translate_mediator;
-    handler.linkToTextDelegate = link_to_text_mediator;
-    BrowserContainerViewController* container_vc =
-        [[BrowserContainerViewController alloc] init];
-    container_vc.browserEditMenuHandler = handler;
-    [container_vc willMoveToParentViewController:base_view_controller_];
-    [base_view_controller_ addChildViewController:container_vc];
-    [base_view_controller_.view addSubview:container_vc.view];
-    [container_vc didMoveToParentViewController:base_view_controller_];
+  LinkToTextMediator* link_to_text_mediator =
+      [[LinkToTextMediator alloc] initWithWebStateList:&web_state_list_];
+  BrowserEditMenuHandler* handler = [[BrowserEditMenuHandler alloc] init];
+  handler.partialTranslateDelegate = partial_translate_mediator;
+  handler.linkToTextDelegate = link_to_text_mediator;
+  BrowserContainerViewController* container_vc =
+      [[BrowserContainerViewController alloc] init];
+  container_vc.browserEditMenuHandler = handler;
+  [container_vc willMoveToParentViewController:base_view_controller_];
+  [base_view_controller_ addChildViewController:container_vc];
+  [base_view_controller_.view addSubview:container_vc.view];
+  [container_vc didMoveToParentViewController:base_view_controller_];
 
-    [container_vc setContentView:web_state_->GetView()];
-    web::test::LoadHtml(kPageHTML, web_state_.get());
-    EXPECT_NSEQ(expectedMenuDescription, GetMenuDescription());
-    handler.partialTranslateDelegate = nil;
-    [partial_translate_mediator shutdown];
-  }
+  [container_vc setContentView:web_state_->GetView()];
+  web::test::LoadHtml(kPageHTML, web_state_.get());
+  EXPECT_NSEQ(expectedMenuDescription, GetMenuDescription());
+  handler.partialTranslateDelegate = nil;
+  [partial_translate_mediator shutdown];
 }

@@ -371,9 +371,11 @@ TEST(WebAppTest, IsolationDataStartsEmpty) {
 TEST(WebAppTest, IsolationDataDebugValue) {
   WebApp app{GenerateAppId(/*manifest_id_path=*/std::nullopt,
                            GURL("https://example.com"))};
-  app.SetIsolationData(WebApp::IsolationData(
-      IwaStorageOwnedBundle{"random_name", /*dev_mode=*/false},
-      base::Version("1.0.0")));
+  app.SetIsolationData(
+      IsolationData::Builder(
+          IwaStorageOwnedBundle{"random_name", /*dev_mode=*/false},
+          base::Version("1.0.0"))
+          .Build());
 
   EXPECT_TRUE(app.isolation_data().has_value());
 
@@ -402,15 +404,21 @@ TEST(WebAppTest, IsolationDataPendingUpdateInfoDebugValue) {
   WebApp app{GenerateAppId(/*manifest_id_path=*/std::nullopt,
                            GURL("https://example.com"))};
 
+  static constexpr std::string_view kUpdateManifestUrl =
+      "https://update-manifest.com";
+
   auto integrity_block_data = CreateIntegrityBlockData();
-  app.SetIsolationData(WebApp::IsolationData(
-      IwaStorageOwnedBundle{"random_name", /*dev_mode=*/true},
-      base::Version("1.0.0"), {},
-      WebApp::IsolationData::PendingUpdateInfo(
-          IwaStorageUnownedBundle{
-              base::FilePath(FILE_PATH_LITERAL("random_folder"))},
-          base::Version("2.0.0"), integrity_block_data),
-      integrity_block_data));
+  app.SetIsolationData(
+      IsolationData::Builder(
+          IwaStorageOwnedBundle{"random_name", /*dev_mode=*/true},
+          base::Version("1.0.0"))
+          .SetPendingUpdateInfo(IsolationData::PendingUpdateInfo(
+              IwaStorageUnownedBundle{
+                  base::FilePath(FILE_PATH_LITERAL("random_folder"))},
+              base::Version("2.0.0"), integrity_block_data))
+          .SetIntegrityBlockData(integrity_block_data)
+          .SetUpdateManifestUrl(GURL(kUpdateManifestUrl))
+          .Build());
 
   EXPECT_TRUE(app.isolation_data().has_value());
 
@@ -440,12 +448,14 @@ TEST(WebAppTest, IsolationDataPendingUpdateInfoDebugValue) {
           "version": "2.0.0",
           "integrity_block_data": $1
         },
-        "integrity_block_data": $2
+        "integrity_block_data": $2,
+        "update_manifest_url": "$3"
       })|";
 
   base::Value expected_isolation_data = *base::JSONReader::Read(
       base::ReplaceStringPlaceholders(kExpectedIsolationDataFormat,
-                                      {ib_data_serialized, ib_data_serialized},
+                                      {ib_data_serialized, ib_data_serialized,
+                                       GURL(kUpdateManifestUrl).spec()},
                                       /*offsets=*/nullptr));
 
   base::Value::Dict debug_app = app.AsDebugValue().GetDict().Clone();

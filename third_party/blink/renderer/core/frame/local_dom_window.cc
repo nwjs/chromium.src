@@ -62,7 +62,6 @@
 #include "third_party/blink/renderer/bindings/core/v8/window_proxy.h"
 #include "third_party/blink/renderer/bindings/core/v8/window_proxy_manager.h"
 #include "third_party/blink/renderer/core/accessibility/ax_context.h"
-#include "third_party/blink/renderer/core/aom/computed_accessible_node.h"
 #include "third_party/blink/renderer/core/css/css_computed_style_declaration.h"
 #include "third_party/blink/renderer/core/css/css_rule_list.h"
 #include "third_party/blink/renderer/core/css/dom_window_css.h"
@@ -1726,17 +1725,6 @@ CSSStyleDeclaration* LocalDOMWindow::getComputedStyle(
                                                            pseudo_elt);
 }
 
-ScriptPromise<ComputedAccessibleNode> LocalDOMWindow::getComputedAccessibleNode(
-    ScriptState* script_state,
-    Element* element) {
-  DCHECK(element);
-  auto* resolver = MakeGarbageCollected<ComputedAccessibleNodePromiseResolver>(
-      script_state, *element);
-  auto promise = resolver->Promise();
-  resolver->ComputeAccessibleNode();
-  return promise;
-}
-
 double LocalDOMWindow::devicePixelRatio() const {
   if (!GetFrame())
     return 0.0;
@@ -1795,9 +1783,8 @@ void LocalDOMWindow::scrollBy(const ScrollToOptions* scroll_to_options) const {
           new_scaled_position);
 
   mojom::blink::ScrollBehavior scroll_behavior =
-      mojom::blink::ScrollBehavior::kAuto;
-  ScrollableArea::ScrollBehaviorFromString(scroll_to_options->behavior(),
-                                           scroll_behavior);
+      ScrollableArea::V8EnumToScrollBehavior(
+          scroll_to_options->behavior().AsEnum());
   viewport->SetScrollOffset(
       viewport->ScrollPositionToOffset(new_scaled_position),
       mojom::blink::ScrollType::kProgrammatic, scroll_behavior);
@@ -1864,9 +1851,8 @@ void LocalDOMWindow::scrollTo(const ScrollToOptions* scroll_to_options) const {
       viewport->GetSnapPositionAndSetTarget(*strategy).value_or(
           new_scaled_position);
   mojom::blink::ScrollBehavior scroll_behavior =
-      mojom::blink::ScrollBehavior::kAuto;
-  ScrollableArea::ScrollBehaviorFromString(scroll_to_options->behavior(),
-                                           scroll_behavior);
+      ScrollableArea::V8EnumToScrollBehavior(
+          scroll_to_options->behavior().AsEnum());
   viewport->SetScrollOffset(
       viewport->ScrollPositionToOffset(new_scaled_position),
       mojom::blink::ScrollType::kProgrammatic, scroll_behavior);
@@ -2416,6 +2402,10 @@ DOMWindow* LocalDOMWindow::openPictureInPictureWindow(
   LocalDOMWindow* pip_dom_window =
       To<LocalDOMWindow>(result.frame->DomWindow());
   pip_dom_window->SetIsPictureInPictureWindow();
+
+  // Ensure that we're using the same compatibility mode as the opener document.
+  pip_dom_window->document()->SetCompatibilityMode(
+      entered_window->document()->GetCompatibilityMode());
 
   // Also copy any autoplay flags, since these are set on navigation commit.
   // The pip window should match whatever the opener has.

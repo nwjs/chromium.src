@@ -709,6 +709,13 @@ class CC_EXPORT InputHandler : public InputDelegateForCompositor {
       const gfx::PointF& current_offset,
       SnapReason snap_reason) const;
 
+  // This returns the ScrollNode associated with the CurrentlyScrollingNode()
+  // that is currently animating, if one exists.
+  // It is usually the same ScrollNode as the CurrentlyScrollingNode(), except
+  // when the inner viewport node is animating, in which case the
+  // CurrentlyScrollingNode() is still the outer viewport node.
+  ScrollNode* GetAnimatingNodeForCurrentScrollingNode();
+
   // The input handler is owned by the delegate so their lifetimes are tied
   // together.
   const raw_ref<CompositorDelegateForInput> compositor_delegate_;
@@ -835,6 +842,10 @@ class CC_EXPORT InputHandler : public InputDelegateForCompositor {
   // offset in the ScrollTree. For animated scrolls it is the target offset that
   // is being animated to.
   std::unique_ptr<SnapSelectionStrategy> snap_strategy_;
+
+  // The set of scroll containers for which an impl scroll ended between the
+  // last commit and the next one.
+  base::flat_set<ElementId> pending_scrollend_containers_;
 
   // Must be the last member to ensure this is destroyed first in the
   // destruction order and invalidates all weak pointers.

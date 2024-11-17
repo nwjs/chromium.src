@@ -53,7 +53,7 @@
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
 #include "third_party/skia/include/core/SkImage.h"
-#include "third_party/skia/include/gpu/GrDirectContext.h"
+#include "third_party/skia/include/gpu/ganesh/GrDirectContext.h"
 
 namespace blink {
 
@@ -83,16 +83,15 @@ class Canvas2DLayerBridgeTest : public Test {
       RasterModeHint raster_mode,
       OpacityMode opacity_mode,
       std::unique_ptr<FakeCanvasResourceHost> custom_host = nullptr) {
-    std::unique_ptr<Canvas2DLayerBridge> bridge =
-        std::make_unique<Canvas2DLayerBridge>();
     if (custom_host)
       host_ = std::move(custom_host);
     if (!host_)
       host_ = std::make_unique<FakeCanvasResourceHost>(size);
+    std::unique_ptr<Canvas2DLayerBridge> bridge =
+        std::make_unique<Canvas2DLayerBridge>(host_.get());
     host_->SetPreferred2DRasterMode(raster_mode);
     host_->AlwaysEnableRasterTimersForTesting();
     host_->SetOpacityMode(opacity_mode);
-    bridge->SetCanvasResourceHost(host_.get());
     host_->GetOrCreateCanvasResourceProvider(raster_mode);
     host_->GetOrCreateCcLayerIfNeeded();
     return bridge;
@@ -127,7 +126,7 @@ class Canvas2DLayerBridgeTest : public Test {
     // IsHibernating to propagate the value from Canvas2DLayerBridge, but
     // FakeCanvasResourceHost does not do this. This can be removed once
     // hibernation management is removed from Canvas2DLayerBridge.
-    host_->SetIsHibernating(bridge->IsHibernating());
+    host_->SetIsHibernating(bridge->GetHibernationHandler().IsHibernating());
 
     return Host()->GetRasterMode();
   }
@@ -141,31 +140,6 @@ class Canvas2DLayerBridgeTest : public Test {
       ScopedTestingPlatformSupport<AcceleratedCompositingTestPlatform>>
       accelerated_compositing_scope_;
 };
-
-TEST_F(Canvas2DLayerBridgeTest, DisableAcceleration) {
-  std::unique_ptr<Canvas2DLayerBridge> bridge =
-      MakeBridge(gfx::Size(300, 150), RasterModeHint::kPreferCPU, kNonOpaque);
-
-  bool has_backend_texture = bridge->NewImageSnapshot(FlushReason::kTesting)
-                                 ->PaintImageForCurrentFrame()
-                                 .IsTextureBacked();
-
-  EXPECT_FALSE(has_backend_texture);
-}
-
-TEST_F(Canvas2DLayerBridgeTest, NoDrawOnContextLost) {
-  std::unique_ptr<Canvas2DLayerBridge> bridge =
-      MakeBridge(gfx::Size(300, 150), RasterModeHint::kPreferGPU, kNonOpaque);
-  EXPECT_TRUE(Host()->IsResourceValid());
-  cc::PaintFlags flags;
-  uint32_t gen_id = bridge->GetOrCreateResourceProvider()->ContentUniqueID();
-  Canvas().drawRect(SkRect::MakeXYWH(0, 0, 1, 1), flags);
-  EXPECT_EQ(gen_id, bridge->GetOrCreateResourceProvider()->ContentUniqueID());
-  test_context_provider_->TestContextGL()->set_context_lost(true);
-  EXPECT_EQ(nullptr, bridge->GetOrCreateResourceProvider());
-  // The following passes by not crashing
-  bridge->NewImageSnapshot(FlushReason::kTesting);
-}
 
 TEST_F(Canvas2DLayerBridgeTest, PrepareMailboxWhenContextIsLost) {
   std::unique_ptr<Canvas2DLayerBridge> bridge =
@@ -191,7 +165,6 @@ TEST_F(Canvas2DLayerBridgeTest, PrepareMailboxAndLoseResource) {
   {
     std::unique_ptr<Canvas2DLayerBridge> bridge =
         MakeBridge(gfx::Size(300, 150), RasterModeHint::kPreferGPU, kNonOpaque);
-    bridge->FinalizeFrame(FlushReason::kTesting);
     viz::TransferableResource resource;
     viz::ReleaseCallback release_callback;
     EXPECT_TRUE(Host()->PrepareTransferableResource(nullptr, &resource,
@@ -209,7 +182,6 @@ TEST_F(Canvas2DLayerBridgeTest, PrepareMailboxAndLoseResource) {
     {
       std::unique_ptr<Canvas2DLayerBridge> bridge = MakeBridge(
           gfx::Size(300, 150), RasterModeHint::kPreferGPU, kNonOpaque);
-      bridge->FinalizeFrame(FlushReason::kTesting);
       Host()->PrepareTransferableResource(nullptr, &resource,
                                           &release_callback);
       // |bridge| goes out of scope and would normally be destroyed, but
@@ -232,7 +204,6 @@ TEST_F(Canvas2DLayerBridgeTest, ReleaseCallbackWithNullContextProviderWrapper) {
   {
     std::unique_ptr<Canvas2DLayerBridge> bridge =
         MakeBridge(gfx::Size(300, 150), RasterModeHint::kPreferGPU, kNonOpaque);
-    bridge->FinalizeFrame(FlushReason::kTesting);
     EXPECT_TRUE(Host()->PrepareTransferableResource(nullptr, &resource,
                                                     &release_callback));
   }
@@ -244,52 +215,6 @@ TEST_F(Canvas2DLayerBridgeTest, ReleaseCallbackWithNullContextProviderWrapper) {
   // null context_provider_wrapper properly.
   SharedGpuContext::ContextProviderWrapper();
   std::move(release_callback).Run(gpu::SyncToken(), lost_resource);
-}
-
-TEST_F(Canvas2DLayerBridgeTest, RasterModeHint) {
-  {
-    std::unique_ptr<Canvas2DLayerBridge> bridge =
-        MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferGPU, kNonOpaque);
-    cc::PaintFlags flags;
-    Canvas().drawRect(SkRect::MakeXYWH(0, 0, 1, 1), flags);
-    scoped_refptr<StaticBitmapImage> image =
-        bridge->NewImageSnapshot(FlushReason::kTesting);
-    EXPECT_EQ(GetRasterMode(bridge.get()), RasterMode::kGPU);
-    EXPECT_TRUE(Host()->IsResourceValid());
-  }
-
-  {
-    std::unique_ptr<Canvas2DLayerBridge> bridge =
-        MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferGPU, kNonOpaque);
-    cc::PaintFlags flags;
-    Canvas().drawRect(SkRect::MakeXYWH(0, 0, 1, 1), flags);
-    scoped_refptr<StaticBitmapImage> image =
-        bridge->NewImageSnapshot(FlushReason::kTesting);
-    EXPECT_EQ(GetRasterMode(bridge.get()), RasterMode::kGPU);
-    EXPECT_TRUE(Host()->IsResourceValid());
-  }
-
-  {
-    std::unique_ptr<Canvas2DLayerBridge> bridge =
-        MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferCPU, kNonOpaque);
-    cc::PaintFlags flags;
-    Canvas().drawRect(SkRect::MakeXYWH(0, 0, 1, 1), flags);
-    scoped_refptr<StaticBitmapImage> image =
-        bridge->NewImageSnapshot(FlushReason::kTesting);
-    EXPECT_EQ(GetRasterMode(bridge.get()), RasterMode::kCPU);
-    EXPECT_TRUE(Host()->IsResourceValid());
-  }
-
-  {
-    std::unique_ptr<Canvas2DLayerBridge> bridge =
-        MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferCPU, kNonOpaque);
-    cc::PaintFlags flags;
-    Canvas().drawRect(SkRect::MakeXYWH(0, 0, 1, 1), flags);
-    scoped_refptr<StaticBitmapImage> image =
-        bridge->NewImageSnapshot(FlushReason::kTesting);
-    EXPECT_EQ(GetRasterMode(bridge.get()), RasterMode::kCPU);
-    EXPECT_TRUE(Host()->IsResourceValid());
-  }
 }
 
 TEST_F(Canvas2DLayerBridgeTest, FallbackToSoftwareIfContextLost) {
@@ -304,441 +229,6 @@ void DrawSomething(Canvas2DLayerBridge* bridge) {
   CanvasResourceProvider* provider = bridge->GetOrCreateResourceProvider();
   provider->Canvas().drawLine(0, 0, 2, 2, cc::PaintFlags());
   provider->FlushCanvas(FlushReason::kTesting);
-}
-
-TEST_F(Canvas2DLayerBridgeTest, FallbackToSoftwareOnFailedTextureAlloc) {
-  {
-    // No fallback case.
-    std::unique_ptr<Canvas2DLayerBridge> bridge =
-        MakeBridge(gfx::Size(300, 150), RasterModeHint::kPreferGPU, kNonOpaque);
-    EXPECT_EQ(GetRasterMode(bridge.get()), RasterMode::kGPU);
-    EXPECT_TRUE(Host()->IsResourceValid());
-    scoped_refptr<StaticBitmapImage> snapshot =
-        bridge->NewImageSnapshot(FlushReason::kTesting);
-    EXPECT_EQ(GetRasterMode(bridge.get()), RasterMode::kGPU);
-    EXPECT_TRUE(snapshot->IsTextureBacked());
-  }
-
-  {
-    // Fallback case.
-    GrDirectContext* gr = SharedGpuContext::ContextProviderWrapper()
-                              ->ContextProvider()
-                              ->GetGrContext();
-    std::unique_ptr<Canvas2DLayerBridge> bridge =
-        std::make_unique<Canvas2DLayerBridge>();
-    host_ = std::make_unique<FakeCanvasResourceHost>(gfx::Size(300, 150));
-    host_->SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
-    bridge->SetCanvasResourceHost(host_.get());
-    host_->AlwaysEnableRasterTimersForTesting();
-    EXPECT_EQ(GetRasterMode(bridge.get()),
-              RasterMode::kGPU);  // We don't yet know that
-                                  // allocation will fail.
-    EXPECT_TRUE(Host()->IsResourceValid());
-    // This will cause SkSurface_Gpu creation to fail without
-    // Canvas2DLayerBridge otherwise detecting that anything was disabled.
-    gr->abandonContext();
-    DrawSomething(bridge.get());
-    scoped_refptr<StaticBitmapImage> snapshot =
-        bridge->NewImageSnapshot(FlushReason::kTesting);
-    EXPECT_EQ(GetRasterMode(bridge.get()), RasterMode::kCPU);
-    EXPECT_FALSE(snapshot->IsTextureBacked());
-  }
-}
-
-class MockLogger : public Canvas2DLayerBridge::Logger {
- public:
-  MOCK_METHOD1(ReportHibernationEvent,
-               void(Canvas2DLayerBridge::HibernationEvent));
-  MOCK_METHOD0(DidStartHibernating, void());
-  ~MockLogger() override = default;
-};
-
-TEST_F(Canvas2DLayerBridgeTest, HibernationLifeCycle) {
-  if (!features::IsCanvas2DHibernationEnabled()) {
-    GTEST_SKIP();
-  }
-
-  ScopedTestingPlatformSupport<GpuMemoryBufferTestPlatform> platform;
-  std::unique_ptr<Canvas2DLayerBridge> bridge =
-      MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferGPU, kNonOpaque);
-  DrawSomething(bridge.get());
-  EXPECT_EQ(GetRasterMode(bridge.get()), RasterMode::kGPU);
-
-  // Register an alternate Logger for tracking hibernation events
-  std::unique_ptr<MockLogger> mock_logger = std::make_unique<MockLogger>();
-  MockLogger* mock_logger_ptr = mock_logger.get();
-  bridge->SetLoggerForTesting(std::move(mock_logger));
-
-  // Test entering hibernation
-  EXPECT_CALL(
-      *mock_logger_ptr,
-      ReportHibernationEvent(Canvas2DLayerBridge::kHibernationScheduled));
-  EXPECT_CALL(*mock_logger_ptr, DidStartHibernating()).Times(1);
-
-  Host()->SetPageVisible(false);
-
-  // TODO(crbug.com/1476964): Remove this when done refactoring.
-  bridge->PageVisibilityChanged();
-
-  ThreadScheduler::Current()
-      ->ToMainThreadScheduler()
-      ->StartIdlePeriodForTesting();
-  platform->RunUntilIdle();
-
-  testing::Mock::VerifyAndClearExpectations(mock_logger_ptr);
-  EXPECT_EQ(GetRasterMode(bridge.get()), RasterMode::kCPU);
-  EXPECT_TRUE(bridge->IsHibernating());
-  EXPECT_TRUE(Host()->IsResourceValid());
-
-  // Test exiting hibernation
-  EXPECT_CALL(
-      *mock_logger_ptr,
-      ReportHibernationEvent(Canvas2DLayerBridge::kHibernationEndedNormally));
-
-  Host()->SetPageVisible(true);
-
-  // TODO(crbug.com/1476964): Remove this when done refactoring.
-  bridge->PageVisibilityChanged();
-
-  testing::Mock::VerifyAndClearExpectations(mock_logger_ptr);
-  EXPECT_EQ(GetRasterMode(bridge.get()), RasterMode::kGPU);
-  EXPECT_FALSE(bridge->IsHibernating());
-  EXPECT_TRUE(Host()->IsResourceValid());
-}
-
-TEST_F(Canvas2DLayerBridgeTest, HibernationReEntry) {
-  if (!features::IsCanvas2DHibernationEnabled()) {
-    GTEST_SKIP();
-  }
-
-  ScopedTestingPlatformSupport<GpuMemoryBufferTestPlatform> platform;
-  std::unique_ptr<Canvas2DLayerBridge> bridge =
-      MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferGPU, kNonOpaque);
-  DrawSomething(bridge.get());
-
-  // Register an alternate Logger for tracking hibernation events
-  std::unique_ptr<MockLogger> mock_logger = std::make_unique<MockLogger>();
-  MockLogger* mock_logger_ptr = mock_logger.get();
-  bridge->SetLoggerForTesting(std::move(mock_logger));
-
-  // Test entering hibernation
-  EXPECT_CALL(
-      *mock_logger_ptr,
-      ReportHibernationEvent(Canvas2DLayerBridge::kHibernationScheduled));
-  EXPECT_CALL(*mock_logger_ptr, DidStartHibernating()).Times(1);
-  Host()->SetPageVisible(false);
-
-  // TODO(crbug.com/1476964): Remove this when done refactoring.
-  bridge->PageVisibilityChanged();
-
-  // Toggle visibility before the task that enters hibernation gets a
-  // chance to run.
-  Host()->SetPageVisible(true);
-
-  // TODO(crbug.com/1476964): Remove this when done refactoring.
-  bridge->PageVisibilityChanged();
-
-  Host()->SetPageVisible(false);
-
-  // TODO(crbug.com/1476964): Remove this when done refactoring.
-  bridge->PageVisibilityChanged();
-
-  ThreadScheduler::Current()
-      ->ToMainThreadScheduler()
-      ->StartIdlePeriodForTesting();
-  platform->RunUntilIdle();
-
-  testing::Mock::VerifyAndClearExpectations(mock_logger_ptr);
-  EXPECT_EQ(GetRasterMode(bridge.get()), RasterMode::kCPU);
-  EXPECT_TRUE(bridge->IsHibernating());
-  EXPECT_TRUE(Host()->IsResourceValid());
-
-  // Test exiting hibernation
-  EXPECT_CALL(
-      *mock_logger_ptr,
-      ReportHibernationEvent(Canvas2DLayerBridge::kHibernationEndedNormally));
-
-  Host()->SetPageVisible(true);
-
-  // TODO(crbug.com/1476964): Remove this when done refactoring.
-  bridge->PageVisibilityChanged();
-
-  testing::Mock::VerifyAndClearExpectations(mock_logger_ptr);
-  EXPECT_EQ(GetRasterMode(bridge.get()), RasterMode::kGPU);
-  EXPECT_FALSE(bridge->IsHibernating());
-  EXPECT_TRUE(Host()->IsResourceValid());
-}
-
-TEST_F(Canvas2DLayerBridgeTest, TeardownWhileHibernating) {
-  if (!features::IsCanvas2DHibernationEnabled()) {
-    GTEST_SKIP();
-  }
-
-  ScopedTestingPlatformSupport<GpuMemoryBufferTestPlatform> platform;
-  std::unique_ptr<Canvas2DLayerBridge> bridge =
-      MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferGPU, kNonOpaque);
-  DrawSomething(bridge.get());
-
-  // Register an alternate Logger for tracking hibernation events
-  std::unique_ptr<MockLogger> mock_logger = std::make_unique<MockLogger>();
-  MockLogger* mock_logger_ptr = mock_logger.get();
-  bridge->SetLoggerForTesting(std::move(mock_logger));
-
-  // Test entering hibernation
-  EXPECT_CALL(
-      *mock_logger_ptr,
-      ReportHibernationEvent(Canvas2DLayerBridge::kHibernationScheduled));
-  EXPECT_CALL(*mock_logger_ptr, DidStartHibernating()).Times(1);
-  Host()->SetPageVisible(false);
-
-  // TODO(crbug.com/1476964): Remove this when done refactoring.
-  bridge->PageVisibilityChanged();
-
-  ThreadScheduler::Current()
-      ->ToMainThreadScheduler()
-      ->StartIdlePeriodForTesting();
-  platform->RunUntilIdle();
-  testing::Mock::VerifyAndClearExpectations(mock_logger_ptr);
-  EXPECT_EQ(GetRasterMode(bridge.get()), RasterMode::kCPU);
-  EXPECT_TRUE(bridge->IsHibernating());
-  EXPECT_TRUE(Host()->IsResourceValid());
-
-  // Tear down the bridge while hibernating
-  EXPECT_CALL(*mock_logger_ptr,
-              ReportHibernationEvent(
-                  Canvas2DLayerBridge::kHibernationEndedWithTeardown));
-  bridge.reset();
-  testing::Mock::VerifyAndClearExpectations(mock_logger_ptr);
-}
-
-TEST_F(Canvas2DLayerBridgeTest, SnapshotWhileHibernating) {
-  if (!features::IsCanvas2DHibernationEnabled()) {
-    GTEST_SKIP();
-  }
-
-  ScopedTestingPlatformSupport<GpuMemoryBufferTestPlatform> platform;
-  std::unique_ptr<Canvas2DLayerBridge> bridge =
-      MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferGPU, kNonOpaque);
-  DrawSomething(bridge.get());
-
-  // Register an alternate Logger for tracking hibernation events
-  std::unique_ptr<MockLogger> mock_logger = std::make_unique<MockLogger>();
-  MockLogger* mock_logger_ptr = mock_logger.get();
-  bridge->SetLoggerForTesting(std::move(mock_logger));
-
-  // Test entering hibernation
-  EXPECT_CALL(
-      *mock_logger_ptr,
-      ReportHibernationEvent(Canvas2DLayerBridge::kHibernationScheduled));
-  EXPECT_CALL(*mock_logger_ptr, DidStartHibernating()).Times(1);
-  Host()->SetPageVisible(false);
-
-  // TODO(crbug.com/1476964): Remove this when done refactoring.
-  bridge->PageVisibilityChanged();
-
-  ThreadScheduler::Current()
-      ->ToMainThreadScheduler()
-      ->StartIdlePeriodForTesting();
-  platform->RunUntilIdle();
-  testing::Mock::VerifyAndClearExpectations(mock_logger_ptr);
-  EXPECT_EQ(GetRasterMode(bridge.get()), RasterMode::kCPU);
-  EXPECT_TRUE(bridge->IsHibernating());
-  EXPECT_TRUE(Host()->IsResourceValid());
-
-  // Take a snapshot and verify that it is not accelerated due to hibernation
-  scoped_refptr<StaticBitmapImage> image =
-      bridge->NewImageSnapshot(FlushReason::kTesting);
-  EXPECT_FALSE(image->IsTextureBacked());
-  image = nullptr;
-
-  // Verify that taking a snapshot did not affect the state of bridge
-  EXPECT_EQ(GetRasterMode(bridge.get()), RasterMode::kCPU);
-  EXPECT_TRUE(bridge->IsHibernating());
-  EXPECT_TRUE(Host()->IsResourceValid());
-
-  // End hibernation normally
-  EXPECT_CALL(
-      *mock_logger_ptr,
-      ReportHibernationEvent(Canvas2DLayerBridge::kHibernationEndedNormally))
-      .Times(1);
-  Host()->SetPageVisible(true);
-
-  // TODO(crbug.com/1476964): Remove this when done refactoring.
-  bridge->PageVisibilityChanged();
-}
-
-TEST_F(Canvas2DLayerBridgeTest, TeardownWhileHibernationIsPending) {
-  if (!features::IsCanvas2DHibernationEnabled()) {
-    GTEST_SKIP();
-  }
-
-  ScopedTestingPlatformSupport<GpuMemoryBufferTestPlatform> platform;
-  std::unique_ptr<Canvas2DLayerBridge> bridge =
-      MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferGPU, kNonOpaque);
-  DrawSomething(bridge.get());
-
-  // Register an alternate Logger for tracking hibernation events
-  std::unique_ptr<MockLogger> mock_logger = std::make_unique<MockLogger>();
-  MockLogger* mock_logger_ptr = mock_logger.get();
-  bridge->SetLoggerForTesting(std::move(mock_logger));
-
-  // Test entering hibernation
-  EXPECT_CALL(
-      *mock_logger_ptr,
-      ReportHibernationEvent(Canvas2DLayerBridge::kHibernationScheduled));
-  Host()->SetPageVisible(false);
-
-  // TODO(crbug.com/1476964): Remove this when done refactoring.
-  bridge->PageVisibilityChanged();
-
-  bridge.reset();
-  // In production, we would expect a
-  // HibernationAbortedDueToDestructionWhileHibernatePending event to be
-  // fired, but that signal is lost in the unit test due to no longer having
-  // a bridge to hold the mockLogger.
-  ThreadScheduler::Current()
-      ->ToMainThreadScheduler()
-      ->StartIdlePeriodForTesting();
-  platform->RunUntilIdle();
-  // This test passes by not crashing, which proves that the WeakPtr logic
-  // is sound.
-}
-
-TEST_F(Canvas2DLayerBridgeTest, HibernationAbortedDueToVisibilityChange) {
-  if (!features::IsCanvas2DHibernationEnabled()) {
-    GTEST_SKIP();
-  }
-
-  ScopedTestingPlatformSupport<GpuMemoryBufferTestPlatform> platform;
-  std::unique_ptr<Canvas2DLayerBridge> bridge =
-      MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferGPU, kNonOpaque);
-  DrawSomething(bridge.get());
-
-  // Register an alternate Logger for tracking hibernation events
-  std::unique_ptr<MockLogger> mock_logger = std::make_unique<MockLogger>();
-  MockLogger* mock_logger_ptr = mock_logger.get();
-  bridge->SetLoggerForTesting(std::move(mock_logger));
-
-  // Test entering hibernation
-  EXPECT_CALL(
-      *mock_logger_ptr,
-      ReportHibernationEvent(Canvas2DLayerBridge::kHibernationScheduled));
-  EXPECT_CALL(
-      *mock_logger_ptr,
-      ReportHibernationEvent(
-          Canvas2DLayerBridge::kHibernationAbortedDueToVisibilityChange))
-      .Times(1);
-  Host()->SetPageVisible(false);
-
-  // TODO(crbug.com/1476964): Remove this when done refactoring.
-  bridge->PageVisibilityChanged();
-
-  Host()->SetPageVisible(true);
-
-  // TODO(crbug.com/1476964): Remove this when done refactoring.
-  bridge->PageVisibilityChanged();
-
-  ThreadScheduler::Current()
-      ->ToMainThreadScheduler()
-      ->StartIdlePeriodForTesting();
-  platform->RunUntilIdle();
-  testing::Mock::VerifyAndClearExpectations(mock_logger_ptr);
-  EXPECT_EQ(GetRasterMode(bridge.get()), RasterMode::kGPU);
-  EXPECT_FALSE(bridge->IsHibernating());
-  EXPECT_TRUE(Host()->IsResourceValid());
-}
-
-TEST_F(Canvas2DLayerBridgeTest, HibernationAbortedDueToLostContext) {
-  if (!features::IsCanvas2DHibernationEnabled()) {
-    GTEST_SKIP();
-  }
-
-  ScopedTestingPlatformSupport<GpuMemoryBufferTestPlatform> platform;
-  std::unique_ptr<Canvas2DLayerBridge> bridge =
-      MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferGPU, kNonOpaque);
-  DrawSomething(bridge.get());
-
-  // Register an alternate Logger for tracking hibernation events
-  std::unique_ptr<MockLogger> mock_logger = std::make_unique<MockLogger>();
-  MockLogger* mock_logger_ptr = mock_logger.get();
-  bridge->SetLoggerForTesting(std::move(mock_logger));
-
-  test_context_provider_->TestContextGL()->set_context_lost(true);
-
-  // Test entering hibernation
-  EXPECT_CALL(
-      *mock_logger_ptr,
-      ReportHibernationEvent(Canvas2DLayerBridge::kHibernationScheduled));
-  EXPECT_CALL(*mock_logger_ptr,
-              ReportHibernationEvent(
-                  Canvas2DLayerBridge::kHibernationAbortedDueGpuContextLoss))
-      .Times(1);
-
-  Host()->SetPageVisible(false);
-
-  // TODO(crbug.com/1476964): Remove this when done refactoring.
-  bridge->PageVisibilityChanged();
-
-  ThreadScheduler::Current()
-      ->ToMainThreadScheduler()
-      ->StartIdlePeriodForTesting();
-  platform->RunUntilIdle();
-  testing::Mock::VerifyAndClearExpectations(mock_logger_ptr);
-  EXPECT_FALSE(bridge->IsHibernating());
-}
-
-TEST_F(Canvas2DLayerBridgeTest, PrepareMailboxWhileHibernating) {
-  if (!features::IsCanvas2DHibernationEnabled()) {
-    GTEST_SKIP();
-  }
-
-  ScopedTestingPlatformSupport<GpuMemoryBufferTestPlatform> platform;
-  std::unique_ptr<Canvas2DLayerBridge> bridge =
-      MakeBridge(gfx::Size(300, 300), RasterModeHint::kPreferGPU, kNonOpaque);
-  DrawSomething(bridge.get());
-
-  // Register an alternate Logger for tracking hibernation events
-  std::unique_ptr<MockLogger> mock_logger = std::make_unique<MockLogger>();
-  MockLogger* mock_logger_ptr = mock_logger.get();
-  bridge->SetLoggerForTesting(std::move(mock_logger));
-
-  // Test entering hibernation
-  EXPECT_CALL(
-      *mock_logger_ptr,
-      ReportHibernationEvent(Canvas2DLayerBridge::kHibernationScheduled));
-  EXPECT_CALL(*mock_logger_ptr, DidStartHibernating()).Times(1);
-  Host()->SetPageVisible(false);
-
-  // TODO(crbug.com/1476964): Remove this when done refactoring.
-  bridge->PageVisibilityChanged();
-
-  ThreadScheduler::Current()
-      ->ToMainThreadScheduler()
-      ->StartIdlePeriodForTesting();
-  platform->RunUntilIdle();
-  testing::Mock::VerifyAndClearExpectations(mock_logger_ptr);
-
-  // TODO(crbug.com/1476964): Remove this when done refactoring.
-  // Temporary plumbing. In non-test code, HTMLCanvasElement overrides
-  // CanvasResourceHost::IsHibernating to propagate to Canvas2DLayerBridge.
-  // FakeCanvasResourceHost does not do this.  We will be able to remove this
-  // one hibernation management is moved out of Canvas2DLayerBridge.
-  Host()->SetIsHibernating(bridge->IsHibernating());
-
-  // Test PrepareTransferableResource() while hibernating
-  viz::TransferableResource resource;
-  viz::ReleaseCallback release_callback;
-  EXPECT_FALSE(Host()->PrepareTransferableResource(nullptr, &resource,
-                                                   &release_callback));
-  EXPECT_TRUE(Host()->IsResourceValid());
-
-  // Tear down the bridge on the thread so that 'bridge' can go out of scope
-  // without crashing due to thread checks
-  EXPECT_CALL(*mock_logger_ptr,
-              ReportHibernationEvent(
-                  Canvas2DLayerBridge::kHibernationEndedWithTeardown));
-  bridge.reset();
-  testing::Mock::VerifyAndClearExpectations(mock_logger_ptr);
 }
 
 TEST_F(Canvas2DLayerBridgeTest, ResourceRecycling) {
@@ -840,84 +330,6 @@ TEST_F(Canvas2DLayerBridgeTest,
   EXPECT_FALSE(Host()->PrepareTransferableResource(nullptr, &resource,
                                                    &release_callback2));
   EXPECT_FALSE(release_callback2);
-}
-
-TEST_F(Canvas2DLayerBridgeTest, DisplayedCanvasIsRateLimited) {
-  std::unique_ptr<Canvas2DLayerBridge> bridge =
-      MakeBridge(gfx::Size(300, 150), RasterModeHint::kPreferGPU, kNonOpaque);
-  EXPECT_TRUE(Host()->IsResourceValid());
-  Host()->SetIsDisplayed(true);
-  EXPECT_FALSE(!!Host()->RateLimiter());
-  bridge->FinalizeFrame(FlushReason::kCanvasPushFrame);
-  bridge->FinalizeFrame(FlushReason::kCanvasPushFrame);
-  EXPECT_TRUE(!!Host()->RateLimiter());
-}
-
-TEST_F(Canvas2DLayerBridgeTest, NonDisplayedCanvasIsNotRateLimited) {
-  std::unique_ptr<Canvas2DLayerBridge> bridge =
-      MakeBridge(gfx::Size(300, 150), RasterModeHint::kPreferGPU, kNonOpaque);
-  EXPECT_TRUE(Host()->IsResourceValid());
-  Host()->SetIsDisplayed(true);
-  bridge->FinalizeFrame(FlushReason::kCanvasPushFrame);
-  bridge->FinalizeFrame(FlushReason::kCanvasPushFrame);
-  EXPECT_TRUE(!!Host()->RateLimiter());
-  Host()->SetIsDisplayed(false);
-  EXPECT_FALSE(!!Host()->RateLimiter());
-  bridge->FinalizeFrame(FlushReason::kCanvasPushFrame);
-  bridge->FinalizeFrame(FlushReason::kCanvasPushFrame);
-  EXPECT_FALSE(!!Host()->RateLimiter());
-}
-
-TEST_F(Canvas2DLayerBridgeTest, SoftwareCanvasIsCompositedIfImageChromium) {
-  ScopedTestingPlatformSupport<GpuMemoryBufferTestPlatform> platform;
-  ScopedCanvas2dImageChromiumForTest canvas_2d_image_chromium(true);
-  const_cast<gpu::Capabilities&>(SharedGpuContext::ContextProviderWrapper()
-                                     ->ContextProvider()
-                                     ->GetCapabilities())
-      .gpu_memory_buffer_formats.Put(gfx::BufferFormat::BGRA_8888);
-  std::unique_ptr<Canvas2DLayerBridge> bridge =
-      MakeBridge(gfx::Size(300, 150), RasterModeHint::kPreferCPU, kNonOpaque);
-  EXPECT_TRUE(Host()->IsResourceValid());
-  DrawSomething(bridge.get());
-  EXPECT_TRUE(Host()->IsComposited());
-  EXPECT_EQ(GetRasterMode(bridge.get()), RasterMode::kCPU);
-}
-
-TEST_F(Canvas2DLayerBridgeTest, SoftwareCanvasNotCompositedIfNotImageChromium) {
-  ScopedCanvas2dImageChromiumForTest canvas_2d_image_chromium(false);
-  std::unique_ptr<Canvas2DLayerBridge> bridge =
-      MakeBridge(gfx::Size(300, 150), RasterModeHint::kPreferCPU, kNonOpaque);
-  EXPECT_TRUE(Host()->IsResourceValid());
-  DrawSomething(bridge.get());
-  EXPECT_FALSE(Host()->IsComposited());
-  EXPECT_EQ(GetRasterMode(bridge.get()), RasterMode::kCPU);
-}
-
-TEST_F(Canvas2DLayerBridgeTest, PushPropertiesAfterVisibilityChange) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures({::features::kClearCanvasResourcesInBackground},
-                                {features::kCanvas2DHibernation});
-
-  ScopedCanvas2dImageChromiumForTest canvas_2d_image_chromium(true);
-  const_cast<gpu::Capabilities&>(SharedGpuContext::ContextProviderWrapper()
-                                     ->ContextProvider()
-                                     ->GetCapabilities())
-      .gpu_memory_buffer_formats.Put(gfx::BufferFormat::BGRA_8888);
-
-  std::unique_ptr<Canvas2DLayerBridge> bridge =
-      MakeBridge(gfx::Size(300, 150), RasterModeHint::kPreferGPU, kNonOpaque);
-  cc::PaintFlags flags;
-  Canvas().drawLine(0, 0, 2, 2, flags);
-  DrawSomething(bridge.get());
-
-  Host()->SetPageVisible(false);
-  // TODO(crbug.com/1476964): Remove this when done refactoring.
-  bridge->PageVisibilityChanged();
-  EXPECT_FALSE(Host()->CcLayer()->needs_set_resource_for_testing());
-
-  Host()->SetPageVisible(true);
-  bridge->PageVisibilityChanged();
-  EXPECT_TRUE(Host()->CcLayer()->needs_set_resource_for_testing());
 }
 
 }  // namespace blink

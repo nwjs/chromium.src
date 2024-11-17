@@ -80,16 +80,8 @@ class PLATFORM_EXPORT StaticBitmapImage : public Image {
     return false;
   }
 
-  virtual bool CopyToResourceProvider(CanvasResourceProvider*) {
-    NOTREACHED_IN_MIGRATION();
-    return false;
-  }
-
   virtual bool CopyToResourceProvider(CanvasResourceProvider* resource_provider,
-                                      const gfx::Rect& copy_rect) {
-    NOTREACHED_IN_MIGRATION();
-    return false;
-  }
+                                      const gfx::Rect& copy_rect) = 0;
 
   virtual void EnsureSyncTokenVerified() { NOTREACHED_IN_MIGRATION(); }
   virtual gpu::MailboxHolder GetMailboxHolder() const {
@@ -99,6 +91,10 @@ class PLATFORM_EXPORT StaticBitmapImage : public Image {
   virtual scoped_refptr<gpu::ClientSharedImage> GetSharedImage() const {
     NOTREACHED();
     return nullptr;
+  }
+  virtual gpu::SyncToken GetSyncToken() const {
+    NOTREACHED();
+    return gpu::SyncToken();
   }
   virtual void UpdateSyncToken(const gpu::SyncToken&) {
     NOTREACHED_IN_MIGRATION();

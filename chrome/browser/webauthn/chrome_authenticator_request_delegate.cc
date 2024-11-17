@@ -26,6 +26,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/string_split.h"
@@ -152,6 +153,12 @@ namespace {
 ChromeAuthenticatorRequestDelegate::TestObserver* g_observer = nullptr;
 
 static constexpr char kGoogleRpId[] = "google.com";
+
+void LogSignalCurrentUserDetailsUpdated(
+    ChromeWebAuthenticationDelegate::SignalCurrentUserDetailsResult result) {
+  base::UmaHistogramEnumeration(
+      "WebAuthentication.SignalCurrentUserDetailsUpdatedGPMPasskey", result);
+}
 
 // Returns true iff |relying_party_id| is listed in the
 // SecurityKeyPermitAttestation policy.
@@ -655,6 +662,11 @@ void ChromeWebAuthenticationDelegate::DeletePasskey(
       manage_passwords_ui_controller->OnPasskeyDeleted();
     }
   }
+  base::UmaHistogramEnumeration(
+      "WebAuthentication.SignalUnknownCredentialRemovedGPMPasskey",
+      credential_specifics.has_value()
+          ? SignalUnknownCredentialResult::kPasskeyRemoved
+          : SignalUnknownCredentialResult::kPasskeyNotFound);
 }
 
 void ChromeWebAuthenticationDelegate::DeleteUnacceptedPasskeys(
@@ -684,6 +696,11 @@ void ChromeWebAuthenticationDelegate::DeleteUnacceptedPasskeys(
       manage_passwords_ui_controller->OnPasskeyNotAccepted();
     }
   }
+  base::UmaHistogramEnumeration(
+      "WebAuthentication.SignalAllAcceptedCredentialsRemovedGPMPasskey",
+      is_passkey_deleted
+          ? SignalAllAcceptedCredentialsResult::kPasskeyRemoved
+          : SignalAllAcceptedCredentialsResult::kNoPasskeyRemoved);
 }
 
 void ChromeWebAuthenticationDelegate::UpdateUserPasskeys(
@@ -696,6 +713,8 @@ void ChromeWebAuthenticationDelegate::UpdateUserPasskeys(
   webauthn::PasskeyChangeQuotaTracker* quota_tracker =
       webauthn::PasskeyChangeQuotaTracker::GetInstance();
   if (!quota_tracker->CanMakeChange(origin)) {
+    LogSignalCurrentUserDetailsUpdated(
+        SignalCurrentUserDetailsResult::kQuotaExceeded);
     FIDO_LOG(ERROR) << "Dropping update request from " << origin
                     << ": quota exceeded.";
     return;
@@ -712,7 +731,8 @@ void ChromeWebAuthenticationDelegate::UpdateUserPasskeys(
          passkey.user_display_name() != display_name)) {
       passkey_store->UpdatePasskey(
           passkey.credential_id(),
-          {.user_name = name, .user_display_name = display_name});
+          {.user_name = name, .user_display_name = display_name},
+          /*updated_by_user=*/false);
       is_passkey_updated = true;
     }
   }
@@ -725,6 +745,9 @@ void ChromeWebAuthenticationDelegate::UpdateUserPasskeys(
       manage_passwords_ui_controller->OnPasskeyUpdated();
     }
   }
+  LogSignalCurrentUserDetailsUpdated(
+      is_passkey_updated ? SignalCurrentUserDetailsResult::kPasskeyUpdated
+                         : SignalCurrentUserDetailsResult::kPasskeyNotUpdated);
 }
 
 #if BUILDFLAG(IS_MAC)
@@ -1165,8 +1188,9 @@ void ChromeAuthenticatorRequestDelegate::ConfigureDiscoveries(
   std::vector<std::unique_ptr<device::cablev2::Pairing>> paired_phones;
   base::RepeatingCallback<void(std::unique_ptr<device::cablev2::Pairing>)>
       contact_phone_callback;
-  if (!cable_extension_provided ||
-      base::FeatureList::IsEnabled(device::kWebAuthCableExtensionAnywhere)) {
+  if (base::FeatureList::IsEnabled(device::kWebAuthnHybridLinking) &&
+      (!cable_extension_provided ||
+       base::FeatureList::IsEnabled(device::kWebAuthCableExtensionAnywhere))) {
     std::unique_ptr<cablev2::KnownDevices> known_devices =
         cablev2::KnownDevices::FromProfile(profile);
     if (g_observer) {
@@ -1247,16 +1271,6 @@ void ChromeAuthenticatorRequestDelegate::ConfigureDiscoveries(
     }
   }
 
-  mojo::Remote<device::mojom::UsbDeviceManager> usb_device_manager;
-  if (!pass_empty_usb_device_manager_ &&
-      base::FeatureList::IsEnabled(device::kWebAuthnAndroidOpenAccessory)) {
-    content::GetDeviceService().BindUsbDeviceManager(
-        usb_device_manager.BindNewPipeAndPassReceiver());
-  }
-  discovery_factory->set_android_accessory_params(
-      std::move(usb_device_manager),
-      l10n_util::GetStringUTF8(IDS_WEBAUTHN_CABLEV2_AOA_REQUEST_DESCRIPTION));
-
   if (cable_extension_accepted || non_extension_cablev2_enabled) {
     std::optional<bool> extension_is_v2;
     if (cable_extension_provided) {
@@ -1335,6 +1349,11 @@ bool ChromeAuthenticatorRequestDelegate::IsWebAuthnUIEnabled() {
 void ChromeAuthenticatorRequestDelegate::SetConditionalRequest(
     bool is_conditional) {
   is_conditional_ = is_conditional;
+}
+
+void ChromeAuthenticatorRequestDelegate::SetAmbientCredentialTypes(
+    int credential_type_flags) {
+  ambient_credential_types_ = credential_type_flags;
 }
 
 void ChromeAuthenticatorRequestDelegate::SetCredentialIdFilter(
@@ -1480,11 +1499,6 @@ void ChromeAuthenticatorRequestDelegate::OnManageDevicesClicked() {
   }
 }
 
-void ChromeAuthenticatorRequestDelegate::SetPassEmptyUsbDeviceManagerForTesting(
-    bool value) {
-  pass_empty_usb_device_manager_ = value;
-}
-
 void ChromeAuthenticatorRequestDelegate::SetTrustedVaultConnectionForTesting(
     std::unique_ptr<trusted_vault::TrustedVaultConnection> connection) {
   pending_trusted_vault_connection_ = std::move(connection);
@@ -1533,6 +1547,8 @@ void ChromeAuthenticatorRequestDelegate::ShowUI(
   // all other platforms, GPM should be the default.
   dialog_controller_->set_enclave_can_be_default(
       EnclaveCanBeDefault(Profile::FromBrowserContext(GetBrowserContext())));
+
+  dialog_controller_->set_ambient_credential_types(ambient_credential_types_);
 
   dialog_controller_->StartFlow(std::move(tai), is_conditional_);
 
@@ -1637,6 +1653,7 @@ void ChromeAuthenticatorRequestDelegate::GetPhoneContactableGpmPasskeysForRpId(
 void ChromeAuthenticatorRequestDelegate::FilterRecognizedCredentials(
     device::FidoRequestHandlerBase::TransportAvailabilityInfo* tai) {
   if (dialog_model()->relying_party_id == kGoogleRpId &&
+      tai->has_empty_allow_list &&
       base::ranges::any_of(tai->recognized_credentials,
                            IsCredentialFromPlatformAuthenticator)) {
     // Regrettably, Chrome will create webauthn credentials for things other

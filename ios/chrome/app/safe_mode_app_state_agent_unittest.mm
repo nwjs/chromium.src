@@ -6,6 +6,7 @@
 
 #import "base/ios/block_types.h"
 #import "base/test/ios/wait_util.h"
+#import "ios/chrome/app/application_delegate/app_init_stage_test_utils.h"
 #import "ios/chrome/app/application_delegate/app_state+Testing.h"
 #import "ios/chrome/app/application_delegate/startup_information.h"
 #import "ios/chrome/app/safe_mode_app_state_agent+private.h"
@@ -27,30 +28,31 @@ typedef BOOL (^DecisionBlock)(id self);
 
 // Iterate through the init stages from `startInitStage` up to
 // `initStageDestination`.
-void IterateToStage(InitStage startInitStage,
-                    InitStage initStageDestination,
+void IterateToStage(AppInitStage startInitStage,
+                    AppInitStage initStageDestination,
                     SafeModeAppAgent* agent,
                     id appStateMock) {
-  InitStage initStage = startInitStage;
-  if (initStage == InitStageStart) {
-    [appStateMock setInitStage:InitStageStart];
-    [agent appState:appStateMock didTransitionFromInitStage:InitStageStart];
-    initStage = static_cast<InitStage>(startInitStage + 1);
+  AppInitStage initStage = startInitStage;
+  if (initStage == AppInitStage::kStart) {
+    [appStateMock setInitStage:AppInitStage::kStart];
+    [agent appState:appStateMock
+        didTransitionFromInitStage:AppInitStage::kStart];
+    initStage = NextAppInitStage(startInitStage);
   }
 
-  InitStage prevInitStage = static_cast<InitStage>(initStage - 1);
+  AppInitStage prevInitStage = PreviousAppInitStage(initStage);
   while (initStage <= initStageDestination) {
     [appStateMock setInitStage:initStage];
     [agent appState:appStateMock didTransitionFromInitStage:prevInitStage];
     prevInitStage = initStage;
-    initStage = static_cast<InitStage>(initStage + 1);
+    initStage = NextAppInitStage(initStage);
   }
 }
 
 class SafeModeAppStateAgentTest : public BlockCleanupTest {
  protected:
   SafeModeAppStateAgentTest() {
-    browser_state_ = TestChromeBrowserState::Builder().Build();
+    profile_ = TestProfileIOS::Builder().Build();
     window_ = [OCMockObject mockForClass:[UIWindow class]];
     startup_information_mock_ =
         [OCMockObject mockForProtocol:@protocol(StartupInformation)];
@@ -77,9 +79,8 @@ class SafeModeAppStateAgentTest : public BlockCleanupTest {
       app_state_ = [[AppState alloc]
           initWithStartupInformation:startup_information_mock_];
 
-      main_scene_state_ =
-          [main_scene_state_ initWithAppState:app_state_
-                                 browserState:browser_state_.get()];
+      main_scene_state_ = [main_scene_state_ initWithAppState:app_state_
+                                                      profile:profile_.get()];
       main_scene_state_.window = GetWindowMock();
     }
     return app_state_;
@@ -91,7 +92,7 @@ class SafeModeAppStateAgentTest : public BlockCleanupTest {
 
  private:
   web::WebTaskEnvironment task_environment_;
-  std::unique_ptr<TestChromeBrowserState> browser_state_;
+  std::unique_ptr<TestProfileIOS> profile_;
   AppState* app_state_;
   FakeSceneState* main_scene_state_;
 
@@ -116,7 +117,8 @@ TEST_F(SafeModeAppStateAgentTest, startSafeMode) {
   SafeModeAppAgent* agent = [[SafeModeAppAgent alloc] init];
   [agent setAppState:appState];
 
-  IterateToStage(InitStageStart, InitStageSafeMode, agent, appState);
+  IterateToStage(AppInitStage::kStart, AppInitStage::kSafeMode, agent,
+                 appState);
 
   SceneState* sceneState = GetSceneState();
 
@@ -139,14 +141,15 @@ TEST_F(SafeModeAppStateAgentTest, dontStartSafeModeBecauseNotNeeded) {
   id appStateMock = OCMPartialMock(appState);
   [[appStateMock expect] queueTransitionToNextInitStage];
   [[appStateMock expect] appState:appState
-       didTransitionFromInitStage:InitStageSafeMode];
+       didTransitionFromInitStage:AppInitStage::kSafeMode];
 
   swizzleSafeModeShouldStart(NO);
 
   SafeModeAppAgent* agent = [[SafeModeAppAgent alloc] init];
   [agent setAppState:appStateMock];
 
-  IterateToStage(InitStageStart, InitStageSafeMode, agent, appStateMock);
+  IterateToStage(AppInitStage::kStart, AppInitStage::kSafeMode, agent,
+                 appStateMock);
 
   [agent sceneState:GetSceneState()
       transitionedToActivationLevel:SceneActivationLevelForegroundActive];
@@ -164,7 +167,8 @@ TEST_F(SafeModeAppStateAgentTest, dontStartSafeModeBecauseNotActiveLevel) {
   SafeModeAppAgent* agent = [[SafeModeAppAgent alloc] init];
   [agent setAppState:appStateMock];
 
-  IterateToStage(InitStageStart, InitStageSafeMode, agent, appStateMock);
+  IterateToStage(AppInitStage::kStart, AppInitStage::kSafeMode, agent,
+                 appStateMock);
 
   [agent sceneState:GetSceneState()
       transitionedToActivationLevel:SceneActivationLevelForegroundInactive];
@@ -184,7 +188,8 @@ TEST_F(SafeModeAppStateAgentTest,
   SafeModeAppAgent* agent = [[SafeModeAppAgent alloc] init];
   [agent setAppState:appStateMock];
 
-  IterateToStage(InitStageStart, InitStageSafeMode, agent, appStateMock);
+  IterateToStage(AppInitStage::kStart, AppInitStage::kSafeMode, agent,
+                 appStateMock);
 
   agent.firstSceneHasActivated = YES;
   [agent sceneState:GetSceneState()

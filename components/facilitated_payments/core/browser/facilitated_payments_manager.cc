@@ -17,7 +17,6 @@
 #include "components/facilitated_payments/core/browser/network_api/facilitated_payments_network_interface.h"
 #include "components/facilitated_payments/core/features/features.h"
 #include "components/facilitated_payments/core/metrics/facilitated_payments_metrics.h"
-#include "services/metrics/public/cpp/ukm_builders.h"
 
 namespace payments::facilitated {
 
@@ -42,57 +41,12 @@ FacilitatedPaymentsManager::~FacilitatedPaymentsManager() {
 }
 
 void FacilitatedPaymentsManager::Reset() {
-  // In tests, when the payment flow is abandoned, do not reset so the final
-  // states can be verified.
-  if (is_test_) {
-    return;
-  }
   has_payflow_started_ = false;
-  pix_code_detection_attempt_count_ = 0;
   ukm_source_id_ = 0;
   trigger_source_ = TriggerSource::kUnknown;
-  pix_code_detection_triggering_timer_.Stop();
   initiate_payment_request_details_ =
       std::make_unique<FacilitatedPaymentsInitiatePaymentRequestDetails>();
   weak_ptr_factory_.InvalidateWeakPtrs();
-}
-
-void FacilitatedPaymentsManager::
-    DelayedCheckAllowlistAndTriggerPixCodeDetection(const GURL& url,
-                                                    ukm::SourceId ukm_source_id,
-                                                    int attempt_number) {
-  // TODO: b/362781719 - Deprecate Pix code detection.
-  Reset();
-  switch (GetAllowlistCheckResult(url)) {
-    case optimization_guide::OptimizationGuideDecision::kTrue: {
-      ukm_source_id_ = ukm_source_id;
-      initiate_payment_request_details_->merchant_payment_page_hostname_ =
-          url.host();
-      // The PIX code detection should be triggered after `kPageLoadWaitTime`.
-      // Time spent waiting for the allowlist checking infra should be accounted
-      // for.
-      base::TimeDelta trigger_pix_code_detection_delay =
-          std::max(base::Seconds(0),
-                   kPageLoadWaitTime - (attempt_number - 1) *
-                                           kOptimizationGuideDeciderWaitTime);
-      DelayedTriggerPixCodeDetection(trigger_pix_code_detection_delay);
-      break;
-    }
-    case optimization_guide::OptimizationGuideDecision::kUnknown: {
-      if (attempt_number >= kMaxAttemptsForAllowlistCheck) {
-        break;
-      }
-      pix_code_detection_triggering_timer_.Start(
-          FROM_HERE, kOptimizationGuideDeciderWaitTime,
-          base::BindOnce(&FacilitatedPaymentsManager::
-                             DelayedCheckAllowlistAndTriggerPixCodeDetection,
-                         weak_ptr_factory_.GetWeakPtr(), url, ukm_source_id,
-                         attempt_number + 1));
-      break;
-    }
-    case optimization_guide::OptimizationGuideDecision::kFalse:
-      break;
-  }
 }
 
 void FacilitatedPaymentsManager::OnPixCodeCopiedToClipboard(
@@ -106,11 +60,7 @@ void FacilitatedPaymentsManager::OnPixCodeCopiedToClipboard(
   ukm_source_id_ = ukm_source_id;
   trigger_source_ = TriggerSource::kCopyEvent;
   // Check whether the domain for the render_frame_host_url is allowlisted.
-  auto decision = optimization_guide_decider_->CanApplyOptimization(
-      render_frame_host_url,
-      optimization_guide::proto::PIX_MERCHANT_ORIGINS_ALLOWLIST,
-      /*optimization_metadata=*/nullptr);
-  if (decision != optimization_guide::OptimizationGuideDecision::kTrue) {
+  if (!IsMerchantAllowlisted(render_frame_host_url)) {
     // The merchant is not part of the allowlist, ignore the copy event.
     return;
   }
@@ -125,66 +75,20 @@ void FacilitatedPaymentsManager::OnPixCodeCopiedToClipboard(
 
 void FacilitatedPaymentsManager::RegisterPixAllowlist() const {
   optimization_guide_decider_->RegisterOptimizationTypes(
-      {optimization_guide::proto::PIX_PAYMENT_MERCHANT_ALLOWLIST,
-       optimization_guide::proto::PIX_MERCHANT_ORIGINS_ALLOWLIST});
+      {optimization_guide::proto::PIX_MERCHANT_ORIGINS_ALLOWLIST});
 }
 
-optimization_guide::OptimizationGuideDecision
-FacilitatedPaymentsManager::GetAllowlistCheckResult(const GURL& url) const {
+bool FacilitatedPaymentsManager::IsMerchantAllowlisted(const GURL& url) const {
   // Since the optimization guide decider integration corresponding to PIX
   // merchant lists are allowlists for the question "Can this site be
   // optimized?", a match on the allowlist answers the question with "yes".
-  // Therefore, `kTrue` indicates that `url` is allowed for running PIX code
-  // detection. If the optimization type was not registered in time when we
+  // Therefore, `kTrue` indicates that `url` is allowed for detecting PIX code
+  // on copy events. If the optimization type was not registered in time when we
   // queried it, it will be `kUnknown`.
   return optimization_guide_decider_->CanApplyOptimization(
-      url, optimization_guide::proto::PIX_PAYMENT_MERCHANT_ALLOWLIST,
-      /*optimization_metadata=*/nullptr);
-}
-
-void FacilitatedPaymentsManager::DelayedTriggerPixCodeDetection(
-    base::TimeDelta delay) {
-  pix_code_detection_triggering_timer_.Start(
-      FROM_HERE, delay,
-      base::BindOnce(&FacilitatedPaymentsManager::TriggerPixCodeDetection,
-                     weak_ptr_factory_.GetWeakPtr()));
-}
-
-void FacilitatedPaymentsManager::TriggerPixCodeDetection() {
-  pix_code_detection_attempt_count_++;
-  StartPixCodeDetectionLatencyTimer();
-  driver_->TriggerPixCodeDetection(
-      base::BindOnce(&FacilitatedPaymentsManager::ProcessPixCodeDetectionResult,
-                     weak_ptr_factory_.GetWeakPtr()));
-}
-
-void FacilitatedPaymentsManager::ProcessPixCodeDetectionResult(
-    mojom::PixCodeDetectionResult result, const std::string& pix_code) {
-  // If a PIX code was not found, re-trigger PIX code detection after a short
-  // duration to allow async content to load completely.
-  if (result == mojom::PixCodeDetectionResult::kPixCodeNotFound &&
-      pix_code_detection_attempt_count_ < kMaxAttemptsForPixCodeDetection) {
-    DelayedTriggerPixCodeDetection(kRetriggerPixCodeDetectionWaitTime);
-    return;
-  }
-  ukm::builders::FacilitatedPayments_PixCodeDetectionResult(ukm_source_id_)
-      .SetResult(static_cast<uint8_t>(result))
-      .SetLatencyInMillis(GetPixCodeDetectionLatencyInMillis())
-      .SetAttempts(pix_code_detection_attempt_count_)
-      .SetDetectionTriggeredOnDomContentLoaded(
-          base::FeatureList::IsEnabled(kEnablePixDetectionOnDomContentLoaded))
-      .Record(ukm::UkmRecorder::Get());
-
-  if (result != mojom::PixCodeDetectionResult::kValidPixCodeFound) {
-    Reset();
-    return;
-  }
-  // Clicking on the copy button could have initiated the payflow.
-  if (has_payflow_started_) {
-    return;
-  }
-  has_payflow_started_ = true;
-  trigger_source_ = TriggerSource::kDOMSearch;
+             url, optimization_guide::proto::PIX_MERCHANT_ORIGINS_ALLOWLIST,
+             /*optimization_metadata=*/nullptr) ==
+         optimization_guide::OptimizationGuideDecision::kTrue;
 }
 
 void FacilitatedPaymentsManager::OnPixCodeValidated(
@@ -196,14 +100,12 @@ void FacilitatedPaymentsManager::OnPixCodeValidated(
   if (!is_pix_code_valid.has_value()) {
     // Pix code validator encountered an error.
     LogPaymentNotOfferedReason(PaymentNotOfferedReason::kCodeValidatorFailed);
-    Reset();
     return;
   }
 
   if (!is_pix_code_valid.value()) {
     // Pix code is not valid.
     LogPaymentNotOfferedReason(PaymentNotOfferedReason::kInvalidCode);
-    Reset();
     return;
   }
   // If a valid PIX code is found, and the user has Google wallet linked PIX
@@ -213,7 +115,6 @@ void FacilitatedPaymentsManager::OnPixCodeValidated(
   if (!payments_data_manager ||
       !payments_data_manager->IsFacilitatedPaymentsPixUserPrefEnabled() ||
       !payments_data_manager->HasMaskedBankAccounts()) {
-    Reset();
     return;
   }
 
@@ -223,12 +124,10 @@ void FacilitatedPaymentsManager::OnPixCodeValidated(
       !base::FeatureList::IsEnabled(kEnablePixPaymentsInLandscapeMode)) {
     LogPaymentNotOfferedReason(
         PaymentNotOfferedReason::kLandscapeScreenOrientation);
-    Reset();
     return;
   }
 
   if (!GetApiClient()) {
-    Reset();
     return;
   }
 
@@ -249,16 +148,6 @@ FacilitatedPaymentsApiClient* FacilitatedPaymentsManager::GetApiClient() {
   return api_client_.get();
 }
 
-void FacilitatedPaymentsManager::StartPixCodeDetectionLatencyTimer() {
-  pix_code_detection_latency_measuring_timestamp_ = base::TimeTicks::Now();
-}
-
-int64_t FacilitatedPaymentsManager::GetPixCodeDetectionLatencyInMillis() const {
-  return (base::TimeTicks::Now() -
-          pix_code_detection_latency_measuring_timestamp_)
-      .InMilliseconds();
-}
-
 void FacilitatedPaymentsManager::OnApiAvailabilityReceived(
     bool is_api_available) {
   LogIsApiAvailableResult(
@@ -266,12 +155,9 @@ void FacilitatedPaymentsManager::OnApiAvailabilityReceived(
       (base::TimeTicks::Now() - api_availability_check_start_time_));
   if (!is_api_available) {
     LogPaymentNotOfferedReason(PaymentNotOfferedReason::kApiNotAvailable);
-    Reset();
     return;
   }
 
-  // If the payments data manager isn't available, then the flow should have
-  // been abandoned already in `ProcessPixCodeDetectionResult`.
   CHECK(client_->GetPaymentsDataManager());
   initiate_payment_request_details_->billing_customer_number_ =
       autofill::payments::GetBillingCustomerId(
@@ -294,7 +180,6 @@ void FacilitatedPaymentsManager::OnPixPaymentPromptResult(
     LogTransactionResult(TransactionResult::kAbandoned, trigger_source_,
                          base::TimeTicks::Now() - fop_selector_shown_time_,
                          ukm_source_id_);
-    Reset();
     return;
   }
 
@@ -315,7 +200,6 @@ void FacilitatedPaymentsManager::OnRiskDataLoaded(
   if (risk_data.empty()) {
     client_->ShowErrorScreen();
     LogPaymentNotOfferedReason(PaymentNotOfferedReason::kRiskDataEmpty);
-    Reset();
     return;
   }
   initiate_payment_request_details_->risk_data_ = risk_data;
@@ -336,7 +220,6 @@ void FacilitatedPaymentsManager::OnGetClientToken(
     LogTransactionResult(TransactionResult::kFailed, trigger_source_,
                          base::TimeTicks::Now() - fop_selector_shown_time_,
                          ukm_source_id_);
-    Reset();
     return;
   }
   initiate_payment_request_details_->client_token_ = client_token;
@@ -372,7 +255,6 @@ void FacilitatedPaymentsManager::OnInitiatePaymentResponseReceived(
     LogTransactionResult(TransactionResult::kFailed, trigger_source_,
                          base::TimeTicks::Now() - fop_selector_shown_time_,
                          ukm_source_id_);
-    Reset();
     return;
   }
   LogInitiatePaymentResult(/*result=*/true, latency);
@@ -382,7 +264,6 @@ void FacilitatedPaymentsManager::OnInitiatePaymentResponseReceived(
     LogTransactionResult(TransactionResult::kFailed, trigger_source_,
                          base::TimeTicks::Now() - fop_selector_shown_time_,
                          ukm_source_id_);
-    Reset();
     return;
   }
   std::optional<CoreAccountInfo> account_info = client_->GetCoreAccountInfo();
@@ -394,7 +275,6 @@ void FacilitatedPaymentsManager::OnInitiatePaymentResponseReceived(
     LogTransactionResult(TransactionResult::kFailed, trigger_source_,
                          base::TimeTicks::Now() - fop_selector_shown_time_,
                          ukm_source_id_);
-    Reset();
     return;
   }
   purchase_action_start_time_ = base::TimeTicks::Now();
@@ -410,7 +290,6 @@ void FacilitatedPaymentsManager::OnPurchaseActionResult(
   // over, and the progress screen gets dismissed. Calling `DismissPrompt`
   // clears the associated Java objects.
   client_->DismissPrompt();
-  Reset();
   LogInitiatePurchaseActionResult(
       /*result=*/result ==
           FacilitatedPaymentsApiClient::PurchaseActionResult::kResultOk,
@@ -432,12 +311,6 @@ void FacilitatedPaymentsManager::OnPurchaseActionResult(
   LogTransactionResult(transaction_result, trigger_source_,
                        base::TimeTicks::Now() - fop_selector_shown_time_,
                        ukm_source_id_);
-}
-
-void FacilitatedPaymentsManager::ResetForTesting() {
-  is_test_ = false;
-  Reset();
-  is_test_ = true;
 }
 
 }  // namespace payments::facilitated

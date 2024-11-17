@@ -607,8 +607,7 @@ void SharedWorkerHost::BindPressureService(
   }
 
   if (!pressure_service_) {
-    pressure_service_ =
-        std::make_unique<PressureServiceForWorker<SharedWorkerHost>>(this);
+    pressure_service_ = std::make_unique<PressureServiceForSharedWorker>(this);
   }
 
   pressure_service_->BindReceiver(std::move(receiver));

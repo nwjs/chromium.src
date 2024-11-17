@@ -40,7 +40,6 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.PowerBookmarkUtils;
-import org.chromium.chrome.browser.commerce.ShoppingFeatures;
 import org.chromium.chrome.browser.commerce.ShoppingServiceFactory;
 import org.chromium.chrome.browser.device.DeviceConditions;
 import org.chromium.chrome.browser.download.DownloadUtils;
@@ -62,7 +61,7 @@ import org.chromium.chrome.browser.share.ShareUtils;
 import org.chromium.chrome.browser.sync.settings.SyncSettingsUtils;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tinker_tank.TinkerTankDelegateImpl;
+import org.chromium.chrome.browser.tinker_tank.TinkerTankDelegate;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.translate.TranslateUtils;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
@@ -75,6 +74,7 @@ import org.chromium.chrome.browser.util.BrowserUiUtils;
 import org.chromium.chrome.browser.util.BrowserUiUtils.ModuleTypeOnStartAndNtp;
 import org.chromium.chrome.browser.webapps.WebappRegistry;
 import org.chromium.components.browser_ui.accessibility.PageZoomCoordinator;
+import org.chromium.components.commerce.core.CommerceFeatureUtils;
 import org.chromium.components.commerce.core.CommerceSubscription;
 import org.chromium.components.commerce.core.IdentifierType;
 import org.chromium.components.commerce.core.ManagementType;
@@ -601,8 +601,8 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
                         && isMenuSelectTabsVisible
                         && mTabModelSelector.isTabStateInitialized()
                         && mTabModelSelector
-                                        .getTabModelFilterProvider()
-                                        .getCurrentTabModelFilter()
+                                        .getTabGroupModelFilterProvider()
+                                        .getCurrentTabGroupModelFilter()
                                         .getCount()
                                 != 0;
 
@@ -640,9 +640,9 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
             }
 
             int itemGroupId = item.getGroupId();
-            if (!(menuGroup == MenuGroup.OVERVIEW_MODE_MENU
-                            && itemGroupId == R.id.OVERVIEW_MODE_MENU
-                    || menuGroup == MenuGroup.PAGE_MENU && itemGroupId == R.id.PAGE_MENU)) {
+            if (!((menuGroup == MenuGroup.OVERVIEW_MODE_MENU
+                            && itemGroupId == R.id.OVERVIEW_MODE_MENU)
+                    || (menuGroup == MenuGroup.PAGE_MENU && itemGroupId == R.id.PAGE_MENU))) {
                 continue;
             }
 
@@ -668,8 +668,9 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
                 item.setEnabled(isQuickDeleteEnabled(isIncognito));
             }
             if (item.getItemId() == R.id.tinker_tank_menu_id) {
-                item.setVisible(TinkerTankDelegateImpl.enabled());
-                item.setEnabled(TinkerTankDelegateImpl.enabled());
+                boolean enabled = TinkerTankDelegate.isEnabled();
+                item.setVisible(enabled);
+                item.setEnabled(enabled);
             }
 
             // This needs to be done after the visibility of the item is set.
@@ -823,8 +824,8 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
 
     /**
      * This method should only be called once per context menu shown.
+     *
      * @param currentTab The currentTab for which the app menu is showing.
-     * @param logging Whether logging should be performed in this check.
      * @return Whether the translate menu item should be displayed.
      */
     @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
@@ -1208,7 +1209,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
         }
 
         // If price tracking isn't enabled or the page isn't eligible, then hide both items.
-        if (!ShoppingFeatures.isShoppingListEligible(profile)
+        if (!CommerceFeatureUtils.isShoppingListEligible(service)
                 || !PowerBookmarkUtils.isPriceTrackingEligible(currentTab)
                 || !mBookmarkModelSupplier.hasValue()) {
             startPriceTrackingMenuItem.setVisible(false);

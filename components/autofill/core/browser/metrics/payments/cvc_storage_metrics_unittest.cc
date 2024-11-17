@@ -70,6 +70,9 @@ class CvcStorageMetricsTest
       card_.set_guid(kCardGuid);
       personal_data().test_payments_data_manager().AddServerCreditCard(card_);
     }
+    test_api(autofill_manager())
+        .SetFourDigitCombinationsInDOM(
+            {base::UTF16ToUTF8(card_.LastFourDigits())});
   }
 
   void TearDown() override { TearDownHelper(); }
@@ -120,8 +123,12 @@ class CvcStorageMetricsTest
 // Test CVC suggestion shown metrics are correctly logged.
 TEST_P(CvcStorageMetricsTest, LogShownMetrics) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList features(
-      features::kAutofillEnableCvcStorageAndFilling);
+  base::test::ScopedFeatureList features;
+  features.InitWithFeatures(
+      /* enabled_features */
+      {features::kAutofillEnableCvcStorageAndFilling,
+       features::kAutofillEnableCvcStorageAndFillingStandaloneFormEnhancement},
+      /* disabled_features */ {});
   personal_data().test_payments_data_manager().SetIsPaymentCvcStorageEnabled(
       true);
 

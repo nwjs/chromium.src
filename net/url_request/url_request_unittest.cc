@@ -349,7 +349,7 @@ bool ContainsString(const std::string& haystack, const char* needle) {
 std::unique_ptr<UploadDataStream> CreateSimpleUploadData(
     base::span<const uint8_t> data) {
   auto reader = std::make_unique<UploadBytesElementReader>(data);
-  return ElementsUploadDataStream::CreateWithReader(std::move(reader), 0);
+  return ElementsUploadDataStream::CreateWithReader(std::move(reader));
 }
 
 // Verify that the SSLInfo of a successful SSL connection has valid values.
@@ -1524,55 +1524,6 @@ TEST_F(URLRequestTest, DnsHttpsRecordPresentCausesWsSchemeUpgrade) {
   // Observe that the scheme has been upgraded to wss.
   EXPECT_TRUE(req->url().SchemeIsCryptographic());
   EXPECT_TRUE(req->url().SchemeIs(url::kWssScheme));
-}
-
-// Test that same-site requests with "wss" scheme retain the
-// `kStorageAccessGrantEligible` override, even if the initiator origin uses the
-// HTTPS version of the site.
-TEST_F(URLRequestTest, WssRequestsAreEligibleForStorageAccess) {
-  EmbeddedTestServer https_server(EmbeddedTestServer::TYPE_HTTPS);
-  https_server.SetSSLConfig(EmbeddedTestServer::CERT_TEST_NAMES);
-  RegisterDefaultHandlers(&https_server);
-  ASSERT_TRUE(https_server.Start());
-
-  const GURL https_url = https_server.GetURL("a.test", "/defaultresponse");
-  GURL::Replacements replacements;
-  replacements.SetSchemeStr(url::kWssScheme);
-
-  auto context_builder = CreateTestURLRequestContextBuilder();
-  auto& network_delegate = *context_builder->set_network_delegate(
-      std::make_unique<TestNetworkDelegate>());
-  auto context = context_builder->Build();
-
-  TestDelegate d;
-  std::unique_ptr<URLRequest> req(
-      context->CreateRequest(https_url.ReplaceComponents(replacements),
-                             DEFAULT_PRIORITY, &d, TRAFFIC_ANNOTATION_FOR_TESTS,
-                             /*is_for_websockets=*/true));
-
-  req->SetExtraRequestHeaders(WebSocketCommonTestHeaders());
-
-  auto websocket_stream_create_helper =
-      std::make_unique<TestWebSocketHandshakeStreamCreateHelper>();
-  req->SetUserData(kWebSocketHandshakeUserDataKey,
-                   std::move(websocket_stream_create_helper));
-
-  req->set_storage_access_api_status(StorageAccessApiStatus::kAccessViaAPI);
-  req->set_initiator(url::Origin::Create(https_url));
-
-  req->Start();
-  d.RunUntilComplete();
-
-  // Expect failure because test server is not set up to provide websocket
-  // responses.
-  ASSERT_EQ(network_delegate.error_count(), 1);
-  ASSERT_EQ(network_delegate.last_error(), ERR_INVALID_RESPONSE);
-
-  CookieSettingOverrides expected_overides;
-  expected_overides.Put(CookieSettingOverride::kStorageAccessGrantEligible);
-
-  EXPECT_THAT(network_delegate.cookie_setting_overrides_records(),
-              testing::ElementsAre(expected_overides, expected_overides));
 }
 #endif  // BUILDFLAG(ENABLE_WEBSOCKETS)
 
@@ -5987,10 +5938,10 @@ TEST_F(URLRequestTestHTTP, PostFileTest) {
 
     d.RunUntilComplete();
 
-    int64_t size64 = 0;
-    ASSERT_EQ(true, base::GetFileSize(path, &size64));
-    ASSERT_LE(size64, std::numeric_limits<int>::max());
-    int size = static_cast<int>(size64);
+    std::optional<int64_t> size64 = base::GetFileSize(path);
+    ASSERT_TRUE(size64.has_value());
+    ASSERT_LE(size64.value(), std::numeric_limits<int>::max());
+    int size = static_cast<int>(size64.value());
     auto buf = std::make_unique<char[]>(size);
 
     ASSERT_EQ(size, base::ReadFile(path, buf.get(), size));
@@ -6042,7 +5993,7 @@ namespace {
 // Adds a standard set of data to an upload for chunked upload integration
 // tests.
 void AddDataToUpload(ChunkedUploadDataStream::Writer* writer) {
-  const auto append = [writer](const std::string_view str, bool is_done) {
+  const auto append = [writer](std::string_view str, bool is_done) {
     writer->AppendData(base::as_byte_span(str), is_done);
   };
   append("a", false);
@@ -13385,10 +13336,9 @@ class PatternedExpectBypassCacheNetworkDelegate : public TestNetworkDelegate {
  public:
   explicit PatternedExpectBypassCacheNetworkDelegate(
       std::vector<bool> expectations,
-      std::optional<cookie_util::StorageAccessStatus> storage_access_status)
+      bool enable_storage_access_header)
       : expectations_(std::move(expectations)) {
-    set_storage_access_status(storage_access_status);
-    set_is_storage_access_header_enabled(true);
+    set_is_storage_access_header_enabled(enable_storage_access_header);
   }
 
   ~PatternedExpectBypassCacheNetworkDelegate() override {
@@ -13560,9 +13510,11 @@ TEST_P(StorageAccessHeaderRetryURLRequestTest, StorageAccessHeaderRetry) {
   auto context_builder = CreateTestURLRequestContextBuilder();
   auto& network_delegate = *context_builder->set_network_delegate(
       std::make_unique<PatternedExpectBypassCacheNetworkDelegate>(
-          pattern, cookie_util::StorageAccessStatus::kInactive));
+          pattern,
+          /*enable_storage_access_header=*/true));
   auto context = context_builder->Build();
   TestDelegate d;
+  base::HistogramTester histogram_tester;
 
   std::unique_ptr<URLRequest> req(context->CreateRequest(
       http_test_server()->GetURL(kStorageAccessRetryPath), DEFAULT_PRIORITY, &d,
@@ -13572,6 +13524,7 @@ TEST_P(StorageAccessHeaderRetryURLRequestTest, StorageAccessHeaderRetry) {
                                      test.origin_header->Serialize(),
                                      /*overwrite=*/true);
   }
+  req->set_storage_access_status(cookie_util::StorageAccessStatus::kInactive);
 
   req->Start();
   d.RunUntilComplete();
@@ -13589,6 +13542,20 @@ TEST_P(StorageAccessHeaderRetryURLRequestTest, StorageAccessHeaderRetry) {
             CookieSettingOverrides(
                 {CookieSettingOverride::
                      kStorageAccessGrantEligibleViaHeader})));
+    histogram_tester.ExpectBucketCount(
+        "API.StorageAccessHeader.ActivateStorageAccessRetryOutcome",
+        /*sample=*/
+        net::cookie_util::ActivateStorageAccessRetryOutcome::kSuccess,
+        /*expected_count=*/1);
+    // We expect this record since the retried response still includes the
+    // header, but it doesn't result in a successful retry the second time
+    // around.
+    histogram_tester.ExpectBucketCount(
+        "API.StorageAccessHeader.ActivateStorageAccessRetryOutcome",
+        /*sample=*/
+        net::cookie_util::ActivateStorageAccessRetryOutcome::
+            kFailureIneffectiveRetry,
+        /*expected_count=*/1);
   } else {
     // Expect 2 records for 1 request, since the request is not retried.
     EXPECT_THAT(
@@ -13624,15 +13591,15 @@ const StorageAccessHeaderRetryData storage_access_header_retry_tests[] = {
     // Origin header, non-wildcard (non-matching).
     {url::Origin::Create(GURL("https://example.test:123")),
      "retry; allowed-origin=\"https://example.test\"", false},
-    // Origin header, multiple items, first matches.
+    // Origin header, list, first matches.
     {url::Origin::Create(GURL("https://example.test")),
-     "retry; allowed-origin=\"https://example.test\", foo, bar", true},
-    // Origin header, multiple items, non-first non-last matches.
+     "retry; allowed-origin=\"https://example.test\", foo, bar", false},
+    // Origin header, list, non-first non-last matches.
     {url::Origin::Create(GURL("https://example.test")),
-     "foo, retry; allowed-origin=\"https://example.test\", bar", true},
-    // Origin header, multiple items, last matches.
+     "foo, retry; allowed-origin=\"https://example.test\", bar", false},
+    // Origin header, list, last matches.
     {url::Origin::Create(GURL("https://example.test")),
-     "foo, bar, retry; allowed-origin=\"https://example.test\"", true},
+     "foo, bar, retry; allowed-origin=\"https://example.test\"", false},
     // Origin header, multiple params, first matches.
     {url::Origin::Create(GURL("https://example.test")),
      "retry; allowed-origin=\"https://example.test\"; foo; bar", true},
@@ -13680,18 +13647,20 @@ TEST_F(StorageAccessHeaderURLRequestTest,
   auto& network_delegate = *context_builder->set_network_delegate(
       std::make_unique<PatternedExpectBypassCacheNetworkDelegate>(
           std::vector({false, true, false}),
-          cookie_util::StorageAccessStatus::kInactive));
+          /*enable_storage_access_header=*/true));
   auto context = context_builder->Build();
   TestDelegate d;
 
   std::unique_ptr<URLRequest> req(context->CreateRequest(
       http_test_server()->GetURL(kStorageAccessRetryPath), DEFAULT_PRIORITY, &d,
       TRAFFIC_ANNOTATION_FOR_TESTS));
+  req->set_storage_access_status(cookie_util::StorageAccessStatus::kInactive);
 
   req->Start();
   d.RunUntilRedirect();
 
   EXPECT_EQ(req->url().path(), kStorageAccessRetryPath);
+  req->set_storage_access_status(cookie_util::StorageAccessStatus::kActive);
   req->FollowDeferredRedirect(/*removed_headers=*/{}, /*modified_headers=*/{});
 
   d.RunUntilComplete();
@@ -13724,7 +13693,7 @@ TEST_F(StorageAccessHeaderURLRequestTest,
   auto& network_delegate = *context_builder->set_network_delegate(
       std::make_unique<PatternedExpectBypassCacheNetworkDelegate>(
           std::vector({false, true}),
-          cookie_util::StorageAccessStatus::kInactive));
+          /*enable_storage_access_header=*/true));
   auto context = context_builder->Build();
   TestDelegate d;
   d.set_credentials(AuthCredentials(kUser, kSecret));
@@ -13732,6 +13701,7 @@ TEST_F(StorageAccessHeaderURLRequestTest,
   std::unique_ptr<URLRequest> req(context->CreateRequest(
       http_test_server()->GetURL(kStorageAccessRetryPath), DEFAULT_PRIORITY, &d,
       TRAFFIC_ANNOTATION_FOR_TESTS));
+  req->set_storage_access_status(cookie_util::StorageAccessStatus::kInactive);
 
   req->Start();
   d.RunUntilComplete();
@@ -13765,7 +13735,7 @@ TEST_F(StorageAccessHeaderURLRequestTest,
   auto& network_delegate = *context_builder->set_network_delegate(
       std::make_unique<PatternedExpectBypassCacheNetworkDelegate>(
           std::vector({false, true}),
-          cookie_util::StorageAccessStatus::kInactive));
+          /*enable_storage_access_header=*/true));
   auto context = context_builder->Build();
   TestDelegate d;
   d.set_credentials(AuthCredentials(kUser, kSecret));
@@ -13773,6 +13743,7 @@ TEST_F(StorageAccessHeaderURLRequestTest,
   std::unique_ptr<URLRequest> req(context->CreateRequest(
       http_test_server()->GetURL(kStorageAccessRetryPath), DEFAULT_PRIORITY, &d,
       TRAFFIC_ANNOTATION_FOR_TESTS));
+  req->set_storage_access_status(cookie_util::StorageAccessStatus::kInactive);
 
   req->Start();
   d.RunUntilComplete();
@@ -13801,7 +13772,7 @@ TEST_F(StorageAccessHeaderURLRequestTest,
   auto& network_delegate = *context_builder->set_network_delegate(
       std::make_unique<PatternedExpectBypassCacheNetworkDelegate>(
           std::vector({false, true}),
-          cookie_util::StorageAccessStatus::kInactive));
+          /*enable_storage_access_header=*/true));
   auto context = context_builder->Build();
   TestDelegate d;
   d.set_credentials(AuthCredentials(kUser, kSecret));
@@ -13809,6 +13780,7 @@ TEST_F(StorageAccessHeaderURLRequestTest,
   std::unique_ptr<URLRequest> req(context->CreateRequest(
       http_test_server()->GetURL(kStorageAccessRetryPath), DEFAULT_PRIORITY, &d,
       TRAFFIC_ANNOTATION_FOR_TESTS));
+  req->set_storage_access_status(cookie_util::StorageAccessStatus::kInactive);
 
   req->Start();
   d.RunUntilComplete();
@@ -13831,6 +13803,38 @@ TEST_F(StorageAccessHeaderURLRequestTest,
           CookieSettingOverrides(
               {CookieSettingOverride::kStorageAccessGrantEligibleViaHeader})));
   EXPECT_TRUE(d.auth_required_called());
+}
+
+TEST_F(StorageAccessHeaderURLRequestTest,
+       StorageAccessHeaderRetry_NoRetryWhenDisabled) {
+  set_response_sequence({ResponseKind::kOk});
+
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto& network_delegate = *context_builder->set_network_delegate(
+      std::make_unique<PatternedExpectBypassCacheNetworkDelegate>(
+          std::vector({false}),
+          /*enable_storage_access_header=*/false));
+  auto context = context_builder->Build();
+  TestDelegate d;
+  base::HistogramTester histogram_tester;
+
+  std::unique_ptr<URLRequest> req(context->CreateRequest(
+      http_test_server()->GetURL(kStorageAccessRetryPath), DEFAULT_PRIORITY, &d,
+      TRAFFIC_ANNOTATION_FOR_TESTS));
+
+  req->Start();
+  d.RunUntilComplete();
+
+  // This expects 2 records for 1 request, since it should not have been
+  // retried.
+  EXPECT_THAT(network_delegate.cookie_setting_overrides_records(),
+              ElementsAre(CookieSettingOverrides(), CookieSettingOverrides()));
+  histogram_tester.ExpectUniqueSample(
+      "API.StorageAccessHeader.ActivateStorageAccessRetryOutcome",
+      /*sample=*/
+      net::cookie_util::ActivateStorageAccessRetryOutcome::
+          kFailureHeaderDisabled,
+      /*expected_bucket_count=*/1);
 }
 
 }  // namespace net

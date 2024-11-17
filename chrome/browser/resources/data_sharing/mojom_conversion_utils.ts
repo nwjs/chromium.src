@@ -36,6 +36,9 @@ function toMojomGroupMember(member: DataSharingSdkGroupMember): GroupMember {
     email: member.email,
     role: toMojomRole(member.role),
     avatarUrl: {url: member.avatarUrl},
+    // Bandage for crbug.com/372249284, clean this up after the root cause is
+    // addressed.
+    givenName: member.givenName || '',
   };
 }
 

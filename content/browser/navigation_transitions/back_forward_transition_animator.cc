@@ -6,6 +6,7 @@
 
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/numerics/ranges.h"
 #include "cc/slim/layer.h"
 #include "cc/slim/solid_color_layer.h"
 #include "cc/slim/surface_layer.h"
@@ -40,6 +41,9 @@ using NavigationDirection =
 using AnimationStage = BackForwardTransitionAnimationManager::AnimationStage;
 using SwitchSpringReason = PhysicsModel::SwitchSpringReason;
 using SwipeEdge = ui::BackGestureEventSwipeEdge;
+using IgnoringInputReason = BackForwardTransitionAnimator::IgnoringInputReason;
+using AnimationAbortReason =
+    BackForwardTransitionAnimator::AnimationAbortReason;
 
 static constexpr base::TimeDelta kDismissScreenshotAfter = base::Seconds(4);
 
@@ -82,6 +86,64 @@ bool ShouldUseFallbackScreenshot(
                                 CacheHitOrMissReason::kCacheMissColdStart));
 
   return use_fallback_screenshot;
+}
+
+const char* IgnoringInputReasonToString(IgnoringInputReason reason) {
+  switch (reason) {
+    case IgnoringInputReason::kAnimationInvokedOccurred:
+      return "kAnimationInvokedOccurred";
+    case IgnoringInputReason::kAnimationCanceledOccurred:
+      return "kAnimationCanceledOccurred";
+    case IgnoringInputReason::kNoOccurrence:
+      return "kNoOccurrence";
+  }
+  NOTREACHED();
+}
+
+const char* AnimationAbortReasonToString(AnimationAbortReason abort_reason) {
+  switch (abort_reason) {
+    case AnimationAbortReason::kRenderWidgetHostDestroyed:
+      return "kRenderWidgetHostDestroyed";
+    case AnimationAbortReason::kMainCommitOnSubframeTransition:
+      return "kMainCommitOnSubframeTransition";
+    case AnimationAbortReason::kNewCommitInPrimaryMainFrame:
+      return "kNewCommitInPrimaryMainFrame";
+    case AnimationAbortReason::kCrossOriginRedirect:
+      return "kCrossOriginRedirect";
+    case AnimationAbortReason::kNewCommitWhileDisplayingInvokeAnimation:
+      return "kNewCommitWhileDisplayingInvokeAnimation";
+    case AnimationAbortReason::kNewCommitWhileDisplayingCanceledAnimation:
+      return "kNewCommitWhileDisplayingCanceledAnimation";
+    case AnimationAbortReason::kNewCommitWhileWaitingForNewRendererToDraw:
+      return "kNewCommitWhileWaitingForNewRendererToDraw";
+    case AnimationAbortReason::
+        kNewCommitWhileWaitingForContentForNavigationEntryShown:
+      return "kNewCommitWhileWaitingForContentForNavigationEntryShown";
+    case AnimationAbortReason::kNewCommitWhileDisplayingCrossFadeAnimation:
+      return "kNewCommitWhileDisplayingCrossFadeAnimation";
+    case AnimationAbortReason::kNewCommitWhileWaitingForBeforeUnloadResponse:
+      return "kNewCommitWhileWaitingForBeforeUnloadResponse";
+    case AnimationAbortReason::kMultipleNavigationRequestsCreated:
+      return "kMultipleNavigationRequestsCreated";
+    case AnimationAbortReason::kNavigationEntryDeletedBeforeCommit:
+      return "kNavigationEntryDeletedBeforeCommit";
+    case AnimationAbortReason::kPostNavigationFirstFrameTimeout:
+      return "kPostNavigationFirstFrameTimeout";
+    case AnimationAbortReason::kChainedBack:
+      return "kChainedBack";
+    case AnimationAbortReason::kDetachedFromWindow:
+      return "kDetachedFromWindow";
+    case AnimationAbortReason::kRootWindowVisibilityChanged:
+      return "kRootWindowVisibilityChanged";
+    case AnimationAbortReason::kCompositorDetached:
+      return "kCompositorDetached";
+    case AnimationAbortReason::kAnimationManagerDestroyed:
+      return "kAnimationManagerDestroyed";
+    case BackForwardTransitionAnimator::AnimationAbortReason::
+        kPhysicalSizeChanged:
+      return "kPhysicalSizeChanged";
+  }
+  NOTREACHED();
 }
 
 //========================== Fitted animation timeline =========================
@@ -243,6 +305,20 @@ scoped_refptr<cc::slim::SolidColorLayer> AddRoundedRectangle(
   return rrect;
 }
 
+static constexpr float kFloatTolerance = 0.001f;
+
+[[nodiscard]] bool AlmostEqual(float a, float b) {
+  return base::IsApproximatelyEqual(a, b, kFloatTolerance);
+}
+
+[[nodiscard]] bool IsLessThanOrEqual(float a, float b) {
+  return a < b || AlmostEqual(a, b);
+}
+
+[[nodiscard]] bool IsGreaterThanOrEqual(float a, float b) {
+  return a > b || AlmostEqual(a, b);
+}
+
 }  // namespace
 
 std::unique_ptr<BackForwardTransitionAnimator>
@@ -262,7 +338,10 @@ BackForwardTransitionAnimator::Factory::Create(
 }
 
 BackForwardTransitionAnimator::~BackForwardTransitionAnimator() {
-  CHECK(IsTerminalState()) << ToString(state_);
+  TRACE_EVENT("browser,navigation",
+              "BackForwardTransitionAnimator::~BackForwardTransitionAnimator");
+
+  CHECK(IsTerminalState()) << StateToString(state_);
 
   switch (ignoring_input_reason_) {
     case IgnoringInputReason::kAnimationInvokedOccurred: {
@@ -290,6 +369,8 @@ BackForwardTransitionAnimator::~BackForwardTransitionAnimator() {
     case IgnoringInputReason::kNoOccurrence:
       break;
   }
+
+  ResumeDialogs();
 
   ResetTransformForLayer(animation_manager_->web_contents_view_android()
                              ->parent_for_web_page_widgets());
@@ -327,7 +408,7 @@ BackForwardTransitionAnimator::~BackForwardTransitionAnimator() {
   // but another navigation or gesture started before the destination renderer
   // produced its first frame.
   if (new_render_widget_host_) {
-    CHECK_EQ(state_, State::kAnimationAborted) << ToString(state_);
+    CHECK_EQ(state_, State::kAnimationAborted) << StateToString(state_);
     UnregisterNewFrameActivationObserver();
   }
 }
@@ -371,13 +452,14 @@ BackForwardTransitionAnimator::BackForwardTransitionAnimator(
 
 void BackForwardTransitionAnimator::OnGestureProgressed(
     const ui::BackGestureEvent& gesture) {
+  TRACE_EVENT(TRACE_DISABLED_BY_DEFAULT("navigation"),
+              "BackForwardTransitionAnimator::OnGestureProgressed", "progress",
+              gesture.progress());
   CHECK_EQ(state_, State::kStarted);
   // `gesture.progress()` goes from 0.0 to 1.0 regardless of the edge being
   // swiped.
-  CHECK_GE(gesture.progress(), 0.f);
-  CHECK_LE(gesture.progress(), 1.f);
-  // TODO(crbug.com/40287990): Should check the number of KeyFrameModels
-  // is 1 (for scrim).
+  CHECK(IsGreaterThanOrEqual(gesture.progress(), 0.f));
+  CHECK(IsLessThanOrEqual(gesture.progress(), 1.f));
 
   float progress_delta =
       gesture.progress() - latest_progress_gesture_.progress();
@@ -412,6 +494,15 @@ void BackForwardTransitionAnimator::OnGestureInvoked() {
     return;
   }
 
+  CHECK(tracked_request_);
+  if (!tracked_request_->is_primary_main_frame) {
+    // We have suppressed the dialogs when the user has started swiping because
+    // we don't want any dialogs to disrupt the gesture. For subframe
+    // navigations, resume the dialogs as soon as the navigation starts as we
+    // don't want to suppress any dialogs from the main frame.
+    ResumeDialogs();
+  }
+
   // `StartNavigationAndTrackRequest()` sets `navigation_state_`.
   if (navigation_state_ == NavigationState::kBeforeUnloadDispatched) {
     AdvanceAndProcessState(State::kDisplayingCancelAnimation);
@@ -426,14 +517,19 @@ void BackForwardTransitionAnimator::OnContentForNavigationEntryShown() {
   // Might be called multiple times if user swipes again before NTP fade
   // has finished.
   if (state_ != State::kWaitingForContentForNavigationEntryShown) {
+    TRACE_EVENT(
+        "browser,navigation",
+        "BackForwardTransitionAnimator::OnContentForNavigationEntryShown");
     return;
   }
-  // The embedder has finished cross-fading from the screenshot to the new
-  // content. Unregister `this` from the `RenderWidgetHost` to stop the
-  // `OnRenderWidgetHostDestroyed()` notification.
-  CHECK(new_render_widget_host_);
-  new_render_widget_host_->RemoveObserver(animation_manager_);
-  new_render_widget_host_ = nullptr;
+  if (!embedder_live_content_clone_) {
+    // The embedder has finished cross-fading from the screenshot to the new
+    // content. Unregister `this` from the `RenderWidgetHost` to stop the
+    // `OnRenderWidgetHostDestroyed()` notification.
+    CHECK(new_render_widget_host_);
+    new_render_widget_host_->RemoveObserver(animation_manager_);
+    new_render_widget_host_ = nullptr;
+  }
   AdvanceAndProcessState(State::kAnimationFinished);
 }
 
@@ -441,6 +537,8 @@ AnimationStage BackForwardTransitionAnimator::GetCurrentAnimationStage() {
   switch (state_) {
     case State::kDisplayingInvokeAnimation:
       return AnimationStage::kInvokeAnimation;
+    case State::kWaitingForContentForNavigationEntryShown:
+      return AnimationStage::kWaitingForEmbedderContentForCommittedEntry;
     case State::kAnimationFinished:
     case State::kAnimationAborted:
       return AnimationStage::kNone;
@@ -528,8 +626,6 @@ void BackForwardTransitionAnimator::OnRenderWidgetHostDestroyed(
   // The subscribed `RenderWidgetHost` is getting destroyed. We must cancel the
   // transition and reset everything. This can happen for a client redirect,
   // where Viz never activates a frame from the committed renderer.
-  CHECK_EQ(state_, State::kWaitingForNewRendererToDraw);
-  CHECK_EQ(navigation_state_, NavigationState::kCommitted);
   AbortAnimation(AnimationAbortReason::kRenderWidgetHostDestroyed);
 }
 
@@ -569,17 +665,26 @@ void BackForwardTransitionAnimator::OnRenderFrameMetadataChangedAfterActivation(
   // invoke animation, or the invoke animation has finished.
   CHECK(state_ == State::kDisplayingInvokeAnimation ||
         state_ == State::kWaitingForNewRendererToDraw)
-      << ToString(state_);
+      << StateToString(state_);
 
   CHECK(!viz_has_activated_first_frame_)
       << "OnRenderFrameMetadataChangedAfterActivation can only be called once.";
 
-  if (new_render_widget_host_->render_frame_metadata_provider()
-          ->LastRenderFrameMetadata()
-          .primary_main_frame_item_sequence_number !=
+  if (auto last_render_frame_metadata_sequence_number =
+          new_render_widget_host_->render_frame_metadata_provider()
+              ->LastRenderFrameMetadata()
+              .primary_main_frame_item_sequence_number;
+      last_render_frame_metadata_sequence_number !=
       primary_main_frame_navigation_entry_item_sequence_number_) {
     // We shouldn't dismiss the screenshot if the activated frame isn't what we
     // are expecting.
+    TRACE_EVENT("browser,navigation",
+                "BackForwardTransitionAnimator::"
+                "OnRenderFrameMetadataChangedAfterActivation",
+                "this.sequence_number",
+                primary_main_frame_navigation_entry_item_sequence_number_,
+                "LastRenderFrameMetadata.sequence_number",
+                last_render_frame_metadata_sequence_number);
     return;
   }
 
@@ -600,6 +705,9 @@ void BackForwardTransitionAnimator::OnRenderFrameMetadataChangedAfterActivation(
 // the BeforeUnload message to proceed (begin) the navigation.
 void BackForwardTransitionAnimator::DidStartNavigation(
     NavigationHandle* navigation_handle) {
+  TRACE_EVENT("browser,navigation",
+              "BackForwardTransitionAnimator::DidStartNavigation",
+              "navigation_id", navigation_handle->GetNavigationId());
   // We need to set this state here since for same-document navigations, the
   // commit message is sent before the animator starts tracking the navigation.
   if (is_starting_navigation_) {
@@ -632,6 +740,10 @@ void BackForwardTransitionAnimator::DidStartNavigation(
 
 void BackForwardTransitionAnimator::ReadyToCommitNavigation(
     NavigationHandle* navigation_handle) {
+  TRACE_EVENT("browser,navigation",
+              "BackForwardTransitionAnimator::ReadyToCommitNavigation",
+              "navigation_id", navigation_handle->GetNavigationId());
+
   CHECK(!navigation_handle->IsSameDocument());
 
   if (!tracked_request_ ||
@@ -680,6 +792,9 @@ void BackForwardTransitionAnimator::ReadyToCommitNavigation(
 // the subframe navigation commits.
 void BackForwardTransitionAnimator::DidFinishNavigation(
     NavigationHandle* navigation_handle) {
+  TRACE_EVENT("browser,navigation",
+              "BackForwardTransitionAnimator::DidFinishNavigation",
+              "navigation_id", navigation_handle->GetNavigationId());
   // If we haven't started tracking a navigation, or if `navigation_handle`
   // isn't what we tracked, or if this `navigation_handle` has committed, ignore
   // it.
@@ -719,7 +834,12 @@ void BackForwardTransitionAnimator::DidFinishNavigation(
   physics_model_.OnNavigationFinished(/*navigation_committed=*/false);
   // 204/205/Download, or the ongoing navigation is cancelled. We need
   // to animate the old page back.
-  //
+  if (old_surface_clone_) {
+    // We might already have cloned the old surface. Reset it since we don't
+    // need it.
+    old_surface_clone_->RemoveFromParent();
+    old_surface_clone_.reset();
+  }
   // TODO(crbug.com/41482488): We might need a better UX than
   // just display the cancel animation.
   AdvanceAndProcessState(State::kDisplayingCancelAnimation);
@@ -729,6 +849,10 @@ void BackForwardTransitionAnimator::OnDidNavigatePrimaryMainFramePreCommit(
     NavigationRequest* navigation_request,
     RenderFrameHostImpl* old_host,
     RenderFrameHostImpl* new_host) {
+  TRACE_EVENT(
+      "browser,navigation",
+      "BackForwardTransitionAnimator::OnDidNavigatePrimaryMainFramePreCommit");
+
   // If a navigation commits in the primary main frame while we are tracking the
   // subframe requests, abort the animation immediately.
   if (tracked_request_ && !tracked_request_->is_primary_main_frame) {
@@ -761,6 +885,12 @@ void BackForwardTransitionAnimator::OnDidNavigatePrimaryMainFramePreCommit(
           // tracking our gesture navigation. Ignore this committed navigation.
           return;
         }
+
+        // Resume the dialogs. When the transition starts we deferred the
+        // dialogs. Now the old page was unloaded and we need to resume the
+        // dialogs immediately so we don't accidentally defer the dialogs on the
+        // new page.
+        ResumeDialogs();
 
         // Before we display the crossfade animation to show the new page, we
         // need to check if the new page matches the origin of the screenshot.
@@ -835,7 +965,7 @@ void BackForwardTransitionAnimator::OnDidNavigatePrimaryMainFramePreCommit(
             navigation_state_ == NavigationState::kBeforeUnloadDispatched ||
             navigation_state_ == NavigationState::kCancelled ||
             navigation_state_ == NavigationState::kCancelledBeforeStart)
-          << ToString(navigation_state_);
+          << NavigationStateToString(navigation_state_);
 
       // A navigation finished while we are displaying the cancel animation.
       // For simplicity, destroy `this` and reset everything.
@@ -895,6 +1025,10 @@ void BackForwardTransitionAnimator::OnNavigationCancelledBeforeStart(
   if (!tracked_request_ ||
       tracked_request_->navigation_id != navigation_handle->GetNavigationId()) {
     // A unrelated request is cancelled before start.
+    TRACE_EVENT(
+        "browser,navigation",
+        "BackForwardTransitionAnimator::OnNavigationCancelledBeforeStart",
+        "navigation_id", navigation_handle->GetNavigationId());
     return;
   }
 
@@ -985,6 +1119,9 @@ void BackForwardTransitionAnimator::MaybeRecordIgnoredInput(
 
 void BackForwardTransitionAnimator::AbortAnimation(
     AnimationAbortReason abort_reason) {
+  TRACE_EVENT("browser,navigation",
+              "BackForwardTransitionAnimator::AbortAnimation", "abort_reason",
+              AnimationAbortReasonToString(abort_reason));
   base::UmaHistogramEnumeration(
       "Navigation.GestureTransition.AnimationAbortReason", abort_reason);
   AdvanceAndProcessState(State::kAnimationAborted);
@@ -999,6 +1136,10 @@ void BackForwardTransitionAnimator::OnFloatAnimated(
     const float& value,
     int target_property_id,
     gfx::KeyframeModel* keyframe_model) {
+  TRACE_EVENT(TRACE_DISABLED_BY_DEFAULT("navigation"),
+              "BackForwardTransitionAnimator::OnFloatAnimated", "value", value,
+              "property_id", target_property_id);
+
   TargetProperty property = static_cast<TargetProperty>(target_property_id);
   switch (property) {
     case TargetProperty::kScrim: {
@@ -1029,6 +1170,11 @@ void BackForwardTransitionAnimator::OnTransformAnimated(
     const gfx::TransformOperations& transform,
     int target_property_id,
     gfx::KeyframeModel* keyframe_model) {
+  TRACE_EVENT(TRACE_DISABLED_BY_DEFAULT("navigation"),
+              "BackForwardTransitionAnimator::OnTransformAnimated",
+              "property_id", target_property_id, "transform",
+              transform.Apply().ToString());
+
   TargetProperty property = static_cast<TargetProperty>(target_property_id);
   switch (property) {
     case TargetProperty::kFaviconPosition: {
@@ -1053,7 +1199,11 @@ void BackForwardTransitionAnimator::OnCancelAnimationDisplayed() {
     return;
   }
   effect_.RemoveAllKeyframeModels();
-  AdvanceAndProcessState(State::kAnimationFinished);
+  if (embedder_live_content_clone_) {
+    AdvanceAndProcessState(State::kWaitingForContentForNavigationEntryShown);
+  } else {
+    AdvanceAndProcessState(State::kAnimationFinished);
+  }
 }
 
 void BackForwardTransitionAnimator::OnInvokeAnimationDisplayed() {
@@ -1115,6 +1265,7 @@ bool BackForwardTransitionAnimator::CanAdvanceTo(State from, State to) {
              // The renderer acks the BeforeUnload message to proceed the
              // navigation, BEFORE the cancel animation finishes.
              to == State::kDisplayingInvokeAnimation ||
+             to == State::kWaitingForContentForNavigationEntryShown ||
              to == State::kAnimationAborted;
     case State::kAnimationFinished:
     case State::kAnimationAborted:
@@ -1123,7 +1274,7 @@ bool BackForwardTransitionAnimator::CanAdvanceTo(State from, State to) {
 }
 
 // static.
-std::string BackForwardTransitionAnimator::ToString(State state) {
+const char* BackForwardTransitionAnimator::StateToString(State state) {
   switch (state) {
     case State::kStarted:
       return "kStarted";
@@ -1148,7 +1299,8 @@ std::string BackForwardTransitionAnimator::ToString(State state) {
 }
 
 // static.
-std::string BackForwardTransitionAnimator::ToString(NavigationState state) {
+const char* BackForwardTransitionAnimator::NavigationStateToString(
+    NavigationState state) {
   switch (state) {
     case NavigationState::kNotStarted:
       return "kNotStarted";
@@ -1222,8 +1374,15 @@ void BackForwardTransitionAnimator::InitializeEffectForCrossfadeAnimation() {
 
 void BackForwardTransitionAnimator::AdvanceAndProcessState(State state) {
   CHECK(CanAdvanceTo(state_, state))
-      << "Cannot advance from " << ToString(state_) << " to "
-      << ToString(state);
+      << "Cannot advance from " << StateToString(state_) << " to "
+      << StateToString(state);
+  TRACE_EVENT("browser,navigation",
+              "BackForwardTransitionAnimator::AdvanceAndProcessState", "from",
+              StateToString(state_), "to", StateToString(state));
+  TRACE_EVENT("browser,navigation",
+              "BackForwardTransitionAnimator::AdvanceAndProcessState",
+              "navigation_state", NavigationStateToString(navigation_state_));
+
   auto previous_animation_stage = GetCurrentAnimationStage();
   state_ = state;
   if (previous_animation_stage != GetCurrentAnimationStage()) {
@@ -1235,33 +1394,51 @@ void BackForwardTransitionAnimator::AdvanceAndProcessState(State state) {
 void BackForwardTransitionAnimator::ProcessState() {
   switch (state_) {
     case State::kStarted: {
+      DeferDialogs();
       break;
       // `this` will be waiting for the `OnGestureProgressed` call.
     }
     case State::kDisplayingCancelAnimation: {
-      if (navigation_state_ == NavigationState::kNotStarted) {
-        // When the user lifts the finger and signals not to start the
-        // navigation.
-        physics_model_.SwitchSpringForReason(
-            SwitchSpringReason::kGestureCancelled);
-      } else if (navigation_state_ ==
-                 NavigationState::kBeforeUnloadDispatched) {
-        // Notify the physics model we need to animate the active page back to
-        // the center of the viewport because the browser has asked the renderer
-        // to ack the BeforeUnload message. The renderer may need to show a
-        // prompt to ask for the user input.
-        physics_model_.SwitchSpringForReason(
-            SwitchSpringReason::kBeforeUnloadDispatched);
-      } else if (navigation_state_ == NavigationState::kCancelledBeforeStart) {
-        // The user has interacted with the prompt to not start the navigation.
-        // We are waiting for the ongoing cancel animation to finish.
-      } else if (navigation_state_ == NavigationState::kCancelled) {
-        // When the ongoing navigaion is cancelled because the user hits stop or
-        // the navigation was replaced by another navigation,
-        // `OnDidFinishNavigation()` has already notified the physics model to
-        // switch to the cancel spring.
-      } else {
-        NOTREACHED_IN_MIGRATION() << ToString(navigation_state_);
+      switch (navigation_state_) {
+        case NavigationState::kNotStarted: {
+          // When the user lifts the finger and signals not to start the
+          // navigation.
+          physics_model_.SwitchSpringForReason(
+              SwitchSpringReason::kGestureCancelled);
+          ResumeDialogs();
+          break;
+        }
+        case NavigationState::kBeforeUnloadDispatched: {
+          // Notify the physics model we need to animate the active page back to
+          // the center of the viewport because the browser has asked the
+          // renderer to ack the BeforeUnload message. The renderer may need to
+          // show a prompt to ask for the user input.
+          physics_model_.SwitchSpringForReason(
+              SwitchSpringReason::kBeforeUnloadDispatched);
+          // We don't resume the TAB dialog if there is a BeforeUnload pending.
+          break;
+        }
+        case NavigationState::kCancelledBeforeStart: {
+          // The user has interacted with the prompt to not start the
+          // navigation. We are waiting for the ongoing cancel animation to
+          // finish.
+          ResumeDialogs();
+          break;
+        }
+        case NavigationState::kCancelled: {
+          // When the ongoing navigation is cancelled because the user hits stop
+          // or the navigation was replaced by another navigation,
+          // `OnDidFinishNavigation()` has already notified the physics model to
+          // switch to the cancel spring.
+          ResumeDialogs();
+          break;
+        }
+        case NavigationState::kBeforeUnloadAckedProceed:
+        case NavigationState::kStarted:
+        case NavigationState::kCommitted:
+          NOTREACHED_IN_MIGRATION()
+              << NavigationStateToString(navigation_state_);
+          break;
       }
       CHECK(animation_manager_->web_contents_view_android()
                 ->GetTopLevelNativeWindow());
@@ -1478,6 +1655,12 @@ bool BackForwardTransitionAnimator::StartNavigationAndTrackRequest() {
   CHECK(!tracked_request_);
   CHECK_EQ(navigation_state_, NavigationState::kNotStarted);
   TrackRequest(std::move(requests[0]));
+  CHECK(tracked_request_);
+  TRACE_EVENT("browser,navigation",
+              "BackForwardTransitionAnimator::StartNavigationAndTrackRequest",
+              "tracked_request", tracked_request_.value().navigation_id,
+              "is_primary_main_frame",
+              tracked_request_.value().is_primary_main_frame);
   return true;
 }
 
@@ -1560,8 +1743,8 @@ BackForwardTransitionAnimator::ComputeAnimationValues(
     values.screenshot_offset_px *= -1;
   }
 
-  CHECK_GE(values.progress, 0.f);
-  CHECK_LE(values.progress, 1.f);
+  CHECK(IsGreaterThanOrEqual(values.progress, 0.f));
+  CHECK(IsLessThanOrEqual(values.progress, 1.f));
 
   return values;
 }
@@ -1591,6 +1774,10 @@ void BackForwardTransitionAnimator::DeleteUIResource(
 
 bool BackForwardTransitionAnimator::SetLayerTransformationAndTickEffect(
     const PhysicsModel::Result& result) {
+  TRACE_EVENT(
+      TRACE_DISABLED_BY_DEFAULT("navigation"),
+      "BackForwardTransitionAnimator::SetLayerTransformationAndTickEffect");
+
   // Mirror for RTL if needed and swap the layers for forward navigations.
   ComputedAnimationValues values = ComputeAnimationValues(result);
 
@@ -1604,9 +1791,13 @@ bool BackForwardTransitionAnimator::SetLayerTransformationAndTickEffect(
       ->SetTransform(live_page_transform);
 
   if (old_surface_clone_) {
+    // TODO(https://crbug.com/371043197): Remove once it's fixed.
+    SCOPED_CRASH_KEY_STRING64("PredBack", "nav_state",
+                              NavigationStateToString(navigation_state_));
+    SCOPED_CRASH_KEY_STRING64("PredBack", "state", StateToString(state_));
     CHECK(navigation_state_ == NavigationState::kCommitted ||
           navigation_state_ == NavigationState::kStarted)
-        << ToString(navigation_state_);
+        << NavigationStateToString(navigation_state_);
     CHECK_EQ(state_, State::kDisplayingInvokeAnimation);
     old_surface_clone_->SetTransform(live_page_transform);
   } else if (embedder_live_content_clone_) {
@@ -1619,8 +1810,9 @@ bool BackForwardTransitionAnimator::SetLayerTransformationAndTickEffect(
 
 void BackForwardTransitionAnimator::MaybeCloneOldSurfaceLayer(
     RenderWidgetHostViewBase* old_main_frame_view) {
-  // The old View must be still alive (and its renderer).
-  CHECK(old_main_frame_view);
+  if (!old_main_frame_view) {
+    return;
+  }
 
   CHECK(!old_surface_clone_);
 
@@ -1727,6 +1919,9 @@ int BackForwardTransitionAnimator::GetViewportHeightPx() const {
 
 void BackForwardTransitionAnimator::StartInputSuppression(
     IgnoringInputReason ignoring_input_reason) {
+  TRACE_EVENT("browser,navigation",
+              "BackForwardTransitionAnimator::StartInputSuppression", "reason",
+              IgnoringInputReasonToString(ignoring_input_reason));
   CHECK(!ignore_input_scope_);
   ignoring_input_reason_ = ignoring_input_reason;
 
@@ -1967,6 +2162,37 @@ gfx::PointF BackForwardTransitionAnimator::CalculateRRectEndPx() const {
 int BackForwardTransitionAnimator::DipToPx(int dip) const {
   return gfx::ScaleToFlooredSize(gfx::Size(dip, dip), device_scale_factor_)
       .width();
+}
+
+void BackForwardTransitionAnimator::DeferDialogs() {
+  CHECK_EQ(deferred_dialog_token_,
+           ui::ModalDialogManagerBridge::kInvalidDialogToken);
+  auto* dialog_manager = animation_manager_->web_contents_view_android()
+                             ->GetNativeView()
+                             ->GetWindowAndroid()
+                             ->GetModalDialogManagerBridge();
+  // We don't always have a dialog manager (i.e., content_browsertests).
+  if (dialog_manager) {
+    deferred_dialog_token_ = dialog_manager->SuspendModalDialog(
+        ui::ModalDialogManagerBridge::ModalDialogType::kTab);
+  }
+}
+
+void BackForwardTransitionAnimator::ResumeDialogs() {
+  if (deferred_dialog_token_ ==
+      ui::ModalDialogManagerBridge::kInvalidDialogToken) {
+    return;
+  }
+  auto* dialog_manager = animation_manager_->web_contents_view_android()
+                             ->GetNativeView()
+                             ->GetWindowAndroid()
+                             ->GetModalDialogManagerBridge();
+  if (dialog_manager) {
+    dialog_manager->ResumeModalDialog(
+        ui::ModalDialogManagerBridge::ModalDialogType::kTab,
+        deferred_dialog_token_);
+  }
+  deferred_dialog_token_ = ui::ModalDialogManagerBridge::kInvalidDialogToken;
 }
 
 }  // namespace content

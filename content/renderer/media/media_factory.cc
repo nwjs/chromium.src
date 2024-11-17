@@ -184,8 +184,6 @@ void PostContextProviderToCallback(
             scoped_refptr<gpu::ClientSharedImageInterface>
                 shared_image_interface;
             bool use_shared_image = base::FeatureList::IsEnabled(
-                                        features::kSharedBitmapToSharedImage) &&
-                                    base::FeatureList::IsEnabled(
                                         media::kMediaSharedBitmapToSharedImage);
             if (is_gpu_composition_disabled && use_shared_image) {
               shared_image_interface =
@@ -499,11 +497,8 @@ std::unique_ptr<blink::WebMediaPlayer> MediaFactory::CreateMediaPlayer(
       std::move(audio_renderer_sink), std::move(media_task_runner),
       std::move(compositor_worker_task_runner),
       render_thread->compositor_task_runner(),
-      std::move(video_frame_compositor_task_runner),
-      base::BindRepeating(
-          &v8::Isolate::AdjustAmountOfExternalAllocatedMemory,
-          base::Unretained(web_frame->GetAgentGroupScheduler()->Isolate())),
-      initial_cdm, request_routing_token_cb_, media_observer,
+      std::move(video_frame_compositor_task_runner), initial_cdm,
+      request_routing_token_cb_, media_observer,
       enable_instant_source_buffer_gc, embedded_media_experience_enabled,
       std::move(metrics_provider),
       base::BindOnce(&blink::WebSurfaceLayerBridge::Create,
@@ -690,8 +685,7 @@ MediaFactory::CreateRendererFactorySelector(
 
     media::ObserveOverlayStateCB observe_overlay_state_cb = base::BindRepeating(
         &OverlayStateObserverImpl::Create,
-        base::UnsafeDanglingUntriaged(
-            render_thread->GetOverlayStateServiceProvider()));
+        base::RetainedRef(render_thread->GetOverlayStateServiceProvider()));
 
     factory_selector->AddFactory(
         RendererType::kMediaFoundation,

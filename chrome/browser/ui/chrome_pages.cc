@@ -652,6 +652,10 @@ void ShowAppManagementPage(Profile* profile,
   chrome::SettingsWindowManager::GetInstance()->ShowOSSettings(profile,
                                                                sub_page);
 }
+
+void ShowGraduationApp(Profile* profile) {
+  ShowSystemAppInternal(profile, ash::SystemWebAppType::GRADUATION);
+}
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if BUILDFLAG(IS_CHROMEOS)

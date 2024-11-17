@@ -16,7 +16,7 @@ import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.browser_ui.settings.CustomDividerFragment;
-import org.chromium.components.browser_ui.settings.SettingsPage;
+import org.chromium.components.browser_ui.settings.EmbeddableSettingsPage;
 import org.chromium.components.browser_ui.settings.SettingsUtils;
 import org.chromium.components.browser_ui.site_settings.SiteSettingsCategory.Type;
 import org.chromium.components.content_settings.ContentSettingValues;
@@ -31,7 +31,9 @@ import org.chromium.content_public.browser.BrowserContextHandle;
  * browser-wide.
  */
 public class SiteSettings extends BaseSiteSettingsFragment
-        implements SettingsPage, Preference.OnPreferenceClickListener, CustomDividerFragment {
+        implements EmbeddableSettingsPage,
+                Preference.OnPreferenceClickListener,
+                CustomDividerFragment {
     // The keys for each category shown on the Site Settings page
     // are defined in the SiteSettingsCategory. The only exception is the permission autorevocation
     // switch at the bottom of the page and its top divider.
@@ -203,6 +205,10 @@ public class SiteSettings extends BaseSiteSettingsFragment
         if (getSiteSettingsDelegate().shouldShowTrackingProtectionUI()) {
             p = findPreference(Type.TRACKING_PROTECTION);
             if (p != null) {
+                if (getSiteSettingsDelegate().shouldShowTrackingProtectionBrandedUI()) {
+                    p.setTitle(R.string.tracking_protection_settings_title);
+                    p.setIcon(SettingsUtils.getTintedIcon(getContext(), R.drawable.ic_eye_crossed));
+                }
                 p.setSummary(
                         ContentSettingsResources.getTrackingProtectionListSummary(
                                 getSiteSettingsDelegate()

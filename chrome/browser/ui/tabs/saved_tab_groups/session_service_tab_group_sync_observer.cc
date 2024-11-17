@@ -15,8 +15,8 @@
 #include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_sync_service_proxy.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
-#include "components/saved_tab_groups/features.h"
-#include "components/saved_tab_groups/types.h"
+#include "components/saved_tab_groups/public/features.h"
+#include "components/saved_tab_groups/public/types.h"
 #include "components/sessions/core/session_id.h"
 
 namespace tab_groups {
@@ -108,12 +108,12 @@ void SessionServiceTabGroupSyncObserver::OnTabGroupLocalIdChanged(
 
 void SessionServiceTabGroupSyncObserver::UpdateTabGroupSessionMetadata(
     const std::optional<LocalTabGroupID> local_id,
-    const std::optional<std::string> sync_id) {
+    std::optional<std::string> sync_id) {
   if (!local_id.has_value()) {
     return;
   }
 
-  CHECK(tab_strip_model_->group_model());
+  CHECK(tab_strip_model_->SupportsTabGroups());
   if (!tab_strip_model_->group_model()->ContainsTabGroup(local_id.value())) {
     return;
   }
@@ -130,7 +130,7 @@ void SessionServiceTabGroupSyncObserver::UpdateTabGroupSessionMetadata(
           ->visual_data();
 
   session_service->SetTabGroupMetadata(session_id_, local_id.value(),
-                                       visual_data, sync_id);
+                                       visual_data, std::move(sync_id));
 }
 
 }  // namespace tab_groups

@@ -13,6 +13,7 @@
 #include "ash/components/arc/arc_browser_context_keyed_service_factory_base.h"
 #include "ash/components/arc/arc_prefs.h"
 #include "ash/components/arc/session/arc_bridge_service.h"
+#include "ash/constants/ash_switches.h"
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -23,6 +24,7 @@
 #include "base/uuid.h"
 #include "base/values.h"
 #include "chrome/browser/ash/arc/enterprise/cert_store/cert_store_service.h"
+#include "chrome/browser/ash/arc/enterprise/cert_store/cert_store_service_factory.h"
 #include "chrome/browser/ash/arc/policy/arc_policy_util.h"
 #include "chrome/browser/ash/arc/policy/managed_configuration_variables.h"
 #include "chrome/browser/ash/arc/session/arc_session_manager.h"
@@ -57,6 +59,7 @@ constexpr char kPolicyRequiredKeyAlias[] = "alias";
 constexpr char kPolicyPrivateKeyAlias[] = "privateKeyAlias";
 constexpr char kPolicyPrivateKeyPackageNames[] = "packageNames";
 constexpr char kPolicyPlayStoreModeSupervised[] = "SUPERVISED";
+constexpr char kPolicyPlayStoreModeAllowList[] = "WHITELIST"; // nocheck
 
 // invert_bool_value: If the Chrome policy and the ARC policy with boolean value
 // have opposite semantics, set this to true so the bool is inverted before
@@ -310,6 +313,43 @@ void ReplaceManagedConfigurationVariables(const Profile* profile,
   }
 }
 
+void FilterApps(base::Value::Dict* arc_policy,
+                const std::unordered_set<std::string>& allowed_packages) {
+  base::Value::List* applications =
+      arc_policy->FindList(policy_util::kArcPolicyKeyApplications);
+
+  if (!applications) {
+    return;
+  }
+
+  applications->EraseIf([&allowed_packages](const base::Value& val) {
+    const base::Value::Dict& application = val.GetDict();
+    const std::string* package_name =
+        application.FindString(ArcPolicyBridge::kPackageName);
+    return package_name && !base::Contains(allowed_packages, *package_name);
+  });
+}
+
+void ConfigureRevenPolicies(base::Value::Dict* arc_policy) {
+  // The policy value is used to restrict the user from being able to
+  // toggle between different accounts in ARC++.
+  arc_policy->Set(policy_util::kArcPolicyKeyPlayStoreMode,
+                  kPolicyPlayStoreModeAllowList);
+
+  // Define a set of certified package names for Android VPN apps on Reven.
+  const std::unordered_set<std::string> allowed_packages = {
+      "com.paloaltonetworks.globalprotect",
+      "com.cisco.anyconnect.vpn.android.avf",
+      "zscaler.com.zschromeosapp",
+      "com.f5.edge.client_ics",
+      "com.netskope.netskopeclient",
+      "com.zimperium.zips",
+      "com.fortinet.forticlient_vpn",
+      "com.forcepoint.sslvpn"};
+
+  FilterApps(arc_policy, allowed_packages);
+}
+
 base::Value::Dict ParseArcPoliciesToDict(const policy::PolicyMap& policy_map) {
   base::Value::Dict filtered_policies;
   // It is safe to use `GetValueUnsafe()` because type checking is performed
@@ -416,6 +456,10 @@ void OverrideArcPolicies(base::Value::Dict& filtered_policies,
     // user from being able to toggle between different accounts in ARC++.
     filtered_policies.Set(policy_util::kArcPolicyKeyPlayStoreMode,
                           kPolicyPlayStoreModeSupervised);
+  }
+
+  if (ash::switches::IsRevenBranding()) {
+    ConfigureRevenPolicies(&filtered_policies);
   }
 }
 
@@ -705,7 +749,7 @@ std::string ArcPolicyBridge::GetCurrentJSONPolicies() const {
   const user_manager::User* const user =
       ash::ProfileHelper::Get()->GetUserByProfile(profile);
   const CertStoreService* cert_store_service =
-      CertStoreService::GetForBrowserContext(context_);
+      CertStoreServiceFactory::GetForBrowserContext(context_);
 
   return GetFilteredJSONPolicies(policy_service_, instance_guid_,
                                  user->IsAffiliated(), cert_store_service,

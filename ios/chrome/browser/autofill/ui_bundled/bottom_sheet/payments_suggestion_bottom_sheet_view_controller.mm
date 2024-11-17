@@ -53,6 +53,9 @@ CGFloat const kTitleLogoHeight = 32;
 
   // URL of the current page the bottom sheet is being displayed on.
   GURL _URL;
+
+  // YES if the primary button is active where actions are effective.
+  BOOL _primaryButtonActive;
 }
 
 // The payments controller handler used to open the payments options.
@@ -76,6 +79,7 @@ CGFloat const kTitleLogoHeight = 32;
     self.handler = handler;
     _URL = URL;
     self.disableBottomSheetOnExit = YES;
+    _primaryButtonActive = NO;
   }
   return self;
 }
@@ -128,6 +132,7 @@ CGFloat const kTitleLogoHeight = 32;
   [super viewDidAppear:animated];
   UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification,
                                   self.imageViewAccessibilityLabel);
+  [self.delegate paymentsBottomSheetViewDidAppear];
 }
 
 #if !defined(__IPHONE_17_0) || __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_17_0
@@ -166,6 +171,10 @@ CGFloat const kTitleLogoHeight = 32;
 
 - (void)dismiss {
   [self dismissViewControllerAnimated:NO completion:NULL];
+}
+
+- (void)activatePrimaryButton {
+  _primaryButtonActive = YES;
 }
 
 #pragma mark - UITableViewDelegate
@@ -232,6 +241,12 @@ CGFloat const kTitleLogoHeight = 32;
 #pragma mark - ConfirmationAlertActionHandler
 
 - (void)confirmationAlertPrimaryAction {
+  [self.delegate didTapOnPrimaryButton];
+
+  if (!_primaryButtonActive) {
+    return;
+  }
+
   self.disableBottomSheetOnExit = NO;
 
   base::RecordAction(
@@ -396,14 +411,9 @@ CGFloat const kTitleLogoHeight = 32;
 
   // If we have the potential presence of a virtual card, the textLabel on its
   // own is no longer a unique identifier, so we include the description.
-  if (base::FeatureList::IsEnabled(
-          autofill::features::kAutofillEnableVirtualCards)) {
-    cell.accessibilityIdentifier =
-        [NSString stringWithFormat:@"%@ %@", cell.textLabel.text,
-                                   [self descriptionAtRow:indexPath.row]];
-  } else {
-    cell.accessibilityIdentifier = cell.textLabel.text;
-  }
+  cell.accessibilityIdentifier =
+      [NSString stringWithFormat:@"%@ %@", cell.textLabel.text,
+                                 [self descriptionAtRow:indexPath.row]];
 
   cell.separatorInset = [self separatorInsetForTableViewWidth:tableViewWidth
                                                   atIndexPath:indexPath];

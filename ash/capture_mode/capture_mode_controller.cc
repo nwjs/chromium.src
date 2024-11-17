@@ -4,6 +4,7 @@
 
 #include "ash/capture_mode/capture_mode_controller.h"
 
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -28,6 +29,8 @@
 #include "ash/public/cpp/notification_utils.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/root_window_controller.h"
+#include "ash/scanner/scanner_action_view_model.h"
+#include "ash/scanner/scanner_controller.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
@@ -45,6 +48,7 @@
 #include "base/location.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/notreached.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/current_thread.h"
@@ -66,6 +70,7 @@
 #include "ui/compositor/layer.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/codec/jpeg_codec.h"
+#include "ui/gfx/vector_icon_types.h"
 #include "ui/message_center/message_center.h"
 #include "ui/message_center/public/cpp/notification.h"
 #include "ui/message_center/public/cpp/notification_delegate.h"
@@ -484,6 +489,23 @@ void MaybeUnlockCursor(bool was_cursor_originally_blocked) {
   }
 }
 
+// Given a `CaptureModeEntryType`, returns the `BehaviorType` associated with
+// it, or default behavior if none exists.
+BehaviorType ToBehaviorType(CaptureModeEntryType entry_type) {
+  switch (entry_type) {
+    case CaptureModeEntryType::kProjector:
+      return BehaviorType::kProjector;
+    case CaptureModeEntryType::kGameDashboard:
+      CHECK(features::IsGameDashboardEnabled());
+      return BehaviorType::kGameDashboard;
+    case CaptureModeEntryType::kSunfish:
+      CHECK(features::IsSunfishFeatureEnabled());
+      return BehaviorType::kSunfish;
+    default:
+      return BehaviorType::kDefault;
+  }
+}
+
 }  // namespace
 
 CaptureModeController::CaptureModeController(
@@ -604,6 +626,18 @@ bool CaptureModeController::IsAudioRecordingInProgress() const {
 
 bool CaptureModeController::IsShowingCameraPreview() const {
   return !!camera_controller_->camera_preview_widget();
+}
+
+bool CaptureModeController::SupportsBehaviorChange(
+    CaptureModeEntryType new_entry_type) const {
+  // If no active session is running, we always support a new behavior type.
+  if (!IsActive()) {
+    return true;
+  }
+  // We only allow switching between sunfish and non-sunfish behaviors.
+  return capture_mode_session_->active_behavior()->behavior_type() ==
+             BehaviorType::kSunfish ||
+         new_entry_type == CaptureModeEntryType::kSunfish;
 }
 
 void CaptureModeController::SetSource(CaptureModeSource source) {
@@ -733,6 +767,7 @@ bool CaptureModeController::CanShowUserNudge() const {
     case user_manager::UserType::kPublicAccount:
     case user_manager::UserType::kKioskApp:
     case user_manager::UserType::kWebKioskApp:
+    case user_manager::UserType::kKioskIWA:
       return false;
   }
 
@@ -1213,8 +1248,25 @@ void CaptureModeController::StartInternal(
 
   education_controller_->CloseAllEducationNudgesAndTutorials();
 
-  if (capture_mode_session_ || pending_dlp_check_) {
+  if (pending_dlp_check_) {
     return;
+  }
+
+  if (capture_mode_session_) {
+    if (capture_mode_session_->is_shutting_down()) {
+      return;
+    }
+
+    // If the active behavior type has not changed, no need to shutdown and
+    // restart.
+    if (capture_mode_session_->active_behavior()->behavior_type() ==
+        ToBehaviorType(entry_type)) {
+      return;
+    }
+
+    // Else if the behavior type has changed, shut down and restart with the new
+    // behavior type.
+    Stop();
   }
 
   if (!delegate_->IsCaptureAllowedByPolicy()) {
@@ -1643,8 +1695,17 @@ void CaptureModeController::OnImageCapturedForSearch(
     return;
   }
   MaybeUnlockCursor(was_cursor_originally_blocked);
-  // TODO(b/356878705): Send the image data to the backend. This currently shows
-  // the results panel immediately for debugging purposes.
+
+  if (auto* scanner_controller = Shell::Get()->scanner_controller()) {
+    scanner_controller->FetchActionsForImage(
+        jpeg_bytes,
+        base::BindOnce(&CaptureModeController::OnScannerActionsFetched,
+                       weak_ptr_factory_.GetWeakPtr()));
+  }
+
+  // TODO(b/356878705): This currently shows the results panel immediately for
+  // debugging purposes. After the backend interface is implemented, we might
+  // want to wait for the backend response before showing the results panel.
   const std::unique_ptr<SkBitmap> bitmap =
       gfx::JPEGCodec::Decode(jpeg_bytes->data(), jpeg_bytes->size());
   const gfx::ImageSkia image = gfx::ImageSkia::CreateFrom1xBitmap(*bitmap);
@@ -1652,6 +1713,20 @@ void CaptureModeController::OnImageCapturedForSearch(
 
   if (on_image_captured_for_search_callback_for_test_) {
     std::move(on_image_captured_for_search_callback_for_test_).Run();
+  }
+}
+
+void CaptureModeController::OnScannerActionsFetched(
+    std::vector<ScannerActionViewModel> scanner_actions) {
+  for (ScannerActionViewModel& action : scanner_actions) {
+    std::u16string text = action.GetText();
+    const gfx::VectorIcon& icon = action.GetIcon();
+    // TODO(b/369470078): Replace the placeholder action finished callback with
+    // a callback that closes the capture mode session.
+    capture_mode_util::AddActionButton(
+        std::move(action).ToCallback(
+            /*action_finished_callback=*/base::DoNothing()),
+        std::move(text), &icon);
   }
 }
 
@@ -2208,26 +2283,18 @@ void CaptureModeController::OnDlpRestrictionCheckedAtSessionInit(
     return;
   }
 
-  BehaviorType behavior_type = BehaviorType::kDefault;
-
   // Before we start the session, if video recording is in progress, we need to
-  // set the current type to image, as we can't have more than one recording at
-  // a time. The video toggle button in the capture mode bar will be disabled.
+  // set the current type to image (except if the new behavior type is sunfish),
+  // as we can't have more than one recording at a time. The video toggle button
+  // in the capture mode bar will be disabled.
   if (!can_start_new_recording()) {
     SetType(CaptureModeType::kImage);
   } else if (entry_type == CaptureModeEntryType::kProjector) {
     CHECK(!delegate_->IsAudioCaptureDisabledByPolicy())
         << "A projector session should not be allowed to begin if audio "
            "capture is disabled by policy.";
-
-    behavior_type = BehaviorType::kProjector;
-  } else if (entry_type == CaptureModeEntryType::kGameDashboard) {
-    CHECK(features::IsGameDashboardEnabled());
-    behavior_type = BehaviorType::kGameDashboard;
-  } else if (entry_type == CaptureModeEntryType::kSunfish) {
-    DCHECK(features::IsSunfishFeatureEnabled());
-    behavior_type = BehaviorType::kSunfish;
   }
+  const BehaviorType behavior_type = ToBehaviorType(entry_type);
 
   RecordCaptureModeEntryType(entry_type);
   if (ShouldClearCaptureRegion(behavior_type)) {

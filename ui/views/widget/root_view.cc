@@ -21,6 +21,7 @@
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom-shared.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/base/ui_base_switches_util.h"
 #include "ui/compositor/layer.h"
 #include "ui/events/event.h"
@@ -60,36 +61,6 @@ class MouseEnterExitEvent : public ui::MouseEvent {
   std::unique_ptr<ui::Event> Clone() const override {
     return std::make_unique<MouseEnterExitEvent>(*this);
   }
-};
-
-// TODO(crbug.com/40821061): This class is for debug purpose only.
-// Remove it after resolving the issue.
-class DanglingMouseMoveHandlerOnViewDestroyingChecker
-    : public views::ViewObserver {
- public:
-  explicit DanglingMouseMoveHandlerOnViewDestroyingChecker(
-      const raw_ptr<views::View, AcrossTasksDanglingUntriaged>&
-          mouse_move_handler)
-      : mouse_move_handler_(mouse_move_handler) {
-    scoped_observation.Observe(mouse_move_handler_);
-  }
-
-  // views::ViewObserver:
-  void OnViewIsDeleting(views::View* view) override {
-    // `mouse_move_handler_` should be nulled before `view` dies. Otherwise
-    // `mouse_move_handler_` will become a dangling pointer.
-    CHECK(!mouse_move_handler_);
-    scoped_observation.Reset();
-  }
-
- private:
-  base::ScopedObservation<views::View, views::ViewObserver> scoped_observation{
-      this};
-  // RAW_PTR_EXCLUSION: Avoid turning this into a `raw_ref<raw_ptr<>>`. The
-  // current `raw_ptr&` setup is intentional and used to observe the pointer
-  // without counting as a live reference to the underlying memory.
-  RAW_PTR_EXCLUSION const raw_ptr<views::View, AcrossTasksDanglingUntriaged>&
-      mouse_move_handler_;
 };
 
 }  // namespace
@@ -213,7 +184,7 @@ class PreEventDispatchHandler : public ui::EventHandler {
         location.SetToMax(parent_bounds.origin());
         location.SetToMin(parent_bounds.bottom_right());
       }
-      v->ShowContextMenu(location, ui::MENU_SOURCE_KEYBOARD);
+      v->ShowContextMenu(location, ui::mojom::MenuSourceType::kKeyboard);
       event->StopPropagation();
     }
 #endif
@@ -265,7 +236,8 @@ class PostEventDispatchHandler : public ui::EventHandler {
          event->type() == ui::EventType::kGestureTwoFingerTap)) {
       gfx::Point screen_location(location);
       View::ConvertPointToScreen(target, &screen_location);
-      target->ShowContextMenu(screen_location, ui::MENU_SOURCE_TOUCH);
+      target->ShowContextMenu(screen_location,
+                              ui::mojom::MenuSourceType::kTouch);
       event->StopPropagation();
     }
   }
@@ -735,16 +707,21 @@ void RootView::ViewHierarchyChanged(
   widget_->ViewHierarchyChanged(details);
 
   if (!details.is_add && !details.move_view) {
-    if (!explicit_mouse_handler_ && mouse_pressed_handler_ == details.child)
-      mouse_pressed_handler_ = nullptr;
-    if (mouse_move_handler_ == details.child)
+    if (mouse_pressed_handler_ == details.child) {
+      SetMouseHandler(nullptr);
+    }
+    if (mouse_move_handler_ == details.child) {
       mouse_move_handler_ = nullptr;
-    if (gesture_handler_ == details.child)
+    }
+    if (gesture_handler_ == details.child) {
       gesture_handler_ = nullptr;
-    if (event_dispatch_target_ == details.child)
+    }
+    if (event_dispatch_target_ == details.child) {
       event_dispatch_target_ = nullptr;
-    if (old_dispatch_target_ == details.child)
+    }
+    if (old_dispatch_target_ == details.child) {
       old_dispatch_target_ = nullptr;
+    }
   }
 }
 
@@ -847,8 +824,6 @@ void RootView::HandleMouseEnteredOrMoved(const ui::MouseEvent& event) {
       mouse_move_handler_ = v;
       // TODO(crbug.com/40821061): This is for debug purpose only.
       // Remove it after resolving the issue.
-      DanglingMouseMoveHandlerOnViewDestroyingChecker
-          mouse_move_handler_dangling_checker(mouse_move_handler_);
       if (!mouse_move_handler_->GetNotifyEnterExitOnChild() ||
           !mouse_move_handler_->Contains(old_handler)) {
         MouseEnterExitEvent entered(event, ui::EventType::kMouseEntered);

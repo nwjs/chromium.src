@@ -29,6 +29,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
+#include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/color/color_provider_manager.h"
 #include "ui/compositor/compositor.h"
@@ -489,7 +490,7 @@ void Widget::Init(InitParams params) {
   // Copy the elements of params that will be used after it is moved.
   const InitParams::Type type = params.type;
   const gfx::Rect bounds = params.bounds;
-  const ui::WindowShowState show_state = params.show_state;
+  const ui::mojom::WindowShowState show_state = params.show_state;
   WidgetDelegate* delegate = params.delegate;
   bool should_set_initial_bounds = true;
 #if BUILDFLAG(IS_CHROMEOS)
@@ -527,12 +528,12 @@ void Widget::Init(InitParams params) {
     // views won't have a dirty Layout state, so won't do any work.
     root_view_->LayoutImmediately();
 
-    if (show_state == ui::SHOW_STATE_MAXIMIZED) {
+    if (show_state == ui::mojom::WindowShowState::kMaximized) {
       Maximize();
-    } else if (show_state == ui::SHOW_STATE_MINIMIZED) {
+    } else if (show_state == ui::mojom::WindowShowState::kMinimized) {
       Minimize();
-      saved_show_state_ = ui::SHOW_STATE_MINIMIZED;
-    } else if (show_state == ui::SHOW_STATE_FULLSCREEN) {
+      saved_show_state_ = ui::mojom::WindowShowState::kMinimized;
+    } else if (show_state == ui::mojom::WindowShowState::kFullscreen) {
       SetFullscreen(true);
     }
 
@@ -644,8 +645,8 @@ void Widget::NotifyNativeViewHierarchyChanged() {
 }
 
 void Widget::NotifyWillRemoveView(View* view) {
-  for (WidgetRemovalsObserver& observer : removals_observers_)
-    observer.OnWillRemoveView(this, view);
+  removals_observers_.Notify(&WidgetRemovalsObserver::OnWillRemoveView, this,
+                             view);
 }
 
 // Converted methods (see header) ----------------------------------------------
@@ -850,8 +851,7 @@ void Widget::CloseWithReason(ClosedReason closed_reason, bool force) {
   SaveWindowPlacement();
   ClearFocusFromWidget();
 
-  for (WidgetObserver& observer : observers_)
-    observer.OnWidgetClosing(this);
+  observers_.Notify(&WidgetObserver::OnWidgetClosing, this);
 
   internal::AnyWidgetObserverSingleton::GetInstance()->OnAnyWidgetClosing(this);
 
@@ -871,8 +871,7 @@ void Widget::CloseNow() {
   // a one-way and can't be undone.
   widget_closed_ = true;
 
-  for (WidgetObserver& observer : observers_)
-    observer.OnWidgetClosing(this);
+  observers_.Notify(&WidgetObserver::OnWidgetClosing, this);
   internal::AnyWidgetObserverSingleton::GetInstance()->OnAnyWidgetClosing(this);
 
   DCHECK(native_widget_initialized_) << "Native widget is never initialized.";
@@ -892,15 +891,17 @@ void Widget::Show() {
   const ui::Layer* layer = GetLayer();
   TRACE_EVENT1("views", "Widget::Show", "layer",
                layer ? layer->name() : "none");
-  ui::WindowShowState preferred_show_state =
-      CanActivate() ? ui::SHOW_STATE_NORMAL : ui::SHOW_STATE_INACTIVE;
+  ui::mojom::WindowShowState preferred_show_state =
+      CanActivate() ? ui::mojom::WindowShowState::kNormal
+                    : ui::mojom::WindowShowState::kInactive;
   if (non_client_view_) {
     // While initializing, the kiosk mode will go to full screen before the
     // widget gets shown. In that case we stay in full screen mode, regardless
     // of the |saved_show_state_| member.
-    if (saved_show_state_ == ui::SHOW_STATE_MAXIMIZED &&
+    if (saved_show_state_ == ui::mojom::WindowShowState::kMaximized &&
         !initial_restored_bounds_.IsEmpty() && !IsFullscreen()) {
-      native_widget_->Show(ui::SHOW_STATE_MAXIMIZED, initial_restored_bounds_);
+      native_widget_->Show(ui::mojom::WindowShowState::kMaximized,
+                           initial_restored_bounds_);
     } else {
       native_widget_->Show(saved_show_state_, gfx::Rect());
     }
@@ -925,16 +926,16 @@ void Widget::Hide() {
 void Widget::ShowInactive() {
   if (!native_widget_)
     return;
-  // If this gets called with saved_show_state_ == ui::SHOW_STATE_MAXIMIZED,
-  // call SetBounds()with the restored bounds to set the correct size. This
-  // normally should not happen, but if it does we should avoid showing unsized
-  // windows.
-  if (saved_show_state_ == ui::SHOW_STATE_MAXIMIZED &&
+  // If this gets called with saved_show_state_ ==
+  // ui::mojom::WindowShowState::kMaximized, call SetBounds()with the restored
+  // bounds to set the correct size. This normally should not happen, but if it
+  // does we should avoid showing unsized windows.
+  if (saved_show_state_ == ui::mojom::WindowShowState::kMaximized &&
       !initial_restored_bounds_.IsEmpty()) {
     SetBounds(initial_restored_bounds_);
-    saved_show_state_ = ui::SHOW_STATE_NORMAL;
+    saved_show_state_ = ui::mojom::WindowShowState::kNormal;
   }
-  native_widget_->Show(ui::SHOW_STATE_INACTIVE, gfx::Rect());
+  native_widget_->Show(ui::mojom::WindowShowState::kInactive, gfx::Rect());
 
   HandleShowRequested();
 }
@@ -1148,8 +1149,7 @@ void Widget::RunShellDrag(View* view,
   dragged_view_ = view;
   OnDragWillStart();
 
-  for (WidgetObserver& observer : observers_)
-    observer.OnWidgetDragWillStart(this);
+  observers_.Notify(&WidgetObserver::OnWidgetDragWillStart, this);
 
   if (view && view->drag_controller()) {
     view->drag_controller()->OnWillStartDragForView(view);
@@ -1177,8 +1177,7 @@ void Widget::RunShellDrag(View* view,
   }
   OnDragComplete();
 
-  for (WidgetObserver& observer : observers_)
-    observer.OnWidgetDragComplete(this);
+  observers_.Notify(&WidgetObserver::OnWidgetDragComplete, this);
 }
 
 void Widget::CancelShellDrag(View* view) {
@@ -1305,8 +1304,7 @@ FocusTraversable* Widget::GetFocusTraversable() {
 void Widget::ThemeChanged() {
   root_view_->ThemeChanged();
 
-  for (WidgetObserver& observer : observers_)
-    observer.OnWidgetThemeChanged(this);
+  observers_.Notify(&WidgetObserver::OnWidgetThemeChanged, this);
 
   NotifyColorProviderChanged();
 }
@@ -1462,9 +1460,7 @@ void Widget::OnSizeConstraintsChanged() {
     non_client_view_->SizeConstraintsChanged();
   }
 
-  for (WidgetObserver& observer : observers_) {
-    observer.OnWidgetSizeConstraintsChanged(this);
-  }
+  observers_.Notify(&WidgetObserver::OnWidgetSizeConstraintsChanged, this);
 }
 
 void Widget::OnOwnerClosing() {}
@@ -1651,17 +1647,15 @@ bool Widget::OnNativeWidgetActivationChanged(bool active) {
   if (!active && native_widget_initialized_)
     SaveWindowPlacement();
 
-  for (WidgetObserver& observer : observers_)
-    observer.OnWidgetActivationChanged(this, active);
+  observers_.Notify(&WidgetObserver::OnWidgetActivationChanged, this, active);
 
   if (active) {
     base::AutoReset<bool> is_traversing_widget_tree(&is_traversing_widget_tree_,
                                                     true);
     Widget* root = nullptr;
     for (Widget* widget = this; widget; widget = widget->parent()) {
-      for (WidgetObserver& observer : widget->observers_) {
-        observer.OnWidgetTreeActivated(widget, this);
-      }
+      widget->observers_.Notify(&WidgetObserver::OnWidgetTreeActivated, widget,
+                                this);
       root = widget;
     }
 #if BUILDFLAG(IS_WIN)
@@ -1724,8 +1718,7 @@ void Widget::OnNativeWidgetVisibilityChanged(bool visible) {
   View* root = GetRootView();
   if (root)
     root->PropagateVisibilityNotifications(root, visible);
-  for (WidgetObserver& observer : observers_)
-    observer.OnWidgetVisibilityChanged(this, visible);
+  observers_.Notify(&WidgetObserver::OnWidgetVisibilityChanged, this, visible);
   if (GetCompositor() && root && root->layer())
     root->layer()->SetVisible(visible);
 }
@@ -1738,8 +1731,7 @@ void Widget::OnNativeWidgetCreated() {
   DCHECK(widget_delegate_);
   native_widget_->InitModalType(widget_delegate_->GetModalType());
 
-  for (WidgetObserver& observer : observers_)
-    observer.OnWidgetCreated(this);
+  observers_.Notify(&WidgetObserver::OnWidgetCreated, this);
 }
 
 void Widget::OnNativeWidgetDestroying() {
@@ -1776,8 +1768,8 @@ void Widget::OnNativeWidgetMove() {
     widget_delegate_->OnWidgetMove();
   NotifyCaretBoundsChanged(GetInputMethod());
 
-  for (WidgetObserver& observer : observers_)
-    observer.OnWidgetBoundsChanged(this, GetWindowBoundsInScreen());
+  observers_.Notify(&WidgetObserver::OnWidgetBoundsChanged, this,
+                    GetWindowBoundsInScreen());
 }
 
 void Widget::OnNativeWidgetSizeChanged(const gfx::Size& new_size) {
@@ -1792,8 +1784,8 @@ void Widget::OnNativeWidgetSizeChanged(const gfx::Size& new_size) {
 
   widget_delegate_->OnWidgetResize();
 
-  for (WidgetObserver& observer : observers_)
-    observer.OnWidgetBoundsChanged(this, GetWindowBoundsInScreen());
+  observers_.Notify(&WidgetObserver::OnWidgetBoundsChanged, this,
+                    GetWindowBoundsInScreen());
 }
 
 void Widget::OnNativeWidgetWorkspaceChanged() {}
@@ -1801,9 +1793,7 @@ void Widget::OnNativeWidgetWorkspaceChanged() {}
 void Widget::OnNativeWidgetWindowShowStateChanged() {
   SaveWindowPlacementIfInitialized();
 
-  for (WidgetObserver& observer : observers_) {
-    observer.OnWidgetShowStateChanged(this);
-  }
+  observers_.Notify(&WidgetObserver::OnWidgetShowStateChanged, this);
 }
 
 void Widget::OnNativeWidgetBeginUserBoundsChange() {
@@ -2013,13 +2003,14 @@ const Widget* Widget::AsWidget() const {
   return this;
 }
 
-bool Widget::SetInitialFocus(ui::WindowShowState show_state) {
+bool Widget::SetInitialFocus(ui::mojom::WindowShowState show_state) {
   FocusManager* focus_manager = GetFocusManager();
   if (!focus_manager || !widget_delegate_)
     return false;
   View* v = widget_delegate_->GetInitiallyFocusedView();
-  if (!focus_on_creation_ || show_state == ui::SHOW_STATE_INACTIVE ||
-      show_state == ui::SHOW_STATE_MINIMIZED) {
+  if (!focus_on_creation_ ||
+      show_state == ui::mojom::WindowShowState::kInactive ||
+      show_state == ui::mojom::WindowShowState::kMinimized) {
     // If not focusing the window now, tell the focus manager which view to
     // focus when the window is restored.
     if (v)
@@ -2242,7 +2233,7 @@ void Widget::SaveWindowPlacement() {
   if (!widget_delegate_ || !widget_delegate_->ShouldSaveWindowPlacement() ||
       !native_widget_)
     return;
-  ui::WindowShowState show_state = ui::SHOW_STATE_NORMAL;
+  ui::mojom::WindowShowState show_state = ui::mojom::WindowShowState::kNormal;
   gfx::Rect bounds;
   native_widget_->GetWindowPlacement(&bounds, &show_state);
   widget_delegate_->SaveWindowPlacement(bounds, show_state);
@@ -2259,7 +2250,7 @@ void Widget::SetInitialBounds(const gfx::Rect& bounds) {
 
   gfx::Rect saved_bounds;
   if (GetSavedWindowPlacement(&saved_bounds, &saved_show_state_)) {
-    if (saved_show_state_ == ui::SHOW_STATE_MAXIMIZED) {
+    if (saved_show_state_ == ui::mojom::WindowShowState::kMaximized) {
       // If we're going to maximize, wait until Show is invoked to set the
       // bounds. That way we avoid a noticeable resize.
       initial_restored_bounds_ = saved_bounds;
@@ -2333,7 +2324,7 @@ void Widget::SetParent(Widget* parent) {
 }
 
 bool Widget::GetSavedWindowPlacement(gfx::Rect* bounds,
-                                     ui::WindowShowState* show_state) {
+                                     ui::mojom::WindowShowState* show_state) {
   // First we obtain the window's saved show-style and store it. We need to do
   // this here, rather than in Show() because by the time Show() is called,
   // the window's size will have been reset (below) and the saved maximized
@@ -2395,9 +2386,7 @@ void Widget::HandleWidgetDestroying() {
   if (GetFocusManager() && root_view_) {
     GetFocusManager()->ViewRemoved(root_view_.get());
   }
-  for (WidgetObserver& observer : observers_) {
-    observer.OnWidgetDestroying(this);
-  }
+  observers_.Notify(&WidgetObserver::OnWidgetDestroying, this);
   if (non_client_view_) {
     non_client_view_->WindowClosing();
   }
@@ -2410,8 +2399,8 @@ void Widget::HandleWidgetDestroyed() {
   if (native_widget_destroyed_) {
     return;
   }
-  for (WidgetObserver& observer : observers_)
-    observer.OnWidgetDestroyed(this);
+
+  observers_.Notify(&WidgetObserver::OnWidgetDestroyed, this);
 
   native_widget_destroyed_ = true;
   auto weak_ptr = GetWeakPtr();

@@ -26,7 +26,9 @@
 #import "components/autofill/ios/browser/autofill_driver_ios.h"
 #import "components/autofill/ios/browser/autofill_driver_ios_factory.h"
 #import "components/autofill/ios/browser/autofill_java_script_feature.h"
+#import "components/autofill/ios/browser/autofill_util.h"
 #import "components/autofill/ios/browser/mock_password_autofill_agent_delegate.h"
+#import "components/autofill/ios/browser/new_frame_catcher.h"
 #import "components/autofill/ios/browser/test_autofill_manager_injector.h"
 #import "components/autofill/ios/form_util/autofill_test_with_web_state.h"
 #import "components/autofill/ios/form_util/child_frame_registrar.h"
@@ -44,6 +46,7 @@
 #import "testing/gtest/include/gtest/gtest.h"
 #import "url/gurl.h"
 
+using autofill::test::NewFrameCatcher;
 using base::test::ios::kWaitForJSCompletionTimeout;
 using net::test_server::EmbeddedTestServer;
 using ::testing::AllOf;
@@ -394,29 +397,6 @@ class TestAutofillManager : public BrowserAutofillManager {
       {AutofillManagerEvent::kTextFieldDidChange}};
 };
 
-// Catcher that captures the latest new frame reported by `manager`.
-class NewFrameCatcher : public web::WebFramesManager::Observer {
- public:
-  explicit NewFrameCatcher(web::WebFramesManager* manager) {
-    scoped_observer_.Observe(manager);
-  }
-
-  // Returns the latest new frame that was observed. Returns nullptr if nothing
-  // was seen.
-  web::WebFrame* latest_new_frame() { return latest_new_frame_; }
-
- private:
-  void WebFrameBecameAvailable(web::WebFramesManager* web_frames_manager,
-                               web::WebFrame* web_frame) override {
-    latest_new_frame_ = web_frame;
-  }
-
-  web::WebFrame* latest_new_frame_ = nullptr;
-  base::ScopedObservation<web::WebFramesManager,
-                          web::WebFramesManager::Observer>
-      scoped_observer_{this};
-};
-
 // A mock child frame registrar observer.
 class MockRegistrarObserver : public autofill::ChildFrameRegistrarObserver {
  public:
@@ -525,8 +505,7 @@ class AutofillAcrossIframesTest : public AutofillTestWithWebState {
   }
 
   web::WebFramesManager* web_frames_manager() {
-    return autofill::FormUtilJavaScriptFeature::GetInstance()
-        ->GetWebFramesManager(web_state());
+    return GetWebFramesManagerForAutofill(web_state());
   }
 
   autofill::ChildFrameRegistrar* registrar() {

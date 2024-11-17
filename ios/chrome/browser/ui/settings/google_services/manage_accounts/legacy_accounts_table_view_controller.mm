@@ -53,9 +53,9 @@
 #import "ios/chrome/browser/ui/authentication/signin/signin_constants.h"
 #import "ios/chrome/browser/ui/authentication/signout_action_sheet/signout_action_sheet_coordinator.h"
 #import "ios/chrome/browser/ui/settings/cells/settings_image_detail_text_item.h"
-#import "ios/chrome/browser/ui/settings/google_services/manage_accounts/accounts_model_identity_data_source.h"
-#import "ios/chrome/browser/ui/settings/google_services/manage_accounts/accounts_table_view_controller_constants.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_accounts/identity_view_item.h"
+#import "ios/chrome/browser/ui/settings/google_services/manage_accounts/manage_accounts_model_identity_data_source.h"
+#import "ios/chrome/browser/ui/settings/google_services/manage_accounts/manage_accounts_table_view_controller_constants.h"
 #import "ios/chrome/browser/ui/settings/settings_root_view_controlling.h"
 #import "ios/chrome/browser/ui/settings/sync/sync_encryption_passphrase_table_view_controller.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
@@ -127,9 +127,9 @@ constexpr CGFloat kErrorSymbolSize = 22.;
   // ApplicationCommands handler.
   id<ApplicationCommands> _applicationHandler;
 
-  // If YES, AccountsTableViewController should not dismiss itself only for a
-  // sign-out reason. The parent coordinator is responsible to dismiss this
-  // coordinator when a sign-out happens.
+  // If YES, ManageAccountsTableViewController should not dismiss itself only
+  // for a sign-out reason. The parent coordinator is responsible to dismiss
+  // this coordinator when a sign-out happens.
   BOOL _signoutDismissalByParentCoordinator;
 }
 
@@ -162,7 +162,7 @@ constexpr CGFloat kErrorSymbolSize = 22.;
     signoutDismissalByParentCoordinator:
         (BOOL)signoutDismissalByParentCoordinator {
   DCHECK(browser);
-  DCHECK(!browser->GetBrowserState()->IsOffTheRecord());
+  DCHECK(!browser->GetProfile()->IsOffTheRecord());
 
   self = [super initWithStyle:ChromeTableViewStyle()];
   if (self) {
@@ -525,18 +525,18 @@ constexpr CGFloat kErrorSymbolSize = 22.;
             promoAction:PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO
                callback:^(SigninCoordinatorResult result,
                           SigninCompletionInfo* completionInfo) {
-                 BOOL success = result == SigninCoordinatorResultSuccess;
-                 [weakSelf handleDidAddAccount:success];
+                 [weakSelf handleDidAddAccount:result];
                }];
   [_applicationHandler showSignin:command baseViewController:self];
 }
 
-- (void)handleDidAddAccount:(BOOL)success {
+- (void)handleDidAddAccount:(SigninCoordinatorResult)result {
   // TODO(crbug.com/40229802): Remove the following line when todo bug will be
   // fixed.
   [self allowUserInteraction];
   [self handleAuthenticationOperationDidFinish];
-  if (success && _closeSettingsOnAddAccount) {
+  if (result == SigninCoordinatorResult::SigninCoordinatorResultSuccess &&
+      _closeSettingsOnAddAccount) {
     [_applicationHandler closeSettingsUI];
   }
 }
@@ -679,10 +679,11 @@ constexpr CGFloat kErrorSymbolSize = 22.;
                          browser:_browser
                             rect:itemView.frame
                             view:itemView
+        forceSnackbarOverToolbar:NO
                       withSource:signin_metrics::ProfileSignout::
                                      kUserClickedSignoutSettings];
   __weak LegacyAccountsTableViewController* weakSelf = self;
-  self.signoutCoordinator.completion = ^(BOOL success) {
+  self.signoutCoordinator.signoutCompletion = ^(BOOL success) {
     [weakSelf.signoutCoordinator stop];
     weakSelf.signoutCoordinator = nil;
     if (success) {
@@ -775,8 +776,7 @@ constexpr CGFloat kErrorSymbolSize = 22.;
 
 - (AuthenticationService*)authService {
   DCHECK(_browser) << "-authService called after -settingsWillBeDismissed";
-  return AuthenticationServiceFactory::GetForBrowserState(
-      _browser->GetBrowserState());
+  return AuthenticationServiceFactory::GetForProfile(_browser->GetProfile());
 }
 
 #pragma mark - UIAdaptivePresentationControllerDelegate
@@ -891,7 +891,7 @@ constexpr CGFloat kErrorSymbolSize = 22.;
   _accountDetailsControllerDismissCallback.Reset();
 }
 
-#pragma mark - AccountsConsumer
+#pragma mark - ManageAccountsConsumer
 
 - (void)reloadAllItems {
   if (!self.tableViewModel) {

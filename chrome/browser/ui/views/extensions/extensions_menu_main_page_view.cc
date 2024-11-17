@@ -190,7 +190,8 @@ class MessageSection : public views::BoxLayoutView {
   // Request access container
   raw_ptr<views::View> requests_access_container_;
   // A collection of all the extension entries in the request access container.
-  std::map<extensions::ExtensionId, views::View*> extension_entries_;
+  std::map<extensions::ExtensionId, raw_ptr<views::View, CtnExperimental>>
+      extension_entries_;
 
   // Callback for the buttons in the extension entries.
   base::RepeatingCallback<void(const extensions::ExtensionId&)> allow_callback_;
@@ -528,9 +529,9 @@ ExtensionsMenuMainPageView::ExtensionsMenuMainPageView(
   // TODO(crbug.com/40891805): Consider making the height dynamic.
   constexpr int kMaxExtensionButtonsHeightDp = 448;
   views::FlexSpecification stretch_specification =
-      views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,
-                               views::MaximumFlexSizeRule::kUnbounded,
-                               /*adjust_height_for_width =*/true)
+      views::FlexSpecification(views::LayoutOrientation::kHorizontal,
+                               views::MinimumFlexSizeRule::kScaleToZero,
+                               views::MaximumFlexSizeRule::kUnbounded)
           .WithWeight(1);
 
   ChromeLayoutProvider* const chrome_layout_provider =
@@ -751,17 +752,16 @@ void ExtensionsMenuMainPageView::RemoveMenuItem(
 
 void ExtensionsMenuMainPageView::UpdateSiteSettings(
     const std::u16string& current_site,
-    bool is_site_settings_toggle_visible,
-    bool is_site_settings_toggle_on) {
-  // TODO(crbug.com/40879945): Text should be different when site is restricted,
-  // since site settings toggle cannot be selected. This means we no longer need
-  // MessageSectionState::kRestrictedAccess.
-  site_settings_label_->SetText(l10n_util::GetStringFUTF16(
-      IDS_EXTENSIONS_MENU_SITE_SETTINGS_LABEL, current_site));
-  site_settings_toggle_->SetVisible(is_site_settings_toggle_visible);
-  site_settings_toggle_->SetIsOn(is_site_settings_toggle_on);
-  site_settings_toggle_->SetTooltipText(
-      GetSiteSettingToggleText(is_site_settings_toggle_on));
+    int label_id,
+    bool is_toggle_visible,
+    bool is_toggle_on) {
+  // TODO(crbug.com/40879945): Add info tooltip when an enterprise extension
+  // can still access the site.
+  site_settings_label_->SetText(
+      l10n_util::GetStringFUTF16(label_id, current_site));
+  site_settings_toggle_->SetVisible(is_toggle_visible);
+  site_settings_toggle_->SetIsOn(is_toggle_on);
+  site_settings_toggle_->SetTooltipText(GetSiteSettingToggleText(is_toggle_on));
 }
 
 void ExtensionsMenuMainPageView::UpdateMessageSection(
