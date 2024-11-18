@@ -47,8 +47,7 @@ void ChromeCrashReporterClient::InitializeCrashReportingForProcess() {
   std::wstring process_type = install_static::GetCommandLineSwitchValue(
       ::GetCommandLine(), install_static::kProcessType);
 
-  std::wstring disable_crash_handler = install_static::GetSwitchValueFromCommandLine(
-    ::GetCommandLine(), L"disable-crash-handler");
+  std::wstring disable_crash_handler = install_static::GetCommandLineSwitchValue(L"disable-crash-handler");
 
   // Don't set up Crashpad crash reporting in the Crashpad handler itself, nor
   // in the fallback crash handler for the Crashpad handler process.
