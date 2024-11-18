@@ -685,7 +685,7 @@ void NativeWidgetMac::Show(ui::mojom::WindowShowState show_state,
                        : WindowVisibilityState::kShowInactive;
   }
   GetNSWindowHost()->SetVisibilityState(window_state);
-  if (show_state == ui::SHOW_STATE_MAXIMIZED)
+  if (show_state == ui::mojom::WindowShowState::kMaximized)
     GetNSWindowMojo()->SetRestoredBounds(restore_bounds);
 
   // Ignore the SetInitialFocus() result. BridgedContentView should get
