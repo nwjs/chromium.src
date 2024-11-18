@@ -476,7 +476,7 @@ group("for_content_tests") {
 
 mojom("mojo_bindings") {
   # This interface is internal to content.
-  visibility = [ "//content/*" ]
+  visibility = [ "//content/*", "//components/input:input" ]
 
   disable_variants = true
 

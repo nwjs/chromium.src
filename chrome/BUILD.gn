@@ -658,7 +658,7 @@ if (is_win || (is_linux && !is_component_build)) {
           "-v",
           chrome_version_full,
           "-g",
-          rebase_path("$root_gen_dir/nw", root_build_dir),
+          rebase_path("$root_gen_dir/chrome", root_build_dir),
           "-o",
           rebase_path("$target_gen_dir/app_infoplist_strings", root_build_dir),
           "-t",
