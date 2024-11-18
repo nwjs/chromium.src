@@ -10,6 +10,8 @@
 #include <string_view>
 #include <utility>
 
+#include "chrome/browser/browser_features.h"
+
 #include "aida_client.h"
 #include "base/base64.h"
 #include "base/command_line.h"
