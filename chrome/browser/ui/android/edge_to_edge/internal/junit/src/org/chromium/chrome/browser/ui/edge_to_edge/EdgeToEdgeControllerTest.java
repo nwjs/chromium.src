@@ -14,6 +14,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
@@ -56,6 +57,7 @@ import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.blink.mojom.ViewportFit;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
@@ -115,6 +117,12 @@ public class EdgeToEdgeControllerTest {
                     .setInsets(WindowInsetsCompat.Type.ime(), IME_INSETS_KEYBOARD)
                     .build();
 
+    private static final WindowInsetsCompat SYSTEM_BARS_TOP_INSETS_ONLY =
+            new WindowInsetsCompat.Builder()
+                    .setInsets(WindowInsetsCompat.Type.statusBars(), STATUS_BAR_INSETS)
+                    .setInsets(WindowInsetsCompat.Type.systemBars(), STATUS_BAR_INSETS)
+                    .build();
+
     private Activity mActivity;
     private EdgeToEdgeControllerImpl mEdgeToEdgeControllerImpl;
 
@@ -164,7 +172,7 @@ public class EdgeToEdgeControllerTest {
         when(mWindowAndroid.getInsetObserver()).thenReturn(mInsetObserver);
         when(mInsetObserver.getLastRawWindowInsets()).thenReturn(SYSTEM_BARS_WINDOW_INSETS);
 
-        mActivity = Robolectric.buildActivity(AppCompatActivity.class).setup().get();
+        mActivity = Mockito.spy(Robolectric.buildActivity(AppCompatActivity.class).setup().get());
         mLayoutManagerSupplier.set(mLayoutManager);
 
         doNothing().when(mTab).addObserver(any());
@@ -311,6 +319,7 @@ public class EdgeToEdgeControllerTest {
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.DYNAMIC_SAFE_AREA_INSETS)
     public void onObservingDifferentTab_changeToWebEnabled() {
         EdgeToEdgeUtils.setAlwaysDrawWebEdgeToEdgeForTesting(true);
         when(mTab.isNativePage()).thenReturn(false);
@@ -323,6 +332,7 @@ public class EdgeToEdgeControllerTest {
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.DYNAMIC_SAFE_AREA_INSETS)
     public void onObservingDifferentTab_changeToWebEnabled_SetsDecor() {
         EdgeToEdgeUtils.setAlwaysDrawWebEdgeToEdgeForTesting(true);
         when(mTab.isNativePage()).thenReturn(false);
@@ -335,6 +345,7 @@ public class EdgeToEdgeControllerTest {
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.DYNAMIC_SAFE_AREA_INSETS)
     public void onObservingDifferentTab_viewportFitChanged() {
         // Start with web always-enabled.
         EdgeToEdgeUtils.setAlwaysDrawWebEdgeToEdgeForTesting(true);
@@ -478,6 +489,9 @@ public class EdgeToEdgeControllerTest {
     }
 
     @Test
+    @EnableFeatures({
+        ChromeFeatureList.DYNAMIC_SAFE_AREA_INSETS
+    })
     public void onObservingDifferentTab_simple() {
         ChromeFeatureList.sDrawNativeEdgeToEdge.setForTesting(true);
         // For the Tab Switcher we need to switch from some non-null Tab to null.
@@ -489,11 +503,41 @@ public class EdgeToEdgeControllerTest {
     }
 
     @Test
-    @Features.EnableFeatures({
-        ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN,
-        ChromeFeatureList.EDGE_TO_EDGE_WEB_OPT_IN,
-        ChromeFeatureList.DRAW_KEY_NATIVE_EDGE_TO_EDGE
-    })
+    @DisableFeatures(ChromeFeatureList.DYNAMIC_SAFE_AREA_INSETS)
+    public void bottomInsetForSafeArea_noTab() {
+        mEdgeToEdgeControllerImpl.setIsOptedIntoEdgeToEdgeForTesting(true);
+        assertToEdgeExpectations();
+        assertBottomInsetForSafeArea(0);
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.DYNAMIC_SAFE_AREA_INSETS)
+    public void bottomInsetForSafeArea_noBrowserControlsOnOptInPages() {
+        doReturn(false).when(mTab).isNativePage();
+        mTabProvider.set(mTab);
+        verifyInteractions(mTab);
+        mEdgeToEdgeControllerImpl.setIsOptedIntoEdgeToEdgeForTesting(true);
+
+        assertToEdgeExpectations();
+        mEdgeToEdgeControllerImpl.onBottomControlsHeightChanged(0, 0);
+        assertBottomInsetForSafeArea(SYSTEM_INSETS.bottom);
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.DYNAMIC_SAFE_AREA_INSETS)
+    public void bottomInsetForSafeArea_hasBrowserControlsOnOptInPages() {
+        doReturn(false).when(mTab).isNativePage();
+        mTabProvider.set(mTab);
+        verifyInteractions(mTab);
+        mEdgeToEdgeControllerImpl.setIsOptedIntoEdgeToEdgeForTesting(true);
+        assertToEdgeExpectations();
+
+        mEdgeToEdgeControllerImpl.onBottomControlsHeightChanged(1, 0);
+        assertBottomInsetForSafeArea(0);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.DRAW_KEY_NATIVE_EDGE_TO_EDGE)
     public void testNavigateFromKeyNativePageToNotOptedInWebPage() {
         Mockito.clearInvocations(mTab, mOsWrapper);
 
@@ -619,6 +663,53 @@ public class EdgeToEdgeControllerTest {
         mEdgeToEdgeControllerImpl.onExitFullscreen(mTab);
         assertToNormalExpectations();
         assertBottomInsetForSafeArea(0);
+    }
+
+    @Test
+    public void fullscreenWorkaround_DisabledInPictureInPicture() {
+        // Set a mock visibility rect for view mock.
+        final Rect windowVisibleRect = new Rect(0, TOP_INSET, 400, 400);
+        final Rect contentVisibleRect = new Rect(0, 0, 400, 400);
+        doAnswer(
+                        invocationOnMock -> {
+                            Rect outRect = invocationOnMock.getArgument(0);
+                            outRect.set(windowVisibleRect);
+                            return null;
+                        })
+                .when(mViewMock)
+                .getWindowVisibleDisplayFrame(any());
+
+        View content = Mockito.mock(View.class);
+        doReturn(content).when(mActivity).findViewById(android.R.id.content);
+        doAnswer(
+                        invocationOnMock -> {
+                            Rect outRect = invocationOnMock.getArgument(0);
+                            outRect.set(contentVisibleRect);
+                            return null;
+                        })
+                .when(content)
+                .getGlobalVisibleRect(any());
+
+        // Init the test case with top inset only.
+        mEdgeToEdgeControllerImpl.handleWindowInsets(mViewMock, SYSTEM_BARS_TOP_INSETS_ONLY);
+
+        // Enter full screen mode.
+        doReturn(true).when(mFullscreenManager).getPersistentFullscreenMode();
+        mEdgeToEdgeControllerImpl.onEnterFullscreen(mTab, new FullscreenOptions(false, false));
+        verify(mOsWrapper, atLeastOnce()).setPadding(any(), eq(0), eq(TOP_INSET), eq(0), eq(0));
+
+        // Assume entering pip mode. Work around padding should be disabled.
+        clearInvocations(mOsWrapper);
+        doReturn(true).when(mActivity).isInPictureInPictureMode();
+        mEdgeToEdgeControllerImpl.handleWindowInsets(
+                mViewMock, new WindowInsetsCompat.Builder().build());
+        verify(mOsWrapper, atLeastOnce()).setPadding(any(), eq(0), eq(0), eq(0), eq(0));
+
+        // Assume exiting pip mode. Work around should be applied again.
+        clearInvocations(mOsWrapper);
+        doReturn(false).when(mActivity).isInPictureInPictureMode();
+        mEdgeToEdgeControllerImpl.handleWindowInsets(mViewMock, SYSTEM_BARS_TOP_INSETS_ONLY);
+        verify(mOsWrapper, atLeastOnce()).setPadding(any(), eq(0), eq(TOP_INSET), eq(0), eq(0));
     }
 
     @Test

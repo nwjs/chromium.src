@@ -1315,7 +1315,7 @@
 <translation id="1916770123977586577">Да бисте применили ажурирана подешавања на овом сајту, учитајте страницу поново</translation>
 <translation id="1918127774159128277">Освежи могућности WiFi Direct-а</translation>
 <translation id="1918141783557917887">&amp;Мање</translation>
-<translation id="1918281588461452432">Док прегледате сајтове, њихов садржај страница се шифрује и чува на уређају</translation>
+<translation id="1918281588461452432">Док прегледате сајтове, садржај њихових страница се шифрује и чува на уређају</translation>
 <translation id="1919872106782726755">Да бисте подесили отисак прста, нека дете додирне сензор за отисак прста у горњем десном углу тастатуре, поред дугмета за укључивање. Подаци о отиску прста детета се безбедно чувају искључиво на овом <ph name="DEVICE_TYPE" /> уређају.</translation>
 <translation id="192015196730532810">Можете да направите сопствену групу картица.</translation>
 <translation id="1920314570001095522">Нема сличних картица за организовање, али ће вам се можда свидети ове групе</translation>
@@ -7144,7 +7144,7 @@
 <translation id="6127598727646973981">Безбедне везе</translation>
 <translation id="6129691635767514872">Изабрани подаци су уклоњени из Chrome-а и са синхронизованих уређаја. Google налог можда има друге облике историје прегледања, попут претрага и активности на другим Google услугама на <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="6129938384427316298">Коментар Netscape сертификата</translation>
-<translation id="6129953537138746214">Размак</translation>
+<translation id="6129953537138746214">Тастер за размак</translation>
 <translation id="6130692320435119637">Додај WiFi</translation>
 <translation id="6130807998512240230">Phone Hub, Дељење у близини</translation>
 <translation id="6130887916931372608">Тастер тастатуре</translation>
@@ -9093,7 +9093,7 @@
 <translation id="7550885994112799211">Меморијски простор, напајање, језик</translation>
 <translation id="7551059576287086432">Нисте успели да преузмете <ph name="FILE_NAME" /></translation>
 <translation id="7551643184018910560">Закачи на полицу</translation>
-<translation id="755198739067769724">Добро дошли, <ph name="CHILD_NAME" /></translation>
+<translation id="755198739067769724">Добро дошао/ла, <ph name="CHILD_NAME" /></translation>
 <translation id="7552846755917812628">Испробајте следеће савете:</translation>
 <translation id="7553012839257224005">Проверава се Linux контејнер</translation>
 <translation id="7553242001898162573">Унесите лозинку</translation>

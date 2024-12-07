@@ -467,7 +467,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="315778507796115851">기록</translation>
 <translation id="31652791196570636">닫기</translation>
 <translation id="3167868116600277716">디스커버 피드</translation>
-<translation id="3169472444629675720">Discover</translation>
+<translation id="3169472444629675720">디스커버</translation>
 <translation id="3174662312949010067">다른 기기에서도 저장된 비밀번호를 사용할 수 있습니다</translation>
 <translation id="3181954750937456830">세이프 브라우징(사용자와 사용자의 기기를 위험한 사이트로부터 보호)</translation>
 <translation id="3190736958609431397">추적 취소</translation>
@@ -705,7 +705,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="4365121137632832185">탭 그룹. 펼쳐져 있습니다.</translation>
 <translation id="4367971618859387374">표시 이름</translation>
 <translation id="4375772272517383391">탭 모두 닫기</translation>
-<translation id="4378154925671717803">전화기</translation>
+<translation id="4378154925671717803">전화</translation>
 <translation id="4389019817280890563">언어를 변경하려면 탭하세요.</translation>
 <translation id="4393294364304621138">{COUNT,plural, =1{1일 후}other{{COUNT}일 후}}</translation>
 <translation id="4402672425188312225">{COUNT,plural, =1{탭 1개}other{탭 #개}}</translation>
@@ -939,7 +939,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="5494920125229734069">모두 선택</translation>
 <translation id="5499648645977734083">결제 수단 관리…</translation>
 <translation id="5501346139932663133">Google 앱</translation>
-<translation id="5506763544823940561">이미지 저장 위치…</translation>
+<translation id="5506763544823940561">이미지 저장 위치</translation>
 <translation id="5511959326926949696">브라우저를 완벽히 보호하는 추가 기능으로, 고도로 정교한 사이버 공격의 표적이 될 수 있다고 생각되는 경우에만 사용하는 것이 좋습니다</translation>
 <translation id="5513681519188741830"><ph name="TIME" />시간 전</translation>
 <translation id="553151287733286479">{COUNT,plural, =1{취약한 비밀번호 {COUNT}개}other{취약한 비밀번호 {COUNT}개}}</translation>
@@ -1488,7 +1488,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="7911190106180361398">조직에서 모든 항목을 동기화하도록 허용하지 않습니다.</translation>
 <translation id="7920949005883349320">개인 정보 보호 및 보안</translation>
 <translation id="792357691529995513">발견된 문제 없음</translation>
-<translation id="7925108652071887026">데이터 자동완성</translation>
+<translation id="7925108652071887026">자동완성 데이터</translation>
 <translation id="7926975587469166629">카드 별명</translation>
 <translation id="7927711904086083099">선택되지 않음</translation>
 <translation id="7930998711684428189">데이터 유출로 인해 비밀번호가 노출된 경우 알립니다.</translation>

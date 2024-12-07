@@ -276,6 +276,7 @@ public class EdgeToEdgeControllerImpl
         // changing view visibility.
         mBottomControlsHeight = bottomControlsHeight;
         updateBrowserControlsVisibility(bottomControlsHeight > 0);
+        adjustEdgePaddings();
     }
 
     // LayoutStateProvider.LayoutStateObserver
@@ -391,9 +392,9 @@ public class EdgeToEdgeControllerImpl
         Insets newInsets = getSystemInsets(windowInsets);
         Insets newKeyboardInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
 
-        if (!newInsets.equals(mSystemInsets)
-                || !newKeyboardInsets.equals(mKeyboardInsets)
-                || updateVisibilityRects(rootView)) {
+        if (updateVisibilityRects(rootView)
+                || !newInsets.equals(mSystemInsets)
+                || !newKeyboardInsets.equals(mKeyboardInsets)) {
             mSystemInsets = newInsets;
             mKeyboardInsets = newKeyboardInsets;
 
@@ -478,7 +479,9 @@ public class EdgeToEdgeControllerImpl
         // In fullscreen mode, there are cases the content isn't being drawn under the system
         // bar (e.g. during multi-window mode). In this case, adjust the padding based on the
         // visibility rects. See https://crbug.com/359659885
-        if (mFullscreenManager.getPersistentFullscreenMode()) {
+        // The exception of this workaround is in PiP mode. See https://crbug.com/377809718.
+        if (mFullscreenManager.getPersistentFullscreenMode()
+                && !mActivity.isInPictureInPictureMode()) {
             topPadding = Math.max(0, mCachedWindowVisibleRect.top - mCachedContentVisibleRect.top);
             bottomPadding =
                     Math.max(0, mCachedContentVisibleRect.bottom - mCachedWindowVisibleRect.bottom);
@@ -503,7 +506,15 @@ public class EdgeToEdgeControllerImpl
         // when Chrome does not draw into the system bar region. See https://crbug.com/359659885.
         boolean hasBottomSafeArea =
                 (mIsDrawingToEdge && !mFullscreenManager.getPersistentFullscreenMode());
-        int bottomInsetOnSafeArea = hasBottomSafeArea ? mSystemInsets.bottom : 0;
+        // When pushSafeAreaInsetsForNonOptInPages is not enabled, we are only pushing safe area
+        // insets to pages that are opted into e2e and no bottom controls are presented.
+        boolean pushSafeAreaInsets =
+                EdgeToEdgeUtils.pushSafeAreaInsetsForNonOptInPages()
+                        || (mCurrentTab != null
+                                && mIsPageOptedIntoEdgeToEdge
+                                && mBottomControlsHeight == 0);
+        int bottomInsetOnSafeArea =
+                pushSafeAreaInsets && hasBottomSafeArea ? mSystemInsets.bottom : 0;
         mInsetObserver.updateBottomInsetForEdgeToEdge(bottomInsetOnSafeArea);
     }
 
@@ -571,7 +582,6 @@ public class EdgeToEdgeControllerImpl
     }
 
     private static Insets getSystemInsets(@NonNull WindowInsetsCompat windowInsets) {
-        return windowInsets.getInsets(
-                WindowInsetsCompat.Type.navigationBars() + WindowInsetsCompat.Type.statusBars());
+        return windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
     }
 }

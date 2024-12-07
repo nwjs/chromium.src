@@ -925,7 +925,7 @@
 <translation id="1639239467298939599">กำลังโหลด</translation>
 <translation id="1640235262200048077"><ph name="IME_NAME" /> ยังใช้ไม่ได้ในแอป Linux</translation>
 <translation id="1640283014264083726">PKCS #1 MD4 พร้อมการเข้ารหัส RSA</translation>
-<translation id="1641113438599504367">Safe Browsing</translation>
+<translation id="1641113438599504367">Google Safe Browsing</translation>
 <translation id="1641496881756082050">การดำเนินการเพิ่มเติมสำหรับ <ph name="NETWORK_NAME" /></translation>
 <translation id="1641884605525735390">{NUM_PASSWORDS,plural, =1{ระบบไม่ได้นำเข้ารหัสผ่านอื่นอีก 1 รายการเนื่องจากมีรูปแบบไม่ถูกต้อง}other{ระบบไม่ได้นำเข้ารหัสผ่านอื่นอีก {NUM_PASSWORDS} รายการเนื่องจากมีรูปแบบไม่ถูกต้อง}}</translation>
 <translation id="1642299742557467312">ไฟล์นี้อาจเป็นอันตรายต่ออุปกรณ์</translation>
@@ -1900,7 +1900,7 @@
 <translation id="2312219318583366810">URL ของหน้าเว็บ</translation>
 <translation id="2314165183524574721">การตั้งค่าระดับการเข้าถึงปัจจุบันซ่อนอยู่</translation>
 <translation id="2314774579020744484">ภาษาที่ใช้เมื่อแปลหน้า</translation>
-<translation id="2316129865977710310">ไม่ ขอบคุณ</translation>
+<translation id="2316129865977710310">ไม่เป็นไร</translation>
 <translation id="2316433409811863464">การสตรีมแอป</translation>
 <translation id="2316709634732130529">ใช้รหัสผ่านที่แนะนำ</translation>
 <translation id="2317842250900878657">เสร็จแล้ว <ph name="PROGRESS_PERCENT" />%</translation>
@@ -4529,7 +4529,7 @@
 <translation id="4198268995694216131">เว็บไซต์เพิ่มเติม</translation>
 <translation id="4200609364258658652">คัดลอกเฟรมวิดีโอ</translation>
 <translation id="4200689466366162458">คำที่กำหนดเอง</translation>
-<translation id="4200983522494130825">แ&amp;ท็บใหม่</translation>
+<translation id="4200983522494130825">แท็บ&amp;ใหม่</translation>
 <translation id="4201546031411513170">คุณเลือกสิ่งที่ต้องการซิงค์ได้เสมอในการตั้งค่า</translation>
 <translation id="4203065553461038553">ชื่อหรือตำแหน่งของไฟล์ยาวเกินไป</translation>
 <translation id="4203769790323223880">ไม่อนุญาตให้ใช้กล้องถ่ายรูป</translation>
@@ -5634,7 +5634,7 @@
 <translation id="5016305686459575361">การเชื่อมต่อโทรศัพท์ช่วยให้คุณทําสิ่งต่อไปนี้ได้</translation>
 <translation id="5016491575926936899">คุณสามารถส่งข้อความจากคอมพิวเตอร์ แชร์การเชื่อมต่ออินเทอร์เน็ต ตอบกลับการแจ้งเตือนการสนทนา และปลดล็อก <ph name="DEVICE_TYPE" /> ด้วยโทรศัพท์<ph name="FOOTNOTE_POINTER" /> <ph name="LINK_BEGIN" />ดูข้อมูลเพิ่มเติม<ph name="LINK_END" /></translation>
 <translation id="5017250179386090956">กำลังดาวน์โหลดไฟล์คำอธิบายประกอบของโหนดหลัก</translation>
-<translation id="5017529052065664584">15 นาทีที่ผ่านมา</translation>
+<translation id="5017529052065664584">15 นาทีที่แล้ว</translation>
 <translation id="5018207570537526145">เปิดเว็บไซต์ส่วนขยาย</translation>
 <translation id="5018526990965779848">ส่งข้อมูลการใช้งานและการวินิจฉัย ช่วยปรับปรุงประสบการณ์การใช้งาน Android ของคุณให้ดีขึ้นด้วยการส่งข้อมูลการวินิจฉัย อุปกรณ์ และการใช้งานแอปไปยัง Google โดยอัตโนมัติ ซึ่งจะช่วยให้แอปและระบบมีความเสถียร พร้อมทั้งปรับปรุงด้านอื่นๆ ข้อมูลที่รวบรวมมาบางส่วนจะมีประโยชน์ต่อแอปและพาร์ทเนอร์ของ Google ด้วย เช่น นักพัฒนาแอป Android หากเปิดการตั้งค่ากิจกรรมเพิ่มเติมบนเว็บและแอปไว้ ระบบอาจบันทึกข้อมูลนี้ไว้ในบัญชี Google ของคุณ</translation>
 <translation id="5019487038187875030">ดูใบรับรองที่นำเข้าจาก MacOS</translation>
@@ -6501,7 +6501,7 @@
 <translation id="5646558797914161501">นักธุรกิจ</translation>
 <translation id="5646994841348250879">เลือกบัญชีที่จะลงชื่อเข้าใช้ <ph name="SITE_ETLD_PLUS_ONE" /></translation>
 <translation id="5648021990716966815">ช่องเสียบไมโครโฟน</translation>
-<translation id="5648166631817621825">7 วันที่ผ่านมา</translation>
+<translation id="5648166631817621825">7 วันที่แล้ว</translation>
 <translation id="5650537073531199882">กรอกแบบฟอร์ม</translation>
 <translation id="5651308944918885595">การค้นพบได้ของการแชร์ใกล้เคียง</translation>
 <translation id="5653154844073528838">คุณมีเครื่องพิมพ์ที่บันทึกไว้ <ph name="PRINTER_COUNT" /> เครื่อง</translation>
@@ -7140,7 +7140,7 @@
 <translation id="6127598727646973981">การเชื่อมต่อที่ปลอดภัย</translation>
 <translation id="6129691635767514872">นำข้อมูลที่เลือกออกจาก Chrome และอุปกรณ์ที่ซิงค์แล้ว บัญชี Google ของคุณอาจมีประวัติการท่องเว็บในรูปแบบอื่น เช่น การค้นหาและกิจกรรมจากบริการอื่นๆ ของ Google ที่ <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /></translation>
 <translation id="6129938384427316298">ความคิดเห็นเกี่ยวกับใบรับรองของ Netscape</translation>
-<translation id="6129953537138746214">ช่องว่าง</translation>
+<translation id="6129953537138746214">Space</translation>
 <translation id="6130692320435119637">เพิ่ม Wi-Fi</translation>
 <translation id="6130807998512240230">ฮับโทรศัพท์ การแชร์ใกล้เคียง</translation>
 <translation id="6130887916931372608">ปุ่มบนแป้นพิมพ์</translation>
@@ -9446,7 +9446,7 @@
 <translation id="7799650166313181433">มีเพียงอุปกรณ์ที่ลงชื่อเข้าใช้ <ph name="USER_EMAIL" /> เท่านั้นที่จะแชร์กับอุปกรณ์นี้ได้ คุณไม่จำเป็นต้องอนุมัติการแชร์ระหว่างอุปกรณ์</translation>
 <translation id="7800485561443537737">ใช้อินเทอร์เน็ตของ <ph name="DEVICE_TYPE" /> และผู้ให้บริการอาจเรียกเก็บค่าธรรมเนียมเพิ่มเติม อาจมีการใช้งานแบตเตอรี่เพิ่มขึ้น <ph name="BEGIN_LINK_LEARN_MORE" />ดูข้อมูลเพิ่มเติม<ph name="END_LINK_LEARN_MORE" /></translation>
 <translation id="7800518121066352902">หมุน&amp;ทวนเข็มนาฬิกา</translation>
-<translation id="780301667611848630">ไม่ ขอบคุณ</translation>
+<translation id="780301667611848630">ไม่เป็นไร</translation>
 <translation id="7803657407897251194">หากต้องการตั้งค่าด้วยอุปกรณ์ Android ต่อ ให้เชื่อมต่อ <ph name="DEVICE_TYPE" /> กับเครือข่าย</translation>
 <translation id="7804072833593604762">ปิดแท็บแล้ว</translation>
 <translation id="7805371082115476536">เบา</translation>

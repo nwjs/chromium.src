@@ -369,7 +369,7 @@
 <translation id="6554732001434021288">เข้าชมล่าสุด <ph name="NUM_DAYS" /> วันที่ผ่านมา</translation>
 <translation id="656065428026159829">ดูเพิ่มเติม</translation>
 <translation id="6561560012278703671">ใช้การส่งข้อความแบบไม่ส่งเสียง (บล็อกข้อความแจ้งเตือนไม่ให้รบกวนคุณ)</translation>
-<translation id="6593061639179217415">เว็บไซต์เวอร์ชันเดสก์ท็อป</translation>
+<translation id="6593061639179217415">เว็บไซต์แบบเดสก์ท็อป</translation>
 <translation id="659938948789980540">{COUNT,plural, =1{อนุญาตคุกกี้สำหรับเว็บไซต์ <ph name="RWS_OWNER" /> แล้ว <ph name="RWS_MEMBERS_COUNT" /> รายการ}other{อนุญาตคุกกี้สำหรับเว็บไซต์ <ph name="RWS_OWNER" /> แล้ว <ph name="RWS_MEMBERS_COUNT" /> รายการ}}</translation>
 <translation id="6608650720463149374"><ph name="GIGABYTES" /> GB</translation>
 <translation id="6612358246767739896">เนื้อหาที่ได้รับความคุ้มครอง</translation>
@@ -444,7 +444,7 @@
 <translation id="7781829728241885113">เมื่อวานนี้</translation>
 <translation id="7791543448312431591">เพิ่ม</translation>
 <translation id="7801888679188438140">{TILE_COUNT,plural, =1{ดำเนินการต่อโดยใช้แท็บนี้}other{ดำเนินการต่อโดยใช้แท็บเหล่านี้}}</translation>
-<translation id="780301667611848630">ไม่ ขอบคุณ</translation>
+<translation id="780301667611848630">ไม่เป็นไร</translation>
 <translation id="7804248752222191302">มีเว็บไซต์กำลังใช้กล้อง</translation>
 <translation id="7807060072011926525">ให้บริการโดย Google</translation>
 <translation id="7835852323729233924">กำลังเล่นสื่อ</translation>

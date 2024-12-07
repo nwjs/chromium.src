@@ -603,7 +603,7 @@ Comprueba tus contraseñas en cualquier momento en el <ph name="GOOGLE_PASSWORD_
 <translation id="1431188203598586230">Última actualización de software</translation>
 <translation id="1432581352905426595">Gestionar buscadores</translation>
 <translation id="1433478348197382180">Modo Lectura</translation>
-<translation id="1433980411933182122">Inicio</translation>
+<translation id="1433980411933182122">Arranque</translation>
 <translation id="1434696352799406980">Se restablecerán la página de inicio, la página Nueva pestaña, el motor de búsqueda y las pestañas fijadas. También se inhabilitarán todas las extensiones y se borrarán los datos temporales como las cookies. Los marcadores, el historial y las contraseñas guardadas no se borrarán.</translation>
 <translation id="1434886155212424586">La página de inicio es la página Nueva pestaña</translation>
 <translation id="1435940442311036198">Usar una llave de acceso en otro dispositivo</translation>
@@ -4950,7 +4950,7 @@ Puede tratarse de información sobre el software instalado, los archivos, tu nav
 <translation id="4508765956121923607">Ver código f&amp;uente</translation>
 <translation id="4509277363725254222">Si compartes una copia de tu <ph name="BEGIN_BOLD_USERNAME" />nombre de usuario<ph name="END_BOLD_USERNAME" /> y de tu <ph name="BEGIN_BOLD_PASSWORD" />contraseña<ph name="END_BOLD_PASSWORD" />, el miembro de tu familia podrá introducirlos usando el Gestor de contraseñas de Google.</translation>
 <translation id="4509421746503122514">Reinicia para actualizar</translation>
-<translation id="4509741852167209430">Algunos tipos de datos (como si has hecho una compra después de visitar un sitio) se comparten entre los sitios para medir el rendimiento de sus anuncios</translation>
+<translation id="4509741852167209430">Para medir el rendimiento de los anuncios, algunos tipos de datos se comparten entre los sitios, como si has hecho una compra después de visitar un sitio</translation>
 <translation id="4510195992002502722">No se han podido enviar los comentarios. Intentándolo otra vez...</translation>
 <translation id="4510479820467554003">Lista de cuentas parentales</translation>
 <translation id="4511344327646819192">Para impedir que otros usuarios usen tu contraseña, cámbiala en <ph name="WEBSITE" /></translation>
@@ -6517,7 +6517,7 @@ Los permisos que hayas dado a sitios web y aplicaciones se pueden aplicar a esta
 <translation id="5656845498778518563">Enviar comentarios a Google</translation>
 <translation id="5657667036353380798">La extensión externa requiere que esté instalada la versión <ph name="MINIMUM_CHROME_VERSION" /> o una versión posterior de Chrome.</translation>
 <translation id="565899488479822148">Instalando la última actualización</translation>
-<translation id="5659593005791499971">Correo</translation>
+<translation id="5659593005791499971">Correo electrónico</translation>
 <translation id="5659964844710667266">Crear una contraseña para este <ph name="DEVICE_TYPE" /></translation>
 <translation id="566040795510471729">Personalizar Chrome a t&amp;u gusto</translation>
 <translation id="5662513737565158057">Cambia el funcionamiento de las aplicaciones de Linux.</translation>
@@ -6580,7 +6580,7 @@ Los permisos que hayas dado a sitios web y aplicaciones se pueden aplicar a esta
 <translation id="5705882733397021510">Volver</translation>
 <translation id="5707185214361380026">Error al cargar la extensión desde:</translation>
 <translation id="5708171344853220004">Nombre principal de Microsoft</translation>
-<translation id="5709557627224531708">Establecer Google Chrome como navegador predeterminado</translation>
+<translation id="5709557627224531708">Establece Chrome como navegador predeterminado</translation>
 <translation id="5711010025974903573">Registros del servicio</translation>
 <translation id="5711983031544731014">No se puede realizar el desbloqueo. Introduce tu contraseña.</translation>
 <translation id="5712153969432126546">A veces, los sitios publican archivos PDF, como documentos, contratos y formularios</translation>
@@ -11519,7 +11519,7 @@ Los permisos que hayas dado a sitios web y aplicaciones se pueden aplicar a esta
 <translation id="957960681186851048">Este sitio web ha intentado descargar varios archivos automáticamente</translation>
 <translation id="958571289841636277">Avanza y retrocede con el gesto de deslizar</translation>
 <translation id="960987915827980018">Aproximadamente 1 hora</translation>
-<translation id="961856697154696964">Eliminar datos de navegación</translation>
+<translation id="961856697154696964">Borrar datos de navegación</translation>
 <translation id="962802172452141067">Árbol de la carpeta de marcadores</translation>
 <translation id="963000966785016697">Buscar imagen con <ph name="VISUAL_SEARCH_PROVIDER" /></translation>
 <translation id="964286338916298286">Tu administrador de TI ha inhabilitado el contenido adicional de Chrome para tu dispositivo.</translation>

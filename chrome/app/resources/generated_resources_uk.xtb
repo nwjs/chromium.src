@@ -216,7 +216,7 @@
 <translation id="1148624853678088576">Готово!</translation>
 <translation id="1148669835763563782">Ви встановлюєте останню версію програмного забезпечення, яка включає посилений захист, доступ до найновіших функцій Chromebook і покращений процес налаштування, щоб вам було легше почати роботу з пристроєм.</translation>
 <translation id="1149401351239820326">Місяць закінчення терміну дії</translation>
-<translation id="1149483087970735785">Технологія для людей з обмеженими можливостями</translation>
+<translation id="1149483087970735785">Технологія доступності</translation>
 <translation id="1149725087019908252">Сканування файлу "<ph name="FILE_NAME" />"</translation>
 <translation id="1150490752229770117">Це останнє автоматичне оновлення програмного забезпечення й системи безпеки на пристрої <ph name="DEVICE_TYPE" />. Щоб отримувати оновлення надалі, придбайте новішу модель. <ph name="LINK_BEGIN" />Докладніше<ph name="LINK_END" /></translation>
 <translation id="1150565364351027703">Сонцезахисні окуляри</translation>
@@ -2000,7 +2000,7 @@
 <translation id="2371076942591664043">Відкрити коли &amp;виконано</translation>
 <translation id="237336063998926520">Використовуйте свою IP адресу, щоб визначити місцезнаходження</translation>
 <translation id="2373666622366160481">За розміром паперу</translation>
-<translation id="2375406435414127095">Підключіться до телефона</translation>
+<translation id="2375406435414127095">Підключитися до телефона</translation>
 <translation id="2376056713414548745">Читати вголос</translation>
 <translation id="2377667304966270281">Помилка жорсткого диска</translation>
 <translation id="237828693408258535">Перекласти цю сторінку?</translation>
@@ -4562,7 +4562,7 @@
 <translation id="4209251085232852247">Вимкнено</translation>
 <translation id="4210048056321123003">Завантажується віртуальна машина</translation>
 <translation id="4210380525132844778">Причина: у списку "<ph name="LIST_NAME" />" виявлено правило <ph name="RULE" />.</translation>
-<translation id="4211362364312260125">Визначати основний орієнтир на вебсторінках, який використовуватиме технологія для людей з обмеженими можливостями</translation>
+<translation id="4211362364312260125">Визначати на вебсторінках основний орієнтир для технології доступності</translation>
 <translation id="421182450098841253">&amp;Показати панель закладок</translation>
 <translation id="4211904048067111541">Припинити використовувати в додатках для Android</translation>
 <translation id="42126664696688958">Експортувати</translation>
@@ -7920,7 +7920,7 @@
     Якщо <ph name="SUPERVISED_USER_NAME" /> ще не дуже добре читає, нехай повторює за вами. Шепочіть фрази не в мікрофон, щоб Асистент запам’ятав голос дитини, а не ваш.</translation>
 <translation id="6690659332373509948">Неможливо проаналізувати файл: <ph name="FILE_NAME" /></translation>
 <translation id="6691541770654083180">Земля</translation>
-<translation id="6691936601825168937">&amp;Переслати</translation>
+<translation id="6691936601825168937">&amp;Уперед</translation>
 <translation id="6693745645188488741">{COUNT,plural, =1{1 сторінка}one{{COUNT} сторінка}few{{COUNT} сторінки}many{{COUNT} сторінок}other{{COUNT} сторінки}}</translation>
 <translation id="6693820805264897502">замінити наявні паролі</translation>
 <translation id="6694462491298752106">Вбудовану сенсорну панель вимкнено</translation>
@@ -11080,7 +11080,7 @@
 <translation id="8934732568177537184">Продовжити</translation>
 <translation id="8938800817013097409">Пристрій, під’єднаний до порту USB-C (праворуч на задній панелі)</translation>
 <translation id="8940081510938872932">Зараз ваш комп’ютер виконує забагато завдань. Повторіть спробу пізніше.</translation>
-<translation id="8940888110818450052">Варіанти входу</translation>
+<translation id="8940888110818450052">Способи входу</translation>
 <translation id="8941173171815156065">Скасувати дозвіл "<ph name="PERMISSION" />"</translation>
 <translation id="8941688920560496412"><ph name="DEVICE_NAME" /> вимкнено</translation>
 <translation id="894191600409472540">Створіть надійні паролі</translation>

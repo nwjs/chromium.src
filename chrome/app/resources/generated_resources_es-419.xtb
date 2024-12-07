@@ -1507,7 +1507,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="2048254245884707305">Buscando software malicioso…</translation>
 <translation id="2048554637254265991">Se produjo un error al iniciar el administrador de contenedores. Vuelve a intentarlo.</translation>
 <translation id="2048653237708779538">La acción no está disponible</translation>
-<translation id="204914487372604757">Crear accesos directos</translation>
+<translation id="204914487372604757">Crear acceso directo</translation>
 <translation id="2049573977943974163">¿Quieres activar "<ph name="EXTENSION_NAME" />"?</translation>
 <translation id="2050339315714019657">Vertical</translation>
 <translation id="2051266530792296582">El Administrador de contraseñas de Google creó una contraseña segura para este sitio web</translation>
@@ -2853,7 +2853,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="2990375978470734995">Para que se aplique este cambio, vuelve a conectar los accesorios externos.</translation>
 <translation id="2990583317361835189">No permitir que los sitios utilicen sensores de movimiento</translation>
 <translation id="2991182900092497283">Ingresa un motivo para pegar estos datos:</translation>
-<translation id="2992931425024192067">Mostrar todo el contenido de notificaciones</translation>
+<translation id="2992931425024192067">Mostrar todo el contenido de las notificaciones</translation>
 <translation id="2993517869960930405">Info. de la aplicación</translation>
 <translation id="2996108796702395498">El número de serie de tu dispositivo es <ph name="SERIAL_NUMBER" />. Este número se puede usar para activar el servicio.</translation>
 <translation id="2996286169319737844">Los datos están encriptados con tu frase de contraseña de sincronización. No se incluyen formas de pago ni direcciones de Google Pay.</translation>
@@ -3361,7 +3361,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="338323348408199233">Bloquear tráfico sin VPN</translation>
 <translation id="3384362484379805487">Los archivos de idioma se comparten entre los usuarios para ahorrar espacio en el disco.</translation>
 <translation id="3385092118218578224"><ph name="DISPLAY_ZOOM" />%</translation>
-<translation id="3385172418915595177">La Precisión de la ubicación proporciona una ubicación más precisa para las apps y los servicios. Para ello, Google procesa de forma periódica información sobre los sensores del dispositivo y sus señales inalámbricas para obtener ubicaciones de las señales inalámbricas con participación colectiva. Esta información se utiliza sin identificarte para mejorar la precisión de la ubicación y los servicios basados en ella, además de mejorar, proporcionar y mantener los servicios de Google en general en función de sus intereses legítimos (y los de terceros) de satisfacer las necesidades de los usuarios.</translation>
+<translation id="3385172418915595177">La Precisión de la ubicación proporciona una ubicación más precisa para las apps y los servicios. Para ello, Google procesa de forma periódica información sobre los sensores del dispositivo y sus señales inalámbricas para obtener ubicaciones de las señales inalámbricas con participación colectiva. Esta información se utiliza sin identificarte para mejorar la precisión de la ubicación y los servicios basados en la ubicación, además de mejorar, proporcionar y mantener los servicios de Google en general en función de sus intereses legítimos (y los de terceros) de satisfacer las necesidades de los usuarios.</translation>
 <translation id="338583716107319301">Separador</translation>
 <translation id="3385916046075724800">Tus grupos de pestañas ahora se guardan automáticamente.</translation>
 <translation id="3387023983419383865">,</translation>
@@ -8407,7 +8407,7 @@ Tienes # contraseñas hackeadas más. El Administrador de contraseñas de Go
 <translation id="7038710352229712897">Agrega otra Cuenta de Google para <ph name="USER_NAME" /></translation>
 <translation id="7039326228527141150">Acceder a dispositivos USB de <ph name="VENDOR_NAME" /></translation>
 <translation id="7039912931802252762">Inicio de sesión de tarjeta inteligente de Microsoft</translation>
-<translation id="7039951224110875196">Crear una Cuenta de Google para un niño</translation>
+<translation id="7039951224110875196">Crear una Cuenta de Google para un niño o una niña</translation>
 <translation id="7039968672732182060">Tu Chromebook ya no recibe actualizaciones de seguridad. Es momento de cambiar tu dispositivo para obtener la seguridad y el software más recientes. Se aplican las condiciones de la oferta.</translation>
 <translation id="7041405817194720353">Se quitaron <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> y <ph name="COUNT" /> más</translation>
 <translation id="7042116641003232070">Se pueden guardar datos en tu dispositivo</translation>
@@ -10323,7 +10323,7 @@ Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones
 <translation id="8410775397654368139">Google Play</translation>
 <translation id="8411043186249152291">pantalla completa</translation>
 <translation id="8412136526970428322">Permisos habilitados: <ph name="PERMISSION" /> y <ph name="COUNT" /> más</translation>
-<translation id="8413795581997394485">Te protege contra descargas, extensiones y sitios que se sabe que son peligrosos. Cuando visitas un sitio, Chrome envía una parte ofuscada de la URL a Google con un servidor de privacidad que oculta tu dirección IP. Si un sitio realiza alguna acción sospechosa, también se envían las URLs completas y partes del contenido de la página</translation>
+<translation id="8413795581997394485">Te protege contra descargas, extensiones y sitios que se sabe que son peligrosos. Cuando visitas un sitio, Chrome envía una parte ofuscada de la URL a Google con un servidor de privacidad que oculta tu dirección IP. Si un sitio realiza alguna acción sospechosa, también se envían las URLs completas y partes del contenido de la página.</translation>
 <translation id="8413956290606243087">¿Deseas activar ChromeVox, el lector de pantalla integrado de ChromeOS?</translation>
 <translation id="8414396119627470038">Accede a <ph name="SITE_ETLD_PLUS_ONE" /> con <ph name="IDENTITY_PROVIDER_ETLD_PLUS_ONE" /></translation>
 <translation id="8416730306157376817"><ph name="BATTERY_PERCENTAGE" />% (funda)</translation>
@@ -10536,7 +10536,7 @@ Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones
 <translation id="8566916288687510520">Se recibió una contraseña nueva</translation>
 <translation id="8569673829373920831">Más información sobre <ph name="APP_NAME" /></translation>
 <translation id="8569682776816196752">No se encontró ningún destino.</translation>
-<translation id="8571213806525832805">Últimas cuatro semanas</translation>
+<translation id="8571213806525832805">Últimas 4 semanas</translation>
 <translation id="8571687764447439720">Agregar un ticket de Kerberos</translation>
 <translation id="8572052284359771939">Envía a la Navegación segura de Google las URLs de sitios que visitas y una pequeña muestra del contenido de las páginas, las descargas, la actividad de las extensiones y la información del sistema para revisar si los sitios son dañinos.</translation>
 <translation id="8573111744706778015">Escribe "uo7" para obtener "ươ"</translation>

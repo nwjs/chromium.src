@@ -193,7 +193,7 @@
 <translation id="1129348283834595293">סייברפאנק</translation>
 <translation id="1129420403709586868">הצגת המדיה והתמונות שבטלפון</translation>
 <translation id="1129850422003387628">ניהול אפליקציות</translation>
-<translation id="113050636487300043">יש לבחור שם ועיצוב צבעים כדי להבדיל בין פרופילים שונים</translation>
+<translation id="113050636487300043">יש לבחור שם וערכת צבעים כדי להבדיל בין פרופילים שונים</translation>
 <translation id="1130589222747246278"><ph name="WINDOW_TITLE" /> – חלק מהקבוצה <ph name="GROUP_NAME" /></translation>
 <translation id="1130676589211693127">רמת הטעינה של הסוללה הימנית %<ph name="PERCENTAGE" />.</translation>
 <translation id="1133418583142946603">הוספה של הכרטיסייה הנוכחית</translation>
@@ -4543,7 +4543,7 @@
 <translation id="4198268995694216131">אתרים נוספים</translation>
 <translation id="4200609364258658652">העתקת הפריים</translation>
 <translation id="4200689466366162458">מילים מותאמות אישית</translation>
-<translation id="4200983522494130825">&amp;כרטיסייה חדשה</translation>
+<translation id="4200983522494130825">כרטיסייה חדשה</translation>
 <translation id="4201546031411513170">אפשר לבחור מה לסנכרן בכל שלב דרך ההגדרות.</translation>
 <translation id="4203065553461038553">שם הקובץ או הנתיב שלו ארוכים מדי</translation>
 <translation id="4203769790323223880">אין הרשאת גישה למצלמה</translation>
@@ -5122,7 +5122,7 @@
 <translation id="4622051949285931942">להשבית את כל העדכונים האוטומטיים?</translation>
 <translation id="4623167406982293031">יש לאמת את החשבון</translation>
 <translation id="4623189117674524348">‏המערכת לא הצליחה לאמת את הגישה של המכשיר הזה לממשק ה-API.</translation>
-<translation id="4624054169152573743">עיצוב צבעים</translation>
+<translation id="4624054169152573743">ערכת צבעים</translation>
 <translation id="4625078469366263107">הפעלת האפליקציה</translation>
 <translation id="4625905218692741757">הצבע האפור בברירת המחדל</translation>
 <translation id="4627442949885028695">המשך במכשיר אחר</translation>
@@ -5923,7 +5923,7 @@
 <translation id="5208988882104884956">חצי רוחב</translation>
 <translation id="5209320130288484488">לא נמצאו מכשירים</translation>
 <translation id="5209513429611499188">‏מכשירי HID עם ערכי שימוש מדף השימוש <ph name="USAGE_PAGE" /></translation>
-<translation id="5210365745912300556">סגירת כרטיסייה</translation>
+<translation id="5210365745912300556">סגירת הכרטיסייה</translation>
 <translation id="5213114823401215820">פתיחה מחדש של קבוצה שנסגרה</translation>
 <translation id="5213481667492808996">שירות הנתונים של '<ph name="NAME" />' מוכן לשימוש</translation>
 <translation id="5213891612754844763">‏הצגת ההגדרות של שרת ה-proxy</translation>
@@ -7317,7 +7317,7 @@
 <translation id="6238982280403036866">‏מורשים להשתמש ב-JavaScript</translation>
 <translation id="6239558157302047471">טעינת ה&amp;מסגרת מחדש</translation>
 <translation id="6240637845286751292">יש הרשאה. צריך להפעיל את ה<ph name="LINK_BEGIN" />גישה למיקום המערכת<ph name="LINK_END" />.</translation>
-<translation id="6240821072888636753">יש לשאול בכל פעם</translation>
+<translation id="6240821072888636753">לשאול בכל פעם</translation>
 <translation id="6240964651812394252">‏כדי להשתמש במנהל הסיסמאות של Google עם מערכת ההפעלה, צריך להפעיל מחדש את Chrome ולאפשר גישה למנהל הסיסמאות במחשב. הכרטיסיות ייפתחו מחדש אחרי ההפעלה.</translation>
 <translation id="6241530762627360640">‏פרטי גישה של מכשירי Bluetooth המותאמים למערכת שלך ומגלים מכשירי Bluetooth קרובים.</translation>
 <translation id="6241844896329831164">אין צורך בגישה</translation>

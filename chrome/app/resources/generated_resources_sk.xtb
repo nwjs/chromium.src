@@ -1760,7 +1760,7 @@ Ak chcete spravovať nastavenia tohto účtu, nainštalujte si do zariadenia apl
 <translation id="2224444042887712269">Nastavenie patrí používateľovi <ph name="OWNER_EMAIL" />.</translation>
 <translation id="2224551243087462610">Upraviť názov priečinka</translation>
 <translation id="2225927550500503913">Virtuálna karta bola zapnutá</translation>
-<translation id="2226826835915474236">Neaktívne odkazy</translation>
+<translation id="2226826835915474236">Neaktívne skratky</translation>
 <translation id="2226907662744526012">Automaticky odomknúť po zadaní kódu PIN</translation>
 <translation id="2227179592712503583">Odstrániť návrh</translation>
 <translation id="2229161054156947610">Zostáva viac ako 1 hodina</translation>
@@ -4726,7 +4726,7 @@ Môže to zahŕňať informácie o nainštalovanom softvéri, súboroch, prehli
 <translation id="4341905082470253054">Kontroluje sa stav modulu TPM...</translation>
 <translation id="434198521554309404">Rýchle. Zabezpečené. Jednoduché.</translation>
 <translation id="4342417854108207000">Majú povolené upravovať súbory alebo priečinky vo vašom zariadení</translation>
-<translation id="4343250402091037179">Ak chcete hľadať na konkrétnom webe alebo v časti Chromu, zadajte jej odkaz do panela s adresou a použite preferovanú klávesovú skratku.</translation>
+<translation id="4343250402091037179">Ak chcete hľadať na konkrétnom webe alebo v určitej časti Chromu, napíšte do panela s adresou jej skratku a potom stlačte preferovanú klávesovú skratku.</translation>
 <translation id="4343283008857332996">Prístup ku kamere je povolený pre aplikácie, weby s povolením používať kameru a systémové služby. Ak chcete použiť kameru, možno budete musieť aplikáciu reštartovať alebo obnoviť stránku.</translation>
 <translation id="4345457680916430965">&amp;Otvoriť v aplikácii <ph name="APP" /></translation>
 <translation id="4345587454538109430">Konfigurovať...</translation>
@@ -7147,7 +7147,7 @@ Na tento účet sa môžu vzťahovať povolenia, ktoré ste už udelili webom a�
 <translation id="6127598727646973981">Zabezpečené pripojenia</translation>
 <translation id="6129691635767514872">Vybrané dáta boli odstránené z Chromu a synchronizovaných zariadení. Váš účet Google môže mať ďalšie formy histórie prehliadania na adrese <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> (napríklad vyhľadávania a aktivity v iných službách Googlu).</translation>
 <translation id="6129938384427316298">Netscape – komentár certifikátu</translation>
-<translation id="6129953537138746214">Medzera</translation>
+<translation id="6129953537138746214">Medzerník</translation>
 <translation id="6130692320435119637">Pridať Wi‑Fi</translation>
 <translation id="6130807998512240230">Telefónne centrum, Zdieľanie nablízku</translation>
 <translation id="6130887916931372608">Kláves klávesnice</translation>
@@ -7257,7 +7257,7 @@ Na tento účet sa môžu vzťahovať povolenia, ktoré ste už udelili webom a�
 <translation id="6208725777148613371">Nepodarilo sa uložiť do služby <ph name="WEB_DRIVE" /> – <ph name="INTERRUPT_REASON" /></translation>
 <translation id="6209767197996242814">Ak ste zabudli prístupovú frázu alebo chcete toto nastavenie zmeniť, <ph name="SETTINGS_LINK" />.</translation>
 <translation id="6209908325007204267">Vaše zariadenie zahŕňa inováciu Chrome Enterprise, ale vaše používateľské meno nie je spojené s účtom Enterprise. Vytvorte si účet Enterprise v druhom zariadení na g.co/ChromeEnterpriseAccount.</translation>
-<translation id="6210282067670792090">Použite v paneli s adresou túto klávesovú skratku s odkazmi na vyhľadávače a vyhľadávanie na webe</translation>
+<translation id="6210282067670792090">Túto klávesovú skratku používajte v paneli s adresou spolu so skratkami pre vyhľadávače a vyhľadávanie na weboch</translation>
 <translation id="6211067089253408231">Zapnúť okamžitý hotspot</translation>
 <translation id="6211659910592825123">Skontrolujte kameru</translation>
 <translation id="621172521139737651">{COUNT,plural, =0{Otvoriť všetko na novej skupine kariet}=1{Otvoriť na novej skupine kariet}few{Otvoriť všetko ({COUNT}) na novej skupine kariet}many{Otvoriť všetko ({COUNT}) na novej skupine kariet}other{Otvoriť všetko ({COUNT}) na novej skupine kariet}}</translation>
@@ -8870,7 +8870,7 @@ Máte ešte # ďalších. Správca hesiel Google odporúča okamžite dané hes
 <translation id="7385854874724088939">Pri pokuse o tlač sa vyskytla chyba. Skontrolujte svoju tlačiareň a skúste to znova.</translation>
 <translation id="7387107590792462040">Počkajte, kým prebieha inštalácia</translation>
 <translation id="7387273928653486359">Prijateľná</translation>
-<translation id="7387951778417998929">Ak chcete použiť iný ako predvolený vyhľadávač, zadajte jeho odkaz do panela s adresou a potom preferovanú klávesovú skratku. Tu môžete zmeniť aj svoj predvolený vyhľadávač.</translation>
+<translation id="7387951778417998929">Ak chcete použiť iný ako predvolený vyhľadávač, napíšte do panela s adresou jeho skratku a potom stlačte preferovanú klávesovú skratku. Môžete tu aj zmeniť svoj predvolený vyhľadávač.</translation>
 <translation id="7388209873137778229">Zobrazené sú len podporované zariadenia.</translation>
 <translation id="7388615499319468910">Weby a inzerenti môžu porozumieť výkonnosti reklám. Toto nastavenie je vypnuté.</translation>
 <translation id="738903649531469042">Pridať kartu do čitateľského zoznamu</translation>
@@ -11205,7 +11205,7 @@ Na tento účet sa môžu vzťahovať povolenia, ktoré ste už udelili webom a�
 <translation id="9023909777842748145">Vypnutím tejto funkcie neovplyvníte schopnosť zariadenia odosielať informácie potrebné na fungovanie základných služieb, ako sú aktualizácie systému a zabezpečenie.</translation>
 <translation id="9024127637873500333">&amp;Otvoriť na novej karte</translation>
 <translation id="9024158959543687197">Pri pripájaní zdieľaného úložiska sa vyskytla chyba. Skontrolujte jeho webovú adresu a skúste to znova.</translation>
-<translation id="9024692527554990034">V paneli s adresou môžete pomocou skratiek rýchlo vyhľadať konkrétny web alebo použiť iný vyhľadávač</translation>
+<translation id="9024692527554990034">Použitím skratky v paneli s adresou môžete rýchlo prehľadať konkrétny web alebo využiť iný vyhľadávač</translation>
 <translation id="902638246363752736">Nastavenia klávesnice</translation>
 <translation id="9026393603776578602">diktovanie</translation>
 <translation id="9026731007018893674">stiahnuť</translation>

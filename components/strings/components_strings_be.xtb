@@ -2316,8 +2316,7 @@
 <translation id="5161334686036120870">Тэма:</translation>
 <translation id="5161506081086828129">Укладчык 9</translation>
 <translation id="5164798890604758545">Уводзіцца тэкст</translation>
-<translation id="5164928537947209380">Гэта эксперыментальны AI-інструмент. Ён можа памыляцца. Для яго паляпшэння ваша змесціва адпраўляецца ў Google.
-    <ph name="BEGIN_LINK" />Даведацца больш<ph name="END_LINK" /></translation>
+<translation id="5164928537947209380">Гэта эксперыментальны інструмент на аснове AI. Ён можа памыляцца. Для яго паляпшэння ваша змесціва адпраўляецца ў Google. <ph name="BEGIN_LINK" />Даведацца больш<ph name="END_LINK" /></translation>
 <translation id="5169827969064885044">Вы можаце страціць доступ да ўліковага запісу арганізацыі, або ў вас могуць скрасці асабістыя даныя. Chrome рэкамендуе змяніць пароль.</translation>
 <translation id="5171045022955879922">Увядзіце запыт або URL-адрас</translation>
 <translation id="5172758083709347301">Машына</translation>
@@ -4394,7 +4393,7 @@
 <translation id="8956124158020778855">Уключыўшы наладу, вярніцеся на гэту ўкладку і пачніце пісаць.</translation>
 <translation id="8957210676456822347">Аўтарызацыя праз партал узаемадзеяння</translation>
 <translation id="8959282183248574156"><ph name="NICKNAME_COUNT" /> з <ph name="NICKNAME_MAX" /></translation>
-<translation id="8963117664422609631">Перайсці ў налады сайта</translation>
+<translation id="8963117664422609631">Перайсці ў налады сайтаў</translation>
 <translation id="8963213021028234748"><ph name="MARKUP_1" />Рэкамендацыі:<ph name="MARKUP_2" />Праверце, ці ёсць у вас падключэнне для перадачы даных.<ph name="MARKUP_3" />Перазагрузіце старонку пазней.<ph name="MARKUP_4" />Праверце ўведзены адрас.<ph name="MARKUP_5" /></translation>
 <translation id="8968766641738584599">Захаваць картку</translation>
 <translation id="8970887620466824814">Нешта пайшло не так.</translation>
