@@ -81,9 +81,6 @@ GURL GetInitialURL(ProfilePicker::EntryPoint entry_point) {
     case ProfilePicker::EntryPoint::kProfileMenuAddNewProfile:
     case ProfilePicker::EntryPoint::kAppMenuProfileSubMenuAddNewProfile:
       return base_url.Resolve("new-profile");
-    case ProfilePicker::EntryPoint::kLacrosSelectAvailableAccount:
-      return base_url.Resolve("account-selection-lacros");
-    case ProfilePicker::EntryPoint::kLacrosPrimaryProfileFirstRun:
     case ProfilePicker::EntryPoint::kFirstRun:
       // Should not be used for this entry point.
       NOTREACHED();
@@ -436,22 +433,6 @@ void ProfilePickerFlowController::OnProfilePickerStepShownReauthError(
 
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-void ProfilePickerFlowController::SwitchToPostSignIn(
-    Profile* signed_in_profile,
-    const CoreAccountInfo& account_info,
-    std::optional<SkColor> profile_color,
-    std::unique_ptr<content::WebContents> contents) {
-  DCHECK_EQ(Step::kProfilePicker, current_step());
-  suggested_profile_color_ = profile_color;
-  SwitchToIdentityStepsFromPostSignIn(
-      signed_in_profile, account_info,
-      content::WebContents::Create(
-          content::WebContents::CreateParams(signed_in_profile)),
-      StepSwitchFinishedCallback());
-}
-#endif
-
 base::FilePath ProfilePickerFlowController::GetSwitchProfilePathOrEmpty()
     const {
   if (weak_signed_in_flow_controller_) {
@@ -489,8 +470,6 @@ void ProfilePickerFlowController::CancelPostSignInFlow() {
       ExitFlow();
       return;
     }
-    case ProfilePicker::EntryPoint::kLacrosSelectAvailableAccount:
-    case ProfilePicker::EntryPoint::kLacrosPrimaryProfileFirstRun:
     case ProfilePicker::EntryPoint::kFirstRun:
       NOTREACHED()
           << "CancelPostSignInFlow() is not reachable from this entry point";
@@ -499,11 +478,7 @@ void ProfilePickerFlowController::CancelPostSignInFlow() {
 
 std::u16string ProfilePickerFlowController::GetFallbackAccessibleWindowTitle()
     const {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  return l10n_util::GetStringUTF16(IDS_PROFILE_PICKER_MAIN_VIEW_TITLE_LACROS);
-#else
   return l10n_util::GetStringUTF16(IDS_PROFILE_PICKER_MAIN_VIEW_TITLE);
-#endif
 }
 
 std::unique_ptr<ProfilePickerSignedInFlowController>

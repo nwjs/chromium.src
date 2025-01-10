@@ -22,6 +22,7 @@
 #include "build/build_config.h"
 #include "components/autofill/core/browser/autofill_browser_util.h"
 #include "components/autofill/core/browser/autofill_client.h"
+#include "components/autofill/core/browser/autofill_data_util.h"
 #include "components/autofill/core/browser/autofill_experiments.h"
 #include "components/autofill/core/browser/autofill_optimization_guide.h"
 #include "components/autofill/core/browser/data_model/autofill_offer_data.h"
@@ -32,6 +33,7 @@
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
+#include "components/autofill/core/browser/metrics/form_events/credit_card_form_event_logger.h"
 #include "components/autofill/core/browser/metrics/payments/card_metadata_metrics.h"
 #include "components/autofill/core/browser/metrics/suggestions_list_metrics.h"
 #include "components/autofill/core/browser/payments/autofill_offer_manager.h"
@@ -493,11 +495,11 @@ void SetSuggestionLabelsForCard(
               ->payments_data_manager()
               .IsCardEligibleForBenefits(credit_card)) {
         labels.push_back({*benefit_label});
-      }
-      if (base::FeatureList::IsEnabled(
-              features::kAutofillEnableCardBenefitsIph)) {
-        suggestion.feature_for_iph =
-            &feature_engagement::kIPHAutofillCreditCardBenefitFeature;
+        if (base::FeatureList::IsEnabled(
+                features::kAutofillEnableCardBenefitsIph)) {
+          suggestion.iph_metadata = Suggestion::IPHMetadata(
+              &feature_engagement::kIPHAutofillCreditCardBenefitFeature);
+        }
       }
     }
     labels.push_back({Suggestion::Text(
@@ -578,14 +580,17 @@ void AdjustVirtualCardSuggestionContent(Suggestion& suggestion,
   suggestion.type = SuggestionType::kVirtualCreditCardEntry;
   // If a virtual card is non-acceptable, it needs to be displayed in
   // grayed-out style.
-  suggestion.apply_deactivated_style = !suggestion.is_acceptable;
-  suggestion.feature_for_iph =
-      suggestion.apply_deactivated_style &&
+  if (!suggestion.IsAcceptable()) {
+    suggestion.acceptability =
+        Suggestion::Acceptability::kUnacceptableWithDeactivatedStyle;
+  }
+  suggestion.iph_metadata = Suggestion::IPHMetadata(
+      suggestion.HasDeactivatedStyle() &&
               base::FeatureList::IsEnabled(
                   features::kAutofillEnableVcnGrayOutForMerchantOptOut)
           ? &feature_engagement::
                 kIPHAutofillDisabledVirtualCardSuggestionFeature
-          : &feature_engagement::kIPHAutofillVirtualCardSuggestionFeature;
+          : &feature_engagement::kIPHAutofillVirtualCardSuggestionFeature);
 
   // If ShouldFormatForLargeKeyboardAccessory() is true, `suggestion` has been
   // properly formatted by `SetSuggestionLabelsForCard` and does not need
@@ -604,7 +609,7 @@ void AdjustVirtualCardSuggestionContent(Suggestion& suggestion,
   if (!base::FeatureList::IsEnabled(
           features::kAutofillEnableVirtualCardMetadata)) {
     suggestion.minor_text.value = suggestion.main_text.value;
-    if (suggestion.is_acceptable) {
+    if (suggestion.IsAcceptable()) {
       suggestion.main_text.value = virtual_card_label;
     } else {
       suggestion.main_text.value = virtual_card_disabled_label;
@@ -658,7 +663,7 @@ void AdjustVirtualCardSuggestionContent(Suggestion& suggestion,
         suggestion.labels.push_back({*benefit_label});
       }
     }
-    if (suggestion.is_acceptable) {
+    if (suggestion.IsAcceptable()) {
       suggestion.labels.push_back(
           std::vector<Suggestion::Text>{Suggestion::Text(virtual_card_label)});
     } else {
@@ -919,8 +924,11 @@ Suggestion CreateCreditCardSuggestion(
   // First layer manual fallback entries can't fill forms and thus can't be
   // selected by the user.
   suggestion.type = SuggestionType::kCreditCardEntry;
-  suggestion.is_acceptable =
+  bool is_acceptable =
       IsCardSuggestionAcceptable(credit_card, client, is_manual_fallback);
+  suggestion.acceptability = is_acceptable
+                                 ? Suggestion::Acceptability::kAcceptable
+                                 : Suggestion::Acceptability::kUnacceptable;
   suggestion.payload = Suggestion::Guid(credit_card.guid());
 #if BUILDFLAG(IS_ANDROID)
   // The card art icon should always be shown at the start of the suggestion.
@@ -949,12 +957,12 @@ Suggestion CreateCreditCardSuggestion(
                                        trigger_field_type);
   } else if (card_linked_offer_available) {
 #if BUILDFLAG(IS_ANDROID)
-    // For Keyboard Accessory, set Suggestion::feature_for_iph and change the
+    // For Keyboard Accessory, set Suggestion::iph_metadata and change the
     // suggestion icon only if card linked offers are also enabled.
     if (base::FeatureList::IsEnabled(
             features::kAutofillEnableOffersInClankKeyboardAccessory)) {
-      suggestion.feature_for_iph =
-          &feature_engagement::kIPHKeyboardAccessoryPaymentOfferFeature;
+      suggestion.iph_metadata = Suggestion::IPHMetadata(
+          &feature_engagement::kIPHKeyboardAccessoryPaymentOfferFeature);
       suggestion.icon = Suggestion::Icon::kOfferTag;
     } else {
 #else   // Add the offer label on Desktop unconditionally.
@@ -968,7 +976,7 @@ Suggestion CreateCreditCardSuggestion(
 
   if (virtual_card_option) {
     suggestion.acceptance_a11y_announcement = l10n_util::GetStringUTF16(
-        IDS_AUTOFILL_A11Y_ANNOUNCE_VIRTUAL_CARD_MANUAL_FALLBACK_ENTRY);
+        IDS_AUTOFILL_A11Y_ANNOUNCE_FILLED_CARD_INFORMATION_ENTRY);
   } else if (is_manual_fallback) {
     AddPaymentsGranularFillingChildSuggestions(
         credit_card, suggestion,
@@ -1147,7 +1155,7 @@ std::vector<Suggestion> GetCreditCardOrCvcFieldSuggestions(
                                       current_card_index);
 
       summary.ranking_context.suggestion_rankings_difference_map.insert(
-          {suggestion.GetBackendId<Suggestion::Guid>(), ranking_difference});
+          {suggestion.GetPayload<Suggestion::Guid>(), ranking_difference});
     }
   }
   summary.with_cvc = !std::ranges::all_of(
@@ -1194,8 +1202,8 @@ std::vector<Suggestion> GetVirtualCardStandaloneCvcFieldSuggestions(
     suggestion.icon = credit_card.CardIconForAutofillSuggestion();
     suggestion.type = SuggestionType::kVirtualCreditCardEntry;
     suggestion.payload = Suggestion::Guid(credit_card.guid());
-    suggestion.feature_for_iph =
-        &feature_engagement::kIPHAutofillVirtualCardCVCSuggestionFeature;
+    suggestion.iph_metadata = Suggestion::IPHMetadata(
+        &feature_engagement::kIPHAutofillVirtualCardCVCSuggestionFeature);
     SetCardArtURL(suggestion, credit_card,
                   client.GetPersonalDataManager()->payments_data_manager(),
                   /*virtual_card_option=*/true);
@@ -1252,35 +1260,66 @@ std::vector<CreditCard> GetTouchToFillCardsToSuggest(
 
 std::vector<Suggestion> GetCreditCardSuggestionsForTouchToFill(
     base::span<const CreditCard> credit_cards,
-    const AutofillClient& client) {
+    const AutofillClient& client,
+    autofill_metrics::CreditCardFormEventLogger&
+        credit_card_form_event_logger) {
   std::vector<Suggestion> suggestions;
   suggestions.reserve(credit_cards.size());
+  autofill_metrics::CardMetadataLoggingContext metadata_logging_context =
+      autofill_metrics::GetMetadataLoggingContext(credit_cards);
   for (const CreditCard& credit_card : credit_cards) {
     Suggestion suggestion;
-    std::u16string nickname = GetDisplayNicknameForCreditCard(
+    bool should_display_terms_available = false;
+    std::u16string display_name = GetDisplayNicknameForCreditCard(
         credit_card, client.GetPersonalDataManager()->payments_data_manager());
-    suggestion.main_text.value =
-        credit_card.CardNameForAutofillDisplay(nickname);
+    std::u16string card_name =
+        credit_card.CardNameForAutofillDisplay(display_name);
+    std::u16string network = base::UTF8ToUTF16(
+        data_util::GetPaymentRequestData(credit_card.network())
+            .basic_card_issuer_network);
+    // If a card has a nickname, the network name should also be announced,
+    // otherwise the name of the card will be the network name and it will be
+    // announced.
+    std::u16string main_text_content_description =
+        base::i18n::ToLower(card_name) == base::i18n::ToLower(network)
+            ? card_name
+            : base::StrCat({card_name, u" ", network});
+    suggestion.main_text.value = card_name;
     suggestion.minor_text.value =
         credit_card.ObfuscatedNumberWithVisibleLastFourDigits();
     std::optional<Suggestion::Text> benefit_label =
         GetCreditCardBenefitSuggestionLabel(credit_card, client);
-    if (benefit_label && client.GetPersonalDataManager()
-                             ->payments_data_manager()
-                             .IsCardEligibleForBenefits(credit_card)) {
-      suggestion.labels.push_back({*benefit_label});
-      suggestion.payload = Suggestion::PaymentsPayload(
-          /* should_display_terms_available= */ true);
+    if (benefit_label) {
+      // Keep track of which cards had eligible benefits even if the
+      // benefit is not displayed in the suggestion due to
+      // IsCardEligibleForBenefits() == false. This helps denote a control
+      // group of users with benefit-eligible cards to help determine how
+      // benefit availability affects autofill usage.
+      metadata_logging_context
+          .instrument_ids_to_issuer_ids_with_benefits_available.insert(
+              {credit_card.instrument_id(), credit_card.issuer_id()});
+      if (client.GetPersonalDataManager()
+              ->payments_data_manager()
+              .IsCardEligibleForBenefits(credit_card)) {
+        suggestion.labels.push_back({*benefit_label});
+        should_display_terms_available = true;
+      }
     }
+    suggestion.payload = Suggestion::PaymentsPayload(
+        main_text_content_description, should_display_terms_available);
     if (credit_card.record_type() == CreditCard::RecordType::kVirtualCard) {
       suggestion.type = SuggestionType::kVirtualCreditCardEntry;
-      suggestion.apply_deactivated_style = !IsCardSuggestionAcceptable(
+      bool acceptable = IsCardSuggestionAcceptable(
           credit_card, client, /*is_manual_fallback= */ false);
+      suggestion.acceptability =
+          acceptable
+              ? Suggestion::Acceptability::kAcceptable
+              : Suggestion::Acceptability::kUnacceptableWithDeactivatedStyle;
       suggestion.labels.push_back(std::vector<Suggestion::Text>{
           Suggestion::Text(l10n_util::GetStringUTF16(
-              suggestion.apply_deactivated_style
-                  ? IDS_AUTOFILL_VIRTUAL_CARD_DISABLED_SUGGESTION_OPTION_VALUE
-                  : IDS_AUTOFILL_VIRTUAL_CARD_SUGGESTION_OPTION_VALUE))});
+              acceptable
+                  ? IDS_AUTOFILL_VIRTUAL_CARD_SUGGESTION_OPTION_VALUE
+                  : IDS_AUTOFILL_VIRTUAL_CARD_DISABLED_SUGGESTION_OPTION_VALUE))});
     } else {
       suggestion.type = SuggestionType::kCreditCardEntry;
       suggestion.labels.push_back(
@@ -1292,6 +1331,8 @@ std::vector<Suggestion> GetCreditCardSuggestionsForTouchToFill(
     }
     suggestions.push_back(suggestion);
   }
+  credit_card_form_event_logger.OnMetadataLoggingContextReceived(
+      std::move(metadata_logging_context));
   return suggestions;
 }
 
@@ -1322,11 +1363,10 @@ std::vector<Suggestion> GetSuggestionsForIbans(const std::vector<Iban>& ibans) {
     suggestion.icon = Suggestion::Icon::kIban;
     suggestion.type = SuggestionType::kIbanEntry;
     if (iban.record_type() == Iban::kLocalIban) {
-      suggestion.payload = Suggestion::BackendId(Suggestion::Guid(iban.guid()));
+      suggestion.payload = Suggestion::Guid(iban.guid());
     } else {
       CHECK(iban.record_type() == Iban::kServerIban);
-      suggestion.payload =
-          Suggestion::BackendId(Suggestion::InstrumentId(iban.instrument_id()));
+      suggestion.payload = Suggestion::InstrumentId(iban.instrument_id());
     }
 
     std::u16string iban_identifier =
@@ -1373,8 +1413,8 @@ std::vector<Suggestion> GetPromoCodeSuggestionsFromPromoCodeOffers(
       suggestion.labels = {{Suggestion::Text(base::ASCIIToUTF16(
           promo_code_offer->GetDisplayStrings().value_prop_text))}};
     }
-    suggestion.payload = Suggestion::BackendId(
-        Suggestion::Guid(base::NumberToString(promo_code_offer->GetOfferId())));
+    suggestion.payload =
+        Suggestion::Guid(base::NumberToString(promo_code_offer->GetOfferId()));
     suggestion.type = SuggestionType::kMerchantPromoCodeEntry;
 
     // Every offer for a given merchant leads to the same GURL, so we grab the

@@ -154,7 +154,7 @@ struct IdentityProviderParameters {
   const char* login_hint;
   const char* domain_hint;
   std::optional<std::vector<std::string>> fields;
-  base::flat_map<std::string, std::string> params;
+  const char* params_json;
 };
 
 // Parameters for a call to RequestToken.
@@ -391,8 +391,9 @@ class TestIdpNetworkRequestManager : public MockIdpNetworkRequestManager {
     MockIdpInfo info;
     for (const auto& idp_info : config_.idp_info) {
       info = idp_info.second;
-      if (GURL(info.config.client_metadata_endpoint) == endpoint)
+      if (GURL(info.config.client_metadata_endpoint) == endpoint) {
         break;
+      }
     }
 
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -413,8 +414,9 @@ class TestIdpNetworkRequestManager : public MockIdpNetworkRequestManager {
     MockIdpInfo info;
     for (const auto& idp_info : config_.idp_info) {
       info = idp_info.second;
-      if (GURL(info.config.accounts_endpoint) == accounts_url)
+      if (GURL(info.config.accounts_endpoint) == accounts_url) {
         break;
+      }
     }
 
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -522,8 +524,9 @@ class IdpNetworkRequestManagerParamChecker
                            int rp_brand_icon_ideal_size,
                            int rp_brand_icon_minimum_size,
                            FetchClientMetadataCallback callback) override {
-    if (expected_client_id_)
+    if (expected_client_id_) {
       EXPECT_EQ(expected_client_id_, client_id);
+    }
     TestIdpNetworkRequestManager::FetchClientMetadata(
         endpoint, client_id, rp_brand_icon_ideal_size,
         rp_brand_icon_minimum_size, std::move(callback));
@@ -532,8 +535,9 @@ class IdpNetworkRequestManagerParamChecker
   void SendAccountsRequest(const GURL& accounts_url,
                            const std::string& client_id,
                            AccountsRequestCallback callback) override {
-    if (expected_client_id_)
+    if (expected_client_id_) {
       EXPECT_EQ(expected_client_id_, client_id);
+    }
     TestIdpNetworkRequestManager::SendAccountsRequest(accounts_url, client_id,
                                                       std::move(callback));
   }
@@ -545,10 +549,12 @@ class IdpNetworkRequestManagerParamChecker
       TokenRequestCallback callback,
       ContinueOnCallback on_continue,
       RecordErrorMetricsCallback record_error_metrics_callback) override {
-    if (expected_selected_account_id_)
+    if (expected_selected_account_id_) {
       EXPECT_EQ(expected_selected_account_id_, account);
-    if (expected_url_encoded_post_data_)
+    }
+    if (expected_url_encoded_post_data_) {
       EXPECT_EQ(expected_url_encoded_post_data_, url_encoded_post_data);
+    }
     TestIdpNetworkRequestManager::SendTokenRequest(
         token_url, account, url_encoded_post_data, std::move(callback),
         std::move(on_continue), std::move(record_error_metrics_callback));
@@ -793,8 +799,9 @@ class TestApiPermissionDelegate : public MockApiPermissionDelegate {
       const url::Origin& origin) override {
     ++api_invocation_counter;
 
-    if (embargoed_origins_.count(origin))
+    if (embargoed_origins_.count(origin)) {
       return ApiPermissionStatus::BLOCKED_EMBARGO;
+    }
 
     if (permission_override_for_nth_ &&
         permission_override_for_nth_->first == api_invocation_counter) {
@@ -1131,7 +1138,9 @@ class FederatedAuthRequestImplTest : public RenderViewHostImplTestHarness {
       options->login_hint = identity_provider.login_hint;
       options->domain_hint = identity_provider.domain_hint;
       options->fields = std::move(identity_provider.fields);
-      options->params = std::move(identity_provider.params);
+      if (identity_provider.params_json) {
+        options->params_json = identity_provider.params_json;
+      }
       idp_ptrs.push_back(std::move(options));
     }
     blink::mojom::IdentityProviderGetParametersPtr get_params =
@@ -1214,8 +1223,9 @@ class FederatedAuthRequestImplTest : public RenderViewHostImplTestHarness {
       EXPECT_EQ(*standalone_console_message, messages[0]);
     }
 
-    if (!did_expect_any_messages)
+    if (!did_expect_any_messages) {
       EXPECT_EQ(0u, messages.size());
+    }
   }
 
   void PerformAuthRequest(
@@ -3489,7 +3499,9 @@ TEST_F(FederatedAuthRequestImplTest, DisclosureTextShownForFirstTimeUser) {
   checker->SetExpectedTokenPostData(
       "client_id=" + std::string(kClientId) + "&nonce=" + std::string(kNonce) +
       "&account_id=" + std::string(kAccountId) + "&disclosure_text_shown=true" +
-      "&is_auto_selected=false");
+      "&is_auto_selected=false&mode=passive&fields=name,email,picture&"
+      "disclosure_shown_for="
+      "name,email,picture");
   SetNetworkRequestManager(std::move(checker));
 
   RunAuthTest(kDefaultRequestParameters, kExpectationSuccess,
@@ -3512,7 +3524,8 @@ TEST_F(FederatedAuthRequestImplTest, DisclosureTextNotShownForReturningUser) {
   checker->SetExpectedTokenPostData(
       "client_id=" + std::string(kClientId) + "&nonce=" + std::string(kNonce) +
       "&account_id=" + std::string(kAccountId) +
-      "&disclosure_text_shown=false&is_auto_selected=false");
+      "&disclosure_text_shown=false&is_auto_"
+      "selected=false&mode=passive&fields=name,email,picture");
   SetNetworkRequestManager(std::move(checker));
 
   MockConfiguration config = kConfigurationValid;
@@ -3530,10 +3543,12 @@ TEST_F(FederatedAuthRequestImplTest, TokenEndpointPostDataEscaping) {
 
   std::unique_ptr<IdpNetworkRequestManagerParamChecker> checker =
       std::make_unique<IdpNetworkRequestManagerParamChecker>();
-  checker->SetExpectedTokenPostData("client_id=" + std::string(kClientId) +
-                                    "&nonce=" + std::string(kNonce) +
-                                    "&account_id=account+id&disclosure_text_"
-                                    "shown=true&is_auto_selected=false");
+  checker->SetExpectedTokenPostData(
+      "client_id=" + std::string(kClientId) + "&nonce=" + std::string(kNonce) +
+      "&account_id=account+id&disclosure_text_"
+      "shown=true&is_auto_selected=false&mode=passive&fields=name,email,"
+      "picture&disclosure_"
+      "shown_for=name,email,picture");
   SetNetworkRequestManager(std::move(checker));
 
   RunAuthTest(kDefaultRequestParameters, kExpectationSuccess, configuration);
@@ -3547,7 +3562,9 @@ TEST_F(FederatedAuthRequestImplTest, AutoSelectedFlagForNewUser) {
   checker->SetExpectedTokenPostData(
       "client_id=" + std::string(kClientId) + "&nonce=" + std::string(kNonce) +
       "&account_id=" + std::string(kAccountId) + "&disclosure_text_shown=true" +
-      "&is_auto_selected=false");
+      "&is_auto_selected=false&mode=passive&fields=name,email,picture&"
+      "disclosure_shown_for="
+      "name,email,picture");
   SetNetworkRequestManager(std::move(checker));
 
   RunAuthTest(kDefaultRequestParameters, kExpectationSuccess,
@@ -3571,7 +3588,8 @@ TEST_F(FederatedAuthRequestImplTest,
   checker->SetExpectedTokenPostData(
       "client_id=" + std::string(kClientId) + "&nonce=" + std::string(kNonce) +
       "&account_id=" + std::string(kAccountId) +
-      "&disclosure_text_shown=false" + "&is_auto_selected=false");
+      "&disclosure_text_shown=false" +
+      "&is_auto_selected=false&mode=passive&fields=name,email,picture");
   SetNetworkRequestManager(std::move(checker));
 
   MockConfiguration config = kConfigurationValid;
@@ -3602,7 +3620,8 @@ TEST_F(FederatedAuthRequestImplTest,
   checker->SetExpectedTokenPostData(
       "client_id=" + std::string(kClientId) + "&nonce=" + std::string(kNonce) +
       "&account_id=" + std::string(kAccountId) +
-      "&disclosure_text_shown=false" + "&is_auto_selected=true");
+      "&disclosure_text_shown=false" +
+      "&is_auto_selected=true&mode=passive&fields=name,email,picture");
   SetNetworkRequestManager(std::move(checker));
 
   MockConfiguration config = kConfigurationValid;
@@ -3638,7 +3657,8 @@ TEST_F(FederatedAuthRequestImplTest, AutoSelectedFlagIfInQuietPeriod) {
   checker->SetExpectedTokenPostData(
       "client_id=" + std::string(kClientId) + "&nonce=" + std::string(kNonce) +
       "&account_id=" + std::string(kAccountId) +
-      "&disclosure_text_shown=false&is_auto_selected=false");
+      "&disclosure_text_shown=false&is_auto_"
+      "selected=false&mode=passive&fields=name,email,picture");
   SetNetworkRequestManager(std::move(checker));
 
   RequestExpectations expectations = kExpectationSuccess;
@@ -3674,8 +3694,9 @@ class IdpNetworkRequestManagerClientMetadataTaskRunner
     GURL client_metadata_endpoint_url_copy = client_metadata_endpoint_url;
     std::string client_id_copy = client_id;
 
-    if (client_metadata_task_)
+    if (client_metadata_task_) {
       std::move(client_metadata_task_).Run();
+    }
     TestIdpNetworkRequestManager::FetchClientMetadata(
         client_metadata_endpoint_url_copy, client_id_copy,
         rp_brand_icon_ideal_size, rp_brand_icon_minimum_size,
@@ -4508,6 +4529,10 @@ TEST_F(FederatedAuthRequestImplTest, MultiIdpLoginToOneIdp) {
   // The second IDP has 3 accounts, so those should be showing up.
   EXPECT_EQ(all_accounts_for_display().size(), 3u);
 
+  EXPECT_FALSE(federated_auth_request_impl_->HasUserTriedToSignInToIdp(
+      GURL(kProviderUrlFull)));
+  EXPECT_FALSE(federated_auth_request_impl_->HasUserTriedToSignInToIdp(
+      GURL(kProviderTwoUrlFull)));
   // First, simulate the user clicking on the sign in to IDP active.
   SimulateLoginToIdP();
   // Then, simulate user signing into IdP by updating the IdP signin status and
@@ -4528,6 +4553,10 @@ TEST_F(FederatedAuthRequestImplTest, MultiIdpLoginToOneIdp) {
   // now 4.
   EXPECT_EQ(all_accounts_for_display().size(), 4u);
   EXPECT_EQ(new_accounts().size(), 1u);
+  EXPECT_TRUE(federated_auth_request_impl_->HasUserTriedToSignInToIdp(
+      GURL(kProviderUrlFull)));
+  EXPECT_FALSE(federated_auth_request_impl_->HasUserTriedToSignInToIdp(
+      GURL(kProviderTwoUrlFull)));
 }
 
 // Test that API can succeed with multiple IdPs, if all IDPs have login status
@@ -5421,7 +5450,6 @@ TEST_F(FederatedAuthRequestImplTest, LoginHintMultipleAccountsNoMatch) {
   histogram_tester_.ExpectTotalCount("Blink.FedCm.AccountsSize.ReadyToShow", 0);
 }
 
-
 TEST_F(FederatedAuthRequestImplTest, DomainHintSingleAccountMatch) {
   RequestParameters parameters = kDefaultRequestParameters;
   parameters.identity_providers[0].domain_hint = kDomainHint;
@@ -5818,6 +5846,9 @@ TEST_F(FederatedAuthRequestImplTest, IdTokenInvalidContentType) {
 // Test that the implementation ignores the fields parameter when AuthZ is
 // disabled.
 TEST_F(FederatedAuthRequestImplTest, ScopeGetsIgnoredWhenAuthzIsDisabled) {
+  base::test::ScopedFeatureList list;
+  list.InitAndDisableFeature(features::kFedCmAuthz);
+
   RequestParameters parameters = kDefaultRequestParameters;
   parameters.identity_providers[0].fields = {"non_default_field"};
 
@@ -6027,7 +6058,7 @@ TEST_F(FederatedAuthRequestImplTest, RequestWithParameters) {
   list.InitAndEnableFeature(features::kFedCmAuthz);
 
   RequestParameters parameters = kDefaultRequestParameters;
-  parameters.identity_providers[0].params = {{"foo", "bar"}};
+  parameters.identity_providers[0].params_json = "{\"foo\", \"bar\"}";
 
   RunAuthTest(parameters, kExpectationSuccess, kConfigurationValid);
 
@@ -6043,7 +6074,7 @@ TEST_F(FederatedAuthRequestImplTest, RequestWithParametersAndScopes) {
 
   RequestParameters parameters = kDefaultRequestParameters;
   parameters.identity_providers[0].fields = {"non_default_field"};
-  parameters.identity_providers[0].params = {{"foo", "bar"}};
+  parameters.identity_providers[0].params_json = "{\"foo\", \"bar\"}";
 
   RunAuthTest(parameters, kExpectationSuccess, kConfigurationValid);
 
@@ -6261,6 +6292,8 @@ TEST_F(FederatedAuthRequestImplTest, GetDisclosureFieldsSubsetOfDefault) {
 TEST_F(FederatedAuthRequestImplTest, GetDisclosureFieldsWithoutFeatureEnabled) {
   // Assert that we always mediate the default fields when the kFedCmAuthz flag
   // is not enabled.
+  base::test::ScopedFeatureList list;
+  list.InitAndDisableFeature(features::kFedCmAuthz);
   EXPECT_THAT(GetDisclosureFields({"locale"}),
               ElementsAre(Field::kName, Field::kEmail, Field::kPicture));
 }
@@ -7645,6 +7678,37 @@ TEST_F(FederatedAuthRequestImplTest, UseOtherAccountMultipleNewAccounts) {
   EXPECT_EQ(all_accounts_for_display()[2]->id, kSingleAccount[0]->id);
   EXPECT_EQ(new_accounts()[0]->id, kTwoAccounts[0]->id);
   EXPECT_EQ(new_accounts()[1]->id, kTwoAccounts[1]->id);
+}
+
+TEST_F(FederatedAuthRequestImplTest, MultipleIdpSigninDueToHint) {
+  url::Origin providerOrigin = OriginFromString(kProviderUrlFull);
+
+  // Use an invalid login hint so login to IDP URL is shown.
+  RequestParameters parameters = kDefaultRequestParameters;
+  parameters.identity_providers[0].login_hint = "not_a_valid_email";
+
+  MockConfiguration config = kConfigurationValid;
+  config.accounts_dialog_action = AccountsDialogAction::kNone;
+
+  RunAuthDontWaitForCallback(kDefaultMultiIdpRequestParameters, config);
+
+  EXPECT_FALSE(federated_auth_request_impl_->HasUserTriedToSignInToIdp(
+      GURL(kProviderUrlFull)));
+
+  for (int i = 0; i < 5; ++i) {
+    // First, simulate the user clicking on the sign in to IDP active.
+    SimulateLoginToIdP();
+    // Then, simulate user signing into IdP by updating the IdP signin status
+    // and calling the observer.
+    test_permission_delegate_->idp_signin_statuses_[providerOrigin] = true;
+    // We do not update the accounts so they would still be filtered out.
+    federated_auth_request_impl_->OnIdpSigninStatusReceived(
+        providerOrigin, /*idp_signin_status=*/true);
+
+    base::RunLoop().RunUntilIdle();
+    EXPECT_TRUE(federated_auth_request_impl_->HasUserTriedToSignInToIdp(
+        GURL(kProviderUrlFull)));
+  }
 }
 
 }  // namespace content

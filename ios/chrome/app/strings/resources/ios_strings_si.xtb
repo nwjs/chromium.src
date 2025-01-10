@@ -3,6 +3,7 @@
 <translationbundle lang="si">
 <translation id="1005023885865154304">ස්වයං පිරවුම් මුරපද සැකසීම් විවෘත කරන්න</translation>
 <translation id="1005230401424685968">ව.ව.ව.ව.</translation>
+<translation id="1010225406377140704">නව සබැඳියක් ඉල්ලා සිටීමට යවන්නා අමතන්න</translation>
 <translation id="1012067394176927315">අන්තර්ගතය බැලීමට, මෙනුවෙන් ක්‍රියාත්මක කරන්න තෝරන්න</translation>
 <translation id="1013952917065545813">ඔබ මෑතකදී වසා දැමූ ටැබ නැවත විවෘත කිරීමට ඔබට නැවත මෙහි පැමිණිය හැකිය</translation>
 <translation id="1016495303386450659">අයිතමය යාවත්කාලීන කරන ලදි</translation>
@@ -18,10 +19,12 @@
 <translation id="1053651653201045802">වරන ලදි. ඔබේ ගිණුම තුළ පිටුසන්, මුරපද, සහ තවත් ඒවා භාවිත කිරීමට ආපසු පුරන්න.</translation>
 <translation id="1054745118061919935">ඉදිරියට යාමෙන්, ඔබ <ph name="BEGIN_LINK" />සේවා නියම<ph name="END_LINK" /> සමග එකඟ වේ.</translation>
 <translation id="10614374240317010">කිසිවිටෙක සුරැක නැත</translation>
+<translation id="1062138828266376352">ඔබේ PIN අංකය වෙනස් කර නැත. ඔබේ අන්තර්ජාල සම්බන්ධතාව පරීක්ෂා කර නැවත උත්සහ කරන්න</translation>
 <translation id="1066060668811609597">සමමුහූර්තය කළමනා කරන්න</translation>
 <translation id="1076421457278169141">කේතය ස්කෑන් කරන ලදී</translation>
 <translation id="1081932398873105675">{count,plural, =1{{count} පටිත්තක්}one{පටිති {count}ක්}other{පටිති {count}ක්}}</translation>
 <translation id="1084365883616172403">Facebook පළ කිරීම සම්පූර්ණයි.</translation>
+<translation id="1085677983426914530"><ph name="FILENAME" /> විවෘත කළ නොහැකි විය</translation>
 <translation id="1096992026380844478">ඔබේ අවසන් උපස්ථය මත පදනම්ව ඔබේ සමමුහුර්ත කිරීමේ සැකසීම් ප්‍රතිසාධනය කරනු ලැබේ. <ph name="BEGIN_LINK" />ඔබට සමමුහුර්ත කළ හැකි දේ බලන්න<ph name="END_LINK" /></translation>
 <translation id="1103523840287552314">සැමවිටම <ph name="LANGUAGE" /> පරිවර්තනය කරන්න</translation>
 <translation id="1108938384783527433">ඉතිහාසය සමමුහුර්ත කිරීම</translation>
@@ -38,10 +41,10 @@
 <translation id="1150989369772528668">දින දර්ශනය</translation>
 <translation id="1164891049599601209">රැවටිලි සහිත වෙබ් අඩවිය මත ඇතුළත් කළා</translation>
 <translation id="1165039591588034296">දෝෂයක්</translation>
-<translation id="1172240852337942024">තේරීම ඉවතලන්න</translation>
 <translation id="1172898394251786223">ඊළඟ ක්ෂේත්‍රය</translation>
 <translation id="1179890706672152411">ඔබේ ආචයනය පිරී ඇත</translation>
 <translation id="1181037720776840403">ඉවත් කරන්න</translation>
+<translation id="1190609913194133056">දැනුම්දීම් මධ්‍යස්ථානය</translation>
 <translation id="1201402288615127009">ඊළඟ</translation>
 <translation id="1204075260022434100">{count,plural, =1{පිටුසන ඔබේ ගිණුමේ, {email} "{title}" වෙත සුරකින ලදි}one{පිටුසන් {count} ඔබේ {email} ගිණුමේ "{title}" වෙත සුරකින ලදි}other{පිටුසන් {count} ඔබේ {email} ගිණුමේ "{title}" වෙත සුරකින ලදි}}</translation>
 <translation id="120431140543679678">අනුගමනය කරන්න</translation>
@@ -102,6 +105,7 @@
 <translation id="143681031165817424">ලිපිනය මෙම උපාංගයෙහි පමණක් සුරකින ලදි</translation>
 <translation id="1445276840641906250">ඔබේ සියලු ටැබ එක් බ්‍රව්සරයක</translation>
 <translation id="1450170672351507823">සම්මත ආරක්ෂාව ක්‍රියාත්මකයි. ඊටත් වඩා වැඩි ආරක්ෂාව සඳහා, වැඩි දියුණු කළ ආරක්ෂාව භාවිත කරන්න.</translation>
+<translation id="1455660774629812862">සඟවන්න එපා</translation>
 <translation id="1460751212339734034">කාලය ඉතිරි කරන්න, අඩුවෙන් ටයිප් කරන්න</translation>
 <translation id="1466035273550360103">විවෘත පටිති නැත</translation>
 <translation id="1469381646033328562">ඔබේ ගිණුම ඔබේ මාපියවරු විසින් කළමනා කරනු ලැබේ.
@@ -114,7 +118,9 @@
 <translation id="1492417797159476138">ඔබ දැනටමත් මෙම පරිශීලක නම මෙම වෙබ් අඩවිය සඳහා සුරැක ඇත</translation>
 <translation id="1497590942294823549">මෙනුව → මුරපද කළමනාකරු</translation>
 <translation id="1498283581832036924">ඔබේ <ph name="WEBSITE" /> ගිණුම මකා නොදමනු ඇත.</translation>
+<translation id="1506061864768559482">සෙවුම් යන්ත්‍රය</translation>
 <translation id="1506063256525392513">මෙය ඔබට QR කේත ස්කෑන් කිරීමට මෙන්ම, ඡායාරූප ගැනීමට සහ උඩුගත කිරීමට ඉඩ සලසයි</translation>
+<translation id="1508263560970797965">අප්‍රසිද්ධ තුළ ඉදිරියට යන්න</translation>
 <translation id="1509486075633541495">වෙබ් අඩවියට පුරන්න</translation>
 <translation id="1509960214886564027">බොහෝ වෙබ් අඩවි මත විශේෂාංග කැඩී ගිය හැක</translation>
 <translation id="1513858653616922153">මුරපදය මකන්න</translation>
@@ -125,8 +131,10 @@
 <translation id="1531038290222364269">පටිති පෙන්වන්න</translation>
 <translation id="1536390784834419204">පිටුව පරිවර්තනය කරන්න</translation>
 <translation id="1540800554400757039">ලිපිනය 1</translation>
+<translation id="154312949627292154">අගුළු තිරයෙන් ඔබේ අනෙකුත් උපාංගවලින් ලැබුණු පටිති විවෘත කරන්න.</translation>
 <translation id="1545749641540134597">QR කේතය ස්කෑන් කරන්න</translation>
 <translation id="1554477036522844996">නව කවුළුව</translation>
+<translation id="1558391695376153246">අප්‍රකට ටැබ වසන්න</translation>
 <translation id="1571780780926010134">අප්‍රකට ටැබ්</translation>
 <translation id="1580715474678097352">අනතුරුදායක වෙබ් අඩවිවලින් ආරක්ෂා වන්න</translation>
 <translation id="1580783302095112590">තැපෑල යවන ලදි.</translation>
@@ -213,6 +221,7 @@
 <translation id="1956138802718275401">මුල් තිරයෙන් මුරපද වෙත යන්න</translation>
 <translation id="1959441496380398824">දිනයක් ස්පර්ශ කර අල්ලා ගන්න.</translation>
 <translation id="1962348300797608157"><ph name="BEGIN_BOLD" /><ph name="FULL_NAME" /><ph name="END_BOLD" /> <ph name="WEBSITE" /> සඳහා මුරපදයක් ඔබ සමග බෙදා ගෙන ඇත</translation>
+<translation id="1962969542251276847">අගුලු තිරය</translation>
 <translation id="1963976881984600709">සම්මත ආරක්ෂාව</translation>
 <translation id="1966313166384086081">වෙබ් අඩවි දත්ත</translation>
 <translation id="1967461193809857427">{count,plural, =1{ඔබ Android මත හැර ගිය පටිත්ත ගන්නද?}one{ඔබ Android මත හැර ගිය පටිති ගන්නද?}other{ඔබ Android මත හැර ගිය පටිති ගන්නද?}}</translation>
@@ -297,6 +306,7 @@
 <translation id="2316129865977710310">එපා, ස්තූතියි</translation>
 <translation id="2320166752086256636">යතුරු පුවරුව සඟවන්න</translation>
 <translation id="2321086116217818302">මුරපද සූදානම් කරමින්…</translation>
+<translation id="2323697864063408084">ඔබට වැදගත් දේ කිසිවිටෙක අතපසු නොකිරීමට ඔබේ අගුළු තිරයේ සහ බැනර ලෙස දැනුම්දීම් ලබා ගන්න</translation>
 <translation id="2326302612031521902">ඒකක තෝරකය</translation>
 <translation id="2330607597130465898">ආරක්ෂාව නැත</translation>
 <translation id="233375395665273385">මකා දමා වරන්න</translation>
@@ -314,6 +324,7 @@
 විවිධ වෙබ් අඩවි හරහා ඔබේ බ්‍රවුස් කිරීමේ ක්‍රියාකාරකම් බැලීමට, උදාහරණයක් වශයෙන්, වෙළඳ දැන්වීම් පෞද්ගලීකරණය කිරීමට වෙබ් අඩවිවලට කුකි භාවිත කළ නොහැකිය.</translation>
 <translation id="2377336083033403521">පටිති සොයන්න…</translation>
 <translation id="2381405137052800939">මූලික</translation>
+<translation id="2384692388811649784">අප්‍රකට පටිති සඟවන්න</translation>
 <translation id="2386793615875593361">0 ක් තෝරා ගන්නා ලදි</translation>
 <translation id="2390457533592708044">"<ph name="MODULE_NAME" />" සඟවන්න</translation>
 <translation id="2403129868389095715">ඔබේ පැකේජය භාර දිය නොහැක</translation>
@@ -334,6 +345,7 @@
 <translation id="2479148705183875116">සැකසීම් වෙත යන්න</translation>
 <translation id="2482878487686419369">දැනුම්දීම්</translation>
 <translation id="2484459871750294497">මම මෙම විශේෂාංගය සබල කරන්නේ කෙසේ ද?</translation>
+<translation id="2493269659028026145"><ph name="BIOMETRIC_AUTHENITCATION_TYPE" /> සමග වහාම අගුළු දමන්න</translation>
 <translation id="2496180316473517155">බ්‍රවුස් ඉතිහාසය</translation>
 <translation id="2497852260688568942">සමමුහුර්ත කිරීම ඔබේ පරිපාලක විසින් අබල කර ඇත</translation>
 <translation id="2499505845365628575">ඔබට <ph name="HISTORY_BUTTON_ACCESSIBILITY_LABEL" /> වෙතින් ඔබේ බ්‍රවුස් කිරීමේ ඉතිහාස සියල්ල සොයා ගත හැක.</translation>
@@ -371,8 +383,10 @@
 <translation id="2664621323652615289">නවත්වන්න</translation>
 <translation id="2666092431469916601">ඉහල</translation>
 <translation id="2669454659051515572">මෙම උපාංගය භාවිත කරන ඕනෑම කෙනෙකුට බාගත් ගොනු දැකිය හැකිය</translation>
+<translation id="2671423594960767771">සමූහය බෙදා ගන්න</translation>
 <translation id="2673508731173059946">පිටපත් කළ සබැඳියට පැමිණෙන්න</translation>
 <translation id="2687403674020088961">සියලුම කුකී අවහිර කරන්න (නිර්දේශ නොකෙරේ)</translation>
+<translation id="2688535388040882469">බැනර</translation>
 <translation id="2690858294534178585">කැමරාව භාවිතයේ පවතී</translation>
 <translation id="2691653761409724435">නොබැඳිව ලද නොහැකිය</translation>
 <translation id="2696180352517415858">ඔබව ඔබේ Google ගිණුමෙන් නොවරනු ඇත. <ph name="BEGIN_LINK" />ක්‍රියාකාරකම්වල වෙනත් ආකාර<ph name="END_LINK" /> ඔබ පුරන විට ඔබේ Google ගිණුමේ සුරැකිය හැක. ඔබට ඕනෑම වේලාවක ඒවා මැකිය හැක.
@@ -415,6 +429,7 @@
 <translation id="288655811176831528">පටිත්ත වසන්න</translation>
 <translation id="2888631381369839306">මිල හඹා යාමේ දැනුම්දීම් ක්‍රියාත්මකයි</translation>
 <translation id="288902476966286676">යවන්නා වෙත ආපසු දෙන්න</translation>
+<translation id="2893168226686371498">පෙරනිමි බ්‍රව්සරය</translation>
 <translation id="2894757982205307093">කණ්ඩායම තුළ නව පටිත්ත</translation>
 <translation id="2905479111267140204">ඔබේ ආරක්ෂාව අවදානමට ලක් කළ හැකි නැවත භාවිතා කළ මුරපද <ph name="NUMBER_OF_PASSWORDS" />ක් ඔබ සතුව ඇත.</translation>
 <translation id="291754862089661335">මෙම රාමුව තුළ QR කේතය හෝ තීරු කේතය ස්ථානගත කරන්න</translation>
@@ -450,7 +465,6 @@
 අදාළ වන්නේ නම්, ඔබගේ සෙවීම් ඉතිහාසය මැකීම සඳහා ඔබගේ සෙවීම් යන්ත්‍රයේ උපදෙස් බලන්න.</translation>
 <translation id="3080525922482950719">ඔබට පසුව හෝ නොබැඳිව කියවීමට පිටු සුරැකිය හැකිය</translation>
 <translation id="3081338492074632642">ඔබ සුරකින මුරපදය <ph name="WEBSITE" /> සඳහා වන ඔබේ මුරපදයට ගැළපෙන බව සහතික කර ගන්න</translation>
-<translation id="30842332047348094">ණය කාඩ්පත්</translation>
 <translation id="3087734570205094154">පතුල</translation>
 <translation id="309710370695886264">ඔබට නැවත භාවිත කළ 1 මුරපදයක් ඇත. ආරක්ෂිතව සිටීමට දැන් එය නිරාකරණය කරන්න.</translation>
 <translation id="3102139268911534961">ඔබේ iPhone මත ඔබ දන්නා සහ ආදරය කරන ජංගම බ්‍රවුසරයෙන් හොඳම දේ ලබා ගන්න.</translation>
@@ -461,6 +475,7 @@
 <translation id="3119874402040566234">ඔබව වරනය වන අතර බ්‍රවුස් කිරීමේ දත්ත මකා දැමෙනු ඇත</translation>
 <translation id="3130863904455712965">ඉතිහාසය සහ තවත්</translation>
 <translation id="313283613037595347">නව අප්‍රකට ටැබයක් තනන්න.</translation>
+<translation id="3138611310073113613">තේරීම ඉවත ලන්න</translation>
 <translation id="3143515551205905069">සමමුහුර්තය අවලංගු කරන්න</translation>
 <translation id="314837624430314508">නවතම පුවත්, මිල නිරීක්ෂණ යාවත්කාලීන සහ තවත් දේ සමග සිටින්න.</translation>
 <translation id="3157387275655328056">කියවීම් ලැයිස්තුවට එක් කරන්න</translation>
@@ -544,7 +559,6 @@
 <translation id="3575234738189584619">Lens සමග සොයන්න</translation>
 <translation id="3575426792457739946">මෙම ලැයිස්තුවේ සියලුම පූරණ කළ පැතිකඩ අඩංගු වෙයි.</translation>
 <translation id="3581564640715911333">වෙනත් භාෂාවල පිටු පරිවර්තනයට පිරිනමන්න</translation>
-<translation id="3582976576569261467">iPadOS හි ඔබ දැන් ආදරය කරන බ්‍රව්සරය</translation>
 <translation id="3587885837929752825">ඔබේ සංවිධානය ඔබට ඔබේ Google ගිණුමේ සුරැකිය හැකි දේ සීමා කරයි.</translation>
 <translation id="3588820906588687999">රූපය නව පටිත්තක විවෘත කරන්න</translation>
 <translation id="3591006724568464696">මෑත ටැබ ලබා ගත නොහැක</translation>
@@ -625,10 +639,12 @@
 <translation id="3986739045730058129">පටිත්ත වෙත යන්න</translation>
 <translation id="3992684624889376114">මෙම පිටුව පිළිබඳ</translation>
 <translation id="3994422733891749358">ඔබට ලැබීමට අවශ්‍ය දැනුම්දීම් තෝරා ගන්න</translation>
+<translation id="3994522032746736727"><ph name="EMAIL" /> ලෙස පුරන්න</translation>
 <translation id="3995521777587992544">පිටු පූරණ ප්‍රගති තීරුව, <ph name="EMAIL" /> පූරණ කළා.</translation>
 <translation id="3997522473364371632">ඔබේ පරිපාලක විසින් මුරපද බෙදා ගැනීම අබල කර ඇත.</translation>
 <translation id="4002066346123236978">සිරස්තලය</translation>
 <translation id="4004204301268239848">මුරපද ඔබගේ Google ගිණුමේ සුරකිනු ලබන අතර, එම නිසා ඔබට ඒවා ඕනෑම උපාංගයක භාවිත කළ හැක</translation>
+<translation id="4011489366247192265">වෙතින්</translation>
 <translation id="4018440314314549819">සුරකින ලද මුරපද ස්වයංක්‍රීයව පුරවන්න</translation>
 <translation id="4021447724486050609">ඔබේ බ්‍රව්සරය යාවත්කාලීන කරන්න</translation>
 <translation id="4021931095789478915">කියවීම් ලැයිස්තුවට ${url} එක් කරන්න</translation>
@@ -671,6 +687,7 @@
 <translation id="421070604241073551">ක්‍රියාත්මක වන විට, දත්ත ඔබේ Google ගිණුමේ සුරකිනු ලැබේ. ක්‍රියාවිරහිත වූ විට, දත්ත සුරැකෙන්නේ මෙම උපාංගයට පමණි.</translation>
 <translation id="4224534474590365556">අක්‍රිය පටිති 99+ක් වසන්න ද?</translation>
 <translation id="422474357428465195">ඔබට ඔබේ ආරක්ෂාව අවදානමට ලක් කළ හැකි මුරපද ගැටලු කිහිපයක් තිබේ.</translation>
+<translation id="422477017457571619">ඔබේ බ්‍රවුස් කිරීමේ දත්ත Google වෙත යැවීම මත පදනම් වූ අනතුරුදායක අඩවි, බාගැනීම්, සහ දිගුවලට එරෙහිව තත්‍ය කාලීන, AI-බලගන්වන ලද ආරක්ෂාව</translation>
 <translation id="4231395118547300571">ආරක්ෂිත පරීක්ෂා දැනුම්දීම් ක්‍රියාත්මකයි</translation>
 <translation id="4237377247299956313"><ph name="BEGIN_BOLD" />පෙරනිමි බ්‍රව්සර යෙදුම<ph name="END_BOLD" /> තට්ටු කරන්න</translation>
 <translation id="4242533952199664413">සැකසීම් විවෘත කරන්න</translation>
@@ -746,6 +763,7 @@
 <translation id="4587589328781138893">අඩවි</translation>
 <translation id="4592672037257622855">{count,plural, =1{ඔබේ කියවීම් ලැයිස්තුවට පිටුවක් එක් කර ඇත}one{ඔබේ කියවීම් ලැයිස්තුවට පිටු {count}ක් එක් කර ඇත}other{ඔබේ කියවීම් ලැයිස්තුවට පිටු {count}ක් එක් කර ඇත}}</translation>
 <translation id="459644946100970322">මිල ඇඟවීම් ක්‍රියාත්මක කරන්න ද?</translation>
+<translation id="4597892826846980979">පටිති දැනුම්දීම් ලබා ගන්න</translation>
 <translation id="4601095002996233687">සැක සහිත බාගැනීම් සඳහා ගැඹුරු ස්කෑන් කිරීම්.</translation>
 <translation id="4606247758155004938">ඔබගේ බ්‍රවුසරය ඔබගේ සංවිධානය විසින් කළමනාකරණය කරනු ලැබේ.</translation>
 <translation id="4611811151908969241"><ph name="DOMAIN_NAME" /> අනුගමනය නොකිරීම සඟවන්න</translation>
@@ -763,6 +781,7 @@
 <translation id="4645575059429386691">ඔබේ දෙමව්පියන් පාලනය කරයි</translation>
 <translation id="4647758699119474035"><ph name="USER_NAME" /> ලෙස පුරනය වී ඇත. <ph name="USER_EMAIL" />. Google ගිණුමේ දෝෂයකි. ගිණුම් මෙනුව විවෘත කරන්න.</translation>
 <translation id="4650125387981512669"><ph name="FIRST_RUN_ACCOUNT_NAME" /> ලෙස කරගෙන යන්න</translation>
+<translation id="4651927776207937667">{count,plural, =1{මිනිත්තු 1කට පසු සඟවන්න}one{මිනිත්තු {count}කට පසු සඟවන්න}other{මිනිත්තු {count}කට පසු සඟවන්න}}</translation>
 <translation id="4652817563047461855">ඔබේ මුරපද සුරක්ෂිත බවට වග බලා ගන්න, ඒවා අවදානමට ලක් වී තිබේ දැයි සොයා බලන්න, සහ සබැඳිව ඔබව ආරක්ෂා කර ගැනීමට උපදෙස් ලබා ගන්න. <ph name="BEGIN_LINK" />තව දැන ගන්න<ph name="END_LINK" /></translation>
 <translation id="4658335131052370646">සුරකින්න</translation>
 <translation id="4668929960204016307">,</translation>
@@ -785,7 +804,6 @@
 <translation id="4764612367328936189">නිශ්චිත ගිණුම්වලින් පමණක් පිරීමට ඔබගේ සංවිධානය ඔබට ඉඩ ‍දෙයි. ඉඩ නොදෙන ගිණුම් සඟවා ඇත. <ph name="BEGIN_LINK" />තව දැන ගන්න<ph name="END_LINK" /></translation>
 <translation id="4766112107778026136">සොයා ගැනීම සහ අනුගමනය කිරීම</translation>
 <translation id="4769198578611055647">ඕනෑම උපාංගයක සුරකින ලද මුරයතුරු වෙත ප්‍රවේශ වීමට ඔබට උදවු කරයි</translation>
-<translation id="4775879719735953715">පෙරනිමි වෙබ් බ්‍රව්සරය</translation>
 <translation id="4777866634702576038">පටිති සමූහය මකන්නද?</translation>
 <translation id="4787190926964898499">{COUNT,plural, =1{ඔබට ඔබ වැඩිපුරම භාවිත කරන පටිති වෙත පහසුවෙන් අවධානය යොමු කළ හැකි වීමට එක් දිනක් හෝ ඊට වැඩි කාලයක් භාවිත නොකරන විවෘත පටිති අකර්මණ්‍ය පටිති වෙත ගෙන යනු ලැබේ. ඔබට සැකසීම් තුළින් ඕනෑම වේලාවක මෙය වෙනස් කළ හැක.}one{ඔබට ඔබ වැඩිපුරම භාවිත කරන පටිති වෙත පහසුවෙන් අවධානය යොමු කළ හැකි වීමට දින {COUNT}ක් හෝ ඊට වැඩි කාලයක් භාවිත නොකළ විවෘත පටිති අකර්මණ්‍ය පටිති වෙත ගෙන යනු ලැබේ. ඔබට සැකසීම් තුළින් ඕනෑම වේලාවක මෙය වෙනස් කළ හැක.}other{ඔබට ඔබ වැඩිපුරම භාවිත කරන පටිති වෙත පහසුවෙන් අවධානය යොමු කළ හැකි වීමට දින {COUNT}ක් හෝ ඊට වැඩි කාලයක් භාවිත නොකළ විවෘත පටිති අකර්මණ්‍ය පටිති වෙත ගෙන යනු ලැබේ. ඔබට සැකසීම් තුළින් ඕනෑම වේලාවක මෙය වෙනස් කළ හැක.}}</translation>
 <translation id="4787847736989526091"><ph name="VALUE" />, <ph name="ADDITIONAL_INFO" /></translation>
@@ -830,6 +848,7 @@
 <translation id="4936354130727646074">කිසි විටෙකත් ගෙන නොයන්න</translation>
 <translation id="4937410517508563815">ගිණුමේ මුරපද සුරකින්න</translation>
 <translation id="4938338714234463591">මෙය ඔබට වෙබ් අඩවිවල ඇතැම් විශේෂාංග සමග ඔබේ හඬ භාවිතා කිරීමට ඉඩ දෙනු ඇත.</translation>
+<translation id="4938716880833771969">ඔබේ දැනුම්දීම් නිහඬව බෙදා හරිනු ලැබේ</translation>
 <translation id="4941089862236492464">කනගාටුයි, ඔබේ අයිතමය බෙදා ගැනීමේ ගැටලුවක් විය.</translation>
 <translation id="4944543191714094452">පිටුව තුළ සොයන්න…</translation>
 <translation id="4945756290001680296">මුරපද සැකසීම් වෙත ප්‍රවේශ වන්න</translation>
@@ -838,6 +857,7 @@
 <translation id="496392417432935267">වෙනත් තැනක විවෘතයි</translation>
 <translation id="4971735654804503942">අනතුරුදායක වෙබ් අඩවිවලට, බාගැනීම්වලට, සහ දිගුවලට එරෙහි වඩා වේගවත්, පූර්වාරක්‍ෂාකාරී ආරක්‍ෂාව. මුරපද කඩ කිරීම් ගැන ඔබට අවවාද කරයි. බ්‍රවුස් කිරීමේ දත්ත Google වෙත යැවීම අවශ්‍ය කරයි.</translation>
 <translation id="4979397965658815378">ඔබගේ සියලුම උපාංග මත පිටුසන්, මුරපද, ඉතිහාසය හා අනෙකුත් සැකසීම් ලබා ගැනීමට ඔබගේ Google ගිණුම සමඟ පුරනය වන්න</translation>
+<translation id="498624032394115435">සබැඳිය සහිත ඕනෑම අයෙකුට සියලු පටිති සංස්කරණය කළ හැක.</translation>
 <translation id="4989065233040279145"><ph name="FILENAME" /> සුරකින ස්ථානය තෝරා ගන්න</translation>
 <translation id="4992255726304765516">පටිති සමූහ වර්ණය <ph name="COLOR" /></translation>
 <translation id="5005498671520578047">මුරපදය පිටපත් කරන්න</translation>
@@ -884,6 +904,7 @@
 <translation id="519530786644929958">බාගැනීම අසාර්ථක වූ අතර යළි උත්සාහ කළ නොහැකිය.</translation>
 <translation id="5197255632782567636">අන්තර්ජාලය</translation>
 <translation id="5200894869889836319">අවසර සැකසීමට විකල්ප</translation>
+<translation id="5203051773066903947">Enter</translation>
 <translation id="5206453674369664567">වරන්න සහ දත්ත හිස් කරන්න</translation>
 <translation id="5210365745912300556">ටැබය වසන්න</translation>
 <translation id="5211488077761630279">ඔබේ <ph name="PERMISSION" /> භාවිතා කිරීමට "<ph name="SITE_NAME" />" හට ඉඩ දෙන්න ද?</translation>
@@ -906,6 +927,7 @@
 <translation id="5295239312320826323"><ph name="USER_EMAIL" /> ගිණුම ඉවත් කරන්නද?</translation>
 <translation id="5300589172476337783">පෙන්වන්න</translation>
 <translation id="5311061401280561833">කැමරා සහ මයික්‍රෆෝන ප්‍රවේශයට ඉඩ දෙන ලදි</translation>
+<translation id="531209241254508943">පටිති සමූහය</translation>
 <translation id="5316356981864168850"><ph name="NUM_SUGGESTIONS" />න් <ph name="INDEX" /></translation>
 <translation id="5317780077021120954">සුරකින්න</translation>
 <translation id="5318298563956633672">ඔබ දැනටමත් මෙම නිෂ්පාදනය නිරීක්ෂණය කරමින් සිටී.</translation>
@@ -922,6 +944,8 @@
 <translation id="5414763847370083940">ඕනෑම අඩවියක මිල අඩු වුවහොත් ඔබට ඇඟවීමක් ලැබෙනු ඇත.</translation>
 <translation id="5415289094036440596">මුරයතුරු බෙදාගත නොහැක</translation>
 <translation id="5416455648658732408">පටිති සමූහය වෙත යන්න</translation>
+<translation id="542659109038405424">වෙත</translation>
+<translation id="5429624150850059322">ඔබ ආපසු පැමිණෙන විට, ඔබ ඉදිරියට යාමට තට්ටු කරන තෙක් පටිති නොපැහැදිලි වේ</translation>
 <translation id="5431239785743546285">ඔබ කියවා ඇති පිටු</translation>
 <translation id="5431252637281434233">ඔබ වරනය වනු ඇත</translation>
 <translation id="543338862236136125">මුරපදය සංස්කරණ කරන්න</translation>
@@ -1022,7 +1046,6 @@
 <translation id="5819208479324046259"><ph name="MANAGER" /> විසින් කළමනාකරණය කෙරේ. <ph name="BEGIN_LINK" />තව දැන ගන්න<ph name="END_LINK" /></translation>
 <translation id="5829649908290113115">සමමුහුර්ත වෙමින්…</translation>
 <translation id="5844284118433003733">ඔබ පුරනය වී ඇති විට, මෙම දත්ත Google සේවා හරහා ඔබව ආරක්ෂා කිරීමට ඔබේ Google ගිණුම වෙත සම්බන්ධ කරනු ලැබේ, උදාහරණයක් ලෙස ආරක්ෂක සිදුවීමකින් පසුව Gmail තුළ ආරක්ෂාව වැඩි කිරීම.</translation>
-<translation id="5846482154967366008">සෙවුම් යන්ත්‍රය</translation>
 <translation id="5854790677617711513">දින 30කට වඩා පැරණි</translation>
 <translation id="5857770089550859117">සමමුහුර්ත කිරීම ආරම්භ කිරීමට අවශ්‍ය මුරවැකිකඩ</translation>
 <translation id="5859715514067755465">යොමු කරන්න</translation>
@@ -1183,6 +1206,7 @@
 <translation id="6503077044568424649">වැඩියෙන්ම පිවිසි</translation>
 <translation id="6503763061813913607">ආරක්ෂිත පරීක්ෂා දැනුම්දීම්</translation>
 <translation id="6505334220040167806">පටිති සමූහය හකුළන්න.</translation>
+<translation id="6506996418997555004">"<ph name="GROUP_NAME" />" පටිති සමූහය බෙදා ගන්න</translation>
 <translation id="6507973708545996744">ඔබේ සියලු උපාංග මත ඔබේ කියවීම් ලැයිස්තුව ලබා ගැනීමට පුරන්න.</translation>
 <translation id="6518133107902771759">තහවුරු කරන්න</translation>
 <translation id="6523575793810663688">කෙසේද කියා මට පෙන්වන්න</translation>
@@ -1210,6 +1234,7 @@
 <translation id="6606914854592108404">ආරක්ෂක පරීක්ෂාව ධාවනය වෙයි…</translation>
 <translation id="6609890790934458793"><ph name="WEBSITE" />, <ph name="SECOND_WEBSITE" />, සහ <ph name="THIRD_WEBSITE" /> සඳහා වන මුරපද මකා දැමෙනු ඇත. ඔබේ ගිණුම් මකා නොදමනු ඇත.</translation>
 <translation id="661266467055912436">ඔබේ සහ වෙබය මත සියලු දෙනාගේම ආරක්‍ෂාව වැඩිදියුණු කරයි.</translation>
+<translation id="6612912757320004438">පටිති දැනුම්දීම් වලට ඉඩ දෙන්න…</translation>
 <translation id="6617761071025228250">පෙළ හිස් කරන්න</translation>
 <translation id="6620279676667515405">අවලංගු කරන්න</translation>
 <translation id="6624219055418309072">අප්‍රසිද්ධව අවහිර කරන්න</translation>
@@ -1243,11 +1268,11 @@
 <translation id="671310123089116995">සංග්‍රහය වෙත යන්න</translation>
 <translation id="6713676799463473249"><ph name="LAST_MODIFICATION_DATE" /> ට වෙනස් කරන ලදි</translation>
 <translation id="6717862474255265991">මිල නිරීක්ෂණය කරන්න</translation>
+<translation id="6722623263381062480">ලැබුණු පටිති</translation>
 <translation id="6723740634201835758">ඔබේ Google ගිණුම තුළ</translation>
 <translation id="672735642903863329">ඔබේ සියලු ම උපාංග මත ඔබේ පිටුසන්, මුරපද, සහ තවත් දේ ලබා ගන්න.</translation>
 <translation id="6732087373923685049">කැමරාව</translation>
 <translation id="6746338529702829275">ඔබේ ගිණුම් දත්ත සමාලෝචනය කරන්න</translation>
-<translation id="6748108480210050150">වෙතින්</translation>
 <translation id="6755200887046212842">ගිණුම් කළමනාකරණය කරන්න</translation>
 <translation id="6761393919622941301">ශ්‍රව්‍ය</translation>
 <translation id="6779455296366983087">ඔබේ බ්‍රවුස් කිරීමේ දත්ත මකා දැමෙනු ඇත</translation>
@@ -1296,7 +1321,6 @@
 <translation id="6979737339423435258">සියලු කාලය තුළ</translation>
 <translation id="6983306615164277634">ඔබට ස්ථානය වෙනස් කිරීමට ලිපින තීරුව ස්පර්ශ කර අල්ලා සිටීමට ද හැකිය.</translation>
 <translation id="6990519590575500580">FaceTime</translation>
-<translation id="6998989275928107238">වෙත</translation>
 <translation id="7004032350256606903">ඔබගේ සංවිධානයට ඔබ පෞද්ගලිකව බ්‍රවුස් කිරීම අවශ්‍ය වේ.
 <ph name="BEGIN_LINK" />තව දැන ගන්න<ph name="END_LINK" /></translation>
 <translation id="7005768247344091502">සැකසීම් තුළ පෙරනිමි බවට පත් කරන්න…</translation>
@@ -1341,10 +1365,12 @@
 <translation id="7218491361283758048">Zip කේතය</translation>
 <translation id="7221173315674413369">අලුත් දේ තුළ නව විශේෂාංග සහ ඉඟි ගවේෂණය කරන්න</translation>
 <translation id="722339453342442311">දැන් පරීක්‍ෂා කරන්න</translation>
+<translation id="7227235818314667565">බෙදා ගැනීම කළමනාකරණය කරන්න</translation>
 <translation id="7233006041370588369">පිරවීමට මුරපදයක් තෝරන්න.</translation>
 <translation id="7241135764990439166">අප්‍රසිද්ධ ප්‍රකාරය ලබා ගත නොහැක</translation>
 <translation id="7248046129087111453"><ph name="BEGIN_LINK" />සෙවීම් ඉතිහාසය<ph name="END_LINK" /> සහ <ph name="BEGIN_LINK" />අනෙකුත් ආකාරයේ ක්‍රියාකාරකම්<ph name="END_LINK" /> ඔබේ Google ගිණුමේ සුරැකෙනු ඇත.</translation>
 <translation id="7253951228444156601">මුරපද පරීක්ෂා කරමින්…</translation>
+<translation id="7261217796641151584">සමූහය බෙදා ගන්න</translation>
 <translation id="7271220006028561438">ස්වයංක්‍රීය මුරයතුර උත්ශ්‍රේණි කිරීමට ඉඩ දෙන්න</translation>
 <translation id="7272437679830969316">ඔබගේ අනන්‍යතාව තහවුරු කළ නොහැකිය. මුරපදය පිටපත් නොකරන ලදී.</translation>
 <translation id="7293429513719260019">භාෂාව තෝරන්න</translation>
@@ -1398,6 +1424,7 @@
 <translation id="750493650310597496">0 තේරා ගන්නා ලදි</translation>
 <translation id="7506817096924591340"><ph name="FILENAME" /> (<ph name="FILESIZE" />).</translation>
 <translation id="7508728395076009983">ඔබගේ අප්‍රසිද්ධ ටැබ අගුලු දැමීමට, ස්පර්ශ ID, මුහුණු ID හෝ මුර කේතයක් පිහිටුවන්න.</translation>
+<translation id="7512075701202892785">iPad හි ඔබ දැන් ආදරය කරන බ්‍රව්සරය</translation>
 <translation id="7512909159512473473">මුර-වැකිකඩ ඇතුළු කරන්න…</translation>
 <translation id="7514365320538308">බාගන්න</translation>
 <translation id="7521117365186708026">ඔබට Chrome වෙතින් උපරිම ප්‍රයෝජන ලබා ගැනීමට උපකාර වන ඉඟි සකසන්න.</translation>
@@ -1551,7 +1578,6 @@
 <translation id="8157532349231307196">ගිණුම් <ph name="NUMBER_OF_ACCOUNTS" /></translation>
 <translation id="8161614462829037225"><ph name="BIOMETRIC_AUTHENITCATION_TYPE" /> සමගින් අගුළු හරින්න</translation>
 <translation id="8173034266693057059">දිග</translation>
-<translation id="8179976553408161302">ඇතුළු කරන්න</translation>
 <translation id="8182037667962849780">{count,plural, =1{{website_1} සඳහා}=2{{website_1}, {website_2} සඳහා}=3{{website_1}, {website_2}, සහ තව 1ක් සඳහා}one{{website_1}, {website_2}, සහ තව {more_count}ක් සඳහා}other{{website_1}, {website_2}, සහ තව {more_count}ක් සඳහා}}</translation>
 <translation id="8189615296021678665">ඔබ මීළඟ වතාවේ පුරන විට මෙම මුරපදය පහසුවෙන් ප්‍රවේශ කිරීමට "සුරකින්න" තට්ටු කරන්න.</translation>
 <translation id="8193953846147532858"><ph name="BEGIN_LINK" />ඔබගේ උපාංග<ph name="END_LINK" /> · <ph name="EMAIL" /></translation>
@@ -1570,11 +1596,11 @@
 <translation id="8242644458318193141">ඔබේ සංවිධානයේ ආරක්ෂාව ආරක්ෂා කිරීමට, පටිති වසා දමනු ඇති අතර මෙම උපාංගයෙන් නොසුරකින ගිණුම් දත්ත මකනු ඇත. මෙයට මුරපද, ඉතිහාසය, සහ තවත් දේ ඇතුළත් විය හැක.</translation>
 <translation id="8261506727792406068">මකන්න</translation>
 <translation id="82619448491672958">අනෙකුත් ටැබ බලන්න</translation>
+<translation id="8263228331881858381">මුරයතුර සුරකින ලදි</translation>
 <translation id="8263809106706527890">ඔබේ පෙරනිමි බ්‍රවුසර සැකසීම් වලට වෙනසක් සිදුවී තිබිය හැකි ය. ඔබට මෙය සැකසීම් තුළ පරීක්ෂා කළ හැකි ය.</translation>
 <translation id="8264966119170358612">ඔබේ සුරකින ලද සමහර මුරපද Google නොවන දත්ත කඩ කිරීමක දී නිරාවරණය විය. <ph name="BEGIN_LINK" />තව දැන ගන්න<ph name="END_LINK" /></translation>
 <translation id="826614135184049678">ඔබේ iPad යළි සැකසීමේ කොටසක් ලෙස, ඔබ ඔබේ <ph name="USER_NAME" /> ගිණුමෙන් වරන ලදි. නැවත පුරන්නට, පහත "ඉදිරියට යන්න" වෙත තට්ටු කරන්න.</translation>
 <translation id="8273982424131314219">ඔබ <ph name="URL" /> වෙත තතු පුරවනු ඇත</translation>
-<translation id="827464923811805683">සබැඳිය සහිත ඕනෑම අයෙකුට සියලු පටිති සංස්කරණය කළ හැක, එබැවින් බුද්ධිමත්ව බෙදා ගන්න. සබැඳිය පැය 48කින් කල් ඉකුත් වේ. <ph name="BEGIN_LINK" />බෙදා ගත් පටිති සමූහ ගැන ඉගෙන ගන්න<ph name="END_LINK" /></translation>
 <translation id="8275068909952022340">තව…</translation>
 <translation id="8278488584187265939">මුල් පිටුව අභිරුචිකරණය කරන්න</translation>
 <translation id="8281781826761538115">පෙරනිමි - <ph name="DEFAULT_LOCALE" /></translation>
@@ -1587,9 +1613,9 @@
 <translation id="8299613349954694191">වෙබය පෞද්ගලිකව බ්‍රවුස් කිරීමට අප්‍රකට ටැබයක් විවෘත කරන්න.</translation>
 <translation id="8307481894409578819">මෙම ගොනුව උඩුගත කළ නොහැකි විය</translation>
 <translation id="8319076807703933069">අලුත් සෙවීම</translation>
-<translation id="8320212361750431956">මෑත ක්‍රියාකාරකම</translation>
 <translation id="8343993175958086504">ඔබේ දේවල් උපස්ථ කර එය ඕනෑම උපාංගයක භාවිතා කරන්න.</translation>
 <translation id="8349305172487531364">පිටු සලකුණු බාර් එක</translation>
+<translation id="8364563001733875155">ඔබේ PIN වෙනස් කිරීමට, පළමුව ඔබේ උපාංගයේ මුර කේතයක් සකසන්න.</translation>
 <translation id="8366466717204352506">පරීක්ෂාව කිසි විටෙකත් ධාවනය නොවේ</translation>
 <translation id="8368001212524806591">මිල හඹා යන්න</translation>
 <translation id="8370406443343902172">සැකසීම් වෙත යන්න...</translation>
@@ -1649,6 +1675,7 @@
 <translation id="8601611099293226919">Google Lens සමගින් ඔබගේ තිරය සොයන්න</translation>
 <translation id="8605219856220328675">පටිත්ත වසන්න.</translation>
 <translation id="8609743333007776886">පිටුසන් වෙත ${url} එක් කරන්න</translation>
+<translation id="8611922158252451755">සබැඳිය සහිත ඕනෑම අයෙකුට සියලු පටිති සංස්කරණය කළ හැක, එබැවින් බුද්ධිමත්ව බෙදා ගන්න. සබැඳිය පැය 48කින් කල් ඉකුත් වේ.</translation>
 <translation id="8620640915598389714">සංස්කරණය කරන්න</translation>
 <translation id="8625706492572042370">මුල් තිරය සංස්කරණය කරන්න</translation>
 <translation id="8633025649649592204">මෑත ක්‍රියාකාරකම</translation>
@@ -1674,6 +1701,7 @@
 <translation id="8694281486652655615">මෙම අයිතමය පෙන්වයි</translation>
 <translation id="8696297579102085705">ඔබේ උපාංගය වෙත යවන්න</translation>
 <translation id="8697136149718343437">ලිපින තීරුව පහළට ගෙන යන්න</translation>
+<translation id="8703372953981978786">මෙම සබැඳිය ක්‍රියා නොකරයි</translation>
 <translation id="8706253136355675497">උෂ්ණත්වය</translation>
 <translation id="8709409604518538305">පටිති වසා ඇත</translation>
 <translation id="8712534545803964353">පිටුව තුළ සොයා ගන්න…</translation>
@@ -1760,6 +1788,7 @@
 <translation id="9032405509996909363">බ්‍රවුස් කිරීමේ දත්ත මැකීම තහවුරු කරන්න</translation>
 <translation id="9034759925968272072">ඔබව ඔබේ Google ගිණුමෙන් නොවරනු ඇත. ඔබගේ Google ගිණුමට <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> දී බ්‍රවුස් කිරීමේ ඉතිහාසයේ වෙනත් ආකාර තිබිය හැකිය.</translation>
 <translation id="9039373489628511875">කලාප පළල</translation>
+<translation id="9057030985451135243">බෙදා ගත් පටිති සමූහ ගැන ඉගෙන ගන්න</translation>
 <translation id="9057972802061533987">අනුගමනය කළ නොහැකිය. යම් දෙයක් වැරදිණි.</translation>
 <translation id="9065203028668620118">සංස්කරණය කරන්න</translation>
 <translation id="9066097352053395362">පිටුසන සංස්කරණය සඟවන්න</translation>
@@ -1776,6 +1805,7 @@
 <translation id="9098541895599151034">මුරපද <ph name="NUMBER_OF_ACCOUNTS" />ක් මකන්න ද?</translation>
 <translation id="9099233023029360602">සෑම අවස්ථාවකදීම භාවිතා කරන්නේ කුමන ගිණුම දැයි විමසන්න</translation>
 <translation id="9100610230175265781">රහස් පදය අවශ්‍යයි</translation>
+<translation id="91023216973987714">ගෙවීමේ ක්‍රම</translation>
 <translation id="9106655997975673326">"<ph name="SOURCE_DEVICE" />" වෙතින්</translation>
 <translation id="9107664647686727385">අවදානමට පත් වූ මුරපද සඳහා පරීක්ෂා කරන්න</translation>
 <translation id="9124387962554796433">සෙවීම සහ අනෙකුත් Google සේවා පුද්ගලිකකරණය කිරීමට Google ඔබගේ ඉතිහාසය භාවිත කළ හැකිය</translation>
@@ -1791,7 +1821,6 @@
 <translation id="9183733013282108610">අප්‍රසිද්ධ සෙවීම</translation>
 <translation id="9186762474139509529">ලොග් කිරීම අරඹන්න</translation>
 <translation id="9191031968346938109">වෙත එක් කරන්න…</translation>
-<translation id="9196007736149429065">මෙම ගොනුව විවෘත කළ නොහැකි විය</translation>
 <translation id="9200875785104711666">දි <ph name="TIME" />කට පෙර</translation>
 <translation id="9203116392574189331">භාර දීම</translation>
 <translation id="9203951165704618409">අභිරුචි කළ බ්‍රවුස් කිරීමේ අත්දැකීමක් සඳහා ඔබේ ලිපින තීරුව ඉහළ සිට පහළට මාරු කරන්න.</translation>
@@ -1818,6 +1847,5 @@
 <translation id="984275831282074731">ගෙවීමේ ක්‍රම</translation>
 <translation id="985379595344853742">සියලු අප්‍රසිද්ධ ටැබ වසන්න</translation>
 <translation id="988141524645182168">වෙනත් උපාංග</translation>
-<translation id="989697783705943787">වෙබ් අඩවි ආරක්‍ෂාව</translation>
 <translation id="999768147936949692">දැනට ඔබට මුරපද බෙදා ගත හැක්කේ පවුලේ සාමාජිකයින් සමග පමණයි. ඔබේ සමූහයට එකතු වීමට <ph name="BEGIN_LINK" />පවුලේ සාමාජිකයන්ට ආරාධනා කරන්න<ph name="END_LINK" /> සහ Google හරහා ඔබේ නිෂ්පාදන සහ ග්‍රාහකත්ව වෙතින් තවත් ලබා ගන්න.</translation>
 </translationbundle>

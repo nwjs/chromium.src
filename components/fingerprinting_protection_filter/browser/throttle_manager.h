@@ -250,8 +250,8 @@ class ThrottleManager : public base::SupportsUserData::Data,
   const std::optional<subresource_filter::mojom::ActivationState>
   GetFrameActivationState(content::RenderFrameHost* frame_host);
 
-  // Calls NotifyOnBlockedResources() on `web_contents_helper_` at most once per
-  // committed, non-same-page navigation in the main frame. `frame_host`
+  // Calls NotifyOnBlockedSubresource() on `web_contents_helper_` at most once
+  // per committed, non-same-page navigation in the main frame. `frame_host`
   // specifies the frame that blocked the subresource.
   void MaybeNotifyOnBlockedResource(content::RenderFrameHost* frame_host);
 
@@ -309,9 +309,7 @@ class ThrottleManager : public base::SupportsUserData::Data,
   // this class transferred onto it (in
   // FingerprintingProtectionWebContentsHelper) we'll set this member to point
   // to it.
-  //
-  // TODO(https://crbug.com/40280666): Triage dangling pointers.
-  raw_ptr<content::Page, DanglingUntriaged> page_ = nullptr;
+  raw_ptr<content::Page> page_ = nullptr;
 
   // One ThrottleManger per page means one page activation decision per throttle
   // manager.

@@ -17,6 +17,7 @@ import org.chromium.base.CommandLine;
 import org.chromium.components.browsing_data.content.BrowsingDataInfo;
 import org.chromium.components.content_settings.ContentSettingValues;
 import org.chromium.components.content_settings.ContentSettingsType;
+import org.chromium.components.content_settings.SessionModel;
 import org.chromium.content_public.browser.BrowserContextHandle;
 import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.ContentFeatureMap;
@@ -90,6 +91,7 @@ public class WebsitePermissionsFetcher {
                 return WebsitePermissionsType.CONTENT_SETTING_EXCEPTION;
             case ContentSettingsType.AR:
             case ContentSettingsType.CLIPBOARD_READ_WRITE:
+            case ContentSettingsType.FILE_SYSTEM_WRITE_GUARD:
             case ContentSettingsType.GEOLOCATION:
             case ContentSettingsType.HAND_TRACKING:
             case ContentSettingsType.IDLE_DETECTION:
@@ -221,6 +223,7 @@ public class WebsitePermissionsFetcher {
 
         private void addAllFetchers(TaskQueue queue) {
             addFetcherForStorage(queue);
+            queue.add(new FileEditingInfoFetcher());
             if (!mSiteSettingsDelegate.isBrowsingDataModelFeatureEnabled()) {
                 queue.add(new CookiesInfoFetcher());
             }
@@ -551,6 +554,23 @@ public class WebsitePermissionsFetcher {
             }
         }
 
+        private class FileEditingInfoFetcher extends Task {
+            @Override
+            public void run() {
+                for (String origin : mSiteSettingsDelegate.getOriginsWithFileSystemAccessGrants()) {
+                    Website site = findOrCreateSite(origin, null);
+                    site.setPermissionInfo(
+                            new PermissionInfo(
+                                    ContentSettingsType.FILE_SYSTEM_WRITE_GUARD,
+                                    origin,
+                                    null,
+                                    /* isEmbargoed= */ false,
+                                    SessionModel.USER_SESSION));
+                    site.setFileEditingInfo(new FileEditingInfo(mSiteSettingsDelegate, origin));
+                }
+            }
+        }
+
         private class ZoomInfoFetcher extends Task {
             @Override
             public void run() {
@@ -636,7 +656,7 @@ public class WebsitePermissionsFetcher {
         private class RelatedWebsiteSetsInfoFetcher extends Task {
             private boolean canDealWithRelatedWebsiteSetsInfo() {
                 return mSiteSettingsDelegate != null
-                        && mSiteSettingsDelegate.isPrivacySandboxFirstPartySetsUIFeatureEnabled()
+                        && mSiteSettingsDelegate.isPrivacySandboxFirstPartySetsUiFeatureEnabled()
                         && mSiteSettingsDelegate.isRelatedWebsiteSetsDataAccessEnabled();
             }
 
@@ -655,8 +675,8 @@ public class WebsitePermissionsFetcher {
                                         site.getAddress().getOrigin());
                         if (rwsOwnerHostname == null
                                 || rwsOwnerToMembers.get(rwsOwnerHostname) == null) continue;
-                        site.setRWSCookieInfo(
-                                new RWSCookieInfo(
+                        site.setRwsCookieInfo(
+                                new RwsCookieInfo(
                                         rwsOwnerHostname, rwsOwnerToMembers.get(rwsOwnerHostname)));
                     }
                 }

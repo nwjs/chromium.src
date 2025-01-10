@@ -21,6 +21,7 @@
 #include "content/public/browser/reload_type.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/visibility.h"
+#include "content/public/browser/web_contents.h"
 #include "ipc/ipc_message.h"
 #include "mojo/public/cpp/system/message_pipe.h"
 #include "services/network/public/mojom/fetch_api.mojom-forward.h"
@@ -74,7 +75,6 @@ class RenderProcessHost;
 class RenderViewHost;
 class RenderWidgetHost;
 class Page;
-class WebContents;
 struct CookieAccessDetails;
 struct EntryChangedDetails;
 struct FocusedNodeDetails;
@@ -118,17 +118,6 @@ struct TrustTokenAccessDetails;
 // returned by GetRenderViewHost().
 class CONTENT_EXPORT WebContentsObserver : public base::CheckedObserver {
  public:
-  // Device connection types that can be used by a WebContents.
-  enum class DeviceConnectionType {
-    // WebUSB
-    kUSB,
-    // Web Bluetooth
-    kBluetooth,
-    // WebHID
-    kHID,
-    // Web Serial
-    kSerial
-  };
 
   WebContentsObserver(WebContentsObserver&&) = delete;
   WebContentsObserver(const WebContentsObserver&) = delete;
@@ -714,6 +703,12 @@ class CONTENT_EXPORT WebContentsObserver : public base::CheckedObserver {
   // Invoked when the WebContents is being destroyed. Gives subclasses a chance
   // to cleanup. After the whole loop over all WebContentsObservers has been
   // finished, web_contents() returns nullptr.
+  // Do not use this method. It is invoked half-way through the destructor of
+  // WebContentsImpl and using it often results in crashes or surprising
+  // behavior. Conceptually, this is only necessary by objects that depend on,
+  // but outlive the WebContents. These objects should instead coordinate with
+  // the owner of the WebContents which is responsible for destroying the
+  // WebContents.
   virtual void WebContentsDestroyed() {}
 
   // Called when the user agent override for a WebContents has been changed.
@@ -765,11 +760,11 @@ class CONTENT_EXPORT WebContentsObserver : public base::CheckedObserver {
       RenderFrameHost* rfh,
       bool is_capturing_media_stream) {}
 
-  // Called when WebContents starts/stops using a device connection type. The
-  // arguments indicate the device connection type that starts/stops being used
+  // Called when WebContents starts/stops using a capability type. The
+  // arguments indicate the capability type that starts/stops being used
   // and whether it is in use (true if it starts being used, false if it stops).
-  virtual void OnDeviceConnectionTypesChanged(
-      DeviceConnectionType connection_type,
+  virtual void OnCapabilityTypesChanged(
+      WebContents::CapabilityType capability_type,
       bool used) {}
 
   // Invoked when the WebContents is muted/unmuted.
@@ -976,6 +971,9 @@ class CONTENT_EXPORT WebContentsObserver : public base::CheckedObserver {
 
   // Called when WebContents received a request to vibrate the page.
   virtual void VibrationRequested() {}
+
+  // Called when a first contentful paint happened in the primary main frame.
+  virtual void OnFirstContentfulPaintInPrimaryMainFrame() {}
 
   WebContents* web_contents() const;
 

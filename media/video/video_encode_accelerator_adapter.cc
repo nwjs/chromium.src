@@ -131,9 +131,8 @@ VideoEncodeAccelerator::Config SetUpVeaConfig(
         num_temporal_layers = 3;
         break;
       default:
-        NOTREACHED_IN_MIGRATION()
-            << "Unsupported SVC: "
-            << GetScalabilityModeName(opts.scalability_mode.value());
+        NOTREACHED() << "Unsupported SVC: "
+                     << GetScalabilityModeName(opts.scalability_mode.value());
     }
   }
   if (num_temporal_layers > 1) {
@@ -826,10 +825,10 @@ void VideoEncodeAcceleratorAdapter::BitstreamBufferReady(
     result.temporal_id = metadata.vp9.value().temporal_idx;
   else if (metadata.vp8.has_value())
     result.temporal_id = metadata.vp8.value().temporal_idx;
-  else if (metadata.av1.has_value())
-    result.temporal_id = metadata.av1.value().temporal_idx;
-  else if (metadata.h265.has_value())
-    result.temporal_id = metadata.h265.value().temporal_idx;
+
+  if (metadata.svc_generic.has_value()) {
+    result.temporal_id = metadata.svc_generic->temporal_idx;
+  }
 
   if (metadata.encoded_size)
     result.encoded_size = metadata.encoded_size;
@@ -1095,7 +1094,7 @@ VideoEncodeAcceleratorAdapter::PrepareCpuFrame(
                               : src_frame;
   auto shared_frame = VideoFrame::WrapExternalData(
       PIXEL_FORMAT_I420, dest_coded_size, dest_visible_rect,
-      dest_visible_rect.size(), static_cast<uint8_t*>(mapping->memory()),
+      dest_visible_rect.size(), static_cast<const uint8_t*>(mapping->memory()),
       mapping->size(), src_frame->timestamp());
 
   if (!shared_frame || !mapped_src_frame)

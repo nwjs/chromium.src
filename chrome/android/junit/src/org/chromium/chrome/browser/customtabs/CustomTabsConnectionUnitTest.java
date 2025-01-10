@@ -45,6 +45,7 @@ import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.shadows.ShadowProcess;
 
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.base.task.test.ShadowPostTask;
 import org.chromium.base.task.test.ShadowPostTask.TestImpl;
@@ -52,9 +53,10 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.chrome.browser.ChromeApplicationImpl;
+import org.chromium.chrome.browser.browserservices.SessionDataHolder;
 import org.chromium.chrome.browser.browserservices.SessionHandler;
 import org.chromium.chrome.browser.customtabs.content.EngagementSignalsHandler;
+import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.metrics.UmaSessionStats;
 import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManagerImpl;
@@ -104,17 +106,13 @@ public class CustomTabsConnectionUnitTest {
         mConnection.setIsDynamicFeaturesEnabled(true);
         when(mSession.getCallback()).thenReturn(mCallback);
         when(mSessionHandler.getSession()).thenReturn(mSession);
-        ChromeApplicationImpl.getComponent()
-                .resolveSessionDataHolder()
-                .setActiveHandler(mSessionHandler);
+        SessionDataHolder.getInstance().setActiveHandler(mSessionHandler);
         PrivacyPreferencesManagerImpl.setInstanceForTesting(mPrivacyPreferencesManager);
     }
 
     @After
     public void tearDown() {
-        ChromeApplicationImpl.getComponent()
-                .resolveSessionDataHolder()
-                .removeActiveHandler(mSessionHandler);
+        SessionDataHolder.getInstance().removeActiveHandler(mSessionHandler);
     }
 
     @Test
@@ -214,7 +212,7 @@ public class CustomTabsConnectionUnitTest {
         ShadowProcess.setUid(uid);
         shadowOf(RuntimeEnvironment.getApplication().getApplicationContext().getPackageManager())
                 .setPackagesForUid(uid, "test.package.name");
-        var handler = new EngagementSignalsHandler(mConnection, mSession);
+        var handler = new EngagementSignalsHandler(mSession);
         mConnection.mClientManager.newSession(mSession, uid, null, null, null, handler);
     }
 
@@ -264,6 +262,30 @@ public class CustomTabsConnectionUnitTest {
         verify(mCallback)
                 .extraCallback(
                         eq(CustomTabsConnection.OPEN_IN_BROWSER_CALLBACK), any(Bundle.class));
+    }
+
+    @Test
+    public void isAuthTabSupported_firstRunDone() {
+        boolean wasFirstRunFlowComplete = FirstRunStatus.getFirstRunFlowComplete();
+        ResettersForTesting.register(
+                () -> FirstRunStatus.setFirstRunFlowComplete(wasFirstRunFlowComplete));
+        FirstRunStatus.setFirstRunFlowComplete(true);
+        Bundle bundle = mConnection.extraCommand(CustomTabsConnection.IS_AUTH_TAB_SUPPORTED, null);
+        assertNotNull(bundle);
+        assertTrue(bundle.containsKey(CustomTabsConnection.AUTH_TAB_SUPPORTED_KEY));
+        assertTrue(bundle.getBoolean(CustomTabsConnection.AUTH_TAB_SUPPORTED_KEY));
+    }
+
+    @Test
+    public void isAuthTabSupported_firstRunNotDone() {
+        boolean wasFirstRunFlowComplete = FirstRunStatus.getFirstRunFlowComplete();
+        ResettersForTesting.register(
+                () -> FirstRunStatus.setFirstRunFlowComplete(wasFirstRunFlowComplete));
+        FirstRunStatus.setFirstRunFlowComplete(false);
+        Bundle bundle = mConnection.extraCommand(CustomTabsConnection.IS_AUTH_TAB_SUPPORTED, null);
+        assertNotNull(bundle);
+        assertTrue(bundle.containsKey(CustomTabsConnection.AUTH_TAB_SUPPORTED_KEY));
+        assertFalse(bundle.getBoolean(CustomTabsConnection.AUTH_TAB_SUPPORTED_KEY));
     }
 
     // TODO(https://crrev.com/c/4118209) Add more tests for Feature enabling/disabling.

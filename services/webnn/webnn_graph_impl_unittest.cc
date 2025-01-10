@@ -1687,7 +1687,7 @@ TEST_F(WebNNGraphImplTest, DequantizeLinearTest) {
     DequantizeLinearTester{
         .input = {.type = OperandDataType::kInt8, .dimensions = {3, 2, 5}},
         .scale = {.type = OperandDataType::kFloat32, .dimensions = {5}},
-        .zero_point = {.type = OperandDataType::kInt8, .dimensions = {3, 2, 5}},
+        .zero_point = {.type = OperandDataType::kInt8, .dimensions = {5}},
         .output = {.type = OperandDataType::kFloat32, .dimensions = {3, 2, 5}},
         .expected = true}
         .Test();
@@ -1697,17 +1697,7 @@ TEST_F(WebNNGraphImplTest, DequantizeLinearTest) {
     DequantizeLinearTester{
         .input = {.type = OperandDataType::kInt8, .dimensions = {3, 2, 5}},
         .scale = {.type = OperandDataType::kFloat32, .dimensions = {3, 1, 1}},
-        .zero_point = {.type = OperandDataType::kInt8, .dimensions = {3, 2, 5}},
-        .output = {.type = OperandDataType::kFloat32, .dimensions = {3, 2, 5}},
-        .expected = true}
-        .Test();
-  }
-  {
-    // Test dequantizeLinear operator with a broadcastable zeroPoint.
-    DequantizeLinearTester{
-        .input = {.type = OperandDataType::kInt8, .dimensions = {3, 2, 5}},
-        .scale = {.type = OperandDataType::kFloat32, .dimensions = {3, 2, 5}},
-        .zero_point = {.type = OperandDataType::kInt8, .dimensions = {5}},
+        .zero_point = {.type = OperandDataType::kInt8, .dimensions = {3, 1, 1}},
         .output = {.type = OperandDataType::kFloat32, .dimensions = {3, 2, 5}},
         .expected = true}
         .Test();
@@ -1717,16 +1707,16 @@ TEST_F(WebNNGraphImplTest, DequantizeLinearTest) {
     DequantizeLinearTester{
         .input = {.type = OperandDataType::kInt8, .dimensions = {3, 2, 5}},
         .scale = {.type = OperandDataType::kFloat32, .dimensions = {2}},
-        .zero_point = {.type = OperandDataType::kInt8, .dimensions = {3, 2, 5}},
+        .zero_point = {.type = OperandDataType::kInt8, .dimensions = {2}},
         .output = {.type = OperandDataType::kFloat32, .dimensions = {3, 2, 5}},
         .expected = false}
         .Test();
   }
   {
-    // Test the invalid graph with an invalid zero_point.
+    // Test the invalid graph with different scale_shape and zero_point_shape.
     DequantizeLinearTester{
         .input = {.type = OperandDataType::kInt8, .dimensions = {3, 2, 5}},
-        .scale = {.type = OperandDataType::kFloat32, .dimensions = {3, 2, 5}},
+        .scale = {.type = OperandDataType::kFloat32, .dimensions = {5}},
         .zero_point = {.type = OperandDataType::kInt8, .dimensions = {2}},
         .output = {.type = OperandDataType::kFloat32, .dimensions = {3, 2, 5}},
         .expected = false}
@@ -5255,26 +5245,16 @@ TEST_F(WebNNGraphImplTest, QuantizeLinearTest) {
     QuantizeLinearTester{
         .input = {.type = OperandDataType::kFloat32, .dimensions = {3, 2, 5}},
         .scale = {.type = OperandDataType::kFloat32, .dimensions = {5}},
-        .zero_point = {.type = OperandDataType::kInt8, .dimensions = {3, 2, 5}},
-        .output = {.type = OperandDataType::kInt8, .dimensions = {3, 2, 5}},
-        .expected = true}
-        .Test();
-  }
-  {
-    // Test quantizeLinear operator with a broadcastable zeroPoint.
-    QuantizeLinearTester{
-        .input = {.type = OperandDataType::kFloat32, .dimensions = {3, 2, 5}},
-        .scale = {.type = OperandDataType::kFloat32, .dimensions = {3, 2, 5}},
         .zero_point = {.type = OperandDataType::kInt8, .dimensions = {5}},
         .output = {.type = OperandDataType::kInt8, .dimensions = {3, 2, 5}},
         .expected = true}
         .Test();
   }
   {
-    // Test quantizeLinear operator with a broadcastable zeroPoint.
+    // Test quantizeLinear operator with a broadcastable scale.
     QuantizeLinearTester{
         .input = {.type = OperandDataType::kFloat32, .dimensions = {3, 2, 5}},
-        .scale = {.type = OperandDataType::kFloat32, .dimensions = {3, 2, 5}},
+        .scale = {.type = OperandDataType::kFloat32, .dimensions = {3, 1, 1}},
         .zero_point = {.type = OperandDataType::kInt8, .dimensions = {3, 1, 1}},
         .output = {.type = OperandDataType::kInt8, .dimensions = {3, 2, 5}},
         .expected = true}
@@ -5285,13 +5265,13 @@ TEST_F(WebNNGraphImplTest, QuantizeLinearTest) {
     QuantizeLinearTester{
         .input = {.type = OperandDataType::kFloat32, .dimensions = {3, 2, 5}},
         .scale = {.type = OperandDataType::kFloat32, .dimensions = {3, 5}},
-        .zero_point = {.type = OperandDataType::kInt8, .dimensions = {5}},
+        .zero_point = {.type = OperandDataType::kInt8, .dimensions = {3, 5}},
         .output = {.type = OperandDataType::kInt8, .dimensions = {3, 2, 5}},
         .expected = false}
         .Test();
   }
   {
-    // Test the invalid graph with an invalid zero_point.
+    // Test the invalid graph with different scale_shape and zero_point_shape.
     QuantizeLinearTester{
         .input = {.type = OperandDataType::kFloat32, .dimensions = {3, 2, 5}},
         .scale = {.type = OperandDataType::kFloat32, .dimensions = {5}},
@@ -6333,6 +6313,7 @@ struct SliceTester {
   struct SliceAttributes {
     std::vector<uint32_t> starts;
     std::vector<uint32_t> sizes;
+    std::vector<uint32_t> strides;
   };
 
   OperandInfo input;
@@ -6350,9 +6331,8 @@ struct SliceTester {
         builder.BuildInput("input", input.dimensions, input.type);
     uint64_t output_operand_id =
         builder.BuildOutput("output", output.dimensions, output.type);
-    builder.BuildSlice(input_operand_id, output_operand_id,
-                       std::move(attributes.starts),
-                       std::move(attributes.sizes));
+    builder.BuildSlice(input_operand_id, output_operand_id, attributes.starts,
+                       attributes.sizes, attributes.strides);
     EXPECT_EQ(WebNNGraphBuilderImpl::IsValidForTesting(context_properties,
                                                        builder.GetGraphInfo()),
               expected);
@@ -6364,7 +6344,7 @@ TEST_F(WebNNGraphImplTest, SliceTest) {
     // Test slice with output dimensions equal to input dimensions.
     SliceTester{
         .input = {.type = OperandDataType::kFloat32, .dimensions = {4, 4}},
-        .attributes = {.starts = {0, 0}, .sizes = {4, 4}},
+        .attributes = {.starts = {0, 0}, .sizes = {4, 4}, .strides = {1, 1}},
         .output = {.type = OperandDataType::kFloat32, .dimensions = {4, 4}},
         .expected = true}
         .Test();
@@ -6373,7 +6353,7 @@ TEST_F(WebNNGraphImplTest, SliceTest) {
     // Test 4x4 2-D Tensor to 2x2 slice
     SliceTester{
         .input = {.type = OperandDataType::kFloat32, .dimensions = {4, 4}},
-        .attributes = {.starts = {0, 0}, .sizes = {2, 2}},
+        .attributes = {.starts = {0, 0}, .sizes = {2, 2}, .strides = {1, 1}},
         .output = {.type = OperandDataType::kFloat32, .dimensions = {2, 2}},
         .expected = true}
         .Test();
@@ -6382,7 +6362,7 @@ TEST_F(WebNNGraphImplTest, SliceTest) {
     // Test 4x4 2-D Tensor to 2x2 slice with offsets
     SliceTester{
         .input = {.type = OperandDataType::kFloat32, .dimensions = {4, 4}},
-        .attributes = {.starts = {2, 2}, .sizes = {2, 2}},
+        .attributes = {.starts = {2, 2}, .sizes = {2, 2}, .strides = {1, 1}},
         .output = {.type = OperandDataType::kFloat32, .dimensions = {2, 2}},
         .expected = true}
         .Test();
@@ -6391,7 +6371,7 @@ TEST_F(WebNNGraphImplTest, SliceTest) {
     // Test that going out-of-bounds of the input tensor fails.
     SliceTester{
         .input = {.type = OperandDataType::kFloat32, .dimensions = {2, 2}},
-        .attributes = {.starts = {1, 0}, .sizes = {2, 2}},
+        .attributes = {.starts = {1, 0}, .sizes = {1, 1}, .strides = {2, 2}},
         .output = {.type = OperandDataType::kFloat32, .dimensions = {2, 2}},
         .expected = false}
         .Test();
@@ -6400,7 +6380,7 @@ TEST_F(WebNNGraphImplTest, SliceTest) {
     // Test that mismatched output dimensions and size attribute will fail.
     SliceTester{
         .input = {.type = OperandDataType::kFloat32, .dimensions = {2, 2}},
-        .attributes = {.starts = {0, 0}, .sizes = {1, 1}},
+        .attributes = {.starts = {0, 0}, .sizes = {1, 1}, .strides = {1, 1}},
         .output = {.type = OperandDataType::kFloat32, .dimensions = {2, 1}},
         .expected = false}
         .Test();
@@ -6409,8 +6389,17 @@ TEST_F(WebNNGraphImplTest, SliceTest) {
     // Test that using size zero will result in failure.
     SliceTester{
         .input = {.type = OperandDataType::kFloat32, .dimensions = {2, 2}},
-        .attributes = {.starts = {0, 0}, .sizes = {0, 1}},
+        .attributes = {.starts = {0, 0}, .sizes = {0, 1}, .strides = {1, 1}},
         .output = {.type = OperandDataType::kFloat32, .dimensions = {1}},
+        .expected = false}
+        .Test();
+  }
+  {
+    // Test that using stride zero will result in failure.
+    SliceTester{
+        .input = {.type = OperandDataType::kFloat32, .dimensions = {2, 2}},
+        .attributes = {.starts = {0, 0}, .sizes = {2, 2}, .strides = {0, 1}},
+        .output = {.type = OperandDataType::kFloat32, .dimensions = {2, 2}},
         .expected = false}
         .Test();
   }
@@ -6419,7 +6408,7 @@ TEST_F(WebNNGraphImplTest, SliceTest) {
     // will fail.
     SliceTester{
         .input = {.type = OperandDataType::kFloat32, .dimensions = {4, 4}},
-        .attributes = {.starts = {0}, .sizes = {4}},
+        .attributes = {.starts = {0}, .sizes = {4}, .strides = {1}},
         .output = {.type = OperandDataType::kFloat32, .dimensions = {4, 4}},
         .expected = false}
         .Test();
@@ -6429,7 +6418,7 @@ TEST_F(WebNNGraphImplTest, SliceTest) {
     // fail.
     SliceTester{
         .input = {.type = OperandDataType::kFloat16, .dimensions = {4, 4}},
-        .attributes = {.starts = {0, 0}, .sizes = {4, 4}},
+        .attributes = {.starts = {0, 0}, .sizes = {4, 4}, .strides = {1, 1}},
         .output = {.type = OperandDataType::kFloat32, .dimensions = {4, 4}},
         .expected = false}
         .Test();
@@ -7420,39 +7409,39 @@ TEST_F(WebNNGraphImplTest, ValidateInputsTest) {
   {
     // Validate the inputs match the expected.
     base::flat_map<std::string, mojo_base::BigBuffer> inputs;
-    inputs["lhs"] = std::vector<uint8_t>(byte_length);
-    inputs["rhs"] = std::vector<uint8_t>(byte_length);
+    inputs["lhs"] = {std::vector<uint8_t>(byte_length)};
+    inputs["rhs"] = {std::vector<uint8_t>(byte_length)};
     EXPECT_TRUE(ValidateInputsForComputing(builder.CloneGraphInfo(),
                                            std::move(inputs)));
   }
   {
     // Test the invalid inputs for invalid input size.
     base::flat_map<std::string, mojo_base::BigBuffer> inputs;
-    inputs["lhs"] = std::vector<uint8_t>(byte_length);
+    inputs["lhs"] = {std::vector<uint8_t>(byte_length)};
     EXPECT_FALSE(ValidateInputsForComputing(builder.CloneGraphInfo(),
                                             std::move(inputs)));
   }
   {
     // Test the invalid inputs for invalid input name.
     base::flat_map<std::string, mojo_base::BigBuffer> inputs;
-    inputs["a_different_input_name"] = std::vector<uint8_t>(byte_length);
-    inputs["rhs"] = std::vector<uint8_t>(byte_length);
+    inputs["a_different_input_name"] = {std::vector<uint8_t>(byte_length)};
+    inputs["rhs"] = {std::vector<uint8_t>(byte_length)};
     EXPECT_FALSE(ValidateInputsForComputing(builder.CloneGraphInfo(),
                                             std::move(inputs)));
   }
   {
     // Test the invalid inputs for invalid first input byte length.
     base::flat_map<std::string, mojo_base::BigBuffer> inputs;
-    inputs["lhs"] = std::vector<uint8_t>(20);
-    inputs["rhs"] = std::vector<uint8_t>(byte_length);
+    inputs["lhs"] = {std::vector<uint8_t>(20)};
+    inputs["rhs"] = {std::vector<uint8_t>(byte_length)};
     EXPECT_FALSE(ValidateInputsForComputing(builder.CloneGraphInfo(),
                                             std::move(inputs)));
   }
   {
     // Test the invalid inputs for invalid second input byte length.
     base::flat_map<std::string, mojo_base::BigBuffer> inputs;
-    inputs["lhs"] = std::vector<uint8_t>(byte_length);
-    inputs["rhs"] = std::vector<uint8_t>(20);
+    inputs["lhs"] = {std::vector<uint8_t>(byte_length)};
+    inputs["rhs"] = {std::vector<uint8_t>(20)};
     EXPECT_FALSE(ValidateInputsForComputing(builder.CloneGraphInfo(),
                                             std::move(inputs)));
   }

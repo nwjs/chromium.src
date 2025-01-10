@@ -30,13 +30,6 @@ BASE_FEATURE(kAllowEyeDropperWGCScreenCapture,
 #endif  // BUILDFLAG(IS_WIN)
 );
 
-// Enables Chrome Labs menu in the toolbar. See https://crbug.com/1145666
-BASE_FEATURE(kChromeLabs, "ChromeLabs", base::FEATURE_ENABLED_BY_DEFAULT);
-const char kChromeLabsActivationParameterName[] =
-    "chrome_labs_activation_percentage";
-const base::FeatureParam<int> kChromeLabsActivationPercentage{
-    &kChromeLabs, kChromeLabsActivationParameterName, 99};
-
 // When enabled, clicks outside the omnibox and its popup will close an open
 // omnibox popup.
 BASE_FEATURE(kCloseOmniboxPopupOnInactiveAreaClick,
@@ -97,13 +90,6 @@ bool IsExtensionMenuInRootAppMenu() {
   return base::FeatureList::IsEnabled(kExtensionsMenuInAppMenu);
 }
 
-#if !defined(ANDROID)
-// Enables "Access Code Cast" UI.
-BASE_FEATURE(kAccessCodeCastUI,
-             "AccessCodeCastUI",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
-
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 // Enables the feature to remove the last confirmation dialog when relaunching
 // to update Chrome.
@@ -132,17 +118,18 @@ BASE_FEATURE(kIOSPromoPaymentBubble,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<std::string> kIOSPromoPasswordBubbleQRCodeURL{
-    &kIOSPromoRefreshedPasswordBubble, "qr_code_url",
-    "https://apps.apple.com/app/apple-store/"
-    "id535886823?pt=9008&ct=desktop-chr-passwords&mt=8"};
+    &kIOSPromoRefreshedPasswordBubble, "password_promo_qr_code_url",
+    "https://www.google.com/chrome/go-mobile/"
+    "?ios-campaign=desktop-chr-passwords&android-campaign=desktop-chr-"
+    "passwords"};
 const base::FeatureParam<std::string> kIOSPromoAddressBubbleQRCodeURL{
-    &kIOSPromoAddressBubble, "qr_code_url",
-    "https://apps.apple.com/app/apple-store/"
-    "id535886823?pt=9008&ct=desktop-chr-address&mt=8"};
+    &kIOSPromoAddressBubble, "address_promo_qr_code_url",
+    "https://www.google.com/chrome/go-mobile/"
+    "?ios-campaign=desktop-chr-address&android-campaign=desktop-chr-address"};
 const base::FeatureParam<std::string> kIOSPromoPaymentBubbleQRCodeURL{
-    &kIOSPromoPaymentBubble, "qr_code_url",
-    "https://apps.apple.com/app/apple-store/"
-    "id535886823?pt=9008&ct=desktop-chr-payment&mt=8"};
+    &kIOSPromoPaymentBubble, "payment_promo_qr_code_url",
+    "https://www.google.com/chrome/go-mobile/"
+    "?ios-campaign=desktop-chr-payment&android-campaign=desktop-chr-payment"};
 #endif  // !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -199,8 +186,7 @@ const base::FeatureParam<std::string> kPreloadTopChromeWebUIExcludeOrigins{
 #if !BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kPressAndHoldEscToExitBrowserFullscreen,
              "PressAndHoldEscToExitBrowserFullscreen",
-             base::FEATURE_ENABLED_BY_DEFAULT
-);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 // Enable responsive toolbar. Toolbar buttons overflow to a chevron button when
@@ -225,10 +211,6 @@ BASE_FEATURE(kSearchWebInSidePanel,
 
 BASE_FEATURE(kSidePanelWebView,
              "SidePanelWebView",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kSidePanelJourneysQueryless,
-             "SidePanelJourneysQueryless",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if !defined(ANDROID)
@@ -280,7 +262,7 @@ const char kTabHoverCardAdditionalMaxWidthDelay[] =
 
 BASE_FEATURE(kTabOrganization,
              "TabOrganization",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsTabOrganization() {
   return base::FeatureList::IsEnabled(features::kTabOrganization);
@@ -304,13 +286,36 @@ bool IsTabstripDeclutterEnabled() {
   return base::FeatureList::IsEnabled(features::kTabstripDeclutter);
 }
 
-BASE_FEATURE(kMultiTabOrganization,
-             "MultiTabOrganization",
+BASE_FEATURE(kTabstripDedupe,
+             "TabstripDedupe",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsTabstripDedupeEnabled() {
+  return IsTabstripDeclutterEnabled() &&
+         base::FeatureList::IsEnabled(features::kTabstripDedupe);
+}
 
 BASE_FEATURE(kTabOrganizationAppMenuItem,
              "TabOrganizationAppMenuItem",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || \
+    BUILDFLAG(IS_CHROMEOS)
+BASE_FEATURE(kMultiTabOrganization,
+             "MultiTabOrganization",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kTabReorganization,
+             "TabReorganization",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kTabReorganizationDivider,
+             "TabReorganizationDivider",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#else
+BASE_FEATURE(kMultiTabOrganization,
+             "MultiTabOrganization",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTabReorganization,
              "TabReorganization",
@@ -319,6 +324,7 @@ BASE_FEATURE(kTabReorganization,
 BASE_FEATURE(kTabReorganizationDivider,
              "TabReorganizationDivider",
              base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 BASE_FEATURE(kTabOrganizationModelStrategy,
              "TabOrganizationModelStrategy",
@@ -342,6 +348,13 @@ const base::FeatureParam<double> kTabOrganizationTriggerSensitivityThreshold{
 
 const base::FeatureParam<bool> KTabOrganizationTriggerDemoMode{
     &kTabOrganization, "trigger_demo_mode", false};
+
+BASE_FEATURE(kTabstripComboButton,
+             "TabstripComboButton",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsTabstripComboButtonEnabled() {
+  return base::FeatureList::IsEnabled(features::kTabstripComboButton);
+}
 
 // Controls feature parameters for Tab Search's `Recently Closed` entries.
 BASE_FEATURE(kTabSearchRecentlyClosed,
@@ -407,6 +420,10 @@ BASE_FEATURE(kEnterpriseUpdatedProfileCreationScreen,
              "EnterpriseUpdatedProfileCreationScreen",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kManagedProfileRequiredInterstitial,
+             "ManagedProfileRequiredInterstitial",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables a web-based tab strip. See https://crbug.com/989131. Note this
 // feature only works when the ENABLE_WEBUI_TAB_STRIP buildflag is enabled.
 BASE_FEATURE(kWebUITabStrip,
@@ -457,5 +474,17 @@ BASE_FEATURE(kCompactMode, "CompactMode", base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kPageSpecificDataDialogRelatedInstalledAppsSection,
              "PageSpecificDataDialogRelatedInstalledAppsSection",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kEnableManagementPromotionBanner,
+             "EnableManagementPromotionBanner",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kEnablePolicyPromotionBanner,
+             "EnablePolicyPromotionBanner",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kInlineFullscreenPerfExperiment,
+             "InlineFullscreenPerfExperiment",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace features

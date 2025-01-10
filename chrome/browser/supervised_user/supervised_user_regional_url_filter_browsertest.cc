@@ -17,6 +17,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/types/strong_alias.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
+#include "chrome/browser/ssl/https_upgrades_util.h"
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_features.h"
@@ -36,6 +37,7 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "services/network/public/cpp/network_switches.h"
+#include "testing/gmock/include/gmock/gmock-matchers.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "url/gurl.h"
 
@@ -44,8 +46,7 @@ namespace {
 
 using ::kidsmanagement::ClassifyUrlRequest;
 using ::testing::_;
-using ::testing::NiceMock;
-using ::testing::Pointee;
+using ::testing::AllOf;
 
 // Wrapper class; introducing fluent aliases for test parameters.
 class TestCase {
@@ -68,30 +69,11 @@ class SupervisedUserRegionalURLFilterTest
     : public MixinBasedInProcessBrowserTest,
       public ::testing::WithParamInterface<SupervisionMixin::SignInMode> {
  public:
-  SupervisedUserRegionalURLFilterTest() {
-    // TODO(crbug.com/40248833): Use HTTPS URLs in tests to avoid having to
-    // disable this feature.
-    feature_list_.InitWithFeatures(
-        /*enabled_features=*/{},
-        /*disabled_features=*/{features::kHttpsUpgrades});
-  }
-  ~SupervisedUserRegionalURLFilterTest() override { feature_list_.Reset(); }
+  SupervisedUserRegionalURLFilterTest() = default;
+  ~SupervisedUserRegionalURLFilterTest() override = default;
 
  protected:
-  MOCK_METHOD(void,
-              ClassifyUrlRequestMonitor,
-              (std::string_view, std::string_view));
-
   static const TestCase GetTestCase() { return TestCase(GetParam()); }
-
-  void SetUpInProcessBrowserTestFixture() override {
-    MixinBasedInProcessBrowserTest::SetUpInProcessBrowserTestFixture();
-    request_monitor_subscription_ =
-        kids_management_api_mock().Subscribe(base::BindRepeating(
-            &SupervisedUserRegionalURLFilterTest::ClassifyUrlRequestMonitor,
-            base::Unretained(this)));
-  }
-
   void SetUpCommandLine(base::CommandLine* command_line) override {
     MixinBasedInProcessBrowserTest::SetUpCommandLine(command_line);
     command_line->AppendSwitchASCII(
@@ -111,7 +93,6 @@ class SupervisedUserRegionalURLFilterTest
 
  private:
   base::test::ScopedFeatureList feature_list_;
-  base::CallbackListSubscription request_monitor_subscription_;
   supervised_user::SupervisionMixin supervision_mixin_{
       mixin_host_,
       this,
@@ -130,30 +111,24 @@ class SupervisedUserRegionalURLFilterTest
 
 // Verifies that the regional setting is passed to the RPC backend.
 IN_PROC_BROWSER_TEST_P(SupervisedUserRegionalURLFilterTest, RegionIsAdded) {
+  ScopedAllowHttpForHostnamesForTesting allow_http(
+      {"www.example.com"}, browser()->profile()->GetPrefs());
+
   std::string url_to_classify =
       "http://www.example.com/simple.html";  // Hostname of this url must be
                                              // resolved to embedded test
                                              // server's address.
-
-  ClassifyUrlRequest expected;
-  expected.set_region_code(std::string(kRegionCode));
-  expected.set_url(url_to_classify);
-
-  int number_of_expected_calls = IsUrlFilteringEnabled() ? 1 : 0;
-  if (number_of_expected_calls > 0) {
+  if (IsUrlFilteringEnabled()) {
     kids_management_api_mock().AllowSubsequentClassifyUrl();
-    EXPECT_CALL(kids_management_api_mock().classify_url_mock(), ClassifyUrl)
-        .Times(number_of_expected_calls);
+    EXPECT_CALL(
+        kids_management_api_mock().classify_url_mock(),
+        ClassifyUrl(AllOf(supervised_user::Classifies(url_to_classify),
+                          supervised_user::SetsRegionCode(kRegionCode))))
+        .Times(1);
+  } else {
+    EXPECT_CALL(kids_management_api_mock().classify_url_mock(), ClassifyUrl(_))
+        .Times(0);
   }
-  // Ignore all extra calls to other methods
-  EXPECT_CALL(*this, ClassifyUrlRequestMonitor(_, _))
-      .Times(::testing::AnyNumber());
-  // Last expectation takes precedence.
-  EXPECT_CALL(*this,
-              ClassifyUrlRequestMonitor(kClassifyUrlConfig.StaticServicePath(),
-                                        expected.SerializeAsString()))
-      .Times(number_of_expected_calls);
-
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL(url_to_classify)));
 }
 
@@ -169,7 +144,7 @@ std::string PrettyPrintTestCaseName(
 INSTANTIATE_TEST_SUITE_P(
     All,
     SupervisedUserRegionalURLFilterTest,
-    testing::Values(
+    ::testing::Values(
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
         // Only for platforms that support signed-out browser.
         SupervisionMixin::SignInMode::kSignedOut,

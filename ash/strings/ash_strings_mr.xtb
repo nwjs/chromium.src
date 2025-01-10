@@ -308,7 +308,6 @@
 <translation id="2041220428661959602">बॅटरीची पातळी: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848"><ph name="SIX_PACK_KEY_NAME" /> शॉर्टकट सध्या बंद आहे</translation>
 <translation id="2049240716062114887">डेस्कचे नाव <ph name="DESK_NAME" /> वर बदलले होते</translation>
-<translation id="2050339315714019657">पोर्ट्रेट</translation>
 <translation id="2064048859448024834">कॅमेराचे पूर्वावलोकन सुरू आहे</translation>
 <translation id="2065098273523946419">अधिक जाणून घ्या लिंक. अ‍ॅक्टिव्हेट केले असताना ब्राउझरवर रीडिरेक्ट करा</translation>
 <translation id="2067220651560163985">तापमान सेल्सियसमध्ये दाखवा</translation>
@@ -339,9 +338,6 @@
 <translation id="219905428774326614">लाँचर, सर्व अ‍ॅप्स</translation>
 <translation id="2201071101391734388"><ph name="TOTAL_COUNT" /> पैकी <ph name="INDEX" /> अलीकडील फोटो.</translation>
 <translation id="2201687081523799384">Google Tasks कोलॅप्स करा</translation>
-<translation id="2206960886090042977">माउस कनेक्ट केल्यामुळे बिल्ट-इन टचपॅड बंद केले गेले आहे. बदल कन्फर्म करण्यासाठी माउस किंवा कीबोर्ड वापरा.
-
-अन्यथा ३० सेकंदांमध्ये बिल्ट-इन टचपॅड पुन्हा सुरू केले जाईल.</translation>
 <translation id="2208323208084708176">एकीकृत डेस्कटॉप मोड</translation>
 <translation id="2220572644011485463">पिन किंवा पासवर्ड</translation>
 <translation id="2222841058024245321">डेस्‍क ७</translation>
@@ -504,6 +500,9 @@
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> ते <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">ctrl+search+s</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" /> हे <ph name="MANAGER" /> द्वारे व्यवस्थापित केले आहे</translation>
+<translation id="2781658180588759579">बिल्ट-इन टचपॅड बंद केले गेले आहे. बदल कन्फर्म करण्यासाठी तुमचा कीबोर्ड किंवा दुसरे पॉइंटर डिव्हाइस वापरा.
+
+अन्यथा <ph name="TIMEOUT_SECONDS" /> मध्ये बिल्ट-इन टचपॅड पुन्हा सुरू केले जाईल.</translation>
 <translation id="2782591952652094792">कॅप्चर मोडमधून बाहेर पडा</translation>
 <translation id="2785499565474703580">एक डिव्हाइस कनेक्ट केलेले आहे</translation>
 <translation id="2791421900609674576">तुम्हाला शिफारशी दिसतील, जेणेकरून तुम्ही जिथे सोडले होते तेथून सुरू ठेवू शकता. तुम्ही शिफारशी काढून टाकण्यासाठी स्पर्श करून धरून ठेवू शकता.</translation>
@@ -601,6 +600,9 @@
 <translation id="3113492864356515707">शेल्फवरील आधीचा आयटम हायलाइट करा</translation>
 <translation id="311799651966070385">नज बंद करा</translation>
 <translation id="3120421559657122717">डिव्हाइस बंद करायचे का?</translation>
+<translation id="3121411970001795539">माउस कनेक्ट केल्यामुळे बिल्ट-इन टचपॅड बंद केले गेले आहे. बदल कन्फर्म करण्यासाठी माउस किंवा कीबोर्ड वापरा.
+
+अन्यथा <ph name="TIMEOUT_SECONDS" /> मध्ये बिल्ट-इन टचपॅड पुन्हा सुरू केले जाईल.</translation>
 <translation id="3122464029669770682">सीपीयू</translation>
 <translation id="3125690294288312932">वर्गपाठाचा प्रकार</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +973,13 @@
 <translation id="4322742403972824594">Ctrl + Alt + Up Arrow कीबोर्ड शॉर्टकट बदलला आहे. होम की वापरण्यासाठी, <ph name="LAUNCHER_KEY_NAME" /> की + लेफ्ट अ‍ॅरो प्रेस करा.</translation>
 <translation id="4324840740119394760">हे कॅमेरा परवानगी असलेल्या <ph name="APP_NAME" /> आणि सर्व अ‍ॅप्स व वेबसाइटना कॅमेराच्या अ‍ॅक्सेसची अनुमती देते</translation>
 <translation id="4327147325944669226">गेम रेकॉर्ड करा</translation>
-<translation id="4333628967105022692">एकाहून अधिक वापरकर्त्यांनी साइन इन केले असेल तेव्हा Lacros सपोर्ट करत नाही.</translation>
 <translation id="4338109981321384717">भिंग</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, म्यूट केला आहे</translation>
 <translation id="4351244548802238354">डायलॉग बंद करा</translation>
 <translation id="4356872429719185452">हॉटस्पॉटचे तपशील दाखवा. हॉटस्पॉट सुरू करत आहे.</translation>
 <translation id="4364101114148522660"><ph name="DURATION" />  रेकॉर्ड करत आहे</translation>
 <translation id="4371348193907997655">कास्ट करा सेटिंग्ज</translation>
+<translation id="4371834685492830207">पिनमध्ये फक्त वैध वर्ण असणे आवश्यक आहे</translation>
 <translation id="4375482231364171368">अ‍ॅड्रेस बारमध्ये शोधा</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, सिग्नल क्षमता <ph name="SIGNAL_STRENGTH" /> टक्के</translation>
 <translation id="4378551569595875038">कनेक्ट होतय...</translation>
@@ -1143,6 +1145,7 @@
 <translation id="4902797682482387055">फोकस करण्यासाठी सुचवलेली टास्क</translation>
 <translation id="490375751687810070">उभा</translation>
 <translation id="490788395437447240"><ph name="BATTERY_PERCENTAGE" />% बॅटरी</translation>
+<translation id="4911191962826748981">हे AI वैशिष्ट्य प्रायोगिक आहे आणि ते नेहमीच बरोबर असेल असे नाही.</translation>
 <translation id="491504982845934899"><ph name="NETWORK_NAME" /> डिव्हाइस सेटअपनंतर ॲक्टिव्हेट करा</translation>
 <translation id="4917385247580444890">मजबूत</translation>
 <translation id="4918086044614829423">स्वीकारा</translation>
@@ -1301,6 +1304,7 @@
 <translation id="5393156353051693207">तुमची ॲप्स पुन्हा क्रमाने लावण्यासाठी कुठेही स्पर्श करा आणि धरून ठेवा</translation>
 <translation id="5395308026110844773"><ph name="IN_PLACE_APP" /> च्या वर <ph name="DRAGGED_APP_NAME" />, फोल्डर तयार करण्यासाठी रिलीझ करा.</translation>
 <translation id="5397578532367286026">या वापरकर्त्याच्या वापर आणि इतिहासाचे chrome.com वरील व्यवस्थापकाद्वारे (<ph name="MANAGER_EMAIL" />) पुनरावलोकन केले जाऊ शकते.</translation>
+<translation id="540338817371815859">लँडस्केप</translation>
 <translation id="540713187982329711">हॉटस्पॉट टॉगल करा. हॉटस्पॉट सुरू आहे, कोणतेही डिव्हाइस कनेक्ट केलेले नाही.</translation>
 <translation id="5409208741270395213">टास्क पूर्ण झाली म्हणून मार्क करा</translation>
 <translation id="5413656666631274079">सेटिंग्ज पेज</translation>
@@ -1472,7 +1476,6 @@
 <translation id="5975235751479998104">विंडोदरम्यान पुढे जा</translation>
 <translation id="5978382165065462689">दूरस्थ सहाय्याद्वारे आपल्या स्क्रीनचे नियंत्रण शेअर करत आहे.</translation>
 <translation id="5980301590375426705">अतिथी निर्गमन करा</translation>
-<translation id="5982119059638483922">रद्द करण्यासाठी Fn+Search किंवा Shift प्रेस करा.</translation>
 <translation id="5983567367406220847">इनॅक्टिव्हिटीमुळे हॉटस्पॉट बंद करण्यात आला आहे.</translation>
 <translation id="598407983968395253">टेंप्लेट वापरा</translation>
 <translation id="5986723678596105470">Google Meet वापरून सामील व्हा</translation>
@@ -1542,7 +1545,6 @@
 <translation id="6166852626429024716">तुमच्या डिव्हाइस, अ‍ॅप्स, सेटिंग्ज, वेबवर शोधा...</translation>
 <translation id="6168318496333165060">Diagnostics अ‍ॅप उघडा</translation>
 <translation id="6168622430237609329">तुमची इंस्टॉल केलेली ॲप्स</translation>
-<translation id="6173151025443907148">Lacros सुरू असल्यास दुसर्‍या वापरकर्त्याला साइन इन करण्यास सपोर्ट नाही. त्याऐवजी कृपया Lacros मध्ये दुसरी ब्राउझर प्रोफाइल वापरा किंवा Lacros बंद करा आणि पुन्हा प्रयत्न करा.</translation>
 <translation id="6179832488876878285">तुम्ही तुमच्या महत्त्वाच्या फाइल येथे पिन करू शकता. सुरुवात करण्यासाठी Files अ‍ॅप उघडा.</translation>
 <translation id="6180193585172850042">मागे जा बटण</translation>
 <translation id="6180651297859206670">फॉरवर्ड करा बटण</translation>
@@ -1564,6 +1566,7 @@
 <translation id="6232416233079464213"><ph name="SESSION_NAME" /> मधून</translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> हे सध्या तुमचा कॅमेरा आणि मायक्रोफोन वापरत आहे</translation>
 <translation id="6237231532760393653">१X</translation>
+<translation id="6240551054644725950">पासवर्डमध्ये फक्त वैध वर्ण असणे आवश्यक आहे</translation>
 <translation id="6240603910551255087">सर्वात वरील बटण</translation>
 <translation id="6240821072888636753">प्रत्येक वेळी विचारा</translation>
 <translation id="6247728804802644171">सूचना उघडा</translation>
@@ -1694,7 +1697,6 @@
 <translation id="6682029141988159141">क्लिपबोर्डवरून आशय पेस्ट करा</translation>
 <translation id="6683022854667115063">हेडफोन</translation>
 <translation id="6686023075541098243">तुमच्या फोनमधील सूचना पाहणे सेट करा</translation>
-<translation id="6688019813898140556">५ वेळा एस्केप प्रेस करा</translation>
 <translation id="6694462491298752106">बिल्ट-इन टचपॅड बंद केले आहे</translation>
 <translation id="6694973220096431421">Google Drive मध्ये शोधा</translation>
 <translation id="6696025732084565524">तुमच्या वेगळ्या करण्यायोग्य कीबोर्डला गंभीर अपडेटची आवश्यकता आहे</translation>
@@ -1715,6 +1717,7 @@
 <translation id="6751826523481687655">परफॉर्मंस ट्रेसिंग सुरू आहे</translation>
 <translation id="6752912906630585008"><ph name="REMOVED_DESK" /> डेस्क काढून टाकले आणि डेस्क <ph name="RECEIVE_DESK" /> साेबत मर्ज केले</translation>
 <translation id="6753390234084146956">टॅब</translation>
+<translation id="6754918760968695779">क्विक इन्सर्ट</translation>
 <translation id="6757237461819837179">कोणताही मीडिया प्‍ले होत नाही</translation>
 <translation id="6760438044935091345">गेम डॅशबोर्ड</translation>
 <translation id="6768043681523654438">स्टोरेज</translation>
@@ -1764,6 +1767,7 @@
 <translation id="6921427376813842559">डिव्हाइस अपडेट करा</translation>
 <translation id="6929081673585394903">नियंत्रणे दाखवा</translation>
 <translation id="6931576957638141829">येथे सेव्ह करा</translation>
+<translation id="6935857786205183008">पोर्ट्रेट</translation>
 <translation id="6942518653766415536">रेकॉर्डिंग फॉरमॅट मेनू</translation>
 <translation id="6945221475159498467">निवडा</translation>
 <translation id="6945922087561257829">तुमचा फोन मोबाइल नेटवर्क वापरत आहे. तुमचा फोन आणि Chromebook एकाच वाय-फाय नेटवर्कवर असल्याची खात्री करा व नंतर पुन्हा प्रयत्न करा.<ph name="LEARN_MORE" /></translation>
@@ -1920,9 +1924,6 @@
 डिव्हाइस बंद करण्यासाठी, डिव्हाइसवरील पॉवर बटण पुन्हा प्रेस करून धरून ठेवा.</translation>
 <translation id="7523420897035067483">फोकस मध्ये असताना व्यत्यय आणू नका सुरू करा</translation>
 <translation id="7524043547948122239">Google Tasks</translation>
-<translation id="7524919752437339268">बिल्ट-इन टचपॅड बंद केले गेले आहे. बदल कन्फर्म करण्यासाठी तुमचा कीबोर्ड किंवा दुसरे पॉइंटर डिव्हाइस वापरा.
-
-अन्यथा ३० सेकंदांमध्ये बिल्ट-इन टचपॅड पुन्हा सुरू केले जाईल.</translation>
 <translation id="7525067979554623046">तयार करा</translation>
 <translation id="7526573455193969409">नेटवर्कचे परीक्षण केले जाऊ शकते</translation>
 <translation id="7536035074519304529">IP पत्ता: <ph name="ADDRESS" /></translation>
@@ -2009,6 +2010,7 @@
 <translation id="780301667611848630">नाही, नको</translation>
 <translation id="7807067443225230855">शोध आणि साहाय्यक</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> आणि <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">थंब्स अप हे तुम्हाला ही सूचना आवडली आहे असा फीडबॅक सबमिट करेल</translation>
 <translation id="7825412704590278437">आगामी कॅलेंडर इव्हेंटमधून</translation>
 <translation id="7829386189513694949">मजबूत सिग्नल</translation>
 <translation id="7830453190047749513">तुमच्या <ph name="PERIPHERAL_NAME" /> साठी तुम्ही बटणाशी संबंधित कृती, कर्सरचा वेग आणि आणखी बऱ्याच गोष्टी पर्सनलाइझ करू शकता</translation>
@@ -2163,6 +2165,7 @@
 <translation id="830868413617744215">बीटा</translation>
 <translation id="8314772463905284467">Caps Lock सूरू आहे</translation>
 <translation id="8315514906653279104">सुरू करत आहे...</translation>
+<translation id="8319634750346253957">थंब्स डाउन हे तुम्हाला ही सूचना आवडली नाही असा फीडबॅक सबमिट करेल</translation>
 <translation id="8331351032546853669">डाउनलोड प्रलंबित आहे</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2348,6 +2351,7 @@
 <translation id="8982906748181120328">Nearby असलेले</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590"><ph name="IME_NAME" /> वापरत आहे</translation>
+<translation id="8991648557324317894">रद्द करण्यासाठी fn + क्विक इन्सर्ट किंवा fn + Shift प्रेस करा.</translation>
 <translation id="899350903320462459">सूचनेशी संबंधित क्रिया पार पाडण्यासाठी डिव्हाइस <ph name="LOGIN_ID" /> म्हणून अनलॉक करा</translation>
 <translation id="8993733019280019776">तुम्ही बोलत आहात का? तुमचा माइक बंद आहे. माइक सुरू करण्यासाठी तो निवडा.</translation>
 <translation id="9000771174482730261">स्टोरेज व्यवस्थापित करा</translation>
@@ -2430,9 +2434,9 @@
 <translation id="974545358917229949"><ph name="QUERY" /> साठी <ph name="RESULT_COUNT" /> परिणाम दाखवत आहे</translation>
 <translation id="981011780479609956">शेवटची तारीख नाही</translation>
 <translation id="98120814841227350">दस्तऐवजाच्या शेवटी जा</translation>
-<translation id="98515147261107953">लँडस्केप</translation>
 <translation id="987589956647469042">मोबाइल डेटा सुरू केलेला आहे</translation>
 <translation id="989374776391122812">कॅमेरा आणि ऑडिओ नियंत्रणे</translation>
+<translation id="990263227494928142">टचपॅड सुरू करण्यासाठी शिफ्ट ५ वेळा प्रेस करा</translation>
 <translation id="990277280839877440"><ph name="WINDOW_TITILE" /> विंडो बंद केली आहे.</translation>
 <translation id="993398562350683614">टूरच्या <ph name="TOTAL_STEPS" /> पायऱ्यांपैकी <ph name="STEP" />. तुमच्या <ph name="PRODUCT_NAME" /> वर तुम्हाला आवश्यक असलेल्या सर्व गोष्टी करण्यासाठी ॲप्स वापरा. तुम्ही लाँचर मध्ये तुमची ॲप्स शोधू शकता. लाँचर बटणावर फोकस करण्यासाठी Alt + Shift + L प्रेस करा.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

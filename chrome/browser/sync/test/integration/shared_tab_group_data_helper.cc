@@ -5,6 +5,8 @@
 #include "chrome/browser/sync/test/integration/shared_tab_group_data_helper.h"
 
 #include "base/ranges/algorithm.h"
+#include "chrome/browser/sync/test/integration/sync_datatype_helper.h"
+#include "chrome/browser/sync/test/integration/sync_test.h"
 #include "components/saved_tab_groups/public/saved_tab_group.h"
 #include "components/saved_tab_groups/public/saved_tab_group_tab.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"

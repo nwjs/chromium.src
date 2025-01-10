@@ -347,8 +347,10 @@ const char* PseudoTypeToString(CSSSelector::PseudoType pseudo_type) {
     DEFINE_STRING_MAPPING(PseudoInvalid)
     DEFINE_STRING_MAPPING(PseudoIndeterminate)
     DEFINE_STRING_MAPPING(PseudoTarget)
+    DEFINE_STRING_MAPPING(PseudoCheck)
     DEFINE_STRING_MAPPING(PseudoBefore)
     DEFINE_STRING_MAPPING(PseudoAfter)
+    DEFINE_STRING_MAPPING(PseudoSelectArrow)
     DEFINE_STRING_MAPPING(PseudoMarker)
     DEFINE_STRING_MAPPING(PseudoBackdrop)
     DEFINE_STRING_MAPPING(PseudoLang)
@@ -1732,6 +1734,64 @@ void inspector_async_task::Data(perfetto::TracedValue context,
                                 const StringView& name) {
   auto dict = std::move(context).WriteDictionary();
   dict.Add("name", name.ToString());
+}
+
+namespace {
+const char* WebSchedulingPriorityToString(WebSchedulingPriority priority) {
+  switch (priority) {
+    case WebSchedulingPriority::kUserBlockingPriority:
+      return "user-blocking";
+    case WebSchedulingPriority::kUserVisiblePriority:
+      return "user-visible";
+    case WebSchedulingPriority::kBackgroundPriority:
+      return "background";
+  }
+}
+void SchedulerBaseData(perfetto::TracedDictionary& dict,
+                       ExecutionContext* context,
+                       uint64_t task_id) {
+  dict.Add("taskId", task_id);
+  // TODO(crbug.com/376069345): Add identifier for worker contexts.
+  if (auto* frame = FrameForExecutionContext(context)) {
+    dict.Add("frame", IdentifiersFactory::FrameId(frame));
+  }
+}
+}  // namespace
+
+void inspector_scheduler_schedule_event::Data(
+    perfetto::TracedValue trace_context,
+    ExecutionContext* execution_context,
+    uint64_t task_id,
+    WebSchedulingPriority priority,
+    std::optional<double> delay) {
+  auto dict = std::move(trace_context).WriteDictionary();
+  SchedulerBaseData(dict, execution_context, task_id);
+  dict.Add("priority", WebSchedulingPriorityToString(priority));
+  if (delay) {
+    dict.Add("delay", delay.value());
+  }
+  SetCallStack(execution_context->GetIsolate(), dict);
+}
+
+void inspector_scheduler_run_event::Data(perfetto::TracedValue trace_context,
+                                         ExecutionContext* execution_context,
+                                         uint64_t task_id,
+                                         WebSchedulingPriority priority,
+                                         std::optional<double> delay) {
+  auto dict = std::move(trace_context).WriteDictionary();
+  SchedulerBaseData(dict, execution_context, task_id);
+  dict.Add("priority", WebSchedulingPriorityToString(priority));
+  if (delay) {
+    dict.Add("delay", delay.value());
+  }
+}
+
+void inspector_scheduler_abort_event::Data(perfetto::TracedValue trace_context,
+                                           ExecutionContext* execution_context,
+                                           uint64_t task_id) {
+  auto dict = std::move(trace_context).WriteDictionary();
+  SchedulerBaseData(dict, execution_context, task_id);
+  SetCallStack(execution_context->GetIsolate(), dict);
 }
 
 }  // namespace blink

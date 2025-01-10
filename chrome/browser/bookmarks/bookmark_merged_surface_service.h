@@ -5,10 +5,12 @@
 #ifndef CHROME_BROWSER_BOOKMARKS_BOOKMARK_MERGED_SURFACE_SERVICE_H_
 #define CHROME_BROWSER_BOOKMARKS_BOOKMARK_MERGED_SURFACE_SERVICE_H_
 
+#include <variant>
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
 #include "base/observer_list.h"
+#include "components/bookmarks/browser/bookmark_node_data.h"
 #include "components/keyed_service/core/keyed_service.h"
 
 namespace bookmarks {
@@ -89,6 +91,13 @@ class BookmarkMergedSurfaceService : public KeyedService {
       const bookmarks::BookmarkNode* node,
       BookmarkParentFolder::PermanentFolderType folder);
 
+  // Returns underlying nodes in `folder`. This is either:
+  // - a single bookmark folder node or
+  // - two permanent folder nodes representing local and account bookmark nodes
+  //   of `*folder.as_permanent_folder()`.
+  std::vector<const bookmarks::BookmarkNode*> GetUnderlyingNodes(
+      const BookmarkParentFolder& folder) const;
+
   // Returns the index of node with respect to its parent.
   // `node` must not be null.
   // TODO(crbug.com/364594278): When account nodes are supported within this
@@ -101,7 +110,15 @@ class BookmarkMergedSurfaceService : public KeyedService {
 
   bool loaded() const;
 
-  size_t GetChildrenCount(const BookmarkParentFolder& bookmark) const;
+  size_t GetChildrenCount(const BookmarkParentFolder& folder) const;
+
+  // TODO(crbug.com/364594278): This function will need to return a wrapper that
+  // provides access to children as in some cases, child nodes will be a
+  // combination of the two bookmark nodes's children that would be tracked in a
+  // vector of non-owning pointers to child bookmark nodes. The wrapper would
+  // hide the type difference vector of unique/raw pointers.
+  const std::vector<std::unique_ptr<bookmarks::BookmarkNode>>& GetChildren(
+      const BookmarkParentFolder& folder) const;
 
   // Moves `node` to `new_parent` at position `index`.
   // Note: If `BookmarkParentFolder` is a permanent bookmark folder, `index` is
@@ -111,6 +128,21 @@ class BookmarkMergedSurfaceService : public KeyedService {
   void Move(const bookmarks::BookmarkNode* node,
             const BookmarkParentFolder& new_parent,
             size_t index);
+
+  // Inserts a copy of `node` into `new_parent` at `index`.
+  // Note: If `BookmarkParentFolder` is a permanent bookmark folder, `index` is
+  // expected to be the position across storages. This can result in a copy
+  // operation within the local/account storage then a reorder operation within
+  // the `BookmarkPermanentFolderOrderingTracker` to respect the `index`.
+  void Copy(const bookmarks::BookmarkNode* node,
+            const BookmarkParentFolder& new_parent,
+            size_t index);
+
+  // Same as `Copy()` but copies `element`.
+  void CopyBookmarkNodeDataElement(
+      const bookmarks::BookmarkNodeData::Element& element,
+      const BookmarkParentFolder& new_parent,
+      size_t index);
 
   // Returns true if `parent` is managed.
   bool IsParentFolderManaged(const BookmarkParentFolder& parent) const;

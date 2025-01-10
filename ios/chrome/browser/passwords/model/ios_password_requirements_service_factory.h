@@ -8,8 +8,8 @@
 #import "base/no_destructor.h"
 #import "components/keyed_service/ios/browser_state_keyed_service_factory.h"
 #import "ios/chrome/browser/shared/model/browser_state/browser_state_otr_helper.h"
-#import "ios/chrome/browser/shared/model/profile/profile_ios_forward.h"
 
+class ProfileIOS;
 enum class ServiceAccessType;
 
 namespace password_manager {
@@ -21,10 +21,6 @@ class PasswordRequirementsService;
 class IOSPasswordRequirementsServiceFactory
     : public BrowserStateKeyedServiceFactory {
  public:
-  static password_manager::PasswordRequirementsService* GetForBrowserState(
-      ProfileIOS* profile,
-      ServiceAccessType access_type);
-
   static password_manager::PasswordRequirementsService* GetForProfile(
       ProfileIOS* profile,
       ServiceAccessType access_type);

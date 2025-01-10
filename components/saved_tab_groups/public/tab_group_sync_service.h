@@ -130,16 +130,27 @@ class TabGroupSyncService : public KeyedService, public base::SupportsUserData {
   virtual void AddTab(const LocalTabGroupID& group_id,
                       const LocalTabID& tab_id,
                       const std::u16string& title,
-                      GURL url,
+                      const GURL& url,
                       std::optional<size_t> position) = 0;
-  virtual void UpdateTab(const LocalTabGroupID& group_id,
-                         const LocalTabID& tab_id,
-                         const SavedTabGroupTabBuilder& tab_builder) = 0;
   virtual void RemoveTab(const LocalTabGroupID& group_id,
                          const LocalTabID& tab_id) = 0;
   virtual void MoveTab(const LocalTabGroupID& group_id,
                        const LocalTabID& tab_id,
                        int new_group_index) = 0;
+
+  // Methods to update an existing tab. The primary method is `NavigateTab`
+  // which is invoked for local navigations which normally result in an update
+  // event sent to sync. On the other hand, `UpdateTabProperties` is reserved to
+  // be used for notifying non-navigation changes such as updating the URL
+  // redirect chain etc, which doesn't result in an update event sent to sync.
+  virtual void NavigateTab(const LocalTabGroupID& group_id,
+                           const LocalTabID& tab_id,
+                           const GURL& url,
+                           const std::u16string& title) = 0;
+  virtual void UpdateTabProperties(
+      const LocalTabGroupID& group_id,
+      const LocalTabID& tab_id,
+      const SavedTabGroupTabBuilder& tab_builder) = 0;
 
   // For metrics only.
   virtual void OnTabSelected(const LocalTabGroupID& group_id,
@@ -159,11 +170,12 @@ class TabGroupSyncService : public KeyedService, public base::SupportsUserData {
                                   std::string_view collaboration_id) = 0;
 
   // Accessor methods.
-  virtual std::vector<SavedTabGroup> GetAllGroups() = 0;
-  virtual std::optional<SavedTabGroup> GetGroup(const base::Uuid& guid) = 0;
+  virtual std::vector<SavedTabGroup> GetAllGroups() const = 0;
   virtual std::optional<SavedTabGroup> GetGroup(
-      const LocalTabGroupID& local_id) = 0;
-  virtual std::vector<LocalTabGroupID> GetDeletedGroupIds() = 0;
+      const base::Uuid& guid) const = 0;
+  virtual std::optional<SavedTabGroup> GetGroup(
+      const LocalTabGroupID& local_id) const = 0;
+  virtual std::vector<LocalTabGroupID> GetDeletedGroupIds() const = 0;
 
   // Method invoked from UI to open a remote tab group in the local tab model.
   virtual void OpenTabGroup(const base::Uuid& sync_group_id,
@@ -181,10 +193,18 @@ class TabGroupSyncService : public KeyedService, public base::SupportsUserData {
                                 const base::Uuid& sync_tab_id,
                                 const LocalTabID& local_tab_id) = 0;
 
-  // Called from the UI layer such as tab group restore from recent tabs or undo
-  // tab group closure to reconnect a local tab group to a saved tab group.
-  // `opening_source` refers to the callsite that results in invoking this
-  // method.
+  // Only under certain circumstances. Called from the UI layer to reestablish
+  // the connection between a local tab group and saved tab group. Don't call
+  // this method if you can get what you want via `UpdateLocalTabGroupMapping`,
+  // `AddGroup`, or `OpenTabGroup`. Currently invoked from the following places:
+  // 1. Session restore in desktop.
+  // 2. Undo tab group closure on iOS.
+  // 3. Saved to Shared tab group conversion.
+  // Invoking this method would update the mapping for tab group, individual
+  // tabs, and (on desktop) recreate the tab group listeners. `opening_source`
+  // refers to the callsite that results in invoking this method.
+  // Note that this method does not update the local tab group, and must be
+  // invoked only if the number of local tabs is more or equal to saved tabs.
   virtual void ConnectLocalTabGroup(const base::Uuid& sync_id,
                                     const LocalTabGroupID& local_id,
                                     OpeningSource opening_source) = 0;
@@ -228,6 +248,12 @@ class TabGroupSyncService : public KeyedService, public base::SupportsUserData {
   // Get the restrictions on a given URL.
   virtual void GetURLRestriction(const GURL& url,
                                  UrlRestrictionCallback callback) = 0;
+
+  // The list of shared tab groups is stored on startup before any local changes
+  // have been applied, which enables the messaging system to safely calculate
+  // deltas for changes to groups without keeping its own persistence layer.
+  virtual std::unique_ptr<std::vector<SavedTabGroup>>
+  TakeSharedTabGroupsAvailableAtStartupForMessaging() = 0;
 
   // Add / remove observers.
   virtual void AddObserver(Observer* observer) = 0;

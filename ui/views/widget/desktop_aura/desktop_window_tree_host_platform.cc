@@ -39,6 +39,7 @@
 #include "ui/platform_window/platform_window_delegate.h"
 #include "ui/platform_window/platform_window_init_properties.h"
 #include "ui/platform_window/wm/wm_move_loop_handler.h"
+#include "ui/views/corewm/tooltip_aura.h"
 #include "ui/views/corewm/tooltip_controller.h"
 #include "ui/views/widget/desktop_aura/desktop_drag_drop_client_ozone.h"
 #include "ui/views/widget/desktop_aura/desktop_native_widget_aura.h"
@@ -51,12 +52,6 @@
 
 #if BUILDFLAG(IS_LINUX)
 #include "ui/views/widget/desktop_aura/desktop_drag_drop_client_ozone_linux.h"
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "ui/views/corewm/tooltip_lacros.h"
-#else
-#include "ui/views/corewm/tooltip_aura.h"
 #endif
 
 DEFINE_UI_CLASS_PROPERTY_TYPE(views::DesktopWindowTreeHostPlatform*)
@@ -170,14 +165,6 @@ ui::PlatformWindowInitProperties ConvertWidgetInitParamsToInitProperties(
     }
   }
   properties.inhibit_keyboard_shortcuts = params.inhibit_keyboard_shortcuts;
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS)
-  // Set restore members for windows to know ids upon creation. See the
-  // corresponding comment in Widget::InitParams.
-  properties.restore_session_id = params.restore_session_id;
-  properties.restore_window_id = params.restore_window_id;
-  properties.restore_window_id_source = params.restore_window_id_source;
 #endif
 
 #if BUILDFLAG(IS_FUCHSIA)
@@ -348,11 +335,7 @@ void DesktopWindowTreeHostPlatform::OnActiveWindowChanged(bool active) {
 
 std::unique_ptr<corewm::Tooltip>
 DesktopWindowTreeHostPlatform::CreateTooltip() {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  return std::make_unique<corewm::TooltipLacros>();
-#else
   return std::make_unique<corewm::TooltipAura>();
-#endif
 }
 
 std::unique_ptr<aura::client::DragDropClient>
@@ -375,6 +358,8 @@ void DesktopWindowTreeHostPlatform::Close() {
   // closed, do nothing.
   if (close_widget_factory_.HasWeakPtrs() || !platform_window())
     return;
+
+  platform_window()->PrepareForShutdown();
 
   GetContentWindow()->Hide();
 
@@ -399,8 +384,6 @@ void DesktopWindowTreeHostPlatform::CloseNow() {
 #if BUILDFLAG(IS_OZONE)
   SetWmDropHandler(platform_window(), nullptr);
 #endif
-
-  platform_window()->PrepareForShutdown();
 
   ReleaseCapture();
   if (native_widget_delegate_)
@@ -1054,16 +1037,11 @@ gfx::Rect DesktopWindowTreeHostPlatform::ConvertRectToDIP(
 
 gfx::PointF DesktopWindowTreeHostPlatform::ConvertScreenPointToLocalDIP(
     const gfx::Point& screen_in_pixels) const {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  // lacros should not use this.
-  NOTREACHED();
-#else
   // TODO(crbug.com/40222832): DIP should use gfx::PointF. Fix this as
   // a part of cleanup work(crbug.com/1318279).
   gfx::Point local_dip(screen_in_pixels);
   ConvertScreenInPixelsToDIP(&local_dip);
   return gfx::PointF(local_dip);
-#endif
 }
 
 gfx::Insets DesktopWindowTreeHostPlatform::ConvertInsetsToPixels(
@@ -1102,11 +1080,6 @@ Widget* DesktopWindowTreeHostPlatform::GetWidget() {
 const Widget* DesktopWindowTreeHostPlatform::GetWidget() const {
   return native_widget_delegate_ ? native_widget_delegate_->AsWidget()
                                  : nullptr;
-}
-
-views::corewm::TooltipController*
-DesktopWindowTreeHostPlatform::tooltip_controller() {
-  return desktop_native_widget_aura_->tooltip_controller();
 }
 
 void DesktopWindowTreeHostPlatform::ScheduleRelayout() {

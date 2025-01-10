@@ -308,7 +308,6 @@ Aquí tienes algunas cosas que puedes probar para empezar.</translation>
 <translation id="2041220428661959602">Nivel de la batería: <ph name="BATTERY_PERCENTAGE" /> %</translation>
 <translation id="204259843076055848">La combinación de teclas <ph name="SIX_PACK_KEY_NAME" /> está desactivada en este momento</translation>
 <translation id="2049240716062114887">Se ha cambiado el nombre del escritorio a <ph name="DESK_NAME" /></translation>
-<translation id="2050339315714019657">Vertical</translation>
 <translation id="2064048859448024834">Vista previa de cámara activada</translation>
 <translation id="2065098273523946419">Enlace Más información. Redirigir al navegador cuando se active.</translation>
 <translation id="2067220651560163985">Mostrar temperatura en Celsius</translation>
@@ -339,9 +338,6 @@ Aquí tienes algunas cosas que puedes probar para empezar.</translation>
 <translation id="219905428774326614">Menú de aplicaciones, todas las aplicaciones</translation>
 <translation id="2201071101391734388">Foto reciente <ph name="INDEX" /> de <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Contraer Google Tasks</translation>
-<translation id="2206960886090042977">El panel táctil integrado está inhabilitado porque se ha conectado un ratón. Usa el ratón o el teclado para confirmar el cambio.
-
-De lo contrario, el panel táctil integrado se volverá a habilitar en 30 segundos.</translation>
 <translation id="2208323208084708176">Modo Escritorio unificado</translation>
 <translation id="2220572644011485463">PIN o contraseña</translation>
 <translation id="2222841058024245321">Escritorio 7</translation>
@@ -504,6 +500,9 @@ De lo contrario, el panel táctil integrado se volverá a habilitar en 30 segund
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" />teclas del <ph name="KEY_ONE" /> al <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">Ctrl + Tecla de búsqueda + S</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" /> gestionado por <ph name="MANAGER" /></translation>
+<translation id="2781658180588759579">El panel táctil integrado está inhabilitado. Usa el teclado u otro dispositivo señalador para confirmar el cambio.
+
+De lo contrario, el panel táctil integrado se volverá a habilitar en <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2782591952652094792">Salir del modo de captura</translation>
 <translation id="2785499565474703580">1 dispositivo conectado</translation>
 <translation id="2791421900609674576">Aparecerán recomendaciones para que puedas seguir donde lo dejaste. Puedes mantener pulsadas las recomendaciones para quitarlas.</translation>
@@ -601,6 +600,9 @@ De lo contrario, el panel táctil integrado se volverá a habilitar en 30 segund
 <translation id="3113492864356515707">Destaca el elemento anterior de la estantería</translation>
 <translation id="311799651966070385">Aviso de cierre</translation>
 <translation id="3120421559657122717">¿Apagar el dispositivo?</translation>
+<translation id="3121411970001795539">El panel táctil integrado está inhabilitado porque se ha conectado un ratón. Usa el ratón o el teclado para confirmar el cambio.
+
+De lo contrario, el panel táctil integrado se volverá a habilitar en <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">Tipo de trabajo de clase</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -922,7 +924,7 @@ Algunas funciones están limitadas para aumentar la duración de la batería.</t
 <translation id="4193857202545160520">Mostrar clics y teclas pulsadas</translation>
 <translation id="4193969623755915875">Abrir Ayuda en la aplicación Explorar con <ph name="NEW_SHORTCUT" />.</translation>
 <translation id="4195579532193195633">Versión actual: <ph name="VERSION_NAME" /> (<ph name="OFFICIAL_STATUS" />) <ph name="CHANNEL_NAME" /> <ph name="PROCESSOR_VARIATION" /></translation>
-<translation id="4195814663415092787">Continúa por donde lo dejaste</translation>
+<translation id="4195814663415092787">Continuar por donde lo dejaste</translation>
 <translation id="4195877955194704651">Botón de clics automáticos</translation>
 <translation id="4197790712631116042">Desactivado</translation>
 <translation id="4201033867194214117"><ph name="FEATURE_NAME" /> no está disponible.</translation>
@@ -972,13 +974,13 @@ Algunas funciones están limitadas para aumentar la duración de la batería.</t
 <translation id="4322742403972824594">La combinación de teclas Ctrl + Alt + tecla de flecha hacia arriba ha cambiado. Para usar la tecla de inicio, pulsa la tecla <ph name="LAUNCHER_KEY_NAME" /> + tecla de flecha hacia la izquierda.</translation>
 <translation id="4324840740119394760">Esto permite que accedan a la cámara <ph name="APP_NAME" /> y todas las aplicaciones y sitios web con el permiso de cámara</translation>
 <translation id="4327147325944669226">Grabar partida</translation>
-<translation id="4333628967105022692">No es posible lanzar Lacros si varios usuarios han iniciado sesión.</translation>
 <translation id="4338109981321384717">Lupa</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, silenciado</translation>
 <translation id="4351244548802238354">Cerrar cuadro de diálogo</translation>
 <translation id="4356872429719185452">Muestra detalles del punto de acceso. El punto de acceso se está activando.</translation>
 <translation id="4364101114148522660"><ph name="DURATION" />  Grabando</translation>
 <translation id="4371348193907997655">Configuración de envío</translation>
+<translation id="4371834685492830207">El PIN solo puede contener caracteres válidos</translation>
 <translation id="4375482231364171368">Buscar en la barra de direcciones</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />; intensidad de la señal: <ph name="SIGNAL_STRENGTH" /> %</translation>
 <translation id="4378551569595875038">Conectando...</translation>
@@ -1144,6 +1146,7 @@ Algunas funciones están limitadas para aumentar la duración de la batería.</t
 <translation id="4902797682482387055">Tarea sugerida en la que centrarse</translation>
 <translation id="490375751687810070">Vertical</translation>
 <translation id="490788395437447240"><ph name="BATTERY_PERCENTAGE" /> % de batería</translation>
+<translation id="4911191962826748981">Se trata de una función de IA experimental y no siempre acierta.</translation>
 <translation id="491504982845934899">Activar <ph name="NETWORK_NAME" /> tras configurar el dispositivo</translation>
 <translation id="4917385247580444890">Buena</translation>
 <translation id="4918086044614829423">Aceptar</translation>
@@ -1302,6 +1305,7 @@ No hay dispositivos conectados.</translation>
 <translation id="5393156353051693207">Toca y mantén pulsado en cualquier lugar de la pantalla para reorganizar tus aplicaciones</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" /> está encima de <ph name="IN_PLACE_APP" />. Suelta para crear una carpeta.</translation>
 <translation id="5397578532367286026">El administrador puede consultar el uso y el historial de este usuario (<ph name="MANAGER_EMAIL" />) en la página chrome.com.</translation>
+<translation id="540338817371815859">Horizontal</translation>
 <translation id="540713187982329711">Activar o desactivar punto de acceso. Punto de acceso activado. No hay dispositivos conectados.</translation>
 <translation id="5409208741270395213">Marcar tarea como completada</translation>
 <translation id="5413656666631274079">Página de Configuración</translation>
@@ -1473,7 +1477,6 @@ No hay dispositivos conectados.</translation>
 <translation id="5975235751479998104">Desplazarse hacia delante por las ventanas</translation>
 <translation id="5978382165065462689">Compartiendo control de la pantalla a través de Asistencia remota.</translation>
 <translation id="5980301590375426705">Cerrar como invitado</translation>
-<translation id="5982119059638483922">Pulsa Fn + Búsqueda o Mayús para cancelarlo.</translation>
 <translation id="5983567367406220847">Se ha desactivado el punto de acceso por inactividad.</translation>
 <translation id="598407983968395253">Utilizar plantilla</translation>
 <translation id="5986723678596105470">Unirme con Google Meet</translation>
@@ -1543,7 +1546,6 @@ No hay dispositivos conectados.</translation>
 <translation id="6166852626429024716">Busca en el dispositivo, en las aplicaciones, en los ajustes, en la Web…</translation>
 <translation id="6168318496333165060">Abrir aplicación Diagnósticos</translation>
 <translation id="6168622430237609329">Tus aplicaciones instaladas</translation>
-<translation id="6173151025443907148">No se podrá iniciar sesión con un segundo usuario si Lacros está habilitado. Usa un segundo perfil del navegador en Lacros o inhabilita Lacros y vuelve a intentarlo.</translation>
 <translation id="6179832488876878285">Puedes fijar tus archivos importantes aquí. Abre la aplicación Archivos para empezar.</translation>
 <translation id="6180193585172850042">Botón para volver</translation>
 <translation id="6180651297859206670">Botón para avanzar</translation>
@@ -1565,6 +1567,7 @@ No hay dispositivos conectados.</translation>
 <translation id="6232416233079464213">De <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> está usando tu cámara y tu micrófono</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">La contraseña solo puede contener caracteres válidos</translation>
 <translation id="6240603910551255087">Botón superior</translation>
 <translation id="6240821072888636753">Preguntar siempre</translation>
 <translation id="6247728804802644171">Abrir notificaciones</translation>
@@ -1695,7 +1698,6 @@ Nueva instalación</translation>
 <translation id="6682029141988159141">Pegar el contenido del portapapeles</translation>
 <translation id="6683022854667115063">Auriculares</translation>
 <translation id="6686023075541098243">Configurar la visualización de las notificaciones de tu teléfono</translation>
-<translation id="6688019813898140556">Pulsa Esc 5 veces</translation>
 <translation id="6694462491298752106">El panel táctil integrado está inhabilitado</translation>
 <translation id="6694973220096431421">Buscar en Google Drive</translation>
 <translation id="6696025732084565524">Tu teclado independiente necesita una actualización crítica</translation>
@@ -1716,6 +1718,7 @@ Nueva instalación</translation>
 <translation id="6751826523481687655">El control del rendimiento está activado</translation>
 <translation id="6752912906630585008">Se ha quitado el escritorio <ph name="REMOVED_DESK" /> y se ha combinado con el escritorio <ph name="RECEIVE_DESK" /></translation>
 <translation id="6753390234084146956">pestañas</translation>
+<translation id="6754918760968695779">Insertar rápido</translation>
 <translation id="6757237461819837179">No se está reproduciendo nada</translation>
 <translation id="6760438044935091345">Panel de juego</translation>
 <translation id="6768043681523654438">almacenamiento</translation>
@@ -1765,6 +1768,7 @@ Nueva instalación</translation>
 <translation id="6921427376813842559">Actualiza el dispositivo</translation>
 <translation id="6929081673585394903">Mostrar controles</translation>
 <translation id="6931576957638141829">Guardar en</translation>
+<translation id="6935857786205183008">Vertical</translation>
 <translation id="6942518653766415536">Menú de formatos de grabación</translation>
 <translation id="6945221475159498467">Seleccionar</translation>
 <translation id="6945922087561257829">Tu teléfono está usando una red móvil. Asegúrate de que tu teléfono y Chromebook estén en la misma red Wi-Fi e inténtalo de nuevo.<ph name="LEARN_MORE" /></translation>
@@ -1921,9 +1925,6 @@ Nueva instalación</translation>
 Para apagarlo, mantén pulsado de nuevo el botón de encendido del dispositivo.</translation>
 <translation id="7523420897035067483">Habilitar No molestar cuando esté activado el modo Sin distracciones</translation>
 <translation id="7524043547948122239">Google Tasks</translation>
-<translation id="7524919752437339268">El panel táctil integrado está inhabilitado. Usa el teclado u otro dispositivo señalador para confirmar el cambio.
-
-De lo contrario, el panel táctil integrado se volverá a habilitar en 30 segundos.</translation>
 <translation id="7525067979554623046">Crear</translation>
 <translation id="7526573455193969409">Es posible que la red esté supervisada</translation>
 <translation id="7536035074519304529">Dirección IP: <ph name="ADDRESS" /></translation>
@@ -2010,6 +2011,7 @@ De lo contrario, el panel táctil integrado se volverá a habilitar en 30 segund
 <translation id="780301667611848630">No, gracias</translation>
 <translation id="7807067443225230855">Búsqueda y Asistente</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> y <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">Me gusta indica que esta sugerencia te ha gustado</translation>
 <translation id="7825412704590278437">De un próximo evento del calendario</translation>
 <translation id="7829386189513694949">Señal fuerte</translation>
 <translation id="7830453190047749513">Puedes personalizar las acciones de los botones, la velocidad del cursor, entre otras, de tu <ph name="PERIPHERAL_NAME" /></translation>
@@ -2164,6 +2166,7 @@ De lo contrario, el panel táctil integrado se volverá a habilitar en 30 segund
 <translation id="830868413617744215">Beta</translation>
 <translation id="8314772463905284467">Bloqueo de mayúsculas activado</translation>
 <translation id="8315514906653279104">Activando...</translation>
+<translation id="8319634750346253957">No me gusta indica que esta sugerencia no te ha gustado</translation>
 <translation id="8331351032546853669">Descarga pendiente</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2349,6 +2352,7 @@ De lo contrario, el panel táctil integrado se volverá a habilitar en 30 segund
 <translation id="8982906748181120328">Visibilidad Nearby</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">Estás usando <ph name="IME_NAME" /></translation>
+<translation id="8991648557324317894">Pulsa fn + Insertar Rápido o Mayús para cancelar.</translation>
 <translation id="899350903320462459">Desbloquea el dispositivo como <ph name="LOGIN_ID" /> para hacer lo que indica la notificación</translation>
 <translation id="8993733019280019776">¿Estás hablando? Tu micrófono está desactivado. Selecciona el micrófono para activarlo.</translation>
 <translation id="9000771174482730261">GESTIONAR ALMACENAMIENTO</translation>
@@ -2431,9 +2435,9 @@ De lo contrario, el panel táctil integrado se volverá a habilitar en 30 segund
 <translation id="974545358917229949">Se muestran <ph name="RESULT_COUNT" /> resultados de <ph name="QUERY" /></translation>
 <translation id="981011780479609956">Sin fecha de entrega</translation>
 <translation id="98120814841227350">Ir al final del documento</translation>
-<translation id="98515147261107953">Paisaje</translation>
 <translation id="987589956647469042">Datos móviles activados</translation>
 <translation id="989374776391122812">Controles de cámara y audio</translation>
+<translation id="990263227494928142">Pulsa Mayús 5 veces para habilitar el panel táctil</translation>
 <translation id="990277280839877440">La ventana <ph name="WINDOW_TITILE" /> se ha cerrado.</translation>
 <translation id="993398562350683614">Sigue el paso <ph name="STEP" /> de <ph name="TOTAL_STEPS" />. Usa aplicaciones para hacer todo lo que quieras en tu <ph name="PRODUCT_NAME" />. Puedes encontrar tus aplicaciones en el menú de aplicaciones. Pulsa Alt + Mayús + L para enfocar el botón del menú de aplicaciones.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

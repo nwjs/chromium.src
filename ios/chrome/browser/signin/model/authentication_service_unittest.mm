@@ -22,7 +22,6 @@
 #import "components/prefs/pref_registry_simple.h"
 #import "components/signin/ios/browser/features.h"
 #import "components/signin/public/base/signin_pref_names.h"
-#import "components/signin/public/base/signin_switches.h"
 #import "components/signin/public/identity_manager/device_accounts_synchronizer.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/signin/public/identity_manager/identity_test_environment.h"
@@ -114,15 +113,15 @@ class AuthenticationServiceTest : public PlatformTest {
                               base::BindRepeating(&CreateMockSyncService));
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetDefaultFactory());
-
+        AuthenticationServiceFactory::GetFactoryWithDelegate(
+            std::make_unique<FakeAuthenticationServiceDelegate>()));
     profile_ = std::move(builder).Build();
 
     account_manager_ =
         ChromeAccountManagerServiceFactory::GetForProfile(profile_.get());
 
-    AuthenticationServiceFactory::CreateAndInitializeForProfile(
-        profile_.get(), std::make_unique<FakeAuthenticationServiceDelegate>());
+    // Force explicit instantiation of the AuthenticationService.
+    std::ignore = authentication_service();
   }
 
   std::unique_ptr<sync_preferences::PrefServiceSyncable> CreatePrefService() {
@@ -915,11 +914,8 @@ TEST_F(AuthenticationServiceTest, TestGetServiceStatus) {
 
 // Tests that identity manager loads identities while being signed out.
 // And also tests that an identity being added is loaded by identity manager.
-// kAlwaysLoadDeviceAccounts flag is enabled.
 TEST_F(AuthenticationServiceTest,
        TestAccountsLoadedByIdentityManagerWhenSignedOut) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(switches::kAlwaysLoadDeviceAccounts);
   // `fakeIdentity1` and `fakeIdentity2` are already loaded.
   std::vector<AccountInfo> account_info_vector =
       identity_manager()->GetExtendedAccountInfoForAccountsWithRefreshToken();
@@ -936,10 +932,7 @@ TEST_F(AuthenticationServiceTest,
 // Tests that identity manager loads identities while being signed out.
 // And also tests that an identity being removed is forgotten by identity
 // manager.
-// kAlwaysLoadDeviceAccounts flag is enabled.
 TEST_F(AuthenticationServiceTest, TestAccountsForgetIdentityWhenSignedOut) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(switches::kAlwaysLoadDeviceAccounts);
   std::vector<AccountInfo> account_info_vector =
       identity_manager()->GetExtendedAccountInfoForAccountsWithRefreshToken();
   // `fakeIdentity1` and `fakeIdentity2` are already loaded.

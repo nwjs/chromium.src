@@ -44,6 +44,7 @@
 #include "components/live_caption/pref_names.h"
 #include "components/media_router/common/pref_names.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
+#include "components/optimization_guide/core/feature_registry/feature_registration.h"
 #include "components/optimization_guide/core/optimization_guide_prefs.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/payments/core/payment_prefs.h"
@@ -368,6 +369,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kNumber;
   (*s_allowlist)[::content_settings::kCookieDefaultContentSetting] =
       settings_api::PrefType::kString;
+  (*s_allowlist)[::content_settings::kThirdPartyCookieBlockingSetting] =
+      settings_api::PrefType::kNumber;
   (*s_allowlist)[::prefs::kPrivacySandboxRelatedWebsiteSetsEnabled] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kBlockAll3pcToggleEnabled] =
@@ -389,8 +392,6 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       [::unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled] =
           settings_api::PrefType::kBoolean;
   (*s_allowlist)[unified_consent::prefs::kPageContentCollectionEnabled] =
-      settings_api::PrefType::kBoolean;
-  (*s_allowlist)[::omnibox::kDocumentSuggestEnabled] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::commerce::kPriceEmailNotificationsEnabled] =
       settings_api::PrefType::kBoolean;
@@ -773,6 +774,10 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kAccessibilityFaceGazeVelocityThreshold] =
       settings_api::PrefType::kNumber;
+  (*s_allowlist)[ash::prefs::kAccessibilityFaceGazePrecisionClick] =
+      settings_api::PrefType::kBoolean;
+  (*s_allowlist)[ash::prefs::kAccessibilityFaceGazePrecisionClickSpeedFactor] =
+      settings_api::PrefType::kNumber;
   (*s_allowlist)[ash::prefs::kAccessibilityCaretBlinkInterval] =
       settings_api::PrefType::kNumber;
   (*s_allowlist)[ash::prefs::kAccessibilityDisableTrackpadEnabled] =
@@ -906,8 +911,6 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::kAttestationForContentProtectionEnabled] =
       settings_api::PrefType::kBoolean;
-  (*s_allowlist)[prefs::kRestoreLastLockScreenNote] =
-      settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::kDevicePeripheralDataAccessEnabled] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::ash::prefs::kLocalStateDevicePeripheralDataAccessEnabled] =
@@ -916,6 +919,10 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kHmrEnabled] = settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kMagicBoostEnabled] =
+      settings_api::PrefType::kBoolean;
+  (*s_allowlist)[ash::prefs::kLobsterEnabled] =
+      settings_api::PrefType::kBoolean;
+  (*s_allowlist)[ash::prefs::kSunfishEnabled] =
       settings_api::PrefType::kBoolean;
 
   // Bluetooth & Internet settings.
@@ -1069,6 +1076,10 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::ash::prefs::kLowBatterySoundEnabled] =
       settings_api::PrefType::kBoolean;
+  (*s_allowlist)[::ash::prefs::kInputVoiceIsolationEnabled] =
+      settings_api::PrefType::kBoolean;
+  (*s_allowlist)[::ash::prefs::kInputVoiceIsolationPreferredEffect] =
+      settings_api::PrefType::kNumber;
 
   // Native Printing settings.
   (*s_allowlist)[::prefs::kUserPrintersAllowed] =
@@ -1220,6 +1231,22 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kNumber;
   (*s_allowlist)[optimization_guide::prefs::GetSettingEnabledPrefName(
       optimization_guide::UserVisibleFeatureKey::kHistorySearch)] =
+      settings_api::PrefType::kNumber;
+
+  // AI enterprise prefs
+  (*s_allowlist)
+      [optimization_guide::prefs::kTabOrganizationEnterprisePolicyAllowed] =
+          settings_api::PrefType::kNumber;
+  (*s_allowlist)[optimization_guide::prefs::kComposeEnterprisePolicyAllowed] =
+      settings_api::PrefType::kNumber;
+  (*s_allowlist)
+      [optimization_guide::prefs::kWallpaperSearchEnterprisePolicyAllowed] =
+          settings_api::PrefType::kNumber;
+  (*s_allowlist)
+      [optimization_guide::prefs::kHistorySearchEnterprisePolicyAllowed] =
+          settings_api::PrefType::kNumber;
+  (*s_allowlist)[optimization_guide::prefs::
+                     kProductSpecificationsEnterprisePolicyAllowed] =
       settings_api::PrefType::kNumber;
 
   return *s_allowlist;

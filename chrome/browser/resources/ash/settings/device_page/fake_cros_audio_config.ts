@@ -9,8 +9,8 @@
 
 import {assert} from 'chrome://resources/js/assert.js';
 
-import type {AudioDevice, AudioSystemProperties, CrosAudioConfigInterface} from '../mojom-webui/cros_audio_config.mojom-webui.js';
-import {AudioDeviceType, AudioEffectState, MuteState} from '../mojom-webui/cros_audio_config.mojom-webui.js';
+import type {AudioDevice, AudioSystemProperties, CrosAudioConfigInterface, VoiceIsolationUIAppearance} from '../mojom-webui/cros_audio_config.mojom-webui.js';
+import {AudioDeviceType, AudioEffectState, AudioEffectType, MuteState} from '../mojom-webui/cros_audio_config.mojom-webui.js';
 
 export const defaultFakeMicJack: AudioDevice = {
   id: BigInt(1),
@@ -120,6 +120,45 @@ export const fakeInternalMicActiveWithStyleTransfer: AudioDevice = {
   spatialAudioState: AudioEffectState.kNotSupported,
 };
 
+export const fakeVoiceIsolationUIAppearance: VoiceIsolationUIAppearance = {
+  toggleType: AudioEffectType.kNone,
+  effectModeOptions: 0,
+  showEffectFallbackMessage: false,
+};
+
+export const fakeVoiceIsolationUIAppearanceNC: VoiceIsolationUIAppearance = {
+  toggleType: AudioEffectType.kNoiseCancellation,
+  effectModeOptions: 0,
+  showEffectFallbackMessage: false,
+};
+
+export const fakeVoiceIsolationUIAppearanceST: VoiceIsolationUIAppearance = {
+  toggleType: AudioEffectType.kStyleTransfer,
+  effectModeOptions: 0,
+  showEffectFallbackMessage: false,
+};
+
+export const fakeVoiceIsolationUIAppearanceBF: VoiceIsolationUIAppearance = {
+  toggleType: AudioEffectType.kBeamforming,
+  effectModeOptions: 0,
+  showEffectFallbackMessage: false,
+};
+
+export const fakeVoiceIsolationUIAppearanceEffectMode:
+    VoiceIsolationUIAppearance = {
+      toggleType: AudioEffectType.kStyleTransfer,
+      effectModeOptions:
+          AudioEffectType.kStyleTransfer | AudioEffectType.kBeamforming,
+      showEffectFallbackMessage: false,
+    };
+
+export const fakeVoiceIsolationUIAppearanceFallback:
+    VoiceIsolationUIAppearance = {
+      toggleType: AudioEffectType.kStyleTransfer,
+      effectModeOptions: 0,
+      showEffectFallbackMessage: true,
+    };
+
 export interface FakePropertiesObserverInterface {
   onPropertiesUpdated(properties: AudioSystemProperties): void;
 }
@@ -131,6 +170,7 @@ export const defaultFakeAudioSystemProperties: AudioSystemProperties = {
   outputMuteState: MuteState.kNotMuted,
   inputDevices: [fakeInternalFrontMic, fakeBluetoothMic],
   inputMuteState: MuteState.kNotMuted,
+  voiceIsolationUiAppearance: fakeVoiceIsolationUIAppearance,
 };
 
 /** Creates an audio device based on provided device and isActive override. */
@@ -201,6 +241,11 @@ export class FakeCrosAudioConfig implements FakeCrosAudioConfigInterface {
     return this.audioSystemProperties.inputDevices.find(
         (device: AudioDevice) => device.id === deviceId);
   }
+
+  /** Handle updating voice isolation state. */
+  refreshVoiceIsolationState(): void {}
+
+  refreshVoiceIsolationPreferredEffect(): void {}
 
   /** Handle updating active input device noise cancellation state. */
   setNoiseCancellationEnabled(enabled: boolean): void {

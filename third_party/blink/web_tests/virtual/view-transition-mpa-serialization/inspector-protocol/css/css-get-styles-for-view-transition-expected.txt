@@ -56,6 +56,8 @@ The test verifies functionality of querying style information for view-transitio
                         ]
                         text : html
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -99,6 +101,8 @@ The test verifies functionality of querying style information for view-transitio
                         ]
                         text : :root
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -147,6 +151,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -215,6 +221,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-group(*)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -266,6 +274,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-group(*)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -313,6 +323,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-group(root)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -344,63 +356,11 @@ The test verifies functionality of querying style information for view-transitio
                                         value : none
                                     }
                                     [7] : {
-                                        name : clip-path
-                                        value : none
-                                    }
-                                    [8] : {
-                                        name : filter
-                                        value : none
-                                    }
-                                    [9] : {
                                         name : mix-blend-mode
                                         value : normal
                                     }
-                                    [10] : {
-                                        name : opacity
-                                        value : 1
-                                    }
-                                    [11] : {
-                                        name : mask-image
-                                        value : none
-                                    }
-                                    [12] : {
-                                        name : -webkit-mask-position-x
-                                        value : 0%
-                                    }
-                                    [13] : {
-                                        name : -webkit-mask-position-y
-                                        value : 0%
-                                    }
-                                    [14] : {
-                                        name : mask-size
-                                        value : auto
-                                    }
-                                    [15] : {
-                                        name : mask-repeat
-                                        value : repeat
-                                    }
-                                    [16] : {
-                                        name : mask-origin
-                                        value : border-box
-                                    }
-                                    [17] : {
-                                        name : mask-clip
-                                        value : border-box
-                                    }
-                                    [18] : {
-                                        name : mask-composite
-                                        value : add
-                                    }
-                                    [19] : {
-                                        name : mask-mode
-                                        value : match-source
-                                    }
                                 ]
                                 shorthandEntries : [
-                                    [0] : {
-                                        name : mask
-                                        value : none
-                                    }
                                 ]
                             }
                             supports : [
@@ -436,6 +396,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-group(root)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -501,6 +463,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-group(*)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -552,6 +516,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-group(*)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -599,6 +565,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-group(shared)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -630,63 +598,11 @@ The test verifies functionality of querying style information for view-transitio
                                         value : none
                                     }
                                     [7] : {
-                                        name : clip-path
-                                        value : none
-                                    }
-                                    [8] : {
-                                        name : filter
-                                        value : none
-                                    }
-                                    [9] : {
                                         name : mix-blend-mode
                                         value : normal
                                     }
-                                    [10] : {
-                                        name : opacity
-                                        value : 1
-                                    }
-                                    [11] : {
-                                        name : mask-image
-                                        value : none
-                                    }
-                                    [12] : {
-                                        name : -webkit-mask-position-x
-                                        value : 0%
-                                    }
-                                    [13] : {
-                                        name : -webkit-mask-position-y
-                                        value : 0%
-                                    }
-                                    [14] : {
-                                        name : mask-size
-                                        value : auto
-                                    }
-                                    [15] : {
-                                        name : mask-repeat
-                                        value : repeat
-                                    }
-                                    [16] : {
-                                        name : mask-origin
-                                        value : border-box
-                                    }
-                                    [17] : {
-                                        name : mask-clip
-                                        value : border-box
-                                    }
-                                    [18] : {
-                                        name : mask-composite
-                                        value : add
-                                    }
-                                    [19] : {
-                                        name : mask-mode
-                                        value : match-source
-                                    }
                                 ]
                                 shorthandEntries : [
-                                    [0] : {
-                                        name : mask
-                                        value : none
-                                    }
                                 ]
                             }
                             supports : [
@@ -722,6 +638,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-group(shared)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -787,6 +705,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : ::view-transition-image-pair(*)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -850,6 +770,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-image-pair(*)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -897,6 +819,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-image-pair(root)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -946,6 +870,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : ::view-transition-image-pair(*)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -1009,6 +935,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-image-pair(*)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -1056,6 +984,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-image-pair(shared)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -1113,6 +1043,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : ::view-transition-new(*), ::view-transition-old(*)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -1168,6 +1100,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-old(*)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -1215,6 +1149,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-old(root)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -1264,6 +1200,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : ::view-transition-old(*)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -1417,6 +1355,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : ::view-transition-new(*), ::view-transition-old(*)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -1472,6 +1412,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-old(*)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -1519,6 +1461,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-old(shared)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -1568,6 +1512,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : ::view-transition-old(*)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -1721,6 +1667,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : ::view-transition-new(*), ::view-transition-old(*)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -1776,6 +1724,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-new(*)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -1823,6 +1773,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-new(root)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -1880,6 +1832,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : ::view-transition-new(*), ::view-transition-old(*)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -1935,6 +1889,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-new(*)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -1982,6 +1938,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : html::view-transition-new(shared)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -2031,6 +1989,8 @@ The test verifies functionality of querying style information for view-transitio
                                 ]
                                 text : ::view-transition-new(shared)
                             }
+                            startingStyles : [
+                            ]
                             style : {
                                 cssProperties : [
                                     [0] : {
@@ -2116,6 +2076,8 @@ Dumping styles for : ::view-transition with id undefined{
                         ]
                         text : html::view-transition
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -2186,60 +2148,8 @@ Dumping styles for : ::view-transition-group with id root{
                                     name : backdrop-filter
                                     value : none
                                 }
-                                [4] : {
-                                    name : clip-path
-                                    value : none
-                                }
-                                [5] : {
-                                    name : filter
-                                    value : none
-                                }
-                                [6] : {
-                                    name : opacity
-                                    value : 1
-                                }
-                                [7] : {
-                                    name : mask-image
-                                    value : none
-                                }
-                                [8] : {
-                                    name : -webkit-mask-position-x
-                                    value : 0%
-                                }
-                                [9] : {
-                                    name : -webkit-mask-position-y
-                                    value : 0%
-                                }
-                                [10] : {
-                                    name : mask-size
-                                    value : auto
-                                }
-                                [11] : {
-                                    name : mask-repeat
-                                    value : repeat
-                                }
-                                [12] : {
-                                    name : mask-origin
-                                    value : border-box
-                                }
-                                [13] : {
-                                    name : mask-clip
-                                    value : border-box
-                                }
-                                [14] : {
-                                    name : mask-composite
-                                    value : add
-                                }
-                                [15] : {
-                                    name : mask-mode
-                                    value : match-source
-                                }
                             ]
                             shorthandEntries : [
-                                [0] : {
-                                    name : mask
-                                    value : none
-                                }
                             ]
                         }
                     }
@@ -2282,6 +2192,8 @@ Dumping styles for : ::view-transition-group with id root{
                         ]
                         text : html::view-transition-group(*)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -2333,6 +2245,8 @@ Dumping styles for : ::view-transition-group with id root{
                         ]
                         text : html::view-transition-group(*)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -2380,6 +2294,8 @@ Dumping styles for : ::view-transition-group with id root{
                         ]
                         text : html::view-transition-group(root)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -2411,63 +2327,11 @@ Dumping styles for : ::view-transition-group with id root{
                                 value : none
                             }
                             [7] : {
-                                name : clip-path
-                                value : none
-                            }
-                            [8] : {
-                                name : filter
-                                value : none
-                            }
-                            [9] : {
                                 name : mix-blend-mode
                                 value : normal
                             }
-                            [10] : {
-                                name : opacity
-                                value : 1
-                            }
-                            [11] : {
-                                name : mask-image
-                                value : none
-                            }
-                            [12] : {
-                                name : -webkit-mask-position-x
-                                value : 0%
-                            }
-                            [13] : {
-                                name : -webkit-mask-position-y
-                                value : 0%
-                            }
-                            [14] : {
-                                name : mask-size
-                                value : auto
-                            }
-                            [15] : {
-                                name : mask-repeat
-                                value : repeat
-                            }
-                            [16] : {
-                                name : mask-origin
-                                value : border-box
-                            }
-                            [17] : {
-                                name : mask-clip
-                                value : border-box
-                            }
-                            [18] : {
-                                name : mask-composite
-                                value : add
-                            }
-                            [19] : {
-                                name : mask-mode
-                                value : match-source
-                            }
                         ]
                         shorthandEntries : [
-                            [0] : {
-                                name : mask
-                                value : none
-                            }
                         ]
                     }
                     supports : [
@@ -2503,6 +2367,8 @@ Dumping styles for : ::view-transition-group with id root{
                         ]
                         text : html::view-transition-group(root)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -2578,6 +2444,8 @@ Dumping styles for : ::view-transition-image-pair with id root{
                         ]
                         text : ::view-transition-image-pair(*)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -2641,6 +2509,8 @@ Dumping styles for : ::view-transition-image-pair with id root{
                         ]
                         text : html::view-transition-image-pair(*)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -2688,6 +2558,8 @@ Dumping styles for : ::view-transition-image-pair with id root{
                         ]
                         text : html::view-transition-image-pair(root)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -2817,6 +2689,8 @@ Dumping styles for : ::view-transition-old with id root{
                         ]
                         text : ::view-transition-new(*), ::view-transition-old(*)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -2872,6 +2746,8 @@ Dumping styles for : ::view-transition-old with id root{
                         ]
                         text : html::view-transition-old(*)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -2919,6 +2795,8 @@ Dumping styles for : ::view-transition-old with id root{
                         ]
                         text : html::view-transition-old(root)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -2968,6 +2846,8 @@ Dumping styles for : ::view-transition-old with id root{
                         ]
                         text : ::view-transition-old(*)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -3193,6 +3073,8 @@ Dumping styles for : ::view-transition-new with id root{
                         ]
                         text : ::view-transition-new(*), ::view-transition-old(*)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -3248,6 +3130,8 @@ Dumping styles for : ::view-transition-new with id root{
                         ]
                         text : html::view-transition-new(*)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -3295,6 +3179,8 @@ Dumping styles for : ::view-transition-new with id root{
                         ]
                         text : html::view-transition-new(root)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -3345,60 +3231,8 @@ Dumping styles for : ::view-transition-group with id shared{
                                     name : backdrop-filter
                                     value : none
                                 }
-                                [4] : {
-                                    name : clip-path
-                                    value : none
-                                }
-                                [5] : {
-                                    name : filter
-                                    value : none
-                                }
-                                [6] : {
-                                    name : opacity
-                                    value : 1
-                                }
-                                [7] : {
-                                    name : mask-image
-                                    value : none
-                                }
-                                [8] : {
-                                    name : -webkit-mask-position-x
-                                    value : 0%
-                                }
-                                [9] : {
-                                    name : -webkit-mask-position-y
-                                    value : 0%
-                                }
-                                [10] : {
-                                    name : mask-size
-                                    value : auto
-                                }
-                                [11] : {
-                                    name : mask-repeat
-                                    value : repeat
-                                }
-                                [12] : {
-                                    name : mask-origin
-                                    value : border-box
-                                }
-                                [13] : {
-                                    name : mask-clip
-                                    value : border-box
-                                }
-                                [14] : {
-                                    name : mask-composite
-                                    value : add
-                                }
-                                [15] : {
-                                    name : mask-mode
-                                    value : match-source
-                                }
                             ]
                             shorthandEntries : [
-                                [0] : {
-                                    name : mask
-                                    value : none
-                                }
                             ]
                         }
                     }
@@ -3441,6 +3275,8 @@ Dumping styles for : ::view-transition-group with id shared{
                         ]
                         text : html::view-transition-group(*)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -3492,6 +3328,8 @@ Dumping styles for : ::view-transition-group with id shared{
                         ]
                         text : html::view-transition-group(*)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -3539,6 +3377,8 @@ Dumping styles for : ::view-transition-group with id shared{
                         ]
                         text : html::view-transition-group(shared)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -3570,63 +3410,11 @@ Dumping styles for : ::view-transition-group with id shared{
                                 value : none
                             }
                             [7] : {
-                                name : clip-path
-                                value : none
-                            }
-                            [8] : {
-                                name : filter
-                                value : none
-                            }
-                            [9] : {
                                 name : mix-blend-mode
                                 value : normal
                             }
-                            [10] : {
-                                name : opacity
-                                value : 1
-                            }
-                            [11] : {
-                                name : mask-image
-                                value : none
-                            }
-                            [12] : {
-                                name : -webkit-mask-position-x
-                                value : 0%
-                            }
-                            [13] : {
-                                name : -webkit-mask-position-y
-                                value : 0%
-                            }
-                            [14] : {
-                                name : mask-size
-                                value : auto
-                            }
-                            [15] : {
-                                name : mask-repeat
-                                value : repeat
-                            }
-                            [16] : {
-                                name : mask-origin
-                                value : border-box
-                            }
-                            [17] : {
-                                name : mask-clip
-                                value : border-box
-                            }
-                            [18] : {
-                                name : mask-composite
-                                value : add
-                            }
-                            [19] : {
-                                name : mask-mode
-                                value : match-source
-                            }
                         ]
                         shorthandEntries : [
-                            [0] : {
-                                name : mask
-                                value : none
-                            }
                         ]
                     }
                     supports : [
@@ -3662,6 +3450,8 @@ Dumping styles for : ::view-transition-group with id shared{
                         ]
                         text : html::view-transition-group(shared)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -3737,6 +3527,8 @@ Dumping styles for : ::view-transition-image-pair with id shared{
                         ]
                         text : ::view-transition-image-pair(*)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -3800,6 +3592,8 @@ Dumping styles for : ::view-transition-image-pair with id shared{
                         ]
                         text : html::view-transition-image-pair(*)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -3847,6 +3641,8 @@ Dumping styles for : ::view-transition-image-pair with id shared{
                         ]
                         text : html::view-transition-image-pair(shared)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -3976,6 +3772,8 @@ Dumping styles for : ::view-transition-old with id shared{
                         ]
                         text : ::view-transition-new(*), ::view-transition-old(*)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -4031,6 +3829,8 @@ Dumping styles for : ::view-transition-old with id shared{
                         ]
                         text : html::view-transition-old(*)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -4078,6 +3878,8 @@ Dumping styles for : ::view-transition-old with id shared{
                         ]
                         text : html::view-transition-old(shared)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -4127,6 +3929,8 @@ Dumping styles for : ::view-transition-old with id shared{
                         ]
                         text : ::view-transition-old(*)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -4352,6 +4156,8 @@ Dumping styles for : ::view-transition-new with id shared{
                         ]
                         text : ::view-transition-new(*), ::view-transition-old(*)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -4407,6 +4213,8 @@ Dumping styles for : ::view-transition-new with id shared{
                         ]
                         text : html::view-transition-new(*)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -4454,6 +4262,8 @@ Dumping styles for : ::view-transition-new with id shared{
                         ]
                         text : html::view-transition-new(shared)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {
@@ -4503,6 +4313,8 @@ Dumping styles for : ::view-transition-new with id shared{
                         ]
                         text : ::view-transition-new(shared)
                     }
+                    startingStyles : [
+                    ]
                     style : {
                         cssProperties : [
                             [0] : {

@@ -58,8 +58,7 @@ class CORE_EXPORT InlineLayoutAlgorithm final
   const LayoutResult* Layout();
 
   MinMaxSizesResult ComputeMinMaxSizes(const MinMaxSizesFloatInput&) {
-    NOTREACHED_IN_MIGRATION();
-    return MinMaxSizesResult();
+    NOTREACHED();
   }
 
 #if EXPENSIVE_DCHECKS_ARE_ON()
@@ -71,9 +70,6 @@ class CORE_EXPORT InlineLayoutAlgorithm final
 
  private:
   friend class LineWidthsTest;
-
-  bool HasContainerBorderPaddingAtBlockStart() const;
-  bool HasContainerBorderPaddingAtBlockEnd() const;
 
   void PositionLeadingFloats(ExclusionSpace&, LeadingFloats&);
   PositionedFloat PositionFloat(LayoutUnit origin_block_bfc_offset,

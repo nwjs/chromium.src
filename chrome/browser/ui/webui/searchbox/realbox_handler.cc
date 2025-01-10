@@ -37,6 +37,7 @@
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/navigation_metrics/navigation_metrics.h"
 #include "components/omnibox/browser/autocomplete_classifier.h"
+#include "components/omnibox/browser/autocomplete_controller.h"
 #include "components/omnibox/browser/autocomplete_controller_emitter.h"
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_match.h"
@@ -338,8 +339,11 @@ RealboxHandler::RealboxHandler(
     controller_ = omnibox_controller;
   } else {
     owned_controller_ = std::make_unique<OmniboxController>(
-        /*view=*/nullptr, std::make_unique<RealboxOmniboxClient>(
-                              profile_, web_contents_, lens_searchbox_client));
+        /*view=*/nullptr,
+        std::make_unique<RealboxOmniboxClient>(profile_, web_contents_,
+                                               lens_searchbox_client),
+        lens_searchbox_client ? base::Milliseconds(3000)
+                              : kAutocompleteDefaultStopTimerDuration);
     controller_ = owned_controller_.get();
   }
 
@@ -551,10 +555,8 @@ searchbox::mojom::SelectionLineState ConvertLineState(
       return searchbox::mojom::SelectionLineState::
           kFocusedButtonRemoveSuggestion;
     default:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
-  return searchbox::mojom::SelectionLineState::kNormal;
 }
 
 void RealboxHandler::SetInputText(const std::string& input_text) {
@@ -603,4 +605,29 @@ const AutocompleteMatch* RealboxHandler::GetMatchWithUrl(size_t index,
     return nullptr;
   }
   return &match;
+}
+
+void RealboxHandler::OnAutocompleteStopTimerTriggered(
+    const AutocompleteInput& input) {
+  // Only notify the lens controller when autocomplete stop timer is triggered
+  // for zero suggest inputs.
+  if (lens_searchbox_client_ && input.IsZeroSuggest()) {
+    lens_searchbox_client_->ShowGhostLoaderErrorState();
+  }
+}
+
+void RealboxHandler::OnResultChanged(AutocompleteController* controller,
+                                     bool default_match_changed) {
+  SearchboxHandler::OnResultChanged(controller, default_match_changed);
+  // Show the ghost loader error state if the result is empty on the last async
+  // pass of the autocomplete controller (there will not be anymore updates).
+  if (lens_searchbox_client_) {
+    if (controller->done() && controller->result().empty()) {
+      lens_searchbox_client_->ShowGhostLoaderErrorState();
+    }
+
+    if (controller->input().IsZeroSuggest() && !controller->result().empty()) {
+      lens_searchbox_client_->OnZeroSuggestShown();
+    }
+  }
 }

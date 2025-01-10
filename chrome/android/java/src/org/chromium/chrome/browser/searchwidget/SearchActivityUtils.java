@@ -24,6 +24,7 @@ import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxLoadUrlParams;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.IntentOrigin;
+import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.ResolutionType;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.SearchType;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.url.GURL;
@@ -48,8 +49,8 @@ public class SearchActivityUtils {
     }
 
     /**
-     * @return the document url associated with the intent, if the intent is trusted and carries
-     *     valid URL.
+     * Returns the document url associated with the intent, if the intent is trusted and carries
+     * valid URL.
      */
     /* package */ static @Nullable GURL getIntentUrl(@NonNull Intent intent) {
         if (IntentUtils.isTrustedIntentFromSelf(intent)) {
@@ -62,9 +63,7 @@ public class SearchActivityUtils {
         return null;
     }
 
-    /**
-     * @return the package name on behalf of which the intent was issued.
-     */
+    /** Returns the package name on behalf of which the intent was issued. */
     /* package */ static @Nullable String getReferrer(@NonNull Intent intent) {
         String referrer = null;
         if (IntentUtils.isTrustedIntentFromSelf(intent)) {
@@ -82,17 +81,21 @@ public class SearchActivityUtils {
         return TextUtils.isEmpty(referrer) ? null : referrer;
     }
 
-    /**
-     * @return the incognito status of the associated launching activity.
-     */
+    /** Returns whether intent requests a response (true) or action (false). */
+    /* package */ static @ResolutionType int getResolutionType(@NonNull Intent intent) {
+        return IntentUtils.isTrustedIntentFromSelf(intent)
+                ? IntentUtils.safeGetIntExtra(
+                        intent,
+                        SearchActivityExtras.EXTRA_RESOLUTION_TYPE,
+                        ResolutionType.OPEN_IN_CHROME)
+                : ResolutionType.OPEN_IN_CHROME;
+    }
+
+    /** Returns the incognito status of the associated launching activity. */
     /* package */ static boolean getIntentIncognitoStatus(@NonNull Intent intent) {
-        boolean isIncognito = false;
-        if (IntentUtils.isTrustedIntentFromSelf(intent)) {
-            isIncognito =
-                    IntentUtils.safeGetBooleanExtra(
-                            intent, SearchActivityExtras.EXTRA_IS_INCOGNITO, false);
-        }
-        return isIncognito;
+        return IntentUtils.isTrustedIntentFromSelf(intent)
+                && IntentUtils.safeGetBooleanExtra(
+                        intent, SearchActivityExtras.EXTRA_IS_INCOGNITO, false);
     }
 
     /** Returns the caller-supplied initial search query. */
@@ -142,7 +145,7 @@ public class SearchActivityUtils {
      * @return the intent will be passed to ChromeLauncherActivity, or null if page cannot be loaded
      */
     /* package */ static @Nullable Intent createIntentForStartActivity(
-            Context context, OmniboxLoadUrlParams params) {
+            Context context, @Nullable OmniboxLoadUrlParams params) {
         var intent =
                 createLoadUrlIntent(
                         context,
@@ -158,7 +161,7 @@ public class SearchActivityUtils {
     }
 
     /**
-     * Create a base intent that can be further expanded to request URL loading.
+     * Create a base intent that can be used to open Chrome and (optionally) load specific URL.
      *
      * @param context the current context
      * @param recipient the activity being targeted
@@ -168,19 +171,11 @@ public class SearchActivityUtils {
      */
     @VisibleForTesting
     /* package */ static @Nullable Intent createLoadUrlIntent(
-            Context context, ComponentName recipient, OmniboxLoadUrlParams params) {
-        // Don't do anything if the input was empty.
-        if (params == null || TextUtils.isEmpty(params.url)) return null;
-
-        // Fix up the URL and send it to the full browser.
-        GURL fixedUrl = UrlFormatter.fixupUrl(params.url);
-        if (GURL.isEmptyOrInvalid(fixedUrl)) return null;
-
+            Context context, ComponentName recipient, @Nullable OmniboxLoadUrlParams params) {
         var intent =
                 new Intent()
                         .putExtra(SearchActivity.EXTRA_FROM_SEARCH_ACTIVITY, true)
-                        .setComponent(recipient)
-                        .setData(Uri.parse(fixedUrl.getSpec()));
+                        .setComponent(recipient);
 
         // Do not pass any of these information if the calling package is something we did not
         // expect, but somehow it managed to fabricate a trust token.
@@ -188,13 +183,22 @@ public class SearchActivityUtils {
             return null;
         }
 
+        IntentUtils.addTrustedIntentExtras(intent);
+
+        // Optionally attach target page URL - only if params are available and valid.
+        if (params == null || TextUtils.isEmpty(params.url)) return intent;
+
+        GURL fixedUrl = UrlFormatter.fixupUrl(params.url);
+        if (GURL.isEmptyOrInvalid(fixedUrl)) return intent;
+
+        // Attach information about page to load.
+        intent.setData(Uri.parse(fixedUrl.getSpec()));
         if (!TextUtils.isEmpty(params.postDataType)
                 && params.postData != null
                 && params.postData.length != 0) {
             intent.putExtra(IntentHandler.EXTRA_POST_DATA_TYPE, params.postDataType)
                     .putExtra(IntentHandler.EXTRA_POST_DATA, params.postData);
         }
-        IntentUtils.addTrustedIntentExtras(intent);
 
         return intent;
     }

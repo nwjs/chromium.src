@@ -4,9 +4,11 @@
 
 package org.chromium.chrome.browser.ui.android.webid;
 
+import android.content.Context;
 import android.view.View;
 import android.widget.FrameLayout;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.Px;
 import androidx.recyclerview.widget.RecyclerView;
@@ -14,6 +16,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.blink.mojom.RpMode;
+import org.chromium.chrome.R;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 
@@ -97,9 +100,10 @@ public class AccountSelectionBottomSheetContent implements BottomSheetContent {
      * @return the full state height in pixels. Never 0. Can theoretically exceed the screen height.
      */
     private @Px int getMaximumActiveModeSheetHeightPx() {
+        int width = mBottomSheetController.getMaxSheetWidth();
         View accountSelectionSheet = mContentView.findViewById(R.id.account_selection_sheet);
         accountSelectionSheet.measure(
-                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
         return accountSelectionSheet.getMeasuredHeight();
     }
@@ -179,7 +183,10 @@ public class AccountSelectionBottomSheetContent implements BottomSheetContent {
 
     @Override
     public float getFullHeightRatio() {
-        if (mRpMode == RpMode.PASSIVE) return HeightMode.WRAP_CONTENT;
+        if (mRpMode == RpMode.PASSIVE) {
+            computeAndUpdateAccountListHeight();
+            return HeightMode.WRAP_CONTENT;
+        }
         // WRAP_CONTENT would be the right fit but this disables the HALF state.
         return Math.min(
                         getMaximumActiveModeSheetHeightPx(),
@@ -189,9 +196,9 @@ public class AccountSelectionBottomSheetContent implements BottomSheetContent {
 
     @Override
     public float getHalfHeightRatio() {
+        // Passive mode does not use half height.
         if (mRpMode == RpMode.PASSIVE) {
-            computeAndUpdateAccountListHeight();
-            return HeightMode.WRAP_CONTENT;
+            return HeightMode.DISABLED;
         }
         return Math.min(
                         getDesiredActiveModeSheetHeightPx(),
@@ -224,8 +231,8 @@ public class AccountSelectionBottomSheetContent implements BottomSheetContent {
     }
 
     @Override
-    public int getSheetContentDescriptionStringId() {
-        return R.string.account_selection_content_description;
+    public @NonNull String getSheetContentDescription(Context context) {
+        return context.getString(R.string.account_selection_content_description);
     }
 
     @Override

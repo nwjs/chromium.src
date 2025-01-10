@@ -111,22 +111,19 @@ class CONTENT_EXPORT TrustedSignalsKVv2RequestHelperBuilder {
   struct Partition {
     Partition();
     // Create a new partition for bidding signals based on interest group's
-    // name, bidding keys, hostname, experiment group id and slot size
-    // parameter.
+    // name, bidding keys, experiment group id and slot size parameter.
     Partition(int partition_id,
               const std::string& interest_group_name,
               const std::set<std::string>& bidding_keys,
-              const std::string& hostname,
               const std::optional<int>& experiment_group_id,
-              std::pair<std::string, std::string>
+              const std::optional<std::pair<std::string, std::string>>&
                   trusted_bidding_signals_slot_size_param);
 
     // Create a new partition for scoring signals based on render url
-    // name, ad component render urls, hostname and experiment group id.
+    // name, ad component render urls and experiment group id.
     Partition(int partition_id,
               const std::string& render_url,
               const std::set<std::string>& ad_component_render_urls,
-              const std::string& hostname,
               const std::optional<int>& experiment_group_id);
     Partition(Partition&&);
     ~Partition();
@@ -142,8 +139,8 @@ class CONTENT_EXPORT TrustedSignalsKVv2RequestHelperBuilder {
     std::set<std::string> render_urls;
     std::set<std::string> ad_component_render_urls;
 
-    // Valid keys are "hostname", "experimentGroupId",
-    // "slotSize", and "allSlotsRequestedSizes".
+    // Valid keys are "experimentGroupId", "slotSize", and
+    // "allSlotsRequestedSizes".
     base::Value::Dict additional_params;
   };
 
@@ -221,8 +218,8 @@ class CONTENT_EXPORT TrustedBiddingSignalsKVv2RequestHelperBuilder
     return join_origin_compression_id_map_;
   }
 
-  const std::pair<std::string, std::string>&
-  trusted_bidding_signals_slot_size_param() {
+  const std::optional<std::pair<std::string, std::string>>&
+  trusted_bidding_signals_slot_size_param() const {
     return trusted_bidding_signals_slot_size_param_;
   }
 
@@ -237,7 +234,8 @@ class CONTENT_EXPORT TrustedBiddingSignalsKVv2RequestHelperBuilder
   // Using a pair to store key and value for a trusted bidding signals slot
   // size parameter. Valid parameter key are "slotSize" or
   // "allSlotsRequestedSizes".
-  std::pair<std::string, std::string> trusted_bidding_signals_slot_size_param_;
+  std::optional<std::pair<std::string, std::string>>
+      trusted_bidding_signals_slot_size_param_;
 };
 
 class CONTENT_EXPORT TrustedScoringSignalsKVv2RequestHelperBuilder

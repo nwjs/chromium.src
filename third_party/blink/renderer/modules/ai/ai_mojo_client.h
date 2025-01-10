@@ -22,10 +22,12 @@ namespace blink {
 template <typename V8SessionObjectType>
 class AIMojoClient : public ContextLifecycleObserver {
  public:
-  AIMojoClient(ExecutionContextClient* context_client,
+  AIMojoClient(ScriptState* script_state,
+               ExecutionContextClient* context_client,
                ScriptPromiseResolver<V8SessionObjectType>* resolver,
                AbortSignal* abort_signal)
-      : context_client_(context_client),
+      : script_state_(script_state),
+        context_client_(context_client),
         resolver_(resolver),
         abort_signal_(abort_signal) {
     CHECK(resolver);
@@ -40,6 +42,7 @@ class AIMojoClient : public ContextLifecycleObserver {
   // `GarbageCollectedMixin` implementation
   void Trace(Visitor* visitor) const override {
     ContextLifecycleObserver::Trace(visitor);
+    visitor->Trace(script_state_);
     visitor->Trace(context_client_);
     visitor->Trace(resolver_);
     visitor->Trace(abort_signal_);
@@ -53,8 +56,8 @@ class AIMojoClient : public ContextLifecycleObserver {
     return resolver_;
   }
 
-  virtual void Cleanup() {
-    context_client_.Clear();
+  void Cleanup() {
+    ResetReceiver();
     resolver_ = nullptr;
     keep_alive_.Clear();
     if (abort_handle_) {
@@ -62,6 +65,8 @@ class AIMojoClient : public ContextLifecycleObserver {
       abort_handle_ = nullptr;
     }
   }
+
+  virtual void ResetReceiver() = 0;
 
  private:
   // `ContextLifecycleObserver` implementation
@@ -71,12 +76,11 @@ class AIMojoClient : public ContextLifecycleObserver {
     if (!resolver_) {
       return;
     }
-    resolver_->Reject(DOMException::Create(
-        kExceptionMessageRequestAborted,
-        DOMException::GetErrorName(DOMExceptionCode::kAbortError)));
+    resolver_->Reject(abort_signal_->reason(script_state_));
     Cleanup();
   }
 
+  Member<ScriptState> script_state_;
   Member<ExecutionContextClient> context_client_;
   Member<ScriptPromiseResolver<V8SessionObjectType>> resolver_;
   Member<AbortSignal> abort_signal_;

@@ -27,7 +27,7 @@
 #include "components/language/core/browser/language_model.h"
 #include "components/language/core/browser/language_model_manager.h"
 #include "components/language/core/common/locale_util.h"
-#include "components/user_education/common/feature_promo_controller.h"
+#include "components/user_education/common/feature_promo/feature_promo_controller.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_types.h"
@@ -144,7 +144,8 @@ void ReadAnythingSidePanelController::OnEntryHidden(SidePanelEntry* entry) {
 }
 
 std::unique_ptr<views::View>
-ReadAnythingSidePanelController::CreateContainerView() {
+ReadAnythingSidePanelController::CreateContainerView(
+    SidePanelEntryScope& scope) {
   // If there was an old WebView, clear the reference.
   if (web_view_) {
     web_view_->contents_wrapper()->web_contents()->RemoveUserData(
@@ -152,7 +153,7 @@ ReadAnythingSidePanelController::CreateContainerView() {
   }
 
   auto web_view = std::make_unique<ReadAnythingSidePanelWebView>(
-      tab_->GetBrowserWindowInterface()->GetProfile());
+      tab_->GetBrowserWindowInterface()->GetProfile(), scope);
 
   ReadAnythingSidePanelControllerGlue::CreateForWebContents(
       web_view->contents_wrapper()->web_contents(), this);
@@ -180,6 +181,10 @@ void ReadAnythingSidePanelController::TabForegrounded(tabs::TabInterface* tab) {
 void ReadAnythingSidePanelController::TabWillDetach(
     tabs::TabInterface* tab,
     tabs::TabInterface::DetachReason reason) {
+  if (!tab_->IsInForeground()) {
+    return;
+  }
+
   auto* coordinator =
       tab_->GetBrowserWindowInterface()->GetFeatures().side_panel_coordinator();
   // TODO(https://crbug.com/360163254): BrowserWithTestWindowTest currently does

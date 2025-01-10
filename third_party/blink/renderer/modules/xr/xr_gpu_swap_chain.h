@@ -17,30 +17,44 @@ class XRCompositionLayer;
 
 class XRGPUSwapChain : public GarbageCollected<XRGPUSwapChain> {
  public:
+  explicit XRGPUSwapChain(GPUDevice*);
   virtual ~XRGPUSwapChain() = default;
 
-  virtual GPUTexture* GetCurrentTexture() = 0;
+  GPUTexture* GetCurrentTexture();
   virtual void OnFrameStart();
   virtual void OnFrameEnd();
 
   virtual const wgpu::TextureDescriptor& descriptor() const = 0;
 
+  GPUDevice* device() { return device_.Get(); }
+
   virtual void SetLayer(XRCompositionLayer* layer) { layer_ = layer; }
   XRCompositionLayer* layer() { return layer_.Get(); }
 
+  bool texture_was_queried() const { return texture_queried_; }
+
   virtual void Trace(Visitor* visitor) const;
 
+ protected:
+  virtual GPUTexture* ProduceTexture() = 0;
+
+  GPUTexture* ResetCurrentTexture();
+  void ClearCurrentTexture(wgpu::CommandEncoder);
+
  private:
+  Member<GPUDevice> device_;
+  Member<GPUTexture> current_texture_;
   Member<XRCompositionLayer> layer_;
+  bool texture_queried_;
 };
 
-// A swap chain backed by Mailboxes
-class XRGPUMailboxSwapChain : public XRGPUSwapChain {
+// A texture swap chain that is not communicated back to the compositor, used
+// for things like depth/stencil attachments that don't assist reprojection.
+class XRGPUStaticSwapChain final : public XRGPUSwapChain {
  public:
-  XRGPUMailboxSwapChain(GPUDevice* device, const wgpu::TextureDescriptor& desc);
-  ~XRGPUMailboxSwapChain() override = default;
+  XRGPUStaticSwapChain(GPUDevice*, const wgpu::TextureDescriptor&);
 
-  GPUTexture* GetCurrentTexture() override;
+  GPUTexture* ProduceTexture() override;
 
   void OnFrameEnd() override;
 
@@ -48,12 +62,27 @@ class XRGPUMailboxSwapChain : public XRGPUSwapChain {
     return descriptor_;
   }
 
-  void Trace(Visitor* visitor) const override;
+ private:
+  wgpu::TextureDescriptor descriptor_;
+};
+
+// A swap chain backed by Mailboxes
+class XRGPUMailboxSwapChain final : public XRGPUSwapChain {
+ public:
+  XRGPUMailboxSwapChain(GPUDevice* device, const wgpu::TextureDescriptor& desc);
+  ~XRGPUMailboxSwapChain() override = default;
+
+  GPUTexture* ProduceTexture() override;
+
+  void OnFrameEnd() override;
+
+  const wgpu::TextureDescriptor& descriptor() const override {
+    return descriptor_;
+  }
 
  private:
-  Member<GPUDevice> device_;
-  Member<GPUTexture> texture_;
   wgpu::TextureDescriptor descriptor_;
+  wgpu::DawnTextureInternalUsageDescriptor texture_internal_usage_;
 };
 
 }  // namespace blink

@@ -46,6 +46,7 @@
 #include "ui/gfx/switches.h"
 #include "ui/gl/gl_switches.h"
 #include "ui/native_theme/native_theme_features.h"
+#include "ui/native_theme/native_theme_utils.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/build_info.h"
@@ -169,7 +170,7 @@ void SetRuntimeFeatureFromChromiumFeature(const base::Feature& chromium_feature,
       }
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
 }
 
@@ -186,10 +187,6 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
       blinkFeatureToBaseFeatureMapping[] = {
           {wf::EnableAccessibilityAriaVirtualContent,
            raw_ref(features::kEnableAccessibilityAriaVirtualContent)},
-#if BUILDFLAG(IS_ANDROID)
-          {wf::EnableAccessibilityPageZoom,
-           raw_ref(features::kAccessibilityPageZoom)},
-#endif
           {wf::EnableAccessibilityUseAXPositionForDocumentMarkers,
            raw_ref(features::kUseAXPositionForDocumentMarkers)},
           {wf::EnableAOMAriaRelationshipProperties,
@@ -214,7 +211,8 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
           {wf::EnableFedCm, raw_ref(features::kFedCm), kSetOnlyIfOverridden},
           {wf::EnableFedCmButtonMode, raw_ref(features::kFedCmButtonMode),
            kSetOnlyIfOverridden},
-          {wf::EnableFedCmAuthz, raw_ref(features::kFedCmAuthz), kDefault},
+          {wf::EnableFedCmAuthz, raw_ref(features::kFedCmAuthz),
+           kSetOnlyIfOverridden},
           {wf::EnableFedCmIdPRegistration,
            raw_ref(features::kFedCmIdPRegistration), kDefault},
           {wf::EnableFedCmIdpSigninStatus,
@@ -270,8 +268,6 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
            raw_ref(features::kPeriodicBackgroundSync)},
           {wf::EnablePushMessagingSubscriptionChange,
            raw_ref(features::kPushSubscriptionChangeEvent)},
-          {wf::EnableRestrictGamepadAccess,
-           raw_ref(features::kRestrictGamepadAccess)},
           {wf::EnableSecurePaymentConfirmation,
            raw_ref(features::kSecurePaymentConfirmation)},
           {wf::EnableSecurePaymentConfirmationDebug,
@@ -314,6 +310,8 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
           {wf::EnableWebXRFrontFacing,
            raw_ref(device::features::kWebXrIncubations)},
           {wf::EnableWebXRFrameRate,
+           raw_ref(device::features::kWebXrIncubations)},
+          {wf::EnableWebXRGPUBinding,
            raw_ref(device::features::kWebXrIncubations)},
           {wf::EnableWebXRHandInput,
            raw_ref(device::features::kWebXrHandInput)},
@@ -409,8 +407,6 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
            raw_ref(features::kTouchTextEditingRedesign)},
           {"TrustedTypesFromLiteral",
            raw_ref(features::kTrustedTypesFromLiteral)},
-          {"WebSerialBluetooth",
-           raw_ref(features::kEnableBluetoothSerialPortProfileInSerialApi)},
           {"MediaStreamTrackTransfer",
            raw_ref(features::kMediaStreamTrackTransfer)},
           {"PrivateNetworkAccessPermissionPrompt",
@@ -538,7 +534,9 @@ void SetCustomizedRuntimeFeaturesFromCombinedArgs(
 
   // These checks are custom wrappers around base::FeatureList::IsEnabled
   // They're moved here to distinguish them from actual base checks
+#if !BUILDFLAG(IS_CHROMEOS)
   WebRuntimeFeatures::EnableOverlayScrollbars(ui::IsOverlayScrollbarEnabled());
+#endif
   WebRuntimeFeatures::EnableFluentScrollbars(ui::IsFluentScrollbarEnabled());
   WebRuntimeFeatures::EnableFluentOverlayScrollbars(
       ui::IsFluentOverlayScrollbarEnabled());
@@ -697,7 +695,8 @@ void ResolveInvalidConfigurations() {
   }
 
   if (!base::FeatureList::IsEnabled(blink::features::kInterestGroupStorage)) {
-    LOG_IF(WARNING, WebRuntimeFeatures::IsAdInterestGroupAPIEnabled())
+    LOG_IF(WARNING,
+           WebRuntimeFeatures::IsAdInterestGroupAPIEnabledByRuntimeFlag())
         << "AdInterestGroupAPI cannot be enabled in this "
            "configuration. Use --"
         << switches::kEnableFeatures << "="
@@ -706,22 +705,11 @@ void ResolveInvalidConfigurations() {
     WebRuntimeFeatures::EnableFledge(false);
   }
 
-  if (base::FeatureList::IsEnabled(
-          features::kCookieDeprecationFacilitatedTesting)) {
-    WebRuntimeFeatures::EnableFledgeMultiBid(false);
-    WebRuntimeFeatures::EnableFledgeRealTimeReporting(false);
-
-    if (!base::FeatureList::IsEnabled(
-            blink::features::
-                kAlwaysAllowFledgeDeprecatedRenderURLReplacements)) {
-      WebRuntimeFeatures::EnableFledgeDeprecatedRenderURLReplacements(false);
-    }
-  }
-
   // PermissionElement cannot be enabled without the support of the
   // browser process.
   if (!base::FeatureList::IsEnabled(blink::features::kPermissionElement)) {
-    LOG_IF(WARNING, WebRuntimeFeatures::IsPermissionElementEnabled())
+    LOG_IF(WARNING,
+           WebRuntimeFeatures::IsPermissionElementEnabledByRuntimeFlag())
         << "PermissionElement cannot be enabled in this configuration. Use --"
         << switches::kEnableFeatures << "="
         << blink::features::kPermissionElement.name << " instead.";

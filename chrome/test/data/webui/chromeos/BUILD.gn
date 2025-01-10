@@ -143,7 +143,6 @@ group("closure_compile") {
     "account_manager:closure_compile",
     "arc_account_picker:closure_compile",
     "ash_common:closure_compile",
-    "gaia_action_buttons:closure_compile",
   ]
 }
 
@@ -210,7 +209,7 @@ webui_ts_library("build_ts") {
     "multidevice_setup/setup_succeeded_page_test.js",
     "multidevice_setup/start_setup_page_test.js",
     "network/apn_list_item_test.js",
-    "network/apn_list_test.js",
+    "network/apn_list_test.ts",
     "network/apn_selection_dialog_list_item_test.js",
     "network/apn_selection_dialog_test.js",
     "network/cr_policy_network_behavior_mojo_tests.js",
@@ -270,6 +269,9 @@ webui_ts_library("build_ts") {
   ]
 
   path_mappings = [
+    "*/strings.m.js|" +
+        rebase_path("//tools/typescript/definitions/strings.d.ts",
+                    target_gen_dir),
     "chrome://chrome-signin/arc_account_picker/*|" +
         rebase_path("//chrome/browser/resources/chromeos/arc_account_picker/*",
                     target_gen_dir),

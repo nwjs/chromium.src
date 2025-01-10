@@ -74,6 +74,11 @@ class IwaInternalsHandler {
       const webapps::AppId& app_id,
       Handler::UpdateManifestInstalledIsolatedWebAppCallback callback);
 
+  void SetUpdateChannelForIsolatedWebApp(
+      const webapps::AppId& app_id,
+      const std::string& update_channel,
+      Handler::SetUpdateChannelForIsolatedWebAppCallback callback);
+
  private:
   class IsolatedWebAppDevBundleSelectListener;
   class IwaManifestInstallUpdateHandler;
@@ -83,12 +88,12 @@ class IwaInternalsHandler {
 
   void DownloadWebBundleToFile(
       const GURL& web_bundle_url,
-      const GURL& update_manifest_url,
+      ::mojom::UpdateInfoPtr update_info,
       Handler::InstallIsolatedWebAppFromBundleUrlCallback callback,
       web_app::ScopedTempWebBundleFile file);
 
   void OnWebBundleDownloaded(
-      const GURL& update_manifest_url,
+      ::mojom::UpdateInfoPtr update_info,
       Handler::InstallIsolatedWebAppFromBundleUrlCallback callback,
       web_app::ScopedTempWebBundleFile bundle,
       int32_t result);
@@ -108,7 +113,7 @@ class IwaInternalsHandler {
       base::expected<InstallIsolatedWebAppCommandSuccess, std::string> result);
 
   void OnInstalledIsolatedWebAppInDevModeFromWebBundle(
-      const GURL& update_manifest_url,
+      ::mojom::UpdateInfoPtr update_info,
       base::OnceCallback<void(::mojom::InstallIsolatedWebAppResultPtr)>
           callback,
       base::expected<InstallIsolatedWebAppCommandSuccess, std::string> result);

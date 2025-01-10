@@ -6,18 +6,14 @@ package org.chromium.components.cached_flags;
 
 import android.content.SharedPreferences;
 
-import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
-
+import org.chromium.base.FeatureList;
 import org.chromium.base.FeatureMap;
 import org.chromium.base.Flag;
-import org.chromium.base.cached_flags.CachedFlagsSharedPreferences;
 import org.chromium.base.cached_flags.ValuesReturned;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.build.BuildConfig;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,6 +82,11 @@ public class CachedFlag extends Flag {
     public boolean isEnabled() {
         CachedFlagsSafeMode.getInstance().onFlagChecked();
 
+        Boolean testValue = FeatureList.getTestValueForFeature(mFeatureName);
+        if (testValue != null) {
+            return testValue;
+        }
+
         return ValuesReturned.getReturnedOrNewBoolValue(
                 getSharedPreferenceKey(), getValueSupplier());
     }
@@ -124,18 +125,6 @@ public class CachedFlag extends Flag {
     @Override
     protected void clearInMemoryCachedValueForTesting() {
         // ValuesReturned is cleared by CachedFlagUtils#resetFlagsForTesting().
-    }
-
-    /**
-     * Forces a feature to be enabled or disabled for testing.
-     *
-     * @deprecated do not call this from tests; use @EnableFeatures/@DisableFeatures instead, since
-     *     batched tests need to be split by feature flag configuration.
-     */
-    @VisibleForTesting
-    @Deprecated
-    public void setForTesting(@Nullable Boolean value) {
-        ValuesReturned.setFeaturesForTesting(Collections.singletonMap(getFeatureName(), value));
     }
 
     /**

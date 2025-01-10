@@ -477,7 +477,7 @@ ToRtpParameters(ExecutionContext* context,
       degradation_preference =
           webrtc::DegradationPreference::MAINTAIN_RESOLUTION;
     } else {
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
     }
   }
 
@@ -559,14 +559,14 @@ webrtc::RtpEncodingParameters ToRtpEncodingParameters(
     if (encoding->hasScaleResolutionDownTo()) {
       RTCResolutionRestriction* resolution_restriction =
           encoding->scaleResolutionDownTo();
-      webrtc::Resolution requested_resolution;
+      webrtc::Resolution scale_resolution_down_to;
       if (resolution_restriction->hasMaxWidth()) {
-        requested_resolution.width = resolution_restriction->maxWidth();
+        scale_resolution_down_to.width = resolution_restriction->maxWidth();
       }
       if (resolution_restriction->hasMaxHeight()) {
-        requested_resolution.height = resolution_restriction->maxHeight();
+        scale_resolution_down_to.height = resolution_restriction->maxHeight();
       }
-      webrtc_encoding.requested_resolution = requested_resolution;
+      webrtc_encoding.scale_resolution_down_to = scale_resolution_down_to;
     }
     if (encoding->hasMaxFramerate()) {
       webrtc_encoding.max_framerate = encoding->maxFramerate();
@@ -748,7 +748,7 @@ RTCRtpSendParameters* RTCRtpSender::getParameters() {
         degradation_preference_str = "balanced";
         break;
       default:
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
     }
     parameters->setDegradationPreference(degradation_preference_str);
   }
@@ -780,13 +780,13 @@ RTCRtpSendParameters* RTCRtpSender::getParameters() {
         encoding->setScaleResolutionDownBy(
             webrtc_encoding.scale_resolution_down_by.value());
       }
-      if (webrtc_encoding.requested_resolution) {
+      if (webrtc_encoding.scale_resolution_down_to) {
         RTCResolutionRestriction* resolution_restriction =
             RTCResolutionRestriction::Create();
         resolution_restriction->setMaxWidth(
-            webrtc_encoding.requested_resolution->width);
+            webrtc_encoding.scale_resolution_down_to->width);
         resolution_restriction->setMaxHeight(
-            webrtc_encoding.requested_resolution->height);
+            webrtc_encoding.scale_resolution_down_to->height);
         encoding->setScaleResolutionDownTo(resolution_restriction);
       }
       if (webrtc_encoding.max_framerate) {
@@ -910,9 +910,8 @@ void RTCRtpSender::SetTrack(MediaStreamTrack* track) {
     if (kind_.IsNull()) {
       kind_ = track->kind();
     } else if (kind_ != track->kind()) {
-      LOG(ERROR) << "Trying to set track to a different kind: Old " << kind_
-                 << " new " << track->kind();
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED() << "Trying to set track to a different kind: Old " << kind_
+                   << " new " << track->kind();
     }
   }
 }

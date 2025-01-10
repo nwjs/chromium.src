@@ -80,6 +80,7 @@ source_set("toolbar") {
     "//ui/base",
     "//ui/base:features",
     "//ui/base:types",
+    "//ui/base/mojom:ui_base_types",
     "//ui/compositor",
     "//ui/gfx",
     "//ui/gfx/animation",
@@ -104,17 +105,18 @@ source_set("toolbar") {
     "//chrome/browser:browser_process",
     "//chrome/browser:primitives",
     "//chrome/browser/apps/link_capturing:features",
-    "//chrome/browser/companion/core",
     "//chrome/browser/feedback",
     "//chrome/browser/media/router:media_router_feature",
+    "//chrome/browser/prefs",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/profiles:profile_attributes",
+    "//chrome/browser/profiles:profile_util",
     "//chrome/browser/search",
     "//chrome/browser/sync",
     "//chrome/browser/sync:factories",
     "//chrome/browser/themes",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/actions:actions_headers",
+    "//chrome/browser/ui/bookmarks",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/color:mixers",
     "//chrome/browser/ui/customize_chrome",
@@ -157,6 +159,7 @@ source_set("toolbar") {
     "//ui/events",
     "//ui/gfx:color_utils",
     "//ui/gfx/geometry:geometry_skia",
+    "//ui/menus",
     "//ui/native_theme",
   ]
   if (enable_webui_tab_strip) {
@@ -169,14 +172,12 @@ source_set("toolbar") {
     deps += [ "//ui/aura" ]
   }
   if (is_chromeos) {
-    deps += [ "//chromeos/components/mgs" ]
-  }
-  if (is_chromeos_ash) {
     public_deps += [ "//components/arc" ]
     deps += [
       "//ash/constants",
       "//chrome/browser/ash/ownership",
       "//chrome/browser/ash/settings",
+      "//chromeos/components/mgs",
     ]
   }
 }

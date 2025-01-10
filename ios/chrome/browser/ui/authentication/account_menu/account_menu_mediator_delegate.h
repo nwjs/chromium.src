@@ -20,7 +20,7 @@
 - (void)mediatorWantsToBeDismissed:(AccountMenuMediator*)mediator;
 
 // Starts the sign-in flow. Then call `completion`, with a parameter stating
-// whether the the sign-out was done.
+// whether the the sign-in was done.
 - (AuthenticationFlow*)
     triggerSigninWithSystemIdentity:(id<SystemIdentity>)identity
                          completion:
@@ -32,9 +32,10 @@
 
 // Sign out, display a toast, and call `callback` with argument stating whether
 // it’s a success.
+// It should only be called when the current scene is not blocked.
 - (void)signOutFromTargetRect:(CGRect)targetRect
                     forSwitch:(BOOL)forSwith
-                     callback:(void (^)(BOOL))callback;
+                   completion:(void (^)(BOOL))completion;
 
 // Shows https://myaccount.google.com/ for the account currently signed-in
 // to Chrome. The content is displayed in a new view in the stack, i.e.
@@ -42,16 +43,17 @@
 - (void)didTapManageYourGoogleAccount;
 
 // The user tapped on "Edit account list".
-- (void)didTapEditAccountList;
+- (void)didTapManageAccounts;
 
 // The user tapped on "Add account…".
-- (void)didTapAddAccount:(ShowSigninCommandCompletionCallback)callback;
+- (void)didTapAddAccountWithCompletion:
+    (ShowSigninCommandCompletionCallback)completion;
 
-// Blocks the user from using Chromium.
-- (void)blockOtherScene;
+// Blocks the user from using Chromium. Returns whether the block was possible.
+- (BOOL)blockOtherScenesIfPossible;
 
-// Stops the `blockOtherScene`.
-- (void)unblockOtherScene;
+// Stops the `blockOtherScenesIfPossible`.
+- (void)unblockOtherScenes;
 
 @end
 

@@ -30,6 +30,7 @@ import org.chromium.base.test.params.ParameterAnnotations.UseRunnerDelegate;
 import org.chromium.base.test.params.ParameterSet;
 import org.chromium.base.test.params.ParameterizedRunner;
 import org.chromium.base.test.util.Batch;
+import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
@@ -37,15 +38,18 @@ import org.chromium.base.test.util.CriteriaNotSatisfiedException;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.chrome.browser.ViewportTestUtils;
 import org.chromium.chrome.browser.back_press.BackPressManager;
+import org.chromium.chrome.browser.back_press.BackPressMetrics;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.util.ChromeTabUtils;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.back_forward_transition.AnimationStage;
 import org.chromium.content_public.browser.test.util.Coordinates;
@@ -92,6 +96,7 @@ public class NavigationTransitionsTest {
     private EmbeddedTestServer mTestServer;
 
     private ViewportTestUtils mViewportTestUtils;
+    private Bitmap mBitmap;
 
     private static final int TEST_TIMEOUT = 10000;
 
@@ -164,6 +169,7 @@ public class NavigationTransitionsTest {
     @After
     public void tearDown() {
         mScreenshotCaptureTestHelper.setNavScreenshotCallbackForTesting(null);
+        mBitmap = null;
     }
 
     private WebContents getWebContents() {
@@ -318,12 +324,38 @@ public class NavigationTransitionsTest {
         mActivityTestRule.loadUrl(url2);
         mActivityTestRule.loadUrl(url3);
 
+        HistogramWatcher.Builder builder = HistogramWatcher.newBuilder();
+        HistogramWatcher watcher;
+
+        if (mTestNavigationMode == NAVIGATION_MODE_THREE_BUTTON) {
+            watcher =
+                    builder.expectBooleanRecord("GestureNavigation.Activated2", false)
+                            .expectBooleanRecord("GestureNavigation.Completed2", false)
+                            .build();
+        } else {
+            watcher =
+                    builder.expectIntRecord(
+                                    "Android.PredictiveGestureNavigation",
+                                    BackPressMetrics.PredictiveGestureNavPhase.ACTIVATED)
+                            .expectIntRecord(
+                                    "Android.PredictiveGestureNavigation",
+                                    BackPressMetrics.PredictiveGestureNavPhase.COMPLETED)
+                            .expectIntRecord(
+                                    "Android.PredictiveGestureNavigation.WithTransition",
+                                    BackPressMetrics.PredictiveGestureNavPhase.ACTIVATED)
+                            .expectIntRecord(
+                                    "Android.PredictiveGestureNavigation.WithTransition",
+                                    BackPressMetrics.PredictiveGestureNavPhase.COMPLETED)
+                            .build();
+        }
+
         WebContentsUtils.waitForCopyableViewInWebContents(getWebContents());
 
         // Perform a back gesture transition from the left edge.
         performNavigationTransition(url2, BackEventCompat.EDGE_LEFT);
         waitForTransitionFinished();
 
+        watcher.assertExpected();
         Assert.assertEquals(url2, getCurrentUrl());
 
         // Perform an edge gesture transition from the right edge. In three
@@ -677,5 +709,34 @@ public class NavigationTransitionsTest {
         waitForTransitionFinished();
 
         Assert.assertEquals(url1, getCurrentUrl());
+    }
+
+    /** Test that it falls back to fallback screenshot when navigating between native pages. */
+    @Test
+    @MediumTest
+    public void testNavigateBetweenNativePages() throws TimeoutException {
+        if (mTestNavigationMode == NAVIGATION_MODE_GESTURAL
+                && VERSION.SDK_INT < VERSION_CODES.UPSIDE_DOWN_CAKE) return;
+
+        mActivityTestRule.loadUrl(UrlConstants.NTP_URL);
+
+        CallbackHelper callbackHelper = new CallbackHelper();
+
+        mScreenshotCaptureTestHelper.setNavScreenshotCallbackForTesting(
+                new ScreenshotCaptureTestHelper.NavScreenshotCallback() {
+                    @Override
+                    public Bitmap onAvailable(int navIndex, Bitmap bitmap, boolean requested) {
+                        mBitmap = bitmap;
+                        callbackHelper.notifyCalled();
+                        return mBitmap;
+                    }
+                });
+
+        mActivityTestRule.loadUrl(UrlConstants.RECENT_TABS_URL);
+
+        WebContentsUtils.waitForCopyableViewInWebContents(getWebContents());
+
+        callbackHelper.waitForOnly();
+        Assert.assertNull("Should capture a null when navigating between native pages", mBitmap);
     }
 }

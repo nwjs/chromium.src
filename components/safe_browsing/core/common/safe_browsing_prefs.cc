@@ -46,7 +46,7 @@ void RecordExtendedReportingPrefChanged(
                             pref_value);
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
 }
 
@@ -204,7 +204,13 @@ void RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(
       prefs::kSafeBrowsingEnabled, true,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
-  registry->RegisterBooleanPref(prefs::kSafeBrowsingEnhanced, false);
+  if (base::FeatureList::IsEnabled(kEsbAsASyncedSetting)) {
+    registry->RegisterBooleanPref(
+        prefs::kSafeBrowsingEnhanced, false,
+        user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  } else {
+    registry->RegisterBooleanPref(prefs::kSafeBrowsingEnhanced, false);
+  }
   registry->RegisterBooleanPref(prefs::kSafeBrowsingProceedAnywayDisabled,
                                 false);
   registry->RegisterDictionaryPref(prefs::kSafeBrowsingIncidentsSent);

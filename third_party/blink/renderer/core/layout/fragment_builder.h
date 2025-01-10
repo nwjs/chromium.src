@@ -24,6 +24,7 @@
 
 namespace blink {
 
+class ColumnPseudoElement;
 class ColumnSpannerPath;
 class EarlyBreak;
 class FragmentItemsBuilder;
@@ -143,10 +144,8 @@ class CORE_EXPORT FragmentBuilder {
     lines_until_clamp_ = value;
   }
 
-  bool IsBlockStartTrimmed() const { return is_block_start_trimmed_; }
-  void SetIsBlockStartTrimmed() { is_block_start_trimmed_ = true; }
-  bool IsBlockEndTrimmed() const { return is_block_end_trimmed_; }
-  void SetIsBlockEndTrimmed() { is_block_end_trimmed_ = true; }
+  bool IsBlockEndTrimmableLine() const { return is_block_end_trimmable_line_; }
+  void SetIsBlockEndTrimmableLine() { is_block_end_trimmable_line_ = true; }
 
   const UnpositionedListMarker& GetUnpositionedListMarker() const {
     return unpositioned_list_marker_;
@@ -176,6 +175,8 @@ class CORE_EXPORT FragmentBuilder {
 
   void PropagateStickyDescendants(const PhysicalFragment& child);
   void PropagateSnapAreas(const PhysicalFragment& child);
+
+  void AddSnapAreaForColumn(ColumnPseudoElement*);
 
   // Propagate |child|'s anchor for the CSS Anchor Positioning to |this|
   // builder. This includes the anchor of the |child| itself and anchors
@@ -515,7 +516,7 @@ class CORE_EXPORT FragmentBuilder {
   }
 
   HeapVector<Member<LayoutBoxModelObject>>& EnsureStickyDescendants();
-  HeapVector<Member<LayoutBox>>& EnsureSnapAreas();
+  HeapVector<Member<Element>>& EnsureSnapAreas();
   LogicalAnchorQuery& EnsureAnchorQuery();
 
   void PropagateFromLayoutResultAndFragment(
@@ -563,7 +564,7 @@ class CORE_EXPORT FragmentBuilder {
   const BreakToken* break_token_ = nullptr;
 
   HeapVector<Member<LayoutBoxModelObject>>* sticky_descendants_ = nullptr;
-  HeapVector<Member<LayoutBox>>* snap_areas_ = nullptr;
+  HeapVector<Member<Element>>* snap_areas_ = nullptr;
   // [1] https://drafts.csswg.org/css-scroll-snap-2/#scroll-start-target
   const LayoutObject* scroll_start_target_ = nullptr;
   LogicalAnchorQuery* anchor_query_ = nullptr;
@@ -633,8 +634,7 @@ class CORE_EXPORT FragmentBuilder {
   bool requires_content_before_breaking_ = false;
   bool has_out_of_flow_fragment_child_ = false;
   bool has_out_of_flow_in_fragmentainer_subtree_ = false;
-  bool is_block_start_trimmed_ = false;
-  bool is_block_end_trimmed_ = false;
+  bool is_block_end_trimmable_line_ = false;
 
   bool oof_candidates_may_have_anchor_queries_ = false;
   bool oof_fragmentainer_descendants_may_have_anchor_queries_ = false;

@@ -23,13 +23,12 @@
   #webview {
     border-radius: 20px;
     display: flex;
-    height: 75%;
+    height: 80%;
     margin: 0 40px;
     overflow: hidden;
   }
 
   #webview[hidden],
-  #backButton[hidden],
   #doneButton[hidden],
   .spinner-container[hidden] {
     display: none;
@@ -50,7 +49,7 @@
     align-items: center;
     display: flex;
     flex-direction: column;
-    height: 75%;
+    height: 80%;
     justify-content: center;
     width: 100%;
   }
@@ -58,7 +57,7 @@
   .done-button-container {
     align-content: center;
     float: inline-end;
-    height: 15%;
+    height: 10%;
     margin-inline-end: 40px;
   }
 
@@ -68,23 +67,22 @@
 </style>
 <div id="graduationDiv" role="application">
   <div class="back-button-container">
-    <cr-button id="backButton" class="cancel-button" on-click="onBackClicked_"
-        hidden$="[[webviewLoading]]">
-      <iron-icon icon="[[getBackButtonIcon_()]]"></iron-icon>
+    <cr-button id="backButton" class="cancel-button" on-click="onBackClicked">
+      <iron-icon icon="[[getBackButtonIcon()]]"></iron-icon>
       $i18n{backButtonLabel}
     </cr-button>
   </div>
-  <webview id="webview" hidden$="[[webviewLoading]]"></webview>
-  <div class="spinner-container" hidden$="[[!webviewLoading]]">
-    <paper-spinner-lite class="spinner" active="[[webviewLoading]]">
+  <webview id="webview" hidden$="[[showLoadingScreen]]"></webview>
+  <div class="spinner-container" hidden$="[[!showLoadingScreen]]">
+    <paper-spinner-lite class="spinner" active="[[showLoadingScreen]]">
     </paper-spinner-lite>
     <div aria-live="polite" aria-label$="$i18n{webviewLoadingMessage}">
       $i18n{webviewLoadingMessage}
     </div>
   </div>
   <div class="done-button-container">
-    <cr-button id="doneButton" class="action-button" on-click="onDoneClicked_"
-        hidden$="[[!takeoutFlowCompleted]]">
+    <cr-button id="doneButton" class="action-button" on-click="onDoneClicked"
+        hidden$="[[showLoadingScreen]]" disabled$="[[!takeoutFlowCompleted]]">
       $i18n{doneButtonLabel}
     </cr-button>
   </div>

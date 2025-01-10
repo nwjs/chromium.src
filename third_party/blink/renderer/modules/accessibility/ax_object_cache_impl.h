@@ -68,6 +68,7 @@
 
 namespace blink {
 
+class AXBlockFlowData;
 class AXRelationCache;
 class AbstractInlineTextBox;
 class HTMLAreaElement;
@@ -164,6 +165,7 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
     // Force a cache reset for mutable cached object properties. Any property
     // values cached while the tree is frozen is valid until the next thaw.
     IncrementGenerationalCacheId();
+    ResetActiveBlockFlowContainer();
 
     CHECK(FocusedObject());
     DUMP_WILL_BE_CHECK(!IsDirty());
@@ -420,6 +422,7 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
   // possible, this means the child can no longer be in the AXTree, so remove
   // any AXObject subtree associated with the child.
   void RestoreParentOrPrune(Node* child_node);
+  void RestoreParentOrPruneWithCleanLayout(Node* child_node);
 
   // When an object is created or its id changes, this must be called so that
   // the relation cache is updated.
@@ -620,6 +623,9 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
 
   bool SerializeUpdatesAndEvents();
 
+  void ResetActiveBlockFlowContainer();
+  const AXBlockFlowData* GetBlockFlowData(const AXObject* ax_object);
+
   // Returns the `TextChangedOperation` associated with the `id` from the
   // `text_operation_in_node_ids_` map, if `id` is in the map.
   WTF::Vector<TextChangedOperation>* GetFromTextOperationInNodeIdMap(AXID id);
@@ -712,6 +718,7 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
     kReferenceTargetChanged,
     kRemoveValidationMessageObjectFromFocusedUIElement,
     kRemoveValidationMessageObjectFromValidationMessageObject,
+    kRestoreParentOrPrune,
     kRoleChangeFromAriaHasPopup,
     kRoleChangeFromImageMapName,
     kRoleChangeFromRoleOrType,
@@ -994,7 +1001,7 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
   // in a select with size > 1.
   DOMNodeId last_selected_list_option_ = 0;
 
-  Member<AXRelationCache> relation_cache_;
+  std::unique_ptr<AXRelationCache> relation_cache_;
 
   // Stages of cache/tree.
   AXObjectCacheLifecycle lifecycle_;
@@ -1121,6 +1128,10 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
   // `processing_deferred_events_` for more details.
   void NotifyParentChildrenChanged(AXObject* parent);
 
+  void MaybeSendCanvasHasNonTrivialFallbackUKM(const AXObject* canvas);
+
+  void IncrementGenerationalCacheId() { ++generational_cache_id_; }
+
   // Queued callbacks.
   TreeUpdateCallbackQueue tree_update_callback_queue_main_;
   TreeUpdateCallbackQueue tree_update_callback_queue_popup_;
@@ -1209,6 +1220,11 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
   // A set of ARIA notifications that have yet to be added to `ax_tree_data`.
   HashMap<AXID, AriaNotifications> aria_notifications_;
 
+  // Collect information for generation of inline text boxes at the block flow
+  // container level.
+  Member<LayoutObject> active_block_flow_container_;
+  Member<AXBlockFlowData> active_block_flow_data_;
+
   // The source of the event that is currently being handled.
   ax::mojom::blink::EventFrom active_event_from_ =
       ax::mojom::blink::EventFrom::kNone;
@@ -1286,7 +1302,7 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
   // Whether or not the load event was sent in a previous serialization.
   bool load_sent_ = false;
 
-  void IncrementGenerationalCacheId() { ++generational_cache_id_; }
+  bool has_emitted_canvas_fallback_ukm_ = false;
 
   // Used to determine if a previously computed attribute is from the same
   // serialization update.

@@ -8,6 +8,7 @@
 #import "base/metrics/histogram_functions.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
+#import "components/policy/core/common/policy_pref_names.h"
 #import "components/prefs/ios/pref_observer_bridge.h"
 #import "components/prefs/pref_change_registrar.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
@@ -16,6 +17,7 @@
 #import "components/supervised_user/core/browser/supervised_user_preferences.h"
 #import "components/supervised_user/core/common/features.h"
 #import "components/supervised_user/core/common/pref_names.h"
+#import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_constants.h"
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_scene_agent.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -105,6 +107,7 @@
         base::UserMetricsAction("MobileTabGridSelectIncognitoPanel"));
 
     [self configureToolbarsButtons];
+    [self recordIncognitoGridStatusOnSelection];
   }
 }
 
@@ -242,7 +245,6 @@
 - (PrefService*)prefService {
   Browser* browser = self.browser;
   DCHECK(browser);
-
   return browser->GetProfile()->GetPrefs();
 }
 
@@ -268,6 +270,13 @@
     }
     [self configureToolbarsButtons];
   }
+}
+
+- (void)reauthAgent:(IncognitoReauthSceneAgent*)agent
+    didUpdateIncognitoLockState:(IncognitoLockState)incogitoLockState {
+  [self reauthAgent:agent
+      didUpdateAuthenticationRequirement:incogitoLockState !=
+                                         IncognitoLockState::kNone];
 }
 
 #pragma mark - FamilyLinkUserCapabilitiesObserving
@@ -308,20 +317,55 @@
 // Returns YES if incognito is disabled.
 - (BOOL)isIncognitoModeDisabled {
   DCHECK(self.browser);
-  PrefService* prefService = self.browser->GetProfile()->GetPrefs();
-  if (IsIncognitoModeDisabled(prefService)) {
+  // Incognito mode can be disabled by enterprise policies.
+  if (IsIncognitoModeDisabled([self prefService])) {
     return YES;
   }
 
   // Incognito mode is disabled for supervised users.
+  return [self isSupervisedUser];
+}
+
+// Returns YES if the primary account is supervised.
+- (BOOL)isSupervisedUser {
   if (base::FeatureList::IsEnabled(
           supervised_user::
               kReplaceSupervisionPrefsWithAccountCapabilitiesOnIOS)) {
     return _identityManager &&
            supervised_user::IsPrimaryAccountSubjectToParentalControls(
                _identityManager) == signin::Tribool::kTrue;
-  } else {
-    return supervised_user::IsSubjectToParentalControls(*prefService);
+  }
+
+  return supervised_user::IsSubjectToParentalControls(*[self prefService]);
+}
+
+// Returns YES if incognito mode is managed by enterprise policies.
+- (BOOL)areEnterprisePoliciesApplied {
+  return [self prefService]->IsManagedPreference(
+      policy::policy_prefs::kIncognitoModeAvailability);
+}
+
+- (void)recordIncognitoGridStatusOnSelection {
+  // Record grid status for supervised users.
+  if ([self isSupervisedUser]) {
+    RecordIncognitoGridStatus(
+        _incognitoDisabled ? IncognitoGridStatus::kDisabledForSupervisedUser
+                           : IncognitoGridStatus::kEnabledForSupervisedUser);
+  }
+
+  // Record grid status for enterprise users.
+  if ([self areEnterprisePoliciesApplied]) {
+    RecordIncognitoGridStatus(
+        _incognitoDisabled ? IncognitoGridStatus::kDisabledByEnterprisePolicies
+                           : IncognitoGridStatus::kEnabledByEnterprisePolicies);
+  }
+
+  // Record grid status for users who do not have management applied,
+  // or for signed-out users.
+  if (![self isSupervisedUser] && ![self areEnterprisePoliciesApplied]) {
+    RecordIncognitoGridStatus(
+        _incognitoDisabled ? IncognitoGridStatus::kDisabledForUnmanagedUser
+                           : IncognitoGridStatus::kEnabledForUnmanagedUser);
   }
 }
 

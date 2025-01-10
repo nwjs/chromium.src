@@ -732,8 +732,7 @@ class SiteProcessCountTracker : public base::SupportsUserData::Data,
         // the field that this is happening. We need to figure out why some
         // RenderProcessHosts are not taken out of the map when they're
         // destroyed.
-        NOTREACHED_IN_MIGRATION();
-        continue;
+        NOTREACHED();
       }
 
       // It's possible that |host| has become unsuitable for hosting
@@ -1376,7 +1375,8 @@ void RenderProcessHost::SetMaxRendererProcessCount(size_t count) {
   if (RenderProcessHostImpl::GetProcessCount() > count) {
     // TODO(pmonette): Only cleanup n spares, where n is the count of processes
     // that is over the limit.
-    SpareRenderProcessHostManagerImpl::Get().CleanupSpares();
+    SpareRenderProcessHostManagerImpl::Get().CleanupSpares(
+        SpareRendererDispatchResult::kDestroyedProcessLimit);
   }
 }
 
@@ -1549,9 +1549,8 @@ void RenderProcessHostImpl::ShutDownInProcessRenderer() {
       return;
     }
     default:
-      NOTREACHED_IN_MIGRATION()
-          << "There should be only one RenderProcessHost when running "
-          << "in-process.";
+      NOTREACHED() << "There should be only one RenderProcessHost when running "
+                   << "in-process.";
   }
 }
 
@@ -1891,11 +1890,8 @@ void RenderProcessHostImpl::InitializeSharedMemoryRegionsOnceChannelIsUp() {
   // (such as when recovering from a renderer crash). Need to transfer
   // duplicates of all handles in case this happens, so that the original
   // handles can be shared again with the new process.
-  renderer_interface_->TransferSharedMemoryRegions(
-      last_foreground_time_region_->DuplicateReadOnlyRegion(),
-      GetContentClient()->browser()->GetPerformanceScenarioRegionForProcess(
-          this),
-      GetContentClient()->browser()->GetGlobalPerformanceScenarioRegion());
+  renderer_interface_->TransferSharedLastForegroundTime(
+      last_foreground_time_region_->DuplicateReadOnlyRegion());
 }
 
 void RenderProcessHostImpl::ResetChannelProxy() {
@@ -3063,7 +3059,8 @@ bool RenderProcessHostImpl::IsSpareProcessKeptAtAllTimes() {
   // The comparison below is using 1077 rather than 1024 because this helps
   // ensure that devices with exactly 1GB of RAM won't get included because of
   // inaccuracies or off-by-one errors.
-  if (base::SysInfo::AmountOfPhysicalMemoryMB() <= 1077) {
+  if (base::SysInfo::AmountOfPhysicalMemoryMB() <=
+      features::kAndroidSpareRendererMemoryThreshold.Get()) {
     return false;
   }
 
@@ -3332,6 +3329,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
       switches::kDisable2dCanvasImageChromium,
       switches::kDisableYUVImageDecoding,
       switches::kDisableAcceleratedVideoDecode,
+      switches::kDisableAcceleratedVideoEncode,
       switches::kDisableBackForwardCache,
       switches::kDisableBackgroundTimerThrottling,
       switches::kDisableBestEffortTasks,
@@ -3636,7 +3634,9 @@ bool RenderProcessHostImpl::ShutdownRequested() {
 }
 
 bool RenderProcessHostImpl::FastShutdownIfPossible(size_t page_count,
-                                                   bool skip_unload_handlers) {
+                                                   bool skip_unload_handlers,
+                                                   bool ignore_workers,
+                                                   bool ignore_keep_alive) {
   base::UmaHistogramBoolean(
       "BrowserRenderProcessHost.FastShutdownIfPossible.Total", true);
   // Do not shut down the process if there are active or pending views other
@@ -3668,13 +3668,13 @@ bool RenderProcessHostImpl::FastShutdownIfPossible(size_t page_count,
   }
 
   // TODO(crbug.com/40236167): Remove this block once the migration is launched.
-  if (keep_alive_ref_count_ != 0) {
+  if (!ignore_keep_alive && keep_alive_ref_count_ != 0) {
     CHECK(IsKeepAliveRefCountAllowed());
     LogDelayReasonForFastShutdown(DelayShutdownReason::kFetchKeepAlive);
     return false;
   }
 
-  if (worker_ref_count_ != 0) {
+  if (!ignore_workers && worker_ref_count_ != 0) {
     LogDelayReasonForFastShutdown(DelayShutdownReason::kWorker);
     return false;
   }
@@ -4606,6 +4606,11 @@ bool RenderProcessHost::IsProcessLimitReached() {
     // (meaning it only collects data from users who reach this code).
 #if !BUILDFLAG(IS_ANDROID)
     if (base::FeatureList::IsEnabled(features::kRemoveRendererProcessLimit)) {
+      // This is used for tests. To avoid changing test behaviors, don't
+      // change the behavior when it is set.
+      if (g_max_renderer_count_override) {
+        return process_count >= g_max_renderer_count_override;
+      }
       size_t sys_limit = GetPlatformProcessLimit();
       if (sys_limit == kUnknownPlatformProcessLimit) {
         return false;

@@ -29,12 +29,12 @@ import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.download.ChromeDownloadDelegate;
 import org.chromium.chrome.browser.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
 import org.chromium.chrome.browser.offlinepages.RequestCoordinatorBridge;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.tabmodel.TabGroupFeatureUtils;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.document.ChromeAsyncTabLauncher;
@@ -284,9 +284,8 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
                 mTab,
                 isIncognito());
 
-        if (ChromeFeatureList.sTabGroupParityAndroid.isEnabled()
-                && willMergingCreateNewGroup
-                && !TabGroupCreationDialogManager.shouldSkipGroupCreationDialog(
+        if (willMergingCreateNewGroup
+                && !TabGroupFeatureUtils.shouldSkipGroupCreationDialog(
                         /* shouldShow= */ false)) {
             mTabGroupCreationDialogManager.showDialog(mTab.getRootId(), filter);
         }
@@ -425,7 +424,7 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
      * @param linkUrl The URL to open.
      * @param isIncognito true if the {@code url} should be opened in a new incognito page.
      */
-    public void onOpenInNewChromeTabFromCCT(GURL linkUrl, boolean isIncognito) {
+    public void onOpenInNewChromeTabFromCct(GURL linkUrl, boolean isIncognito) {
         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(linkUrl.getSpec()));
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.setClass(ContextUtils.getApplicationContext(), ChromeLauncherActivity.class);
@@ -453,7 +452,7 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
         // and so cannot handle data scheme view Intents. Use the browser backing the currently
         // running CCT.
         if (TextUtils.equals("data", url.getScheme())) {
-            onOpenInNewChromeTabFromCCT(url, false);
+            onOpenInNewChromeTabFromCct(url, false);
             return;
         }
 

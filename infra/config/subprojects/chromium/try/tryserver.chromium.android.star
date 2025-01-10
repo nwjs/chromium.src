@@ -6,9 +6,10 @@
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
 load("//lib/builders.star", "os", "siso")
-load("//lib/try.star", "try_")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
+load("//lib/targets.star", "targets")
+load("//lib/try.star", "try_")
 load("//project.star", "settings")
 
 try_.defaults.set(
@@ -22,8 +23,19 @@ try_.defaults.set(
     orchestrator_cores = 4,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
     siso_enabled = True,
+    # crbug.com/372192123 - downloading with "minimum" strategy doesn't work
+    # well for Android builds because some steps have additional inputs/outputs
+    # they are not configured in the build graph.
+    siso_output_local_strategy = "greedy",
     siso_project = siso.project.DEFAULT_UNTRUSTED,
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
+    siso_remote_linking = True,
+)
+
+targets.builder_defaults.set(
+    mixins = [
+        "chromium-tester-service-account",
+    ],
 )
 
 consoles.list_view(
@@ -314,8 +326,6 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # b/346598710
         "chromium.luci_analysis_v2": 100,
-        # crbug.com/355218109
-        "chromium.use_per_builder_build_dir_name": 100,
     },
     main_list_view = "try",
     tryjob = try_.job(),
@@ -362,12 +372,6 @@ try_.builder(
 # )
 
 try_.builder(
-    name = "android-asan-compile-dbg",
-    mirrors = ["ci/Android ASAN (dbg)"],
-    gn_args = "ci/Android ASAN (dbg)",
-)
-
-try_.builder(
     name = "android-bfcache-rel",
     mirrors = [
         "ci/android-bfcache-rel",
@@ -405,10 +409,6 @@ try_.builder(
     builderless = not settings.is_main,
     cores = "16|32",
     ssd = True,
-    experiments = {
-        # crbug.com/355218109
-        "chromium.use_per_builder_build_dir_name": 100,
-    },
     main_list_view = "try",
     properties = {
         "$build/binary_size": {
@@ -426,6 +426,12 @@ try_.builder(
             ],
         },
     },
+    # Do not use remote linking becaues it doesn't download
+    # the remote artifacts by default. But, the binary size recipe
+    # requires them for binary size check.
+    # TODO: crbug.com/376354860 - Enable remote linking with an appropriate
+    # download strategy so that we can downgrade the machine spec.
+    siso_remote_linking = False,
     tryjob = try_.job(),
 )
 
@@ -497,8 +503,6 @@ try_.builder(
     experiments = {
         # crbug/940930
         "chromium.enable_cleandead": 50,
-        # crbug.com/355218109
-        "chromium.use_per_builder_build_dir_name": 100,
     },
     main_list_view = "try",
     tryjob = try_.job(),
@@ -657,6 +661,18 @@ try_.builder(
         "ci/android-cronet-x64-dbg",
         "ci/android-cronet-x64-dbg-14-tests",
     ],
+    gn_args = "ci/android-cronet-x64-dbg",
+    contact_team_email = "cronet-team@google.com",
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
+    name = "android-cronet-x64-dbg-15-tests",
+    description_html = "Tests Cronet against Android 15",
+    mirrors = [
+        "ci/android-cronet-x64-dbg",
+        "ci/android-cronet-x64-dbg-15-tests",
+    ],
     # Replicates "ci/android-cronet-x64-dbg", with code coverage related
     # arguments appended.
     gn_args = gn_args.config(
@@ -681,18 +697,6 @@ try_.builder(
     ),
     use_clang_coverage = True,
     use_java_coverage = True,
-)
-
-try_.builder(
-    name = "android-cronet-x64-dbg-15-tests",
-    description_html = "Tests Cronet against Android 15",
-    mirrors = [
-        "ci/android-cronet-x64-dbg",
-        "ci/android-cronet-x64-dbg-15-tests",
-    ],
-    gn_args = "ci/android-cronet-x64-dbg",
-    contact_team_email = "cronet-team@google.com",
-    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -813,6 +817,10 @@ try_.builder(
         ],
     ),
     execution_timeout = 6 * time.hour,
+    # Do not use remote linking becaues it doesn't download
+    # the remote artifacts by default. But, the deterministic recipe
+    # requires them for determinism check.
+    siso_remote_linking = False,
 )
 
 try_.builder(
@@ -828,6 +836,10 @@ try_.builder(
         ],
     ),
     execution_timeout = 6 * time.hour,
+    # Do not use remote linking becaues it doesn't download
+    # the remote artifacts by default. But, the deterministic recipe
+    # requires them for determinism check.
+    siso_remote_linking = False,
 )
 
 try_.builder(
@@ -940,6 +952,7 @@ try_.builder(
 
 try_.builder(
     name = "android-pie-x86-rel",
+    branch_selector = branches.selector.ANDROID_BRANCHES,
     mirrors = [
         "ci/android-pie-x86-rel",
     ],
@@ -1117,8 +1130,6 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # b/346598710
         "chromium.luci_analysis_v2": 100,
-        # crbug.com/355218109
-        "chromium.use_per_builder_build_dir_name": 100,
     },
     main_list_view = "try",
     tryjob = try_.job(),
@@ -1161,8 +1172,6 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # b/346598710
         "chromium.luci_analysis_v2": 100,
-        # crbug.com/355218109
-        "chromium.use_per_builder_build_dir_name": 100,
     },
     main_list_view = "try",
     tryjob = try_.job(),
@@ -1251,6 +1260,20 @@ try_.builder(
             "x64",
         ],
     ),
+    targets = targets.bundle(
+        targets = [
+            "chromium_android_webkit_gtests",
+        ],
+        mixins = [
+            "12-x64-emulator",
+            "emulator-8-cores",
+            "linux-jammy",
+            "x86-64",
+        ],
+    ),
+    targets_settings = targets.settings(
+        os_type = targets.os_type.ANDROID,
+    ),
 )
 
 try_.builder(
@@ -1261,6 +1284,16 @@ try_.builder(
     ],
     gn_args = "ci/android-cast-arm-dbg",
     contact_team_email = "cast-eng@google.com",
+    tryjob = try_.job(
+        location_filters = [
+            "chromecast/.+",
+            "components/cast/.+",
+            "components/cast_receiver/.+",
+            "components/cast_streaming/.+",
+            "third_party/cast_core/.+",
+            "third_party/openscreen/.+",
+        ],
+    ),
 )
 
 try_.builder(
@@ -1271,6 +1304,16 @@ try_.builder(
     ],
     gn_args = "ci/android-cast-arm-rel",
     contact_team_email = "cast-eng@google.com",
+    tryjob = try_.job(
+        location_filters = [
+            "chromecast/.+",
+            "components/cast/.+",
+            "components/cast_receiver/.+",
+            "components/cast_streaming/.+",
+            "third_party/cast_core/.+",
+            "third_party/openscreen/.+",
+        ],
+    ),
 )
 
 try_.builder(
@@ -1281,6 +1324,16 @@ try_.builder(
     ],
     gn_args = "ci/android-cast-arm64-dbg",
     contact_team_email = "cast-eng@google.com",
+    tryjob = try_.job(
+        location_filters = [
+            "chromecast/.+",
+            "components/cast/.+",
+            "components/cast_receiver/.+",
+            "components/cast_streaming/.+",
+            "third_party/cast_core/.+",
+            "third_party/openscreen/.+",
+        ],
+    ),
 )
 
 try_.builder(
@@ -1291,29 +1344,16 @@ try_.builder(
     ],
     gn_args = "ci/android-cast-arm64-rel",
     contact_team_email = "cast-eng@google.com",
-)
-
-try_.builder(
-    name = "android-x64-cast",
-    branch_selector = branches.selector.ANDROID_BRANCHES,
-    mirrors = [
-        "ci/Cast Android (dbg)",
-    ],
-    gn_args = gn_args.config(
-        configs = [
-            "ci/Cast Android (dbg)",
-            "compile_only",
+    tryjob = try_.job(
+        location_filters = [
+            "chromecast/.+",
+            "components/cast/.+",
+            "components/cast_receiver/.+",
+            "components/cast_streaming/.+",
+            "third_party/cast_core/.+",
+            "third_party/openscreen/.+",
         ],
     ),
-    builderless = not settings.is_main,
-    experiments = {
-        # crbug/940930
-        "chromium.enable_cleandead": 100,
-        # crbug.com/355218109
-        "chromium.use_per_builder_build_dir_name": 100,
-    },
-    main_list_view = "try",
-    tryjob = try_.job(),
 )
 
 try_.builder(
@@ -1341,8 +1381,6 @@ try_.builder(
     experiments = {
         # crbug/940930
         "chromium.enable_cleandead": 100,
-        # crbug.com/355218109
-        "chromium.use_per_builder_build_dir_name": 100,
     },
     main_list_view = "try",
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
@@ -1470,6 +1508,59 @@ try_.gpu.optional_tests_builder(
             "static_angle",
             "arm",
         ],
+    ),
+    targets = targets.bundle(
+        targets = [
+            "gpu_pixel_4_telemetry_tests",
+            "android_webview_gpu_telemetry_tests",
+        ],
+        mixins = [
+            "has_native_resultdb_integration",
+            "gpu_pixel_4_stable",
+        ],
+        per_test_modifications = {
+            "expected_color_pixel_passthrough_test": targets.mixin(
+                args = [
+                    # See Android FYI Release (Pixel 4).
+                    "--extra-browser-args=--disable-wcg-for-test",
+                ],
+            ),
+            "expected_color_pixel_validating_test": targets.mixin(
+                args = [
+                    # See Android FYI Release (Pixel 4).
+                    "--extra-browser-args=--disable-wcg-for-test",
+                ],
+            ),
+            "pixel_skia_gold_passthrough_test": targets.mixin(
+                args = [
+                    # See Android FYI Release (Pixel 4).
+                    "--extra-browser-args=--disable-wcg-for-test",
+                ],
+            ),
+            "pixel_skia_gold_validating_test": targets.mixin(
+                args = [
+                    # See Android FYI Release (Pixel 4).
+                    "--extra-browser-args=--disable-wcg-for-test",
+                ],
+            ),
+            "screenshot_sync_passthrough_tests": targets.mixin(
+                args = [
+                    # See Android FYI Release (Pixel 4).
+                    "--extra-browser-args=--disable-wcg-for-test",
+                ],
+            ),
+            "screenshot_sync_validating_tests": targets.mixin(
+                args = [
+                    # See Android FYI Release (Pixel 4).
+                    "--extra-browser-args=--disable-wcg-for-test",
+                ],
+            ),
+        },
+    ),
+    targets_settings = targets.settings(
+        browser_config = targets.browser_config.ANDROID_CHROMIUM,
+        os_type = targets.os_type.ANDROID,
+        use_android_merge_script_by_default = False,
     ),
     main_list_view = "try",
     tryjob = try_.job(

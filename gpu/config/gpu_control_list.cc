@@ -207,8 +207,7 @@ bool GpuControlList::Version::Contains(const std::string& version_string,
         return false;
       return Version::Compare(version, ref_version2, style) <= 0;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return false;
+      NOTREACHED();
   }
 }
 
@@ -372,7 +371,7 @@ bool GpuControlList::More::Contains(const GPUInfo& gpu_info) const {
     return false;
   }
   if (gpu_count.IsSpecified()) {
-    if (!gpu_count.Contains(std::to_string(gpu_info.GpuCount()))) {
+    if (!gpu_count.Contains(base::NumberToString(gpu_info.GpuCount()))) {
       return false;
     }
   }

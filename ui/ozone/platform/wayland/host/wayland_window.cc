@@ -94,11 +94,11 @@ WaylandWindow::WaylandWindow(PlatformWindowDelegate* delegate,
                              WaylandConnection* connection)
     : delegate_(delegate),
       connection_(connection),
+      accelerated_widget_(
+          connection->window_manager()->AllocateAcceleratedWidget()),
       frame_manager_(std::make_unique<WaylandFrameManager>(this, connection)),
       wayland_overlay_delegation_enabled_(
           connection->viewporter() && connection->ShouldUseOverlayDelegation()),
-      accelerated_widget_(
-          connection->window_manager()->AllocateAcceleratedWidget()),
       ui_task_runner_(base::SingleThreadTaskRunner::GetCurrentDefault()) {
   // Set a class property key, which allows |this| to be used for drag action.
   SetWmDragHandler(this, this);
@@ -146,6 +146,13 @@ void WaylandWindow::OnWindowLostCapture() {
 }
 
 void WaylandWindow::UpdateWindowScale(bool update_bounds) {
+  // Skip updating the scale (and thus also bounds) during shutdown as
+  // `delegate_` might have already destroyed some of its state so that e.g. a
+  // `GetMinimumSizeForWindow()` call might lead to a crash.
+  if (shutting_down_) {
+    return;
+  }
+
   // `window_scale` is provided authoritatively by the Wayland compositor,
   // either via fractional-scale-v1 extension (ie: per-surface-scaling), or
   // inferred from the currently entereed wl_outputs (deprecated).
@@ -488,11 +495,11 @@ void WaylandWindow::Close() {
 }
 
 bool WaylandWindow::IsVisible() const {
-  NOTREACHED_IN_MIGRATION();
-  return false;
+  NOTREACHED();
 }
 
 void WaylandWindow::PrepareForShutdown() {
+  shutting_down_ = true;
   if (drag_finished_callback_) {
     OnDragSessionClose(DragOperation::kNone);
   }
@@ -739,8 +746,7 @@ EventTarget* WaylandWindow::GetParentTarget() {
 }
 
 std::unique_ptr<EventTargetIterator> WaylandWindow::GetChildIterator() const {
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 EventTargeter* WaylandWindow::GetEventTargeter() {
@@ -766,7 +772,7 @@ void WaylandWindow::OcclusionStateChanged(
 }
 
 void WaylandWindow::HandleSurfaceConfigure(uint32_t serial) {
-  NOTREACHED_IN_MIGRATION()
+  NOTREACHED()
       << "Only shell surfaces must receive HandleSurfaceConfigure calls.";
 }
 
@@ -781,19 +787,11 @@ std::string WaylandWindow::WindowStates::ToString() const {
   if (is_fullscreen) {
     states += "fullscreen ";
   }
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  if (is_immersive_fullscreen) {
-    states += "immersive ";
-  }
-  if (is_pinned_fullscreen) {
-    states += "pinned ";
-  }
-  if (is_trusted_pinned_fullscreen) {
-    states += "trusted_pinned ";
-  }
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
   if (is_activated) {
     states += "activated ";
+  }
+  if (is_suspended) {
+    states += "suspended ";
   }
   if (is_minimized) {
     states += "minimized ";
@@ -843,7 +841,7 @@ std::string WaylandWindow::WindowStates::ToString() const {
 void WaylandWindow::HandleToplevelConfigure(int32_t widht,
                                             int32_t height,
                                             const WindowStates& window_states) {
-  NOTREACHED_IN_MIGRATION()
+  NOTREACHED()
       << "Only shell toplevels must receive HandleToplevelConfigure calls.";
 }
 
@@ -853,13 +851,12 @@ void WaylandWindow::HandleToplevelConfigureWithOrigin(
     int32_t width,
     int32_t height,
     const WindowStates& window_states) {
-  NOTREACHED_IN_MIGRATION()
+  NOTREACHED()
       << "Only shell toplevels must receive HandleAuraToplevelConfigure calls.";
 }
 
 void WaylandWindow::HandlePopupConfigure(const gfx::Rect& bounds_dip) {
-  NOTREACHED_IN_MIGRATION()
-      << "Only shell popups must receive HandlePopupConfigure calls.";
+  NOTREACHED() << "Only shell popups must receive HandlePopupConfigure calls.";
 }
 
 void WaylandWindow::OnCloseRequest() {
@@ -1081,6 +1078,10 @@ bool WaylandWindow::IsActive() const {
   return false;
 }
 
+bool WaylandWindow::IsSuspended() const {
+  return false;
+}
+
 WaylandBubble* WaylandWindow::AsWaylandBubble() {
   return nullptr;
 }
@@ -1277,8 +1278,7 @@ bool WaylandWindow::CommitOverlays(
 
 void WaylandWindow::UpdateCursorShape(scoped_refptr<BitmapCursor> cursor) {
   DCHECK(cursor);
-  CHECK(connection_->surface_submission_in_pixel_coordinates() ||
-        cursor->type() == CursorType::kNone ||
+  CHECK(cursor->type() == CursorType::kNone ||
         base::IsValueInRangeForNumericType<int>(
             cursor->cursor_image_scale_factor()));
 
@@ -1340,11 +1340,6 @@ void WaylandWindow::ProcessPendingConfigureState(uint32_t serial) {
   if (pending_configure_state_.window_state.has_value()) {
     state.window_state = pending_configure_state_.window_state.value();
   }
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  if (pending_configure_state_.fullscreen_type.has_value()) {
-    state.fullscreen_type = pending_configure_state_.fullscreen_type.value();
-  }
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
   if (pending_configure_state_.bounds_dip.has_value()) {
     state.bounds_dip = pending_configure_state_.bounds_dip.value();
   }

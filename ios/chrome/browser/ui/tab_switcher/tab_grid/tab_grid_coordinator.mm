@@ -16,6 +16,7 @@
 #import "components/feature_engagement/public/event_constants.h"
 #import "components/feature_engagement/public/feature_constants.h"
 #import "components/feature_engagement/public/tracker.h"
+#import "components/saved_tab_groups/public/tab_group_sync_service.h"
 #import "components/search_engines/template_url_service.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/supervised_user/core/browser/supervised_user_utils.h"
@@ -36,8 +37,14 @@
 #import "ios/chrome/browser/history/ui_bundled/public/history_presentation_delegate.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
+#import "ios/chrome/browser/saved_tab_groups/model/ios_tab_group_sync_util.h"
+#import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/sessions/model/ios_chrome_tab_restore_service_factory.h"
+#import "ios/chrome/browser/share_kit/model/share_kit_manage_configuration.h"
+#import "ios/chrome/browser/share_kit/model/share_kit_service.h"
+#import "ios/chrome/browser/share_kit/model/share_kit_service_factory.h"
+#import "ios/chrome/browser/share_kit/model/share_kit_share_group_configuration.h"
 #import "ios/chrome/browser/shared/coordinator/alert/action_sheet_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/default_browser_promo/non_modal_default_browser_promo_scheduler_scene_agent.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
@@ -61,6 +68,7 @@
 #import "ios/chrome/browser/shared/public/commands/reading_list_add_command.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/tab_grid_commands.h"
+#import "ios/chrome/browser/shared/public/commands/tab_groups_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
@@ -236,11 +244,6 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 @property(nonatomic, strong) PriceCardMediator* priceCardMediator;
 // Mediator for remote Tabs.
 @property(nonatomic, strong) RecentTabsMediator* remoteTabsMediator;
-// TODO(crbug.com/346302283): Some tests depend on a
-// RecentTabsTableViewController to have been loaded and kept in memory.
-// Investigate and remove this dependency.
-@property(nonatomic, strong)
-    RecentTabsTableViewController* hackRecentTabsTableViewController;
 // Mediator for the inactive tabs button.
 @property(nonatomic, strong)
     InactiveTabsButtonMediator* inactiveTabsButtonMediator;
@@ -313,8 +316,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 #pragma mark - Public
 
 - (Browser*)browser {
-  NOTREACHED_IN_MIGRATION();
-  return nil;
+  NOTREACHED();
 }
 
 - (Browser*)regularBrowser {
@@ -768,7 +770,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
       return !self.incognitoBrowser->GetWebStateList()->empty();
     case TabGridPageRemoteTabs:
     case TabGridPageTabGroups:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 
@@ -914,16 +916,6 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
         _tabGroupsPanelCoordinator.disabledViewController;
     baseViewController.tabGroupsGridContainerViewController =
         _tabGroupsPanelCoordinator.gridContainerViewController;
-
-    // TODO(crbug.com/346302283): Some tests depend on a
-    // RecentTabsTableViewController to have been loaded and kept in memory.
-    // Investigate and remove this dependency.
-    RecentTabsTableViewController* remoteTabsViewController =
-        [[RecentTabsTableViewController alloc] init];
-    remoteTabsViewController.browser = self.regularBrowser;
-    [remoteTabsViewController loadModel];
-    [remoteTabsViewController.tableView reloadData];
-    _hackRecentTabsTableViewController = remoteTabsViewController;
   } else {
     // TODO(crbug.com/41390276) : Remove RecentTabsTableViewController
     // dependency on ProfileIOS so that we don't need to expose the view
@@ -1079,11 +1071,6 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
   [_tabGroupsPanelCoordinator stop];
   _tabGroupsPanelCoordinator = nil;
-
-  if (IsTabGroupSyncEnabled()) {
-    // This disconnects the Recent Tabs' SigninPromoViewMediator.
-    [_hackRecentTabsTableViewController dismissModals];
-  }
 
   // TODO(crbug.com/41390276) : RecentTabsTableViewController behaves like a
   // coordinator and that should be factored out.
@@ -1408,8 +1395,17 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
     if (completion) {
       completion();
     }
+    // Save the string in the History search bar before switching back
+    // to TabGridMode::kSearch. See `-showHistoryForText:` for why presenting
+    // History switched from kSearch to kNormal.
+    NSString* previousString = self.historyCoordinator.searchTerms;
     [weakSelf.historyCoordinator stop];
     weakSelf.historyCoordinator = nil;
+    [self setActiveMode:TabGridMode::kSearch];
+    // When setting TabGridMode to kSearch, the string in the search bar
+    // is initialized to an empty string, so we override with the previous
+    // string
+    [self.baseViewController.topToolbar setSearchBarText:previousString];
   }];
 }
 
@@ -1552,6 +1548,48 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   [self.regularTabsMediator ungroupTabGroup:group sourceView:sourceView];
 }
 
+- (void)manageTabGroup:(base::WeakPtr<const TabGroup>)group {
+  ProfileIOS* profile = self.regularBrowser->GetProfile();
+  tab_groups::TabGroupSyncService* syncService =
+      tab_groups::TabGroupSyncServiceFactory::GetForProfile(profile);
+  ShareKitService* shareKitService =
+      ShareKitServiceFactory::GetForProfile(profile);
+  NSString* collabID =
+      tab_groups::utils::GetTabGroupCollabID(group.get(), syncService);
+  if (!shareKitService || !collabID) {
+    return;
+  }
+  ShareKitManageConfiguration* config =
+      [[ShareKitManageConfiguration alloc] init];
+  config.baseViewController = self.baseViewController;
+  config.collabID = collabID;
+  config.applicationHandler = HandlerForProtocol(
+      self.regularBrowser->GetCommandDispatcher(), ApplicationCommands);
+  shareKitService->ManageGroup(config);
+}
+
+- (void)shareTabGroup:(base::WeakPtr<const TabGroup>)group {
+  ShareKitService* shareKitService =
+      ShareKitServiceFactory::GetForProfile(self.regularBrowser->GetProfile());
+  const TabGroup* tabGroup = group.get();
+  if (!tabGroup || !shareKitService) {
+    return;
+  }
+  ShareKitShareGroupConfiguration* config =
+      [[ShareKitShareGroupConfiguration alloc] init];
+  config.tabGroup = tabGroup;
+  config.baseViewController = self.baseViewController;
+  config.applicationHandler = HandlerForProtocol(
+      self.regularBrowser->GetCommandDispatcher(), ApplicationCommands);
+  shareKitService->ShareGroup(config);
+}
+
+- (void)showRecentActivityForTabGroup:(base::WeakPtr<const TabGroup>)tabGroup {
+  id<TabGroupsCommands> tabGroupsHandler = HandlerForProtocol(
+      self.regularBrowser->GetCommandDispatcher(), TabGroupsCommands);
+  [tabGroupsHandler showRecentActivityForGroup:tabGroup];
+}
+
 - (void)selectTabs {
   base::RecordAction(
       base::UserMetricsAction("MobileTabGridTabContextMenuSelectTabs"));
@@ -1647,6 +1685,13 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   self.historyCoordinator.presentationDelegate = self;
   self.historyCoordinator.delegate = self;
   [self.historyCoordinator start];
+  // See crbug.com/368260425.
+  // When presenting and dismissing History, the Tab Grid search bar becomes
+  // uneditable. As a workaround, switch TabGridMode from kSearch to kNormal.
+  // When dismissing History in `-closeHistoryWithCompletion:`, it will be
+  // switched back from kNormal to kSearch, and the Tab Grid search bar will be
+  // editable.
+  [self setActiveMode:TabGridMode::kNormal];
 }
 
 - (void)showWebSearchForText:(NSString*)text {

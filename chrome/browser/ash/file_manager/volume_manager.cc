@@ -267,8 +267,7 @@ std::unique_ptr<Volume> CreateForFuseBoxDownloads(
 }
 
 bool IsArcEnabled(Profile* profile) {
-  return base::FeatureList::IsEnabled(arc::kMediaViewFeature) &&
-         arc::IsArcAllowedForProfile(profile);
+  return arc::IsArcAllowedForProfile(profile);
 }
 
 bool IsSkyVaultV2Enabled() {
@@ -393,6 +392,11 @@ void VolumeManager::Initialize() {
   RegisterShareCacheMountPoint(profile_);
   DoMountEvent(
       Volume::CreateForShareCache(util::GetShareCacheFilePath(profile_)));
+
+  // Start Trash autocleanup.
+  if (!base::FeatureList::IsEnabled(ash::features::kFilesTrashAutoCleanup)) {
+    trash_auto_cleanup_ = trash::TrashAutoCleanup::Create(profile_);
+  }
 }
 
 void VolumeManager::Shutdown() {
@@ -409,6 +413,7 @@ void VolumeManager::Shutdown() {
   disk_mount_manager_->RemoveObserver(this);
   documents_provider_root_manager_->RemoveObserver(this);
   documents_provider_root_manager_.reset();
+  trash_auto_cleanup_.reset();
 
   if (storage_monitor::StorageMonitor* const p =
           storage_monitor::StorageMonitor::GetInstance()) {
@@ -511,13 +516,13 @@ void VolumeManager::AddSshfsCrostiniVolume(
 }
 
 void VolumeManager::AddSftpGuestOsVolume(
-    const std::string display_name,
+    std::string display_name,
     const base::FilePath& sftp_mount_path,
     const base::FilePath& remote_mount_path,
     const guest_os::VmType vm_type) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DoMountEvent(Volume::CreateForSftpGuestOs(display_name, sftp_mount_path,
-                                            remote_mount_path, vm_type));
+  DoMountEvent(Volume::CreateForSftpGuestOs(
+      std::move(display_name), sftp_mount_path, remote_mount_path, vm_type));
 }
 
 void VolumeManager::RemoveSshfsCrostiniVolume(
@@ -725,7 +730,7 @@ void VolumeManager::OnAutoMountableDiskEvent(
 
       return;
   }
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void VolumeManager::OnDeviceEvent(
@@ -750,7 +755,7 @@ void VolumeManager::OnDeviceEvent(
       DVLOG(1) << "Ignore SCANNED event: " << device_path;
       return;
   }
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void VolumeManager::OnMountEvent(
@@ -780,7 +785,7 @@ void VolumeManager::OnMountEvent(
       return;
   }
 
-  NOTREACHED_IN_MIGRATION() << "Unexpected event type " << event;
+  NOTREACHED() << "Unexpected event type " << event;
 }
 
 void VolumeManager::OnFormatEvent(
@@ -818,7 +823,7 @@ void VolumeManager::OnFormatEvent(
       return;
   }
 
-  NOTREACHED_IN_MIGRATION() << "Unexpected FormatEvent " << event;
+  NOTREACHED() << "Unexpected FormatEvent " << event;
 }
 
 void VolumeManager::OnPartitionEvent(
@@ -856,7 +861,7 @@ void VolumeManager::OnPartitionEvent(
       return;
   }
 
-  NOTREACHED_IN_MIGRATION() << "Unexpected PartitionEvent " << event;
+  NOTREACHED() << "Unexpected PartitionEvent " << event;
 }
 
 void VolumeManager::OnRenameEvent(
@@ -904,7 +909,7 @@ void VolumeManager::OnRenameEvent(
       return;
   }
 
-  NOTREACHED_IN_MIGRATION() << "Unexpected RenameEvent " << event;
+  NOTREACHED() << "Unexpected RenameEvent " << event;
 }
 
 void VolumeManager::OnProvidedFileSystemMount(
@@ -1456,7 +1461,7 @@ void VolumeManager::OnDiskMountManagerRefreshed(bool success) {
         break;
       }
       case ash::MountType::kInvalid: {
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
       }
     }
   }
@@ -1780,6 +1785,13 @@ void VolumeManager::OnMigrationSucceeded() {
 
   read_only_local_folders_ = false;
   OnLocalUserFilesDisabled();
+}
+
+void VolumeManager::OnMigrationReset() {
+  if (!read_only_local_folders_) {
+    read_only_local_folders_ = true;
+    OnLocalUserFilesPolicyChanged();
+  }
 }
 
 }  // namespace file_manager

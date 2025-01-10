@@ -150,18 +150,6 @@ class ConnectorsManagerTest : public testing::Test {
     const char* pref_;
   };
 
-  std::optional<ReportingSettings> GetReportingSettings(
-      const char* settings_value) {
-    auto settings = base::JSONReader::Read(settings_value,
-                                           base::JSON_ALLOW_TRAILING_COMMAS);
-    EXPECT_TRUE(settings.has_value());
-
-    ReportingServiceSettings service_settings(settings.value(),
-                                              *GetServiceProviderConfig());
-
-    return service_settings.GetReportingSettings();
-  }
-
  protected:
   content::BrowserTaskEnvironment task_environment_;
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -592,7 +580,7 @@ class ConnectorsManagerConnectorPoliciesSourceDestinationTest
                volume_pair == &kNoDlpMalwareVolumePair2) {
       settings.tags = {{"malware", TagSettings()}};
     } else {
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
     }
 
     // The "local_user_agent" service provider doesn't support the "malware"
@@ -745,7 +733,7 @@ TEST_P(ConnectorsManagerAnalysisConnectorsTest, NamesAndConfigs) {
     EXPECT_TRUE(configs[0]->region_urls.empty());
     EXPECT_TRUE(configs[0]->local_path);
   } else {
-    NOTREACHED_IN_MIGRATION() << "Unexpected service provider name";
+    NOTREACHED() << "Unexpected service provider name";
   }
 }
 

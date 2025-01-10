@@ -22,7 +22,6 @@
 #include "base/timer/timer.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/extensions/extension_commands_global_registry.h"
 #include "chrome/browser/extensions/extension_keybinding_registry.h"
 #include "chrome/browser/ui/browser.h"
@@ -42,14 +41,13 @@
 #include "chrome/browser/ui/views/intent_picker_bubble_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_closer.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
-#include "chrome/browser/ui/views/user_education/browser_feature_promo_controller.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search.mojom.h"
 #include "chrome/common/buildflags.h"
 #include "components/enterprise/buildflags/buildflags.h"
 #include "components/infobars/core/infobar_container.h"
 #include "components/segmentation_platform/public/result.h"
-#include "components/user_education/common/feature_promo_controller.h"
-#include "components/user_education/common/feature_promo_handle.h"
+#include "components/user_education/common/feature_promo/feature_promo_controller.h"
+#include "components/user_education/common/feature_promo/feature_promo_handle.h"
 #include "components/webapps/browser/banners/app_banner_manager.h"
 #include "content/public/browser/page_user_data.h"
 #include "content/public/browser/permission_controller.h"
@@ -67,7 +65,7 @@
 #include "ui/views/widget/widget_observer.h"
 #include "ui/views/window/client_view.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "ui/compositor/throughput_tracker.h"
 #endif
 
@@ -488,7 +486,6 @@ class BrowserView : public BrowserWindow,
   void UpdateDevTools() override;
   void UpdateLoadingAnimations(bool is_visible) override;
   void SetStarredState(bool is_starred) override;
-  void SetTranslateIconToggled(bool is_lit) override;
   void OnActiveTabChanged(content::WebContents* old_contents,
                           content::WebContents* new_contents,
                           int index,
@@ -651,7 +648,7 @@ class BrowserView : public BrowserWindow,
       const base::Feature& iph_feature) const override;
   void MaybeShowFeaturePromo(
       user_education::FeaturePromoParams params) override;
-  bool MaybeShowStartupFeaturePromo(
+  void MaybeShowStartupFeaturePromo(
       user_education::FeaturePromoParams params) override;
   bool AbortFeaturePromo(const base::Feature& iph_feature) override;
   user_education::FeaturePromoHandle CloseFeaturePromoAndContinue(
@@ -817,15 +814,17 @@ class BrowserView : public BrowserWindow,
 
   void CreateTabSearchBubble(
       tab_search::mojom::TabSearchSection section =
-          tab_search::mojom::TabSearchSection::kNone,
+          tab_search::mojom::TabSearchSection::kSearch,
       tab_search::mojom::TabOrganizationFeature organization_feature =
           tab_search::mojom::TabOrganizationFeature::kNone) override;
   // Closes the tab search bubble if open for the given browser instance.
   void CloseTabSearchBubble() override;
 
+#if !BUILDFLAG(IS_CHROMEOS_ASH)
   AccessibilityFocusHighlight* GetAccessibilityFocusHighlightForTesting() {
     return accessibility_focus_highlight_.get();
   }
+#endif
 
   bool should_show_window_controls_overlay_toggle() const {
     return should_show_window_controls_overlay_toggle_;
@@ -849,7 +848,6 @@ class BrowserView : public BrowserWindow,
   gfx::Point GetThemeOffsetFromBrowserView() const;
 
   void ApplyWatermarkSettings(const std::string& watermark_text);
-  void UpdateAccessibleNameForAllTabs();
 
 #if BUILDFLAG(ENTERPRISE_SCREENSHOT_PROTECTION)
   void ApplyScreenshotSettings(bool allow);
@@ -890,11 +888,11 @@ class BrowserView : public BrowserWindow,
   friend class TopControlsSlideControllerTest;
   FRIEND_TEST_ALL_PREFIXES(BrowserViewTest, BrowserView);
   FRIEND_TEST_ALL_PREFIXES(BrowserViewTest, AccessibleWindowTitle);
-  FRIEND_TEST_ALL_PREFIXES(PermissionChipUnitTest, AccessibleName);
   class AccessibilityModeObserver;
 
   // BrowserUserEducationInterface private methods:
-  BrowserFeaturePromoController* GetFeaturePromoControllerImpl() override;
+  user_education::FeaturePromoControllerCommon* GetFeaturePromoControllerImpl()
+      override;
 
   // Shared implementation by cut, copy and paste.
   void CutCopyPaste(int command_id);
@@ -1108,8 +1106,6 @@ private:
 
   // The Browser object we are associated with.
   std::unique_ptr<Browser> browser_;
-
-  base::CallbackListSubscription chip_visibility_subscription_;
 
   // BrowserView layout (LTR one is pictured here).
   //
@@ -1339,14 +1335,16 @@ private:
   // The last bounds we notified about in TryNotifyWindowBoundsChanged().
   gfx::Rect last_widget_bounds_;
 
+#if !BUILDFLAG(IS_CHROMEOS_ASH)
   std::unique_ptr<AccessibilityFocusHighlight> accessibility_focus_highlight_;
+#endif
 
-  std::unique_ptr<BrowserFeaturePromoController> feature_promo_controller_ =
-      nullptr;
+  std::unique_ptr<user_education::FeaturePromoControllerCommon>
+      feature_promo_controller_ = nullptr;
 
   OnLinkOpeningFromGestureCallbackList link_opened_from_gesture_callbacks_;
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   // |loading_animation_tracker_| is used to measure animation smoothness for
   // tab loading animation.
   std::optional<ui::ThroughputTracker> loading_animation_tracker_;

@@ -11,6 +11,7 @@
 #include "base/memory/raw_ptr.h"
 #include "pdf/buildflags.h"
 #include "pdf/pdfium/pdfium_engine_client.h"
+#include "services/screen_ai/buildflags/buildflags.h"
 
 namespace chrome_pdf {
 
@@ -36,8 +37,8 @@ class TestClient : public PDFiumEngineClient {
   std::string GetURL() override;
   std::unique_ptr<UrlLoader> CreateUrlLoader() override;
   v8::Isolate* GetIsolate() override;
-  std::vector<SearchStringResult> SearchString(const char16_t* string,
-                                               const char16_t* term,
+  std::vector<SearchStringResult> SearchString(const std::u16string& needle,
+                                               const std::u16string& haystack,
                                                bool case_sensitive) override;
   bool IsPrintPreview() const override;
   SkColor GetBackgroundColor() const override;
@@ -47,6 +48,10 @@ class TestClient : public PDFiumEngineClient {
 #if BUILDFLAG(ENABLE_PDF_INK2)
   bool IsInAnnotationMode() const override;
 #endif  // BUILDFLAG(ENABLE_PDF_INK2)
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+  void OnSearchifyStateChange(bool busy) override;
+  void OnHasSearchifyText() override;
+#endif
 
  private:
   // Not owned. Expected to dangle briefly, as the engine usually is destroyed

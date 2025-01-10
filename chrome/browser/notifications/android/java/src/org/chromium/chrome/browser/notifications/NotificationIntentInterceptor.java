@@ -12,6 +12,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.MotionEvent;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -24,6 +25,7 @@ import org.chromium.base.Log;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.components.browser_ui.notifications.NotificationMetadata;
 import org.chromium.components.browser_ui.notifications.PendingIntentProvider;
+import org.chromium.ui.widget.Toast;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -126,9 +128,10 @@ public class NotificationIntentInterceptor {
         @Override
         protected void onCreate(@Nullable Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
+
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM
                     || hasVisibleActivities()) {
-                processIntent(getIntent());
+                handleNotificationIntent();
                 finish();
                 return;
             }
@@ -136,7 +139,7 @@ public class NotificationIntentInterceptor {
             if (!ChromeFeatureList.sForceTranslucentNotificationTrampoline.isEnabled()
                     && getApplicationContext().getApplicationInfo().targetSdkVersion
                             < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-                processIntent(getIntent());
+                handleNotificationIntent();
                 finish();
                 return;
             }
@@ -144,21 +147,41 @@ public class NotificationIntentInterceptor {
             // If there is already a trampoline activity, finish this instance so that the current
             // tracked activity will continue to be shown.
             if (!TrampolineActivityTracker.getInstance().tryTrackActivity(this)) {
-                processIntent(getIntent());
+                handleNotificationIntent();
                 finish();
                 return;
             }
 
             setContentView(R.layout.notification_trampoline);
-            if (!processIntent(getIntent())) {
+            if (!handleNotificationIntent()) {
                 TrampolineActivityTracker.getInstance().finishTrackedActivity();
             }
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent event) {
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                Toast.makeText(
+                                this,
+                                R.string.notification_trampoline_toast_message,
+                                Toast.LENGTH_SHORT)
+                        .show();
+            }
+            return super.onTouchEvent(event);
         }
 
         private static boolean hasVisibleActivities() {
             for (Activity activity : ApplicationStatus.getRunningActivities()) {
                 @ActivityState int state = ApplicationStatus.getStateForActivity(activity);
                 if (state == ActivityState.RESUMED || state == ActivityState.PAUSED) return true;
+            }
+            return false;
+        }
+
+        private boolean handleNotificationIntent() {
+            if (processIntent(getIntent())) {
+                TrampolineActivityTracker.getInstance().onNotificationIntentStarted();
+                return true;
             }
             return false;
         }

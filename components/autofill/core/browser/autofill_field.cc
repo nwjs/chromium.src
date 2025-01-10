@@ -18,6 +18,7 @@
 #include "components/autofill/core/browser/field_type_utils.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/proto/server.pb.h"
+#include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/dense_set.h"
 #include "components/autofill/core/common/html_field_types.h"
@@ -234,10 +235,7 @@ bool AutofillField::server_type_prediction_is_override() const {
 void AutofillField::set_heuristic_type(HeuristicSource s, FieldType type) {
   if (type < 0 || type > MAX_VALID_FIELD_TYPE ||
       type == FIELD_WITH_DEFAULT_VALUE) {
-    NOTREACHED_IN_MIGRATION();
-    // This case should not be reachable; but since this has potential
-    // implications on data uploaded to the server, better safe than sorry.
-    type = UNKNOWN_TYPE;
+    NOTREACHED();
   }
   local_type_predictions_[static_cast<size_t>(s)] = type;
   if (s == GetActiveHeuristicSource()) {
@@ -417,12 +415,13 @@ AutofillType AutofillField::ComputedType() const {
 
 AutofillType AutofillField::Type() const {
   // Server Overrides are granted precedence unconditionally.
-  if (server_type_prediction_is_override() && server_type() != NO_SERVER_DATA)
+  if (server_type_prediction_is_override() && server_type() != NO_SERVER_DATA) {
     return AutofillType(server_type());
-
-  if (overall_type_.GetStorableType() != NO_SERVER_DATA)
-    return overall_type_;
-  return ComputedType();
+  }
+  if (overall_type_.GetStorableType() == NO_SERVER_DATA) {
+    overall_type_ = ComputedType();
+  }
+  return overall_type_;
 }
 
 const std::u16string& AutofillField::value_for_import() const {
@@ -507,14 +506,19 @@ bool AutofillField::IsCreditCardPrediction() const {
 
 void AutofillField::AppendLogEventIfNotRepeated(
     const FieldLogEventType& log_event) {
-  // TODO(crbug.com/40225658): Consider to use an Overflow event to stop
-  // recording log events into |field_log_events_| to save memory when
-  // |field_log_events_| reaches certain threshold, e.g. 1000.
-
-  if (field_log_events_.empty() ||
-      field_log_events_.back().index() != log_event.index() ||
-      !AreCollapsibleLogEvents(field_log_events_.back(), log_event)) {
-    field_log_events_.push_back(log_event);
+  if (!field_log_events_) {
+    return;
+  }
+  if (field_log_events_->empty() ||
+      field_log_events_->back().index() != log_event.index() ||
+      !AreCollapsibleLogEvents(field_log_events_->back(), log_event)) {
+    if (field_log_events_->size() < kMaxLogEventsPerField) {
+      field_log_events_->push_back(log_event);
+    } else {
+      // For fields that exceed the number of allowed events, we do not keep
+      // track of any events to avoid memory regressions.
+      field_log_events_ = std::nullopt;
+    }
   }
 }
 

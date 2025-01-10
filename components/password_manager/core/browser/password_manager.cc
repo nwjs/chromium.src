@@ -140,13 +140,11 @@ bool ShouldPromptUserToSavePassword(const PasswordFormManager& manager) {
         }
         break;
       case password_manager_util::GetLoginMatchType::kPSL:
-        // User successfully signed-in with PSL match credentials. These
-        // credentials should be automatically saved in order to be autofilled
-        // on next login.
-        return false;
       case password_manager_util::GetLoginMatchType::kGrouped:
-        // User successfully signed-in with grouped match credentials.
-        break;
+        // User successfully signed-in with PSL match or grouped match
+        // credentials. These credentials should be automatically saved in order
+        // to be autofilled on next login.
+        return false;
     }
   }
 
@@ -347,6 +345,7 @@ void PasswordManager::RegisterProfilePrefs(
   registry->RegisterTimePref(prefs::kAccountStoreDateLastUsedForFilling,
                              base::Time());
   registry->RegisterBooleanPref(prefs::kWereOldGoogleLoginsRemoved, false);
+  registry->RegisterBooleanPref(prefs::kCredentialsEnablePasskeys, true);
 
 #if BUILDFLAG(IS_APPLE)
   registry->RegisterIntegerPref(prefs::kKeychainMigrationStatus,
@@ -1059,7 +1058,8 @@ void PasswordManager::UpdateStateOnUserInput(
   }
 
   if (!util::CanFieldBeConsideredAsSingleUsername(
-          field.name_attribute(), field.id_attribute(), field.label()) ||
+          field.name_attribute(), field.id_attribute(), field.label(),
+          field.form_control_type()) ||
       !util::CanValueBeConsideredAsSingleUsername(field.value())) {
     return;
   }

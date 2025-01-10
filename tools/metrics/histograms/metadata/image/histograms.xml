@@ -134,7 +134,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ImageAnnotationService.AccessibilityV1.DescFailure"
-    enum="DescFailureReason" expires_after="2025-01-20">
+    enum="DescFailureReason" expires_after="2025-04-27">
   <owner>dtseng@chromium.org</owner>
   <owner>amoylan@chromium.org</owner>
   <owner>mschillaci@google.com</owner>
@@ -146,7 +146,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ImageAnnotationService.AccessibilityV1.DescType"
-    enum="ImageAnnotationServiceDescType" expires_after="2025-01-20">
+    enum="ImageAnnotationServiceDescType" expires_after="2025-04-20">
   <owner>dtseng@chromium.org</owner>
   <owner>amoylan@chromium.org</owner>
   <owner>mschillaci@google.com</owner>
@@ -161,7 +161,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ImageAnnotationService.AccessibilityV1.EncodedJpegSizeKB"
-    units="KB" expires_after="2025-01-20">
+    units="KB" expires_after="2025-04-20">
   <owner>dtseng@chromium.org</owner>
   <owner>amoylan@chromium.org</owner>
   <owner>mschillaci@google.com</owner>
@@ -415,9 +415,9 @@ chromium-metrics-reviews@google.com.
   <owner>lukasza@chromium.org</owner>
   <owner>chrome-rust-experiments@google.com</owner>
   <summary>
-    Measures the runtime of the `gfx::PNGCodec::Decode(..., SkBitmap* bitmap)`
-    API. Logged every time the API is called. Primarily used to evaluate the
-    go/rusty-png-ui-gfx-decoder project.
+    Measures the runtime of the variant of `gfx::PNGCodec::Decode()` that
+    returns an `SkBitmap`. Logged every time the API is called. Primarily used
+    to evaluate the go/rusty-png-ui-gfx-decoder project.
 
     The metric is reported for only clients with high-resolution clocks (i.e.
     excludes a small percentage of Windows users population - see the
@@ -525,7 +525,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ImageFetcher.ImageLoadFromNetworkAfterCacheHit{ImageFetcherClients}"
-    units="ms" expires_after="2025-01-20">
+    units="ms" expires_after="2025-04-20">
   <owner>fgorski@chromium.org</owner>
   <owner>wylieb@chromium.org</owner>
   <summary>

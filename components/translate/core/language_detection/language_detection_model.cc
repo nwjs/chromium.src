@@ -17,18 +17,6 @@
 #include "components/translate/core/common/translate_util.h"
 #include "components/translate/core/language_detection/language_detection_util.h"
 
-namespace {
-
-// The number of characters to sample and provide as a buffer to the model
-// for determining its language.
-constexpr size_t kTextSampleLength = 256;
-
-// The number of samples of |kTextSampleLength| to evaluate the model when
-// determining the language of the page content.
-constexpr int kNumTextSamples = 3;
-
-}  // namespace
-
 namespace translate {
 // If enabled, the string passed to the language detection model for the whole
 // page is truncated to `kTextSampleLength`
@@ -147,8 +135,9 @@ language_detection::Prediction LanguageDetectionModel::DetectLanguage(
     model_predictions.emplace_back(DetectTopLanguage(sampled_str));
   }
 
-  const auto top_language_result =
-      std::max_element(model_predictions.begin(), model_predictions.end());
+  const auto top_language_result = std::max_element(
+      model_predictions.begin(), model_predictions.end(),
+      [](auto& left, auto& right) { return left.second < right.second; });
   base::UmaHistogramTimes(
       "LanguageDetection.TFLiteModel.DetectPageLanguage.Duration",
       timer.Elapsed());

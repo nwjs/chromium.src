@@ -27,10 +27,6 @@ BASE_DECLARE_FEATURE(kAllowWindowDragUsingSystemDragDrop);
 
 BASE_DECLARE_FEATURE(kAllowEyeDropperWGCScreenCapture);
 
-BASE_DECLARE_FEATURE(kChromeLabs);
-extern const char kChromeLabsActivationParameterName[];
-extern const base::FeatureParam<int> kChromeLabsActivationPercentage;
-
 BASE_DECLARE_FEATURE(kCloseOmniboxPopupOnInactiveAreaClick);
 
 BASE_DECLARE_FEATURE(kDefaultBrowserPromptRefresh);
@@ -71,10 +67,6 @@ extern const base::FeatureParam<bool> kAppMenuChipColorPrimary;
 
 BASE_DECLARE_FEATURE(kExtensionsMenuInAppMenu);
 bool IsExtensionMenuInRootAppMenu();
-
-#if !defined(ANDROID)
-BASE_DECLARE_FEATURE(kAccessCodeCastUI);
-#endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 BASE_DECLARE_FEATURE(kFewerUpdateConfirmations);
@@ -158,7 +150,6 @@ BASE_DECLARE_FEATURE(kSidePanelWebView);
 BASE_DECLARE_FEATURE(kSidePanelCompanionDefaultPinned);
 #endif
 
-BASE_DECLARE_FEATURE(kSidePanelJourneysQueryless);
 BASE_DECLARE_FEATURE(kSidePanelResizing);
 BASE_DECLARE_FEATURE(kSidePanelSearchCompanion);
 
@@ -197,6 +188,9 @@ bool IsTabOrganization();
 
 BASE_DECLARE_FEATURE(kTabstripDeclutter);
 bool IsTabstripDeclutterEnabled();
+
+BASE_DECLARE_FEATURE(kTabstripDedupe);
+bool IsTabstripDedupeEnabled();
 
 BASE_DECLARE_FEATURE(kMultiTabOrganization);
 
@@ -239,6 +233,9 @@ extern const base::FeatureParam<double>
 // predictably and frequently.
 extern const base::FeatureParam<bool> KTabOrganizationTriggerDemoMode;
 
+BASE_DECLARE_FEATURE(kTabstripComboButton);
+bool IsTabstripComboButtonEnabled();
+
 BASE_DECLARE_FEATURE(kTabSearchRecentlyClosed);
 
 // Default number of recently closed entries to display by default when no
@@ -264,6 +261,7 @@ BASE_DECLARE_FEATURE(kEnterpriseProfileBadgingForMenu);
 BASE_DECLARE_FEATURE(kEnterpriseProfileBadgingPolicies);
 BASE_DECLARE_FEATURE(kEnterpriseManagementDisclaimerUsesCustomLabel);
 BASE_DECLARE_FEATURE(kEnterpriseUpdatedProfileCreationScreen);
+BASE_DECLARE_FEATURE(kManagedProfileRequiredInterstitial);
 
 BASE_DECLARE_FEATURE(kWebUITabStrip);
 
@@ -291,6 +289,17 @@ BASE_DECLARE_FEATURE(kCompactMode);
 // Controls whether the site-specific data dialog shows a related installed
 // applications section.
 BASE_DECLARE_FEATURE(kPageSpecificDataDialogRelatedInstalledAppsSection);
+
+// Feature for the promotion banner on the top of chrome://management page
+BASE_DECLARE_FEATURE(kEnableManagementPromotionBanner);
+
+// Enable display for the Chrome Enterprise Core promotion banner on
+// the chrome://policy page.
+BASE_DECLARE_FEATURE(kEnablePolicyPromotionBanner);
+
+// Controls whether a performance improvement in browser feature support
+// checking is enabled.
+BASE_DECLARE_FEATURE(kInlineFullscreenPerfExperiment);
 
 }  // namespace features
 

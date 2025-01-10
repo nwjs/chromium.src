@@ -26,6 +26,7 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/policy/profile_policy_connector_builder.h"
 #include "chrome/browser/policy/schema_registry_service.h"
@@ -37,7 +38,6 @@
 #include "components/policy/core/browser/webui/policy_status_provider.h"
 #include "components/policy/core/common/cloud/cloud_policy_refresh_scheduler.h"
 #include "components/policy/core/common/external_data_fetcher.h"
-#include "components/policy/core/common/features.h"
 #include "components/policy/core/common/management/scoped_management_service_override_for_testing.h"
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
 #include "components/policy/core/common/policy_map.h"
@@ -68,6 +68,7 @@
 #include "chrome/browser/extensions/install_verifier.h"
 #include "chrome/browser/extensions/test_extension_system.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/account_id/account_id.h"
 #include "extensions/common/extension_builder.h"
@@ -997,10 +998,10 @@ class PolicyUIManagedStatusTest : public PolicyUITest,
   PolicyUIManagedStatusTest() {
     if (GetParam()) {
       scoped_feature_list_.InitAndEnableFeature(
-          policy::features::kEnablePolicyBanner);
+          features::kEnablePolicyPromotionBanner);
     } else {
       scoped_feature_list_.InitAndDisableFeature(
-          policy::features::kEnablePolicyBanner);
+          features::kEnablePolicyPromotionBanner);
     }
   }
   bool isFeatureEnabled() { return GetParam(); }
@@ -1014,24 +1015,38 @@ class PolicyUIManagedStatusTest : public PolicyUITest,
 
   static constexpr std::string_view kPromotionBannerVisibilityJavaScript = R"(
     (function () {
-      const element = document.getElementById('promotion-banner-section');
-      if (!element) return 'not-found';
-      return element.hidden ? 'hidden' : 'visible';
+      const element =
+        document.getElementsByTagName('promotion-banner-section-container')[0];
+      return element ? 'visible' : 'hidden';
     })();
   )";
 
   static constexpr std::string_view kPromotionBannerDismissJavaScript = R"(
-          document.getElementById('promotion-dismiss-button').click();
+    const promotionContainer =
+      document.getElementsByTagName('promotion-banner-section-container')[0];
+    if (promotionContainer){
+      const dismissButton =
+        promotionContainer.shadowRoot.getElementById('promotion-dismiss-button');
+      dismissButton.click();
+    }
   )";
 
   static constexpr std::string_view kBannerVisible = "visible";
   static constexpr std::string_view kBannerHidden = "hidden";
+
+  // The browser's locale needs to be "en-US" to be able to see the banner
+  static constexpr std::string_view kValidLocale = "en-US";
+  static constexpr std::string_view kInvalidLocale = "not-en-US";
 
  protected:
   void SetPromotionBannerDismissedPref(bool is_dismissed) {
     auto* prefs = browser()->profile()->GetPrefs();
     prefs->SetBoolean(policy::policy_prefs::kHasDismissedPolicyPagePromotionBanner,
                       is_dismissed);
+  }
+
+  void SetBrowserLocale(std::string_view locale){
+    g_browser_process->SetApplicationLocale(std::string(locale));
   }
 
  private:
@@ -1043,6 +1058,8 @@ IN_PROC_BROWSER_TEST_P(PolicyUIManagedStatusTest,
   policy::ScopedManagementServiceOverrideForTesting browser_management(
       policy::ManagementServiceFactory::GetForProfile(browser()->profile()),
       policy::EnterpriseManagementAuthority::CLOUD);
+
+  SetBrowserLocale(kValidLocale);
 
   SetPromotionBannerDismissedPref(false);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(),
@@ -1065,6 +1082,8 @@ IN_PROC_BROWSER_TEST_P(PolicyUIManagedStatusTest,
       policy::ManagementServiceFactory::GetForProfile(browser()->profile()),
       policy::EnterpriseManagementAuthority::NONE);
 
+  SetBrowserLocale(kValidLocale);
+
   SetPromotionBannerDismissedPref(false);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(),
                                            GURL(chrome::kChromeUIPolicyURL)));
@@ -1080,6 +1099,8 @@ IN_PROC_BROWSER_TEST_P(PolicyUIManagedStatusTest,
   policy::ScopedManagementServiceOverrideForTesting browser_management(
       policy::ManagementServiceFactory::GetForProfile(browser()->profile()),
       policy::EnterpriseManagementAuthority::CLOUD);
+
+  SetBrowserLocale(kValidLocale);
 
   SetPromotionBannerDismissedPref(true);
 
@@ -1098,6 +1119,8 @@ IN_PROC_BROWSER_TEST_P(PolicyUIManagedStatusTest,
       policy::ManagementServiceFactory::GetForProfile(browser()->profile()),
       policy::EnterpriseManagementAuthority::CLOUD);
 
+  SetBrowserLocale(kValidLocale);
+
   SetPromotionBannerDismissedPref(false);
 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(),
@@ -1112,7 +1135,25 @@ IN_PROC_BROWSER_TEST_P(PolicyUIManagedStatusTest,
   EXPECT_EQ(result, kBannerHidden);
 }
 
+IN_PROC_BROWSER_TEST_P(PolicyUIManagedStatusTest, HandleLocaleNotEnUSHidden) {
+  policy::ScopedManagementServiceOverrideForTesting browser_management(
+      policy::ManagementServiceFactory::GetForProfile(browser()->profile()),
+      policy::EnterpriseManagementAuthority::CLOUD);
+
+  SetBrowserLocale(kInvalidLocale);
+
+  SetPromotionBannerDismissedPref(false);
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(),
+                                           GURL(chrome::kChromeUIPolicyURL)));
+
+  auto result = EvalJs(browser()->tab_strip_model()->GetActiveWebContents(),
+                       kPromotionBannerVisibilityJavaScript)
+                    .ExtractString();
+  EXPECT_EQ(result, kBannerHidden);
+}
+
 INSTANTIATE_TEST_SUITE_P(PolicyManagedUITestInstance,
                          PolicyUIManagedStatusTest,
                          ::testing::Values(false, true));
-#endif
+#endif // !BUILDFLAG(IS_ANDROID)

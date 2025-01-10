@@ -4,9 +4,10 @@
 
 #import "components/autofill/ios/browser/test_autofill_java_script_feature_container.h"
 
-#import "components/autofill/ios/form_util/autofill_form_features_java_script_feature.h"
+#import "components/autofill/ios/browser/autofill_java_script_feature.h"
 #import "components/autofill/ios/form_util/autofill_renderer_id_java_script_feature.h"
 #import "components/autofill/ios/form_util/form_handlers_java_script_feature.h"
+#import "components/autofill/ios/form_util/remote_frame_registration_java_script_feature.h"
 
 namespace autofill {
 
@@ -16,8 +17,9 @@ TestAutofillJavaScriptFeatureContainer::
 TestAutofillJavaScriptFeatureContainer::
     ~TestAutofillJavaScriptFeatureContainer() {
   delete form_handlers_java_script_feature_;
-  delete autofill_form_features_java_script_feature_;
   delete autofill_renderer_id_java_script_feature_;
+  delete autofill_java_script_feature_;
+  delete remote_frame_registration_java_script_feature_;
 }
 
 FormHandlersJavaScriptFeature*
@@ -27,21 +29,11 @@ TestAutofillJavaScriptFeatureContainer::form_handlers_java_script_feature() {
     // FormUtilJavaScriptFeature instance. This way the form util instance is
     // created for the correct content world.
     form_handlers_java_script_feature_ = new FormHandlersJavaScriptFeature(
-        autofill_form_features_java_script_feature(),
-        autofill_renderer_id_java_script_feature());
+        autofill_renderer_id_java_script_feature(),
+        remote_frame_registration_java_script_feature());
   }
 
   return form_handlers_java_script_feature_;
-}
-
-AutofillFormFeaturesJavaScriptFeature* TestAutofillJavaScriptFeatureContainer::
-    autofill_form_features_java_script_feature() {
-  if (!autofill_form_features_java_script_feature_) {
-    autofill_form_features_java_script_feature_ =
-        new AutofillFormFeaturesJavaScriptFeature();
-  }
-
-  return autofill_form_features_java_script_feature_;
 }
 
 AutofillRendererIDJavaScriptFeature* TestAutofillJavaScriptFeatureContainer::
@@ -52,6 +44,25 @@ AutofillRendererIDJavaScriptFeature* TestAutofillJavaScriptFeatureContainer::
   }
 
   return autofill_renderer_id_java_script_feature_;
+}
+
+AutofillJavaScriptFeature*
+TestAutofillJavaScriptFeatureContainer::autofill_java_script_feature() {
+  if (!autofill_java_script_feature_) {
+    autofill_java_script_feature_ = new AutofillJavaScriptFeature(
+        autofill_renderer_id_java_script_feature());
+  }
+  return autofill_java_script_feature_;
+}
+
+RemoteFrameRegistrationJavaScriptFeature*
+TestAutofillJavaScriptFeatureContainer::
+    remote_frame_registration_java_script_feature() {
+  if (!remote_frame_registration_java_script_feature_) {
+    remote_frame_registration_java_script_feature_ =
+        new RemoteFrameRegistrationJavaScriptFeature();
+  }
+  return remote_frame_registration_java_script_feature_;
 }
 
 }  // namespace autofill

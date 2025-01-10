@@ -4,7 +4,6 @@
 
 #import "components/autofill/ios/form_util/autofill_form_features_java_script_feature.h"
 
-#import "components/autofill/ios/common/javascript_feature_util.h"
 #import "ios/web/public/js_messaging/java_script_feature_util.h"
 
 namespace {
@@ -22,7 +21,7 @@ AutofillFormFeaturesJavaScriptFeature::GetInstance() {
 
 AutofillFormFeaturesJavaScriptFeature::AutofillFormFeaturesJavaScriptFeature()
     : web::JavaScriptFeature(
-          ContentWorldForAutofillJavascriptFeatures(),
+          web::ContentWorld::kAllContentWorlds,
           {FeatureScript::CreateWithFilename(
               kFeaturesScriptName,
               FeatureScript::InjectionTime::kDocumentStart,
@@ -38,16 +37,18 @@ AutofillFormFeaturesJavaScriptFeature::
 void AutofillFormFeaturesJavaScriptFeature::SetAutofillAcrossIframes(
     web::WebFrame* frame,
     bool enabled) {
-  CallJavaScriptFunction(frame,
-                         "autofill_form_features.setAutofillAcrossIframes",
-                         base::Value::List().Append(enabled));
+  CHECK(frame);
+  frame->CallJavaScriptFunction(
+      "autofill_form_features.setAutofillAcrossIframes",
+      base::Value::List().Append(enabled));
 }
 
 void AutofillFormFeaturesJavaScriptFeature::SetAutofillIsolatedContentWorld(
     web::WebFrame* frame,
     bool enabled) {
-  CallJavaScriptFunction(
-      frame, "autofill_form_features.setAutofillIsolatedContentWorld",
+  CHECK(frame);
+  frame->CallJavaScriptFunction(
+      "autofill_form_features.setAutofillIsolatedContentWorld",
       base::Value::List().Append(enabled));
 }
 

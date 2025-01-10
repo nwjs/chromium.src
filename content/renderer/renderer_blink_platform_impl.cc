@@ -202,8 +202,7 @@ gpu::ContextType ToGpuContextType(blink::Platform::ContextType type) {
     case blink::Platform::kWebGPUContextType:
       return gpu::CONTEXT_TYPE_WEBGPU;
   }
-  NOTREACHED_IN_MIGRATION();
-  return gpu::CONTEXT_TYPE_OPENGLES2;
+  NOTREACHED();
 }
 
 }  // namespace

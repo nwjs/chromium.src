@@ -19,6 +19,7 @@ import static org.chromium.chrome.browser.toolbar.bottom.BottomControlsPropertie
 import static org.chromium.chrome.browser.toolbar.bottom.BottomControlsProperties.COMPOSITED_VIEW_VISIBLE;
 
 import android.app.Activity;
+import android.graphics.Color;
 
 import androidx.core.graphics.Insets;
 import androidx.core.view.WindowInsetsCompat;
@@ -36,6 +37,7 @@ import org.robolectric.annotation.Config;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
@@ -48,8 +50,8 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeControllerImpl;
-import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeSupplier.ChangeObserver;
 import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeStateProvider;
+import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeSupplier.ChangeObserver;
 import org.chromium.ui.InsetObserver;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.base.TestActivity;
@@ -153,9 +155,8 @@ public class BottomControlsMediatorTest {
     }
 
     @Test
+    @DisableFeatures(ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN)
     public void testEdgeToEdge_ToEdge_bottomChinDisabled() {
-        ChromeFeatureList.sEdgeToEdgeBottomChin.setForTesting(false);
-
         ChangeObserver changeObserver = mMediator.getEdgeToEdgeChangeObserverForTesting();
         changeObserver.onToEdgeChange(
                 DEFAULT_INSET, /* isDrawingToEdge= */ true, /* isPageOptInToEdge= */ false);
@@ -264,5 +265,14 @@ public class BottomControlsMediatorTest {
                 "Android view is not visible during overlay panel.",
                 mModel.get(ANDROID_VIEW_VISIBLE));
         verify(mBrowserControlsVisibilityDelegate).showControlsTransient();
+    }
+
+    @Test
+    public void testColorChange() {
+        mMediator.setBottomControlsColor(Color.RED);
+        verify(mBottomControlsStacker).notifyBackgroundColor(Color.RED);
+
+        mMediator.setBottomControlsColor(Color.BLUE);
+        verify(mBottomControlsStacker).notifyBackgroundColor(Color.BLUE);
     }
 }

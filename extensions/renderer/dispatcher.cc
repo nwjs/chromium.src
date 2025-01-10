@@ -1015,6 +1015,7 @@ void Dispatcher::OnEventDispatcherRequest(
     mojo::PendingAssociatedReceiver<mojom::EventDispatcher> dispatcher) {
   CHECK(!dispatcher_.is_bound());
   dispatcher_.Bind(std::move(dispatcher));
+  dispatcher_.reset_on_disconnect();
 }
 
 void Dispatcher::ActivateExtension(const ExtensionId& extension_id) {
@@ -1067,11 +1068,9 @@ void Dispatcher::LoadExtensions(
     scoped_refptr<const Extension> extension =
         ConvertToExtension(std::move(param), kRendererProfileId, &error);
     if (!extension.get()) {
-      NOTREACHED_IN_MIGRATION() << error;
       // Note: in tests |param.id| has been observed to be empty (see comment
       // just below) so this isn't all that reliable.
-      extension_load_errors_[id] = error;
-      continue;
+      NOTREACHED() << error;
     }
 
     RendererExtensionRegistry* extension_registry =

@@ -133,19 +133,22 @@ UIImage* ImageCroppedToFirstRows(UIImage* image, int numberOfRows) {
                                               image.CGImage, croppingRect)];
 }
 
+// Captures a snapshot of the given `UIWindow`.
+UIImage* CaptureSnapshotOfWindow(UIWindow* window) {
+  UIGraphicsImageRenderer* renderer =
+      [[UIGraphicsImageRenderer alloc] initWithSize:window.bounds.size];
+  return [renderer imageWithActions:^(UIGraphicsImageRendererContext* context) {
+    [window drawViewHierarchyInRect:window.bounds afterScreenUpdates:NO];
+  }];
+}
+
 // Creates a new window that displays a static image of the original window.
 UIWindow* CreateMirrorWindowFromBaseWindow(
     UIWindow* window,
     base::OnceClosure windowShownCallback) {
-  UIGraphicsImageRenderer* renderer =
-      [[UIGraphicsImageRenderer alloc] initWithSize:window.bounds.size];
-  UIImage* windowSnapshot =
-      [renderer imageWithActions:^(UIGraphicsImageRendererContext* context) {
-        [window drawViewHierarchyInRect:window.bounds afterScreenUpdates:NO];
-      }];
-
   UIWindow* mirrorWindow =
       [[UIWindow alloc] initWithWindowScene:window.windowScene];
+  UIImage* windowSnapshot = CaptureSnapshotOfWindow(window);
   mirrorWindow.rootViewController = [[SnapshotCoverViewController alloc]
       initWithImage:windowSnapshot
       onFirstAppear:base::CallbackToBlock(std::move(windowShownCallback))];
@@ -231,6 +234,31 @@ LensOverlaySnapshotController::LensOverlaySnapshotController(
 LensOverlaySnapshotController::~LensOverlaySnapshotController() {
   FinalizeCapturing();
   pending_snapshot_callbacks_.clear();
+}
+
+UIImage* LensOverlaySnapshotController::CropSnapshotToWindowSafeArea(
+    UIImage* snapshot) {
+  if (!base_window_) {
+    return snapshot;
+  }
+
+  UIEdgeInsets viewportInsets = base_window_.safeAreaInsets;
+  CGRect croppingRect = CGRectMake(
+      viewportInsets.left * snapshot.scale, viewportInsets.top * snapshot.scale,
+      (base_window_.bounds.size.width - viewportInsets.right) * snapshot.scale,
+      (base_window_.bounds.size.height - viewportInsets.bottom) *
+          snapshot.scale);
+
+  return [[UIImage alloc] initWithCGImage:CGImageCreateWithImageInRect(
+                                              snapshot.CGImage, croppingRect)];
+}
+
+UIImage* LensOverlaySnapshotController::CaptureSnapshotOfBaseWindow() {
+  if (!base_window_) {
+    return nil;
+  }
+
+  return CaptureSnapshotOfWindow(base_window_);
 }
 
 void LensOverlaySnapshotController::CaptureFullscreenSnapshot(

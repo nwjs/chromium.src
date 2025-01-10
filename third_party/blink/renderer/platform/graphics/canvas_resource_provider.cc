@@ -259,15 +259,17 @@ class CanvasResourceProviderSharedBitmap : public CanvasResourceProviderBitmap,
     if (!output_resource)
       return nullptr;
 
-    auto paint_image = MakeImageSnapshot(reason);
-    if (!paint_image)
+    FlushCanvas(reason);
+
+    auto sk_image = GetSkSurface()->makeImageSnapshot();
+    if (!sk_image) {
       return nullptr;
-    DCHECK(!paint_image.IsTextureBacked());
+    }
 
     // Note that the resource *must* be a CanvasResourceSharedBitmap as this
     // class creates CanvasResourceSharedBitmap instances exclusively.
     static_cast<CanvasResourceSharedBitmap*>(output_resource.get())
-        ->TakeSkImage(paint_image.GetSwSkImage());
+        ->TakeSkImage(std::move(sk_image));
 
     return output_resource;
   }
@@ -282,14 +284,13 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
       cc::PaintFlags::FilterQuality filter_quality,
       base::WeakPtr<WebGraphicsContext3DProviderWrapper>
           context_provider_wrapper,
-      bool is_origin_top_left,
       bool is_accelerated,
       gpu::SharedImageUsageSet shared_image_usage_flags,
       CanvasResourceHost* resource_host)
       : CanvasResourceProvider(kSharedImage,
                                info,
                                filter_quality,
-                               is_origin_top_left,
+                               /*is_origin_top_left=*/true,
                                std::move(context_provider_wrapper),
                                /*resource_dispatcher=*/nullptr,
                                resource_host),
@@ -414,10 +415,10 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
     if (IsGpuContextLost())
       return nullptr;
 
+    CHECK(IsOriginTopLeft());
     return CanvasResourceSharedImage::Create(
         GetSkImageInfo(), ContextProviderWrapper(), CreateWeakPtr(),
-        FilterQuality(), IsOriginTopLeft(), is_accelerated_,
-        shared_image_usage_flags_);
+        FilterQuality(), is_accelerated_, shared_image_usage_flags_);
   }
 
   bool UseOopRasterization() final { return use_oop_rasterization_; }
@@ -566,11 +567,8 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
             old_resource_shared_image->GetClientSharedImage()->mailbox();
         auto mailbox = resource()->GetClientSharedImage()->mailbox();
 
-        RasterInterface()->CopySharedImage(
-            old_mailbox, mailbox,
-            resource()->GetClientSharedImage()->GetTextureTarget(), 0, 0, 0, 0,
-            Size().width(), Size().height(), false /* unpack_flip_y */,
-            false /* unpack_premultiply_alpha */);
+        RasterInterface()->CopySharedImage(old_mailbox, mailbox, 0, 0, 0, 0,
+                                           Size().width(), Size().height());
       } else if (use_oop_rasterization_) {
         // If we're not copying over the previous contents, we need to ensure
         // that the image is cleared on the next BeginRasterCHROMIUM.
@@ -844,18 +842,14 @@ class CanvasResourceProviderPassThrough final : public CanvasResourceProvider {
   scoped_refptr<CanvasResource> CreateResource() final {
     // This class has no CanvasResource to provide: this must be imported via
     // ImportResource() and kept in the parent class.
-    NOTREACHED_IN_MIGRATION();
-    return nullptr;
+    NOTREACHED();
   }
 
   scoped_refptr<CanvasResource> ProduceCanvasResource(FlushReason) final {
     return NewOrRecycledResource();
   }
 
-  sk_sp<SkSurface> CreateSkSurface() const override {
-    NOTREACHED_IN_MIGRATION();
-    return nullptr;
-  }
+  sk_sp<SkSurface> CreateSkSurface() const override { NOTREACHED(); }
 
   scoped_refptr<StaticBitmapImage> Snapshot(FlushReason,
                                             ImageOrientation) override {
@@ -1153,13 +1147,9 @@ CanvasResourceProvider::CreateSharedImageProvider(
   }
 #endif
 
-  // Use top left origin for shared image CanvasResourceProviders since those
-  // can be used for rendering with Skia, and Skia's Graphite backend doesn't
-  // support bottom left origin SkSurfaces.
-  constexpr bool kIsOriginTopLeft = true;
   auto provider = std::make_unique<CanvasResourceProviderSharedImage>(
-      adjusted_info, filter_quality, context_provider_wrapper, kIsOriginTopLeft,
-      is_accelerated, shared_image_usage_flags, resource_host);
+      adjusted_info, filter_quality, context_provider_wrapper, is_accelerated,
+      shared_image_usage_flags, resource_host);
   if (provider->IsValid()) {
     if (should_initialize ==
         CanvasResourceProvider::ShouldInitialize::kCallClear)
@@ -1524,8 +1514,6 @@ void CanvasResourceProvider::NotifyWillTransfer(
 bool CanvasResourceProvider::OverwriteImage(
     const gpu::Mailbox& shared_image_mailbox,
     const gfx::Rect& copy_rect,
-    bool unpack_flip_y,
-    bool unpack_premultiply_alpha,
     const gpu::SyncToken& ready_sync_token,
     gpu::SyncToken& completion_sync_token) {
   gpu::raster::RasterInterface* raster = RasterInterface();
@@ -1539,10 +1527,9 @@ bool CanvasResourceProvider::OverwriteImage(
 
   raster->WaitSyncTokenCHROMIUM(ready_sync_token.GetConstData());
   raster->CopySharedImage(shared_image_mailbox, dst_client_si->mailbox(),
-                          dst_client_si->GetTextureTarget(), /*xoffset=*/0,
+                          /*xoffset=*/0,
                           /*yoffset=*/0, copy_rect.x(), copy_rect.y(),
-                          copy_rect.width(), copy_rect.height(), unpack_flip_y,
-                          unpack_premultiply_alpha);
+                          copy_rect.width(), copy_rect.height());
   raster->GenUnverifiedSyncTokenCHROMIUM(completion_sync_token.GetData());
   return true;
 }
@@ -1839,8 +1826,7 @@ uint32_t CanvasResourceProvider::ContentUniqueID() const {
 
 scoped_refptr<CanvasResource> CanvasResourceProvider::CreateResource() {
   // Needs to be implemented in subclasses that use resource recycling.
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 cc::ImageDecodeCache* CanvasResourceProvider::ImageDecodeCacheRGBA8() {

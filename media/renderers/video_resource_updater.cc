@@ -116,10 +116,8 @@ VideoFrameResourceType ExternalResourceTypeForHardwarePlanes(
                      ? VideoFrameResourceType::RGB
                      : VideoFrameResourceType::RGBA_PREMULTIPLIED;
         default:
-          NOTREACHED_IN_MIGRATION();
-          break;
+          NOTREACHED();
       }
-      break;
     case PIXEL_FORMAT_XR30:
     case PIXEL_FORMAT_XB30:
     case PIXEL_FORMAT_I420:
@@ -135,8 +133,7 @@ VideoFrameResourceType ExternalResourceTypeForHardwarePlanes(
       return VideoFrameResourceType::RGB;
 
     case PIXEL_FORMAT_UYVY:
-      NOTREACHED_IN_MIGRATION();
-      [[fallthrough]];
+      NOTREACHED();
     case PIXEL_FORMAT_I422:
     case PIXEL_FORMAT_I444:
     case PIXEL_FORMAT_I420A:
@@ -692,9 +689,11 @@ void VideoResourceUpdater::ObtainFrameResource(
   UMA_HISTOGRAM_ENUMERATION("Media.VideoResourceUpdater.FrameFormat",
                             video_frame->format(), PIXEL_FORMAT_MAX + 1);
 
-  if (video_frame->metadata().overlay_plane_id.has_value()) {
+  if (video_frame->storage_type() == VideoFrame::STORAGE_OPAQUE &&
+      video_frame->format() == VideoPixelFormat::PIXEL_FORMAT_UNKNOWN &&
+      video_frame->metadata().tracking_token.has_value()) {
     // This is a hole punching VideoFrame, there is nothing to display.
-    overlay_plane_id_ = *video_frame->metadata().overlay_plane_id;
+    overlay_plane_id_ = *video_frame->metadata().tracking_token;
     frame_resource_type_ = VideoFrameResourceType::VIDEO_HOLE;
     return;
   }
@@ -913,17 +912,13 @@ void VideoResourceUpdater::CopyHardwarePlane(
   HardwarePlaneResource* hardware_resource = plane_resource->AsHardware();
   hardware_resource->add_ref();
 
-  DCHECK_EQ(hardware_resource->texture_target(),
-            static_cast<GLenum>(GL_TEXTURE_2D));
-
   auto* ri = RasterInterface();
   ri->WaitSyncTokenCHROMIUM(video_frame->acquire_sync_token().GetConstData());
 
-  ri->CopySharedImage(
-      shared_image->mailbox(), hardware_resource->mailbox(), GL_TEXTURE_2D,
-      /*xoffset=*/0, /*yoffset=*/0, /*x=*/0, /*y=*/0,
-      output_plane_resource_size.width(), output_plane_resource_size.height(),
-      /*unpack_flip_y=*/false, /*unpack_premultiply_alpha=*/false);
+  ri->CopySharedImage(shared_image->mailbox(), hardware_resource->mailbox(),
+                      /*xoffset=*/0, /*yoffset=*/0, /*x=*/0, /*y=*/0,
+                      output_plane_resource_size.width(),
+                      output_plane_resource_size.height());
 
   // Wait (if the existing token isn't null) and replace it with a new one.
   //
@@ -1314,7 +1309,7 @@ bool VideoResourceUpdater::WriteYUVPixelsForAllPlanesToTexture(
             upload_image_stride / 2, resource_size_pixels.width(),
             resource_size_pixels.height(), bits_per_channel);
       } else {
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
       }
 
       pixels = upload_pixels_[plane_index].get();

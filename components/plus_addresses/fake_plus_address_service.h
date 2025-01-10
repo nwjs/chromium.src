@@ -52,6 +52,7 @@ class FakePlusAddressService : public PlusAddressService {
       SuggestionContext suggestion_context,
       autofill::PasswordFormClassification::Type form_type,
       autofill::SuggestionType suggestion_type) override;
+  void DidFillPlusAddress() override;
   void OnClickedRefreshInlineSuggestion(
       const url::Origin& last_committed_primary_main_frame_origin,
       base::span<const autofill::Suggestion> current_suggestions,
@@ -97,6 +98,7 @@ class FakePlusAddressService : public PlusAddressService {
                                 bool is_off_the_record) const override;
   void SavePlusProfile(const PlusProfile& profile) override;
   bool IsEnabled() const override;
+  void TriggerUserPerceptionSurvey(hats::SurveyType survey_type) override;
 
   // Resets the state of the class.
   void ClearState();
@@ -158,11 +160,20 @@ class FakePlusAddressService : public PlusAddressService {
     should_return_timeout_error_ = should_return_timeout_error;
   }
 
+  bool was_plus_address_suggestion_filled() {
+    return did_fill_plus_address_suggestion_;
+  }
+
+  std::optional<hats::SurveyType> get_triggered_survey_type() {
+    return triggered_survey_;
+  }
+
  private:
   PlusAddressRequestCallback on_confirmed_;
   testing::NiceMock<affiliations::MockAffiliationService>
       mock_affiliation_service_;
   std::vector<PlusProfile> plus_profiles_;
+  std::optional<hats::SurveyType> triggered_survey_;
   bool is_confirmed_ = false;
   bool should_fail_to_confirm_ = false;
   bool should_fail_to_reserve_ = false;
@@ -173,6 +184,7 @@ class FakePlusAddressService : public PlusAddressService {
   bool should_return_affiliated_plus_profile_on_confirm_ = false;
   bool should_return_quota_error_ = false;
   bool should_return_timeout_error_ = false;
+  bool did_fill_plus_address_suggestion_ = false;
 };
 
 }  // namespace plus_addresses

@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/views/bookmarks/saved_tab_groups/saved_tab_group_everything_menu.h"
 
 #include <memory>
+#include <optional>
 
 #include "base/metrics/user_metrics.h"
 #include "base/uuid.h"
@@ -21,7 +22,9 @@
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/saved_tab_groups/public/types.h"
 #include "ui/base/models/dialog_model.h"
+#include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/gfx/favicon_size.h"
+#include "ui/menus/simple_menu_model.h"
 #include "ui/views/controls/menu/menu_model_adapter.h"
 #include "ui/views/widget/widget.h"
 
@@ -160,10 +163,19 @@ std::unique_ptr<ui::SimpleMenuModel> STGEverythingMenu::CreateMenuModel() {
           group_icon);
     }
 
+    std::optional<int> index = menu_model->GetIndexOfCommandId(command_id);
+    CHECK(index);
+
+    if (tab_group->is_shared_tab_group()) {
+      menu_model->SetMinorIcon(index.value(),
+                               ui::ImageModel::FromVectorIcon(
+                                   kPeopleGroupIcon, ui::kColorMenuIcon,
+                                   ui::SimpleMenuModel::kDefaultIconSize));
+    }
+
     // Set the first tab group item with element id `kTabGroup`.
     if (i == 0) {
-      menu_model->SetElementIdentifierAt(
-          menu_model->GetIndexOfCommandId(command_id).value(), kTabGroup);
+      menu_model->SetElementIdentifierAt(index.value(), kTabGroup);
     }
   }
   return menu_model;
@@ -330,7 +342,7 @@ void STGEverythingMenu::RunMenu() {
   menu_runner_->RunMenuAt(
       widget_, menu_button_controller_,
       menu_button_controller_->button()->GetAnchorBoundsInScreen(),
-      views::MenuAnchorPosition::kTopLeft, ui::MENU_SOURCE_NONE);
+      views::MenuAnchorPosition::kTopLeft, ui::mojom::MenuSourceType::kNone);
 }
 
 void STGEverythingMenu::ExecuteCommand(int command_id, int event_flags) {
@@ -338,8 +350,8 @@ void STGEverythingMenu::ExecuteCommand(int command_id, int event_flags) {
   if (it != command_id_to_action_.end()) {
     auto type = it->second.type;
     if (type == Action::Type::OPEN_URL) {
-      SavedTabGroupUtils::OpenUrlToBrowser(browser_,
-                                           std::get<GURL>(it->second.element));
+      SavedTabGroupUtils::OpenUrlInNewUngroupedTab(
+          browser_, std::get<GURL>(it->second.element));
       return;
     }
 
@@ -388,7 +400,7 @@ void STGEverythingMenu::ExecuteCommand(int command_id, int event_flags) {
 bool STGEverythingMenu::ShowContextMenu(views::MenuItemView* source,
                                         int command_id,
                                         const gfx::Point& p,
-                                        ui::MenuSourceType source_type) {
+                                        ui::mojom::MenuSourceType source_type) {
   if (command_id == IDC_CREATE_NEW_TAB_GROUP) {
     return false;
   }

@@ -12,6 +12,8 @@
 #include "third_party/ink/src/ink/brush/brush_family.h"
 #include "third_party/ink/src/ink/brush/brush_paint.h"
 #include "third_party/ink/src/ink/brush/brush_tip.h"
+#include "third_party/ink/src/ink/color/color.h"
+#include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 
@@ -34,15 +36,26 @@ float GetOpacity(PdfInkBrush::Type type) {
     case PdfInkBrush::Type::kHighlighter:
       // LINT.IfChange(HighlighterOpacity)
       return 0.4f;
-      // LINT.ThenChange(//chrome/browser/resources/pdf/elements/viewer_side_panel.ts:HighlighterOpacity)
+      // LINT.ThenChange(//chrome/browser/resources/pdf/pdf_viewer_utils.ts:HighlighterOpacity)
     case PdfInkBrush::Type::kPen:
       return 1.0f;
   }
   NOTREACHED();
 }
 
-ink::Brush CreateInkBrush(PdfInkBrush::Type type, PdfInkBrush::Params params) {
-  CHECK_GT(params.size, 0);
+// ink::Brush actually uses ink::Color, but pdf/ uses SkColor. To avoid having
+// multiple color representations, do not expose ink::Color and just convert
+// `color`.
+ink::Color GetInkColorFromSkColor(SkColor color) {
+  return ink::Color::FromUint8(
+      /*red=*/SkColorGetR(color),
+      /*green=*/SkColorGetG(color),
+      /*blue=*/SkColorGetB(color),
+      /*alpha=*/SkColorGetA(color));
+}
+
+ink::Brush CreateInkBrush(PdfInkBrush::Type type, SkColor color, float size) {
+  CHECK(PdfInkBrush::IsToolSizeInRange(size));
 
   // TODO(crbug.com/353942923): Use real values here.
   ink::BrushTip tip;
@@ -56,12 +69,8 @@ ink::Brush CreateInkBrush(PdfInkBrush::Type type, PdfInkBrush::Params params) {
 
   auto brush = ink::Brush::Create(*family,
                                   /*color=*/
-                                  ink::Color::FromUint8(
-                                      /*red=*/SkColorGetR(params.color),
-                                      /*green=*/SkColorGetG(params.color),
-                                      /*blue=*/SkColorGetB(params.color),
-                                      /*alpha=*/SkColorGetA(params.color)),
-                                  /*size=*/params.size,
+                                  GetInkColorFromSkColor(color),
+                                  /*size=*/size,
                                   /*epsilon=*/0.1f);
   CHECK(brush.ok());
   return *brush;
@@ -93,13 +102,23 @@ std::optional<PdfInkBrush::Type> PdfInkBrush::StringToType(
 }
 
 // static
+std::string PdfInkBrush::TypeToString(Type brush_type) {
+  switch (brush_type) {
+    case Type::kHighlighter:
+      return "highlighter";
+    case Type::kPen:
+      return "pen";
+  }
+  NOTREACHED();
+}
+
+// static
 bool PdfInkBrush::IsToolSizeInRange(float size) {
   return size >= 1 && size <= 16;
 }
 
-PdfInkBrush::PdfInkBrush(Type brush_type, Params brush_params)
-    : ink_brush_(CreateInkBrush(brush_type, brush_params)) {
-}
+PdfInkBrush::PdfInkBrush(Type brush_type, SkColor color, float size)
+    : ink_brush_(CreateInkBrush(brush_type, color, size)) {}
 
 PdfInkBrush::~PdfInkBrush() = default;
 
@@ -112,6 +131,15 @@ gfx::Rect PdfInkBrush::GetInvalidateArea(const gfx::PointF& center1,
   gfx::Rect area2 = GetPointInvalidateArea(brush_diameter, center2);
   area2.Union(area1);
   return area2;
+}
+
+void PdfInkBrush::SetColor(SkColor color) {
+  ink_brush_.SetColor(GetInkColorFromSkColor(color));
+}
+
+void PdfInkBrush::SetSize(float size) {
+  auto size_result = ink_brush_.SetSize(std::move(size));
+  CHECK(size_result.ok());
 }
 
 }  // namespace chrome_pdf

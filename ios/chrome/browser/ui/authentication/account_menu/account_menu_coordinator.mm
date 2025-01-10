@@ -8,12 +8,15 @@
 
 #import "base/check.h"
 #import "base/memory/raw_ptr.h"
+#import "base/metrics/user_metrics.h"
+#import "base/metrics/user_metrics_action.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_service_utils.h"
 #import "components/sync/service/sync_user_settings.h"
 #import "components/trusted_vault/trusted_vault_server_constants.h"
+#import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/browser/policy/model/management_state.h"
 #import "ios/chrome/browser/policy/ui_bundled/management_util.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_service.h"
@@ -49,6 +52,7 @@
 #import "ios/chrome/browser/ui/authentication/signout_action_sheet/signout_action_sheet_coordinator.h"
 #import "ios/chrome/browser/ui/scoped_ui_blocker/scoped_ui_blocker.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_accounts/manage_accounts_coordinator.h"
+#import "ios/chrome/browser/ui/settings/google_services/manage_accounts/manage_accounts_coordinator_delegate.h"
 #import "ios/chrome/browser/ui/settings/settings_controller_protocol.h"
 #import "ios/chrome/browser/ui/settings/settings_root_view_controlling.h"
 #import "ios/chrome/browser/ui/settings/sync/sync_encryption_passphrase_table_view_controller.h"
@@ -57,6 +61,7 @@
 #import "ui/base/l10n/l10n_util.h"
 
 @interface AccountMenuCoordinator () <AccountMenuMediatorDelegate,
+                                      ManageAccountsCoordinatorDelegate,
                                       UIAdaptivePresentationControllerDelegate>
 
 // The view controller.
@@ -87,8 +92,9 @@
   raw_ptr<ChromeAccountManagerService> _accountManagerService;
   // Callback to hide the activity overlay.
   base::ScopedClosureRunner _activityOverlayCallback;
-  // The add account coordinator if it’s open.
-  SigninCoordinator* _addAccountCoordinator;
+  // The child signin coordinator if it’s open. It may be presented by the
+  // Manage Account’s coordinator view controller.
+  SigninCoordinator* _signinCoordinator;
 
   // Block the UI when the identity removal or switch is in progress.
   std::unique_ptr<ScopedUIBlocker> _UIBlocker;
@@ -103,7 +109,7 @@
 }
 
 - (void)dealloc {
-  CHECK(!_mediator);
+  DCHECK(!_mediator);
 }
 
 - (void)start {
@@ -120,6 +126,7 @@
                                            ApplicationCommands);
 
   _viewController = [[AccountMenuViewController alloc] init];
+
   _navigationController = [[UINavigationController alloc]
       initWithRootViewController:_viewController];
 
@@ -172,6 +179,7 @@
   _applicationHandler = nil;
   _syncService = nullptr;
   _accountManagerService = nullptr;
+  [self unblockOtherScenes];
   [super stop];
 }
 
@@ -179,6 +187,8 @@
 
 - (void)presentationControllerDidDismiss:
     (UIPresentationController*)presentationController {
+  base::RecordAction(
+      base::UserMetricsAction("Signin_AccountMenu_Dismissed_By_User"));
   // We assume the dismiss was done by the user.
   self.mediator.signinCoordinatorResult = SigninCoordinatorResultCanceledByUser;
   // UIShutdownNoDismiss because the UI is already dismissed.
@@ -205,19 +215,20 @@
                   weakSelf));
 }
 
-- (void)didTapEditAccountList {
+- (void)didTapManageAccounts {
+  CHECK(!_manageAccountsCoordinator, base::NotFatalUntil::M133);
   _manageAccountsCoordinator = [[ManageAccountsCoordinator alloc]
       initWithBaseViewController:_navigationController
                          browser:self.browser
        closeSettingsOnAddAccount:NO];
-  _manageAccountsCoordinator.showAddAccountButton = NO;
+  _manageAccountsCoordinator.delegate = self;
   _manageAccountsCoordinator.signoutDismissalByParentCoordinator = YES;
   [_manageAccountsCoordinator start];
 }
 
 - (void)signOutFromTargetRect:(CGRect)targetRect
                     forSwitch:(BOOL)forSwitch
-                     callback:(void (^)(BOOL))callback {
+                   completion:(void (^)(BOOL))completion {
   if (!_authenticationService->HasPrimaryIdentity(
           signin::ConsentLevel::kSignin)) {
     // This could happen in very rare cases, if the account somehow got removed
@@ -239,27 +250,17 @@
   __weak __typeof(self) weakSelf = self;
   _signoutActionSheetCoordinator.signoutCompletion = ^(BOOL success) {
     [weakSelf stopSignoutActionSheetCoordinator];
-    if (callback) {
-      callback(success);
+    if (completion) {
+      completion(success);
     }
   };
   [_signoutActionSheetCoordinator start];
 }
 
-- (void)didTapAddAccount:(ShowSigninCommandCompletionCallback)callback {
-  _addAccountCoordinator = [SigninCoordinator
-      addAccountCoordinatorWithBaseViewController:_navigationController
-                                          browser:self.browser
-                                      accessPoint:self.accessPoint];
-  __weak __typeof(self) weakSelf = self;
-  _addAccountCoordinator.signinCompletion =
-      ^(SigninCoordinatorResult signinResult,
-        SigninCompletionInfo* signinCompletionInfo) {
-        [weakSelf addAccountCompletionWithSigninResult:signinResult
-                                        completionInfo:signinCompletionInfo
-                                              callback:callback];
-      };
-  [_addAccountCoordinator start];
+- (void)didTapAddAccountWithCompletion:
+    (ShowSigninCommandCompletionCallback)completion {
+  [self openAddAccountWithBaseViewController:_navigationController
+                                  completion:completion];
 }
 
 - (void)mediatorWantsToBeDismissed:(AccountMenuMediator*)mediator {
@@ -306,12 +307,18 @@
   [snackbarCommandsHandler showSnackbarMessageOverBrowserToolbar:snackbarTitle];
 }
 
-- (void)blockOtherScene {
+- (BOOL)blockOtherScenesIfPossible {
   SceneState* sceneState = self.browser->GetSceneState();
+  if (sceneState.isUIBlocked) {
+    // This could occur due to race condition with multiple windows and
+    // simultaneous taps. See crbug.com/368310663.
+    return NO;
+  }
   _UIBlocker = std::make_unique<ScopedUIBlocker>(sceneState);
+  return YES;
 }
 
-- (void)unblockOtherScene {
+- (void)unblockOtherScenes {
   _UIBlocker.reset();
 }
 
@@ -319,6 +326,12 @@
 
 - (void)openPassphraseDialogWithModalPresentation:(BOOL)presentModally {
   CHECK(presentModally);
+  SceneState* sceneState = self.browser->GetSceneState();
+  if (sceneState.isUIBlocked) {
+    // This could occur due to race condition with multiple windows and
+    // simultaneous taps. See crbug.com/368310663.
+    return;
+  }
   _syncEncryptionPassphraseTableViewController =
       [[SyncEncryptionPassphraseTableViewController alloc]
           initWithBrowser:self.browser];
@@ -334,40 +347,47 @@
 }
 
 - (void)openTrustedVaultReauthForFetchKeys {
-  id<ApplicationCommands> applicationCommands =
-      static_cast<id<ApplicationCommands>>(
-          self.browser->GetCommandDispatcher());
   trusted_vault::SecurityDomainId securityDomainID =
       trusted_vault::SecurityDomainId::kChromeSync;
   syncer::TrustedVaultUserActionTriggerForUMA trigger =
       syncer::TrustedVaultUserActionTriggerForUMA::kSettings;
   signin_metrics::AccessPoint accessPoint =
       signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_MENU;
-  [applicationCommands
-      showTrustedVaultReauthForFetchKeysFromViewController:_navigationController
-                                          securityDomainID:securityDomainID
-                                                   trigger:trigger
-                                               accessPoint:accessPoint];
+  SigninTrustedVaultDialogIntent intent =
+      SigninTrustedVaultDialogIntentFetchKeys;
+  _signinCoordinator = [SigninCoordinator
+      trustedVaultReAuthenticationCoordinatorWithBaseViewController:
+          _navigationController
+                                                            browser:self.browser
+                                                             intent:intent
+                                                   securityDomainID:
+                                                       securityDomainID
+                                                            trigger:trigger
+                                                        accessPoint:
+                                                            accessPoint];
+  [self startSigninCoordinatorWithCompletion:nil];
 }
 
 - (void)openTrustedVaultReauthForDegradedRecoverability {
-  id<ApplicationCommands> applicationCommands =
-      static_cast<id<ApplicationCommands>>(
-          self.browser->GetCommandDispatcher());
   trusted_vault::SecurityDomainId securityDomainID =
       trusted_vault::SecurityDomainId::kChromeSync;
   syncer::TrustedVaultUserActionTriggerForUMA trigger =
       syncer::TrustedVaultUserActionTriggerForUMA::kSettings;
   signin_metrics::AccessPoint accessPoint =
       signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_MENU;
-  [applicationCommands
-      showTrustedVaultReauthForDegradedRecoverabilityFromViewController:
+  SigninTrustedVaultDialogIntent intent =
+      SigninTrustedVaultDialogIntentDegradedRecoverability;
+  _signinCoordinator = [SigninCoordinator
+      trustedVaultReAuthenticationCoordinatorWithBaseViewController:
           _navigationController
-                                                       securityDomainID:
-                                                           securityDomainID
-                                                                trigger:trigger
-                                                            accessPoint:
-                                                                accessPoint];
+                                                            browser:self.browser
+                                                             intent:intent
+                                                   securityDomainID:
+                                                       securityDomainID
+                                                            trigger:trigger
+                                                        accessPoint:
+                                                            accessPoint];
+  [self startSigninCoordinatorWithCompletion:nil];
 }
 
 - (void)openMDMErrodDialogWithSystemIdentity:(id<SystemIdentity>)identity {
@@ -375,14 +395,17 @@
 }
 
 - (void)openPrimaryAccountReauthDialog {
-  id<ApplicationCommands> applicationCommands =
-      static_cast<id<ApplicationCommands>>(
-          self.browser->GetCommandDispatcher());
-  ShowSigninCommand* signinCommand = [[ShowSigninCommand alloc]
-      initWithOperation:AuthenticationOperation::kPrimaryAccountReauth
-            accessPoint:signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_MENU];
-  [applicationCommands showSignin:signinCommand
-               baseViewController:_navigationController];
+  signin_metrics::AccessPoint accessPoint =
+      signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_MENU;
+  signin_metrics::PromoAction promoAction =
+      signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO;
+  _signinCoordinator = [SigninCoordinator
+      primaryAccountReauthCoordinatorWithBaseViewController:
+          _navigationController
+                                                    browser:self.browser
+                                                accessPoint:accessPoint
+                                                promoAction:promoAction];
+  [self startSigninCoordinatorWithCompletion:nil];
 }
 
 #pragma mark - SigninCoordinator
@@ -391,10 +414,9 @@
                  completion:(ProceduralBlock)completion {
   __weak __typeof(self) weakSelf = self;
   ProceduralBlock childrenCompletion = ^() {
-    [weakSelf runCompletionCallbackWithSigninResult:weakSelf.mediator
-                                                        .signinCoordinatorResult
-                                     completionInfo:weakSelf.mediator
-                                                        .signinCompletionInfo];
+    [weakSelf
+        runCompletionWithSigninResult:weakSelf.mediator.signinCoordinatorResult
+                       completionInfo:weakSelf.mediator.signinCompletionInfo];
     if (completion) {
       completion();
     }
@@ -403,23 +425,72 @@
                                      completion:childrenCompletion];
 }
 
+#pragma mark - ManageAccountsCoordinatorDelegate
+
+- (void)manageAccountsCoordinatorWantsToBeStopped:
+    (ManageAccountsCoordinator*)coordinator {
+  CHECK_EQ(coordinator, _manageAccountsCoordinator, base::NotFatalUntil::M133);
+  [self stopManageAccountsCoordinator];
+}
+
+- (void)manageAccountsCoordinator:
+            (ManageAccountsCoordinator*)manageAccountsCoordinator
+    didRequestAddAccountWithBaseViewController:(UIViewController*)viewController
+                                    completion:
+                                        (ShowSigninCommandCompletionCallback)
+                                            completion {
+  CHECK_EQ(manageAccountsCoordinator, _manageAccountsCoordinator);
+  [self openAddAccountWithBaseViewController:viewController
+                                  completion:completion];
+}
+
 #pragma mark - Private
+
+- (void)startSigninCoordinatorWithCompletion:
+    (ShowSigninCommandCompletionCallback)completion {
+  CHECK(_signinCoordinator);
+  __weak __typeof(self) weakSelf = self;
+  _signinCoordinator.signinCompletion = ^(
+      SigninCoordinatorResult signinResult,
+      SigninCompletionInfo* signinCompletionInfo) {
+    [weakSelf signinCoordinatorCompletionWithSigninResult:signinResult
+                                           completionInfo:signinCompletionInfo
+                                               completion:completion];
+  };
+  [_signinCoordinator start];
+}
+
+// Opens the add account coordinator on top of `baseViewController`.
+- (void)openAddAccountWithBaseViewController:baseViewController
+                                  completion:
+                                      (ShowSigninCommandCompletionCallback)
+                                          completion {
+  _signinCoordinator = [SigninCoordinator
+      addAccountCoordinatorWithBaseViewController:baseViewController
+                                          browser:self.browser
+                                      accessPoint:self.accessPoint];
+  [self startSigninCoordinatorWithCompletion:completion];
+}
 
 // Clean up the add account coordinator.
 - (void)
-    addAccountCompletionWithSigninResult:(SigninCoordinatorResult)signinResult
-                          completionInfo:(SigninCompletionInfo*)completionInfo
-                                callback:(ShowSigninCommandCompletionCallback)
-                                             callback {
-  [_addAccountCoordinator stop];
-  _addAccountCoordinator = nil;
-  if (callback) {
-    callback(signinResult, completionInfo);
+    signinCoordinatorCompletionWithSigninResult:
+        (SigninCoordinatorResult)signinResult
+                                 completionInfo:
+                                     (SigninCompletionInfo*)completionInfo
+                                     completion:
+                                         (ShowSigninCommandCompletionCallback)
+                                             completion {
+  [_signinCoordinator stop];
+  _signinCoordinator = nil;
+  if (completion) {
+    completion(signinResult, completionInfo);
   }
 }
 
 - (void)stopManageAccountsCoordinator {
   [_manageAccountsCoordinator stop];
+  _manageAccountsCoordinator.delegate = nil;
   _manageAccountsCoordinator = nil;
 }
 
@@ -453,18 +524,20 @@
     std::move(_accountDetailsControllerDismissCallback).Run(/*animated=*/false);
   }
   [self stopSignoutActionSheetCoordinator];
-  [self stopManageAccountsCoordinator];
   __weak __typeof(self) weakSelf = self;
   ProceduralBlock dismissAndCompletion = ^() {
+    // Add Account coordinator should be stopped before the Manage Accounts
+    // Coordinator, as the former may be presented by the latter.
+    [weakSelf stopManageAccountsCoordinator];
     [weakSelf dismissViewControllerAction:action completion:completion];
   };
-  if (_addAccountCoordinator) {
+  if (_signinCoordinator) {
     SigninCoordinatorInterrupt subviewAction =
         (action == SigninCoordinatorInterrupt::UIShutdownNoDismiss)
             ? SigninCoordinatorInterrupt::UIShutdownNoDismiss
             : SigninCoordinatorInterrupt::DismissWithoutAnimation;
-    [_addAccountCoordinator interruptWithAction:subviewAction
-                                     completion:dismissAndCompletion];
+    [_signinCoordinator interruptWithAction:subviewAction
+                                 completion:dismissAndCompletion];
   } else {
     dismissAndCompletion();
   }

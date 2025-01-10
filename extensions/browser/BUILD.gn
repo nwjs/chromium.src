@@ -4,11 +4,15 @@
 
 import("//build/config/chromeos/ui_mode.gni")
 import("//build/config/features.gni")
+import("//components/guest_view/buildflags/buildflags.gni")
 import("//extensions/buildflags/buildflags.gni")
 import("//pdf/features.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
 
 assert(enable_extensions_core)
+
+# If enable_extensions is true then enable_guest_view must also be true.
+assert(!enable_extensions || enable_guest_view)
 
 # The overarching "build all the things" for the browser side of the
 # //extensions module. In particular, this includes:
@@ -67,6 +71,7 @@ source_set("core_keyed_service_factories") {
   configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   deps = [
+    "//components/guest_view/buildflags",
     "//extensions/browser:browser_sources",
     "//extensions/browser/updater",
     "//extensions/buildflags",
@@ -511,6 +516,7 @@ source_set("browser_sources") {
     "//components/crash/core/common",
     "//components/crx_file",
     "//components/crx_file:crx_creator",
+    "//components/guest_view/buildflags",
     "//components/input",
     "//components/keyed_service/content",
     "//components/keyed_service/content:content",
@@ -569,6 +575,7 @@ source_set("browser_sources") {
     "//tools/json_schema_compiler:generated_api_util",
     "//ui/color",
     "//ui/display",
+    "//ui/menus",
     "//url",
   ]
 
@@ -823,10 +830,16 @@ source_set("unit_tests") {
     "api/declarative_net_request/indexed_ruleset_format_version_unittest.cc",
     "api/declarative_net_request/prefs_helper_unittest.cc",
     "api/declarative_net_request/ruleset_matcher_unittest.cc",
+    "api/idle/idle_api_unittest.cc",
     "api/storage/session_storage_manager_unittest.cc",
     "api/storage/settings_quota_unittest.cc",
     "api/storage/storage_api_unittest.cc",
     "api/storage/storage_frontend_unittest.cc",
+    "api/web_request/form_data_parser_unittest.cc",
+    "api/web_request/upload_data_presenter_unittest.cc",
+    "api/web_request/web_request_info_unittest.cc",
+    "api/web_request/web_request_permissions_unittest.cc",
+    "api/web_request/web_request_time_tracker_unittest.cc",
     "browser_frame_context_data_unittest.cc",
     "computed_hashes_unittest.cc",
     "content_hash_fetcher_unittest.cc",
@@ -945,7 +958,6 @@ source_set("unit_tests") {
       "api/file_handlers/app_file_handler_util_unittest.cc",
       "api/file_handlers/directory_util_unittest.cc",
       "api/file_handlers/mime_util_unittest.cc",
-      "api/idle/idle_api_unittest.cc",
       "api/mime_handler_private/mime_handler_private_unittest.cc",
       "api/power/power_api_unittest.cc",
       "api/runtime/restart_after_delay_api_unittest.cc",
@@ -954,11 +966,6 @@ source_set("unit_tests") {
       "api/sockets_udp/sockets_udp_api_unittest.cc",
       "api/system_info/system_info_api_unittest.cc",
       "api/system_network/system_network_api_unittest.cc",
-      "api/web_request/form_data_parser_unittest.cc",
-      "api/web_request/upload_data_presenter_unittest.cc",
-      "api/web_request/web_request_info_unittest.cc",
-      "api/web_request/web_request_permissions_unittest.cc",
-      "api/web_request/web_request_time_tracker_unittest.cc",
     ]
 
     deps += [

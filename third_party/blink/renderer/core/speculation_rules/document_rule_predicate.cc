@@ -585,7 +585,8 @@ DocumentRulePredicate* DocumentRulePredicate::Parse(
     HeapVector<Member<StyleRule>> selectors;
     HeapVector<CSSSelector> arena;
     CSSPropertyValueSet* empty_properties =
-        ImmutableCSSPropertyValueSet::Create(nullptr, 0, kUASheetMode);
+        ImmutableCSSPropertyValueSet::Create(base::span<CSSPropertyValue>(),
+                                             kUASheetMode);
     CSSParserContext* css_parser_context =
         MakeGarbageCollected<CSSParserContext>(*execution_context);
     for (auto* raw_selector : raw_selectors) {
@@ -631,20 +632,17 @@ DocumentRulePredicate* DocumentRulePredicate::MakeDefaultPredicate() {
 
 HeapVector<Member<DocumentRulePredicate>>
 DocumentRulePredicate::GetSubPredicatesForTesting() const {
-  NOTREACHED_IN_MIGRATION();
-  return {};
+  NOTREACHED();
 }
 
 HeapVector<Member<URLPattern>> DocumentRulePredicate::GetURLPatternsForTesting()
     const {
-  NOTREACHED_IN_MIGRATION();
-  return {};
+  NOTREACHED();
 }
 
 HeapVector<Member<StyleRule>> DocumentRulePredicate::GetStyleRulesForTesting()
     const {
-  NOTREACHED_IN_MIGRATION();
-  return {};
+  NOTREACHED();
 }
 
 void DocumentRulePredicate::Trace(Visitor*) const {}

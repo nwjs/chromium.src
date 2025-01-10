@@ -28,7 +28,7 @@
 #include "ash/system/mahi/mahi_ui_controller.h"
 #include "ash/system/mahi/mahi_ui_update.h"
 #include "ash/system/mahi/mahi_utils.h"
-#include "ash/system/mahi/summary_outlines_section.h"
+#include "ash/system/mahi/summary_outlines_elucidation_section.h"
 #include "ash/wm/system_panel_view.h"
 #include "base/check.h"
 #include "base/check_is_test.h"
@@ -38,6 +38,7 @@
 #include "base/time/time.h"
 #include "chromeos/components/magic_boost/public/cpp/views/experiment_badge.h"
 #include "chromeos/components/mahi/public/cpp/mahi_manager.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "chromeos/ui/vector_icons/vector_icons.h"
 #include "components/vector_icons/vector_icons.h"
 #include "third_party/skia/include/core/SkPath.h"
@@ -50,6 +51,7 @@
 #include "ui/color/color_id.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/geometry/insets.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/text_constants.h"
@@ -260,7 +262,7 @@ class GoToSummaryOutlinesButton : public IconButton,
         return GetVisible();
       case VisibilityState::kQuestionAndAnswer:
         return true;
-      case VisibilityState::kSummaryAndOutlines:
+      case VisibilityState::kSummaryAndOutlinesAndElucidation:
         return false;
     }
   }
@@ -318,7 +320,7 @@ class GoToQuestionAndAnswerButton : public IconButton,
         return GetVisible();
       case VisibilityState::kQuestionAndAnswer:
         return false;
-      case VisibilityState::kSummaryAndOutlines:
+      case VisibilityState::kSummaryAndOutlinesAndElucidation:
         return question_answer_view_has_contents_;
     }
   }
@@ -337,12 +339,15 @@ class GoToQuestionAndAnswerButton : public IconButton,
       case MahiUiUpdateType::kAnswerLoaded:
       case MahiUiUpdateType::kErrorReceived:
       case MahiUiUpdateType::kOutlinesLoaded:
+      case MahiUiUpdateType::kPanelBoundsChanged:
       case MahiUiUpdateType::kQuestionAndAnswerViewNavigated:
       case MahiUiUpdateType::kQuestionReAsked:
       case MahiUiUpdateType::kRefreshAvailabilityUpdated:
       case MahiUiUpdateType::kSummaryAndOutlinesReloaded:
       case MahiUiUpdateType::kSummaryAndOutlinesSectionNavigated:
       case MahiUiUpdateType::kSummaryLoaded:
+      case MahiUiUpdateType::kElucidationRequested:
+      case MahiUiUpdateType::kElucidationLoaded:
         return;
     }
   }
@@ -449,11 +454,14 @@ class MahiScrollView : public views::ScrollView,
       case MahiUiUpdateType::kContentsRefreshInitiated:
       case MahiUiUpdateType::kErrorReceived:
       case MahiUiUpdateType::kOutlinesLoaded:
+      case MahiUiUpdateType::kPanelBoundsChanged:
       case MahiUiUpdateType::kQuestionAndAnswerViewNavigated:
       case MahiUiUpdateType::kQuestionReAsked:
       case MahiUiUpdateType::kRefreshAvailabilityUpdated:
       case MahiUiUpdateType::kSummaryAndOutlinesReloaded:
       case MahiUiUpdateType::kSummaryLoaded:
+      case MahiUiUpdateType::kElucidationRequested:
+      case MahiUiUpdateType::kElucidationLoaded:
         break;
     }
     if (old_scroll_position != default_scroll_position_) {
@@ -496,18 +504,25 @@ MahiPanelView::MahiPanelView(MahiUiController* ui_controller)
 
   SetID(mahi_constants::ViewId::kMahiPanelView);
   SetUseDefaultFillLayout(true);
+
+  const ui::ColorId background_color_id =
+      chromeos::features::IsSystemBlurEnabled()
+          ? cros_tokens::kCrosSysSystemBaseElevated
+          : cros_tokens::kCrosSysSystemBaseElevatedOpaque;
   SetBackground(views::CreateThemedRoundedRectBackground(
-      cros_tokens::kCrosSysSystemBaseElevated,
-      mahi_constants::kPanelCornerRadius));
+      background_color_id, mahi_constants::kPanelCornerRadius));
 
   // Create a layer for the view for background blur and rounded corners.
   SetPaintToLayer();
   layer()->SetRoundedCornerRadius(
       gfx::RoundedCornersF{mahi_constants::kPanelCornerRadius});
-  layer()->SetFillsBoundsOpaquely(false);
   layer()->SetIsFastRoundedCorner(true);
-  layer()->SetBackgroundBlur(ColorProvider::kBackgroundBlurSigma);
-  layer()->SetBackdropFilterQuality(ColorProvider::kBackgroundBlurQuality);
+
+  if (chromeos::features::IsSystemBlurEnabled()) {
+    layer()->SetFillsBoundsOpaquely(false);
+    layer()->SetBackgroundBlur(ColorProvider::kBackgroundBlurSigma);
+    layer()->SetBackdropFilterQuality(ColorProvider::kBackgroundBlurQuality);
+  }
   SetBorder(std::make_unique<views::HighlightBorder>(
       mahi_constants::kPanelCornerRadius,
       views::HighlightBorder::Type::kHighlightBorderOnShadow,
@@ -598,8 +613,9 @@ MahiPanelView::MahiPanelView(MahiUiController* ui_controller)
                               mahi_constants::kScrollContentsViewBottomPadding,
                               0))
                           .AddChildren(
-                              views::Builder<SummaryOutlinesSection>(
-                                  std::make_unique<SummaryOutlinesSection>(
+                              views::Builder<SummaryOutlinesElucidationSection>(
+                                  std::make_unique<
+                                      SummaryOutlinesElucidationSection>(
                                       ui_controller_))
                                   .SetID(mahi_constants::ViewId::
                                              kSummaryOutlinesSection)
@@ -869,11 +885,17 @@ void MahiPanelView::OnUpdated(const MahiUiUpdate& update) {
       send_button_->SetEnabled(true);
       return;
     case MahiUiUpdateType::kContentsRefreshInitiated: {
-      content_source_button_->RefreshContentSourceInfo();
+      content_source_button_->RefreshContentSourceInfo(
+          /*elucidation_in_use=*/false);
 
       // Reset feedback buttons when new content is requested.
       thumbs_up_button_->SetToggled(false);
       thumbs_down_button_->SetToggled(false);
+      return;
+    }
+    case MahiUiUpdateType::kElucidationRequested: {
+      content_source_button_->RefreshContentSourceInfo(
+          /*elucidation_in_use=*/true);
       return;
     }
     case MahiUiUpdateType::kErrorReceived:
@@ -881,6 +903,7 @@ void MahiPanelView::OnUpdated(const MahiUiUpdate& update) {
       send_button_->SetEnabled(true);
       return;
     case MahiUiUpdateType::kOutlinesLoaded:
+    case MahiUiUpdateType::kPanelBoundsChanged:
     case MahiUiUpdateType::kQuestionAndAnswerViewNavigated:
     case MahiUiUpdateType::kQuestionPosted:
     case MahiUiUpdateType::kQuestionReAsked:
@@ -888,6 +911,7 @@ void MahiPanelView::OnUpdated(const MahiUiUpdate& update) {
     case MahiUiUpdateType::kSummaryLoaded:
     case MahiUiUpdateType::kSummaryAndOutlinesSectionNavigated:
     case MahiUiUpdateType::kSummaryAndOutlinesReloaded:
+    case MahiUiUpdateType::kElucidationLoaded:
       return;
   }
 }
@@ -933,6 +957,12 @@ void MahiPanelView::OnSendButtonPressed() {
         mahi_constants::kMahiButtonClickHistogramName,
         mahi_constants::PanelButton::kAskQuestionSendButton);
   }
+}
+
+void MahiPanelView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
+  gfx::Rect panel_bounds = GetLocalBounds();
+  layer()->SetClipRect(panel_bounds);
+  ui_controller_->NotifyPanelBoundsChanged(panel_bounds);
 }
 
 void MahiPanelView::OnThumbsUpButtonActive() {

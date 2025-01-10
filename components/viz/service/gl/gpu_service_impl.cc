@@ -551,10 +551,21 @@ void GpuServiceImpl::InitializeWithHost(
     mojo::PendingRemote<mojom::GpuHost> pending_gpu_host,
     gpu::GpuProcessShmCount use_shader_cache_shm_count,
     scoped_refptr<gl::GLSurface> default_offscreen_surface,
+    mojom::GpuServiceCreationParamsPtr creation_params,
+#if BUILDFLAG(IS_ANDROID)
     gpu::SyncPointManager* sync_point_manager,
     gpu::SharedImageManager* shared_image_manager,
     gpu::Scheduler* scheduler,
+#endif
     base::WaitableEvent* shutdown_event) {
+#if !BUILDFLAG(IS_ANDROID)
+  // On platforms other than Android these objects are *always* created
+  // internally.
+  gpu::SyncPointManager* sync_point_manager = nullptr;
+  gpu::SharedImageManager* shared_image_manager = nullptr;
+  gpu::Scheduler* scheduler = nullptr;
+#endif
+
   DCHECK(main_runner_->BelongsToCurrentThread());
 
   mojo::Remote<mojom::GpuHost> gpu_host(std::move(pending_gpu_host));
@@ -588,6 +599,10 @@ void GpuServiceImpl::InitializeWithHost(
     bool thread_safe_manager = true;
     owned_shared_image_manager_ = std::make_unique<gpu::SharedImageManager>(
         thread_safe_manager, display_context_on_another_thread);
+#if BUILDFLAG(IS_OZONE)
+    owned_shared_image_manager_->SetSupportsOverlays(
+        creation_params->supports_overlays);
+#endif
     shared_image_manager = owned_shared_image_manager_.get();
   }
 
@@ -1074,13 +1089,6 @@ std::string GpuServiceImpl::GetShaderPrefixKey() {
     std::string build_fp =
         base::android::BuildInfo::GetInstance()->android_build_fp();
     shader_prefix_key_ += "-" + build_fp;
-#elif BUILDFLAG(IS_CHROMEOS_LACROS)
-    // ChromeOS can update independently of Lacros and the GPU driver
-    // information is not enough to ensure blob compatibility. See
-    // crbug.com/1444684
-    std::string chromeos_version = base::SysInfo::OperatingSystemName() + " " +
-                                   base::SysInfo::OperatingSystemVersion();
-    shader_prefix_key_ += "-" + chromeos_version;
 #endif
   }
 

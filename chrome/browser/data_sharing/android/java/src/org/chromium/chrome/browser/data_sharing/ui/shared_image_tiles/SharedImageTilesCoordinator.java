@@ -9,13 +9,11 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
-import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.data_sharing.DataSharingService;
 import org.chromium.components.data_sharing.DataSharingUIDelegate;
 import org.chromium.components.data_sharing.GroupData;
@@ -40,6 +38,7 @@ public class SharedImageTilesCoordinator {
     private final Context mContext;
     private final PropertyModel mModel;
     private final SharedImageTilesView mView;
+    private final @SharedImageTilesType int mType;
     private final @NonNull DataSharingService mDataSharingService;
     private @NonNull String mCollaborationId;
     private int mAvailableMemberCount;
@@ -64,6 +63,7 @@ public class SharedImageTilesCoordinator {
                         .build();
         mContext = context;
         mDataSharingService = dataSharingService;
+        mType = type;
 
         mView =
                 (SharedImageTilesView)
@@ -103,6 +103,20 @@ public class SharedImageTilesCoordinator {
                 });
     }
 
+    /**
+     * Update the collaborationId for a SharedImageTiles component with a finished callback.
+     *
+     * @param collaborationId The new collaborationId or null to reset.
+     * @param finishedCallback The callback to notify about the SharedImageTiles update status.
+     */
+    public void updateCollaborationId(
+            @Nullable String collaborationId, Callback<Boolean> finishedCallback) {
+        updateCollaborationId(collaborationId);
+        // TODO(crbug.com/376329480): Implement face piles using bitmap and run finishedRunnable
+        // only when all views are populated.
+        finishedCallback.onResult(true);
+    }
+
     private void extractGroupMemberInfo(GroupData groupData) {
         List<String> emails = new ArrayList<>();
         for (GroupMember member : groupData.members) {
@@ -113,7 +127,7 @@ public class SharedImageTilesCoordinator {
         updateMembersCount(emails.size());
 
         // Let the UI delegate draw the icon tiles.
-        DataSharingUIDelegate dataSharingUiDelegate = mDataSharingService.getUIDelegate();
+        DataSharingUIDelegate dataSharingUiDelegate = mDataSharingService.getUiDelegate();
         assert dataSharingUiDelegate != null;
 
         Callback<Boolean> successCallback =
@@ -124,12 +138,13 @@ public class SharedImageTilesCoordinator {
                 };
 
         List<ViewGroup> iconViews = getAllIconViews();
+        int sizeInDp =
+                (mType == SharedImageTilesType.SMALL)
+                        ? R.dimen.small_shared_image_tiles_icon_height
+                        : R.dimen.shared_image_tiles_icon_height;
         AvatarConfig config =
                 new AvatarConfig.Builder()
-                        .setAvatarSizeInPixels(getAvatarSizeInPixels())
-                        .setAvatarBackgroundColor(getAvatarBackgroundColor())
-                        .setBorderColor(getBorderColor())
-                        .setBorderWidthInPixels(getBorderWidthInPixels())
+                        .setAvatarSizeInPixels(getAvatarSizeInPixels(sizeInDp))
                         .build();
 
         dataSharingUiDelegate.showAvatars(
@@ -140,22 +155,8 @@ public class SharedImageTilesCoordinator {
                 config);
     }
 
-    private int getAvatarSizeInPixels() {
-        return mContext.getResources()
-                .getDimensionPixelSize(R.dimen.shared_image_tiles_icon_total_height);
-    }
-
-    private @ColorInt int getAvatarBackgroundColor() {
-        return SemanticColorUtils.getColorPrimaryContainer(mContext);
-    }
-
-    private @ColorInt int getBorderColor() {
-        return SemanticColorUtils.getDefaultBgColor(mContext);
-    }
-
-    private int getBorderWidthInPixels() {
-        return mContext.getResources()
-                .getDimensionPixelSize(R.dimen.shared_image_tiles_icon_border);
+    private int getAvatarSizeInPixels(int sizeInDp) {
+        return mContext.getResources().getDimensionPixelSize(sizeInDp);
     }
 
     /** Populate the shared_image_tiles container with the specific icons. */
@@ -181,6 +182,9 @@ public class SharedImageTilesCoordinator {
                     SharedImageTilesProperties.REMAINING_TILES,
                     mAvailableMemberCount - maxTilesToShowWithNumberTile);
         }
+
+        // Re-style everything.
+        mModel.set(SharedImageTilesProperties.TYPE, mType);
     }
 
     /** Get the view component of SharedImageTiles. */
@@ -193,7 +197,9 @@ public class SharedImageTilesCoordinator {
         assert (mView.getChildCount() >= mIconTilesCount);
         List<ViewGroup> list = new ArrayList<>();
         for (int i = 0; i < mIconTilesCount; i++) {
-            View view = mView.getChildAt(i);
+            ViewGroup view_group = (ViewGroup) mView.getChildAt(i);
+            assert view_group.getChildCount() == 1;
+            View view = view_group.getChildAt(0);
             list.add((ViewGroup) view);
         }
         return list;

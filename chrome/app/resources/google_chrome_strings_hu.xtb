@@ -76,7 +76,6 @@
 <translation id="2008942457798486387">{NUM_EXTENSIONS,plural, =1{Ez a bővítmény már nem támogatott. A Chrome az eltávolítását javasolja.}other{Ezek a bővítmények már nem támogatottak. A Chrome az eltávolításukat javasolja.}}</translation>
 <translation id="2018528049276128029">Minden profil saját Chrome-adatokat (például könyvjelzőket, előzményeket, jelszavakat és egyebeket) tárol.</translation>
 <translation id="2018879682492276940">Sikertelen telepítés. Próbálja újra.</translation>
-<translation id="2022471217832964798">A fiókhozzáférés beállítása közben továbbra is használhatja a Chrome-ot. Előfordulhat, hogy a beállítás elvégzéséig nem tud hozzáférni egyes erőforrásokhoz.</translation>
 <translation id="2034233344106846793">A Chrome automatikusan frissíti a nem biztonságos kapcsolatokat HTTPS-re, amikor lehetséges</translation>
 <translation id="207902854391093810">A próbaidőszakok alatt a hirdetésmérés segítségével az Ön által felkeresett webhelyek olyan adatokat kérhetnek a Chrome-tól, amelyek segítségével a webhely mérheti hirdetéseinek teljesítményét. A hirdetésmérés azáltal korlátozza a webhelyeken átnyúló nyomon követést, hogy a lehető legkevesebb adatot továbbítja a webhelyek között.</translation>
 <translation id="2091012649849228750">Ha a jövőben Google Chrome-frissítéseket szeretne kapni, akkor a Windows 10 vagy újabb rendszerre lesz szüksége. Ezen a számítógépen a Windows 8 operációs rendszer fut.</translation>
@@ -245,6 +244,7 @@
 <translation id="3873044882194371212">Link megnyitása Chrome-inko&amp;gnitóablakban</translation>
 <translation id="3885770153807205175">Nyelvválasztó</translation>
 <translation id="3889417619312448367">A Google Chrome eltávolítása</translation>
+<translation id="3892148308691398805">Szöveg másolása</translation>
 <translation id="3941890832296813527">Telepítési hiba: A telepítő fájlneve érvénytelen vagy nem támogatott.</translation>
 <translation id="3973161977468201858">A Google Chrome törölni szeretné a Jelszókezelőhöz tartozó adatait. Az engedélyezéshez adja meg Windows-jelszavát.</translation>
 <translation id="398236277091248993">A Chrome gyors marad a teljesítménynövelő funkciókkal</translation>
@@ -299,6 +299,7 @@
 <translation id="4567424176335768812">A(z) <ph name="USER_EMAIL_ADDRESS" /> címmel van bejelentkezve. Elérheti könyvjelzőit, előzményeit és más beállításait minden olyan eszközön, amelyen bejelentkezett.</translation>
 <translation id="4571503333518166079">A Chrome értesítési beállításainak megnyitása</translation>
 <translation id="4575717501879784448">A Chrome inaktívvá teheti ezeket a lapokat a böngészési élmény javítása és erőforrások felszabadítása érdekében.</translation>
+<translation id="4595162648538023956">Bejelentkezhet, hogy hozzáférhessen a tartalmaihoz, de fiók nélkül is használhatja a Chrome-ot.</translation>
 <translation id="459622048091363950">Miután hozzáférést biztosított a Chrome-nak, a webhelyek is hozzáférést kérhetnek.</translation>
 <translation id="4600710005438004015">Nem sikerült a Chrome frissítése a legújabb verzióra, így Ön lemarad az új funkciókról és biztonsági javításokról.</translation>
 <translation id="4601439950572737842">Adatai az összetett jelszavával vannak titkosítva. Adja meg, ha Google-fiókjában Chrome-adatokat szeretne használni és menteni.</translation>
@@ -343,6 +344,7 @@
 <translation id="5163087008893166964">Üdvözöljük a Chrome-ban; új böngészőablak megnyitva</translation>
 <translation id="5166439563123238795">A Chrome-nak engedélyre van szüksége ahhoz, hogy követhesse az Ön kézmozgását</translation>
 <translation id="5170938038195470297">A profilja nem használható, mivel a Google Chrome egy újabb verziójából származik. Előfordulhat, hogy egyes funkciók nem érhetők el. Kérjük, adjon meg egy másik profilmappát, vagy használja a Google Chrome újabb verzióját.</translation>
+<translation id="5174969993834422967">Ön általában letiltja az értesítéseket. Ha azt szeretné, hogy ez a webhely küldjön értesítéseket, kattintson a helysáv jobb sarkában lévő értesítési ikonra.</translation>
 <translation id="5201744974236816379">Chrome-frissítés</translation>
 <translation id="521447420733633466">Ha megoszt egy eszközt, ismerősei és családtagjai külön fiókokban internetezve a saját kívánságaik szerint állíthatják be a Chrome-ot.</translation>
 <translation id="5234764350956374838">Elvetés</translation>
@@ -387,7 +389,6 @@
 <translation id="5895138241574237353">Újraindítás</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> – Hálózati bejelentkezés</translation>
 <translation id="5924017743176219022">Kapcsolódás az internethez…</translation>
-<translation id="5932997892801542621">Amikor beír valamit a címsávba vagy a keresőmezőbe, a Chrome elküldi a beírt szöveget a Google Drive-nak, hogy elemeket javasolhasson. Inkognitó módban ki van kapcsolva ez a funkció.</translation>
 <translation id="5940385492829620908">Az Ön könyvjelzői, valamint az internetezéssel és a Chrome-mal kapcsolatos egyéb dolgai vannak itt.</translation>
 <translation id="5941711191222866238">Kis méret</translation>
 <translation id="5941830788786076944">A Google Chrome beállítása alapértelmezett böngészőként</translation>
@@ -446,6 +447,7 @@
 <translation id="6497147134301593682">A Chrome automatikusan bezárult</translation>
 <translation id="6506909944137591434">A Chrome-nak kamerahasználati engedélyre van szüksége, hogy 3D-s térképet készíthessen az Ön környezetéről</translation>
 <translation id="6515495397637126556"><ph name="PAGE_TITLE" /> – Google Chrome Dev</translation>
+<translation id="6515549163407364048">Ha az összes számítógépén szeretne hozzáférni a bővítményeihez, jelentkezzen be a Chrome-ba.</translation>
 <translation id="6520670145826811516">A helyadatok használatához adjon hozzáférést a Chrome-nak a <ph name="BEGIN_LINK" />rendszerbeállításokban<ph name="END_LINK" /></translation>
 <translation id="659498884637196217">A Google Jelszókezelőben ezen az eszközön</translation>
 <translation id="6600016381025017075">Bármire rákereshet ezen az oldalon</translation>
@@ -539,6 +541,7 @@ A webhelyek és alkalmazások számára már megadott engedélyek erre a fiókra
 <translation id="7655455401911432608">Böngészési előzményei és az Ön által az ezen az eszközön használt Chrome-ban felkeresett webhelyek jegyzéke.</translation>
 <translation id="7655472416356262023">Fiók eltávolítása a Chrome-ból</translation>
 <translation id="7658239707568436148">Mégse</translation>
+<translation id="7659737857277959440">Szervezete láthatja és kezelheti a böngészési adatokat (például a könyvjelzőket, az előzményeket és a jelszavakat). A személyes Chrome-profilokban lévő böngészési adatokat viszont nem láthatja.</translation>
 <translation id="7661924425853052955">Nem látogatta meg mostanában. A Chrome eltávolította a következőket: <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> és további <ph name="COUNT" />.</translation>
 <translation id="7668816516367091728">Közvetlenül a címsávból hajthat végre feladatokat, például fordításokat, számításokat és egyebeket</translation>
 <translation id="7670287553302121848">A Chrome-fiók újbóli hitelesítést igényel</translation>
@@ -589,6 +592,7 @@ A webhelyek és alkalmazások számára már megadott engedélyek erre a fiókra
 <translation id="8129812357326543296">A &amp;Google Chrome névjegye</translation>
 <translation id="813913629614996137">Indítás…</translation>
 <translation id="8162006532256575008">Chrome használata fiók nélkül</translation>
+<translation id="8221491193165283816">Ön általában letiltja az értesítéseket. Ha azt szeretné, hogy ez a webhely küldjön értesítéseket, kattintson ide.</translation>
 <translation id="8255190535488645436">A Google Chrome használja a kamerát és a mikrofont.</translation>
 <translation id="8257796129973882597">A Chrome-menüből megnyithatja a könyvjelzőket, az olvasási módot és egyebeket</translation>
 <translation id="8267953129876836456">A Chrome talált néhány áttekintésre érdemes biztonsági javaslatot</translation>
@@ -620,6 +624,7 @@ A webhelyek és alkalmazások számára már megadott engedélyek erre a fiókra
 <translation id="852529348814672339">A Chrome megjelenítése ezen a nyelven</translation>
 <translation id="8550334526674375523">Ez a munkaprofil teljesen el van választva a személyes profiljától.</translation>
 <translation id="8555465886620020932">Szolgáltatáshiba: <ph name="SERVICE_ERROR" />.</translation>
+<translation id="856656450041460113">Keresés a nyelvek listájában</translation>
 <translation id="8571790202382503603">A Chrome-profilokkal különválaszthatja minden Chrome-anyagát. Így könnyebben különítheti el egymástól a munkát és a szórakozást.</translation>
 <translation id="8601359445272098721">Új! A „Képernyő fordítása” gombbal a képernyőn megjelenő szöveget és képeket is lefordíthatja</translation>
 <translation id="8614913330719544658">A Google Chrome nem válaszol. Újraindítja most?</translation>

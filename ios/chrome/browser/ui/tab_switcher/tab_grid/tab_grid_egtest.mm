@@ -345,7 +345,7 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
   web::test::SetUpSimpleHttpServer(responses);
 }
 
-- (void)tearDown {
+- (void)tearDownHelper {
   // Ensure that the default search engine is reset.
   if ([self isRunningTest:@selector
             (testSearchOnWebSuggestedActionInRegularTabsSearch)] ||
@@ -375,7 +375,7 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
     [ChromeEarlGrey signOutAndClearIdentities];
   }
 
-  [super tearDown];
+  [super tearDownHelper];
 }
 
 // Tests entering and leaving the tab grid.
@@ -463,10 +463,6 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
 // correctly recovered when pressing undo and there is no selection mode when
 // there are inactive tabs but no regular tabs.
 - (void)testCloseAllAndUndoCloseAllWithInactiveTabs {
-  if ([ChromeEarlGrey isIPadIdiom]) {
-    EARL_GREY_TEST_SKIPPED(@"Skipped for iPad. The Inactive Tabs feature is "
-                           @"only supported on iPhone.");
-  }
   [self loadTestURLsInNewTabs];
   [self relaunchAppWithInactiveTabsEnabled];
 
@@ -2874,6 +2870,15 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
       assertWithMatcher:grey_notNil()];
   [[EarlGrey selectElementWithMatcher:SearchBarWithSearchText(kTitle2)]
       assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Make sure that we can change the search text and so update the query.
+  PerformTabGridSearch(kTitle1);
+
+  // Make sure that search mode is still active and searching the new query.
+  [[EarlGrey selectElementWithMatcher:TabGridSearchModeToolbar()]
+      assertWithMatcher:grey_notNil()];
+  [[EarlGrey selectElementWithMatcher:SearchBarWithSearchText(kTitle1)]
+      assertWithMatcher:grey_sufficientlyVisible()];
 }
 
 // Tests that tapping on search history action in the Recent Tabs search mode
@@ -2919,6 +2924,15 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
   [[EarlGrey selectElementWithMatcher:TabGridSearchModeToolbar()]
       assertWithMatcher:grey_notNil()];
   [[EarlGrey selectElementWithMatcher:SearchBarWithSearchText(kTitle2)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Make sure that we can change the search text and so update the query.
+  PerformTabGridSearch(kTitle1);
+
+  // Make sure that search mode is still active and searching the new query.
+  [[EarlGrey selectElementWithMatcher:TabGridSearchModeToolbar()]
+      assertWithMatcher:grey_notNil()];
+  [[EarlGrey selectElementWithMatcher:SearchBarWithSearchText(kTitle1)]
       assertWithMatcher:grey_sufficientlyVisible()];
 }
 
@@ -3200,10 +3214,6 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
 // Tests that interacting with the Tab Grid search UI shows the correct header
 // at each step.
 - (void)testSearchHeaderWithInactiveTabs {
-  if ([ChromeEarlGrey isIPadIdiom]) {
-    EARL_GREY_TEST_SKIPPED(@"Skipped for iPad. The Inactive Tabs feature is "
-                           @"only supported on iPhone.");
-  }
   [self loadTestURLsInNewTabs];
   [self relaunchAppWithInactiveTabsEnabled];
 
@@ -3683,10 +3693,9 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
 - (void)relaunchAppWithInactiveTabsEnabled {
   AppLaunchConfiguration config;
   config.relaunch_policy = ForceRelaunchByCleanShutdown;
-  config.additional_args.push_back(
-      "--enable-features=" + std::string(kTabInactivityThreshold.name) + ":" +
-      kTabInactivityThresholdParameterName + "/" +
-      kTabInactivityThresholdImmediateDemoParam);
+  config.features_enabled.push_back(kInactiveTabsIPadFeature);
+  config.additional_args.push_back("-InactiveTabsTestMode");
+  config.additional_args.push_back("true");
   [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
 }
 

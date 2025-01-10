@@ -58,7 +58,7 @@ bool AreAllAudioCodecsSupported(const std::vector<AudioType>& audio_types) {
     return false;
   }
   for (const auto& type : audio_types) {
-    if (!IsSupportedAudioType(type)) {
+    if (!IsDecoderSupportedAudioType(type)) {
       return false;
     }
   }
@@ -70,7 +70,7 @@ bool AreAllVideoCodecsSupported(const std::vector<VideoType>& video_types) {
     return false;
   }
   for (const auto& type : video_types) {
-    if (!IsSupportedVideoType(type)) {
+    if (!IsDecoderSupportedVideoType(type)) {
       return false;
     }
   }
@@ -808,7 +808,8 @@ void HlsManifestDemuxerEngine::OnStreamContainerDetermined(
   host_->SetSequenceMode(parse_info.role, true);
 
   auto rendition = HlsRendition::CreateRendition(
-      host_, this, parse_info.role, std::move(playlist), parse_info.uri);
+      host_, this, parse_info.role, std::move(playlist), parse_info.uri,
+      media_log_.get());
 
   if (parse_info.role == kPrimary) {
     auto duration_or_live = rendition->GetDuration();

@@ -16,7 +16,8 @@ import type {SettingsToggleButtonElement} from '../controls/settings_toggle_butt
 import type {MetricsBrowserProxy} from '../metrics_browser_proxy.js';
 import {AiPageHistorySearchInteractions, MetricsBrowserProxyImpl} from '../metrics_browser_proxy.js';
 
-import {AiPageActions, FeatureOptInState} from './constants.js';
+import {getAiLearnMoreUrl} from './ai_learn_more_url_util.js';
+import {AiEnterpriseFeaturePrefName, AiPageActions, FeatureOptInState} from './constants.js';
 import {getTemplate} from './history_search_page.html.js';
 
 const SettingsHistorySearchPageElementBase = PrefsMixin(PolymerElement);
@@ -63,11 +64,18 @@ export class SettingsHistorySearchPageElement extends
               loadTimeData.getString('historySearchSettingSublabel');
         },
       },
+
+      enterprisePref_: {
+        type: Object,
+        computed:
+            `computePref(prefs.${AiEnterpriseFeaturePrefName.HISTORY_SEARCH})`,
+      },
     };
   }
 
   private enableAiSettingsPageRefresh_: boolean;
   private numericUncheckedValues_: FeatureOptInState[];
+  private enterprisePref_: chrome.settingsPrivate.PrefObject;
   private metricsBrowserProxy_: MetricsBrowserProxy =
       MetricsBrowserProxyImpl.getInstance();
 
@@ -108,6 +116,13 @@ export class SettingsHistorySearchPageElement extends
     this.recordInteractionMetrics_(
         AiPageHistorySearchInteractions.HISTORY_SEARCH_DISABLED,
         AiPageActions.HISTORY_SEARCH_DISABLED);
+  }
+
+  private getLearnMoreUrl_(): string {
+    return getAiLearnMoreUrl(
+        this.enterprisePref_,
+        loadTimeData.getString('historySearchLearnMoreUrl'),
+        loadTimeData.getString('historySearchLearnMoreManagedUrl'));
   }
 }
 

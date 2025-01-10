@@ -660,6 +660,7 @@ source_set("quiche_tests") {
     "src/quiche/quic/core/quic_chaos_protector_test.cc",
     "src/quiche/quic/core/quic_coalesced_packet_test.cc",
     "src/quiche/quic/core/quic_config_test.cc",
+    "src/quiche/quic/core/quic_connection_alarms_test.cc",
     "src/quiche/quic/core/quic_connection_context_test.cc",
     "src/quiche/quic/core/quic_connection_id_manager_test.cc",
     "src/quiche/quic/core/quic_connection_id_test.cc",
@@ -897,12 +898,9 @@ proto_library("blind_sign_auth_proto") {
 
   proto_in_dir = "src"
 
-  link_public_deps = [
-    "//base",
-    "//third_party/anonymous_tokens:anonymous_tokens_cc_proto",
-  ]
+  link_public_deps = [ "//base" ]
 
-  proto_data_sources = [ "//third_party/anonymous_tokens/src/anonymous_tokens/proto/anonymous_tokens.proto" ]
+  deps = [ "//third_party/anonymous_tokens:anonymous_tokens_cc_proto" ]
 
   import_dirs = [ "//third_party/anonymous_tokens/src/" ]
 

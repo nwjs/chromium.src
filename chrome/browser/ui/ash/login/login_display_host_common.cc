@@ -155,8 +155,7 @@ void SetGaiaInputMethods(const AccountId& account_id) {
 int ErrorToMessageId(SigninError error) {
   switch (error) {
     case SigninError::kCaptivePortalError:
-      NOTREACHED_IN_MIGRATION();
-      return 0;
+      NOTREACHED();
     case SigninError::kGoogleAccountNotAllowed:
       return IDS_LOGIN_ERROR_GOOGLE_ACCOUNT_NOT_ALLOWED;
     case SigninError::kOwnerRequired:
@@ -495,6 +494,10 @@ bool LoginDisplayHostCommon::HandleAccelerator(LoginAcceleratorAction action) {
   }
 
   return false;
+}
+
+void LoginDisplayHostCommon::SkipPostLoginScreensForDemoMode() {
+  wizard_context_->skip_post_login_screens_for_tests = true;
 }
 
 void LoginDisplayHostCommon::SetScreenAfterManagedTos(OobeScreenId screen_id) {

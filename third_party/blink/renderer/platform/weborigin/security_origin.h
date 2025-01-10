@@ -132,9 +132,9 @@ class PLATFORM_EXPORT SecurityOrigin : public RefCounted<SecurityOrigin> {
   void SetDomainFromDOM(const String& new_domain);
   bool DomainWasSetInDOM() const { return domain_was_set_in_dom_; }
 
-  String Protocol() const { return protocol_; }
-  String Host() const { return host_; }
-  String Domain() const { return domain_; }
+  const String& Protocol() const { return protocol_; }
+  const String& Host() const { return host_; }
+  const String& Domain() const { return domain_; }
   bool hasUniversalAccess() const { return universal_access_; }
 
   // Returns the registrable domain if available.
@@ -512,7 +512,7 @@ struct HashTraits<scoped_refptr<const blink::SecurityOrigin>>
 #error "Unknown bits"
 #endif
     };
-    return StringHasher::HashMemory<sizeof(hash_codes)>(hash_codes);
+    return StringHasher::HashMemory(base::as_byte_span(hash_codes));
   }
   static unsigned GetHash(
       const scoped_refptr<const blink::SecurityOrigin>& origin) {

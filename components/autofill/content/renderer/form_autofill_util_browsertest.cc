@@ -43,17 +43,17 @@
 namespace autofill::form_util {
 namespace {
 
-using autofill::mojom::ButtonTitleType;
-using blink::WebDocument;
-using blink::WebElement;
-using blink::WebElementCollection;
-using blink::WebFormControlElement;
-using blink::WebFormElement;
-using blink::WebInputElement;
-using blink::WebLocalFrame;
-using blink::WebNode;
-using blink::WebString;
-using blink::WebVector;
+using ::autofill::mojom::ButtonTitleType;
+using ::blink::WebDocument;
+using ::blink::WebElement;
+using ::blink::WebElementCollection;
+using ::blink::WebFormControlElement;
+using ::blink::WebFormElement;
+using ::blink::WebInputElement;
+using ::blink::WebLocalFrame;
+using ::blink::WebNode;
+using ::blink::WebString;
+using ::blink::WebVector;
 using ::testing::_;
 using ::testing::AllOf;
 using ::testing::ElementsAre;
@@ -178,6 +178,27 @@ const char* kPoorMansPlaceholderNoHorizontalContainment = R"(
   <span class=overlapping_position_and_size>not a label</span>
 )";
 
+const char* kSelectWithDefaultOption = R"(
+  <select id=target>
+    <option>Select country</option>
+    <hr>
+    <optgroup label=Countries>
+      <option value=AT>Austria</option>
+      <option value=DE>Germany</option>
+    </optgroup>
+  </select>
+)";
+
+auto HasRendererIdOf(const WebFormElement& e) {
+  return Property("FormData::renderer_id()", &FormData::renderer_id,
+                  GetFormRendererId(e));
+}
+
+auto HasRendererIdOf(const WebFormControlElement& e) {
+  return Property("FormFieldData::renderer_id()", &FormFieldData::renderer_id,
+                  GetFieldRendererId(e));
+}
+
 void VerifyButtonTitleCache(const WebFormElement& form_target,
                             const ButtonTitleList& expected_button_titles,
                             const ButtonTitlesCache& actual_cache) {
@@ -201,7 +222,8 @@ class FormAutofillUtilsTest : public content::RenderViewTest {
   FormAutofillUtilsTest() {
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/
-        {features::kAutofillReplaceCachedWebElementsByRendererIds},
+        {features::kAutofillReplaceCachedWebElementsByRendererIds,
+         features::kAutofillInferLabelFromDefaultSelectText},
         /*disabled_features=*/{});
   }
   ~FormAutofillUtilsTest() override = default;
@@ -473,7 +495,8 @@ TEST_F(FormAutofillUtilsTest, InferLabelForElementTest) {
        kPoorMansPlaceholderPossiblyErrorMessage, u""},
       {"Poor man's placeholder: no horizontal containment",
        kPoorMansPlaceholderNoHorizontalContainment, u""},
-  };
+      {"Select with default option", kSelectWithDefaultOption,
+       u"Select country"}};
   for (auto test_case : test_cases) {
     SCOPED_TRACE(test_case.description);
     LoadHTML(test_case.html);
@@ -517,7 +540,9 @@ TEST_F(FormAutofillUtilsTest, InferLabelSourceTest) {
       {"<dl><dt>label</dt><dd><input id='target'></dd></dl>",
        FormFieldData::LabelSource::kDdTag},
       {kPoorMansPlaceholderFullOverlap,
-       FormFieldData::LabelSource::kOverlayingLabel}};
+       FormFieldData::LabelSource::kOverlayingLabel},
+      {kSelectWithDefaultOption,
+       FormFieldData::LabelSource::kDefaultSelectText}};
 
   for (auto test_case : test_cases) {
     SCOPED_TRACE(testing::Message() << test_case.label_source);
@@ -550,9 +575,9 @@ TEST_F(FormAutofillUtilsTest, GetButtonTitles) {
   WebFormElement form_target = GetFormElementById(GetDocument(), "target");
   ButtonTitlesCache cache;
 
-  autofill::ButtonTitleList actual = GetButtonTitles(form_target, &cache);
+  ButtonTitleList actual = GetButtonTitles(form_target, &cache);
 
-  autofill::ButtonTitleList expected = {
+  ButtonTitleList expected = {
       {u"Sign Up", ButtonTitleType::BUTTON_ELEMENT_SUBMIT_TYPE}};
   EXPECT_EQ(expected, actual);
 
@@ -573,7 +598,7 @@ TEST_F(FormAutofillUtilsTest, GetButtonTitles_TooLongTitle) {
   WebFormElement form_target = GetFormElementById(GetDocument(), "target");
   ButtonTitlesCache cache;
 
-  autofill::ButtonTitleList actual = GetButtonTitles(form_target, &cache);
+  ButtonTitleList actual = GetButtonTitles(form_target, &cache);
 
   int total_length = 0;
   for (const auto& [title, title_type] : actual) {
@@ -601,9 +626,9 @@ TEST_F(FormAutofillUtilsTest, GetButtonTitles_NoCache) {
   LoadHTML(kHtml);
   WebFormElement form_target = GetFormElementById(GetDocument(), "target");
 
-  autofill::ButtonTitleList expected = {
+  ButtonTitleList expected = {
       {u"Sign Up", ButtonTitleType::BUTTON_ELEMENT_SUBMIT_TYPE}};
-  autofill::ButtonTitleList actual =
+  ButtonTitleList actual =
       GetButtonTitles(form_target, /*button_titles_cache=*/nullptr);
   EXPECT_EQ(expected, actual);
 }
@@ -1007,6 +1032,61 @@ TEST_F(FormAutofillUtilsTest,
   auto form_control = GetElementById(doc, "t").To<WebInputElement>();
   ExecuteJavaScriptForTests(R"(document.getElementById('t').remove();)");
   EXPECT_EQ(FindFormAndFieldForFormControlElement(form_control), std::nullopt);
+}
+
+// Tests that Autofill form ownership follows Blink form's association, which,
+// in compliance with the HTML standard, associates forms with an unclosed
+// <form> element.
+// Regression test for crbug.com/347059988#comment40.
+TEST_F(FormAutofillUtilsTest,
+       FindFormAndFieldForFormControlElement_DramaticallyBadMarkup) {
+  auto is_ancestor = [](const WebElement& ancestor, WebNode descendant) {
+    do {
+      if (ancestor == descendant) {
+        return true;
+      }
+    } while ((descendant = descendant.ParentNode()));
+    return false;
+  };
+
+  // The following markup is intentionally bad!
+  LoadHTML(R"(
+    <!DOCTYPE html>
+    <div>
+      <form id=f1>
+        <div>
+          </form>
+          <form id=f2>
+        </div>
+    </div>
+    <input id=t>
+  )");
+  // This leads to the same DOM as
+  //   <div>
+  //     <form id=f1>
+  //       <div>
+  //         <form id=f2>
+  //         </form>
+  //       </div>
+  //     </form>
+  //   </div>
+  //   <input id=t>
+  // but it associates `t` with `f2`.
+
+  WebDocument doc = GetDocument();
+  auto f1 = GetElementById(doc, "f1").To<WebFormElement>();
+  auto f2 = GetElementById(doc, "f2").To<WebFormElement>();
+  auto t = GetElementById(doc, "t").To<WebInputElement>();
+
+  ASSERT_TRUE(is_ancestor(f1, f2));
+  ASSERT_FALSE(is_ancestor(f1, t));
+  ASSERT_EQ(t.Form(), f2);  // nocheck
+
+  EXPECT_THAT(FindFormAndFieldForFormControlElement(t),
+              Optional(Pair(AllOf(HasRendererIdOf(f1),
+                                  Property(&FormData::fields,
+                                           ElementsAre(HasRendererIdOf(t)))),
+                            _)));
 }
 
 // Tests the visibility detection of iframes.

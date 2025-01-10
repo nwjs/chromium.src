@@ -65,20 +65,26 @@ enum StreamFormat {
   STREAM_FORMAT_MAX = 4,
 };
 
-// Used to log errors in `AudioManagerBase::MakeAudioInputStream`.
-// These values are persisted to logs. Entries should not be renumbered and
-// numeric values should never be reused.
-enum class MakeAudioInputStreamResult {
+// Used to log errors in `AudioManagerBase::MakeAudioInputStream` and
+// `AudioManagerBase::MakeAudioOutputStream`. These values are persisted to
+// logs. Entries should not be renumbered and numeric values should never be
+// reused.
+enum class MakeAudioStreamResult {
   kNoError = 0,
   kErrorSwitchFailAudioStreamCreation = 1,
   kErrorInvalidParams = 2,
-  kErrorExcessiveInputStreams = 3,
+  kErrorExcessiveStreams = 3,
   kErrorCreateStream = 4,
   kMaxValue = kErrorCreateStream
 };
 
-void LogMakeAudioInputStreamResult(MakeAudioInputStreamResult result) {
+void LogMakeAudioInputStreamResult(MakeAudioStreamResult result) {
   base::UmaHistogramEnumeration("Media.Audio.MakeAudioInputStreamStatus",
+                                result);
+}
+
+void LogMakeAudioOutputStreamResult(MakeAudioStreamResult result) {
+  base::UmaHistogramEnumeration("Media.Audio.MakeAudioOutputStreamStatus",
                                 result);
 }
 
@@ -214,6 +220,8 @@ AudioOutputStream* AudioManagerBase::MakeAudioOutputStream(
 
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kFailAudioStreamCreation)) {
+    LogMakeAudioOutputStreamResult(
+        MakeAudioStreamResult::kErrorSwitchFailAudioStreamCreation);
     return nullptr;
   }
 
@@ -228,6 +236,8 @@ AudioOutputStream* AudioManagerBase::MakeAudioOutputStream(
     LOG(ERROR) << "Number of opened output audio streams "
                << num_output_streams_ << " exceed the max allowed number "
                << max_num_output_streams_;
+    LogMakeAudioOutputStreamResult(
+        MakeAudioStreamResult::kErrorExcessiveStreams);
     return nullptr;
   }
 
@@ -262,6 +272,9 @@ AudioOutputStream* AudioManagerBase::MakeAudioOutputStream(
     SendLogMessage(log_callback, "%s => (number of streams=%d)", __func__,
                    output_stream_count());
   }
+  LogMakeAudioOutputStreamResult(
+      stream ? MakeAudioStreamResult::kNoError
+             : MakeAudioStreamResult::kErrorCreateStream);
 
   return stream;
 }
@@ -282,7 +295,7 @@ AudioInputStream* AudioManagerBase::MakeAudioInputStream(
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kFailAudioStreamCreation)) {
     LogMakeAudioInputStreamResult(
-        MakeAudioInputStreamResult::kErrorSwitchFailAudioStreamCreation);
+        MakeAudioStreamResult::kErrorSwitchFailAudioStreamCreation);
     return nullptr;
   }
 
@@ -300,8 +313,7 @@ AudioInputStream* AudioManagerBase::MakeAudioInputStream(
       device_id.empty()) {
     DLOG(ERROR) << "Audio parameters are invalid for device " << device_id
                 << ", params: " << params.AsHumanReadableString();
-    LogMakeAudioInputStreamResult(
-        MakeAudioInputStreamResult::kErrorInvalidParams);
+    LogMakeAudioInputStreamResult(MakeAudioStreamResult::kErrorInvalidParams);
     return nullptr;
   }
 
@@ -310,7 +322,7 @@ AudioInputStream* AudioManagerBase::MakeAudioInputStream(
                << input_stream_count() << " exceed the max allowed number "
                << kMaxInputStreams;
     LogMakeAudioInputStreamResult(
-        MakeAudioInputStreamResult::kErrorExcessiveInputStreams);
+        MakeAudioStreamResult::kErrorExcessiveStreams);
     return nullptr;
   }
 
@@ -357,8 +369,8 @@ AudioInputStream* AudioManagerBase::MakeAudioInputStream(
   }
 
   LogMakeAudioInputStreamResult(
-      stream ? MakeAudioInputStreamResult::kNoError
-             : MakeAudioInputStreamResult::kErrorCreateStream);
+      stream ? MakeAudioStreamResult::kNoError
+             : MakeAudioStreamResult::kErrorCreateStream);
 
   return stream;
 }
@@ -441,10 +453,11 @@ AudioOutputStream* AudioManagerBase::MakeAudioOutputStreamProxy(
         uma_stream_format = STREAM_FORMAT_FAKE;
         break;
       default:
-        if (output_params.IsBitstreamFormat())
+        if (output_params.IsBitstreamFormat()) {
           uma_stream_format = STREAM_FORMAT_BITSTREAM;
-        else
-          NOTREACHED_IN_MIGRATION();
+        } else {
+          NOTREACHED();
+        }
     }
   }
 
@@ -452,7 +465,7 @@ AudioOutputStream* AudioManagerBase::MakeAudioOutputStreamProxy(
     UMA_HISTOGRAM_ENUMERATION("Media.AudioOutputStreamProxy.StreamFormat",
                               *uma_stream_format, STREAM_FORMAT_MAX + 1);
   } else {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 
   auto dispatcher_params = std::make_unique<DispatcherParams>(

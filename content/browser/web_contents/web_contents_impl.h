@@ -27,8 +27,10 @@
 #include "base/process/kill.h"
 #include "base/scoped_observation.h"
 #include "base/time/time.h"
+#include "base/types/pass_key.h"
 #include "build/build_config.h"
 #include "components/download/public/common/download_url_parameters.h"
+#include "components/input/render_input_router.mojom.h"
 #include "components/input/render_widget_host_input_event_router.h"
 #include "content/browser/media/audio_stream_monitor.h"
 #include "content/browser/media/forwarding_audio_stream_factory.h"
@@ -136,6 +138,7 @@ class JavaScriptDialogManager;
 class MediaSession;
 class MediaWebContentsObserver;
 class NFCHost;
+class PartitionedPopinsController;
 class RenderFrameHost;
 class RenderFrameHostImpl;
 class RenderViewHost;
@@ -204,7 +207,8 @@ class CONTENT_EXPORT WebContentsImpl
       public ui::NativeThemeObserver,
       public ui::ColorProviderSourceObserver,
       public SlowWebPreferenceCacheObserver,
-      public input::RenderWidgetHostInputEventRouter::Delegate {
+      public input::RenderWidgetHostInputEventRouter::Delegate,
+      public input::mojom::RenderInputRouterDelegateClient {
  public:
   class FriendWrapper;
 
@@ -447,11 +451,7 @@ class CONTENT_EXPORT WebContentsImpl
   bool IsAudioMuted() override;
   void SetAudioMuted(bool mute) override;
   bool IsCurrentlyAudible() override;
-  bool IsConnectedToBluetoothDevice() override;
-  bool IsScanningForBluetoothDevices() override;
-  bool IsConnectedToSerialPort() override;
-  bool IsConnectedToHidDevice() override;
-  bool IsConnectedToUsbDevice() override;
+  bool IsCapabilityActive(CapabilityType capability_type) override;
   bool HasFileSystemAccessHandles() override;
   bool HasPictureInPictureVideo() override;
   bool HasPictureInPictureDocument() override;
@@ -473,6 +473,8 @@ class CONTENT_EXPORT WebContentsImpl
       std::unique_ptr<WebContents> inner_web_contents,
       RenderFrameHost* render_frame_host,
       bool is_full_page) override;
+  void AttachGuestPage(std::unique_ptr<GuestPageHolder> guest_page,
+                       RenderFrameHost* outer_render_frame_host) override;
   bool IsInnerWebContentsForGuest() override;
   RenderFrameHostImpl* GetOuterWebContentsFrame() override;
   WebContentsImpl* GetOuterWebContents() override;
@@ -615,6 +617,7 @@ class CONTENT_EXPORT WebContentsImpl
   bool HasRecentInteraction() override;
   [[nodiscard]] ScopedIgnoreInputEvents IgnoreInputEvents(
       std::optional<WebInputEventAuditCallback> audit_callback) override;
+  bool ShouldIgnoreInputEventsForTesting() override;
   bool HasActiveEffectivelyFullscreenVideo() override;
   void WriteIntoTrace(perfetto::TracedValue context) override;
   const base::Location& GetCreatorLocation() override;
@@ -664,7 +667,7 @@ class CONTENT_EXPORT WebContentsImpl
   void RenderFrameCreated(RenderFrameHostImpl* render_frame_host) override;
   void RenderFrameDeleted(RenderFrameHostImpl* render_frame_host) override;
   void ShowContextMenu(
-      RenderFrameHost& render_frame_host,
+      RenderFrameHostImpl& render_frame_host,
       mojo::PendingAssociatedRemote<blink::mojom::ContextMenuClient>
           context_menu_client,
       const ContextMenuParams& params) override;
@@ -754,8 +757,6 @@ class CONTENT_EXPORT WebContentsImpl
 #if BUILDFLAG(IS_ANDROID)
   void UpdateUserGestureCarryoverInfo() override;
 #endif
-  bool ShouldRouteMessageEvent(RenderFrameHostImpl* target_rfh) const override;
-  void EnsureOpenerProxiesExist(RenderFrameHostImpl* source_rfh) override;
   void DidCallFocus() override;
   void OnFocusedElementChangedInFrame(
       RenderFrameHostImpl* frame,
@@ -917,6 +918,7 @@ class CONTENT_EXPORT WebContentsImpl
                             int error_code) override;
   void DraggableRegionsChanged(
       const std::vector<blink::mojom::DraggableRegionPtr>& regions) override;
+  void OnFirstContentfulPaintInPrimaryMainFrame() override;
 
   // RenderViewHostDelegate ----------------------------------------------------
   RenderViewHostDelegateView* GetDelegateView() override;
@@ -932,7 +934,8 @@ class CONTENT_EXPORT WebContentsImpl
       int32_t line_no,
       const std::u16string& source_id,
       const std::optional<std::u16string>& untrusted_stack_trace) override;
-  const blink::RendererPreferences& GetRendererPrefs() const override;
+  const blink::RendererPreferences& GetRendererPrefs(
+      RenderViewHostImpl* render_view_host) override;
   void DidReceiveInputEvent(RenderWidgetHostImpl* render_widget_host,
                             const blink::WebInputEvent& event) override;
   bool ShouldIgnoreWebInputEvents(const blink::WebInputEvent& event) override;
@@ -949,6 +952,10 @@ class CONTENT_EXPORT WebContentsImpl
       override;
   void RequestMediaAccessPermission(const MediaStreamRequest& request,
                                     MediaResponseCallback callback) override;
+
+  void ProcessSelectAudioOutput(const SelectAudioOutputRequest& request,
+                                SelectAudioOutputCallback callback) override;
+
   bool CheckMediaAccessPermission(RenderFrameHostImpl* render_frame_host,
                                   const url::Origin& security_origin,
                                   blink::mojom::MediaStreamType type) override;
@@ -969,6 +976,7 @@ class CONTENT_EXPORT WebContentsImpl
       const std::string& embedder_histogram_suffix,
       ui::PageTransition page_transition,
       bool should_warm_up_compositor,
+      bool should_prepare_paint_tree,
       PreloadingHoldbackStatus holdback_status_override,
       PreloadingAttempt* preloading_attempt,
       base::RepeatingCallback<bool(const GURL&,
@@ -1211,6 +1219,18 @@ class CONTENT_EXPORT WebContentsImpl
   //  RenderWidgetHostInputEventRouter::Delegate -------------------------------
   input::TouchEmulator* GetTouchEmulator(bool create_if_necessary) override;
 
+  // input::mojom::RenderInputRouterDelegateClient -----------------------------
+  void NotifyObserversOfInputEvent(
+      const viz::FrameSinkId& frame_sink_id,
+      std::unique_ptr<blink::WebCoalescedInputEvent> event) override;
+  void NotifyObserversOfInputEventAcks(
+      const viz::FrameSinkId& frame_sink_id,
+      blink::mojom::InputEventResultSource ack_source,
+      blink::mojom::InputEventResultState ack_result,
+      std::unique_ptr<blink::WebCoalescedInputEvent> event) override;
+  void OnInvalidInputEventSource(
+      const viz::FrameSinkId& frame_sink_id) override;
+
   // Invoked before a form repost warning is shown.
   void NotifyBeforeFormRepostWarningShow() override;
 
@@ -1232,6 +1252,12 @@ class CONTENT_EXPORT WebContentsImpl
   AudioStreamMonitor* audio_stream_monitor() { return &audio_stream_monitor_; }
 
   ForwardingAudioStreamFactory* GetAudioStreamFactory();
+
+  // Creates a new ForwardingAudioStreamFactory. This can only be used by
+  // GuestPageHolders, if you are looking for the audio stream factory you
+  // likely want to use GetAudioStreamFactory();
+  std::unique_ptr<ForwardingAudioStreamFactory> CreateAudioStreamFactory(
+      base::PassKey<GuestPageHolderImpl> pass_key);
 
   // Called by MediaWebContentsObserver when playback starts or stops.  See the
   // WebContentsObserver function stubs for more details.
@@ -1299,11 +1325,15 @@ class CONTENT_EXPORT WebContentsImpl
   void IncrementHidActiveFrameCount();
   void DecrementHidActiveFrameCount();
 
+  // Modify the counter of frames in this WebContents actively using
+  // geolocation.
+  void IncrementGeolocationActiveFrameCount();
+  void DecrementGeolocationActiveFrameCount();
+
   // Notifies the delegate and observers when device connection types used by
   // the WebContents change.
-  void OnDeviceConnectionTypesChanged(
-      WebContentsObserver::DeviceConnectionType device_connection_type,
-      bool used);
+  void OnCapabilityTypesChanged(CapabilityType device_capability_type,
+                                bool used);
 
   // Modify the counter of frames in this WebContents actively using USB
   // devices.
@@ -1356,9 +1386,11 @@ class CONTENT_EXPORT WebContentsImpl
   // Sets the spatial navigation state.
   void SetSpatialNavigationDisabled(bool disabled);
 
+#if BUILDFLAG(IS_ANDROID)
   // Sets the Stylus handwriting feature status. This status is updated to web
   // preferences.
   void SetStylusHandwritingEnabled(bool enabled);
+#endif  // BUILDFLAG(IS_ANDROID)
 
   // Called when a file selection is to be done.
   void RunFileChooser(
@@ -1496,12 +1528,24 @@ class CONTENT_EXPORT WebContentsImpl
 
   bool IsPartitionedPopin() const override;
 
-  RenderFrameHostImpl* PartitionedPopinOpener() const override;
+  const struct PartitionedPopinOpenerProperties&
+  GetPartitionedPopinOpenerProperties() const override;
 
-  WebContents* OpenedPartitionedPopin() const override;
+  // Returns the opener of this window if this window is a partitioned popin
+  // and the opener still exists. This may return null for if the opener was
+  // already deleted even if this window is a popin.
+  // See https://explainers-by-googlers.github.io/partitioned-popins/
+  RenderFrameHostImpl* GetPartitionedPopinOpener(
+      base::PassKey<PartitionedPopinsController>) const;
+
+  // Clears `partitioned_popin_opener_` to test what happens if the opener
+  // disappears after the popin is opened.
+  void ClearPartitionedPopinOpenerForTesting();
+
+  WebContents* GetOpenedPartitionedPopin() const override;
 
  private:
-  using FrameTreeIterationCallback = base::RepeatingCallback<void(FrameTree&)>;
+  using FrameTreeIterationCallback = base::FunctionRef<void(FrameTree&)>;
   using RenderViewHostIterationCallback =
       base::RepeatingCallback<void(RenderViewHostImpl*)>;
 
@@ -1692,7 +1736,8 @@ class CONTENT_EXPORT WebContentsImpl
     // T1 must be a pointer to a WebContentsObserver method.
     template <typename T1, typename... P1>
     void NotifyObservers(T1 func, P1&&... args) {
-      TRACE_EVENT0("content", "WebContentsObserverList::NotifyObservers");
+      TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("content.verbose"),
+                   "WebContentsObserverList::NotifyObservers");
       base::AutoReset<bool> scope(&is_notifying_observers_, true);
       for (WebContentsObserver& observer : observers_) {
         TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("content.verbose"),
@@ -2065,6 +2110,9 @@ class CONTENT_EXPORT WebContentsImpl
       RenderFrameHostImpl* render_frame_host,
       GroupType group_type);
 
+  // Creates a new ForwardingAudioStreamFactory.
+  std::unique_ptr<ForwardingAudioStreamFactory> CreateAudioStreamFactory();
+
   // Data for core operation ---------------------------------------------------
 
   // Delegate for notifying our owner about stuff. Not owned by us.
@@ -2286,7 +2334,9 @@ class CONTENT_EXPORT WebContentsImpl
 
   // All live RenderWidgetHostImpls that are created by this object and may
   // outlive it.
-  std::set<raw_ptr<RenderWidgetHostImpl, SetExperimental>> created_widgets_;
+  base::flat_map<viz::FrameSinkId,
+                 raw_ptr<RenderWidgetHostImpl, SetExperimental>>
+      created_widgets_;
 
   // Process id of the shown fullscreen widget, or kInvalidUniqueID if there is
   // no fullscreen widget.
@@ -2354,13 +2404,14 @@ class CONTENT_EXPORT WebContentsImpl
   AudioStreamMonitor audio_stream_monitor_;
 
   // Coordinates all the audio streams for this WebContents. Lazily initialized.
-  std::optional<ForwardingAudioStreamFactory> audio_stream_factory_;
+  std::unique_ptr<ForwardingAudioStreamFactory> audio_stream_factory_;
 
   size_t bluetooth_connected_device_count_ = 0;
   size_t bluetooth_scanning_sessions_count_ = 0;
   size_t serial_active_frame_count_ = 0;
   size_t hid_active_frame_count_ = 0;
   size_t usb_active_frame_count_ = 0;
+  size_t geolocation_active_frame_count_ = 0;
 
   size_t file_system_access_handle_count_ = 0;
 
@@ -2426,9 +2477,8 @@ class CONTENT_EXPORT WebContentsImpl
 
   bool is_spatial_navigation_disabled_ = false;
 
-  bool stylus_handwriting_enabled_ = false;
-
 #if BUILDFLAG(IS_ANDROID)
+  bool stylus_handwriting_enabled_ = false;
   bool long_press_link_select_text_ = false;
 #endif
 
@@ -2569,6 +2619,9 @@ class CONTENT_EXPORT WebContentsImpl
   // input event routing with InputVizard.
   const uint32_t compositor_frame_sink_grouping_id_;
 
+  mojo::Receiver<input::mojom::RenderInputRouterDelegateClient>
+      rir_delegate_client_receiver_{this};
+
   // Indicates if the instance is hosted in a preview window.
   // This will be set in Init() and will be reset in WillActivatePreviewPage().
   bool is_in_preview_mode_ = false;
@@ -2586,20 +2639,24 @@ class CONTENT_EXPORT WebContentsImpl
   // Whether this contents represents a window initially opened as a new popup.
   bool is_popup_{false};
 
+  // If this window was opened as a new partitioned popin this will contain the
+  // properties needed to setup partitioning which aligns with the opener.
+  // See https://explainers-by-googlers.github.io/partitioned-popins/
+  std::optional<PartitionedPopinOpenerProperties>
+      partitioned_popin_opener_properties_;
+
   // If this window was opened as a new partitioned popin this will be the
   // frame of the opener. This will only have a value if `is_popup_` is true.
+  // If the opener frame is deleted the popin should be closed by
+  // `PartitionedPopinsController`. This is not a good indicator of whether this
+  // window is a popin as it may go away before the popin closes.
   // See https://explainers-by-googlers.github.io/partitioned-popins/
-  // TODO(crbug.com/340606651): If this is cleared after being set or navigated
-  // the popin should be forced to close. Ownership here need to be firmed up.
   base::WeakPtr<RenderFrameHostImpl> partitioned_popin_opener_;
 
   // Each window can have at most one open partitioned popin, and this will be a
   // pointer to it. If this is set `partitioned_popin_opener_` must be null as
   // no popin can open a popin.
   // See https://explainers-by-googlers.github.io/partitioned-popins/
-  // TODO(crbug.com/340606651): Ownership here is likely weaker than possible.
-  // Given the 1:1 relationship here the opened popin could probably be a
-  // unique_ptr cleared via a WebContentsModalDialogManager observer on close.
   base::WeakPtr<WebContents> opened_partitioned_popin_;
 
   base::WeakPtrFactory<WebContentsImpl> loading_weak_factory_{this};

@@ -36,8 +36,7 @@ using i18n_model_definition::kAutofillParsingRulesMap;
 // which are children of X.
 using TreeDefinition = base::flat_map<FieldType, base::span<const FieldType>>;
 
-using TreeEdgesList =
-    base::span<const autofill::i18n_model_definition::FieldTypeDescription>;
+using TreeEdgesList = base::span<const FieldTypeDescription>;
 
 // Address lines are currently the only computed types. These are are shared by
 // all countries.
@@ -78,7 +77,7 @@ std::u16string GetFormattingExpressionOverrides(
 // Note that nodes do not own their children, rather pointers to them. All
 // `AddressComponent` nodes are owned by the `AddressComponentsStore`.
 std::unique_ptr<AddressComponent> BuildTreeNode(
-    autofill::FieldType type,
+    FieldType type,
     std::vector<AddressComponent*> children) {
   switch (type) {
     case ADDRESS_HOME_ADDRESS:
@@ -156,6 +155,9 @@ std::unique_ptr<AddressComponent> BuildTreeNode(
     case NAME_LAST_CONJUNCTION:
     case NAME_LAST_SECOND:
     case NAME_HONORIFIC_PREFIX:
+    case ALTERNATIVE_FULL_NAME:
+    case ALTERNATIVE_FAMILY_NAME:
+    case ALTERNATIVE_GIVEN_NAME:
     case PHONE_HOME_NUMBER:
     case PHONE_HOME_CITY_CODE:
     case PHONE_HOME_COUNTRY_CODE:
@@ -423,6 +425,11 @@ bool IsCustomHierarchyAvailableForCountry(AddressCountryCode country_code) {
 
   if (country_code == AddressCountryCode("IT") &&
       !base::FeatureList::IsEnabled(features::kAutofillUseITAddressModel)) {
+    return false;
+  }
+
+  if (country_code == AddressCountryCode("NL") &&
+      !base::FeatureList::IsEnabled(features::kAutofillUseNLAddressModel)) {
     return false;
   }
 

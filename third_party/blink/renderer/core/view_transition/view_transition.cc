@@ -103,8 +103,7 @@ const char* ViewTransition::StateToString(State state) {
     case State::kTransitionStateCallbackDispatched:
       return "TransitionStateCallbackDispatched";
   };
-  NOTREACHED_IN_MIGRATION();
-  return "";
+  NOTREACHED();
 }
 
 // static
@@ -357,8 +356,7 @@ bool ViewTransition::CanAdvanceTo(State state) const {
     case State::kTimedOut:
       return false;
   }
-  NOTREACHED_IN_MIGRATION();
-  return false;
+  NOTREACHED();
 }
 
 // static
@@ -386,8 +384,7 @@ bool ViewTransition::StateRunsInViewTransitionStepsDuringMainFrame(
     case State::kTransitionStateCallbackDispatched:
       return false;
   }
-  NOTREACHED_IN_MIGRATION();
-  return false;
+  NOTREACHED();
 }
 
 // static
@@ -549,7 +546,7 @@ void ViewTransition::ProcessCurrentState() {
 
       case State::kAnimateTagDiscovery:
         DCHECK(!in_main_lifecycle_update_);
-        document_->View()->UpdateLifecycleToPrePaintClean(
+        document_->View()->UpdateAllLifecyclePhasesExceptPaint(
             DocumentUpdateReason::kViewTransition);
         DCHECK_GE(document_->Lifecycle().GetState(),
                   DocumentLifecycle::kPrePaintClean);
@@ -688,12 +685,14 @@ void ViewTransition::ContextDestroyed() {
 }
 
 void ViewTransition::NotifyCaptureFinished(
-    const std::unordered_map<viz::ViewTransitionElementResourceId,
-                             gfx::RectF>&) {
+    const std::unordered_map<viz::ViewTransitionElementResourceId, gfx::RectF>&
+        capture_rects) {
   if (state_ != State::kCapturing) {
     DCHECK(IsTerminalState(state_));
     return;
   }
+
+  style_tracker_->SetCaptureRectsFromCompositor(capture_rects);
   bool process_next_state = AdvanceTo(State::kCaptured);
   DCHECK(process_next_state);
   ProcessCurrentState();

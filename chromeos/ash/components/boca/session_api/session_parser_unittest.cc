@@ -14,8 +14,9 @@
 namespace ash::boca {
 namespace {
 
-// Unit test cases for proto2json conversion is covered in
-// create_session_request_unittest.cc, not duplicating here.
+// TODO(crbug.com/374364083):Refactor existing get session unit test.
+// Currently this file doesn't have full coverage for session_parser, the reset
+// is covered in get_session_request_unittest, we should move those here.
 constexpr char kFullSessionResponse[] = R"(
   {
   "startTime":{
@@ -24,6 +25,10 @@ constexpr char kFullSessionResponse[] = R"(
   "sessionId": "111",
   "duration": {
     "seconds": 120
+  },
+  "joinCode":{
+    "enabled":true,
+    "code":"testCode"
   },
   "studentStatuses": {
     "2": {
@@ -44,6 +49,9 @@ constexpr char kFullSessionResponse[] = R"(
               }
          }
         }
+    },
+    "22": {
+      "state": "ADDED"
     }
   },
   "roster": {
@@ -63,6 +71,24 @@ constexpr char kFullSessionResponse[] = R"(
         }
       ],
       "title": "main"
+    },
+    {
+      "students": [
+        {
+          "email": "cat1@gmail.com",
+          "fullName": "cat1",
+          "gaiaId": "22",
+          "photoUrl": "data:image/123"
+        },
+        {
+          "email": "dog1@gmail.com",
+          "fullName": "dog1",
+          "gaiaId": "33",
+          "photoUrl": "data:image/123"
+        }
+      ],
+      "groupSource":"JOIN_CODE",
+      "title": "accessCode"
     }]
   },
   "sessionState": "ACTIVE",
@@ -161,12 +187,22 @@ TEST_F(SessionParserTest, TestParseTeacherProtoFromJson) {
   EXPECT_EQ("1", session_partial->teacher().gaia_id());
 }
 
+TEST_F(SessionParserTest, TestParseJoinCodeProtoFromJson) {
+  ParseJoinCodeProtoFromJson(session_dict_full->GetIfDict(),
+                             session_full.get());
+  EXPECT_TRUE(session_full->join_code().enabled());
+  EXPECT_EQ("testCode", session_full->join_code().code());
+}
+
 TEST_F(SessionParserTest, TestParseRosterProtoFromJson) {
   ParseRosterProtoFromJson(session_dict_full->GetIfDict(), session_full.get());
+  ASSERT_EQ(2, session_full->roster().student_groups().size());
+
   ASSERT_EQ(2, session_full->roster().student_groups()[0].students().size());
   EXPECT_EQ(kMainStudentGroupName,
             session_full->roster().student_groups()[0].title());
-
+  EXPECT_EQ(::boca::StudentGroup::CLASSROOM,
+            session_full->roster().student_groups()[0].group_source());
   EXPECT_EQ("cat@gmail.com",
             session_full->roster().student_groups()[0].students()[0].email());
   EXPECT_EQ(
@@ -189,6 +225,32 @@ TEST_F(SessionParserTest, TestParseRosterProtoFromJson) {
       "data:image/123",
       session_full->roster().student_groups()[0].students()[1].photo_url());
 
+  ASSERT_EQ(2, session_full->roster().student_groups()[1].students().size());
+  EXPECT_EQ("accessCode", session_full->roster().student_groups()[1].title());
+  EXPECT_EQ(::boca::StudentGroup::JOIN_CODE,
+            session_full->roster().student_groups()[1].group_source());
+  EXPECT_EQ("cat1@gmail.com",
+            session_full->roster().student_groups()[1].students()[0].email());
+  EXPECT_EQ(
+      "cat1",
+      session_full->roster().student_groups()[1].students()[0].full_name());
+  EXPECT_EQ("22",
+            session_full->roster().student_groups()[1].students()[0].gaia_id());
+  EXPECT_EQ(
+      "data:image/123",
+      session_full->roster().student_groups()[1].students()[0].photo_url());
+
+  EXPECT_EQ("dog1@gmail.com",
+            session_full->roster().student_groups()[1].students()[1].email());
+  EXPECT_EQ(
+      "dog1",
+      session_full->roster().student_groups()[1].students()[1].full_name());
+  EXPECT_EQ("33",
+            session_full->roster().student_groups()[1].students()[1].gaia_id());
+  EXPECT_EQ(
+      "data:image/123",
+      session_full->roster().student_groups()[1].students()[1].photo_url());
+
   ParseRosterProtoFromJson(session_dict_partial->GetIfDict(),
                            session_partial.get());
   EXPECT_TRUE(session_partial->roster().student_groups().empty());
@@ -197,7 +259,7 @@ TEST_F(SessionParserTest, TestParseRosterProtoFromJson) {
 TEST_F(SessionParserTest, TestParseSessionConfigProtoFromJson) {
   // For producer.
   ParseSessionConfigProtoFromJson(session_dict_full->GetIfDict(),
-                                  session_full.get());
+                                  session_full.get(), true);
   ASSERT_EQ(1u, session_full->student_group_configs().size());
   EXPECT_TRUE(session_full->student_group_configs()
                   .at(kMainStudentGroupName)
@@ -234,7 +296,7 @@ TEST_F(SessionParserTest, TestParseSessionConfigProtoFromJson) {
             content_config[1].locked_navigation_options().navigation_type());
 
   ParseSessionConfigProtoFromJson(session_dict_partial->GetIfDict(),
-                                  session_partial.get());
+                                  session_partial.get(), true);
   ASSERT_EQ(1u, session_partial->student_group_configs().size());
 
   auto content_config_1 = std::move(session_partial->student_group_configs()
@@ -265,7 +327,7 @@ TEST_F(SessionParserTest, TestParseStudentStatusProtoFromJson) {
   ParseRosterProtoFromJson(session_dict_full->GetIfDict(), session_full.get());
   ParseStudentStatusProtoFromJson(session_dict_full->GetIfDict(),
                                   session_full.get());
-  ASSERT_EQ(2u, session_full->student_statuses().size());
+  ASSERT_EQ(3u, session_full->student_statuses().size());
   EXPECT_EQ(::boca::StudentStatus::ADDED,
             session_full->student_statuses().at("2").state());
   EXPECT_EQ(::boca::StudentStatus::ACTIVE,
@@ -278,6 +340,8 @@ TEST_F(SessionParserTest, TestParseStudentStatusProtoFromJson) {
                           .activity()
                           .active_tab()
                           .title());
+  EXPECT_EQ(::boca::StudentStatus::ADDED,
+            session_full->student_statuses().at("22").state());
   ParseStudentStatusProtoFromJson(session_dict_partial->GetIfDict(),
                                   session_partial.get());
   EXPECT_EQ(0u, session_partial->student_statuses().size());

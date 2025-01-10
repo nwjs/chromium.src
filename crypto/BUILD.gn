@@ -18,6 +18,8 @@ component("crypto") {
   sources = [
     "aead.cc",
     "aead.h",
+    "aes_cbc.cc",
+    "aes_cbc.h",
     "crypto_export.h",
     "ec_private_key.cc",
     "ec_private_key.h",
@@ -29,6 +31,8 @@ component("crypto") {
     "encryptor.h",
     "features.cc",
     "features.h",
+    "hash.cc",
+    "hash.h",
     "hkdf.cc",
     "hkdf.h",
     "hmac.cc",
@@ -176,9 +180,11 @@ if (is_apple) {
 test("crypto_unittests") {
   sources = [
     "aead_unittest.cc",
+    "aes_cbc_unittest.cc",
     "ec_private_key_unittest.cc",
     "ec_signature_creator_unittest.cc",
     "encryptor_unittest.cc",
+    "hash_unittest.cc",
     "hmac_unittest.cc",
     "kdf_unittest.cc",
     "process_bound_string_unittest.cc",

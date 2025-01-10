@@ -206,8 +206,7 @@ float ScrollableArea::ScrollStep(ui::ScrollGranularity granularity,
     case ui::ScrollGranularity::kScrollByPercentage:
       return PercentageStep(orientation);
     default:
-      NOTREACHED_IN_MIGRATION();
-      return 0.0f;
+      NOTREACHED();
   }
 }
 
@@ -283,6 +282,9 @@ ScrollResult ScrollableArea::UserScroll(ui::ScrollGranularity granularity,
   ScrollResult result =
       GetScrollAnimator().UserScroll(granularity, scrollable_axis_delta,
                                      std::move(run_scroll_complete_callbacks));
+  if (result.DidScroll()) {
+    UpdateScrollMarkers(GetScrollAnimator().DesiredTargetOffset());
+  }
 
   // Delta that wasn't scrolled because the axis is !userInputScrollable
   // should count as unusedScrollDelta.
@@ -414,7 +416,16 @@ bool ScrollableArea::SetScrollOffset(const ScrollOffset& offset,
         break;
       }
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
+  }
+
+  if (scroll_type != mojom::blink::ScrollType::kCompositor) {
+    // Updates from the compositor are handled in
+    // WebFrameWidgetImpl::HandleActiveScrollGesture rather than from here
+    // because here we cannot differentiate between gesture scrolls and
+    // compositor-handled smooth programmatic scrolls (for which we don't
+    // want to do the scroll-marker update).
+    UpdateScrollMarkers(clamped_offset);
   }
 
   std::move(run_scroll_complete_callbacks).Run(ScrollCompletionMode::kFinished);
@@ -632,6 +643,8 @@ bool ScrollableArea::ProgrammaticScrollHelper(
     if (callback)
       std::move(callback).Run(ScrollCompletionMode::kFinished);
   }
+
+  UpdateScrollMarkers(offset);
   return true;
 }
 
@@ -664,8 +677,7 @@ PhysicalRect ScrollableArea::ScrollIntoView(
     const mojom::blink::ScrollIntoViewParamsPtr& params) {
   // TODO(bokan): This should really be implemented here but ScrollAlignment is
   // in Core which is a dependency violation.
-  NOTREACHED_IN_MIGRATION();
-  return PhysicalRect();
+  NOTREACHED();
 }
 
 void ScrollableArea::ScrollOffsetChanged(const ScrollOffset& offset,

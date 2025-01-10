@@ -14,7 +14,7 @@ namespace features {
 
 NATIVE_THEME_EXPORT BASE_DECLARE_FEATURE(kOverlayScrollbar);
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 NATIVE_THEME_EXPORT BASE_DECLARE_FEATURE(kOverlayScrollbarsOSSetting);
 NATIVE_THEME_EXPORT bool IsOverlayScrollbarOSSettingEnabled();
 #endif
@@ -26,9 +26,10 @@ NATIVE_THEME_EXPORT BASE_DECLARE_FEATURE(kFluentOverlayScrollbar);
 
 namespace ui {
 
-NATIVE_THEME_EXPORT bool IsOverlayScrollbarEnabled();
-NATIVE_THEME_EXPORT bool IsFluentScrollbarEnabled();
 NATIVE_THEME_EXPORT bool IsFluentOverlayScrollbarEnabled();
+NATIVE_THEME_EXPORT bool IsFluentScrollbarEnabled();
+
+NATIVE_THEME_EXPORT bool IsOverlayScrollbarEnabledByFeatureFlag();
 
 }  // namespace ui
 

@@ -225,7 +225,8 @@ KeyframeEffect::KeyframeEffect(Element* target,
     // The |target_element_| is used to target events in script when
     // animating pseudo elements. This requires using the DOM element that the
     // pseudo element originates from.
-    target_element_ = DynamicTo<PseudoElement>(target)->OriginatingElement();
+    target_element_ =
+        DynamicTo<PseudoElement>(target)->UltimateOriginatingElement();
     DCHECK(!target_element_->IsPseudoElement());
     target_pseudo_ = PseudoElement::PseudoElementNameForEvents(target);
   }
@@ -787,8 +788,7 @@ AnimationTimeDelta KeyframeEffect::CalculateTimeToEffectChange(
       }
       return local_time.value() - after_time;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return AnimationTimeDelta::Max();
+      NOTREACHED();
   }
 }
 

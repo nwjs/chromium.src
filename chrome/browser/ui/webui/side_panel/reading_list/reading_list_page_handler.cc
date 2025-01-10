@@ -37,10 +37,10 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "ui/base/l10n/time_format.h"
-#include "ui/base/models/simple_menu_model.h"
 #include "ui/base/mojom/window_open_disposition.mojom.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/base/window_open_disposition_utils.h"
+#include "ui/menus/simple_menu_model.h"
 #include "url/gurl.h"
 
 namespace {
@@ -124,8 +124,7 @@ class ReadLaterItemContextMenu : public ui::SimpleMenuModel,
         reading_list_model_->RemoveEntryByURL(url_, FROM_HERE);
         break;
       default:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
     }
   }
 

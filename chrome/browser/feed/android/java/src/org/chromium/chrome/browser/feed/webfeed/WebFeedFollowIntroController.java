@@ -259,12 +259,12 @@ public class WebFeedFollowIntroController {
         // FeatureEngagementTrackerbased based on the configuration used for this IPH. See the
         // kIPHWebFeedFollowFeature entry in
         // components/feature_engagement/public/feature_configurations.cc.
-        maybeShowIPH(recommendedInfo);
+        maybeShowIph(recommendedInfo);
     }
 
-    private void maybeShowIPH(RecommendedWebFeedInfo recommendedInfo) {
+    private void maybeShowIph(RecommendedWebFeedInfo recommendedInfo) {
         UserEducationHelper helper = new UserEducationHelper(mActivity, mProfile, new Handler());
-        mWebFeedFollowIntroView.showIPH(
+        mWebFeedFollowIntroView.showIph(
                 helper, () -> introWasShown(recommendedInfo), this::introWasNotShown);
     }
 
@@ -273,7 +273,7 @@ public class WebFeedFollowIntroController {
             mFeatureEngagementTracker.notifyEvent(EventConstants.WEB_FEED_FOLLOW_INTRO_CLICKED);
         }
 
-        mWebFeedFollowIntroView.showLoadingUI();
+        mWebFeedFollowIntroView.showLoadingUi();
         Tab currentTab = mTabSupplier.get();
         FeedServiceBridge.reportOtherUserAction(
                 StreamKind.UNKNOWN, FeedUserActionType.TAPPED_FOLLOW_ON_FOLLOW_ACCELERATOR);
@@ -283,13 +283,13 @@ public class WebFeedFollowIntroController {
                 url,
                 WebFeedBridge.CHANGE_REASON_WEB_PAGE_ACCELERATOR,
                 results ->
-                        mWebFeedFollowIntroView.hideLoadingUI(
+                        mWebFeedFollowIntroView.hideLoadingUi(
                                 new LoadingView.Observer() {
                                     @Override
-                                    public void onShowLoadingUIComplete() {}
+                                    public void onShowLoadingUiComplete() {}
 
                                     @Override
-                                    public void onHideLoadingUIComplete() {
+                                    public void onHideLoadingUiComplete() {
                                         mWebFeedFollowIntroView.dismissBubble();
                                         if (results.requestStatus
                                                 == WebFeedSubscriptionRequestStatus.SUCCESS) {

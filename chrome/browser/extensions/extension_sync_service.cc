@@ -17,6 +17,7 @@
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_sync_data.h"
 #include "chrome/browser/extensions/extension_sync_service_factory.h"
+#include "chrome/browser/extensions/extension_sync_util.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/launch_util.h"
 #include "chrome/browser/profiles/profile.h"
@@ -58,7 +59,18 @@ bool IsCorrectSyncType(const Extension& extension, syncer::DataType type) {
 bool ShouldAllowInstall(const Extension* extension,
                         content::BrowserContext* context) {
   return !extension->is_theme() &&
-         extensions::util::ShouldSync(extension, context);
+         extensions::sync_util::ShouldSync(context, extension);
+}
+
+// Returns if the given extension with `id` was installed while a user was
+// signed in and is thus part of their account data.
+bool IsAccountExtension(Profile* profile, const extensions::ExtensionId& id) {
+  AccountExtensionTracker::AccountExtensionType type =
+      AccountExtensionTracker::Get(profile)->GetAccountExtensionType(id);
+  return type == AccountExtensionTracker::AccountExtensionType::
+                     kAccountInstalledLocally ||
+         type == AccountExtensionTracker::AccountExtensionType::
+                     kAccountInstalledSignedIn;
 }
 
 std::map<std::string, syncer::SyncData> ToSyncerSyncDataMap(
@@ -126,10 +138,11 @@ ExtensionSyncService* ExtensionSyncService::Get(
 }
 
 // static
-bool ExtensionSyncService::ShouldSync(content::BrowserContext* browser_context,
-                                      const Extension& extension) {
+bool ExtensionSyncService::IsSyncableExtension(
+    content::BrowserContext* browser_context,
+    const Extension& extension) {
   // Themes are handled by the ThemeSyncableService.
-  return extensions::util::ShouldSync(&extension, browser_context) &&
+  return extensions::sync_util::ShouldSync(browser_context, &extension) &&
          !extension.is_theme() &&
          !extensions::blocklist_prefs::IsExtensionBlocklisted(
              extension.id(), ExtensionPrefs::Get(browser_context));
@@ -137,7 +150,7 @@ bool ExtensionSyncService::ShouldSync(content::BrowserContext* browser_context,
 
 void ExtensionSyncService::SyncExtensionChangeIfNeeded(
     const Extension& extension) {
-  if (ignore_updates_ || !ShouldSync(profile_, extension)) {
+  if (ignore_updates_ || !ShouldSync(extension)) {
     return;
   }
 
@@ -256,9 +269,7 @@ ExtensionSyncData ExtensionSyncService::CreateSyncData(
   bool enabled = (disable_reasons == extensions::disable_reason::DISABLE_NONE);
   if (extensions::blocklist_prefs::IsExtensionBlocklisted(id,
                                                           extension_prefs)) {
-    enabled = false;
-    NOTREACHED_IN_MIGRATION()
-        << "Blocklisted extensions should not be getting synced.";
+    NOTREACHED() << "Blocklisted extensions should not be getting synced.";
   }
 
   bool incognito_enabled = extensions::util::IsIncognitoEnabled(id, profile_);
@@ -320,7 +331,7 @@ void ExtensionSyncService::ApplySyncData(
   // (non-default-installed) installation. We can't apply the sync data because
   // it would always override the local state (which would never get sync'd).
   // See crbug.com/731824.
-  if (extension && !ShouldSync(profile_, *extension)) {
+  if (extension && !ShouldSync(*extension)) {
     return;
   }
 
@@ -387,7 +398,7 @@ void ExtensionSyncService::ApplySyncData(
       case 0: state = INSTALLED_MATCHING; break;
       case 1: state = INSTALLED_NEWER; break;
       default:
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
     }
   }
 
@@ -560,6 +571,16 @@ void ExtensionSyncService::OnExtensionInstalled(
     if (compare_result >= 0)
       pending_updates_.erase(it);
   }
+
+  if (!is_update) {
+    // Ignore updates since
+    // `AccountExtensionTracker::OnExtensionSyncDataApplied` should handle
+    // incoming sync data, and these may not trigger updates based on the
+    // extension's version vs the version in the sync data.
+    AccountExtensionTracker::Get(browser_context)
+        ->SetAccountExtensionTypeOnExtensionInstalled(*extension);
+  }
+
   SyncExtensionChangeIfNeeded(*extension);
 }
 
@@ -570,7 +591,7 @@ void ExtensionSyncService::OnExtensionUninstalled(
   DCHECK_EQ(profile_, browser_context);
   // Don't bother syncing if the extension will be re-installed momentarily.
   if (reason == extensions::UNINSTALL_REASON_REINSTALL ||
-      !ShouldSync(profile_, *extension)) {
+      !ShouldSync(*extension)) {
     return;
   }
 
@@ -619,6 +640,12 @@ void ExtensionSyncService::OnExtensionDisableReasonsChanged(
     SyncExtensionChangeIfNeeded(*extension);
 }
 
+void ExtensionSyncService::OnExtensionPrefsWillBeDestroyed(
+    ExtensionPrefs* prefs) {
+  DCHECK(prefs_observation_.IsObservingSource(prefs));
+  prefs_observation_.Reset();
+}
+
 SyncBundle* ExtensionSyncService::GetSyncBundle(syncer::DataType type) {
   return const_cast<SyncBundle*>(
       const_cast<const ExtensionSyncService&>(*this).GetSyncBundle(type));
@@ -651,11 +678,21 @@ void ExtensionSyncService::FillSyncDataList(
     syncer::DataType type,
     std::vector<ExtensionSyncData>* sync_data_list) const {
   for (const scoped_refptr<const Extension>& extension : extensions) {
-    if (IsCorrectSyncType(*extension, type) &&
-        ShouldSync(profile_, *extension)) {
+    if (IsCorrectSyncType(*extension, type) && ShouldSync(*extension)) {
       // We should never have pending data for an installed extension.
       DCHECK(!GetSyncBundle(type)->HasPendingExtensionData(extension->id()));
       sync_data_list->push_back(CreateSyncData(*extension));
     }
   }
+}
+
+bool ExtensionSyncService::ShouldSync(const Extension& extension) const {
+  // Only extensions associated with the signed in user's account should be
+  // synced for transport mode.
+  if (extensions::sync_util::IsSyncingExtensionsInTransportMode(profile_) &&
+      !IsAccountExtension(profile_, extension.id())) {
+    return false;
+  }
+
+  return IsSyncableExtension(profile_, extension);
 }

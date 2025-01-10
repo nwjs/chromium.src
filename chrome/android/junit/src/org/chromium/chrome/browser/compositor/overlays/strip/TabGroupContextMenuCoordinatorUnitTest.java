@@ -46,10 +46,10 @@ import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationManager;
-import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationManager.ConfirmationResult;
 import org.chromium.chrome.browser.tasks.tab_management.ColorPickerCoordinator;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupOverflowMenuCoordinator.OnItemClickedCallback;
 import org.chromium.chrome.test.util.browser.tabmodel.MockTabModel;
+import org.chromium.components.browser_ui.widget.ActionConfirmationResult;
 import org.chromium.components.data_sharing.DataSharingService;
 import org.chromium.components.data_sharing.DataSharingService.GroupDataOrFailureOutcome;
 import org.chromium.components.data_sharing.GroupData;
@@ -74,10 +74,7 @@ import java.util.List;
 
 /** Unit tests for {@link TabGroupContextMenuCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@EnableFeatures({
-    ChromeFeatureList.TAB_STRIP_GROUP_CONTEXT_MENU,
-    ChromeFeatureList.TAB_GROUP_PARITY_ANDROID
-})
+@EnableFeatures({ChromeFeatureList.TAB_STRIP_GROUP_CONTEXT_MENU})
 public class TabGroupContextMenuCoordinatorUnitTest {
     private static final String GAIA_ID = "Z";
     private static final String EMAIL = "fake@gmail.com";
@@ -100,7 +97,7 @@ public class TabGroupContextMenuCoordinatorUnitTest {
     @Mock private ActionConfirmationManager mActionConfirmationManager;
     @Mock private ModalDialogManager mModalDialogManager;
     @Mock private TabCreator mTabCreator;
-    @Captor private ArgumentCaptor<Callback<Integer>> mConfirmationResultCaptor;
+    @Captor private ArgumentCaptor<Callback<Integer>> mActionConfirmationResultCaptor;
     @Mock private WindowAndroid mWindowAndroid;
     @Mock private KeyboardVisibilityDelegate mKeyboardVisibilityDelegate;
     @Mock private TabGroupSyncService mTabGroupSyncService;
@@ -175,7 +172,8 @@ public class TabGroupContextMenuCoordinatorUnitTest {
         // Assert: verify divider and delete group menu item.
         assertEquals(ListMenuItemType.DIVIDER, modelList.get(5).type);
         assertEquals(
-                R.id.delete_tab, modelList.get(6).model.get(ListMenuItemProperties.MENU_ITEM_ID));
+                R.id.delete_tab_group,
+                modelList.get(6).model.get(ListMenuItemProperties.MENU_ITEM_ID));
     }
 
     @Test
@@ -309,8 +307,10 @@ public class TabGroupContextMenuCoordinatorUnitTest {
         // Verify tab group is ungrouped.
         mOnItemClickedCallback.onClick(R.id.ungroup_tab, mTabId, /* collaborationId= */ null);
         verify(mActionConfirmationManager)
-                .processUngroupAttempt(mConfirmationResultCaptor.capture());
-        mConfirmationResultCaptor.getValue().onResult(ConfirmationResult.CONFIRMATION_POSITIVE);
+                .processUngroupAttempt(mActionConfirmationResultCaptor.capture());
+        mActionConfirmationResultCaptor
+                .getValue()
+                .onResult(ActionConfirmationResult.CONFIRMATION_POSITIVE);
         verify(mTabGroupModelFilter).moveTabOutOfGroupInDirection(mTabId, /* trailing= */ true);
     }
 
@@ -321,7 +321,7 @@ public class TabGroupContextMenuCoordinatorUnitTest {
         List<Tab> tabsInGroup = setUpTabGroupModelFilter();
 
         // Verify tab group closed.
-        mOnItemClickedCallback.onClick(R.id.close_tab, mTabId, /* collaborationId= */ null);
+        mOnItemClickedCallback.onClick(R.id.close_tab_group, mTabId, /* collaborationId= */ null);
         verify(mTabGroupModelFilter)
                 .closeTabs(
                         argThat(
@@ -338,10 +338,12 @@ public class TabGroupContextMenuCoordinatorUnitTest {
         List<Tab> tabsInGroup = setUpTabGroupModelFilter();
 
         // Verify tab group deleted.
-        mOnItemClickedCallback.onClick(R.id.delete_tab, mTabId, /* collaborationId= */ null);
+        mOnItemClickedCallback.onClick(R.id.delete_tab_group, mTabId, /* collaborationId= */ null);
         verify(mActionConfirmationManager)
-                .processDeleteGroupAttempt(mConfirmationResultCaptor.capture());
-        mConfirmationResultCaptor.getValue().onResult(ConfirmationResult.CONFIRMATION_POSITIVE);
+                .processDeleteGroupAttempt(mActionConfirmationResultCaptor.capture());
+        mActionConfirmationResultCaptor
+                .getValue()
+                .onResult(ActionConfirmationResult.CONFIRMATION_POSITIVE);
         verify(mTabGroupModelFilter)
                 .closeTabs(
                         argThat(
@@ -417,7 +419,7 @@ public class TabGroupContextMenuCoordinatorUnitTest {
                 R.id.ungroup_tab, modelList.get(2).model.get(ListMenuItemProperties.MENU_ITEM_ID));
 
         assertEquals(
-                R.id.close_tab,
+                R.id.close_tab_group,
                 modelList.get(closeGroupPosition).model.get(ListMenuItemProperties.MENU_ITEM_ID));
     }
 

@@ -27,11 +27,13 @@
 #include "components/performance_manager/public/render_process_host_proxy.h"
 #include "components/performance_manager/resource_attribution/cpu_measurement_data.h"
 #include "components/performance_manager/scenarios/loading_scenario_data.h"
+#include "components/performance_manager/scenarios/performance_scenario_data.h"
 #include "content/public/browser/background_tracing_manager.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
+#include "third_party/perfetto/include/perfetto/tracing/track.h"
 
 namespace performance_manager {
 
@@ -59,6 +61,7 @@ class ProcessNodeImpl
       public mojom::ProcessCoordinationUnit,
       public SupportsNodeInlineData<ProcessPriorityAggregatorData,
                                     FrozenData,
+                                    PerformanceScenarioMemoryData,
                                     resource_attribution::CPUMeasurementData,
                                     LoadingScenarioCounts,
                                     // Keep this last to avoid merge conflicts.
@@ -102,6 +105,9 @@ class ProcessNodeImpl
   void OnRemoteIframeDetached(
       const blink::LocalFrameToken& parent_frame_token,
       const blink::RemoteFrameToken& remote_frame_token) override;
+  void RequestSharedPerformanceScenarioRegions(
+      uint64_t process_track_id,
+      RequestSharedPerformanceScenarioRegionsCallback callback) override;
 
   // Partial ProcessNode implementation:
   content::ProcessType GetProcessType() const override;
@@ -125,6 +131,7 @@ class ProcessNodeImpl
   // Private implementation properties.
   NodeSetView<FrameNodeImpl*> frame_nodes() const;
   NodeSetView<WorkerNodeImpl*> worker_nodes() const;
+  std::optional<perfetto::Track> tracing_track() const;
 
   void SetProcessExitStatus(int32_t exit_status);
   void SetProcessMetricsName(const std::string& metrics_name);
@@ -244,6 +251,10 @@ class ProcessNodeImpl
   // A bit field that indicates which type of content this process has hosted,
   // either currently or in the past.
   ContentTypes hosted_content_types_ GUARDED_BY_CONTEXT(sequence_checker_);
+
+  // The Perfetto ProcessTrack for this process.
+  std::optional<perfetto::Track> tracing_track_
+      GUARDED_BY_CONTEXT(sequence_checker_);
 
   NodeSet frame_nodes_ GUARDED_BY_CONTEXT(sequence_checker_);
 

@@ -36,10 +36,16 @@ class MockTabGroupSyncService : public TabGroupSyncService {
               (const LocalTabGroupID&,
                const LocalTabID&,
                const std::u16string&,
-               GURL,
+               const GURL&,
                std::optional<size_t>));
   MOCK_METHOD(void,
-              UpdateTab,
+              NavigateTab,
+              (const LocalTabGroupID&,
+               const LocalTabID&,
+               const GURL&,
+               const std::u16string&));
+  MOCK_METHOD(void,
+              UpdateTabProperties,
               (const LocalTabGroupID&,
                const LocalTabID&,
                const SavedTabGroupTabBuilder&));
@@ -52,10 +58,16 @@ class MockTabGroupSyncService : public TabGroupSyncService {
               MakeTabGroupShared,
               (const LocalTabGroupID&, std::string_view));
 
-  MOCK_METHOD(std::vector<SavedTabGroup>, GetAllGroups, ());
-  MOCK_METHOD(std::optional<SavedTabGroup>, GetGroup, (const base::Uuid&));
-  MOCK_METHOD(std::optional<SavedTabGroup>, GetGroup, (const LocalTabGroupID&));
-  MOCK_METHOD(std::vector<LocalTabGroupID>, GetDeletedGroupIds, ());
+  MOCK_METHOD(std::vector<SavedTabGroup>, GetAllGroups, (), (const));
+  MOCK_METHOD(std::optional<SavedTabGroup>,
+              GetGroup,
+              (const base::Uuid&),
+              (const));
+  MOCK_METHOD(std::optional<SavedTabGroup>,
+              GetGroup,
+              (const LocalTabGroupID&),
+              (const));
+  MOCK_METHOD(std::vector<LocalTabGroupID>, GetDeletedGroupIds, (), (const));
 
   MOCK_METHOD(void,
               OpenTabGroup,
@@ -96,6 +108,9 @@ class MockTabGroupSyncService : public TabGroupSyncService {
   MOCK_METHOD(void,
               GetURLRestriction,
               (const GURL&, TabGroupSyncService::UrlRestrictionCallback));
+  MOCK_METHOD(std::unique_ptr<std::vector<SavedTabGroup>>,
+              TakeSharedTabGroupsAvailableAtStartupForMessaging,
+              ());
 
   MOCK_METHOD(void, AddObserver, (Observer*));
   MOCK_METHOD(void, RemoveObserver, (Observer*));

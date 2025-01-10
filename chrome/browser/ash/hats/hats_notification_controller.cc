@@ -89,8 +89,7 @@ const std::string KeyEnumToString(DeviceInfoKey key) {
     case DeviceInfoKey::LOCALE:
       return "locale";
     default:
-      NOTREACHED_IN_MIGRATION();
-      return std::string();
+      NOTREACHED();
   }
 }
 
@@ -175,8 +174,8 @@ HatsNotificationController::HatsNotificationController(
     Profile* profile,
     const HatsConfig& hats_config,
     const base::flat_map<std::string, std::string>& product_specific_data,
-    const std::u16string title,
-    const std::u16string body)
+    std::u16string title,
+    std::u16string body)
     : profile_(profile),
       hats_config_(hats_config),
       product_specific_data_(product_specific_data),
@@ -246,7 +245,7 @@ void HatsNotificationController::Initialize(bool is_new_device) {
     // Create an immediate update for the current default network.
     const NetworkState* default_network = handler->DefaultNetwork();
     NetworkState::PortalState portal_state =
-        default_network ? default_network->GetPortalState()
+        default_network ? default_network->portal_state()
                         : NetworkState::PortalState::kUnknown;
     PortalStateChanged(default_network, portal_state);
   }

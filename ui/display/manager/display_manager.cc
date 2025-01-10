@@ -32,7 +32,6 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chromeos/ui/base/display_util.h"
 #include "components/device_event_log/device_event_log.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -1627,8 +1626,7 @@ Display DisplayManager::GetMirroringDisplayForUnifiedDesktop(
     }
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return Display();
+  NOTREACHED();
 }
 
 int DisplayManager::GetMirroringDisplayRowIndexInUnifiedMatrix(

@@ -127,7 +127,8 @@ class SafetyCheckMediatorTest : public PlatformTest {
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetDefaultFactory());
+        AuthenticationServiceFactory::GetFactoryWithDelegate(
+            std::make_unique<FakeAuthenticationServiceDelegate>()));
     builder.AddTestingFactory(
         SyncServiceFactory::GetInstance(),
         base::BindRepeating(
@@ -148,11 +149,7 @@ class SafetyCheckMediatorTest : public PlatformTest {
 
     profile_ = profile_manager_.AddProfileWithBuilder(std::move(builder));
 
-    AuthenticationServiceFactory::CreateAndInitializeForProfile(
-        profile_.get(), std::make_unique<FakeAuthenticationServiceDelegate>());
-    auth_service_ = static_cast<AuthenticationService*>(
-        AuthenticationServiceFactory::GetInstance()->GetForProfile(
-            profile_.get()));
+    auth_service_ = AuthenticationServiceFactory::GetForProfile(profile_.get());
 
     store_ =
         base::WrapRefCounted(static_cast<password_manager::TestPasswordStore*>(

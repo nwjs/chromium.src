@@ -9,6 +9,7 @@
 #include "base/strings/string_util.h"
 #include "base/task/sequenced_task_runner.h"
 #include "content/browser/preloading/prefetch/prefetch_features.h"
+#include "content/browser/preloading/prefetch/prefetch_params.h"
 #include "content/browser/preloading/prefetch/prefetch_streaming_url_loader.h"
 #include "net/http/http_cookie_indices.h"
 #include "services/network/public/mojom/early_hints.mojom.h"
@@ -256,8 +257,7 @@ void PrefetchResponseReader::BindAndStart(
     case LoadState::kFailedRedirect:
       // `CreateRequestHandler()` shouldn't be called for these non-servable
       // states.
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 
   RunEventQueue(client_id);
@@ -456,7 +456,7 @@ void PrefetchResponseReader::OnReceiveResponse(
   head_ = std::move(head);
   if (is_reusable_) {
     body_tee_ = base::MakeRefCounted<PrefetchDataPipeTee>(
-        std::move(body), features::kPrefetchReusableBodySizeLimit.Get());
+        std::move(body), GetPrefetchDataPipeTeeBodySizeLimit());
   } else {
     body_ = std::move(body);
   }
@@ -521,7 +521,7 @@ void PrefetchResponseReader::FollowRedirect(
   // a redirect, then it will be interrupted before |FollowRedirect| is called,
   // and instead interceptors are given a chance to intercept the navigation to
   // the redirect.
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void PrefetchResponseReader::SetPriority(net::RequestPriority priority,

@@ -25,7 +25,6 @@
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "base/types/pass_key.h"
-#include "chrome/browser/browsing_data/chrome_browsing_data_remover_constants.h"
 #include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/dips/chrome_dips_delegate.h"
 #include "chrome/browser/dips/dips_redirect_info.h"
@@ -52,9 +51,6 @@
 #include "url/origin.h"
 
 namespace {
-
-// Controls whether UKM metrics are collected for DIPS.
-BASE_FEATURE(kDipsUkm, "DipsUkm", base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether the database requests are executed on a foreground sequence.
 BASE_FEATURE(kDipsOnForegroundSequence,
@@ -165,6 +161,7 @@ class StateClearer : public content::BrowsingDataRemover::Observer {
   // entire row.
   static void DeleteState(content::BrowsingDataRemover* remover,
                           std::vector<std::string> sites_to_clear,
+                          content::BrowsingDataRemover::DataType remove_mask,
                           base::OnceClosure callback) {
     DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
@@ -193,8 +190,6 @@ class StateClearer : public content::BrowsingDataRemover::Observer {
     // StateClearer manages its own lifetime and deletes itself when finished.
     StateClearer* clearer =
         new StateClearer(remover, /*callback_count=*/2, std::move(callback));
-    chrome_browsing_data_remover::DataType remove_mask =
-        chrome_browsing_data_remover::FILTERABLE_DATA_TYPES;
     if (base::FeatureList::IsEnabled(features::kDIPSPreservePSData)) {
       remove_mask &= ~content::BrowsingDataRemover::DATA_TYPE_PRIVACY_SANDBOX;
     }
@@ -373,20 +368,18 @@ void DIPSServiceImpl::HandleRedirectChain(
     return;
   }
 
-  if (base::FeatureList::IsEnabled(kDipsUkm)) {
-    if (chain->initial_url.source_id != ukm::kInvalidSourceId) {
-      ukm::builders::DIPS_ChainBegin(chain->initial_url.source_id)
-          .SetChainId(chain->chain_id)
-          .SetInitialAndFinalSitesSame(chain->initial_and_final_sites_same)
-          .Record(ukm::UkmRecorder::Get());
-    }
+  if (chain->initial_url.source_id != ukm::kInvalidSourceId) {
+    ukm::builders::DIPS_ChainBegin(chain->initial_url.source_id)
+        .SetChainId(chain->chain_id)
+        .SetInitialAndFinalSitesSame(chain->initial_and_final_sites_same)
+        .Record(ukm::UkmRecorder::Get());
+  }
 
-    if (chain->final_url.source_id != ukm::kInvalidSourceId) {
-      ukm::builders::DIPS_ChainEnd(chain->final_url.source_id)
-          .SetChainId(chain->chain_id)
-          .SetInitialAndFinalSitesSame(chain->initial_and_final_sites_same)
-          .Record(ukm::UkmRecorder::Get());
-    }
+  if (chain->final_url.source_id != ukm::kInvalidSourceId) {
+    ukm::builders::DIPS_ChainEnd(chain->final_url.source_id)
+        .SetChainId(chain->chain_id)
+        .SetInitialAndFinalSitesSame(chain->initial_and_final_sites_same)
+        .Record(ukm::UkmRecorder::Get());
   }
 
   base::TimeDelta total_server_bounce_delay;
@@ -540,25 +533,22 @@ void DIPSServiceImpl::HandleRedirect(
   bool final_site_same = (redirect.site == chain.final_site);
   DCHECK_LT(redirect.chain_index.value(), chain.length);
 
-  if (base::FeatureList::IsEnabled(kDipsUkm)) {
-    ukm::builders::DIPS_Redirect(redirect.url.source_id)
-        .SetSiteEngagementLevel(redirect.has_interaction.value() ? 1 : 0)
-        .SetRedirectType(static_cast<int64_t>(redirect.redirect_type))
-        .SetCookieAccessType(static_cast<int64_t>(redirect.access_type))
-        .SetRedirectAndInitialSiteSame(initial_site_same)
-        .SetRedirectAndFinalSiteSame(final_site_same)
-        .SetInitialAndFinalSitesSame(chain.initial_and_final_sites_same)
-        .SetRedirectChainIndex(redirect.chain_index.value())
-        .SetRedirectChainLength(chain.length)
-        .SetIsPartialRedirectChain(chain.is_partial_chain)
-        .SetClientBounceDelay(
-            BucketizeBounceDelay(redirect.client_bounce_delay))
-        .SetHasStickyActivation(redirect.has_sticky_activation)
-        .SetWebAuthnAssertionRequestSucceeded(
-            redirect.web_authn_assertion_request_succeeded)
-        .SetChainId(redirect.chain_id.value())
-        .Record(ukm::UkmRecorder::Get());
-  }
+  ukm::builders::DIPS_Redirect(redirect.url.source_id)
+      .SetSiteEngagementLevel(redirect.has_interaction.value() ? 1 : 0)
+      .SetRedirectType(static_cast<int64_t>(redirect.redirect_type))
+      .SetCookieAccessType(static_cast<int64_t>(redirect.access_type))
+      .SetRedirectAndInitialSiteSame(initial_site_same)
+      .SetRedirectAndFinalSiteSame(final_site_same)
+      .SetInitialAndFinalSitesSame(chain.initial_and_final_sites_same)
+      .SetRedirectChainIndex(redirect.chain_index.value())
+      .SetRedirectChainLength(chain.length)
+      .SetIsPartialRedirectChain(chain.is_partial_chain)
+      .SetClientBounceDelay(BucketizeBounceDelay(redirect.client_bounce_delay))
+      .SetHasStickyActivation(redirect.has_sticky_activation)
+      .SetWebAuthnAssertionRequestSucceeded(
+          redirect.web_authn_assertion_request_succeeded)
+      .SetChainId(redirect.chain_id.value())
+      .Record(ukm::UkmRecorder::Get());
 
   if (initial_site_same || final_site_same) {
     // Don't record UMA metrics for same-site redirects.
@@ -692,8 +682,12 @@ void DIPSServiceImpl::RunDeletionTaskOnUIThread(std::vector<std::string> sites,
                                                 base::OnceClosure callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
+  uint64_t remove_mask = dips_delegate_
+                             ? dips_delegate_->GetRemoveMask()
+                             : content::DipsDelegate::kDefaultRemoveMask;
+
   StateClearer::DeleteState(browser_context_->GetBrowsingDataRemover(),
-                            std::move(sites), std::move(callback));
+                            std::move(sites), remove_mask, std::move(callback));
 }
 
 void DIPSServiceImpl::AddObserver(Observer* observer) {

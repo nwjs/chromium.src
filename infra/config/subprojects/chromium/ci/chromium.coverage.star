@@ -274,14 +274,6 @@ coverage_builder(
                     shards = 2,
                 ),
             ),
-            # TODO: crbug.com/40258588 - This flag should have no effect on this
-            # script test, but it needs to be present to satisfy the
-            # targets-config-verifier, so remove it after landing
-            "check_network_annotations": targets.mixin(
-                args = [
-                    "--avd-config=../../tools/android/avd/proto/generic_android26.textpb",
-                ],
-            ),
             # Keep this same as android-oreo-x86-rel
             "chrome_public_test_apk": targets.mixin(
                 args = [
@@ -902,7 +894,7 @@ coverage_builder(
         consoles.console_view_entry(
             branch_selector = branches.selector.MAIN,
             console_view = "sheriff.fuchsia",
-            category = "gardener|fuchsia ci|x64",
+            category = "fuchsia ci|x64",
             short_name = "cov",
         ),
     ],
@@ -1512,41 +1504,15 @@ coverage_builder(
                 ),
             ),
             # These tests must run with a GPU.
-            # TODO(crbug.com/40888390): This must be kept in sync with the
-            # appropriate mixin; currently, win10_nvidia_gtx_1660_stable,
-            # which is used by Dawn Win10 x64 Release (NVIDIA).
-            # TODO: crbug.com/40258588 - Mixins can be specified in
-            # per_test_modifications, but the mixin applies the extra dimension
-            # display_attached, so it can't be switched until after the tests
-            # are migrated to starlark
-            "webgpu_blink_web_tests": targets.mixin(
-                swarming = targets.swarming(
-                    dimensions = {
-                        "gpu": "10de:2184-27.21.14.5638",
-                        "os": "Windows-10-18363",
-                        "pool": "chromium.tests.gpu",
-                    },
-                ),
-            ),
+            "webgpu_blink_web_tests": [
+                "win10_nvidia_gtx_1660_stable",
+            ],
             "webgpu_blink_web_tests_with_backend_validation": targets.remove(
                 reason = "Remove from bots where capacity is constrained.",
             ),
-            # TODO(crbug.com/40888390): This must be kept in sync with the
-            # appropriate mixin; currently, win10_nvidia_gtx_1660_stable,
-            # which is used by Dawn Win10 x64 Release (NVIDIA).
-            # TODO: crbug.com/40258588 - Mixins can be specified in
-            # per_test_modifications, but the mixin applies the extra dimension
-            # display_attached, so it can't be switched until after the tests
-            # are migrated to starlark
-            "webgpu_cts_tests": targets.mixin(
-                swarming = targets.swarming(
-                    dimensions = {
-                        "gpu": "10de:2184-27.21.14.5638",
-                        "os": "Windows-10-18363",
-                        "pool": "chromium.tests.gpu",
-                    },
-                ),
-            ),
+            "webgpu_cts_tests": [
+                "win10_nvidia_gtx_1660_stable",
+            ],
             "webgpu_cts_with_validation_tests": targets.remove(
                 reason = "Don't need validation layers on code coverage bots",
             ),

@@ -133,9 +133,7 @@ public class IncognitoDescriptionView extends LinearLayout {
             return;
         }
 
-        String text =
-                context.getResources()
-                        .getString(R.string.new_tab_otr_third_party_blocked_cookie_part_two);
+        String text = context.getString(R.string.new_tab_otr_third_party_blocked_cookie_part_two);
         ClickableSpan span =
                 new ClickableSpan() {
                     @Override
@@ -177,7 +175,7 @@ public class IncognitoDescriptionView extends LinearLayout {
 
     @NonNull
     static SpannableString getSpannedBulletText(Context context, @StringRes int content) {
-        String text = context.getResources().getString(content);
+        String text = context.getString(content);
         // Some translations don't have a line break between list entries.
         text = text.replaceAll("([^\n ]) *(<li>|</?ul>)", "$1\n$2");
 
@@ -200,7 +198,7 @@ public class IncognitoDescriptionView extends LinearLayout {
                 "Format error. Locale: "
                         + context.getResources().getConfiguration().getLocales()
                         + " \nstring: "
-                        + context.getResources().getString(content);
+                        + context.getString(content);
         assert text.contains("<li1>") : error;
         assert text.contains("<li2>") : error;
         assert text.contains("<li3>") : error;
@@ -353,9 +351,7 @@ public class IncognitoDescriptionView extends LinearLayout {
     /** Adjust the "Learn More" link. */
     private void adjustLearnMore() {
         final String subtitleText =
-                getContext()
-                        .getResources()
-                        .getString(R.string.new_tab_otr_subtitle_with_reading_list);
+                getContext().getString(R.string.new_tab_otr_subtitle_with_reading_list);
 
         final ClickableSpan learnMoreSpan =
                 new ClickableSpan() {
@@ -378,7 +374,7 @@ public class IncognitoDescriptionView extends LinearLayout {
         if (!learnMoreInSubtitle) {
             // Format the "Learn more" link.
             SpannableString learnMoreLink =
-                    new SpannableString(getContext().getResources().getString(R.string.learn_more));
+                    new SpannableString(getContext().getString(R.string.learn_more));
             learnMoreLink.setSpan(learnMoreSpan, 0, learnMoreLink.length(), /* flags= */ 0);
             mLearnMore.setText(learnMoreLink);
 
@@ -392,7 +388,7 @@ public class IncognitoDescriptionView extends LinearLayout {
         StringBuilder concatenatedText = new StringBuilder();
         concatenatedText.append(subtitleText);
         concatenatedText.append(" ");
-        concatenatedText.append(getContext().getResources().getString(R.string.learn_more));
+        concatenatedText.append(getContext().getString(R.string.learn_more));
         SpannableString textWithLearnMoreLink = new SpannableString(concatenatedText.toString());
 
         textWithLearnMoreLink.setSpan(

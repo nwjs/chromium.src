@@ -177,6 +177,29 @@ void RecordBaDataConstructionResultMetric(size_t data_size,
                           /*sample=*/base::TimeTicks::Now() - start_time);
 }
 
+// Used to get a possible override to the user-agent string.
+std::optional<std::string> MaybeGetUserAgentOverride(
+    FrameTreeNode* frame_tree_node) {
+  if (base::FeatureList::IsEnabled(features::kFledgeEnableUserAgentOverrides)) {
+    if (frame_tree_node != nullptr) {
+      const bool override_user_agent =
+          frame_tree_node->navigator()
+              .GetDelegate()
+              ->ShouldOverrideUserAgentForRendererInitiatedNavigation();
+      if (override_user_agent) {
+        std::string maybe_user_agent = frame_tree_node->navigator()
+                                           .GetDelegate()
+                                           ->GetUserAgentOverride()
+                                           .ua_string_override;
+        if (!maybe_user_agent.empty()) {
+          return std::move(maybe_user_agent);
+        }
+      }
+    }
+  }
+  return std::nullopt;
+}
+
 }  // namespace
 
 AdAuctionServiceImpl::BiddingAndAuctionDataConstructionState::
@@ -217,9 +240,7 @@ void AdAuctionServiceImpl::JoinInterestGroup(
 
   // If the group is allowed, we also do a permissions/attestation check on
   // trusted bidding signals URL, in case it's 3rd party.
-  if (!report_result_only && group.trusted_bidding_signals_url.has_value() &&
-      base::FeatureList::IsEnabled(
-          blink::features::kFledgePermitCrossOriginTrustedSignals)) {
+  if (!report_result_only && group.trusted_bidding_signals_url.has_value()) {
     url::Origin trusted_bidding_signals_origin =
         url::Origin::Create(group.trusted_bidding_signals_url.value());
     if (!trusted_bidding_signals_origin.IsSameOriginWith(group.owner) &&
@@ -378,10 +399,13 @@ void AdAuctionServiceImpl::UpdateAdInterestGroups() {
     return;
   }
 
+  std::optional<std::string> user_agent_override =
+      MaybeGetUserAgentOverride(GetFrame()->frame_tree_node());
+
   // `base::Unretained` is safe here since the `BrowserContext` owns the
   // `StoragePartition` that owns the interest group manager.
   GetInterestGroupManager().UpdateInterestGroupsOfOwner(
-      origin(), GetClientSecurityState(),
+      origin(), GetClientSecurityState(), user_agent_override,
       base::BindRepeating(
           &AreAllowedReportingOriginsAttested,
           base::Unretained(render_frame_host().GetBrowserContext())));
@@ -471,8 +495,9 @@ void AdAuctionServiceImpl::RunAdAuction(
       base::BindRepeating(
           &AdAuctionServiceImpl::MaybeLogPrivateAggregationFeatures,
           weak_ptr_factory_.GetWeakPtr()),
-      config, main_frame_origin_, origin(), GetClientSecurityState(),
-      GetRefCountedTrustedURLLoaderFactory(),
+      config, main_frame_origin_, origin(),
+      MaybeGetUserAgentOverride(GetFrame()->frame_tree_node()),
+      GetClientSecurityState(), GetRefCountedTrustedURLLoaderFactory(),
       base::BindRepeating(&AdAuctionServiceImpl::IsInterestGroupAPIAllowed,
                           base::Unretained(this)),
       base::BindRepeating(
@@ -703,9 +728,9 @@ void AdAuctionServiceImpl::PreconnectSocket(
   render_frame_host()
       .GetStoragePartition()
       ->GetNetworkContext()
-      ->PreconnectSockets(/*num_streams=*/1, url,
-                          network::mojom::CredentialsMode::kOmit,
-                          network_anonymization_key);
+      ->PreconnectSockets(
+          /*num_streams=*/1, url, network::mojom::CredentialsMode::kOmit,
+          network_anonymization_key, net::MutableNetworkTrafficAnnotationTag());
 }
 
 scoped_refptr<network::SharedURLLoaderFactory>
@@ -873,8 +898,8 @@ bool AdAuctionServiceImpl::IsInterestGroupAPIAllowed(
         interest_group_api_operation,
     const url::Origin& origin) const {
   return GetContentClient()->browser()->IsInterestGroupAPIAllowed(
-      &render_frame_host(), interest_group_api_operation, main_frame_origin_,
-      origin);
+      render_frame_host().GetBrowserContext(), &render_frame_host(),
+      interest_group_api_operation, main_frame_origin_, origin);
 }
 
 void AdAuctionServiceImpl::OnAuctionComplete(
@@ -1187,7 +1212,8 @@ void AdAuctionServiceImpl::OnGotAuctionDataAndKey(base::Uuid request_id) {
           network::mojom::CredentialsMode::kInclude,
           render_frame_host()
               .GetIsolationInfoForSubresources()
-              .network_anonymization_key());
+              .network_anonymization_key(),
+          net::MutableNetworkTrafficAnnotationTag());
 
   AdAuctionPageData* ad_auction_page_data = GetAdAuctionPageData();
   if (!ad_auction_page_data) {

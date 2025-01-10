@@ -135,7 +135,6 @@
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/loader/frame_loader.h"
 #include "third_party/blink/renderer/core/loader/history_item.h"
-#include "third_party/blink/renderer/core/offscreencanvas/offscreen_canvas.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/page.h"
@@ -320,8 +319,8 @@ class TestReadableStreamSource : public UnderlyingSourceBase {
   TestReadableStreamSource(ScriptState* script_state, Type type)
       : UnderlyingSourceBase(script_state), type_(type) {}
 
-  ScriptPromiseUntyped Start(ScriptState* script_state,
-                             ExceptionState&) override {
+  ScriptPromise<IDLUndefined> Start(ScriptState* script_state,
+                                    ExceptionState&) override {
     if (generator_) {
       return ToResolvedUndefinedPromise(script_state);
     }
@@ -330,8 +329,8 @@ class TestReadableStreamSource : public UnderlyingSourceBase {
     return resolver_->Promise();
   }
 
-  ScriptPromiseUntyped Pull(ScriptState* script_state,
-                            ExceptionState&) override {
+  ScriptPromise<IDLUndefined> Pull(ScriptState* script_state,
+                                   ExceptionState&) override {
     if (!generator_) {
       return ToResolvedUndefinedPromise(script_state);
     }
@@ -1203,8 +1202,7 @@ String Internals::ShadowRootMode(const Node* root,
     case ShadowRootMode::kClosed:
       return String("ClosedShadowRoot");
     default:
-      NOTREACHED_IN_MIGRATION();
-      return String("Unknown");
+      NOTREACHED();
   }
 }
 
@@ -3093,8 +3091,7 @@ static const char* CursorTypeToString(
       return "NorthWestSouthEastNoResize";
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return "UNKNOWN";
+  NOTREACHED();
 }
 
 String Internals::getCurrentCursorInfo() {
@@ -3372,17 +3369,15 @@ void Internals::setShouldRevealPassword(Element* element,
 
 namespace {
 
-class AddOneFunction : public ScriptFunction::Callable {
+class AddOneFunction : public ThenCallable<IDLLong, AddOneFunction, IDLLong> {
  public:
-  ScriptValue Call(ScriptState* script_state, ScriptValue value) override {
-    v8::Local<v8::Value> v8_value = value.V8Value();
-    DCHECK(v8_value->IsNumber());
-    int32_t int_value =
-        static_cast<int32_t>(v8_value.As<v8::Integer>()->Value());
-    return ScriptValue(
-        script_state->GetIsolate(),
-        v8::Integer::New(script_state->GetIsolate(), int_value + 1));
-  }
+  int32_t React(ScriptState*, int32_t value) { return value + 1; }
+};
+
+class AddOneTypeMismatch
+    : public ThenCallable<IDLAny, AddOneTypeMismatch, IDLAny> {
+ public:
+  ScriptValue React(ScriptState*, ScriptValue value) { return value; }
 };
 
 }  // namespace
@@ -3399,10 +3394,11 @@ ScriptPromise<IDLAny> Internals::createRejectedPromise(
   return ScriptPromise<IDLAny>::Reject(script_state, value);
 }
 
-ScriptPromise<IDLAny> Internals::addOneToPromise(ScriptState* script_state,
-                                                 ScriptPromiseUntyped promise) {
-  return promise.Then(MakeGarbageCollected<ScriptFunction>(
-      script_state, MakeGarbageCollected<AddOneFunction>()));
+ScriptPromise<IDLLong> Internals::addOneToPromise(
+    ScriptState* script_state,
+    ScriptPromise<IDLLong> promise) {
+  return promise.Then(script_state, MakeGarbageCollected<AddOneFunction>(),
+                      MakeGarbageCollected<AddOneTypeMismatch>());
 }
 
 ScriptPromise<IDLAny> Internals::promiseCheck(ScriptState* script_state,
@@ -3500,24 +3496,7 @@ unsigned Internals::canvasFontCacheMaxFonts() {
   return CanvasFontCache::MaxFonts();
 }
 
-void Internals::forceLoseCanvasContext(HTMLCanvasElement* canvas,
-                                       const String& context_type) {
-  CanvasContextCreationAttributesCore attr;
-  CanvasRenderingContext* context =
-      canvas->GetCanvasRenderingContext(context_type, attr);
-  if (!context)
-    return;
-  context->LoseContext(CanvasRenderingContext::kSyntheticLostContext);
-}
-
-void Internals::forceLoseCanvasContext(OffscreenCanvas* offscreencanvas,
-                                       const String& context_type) {
-  CanvasContextCreationAttributesCore attr;
-  CanvasRenderingContext* context = offscreencanvas->GetCanvasRenderingContext(
-      document_->GetExecutionContext(),
-      CanvasRenderingContext::RenderingAPIFromId(context_type), attr);
-  if (!context)
-    return;
+void Internals::forceLoseCanvasContext(CanvasRenderingContext* context) {
   context->LoseContext(CanvasRenderingContext::kSyntheticLostContext);
 }
 
@@ -3978,6 +3957,16 @@ void Internals::stopResponsivenessMetricsUkmSampling() {
 Vector<String> Internals::getCreatorScripts(HTMLImageElement* img) {
   DCHECK(img);
   return Vector<String>(img->creator_scripts());
+}
+
+String Internals::lastCompiledScriptFileName(Document* document) {
+  return ToScriptStateForMainWorld(document->GetFrame())
+      ->last_compiled_script_file_name();
+}
+
+bool Internals::lastCompiledScriptUsedCodeCache(Document* document) {
+  return ToScriptStateForMainWorld(document->GetFrame())
+      ->last_compiled_script_used_code_cache();
 }
 
 ScriptPromise<IDLString> Internals::LCPPrediction(ScriptState* script_state,

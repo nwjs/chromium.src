@@ -22,7 +22,7 @@ import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Feature;
-import org.chromium.chrome.browser.profiles.OTRProfileID;
+import org.chromium.chrome.browser.profiles.OtrProfileId;
 import org.chromium.chrome.test.ChromeBrowserTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.components.messages.MessageDispatcher;
@@ -98,11 +98,11 @@ public class DownloadMessageUiControllerTest {
         }
 
         @Override
-        public void openDownloadsPage(OTRProfileID otrProfileID, int source) {}
+        public void openDownloadsPage(OtrProfileId otrProfileId, int source) {}
 
         @Override
         public void openDownload(
-                OfflineItem offlineItem, OTRProfileID otrProfileID, int source, Context context) {}
+                OfflineItem offlineItem, OtrProfileId otrProfileId, int source, Context context) {}
 
         @Override
         public void removeNotification(int notificationId, DownloadInfo downloadInfo) {}
@@ -280,6 +280,27 @@ public class DownloadMessageUiControllerTest {
         OfflineItem item2 = createOfflineItem(OfflineItemState.FAILED);
         mTestController.onItemUpdated(item2);
         mTestController.verify(MESSAGE_TWO_DOWNLOAD_FAILED, DESCRIPTION_ONE_BLOCKED);
+        mTestController.verifyIgnoreAction(false);
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Download"})
+    public void testMultipleOfflineItemCompleteAndBlocked() {
+        OfflineItem item = createOfflineItem(OfflineItemState.FAILED);
+        item.failState = FailState.FILE_BLOCKED;
+        mTestController.onItemUpdated(item);
+        mTestController.verify(MESSAGE_DOWNLOAD_FAILED, DESCRIPTION_BLOCKED);
+        mTestController.verifyIgnoreAction(true);
+
+        OfflineItem item2 = createOfflineItem(OfflineItemState.COMPLETE);
+        mTestController.onItemUpdated(item2);
+        mTestController.verify(MESSAGE_SINGLE_DOWNLOAD_COMPLETE, DESCRIPTION_DOWNLOAD_COMPLETE);
+        mTestController.verifyIgnoreAction(false);
+
+        OfflineItem item3 = createOfflineItem(OfflineItemState.COMPLETE);
+        mTestController.onItemUpdated(item3);
+        mTestController.verify(MESSAGE_TWO_DOWNLOAD_COMPLETE, null);
         mTestController.verifyIgnoreAction(false);
     }
 

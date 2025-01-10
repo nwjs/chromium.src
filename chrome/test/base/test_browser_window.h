@@ -23,8 +23,8 @@
 #include "chrome/browser/ui/translate/partial_translate_bubble_model.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search.mojom.h"
 #include "chrome/common/buildflags.h"
-#include "components/user_education/common/feature_promo_controller.h"
-#include "components/user_education/common/new_badge_controller.h"
+#include "components/user_education/common/feature_promo/feature_promo_controller.h"
+#include "components/user_education/common/new_badge/new_badge_controller.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/mojom/window_show_state.mojom-forward.h"
 
@@ -104,7 +104,6 @@ class TestBrowserWindow : public BrowserWindow {
   void UpdateDevTools() override {}
   void UpdateLoadingAnimations(bool is_visible) override {}
   void SetStarredState(bool is_starred) override {}
-  void SetTranslateIconToggled(bool is_lit) override {}
   void OnActiveTabChanged(content::WebContents* old_contents,
                           content::WebContents* new_contents,
                           int index,
@@ -259,7 +258,7 @@ class TestBrowserWindow : public BrowserWindow {
 
   void CreateTabSearchBubble(
       tab_search::mojom::TabSearchSection section =
-          tab_search::mojom::TabSearchSection::kNone,
+          tab_search::mojom::TabSearchSection::kSearch,
       tab_search::mojom::TabOrganizationFeature feature =
           tab_search::mojom::TabOrganizationFeature::kNone) override {}
   void CloseTabSearchBubble() override {}
@@ -269,7 +268,7 @@ class TestBrowserWindow : public BrowserWindow {
       const base::Feature& iph_feature) const override;
   void MaybeShowFeaturePromo(
       user_education::FeaturePromoParams params) override;
-  bool MaybeShowStartupFeaturePromo(
+  void MaybeShowStartupFeaturePromo(
       user_education::FeaturePromoParams params) override;
   bool AbortFeaturePromo(const base::Feature& iph_feature) override;
   user_education::FeaturePromoHandle CloseFeaturePromoAndContinue(

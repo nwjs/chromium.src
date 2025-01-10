@@ -126,7 +126,8 @@ AutocompleteControllerAndroid::AutocompleteControllerAndroid(
     Profile* profile,
     std::unique_ptr<ChromeAutocompleteProviderClient> client,
     bool is_low_memory_device)
-    : profile_{profile},
+    : is_low_memory_device_{is_low_memory_device},
+      profile_{profile},
       java_controller_{Java_AutocompleteController_Constructor(
           AttachCurrentThread(),
           reinterpret_cast<intptr_t>(this))},
@@ -188,31 +189,22 @@ void AutocompleteControllerAndroid::StartPrefetch(
     return;
   }
 
-  const bool is_ntp_page = omnibox::IsNTPPage(page_classification);
-  const bool interaction_clobber_focus_type =
-      base::FeatureList::IsEnabled(
-          omnibox::kOmniboxOnClobberFocusTypeOnContent) &&
-      !is_ntp_page;
-
   GURL current_url;
   std::u16string auto_complete_text;
 
   if (!j_current_url.is_null()) {
     current_url = GURL(ConvertJavaStringToUTF16(env, j_current_url));
 
-    // We will not assign text to autocomplete input when on NTP page and input
-    // type is not clobber focus type.
-    if (!is_ntp_page && !interaction_clobber_focus_type) {
-      auto_complete_text = ConvertJavaStringToUTF16(env, j_current_url);
-    }
+    // We will not assign text to autocomplete input when on NTP page.
+    auto_complete_text = omnibox::IsNTPPage(page_classification)
+                             ? u""
+                             : ConvertJavaStringToUTF16(env, j_current_url);
   }
 
   AutocompleteInput input(auto_complete_text, page_classification,
                           ChromeAutocompleteSchemeClassifier(profile_));
   input.set_current_url(current_url);
-  input.set_focus_type(interaction_clobber_focus_type
-                           ? metrics::OmniboxFocusType::INTERACTION_CLOBBER
-                           : metrics::OmniboxFocusType::INTERACTION_FOCUS);
+  input.set_focus_type(metrics::OmniboxFocusType::INTERACTION_FOCUS);
   autocomplete_controller_->StartPrefetch(input);
 }
 
@@ -264,12 +256,7 @@ void AutocompleteControllerAndroid::OnOmniboxFocused(
   auto page_class =
       OmniboxEventProto::PageClassification(j_page_classification);
 
-  // Assign focus type to INTERACTION_CLOBBER to non-NTP zero-prefix requests
-  const auto interaction_type = omnibox::IsNTPPage(page_class)
-                                    ? OFT::INTERACTION_FOCUS
-                                    : OFT::INTERACTION_CLOBBER;
-
-  if (interaction_type == OFT::INTERACTION_CLOBBER) {
+  if (!omnibox::IsNTPPage(page_class)) {
     omnibox_text.clear();
   }
 
@@ -295,7 +282,7 @@ void AutocompleteControllerAndroid::OnOmniboxFocused(
                              ChromeAutocompleteSchemeClassifier(profile_));
   input_.set_current_url(current_url);
   input_.set_current_title(current_title);
-  input_.set_focus_type(interaction_type);
+  input_.set_focus_type(OFT::INTERACTION_FOCUS);
 
   autocomplete_controller_->Start(input_);
 }
@@ -559,6 +546,12 @@ void AutocompleteControllerAndroid::OnResultChanged(
 
 void AutocompleteControllerAndroid::NotifySuggestionsReceived(
     const AutocompleteResult& autocomplete_result) {
+  if (is_low_memory_device_ && !autocomplete_controller_->done() &&
+      base::FeatureList::IsEnabled(
+          omnibox::kSuppressIntermediateACUpdatesOnLowEndDevices)) {
+    return;
+  }
+
   JNIEnv* env = AttachCurrentThread();
 
   Java_AutocompleteController_onSuggestionsReceived(

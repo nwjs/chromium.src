@@ -26,7 +26,6 @@
 #include "chrome/common/extensions/api/document_scan.h"
 #include "chrome/common/pref_names.h"
 #include "chromeos/crosapi/mojom/document_scan.mojom.h"
-#include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
@@ -56,21 +55,12 @@ constexpr char kScannerImageMimeTypePng[] = "image/png";
 constexpr char kPngImageDataUrlPrefix[] = "data:image/png;base64,";
 
 crosapi::mojom::DocumentScan* GetDocumentScanInterface() {
-#if BUILDFLAG(IS_CHROMEOS)
   // CrosapiManager is not always initialized in tests.
   if (!crosapi::CrosapiManager::IsInitialized()) {
     CHECK_IS_TEST();
     return nullptr;
   }
   return crosapi::CrosapiManager::Get()->crosapi_ash()->document_scan_ash();
-#else
-  auto* service = chromeos::LacrosService::Get();
-  if (!service->IsAvailable<crosapi::mojom::DocumentScan>()) {
-    LOG(ERROR) << "DocumentScan service not available";
-    return nullptr;
-  }
-  return service->GetRemote<crosapi::mojom::DocumentScan>().get();
-#endif
 }
 
 }  // namespace
@@ -117,12 +107,6 @@ DocumentScanAPIHandler* DocumentScanAPIHandler::Get(
     content::BrowserContext* browser_context) {
   return BrowserContextKeyedAPIFactory<DocumentScanAPIHandler>::Get(
       browser_context);
-}
-
-// static
-void DocumentScanAPIHandler::RegisterProfilePrefs(
-    PrefRegistrySimple* registry) {
-  registry->RegisterListPref(prefs::kDocumentScanAPITrustedExtensions);
 }
 
 void DocumentScanAPIHandler::ExtensionCleanup(const ExtensionId& id) {

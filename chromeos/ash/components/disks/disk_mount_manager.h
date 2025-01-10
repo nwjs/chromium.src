@@ -18,8 +18,7 @@
 #include "chromeos/ash/components/dbus/cros_disks/cros_disks_client.h"
 #include "chromeos/ash/components/disks/disk.h"
 
-namespace ash {
-namespace disks {
+namespace ash::disks {
 
 // Possible filesystem types that can be passed to FormatMountedDevice.
 // These values are persisted to logs. Entries should not be renumbered and
@@ -91,8 +90,7 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DISKS) DiskMountManager {
   struct SortByMountPath {
     using is_transparent = void;
 
-    template <typename A, typename B>
-    bool operator()(const A& a, const B& b) const {
+    bool operator()(const auto& a, const auto& b) const {
       return GetKey(a) < GetKey(b);
     }
 
@@ -158,13 +156,11 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DISKS) DiskMountManager {
   // Delegate class for ARC-side operations.
   class ArcDelegate {
    public:
-    typedef base::OnceCallback<void(bool success)> PreparationCallback;
+    typedef base::OnceCallback<void(bool success)> Callback;
 
-    // Instruct ARC to prpeare for removable media unmount mounted on
-    // `mount_path` by dropping any references to the volume.
-    virtual void PrepareForRemovableMediaUnmount(
-        const base::FilePath& mount_path,
-        PreparationCallback callback) {}
+    // Drop ARC caches for the given removable drive.
+    virtual void DropArcCaches(const base::FilePath& mount_path,
+                               Callback callback) = 0;
   };
 
   virtual ~DiskMountManager() = default;
@@ -174,12 +170,6 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DISKS) DiskMountManager {
 
   // Removes an observer.
   virtual void RemoveObserver(Observer* observer) = 0;
-
-  // Registers a delegate.
-  virtual void RegisterArcDelegate(ArcDelegate* delegate) {}
-
-  // Unregisters the delegate.
-  virtual void UnregisterArcDelegate() {}
 
   // Gets the list of disks found.
   virtual const Disks& disks() const = 0;
@@ -263,6 +253,9 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DISKS) DiskMountManager {
   virtual bool AddDiskForTest(std::unique_ptr<Disk> disk);
   virtual bool AddMountPointForTest(const MountPoint& mount_point);
 
+  // Sets the ARC delegate.
+  void SetArcDelegate(ArcDelegate* delegate) { arc_delegate_ = delegate; }
+
   // Creates the global DiskMountManager instance.
   static void Initialize();
 
@@ -278,9 +271,11 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DISKS) DiskMountManager {
   // Returns a pointer to the global DiskMountManager instance.
   // Initialize() should already have been called.
   static DiskMountManager* GetInstance();
+
+ protected:
+  raw_ptr<ArcDelegate> arc_delegate_ = nullptr;
 };
 
-}  // namespace disks
-}  // namespace ash
+}  // namespace ash::disks
 
 #endif  // CHROMEOS_ASH_COMPONENTS_DISKS_DISK_MOUNT_MANAGER_H_

@@ -832,14 +832,6 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
     return HasNonVisibleOverflow() && StyleRef().ScrollsOverflowY();
   }
 
-  // Elements such as the <input> field override this to specify that they are
-  // scrollable outside the context of the CSS overflow style
-  virtual bool IsIntrinsicallyScrollable(
-      ScrollbarOrientation orientation) const {
-    NOT_DESTROYED();
-    return false;
-  }
-
   // Return true if this box is monolithic, i.e. unbreakable in a fragmentation
   // context.
   virtual bool IsMonolithic() const;
@@ -1012,8 +1004,7 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   virtual LayoutBox* CreateAnonymousBoxWithSameTypeAs(
       const LayoutObject*) const {
     NOT_DESTROYED();
-    NOTREACHED_IN_MIGRATION();
-    return nullptr;
+    NOTREACHED();
   }
 
   ShapeOutsideInfo* GetShapeOutsideInfo() const;

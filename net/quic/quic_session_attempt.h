@@ -18,6 +18,7 @@
 #include "net/base/network_handle.h"
 #include "net/quic/quic_chromium_client_session.h"
 #include "net/quic/quic_session_alias_key.h"
+#include "net/spdy/multiplexed_session_creation_initiator.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_versions.h"
 
 #ifndef NET_QUIC_QUIC_SESSION_ATTEMPT_H_
@@ -66,18 +67,19 @@ class NET_EXPORT_PRIVATE QuicSessionAttempt {
   // CryptoClientConfig alive until `this` completes. Call sites can pass
   // nullptr to `crypto_client_config_handle` if the corresponding
   // CryptoClientConfig is guaranteed to be alive.
-  QuicSessionAttempt(Delegate* delegate,
-                     IPEndPoint ip_endpoint,
-                     ConnectionEndpointMetadata metadata,
-                     quic::ParsedQuicVersion quic_version,
-                     int cert_verify_flags,
-                     base::TimeTicks dns_resolution_start_time,
-                     base::TimeTicks dns_resolution_end_time,
-                     bool retry_on_alternate_network_before_handshake,
-                     bool use_dns_aliases,
-                     std::set<std::string> dns_aliases,
-                     std::unique_ptr<QuicCryptoClientConfigHandle>
-                         crypto_client_config_handle);
+  QuicSessionAttempt(
+      Delegate* delegate,
+      IPEndPoint ip_endpoint,
+      ConnectionEndpointMetadata metadata,
+      quic::ParsedQuicVersion quic_version,
+      int cert_verify_flags,
+      base::TimeTicks dns_resolution_start_time,
+      base::TimeTicks dns_resolution_end_time,
+      bool retry_on_alternate_network_before_handshake,
+      bool use_dns_aliases,
+      std::set<std::string> dns_aliases,
+      std::unique_ptr<QuicCryptoClientConfigHandle> crypto_client_config_handle,
+      MultiplexedSessionCreationInitiator session_creation_initiator);
   // Create a SessionAttempt for a connection proxied over the given stream.
   QuicSessionAttempt(
       Delegate* delegate,
@@ -86,7 +88,8 @@ class NET_EXPORT_PRIVATE QuicSessionAttempt {
       quic::ParsedQuicVersion quic_version,
       int cert_verify_flags,
       std::unique_ptr<QuicChromiumClientStream::Handle> proxy_stream,
-      const HttpUserAgentSettings* http_user_agent_settings);
+      const HttpUserAgentSettings* http_user_agent_settings,
+      MultiplexedSessionCreationInitiator session_creation_initiator);
 
   ~QuicSessionAttempt();
 
@@ -144,6 +147,8 @@ class NET_EXPORT_PRIVATE QuicSessionAttempt {
   std::unique_ptr<QuicChromiumClientStream::Handle> proxy_stream_;
   const raw_ptr<const HttpUserAgentSettings> http_user_agent_settings_;
   const IPEndPoint local_endpoint_;
+
+  const MultiplexedSessionCreationInitiator session_creation_initiator_;
 
   State next_state_ = State::kNone;
   bool in_loop_ = false;

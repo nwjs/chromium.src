@@ -45,6 +45,11 @@ inline constexpr char kBrowserLockdownModeEnabled[] =
 // to load them.
 inline constexpr char kProfileInfoCache[] = "profile.info_cache";
 
+// The name of the profile that's used as the "personal" profile (used for
+// consumer accounts), as opposed to managed profiles (linked to a managed aka
+// Enterprise account).
+inline constexpr char kPersonalProfileName[] = "profile.personal";
+
 // Name of the last used profile.
 // TODO(crbug.com/325921947): Remove use of this key, kLastActiveProfiles
 // should be used.
@@ -235,6 +240,11 @@ inline constexpr char kIosDockingPromoEligibilityMet[] =
 
 // A list of the latest fetched Most Visited Sites.
 inline constexpr char kIosLatestMostVisitedSites[] = "ios.most_visited_sites";
+
+// The last saved index of an NTP WebState. Only updated on app background, so
+// it does not always reflect the current WebStateList.
+inline constexpr char kIOSLastKnownNTPWebStateIndex[] =
+    "ios.last_known_ntp_web_state_index";
 
 // Integer representing the number of impressions of the Most Visited Site since
 // a freshness signal.
@@ -567,6 +577,10 @@ inline constexpr char kPushNotificationAuthorizationStatus[] =
 inline constexpr char kIncognitoAuthenticationSetting[] =
     "ios.settings.incognito_authentication_enabled";
 
+// Bool used for the incognito soft lock setting.
+inline constexpr char kIncognitoSoftLockSetting[] =
+    "ios.settings.incognito_soft_lock_enabled";
+
 // Timestamp tracking the time in which Chrome was last backgrounded for the
 // purposes of locking incognito content.
 inline constexpr char kLastBackgroundedTime[] = "ios.last_backgrounded_time";
@@ -692,6 +706,11 @@ inline constexpr char kIdentityConfirmationSnackbarDisplayCount[] =
 // Customization menu's entrypoint.
 inline constexpr char kNTPHomeCustomizationNewBadgeImpressionCount[] =
     "ios.home_customization.new_badge_impressions";
+
+// The number of times that the prominence alert about the user's push
+// notification silent authorization state has been shown.
+inline constexpr char kProminenceNotificationAlertImpressionCount[] =
+    "ios.push_notification.prominence_alert_impressions";
 
 }  // namespace prefs
 

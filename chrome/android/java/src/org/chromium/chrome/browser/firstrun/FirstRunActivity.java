@@ -842,6 +842,9 @@ public class FirstRunActivity extends FirstRunActivityBase implements FirstRunPa
     @Override
     protected ActivityWindowAndroid createWindowAndroid() {
         return new ActivityWindowAndroid(
-                this, /* listenToActivityState= */ true, getIntentRequestTracker());
+                this,
+                /* listenToActivityState= */ true,
+                getIntentRequestTracker(),
+                getInsetObserver());
     }
 }

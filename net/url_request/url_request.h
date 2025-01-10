@@ -78,6 +78,10 @@ class URLRequestContext;
 class URLRequestJob;
 class X509Certificate;
 
+namespace device_bound_sessions {
+struct SessionKey;
+}
+
 //-----------------------------------------------------------------------------
 // A class  representing the asynchronous load of a data stream from an URL.
 //
@@ -503,7 +507,7 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   // that appear more than once in the response are coalesced, with values
   // separated by commas (per RFC 2616). This will not work with cookies since
   // comma can be used in cookie values.
-  void GetResponseHeaderByName(std::string_view name, std::string* value) const;
+  std::string GetResponseHeaderByName(std::string_view name) const;
 
   // The time when |this| was constructed.
   base::TimeTicks creation_time() const { return creation_time_; }
@@ -516,6 +520,11 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   // responses, this is the last time the cache entry was validated.
   const base::Time& response_time() const {
     return response_info_.response_time;
+  }
+
+  // Like response_time, but ignoring revalidations.
+  const base::Time& original_response_time() const {
+    return response_info_.original_response_time;
   }
 
   // Indicate if this response was fetched from disk cache.
@@ -581,13 +590,7 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   const HttpResponseInfo& response_info() const { return response_info_; }
 
   // Access the LOAD_* flags modifying this request (see load_flags.h).
-  int load_flags() const {
-    if (cookie_setting_overrides().Has(
-            CookieSettingOverride::kStorageAccessGrantEligibleViaHeader)) {
-      return partial_load_flags_ | LOAD_BYPASS_CACHE;
-    }
-    return partial_load_flags_;
-  }
+  int load_flags() const { return partial_load_flags_ | per_hop_load_flags_; }
 
   bool is_created_from_network_anonymization_key() const {
     return is_created_from_network_anonymization_key_;
@@ -622,6 +625,9 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   // before Start() is called, it must only set the flag, and if set,
   // the priority of this request must already be MAXIMUM_PRIORITY.
   void SetLoadFlags(int flags);
+
+  // Sets "temporary" load flags. They are cleared upon receiving a redirect.
+  void set_per_hop_load_flags(int flags) { per_hop_load_flags_ = flags; }
 
   // Controls the Secure DNS behavior to use when creating the socket for this
   // request.
@@ -806,6 +812,18 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   void SetIsSharedDictionaryReadAllowedCallback(
       base::RepeatingCallback<bool()> callback);
 
+  // Set a callback that will be invoked each time a device bound
+  // session is accessed as part of this URL request. Because device
+  // bound sessions can be accessed asynchronously after this request
+  // completes, this callback must be able to safely outlive `this`.
+  void SetDeviceBoundSessionAccessCallback(
+      base::RepeatingCallback<void(const device_bound_sessions::SessionKey&)>
+          callback);
+  base::RepeatingCallback<void(const device_bound_sessions::SessionKey&)>
+  device_bound_session_access_callback() {
+    return device_bound_session_access_callback_;
+  }
+
   // Sets socket tag to be applied to all sockets used to execute this request.
   // Must be set before Start() is called.  Only currently supported for HTTP
   // and HTTPS requests on Android; UID tagging requires
@@ -875,7 +893,9 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   // TODO(https://crbug.com/366284840): Move this to URLLoader once the
   // "Activate-Storage-Access: retry" header is handled in URLLoader.
   std::optional<net::cookie_util::StorageAccessStatus>
-  CalculateStorageAccessStatus() const;
+  CalculateStorageAccessStatus(
+      base::optional_ref<const RedirectInfo> redirect_info =
+          base::optional_ref<const RedirectInfo>(std::nullopt)) const;
 
   base::WeakPtr<URLRequest> GetWeakPtr();
 
@@ -1025,6 +1045,9 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   // Flags indicating the request type for the load. Expected values are LOAD_*
   // enums above.
   int partial_load_flags_ = LOAD_NORMAL;
+  // Load flags that only apply to a single hop in the redirect chain.
+  int per_hop_load_flags_ = LOAD_NORMAL;
+
   // Whether the request is allowed to send credentials in general. Set by
   // caller.
   bool allow_credentials_ = true;
@@ -1155,6 +1178,9 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   // The storage access status for this request. If this is nullopt, this
   // request will not include the Sec-Fetch-Storage-Access header.
   std::optional<net::cookie_util::StorageAccessStatus> storage_access_status_;
+
+  base::RepeatingCallback<void(const device_bound_sessions::SessionKey&)>
+      device_bound_session_access_callback_;
 
   THREAD_CHECKER(thread_checker_);
 

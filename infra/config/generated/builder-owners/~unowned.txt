@@ -9,9 +9,9 @@ try/android-arm64-rel-compilator
 try/android-binary-size
 try/android-oreo-arm64-dbg
 try/android-pie-arm64-dbg
+try/android-pie-x86-rel
 try/android-webview-oreo-arm64-dbg
 try/android-webview-pie-arm64-dbg
-try/android-x64-cast
 try/android_compile_dbg
 try/android_compile_x64_dbg
 try/android_compile_x86_dbg

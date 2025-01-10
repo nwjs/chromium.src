@@ -52,14 +52,14 @@ BASE_FEATURE(kAutofillCreditCardUserPerceptionSurvey,
 // TODO(crbug.com/40220393): Cleanup when launched.
 BASE_FEATURE(kAutofillPreferParsedPhoneNumber,
              "AutofillPreferParsedPhoneNumber",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, the country calling code for nationally formatted phone numbers
 // is inferred from the profile's country, if available.
 // TODO(crbug.com/40220393): Cleanup when launched.
 BASE_FEATURE(kAutofillInferCountryCallingCode,
              "AutofillInferCountryCallingCode",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, label inference considers strings entirely made up of  '(', ')'
 // and '-' as valid labels.
@@ -145,7 +145,7 @@ BASE_FEATURE(kAutofillEnableSupportForParsingWithSharedLabels,
 // TODO(crbug.com/40285735): Remove when/if launched.
 BASE_FEATURE(kAutofillEnableEmailHeuristicOnlyAddressForms,
              "AutofillEnableEmailHeuristicOnlyAddressForms",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls if heuristic field parsing should be performed on email-only forms
 // without an enclosing form tag. This feature will only be launched once
@@ -204,7 +204,7 @@ BASE_FEATURE(kAutofillEnablePaymentsFieldSwapping,
 // types are enabled as well.
 BASE_FEATURE(kAutofillEnableSupportForPhoneNumberTrunkTypes,
              "AutofillEnableSupportForPhoneNumberTrunkTypes",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, only non-ad frames are extracted.
 // Otherwise, non-ad frames as well as *visible* ad frames are extracted.
@@ -295,17 +295,6 @@ BASE_FEATURE(kAutofillImportFromAutocompleteUnrecognized,
              "AutofillImportFromAutocompleteUnrecognized",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Makes disused suggestion suppression logic ignore the first
-// `kNumberOfIgnoredSuggestions` suggestions (in frecency order), so that the
-// logic never returns an empty list after being passed a non-empty one.
-BASE_FEATURE(kAutofillChangeDisusedAddressSuggestionTreatment,
-             "AutofillChangeDisusedAddressSuggestionTreatment",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-const base::FeatureParam<int> kNumberOfIgnoredSuggestions{
-    &kAutofillChangeDisusedAddressSuggestionTreatment, "ignored-suggestions",
-    1};
-
 // If enabled, we start forwarding submissions with source
 // DOM_MUTATION_AFTER_AUTOFILL, even for non-password forms.
 BASE_FEATURE(kAutofillAcceptDomMutationAfterAutofillSubmission,
@@ -313,21 +302,12 @@ BASE_FEATURE(kAutofillAcceptDomMutationAfterAutofillSubmission,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Removes logic that resets form submission tracking data upon receiving a
-// submission signal, so that integrators (namely Autofill and PasswordManager)
-// can decide what sources to use and what sources to ignore. Also, fixes
-// submission deduplication so that it ignores password submissions that PWM
-// doesn't act upon.
+// FORM_SUBMISSION or PROBABLE_FORM_SUBMISSION signal. Also, fixes submission
+// deduplication so that it ignores submissions that PWM doesn't act upon.
 // TODO(crbug.com/40281981): Remove when launched.
 BASE_FEATURE(kAutofillFixFormTracking,
              "AutofillFixFormTracking",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Unifies the tracking of the last interacted elements between FormTracker and
-// AutofillAgent and fixes inconsistencies in this tracking.
-// TODO(crbug.com/40281981): Remove when launched.
-BASE_FEATURE(kAutofillUnifyAndFixFormTracking,
-             "AutofillUnifyAndFixFormTracking",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Uses AutofillAgent::GetSubmittedForm() in HTML submissions.
 // TODO(crbug.com/40281981): Remove when launched.
@@ -414,6 +394,12 @@ BASE_FEATURE(kAutofillSupportPhoneticNameForJP,
              "AutofillSupportPhoneticNameForJP",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables using a custom address model for the Netherlands, overriding the
+// legacy one.
+BASE_FEATURE(kAutofillUseNLAddressModel,
+             "AutofillUseNLAddressModel",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables using a custom address model for Poland, overriding the legacy one.
 BASE_FEATURE(kAutofillUsePLAddressModel,
              "AutofillUsePLAddressModel",
@@ -456,16 +442,6 @@ BASE_FEATURE(kAutofillPageLanguageDetection,
 // TODO(crbug.com/361560365): Clean up when launched.
 BASE_FEATURE(kAutofillParseEmailLabelAndPlaceholder,
              "AutofillParseEmailLabelAndPlaceholder",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If enabled, the placeholder is not used as a fallback during label inference.
-// Instead, local heuristics treat it as a separate source in addition to the
-// label. The placeholder is matched against the same regex as the label.
-// Since placeholders are often used as example values, this should allow us to
-// extract a more appropriate label instead.
-// TODO(crbug.com/40222716): Remove once launched.
-BASE_FEATURE(kAutofillAlwaysParsePlaceholders,
-             "AutofillAlwaysParsePlaceholders",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If the feature is enabled, paint checks over individual `PopupCellView`s (to
@@ -701,17 +677,6 @@ const base::FeatureParam<size_t>
         &kAutofillLogDeduplicationMetrics, "max_field_value_length_for_merging",
         100};
 
-// Currently, the importing logic offers new profile creation if the observed
-// profile is non-mergeable with any existing profile. With this feature, low-
-// quality tokens receive special treatment and can bypass this requirement.
-// In particular, if the observed profile was autofilled, except for an edit in
-// a single type, this qualifies for an update of the autofilled profile, in
-// case the edited type has low-quality.
-// TODO(crbug.com/325451601): Remove when launched.
-BASE_FEATURE(kAutofillUpdateLowQualityTokenOnImport,
-             "AutofillUpdateLowQualityTokenOnImport",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kAutofillUKMExperimentalFields,
              "AutofillUKMExperimentalFields",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -732,12 +697,20 @@ const base::FeatureParam<std::string> kAutofillUKMExperimentalFieldsBucket4{
 COMPONENT_EXPORT(AUTOFILL)
 BASE_FEATURE(kAutofillTrackMultipleUseDates,
              "AutofillTrackMultipleUseDates",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, Greek regexes are used for parsing in branded builds.
 COMPONENT_EXPORT(AUTOFILL)
 BASE_FEATURE(kAutofillGreekRegexes,
              "AutofillGreekRegexes",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, the text of a <select> element's first <option> is considered
+// as a potential label.
+// TODO(crbug.com/320965828): Remove when launched.
+COMPONENT_EXPORT(AUTOFILL)
+BASE_FEATURE(kAutofillInferLabelFromDefaultSelectText,
+             "AutofillInferLabelFromDefaultSelectText",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)

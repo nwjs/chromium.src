@@ -58,7 +58,6 @@
 #include "chrome/browser/chromeos/policy/dlp/dlp_rules_manager_factory.h"
 #include "chrome/browser/chromeos/policy/dlp/test/mock_dlp_rules_manager.h"
 #include "chrome/browser/chromeos/upload_office_to_cloud/upload_office_to_cloud.h"
-#include "chrome/browser/extensions/extension_keeplist_chromeos.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/notifications/notification_display_service.h"
 #include "chrome/browser/notifications/notification_display_service_factory.h"
@@ -1596,7 +1595,7 @@ class FakeWebAppPublisher : public apps::AppPublisher {
                 bool allow_placeholder_icon,
                 apps::LoadIconCallback callback) override {
     // Never called in these tests.
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 
   void Launch(const std::string& app_id,
@@ -1604,7 +1603,7 @@ class FakeWebAppPublisher : public apps::AppPublisher {
               apps::LaunchSource launch_source,
               apps::WindowInfoPtr window_info) override {
     // Never called in these tests.
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 
   void LaunchAppWithIntent(const std::string& app_id,
@@ -1622,7 +1621,7 @@ class FakeWebAppPublisher : public apps::AppPublisher {
   void LaunchAppWithParams(apps::AppLaunchParams&& params,
                            apps::LaunchCallback callback) override {
     // Never called in these tests.
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 
   void ClearPastLaunches() { launches_.clear(); }

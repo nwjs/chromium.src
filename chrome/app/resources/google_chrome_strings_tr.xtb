@@ -76,7 +76,6 @@
 <translation id="2008942457798486387">{NUM_EXTENSIONS,plural, =1{Bu uzantı artık desteklenmiyor. Chrome, bu dosyayı kaldırmanızı önerir.}other{Bu uzantılar artık desteklenmiyor. Chrome, bunları kaldırmanızı önerir.}}</translation>
 <translation id="2018528049276128029">Her profil; yer işaretleri, geçmiş, şifreler ve benzeri gibi kendi Chrome bilgilerini içerir</translation>
 <translation id="2018879682492276940">Yükleme başarısız oldu. Lütfen tekrar deneyin.</translation>
-<translation id="2022471217832964798">Hesap erişimi ayarlanırken Chrome'u kullanmaya devam edebilirsiniz. Ayarlama işlemi tamamlanana kadar bazı kaynaklara erişemeyebilirsiniz.</translation>
 <translation id="2034233344106846793">Chrome, güvensiz bağlantıları mümkün olduğunda otomatik olarak HTTPS'ye yükseltir</translation>
 <translation id="207902854391093810">Reklam ölçümü, denemeler açıkken ziyaret ettiğiniz sitelerin Chrome'dan bilgi istemesine olanak tanır. Bu bilgiler de sitenin, reklamlarının performansını ölçmesine yardımcı olur. Reklam ölçümü, siteler arasında mümkün olduğunca az bilgi aktararak siteler arası izlemeyi kısıtlar.</translation>
 <translation id="2091012649849228750">Gelecekteki Google Chrome güncellemelerini almak için Windows 10 veya sonraki bir sürümün yüklü olması gerekir. Bu bilgisayar Windows 8 kullanıyor.</translation>
@@ -244,6 +243,7 @@
 <translation id="3873044882194371212">Bağlantıyı Chrome &amp;gizli penceresinde aç</translation>
 <translation id="3885770153807205175">Dil seçici</translation>
 <translation id="3889417619312448367">Google Chrome'u Kaldır</translation>
+<translation id="3892148308691398805">Metni kopyala</translation>
 <translation id="3941890832296813527">Yükleme hatası: Yükleyici dosya adı geçersiz veya desteklenmiyor.</translation>
 <translation id="3973161977468201858">Google Chrome, Google Şifre Yöneticisi verilerinizi silmek istiyor. Buna izin vermek için Windows şifrenizi yazın.</translation>
 <translation id="398236277091248993">Performansı artıran özellikler, Chrome'un hızlı kalmasını sağlar.</translation>
@@ -298,6 +298,7 @@
 <translation id="4567424176335768812"><ph name="USER_EMAIL_ADDRESS" /> olarak oturum açtınız. Şimdi oturum açtığınız tüm cihazlarda yer işaretlerinize, geçmişinize ve diğer ayarlarınıza erişebilirsiniz.</translation>
 <translation id="4571503333518166079">Chrome bildirim ayarlarına git</translation>
 <translation id="4575717501879784448">Chrome, göz atma deneyiminizi iyileştirmek ve kaynaklarda yer açmak için aşağıdaki sekmeleri devre dışı bırakabilir.</translation>
+<translation id="4595162648538023956">Öğelerinizi almak için oturum açabilir veya Chrome'u hesap olmadan kullanabilirsiniz</translation>
 <translation id="459622048091363950">Chrome erişim izni aldıktan sonra, web siteleri de erişim için sizden izin isteyebilecek.</translation>
 <translation id="4600710005438004015">Chrome en son sürüme güncellenemediği için yeni özellikler ve güvenlik düzeltmeleri cihazınızda bulunmuyor.</translation>
 <translation id="4601439950572737842">Verileriniz parolanızla şifrelenir. Chrome verilerini kullanmak ve Google Hesabınıza kaydetmek için bu kodu girin.</translation>
@@ -344,6 +345,7 @@
 <translation id="5170938038195470297">Profiliniz daha yeni bir Google Chrome sürümünden geldiği için kullanılamıyor.
 
 Bazı özellikler kullanılamayabilir. Lütfen farklı bir profil dizini belirtin veya daha yeni bir Chrome sürümü kullanın.</translation>
+<translation id="5174969993834422967">Genelde bildirimleri engelliyorsunuz. Bu sitenin size bildirim göndermesine izin vermek için konum çubuğunuzun sağ köşesindeki bildirim simgesini tıklayın.</translation>
 <translation id="5201744974236816379">Chrome güncellemesi</translation>
 <translation id="521447420733633466">Bir cihazı paylaşıyorsanız arkadaşlarınız ve aileniz web'e ayrı olarak göz atabilir ve Chrome'u tam olarak istedikleri şekilde ayarlayabilirler.</translation>
 <translation id="5234764350956374838">Kapat</translation>
@@ -374,7 +376,7 @@ Bazı özellikler kullanılamayabilir. Lütfen farklı bir profil dizini belirti
 <translation id="5686916850681061684">Google Chrome'u özelleştirin ve kontrol edin. İlgilenmeniz gereken bir konu var. Ayrıntılar için tıklayın.</translation>
 <translation id="5690427481109656848">Google LLC</translation>
 <translation id="569897634095159764">İnternet'e bağlanılamıyor. Proxy sunucu kimlik doğrulama gerektiriyor.</translation>
-<translation id="5709557627224531708">Chrome'u varsayılan tarayıcınız olarak ayarlama</translation>
+<translation id="5709557627224531708">Chrome'u varsayılan tarayıcınız olarak ayarlayın</translation>
 <translation id="5727531838415286053">Chrome tarafından etkin bir denemeye rastgele yerleştirildiyseniz tarama geçmişiniz gördüğünüz reklamları ve aşağıdaki şekilde tahmin edilen ilgi alanlarınızı etkiler. Chrome, gizliliğinizi korumak için ilgi alanlarınızı her ay sürekli olarak siler. Kaldırmadığınız sürece ilgi alanlarınız yenilenmeye devam eder.</translation>
 <translation id="5736850870166430177">Chrome, bir sitenin şifrenizi çalmaya çalışması veya zararlı bir dosya indirmeniz halinde de Güvenli Tarama'ya sayfa içeriğinden parçalarla birlikte URL'ler gönderebilir</translation>
 <translation id="5756509061973259733">Cihazda bu hesaba sahip bir Chrome profili zaten var</translation>
@@ -388,7 +390,6 @@ Bazı özellikler kullanılamayabilir. Lütfen farklı bir profil dizini belirti
 <translation id="5895138241574237353">Yeniden başlat</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> - Ağda Oturum Açın</translation>
 <translation id="5924017743176219022">İnternete bağlanılıyor...</translation>
-<translation id="5932997892801542621">Adres çubuğuna veya arama kutusuna yazdığınızda Chrome, yazdıklarınızı Google Drive'a göndererek öğe önerileri görmenizi sağlar. Bu ayar Gizli modda kapalıdır.</translation>
 <translation id="5940385492829620908">Web, yer işaretleri ve diğer Chrome öğeleriniz burada bulunur.</translation>
 <translation id="5941711191222866238">Küçült</translation>
 <translation id="5941830788786076944">Google Chrome varsayılan tarayıcı olsun</translation>
@@ -447,6 +448,7 @@ Bazı özellikler kullanılamayabilir. Lütfen farklı bir profil dizini belirti
 <translation id="6497147134301593682">Chrome otomatik olarak kapatıldı</translation>
 <translation id="6506909944137591434">Çevrenizin 3D haritasını oluşturmak için Chrome'un kamera iznine ihtiyacı var</translation>
 <translation id="6515495397637126556"><ph name="PAGE_TITLE" /> - Google Chrome Dev</translation>
+<translation id="6515549163407364048">Uzantılarınızı tüm bilgisayarlarınızda kullanmak için Chrome'da oturum açın</translation>
 <translation id="6520670145826811516">Konumunuzu kullanması için <ph name="BEGIN_LINK" />sistem ayarlarında<ph name="END_LINK" /> Chrome'a erişim izni verin</translation>
 <translation id="659498884637196217">Bu cihazdaki Google Şifre Yöneticisi'nde</translation>
 <translation id="6600016381025017075">Bu sayfada istediğiniz şeyi arayın</translation>
@@ -540,6 +542,7 @@ Web sitelerine ve uygulamalara verdiğiniz izinler, bu hesap için geçerli olab
 <translation id="7655455401911432608">Tarama geçmişiniz, bu cihazda Chrome'u kullanarak ziyaret ettiğiniz sitelerin kaydı.</translation>
 <translation id="7655472416356262023">Hesabı Chrome'dan kaldır</translation>
 <translation id="7658239707568436148">İptal</translation>
+<translation id="7659737857277959440">Kuruluşunuz; yer işaretleri, geçmiş ve şifreler gibi tarama verilerini görüp yönetebilir. Kişisel Chrome profillerindeki tarama verilerini göremez.</translation>
 <translation id="7661924425853052955">Son zamanlarda ziyaret etmediniz. Chrome; <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> ve <ph name="COUNT" /> izni daha kaldırdı.</translation>
 <translation id="7668816516367091728">Doğrudan adres çubuğundan çeviri ve hesaplama gibi işlemler yapabilirsiniz.</translation>
 <translation id="7670287553302121848">Chrome hesabı için yeniden kimlik doğrulama gerekiyor</translation>
@@ -590,6 +593,7 @@ Web sitelerine ve uygulamalara verdiğiniz izinler, bu hesap için geçerli olab
 <translation id="8129812357326543296">&amp;Google Chrome hakkında</translation>
 <translation id="813913629614996137">İlk kullanıma hazırlanıyor...</translation>
 <translation id="8162006532256575008">Chrome'u hesap olmadan kullan</translation>
+<translation id="8221491193165283816">Genelde bildirimleri engelliyorsunuz. Bu sitenin size bildirim göndermesine izin vermek için burayı tıklayın.</translation>
 <translation id="8255190535488645436">Google Chrome kameranızı ve mikrofonunuzu kullanıyor.</translation>
 <translation id="8257796129973882597">Yer işaretlerini, okuma modunu ve daha fazlasını Chrome menüsünden açabilirsiniz</translation>
 <translation id="8267953129876836456">Chrome, incelemeniz gereken bazı güvenlik önerileri tespit etti</translation>
@@ -621,6 +625,7 @@ Web sitelerine ve uygulamalara verdiğiniz izinler, bu hesap için geçerli olab
 <translation id="852529348814672339">Chrome'u bu dilde görüntüle</translation>
 <translation id="8550334526674375523">Bu iş profili, kişisel profilinizden tamamen ayrıdır.</translation>
 <translation id="8555465886620020932">Hizmet hatası: <ph name="SERVICE_ERROR" />.</translation>
+<translation id="856656450041460113">Arama dili listesi</translation>
 <translation id="8571790202382503603">Chrome profilleri ile tüm Chrome öğelerinizi ayırabilirsiniz. Bu özellik, iş ile eğlenceyi daha kolay ayırmayı sağlar.</translation>
 <translation id="8601359445272098721">Yeni! "Ekrandaki yazıları çevir" düğmesini seçerek ekranınızdaki metinleri ve resimleri çevirebilirsiniz</translation>
 <translation id="8614913330719544658">Google Chrome yanıt vermiyor. Yeniden başlatılsın mı?</translation>
@@ -673,6 +678,6 @@ Web sitelerine ve uygulamalara verdiğiniz izinler, bu hesap için geçerli olab
 <translation id="943390475793766444">Chrome, tehlikeli olabileceği için bu dosyanın taranmasını öneriyor.</translation>
 <translation id="945522503751344254">Geri bildirim gönder</translation>
 <translation id="983803489796659991">Güncelleme sunucusunda uygulamanın karma verisi bulunmadığından yükleme işlemi başarısız oldu.</translation>
-<translation id="989369509083708165">Google Chrome varsayılan tarayıcınız oldu</translation>
+<translation id="989369509083708165">Google Chrome varsayılan tarayıcınız</translation>
 <translation id="989816563149873169"><ph name="SHORTCUT" />, Chrome profilleri arasında geçiş yapabilir</translation>
 </translationbundle>

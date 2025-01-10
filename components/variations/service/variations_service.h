@@ -18,6 +18,7 @@
 #include "base/time/time.h"
 #include "build/chromeos_buildflags.h"
 #include "components/variations/client_filterable_state.h"
+#include "components/variations/entropy_provider.h"
 #include "components/variations/service/limited_entropy_synthetic_trial.h"
 #include "components/variations/service/safe_seed_manager.h"
 #include "components/variations/service/ui_string_overrider.h"
@@ -189,8 +190,7 @@ class VariationsService
   // |client| provides some platform-specific operations for variations. Must
   // not be null.
   // |local_state| provides access to Local State prefs. Must not be null.
-  // |state_manager| provides access to metrics state info. May only be null
-  // during testing.
+  // |state_manager| provides access to metrics state info. Must not be null.
   // |disable_network_switch| is a command-line switch that can be used to
   // disable network communication.
   // |ui_string_overrider| provides overrides for UI strings.
@@ -464,6 +464,9 @@ class VariationsService
 
   // The main entry point for managing safe mode state.
   SafeSeedManager safe_seed_manager_;
+
+  // Used to provide entropy to field trials.
+  std::unique_ptr<const EntropyProviders> entropy_providers_;
 
   // Member responsible for creating trials from a variations seed.
   VariationsFieldTrialCreator field_trial_creator_;

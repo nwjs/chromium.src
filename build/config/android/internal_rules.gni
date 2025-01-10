@@ -1802,6 +1802,8 @@ if (enable_java_templates) {
         invoker.output_jar_path,
       ]
       args = [
+        "--root-build-dir",
+        root_build_dir,
         "--input-path",
         rebase_path(invoker.input_jar_path, root_build_dir),
         "--output-path",
@@ -2271,6 +2273,11 @@ if (enable_java_templates) {
       "--target-sdk-version=${_target_sdk_version}",
       "--webp-cache-dir=obj/android-webp-cache",
     ]
+
+    # TODO(b/355432192): Remove this flag once not needed by Compose.
+    if (defined(enable_hilt_internal) && enable_hilt_internal) {
+      _args += [ "--xml-namespaces" ]
+    }
 
     _inputs += [ invoker.android_manifest ]
     _outputs = [ _final_srcjar_path ]
@@ -3242,6 +3249,9 @@ if (enable_java_templates) {
           # https://source.chromium.org/chromium/chromium/src/+/main:tools/android/errorprone_plugin/src/org/chromium/tools/errorprone/plugin/UseNetworkAnnotations.java;l=84;drc=dfd88085261b662a5c0a1abea1a3b120b08e8e48
           "//tools/android/errorprone_plugin/OWNERS",
         ]
+        if (defined(testonly) && testonly) {
+          args += [ "--testonly" ]
+        }
       }
       if (defined(invoker.skip_build_server) && invoker.skip_build_server) {
         # Nocompile tests need lint to fail through ninja.
@@ -3316,7 +3326,9 @@ if (enable_java_templates) {
         invoker.output_jar_path,
         invoker.output_interface_jar_path,
       ]
-      inputs = invoker.source_files + _java_srcjars + [
+      inputs = kotlinc_paths_for_inputs + java_paths_for_inputs +
+               invoker.source_files + _java_srcjars +
+               [
                  _build_config,
                  invoker.target_sources_file,
                ]

@@ -66,8 +66,8 @@
 #include "chrome/browser/ash/certs/system_token_cert_db_initializer.h"
 #include "chrome/browser/ash/crosapi/browser_manager.h"
 #include "chrome/browser/ash/crosapi/crosapi_manager.h"
-#include "chrome/browser/ash/crosapi/lacros_availability_policy_observer.h"
 #include "chrome/browser/ash/crostini/crostini_unsupported_action_notifier.h"
+#include "chrome/browser/ash/dbus/arc_crosh_service_provider.h"
 #include "chrome/browser/ash/dbus/arc_tracing_service_provider.h"
 #include "chrome/browser/ash/dbus/ash_dbus_helper.h"
 #include "chrome/browser/ash/dbus/chrome_features_service_provider.h"
@@ -106,7 +106,6 @@
 #include "chrome/browser/ash/input_method/input_method_configuration.h"
 #include "chrome/browser/ash/lobster/lobster_client_factory_impl.h"
 #include "chrome/browser/ash/locale/startup_settings_cache.h"
-#include "chrome/browser/ash/lock_screen_apps/state_controller.h"
 #include "chrome/browser/ash/logging/logging.h"
 #include "chrome/browser/ash/login/demo_mode/demo_session.h"
 #include "chrome/browser/ash/login/helper.h"
@@ -234,7 +233,6 @@
 #include "chromeos/ash/components/report/device_metrics/use_case/real_psm_client_manager.h"
 #include "chromeos/ash/components/report/device_metrics/use_case/use_case.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
-#include "chromeos/ash/components/standalone_browser/migrator_util.h"
 #include "chromeos/ash/components/system/statistics_provider.h"
 #include "chromeos/ash/components/tpm/tpm_token_loader.h"
 #include "chromeos/ash/components/wifi_p2p/wifi_p2p_controller.h"
@@ -521,6 +519,12 @@ class DBusServices {
               std::make_unique<LibvdaServiceProvider>()));
     }
 
+    arc_crosh_service_ = CrosDBusService::Create(
+        system_bus, arc::crosh::kArcCroshServiceName,
+        dbus::ObjectPath(arc::crosh::kArcCroshServicePath),
+        CrosDBusService::CreateServiceProviderList(
+            std::make_unique<ArcCroshServiceProvider>()));
+
     // Initialize PowerDataCollector after DBusThreadManager is initialized.
     PowerDataCollector::Initialize();
 
@@ -590,6 +594,7 @@ class DBusServices {
     lock_to_single_user_service_.reset();
     fusebox_service_.reset();
     mojo_connection_service_.reset();
+    arc_crosh_service_.reset();
     PowerDataCollector::Shutdown();
     chromeos::PowerPolicyController::Shutdown();
     device::BluetoothAdapterFactory::Shutdown();
@@ -625,6 +630,7 @@ class DBusServices {
   std::unique_ptr<CrosDBusService> mojo_connection_service_;
   std::unique_ptr<CrosDBusService> dlp_files_policy_service_;
   std::unique_ptr<CrosDBusService> arc_tracing_service_;
+  std::unique_ptr<CrosDBusService> arc_crosh_service_;
 };
 
 }  // namespace internal
@@ -983,11 +989,9 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
                                     ->GetDeviceNamePolicyHandler());
   }
 
-  if (base::FeatureList::IsEnabled(features::kEnableLocalSearchService)) {
-    // Set |local_state| for LocalSearchServiceProxyFactory.
-    local_search_service::LocalSearchServiceProxyFactory::GetInstance()
-        ->SetLocalState(g_browser_process->local_state());
-  }
+  // Set |local_state| for LocalSearchServiceProxyFactory.
+  local_search_service::LocalSearchServiceProxyFactory::GetInstance()
+      ->SetLocalState(g_browser_process->local_state());
 
   // Make sure that wallpaper boot transition and other delays in OOBE
   // are disabled for tests and kiosk app launch by default.
@@ -1028,10 +1032,6 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
   // loading the default profile).
   keyboard::InitializeKeyboardResources();
 
-  lock_screen_apps_state_controller_ =
-      std::make_unique<lock_screen_apps::StateController>();
-  lock_screen_apps_state_controller_->Initialize();
-
   // Always construct BrowserManager, even if the lacros flag is disabled, so
   // it can do cleanup work if needed. Initialized in PreProfileInit because the
   // profile-keyed service AppService can call into it.
@@ -1039,8 +1039,6 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
   browser_manager_ = std::make_unique<crosapi::BrowserManager>(
       g_browser_process->platform_part()->component_manager_ash());
   browser_manager_->AddObserver(SessionControllerClientImpl::Get());
-  lacros_availability_policy_observer_ =
-      std::make_unique<crosapi::LacrosAvailabilityPolicyObserver>();
 
   chromeos::machine_learning::ServiceConnection::GetInstance()->Initialize();
 
@@ -1409,12 +1407,10 @@ void ChromeBrowserMainPartsAsh::PostBrowserStart() {
         power::ml::AdaptiveScreenBrightnessManager::CreateInstance();
   }
 
-  if (base::FeatureList::IsEnabled(::features::kUserActivityEventLogging)) {
-    // MachineLearningDecisionServiceProvider needs to be created after
-    // UserActivityController which depends on UserActivityDetector, not
-    // available until PostBrowserStart.
-    dbus_services_->CreateMachineLearningDecisionProvider();
-  }
+  // MachineLearningDecisionServiceProvider needs to be created after
+  // UserActivityController which depends on UserActivityDetector, not
+  // available until PostBrowserStart.
+  dbus_services_->CreateMachineLearningDecisionProvider();
 
   auto_screen_brightness_controller_ =
       std::make_unique<power::auto_screen_brightness::Controller>();
@@ -1523,10 +1519,6 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
   // ChromeBrowserMainPartsLinux::PostMainMessageLoopRun, because the
   // SessionControllerClientImpl is destroyed there.
   browser_manager_->RemoveObserver(SessionControllerClientImpl::Get());
-
-  if (lock_screen_apps_state_controller_) {
-    lock_screen_apps_state_controller_->Shutdown();
-  }
 
   // This must be shut down before |arc_service_launcher_|.
   if (pre_profile_init_called_) {
@@ -1692,12 +1684,6 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
 
   // Cleans up dbus services depending on ash.
   dbus_services_->PreAshShutdown();
-
-  // LacrosAvailabilityPolicyObserver and
-  // LacrosDataBackwardMigrationModePolicyObserver have the dependency to
-  // ProfileManager, so they need to be destroyed before ProfileManager
-  // destruction, which happens inside PostMainMessageLoopRun below.
-  lacros_availability_policy_observer_.reset();
 
   multi_capture_notifications_.reset();
 

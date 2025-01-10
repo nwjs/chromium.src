@@ -40,4 +40,13 @@
     (int)numberOfClosedGroups {
 }
 
+- (void)manageTabGroup:(base::WeakPtr<const TabGroup>)group {
+}
+
+- (void)shareTabGroup:(base::WeakPtr<const TabGroup>)group {
+}
+
+- (void)showRecentActivityForTabGroup:(base::WeakPtr<const TabGroup>)tabGroup {
+}
+
 @end

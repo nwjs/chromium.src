@@ -251,11 +251,6 @@ void DecoderStream<StreamType>::Reset(base::OnceClosure closure) {
     return;
   }
 
-  // Finalize any in progress decoder selection. We'll rerun selection during
-  // a subsequent Initialize(), so this just ensures we don't try to
-  // Initialize() the same decoder type multiple times.
-  decoder_selector_.FinalizeDecoderSelection();
-
   // |decrypting_demuxer_stream_| will fire all of its read requests when
   // it resets. |reset_cb_| will be fired in OnDecoderReset(), after the
   // decrypting demuxer stream finishes its reset.
@@ -584,7 +579,9 @@ void DecoderStream<StreamType>::OnDecodeDone(
   if (end_of_stream) {
     DCHECK(!pending_decode_requests_);
     decoding_eos_ = false;
-    if (status.is_ok()) {
+    if (status.is_ok() ||
+        status.code() ==
+            DecoderStatus::Codes::kElidedEndOfStreamForConfigChange) {
       // Even if no frames were decoded, completing a flush counts as
       // successfully selecting a decoder. This allows back-to-back config
       // changes to select from all decoders.
@@ -631,6 +628,16 @@ void DecoderStream<StreamType>::OnDecodeDone(
 
       if (state_ == State::kStateFlushingDecoder && !pending_decode_requests_) {
         ReinitializeDecoder();
+      }
+      return;
+
+    case DecoderStatus::Codes::kElidedEndOfStreamForConfigChange:
+      DCHECK(end_of_stream);
+      DCHECK(!pending_decode_requests_);
+      DCHECK_EQ(state_, State::kStateFlushingDecoder);
+      state_ = State::kStateNormal;
+      if (CanDecodeMore()) {
+        ReadFromDemuxerStream();
       }
       return;
 
@@ -942,6 +949,10 @@ void DecoderStream<StreamType>::ReinitializeDecoder() {
   DCHECK_EQ(pending_decode_requests_, 0);
 
   state_ = State::kStateReinitializingDecoder;
+
+  // Clear any remaining decoders in the selector; BeginDecoderSelection() will
+  // create a whole new decoder list.
+  decoder_selector_.FinalizeDecoderSelection();
 
   // Note: Some VideoDecoder implementations (e.g., MediaCodecVideoDecoder) are
   // relying on the fact that the existing VideoDecoder instance is given first

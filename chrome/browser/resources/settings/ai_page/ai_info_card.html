@@ -22,13 +22,13 @@
     letter-spacing: .25px;
   }
 
-  .settings-columned-section .description-header {
+  .settings-columned-section h3.description-header {
     color: var(--cr-primary-text-color);
+    font-weight: 500;
   }
 
-  cr-icon {
-    height: var(--cr-icon-size);
-    width: var(--cr-icon-size);
+  .icon-bulleted-list li {
+    margin: 8px 0;
   }
 </style>
 
@@ -46,8 +46,8 @@
         <div class="secondary">$i18n{aiPageMainSublabel2}</div>
       </li>
       <li>
-        <cr-icon icon="settings20:account-box" aria-hidden="true"></cr-icon>
-        <div class="secondary">$i18n{aiPageMainSublabel3}</div>
+        <cr-icon icon="[[icon3_]]" aria-hidden="true"></cr-icon>
+        <div class="secondary" inner-h-t-m-l="[[sublabel3_]]"></div>
       </li>
     </ul>
   </div>

@@ -9,7 +9,8 @@ export function getHtml(this: ManagedUserProfileNoticeAppElement) {
   // clang-format off
   return html`<!--_html_template_start_-->
 ${this.useUpdatedUi_ ? html`
-  <div class="main-container tangible-sync-style">
+  <div class="main-container tangible-sync-style"
+    id="${this.showTimeout_ ? 'timeout-main-container' : ''}">
     <img class="tangible-sync-style-left-banner" alt="">
     <img class="tangible-sync-style-right-banner" alt="">
     <div id="content-container">
@@ -18,12 +19,12 @@ ${this.useUpdatedUi_ ? html`
             title="$i18n{valuePropositionTitle}"
             subtitle="$i18n{valuePropSubtitle}"
             picture-url="${this.pictureUrl_}"
-            email="${this.email_}" account-name="${this.accountName_}">
+            email="${this.email_}" account-name="${this.accountName_}"
+            ?show-enterprise-badge="${this.showEnterpriseBadge_}">
         ` : ''}
         </managed-user-profile-notice-value-prop>
       ${this.showDisclosure_ ? html`
         <managed-user-profile-notice-disclosure id="disclosure"
-            title="${this.title_}" subtitle="${this.subtitle_}"
             picture-url="${this.pictureUrl_}"
             ?show-enterprise-badge="${this.showEnterpriseBadge_}">
         </managed-user-profile-notice-disclosure>
@@ -61,9 +62,10 @@ ${this.useUpdatedUi_ ? html`
       ` : ''}
     </div>
   </div>
-  <div class="action-container tangible-sync-style">
+  <div class="action-container tangible-sync-style"
+    id="${this.showTimeout_ ? 'timeout-action-container' : ''}">
     <cr-button id="proceed-button" class="action-button"
-        @click="${this.onProceed_}" ?autofocus="${this.isModalDialog_}"
+        @click="${this.onProceed_}"
         ?disabled="${!this.allowProceedButton_()}"
         ?hidden="${this.showProcessing_}">
       ${this.proceedLabel_}

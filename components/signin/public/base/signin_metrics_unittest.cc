@@ -214,9 +214,10 @@ class SigninMetricsTest : public ::testing::Test {
         return "CctAccountMismatchNotification";
       case AccessPoint::ACCESS_POINT_DRIVE_FILE_PICKER_IOS:
         return "DriveFilePickerIOS";
+      case AccessPoint::ACCESS_POINT_COLLABORATION_TAB_GROUP:
+        return "ShareGroupCollaboration";
       case AccessPoint::ACCESS_POINT_MAX:
-        NOTREACHED_IN_MIGRATION();
-        return "";
+        NOTREACHED();
     }
   }
 };

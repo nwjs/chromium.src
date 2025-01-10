@@ -249,8 +249,7 @@ bool ChromeExtensionsBrowserClient::IsValidContext(void* context) {
   DCHECK(context);
   if (!g_browser_process) {
     LOG(ERROR) << "Unexpected null g_browser_process";
-    NOTREACHED_IN_MIGRATION();
-    return false;
+    NOTREACHED() << "Unexpected null g_browser_process";
   }
   return g_browser_process->profile_manager() &&
          g_browser_process->profile_manager()->IsValidProfile(context);
@@ -283,51 +282,39 @@ content::BrowserContext* ChromeExtensionsBrowserClient::GetOriginalContext(
 
 content::BrowserContext*
 ChromeExtensionsBrowserClient::GetContextRedirectedToOriginal(
-    content::BrowserContext* context,
-    bool force_guest_profile) {
-  ProfileSelections::Builder builder;
-  builder.WithRegular(ProfileSelection::kRedirectedToOriginal);
-  if (force_guest_profile) {
-    builder.WithGuest(ProfileSelection::kRedirectedToOriginal);
-  }
-  // TODO(crbug.com/41488885): Check if this service is needed for Ash
-  // Internals.
-  builder.WithAshInternals(ProfileSelection::kRedirectedToOriginal);
-
-  const ProfileSelections selections = builder.Build();
-  return selections.ApplyProfileSelection(Profile::FromBrowserContext(context));
+    content::BrowserContext* context) {
+  return ProfileSelections::Builder()
+      .WithRegular(ProfileSelection::kRedirectedToOriginal)
+      .WithGuest(ProfileSelection::kRedirectedToOriginal)
+      // TODO(crbug.com/41488885): Check if this service is needed for Ash
+      // Internals.
+      .WithAshInternals(ProfileSelection::kRedirectedToOriginal)
+      .Build()
+      .ApplyProfileSelection(Profile::FromBrowserContext(context));
 }
 
 content::BrowserContext* ChromeExtensionsBrowserClient::GetContextOwnInstance(
-    content::BrowserContext* context,
-    bool force_guest_profile) {
-  ProfileSelections::Builder builder;
-  builder.WithRegular(ProfileSelection::kOwnInstance);
-  if (force_guest_profile) {
-    builder.WithGuest(ProfileSelection::kOwnInstance);
-  }
-  // TODO(crbug.com/41488885): Check if this service is needed for Ash
-  // Internals.
-  builder.WithAshInternals(ProfileSelection::kOwnInstance);
-
-  const ProfileSelections selections = builder.Build();
-  return selections.ApplyProfileSelection(Profile::FromBrowserContext(context));
+    content::BrowserContext* context) {
+  return ProfileSelections::Builder()
+      .WithRegular(ProfileSelection::kOwnInstance)
+      .WithGuest(ProfileSelection::kOwnInstance)
+      // TODO(crbug.com/41488885): Check if this service is needed for Ash
+      // Internals.
+      .WithAshInternals(ProfileSelection::kOwnInstance)
+      .Build()
+      .ApplyProfileSelection(Profile::FromBrowserContext(context));
 }
 
 content::BrowserContext*
 ChromeExtensionsBrowserClient::GetContextForOriginalOnly(
-    content::BrowserContext* context,
-    bool force_guest_profile) {
-  ProfileSelections::Builder builder;
-  if (force_guest_profile) {
-    builder.WithGuest(ProfileSelection::kOriginalOnly);
-  }
-  // TODO(crbug.com/41488885): Check if this service is needed for Ash
-  // Internals.
-  builder.WithAshInternals(ProfileSelection::kOriginalOnly);
-
-  ProfileSelections selections = builder.Build();
-  return selections.ApplyProfileSelection(Profile::FromBrowserContext(context));
+    content::BrowserContext* context) {
+  return ProfileSelections::Builder()
+      .WithGuest(ProfileSelection::kOriginalOnly)
+      // TODO(crbug.com/41488885): Check if this service is needed for Ash
+      // Internals.
+      .WithAshInternals(ProfileSelection::kOriginalOnly)
+      .Build()
+      .ApplyProfileSelection(Profile::FromBrowserContext(context));
 }
 
 bool ChromeExtensionsBrowserClient::AreExtensionsDisabledForContext(
@@ -649,8 +636,7 @@ void ChromeExtensionsBrowserClient::AttachExtensionTaskManagerTag(
       return;
 
     case mojom::ViewType::kInvalid:
-      NOTREACHED_IN_MIGRATION();
-      return;
+      NOTREACHED();
   }
 }
 
@@ -708,12 +694,8 @@ KioskDelegate* ChromeExtensionsBrowserClient::GetKioskDelegate() {
 
 bool ChromeExtensionsBrowserClient::IsLockScreenContext(
     content::BrowserContext* context) {
-#if BUILDFLAG(IS_CHROMEOS)
-  return ash::ProfileHelper::IsLockScreenAppProfile(
-      Profile::FromBrowserContext(context));
-#else
+  // TODO(crbug.com/376354347): Remove this method.
   return false;
-#endif
 }
 
 std::string ChromeExtensionsBrowserClient::GetApplicationLocale() {

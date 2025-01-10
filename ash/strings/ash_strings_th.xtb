@@ -308,7 +308,6 @@
 <translation id="2041220428661959602">ระดับแบตเตอรี่: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848">แป้นพิมพ์ลัดสำหรับการ<ph name="SIX_PACK_KEY_NAME" />ปิดอยู่</translation>
 <translation id="2049240716062114887">เปลี่ยนชื่อเดสก์ท็อปเป็น <ph name="DESK_NAME" /> แล้ว</translation>
-<translation id="2050339315714019657">แนวตั้ง</translation>
 <translation id="2064048859448024834">การแสดงตัวอย่างจากกล้องถ่ายรูปเปิดอยู่</translation>
 <translation id="2065098273523946419">ลิงก์สำหรับดูข้อมูลเพิ่มเติม เปลี่ยนเส้นทางไปยังเบราว์เซอร์เมื่อเปิดใช้งาน</translation>
 <translation id="2067220651560163985">แสดงอุณหภูมิในหน่วยเซลเซียส</translation>
@@ -339,9 +338,6 @@
 <translation id="219905428774326614">Launcher, แอปทั้งหมด</translation>
 <translation id="2201071101391734388">รูปภาพล่าสุด <ph name="INDEX" /> จาก <ph name="TOTAL_COUNT" /></translation>
 <translation id="2201687081523799384">ยุบ Google Tasks</translation>
-<translation id="2206960886090042977">ระบบปิดใช้งานทัชแพดในตัวเนื่องจากมีเมาส์เชื่อมต่ออยู่ ใช้เมาส์หรือแป้นพิมพ์เพื่อยืนยันการเปลี่ยนแปลง
-
-ไม่เช่นนั้นระบบจะเปิดใช้ทัชแพดในตัวอีกครั้งใน 30 วินาที</translation>
 <translation id="2208323208084708176">โหมดเดสก์ท็อปแบบรวม</translation>
 <translation id="2220572644011485463">PIN หรือรหัสผ่าน</translation>
 <translation id="2222841058024245321">เดสก์ 7</translation>
@@ -504,6 +500,9 @@
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> จนถึง <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">Ctrl + Search + S</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" /> จัดการโดย <ph name="MANAGER" /></translation>
+<translation id="2781658180588759579">ระบบปิดใช้ทัชแพดในตัวอยู่ ใช้แป้นพิมพ์หรืออุปกรณ์ชี้ตำแหน่งอื่นเพื่อยืนยันการเปลี่ยนแปลง
+
+ไม่เช่นนั้นระบบจะเปิดใช้ทัชแพดในตัวอีกครั้งใน <ph name="TIMEOUT_SECONDS" /></translation>
 <translation id="2782591952652094792">ออกจากโหมดจับภาพ</translation>
 <translation id="2785499565474703580">มีอุปกรณ์ที่เชื่อมต่ออยู่ 1 เครื่อง</translation>
 <translation id="2791421900609674576">คุณจะเห็นคำแนะนำเพื่อให้ดำเนินการต่อจากจุดที่คุณค้างไว้ได้ โดยสามารถแตะค้างไว้หากต้องการนำคำแนะนำออก</translation>
@@ -601,6 +600,9 @@
 <translation id="3113492864356515707">ไฮไลต์รายการก่อนหน้าบนแถบ</translation>
 <translation id="311799651966070385">ปิดการกระตุ้นเตือน</translation>
 <translation id="3120421559657122717">ปิดอุปกรณ์ใช่ไหม</translation>
+<translation id="3121411970001795539">ระบบปิดใช้ทัชแพดในตัวเนื่องจากมีเมาส์เชื่อมต่ออยู่ ใช้เมาส์หรือแป้นพิมพ์เพื่อยืนยันการเปลี่ยนแปลง
+
+ไม่เช่นนั้นระบบจะเปิดใช้ทัชแพดในตัวอีกครั้งใน <ph name="TIMEOUT_SECONDS" /></translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">ประเภทงานของชั้นเรียน</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -966,13 +968,13 @@
 <translation id="4322742403972824594">มีการเปลี่ยนแปลงแป้นพิมพ์ลัด Ctrl + Alt + ลูกศรขึ้น หากต้องการใช้แป้น Home ให้กดแป้น <ph name="LAUNCHER_KEY_NAME" /> + ลูกศรซ้าย</translation>
 <translation id="4324840740119394760">การดำเนินการนี้ช่วยให้ <ph name="APP_NAME" /> รวมถึงแอปและเว็บไซต์ทั้งหมดที่มีสิทธิ์สามารถเข้าถึงกล้องได้</translation>
 <translation id="4327147325944669226">บันทึกเกม</translation>
-<translation id="4333628967105022692">ไม่รองรับ Lacros ขณะที่มีผู้ใช้ลงชื่อเข้าใช้หลายคน</translation>
 <translation id="4338109981321384717">แว่นขยาย</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, ปิดเสียงอยู่</translation>
 <translation id="4351244548802238354">ปิดข้อความโต้ตอบ</translation>
 <translation id="4356872429719185452">แสดงรายละเอียดฮอตสปอต กำลังเปิดฮอตสปอต</translation>
 <translation id="4364101114148522660">กำลังบันทึก <ph name="DURATION" /></translation>
 <translation id="4371348193907997655">การตั้งค่าการแคสต์</translation>
+<translation id="4371834685492830207">PIN ต้องมีอักขระที่ถูกต้องเท่านั้น</translation>
 <translation id="4375482231364171368">ค้นหาในแถบที่อยู่</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" /> ความแรงสัญญาณ <ph name="SIGNAL_STRENGTH" /> เปอร์เซ็นต์</translation>
 <translation id="4378551569595875038">กำลังเชื่อมต่อ</translation>
@@ -1138,6 +1140,7 @@
 <translation id="4902797682482387055">งานที่แนะนำให้มุ่งเน้น</translation>
 <translation id="490375751687810070">แนวตั้ง</translation>
 <translation id="490788395437447240">แบตเตอรี่ <ph name="BATTERY_PERCENTAGE" />%</translation>
+<translation id="4911191962826748981">ฟีเจอร์ AI นี้อยู่ในขั้นทดลองและอาจไม่ได้ทำงานถูกต้องเสมอไป</translation>
 <translation id="491504982845934899">เปิดใช้งานหลังจากตั้งค่าอุปกรณ์ <ph name="NETWORK_NAME" /></translation>
 <translation id="4917385247580444890">แรง</translation>
 <translation id="4918086044614829423">ยอมรับ</translation>
@@ -1296,6 +1299,7 @@
 <translation id="5393156353051693207">แตะที่ใดก็ได้ค้างไว้เพื่อเรียงลำดับแอปใหม่</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" /> อยู่เหนือ <ph name="IN_PLACE_APP" /> ปล่อยเพื่อสร้างโฟลเดอร์</translation>
 <translation id="5397578532367286026">การใช้งานและประวัติของผู้ใช้รายนี้อาจถูกตรวจสอบโดยผู้จัดการ (<ph name="MANAGER_EMAIL" />) บน chrome.com</translation>
+<translation id="540338817371815859">แนวนอน</translation>
 <translation id="540713187982329711">เปิด/ปิดฮอตสปอต ฮอตสปอตเปิดอยู่ ไม่มีอุปกรณ์ใดเชื่อมต่อ</translation>
 <translation id="5409208741270395213">ทำเครื่องหมายว่างานเสร็จสมบูรณ์แล้ว</translation>
 <translation id="5413656666631274079">หน้าการตั้งค่า</translation>
@@ -1467,7 +1471,6 @@
 <translation id="5975235751479998104">สลับระหว่างหน้าต่าง (ไปข้างหน้า)</translation>
 <translation id="5978382165065462689">กำลังแชร์การควบคุมหน้าจอผ่านความช่วยเหลือระยะไกล</translation>
 <translation id="5980301590375426705">ออกเซสชันผู้มาเยือน</translation>
-<translation id="5982119059638483922">กด Fn + Search หรือ Shift เพื่อยกเลิก</translation>
 <translation id="5983567367406220847">ปิดฮอตสปอตแล้วเนื่องจากไม่มีการใช้งาน</translation>
 <translation id="598407983968395253">ใช้เทมเพลต</translation>
 <translation id="5986723678596105470">เข้าร่วมด้วย Google Meet</translation>
@@ -1537,7 +1540,6 @@
 <translation id="6166852626429024716">ค้นหาอุปกรณ์ แอป การตั้งค่า เว็บ...</translation>
 <translation id="6168318496333165060">เปิดแอปการวินิจฉัย</translation>
 <translation id="6168622430237609329">แอปที่ติดตั้งของคุณ</translation>
-<translation id="6173151025443907148">ระบบไม่รองรับการลงชื่อเข้าใช้ของผู้ใช้คนที่ 2 หากเปิดใช้ Lacros โปรดใช้โปรไฟล์ที่ 2 ของเบราว์เซอร์ใน Lacros แทน หรือปิดใช้ Lacros แล้วลองอีกครั้ง</translation>
 <translation id="6179832488876878285">คุณปักหมุดไฟล์สำคัญๆ ไว้ที่นี่ได้ เปิดแอป Files เพื่อเริ่มต้นใช้งาน</translation>
 <translation id="6180193585172850042">ปุ่มย้อนกลับ</translation>
 <translation id="6180651297859206670">ปุ่มไปข้างหน้า</translation>
@@ -1559,6 +1561,7 @@
 <translation id="6232416233079464213">จาก <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217">"<ph name="APP_NAME" />" กำลังใช้กล้องและไมโครโฟน</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">รหัสผ่านต้องมีอักขระที่ถูกต้องเท่านั้น</translation>
 <translation id="6240603910551255087">ปุ่มบน</translation>
 <translation id="6240821072888636753">ถามทุกครั้ง</translation>
 <translation id="6247728804802644171">เปิดการแจ้งเตือน</translation>
@@ -1689,7 +1692,6 @@
 <translation id="6682029141988159141">วางเนื้อหาจากคลิปบอร์ด</translation>
 <translation id="6683022854667115063">หูฟัง</translation>
 <translation id="6686023075541098243">ตั้งค่าการดูการแจ้งเตือนของโทรศัพท์</translation>
-<translation id="6688019813898140556">Esc 5 ครั้ง</translation>
 <translation id="6694462491298752106">ทัชแพดในตัวปิดใช้อยู่</translation>
 <translation id="6694973220096431421">ค้นหาใน Google ไดรฟ์</translation>
 <translation id="6696025732084565524">แป้มพิมพ์ที่ถอดได้ต้องได้รับอัปเดตที่สำคัญ</translation>
@@ -1710,6 +1712,7 @@
 <translation id="6751826523481687655">การติดตามประสิทธิภาพเปิดอยู่</translation>
 <translation id="6752912906630585008">นำเดสก์ <ph name="REMOVED_DESK" /> ออกและรวมเข้ากับเดสก์ <ph name="RECEIVE_DESK" /> แล้ว</translation>
 <translation id="6753390234084146956">แท็บ</translation>
+<translation id="6754918760968695779">Quick Insert</translation>
 <translation id="6757237461819837179">ไม่มีการเล่นสื่อ</translation>
 <translation id="6760438044935091345">แดชบอร์ดเกม</translation>
 <translation id="6768043681523654438">พื้นที่เก็บข้อมูล</translation>
@@ -1759,6 +1762,7 @@
 <translation id="6921427376813842559">อัปเดตอุปกรณ์</translation>
 <translation id="6929081673585394903">แสดงการควบคุม</translation>
 <translation id="6931576957638141829">บันทึกไปยัง</translation>
+<translation id="6935857786205183008">แนวตั้ง</translation>
 <translation id="6942518653766415536">เมนูรูปแบบการบันทึก</translation>
 <translation id="6945221475159498467">เลือก</translation>
 <translation id="6945922087561257829">โทรศัพท์ของคุณกำลังใช้เครือข่ายมือถือ ตรวจสอบให้แน่ใจว่าโทรศัพท์และ Chromebook อยู่ในเครือข่าย Wi-Fi เดียวกันแล้วลองอีกครั้ง <ph name="LEARN_MORE" /></translation>
@@ -1915,9 +1919,6 @@
 หากต้องการปิดอุปกรณ์ ให้กดปุ่มเปิด/ปิดบนอุปกรณ์ค้างไว้อีกครั้ง</translation>
 <translation id="7523420897035067483">เปิดใช้ฟีเจอร์ห้ามรบกวนขณะอยู่ในโหมดโฟกัส</translation>
 <translation id="7524043547948122239">Google Tasks</translation>
-<translation id="7524919752437339268">ระบบปิดใช้งานทัชแพด ใช้แป้นพิมพ์หรืออุปกรณ์ชี้ตำแหน่งอื่นเพื่อยืนยันการเปลี่ยนแปลง
-
-ไม่เช่นนั้นระบบจะเปิดใช้ทัชแพดในตัวอีกครั้งใน 30 วินาที</translation>
 <translation id="7525067979554623046">สร้าง</translation>
 <translation id="7526573455193969409">อาจมีการตรวจสอบเครือข่าย</translation>
 <translation id="7536035074519304529">ที่อยู่ IP: <ph name="ADDRESS" /></translation>
@@ -2004,6 +2005,7 @@
 <translation id="780301667611848630">ไม่เป็นไร</translation>
 <translation id="7807067443225230855">การค้นหาและผู้ช่วย</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> กับ <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">ปุ่ม "ชอบ" จะส่งความคิดเห็นว่าคุณชอบคำแนะนำนี้</translation>
 <translation id="7825412704590278437">จากกิจกรรมในปฏิทินที่กำลังจะจัดขึ้น</translation>
 <translation id="7829386189513694949">สัญญาณแรง</translation>
 <translation id="7830453190047749513">คุณปรับเปลี่ยนการทำงานของปุ่ม ความเร็วของเคอร์เซอร์ และอื่นๆ สำหรับ <ph name="PERIPHERAL_NAME" /> ในแบบของคุณได้</translation>
@@ -2158,6 +2160,7 @@
 <translation id="830868413617744215">เบต้า</translation>
 <translation id="8314772463905284467">Caps Lock เปิดอยู่</translation>
 <translation id="8315514906653279104">กำลังเปิด...</translation>
+<translation id="8319634750346253957">ปุ่ม "ไม่ชอบ" จะส่งความคิดเห็นว่าคุณไม่ชอบคำแนะนำนี้</translation>
 <translation id="8331351032546853669">การดาวน์โหลดรอดำเนินการ</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2343,6 +2346,7 @@
 <translation id="8982906748181120328">การมองเห็นใกล้เคียง</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">กำลังใช้<ph name="IME_NAME" /></translation>
+<translation id="8991648557324317894">กด fn + Quick Insert หรือ Shift เพื่อยกเลิก</translation>
 <translation id="899350903320462459">ปลดล็อกอุปกรณ์โดยใช้ <ph name="LOGIN_ID" /> เพื่อดำเนินการแจ้งเตือน</translation>
 <translation id="8993733019280019776">คุณพูดอยู่ใช่ไหม ดูเหมือนว่าไมค์จะปิดอยู่ โปรดเลือกไมโครโฟนเพื่อเปิด</translation>
 <translation id="9000771174482730261">จัดการพื้นที่เก็บข้อมูล</translation>
@@ -2425,9 +2429,9 @@
 <translation id="974545358917229949">กำลังแสดงผลการค้นหา <ph name="RESULT_COUNT" /> รายการสำหรับ "<ph name="QUERY" />"</translation>
 <translation id="981011780479609956">ไม่มีวันที่ครบกำหนด</translation>
 <translation id="98120814841227350">ไปที่ส่วนท้ายของเอกสาร</translation>
-<translation id="98515147261107953">ภาพทิวทัศน์</translation>
 <translation id="987589956647469042">อินเทอร์เน็ตมือถือเปิดอยู่</translation>
 <translation id="989374776391122812">การควบคุมกล้องและเสียง</translation>
+<translation id="990263227494928142">กด Shift 5 ครั้งเพื่อเปิดใช้ทัชแพด</translation>
 <translation id="990277280839877440">ปิดหน้าต่าง <ph name="WINDOW_TITILE" /> แล้ว</translation>
 <translation id="993398562350683614">ดูการแนะนำขั้นตอนที่ <ph name="STEP" /> จาก <ph name="TOTAL_STEPS" /> ใช้แอปเพื่อทำทุกอย่างที่คุณต้องการใน <ph name="PRODUCT_NAME" /> คุณค้นหาแอปได้ใน Launcher กด Alt + Shift + L เพื่อโฟกัสปุ่ม Launcher</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

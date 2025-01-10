@@ -1070,7 +1070,7 @@ public class UrlOverridingTest {
 
     @Test
     @LargeTest
-    public void testCCTRedirectFromIntentUriStaysInChrome_InIncognito() throws Exception {
+    public void testCctRedirectFromIntentUriStaysInChrome_InIncognito() throws Exception {
         mActivityTestRule.startMainActivityOnBlankPage();
         // This will cause getActivityTab() in loadUrlAndWaitForIntentUrl to return an incognito tab
         // instead.
@@ -1362,9 +1362,8 @@ public class UrlOverridingTest {
 
     @Test
     @LargeTest
-    @EnableFeatures({"BackForwardCache<Study", "BackForwardCacheNoTimeEviction"})
+    @EnableFeatures({"BackForwardCache", "BackForwardCacheNoTimeEviction"})
     @DisableFeatures({"BackForwardCacheMemoryControls"})
-    @CommandLineFlags.Add({"force-fieldtrials=Study/Group"})
     @Restriction(Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testNoRedirectWithBFCache() throws Exception {
         final CallbackHelper finishCallback = new CallbackHelper();
@@ -1516,11 +1515,10 @@ public class UrlOverridingTest {
     @Test
     @LargeTest
     @EnableFeatures({
-        "FencedFrames<Study,PrivacySandboxAdsAPIsOverride,FencedFramesAPIChanges,FencedFramesDefaultMode"
-    })
-    @CommandLineFlags.Add({
-        "force-fieldtrials=Study/Group",
-        "force-fieldtrial-params=Study.Group:implementation_type/mparch"
+        "FencedFrames:implementation_type/mparch",
+        "PrivacySandboxAdsAPIsOverride",
+        "FencedFramesAPIChanges",
+        "FencedFramesDefaultMode"
     })
     public void testNavigationFromFencedFrame() throws Exception {
         mActivityTestRule.startMainActivityOnBlankPage();
@@ -1706,7 +1704,7 @@ public class UrlOverridingTest {
     @Test
     @LargeTest
     @Restriction(Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE)
-    public void testRedirectFromCCTSpeculation() throws Exception {
+    public void testRedirectFromCctSpeculation() throws Exception {
         final String url = mTestServer.getURL(NAVIGATION_FROM_PAGE_SHOW);
         final CustomTabsConnection connection = CustomTabsTestUtils.warmUpAndWait();
         Context context = ContextUtils.getApplicationContext();
@@ -1717,7 +1715,7 @@ public class UrlOverridingTest {
 
         connection.setCanUseHiddenTabForSession(token, true);
         Assert.assertTrue(connection.mayLaunchUrl(token, Uri.parse(url), null, null));
-        CustomTabsTestUtils.ensureCompletedSpeculationForUrl(connection, url);
+        CustomTabsTestUtils.ensureCompletedSpeculationForUrl(url);
 
         // Can't wait for Activity startup as we close so fast the polling is flaky.
         mCustomTabActivityRule.launchActivity(intent);

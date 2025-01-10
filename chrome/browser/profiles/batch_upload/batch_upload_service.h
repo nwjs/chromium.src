@@ -14,7 +14,6 @@
 #include "components/sync/service/local_data_description.h"
 
 class Browser;
-class BatchUploadController;
 class BatchUploadDelegate;
 
 namespace signin {
@@ -26,9 +25,9 @@ class SyncService;
 }  // namespace syncer
 
 // Service that allows the management of the Batch Upload Dialog. Used to open
-// the dialog and manages the lifetime of the controller.
-// It communicates with the `sync_service` to get information of the current
-// local data for eligible types.
+// the dialog and manages its lifetime.
+// It communicates with the `syncer::SyncService` to get information of the
+// current local data for eligible types.
 class BatchUploadService : public KeyedService {
  public:
   BatchUploadService(signin::IdentityManager* identity_manager,
@@ -38,6 +37,19 @@ class BatchUploadService : public KeyedService {
   BatchUploadService& operator=(const BatchUploadService&) = delete;
   ~BatchUploadService() override;
 
+  // Lists the different entry points to the Batch Upload Dialog.
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  //
+  // LINT.IfChange(EntryPoint)
+  enum class EntryPoint {
+    kPasswordManagerSettings = 0,
+    kPasswordPromoCard = 1,
+
+    kMaxValue = kPasswordPromoCard,
+  };
+  // LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:BatchUploadEntryPoint)
+
   // Attempts to open the Batch Upload modal dialog that allows uploading the
   // local profile data. The dialog will only be opened if there are some local
   // data (of any type) to show and the dialog is not shown already in the
@@ -45,6 +57,7 @@ class BatchUploadService : public KeyedService {
   // not.
   void OpenBatchUpload(
       Browser* browser,
+      EntryPoint entry_point,
       base::OnceCallback<void(bool)> dialog_shown_callback = base::DoNothing());
 
   // Returns whether the dialog is currently showing on a browser.
@@ -80,28 +93,55 @@ class BatchUploadService : public KeyedService {
   // Callback to clear the overridden avatar text on timeout.
   void OnAvatarOverrideTextTimeout();
 
-  // Resets the state of the service related to the dialog.
-  void Reset();
+  // Resets part of the state related to the dialog lifetime.
+  void ResetDialogState();
+
+  // This state is divided into two parts:
+  // - `DialogState`: that is active from triggering the request of opening the
+  // dialog until the dialog is closed or resulted in not opening.
+  // - `SavingBrowserState`: that is active after the dialog was accepted.
+  // Accepting the dialog closes it and resets `DialogState`. However
+  // post-accepting (saving), the avatar button of the browser that was showing
+  // the dialog expands and shows a saving text for few seconds. This state
+  // holds needed information for that modification. The dialog is still allowed
+  // to be opened while this state is active.
+  struct ResettableState {
+    // Fields related to the dialog currently showing.
+    struct DialogState {
+      // Browser that is showing the dialog.
+      raw_ptr<Browser> browser_;
+      // Entry point of the dialog.
+      EntryPoint entry_point_ = EntryPoint::kPasswordManagerSettings;
+      // Called when the decision about showing the dialog is made.
+      // Returns whether it was shown or not.
+      base::OnceCallback<void(bool)> dialog_shown_callback_;
+
+      DialogState();
+      ~DialogState();
+    };
+
+    // Fields related to the effect on the browser post accepting the dialog.
+    struct SavingBrowserState {
+      // Callback that will clear the modified text on the avatar button.
+      base::ScopedClosureRunner avatar_override_clear_callback_;
+      // Timer to clear the avatar override text.
+      base::OneShotTimer avatar_override_timer_;
+    };
+
+    std::unique_ptr<DialogState> dialog_state_;
+    std::unique_ptr<SavingBrowserState> saving_browser_state_;
+
+    ResettableState();
+    ~ResettableState();
+  };
 
   raw_ref<signin::IdentityManager> identity_manager_;
   raw_ref<syncer::SyncService> sync_service_;
   std::unique_ptr<BatchUploadDelegate> delegate_;
 
-  // Controller lifetime is bind to when the dialog is currently showing. There
-  // can only be one controller/dialog existing at the same time per profile.
-  std::unique_ptr<BatchUploadController> controller_;
-  // Browser that is showing the dialog. Nullptr if the dialog is not opened.
-  raw_ptr<Browser> browser_;
-  // When accepting the bubble, the avatar button text is modified and this
-  // callback handles it's lifetime. Executing it will clear the text.
-  base::ScopedClosureRunner avatar_override_clear_callback_;
-  // Timer to clear the avatar override text. Triggered after accepting the
-  // bubble.
-  base::OneShotTimer avatar_override_timer_;
-
-  // Called when the decision about showing the dialog is made.
-  // Returns whether it was shown or not.
-  base::OnceCallback<void(bool)> dialog_shown_callback_;
+  // Full state of the flow from requesting opening the dialog to saving
+  // data/canceling the flow.
+  ResettableState state_;
 };
 
 #endif  // CHROME_BROWSER_PROFILES_BATCH_UPLOAD_BATCH_UPLOAD_SERVICE_H_

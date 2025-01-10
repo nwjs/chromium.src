@@ -28,13 +28,7 @@ class PdfInkBrush {
     kPen,
   };
 
-  // Parameters for the brush.
-  struct Params {
-    SkColor color;
-    float size;
-  };
-
-  PdfInkBrush(Type brush_type, Params brush_params);
+  PdfInkBrush(Type brush_type, SkColor color, float size);
   PdfInkBrush(const PdfInkBrush&) = delete;
   PdfInkBrush& operator=(const PdfInkBrush&) = delete;
   ~PdfInkBrush();
@@ -50,14 +44,19 @@ class PdfInkBrush {
   // does not correspond to any `Type`.
   static std::optional<Type> StringToType(const std::string& brush_type);
 
+  static std::string TypeToString(Type brush_type);
+
   // Returns whether `size` is in range or not.
   static bool IsToolSizeInRange(float size);
 
   const ink::Brush& ink_brush() const { return ink_brush_; }
 
+  void SetColor(SkColor color);
+
+  void SetSize(float size);
+
  private:
-  // The Ink brush initialized based on the PdfInkBrush ctor parameters.
-  const ink::Brush ink_brush_;
+  ink::Brush ink_brush_;
 };
 
 }  // namespace chrome_pdf

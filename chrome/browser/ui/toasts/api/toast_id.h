@@ -23,11 +23,15 @@ enum class ToastId {
   kImageCopied = 1,
   kLinkToHighlightCopied = 2,
   kAddedToReadingList = 3,
-  kLensOverlay = 4,
+  // kLensOverlay = 4,
   kNonMilestoneUpdate = 5,
   kAddedToComparisonTable = 6,
   kClearBrowsingData = 7,
-  kMaxValue = kClearBrowsingData
+  kPlusAddressOverride = 8,
+  kSyncEsbOn = 9,
+  kSyncEsbOnWithoutActionButton = 10,
+  kSyncEsbOff = 11,
+  kMaxValue = kSyncEsbOff
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/toasts/enums.xml:ToastId)
 

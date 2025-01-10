@@ -24,7 +24,6 @@ import android.view.animation.Interpolator;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.DrawableRes;
-import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -82,16 +81,16 @@ import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationManage
 import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
 import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
+import org.chromium.chrome.browser.toolbar.top.tab_strip.StripVisibilityState;
 import org.chromium.chrome.browser.toolbar.top.tab_strip.TabStripTransitionCoordinator.TabStripTransitionDelegate;
 import org.chromium.chrome.browser.ui.desktop_windowing.AppHeaderUtils;
 import org.chromium.chrome.browser.ui.system.StatusBarColorController;
 import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
-import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateProvider;
-import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateProvider.AppHeaderObserver;
+import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
+import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager.AppHeaderObserver;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.widget.scrim.ScrimProperties;
 import org.chromium.content_public.browser.LoadUrlParams;
-import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.base.WindowAndroid;
@@ -103,8 +102,6 @@ import org.chromium.ui.resources.ResourceManager;
 import org.chromium.ui.util.ColorUtils;
 import org.chromium.url.GURL;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -146,21 +143,6 @@ public class StripLayoutHelperManager
             this.createdStandardTabOnStartup = createdStandardTabOnStartup;
             this.createdIncognitoTabOnStartup = createdIncognitoTabOnStartup;
         }
-    }
-
-    /** Defines if the strip is visible or hidden. */
-    @Retention(RetentionPolicy.SOURCE)
-    @IntDef({
-        StripVisibilityState.UNKNOWN,
-        StripVisibilityState.VISIBLE,
-        StripVisibilityState.GONE,
-        StripVisibilityState.INVISIBLE,
-    })
-    @interface StripVisibilityState {
-        int UNKNOWN = 0; // Strip visibility is unknown.
-        int VISIBLE = 1; // Strip is visible.
-        int GONE = 2; // Strip is hidden by a height transition.
-        int INVISIBLE = 3; // Strip is hidden by an in-place fade transition.
     }
 
     private static final FloatProperty<StripLayoutHelperManager> SCRIM_OPACITY =
@@ -245,7 +227,7 @@ public class StripLayoutHelperManager
      */
     private boolean mIsTopResumedActivity;
 
-    private final DesktopWindowStateProvider mDesktopWindowStateProvider;
+    private final DesktopWindowStateManager mDesktopWindowStateManager;
 
     // 3-dots menu button with tab strip end padding
     private float mStripEndPadding;
@@ -416,7 +398,7 @@ public class StripLayoutHelperManager
      * @param tabContentManagerSupplier Supplier of the TabContentManager instance.
      * @param browserControlsStateProvider BrowserControlsStateProvider for drag drop.
      * @param toolbarManager The ToolbarManager instance.
-     * @param desktopWindowStateProvider The DesktopWindowStateProvider for the app header.
+     * @param desktopWindowStateManager The DesktopWindowStateManager for the app header.
      */
     public StripLayoutHelperManager(
             Context context,
@@ -436,7 +418,7 @@ public class StripLayoutHelperManager
             // TODO(crbug.com/40939440): Avoid passing the ToolbarManager instance. Potentially
             // implement an interface to manage strip transition states.
             @NonNull ToolbarManager toolbarManager,
-            @Nullable DesktopWindowStateProvider desktopWindowStateProvider,
+            @Nullable DesktopWindowStateManager desktopWindowStateManager,
             ActionConfirmationManager actionConfirmationManager,
             ModalDialogManager modalDialogManager,
             DataSharingTabManager dataSharingTabManager) {
@@ -463,7 +445,7 @@ public class StripLayoutHelperManager
                         ? toolbarManager.getTabStripHeightSupplier().get() / mDensity
                         : mScrollableStripHeight;
         mTopPadding = mHeight - mScrollableStripHeight;
-        mDesktopWindowStateProvider = desktopWindowStateProvider;
+        mDesktopWindowStateManager = desktopWindowStateManager;
         mStripVisibilityStateSupplier = new ObservableSupplierImpl<>(StripVisibilityState.UNKNOWN);
         mStripVisibilityStateObserver =
                 state -> {
@@ -564,14 +546,14 @@ public class StripLayoutHelperManager
                 });
 
         onContextChanged(context);
-        if (mDesktopWindowStateProvider != null) {
-            mDesktopWindowStateProvider.addObserver(this);
-            mIsTopResumedActivity = !mDesktopWindowStateProvider.isInUnfocusedDesktopWindow();
+        if (mDesktopWindowStateManager != null) {
+            mDesktopWindowStateManager.addObserver(this);
+            mIsTopResumedActivity = !mDesktopWindowStateManager.isInUnfocusedDesktopWindow();
         } else {
             mIsTopResumedActivity = AppHeaderUtils.isActivityFocusedAtStartup(lifecycleDispatcher);
         }
-        if (AppHeaderUtils.isAppInDesktopWindow(mDesktopWindowStateProvider)) {
-            onAppHeaderStateChanged(mDesktopWindowStateProvider.getAppHeaderState());
+        if (AppHeaderUtils.isAppInDesktopWindow(mDesktopWindowStateManager)) {
+            onAppHeaderStateChanged(mDesktopWindowStateManager.getAppHeaderState());
         }
     }
 
@@ -665,10 +647,8 @@ public class StripLayoutHelperManager
         mModelSelectorButton.setClickSlop(MODEL_SELECTOR_BUTTON_CLICK_SLOP_DP);
 
         mModelSelectorButton.setAccessibilityDescription(
-                context.getResources()
-                        .getString(R.string.accessibility_tabstrip_btn_incognito_toggle_standard),
-                context.getResources()
-                        .getString(R.string.accessibility_tabstrip_btn_incognito_toggle_incognito));
+                context.getString(R.string.accessibility_tabstrip_btn_incognito_toggle_standard),
+                context.getString(R.string.accessibility_tabstrip_btn_incognito_toggle_incognito));
     }
 
     /** Cleans up internal state. */
@@ -688,8 +668,8 @@ public class StripLayoutHelperManager
             mTabModelSelectorTabObserver.destroy();
         }
         mTabDragSource = null;
-        if (mDesktopWindowStateProvider != null) {
-            mDesktopWindowStateProvider.removeObserver(this);
+        if (mDesktopWindowStateManager != null) {
+            mDesktopWindowStateManager.removeObserver(this);
         }
         mStripVisibilityStateSupplier.removeObserver(mStripVisibilityStateObserver);
     }
@@ -764,8 +744,7 @@ public class StripLayoutHelperManager
                     getStripTransitionScrimColor(), mStripTransitionScrimOpacity);
 
             yOffset = 0;
-        } else if (ToolbarFeatures.isBrowserControlsInVizEnabled(
-                        DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext))
+        } else if (ChromeFeatureList.sBrowserControlsInViz.isEnabled()
                 && mIsVerticalScrollInProgress) {
             // With bciv, we don't want anything else controlling the offset while scrolling.
             // Tabstrip currently has no min height, so setting to 0 is ok.
@@ -888,8 +867,11 @@ public class StripLayoutHelperManager
     }
 
     @Override
-    public void onFadeTransitionRequested(float startOpacity, float endOpacity, int durationMs) {
-        boolean showStrip = endOpacity == 0f;
+    public void onFadeTransitionRequested(float newOpacity, int durationMs) {
+        // Opacity is already the desired value, return early.
+        if (newOpacity == mStripTransitionScrimOpacity) return;
+
+        boolean showStrip = newOpacity == 0f;
         if (mAnimationsDisabledForTesting) {
             onFadeTransitionEnd(showStrip);
             return;
@@ -902,8 +884,8 @@ public class StripLayoutHelperManager
                         mUpdateHost.getAnimationHandler(),
                         this,
                         StripLayoutHelperManager.SCRIM_OPACITY,
-                        startOpacity,
-                        endOpacity,
+                        mStripTransitionScrimOpacity,
+                        newOpacity,
                         durationMs);
         mFadeTransitionAnimator.addListener(
                 new AnimatorListenerAdapter() {
@@ -1369,10 +1351,11 @@ public class StripLayoutHelperManager
                             BrowserControlsOffsetTagsInfo oldOffsetTagsInfo,
                             BrowserControlsOffsetTagsInfo offsetTagsInfo,
                             @BrowserControlsState int constraints) {
-                        if (ToolbarFeatures.isBrowserControlsInVizEnabled(
-                                DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext))) {
+                        if (ChromeFeatureList.sBrowserControlsInViz.isEnabled()) {
+                            // Use the content OffsetTag here, because the tab strip and content
+                            // are part of the same subtree and move together with the same offset.
                             mTabStripTreeProvider.updateOffsetTag(
-                                    offsetTagsInfo.getTopControlsOffsetTag());
+                                    offsetTagsInfo.getContentOffsetTag());
                         }
                     }
 
@@ -1390,11 +1373,11 @@ public class StripLayoutHelperManager
 
     @Override
     public void onAppHeaderStateChanged(AppHeaderState newState) {
-        assert mDesktopWindowStateProvider != null;
+        assert mDesktopWindowStateManager != null;
         // We do not update the layer's height in this method. The height adjustment will be
         // triggered by #onHeightChanged.
 
-        mDesktopWindowStateProvider.updateForegroundColor(getBackgroundColor());
+        mDesktopWindowStateManager.updateForegroundColor(getBackgroundColor());
         updateHorizontalPaddings(newState.getLeftPadding(), newState.getRightPadding());
     }
 
@@ -1428,7 +1411,7 @@ public class StripLayoutHelperManager
     }
 
     public @ColorInt int getBackgroundColor() {
-        return AppHeaderUtils.isAppInDesktopWindow(mDesktopWindowStateProvider)
+        return AppHeaderUtils.isAppInDesktopWindow(mDesktopWindowStateManager)
                 ? TabUiThemeUtil.getTabStripBackgroundColorForActivityState(
                         mContext, mIsIncognito, mIsTopResumedActivity)
                 : TabUiThemeUtil.getTabStripBackgroundColor(mContext, mIsIncognito);
@@ -1478,8 +1461,8 @@ public class StripLayoutHelperManager
         updateModelSwitcherButton();
 
         // If we are in DW mode, notify DW state provider since the model changed.
-        if (AppHeaderUtils.isAppInDesktopWindow(mDesktopWindowStateProvider)) {
-            mDesktopWindowStateProvider.updateForegroundColor(getBackgroundColor());
+        if (AppHeaderUtils.isAppInDesktopWindow(mDesktopWindowStateManager)) {
+            mDesktopWindowStateManager.updateForegroundColor(getBackgroundColor());
         }
 
         mUpdateHost.requestUpdate();
@@ -1528,9 +1511,8 @@ public class StripLayoutHelperManager
         return mIsIncognito ? mNormalHelper : mIncognitoHelper;
     }
 
-    @VisibleForTesting
-    @StripVisibilityState
-    int getStripVisibilityState() {
+    @Override
+    public @StripVisibilityState int getStripVisibilityState() {
         return mStripVisibilityStateSupplier.get();
     }
 

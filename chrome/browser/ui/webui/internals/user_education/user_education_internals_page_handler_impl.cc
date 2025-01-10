@@ -29,14 +29,14 @@
 #include "chrome/browser/user_education/user_education_service.h"
 #include "chrome/browser/user_education/user_education_service_factory.h"
 #include "components/feature_engagement/public/tracker.h"
-#include "components/user_education/common/feature_promo_data.h"
-#include "components/user_education/common/feature_promo_registry.h"
-#include "components/user_education/common/feature_promo_result.h"
-#include "components/user_education/common/feature_promo_specification.h"
-#include "components/user_education/common/feature_promo_storage_service.h"
-#include "components/user_education/common/tutorial_description.h"
+#include "components/user_education/common/feature_promo/feature_promo_registry.h"
+#include "components/user_education/common/feature_promo/feature_promo_result.h"
+#include "components/user_education/common/feature_promo/feature_promo_specification.h"
+#include "components/user_education/common/tutorial/tutorial_description.h"
+#include "components/user_education/common/user_education_data.h"
 #include "components/user_education/common/user_education_features.h"
 #include "components/user_education/common/user_education_metadata.h"
+#include "components/user_education/common/user_education_storage_service.h"
 #include "components/user_education/webui/whats_new_registry.h"
 #include "content/public/browser/web_ui.h"
 #include "third_party/abseil-cpp/absl/strings/ascii.h"
@@ -91,11 +91,11 @@ whats_new::WhatsNewRegistry* GetWhatsNewRegistry() {
 #endif
 }
 
-user_education::FeaturePromoStorageService* GetStorageService(
+user_education::UserEducationStorageService* GetStorageService(
     Profile* profile) {
   auto* const service =
       UserEducationServiceFactory::GetForBrowserContext(profile);
-  return service ? &service->feature_promo_storage_service() : nullptr;
+  return service ? &service->user_education_storage_service() : nullptr;
 }
 
 std::string GetPromoTypeString(
@@ -333,7 +333,7 @@ auto FormatDemoPageData(const char* key, base::Time value) {
 
 auto GetPromoData(
     const user_education::FeaturePromoSpecification& spec,
-    const user_education::FeaturePromoStorageService* storage_service,
+    const user_education::UserEducationStorageService* storage_service,
     const feature_engagement::Tracker* tracker) {
   std::vector<FeaturePromoDemoPageDataPtr> result;
   if (storage_service) {
@@ -390,7 +390,7 @@ auto GetPromoData(
 
 auto GetNewBadgeData(
     const base::Feature& feature,
-    const user_education::FeaturePromoStorageService* storage_service) {
+    const user_education::UserEducationStorageService* storage_service) {
   std::vector<FeaturePromoDemoPageDataPtr> result;
   const auto data = storage_service->ReadNewBadgeData(feature);
   result.emplace_back(
@@ -456,7 +456,7 @@ void UserEducationInternalsPageHandlerImpl::GetTutorials(
           GetTutorialInstructions(*description),
           /*followed_by=*/"", std::vector<FeaturePromoDemoPageDataPtr>()));
     } else {
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
     }
   }
   std::move(callback).Run(std::move(info_list));
@@ -607,6 +607,12 @@ void UserEducationInternalsPageHandlerImpl::ShowFeaturePromo(
       case Failure::kError:
         reason = "Internal error.";
         break;
+      case Failure::kTimedOut:
+        reason = "Timed out.";
+        break;
+      case Failure::kAlreadyQueued:
+        reason = "Already queued.";
+        break;
       case Failure::kBlockedByConfig:
       case Failure::kFeatureDisabled:
       case Failure::kPermanentlyDismissed:
@@ -662,7 +668,7 @@ void UserEducationInternalsPageHandlerImpl::ClearSessionData(
   // Create a session with start time well in the past to avoid grace period,
   // and most recent active time as now to prevent a new session from
   // immediately starting.
-  user_education::FeaturePromoSessionData session_data;
+  user_education::UserEducationSessionData session_data;
   session_data.most_recent_active_time = storage_service->GetCurrentTime();
   storage_service->SaveSessionData(session_data);
 

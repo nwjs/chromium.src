@@ -18,6 +18,7 @@ import org.chromium.base.Log;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ChromeShareExtras;
 import org.chromium.chrome.browser.share.ChromeShareExtras.DetailedContentType;
@@ -32,9 +33,13 @@ import org.chromium.components.data_sharing.DataSharingService;
 import org.chromium.components.data_sharing.DataSharingUIDelegate;
 import org.chromium.components.data_sharing.GroupData;
 import org.chromium.components.data_sharing.GroupToken;
-import org.chromium.components.data_sharing.ParseURLStatus;
+import org.chromium.components.data_sharing.ParseUrlStatus;
 import org.chromium.components.data_sharing.PeopleGroupActionFailure;
 import org.chromium.components.data_sharing.PeopleGroupActionOutcome;
+import org.chromium.components.data_sharing.configs.DataSharingCreateUiConfig;
+import org.chromium.components.data_sharing.configs.DataSharingJoinUiConfig;
+import org.chromium.components.data_sharing.configs.DataSharingManageUiConfig;
+import org.chromium.components.data_sharing.configs.DataSharingUiConfig;
 import org.chromium.components.tab_group_sync.LocalTabGroupId;
 import org.chromium.components.tab_group_sync.SavedTabGroup;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
@@ -46,7 +51,6 @@ import org.chromium.ui.modaldialog.ModalDialogUtils;
 import org.chromium.url.GURL;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -144,11 +148,11 @@ public class DataSharingTabManager {
      *
      * @param dataSharingUrl The URL associated with the join invitation.
      */
-    public void initiateJoinFlow(GURL dataSharingUrl) {
+    public void initiateJoinFlow(Activity activity, GURL dataSharingUrl) {
         DataSharingMetrics.recordJoinActionFlowState(
                 DataSharingMetrics.JoinActionStateAndroid.JOIN_TRIGGERED);
         if (mProfileSupplier.hasValue() && mProfileSupplier.get().getOriginalProfile() != null) {
-            initiateJoinFlowWithProfile(dataSharingUrl);
+            initiateJoinFlowWithProfile(activity, dataSharingUrl);
             return;
         }
 
@@ -156,13 +160,69 @@ public class DataSharingTabManager {
         mProfileObserver =
                 profile -> {
                     mProfileSupplier.removeObserver(mProfileObserver);
-                    initiateJoinFlowWithProfile(dataSharingUrl);
+                    initiateJoinFlowWithProfile(activity, dataSharingUrl);
                 };
 
         mProfileSupplier.addObserver(mProfileObserver);
     }
 
-    private void initiateJoinFlowWithProfile(GURL dataSharingUrl) {
+    /**
+     * Tracker to handle join flow interraction with UI delegate.
+     *
+     * <p>Tracks the finished callback from UI delegate and close the loading screen when the tab
+     * group from sync is loaded. Handles edge case when sync fetches tab group before the join
+     * callback is available.
+     */
+    private static class JoinFlowTracker {
+        private Callback<Boolean> mFinishJoinLoading;
+        private boolean mJoinedTabGroupOpened;
+        private String mSessionId;
+        private DataSharingUIDelegate mUiDelegate;
+
+        JoinFlowTracker(DataSharingUIDelegate uiDelegate) {
+            this.mUiDelegate = uiDelegate;
+        }
+
+        /** Set the session ID for join flow, used to destroy the flow. */
+        void setSessionId(String id) {
+            mSessionId = id;
+        }
+
+        /** Called to clean up the Join flow when tab group is fetched. */
+        void onTabGroupOpened() {
+            mJoinedTabGroupOpened = true;
+            // Finish loading UI, when tab group is loaded.
+            finishFlowIfNeeded();
+        }
+
+        /**
+         * Called when people group joined with callback to end loading when tab group is fetched.
+         */
+        void onGroupJoined(Callback<Boolean> joinFinishedCallback) {
+            // Store the callback and run it when the tab group is opened.
+            mFinishJoinLoading = joinFinishedCallback;
+
+            // If the group was already opened when people group join callback comes, then run
+            // the loading finished call immediately.
+            finishFlowIfNeeded();
+        }
+
+        private void finishFlowIfNeeded() {
+            // Finish the flow only when both group is joined and tab group is opened.
+            if (mFinishJoinLoading != null && mJoinedTabGroupOpened) {
+                mFinishJoinLoading.onResult(true);
+                mFinishJoinLoading = null;
+                mUiDelegate.destroyFlow(mSessionId);
+            }
+        }
+    }
+
+    private GURL getTabGroupHelpUrl() {
+        // TODO(ssid): Fix the right help URL link here.
+        return new GURL("https://www.example.com/");
+    }
+
+    private void initiateJoinFlowWithProfile(Activity activity, GURL dataSharingUrl) {
         DataSharingMetrics.recordJoinActionFlowState(
                 DataSharingMetrics.JoinActionStateAndroid.PROFILE_AVAILABLE);
         Profile originalProfile = mProfileSupplier.get().getOriginalProfile();
@@ -173,9 +233,9 @@ public class DataSharingTabManager {
         assert tabGroupSyncService != null;
         assert dataSharingService != null;
 
-        DataSharingService.ParseURLResult parseResult =
-                dataSharingService.parseDataSharingURL(dataSharingUrl);
-        if (parseResult.status != ParseURLStatus.SUCCESS) {
+        DataSharingService.ParseUrlResult parseResult =
+                dataSharingService.parseDataSharingUrl(dataSharingUrl);
+        if (parseResult.status != ParseUrlStatus.SUCCESS) {
             showInvitationFailureDialog();
             DataSharingMetrics.recordJoinActionFlowState(
                     DataSharingMetrics.JoinActionStateAndroid.PARSE_URL_FAILED);
@@ -184,6 +244,10 @@ public class DataSharingTabManager {
 
         GroupToken groupToken = parseResult.groupToken;
         String groupId = groupToken.groupId;
+        DataSharingUIDelegate uiDelegate = dataSharingService.getUiDelegate();
+        assert uiDelegate != null;
+        JoinFlowTracker joinFlowTracker = new JoinFlowTracker(uiDelegate);
+
         // Verify that tab group does not already exist in sync.
         SavedTabGroup existingGroup = getTabGroupForCollabIdFromSync(groupId, tabGroupSyncService);
         if (existingGroup != null) {
@@ -194,7 +258,6 @@ public class DataSharingTabManager {
         }
 
         long startTime = SystemClock.uptimeMillis();
-        // TODO(b/354003616): Show loading dialog while waiting for tab.
         if (!mSyncObserversList.containsKey(groupId)) {
             SyncObserver syncObserver =
                     new SyncObserver(
@@ -205,9 +268,41 @@ public class DataSharingTabManager {
                                         "SyncRequest", SystemClock.uptimeMillis() - startTime);
                                 onSavedTabGroupAvailable(group);
                                 mSyncObserversList.remove(group.collaborationId);
+                                joinFlowTracker.onTabGroupOpened();
                             });
 
             mSyncObserversList.put(groupId, syncObserver);
+        }
+
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING_ANDROID_V2)) {
+            // TODO(ssid): Fill in tab group name.
+            DataSharingUiConfig commonConfig =
+                    new DataSharingUiConfig.Builder()
+                            .setActivity(activity)
+                            .setIsTablet(false)
+                            .setLearnMoreHyperLink(getTabGroupHelpUrl())
+                            .build();
+            DataSharingJoinUiConfig.JoinCallback joinCallback =
+                    new DataSharingJoinUiConfig.JoinCallback() {
+                        @Override
+                        public void onGroupJoinedWithWait(
+                                org.chromium.components.sync.protocol.GroupData groupData,
+                                Callback<Boolean> onJoinFinished) {
+                            joinFlowTracker.onGroupJoined(onJoinFinished);
+                            DataSharingMetrics.recordJoinActionFlowState(
+                                    DataSharingMetrics.JoinActionStateAndroid.ADD_MEMBER_SUCCESS);
+                            assert groupData.getGroupId().equals(groupId);
+                        }
+                    };
+            joinFlowTracker.setSessionId(
+                    uiDelegate.showJoinFlow(
+                            new DataSharingJoinUiConfig.Builder()
+                                    .setCommonConfig(commonConfig)
+                                    .setJoinCallback(joinCallback)
+                                    .setGroupToken(groupToken)
+                                    .build()));
+
+            return;
         }
 
         dataSharingService.addMember(
@@ -338,32 +433,58 @@ public class DataSharingTabManager {
         SavedTabGroup existingGroup = tabGroupService.getGroup(localTabGroupId);
         assert existingGroup != null : "Group not found in TabGroupSyncService.";
         if (existingGroup.collaborationId != null) {
-            dataSharingService.ensureGroupVisibility(
-                    existingGroup.collaborationId,
-                    (result) -> {
-                        if (result.actionFailure != PeopleGroupActionFailure.UNKNOWN
-                                || result.groupData == null) {
-                            // TODO(ritikagup): Show error dialog telling failed to create access
-                            // token.
-                            DataSharingMetrics.recordShareActionFlowState(
-                                    DataSharingMetrics.ShareActionStateAndroid
-                                            .ENSURE_VISIBILITY_FAILED);
-                        } else {
-                            showShareSheet(result.groupData);
-                        }
-                    });
+            onShareClickExistingGroup(activity, dataSharingService, existingGroup);
             return;
         }
 
-        Callback<Integer> onClosedCallback =
-                (reason) -> {
-                    if (reason != StateChangeReason.INTERACTION_COMPLETE) {
-                        DataSharingMetrics.recordShareActionFlowState(
-                                DataSharingMetrics.ShareActionStateAndroid.BOTTOM_SHEET_DISMISSED);
-                        createGroupFinishedCallback.onResult(false);
-                    }
-                };
-        BottomSheetContent bottomSheetContent = showBottomSheet(activity, onClosedCallback);
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING_ANDROID_V2)) {
+            DataSharingUIDelegate uiDelegate = dataSharingService.getUiDelegate();
+            DataSharingUiConfig commonConfig =
+                    new DataSharingUiConfig.Builder()
+                            .setActivity(activity)
+                            .setTabGroupName(tabGroupDisplayName)
+                            .setLearnMoreHyperLink(getTabGroupHelpUrl())
+                            .setIsTablet(false)
+                            .build();
+
+            DataSharingCreateUiConfig.CreateCallback createCallback =
+                    new DataSharingCreateUiConfig.CreateCallback() {
+                        @Override
+                        public void onGroupCreated(
+                                org.chromium.components.sync.protocol.GroupData result) {
+                            tabGroupService.makeTabGroupShared(
+                                    localTabGroupId, result.getGroupId());
+                            createGroupFinishedCallback.onResult(true);
+                            DataSharingMetrics.recordShareActionFlowState(
+                                    DataSharingMetrics.ShareActionStateAndroid
+                                            .GROUP_CREATE_SUCCESS);
+                            showShareSheet(
+                                    new GroupData(
+                                            result.getGroupId(),
+                                            result.getDisplayName(),
+                                            /* members= */ null,
+                                            result.getAccessToken()));
+                        }
+
+                        @Override
+                        public void onCancelClicked() {
+                            DataSharingMetrics.recordShareActionFlowState(
+                                    DataSharingMetrics.ShareActionStateAndroid
+                                            .BOTTOM_SHEET_DISMISSED);
+                        }
+
+                        @Override
+                        public void getDataSharingUrl(
+                                GroupToken tokenSecret, Callback<String> url) {}
+                    };
+            uiDelegate.showCreateFlow(
+                    new DataSharingCreateUiConfig.Builder()
+                            .setCommonConfig(commonConfig)
+                            .setCreateCallback(createCallback)
+                            .build());
+
+            return;
+        }
 
         Callback<DataSharingService.GroupDataOrFailureOutcome> createGroupCallback =
                 (result) -> {
@@ -382,33 +503,39 @@ public class DataSharingTabManager {
                                 DataSharingMetrics.ShareActionStateAndroid.GROUP_CREATE_SUCCESS);
                         showShareSheet(result.groupData);
                     }
-                    mBottomSheetControllerSupplier
-                            .get()
-                            .hideContent(
-                                    bottomSheetContent,
-                                    /* animate= */ false,
-                                    StateChangeReason.INTERACTION_COMPLETE);
                 };
 
-        Callback<List<String>> pickerCallback =
-                (emails) -> {
-                    dataSharingService.createGroup(tabGroupDisplayName, createGroupCallback);
-                };
-        DataSharingUIDelegate uiDelegate = dataSharingService.getUIDelegate();
-        assert uiDelegate != null;
+        dataSharingService.createGroup(tabGroupDisplayName, createGroupCallback);
+    }
 
-        uiDelegate.showMemberPicker(
-                activity,
-                (ViewGroup) bottomSheetContent.getContentView(),
-                new MemberPickerListenerImpl(pickerCallback),
-                /* config= */ null);
+    private void onShareClickExistingGroup(
+            Activity activity, DataSharingService dataSharingService, SavedTabGroup existingGroup) {
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING_ANDROID_V2)) {
+            assert existingGroup.collaborationId != null;
+            showManageSharing(activity, existingGroup.collaborationId);
+            return;
+        }
+        dataSharingService.ensureGroupVisibility(
+                existingGroup.collaborationId,
+                (result) -> {
+                    if (result.actionFailure != PeopleGroupActionFailure.UNKNOWN
+                            || result.groupData == null) {
+                        // TODO(ritikagup): Show error dialog telling failed to create access
+                        // token.
+                        DataSharingMetrics.recordShareActionFlowState(
+                                DataSharingMetrics.ShareActionStateAndroid
+                                        .ENSURE_VISIBILITY_FAILED);
+                    } else {
+                        showShareSheet(result.groupData);
+                    }
+                });
     }
 
     private void showShareSheet(GroupData groupData) {
         DataSharingService dataSharingService =
                 DataSharingServiceFactory.getForProfile(
                         mProfileSupplier.get().getOriginalProfile());
-        GURL url = dataSharingService.getDataSharingURL(groupData);
+        GURL url = dataSharingService.getDataSharingUrl(groupData);
         if (url == null) {
             // TODO(ritikagup) : Show error dialog showing fetching URL failed. Contact owner for
             // new link.
@@ -440,10 +567,44 @@ public class DataSharingTabManager {
      * @param collaborationId The collaboration ID to show the UI for.
      */
     public void showManageSharing(Activity activity, String collaborationId) {
-        BottomSheetContent bottomSheetContent =
-                showBottomSheet(activity, /* onClosedCallback= */ null);
+        Profile profile = mProfileSupplier.get().getOriginalProfile();
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING_ANDROID_V2)) {
+            return;
+        }
+        assert profile != null;
+        DataSharingService dataSharingService = DataSharingServiceFactory.getForProfile(profile);
 
-        // Callback Manage screen API for here.
+        DataSharingUIDelegate uiDelegate = dataSharingService.getUiDelegate();
+        assert uiDelegate != null;
+
+        DataSharingUiConfig commonConfig =
+                new DataSharingUiConfig.Builder()
+                        .setActivity(activity)
+                        .setIsTablet(false)
+                        .setLearnMoreHyperLink(getTabGroupHelpUrl())
+                        .build();
+
+        DataSharingManageUiConfig.ManageCallback manageCallback =
+                new DataSharingManageUiConfig.ManageCallback() {
+                    @Override
+                    public void onShareInviteLinkClicked(GroupToken groupToken) {
+                        // TODO(ssid): Pass in the title and refactor showShareSheet to depend on
+                        // GroupToken instead.
+                        showShareSheet(
+                                new GroupData(
+                                        groupToken.groupId,
+                                        "Tab Group",
+                                        /* members= */ null,
+                                        groupToken.accessToken));
+                    }
+                };
+        DataSharingManageUiConfig manageConfig =
+                new DataSharingManageUiConfig.Builder()
+                        .setGroupToken(new GroupToken(collaborationId, null))
+                        .setManageCallback(manageCallback)
+                        .setCommonConfig(commonConfig)
+                        .build();
+        uiDelegate.showManageFlow(manageConfig);
     }
 
     /**

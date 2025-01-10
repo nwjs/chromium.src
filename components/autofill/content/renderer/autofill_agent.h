@@ -287,7 +287,6 @@ class AutofillAgent : public content::RenderFrameObserver,
 
   // Fires Mojo messages for a given form submission.
   void FireHostSubmitEvents(const FormData& form_data,
-                            bool known_success,
                             mojom::SubmissionSource source);
 
   // blink::WebAutofillClient:
@@ -335,7 +334,10 @@ class AutofillAgent : public content::RenderFrameObserver,
 
   void HandleFocusChangeComplete(bool focused_node_was_last_clicked);
 
+  // TODO(crbug.com/376628389): Remove.
   void OnTextFieldDidChange(const blink::WebFormControlElement& element);
+  void OnSelectControlDidChange(const blink::WebFormControlElement& element);
+
   void DidChangeScrollOffsetImpl(FieldRendererId element_id);
 
   // Shows Password Manager, password generation, or Autofill suggestions for
@@ -423,10 +425,7 @@ class AutofillAgent : public content::RenderFrameObserver,
   void BatchDataListOptionChange(FieldRendererId element_id);
 
   FormRef last_interacted_form() const {
-    return base::FeatureList::IsEnabled(
-               features::kAutofillUnifyAndFixFormTracking)
-               ? form_tracker_->last_interacted_form()
-               : last_interacted_form_;
+    return form_tracker_->last_interacted_form();
   }
 
   // TODO(crbug.com/40281981): Remove.
@@ -457,11 +456,6 @@ class AutofillAgent : public content::RenderFrameObserver,
   // List of elements that are currently being previewed, along with their
   // autofill state before the preview.
   std::vector<std::pair<FieldRef, blink::WebAutofillState>> previewed_elements_;
-
-  // Last form which was interacted with by the user.
-  // TODO(crbug.com/40281981): Remove when tracking becomes only FormTracker's
-  // responsibility.
-  FormRef last_interacted_form_;
 
   // When dealing with an unowned form, we keep track of the unowned fields
   // the user has modified so we can determine when submission occurs.

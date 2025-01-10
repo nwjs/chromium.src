@@ -23,6 +23,8 @@
 #import "ios/chrome/browser/autofill/model/autofill_tab_helper.h"
 #import "ios/chrome/browser/autofill/model/bottom_sheet/autofill_bottom_sheet_tab_helper.h"
 #import "ios/chrome/browser/autofill/model/form_suggestion_tab_helper.h"
+#import "ios/chrome/browser/browser_container/edit_menu_tab_helper.h"
+#import "ios/chrome/browser/collaboration/model/features.h"
 #import "ios/chrome/browser/commerce/model/price_alert_util.h"
 #import "ios/chrome/browser/commerce/model/price_notifications/price_notifications_tab_helper.h"
 #import "ios/chrome/browser/commerce/model/push_notification/push_notification_feature.h"
@@ -34,7 +36,6 @@
 #import "ios/chrome/browser/contextual_panel/model/contextual_panel_tab_helper.h"
 #import "ios/chrome/browser/crash_report/model/breadcrumbs/breadcrumb_manager_tab_helper.h"
 #import "ios/chrome/browser/data_sharing/model/data_sharing_tab_helper.h"
-#import "ios/chrome/browser/data_sharing/model/features.h"
 #import "ios/chrome/browser/download/model/ar_quick_look_tab_helper.h"
 #import "ios/chrome/browser/download/model/document_download_tab_helper.h"
 #import "ios/chrome/browser/download/model/download_manager_tab_helper.h"
@@ -362,4 +363,5 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
       !for_prerender) {
     DataSharingTabHelper::CreateForWebState(web_state);
   }
+  EditMenuTabHelper::CreateForWebState(web_state);
 }

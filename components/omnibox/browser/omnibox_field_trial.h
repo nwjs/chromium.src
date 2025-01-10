@@ -295,7 +295,7 @@ bool IsOnDeviceHeadSuggestEnabledForIncognito();
 bool IsOnDeviceHeadSuggestEnabledForNonIncognito();
 bool IsOnDeviceHeadSuggestEnabledForAnyMode();
 bool IsOnDeviceHeadSuggestEnabledForLocale(const std::string& locale);
-bool IsOnDeviceTailSuggestEnabled();
+bool IsOnDeviceTailSuggestEnabled(const std::string& locale);
 bool ShouldEncodeLeadingSpaceForOnDeviceTailSuggest();
 bool ShouldApplyOnDeviceHeadModelSelectionFix();
 // Functions can be used in both non-incognito and incognito.
@@ -685,6 +685,20 @@ std::vector<std::pair<double, int>> GetPiecewiseMappingBreakPoints(
     PiecewiseMappingVariant mapping_variant =
         PiecewiseMappingVariant::kRegular);
 
+// Ipad suggestions limit ->
+
+constexpr base::FeatureParam<int> kIpadAdditionalTrendingQueries(
+    &omnibox::kIpadZeroSuggestMatches,
+    "IpadAdditionalTrendingQueries",
+    0);
+
+constexpr base::FeatureParam<int> kIpadZPSLimit(
+    &omnibox::kIpadZeroSuggestMatches,
+    "IpadZPSSuggestionsLimit",
+    10);
+
+// <- Ipad suggestions limit
+// ---------------------------------------------------------
 // <- ML Relevance Scoring
 // ---------------------------------------------------------
 // Actions In Suggest ->
@@ -757,12 +771,19 @@ bool IsStarterPackExpansionEnabled();
 // directing users to certain starter pack engines.
 bool IsStarterPackIPHEnabled();
 
-// When true, enables an informational IPH message at the bottom of the Omnibox
-// directing users to featured Enterprise search created by policy.
-bool IsFeaturedEnterpriseSearchIPHEnabled();
-
 // <- Site Search Starter Pack
 // ---------------------------------------------------------
+// Android Hub Search -->
+//
+// Controls different variations of android hub search including what
+// primitives are included.
+#if BUILDFLAG(IS_ANDROID)
+constexpr base::FeatureParam<bool> kAndroidHubSearchEnableBookmarkProvider{
+    &omnibox::kAndroidHubSearch, "enable_bookmark_provider", false};
+
+constexpr base::FeatureParam<bool> kAndroidHubSearchEnableHistoryProvider{
+    &omnibox::kAndroidHubSearch, "enable_history_provider", false};
+#endif
 
 // New params should be inserted above this comment. They should be ordered
 // consistently with `omnibox_features.h`. They should be formatted as:

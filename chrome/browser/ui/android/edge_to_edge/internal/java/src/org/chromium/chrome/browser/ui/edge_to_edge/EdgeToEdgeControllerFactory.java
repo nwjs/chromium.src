@@ -24,6 +24,7 @@ import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.layouts.LayoutManager;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeStateProvider;
 import org.chromium.components.browser_ui.edge_to_edge.SystemBarColorHelper;
 import org.chromium.ui.KeyboardVisibilityDelegate;
@@ -82,6 +83,7 @@ public class EdgeToEdgeControllerFactory {
      * @param keyboardVisibilityDelegate A {@link KeyboardVisibilityDelegate} for watching keyboard
      *     visibility events.
      * @param layoutManager The {@link LayoutManager} for adding new scene overlays.
+     * @param requestRenderRunnable Runnable that requests a re-render of the scene overlay.
      * @param edgeToEdgeController The {@link EdgeToEdgeController} for observing the edge-to-edge
      *     status and window bottom insets.
      * @param navigationBarColorProvider The {@link NavigationBarColorProvider} for observing the
@@ -94,6 +96,7 @@ public class EdgeToEdgeControllerFactory {
             View androidView,
             KeyboardVisibilityDelegate keyboardVisibilityDelegate,
             LayoutManager layoutManager,
+            @NonNull Runnable requestRenderRunnable,
             EdgeToEdgeController edgeToEdgeController,
             NavigationBarColorProvider navigationBarColorProvider,
             BottomControlsStacker bottomControlsStacker,
@@ -103,6 +106,7 @@ public class EdgeToEdgeControllerFactory {
                 androidView,
                 keyboardVisibilityDelegate,
                 layoutManager,
+                requestRenderRunnable,
                 edgeToEdgeController,
                 navigationBarColorProvider,
                 bottomControlsStacker,

@@ -87,22 +87,20 @@ TEST_F(LensOmniboxClientTest, AutocompleteAccept) {
   match.destination_url = GURL("https://www.google.com/search?q=search+terms");
 
   OCMExpect([mock_delegate_ omniboxDidAcceptText:match.fill_into_edit
-                                  destinationURL:match.destination_url
-                                thumbnailRemoved:NO]);
+                                  destinationURL:match.destination_url]);
   UseAutocompleteMatch(input_text, match);
 
   EXPECT_OCMOCK_VERIFY(mock_delegate_);
 }
 
-// Tests that GetFormattedFullURL returns the search terms when they are
-// available.
+// Tests that GetFormattedFullURL returns the text set by
+// SetOmniboxSteadyStateText.
 TEST_F(LensOmniboxClientTest, GetFormattedFullURL) {
   // Returns search terms when they are available.
-  fake_web_state_->SetVisibleURL(
-      GURL("https://www.google.com/search?q=search+terms"));
-  EXPECT_EQ(lens_omnibox_client_->GetFormattedFullURL(), u"search terms");
+  lens_omnibox_client_->SetOmniboxSteadyStateText(@"Some text");
+  EXPECT_EQ(lens_omnibox_client_->GetFormattedFullURL(), u"Some text");
 
-  // Returns empty string when they are not available.
-  fake_web_state_->SetVisibleURL(GURL());
+  // Returns empty string when there is no text.
+  lens_omnibox_client_->SetOmniboxSteadyStateText(nil);
   EXPECT_EQ(lens_omnibox_client_->GetFormattedFullURL(), u"");
 }

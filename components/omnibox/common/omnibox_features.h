@@ -21,7 +21,6 @@ BASE_DECLARE_FEATURE(kOmniboxRemoveSuggestionsFromClipboard);
 // deduping or `SortAndCull()`.
 BASE_DECLARE_FEATURE(kGroupingFrameworkForNonZPS);
 BASE_DECLARE_FEATURE(kOmniboxDemoteByType);
-BASE_DECLARE_FEATURE(kPreferNonShortcutMatchesWhenDeduping);
 
 // Features below this line should be sorted alphabetically by their comments.
 
@@ -44,7 +43,6 @@ BASE_DECLARE_FEATURE(kClobberTriggersContextualWebZeroSuggest);
 BASE_DECLARE_FEATURE(kClobberTriggersSRPZeroSuggest);
 BASE_DECLARE_FEATURE(kLocalHistoryZeroSuggestBeyondNTP);
 BASE_DECLARE_FEATURE(kNormalizeSearchSuggestions);
-BASE_DECLARE_FEATURE(kOmniboxOnClobberFocusTypeOnContent);
 BASE_DECLARE_FEATURE(kZeroSuggestInMemoryCaching);
 BASE_DECLARE_FEATURE(kZeroSuggestPrefetchDebouncing);
 BASE_DECLARE_FEATURE(kZeroSuggestPrefetching);
@@ -57,6 +55,7 @@ BASE_DECLARE_FEATURE(kOnDeviceHeadProviderIncognito);
 BASE_DECLARE_FEATURE(kOnDeviceHeadProviderNonIncognito);
 BASE_DECLARE_FEATURE(kOnDeviceHeadProviderKorean);
 BASE_DECLARE_FEATURE(kOnDeviceTailModel);
+BASE_DECLARE_FEATURE(kDisableOnDeviceTailEnglishModel);
 
 // Provider-specific - These features change the behavior of specific providers.
 // TODO(crbug.com/40179316): Clean up feature flag used in staged roll-out of
@@ -65,7 +64,6 @@ BASE_DECLARE_FEATURE(kStoreTitleInContentsAndUrlInDescription);
 
 // Document provider and domain suggestions
 BASE_DECLARE_FEATURE(kDocumentProvider);
-BASE_DECLARE_FEATURE(kDocumentProviderNoSetting);
 BASE_DECLARE_FEATURE(kDocumentProviderNoSyncRequirement);
 BASE_DECLARE_FEATURE(kDomainSuggestions);
 
@@ -83,11 +81,6 @@ BASE_DECLARE_FEATURE(kWebUIOmniboxPopup);
 // Omnibox UI - these affect the UI or function of the location bar (not the
 // popup).
 BASE_DECLARE_FEATURE(kOmniboxAssistantVoiceSearch);
-
-// Android only flag that controls whether the new security indicator should be
-// used, on non-Android platforms this is controlled through the
-// ChromeRefresh2023 flag.
-BASE_DECLARE_FEATURE(kUpdatedConnectionSecurityIndicators);
 
 // Navigation experiments.
 BASE_DECLARE_FEATURE(kDefaultTypedNavigationsToHttps);
@@ -128,9 +121,6 @@ BASE_DECLARE_FEATURE(kMergeSubtypes);
 BASE_DECLARE_FEATURE(kOmniboxTouchDownTriggerForPrefetch);
 
 // Site search/Keyword mode related features.
-BASE_DECLARE_FEATURE(kShowFeaturedEnterpriseSiteSearch);
-BASE_DECLARE_FEATURE(kShowFeaturedEnterpriseSiteSearchIPH);
-BASE_DECLARE_FEATURE(kSiteSearchSettingsPolicy);
 BASE_DECLARE_FEATURE(kStarterPackExpansion);
 BASE_DECLARE_FEATURE(kStarterPackIPH);
 
@@ -144,11 +134,19 @@ BASE_DECLARE_FEATURE(kUseFusedLocationProvider);
 #if BUILDFLAG(IS_ANDROID)
 BASE_DECLARE_FEATURE(kRetainOmniboxOnFocus);
 BASE_DECLARE_FEATURE(kJumpStartOmnibox);
+BASE_DECLARE_FEATURE(kSuppressIntermediateACUpdatesOnLowEndDevices);
+BASE_DECLARE_FEATURE(kAndroidHubSearch);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // `ShortcutsProvider` features.
 BASE_DECLARE_FEATURE(kOmniboxShortcutsAndroid);
 BASE_DECLARE_FEATURE(kOmniboxDeleteOldShortcuts);
+
+// Enterprise search aggregators features.
+BASE_DECLARE_FEATURE(kEnableSearchAggregatorPolicy);
+
+// Ipad ZPS matches limit increase.
+BASE_DECLARE_FEATURE(kIpadZeroSuggestMatches);
 
 }  // namespace omnibox
 

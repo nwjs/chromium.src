@@ -29,6 +29,7 @@ import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
+import org.chromium.chrome.browser.collaboration.messaging.MessagingBackendServiceFactory;
 import org.chromium.chrome.browser.data_sharing.DataSharingServiceFactory;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
 import org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles.SharedImageTilesCoordinator;
@@ -41,7 +42,6 @@ import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncFeatures;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
-import org.chromium.chrome.browser.tab_group_sync.messaging.MessagingBackendServiceFactory;
 import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
 import org.chromium.chrome.browser.tab_ui.TabUiThemeUtils;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
@@ -63,19 +63,19 @@ import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
-import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateProvider;
-import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateProvider.AppHeaderObserver;
+import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
+import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager.AppHeaderObserver;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
+import org.chromium.components.collaboration.messaging.CollaborationEvent;
+import org.chromium.components.collaboration.messaging.EitherId.EitherGroupId;
+import org.chromium.components.collaboration.messaging.MessagingBackendService;
+import org.chromium.components.collaboration.messaging.MessagingBackendService.PersistentMessageObserver;
+import org.chromium.components.collaboration.messaging.PersistentMessage;
 import org.chromium.components.data_sharing.DataSharingService;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.tab_group_sync.LocalTabGroupId;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
-import org.chromium.components.tab_group_sync.messaging.EitherId.EitherGroupId;
-import org.chromium.components.tab_group_sync.messaging.MessagingBackendService;
-import org.chromium.components.tab_group_sync.messaging.MessagingBackendService.PersistentMessageObserver;
-import org.chromium.components.tab_group_sync.messaging.PersistentMessage;
-import org.chromium.components.tab_group_sync.messaging.UserAction;
 import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.base.DeviceFormFactor;
@@ -158,6 +158,16 @@ public class TabGridDialogMediator
          * @param messageType The type of message to look for.
          */
         boolean messageCardExists(@MessageType int messageType);
+
+        /**
+         * Sets the content sensitivity on the dialog view.
+         *
+         * <p>Note: The view on which the content sensitivity is set is shared between all tab grid
+         * dialog instances.
+         *
+         * @param contentIsSensitive True if the grid is sensitive.
+         */
+        void setGridContentSensitivity(boolean contentIsSensitive);
     }
 
     /**
@@ -204,7 +214,7 @@ public class TabGridDialogMediator
     private final TabModelObserver mTabModelObserver;
     private final TabGroupModelFilterObserver mTabGroupModelFilterObserver;
     private final Runnable mScrimClickRunnable;
-    private final @Nullable DesktopWindowStateProvider mDesktopWindowStateProvider;
+    private final @Nullable DesktopWindowStateManager mDesktopWindowStateManager;
 
     private int mCurrentTabId = Tab.INVALID_TAB_ID;
     private TabGridDialogMenuCoordinator mTabGridDialogMenuCoordinator;
@@ -232,7 +242,7 @@ public class TabGridDialogMediator
             Runnable showColorPickerPopupRunnable,
             @Nullable ActionConfirmationManager actionConfirmationManager,
             @Nullable ModalDialogManager modalDialogManager,
-            @Nullable DesktopWindowStateProvider desktopWindowStateProvider) {
+            @Nullable DesktopWindowStateManager desktopWindowStateManager) {
         mActivity = activity;
         mDialogController = dialogController;
         mModel = model;
@@ -255,7 +265,7 @@ public class TabGridDialogMediator
                         .getTabModel()
                         .getProfile()
                         .getOriginalProfile();
-        mDesktopWindowStateProvider = desktopWindowStateProvider;
+        mDesktopWindowStateManager = desktopWindowStateManager;
         if (TabGroupSyncFeatures.isTabGroupSyncEnabled(mOriginalProfile)) {
             mTabGroupSyncService = TabGroupSyncServiceFactory.getForProfile(mOriginalProfile);
             if (ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING)) {
@@ -491,8 +501,6 @@ public class TabGridDialogMediator
 
                     @Override
                     public void didChangeTabGroupColor(int rootId, @TabGroupColorId int newColor) {
-                        if (!ChromeFeatureList.sTabGroupParityAndroid.isEnabled()) return;
-
                         if (currentTabRootIdMatchesRootId(rootId)) {
                             mModel.set(TabGridDialogProperties.TAB_GROUP_COLOR_ID, newColor);
                         }
@@ -510,13 +518,14 @@ public class TabGridDialogMediator
                 };
         mModel.set(TabGridDialogProperties.VISIBILITY_LISTENER, this);
         mModel.set(TabGridDialogProperties.IS_DIALOG_VISIBLE, false);
+        mModel.set(TabGridDialogProperties.IS_CONTENT_SENSITIVE, false);
         mModel.set(
                 TabGridDialogProperties.UNGROUP_BAR_STATUS,
                 TabGridDialogView.UngroupBarStatus.HIDE);
-        if (mDesktopWindowStateProvider != null) {
-            mDesktopWindowStateProvider.addObserver(this);
-            if (mDesktopWindowStateProvider.getAppHeaderState() != null) {
-                onAppHeaderStateChanged(mDesktopWindowStateProvider.getAppHeaderState());
+        if (mDesktopWindowStateManager != null) {
+            mDesktopWindowStateManager.addObserver(this);
+            if (mDesktopWindowStateManager.getAppHeaderState() != null) {
+                onAppHeaderStateChanged(mDesktopWindowStateManager.getAppHeaderState());
             }
         }
     }
@@ -652,8 +661,8 @@ public class TabGridDialogMediator
                     .removeObserver(mOnCollaborationIdChanged);
             mTransitiveSharedGroupObserver.destroy();
         }
-        if (mDesktopWindowStateProvider != null) {
-            mDesktopWindowStateProvider.removeObserver(this);
+        if (mDesktopWindowStateManager != null) {
+            mDesktopWindowStateManager.removeObserver(this);
         }
         if (mMessagingBackendService != null && mPersistentMessageObserver != null) {
             mMessagingBackendService.removePersistentMessageObserver(mPersistentMessageObserver);
@@ -673,6 +682,10 @@ public class TabGridDialogMediator
         if (currentTab != null) {
             filter.setTabGroupColor(currentTab.getRootId(), selectedColor);
         }
+    }
+
+    void setGridContentSensitivity(boolean contentIsSensitive) {
+        mModel.set(TabGridDialogProperties.IS_CONTENT_SENSITIVE, contentIsSensitive);
     }
 
     private void updateGridTabSwitcher() {
@@ -695,14 +708,11 @@ public class TabGridDialogMediator
                         : R.string.tab_grid_dialog_remove_from_group;
         mModel.set(
                 TabGridDialogProperties.DIALOG_UNGROUP_BAR_TEXT, res.getString(ungroupBarTextId));
-
-        if (ChromeFeatureList.sTabGroupParityAndroid.isEnabled()) {
-            TabGroupModelFilter filter = mCurrentTabGroupModelFilterSupplier.get();
-            Tab currentTab = filter.getTabModel().getTabById(mCurrentTabId);
-            final @TabGroupColorId int color =
-                    filter.getTabGroupColorWithFallback(currentTab.getRootId());
-            mModel.set(TabGridDialogProperties.TAB_GROUP_COLOR_ID, color);
-        }
+        TabGroupModelFilter filter = mCurrentTabGroupModelFilterSupplier.get();
+        Tab currentTab = filter.getTabModel().getTabById(mCurrentTabId);
+        final @TabGroupColorId int color =
+                filter.getTabGroupColorWithFallback(currentTab.getRootId());
+        mModel.set(TabGridDialogProperties.TAB_GROUP_COLOR_ID, color);
         updateTitle(tabsCount);
     }
 
@@ -952,8 +962,8 @@ public class TabGridDialogMediator
         } else if (menuId == R.id.recent_activity) {
             RecordUserAction.record("TabGridDialogMenu.RecentActivity");
             mDataSharingTabManager.showRecentActivity(collaborationId);
-        } else if (menuId == R.id.close_tab || menuId == R.id.delete_tab) {
-            boolean hideTabGroups = menuId == R.id.close_tab;
+        } else if (menuId == R.id.close_tab_group || menuId == R.id.delete_tab_group) {
+            boolean hideTabGroups = menuId == R.id.close_tab_group;
             if (hideTabGroups) {
                 RecordUserAction.record("TabGridDialogMenu.Close");
             } else {
@@ -1072,9 +1082,16 @@ public class TabGridDialogMediator
     }
 
     private void onGroupSharedStateChanged(@Nullable @GroupSharedState Integer groupSharedState) {
-        if (groupSharedState == null
-                || groupSharedState == GroupSharedState.NOT_SHARED
-                || groupSharedState == GroupSharedState.COLLABORATION_ONLY) {
+        if (groupSharedState == null || groupSharedState == GroupSharedState.NOT_SHARED) {
+            mModel.set(
+                    TabGridDialogProperties.SHARE_BUTTON_STRING_RES,
+                    R.string.tab_grid_share_button_text);
+            mModel.set(TabGridDialogProperties.SHOW_SHARE_BUTTON, shouldShowShareButton());
+            mModel.set(TabGridDialogProperties.SHOW_IMAGE_TILES, false);
+        } else if (groupSharedState == GroupSharedState.COLLABORATION_ONLY) {
+            mModel.set(
+                    TabGridDialogProperties.SHARE_BUTTON_STRING_RES,
+                    R.string.tab_grid_manage_button_text);
             mModel.set(TabGridDialogProperties.SHOW_SHARE_BUTTON, shouldShowShareButton());
             mModel.set(TabGridDialogProperties.SHOW_IMAGE_TILES, false);
         } else {
@@ -1300,13 +1317,13 @@ public class TabGridDialogMediator
         List<PersistentMessage> messages =
                 mMessagingBackendService.getMessagesForGroup(
                         eitherGroupId, /* type= */ Optional.empty());
-        Map<Integer, Integer> actionCounts = new HashMap<>();
+        Map<Integer, Integer> collaborationEventCounts = new HashMap<>();
         for (PersistentMessage message : messages) {
-            actionCounts.merge(message.action, 1, Integer::sum);
+            collaborationEventCounts.merge(message.collaborationEvent, 1, Integer::sum);
         }
-        int tabsAdded = actionCounts.getOrDefault(UserAction.TAB_ADDED, 0);
-        int tabsChanged = actionCounts.getOrDefault(UserAction.TAB_NAVIGATED, 0);
-        int tabsClosed = actionCounts.getOrDefault(UserAction.TAB_REMOVED, 0);
+        int tabsAdded = collaborationEventCounts.getOrDefault(CollaborationEvent.TAB_ADDED, 0);
+        int tabsChanged = collaborationEventCounts.getOrDefault(CollaborationEvent.TAB_UPDATED, 0);
+        int tabsClosed = collaborationEventCounts.getOrDefault(CollaborationEvent.TAB_REMOVED, 0);
         if (tabsAdded == 0 && tabsChanged == 0 && tabsClosed == 0) {
             removeCollaborationActivityMessageCard();
             return;

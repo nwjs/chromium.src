@@ -14,8 +14,8 @@
 #include "base/notreached.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/types/cxx23_to_underlying.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/events/event.h"
 #include "ui/events/keycodes/keyboard_code_conversion.h"
@@ -147,6 +147,10 @@ bool Accelerator::operator!=(const Accelerator& rhs) const {
   return !(*this == rhs);
 }
 
+bool Accelerator::IsEmpty() const {
+  return key_code_ == VKEY_UNKNOWN && modifiers_ == EF_NONE;
+}
+
 bool Accelerator::IsShiftDown() const {
   return (modifiers_ & EF_SHIFT_DOWN) != 0;
 }
@@ -195,10 +199,11 @@ std::u16string Accelerator::GetShortcutText() const {
     // accent' for '0'). For display in the menu (e.g. Ctrl-0 for the
     // default zoom level), we leave VK_[0-9] alone without translation.
     wchar_t key;
-    if (base::IsAsciiDigit(key_code_))
+    if (base::IsAsciiDigit(base::to_underlying(key_code_))) {
       key = static_cast<wchar_t>(key_code_);
-    else
+    } else {
       key = LOWORD(::MapVirtualKeyW(key_code_, MAPVK_VK_TO_CHAR));
+    }
     // If there is no translation for the given |key_code_| (e.g.
     // VKEY_UNKNOWN), |::MapVirtualKeyW| returns 0.
     if (key != 0)
@@ -412,7 +417,7 @@ std::u16string Accelerator::ApplyLongFormModifiers(
     result = ApplyModifierToAcceleratorString(result, IDS_APP_SEARCH_KEY);
 #elif BUILDFLAG(IS_WIN)
     result = ApplyModifierToAcceleratorString(result, IDS_APP_WINDOWS_KEY);
-#elif defined(OS_LINUX)
+#elif BUILDFLAG(IS_LINUX)
     result = ApplyModifierToAcceleratorString(result, IDS_APP_SUPER_MODIFIER);
 #else
     NOTREACHED();

@@ -778,6 +778,9 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
 
   registry->RegisterIntegerPref(prefs::kAddressBarSettingsNewBadgeShownCount,
                                 0);
+
+  registry->RegisterIntegerPref(
+      prefs::kProminenceNotificationAlertImpressionCount, 0);
 }
 
 void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
@@ -965,6 +968,9 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
       prefs::kIosSaveToDriveDownloadManagerPolicySettings,
       static_cast<int>(SaveToDrivePolicySettings::kEnabled));
 
+  // Preferences related to download restrictions enterprise policy.
+  registry->RegisterIntegerPref(policy::policy_prefs::kDownloadRestrictions, 0);
+
   // Preferences related to parcel tracking.
   registry->RegisterBooleanPref(
       prefs::kIosParcelTrackingOptInPromptDisplayLimitMet, false);
@@ -1126,6 +1132,8 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterStringPref(
       send_tab_to_self::prefs::kIOSSendTabToSelfLastReceivedTabURLPref,
       std::string());
+
+  registry->RegisterIntegerPref(prefs::kIOSLastKnownNTPWebStateIndex, -1);
 }
 
 // This method should be periodically pruned of year+ old migrations.
@@ -1389,13 +1397,6 @@ void MigrateObsoleteProfilePrefs(const base::FilePath& state_path,
 
 void MigrateObsoleteUserDefault() {
   NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
-
-  // Added 08/2023.
-  [defaults removeObjectForKey:@"userHasInteractedWithPinnedTabsOverflow"];
-
-  // Added 10/2023
-  [defaults removeObjectForKey:@"PathToBrowserStateToKeep"];
-  [defaults removeObjectForKey:@"HasBrowserStateBeenRemoved"];
 
   // TODO(b/322004644): Remove in M124+. Added 02/2024.
   [defaults removeObjectForKey:@"TimestampAppLaunchedOnColdStart"];

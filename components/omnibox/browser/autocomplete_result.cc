@@ -104,7 +104,7 @@ size_t AutocompleteResult::GetMaxMatches(bool is_zero_suggest) {
   // defines a hard limit on the number of ZPS suggestions on iPad, so if an
   // experiment defines MaxZeroSuggestMatches to 15, it would be 15 on iPhone
   // and 10 on iPad.
-  constexpr size_t kMaxZeroSuggestMatchesOnIPad = 10;
+  size_t kMaxZeroSuggestMatchesOnIPad = OmniboxFieldTrial::kIpadZPSLimit.Get();
 #endif
   static_assert(kMaxAutocompletePositionValue > kDefaultMaxAutocompleteMatches,
                 "kMaxAutocompletePositionValue must be larger than the largest "
@@ -428,7 +428,7 @@ void AutocompleteResult::SortAndCull(
                     suggestion_groups_map_));
             break;
           default:
-            NOTREACHED_IN_MIGRATION();
+            NOTREACHED();
         }
       } else if (omnibox::IsNTPPage(page_classification)) {
         // IPH is shown for NTP ZPS in the Omnibox only.  If it is shown, reduce
@@ -473,15 +473,19 @@ void AutocompleteResult::SortAndCull(
       }
     } else if constexpr (is_ios) {
       if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+        size_t num_trending_queries =
+            OmniboxFieldTrial::kIpadAdditionalTrendingQueries.Get();
+        size_t total_count = OmniboxFieldTrial::kIpadZPSLimit.Get();
+
         if (omnibox::IsNTPPage(page_classification)) {
-          sections.push_back(
-              std::make_unique<IOSIpadNTPZpsSection>(suggestion_groups_map_));
+          sections.push_back(std::make_unique<IOSIpadNTPZpsSection>(
+              num_trending_queries, total_count, suggestion_groups_map_));
         } else if (omnibox::IsSearchResultsPage(page_classification)) {
-          sections.push_back(
-              std::make_unique<IOSIpadSRPZpsSection>(suggestion_groups_map_));
+          sections.push_back(std::make_unique<IOSIpadSRPZpsSection>(
+              total_count, suggestion_groups_map_));
         } else {
-          sections.push_back(
-              std::make_unique<IOSIpadWebZpsSection>(suggestion_groups_map_));
+          sections.push_back(std::make_unique<IOSIpadWebZpsSection>(
+              total_count, suggestion_groups_map_));
         }
       } else {
         if (omnibox::IsLensSearchbox(page_classification)) {
@@ -1186,7 +1190,7 @@ void AutocompleteResult::DeduplicateMatches(
   // Group matches by stripped URL and whether it's a calculator suggestion.
   std::unordered_map<AutocompleteResult::MatchDedupComparator,
                      std::vector<ACMatches::iterator>,
-                     ACMatchKeyHash<std::string, bool, bool>>
+                     ACMatchKeyHash<std::string, bool, bool, bool>>
       url_to_matches;
   for (auto i = matches->begin(); i != matches->end(); ++i) {
     url_to_matches[GetMatchComparisonFields(*i)].push_back(i);
@@ -1499,8 +1503,12 @@ AutocompleteResult::GetMatchComparisonFields(const AutocompleteMatch& match) {
       (match.answer_template.has_value() &&
        OmniboxFieldTrial::kAnswerActionsShowAboveKeyboard.Get()) ||
       match.type == AutocompleteMatchType::HISTORY_EMBEDDINGS_ANSWER;
-  return std::make_tuple(match.stripped_destination_url.spec(),
-                         match.type == ACMatchType::CALCULATOR, is_answer);
+  return std::make_tuple(
+      match.stripped_destination_url.spec(),
+      match.type == ACMatchType::CALCULATOR,
+      match.provider != nullptr &&
+          match.provider->type() == AutocompleteProvider::TYPE_VERBATIM_MATCH,
+      is_answer);
 }
 
 void AutocompleteResult::LimitNumberOfURLsShown(

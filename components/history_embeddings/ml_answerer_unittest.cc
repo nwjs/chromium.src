@@ -8,22 +8,24 @@
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "components/optimization_guide/core/mock_optimization_guide_model_executor.h"
+#include "components/optimization_guide/core/optimization_guide_proto_util.h"
 #include "components/optimization_guide/proto/features/history_answer.pb.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace history_embeddings {
 
-using base::test::TestFuture;
-using optimization_guide::OptimizationGuideModelExecutionError;
-using optimization_guide::OptimizationGuideModelStreamingExecutionResult;
-using optimization_guide::proto::HistoryAnswerResponse;
-using testing::_;
-
 namespace {
 
-constexpr char kAnswerResponseTypeURL[] =
-    "type.googleapis.com/optimization_guide.proto.HistoryAnswerResponse";
+using ::base::test::TestFuture;
+using ::optimization_guide::AnyWrapProto;
+using ::optimization_guide::MockSession;
+using ::optimization_guide::OptimizationGuideModelExecutionError;
+using ::optimization_guide::OptimizationGuideModelStreamingExecutionResult;
+using ::optimization_guide::proto::HistoryAnswerResponse;
+using ::testing::_;
+using ::testing::NiceMock;
+using ::testing::StrictMock;
 
 }  // namespace
 
@@ -67,11 +69,8 @@ class HistoryEmbeddingsMlAnswererTest : public testing::Test {
       bool is_complete = true) {
     HistoryAnswerResponse answer_response;
     answer_response.mutable_answer()->set_text(answer_text);
-    optimization_guide::proto::Any any;
-    any.set_type_url(kAnswerResponseTypeURL);
-    answer_response.SerializeToString(any.mutable_value());
     return optimization_guide::StreamingResponse{
-        .response = any,
+        .response = AnyWrapProto(answer_response),
         .is_complete = is_complete,
     };
   }
@@ -105,8 +104,7 @@ TEST_F(HistoryEmbeddingsMlAnswererTest, ComputeAnswerNoSession) {
 #if !BUILDFLAG(IS_FUCHSIA)
 TEST_F(HistoryEmbeddingsMlAnswererTest, ComputeAnswerExecutionFailure) {
   ON_CALL(model_executor_, StartSession(_, _)).WillByDefault([&] {
-    return std::make_unique<optimization_guide::MockSessionWrapper>(
-        &session_1_);
+    return std::make_unique<NiceMock<MockSession>>(&session_1_);
   });
 
   ON_CALL(session_1_, GetSizeInTokens(_, _))
@@ -149,8 +147,7 @@ TEST_F(HistoryEmbeddingsMlAnswererTest, ComputeAnswerExecutionFailure) {
 
 TEST_F(HistoryEmbeddingsMlAnswererTest, ComputeAnswerSingleUrl) {
   ON_CALL(model_executor_, StartSession(_, _)).WillByDefault([&] {
-    return std::make_unique<optimization_guide::MockSessionWrapper>(
-        &session_1_);
+    return std::make_unique<NiceMock<MockSession>>(&session_1_);
   });
 
   ON_CALL(session_1_, GetSizeInTokens(_, _))
@@ -188,18 +185,17 @@ TEST_F(HistoryEmbeddingsMlAnswererTest, ComputeAnswerSingleUrl) {
 }
 
 TEST_F(HistoryEmbeddingsMlAnswererTest, ComputeAnswerMultipleUrls) {
-  ON_CALL(model_executor_, StartSession(_, _)).WillByDefault([&] {
-    if (model_executor_.GetCounter() == 0) {
-      model_executor_.IncrementCounter();
-      return std::make_unique<optimization_guide::MockSessionWrapper>(
-          &session_1_);
-    } else if (model_executor_.GetCounter() == 1) {
-      model_executor_.IncrementCounter();
-      return std::make_unique<optimization_guide::MockSessionWrapper>(
-          &session_2_);
-    }
-    return std::unique_ptr<optimization_guide::MockSessionWrapper>(nullptr);
-  });
+  ON_CALL(model_executor_, StartSession(_, _))
+      .WillByDefault([&]() -> std::unique_ptr<MockSession> {
+        if (model_executor_.GetCounter() == 0) {
+          model_executor_.IncrementCounter();
+          return std::make_unique<NiceMock<MockSession>>(&session_1_);
+        } else if (model_executor_.GetCounter() == 1) {
+          model_executor_.IncrementCounter();
+          return std::make_unique<NiceMock<MockSession>>(&session_2_);
+        }
+        return std::unique_ptr<StrictMock<MockSession>>();
+      });
 
   ON_CALL(session_1_, GetSizeInTokens(_, _))
       .WillByDefault(testing::WithArg<1>(testing::Invoke(
@@ -250,8 +246,7 @@ TEST_F(HistoryEmbeddingsMlAnswererTest, ComputeAnswerMultipleUrls) {
 
 TEST_F(HistoryEmbeddingsMlAnswererTest, ComputeAnswerUnanswerable) {
   ON_CALL(model_executor_, StartSession(_, _)).WillByDefault([&] {
-    return std::make_unique<optimization_guide::MockSessionWrapper>(
-        &session_1_);
+    return std::make_unique<NiceMock<MockSession>>(&session_1_);
   });
 
   ON_CALL(session_1_, GetSizeInTokens(_, _))
@@ -276,8 +271,7 @@ TEST_F(HistoryEmbeddingsMlAnswererTest, ComputeAnswerUnanswerable) {
 
 TEST_F(HistoryEmbeddingsMlAnswererTest, ComputeAnswerNullScores) {
   ON_CALL(model_executor_, StartSession(_, _)).WillByDefault([&] {
-    return std::make_unique<optimization_guide::MockSessionWrapper>(
-        &session_1_);
+    return std::make_unique<NiceMock<MockSession>>(&session_1_);
   });
 
   ON_CALL(session_1_, GetSizeInTokens(_, _))

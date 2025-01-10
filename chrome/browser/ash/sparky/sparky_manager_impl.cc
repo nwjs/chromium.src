@@ -126,6 +126,10 @@ GURL SparkyManagerImpl::GetContentUrl() {
   return current_page_info_->url;
 }
 
+std::u16string SparkyManagerImpl::GetSelectedText() {
+  return u"";
+}
+
 void SparkyManagerImpl::GetContent(MahiContentCallback callback) {}
 
 void SparkyManagerImpl::GetSummary(MahiSummaryCallback callback) {
@@ -134,6 +138,8 @@ void SparkyManagerImpl::GetSummary(MahiSummaryCallback callback) {
       base::BindOnce(&SparkyManagerImpl::OnGetPageContentForSummary,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
 }
+
+void SparkyManagerImpl::GetElucidation(MahiElucidationCallback callback) {}
 
 void SparkyManagerImpl::GetOutlines(MahiOutlinesCallback callback) {
   std::vector<chromeos::MahiOutline> outlines;
@@ -186,6 +192,9 @@ void SparkyManagerImpl::SetCurrentFocusedPageInfo(
 void SparkyManagerImpl::OnContextMenuClicked(
     crosapi::mojom::MahiContextMenuRequestPtr context_menu_request) {
   switch (context_menu_request->action_type) {
+    // TODO(b:372741602): deal with kElucidation properly
+    case MahiContextMenuActionType::kElucidation:
+      return;
     case MahiContextMenuActionType::kSummary:
     case MahiContextMenuActionType::kOutline:
       // TODO(b/318565610): Update the behaviour of kOutline.
@@ -229,7 +238,8 @@ void SparkyManagerImpl::OpenMahiPanel(int64_t display_id,
   // instead sparky panel open.
   sparky_provider_->ClearDialog();
 
-  ui_controller_.OpenMahiPanel(display_id, mahi_menu_bounds);
+  ui_controller_.OpenMahiPanel(display_id, mahi_menu_bounds,
+                               /*elucidation_in_use=*/false);
 }
 
 bool SparkyManagerImpl::IsEnabled() {

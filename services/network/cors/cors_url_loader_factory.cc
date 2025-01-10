@@ -261,7 +261,7 @@ CorsURLLoaderFactory::CorsURLLoaderFactory(
     // 1. Perform CORS, but fail loads that represent CORS preflight requests
     // 2. Allow loads that represent CORS preflight requests, but do not perform
     //    CORS
-    DCHECK(disable_web_security_);
+    CHECK(disable_web_security_);
   }
   if (params->automatically_assign_isolation_info) {
     DCHECK(params->isolation_info.IsEmpty());
@@ -745,17 +745,11 @@ bool CorsURLLoaderFactory::IsValidRequest(const ResourceRequest& request,
       // `request_initiator_origin_lock` should always be set in a
       // URLLoaderFactory vended to a renderer process.  See also
       // https://crbug.com/1114906.
-      NOTREACHED_IN_MIGRATION();
-      mojo::ReportBadMessage(
-          "CorsURLLoaderFactory: no initiator lock in a renderer request");
-      return false;
+      NOTREACHED();
 
     case InitiatorLockCompatibility::kNoInitiator:
       // Requests from the renderer need to always specify an initiator.
-      NOTREACHED_IN_MIGRATION();
-      mojo::ReportBadMessage(
-          "CorsURLLoaderFactory: no initiator in a renderer request");
-      return false;
+      NOTREACHED();
 
     case InitiatorLockCompatibility::kIncorrectLock:
       // Requests from the renderer need to always specify a correct initiator.

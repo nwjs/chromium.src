@@ -39,7 +39,6 @@ import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeApplicationImpl;
 import org.chromium.chrome.browser.browserservices.TrustedWebActivityClient;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
@@ -137,8 +136,6 @@ public class NotificationPlatformBridge {
     // the `PRE_UNSUBSCRIBE` intent was started. Used to measure the time, as perceived by the user,
     // that elapses until we see a duplicate intent being dispatched.
     private static long sLastPreUnsubscribePreNativeTaskStartRealMillis = -1;
-
-    private TrustedWebActivityClient mTwaClient;
 
     /** Encapsulates attributes that identify a notification and where it originates from. */
     private static class NotificationIdentifyingAttributes {
@@ -310,6 +307,7 @@ public class NotificationPlatformBridge {
             NotificationPlatformBridgeJni.get().initializeNotificationPlatformBridge();
             if (sInstance == null) {
                 Log.e(TAG, "Unable to initialize the native NotificationPlatformBridge.");
+                reportTrampolineTrackerJobCompleted(intent);
                 return false;
             }
         }
@@ -338,9 +336,13 @@ public class NotificationPlatformBridge {
             return true;
         } else if (NotificationConstants.ACTION_COMMIT_UNSUBSCRIBE.equals(intent.getAction())) {
             sInstance.onNotificationCommitUnsubscribe(attributes);
+            // No activity needs to be launched when unsubscribing a notification, report the job
+            // as completed.
+            reportTrampolineTrackerJobCompleted(intent);
             return true;
         }
 
+        reportTrampolineTrackerJobCompleted(intent);
         Log.e(TAG, "Unrecognized Notification action: " + intent.getAction());
         return false;
     }
@@ -433,9 +435,7 @@ public class NotificationPlatformBridge {
                     SiteSettingsCategory.preferenceKey(SiteSettingsCategory.Type.NOTIFICATIONS));
             fragmentArguments.putString(
                     SingleCategorySettings.EXTRA_TITLE,
-                    applicationContext
-                            .getResources()
-                            .getString(R.string.push_notifications_permission_title));
+                    applicationContext.getString(R.string.push_notifications_permission_title));
         }
 
         Class<? extends PreferenceFragmentCompat> fragment =
@@ -1269,6 +1269,7 @@ public class NotificationPlatformBridge {
         if (identifyingAttributes.origin != null
                 && sOriginsWithProvisionallyRevokedPermissions.containsKey(
                         identifyingAttributes.origin)) {
+            onNotificationProcessed(identifyingAttributes.notificationId);
             return;
         }
 
@@ -1541,10 +1542,17 @@ public class NotificationPlatformBridge {
     }
 
     private TrustedWebActivityClient getTwaClient() {
-        if (mTwaClient == null) {
-            mTwaClient = ChromeApplicationImpl.getComponent().resolveTrustedWebActivityClient();
-        }
-        return mTwaClient;
+        return TrustedWebActivityClient.getInstance();
+    }
+
+    private static void reportTrampolineTrackerJobCompleted(Intent intent) {
+        String notificationid = intent.getStringExtra(NotificationConstants.EXTRA_NOTIFICATION_ID);
+        TrampolineActivityTracker.getInstance().onIntentCompleted(notificationid);
+    }
+
+    @CalledByNative
+    private void onNotificationProcessed(String notificationId) {
+        TrampolineActivityTracker.getInstance().onIntentCompleted(notificationId);
     }
 
     @NativeMethods

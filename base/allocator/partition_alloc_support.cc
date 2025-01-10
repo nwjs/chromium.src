@@ -58,6 +58,7 @@
 #include "partition_alloc/pointers/raw_ptr.h"
 #include "partition_alloc/shim/allocator_shim.h"
 #include "partition_alloc/shim/allocator_shim_default_dispatch_to_partition_alloc.h"
+#include "partition_alloc/shim/allocator_shim_dispatch_to_noop_on_free.h"
 #include "partition_alloc/stack/stack.h"
 #include "partition_alloc/thread_cache.h"
 
@@ -782,6 +783,22 @@ void ReconfigurePartitionForKnownProcess(const std::string& process_type) {
   // experiments.
 }
 
+void MakeFreeNoOp() {
+  // Ignoring `free()` during Shutdown would allow developers to introduce new
+  // dangling pointers. So we want to avoid ignoring free when it is enabled.
+  // Note: For now, the DanglingPointerDetector is only enabled on 5 bots, and
+  // on linux non-official configuration.
+#if PA_BUILDFLAG(ENABLE_DANGLING_RAW_PTR_CHECKS)
+  CHECK(base::FeatureList::GetInstance());
+  if (base::FeatureList::IsEnabled(features::kPartitionAllocDanglingPtr)) {
+    return;
+  }
+#endif  // PA_BUILDFLAG(ENABLE_DANGLING_RAW_PTR_CHECKS)
+#if PA_BUILDFLAG(USE_ALLOCATOR_SHIM)
+  allocator_shim::InsertNoOpOnFreeAllocatorShimOnShutDown();
+#endif  // PA_BUILDFLAG(USE_ALLOCATOR_SHIM)
+}
+
 PartitionAllocSupport* PartitionAllocSupport::Get() {
   static auto* singleton = new PartitionAllocSupport();
   return singleton;
@@ -1015,6 +1032,8 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
               .Get());
   const bool zapping_by_free_flags = base::FeatureList::IsEnabled(
       base::features::kPartitionAllocZappingByFreeFlags);
+  const bool eventually_zero_freed_memory = base::FeatureList::IsEnabled(
+      base::features::kPartitionAllocEventuallyZeroFreedMemory);
 
 #if PA_BUILDFLAG(USE_FREELIST_DISPATCHER)
   const bool use_pool_offset_freelists =
@@ -1032,17 +1051,37 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
   // check here too to wrap the GetMemoryTaggingModeForCurrentThread() call.
   if (!base::FeatureList::IsEnabled(
           base::features::kKillPartitionAllocMemoryTagging)) {
-    // If synchronous mode is enabled from startup it means this is a test and
-    // memory tagging should be enabled.
-    if (partition_alloc::internal::GetMemoryTaggingModeForCurrentThread() ==
+    // If synchronous mode is enabled from startup it means this is a test or it
+    // was force enabled in Chrome some how so honor that choice.
+    partition_alloc::TagViolationReportingMode
+        startup_memory_tagging_reporting_mode =
+            partition_alloc::internal::GetMemoryTaggingModeForCurrentThread();
+    if (startup_memory_tagging_reporting_mode ==
         partition_alloc::TagViolationReportingMode::kSynchronous) {
       enable_memory_tagging = true;
       memory_tagging_reporting_mode =
           partition_alloc::TagViolationReportingMode::kSynchronous;
+      // Not enabling permissive mode as this config is used to crash and detect
+      // bugs.
+      VLOG(1) << "PartitionAlloc: Memory tagging enabled in SYNC mode at "
+                 "startup (Process: "
+              << process_type << ")";
     } else {
       enable_memory_tagging = ShouldEnableMemoryTagging(process_type);
 #if BUILDFLAG(IS_ANDROID)
+      // Android Scudo does not allow MTE to be re-enabled if MTE was disabled.
+      if (enable_memory_tagging &&
+          startup_memory_tagging_reporting_mode ==
+              partition_alloc::TagViolationReportingMode::kDisabled) {
+        LOG(ERROR) << "PartitionAlloc: Failed to enable memory tagging due to "
+                      "MTE disabled at startup (Process: "
+                   << process_type << ")";
+        debug::DumpWithoutCrashing();
+        enable_memory_tagging = false;
+      }
+
       if (enable_memory_tagging) {
+        // Configure MTE.
         switch (base::features::kMemtagModeParam.Get()) {
           case base::features::MemtagMode::kSync:
             memory_tagging_reporting_mode =
@@ -1053,15 +1092,28 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
                 partition_alloc::TagViolationReportingMode::kAsynchronous;
             break;
         }
-        partition_alloc::PermissiveMte::SetEnabled(base::FeatureList::IsEnabled(
-            base::features::kPartitionAllocPermissiveMte));
+        bool enable_permissive_mte = base::FeatureList::IsEnabled(
+            base::features::kPartitionAllocPermissiveMte);
+        partition_alloc::PermissiveMte::SetEnabled(enable_permissive_mte);
         CHECK(partition_alloc::internal::
                   ChangeMemoryTaggingModeForAllThreadsPerProcess(
                       memory_tagging_reporting_mode));
         CHECK_EQ(
             partition_alloc::internal::GetMemoryTaggingModeForCurrentThread(),
             memory_tagging_reporting_mode);
+        VLOG(1)
+            << "PartitionAlloc: Memory tagging enabled in "
+            << (memory_tagging_reporting_mode ==
+                        partition_alloc::TagViolationReportingMode::kSynchronous
+                    ? "SYNC"
+                    : "ASYNC")
+            << " mode (Process: " << process_type << ")";
+        if (enable_permissive_mte) {
+          VLOG(1) << "PartitionAlloc: Permissive MTE enabled (Process: "
+                  << process_type << ")";
+        }
       } else if (base::CPU::GetInstanceNoAllocation().has_mte()) {
+        // Disable MTE.
         memory_tagging_reporting_mode =
             partition_alloc::TagViolationReportingMode::kDisabled;
         CHECK(partition_alloc::internal::
@@ -1070,23 +1122,13 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
         CHECK_EQ(
             partition_alloc::internal::GetMemoryTaggingModeForCurrentThread(),
             memory_tagging_reporting_mode);
+        VLOG(1) << "PartitionAlloc: Memory tagging disabled (Process: "
+                << process_type << ")";
       }
 #endif  // BUILDFLAG(IS_ANDROID)
     }
   }
 #endif  // PA_BUILDFLAG(HAS_MEMORY_TAGGING)
-
-  if (enable_memory_tagging) {
-    CHECK((memory_tagging_reporting_mode ==
-           partition_alloc::TagViolationReportingMode::kSynchronous) ||
-          (memory_tagging_reporting_mode ==
-           partition_alloc::TagViolationReportingMode::kAsynchronous));
-  } else {
-    CHECK((memory_tagging_reporting_mode ==
-           partition_alloc::TagViolationReportingMode::kUndefined) ||
-          (memory_tagging_reporting_mode ==
-           partition_alloc::TagViolationReportingMode::kDisabled));
-  }
 
   allocator_shim::UseSmallSingleSlotSpans use_small_single_slot_spans(
       base::FeatureList::IsEnabled(
@@ -1099,6 +1141,7 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
       allocator_shim::SchedulerLoopQuarantine(scheduler_loop_quarantine),
       scheduler_loop_quarantine_branch_capacity_in_bytes,
       allocator_shim::ZappingByFreeFlags(zapping_by_free_flags),
+      allocator_shim::EventuallyZeroFreedMemory(eventually_zero_freed_memory),
       allocator_shim::UsePoolOffsetFreelists(use_pool_offset_freelists),
       use_small_single_slot_spans);
 

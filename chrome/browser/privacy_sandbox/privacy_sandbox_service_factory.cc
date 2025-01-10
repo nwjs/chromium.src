@@ -22,10 +22,6 @@
 #include "components/profile_metrics/browser_profile_type.h"
 #include "content/public/browser/storage_partition.h"
 
-#if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/hats/trust_safety_sentiment_service_factory.h"
-#endif
-
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #endif
@@ -60,7 +56,6 @@ PrivacySandboxService* PrivacySandboxServiceFactory::GetForProfile(
       GetInstance()->GetServiceForBrowserContext(profile, true));
 }
 
-// LINT.IfChange(PrivacySandboxService)
 PrivacySandboxServiceFactory::PrivacySandboxServiceFactory()
     : ProfileKeyedServiceFactory(
           "PrivacySandboxService",
@@ -80,9 +75,6 @@ PrivacySandboxServiceFactory::PrivacySandboxServiceFactory()
   DependsOn(HostContentSettingsMapFactory::GetInstance());
   DependsOn(browsing_topics::BrowsingTopicsServiceFactory::GetInstance());
   DependsOn(TrackingProtectionSettingsFactory::GetInstance());
-#if !BUILDFLAG(IS_ANDROID)
-  DependsOn(TrustSafetySentimentServiceFactory::GetInstance());
-#endif
   DependsOn(
       first_party_sets::FirstPartySetsPolicyServiceFactory::GetInstance());
 
@@ -91,7 +83,6 @@ PrivacySandboxServiceFactory::PrivacySandboxServiceFactory()
   // eligibility.
   DependsOn(tpcd::experiment::EligibilityServiceFactory::GetInstance());
 }
-// LINT.ThenChange(/chrome/browser/privacy_sandbox/privacy_sandbox_notice_service_factory.cc:PrivacySandboxNoticeService)
 
 std::unique_ptr<KeyedService>
 PrivacySandboxServiceFactory::BuildServiceInstanceForBrowserContext(
@@ -108,9 +99,6 @@ PrivacySandboxServiceFactory::BuildServiceInstanceForBrowserContext(
           ? profile->GetBrowsingDataRemover()
           : nullptr,
       HostContentSettingsMapFactory::GetForProfile(profile),
-#if !BUILDFLAG(IS_ANDROID)
-      TrustSafetySentimentServiceFactory::GetForProfile(profile),
-#endif
       browsing_topics::BrowsingTopicsServiceFactory::GetForProfile(profile),
       first_party_sets::FirstPartySetsPolicyServiceFactory::
           GetForBrowserContext(context),

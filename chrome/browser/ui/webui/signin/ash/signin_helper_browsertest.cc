@@ -83,7 +83,7 @@ constexpr char kSecondaryGoogleAccountUsageLatencyHistogramName[] =
     "Enterprise.SecondaryGoogleAccountUsage.PolicyFetch.ResponseLatency";
 
 void NotReached() {
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 class TestSigninHelper : public SigninHelper {
@@ -330,7 +330,7 @@ class SigninHelperTestSecondaryGoogleAccountUsage : public SigninHelperTest {
  public:
   SigninHelperTestSecondaryGoogleAccountUsage() {
     feature_list_.InitWithFeatures(
-        {features::kSecondaryAccountAllowedInArcPolicy},
+        /*enabled_features=*/{},
         /*disabled_features=*/{});
   }
 

@@ -212,8 +212,7 @@ class CORE_EXPORT ConstraintSpace final {
     switch (
         static_cast<PercentageStorage>(bitfields_.percentage_inline_storage)) {
       default:
-        NOTREACHED_IN_MIGRATION();
-        [[fallthrough]];
+        NOTREACHED();
       case kSameAsAvailable:
         return available_size_.inline_size;
       case kZero:
@@ -230,8 +229,7 @@ class CORE_EXPORT ConstraintSpace final {
     switch (
         static_cast<PercentageStorage>(bitfields_.percentage_block_storage)) {
       default:
-        NOTREACHED_IN_MIGRATION();
-        [[fallthrough]];
+        NOTREACHED();
       case kSameAsAvailable:
         return available_size_.block_size;
       case kZero:
@@ -265,10 +263,8 @@ class CORE_EXPORT ConstraintSpace final {
         DCHECK(HasRareData());
         return rare_data_->replaced_percentage_resolution_block_size;
       default:
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
     }
-
-    return available_size_.block_size;
   }
 
   // The size to use for percentage resolution of replaced elements.
@@ -809,13 +805,33 @@ class CORE_EXPORT ConstraintSpace final {
     return HasRareData() ? TextBoxEdge(rare_data_->effective_text_box_edge)
                          : TextBoxEdge();
   }
-  // Return true if `text-box-trim` is in effect for the block-start/end.
-  bool ShouldTextBoxTrimStart() const {
-    return HasRareData() && rare_data_->should_text_box_trim_start;
+  // Return true if `text-box-trim:trim-start` is in effect at the beginning of
+  // a node.
+  bool ShouldTextBoxTrimNodeStart() const {
+    return HasRareData() && rare_data_->should_text_box_trim_node_start;
   }
-  bool ShouldTextBoxTrimEnd() const {
-    return HasRareData() && rare_data_->should_text_box_trim_end;
+  // Return true if `text-box-trim:trim-end` is in effect at the end of a node.
+  bool ShouldTextBoxTrimNodeEnd() const {
+    return HasRareData() && rare_data_->should_text_box_trim_node_end;
   }
+  // Return true if `text-box-trim:trim-start` is in effect at the beginning of
+  // a fragmentainer.
+  bool ShouldTextBoxTrimFragmentainerStart() const {
+    return HasRareData() &&
+           rare_data_->should_text_box_trim_fragmentainer_start;
+  }
+  // Return true if `text-box-trim:trim-end` is in effect at the end of a
+  // fragmentainer.
+  bool ShouldTextBoxTrimFragmentainerEnd() const {
+    return HasRareData() && rare_data_->should_text_box_trim_fragmentainer_end;
+  }
+  // Return true if the last line before clamp which is a descendant of a node
+  // should trim to the end.
+  bool ShouldTextBoxTrimInsideWhenLineClamp() const {
+    return HasRareData() &&
+           rare_data_->should_text_box_trim_inside_when_line_clamp;
+  }
+
   // Apply `text-box-trim` to the block-end even if there are following content.
   bool ShouldForceTextBoxTrimEnd() const {
     return HasRareData() && rare_data_->should_force_text_box_trim_end;
@@ -989,9 +1005,16 @@ class CORE_EXPORT ConstraintSpace final {
           is_at_fragmentainer_start(other.is_at_fragmentainer_start),
           should_repeat(other.should_repeat),
           is_inside_repeatable_content(other.is_inside_repeatable_content),
-          should_text_box_trim_start(other.should_text_box_trim_start),
-          should_text_box_trim_end(other.should_text_box_trim_end),
+          should_text_box_trim_node_start(
+              other.should_text_box_trim_node_start),
+          should_text_box_trim_node_end(other.should_text_box_trim_node_end),
+          should_text_box_trim_fragmentainer_start(
+              other.should_text_box_trim_fragmentainer_start),
+          should_text_box_trim_fragmentainer_end(
+              other.should_text_box_trim_fragmentainer_end),
           should_force_text_box_trim_end(other.should_force_text_box_trim_end),
+          should_text_box_trim_inside_when_line_clamp(
+              other.should_text_box_trim_inside_when_line_clamp),
           decoration_percentage_resolution_type(
               other.decoration_percentage_resolution_type) {
       switch (GetDataUnionType()) {
@@ -1020,7 +1043,7 @@ class CORE_EXPORT ConstraintSpace final {
           new (&subgrid_data_) SubgridData(other.subgrid_data_);
           break;
         default:
-          NOTREACHED_IN_MIGRATION();
+          NOTREACHED();
       }
     }
     ~RareData() {
@@ -1049,7 +1072,7 @@ class CORE_EXPORT ConstraintSpace final {
           subgrid_data_.~SubgridData();
           break;
         default:
-          NOTREACHED_IN_MIGRATION();
+          NOTREACHED();
       }
     }
 
@@ -1075,10 +1098,18 @@ class CORE_EXPORT ConstraintSpace final {
           propagate_child_break_values != other.propagate_child_break_values ||
           should_repeat != other.should_repeat ||
           is_inside_repeatable_content != other.is_inside_repeatable_content ||
-          should_text_box_trim_start != other.should_text_box_trim_start ||
-          should_text_box_trim_end != other.should_text_box_trim_end ||
+          should_text_box_trim_node_start !=
+              other.should_text_box_trim_node_start ||
+          should_text_box_trim_node_end !=
+              other.should_text_box_trim_node_end ||
+          should_text_box_trim_fragmentainer_start !=
+              other.should_text_box_trim_fragmentainer_start ||
+          should_text_box_trim_fragmentainer_end !=
+              other.should_text_box_trim_fragmentainer_end ||
           should_force_text_box_trim_end !=
               other.should_force_text_box_trim_end ||
+          should_text_box_trim_inside_when_line_clamp !=
+              other.should_text_box_trim_inside_when_line_clamp ||
           decoration_percentage_resolution_type !=
               other.decoration_percentage_resolution_type) {
         return false;
@@ -1102,8 +1133,7 @@ class CORE_EXPORT ConstraintSpace final {
         case DataUnionType::kSubgridData:
           return subgrid_data_.MaySkipLayout(other.subgrid_data_);
       }
-      NOTREACHED_IN_MIGRATION();
-      return false;
+      NOTREACHED();
     }
 
     // Must be kept in sync with members checked within |MaySkipLayout|.
@@ -1119,8 +1149,11 @@ class CORE_EXPORT ConstraintSpace final {
           min_break_appeal != kBreakAppealLastResort ||
           propagate_child_break_values || is_at_fragmentainer_start ||
           should_repeat || is_inside_repeatable_content ||
-          should_text_box_trim_start || should_text_box_trim_end ||
+          should_text_box_trim_node_start || should_text_box_trim_node_end ||
+          should_text_box_trim_fragmentainer_start ||
+          should_text_box_trim_fragmentainer_end ||
           should_force_text_box_trim_end ||
+          should_text_box_trim_inside_when_line_clamp ||
           decoration_percentage_resolution_type) {
         return false;
       }
@@ -1143,8 +1176,7 @@ class CORE_EXPORT ConstraintSpace final {
         case DataUnionType::kSubgridData:
           return subgrid_data_.IsInitialForMaySkipLayout();
       }
-      NOTREACHED_IN_MIGRATION();
-      return false;
+      NOTREACHED();
     }
 
     LayoutUnit BlockStartAnnotationSpace() const {
@@ -1396,11 +1428,14 @@ class CORE_EXPORT ConstraintSpace final {
     unsigned is_at_fragmentainer_start : 1 = false;
     unsigned should_repeat : 1 = false;
     unsigned is_inside_repeatable_content : 1 = false;
-    unsigned should_text_box_trim_start : 1 = false;
-    unsigned should_text_box_trim_end : 1 = false;
+    unsigned should_text_box_trim_node_start : 1 = false;
+    unsigned should_text_box_trim_node_end : 1 = false;
+    unsigned should_text_box_trim_fragmentainer_start : 1 = false;
+    unsigned should_text_box_trim_fragmentainer_end : 1 = false;
     unsigned effective_text_box_edge : TextBoxEdge::kBits =
                                            static_cast<unsigned>(TextBoxEdge());
     unsigned should_force_text_box_trim_end : 1 = false;
+    unsigned should_text_box_trim_inside_when_line_clamp : 1 = false;
     unsigned decoration_percentage_resolution_type : 1 = static_cast<unsigned>(
         DecorationPercentageResolutionType::kContainingBlockInlineSize);
 
@@ -1712,12 +1747,6 @@ class CORE_EXPORT ConstraintSpace final {
 
   void SetEffectiveTextBoxEdge(TextBoxEdge value) {
     EnsureRareData()->effective_text_box_edge = static_cast<unsigned>(value);
-  }
-  void SetShouldTextBoxTrimStart() {
-    EnsureRareData()->should_text_box_trim_start = true;
-  }
-  void SetShouldTextBoxTrimEnd(bool value = true) {
-    EnsureRareData()->should_text_box_trim_end = value;
   }
   void SetShouldForceTextBoxTrimEnd(bool value = true) {
     EnsureRareData()->should_force_text_box_trim_end = value;

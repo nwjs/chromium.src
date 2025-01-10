@@ -281,7 +281,7 @@ apps::ShareTarget::Method ToAppsShareTargetMethod(
     case blink::mojom::ManifestShareTarget_Method::kPost:
       return apps::ShareTarget::Method::kPost;
   }
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 apps::ShareTarget::Enctype ToAppsShareTargetEnctype(
@@ -292,7 +292,7 @@ apps::ShareTarget::Enctype ToAppsShareTargetEnctype(
     case blink::mojom::ManifestShareTarget_Enctype::kMultipartFormData:
       return apps::ShareTarget::Enctype::kMultipartFormData;
   }
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 std::optional<apps::ShareTarget> ToWebAppShareTarget(
@@ -1011,14 +1011,11 @@ webapps::WebappUninstallSource ConvertExternalInstallSourceToUninstallSource(
     case ExternalInstallSource::kSystemInstalled:
       return webapps::WebappUninstallSource::kSystemPreinstalled;
     case ExternalInstallSource::kKiosk:
-      NOTREACHED_IN_MIGRATION() << "Kiosk apps should not be uninstalled";
-      return webapps::WebappUninstallSource::kUnknown;
+      NOTREACHED() << "Kiosk apps should not be uninstalled";
     case ExternalInstallSource::kExternalLockScreen:
       return webapps::WebappUninstallSource::kExternalLockScreen;
     case ExternalInstallSource::kInternalMicrosoft365Setup:
-      NOTREACHED_IN_MIGRATION()
-          << "Microsoft 365 apps should not be uninstalled externally";
-      return webapps::WebappUninstallSource::kUnknown;
+      NOTREACHED() << "Microsoft 365 apps should not be uninstalled externally";
   }
 }
 
@@ -1047,6 +1044,7 @@ WebAppManagement::Type ConvertInstallSurfaceToWebAppSource(
     case webapps::WebappInstallSource::ALMANAC_INSTALL_APP_URI:
     case webapps::WebappInstallSource::WEBAPK_RESTORE:
     case webapps::WebappInstallSource::OOBE_APP_RECOMMENDATIONS:
+    case webapps::WebappInstallSource::WEB_INSTALL:
       if (base::FeatureList::IsEnabled(
               features::kWebAppDontAddExistingAppsToSync)) {
         return WebAppManagement::kUserInstalled;
@@ -1095,8 +1093,7 @@ WebAppManagement::Type ConvertInstallSurfaceToWebAppSource(
       return WebAppManagement::kOneDriveIntegration;
 
     case webapps::WebappInstallSource::COUNT:
-      NOTREACHED_IN_MIGRATION();
-      return WebAppManagement::kUserInstalled;
+      NOTREACHED();
   }
 }
 

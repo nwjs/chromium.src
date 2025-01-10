@@ -19,9 +19,6 @@ class ProfileManagerIOS;
 @protocol SystemIdentity;
 
 // Class to map the identities from SystemIdentityManager to profiles.
-// TODO(crbug.com/331783685): Hook up `AccountProfileMapper` between
-// `SystemIdentityManager` and `ChromeAccountManagerService` (i.e. revert parts
-// of crrev.com/c/5849614).
 class AccountProfileMapper {
  public:
   class Observer : public base::CheckedObserver {
@@ -35,6 +32,10 @@ class AccountProfileMapper {
     // Called when information about `identity` (such as the name or the image)
     // have been updated.
     virtual void OnIdentityUpdated(id<SystemIdentity> identity) {}
+
+    // Called on identity refresh token updated events.
+    // `identity` is the the identity for which the refresh token was updated.
+    virtual void OnIdentityRefreshTokenUpdated(id<SystemIdentity> identity) {}
 
     // Called on access token refresh failed events.
     // `identity` is the the identity for which the access token refresh failed.
@@ -77,6 +78,10 @@ class AccountProfileMapper {
   void IterateOverIdentities(IdentityIteratorCallback callback,
                              std::string_view profile_name);
 
+  // Iterates over all known identities on the device, i.e. including the ones
+  // assigned to other profiles. Using this should be rare!
+  void IterateOverAllIdentitiesOnDevice(IdentityIteratorCallback callback);
+
  private:
   class Assigner;
 
@@ -96,6 +101,7 @@ class AccountProfileMapper {
                       const ProfileNameToGaiaIds& new_mapping);
   // Called by the Assigner on the corresponding SystemIdentityManager events.
   void IdentityUpdated(id<SystemIdentity> identity);
+  void IdentityRefreshTokenUpdated(id<SystemIdentity> identity);
   void IdentityAccessTokenRefreshFailed(id<SystemIdentity> identity,
                                         id<RefreshAccessTokenError> error);
 
@@ -110,6 +116,11 @@ class AccountProfileMapper {
   // notified, and `profile_name` is ignored.
   void NotifyIdentityUpdated(id<SystemIdentity> identity,
                              std::string_view profile_name);
+  // Invokes `OnIdentityRefreshTokenUpdated(...)` for all observers for
+  // the profile with `profile_name`. If `kSeparateProfilesForManagedAccounts`
+  // is disabled, all observers are notified, and `profile_name` is ignored.
+  void NotifyRefreshTokenUpdated(id<SystemIdentity> identity,
+                                 std::string_view profile_name);
   // Invokes `OnIdentityAccessTokenRefreshFailed(...)` for all observers for
   // the profile with `profile_name`. If `kSeparateProfilesForManagedAccounts`
   // is disabled, all observers are notified, and `profile_name` is ignored.

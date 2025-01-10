@@ -58,8 +58,8 @@ FakePlusAddressService::GetSuggestionsFromPlusAddresses(
     suggestion.labels = {{Suggestion::Text(l10n_util::GetStringUTF16(
         IDS_PLUS_ADDRESS_CREATE_SUGGESTION_SECONDARY_TEXT))}};
     suggestion.icon = Suggestion::Icon::kPlusAddress;
-    suggestion.feature_for_iph =
-        &feature_engagement::kIPHPlusAddressCreateSuggestionFeature;
+    suggestion.iph_metadata = Suggestion::IPHMetadata(
+        &feature_engagement::kIPHPlusAddressCreateSuggestionFeature);
     return {suggestion};
   }
 
@@ -95,6 +95,10 @@ void FakePlusAddressService::OnPlusAddressSuggestionShown(
     autofill::PasswordFormClassification::Type form_type,
     autofill::SuggestionType suggestion_type) {
   NOTIMPLEMENTED();
+}
+
+void FakePlusAddressService::DidFillPlusAddress() {
+  did_fill_plus_address_suggestion_ = true;
 }
 
 void FakePlusAddressService::OnClickedRefreshInlineSuggestion(
@@ -294,6 +298,11 @@ void FakePlusAddressService::SavePlusProfile(const PlusProfile& profile) {
 
 bool FakePlusAddressService::IsEnabled() const {
   return true;
+}
+
+void FakePlusAddressService::TriggerUserPerceptionSurvey(
+    hats::SurveyType survey_type) {
+  triggered_survey_ = survey_type;
 }
 
 void FakePlusAddressService::ClearState() {

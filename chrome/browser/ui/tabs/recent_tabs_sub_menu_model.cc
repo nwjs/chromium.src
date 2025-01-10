@@ -34,6 +34,7 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_live_tab_context.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/tabs/tab_group_theme.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
@@ -355,7 +356,8 @@ void RecentTabsSubMenuModel::Build() {
   InsertItemWithStringIdAt(0, IDC_SHOW_HISTORY, IDS_HISTORY_SHOW_HISTORY);
   SetCommandIcon(this, IDC_SHOW_HISTORY,
                  vector_icons::kHistoryChromeRefreshIcon);
-  if (HistoryClustersSidePanelCoordinator::IsSupported(browser_->profile())) {
+  if (browser_->GetFeatures().side_panel_coordinator() &&
+      HistoryClustersSidePanelCoordinator::IsSupported(browser_->profile())) {
     InsertItemWithStringIdAt(1, IDC_SHOW_HISTORY_CLUSTERS_SIDE_PANEL,
                              IDS_HISTORY_CLUSTERS_SHOW_SIDE_PANEL);
     SetCommandIcon(this, IDC_SHOW_HISTORY_CLUSTERS_SIDE_PANEL,
@@ -902,6 +904,5 @@ bool RecentTabsSubMenuModel::IsCommandType(CommandType command_type,
       return remote_sub_menu_items_.contains(command_id);
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return false;
+  NOTREACHED();
 }

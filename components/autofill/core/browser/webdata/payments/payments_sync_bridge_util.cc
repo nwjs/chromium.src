@@ -30,8 +30,8 @@
 #include "components/autofill/core/common/credit_card_network_identifiers.h"
 #include "components/sync/protocol/entity_data.h"
 
-using autofill::data_util::TruncateUTF8;
-using sync_pb::AutofillWalletSpecifics;
+using ::autofill::data_util::TruncateUTF8;
+using ::sync_pb::AutofillWalletSpecifics;
 
 namespace autofill {
 namespace {
@@ -210,7 +210,7 @@ std::vector<CreditCardBenefit> CreditCardBenefitsFromCardSpecifics(
   // access to the terms and conditions.
   if (!card_specifics.has_product_terms_url() ||
       !base::FeatureList::IsEnabled(
-          autofill::features::kAutofillEnableCardBenefitsSync)) {
+          features::kAutofillEnableCardBenefitsSync)) {
     return benefits_from_specifics;
   }
 
@@ -306,10 +306,31 @@ CreditCard CardFromSpecifics(const sync_pb::WalletMaskedCreditCard& card) {
   result.set_product_description(base::UTF8ToUTF16(card.product_description()));
 
   if (card.has_product_terms_url() &&
-      base::FeatureList::IsEnabled(
-          autofill::features::kAutofillEnableCardBenefitsSync)) {
+      base::FeatureList::IsEnabled(features::kAutofillEnableCardBenefitsSync)) {
     result.set_product_terms_url(GURL(card.product_terms_url()));
   }
+
+  CreditCard::CardInfoRetrievalEnrollmentState enrollment_state =
+      CreditCard::CardInfoRetrievalEnrollmentState::kRetrievalUnspecified;
+  switch (card.card_info_retrieval_enrollment_state()) {
+    case sync_pb::WalletMaskedCreditCard::RETRIEVAL_ENROLLED:
+      enrollment_state =
+          CreditCard::CardInfoRetrievalEnrollmentState::kRetrievalEnrolled;
+      break;
+    case sync_pb::WalletMaskedCreditCard::RETRIEVAL_UNENROLLED_AND_NOT_ELIGIBLE:
+      enrollment_state = CreditCard::CardInfoRetrievalEnrollmentState::
+          kRetrievalUnenrolledAndNotEligible;
+      break;
+    case sync_pb::WalletMaskedCreditCard::RETRIEVAL_UNENROLLED_AND_ELIGIBLE:
+      enrollment_state = CreditCard::CardInfoRetrievalEnrollmentState::
+          kRetrievalUnenrolledAndEligible;
+      break;
+    case sync_pb::WalletMaskedCreditCard::RETRIEVAL_UNSPECIFIED:
+      enrollment_state =
+          CreditCard::CardInfoRetrievalEnrollmentState::kRetrievalUnspecified;
+      break;
+  }
+  result.set_card_info_retrieval_enrollment_state(enrollment_state);
 
   return result;
 }
@@ -511,6 +532,28 @@ void SetAutofillWalletSpecificsFromServerCard(
   if (!card.product_terms_url().is_empty()) {
     wallet_card->set_product_terms_url(card.product_terms_url().spec());
   }
+
+  sync_pb::WalletMaskedCreditCard::CardInfoRetrievalEnrollmentState
+      enrollment_state = sync_pb::WalletMaskedCreditCard::RETRIEVAL_UNSPECIFIED;
+  switch (card.card_info_retrieval_enrollment_state()) {
+    case CreditCard::CardInfoRetrievalEnrollmentState::kRetrievalEnrolled:
+      enrollment_state = sync_pb::WalletMaskedCreditCard::RETRIEVAL_ENROLLED;
+      break;
+    case CreditCard::CardInfoRetrievalEnrollmentState::
+        kRetrievalUnenrolledAndNotEligible:
+      enrollment_state = sync_pb::WalletMaskedCreditCard::
+          RETRIEVAL_UNENROLLED_AND_NOT_ELIGIBLE;
+      break;
+    case CreditCard::CardInfoRetrievalEnrollmentState::
+        kRetrievalUnenrolledAndEligible:
+      enrollment_state =
+          sync_pb::WalletMaskedCreditCard::RETRIEVAL_UNENROLLED_AND_ELIGIBLE;
+      break;
+    case CreditCard::CardInfoRetrievalEnrollmentState::kRetrievalUnspecified:
+      enrollment_state = sync_pb::WalletMaskedCreditCard::RETRIEVAL_UNSPECIFIED;
+      break;
+  }
+  wallet_card->set_card_info_retrieval_enrollment_state(enrollment_state);
 }
 
 void SetAutofillWalletSpecificsFromPaymentsCustomerData(
@@ -938,6 +981,9 @@ void PopulateWalletTypesFromSyncData(
               autofill_specifics.payment_instrument());
         }
         break;
+      // TODO(crbug.com/374767814): Implement PopulateWalletTypesFromSyncData
+      // for Payment Instrument Creation Option.
+      case sync_pb::AutofillWalletSpecifics::PAYMENT_INSTRUMENT_CREATION_OPTION:
       // This entry is deprecated and not supported anymore.
       case sync_pb::AutofillWalletSpecifics::MASKED_IBAN:
       case sync_pb::AutofillWalletSpecifics::UNKNOWN:

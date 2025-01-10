@@ -22,6 +22,39 @@ class BrowserContext;
 class SiteInstanceImpl;
 class RenderProcessHost;
 
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+//
+// LINT.IfChange(SpareRendererDispatchResult)
+enum class SpareRendererDispatchResult {
+  kUsed = 0,
+  kTimeout,
+  kOverridden,
+  kDestroyedNotEnabled,
+  kDestroyedProcessLimit,
+  kProcessExited,
+  kProcessHostDestroyed,
+  kMaxValue = kProcessHostDestroyed
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/browser/enums.xml:SpareRendererDispatchResult)
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+//
+// LINT.IfChange(NoSpareRendererReason)
+enum class NoSpareRendererReason {
+  kNotYetCreated = 0,
+  kTakenByPreviousNavigation,
+  kTimeout,
+  kNotEnabled,
+  kProcessLimit,
+  kMemoryPressure,
+  kProcessExited,
+  kProcessHostDestroyed,
+  kMaxValue = kProcessHostDestroyed
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/browser/enums.xml:NoSpareRendererReason)
+
 class CONTENT_EXPORT SpareRenderProcessHostManagerImpl
     : public SpareRenderProcessHostManager,
       public RenderProcessHostObserver {
@@ -87,7 +120,10 @@ class CONTENT_EXPORT SpareRenderProcessHostManagerImpl
                                 std::optional<base::TimeDelta> delay);
 
   // Gracefully remove and cleanup all existing spare RenderProcessHost.
-  void CleanupSpares();
+  //
+  // Passing std::nullopt as dispatch_result is for test only.
+  void CleanupSpares(
+      std::optional<SpareRendererDispatchResult> dispatch_result);
 
   void SetDeferTimerTaskRunnerForTesting(
       scoped_refptr<base::SequencedTaskRunner> task_runner);
@@ -95,7 +131,8 @@ class CONTENT_EXPORT SpareRenderProcessHostManagerImpl
  private:
   // Release ownership of a spare renderer. Called when the spare has either
   // been 1) claimed to be used in a navigation or 2) shutdown somewhere else.
-  void ReleaseSpare(RenderProcessHost* host);
+  void ReleaseSpare(RenderProcessHost* host,
+                    SpareRendererDispatchResult dispatch_result);
 
   // RenderProcessHostObserver:
   void RenderProcessReady(RenderProcessHost* host) override;
@@ -122,12 +159,24 @@ class CONTENT_EXPORT SpareRenderProcessHostManagerImpl
   std::vector<RenderProcessHost*> spare_rphs_;
 
   // The timer used to track the startup time of the spare renderer process.
+  // The elapsed time will be tracked even if the spare renderer is destroyed
+  // for memory pressure or timeout.
   std::unique_ptr<base::ElapsedTimer> process_startup_timer_;
   // The timer used to track the delay of spare renderer creation.
   std::unique_ptr<base::ElapsedTimer> delay_timer_;
+  // The timer used to track the time from the last spare renderer creation to
+  // the next call to MaybeTakeSpare(). Note that the created spare renderer
+  // might have already been deleted at the time MaybeTakeSpare() runs, but we
+  // still want to record it so that we can potentially adjust the timeout of
+  // the spare renderer.
+  std::unique_ptr<base::ElapsedTimer> spare_renderer_maybe_take_timer_;
 
   base::OneShotTimer deferred_warmup_timer_;
   base::OneShotTimer deferred_destroy_timer_;
+
+  // The reason for there being no spare render process present.
+  NoSpareRendererReason no_spare_renderer_reason_ =
+      NoSpareRendererReason::kNotYetCreated;
 };
 
 }  // namespace content

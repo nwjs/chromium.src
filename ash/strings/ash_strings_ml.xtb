@@ -308,7 +308,6 @@
 <translation id="2041220428661959602">ബാറ്ററി നില: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848"><ph name="SIX_PACK_KEY_NAME" /> കുറുക്കുവഴി നിലവിൽ ഓഫാണ്</translation>
 <translation id="2049240716062114887">ഡെസ്‌കിന്റെ പേര് <ph name="DESK_NAME" /> എന്നാക്കി മാറ്റി</translation>
-<translation id="2050339315714019657">പോർട്രെയ്റ്റ്</translation>
 <translation id="2064048859448024834">ക്യാമറാ പ്രിവ്യു ഓണാണ്</translation>
 <translation id="2065098273523946419">കൂടുതലറിയുക ലിങ്ക്. സജീവമാക്കുമ്പോൾ ബ്രൗസറിലേക്ക് റീഡയറക്‌റ്റ് ചെയ്യുക</translation>
 <translation id="2067220651560163985">താപനില, സെൽഷ്യസിൽ കാണിക്കുക</translation>
@@ -339,9 +338,6 @@
 <translation id="219905428774326614">ലോഞ്ചർ, എല്ലാ ആപ്പുകളും</translation>
 <translation id="2201071101391734388">അടുത്തിടെയുള്ള <ph name="TOTAL_COUNT" /> ഫോട്ടോകളിൽ <ph name="INDEX" />-മത്തേത്.</translation>
 <translation id="2201687081523799384">Google Tasks ചുരുക്കുക</translation>
-<translation id="2206960886090042977">മൗസ് കണക്റ്റ് ചെയ്തിരിക്കുന്നതിനാൽ ബിൽറ്റ് ഇൻ ടച്ച്പാഡ് പ്രവർത്തനരഹിതമാക്കിയിരിക്കുന്നു. മാറ്റം സ്ഥിരീകരിക്കാൻ മൗസോ കീബോർഡോ ഉപയോഗിക്കുക.
-
-അല്ലെങ്കിൽ ബിൽറ്റ്-ഇൻ ടച്ച്പാഡ് 30 സെക്കൻഡിനുള്ളിൽ വീണ്ടും പ്രവർത്തനക്ഷമമാകും.</translation>
 <translation id="2208323208084708176">ഏകീകൃത ഡെസ്‌ക്‌ടോപ്പ് മോഡ്</translation>
 <translation id="2220572644011485463">പിൻ അല്ലെങ്കിൽ പാസ്‌വേഡ്</translation>
 <translation id="2222841058024245321">ഡെസ്ക് 7</translation>
@@ -504,6 +500,9 @@
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> മുതൽ <ph name="KEY_TWO" /> വരെ</translation>
 <translation id="2778197796481941784">ctrl+search+s</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" /> മാനേജ് ചെയ്യുന്നത് <ph name="MANAGER" /> ആണ്</translation>
+<translation id="2781658180588759579">ബിൽറ്റ് ഇൻ ടച്ച്പാഡ് പ്രവർത്തനരഹിതമാക്കിയിരിക്കുന്നു. മാറ്റം സ്ഥിരീകരിക്കാൻ നിങ്ങളുടെ കീബോർഡോ മറ്റൊരു പോയിന്റർ ഉപകരണമോ ഉപയോഗിക്കുക.
+
+അല്ലെങ്കിൽ ബിൽറ്റ്-ഇൻ ടച്ച്പാഡ് <ph name="TIMEOUT_SECONDS" /> എന്നതിനുള്ളിൽ വീണ്ടും പ്രവർത്തനക്ഷമമാകും.</translation>
 <translation id="2782591952652094792">ക്യാപ്‌ചർ മോഡിൽ നിന്ന് പുറത്തുകടക്കുക</translation>
 <translation id="2785499565474703580">ഒരു ഉപകരണം കണക്‌റ്റ് ചെയ്‌തു</translation>
 <translation id="2791421900609674576">നിർത്തിയ ഇടത്ത് നിന്ന് തുടരാനാകുന്ന തരത്തിൽ നിങ്ങൾക്ക് നിർദ്ദേശങ്ങൾ കാണാം.  നിർദ്ദേശങ്ങൾ നീക്കം ചെയ്യാൻ സ്പർശിച്ച് പിടിക്കുക.</translation>
@@ -601,6 +600,9 @@
 <translation id="3113492864356515707">ഷെൽഫിലെ മുമ്പത്തെ ഇനം ഹൈലൈറ്റ് ചെയ്യുക</translation>
 <translation id="311799651966070385">നഡ്‌ജ് അടയ്‌ക്കുക</translation>
 <translation id="3120421559657122717">ഉപകരണം ഷട്ട് ഡൗൺ ചെയ്യണോ?</translation>
+<translation id="3121411970001795539">മൗസ് കണക്റ്റ് ചെയ്തിരിക്കുന്നതിനാൽ ബിൽറ്റ് ഇൻ ടച്ച്പാഡ് പ്രവർത്തനരഹിതമാക്കിയിരിക്കുന്നു. മാറ്റം സ്ഥിരീകരിക്കാൻ മൗസോ കീബോർഡോ ഉപയോഗിക്കുക.
+
+അല്ലെങ്കിൽ ബിൽറ്റ്-ഇൻ ടച്ച്പാഡ് <ph name="TIMEOUT_SECONDS" /> എന്നതിനുള്ളിൽ വീണ്ടും പ്രവർത്തനക്ഷമമാകും.</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">ക്ലാസ്‌വർക്ക് തരം</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +973,13 @@
 <translation id="4322742403972824594">'Ctrl + Alt + മുകളിലേയ്ക്കുള്ള അമ്പടയാളം' കീബോഡ് കുറുക്കുവഴി മാറിയിട്ടുണ്ട്. Home കീ ഉപയോഗിക്കാൻ, <ph name="LAUNCHER_KEY_NAME" /> കീ+ ഇടത്തേയ്ക്കുള്ള അമ്പടയാളം അമർത്തുക.</translation>
 <translation id="4324840740119394760"><ph name="APP_NAME" /> എന്നതിനും ക്യാമറ ആക്‌സസ് ചെയ്യാൻ അനുമതിയുള്ള എല്ലാ ആപ്പുകൾക്കും വെബ്സൈറ്റുകൾക്കും ഇത് ക്യാമറയിലേക്ക് ആക്‌സസ് അനുവദിക്കുന്നു</translation>
 <translation id="4327147325944669226">ഗെയിം റെക്കോർഡ് ചെയ്യുക</translation>
-<translation id="4333628967105022692">ഒന്നിലേറെ ഉപയോക്താക്കൾ സൈൻ ഇൻ ചെയ്തിരിക്കുമ്പോൾ Lacros-ന് പിന്തുണയുണ്ടാകില്ല.</translation>
 <translation id="4338109981321384717">മാഗ്‌നിഫൈയിംഗ് ഗ്ലാസ്</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, മ്യൂട്ട് ചെയ്തിരിക്കുന്നു</translation>
 <translation id="4351244548802238354">ഡയലോഗ് അടയ്‌ക്കുക</translation>
 <translation id="4356872429719185452">ഹോട്ട്സ്പോട്ട് വിശദാംശങ്ങൾ കാണിക്കുക. ഹോട്ട്‌സ്‌പോട്ട് ഓണാക്കുന്നു.</translation>
 <translation id="4364101114148522660"><ph name="DURATION" />  റെക്കോർഡ് ചെയ്യുന്നു</translation>
 <translation id="4371348193907997655">കാസ്‌റ്റ് ക്രമീകരണം</translation>
+<translation id="4371834685492830207">പിൻ നമ്പറിൽ സാധുതയുള്ള പ്രതീകങ്ങൾ മാത്രമേ ഉണ്ടാകാവൂ</translation>
 <translation id="4375482231364171368">വിലാസ ബാറിൽ തിരയുക</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, സിഗ്‌നൽ ശക്തി <ph name="SIGNAL_STRENGTH" /> ശതമാനം</translation>
 <translation id="4378551569595875038">കണക്റ്റിംഗ്...</translation>
@@ -1143,6 +1145,7 @@
 <translation id="4902797682482387055">ഫോക്കസ് ചെയ്യാൻ നിർദ്ദേശിക്കുന്ന ടാസ്‌ക്</translation>
 <translation id="490375751687810070">ലംബം</translation>
 <translation id="490788395437447240"><ph name="BATTERY_PERCENTAGE" />% ബാറ്ററി</translation>
+<translation id="4911191962826748981">ഇതൊരു പരീക്ഷണാത്മക AI ഫീച്ചറാണ്, എല്ലായ്‌പ്പോഴും ശരിയായിരിക്കണമെന്നില്ല.</translation>
 <translation id="491504982845934899">ഉപകരണം സജ്ജീകരിച്ച് <ph name="NETWORK_NAME" /> സജീവമാക്കൂ</translation>
 <translation id="4917385247580444890">ശക്തം</translation>
 <translation id="4918086044614829423">സ്വീകരിക്കുക</translation>
@@ -1301,6 +1304,7 @@
 <translation id="5393156353051693207">നിങ്ങളുടെ ആപ്പുകൾ പുനഃക്രമീകരിക്കാൻ എവിടെയെങ്കിലും സ്പർശിച്ച് പിടിക്കുക</translation>
 <translation id="5395308026110844773"><ph name="IN_PLACE_APP" /> എന്നതിന് മുകളിലാണ് <ph name="DRAGGED_APP_NAME" />, ഫോൾഡർ സൃഷ്‌ടിക്കാൻ റിലീസ് ചെയ്യുക.</translation>
 <translation id="5397578532367286026">ഈ ഉപയോക്താവിന്റെ ഉപയോഗവും ചരിത്രവും chrome.com-ൽ മാനേജർക്ക് (<ph name="MANAGER_EMAIL" />) അവലോകനം ചെയ്യാനാകും.</translation>
+<translation id="540338817371815859">ലാൻഡ്‌സ്‌കേപ്പ്</translation>
 <translation id="540713187982329711">ഹോട്ട്സ്പോട്ട് ടോഗിൾ ചെയ്യുക. ഹോട്ട്സ്പോട്ട് ഓണാണ്, ഉപകരണങ്ങളൊന്നും കണക്റ്റ് ചെയ്തിട്ടില്ല.</translation>
 <translation id="5409208741270395213">ടാസ്‌ക് പൂർത്തിയായതായി അടയാളപ്പെടുത്തുക</translation>
 <translation id="5413656666631274079">ക്രമീകരണ പേജ്</translation>
@@ -1472,7 +1476,6 @@
 <translation id="5975235751479998104">ഒരോരോ വിൻഡോയിലൂടെയും മുന്നോട്ട് പോകുക</translation>
 <translation id="5978382165065462689">നിങ്ങളുടെ വിദൂര സഹായി മുഖേന സ്‌ക്രീനിന്റെ നിയന്ത്രണം പങ്കിടുക.</translation>
 <translation id="5980301590375426705">ഗസ്റ്റ് എക്സിറ്റ്</translation>
-<translation id="5982119059638483922">റദ്ദാക്കാൻ Fn+തിരയൽ അല്ലെങ്കിൽ Shift അമർത്തുക.</translation>
 <translation id="5983567367406220847">നിഷ്‌ക്രിയത്വത്തെ തുടർന്ന്, ഹോട്ട്‌സ്പോട്ട് ഓഫാക്കി.</translation>
 <translation id="598407983968395253">ടെംപ്ലേറ്റ് ഉപയോഗിക്കുക</translation>
 <translation id="5986723678596105470">Google Meet ഉപയോഗിച്ച് ചേരുക</translation>
@@ -1542,7 +1545,6 @@
 <translation id="6166852626429024716">നിങ്ങളുടെ ഉപകരണവും ആപ്പുകളും ക്രമീകരണവും വെബും തിരയുക...</translation>
 <translation id="6168318496333165060">Diagnostics ആപ്പ് തുറക്കുക</translation>
 <translation id="6168622430237609329">നിങ്ങളുടെ ഇൻസ്റ്റാൾ ചെയ്‌ത ആപ്പുകൾ</translation>
-<translation id="6173151025443907148">Lacros പ്രവർത്തനക്ഷമമാക്കിയിട്ടുണ്ടെങ്കിൽ, രണ്ടാമത്തെ ഉപയോക്താവ് സൈൻ ഇൻ ചെയ്യുന്നത് പിന്തുണയ്ക്കുന്നില്ല. പകരം Lacros-ൽ രണ്ടാമത്തെ ബ്രൗസർ പ്രൊഫൈൽ ഉപയോഗിക്കുകയോ Lacros പ്രവർത്തനരഹിതമാക്കിയ ശേഷം വീണ്ടും ശ്രമിക്കുകയോ ചെയ്യുക.</translation>
 <translation id="6179832488876878285">നിങ്ങളുടെ പ്രധാനപ്പെട്ട ഫയലുകൾ ഇവിടെ പിൻ ചെയ്യാം. ആരംഭിക്കാൻ Files ആപ്പ് തുറക്കുക.</translation>
 <translation id="6180193585172850042">മടങ്ങുക ബട്ടൺ</translation>
 <translation id="6180651297859206670">മുന്നോട്ട് പോകാനുള്ള ബട്ടൺ</translation>
@@ -1564,6 +1566,7 @@
 <translation id="6232416233079464213"><ph name="SESSION_NAME" /> എന്നതിൽ നിന്ന്</translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> നിലവിൽ നിങ്ങളുടെ ക്യാമറയും മൈക്രോഫോണും ഉപയോഗിക്കുന്നു</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">പാസ്‌വേഡുകളിൽ സാധുതയുള്ള പ്രതീകങ്ങൾ മാത്രമേ ഉണ്ടാകാവൂ</translation>
 <translation id="6240603910551255087">മുകളിലെ ബട്ടൺ</translation>
 <translation id="6240821072888636753">എപ്പോഴും ചോദിക്കുക</translation>
 <translation id="6247728804802644171">അറിയിപ്പുകൾ തുറക്കുക</translation>
@@ -1694,7 +1697,6 @@
 <translation id="6682029141988159141">ക്ലിപ്പ്ബോർഡിലേക്ക് ഉള്ളടക്കം ഒട്ടിക്കുക</translation>
 <translation id="6683022854667115063">ഹെഡ്ഫോണുകൾ</translation>
 <translation id="6686023075541098243">നിങ്ങളുടെ ഫോണിലെ അറിയിപ്പുകൾ കാണുന്നത് സജ്ജീകരിക്കുക</translation>
-<translation id="6688019813898140556">Esc 5 തവണ</translation>
 <translation id="6694462491298752106">ബിൽറ്റ്-ഇൻ ടച്ച്പാഡ് പ്രവർത്തനരഹിതമാക്കി</translation>
 <translation id="6694973220096431421">Google Drive-ൽ തിരയുക</translation>
 <translation id="6696025732084565524">നിങ്ങളുടെ വേർപെടുത്താനാകുന്ന കീബോഡിന് നിർണ്ണായക അപ്‌ഡേറ്റ് ആവശ്യമാണ്</translation>
@@ -1715,6 +1717,7 @@
 <translation id="6751826523481687655">പ്രകടനം പിന്തുടരൽ ഓണാണ്</translation>
 <translation id="6752912906630585008">ഡെസ്‌ക് <ph name="REMOVED_DESK" /> നീക്കം ചെയ്‌ത്, ഡെസ്‌ക് <ph name="RECEIVE_DESK" />-മായി ലയിപ്പിച്ചു</translation>
 <translation id="6753390234084146956">ടാബുകൾ</translation>
+<translation id="6754918760968695779">ക്വിക്ക് ഇൻസേർട്ട്</translation>
 <translation id="6757237461819837179">മീഡിയയൊന്നും പ്ലേ ചെയ്യുന്നില്ല</translation>
 <translation id="6760438044935091345">ഗെയിം ഡാഷ്ബോർഡ്</translation>
 <translation id="6768043681523654438">സ്‌റ്റോറേജ്</translation>
@@ -1764,6 +1767,7 @@
 <translation id="6921427376813842559">ഉപകരണം അപ്‌ഡേറ്റ് ചെയ്യുക</translation>
 <translation id="6929081673585394903">നിയന്ത്രണങ്ങൾ കാണിക്കുക</translation>
 <translation id="6931576957638141829">ഇനിപ്പറയുന്നതിലേക്ക് സംരക്ഷിക്കുക</translation>
+<translation id="6935857786205183008">പോർട്രെയ്‌റ്റ്</translation>
 <translation id="6942518653766415536">റെക്കോർഡിംഗ് ഫോർമാറ്റ് മെനു</translation>
 <translation id="6945221475159498467">തിരഞ്ഞെടുക്കുക</translation>
 <translation id="6945922087561257829">നിങ്ങളുടെ ഫോൺ ഉപയോഗിക്കുന്നത് ഒരു മൊബൈൽ നെറ്റ്‌വർക്കാണ്. നിങ്ങളുടെ ഫോണും Chromebook-ഉം ഒരേ വൈഫൈ നെറ്റ്‌വർക്കിലാണുള്ളതെന്ന് ഉറപ്പാക്കി വീണ്ടും ശ്രമിക്കുക. <ph name="LEARN_MORE" /></translation>
@@ -1921,9 +1925,6 @@
 ഉപകരണം ഷട്ട് ഡൗൺ ചെയ്യാൻ, ഉപകരണത്തിലെ പവർ ബട്ടൺ വീണ്ടും അമർത്തിപ്പിടിക്കുക.</translation>
 <translation id="7523420897035067483">ഫോക്കസിലായിരിക്കുമ്പോൾ 'ശല്യപ്പെടുത്തരുത്' പ്രവർത്തനക്ഷമമാക്കുക</translation>
 <translation id="7524043547948122239">Google Tasks</translation>
-<translation id="7524919752437339268">ബിൽറ്റ് ഇൻ ടച്ച്പാഡ് പ്രവർത്തനരഹിതമാക്കിയിരിക്കുന്നു. മാറ്റം സ്ഥിരീകരിക്കാൻ നിങ്ങളുടെ കീബോർഡോ മറ്റൊരു പോയിന്റർ ഉപകരണമോ ഉപയോഗിക്കുക.
-
-അല്ലെങ്കിൽ ബിൽറ്റ്-ഇൻ ടച്ച്പാഡ് 30 സെക്കൻഡിനുള്ളിൽ വീണ്ടും പ്രവർത്തനക്ഷമമാകും.</translation>
 <translation id="7525067979554623046">സൃഷ്‌ടിക്കുക</translation>
 <translation id="7526573455193969409">നെറ്റ്‌വർക്ക് നിരീക്ഷിക്കപ്പെടാം</translation>
 <translation id="7536035074519304529">IP വിലാസം: <ph name="ADDRESS" /></translation>
@@ -2010,6 +2011,7 @@
 <translation id="780301667611848630">വേണ്ട</translation>
 <translation id="7807067443225230855">തിരയലും സഹായിയും</translation>
 <translation id="7814236020522506259"><ph name="HOUR" />, <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">തംബ്‌സ് അപ്പ്, നിങ്ങൾ ഈ നിർദ്ദേശം ലൈക്ക് ചെയ്തുവെന്ന ഫീഡ്‌ബാക്ക് സമർപ്പിക്കും</translation>
 <translation id="7825412704590278437">വരാനിരിക്കുന്ന കലണ്ടർ ഇവന്റിൽ നിന്ന്</translation>
 <translation id="7829386189513694949">ശക്തിയുള്ള സിഗ്നൽ</translation>
 <translation id="7830453190047749513">നിങ്ങളുടെ <ph name="PERIPHERAL_NAME" /> എന്നതിനുള്ള ബട്ടൺ പ്രവർത്തനങ്ങളും കഴ്‌സർ വേഗതയും മറ്റും നിങ്ങൾക്ക് വ്യക്തിപരമാക്കാം</translation>
@@ -2164,6 +2166,7 @@
 <translation id="830868413617744215">ബീറ്റ</translation>
 <translation id="8314772463905284467">Caps Lock ഓൺ ആണ്</translation>
 <translation id="8315514906653279104">ഓണാക്കുന്നു...</translation>
+<translation id="8319634750346253957">തംബ്‌സ് ഡൗൺ, നിങ്ങൾ ഈ നിർദ്ദേശം ഡിസ്‌ലൈക്ക് ചെയ്തുവെന്ന ഫീഡ്‌ബാക്ക് സമർപ്പിക്കും</translation>
 <translation id="8331351032546853669">ഡൗൺലോഡ് ശേഷിക്കുന്നു</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2349,6 +2352,7 @@
 <translation id="8982906748181120328">സമീപമുള്ള ദൃശ്യപരത</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590"><ph name="IME_NAME" /> ഉപയോഗിക്കുന്നു</translation>
+<translation id="8991648557324317894">റദ്ദാക്കാൻ fn + ക്വിക്ക് ഇൻസേർട്ട് അല്ലെങ്കിൽ Shift അമർത്തുക.</translation>
 <translation id="899350903320462459">അറിയിപ്പ് പ്രവർത്തനം നിർവഹിക്കാൻ, <ph name="LOGIN_ID" /> ആയി ഉപകരണം അൺലോക്ക് ചെയ്യുക</translation>
 <translation id="8993733019280019776">നിങ്ങൾ സംസാരിക്കുകയാണോ? നിങ്ങളുടെ മൈക്ക് ഓഫാണ്. മൈക്ക് ഓണാക്കാൻ അത് തിരഞ്ഞെടുക്കുക.</translation>
 <translation id="9000771174482730261">സ്‌റ്റോറേജ് മാനേജ് ചെയ്യുക</translation>
@@ -2431,9 +2435,9 @@
 <translation id="974545358917229949"><ph name="QUERY" /> എന്നതിനുള്ള <ph name="RESULT_COUNT" /> ഫലങ്ങൾ കാണിക്കുന്നു</translation>
 <translation id="981011780479609956">അവസാന തീയതിയില്ലാത്തവ</translation>
 <translation id="98120814841227350">ഡോക്യുമെന്റിന്റെ താഴേക്ക് പോവുക</translation>
-<translation id="98515147261107953">ലാന്‍ഡ്‌സ്‌കേപ്പ്</translation>
 <translation id="987589956647469042">മൊബൈൽ ഡാറ്റ ഓണാക്കി</translation>
 <translation id="989374776391122812">ക്യാമറ, ഓഡിയോ നിയന്ത്രണങ്ങൾ</translation>
+<translation id="990263227494928142">ടച്ച്പാഡ് പ്രവർത്തനക്ഷമമാക്കാൻ 5 തവണ Shift അമർത്തുക</translation>
 <translation id="990277280839877440"><ph name="WINDOW_TITILE" /> വിൻഡോ അടച്ചു.</translation>
 <translation id="993398562350683614"><ph name="TOTAL_STEPS" /> ഘട്ടങ്ങളുള്ള ടൂറിന്റെ <ph name="STEP" />-ാമത്തെ ഘട്ടം. ആപ്പുകൾ ഉപയോഗിച്ച് <ph name="PRODUCT_NAME" /> എന്നതിൽ നിങ്ങൾക്ക് ആവശ്യമുള്ള കാര്യങ്ങളെല്ലാം ചെയ്യാം. ലോഞ്ചറിൽ നിങ്ങളുടെ ആപ്പുകൾ കണ്ടെത്താം. ലോഞ്ചർ ബട്ടണിൽ ഫോക്കസ് ചെയ്യാൻ Alt + Shift + L അമർത്തുക.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

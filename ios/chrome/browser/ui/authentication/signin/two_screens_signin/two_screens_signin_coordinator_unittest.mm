@@ -37,12 +37,11 @@ class TwoScreensSigninCoordinatorTest : public PlatformTest {
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetDefaultFactory());
+        AuthenticationServiceFactory::GetFactoryWithDelegate(
+            std::make_unique<FakeAuthenticationServiceDelegate>()));
     builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                               base::BindRepeating(&CreateMockSyncService));
     profile_ = std::move(builder).Build();
-    AuthenticationServiceFactory::CreateAndInitializeForProfile(
-        profile_.get(), std::make_unique<FakeAuthenticationServiceDelegate>());
     browser_ = std::make_unique<TestBrowser>(profile_.get());
 
     NSUserDefaults* standardDefaults = [NSUserDefaults standardUserDefaults];
@@ -106,9 +105,8 @@ class TwoScreensSigninCoordinatorTest : public PlatformTest {
 
   // Signs in a fake identity.
   void SigninFakeIdentity() {
-    AuthenticationService* auth_service = static_cast<AuthenticationService*>(
-        AuthenticationServiceFactory::GetInstance()->GetForProfile(
-            profile_.get()));
+    AuthenticationService* auth_service =
+        AuthenticationServiceFactory::GetForProfile(profile_.get());
     auth_service->SignIn(fake_identity_,
                          signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN);
   }

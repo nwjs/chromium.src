@@ -407,6 +407,11 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
     }
 
     @Override
+    public SelectionActionMenuDelegate getSelectionActionMenuDelegate() {
+        return mSelectionActionMenuDelegate;
+    }
+
+    @Override
     public RenderFrameHost getRenderFrameHost() {
         return mRenderFrameHost;
     }
@@ -949,7 +954,8 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
                         mClassificationResult,
                         isSelectionPassword(),
                         !isFocusedNodeEditable(),
-                        getSelectedText())) {
+                        getSelectedText(),
+                        mSelectionActionMenuDelegate)) {
             mSelectionMenuCachedResult =
                     new SelectionMenuCachedResult(
                             mClassificationResult,
@@ -1032,12 +1038,9 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
             if (alphabeticShortcut != null) {
                 menuItem.setAlphabeticShortcut(alphabeticShortcut);
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                // Content descriptions supported on O+.
-                @Nullable CharSequence contentDescription = item.contentDescription;
-                if (contentDescription != null) {
-                    menuItem.setContentDescription(contentDescription);
-                }
+            @Nullable CharSequence contentDescription = item.contentDescription;
+            if (contentDescription != null) {
+                menuItem.setContentDescription(contentDescription);
             }
             if (item.clickListener != null) {
                 customMenuItemClickListeners.put(menuItem, item.clickListener);
@@ -1092,16 +1095,13 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
     }
 
     /**
-     * Check if there is a need to show "paste as plain text" option.
-     * "paste as plain text" option needs clipboard content is rich text, and editor supports rich
-     * text as well.
+     * Check if there is a need to show "paste as plain text" option. "paste as plain text" option
+     * needs clipboard content is rich text, and editor supports rich text as well.
      */
     @Override
     public boolean canPasteAsPlainText() {
         if (!canPaste()) return false;
-        // String resource "paste_as_plain_text" only exist in O+.
-        // Also this is an O feature, we need to make it consistent with TextView.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false;
+        // Make this feature behavior consistent with TextView.
         if (!mCanEditRichly) return false;
 
         // We need to show "paste as plain text" when Clipboard contains the HTML text. In addition
@@ -1184,8 +1184,7 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
         } else if (id == R.id.select_action_menu_paste) {
             paste();
             if (isPasteActionModeValid()) dismissTextHandles();
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                && id == R.id.select_action_menu_paste_as_plain_text) {
+        } else if (id == R.id.select_action_menu_paste_as_plain_text) {
             pasteAsPlainText();
             if (isPasteActionModeValid()) dismissTextHandles();
         } else if (id == R.id.select_action_menu_share) {
@@ -1348,7 +1347,11 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
                     new WindowAndroid.IntentCallback() {
                         @Override
                         public void onIntentCompleted(int resultCode, Intent data) {
-                            onReceivedProcessTextResult(resultCode, data);
+                            if (resultCode != Activity.RESULT_OK || data == null) return;
+                            CharSequence value =
+                                    data.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT);
+                            String result = (value == null) ? null : value.toString();
+                            handleTextReplacementAction(result);
                         }
                     },
                     null);
@@ -1428,18 +1431,19 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
     }
 
     @Override
-    public void onReceivedProcessTextResult(int resultCode, Intent data) {
-        if (mWebContents == null || resultCode != Activity.RESULT_OK || data == null) return;
-
+    public void handleTextReplacementAction(String text) {
+        if (mWebContents == null || text == null) return;
         // Do not handle the result if no text is selected or current selection is not editable.
-        if (!hasSelection() || !isFocusedNodeEditable()) return;
+        // There are scenarios where hasSelection returns false but selected text is present
+        // especially when selection is present without action mode. mUnselectAllOnDismiss
+        // variable represents such state and is set to false in such state.
+        // Hence, check this variable in conjunction with existing check to make sure that
+        // replace happens in such scenarios as well.
+        if ((!hasSelection() && mUnselectAllOnDismiss) || !isFocusedNodeEditable()) return;
 
-        CharSequence result = data.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT);
-        if (result != null) {
-            // TODO(hush): Use a variant of replace that re-selects the replaced text.
-            // crbug.com/546710
-            mWebContents.replace(result.toString());
-        }
+        // TODO(hush): Use a variant of replace that re-selects the replaced text.
+        // crbug.com/546710
+        mWebContents.replace(text);
     }
 
     @Override
@@ -1939,21 +1943,18 @@ public class SelectionPopupControllerImpl extends ActionModeCallbackHelper
 
     @Override
     public void setTextClassifier(TextClassifier textClassifier) {
-        assert Build.VERSION.SDK_INT >= Build.VERSION_CODES.O;
         SelectionClient client = getSelectionClient();
         if (client != null) client.setTextClassifier(textClassifier);
     }
 
     @Override
     public TextClassifier getTextClassifier() {
-        assert Build.VERSION.SDK_INT >= Build.VERSION_CODES.O;
         SelectionClient client = getSelectionClient();
         return client == null ? null : client.getTextClassifier();
     }
 
     @Override
     public TextClassifier getCustomTextClassifier() {
-        assert Build.VERSION.SDK_INT >= Build.VERSION_CODES.O;
         SelectionClient client = getSelectionClient();
         return client == null ? null : client.getCustomTextClassifier();
     }

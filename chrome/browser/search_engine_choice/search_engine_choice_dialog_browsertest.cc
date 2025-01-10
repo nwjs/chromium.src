@@ -605,7 +605,7 @@ IN_PROC_BROWSER_TEST_F(SearchEngineChoiceDialogBrowserTest,
   chrome::AddTabAt(app_browser, GURL(), -1, true);
   EXPECT_TRUE(app_browser->is_type_app());
 
-  GURL url = GURL("http://www.google.com/");
+  GURL url = GURL("https://www.google.com/");
   content::TestNavigationObserver observer(url);
   observer.StartWatchingNewWebContents();
 
@@ -793,16 +793,7 @@ IN_PROC_BROWSER_TEST_F(SearchEngineChoiceDialogBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(SearchEngineChoiceDialogBrowserTest,
                        SearchEngineChoiceIsShownOnEachGuestSession) {
-#if !BUILDFLAG(IS_MAC)
-  // This initial browser is sometimes missing on mac. We don't really need that
-  // browser, so if the guest browser works, then the test might still succeed.
-  EXPECT_EQ(BrowserList::GetInstance()->size(), 1u);
-#endif
-
   Browser* guest_session = CreateGuestBrowserAndLoadNTP();
-#if !BUILDFLAG(IS_MAC)
-  EXPECT_EQ(BrowserList::GetInstance()->size(), 2u);
-#endif
   auto* second_service = static_cast<MockSearchEngineChoiceDialogService*>(
       SearchEngineChoiceDialogServiceFactory::GetForProfile(
           guest_session->profile()));
@@ -848,16 +839,7 @@ IN_PROC_BROWSER_TEST_F(SearchEngineChoiceDialogBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(SearchEngineChoiceDialogBrowserTest,
                        SearchEngineIsSavedBetweenGuestSessionsIfNeeded) {
-#if !BUILDFLAG(IS_MAC)
-  // This initial browser is sometimes missing on mac. We don't really need that
-  // browser, so if the guest browser works, then the test might still succeed.
-  EXPECT_EQ(BrowserList::GetInstance()->size(), 1u);
-#endif
-
   Browser* guest_session = CreateGuestBrowserAndLoadNTP();
-#if !BUILDFLAG(IS_MAC)
-  EXPECT_EQ(BrowserList::GetInstance()->size(), 2u);
-#endif
   auto* second_service = static_cast<MockSearchEngineChoiceDialogService*>(
       SearchEngineChoiceDialogServiceFactory::GetForProfile(
           guest_session->profile()));

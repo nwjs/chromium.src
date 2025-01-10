@@ -44,9 +44,6 @@ std::string PlatformWindowDelegate::State::ToString() const {
   std::stringstream result;
   result << "State {";
   result << "window_state = " << static_cast<int>(window_state);
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  result << ", fullscreen_type = " << static_cast<int>(fullscreen_type);
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
   result << ", bounds_dip = " << bounds_dip.ToString();
   result << ", size_px = " << size_px.ToString();
   result << ", window_scale = " << window_scale;
@@ -69,12 +66,6 @@ gfx::Insets PlatformWindowDelegate::CalculateInsetsInDIP(
 #if BUILDFLAG(IS_LINUX)
 void PlatformWindowDelegate::OnWindowTiledStateChanged(
     WindowTiledEdges new_tiled_edges) {}
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-void PlatformWindowDelegate::OnFullscreenTypeChanged(
-    PlatformFullscreenType old_type,
-    PlatformFullscreenType new_type) {}
 #endif
 
 std::optional<gfx::Size> PlatformWindowDelegate::GetMinimumSizeForWindow()
@@ -106,8 +97,7 @@ void PlatformWindowDelegate::OnOcclusionStateChanged(
 
 int64_t PlatformWindowDelegate::OnStateUpdate(const State& old,
                                               const State& latest) {
-  NOTREACHED_IN_MIGRATION();
-  return -1;
+  NOTREACHED();
 }
 
 std::optional<OwnedWindowAnchor>

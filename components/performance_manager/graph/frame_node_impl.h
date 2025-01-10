@@ -51,13 +51,13 @@ class FrameNodeImpl
   // Construct a frame node associated with a `process_node`, a `page_node` and
   // optionally with a `parent_frame_node`. For the main frame of `page_node`
   // the `parent_frame_node` parameter should be nullptr. For <fencedframe>s,
-  // `outer_document_for_fenced_frame` should be set to its outer document,
-  // nullptr otherwise. `render_frame_id` is the routing id of the frame (from
-  // RenderFrameHost::GetRoutingID).
+  // and MPArch aware <webview>s,  `outer_document_for_inner_frame_root` should
+  // be set to its outer document, nullptr otherwise. `render_frame_id` is the
+  // routing id of the frame (from RenderFrameHost::GetRoutingID).
   FrameNodeImpl(ProcessNodeImpl* process_node,
                 PageNodeImpl* page_node,
                 FrameNodeImpl* parent_frame_node,
-                FrameNodeImpl* outer_document_for_fenced_frame,
+                FrameNodeImpl* outer_document_for_inner_frame_root,
                 int render_frame_id,
                 const blink::LocalFrameToken& frame_token,
                 content::BrowsingInstanceId browsing_instance_id,
@@ -119,7 +119,6 @@ class FrameNodeImpl
   // Getters for const properties.
   FrameNodeImpl* parent_frame_node() const;
   FrameNodeImpl* parent_or_outer_document_or_embedder() const;
-  FrameNodeImpl* outer_document_for_fenced_frame() const;
   PageNodeImpl* page_node() const;
   ProcessNodeImpl* process_node() const;
   int render_frame_id() const;
@@ -297,7 +296,7 @@ class FrameNodeImpl
 
   const raw_ptr<FrameNodeImpl, DanglingUntriaged> parent_frame_node_;
   const raw_ptr<FrameNodeImpl, DanglingUntriaged>
-      outer_document_for_fenced_frame_;
+      outer_document_for_inner_frame_root_;
   const raw_ptr<PageNodeImpl, DanglingUntriaged> page_node_;
   const raw_ptr<ProcessNodeImpl, DanglingUntriaged> process_node_;
   // The routing id of the frame.

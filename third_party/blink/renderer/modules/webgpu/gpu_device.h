@@ -24,6 +24,7 @@ namespace blink {
 class ExecutionContext;
 class ExternalTextureCache;
 class GPUAdapter;
+class GPUAdapterInfo;
 class GPUBuffer;
 class GPUBufferDescriptor;
 class GPUCommandEncoder;
@@ -103,6 +104,7 @@ class GPUDevice final : public EventTarget,
   GPUAdapter* adapter() const;
   GPUSupportedFeatures* features() const;
   GPUSupportedLimits* limits() const { return limits_.Get(); }
+  GPUAdapterInfo* adapterInfo() const;
   ScriptPromise<GPUDeviceLostInfo> lost(ScriptState* script_state);
 
   GPUQueue* queue();
@@ -165,6 +167,7 @@ class GPUDevice final : public EventTarget,
   void InjectError(wgpu::ErrorType type, const char* message);
   void AddConsoleWarning(const String& message);
   void AddConsoleWarning(const char* message);
+  void AddConsoleWarning(wgpu::StringView message);
   void AddSingletonWarning(GPUSingletonWarning type);
 
   void TrackTextureWithMailbox(GPUTexture* texture);
@@ -187,10 +190,10 @@ class GPUDevice final : public EventTarget,
   // Getters for the callbacks so that they can be set up in
   // wgpu::DeviceDescriptor during the first step of GPUDevice creation.
   WGPURepeatingCallback<
-      void(const wgpu::Device&, wgpu::ErrorType, const char*)>*
+      void(const wgpu::Device&, wgpu::ErrorType, wgpu::StringView)>*
   error_callback();
   WGPURepeatingCallback<
-      void(const wgpu::Device&, wgpu::DeviceLostReason, const char*)>*
+      void(const wgpu::Device&, wgpu::DeviceLostReason, wgpu::StringView)>*
   lost_callback();
 
  private:
@@ -203,35 +206,31 @@ class GPUDevice final : public EventTarget,
 
   void OnUncapturedError(const wgpu::Device& device,
                          wgpu::ErrorType errorType,
-                         const char* message);
-#if defined(WGPU_BREAKING_CHANGE_STRING_VIEW_CALLBACKS)
+                         wgpu::StringView message);
   void OnLogging(WGPULoggingType loggingType, WGPUStringView message);
-#else   // defined(WGPU_BREAKING_CHANGE_STRING_VIEW_CALLBACKS)
-  void OnLogging(WGPULoggingType loggingType, const char* message);
-#endif  // defined(WGPU_BREAKING_CHANGE_STRING_VIEW_CALLBACKS)
 
   void OnDeviceLostError(const wgpu::Device& device,
                          wgpu::DeviceLostReason reason,
-                         const char* message);
+                         wgpu::StringView message);
 
   void OnPopErrorScopeCallback(
       ScriptPromiseResolver<IDLNullable<GPUError>>* resolver,
       wgpu::PopErrorScopeStatus status,
       wgpu::ErrorType type,
-      const char* message);
+      wgpu::StringView message);
 
   void OnCreateRenderPipelineAsyncCallback(
       const String& label,
       ScriptPromiseResolver<GPURenderPipeline>* resolver,
       wgpu::CreatePipelineAsyncStatus status,
       wgpu::RenderPipeline render_pipeline,
-      const char* message);
+      wgpu::StringView message);
   void OnCreateComputePipelineAsyncCallback(
       const String& label,
       ScriptPromiseResolver<GPUComputePipeline>* resolver,
       wgpu::CreatePipelineAsyncStatus status,
       wgpu::ComputePipeline compute_pipeline,
-      const char* message);
+      wgpu::StringView message);
 
   void setLabelImpl(const String& value) override {
     std::string utf8_label = value.Utf8();
@@ -241,24 +240,20 @@ class GPUDevice final : public EventTarget,
   Member<GPUAdapter> adapter_;
   Member<GPUSupportedFeatures> features_;
   Member<GPUSupportedLimits> limits_;
+  Member<GPUAdapterInfo> adapter_info_;
   Member<GPUQueue> queue_;
   Member<LostProperty> lost_property_;
   std::unique_ptr<WGPURepeatingCallback<
-      void(const wgpu::Device&, wgpu::ErrorType, const char*)>>
+      void(const wgpu::Device&, wgpu::ErrorType, wgpu::StringView)>>
       error_callback_;
-#if defined(WGPU_BREAKING_CHANGE_STRING_VIEW_CALLBACKS)
   std::unique_ptr<WGPURepeatingCallback<void(WGPULoggingType, WGPUStringView)>>
       logging_callback_;
-#else   // defined(WGPU_BREAKING_CHANGE_STRING_VIEW_CALLBACKS)
-  std::unique_ptr<WGPURepeatingCallback<void(WGPULoggingType, const char*)>>
-      logging_callback_;
-#endif  // defined(WGPU_BREAKING_CHANGE_STRING_VIEW_CALLBACKS)
   // lost_callback_ is stored as a unique_ptr since it may never be called.
   // We need to be sure to free it on deletion of the device.
   // Inside OnDeviceLostError we'll release the unique_ptr to avoid a double
   // free.
   std::unique_ptr<WGPURepeatingCallback<
-      void(const wgpu::Device&, wgpu::DeviceLostReason, const char*)>>
+      void(const wgpu::Device&, wgpu::DeviceLostReason, wgpu::StringView)>>
       lost_callback_;
 
   static constexpr int kMaxAllowedConsoleWarnings = 500;

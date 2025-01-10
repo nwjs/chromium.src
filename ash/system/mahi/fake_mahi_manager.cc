@@ -33,6 +33,8 @@ constexpr char16_t kDefaultAnswer[] = u"Fake answer";
 
 constexpr char16_t kDefaultContentTitle[] = u"fake content title";
 
+constexpr char16_t kDefaultSelectedText[] = u"fake selected text";
+
 constexpr char kDefaultContentUrl[] = "https://en.wikipedia.org/wiki/Wombat";
 
 const std::vector<chromeos::MahiOutline> kDefaultOutlines(
@@ -49,6 +51,10 @@ constexpr char16_t kDefaultContentText[] =
 constexpr char16_t kDefaultSummaryText[] =
     u"fake summary text\nfake summary text\nfake summary text\nfake summary "
     u"text\nfake summary text";
+
+constexpr char16_t kDefaultElucidationText[] =
+    u"fake elucidation text\nfake elucidation text\nfake elucidation text"
+    u"\nfake elucidation text";
 
 constexpr char kMahiSettingsUrl[] =
     "chrome://os-settings/systemPreferences?settingId=612";
@@ -73,6 +79,10 @@ GURL FakeMahiManager::GetContentUrl() {
   return GURL(kDefaultContentUrl);
 }
 
+std::u16string FakeMahiManager::GetSelectedText() {
+  return current_selected_text_.value_or(kDefaultSelectedText);
+}
+
 void FakeMahiManager::GetContent(MahiContentCallback callback) {
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
       FROM_HERE,
@@ -95,6 +105,18 @@ void FakeMahiManager::GetSummary(MahiSummaryCallback callback) {
           ? base::TimeDelta()
           : base::Seconds(
                 mahi_constants::kFakeMahiManagerLoadSummaryDelaySeconds));
+}
+
+void FakeMahiManager::GetElucidation(MahiElucidationCallback callback) {
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(std::move(callback),
+                     elucidation_text_.value_or(kDefaultElucidationText),
+                     chromeos::MahiResponseStatus::kSuccess),
+      g_use_zero_duration
+          ? base::TimeDelta()
+          : base::Seconds(
+                mahi_constants::kFakeMahiManagerLoadElucidationDelaySeconds));
 }
 
 void FakeMahiManager::GetOutlines(MahiOutlinesCallback callback) {
@@ -125,6 +147,9 @@ void FakeMahiManager::AnswerQuestion(const std::u16string& question,
 void FakeMahiManager::OnContextMenuClicked(
     crosapi::mojom::MahiContextMenuRequestPtr context_menu_request) {
   switch (context_menu_request->action_type) {
+    // TODO(b:372741602): deal with kElucidation properly
+    case MahiContextMenuActionType::kElucidation:
+      return;
     case MahiContextMenuActionType::kSummary:
     case MahiContextMenuActionType::kOutline:
       // TODO(b/318565610): Update the behaviour of kOutline.
@@ -169,7 +194,8 @@ void FakeMahiManager::OnContextMenuClicked(
 
 void FakeMahiManager::OpenMahiPanel(int64_t display_id,
                                     const gfx::Rect& mahi_menu_bounds) {
-  ui_controller_.OpenMahiPanel(display_id, mahi_menu_bounds);
+  ui_controller_.OpenMahiPanel(display_id, mahi_menu_bounds,
+                               /*elucidation_in_use=*/false);
 }
 
 bool FakeMahiManager::IsEnabled() {

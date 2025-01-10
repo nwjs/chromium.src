@@ -763,13 +763,11 @@ bool WebLocalFrameImpl::IsWebRemoteFrame() const {
 }
 
 WebRemoteFrame* WebLocalFrameImpl::ToWebRemoteFrame() {
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 const WebRemoteFrame* WebLocalFrameImpl::ToWebRemoteFrame() const {
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 void WebLocalFrameImpl::Close(DetachReason detach_reason) {
@@ -886,7 +884,7 @@ gfx::Size WebLocalFrameImpl::DocumentSize() const {
 bool WebLocalFrameImpl::HasVisibleContent() const {
   auto* layout_object = GetFrame()->OwnerLayoutObject();
   if (layout_object &&
-      layout_object->StyleRef().UsedVisibility() != EVisibility::kVisible) {
+      layout_object->StyleRef().Visibility() != EVisibility::kVisible) {
     return false;
   }
 
@@ -2821,6 +2819,12 @@ void WebLocalFrameImpl::DownloadURL(
   GetFrame()->DownloadURL(request.ToResourceRequest(),
                           cross_origin_redirect_behavior,
                           std::move(blob_url_token));
+}
+
+WebFrame* WebLocalFrameImpl::GetProvisionalOwnerFrame() {
+  return GetFrame()->IsProvisional()
+             ? WebFrame::FromCoreFrame(GetFrame()->GetProvisionalOwnerFrame())
+             : nullptr;
 }
 
 void WebLocalFrameImpl::MaybeStartOutermostMainFrameNavigation(

@@ -14,6 +14,7 @@
 *DatabaseApiClientsTest.*
 *DatabaseClientImplTest.*
 *DatabaseMaintenanceImplTest.*
+*DefaultBrowserPromoTest.*
 *DeviceSwitcherModelTest.*
 *DeviceSwitcherResultDispatcherTest.*
 *DeviceTierSegmentTest.*
@@ -71,6 +72,7 @@
 *SegmentationResultPrefsTest.*
 *SegmentationUkmHelperTest.*
 *SelectionUtilsTest.*
+*SendTabNotificationPromoTest.*
 *ServiceProxyImplTest.*
 *ShoppingUserModelTest.*
 *SignalDatabaseImplTest.*

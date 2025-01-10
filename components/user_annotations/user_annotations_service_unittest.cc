@@ -6,6 +6,8 @@
 
 #include <memory>
 
+#include "base/base64.h"
+#include "base/command_line.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
@@ -20,15 +22,17 @@
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/common/form_data.h"
-#include "components/autofill_prediction_improvements/core/browser/autofill_prediction_improvements_features.h"
+#include "components/autofill_ai/core/browser/autofill_ai_features.h"
 #include "components/optimization_guide/core/mock_optimization_guide_model_executor.h"
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/core/model_quality/test_model_quality_logs_uploader_service.h"
+#include "components/optimization_guide/core/optimization_guide_proto_util.h"
 #include "components/optimization_guide/core/test_optimization_guide_decider.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "components/os_crypt/async/browser/os_crypt_async.h"
 #include "components/os_crypt/async/browser/test_utils.h"
 #include "components/prefs/testing_pref_service.h"
+#include "components/user_annotations/user_annotations_switches.h"
 #include "components/user_annotations/user_annotations_types.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -57,8 +61,7 @@ class TestOptimizationGuideDecider
   }
 };
 
-class UserAnnotationsServiceTest : public testing::Test,
-                                   public testing::WithParamInterface<bool> {
+class UserAnnotationsServiceTest : public testing::Test {
  public:
   void SetUp() override {
     InitializeFeatureList();
@@ -77,16 +80,8 @@ class UserAnnotationsServiceTest : public testing::Test,
   }
 
   virtual void InitializeFeatureList() {
-    base::FieldTrialParams feature_parameters;
-    if (ShouldPersistAnnotations()) {
-      feature_parameters["persist_annotations"] = "true";
-    }
-    scoped_feature_list_.InitAndEnableFeatureWithParameters(
-        autofill_prediction_improvements::kAutofillPredictionImprovements,
-        feature_parameters);
+    scoped_feature_list_.InitAndEnableFeature(autofill_ai::kAutofillAi);
   }
-
-  bool ShouldPersistAnnotations() const { return GetParam(); }
 
   UserAnnotationsEntries AddAndImportFormSubmission(
       optimization_guide::proto::AXTreeUpdate ax_tree_update,
@@ -98,9 +93,12 @@ class UserAnnotationsServiceTest : public testing::Test,
         GURL("example.com"), "title", ax_tree_update, std::move(form),
         base::BindLambdaForTesting(
             [&entries](std::unique_ptr<autofill::FormStructure> form,
-                       UserAnnotationsEntries upserted_entries,
+                       std::unique_ptr<user_annotations::FormAnnotationResponse>
+                           form_annotation_response,
                        PromptAcceptanceCallback prompt_acceptance_callback) {
-              entries = upserted_entries;
+              if (form_annotation_response) {
+                entries = form_annotation_response->to_be_upserted_entries;
+              }
               std::move(prompt_acceptance_callback)
                   .Run({/*prompt_was_accepted=*/true,
                         /*did_user_interact=*/true});
@@ -131,7 +129,6 @@ class UserAnnotationsServiceTest : public testing::Test,
 
   std::unique_ptr<optimization_guide::ModelQualityLogEntry> CreateLogEntry() {
     return std::make_unique<optimization_guide::ModelQualityLogEntry>(
-        std::make_unique<optimization_guide::proto::LogAiDataRequest>(),
         logs_service_->GetWeakPtr());
   }
 
@@ -150,13 +147,13 @@ class UserAnnotationsServiceTest : public testing::Test,
   std::unique_ptr<UserAnnotationsService> service_;
 };
 
-TEST_P(UserAnnotationsServiceTest, FormsAnnotationsTypeRegistered) {
+TEST_F(UserAnnotationsServiceTest, FormsAnnotationsTypeRegistered) {
   EXPECT_TRUE(base::Contains(
       optimization_guide_decider()->registered_optimization_types(),
       optimization_guide::proto::FORMS_ANNOTATIONS));
 }
 
-TEST_P(UserAnnotationsServiceTest, ShouldAddFormSubmissionForURL) {
+TEST_F(UserAnnotationsServiceTest, ShouldAddFormSubmissionForURL) {
   EXPECT_FALSE(service()->ShouldAddFormSubmissionForURL(
       GURL("https://notallowed.com/whatever")));
   EXPECT_TRUE(service()->ShouldAddFormSubmissionForURL(
@@ -166,7 +163,7 @@ TEST_P(UserAnnotationsServiceTest, ShouldAddFormSubmissionForURL) {
       GURL("http://allowed.com/whatever")));
 }
 
-TEST_P(UserAnnotationsServiceTest, RetrieveAllEntriesNoDB) {
+TEST_F(UserAnnotationsServiceTest, RetrieveAllEntriesNoDB) {
   auto entries = GetAllUserAnnotationsEntries();
   EXPECT_TRUE(entries.empty());
 }
@@ -204,9 +201,6 @@ FormsAnnotationsTestRequest CreateSampleFormsAnnotationsTestRequest(
     new_entry->set_key(entry.key);
     new_entry->set_value(entry.value);
   }
-  optimization_guide::proto::Any forms_annotations_response;
-  forms_annotations_response.set_type_url(response.GetTypeName());
-  response.SerializeToString(forms_annotations_response.mutable_value());
 
   std::vector<autofill::FormFieldData> form_fields;
   for (const auto& entry : request_entries) {
@@ -221,11 +215,11 @@ FormsAnnotationsTestRequest CreateSampleFormsAnnotationsTestRequest(
   optimization_guide::proto::AXTreeUpdate ax_tree;
   ax_tree.mutable_tree_data()->set_title("title");
 
-  return {forms_annotations_response, ax_tree, form_data, GURL("example.com"),
-          "title"};
+  return {optimization_guide::AnyWrapProto(response), ax_tree, form_data,
+          GURL("example.com"), "title"};
 }
 
-TEST_P(UserAnnotationsServiceTest, RetrieveAllEntriesWithInsert) {
+TEST_F(UserAnnotationsServiceTest, RetrieveAllEntriesWithInsert) {
   {
     base::HistogramTester histogram_tester;
 
@@ -263,7 +257,9 @@ TEST_P(UserAnnotationsServiceTest, RetrieveAllEntriesWithInsert) {
             An<optimization_guide::
                    OptimizationGuideModelExecutionResultCallback>()))
         .WillOnce(base::test::RunOnceCallback<3>(
-            test_request.forms_annotations_response, CreateLogEntry()));
+            optimization_guide::OptimizationGuideModelExecutionResult(
+                test_request.forms_annotations_response, nullptr),
+            CreateLogEntry()));
 
     EXPECT_FALSE(
         AddAndImportFormSubmission(test_request.ax_tree, test_request.form_data)
@@ -286,9 +282,6 @@ TEST_P(UserAnnotationsServiceTest, RetrieveAllEntriesWithInsert) {
     base::HistogramTester histogram_tester;
 
     optimization_guide::proto::FormsAnnotationsResponse response;
-    optimization_guide::proto::Any any;
-    any.set_type_url(response.GetTypeName());
-    response.SerializeToString(any.mutable_value());
     EXPECT_CALL(
         *model_executor(),
         ExecuteModel(
@@ -296,7 +289,10 @@ TEST_P(UserAnnotationsServiceTest, RetrieveAllEntriesWithInsert) {
             _,
             An<optimization_guide::
                    OptimizationGuideModelExecutionResultCallback>()))
-        .WillOnce(base::test::RunOnceCallback<3>(any, CreateLogEntry()));
+        .WillOnce(base::test::RunOnceCallback<3>(
+            optimization_guide::OptimizationGuideModelExecutionResult(
+                optimization_guide::AnyWrapProto(response), nullptr),
+            CreateLogEntry()));
 
     autofill::FormData empty_form_data;
     optimization_guide::proto::AXTreeUpdate ax_tree;
@@ -318,7 +314,7 @@ TEST_P(UserAnnotationsServiceTest, RetrieveAllEntriesWithInsert) {
   }
 }
 
-TEST_P(UserAnnotationsServiceTest, ExecuteFailed) {
+TEST_F(UserAnnotationsServiceTest, ExecuteFailed) {
   base::HistogramTester histogram_tester;
 
   EXPECT_CALL(
@@ -328,11 +324,14 @@ TEST_P(UserAnnotationsServiceTest, ExecuteFailed) {
           An<optimization_guide::
                  OptimizationGuideModelExecutionResultCallback>()))
       .WillOnce(base::test::RunOnceCallback<3>(
-          base::unexpected(
-              optimization_guide::OptimizationGuideModelExecutionError::
-                  FromModelExecutionError(
-                      optimization_guide::OptimizationGuideModelExecutionError::
-                          ModelExecutionError::kGenericFailure)),
+          optimization_guide::OptimizationGuideModelExecutionResult(
+              base::unexpected(
+                  optimization_guide::OptimizationGuideModelExecutionError::
+                      FromModelExecutionError(
+                          optimization_guide::
+                              OptimizationGuideModelExecutionError::
+                                  ModelExecutionError::kGenericFailure)),
+              nullptr),
           CreateLogEntry()));
 
   autofill::FormFieldData form_field_data;
@@ -354,7 +353,7 @@ TEST_P(UserAnnotationsServiceTest, ExecuteFailed) {
   EXPECT_TRUE(logs_service()->uploaded_logs().empty());
 }
 
-TEST_P(UserAnnotationsServiceTest, UnexpectedResponseType) {
+TEST_F(UserAnnotationsServiceTest, UnexpectedResponseType) {
   base::HistogramTester histogram_tester;
 
   optimization_guide::proto::Any any;
@@ -364,7 +363,10 @@ TEST_P(UserAnnotationsServiceTest, UnexpectedResponseType) {
           optimization_guide::ModelBasedCapabilityKey::kFormsAnnotations, _, _,
           An<optimization_guide::
                  OptimizationGuideModelExecutionResultCallback>()))
-      .WillOnce(base::test::RunOnceCallback<3>(any, CreateLogEntry()));
+      .WillOnce(base::test::RunOnceCallback<3>(
+          optimization_guide::OptimizationGuideModelExecutionResult(any,
+                                                                    nullptr),
+          CreateLogEntry()));
 
   autofill::FormFieldData form_field_data;
   form_field_data.set_label(u"label");
@@ -384,7 +386,7 @@ TEST_P(UserAnnotationsServiceTest, UnexpectedResponseType) {
   EXPECT_TRUE(logs_service()->uploaded_logs().empty());
 }
 
-TEST_P(UserAnnotationsServiceTest, RemoveEntry) {
+TEST_F(UserAnnotationsServiceTest, RemoveEntry) {
   base::HistogramTester histogram_tester;
   auto test_request = CreateSampleFormsAnnotationsTestRequest();
   EXPECT_CALL(
@@ -394,7 +396,9 @@ TEST_P(UserAnnotationsServiceTest, RemoveEntry) {
           An<optimization_guide::
                  OptimizationGuideModelExecutionResultCallback>()))
       .WillOnce(base::test::RunOnceCallback<3>(
-          test_request.forms_annotations_response, CreateLogEntry()));
+          optimization_guide::OptimizationGuideModelExecutionResult(
+              test_request.forms_annotations_response, nullptr),
+          CreateLogEntry()));
 
   EXPECT_FALSE(
       AddAndImportFormSubmission(test_request.ax_tree, test_request.form_data)
@@ -422,7 +426,7 @@ TEST_P(UserAnnotationsServiceTest, RemoveEntry) {
   EXPECT_TRUE(GetAllUserAnnotationsEntries().empty());
 }
 
-TEST_P(UserAnnotationsServiceTest, RemoveAllEntries) {
+TEST_F(UserAnnotationsServiceTest, RemoveAllEntries) {
   base::HistogramTester histogram_tester;
   auto test_request = CreateSampleFormsAnnotationsTestRequest();
   EXPECT_CALL(
@@ -432,7 +436,9 @@ TEST_P(UserAnnotationsServiceTest, RemoveAllEntries) {
           An<optimization_guide::
                  OptimizationGuideModelExecutionResultCallback>()))
       .WillOnce(base::test::RunOnceCallback<3>(
-          test_request.forms_annotations_response, CreateLogEntry()));
+          optimization_guide::OptimizationGuideModelExecutionResult(
+              test_request.forms_annotations_response, nullptr),
+          CreateLogEntry()));
 
   EXPECT_FALSE(
       AddAndImportFormSubmission(test_request.ax_tree, test_request.form_data)
@@ -449,7 +455,7 @@ TEST_P(UserAnnotationsServiceTest, RemoveAllEntries) {
   EXPECT_TRUE(GetAllUserAnnotationsEntries().empty());
 }
 
-TEST_P(UserAnnotationsServiceTest, FormNotImported) {
+TEST_F(UserAnnotationsServiceTest, FormNotImported) {
   base::HistogramTester histogram_tester;
   auto test_request = CreateSampleFormsAnnotationsTestRequest();
   EXPECT_CALL(
@@ -459,14 +465,17 @@ TEST_P(UserAnnotationsServiceTest, FormNotImported) {
           An<optimization_guide::
                  OptimizationGuideModelExecutionResultCallback>()))
       .WillOnce(base::test::RunOnceCallback<3>(
-          test_request.forms_annotations_response, CreateLogEntry()));
+          optimization_guide::OptimizationGuideModelExecutionResult(
+              test_request.forms_annotations_response, nullptr),
+          CreateLogEntry()));
 
   service()->AddFormSubmission(
       test_request.url, test_request.title, test_request.ax_tree,
       std::make_unique<autofill::FormStructure>(test_request.form_data),
       base::BindLambdaForTesting(
           [](std::unique_ptr<autofill::FormStructure> form,
-             UserAnnotationsEntries upserted_entries,
+             std::unique_ptr<user_annotations::FormAnnotationResponse>
+                 form_annotation_response,
              PromptAcceptanceCallback prompt_acceptance_callback) {
             std::move(prompt_acceptance_callback)
                 .Run({/*prompt_was_accepted=*/false});
@@ -475,7 +484,7 @@ TEST_P(UserAnnotationsServiceTest, FormNotImported) {
   EXPECT_TRUE(GetAllUserAnnotationsEntries().empty());
 }
 
-TEST_P(UserAnnotationsServiceTest, ParallelFormSubmissions) {
+TEST_F(UserAnnotationsServiceTest, ParallelFormSubmissions) {
   base::HistogramTester histogram_tester;
   auto first_test_request = CreateSampleFormsAnnotationsTestRequest();
   optimization_guide::OptimizationGuideModelExecutionResultCallback
@@ -499,7 +508,8 @@ TEST_P(UserAnnotationsServiceTest, ParallelFormSubmissions) {
       base::BindLambdaForTesting(
           [&first_prompt_acceptance_callback](
               std::unique_ptr<autofill::FormStructure> form,
-              UserAnnotationsEntries upserted_entries,
+              std::unique_ptr<user_annotations::FormAnnotationResponse>
+                  form_annotation_response,
               PromptAcceptanceCallback callback) {
             first_prompt_acceptance_callback = std::move(callback);
           }));
@@ -523,7 +533,8 @@ TEST_P(UserAnnotationsServiceTest, ParallelFormSubmissions) {
       base::BindLambdaForTesting(
           [&second_prompt_acceptance_callback](
               std::unique_ptr<autofill::FormStructure> form,
-              UserAnnotationsEntries upserted_entries,
+              std::unique_ptr<user_annotations::FormAnnotationResponse>
+                  form_annotation_response,
               PromptAcceptanceCallback callback) {
             second_prompt_acceptance_callback = std::move(callback);
           }));
@@ -533,7 +544,9 @@ TEST_P(UserAnnotationsServiceTest, ParallelFormSubmissions) {
   EXPECT_TRUE(first_execute_callback);
   EXPECT_FALSE(second_execute_callback);
   std::move(first_execute_callback)
-      .Run(first_test_request.forms_annotations_response, CreateLogEntry());
+      .Run(optimization_guide::OptimizationGuideModelExecutionResult(
+               first_test_request.forms_annotations_response, nullptr),
+           CreateLogEntry());
 
   // Only the first prompt acceptance call should happen.
   task_environment_.RunUntilIdle();
@@ -555,7 +568,9 @@ TEST_P(UserAnnotationsServiceTest, ParallelFormSubmissions) {
   // Now the second form submission should happen.
   task_environment_.RunUntilIdle();
   std::move(second_execute_callback)
-      .Run(second_test_request.forms_annotations_response, CreateLogEntry());
+      .Run(optimization_guide::OptimizationGuideModelExecutionResult(
+               second_test_request.forms_annotations_response, nullptr),
+           CreateLogEntry());
   task_environment_.RunUntilIdle();
   std::move(second_prompt_acceptance_callback)
       .Run({/*prompt_was_accepted=*/true, /*did_user_interact=*/true});
@@ -565,28 +580,14 @@ TEST_P(UserAnnotationsServiceTest, ParallelFormSubmissions) {
                                       2);
 
   entries = GetAllUserAnnotationsEntries();
-
-  if (ShouldPersistAnnotations()) {
-    EXPECT_EQ(2u, entries.size());
-    EXPECT_EQ(entries[0].key(), "label");
-    EXPECT_EQ(entries[0].value(), "new_value");
-    EXPECT_EQ(entries[1].key(), "nolabel");
-    EXPECT_EQ(entries[1].value(), "new_nolabel_value");
-  } else {
-    // In the in-memory entries case, the entries are always added.
-    EXPECT_EQ(4u, entries.size());
-    EXPECT_EQ(entries[0].key(), "label");
-    EXPECT_EQ(entries[0].value(), "whatever");
-    EXPECT_EQ(entries[1].key(), "nolabel");
-    EXPECT_EQ(entries[1].value(), "value");
-    EXPECT_EQ(entries[2].key(), "label");
-    EXPECT_EQ(entries[2].value(), "new_value");
-    EXPECT_EQ(entries[3].key(), "nolabel");
-    EXPECT_EQ(entries[3].value(), "new_nolabel_value");
-  }
+  EXPECT_EQ(2u, entries.size());
+  EXPECT_EQ(entries[0].key(), "label");
+  EXPECT_EQ(entries[0].value(), "new_value");
+  EXPECT_EQ(entries[1].key(), "nolabel");
+  EXPECT_EQ(entries[1].value(), "new_nolabel_value");
 }
 
-TEST_P(UserAnnotationsServiceTest, SaveAutofillProfile) {
+TEST_F(UserAnnotationsServiceTest, SaveAutofillProfile) {
   autofill::AutofillProfile autofill_profile(AddressCountryCode("US"));
   autofill::test::SetProfileInfo(&autofill_profile, "Jane", "J", "Doe",
                                  "jd@example.com", "", "123 Main St", "",
@@ -618,7 +619,43 @@ TEST_P(UserAnnotationsServiceTest, SaveAutofillProfile) {
   EXPECT_EQ(entries[9].value(), "123 Main St");
 }
 
-INSTANTIATE_TEST_SUITE_P(All, UserAnnotationsServiceTest, ::testing::Bool());
+class UserAnnotationsServiceSeededAnnotationTest
+    : public UserAnnotationsServiceTest {
+ public:
+  void SetUp() override {
+    const std::vector<Entry>& response_upserted_entries = {
+        {0, "label", "whatever"},
+        {0, "nolabel", "value"},
+    };
+    optimization_guide::proto::FormsAnnotationsResponse response;
+    for (const auto& entry : response_upserted_entries) {
+      optimization_guide::proto::UserAnnotationsEntry* new_entry =
+          response.add_upserted_entries();
+      new_entry->set_entry_id(entry.entry_id);
+      new_entry->set_key(entry.key);
+      new_entry->set_value(entry.value);
+    }
+
+    std::string encoded_annotations;
+    response.SerializeToString(&encoded_annotations);
+    encoded_annotations = base::Base64Encode(encoded_annotations);
+
+    base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
+        switches::kFormsAnnotationsOverride, encoded_annotations);
+
+    UserAnnotationsServiceTest::SetUp();
+  }
+};
+
+TEST_F(UserAnnotationsServiceSeededAnnotationTest, SeedAnnotations) {
+  task_environment_.RunUntilIdle();
+  auto entries = GetAllUserAnnotationsEntries();
+  EXPECT_EQ(2u, entries.size());
+  EXPECT_EQ(entries[0].key(), "label");
+  EXPECT_EQ(entries[0].value(), "whatever");
+  EXPECT_EQ(entries[1].key(), "nolabel");
+  EXPECT_EQ(entries[1].value(), "value");
+}
 
 }  // namespace
 }  // namespace user_annotations

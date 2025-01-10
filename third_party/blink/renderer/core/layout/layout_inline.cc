@@ -62,7 +62,9 @@ namespace {
 bool CanBeHitTestTargetPseudoNodeStyle(const ComputedStyle& style) {
   switch (style.StyleType()) {
     case kPseudoIdBefore:
+    case kPseudoIdCheck:
     case kPseudoIdAfter:
+    case kPseudoIdSelectArrow:
     case kPseudoIdFirstLetter:
       return true;
     default:
@@ -429,7 +431,7 @@ LayoutBox* LayoutInline::CreateAnonymousBoxToSplit(
 
 void LayoutInline::Paint(const PaintInfo& paint_info) const {
   NOT_DESTROYED();
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 template <typename PhysicalRectCollector>
@@ -954,7 +956,7 @@ gfx::RectF LayoutInline::LocalBoundingBoxRectForAccessibility() const {
 void LayoutInline::AddDraggableRegions(Vector<DraggableRegionValue>& regions) {
   NOT_DESTROYED();
   // Convert the style regions to absolute coordinates.
-  if (StyleRef().UsedVisibility() != EVisibility::kVisible) {
+  if (StyleRef().Visibility() != EVisibility::kVisible) {
     return;
   }
 

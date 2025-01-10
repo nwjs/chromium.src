@@ -15,7 +15,6 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.TraceEvent;
-import org.chromium.base.cached_flags.CachedFlagsSharedPreferences;
 import org.chromium.base.cached_flags.ValuesReturned;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.task.AsyncTask;
@@ -66,10 +65,10 @@ public class CachedFlagsSafeMode {
         int NUM_ENTRIES = 5;
     }
 
-    private AtomicInteger mBehavior = new AtomicInteger(Behavior.UNKNOWN);
+    private final AtomicInteger mBehavior = new AtomicInteger(Behavior.UNKNOWN);
 
-    private AtomicBoolean mStartCheckpointWritten = new AtomicBoolean(false);
-    private AtomicBoolean mEndCheckpointWritten = new AtomicBoolean(false);
+    private final AtomicBoolean mStartCheckpointWritten = new AtomicBoolean(false);
+    private final AtomicBoolean mEndCheckpointWritten = new AtomicBoolean(false);
 
     private static final CachedFlagsSafeMode sInstance = new CachedFlagsSafeMode();
 

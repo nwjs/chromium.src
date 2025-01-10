@@ -22,6 +22,7 @@
 #include "content/public/test/browser_test.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/browser/extension_system.h"
 #include "extensions/browser/mock_external_provider.h"
 #include "extensions/browser/pref_names.h"
 #include "extensions/browser/test_extension_registry_observer.h"
@@ -872,6 +873,21 @@ IN_PROC_BROWSER_TEST_F(ManifestV2ExperimentManagerBrowserTest,
       "Extensions.MV2Deprecation.MV2ExtensionState.Internal",
       ManifestV2ExperimentManager::MV2ExtensionState::kSoftDisabled, 2);
 
+  // The user should be allowed to re-enable the extensions.
+  ExtensionSystem* system = ExtensionSystem::Get(profile());
+  {
+    disable_reason::DisableReason disable_reason = disable_reason::DISABLE_NONE;
+    EXPECT_FALSE(system->management_policy()->MustRemainDisabled(
+        extension1, &disable_reason));
+    EXPECT_EQ(disable_reason::DISABLE_NONE, disable_reason);
+  }
+  {
+    disable_reason::DisableReason disable_reason = disable_reason::DISABLE_NONE;
+    EXPECT_FALSE(system->management_policy()->MustRemainDisabled(
+        extension2, &disable_reason));
+    EXPECT_EQ(disable_reason::DISABLE_NONE, disable_reason);
+  }
+
   // Re-enable the first MV2 extension (this is allowed in this phase).
   extension_service()->EnableExtension(extension_id1);
 
@@ -917,6 +933,23 @@ IN_PROC_BROWSER_TEST_F(ManifestV2ExperimentManagerBrowserTest,
   histogram_tester().ExpectBucketCount(
       "Extensions.MV2Deprecation.MV2ExtensionState.Internal",
       ManifestV2ExperimentManager::MV2ExtensionState::kHardDisabled, 2);
+
+  // The user should no longer be allowed to re-enable the extensions.
+  ExtensionSystem* system = ExtensionSystem::Get(profile());
+  {
+    disable_reason::DisableReason disable_reason = disable_reason::DISABLE_NONE;
+    EXPECT_TRUE(system->management_policy()->MustRemainDisabled(
+        extension1, &disable_reason));
+    EXPECT_EQ(disable_reason::DISABLE_UNSUPPORTED_MANIFEST_VERSION,
+              disable_reason);
+  }
+  {
+    disable_reason::DisableReason disable_reason = disable_reason::DISABLE_NONE;
+    EXPECT_TRUE(system->management_policy()->MustRemainDisabled(
+        extension2, &disable_reason));
+    EXPECT_EQ(disable_reason::DISABLE_UNSUPPORTED_MANIFEST_VERSION,
+              disable_reason);
+  }
 }
 
 class ManifestV2ExperimentWithLegacyExtensionSupportTest
@@ -933,15 +966,23 @@ class ManifestV2ExperimentWithLegacyExtensionSupportTest
   }
 };
 
-// Tests that legacy MV2 extensions are still allowed (and aren't auto-disabled)
-// if the kAllowLegacyMV2Extensions feature is enabled.
+// Tests that legacy unpacked MV2 extensions are still allowed (and aren't
+// auto-disabled) if the kAllowLegacyMV2Extensions feature is enabled.
 IN_PROC_BROWSER_TEST_F(
     ManifestV2ExperimentWithLegacyExtensionSupportTest,
     PRE_MV2ExtensionsAreNotDisabledIfLegacyExtensionSwitchIsApplied) {
   EXPECT_EQ(MV2ExperimentStage::kWarning, GetActiveExperimentStage());
 
-  const Extension* extension = AddMV2Extension("Test MV2 Extension");
-  ASSERT_TRUE(extension);
+  // Load two extensions: a packed extension and an unpacked extension.
+  const Extension* packed_extension =
+      AddMV2Extension("Test Packed MV2 Extension");
+  ASSERT_TRUE(packed_extension);
+  EXPECT_EQ(mojom::ManifestLocation::kInternal, packed_extension->location());
+
+  const Extension* unpacked_extension =
+      LoadExtension(test_data_dir_.AppendASCII("simple_mv2"));
+  ASSERT_TRUE(unpacked_extension);
+  EXPECT_EQ(mojom::ManifestLocation::kUnpacked, unpacked_extension->location());
 }
 IN_PROC_BROWSER_TEST_F(
     ManifestV2ExperimentWithLegacyExtensionSupportTest,
@@ -950,14 +991,41 @@ IN_PROC_BROWSER_TEST_F(
 
   WaitForExtensionSystemReady();
 
-  const Extension* extension = GetExtensionByName(
-      "Test MV2 Extension", extension_registry()->enabled_extensions());
-  ASSERT_TRUE(extension);
-  const ExtensionId extension_id = extension->id();
+  // The packed extension should have been disabled.
+  const Extension* packed_extension = GetExtensionByName(
+      "Test Packed MV2 Extension", extension_registry()->disabled_extensions());
+  ASSERT_TRUE(packed_extension);
+  const ExtensionId packed_extension_id = packed_extension->id();
 
-  EXPECT_EQ(0, extension_prefs()->GetDisableReasons(extension_id));
+  EXPECT_EQ(disable_reason::DISABLE_UNSUPPORTED_MANIFEST_VERSION,
+            extension_prefs()->GetDisableReasons(packed_extension_id));
   // The user didn't re-enable the extension, so it shouldn't be marked as such.
-  EXPECT_FALSE(WasExtensionReEnabledByUser(extension_id));
+  EXPECT_FALSE(WasExtensionReEnabledByUser(packed_extension_id));
+
+  // The user is not allowed to re-enable the packed extension; the flag only
+  // applies to unpacked extensions.
+  ExtensionSystem* system = ExtensionSystem::Get(profile());
+  disable_reason::DisableReason disable_reason = disable_reason::DISABLE_NONE;
+  EXPECT_TRUE(system->management_policy()->MustRemainDisabled(packed_extension,
+                                                              &disable_reason));
+  EXPECT_EQ(disable_reason::DISABLE_UNSUPPORTED_MANIFEST_VERSION,
+            disable_reason);
+
+  // The unpacked extension should still be enabled.
+  const Extension* unpacked_extension = GetExtensionByName(
+      "Simple MV2 Extension", extension_registry()->enabled_extensions());
+  ASSERT_TRUE(unpacked_extension);
+  const ExtensionId unpacked_extension_id = unpacked_extension->id();
+
+  EXPECT_EQ(0, extension_prefs()->GetDisableReasons(unpacked_extension_id));
+  // The user didn't re-enable the extension, so it shouldn't be marked as such.
+  EXPECT_FALSE(WasExtensionReEnabledByUser(unpacked_extension_id));
+
+  // The user is allowed to re-enable the unpacked extension.
+  disable_reason = disable_reason::DISABLE_NONE;
+  EXPECT_FALSE(system->management_policy()->MustRemainDisabled(
+      unpacked_extension, &disable_reason));
+  EXPECT_EQ(disable_reason::DISABLE_NONE, disable_reason);
 }
 
 }  // namespace extensions

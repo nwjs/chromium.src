@@ -37,7 +37,6 @@
 #include "components/profile_metrics/browser_profile_type.h"
 #include "components/security_state/core/security_state.h"
 #include "components/translate/core/browser/language_state.h"
-#include "components/user_annotations/user_annotations_types.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "ui/base/window_open_disposition.h"
@@ -76,15 +75,15 @@ class AutofillAblationStudy;
 class AutofillComposeDelegate;
 class AutofillCrowdsourcingManager;
 class AutofillDriverFactory;
-class AutofillMlPredictionModelHandler;
 class AutofillOptimizationGuide;
 #if BUILDFLAG(IS_ANDROID)
 class AutofillSnackbarControllerImpl;
 #endif  // BUILDFLAG(IS_ANDROID)
 class AutofillSuggestionDelegate;
 class AutofillPlusAddressDelegate;
-class AutofillPredictionImprovementsDelegate;
+class AutofillAiDelegate;
 class AutofillProfile;
+class FieldClassificationModelHandler;
 class FormDataImporter;
 class LogManager;
 class PersonalDataManager;
@@ -247,10 +246,15 @@ class AutofillClient {
   // if the AutofillOptimizationGuide's dependencies are not present.
   virtual AutofillOptimizationGuide* GetAutofillOptimizationGuide() const;
 
-  // Gets the AutofillModelHandler instance for autofill machine learning
-  // predictions associated with the client.
-  virtual AutofillMlPredictionModelHandler*
-  GetAutofillMlPredictionModelHandler();
+  // Gets the FieldClassificationModelHandler instance for autofill machine
+  // learning predictions associated with the client.
+  virtual FieldClassificationModelHandler*
+  GetAutofillFieldClassificationModelHandler();
+
+  // Gets the FieldClassificationModelHandler instance for password manager
+  // machine learning predictions associated with the client.
+  virtual FieldClassificationModelHandler*
+  GetPasswordManagerFieldClassificationModelHandler();
 
   // Gets the AutocompleteHistoryManager instance associated with the client.
   virtual AutocompleteHistoryManager* GetAutocompleteHistoryManager() = 0;
@@ -258,13 +262,10 @@ class AutofillClient {
   // Returns the `AutofillComposeDelegate` instance for the tab of this client.
   virtual AutofillComposeDelegate* GetComposeDelegate();
 
-  // Returns the `AutofillPredictionImprovementsDelegate` instance for
-  // the tab of this client. This method can return nullptr if the user does not
-  // have the feature available, either because of not being part of the
-  // experiment or because of the current platform (prediction improvements are
-  // only available in Desktop).
-  virtual AutofillPredictionImprovementsDelegate*
-  GetAutofillPredictionImprovementsDelegate();
+  // Returns the `AutofillAiDelegate` instance for the tab of this client.
+  // Returns `nullptr` if, at the time of the AutofillClient's construction, the
+  // Autofill AI feature is unsupported.
+  virtual AutofillAiDelegate* GetAutofillAiDelegate();
 
   // Returns the `AutofillPlusAddressDelegate` associated with the profile of
   // the window of this tab.
@@ -529,13 +530,6 @@ class AutofillClient {
 
   // Notifies the IPH code that `feature` was used.
   virtual void NotifyIphFeatureUsed(AutofillClient::IphFeature feature);
-
-  // Shows a bubble asking whether the user wants to save prediction
-  // improvements data.
-  virtual void ShowSaveAutofillPredictionImprovementsBubble(
-      const std::vector<optimization_guide::proto::UserAnnotationsEntry>&
-          to_be_upserted_entries,
-      user_annotations::PromptAcceptanceCallback prompt_acceptance_callback);
 
   // Stores test addresses provided by devtools and used to help developers
   // debug their forms with a list of well formatted addresses. Differently from

@@ -46,8 +46,9 @@ bool LobsterClientImpl::SubmitFeedback(const std::string& query,
                                   image_bytes);
 }
 
-void LobsterClientImpl::LoadUI(std::optional<std::string> query) {
-  service_->LoadUI(query);
+void LobsterClientImpl::LoadUI(std::optional<std::string> query,
+                               ash::LobsterMode mode) {
+  service_->LoadUI(query, mode);
 }
 
 void LobsterClientImpl::ShowUI() {
@@ -56,4 +57,13 @@ void LobsterClientImpl::ShowUI() {
 
 void LobsterClientImpl::CloseUI() {
   service_->CloseUI();
+}
+
+void LobsterClientImpl::QueueInsertion(const std::string& image_bytes,
+                                       StatusCallback insert_status_callback) {
+  service_->QueueInsertion(image_bytes, std::move(insert_status_callback));
+}
+
+bool LobsterClientImpl::UserHasAccess() {
+  return service_->UserHasAccess();
 }

@@ -62,8 +62,7 @@ bool FieldCanFitDataForFieldType(uint64_t max_length, FieldType type) {
       return max_length >= kMinimum4YearCcExpLength;
     }
     default:
-      NOTREACHED_IN_MIGRATION();
-      return false;
+      NOTREACHED();
   }
 }
 
@@ -447,7 +446,7 @@ CreditCardFieldParser::~CreditCardFieldParser() = default;
 
 void CreditCardFieldParser::AddClassifications(
     FieldCandidatesMap& field_candidates) const {
-  for (autofill::AutofillField* number : numbers_) {
+  for (AutofillField* number : numbers_) {
     AddClassification(number, CREDIT_CARD_NUMBER,
                       kBaseCreditCardParserScore, field_candidates);
   }

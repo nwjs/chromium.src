@@ -7,12 +7,13 @@
 #include "content/public/browser/render_process_host.h"
 
 #include "base/memory/ptr_util.h"
+#include "components/guest_view/buildflags/buildflags.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
-#include "extensions/buildflags/buildflags.h"
 
 #if BUILDFLAG(ENABLE_GUEST_VIEW)
+#include "content/public/common/content_features.h"
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
 #endif
 
@@ -118,7 +119,8 @@ ExtensionNavigationUIData::CreateForMainFrameNavigation(
     int tab_id,
     int window_id) {
 #if BUILDFLAG(ENABLE_GUEST_VIEW)
-  CHECK(!WebViewGuest::FromWebContents(web_contents));
+  CHECK(base::FeatureList::IsEnabled(features::kGuestViewMPArch) ||
+        !WebViewGuest::FromWebContents(web_contents));
 #endif
   return base::WrapUnique(new ExtensionNavigationUIData(
       web_contents, tab_id, window_id, ExtensionApiFrameIdMap::kTopFrameId,

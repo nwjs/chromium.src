@@ -15,6 +15,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -25,7 +26,6 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/commerce/shopping_service_factory.h"
-#include "chrome/browser/companion/core/features.h"
 #include "chrome/browser/compose/compose_enabling.h"
 #include "chrome/browser/download/bubble/download_bubble_prefs.h"
 #include "chrome/browser/history_embeddings/history_embeddings_utils.h"
@@ -201,6 +201,8 @@
 
 namespace settings {
 
+using optimization_guide::UserVisibleFeatureKey;
+
 // static
 void SettingsUI::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
@@ -297,9 +299,6 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   AddSettingsPageUIHandler(std::make_unique<DefaultBrowserHandler>());
   AddSettingsPageUIHandler(std::make_unique<ManageProfileHandler>(profile));
   AddSettingsPageUIHandler(std::make_unique<SystemHandler>());
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  html_source->AddBoolean("isSecondaryUser", !profile->IsMainProfile());
-#endif
 
 #endif
 
@@ -357,14 +356,6 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   html_source->AddBoolean("isOSSettings", false);
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  // Lacros has no access to AccountHasUserFacingPassword() (Ash only). Assign
-  // userCannotManuallyEnterPassword to false so that WebUI would make auth
-  // token request, which is forwarded via crosapi to Ash, which then calls
-  // AccountHasUserFacingPassword().
-  html_source->AddBoolean("userCannotManuallyEnterPassword", false);
-#endif  // !BUILDFLAG(IS_CHROMEOS_LACROS)
-
   bool show_privacy_guide =
       base::FeatureList::IsEnabled(features::kPrivacyGuideForceAvailable) ||
       (!chrome::ShouldDisplayManagedUi(profile) && !profile->IsChild());
@@ -401,15 +392,19 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       "enableLinkedServicesSetting",
       base::FeatureList::IsEnabled(features::kLinkedServicesSetting));
 
-  html_source->AddBoolean("enableComposeProactiveNudge",
-                          base::FeatureList::IsEnabled(
-                              compose::features::kEnableComposeProactiveNudge));
+#if BUILDFLAG(ENABLE_COMPOSE)
+  const bool compose_enabled = ComposeEnabling::IsEnabledForProfile(profile);
+#else
+  const bool compose_enabled = false;
+#endif  // BUILDFLAG(ENABLE_COMPOSE)
+  html_source->AddBoolean(
+      "enableComposeProactiveNudge",
+      compose_enabled && base::FeatureList::IsEnabled(
+                             compose::features::kEnableComposeProactiveNudge));
 
   html_source->AddBoolean(
       "enablePageContentSetting",
-      base::FeatureList::IsEnabled(features::kPageContentOptIn) ||
-          base::FeatureList::IsEnabled(
-              companion::features::kCompanionEnablePageContent));
+      base::FeatureList::IsEnabled(features::kPageContentOptIn));
 
   html_source->AddBoolean(
       "downloadBubblePartialViewControlledByPref",
@@ -425,6 +420,10 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       "hashPrefixRealTimeLookupsSamplePing",
       base::FeatureList::IsEnabled(
           safe_browsing::kHashPrefixRealTimeLookupsSamplePing));
+
+  html_source->AddBoolean(
+      "enablePasswordLeakToggleMove",
+      base::FeatureList::IsEnabled(safe_browsing::kPasswordLeakToggleMove));
 
   AddSettingsPageUIHandler(std::make_unique<AboutHandler>(profile));
   AddSettingsPageUIHandler(std::make_unique<ResetSettingsHandler>(profile));
@@ -537,6 +536,10 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       "isTrackingProtectionUxEnabled",
       base::FeatureList::IsEnabled(privacy_sandbox::kTrackingProtection3pcdUx));
 
+  html_source->AddBoolean(
+      "isAlwaysBlock3pcsIncognitoEnabled",
+      base::FeatureList::IsEnabled(privacy_sandbox::kAlwaysBlock3pcsIncognito));
+
   // ACT UX
   html_source->AddBoolean(
       "isIpProtectionUxEnabled",
@@ -592,27 +595,27 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
 
   if (ai_settings_refresh_enabled) {
 #if 0
-    const bool compose_enabled = ComposeEnabling::IsEnabledForProfile(profile);
-    const bool tab_organization_enabled =
-        TabOrganizationUtils::GetInstance()->IsEnabled(profile);
-    const bool wallpaper_search_enabled =
-        customize_chrome::IsWallpaperSearchEnabledForProfile(profile);
-    const bool history_search_enabled =
-        history_embeddings::IsHistoryEmbeddingsSettingVisible(profile);
-    const bool compare_enabled = commerce::CanFetchProductSpecificationsData(
-        shopping_service->GetAccountChecker());
+    const bool show_ai_settings_for_testing =
+        optimization_guide::features::kShowAiSettingsForTesting.Get();
 
-    html_source->AddBoolean("showComposeControl", compose_enabled);
-    html_source->AddBoolean("showTabOrganizationControl",
-                            tab_organization_enabled);
-    html_source->AddBoolean("showWallpaperSearchControl",
-                            wallpaper_search_enabled);
-    html_source->AddBoolean("showHistorySearchControl", history_search_enabled);
-    html_source->AddBoolean("showCompareControl", compare_enabled);
+    std::pair<const std::string_view, bool> optimization_guide_features[] = {
+        {"showTabOrganizationControl",
+         TabOrganizationUtils::GetInstance()->IsEnabled(profile)},
+        {"showComposeControl", compose_enabled},
+        {"showWallpaperSearchControl",
+         customize_chrome::IsWallpaperSearchEnabledForProfile(profile)},
+        {"showHistorySearchControl",
+         history_embeddings::IsHistoryEmbeddingsSettingVisible(profile)},
+        {"showCompareControl", commerce::CanFetchProductSpecificationsData(
+                                   shopping_service->GetAccountChecker())},
+    };
 
-    const bool show_ai_page = compose_enabled || tab_organization_enabled ||
-                              wallpaper_search_enabled ||
-                              history_search_enabled || compare_enabled;
+    bool show_ai_page = show_ai_settings_for_testing;
+    for (auto [name, visible] : optimization_guide_features) {
+      html_source->AddBoolean(name, visible || show_ai_settings_for_testing);
+      show_ai_page |= visible;
+    }
+
     // "showAdvancedFeaturesMainControl", despite the name, controls whether the
     // AI subpage is shown. We want to show the page if any of the AI features
     // are enabled.
@@ -620,38 +623,31 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
     html_source->AddBoolean("showAdvancedFeaturesMainControl", show_ai_page);
 #endif
   } else {
-    optimization_guide::UserVisibleFeatureKey optimization_guide_features[4] = {
-        optimization_guide::UserVisibleFeatureKey::kCompose,
-        optimization_guide::UserVisibleFeatureKey::kTabOrganization,
-        optimization_guide::UserVisibleFeatureKey::kWallpaperSearch,
-        optimization_guide::UserVisibleFeatureKey::kHistorySearch,
-    };
-    bool optimization_guide_feature_visible[5] = {false, false, false, false,
-                                                  false};
+    std::pair<UserVisibleFeatureKey, const std::string_view>
+        optimization_guide_features[] = {
+            {UserVisibleFeatureKey::kCompose, "showComposeControl"},
+            {UserVisibleFeatureKey::kTabOrganization,
+             "showTabOrganizationControl"},
+            {UserVisibleFeatureKey::kWallpaperSearch,
+             "showWallpaperSearchControl"},
+            {UserVisibleFeatureKey::kHistorySearch, "showHistorySearchControl"},
+        };
+    bool is_any_ai_feature_enabled = false;
 
     auto* optimization_guide_service =
         OptimizationGuideKeyedServiceFactory::GetForProfile(profile);
-    for (size_t i = 0; i < 4; i++) {
+    for (auto [key, name] : optimization_guide_features) {
       const bool visible = optimization_guide_service &&
-                           optimization_guide_service->IsSettingVisible(
-                               optimization_guide_features[i]);
-      optimization_guide_feature_visible[i + 1] = visible;
+                           optimization_guide_service->IsSettingVisible(key);
+      html_source->AddBoolean(name, visible);
 
       // The main toggle is visible only if at least one of the sub toggles is
       // visible.
-      optimization_guide_feature_visible[0] |= visible;
+      is_any_ai_feature_enabled |= visible;
     }
 
     html_source->AddBoolean("showAdvancedFeaturesMainControl",
-                            optimization_guide_feature_visible[0]);
-    html_source->AddBoolean("showComposeControl",
-                            optimization_guide_feature_visible[1]);
-    html_source->AddBoolean("showTabOrganizationControl",
-                            optimization_guide_feature_visible[2]);
-    html_source->AddBoolean("showWallpaperSearchControl",
-                            optimization_guide_feature_visible[3]);
-    html_source->AddBoolean("showHistorySearchControl",
-                            optimization_guide_feature_visible[4]);
+                            is_any_ai_feature_enabled);
     // Compare is only shown when Synpase ("AiSettingsPageRefresh") is enabled.
     html_source->AddBoolean("showCompareControl", false);
   }
@@ -661,6 +657,10 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
 
   TryShowHatsSurveyWithTimeout();
 }
+
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(
+    SettingsUI,
+    kAutofillPredictionImprovementsHeaderElementId);
 
 SettingsUI::~SettingsUI() = default;
 
@@ -768,6 +768,7 @@ void SettingsUI::CreateHelpBubbleHandler(
           kEnhancedProtectionSettingElementId,
           kAnonymizedUrlCollectionPersonalizationSettingId,
           kInactiveTabSettingElementId,
+          kAutofillPredictionImprovementsHeaderElementId,
       });
 }
 

@@ -146,6 +146,7 @@
 #include "third_party/blink/renderer/platform/bindings/exception_messages.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/bindings/source_location.h"
+#include "third_party/blink/renderer/platform/blob/blob_url.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/network/network_state_notifier.h"
@@ -2209,11 +2210,7 @@ DOMWindow* LocalDOMWindow::open(v8::Isolate* isolate,
   // side and add some defense in depth, we'll check against the entry realm
   // as well here.
   if (!BindingSecurity::ShouldAllowAccessTo(entered_window, this)) {
-    // Trigger DCHECK() failure, while gracefully failing on release builds.
-    NOTREACHED_IN_MIGRATION();
-    UseCounter::Count(GetExecutionContext(),
-                      WebFeature::kWindowOpenRealmMismatch);
-    return nullptr;
+    NOTREACHED();
   }
 
   UseCounter::Count(*entered_window, WebFeature::kDOMWindowOpen);
@@ -2272,6 +2269,16 @@ DOMWindow* LocalDOMWindow::open(v8::Isolate* isolate,
   // In fenced frames, we should always use `noopener`.
   if (GetFrame()->IsInFencedFrameTree()) {
     window_features.noopener = true;
+  } else if (base::FeatureList::IsEnabled(
+                 features::kEnforceNoopenerOnBlobURLNavigation) &&
+             completed_url.ProtocolIs("blob")) {
+    auto blob_url_site =
+        BlinkSchemefulSite(SecurityOrigin::Create(completed_url));
+    BlinkSchemefulSite top_level_site =
+        entered_window->GetStorageKey().GetTopLevelSite();
+    if (top_level_site != blob_url_site) {
+      window_features.noopener = true;
+    }
   }
 
   FrameLoadRequest frame_request(entered_window,
@@ -2377,11 +2384,7 @@ DOMWindow* LocalDOMWindow::openPictureInPictureWindow(
   // side and add some defense in depth, we'll check against the entry realm
   // as well here.
   if (!BindingSecurity::ShouldAllowAccessTo(entered_window, this)) {
-    // Trigger DCHECK() failure, while gracefully failing on release builds.
-    NOTREACHED_IN_MIGRATION();
-    UseCounter::Count(GetExecutionContext(),
-                      WebFeature::kWindowOpenRealmMismatch);
-    return nullptr;
+    NOTREACHED();
   }
 
   FrameLoadRequest frame_request(entered_window,

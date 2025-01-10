@@ -278,16 +278,8 @@ size_t GetNumberOfGroupByOriginContextsToKeep() {
   if (base::FeatureList::IsEnabled(
           blink::features::
               kFledgeNumberBidderWorkletGroupByOriginContextsToKeep)) {
-    // Avoid using multiple contexts for the testing population
-    // unless otherwise specified by
-    // kFledgeNumberBidderWorkletContextsIncludeFacilitedTesting.
-    if (blink::features::
-            kFledgeNumberBidderWorkletContextsIncludeFacilitedTesting.Get() ||
-        !base::FeatureList::IsEnabled(
-            features::kCookieDeprecationFacilitatedTesting)) {
-      return blink::features::
-          kFledgeNumberBidderWorkletGroupByOriginContextsToKeepValue.Get();
-    }
+    return blink::features::
+        kFledgeNumberBidderWorkletGroupByOriginContextsToKeepValue.Get();
   }
   return 1;
 }
@@ -476,10 +468,7 @@ bool BidderWorklet::IsComponentAdKAnon(
 
 // static
 bool BidderWorklet::SupportMultiBid() {
-  // Multi-bid is auto-disabled in mode-A/B trials.
-  return base::FeatureList::IsEnabled(blink::features::kFledgeMultiBid) &&
-         !base::FeatureList::IsEnabled(
-             features::kCookieDeprecationFacilitatedTesting);
+  return base::FeatureList::IsEnabled(blink::features::kFledgeMultiBid);
 }
 
 void BidderWorklet::BeginGenerateBid(
@@ -1732,20 +1721,16 @@ BidderWorklet::V8State::RunGenerateBidOnce(
   }
   args.push_back(direct_from_seller_signals);
 
-  if (base::FeatureList::IsEnabled(
-          blink::features::kFledgePermitCrossOriginTrustedSignals)) {
-    v8::Local<v8::Value> cross_origin_trusted_bidding_signals_value;
-    if (trusted_signals_relation ==
-        SignalsOriginRelation::kCrossOriginSignals) {
-      cross_origin_trusted_bidding_signals_value =
-          TrustedSignals::Result::WrapCrossOriginSignals(
-              v8_helper_.get(), context, *trusted_bidding_signals_origin_,
-              trusted_signals);
-    } else {
-      cross_origin_trusted_bidding_signals_value = v8::Null(isolate);
-    }
-    args.push_back(cross_origin_trusted_bidding_signals_value);
+  v8::Local<v8::Value> cross_origin_trusted_bidding_signals_value;
+  if (trusted_signals_relation == SignalsOriginRelation::kCrossOriginSignals) {
+    cross_origin_trusted_bidding_signals_value =
+        TrustedSignals::Result::WrapCrossOriginSignals(
+            v8_helper_.get(), context, *trusted_bidding_signals_origin_,
+            trusted_signals);
+  } else {
+    cross_origin_trusted_bidding_signals_value = v8::Null(isolate);
   }
+  args.push_back(cross_origin_trusted_bidding_signals_value);
 
   v8::Local<v8::Value> generate_bid_result;
 
@@ -2167,6 +2152,8 @@ void BidderWorklet::OnTrustedBiddingSignalsDownloaded(
     std::optional<std::string> error_msg) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(user_sequence_checker_);
 
+  task->trusted_bidding_signals_download_complete_time = base::TimeTicks::Now();
+
   const TrustedSignals::Result::PerGroupData* per_group_data = nullptr;
   if (result) {
     per_group_data =
@@ -2227,6 +2214,10 @@ void BidderWorklet::SignalsReceivedCallback(
   task->signals_received_callback_invoked = true;
   task->wait_trusted_signals =
       base::TimeTicks::Now() - task->trace_wait_deps_start;
+  base::UmaHistogramTimes(
+      "Ads.InterestGroup.Auction.PostSignalsReceivedResumeGenerateBidTime",
+      base::TimeTicks::Now() -
+          task->trusted_bidding_signals_download_complete_time);
   GenerateBidIfReady(task);
 }
 

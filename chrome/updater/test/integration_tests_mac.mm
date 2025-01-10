@@ -15,6 +15,7 @@
 #include "base/apple/foundation_util.h"
 #include "base/base_paths.h"
 #include "base/command_line.h"
+#include "base/file_version_info.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -28,6 +29,7 @@
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
 #include "base/test/test_timeouts.h"
 #include "base/time/time.h"
@@ -279,7 +281,7 @@ bool WaitForUpdaterExit() {
       [&] { VLOG(0) << "Still waiting for updater to exit: " << last_found; });
 }
 
-base::FilePath GetRealUpdaterLowerVersionPath() {
+std::vector<TestUpdaterVersion> GetRealUpdaterLowerVersions() {
   base::FilePath exe_path;
   EXPECT_TRUE(base::PathService::Get(base::DIR_EXE, &exe_path));
   base::FilePath old_updater_path =
@@ -297,10 +299,16 @@ base::FilePath GetRealUpdaterLowerVersionPath() {
 #if BUILDFLAG(CHROMIUM_BRANDING) || BUILDFLAG(GOOGLE_CHROME_BRANDING)
   old_updater_path = old_updater_path.Append("cipd");
 #endif
-  return old_updater_path.Append(PRODUCT_FULLNAME_STRING "_test.app")
-      .Append("Contents")
-      .Append("MacOS")
-      .Append(PRODUCT_FULLNAME_STRING "_test");
+
+  const base::FilePath updater_setup_path =
+      old_updater_path.Append(PRODUCT_FULLNAME_STRING "_test.app")
+          .Append("Contents")
+          .Append("MacOS")
+          .Append(PRODUCT_FULLNAME_STRING "_test");
+  return {{updater_setup_path,
+           base::Version(base::UTF16ToUTF8(
+               FileVersionInfo::CreateFileVersionInfo(updater_setup_path)
+                   ->file_version()))}};
 }
 
 void SetupFakeLegacyUpdater(UpdaterScope scope) {

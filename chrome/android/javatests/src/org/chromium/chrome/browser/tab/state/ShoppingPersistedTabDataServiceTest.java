@@ -51,10 +51,7 @@ import java.util.concurrent.TimeoutException;
 
 /** Test relating to {@link ShoppingPersistedTabDataService} */
 @RunWith(BaseJUnit4ClassRunner.class)
-@CommandLineFlags.Add({
-    ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE,
-    "force-fieldtrials=Study/Group"
-})
+@CommandLineFlags.Add(ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE)
 public class ShoppingPersistedTabDataServiceTest {
     @Rule public final ChromeBrowserTestRule mBrowserTestRule = new ChromeBrowserTestRule();
 
@@ -93,7 +90,6 @@ public class ShoppingPersistedTabDataServiceTest {
         ProfileManager.setLastUsedProfileForTesting(mProfileMock);
         mService = new ShoppingPersistedTabDataService();
         mSharedPrefsManager = ChromeSharedPreferences.getInstance();
-        ShoppingPersistedTabData.enablePriceTrackingWithOptimizationGuideForTesting();
         PriceTrackingFeatures.setPriceTrackingEnabledForTesting(false);
     }
 
@@ -209,9 +205,6 @@ public class ShoppingPersistedTabDataServiceTest {
     @Test
     @SmallTest
     @Features.EnableFeatures({ChromeFeatureList.PRICE_CHANGE_MODULE})
-    @CommandLineFlags.Add({
-        "force-fieldtrial-params=Study.Group:return_empty_price_drops_until_init/false"
-    })
     public void testGetAllShoppingPersistedTabDataWithPriceDrop() throws TimeoutException {
         // tab1 is not eligible as there is no price drop.
         ProfileManager.setLastUsedProfileForTesting(mProfileMock);
@@ -249,9 +242,9 @@ public class ShoppingPersistedTabDataServiceTest {
 
         // Set up the recency to be tab1 > tab3 > tab2.
         long currentTimeStamp = System.currentTimeMillis();
-        tab1.setTimestampMillis(currentTimeStamp);
-        tab2.setTimestampMillis(currentTimeStamp - ONE_SECOND);
-        tab3.setTimestampMillis(currentTimeStamp - HALF_SECOND);
+        tab1.setTimestampMillisForTesting(currentTimeStamp);
+        tab2.setTimestampMillisForTesting(currentTimeStamp - ONE_SECOND);
+        tab3.setTimestampMillisForTesting(currentTimeStamp - HALF_SECOND);
 
         CallbackHelper widened = new CallbackHelper();
         ThreadUtils.runOnUiThreadBlocking(

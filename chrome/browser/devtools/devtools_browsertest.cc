@@ -2,13 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include <stddef.h>
 
+#include <array>
 #include <deque>
 #include <memory>
 #include <optional>
@@ -75,10 +71,10 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
-#include "chrome/browser/ui/extensions/extension_side_panel_test_utils.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/side_panel/extensions/extension_side_panel_manager.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -152,6 +148,7 @@
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
+#include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "third_party/blink/public/common/chrome_debug_urls.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/base/ui_base_switches.h"
@@ -204,7 +201,7 @@ void DispatchOnTestSuiteSkipCheck(DevToolsWindow* window,
                                   const char* method,
                                   T... args) {
   WebContents* wc = DevToolsWindowTesting::Get(window)->main_web_contents();
-  const char* args_array[] = {method, args...};
+  std::array args_array = {method, args...};
   std::ostringstream script;
   script << "uiTests.dispatchOnTestSuite([";
   for (size_t i = 0; i < std::size(args_array); ++i) {
@@ -1971,7 +1968,8 @@ IN_PROC_BROWSER_TEST_P(DevToolsExtensionSidePanelTest,
   ASSERT_TRUE(extension);
 
   ExtensionTestMessageListener default_path_listener("default_path");
-  extensions::OpenExtensionSidePanel(*browser(), extension->id());
+  browser()->GetFeatures().side_panel_ui()->Show(
+      SidePanelEntry::Key(SidePanelEntry::Id::kExtension, extension->id()));
   ASSERT_TRUE(default_path_listener.WaitUntilSatisfied());
 
   content::WebContents* side_panel_contents =
@@ -2116,6 +2114,10 @@ class DevToolsExtensionFileAccessTest : public DevToolsExtensionTest {
         "<html><head><script src='devtools.js'></script></head></html>");
     dir.WriteFile(FILE_PATH_LITERAL("devtools.js"),
                   base::StringPrintf(R"(
+        Object.defineProperty(URL.prototype, "protocol", {
+          get: function() { return "http:"; }
+        });
+
         chrome.devtools.inspectedWindow.getResources((resources) => {
           const hasFile = !!resources.find(r => r.url.startsWith('file:'));
           setInterval(() => {
@@ -2130,14 +2132,17 @@ class DevToolsExtensionFileAccessTest : public DevToolsExtensionTest {
             base::PathService::CheckedGet(base::DIR_SRC_TEST_DATA_ROOT)
                 .AppendASCII("content/test/data/devtools/navigation.html"))
             .spec();
+    constexpr std::string_view kFileSchemeAndSep = "file:///";
+    ASSERT_TRUE(base::StartsWith(file_url, kFileSchemeAndSep));
 
     const Extension* extension =
         LoadExtensionFromPath(dir.UnpackedPath(), allow_file_access);
     ASSERT_TRUE(extension);
 
-    std::string url = base::StringPrintf(
+    std::string url = absl::StrFormat(
         R"(data:text/html,<script>//%%23%%20sourceMappingURL=data:application/json,{"version":3,"sources":["%s:%s"]}</script>)",
-        url_scheme.c_str(), file_url.c_str() + strlen("file:///"));
+        url_scheme,
+        std::string_view(file_url).substr(kFileSchemeAndSep.length()));
     OpenDevToolsWindow(url, false);
     RunTestFunction(window_, "waitForTestResultsAsMessage");
   }
@@ -2163,8 +2168,18 @@ IN_PROC_BROWSER_TEST_F(DevToolsExtensionFileAccessTest,
   Run(false, "fILe:");
 }
 
+// This test is flaky on Mac and Linux.
+// TODO(crbug.com/40787389): Enable the test.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)
+#define MAYBE_TestNoScriptDuplicatesOnPanelSwitch \
+  DISABLED_TestNoScriptDuplicatesOnPanelSwitch
+#else
+#define MAYBE_TestNoScriptDuplicatesOnPanelSwitch \
+  TestNoScriptDuplicatesOnPanelSwitch
+#endif
 // Tests that scripts are not duplicated after Scripts Panel switch.
-IN_PROC_BROWSER_TEST_F(DevToolsTest, TestNoScriptDuplicatesOnPanelSwitch) {
+IN_PROC_BROWSER_TEST_F(DevToolsTest,
+                       MAYBE_TestNoScriptDuplicatesOnPanelSwitch) {
   RunTest("testNoScriptDuplicatesOnPanelSwitch", kDebuggerTestPage);
 }
 
@@ -3016,11 +3031,11 @@ IN_PROC_BROWSER_TEST_F(DevToolsTest,
 IN_PROC_BROWSER_TEST_F(DevToolsTest, TestRawHeadersWithRedirectAndHSTS) {
   net::EmbeddedTestServer https_test_server(
       net::EmbeddedTestServer::TYPE_HTTPS);
-  https_test_server.SetSSLConfig(
-      net::EmbeddedTestServer::CERT_COMMON_NAME_IS_DOMAIN);
+  https_test_server.SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
   https_test_server.ServeFilesFromSourceDirectory(GetChromeTestDataDir());
   ASSERT_TRUE(https_test_server.Start());
-  GURL https_url = https_test_server.GetURL("localhost", "/devtools/image.png");
+  // Localhost does not support HSTS, so we must serve from "a.test" instead.
+  GURL https_url = https_test_server.GetURL("a.test", "/devtools/image.png");
   base::Time expiry = base::Time::Now() + base::Days(1000);
   bool include_subdomains = false;
   mojo::ScopedAllowSyncCallForTesting allow_sync_call;

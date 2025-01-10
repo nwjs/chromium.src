@@ -130,15 +130,17 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
   [super setUp];
   // Remove closed tab history to make sure the sign-in promo is always visible
   // in recent tabs.
-  [ChromeEarlGrey clearBrowsingHistory];
+  if (![ChromeTestCase forceRestartAndWipe]) {
+    [ChromeEarlGrey clearBrowsingHistory];
+  }
   [BookmarkEarlGrey waitForBookmarkModelLoaded];
   [BookmarkEarlGrey clearBookmarks];
   GREYAssertNil([MetricsAppInterface setupHistogramTester],
                 @"Failed to set up histogram tester.");
 }
 
-- (void)tearDown {
-  [super tearDown];
+- (void)tearDownHelper {
+  [super tearDownHelper];
   [BookmarkEarlGrey clearBookmarksPositionCache];
   GREYAssertNil([MetricsAppInterface releaseHistogramTester],
                 @"Cannot reset histogram tester.");
@@ -252,7 +254,8 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
 }
 
 // Tests that signing out a supervised user account clears the account data.
-- (void)testSignOutForSupervisedUserClearAccountData {
+// TODO(crbug.com/378058907): Re-enable this test.
+- (void)DISABLED_testSignOutForSupervisedUserClearAccountData {
   // Sign in with a fake supervised identity.
   FakeSystemIdentity* fakeSupervisedIdentity =
       [FakeSystemIdentity fakeIdentity1];

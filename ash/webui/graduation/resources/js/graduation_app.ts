@@ -13,7 +13,7 @@ import {CrViewManagerElement} from 'chrome://resources/ash/common/cr_elements/cr
 import {ColorChangeUpdater} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
-import {GraduationScreen} from '../mojom/graduation_ui.mojom-webui.js';
+import {AuthResult, GraduationScreen} from '../mojom/graduation_ui.mojom-webui.js';
 
 import {getTemplate} from './graduation_app.html.js';
 import {getGraduationUiHandler} from './graduation_ui_handler.js';
@@ -46,6 +46,13 @@ export enum ScreenSwitchEvents {
   OFFLINE = 'offline',
 }
 
+/**
+ * The event that is fired on the current screen signaling that the app has
+ * switched to it. Screens can listen for this event and perform actions on
+ * becoming active.
+ */
+export const ScreenSwitchedEvent: string = 'on-screen-switched';
+
 export interface GraduationApp {
   $: {
     viewManager: CrViewManagerElement,
@@ -61,12 +68,27 @@ export class GraduationApp extends PolymerElement {
     return getTemplate();
   }
 
+  private authResult: AuthResult|null = null;
   private currentScreen: Screens;
 
   override ready() {
     super.ready();
     this.addEventListeners();
-    this.switchToScreen(navigator.onLine ? Screens.WELCOME : Screens.OFFLINE);
+
+    if (!navigator.onLine) {
+      this.switchToScreen(Screens.OFFLINE);
+      return;
+    }
+
+    this.authenticate();
+    this.switchToScreen(Screens.WELCOME);
+  }
+
+  private async authenticate(): Promise<void> {
+    const authResult = await getGraduationUiHandler().authenticateWebview();
+    this.authResult = authResult.result;
+    this.shadowRoot!.querySelector(Screens.TAKEOUT_UI)!.onAuthComplete(
+        this.authResult);
   }
 
   getCurrentScreenForTest(): Screens {
@@ -83,10 +105,21 @@ export class GraduationApp extends PolymerElement {
     });
 
     this.addEventListener(ScreenSwitchEvents.SHOW_ERROR, () => {
+      // An error caused by an offline event can surface after the offline
+      // screen is already shown. Don't show the error screen so the app has a
+      // chance to reload when it comes online.
+      if (this.currentScreen === Screens.OFFLINE) {
+        return;
+      }
       this.switchToScreen(Screens.ERROR);
     });
 
     window.addEventListener(ScreenSwitchEvents.ONLINE, () => {
+      // If there is no authentication result, authentication has not been
+      // attempted for the lifetime of the app, so authenticate now.
+      if (this.authResult === null) {
+        this.authenticate();
+      }
       // If the app comes back online, start from the initial screen.
       this.switchToScreen(Screens.WELCOME);
     });
@@ -122,6 +155,8 @@ export class GraduationApp extends PolymerElement {
         getGraduationUiHandler().onScreenSwitched(GraduationScreen.kError);
         break;
     }
+    this.shadowRoot!.querySelector(screen)!.dispatchEvent(
+        new CustomEvent(ScreenSwitchedEvent));
   }
 }
 customElements.define(GraduationApp.is, GraduationApp);

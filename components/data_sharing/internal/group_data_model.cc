@@ -9,9 +9,11 @@
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/observer_list.h"
 #include "components/data_sharing/internal/group_data_proto_utils.h"
 #include "components/data_sharing/internal/group_data_store.h"
+#include "components/data_sharing/public/group_data.h"
 #include "components/data_sharing/public/protocol/data_sharing_sdk.pb.h"
 #include "components/sync/protocol/collaboration_group_specifics.pb.h"
 
@@ -19,14 +21,9 @@ namespace data_sharing {
 
 namespace {
 
-base::FilePath GetGroupDataStoreDBPath(const base::FilePath& data_sharing_dir) {
-  return data_sharing_dir.Append(FILE_PATH_LITERAL("DataSharingDB"));
-}
-
 VersionToken ComputeVersionToken(
     const sync_pb::CollaborationGroupSpecifics& specifics) {
-  return VersionToken(base::NumberToString(
-      specifics.changed_at_timestamp_millis_since_unix_epoch()));
+  return VersionToken(specifics.consistency_token());
 }
 
 }  // namespace
@@ -35,7 +32,7 @@ GroupDataModel::GroupDataModel(
     const base::FilePath& data_sharing_dir,
     CollaborationGroupSyncBridge* collaboration_group_sync_bridge,
     DataSharingSDKDelegate* sdk_delegate)
-    : group_data_store_(GetGroupDataStoreDBPath(data_sharing_dir),
+    : group_data_store_(data_sharing_dir,
                         base::BindOnce(&GroupDataModel::OnGroupDataStoreLoaded,
                                        base::Unretained(this))),
       collaboration_group_sync_bridge_(collaboration_group_sync_bridge),
@@ -87,13 +84,35 @@ std::set<GroupData> GroupDataModel::GetAllGroups() const {
   return result;
 }
 
+std::optional<GroupMemberPartialData>
+GroupDataModel::GetPossiblyRemovedGroupMember(
+    const GroupId& group_id,
+    const std::string& member_gaia_id) const {
+  if (!IsModelLoaded()) {
+    return std::nullopt;
+  }
+
+  const auto group_data_opt = group_data_store_.GetGroupData(group_id);
+  if (!group_data_opt.has_value()) {
+    return std::nullopt;
+  }
+  for (const auto& member : group_data_opt->members) {
+    if (member.gaia_id == member_gaia_id) {
+      return GroupMemberPartialData::FromGroupMember(member);
+    }
+  }
+
+  // TODO(crbug.com/373628741): attempt to read the data from the database with
+  // removed members once it is implemented.
+  return std::nullopt;
+}
+
 bool GroupDataModel::IsModelLoaded() const {
   return is_group_data_store_loaded_ && is_collaboration_group_bridge_loaded_;
 }
 
-// TODO(crbug.com/301390275): looks like we don't need to distinguish added and
-// updated groups here, merge them into single parameter (they could be
-// distinguished by their presence in `group_data_store_`).
+// TODO(crbug.com/301390275): looks like we don't need specific changes anymore
+// (see ProcessGroupChanges()), so the parameters can be removed.
 void GroupDataModel::OnGroupsUpdated(
     const std::vector<GroupId>& added_group_ids,
     const std::vector<GroupId>& updated_group_ids,
@@ -101,47 +120,45 @@ void GroupDataModel::OnGroupsUpdated(
   if (!IsModelLoaded()) {
     return;
   }
-  group_data_store_.DeleteGroups(deleted_group_ids);
-  for (auto& observer : observers_) {
-    for (auto& group_id : deleted_group_ids) {
-      observer.OnGroupDeleted(group_id);
-    }
-  }
 
-  std::vector<GroupId> added_or_updated_groups = added_group_ids;
-  std::copy(updated_group_ids.begin(), updated_group_ids.end(),
-            std::back_inserter(added_or_updated_groups));
-
-  if (!added_or_updated_groups.empty()) {
-    // Observers will be notified once groups are actually fetched from the SDK.
-    FetchGroupsFromSDK(added_or_updated_groups);
+  if (!has_ongoing_group_fetch_) {
+    ProcessGroupChanges(/*is_initial_load=*/false);
+  } else {
+    has_pending_changes_ = true;
   }
 }
 
-void GroupDataModel::OnDataLoaded() {
+void GroupDataModel::OnCollaborationGroupSyncDataLoaded() {
   is_collaboration_group_bridge_loaded_ = true;
   if (IsModelLoaded()) {
     // Don't notify observers about data being loaded yet - let's process
     // deletions first.
-    ProcessInitialData();
+    CHECK(!has_ongoing_group_fetch_);
+    ProcessGroupChanges(/*is_initial_load=*/true);
   }
 }
 
 void GroupDataModel::OnGroupDataStoreLoaded(
     GroupDataStore::DBInitStatus status) {
+  base::UmaHistogramBoolean("DataSharing.GroupDBInitSuccess",
+                            status == GroupDataStore::DBInitStatus::kSuccess);
+  if (db_loaded_callback_) {
+    std::move(db_loaded_callback_).Run();
+  }
   if (status != GroupDataStore::DBInitStatus::kSuccess) {
-    // TODO(crbug.com/301390275): perhaps some error handling is needed in this
-    // case (at least metrics).
     return;
   }
 
   is_group_data_store_loaded_ = true;
   if (IsModelLoaded()) {
-    ProcessInitialData();
+    CHECK(!has_ongoing_group_fetch_);
+    ProcessGroupChanges(/*is_initial_load=*/true);
   }
 }
 
-void GroupDataModel::ProcessInitialData() {
+void GroupDataModel::ProcessGroupChanges(bool is_initial_load) {
+  has_pending_changes_ = false;
+
   std::vector<GroupId> bridge_groups =
       collaboration_group_sync_bridge_->GetCollaborationGroupIds();
   std::vector<GroupId> store_groups = group_data_store_.GetAllGroupIds();
@@ -156,16 +173,21 @@ void GroupDataModel::ProcessInitialData() {
                                std::back_inserter(deleted_group_ids));
 
   group_data_store_.DeleteGroups(deleted_group_ids);
-  for (auto& observer : observers_) {
-    observer.OnModelLoaded();
-  }
-  for (auto& group_id : deleted_group_ids) {
+  if (is_initial_load) {
+    // This is the first ProcessGroupChanges() call after startup, so notify
+    // observers about data being loaded once deletions are processed.
     for (auto& observer : observers_) {
-      observer.OnGroupDeleted(group_id);
+      observer.OnModelLoaded();
     }
   }
-  // TODO(crbug.com/301390275): notify observers about deletions and the fact
-  // that data is loaded.
+
+  for (auto& group_id : deleted_group_ids) {
+    for (auto& observer : observers_) {
+      // TODO(crbug.com/377215683): pass the actual event time (at least derived
+      // from CollaborationGroupSpecifics).
+      observer.OnGroupDeleted(group_id, base::Time::Now());
+    }
+  }
 
   std::vector<GroupId> added_or_updated_group_ids;
   for (const auto& group_id : bridge_groups) {
@@ -195,6 +217,8 @@ void GroupDataModel::FetchGroupsFromSDK(
     return;
   }
 
+  has_ongoing_group_fetch_ = true;
+
   std::map<GroupId, VersionToken> group_versions;
   data_sharing_pb::ReadGroupsParams params;
   for (const GroupId& group_id : added_or_updated_groups) {
@@ -218,6 +242,11 @@ void GroupDataModel::OnGroupsFetchedFromSDK(
     const base::expected<data_sharing_pb::ReadGroupsResult, absl::Status>&
         read_groups_result) {
   if (!read_groups_result.has_value()) {
+    has_ongoing_group_fetch_ = false;
+    if (has_pending_changes_) {
+      // Some changes happened while the fetch was in flight, process them now.
+      ProcessGroupChanges(/*is_initial_load=*/false);
+    }
     // TODO(crbug.com/301390275): handle entire request failure.
     return;
   }
@@ -237,23 +266,75 @@ void GroupDataModel::OnGroupsFetchedFromSDK(
       continue;
     }
 
-    const bool is_existing_group =
-        group_data_store_.GetGroupData(group_id).has_value();
+    const auto old_group_data_opt = group_data_store_.GetGroupData(group_id);
     group_data_store_.StoreGroupData(requested_groups_and_versions.at(group_id),
                                      group_data);
-    // TODO(crbug.com/301390275): compute deltas for observers.
     for (auto& observer : observers_) {
-      if (is_existing_group) {
-        observer.OnGroupUpdated(group_id);
+      // TODO(crbug.com/377215683): pass the actual event time (at least derived
+      // from CollaborationGroupSpecifics).
+      if (old_group_data_opt.has_value()) {
+        observer.OnGroupUpdated(group_id, base::Time::Now());
       } else {
-        observer.OnGroupAdded(group_id);
+        observer.OnGroupAdded(group_id, base::Time::Now());
       }
+    }
+    if (old_group_data_opt.has_value()) {
+      NotifyObserversAboutChangedMembers(*old_group_data_opt, group_data);
+    }
+  }
+
+  has_ongoing_group_fetch_ = false;
+  if (has_pending_changes_) {
+    // Some changes happened while the fetch was in flight, process them now.
+    ProcessGroupChanges(/*is_initial_load=*/false);
+  }
+}
+
+void GroupDataModel::NotifyObserversAboutChangedMembers(
+    const GroupData& old_group_data,
+    const GroupData& new_group_data) {
+  std::vector<std::string> old_members_gaia_ids;
+  for (const auto& member : old_group_data.members) {
+    old_members_gaia_ids.push_back(member.gaia_id);
+  }
+  std::vector<std::string> new_members_gaia_ids;
+  for (const auto& member : new_group_data.members) {
+    new_members_gaia_ids.push_back(member.gaia_id);
+  }
+
+  std::vector<std::string> added_members_gaia_ids;
+  base::ranges::set_difference(
+      new_members_gaia_ids.begin(), new_members_gaia_ids.end(),
+      old_members_gaia_ids.begin(), old_members_gaia_ids.end(),
+      std::back_inserter(added_members_gaia_ids));
+
+  std::vector<std::string> removed_members_gaia_ids;
+  base::ranges::set_difference(
+      old_members_gaia_ids.begin(), old_members_gaia_ids.end(),
+      new_members_gaia_ids.begin(), new_members_gaia_ids.end(),
+      std::back_inserter(removed_members_gaia_ids));
+
+  for (auto& observer : observers_) {
+    // TODO(crbug.com/377215683): pass the actual event time (at least derived
+    // from CollaborationGroupSpecifics).
+    for (auto& member_gaia_id : added_members_gaia_ids) {
+      observer.OnMemberAdded(new_group_data.group_token.group_id,
+                             member_gaia_id, base::Time::Now());
+    }
+    for (auto& member_gaia_id : removed_members_gaia_ids) {
+      observer.OnMemberRemoved(new_group_data.group_token.group_id,
+                               member_gaia_id, base::Time::Now());
     }
   }
 }
 
 GroupDataStore& GroupDataModel::GetGroupDataStoreForTesting() {
   return group_data_store_;
+}
+
+void GroupDataModel::SetGroupDataStoreLoadedCallbackForTesting(
+    base::OnceClosure db_loaded_callback) {
+  db_loaded_callback_ = std::move(db_loaded_callback);
 }
 
 }  // namespace data_sharing

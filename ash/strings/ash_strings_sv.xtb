@@ -308,7 +308,6 @@ Det här är några saker du kan testa för att komma igång.</translation>
 <translation id="2041220428661959602">Batterinivå: <ph name="BATTERY_PERCENTAGE" /> %</translation>
 <translation id="204259843076055848">Kortkommandot <ph name="SIX_PACK_KEY_NAME" /> är inaktiverat</translation>
 <translation id="2049240716062114887">Skrivbordsnamnet ändrades till <ph name="DESK_NAME" /></translation>
-<translation id="2050339315714019657">Stående</translation>
 <translation id="2064048859448024834">Förhandsgranskning av kamera visas</translation>
 <translation id="2065098273523946419">Länk till mer information. Omdirigera till webbläsaren vid aktivering</translation>
 <translation id="2067220651560163985">Visa temperaturen i Celsius</translation>
@@ -339,9 +338,6 @@ Det här är några saker du kan testa för att komma igång.</translation>
 <translation id="219905428774326614">Startprogram, alla appar</translation>
 <translation id="2201071101391734388">Foto <ph name="INDEX" /> av <ph name="TOTAL_COUNT" /> nya foton.</translation>
 <translation id="2201687081523799384">Komprimera Google Tasks</translation>
-<translation id="2206960886090042977">Den inbyggda styrplattan har inaktiverats eftersom en mus är ansluten. Bekräfta ändringen med musen eller tangentbordet.
-
-Annars aktiveras den inbyggda styrplattan igen om 30 sekunder.</translation>
 <translation id="2208323208084708176">Enhetligt skrivbordsläge</translation>
 <translation id="2220572644011485463">Pinkod eller lösenord</translation>
 <translation id="2222841058024245321">Skrivbord 7</translation>
@@ -504,6 +500,9 @@ Annars aktiveras den inbyggda styrplattan igen om 30 sekunder.</translation>
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> via <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">ctrl + sök + s</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" /> hanteras av <ph name="MANAGER" /></translation>
+<translation id="2781658180588759579">Den inbyggda styrplattan är inaktiverad. Bekräfta ändringen med tangentbordet eller ett annat pekdon.
+
+Annars aktiveras den inbyggda styrplattan igen om <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2782591952652094792">Stäng läget för skärmbild/skärminspelning</translation>
 <translation id="2785499565474703580">1 enhet är ansluten</translation>
 <translation id="2791421900609674576">Rekommendationer visas så att du kan fortsätta där du slutade. Du kan ta bort rekommendationer genom att trycka länge.</translation>
@@ -601,6 +600,9 @@ Annars aktiveras den inbyggda styrplattan igen om 30 sekunder.</translation>
 <translation id="3113492864356515707">Markera föregående objekt på hyllan</translation>
 <translation id="311799651966070385">Stäng puff</translation>
 <translation id="3120421559657122717">Vill du stänga av enheten?</translation>
+<translation id="3121411970001795539">Den inbyggda styrplattan har inaktiverats eftersom en mus är ansluten. Bekräfta ändringen med musen eller tangentbordet.
+
+Annars aktiveras den inbyggda styrplattan igen om <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">Typ av klassuppgifter</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +973,13 @@ Vissa funktioner är begränsade för att förlänga batteritiden.</translation>
 <translation id="4322742403972824594">Kortkommandot Ctrl + Alt + uppåtpil har ändrats. Tryck på <ph name="LAUNCHER_KEY_NAME" /> tangenten + vänsterpil för att använda Home-tangenten.</translation>
 <translation id="4324840740119394760">Detta ger kameraåtkomst för <ph name="APP_NAME" /> och alla appar och webbplatser med kamerabehörighet</translation>
 <translation id="4327147325944669226">Spela in spel</translation>
-<translation id="4333628967105022692">Det finns inget stöd för Lacros när flera användare är inloggade.</translation>
 <translation id="4338109981321384717">Förstoringsglas</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />. Ljud av</translation>
 <translation id="4351244548802238354">Stäng dialogrutan</translation>
 <translation id="4356872429719185452">Visa information om surfzon. Surfzonen aktiveras.</translation>
 <translation id="4364101114148522660"><ph name="DURATION" />  Spelar in</translation>
 <translation id="4371348193907997655">Inställningar för att casta</translation>
+<translation id="4371834685492830207">Pinkoden får bara innehålla giltiga tecken</translation>
 <translation id="4375482231364171368">Sök i adressfältet</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, signalstyrka <ph name="SIGNAL_STRENGTH" /> procent</translation>
 <translation id="4378551569595875038">Ansluter ...</translation>
@@ -1143,6 +1145,7 @@ Vissa funktioner är begränsade för att förlänga batteritiden.</translation>
 <translation id="4902797682482387055">Föreslagen uppgift att fokusera på</translation>
 <translation id="490375751687810070">Vertikal</translation>
 <translation id="490788395437447240"><ph name="BATTERY_PERCENTAGE" /> % batterinivå</translation>
+<translation id="4911191962826748981">Det här är en experimentell AI-funktion som inte alltid fungerar som den ska.</translation>
 <translation id="491504982845934899">Aktivera <ph name="NETWORK_NAME" /> när du har konfigurerat enheten</translation>
 <translation id="4917385247580444890">Stark</translation>
 <translation id="4918086044614829423">Acceptera</translation>
@@ -1301,6 +1304,7 @@ Inga enheter är anslutna.</translation>
 <translation id="5393156353051693207">Tryck länge var som helst och ändra ordning på apparna</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" /> ovanpå <ph name="IN_PLACE_APP" />, om du släpper skapas en mapp.</translation>
 <translation id="5397578532367286026">Användning och historik för den här användaren kan granskas av den ansvarige (<ph name="MANAGER_EMAIL" />) på chrome.com.</translation>
+<translation id="540338817371815859">Liggande</translation>
 <translation id="540713187982329711">Aktivera eller inaktivera surfzon. Surfzonen är aktiverad. Ingen enhet är ansluten.</translation>
 <translation id="5409208741270395213">Markera uppgiften som slutförd</translation>
 <translation id="5413656666631274079">Inställningssida</translation>
@@ -1472,7 +1476,6 @@ Inga enheter är anslutna.</translation>
 <translation id="5975235751479998104">Bläddra framåt bland fönster</translation>
 <translation id="5978382165065462689">Dela kontroll över skärmen via Fjärrhjälp.</translation>
 <translation id="5980301590375426705">Avsluta gästsession</translation>
-<translation id="5982119059638483922">Avbryt genom att trycka på Fn + söktangenten eller Skift.</translation>
 <translation id="5983567367406220847">Surfzonen har inaktiverats på grund av inaktivitet.</translation>
 <translation id="598407983968395253">Använd mall</translation>
 <translation id="5986723678596105470">Anslut via Google Meet</translation>
@@ -1542,7 +1545,6 @@ Inga enheter är anslutna.</translation>
 <translation id="6166852626429024716">Sök på enheten, i appar, inställningar och på webben …</translation>
 <translation id="6168318496333165060">Öppna appen Diagnostik</translation>
 <translation id="6168622430237609329">Dina installerade appar</translation>
-<translation id="6173151025443907148">Det finns inte stöd för inloggning av en andra användare om Lacros är aktiverad. Använd i stället en annan webbläsarprofil i Lacros eller inaktivera Lacros och försök igen.</translation>
 <translation id="6179832488876878285">Du kan fästa viktiga filer här. Börja med att öppna appen Filer.</translation>
 <translation id="6180193585172850042">Bakåtknapp</translation>
 <translation id="6180651297859206670">Framåtknapp</translation>
@@ -1564,6 +1566,7 @@ Inga enheter är anslutna.</translation>
 <translation id="6232416233079464213">Från <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> använder just nu kameran och mikrofonen</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">Lösenordet får bara innehålla giltiga tecken</translation>
 <translation id="6240603910551255087">Övre knappen</translation>
 <translation id="6240821072888636753">Fråga varje gång</translation>
 <translation id="6247728804802644171">Öppna aviseringar</translation>
@@ -1694,7 +1697,6 @@ Nyligen installerad</translation>
 <translation id="6682029141988159141">Klistra in innehåll från Urklipp</translation>
 <translation id="6683022854667115063">Hörlurar</translation>
 <translation id="6686023075541098243">Ställ in visning av telefonens aviseringar</translation>
-<translation id="6688019813898140556">Esc fem gånger</translation>
 <translation id="6694462491298752106">Den inbyggda styrplattan är inaktiverad</translation>
 <translation id="6694973220096431421">Sök på Google Drive</translation>
 <translation id="6696025732084565524">Det behövs en viktig uppdatering till ditt frånkopplingsbara tangentbord</translation>
@@ -1715,6 +1717,7 @@ Nyligen installerad</translation>
 <translation id="6751826523481687655">Prestandaspårning har aktiverats</translation>
 <translation id="6752912906630585008">Skrivbordet <ph name="REMOVED_DESK" /> har tagits bort och slagits samman med skrivbordet <ph name="RECEIVE_DESK" /></translation>
 <translation id="6753390234084146956">flikar</translation>
+<translation id="6754918760968695779">Snabbinfogning</translation>
 <translation id="6757237461819837179">Ingen media spelas upp</translation>
 <translation id="6760438044935091345">Spelöversikt</translation>
 <translation id="6768043681523654438">lagringsutrymme</translation>
@@ -1764,6 +1767,7 @@ Nyligen installerad</translation>
 <translation id="6921427376813842559">Uppdatera enheten</translation>
 <translation id="6929081673585394903">Visa kontroller</translation>
 <translation id="6931576957638141829">Spara i</translation>
+<translation id="6935857786205183008">Stående</translation>
 <translation id="6942518653766415536">Meny för inspelningsformat</translation>
 <translation id="6945221475159498467">Välj</translation>
 <translation id="6945922087561257829">Telefonen använder ett mobilnätverk. Kontrollera att telefonen och Chromebook-enheten är anslutna till samma wifi-nätverk och försök igen. <ph name="LEARN_MORE" /></translation>
@@ -1920,9 +1924,6 @@ Nyligen installerad</translation>
 Stäng av enheten genom att hålla av/på-knappen nedtryckt igen.</translation>
 <translation id="7523420897035067483">Aktivera Stör ej när Fokus är på</translation>
 <translation id="7524043547948122239">Google Tasks</translation>
-<translation id="7524919752437339268">Den inbyggda styrplattan är inaktiverad. Bekräfta ändringen med tangentbordet eller ett annat pekdon.
-
-Annars aktiveras den inbyggda styrplattan igen om 30 sekunder.</translation>
 <translation id="7525067979554623046">Skapa</translation>
 <translation id="7526573455193969409">Nätverket kan vara övervakat</translation>
 <translation id="7536035074519304529">IP-adress: <ph name="ADDRESS" /></translation>
@@ -2009,6 +2010,7 @@ Annars aktiveras den inbyggda styrplattan igen om 30 sekunder.</translation>
 <translation id="780301667611848630">Nej tack</translation>
 <translation id="7807067443225230855">Sök och Assistent</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> och <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">Om du trycker på Gilla skickar du feedback om att du gillar det här förslaget</translation>
 <translation id="7825412704590278437">Från en kommande kalenderhändelse</translation>
 <translation id="7829386189513694949">stark signal</translation>
 <translation id="7830453190047749513">Du kan anpassa knappåtgärder, markörhastighet med mera för <ph name="PERIPHERAL_NAME" /></translation>
@@ -2163,6 +2165,7 @@ Annars aktiveras den inbyggda styrplattan igen om 30 sekunder.</translation>
 <translation id="830868413617744215">Beta</translation>
 <translation id="8314772463905284467">Caps Lock är på</translation>
 <translation id="8315514906653279104">Aktiverar …</translation>
+<translation id="8319634750346253957">Om du trycker på Gillar inte skickar du feedback om att du inte gillar förslaget</translation>
 <translation id="8331351032546853669">Nedladdning väntar</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2348,6 +2351,7 @@ Annars aktiveras den inbyggda styrplattan igen om 30 sekunder.</translation>
 <translation id="8982906748181120328">Synl. i närheten</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">Använder <ph name="IME_NAME" /></translation>
+<translation id="8991648557324317894">Tryck på FN + snabbinfogning eller Skift för att avbryta.</translation>
 <translation id="899350903320462459">Lås upp enheten som <ph name="LOGIN_ID" /> så att aviseringen kan göras</translation>
 <translation id="8993733019280019776">Pratar du? Mikrofonen är inaktiverad. Välj mikrofonen för att aktivera den.</translation>
 <translation id="9000771174482730261">HANTERA LAGRING</translation>
@@ -2430,9 +2434,9 @@ Annars aktiveras den inbyggda styrplattan igen om 30 sekunder.</translation>
 <translation id="974545358917229949"><ph name="RESULT_COUNT" /> resultat visas för <ph name="QUERY" /></translation>
 <translation id="981011780479609956">Inget inlämningsdatum</translation>
 <translation id="98120814841227350">Gå till slutet av dokumentet</translation>
-<translation id="98515147261107953">Landskap</translation>
 <translation id="987589956647469042">Mobildata har aktiverats</translation>
 <translation id="989374776391122812">Kamera- och ljudkontroller</translation>
+<translation id="990263227494928142">Tryck på Skift fem gånger för att aktivera styrplattan</translation>
 <translation id="990277280839877440">Fönstret <ph name="WINDOW_TITILE" /> har stängts.</translation>
 <translation id="993398562350683614">Rundtur, steg <ph name="STEP" /> av <ph name="TOTAL_STEPS" />. Använd appar för att göra allt du behöver på din <ph name="PRODUCT_NAME" />. Du hittar dina appar i Appstartaren. Tryck på Alt + Skift + L för att fokusera på knappen för Appstartaren.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

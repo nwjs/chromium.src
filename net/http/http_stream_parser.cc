@@ -51,9 +51,8 @@ const uint64_t kMaxMergedHeaderAndBodySize = 1400;
 const size_t kRequestBodyBufferSize = 1 << 14;  // 16KB
 
 std::string GetResponseHeaderLines(const HttpResponseHeaders& headers) {
-  std::string raw_headers = headers.raw_headers();
   std::string cr_separated_headers;
-  base::StringTokenizer tokenizer(raw_headers, std::string(1, '\0'));
+  base::StringTokenizer tokenizer(headers.raw_headers(), std::string(1, '\0'));
   while (tokenizer.GetNext()) {
     base::StrAppend(&cr_separated_headers, {tokenizer.token_piece(), "\n"});
   }
@@ -428,8 +427,7 @@ int HttpStreamParser::DoLoop(int result) {
         result = DoReadBodyComplete(result);
         break;
       default:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
     }
   } while (result != ERR_IO_PENDING &&
            (io_state_ != STATE_DONE && io_state_ != STATE_NONE));
@@ -770,7 +768,8 @@ int HttpStreamParser::DoReadBodyComplete(int result) {
 
   // Filter incoming data if appropriate.  FilterBuf may return an error.
   if (result > 0 && chunked_decoder_.get()) {
-    result = chunked_decoder_->FilterBuf(user_read_buf_->data(), result);
+    result = chunked_decoder_->FilterBuf(
+        user_read_buf_->span().first(base::checked_cast<size_t>(result)));
     if (result == 0 && !chunked_decoder_->reached_eof()) {
       // Don't signal completion of the Read call yet or else it'll look like
       // we received end-of-file.  Wait for more data.
@@ -899,7 +898,8 @@ int HttpStreamParser::HandleReadHeaderResult(int result) {
   // Record our best estimate of the 'response time' as the time when we read
   // the first bytes of the response headers.
   if (read_buf_->offset() == 0) {
-    response_->response_time = base::Time::Now();
+    response_->response_time = response_->original_response_time =
+        base::Time::Now();
     // Also keep the time as base::TimeTicks for `first_response_start_time_`
     // and `non_informational_response_start_time_`.
     current_response_start_time_ = base::TimeTicks::Now();

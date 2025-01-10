@@ -77,8 +77,6 @@ source_set("extensions") {
     "api/chrome_extensions_api_client.h",
     "api/commands/commands.cc",
     "api/commands/commands.h",
-    "api/content_settings/content_settings_api.cc",
-    "api/content_settings/content_settings_api.h",
     "api/debugger/debugger_api.cc",
     "api/debugger/debugger_api.h",
     "api/debugger/extension_dev_tools_infobar_delegate.cc",
@@ -113,10 +111,6 @@ source_set("extensions") {
     "api/enterprise_reporting_private/conversion_utils.h",
     "api/enterprise_reporting_private/enterprise_reporting_private_api.cc",
     "api/enterprise_reporting_private/enterprise_reporting_private_api.h",
-    "api/extension_action/extension_action_api.cc",
-    "api/extension_action/extension_action_api.h",
-    "api/extension_action/extension_page_actions_api_constants.cc",
-    "api/extension_action/extension_page_actions_api_constants.h",
     "api/feedback_private/chrome_feedback_private_delegate.cc",
     "api/feedback_private/chrome_feedback_private_delegate.h",
     "api/file_system/chrome_file_system_delegate.cc",
@@ -206,14 +200,6 @@ source_set("extensions") {
     "api/messaging/native_messaging_host_manifest.h",
     "api/metrics_private/chrome_metrics_private_delegate.cc",
     "api/metrics_private/chrome_metrics_private_delegate.h",
-    "api/notifications/extension_notification_display_helper.cc",
-    "api/notifications/extension_notification_display_helper.h",
-    "api/notifications/extension_notification_display_helper_factory.cc",
-    "api/notifications/extension_notification_display_helper_factory.h",
-    "api/notifications/extension_notification_handler.cc",
-    "api/notifications/extension_notification_handler.h",
-    "api/notifications/notifications_api.cc",
-    "api/notifications/notifications_api.h",
     "api/passwords_private/password_access_auth_timeout_handler.cc",
     "api/passwords_private/password_access_auth_timeout_handler.h",
     "api/passwords_private/password_check_delegate.cc",
@@ -255,8 +241,6 @@ source_set("extensions") {
     "api/sessions/session_id.h",
     "api/sessions/sessions_api.cc",
     "api/sessions/sessions_api.h",
-    "api/settings_overrides/settings_overrides_api.cc",
-    "api/settings_overrides/settings_overrides_api.h",
     "api/settings_private/generated_pref.cc",
     "api/settings_private/generated_pref.h",
     "api/settings_private/generated_prefs.cc",
@@ -417,6 +401,8 @@ source_set("extensions") {
     "error_console/error_console_factory.h",
     "event_router_forwarder.cc",
     "event_router_forwarder.h",
+    "extension_action_dispatcher.cc",
+    "extension_action_dispatcher.h",
     "extension_action_runner.cc",
     "extension_action_runner.h",
     "extension_action_storage_manager.cc",
@@ -476,6 +462,8 @@ source_set("extensions") {
     "extension_sync_service.h",
     "extension_sync_service_factory.cc",
     "extension_sync_service_factory.h",
+    "extension_sync_util.cc",
+    "extension_sync_util.h",
     "extension_system_factory.cc",
     "extension_system_factory.h",
     "extension_system_impl.cc",
@@ -710,6 +698,7 @@ source_set("extensions") {
     "//chrome/browser/resource_coordinator:tab_lifecycle_observer",
     "//chrome/browser/task_manager",
     "//chrome/browser/ui:browser_list",
+    "//chrome/browser/ui/bookmarks",
     "//chrome/browser/ui/global_error",
     "//chrome/browser/ui/tab_contents",
     "//chrome/browser/ui/tabs:tab_strip",
@@ -750,7 +739,10 @@ source_set("extensions") {
     "//chrome/browser/feedback",
     "//chrome/browser/importer",
     "//chrome/browser/picture_in_picture",
-    "//chrome/browser/profiles:profile_attributes",
+    "//chrome/browser/prefetch",
+    "//chrome/browser/prefs",
+    "//chrome/browser/prefs:util",
+    "//chrome/browser/preloading:prefs",
     "//chrome/browser/profiles:profile_util",
     "//chrome/browser/reading_list",
     "//chrome/browser/search",
@@ -773,6 +765,7 @@ source_set("extensions") {
     "//chrome/browser/ui/views/toolbar",
     "//chrome/browser/ui/window_sizer",
     "//chrome/browser/ui/zoom",
+    "//components/guest_view/buildflags",
 
     # Only for allow_circular_includes_from
     "//chrome/browser/apps/app_service/app_icon",
@@ -877,6 +870,7 @@ source_set("extensions") {
     "//components/policy:generated",
     "//components/policy/core/browser",
     "//components/pref_registry",
+    "//components/privacy_sandbox:features",
     "//components/privacy_sandbox:privacy_sandbox_prefs",
     "//components/privacy_sandbox:tracking_protection_prefs",
     "//components/proxy_config",
@@ -969,6 +963,7 @@ source_set("extensions") {
     "//ui/base/ime",
     "//ui/gfx",
     "//ui/gfx/geometry",
+    "//ui/menus",
     "//ui/message_center",
     "//ui/message_center/public/cpp",
     "//ui/native_theme",
@@ -980,15 +975,9 @@ source_set("extensions") {
 
   if (is_linux || is_mac || is_win) {
     sources += [
-      "api/system_indicator/system_indicator_api.cc",
-      "api/system_indicator/system_indicator_api.h",
       "api/system_indicator/system_indicator_manager.cc",
       "api/system_indicator/system_indicator_manager.h",
-      "api/system_indicator/system_indicator_manager_factory.cc",
-      "api/system_indicator/system_indicator_manager_factory.h",
     ]
-
-    deps += [ "//components/device_signals/core/common:features" ]
   }
 
   if (is_chromeos) {
@@ -1013,8 +1002,6 @@ source_set("extensions") {
       "api/chromeos_api_browser_context_keyed_service_factories.h",
       "clipboard_extension_helper_chromeos.cc",
       "clipboard_extension_helper_chromeos.h",
-      "extension_keeplist_chromeos.cc",
-      "extension_keeplist_chromeos.h",
       "file_handlers/web_file_handlers_permission_handler.cc",
       "file_handlers/web_file_handlers_permission_handler.h",
       "system_display/display_info_provider_chromeos.cc",
@@ -1163,8 +1150,6 @@ source_set("extensions") {
       "api/terminal/terminal_private_api.h",
       "api/virtual_keyboard_private/chrome_virtual_keyboard_delegate.cc",
       "api/virtual_keyboard_private/chrome_virtual_keyboard_delegate.h",
-      "ash_extension_keeplist_manager.cc",
-      "ash_extension_keeplist_manager.h",
       "chrome_kiosk_delegate_chromeos.cc",
       "extension_assets_manager_chromeos.cc",
       "extension_assets_manager_chromeos.h",
@@ -1202,6 +1187,7 @@ source_set("extensions") {
       "//chrome/browser/ash/app_mode/web_app",
       "//chrome/browser/ash/app_restore",
       "//chrome/browser/ash/arc",
+      "//chrome/browser/ash/arc:arc_util",
       "//chrome/browser/ash/arc/accessibility",
       "//chrome/browser/ash/arc/extensions",
       "//chrome/browser/ash/arc/optin",
@@ -1357,6 +1343,7 @@ source_set("extensions") {
 
     if (is_cfm) {
       deps += [
+        "//chrome/browser/ash/chromebox_for_meetings/meet_browser",
         "//chrome/browser/ash/chromebox_for_meetings/xu_camera",
         "//chromeos/ash/components/chromebox_for_meetings",
       ]

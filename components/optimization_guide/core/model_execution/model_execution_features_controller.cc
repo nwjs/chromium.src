@@ -16,6 +16,7 @@
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/model_execution_features.h"
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
+#include "components/optimization_guide/core/model_execution/performance_class.h"
 #include "components/optimization_guide/core/optimization_guide_prefs.h"
 #include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
@@ -226,12 +227,6 @@ bool ModelExecutionFeaturesController::
     ShouldFeatureBeCurrentlyAllowedForLogging(
         const MqlsFeatureMetadata* metadata) const {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  std::optional<UserVisibleFeatureKey> feature_key =
-      metadata->user_visible_feature_key();
-  if (feature_key && !ShouldFeatureBeCurrentlyEnabledForUser(*feature_key)) {
-    return false;
-  }
-
   // For dogfood users only, allow the relevant chrome://flags option to
   // override the default enterprise policy.
   bool has_logging_force_enabled =
@@ -312,20 +307,12 @@ ModelExecutionFeaturesController::ShouldHideHistorySearch() const {
   }
 
   // Performance class check.
-  std::string allowed_classes_string =
-      features::internal::kPerformanceClassListForHistorySearch.Get();
-  if (allowed_classes_string == "*" || allowed_classes_string.empty()) {
-    return SettingsVisibilityResult::kUnknown;
+  if (!IsPerformanceClassCompatible(
+          features::internal::kPerformanceClassListForHistorySearch.Get(),
+          PerformanceClassFromPref(*local_state_))) {
+    return SettingsVisibilityResult::kNotVisibleHardwareUnsupported;
   }
-
-  int perf_class = local_state_->GetInteger(
-      model_execution::prefs::localstate::kOnDevicePerformanceClass);
-  std::vector<std::string_view> allowed_classes_list = base::SplitStringPiece(
-      allowed_classes_string, ",", base::WhitespaceHandling::TRIM_WHITESPACE,
-      base::SplitResult::SPLIT_WANT_NONEMPTY);
-  return base::Contains(allowed_classes_list, base::ToString(perf_class))
-             ? SettingsVisibilityResult::kUnknown
-             : SettingsVisibilityResult::kNotVisibleHardwareUnsupported;
+  return SettingsVisibilityResult::kUnknown;
 #endif
 }
 

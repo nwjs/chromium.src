@@ -327,8 +327,9 @@ FileSystemContext::GetCopyOrMoveFileValidatorFactory(
 FileSystemBackend* FileSystemContext::GetFileSystemBackend(
     FileSystemType type) const {
   auto found = backend_map_.find(type);
-  if (found != backend_map_.end())
+  if (found != backend_map_.end()) {
     return found->second;
+  }
   NOTREACHED() << "Unknown filesystem type: " << type;
 }
 
@@ -655,7 +656,8 @@ FileSystemContext::QuotaManagedStorageTypes() {
       quota_storage_types.push_back(storage_type);
     }
   }
-  return base::MakeFlatSet<blink::mojom::StorageType>(quota_storage_types);
+  return base::flat_set<blink::mojom::StorageType>(
+      std::move(quota_storage_types));
 }
 
 std::unique_ptr<FileSystemOperation>

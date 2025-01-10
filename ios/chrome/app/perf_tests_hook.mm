@@ -77,6 +77,9 @@ std::unique_ptr<tab_groups::TabGroupSyncService> CreateTabGroupSyncService(
     ProfileIOS* profile) {
   return nullptr;
 }
+std::unique_ptr<ShareKitService> CreateShareKitService() {
+  return nullptr;
+}
 std::unique_ptr<password_manager::BulkLeakCheckServiceInterface>
 GetOverriddenBulkLeakCheckService() {
   return nullptr;
@@ -126,6 +129,10 @@ std::unique_ptr<drive::DriveService> GetOverriddenDriveService() {
 
 std::optional<std::string> FETDemoModeOverride() {
   return std::nullopt;
+}
+
+void WipeProfileIfRequested(int argc, char* argv[]) {
+  // Do nothing.
 }
 
 }  // namespace tests_hook

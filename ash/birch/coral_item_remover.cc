@@ -4,22 +4,24 @@
 
 #include "ash/birch/coral_item_remover.h"
 
+#include "ash/birch/coral_util.h"
+
 namespace ash {
 
 CoralItemRemover::CoralItemRemover() = default;
 
 CoralItemRemover::~CoralItemRemover() = default;
 
-void CoralItemRemover::RemoveItem(const coral::mojom::EntityKey& key) {
-  removed_content_items_.insert(coral_util::GetIdentifier(key));
-}
-
-void CoralItemRemover::RemoveItem(const coral::mojom::EntityKeyPtr& key) {
-  removed_content_items_.insert(coral_util::GetIdentifier(key));
+void CoralItemRemover::RemoveItem(const coral::mojom::EntityPtr& item) {
+  RemoveItem(coral_util::GetIdentifier(item));
 }
 
 void CoralItemRemover::RemoveItem(const coral::mojom::Entity& item) {
-  removed_content_items_.insert(coral_util::GetIdentifier(item));
+  RemoveItem(coral_util::GetIdentifier(item));
+}
+
+void CoralItemRemover::RemoveItem(const std::string& item_identifier) {
+  removed_content_items_.insert(item_identifier);
 }
 
 void CoralItemRemover::FilterRemovedItems(

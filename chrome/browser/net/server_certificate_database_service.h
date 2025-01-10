@@ -5,7 +5,9 @@
 #ifndef CHROME_BROWSER_NET_SERVER_CERTIFICATE_DATABASE_SERVICE_H_
 #define CHROME_BROWSER_NET_SERVER_CERTIFICATE_DATABASE_SERVICE_H_
 
+#include "base/callback_list.h"
 #include "base/functional/callback.h"
+#include "base/memory/weak_ptr.h"
 #include "base/threading/sequence_bound.h"
 #include "chrome/browser/net/server_certificate_database.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -59,6 +61,9 @@ class ServerCertificateDatabaseService : public KeyedService {
 
   ~ServerCertificateDatabaseService() override;
 
+  // Register a callback to be run every time the database is changed.
+  base::CallbackListSubscription AddObserver(base::RepeatingClosure callback);
+
   // Add or update user settings with the included certificate.
   void AddOrUpdateUserCertificate(
       net::ServerCertificateDatabase::CertInformation cert_info,
@@ -67,24 +72,27 @@ class ServerCertificateDatabaseService : public KeyedService {
   // Read all certificates from the database.
   void GetAllCertificates(GetCertificatesCallback callback);
 
-#if BUILDFLAG(IS_CHROMEOS)
-  // Migrate certificates from NSS and then read all certificates from the
-  // database. Migration will only be done once per profile. If called multiple
-  // times before migration completes, all the callbacks will be queued and
-  // processed once the migration is done. If called after migration is
-  // complete it is equivalent to calling `GetAllCertificates`.
-  void GetAllCertificatesMigrateFromNSSFirstIfNeeded(
-      GetCertificatesCallback callback);
-#endif
-
   // Run callback with `server_cert_database_`. The callback will be run on a
   // thread pool sequence where it is allowed to call methods on the database
   // object. This can be used to do multiple operations on the database without
   // repeated thread hops.
+  //
+  // TODO(https://crbug.com/40928765): This does NOT notify the observer if any
+  // changes were made. For the current use case (only used by the NSS
+  // migrator) this does not matter, but if anything else wants to use this to
+  // change the database a solution would be needed.
   void PostTaskWithDatabase(
       base::OnceCallback<void(net::ServerCertificateDatabase*)> callback);
 
+  void GetCertificatesCount(base::OnceCallback<void(uint32_t)> callback);
+
+  void DeleteCertificate(const std::string& sha256hash_hex,
+                         base::OnceCallback<void(bool)> callback);
+
  private:
+  void HandleModificationResult(base::OnceCallback<void(bool)> callback,
+                                bool success);
+
 #if BUILDFLAG(IS_CHROMEOS)
   void NSSMigrationComplete(
       ServerCertificateDatabaseNSSMigrator::MigrationResult result);
@@ -97,6 +105,10 @@ class ServerCertificateDatabaseService : public KeyedService {
   std::unique_ptr<ServerCertificateDatabaseNSSMigrator> nss_migrator_;
   std::vector<GetCertificatesCallback> get_certificates_pending_migration_;
 #endif
+
+  base::RepeatingClosureList observers_;
+
+  base::WeakPtrFactory<ServerCertificateDatabaseService> weak_factory_{this};
 };
 
 }  // namespace net

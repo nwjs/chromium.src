@@ -1329,12 +1329,13 @@ class LayerTreeHostScrollTestImplOnlyScrollSnap
       DoGestureScroll(host_impl, scroller_, impl_thread_scroll_,
                       scroller_element_id_);
 
-      EXPECT_TRUE(
-          host_impl->GetInputHandler().animating_for_snap_for_testing());
+      EXPECT_TRUE(host_impl->GetInputHandler().animating_for_snap_for_testing(
+          scroller_element_id_));
       EXPECT_VECTOR2DF_EQ(impl_thread_scroll_, ScrollDelta(scroller_impl));
     } else {
       snap_animation_finished_ =
-          !host_impl->GetInputHandler().animating_for_snap_for_testing();
+          !host_impl->GetInputHandler().animating_for_snap_for_testing(
+              scroller_element_id_);
     }
   }
 
@@ -1716,7 +1717,7 @@ class LayerTreeHostScrollTestImplScrollUnderMainThreadScrollingParent
   void SetupTree() override {
     LayerTreeHostScrollTest::SetupTree();
     GetScrollNode(layer_tree_host()->OuterViewportScrollLayerForTesting())
-        ->main_thread_scrolling_reasons =
+        ->main_thread_repaint_reasons =
         MainThreadScrollingReason::kPreferNonCompositedScrolling;
 
     scroller_ = Layer::Create();
@@ -2714,13 +2715,13 @@ class LayerTreeHostRasterPriorityTest : public LayerTreeHostScrollTest {
  public:
   void SetupTree() override {
     LayerTreeHostScrollTest::SetupTree();
-    GetViewportScrollNode()->main_thread_scrolling_reasons =
+    GetViewportScrollNode()->main_thread_repaint_reasons =
         MainThreadScrollingReason::kHasBackgroundAttachmentFixedObjects;
   }
 
   void UpdateLayerTreeHost() override {
     if (layer_tree_host()->SourceFrameNumber() == 1)
-      GetViewportScrollNode()->main_thread_scrolling_reasons =
+      GetViewportScrollNode()->main_thread_repaint_reasons =
           MainThreadScrollingReason::kNotScrollingOnMain;
   }
 

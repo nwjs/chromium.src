@@ -291,7 +291,7 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // Sets, clears or queries the has_dirty_descendants_ bit. This dirty
   // bit controls whether the object, or a descendant, needs to be visited
   // a tree walk to update the AX tree via
-  // AXObjectCacheImpl::UpdateTreeIfNeeded. It does not directly indicate
+  // AXObjectCacheImpl::FinalizeTree(). It does not directly indicate
   // whether children, parent or other pointers are actually out of date; there
   // are other dirty bits such as children_dirty_ for that.
   void SetAncestorsHaveDirtyDescendants();
@@ -336,12 +336,12 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // or the equivalent ARIA attribute, in that order.
   virtual AbstractInlineTextBox* GetInlineTextBox() const { return nullptr; }
 
-  // Returns true if |attribute| was present on |from|.
-  static bool ElementsFromAttribute(Element* from,
-                                    HeapVector<Member<Element>>& elements,
-                                    const QualifiedName& attribute);
-  static Element* ElementFromAttribute(Element* from,
-                                       const QualifiedName& attribute);
+  static const HeapVector<Member<Element>>* ElementsFromAttributeOrInternals(
+      const Element* from,
+      const QualifiedName& attribute);
+  static Element* ElementFromAttributeOrInternals(
+      const Element* from,
+      const QualifiedName& attribute);
 
   // Serialize the properties of this node into |node_data|.
   void Serialize(ui::AXNodeData* node_data,
@@ -468,8 +468,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // Is the element focusable?
   bool CanSetFocusAttribute() const { return cached_can_set_focus_attribute_; }
   bool CanSetFocusAttribute();
-  // Is the element in the tab order?
-  bool IsKeyboardFocusable() const;
 
   // Whether objects are included in the tree. Nodes that are included in the
   // tree are serialized, even if they are ignored. This allows browser-side
@@ -613,7 +611,8 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // This is intended to be faster than calling |GetName| or
   // |TextAlternative|, and without side effects (it won't call
   // AXObjectCache->GetOrCreate).
-  bool SupportsNameFromContents(bool recursive) const;
+  bool SupportsNameFromContents(bool recursive,
+                                bool consider_focus = false) const;
 
   //
   // Properties of static elements.
@@ -885,8 +884,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   bool HasAriaAttribute(bool does_undo_role_presentation = false) const;
   virtual AXObject* ActiveDescendant() const { return nullptr; }
   virtual String AutoComplete() const { return String(); }
-  virtual void AriaOwnsElements(AXObjectVector& owns) const {}
-  virtual void AriaDescribedbyElements(AXObjectVector&) const {}
   virtual AXObjectVector ErrorMessage() const { return AXObjectVector(); }
   virtual AXObjectVector ErrorMessageFromHTML() const {
     return AXObjectVector();
@@ -905,7 +902,10 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   virtual ax::mojom::blink::IsPopup IsPopup() const;
 
   // Heuristic to get the target popover for an invoking element.
-  AXObject* GetTargetPopoverForInvoker() const;
+  AXObject* GetPopoverTargetForInvoker() const;
+
+  // Heuristic to get the interest target for an invoking element.
+  AXObject* GetInterestTargetForInvoker() const;
 
   // Elements can be positioned relative to other elements with CSS anchor
   // positioning. This function returns the positioned element that should be
@@ -1522,11 +1522,10 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
                              bool* found_text_alternative) const;
   String TextFromElements(bool in_aria_labelledby_traversal,
                           AXObjectSet& visited,
-                          HeapVector<Member<Element>>& elements,
+                          const HeapVector<Member<Element>>& elements,
                           AXRelatedObjectVector* related_objects) const;
-  static bool AriaLabelledbyElementVector(
-      Element* from,
-      HeapVector<Member<Element>>& elements);
+  static bool HasAriaLabelledbyElements(Element* from);
+
   // Return true if the ame is from @aria-label / @aria-labelledby.
   static bool IsNameFromAriaAttribute(Element* element);
   // Return true if the name is from @aria-label / @aria-labelledby / @title.

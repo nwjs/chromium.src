@@ -86,6 +86,7 @@ class MockRequestHandler {
     }]
   },
   "sessionState": "ACTIVE",
+  "tachyonGroupId": "tachyon-group",
   "studentGroupConfigs": {
     "main": {
       "captionsConfig": {
@@ -290,7 +291,7 @@ TEST_F(GetSessionRequestTest, GetSessionWithFullProducerInputAndSucceed) {
 
   const std::string gaia_id = "123";
   std::unique_ptr<GetSessionRequest> request =
-      std::make_unique<GetSessionRequest>(request_sender(), gaia_id,
+      std::make_unique<GetSessionRequest>(request_sender(), true, gaia_id,
                                           future.GetCallback());
   request->OverrideURLForTesting(test_server_.base_url().spec());
   request_sender()->StartRequestWithAuthRetry(std::move(request));
@@ -310,6 +311,7 @@ TEST_F(GetSessionRequestTest, GetSessionWithFullProducerInputAndSucceed) {
   EXPECT_EQ(::boca::StudentStatus::ACTIVE,
             session->student_statuses().at("3").state());
 
+  EXPECT_EQ("tachyon-group", session->tachyon_group_id());
   ASSERT_EQ(2, session->roster().student_groups()[0].students().size());
   EXPECT_EQ(kMainStudentGroupName,
             session->roster().student_groups()[0].title());
@@ -387,7 +389,7 @@ TEST_F(GetSessionRequestTest, GetSessionWithFullConsumerInputAndSucceed) {
 
   const std::string gaia_id = "123";
   std::unique_ptr<GetSessionRequest> request =
-      std::make_unique<GetSessionRequest>(request_sender(), gaia_id,
+      std::make_unique<GetSessionRequest>(request_sender(), false, gaia_id,
                                           future.GetCallback());
   request->OverrideURLForTesting(test_server_.base_url().spec());
   request_sender()->StartRequestWithAuthRetry(std::move(request));
@@ -453,7 +455,7 @@ TEST_F(GetSessionRequestTest, CreateSessionWithDefaultInputAndSucceed) {
 
   const std::string gaia_id = "123";
   std::unique_ptr<GetSessionRequest> request =
-      std::make_unique<GetSessionRequest>(request_sender(), gaia_id,
+      std::make_unique<GetSessionRequest>(request_sender(), true, gaia_id,
                                           future.GetCallback());
   request->OverrideURLForTesting(test_server_.base_url().spec());
   request_sender()->StartRequestWithAuthRetry(std::move(request));
@@ -511,7 +513,7 @@ TEST_F(GetSessionRequestTest, CreateSessionWithEmptyInputAndSucceed) {
 
   const std::string gaia_id = "123";
   std::unique_ptr<GetSessionRequest> request =
-      std::make_unique<GetSessionRequest>(request_sender(), gaia_id,
+      std::make_unique<GetSessionRequest>(request_sender(), true, gaia_id,
                                           future.GetCallback());
   request->OverrideURLForTesting(test_server_.base_url().spec());
   request_sender()->StartRequestWithAuthRetry(std::move(request));
@@ -535,7 +537,7 @@ TEST_F(GetSessionRequestTest, CreateSessionWithFailedResponse) {
 
   const std::string gaia_id = "123";
   std::unique_ptr<GetSessionRequest> request =
-      std::make_unique<GetSessionRequest>(request_sender(), gaia_id,
+      std::make_unique<GetSessionRequest>(request_sender(), true, gaia_id,
                                           future.GetCallback());
   request->OverrideURLForTesting(test_server_.base_url().spec());
   request_sender()->StartRequestWithAuthRetry(std::move(request));

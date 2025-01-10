@@ -19,6 +19,7 @@
 #include "chrome/browser/extensions/browser_extension_window_controller.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/resource_coordinator/lifecycle_unit_state.mojom-shared.h"
 #include "chrome/browser/resource_coordinator/tab_manager.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
@@ -50,6 +51,7 @@ constexpr char kOldPositionKey[] = "oldPosition";
 constexpr char kOldWindowIdKey[] = "oldWindowId";
 constexpr char kPinnedKey[] = "pinned";
 constexpr char kAudibleKey[] = "audible";
+constexpr char kFrozenKey[] = "frozen";
 constexpr char kDiscardedKey[] = "discarded";
 constexpr char kAutoDiscardableKey[] = "autoDiscardable";
 constexpr char kMutedInfoKey[] = "mutedInfo";
@@ -300,11 +302,12 @@ void TabsEventRouter::TabPinnedStateChanged(TabStripModel* tab_strip_model,
 
 void TabsEventRouter::TabGroupedStateChanged(
     std::optional<tab_groups::TabGroupId> group,
-    tabs::TabModel* tab,
+    tabs::TabInterface* tab,
     int index) {
   std::set<std::string> changed_property_names;
   changed_property_names.insert(kGroupIdKey);
-  DispatchTabUpdatedEvent(tab->contents(), std::move(changed_property_names));
+  DispatchTabUpdatedEvent(tab->GetContents(),
+                          std::move(changed_property_names));
 }
 
 void TabsEventRouter::OnZoomControllerDestroyed(
@@ -352,23 +355,39 @@ void TabsEventRouter::OnFaviconUpdated(
   }
 }
 
-void TabsEventRouter::OnDiscardedStateChange(
-    WebContents* contents,
-    ::mojom::LifecycleUnitDiscardReason reason,
-    bool is_discarded) {
+void TabsEventRouter::OnTabLifecycleStateChange(
+    content::WebContents* contents,
+    ::mojom::LifecycleUnitState previous_state,
+    ::mojom::LifecycleUnitState new_state,
+    std::optional<LifecycleUnitDiscardReason> discard_reason) {
+  auto previous_or_new_state_is = [&](::mojom::LifecycleUnitState state) {
+    return previous_state == state || new_state == state;
+  };
+
   std::set<std::string> changed_property_names;
-  // If the "discarded" property changes, so does the "status" property:
-  // - a discarded tab has status "unloaded", and will transition to "loading"
-  //   on un-discarding; and,
-  // - a tab can only be discarded if its status is "complete" or "loading", in
-  //   which case it will transition to "unloaded".
-  changed_property_names.insert(kDiscardedKey);
-  changed_property_names.insert(kStatusKey);
-  DispatchTabUpdatedEvent(contents, std::move(changed_property_names));
+
+  if (previous_or_new_state_is(::mojom::LifecycleUnitState::DISCARDED)) {
+    // If the "discarded" property changes, so does the "status" property:
+    // - a discarded tab has status "unloaded", and will transition to "loading"
+    //   on un-discarding; and,
+    // - a tab can only be discarded if its status is "complete" or "loading",
+    //   in which case it will transition to "unloaded".
+    changed_property_names.insert(kDiscardedKey);
+    changed_property_names.insert(kStatusKey);
+  }
+
+  if (previous_or_new_state_is(::mojom::LifecycleUnitState::FROZEN)) {
+    changed_property_names.insert(kFrozenKey);
+  }
+
+  if (!changed_property_names.empty()) {
+    DispatchTabUpdatedEvent(contents, std::move(changed_property_names));
+  }
 }
 
-void TabsEventRouter::OnAutoDiscardableStateChange(WebContents* contents,
-                                                   bool is_auto_discardable) {
+void TabsEventRouter::OnTabAutoDiscardableStateChange(
+    WebContents* contents,
+    bool is_auto_discardable) {
   std::set<std::string> changed_property_names;
   changed_property_names.insert(kAutoDiscardableKey);
   DispatchTabUpdatedEvent(contents, std::move(changed_property_names));

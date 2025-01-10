@@ -64,6 +64,15 @@
   <message name="IDS_MULTIDEVICE_SETUP_PASSWORD_PAGE_WRONG_PASSWORD_LABEL" desc="Message displayed in the multi-device setup flow when the user has entered an incorrect password.">
     Wrong password
   </message>
+  <message name="IDS_MULTIDEVICE_SETUP_PASSWORD_PAGE_HEADER_FOR_PIN" desc="Header for the first page in the multi-device setup flow for PIN only users; the page displays a field in which the user must enter their PIN to continue.">
+    Enter your PIN
+  </message>
+  <message name="IDS_MULTIDEVICE_SETUP_PASSWORD_PAGE_ENTER_PIN_LABEL" desc="Default text in the field for user to enter their PIN.">
+    PIN
+  </message>
+  <message name="IDS_MULTIDEVICE_SETUP_PASSWORD_PAGE_WRONG_PIN_LABEL" desc="Message displayed in the multi-device setup flow for PIN only users; when the user has entered an incorrect PIN.">
+    Wrong PIN
+  </message>
   <message name="IDS_MULTIDEVICE_SETUP_BACK_LABEL" desc="Label for button to navigate back in MultiDevice setup workflow.">
     Back
   </message>
@@ -1692,6 +1701,21 @@
   <message name="IDS_DISCOVER_PIN_SETUP_DONE" desc="Label for the done button on the success screen in 'PIN-unlock' setup dialog.">
     Done
   </message>
+  <message name="IDS_DISCOVER_PIN_RESET_TITLE" desc="A title of the dialog asking the user to reset their PIN">
+    Reset your PIN
+  </message>
+  <message name="IDS_DISCOVER_PIN_RESET_SUBTITLE" desc="A subtitle of the dialog asking the user to reset their PIN">
+    You can use this PIN to sign in to your device
+  </message>
+  <message name="IDS_DISCOVER_PIN_RESET_SUBTITLE_CHILD" desc="A subtitle of the dialog asking the user to reset their PIN">
+    Your child can use this PIN to sign in to their device
+  </message>
+  <message name="IDS_DISCOVER_PIN_RESET_DONE_TITLE" desc="A title of the dialog that is shown to the user when their PIN has been updated during recovery.">
+    Your PIN has been updated
+  </message>
+  <message name="IDS_DISCOVER_PIN_RESET_DONE_TITLE_CHILD" desc="A title of the dialog that is shown to the user's child when their PIN has been updated during recovery.">
+    Your child’s PIN has been updated
+  </message>
   <message name="IDS_APP_START_PREPARING_PROFILE_MESSAGE" desc="Message displayed while preparing profile in which the app will be run.">
     Preparing app profile...
   </message>
@@ -1895,11 +1919,17 @@
   <message name="IDS_OFFLINE_LOGIN_PASSWORD" desc="Password field text on the offline login screen. Note: should be the same as the one used on the Gaia sign-in page.">
     Enter your password
   </message>
+  <message name="IDS_OFFLINE_LOGIN_PIN" desc="PIN field placeholder text on the offline login screen.">
+    Enter your PIN
+  </message>
   <message name="IDS_OFFLINE_LOGIN_INVALID_EMAIL" desc="Alert message about invalid email on the offline login screen. Note: should be the same as the one used on the Gaia sign-in page.">
     Please enter a valid email address
   </message>
   <message name="IDS_OFFLINE_LOGIN_INVALID_PASSWORD" desc="Alert message about mismatching email and password on the device">
     The email and password you entered don't match
+  </message>
+  <message name="IDS_OFFLINE_LOGIN_INVALID_PIN" desc="Alert message about mismatching email and PIN on the device">
+    The email and PIN you entered don't match
   </message>
   <message name="IDS_OFFLINE_LOGIN_NEXT_BUTTON_TEXT" desc="Text shown on next button during offline signin flow dialog. Note: should be the same as the one used on the Gaia sign-in page.">
     Next

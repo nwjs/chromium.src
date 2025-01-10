@@ -19,9 +19,11 @@ import static org.chromium.base.test.util.CriteriaHelper.pollUiThread;
 import static org.chromium.chrome.browser.autofill.AutofillTestHelper.singleMouseClickView;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.view.View;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.espresso.Espresso;
@@ -32,7 +34,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
@@ -76,14 +79,12 @@ public class TouchToFillIntegrationTest {
 
     @Mock private BottomSheetFocusHelper mMockFocusHelper;
 
+    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
+
     @Rule
     public ChromeTabbedActivityTestRule mActivityTestRule = new ChromeTabbedActivityTestRule();
 
     private BottomSheetController mBottomSheetController;
-
-    public TouchToFillIntegrationTest() {
-        MockitoAnnotations.initMocks(this);
-    }
 
     @Before
     public void setUp() throws InterruptedException {
@@ -349,8 +350,9 @@ public class TouchToFillIntegrationTest {
                                         }
 
                                         @Override
-                                        public int getSheetContentDescriptionStringId() {
-                                            return 0;
+                                        public @NonNull String getSheetContentDescription(
+                                                Context context) {
+                                            return "";
                                         }
 
                                         @Override

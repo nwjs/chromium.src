@@ -252,7 +252,7 @@ public class NativePageFactory {
                     mActivity,
                     mSnackbarManagerSupplier.get(),
                     mWindowAndroid.getModalDialogManager(),
-                    profile.getOTRProfileID(),
+                    profile.getOtrProfileId(),
                     new TabShim(tab, mBrowserControlsManager, mTabModelSelector));
         }
 
@@ -280,7 +280,11 @@ public class NativePageFactory {
                                             tab,
                                             mTabModelSelector.isIncognitoSelected()));
             return new RecentTabsPage(
-                    mActivity, recentTabsManager, mBrowserControlsManager, mTabStripHeightSupplier);
+                    mActivity,
+                    recentTabsManager,
+                    mBrowserControlsManager,
+                    mTabStripHeightSupplier,
+                    mEdgeToEdgeControllerSupplier);
         }
 
         protected NativePage buildManagementPage(Tab tab) {

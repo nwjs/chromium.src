@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ash/boca/on_task/on_task_extensions_manager_impl.h"
 
+#include "ash/constants/ash_features.h"
 #include "base/functional/bind.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/values.h"
@@ -87,6 +88,7 @@ void OnTaskExtensionsManagerImpl::ReEnableExtensions() {
 bool OnTaskExtensionsManagerImpl::CanDisableExtension(
     const Extension* extension) {
   CHECK(extension);
+
   bool is_component_extension =
       extensions::Manifest::IsComponentLocation(extension->location());
   const ManagementPolicy* const policy =
@@ -100,8 +102,7 @@ bool OnTaskExtensionsManagerImpl::CanEnableExtension(
   CHECK(extension);
   const ManagementPolicy* const policy =
       ExtensionSystem::Get(profile_)->management_policy();
-  return !policy->MustRemainDisabled(extension, /*reason=*/nullptr,
-                                     /*error=*/nullptr);
+  return !policy->MustRemainDisabled(extension, /*reason=*/nullptr);
 }
 
 void OnTaskExtensionsManagerImpl::SaveDisabledExtensionIds(

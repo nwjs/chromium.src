@@ -47,6 +47,7 @@
 #include "base/timer/elapsed_timer.h"
 #include "base/types/optional_util.h"
 #include "build/build_config.h"
+#include "components/guest_view/buildflags/buildflags.h"
 #include "components/keyed_service/content/browser_context_keyed_service_shutdown_notifier_factory.h"
 #include "components/keyed_service/core/keyed_service_shutdown_notifier.h"
 #include "content/public/browser/browser_context.h"
@@ -998,8 +999,7 @@ class ExtensionURLLoaderFactory : public network::SelfDeletingURLLoaderFactory {
 
     content::BrowserContext* GetBrowserContextToUse(
         content::BrowserContext* context) const override {
-      return ExtensionsBrowserClient::Get()->GetContextOwnInstance(
-          context, /*force_guest_profile=*/true);
+      return ExtensionsBrowserClient::Get()->GetContextOwnInstance(context);
     }
   };
 

@@ -264,6 +264,29 @@ public class TabStateAttributesTest {
     }
 
     @Test
+    public void testLoadStopped_NTPInTabGroup() {
+        TabStateAttributes.createForTab(mTab, TabCreationState.FROZEN_ON_RESTORE);
+        RewindableIterator<TabObserver> observers = TabTestUtils.getTabObservers(mTab);
+        TabStateAttributes.from(mTab).addObserver(mAttributesObserver);
+
+        assertEquals(
+                TabStateAttributes.DirtinessState.CLEAN,
+                TabStateAttributes.from(mTab).getDirtinessState());
+
+        mTab.setUrl(new GURL(UrlConstants.NTP_URL));
+        mTab.setTabGroupId(new Token(1L, 2L));
+
+        while (observers.hasNext()) {
+            observers.next().onLoadStopped(mTab, /* toDifferentDocument= */ true);
+        }
+        assertEquals(
+                TabStateAttributes.DirtinessState.DIRTY,
+                TabStateAttributes.from(mTab).getDirtinessState());
+        verify(mAttributesObserver)
+                .onTabStateDirtinessChanged(mTab, TabStateAttributes.DirtinessState.DIRTY);
+    }
+
+    @Test
     public void testHide() {
         TabStateAttributes.createForTab(mTab, TabCreationState.FROZEN_ON_RESTORE);
         assertEquals(
@@ -492,6 +515,38 @@ public class TabStateAttributesTest {
                 .onTabStateDirtinessChanged(mTab, TabStateAttributes.DirtinessState.UNTIDY);
         verify(mAttributesObserver, never())
                 .onTabStateDirtinessChanged(mTab, TabStateAttributes.DirtinessState.DIRTY);
+    }
+
+    @Test
+    public void testTabUnarchived() {
+        TabStateAttributes.createForTab(mTab, TabCreationState.FROZEN_ON_RESTORE);
+        TabStateAttributes.from(mTab).addObserver(mAttributesObserver);
+        assertEquals(
+                TabStateAttributes.DirtinessState.CLEAN,
+                TabStateAttributes.from(mTab).getDirtinessState());
+
+        mTab.onTabRestoredFromArchivedTabModel();
+        assertEquals(
+                TabStateAttributes.DirtinessState.DIRTY,
+                TabStateAttributes.from(mTab).getDirtinessState());
+        verify(mAttributesObserver)
+                .onTabStateDirtinessChanged(mTab, TabStateAttributes.DirtinessState.DIRTY);
+        TabStateAttributes.from(mTab).clearTabStateDirtiness();
+
+        mTab.setUrl(new GURL(UrlConstants.NTP_URL));
+        mTab.onTabRestoredFromArchivedTabModel();
+        assertEquals(
+                TabStateAttributes.DirtinessState.DIRTY,
+                TabStateAttributes.from(mTab).getDirtinessState());
+        verify(mAttributesObserver, times(2))
+                .onTabStateDirtinessChanged(mTab, TabStateAttributes.DirtinessState.DIRTY);
+        TabStateAttributes.from(mTab).clearTabStateDirtiness();
+
+        mTab.setUrl(new GURL(UrlConstants.CONTENT_SCHEME + "://hello_world"));
+        mTab.onTabRestoredFromArchivedTabModel();
+        assertEquals(
+                TabStateAttributes.DirtinessState.CLEAN,
+                TabStateAttributes.from(mTab).getDirtinessState());
     }
 
     @Test

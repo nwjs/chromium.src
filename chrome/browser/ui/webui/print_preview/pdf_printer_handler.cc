@@ -63,8 +63,6 @@
 #include "chrome/browser/ui/ash/holding_space/holding_space_keyed_service.h"
 #include "chrome/browser/ui/ash/holding_space/holding_space_keyed_service_factory.h"
 #include "components/user_manager/user.h"
-#elif BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "chrome/common/chrome_paths_lacros.h"
 #endif
 
 #if defined(USE_AURA)
@@ -263,7 +261,7 @@ void PdfPrinterHandler::Reset() {
 void PdfPrinterHandler::StartGetPrinters(
     AddedPrintersCallback added_printers_callback,
     GetPrintersDoneCallback done_callback) {
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void PdfPrinterHandler::StartGetCapability(const std::string& destination_id,
@@ -540,11 +538,6 @@ base::FilePath PdfPrinterHandler::GetSaveLocation() const {
   if (use_drive_mount_ && drive_service && drive_service->IsMounted()) {
     return drive_service->GetMountPointPath().Append(
         drive::util::kDriveMyDriveRootDirName);
-  }
-#elif BUILDFLAG(IS_CHROMEOS_LACROS)
-  base::FilePath drivefs;
-  if (use_drive_mount_ && chrome::GetDriveFsMountPointPath(&drivefs)) {
-    return drivefs.Append(drive::util::kDriveMyDriveRootDirName);
   }
 #endif
   DownloadPrefs* download_prefs = DownloadPrefs::FromBrowserContext(profile_);

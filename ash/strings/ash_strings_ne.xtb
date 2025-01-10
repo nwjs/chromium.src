@@ -308,7 +308,6 @@
 <translation id="2041220428661959602">बाँकी ब्याट्री: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848"><ph name="SIX_PACK_KEY_NAME" /> सर्टकट अहिले अफ छ</translation>
 <translation id="2049240716062114887">डेस्कको नाम बदलेर <ph name="DESK_NAME" /> बनाइयो</translation>
-<translation id="2050339315714019657">पोर्ट्रेट</translation>
 <translation id="2064048859448024834">क्यामेरामा फोटोको प्रिभ्यू हेर्ने सुविधा अन छ</translation>
 <translation id="2065098273523946419">थप जानकारी भएको पेजमा जाने लिंक। एक्टिभेट गरिँदा रिडिरेक्ट गरी ब्राउजरमा लैजानुहोस्</translation>
 <translation id="2067220651560163985">तापक्रम सेल्सियसमा देखाउनुहोस्</translation>
@@ -339,9 +338,6 @@
 <translation id="219905428774326614">लन्चर, सबै एपहरू</translation>
 <translation id="2201071101391734388">हालसालैका <ph name="TOTAL_COUNT" /> वटा फोटोमध्ये <ph name="INDEX" /> औँ फोटो।</translation>
 <translation id="2201687081523799384">Google Tasks कोल्याप्स गर्नुहोस्</translation>
-<translation id="2206960886090042977">माउस कनेक्ट गरिएकाले यो अन्तर्निर्मित टचप्याड अफ गरिएको छ। यो परिवर्तनको पुष्टि गर्न माउस वा किबोर्ड प्रयोग गर्नुहोस्।
-
-अन्यथा यो अन्तर्निर्मित टचप्याड ३० सेकेन्डमा फेरि अन गरिने छ।</translation>
 <translation id="2208323208084708176">एकीकृत डेस्कटप मोड</translation>
 <translation id="2220572644011485463">PIN वा पासवर्ड</translation>
 <translation id="2222841058024245321">डेस्क ७</translation>
@@ -504,6 +500,9 @@
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> देखि <ph name="KEY_TWO" /> सम्म थिच्नुहोस्</translation>
 <translation id="2778197796481941784">ctrl+search+s</translation>
 <translation id="2778650143428714839"><ph name="MANAGER" /> ले <ph name="DEVICE_TYPE" /> व्यवस्थापन गर्छ</translation>
+<translation id="2781658180588759579">यो अन्तर्निर्मित टचप्याड अफ गरिएको छ। यो परिवर्तनको पुष्टि गर्न आफ्नो किबोर्ड वा अर्को पोइन्टर डिभाइस प्रयोग गर्नुहोस्।
+
+अन्यथा यो अन्तर्निर्मित टचप्याड <ph name="TIMEOUT_SECONDS" /> मा फेरि अन गरिने छ।</translation>
 <translation id="2782591952652094792">क्याप्चर मोडबाट बाहिर निस्कनुहोस्</translation>
 <translation id="2785499565474703580">एउटा डिभाइस कनेक्ट गरिएको छ</translation>
 <translation id="2791421900609674576">तपाईं आफूले छाडेकै ठाउँबाट जारी राख्न सक्नुहोस् भन्नाका लागि तपाईंलाई सिफारिसहरू देखाइने छन्।  तपाईं टच एण्ड होल्ड गरेर ती सिफारिसहरू हटाउन सक्नुहुन्छ।</translation>
@@ -576,7 +575,7 @@
 <translation id="3033545621352269033">अन</translation>
 <translation id="3033912566804961911"><ph name="DESK_NAME" /> मा संयोजन गर्नुहोस्</translation>
 <translation id="3036649622769666520">खुल्ला फाइलहरू</translation>
-<translation id="3038571455154067151">साइन इन गर्न आफ्नो Family Link को अभिभावकको पहुँचसम्बन्धी कोड हाल्नुहोस्</translation>
+<translation id="3038571455154067151">साइन इन गर्न Family Link बाट प्राप्त अभिभावकको एक्सेस कोड हाल्नुहोस्</translation>
 <translation id="3039939407102840004">स्टाइलसको ब्याट्री <ph name="PERCENTAGE" /> प्रतिशत बाँकी छ।</translation>
 <translation id="304097922505898963">Key Shortcuts एप खोल्नुहोस्</translation>
 <translation id="304417730895741346">तपाईंका पिन गरिएका तथा खुला रहेका एपहरू सेल्फमा देखिन्छन्। सेल्फमा कुनै एप पिन गर्न सो एपमा राइट क्लिक गर्नुहोस् वा दुई वटा औँलाले टचप्याडमा ट्याप गर्नुहोस्।</translation>
@@ -601,6 +600,9 @@
 <translation id="3113492864356515707">सेल्फमा भएको अघिल्लो वस्तु हाइलाइट गर्नुहोस्</translation>
 <translation id="311799651966070385">रिमाइन्डर बन्द गर्नुहोस्</translation>
 <translation id="3120421559657122717">यो डिभाइस सट डाउन गर्ने हो?</translation>
+<translation id="3121411970001795539">माउस कनेक्ट गरिएकाले यो अन्तर्निर्मित टचप्याड अफ गरिएको छ। यो परिवर्तनको पुष्टि गर्न माउस वा किबोर्ड प्रयोग गर्नुहोस्।
+
+अन्यथा यो अन्तर्निर्मित टचप्याड <ph name="TIMEOUT_SECONDS" /> मा फेरि अन गरिने छ।</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">कक्षाकार्यको प्रकार</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +973,13 @@
 <translation id="4322742403972824594">Ctrl + Alt + अप एरो किबोर्ड सर्टकट परिवर्तन गरिएको छ। Home की प्रयोग गर्न <ph name="LAUNCHER_KEY_NAME" /> की + लेफ्ट एरो थिच्नुहोस्।</translation>
 <translation id="4324840740119394760">यसले <ph name="APP_NAME" /> र क्यामेरा प्रयोग गर्ने अनुमति भएका सबै एप तथा वेबसाइटहरूलाई क्यामेरा प्रयोग गर्ने अनुमति दिन्छ</translation>
 <translation id="4327147325944669226">गेम रेकर्ड गर्नुहोस्</translation>
-<translation id="4333628967105022692">एकभन्दा बढी प्रयोगकर्ताहरू साइन इन अवस्थामा हुँदा Lacros ले काम गर्दैन।</translation>
 <translation id="4338109981321384717">म्याग्निफाइङ्ग ग्लास</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, म्युट गरिएको</translation>
 <translation id="4351244548802238354">सम्बाद बन्द गर्नुहोस्</translation>
 <translation id="4356872429719185452">हटस्पटसम्बन्धी विवरणहरू देखाउनुहोस्। हटस्पट अन हुँदै छ।</translation>
 <translation id="4364101114148522660"><ph name="DURATION" />  रेकर्ड गरिँदै छ</translation>
 <translation id="4371348193907997655">कास्टका सेटिङहरू</translation>
+<translation id="4371834685492830207">PIN मा अनिवार्य रूपमा वैध वर्णहरू मात्र समावेश हुनु पर्छ</translation>
 <translation id="4375482231364171368">एड्रेस बारमा खोज्नुहोस्</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, सिग्नलको क्षमता <ph name="SIGNAL_STRENGTH" /> प्रतिशत छ</translation>
 <translation id="4378551569595875038">जडान गर्दै...</translation>
@@ -1143,6 +1145,7 @@
 <translation id="4902797682482387055">फोकस गर्न सिफारिस गरिएको कार्य</translation>
 <translation id="490375751687810070">ठाडो</translation>
 <translation id="490788395437447240">ब्याट्री <ph name="BATTERY_PERCENTAGE" />% छ</translation>
+<translation id="4911191962826748981">यो परीक्षणका क्रममा रहेको AI सुविधा भएकाले यसले सधैँ सही जानकारी नदिन सक्छ।</translation>
 <translation id="491504982845934899">डिभाइस सेटअप गरेपछि <ph name="NETWORK_NAME" /> एक्टिभेट गर्नुहोस्</translation>
 <translation id="4917385247580444890">बलियो</translation>
 <translation id="4918086044614829423">स्वीकार्नुहोस्</translation>
@@ -1301,6 +1304,7 @@
 <translation id="5393156353051693207">तपाईं आफ्ना एपहरूको क्रम पुनः मिलाउन चाहनुहुन्छ भने कुनै पनि ठाउँमा टच एण्ड होल्ड गर्नुहोस्</translation>
 <translation id="5395308026110844773"><ph name="IN_PLACE_APP" /> का माथि <ph name="DRAGGED_APP_NAME" />, फोल्डर सिर्जना गर्न विमोचन गर्नुहोस्।</translation>
 <translation id="5397578532367286026">यो प्रयोगकर्ताको उपयोग र इतिहासलाई व्यवस्थापक (<ph name="MANAGER_EMAIL" />) ले chrome.com मा पुनरीक्षण गर्न सक्छ।</translation>
+<translation id="540338817371815859">ल्यान्डस्केप</translation>
 <translation id="540713187982329711">हटस्पट टगल गर्नुहोस्। हटस्पट अन छ, कुनै पनि डिभाइस कनेक्ट गरिएको छैन।</translation>
 <translation id="5409208741270395213">यो कार्यलाई सम्पन्न गरिएको कार्यका रूपमा चिन्ह लगाउनुहोस्</translation>
 <translation id="5413656666631274079">सेटिङको पेज</translation>
@@ -1472,7 +1476,6 @@
 <translation id="5975235751479998104">विन्डोहरू सुल्टो क्रमअनुसार पालैपालो हेर्नुहोस्</translation>
 <translation id="5978382165065462689">रिमोट सहायता मार्फत तपाईँको स्क्रीन नियन्त्रण साझेदारी गर्दै।</translation>
 <translation id="5980301590375426705">अतिथि सत्रबाट निस्कनु…</translation>
-<translation id="5982119059638483922">रद्द गर्न Fn र सर्च वा सिफ्ट की थिच्नुहोस्।</translation>
 <translation id="5983567367406220847">कुनै पनि क्रियाकलाप नगरिएको हुनाले हटस्पट अफ गरिएको छ।</translation>
 <translation id="598407983968395253">टेम्प्लेट प्रयोग गर्नुहोस्</translation>
 <translation id="5986723678596105470">Google Meet मार्फत सामेल हुनुहोस्</translation>
@@ -1542,7 +1545,6 @@
 <translation id="6166852626429024716">आफ्नो यन्त्र, एप, सेटिङ, वेबमा खोज्नुहोस्...</translation>
 <translation id="6168318496333165060">Diagnostics एप खोल्नुहोस्</translation>
 <translation id="6168622430237609329">इन्स्टल गरिएका एपहरू</translation>
-<translation id="6173151025443907148">Lacros अन गरिएको छ भने अर्का प्रयोगकर्ताले साइन इन गर्न सक्नुहुन्न। कृपया Lacros मा अर्को ब्राउजर प्रोफाइल प्रयोग गर्नुहोस् वा Lacros अफ गर्नुहोस् अनि फेरि प्रयास गर्नुहोस्।</translation>
 <translation id="6179832488876878285">तपाईं यहाँ आफ्ना महत्त्वपूर्ण फाइलहरू पिन गर्न सक्नुहुन्छ। पिन गर्न थाल्न फाइलहरू नामक एप खोल्नुहोस्।</translation>
 <translation id="6180193585172850042">"पछाडि" बटन</translation>
 <translation id="6180651297859206670">फर्वार्ड बटन</translation>
@@ -1564,6 +1566,7 @@
 <translation id="6232416233079464213"><ph name="SESSION_NAME" /> मार्फत</translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> ले हाल तपाईंको क्यामेरा र माइक्रोफोन प्रयोग गरिरहेको छ</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">पासवर्डमा अनिवार्य रूपमा वैध वर्णहरू मात्र समावेश हुनु पर्छ</translation>
 <translation id="6240603910551255087">सिरानको बटन</translation>
 <translation id="6240821072888636753">हरेक पटक सोध्नुहोस्</translation>
 <translation id="6247728804802644171">सूचनाहरू खोल्नुहोस्</translation>
@@ -1694,7 +1697,6 @@
 <translation id="6682029141988159141">क्लिपबोर्डमा भएको सामग्री पेस्ट गर्नुहोस्</translation>
 <translation id="6683022854667115063">हेडफोन</translation>
 <translation id="6686023075541098243">आफ्नो फोनमा भएका सूचनाहरू हेर्ने सुविधा सेटअप गर्नुहोस्</translation>
-<translation id="6688019813898140556">Esc की ५ पटक</translation>
 <translation id="6694462491298752106">अन्तर्निर्मित टचप्याड अफ गरिएको छ</translation>
 <translation id="6694973220096431421">Google Drive मा खोज्नुहोस्</translation>
 <translation id="6696025732084565524">तपाईंको अलग्याउन मिल्ने किबोर्डलाई महत्त्वपूर्ण अद्यावधिक आवश्यक छ</translation>
@@ -1715,6 +1717,7 @@
 <translation id="6751826523481687655">प्रदर्शन ट्रेस गरिँदै छ</translation>
 <translation id="6752912906630585008">डेस्क <ph name="REMOVED_DESK" /> हटाइयो र डेस्क <ph name="RECEIVE_DESK" /> मा गाभियो</translation>
 <translation id="6753390234084146956">ट्याब</translation>
+<translation id="6754918760968695779">क्विक इन्सर्ट</translation>
 <translation id="6757237461819837179">कुनै मिडिया प्ले भइरहेको छैन</translation>
 <translation id="6760438044935091345">गेम ड्यासबोर्ड</translation>
 <translation id="6768043681523654438">भण्डारण</translation>
@@ -1764,6 +1767,7 @@
 <translation id="6921427376813842559">डिभाइस अपडेट गर्नुहोस्</translation>
 <translation id="6929081673585394903">सेटिङ देखाउनुहोस्</translation>
 <translation id="6931576957638141829">यसमा सेभ गर्नुहोस्</translation>
+<translation id="6935857786205183008">पोर्ट्रेट</translation>
 <translation id="6942518653766415536">रेकर्डिङको फर्म्याटसम्बन्धी मेनु</translation>
 <translation id="6945221475159498467">चयन गर्नुहोस्</translation>
 <translation id="6945922087561257829">तपाईंको फोनमा मोबाइल नेटवर्क प्रयोग गरिराखिएको छ। तपाईंको फोन र Chromebook एउटै Wi-Fi नेटवर्कमा कनेक्ट गरिएका छन् भन्ने कुरा सुनिश्चित गर्नुहोस्। <ph name="LEARN_MORE" /></translation>
@@ -1882,7 +1886,7 @@
 <translation id="7392563512730092880">तपाईं पछि जुनसुकै बेला सेटिङमा गई सेट अप गर्न सक्नुहुन्छ।</translation>
 <translation id="7401222354741467707">पूर्ण स्क्रिनसट लिनुहोस् वा स्क्रिन रेकर्डिङ गर्नुहोस्</translation>
 <translation id="7401788553834047908">फोकस मोड अन हुँदा Do Not Disturb अन गर्नुहोस्</translation>
-<translation id="7405710164030118432">डिभाइस अनलक गर्न आफ्नो Family Link को अभिभावकको पहुँचसम्बन्धी कोड हाल्नुहोस्‌</translation>
+<translation id="7405710164030118432">डिभाइस अनलक गर्न Family Link बाट प्राप्त अभिभावकको एक्सेस कोड हाल्नुहोस्</translation>
 <translation id="7406608787870898861">आफ्नो मोबाइल नेटवर्क सेटअप गर्ने कार्य पूरा गर्नुहोस्</translation>
 <translation id="7406854842098869085"><ph name="MODIFIER_1" /> थिचिराख्नुहोस्, आफूले खोल्न चाहेको विन्डोमा नपुगुन्जेल <ph name="KEY" /> मा ट्याप गर्नुहोस् अनि छाड्नुहोस्</translation>
 <translation id="740790383907119240">एपका सर्टकटहरू</translation>
@@ -1920,9 +1924,6 @@
 डिभाइस सट डाउन गर्न डिभाइसमा रहेको पावर बटन फेरि थिचिराख्नुहोस्।</translation>
 <translation id="7523420897035067483">फोकस मोड अन हुँदा Do Not Disturb अन गर्नुहोस्</translation>
 <translation id="7524043547948122239">Google Tasks</translation>
-<translation id="7524919752437339268">यो अन्तर्निर्मित टचप्याड अफ गरिएको छ। यो परिवर्तनको पुष्टि गर्न आफ्नो किबोर्ड वा अर्को पोइन्टर डिभाइस प्रयोग गर्नुहोस्।
-
-अन्यथा यो अन्तर्निर्मित टचप्याड ३० सेकेन्डमा फेरि अन गरिने छ।</translation>
 <translation id="7525067979554623046">सिर्जना गर्नुहोस्</translation>
 <translation id="7526573455193969409">नेटवर्कको अनुगमन गरिने सम्भावना छ</translation>
 <translation id="7536035074519304529">IP एड्रेस: <ph name="ADDRESS" /></translation>
@@ -2009,6 +2010,7 @@
 <translation id="780301667611848630">पर्दैन, धन्यवाद</translation>
 <translation id="7807067443225230855">खोज र सहायक</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> र <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">तपाईं थम्ज अप बटनमा क्लिक गरेर आफूलाई यो सुझाव मन परेको जनाउने प्रतिक्रिया पेस गर्न सक्नुहुन्छ</translation>
 <translation id="7825412704590278437">पात्रोमा सेट गरिएको आगामी कार्यक्रमबाट लिइएको</translation>
 <translation id="7829386189513694949">बलियो सिग्नल</translation>
 <translation id="7830453190047749513">तपाईं <ph name="PERIPHERAL_NAME" /> का लागि बटनमार्फत गरिने कारबाही, कर्सरको गतिलगायतका कुराहरू पर्सनलाइज गर्न सक्नुहुन्छ</translation>
@@ -2163,6 +2165,7 @@
 <translation id="830868413617744215">बेटा</translation>
 <translation id="8314772463905284467">क्याप्स लक अन छ</translation>
 <translation id="8315514906653279104">अन हुँदै छ…</translation>
+<translation id="8319634750346253957">तपाईं थम्ज डाउन बटनमा क्लिक गरेर आफूलाई यो सुझाव मन नपरेको जनाउने प्रतिक्रिया पेस गर्न सक्नुहुन्छ</translation>
 <translation id="8331351032546853669">डाउनलोड गर्न बाँकी छ</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2248,7 +2251,7 @@
 <translation id="8639760480004882931"><ph name="PERCENTAGE" /> बाँकी छ</translation>
 <translation id="8641510901370802679"><ph name="ANSWER_TYPE" /> सम्बन्धी जानकारी देखाइँदै छ</translation>
 <translation id="8646417893960517480"><ph name="TOTAL_TIME" /> टाइमर</translation>
-<translation id="8647931990447795414">कुनै व्यक्ति थप्न आफ्नो Family Link को अभिभावकको पहुँचसम्बन्धी कोड हाल्नुहोस्</translation>
+<translation id="8647931990447795414">कुनै व्यक्ति थप्न Family Link बाट प्राप्त अभिभावकको एक्सेस कोड हाल्नुहोस्</translation>
 <translation id="8649597172973390955">सेल्फ सधैँ देखिने छ</translation>
 <translation id="8652175077544655965">सेटिङहरू बन्द गर्नुहोस्</translation>
 <translation id="8653151467777939995">सूचनासम्बन्धी सेटिङहरू देखाउनुहोस्। सूचनाहरू सक्रिय छन्</translation>
@@ -2348,12 +2351,13 @@
 <translation id="8982906748181120328">नजिकैका यन्त्रमा फेला पर्ने</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590"><ph name="IME_NAME" /> प्रयोग गरिँदै</translation>
+<translation id="8991648557324317894">रद्द गर्न fn + क्विक इन्सर्ट वा सिफ्ट थिच्नुहोस्।</translation>
 <translation id="899350903320462459">सूचनासम्बन्धी कारबाही गर्न यन्त्रलाई <ph name="LOGIN_ID" /> का रूपमा अनलक गर्नुहोस्</translation>
 <translation id="8993733019280019776">तपाईं बोल्दै हुनुहुन्छ? तपाईंको माइक अफ छ। माइक चयन गरेर सो माइक अन गर्नुहोस्।</translation>
 <translation id="9000771174482730261">भण्डारण व्यवस्थापन गर्नुहोस्</translation>
 <translation id="9003374957546315126">इमोजी तथा थप सामग्री</translation>
 <translation id="9005984960510803406">Crosh विन्डो खोल्नुहोस्‌</translation>
-<translation id="9017320285115481645">Family Link को अभिभावकको पहुँचसम्बन्धी कोड हाल्नुहोस्।</translation>
+<translation id="9017320285115481645">Family Link बाट प्राप्त अभिभावकको एक्सेस कोड हाल्नुहोस्।</translation>
 <translation id="9024331582947483881">फुल स्क्रिन</translation>
 <translation id="9029736946581028033">डिभाइस चाँडै नै पावर डाउन हुने छ</translation>
 <translation id="9030319654231318877">सूर्यास्त नहुँदासम्म अफ</translation>
@@ -2430,9 +2434,9 @@
 <translation id="974545358917229949"><ph name="RESULT_COUNT" /> सम्बन्धी <ph name="QUERY" /> परिणामहरू देखाउँदै</translation>
 <translation id="981011780479609956">पूरा गर्नु पर्ने मिति नतोकिएका</translation>
 <translation id="98120814841227350">कागजातको फेदमा जानुहोस्</translation>
-<translation id="98515147261107953">ल्यान्डस्केप</translation>
 <translation id="987589956647469042">मोबाइल डेटा अन गरिएको छ</translation>
 <translation id="989374776391122812">क्यामेरा तथा अडियो कन्ट्रोलहरू</translation>
+<translation id="990263227494928142">टचप्याड अन गर्न सिफ्ट की ५ पटक थिच्नुहोस्</translation>
 <translation id="990277280839877440">विन्डो <ph name="WINDOW_TITILE" /> बन्द गरियो।</translation>
 <translation id="993398562350683614"><ph name="TOTAL_STEPS" /> मध्ये <ph name="STEP" /> औँ चरण। तपाईंले <ph name="PRODUCT_NAME" /> मा गर्नु पर्ने सबै कार्य गर्न एपहरू प्रयोग गर्नुहोस्। तपाईं लन्चरमा गई आफ्ना एपहरू भेट्टाउन सक्नुहुन्छ। लन्चर बटनमा फोकस गर्न Alt + सिफ्ट + L थिच्नुहोस्।</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

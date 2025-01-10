@@ -10,6 +10,7 @@ import("//build/config/rust.gni")
 import("//build/config/sanitizers/sanitizers.gni")
 import("//build/rust/rust_static_library.gni")
 import("//gpu/vulkan/features.gni")
+import("//skia/skia.gni")
 import("//testing/test.gni")
 import("//third_party/skia/gn/shared_sources.gni")
 import("//third_party/skia/modules/skcms/skcms.gni")
@@ -59,8 +60,8 @@ rust_static_library("bridge_rust_side") {
   deps = [
     ":path_bridge",
     "//third_party/rust/font_types/v0_7:lib",
-    "//third_party/rust/read_fonts/v0_22:lib",
-    "//third_party/rust/skrifa/v0_23:lib",
+    "//third_party/rust/read_fonts/v0_23:lib",
+    "//third_party/rust/skrifa/v0_24:lib",
   ]
   configs -= [ "//build/config/compiler:chromium_code" ]
   configs += [
@@ -897,7 +898,7 @@ source_set("skcms") {
 # these source sets are considered unknown and skipped by gn check.
 if (skia_support_gpu) {
   skia_source_set("skia_graphite_public") {
-    public = skia_graphite_public
+    public = skia_graphite_public + skia_graphite_precompile_public
     if (skia_use_dawn) {
       public += skia_graphite_dawn_public
       public_deps = [
@@ -915,7 +916,7 @@ if (skia_support_gpu) {
   # If a source set contains only sources and no public files, then dependents can
   # include any file from sources.
   skia_source_set("skia_graphite_private") {
-    sources = skia_graphite_sources
+    sources = skia_graphite_sources + skia_graphite_precompile_sources
     if (skia_use_dawn) {
       sources += skia_graphite_dawn_sources
     }

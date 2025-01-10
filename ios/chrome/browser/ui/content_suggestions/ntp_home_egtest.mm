@@ -156,13 +156,14 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   // Disable search suggestions so that the omnibox popup does not appear.
   [ChromeEarlGrey setBoolValue:NO forUserPref:prefs::kSearchSuggestEnabled];
 
-  [self closeAllTabs];
-  [ChromeEarlGrey clearBrowsingHistory];
+  if (![ChromeTestCase forceRestartAndWipe]) {
+    [self closeAllTabs];
+    [ChromeEarlGrey clearBrowsingHistory];
+  }
 }
 
 + (void)tearDown {
   [self closeAllTabs];
-
   [super tearDown];
 }
 
@@ -214,6 +215,9 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
 
 - (void)setUp {
   [super setUp];
+  if ([ChromeTestCase forceRestartAndWipe]) {
+    [NTPHomeTestCase setUpHelper];
+  }
   [ChromeEarlGrey setBoolValue:YES forUserPref:prefs::kArticlesForYouEnabled];
   [ChromeEarlGrey setBoolValue:YES
                    forUserPref:feed::prefs::kArticlesListVisible];
@@ -222,13 +226,13 @@ bool AreNumbersEqual(CGFloat num1, CGFloat num2) {
   [NewTabPageAppInterface disableSetUpList];
 }
 
-- (void)tearDown {
+- (void)tearDownHelper {
   [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationPortrait error:nil];
   [SearchEnginesAppInterface setSearchEngineTo:self.defaultSearchEngine];
 
   [self resetCustomizationPrefs];
 
-  [super tearDown];
+  [super tearDownHelper];
 }
 
 #pragma mark - Tests

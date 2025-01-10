@@ -14,6 +14,7 @@
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/containers/contains.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/environment.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
@@ -194,6 +195,8 @@
 #include "ui/base/l10n/l10n_util.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
+#include "ash/constants/ash_switches.h"
+#include "base/command_line.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/ash/account_manager/account_manager_util.h"
 #include "chrome/browser/ash/app_mode/app_launch_utils.h"
@@ -209,6 +212,7 @@
 #include "chrome/browser/ash/settings/device_settings_service.h"
 #include "chrome/browser/signin/chrome_device_id_helper.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #include "chromeos/ash/components/standalone_browser/browser_support.h"
 #include "chromeos/ash/components/standalone_browser/lacros_selection.h"
 #include "components/account_manager_core/chromeos/account_manager.h"
@@ -450,7 +454,21 @@ ProfileImpl::ProfileImpl(
   DCHECK(!path.empty()) << "Using an empty path will attempt to write "
                         << "profile files to the root directory!";
 
-  if (path == ProfileManager::GetGuestProfilePath()) {
+#if BUILDFLAG(IS_CHROMEOS)
+  // In ChromeOS Guest Mode, there can be only three profiles, main guest
+  // profile, otr guest profile and sign in profile, and only main and otr ,
+  // which are 'user profile', should be the guest
+  bool is_guest_session = path == ProfileManager::GetGuestProfilePath();
+  if (new_guest_profile_impl_) {
+    is_guest_session = base::CommandLine::ForCurrentProcess()->HasSwitch(
+                           ash::switches::kGuestSession) &&
+                       ash::IsUserBrowserContextBaseName(path_.BaseName());
+  }
+#else
+  bool is_guest_session = path == ProfileManager::GetGuestProfilePath();
+#endif
+
+  if (is_guest_session) {
     profile_metrics::SetBrowserProfileType(
         this, profile_metrics::BrowserProfileType::kGuest);
 #if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
@@ -646,7 +664,6 @@ void ProfileImpl::LoadPrefsForNormalStartup(bool async_prefs) {
     ash::standalone_browser::BrowserSupport::InitializeForPrimaryUser(
         map, IsNewProfile(), IsRegularProfile());
     crosapi::browser_util::CacheLacrosAvailability(map);
-    crosapi::browser_util::CacheLacrosDataBackwardMigrationMode(map);
     ash::standalone_browser::CacheLacrosSelection(map);
   }
 #endif
@@ -841,17 +858,15 @@ void ProfileImpl::DoFinalInit(CreateMode create_mode) {
 #else
 
 #if BUILDFLAG(ENABLE_PDF)
-  if (features::IsPdfOcrEnabled()) {
-    bool pcf_ocr_may_be_needed = true;
+  bool pcf_ocr_may_be_needed = true;
 #if BUILDFLAG(IS_CHROMEOS)
-    // `PdfOcrControllerFactory` is not needed in the not-signed-in profile of
-    // ChromeOS as no user navigation to PDFs is possible there.
-    pcf_ocr_may_be_needed = IsSignedIn();
+  // `PdfOcrControllerFactory` is not needed in the not-signed-in profile of
+  // ChromeOS as no user navigation to PDFs is possible there.
+  pcf_ocr_may_be_needed = IsSignedIn();
 #endif
-    // Create the PDF OCR controller so that it can self-activate as needed.
-    if (pcf_ocr_may_be_needed) {
-      screen_ai::PdfOcrControllerFactory::GetForProfile(this);
-    }
+  // Create the PDF OCR controller so that it can self-activate as needed.
+  if (pcf_ocr_may_be_needed) {
+    screen_ai::PdfOcrControllerFactory::GetForProfile(this);
   }
 #endif  // BUILDFLAG(ENABLE_PDF)
 
@@ -1004,6 +1019,17 @@ Profile* ProfileImpl::GetOffTheRecordProfile(const OTRProfileID& otr_profile_id,
 
   if (!create_if_needed)
     return nullptr;
+  if (IsGuestSession()) {
+    // Guest Session has only one primary OTR.
+#if BUILDFLAG(IS_CHROMEOS)
+    CHECK_EQ(otr_profile_id, OTRProfileID::PrimaryID());
+#else
+    // TODO(crbug.com/374351946): Remove macro in m135.
+    if (otr_profile_id != OTRProfileID::PrimaryID()) {
+      NOTREACHED(base::NotFatalUntil::M135);
+    }
+#endif
+  }
 
   // Create a new OffTheRecordProfile
   std::unique_ptr<Profile> otr_profile =
@@ -1065,8 +1091,7 @@ bool ProfileImpl::IsChild() const {
 
 bool ProfileImpl::AllowsBrowserWindows() const {
 #if BUILDFLAG(IS_CHROMEOS)
-  if (ash::ProfileHelper::IsSigninProfile(this) ||
-      ash::ProfileHelper::IsLockScreenAppProfile(this)) {
+  if (ash::ProfileHelper::IsSigninProfile(this)) {
     return false;
   }
 #endif
@@ -1185,7 +1210,6 @@ void ProfileImpl::OnPrefsLoaded(CreateMode create_mode, bool success) {
         ash::standalone_browser::BrowserSupport::InitializeForPrimaryUser(
             map, IsNewProfile(), IsRegularProfile());
         crosapi::browser_util::CacheLacrosAvailability(map);
-        crosapi::browser_util::CacheLacrosDataBackwardMigrationMode(map);
         ash::standalone_browser::CacheLacrosSelection(map);
       }
 
@@ -1457,8 +1481,7 @@ void ProfileImpl::EnsureSessionServiceCreated() {
 void ProfileImpl::ChangeAppLocale(const std::string& new_locale,
                                   AppLocaleChangedVia via) {
   if (new_locale.empty()) {
-    NOTREACHED_IN_MIGRATION();
-    return;
+    NOTREACHED();
   }
   PrefService* local_state = g_browser_process->local_state();
   DCHECK(local_state);
@@ -1539,8 +1562,7 @@ void ProfileImpl::ChangeAppLocale(const std::string& new_locale,
       break;
     }
     case APP_LOCALE_CHANGED_VIA_UNKNOWN: {
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
     }
   }
   if (do_update_pref)

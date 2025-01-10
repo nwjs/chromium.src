@@ -58,22 +58,22 @@ bool IsEnrollingAfterRollback() {
 
 // Returns the license type to use based on the license type, assigned
 // upgrade type and the license packaged from device state.
-LicenseType GetLicenseTypeToUse(const std::string license_type,
-                                const bool is_license_packaged_with_device,
-                                const std::string assigned_upgrade_type) {
+LicenseType GetLicenseTypeToUse(const std::string& license_type,
+                                bool is_license_packaged_with_device,
+                                const std::string& assigned_upgrade_type) {
   if (license_type == kDeviceStateLicenseTypeEnterprise) {
     return LicenseType::kEnterprise;
-  } else if (license_type == kDeviceStateLicenseTypeEducation) {
+  }
+  if (license_type == kDeviceStateLicenseTypeEducation) {
     return LicenseType::kEducation;
-  } else if (license_type == kDeviceStateLicenseTypeTerminal) {
+  }
+  if (license_type == kDeviceStateLicenseTypeTerminal) {
     return LicenseType::kTerminal;
   }
-
   if (!is_license_packaged_with_device &&
       assigned_upgrade_type == kDeviceStateAssignedUpgradeTypeKiosk) {
     return LicenseType::kTerminal;
   }
-
   return LicenseType::kNone;
 }
 
@@ -102,6 +102,8 @@ std::string_view ToStringView(EnrollmentConfig::Mode mode) {
     CASE(MODE_ATTESTATION_ROLLBACK_MANUAL_FALLBACK);
     CASE(MODE_ENROLLMENT_TOKEN_INITIAL_SERVER_FORCED);
     CASE(MODE_ENROLLMENT_TOKEN_INITIAL_MANUAL_FALLBACK);
+    CASE(MODE_REMOTE_DEPLOYMENT_SERVER_FORCED);
+    CASE(MODE_REMOTE_DEPLOYMENT_MANUAL_FALLBACK);
   }
 
   NOTREACHED();
@@ -172,6 +174,8 @@ EnrollmentConfig::Mode GetManualFallbackMode(
       return EnrollmentConfig::MODE_ATTESTATION_ROLLBACK_MANUAL_FALLBACK;
     case EnrollmentConfig::MODE_ENROLLMENT_TOKEN_INITIAL_SERVER_FORCED:
       return EnrollmentConfig::MODE_ENROLLMENT_TOKEN_INITIAL_MANUAL_FALLBACK;
+    case EnrollmentConfig::MODE_REMOTE_DEPLOYMENT_SERVER_FORCED:
+      return EnrollmentConfig::MODE_REMOTE_DEPLOYMENT_MANUAL_FALLBACK;
     case EnrollmentConfig::MODE_NONE:
     case EnrollmentConfig::MODE_MANUAL:
     case EnrollmentConfig::MODE_MANUAL_REENROLLMENT:
@@ -187,8 +191,9 @@ EnrollmentConfig::Mode GetManualFallbackMode(
     case EnrollmentConfig::MODE_ATTESTATION_INITIAL_MANUAL_FALLBACK:
     case EnrollmentConfig::MODE_ATTESTATION_ROLLBACK_MANUAL_FALLBACK:
     case EnrollmentConfig::MODE_ENROLLMENT_TOKEN_INITIAL_MANUAL_FALLBACK:
-      NOTREACHED_NORETURN()
-          << "Mode does not have manual fallback: " << attestation_mode;
+    case EnrollmentConfig::MODE_REMOTE_DEPLOYMENT_MANUAL_FALLBACK:
+      NOTREACHED() << "Mode does not have manual fallback: "
+                   << attestation_mode;
   }
 }
 
@@ -250,13 +255,23 @@ EnrollmentConfig::PrescribedConfig::GetPrescribedConfig(
     // TODO(b/329271128): CHECK to ensure enrollment_token always has value
     // after this bug is fixed.
     if (enrollment_token.has_value()) {
-      const std::string* oobe_config_source =
+      OOBEConfigSource oobe_config_source = ConvertToOOBEConfigSource(
           oobe_configuration->configuration().FindString(
-              ash::configuration::kSource);
-      return {
-          .mode = EnrollmentConfig::MODE_ENROLLMENT_TOKEN_INITIAL_SERVER_FORCED,
-          .enrollment_token = std::move(enrollment_token.value()),
-          .oobe_config_source = ConvertToOOBEConfigSource(oobe_config_source)};
+              ash::configuration::kSource));
+      EnrollmentConfig::Mode mode;
+      switch (oobe_config_source) {
+        case policy::OOBEConfigSource::kRemoteDeployment:
+          mode = MODE_REMOTE_DEPLOYMENT_SERVER_FORCED;
+          break;
+        case policy::OOBEConfigSource::kPackagingTool:
+        case policy::OOBEConfigSource::kUnknown:
+        case policy::OOBEConfigSource::kNone:
+          mode = MODE_ENROLLMENT_TOKEN_INITIAL_SERVER_FORCED;
+          break;
+      }
+      return {.mode = mode,
+              .enrollment_token = std::move(enrollment_token.value()),
+              .oobe_config_source = oobe_config_source};
     } else {
       return {.mode = EnrollmentConfig::MODE_NONE};
     }

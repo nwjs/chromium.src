@@ -18,6 +18,7 @@ export function getHtml(this: AutoTabGroupsPageElement) {
       ${
       this.showBackButton ? html`
         <cr-icon-button class="back-button"
+            aria-label="${this.getBackButtonAriaLabel_()}"
             iron-icon="cr:arrow-back"
             @click="${this.onBackClick_}">
         </cr-icon-button>
@@ -41,7 +42,7 @@ export function getHtml(this: AutoTabGroupsPageElement) {
         ?shown="${this.isState_(TabOrganizationState.kSuccess)}"
         .session="${this.session_}"
         ?multi-tab-organization="${this.multiTabOrganization_}"
-        available-height="${this.availableHeight_}"
+        available-height="${this.availableHeight}"
         @name-change="${this.onNameChange_}"
         @reject-click="${this.onRejectClick_}"
         @reject-all-groups-click="${this.onRejectAllGroupsClick_}"

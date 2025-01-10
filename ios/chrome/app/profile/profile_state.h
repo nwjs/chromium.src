@@ -8,9 +8,11 @@
 #import <Foundation/Foundation.h>
 
 #import "ios/chrome/app/profile/profile_init_stage.h"
-#import "ios/chrome/browser/shared/model/profile/profile_ios_forward.h"
+#import "ios/chrome/browser/ui/scoped_ui_blocker/ui_blocker_manager.h"
 
 @class AppState;
+@class DeferredInitializationRunner;
+class ProfileIOS;
 @protocol ProfileStateAgent;
 @protocol ProfileStateObserver;
 @class SceneState;
@@ -18,7 +20,7 @@
 
 // Represents the state for a single Profile and responds to the state
 // changes and system events.
-@interface ProfileState : NSObject
+@interface ProfileState : NSObject <UIBlockerManager>
 
 // The global AppState.
 @property(nonatomic, weak, readonly) AppState* appState;
@@ -48,6 +50,15 @@
 
 // Container for startup information.
 @property(nonatomic, weak, readonly) id<StartupInformation> startupInformation;
+
+// Can be used to schedule deferred initialization tasks.
+@property(nonatomic, readonly) DeferredInitializationRunner* deferredRunner;
+
+// YES if the sign-out prompt should be shown to the user when the scene becomes
+// active and enters the foreground. This can happen if the policies have
+// changed since the last cold start, meaning the user was signed out during
+// startup.
+@property(nonatomic) BOOL shouldShowForceSignOutPrompt;
 
 // The designated initializer.
 - (instancetype)initWithAppState:(AppState*)appState NS_DESIGNATED_INITIALIZER;

@@ -19,6 +19,7 @@
 #include "build/branding_buildflags.h"
 #include "chrome/browser/ash/input_method/editor_helpers.h"
 #include "chrome/browser/ash/input_method/editor_mediator_factory.h"
+#include "chrome/browser/ash/lobster/lobster_service.h"
 #include "chrome/browser/ash/lobster/lobster_service_provider.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/ash/mako/url_constants.h"
@@ -45,7 +46,7 @@ constexpr int kLobsterResourceIds[] = {
     IDR_MAKO_LOBSTER_JS,
 };
 
-} // namespace
+}  // namespace
 
 MakoUntrustedUIConfig::MakoUntrustedUIConfig()
     : DefaultTopChromeWebUIConfig(content::kChromeUIUntrustedScheme,
@@ -60,11 +61,10 @@ bool MakoUntrustedUIConfig::IsWebUIEnabled(
 }
 
 bool MakoUntrustedUIConfig::ShouldAutoResizeHost() {
-  // With resizing support enabled or when lobster is enabled, we should let web
-  // viewport resize according to dimension of web view rather than updating the
-  // dimension of web view based on inner web content.
-  return !base::FeatureList::IsEnabled(ash::features::kOrcaResizingSupport) &&
-         !ash::features::IsLobsterEnabled();
+  // With resizing support enabled, we should let web viewport resize according
+  // to dimension of web view rather than updating the dimension of web view
+  // based on inner web content.
+  return !base::FeatureList::IsEnabled(ash::features::kOrcaResizingSupport);
 }
 
 MakoUntrustedUI::MakoUntrustedUI(content::WebUI* web_ui)
@@ -79,13 +79,18 @@ MakoUntrustedUI::MakoUntrustedUI(content::WebUI* web_ui)
   base::span<const webui::ResourcePath> orca_resources =
       base::make_span(kOrcaResources, kOrcaResourcesSize);
 
-  const bool is_lobster_enabled = LobsterController::IsEnabled();
+  LobsterService* lobster_service =
+      ash::features::IsLobsterEnabled()
+          ? LobsterServiceProvider::GetForProfile(Profile::FromWebUI(web_ui))
+          : nullptr;
+  const bool has_lobster_access =
+      lobster_service != nullptr && lobster_service->UserHasAccess();
   const bool should_use_l10n_strings = input_method::ShouldUseL10nStrings();
 
   auto should_use_resource =
       [&](const webui::ResourcePath& resource_path) -> bool {
-    // when lobster is disabled, lobster resources are not allowed.
-    if (!is_lobster_enabled &&
+    // when lobster access is not granted, lobster resources are not allowed.
+    if (!has_lobster_access &&
         base::Contains(kLobsterResourceIds, resource_path.id)) {
       return false;
     }
@@ -146,14 +151,23 @@ void MakoUntrustedUI::BindInterface(
     mojo::PendingReceiver<lobster::mojom::UntrustedLobsterPageHandler>
         pending_receiver) {
   if (!ash::features::IsLobsterEnabled()) {
-    mojo::ReportBadMessage("Editor is disabled by flags.");
+    mojo::ReportBadMessage("Lobster is disabled by flags.");
     return;
   }
 
   Profile* profile = Profile::FromWebUI(web_ui());
-  lobster_page_handler_ = std::make_unique<LobsterPageHandler>(
-      LobsterServiceProvider::GetForProfile(profile)->active_session(),
-      profile);
+  LobsterService* lobster_service =
+      LobsterServiceProvider::GetForProfile(profile);
+  LobsterSession* active_session =
+      lobster_service == nullptr ? nullptr : lobster_service->active_session();
+
+  if (active_session == nullptr) {
+    mojo::ReportBadMessage("No active session found.");
+    return;
+  }
+
+  lobster_page_handler_ =
+      std::make_unique<LobsterPageHandler>(active_session, profile);
 
   lobster_page_handler_->BindInterface(std::move(pending_receiver));
 }

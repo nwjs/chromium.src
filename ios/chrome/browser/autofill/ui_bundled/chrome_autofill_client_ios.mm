@@ -31,6 +31,8 @@
 #import "components/infobars/core/infobar.h"
 #import "components/infobars/core/infobar_manager.h"
 #import "components/keyed_service/core/service_access_type.h"
+#import "components/optimization_guide/machine_learning_tflite_buildflags.h"
+#import "components/password_manager/core/browser/features/password_features.h"
 #import "components/password_manager/core/browser/form_parsing/form_data_parser.h"
 #import "components/password_manager/core/browser/password_form.h"
 #import "components/password_manager/core/common/password_manager_pref_names.h"
@@ -68,6 +70,10 @@
 #import "services/network/public/cpp/shared_url_loader_factory.h"
 #import "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 
+#if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
+#import "ios/chrome/browser/passwords/model/ios_password_field_classification_model_handler_factory.h"
+#endif
+
 namespace autofill {
 
 ChromeAutofillClientIOS::ChromeAutofillClientIOS(
@@ -76,7 +82,7 @@ ChromeAutofillClientIOS::ChromeAutofillClientIOS(
     infobars::InfoBarManager* infobar_manager,
     id<AutofillClientIOSBridge> bridge)
     : pref_service_(profile->GetPrefs()),
-      sync_service_(SyncServiceFactory::GetForBrowserState(profile)),
+      sync_service_(SyncServiceFactory::GetForProfile(profile)),
       personal_data_manager_(PersonalDataManagerFactory::GetForProfile(
           profile->GetOriginalProfile())),
       autocomplete_history_manager_(
@@ -140,6 +146,18 @@ PersonalDataManager* ChromeAutofillClientIOS::GetPersonalDataManager() {
   return personal_data_manager_;
 }
 
+FieldClassificationModelHandler*
+ChromeAutofillClientIOS::GetPasswordManagerFieldClassificationModelHandler() {
+#if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
+  if (base::FeatureList::IsEnabled(
+          password_manager::features::kPasswordFormClientsideClassifier)) {
+    return IOSPasswordFieldClassificationModelHandlerFactory::GetForProfile(
+        profile_);
+  }
+#endif
+  return nullptr;
+}
+
 AutocompleteHistoryManager*
 ChromeAutofillClientIOS::GetAutocompleteHistoryManager() {
   return autocomplete_history_manager_;
@@ -171,7 +189,7 @@ FormDataImporter* ChromeAutofillClientIOS::GetFormDataImporter() {
   if (!form_data_importer_) {
     form_data_importer_ = std::make_unique<FormDataImporter>(
         this,
-        ios::HistoryServiceFactory::GetForBrowserState(
+        ios::HistoryServiceFactory::GetForProfile(
             profile_, ServiceAccessType::EXPLICIT_ACCESS),
         GetApplicationContext()->GetApplicationLocale());
   }
@@ -249,7 +267,7 @@ GeoIpCountryCode ChromeAutofillClientIOS::GetVariationConfigCountryCode()
 
 void ChromeAutofillClientIOS::ShowAutofillSettings(
     SuggestionType suggestion_type) {
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void ChromeAutofillClientIOS::ConfirmSaveAddressProfile(
@@ -316,8 +334,8 @@ ChromeAutofillClientIOS::ShowAutofillSuggestions(
 void ChromeAutofillClientIOS::ShowPlusAddressEmailOverrideNotification(
     const std::string& original_email,
     EmailOverrideUndoCallback email_override_undo_callback) {
-  // TODO(crbug.com/324557053): Implement.
-  NOTIMPLEMENTED();
+  [bridge_ showPlusAddressEmailOverrideNotification:
+               std::move(email_override_undo_callback)];
 }
 
 AutofillPlusAddressDelegate* ChromeAutofillClientIOS::GetPlusAddressDelegate() {
@@ -455,26 +473,12 @@ PasswordFormClassification ChromeAutofillClientIOS::ClassifyAsPasswordForm(
     return {};
   }
 
-  password_manager::FormDataParser parser;
   // The driver id is irrelevant here because it would only be used by password
   // manager logic that handles the `PasswordForm` returned by the parser.
-  parser.set_predictions(password_manager::ConvertToFormPredictions(
-      /*driver_id=*/0, *renderer_form, form_and_predictions.predictions));
-
-  // The parser can use stored usernames to identify a filled username field by
-  // the value it contains. Here it remains empty.
-  std::unique_ptr<password_manager::PasswordForm> pw_form = parser.Parse(
-      *renderer_form, password_manager::FormDataParser::Mode::kFilling,
-      /*stored_usernames=*/{});
-  if (!pw_form) {
-    return {};
-  }
-  PasswordFormClassification result{.type = pw_form->GetPasswordFormType()};
-  if (!pw_form->username_element_renderer_id.is_null()) {
-    result.username_field = FieldGlobalId(
-        field_id.frame_token, pw_form->username_element_renderer_id);
-  }
-  return result;
+  return password_manager::ClassifyAsPasswordForm(
+      *renderer_form,
+      password_manager::ConvertToFormPredictions(
+          /*driver_id=*/0, *renderer_form, form_and_predictions.predictions));
 }
 
 AutofillSaveCardInfoBarDelegateIOS*

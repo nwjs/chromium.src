@@ -17,18 +17,14 @@
 #import "ios/chrome/browser/shared/ui/list_model/list_model.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_item.h"
-#import "ios/chrome/browser/shared/ui/table_view/chrome_table_view_controller.h"
-#import "ios/chrome/browser/shared/ui/table_view/legacy_chrome_table_view_styler.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
 #import "ios/chrome/browser/signin/model/constants.h"
-#import "ios/chrome/browser/signin/model/system_identity.h"
 #import "ios/chrome/browser/ui/authentication/account_menu/account_menu_constants.h"
 #import "ios/chrome/browser/ui/authentication/account_menu/account_menu_data_source.h"
 #import "ios/chrome/browser/ui/authentication/account_menu/account_menu_mutator.h"
 #import "ios/chrome/browser/ui/authentication/cells/central_account_view.h"
 #import "ios/chrome/browser/ui/authentication/cells/table_view_account_item.h"
 #import "ios/chrome/browser/ui/settings/cells/settings_image_detail_text_cell.h"
-#import "ios/chrome/browser/ui/settings/cells/settings_image_detail_text_item.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/image_util.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -61,15 +57,16 @@ constexpr CGFloat kLastSecondaryAccountLeftSeparatorInset = 60.;
 // Per Apple guidelines, touch targets should be at least 44x44.
 constexpr CGFloat kMinimumTouchTargetSize = 44.0;
 
+// The corner radius of the half sheet.
 constexpr CGFloat kHalfSheetCornerRadius = 10.0;
 
 // Sections used in the account menu.
 typedef NS_ENUM(NSUInteger, SectionIdentifier) {
   // Sync errors.
   SyncErrorsSectionIdentifier = kSectionIdentifierEnumZero,
-  // List of accounts
+  // List of accounts.
   AccountsSectionIdentifier,
-  // manage accounts, sign-out
+  // Manage accounts ans sign-out.
   SignOutSectionIdentifier,
 };
 
@@ -83,6 +80,7 @@ typedef NS_ENUM(NSUInteger, RowIdentifier) {
   RowIdentifierAddAccount,
   // The secondary account entries use the gaia ID as item identifier.
 };
+
 // Custom detent identifier for when the bottom sheet is minimized.
 NSString* const kCustomMinimizedDetentIdentifier = @"customMinimizedDetent";
 
@@ -102,10 +100,14 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   UIButton* _closeButton;
   UIButton* _ellipsisButton;
   CentralAccountView* _identityAccountView;
-  BOOL _resizeReady;
   // The index path of the cell on which the user tapped while account switching
   // is in progress. It should be reset to nil before any table content occurs.
   NSIndexPath* _selectedIndexPath;
+  // Set to true when the content is set and it is possible to compute the size
+  // of the popover.
+  // If preferredContentSize is set with different values in the same runloop,
+  // UIKit will pick the biggest or the first one (but not the last one).
+  BOOL _resizeReady;
 }
 
 #pragma mark - UIViewController
@@ -154,12 +156,13 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 
 #pragma mark - Private
 
+// Sets the activity indicator.
 - (void)setActivityIndicator:(TableViewAccountCell*)cell {
   UIActivityIndicatorView* activityIndicatorView =
       [[UIActivityIndicatorView alloc] init];
   activityIndicatorView.translatesAutoresizingMaskIntoConstraints = NO;
   activityIndicatorView.color = [UIColor colorNamed:kTextSecondaryColor];
-  cell.accessoryView = activityIndicatorView;
+  [cell setStatusView:activityIndicatorView];
   [activityIndicatorView startAnimating];
 }
 
@@ -177,6 +180,8 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   [self.sheetPresentationController invalidateDetents];
   // Update the popover height.
   [_identityAccountView updateTopPadding:[self navigationBarHeight]];
+  // Force the layout of the TableView to make sure that it has the right width
+  // before using its contentSize.
   [self.tableView setNeedsLayout];
   [self.tableView layoutIfNeeded];
   CGFloat height = self.tableView.contentSize.height;
@@ -278,7 +283,7 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
               handler:^(UIAction* action) {
                 base::RecordAction(base::UserMetricsAction(
                     "Signin_AccountMenu_EditAccountList"));
-                [self.mutator didTapEditAccountList];
+                [self.mutator didTapManageAccounts];
               }];
 
   UIMenu* ellipsisMenu = [UIMenu
@@ -293,6 +298,7 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   _ellipsisButton.showsMenuAsPrimaryAction = true;
 }
 
+// Configures and returns a cell.
 - (UITableViewCell*)cellForTableView:(UITableView*)tableView
                            indexPath:(NSIndexPath*)indexPath
                       itemIdentifier:(id)itemIdentifier {
@@ -305,8 +311,12 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 
     cell.imageView.image = [self.dataSource imageForGaiaID:gaiaID];
     cell.textLabel.text = [self.dataSource nameForGaiaID:gaiaID];
-    cell.detailTextLabel.text = [self.dataSource emailForGaiaID:gaiaID];
+    NSString* email = [self.dataSource emailForGaiaID:gaiaID];
+    cell.detailTextLabel.text = email;
     cell.detailTextLabel.textColor = [UIColor colorNamed:kTextSecondaryColor];
+    cell.accessibilityLabel = l10n_util::GetNSStringF(
+        IDS_IOS_OPTIONS_ACCOUNTS_SIGNIN_ACCESSIBILITY_LABEL,
+        base::SysNSStringToUTF16(email));
     cell.userInteractionEnabled = YES;
     cell.accessibilityIdentifier = kAccountMenuSecondaryAccountButtonId;
     if ([indexPath isEqual:_selectedIndexPath]) {
@@ -377,6 +387,7 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   return cell;
 }
 
+// Sets up bottom sheet presentation controller.
 - (void)setUpBottomSheetPresentationController {
   UISheetPresentationController* presentationController =
       self.sheetPresentationController;
@@ -397,11 +408,13 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
       kCustomMinimizedDetentIdentifier;
 }
 
+// Handles tapping on Close button.
 - (void)userTappedOnClose {
   base::RecordAction(base::UserMetricsAction("Signin_AccountMenu_Close"));
   [self.mutator viewControllerWantsToBeClosed:self];
 }
 
+// Sets up table content.
 - (void)setUpTableContent {
   // Configure the table items.
   __weak __typeof(self) weakSelf = self;
@@ -454,11 +467,8 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 
 // Returns preferred height according to the container view width.
 - (CGFloat)preferredHeightForSheetContent {
-  // Get the size of the container view which is the maximum available size.
-  CGFloat height = self.tableView.contentSize.height;
-  // Add the navigation bar.
-  height += [self navigationBarHeight];
-  return height;
+  // This is the size of the content of the table view and the navigation bar.
+  return self.tableView.contentSize.height + [self navigationBarHeight];
 }
 
 #pragma mark - UITableViewDelegate
@@ -488,8 +498,6 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
       case RowIdentifierErrorExplanation:
         break;
       case RowIdentifierErrorButton:
-        base::RecordAction(
-            base::UserMetricsAction("Signin_AccountMenu_ErrorButton"));
         [self.mutator didTapErrorButton];
         break;
       case RowIdentifierSignOut:
@@ -511,7 +519,8 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 - (CGFloat)tableView:(UITableView*)tableView
     heightForFooterInSection:(NSInteger)section {
   if (section == [self.tableView numberOfSections] - 1) {
-    //  No footer space for last section.
+    //  The last footer’s height is the margin between the table and the bottom
+    // of the popover/sheet.
     return kSideMargins;
   }
   return kFooterHeight;
@@ -528,6 +537,12 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 }
 
 #pragma mark - AccountMenuConsumer
+
+- (void)setUserInteractionsEnabled:(BOOL)enabled {
+  self.tableView.allowsSelection = enabled;
+  _closeButton.enabled = enabled;
+  _ellipsisButton.enabled = enabled;
+}
 
 - (void)switchingStarted {
   CHECK(_selectedIndexPath, base::NotFatalUntil::M135);
@@ -546,7 +561,8 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   TableViewAccountCell* cell =
       base::apple::ObjCCastStrict<TableViewAccountCell>(
           [self.tableView cellForRowAtIndexPath:_selectedIndexPath]);
-  cell.accessoryView = nil;
+  [cell setStatusView:nil];
+  [self.tableView deselectRowAtIndexPath:_selectedIndexPath animated:YES];
   _selectedIndexPath = nil;
   self.modalInPresentation = NO;
   _ellipsisButton.enabled = YES;
@@ -593,9 +609,9 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 }
 
 - (void)updateAccountListWithGaiaIDsToAdd:(NSArray<NSString*>*)indicesToAdd
-                          gaiaIDsToRemove:(NSArray<NSString*>*)gaiaIDsToRemove {
+                          gaiaIDsToRemove:(NSArray<NSString*>*)gaiaIDsToRemove
+                            gaiaIDsToKeep:(NSArray<NSString*>*)gaiaIDsToKeep {
   CHECK(!_selectedIndexPath, base::NotFatalUntil::M135);
-  [self.tableView deselectRowAtIndexPath:_selectedIndexPath animated:YES];
   NSDiffableDataSourceSnapshot* snapshot = _accountMenuDataSource.snapshot;
 
   NSMutableArray* accountsIdentifiersToAdd = [[NSMutableArray alloc] init];
@@ -610,9 +626,9 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
     [accountsIdentifiersToRemove addObject:gaiaID];
   }
   [snapshot deleteItemsWithIdentifiers:accountsIdentifiersToRemove];
-  [_accountMenuDataSource applySnapshot:snapshot animatingDifferences:YES];
 
-  [self.tableView reloadData];
+  [snapshot reconfigureItemsWithIdentifiers:gaiaIDsToKeep];
+  [_accountMenuDataSource applySnapshot:snapshot animatingDifferences:YES];
   [self resize];
 }
 

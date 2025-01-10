@@ -22,7 +22,7 @@ CSSIdentifierValue* CSSIdentifierValue::Create(CSSValueID value_id) {
 }
 
 String CSSIdentifierValue::CustomCSSText() const {
-  return AtomicString(getValueName(value_id_));
+  return GetCSSValueNameAs<AtomicString>(value_id_);
 }
 
 CSSIdentifierValue::CSSIdentifierValue(CSSValueID value_id)
@@ -50,7 +50,9 @@ CSSIdentifierValue::CSSIdentifierValue(const Length& length)
       value_id_ = CSSValueID::kMaxContent;
       break;
     case Length::kStretch:
-      value_id_ = CSSValueID::kWebkitFillAvailable;
+      value_id_ = RuntimeEnabledFeatures::LayoutStretchEnabled()
+                      ? CSSValueID::kStretch
+                      : CSSValueID::kWebkitFillAvailable;
       break;
     case Length::kFitContent:
       value_id_ = CSSValueID::kFitContent;
@@ -69,8 +71,7 @@ CSSIdentifierValue::CSSIdentifierValue(const Length& length)
     case Length::kDeviceHeight:
     case Length::kMinIntrinsic:
     case Length::kNone:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 }
 

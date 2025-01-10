@@ -63,8 +63,9 @@ class DictationBubbleController;
 enum class DictationBubbleHintType;
 enum class DictationBubbleIconType;
 enum class DictationNotificationType;
-class DisableTrackpadEventRewriter;
-enum class DisableTrackpadMode;
+class DisableTouchpadEventRewriter;
+enum class DisableTouchpadMode;
+class DragEventRewriter;
 class FaceGazeBubbleController;
 class FilterKeysEventRewriter;
 class FlashScreenController;
@@ -109,8 +110,8 @@ enum class A11yNotificationType {
   kSpokenFeedbackBrailleEnabled,
   // Shown when Switch Access is enabled.
   kSwitchAccessEnabled,
-  // Shown when the internal trackpad is disabled.
-  kTrackpadDisabled,
+  // Shown when the internal touchpad is disabled.
+  kTouchpadDisabled,
 };
 
 // The controller for accessibility features in ash. Features can be enabled
@@ -253,13 +254,15 @@ class ASH_EXPORT AccessibilityController
   base::WeakPtr<AccessibilityController> GetWeakPtr();
 
   // Getters for the corresponding features.
+  Feature& always_show_scrollbar() const;
   Feature& autoclick() const;
+  Feature& bounce_keys() const;
   Feature& caret_highlight() const;
   Feature& color_correction() const;
   Feature& cursor_color() const;
   Feature& cursor_highlight() const;
   Feature& dictation() const;
-  Feature& disable_trackpad() const;
+  Feature& disable_touchpad() const;
   Feature& face_gaze() const;
   Feature& flash_notifications() const;
   Feature& floating_menu() const;
@@ -271,6 +274,7 @@ class ASH_EXPORT AccessibilityController
   Feature& reduced_animations() const;
   Feature& spoken_feedback() const;
   Feature& select_to_speak() const;
+  Feature& slow_keys() const;
   Feature& sticky_keys() const;
   Feature& switch_access() const;
   Feature& virtual_keyboard() const;
@@ -361,7 +365,9 @@ class ASH_EXPORT AccessibilityController
   bool IsReducedAnimationsSettingVisibleInTray();
   bool IsEnterpriseIconVisibleForReducedAnimations();
 
-  void OnTrackpadNotificationClicked(std::optional<int> button_index);
+  bool IsTouchpadDisabled();
+
+  void OnTouchpadNotificationClicked(std::optional<int> button_index);
 
   // Switch access may be disabled in prefs but still running when the disable
   // dialog is displaying.
@@ -370,9 +376,9 @@ class ASH_EXPORT AccessibilityController
   bool IsEnterpriseIconVisibleForSwitchAccess();
   void SetAccessibilityEventRewriter(
       AccessibilityEventRewriter* accessibility_event_rewriter);
-  void SetDisableTrackpadEventRewriter(DisableTrackpadEventRewriter* rewriter);
-  void EnableInternalTrackpad();
-  DisableTrackpadMode GetDisableTrackpadMode();
+  void SetDisableTouchpadEventRewriter(DisableTouchpadEventRewriter* rewriter);
+  void EnableInternalTouchpad();
+  DisableTouchpadMode GetDisableTouchpadMode();
   void SetFilterKeysEventRewriter(FilterKeysEventRewriter* rewriter);
   bool IsPointScanEnabled();
 
@@ -526,8 +532,8 @@ class ASH_EXPORT AccessibilityController
   // nothing if the Select to Speak is currently enabled.
   void EnableSelectToSpeakWithDialog();
 
-  // Disables the internal trackpad with a dialog.
-  void DisableTrackpadWithDialog();
+  // Disables the internal touchpad with a dialog.
+  void DisableTouchpadWithDialog();
 
   // Enables Dictation if the feature is currently disabled. Toggles (starts or
   // stops) Dictation if the feature is currently enabled.
@@ -597,7 +603,7 @@ class ASH_EXPORT AccessibilityController
       const std::optional<std::vector<DictationBubbleHintType>>& hints);
 
   // Updates the FaceGaze UI bubble.
-  void UpdateFaceGazeBubble(const std::u16string& text);
+  void UpdateFaceGazeBubble(const std::u16string& text, bool is_warning);
 
   // Shows a notification notifying the user about the FaceGaze DLC download.
   void ShowNotificationForFaceGaze(FaceGazeNotificationType type);
@@ -627,13 +633,15 @@ class ASH_EXPORT AccessibilityController
   // pointer in the variable |confirmation_dialog_| below.
   // This is also used to show the dialog for Select to Speak's enhanced network
   // voices.
-  void ShowConfirmationDialog(const std::u16string& title,
-                              const std::u16string& description,
-                              const std::u16string& confirm_name,
-                              const std::u16string& cancel_name,
-                              base::OnceClosure on_accept_callback,
-                              base::OnceClosure on_cancel_callback,
-                              base::OnceClosure on_close_callback);
+  void ShowConfirmationDialog(
+      const std::u16string& title,
+      const std::u16string& description,
+      const std::u16string& confirm_name,
+      const std::u16string& cancel_name,
+      base::OnceClosure on_accept_callback,
+      base::OnceClosure on_cancel_callback,
+      base::OnceClosure on_close_callback,
+      std::optional<int> timeout_seconds = std::nullopt);
   gfx::Rect GetConfirmationDialogBoundsInScreen();
 
   void PreviewFlashNotification() const;
@@ -649,7 +657,7 @@ class ASH_EXPORT AccessibilityController
 
   // Test helpers:
   AccessibilityEventRewriter* GetAccessibilityEventRewriterForTest();
-  DisableTrackpadEventRewriter* GetDisableTrackpadEventRewriterForTest();
+  DisableTouchpadEventRewriter* GetDisableTouchpadEventRewriterForTest();
   FilterKeysEventRewriter* GetFilterKeysEventRewriterForTest();
   SwitchAccessMenuBubbleController* GetSwitchAccessBubbleControllerForTest() {
     return switch_access_bubble_controller_.get();
@@ -684,6 +692,10 @@ class ASH_EXPORT AccessibilityController
 
   FaceGazeBubbleController* GetFaceGazeBubbleControllerForTest();
 
+  DragEventRewriter* GetDragEventRewriterForTest() const {
+    return drag_event_rewriter_.get();
+  }
+
   bool IsDictationKeyboardDialogShowingForTesting() {
     return dictation_keyboard_dialog_showing_for_testing_;
   }
@@ -693,11 +705,11 @@ class ASH_EXPORT AccessibilityController
   void DismissDictationKeyboardDialogForTesting() {
     OnDictationKeyboardDialogDismissed();
   }
-  void AcceptDisableTrackpadDialogForTesting() {
-    OnDisableTrackpadDialogAccepted();
+  void AcceptDisableTouchpadDialogForTesting() {
+    OnDisableTouchpadDialogAccepted();
   }
-  void DismissDisableTrackpadDialogForTesting() {
-    OnDisableTrackpadDialogDismissed();
+  void DismissDisableTouchpadDialogForTesting() {
+    OnDisableTouchpadDialogDismissed();
   }
 
   void AddShowToastCallbackForTesting(
@@ -728,6 +740,10 @@ class ASH_EXPORT AccessibilityController
     input_device_settings_observer_.Reset();
   }
 
+  // Enables the drag event rewriter, which is used by features like FaceGaze
+  // and Autoclick.
+  void EnableDragEventRewriter(bool enabled);
+
  private:
   // Populate |features_| with the feature of the correct type.
   void CreateAccessibilityFeatures();
@@ -751,6 +767,8 @@ class ASH_EXPORT AccessibilityController
   void UpdateAutoclickStabilizePositionFromPref();
   void UpdateAutoclickMovementThresholdFromPref();
   void UpdateAutoclickMenuPositionFromPref();
+  void UpdateBounceKeysDelayFromPref();
+  void UpdateSlowKeysDelayFromPref();
   void UpdateMouseKeysDisableInTextFieldsFromPref();
   void UpdateMouseKeysAccelerationFromPref();
   void UpdateMouseKeysMaxSpeedFromPref();
@@ -762,9 +780,10 @@ class ASH_EXPORT AccessibilityController
   void UpdateCursorColorFromPrefs(bool notify);
   void UpdateFaceGazeFromPrefs();
   void UpdateFlashNotificationsFromPrefs();
-  void UpdateDisableTrackpadFromPrefs();
+  void UpdateDisableTouchpadFromPrefs(bool notify);
   void UpdateColorCorrectionFromPrefs();
   void UpdateCaretBlinkIntervalFromPrefs() const;
+  void UpdateUseOverlayScrollbarFromPref() const;
   void UpdateSwitchAccessKeyCodesFromPref(SwitchAccessCommand command);
   void UpdateSwitchAccessAutoScanEnabledFromPref();
   void UpdateSwitchAccessAutoScanSpeedFromPref();
@@ -789,9 +808,9 @@ class ASH_EXPORT AccessibilityController
   void OnSelectToSpeakKeyboardDialogAccepted();
   void OnSelectToSpeakKeyboardDialogDismissed();
 
-  void ShowDisableTrackpadDialog();
-  void OnDisableTrackpadDialogAccepted();
-  void OnDisableTrackpadDialogDismissed();
+  void ShowDisableTouchpadDialog();
+  void OnDisableTouchpadDialogAccepted();
+  void OnDisableTouchpadDialogDismissed();
   void ExternalDeviceConnected();
 
   void RecordSelectToSpeakSpeechDuration(SelectToSpeakState old_state,
@@ -829,7 +848,7 @@ class ASH_EXPORT AccessibilityController
   std::unique_ptr<SwitchAccessMenuBubbleController>
       switch_access_bubble_controller_;
   raw_ptr<AccessibilityEventRewriter> accessibility_event_rewriter_ = nullptr;
-  raw_ptr<DisableTrackpadEventRewriter> disable_trackpad_event_rewriter_ =
+  raw_ptr<DisableTouchpadEventRewriter> disable_touchpad_event_rewriter_ =
       nullptr;
   raw_ptr<FilterKeysEventRewriter> filter_keys_event_rewriter_ = nullptr;
   // Used in tests to disable the dialog shown when Auto Click is turned on.
@@ -864,6 +883,9 @@ class ASH_EXPORT AccessibilityController
 
   // Used to control the FaceGaze bubble UI.
   std::unique_ptr<FaceGazeBubbleController> facegaze_bubble_controller_;
+
+  // Used to support drag-and-drop for features, including FaceGaze.
+  std::unique_ptr<DragEventRewriter> drag_event_rewriter_;
 
   // Used to control accessibility-related notifications.
   std::unique_ptr<AccessibilityNotificationController>

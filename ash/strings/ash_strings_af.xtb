@@ -308,7 +308,6 @@ Hier is 'n paar dinge wat jy kan probeer om aan die gang te kom.</translation>
 <translation id="2041220428661959602">Batteryvlak: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848">Die <ph name="SIX_PACK_KEY_NAME" />-kortpad is tans af</translation>
 <translation id="2049240716062114887">Lessenaarnaam is verander na <ph name="DESK_NAME" /></translation>
-<translation id="2050339315714019657">Portret</translation>
 <translation id="2064048859448024834">Kameravoorskou is aan</translation>
 <translation id="2065098273523946419">Skakel vir meer inligting. Herlei na die blaaier wanneer geaktiveer</translation>
 <translation id="2067220651560163985">Wys temperatuur in Celsius</translation>
@@ -339,9 +338,6 @@ Hier is 'n paar dinge wat jy kan probeer om aan die gang te kom.</translation>
 <translation id="219905428774326614">Lanseerder, alle programme</translation>
 <translation id="2201071101391734388">Onlangse foto <ph name="INDEX" /> van <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Vou Google Take in</translation>
-<translation id="2206960886090042977">Die ingeboude raakpaneel is gedeaktiveer omdat ’n muis gekoppel is. Gebruik die muis of sleutelbord om die verandering te bevestig.
-
-Anders sal die ingeboude raakpaneel binne 30 sekondes geheraktiveer word.</translation>
 <translation id="2208323208084708176">Verenigde werkskermmodus</translation>
 <translation id="2220572644011485463">PIN of wagwoord</translation>
 <translation id="2222841058024245321">Lessenaar 7</translation>
@@ -504,6 +500,9 @@ Anders sal die ingeboude raakpaneel binne 30 sekondes geheraktiveer word.</trans
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> tot <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">ctrl+search+s</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" /> bestuur deur <ph name="MANAGER" /></translation>
+<translation id="2781658180588759579">Die ingeboude raakpaneel is gedeaktiveer. Gebruik jou sleutelbord of ’n ander wysertoestel om die verandering te bevestig.
+
+Anders sal die ingeboude raakpaneel binne <ph name="TIMEOUT_SECONDS" /> geheraktiveer word.</translation>
 <translation id="2782591952652094792">Verlaat vasvangmodus</translation>
 <translation id="2785499565474703580">1 toestel is gekoppel</translation>
 <translation id="2791421900609674576">Jy sal aanbevelings sien sodat jy kan aanhou waar jy opgehou het. Jy kan raak en hou om aanbevelings te verwyder.</translation>
@@ -601,6 +600,9 @@ Anders sal die ingeboude raakpaneel binne 30 sekondes geheraktiveer word.</trans
 <translation id="3113492864356515707">Merk vorige item op rak</translation>
 <translation id="311799651966070385">Maak porre toe</translation>
 <translation id="3120421559657122717">Skakel toestel af?</translation>
+<translation id="3121411970001795539">Die ingeboude raakpaneel is gedeaktiveer omdat ’n muis gekoppel is. Gebruik die muis of sleutelbord om die verandering te bevestig.
+
+Anders sal die ingeboude raakpaneel binne <ph name="TIMEOUT_SECONDS" /> geheraktiveer word.</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">Klaswerktipe</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -972,13 +974,13 @@ Sommige kenmerke is beperk om die batterylewe te verleng.</translation>
 <translation id="4322742403972824594">Die kortpadsleutel Ctrl + Alt + oppyl het verander. Om die Home-sleutel te gebruik moet jy die <ph name="LAUNCHER_KEY_NAME" />-sleutel + linkspyl druk.</translation>
 <translation id="4324840740119394760">Dit gee kameratoegang vir <ph name="APP_NAME" /> en alle apps en webwerwe met die kameratoestemming</translation>
 <translation id="4327147325944669226">Neem speletjie op</translation>
-<translation id="4333628967105022692">Lacros word nie gesteun terwyl veelvuldige gebruikers aangemeld is nie.</translation>
 <translation id="4338109981321384717">Vergrootglas</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, Gedemp</translation>
 <translation id="4351244548802238354">Maak dialoog toe</translation>
 <translation id="4356872429719185452">Wys warmkolbesonderhede. Warmkol skakel tans aan.</translation>
 <translation id="4364101114148522660"><ph name="DURATION" />  opname</translation>
 <translation id="4371348193907997655">Uitsaai-instellings</translation>
+<translation id="4371834685492830207">PIN moet net geldige karakters bevat</translation>
 <translation id="4375482231364171368">Soek in adresbalk</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />; seinsterkte <ph name="SIGNAL_STRENGTH" /> persent</translation>
 <translation id="4378551569595875038">Koppel tans …</translation>
@@ -1144,6 +1146,7 @@ Sommige kenmerke is beperk om die batterylewe te verleng.</translation>
 <translation id="4902797682482387055">Voorgestelde taak om op te fokus</translation>
 <translation id="490375751687810070">Vertikaal</translation>
 <translation id="490788395437447240"><ph name="BATTERY_PERCENTAGE" />% batterykrag</translation>
+<translation id="4911191962826748981">Dit is eksperimentele AI-kenmerke en sal dit nie altyd regkry nie.</translation>
 <translation id="491504982845934899">Aktiveer ná toestelopstelling <ph name="NETWORK_NAME" /></translation>
 <translation id="4917385247580444890">Sterk</translation>
 <translation id="4918086044614829423">Aanvaar</translation>
@@ -1302,6 +1305,7 @@ Geen toestelle is gekoppel nie.</translation>
 <translation id="5393156353051693207">Raak en hou op enige plek om jou programme te herrangskik</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" /> bo-oor <ph name="IN_PLACE_APP" />; laat los om vouer te skep.</translation>
 <translation id="5397578532367286026">Gebruiker se gebruik en geskiedenis kan op chrome.com deur die bestuurder (<ph name="MANAGER_EMAIL" />) nagegaan word.</translation>
+<translation id="540338817371815859">Landskap</translation>
 <translation id="540713187982329711">Wissel warmkol. Warmkol is aan; geen toestel is gekoppel nie</translation>
 <translation id="5409208741270395213">Merk taak as voltooid</translation>
 <translation id="5413656666631274079">Instellingsbladsy</translation>
@@ -1473,7 +1477,6 @@ Geen toestelle is gekoppel nie.</translation>
 <translation id="5975235751479998104">Beweeg vorentoe deur vensters</translation>
 <translation id="5978382165065462689">Deel tans beheer oor jou skerm deur afstandbystand.</translation>
 <translation id="5980301590375426705">Verlaat gas-sessie</translation>
-<translation id="5982119059638483922">Druk Fn+Search of Shift om te kanselleer.</translation>
 <translation id="5983567367406220847">Warmkol is weens onaktiwiteit afgeskakel.</translation>
 <translation id="598407983968395253">Gebruik templaat</translation>
 <translation id="5986723678596105470">Sluit aan met Google Vergader</translation>
@@ -1543,7 +1546,6 @@ Geen toestelle is gekoppel nie.</translation>
 <translation id="6166852626429024716">Deursoek jou toestel, programme, instellings en die web …</translation>
 <translation id="6168318496333165060">Maak diagnostiekapp oop</translation>
 <translation id="6168622430237609329">Jou geïnstalleerde apps</translation>
-<translation id="6173151025443907148">’n Tweede gebruiker kan nie aangemeld word as Lacros geaktiveer is nie. Gebruik asseblief eerder ’n tweede blaaierprofiel in Lacros, of deaktiveer Lacros en probeer weer.</translation>
 <translation id="6179832488876878285">Jy kan jou belangrike lêers hier vasspeld. Maak Lêers-program oop om te begin.</translation>
 <translation id="6180193585172850042">Terugknoppie</translation>
 <translation id="6180651297859206670">Vorentoeknoppie</translation>
@@ -1565,6 +1567,7 @@ Geen toestelle is gekoppel nie.</translation>
 <translation id="6232416233079464213">Vanaf <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> gebruik tans jou kamera en mikrofoon</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">Wagwoord moet net geldige karakters bevat</translation>
 <translation id="6240603910551255087">Boonste knoppie</translation>
 <translation id="6240821072888636753">Vra elke keer</translation>
 <translation id="6247728804802644171">Maak kennisgewings oop</translation>
@@ -1695,7 +1698,6 @@ Nuwe installasie</translation>
 <translation id="6682029141988159141">Plak inhoud van knipbord af</translation>
 <translation id="6683022854667115063">Oorfone</translation>
 <translation id="6686023075541098243">Stel jou foon op om jou kennisgewings te bekyk</translation>
-<translation id="6688019813898140556">Esc 5 keer</translation>
 <translation id="6694462491298752106">Ingeboude raakpaneel is gedeaktiveer</translation>
 <translation id="6694973220096431421">Deursoek Google Drive</translation>
 <translation id="6696025732084565524">Jou ontkoppelbare sleutelbord moet dringend opgedateer word</translation>
@@ -1716,6 +1718,7 @@ Nuwe installasie</translation>
 <translation id="6751826523481687655">Werkverrigtingnasporing is aangeskakel</translation>
 <translation id="6752912906630585008">Lessenaar <ph name="REMOVED_DESK" /> is verwyder en met lessenaar <ph name="RECEIVE_DESK" /> saamgevoeg</translation>
 <translation id="6753390234084146956">oortjies</translation>
+<translation id="6754918760968695779">Kitsinvoeg</translation>
 <translation id="6757237461819837179">Geen media speel tans nie</translation>
 <translation id="6760438044935091345">Spelkontroleskerm</translation>
 <translation id="6768043681523654438">berging</translation>
@@ -1765,6 +1768,7 @@ Nuwe installasie</translation>
 <translation id="6921427376813842559">Dateer toestel op</translation>
 <translation id="6929081673585394903">Wys kontroles</translation>
 <translation id="6931576957638141829">Stoor in</translation>
+<translation id="6935857786205183008">Portret</translation>
 <translation id="6942518653766415536">Opnameformaatkieslys</translation>
 <translation id="6945221475159498467">Kies</translation>
 <translation id="6945922087561257829">Jou foon gebruik ’n selnetwerk. Maak seker dat jou foon en Chromebook in dieselfde wi-fi-netwerk is, en probeer dan weer. <ph name="LEARN_MORE" /></translation>
@@ -1921,9 +1925,6 @@ Nuwe installasie</translation>
 Druk en hou weer die aan/af-skakelaar op die toestel om dit af te skakel.</translation>
 <translation id="7523420897035067483">Aktiveer Moenie Steur Nie terwyl jy in Fokus is</translation>
 <translation id="7524043547948122239">Google Take</translation>
-<translation id="7524919752437339268">Die ingeboude raakpaneel is gedeaktiveer. Gebruik jou sleutelbord of ’n ander wysertoestel om die verandering te bevestig.
-
-Anders sal die ingeboude raakpaneel binne 30 sekondes geheraktiveer word.</translation>
 <translation id="7525067979554623046">Skep</translation>
 <translation id="7526573455193969409">Netwerk kan gemonitor word</translation>
 <translation id="7536035074519304529">IP-adres: <ph name="ADDRESS" /></translation>
@@ -2010,6 +2011,7 @@ Anders sal die ingeboude raakpaneel binne 30 sekondes geheraktiveer word.</trans
 <translation id="780301667611848630">Nee, dankie</translation>
 <translation id="7807067443225230855">Soek en assistent</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> en <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">Die opduim sal terugvoer stuur dat jy van hierdie voorstel hou</translation>
 <translation id="7825412704590278437">Van komende kalendergeleentheid af</translation>
 <translation id="7829386189513694949">Sterk sein</translation>
 <translation id="7830453190047749513">Jy kan knoppiehandelinge, skermpyltjiespoed en meer vir jou<ph name="PERIPHERAL_NAME" /> personaliseer</translation>
@@ -2164,6 +2166,7 @@ Anders sal die ingeboude raakpaneel binne 30 sekondes geheraktiveer word.</trans
 <translation id="830868413617744215">Beta</translation>
 <translation id="8314772463905284467">Hoofletterslot is aan</translation>
 <translation id="8315514906653279104">Skakel tans aan …</translation>
+<translation id="8319634750346253957">Die afduim sal terugvoer stuur dat jy nie van hierdie voorstel hou nie</translation>
 <translation id="8331351032546853669">Aflaai hangende</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2349,6 +2352,7 @@ Anders sal die ingeboude raakpaneel binne 30 sekondes geheraktiveer word.</trans
 <translation id="8982906748181120328">Naby-sigbaarheid</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">Gebruik tans <ph name="IME_NAME" /></translation>
+<translation id="8991648557324317894">Druk fn + Kitsinvoeg of Shift om te kanselleer.</translation>
 <translation id="899350903320462459">Ontsluit toestel as <ph name="LOGIN_ID" /> om die kennisgewinghandeling uit te voer</translation>
 <translation id="8993733019280019776">Praat jy tans? Jou mikrofoon is af. Kies die mikrofoon om dit aan te skakel.</translation>
 <translation id="9000771174482730261">BESTUUR BERGING</translation>
@@ -2431,9 +2435,9 @@ Anders sal die ingeboude raakpaneel binne 30 sekondes geheraktiveer word.</trans
 <translation id="974545358917229949">Wys tans <ph name="RESULT_COUNT" /> resultate vir <ph name="QUERY" /></translation>
 <translation id="981011780479609956">Geen sperdatum nie</translation>
 <translation id="98120814841227350">Gaan na einde van dokument</translation>
-<translation id="98515147261107953">Landskap</translation>
 <translation id="987589956647469042">Mobiele data is aangeskakel</translation>
 <translation id="989374776391122812">Kamera- en oudiokontroles</translation>
+<translation id="990263227494928142">Druk Shift 5 keer om die raakpaneel te aktiveer</translation>
 <translation id="990277280839877440">Venster <ph name="WINDOW_TITILE" /> is gesluit.</translation>
 <translation id="993398562350683614">Toerstap <ph name="STEP" /> van <ph name="TOTAL_STEPS" />. Gebruik apps om alles wat nodig is op jou <ph name="PRODUCT_NAME" /> te doen. Jy kan jou apps in die Lanseerder kry. Druk Alt + Shift + L om op die Lanseerder-knoppie te fokus.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

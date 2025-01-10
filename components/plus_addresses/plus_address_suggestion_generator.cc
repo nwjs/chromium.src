@@ -36,6 +36,19 @@ using autofill::PasswordFormClassification;
 using autofill::Suggestion;
 using autofill::SuggestionType;
 
+bool IsPasswordFieldVisible(
+    const autofill::FormData& focused_form,
+    const PasswordFormClassification& form_classification) {
+  if (!form_classification.password_field) {
+    return false;
+  }
+  // This visibility check is far from perfect - for example, fields may still
+  // be transparent, have tiny sizes, etc., and this will not pick up on it.
+  const FormFieldData* const pw_field =
+      focused_form.FindFieldByGlobalId(*form_classification.password_field);
+  return pw_field && pw_field->is_visible();
+}
+
 // Returns `true` when we wish to offer plus address creation on a form with
 // password manager classification `form_classification` and a focused field
 // with id `focused_field_id`.
@@ -97,6 +110,11 @@ bool ShouldOfferPlusAddressCreationOnForm(
     case PasswordFormClassification::Type::kSignupForm:
       return true;
     case PasswordFormClassification::Type::kLoginForm:
+      if (base::FeatureList::IsEnabled(
+              features::kPlusAddressOfferCreationIfPasswordFieldIsNotVisible) &&
+          !IsPasswordFieldVisible(focused_form, form_classification)) {
+        return true;
+      }
       return base::FeatureList::IsEnabled(
                  features::kPlusAddressRefinedPasswordFormClassification) &&
              form_has_unexpected_field_types_for_login_form();
@@ -125,15 +143,13 @@ Suggestion CreateFillPlusAddressSuggestion(std::u16string plus_address) {
 // Returns the labels for a create new plus address suggestion.
 // `forwarding_address` is the email that traffic is forwarded to.
 std::vector<std::vector<Suggestion::Text>> CreateLabelsForCreateSuggestion(
-    bool has_accepted_notice,
-    std::string_view forwarding_address) {
+    bool has_accepted_notice) {
   // On Android, there are no labels since the Keyboard Accessory only allows
   // for single line chips.
   if constexpr (BUILDFLAG(IS_ANDROID)) {
     return {};
   }
-  if (!has_accepted_notice &&
-      base::FeatureList::IsEnabled(features::kPlusAddressSuggestionRedesign)) {
+  if (!has_accepted_notice) {
     return {};
   }
 
@@ -143,14 +159,8 @@ std::vector<std::vector<Suggestion::Text>> CreateLabelsForCreateSuggestion(
         IDS_PLUS_ADDRESS_CREATE_SUGGESTION_SECONDARY_TEXT))}};
   }
 
-  std::u16string label_text =
-      features::kShowForwardingEmailInSuggestion.Get()
-          ? l10n_util::GetStringFUTF16(
-                IDS_PLUS_ADDRESS_CREATE_SUGGESTION_SECONDARY_TEXT_WITH_FORWARDING_INFO,
-                base::UTF8ToUTF16(forwarding_address))
-          : l10n_util::GetStringUTF16(
-                IDS_PLUS_ADDRESS_CREATE_SUGGESTION_SECONDARY_TEXT);
-  return {{Suggestion::Text(std::move(label_text))}};
+  return {{Suggestion::Text(l10n_util::GetStringUTF16(
+      IDS_PLUS_ADDRESS_CREATE_SUGGESTION_SECONDARY_TEXT))}};
 }
 
 }  // namespace
@@ -158,12 +168,10 @@ std::vector<std::vector<Suggestion::Text>> CreateLabelsForCreateSuggestion(
 PlusAddressSuggestionGenerator::PlusAddressSuggestionGenerator(
     const PlusAddressSettingService* setting_service,
     PlusAddressAllocator* allocator,
-    url::Origin origin,
-    std::string primary_email)
+    url::Origin origin)
     : setting_service_(CHECK_DEREF(setting_service)),
       allocator_(CHECK_DEREF(allocator)),
-      origin_(std::move(origin)),
-      primary_email_(std::move(primary_email)) {}
+      origin_(std::move(origin)) {}
 
 PlusAddressSuggestionGenerator::~PlusAddressSuggestionGenerator() = default;
 
@@ -277,7 +285,9 @@ void PlusAddressSuggestionGenerator::SetLoadingStateForSuggestion(
     bool is_loading,
     autofill::Suggestion& suggestion) {
   suggestion.is_loading = Suggestion::IsLoading(is_loading);
-  suggestion.is_acceptable = !is_loading;
+  suggestion.acceptability = is_loading
+                                 ? Suggestion::Acceptability::kUnacceptable
+                                 : Suggestion::Acceptability::kAcceptable;
   auto existing_payload =
       suggestion.GetPayload<Suggestion::PlusAddressPayload>();
   existing_payload.offer_refresh = !is_loading;
@@ -297,12 +307,11 @@ PlusAddressSuggestionGenerator::CreateNewPlusAddressSuggestion() {
   suggestion.labels = CreateLabelsForCreateSuggestion(
       !base::FeatureList::IsEnabled(
           features::kPlusAddressUserOnboardingEnabled) ||
-          setting_service_->GetHasAcceptedNotice(),
-      primary_email_);
+      setting_service_->GetHasAcceptedNotice());
   suggestion.icon = Suggestion::Icon::kPlusAddress;
   suggestion.feature_for_new_badge = &features::kPlusAddressesEnabled;
-  suggestion.feature_for_iph =
-      &feature_engagement::kIPHPlusAddressCreateSuggestionFeature;
+  suggestion.iph_metadata = Suggestion::IPHMetadata(
+      &feature_engagement::kIPHPlusAddressCreateSuggestionFeature);
 #if BUILDFLAG(IS_ANDROID)
   suggestion.iph_description_text =
       l10n_util::GetStringUTF16(IDS_PLUS_ADDRESS_CREATE_SUGGESTION_IPH_ANDROID);
@@ -323,15 +332,12 @@ bool PlusAddressSuggestionGenerator::IsInlineGenerationEnabled() const {
 #endif
 }
 
-// TODO(crbug.com/362445807): Add tests for the inline suggestion once we set
-// more suggestion properties.
 autofill::Suggestion
 PlusAddressSuggestionGenerator::CreateNewPlusAddressInlineSuggestion() {
   Suggestion suggestion(
       l10n_util::GetStringUTF16(IDS_PLUS_ADDRESS_CREATE_SUGGESTION_MAIN_TEXT),
       SuggestionType::kCreateNewPlusAddressInline);
 
-  // TODO(crbug.com/362445807): Reconsider the allocation mode.
   if (std::optional<PlusProfile> profile =
           allocator_->AllocatePlusAddressSynchronously(
               origin_, PlusAddressAllocator::AllocationMode::kNewPlusAddress)) {
@@ -340,8 +346,11 @@ PlusAddressSuggestionGenerator::CreateNewPlusAddressInlineSuggestion() {
     // Otherwise, they will be showing only during the loading stage and then be
     // hidden automatically.
     suggestion.feature_for_new_badge = &features::kPlusAddressesEnabled;
-    suggestion.feature_for_iph =
-        &feature_engagement::kIPHPlusAddressCreateSuggestionFeature;
+    suggestion.iph_metadata = Suggestion::IPHMetadata(
+        &feature_engagement::kIPHPlusAddressCreateSuggestionFeature);
+    suggestion.voice_over = l10n_util::GetStringFUTF16(
+        IDS_PLUS_ADDRESS_CREATE_INLINE_SUGGESTION_A11Y_VOICE_OVER,
+        base::UTF8ToUTF16(*profile->plus_address));
   } else {
     suggestion.payload = Suggestion::PlusAddressPayload();
     SetLoadingStateForSuggestion(/*is_loading=*/true, suggestion);
@@ -350,8 +359,7 @@ PlusAddressSuggestionGenerator::CreateNewPlusAddressInlineSuggestion() {
   suggestion.labels = CreateLabelsForCreateSuggestion(
       !base::FeatureList::IsEnabled(
           features::kPlusAddressUserOnboardingEnabled) ||
-          setting_service_->GetHasAcceptedNotice(),
-      primary_email_);
+      setting_service_->GetHasAcceptedNotice());
   return suggestion;
 }
 

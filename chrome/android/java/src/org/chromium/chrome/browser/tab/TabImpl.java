@@ -9,6 +9,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.graphics.Rect;
 import android.net.Uri;
+import android.os.Build;
 import android.text.TextUtils;
 import android.util.SparseArray;
 import android.view.View;
@@ -72,6 +73,8 @@ import org.chromium.components.embedder_support.view.ContentView;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
 import org.chromium.components.security_state.SecurityStateModel;
+import org.chromium.components.sensitive_content.SensitiveContentClient;
+import org.chromium.components.sensitive_content.SensitiveContentFeatures;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.content_public.browser.ChildProcessImportance;
@@ -98,7 +101,7 @@ import java.util.Objects;
  * Implementation of the interface {@link Tab}. Contains and manages a {@link ContentView}. This
  * class is not intended to be extended.
  */
-class TabImpl implements Tab {
+class TabImpl implements Tab, SensitiveContentClient.Observer {
     /** Used for logging. */
     private static final String TAG = "Tab";
 
@@ -1345,8 +1348,10 @@ class TabImpl implements Tab {
     }
 
     void handleBackForwardTransitionUiChanged() {
+        if (isDestroyed()) return;
+
         for (TabObserver observer : mObservers) {
-            observer.didBackForwardTransitionAnimationChange();
+            observer.didBackForwardTransitionAnimationChange(this);
         }
 
         // Start the cross-fade animation after the invoking animation is done.
@@ -1808,9 +1813,7 @@ class TabImpl implements Tab {
 
             ContentView cv = ContentView.createContentView(mThemedApplicationContext, webContents);
             cv.setContentDescription(
-                    mThemedApplicationContext
-                            .getResources()
-                            .getString(R.string.accessibility_content_view));
+                    mThemedApplicationContext.getString(R.string.accessibility_content_view));
             mContentView = cv;
             webContents.setDelegates(
                     PRODUCT_VERSION,
@@ -1860,6 +1863,15 @@ class TabImpl implements Tab {
                             : View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
             TabHelpers.initWebContentsHelpers(this);
             notifyContentChanged();
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM
+                    && ChromeFeatureList.isEnabled(SensitiveContentFeatures.SENSITIVE_CONTENT)
+                    && ChromeFeatureList.isEnabled(
+                            SensitiveContentFeatures.SENSITIVE_CONTENT_WHILE_SWITCHING_TABS)) {
+                // Adding the observation has to happen after the native `initWebContents`, so that
+                // the {@link SensitiveContentClient} is properly initialized.
+                SensitiveContentClient.fromWebContents(webContents).addObserver(this);
+            }
         } finally {
             TraceEvent.end("ChromeTab.initWebContents");
         }
@@ -2267,6 +2279,13 @@ class TabImpl implements Tab {
     private final void destroyWebContents(boolean deleteNativeWebContents) {
         if (mWebContents == null) return;
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM
+                && ChromeFeatureList.isEnabled(SensitiveContentFeatures.SENSITIVE_CONTENT)
+                && ChromeFeatureList.isEnabled(
+                        SensitiveContentFeatures.SENSITIVE_CONTENT_WHILE_SWITCHING_TABS)) {
+            SensitiveContentClient.fromWebContents(mWebContents).removeObserver(this);
+        }
+
         if (mAutofillProvider != null) {
             mAutofillProvider.destroy();
             mAutofillProvider = null;
@@ -2420,6 +2439,19 @@ class TabImpl implements Tab {
         for (TabObserver observer : mObservers) {
             observer.onTabContentSensitivityChanged(this, contentIsSensitive);
         }
+    }
+
+    @Override
+    public void onTabRestoredFromArchivedTabModel() {
+        for (TabObserver observer : mObservers) {
+            observer.onTabUnarchived(this);
+        }
+    }
+
+    // SensitiveContentClient.Observer
+    @Override
+    public void onContentSensitivityChanged(boolean contentIsSensitive) {
+        setTabHasSensitiveContent(contentIsSensitive);
     }
 
     @NativeMethods

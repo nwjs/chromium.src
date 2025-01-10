@@ -6,6 +6,7 @@
 
 #include "base/metrics/histogram_functions.h"
 #include "third_party/blink/public/web/web_console_message.h"
+#include "third_party/blink/renderer/core/dom/abort_signal.h"
 #include "third_party/blink/renderer/modules/ai/ai.h"
 #include "third_party/blink/renderer/modules/ai/ai_capability_availability.h"
 #include "third_party/blink/renderer/modules/ai/ai_metrics.h"
@@ -58,10 +59,12 @@ class CreateSummarizerClient
       public AIMojoClient<AISummarizer>,
       public mojom::blink::AIManagerCreateSummarizerClient {
  public:
-  explicit CreateSummarizerClient(AI* ai,
-                                  const AISummarizerCreateOptions* options,
-                                  ScriptPromiseResolver<AISummarizer>* resolver)
-      : AIMojoClient(ai, resolver, options->getSignalOr(nullptr)),
+  explicit CreateSummarizerClient(ScriptState* script_state,
+                                  AI* ai,
+                                  ScriptPromiseResolver<AISummarizer>* resolver,
+                                  AbortSignal* signal,
+                                  const AISummarizerCreateOptions* options)
+      : AIMojoClient(script_state, ai, resolver, signal),
         ai_(ai),
         receiver_(this, ai->GetExecutionContext()),
         type_(options->type()),
@@ -108,6 +111,8 @@ class CreateSummarizerClient
     }
     Cleanup();
   }
+
+  void ResetReceiver() override { receiver_.reset(); }
 
  private:
   Member<AI> ai_;
@@ -182,12 +187,20 @@ ScriptPromise<AISummarizer> AISummarizerFactory::create(
   auto* resolver =
       MakeGarbageCollected<ScriptPromiseResolver<AISummarizer>>(script_state);
   auto promise = resolver->Promise();
+
+  AbortSignal* signal = options->getSignalOr(nullptr);
+  if (signal && signal->aborted()) {
+    resolver->Reject(signal->reason(script_state));
+    return promise;
+  }
+
   if (!ai_->GetAIRemote().is_connected()) {
     RejectPromiseWithInternalError(resolver);
     return promise;
   }
 
-  MakeGarbageCollected<CreateSummarizerClient>(ai_.Get(), options, resolver)
+  MakeGarbageCollected<CreateSummarizerClient>(script_state, ai_.Get(),
+                                               resolver, signal, options)
       ->CreateSummarizer();
   return promise;
 }

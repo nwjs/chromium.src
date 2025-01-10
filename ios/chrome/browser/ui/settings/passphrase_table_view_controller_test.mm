@@ -16,6 +16,7 @@
 #import "components/sync_preferences/pref_service_mock_factory.h"
 #import "components/sync_preferences/pref_service_syncable.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
+#import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
@@ -73,17 +74,19 @@ void PassphraseTableViewControllerTest::SetUp() {
   DefaultValue<syncer::SyncCycleSnapshot>::Set(default_sync_cycle_snapshot_);
 
   TestProfileIOS::Builder builder;
-  builder.AddTestingFactory(AuthenticationServiceFactory::GetInstance(),
-                            AuthenticationServiceFactory::GetDefaultFactory());
+  builder.AddTestingFactory(
+      AuthenticationServiceFactory::GetInstance(),
+      AuthenticationServiceFactory::GetFactoryWithDelegate(
+          std::make_unique<FakeAuthenticationServiceDelegate>()));
   builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                             base::BindRepeating(&CreateNiceMockSyncService));
   RegisterTestingFactories(builder);
   builder.SetPrefService(CreatePrefService());
   profile_ = std::move(builder).Build();
-  AuthenticationServiceFactory::CreateAndInitializeForProfile(
-      profile_.get(), std::make_unique<FakeAuthenticationServiceDelegate>());
   app_state_ = [[AppState alloc] initWithStartupInformation:nil];
+  profile_state_ = [[ProfileState alloc] initWithAppState:app_state_];
   scene_state_ = [[SceneState alloc] initWithAppState:app_state_];
+  scene_state_.profileState = profile_state_;
   browser_ = std::make_unique<TestBrowser>(profile_.get(), scene_state_);
 
   fake_sync_service_ = static_cast<syncer::MockSyncService*>(

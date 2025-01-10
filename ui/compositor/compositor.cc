@@ -27,7 +27,6 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "cc/animation/animation_host.h"
 #include "cc/animation/animation_id_provider.h"
 #include "cc/animation/animation_timeline.h"
@@ -193,7 +192,7 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
   settings.enable_elastic_overscroll = true;
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_WIN)
   // Rasterized tiles must be overlay candidates to be forwarded.
   // This is very similar to the line above for Apple.
   settings.use_gpu_memory_buffer_resources =
@@ -357,9 +356,9 @@ void Compositor::SetLayerTreeFrameSink(
                                                   vsync_interval_);
     }
     display_private_->SetMaxVSyncAndVrr(max_vsync_interval_, vrr_state_);
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
     display_private_->SetSupportedRefreshRates(seamless_refresh_rates_);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
   }
 
   MaybeUpdateObserveBeginFrame();
@@ -769,8 +768,6 @@ void Compositor::SendDamagedRectsRecursive(Layer* layer) {
   layer->SendDamagedRects();
   // Iterate using the size for the case of mutation during sending damaged
   // regions. https://crbug.com/1242257.
-  base::AutoReset<bool> setter(&(layer->sending_damaged_rects_for_descendants_),
-                               true);
   for (size_t i = 0; i < layer->children().size(); ++i)
     SendDamagedRectsRecursive(layer->children()[i]);
 }
@@ -855,13 +852,13 @@ void Compositor::FrameSinksToThrottleUpdated(
 
 void Compositor::OnFirstSurfaceActivation(
     const viz::SurfaceInfo& surface_info) {
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void Compositor::OnFrameTokenChanged(uint32_t frame_token,
                                      base::TimeTicks activation_time) {
   // TODO(yiyix, fsamuel): Implement frame token propagation for Compositor.
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 Compositor::TrackerState::TrackerState() = default;
@@ -1008,7 +1005,7 @@ void Compositor::MaybeUpdateObserveBeginFrame() {
       host_begin_frame_observer_->GetBoundRemote());
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 void Compositor::SetSeamlessRefreshRates(
     const std::vector<float>& seamless_refresh_rates) {
   seamless_refresh_rates_ = seamless_refresh_rates;
@@ -1022,6 +1019,6 @@ void Compositor::OnSetPreferredRefreshRate(float refresh_rate) {
   observer_list_.Notify(&CompositorObserver::OnSetPreferredRefreshRate, this,
                         refresh_rate);
 }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 }  // namespace ui

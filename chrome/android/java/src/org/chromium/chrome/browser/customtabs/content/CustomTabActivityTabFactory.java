@@ -22,6 +22,7 @@ import org.chromium.chrome.browser.app.tabmodel.TabModelOrchestrator;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.crypto.CipherFactory;
+import org.chromium.chrome.browser.customtabs.BaseCustomTabActivity;
 import org.chromium.chrome.browser.customtabs.CustomTabDelegateFactory;
 import org.chromium.chrome.browser.customtabs.CustomTabTabPersistencePolicy;
 import org.chromium.chrome.browser.dependency_injection.ActivityScope;
@@ -32,7 +33,6 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabBuilder;
 import org.chromium.chrome.browser.tab.TabDelegateFactory;
 import org.chromium.chrome.browser.tab.TabLaunchType;
-import org.chromium.chrome.browser.tabmodel.AsyncTabParamsManager;
 import org.chromium.chrome.browser.tabmodel.ChromeTabCreator;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
@@ -59,35 +59,30 @@ public class CustomTabActivityTabFactory {
     private final Supplier<CompositorViewHolder> mCompositorViewHolderSupplier;
     private final CipherFactory mCipherFactory;
 
-    private final Lazy<AsyncTabParamsManager> mAsyncTabParamsManager;
-
     @Nullable private CustomTabsTabModelOrchestrator mTabModelOrchestrator;
     @ActivityType int mActivityType;
 
     @Inject
     public CustomTabActivityTabFactory(
-            Activity activity,
+            BaseCustomTabActivity activity,
             CustomTabTabPersistencePolicy persistencePolicy,
             Lazy<ActivityWindowAndroid> activityWindowAndroid,
             OneshotSupplier<ProfileProvider> profileProviderSupplier,
             Lazy<CustomTabDelegateFactory> customTabDelegateFactory,
             BrowserServicesIntentDataProvider intentDataProvider,
-            Lazy<AsyncTabParamsManager> asyncTabParamsManager,
             TabCreatorManager tabCreatorManager,
             Supplier<TabModelSelector> tabModelSelectorSupplier,
-            Supplier<CompositorViewHolder> compositorViewHolderSupplier,
-            CipherFactory cipherFactory) {
+            Supplier<CompositorViewHolder> compositorViewHolderSupplier) {
         mActivity = activity;
         mPersistencePolicy = persistencePolicy;
         mActivityWindowAndroid = activityWindowAndroid;
         mProfileProviderSupplier = profileProviderSupplier;
         mCustomTabDelegateFactory = customTabDelegateFactory;
         mIntentDataProvider = intentDataProvider;
-        mAsyncTabParamsManager = asyncTabParamsManager;
         mTabCreatorManager = tabCreatorManager;
         mTabModelSelectorSupplier = tabModelSelectorSupplier;
         mCompositorViewHolderSupplier = compositorViewHolderSupplier;
-        mCipherFactory = cipherFactory;
+        mCipherFactory = activity.getCipherFactory();
     }
 
     public void setActivityType(int activityType) {
@@ -109,11 +104,12 @@ public class CustomTabActivityTabFactory {
     /** Calls the {@link TabModelOrchestrator} to create TabModels and TabPersistentStore. */
     public void createTabModels() {
         mTabModelOrchestrator.createTabModels(
+                mActivity,
                 mProfileProviderSupplier,
                 mTabCreatorManager,
                 mPersistencePolicy,
                 mActivityType,
-                mAsyncTabParamsManager.get(),
+                AsyncTabParamsManagerSingleton.getInstance(),
                 mCipherFactory);
     }
 

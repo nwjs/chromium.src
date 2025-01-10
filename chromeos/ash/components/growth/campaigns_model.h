@@ -34,7 +34,8 @@ namespace growth {
 // as it is used for logging metrics as well. Please keep in sync with
 // "CampaignSlot" in tools/metrics/histograms/metadata/ash_growth/enums.xml.
 enum class Slot {
-  kDemoModeApp = 0,
+  kMinValue = 0,
+  kDemoModeApp = kMinValue,
   kDemoModeFreePlayApps = 1,
   kNudge = 2,
   kNotification = 3,
@@ -44,12 +45,16 @@ enum class Slot {
 
 // These values are deserialized from Growth Campaign, so entries should not
 // be renumbered and numeric values should never be reused.
-enum class BuiltInVectorIcon { kRedeem = 0, kMaxValue = kRedeem };
+enum class BuiltInVectorIcon {
+  kRedeem = 0,
+  kHelpApp = 1,
+  kMaxValue = kHelpApp
+};
 
 // These values are deserialized from Growth Campaign, so entries should not
 // be renumbered and numeric values should never be reused.
 enum class BuiltInImage {
-  kContainerApp = 0,
+  kGeminiApp = 0,
   kG1 = 1,
   kSparkRebuy = 2,
   kSpark1PApp = 3,
@@ -308,6 +313,7 @@ class DeviceTargeting : public TargetingBase {
   const std::optional<bool> GetFeatureAwareDevice() const;
   std::unique_ptr<TimeWindowTargeting> GetRegisteredTime() const;
   const std::unique_ptr<NumberRangeTargeting> GetDeviceAge() const;
+  const std::unique_ptr<StringListTargeting> GetChannels() const;
 };
 
 // Wrapper around session targeting dictionary.
@@ -435,7 +441,7 @@ class RuntimeTargeting : public TargetingBase {
 
   const std::vector<std::string> GetActiveUrlRegexes() const;
 
-  std::unique_ptr<EventsTargeting> GetEventsConfig() const;
+  std::unique_ptr<EventsTargeting> GetEventsTargeting() const;
 
   // Returns a list of triggers against the current trigger, e.g. `kAppOpened`.
   const std::vector<std::unique_ptr<TriggerTargeting>> GetTriggers() const;

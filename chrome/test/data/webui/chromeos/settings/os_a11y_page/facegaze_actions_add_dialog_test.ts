@@ -4,7 +4,7 @@
 
 import 'chrome://os-settings/lazy_load.js';
 
-import {AddDialogPage, AssignedKeyCombo, FaceGazeAddActionDialogElement, FaceGazeCommandPair, setShortcutInputProviderForTesting} from 'chrome://os-settings/lazy_load.js';
+import {AddDialogPage, AssignedKeyCombo, ComplexActions, FaceGazeAddActionDialogElement, FaceGazeCommandPair, setShortcutInputProviderForTesting} from 'chrome://os-settings/lazy_load.js';
 import {CrButtonElement, CrSettingsPrefs, CrSliderElement, FaceGazeSubpageBrowserProxyImpl, IronListElement, Router, routes, SettingsPrefsElement} from 'chrome://os-settings/os_settings.js';
 import {FacialGesture} from 'chrome://resources/ash/common/accessibility/facial_gestures.js';
 import {MacroName} from 'chrome://resources/ash/common/accessibility/macro_names.js';
@@ -28,6 +28,11 @@ declare global {
     'facegaze-command-pair-added': CustomEvent<FaceGazeCommandPair>;
   }
 }
+
+const gestureAlreadyAssignedWarning = 'Selecting an already assigned ' +
+    'gesture will remove it from its original action';
+const gestureConflictsWarningPart = 'If possible, try picking a different ' +
+    'gesture';
 
 suite('<facegaze-actions-add-dialog>', () => {
   let faceGazeAddActionDialog: FaceGazeAddActionDialogElement;
@@ -99,6 +104,11 @@ suite('<facegaze-actions-add-dialog>', () => {
     assertNull(actionList);
   }
 
+  function setActionsListSelection(macroName: MacroName) {
+    const actionList = assertActionsList();
+    actionList.selectedItem = macroName as Object;
+  }
+
   function setActionsListSelectionToMouseClick() {
     const actionList = assertActionsList();
 
@@ -155,11 +165,11 @@ suite('<facegaze-actions-add-dialog>', () => {
     assertNull(gestureList);
   }
 
-  function setGesturesListSelection() {
+  function setGesturesListSelection(gesture: FacialGesture) {
     const gestureList = assertGesturesList();
 
     // Cast to Object to satisfy typing for IronListElement.selectedItem.
-    gestureList.selectedItem = FacialGesture.BROW_INNER_UP as Object;
+    gestureList.selectedItem = gesture as Object;
   }
 
   function assertVideoElement(): HTMLVideoElement {
@@ -233,6 +243,10 @@ suite('<facegaze-actions-add-dialog>', () => {
     return getButton('#faceGazeCustomKeyboardNextButton');
   }
 
+  function getCustomKeyboardChangeButton(): CrButtonElement {
+    return getButton('#faceGazeCustomKeyboardChangeButton');
+  }
+
   function getCustomKeyboardPreviousButton(): CrButtonElement {
     const previousButton = getButton('#faceGazeCustomKeyboardPreviousButton');
     assertFalse(previousButton.disabled);
@@ -247,6 +261,20 @@ suite('<facegaze-actions-add-dialog>', () => {
     const previousButton = getButton('#faceGazeGesturePreviousButton');
     assertFalse(previousButton.disabled);
     return previousButton;
+  }
+
+  function getWarningContainer(): HTMLElement|null {
+    const container: HTMLElement|null =
+        faceGazeAddActionDialog.shadowRoot!.querySelector<HTMLElement>(
+            '#warningContainer');
+    return container;
+  }
+
+  function getComplexActionContainer(): HTMLElement|null {
+    const container: HTMLElement|null =
+        faceGazeAddActionDialog.shadowRoot!.querySelector<HTMLElement>(
+            '#complexActionContainer');
+    return container
   }
 
   function getThresholdPreviousButton(): CrButtonElement {
@@ -271,7 +299,7 @@ suite('<facegaze-actions-add-dialog>', () => {
     flush();
 
     assertGesturesListNoSelection();
-    setGesturesListSelection();
+    setGesturesListSelection(FacialGesture.BROW_INNER_UP);
 
     const gestureNextButton = getGestureNextButton();
     assertFalse(gestureNextButton.disabled);
@@ -376,6 +404,50 @@ suite('<facegaze-actions-add-dialog>', () => {
         // Assert that the key combo has been reset.
         const keyboardNextButton = getCustomKeyboardNextButton();
         assertTrue(keyboardNextButton.disabled);
+      });
+
+
+  test(
+      'custom keyboard page change button resets key combination', async () => {
+        await initPage();
+        assertActionsListNoSelection();
+        setActionsListSelectionToCustomKeyCombo();
+
+        const actionNextButton = getActionNextButton();
+        assertFalse(actionNextButton.disabled);
+
+        actionNextButton.click();
+        flush();
+
+        assertShortcutInput();
+
+        const keyEvent = {
+          vkey: VKey.kKeyC,
+          domCode: 0,
+          domKey: 0,
+          modifiers: Modifier.CONTROL,
+          keyDisplay: 'c',
+        };
+
+        shortcutInputProvider.sendKeyPressEvent(keyEvent, keyEvent);
+        shortcutInputProvider.sendKeyReleaseEvent(keyEvent, keyEvent);
+        await flushTasks();
+
+        let keyboardChangeButton = getCustomKeyboardChangeButton();
+        assertFalse(keyboardChangeButton.disabled);
+        keyboardChangeButton.click();
+        flush();
+
+        keyboardChangeButton = getCustomKeyboardChangeButton();
+        assertTrue(keyboardChangeButton.disabled);
+        const keyboardNextButton = getCustomKeyboardNextButton();
+        assertTrue(keyboardNextButton.disabled);
+
+        shortcutInputProvider.sendKeyPressEvent(keyEvent, keyEvent);
+        shortcutInputProvider.sendKeyReleaseEvent(keyEvent, keyEvent);
+        await flushTasks();
+        keyboardChangeButton = getCustomKeyboardChangeButton();
+        assertFalse(keyboardChangeButton.disabled);
       });
 
   test(
@@ -577,6 +649,18 @@ suite('<facegaze-actions-add-dialog>', () => {
         navigateToThresholdPage();
       });
 
+  test('threshold page video preview is mirrored', async () => {
+    await initPage();
+    navigateToThresholdPage();
+
+    const video =
+        faceGazeAddActionDialog.shadowRoot!.querySelector<HTMLVideoElement>(
+            '#cameraStream');
+    assertTrue(!!video);
+    const style = getComputedStyle(video);
+    assertTrue(!!style.transform);
+  });
+
   test(
       'threshold page previous button changes dialog to gesture page',
       async () => {
@@ -620,7 +704,7 @@ suite('<facegaze-actions-add-dialog>', () => {
         saveButton.click();
         flush();
 
-        assertTrue(isThresholdValueSetInPref(65));
+        assertTrue(isThresholdValueSetInPref(55));
         assertFalse(faceGazeAddActionDialog.$.dialog.open);
       });
 
@@ -642,7 +726,7 @@ suite('<facegaze-actions-add-dialog>', () => {
         saveButton.click();
         flush();
 
-        assertTrue(isThresholdValueSetInPref(55));
+        assertTrue(isThresholdValueSetInPref(45));
         assertEventContainsCommandPair(new FaceGazeCommandPair(
             MacroName.MOUSE_CLICK_LEFT, FacialGesture.BROW_INNER_UP));
         assertFalse(faceGazeAddActionDialog.$.dialog.open);
@@ -680,7 +764,7 @@ suite('<facegaze-actions-add-dialog>', () => {
         flush();
 
         assertGesturesListNoSelection();
-        setGesturesListSelection();
+        setGesturesListSelection(FacialGesture.BROW_INNER_UP);
 
         const gestureNextButton = getGestureNextButton();
         assertFalse(gestureNextButton.disabled);
@@ -766,7 +850,7 @@ suite('<facegaze-actions-add-dialog>', () => {
         actionNextButton.click();
         flush();
         assertGesturesListNoSelection();
-        setGesturesListSelection();
+        setGesturesListSelection(FacialGesture.BROW_INNER_UP);
         assertEquals(
             0, browserProxy.getCallCount('toggleGestureInfoForSettings'));
 
@@ -797,12 +881,12 @@ suite('<facegaze-actions-add-dialog>', () => {
 
         webUIListenerCallback('settings.sendGestureInfoToSettings', [
           {gesture: FacialGesture.BROW_INNER_UP, confidence: 70},
-          {gesture: FacialGesture.BROW_INNER_UP, confidence: 50},
+          {gesture: FacialGesture.BROW_INNER_UP, confidence: 40},
         ]);
 
         const gestureCountDiv = getGestureCountDiv();
 
-        // Default confidence threshold is 60, so only one gesture should
+        // Default confidence threshold is 50, so only one gesture should
         // register as detected.
         assertEquals(`Detected 1 time`, gestureCountDiv.innerText);
       });
@@ -821,7 +905,7 @@ suite('<facegaze-actions-add-dialog>', () => {
 
         const gestureCountDiv = getGestureCountDiv();
 
-        // Default confidence threshold is 60, so only one gesture should
+        // Default confidence threshold is 50, so only one gesture should
         // register as detected.
         assertEquals(`Detected 1 time`, gestureCountDiv.innerText);
       });
@@ -858,7 +942,7 @@ suite('<facegaze-actions-add-dialog>', () => {
 
         const gestureCountDiv = getGestureCountDiv();
 
-        // Default confidence threshold is 60, so three gestures should register
+        // Default confidence threshold is 50, so three gestures should register
         // as detected.
         assertEquals(`Detected 3 times`, gestureCountDiv.innerText);
       });
@@ -877,6 +961,7 @@ suite('<facegaze-actions-add-dialog>', () => {
         const gestureCountDiv = getGestureCountDiv();
         assertEquals(`Not detected`, gestureCountDiv.innerText);
       });
+
   test(
       'gesture threshold dynamic bar updates when gesture info received with selected gesture info at any confidence',
       async () => {
@@ -895,4 +980,159 @@ suite('<facegaze-actions-add-dialog>', () => {
         ]);
         assertEquals('30%', sliderBar.style.width);
       });
+
+  test(
+      'no warning text because conflicting gestures not assigned', async () => {
+        await initPage();
+        setActionsListSelectionToMouseClick();
+        const actionNextButton = getActionNextButton();
+        assertFalse(actionNextButton.disabled);
+        actionNextButton.click();
+        await flushTasks();
+
+        assertGesturesListNoSelection();
+
+        // No gestures are selected yet, so there should be no warning.
+        assertFalse(!!getWarningContainer());
+
+        for (const gesture of Object.values(FacialGesture)) {
+          setGesturesListSelection(gesture);
+          await flushTasks();
+          assertFalse(!!getWarningContainer());
+        }
+      });
+
+  test('warning text because gesture already assigned', async () => {
+    await initPage();
+    setActionsListSelectionToMouseClick();
+    const actionNextButton = getActionNextButton();
+    assertFalse(actionNextButton.disabled);
+    actionNextButton.click();
+    await flushTasks();
+
+    assertGesturesListNoSelection();
+
+    // No gestures are selected yet, so there should be no warning.
+    let container = getWarningContainer();
+    assertFalse(!!container);
+
+    // Select an already assigned gesture.
+    faceGazeAddActionDialog.prefs.settings.a11y.face_gaze.gestures_to_macros
+        .value[FacialGesture.BROW_INNER_UP] = MacroName.MOUSE_CLICK_RIGHT;
+    setGesturesListSelection(FacialGesture.BROW_INNER_UP);
+
+    await flushTasks();
+
+    container = getWarningContainer();
+    assertTrue(!!container);
+    assertTrue(isVisible(container));
+    // Ensure that only the already assigned warning is visible.
+    assertTrue(container.innerText.includes(gestureAlreadyAssignedWarning));
+    assertFalse(container.innerText.includes(gestureConflictsWarningPart));
+  });
+
+  test(
+      'warning text because gesture already assigned and has conflicting gesture',
+      async () => {
+        await initPage();
+        setActionsListSelectionToMouseClick();
+        const actionNextButton = getActionNextButton();
+        assertFalse(actionNextButton.disabled);
+        actionNextButton.click();
+        await flushTasks();
+
+        assertGesturesListNoSelection();
+
+        // No gestures are selected yet, so there should be no warning.
+        let container = getWarningContainer();
+        assertFalse(!!container);
+
+        // Set gesture to macro bindings.
+        faceGazeAddActionDialog.prefs.settings.a11y.face_gaze.gestures_to_macros
+            .value[FacialGesture.MOUTH_SMILE] = MacroName.MOUSE_CLICK_RIGHT;
+        faceGazeAddActionDialog.prefs.settings.a11y.face_gaze.gestures_to_macros
+            .value[FacialGesture.MOUTH_UPPER_UP] =
+            MacroName.OPEN_FACEGAZE_SETTINGS;
+
+        // Select an already assigned gesture that also has conflicts assigned.
+        setGesturesListSelection(FacialGesture.MOUTH_SMILE);
+
+        await flushTasks();
+
+        container = getWarningContainer();
+        assertTrue(!!container);
+        assertTrue(isVisible(container));
+        // Ensure that both the already assigned warning and conflicting gesture
+        // warning are visible.
+        assertTrue(container.innerText.includes(gestureAlreadyAssignedWarning));
+        assertTrue(container.innerText.includes(gestureConflictsWarningPart));
+      });
+
+  test('warning text because conflicting gesture is assigned', async () => {
+    await initPage();
+    setActionsListSelectionToMouseClick();
+    const actionNextButton = getActionNextButton();
+    assertFalse(actionNextButton.disabled);
+    actionNextButton.click();
+    await flushTasks();
+
+    assertGesturesListNoSelection();
+
+    // No gestures are selected yet, so there should be no warning.
+    let container = getWarningContainer();
+    assertFalse(!!container);
+
+    // Set gesture to macro bindings.
+    faceGazeAddActionDialog.prefs.settings.a11y.face_gaze.gestures_to_macros
+        .value[FacialGesture.MOUTH_UPPER_UP] = MacroName.OPEN_FACEGAZE_SETTINGS;
+
+    // Select a gesture that has conflicts assigned.
+    setGesturesListSelection(FacialGesture.MOUTH_SMILE);
+
+    await flushTasks();
+
+    container = getWarningContainer();
+    assertTrue(!!container);
+    assertTrue(isVisible(container));
+    // Ensure that only the gesture conflict warning is visible.
+    assertTrue(container.innerText.includes(gestureConflictsWarningPart));
+    assertFalse(container.innerText.includes(gestureAlreadyAssignedWarning));
+  });
+
+  test('complex action text', async () => {
+    await initPage();
+    let container = getComplexActionContainer();
+    assertFalse(!!container);
+
+    for (const action of Object.keys(ComplexActions)) {
+      // JavaScript will convert integer keys into strings, so we need to cast
+      // `action` back to an integer (or more specifically, a MacroName);
+      setActionsListSelection(parseInt(action));
+      await flushTasks();
+
+      container = getComplexActionContainer();
+      assertTrue(!!container);
+      assertTrue(isVisible(container));
+      assertTrue(container.innerText.includes('Use the gesture'));
+    }
+  });
+
+  test('no complex action text', async () => {
+    await initPage();
+    let container = getComplexActionContainer();
+    assertFalse(!!container);
+
+    const macros = [
+      MacroName.MOUSE_CLICK_LEFT,
+      MacroName.MOUSE_CLICK_RIGHT,
+      MacroName.MOUSE_CLICK_LEFT_DOUBLE,
+    ];
+
+    for (const macro of macros) {
+      setActionsListSelection(macro);
+      await flushTasks();
+      container = getComplexActionContainer();
+      assertFalse(!!container);
+    }
+  });
 });

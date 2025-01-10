@@ -47,7 +47,6 @@ BASE_DECLARE_FEATURE(kNtpLogo);
 BASE_DECLARE_FEATURE(kNtpMiddleSlotPromo);
 BASE_DECLARE_FEATURE(kNtpMiddleSlotPromoDismissal);
 BASE_DECLARE_FEATURE(kNtpModulesLoadTimeoutMilliseconds);
-BASE_DECLARE_FEATURE(kNtpWideModules);
 BASE_DECLARE_FEATURE(kNtpModulesOrder);
 BASE_DECLARE_FEATURE(kNtpModulesOverflowScrollbar);
 BASE_DECLARE_FEATURE(kNtpModulesDragAndDrop);
@@ -61,7 +60,6 @@ BASE_DECLARE_FEATURE(kNtpPhotosModuleCustomizedOptInArtWork);
 BASE_DECLARE_FEATURE(kNtpPhotosModuleSplitSvgOptInArtWork);
 BASE_DECLARE_FEATURE(kNtpFeedModule);
 BASE_DECLARE_FEATURE(kNtpOneGoogleBar);
-BASE_DECLARE_FEATURE(kNtpLensDirectUpload);
 BASE_DECLARE_FEATURE(kNtpSafeBrowsingModule);
 BASE_DECLARE_FEATURE(kNtpSharepointModule);
 BASE_DECLARE_FEATURE(kNtpShortcuts);
@@ -75,6 +73,7 @@ BASE_DECLARE_FEATURE(kNtpWallpaperSearchButton);
 BASE_DECLARE_FEATURE(kNtpWallpaperSearchButtonAnimation);
 BASE_DECLARE_FEATURE(kNtpWallpaperSearchButtonAnimationShownThreshold);
 BASE_DECLARE_FEATURE(kNtpMobilePromo);
+BASE_DECLARE_FEATURE(kNtpMicrosoftAuthenticationModule);
 
 // Parameter for controlling the luminosity difference for NTP elements on light
 // backgrounds.
@@ -210,6 +209,8 @@ int GetWallpaperSearchButtonAnimationShownThreshold();
 
 // Returns the condition to use to hide the wallpaper search button.
 int GetWallpaperSearchButtonHideCondition();
+
+std::string GetMobilePromoTargetURL();
 }  // namespace ntp_features
 
 #endif  // COMPONENTS_SEARCH_NTP_FEATURES_H_

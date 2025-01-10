@@ -11,9 +11,9 @@ import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -92,7 +92,7 @@ public class TrackingProtectionSettingsTest {
     @Test
     @SmallTest
     public void testShowTrackingProtectionBrandedUi() {
-        when(mDelegate.isBlockAll3PCDEnabled()).thenReturn(true);
+        when(mDelegate.isBlockAll3pcEnabled()).thenReturn(true);
         when(mDelegate.isDoNotTrackEnabled()).thenReturn(true);
         when(mDelegate.shouldShowTrackingProtectionBrandedUi()).thenReturn(true);
 
@@ -109,7 +109,7 @@ public class TrackingProtectionSettingsTest {
     @Test
     @SmallTest
     public void testShowTrackingProtectionRewindUi() {
-        when(mDelegate.isBlockAll3PCDEnabled()).thenReturn(true);
+        when(mDelegate.isBlockAll3pcEnabled()).thenReturn(true);
         when(mDelegate.isDoNotTrackEnabled()).thenReturn(true);
         when(mDelegate.shouldShowTrackingProtectionBrandedUi()).thenReturn(false);
 
@@ -125,8 +125,8 @@ public class TrackingProtectionSettingsTest {
 
     @Test
     @SmallTest
-    public void testIpFpProtectionsDisplayedInLaunchUI() {
-        when(mDelegate.isBlockAll3PCDEnabled()).thenReturn(true);
+    public void testIpFpProtectionsDisplayedInLaunchUi() {
+        when(mDelegate.isBlockAll3pcEnabled()).thenReturn(true);
         when(mDelegate.isDoNotTrackEnabled()).thenReturn(true);
         when(mDelegate.shouldDisplayIpProtection()).thenReturn(true);
         when(mDelegate.shouldDisplayFingerprintingProtection()).thenReturn(true);

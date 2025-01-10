@@ -32,8 +32,8 @@
 #include "components/autofill/core/browser/logging/text_log_receiver.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/mock_autocomplete_history_manager.h"
+#include "components/autofill/core/browser/mock_autofill_ai_delegate.h"
 #include "components/autofill/core/browser/mock_autofill_optimization_guide.h"
-#include "components/autofill/core/browser/mock_autofill_prediction_improvements_delegate.h"
 #include "components/autofill/core/browser/mock_merchant_promo_code_manager.h"
 #include "components/autofill/core/browser/payments/local_card_migration_manager.h"
 #include "components/autofill/core/browser/payments/test_payments_autofill_client.h"
@@ -65,10 +65,8 @@
 #endif
 
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
-#include "components/autofill/core/browser/ml_model/autofill_ml_prediction_model_handler.h"
+#include "components/autofill/core/browser/ml_model/field_classification_model_handler.h"
 #endif
-
-using ::autofill::test::AutofillTestingPrefService;
 
 namespace autofill {
 
@@ -134,12 +132,11 @@ class TestAutofillClientTemplate : public T {
     mock_autofill_optimization_guide_.reset();
   }
 
-  MockAutofillPredictionImprovementsDelegate*
-  GetAutofillPredictionImprovementsDelegate() override {
-    return mock_autofill_prediction_improvements_delegate_.get();
+  MockAutofillAiDelegate* GetAutofillAiDelegate() override {
+    return mock_autofill_ai_delegate_.get();
   }
 
-  AutocompleteHistoryManager* GetAutocompleteHistoryManager() override {
+  MockAutocompleteHistoryManager* GetAutocompleteHistoryManager() override {
     return &mock_autocomplete_history_manager_;
   }
 
@@ -147,14 +144,14 @@ class TestAutofillClientTemplate : public T {
     return plus_address_delegate_.get();
   }
 
-  AutofillTestingPrefService* GetPrefs() override {
+  test::AutofillTestingPrefService* GetPrefs() override {
     if (!prefs_) {
       prefs_ = autofill::test::PrefServiceForTesting();
     }
     return prefs_.get();
   }
 
-  const AutofillTestingPrefService* GetPrefs() const override {
+  const test::AutofillTestingPrefService* GetPrefs() const override {
     return const_cast<TestAutofillClientTemplate*>(this)->GetPrefs();
   }
 
@@ -212,14 +209,24 @@ class TestAutofillClientTemplate : public T {
   }
 
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
-  AutofillMlPredictionModelHandler* GetAutofillMlPredictionModelHandler()
+  FieldClassificationModelHandler* GetAutofillFieldClassificationModelHandler()
       override {
-    return ml_prediction_model_handler_.get();
+    return autofill_ml_prediction_model_handler_.get();
   }
 
-  void set_ml_prediction_model_handler(
-      std::unique_ptr<AutofillMlPredictionModelHandler> handler) {
-    ml_prediction_model_handler_ = std::move(handler);
+  void set_autofill_ml_prediction_model_handler(
+      std::unique_ptr<FieldClassificationModelHandler> handler) {
+    autofill_ml_prediction_model_handler_ = std::move(handler);
+  }
+
+  FieldClassificationModelHandler*
+  GetPasswordManagerFieldClassificationModelHandler() override {
+    return password_ml_prediction_model_handler_.get();
+  }
+
+  void set_password_ml_prediction_model_handler(
+      std::unique_ptr<FieldClassificationModelHandler> handler) {
+    password_ml_prediction_model_handler_ = std::move(handler);
   }
 #endif
 
@@ -387,7 +394,7 @@ class TestAutofillClientTemplate : public T {
     return test_addresses_;
   }
 
-  void SetPrefs(std::unique_ptr<AutofillTestingPrefService> prefs) {
+  void SetPrefs(std::unique_ptr<test::AutofillTestingPrefService> prefs) {
     prefs_ = std::move(prefs);
   }
 
@@ -449,10 +456,6 @@ class TestAutofillClientTemplate : public T {
     format_for_large_keyboard_accessory_ = format_for_large_keyboard_accessory;
   }
 
-  MockAutocompleteHistoryManager* GetMockAutocompleteHistoryManager() {
-    return &mock_autocomplete_history_manager_;
-  }
-
   void set_channel_for_testing(const version_info::Channel channel) {
     channel_for_testing_ = channel;
   }
@@ -503,10 +506,9 @@ class TestAutofillClientTemplate : public T {
   std::unique_ptr<::testing::NiceMock<MockAutofillOptimizationGuide>>
       mock_autofill_optimization_guide_ =
           std::make_unique<testing::NiceMock<MockAutofillOptimizationGuide>>();
-  std::unique_ptr<
-      ::testing::NiceMock<MockAutofillPredictionImprovementsDelegate>>
-      mock_autofill_prediction_improvements_delegate_ = std::make_unique<
-          testing::NiceMock<MockAutofillPredictionImprovementsDelegate>>();
+  std::unique_ptr<::testing::NiceMock<MockAutofillAiDelegate>>
+      mock_autofill_ai_delegate_ =
+          std::make_unique<testing::NiceMock<MockAutofillAiDelegate>>();
   ::testing::NiceMock<MockAutocompleteHistoryManager>
       mock_autocomplete_history_manager_;
   ::testing::NiceMock<MockFastCheckoutClient> mock_fast_checkout_client_;
@@ -514,12 +516,14 @@ class TestAutofillClientTemplate : public T {
       device_authenticator_ = nullptr;
 
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
-  std::unique_ptr<AutofillMlPredictionModelHandler>
-      ml_prediction_model_handler_;
+  std::unique_ptr<FieldClassificationModelHandler>
+      autofill_ml_prediction_model_handler_;
+  std::unique_ptr<FieldClassificationModelHandler>
+      password_ml_prediction_model_handler_;
 #endif
 
   // NULL by default.
-  std::unique_ptr<AutofillTestingPrefService> prefs_;
+  std::unique_ptr<test::AutofillTestingPrefService> prefs_;
   std::unique_ptr<TestStrikeDatabase> test_strike_database_;
 
   std::unique_ptr<TestPersonalDataManager> test_personal_data_manager_;

@@ -65,6 +65,7 @@ source_set("grid_mediator") {
     "//ios/chrome/browser/drag_and_drop/model",
     "//ios/chrome/browser/iph_for_new_chrome_user/model",
     "//ios/chrome/browser/main/model",
+    "//ios/chrome/browser/policy/model:policy_util",
     "//ios/chrome/browser/reading_list/model",
     "//ios/chrome/browser/saved_tab_groups/model",
     "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
@@ -285,15 +286,24 @@ source_set("grid_view_controller_mutator") {
 
 source_set("tab_group_grid_ui") {
   sources = [
+    "tab_group_activity_summary_cell.h",
+    "tab_group_activity_summary_cell.mm",
     "tab_group_grid_view_controller.h",
     "tab_group_grid_view_controller.mm",
     "tab_group_header.h",
     "tab_group_header.mm",
   ]
   deps = [
+    ":grid_item_identifier",
     ":grid_ui",
+    ":grid_ui_constants",
     ":grid_view_delegate",
     "//base",
+    "//ios/chrome/app/strings",
+    "//ios/chrome/browser/shared/ui/symbols",
+    "//ios/chrome/browser/shared/ui/util",
+    "//ios/chrome/common/ui/colors",
+    "//ui/base",
   ]
 }
 
@@ -378,7 +388,8 @@ source_set("test_fixture") {
     "//ios/chrome/browser/shared/model/profile/test",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/model/web_state_list/test:test_support",
-    "//ios/chrome/browser/signin/model",
+    "//ios/chrome/browser/signin/model:authentication_service",
+    "//ios/chrome/browser/signin/model:authentication_service_factory",
     "//ios/chrome/browser/signin/model:fake_system_identity",
     "//ios/chrome/browser/signin/model:fake_system_identity_manager",
     "//ios/chrome/browser/signin/model:test_support",

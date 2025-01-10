@@ -6,13 +6,14 @@
 
 #include "base/strings/strcat.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/on_device_translation/component_manager.h"
 #include "chrome/browser/on_device_translation/language_pack_util.h"
-#include "chrome/browser/on_device_translation/service_controller.h"
 
 using on_device_translation_internals::mojom::LanguagePackInfo;
 using on_device_translation_internals::mojom::LanguagePackInfoPtr;
 using on_device_translation_internals::mojom::LanguagePackStatus;
 
+using on_device_translation::ComponentManager;
 using on_device_translation::kLanguagePackComponentConfigMap;
 using on_device_translation::LanguagePackKey;
 using on_device_translation::ToLanguageCode;
@@ -50,7 +51,7 @@ void OnDeviceTranslationInternalsPageHandlerImpl::InstallLanguagePackage(
   if (package_index > static_cast<uint32_t>(LanguagePackKey::kMaxValue)) {
     return;
   }
-  OnDeviceTranslationServiceController::RegisterLanguagePackComponent(
+  ComponentManager::GetInstance().RegisterTranslateKitLanguagePackComponent(
       static_cast<LanguagePackKey>(package_index));
 }
 
@@ -59,16 +60,14 @@ void OnDeviceTranslationInternalsPageHandlerImpl::UninstallLanguagePackage(
   if (package_index > static_cast<uint32_t>(LanguagePackKey::kMaxValue)) {
     return;
   }
-  OnDeviceTranslationServiceController::UninstallLanguagePackage(
+  ComponentManager::GetInstance().UninstallTranslateKitLanguagePackComponent(
       static_cast<LanguagePackKey>(package_index));
 }
 
 void OnDeviceTranslationInternalsPageHandlerImpl::SendLanguagePackInfo() {
   std::vector<LanguagePackInfoPtr> info_list;
-  const auto registered_packs =
-      OnDeviceTranslationServiceController::GetRegisteredLanguagePacks();
-  const auto installed_packs =
-      OnDeviceTranslationServiceController::GetInstalledLanguagePacks();
+  const auto registered_packs = ComponentManager::GetRegisteredLanguagePacks();
+  const auto installed_packs = ComponentManager::GetInstalledLanguagePacks();
 
   for (const auto& it : kLanguagePackComponentConfigMap) {
     auto key = it.first;

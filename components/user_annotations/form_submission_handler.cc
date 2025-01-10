@@ -67,7 +67,7 @@ void FormSubmissionHandler::ExecuteModelWithEntries(
 void FormSubmissionHandler::OnModelExecuted(
     optimization_guide::OptimizationGuideModelExecutionResult result,
     std::unique_ptr<optimization_guide::ModelQualityLogEntry> log_entry) {
-  if (!result.has_value()) {
+  if (!result.response.has_value()) {
     SendFormSubmissionResult(
         base::unexpected(UserAnnotationsExecutionResult::kResponseError),
         std::move(log_entry));
@@ -76,7 +76,8 @@ void FormSubmissionHandler::OnModelExecuted(
 
   std::optional<optimization_guide::proto::FormsAnnotationsResponse>
       maybe_response = optimization_guide::ParsedAnyMetadata<
-          optimization_guide::proto::FormsAnnotationsResponse>(result.value());
+          optimization_guide::proto::FormsAnnotationsResponse>(
+          result.response.value());
   if (!maybe_response) {
     SendFormSubmissionResult(
         base::unexpected(UserAnnotationsExecutionResult::kResponseMalformed),
@@ -84,8 +85,7 @@ void FormSubmissionHandler::OnModelExecuted(
     return;
   }
 
-  if (ShouldPersistUserAnnotations() &&
-      !user_annotations_service_->IsDatabaseReady()) {
+  if (!user_annotations_service_->IsDatabaseReady()) {
     SendFormSubmissionResult(
         base::unexpected(UserAnnotationsExecutionResult::kCryptNotInitialized),
         std::move(log_entry));
@@ -108,7 +108,7 @@ void FormSubmissionHandler::SendFormSubmissionResult(
     if (callback_) {
       std::move(callback_).Run(
           std::move(form_),
-          /*to_be_upserted_entries=*/{},
+          /*form_annotation_response=*/nullptr,
           /*prompt_acceptance_callback=*/base::DoNothing());
     }
     NotifyCompletion();
@@ -118,16 +118,17 @@ void FormSubmissionHandler::SendFormSubmissionResult(
   if (result->upserted_entries().empty()) {
     optimization_guide::ModelQualityLogEntry::Drop(std::move(log_entry));
     std::move(callback_).Run(std::move(form_),
-                             /*to_be_upserted_entries=*/{},
+                             /*form_annotation_response=*/nullptr,
                              /*prompt_acceptance_callback=*/base::DoNothing());
     NotifyCompletion();
     return;
   }
-
-  UserAnnotationsEntries upserted_entries = UserAnnotationsEntries(
-      result->upserted_entries().begin(), result->upserted_entries().end());
+  auto form_annotation_response = std::make_unique<FormAnnotationResponse>(
+      UserAnnotationsEntries(result->upserted_entries().begin(),
+                             result->upserted_entries().end()),
+      log_entry->model_execution_id());
   std::move(callback_).Run(
-      std::move(form_), upserted_entries,
+      std::move(form_), std::move(form_annotation_response),
       base::BindOnce(&FormSubmissionHandler::OnImportFormConfirmation,
                      weak_ptr_factory_.GetWeakPtr(), std::move(result),
                      std::move(log_entry)));

@@ -7,8 +7,11 @@
 #import "base/check_deref.h"
 #import "base/containers/contains.h"
 #import "base/containers/to_vector.h"
+#import "base/feature_list.h"
+#import "base/functional/bind.h"
 #import "base/memory/ptr_util.h"
 #import "base/memory/raw_ptr.h"
+#import "base/memory/weak_ptr.h"
 #import "base/metrics/histogram.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/observer_list.h"
@@ -23,6 +26,8 @@
 #import "components/autofill/ios/browser/autofill_driver_ios_factory.h"
 #import "components/autofill/ios/browser/autofill_java_script_feature.h"
 #import "components/autofill/ios/browser/autofill_util.h"
+#import "components/autofill/ios/browser/form_fetch_batcher.h"
+#import "components/autofill/ios/common/features.h"
 #import "components/autofill/ios/common/field_data_manager_factory_ios.h"
 #import "components/autofill/ios/form_util/child_frame_registrar.h"
 #import "ios/web/public/browser_state.h"
@@ -48,6 +53,15 @@ bool IsAcrossIframesEnabled() {
   return base::FeatureList::IsEnabled(
       autofill::features::kAutofillAcrossIframesIos);
 }
+
+base::TimeDelta GetDocumentFormScanPeriod() {
+  return base::Milliseconds(kAutofillDocumentFormScanPeriodMs.Get());
+}
+
+base::TimeDelta GetFilteredDocumentFormScanPeriod() {
+  return base::Milliseconds(kAutofillFilteredDocumentFormScanPeriodMs.Get());
+}
+
 }  // namespace
 
 // static
@@ -81,7 +95,14 @@ AutofillDriverIOS::AutofillDriverIOS(
       bridge_(bridge),
       client_(*client),
       manager_(std::make_unique<BrowserAutofillManager>(this, app_locale)),
-      router_(router) {
+      router_(router),
+      document_scan_batcher_(bridge,
+                             web_frame ? web_frame->AsWeakPtr() : nullptr,
+                             GetDocumentFormScanPeriod()),
+      document_filtered_scan_batcher_(
+          bridge,
+          web_frame ? web_frame->AsWeakPtr() : nullptr,
+          GetFilteredDocumentFormScanPeriod()) {
   manager_observation_.Observe(manager_.get());
 
   if (IsAcrossIframesEnabled()) {
@@ -278,7 +299,54 @@ void AutofillDriverIOS::TriggerFormExtractionInDriverFrame(
 
   if (base::FeatureList::IsEnabled(
           features::kAutofillAcrossIframesIosTriggerFormExtraction)) {
-    [bridge_ scanFormsInWebState:web_state_ inFrame:web_frame()];
+    ScanForms();
+  }
+}
+
+void AutofillDriverIOS::ScanForms(bool immediately) {
+  if (!web_frame()) {
+    return;
+  }
+
+  const auto callback =
+      [](id<AutofillDriverIOSBridge> bridge, base::WeakPtr<web::WebFrame> frame,
+         std::optional<std::vector<autofill::FormData>> forms) {
+        if (!frame || !forms || forms->empty()) {
+          return;
+        }
+        [bridge notifyFormsSeen:*std::move(forms) inFrame:frame.get()];
+      };
+
+  if (base::FeatureList::IsEnabled(kAutofillThrottleDocumentFormScanIos)) {
+    immediately ? document_scan_batcher_.PushRequestAndRun(base::BindOnce(
+                      callback, bridge_, web_frame()->AsWeakPtr()))
+                : document_scan_batcher_.PushRequest(base::BindOnce(
+                      callback, bridge_, web_frame()->AsWeakPtr()));
+  } else {
+    [bridge_ fetchFormsFiltered:NO
+                       withName:std::u16string()
+                        inFrame:web_frame()
+              completionHandler:base::BindOnce(callback, bridge_,
+                                               web_frame()->AsWeakPtr())];
+  }
+}
+
+void AutofillDriverIOS::FetchFromsFilteredByName(
+    const std::u16string& form_name,
+    FormFetchCompletion completion) {
+  if (!web_frame()) {
+    return;
+  }
+
+  if (base::FeatureList::IsEnabled(
+          kAutofillThrottleFilteredDocumentFormScanIos)) {
+    document_filtered_scan_batcher_.PushRequest(std::move(completion),
+                                                form_name);
+  } else {
+    [bridge_ fetchFormsFiltered:YES
+                       withName:form_name
+                        inFrame:web_frame()
+              completionHandler:std::move(completion)];
   }
 }
 
@@ -395,22 +463,18 @@ void AutofillDriverIOS::FormsSeen(
 
 void AutofillDriverIOS::FormSubmitted(
     const FormData& form,
-    bool known_success,
     mojom::SubmissionSource submission_source) {
   auto callback = [](AutofillDriver& driver, const FormData& form,
-                     bool known_success,
                      mojom::SubmissionSource submission_source) {
     base::UmaHistogramEnumeration(kAutofillSubmissionDetectionSourceHistogram,
                                   submission_source);
-    driver.GetAutofillManager().OnFormSubmitted(form, known_success,
-                                                submission_source);
+    driver.GetAutofillManager().OnFormSubmitted(form, submission_source);
     cast(&driver)->ClearLastInteractedForm();
   };
   if (IsAcrossIframesEnabled()) {
-    router_->FormSubmitted(callback, *this, form, known_success,
-                           submission_source);
+    router_->FormSubmitted(callback, *this, form, submission_source);
   } else {
-    callback(*this, form, known_success, submission_source);
+    callback(*this, form, submission_source);
   }
 }
 
@@ -527,7 +591,6 @@ void AutofillDriverIOS::FormsRemoved(
     UpdateLastInteractedFormFromFieldDataManager();
 
     FormSubmitted(last_interacted_form_->form_data,
-                  /*known_success=*/true,
                   mojom::SubmissionSource::XHR_SUCCEEDED);
   }
 

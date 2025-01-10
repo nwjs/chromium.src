@@ -65,7 +65,7 @@
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom-blink.h"
 #include "third_party/blink/public/mojom/loader/same_document_navigation_type.mojom-shared.h"
-#include "third_party/blink/public/mojom/origin_trial_feature/origin_trial_feature.mojom-shared.h"
+#include "third_party/blink/public/mojom/origin_trials/origin_trial_feature.mojom-shared.h"
 #include "third_party/blink/public/mojom/page/page.mojom-blink.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_fetch_handler_bypass_option.mojom-blink.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_fetch_handler_type.mojom-blink.h"
@@ -91,6 +91,7 @@
 #include "third_party/blink/renderer/core/execution_context/window_agent.h"
 #include "third_party/blink/renderer/core/execution_context/window_agent_factory.h"
 #include "third_party/blink/renderer/core/fragment_directive/text_fragment_anchor.h"
+#include "third_party/blink/renderer/core/frame/cached_permission_status.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/deprecation/deprecation.h"
 #include "third_party/blink/renderer/core/frame/frame_console.h"
@@ -352,6 +353,9 @@ struct SameSizeAsDocumentLoader
   AtomicString cookie_deprecation_label;
   mojom::RendererContentSettingsPtr content_settings;
   int64_t body_size_from_service_worker;
+  const std::optional<
+      HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>>
+      initial_permission_statuses;
 };
 
 // Asserts size of DocumentLoader, so that whenever a new attribute is added to
@@ -416,6 +420,37 @@ bool ShouldEmitNewNavigationHistogram(WebNavigationType navigation_type) {
     case kWebNavigationTypeOther:
       return true;
   }
+}
+
+// Helpers to convert between base::flat_map and WTF::HashMap
+std::optional<
+    HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>>
+ConvertPermissionStatusFlatMapToHashMap(
+    const std::optional<base::flat_map<mojom::blink::PermissionName,
+                                       mojom::blink::PermissionStatus>>&
+        flat_map) {
+  if (!flat_map) {
+    return std::nullopt;
+  }
+
+  HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>
+      hash_map;
+  for (const auto& it : *flat_map) {
+    hash_map.insert(it.first, it.second);
+  }
+  return hash_map;
+}
+
+base::flat_map<mojom::blink::PermissionName, mojom::blink::PermissionStatus>
+ConvertPermissionStatusHashMapToFlatMap(
+    const HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>&
+        hash_map) {
+  base::flat_map<mojom::blink::PermissionName, mojom::blink::PermissionStatus>
+      flat_map;
+  for (const auto& it : hash_map) {
+    flat_map.try_emplace(it.key, it.value);
+  }
+  return flat_map;
 }
 
 }  // namespace
@@ -573,7 +608,9 @@ DocumentLoader::DocumentLoader(
       browsing_context_group_info_(params_->browsing_context_group_info),
       modified_runtime_features_(std::move(params_->modified_runtime_features)),
       cookie_deprecation_label_(params_->cookie_deprecation_label),
-      content_settings_(std::move(params_->content_settings)) {
+      content_settings_(std::move(params_->content_settings)),
+      initial_permission_statuses_(ConvertPermissionStatusFlatMapToHashMap(
+          params_->initial_permission_statuses)) {
   TRACE_EVENT_WITH_FLOW0("loading", "DocumentLoader::DocumentLoader",
                          TRACE_ID_LOCAL(this), TRACE_EVENT_FLAG_FLOW_OUT);
   DCHECK(frame_);
@@ -731,6 +768,14 @@ DocumentLoader::CreateWebNavigationParamsToCloneDocument() {
   params->cookie_deprecation_label = cookie_deprecation_label_;
   params->visited_link_salt = visited_link_salt_;
   params->content_settings = content_settings_->Clone();
+
+  if (RuntimeEnabledFeatures::PermissionElementEnabled(
+          frame_->DomWindow()->GetExecutionContext())) {
+    params->initial_permission_statuses =
+        ConvertPermissionStatusHashMapToFlatMap(
+            CachedPermissionStatus::From(frame_->DomWindow())
+                ->GetPermissionStatusMap());
+  }
   return params;
 }
 
@@ -922,8 +967,7 @@ WebHistoryCommitType LoadTypeToCommitType(WebFrameLoadType type) {
     case WebFrameLoadType::kReloadBypassingCache:
       return kWebHistoryInertCommit;
   }
-  NOTREACHED_IN_MIGRATION();
-  return kWebHistoryInertCommit;
+  NOTREACHED();
 }
 
 void DocumentLoader::RunURLAndHistoryUpdateSteps(
@@ -2702,6 +2746,15 @@ void DocumentLoader::InitializeWindow(Document* owner_document) {
     // above.
     DCHECK(did_have_policy_container || WillLoadUrlAsEmpty(Url()));
   }
+
+  if (initial_permission_statuses_ &&
+      RuntimeEnabledFeatures::PermissionElementEnabled(
+          frame_->DomWindow()->GetExecutionContext())) {
+    CachedPermissionStatus::From(frame_->DomWindow())
+        ->SetPermissionStatusMap(
+            std::move(initial_permission_statuses_).value());
+  }
+
   content_security_notifier_ =
       HeapMojoRemote<mojom::blink::ContentSecurityNotifier>(
           frame_->DomWindow());
@@ -3026,16 +3079,11 @@ void DocumentLoader::CommitNavigation() {
   last_navigation_had_trusted_initiator_ =
       !requestor_origin_ || is_same_origin_initiator;
 
-  // The PaintHolding feature defers compositor commits until content has
-  // been painted or 500ms have passed, whichever comes first. The additional
-  // PaintHoldingCrossOrigin feature allows PaintHolding even for cross-origin
-  // navigations, otherwise only same-origin navigations have deferred commits.
-  // We also require that this be an html document served via http.
+  // The PaintHolding feature defers compositor commits until content has been
+  // painted or 500ms have passed, whichever comes first. We require that this
+  // be an html document served via http.
   if (base::FeatureList::IsEnabled(blink::features::kPaintHolding) &&
-      IsA<HTMLDocument>(document) && Url().ProtocolIsInHTTPFamily() &&
-      (is_same_origin_initiator ||
-       base::FeatureList::IsEnabled(
-           blink::features::kPaintHoldingCrossOrigin))) {
+      IsA<HTMLDocument>(document) && Url().ProtocolIsInHTTPFamily()) {
     document->SetDeferredCompositorCommitIsAllowed(true);
   } else {
     document->SetDeferredCompositorCommitIsAllowed(false);
@@ -3524,9 +3572,7 @@ base::TimeDelta DocumentLoader::RemainingTimeToLCPLimit() const {
   // We shouldn't call this function before navigation start
   DCHECK(!document_load_timing_.NavigationStart().is_null());
   base::TimeTicks lcp_limit =
-      document_load_timing_.NavigationStart() +
-      base::Milliseconds(
-          features::kAlignFontDisplayAutoTimeoutWithLCPGoalTimeoutParam.Get());
+      document_load_timing_.NavigationStart() + kLCPLimit;
   base::TimeTicks now = clock_->NowTicks();
   if (now < lcp_limit)
     return lcp_limit - now;

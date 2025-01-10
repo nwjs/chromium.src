@@ -30,6 +30,7 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.commerce.ShoppingServiceFactory;
+import org.chromium.chrome.browser.device_reauth.ReauthenticatorBridge;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.page_image_service.ImageServiceBridge;
@@ -60,7 +61,6 @@ import org.chromium.ui.base.TestActivity;
 })
 @EnableFeatures({
     SyncFeatureMap.SYNC_ENABLE_BOOKMARKS_IN_TRANSPORT_MODE,
-    ChromeFeatureList.ENABLE_PASSWORDS_ACCOUNT_STORAGE_FOR_NON_SYNCING_USERS,
     ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS
 })
 // TODO(crbug.com/327387704): Add tests with this flag enabled.
@@ -86,6 +86,7 @@ public class BookmarkManagerCoordinatorTest {
     @Mock private BookmarkUiPrefs mBookmarkUiPrefs;
     @Mock private CommerceFeatureUtils.Natives mCommerceFeatureUtilsJniMock;
     @Mock private ShoppingService mShoppingService;
+    @Mock private ReauthenticatorBridge mReauthenticatorMock;
 
     private Activity mActivity;
     private BookmarkManagerCoordinator mCoordinator;
@@ -107,6 +108,7 @@ public class BookmarkManagerCoordinatorTest {
         AccountManagerFacadeProvider.setInstanceForTests(mAccountManagerFacade);
         BookmarkModel.setInstanceForTesting(mBookmarkModel);
         ShoppingServiceFactory.setShoppingServiceForTesting(mShoppingService);
+        ReauthenticatorBridge.setInstanceForTesting(mReauthenticatorMock);
 
         // Setup bookmark model.
         doReturn(true).when(mBookmarkModel).areAccountBookmarkFoldersActive();

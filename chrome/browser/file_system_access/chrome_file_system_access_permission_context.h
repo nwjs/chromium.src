@@ -8,6 +8,7 @@
 #include <map>
 #include <vector>
 
+#include "base/auto_reset.h"
 #include "base/callback_list.h"
 #include "base/files/file_path.h"
 #include "base/memory/raw_ptr.h"
@@ -15,16 +16,16 @@
 #include "base/sequence_checker.h"
 #include "base/time/clock.h"
 #include "base/time/default_clock.h"
+#include "base/types/expected.h"
 #include "chrome/browser/file_system_access/file_system_access_features.h"
 #include "chrome/browser/file_system_access/file_system_access_permission_request_manager.h"
+#include "chrome/browser/permissions/one_time_permissions_tracker.h"
+#include "chrome/browser/permissions/one_time_permissions_tracker_observer.h"
 #include "components/enterprise/buildflags/buildflags.h"
 #include "components/permissions/features.h"
 #include "components/permissions/object_permission_context_base.h"
 #include "content/public/browser/file_system_access_permission_context.h"
 #include "third_party/blink/public/mojom/file_system_access/file_system_access_manager.mojom-forward.h"
-
-#include "chrome/browser/permissions/one_time_permissions_tracker.h"
-#include "chrome/browser/permissions/one_time_permissions_tracker_observer.h"
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/web_applications/web_app_install_manager.h"
 #include "chrome/browser/web_applications/web_app_install_manager_observer.h"
@@ -40,6 +41,7 @@ enum ContentSetting;
 
 namespace content {
 class BrowserContext;
+class RenderFrameHost;
 }  // namespace content
 
 // Chrome implementation of FileSystemAccessPermissionContext. This class
@@ -185,6 +187,8 @@ class ChromeFileSystemAccessPermissionContext
       base::OnceCallback<void(AfterWriteCheckResult)> callback) override;
   bool IsFileTypeDangerous(const base::FilePath& path,
                            const url::Origin& origin) override;
+  base::expected<void, std::string> CanShowFilePicker(
+      content::RenderFrameHost* rfh) override;
   bool CanObtainReadPermission(const url::Origin& origin) override;
   bool CanObtainWritePermission(const url::Origin& origin) override;
   void SetLastPickedDirectory(const url::Origin& origin,
@@ -259,10 +263,10 @@ class ChromeFileSystemAccessPermissionContext
     Grants(Grants&&);
     Grants& operator=(Grants&&);
 
-    std::vector<base::FilePath> file_read_grants;
-    std::vector<base::FilePath> file_write_grants;
-    std::vector<base::FilePath> directory_read_grants;
-    std::vector<base::FilePath> directory_write_grants;
+    std::vector<content::PathInfo> file_read_grants;
+    std::vector<content::PathInfo> file_write_grants;
+    std::vector<content::PathInfo> directory_read_grants;
+    std::vector<content::PathInfo> directory_write_grants;
   };
   Grants ConvertObjectsToGrants(std::vector<std::unique_ptr<Object>> objects);
 
@@ -322,6 +326,9 @@ class ChromeFileSystemAccessPermissionContext
   GetExtendedWritePermissionGrantForTesting(const url::Origin& origin,
                                             const content::PathInfo& path_info,
                                             HandleType handle_type);
+
+  base::AutoReset<std::optional<base::FilePath>> OverrideProfilePathForTesting(
+      const base::FilePath& profile_path_override);
 
   HostContentSettingsMap* content_settings() { return content_settings_.get(); }
 
@@ -538,6 +545,8 @@ class ChromeFileSystemAccessPermissionContext
   // `window.showSaveFilePicker()`.
   FileCreatedFromShowSaveFilePickerCallbackList
       file_created_from_show_save_file_picker_callback_list_;
+
+  std::optional<base::FilePath> profile_path_override_;
 
   base::WeakPtrFactory<ChromeFileSystemAccessPermissionContext> weak_factory_{
       this};

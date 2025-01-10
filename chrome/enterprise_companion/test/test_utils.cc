@@ -28,31 +28,9 @@
 #include "base/time/time.h"
 #include "chrome/enterprise_companion/device_management_storage/dm_storage.h"
 #include "chrome/enterprise_companion/enterprise_companion.h"
-#include "chrome/enterprise_companion/enterprise_companion_client.h"
 #include "chrome/enterprise_companion/installer_paths.h"
 
 namespace enterprise_companion {
-
-namespace {
-
-#if BUILDFLAG(IS_POSIX)
-constexpr char kTestExe[] = "enterprise_companion_test";
-#elif BUILDFLAG(IS_WIN)
-constexpr char kTestExe[] = "enterprise_companion_test.exe";
-#endif
-
-void RunAppUnderTest(const std::string& switch_string) {
-  const base::FilePath test_exe_path =
-      base::PathService::CheckedGet(base::DIR_EXE).AppendASCII(kTestExe);
-  ASSERT_TRUE(base::PathExists(test_exe_path));
-
-  base::CommandLine command_line(test_exe_path);
-  command_line.AppendSwitch(switch_string);
-  base::Process installer_process = base::LaunchProcess(command_line, {});
-  ASSERT_EQ(WaitForProcess(installer_process), 0);
-}
-
-}  // namespace
 
 int WaitForProcess(base::Process& process) {
   int exit_code = 0;
@@ -141,17 +119,21 @@ void TestMethods::ExpectClean() {
 }
 
 void TestMethods::ExpectInstalled() {
-  std::optional<base::FilePath> install_dir = GetInstallDirectory();
-  ASSERT_TRUE(install_dir);
-  ASSERT_TRUE(base::PathExists(install_dir->AppendASCII(kExecutableName)));
+  EXPECT_TRUE(FindExistingInstall());
 }
 
 void TestMethods::Install() {
   RunAppUnderTest(kInstallSwitch);
 }
 
-void TestMethods::InstallIfNeeded() {
-  RunAppUnderTest(kInstallIfNeededSwitch);
+void TestMethods::RunAppUnderTest(const std::string& switch_string) {
+  const base::FilePath test_exe_path = GetTestExePath();
+  ASSERT_TRUE(base::PathExists(test_exe_path));
+
+  base::CommandLine command_line(test_exe_path);
+  command_line.AppendSwitch(switch_string);
+  base::Process installer_process = base::LaunchProcess(command_line, {});
+  ASSERT_EQ(WaitForProcess(installer_process), 0);
 }
 
 }  // namespace enterprise_companion

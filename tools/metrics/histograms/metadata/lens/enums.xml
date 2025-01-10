@@ -60,6 +60,7 @@ chromium-metrics-reviews@google.com.
   <int value="27" label="Lens permission declined"/>
   <int value="28" label="Low memory"/>
   <int value="29" label="Network issue"/>
+  <int value="30" label="Escape key press on preselection toast"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/lens/lens_overlay_dismissal_source.h:LensOverlayDismissalSource) -->
@@ -138,6 +139,36 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//components/lens/lens_permission_user_action.h:LensPermissionUserAction) -->
+
+<!-- LINT.IfChange(LensOverlayMimeType) -->
+
+<enum name="MimeType">
+  <summary>
+    The mime type of the document the Lens Overlay is invoked on.
+  </summary>
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Pdf"/>
+  <int value="2" label="Html"/>
+  <int value="3" label="PlainText"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/lens/lens_overlay_mime_type.h:LensOverlayMimeType) -->
+
+<!-- LINT.IfChange(LensOverlaySidePanelResultStatus) -->
+
+<enum name="SidePanelResultStatus">
+  <summary>
+    Indicates the state of the side panel content, including whether results
+    were successfully shown or an error occurred preventing display. If an error
+    is indicated, the enum value further specifies the reason for the error.
+  </summary>
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Result shown"/>
+  <int value="2" label="Error page shown (offline)"/>
+  <int value="3" label="Error page shown (start query response error)"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/lens/lens_overlay_side_panel_result.h:LensOverlaySidePanelResultStatus) -->
 
 </enums>
 

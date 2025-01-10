@@ -61,17 +61,18 @@ def _convert_basic_suite(
               | 'test_common'):
           pass
 
-        case 'ci_only' | 'use_isolated_scripts_api':
+        case 'ci_only' | 'experiment_percentage' | 'use_isolated_scripts_api':
           anonymous_mixin_builder[key] = values.convert_direct(value)
 
-        case 'android_args' | 'args' | 'linux_args':
+        case ('android_args' | 'chromeos_args' | 'desktop_args' | 'args'
+              | 'lacros_args' | 'linux_args'):
           anonymous_mixin_builder[key] = values.convert_args(value)
 
         case 'resultdb':
           anonymous_mixin_builder['resultdb'] = values.convert_resultdb(value)
 
-        case 'android_swarming' | 'swarming':
-          anonymous_mixin_builder['swarming'] = values.convert_swarming(value)
+        case 'android_swarming' | 'chromeos_swarming' | 'swarming':
+          anonymous_mixin_builder[key] = values.convert_swarming(value)
 
         case 'mixins':
           mixins_builder = values.ListValueBuilder([anonymous_mixin_builder])
@@ -111,7 +112,7 @@ def _convert_matrix_compound_suite(
   targets_builder = values.ListValueBuilder()
   for suite_name, matrix_config in suite.items():
     if not matrix_config:
-      targets_builder.append(suite_name)
+      targets_builder.append(values.convert_direct(suite_name))
     else:
       bundle_builder = values.CallValueBuilder(
           'targets.bundle', {'targets': values.convert_direct(suite_name)})

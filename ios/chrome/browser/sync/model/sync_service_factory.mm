@@ -111,10 +111,9 @@ syncer::DataTypeController::TypeVector CreateControllers(
   builder.SetIdentityManager(IdentityManagerFactory::GetForProfile(profile));
   builder.SetDataTypeStoreService(
       DataTypeStoreServiceFactory::GetForProfile(profile));
-  builder.SetPasskeyModel(
-      base::FeatureList::IsEnabled(syncer::kSyncWebauthnCredentials)
-          ? IOSPasskeyModelFactory::GetForProfile(profile)
-          : nullptr);
+  builder.SetPasskeyModel(syncer::IsWebauthnCredentialSyncEnabled()
+                              ? IOSPasskeyModelFactory::GetForProfile(profile)
+                              : nullptr);
   builder.SetPasswordReceiverService(
       IOSChromePasswordReceiverServiceFactory::GetForProfile(profile));
   builder.SetPasswordSenderService(
@@ -164,10 +163,23 @@ syncer::DataTypeController::TypeVector CreateControllers(
 // data.
 constexpr int kMaxSyncedNewTabPageDisplays = 5;
 
+std::unique_ptr<syncer::SyncClient> BuildSyncClient(ProfileIOS* profile) {
+  CHECK(profile);
+
+  return std::make_unique<IOSChromeSyncClient>(
+      profile->GetPrefs(), IdentityManagerFactory::GetForProfile(profile),
+      IOSTrustedVaultServiceFactory::GetForProfile(profile),
+      SyncInvalidationsServiceFactory::GetForProfile(profile),
+      DeviceInfoSyncServiceFactory::GetForProfile(profile),
+      DataTypeStoreServiceFactory::GetForProfile(profile),
+      SupervisedUserSettingsServiceFactory::GetForProfile(profile));
+}
+
 std::unique_ptr<KeyedService> BuildSyncService(web::BrowserState* context) {
   ProfileIOS* profile = ProfileIOS::FromBrowserState(context);
 
-  DCHECK(!profile->IsOffTheRecord());
+  CHECK(profile);
+  CHECK(!profile->IsOffTheRecord());
 
   // Always create the GCMProfileService instance such that we can listen to
   // the profile notifications and purge the GCM store when the profile is
@@ -179,7 +191,7 @@ std::unique_ptr<KeyedService> BuildSyncService(web::BrowserState* context) {
   ios::AboutSigninInternalsFactory::GetForProfile(profile);
 
   syncer::SyncServiceImpl::InitParams init_params;
-  init_params.sync_client = std::make_unique<IOSChromeSyncClient>(profile);
+  init_params.sync_client = BuildSyncClient(profile);
   init_params.url_loader_factory = profile->GetSharedURLLoaderFactory();
   init_params.network_connection_tracker =
       GetApplicationContext()->GetNetworkConnectionTracker();
@@ -250,12 +262,6 @@ SyncServiceFactory::TestingFactory SyncServiceFactory::GetDefaultFactory() {
 }
 
 // static
-syncer::SyncService* SyncServiceFactory::GetForBrowserState(
-    ProfileIOS* profile) {
-  return GetForProfile(profile);
-}
-
-// static
 syncer::SyncService* SyncServiceFactory::GetForProfile(ProfileIOS* profile) {
   if (!syncer::IsSyncAllowedByFlag()) {
     return nullptr;
@@ -291,29 +297,25 @@ SyncServiceFactory::SyncServiceFactory()
   // when it is shut down.  Specify those dependencies here to build the proper
   // destruction order. Note that some of the dependencies are listed here but
   // actually plumbed in IOSChromeSyncClient, which this factory constructs.
-  DependsOn(ChromeAccountManagerServiceFactory::GetInstance());
   DependsOn(ConsentAuditorFactory::GetInstance());
   DependsOn(DataTypeStoreServiceFactory::GetInstance());
   DependsOn(data_sharing::DataSharingServiceFactory::GetInstance());
   DependsOn(DeviceInfoSyncServiceFactory::GetInstance());
   DependsOn(GoogleGroupsManagerFactory::GetInstance());
-  DependsOn(SendTabToSelfSyncServiceFactory::GetInstance());
+  DependsOn(IdentityManagerFactory::GetInstance());
   DependsOn(ios::AboutSigninInternalsFactory::GetInstance());
   DependsOn(ios::AccountBookmarkSyncServiceFactory::GetInstance());
   DependsOn(ios::BookmarkModelFactory::GetInstance());
-  DependsOn(ios::BookmarkUndoServiceFactory::GetInstance());
   DependsOn(ios::LocalOrSyncableBookmarkSyncServiceFactory::GetInstance());
   DependsOn(ios::FaviconServiceFactory::GetInstance());
   DependsOn(ios::HistoryServiceFactory::GetInstance());
-  DependsOn(ios::TemplateURLServiceFactory::GetInstance());
   DependsOn(ios::WebDataServiceFactory::GetInstance());
-  DependsOn(IdentityManagerFactory::GetInstance());
+  DependsOn(IOSChromeAccountPasswordStoreFactory::GetInstance());
   DependsOn(IOSChromeGCMProfileServiceFactory::GetInstance());
   DependsOn(IOSChromePasswordReceiverServiceFactory::GetInstance());
   DependsOn(IOSChromePasswordSenderServiceFactory::GetInstance());
   DependsOn(IOSChromeProfilePasswordStoreFactory::GetInstance());
-  DependsOn(IOSChromeAccountPasswordStoreFactory::GetInstance());
-  if (base::FeatureList::IsEnabled(syncer::kSyncWebauthnCredentials)) {
+  if (syncer::IsWebauthnCredentialSyncEnabled()) {
     DependsOn(IOSPasskeyModelFactory::GetInstance());
   }
   if (base::FeatureList::IsEnabled(
@@ -325,6 +327,7 @@ SyncServiceFactory::SyncServiceFactory()
   DependsOn(PlusAddressSettingServiceFactory::GetInstance());
   DependsOn(PowerBookmarkServiceFactory::GetInstance());
   DependsOn(ReadingListModelFactory::GetInstance());
+  DependsOn(SendTabToSelfSyncServiceFactory::GetInstance());
   DependsOn(SessionSyncServiceFactory::GetInstance());
   DependsOn(SupervisedUserSettingsServiceFactory::GetInstance());
   DependsOn(SyncInvalidationsServiceFactory::GetInstance());

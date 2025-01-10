@@ -36,8 +36,7 @@ SyncStopMetadataFate TakeStrictestMetadataFate(SyncStopMetadataFate fate1,
     case KEEP_METADATA:
       return fate2;
   }
-  NOTREACHED_IN_MIGRATION();
-  return KEEP_METADATA;
+  NOTREACHED();
 }
 
 }  // namespace
@@ -58,8 +57,7 @@ std::string DataTypeController::StateToString(State state) {
     case FAILED:
       return "Failed";
   }
-  NOTREACHED_IN_MIGRATION();
-  return "Invalid";
+  NOTREACHED();
 }
 
 DataTypeController::DataTypeController(
@@ -289,7 +287,13 @@ void DataTypeController::HasUnsyncedData(
   delegate_->HasUnsyncedData(std::move(callback));
 }
 
-void DataTypeController::GetAllNodes(AllNodesCallback callback) {
+void DataTypeController::GetAllNodesForDebugging(AllNodesCallback callback) {
+  // Precautionary safeguard.
+  if (state_ != RUNNING) {
+    std::move(callback).Run(base::Value::List());
+    return;
+  }
+
   CHECK(delegate_);
   delegate_->GetAllNodesForDebugging(std::move(callback));
 }
@@ -412,8 +416,8 @@ void DataTypeController::OnDelegateStarted(
     case MODEL_LOADED:
     case RUNNING:
     case NOT_RUNNING:
-      NOTREACHED_IN_MIGRATION() << " type " << DataTypeToDebugString(type())
-                                << " state " << StateToString(state_);
+      NOTREACHED() << " type " << DataTypeToDebugString(type()) << " state "
+                   << StateToString(state_);
   }
 
   TriggerCompletionCallbacks(/*error=*/std::nullopt);

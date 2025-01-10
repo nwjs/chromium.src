@@ -16,7 +16,9 @@
 #include "chrome/browser/image_fetcher/image_decoder_impl.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/monogram_utils.h"
+#include "chrome/browser/ui/passwords/ui_utils.h"
 #include "chrome/browser/ui/views/controls/hover_button.h"
+#include "chrome/browser/ui/views/extensions/security_dialog_tracker.h"
 #include "chrome/browser/ui/views/webid/account_selection_view_base.h"
 #include "chrome/browser/ui/views/webid/fedcm_account_selection_view_desktop.h"
 #include "chrome/browser/ui/views/webid/webid_utils.h"
@@ -32,11 +34,13 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/time_format.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/models/image_model.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/image/canvas_image_source.h"
+#include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_skia_operations.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
@@ -57,6 +61,9 @@
 #include "ui/views/widget/widget.h"
 
 namespace {
+
+constexpr int kMultiIdpUseOtherAccountButtonIconMargin = 9;
+constexpr int kSingleIdpUseOtherAccountButtonIconMargin = 5;
 
 // views::MdTextButton which:
 // - Uses the passed-in `brand_background_color` based on whether the button
@@ -94,8 +101,9 @@ class ContinueButton : public views::MdTextButton {
 
   void OnThemeChanged() override {
     views::MdTextButton::OnThemeChanged();
-    if (!brand_background_color_)
+    if (!brand_background_color_) {
       return;
+    }
 
     const SkColor dialog_background_color = bubble_view_->GetBackgroundColor();
     if (color_utils::GetContrastRatio(dialog_background_color,
@@ -223,6 +231,8 @@ void AccountSelectionBubbleView::InitDialogWidget() {
     return;
   }
 
+  extensions::SecurityDialogTracker::GetInstance()->AddSecurityDialog(widget);
+
   // Add the widget observer, if available. It is null in tests.
   if (widget_observer_) {
     widget->AddObserver(widget_observer_);
@@ -284,6 +294,7 @@ void AccountSelectionBubbleView::ShowVerifyingSheet(
   row->SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kVertical,
       gfx::Insets::VH(kTopBottomPadding, kLeftRightPadding)));
+  CHECK(!account.is_filtered_out);
   row->AddChildView(CreateAccountRow(account,
                                      /*clickable_position=*/std::nullopt,
                                      /*should_include_idp=*/false));
@@ -450,16 +461,15 @@ void AccountSelectionBubbleView::ShowErrorDialog(
 }
 
 void AccountSelectionBubbleView::ShowLoadingDialog() {
-  NOTREACHED_IN_MIGRATION()
+  NOTREACHED()
       << "ShowLoadingDialog is only implemented for AccountSelectionModalView";
 }
 
 void AccountSelectionBubbleView::ShowRequestPermissionDialog(
     const content::IdentityRequestAccount& account,
     const content::IdentityProviderData& idp_data) {
-  NOTREACHED_IN_MIGRATION()
-      << "ShowRequestPermissionDialog is only implemented for "
-         "AccountSelectionModalView";
+  NOTREACHED() << "ShowRequestPermissionDialog is only implemented for "
+                  "AccountSelectionModalView";
 }
 
 void AccountSelectionBubbleView::ShowSingleReturningAccountDialog(
@@ -638,6 +648,7 @@ AccountSelectionBubbleView::CreateSingleAccountChooser(
   row->SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kVertical,
       gfx::Insets::VH(0, kLeftRightPadding), kVerticalSpacing));
+  CHECK(!account.is_filtered_out);
   row->AddChildView(CreateAccountRow(account,
                                      /*clickable_position=*/std::nullopt,
                                      /*should_include_idp=*/false));
@@ -686,12 +697,37 @@ void AccountSelectionBubbleView::AddSeparatorAndMultipleAccountChooser(
   bool is_multi_idp = idp_list.size() > 1u;
   AddAccounts(accounts, accounts_content, is_multi_idp);
   size_t num_account_rows = accounts.size();
+  std::optional<int> separator_size;
+  std::optional<int> use_other_account_button_size;
   for (const auto& idp_data : idp_list) {
     const content::IdentityProviderMetadata& idp_metadata =
         idp_data->idp_metadata;
-    if (idp_metadata.supports_add_account) {
-      accounts_content->AddChildView(std::make_unique<views::Separator>());
-      accounts_content->AddChildView(CreateUseOtherAccountButton(idp_metadata));
+    if (!idp_data->has_login_status_mismatch &&
+        (idp_metadata.supports_add_account ||
+         idp_metadata.has_filtered_out_account)) {
+      auto use_other_account_button = CreateUseOtherAccountButton(
+          idp_metadata,
+          is_multi_idp ? l10n_util::GetStringFUTF16(
+                             IDS_ACCOUNT_SELECTION_USE_OTHER_ACCOUNT_MULTI_IDP,
+                             base::UTF8ToUTF16(idp_data->idp_for_display))
+                       : l10n_util::GetStringUTF16(
+                             IDS_ACCOUNT_SELECTION_USE_OTHER_ACCOUNT),
+          is_multi_idp ? kMultiIdpUseOtherAccountButtonIconMargin
+                       : kSingleIdpUseOtherAccountButtonIconMargin);
+      if (!use_other_account_button_size) {
+        // Add a separator the first time that a use other account button is
+        // used.
+        auto separator = std::make_unique<views::Separator>();
+        separator->SetBorder(views::CreateEmptyBorder(
+            gfx::Insets::TLBR(kVerticalSpacing + kTopBottomPadding, 0,
+                              kTopBottomPadding + kVerticalSpacing, 0)));
+        separator_size = separator->GetPreferredSize().height();
+        accounts_content->AddChildView(std::move(separator));
+        // GetPreferredSize() can be expensive so only compute the first time.
+        use_other_account_button_size =
+            use_other_account_button->GetPreferredSize().height();
+      }
+      accounts_content->AddChildView(std::move(use_other_account_button));
     }
   }
 
@@ -707,9 +743,12 @@ void AccountSelectionBubbleView::AddSeparatorAndMultipleAccountChooser(
   if (num_account_rows > 0) {
     float num_visible_rows = is_multi_idp ? 3.5f : 2.5f;
     const int per_account_size =
-        accounts_content->GetPreferredSize().height() / num_account_rows;
-    account_scroll_view->ClipHeightTo(
-        0, static_cast<int>(per_account_size * num_visible_rows));
+        accounts_content->children()[0]->GetPreferredSize().height();
+    int clipped_size = static_cast<int>(per_account_size * num_visible_rows);
+    if (num_account_rows < num_visible_rows && use_other_account_button_size) {
+      clipped_size += *separator_size + *use_other_account_button_size;
+    }
+    account_scroll_view->ClipHeightTo(0, clipped_size);
     if (num_account_rows > num_visible_rows) {
       starts_with_scroller = true;
     } else {
@@ -856,6 +895,7 @@ AccountSelectionBubbleView::CreateSingleReturningAccountChooser(
           ? std::make_optional<std::u16string>(l10n_util::GetStringUTF16(
                 IDS_MULTI_IDP_ACCOUNT_LAST_USED_ON_THIS_SITE))
           : std::nullopt;
+  CHECK(!accounts[0]->is_filtered_out);
   content->AddChildView(CreateAccountRow(*accounts[0],
                                          /*clickable_position=*/0,
                                          /*should_include_idp=*/true,
@@ -900,17 +940,18 @@ std::unique_ptr<views::View> AccountSelectionBubbleView::CreateIdpLoginRow(
 
 std::unique_ptr<views::View>
 AccountSelectionBubbleView::CreateUseOtherAccountButton(
-    const content::IdentityProviderMetadata& idp_metadata) {
+    const content::IdentityProviderMetadata& idp_metadata,
+    const std::u16string& title,
+    int icon_margin) {
+  auto icon_view =
+      std::make_unique<views::ImageView>(ui::ImageModel::FromVectorIcon(
+          kOpenInNewIcon, ui::kColorMenuIcon, kIdpLoginIconSize));
   auto button = std::make_unique<HoverButton>(
       base::BindRepeating(&AccountSelectionViewBase::Observer::OnLoginToIdP,
                           base::Unretained(observer_), idp_metadata.config_url,
                           idp_metadata.idp_login_url),
-      ui::ImageModel::FromVectorIcon(kOpenInNewIcon, ui::kColorMenuIcon,
-                                     kIdpLoginIconSize),
-      l10n_util::GetStringUTF16(IDS_ACCOUNT_SELECTION_USE_OTHER_ACCOUNT));
-  button->SetBorder(views::CreateEmptyBorder(gfx::Insets::TLBR(
-      /*top=*/2 * kVerticalSpacing, /*left=*/kLeftRightPadding, /*bottom=*/0,
-      /*right=*/kLeftRightPadding)));
+      std::move(icon_view), title);
+  button->SetIconHorizontalMargins(icon_margin, icon_margin);
   return button;
 }
 

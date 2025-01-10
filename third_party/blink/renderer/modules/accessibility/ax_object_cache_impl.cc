@@ -37,6 +37,8 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/ranges/algorithm.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
+#include "services/metrics/public/cpp/ukm_recorder.h"
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "third_party/blink/public/mojom/render_accessibility.mojom-blink.h"
 #include "third_party/blink/public/platform/task_type.h"
@@ -105,6 +107,7 @@
 #include "third_party/blink/renderer/core/svg/svg_graphics_element.h"
 #include "third_party/blink/renderer/core/svg/svg_style_element.h"
 #include "third_party/blink/renderer/modules/accessibility/aria_notification.h"
+#include "third_party/blink/renderer/modules/accessibility/ax_block_flow_iterator.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_image_map_link.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_inline_text_box.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_media_control.h"
@@ -806,6 +809,7 @@ static std::string TreeUpdateReasonAsDebugString(
     DEBUG_STRING_CASE(kPostNotificationFromHandleScrolledToAnchor);
     DEBUG_STRING_CASE(kReferenceTargetChanged);
     DEBUG_STRING_CASE(kRemoveValidationMessageObjectFromFocusedUIElement);
+    DEBUG_STRING_CASE(kRestoreParentOrPrune);
     DEBUG_STRING_CASE(
         kRemoveValidationMessageObjectFromValidationMessageObject);
     DEBUG_STRING_CASE(kRoleChangeFromAriaHasPopup);
@@ -831,8 +835,7 @@ static std::string TreeUpdateReasonAsDebugString(
     DEBUG_STRING_CASE(kTextChangedOnLayoutObject);
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return "Unknown";
+  NOTREACHED();
 }
 
 std::string AXObjectCacheImpl::TreeUpdateParams::ToString() {
@@ -904,7 +907,7 @@ void AXObjectCacheImpl::RemoveInspectorAgent(
 
 void AXObjectCacheImpl::EnsureRelationCacheAndInitialTree() {
   if (!relation_cache_) {
-    relation_cache_ = MakeGarbageCollected<AXRelationCache>(this);
+    relation_cache_ = std::make_unique<AXRelationCache>(this);
     relation_cache_->Init();
 
     // Build out initial tree so that AXObjects exist for
@@ -1234,6 +1237,13 @@ bool AXObjectCacheImpl::IsRelevantSlotElement(const HTMLSlotElement& slot) {
 // static
 bool AXObjectCacheImpl::IsRelevantPseudoElement(const Node& node) {
   DCHECK(node.IsPseudoElement());
+
+  std::optional<String> alt_text =
+      AXNodeObject::GetCSSAltText(To<Element>(&node));
+  if (alt_text && alt_text->empty()) {
+    return false;
+  }
+
   if (!node.GetLayoutObject())
     return false;
 
@@ -1712,7 +1722,8 @@ void AXObjectCacheImpl::Remove(Node* node, bool notify_parent) {
   AXID axid = node->GetDomNodeId();
   whitespace_ignored_map_.erase(axid);
 
-  if (node == active_aria_modal_dialog_) {
+  if (node == active_aria_modal_dialog_ &&
+      lifecycle_.StateAllowsAXObjectsToBeDirtied()) {
     UpdateActiveAriaModalDialog(FocusedNode());
   }
 
@@ -2603,8 +2614,8 @@ void AXObjectCacheImpl::NodeIsAttachedWithCleanLayout(Node* node) {
       << node->GetDocument().Lifecycle().ToString();
 #endif  // DCHECK_IS_ON()
 
-  if (AXObject::ElementFromAttribute(element,
-                                     html_names::kAriaActivedescendantAttr)) {
+  if (AXObject::ElementFromAttributeOrInternals(
+          element, html_names::kAriaActivedescendantAttr)) {
     HandleActiveDescendantChangedWithCleanLayout(element);
   }
 
@@ -3149,7 +3160,6 @@ void AXObjectCacheImpl::CommitAXUpdates(Document& document, bool force) {
       // If MarkDocumentDirty() was called, do it now, so that the entire tree
       // is invalidated before updating it.
       if (mark_all_dirty_) {
-        EnsureFocusedObject();
         MarkDocumentDirtyWithCleanLayout();
       }
 
@@ -3201,7 +3211,6 @@ void AXObjectCacheImpl::CommitAXUpdates(Document& document, bool force) {
       relation_cache_->ProcessUpdatesWithCleanLayout();
 
       EnsureFocusedObject();
-
       if (mark_all_dirty_) {
         // In some cases, EnsureFocusedObject() causes bad aria-hidden subtrees
         // to be removed, if they contained the focus. This can in turn lead to
@@ -3404,6 +3413,27 @@ bool AXObjectCacheImpl::SerializeUpdatesAndEvents() {
 
   CHECK(serialization_in_flight_ == success);
   return success;
+}
+
+void AXObjectCacheImpl::ResetActiveBlockFlowContainer() {
+  active_block_flow_container_ = nullptr;
+  active_block_flow_data_ = nullptr;
+}
+
+const AXBlockFlowData* AXObjectCacheImpl::GetBlockFlowData(
+    const AXObject* object) {
+  // TODO: Assumption that we are only really working on one paragraph at a
+  // time turned out to be incorrect. Ideally, we can come up with a strategy
+  // to make this work in order to avoid memory bloat.
+  LayoutBlockFlow* block_flow =
+      object->GetLayoutObject()->FragmentItemsContainer();
+
+  if (block_flow != active_block_flow_container_) {
+    active_block_flow_container_ = block_flow;
+    active_block_flow_data_ = MakeGarbageCollected<AXBlockFlowData>(block_flow);
+  }
+
+  return active_block_flow_data_;
 }
 
 bool AXObjectCacheImpl::IsParsingMainDocument() const {
@@ -3642,8 +3672,8 @@ void AXObjectCacheImpl::FireTreeUpdatedEventForAXID(
       TextChangedWithCleanLayout(ax_object->GetNode(), ax_object);
       break;
     default:
-      NOTREACHED_IN_MIGRATION() << "Update reason not handled: "
-                                << static_cast<int>(tree_update->update_reason);
+      NOTREACHED() << "Update reason not handled: "
+                   << static_cast<int>(tree_update->update_reason);
   }
 
   // Ensure that new subtrees are filled out. Any new AXObjects added will
@@ -3658,6 +3688,12 @@ void AXObjectCacheImpl::FireTreeUpdatedEventForNode(
   Node* node = tree_update->node;
   CHECK(node);
   if (!node->isConnected()) {
+    return;
+  }
+
+  // kRestoreParentOrPrune does not require an up-to-date AXObject.
+  if (tree_update->update_reason == TreeUpdateReason::kRestoreParentOrPrune) {
+    RestoreParentOrPruneWithCleanLayout(node);
     return;
   }
 
@@ -3774,8 +3810,8 @@ void AXObjectCacheImpl::FireTreeUpdatedEventForNode(
       HandleValidationMessageVisibilityChangedWithCleanLayout(node);
       break;
     default:
-      NOTREACHED_IN_MIGRATION() << "Update reason not handled: "
-                                << static_cast<int>(tree_update->update_reason);
+      NOTREACHED() << "Update reason not handled: "
+                   << static_cast<int>(tree_update->update_reason);
   }
   // Ensure that new subtrees are filled out. Any new AXObjects added will
   // also add their children.
@@ -4241,7 +4277,8 @@ void AXObjectCacheImpl::HandleAttributeChanged(const QualifiedName& attr_name,
           MarkElementDirty(element);
         }
       }
-    } else if (attr_name == html_names::kAriaControlsAttr ||
+    } else if (attr_name == html_names::kAriaActionsAttr ||
+               attr_name == html_names::kAriaControlsAttr ||
                attr_name == html_names::kAriaDetailsAttr ||
                attr_name == html_names::kAriaErrormessageAttr ||
                attr_name == html_names::kAriaFlowtoAttr) {
@@ -4399,12 +4436,10 @@ AXObject* AXObjectCacheImpl::ValidationMessageObjectIfInvalid() {
       bool was_validation_message_already_created = validation_message_axid_;
       if (was_validation_message_already_created ||
           form_control->IsValidationMessageVisible()) {
-        HeapVector<Member<Element>> error_messages;
         // Create the validation message unless the focused form control is
         // overriding it with a different message via aria-errormessage.
-        if (!AXObject::ElementsFromAttribute(
-                focused_element, error_messages,
-                html_names::kAriaErrormessageAttr)) {
+        if (!AXObject::ElementsFromAttributeOrInternals(
+                focused_element, html_names::kAriaErrormessageAttr)) {
           AXObject* message = GetOrCreateValidationMessageObject();
           CHECK(message);
           CHECK(!message->IsDetached());
@@ -4681,9 +4716,7 @@ bool AXObjectCacheImpl::IsImmediateProcessingRequiredForEvent(
     case ax::mojom::blink::Event::kWindowDeactivated:
     case ax::mojom::blink::Event::kWindowVisibilityChanged:
       // Never fired from Blink.
-      NOTREACHED_IN_MIGRATION()
-          << "Event not expected from Blink: " << event_type;
-      return false;
+      NOTREACHED() << "Event not expected from Blink: " << event_type;
   }
 }
 
@@ -4744,6 +4777,7 @@ bool AXObjectCacheImpl::IsImmediateProcessingRequired(
     case TreeUpdateReason::kRemoveValidationMessageObjectFromFocusedUIElement:
     case TreeUpdateReason::
         kRemoveValidationMessageObjectFromValidationMessageObject:
+    case TreeUpdateReason::kRestoreParentOrPrune:
     case TreeUpdateReason::kRoleChangeFromAriaHasPopup:
     case TreeUpdateReason::kRoleChangeFromImageMapName:
     case TreeUpdateReason::kRoleChangeFromRoleOrType:
@@ -5096,6 +5130,14 @@ AXObject* AXObjectCacheImpl::GetSerializationTarget(AXObject* obj) {
 }
 
 void AXObjectCacheImpl::RestoreParentOrPrune(Node* child_node) {
+  if (lifecycle_.StateAllowsImmediateTreeUpdates()) {
+    RestoreParentOrPruneWithCleanLayout(child_node);
+  } else {
+    DeferTreeUpdate(TreeUpdateReason::kRestoreParentOrPrune, child_node);
+  }
+}
+
+void AXObjectCacheImpl::RestoreParentOrPruneWithCleanLayout(Node* child_node) {
   AXObject* child = Get(child_node);
   if (child) {
     ChildrenChangedOnAncestorOf(child);
@@ -5115,11 +5157,7 @@ void AXObjectCacheImpl::RestoreParentOrPrune(Node* child_node) {
     // the tree. Remove the child's subtree and ask the parent (if any) to
     // rebuild its subtree.
     RemoveSubtree(child_node);
-    if (lifecycle_.StateAllowsImmediateTreeUpdates()) {
-      ChildrenChangedWithCleanLayout(parent);
-    } else {
-      ChildrenChanged(parent);
-    }
+    ChildrenChangedWithCleanLayout(parent);
   }
 }
 
@@ -5393,6 +5431,36 @@ void AXObjectCacheImpl::AddDirtyObjectToSerializationQueue(
   }
 }
 
+void AXObjectCacheImpl::MaybeSendCanvasHasNonTrivialFallbackUKM(
+    const AXObject* ax_canvas) {
+  if (!ax_canvas->ChildCountIncludingIgnored()) {
+    // Canvas does not have fallback.
+    return;
+  }
+
+  if (ax_canvas->ChildCountIncludingIgnored() == 1 &&
+      ui::IsText(ax_canvas->FirstChildIncludingIgnored()->RoleValue())) {
+    // Ignore a fallback if it's just a single piece of text, as we are
+    // looking for advanced uses of canvas fallbacks.
+    return;
+  }
+
+  HTMLCanvasElement* canvas = To<HTMLCanvasElement>(ax_canvas->GetNode());
+  if (!canvas->HasPlacedElements()) {
+    // If it has placed elements, then the descendents are not a fallback.
+    return;
+  }
+
+  has_emitted_canvas_fallback_ukm_ = true;  // Stop checking.
+
+  ukm::UkmRecorder* ukm_recorder = GetDocument().UkmRecorder();
+  DCHECK(ukm_recorder);
+  ukm::builders::Accessibility_CanvasHasNonTrivialFallback(
+      GetDocument().UkmSourceID())
+      .SetSeen(true)
+      .Record(ukm_recorder);
+}
+
 void AXObjectCacheImpl::GetUpdatesAndEventsForSerialization(
     std::vector<ui::AXTreeUpdate>& updates,
     std::vector<ui::AXEvent>& events,
@@ -5470,6 +5538,12 @@ void AXObjectCacheImpl::GetUpdatesAndEventsForSerialization(
       // node from changed_bounds_ids_ to avoid sending it in
       // SerializeLocationChanges() later.
       changed_bounds_ids_.erase(id);
+
+      // Record advanced uses of canvas fallbacks.
+      if (!has_emitted_canvas_fallback_ukm_ &&
+          node_data.role == ax::mojom::blink::Role::kCanvas) {
+        MaybeSendCanvasHasNonTrivialFallbackUKM(ObjectFromAXID(node_data.id));
+      }
     }
 
     DCHECK(already_serialized_ids.Contains(obj->AXObjectID()))
@@ -5974,7 +6048,6 @@ void AXObjectCacheImpl::Trace(Visitor* visitor) const {
   visitor->Trace(document_);
   visitor->Trace(popup_document_);
   visitor->Trace(last_selected_from_active_descendant_);
-  visitor->Trace(relation_cache_);
   visitor->Trace(layout_object_mapping_);
   visitor->Trace(inline_text_box_object_mapping_);
   visitor->Trace(active_aria_modal_dialog_);
@@ -5992,6 +6065,9 @@ void AXObjectCacheImpl::Trace(Visitor* visitor) const {
   visitor->Trace(node_to_parse_before_more_tree_updates_);
   visitor->Trace(weak_factory_for_serialization_pipeline_);
   visitor->Trace(weak_factory_for_loc_updates_pipeline_);
+
+  visitor->Trace(active_block_flow_data_);
+  visitor->Trace(active_block_flow_container_);
 
   AXObjectCache::Trace(visitor);
 }

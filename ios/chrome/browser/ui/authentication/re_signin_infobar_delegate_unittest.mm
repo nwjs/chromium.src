@@ -12,8 +12,6 @@
 #import "components/infobars/core/infobar.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/sync_preferences/testing_pref_service_syncable.h"
-#import "ios/chrome/app/application_delegate/app_state.h"
-#import "ios/chrome/app/application_delegate/app_state_observer.h"
 #import "ios/chrome/browser/infobars/model/infobar_ios.h"
 #import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
 #import "ios/chrome/browser/infobars/model/infobar_utils.h"
@@ -43,13 +41,11 @@ namespace {
 class ReSignInInfoBarDelegateTest : public PlatformTest {
  public:
   ReSignInInfoBarDelegateTest() {
-    OCMStub([mock_app_state_ initStage]).andDo(^(NSInvocation* invocation) {
-      [invocation setReturnValue:&init_stage_];
-    });
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetDefaultFactory());
+        AuthenticationServiceFactory::GetFactoryWithDelegate(
+            std::make_unique<FakeAuthenticationServiceDelegate>()));
     profile_ = std::move(builder).Build();
     browser_ = std::make_unique<TestBrowser>(profile_.get());
     auto fake_web_state = std::make_unique<web::FakeWebState>();
@@ -58,14 +54,11 @@ class ReSignInInfoBarDelegateTest : public PlatformTest {
     browser_->GetWebStateList()->InsertWebState(
         std::move(fake_web_state),
         WebStateList::InsertionParams::Automatic().Activate());
-    AuthenticationServiceFactory::CreateAndInitializeForProfile(
-        profile_.get(), std::make_unique<FakeAuthenticationServiceDelegate>());
     InfoBarManagerImpl::CreateForWebState(web_state());
   }
 
   ~ReSignInInfoBarDelegateTest() override {
     EXPECT_OCMOCK_VERIFY((id)signin_presenter_);
-    EXPECT_OCMOCK_VERIFY((id)mock_app_state_);
   }
 
   void SetUpMainProfileIOSWithSignedInUser() {
@@ -97,10 +90,6 @@ class ReSignInInfoBarDelegateTest : public PlatformTest {
     return browser_->GetWebStateList()->GetActiveWebState();
   }
 
-  AppState* mock_app_state() { return mock_app_state_; }
-
-  void set_init_stage(AppInitStage init_stage) { init_stage_ = init_stage; }
-
  private:
   web::WebTaskEnvironment task_environment_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
@@ -109,9 +98,6 @@ class ReSignInInfoBarDelegateTest : public PlatformTest {
   std::unique_ptr<web::NavigationManager> test_navigation_manager_;
   OCMockObject<SigninPresenter>* signin_presenter_ =
       OCMProtocolMock(@protocol(SigninPresenter));
-  // SceneState only weakly holds AppState, so keep it alive here.
-  AppState* mock_app_state_ = OCMStrictClassMock([AppState class]);
-  AppInitStage init_stage_ = AppInitStage::kFinal;
 };
 
 TEST_F(ReSignInInfoBarDelegateTest, TestCreateWhenNotPrompting) {
@@ -119,8 +105,7 @@ TEST_F(ReSignInInfoBarDelegateTest, TestCreateWhenNotPrompting) {
   authentication_service()->ResetReauthPromptForSignInAndSync();
   std::unique_ptr<ReSignInInfoBarDelegate> infobar_delegate =
       ReSignInInfoBarDelegate::Create(authentication_service(),
-                                      identity_manager(), mock_app_state(),
-                                      signin_presenter());
+                                      identity_manager(), signin_presenter());
   // Infobar delegate should not be created.
   EXPECT_FALSE(infobar_delegate);
   EXPECT_FALSE(authentication_service()->ShouldReauthPromptForSignInAndSync());
@@ -131,8 +116,7 @@ TEST_F(ReSignInInfoBarDelegateTest, TestCreateWhenNotSignedIn) {
   authentication_service()->SetReauthPromptForSignInAndSync();
   std::unique_ptr<ReSignInInfoBarDelegate> infobar_delegate =
       ReSignInInfoBarDelegate::Create(authentication_service(),
-                                      identity_manager(), mock_app_state(),
-                                      signin_presenter());
+                                      identity_manager(), signin_presenter());
   // Infobar delegate should be created.
   EXPECT_TRUE(infobar_delegate);
   EXPECT_TRUE(authentication_service()->ShouldReauthPromptForSignInAndSync());
@@ -144,8 +128,7 @@ TEST_F(ReSignInInfoBarDelegateTest, TestCreateWhenAlreadySignedIn) {
   authentication_service()->SetReauthPromptForSignInAndSync();
   std::unique_ptr<ReSignInInfoBarDelegate> infobar_delegate =
       ReSignInInfoBarDelegate::Create(authentication_service(),
-                                      identity_manager(), mock_app_state(),
-                                      signin_presenter());
+                                      identity_manager(), signin_presenter());
   // Infobar delegate should not be created.
   EXPECT_FALSE(infobar_delegate);
   EXPECT_FALSE(authentication_service()->ShouldReauthPromptForSignInAndSync());
@@ -157,7 +140,7 @@ TEST_F(ReSignInInfoBarDelegateTest, TestCreateWhenIncognito) {
   std::unique_ptr<ReSignInInfoBarDelegate> infobar_delegate =
       ReSignInInfoBarDelegate::Create(/*authentication_service=*/nullptr,
                                       /*identity_manager=*/nullptr,
-                                      mock_app_state(), signin_presenter());
+                                      signin_presenter());
   // Infobar delegate should not be created.
   EXPECT_FALSE(infobar_delegate);
   EXPECT_TRUE(authentication_service()->ShouldReauthPromptForSignInAndSync());
@@ -167,8 +150,7 @@ TEST_F(ReSignInInfoBarDelegateTest, TestMessages) {
   authentication_service()->SetReauthPromptForSignInAndSync();
   std::unique_ptr<ReSignInInfoBarDelegate> delegate =
       ReSignInInfoBarDelegate::Create(authentication_service(),
-                                      identity_manager(), mock_app_state(),
-                                      signin_presenter());
+                                      identity_manager(), signin_presenter());
   EXPECT_EQ(ConfirmInfoBarDelegate::BUTTON_OK, delegate->GetButtons());
   std::u16string message_text = delegate->GetMessageText();
   EXPECT_GT(message_text.length(), 0U);
@@ -190,8 +172,7 @@ TEST_F(ReSignInInfoBarDelegateTest, TestAccept) {
 
   std::unique_ptr<ReSignInInfoBarDelegate> delegate =
       ReSignInInfoBarDelegate::Create(authentication_service(),
-                                      identity_manager(), mock_app_state(),
-                                      signin_presenter());
+                                      identity_manager(), signin_presenter());
   EXPECT_TRUE(delegate->Accept());
   EXPECT_FALSE(authentication_service()->ShouldReauthPromptForSignInAndSync());
 }
@@ -203,23 +184,9 @@ TEST_F(ReSignInInfoBarDelegateTest, TestInfoBarDismissed) {
 
   std::unique_ptr<ReSignInInfoBarDelegate> delegate =
       ReSignInInfoBarDelegate::Create(authentication_service(),
-                                      identity_manager(), mock_app_state(),
-                                      signin_presenter());
+                                      identity_manager(), signin_presenter());
   delegate->InfoBarDismissed();
   EXPECT_FALSE(authentication_service()->ShouldReauthPromptForSignInAndSync());
-}
-
-// Tests that no delegate is returned when the app state is not
-// AppInitStage::kFinal.
-TEST_F(ReSignInInfoBarDelegateTest, TestAppStateBeforeStageFinal) {
-  set_init_stage(
-      static_cast<AppInitStage>(base::to_underlying(AppInitStage::kFinal) - 1));
-  std::unique_ptr<ReSignInInfoBarDelegate> infobar_delegate =
-      ReSignInInfoBarDelegate::Create(authentication_service(),
-                                      identity_manager(), mock_app_state(),
-                                      signin_presenter());
-  // Infobar delegate should not be created.
-  EXPECT_FALSE(infobar_delegate);
 }
 
 // Tests that the infobar is removed as soon as the user signs in.
@@ -230,8 +197,7 @@ TEST_F(ReSignInInfoBarDelegateTest, TestInfoBarDismissedBySignin) {
 
   std::unique_ptr<ReSignInInfoBarDelegate> delegate =
       ReSignInInfoBarDelegate::Create(authentication_service(),
-                                      identity_manager(), mock_app_state(),
-                                      signin_presenter());
+                                      identity_manager(), signin_presenter());
   std::unique_ptr<InfoBarIOS> info_bar_ios = std::make_unique<InfoBarIOS>(
       InfobarType::kInfobarTypeConfirm, std::move(delegate));
   InfoBarManagerImpl::FromWebState(web_state())

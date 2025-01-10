@@ -46,10 +46,6 @@ enum ItemType : NSInteger {
 
 #pragma mark - Superclass overrides
 
-- (void)filterResults:(NSMutableArray*)resultsItems
-          searchQuery:(NSString*)searchQuery {
-}
-
 - (void)updateEntriesStatusMessageWithMessage:(NSString*)message
                        messageWillContainLink:(BOOL)messageWillContainLink {
   if (self.shouldShowNoticeAboutOtherFormsOfBrowsingHistory) {
@@ -60,15 +56,18 @@ enum ItemType : NSInteger {
                         messageWillContainLink:messageWillContainLink];
 }
 
+- (void)addEmptyTableViewBackground {
+  [super addEmptyTableViewBackground];
+  [self setUpNavigationBar];
+}
+
 #pragma mark - TableViewModel
 
 - (void)viewDidLoad {
   [super viewDidLoad];
 
   [self showHistoryMatchingQuery:_hostName];
-
-  // Configures NavigationController Toolbar buttons.
-  [self setToolbarItems:[self toolbarButtons] animated:YES];
+  [self setUpNavigationBar];
 
   // NavigationController configuration.
   self.navigationItem.largeTitleDisplayMode =
@@ -150,14 +149,14 @@ enum ItemType : NSInteger {
                            action:nil];
 }
 
-// Returns the toolbar buttons for the current state.
-- (NSArray<UIBarButtonItem*>*)toolbarButtons {
-  // TODO(crbug.com/364862099): Decide what buttons to display if there is no
-  // history.
-  return @[
+// Configures the NavigationController Toolbar buttons.
+- (void)setUpNavigationBar {
+  NSArray<UIBarButtonItem*>* toolbarButtons = @[
     [self createSpacerButton], self.showFullHistoryButton,
     [self createSpacerButton]
   ];
+
+  [self setToolbarItems:toolbarButtons animated:YES];
 }
 
 // Dismisses the Last Visited VC.

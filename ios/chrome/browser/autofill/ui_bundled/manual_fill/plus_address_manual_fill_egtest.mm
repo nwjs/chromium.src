@@ -122,8 +122,6 @@ id<GREYMatcher> PlusAddressSelectActionMatcher() {
   // Enable the Keyboard Accessory Upgrade feature.
   config.features_enabled_and_params.push_back(
       {kIOSKeyboardAccessoryUpgrade, {}});
-  config.features_enabled_and_params.push_back(
-      {plus_addresses::features::kPlusAddressIOSManualFallbackEnabled, {}});
 
   return config;
 }
@@ -144,11 +142,11 @@ id<GREYMatcher> PlusAddressSelectActionMatcher() {
   [AutofillAppInterface saveExampleAccountProfile];
 }
 
-- (void)tearDown {
+- (void)tearDownHelper {
   [AutofillAppInterface clearProfilesStore];
   [SigninEarlGrey signOut];
 
-  [super tearDown];
+  [super tearDownHelper];
 }
 
 // Opens the expanded manual fill view for a given `dataType`. `fieldToFill` is

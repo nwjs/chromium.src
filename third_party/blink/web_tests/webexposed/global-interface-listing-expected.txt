@@ -11,9 +11,30 @@ interface AI
     getter summarizer
     getter writer
     method constructor
-interface AIAssistant
+interface AICreateMonitor : EventTarget
+    attribute @@toStringTag
+    getter ondownloadprogress
+    method constructor
+    setter ondownloadprogress
+interface AILanguageDetector
+    attribute @@toStringTag
+    method constructor
+    method destroy
+    method detect
+interface AILanguageDetectorCapabilities
+    attribute @@toStringTag
+    getter available
+    method constructor
+    method languageAvailable
+interface AILanguageDetectorFactory
+    attribute @@toStringTag
+    method capabilities
+    method constructor
+    method create
+interface AILanguageModel : EventTarget
     attribute @@toStringTag
     getter maxTokens
+    getter oncontextoverflow
     getter temperature
     getter tokensLeft
     getter tokensSoFar
@@ -24,29 +45,16 @@ interface AIAssistant
     method destroy
     method prompt
     method promptStreaming
-interface AIAssistantCapabilities
+    setter oncontextoverflow
+interface AILanguageModelCapabilities
     attribute @@toStringTag
     getter available
     getter defaultTemperature
     getter defaultTopK
     getter maxTopK
     method constructor
-interface AIAssistantFactory
-    attribute @@toStringTag
-    method capabilities
-    method constructor
-    method create
-interface AILanguageDetector
-    attribute @@toStringTag
-    method constructor
-    method destroy
-    method detect
-interface AILanguageDetectorCapabilities
-    attribute @@toStringTag
-    getter available
-    method canDetect
-    method constructor
-interface AILanguageDetectorFactory
+    method languageAvailable
+interface AILanguageModelFactory
     attribute @@toStringTag
     method capabilities
     method constructor
@@ -78,8 +86,8 @@ interface AISummarizerCapabilities
     attribute @@toStringTag
     getter available
     method constructor
+    method languageAvailable
     method supportsFormat
-    method supportsInputLanguage
     method supportsLength
     method supportsType
 interface AISummarizerFactory
@@ -1305,6 +1313,7 @@ interface CanvasRenderingContext2D
     method fill
     method fillRect
     method fillText
+    method fillTextCluster
     method getContextAttributes
     method getImageData
     method getLineDash
@@ -1930,6 +1939,7 @@ interface Directive
     method constructor
     method toString
 interface Document : Node
+    static method parseHTML
     static method parseHTMLUnsafe
     attribute @@toStringTag
     attribute @@unscopables
@@ -2555,6 +2565,7 @@ interface Element : Node
     method setAttributeNS
     method setAttributeNode
     method setAttributeNodeNS
+    method setHTML
     method setHTMLUnsafe
     method setPointerCapture
     method toggleAttribute
@@ -3145,6 +3156,7 @@ interface GPUComputePipeline
     setter label
 interface GPUDevice : EventTarget
     attribute @@toStringTag
+    getter adapterInfo
     getter features
     getter label
     getter limits
@@ -3375,20 +3387,10 @@ interface Gamepad
     getter touchEvents
     getter vibrationActuator
     method constructor
-interface GamepadAxisEvent : GamepadEvent
-    attribute @@toStringTag
-    getter axis
-    getter value
-    method constructor
 interface GamepadButton
     attribute @@toStringTag
     getter pressed
     getter touched
-    getter value
-    method constructor
-interface GamepadButtonEvent : GamepadEvent
-    attribute @@toStringTag
-    getter button
     getter value
     method constructor
 interface GamepadEvent : Event
@@ -3763,12 +3765,15 @@ interface HTMLDetailsElement : HTMLElement
     setter open
 interface HTMLDialogElement : HTMLElement
     attribute @@toStringTag
+    getter closedBy
     getter open
     getter returnValue
     method close
     method constructor
+    method requestClose
     method show
     method showModal
+    setter closedBy
     setter open
     setter returnValue
 interface HTMLDirectoryElement : HTMLElement
@@ -4894,8 +4899,8 @@ interface HTMLSelectElement : HTMLElement
     getter name
     getter options
     getter required
+    getter selectedContentElement
     getter selectedIndex
-    getter selectedOptionElement
     getter selectedOptions
     getter size
     getter type
@@ -4919,11 +4924,11 @@ interface HTMLSelectElement : HTMLElement
     setter multiple
     setter name
     setter required
+    setter selectedContentElement
     setter selectedIndex
-    setter selectedOptionElement
     setter size
     setter value
-interface HTMLSelectedOptionElement : HTMLElement
+interface HTMLSelectedContentElement : HTMLElement
     attribute @@toStringTag
     method constructor
 interface HTMLSlotElement : HTMLElement
@@ -5390,6 +5395,12 @@ interface IDBOpenDBRequest : IDBRequest
     method constructor
     setter onblocked
     setter onupgradeneeded
+interface IDBRecord
+    attribute @@toStringTag
+    getter key
+    getter primaryKey
+    getter value
+    method constructor
 interface IDBRequest : EventTarget
     attribute @@toStringTag
     getter error
@@ -5675,6 +5686,7 @@ interface LanguageDetector
 interface LanguageTranslator
     attribute @@toStringTag
     method constructor
+    method destroy
     method translate
 interface LargestContentfulPaint : PerformanceEntry
     attribute @@toStringTag
@@ -6042,6 +6054,7 @@ interface MediaDevices : EventTarget
     method getDisplayMedia
     method getSupportedConstraints
     method getUserMedia
+    method selectAudioOutput
     method setCaptureHandleConfig
     setter ondevicechange
 interface MediaElementAudioSourceNode : AudioNode
@@ -6931,6 +6944,7 @@ interface OffscreenCanvasRenderingContext2D
     method fill
     method fillRect
     method fillText
+    method fillTextCluster
     method getImageData
     method getLineDash
     method getTextureFormat
@@ -7242,6 +7256,7 @@ interface PerformanceNavigation
 interface PerformanceNavigationTiming : PerformanceResourceTiming
     attribute @@toStringTag
     getter activationStart
+    getter confidence
     getter criticalCHRestart
     getter domComplete
     getter domContentLoadedEventEnd
@@ -7284,6 +7299,7 @@ interface PerformanceResourceTiming : PerformanceEntry
     getter domainLookupStart
     getter encodedBodySize
     getter fetchStart
+    getter finalResponseHeadersStart
     getter firstInterimResponseStart
     getter initiatorType
     getter nextHopProtocol
@@ -7344,6 +7360,12 @@ interface PerformanceTiming
     getter secureConnectionStart
     getter unloadEventEnd
     getter unloadEventStart
+    method constructor
+    method toJSON
+interface PerformanceTimingConfidence
+    attribute @@toStringTag
+    getter randomizedTriggerRate
+    getter value
     method constructor
     method toJSON
 interface PeriodicSyncManager
@@ -9243,6 +9265,18 @@ interface SVGViewElement : SVGElement
     getter zoomAndPan
     method constructor
     setter zoomAndPan
+interface Sanitizer
+    attribute @@toStringTag
+    method allowAttribute
+    method allowElement
+    method constructor
+    method get
+    method removeAttribute
+    method removeElement
+    method removeUnsafe
+    method replaceWithChildrenElement
+    method setComments
+    method setDataAttributes
 interface Scheduler
     attribute @@toStringTag
     method constructor
@@ -9485,6 +9519,7 @@ interface ShadowRoot : DocumentFragment
     method getAnimations
     method getHTML
     method getSelection
+    method setHTML
     method setHTMLUnsafe
     setter adoptedStyleSheets
     setter fullscreenElement
@@ -9671,15 +9706,13 @@ interface StorageEvent : Event
     getter url
     method constructor
     method initStorageEvent
-interface StorageManager : EventTarget
+interface StorageManager
     attribute @@toStringTag
-    getter onquotachange
     method constructor
     method estimate
     method getDirectory
     method persist
     method persisted
-    setter onquotachange
 interface StylePropertyMap : StylePropertyMapReadOnly
     attribute @@toStringTag
     method append
@@ -9784,12 +9817,9 @@ interface TextCluster
     getter baseline
     getter begin
     getter end
-    getter text
     getter x
     getter y
     method constructor
-    setter begin
-    setter end
     setter x
     setter y
 interface TextDecoder
@@ -10358,6 +10388,7 @@ interface VideoFrame
     method close
     method constructor
     method copyTo
+    method metadata
 interface VideoPlaybackQuality
     attribute @@toStringTag
     getter corruptedVideoFrames
@@ -12988,7 +13019,6 @@ namespace console
     method gc
     method getComputedStyle
     method getDigitalGoodsService
-    method getLockScreenData
     method getScreenDetails
     method getSelection
     method matchMedia

@@ -103,7 +103,6 @@ AppCollectionMap GetAppCollectionsMap() {
       {arc::kGoogleMapsAppId, ash::AppCollection::kUtilities},
       {ash::kGoogleMapsAppId, ash::AppCollection::kUtilities},
       {ash::kHelpAppId, ash::AppCollection::kUtilities},
-      {ash::kMallAppId, ash::AppCollection::kUtilities},
       {ash::kMallSystemAppId, ash::AppCollection::kUtilities},
       {ash::kCalculatorAppId, ash::AppCollection::kUtilities},
       {extension_misc::kCalculatorAppId, ash::AppCollection::kUtilities},
@@ -132,7 +131,7 @@ void GetSecondaryDefaultOrder(std::vector<std::string>* app_ids) {
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   if (chromeos::features::IsGeminiAppPreinstallEnabled()) {
-      app_ids->push_back(ash::kContainerAppId);
+      app_ids->push_back(ash::kGeminiAppId);
   }
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
@@ -207,7 +206,6 @@ void GetSecondaryDefaultOrder(std::vector<std::string>* app_ids) {
 
     ash::kHelpAppId,
 
-    ash::kMallAppId,
     ash::kMallSystemAppId,
 
     ash::kCalculatorAppId,

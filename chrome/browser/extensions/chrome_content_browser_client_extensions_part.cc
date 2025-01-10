@@ -33,6 +33,7 @@
 #include "chrome/common/url_constants.h"
 #include "components/dom_distiller/core/url_constants.h"
 #include "components/download/public/common/quarantine_connection.h"
+#include "components/guest_view/buildflags/buildflags.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/browser_url_handler.h"
@@ -44,6 +45,7 @@
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/vpn_service_proxy.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/url_constants.h"
 #include "extensions/browser/api/web_request/web_request_api.h"
@@ -864,7 +866,9 @@ bool ChromeContentBrowserClientExtensionsPart::
   // after a navigation, we can remove this case so that extension settings can
   // apply to webview accessible resources without impacting web pages
   // subsequently loaded in the webview.
-  if (WebViewGuest::FromWebContents(web_contents)) {
+  // TODO(crbug.com/40202416): Handle web preferences for MPArch based guests.
+  if (!base::FeatureList::IsEnabled(features::kGuestViewMPArch) &&
+      WebViewGuest::FromWebContents(web_contents)) {
     return false;
   }
 #endif  // BUILDFLAG(ENABLE_GUEST_VIEW)

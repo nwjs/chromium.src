@@ -1827,7 +1827,7 @@ TEST_F(PasswordAutofillManagerTest,
 #endif  // !BUILDFLAG(IS_ANDROID)
                   autofill::SuggestionType::kSeparator,
                   autofill::SuggestionType::kAllSavedPasswordsEntry));
-  EXPECT_EQ(open_args.suggestions[0].GetBackendId<Suggestion::Guid>().value(),
+  EXPECT_EQ(open_args.suggestions[0].GetPayload<Suggestion::Guid>().value(),
             kIdBase64);
   EXPECT_EQ(open_args.suggestions[0].type,
             autofill::SuggestionType::kWebauthnCredential);
@@ -1921,7 +1921,7 @@ TEST_F(PasswordAutofillManagerTest, ShowsWebAuthnSuggestions) {
 #endif  // BUILDFLAG(IS_IOS)
                   autofill::SuggestionType::kSeparator,
                   autofill::SuggestionType::kAllSavedPasswordsEntry));
-  EXPECT_EQ(open_args.suggestions[0].GetBackendId<Suggestion::Guid>().value(),
+  EXPECT_EQ(open_args.suggestions[0].GetPayload<Suggestion::Guid>().value(),
             kIdBase64);
   EXPECT_EQ(open_args.suggestions[0].type,
             autofill::SuggestionType::kWebauthnCredential);
@@ -2190,7 +2190,7 @@ TEST_F(PasswordAutofillManagerTest, WebAuthnSignInLaunchesWebAuthnFlow) {
   suggestion.main_text.value =
       l10n_util::GetStringUTF16(IDS_PASSWORD_MANAGER_USE_PASSKEY);
   suggestion.type = autofill::SuggestionType::kWebauthnSignInWithAnotherDevice;
-  suggestion.payload = autofill::Suggestion::BackendId();
+  suggestion.payload = autofill::Suggestion::Payload();
   password_autofill_manager_->DidAcceptSuggestion(suggestion,
                                                   SuggestionPosition{.row = 0});
 }
@@ -2323,9 +2323,9 @@ TEST_F(PasswordAutofillManagerTest,
 
   // Since a passkey is selected, the popup will be updated:
   EXPECT_TRUE(updatedSuggestions[0].is_loading);
-  EXPECT_FALSE(updatedSuggestions[0].is_acceptable);
-  EXPECT_TRUE(updatedSuggestions[1].apply_deactivated_style);
-  EXPECT_FALSE(updatedSuggestions[1].is_acceptable);
+  EXPECT_FALSE(updatedSuggestions[0].IsAcceptable());
+  EXPECT_TRUE(updatedSuggestions[1].HasDeactivatedStyle());
+  EXPECT_FALSE(updatedSuggestions[1].IsAcceptable());
 
   // Show suggestions again.
   EXPECT_CALL(autofill_client, ShowAutofillSuggestions)
@@ -2338,9 +2338,9 @@ TEST_F(PasswordAutofillManagerTest,
 
   // Verify that the loading state persisted.
   EXPECT_TRUE(open_args.suggestions[0].is_loading);
-  EXPECT_FALSE(open_args.suggestions[0].is_acceptable);
-  EXPECT_TRUE(open_args.suggestions[1].apply_deactivated_style);
-  EXPECT_FALSE(open_args.suggestions[1].is_acceptable);
+  EXPECT_FALSE(open_args.suggestions[0].IsAcceptable());
+  EXPECT_TRUE(open_args.suggestions[1].HasDeactivatedStyle());
+  EXPECT_FALSE(open_args.suggestions[1].IsAcceptable());
 
   // After calling hide callback the loading state is not persisted anymore:
   EXPECT_CALL(autofill_client, HideAutofillSuggestions);
@@ -2355,9 +2355,9 @@ TEST_F(PasswordAutofillManagerTest,
       /*typed_username=*/u"", ShowWebAuthnCredentials(true), gfx::RectF());
 
   EXPECT_FALSE(open_args.suggestions[0].is_loading);
-  EXPECT_TRUE(open_args.suggestions[0].is_acceptable);
-  EXPECT_FALSE(open_args.suggestions[1].apply_deactivated_style);
-  EXPECT_TRUE(open_args.suggestions[1].is_acceptable);
+  EXPECT_TRUE(open_args.suggestions[0].IsAcceptable());
+  EXPECT_FALSE(open_args.suggestions[1].HasDeactivatedStyle());
+  EXPECT_TRUE(open_args.suggestions[1].IsAcceptable());
 }
 
 TEST_F(PasswordAutofillManagerTest,

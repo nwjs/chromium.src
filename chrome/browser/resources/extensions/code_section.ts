@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import './strings.m.js';
+import '/strings.m.js';
 import './shared_vars.css.js';
 
 import {I18nMixinLit} from 'chrome://resources/cr_elements/i18n_mixin_lit.js';
@@ -22,11 +22,16 @@ function visibleLineCount(totalCount: number, oppositeCount: number): number {
   return Math.min(max, totalCount);
 }
 
-// TODO (rbpotter): Rename back to ExtensionsCodeSectionElement when .html.ts
-// files are checked in.
-const CodeSectionElementBase = I18nMixinLit(CrLitElement);
+export interface ExtensionsCodeSectionElement {
+  $: {
+    'scroll-container': HTMLElement,
+  };
+}
 
-export class CodeSectionElement extends CodeSectionElementBase {
+const ExtensionsCodeSectionElementBase = I18nMixinLit(CrLitElement);
+
+export class ExtensionsCodeSectionElement extends
+    ExtensionsCodeSectionElementBase {
   static get is() {
     return 'extensions-code-section';
   }
@@ -138,12 +143,11 @@ export class CodeSectionElement extends CodeSectionElementBase {
     this.scrollToHighlight_(visibleLineCountBefore);
   }
 
-  protected getLinesNotShownLabel_(
-      lineCount: number, stringSingular: string,
-      stringPluralTemplate: string): string {
+  protected getLinesNotShownLabel_(lineCount: number): string {
     return lineCount === 1 ?
-        stringSingular :
-        loadTimeData.substituteString(stringPluralTemplate, lineCount);
+        loadTimeData.getString('errorLinesNotShownSingular') :
+        loadTimeData.substituteString(
+            loadTimeData.getString('errorLinesNotShownPlural'), lineCount);
   }
 
   private setLineNumbers_(start: number, end: number) {
@@ -185,9 +189,10 @@ export class CodeSectionElement extends CodeSectionElementBase {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'extensions-code-section': CodeSectionElement;
+    'extensions-code-section': ExtensionsCodeSectionElement;
   }
 }
 
 
-customElements.define(CodeSectionElement.is, CodeSectionElement);
+customElements.define(
+    ExtensionsCodeSectionElement.is, ExtensionsCodeSectionElement);

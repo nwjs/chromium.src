@@ -21,6 +21,8 @@ class NavigationTransitionData {
   // Used for recording UMA for cache hit/miss.
   // These values are persisted to logs. Entries should not be renumbered and
   // numeric values should never be reused.
+  //
+  // LINT.IfChange(CacheHitOrMissReason)
   enum class CacheHitOrMissReason {
     // The screenshot is captured and placed in the cache.
     kCacheHit = 0,
@@ -29,8 +31,8 @@ class NavigationTransitionData {
     // `CaptureNavigationEntryScreenshotForCrossDocumentNavigations`.
     kSentScreenshotRequest = 1,
 
-    // Received an empty bitmap when capturing the screenshot.
-    kCapturedEmptyBitmap = 2,
+    // Received an empty bitmap when capturing the screenshot from web pages.
+    kCapturedEmptyBitmapFromWebPage = 2,
 
     // [DEPRECATED] Screenshot is not captured for subframes.
     // kCacheMissSubframe = 3,
@@ -85,13 +87,17 @@ class NavigationTransitionData {
     // frame.
     kCacheMissNonPrimaryMainFrame = 17,
 
-    kMaxValue = kCacheMissNonPrimaryMainFrame
-  };
+    // Received an empty bitmap from embedder when capturing the screenshot.
+    kCapturedEmptyBitmapFromEmbedder = 18,
 
-  NavigationTransitionData() = default;
+    kMaxValue = kCapturedEmptyBitmapFromEmbedder
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/navigation/enums.xml:NavigationTransitionCacheHitOrMissReason)
+
+  NavigationTransitionData();
   ~NavigationTransitionData() = default;
   NavigationTransitionData(NavigationTransitionData&&) = delete;
-  NavigationTransitionData& operator=(NavigationTransitionData&&) = default;
+  NavigationTransitionData& operator=(NavigationTransitionData&&) = delete;
   NavigationTransitionData(const NavigationTransitionData&) = delete;
   NavigationTransitionData& operator=(const NavigationTransitionData&) = delete;
 
@@ -103,6 +109,10 @@ class NavigationTransitionData {
   same_document_navigation_entry_screenshot_token() const {
     return same_document_navigation_entry_screenshot_token_;
   }
+
+  using UniqueId = base::StrongAlias<class NavigationTransitionDataIdTag, int>;
+  constexpr static UniqueId kInvalidId = UniqueId(-1);
+  UniqueId unique_id() const { return unique_id_; }
 
   void set_is_copied_from_embedder(bool is_copied_from_embedder) {
     is_copied_from_embedder_ = is_copied_from_embedder;
@@ -128,6 +138,15 @@ class NavigationTransitionData {
   void set_favicon(const SkBitmap& favicon) { favicon_ = favicon; }
 
  private:
+  // A unique ID for this struct. This is synonymous to the owning
+  // `NavigationEntry::GetUniqueID()`, and is used to uniquely identify a
+  // screenshot and its owning navigation entry.
+  //
+  // See crbug.com/376944343: the navigation entry's unique ID is actually not
+  // unique (`NavigationEntryImpl::set_unique_id()`), which leads to unexpected
+  // behavior.
+  const UniqueId unique_id_;
+
   // Whether this screenshot is supplied by the embedder.
   bool is_copied_from_embedder_ = false;
 

@@ -22,7 +22,7 @@ import org.chromium.components.browser_ui.settings.SettingsUtils;
 import org.chromium.components.browser_ui.settings.TextMessagePreference;
 import org.chromium.components.browser_ui.site_settings.BaseSiteSettingsFragment;
 import org.chromium.components.browser_ui.site_settings.ForwardingManagedPreferenceDelegate;
-import org.chromium.components.browser_ui.site_settings.RWSCookieInfo;
+import org.chromium.components.browser_ui.site_settings.RwsCookieInfo;
 import org.chromium.components.browser_ui.util.date.CalendarUtils;
 import org.chromium.components.content_settings.CookieControlsEnforcement;
 import org.chromium.ui.text.SpanApplier;
@@ -38,7 +38,7 @@ public class PageInfoCookiesSettings extends BaseSiteSettingsFragment {
 
     private ChromeSwitchPreference mCookieSwitch;
     private ChromeImageViewPreference mCookieInUse;
-    private ChromeImageViewPreference mRWSInUse;
+    private ChromeImageViewPreference mRwsInUse;
     private TextMessagePreference mThirdPartyCookiesTitle;
     private TextMessagePreference mThirdPartyCookiesSummary;
     private Runnable mOnClearCallback;
@@ -48,7 +48,7 @@ public class PageInfoCookiesSettings extends BaseSiteSettingsFragment {
     private boolean mDeleteDisabled;
     private boolean mDataUsed;
     private CharSequence mHostName;
-    private RWSCookieInfo mRWSInfo;
+    private RwsCookieInfo mRwsInfo;
     private PageInfoControllerDelegate mPageInfoControllerDelegate;
 
     /** Parameters to configure the cookie controls view. */
@@ -62,7 +62,7 @@ public class PageInfoCookiesSettings extends BaseSiteSettingsFragment {
         public boolean disableCookieDeletion;
         public CharSequence hostName;
         // Block all third-party cookies when Tracking Protection is on.
-        public boolean blockAll3PC;
+        public boolean blockAll3pc;
         public boolean isIncognito;
     }
 
@@ -76,8 +76,8 @@ public class PageInfoCookiesSettings extends BaseSiteSettingsFragment {
         SettingsUtils.addPreferencesFromResource(this, R.xml.page_info_cookie_preference);
         mCookieSwitch = findPreference(COOKIE_SWITCH_PREFERENCE);
         mCookieInUse = findPreference(COOKIE_IN_USE_PREFERENCE);
-        mRWSInUse = findPreference(RWS_IN_USE_PREFERENCE);
-        mRWSInUse.setVisible(false);
+        mRwsInUse = findPreference(RWS_IN_USE_PREFERENCE);
+        mRwsInUse.setVisible(false);
         mThirdPartyCookiesTitle = findPreference(TPC_TITLE);
         mThirdPartyCookiesSummary = findPreference(TPC_SUMMARY);
     }
@@ -220,7 +220,8 @@ public class PageInfoCookiesSettings extends BaseSiteSettingsFragment {
             int resId =
                     willCreatePermanentException()
                             ? R.string.page_info_cookies_site_not_working_description_permanent
-                            : R.string.page_info_cookies_site_not_working_description_temporary;
+                            : R.string
+                                    .page_info_cookies_site_not_working_description_tracking_protection;
             mThirdPartyCookiesSummary.setSummary(getString(resId));
         } else if (permanentException) {
             mThirdPartyCookiesTitle.setTitle(
@@ -268,22 +269,22 @@ public class PageInfoCookiesSettings extends BaseSiteSettingsFragment {
      * @param currentOrigin PageInfo current origin.
      * @return a boolean indicating if the RWS info has been shown or not.
      */
-    public boolean maybeShowRWSInfo(RWSCookieInfo rwsInfo, String currentOrigin) {
-        mRWSInfo = rwsInfo;
-        if (rwsInfo == null || mRWSInUse == null) {
+    public boolean maybeShowRwsInfo(RwsCookieInfo rwsInfo, String currentOrigin) {
+        mRwsInfo = rwsInfo;
+        if (rwsInfo == null || mRwsInUse == null) {
             return false;
         }
 
-        assert getSiteSettingsDelegate().isPrivacySandboxFirstPartySetsUIFeatureEnabled()
+        assert getSiteSettingsDelegate().isPrivacySandboxFirstPartySetsUiFeatureEnabled()
                         && getSiteSettingsDelegate().isRelatedWebsiteSetsDataAccessEnabled()
                 : "Related Website Sets UI and access should be enabled to show RWS info.";
 
-        mRWSInUse.setVisible(true);
-        mRWSInUse.setTitle(R.string.cookie_info_rws_title);
-        mRWSInUse.setSummary(
+        mRwsInUse.setVisible(true);
+        mRwsInUse.setTitle(R.string.cookie_info_rws_title);
+        mRwsInUse.setSummary(
                 String.format(getString(R.string.cookie_info_rws_summary), rwsInfo.getOwner()));
-        mRWSInUse.setIcon(SettingsUtils.getTintedIcon(getContext(), R.drawable.tenancy));
-        mRWSInUse.setManagedPreferenceDelegate(
+        mRwsInUse.setIcon(SettingsUtils.getTintedIcon(getContext(), R.drawable.tenancy));
+        mRwsInUse.setManagedPreferenceDelegate(
                 new ForwardingManagedPreferenceDelegate(
                         getSiteSettingsDelegate().getManagedPreferenceDelegate()) {
                     @Override
@@ -293,9 +294,9 @@ public class PageInfoCookiesSettings extends BaseSiteSettingsFragment {
                     }
                 });
         if (getSiteSettingsDelegate().shouldShowPrivacySandboxRwsUi()) {
-            mRWSInUse.setOnPreferenceClickListener(
+            mRwsInUse.setOnPreferenceClickListener(
                     preference -> {
-                        mPageInfoControllerDelegate.showAllSettingsForRws(mRWSInfo.getOwner());
+                        mPageInfoControllerDelegate.showAllSettingsForRws(mRwsInfo.getOwner());
                         return false;
                     });
         }
@@ -338,7 +339,9 @@ public class PageInfoCookiesSettings extends BaseSiteSettingsFragment {
                 days == 0
                         ? getString(R.string.page_info_cookies_blocking_restart_today_title)
                         : getQuantityString(
-                                R.plurals.page_info_cookies_blocking_restart_title, days));
+                                R.plurals
+                                        .page_info_cookies_blocking_restart_tracking_protection_title,
+                                days));
     }
 
     private boolean willCreatePermanentException() {

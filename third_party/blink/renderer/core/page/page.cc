@@ -91,7 +91,6 @@
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme_overlay_mobile.h"
 #include "third_party/blink/renderer/core/scroll/smooth_scroll_sequencer.h"
-#include "third_party/blink/renderer/core/svg/graphics/isolated_svg_document_host.h"
 #include "third_party/blink/renderer/core/svg/graphics/svg_image_chrome_client.h"
 #include "third_party/blink/renderer/core/svg/svg_resource_document_cache.h"
 #include "third_party/blink/renderer/platform/bindings/source_location.h"
@@ -263,11 +262,10 @@ Page::Page(base::PassKey<Page>,
               v8_compile_hints::V8CrowdsourcedCompileHintsConsumer>()),
       browsing_context_group_info_(browsing_context_group_info) {
   if (partitioned_popin_params) {
-    partitioned_popin_opener_top_frame_origin_ =
+    partitioned_popin_opener_properties_ = PartitionedPopinOpenerProperties(
         SecurityOrigin::CreateFromUrlOrigin(
-            partitioned_popin_params->opener_top_frame_origin);
-    partitioned_popin_opener_site_for_cookies_ =
-        partitioned_popin_params->opener_site_for_cookies;
+            partitioned_popin_params->opener_top_frame_origin),
+        partitioned_popin_params->opener_site_for_cookies);
   }
   DCHECK(!AllPages().Contains(this));
   AllPages().insert(this);
@@ -286,12 +284,6 @@ Page::Page(base::PassKey<Page>,
                                !color_provider_colors->IsEmpty()
                            ? *color_provider_colors
                            : ColorProviderColorMaps::CreateDefault());
-  if (is_ordinary_) {
-    // TODO(crbug.com/336382906): We will revisit where we'll be doing this in
-    // production.
-    IsolatedSVGDocumentHostInitializer::Get()
-        ->MaybePrepareIsolatedSVGDocumentHost();
-  }
 }
 
 Page::~Page() {
@@ -497,34 +489,20 @@ void Page::TakePropertiesForLocalMainFrameSwap(Page* old_page) {
   // new page's opener should be the most up-to-date opener.
 }
 
-const SecurityOrigin* Page::GetPartitionedPopinOpenerTopFrameOrigin() const {
-  // We should never be in a state where one of these was set and not the other.
-  DCHECK(!partitioned_popin_opener_top_frame_origin_ ==
-         !partitioned_popin_opener_site_for_cookies_);
-
-  // The feature must be enabled if a popin top-frame origin was set.
-  DCHECK(RuntimeEnabledFeatures::PartitionedPopinsEnabled() ||
-         !partitioned_popin_opener_top_frame_origin_);
-
-  return partitioned_popin_opener_top_frame_origin_.get();
-}
-
-const std::optional<net::SiteForCookies>
-Page::GetPartitionedPopinOpenerSiteForCookies() const {
-  // We should never be in a state where one of these was set and not the other.
-  DCHECK(!partitioned_popin_opener_top_frame_origin_ ==
-         !partitioned_popin_opener_site_for_cookies_);
-
-  // The feature must be enabled if a popin site for cookies was set.
-  DCHECK(RuntimeEnabledFeatures::PartitionedPopinsEnabled() ||
-         !partitioned_popin_opener_site_for_cookies_);
-
-  return partitioned_popin_opener_site_for_cookies_;
-}
-
 bool Page::IsPartitionedPopin() const {
-  return GetPartitionedPopinOpenerTopFrameOrigin() &&
-         GetPartitionedPopinOpenerSiteForCookies();
+  // The feature must be enabled if a popin site for cookies was set.
+  CHECK(RuntimeEnabledFeatures::PartitionedPopinsEnabled() ||
+        !partitioned_popin_opener_properties_);
+
+  return !!partitioned_popin_opener_properties_;
+}
+
+const PartitionedPopinOpenerProperties&
+Page::GetPartitionedPopinOpenerProperties() const {
+  // This function is only usable if we are in a popin.
+  CHECK(IsPartitionedPopin());
+
+  return *partitioned_popin_opener_properties_;
 }
 
 LocalFrame* Page::DeprecatedLocalMainFrame() const {
@@ -1411,12 +1389,6 @@ void Page::WillBeDestroyed() {
     close_task_handler_->SetPage(nullptr);
     close_task_handler_ = nullptr;
   }
-
-  // Clear speculatively created resources for SVGImage when there are no
-  // ordinary pages. This is desirable to shutdown renderer gracefully.
-  if (is_ordinary_ && OrdinaryPages().empty()) {
-    IsolatedSVGDocumentHostInitializer::Get()->Clear();
-  }
 }
 
 void Page::RegisterPluginsChangedObserver(PluginsChangedObserver* observer) {
@@ -1552,7 +1524,7 @@ void Page::UpdateLifecycle(LocalFrame& root,
   if (requested_update == WebLifecycleUpdate::kLayout) {
     Animator().UpdateLifecycleToLayoutClean(root, reason);
   } else if (requested_update == WebLifecycleUpdate::kPrePaint) {
-    Animator().UpdateLifecycleToPrePaintClean(root, reason);
+    Animator().UpdateAllLifecyclePhasesExceptPaint(root, reason);
   } else {
     Animator().UpdateAllLifecyclePhases(root, reason);
   }
@@ -1611,9 +1583,6 @@ void Page::PrepareForLeakDetection() {
     // the page becomes interactive. Give it a chance to clean up.
     page->v8_compile_hints_producer_->ClearData();
   }
-
-  // Clear speculatively created resources for SVGImage.
-  IsolatedSVGDocumentHostInitializer::Get()->Clear();
 }
 
 // Ensure the 10 bits reserved for connected frame count in NodeRareData are

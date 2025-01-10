@@ -6,9 +6,12 @@
 
 #include <memory>
 
+#include "base/containers/span.h"
+#include "base/containers/to_vector.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
 #include "base/i18n/timezone.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/uuid.h"
@@ -395,6 +398,7 @@ void PaymentsDataManager::OnWebDataServiceRequestDone(
         ReceiveLoadedDbValues(h, result.get(),
                               &pending_payment_instruments_query_,
                               &payment_instruments);
+        ewallet_accounts_.clear();
         for (sync_pb::PaymentInstrument& payment_instrument :
              payment_instruments) {
           CacheIfEwalletPaymentInstrument(payment_instrument);
@@ -403,7 +407,7 @@ void PaymentsDataManager::OnWebDataServiceRequestDone(
         break;
       }
       default:
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
     }
   }
 
@@ -501,8 +505,8 @@ CreditCard* PaymentsDataManager::GetCreditCardByGUID(const std::string& guid) {
   return iter != credit_cards.end() ? *iter : nullptr;
 }
 
-CreditCard* PaymentsDataManager::GetCreditCardByNumber(
-    const std::string& number) {
+const CreditCard* PaymentsDataManager::GetCreditCardByNumber(
+    const std::string& number) const {
   CreditCard numbered_card;
   numbered_card.SetNumber(base::ASCIIToUTF16(number));
   for (CreditCard* credit_card : GetCreditCards()) {
@@ -514,8 +518,8 @@ CreditCard* PaymentsDataManager::GetCreditCardByNumber(
   return nullptr;
 }
 
-CreditCard* PaymentsDataManager::GetCreditCardByInstrumentId(
-    int64_t instrument_id) {
+const CreditCard* PaymentsDataManager::GetCreditCardByInstrumentId(
+    int64_t instrument_id) const {
   const std::vector<CreditCard*> credit_cards = GetCreditCards();
   for (CreditCard* credit_card : credit_cards) {
     if (credit_card->instrument_id() == instrument_id) {
@@ -525,8 +529,8 @@ CreditCard* PaymentsDataManager::GetCreditCardByInstrumentId(
   return nullptr;
 }
 
-CreditCard* PaymentsDataManager::GetCreditCardByServerId(
-    const std::string& server_id) {
+const CreditCard* PaymentsDataManager::GetCreditCardByServerId(
+    const std::string& server_id) const {
   const std::vector<CreditCard*> server_credit_cards = GetServerCreditCards();
   for (CreditCard* credit_card : server_credit_cards) {
     if (credit_card->server_id() == server_id) {
@@ -637,24 +641,15 @@ PaymentsDataManager::GetApplicableBenefitDescriptionForCardAndOrigin(
 }
 
 std::vector<CreditCard*> PaymentsDataManager::GetLocalCreditCards() const {
-  std::vector<CreditCard*> result;
-  result.reserve(local_credit_cards_.size());
-  for (const auto& card : local_credit_cards_) {
-    result.push_back(card.get());
-  }
-  return result;
+  return base::ToVector(local_credit_cards_, &std::unique_ptr<CreditCard>::get);
 }
 
 std::vector<CreditCard*> PaymentsDataManager::GetServerCreditCards() const {
   if (!IsAutofillWalletImportEnabled()) {
     return {};
   }
-  std::vector<CreditCard*> result;
-  result.reserve(server_credit_cards_.size());
-  for (const auto& card : server_credit_cards_) {
-    result.push_back(card.get());
-  }
-  return result;
+  return base::ToVector(server_credit_cards_,
+                        &std::unique_ptr<CreditCard>::get);
 }
 
 std::vector<CreditCard*> PaymentsDataManager::GetCreditCards() const {
@@ -838,8 +833,8 @@ gfx::Image* PaymentsDataManager::GetCreditCardArtImageForUrl(
   }
   // The sizes are used on Android, but ignored on desktop.
   FetchImagesForURLs(base::span_from_ref(card_art_url),
-                     base::span({AutofillImageFetcherBase::ImageSize::kSmall,
-                                 AutofillImageFetcherBase::ImageSize::kLarge}));
+                     {AutofillImageFetcherBase::ImageSize::kSmall,
+                      AutofillImageFetcherBase::ImageSize::kLarge});
   return nullptr;
 }
 
@@ -1323,6 +1318,8 @@ void PaymentsDataManager::AddCreditCard(const CreditCard& credit_card) {
     return;
   }
 
+  UMA_HISTOGRAM_BOOLEAN("Autofill.PaymentsDataManager.LocalCardAdded", true);
+
   // Add the new credit card to the web database.
   GetLocalDatabase()->AddCreditCard(credit_card);
 
@@ -1506,6 +1503,7 @@ void PaymentsDataManager::ClearAllServerDataForTesting() {
   autofill_offer_data_.clear();
   credit_card_art_images_.clear();
   masked_bank_accounts_.clear();
+  ewallet_accounts_.clear();
 }
 
 void PaymentsDataManager::SetCreditCards(
@@ -1734,8 +1732,7 @@ bool PaymentsDataManager::ShouldSuggestServerPaymentMethods() const {
 
 void PaymentsDataManager::LoadCreditCards() {
   if (!database_helper_->GetLocalDatabase()) {
-    NOTREACHED_IN_MIGRATION();
-    return;
+    NOTREACHED();
   }
 
   CancelPendingLocalQuery(&pending_creditcards_query_);
@@ -1762,8 +1759,7 @@ void PaymentsDataManager::LoadCreditCardCloudTokenData() {
 
 void PaymentsDataManager::LoadIbans() {
   if (!database_helper_->GetLocalDatabase()) {
-    NOTREACHED_IN_MIGRATION();
-    return;
+    NOTREACHED();
   }
   CancelPendingLocalQuery(&pending_local_ibans_query_);
   CancelPendingServerQuery(&pending_server_ibans_query_);
@@ -1835,8 +1831,7 @@ void PaymentsDataManager::CancelPendingLocalQuery(
     WebDataServiceBase::Handle* handle) {
   if (*handle) {
     if (!database_helper_->GetLocalDatabase()) {
-      NOTREACHED_IN_MIGRATION();
-      return;
+      NOTREACHED();
     }
     database_helper_->GetLocalDatabase()->CancelRequest(*handle);
   }
@@ -1847,8 +1842,7 @@ void PaymentsDataManager::CancelPendingServerQuery(
     WebDataServiceBase::Handle* handle) {
   if (*handle) {
     if (!database_helper_->GetServerDatabase()) {
-      NOTREACHED_IN_MIGRATION();
-      return;
+      NOTREACHED();
     }
     database_helper_->GetServerDatabase()->CancelRequest(*handle);
   }
@@ -1934,6 +1928,10 @@ void PaymentsDataManager::SetSyncServiceForTest(
 void PaymentsDataManager::AddMaskedBankAccountForTest(
     const BankAccount& bank_account) {
   masked_bank_accounts_.push_back(bank_account);
+}
+
+void PaymentsDataManager::AddEwalletForTest(const Ewallet& ewallet) {
+  ewallet_accounts_.push_back(ewallet);
 }
 
 void PaymentsDataManager::AddServerCreditCardForTest(
@@ -2022,10 +2020,9 @@ void PaymentsDataManager::ProcessCardArtUrlChanges() {
     }
   }
   if (!updated_urls.empty()) {
-    FetchImagesForURLs(
-        updated_urls,
-        base::span({AutofillImageFetcherBase::ImageSize::kSmall,
-                    AutofillImageFetcherBase::ImageSize::kLarge}));
+    FetchImagesForURLs(updated_urls,
+                       {AutofillImageFetcherBase::ImageSize::kSmall,
+                        AutofillImageFetcherBase::ImageSize::kLarge});
   }
 }
 
@@ -2081,7 +2078,7 @@ void PaymentsDataManager::OnMaskedBankAccountsRefreshed() {
   if (!updated_urls.empty()) {
     FetchImagesForURLs(
         updated_urls,
-        base::span({AutofillImageFetcherBase::ImageSize::kSquare}));
+        base::span_from_ref(AutofillImageFetcherBase::ImageSize::kSquare));
   }
 }
 
@@ -2104,7 +2101,7 @@ void PaymentsDataManager::OnPaymentInstrumentsRefreshed(
   if (!updated_urls.empty()) {
     FetchImagesForURLs(
         updated_urls,
-        base::span({AutofillImageFetcherBase::ImageSize::kSquare}));
+        base::span_from_ref(AutofillImageFetcherBase::ImageSize::kSquare));
   }
 }
 

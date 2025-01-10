@@ -196,20 +196,16 @@ class CORE_EXPORT HTMLFormControlElement : public HTMLElement,
 };
 
 template <>
-inline bool IsElementOfType<const HTMLFormControlElement>(const Node& node) {
-  return IsA<HTMLFormControlElement>(node);
-}
-template <>
 struct DowncastTraits<HTMLFormControlElement> {
   static bool AllowFrom(const Node& node) {
-    auto* html_element = DynamicTo<HTMLElement>(node);
-    return html_element && AllowFrom(*html_element);
+    auto* element = DynamicTo<Element>(node);
+    return element && AllowFrom(*element);
   }
   static bool AllowFrom(const ListedElement& control) {
     return control.IsFormControlElement();
   }
-  static bool AllowFrom(const HTMLElement& html_element) {
-    return html_element.IsFormControlElement();
+  static bool AllowFrom(const Element& element) {
+    return element.IsFormControlElement();
   }
 };
 

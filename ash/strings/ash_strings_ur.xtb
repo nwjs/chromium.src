@@ -308,7 +308,6 @@
 <translation id="2041220428661959602">بیٹری لیول: <ph name="BATTERY_PERCENTAGE" /> فیصد</translation>
 <translation id="204259843076055848"><ph name="SIX_PACK_KEY_NAME" /> کا شارٹ کٹ فی الحال آف ہے</translation>
 <translation id="2049240716062114887">ڈیسک کا نام تبدیل کر کے <ph name="DESK_NAME" /> کر دیا گیا۔</translation>
-<translation id="2050339315714019657">پورٹریٹ</translation>
 <translation id="2064048859448024834">کیمرا کا پیش منظر آن ہے</translation>
 <translation id="2065098273523946419">'مزید جانیں' کا لنک۔ فعال ہونے پر براؤزر پر ری ڈائریکٹ کریں</translation>
 <translation id="2067220651560163985">درجۂ حرارت سیلسیئس میں دکھائیں</translation>
@@ -339,9 +338,6 @@
 <translation id="219905428774326614">لانچر، سبھی ایپس</translation>
 <translation id="2201071101391734388"><ph name="TOTAL_COUNT" /> میں سے حالیہ تصویر <ph name="INDEX" />۔</translation>
 <translation id="2201687081523799384">‏‫Google Tasks کو سکیڑیں</translation>
-<translation id="2206960886090042977">پہلے سے شامل ٹچ پیڈ غیر فعال ہو گیا ہے کیونکہ ایک ماؤس منسلک ہے۔ تبدیلی کی تصدیق کرنے کیلئے ماؤس یا کی بورڈ کا استعمال کریں۔
-
-بصورت دیگر، پہلے سے شامل ٹچ پیڈ 30 سیکنڈ میں دوبارہ فعال ہو جائے گا۔</translation>
 <translation id="2208323208084708176">متحد ڈیسک ٹاپ وضع</translation>
 <translation id="2220572644011485463">‏PIN یا پاس ورڈ</translation>
 <translation id="2222841058024245321">ڈیسک 7</translation>
@@ -504,6 +500,9 @@
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> سے <ph name="KEY_TWO" /> تک</translation>
 <translation id="2778197796481941784">ctrl+search+s</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" /> <ph name="MANAGER" /> کے زیر انتظام ہے</translation>
+<translation id="2781658180588759579">پہلے سے شامل ٹچ پیڈ غیر فعال ہو گیا ہے۔ تبدیلی کی تصدیق کرنے کیلئے اپنے کی بورڈ یا دوسرے پوائنٹر آلے کا استعمال کریں۔
+
+بصورت دیگر پہلے سے شامل ٹچ پیڈ کو <ph name="TIMEOUT_SECONDS" /> میں دوبارہ فعال کر دیا جائے گا۔</translation>
 <translation id="2782591952652094792">کیپچر وضع سے باہر نکلیں</translation>
 <translation id="2785499565474703580">1 آلہ منسلک ہے</translation>
 <translation id="2791421900609674576">آپ کو تجاویز نظر آئیں گی تاکہ آپ نے جہاں چھوڑا تھا وہاں سے جاری رکھ سکیں۔ آپ تجاویز کو ہٹانے کے لیے  ٹچ کر کے دبائے رکھ سکتے ہیں۔</translation>
@@ -601,6 +600,9 @@
 <translation id="3113492864356515707">گزشتہ آئٹم کو شیلف پر نمایاں کریں</translation>
 <translation id="311799651966070385">یاد دہانی بند کریں</translation>
 <translation id="3120421559657122717">آلہ بند کریں؟</translation>
+<translation id="3121411970001795539">پہلے سے شامل ٹچ پیڈ غیر فعال ہو گیا ہے کیونکہ ایک ماؤس منسلک ہے۔ تبدیلی کی تصدیق کرنے کیلئے ماؤس یا کی بورڈ کا استعمال کریں۔
+
+بصورت دیگر پہلے سے شامل ٹچ پیڈ کو <ph name="TIMEOUT_SECONDS" /> میں دوبارہ فعال کر دیا جائے گا۔</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">کلاس ورک کی قسم</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +973,13 @@
 <translation id="4322742403972824594">‏Ctrl + Alt + 'اوپر تیر کا نشان' کی بورڈ شارٹ کٹ تبدیل ہو گیا۔ Home کلید کا استعمال کرنے کیلئے، <ph name="LAUNCHER_KEY_NAME" /> کلید + 'بائیں تیر کا نشان' کو دبائیں۔</translation>
 <translation id="4324840740119394760">اس سے کیمرے کی اجازت کے ساتھ <ph name="APP_NAME" /> اور تمام ایپس اور ویب سائٹس کو کیمرے تک رسائی کی اجازت ملتی ہے</translation>
 <translation id="4327147325944669226">گیم ریکارڈ کریں</translation>
-<translation id="4333628967105022692">‏متعدد صارفین کے سائن ان کرنے پر Lacros تعاون یافتہ نہیں ہے۔</translation>
 <translation id="4338109981321384717">میگنفائنگ گلاس</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />، خاموش کردہ</translation>
 <translation id="4351244548802238354">ڈائیلاگ بند کریں</translation>
 <translation id="4356872429719185452">ہاٹ اسپاٹ کی تفصیلات دکھائیں۔ ہاٹ اسپاٹ آن ہو رہا ہے۔</translation>
 <translation id="4364101114148522660"><ph name="DURATION" />  ریکارڈ کیا جا رہا ہے</translation>
 <translation id="4371348193907997655">کاسٹ کی ترتیبات</translation>
+<translation id="4371834685492830207">‏‫PIN ميں صرف درست حروف ہونے ضروری ہیں</translation>
 <translation id="4375482231364171368">ایڈریس بار میں تلاش کریں</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />، سگنل کی مضبوطی <ph name="SIGNAL_STRENGTH" /> فیصد</translation>
 <translation id="4378551569595875038">منسلک ہو رہا ہے…</translation>
@@ -1143,6 +1145,7 @@
 <translation id="4902797682482387055">فوکس کرنے کے لیے تجویز کردہ ٹاسک</translation>
 <translation id="490375751687810070">عمودی</translation>
 <translation id="490788395437447240"><ph name="BATTERY_PERCENTAGE" /> فیصد بیٹری ہے</translation>
+<translation id="4911191962826748981">‏یہ تجرباتی AI خصوصیت ہے اور یہ ہمیشہ درست نہیں ہوگی۔</translation>
 <translation id="491504982845934899">آلہ سیٹ اپ کرنے کے بعد <ph name="NETWORK_NAME" /> کو فعال کریں</translation>
 <translation id="4917385247580444890">مضبوط</translation>
 <translation id="4918086044614829423">قبول کریں</translation>
@@ -1301,6 +1304,7 @@
 <translation id="5393156353051693207">اپنی ایپس کو دوبارہ ترتیب دینے کے لیے کہیں بھی ٹچ کریں اور دبائے رکھیں</translation>
 <translation id="5395308026110844773"><ph name="IN_PLACE_APP" /> کے اوپر <ph name="DRAGGED_APP_NAME" />، فولڈر بنانے کیلئے ریلیز کریں۔</translation>
 <translation id="5397578532367286026">‏اس صارف کے استعمال اور سرگزشت کا chrome.com پر مینیجر (<ph name="MANAGER_EMAIL" />) کے ذریعے جائزہ لیا جا سکتا ہے۔</translation>
+<translation id="540338817371815859">لینڈ اسکیپ</translation>
 <translation id="540713187982329711">ہاٹ اسپاٹ ٹوگل کریں۔ ہاٹ اسپاٹ آن ہے، کوئی آلہ منسلک نہیں ہے۔</translation>
 <translation id="5409208741270395213">ٹاسک کو مکمل کے بطور نشان زد کریں</translation>
 <translation id="5413656666631274079">ترتیبات کا صفحہ</translation>
@@ -1472,7 +1476,6 @@
 <translation id="5975235751479998104">ونڈوز کے ذریعے سب سے آگے ایپ پر جائیں</translation>
 <translation id="5978382165065462689">ریموٹ اسسٹنس کے ذریعے آپ کی اسکرین کے کنٹرول کا اشتراک کیا جا رہا ہے۔</translation>
 <translation id="5980301590375426705">مہمان سیشن ختم کریں</translation>
-<translation id="5982119059638483922">‏منسوخ کرنے کے لیے Fn+Search یا Shift دبائیں۔</translation>
 <translation id="5983567367406220847">غیرفعالیت کی وجہ سے ہاٹ اسپاٹ کو آف کر دیا گیا ہے۔</translation>
 <translation id="598407983968395253">تمثیل استعمال کریں</translation>
 <translation id="5986723678596105470">‏‫Google Meet کے ساتھ شامل ہوں</translation>
@@ -1542,7 +1545,6 @@
 <translation id="6166852626429024716">اپنا آلہ، ایپس، ترتیبات ویب تلاش کریں...</translation>
 <translation id="6168318496333165060">‏Diagnostics ایپ کھولیں</translation>
 <translation id="6168622430237609329">آپ کی انسٹال کردہ ایپس</translation>
-<translation id="6173151025443907148">‏اگر Lacros فعال ہے تو دوسرے صارف میں سائن ان کرنا تعاون یافتہ نہیں ہے۔ براہ کرم اس کی بجائے Lacros میں دوسری براؤزر پروفائل استعمال کریں یا Lacros کو غیر فعال کریں اور دوبارہ کوشش کریں۔</translation>
 <translation id="6179832488876878285">آپ اپنی اہم فائلز کو یہاں پن کر سکتے ہیں۔ شروع کرنے کیلئے فائلز ایپ کھولیں۔</translation>
 <translation id="6180193585172850042">'پیچھے جائیں' بٹن</translation>
 <translation id="6180651297859206670">'فارورڈ کریں' بٹن</translation>
@@ -1564,6 +1566,7 @@
 <translation id="6232416233079464213"><ph name="SESSION_NAME" /> سے</translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> فی الحال آپ کا کیمرا اور مائیکروفون استعمال کر رہی ہے</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">پاس ورڈ ميں صرف درست حروف ہونے ضروری ہیں</translation>
 <translation id="6240603910551255087">اوپری بٹن</translation>
 <translation id="6240821072888636753">ہر بار پوچھیں</translation>
 <translation id="6247728804802644171">اطلاعات کھولیں</translation>
@@ -1693,7 +1696,6 @@
 <translation id="6682029141988159141">کلپ بورڈ کے مواد کو پیسٹ کریں</translation>
 <translation id="6683022854667115063">ہیڈ فونز</translation>
 <translation id="6686023075541098243">اپنے فون کی اطلاعات دیکھنے کو سیٹ اپ کریں</translation>
-<translation id="6688019813898140556">‏‫5 بار Esc</translation>
 <translation id="6694462491298752106">پہلے سے شامل ٹچ پیڈ غیر فعال ہے</translation>
 <translation id="6694973220096431421">‏‫Google Drive میں تلاش کریں</translation>
 <translation id="6696025732084565524">آپ کے الگ ہونے کے قابل کی بورڈ کو ایک اہم اپ ڈیٹ درکار ہے</translation>
@@ -1714,6 +1716,7 @@
 <translation id="6751826523481687655">کارکردگی کا پتا لگانا آن ہے</translation>
 <translation id="6752912906630585008"><ph name="REMOVED_DESK" /> ڈیسک ہٹا دیے گئے اور <ph name="RECEIVE_DESK" /> ڈیسک کے ساتھ ضم ہو گئے</translation>
 <translation id="6753390234084146956">ٹیبز</translation>
+<translation id="6754918760968695779">فوری اندراج</translation>
 <translation id="6757237461819837179">کوئی میڈیا نہیں چل رہا ہے</translation>
 <translation id="6760438044935091345">گیم ڈیش بورڈ</translation>
 <translation id="6768043681523654438">اسٹوریج</translation>
@@ -1763,6 +1766,7 @@
 <translation id="6921427376813842559">آلہ اپ ڈیٹ کریں</translation>
 <translation id="6929081673585394903">کنٹرولز دکھائیں</translation>
 <translation id="6931576957638141829">اس میں محفوظ کریں</translation>
+<translation id="6935857786205183008">پورٹریٹ</translation>
 <translation id="6942518653766415536">ریکارڈنگ فارمیٹ مینیو</translation>
 <translation id="6945221475159498467">منتخب کریں</translation>
 <translation id="6945922087561257829">‏آپ کا فون موبائل نیٹ ورک استعمال کر رہا ہے۔ یقینی بنائیں کہ آپ کا فون اور Chromebook ایک ہی Wi-Fi نیٹ ورک پر ہیں اور پھر دوبارہ کوشش کریں۔ <ph name="LEARN_MORE" /></translation>
@@ -1919,9 +1923,6 @@
 آلہ کو شٹ ڈاؤن کرنے کے لیے پاور بٹن کو آلہ پر دوبارہ چھوئیں اور دبائے رکھیں۔</translation>
 <translation id="7523420897035067483">فوکس میں رہتے ہوئے ڈسٹرب نہ کریں کو فعال کریں</translation>
 <translation id="7524043547948122239">‫Google Tasks</translation>
-<translation id="7524919752437339268">پہلے سے شامل ٹچ پیڈ غیر فعال ہو گیا ہے۔ تبدیلی کی تصدیق کرنے کیلئے اپنے کی بورڈ یا دوسرے پوائنٹر آلے کا استعمال کریں۔
-
-بصورت دیگر، پہلے سے شامل ٹچ پیڈ 30 سیکنڈ میں دوبارہ فعال ہو جائے گا۔</translation>
 <translation id="7525067979554623046">بنائیں</translation>
 <translation id="7526573455193969409">ممکن ہے نیٹ ورک کو مانیٹر کیا جا رہا ہو</translation>
 <translation id="7536035074519304529">‏IP پتہ: <ph name="ADDRESS" /></translation>
@@ -2008,6 +2009,7 @@
 <translation id="780301667611848630">نہیں شکریہ</translation>
 <translation id="7807067443225230855">تلاش اور اسسٹنٹ</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> اور <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">اظہار پسندیدگی یہ تاثر جمع کرائے گا کہ آپ کو یہ تجویز پسند ہے</translation>
 <translation id="7825412704590278437">آئندہ کے کیلنڈر ایونٹ سے</translation>
 <translation id="7829386189513694949">مضبوط سگنل</translation>
 <translation id="7830453190047749513">آپ بٹن کی کارروائیوں، کرسر کی رفتار اور بہت کچھ کو اپنے <ph name="PERIPHERAL_NAME" /> لیے ذاتی نوعیت کا بنا سکتے ہیں</translation>
@@ -2162,6 +2164,7 @@
 <translation id="830868413617744215">بی ٹا</translation>
 <translation id="8314772463905284467">‏Caps Lock آن ہے</translation>
 <translation id="8315514906653279104">آن ہو رہا ہے…</translation>
+<translation id="8319634750346253957">اظہار ناپسندیدگی یہ تاثر جمع کرائے گا کہ آپ کو یہ تجویز پسند نہیں ہے</translation>
 <translation id="8331351032546853669">ڈاؤن لوڈ زير التوا ہے</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2347,6 +2350,7 @@
 <translation id="8982906748181120328">قریب کی مرئیت</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590"><ph name="IME_NAME" /> کے ذریعے</translation>
+<translation id="8991648557324317894">‏منسوخ کرنے کے لیے fn + فوری اندراج یا شفٹ دبائیں۔</translation>
 <translation id="899350903320462459">اطلاع کی کارروائی کرنے کیلئے، آلے کو بطور <ph name="LOGIN_ID" /> غیر مقفل کریں</translation>
 <translation id="8993733019280019776">کیا آپ بات کر رہے ہیں؟ آپ کا مائیک آف ہے۔ مائیک کو آن کرنے کے لیے اسے منتخب کریں۔</translation>
 <translation id="9000771174482730261">اسٹوریج کا نظم کریں</translation>
@@ -2429,9 +2433,9 @@
 <translation id="974545358917229949"><ph name="QUERY" /> کے <ph name="RESULT_COUNT" /> نتائج دکھائے جا رہے ہیں</translation>
 <translation id="981011780479609956">کوئی آخری تاریخ متعین نہیں ہے</translation>
 <translation id="98120814841227350">دستاویز کے آخر میں جائیں</translation>
-<translation id="98515147261107953">لینڈ اسکیپ</translation>
 <translation id="987589956647469042">موبائل ڈیٹا آن ہے</translation>
 <translation id="989374776391122812">کیمرا اور آڈیو کنٹرولز</translation>
+<translation id="990263227494928142">‏ٹچ پیڈ کو فعال کرنے کے لیے Shift کو 5 بار دبائیں</translation>
 <translation id="990277280839877440"><ph name="WINDOW_TITILE" /> ونڈو بند ہے۔</translation>
 <translation id="993398562350683614">‏<ph name="TOTAL_STEPS" /> میں سے <ph name="STEP" /> ٹؤر قدم۔ اپنے <ph name="PRODUCT_NAME" /> پر اپنی ضرورت کی ہر چیز کرنے کے لیے ایپس کا استعمال کریں۔ آپ لانچر میں اپنی ایپس تلاش کر سکتے ہیں۔ لانچر بٹن پر فوکس مرکوز کرنے کے لیے Alt + Shift + L دبائیں۔</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />، <ph name="SUBTEXT" /></translation>

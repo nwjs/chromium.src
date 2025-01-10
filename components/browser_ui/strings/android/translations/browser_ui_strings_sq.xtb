@@ -4,13 +4,16 @@
 <translation id="1006017844123154345">Hap versionin online</translation>
 <translation id="1036348656032585052">Çaktivizo</translation>
 <translation id="1044891598689252897">Sajtet do të punojnë normalisht</translation>
+<translation id="1070329623210597193">Skedarët që mund të shikojë ose modifikojë ky sajt</translation>
 <translation id="1073417869336441572">Na ndihmo të përmirësojmë Chrome duke na treguar se pse ke lejuar kukit e palëve të treta. <ph name="BEGIN_LINK" />Dërgo komente<ph name="END_LINK" /></translation>
+<translation id="1085696779717592361">Përdor Chrome si parazgjedhje</translation>
 <translation id="1178581264944972037">Pauzë</translation>
 <translation id="1181037720776840403">Hiq</translation>
 <translation id="1192844206376121885">Kjo do të fshijë të gjitha të dhënat dhe kukit e ruajtura nga <ph name="ORIGIN" />.</translation>
 <translation id="1201402288615127009">Para</translation>
 <translation id="1240190568154816272">Këshilla për Chrome</translation>
 <translation id="1242008676835033345">Integruar në <ph name="WEBSITE_URL" /></translation>
+<translation id="1263609676484797429">Trokit tek Aplikacionet &gt; Aplikacionet e parazgjedhura</translation>
 <translation id="1272079795634619415">Ndalo</translation>
 <translation id="1289742167380433257">Për të ruajtur të dhënat, imazhet e kësaj faqeje janë optimizuar nga Google.</translation>
 <translation id="129382876167171263">Skedarët e ruajtur nga uebsajtet shfaqen këtu</translation>
@@ -65,6 +68,7 @@
 <translation id="2182457891543959921">Pyet përpara se të lejosh krijimin nga sajtet të një harte 3D të ambientit tënd rrethues ose gjurmimin prej tyre të pozicionit të kamerës (rekomandohet)</translation>
 <translation id="2185965788978862351">Kjo do të fshijë <ph name="DATASIZE" /> të dhëna dhe kuki të ruajtura nga sajtet ose nga aplikacionet në ekranin bazë.</translation>
 <translation id="2194856509914051091">Gjëra për t'u pasur parasysh</translation>
+<translation id="2215727959747642672">Modifikimi i skedarëve</translation>
 <translation id="2228071138934252756">Për të lejuar që <ph name="APP_NAME" /> të ketë qasje te kamera jote, aktivizo gjithashtu kamerën në <ph name="BEGIN_LINK" />Cilësimet e Android<ph name="END_LINK" />.</translation>
 <translation id="2235344399760031203">Kukit e palëve të treta janë bllokuar</translation>
 <translation id="2238944249568001759">Kërkimet e sugjeruara bazuar në skedën tënde të fundit</translation>
@@ -74,10 +78,8 @@
 <translation id="228293613124499805">Shumica e sajteve që viziton ka mundësi që të ruajnë të dhëna në pajisjen tënde, shpesh për të përmirësuar përvojën tënde duke ruajtur preferencat e tua ose informacionet që ti ndan me sajtin. Ne rekomandojmë që ta mbash të aktivizuar këtë cilësim.</translation>
 <translation id="2289270750774289114">Pyet kur një sajt dëshiron të zbulojë pajisjet Bluetooth në afërsi (rekomandohet)</translation>
 <translation id="2315043854645842844">Përzgjedhja e certifikatës nga ana e klientit nuk mbështetet nga sistemi operativ.</translation>
-<translation id="2321958826496381788">Zvarrit rrëshqitësin derisa të arrish ta lexosh këtë pa u munduar. Teksti duhet të duket të paktën kaq i madh pas trokitjes dy herë mbi një paragraf.</translation>
 <translation id="2359808026110333948">Vazhdo</translation>
 <translation id="2379925928934107488">Kur është e mundur, zbato temën e errët për sajtet kur Chrome përdor temën e errët</translation>
-<translation id="2387895666653383613">Shkallëzimi i tekstit</translation>
 <translation id="2390272837142897736">Rrit zmadhimin</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
 <translation id="2404630663942400771">{PERMISSIONS_SUMMARY_ALLOWED,plural, =1{<ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> dhe <ph name="NUM_MORE" /> tjetër e lejuar}other{<ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> dhe <ph name="NUM_MORE" /> të tjera të lejuara}}</translation>
@@ -102,7 +104,6 @@
 <translation id="2621115761605608342">Lejo JavaScript për një sajt specifik</translation>
 <translation id="2653659639078652383">Dërgoje</translation>
 <translation id="2677748264148917807">Largohu</translation>
-<translation id="2678468611080193228">Provo të lejosh përkohësisht kukit e palëve të treta, që do të thotë më pak mbrojtje, por veçoritë e sajteve kanë më shumë mundësi të punojnë</translation>
 <translation id="2682367912565197520">Fshi nivelin e ruajtur të zmadhimit</translation>
 <translation id="2683434792633810741">Të fshihen dhe të rivendosen?</translation>
 <translation id="2713106313042589954">Çaktivizo kamerën</translation>
@@ -154,7 +155,6 @@
 <translation id="3403537308306431953"><ph name="ZOOM_LEVEL" /> %%</translation>
 <translation id="344449859752187052">Kukit e palëve të treta janë bllokuar</translation>
 <translation id="3448554387819310837">Kur cilësimi është aktiv, sajtet mund të kërkojnë që të përdorin kamerën. Kur cilësimi është joaktiv, sajtet nuk mund të përdorin kamerën.</translation>
-<translation id="3465378418721443318">{DAYS,plural, =1{Chrome do t'i bllokojë kukit përsëri nesër}other{# ditë derisa Chrome t'i bllokojë përsëri kukit}}</translation>
 <translation id="3521663503435878242">Sajtet nën <ph name="DOMAIN" /></translation>
 <translation id="3523447078673133727">Mos lejo që sajtet të gjurmojnë duart e tua</translation>
 <translation id="3536227077203206203">Lejohet këtë herë</translation>
@@ -170,6 +170,7 @@
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_MEMBERS_COUNT" /> sajt në grupin e sajteve të <ph name="RWS_OWNER" /> që mund ta shikojnë aktivitetin tënd në grup}other{<ph name="RWS_MEMBERS_COUNT" /> sajte në grupin e sajteve të <ph name="RWS_OWNER" /> që mund ta shikojnë aktivitetin tënd në këtë grup}}</translation>
 <translation id="3697164069658504920">Kur cilësimi është aktiv, sajtet mund të kërkojnë që të përdorin pajisjet USB. Kur cilësimi është joaktiv, sajtet nuk mund të përdorin pajisjet USB.</translation>
 <translation id="3707034683772193706">Një sajt që ti viziton mund të ruajë një sasi të vogël informacionesh me Chrome, kryesisht për të vërtetuar që nuk je një robot</translation>
+<translation id="3709818294139939629">Qasja e sajtit te skedari u hoq</translation>
 <translation id="3721953990244350188">Hiq dhe shfaq veprimin tjetër të disponueshëm</translation>
 <translation id="3744111561329211289">Sinkronizimi në sfond</translation>
 <translation id="3763247130972274048">Trokit dy herë videon majtas ose djathtas për të kapërcyer 10 sek.</translation>
@@ -188,6 +189,7 @@
 <translation id="3908288065506437185">Blloko kukit e palëve të treta në "Modalitetin 'e fshehtë'"</translation>
 <translation id="3913461097001554748"><ph name="DOMAIN_URL" /> <ph name="SEPARATOR1" /> <ph name="DEVICE_NAME" /></translation>
 <translation id="3918378745482005425">Disa veçori mund të mos funksionojnë. Sajtet e lidhura mund të përdorin përsëri kukit e palëve të treta.</translation>
+<translation id="3922092564198021702">Në telefon, hap "Cilësimet"</translation>
 <translation id="3933121352599513978">Palos kërkesat e padëshiruara (rekomandohet)</translation>
 <translation id="3955193568934677022">Lejo që sajtet të luajnë përmbajtje të mbrojtur (rekomandohet)</translation>
 <translation id="3967822245660637423">Shkarkimi përfundoi</translation>
@@ -331,6 +333,7 @@
 <translation id="6042308850641462728">Më shumë</translation>
 <translation id="6064125863973209585">Shkarkimet e përfunduara</translation>
 <translation id="6071501408666570960">Mund të dalësh nga ky sajt</translation>
+<translation id="6085954183010297841">Të fshihet leja për modifikimin e skedarëve? <ph name="FILE" /></translation>
 <translation id="6120483543004435978">Kur cilësimi është aktiv, sajtet mund të kërkojnë që të mësojnë se kur e përdor ti pajisjen tënde. Kur cilësimi është joaktiv, sajtet nuk mund të mësojnë se kur e përdor ti pajisjen tënde.</translation>
 <translation id="6140839633433422817">E konfirmon që dëshiron të rivendosësh lejet dhe të fshish kukit dhe të dhënat e sajtit?</translation>
 <translation id="6165508094623778733">Mëso më shumë</translation>
@@ -345,6 +348,7 @@
 <translation id="6205314730813004066">Privatësia e reklamave</translation>
 <translation id="6207207788774442484">Fshi të dhënat dhe rivendos lejet</translation>
 <translation id="6231752747840485235">Të çinstalohet "<ph name="APP_NAME" />"?</translation>
+<translation id="6234351944623978659">Trokit tek Aplikacioni i shfletuesit &gt; Chrome</translation>
 <translation id="6262191102408817757">Bazuar në skedën tënde të fundit</translation>
 <translation id="6262279340360821358"><ph name="PERMISSION_1" /> dhe <ph name="PERMISSION_2" /> të bllokuara</translation>
 <translation id="6270391203985052864">Sajtet mund të kërkojnë të dërgojnë njoftime</translation>
@@ -429,6 +433,7 @@
 <translation id="7425915948813553151">Tema e errët për sajtet</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7547989957535180761">Kur cilësimi është aktiv, sajtet mund të shfaqin kërkesat për identifikim. Kur cilësimi është joaktiv, sajtet nuk mund të shfaqin kërkesat për identifikim.</translation>
+<translation id="7553211568594248088">Dil nga kërkimi i qendrës</translation>
 <translation id="7554752735887601236">Një sajt po përdor mikrofonin tënd</translation>
 <translation id="7561196759112975576">Gjithmonë</translation>
 <translation id="757524316907819857">Blloko sajtet që të mos luajnë përmbajtje të mbrojtura</translation>
@@ -437,7 +442,6 @@
 <translation id="7649070708921625228">Ndihma</translation>
 <translation id="7658239707568436148">Anulo</translation>
 <translation id="7667547420449112975">Magjistari i mrekullueshëm i Ozit</translation>
-<translation id="7684642910516280563">Mos lejo që një sajt të përdorë kukit e palëve të treta</translation>
 <translation id="7688240020069572972">Fshih kartën e këshillave për Chrome</translation>
 <translation id="7719367874908701697">Zmadhimi i faqes</translation>
 <translation id="7759147511335618829">Kontrolli dhe riprogramimi i pajisjes MIDI</translation>
@@ -471,6 +475,7 @@
 <translation id="813082847718468539">Shiko informacionin rreth faqes</translation>
 <translation id="8131740175452115882">Konfirmo</translation>
 <translation id="8168435359814927499">Përmbajtja</translation>
+<translation id="818487310457576362">Zvarrit nga ana e ekranit për të dalë nga ekrani i plotë.</translation>
 <translation id="8186479265534291036">Sajti nuk funksionon? Kukit e palëve të treta janë bllokuar</translation>
 <translation id="8197286292360124385"><ph name="PERMISSION_1" /> është lejuar</translation>
 <translation id="8200772114523450471">Vazhdo</translation>
@@ -500,6 +505,7 @@
 <translation id="851751545965956758">Blloko lidhjen e sajteve me pajisjet</translation>
 <translation id="8525306231823319788">Ekrani i plotë</translation>
 <translation id="8541410041357371550">Ky sajt merr temat e tua të reklamave nga Chrome për të të shfaqur reklama më të përshtatshme</translation>
+<translation id="8558480467877843976">Tani mund të përdorësh Chrome sa herë që shfleton ose troket te lidhjet në mesazhe, dokumente dhe aplikacione të tjera.</translation>
 <translation id="857943718398505171">Lejuar (rekomandohet)</translation>
 <translation id="8609465669617005112">Lëviz lart</translation>
 <translation id="8617611086246832542">Kur cilësimi është aktiv, shfaqet pamja e uebsajteve për desktop. Kur cilësimi është joaktiv, shfaqet pamja e uebsajteve për celular.</translation>
@@ -526,6 +532,7 @@
 <translation id="8899807382908246773">Reklamat ndërhyrëse</translation>
 <translation id="8903921497873541725">Zmadho</translation>
 <translation id="8921772741368021346"><ph name="POSITION" /> / <ph name="DURATION" /></translation>
+<translation id="8926389886865778422">Mos pyet përsëri</translation>
 <translation id="8926666909099850184">Veçoria NFC është joaktive për këtë pajisje. Aktivizoje te <ph name="BEGIN_LINK" />Cilësimet e Android<ph name="END_LINK" />.</translation>
 <translation id="8928445016601307354">Blloko sajtet që të mos shikojnë dhe ndryshojnë informacionin në pajisjet NFC</translation>
 <translation id="8944485226638699751">Të kufizuara</translation>

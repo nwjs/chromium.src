@@ -18,7 +18,7 @@
 #include "third_party/blink/public/common/origin_trials/trial_token.h"
 #include "third_party/blink/public/common/origin_trials/trial_token_result.h"
 #include "third_party/blink/public/common/origin_trials/trial_token_validator.h"
-#include "third_party/blink/public/mojom/origin_trial_feature/origin_trial_feature.mojom-shared.h"
+#include "third_party/blink/public/mojom/origin_trials/origin_trial_feature.mojom-shared.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_security_origin.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
@@ -128,8 +128,7 @@ std::ostream& operator<<(std::ostream& stream, OriginTrialTokenStatus status) {
     case OriginTrialTokenStatus::kUnknownTrial:
       return stream << "kUnknownTrial";
   }
-  NOTREACHED_IN_MIGRATION();
-  return stream;
+  NOTREACHED();
 #else
   return stream << (static_cast<int>(status));
 #endif  // ifndef NDEBUG
@@ -530,8 +529,7 @@ bool OriginTrialContext::CanEnableTrialFromName(const StringView& trial_name) {
   }
 
   if (trial_name == "FoldableAPIs") {
-    return base::FeatureList::IsEnabled(features::kViewportSegments) &&
-           base::FeatureList::IsEnabled(features::kDevicePosture);
+    return base::FeatureList::IsEnabled(features::kViewportSegments);
   }
 
   if (trial_name == "PermissionElement") {

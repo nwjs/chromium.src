@@ -58,6 +58,8 @@ void RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterIntegerPref(kEnterpriseRealTimeUrlCheckMode,
                                 REAL_TIME_CHECK_DISABLED);
   registry->RegisterIntegerPref(kEnterpriseRealTimeUrlCheckScope, 0);
+  registry->RegisterListPref(kOnSecurityEventPref);
+  registry->RegisterIntegerPref(kOnSecurityEventScopePref, 0);
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   registry->RegisterListPref(kOnFileAttachedPref);
@@ -67,7 +69,6 @@ void RegisterProfilePrefs(PrefRegistrySimple* registry) {
 #if BUILDFLAG(IS_CHROMEOS)
   registry->RegisterListPref(kOnFileTransferPref);
 #endif
-  registry->RegisterListPref(kOnSecurityEventPref);
   registry->RegisterIntegerPref(kOnFileAttachedScopePref, 0);
   registry->RegisterIntegerPref(kOnFileDownloadedScopePref, 0);
   registry->RegisterIntegerPref(kOnBulkDataEntryScopePref, 0);
@@ -75,7 +76,6 @@ void RegisterProfilePrefs(PrefRegistrySimple* registry) {
 #if BUILDFLAG(IS_CHROMEOS)
   registry->RegisterIntegerPref(kOnFileTransferScopePref, 0);
 #endif
-  registry->RegisterIntegerPref(kOnSecurityEventScopePref, 0);
   RegisterDeviceTrustConnectorProfilePrefs(registry);
 
 #if BUILDFLAG(ENTERPRISE_CLIENT_CERTIFICATES)

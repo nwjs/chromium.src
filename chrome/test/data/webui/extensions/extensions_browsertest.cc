@@ -38,6 +38,10 @@ IN_PROC_BROWSER_TEST_F(CrExtensionsTest, ActivityLogStreamItem) {
   RunTest("extensions/activity_log_stream_item_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(CrExtensionsTest, AsyncMapDirective) {
+  RunTest("extensions/async_map_directive_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(CrExtensionsTest, ToggleRow) {
   RunTest("extensions/toggle_row_test.js", "mocha.run()");
 }
@@ -253,8 +257,15 @@ IN_PROC_BROWSER_TEST_F(CrExtensionsDetailViewTest, LayoutSource) {
   RunTestCase("LayoutSource");
 }
 
+// TODO(crbug.com/374318854): Accessibility bug causing flakes on Linux.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_ElementVisibilityReloadButton \
+  DISABLED_ElementVisibilityReloadButton
+#else
+#define MAYBE_ElementVisibilityReloadButton ElementVisibilityReloadButton
+#endif
 IN_PROC_BROWSER_TEST_F(CrExtensionsDetailViewTest,
-                       ElementVisibilityReloadButton) {
+                       MAYBE_ElementVisibilityReloadButton) {
   RunTestCase("ElementVisibilityReloadButton");
 }
 
@@ -270,6 +281,11 @@ IN_PROC_BROWSER_TEST_F(CrExtensionsDetailViewTest,
 IN_PROC_BROWSER_TEST_F(CrExtensionsDetailViewTest,
                        MV2DeprecationDisabledExtension) {
   RunTestCase("MV2DeprecationDisabledExtension");
+}
+
+IN_PROC_BROWSER_TEST_F(CrExtensionsDetailViewTest,
+                       MV2DeprecationUnsupportedDisabledExtension) {
+  RunTestCase("MV2DeprecationUnsupportedDisabledExtension");
 }
 
 IN_PROC_BROWSER_TEST_F(CrExtensionsDetailViewTest, ClickableElements) {
@@ -471,10 +487,6 @@ IN_PROC_BROWSER_TEST_F(CrExtensionsManagerUnitTest, ProfileSettings) {
 
 IN_PROC_BROWSER_TEST_F(CrExtensionsManagerUnitTest, Uninstall) {
   RunTestCase("Uninstall");
-}
-
-IN_PROC_BROWSER_TEST_F(CrExtensionsManagerUnitTest, UninstallFocus) {
-  RunTestCase("UninstallFocus");
 }
 
 // Flaky since r621915: https://crbug.com/922490

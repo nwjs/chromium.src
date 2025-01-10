@@ -480,12 +480,9 @@ BASE_EXPORT bool CreateDirectory(const FilePath& full_path);
 // Returns the file size, or std::nullopt on failure.
 BASE_EXPORT std::optional<int64_t> GetFileSize(const FilePath& file_path);
 
-// DEPRECATED: Prefer the GetFileSize() variation above in new code.
-// TODO(crbug.com/371234479): Migrate callers and remove this.
-//
-// Returns true on success and writes the file size to `file_size`. Otherwise
-// returns false and `file_size` is unmodified.
-BASE_EXPORT bool GetFileSize(const FilePath& file_path, int64_t* file_size);
+// Same as above, but as an OnceCallback.
+BASE_EXPORT OnceCallback<std::optional<int64_t>()> GetFileSizeCallback(
+    const FilePath& path);
 
 // Sets |real_path| to |path| with symbolic links and junctions expanded.
 // On Windows, the function ensures that the resulting |real_path| starts with a

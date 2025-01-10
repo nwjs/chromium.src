@@ -103,7 +103,6 @@
 #include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
-#include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/blocked_content/chrome_popup_navigation_delegate.h"
 #include "chrome/browser/ui/blocked_content/framebust_block_tab_helper.h"
 #include "chrome/browser/ui/bookmarks/bookmark_tab_helper.h"
@@ -149,12 +148,12 @@
 #include "chrome/browser/ui/tab_dialogs.h"
 #include "chrome/browser/ui/tab_helpers.h"
 #include "chrome/browser/ui/tab_modal_confirm_dialog.h"
+#include "chrome/browser/ui/tabs/public/tab_interface.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_deletion_dialog_controller.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
-#include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -208,7 +207,6 @@
 #include "components/sessions/core/session_types.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/startup_metric_utils/browser/startup_metric_utils.h"
-#include "components/translate/core/browser/language_state.h"
 #include "components/user_manager/user_manager.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "components/zoom/zoom_controller.h"
@@ -429,6 +427,32 @@ void UpdateTabGroupSessionMetadata(Browser* browser,
 
   session_service->SetTabGroupMetadata(browser->session_id(), group_id,
                                        visual_data);
+}
+
+bool ShouldHideUIForFullscreenWrapper(const Browser* browser) {
+  return browser->ShouldHideUIForFullscreen();
+}
+
+bool AlwaysReturnTrue(const Browser* browser) {
+  return true;
+}
+
+bool AlwaysReturnFalse(const Browser* browser) {
+  return false;
+}
+
+base::FunctionRef<bool(const Browser*)> MaybeLazyIsFullscreen(
+    const Browser* browser) {
+  // Returns a base::FunctionRef instead of a Base::RepeatingCallback to reduce
+  // allocation overhead, since this is a performance experiment.
+  if (base::FeatureList::IsEnabled(features::kInlineFullscreenPerfExperiment)) {
+    // In the experiment branch, lazy-eval ShouldHideUIForFullscreen.
+    return &ShouldHideUIForFullscreenWrapper;
+  }
+
+  // In the control branch, eagerly evaluate ShouldHideUIForFullscreen.
+  return browser->ShouldHideUIForFullscreen() ? &AlwaysReturnTrue
+                                              : &AlwaysReturnFalse;
 }
 
 }  // namespace
@@ -948,17 +972,6 @@ std::u16string Browser::GetWindowTitleForTab(int index) const {
   return title;
 }
 
-std::u16string Browser::GetTitleForTab(int index) const {
-  std::u16string title = FormatTitleForDisplay(
-      tab_strip_model_->GetWebContentsAt(index)->GetTitle());
-
-  if (title.empty()) {
-    title = CoreTabHelper::GetDefaultTitle();
-  }
-
-  return title;
-}
-
 std::u16string Browser::GetWindowTitleForMaxWidth(int max_width) const {
   static constexpr unsigned int kMinTitleCharacters = 4;
   const gfx::FontList font_list;
@@ -1263,6 +1276,11 @@ bool Browser::ShouldHideUIForFullscreen() const {
   return window_ && window_->ShouldHideUIForFullscreen();
 }
 
+base::CallbackListSubscription Browser::RegisterBrowserDidClose(
+    BrowserDidCloseCallback callback) {
+  return browser_did_close_callback_list_.Add(std::move(callback));
+}
+
 views::View* Browser::TopContainer() {
   return window_->GetTopContainer();
 }
@@ -1286,7 +1304,21 @@ Browser::GetWebContentsModalDialogHostForWindow() {
 }
 
 bool Browser::IsActive() {
+// TODO(https://crbug.com/376306245): This is a temporary workaround for the
+// fact that window_->IsActive() does not return the right result for macOS
+// standalone PWA windows. This new behavior is still not technically correct,
+// since it's checking that the last active window is `this`, as opposed to
+// whether `this` is active.
+#if BUILDFLAG(IS_MAC)
+  // If this is a standalone PWA window, check BrowserList instead.
+  if (GetAppBrowserController()) {
+    return BrowserList::GetInstance()->GetLastActive() == this;
+  } else {
+    return window_->IsActive();
+  }
+#else
   return window_->IsActive();
+#endif
 }
 
 base::CallbackListSubscription Browser::RegisterDidBecomeActive(
@@ -1317,6 +1349,18 @@ BrowserUserEducationInterface* Browser::GetUserEducationInterface() {
 
 web_app::AppBrowserController* Browser::GetAppBrowserController() {
   return app_controller_.get();
+}
+
+std::vector<tabs::TabInterface*> Browser::GetAllTabInterfaces() {
+  std::vector<tabs::TabInterface*> results;
+  for (int index = 0; index < tab_strip_model_->count(); ++index) {
+    results.push_back(tab_strip_model_->GetTabAtIndex(index));
+  }
+  return results;
+}
+
+Browser* Browser::GetBrowserForMigrationOnly() {
+  return this;
 }
 
 void Browser::DidBecomeActive() {
@@ -1388,6 +1432,10 @@ void Browser::OnWindowClosing() {
     // If there are no tabs, then a task will be scheduled (by views) to delete
     // this Browser.
     is_delete_scheduled_ = true;
+
+    // At this point the browser has successfully closed and is scheduled for
+    // deletion.
+    browser_did_close_callback_list_.Notify(this);
   }
 }
 
@@ -1675,7 +1723,7 @@ void Browser::TabPinnedStateChanged(TabStripModel* tab_strip_model,
 
 void Browser::TabGroupedStateChanged(
     std::optional<tab_groups::TabGroupId> group,
-    tabs::TabModel* tab,
+    tabs::TabInterface* tab,
     int index) {
   // See comment in Browser::OnTabGroupChanged
   DCHECK(!IsRelevantToAppSessionService(type_));
@@ -1685,7 +1733,7 @@ void Browser::TabGroupedStateChanged(
     return;
 
   sessions::SessionTabHelper* const session_tab_helper =
-      sessions::SessionTabHelper::FromWebContents(tab->contents());
+      sessions::SessionTabHelper::FromWebContents(tab->GetContents());
   session_service->SetTabGroup(session_id(), session_tab_helper->session_id(),
                                std::move(group));
 }
@@ -2643,6 +2691,18 @@ void Browser::RequestMediaAccessPermission(
       web_contents, request, std::move(callback), extension);
 }
 
+void Browser::ProcessSelectAudioOutput(
+    const content::SelectAudioOutputRequest& request,
+    content::SelectAudioOutputCallback callback) {
+#if defined(TOOLKIT_VIEWS) && !BUILDFLAG(IS_FUCHSIA)
+  MediaCaptureDevicesDispatcher::GetInstance()->ProcessSelectAudioOutputRequest(
+      this, request, std::move(callback));
+#else
+  std::move(callback).Run(
+      base::unexpected(content::SelectAudioOutputError::kUnknown));
+#endif
+}
+
 bool Browser::CheckMediaAccessPermission(
     content::RenderFrameHost* render_frame_host,
     const url::Origin& security_origin,
@@ -2794,28 +2854,6 @@ void Browser::FileSelectionCanceled() {
 
 void Browser::OnThemeChanged() {
   window()->UserChangedTheme(BrowserThemeChangeType::kBrowserTheme);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// Browser, translate::ContentTranslateDriver::TranslationObserver
-// implementation:
-
-void Browser::OnIsPageTranslatedChanged(content::WebContents* source) {
-  DCHECK(source);
-#if 0
-  if (tab_strip_model_->GetActiveWebContents() == source) {
-    window_->SetTranslateIconToggled(
-        ChromeTranslateClient::FromWebContents(source)
-            ->GetLanguageState()
-            .IsPageTranslated());
-  }
-#endif
-}
-
-void Browser::OnTranslateEnabledChanged(content::WebContents* source) {
-  DCHECK(source);
-  if (tab_strip_model_->GetActiveWebContents() == source)
-    UpdateToolbar(false);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -3343,18 +3381,14 @@ void Browser::SetAsDelegate(WebContents* web_contents, bool set_delegate) {
   // ...and all the helpers.
   WebContentsModalDialogManager::FromWebContents(web_contents)
       ->SetDelegate(delegate);
-  //translate::ContentTranslateDriver* content_translate_driver =
-  //    ChromeTranslateClient::FromWebContents(web_contents)->translate_driver();
   zoom::ZoomController* zoom_controller =
       zoom::ZoomController::FromWebContents(web_contents);
   if (delegate) {
     zoom_controller->AddObserver(this);
-    //content_translate_driver->AddTranslationObserver(this);
     BookmarkTabHelper::FromWebContents(web_contents)->AddObserver(this);
     web_contents_collection_.StartObserving(web_contents);
   } else {
     zoom_controller->RemoveObserver(this);
-    //content_translate_driver->RemoveTranslationObserver(this);
     BookmarkTabHelper::FromWebContents(web_contents)->RemoveObserver(this);
     web_contents_collection_.StopObserving(web_contents);
   }
@@ -3404,7 +3438,8 @@ void Browser::UpdateWindowForLoadingStateChanged(content::WebContents* source,
 
 bool Browser::NormalBrowserSupportsWindowFeature(WindowFeature feature,
                                                  bool check_can_support) const {
-  //bool fullscreen = ShouldHideUIForFullscreen();
+  //const base::FunctionRef<bool(const Browser*)> fullscreen =
+  //    MaybeLazyIsFullscreen(this);
   switch (feature) {
     case FEATURE_BOOKMARKBAR:
       return false;
@@ -3422,13 +3457,13 @@ bool Browser::NormalBrowserSupportsWindowFeature(WindowFeature feature,
 
 bool Browser::PopupBrowserSupportsWindowFeature(WindowFeature feature,
                                                 bool check_can_support) const {
-  //bool fullscreen = ShouldHideUIForFullscreen();
-
+  //const base::FunctionRef<bool(const Browser*)> fullscreen =
+  //    MaybeLazyIsFullscreen(this);
   switch (feature) {
     case FEATURE_TITLEBAR:
       return true;
     case FEATURE_LOCATIONBAR:
-      return false; //check_can_support || (!fullscreen && !is_trusted_source());
+      return false; //check_can_support || (!fullscreen(this) && !is_trusted_source());
     case FEATURE_TABSTRIP:
     case FEATURE_TOOLBAR:
     case FEATURE_BOOKMARKBAR:
@@ -3442,12 +3477,13 @@ bool Browser::PopupBrowserSupportsWindowFeature(WindowFeature feature,
 bool Browser::AppPopupBrowserSupportsWindowFeature(
     WindowFeature feature,
     bool check_can_support) const {
-  bool fullscreen = ShouldHideUIForFullscreen();
+  const base::FunctionRef<bool(const Browser*)> fullscreen =
+      MaybeLazyIsFullscreen(this);
   switch (feature) {
     case FEATURE_TITLEBAR:
-      return check_can_support || !fullscreen;
+      return check_can_support || !fullscreen(this);
     case FEATURE_LOCATIONBAR:
-      return app_controller_ && (check_can_support || !fullscreen);
+      return app_controller_ && (check_can_support || !fullscreen(this));
     default:
       return PopupBrowserSupportsWindowFeature(feature, check_can_support);
   }
@@ -3456,7 +3492,8 @@ bool Browser::AppPopupBrowserSupportsWindowFeature(
 bool Browser::AppBrowserSupportsWindowFeature(WindowFeature feature,
                                               bool check_can_support) const {
   DCHECK(app_controller_);
-  bool fullscreen = ShouldHideUIForFullscreen();
+  const base::FunctionRef<bool(const Browser*)> fullscreen =
+      MaybeLazyIsFullscreen(this);
   switch (feature) {
     // Web apps should always support the toolbar, so the title/origin of the
     // current page can be shown when browsing a url that is not inside the app.
@@ -3470,13 +3507,13 @@ bool Browser::AppBrowserSupportsWindowFeature(WindowFeature feature,
     // TODO(crbug.com/40639933): Make this control the visibility of
     // CustomTabBarView.
     case FEATURE_LOCATIONBAR:
-      return check_can_support || !fullscreen;
+      return check_can_support || !fullscreen(this);
     case FEATURE_TABSTRIP:
       // Even when the app has a tab strip, it should be hidden in
       // fullscreen. This is consistent with the behavior of
       // NormalBrowserSupportsWindowFeature().
       return app_controller_->has_tab_strip() &&
-             (check_can_support || !fullscreen);
+             (check_can_support || !fullscreen(this));
     case FEATURE_BOOKMARKBAR:
     case FEATURE_NONE:
       return false;

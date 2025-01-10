@@ -81,6 +81,17 @@ content::WebContents* WebUIContentsWrapper::Host::OpenURLFromTab(
   return nullptr;
 }
 
+content::WebContents* WebUIContentsWrapper::Host::AddNewContents(
+    content::WebContents* source,
+    std::unique_ptr<content::WebContents> new_contents,
+    const GURL& target_url,
+    WindowOpenDisposition disposition,
+    const blink::mojom::WindowFeatures& window_features,
+    bool user_gesture,
+    bool* was_blocked) {
+  return nullptr;
+}
+
 WebUIContentsWrapper::WebUIContentsWrapper(const GURL& webui_url,
                                            Profile* profile,
                                            int task_manager_string_id,
@@ -99,7 +110,7 @@ WebUIContentsWrapper::WebUIContentsWrapper(const GURL& webui_url,
   WebContentsObserver::Observe(web_contents_.get());
 
   PrefsTabHelper::CreateForWebContents(web_contents_.get());
-  chrome::InitializePageLoadMetricsForWebContents(web_contents_.get());
+  InitializePageLoadMetricsForWebContents(web_contents_.get());
   task_manager::WebContentsTags::CreateForToolContents(web_contents_.get(),
                                                        task_manager_string_id);
   if (site_engagement::SiteEngagementService::IsEnabled()) {
@@ -210,6 +221,20 @@ void WebUIContentsWrapper::SetContentsBounds(content::WebContents* source,
   if (host_) {
     host_->SetContentsBounds(source, bounds);
   }
+}
+
+content::WebContents* WebUIContentsWrapper::AddNewContents(
+    content::WebContents* source,
+    std::unique_ptr<content::WebContents> new_contents,
+    const GURL& target_url,
+    WindowOpenDisposition disposition,
+    const blink::mojom::WindowFeatures& window_features,
+    bool user_gesture,
+    bool* was_blocked) {
+  return host_ ? host_->AddNewContents(source, std::move(new_contents),
+                                       target_url, disposition, window_features,
+                                       user_gesture, was_blocked)
+               : nullptr;
 }
 
 void WebUIContentsWrapper::PrimaryPageChanged(content::Page& page) {

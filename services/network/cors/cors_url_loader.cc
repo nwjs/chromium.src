@@ -431,10 +431,7 @@ void CorsURLLoader::FollowRedirect(
 
   if (new_url && (new_url->DeprecatedGetOriginAsURL() !=
                   deferred_redirect_url_->DeprecatedGetOriginAsURL())) {
-    NOTREACHED_IN_MIGRATION()
-        << "Can only change the URL within the same origin.";
-    HandleComplete(URLLoaderCompletionStatus(net::ERR_FAILED));
-    return;
+    NOTREACHED() << "Can only change the URL within the same origin.";
   }
 
   deferred_redirect_url_.reset();
@@ -1437,12 +1434,10 @@ CorsURLLoader::TakePrivateNetworkAccessPreflightResult() {
 std::optional<std::string> CorsURLLoader::GetHeaderString(
     const mojom::URLResponseHead& response,
     const std::string& header_name) {
-  if (!response.headers)
+  if (!response.headers) {
     return std::nullopt;
-  std::string header_value;
-  if (!response.headers->GetNormalizedHeader(header_name, &header_value))
-    return std::nullopt;
-  return header_value;
+  }
+  return response.headers->GetNormalizedHeader(header_name);
 }
 
 bool CorsURLLoader::

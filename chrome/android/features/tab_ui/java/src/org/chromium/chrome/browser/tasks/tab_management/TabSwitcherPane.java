@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.tasks.tab_management;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.os.Build;
 import android.view.View;
 import android.view.View.OnClickListener;
 
@@ -49,11 +50,12 @@ import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
 import org.chromium.chrome.browser.toolbar.TabSwitcherDrawable;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
-import org.chromium.chrome.browser.user_education.IPHCommand;
-import org.chromium.chrome.browser.user_education.IPHCommandBuilder;
+import org.chromium.chrome.browser.user_education.IphCommand;
+import org.chromium.chrome.browser.user_education.IphCommandBuilder;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.feature_engagement.FeatureConstants;
+import org.chromium.components.sensitive_content.SensitiveContentFeatures;
 import org.chromium.components.tab_group_sync.LocalTabGroupId;
 import org.chromium.components.tab_group_sync.SavedTabGroup;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
@@ -227,6 +229,15 @@ public class TabSwitcherPane extends TabSwitcherPaneBase implements TabSwitcherD
             cancelWaitForTabStateInitializedTimer();
             coordinator.resetWithTabList(null);
         } else {
+            // TODO(crbug.com/373850469): Add unit tests when robolectric supports Android V.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM
+                    && ChromeFeatureList.isEnabled(SensitiveContentFeatures.SENSITIVE_CONTENT)
+                    && ChromeFeatureList.isEnabled(
+                            SensitiveContentFeatures.SENSITIVE_CONTENT_WHILE_SWITCHING_TABS)) {
+                TabUiUtils.updateViewContentSensitivityForTabs(
+                        filter.getTabModel(), coordinator::setTabSwitcherContentSensitivity);
+            }
+
             finishWaitForTabStateInitializedTimer();
             coordinator.resetWithTabList(tabList);
         }
@@ -318,15 +329,15 @@ public class TabSwitcherPane extends TabSwitcherPaneBase implements TabSwitcherD
 
         if (getIsAnimatingSupplier().get()) return;
 
-        IPHCommand command =
-                new IPHCommandBuilder(
+        IphCommand command =
+                new IphCommandBuilder(
                                 getRootView().getResources(),
                                 FeatureConstants.TAB_GROUPS_SURFACE,
                                 R.string.tab_group_surface_iph_with_sync,
                                 R.string.tab_group_surface_iph_with_sync)
                         .setAnchorView(anchorView)
                         .build();
-        mUserEducationHelper.requestShowIPH(command);
+        mUserEducationHelper.requestShowIph(command);
     }
 
     private void onScrollingChanged(boolean isScrolling) {
@@ -367,15 +378,15 @@ public class TabSwitcherPane extends TabSwitcherPaneBase implements TabSwitcherD
             @Nullable View anchorView = coordinator.getViewByIndex(viewIndex);
             if (anchorView == null) continue;
 
-            IPHCommand command =
-                    new IPHCommandBuilder(
+            IphCommand command =
+                    new IphCommandBuilder(
                                     getRootView().getResources(),
                                     FeatureConstants.TAB_GROUPS_REMOTE_GROUP,
                                     R.string.newly_synced_tab_group_iph,
                                     R.string.newly_synced_tab_group_iph)
                             .setAnchorView(anchorView)
                             .build();
-            mUserEducationHelper.requestShowIPH(command);
+            mUserEducationHelper.requestShowIph(command);
             return;
         }
     }
@@ -416,15 +427,15 @@ public class TabSwitcherPane extends TabSwitcherPaneBase implements TabSwitcherD
         @Nullable View anchorView = paneHubController.getPaneButton(PaneId.TAB_GROUPS);
         if (anchorView == null) return;
 
-        IPHCommand command =
-                new IPHCommandBuilder(
+        IphCommand command =
+                new IphCommandBuilder(
                                 getRootView().getResources(),
                                 FeatureConstants.TAB_GROUPS_SURFACE_ON_HIDE,
                                 R.string.find_hidden_tab_group_iph,
                                 R.string.find_hidden_tab_group_iph)
                         .setAnchorView(anchorView)
                         .build();
-        mUserEducationHelper.requestShowIPH(command);
+        mUserEducationHelper.requestShowIph(command);
     }
 
     // TabSwitcherDrawable.Observer implementation.

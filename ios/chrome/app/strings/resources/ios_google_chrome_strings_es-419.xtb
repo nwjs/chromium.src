@@ -41,6 +41,7 @@ Aspectos que debes tener en cuenta:
 <translation id="1790080846677398234">Agrega las URL ingresadas a tus favoritos en Chrome.</translation>
 <translation id="1799920918471566157">Sugerencias de Chrome</translation>
 <translation id="1830634592642484976">Actualmente, esta dirección se guarda en Chrome. Para usarla en todos los productos de Google, guárdala en tu Cuenta de Google, <ph name="USER_EMAIL" />.</translation>
+<translation id="1891812034154776216">Ocultar las pestañas de incógnito abiertas cuando salgas de Chrome</translation>
 <translation id="1917964099031477364">Se quitará esta cuenta y todos los datos sin guardar de Chrome y otras apps de Google que haya en este dispositivo.</translation>
 <translation id="1919130412786645364">Permitir el acceso a Chrome</translation>
 <translation id="1965935827552890526">Completa las tareas que tenías en curso en otra ventana abierta de Chrome.</translation>
@@ -105,7 +106,7 @@ Espera unos minutos antes de salir. Si sales ahora, se borrarán estos datos.</t
 <translation id="3522659714780527202">Para ver tus pestañas donde sea que uses Chrome, activa la sincronización</translation>
 <translation id="364480321352456989">Tu navegador Chrome está desactualizado.</translation>
 <translation id="3646736009628185125">El miembro de tu familia no puede recibir contraseñas en este momento. Pídele que actualice Chrome y sincronice sus contraseñas. <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
-<translation id="3655656110921623717">Esto significa que Chrome solicitará el sitio móvil cada vez.</translation>
+<translation id="3655656110921623717">Esto significa que Chrome siempre solicitará la vista del sitio web para dispositivos móviles.</translation>
 <translation id="3740397331642243698">Abre las URL ingresadas en Google Chrome en modo Incógnito.</translation>
 <translation id="3741995255368156336">Abre la Lista de lectura de Chrome.</translation>
 <translation id="3827545470516145620">Recibes protección de seguridad estándar en este dispositivo</translation>
@@ -300,9 +301,9 @@ Tus datos se encriptaron con tu frase de contraseña el <ph name="TIME" />. Ingr
 <translation id="8630122478628016441">Activa "Bloquear las pestañas de incógnito cuando cierras Chrome".</translation>
 <translation id="8673726683583791503">Compra con Google Lens</translation>
 <translation id="8727043961453758442">Aprovecha Chrome al máximo</translation>
-<translation id="8765470054473112089">Cuando escribes en la barra de direcciones o en el cuadro de búsqueda, Chrome envía lo que escribes a tu motor de búsqueda predeterminado para obtener mejores sugerencias. Esta función está desactivada en el modo Incógnito.</translation>
+<translation id="8765470054473112089">Cuando escribes en la barra de direcciones o en el cuadro de búsqueda, Chrome envía lo que escribes a tu motor de búsqueda predeterminado para obtener mejores sugerencias. Esta función está desactivada en el modo Incógnito</translation>
 <translation id="8772179140489533211">Muestra mensajes para acceder a Chrome.</translation>
-<translation id="8788269841521769222">No es necesario que recuerdes esta contraseña. Se guardará en el Administrador de contraseñas de Google de <ph name="EMAIL" />.</translation>
+<translation id="8788269841521769222">No es necesario que recuerdes esta contraseña. Se guardará en el Administrador de contraseñas de Google de <ph name="EMAIL" /></translation>
 <translation id="880967149107462122">Ve a la configuración de Chrome</translation>
 <translation id="8842132678697187091">Puedes abrir Google Lens aquí.</translation>
 <translation id="8850736900032787670">Para recibir contenido personalizado en función de tus intereses, accede a Chrome.</translation>

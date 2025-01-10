@@ -6,13 +6,17 @@
 
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
+#include "chrome/browser/optimization_guide/optimization_guide_internals_ui.h"
 #include "chrome/browser/ui/webui/about/about_ui.h"
 #include "chrome/browser/ui/webui/accessibility/accessibility_ui.h"
 #include "chrome/browser/ui/webui/autofill_and_password_manager_internals/autofill_internals_ui.h"
 #include "chrome/browser/ui/webui/autofill_and_password_manager_internals/password_manager_internals_ui.h"
+#include "chrome/browser/ui/webui/bluetooth_internals/bluetooth_internals_ui.h"  // nogncheck
 #include "chrome/browser/ui/webui/browsing_topics/browsing_topics_internals_ui.h"
+#include "chrome/browser/ui/webui/commerce/commerce_internals_ui_config.h"
 #include "chrome/browser/ui/webui/components/components_ui.h"
 #include "chrome/browser/ui/webui/constrained_web_dialog_ui.h"
+#include "chrome/browser/ui/webui/crashes_ui.h"
 #include "chrome/browser/ui/webui/data_sharing_internals/data_sharing_internals_ui.h"
 #include "chrome/browser/ui/webui/device_log/device_log_ui.h"
 #include "chrome/browser/ui/webui/download_internals/download_internals_ui.h"
@@ -20,6 +24,7 @@
 #include "chrome/browser/ui/webui/family_link_user_internals/family_link_user_internals_ui.h"
 #include "chrome/browser/ui/webui/flags/flags_ui.h"
 #include "chrome/browser/ui/webui/gcm_internals_ui.h"
+#include "chrome/browser/ui/webui/history_clusters/history_clusters_internals_ui_config.h"
 #include "chrome/browser/ui/webui/internals/internals_ui.h"
 #include "chrome/browser/ui/webui/interstitials/interstitial_ui.h"
 #include "chrome/browser/ui/webui/local_state/local_state_ui.h"
@@ -35,6 +40,7 @@
 #include "chrome/browser/ui/webui/policy/policy_ui.h"
 #include "chrome/browser/ui/webui/predictors/predictors_ui.h"
 #include "chrome/browser/ui/webui/privacy_sandbox/privacy_sandbox_internals_ui.h"
+#include "chrome/browser/ui/webui/safe_browsing/chrome_safe_browsing_ui.h"
 #include "chrome/browser/ui/webui/segmentation_internals/segmentation_internals_ui.h"
 #include "chrome/browser/ui/webui/signin_internals_ui.h"
 #include "chrome/browser/ui/webui/sync_internals/sync_internals_ui.h"
@@ -55,7 +61,7 @@
 #endif
 
 #if BUILDFLAG(ENABLE_WEBUI_CERTIFICATE_VIEWER)
-#include "chrome/browser/ui/webui/certificate_viewer_ui.h"
+#include "chrome/browser/ui/webui/certificate_viewer/certificate_viewer_ui.h"
 #endif
 
 #if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
@@ -79,10 +85,12 @@
 #include "chrome/browser/ui/webui/feedback/feedback_ui.h"
 #include "chrome/browser/ui/webui/history/history_ui.h"
 #include "chrome/browser/ui/webui/identity_internals_ui.h"
+#include "chrome/browser/ui/webui/inspect_ui.h"
 #include "chrome/browser/ui/webui/management/management_ui.h"
 #include "chrome/browser/ui/webui/media_router/media_router_internals_ui.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
 #include "chrome/browser/ui/webui/new_tab_page_third_party/new_tab_page_third_party_ui.h"
+#include "chrome/browser/ui/webui/ntp/new_tab_ui.h"
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_ui.h"
 #include "chrome/browser/ui/webui/on_device_internals/on_device_internals_ui.h"
 #include "chrome/browser/ui/webui/password_manager/password_manager_ui.h"
@@ -94,6 +102,7 @@
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome_ui.h"
 #include "chrome/browser/ui/webui/side_panel/history_clusters/history_clusters_side_panel_ui.h"
 #include "chrome/browser/ui/webui/side_panel/reading_list/reading_list_ui.h"
+#include "chrome/browser/ui/webui/signin/sync_confirmation_ui.h"
 #include "chrome/browser/ui/webui/suggest_internals/suggest_internals_ui.h"
 #include "chrome/browser/ui/webui/support_tool/support_tool_ui.h"
 #include "chrome/browser/ui/webui/system/system_info_ui.h"
@@ -105,11 +114,6 @@
 #include "chrome/browser/ui/webui/offline/offline_internals_ui.h"
 #include "chrome/browser/ui/webui/webapks/webapks_ui.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
-
-#if !BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "chrome/browser/ui/webui/bluetooth_internals/bluetooth_internals_ui.h"  // nogncheck
-#include "chrome/browser/ui/webui/crashes_ui.h"
-#endif  // !BUILDFLAG(IS_CHROMEOS_LACROS)
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/ui/webui/extensions/extensions_ui.h"
@@ -128,7 +132,7 @@
 #endif  // BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/ui/webui/dlp_internals/dlp_internals_ui.h"
+#include "chrome/browser/ui/webui/ash/dlp_internals/dlp_internals_ui.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_WIN)
@@ -173,7 +177,7 @@
 #include "chrome/browser/ui/webui/signin/inline_login_ui.h"
 #endif
 
-#if BUILDFLAG(ENABLE_DICE_SUPPORT) || BUILDFLAG(IS_CHROMEOS_LACROS)
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
 #include "chrome/browser/ui/webui/signin/signin_reauth_ui.h"
 #endif
 
@@ -208,9 +212,12 @@ void RegisterChromeWebUIConfigs() {
   auto& map = content::WebUIConfigMap::GetInstance();
   map.AddWebUIConfig(std::make_unique<AccessibilityUIConfig>());
   map.AddWebUIConfig(std::make_unique<AutofillInternalsUIConfig>());
+  map.AddWebUIConfig(std::make_unique<BluetoothInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<BrowsingTopicsInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<chromeos::DeviceLogUIConfig>());
   map.AddWebUIConfig(std::make_unique<ChromeURLsUIConfig>());
+  map.AddWebUIConfig(std::make_unique<CrashesUIConfig>());
+  map.AddWebUIConfig(std::make_unique<commerce::CommerceInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<ComponentsUIConfig>());
   map.AddWebUIConfig(
       std::make_unique<security_interstitials::ConnectionHelpUIConfig>());
@@ -221,6 +228,9 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(std::make_unique<FamilyLinkUserInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<FlagsUIConfig>());
   map.AddWebUIConfig(std::make_unique<GCMInternalsUIConfig>());
+  map.AddWebUIConfig(
+      std::make_unique<
+          history_clusters_internals::HistoryClustersInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<InternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<InterstitialUIConfig>());
   map.AddWebUIConfig(std::make_unique<LocalStateUIConfig>());
@@ -232,12 +242,15 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(std::make_unique<NetInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<NTPTilesInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<OmniboxUIConfig>());
+  map.AddWebUIConfig(std::make_unique<OptimizationGuideInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<PasswordManagerInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<PolicyUIConfig>());
   map.AddWebUIConfig(std::make_unique<PredictorsUIConfig>());
   map.AddWebUIConfig(
       std::make_unique<
           security_interstitials::KnownInterceptionDisclosureUIConfig>());
+  map.AddWebUIConfig(
+      std::make_unique<safe_browsing::ChromeSafeBrowsingUIConfig>());
   map.AddWebUIConfig(std::make_unique<SegmentationInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<SignInInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<SiteEngagementUIConfig>());
@@ -263,11 +276,6 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(std::make_unique<TabStripUIConfig>());
 #endif
 
-#if !BUILDFLAG(IS_CHROMEOS_LACROS)
-  map.AddWebUIConfig(std::make_unique<BluetoothInternalsUIConfig>());
-  map.AddWebUIConfig(std::make_unique<CrashesUIConfig>());
-#endif  // !BUILDFLAG(IS_CHROMEOS_LACROS)
-
 #if BUILDFLAG(IS_ANDROID)
   map.AddWebUIConfig(std::make_unique<FeedInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<OfflineInternalsUIConfig>());
@@ -289,12 +297,14 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(std::make_unique<HistoryUIConfig>());
   map.AddWebUIConfig(std::make_unique<HistoryClustersSidePanelUIConfig>());
   map.AddWebUIConfig(std::make_unique<IdentityInternalsUIConfig>());
+  map.AddWebUIConfig(std::make_unique<InspectUIConfig>());
   map.AddWebUIConfig(std::make_unique<lens::SearchBubbleUIConfig>());
   map.AddWebUIConfig(std::make_unique<ManagementUIConfig>());
   map.AddWebUIConfig(
       std::make_unique<media_router::MediaRouterInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<NewTabPageThirdPartyUIConfig>());
   map.AddWebUIConfig(std::make_unique<NewTabPageUIConfig>());
+  map.AddWebUIConfig(std::make_unique<NewTabUIConfig>());
   map.AddWebUIConfig(std::make_unique<OmniboxPopupUIConfig>());
   map.AddWebUIConfig(std::make_unique<OnDeviceInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<PasswordManagerUIConfig>());
@@ -308,6 +318,7 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(std::make_unique<ShoppingInsightsSidePanelUIConfig>());
   map.AddWebUIConfig(std::make_unique<SuggestInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<SupportToolUIConfig>());
+  map.AddWebUIConfig(std::make_unique<SyncConfirmationUIConfig>());
   map.AddWebUIConfig(std::make_unique<SystemInfoUIConfig>());
   map.AddWebUIConfig(std::make_unique<TabSearchUIConfig>());
   map.AddWebUIConfig(std::make_unique<TermsUIConfig>());
@@ -380,7 +391,7 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(std::make_unique<InlineLoginUIConfig>());
 #endif
 
-#if BUILDFLAG(ENABLE_DICE_SUPPORT) || BUILDFLAG(IS_CHROMEOS_LACROS)
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
   map.AddWebUIConfig(std::make_unique<SigninReauthUIConfig>());
 #endif
 

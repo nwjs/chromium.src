@@ -34,7 +34,6 @@ import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
-import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.content.browser.input.ChromiumBaseInputConnection;
 import org.chromium.content.browser.input.ImeTestUtils;
@@ -128,6 +127,7 @@ public class ContentTextSelectionTest {
         public void modifyDefaultMenuItems(
                 List<SelectionMenuItem.Builder> menuItemBuilders,
                 boolean isSelectionPassword,
+                boolean isSelectionReadOnly,
                 String selectedText) {
             // No-op because we are testing default menu item ordering with no modifications.
         }
@@ -149,6 +149,11 @@ public class ContentTextSelectionTest {
         @Override
         public List<SelectionMenuItem> getAdditionalTextProcessingItems() {
             return new ArrayList<>();
+        }
+
+        @Override
+        public boolean canReuseCachedSelectionMenu() {
+            return true;
         }
 
         private ResolveInfo createResolveInfoWithActivityInfo(
@@ -586,7 +591,6 @@ public class ContentTextSelectionTest {
     @Test
     @SmallTest
     @Feature({"TextInput"})
-    @MinAndroidSdkLevel(Build.VERSION_CODES.O)
     public void testPastePopupPasteAsPlainTextPlainTextRichEditor() throws Throwable {
         copyStringToClipboard("SampleTextToCopy");
         DOMUtils.longPressNode(mWebContents, "rich_div");
@@ -598,7 +602,6 @@ public class ContentTextSelectionTest {
     @Test
     @SmallTest
     @Feature({"TextInput"})
-    @MinAndroidSdkLevel(Build.VERSION_CODES.O)
     public void testPastePopupPasteAsPlainTextPlainTextNormalEditor() throws Throwable {
         copyStringToClipboard("SampleTextToCopy");
         DOMUtils.longPressNode(mWebContents, "empty_input_text");
@@ -622,7 +625,6 @@ public class ContentTextSelectionTest {
     @Test
     @SmallTest
     @Feature({"TextInput"})
-    @MinAndroidSdkLevel(Build.VERSION_CODES.O)
     public void testPastePopupPasteAsPlainTextHtmlTextNormalEditor() throws Throwable {
         copyHtmlToClipboard("SampleTextToCopy", "<span style=\"color: red;\">HTML</span>");
         DOMUtils.longPressNode(mWebContents, "empty_input_text");

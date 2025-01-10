@@ -143,9 +143,7 @@ void RenderAccessibilityImpl::NotifyAccessibilityModeChange(
 
   if (old_mode == mode) {
     DCHECK(ax_context_);
-    NOTREACHED_IN_MIGRATION()
-        << "Do not call AccessibilityModeChanged unless it changes.";
-    return;
+    NOTREACHED() << "Do not call AccessibilityModeChanged unless it changes.";
   }
 
   accessibility_mode_ = mode;
@@ -365,8 +363,7 @@ void RenderAccessibilityImpl::PerformAction(const ui::AXActionData& data) {
     case ax::mojom::Action::kHitTest:
     case ax::mojom::Action::kReplaceSelectedText:
     case ax::mojom::Action::kNone:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
     case ax::mojom::Action::kGetTextLocation:
       break;
     case ax::mojom::Action::kAnnotatePageImages:
@@ -529,7 +526,7 @@ bool RenderAccessibilityImpl::SendAccessibilitySerialization(
 
   CHECK(!weak_factory_for_pending_events_.HasWeakPtrs());
   CHECK(reset_token_);
-  render_accessibility_manager_->HandleAccessibilityEvents(
+  render_accessibility_manager_->HandleAXEvents(
       updates_and_events, location_and_scroll_updates, *reset_token_,
       base::BindOnce(&RenderAccessibilityImpl::OnSerializationReceived,
                      weak_factory_for_pending_events_.GetWeakPtr()));

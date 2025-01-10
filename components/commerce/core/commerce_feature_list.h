@@ -20,10 +20,6 @@ class PrefService;
 
 namespace commerce {
 
-namespace switches {
-extern const char kEnableChromeCart[];
-}
-
 BASE_DECLARE_FEATURE(kCommercePriceTracking);
 BASE_DECLARE_FEATURE(kCommercePriceTrackingRegionLaunched);
 
@@ -96,6 +92,8 @@ BASE_DECLARE_FEATURE(kShoppingPageTypes);
 BASE_DECLARE_FEATURE(kShoppingPageTypesRegionLaunched);
 BASE_DECLARE_FEATURE(kShoppingPDPMetrics);
 BASE_DECLARE_FEATURE(kShoppingPDPMetricsRegionLaunched);
+BASE_DECLARE_FEATURE(kSubscriptionsApi);
+BASE_DECLARE_FEATURE(kSubscriptionsApiRegionLaunched);
 BASE_DECLARE_FEATURE(kTrackByDefaultOnMobile);
 
 #if BUILDFLAG(IS_IOS)
@@ -145,12 +143,6 @@ BASE_DECLARE_FEATURE(kChromeCartDomBasedHeuristics);
 // Feature flag for parcel tracking.
 BASE_DECLARE_FEATURE(kParcelTracking);
 BASE_DECLARE_FEATURE(kParcelTrackingRegionLaunched);
-BASE_DECLARE_FEATURE(kParcelTrackingTestData);
-
-extern const char kParcelTrackingTestDataParam[];
-extern const char kParcelTrackingTestDataParamDelivered[];
-extern const char kParcelTrackingTestDataParamInProgress[];
-extern const char kParcelTrackingTestDataParamOutForDelivery[];
 
 // Shopping list update interval.
 constexpr base::FeatureParam<base::TimeDelta>

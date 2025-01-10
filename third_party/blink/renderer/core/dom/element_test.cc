@@ -1196,7 +1196,7 @@ TEST_F(ElementTest, ColumnPseudoElements) {
 
   PhysicalRect dummy_column_rect;
   PseudoElement* first_column_pseudo_element =
-      element->CreateColumnPseudoElement(dummy_column_rect);
+      element->CreateColumnPseudoElementIfNeeded(dummy_column_rect);
   ASSERT_TRUE(first_column_pseudo_element);
   EXPECT_EQ(first_column_pseudo_element->GetComputedStyle()->Opacity(), 0.5f);
   ASSERT_TRUE(
@@ -1207,7 +1207,7 @@ TEST_F(ElementTest, ColumnPseudoElements) {
             0.3f);
 
   PseudoElement* second_column_pseudo_element =
-      element->CreateColumnPseudoElement(dummy_column_rect);
+      element->CreateColumnPseudoElementIfNeeded(dummy_column_rect);
   ASSERT_TRUE(second_column_pseudo_element);
   EXPECT_EQ(second_column_pseudo_element->GetComputedStyle()->Opacity(), 0.5f);
   ASSERT_TRUE(
@@ -1219,7 +1219,7 @@ TEST_F(ElementTest, ColumnPseudoElements) {
       0.3f);
 
   PseudoElement* third_column_pseudo_element =
-      element->CreateColumnPseudoElement(dummy_column_rect);
+      element->CreateColumnPseudoElementIfNeeded(dummy_column_rect);
   ASSERT_TRUE(third_column_pseudo_element);
   EXPECT_EQ(third_column_pseudo_element->GetComputedStyle()->Opacity(), 0.5f);
   ASSERT_TRUE(
@@ -1237,6 +1237,73 @@ TEST_F(ElementTest, ColumnPseudoElements) {
   GetDocument().UpdateStyleAndLayoutTree();
 
   EXPECT_EQ(element->GetColumnPseudoElements()->size(), 0u);
+}
+
+TEST_F(ElementTest, TheCheckPseudoElement) {
+  GetDocument().body()->setInnerHTML(R"HTML(
+    <style>
+      #a-div::check {
+        content: "*";
+      }
+
+      #target::check {
+        content: "*";
+      }
+    </style>
+
+    <div id="a-div"></div>
+
+    <select id="target">
+      <option id="target-option" value="the only option"></option>
+    </select>
+    )HTML");
+
+  // GetPseudoElement() relies on style recalc.
+  GetDocument().UpdateStyleAndLayoutTree();
+
+  Element* div = GetElementById("a-div");
+  EXPECT_EQ(nullptr, div->GetPseudoElement(kPseudoIdCheck));
+
+  Element* target = GetElementById("target");
+  EXPECT_EQ(nullptr, target->GetPseudoElement(kPseudoIdCheck));
+
+  // The `::check` pseudo element should only be created for option elements.
+  Element* target_option = GetElementById("target-option");
+  EXPECT_NE(nullptr, target_option->GetPseudoElement(kPseudoIdCheck));
+}
+
+TEST_F(ElementTest, TheSelectArrowPseudoElement) {
+  GetDocument().body()->setInnerHTML(R"HTML(
+    <style>
+      #a-div::select-arrow {
+        content: "*";
+      }
+
+      #target::select-arrow {
+        content: "*";
+      }
+    </style>
+
+    <div id="a-div"></div>
+
+    <select id="target">
+      <option id="target-option" value="the only option"></option>
+    </select>
+    )HTML");
+
+  // GetPseudoElement() relies on style recalc.
+  GetDocument().UpdateStyleAndLayoutTree();
+
+  Element* div = GetElementById("a-div");
+  EXPECT_EQ(nullptr, div->GetPseudoElement(kPseudoIdSelectArrow));
+
+  // The `::select-arrow` pseudo element should only be created for select
+  // elements.
+  Element* target = GetElementById("target");
+  EXPECT_NE(nullptr, target->GetPseudoElement(kPseudoIdSelectArrow));
+
+  Element* target_option = GetElementById("target-option");
+  EXPECT_EQ(nullptr, target_option->GetPseudoElement(kPseudoIdSelectArrow));
 }
 
 }  // namespace blink

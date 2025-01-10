@@ -281,9 +281,15 @@
       depends_on: ["FreezeFramesOnVisibility"],
     },
     {
+      name: "FencedUnpartitionedStorageRead",
+      permissions_policy_name: "fenced-unpartitioned-storage-read",
+      feature_default: "EnableForAll",
+      depends_on: ["FencedFramesLocalUnpartitionedDataAccess"],
+    },
+    {
       name: "FocusWithoutUserActivation",
       permissions_policy_name: "focus-without-user-activation",
-      feature_default: "EnableForAll",
+      feature_default: "EnableForSelf",
       depends_on: ["BlockingFocusWithoutUserActivation"],
     },
     {
@@ -387,6 +393,7 @@
     {
       name: "PrivateStateTokenIssuance",
       permissions_policy_name: "private-state-token-issuance",
+      feature_default: "EnableForAll",
       depends_on: ["PrivateStateTokens"],
     },
     {
@@ -463,6 +470,7 @@
     {
       name: "TrustTokenRedemption",
       permissions_policy_name: "private-state-token-redemption",
+      feature_default: "EnableForAll",
       depends_on: ["PrivateStateTokens"],
     },
     {

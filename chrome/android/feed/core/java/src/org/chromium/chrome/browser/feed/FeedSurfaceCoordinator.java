@@ -52,7 +52,6 @@ import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.toolbar.top.Toolbar;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeControllerFactory;
-import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.native_page.TouchEnabledDelegate;
@@ -67,6 +66,7 @@ import org.chromium.chrome.browser.xsurface.feed.FeedSurfaceScope;
 import org.chromium.chrome.browser.xsurface.feed.FeedUserInteractionReliabilityLogger;
 import org.chromium.chrome.browser.xsurface.feed.FeedUserInteractionReliabilityLogger.ClosedReason;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
@@ -596,7 +596,7 @@ public class FeedSurfaceCoordinator
 
     public void maybeShowWebFeedAwarenessIph() {
         if (mWebFeedHasContent
-                && FeedFeatures.shouldUseWebFeedAwarenessIPH()
+                && FeedFeatures.shouldUseWebFeedAwarenessIph()
                 && !FeedFeatures.isFeedFollowUiUpdateEnabled()) {
             UserEducationHelper helper = new UserEducationHelper(mActivity, mProfile, mHandler);
             mSectionHeaderView.showWebFeedAwarenessIph(
@@ -1135,7 +1135,7 @@ public class FeedSurfaceCoordinator
                         () -> {
                             UserEducationHelper helper =
                                     new UserEducationHelper(mActivity, mProfile, mHandler);
-                            mSwipeRefreshLayout.showIPH(helper);
+                            mSwipeRefreshLayout.showIph(helper);
                         });
         mScrollableContainerDelegate.addScrollListener(mRefreshIphScrollListener);
     }
@@ -1175,7 +1175,7 @@ public class FeedSurfaceCoordinator
     }
 
     @Override
-    public boolean isFeedHeaderPositionInContainerSuitableForIPH(float headerMaxPosFraction) {
+    public boolean isFeedHeaderPositionInContainerSuitableForIph(float headerMaxPosFraction) {
         assert headerMaxPosFraction >= 0.0f && headerMaxPosFraction <= 1.0f
                 : "Max position fraction should be ranging between 0.0 and 1.0";
 

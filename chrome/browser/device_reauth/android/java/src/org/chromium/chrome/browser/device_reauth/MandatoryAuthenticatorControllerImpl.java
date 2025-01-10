@@ -28,6 +28,7 @@ import java.util.concurrent.Executor;
  */
 class MandatoryAuthenticatorControllerImpl extends DeviceAuthenticatorControllerImpl {
     /** The bit is used to request for mandatory biometrics. */
+    @SuppressLint("WrongConstant")
     public static final int AUTHENTICATOR_MANDATORY_BIOMETRICS = 1 << 16;
 
     /** Mandatory biometrics is not in effect. */
@@ -150,8 +151,7 @@ class MandatoryAuthenticatorControllerImpl extends DeviceAuthenticatorController
         BiometricPrompt.Builder promptBuilder =
                 new BiometricPrompt.Builder(mContext)
                         .setTitle(
-                                mContext.getResources()
-                                        .getString(R.string.password_filling_reauth_prompt_title));
+                                mContext.getString(R.string.password_filling_reauth_prompt_title));
         if (availability == BiometricsAvailability.REQUIRED) {
             promptBuilder.setAllowedAuthenticators(AUTHENTICATOR_MANDATORY_BIOMETRICS);
         }

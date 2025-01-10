@@ -328,6 +328,7 @@ void LayerTreeHostImpl::DidStartScroll() {
 
 void LayerTreeHostImpl::DidEndScroll() {
   scroll_affects_scroll_handler_ = false;
+  scroll_checkerboards_incomplete_recording_ = false;
 
   if (!settings().single_thread_proxy_scheduler) {
     client_->SetHasActiveThreadedScroll(false);
@@ -1388,8 +1389,8 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
   const DrawMode draw_mode = GetDrawMode();
 
   int num_missing_tiles = 0;
-  bool has_incompletely_rastered_tiles = false;
-  bool has_incompletely_recorded_tiles = false;
+  CHECK(!frame->checkerboarded_needs_raster);
+  CHECK(!frame->checkerboarded_needs_record);
 
   bool have_copy_request =
       active_tree()->property_trees()->effect_tree().HasCopyRequests();
@@ -1460,18 +1461,12 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
           append_quads_data.visible_layer_area);
       rendering_stats_instrumentation_->AddApproximatedVisibleContentArea(
           append_quads_data.approximated_visible_content_area);
-      rendering_stats_instrumentation_->AddCheckerboardedVisibleContentArea(
-          append_quads_data.checkerboarded_visible_content_area);
-      rendering_stats_instrumentation_->AddCheckerboardedNeedsRecordContentArea(
-          append_quads_data.checkerboarded_needs_record_content_area);
-      rendering_stats_instrumentation_->AddCheckerboardedNeedsRasterContentArea(
-          append_quads_data.checkerboarded_needs_raster_content_area);
 
       num_missing_tiles += append_quads_data.num_missing_tiles;
-      has_incompletely_rastered_tiles |=
-          append_quads_data.num_incompletely_rastered_tiles > 0;
-      has_incompletely_recorded_tiles |=
-          append_quads_data.num_incompletely_recorded_tiles > 0;
+      frame->checkerboarded_needs_raster |=
+          append_quads_data.checkerboarded_needs_raster;
+      frame->checkerboarded_needs_record |=
+          append_quads_data.checkerboarded_needs_record;
 
       if (append_quads_data.num_missing_tiles > 0) {
         have_missing_animated_tiles |=
@@ -1508,7 +1503,7 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
   // not cause the scheduler to do a main frame, instead it will continue to try
   // drawing until we finally complete, so the copy request will not be lost.
   // TODO(weiliangc): Remove RequiresHighResToDraw. crbug.com/469175
-  if (has_incompletely_rastered_tiles || num_missing_tiles) {
+  if (frame->checkerboarded_needs_raster) {
     if (RequiresHighResToDraw())
       draw_result = DrawResult::kAbortedMissingHighResContent;
   }
@@ -1563,10 +1558,6 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
     // Draw properties depend on copy requests.
     active_tree()->set_needs_update_draw_properties();
   }
-
-  frame->checkerboarded_needs_raster =
-      num_missing_tiles > 0 || has_incompletely_rastered_tiles;
-  frame->checkerboarded_needs_record = has_incompletely_recorded_tiles;
 
   TRACE_EVENT_END2("cc,benchmark", "LayerTreeHostImpl::CalculateRenderPasses",
                    "draw_result", draw_result, "missing tiles",
@@ -1716,7 +1707,7 @@ void LayerTreeHostImpl::RemoveRenderPasses(FrameData* frame) {
     for (auto it = pass->quad_list.begin(); it != pass->quad_list.end();) {
       if (it->material == viz::DrawQuad::Material::kSharedElement) {
         view_transition_quad_references.insert(
-            viz::SharedElementDrawQuad::MaterialCast(*it)->resource_id);
+            viz::SharedElementDrawQuad::MaterialCast(*it)->element_resource_id);
         ++it;
         continue;
       }
@@ -2297,9 +2288,7 @@ void LayerTreeHostImpl::ReclaimResources(
 void LayerTreeHostImpl::MaybeFlushPendingWork() {
   // If we're not in background, delayed work will be flushed "at some point",
   // and we also may have something better to do.
-  if (visible_ || !has_valid_layer_tree_frame_sink_ ||
-      !base::FeatureList::IsEnabled(
-          features::kReclaimResourcesFlushInBackground)) {
+  if (visible_ || !has_valid_layer_tree_frame_sink_) {
     return;
   }
 
@@ -2483,15 +2472,39 @@ viz::CompositorFrameMetadata LayerTreeHostImpl::MakeCompositorFrameMetadata() {
 
 #if BUILDFLAG(IS_ANDROID)
     if (features::IsBrowserControlsInVizEnabled()) {
-      const viz::OffsetTag& tag =
+      const viz::OffsetTag& top_controls_offset_tag =
           browser_controls_offset_manager_->TopControlsOffsetTag();
-      if (tag) {
+      const viz::OffsetTag& content_offset_tag =
+          browser_controls_offset_manager_->ContentOffsetTag();
+
+      if (top_controls_offset_tag) {
+        CHECK(!content_offset_tag.IsEmpty());
+
         float offset = browser_controls_offset_manager_->TopControlsHeight() -
                        visible_height;
+        if (visible_height == 0) {
+          // The toolbar hairline is still shown after the top controls are
+          // completely scrolled off screen. Shift the top controls a bit more
+          // so that the hairline disappears.
+          offset +=
+              browser_controls_offset_manager_->TopControlsHairlineHeight();
+        }
+
         // ViewAndroid::OnTopControlsChanged() also rounds the offset before
         // handing it off to Android.
         gfx::Vector2dF offset2d(0.0f, -std::round(offset));
-        metadata.offset_tag_values.emplace_back(tag, offset2d);
+        metadata.offset_tag_values.emplace_back(top_controls_offset_tag,
+                                                offset2d);
+      }
+
+      if (content_offset_tag) {
+        float offset = browser_controls_offset_manager_->TopControlsHeight() -
+                       visible_height;
+
+        // ViewAndroid::OnTopControlsChanged() also rounds the offset before
+        // handing it off to Android.
+        gfx::Vector2dF offset2d(0.0f, -std::round(offset));
+        metadata.offset_tag_values.emplace_back(content_offset_tag, offset2d);
       }
     }
 #endif
@@ -2810,6 +2823,11 @@ std::optional<SubmitInfo> LayerTreeHostImpl::DrawLayers(FrameData* frame) {
   if (settings_.enable_compositing_based_throttling &&
       throttle_decider_.HasThrottlingChanged()) {
     client_->FrameSinksToThrottleUpdated(throttle_decider_.ids());
+  }
+
+  if (GetActivelyScrollingType() != ActivelyScrollingType::kNone &&
+      frame->checkerboarded_needs_record) {
+    scroll_checkerboards_incomplete_recording_ = true;
   }
 
   return SubmitInfo{frame_token,
@@ -4939,12 +4957,6 @@ void LayerTreeHostImpl::SetDebugState(
   SetFullViewportDamage();
 }
 
-// TODO(https://crbug.com/365813260): Remove once the bug is analyzed and
-// solved.
-void LayerTreeHostImpl::CrashWhenMaxTextureSizeIsUninitialized() const {
-  CHECK_GT(raster_caps().max_texture_size, 0);
-}
-
 void LayerTreeHostImpl::CreateUIResource(UIResourceId uid,
                                          const UIResourceBitmap& bitmap) {
   TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("cc.debug"),
@@ -4980,10 +4992,6 @@ void LayerTreeHostImpl::CreateUIResource(UIResourceId uid,
   bool scaled = false;
   // UIResources are assumed to be rastered in SRGB.
   const gfx::ColorSpace& color_space = gfx::ColorSpace::CreateSRGB();
-
-  // TODO(https://crbug.com/365813260): Remove once the bug is analyzed and
-  // solved.
-  CrashWhenMaxTextureSizeIsUninitialized();
 
   if (source_size.width() > raster_caps().max_texture_size ||
       source_size.height() > raster_caps().max_texture_size) {
@@ -5487,9 +5495,9 @@ void LayerTreeHostImpl::MaximumScaleChanged(ElementId element_id,
   }
 }
 
-void LayerTreeHostImpl::ScrollOffsetAnimationFinished() {
+void LayerTreeHostImpl::ScrollOffsetAnimationFinished(ElementId element_id) {
   if (input_delegate_)
-    input_delegate_->ScrollOffsetAnimationFinished();
+    input_delegate_->ScrollOffsetAnimationFinished(element_id);
 }
 
 void LayerTreeHostImpl::NotifyAnimationWorkletStateChange(

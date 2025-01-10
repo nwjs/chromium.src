@@ -26,9 +26,12 @@ import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.SuggestionHost;
 import org.chromium.chrome.browser.omnibox.suggestions.SuggestionProcessor;
 import org.chromium.chrome.browser.omnibox.suggestions.base.BaseSuggestionViewProperties.Action;
+import org.chromium.components.metrics.OmniboxEventProtos.OmniboxEventProto.PageClassification;
+import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.AutocompleteMatch;
 import org.chromium.components.omnibox.AutocompleteMatch.MatchClassification;
 import org.chromium.components.omnibox.OmniboxFeatures;
+import org.chromium.components.omnibox.OmniboxSuggestionType;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.url.GURL;
 
@@ -132,16 +135,24 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
      * Setup action icon base on the suggestion, either show query build arrow or switch to tab.
      *
      * @param model Property model to update.
+     * @param input The input to produce this suggestion.
      * @param suggestion Suggestion associated with the action button.
      * @param position The position of the button in the list.
      */
     @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
     public void setTabSwitchOrRefineAction(
-            @NonNull PropertyModel model, @NonNull AutocompleteMatch suggestion, int position) {
+            @NonNull PropertyModel model,
+            @NonNull AutocompleteInput input,
+            @NonNull AutocompleteMatch suggestion,
+            int position) {
         @DrawableRes int icon;
         String iconString;
         Runnable action;
-        if (suggestion.hasTabMatch()) {
+        if (suggestion.hasTabMatch() || suggestion.getType() == OmniboxSuggestionType.OPEN_TAB) {
+            // Hub doesn't have refine icons for switch-to-tab.
+            if (input.getPageClassification().getAsInt() == PageClassification.ANDROID_HUB_VALUE) {
+                return;
+            }
             icon = R.drawable.switch_to_tab;
             iconString =
                     OmniboxResourceProvider.getString(
@@ -206,7 +217,10 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
 
     @Override
     public void populateModel(
-            @NonNull AutocompleteMatch suggestion, @NonNull PropertyModel model, int position) {
+            @NonNull AutocompleteInput input,
+            @NonNull AutocompleteMatch suggestion,
+            @NonNull PropertyModel model,
+            int position) {
         model.set(
                 BaseSuggestionViewProperties.ON_CLICK,
                 () -> onSuggestionClicked(suggestion, position));

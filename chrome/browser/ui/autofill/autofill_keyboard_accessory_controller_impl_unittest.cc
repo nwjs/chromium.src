@@ -57,10 +57,12 @@ class AutofillKeyboardAccessoryControllerImplTest
   AutofillProfile ShowAutofillProfileSuggestion() {
     AutofillProfile complete_profile = test::GetFullProfile();
     personal_data().address_data_manager().AddProfile(complete_profile);
-    ShowSuggestions(manager(), {test::CreateAutofillSuggestion(
-                                   SuggestionType::kAddressEntry,
-                                   u"Complete autofill profile",
-                                   Suggestion::Guid(complete_profile.guid()))});
+    ShowSuggestions(
+        manager(),
+        {test::CreateAutofillSuggestion(
+            SuggestionType::kAddressEntry, u"Complete autofill profile",
+            Suggestion::AutofillProfilePayload(
+                Suggestion::Guid(complete_profile.guid())))});
     return complete_profile;
   }
 
@@ -240,7 +242,8 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest,
   ShowSuggestions(manager(), {test::CreateAutofillSuggestion(
                                  SuggestionType::kAddressEntry,
                                  u"Autofill profile without city",
-                                 Suggestion::Guid(profile.guid()))});
+                                 Suggestion::AutofillProfilePayload(
+                                     Suggestion::Guid(profile.guid())))});
 
   EXPECT_TRUE(client().popup_controller(manager()).GetRemovalConfirmationText(
       0, &title, &body));
@@ -478,7 +481,7 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest,
 TEST_F(AutofillKeyboardAccessoryControllerImplTest,
        DoesNotAcceptUnacceptableSuggestions) {
   Suggestion suggestion(u"Open the pod bay doors, HAL");
-  suggestion.is_acceptable = false;
+  suggestion.acceptability = Suggestion::Acceptability::kUnacceptable;
   ShowSuggestions(manager(), {std::move(suggestion)});
   task_environment()->FastForwardBy(base::Milliseconds(500));
 

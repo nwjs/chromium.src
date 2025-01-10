@@ -160,8 +160,7 @@ Path HTMLAreaElement::GetPath(const LayoutObject* container_object) const {
         }
         break;
       default:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
     }
 
     // Cache the original path, not depending on containerObject.
@@ -208,7 +207,7 @@ bool HTMLAreaElement::IsFocusableStyle(UpdateBehavior update_behavior) const {
   }
   const ComputedStyle& style = layout_object->StyleRef();
   // TODO(crbug.com/40911863): Why is this not just image->IsFocusableStyle()?
-  return !style.IsInert() && style.UsedVisibility() == EVisibility::kVisible &&
+  return !style.IsInert() && style.Visibility() == EVisibility::kVisible &&
          Element::tabIndex() >= 0 &&
          SupportsFocus(update_behavior) != FocusableState::kNotFocusable;
 }

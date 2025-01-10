@@ -91,6 +91,7 @@ public class SettingsActivityUnitTest {
         assertTrue(
                 "SettingsActivity is using a wrong fragment.",
                 mSettingsActivity.getMainFragment() instanceof TestEmbeddableFragment);
+        assertNotNull(mSettingsActivity.getIntentRequestTracker());
     }
 
     @Test
@@ -102,6 +103,7 @@ public class SettingsActivityUnitTest {
         assertTrue(
                 "SettingsActivity is using a wrong fragment.",
                 mSettingsActivity.getMainFragment() instanceof TestEmbeddableFragment);
+        assertNotNull(mSettingsActivity.getIntentRequestTracker());
     }
 
     @Test

@@ -24,8 +24,6 @@
 #import "components/password_manager/core/browser/manage_passwords_referrer.h"
 #import "components/password_manager/core/browser/ui/password_check_referrer.h"
 #import "components/password_manager/core/common/password_manager_pref_names.h"
-#import "components/plus_addresses/features.h"
-#import "components/plus_addresses/grit/plus_addresses_strings.h"
 #import "components/prefs/ios/pref_observer_bridge.h"
 #import "components/prefs/pref_member.h"
 #import "components/prefs/pref_service.h"
@@ -42,6 +40,7 @@
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_user_settings.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
+#import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/browser/bubble/ui_bundled/bubble_constants.h"
 #import "ios/chrome/browser/bubble/ui_bundled/bubble_view_controller_presenter.h"
 #import "ios/chrome/browser/commerce/model/push_notification/push_notification_feature.h"
@@ -290,7 +289,6 @@ struct EnhancedSafeBrowsingActivePromoData
   TableViewDetailIconItem* _autoFillProfileDetailItem;
   TableViewDetailIconItem* _autoFillCreditCardDetailItem;
   TableViewDetailIconItem* _notificationsItem;
-  TableViewDetailIconItem* _plusAddressesItem;
   TableViewDetailIconItem* _defaultBrowserCellItem;
   TableViewItem* _syncItem;
 
@@ -518,15 +516,6 @@ struct EnhancedSafeBrowsingActivePromoData
       toSectionWithIdentifier:SettingsSectionIdentifierBasics];
   [model addItem:[self autoFillProfileDetailItem]
       toSectionWithIdentifier:SettingsSectionIdentifierBasics];
-  if (base::FeatureList::IsEnabled(
-          plus_addresses::features::kPlusAddressesEnabled) &&
-      !base::FeatureList::IsEnabled(
-          plus_addresses::features::
-              kPlusAddressIOSErrorAndLoadingStatesEnabled)) {
-    _plusAddressesItem = [self plusAddressesItem];
-    [model addItem:_plusAddressesItem
-        toSectionWithIdentifier:SettingsSectionIdentifierBasics];
-  }
 
   // Advanced Section
   [model addSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
@@ -545,7 +534,7 @@ struct EnhancedSafeBrowsingActivePromoData
 
   // Feed is disabled in safe mode.
   SceneState* sceneState = _browser->GetSceneState();
-  BOOL isSafeMode = [sceneState.appState resumingFromSafeMode];
+  BOOL isSafeMode = [sceneState.profileState.appState resumingFromSafeMode];
   TemplateURLService* templateURLService =
       ios::TemplateURLServiceFactory::GetForProfile(_profile);
 
@@ -608,11 +597,11 @@ struct EnhancedSafeBrowsingActivePromoData
     _showMemoryDebugToolsItem = [self showMemoryDebugSwitchItem];
     [model addItem:_showMemoryDebugToolsItem
         toSectionWithIdentifier:SettingsSectionIdentifierDebug];
+  }
 
-    if (experimental_flags::DisplaySwitchProfile().has_value()) {
-      [model addItem:[self switchProfileItem]
-          toSectionWithIdentifier:SettingsSectionIdentifierDebug];
-    }
+  if (experimental_flags::DisplaySwitchProfile()) {
+    [model addItem:[self switchProfileItem]
+        toSectionWithIdentifier:SettingsSectionIdentifierDebug];
   }
 
 #if BUILDFLAG(CHROMIUM_BRANDING) && !defined(NDEBUG)
@@ -1001,22 +990,6 @@ struct EnhancedSafeBrowsingActivePromoData
           accessibilityIdentifier:kSettingsNotificationsId];
 }
 
-- (TableViewDetailIconItem*)plusAddressesItem {
-  NSString* title = l10n_util::GetNSString(IDS_PLUS_ADDRESS_SETTINGS_LABEL);
-
-  return [self
-           detailItemWithType:SettingsItemTypePlusAddresses
-                         text:title
-                   detailText:nil
-#if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
-                       symbol:CustomSettingsRootSymbol(kGooglePlusAddressSymbol)
-#else
-                       symbol:nil
-#endif
-        symbolBackgroundColor:[UIColor colorNamed:kYellow500Color]
-      accessibilityIdentifier:kSettingsPlusAddressesId];
-}
-
 - (TableViewItem*)privacyDetailItem {
   NSString* title = nil;
   title = l10n_util::GetNSString(IDS_IOS_SETTINGS_PRIVACY_TITLE);
@@ -1288,10 +1261,10 @@ struct EnhancedSafeBrowsingActivePromoData
       [switchCell.switchView addTarget:self
                                 action:@selector(viewSourceSwitchToggled:)
                       forControlEvents:UIControlEventValueChanged];
-#else
-      NOTREACHED_IN_MIGRATION();
-#endif  // BUILDFLAG(CHROMIUM_BRANDING) && !defined(NDEBUG)
       break;
+#else
+      NOTREACHED();
+#endif  // BUILDFLAG(CHROMIUM_BRANDING) && !defined(NDEBUG)
     }
     case SettingsItemTypeManagedDefaultSearchEngine: {
       TableViewInfoButtonCell* managedCell =
@@ -1529,16 +1502,6 @@ struct EnhancedSafeBrowsingActivePromoData
           pushViewController:[[TableCellCatalogViewController alloc] init]
                     animated:YES];
       break;
-    case SettingsItemTypePlusAddresses: {
-      base::RecordAction(base::UserMetricsAction("Settings.PlusAddresses"));
-      OpenNewTabCommand* command = [OpenNewTabCommand
-          commandWithURLFromChrome:
-              GURL(plus_addresses::features::kPlusAddressManagementUrl.Get())];
-      id<ApplicationCommands> handler = HandlerForProtocol(
-          _browser->GetCommandDispatcher(), ApplicationCommands);
-      [handler closeSettingsUIAndOpenURL:command];
-      break;
-    }
     case SettingsItemTypeSwitchProfile:
       [self showSwitchProfileSettings];
       break;
@@ -2149,7 +2112,7 @@ struct EnhancedSafeBrowsingActivePromoData
 // Returns YES if the Notifications settings should show.
 - (BOOL)shouldShowNotificationsSettings {
   return base::FeatureList::IsEnabled(kNotificationSettingsMenuItem) &&
-         (IsPriceNotificationsEnabled() ||
+         (IsPriceTrackingEnabled(_profile) ||
           IsContentNotificationEnabled(_profile) ||
           IsIOSTipsNotificationsEnabled() ||
           base::FeatureList::IsEnabled(
@@ -2269,10 +2232,10 @@ struct EnhancedSafeBrowsingActivePromoData
             accessPoint:signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS
             promoAction:signin_metrics::PromoAction::
                             PROMO_ACTION_NO_SIGNIN_PROMO
-               callback:^(SigninCoordinatorResult result,
+             completion:^(SigninCoordinatorResult result,
                           SigninCompletionInfo* completionInfo) {
-                 [weakSelf didFinishSignin];
-               }];
+               [weakSelf didFinishSignin];
+             }];
   [self.applicationHandler showSignin:command baseViewController:self];
 }
 
@@ -2304,7 +2267,7 @@ struct EnhancedSafeBrowsingActivePromoData
 
 - (void)reportBackUserAction {
   // Not called for root settings controller.
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 - (void)settingsWillBeDismissed {
@@ -2514,7 +2477,7 @@ struct EnhancedSafeBrowsingActivePromoData
             : l10n_util::GetNSString(IDS_IOS_TOP_ADDRESS_BAR_OPTION);
     [self reconfigureCellsForItems:@[ _addressBarPreferenceItem ]];
   } else {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 }
 

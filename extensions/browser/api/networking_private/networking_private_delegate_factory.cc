@@ -70,21 +70,23 @@ NetworkingPrivateDelegateFactory::BuildServiceInstanceForBrowserContext(
   delegate =
       std::make_unique<NetworkingPrivateServiceClient>(std::move(wifi_service));
 #else
-  NOTREACHED_IN_MIGRATION();
-  delegate = nullptr;
+  NOTREACHED();
 #endif
 
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN) || \
+    BUILDFLAG(IS_MAC)
   if (ui_factory_) {
     delegate->set_ui_delegate(ui_factory_->CreateDelegate());
   }
 
   return delegate;
+#endif
 }
 
 BrowserContext* NetworkingPrivateDelegateFactory::GetBrowserContextToUse(
     BrowserContext* context) const {
   return ExtensionsBrowserClient::Get()->GetContextRedirectedToOriginal(
-      context, /*force_guest_profile=*/true);
+      context);
 }
 
 }  // namespace extensions

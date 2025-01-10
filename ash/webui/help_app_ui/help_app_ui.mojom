@@ -62,7 +62,8 @@ enum SettingsComponent {
   PERSONALIZATION = 9,
   PRINTING = 10,
   SECURITY_AND_SIGN_IN = 11,
-  // TODO(b/365595552): add remaining required components.
+  TOUCHPAD_REVERSE_SCROLLING = 12,
+  TOUCHPAD_SIMULATE_RIGHT_CLICK = 13,
 };
 
 // Browser interface for chrome://help-app to bootstrap a connection.
@@ -86,9 +87,6 @@ interface PageHandler {
 
   // Triggers the call-to-action associated with the given action type id.
   TriggerWelcomeTipCallToAction(ActionTypeId action_type_id);
-
-  // Returns true if Local Search Service integration is enabled.
-  IsLssEnabled() => (bool enabled);
 
   // Returns true if the Help App Launcher Search feature is enabled.
   IsLauncherSearchEnabled() => (bool enabled);
@@ -116,4 +114,12 @@ interface PageHandler {
   // component is not available on a device, e.g., a trackpad settings specified
   // while a device does not have it, it is handled as no-op.
   OpenSettings(SettingsComponent component);
+
+  // Sets the HasCompletedNewDeviceChecklist pref to true. Call this after the
+  // user completes the checklist.
+  SetHasCompletedNewDeviceChecklist();
+
+  // Sets the HasVisitedHowToPage pref to true. Call this after the user visits
+  // the how to page.
+  SetHasVisitedHowToPage();
 };

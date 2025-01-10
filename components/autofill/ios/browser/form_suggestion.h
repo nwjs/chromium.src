@@ -9,6 +9,7 @@
 #import <UIKit/UIKit.h>
 
 #import "components/autofill/core/browser/field_types.h"
+#import "components/autofill/core/browser/ui/suggestion.h"
 #import "components/autofill/core/browser/ui/suggestion_type.h"
 
 // Metadata tied to the form suggestion that gives more context around the
@@ -63,9 +64,8 @@ enum class SuggestionFeatureForIPH {
 // If specified, shows in-product help for the suggestion.
 @property(assign, nonatomic) SuggestionFeatureForIPH featureForIPH;
 
-// The `Suggestion::BackendId` associated with this suggestion. Would be GUID
-// for the addresses and credit cards where `identifier` > 0.
-@property(copy, readonly, nonatomic) NSString* backendIdentifier;
+// The payload associated with this suggestion.
+@property(assign, readonly, nonatomic) autofill::Suggestion::Payload payload;
 
 // Metadata tied to the suggestion that gives more context.
 @property(assign, readonly, nonatomic) FormSuggestionMetadata metadata;
@@ -75,7 +75,7 @@ enum class SuggestionFeatureForIPH {
                     displayDescription:(NSString*)displayDescription
                                   icon:(UIImage*)icon
                                   type:(autofill::SuggestionType)type
-                     backendIdentifier:(NSString*)backendIdentifier
+                               payload:(autofill::Suggestion::Payload)payload
                         requiresReauth:(BOOL)requiresReauth
             acceptanceA11yAnnouncement:(NSString*)acceptanceA11yAnnouncement
                               metadata:(FormSuggestionMetadata)metadata;
@@ -86,7 +86,7 @@ enum class SuggestionFeatureForIPH {
                     displayDescription:(NSString*)displayDescription
                                   icon:(UIImage*)icon
                                   type:(autofill::SuggestionType)type
-                     backendIdentifier:(NSString*)backendIdentifier
+                               payload:(autofill::Suggestion::Payload)payload
            fieldByFieldFillingTypeUsed:
                (autofill::FieldType)fieldByFieldFillingTypeUsed
                         requiresReauth:(BOOL)requiresReauth
@@ -97,7 +97,7 @@ enum class SuggestionFeatureForIPH {
                     displayDescription:(NSString*)displayDescription
                                   icon:(UIImage*)icon
                                   type:(autofill::SuggestionType)type
-                     backendIdentifier:(NSString*)backendIdentifier
+                               payload:(autofill::Suggestion::Payload)payload
                         requiresReauth:(BOOL)requiresReauth;
 
 @end

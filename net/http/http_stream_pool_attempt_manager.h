@@ -16,6 +16,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "base/types/expected.h"
 #include "net/base/completion_once_callback.h"
 #include "net/base/load_states.h"
 #include "net/base/load_timing_info.h"
@@ -29,8 +30,11 @@
 #include "net/http/http_stream_request.h"
 #include "net/log/net_log_with_source.h"
 #include "net/socket/connection_attempts.h"
+#include "net/socket/next_proto.h"
 #include "net/socket/stream_attempt.h"
 #include "net/socket/stream_socket_handle.h"
+#include "net/socket/tls_stream_attempt.h"
+#include "net/spdy/multiplexed_session_creation_initiator.h"
 #include "net/ssl/ssl_cert_request_info.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_versions.h"
 #include "url/gurl.h"
@@ -101,10 +105,6 @@ class HttpStreamPool::AttemptManager
   void OnServiceEndpointsUpdated() override;
   void OnServiceEndpointRequestFinished(int rv) override;
 
-  int WaitForSSLConfigReady(CompletionOnceCallback callback);
-
-  SSLConfig GetSSLConfig();
-
   // Tries to process a single pending request/preconnect.
   void ProcessPendingJob();
 
@@ -142,6 +142,12 @@ class HttpStreamPool::AttemptManager
   // Returns true when `this` is blocked by the pool's stream limit.
   bool IsStalledByPoolLimit();
 
+  // Returns whether attempts is "SVCB-optional". See
+  // https://www.rfc-editor.org/rfc/rfc9460.html#section-3-4
+  // Note that the result can be changed over time while the DNS resolution is
+  // still ongoing.
+  bool IsSvcbOptional();
+
   // Called when the server required HTTP/1.1. Clears the current SPDY session
   // if exists. Subsequent jobs will fail while `this` is alive.
   void OnRequiredHttp11();
@@ -153,6 +159,9 @@ class HttpStreamPool::AttemptManager
   base::Value::Dict GetInfoAsValue();
 
   std::optional<int> GetQuicTaskResultForTesting() { return quic_task_result_; }
+
+  MultiplexedSessionCreationInitiator
+  CalculateMultiplexedSessionCreationInitiator();
 
  private:
   // Represents failure of connection attempts. Used to notify job of completion
@@ -190,7 +199,7 @@ class HttpStreamPool::AttemptManager
 
   const SpdySessionKey& spdy_session_key() const;
 
-  const QuicSessionKey& quic_session_key() const;
+  const QuicSessionAliasKey& quic_session_alias_key() const;
 
   HttpNetworkSession* http_network_session();
   SpdySessionPool* spdy_session_pool();
@@ -199,6 +208,11 @@ class HttpStreamPool::AttemptManager
   HttpStreamPool* pool();
   const HttpStreamPool* pool() const;
 
+  int WaitForSSLConfigReady(CompletionOnceCallback callback);
+
+  base::expected<SSLConfig, TlsStreamAttempt::GetSSLConfigError> GetSSLConfig(
+      InFlightAttempt* attempt);
+
   bool UsingTls() const;
 
   bool RequiresHTTP11();
@@ -206,6 +220,8 @@ class HttpStreamPool::AttemptManager
   void StartInternal(RequestPriority priority);
 
   void ResolveServiceEndpoint(RequestPriority initial_priority);
+
+  void RestrictAllowedProtocols(NextProtoSet allowed_alpns);
 
   void MaybeChangeServiceEndpointRequestPriority();
 
@@ -319,13 +335,27 @@ class HttpStreamPool::AttemptManager
   // Called when `stream_attempt_delay_timer_` is fired.
   void OnStreamAttemptDelayPassed();
 
+  // If the destination is forced to use QUIC and the QUIC version is unknown,
+  // try the preferred QUIC version that is supported by default.
+  void MaybeUpdateQuicVersionWhenForced(quic::ParsedQuicVersion& quic_version);
+
+  bool CanUseTcpBasedProtocols();
+
   bool CanUseQuic();
 
   bool CanUseExistingQuicSession();
 
+  bool IsEchEnabled() const;
+
+  // Returns true when `endpoint` can be used to attempt TCP/TLS connections.
+  bool IsEndpointUsableForTcpBasedAttempt(const ServiceEndpoint& endpoint,
+                                          bool svcb_optional);
+
   // Mark QUIC brokenness if QUIC attempts failed but TCP/TLS attempts succeeded
   // or not attempted.
   void MaybeMarkQuicBroken();
+
+  base::Value::Dict GetStatesAsNetLogParams();
 
   void MaybeComplete();
 
@@ -338,6 +368,8 @@ class HttpStreamPool::AttemptManager
   bool enable_ip_based_pooling_ = true;
 
   bool enable_alternative_services_ = true;
+
+  NextProtoSet allowed_alpns_ = NextProtoSet::All();
 
   // Holds jobs that are waiting for notifications.
   JobQueue jobs_;

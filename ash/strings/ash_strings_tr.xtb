@@ -308,7 +308,6 @@ Başlamak için şunları deneyebilirsin.</translation>
 <translation id="2041220428661959602">Pil düzeyi: %<ph name="BATTERY_PERCENTAGE" /></translation>
 <translation id="204259843076055848"><ph name="SIX_PACK_KEY_NAME" /> kısayolu şu anda devre dışı</translation>
 <translation id="2049240716062114887">Masa adı <ph name="DESK_NAME" /> olarak değiştirildi</translation>
-<translation id="2050339315714019657">Dikey</translation>
 <translation id="2064048859448024834">Kamera önizlemesi açık</translation>
 <translation id="2065098273523946419">Daha fazla bilgi bağlantısı. Etkinleştirildiğinde tarayıcıya yönlendirir</translation>
 <translation id="2067220651560163985">Sıcaklığı santigrat olarak göster</translation>
@@ -339,9 +338,6 @@ Başlamak için şunları deneyebilirsin.</translation>
 <translation id="219905428774326614">Launcher, tüm uygulamalar</translation>
 <translation id="2201071101391734388">Son <ph name="TOTAL_COUNT" /> fotoğraftan <ph name="INDEX" />. fotoğraf.</translation>
 <translation id="2201687081523799384">Google Görevler'i daraltın</translation>
-<translation id="2206960886090042977">Bir fare bağlı olduğundan yerleşik dokunmatik alan devre dışı bırakıldı. Fareyi veya klavyeyi kullanarak değişikliği onaylayın.
-
-Aksi takdirde yerleşik dokunmatik alan 30 saniye sonra yeniden etkinleştirilecek.</translation>
 <translation id="2208323208084708176">Birleştirilmiş masaüstü modu</translation>
 <translation id="2220572644011485463">PIN veya şifre</translation>
 <translation id="2222841058024245321">Masa 7</translation>
@@ -504,6 +500,9 @@ Aksi takdirde yerleşik dokunmatik alan 30 saniye sonra yeniden etkinleştirilec
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> - <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">ctrl+arama+s</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" />, <ph name="MANAGER" /> tarafından yönetiliyor</translation>
+<translation id="2781658180588759579">Yerleşik dokunmatik alan devre dışı bırakıldı. Klavyenizi veya başka bir işaretleme cihazını kullanarak değişikliği onaylayın.
+
+Aksi takdirde yerleşik dokunmatik alan <ph name="TIMEOUT_SECONDS" /> sonra yeniden etkinleştirilecek.</translation>
 <translation id="2782591952652094792">Ekran görüntüsü alma modundan çıkılıyor</translation>
 <translation id="2785499565474703580">1 cihaz bağlandı</translation>
 <translation id="2791421900609674576">Kaldığınız yerden devam edebilmeniz için öneriler gösterilir. Dokunup basılı tutarak önerileri kaldırabilirsiniz.</translation>
@@ -601,6 +600,9 @@ Aksi takdirde yerleşik dokunmatik alan 30 saniye sonra yeniden etkinleştirilec
 <translation id="3113492864356515707">Rafta önceki öğeyi vurgulayın</translation>
 <translation id="311799651966070385">Otomatik hatırlatmayı kapat</translation>
 <translation id="3120421559657122717">Cihaz kapatılsın mı?</translation>
+<translation id="3121411970001795539">Bir fare bağlı olduğundan yerleşik dokunmatik alan devre dışı bırakıldı. Fareyi veya klavyeyi kullanarak değişikliği onaylayın.
+
+Aksi takdirde yerleşik dokunmatik alan <ph name="TIMEOUT_SECONDS" /> sonra yeniden etkinleştirilecek.</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">Sınıf çalışmaları türü</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +973,13 @@ Pil ömrünü uzatmak için bazı özellik sınırlandırıldı.</translation>
 <translation id="4322742403972824594">Ctrl + Alt + Yukarı Ok klavye kısayolu değişti. Home tuşunu kullanmak için <ph name="LAUNCHER_KEY_NAME" /> + Sol Ok tuşlarına basın.</translation>
 <translation id="4324840740119394760">Bu işlem, <ph name="APP_NAME" /> ile birlikte kamera izni olan tüm uygulamaların ve web sitelerinin kameraya erişmesine izin verir</translation>
 <translation id="4327147325944669226">Oyunu kaydedin</translation>
-<translation id="4333628967105022692">Lacros, birden fazla kullanıcı oturum açmış durumdayken desteklenmiyor.</translation>
 <translation id="4338109981321384717">Büyüteç</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, ses kapalı</translation>
 <translation id="4351244548802238354">İletişim kutusunu kapat</translation>
 <translation id="4356872429719185452">Hotspot ayrıntılarını göster. Hotspot açılıyor.</translation>
 <translation id="4364101114148522660"><ph name="DURATION" /> Kaydediliyor</translation>
 <translation id="4371348193907997655">Yayınlama Ayarları</translation>
+<translation id="4371834685492830207">PIN yalnızca geçerli karakterler içermelidir</translation>
 <translation id="4375482231364171368">Adres çubuğunda ara</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, sinyal gücü yüzde <ph name="SIGNAL_STRENGTH" /></translation>
 <translation id="4378551569595875038">Bağlanıyor...</translation>
@@ -1143,6 +1145,7 @@ Pil ömrünü uzatmak için bazı özellik sınırlandırıldı.</translation>
 <translation id="4902797682482387055">Odaklanmanız için önerilen görev</translation>
 <translation id="490375751687810070">Dikey</translation>
 <translation id="490788395437447240">%<ph name="BATTERY_PERCENTAGE" /> pil</translation>
+<translation id="4911191962826748981">Bu, deneysel bir yapay zeka özelliği olduğundan her zaman düzgün çalışmayabilir.</translation>
 <translation id="491504982845934899"><ph name="NETWORK_NAME" /> ağını, cihaz kurulumundan sonra etkinleştirin</translation>
 <translation id="4917385247580444890">Güçlü</translation>
 <translation id="4918086044614829423">Kabul et</translation>
@@ -1301,6 +1304,7 @@ Bağlı cihaz yok.</translation>
 <translation id="5393156353051693207">Uygulamalarınızı yeniden sıralamak için herhangi bir yere dokunup basılı tutun</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" /> uygulaması <ph name="IN_PLACE_APP" /> uygulamasının üzerinde, klasör oluşturmak için serbest bırakın.</translation>
 <translation id="5397578532367286026">Bu kullanıcıyla ilgili kullanım ve geçmiş bilgileri, yönetici (<ph name="MANAGER_EMAIL" />) tarafından chrome.com adresinden incelenebilir.</translation>
+<translation id="540338817371815859">Yatay</translation>
 <translation id="540713187982329711">Hotspot'u aç/kapat. Hotspot açık, bağlı bir cihaz yok.</translation>
 <translation id="5409208741270395213">Görevi tamamlandı olarak işaretle</translation>
 <translation id="5413656666631274079">Ayarlar sayfası</translation>
@@ -1472,7 +1476,6 @@ Bağlı cihaz yok.</translation>
 <translation id="5975235751479998104">Pencereler arasında ileriye doğru geçiş yapın</translation>
 <translation id="5978382165065462689">Ekranınızın kontrolü Uzaktan Yardım kullanılarak paylaşılıyor.</translation>
 <translation id="5980301590375426705">Misafir oturumundan çık</translation>
-<translation id="5982119059638483922">İptal etmek için Fn+Arama veya Üst Karakter tuşuna basın.</translation>
 <translation id="5983567367406220847">Herhangi bir etkinlik olmadığı için hotspot kapatıldı.</translation>
 <translation id="598407983968395253">Şablonu kullan</translation>
 <translation id="5986723678596105470">Google Meet ile katılın</translation>
@@ -1542,7 +1545,6 @@ Bağlı cihaz yok.</translation>
 <translation id="6166852626429024716">Cihazınızda, uygulamalarda, ayarlarda, web'de arama yapın</translation>
 <translation id="6168318496333165060">Teşhis Aracı uygulamasını açın</translation>
 <translation id="6168622430237609329">Yüklü uygulamalarınız</translation>
-<translation id="6173151025443907148">Lacros etkinse ikinci bir kullanıcının oturum açması desteklenmez. Bunun yerine lütfen Lacros'ta ikinci bir tarayıcı profili kullanın veya Lacros'u kapatıp tekrar deneyin.</translation>
 <translation id="6179832488876878285">Önemli dosyalarınızı buraya sabitleyebilirsiniz. Başlamak için Dosyalar uygulamasını açın.</translation>
 <translation id="6180193585172850042">Geri Düğmesi</translation>
 <translation id="6180651297859206670">İleri Düğmesi</translation>
@@ -1564,6 +1566,7 @@ Bağlı cihaz yok.</translation>
 <translation id="6232416233079464213"><ph name="SESSION_NAME" /> cihazından</translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> şu anda kameranızı ve mikrofonunuzu kullanıyor</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">Şifre yalnızca geçerli karakterler içermelidir</translation>
 <translation id="6240603910551255087">Üst Düğme</translation>
 <translation id="6240821072888636753">Her zaman sor</translation>
 <translation id="6247728804802644171">Bildirimleri açın</translation>
@@ -1694,7 +1697,6 @@ Yeni yüklenmiş</translation>
 <translation id="6682029141988159141">Panodaki içeriği yapıştır</translation>
 <translation id="6683022854667115063">Kulaklık</translation>
 <translation id="6686023075541098243">Telefonunuzdaki bildirimleri görme seçeneğini ayarlayın</translation>
-<translation id="6688019813898140556">Esc tuşuna 5 kez basın</translation>
 <translation id="6694462491298752106">Yerleşik dokunmatik alan devre dışı bırakıldı</translation>
 <translation id="6694973220096431421">Google Drive'da arayın</translation>
 <translation id="6696025732084565524">Çıkarılabilir klavyenizde kritik bir güncelleme yapılması gerekiyor</translation>
@@ -1715,6 +1717,7 @@ Yeni yüklenmiş</translation>
 <translation id="6751826523481687655">Performans izleme açık</translation>
 <translation id="6752912906630585008">Masa <ph name="REMOVED_DESK" /> kaldırılarak Masa <ph name="RECEIVE_DESK" /> ile birleştirildi</translation>
 <translation id="6753390234084146956">Sekmeler</translation>
+<translation id="6754918760968695779">Hızlı Yapıştır</translation>
 <translation id="6757237461819837179">Medya oynatılmıyor</translation>
 <translation id="6760438044935091345">Oyun Paneli</translation>
 <translation id="6768043681523654438">depolama</translation>
@@ -1764,6 +1767,7 @@ Yeni yüklenmiş</translation>
 <translation id="6921427376813842559">Cihazı güncelleyin</translation>
 <translation id="6929081673585394903">Kontrolleri göster</translation>
 <translation id="6931576957638141829">Kaydetme yeri</translation>
+<translation id="6935857786205183008">Dikey</translation>
 <translation id="6942518653766415536">Kayıt biçimi menüsü</translation>
 <translation id="6945221475159498467">Seç</translation>
 <translation id="6945922087561257829">Telefonunuz bir mobil ağ kullanıyor. Telefonunuz ile Chromebook'unuzun aynı kablosuz ağda olduğundan emin olup tekrar deneyin. <ph name="LEARN_MORE" /></translation>
@@ -1920,9 +1924,6 @@ Yeni yüklenmiş</translation>
 Cihazı kapatmak için cihazın güç düğmesini tekrar basılı tutun.</translation>
 <translation id="7523420897035067483">Odaklanma oturumundayken Rahatsız Etmeyin'i etkinleştir</translation>
 <translation id="7524043547948122239">Google Görevler</translation>
-<translation id="7524919752437339268">Yerleşik dokunmatik alan devre dışı bırakıldı. Klavyenizi veya başka bir işaretleme cihazını kullanarak değişikliği onaylayın.
-
-Aksi takdirde yerleşik dokunmatik alan 30 saniye sonra yeniden etkinleştirilecek.</translation>
 <translation id="7525067979554623046">Oluştur</translation>
 <translation id="7526573455193969409">Ağ trafiği izleniyor olabilir</translation>
 <translation id="7536035074519304529">IP adresi: <ph name="ADDRESS" /></translation>
@@ -2009,6 +2010,7 @@ Aksi takdirde yerleşik dokunmatik alan 30 saniye sonra yeniden etkinleştirilec
 <translation id="780301667611848630">Hayır, teşekkürler</translation>
 <translation id="7807067443225230855">Arama ve Asistan</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> ve <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">Beğenme düğmesini tıkladığınızda bu önerinin hoşunuza gittiğine dair geri bildirim gönderilir</translation>
 <translation id="7825412704590278437">Yaklaşan takvim etkinliğinden</translation>
 <translation id="7829386189513694949">Güçlü sinyal</translation>
 <translation id="7830453190047749513"><ph name="PERIPHERAL_NAME" /> cihazınız için düğme işlemleri, imleç hızı ve diğer özellikleri kişiselleştirebilirsiniz</translation>
@@ -2163,6 +2165,7 @@ Aksi takdirde yerleşik dokunmatik alan 30 saniye sonra yeniden etkinleştirilec
 <translation id="830868413617744215">Beta</translation>
 <translation id="8314772463905284467">Caps Lock açık</translation>
 <translation id="8315514906653279104">Açılıyor...</translation>
+<translation id="8319634750346253957">Beğenmeme düğmesini tıkladığınızda bu önerinin hoşunuza gitmediğine dair geri bildirim gönderilir</translation>
 <translation id="8331351032546853669">İndirme işlemi beklemede</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2302,7 +2305,7 @@ Aksi takdirde yerleşik dokunmatik alan 30 saniye sonra yeniden etkinleştirilec
 <translation id="8822104519413696986">Bu dokunmatik bir oyundur</translation>
 <translation id="8825863694328519386">Geri gitmek için soldan kaydırın</translation>
 <translation id="8832513206237979203">Yer işaretleri çubuğunu göster veya gizle</translation>
-<translation id="8834539327799336565">Şu anda bağlı</translation>
+<translation id="8834539327799336565">Şu anda bağlı cihazlar</translation>
 <translation id="8841375032071747811">Geri düğmesi</translation>
 <translation id="8843682306134542540">Döndürme kilidini aç/kapat. <ph name="STATE_TEXT" /></translation>
 <translation id="8845001906332463065">Yardım alın</translation>
@@ -2348,6 +2351,7 @@ Aksi takdirde yerleşik dokunmatik alan 30 saniye sonra yeniden etkinleştirilec
 <translation id="8982906748181120328">Yakındakiler görünürlüğü</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590"><ph name="IME_NAME" /> kullanılıyor</translation>
+<translation id="8991648557324317894">İptal etmek için fn + Hızlı Yapıştır tuşlarına ya da üst karakter tuşuna basın.</translation>
 <translation id="899350903320462459">Bildirim işlemi gerçekleştirmek için <ph name="LOGIN_ID" /> olarak cihazın kilidini açın</translation>
 <translation id="8993733019280019776">Konuşuyor musunuz? Mikrofonunuz kapalı. Mikrofonu seçerek açın.</translation>
 <translation id="9000771174482730261">DEPOLAMA ALANINI YÖNET</translation>
@@ -2430,9 +2434,9 @@ Aksi takdirde yerleşik dokunmatik alan 30 saniye sonra yeniden etkinleştirilec
 <translation id="974545358917229949"><ph name="QUERY" /> için <ph name="RESULT_COUNT" /> sonuç gösteriliyor</translation>
 <translation id="981011780479609956">Teslim tarihi yok</translation>
 <translation id="98120814841227350">Dokümanın sonuna gider</translation>
-<translation id="98515147261107953">Manzara</translation>
 <translation id="987589956647469042">Mobil veri açık</translation>
 <translation id="989374776391122812">Kamera ve ses kontrolleri</translation>
+<translation id="990263227494928142">Dokunmatik alanı etkinleştirmek için Üst Karakter tuşuna 5 kez basın.</translation>
 <translation id="990277280839877440"><ph name="WINDOW_TITILE" /> penceresi kapandı.</translation>
 <translation id="993398562350683614">Tur adımı <ph name="STEP" />/<ph name="TOTAL_STEPS" />. Uygulamaları kullanarak <ph name="PRODUCT_NAME" /> cihazınızda ihtiyacınız olan her şeyi yapın. Uygulamalarınızı Başlatıcı'da bulabilirsiniz. Başlatıcı düğmesine odaklanmak için Alt + Üst karakter + L tuşlarına basın.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

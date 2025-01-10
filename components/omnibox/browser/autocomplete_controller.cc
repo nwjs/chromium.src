@@ -395,7 +395,7 @@ std::string AutocompleteController::UpdateTypeToDebugString(
     case UpdateType::kMatchDeletion:
       return "Match deletion";
   }
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 // static
@@ -526,6 +526,7 @@ AutocompleteController::AutocompleteController(
       zero_suggest_provider_(nullptr),
       on_device_head_provider_(nullptr),
       history_fuzzy_provider_(nullptr),
+      stop_timer_duration_(kAutocompleteDefaultStopTimerDuration),
       notify_changed_debouncer_(false, 200),
       is_cros_launcher_(is_cros_launcher),
       search_service_worker_signal_sent_(false),
@@ -584,6 +585,19 @@ AutocompleteController::AutocompleteController(
   base::trace_event::MemoryDumpManager::GetInstance()->RegisterDumpProvider(
       this, "AutocompleteController",
       base::SingleThreadTaskRunner::GetCurrentDefault());
+}
+
+AutocompleteController::AutocompleteController(
+    std::unique_ptr<AutocompleteProviderClient> provider_client,
+    int provider_types,
+    base::TimeDelta stop_timer_duration,
+    bool is_cros_launcher,
+    bool disable_ml)
+    : AutocompleteController(std::move(provider_client),
+                             provider_types,
+                             is_cros_launcher,
+                             disable_ml) {
+  stop_timer_duration_ = stop_timer_duration;
 }
 
 AutocompleteController::~AutocompleteController() {
@@ -1034,10 +1048,16 @@ bool AutocompleteController::ShouldRunProvider(
            provider->type() == AutocompleteProvider::TYPE_ZERO_SUGGEST;
   }
 
+#if BUILDFLAG(IS_ANDROID)
   if (omnibox::IsAndroidHub(input_.current_page_classification())) {
     return provider->type() == AutocompleteProvider::TYPE_SEARCH ||
-           provider->type() == AutocompleteProvider::TYPE_OPEN_TAB;
+           provider->type() == AutocompleteProvider::TYPE_OPEN_TAB ||
+           (OmniboxFieldTrial::kAndroidHubSearchEnableBookmarkProvider.Get() &&
+            provider->type() == AutocompleteProvider::TYPE_BOOKMARK) ||
+           (OmniboxFieldTrial::kAndroidHubSearchEnableHistoryProvider.Get() &&
+            provider->type() == AutocompleteProvider::TYPE_HISTORY_QUICK);
   }
+#endif
 
   if (input_.InKeywordMode()) {
     // Only a subset of providers are run when we're in a starter pack keyword
@@ -1315,7 +1335,7 @@ void AutocompleteController::UpdateResult(UpdateType update_type,
       break;
 
     case UpdateType::kNone:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
 #endif  // DCHECK_IS_ON()
 
@@ -1447,7 +1467,7 @@ void AutocompleteController::MlRerank(OldResult& old_result) {
     RunBatchUrlScoringModel(old_result);
   }
 #else
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 #endif  // BUILDFLAG(BUILD_WITH_TFLITE_LIB)
 }
 
@@ -1492,7 +1512,7 @@ void AutocompleteController::PostProcessMatches() {
 
 bool AutocompleteController::CheckWhetherDefaultMatchChanged(
     std::optional<AutocompleteMatch> last_default_match,
-    std::u16string last_default_associated_keyword) {
+    const std::u16string& last_default_associated_keyword) {
   const bool default_is_valid = internal_result_.default_match();
   std::u16string default_associated_keyword;
   if (default_is_valid &&
@@ -1523,7 +1543,14 @@ bool AutocompleteController::CheckWhetherDefaultMatchChanged(
 }
 
 void AutocompleteController::AttachActions() {
-  if (!input_.IsZeroSuggest()) {
+  // No actions should be attached for lens searchboxes.
+  if (omnibox::IsLensSearchbox(input_.current_page_classification())) {
+    return;
+  }
+  // TabMatcher should run for ZPS for the Hub since open tab suggestions are
+  // shown there.
+  if (!input_.IsZeroSuggest() ||
+      omnibox::IsAndroidHub(input_.current_page_classification())) {
     // Do not look for matching tabs on Android unless we collected all the
     // suggestions. Tab matching is an expensive process with multiple JNI calls
     // involved. Run it only when all the suggestions are collected.
@@ -1532,10 +1559,7 @@ void AutocompleteController::AttachActions() {
       internal_result_.ConvertOpenTabMatches(provider_client_.get(), &input_);
     }
 
-    // Do not attach pedals to matches in the Lens Searchbox.
-    if (!omnibox::IsLensSearchbox(input_.current_page_classification())) {
-      internal_result_.AttachPedalsToMatches(input_, *provider_client_);
-    }
+    internal_result_.AttachPedalsToMatches(input_, *provider_client_);
 
 #if !BUILDFLAG(IS_IOS)
     // HistoryClusters is not enabled on iOS.
@@ -1593,7 +1617,6 @@ void AutocompleteController::UpdateAssociatedKeywords(
       // If the match has an answer, it will look strange to try to display
       // it along with a keyword hint. Prefer the keyword hint, and revert
       // to a typical search.
-      match.answer.reset();
       match.answer_template.reset();
       match.answer_type = omnibox::ANSWER_TYPE_UNSPECIFIED;
       match.associated_keyword = std::make_unique<AutocompleteMatch>(
@@ -1935,9 +1958,17 @@ void AutocompleteController::StartExpireTimer() {
 }
 
 void AutocompleteController::StartStopTimer() {
-  stop_timer_.Start(FROM_HERE, stop_timer_duration_,
-                    base::BindOnce(&AutocompleteController::Stop,
-                                   base::Unretained(this), false, true));
+  stop_timer_.Start(
+      FROM_HERE, stop_timer_duration_,
+      base::BindOnce(&AutocompleteController::OnStopTimerTriggered,
+                     base::Unretained(this)));
+}
+
+void AutocompleteController::OnStopTimerTriggered() {
+  Stop(false, true);
+  for (Observer& obs : observers_) {
+    obs.OnAutocompleteStopTimerTriggered(input_);
+  }
 }
 
 bool AutocompleteController::OnMemoryDump(
@@ -2051,8 +2082,7 @@ void AutocompleteController::RunBatchUrlScoringModel(OldResult& old_result) {
   }
 
   if (ml_scores.size() != eligible_match_itrs.size()) {
-    NOTREACHED_IN_MIGRATION();
-    return;
+    NOTREACHED();
   }
 
   // Record how many eligible matches the model was executed for.
@@ -2166,8 +2196,7 @@ void AutocompleteController::RunBatchUrlScoringModelMappedSearchBlending(
   }
 
   if (ml_scores.size() != scored_positions.size()) {
-    NOTREACHED_IN_MIGRATION();
-    return;
+    NOTREACHED();
   }
 
   // Record how many eligible matches the model was executed for.
@@ -2307,8 +2336,7 @@ void AutocompleteController::
   }
 
   if (ml_scores.size() != scored_positions.size()) {
-    NOTREACHED_IN_MIGRATION();
-    return;
+    NOTREACHED();
   }
 
   // Record how many eligible matches the model was executed for.

@@ -44,8 +44,7 @@ class ConnectorsService : public ConnectorsServiceBase, public KeyedService {
   ~ConnectorsService() override;
 
   // Accessors that call the corresponding method in ConnectorsManager.
-  std::optional<ReportingSettings> GetReportingSettings(
-      ReportingConnector connector) override;
+  std::optional<ReportingSettings> GetReportingSettings() override;
   std::optional<AnalysisSettings> GetAnalysisSettings(
       const GURL& url,
       AnalysisConnector connector);
@@ -147,7 +146,7 @@ class ConnectorsServiceFactory : public BrowserContextKeyedServiceFactory {
   friend struct base::DefaultSingletonTraits<ConnectorsServiceFactory>;
 
   // BrowserContextKeyedServiceFactory:
-  KeyedService* BuildServiceInstanceFor(
+  std::unique_ptr<KeyedService> BuildServiceInstanceForBrowserContext(
       content::BrowserContext* context) const override;
   content::BrowserContext* GetBrowserContextToUse(
       content::BrowserContext* context) const override;

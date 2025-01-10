@@ -89,7 +89,7 @@ FormSuggestion* SimpleFormSuggestion(std::u16string value,
                           displayDescription:@""
                                         icon:nil
                                         type:type
-                           backendIdentifier:@""
+                                     payload:autofill::Suggestion::Payload()
                               requiresReauth:NO];
 }
 
@@ -126,12 +126,18 @@ class AutofillAgentTests : public web::WebTest {
 
     fake_web_state_.SetBrowserState(GetBrowserState());
     fake_web_state_.SetContentIsHTML(true);
-    auto frames_manager = std::make_unique<web::FakeWebFramesManager>();
-    fake_web_frames_manager_ = frames_manager.get();
-    web::ContentWorld content_world =
-        AutofillJavaScriptFeature::GetInstance()->GetSupportedContentWorld();
-    fake_web_state_.SetWebFramesManager(content_world,
-                                        std::move(frames_manager));
+
+    for (auto content_world : {web::ContentWorld::kIsolatedWorld,
+                               web::ContentWorld::kPageContentWorld}) {
+      auto frames_manager = std::make_unique<web::FakeWebFramesManager>();
+      fake_web_state_.SetWebFramesManager(content_world,
+                                          std::move(frames_manager));
+    }
+
+    fake_web_frames_manager_ = static_cast<web::FakeWebFramesManager*>(
+        fake_web_state_.GetWebFramesManager(
+            AutofillJavaScriptFeature::GetInstance()
+                ->GetSupportedContentWorld()));
 
     GURL url("https://example.com");
     fake_web_state_.SetCurrentURL(url);
@@ -525,7 +531,7 @@ TEST_F(AutofillAgentTests, showAutofillPopup_ShowVirtualCards) {
                  displayDescription:[suggestions[0].displayDescription copy]
                                icon:[suggestions[0].icon copy]
                                type:suggestions[0].type
-                  backendIdentifier:suggestions[0].backendIdentifier
+                            payload:suggestions[0].payload
         fieldByFieldFillingTypeUsed:autofill::EMPTY_TYPE
                      requiresReauth:suggestions[0].requiresReauth
          acceptanceA11yAnnouncement:[suggestions[0]
@@ -536,7 +542,7 @@ TEST_F(AutofillAgentTests, showAutofillPopup_ShowVirtualCards) {
                  displayDescription:[suggestions[1].displayDescription copy]
                                icon:[suggestions[1].icon copy]
                                type:suggestions[1].type
-                  backendIdentifier:suggestions[1].backendIdentifier
+                            payload:suggestions[1].payload
         fieldByFieldFillingTypeUsed:autofill::EMPTY_TYPE
                      requiresReauth:suggestions[1].requiresReauth
          acceptanceA11yAnnouncement:[suggestions[1]
@@ -562,7 +568,7 @@ TEST_F(AutofillAgentTests, showAutofillPopup_ShowVirtualCards) {
       gfx::test::PlatformImagesEqual(virtual_card_suggestion.icon, visa_icon));
   EXPECT_EQ(autofill::SuggestionType::kVirtualCreditCardEntry,
             virtual_card_suggestion.type);
-  EXPECT_NSEQ(@"", virtual_card_suggestion.backendIdentifier);
+  EXPECT_EQ(autofill::Suggestion::Payload(), virtual_card_suggestion.payload);
   EXPECT_EQ(false, virtual_card_suggestion.requiresReauth);
   EXPECT_NSEQ(nil, virtual_card_suggestion.acceptanceA11yAnnouncement);
 
@@ -575,7 +581,7 @@ TEST_F(AutofillAgentTests, showAutofillPopup_ShowVirtualCards) {
       gfx::test::PlatformImagesEqual(credit_card_suggestion.icon, visa_icon));
   EXPECT_EQ(autofill::SuggestionType::kCreditCardEntry,
             credit_card_suggestion.type);
-  EXPECT_NSEQ(@"", credit_card_suggestion.backendIdentifier);
+  EXPECT_EQ(autofill::Suggestion::Payload(), credit_card_suggestion.payload);
   EXPECT_EQ(false, credit_card_suggestion.requiresReauth);
   EXPECT_NSEQ(nil, credit_card_suggestion.acceptanceA11yAnnouncement);
 }

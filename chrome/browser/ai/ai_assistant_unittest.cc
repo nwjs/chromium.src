@@ -9,11 +9,13 @@
 #include "base/functional/callback_helpers.h"
 #include "base/notreached.h"
 #include "base/strings/stringprintf.h"
+#include "base/task/current_thread.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/ai/ai_test_utils.h"
 #include "chrome/browser/ai/features.h"
 #include "components/optimization_guide/core/mock_optimization_guide_model_executor.h"
 #include "components/optimization_guide/core/optimization_guide_model_executor.h"
+#include "components/optimization_guide/core/optimization_guide_proto_util.h"
 #include "components/optimization_guide/proto/common_types.pb.h"
 #include "components/optimization_guide/proto/features/prompt_api.pb.h"
 #include "components/optimization_guide/proto/string_value.pb.h"
@@ -21,6 +23,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/ai/ai_assistant.mojom.h"
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom-shared.h"
+#include "third_party/blink/public/mojom/ai/model_download_progress_observer.mojom-forward.h"
 
 using testing::_;
 using testing::Test;
@@ -36,6 +39,7 @@ const uint32_t kTestInitialPromptsToken = 5u;
 const uint32_t kDefaultTopK = 1u;
 const uint32_t kOverrideMaxTopK = 5u;
 const float kDefaultTemperature = 0.0;
+const uint64_t kTestModelDownloadSize = 572u;
 
 const std::string kTestPrompt = "Test prompt";
 const std::string kExpectedFormattedTestPrompt = "User: Test prompt\nModel: ";
@@ -131,10 +135,7 @@ const optimization_guide::proto::Any& GetPromptApiMetadata() {
   static base::NoDestructor<optimization_guide::proto::Any> data([]() {
     optimization_guide::proto::PromptApiMetadata metadata;
     metadata.set_version(1);
-    optimization_guide::proto::Any any;
-    any.set_type_url("type.googleapis.com/" + metadata.GetTypeName());
-    any.set_value(metadata.SerializeAsString());
-    return any;
+    return optimization_guide::AnyWrapProto(metadata);
   }());
   return *data;
 }
@@ -153,6 +154,7 @@ class AIAssistantTest : public AITestUtils::AITestBase {
         kExpectedFormattedTestPrompt + kTestResponse + "\n";
     std::string expected_prompt = kExpectedFormattedTestPrompt;
     bool use_prompt_api_proto = false;
+    bool should_overflow_context = false;
   };
 
   void SetUp() override {
@@ -174,10 +176,35 @@ class AIAssistantTest : public AITestUtils::AITestBase {
 
     // Set up mock service.
     SetupMockOptimizationGuideKeyedService();
-    EXPECT_CALL(*mock_optimization_guide_keyed_service_, StartSession(_, _))
-        // It will run twice, the first time for the session creation, and the
-        // second time for the session cloning.
-        .Times(2)
+    // When the sampling param is not specified, `StartSession()` will run three
+    // times:
+    // 1. when getting the default sampling params.
+    // 2. when creating the session.
+    // 3. when cloning the session.
+    // Other wise, it will run twice as the first one is unnecessary.
+    auto& expectation =
+        EXPECT_CALL(*mock_optimization_guide_keyed_service_, StartSession(_, _))
+            .Times(sampling_params_copy ? 2 : 3);
+    if (!sampling_params_copy) {
+      expectation.WillOnce(
+          [&](optimization_guide::ModelBasedCapabilityKey feature,
+              const std::optional<optimization_guide::SessionConfigParams>&
+                  config_params) {
+            auto session = std::make_unique<
+                testing::NiceMock<optimization_guide::MockSession>>();
+            SetUpMockSession(*session, options.use_prompt_api_proto);
+            ON_CALL(*session, GetSamplingParams())
+                .WillByDefault(
+                    [&]() -> const optimization_guide::SamplingParams {
+                      return optimization_guide::SamplingParams{
+                          .top_k = kDefaultTopK,
+                          .temperature = kDefaultTemperature};
+                    });
+
+            return session;
+          });
+    }
+    expectation
         .WillOnce([&](optimization_guide::ModelBasedCapabilityKey feature,
                       const std::optional<
                           optimization_guide::SessionConfigParams>&
@@ -193,6 +220,18 @@ class AIAssistantTest : public AITestUtils::AITestBase {
 
           SetUpMockSession(*session, options.use_prompt_api_proto);
 
+          ON_CALL(*session, GetContextSizeInTokens(_, _))
+              .WillByDefault(
+                  [&](const google::protobuf::MessageLite& request_metadata,
+                      optimization_guide::
+                          OptimizationGuideModelSizeInTokenCallback callback) {
+                    std::move(callback).Run(
+                        options.should_overflow_context
+                            ? AITestUtils::GetFakeTokenLimits()
+                                      .max_context_tokens +
+                                  1
+                            : 1);
+                  });
           ON_CALL(*session, AddContext(_))
               .WillByDefault(
                   [&](const google::protobuf::MessageLite& request_metadata) {
@@ -257,6 +296,25 @@ class AIAssistantTest : public AITestUtils::AITestBase {
 
     mojo::Remote<blink::mojom::AIManager> mock_remote = GetAIManagerRemote();
 
+    EXPECT_EQ(GetAIManagerDownloadProgressObserversSize(), 0u);
+    AITestUtils::MockModelDownloadProgressMonitor mock_monitor;
+    base::RunLoop download_progress_run_loop;
+    EXPECT_CALL(mock_monitor, OnDownloadProgressUpdate(_, _))
+        .WillOnce(testing::Invoke(
+            [&](uint64_t downloaded_bytes, uint64_t total_bytes) {
+              EXPECT_EQ(downloaded_bytes, kTestModelDownloadSize);
+              EXPECT_EQ(total_bytes, kTestModelDownloadSize);
+              download_progress_run_loop.Quit();
+            }));
+
+    mock_remote->AddModelDownloadProgressObserver(
+        mock_monitor.BindNewPipeAndPassRemote());
+    ASSERT_TRUE(base::test::RunUntil(
+        [this] { return GetAIManagerDownloadProgressObserversSize() == 1u; }));
+
+    MockDownloadProgressUpdate(kTestModelDownloadSize, kTestModelDownloadSize);
+    download_progress_run_loop.Run();
+
     mock_remote->CreateAssistant(
         mock_create_assistant_client.BindNewPipeAndPassRemote(),
         blink::mojom::AIAssistantCreateOptions::New(
@@ -266,7 +324,8 @@ class AIAssistantTest : public AITestUtils::AITestBase {
 
     AITestUtils::MockModelStreamingResponder mock_responder;
 
-    TestPromptCall(mock_session, options.prompt_input);
+    TestPromptCall(mock_session, options.prompt_input,
+                   options.should_overflow_context);
 
     // Test session cloning.
     mojo::Remote<blink::mojom::AIAssistant> mock_cloned_session;
@@ -285,7 +344,8 @@ class AIAssistantTest : public AITestUtils::AITestBase {
     mock_session->Fork(mock_clone_assistant_client.BindNewPipeAndPassRemote());
     clone_run_loop.Run();
 
-    TestPromptCall(mock_cloned_session, options.prompt_input);
+    TestPromptCall(mock_cloned_session, options.prompt_input,
+                   /*should_overflow_context=*/false);
   }
 
  private:
@@ -293,14 +353,9 @@ class AIAssistantTest : public AITestUtils::AITestBase {
   CreateExecutionResult(const std::string& output, bool is_complete) {
     optimization_guide::proto::StringValue response;
     response.set_value(output);
-    std::string serialized_metadata;
-    response.SerializeToString(&serialized_metadata);
-    optimization_guide::proto::Any any;
-    any.set_value(serialized_metadata);
-    any.set_type_url(AITestUtils::GetTypeURLForProto(response.GetTypeName()));
     return optimization_guide::OptimizationGuideModelStreamingExecutionResult(
         optimization_guide::StreamingResponse{
-            .response = any,
+            .response = optimization_guide::AnyWrapProto(response),
             .is_complete = is_complete,
         },
         /*provided_by_on_device=*/true);
@@ -326,6 +381,13 @@ class AIAssistantTest : public AITestUtils::AITestBase {
             [](const std::string& text,
                optimization_guide::OptimizationGuideModelSizeInTokenCallback
                    callback) { std::move(callback).Run(text.size()); });
+    ON_CALL(session, GetExecutionInputSizeInTokens(_, _))
+        .WillByDefault(
+            [](const google::protobuf::MessageLite& request_metadata,
+               optimization_guide::OptimizationGuideModelSizeInTokenCallback
+                   callback) {
+              std::move(callback).Run(ToString(request_metadata).size());
+            });
     ON_CALL(session, GetContextSizeInTokens(_, _))
         .WillByDefault(
             [](const google::protobuf::MessageLite& request_metadata,
@@ -336,27 +398,21 @@ class AIAssistantTest : public AITestUtils::AITestBase {
   }
 
   void TestPromptCall(mojo::Remote<blink::mojom::AIAssistant>& mock_session,
-                      std::string& prompt) {
+                      std::string& prompt,
+                      bool should_overflow_context) {
     AITestUtils::MockModelStreamingResponder mock_responder;
 
     base::RunLoop responder_run_loop;
-    // This is run twice because the response is returned together with
-    // `is_complete` set to true.
-    EXPECT_CALL(mock_responder, OnResponse(_, _, _))
-        .WillOnce([&](blink::mojom::ModelStreamingResponseStatus status,
-                      const std::optional<std::string>& text,
-                      std::optional<uint64_t> current_tokens) {
+    EXPECT_CALL(mock_responder, OnStreaming(_))
+        .WillOnce(testing::Invoke([&](const std::string& text) {
           EXPECT_THAT(text, kTestResponse);
-          EXPECT_EQ(status,
-                    blink::mojom::ModelStreamingResponseStatus::kOngoing);
-        })
-        .WillOnce([&](blink::mojom::ModelStreamingResponseStatus status,
-                      const std::optional<std::string>& text,
-                      std::optional<uint64_t> current_tokens) {
-          EXPECT_EQ(status,
-                    blink::mojom::ModelStreamingResponseStatus::kComplete);
-          responder_run_loop.Quit();
-        });
+        }));
+
+    EXPECT_CALL(mock_responder, OnCompletion(_))
+        .WillOnce(testing::Invoke(
+            [&](blink::mojom::ModelExecutionContextInfoPtr context_info) {
+              responder_run_loop.Quit();
+            }));
 
     mock_session->Prompt(prompt, mock_responder.BindNewPipeAndPassRemote());
     responder_run_loop.Run();
@@ -446,6 +502,12 @@ TEST_F(AIAssistantTest, PromptSessionWithPromptApiRequests) {
       .expected_prompt = "U: Test prompt\nM: ",
       .use_prompt_api_proto = true,
   });
+}
+
+TEST_F(AIAssistantTest, PromptSessionWithContextOverflow) {
+  RunPromptTest({.prompt_input = kTestPrompt,
+                 .expected_prompt = kExpectedFormattedTestPrompt,
+                 .should_overflow_context = true});
 }
 
 // Tests `AIAssistant::Context` creation without initial prompts.

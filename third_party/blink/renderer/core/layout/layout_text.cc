@@ -205,7 +205,7 @@ void LayoutText::StyleWillChange(StyleDifference diff,
 
   if (const ComputedStyle* current_style = Style()) {
     // Process accessibility for style changes that affect text.
-    if (current_style->UsedVisibility() != new_style.UsedVisibility() ||
+    if (current_style->Visibility() != new_style.Visibility() ||
         current_style->IsInert() != new_style.IsInert()) {
       if (AXObjectCache* cache = GetDocument().ExistingAXObjectCache()) {
         cache->StyleChanged(this, /*visibility_or_inertness_changed*/ true);
@@ -413,8 +413,7 @@ Vector<LayoutText::TextBoxInfo> LayoutText::GetTextBoxInfo() const {
             results.push_back(TextBoxInfo{rect, *box_start, box_length});
             continue;
           }
-          NOTREACHED_IN_MIGRATION();
-          continue;
+          NOTREACHED();
         }
         // Handle CSS generated content, e.g. ::before/::after
         const OffsetMappingUnit* const mapping_unit =
@@ -914,7 +913,9 @@ String LayoutText::TransformAndSecureText(const String& original,
     }
     auto [masked, secure_map] = SecureText(transformed, mask);
     if (!secure_map.IsEmpty()) {
-      offset_map = TextOffsetMap(offset_map, secure_map);
+      offset_map = TextOffsetMap(
+          offset_map, secure_map,
+          RuntimeEnabledFeatures::TextTransformAndSecurityFixEnabled());
     }
     return masked;
   }
@@ -1472,8 +1473,9 @@ void LayoutText::RecalcVisualOverflow() {
   // |RecalcVisualOverflow| for each layer, and the containing |LayoutObject|
   // should recalculate its |FragmentItem|s without traversing descendant
   // |LayoutObject|s.
-  if (IsInline() && IsInLayoutNGInlineFormattingContext())
-    NOTREACHED_IN_MIGRATION();
+  if (IsInline() && IsInLayoutNGInlineFormattingContext()) {
+    NOTREACHED();
+  }
 
   LayoutObject::RecalcVisualOverflow();
 }

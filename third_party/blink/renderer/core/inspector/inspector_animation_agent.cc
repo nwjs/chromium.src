@@ -144,6 +144,12 @@ protocol::Response InspectorAnimationAgent::enable() {
   enabled_.Set(true);
   instrumenting_agents_->AddInspectorAnimationAgent(this);
 
+  if (inspected_frames_->Root()->IsProvisional()) {
+    // Running getAnimations on a document attached to a provisional frame can
+    // cause a crash: crbug.com/40670727
+    return protocol::Response::Success();
+  }
+
   Document* document = inspected_frames_->Root()->GetDocument();
   DocumentAnimations& document_animations = document->GetDocumentAnimations();
   HeapVector<Member<Animation>> animations =
@@ -551,7 +557,7 @@ String InspectorAnimationAgent::CreateCSSId(blink::Animation& animation) {
       css_property_names.push_back(CSSPropertyName(property));
     css_property_names.push_back(css_transition->TransitionCSSPropertyName());
   } else {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 
   Element* element = effect->EffectTarget();
@@ -801,7 +807,7 @@ void InspectorAnimationAgent::AnimationUpdated(blink::Animation* animation) {
         GetFrontend()->animationCanceled(animation_id);
         break;
       case V8AnimationPlayState::Enum::kPending:
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
     }
   }
 

@@ -66,7 +66,10 @@ bool ShouldBlockAccessToPath(const base::FilePath& path) {
     return false;
   }
 
-  CHECK(path.IsAbsolute());
+  // Block any empty or non-absolute paths.
+  if (!path.IsAbsolute()) {
+    return true;
+  }
 
   constexpr int kBlockedPaths[] = {
       base::DIR_ANDROID_APP_DATA,
@@ -136,6 +139,12 @@ void AwFileSystemAccessPermissionContext::PerformAfterWriteChecks(
     content::GlobalRenderFrameHostId frame_id,
     base::OnceCallback<void(AfterWriteCheckResult)> callback) {
   std::move(callback).Run(AfterWriteCheckResult::kAllow);
+}
+
+base::expected<void, std::string>
+AwFileSystemAccessPermissionContext::CanShowFilePicker(
+    content::RenderFrameHost* rfh) {
+  return base::ok();
 }
 
 bool AwFileSystemAccessPermissionContext::CanObtainReadPermission(

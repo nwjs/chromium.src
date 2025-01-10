@@ -62,8 +62,8 @@
 #include "third_party/blink/public/mojom/devtools/console_message.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom.h"
 #include "third_party/blink/public/platform/web_runtime_features.h"
-#include "third_party/blink/public/web/modules/ai/web_ai_assistant.h"
 #include "third_party/blink/public/web/modules/ai/web_ai_features.h"
+#include "third_party/blink/public/web/modules/ai/web_ai_language_model.h"
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_origin_trials.h"
@@ -82,7 +82,7 @@ namespace {
 constexpr char kBindingsSystemPerContextKey[] = "extension_bindings_system";
 
 constexpr char kStringNameAIOriginTrial[] = "aiOriginTrial";
-constexpr char kStringNameAssistant[] = "languageModel";
+constexpr char kStringNameLanguageModel[] = "languageModel";
 
 bool is_creating_hidden_binding = false;
 
@@ -204,8 +204,7 @@ BindingsSystemPerContextData* GetBindingsDataFromContext(
       per_context_data->GetUserData(kBindingsSystemPerContextKey));
   CHECK(data);
   if (!data->bindings_system) {
-    NOTREACHED_IN_MIGRATION() << "Context outlived bindings system.";
-    return nullptr;
+    NOTREACHED() << "Context outlived bindings system.";
   }
 
   return data;
@@ -1022,8 +1021,7 @@ void NativeExtensionBindingsSystem::GetInternalAPI(
   if (api_name != "nw.Window")
   if (!feature || !script_context->IsAnyFeatureAvailableToContext(
                       *feature, CheckAliasStatus::NOT_ALLOWED)) {
-    NOTREACHED_IN_MIGRATION();
-    return;
+    NOTREACHED();
   }
 
   //CHECK(feature->IsInternal());
@@ -1262,13 +1260,13 @@ void NativeExtensionBindingsSystem::UpdateBindingsForPromptAPI(
       chrome_ai_object);
   CHECK(success.IsJust() && success.FromJust());
 
-  // Set `chrome.aiOriginTrial.assistant`.
-  v8::Local<v8::String> assistant_name =
-      gin::StringToSymbol(isolate, kStringNameAssistant);
-  v8::Local<v8::Value> assistant_value =
-      blink::WebAIAssistant::GetAIAssistantFactory(v8_context, isolate);
-  success = chrome_ai_object->CreateDataProperty(v8_context, assistant_name,
-                                                 assistant_value);
+  // Set `chrome.aiOriginTrial.languageModel`.
+  v8::Local<v8::String> language_model_name =
+      gin::StringToSymbol(isolate, kStringNameLanguageModel);
+  v8::Local<v8::Value> language_model_value =
+      blink::WebAILanguageModel::GetAILanguageModelFactory(v8_context, isolate);
+  success = chrome_ai_object->CreateDataProperty(
+      v8_context, language_model_name, language_model_value);
   CHECK(success.IsJust() && success.FromJust());
 }
 

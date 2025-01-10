@@ -35,6 +35,7 @@
 #import "components/unified_consent/unified_consent_service.h"
 #import "components/variations/variations_associated_data.h"
 #import "components/variations/variations_ids_provider.h"
+#import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/app/main_controller.h"
 #import "ios/chrome/browser/autofill/model/personal_data_manager_factory.h"
 #import "ios/chrome/browser/content_settings/model/host_content_settings_map_factory.h"
@@ -260,7 +261,7 @@ NSString* SerializedValue(const base::Value* value) {
 }
 
 + (void)dismissSettings {
-  [chrome_test_util::HandlerForActiveBrowser() closeSettingsUI];
+  [chrome_test_util::HandlerForActiveBrowser() closePresentedViews];
 }
 
 + (void)primesStopLogging {

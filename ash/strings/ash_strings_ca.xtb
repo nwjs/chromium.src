@@ -308,7 +308,6 @@ A continuació t'indico algunes coses que pots provar per començar.</translatio
 <translation id="2041220428661959602">Nivell de bateria: <ph name="BATTERY_PERCENTAGE" /> %</translation>
 <translation id="204259843076055848">La drecera <ph name="SIX_PACK_KEY_NAME" /> està desactivada en aquest moment</translation>
 <translation id="2049240716062114887">El nom de l'escriptori s'ha canviat a <ph name="DESK_NAME" /></translation>
-<translation id="2050339315714019657">Vertical</translation>
 <translation id="2064048859448024834">La previsualització de la càmera està activada</translation>
 <translation id="2065098273523946419">Enllaç de més informació. Redirigeix al navegador quan s'activi.</translation>
 <translation id="2067220651560163985">Mostra la temperatura en graus Celsius</translation>
@@ -339,9 +338,6 @@ A continuació t'indico algunes coses que pots provar per començar.</translatio
 <translation id="219905428774326614">Menú d'aplicacions, totes les aplicacions</translation>
 <translation id="2201071101391734388">Foto recent <ph name="INDEX" /> de <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Replega Google Tasks</translation>
-<translation id="2206960886090042977">El ratolí tàctil integrat està desactivat perquè hi ha un ratolí connectat. Utilitza el ratolí o el teclat per confirmar el canvi.
-
-Si no, el ratolí tàctil integrat es tornarà a activar d'aquí a 30 segons.</translation>
 <translation id="2208323208084708176">Mode d'escriptori unificat</translation>
 <translation id="2220572644011485463">PIN o contrasenya</translation>
 <translation id="2222841058024245321">Escriptori 7</translation>
@@ -504,6 +500,9 @@ Hi ha <ph name="DEVICECOUNT" /> dispositius connectats.</translation>
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /> de l'<ph name="KEY_ONE" /> al <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">ctrl+cerca+s</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" /> gestionat per <ph name="MANAGER" /></translation>
+<translation id="2781658180588759579">El ratolí tàctil integrat està desactivat. Utilitza el teclat o un altre dispositiu apuntador per confirmar el canvi.
+
+Si no, el ratolí tàctil integrat es tornarà a activar d'aquí a <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2782591952652094792">Surt del mode de captura</translation>
 <translation id="2785499565474703580">1 dispositiu connectat</translation>
 <translation id="2791421900609674576">Veuràs recomanacions per poder continuar des d'on ho vas deixar. Pots mantenir premuda qualsevol recomanació per suprimir-la.</translation>
@@ -601,6 +600,9 @@ Hi ha <ph name="DEVICECOUNT" /> dispositius connectats.</translation>
 <translation id="3113492864356515707">Marca l'element anterior al prestatge</translation>
 <translation id="311799651966070385">Toc de tancament</translation>
 <translation id="3120421559657122717">Vols apagar el dispositiu?</translation>
+<translation id="3121411970001795539">El ratolí tàctil integrat està desactivat perquè hi ha un ratolí connectat. Utilitza el ratolí o el teclat per confirmar el canvi.
+
+Si no, el ratolí tàctil integrat es tornarà a activar d'aquí a <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">Tipus de treball de classe</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +973,13 @@ Algunes funcions estan limitades per allargar la durada de la bateria.</translat
 <translation id="4322742403972824594">La tecla de drecera Ctrl+Alt+fletxa amunt ha canviat. Per fer servir la tecla d'inici, prem la tecla <ph name="LAUNCHER_KEY_NAME" />+fletxa esquerra.</translation>
 <translation id="4324840740119394760">Permet l'accés a la càmera a <ph name="APP_NAME" /> i a totes les aplicacions i llocs web amb permís per accedir a la càmera</translation>
 <translation id="4327147325944669226">Grava la partida</translation>
-<translation id="4333628967105022692">Lacros no s'admet quan hi ha diversos usuaris amb la sessió iniciada.</translation>
 <translation id="4338109981321384717">Lupa</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, silenciat</translation>
 <translation id="4351244548802238354">Tanca el quadre de diàleg</translation>
 <translation id="4356872429719185452">Mostra els detalls del punt d'accés Wi‐Fi. El punt d'accés Wi‐Fi s'està activant.</translation>
 <translation id="4364101114148522660"><ph name="DURATION" />  S'està gravant</translation>
 <translation id="4371348193907997655">Configuració d'emissió</translation>
+<translation id="4371834685492830207">El PIN només pot contenir caràcters vàlids</translation>
 <translation id="4375482231364171368">Cerca a la barra d'adreces</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />; intensitat del senyal: <ph name="SIGNAL_STRENGTH" /> per cent.</translation>
 <translation id="4378551569595875038">Connectant...</translation>
@@ -1143,6 +1145,7 @@ Hi ha 1 dispositiu connectat.</translation>
 <translation id="4902797682482387055">Tasca suggerida en què concentrar-te</translation>
 <translation id="490375751687810070">Vertical</translation>
 <translation id="490788395437447240"><ph name="BATTERY_PERCENTAGE" />% de bateria</translation>
+<translation id="4911191962826748981">Aquesta funció d'IA és experimental i no sempre l'encertarà.</translation>
 <translation id="491504982845934899">Activa <ph name="NETWORK_NAME" /> després de configurar el dispositiu</translation>
 <translation id="4917385247580444890">Forta</translation>
 <translation id="4918086044614829423">Accepta</translation>
@@ -1301,6 +1304,7 @@ No hi ha cap dispositiu connectat.</translation>
 <translation id="5393156353051693207">Mantén premut qualsevol lloc per tornar a ordenar les aplicacions</translation>
 <translation id="5395308026110844773">L'aplicació <ph name="DRAGGED_APP_NAME" /> és a sobre de l'aplicació <ph name="IN_PLACE_APP" />. Deixa-la anar per crear una carpeta.</translation>
 <translation id="5397578532367286026">El gestor (<ph name="MANAGER_EMAIL" />) pot revisar l'ús i l'historial d'aquest usuari a chrome.com.</translation>
+<translation id="540338817371815859">Horitzontal</translation>
 <translation id="540713187982329711">Commuta el punt d'accés Wi‐Fi. Està activat i no hi ha cap dispositiu connectat.</translation>
 <translation id="5409208741270395213">Marca la tasca com a completada</translation>
 <translation id="5413656666631274079">Pàgina de configuració</translation>
@@ -1472,7 +1476,6 @@ No hi ha cap dispositiu connectat.</translation>
 <translation id="5975235751479998104">Avança per les finestres</translation>
 <translation id="5978382165065462689">Es comparteix el control de la pantalla mitjançant l'Assistència remota.</translation>
 <translation id="5980301590375426705">Tanca com a convidat</translation>
-<translation id="5982119059638483922">Prem Fn+Cerca o Maj per cancel·lar.</translation>
 <translation id="5983567367406220847">A causa de la inactivitat, el punt d'accés Wi‐Fi s'ha desactivat.</translation>
 <translation id="598407983968395253">Utilitza la plantilla</translation>
 <translation id="5986723678596105470">Uneix-me amb Google Meet</translation>
@@ -1542,7 +1545,6 @@ No hi ha cap dispositiu connectat.</translation>
 <translation id="6166852626429024716">Cerca al dispositiu, en aplicacions, a la configuració i al web...</translation>
 <translation id="6168318496333165060">Obre l'aplicació Diagnòstic</translation>
 <translation id="6168622430237609329">Les teves aplicacions instal·lades</translation>
-<translation id="6173151025443907148">Si Lacros està activat, no s'admet l'inici de sessió amb un segon usuari. Utilitza un altre perfil del navegador o desactiva Lacros i torna-ho a provar.</translation>
 <translation id="6179832488876878285">Pots fixar els teus fitxers importants aquí. Obre l'aplicació Fitxers per començar.</translation>
 <translation id="6180193585172850042">Botó Enrere</translation>
 <translation id="6180651297859206670">Botó Endavant</translation>
@@ -1564,6 +1566,7 @@ No hi ha cap dispositiu connectat.</translation>
 <translation id="6232416233079464213">De <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> està utilitzant la càmera i el micròfon</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">La contrasenya només pot contenir caràcters vàlids</translation>
 <translation id="6240603910551255087">Botó superior</translation>
 <translation id="6240821072888636753">Pregunta sempre</translation>
 <translation id="6247728804802644171">Obre les notificacions</translation>
@@ -1694,7 +1697,6 @@ Instal·lació nova</translation>
 <translation id="6682029141988159141">Enganxa el contingut del porta-retalls</translation>
 <translation id="6683022854667115063">Auriculars</translation>
 <translation id="6686023075541098243">Configura la visualització de les notificacions del telèfon</translation>
-<translation id="6688019813898140556">Esc 5 vegades</translation>
 <translation id="6694462491298752106">El ratolí tàctil integrat està desactivat</translation>
 <translation id="6694973220096431421">Cerca a Google Drive</translation>
 <translation id="6696025732084565524">El teclat extraïble necessita una actualització crítica</translation>
@@ -1715,6 +1717,7 @@ Instal·lació nova</translation>
 <translation id="6751826523481687655">La traça del rendiment està activada</translation>
 <translation id="6752912906630585008">L'escriptori <ph name="REMOVED_DESK" /> s'ha suprimit i s'ha fusionat amb l'escriptori <ph name="RECEIVE_DESK" /></translation>
 <translation id="6753390234084146956">pestanyes</translation>
+<translation id="6754918760968695779">Inserció ràpida</translation>
 <translation id="6757237461819837179">No s'està reproduint res</translation>
 <translation id="6760438044935091345">Tauler de joc</translation>
 <translation id="6768043681523654438">emmagatzematge</translation>
@@ -1764,6 +1767,7 @@ Instal·lació nova</translation>
 <translation id="6921427376813842559">Actualitza el dispositiu</translation>
 <translation id="6929081673585394903">Mostra els controls</translation>
 <translation id="6931576957638141829">Desa a</translation>
+<translation id="6935857786205183008">Vertical</translation>
 <translation id="6942518653766415536">Menú de format de gravació</translation>
 <translation id="6945221475159498467">Selecciona</translation>
 <translation id="6945922087561257829">El telèfon està utilitzant una xarxa mòbil. Assegura't que el telèfon i el Chromebook estiguin connectats a la mateixa xarxa Wi‐Fi i torna-ho a provar. <ph name="LEARN_MORE" /></translation>
@@ -1920,9 +1924,6 @@ Instal·lació nova</translation>
 Per apagar el dispositiu, torna a mantenir premut el botó d'engegada.</translation>
 <translation id="7523420897035067483">Activa el mode No molestis durant la sessió de Sense distraccions</translation>
 <translation id="7524043547948122239">Google Tasks</translation>
-<translation id="7524919752437339268">El ratolí tàctil integrat està desactivat. Utilitza el teclat o un altre dispositiu apuntador per confirmar el canvi.
-
-Si no, el ratolí tàctil integrat es tornarà a activar d'aquí a 30 segons.</translation>
 <translation id="7525067979554623046">Crea</translation>
 <translation id="7526573455193969409">És possible que la xarxa estigui supervisada</translation>
 <translation id="7536035074519304529">Adreça IP: <ph name="ADDRESS" /></translation>
@@ -2009,6 +2010,7 @@ Si no, el ratolí tàctil integrat es tornarà a activar d'aquí a 30 segons.</t
 <translation id="780301667611848630">No, gràcies</translation>
 <translation id="7807067443225230855">Cerca i Assistent</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> i <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">El botó M'agrada indica que aquest suggeriment t'agrada</translation>
 <translation id="7825412704590278437">Del pròxim esdeveniment del calendari</translation>
 <translation id="7829386189513694949">Senyal potent</translation>
 <translation id="7830453190047749513">Pots personalitzar les accions dels botons, la velocitat del cursor i més per al teu dispositiu <ph name="PERIPHERAL_NAME" /></translation>
@@ -2163,6 +2165,7 @@ Si no, el ratolí tàctil integrat es tornarà a activar d'aquí a 30 segons.</t
 <translation id="830868413617744215">Beta</translation>
 <translation id="8314772463905284467">Bloq Maj està activat</translation>
 <translation id="8315514906653279104">S'està activant...</translation>
+<translation id="8319634750346253957">El botó No m'agrada indica que aquest suggeriment no t'agrada</translation>
 <translation id="8331351032546853669">Baixada pendent</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2348,6 +2351,7 @@ Si no, el ratolí tàctil integrat es tornarà a activar d'aquí a 30 segons.</t
 <translation id="8982906748181120328">Visibilitat Nearby</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">S'està utilitzant <ph name="IME_NAME" /></translation>
+<translation id="8991648557324317894">Prem fn+Inserció ràpida o Maj per cancel·lar.</translation>
 <translation id="899350903320462459">Desbloqueja el dispositiu com a <ph name="LOGIN_ID" /> per dur a terme l'acció que indica la notificació</translation>
 <translation id="8993733019280019776">Estàs parlant? El teu micròfon està desactivat. Selecciona'l per activar-lo.</translation>
 <translation id="9000771174482730261">GESTIONA L'EMMAGATZEMATGE</translation>
@@ -2430,9 +2434,9 @@ Si no, el ratolí tàctil integrat es tornarà a activar d'aquí a 30 segons.</t
 <translation id="974545358917229949">S'estan mostrant <ph name="RESULT_COUNT" /> resultats per a "<ph name="QUERY" />"</translation>
 <translation id="981011780479609956">Sense data de venciment</translation>
 <translation id="98120814841227350">Ves al final del document</translation>
-<translation id="98515147261107953">Paisatge</translation>
 <translation id="987589956647469042">Les dades mòbils estan activades</translation>
 <translation id="989374776391122812">Controls de càmera i d'àudio</translation>
+<translation id="990263227494928142">Prem Maj 5 vegades per activar el ratolí tàctil</translation>
 <translation id="990277280839877440">La finestra <ph name="WINDOW_TITILE" /> s'ha tancat.</translation>
 <translation id="993398562350683614">Pas <ph name="STEP" /> de <ph name="TOTAL_STEPS" /> de la visita. Utilitza les aplicacions per fer tot el que necessitis al teu <ph name="PRODUCT_NAME" />. Pots accedir a les teves aplicacions des del menú d'aplicacions. Prem Alt+Maj+L per posar el focus al botó del menú d'aplicacions.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

@@ -42,6 +42,13 @@ from telemetry.internal.backends import android_browser_backend_settings
 
 _ANDROID_SETTINGS = android_browser_backend_settings.ANDROID_BACKEND_SETTINGS
 
+# This is mutable, set to True on the first benchmark run and used to avoid
+# re-installing the browser on subsequent benchmark runs.
+_android_browser_installed = False
+
+# See https://crbug.com/373822787 for how this value was calculated.
+_ANDROID_64_BLOCK_COUNT_THRESHOLD = 2200000000
+
 _EXE_EXT = '.exe' if sys.platform == 'win32' else ''
 _THIS_DIR = os.path.dirname(__file__)
 _ROOT_DIR = f'{_THIS_DIR}/../..'
@@ -72,10 +79,6 @@ class OptionsNamespace(argparse.Namespace):
     keep_temps: bool
     android_browser: Optional[str]
     android_device_path: Optional[str]
-    # TODO(https://crbug.com/40272686): Remove this option after the bots use
-    #     this script. This is necessary for now to match the script to the
-    #     existing broken way that the bots run benchmarks.
-    run_all_android_stories: bool
     skip_profdata: bool
     run_public_benchmarks_only: bool
     temporal_trace_length: Optional[int]
@@ -116,11 +119,6 @@ def parse_args():
         'default this is /data_mirror/data_ce/null/0/<package>'
         '/cache/pgo_profiles/ but you can override it for your '
         'device if needed.')
-    parser.add_argument(
-        '--run-all-android-stories',
-        action='store_true',
-        default=False,
-        help='By default on android, only the last story is run.')
     parser.add_argument('--skip-profdata',
                         action='store_true',
                         default=False,
@@ -224,11 +222,17 @@ def run_profdata_merge(output_path, input_files, args: OptionsNamespace):
         extra_args = []
     filtered_input_files = []
     for f in input_files:
-        if os.path.getsize(f) <= 10 * 1024 * 1024:
-            _LOGGER.warning(f'Skipping due to size <10MB: {f}')
+        size_in_bytes = os.path.getsize(f)
+        if size_in_bytes <= 1 * 1024 * 1024:
+            # A valid profile on android is usually 108MB, and typically 2-3 of
+            # those are produced, so this would be less than 0.5% ignored. These
+            # small ones need to be ignored since otherwise they fail the merge.
+            _LOGGER.warning(f'Skipping due to size={size_in_bytes} <1MB: {f}')
         else:
             filtered_input_files.append(f)
-    assert filtered_input_files, 'No valid profraw/profdata file after filter.'
+
+    if not filtered_input_files:
+        raise MergeError('No valid profraw/profdata file after filter.')
 
     cmd = [_PROFDATA, 'merge', '-o', output_path
            ] + extra_args + filtered_input_files
@@ -243,8 +247,26 @@ def run_profdata_merge(output_path, input_files, args: OptionsNamespace):
         raise MergeError('Failed to generate valid profile data.')
 
 
+def run_profdata_show(file_name, topn=1000):
+    _LOGGER.info(f'Calculating topn={topn} for {file_name}')
+    cmd = [_PROFDATA, 'show', '-topn', str(topn), file_name]
+    _LOGGER.debug(f"Running command: {' '.join(cmd)}")
+    proc = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    _LOGGER.debug(proc.stdout)
+    return proc.stdout
+
+
+def get_max_internal_block_count(file_name):
+    for line in run_profdata_show(file_name).splitlines():
+        if line.startswith("Maximum internal block count: "):
+            return int(line.split(":", 1)[1])
+    return None
+
+
 def run_benchmark(benchmark_args: List[str], args: OptionsNamespace):
     '''Puts profdata in {profiledir}/{args[0]}.profdata'''
+    global _android_browser_installed
+
     _LOGGER.info(f"Running benchmark: {' '.join(benchmark_args)}")
 
     # Include the first 2 args since per-story benchmarks use [name, --story=s].
@@ -293,6 +315,10 @@ def run_benchmark(benchmark_args: List[str], args: OptionsNamespace):
             f'--fetch-data-path-device={args.android_device_path}',
             f'--fetch-data-path-local={profraw_path}',
         ]
+        if _android_browser_installed:
+            cmd += ['--assume-browser-already-installed']
+        else:
+            _android_browser_installed = True
         _LOGGER.debug(
             f"Running benchmark on Android with command: {' '.join(cmd)}")
     else:
@@ -400,13 +426,6 @@ def run_benchmarks(benchmarks: List[List[str]], args: OptionsNamespace):
             fail_count += run_benchmark_with_repeats(benchmark_args, args)
         else:
             stories = get_stories(benchmark_args, args)
-            if not args.run_all_android_stories:
-                # This is necessary to match the script to what the bots
-                # currently run (only the last story matters). By matching the
-                # bot's current method in this script, we separate the effect of
-                # using this script on the bot from the effect of fixing this
-                # bug on the bots.
-                stories = [stories[-1]]
             for story in stories:
                 _LOGGER.info(f"Running story: {story}")
                 per_story_args = [benchmark_args[0], f'--story={story}']
@@ -414,8 +433,7 @@ def run_benchmarks(benchmarks: List[List[str]], args: OptionsNamespace):
     return fail_count
 
 
-def merge_profdata(args: OptionsNamespace):
-    profile_output_path = f'{args.outputdir}/profile{args.suffix}'
+def merge_profdata(profile_output_path: str, args: OptionsNamespace):
     _LOGGER.info(f"Merging all profdata files into: {profile_output_path}")
     profdata_files = glob.glob(f'{args.profiledir}/*{args.suffix}')
     _LOGGER.debug(f"Found {len(profdata_files)} profdata files")
@@ -503,7 +521,22 @@ def main():
                         'runs.')
 
     if not args.skip_profdata:
-        merge_profdata(args)
+        profile_output_path = f'{args.outputdir}/profile{args.suffix}'
+        merge_profdata(profile_output_path, args)
+        if ('64' in str(args.android_browser)
+                and args.isolated_script_test_output):
+            # We are on the arm64 bot, where we want to avoid perf regressions.
+            max_internal_block_count = get_max_internal_block_count(
+                profile_output_path)
+            _LOGGER.info(
+                f'Maximum internal block count: {max_internal_block_count}')
+            assert max_internal_block_count is not None, 'Failed to get ' \
+                'max internal block count from profdata.'
+            # TODO(crbug.com/373822787): Remove this when no longer needed.
+            if max_internal_block_count < _ANDROID_64_BLOCK_COUNT_THRESHOLD:
+                raise MergeError(
+                    f"max_internal_block_count={max_internal_block_count} is "
+                    f"lower than {_ANDROID_64_BLOCK_COUNT_THRESHOLD}.")
 
     if not args.keep_temps:
         _LOGGER.info('Cleaning up %s, use --keep-temps to keep it.',

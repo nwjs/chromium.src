@@ -10,9 +10,9 @@
 #import <vector>
 
 #import "base/functional/callback.h"
-#import "ios/chrome/browser/shared/model/profile/profile_ios_forward.h"
 
 class ProfileAttributesStorageIOS;
+class ProfileIOS;
 class ProfileManagerObserverIOS;
 
 // Provides methods that allow for various ways of creating non-incognito
@@ -82,6 +82,10 @@ class ProfileManagerIOS {
   // during the initialisation when blocking is possible or for tests. Returns
   // null if loading or creating the Profile failed.
   virtual ProfileIOS* CreateProfile(std::string_view name) = 0;
+
+  // Destroys all loaded Profile objects. Meant to be called right before the
+  // ProfileManagerIOS itself is destroyed.
+  virtual void DestroyAllProfiles() = 0;
 
   // Returns the ProfileAttributesStorageIOS associated with this manager.
   virtual ProfileAttributesStorageIOS* GetProfileAttributesStorage() = 0;

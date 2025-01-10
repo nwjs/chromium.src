@@ -8,6 +8,7 @@
 #include <string>
 
 #include "ash/components/arc/mojom/volume_mounter.mojom.h"
+#include "base/check.h"
 
 namespace arc {
 
@@ -42,9 +43,13 @@ mojom::MountPointInfoPtr FakeVolumeMounterInstance::GetMountPointInfo(
 void FakeVolumeMounterInstance::PrepareForRemovableMediaUnmount(
     const base::FilePath& mount_path,
     PrepareForRemovableMediaUnmountCallback callback) {
-  if (call_prepare_for_removable_media_unmount_callback_) {
-    std::move(callback).Run(true);
-  }
+  callbacks_.push(std::move(callback));
+}
+
+void FakeVolumeMounterInstance::RunCallback(bool success) {
+  CHECK(!callbacks_.empty());
+  std::move(callbacks_.front()).Run(success);
+  callbacks_.pop();
 }
 
 }  // namespace arc

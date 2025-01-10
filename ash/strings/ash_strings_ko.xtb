@@ -308,7 +308,6 @@
 <translation id="2041220428661959602">배터리 잔량: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848">현재 <ph name="SIX_PACK_KEY_NAME" /> 단축키가 사용 중지되어 있습니다.</translation>
 <translation id="2049240716062114887">데스크 이름이 <ph name="DESK_NAME" />(으)로 변경되었습니다.</translation>
-<translation id="2050339315714019657">세로 방향</translation>
 <translation id="2064048859448024834">동영상 카메라 미리보기 켜짐</translation>
 <translation id="2065098273523946419">자세히 알아보기 링크. 활성화 시 브라우저로 리디렉션됩니다</translation>
 <translation id="2067220651560163985">온도를 섭씨로 표시</translation>
@@ -339,9 +338,6 @@
 <translation id="219905428774326614">런처, 모든 앱</translation>
 <translation id="2201071101391734388">최근 사진 총 <ph name="TOTAL_COUNT" />개 중 <ph name="INDEX" />번째입니다.</translation>
 <translation id="2201687081523799384">Google Tasks 접기</translation>
-<translation id="2206960886090042977">마우스가 연결되어 있으므로 내장 터치패드가 사용 중지되었습니다. 마우스 또는 키보드를 사용하여 변경사항을 확인합니다.
-
-그렇지 않으면 30초 후에 내장 터치패드가 다시 사용 설정됩니다.</translation>
 <translation id="2208323208084708176">통합 바탕화면 모드</translation>
 <translation id="2220572644011485463">PIN 또는 비밀번호</translation>
 <translation id="2222841058024245321">데스크 7</translation>
@@ -504,6 +500,9 @@
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" />~<ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">Ctrl+Search+S</translation>
 <translation id="2778650143428714839"><ph name="MANAGER" />에서 관리하는 <ph name="DEVICE_TYPE" /></translation>
+<translation id="2781658180588759579">내장 터치패드가 사용 중지되었습니다. 키보드 또는 다른 포인팅 기기를 사용하여 변경사항을 확인하세요.
+
+그렇지 않으면 <ph name="TIMEOUT_SECONDS" /> 후에 내장 터치패드가 다시 사용 설정됩니다.</translation>
 <translation id="2782591952652094792">캡처 모드 종료</translation>
 <translation id="2785499565474703580">기기 1대 연결됨</translation>
 <translation id="2791421900609674576">이전에 중단한 부분부터 계속할 수 있도록 추천 항목이 표시됩니다. 추천 항목을 삭제하려면 길게 터치하세요.</translation>
@@ -601,6 +600,9 @@
 <translation id="3113492864356515707">앱 표시줄의 이전 항목 강조 표시</translation>
 <translation id="311799651966070385">알림 닫기</translation>
 <translation id="3120421559657122717">기기를 종료할까요?</translation>
+<translation id="3121411970001795539">마우스가 연결되어 있으므로 내장 터치패드가 사용 중지되었습니다. 마우스 또는 키보드를 사용하여 변경사항을 확인합니다.
+
+그렇지 않으면 <ph name="TIMEOUT_SECONDS" /> 후에 내장 터치패드가 다시 사용 설정됩니다.</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">수업 과제 유형</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +973,13 @@
 <translation id="4322742403972824594">Ctrl + Alt + 위쪽 화살표 단축키가 변경되었습니다. Home 키를 사용하려면 <ph name="LAUNCHER_KEY_NAME" /> 키 + 왼쪽 화살표 키를 누르세요.</translation>
 <translation id="4324840740119394760">카메라 액세스 권한이 있는 <ph name="APP_NAME" /> 앱을 포함한 모든 앱 및 웹사이트에서 카메라에 액세스할 수 있게 됩니다.</translation>
 <translation id="4327147325944669226">게임 녹화</translation>
-<translation id="4333628967105022692">Lacros는 여러 사용자가 로그인된 상태에서 지원되지 않습니다.</translation>
 <translation id="4338109981321384717">돋보기</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, 음소거됨</translation>
 <translation id="4351244548802238354">대화상자 닫기</translation>
 <translation id="4356872429719185452">핫스팟 세부정보를 표시합니다. 핫스팟을 켜는 중입니다.</translation>
 <translation id="4364101114148522660"><ph name="DURATION" />  녹화 중</translation>
 <translation id="4371348193907997655">전송 설정</translation>
+<translation id="4371834685492830207">PIN에는 유효한 문자만 포함해야 합니다.</translation>
 <translation id="4375482231364171368">주소 표시줄에서 검색</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, 신호 강도 <ph name="SIGNAL_STRENGTH" />퍼센트</translation>
 <translation id="4378551569595875038">연결 중...</translation>
@@ -1143,6 +1145,7 @@
 <translation id="4902797682482387055">집중할 작업 추천</translation>
 <translation id="490375751687810070">세로</translation>
 <translation id="490788395437447240">배터리 <ph name="BATTERY_PERCENTAGE" />%</translation>
+<translation id="4911191962826748981">실험용 AI 기능이므로 정확하지 않을 수 있습니다.</translation>
 <translation id="491504982845934899">기기 설정 후 <ph name="NETWORK_NAME" /> 활성화</translation>
 <translation id="4917385247580444890">강함</translation>
 <translation id="4918086044614829423">수락</translation>
@@ -1301,6 +1304,7 @@
 <translation id="5393156353051693207">앱을 재정렬하려면 아무 곳이나 길게 터치합니다</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" />을(를) <ph name="IN_PLACE_APP" /> 위로 드래그해서 놓으면 폴더가 만들어집니다.</translation>
 <translation id="5397578532367286026">관리자(<ph name="MANAGER_EMAIL" />)는 chrome.com에서 해당 사용자의 사용 및 방문 기록을 검토할 수 있습니다.</translation>
+<translation id="540338817371815859">가로 모드</translation>
 <translation id="540713187982329711">핫스팟을 전환합니다. 핫스팟이 켜져 있으며 연결된 기기가 없습니다.</translation>
 <translation id="5409208741270395213">할 일을 완료됨으로 표시</translation>
 <translation id="5413656666631274079">설정 페이지</translation>
@@ -1472,7 +1476,6 @@
 <translation id="5975235751479998104">여러 창 사이에서 앞으로 이동하기</translation>
 <translation id="5978382165065462689">원격 지원을 통해 화면 제어 공유</translation>
 <translation id="5980301590375426705">게스트 세션 종료</translation>
-<translation id="5982119059638483922">취소하려면 Fn+검색 또는 Shift 키를 누르세요.</translation>
 <translation id="5983567367406220847">활동이 없어 핫스팟이 사용 중지되었습니다.</translation>
 <translation id="598407983968395253">템플릿 사용</translation>
 <translation id="5986723678596105470">Google Meet으로 참여</translation>
@@ -1542,7 +1545,6 @@
 <translation id="6166852626429024716">기기, 앱, 설정, 웹에서 검색...</translation>
 <translation id="6168318496333165060">진단 앱 열기</translation>
 <translation id="6168622430237609329">내 설치된 앱</translation>
-<translation id="6173151025443907148">Lacros가 사용 설정된 경우에는 두 번째 사용자 로그인이 지원되지 않습니다. 대신 Lacros에서 두 번째 브라우저 프로필을 사용하거나 Lacros를 사용 안함으로 설정했다가 다시 시도해 보세요.</translation>
 <translation id="6179832488876878285">여기에 중요한 파일을 고정할 수 있습니다. 시작하려면 파일 앱을 여세요.</translation>
 <translation id="6180193585172850042">뒤로 버튼</translation>
 <translation id="6180651297859206670">앞으로 버튼</translation>
@@ -1564,6 +1566,7 @@
 <translation id="6232416233079464213">출처: <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" />에서 카메라와 마이크를 사용 중입니다.</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">비밀번호에는 유효한 문자만 포함해야 합니다.</translation>
 <translation id="6240603910551255087">상단 버튼</translation>
 <translation id="6240821072888636753">시작할 때마다 묻기</translation>
 <translation id="6247728804802644171">알림 열기</translation>
@@ -1694,7 +1697,6 @@
 <translation id="6682029141988159141">클립보드의 콘텐츠 붙여넣기</translation>
 <translation id="6683022854667115063">헤드폰</translation>
 <translation id="6686023075541098243">휴대전화 알림 보기 설정</translation>
-<translation id="6688019813898140556">Esc 5회</translation>
 <translation id="6694462491298752106">내장 터치패드가 사용 중지되었습니다</translation>
 <translation id="6694973220096431421">Google Drive 검색</translation>
 <translation id="6696025732084565524">분리식 키보드에 중요 업데이트 필요</translation>
@@ -1715,6 +1717,7 @@
 <translation id="6751826523481687655">성능 추적이 사용 설정되어 있습니다.</translation>
 <translation id="6752912906630585008"><ph name="REMOVED_DESK" /> 데스크가 삭제되고 <ph name="RECEIVE_DESK" /> 데스크와 병합되었습니다.</translation>
 <translation id="6753390234084146956">탭</translation>
+<translation id="6754918760968695779">빠른 입력</translation>
 <translation id="6757237461819837179">재생 중인 미디어 없음</translation>
 <translation id="6760438044935091345">게임 대시보드</translation>
 <translation id="6768043681523654438">저장용량</translation>
@@ -1764,6 +1767,7 @@
 <translation id="6921427376813842559">기기 업데이트</translation>
 <translation id="6929081673585394903">컨트롤 표시</translation>
 <translation id="6931576957638141829">저장 위치</translation>
+<translation id="6935857786205183008">세로 모드</translation>
 <translation id="6942518653766415536">녹화 형식 메뉴</translation>
 <translation id="6945221475159498467">선택</translation>
 <translation id="6945922087561257829">휴대전화가 모바일 네트워크에 연결되어 있습니다. 휴대전화와 Chromebook이 동일한 Wi-Fi 네트워크에 연결되어 있는지 확인한 후 다시 시도해 보세요. <ph name="LEARN_MORE" /></translation>
@@ -1920,9 +1924,6 @@
 기기를 종료하려면 기기의 전원 버튼을 다시 길게 누르세요.</translation>
 <translation id="7523420897035067483">집중 모드 사용 중 방해 금지 모드 사용 설정</translation>
 <translation id="7524043547948122239">Google Tasks</translation>
-<translation id="7524919752437339268">내장 터치패드가 사용 중지되었습니다. 키보드 또는 다른 포인팅 기기를 사용하여 변경사항을 확인하세요.
-
-그렇지 않으면 30초 후에 내장 터치패드가 다시 사용 설정됩니다.</translation>
 <translation id="7525067979554623046">만들기</translation>
 <translation id="7526573455193969409">네트워크가 모니터링될 수 있음</translation>
 <translation id="7536035074519304529">IP 주소: <ph name="ADDRESS" /></translation>
@@ -2009,6 +2010,7 @@
 <translation id="780301667611848630">사용 안함</translation>
 <translation id="7807067443225230855">검색 및 어시스턴트</translation>
 <translation id="7814236020522506259"><ph name="HOUR" />시간 <ph name="MINUTE" />분</translation>
+<translation id="7823946889603375473">좋아요를 누르면 이 추천이 마음에 든다는 의견이 제출됩니다.</translation>
 <translation id="7825412704590278437">예정된 캘린더 일정</translation>
 <translation id="7829386189513694949">신호 강함</translation>
 <translation id="7830453190047749513"><ph name="PERIPHERAL_NAME" />의 버튼 작업, 커서 속도 등을 맞춤설정할 수 있습니다.</translation>
@@ -2163,6 +2165,7 @@
 <translation id="830868413617744215">베타</translation>
 <translation id="8314772463905284467">Caps Lock이 켜져 있습니다.</translation>
 <translation id="8315514906653279104">켜는 중...</translation>
+<translation id="8319634750346253957">싫어요를 누르면 이 추천이 마음에 들지 않는다는 의견이 제출됩니다.</translation>
 <translation id="8331351032546853669">다운로드 대기 중</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2348,6 +2351,7 @@
 <translation id="8982906748181120328">Nearby 전체 공개</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590"><ph name="IME_NAME" /> 사용 중</translation>
+<translation id="8991648557324317894">취소하려면 fn + 빠른 입력 또는 Shift를 누르세요.</translation>
 <translation id="899350903320462459">알림 작업을 실행하려면 <ph name="LOGIN_ID" />(으)로 기기의 잠금을 해제하세요.</translation>
 <translation id="8993733019280019776">말씀하셨나요? 마이크가 꺼져 있습니다. 켤 마이크를 선택하세요.</translation>
 <translation id="9000771174482730261">저장용량 관리</translation>
@@ -2430,9 +2434,9 @@
 <translation id="974545358917229949"><ph name="QUERY" /> 검색결과 <ph name="RESULT_COUNT" />개 표시 중</translation>
 <translation id="981011780479609956">기한 없음</translation>
 <translation id="98120814841227350">문서 하단으로 이동</translation>
-<translation id="98515147261107953">풍경</translation>
 <translation id="987589956647469042">모바일 데이터가 사용 설정되었습니다.</translation>
 <translation id="989374776391122812">카메라 및 오디오 설정</translation>
+<translation id="990263227494928142">터치패드를 사용 설정하려면 Shift 키를 5번 누르세요.</translation>
 <translation id="990277280839877440"><ph name="WINDOW_TITILE" /> 창이 닫혔습니다.</translation>
 <translation id="993398562350683614">둘러보기 <ph name="TOTAL_STEPS" />단계 중 <ph name="STEP" />단계입니다. 앱을 사용하여 <ph name="PRODUCT_NAME" />에서 필요한 모든 작업을 수행해 보세요. 런처에서 앱을 찾을 수 있습니다. 런처 버튼에 포커스하려면 Alt + Shift + L을 누르세요.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

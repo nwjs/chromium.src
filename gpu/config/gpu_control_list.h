@@ -156,7 +156,8 @@ class GPU_EXPORT GpuControlList {
   };
 
   struct GPU_EXPORT MachineModelInfo {
-    base::span<const char* const> machine_model_names;
+    // TODO(367764863) Rewrite to base::raw_span.
+    RAW_PTR_EXCLUSION base::span<const char* const> machine_model_names;
     Version machine_model_version;
 
     bool Contains(const GPUInfo& gpu_info) const;
@@ -195,7 +196,9 @@ class GPU_EXPORT GpuControlList {
   };
 
   struct GPU_EXPORT IntelConditions {
-    base::span<const IntelGpuSeriesType> intel_gpu_series_list;
+    // TODO(367764863) Rewrite to base::raw_span.
+    RAW_PTR_EXCLUSION base::span<const IntelGpuSeriesType>
+        intel_gpu_series_list;
     Version intel_gpu_generation;
 
     bool Contains(const std::vector<GPUInfo::GPUDevice>& candidates,
@@ -206,7 +209,8 @@ class GPU_EXPORT GpuControlList {
     OsType os_type;
     Version os_version;
     uint32_t vendor_id;
-    base::span<const Device> devices;
+    // TODO(367764863) Rewrite to base::raw_span.
+    RAW_PTR_EXCLUSION base::span<const Device> devices;
     MultiGpuCategory multi_gpu_category;
     MultiGpuStyle multi_gpu_style;
     // RAW_PTR_EXCLUSION: since these pointers only ever point to other
@@ -244,12 +248,21 @@ class GPU_EXPORT GpuControlList {
   struct GPU_EXPORT Entry {
     uint32_t id;
     const char* description;
-    base::span<const int> features;
-    base::span<const char* const> disabled_extensions;
-    base::span<const char* const> disabled_webgl_extensions;
-    base::span<const uint32_t> cr_bugs;
+    // `Entry` is used extensively in
+    // `gpu/config/gpu_driver_bug_list_autogen.cc`, where making these
+    // `raw_span` would cause the
+    //
+    // > declaration requires an exit-time destructor
+    //
+    // error. At a glance, these tend to point at static constant
+    // `std::array`s, though, so there should be no harm in leaving them as
+    // `base::span`.
+    RAW_PTR_EXCLUSION base::span<const int> features;
+    RAW_PTR_EXCLUSION base::span<const char* const> disabled_extensions;
+    RAW_PTR_EXCLUSION base::span<const char* const> disabled_webgl_extensions;
+    RAW_PTR_EXCLUSION base::span<const uint32_t> cr_bugs;
     Conditions conditions;
-    base::span<const Conditions> exceptions;
+    RAW_PTR_EXCLUSION base::span<const Conditions> exceptions;
 
     bool Contains(OsType os_type,
                   const std::string& os_version,

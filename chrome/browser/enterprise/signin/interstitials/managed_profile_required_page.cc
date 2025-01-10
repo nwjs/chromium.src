@@ -8,7 +8,9 @@
 
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
+#include "chrome/browser/enterprise/signin/managed_profile_required_navigation_throttle.h"
 #include "chrome/browser/ui/profiles/profile_picker.h"
+#include "chrome/grit/branded_strings.h"
 #include "components/enterprise/connectors/core/enterprise_interstitial_util.h"
 #include "components/grit/components_resources.h"
 #include "components/safe_browsing/core/common/features.h"
@@ -23,6 +25,7 @@
 #include "content/public/browser/web_contents.h"
 #include "net/base/net_errors.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/strings/grit/ui_strings.h"
 
 using security_interstitials::MetricsHelper;
 
@@ -34,17 +37,13 @@ const security_interstitials::SecurityInterstitialPage::TypeID
 ManagedProfileRequiredPage::ManagedProfileRequiredPage(
     content::WebContents* web_contents,
     const GURL& request_url,
-    const std::u16string& manager,
-    const std::u16string& email,
     std::unique_ptr<
         security_interstitials::SecurityInterstitialControllerClient>
         controller_client)
     : security_interstitials::SecurityInterstitialPage(
           web_contents,
           request_url,
-          std::move(controller_client)),
-      manager_(manager),
-      email_(email) {
+          std::move(controller_client)) {
   controller()->metrics_helper()->RecordUserDecision(MetricsHelper::SHOW);
   controller()->metrics_helper()->RecordUserInteraction(
       MetricsHelper::TOTAL_VISITS);
@@ -65,21 +64,14 @@ void ManagedProfileRequiredPage::PopulateInterstitialStrings(
   load_time_data.Set(
       "tabTitle",
       l10n_util::GetStringUTF16(IDS_MANAGED_PROFILE_INTERSTITIAL_TAB_TITLE));
-  load_time_data.Set(
-      "primaryParagraph",
-      l10n_util::GetStringFUTF16(
-          IDS_MANAGED_PROFILE_INTERSTITIAL_PRIMARY_PARAGRAPH, email_));
+  load_time_data.Set("primaryParagraph",
+                     l10n_util::GetStringUTF16(
+                         IDS_MANAGED_PROFILE_INTERSTITIAL_PRIMARY_PARAGRAPH));
 
-  load_time_data.Set(
-      "heading",
-      manager_.empty()
-          ? l10n_util::GetStringUTF16(
-                IDS_MANAGED_PROFILE_INTERSTITIAL_UNKNOWN_MANAGER_HEADING)
-          : l10n_util::GetStringFUTF16(IDS_MANAGED_PROFILE_INTERSTITIAL_HEADING,
-                                       manager_));
-  load_time_data.Set(
-      "primaryButtonText",
-      l10n_util::GetStringUTF16(IDS_MANAGED_PROFILE_INTERSTITIAL_SIGNIN));
+  load_time_data.Set("heading", l10n_util::GetStringUTF16(
+                                    IDS_MANAGED_PROFILE_INTERSTITIAL_HEADING));
+  load_time_data.Set("primaryButtonText",
+                     l10n_util::GetStringUTF16(IDS_APP_CONTINUE));
 }
 
 void ManagedProfileRequiredPage::OnInterstitialClosing() {}
@@ -97,9 +89,21 @@ void ManagedProfileRequiredPage::CommandReceived(const std::string& command) {
 
   switch (cmd) {
     case security_interstitials::CMD_DONT_PROCEED:
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+      if (ManagedProfileRequiredNavigationThrottle::IsBlockingNavigations(
+              web_contents()->GetBrowserContext())) {
+        ManagedProfileRequiredNavigationThrottle::ShowBlockedWindow(
+            web_contents()->GetBrowserContext());
+      } else {
+        controller()->metrics_helper()->RecordUserDecision(
+            MetricsHelper::DONT_PROCEED);
+        controller()->Reload();
+      }
+#else
       controller()->metrics_helper()->RecordUserDecision(
           MetricsHelper::DONT_PROCEED);
-      controller()->GoBack();
+      controller()->Reload();
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
       break;
     case security_interstitials::CMD_PROCEED:
     case security_interstitials::CMD_OPEN_HELP_CENTER:
@@ -114,8 +118,7 @@ void ManagedProfileRequiredPage::CommandReceived(const std::string& command) {
     case security_interstitials::CMD_OPEN_LOGIN:
     case security_interstitials::CMD_REPORT_PHISHING_ERROR:
       // Not supported by the URL blocking page.
-      NOTREACHED_IN_MIGRATION() << "Unsupported command: " << command;
-      break;
+      NOTREACHED() << "Unsupported command: " << command;
     case security_interstitials::CMD_ERROR:
     case security_interstitials::CMD_TEXT_FOUND:
     case security_interstitials::CMD_TEXT_NOT_FOUND:

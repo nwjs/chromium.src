@@ -264,16 +264,6 @@ InlineLayoutAlgorithm::InlineLayoutAlgorithm(
 // header.
 InlineLayoutAlgorithm::~InlineLayoutAlgorithm() = default;
 
-bool InlineLayoutAlgorithm::HasContainerBorderPaddingAtBlockStart() const {
-  return context_->ContainerBuilder()->BorderPadding().block_start !=
-         LayoutUnit();
-}
-
-bool InlineLayoutAlgorithm::HasContainerBorderPaddingAtBlockEnd() const {
-  return context_->ContainerBuilder()->BorderPadding().block_end !=
-         LayoutUnit();
-}
-
 // Prepare InlineLayoutStateStack for a new line.
 void InlineLayoutAlgorithm::PrepareBoxStates(
     const LineInfo& line_info,
@@ -561,8 +551,10 @@ void InlineLayoutAlgorithm::CreateLine(const LineLayoutOpportunity& opportunity,
     container_builder_.SetMetrics(line_box_metrics);
 
   const ConstraintSpace& space = GetConstraintSpace();
-  if (space.ShouldTextBoxTrimStart() || space.ShouldTextBoxTrimEnd())
-      [[unlikely]] {
+  if (space.ShouldTextBoxTrimNodeStart() || space.ShouldTextBoxTrimNodeEnd() ||
+      space.ShouldTextBoxTrimFragmentainerStart() ||
+      space.ShouldTextBoxTrimFragmentainerEnd() ||
+      space.ShouldTextBoxTrimInsideWhenLineClamp()) [[unlikely]] {
     bool is_truncated = line_clamp_state == LineClampState::kEllipsize ||
                         space.GetLineClampData().state ==
                             LineClampData::kMeasureLinesUntilBfcOffset;
@@ -607,26 +599,19 @@ void InlineLayoutAlgorithm::CreateLine(const LineLayoutOpportunity& opportunity,
 void InlineLayoutAlgorithm::ApplyTextBoxTrim(LineInfo& line_info,
                                              bool is_truncated) {
   const ConstraintSpace& space = GetConstraintSpace();
-  if (const LayoutResult* block_in_inline =
-          line_info.BlockInInlineLayoutResult()) {
-    // If this is a wrapper line of a block-in-inline, the trimming is applied
-    // to the block. Propagate the result from the block, without trimming the
-    // wrapper line.
-    if (block_in_inline->IsBlockStartTrimmed() &&
-        space.ShouldTextBoxTrimStart()) {
-      container_builder_.SetIsBlockStartTrimmed();
-    }
-    if (block_in_inline->IsBlockEndTrimmed() && space.ShouldTextBoxTrimEnd()) {
-      container_builder_.SetIsBlockEndTrimmed();
-    }
+  if (line_info.BlockInInlineLayoutResult()) {
+    // If this is a wrapper line of a block-in-inline, any trimming takes place
+    // on a line box inside that block. Nothing to do here.
     return;
   }
 
-  const bool should_apply_start =
-      space.ShouldTextBoxTrimStart() && line_info.IsFirstFormattedLine();
-  const bool should_apply_end = space.ShouldTextBoxTrimEnd() &&
-                                (is_truncated || !line_info.GetBreakToken() ||
-                                 space.ShouldForceTextBoxTrimEnd());
+  const bool should_apply_start = (space.ShouldTextBoxTrimNodeStart() &&
+                                   line_info.IsFirstFormattedLine()) ||
+                                  space.ShouldTextBoxTrimFragmentainerStart();
+  const bool should_apply_end =
+      (space.ShouldTextBoxTrimNodeEnd() && !line_info.GetBreakToken()) ||
+      (space.ShouldTextBoxTrimInsideWhenLineClamp() && is_truncated) ||
+      space.ShouldForceTextBoxTrimEnd();
   if (!should_apply_start && !should_apply_end) {
     return;
   }
@@ -647,54 +632,41 @@ void InlineLayoutAlgorithm::ApplyTextBoxTrim(LineInfo& line_info,
       should_apply_over, should_apply_under, intrinsic_metrics);
 
   if (should_apply_start) {
-    if (HasContainerBorderPaddingAtBlockStart()) [[unlikely]] {
-      // If there is intervening non-zero padding or borders, there is no
-      // effect, but report that it is applied to stop the propagation.
-      container_builder_.SetIsBlockStartTrimmed();
+    // Apply `text-box-trim: start` if this is the first formatted line.
+    LayoutUnit offset_for_trimming_box;
+    if (is_flipped_line) [[unlikely]] {
+      offset_for_trimming_box =
+          intrinsic_metrics.descent - line_box_metrics.descent;
     } else {
-      // Apply `text-box-trim: start` if this is the first formatted line.
-      LayoutUnit offset_for_trimming_box;
-      if (is_flipped_line) [[unlikely]] {
-        offset_for_trimming_box =
-            intrinsic_metrics.descent - line_box_metrics.descent;
-      } else {
-        offset_for_trimming_box =
-            intrinsic_metrics.ascent - line_box_metrics.ascent;
-      }
-      container_builder_.SetLineBoxBfcBlockOffset(
-          container_builder_.LineBoxBfcBlockOffset()
-              ? offset_for_trimming_box +
-                    container_builder_.LineBoxBfcBlockOffset().value()
-              : offset_for_trimming_box);
-      container_builder_.SetIsBlockStartTrimmed();
-
-      // Cancel adjusting the block start for the initial letters and Ruby
-      // annotation. The use of the `text-box-trim` accepts the risk of
-      // collisions for the finer control of the alignment of the body text in
-      // the block direction.
-      line_info.SetAnnotationBlockStartAdjustment(LayoutUnit());
-      line_info.SetInitialLetterBlockStartAdjustment(LayoutUnit());
+      offset_for_trimming_box =
+          intrinsic_metrics.ascent - line_box_metrics.ascent;
     }
+    container_builder_.SetLineBoxBfcBlockOffset(
+        container_builder_.LineBoxBfcBlockOffset()
+            ? offset_for_trimming_box +
+                  container_builder_.LineBoxBfcBlockOffset().value()
+            : offset_for_trimming_box);
+
+    // Cancel adjusting the block start for the initial letters and Ruby
+    // annotation. The use of the `text-box-trim` accepts the risk of collisions
+    // for the finer control of the alignment of the body text in the block
+    // direction.
+    line_info.SetAnnotationBlockStartAdjustment(LayoutUnit());
+    line_info.SetInitialLetterBlockStartAdjustment(LayoutUnit());
   }
 
   if (should_apply_end) {
-    if (HasContainerBorderPaddingAtBlockEnd()) [[unlikely]] {
-      // If there is intervening non-zero padding or borders, there is no
-      // effect, but report that it is applied to stop the propagation.
-      container_builder_.SetIsBlockEndTrimmed();
+    container_builder_.SetIsBlockEndTrimmableLine();
+    // Ask the block layout algorithm to trim the end of the line box.
+    LayoutUnit block_end_to_be_trimmed;
+    if (is_flipped_line) [[unlikely]] {
+      block_end_to_be_trimmed =
+          line_box_metrics.ascent - intrinsic_metrics.ascent;
     } else {
-      // Ask the block layout algorithm to trim the end of the line box.
-      LayoutUnit block_end_to_be_trimmed;
-      if (is_flipped_line) [[unlikely]] {
-        block_end_to_be_trimmed =
-            line_box_metrics.ascent - intrinsic_metrics.ascent;
-      } else {
-        block_end_to_be_trimmed =
-            line_box_metrics.descent - intrinsic_metrics.descent;
-      }
-      container_builder_.SetTrimBlockEndBy(block_end_to_be_trimmed);
-      container_builder_.SetIsBlockEndTrimmed();
+      block_end_to_be_trimmed =
+          line_box_metrics.descent - intrinsic_metrics.descent;
     }
+    container_builder_.SetTrimBlockEndBy(block_end_to_be_trimmed);
   }
 }
 

@@ -1183,8 +1183,7 @@ class EnclaveManager::StateMachine {
       case State::kStop:
         // This should never be observed here as this special case is handled
         // below.
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
 
       case State::kNextAction:
         CHECK(absl::holds_alternative<None>(event)) << ToString(event);
@@ -1827,14 +1826,14 @@ class EnclaveManager::StateMachine {
         manager_->IdentityKeySigningCallback(),
         base::BindOnce(
             [](base::WeakPtr<StateMachine> machine,
-               std::optional<cbor::Value> response) {
+               base::expected<cbor::Value, enclave::TransactError> response) {
               if (!machine) {
                 return;
               }
-              if (!response) {
+              if (!response.has_value()) {
                 machine->Process(Failure());
               } else {
-                machine->Process(EnclaveResponse(std::move(*response)));
+                machine->Process(EnclaveResponse(std::move(response.value())));
               }
             },
             weak_ptr_factory_.GetWeakPtr()));
@@ -1931,7 +1930,8 @@ class EnclaveManager::StateMachine {
                       }
                       machine->Process(std::move(result));
                     },
-                    weak_ptr_factory_.GetWeakPtr()));
+                    weak_ptr_factory_.GetWeakPtr()),
+                /*keep_alive_callback=*/base::DoNothing());
   }
 
   void DoSyncingWithSecurityDomain(Event event) {
@@ -2456,11 +2456,12 @@ class EnclaveManager::StateMachine {
             signin::ConsentLevel::kSignin);
   }
 
-  void OnEnclaveResponse(std::optional<cbor::Value> response) {
-    if (!response) {
+  void OnEnclaveResponse(
+      base::expected<cbor::Value, enclave::TransactError> response) {
+    if (!response.has_value()) {
       Process(Failure());
     } else {
-      Process(EnclaveResponse(std::move(*response)));
+      Process(EnclaveResponse(std::move(response.value())));
     }
   }
 

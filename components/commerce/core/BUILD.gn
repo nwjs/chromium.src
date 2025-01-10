@@ -318,6 +318,7 @@ source_set("shopping_service_test_support") {
 
   # Expose all deps for test support.
   public_deps = [
+    ":account_checker_test_support",
     ":commerce_info_cache",
     ":feature_list",
     ":pref_names",
@@ -414,6 +415,8 @@ source_set("account_checker") {
     "//base",
     "//components/endpoint_fetcher:endpoint_fetcher",
     "//components/prefs:prefs",
+    "//components/search",
+    "//components/search_engines",
     "//components/signin/public/identity_manager:identity_manager",
     "//components/sync/base",
     "//components/sync/service",

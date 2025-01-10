@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <atomic>
 #include <compare>
+#include <limits>
 #include <list>
 #include <ostream>
 #include <set>
@@ -43,6 +44,7 @@
 #include "base/task/task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
+#include "base/task/updateable_sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
 #include "base/trace_event/common/trace_event_common.h"
@@ -228,11 +230,9 @@ std::
 class IndexedDBDataItemReader : public storage::mojom::BlobDataItemReader {
  public:
   IndexedDBDataItemReader(const base::FilePath& file_path,
-                          base::Time expected_modification_time,
                           base::OnceCallback<void(const base::FilePath&)>
                               on_last_receiver_disconnected)
       : file_path_(file_path),
-        expected_modification_time_(std::move(expected_modification_time)),
         on_last_receiver_disconnected_(
             std::move(on_last_receiver_disconnected)) {
     // The `BlobStorageContext` will disconnect when the blob is no longer
@@ -283,7 +283,6 @@ class IndexedDBDataItemReader : public storage::mojom::BlobDataItemReader {
   mojo::ReceiverSet<storage::mojom::BlobDataItemReader> receivers_;
 
   base::FilePath file_path_;
-  base::Time expected_modification_time_;
 
   // Called when the last receiver is disconnected. Will destroy `this`.
   base::OnceCallback<void(const base::FilePath&)>
@@ -305,12 +304,14 @@ BucketContext::BucketContext(
     storage::BucketInfo bucket_info,
     const base::FilePath& data_path,
     Delegate&& delegate,
+    scoped_refptr<base::UpdateableSequencedTaskRunner> updateable_task_runner,
     scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy,
     mojo::PendingRemote<storage::mojom::BlobStorageContext>
         blob_storage_context,
     mojo::PendingRemote<storage::mojom::FileSystemAccessContext>
         file_system_access_context)
     : bucket_info_(std::move(bucket_info)),
+      updateable_task_runner_(updateable_task_runner),
       data_path_(data_path),
       quota_manager_proxy_(std::move(quota_manager_proxy)),
       blob_storage_context_(std::move(blob_storage_context)),
@@ -426,6 +427,41 @@ void BucketContext::ReportOutstandingBlobs(bool blobs_outstanding) {
   MaybeStartClosing();
 }
 
+void BucketContext::OnConnectionPriorityUpdated() {
+  if (!updateable_task_runner_) {
+    return;
+  }
+  base::TaskPriority priority = CalculateSchedulingPriority() == 0
+                                    ? base::TaskPriority::USER_BLOCKING
+                                    : base::TaskPriority::USER_VISIBLE;
+  updateable_task_runner_->UpdatePriority(priority);
+}
+
+std::optional<int> BucketContext::CalculateSchedulingPriority() {
+  std::optional<int> scheduling_priority;
+  // Established connections:
+  for (const auto& [name, database] : databases_) {
+    for (auto* connection : database->connections()) {
+      scheduling_priority = std::min(
+          scheduling_priority.value_or(std::numeric_limits<int>::max()),
+          connection->scheduling_priority());
+    }
+  }
+  // Pending connections:
+  for (auto iter = pending_connections_.begin();
+       iter != pending_connections_.end();) {
+    if (iter->WasInvalidated()) {
+      iter = pending_connections_.erase(iter);
+    } else {
+      scheduling_priority = std::min(
+          scheduling_priority.value_or(std::numeric_limits<int>::max()),
+          (*iter)->scheduling_priority);
+      ++iter;
+    }
+  }
+  return scheduling_priority;
+}
+
 void BucketContext::CheckCanUseDiskSpace(
     int64_t space_requested,
     base::OnceCallback<void(bool)> bucket_space_check_callback) {
@@ -526,13 +562,7 @@ void BucketContext::CreateAllExternalObjects(
         element->content_type = base::UTF16ToUTF8(blob_info.type());
         element->type = storage::mojom::BlobDataItemType::kIndexedDB;
 
-        base::Time last_modified;
-        // Android doesn't seem to consistently be able to set file modification
-        // times. https://crbug.com/1045488
-#if !BUILDFLAG(IS_ANDROID)
-        last_modified = blob_info.last_modified();
-#endif
-        BindFileReader(blob_info.indexed_db_file_path(), last_modified,
+        BindFileReader(blob_info.indexed_db_file_path(),
                        blob_info.release_callback(),
                        element->reader.InitWithNewPipeAndPassReceiver());
 
@@ -715,7 +745,9 @@ void BucketContext::Open(
     database_ptr = it->second.get();
   }
 
+  pending_connections_.push_back(connection->weak_factory.GetWeakPtr());
   database_ptr->ScheduleOpenConnection(std::move(connection));
+  OnConnectionPriorityUpdated();
 }
 
 void BucketContext::DeleteDatabase(
@@ -966,7 +998,6 @@ void BucketContext::CloseNow() {
 
 void BucketContext::BindFileReader(
     const base::FilePath& path,
-    base::Time expected_modification_time,
     base::OnceClosure release_callback,
     mojo::PendingReceiver<storage::mojom::BlobDataItemReader> receiver) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -976,9 +1007,8 @@ void BucketContext::BindFileReader(
   if (itr == file_reader_map_.end()) {
     // Unretained is safe because `this` owns the reader.
     auto reader = std::make_unique<IndexedDBDataItemReader>(
-        path, expected_modification_time,
-        base::BindOnce(&BucketContext::RemoveBoundReaders,
-                       base::Unretained(this)));
+        path, base::BindOnce(&BucketContext::RemoveBoundReaders,
+                             base::Unretained(this)));
     itr = file_reader_map_
               .insert({path, std::make_tuple(std::move(reader),
                                              base::ScopedClosureRunner(

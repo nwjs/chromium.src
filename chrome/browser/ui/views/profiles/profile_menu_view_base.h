@@ -14,7 +14,6 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ptr_exclusion.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/profiles/profile_metrics.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -128,12 +127,15 @@ class ProfileMenuViewBase : public content::WebContentsDelegate,
       const std::u16string& title,
       const std::u16string& subtitle = std::u16string(),
       const std::u16string& management_label = std::u16string(),
-      const ui::ThemedVectorIcon& avatar_header_art = ui::ThemedVectorIcon());
+      const gfx::VectorIcon* header_art_icon = nullptr);
 
-  // `profile_image`, `title` and `subtitle` may not be empty.
-  // If `button_text` is empty, no button will be shown.
+  // `profile_image` and `title` may not be empty.
+  // If `subtitle` is empty, no subtitle is shown (see disclaimer below).
+  // If `button_text` is empty, no button is shown.
   // If `button_image` is empty, the button has no image.
   // `action` must be valid if there is a button.
+  // Disclaimer: This function does not support showing a button with no
+  // subtitle. If the `subtitle` is empty then `button_text` must be empty.
   void SetProfileIdentityWithCallToAction(SkColor profile_background_color,
                                           const ui::ImageModel& profile_image,
                                           const std::u16string& title,

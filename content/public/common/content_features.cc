@@ -8,6 +8,7 @@
 
 #include "base/feature_list.h"
 #include "base/time/time.h"
+#include "build/android_buildflags.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "build/config/chromebox_for_meetings/buildflags.h"
@@ -56,6 +57,12 @@ const base::FeatureParam<int> kAndroidSpareRendererCreationDelayMs{
 const base::FeatureParam<int> kAndroidSpareRendererTimeoutSeconds{
     &kAndroidWarmUpSpareRendererWithTimeout, "spare_renderer_timeout_seconds",
     60};
+
+// The lower memory limit to create a spare renderer after each navigation on
+// Android.
+const base::FeatureParam<int> kAndroidSpareRendererMemoryThreshold{
+    &kAndroidWarmUpSpareRendererWithTimeout, "spare_renderer_memory_threshold",
+    1077};
 
 // Launches the audio service on the browser startup.
 BASE_FEATURE(kAudioServiceLaunchOnStartup,
@@ -194,6 +201,19 @@ BASE_FEATURE(kCapturedSurfaceControlStickyPermissions,
              "CapturedSurfaceControlStickyPermissions",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// If enabled, render processes associated only with tabs in unfocused windows
+// will be downgraded to "vis" priority, rather than remaining at "fg". This
+// will allow tabs in unfocused windows to be prioritized for OOM kill in
+// low-memory scenarios.
+BASE_FEATURE(kChangeUnfocusedPriority,
+             "ChangeUnfocusedPriority",
+#if BUILDFLAG(IS_DESKTOP_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif  // BUILDFLAG(IS_DESKTOP_ANDROID)
+);
+
 // Clear the window.name property for the top-level cross-site navigations that
 // swap BrowsingContextGroups(BrowsingInstances).
 BASE_FEATURE(kClearCrossSiteCrossBrowsingContextGroupWindowName,
@@ -292,6 +312,10 @@ BASE_FEATURE(kDigitalGoodsApi,
 // behavior (database persistence, DIPS deletion) will be gated by params.
 BASE_FEATURE(kDIPS, "DIPS", base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Flag used to control |interaction_ttl| separately from the kDIPS feature
+// flag.
+BASE_FEATURE(kDIPSTtl, "DIPSTtl", base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Set whether DIPS persists its database to disk.
 const base::FeatureParam<bool> kDIPSPersistedDatabaseEnabled{
     &kDIPS, "persist_database", true};
@@ -320,7 +344,7 @@ const base::FeatureParam<base::TimeDelta> kDIPSTimerDelay{&kDIPS, "timer_delay",
 // NOTE: Updating this param name (to reflect WAA) is deemed unnecessary as far
 // as readability is concerned.
 const base::FeatureParam<base::TimeDelta> kDIPSInteractionTtl{
-    &kDIPS, "interaction_ttl", base::Days(45)};
+    &kDIPSTtl, "interaction_ttl", base::Days(45)};
 
 constexpr base::FeatureParam<content::DIPSTriggeringAction>::Option
     kDIPSTriggeringActionOptions[] = {
@@ -378,6 +402,11 @@ BASE_FEATURE(kDisconnectExtensionMessagePortWhenPageEntersBFCache,
              "DisconnectExtensionMessagePortWhenPageEntersBFCache",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables the Origin Trial of Document-Isolation-Policy.
+BASE_FEATURE(kDocumentIsolationPolicyOriginTrial,
+             "DocumentIsolationPolicyOriginTrial",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Enable drawing under System Bars within DisplayCutout.
 BASE_FEATURE(kDrawCutoutEdgeToEdge,
              "DrawCutoutEdgeToEdge",
@@ -423,7 +452,11 @@ BASE_FEATURE(kFedCmUseOtherAccount,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables usage of the FedCM Authz API.
-BASE_FEATURE(kFedCmAuthz, "FedCmAuthz", base::FEATURE_DISABLED_BY_DEFAULT);
+// Note that actual exposure of the API to web content is controlled by
+// the flag in RuntimeEnabledFeatures on the blink side. See also the use
+// of kSetOnlyIfOverridden in content/child/runtime_features.cc. We enable
+// it here by default to support use in origin trials and web platform tests.
+BASE_FEATURE(kFedCmAuthz, "FedCmAuthz", base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables usage of the FedCM ButtonMode feature.
 // Note that actual exposure of the API to web content is controlled by
@@ -503,6 +536,12 @@ BASE_FEATURE(kNetworkQualityEstimatorWebHoldback,
 // quotes and escaped backslashed should be added to the Sec-CH-UA header
 // (activated by kUserAgentClientHint)
 BASE_FEATURE(kGreaseUACH, "GreaseUACH", base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Whether GuestViews (see components/guest_view/README.md) are implemented
+// using MPArch inner pages. See https://crbug.com/40202416
+BASE_FEATURE(kGuestViewMPArch,
+             "GuestViewMPArch",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // See crbug.com/359623664
 BASE_FEATURE(kIdbPrioritizeForegroundClients,
@@ -916,11 +955,32 @@ constexpr base::FeatureParam<double> kProcessPerSiteMainFrameTotalMemoryLimit{
     &kProcessPerSiteUpToMainFrameThreshold,
     "ProcessPerSiteMainFrameTotalMemoryLimit", 2 * 1024 * 1024 * 1024u};
 
+// Enables auto preloading for fetch requests before invoking the fetch handler
+// in ServiceWorker. The fetch request inside the fetch handler is resolved with
+// this preload response. If the fetch handler result is fallback, uses this
+// preload request as a fallback network request.
+//
+// Unlike navigation preload, this preloading is applied to subresources. Also,
+// it doesn't require a developer opt-in.
+//
+// crbug.com/1472634 for more details.
+BASE_FEATURE(kServiceWorkerAutoPreload,
+             "ServiceWorkerAutoPreload",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables ServiceWorker static routing API.
 // https://github.com/WICG/service-worker-static-routing-api
 BASE_FEATURE(kServiceWorkerStaticRouter,
              "ServiceWorkerStaticRouter",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// crbug.com/374606637: When this is enabled, race-network-and-fetch-hander will
+// prioritize the response processing for the network request over the
+// processing for the fetch handler.
+BASE_FEATURE(
+    kServiceWorkerStaticRouterRaceNetworkRequestPerformanceImprovement,
+    "ServiceWorkerStaticRouterRaceNetworkRequestPerformanceImprovement",
+    base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Run video capture service in the Browser process as opposed to a dedicated
 // utility process.
@@ -1062,7 +1122,7 @@ const base::FeatureParam<SkiaFontServiceTypefaceType>
 // initialize COM.
 BASE_FEATURE(kUtilityWithUiPumpInitializesCom,
              "UtilityWithUiPumpInitializesCom",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN)
 
 // When enabled, OOPIFs will not try to reuse compatible processes from
@@ -1279,16 +1339,6 @@ BASE_FEATURE(kAccessibilityIncludeLongClickAction,
              "AccessibilityIncludeLongClickAction",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Allows the use of page zoom in place of accessibility text autosizing, and
-// updated UI to replace existing Chrome Accessibility Settings.
-BASE_FEATURE(kAccessibilityPageZoom,
-             "AccessibilityPageZoom",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Controls whether the OS-level font setting is adjusted for.
-const base::FeatureParam<bool> kAccessibilityPageZoomOSLevelAdjustment{
-    &kAccessibilityPageZoom, "AdjustForOSLevel", false};
-
 // Enables the use of enhancements to the Page Zoom feature based on user
 // feedback from the v1 version (e.g. reset button, Site Settings, etc).
 // This flag is the fast-follow for the AccessibilityPageZoom experiment.
@@ -1415,6 +1465,11 @@ const base::FeatureParam<CapturingState> kNavigationCapturingDefaultState{
     &kPwaNavigationCapturing, "link_capturing_state",
     CapturingState::kDefaultOn, &kNavigationCapturingParams};
 
+const base::FeatureParam<std::string> kForcedOffCapturingAppsOnFirstNavigation{
+    &kPwaNavigationCapturing, "initial_nav_forced_off_apps", ""};
+
+const base::FeatureParam<std::string> kForcedOffCapturingAppsUserSetting{
+    &kPwaNavigationCapturing, "user_settings_forced_off_apps", ""};
 namespace {
 enum class VideoCaptureServiceConfiguration {
   kEnabledForOutOfProcess,

@@ -156,6 +156,7 @@ public class AppHeaderCoordinatorBrowserTest {
     @Test
     @MediumTest
     @EnableFeatures(ChromeFeatureList.TAB_STRIP_TRANSITION_IN_DESKTOP_WINDOW)
+    @DisabledTest(message = "Flaky, crbug.com/375500318")
     public void testToggleTabStripVisibilityInDesktopWindow() {
         ChromeTabbedActivity activity = mActivityTestRule.getActivity();
         triggerDesktopWindowingModeChange(activity, true);
@@ -500,7 +501,7 @@ public class AppHeaderCoordinatorBrowserTest {
                 () -> {
                     var appHeaderCoordinator =
                             activity.getRootUiCoordinatorForTesting()
-                                    .getDesktopWindowStateProvider();
+                                    .getDesktopWindowStateManager();
                     Criteria.checkThat(appHeaderCoordinator, Matchers.notNullValue());
                 });
 
@@ -565,7 +566,7 @@ public class AppHeaderCoordinatorBrowserTest {
                 () -> {
                     var appHeaderStateProvider =
                             activity.getRootUiCoordinatorForTesting()
-                                    .getDesktopWindowStateProvider();
+                                    .getDesktopWindowStateManager();
                     setupAppHeaderRects(isInDesktopWindow);
                     var appHeaderState =
                             new AppHeaderState(

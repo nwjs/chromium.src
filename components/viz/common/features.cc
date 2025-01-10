@@ -19,7 +19,6 @@
 #include "gpu/config/gpu_finch_features.h"
 #include "gpu/config/gpu_switches.h"
 #include "media/media_buildflags.h"
-#include "ui/base/device_form_factor.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/build_info.h"
@@ -34,13 +33,6 @@ namespace features {
 BASE_FEATURE(kAndroidBrowserControlsInViz,
              "AndroidBrowserControlsInViz",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// TODO(b/361804880) Bug is a blocker for experimenting on stable. This flag
-// exists only to allow experiments for BCIV to run on stable. Remove when
-// bug is fixed.
-BASE_FEATURE(kAndroidBcivPhoneOnly,
-             "AndroidBcivPhoneOnly",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAndroidBcivWithSimpleScheduler,
              "AndroidBcivWithSimpleScheduler",
@@ -89,14 +81,8 @@ const char kMaxOverlaysParam[] = "max_overlays";
 
 BASE_FEATURE(kDelegatedCompositing,
              "DelegatedCompositing",
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
 const char kDrawQuadSplit[] = "num_of_splits";
 
 // If enabled, overrides the maximum number (exclusive) of quads one draw quad
@@ -104,7 +90,6 @@ const char kDrawQuadSplit[] = "num_of_splits";
 BASE_FEATURE(kDrawQuadSplitLimit,
              "DrawQuadSplitLimit",
              base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 constexpr base::FeatureParam<DelegatedCompositingMode>::Option
     kDelegatedCompositingModeOption[] = {
@@ -137,14 +122,10 @@ BASE_FEATURE(kDCompSurfacesForDelegatedInk,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
+// Note: This feature is actively being finched (Oct, 2024).
 BASE_FEATURE(kRenderPassDrawnRect,
              "RenderPassDrawnRect",
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
 // When wide color gamut content from the web is encountered, promote our
@@ -231,12 +212,6 @@ const base::FeatureParam<int> kCALayerNewLimitManyVideos{&kCALayerNewLimit,
                                                          "many-videos", -1};
 #endif
 
-#if BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_OZONE) || BUILDFLAG(IS_WIN)
-BASE_FEATURE(kCanSkipRenderPassOverlay,
-             "CanSkipRenderPassOverlay",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
-
 #if BUILDFLAG(IS_MAC)
 // Use the system CVDisplayLink callbacks for the BeginFrame source, so
 // BeginFrame is aligned with HW VSync.
@@ -262,7 +237,7 @@ const base::FeatureParam<int> kNumPendingFrames{&kVSyncAlignedPresent,
 
 BASE_FEATURE(kAllowUndamagedNonrootRenderPassToSkip,
              "AllowUndamagedNonrootRenderPassToSkip",
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS_LACROS)
+#if BUILDFLAG(IS_MAC)
              base::FEATURE_ENABLED_BY_DEFAULT);
 #else
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -283,12 +258,7 @@ BASE_FEATURE(kAllowForceMergeRenderPassWithRequireOverlayQuads,
 // OnBeginFrame we will send the Ack immediately, rather than batching it.
 BASE_FEATURE(kOnBeginFrameAcks,
              "OnBeginFrameAcks",
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // if enabled, Any CompositorFrameSink of type video that defines a preferred
 // framerate that is below the display framerate will throttle OnBeginFrame
@@ -340,11 +310,34 @@ BASE_FEATURE(kEnableMainFrameOnlyADPFRendererMain,
              "EnableMainFrameOnlyADPFRendererMain",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// If enabled, Chrome's ADPF(Android Dynamic Performance Framework) hint
+// session includes Renderer threads only if:
+// - The Renderer is handling an interacton
+// - The Renderer is the main frame's Renderer, and there no Renderers handling
+//   an interaction.
+BASE_FEATURE(kEnableInteractiveOnlyADPFRenderer,
+             "EnableInteractiveOnlyADPFRenderer",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // If enabled, Chrome includes the Compositor GPU Thread into the
 // ADPF(Android Dynamic Performance Framework) hint session, instead
 // of the GPU Main Thread.
 BASE_FEATURE(kEnableADPFGpuCompositorThread,
              "EnableADPFGpuCompositorThread",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// If enabled, Chrome puts Renderer Main threads into a separate
+// ADPF(Android Dynamic Performance Framework) hint session, and does not
+// report any timing hints from this session.
+BASE_FEATURE(kEnableADPFSeparateRendererMainSession,
+             "EnableADPFSeparateRendererMainSession",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, Chrome uses SetThreads instead of recreating an
+// ADPF(Android Dynamic Performance Framework) hint session when the set of
+// threads in the session changes.
+BASE_FEATURE(kEnableADPFSetThreads,
+             "EnableADPFSetThreads",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, surface activation and draw do not block on dependencies.
@@ -473,6 +466,7 @@ BASE_FEATURE(kVizNullHypothesis,
 BASE_FEATURE(kCrosContentAdjustedRefreshRate,
              "CrosContentAdjustedRefreshRate",
              base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 int DrawQuadSplitLimit() {
   constexpr int kDefaultDrawQuadSplitLimit = 5;
@@ -484,7 +478,6 @@ int DrawQuadSplitLimit() {
   return std::clamp(split_limit, kMinDrawQuadSplitLimit,
                     kMaxDrawQuadSplitLimit);
 }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 bool IsDelegatedCompositingEnabled() {
   return base::FeatureList::IsEnabled(kDelegatedCompositing);
@@ -653,9 +646,7 @@ bool ShouldUseDCompSurfacesForDelegatedInk() {
 
 #if BUILDFLAG(IS_ANDROID)
 bool IsBrowserControlsInVizEnabled() {
-  return base::FeatureList::IsEnabled(features::kAndroidBrowserControlsInViz) &&
-         (!base::FeatureList::IsEnabled(features::kAndroidBcivPhoneOnly) ||
-          ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE);
+  return base::FeatureList::IsEnabled(features::kAndroidBrowserControlsInViz);
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 

@@ -133,7 +133,7 @@ void CheckAutofillSuggestionAcceptedIndexMetricsCount(
   [MetricsAppInterface overrideMetricsAndCrashReportingForTesting];
 }
 
-- (void)tearDown {
+- (void)tearDownHelper {
   GREYAssertTrue([PasswordManagerAppInterface clearCredentials],
                  @"Clearing credentials wasn't done.");
   [PasswordSettingsAppInterface removeMockReauthenticationModule];
@@ -142,7 +142,7 @@ void CheckAutofillSuggestionAcceptedIndexMetricsCount(
   [MetricsAppInterface stopOverridingMetricsAndCrashReportingForTesting];
   GREYAssertNil([MetricsAppInterface releaseHistogramTester],
                 @"Failed to release histogram tester.");
-  [super tearDown];
+  [super tearDownHelper];
 }
 
 - (AppLaunchConfiguration)appConfigurationForTestCase {
@@ -477,6 +477,7 @@ id<GREYMatcher> OpenKeyboardButton() {
   [PasswordSettingsAppInterface removeMockReauthenticationModule];
 }
 
+// Disabled due to flakes across builders; see https://crbug.com/374961324.
 - (void)testOpenPasswordBottomSheetOpenPasswordDetails {
   [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   NSURL* URL = net::NSURLWithGURL(
@@ -541,9 +542,24 @@ id<GREYMatcher> OpenKeyboardButton() {
   // Emit auth result so password details surface is revealed.
   [PasswordSettingsAppInterface mockReauthenticationModuleReturnMockedResult];
 
-  [[EarlGrey
-      selectElementWithMatcher:chrome_test_util::TextFieldForCellWithLabelId(
-                                   IDS_IOS_SHOW_PASSWORD_VIEW_USERNAME)]
+  id<GREYMatcher> usernameCellMatcher =
+      chrome_test_util::TextFieldForCellWithLabelId(
+          IDS_IOS_SHOW_PASSWORD_VIEW_USERNAME);
+
+  // Check that the username cell is displayed.
+  ConditionBlock condition = ^{
+    NSError* error = nil;
+    [[EarlGrey selectElementWithMatcher:usernameCellMatcher]
+        assertWithMatcher:grey_notNil()
+                    error:&error];
+    return error == nil;
+  };
+  NSString* errorMessage =
+      @"There is no password view with a username table view cell";
+  GREYAssert(base::test::ios::WaitUntilConditionOrTimeout(
+                 base::test::ios::kWaitForUIElementTimeout, condition),
+             errorMessage);
+  [[EarlGrey selectElementWithMatcher:usernameCellMatcher]
       assertWithMatcher:grey_textFieldValue(@"user2")];
 
   // Verify visit metric was recorded.

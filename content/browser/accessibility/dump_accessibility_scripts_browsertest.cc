@@ -581,6 +581,10 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityScriptTest, IsAccessibilityElement) {
   RunTypedTest<kMacMethods>("is-accessibility-element.html");
 }
 
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityScriptTest, IsAccessibilityExpanded) {
+  Migration_RunTypedTest<kMacMethods>("is-accessibility-expanded.html");
+}
+
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityScriptTest, IsAccessibilityFocused) {
   Migration_RunTypedTest<kMacMethods>("is-accessibility-focused.html");
 }
@@ -606,6 +610,21 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityScriptTest,
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityScriptTest,
                        AccessibilityDisclosureLevel) {
   Migration_RunTypedTest<kMacMethods>("accessibility-disclosure-level.html");
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityScriptTest,
+                       AccessibilityColumnIndexRange) {
+  Migration_RunTypedTest<kMacMethods>("accessibility-column-index-range.html");
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityScriptTest,
+                       AccessibilityRowIndexRange) {
+  Migration_RunTypedTest<kMacMethods>("accessibility-row-index-range.html");
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityScriptTest,
+                       AccessibilitySortDirection) {
+  Migration_RunTypedTest<kMacMethods>("accessibility-sort-direction.html");
 }
 
 // Parameterized attributes

@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/base64.h"
+#include "base/containers/span.h"
 #include "base/files/file_util.h"
 #include "base/functional/callback_forward.h"
 #include "base/test/bind.h"
@@ -259,8 +260,7 @@ class WallpaperSearchHandlerTest : public testing::Test {
   }
 
   std::unique_ptr<ModelQualityLogEntry> ModelQuality() {
-    return std::make_unique<ModelQualityLogEntry>(
-        std::make_unique<LogAiDataRequest>(), logs_uploader_.GetWeakPtr());
+    return std::make_unique<ModelQualityLogEntry>(logs_uploader_.GetWeakPtr());
   }
 
   const std::vector<std::unique_ptr<LogAiDataRequest>>& uploaded_logs() {
@@ -337,17 +337,15 @@ TEST_F(WallpaperSearchHandlerTest, GetHistory) {
   SkBitmap bitmap;
   bitmap.allocN32Pixels(64, 32);
   bitmap.eraseColor(SK_ColorRED);
-  std::vector<unsigned char> encoded;
-  gfx::PNGCodec::EncodeBGRASkBitmap(bitmap, /*discard_transparency=*/false,
-                                    &encoded);
+  std::optional<std::vector<uint8_t>> encoded =
+      gfx::PNGCodec::EncodeBGRASkBitmap(bitmap, /*discard_transparency=*/false);
 
   // Write bitmap to file.
   base::Token token = base::Token::CreateRandom();
   base::WriteFile(profile().GetPath().AppendASCII(
                       token.ToString() +
                       chrome::kChromeUIUntrustedNewTabPageBackgroundFilename),
-                  base::as_bytes(base::make_span(
-                      std::string(encoded.begin(), encoded.end()))));
+                  encoded.value());
 
   // Return test image from WallpaperSearchBackgroundManager::GetHistory().
   std::vector<HistoryEntry> history;
@@ -373,10 +371,11 @@ TEST_F(WallpaperSearchHandlerTest, GetHistory) {
   // ratio as the original image.
   auto resized_bitmap = skia::ImageOperations::Resize(
       bitmap, skia::ImageOperations::RESIZE_GOOD, 200, 100);
-  std::vector<unsigned char> resized_encoded;
-  gfx::PNGCodec::EncodeBGRASkBitmap(
-      resized_bitmap, /*discard_transparency=*/false, &resized_encoded);
-  EXPECT_EQ(history_images[0]->image, base::Base64Encode(resized_encoded));
+  std::optional<std::vector<uint8_t>> resized_encoded =
+      gfx::PNGCodec::EncodeBGRASkBitmap(resized_bitmap,
+                                        /*discard_transparency=*/false);
+  EXPECT_EQ(history_images[0]->image,
+            base::Base64Encode(resized_encoded.value()));
   EXPECT_EQ(history_images[0]->id.ToString(), token.ToString());
   EXPECT_EQ(history_images[0]->descriptors->subject, history_entry.subject);
   EXPECT_EQ(history_images[0]->descriptors->mood, history_entry.mood);
@@ -711,22 +710,24 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_Success) {
   SkBitmap bitmap1;
   bitmap1.allocN32Pixels(64, 32);
   bitmap1.eraseColor(SK_ColorRED);
-  std::vector<unsigned char> encoded1;
-  gfx::PNGCodec::EncodeBGRASkBitmap(bitmap1, /*discard_transparency=*/false,
-                                    &encoded1);
+  std::optional<std::vector<uint8_t>> encoded1 =
+      gfx::PNGCodec::EncodeBGRASkBitmap(bitmap1,
+                                        /*discard_transparency=*/false);
   auto* image1 = response.add_images();
-  image1->set_encoded_image(std::string(encoded1.begin(), encoded1.end()));
+  image1->set_encoded_image(
+      std::string(base::as_string_view(encoded1.value())));
   image1->set_image_id(111);
 
   // Create test bitmap 2 and add it to response.
   SkBitmap bitmap2;
   bitmap2.allocN32Pixels(32, 32);
   bitmap2.eraseColor(SK_ColorBLUE);
-  std::vector<unsigned char> encoded2;
-  gfx::PNGCodec::EncodeBGRASkBitmap(bitmap2, /*discard_transparency=*/false,
-                                    &encoded2);
+  std::optional<std::vector<uint8_t>> encoded2 =
+      gfx::PNGCodec::EncodeBGRASkBitmap(bitmap2,
+                                        /*discard_transparency=*/false);
   auto* image2 = response.add_images();
-  image2->set_encoded_image(std::string(encoded2.begin(), encoded2.end()));
+  image2->set_encoded_image(
+      std::string(base::as_string_view(encoded2.value())));
   image2->set_image_id(222);
 
   // Serialize and set result to later send to done_callback.
@@ -745,7 +746,10 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_Success) {
   // Advance clock to test request latency.
   task_environment().AdvanceClock(base::Milliseconds(321));
 
-  std::move(done_callback).Run(base::ok(result), ModelQuality());
+  std::move(done_callback)
+      .Run(optimization_guide::OptimizationGuideModelExecutionResult(
+               base::ok(result), nullptr),
+           ModelQuality());
 
   // Advance clock to test processing latency.
   task_environment().AdvanceClock(base::Milliseconds(345));
@@ -762,17 +766,17 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_Success) {
   // ratio as the original image.
   auto resized_bitmap1 = skia::ImageOperations::Resize(
       bitmap1, skia::ImageOperations::RESIZE_GOOD, 200, 100);
-  std::vector<unsigned char> resized_encoded1;
-  gfx::PNGCodec::EncodeBGRASkBitmap(
-      resized_bitmap1, /*discard_transparency=*/false, &resized_encoded1);
-  EXPECT_EQ(images[0]->image, base::Base64Encode(resized_encoded1));
+  std::optional<std::vector<uint8_t>> resized_encoded1 =
+      gfx::PNGCodec::EncodeBGRASkBitmap(resized_bitmap1,
+                                        /*discard_transparency=*/false);
+  EXPECT_EQ(images[0]->image, base::Base64Encode(resized_encoded1.value()));
 
   auto resized_bitmap2 = skia::ImageOperations::Resize(
       bitmap2, skia::ImageOperations::RESIZE_GOOD, 100, 100);
-  std::vector<unsigned char> resized_encoded2;
-  gfx::PNGCodec::EncodeBGRASkBitmap(
-      resized_bitmap2, /*discard_transparency=*/false, &resized_encoded2);
-  EXPECT_EQ(images[1]->image, base::Base64Encode(resized_encoded2));
+  std::optional<std::vector<uint8_t>> resized_encoded2 =
+      gfx::PNGCodec::EncodeBGRASkBitmap(resized_bitmap2,
+                                        /*discard_transparency=*/false);
+  EXPECT_EQ(images[1]->image, base::Base64Encode(resized_encoded2.value()));
   histogram_tester().ExpectBucketCount(
       "NewTabPage.WallpaperSearch.GetResultProcessingLatency", 345, 1);
 
@@ -852,7 +856,10 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_MultipleRequests) {
   // Advance clock to test request latency.
   task_environment().AdvanceClock(base::Milliseconds(321));
 
-  std::move(done_callback1).Run(base::ok(result1), ModelQuality());
+  std::move(done_callback1)
+      .Run(optimization_guide::OptimizationGuideModelExecutionResult(
+               base::ok(result1), nullptr),
+           ModelQuality());
 
   ASSERT_EQ(status1,
             side_panel::customize_chrome::mojom::WallpaperSearchStatus::kError);
@@ -913,7 +920,10 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_MultipleRequests) {
   // Advance clock to test request latency.
   task_environment().AdvanceClock(base::Milliseconds(456));
 
-  std::move(done_callback2).Run(base::ok(result2), ModelQuality());
+  std::move(done_callback2)
+      .Run(optimization_guide::OptimizationGuideModelExecutionResult(
+               base::ok(result2), nullptr),
+           ModelQuality());
 
   ASSERT_EQ(status2,
             side_panel::customize_chrome::mojom::WallpaperSearchStatus::kError);
@@ -1066,13 +1076,15 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_NoResponse) {
   task_environment().AdvanceClock(base::Milliseconds(321));
 
   std::move(done_callback)
-      .Run(
-          base::unexpected(
-              optimization_guide::OptimizationGuideModelExecutionError::
-                  FromModelExecutionError(
-                      optimization_guide::OptimizationGuideModelExecutionError::
-                          ModelExecutionError::kGenericFailure)),
-          ModelQuality());
+      .Run(optimization_guide::OptimizationGuideModelExecutionResult(
+               base::unexpected(
+                   optimization_guide::OptimizationGuideModelExecutionError::
+                       FromModelExecutionError(
+                           optimization_guide::
+                               OptimizationGuideModelExecutionError::
+                                   ModelExecutionError::kGenericFailure)),
+               nullptr),
+           ModelQuality());
 
   EXPECT_EQ(status,
             side_panel::customize_chrome::mojom::WallpaperSearchStatus::kError);
@@ -1140,7 +1152,10 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_NoImages) {
   // Advance clock to test request latency.
   task_environment().AdvanceClock(base::Milliseconds(321));
 
-  std::move(done_callback).Run(base::ok(result), ModelQuality());
+  std::move(done_callback)
+      .Run(optimization_guide::OptimizationGuideModelExecutionResult(
+               base::ok(result), nullptr),
+           ModelQuality());
 
   EXPECT_EQ(status,
             side_panel::customize_chrome::mojom::WallpaperSearchStatus::kError);
@@ -1202,13 +1217,15 @@ TEST_F(WallpaperSearchHandlerTest, GetWallpaperSearchResults_RequestThrottled) {
   task_environment().AdvanceClock(base::Milliseconds(321));
 
   std::move(done_callback)
-      .Run(
-          base::unexpected(
-              optimization_guide::OptimizationGuideModelExecutionError::
-                  FromModelExecutionError(
-                      optimization_guide::OptimizationGuideModelExecutionError::
-                          ModelExecutionError::kRequestThrottled)),
-          ModelQuality());
+      .Run(optimization_guide::OptimizationGuideModelExecutionResult(
+               base::unexpected(
+                   optimization_guide::OptimizationGuideModelExecutionError::
+                       FromModelExecutionError(
+                           optimization_guide::
+                               OptimizationGuideModelExecutionError::
+                                   ModelExecutionError::kRequestThrottled)),
+               nullptr),
+           ModelQuality());
 
   EXPECT_EQ(status, side_panel::customize_chrome::mojom::WallpaperSearchStatus::
                         kRequestThrottled);
@@ -1289,17 +1306,15 @@ TEST_F(WallpaperSearchHandlerTest, SetBackgroundToHistoryImage) {
   SkBitmap bitmap;
   bitmap.allocN32Pixels(64, 32);
   bitmap.eraseColor(SK_ColorRED);
-  std::vector<unsigned char> encoded;
-  gfx::PNGCodec::EncodeBGRASkBitmap(bitmap, /*discard_transparency=*/false,
-                                    &encoded);
+  std::optional<std::vector<uint8_t>> encoded =
+      gfx::PNGCodec::EncodeBGRASkBitmap(bitmap, /*discard_transparency=*/false);
 
   // Write bitmap to file.
   base::Token token = base::Token::CreateRandom();
   base::WriteFile(profile().GetPath().AppendASCII(
                       token.ToString() +
                       chrome::kChromeUIUntrustedNewTabPageBackgroundFilename),
-                  base::as_bytes(base::make_span(
-                      std::string(encoded.begin(), encoded.end()))));
+                  encoded.value());
   EXPECT_CALL(mock_wallpaper_search_background_manager(),
               SaveCurrentBackgroundToHistory(_))
       .WillOnce(MoveArgAndReturn<0>(&history_entry_arg, token));
@@ -1399,22 +1414,24 @@ TEST_F(WallpaperSearchHandlerTest, SetBackgroundToWallpaperSearchResult) {
   SkBitmap bitmap1;
   bitmap1.allocN32Pixels(32, 32);
   bitmap1.eraseColor(SK_ColorRED);
-  std::vector<unsigned char> encoded1;
-  gfx::PNGCodec::EncodeBGRASkBitmap(bitmap1, /*discard_transparency=*/false,
-                                    &encoded1);
+  std::optional<std::vector<uint8_t>> encoded1 =
+      gfx::PNGCodec::EncodeBGRASkBitmap(bitmap1,
+                                        /*discard_transparency=*/false);
   auto* image1 = response.add_images();
-  image1->set_encoded_image(std::string(encoded1.begin(), encoded1.end()));
+  image1->set_encoded_image(
+      std::string(base::as_string_view(encoded1.value())));
   image1->set_image_id(111);
 
   // Create test bitmap 2 and add it to response.
   SkBitmap bitmap2;
   bitmap2.allocN32Pixels(32, 32);
   bitmap2.eraseColor(SK_ColorBLUE);
-  std::vector<unsigned char> encoded2;
-  gfx::PNGCodec::EncodeBGRASkBitmap(bitmap2, /*discard_transparency=*/false,
-                                    &encoded2);
+  std::optional<std::vector<uint8_t>> encoded2 =
+      gfx::PNGCodec::EncodeBGRASkBitmap(bitmap2,
+                                        /*discard_transparency=*/false);
   auto* image2 = response.add_images();
-  image2->set_encoded_image(std::string(encoded2.begin(), encoded2.end()));
+  image2->set_encoded_image(
+      std::string(base::as_string_view(encoded2.value())));
   image2->set_image_id(222);
 
   // Serialize and set result to later send to done_callback.
@@ -1431,7 +1448,10 @@ TEST_F(WallpaperSearchHandlerTest, SetBackgroundToWallpaperSearchResult) {
   // Advance clock to test request latency.
   task_environment().AdvanceClock(base::Milliseconds(321));
 
-  std::move(done_callback).Run(base::ok(result), ModelQuality());
+  std::move(done_callback)
+      .Run(optimization_guide::OptimizationGuideModelExecutionResult(
+               base::ok(result), nullptr),
+           ModelQuality());
   std::move(decoder_callback1).Run(gfx::Image::CreateFrom1xBitmap(bitmap1));
   std::move(decoder_callback2).Run(gfx::Image::CreateFrom1xBitmap(bitmap2));
 
@@ -1555,7 +1575,10 @@ TEST_F(WallpaperSearchHandlerTest, SetUserFeedback) {
   optimization_guide::proto::Any result1;
   result1.set_value(serialized_metadata1);
   result1.set_type_url("type.googleapis.com/" + response1.GetTypeName());
-  std::move(done_callback1).Run(base::ok(result1), ModelQuality());
+  std::move(done_callback1)
+      .Run(optimization_guide::OptimizationGuideModelExecutionResult(
+               base::ok(result1), nullptr),
+           ModelQuality());
 #if BUILDFLAG(IS_CHROMEOS)
   // The feedback dialog on CrOS & LaCrOS happens at the system level.
   // This can cause the unittest to crash. LaCrOS has a separate feedback
@@ -1601,7 +1624,10 @@ TEST_F(WallpaperSearchHandlerTest, SetUserFeedback) {
   result2.set_value(serialized_metadata2);
   result2.set_type_url("type.googleapis.com/" + response2.GetTypeName());
 
-  std::move(done_callback2).Run(base::ok(result2), ModelQuality());
+  std::move(done_callback2)
+      .Run(optimization_guide::OptimizationGuideModelExecutionResult(
+               base::ok(result2), nullptr),
+           ModelQuality());
   handler->SetUserFeedback(
       side_panel::customize_chrome::mojom::UserFeedback::kThumbsUp);
 
@@ -1956,15 +1982,14 @@ TEST_F(WallpaperSearchHandlerTest, SetBackgroundToInspirationImage) {
   SkBitmap bitmap;
   bitmap.allocN32Pixels(64, 32);
   bitmap.eraseColor(SK_ColorRED);
-  std::vector<unsigned char> encoded;
-  gfx::PNGCodec::EncodeBGRASkBitmap(bitmap, /*discard_transparency=*/false,
-                                    &encoded);
+  std::optional<std::vector<uint8_t>> encoded =
+      gfx::PNGCodec::EncodeBGRASkBitmap(bitmap, /*discard_transparency=*/false);
   // Respond with encoded image string when image is downloaded.
   test_url_loader_factory().SetInterceptor(base::BindLambdaForTesting(
       [&](const network::ResourceRequest& request) {}));
   std::string image_url("https://example.com/image.png");
   test_url_loader_factory().AddResponse(
-      image_url, std::string(encoded.begin(), encoded.end()));
+      image_url, std::string(base::as_string_view(encoded.value())));
 
   auto handler = MakeHandler(/*session_id=*/123);
   base::Token token = base::Token::CreateRandom();

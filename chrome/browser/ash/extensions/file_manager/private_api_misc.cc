@@ -14,7 +14,6 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/public/cpp/multi_user_window_manager.h"
-#include "ash/public/cpp/new_window_delegate.h"
 #include "ash/webui/settings/public/constants/routes_util.h"
 #include "base/command_line.h"
 #include "base/files/file.h"
@@ -210,8 +209,7 @@ bool IsAllowedSource(storage::FileSystemType type,
                      fmp::SourceRestriction restriction) {
   switch (restriction) {
     case fmp::SourceRestriction::kNone:
-      NOTREACHED_IN_MIGRATION();
-      return false;
+      NOTREACHED();
 
     case fmp::SourceRestriction::kAnySource:
       return true;
@@ -385,8 +383,7 @@ ExtensionFunction::ResponseAction FileManagerPrivateZoomFunction::Run() {
       zoom_type = content::PAGE_ZOOM_RESET;
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return RespondNow(Error(kUnknownErrorDoNotUse));
+      NOTREACHED();
   }
   zoom::PageZoom::Zoom(GetSenderWebContents(), zoom_type);
   return RespondNow(NoArguments());
@@ -454,10 +451,7 @@ FileManagerPrivateOpenInspectorFunction::Run() {
       }
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return RespondNow(Error(
-          base::StringPrintf("Unexpected inspection type(%d) is specified.",
-                             static_cast<int>(params->type))));
+      NOTREACHED();
   }
   return RespondNow(NoArguments());
 }
@@ -942,7 +936,7 @@ void FileManagerPrivateInternalInstallLinuxPackageFunction::
       response = fmp::InstallLinuxPackageStatus::kInstallAlreadyActive;
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
   Respond(ArgumentList(fmpi::InstallLinuxPackage::Results::Create(response)));
 }
@@ -1153,23 +1147,6 @@ ExtensionFunction::ResponseAction
 FileManagerPrivateIsTabletModeEnabledFunction::Run() {
   return RespondNow(
       WithArguments(display::Screen::GetScreen()->InTabletMode()));
-}
-
-ExtensionFunction::ResponseAction FileManagerPrivateOpenURLFunction::Run() {
-  using fmp::OpenURL::Params;
-  const optional<Params> params = Params::Create(args());
-  EXTENSION_FUNCTION_VALIDATE(params);
-  const GURL url(params->url);
-
-  if (!ash::NewWindowDelegate::GetPrimary()) {
-    return RespondNow(
-        Error("Could not get NewWindowDelegate's primary browser"));
-  }
-  ash::NewWindowDelegate::GetPrimary()->OpenUrl(
-      url, ash::NewWindowDelegate::OpenUrlFrom::kUserInteraction,
-      ash::NewWindowDelegate::Disposition::kNewForegroundTab);
-
-  return RespondNow(NoArguments());
 }
 
 ExtensionFunction::ResponseAction FileManagerPrivateOpenWindowFunction::Run() {

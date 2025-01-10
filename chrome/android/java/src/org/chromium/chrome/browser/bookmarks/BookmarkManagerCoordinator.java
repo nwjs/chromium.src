@@ -7,7 +7,6 @@ package org.chromium.chrome.browser.bookmarks;
 import android.app.ActivityManager;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.res.Resources;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnAttachStateChangeListener;
@@ -29,6 +28,7 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.bookmarks.BookmarkListEntry.ViewType;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs.BookmarkRowDisplayPref;
 import org.chromium.chrome.browser.commerce.ShoppingServiceFactory;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
@@ -182,7 +182,8 @@ public class BookmarkManagerCoordinator
                         context,
                         mBookmarkModel,
                         snackbarManager,
-                        IdentityServicesProvider.get().getIdentityManager(profile));
+                        IdentityServicesProvider.get()
+                                .getIdentityManager(profile.getOriginalProfile()));
 
         // Using OneshotSupplier as an alternative to a 2-step initialization process.
         OneshotSupplierImpl<BookmarkDelegate> bookmarkDelegateSupplier =
@@ -205,7 +206,6 @@ public class BookmarkManagerCoordinator
                         () -> IncognitoUtils.isIncognitoModeEnabled(profile));
         mSelectableListLayout.configureWideDisplayStyle();
 
-        Resources res = context.getResources();
         final @BookmarkRowDisplayPref int displayPref =
                 mBookmarkUiPrefs.getBookmarkRowDisplayPref();
         BookmarkImageFetcher bookmarkImageFetcher =
@@ -259,6 +259,12 @@ public class BookmarkManagerCoordinator
                 ViewType.SYNC_PROMO,
                 this::buildLegacyPromoView,
                 BookmarkManagerViewBinder::bindLegacyPromoView);
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.UNO_PHASE_2_FOLLOW_UP)) {
+            dragReorderableRecyclerViewAdapter.registerType(
+                    ViewType.BATCH_UPLOAD_CARD,
+                    this::buildBatchUploadCardView,
+                    BookmarkManagerViewBinder::bindBatchUploadCardView);
+        }
         dragReorderableRecyclerViewAdapter.registerType(
                 ViewType.SECTION_HEADER,
                 this::buildSectionHeaderView,
@@ -397,6 +403,12 @@ public class BookmarkManagerCoordinator
     @VisibleForTesting
     View buildLegacyPromoView(ViewGroup parent) {
         return mPromoHeaderManager.createSyncPromoHolder(parent);
+    }
+
+    @VisibleForTesting
+    View buildBatchUploadCardView(ViewGroup parent) {
+        // The signin_settings_card_view is used for Batch Upload Cards.
+        return inflate(parent, R.layout.signin_settings_card_view);
     }
 
     @VisibleForTesting

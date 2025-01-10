@@ -1370,13 +1370,13 @@ TEST_P(PrefetchServiceTest, SuccessCase_Embedder) {
 
   MakePrefetchFromEmbedder(GURL("https://example.com"),
                            PrefetchType(PreloadingTriggerType::kEmbedder,
-                                        /*use_prefetch_proxy=*/true));
+                                        /*use_prefetch_proxy=*/false));
   task_environment()->RunUntilIdle();
 
   VerifyCommonRequestState(GURL("https://example.com"),
-                           {.use_prefetch_proxy = true});
+                           {.use_prefetch_proxy = false});
   MakeResponseAndWait(net::HTTP_OK, net::OK, kHTMLMimeType,
-                      /*use_prefetch_proxy=*/true,
+                      /*use_prefetch_proxy=*/false,
                       {{"X-Testing", "Hello World"}}, kHTMLBody);
 
   // Verify that the prefetch request was successful.
@@ -1416,13 +1416,13 @@ TEST_P(PrefetchServiceTest,
 
   MakePrefetchFromEmbedder(GURL("https://example.com"),
                            PrefetchType(PreloadingTriggerType::kEmbedder,
-                                        /*use_prefetch_proxy=*/true));
+                                        /*use_prefetch_proxy=*/false));
   task_environment()->RunUntilIdle();
 
   VerifyCommonRequestState(GURL("https://example.com"),
-                           {.use_prefetch_proxy = true});
+                           {.use_prefetch_proxy = false});
   MakeResponseAndWait(net::HTTP_OK, net::OK, kHTMLMimeType,
-                      /*use_prefetch_proxy=*/true,
+                      /*use_prefetch_proxy=*/false,
                       {{"X-Testing", "Hello World"}}, kHTMLBody);
 
   // Verify that the prefetch request was successful.
@@ -4513,6 +4513,16 @@ TEST_P(
   std::string histogram_suffix =
       GetPrefetchEagernessHistogramSuffix(GetParam());
   if (UseNewWaitLoop()) {
+    histogram_tester.ExpectUniqueTimeSample(
+        base::StringPrintf(
+            "PrefetchProxy.AfterClick.BlockUntilHeadDuration2NoBias.Served.%s",
+            histogram_suffix.c_str()),
+        base::Milliseconds(kHeaderLatency), 1);
+    histogram_tester.ExpectUniqueTimeSample(
+        base::StringPrintf("PrefetchProxy.AfterClick."
+                           "BlockUntilHeadDuration2NoBias.NotServed.%s",
+                           histogram_suffix.c_str()),
+        base::Milliseconds(kHeaderLatency), 1);
     histogram_tester.ExpectUniqueTimeSample(
         base::StringPrintf(
             "PrefetchProxy.AfterClick.BlockUntilHeadDuration2.Served.%s",

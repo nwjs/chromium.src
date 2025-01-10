@@ -4,13 +4,16 @@
 <translation id="1006017844123154345">فتح على الإنترنت</translation>
 <translation id="1036348656032585052">إيقاف</translation>
 <translation id="1044891598689252897">ستعمل المواقع الإلكترونية بشكلٍ طبيعي.</translation>
+<translation id="1070329623210597193">الملفات التي يمكن لهذا الموقع الإلكتروني عرضها أو تعديلها</translation>
 <translation id="1073417869336441572">‏ساعِدنا في تحسين متصفِّح Chrome من خلال إخبارنا بأسباب سماحك باستخدام ملفات تعريف الارتباط التابعة لجهات خارجية. <ph name="BEGIN_LINK" />إرسال ملاحظات<ph name="END_LINK" /></translation>
+<translation id="1085696779717592361">‏استخدام Chrome بشكلٍ تلقائي</translation>
 <translation id="1178581264944972037">الإيقاف مؤقتًا</translation>
 <translation id="1181037720776840403">إزالة</translation>
 <translation id="1192844206376121885">سيؤدي هذا الإجراء إلى حذف جميع البيانات وملفات تعريف الارتباط المُخزَّنة من خلال <ph name="ORIGIN" />.</translation>
 <translation id="1201402288615127009">التالي</translation>
 <translation id="1240190568154816272">‏معلومات بشأن استخدام متصفّح Chrome</translation>
 <translation id="1242008676835033345">مضمّن في <ph name="WEBSITE_URL" /></translation>
+<translation id="1263609676484797429">انقر على "التطبيقات"  &gt; "التطبيقات التلقائية"</translation>
 <translation id="1272079795634619415">إيقاف</translation>
 <translation id="1289742167380433257">‏لحفظ بياناتك، حسَّنت Google الصور في هذه الصفحة.</translation>
 <translation id="129382876167171263">تظهر هنا الملفات التي تحفظها المواقع الإلكترونية</translation>
@@ -46,7 +49,7 @@
 <translation id="1915307458270490472">قطع الاتصال</translation>
 <translation id="1919950603503897840">اختيار جهات الاتصال</translation>
 <translation id="1923695749281512248"><ph name="BYTES_DOWNLOADED_WITH_UNITS" /> / <ph name="FILE_SIZE_WITH_UNITS" /></translation>
-<translation id="1979673356880165407">يمكنك تكبير أو تصغير النص والصور لجميع المواقع الإلكترونية التي تزورها.</translation>
+<translation id="1979673356880165407">يمكنك تكبير أو تصغير النص والصور لجميع المواقع الإلكترونية التي تزورها</translation>
 <translation id="1984937141057606926">مسموح بها، باستثناء التابعة لجهات خارجية</translation>
 <translation id="1985247341569771101">عندما يكون هذا الإعداد مفعَّلاً، يمكن للمواقع الإلكترونية استخدام أدوات استشعار الحركة في جهازك. وعند إيقافه، لا يمكن للمواقع الإلكترونية استخدام تلك الأدوات.</translation>
 <translation id="1985716030964443178">سيؤدي هذا الإجراء إلى إعادة ضبط مستويات التكبير أو التصغير التلقائية لجميع المواقع الإلكترونية في قائمتك</translation>
@@ -65,6 +68,7 @@
 <translation id="2182457891543959921">طلب الإذن قبل السماح لموقع إلكتروني بإنشاء خريطة ثلاثية الأبعاد للبيئة المحيطة بك أو تتبُّع موضع الكاميرا (مقترَح)</translation>
 <translation id="2185965788978862351">سيؤدي هذا الإجراء إلى محو <ph name="DATASIZE" /> من البيانات وملفات تعريف الارتباط المُخزّنة من خلال المواقع الإلكترونية أو التطبيقات على الشاشة الرئيسية.</translation>
 <translation id="2194856509914051091">ملاحظات مهمّة</translation>
+<translation id="2215727959747642672">تعديل الملف</translation>
 <translation id="2228071138934252756">‏للسماح لتطبيق <ph name="APP_NAME" /> بالوصول إلى الكاميرا، يُرجى أيضًا تفعيل الكاميرا في <ph name="BEGIN_LINK" />إعدادات Android<ph name="END_LINK" />.</translation>
 <translation id="2235344399760031203">تم حظر ملفات تعريف الارتباط التابعة لجهات خارجية.</translation>
 <translation id="2238944249568001759">عمليات البحث المقترَحة استنادًا إلى علامة التبويب الأخيرة</translation>
@@ -74,10 +78,8 @@
 <translation id="228293613124499805">إنّ معظم المواقع الإلكترونية التي تزورها تحفظ البيانات على جهازك على الأرجح، وغالبًا ما يتم ذلك لتحسين تجربة زيارتك لها من خلال حفظ إعداداتك المفضَّلة أو المعلومات التي تشاركها مع الموقع الإلكتروني. ننصحك بإبقاء هذا الإعداد مفعّلاً.</translation>
 <translation id="2289270750774289114">طلب الإذن عند محاولة موقع إلكتروني العثور على أجهزة البلوتوث المجاورة (إجراء موصَى به)</translation>
 <translation id="2315043854645842844">لا يدعم نظام التشغيل تحديد الشهادة من جانب العميل.</translation>
-<translation id="2321958826496381788">اسحب شريط التمرير إلى أن تتمكّن من قراءة هذا النص بسهولة. يجب أن يظهر النص بهذا الحجم على الأقل بعد النقر مرّتين على أي فقرة.</translation>
 <translation id="2359808026110333948">متابعة</translation>
 <translation id="2379925928934107488">‏يمكنك تطبيق "المظهر الداكن" على المواقع الإلكترونية عندما يستخدم Chrome "المظهر الداكن"، إن أمكن ذلك.</translation>
-<translation id="2387895666653383613">تغيير حجم النص</translation>
 <translation id="2390272837142897736">تكبير</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> ميغابايت</translation>
 <translation id="2404630663942400771">{PERMISSIONS_SUMMARY_ALLOWED,plural, =1{تم السماح بالوصول إلى <ph name="PERMISSION_1" /> و<ph name="PERMISSION_2" /> وإذن واحد (<ph name="NUM_MORE" />) آخر.}zero{تم السماح بالوصول إلى <ph name="PERMISSION_1" /> و<ph name="PERMISSION_2" /> و<ph name="NUM_MORE" /> إذن آخر.}two{تم السماح بالوصول إلى <ph name="PERMISSION_1" /> و<ph name="PERMISSION_2" /> وإذنَين (<ph name="NUM_MORE" />) آخرَين.}few{تم السماح بالوصول إلى <ph name="PERMISSION_1" /> و<ph name="PERMISSION_2" /> و<ph name="NUM_MORE" /> أذونات أخرى.}many{تم السماح بالوصول إلى <ph name="PERMISSION_1" /> و<ph name="PERMISSION_2" /> و<ph name="NUM_MORE" /> إذنًا آخر.}other{تم السماح بالوصول إلى <ph name="PERMISSION_1" /> و<ph name="PERMISSION_2" /> و<ph name="NUM_MORE" /> إذن آخر.}}</translation>
@@ -103,7 +105,6 @@
 <translation id="2621115761605608342">‏السماح لموقع إلكتروني معيّن بتشغيل JavaScript</translation>
 <translation id="2653659639078652383">إرسال</translation>
 <translation id="2677748264148917807">الخروج</translation>
-<translation id="2678468611080193228">جرِّب السماح مؤقتًا باستخدام ملفات تعريف الارتباط التابعة لجهات خارجية. هذا يعني أنّك ستحظى بمستوى حماية أقل، غير أنّ ميزات الموقع الإلكتروني ستعمل غالبًا.</translation>
 <translation id="2682367912565197520">حذف مستوى التكبير أو التصغير المحفوظ</translation>
 <translation id="2683434792633810741">هل تريد حذف البيانات وإعادة ضبط الأذونات؟</translation>
 <translation id="2713106313042589954">إيقاف الكاميرا</translation>
@@ -155,7 +156,6 @@
 <translation id="3403537308306431953">%% <ph name="ZOOM_LEVEL" /></translation>
 <translation id="344449859752187052">ملفات تعريف الارتباط الخارجية محظورة</translation>
 <translation id="3448554387819310837">عندما يكون هذا الإعداد مفعَّلاً، يمكن للمواقع الإلكترونية طلب استخدام الكاميرا. وعند إيقافه، لا يمكن للمواقع الإلكترونية استخدام الكاميرا.</translation>
-<translation id="3465378418721443318">{DAYS,plural, =1{‏سيُعيد متصفِّح Chrome حظر ملفات تعريف الارتباط غدًا.}zero{‏يتبقّى # يوم على إعادة حظر ملفات تعريف الارتباط في متصفِّح Chrome.}two{‏يتبقّى يومان على إعادة حظر ملفات تعريف الارتباط في متصفِّح Chrome.}few{‏يتبقّى # أيام على إعادة حظر ملفات تعريف الارتباط في متصفِّح Chrome.}many{‏يتبقّى # يومًا على إعادة حظر ملفات تعريف الارتباط في متصفِّح Chrome.}other{‏يتبقّى # يوم على إعادة حظر ملفات تعريف الارتباط في متصفِّح Chrome.}}</translation>
 <translation id="3521663503435878242">المواقع الإلكترونية ضِمن <ph name="DOMAIN" /></translation>
 <translation id="3523447078673133727">عدم السماح للمواقع الإلكترونية بتتبُّع حركات يديك</translation>
 <translation id="3536227077203206203">تم السماح هذه المرّة.</translation>
@@ -171,6 +171,7 @@
 <translation id="3669841141196828854">{COUNT,plural, =1{موقع إلكتروني واحد (<ph name="RWS_MEMBERS_COUNT" />) في مجموعة مواقع "<ph name="RWS_OWNER" />" الإلكترونية التي يمكنها الاطّلاع على نشاطك في المجموعة}zero{<ph name="RWS_MEMBERS_COUNT" /> موقع إلكتروني في مجموعة مواقع "<ph name="RWS_OWNER" />" الإلكترونية التي يمكنها الاطّلاع على نشاطك في المجموعة}two{موقعان إلكترونيان (<ph name="RWS_MEMBERS_COUNT" />) في مجموعة مواقع "<ph name="RWS_OWNER" />" الإلكترونية التي يمكنها الاطّلاع على نشاطك في المجموعة}few{<ph name="RWS_MEMBERS_COUNT" /> مواقع إلكترونية في مجموعة مواقع "<ph name="RWS_OWNER" />" الإلكترونية التي يمكنها الاطّلاع على نشاطك في المجموعة}many{<ph name="RWS_MEMBERS_COUNT" /> موقعًا إلكترونيًا في مجموعة مواقع "<ph name="RWS_OWNER" />" الإلكترونية التي يمكنها الاطّلاع على نشاطك في المجموعة}other{<ph name="RWS_MEMBERS_COUNT" /> موقع إلكتروني في مجموعة مواقع "<ph name="RWS_OWNER" />" الإلكترونية التي يمكنها الاطّلاع على نشاطك في المجموعة}}</translation>
 <translation id="3697164069658504920">‏عندما يكون هذا الإعداد مفعَّلاً، يمكن للمواقع الإلكترونية طلب استخدام أجهزة USB. وعند إيقافه، لا يمكن للمواقع الإلكترونية استخدام تلك الأجهزة.</translation>
 <translation id="3707034683772193706">‏يمكن للمواقع الإلكترونية التي تزورها أن تحفظ قليلاً من المعلومات في متصفّح Chrome للتأكّد من أنّك لست برنامج تتبُّع بشكل رئيسي.</translation>
+<translation id="3709818294139939629">أُزيلَ إذن وصول الموقع إلى الملف</translation>
 <translation id="3721953990244350188">إغلاق الرسالة وعرض الإجراء المتاح التالي</translation>
 <translation id="3744111561329211289">المزامنة في الخلفية</translation>
 <translation id="3763247130972274048">يُرجى النقر بشكل مزدوج على الفيديو يمينًا أو يسارًا لتخطّي 10 ثوانٍ.</translation>
@@ -189,6 +190,7 @@
 <translation id="3908288065506437185">حظر ملفات تعريف الارتباط التابعة لجهات خارجية في وضع التصفُّح المتخفي</translation>
 <translation id="3913461097001554748">‫<ph name="DOMAIN_URL" /> <ph name="SEPARATOR1" /> <ph name="DEVICE_NAME" /></translation>
 <translation id="3918378745482005425">قد لا تعمل بعض الميزات، ولكن لا يزال بإمكان المواقع الإلكترونية ذات الصلة استخدام ملفات تعريف الارتباط التابعة لجهات خارجية.</translation>
+<translation id="3922092564198021702">افتح تطبيق "الإعدادات" على هاتفك</translation>
 <translation id="3933121352599513978">تصغير الطلبات غير المرغوب فيها (خيار مُقترَح)</translation>
 <translation id="3955193568934677022">السماح للمواقع الإلكترونية بتشغيل المحتوى المحمي (مُستحسَن)</translation>
 <translation id="3967822245660637423">اكتمل التنزيل</translation>
@@ -249,7 +251,7 @@
 <translation id="4976702386844183910">تاريخ آخر زيارة للموقع الإلكتروني: <ph name="DATE" /></translation>
 <translation id="4994033804516042629">لم يتم العثور على أي جهات اتصال</translation>
 <translation id="4996978546172906250">المشاركة عن طريق</translation>
-<translation id="5001526427543320409">ملفات تعريف الارتباط التابعة لجهات خارجية</translation>
+<translation id="5001526427543320409">ملفات تعريف الارتباط الخارجية</translation>
 <translation id="5007392906805964215">مراجعة</translation>
 <translation id="5014182796621173645">لقد زرت هذا المكان <ph name="RECENCY" /></translation>
 <translation id="5039804452771397117">سماح</translation>
@@ -304,10 +306,10 @@
 <translation id="5689516760719285838">الموقع الجغرافي</translation>
 <translation id="5690795753582697420">‏تم إيقاف الكاميرا في إعدادات Android.</translation>
 <translation id="5691080386278724773">بإمكان "<ph name="SITE" />" استخدام معلوماتك أثناء التصفُّح.</translation>
-<translation id="5700761515355162635">ملفات تعريف الارتباط الخارجية مسموحة</translation>
+<translation id="5700761515355162635">ملفات تعريف الارتباط الخارجية مسموح بها</translation>
 <translation id="5706552988683188916">يؤدي هذا الإجراء إلى حذف ملفات تعريف الارتباط وبيانات الموقع الإلكتروني الأخرى لـ "<ph name="WEBSITE" />".</translation>
-<translation id="5723967018671998714">يتم حظر ملفات تعريف الارتباط التابعة لجهات خارجية في وضع التصفُّح المتخفي.</translation>
-<translation id="5740126560802162366">المواقع الإلكترونية مسموح لها بحفظ البيانات على جهازك.</translation>
+<translation id="5723967018671998714">يتم حظر ملفات تعريف الارتباط الخارجية في وضع التصفُّح المتخفي.</translation>
+<translation id="5740126560802162366">المواقع الإلكترونية مسموح لها بحفظ البيانات على جهازك</translation>
 <translation id="5750869797196646528">تتبُّع اليد</translation>
 <translation id="5771720122942595109">تم حظر <ph name="PERMISSION_1" />.</translation>
 <translation id="5804241973901381774">الأذونات</translation>
@@ -332,6 +334,7 @@
 <translation id="6042308850641462728">عرض المزيد</translation>
 <translation id="6064125863973209585">عمليات التنزيل المكتمِلة</translation>
 <translation id="6071501408666570960">قد يتم تسجيل خروجك من هذا الموقع الإلكتروني.</translation>
+<translation id="6085954183010297841">هل تريد حذف إذن تعديل الملف <ph name="FILE" />؟</translation>
 <translation id="6120483543004435978">عندما يكون هذا الإعداد مفعَّلاً، يمكن للمواقع الإلكترونية طلب معرفة الأوقات التي تستخدم فيها الجهاز بشكل نشط. وعند إيقافه، لن تتمكّن المواقع الإلكترونية من معرفة تلك الأوقات.</translation>
 <translation id="6140839633433422817">هل تريد فعلاً إعادة ضبط الأذونات وحذف ملفات تعريف الارتباط وبيانات الموقع الإلكتروني؟</translation>
 <translation id="6165508094623778733">مزيد من المعلومات</translation>
@@ -346,6 +349,7 @@
 <translation id="6205314730813004066">الخصوصية في عرض الإعلانات</translation>
 <translation id="6207207788774442484">حذف البيانات وإعادة ضبط الأذونات</translation>
 <translation id="6231752747840485235">هل تريد إلغاء تثبيت "<ph name="APP_NAME" />"؟</translation>
+<translation id="6234351944623978659">‏انقر على تطبيق المتصفِّح &gt; Chrome</translation>
 <translation id="6262191102408817757">استنادًا إلى علامة التبويب الأخيرة</translation>
 <translation id="6262279340360821358">تم حظر <ph name="PERMISSION_1" /> و<ph name="PERMISSION_2" />.</translation>
 <translation id="6270391203985052864">السماح للمواقع الإلكترونية بطلب إرسال إشعارات</translation>
@@ -370,7 +374,7 @@
 <translation id="6554732001434021288">تمّت زيارة الموقع الإلكتروني آخر مرّة قبل <ph name="NUM_DAYS" /> يوم.</translation>
 <translation id="656065428026159829">عرض المزيد</translation>
 <translation id="6561560012278703671">استخدام طريقة أقل بروزًا لإرسال الإشعارات (منع رسائل الإشعارات من إزعاجك)</translation>
-<translation id="6593061639179217415">موقع إلكتروني متوافق مع أجهزة الكمبيوتر المكتبي</translation>
+<translation id="6593061639179217415">موقع مصمَّم للكمبيوتر</translation>
 <translation id="659938948789980540">{COUNT,plural, =1{تم السماح باستخدام ملفات تعريف الارتباط لموقع إلكتروني واحد (<ph name="RWS_MEMBERS_COUNT" />) ضمن مجموعة "<ph name="RWS_OWNER" />"}zero{تم السماح باستخدام ملفات تعريف الارتباط لـ <ph name="RWS_MEMBERS_COUNT" /> موقع إلكتروني ضمن مجموعة "<ph name="RWS_OWNER" />"}two{تم السماح باستخدام ملفات تعريف الارتباط لموقعَين إلكترونيَّين (<ph name="RWS_MEMBERS_COUNT" />) ضمن مجموعة "<ph name="RWS_OWNER" />"}few{تم السماح باستخدام ملفات تعريف الارتباط لـ <ph name="RWS_MEMBERS_COUNT" /> مواقع إلكترونية ضمن مجموعة "<ph name="RWS_OWNER" />"}many{تم السماح باستخدام ملفات تعريف الارتباط لـ <ph name="RWS_MEMBERS_COUNT" /> موقعًا إلكترونيًّا ضمن مجموعة "<ph name="RWS_OWNER" />"}other{تم السماح باستخدام ملفات تعريف الارتباط لـ <ph name="RWS_MEMBERS_COUNT" /> موقع إلكتروني ضمن مجموعة "<ph name="RWS_OWNER" />"}}</translation>
 <translation id="6608650720463149374"><ph name="GIGABYTES" /> غيغابايت</translation>
 <translation id="6612358246767739896">المحتوى المحمي</translation>
@@ -430,6 +434,7 @@
 <translation id="7425915948813553151">المظهر الداكن للمواقع الإلكترونية</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7547989957535180761">عندما يكون هذا الإعداد مفعَّلاً، يمكن للمواقع الإلكترونية عرض طلبات تسجيل الدخول. وعند إيقافه، لا يمكن للمواقع الإلكترونية عرض تلك الطلبات.</translation>
+<translation id="7553211568594248088">الخروج من البحث في المركز</translation>
 <translation id="7554752735887601236">هناك موقع إلكتروني يستخدم الميكروفون.</translation>
 <translation id="7561196759112975576">دائمًا</translation>
 <translation id="757524316907819857">منع المواقع الإلكترونية من تشغيل المحتوى المحمي</translation>
@@ -438,7 +443,6 @@
 <translation id="7649070708921625228">مساعدة</translation>
 <translation id="7658239707568436148">إلغاء</translation>
 <translation id="7667547420449112975">ساحر "أوز" العجيب</translation>
-<translation id="7684642910516280563">يمكنك منع أحد المواقع الإلكترونية من استخدام ملفات تعريف الارتباط التابعة لجهات خارجية.</translation>
 <translation id="7688240020069572972">‏إخفاء بطاقة نصائح استخدام Chrome</translation>
 <translation id="7719367874908701697">تكبير/تصغير الصفحة</translation>
 <translation id="7759147511335618829">‏التحكّم في أجهزة MIDI وإعادة برمجتها</translation>
@@ -472,6 +476,7 @@
 <translation id="813082847718468539">عرض معلومات الموقع</translation>
 <translation id="8131740175452115882">تأكيد</translation>
 <translation id="8168435359814927499">المحتوى</translation>
+<translation id="818487310457576362">اسحب الشاشة من أحد جوانبها للخروج من وضع ملء الشاشة.</translation>
 <translation id="8186479265534291036">هل تواجهك مشكلة في الموقع الإلكتروني؟ تم حظر ملفات تعريف الارتباط التابعة لجهات خارجية.</translation>
 <translation id="8197286292360124385">تم السماح بالوصول إلى <ph name="PERMISSION_1" />.</translation>
 <translation id="8200772114523450471">استئناف</translation>
@@ -502,6 +507,7 @@
 <translation id="851751545965956758">حظر المواقع الإلكترونية من الاتصال بأجهزة</translation>
 <translation id="8525306231823319788">ملء الشاشة</translation>
 <translation id="8541410041357371550">‏يتعرّف هذا الموقع الإلكتروني من خلال Chrome على مواضيع الإعلانات التي تهمّك، وذلك بهدف عرض إعلانات وثيقة الصلة باهتماماتك.</translation>
+<translation id="8558480467877843976">‏يمكنك الآن استخدام Chrome في أي وقت تتصفَّح فيه أو تنقر فيه على الروابط في الرسائل والمستندات والتطبيقات الأخرى.</translation>
 <translation id="857943718398505171">مسموح بها (موصى بها)</translation>
 <translation id="8609465669617005112">الانتقال إلى الأعلى</translation>
 <translation id="8617611086246832542">عندما يكون هذا الإعداد مفعَّلاً، تظهر طريقة عرض المواقع الإلكترونية على الكمبيوتر المكتبي. وعند إيقافه، تظهر طريقة العرض المخصّصة للأجهزة الجوّالة.</translation>
@@ -528,6 +534,7 @@
 <translation id="8899807382908246773">الإعلانات المتداخلة</translation>
 <translation id="8903921497873541725">تكبير</translation>
 <translation id="8921772741368021346"><ph name="POSITION" /> / <ph name="DURATION" /></translation>
+<translation id="8926389886865778422">عدم السؤال مرة أخرى</translation>
 <translation id="8926666909099850184">‏تقنية NFC غير مفعّلة على هذا الجهاز. فعّلها في<ph name="BEGIN_LINK" />إعدادات Android<ph name="END_LINK" />.</translation>
 <translation id="8928445016601307354">‏يتيح لك هذا الإعداد منع المواقع الإلكترونية من الاطّلاع على المعلومات وتعديلها على الأجهزة المزوَّدة بتقنية NFC.</translation>
 <translation id="8944485226638699751">محدودة</translation>

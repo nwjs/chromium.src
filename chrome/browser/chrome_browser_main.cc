@@ -95,7 +95,6 @@
 #include "chrome/browser/sessions/chrome_serialized_navigation_driver.h"
 #include "chrome/browser/shell_integration.h"
 #include "chrome/browser/startup_data.h"
-#include "chrome/browser/tracing/trace_event_system_stats_monitor.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/translate/translate_service.h"
 #include "chrome/browser/ui/actions/chrome_actions.h"
@@ -150,6 +149,8 @@
 #include "components/nacl/browser/nacl_browser.h"
 #include "components/nacl/common/buildflags.h"
 #include "components/offline_pages/buildflags/buildflags.h"
+#include "components/policy/core/browser/policy_data_utils.h"
+#include "components/policy/core/common/cloud/machine_level_user_cloud_policy_manager.h"
 #include "components/policy/core/common/management/management_service.h"
 #include "components/prefs/json_pref_store.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -912,11 +913,6 @@ void ChromeBrowserMainParts::PostCreateMainMessageLoop() {
   sampling_profiler::ThreadProfiler::SetMainThreadTaskRunner(
       base::SingleThreadTaskRunner::GetCurrentDefault());
 
-  // TODO(sebmarchand): Allow this to be created earlier if startup tracing is
-  // enabled.
-  trace_event_system_stats_monitor_ =
-      std::make_unique<tracing::TraceEventSystemStatsMonitor>();
-
   // device_event_log must be initialized after the message loop. Calls to
   // {DEVICE}_LOG prior to here will only be logged with VLOG. Some
   // platforms (e.g. chromeos) may have already initialized this.
@@ -1097,12 +1093,23 @@ int ChromeBrowserMainParts::PreCreateThreadsImpl() {
     browser_process_->Init();
   }
 
+#if !BUILDFLAG(IS_CHROMEOS)
+  std::optional<std::string> managed_by =
+      policy::GetManagedBy(browser_process_->browser_policy_connector()
+                               ->machine_level_user_cloud_policy_manager());
+  if (managed_by) {
+    static constexpr std::string_view kEnrollmentDomain = "enrollment-domain";
+    crash_keys::AllocateCrashKeyInBrowserAndChildren(kEnrollmentDomain,
+                                                     managed_by.value());
+  }
+#endif
+
 #if !BUILDFLAG(IS_ANDROID)
   // These members must be initialized before returning from this function.
   // Android doesn't use StartupBrowserCreator.
   browser_creator_ = std::make_unique<StartupBrowserCreator>();
   // TODO(yfriedman): Refactor Android to re-use UMABrowsingActivityObserver
-  chrome::UMABrowsingActivityObserver::Init();
+  UMABrowsingActivityObserver::Init();
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_WIN)
@@ -1889,7 +1896,7 @@ void ChromeBrowserMainParts::WillRunMainMessageLoop(
 #if BUILDFLAG(IS_ANDROID)
   // Chrome on Android does not use default MessageLoop. It has its own
   // Android specific MessageLoop
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 #else
   DCHECK(base::CurrentUIThread::IsSet());
 
@@ -1929,7 +1936,7 @@ void ChromeBrowserMainParts::PostMainMessageLoopRun() {
 #if BUILDFLAG(IS_ANDROID)
   // Chrome on Android does not use default MessageLoop. It has its own
   // Android specific MessageLoop
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 #else
   // Shutdown the UpgradeDetector here before `ChromeBrowserMainPartsAsh`
   // disconnects DBus services in its PostDestroyThreads.
@@ -1978,7 +1985,7 @@ void ChromeBrowserMainParts::PostDestroyThreads() {
 #if BUILDFLAG(IS_ANDROID)
   // On Android, there is no quit/exit. So the browser's main message loop will
   // not finish.
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 #else
 
   for (auto& chrome_extra_part : chrome_extra_parts_) {

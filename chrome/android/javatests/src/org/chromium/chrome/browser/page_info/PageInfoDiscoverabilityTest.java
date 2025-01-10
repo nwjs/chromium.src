@@ -36,7 +36,7 @@ import org.chromium.chrome.browser.browsing_data.TimePeriod;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
-import org.chromium.chrome.browser.omnibox.status.PageInfoIPHController;
+import org.chromium.chrome.browser.omnibox.status.PageInfoIphController;
 import org.chromium.chrome.browser.omnibox.status.StatusMediator;
 import org.chromium.chrome.browser.omnibox.status.StatusProperties;
 import org.chromium.chrome.browser.permissions.PermissionTestRule;
@@ -107,6 +107,10 @@ public class PageInfoDiscoverabilityTest {
                     new ParameterSet()
                             .name("RequestType.kDiskQuota")
                             .value(ContentSettingsType.DEFAULT, false));
+            parameters.add(
+                    new ParameterSet()
+                            .name("RequestType.kFileSystemAccess")
+                            .value(ContentSettingsType.FILE_SYSTEM_WRITE_GUARD, true));
             parameters.add(
                     new ParameterSet()
                             .name("RequestType.kGeolocation")
@@ -195,7 +199,7 @@ public class PageInfoDiscoverabilityTest {
     @Mock UrlBarEditingTextStateProvider mUrlBarEditingTextStateProvider;
     @Mock Profile mProfile;
     @Mock TemplateUrlService mTemplateUrlService;
-    @Mock PageInfoIPHController mPageInfoIPHController;
+    @Mock PageInfoIphController mPageInfoIphController;
 
     Context mContext;
     PropertyModel mModel;
@@ -223,7 +227,7 @@ public class PageInfoDiscoverabilityTest {
                                     mPermissionDialogController,
                                     mTemplateUrlServiceSupplier,
                                     () -> mProfile,
-                                    mPageInfoIPHController,
+                                    mPageInfoIphController,
                                     sPermissionTestRule.getActivity().getWindowAndroid(),
                                     null);
                     mTemplateUrlServiceSupplier.set(mTemplateUrlService);

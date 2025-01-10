@@ -19,9 +19,9 @@
 #include "ui/accessibility/ax_role_properties.h"
 #include "ui/accessibility/ax_tree_data.h"
 #include "ui/accessibility/platform/ax_platform_node.h"
+#include "ui/base/buildflags.h"
 #include "ui/base/layout.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
-#include "ui/base/ui_base_types.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/views/accessibility/ax_event_manager.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -522,8 +522,12 @@ View* AXVirtualView::GetOwnerView() const {
 
 ViewAXPlatformNodeDelegate* AXVirtualView::GetDelegate() const {
   DCHECK(GetOwnerView());
+#if BUILDFLAG(HAS_NATIVE_ACCESSIBILITY)
   return static_cast<ViewAXPlatformNodeDelegate*>(
       &GetOwnerView()->GetViewAccessibility());
+#else
+  return nullptr;
+#endif
 }
 
 AXVirtualViewWrapper* AXVirtualView::GetOrCreateWrapper(

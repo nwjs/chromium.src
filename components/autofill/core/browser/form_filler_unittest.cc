@@ -199,12 +199,12 @@ class FormFillerTest : public testing::Test {
     if (const AutofillProfile** profile =
             absl::get_if<const AutofillProfile*>(&profile_or_credit_card)) {
       browser_autofill_manager_->FillOrPreviewProfileForm(
-          mojom::ActionPersistence::kFill, form, trigger_field, **profile,
-          trigger_details);
+          mojom::ActionPersistence::kFill, form, trigger_field.global_id(),
+          **profile, trigger_details);
     } else {
       browser_autofill_manager_->FillOrPreviewCreditCardForm(
-          mojom::ActionPersistence::kFill, form, trigger_field,
-          *absl::get<const CreditCard*>(profile_or_credit_card), /*cvc=*/u"",
+          mojom::ActionPersistence::kFill, form, trigger_field.global_id(),
+          *absl::get<const CreditCard*>(profile_or_credit_card),
           trigger_details);
     }
     // Copy the filled data into the form.
@@ -220,16 +220,15 @@ class FormFillerTest : public testing::Test {
 
   std::vector<FormFieldData> PreviewVirtualCardDataAndGetResults(
       const FormData& input_form,
-      const FormFieldData& input_field,
+      const FieldGlobalId& input_field_id,
       const CreditCard& virtual_card) {
     std::vector<FormFieldData> filled_fields;
     EXPECT_CALL(autofill_driver_, ApplyFormAction)
         .WillOnce((DoAll(SaveArgElementsTo<2>(&filled_fields),
                          Return(std::vector<FieldGlobalId>{}))));
     browser_autofill_manager_->FillOrPreviewCreditCardForm(
-        mojom::ActionPersistence::kPreview, input_form, input_field,
-        virtual_card, std::u16string(),
-        {.trigger_source = AutofillTriggerSource::kPopup});
+        mojom::ActionPersistence::kPreview, input_form, input_field_id,
+        virtual_card, {.trigger_source = AutofillTriggerSource::kPopup});
     return filled_fields;
   }
 
@@ -249,7 +248,7 @@ class FormFillerTest : public testing::Test {
 
     EXPECT_CALL(autofill_driver_, ApplyFormAction).Times(AtLeast(1));
     browser_autofill_manager_->AuthenticateThenFillCreditCardForm(
-        form, form.fields().front(), card,
+        form, form.fields().front().global_id(), card,
         {.trigger_source = AutofillTriggerSource::kPopup});
   }
 
@@ -372,7 +371,7 @@ TEST_F(FormFillerTest, DoNotFillIfFormChanged) {
 
   EXPECT_CALL(autofill_driver_, ApplyFormAction).Times(0);
   browser_autofill_manager_->FillOrPreviewProfileForm(
-      mojom::ActionPersistence::kFill, form, form.fields().front(),
+      mojom::ActionPersistence::kFill, form, form.fields().front().global_id(),
       test::GetFullProfile(), /*trigger_details=*/{});
 }
 
@@ -403,38 +402,14 @@ TEST_F(FormFillerTest, SkipFillIfFieldIsMeaningfullyPreFilled) {
   std::vector<FormFieldData> filled_fields =
       FillAutofillFormData(form, form.fields().front(), &profile).fields();
 
-  auto expect_hash = [&](const FormFieldData& field,
-                         std::optional<size_t> expected_hash) {
-    AutofillField* autofill_field = nullptr;
-    FormStructure* form_structure = nullptr;
-    ASSERT_TRUE(browser_autofill_manager_->GetCachedFormAndField(
-        form, field, &form_structure, &autofill_field));
-    ASSERT_TRUE(autofill_field);
-    EXPECT_THAT(
-        autofill_field->field_log_events(),
-        Contains(VariantWith<FillFieldLogEvent>(Field(
-            "value_that_would_have_been_filled_in_a_prefilled_field_hash",
-            &FillFieldLogEvent::
-                value_that_would_have_been_filled_in_a_prefilled_field_hash,
-            testing::Conditional(expected_hash.has_value(),
-                                 testing::Optional(expected_hash),
-                                 Eq(std::nullopt))))));
-  };
-
   EXPECT_THAT(filled_fields[0],
               AutofilledWith(profile.GetInfo(NAME_FIRST, kAppLocale)));
-  expect_hash(filled_fields[0], std::nullopt);
   EXPECT_THAT(filled_fields[1],
               AutofilledWith(profile.GetInfo(NAME_LAST, kAppLocale)));
-  expect_hash(filled_fields[1], std::nullopt);
   EXPECT_THAT(filled_fields[2],
               AutofilledWith(profile.GetInfo(EMAIL_ADDRESS, kAppLocale)));
-  expect_hash(filled_fields[2], std::nullopt);
   EXPECT_FALSE(filled_fields[3].is_autofilled());
   EXPECT_EQ(filled_fields[3].value(), form.fields()[3].value());
-  expect_hash(filled_fields[3],
-              base::FastHash(base::UTF16ToUTF8(
-                  profile.GetInfo(kSkippedType, kAppLocale))));
   EXPECT_THAT(filled_fields[4], AutofilledWith(profile.GetInfo(
                                     ADDRESS_HOME_COUNTRY, kAppLocale)));
 }
@@ -499,7 +474,7 @@ TEST_F(FormFillerTest, UndoSavesFormFillingData) {
       .WillRepeatedly(Return(safe_fields));
 
   browser_autofill_manager_->FillOrPreviewProfileForm(
-      mojom::ActionPersistence::kFill, form, form.fields().front(),
+      mojom::ActionPersistence::kFill, form, form.fields().front().global_id(),
       test::GetFullProfile(), /*trigger_details=*/{});
   // Undo early returns if it has no filling history for the trigger field,
   // which is initially empty, therefore calling the driver is proof that data
@@ -590,8 +565,8 @@ TEST_F(FormFillerTest,
       .WillOnce(DoAll(SaveArgElementsTo<2>(&filled_fields),
                       Return(base::flat_set<FieldGlobalId>{})));
   browser_autofill_manager_->FillOrPreviewProfileForm(
-      mojom::ActionPersistence::kFill, form, form.fields()[0], profile,
-      {.trigger_source = AutofillTriggerSource::kManualFallback});
+      mojom::ActionPersistence::kFill, form, form.fields()[0].global_id(),
+      profile, {.trigger_source = AutofillTriggerSource::kManualFallback});
 
   EXPECT_THAT(filled_fields[0],
               AutofilledWith(profile.GetInfo(NAME_FIRST, kAppLocale)));
@@ -928,7 +903,8 @@ TEST_F(FormFillerTest, PreviewCreditCardForm_VirtualCard) {
 
   CreditCard virtual_card = test::GetVirtualCard();
   std::vector<FormFieldData> filled_fields =
-      PreviewVirtualCardDataAndGetResults(form, form.fields()[1], virtual_card);
+      PreviewVirtualCardDataAndGetResults(form, form.fields()[1].global_id(),
+                                          virtual_card);
 
   std::u16string expected_cardholder_name = u"Lorem Ipsum";
   // Virtual card number using obfuscated dots only: Virtual card Mastercard

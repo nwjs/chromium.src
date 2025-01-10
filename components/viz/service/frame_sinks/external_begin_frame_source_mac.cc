@@ -134,7 +134,7 @@ void ExternalBeginFrameSourceMac::SetVSyncDisplayID(int64_t display_id) {
   }
 
   if (display_link_mac_) {
-    nominal_refresh_period_ = GetMaximumRefreshFrameInterval();
+    nominal_refresh_period_ = GetMinimumFrameInterval();
     preferred_interval_ = nominal_refresh_period_;
     VLOG(kOutputLevel) << "ExternalBeginFrameSourceMac(" << this << ")"
                        << "::SetVSyncDisplayID: " << display_id_
@@ -272,12 +272,13 @@ void ExternalBeginFrameSourceMac::OnDisplayLinkCallback(
 
   auto callback_delay =
       params.callback_times_valid ? (now - frame_time) : base::Microseconds(0);
-  auto time_to_display = params.display_times_valid
-                             ? (params.display_timebase - frame_time)
-                             : base::Microseconds(0);
+  auto callback_timebase_to_display =
+      params.display_times_valid ? (params.display_timebase - frame_time)
+                                 : base::Microseconds(0);
   TRACE_EVENT2("viz", "ExternalBeginFrameSourceMac::OnDisplayLinkCallback",
-               "time_to_display", time_to_display.InMicroseconds(),
-               "callback_delay", callback_delay.InMicroseconds());
+               "callback_timebase_to_display",
+               callback_timebase_to_display.InMicroseconds(), "callback_delay",
+               callback_delay.InMicroseconds());
   RecordVSyncCallbackDelay(callback_delay);
 
   bool display_link_frame_interval_changed =
@@ -424,7 +425,7 @@ void ExternalBeginFrameSourceMac::SetPreferredInterval(
                "vsync_subsampling_factor", vsync_subsampling_factor_);
 }
 
-base::TimeDelta ExternalBeginFrameSourceMac::GetMaximumRefreshFrameInterval() {
+base::TimeDelta ExternalBeginFrameSourceMac::GetMinimumFrameInterval() {
   if (display_link_mac_) {
     auto refresh_rate = display_link_mac_->GetRefreshRate();
     if (refresh_rate) {
@@ -487,7 +488,7 @@ ExternalBeginFrameSourceMac::GetSupportedFrameIntervals(
 
   // Can only do fixed refresh rates. Now try to implement 2^n refresh
   // rates by skipping VSyncs.
-  nominal_refresh_period_ = GetMaximumRefreshFrameInterval();
+  nominal_refresh_period_ = GetMinimumFrameInterval();
   base::TimeDelta interval = nominal_refresh_period_;
   while (interval <= kMaxSupportedFrameInterval) {
     VLOG(kOutputLevel) << interval;

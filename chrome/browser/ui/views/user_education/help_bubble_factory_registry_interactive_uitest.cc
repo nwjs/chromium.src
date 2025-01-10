@@ -20,12 +20,13 @@
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/interaction/interaction_test_util_browser.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
-#include "components/user_education/common/help_bubble_factory_registry.h"
+#include "components/user_education/common/help_bubble/help_bubble_factory_registry.h"
 #include "components/user_education/views/help_bubble_view.h"
 #include "content/public/test/browser_test.h"
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/base/interaction/interaction_sequence.h"
 #include "ui/base/interaction/interaction_test_util.h"
+#include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/interaction/element_tracker_views.h"
@@ -108,7 +109,7 @@ IN_PROC_BROWSER_TEST_F(HelpBubbleFactoryRegistryInteractiveUitest,
             FROM_HERE, base::BindLambdaForTesting([this]() {
               auto* tab = GetBrowserView()->tabstrip()->tab_at(0);
               tab->ShowContextMenu(tab->bounds().CenterPoint(),
-                                   ui::MENU_SOURCE_MOUSE);
+                                   ui::mojom::MenuSourceType::kMouse);
             }));
       }),
 

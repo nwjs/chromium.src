@@ -10,6 +10,7 @@
 #include "base/functional/bind.h"
 #include "base/notreached.h"
 #include "base/time/time.h"
+#include "chrome/browser/ash/app_mode/isolated_web_app/kiosk_iwa_manager.h"
 #include "chrome/browser/ash/app_mode/kiosk_chrome_app_manager.h"
 #include "chrome/browser/ash/app_mode/web_app/web_kiosk_app_manager.h"
 #include "chrome/browser/ash/policy/remote_commands/crd/crd_logging.h"
@@ -41,11 +42,13 @@ const ash::KioskAppManagerBase* GetKioskAppManager(
   if (user_manager.IsLoggedInAsWebKioskApp()) {
     return ash::WebKioskAppManager::Get();
   }
+  if (user_manager.IsLoggedInAsKioskIWA()) {
+    return ash::KioskIwaManager::Get();
+  }
 
   // This method should only be invoked when we know we're in a kiosk
   // environment, so one of these app managers must exist.
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 bool IsRunningAutoLaunchedKiosk(const user_manager::UserManager& user_manager) {

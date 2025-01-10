@@ -7331,6 +7331,7 @@ class TestAccessInitialDocumentLocalFrameHost
   }
   void DraggableRegionsChanged(
       Vector<mojom::blink::DraggableRegionPtr> regions) override {}
+  void OnFirstContentfulPaint() override {}
 
   // !!!!!!!!!!!!!!!!!! IMPORTANT !!!!!!!!!!!!!!!!!!
   // If the actual counts in the tests below increase, this could be an
@@ -11779,8 +11780,8 @@ class BlobRegistryForSaveImageFromDataURL : public mojom::blink::BlobRegistry {
     auto& element0 = elements[0];
     const auto& bytes = element0->get_bytes();
     auto length = bytes->length;
-    String body(reinterpret_cast<const char*>(bytes->embedded_data->data()),
-                static_cast<uint32_t>(length));
+    String body(
+        base::span(*bytes->embedded_data).first(static_cast<uint32_t>(length)));
     mojo::MakeSelfOwnedReceiver(std::make_unique<FakeBlob>(uuid, body),
                                 std::move(blob));
     std::move(callback).Run();
@@ -11793,7 +11794,7 @@ class BlobRegistryForSaveImageFromDataURL : public mojom::blink::BlobRegistry {
       mojo::ScopedDataPipeConsumerHandle,
       mojo::PendingAssociatedRemote<mojom::blink::ProgressClient>,
       RegisterFromStreamCallback) override {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 };
 
@@ -11841,8 +11842,7 @@ class TestLocalFrameHostForSaveImageFromDataURL : public FakeLocalFrameHost {
     void Run() { run_loop_.Run(); }
 
     void OnDataAvailable(base::span<const uint8_t> data) override {
-      std::string_view chars = base::as_string_view(data);
-      *output_ = String(chars.data(), chars.size());
+      *output_ = String(data);
     }
     void OnDataComplete() override { run_loop_.Quit(); }
 

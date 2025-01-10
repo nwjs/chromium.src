@@ -71,7 +71,7 @@
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom-forward.h"
 #include "ui/base/ime/text_input_mode.h"
 #include "ui/base/ime/text_input_type.h"
-#include "ui/base/ui_base_types.h"
+#include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/latency/latency_info.h"
 #include "url/origin.h"
@@ -321,8 +321,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   void DragSourceSystemDragEnded() override;
   void FilterDropData(DropData* drop_data) override;
   void SetCursor(const ui::Cursor& cursor) override;
-  void ShowContextMenuAtPoint(const gfx::Point& point,
-                              const ui::MenuSourceType source_type) override;
+  void ShowContextMenuAtPoint(
+      const gfx::Point& point,
+      const ui::mojom::MenuSourceType source_type) override;
   void InsertVisualStateCallback(VisualStateCallback callback) override;
 
   // RenderProcessHostPriorityClient implementation.
@@ -812,7 +813,11 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   void OnImeCancelComposition() override;
   input::StylusInterface* GetStylusInterface() override;
   void OnStartStylusWriting() override;
-  void UpdateElementFocusForStylusWriting() override;
+  void UpdateElementFocusForStylusWriting(
+#if BUILDFLAG(IS_WIN)
+      const gfx::Rect& focus_rect_in_widget
+#endif  // BUILDFLAG(IS_WIN)
+      ) override;
   bool IsAutoscrollInProgress() override;
   void SetMouseCapture(bool capture) override;
   void SetAutoscrollSelectionActiveInMainFrame(
@@ -1175,13 +1180,12 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   void OnSnapshotReceived(int snapshot_id, gfx::Image image);
 
-  // This message is received when the stylus writable element is focused.
-  // It receives the focused edit element bounds and the current caret bounds
-  // needed for stylus writing service. These bounds would be null when the
-  // stylus writable element could not be focused.
+  // This is called after the renderer attempts to focus content eligible for
+  // handwriting via mojom::blink::FrameWidget::OnStartStylusWriting. If content
+  // eligible for stylus handwriting has focus, then `focus_result` will be set,
+  // otherwise it will be nullptr.
   void OnUpdateElementFocusForStylusWritingHandled(
-      const std::optional<gfx::Rect>& focused_edit_bounds,
-      const std::optional<gfx::Rect>& caret_bounds);
+      blink::mojom::StylusWritingFocusResultPtr focus_result);
 
   // Called by the RenderProcessHost to handle the case when the process
   // changed its state of being blocked.

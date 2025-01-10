@@ -59,11 +59,12 @@ void TestUserAnnotationsService::AddFormSubmission(
       entries_.emplace_back(std::move(entry));
     }
     std::move(callback).Run(std::move(form),
-                            /*to_be_upserted_entries=*/entries_,
+                            std::make_unique<FormAnnotationResponse>(
+                                entries_, /*model_execution_id=*/std::string()),
                             /*prompt_acceptance_callback=*/base::DoNothing());
     return;
   }
-  std::move(callback).Run(std::move(form), /*to_be_upserted_entries=*/{},
+  std::move(callback).Run(std::move(form), /*form_annotation_response=*/nullptr,
                           /*prompt_acceptance_callback=*/base::DoNothing());
 }
 
@@ -96,4 +97,11 @@ void TestUserAnnotationsService::GetCountOfValuesContainedBetween(
     base::OnceCallback<void(int)> callback) {
   std::move(callback).Run(entries_.size());
 }
+
+void TestUserAnnotationsService::SaveAutofillProfile(
+    const autofill::AutofillProfile& autofill_profile,
+    base::OnceCallback<void(UserAnnotationsExecutionResult)> callback) {
+  std::move(callback).Run(UserAnnotationsExecutionResult::kSuccess);
+}
+
 }  // namespace user_annotations

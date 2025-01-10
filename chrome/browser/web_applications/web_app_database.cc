@@ -28,6 +28,7 @@
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_storage_location.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_version.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolation_data.h"
+#include "chrome/browser/web_applications/isolated_web_apps/update_manifest/update_manifest.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom-shared.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/os_integration/web_app_file_handler_manager.h"
@@ -127,8 +128,7 @@ WebAppProto::CaptureLinks CaptureLinksToProto(
     blink::mojom::CaptureLinks capture_links) {
   switch (capture_links) {
     case blink::mojom::CaptureLinks::kUndefined:
-      NOTREACHED_IN_MIGRATION();
-      [[fallthrough]];
+      NOTREACHED();
     case blink::mojom::CaptureLinks::kNone:
       return WebAppProto_CaptureLinks_NONE;
     case blink::mojom::CaptureLinks::kNewClient:
@@ -241,8 +241,7 @@ WebAppFileHandlerProto::LaunchType LaunchTypeToProto(
 WebAppManagement::Type ProtoToWebAppManagement(WebAppManagementProto type) {
   switch (type) {
     case WebAppManagementProto::WEBAPPMANAGEMENT_UNSPECIFIED:
-      NOTREACHED_IN_MIGRATION();
-      [[fallthrough]];
+      NOTREACHED();
     case WebAppManagementProto::SYSTEM:
       return WebAppManagement::Type::kSystem;
     case WebAppManagementProto::KIOSK:
@@ -909,6 +908,10 @@ std::unique_ptr<WebAppProto> WebAppDatabase::CreateWebAppProto(
     if (const auto& update_manifest_url =
             isolation_data.update_manifest_url()) {
       mutable_data->set_update_manifest_url(update_manifest_url->spec());
+    }
+
+    if (const auto& update_channel = isolation_data.update_channel()) {
+      mutable_data->set_update_channel(update_channel->ToString());
     }
   }
 
@@ -1745,6 +1748,18 @@ std::unique_ptr<WebApp> WebAppDatabase::CreateWebApp(
       isolation_data_builder.SetUpdateManifestUrl(
           std::move(update_manifest_url));
     }
+
+    if (local_data.isolation_data().has_update_channel()) {
+      auto update_channel =
+          UpdateChannel::Create(local_data.isolation_data().update_channel());
+      if (!update_channel.has_value()) {
+        DLOG(ERROR)
+            << "WebApp proto isolation_data.update_channel is not valid.";
+        return nullptr;
+      }
+      isolation_data_builder.SetUpdateChannel(std::move(*update_channel));
+    }
+
     web_app->SetIsolationData(std::move(isolation_data_builder).Build());
   }
 
@@ -2026,8 +2041,7 @@ WebAppProto::DisplayMode ToWebAppProtoDisplayMode(DisplayMode display_mode) {
     case DisplayMode::kMinimalUi:
       return WebAppProto::MINIMAL_UI;
     case DisplayMode::kUndefined:
-      NOTREACHED_IN_MIGRATION();
-      [[fallthrough]];
+      NOTREACHED();
     case DisplayMode::kStandalone:
       return WebAppProto::STANDALONE;
     case DisplayMode::kFullscreen:

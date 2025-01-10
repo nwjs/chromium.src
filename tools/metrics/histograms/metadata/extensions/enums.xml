@@ -761,6 +761,8 @@ Called by update_extension_histograms.py.-->
       label="ACCESSIBILITY_PRIVATE_ON_TOGGLE_GESTURE_INFO_FOR_SETTINGS"/>
   <int value="559" label="ACTION_ON_USER_SETTINGS_CHANGED"/>
   <int value="560" label="TTS_ENGINE_ON_INSTALL_LANGUAGE_REQUEST"/>
+  <int value="561" label="TTS_ENGINE_ON_LANGUAGE_STATUS_REQUEST"/>
+  <int value="562" label="TTS_ENGINE_ON_UNINSTALL_LANGUAGE_REQUEST"/>
 </enum>
 
 <enum name="ExtensionForceInstalledPreInstalledDeprecatedSite">
@@ -869,7 +871,7 @@ Called by update_extension_histograms.py.-->
   <int value="84" label="TTSENGINE_SENDTTSEVENT"/>
   <int value="85" label="ACCESSIBILITY_PRIVATE_GETALERTSFORTAB"/>
   <int value="86" label="DELETED_BOOKMARKS_IMPORT"/>
-  <int value="87" label="SYNCFILESYSTEM_DELETEFILESYSTEM"/>
+  <int value="87" label="DELETED_SYNCFILESYSTEM_DELETEFILESYSTEM"/>
   <int value="88" label="DEBUGGER_SENDCOMMAND"/>
   <int value="89" label="DEBUGGER_DETACH"/>
   <int value="90" label="METRICSPRIVATE_RECORDSMALLCOUNT"/>
@@ -2776,6 +2778,10 @@ Called by update_extension_histograms.py.-->
   <int value="1909"
       label="AUTOFILLPRIVATE_PREDICTIONIMPROVEMENTSIPHFFEATUREUSED"/>
   <int value="1910" label="AUTOFILLPRIVATE_TRIGGERANNOTATIONSBOOTSTRAPPING"/>
+  <int value="1911" label="ACCESSIBILITY_PRIVATE_ENABLEDRAGEVENTREWRITER"/>
+  <int value="1912" label="TTSENGINE_UPDATELANGUAGE"/>
+  <int value="1913" label="ODFSCONFIGPRIVATE_OPENINOFFICEAPP"/>
+  <int value="1914" label="COOKIES_GETPARTITIONKEY"/>
 </enum>
 
 <enum name="ExtensionInstallationCrxInstallError">

@@ -104,20 +104,17 @@ BrowserContext* TestExtensionsBrowserClient::GetOriginalContext(
 
 content::BrowserContext*
 TestExtensionsBrowserClient::GetContextRedirectedToOriginal(
-    content::BrowserContext* context,
-    bool force_guest_profile) {
+    content::BrowserContext* context) {
   return GetOriginalContext(context);
 }
 
 content::BrowserContext* TestExtensionsBrowserClient::GetContextOwnInstance(
-    content::BrowserContext* context,
-    bool force_guest_profile) {
+    content::BrowserContext* context) {
   return context;
 }
 
 content::BrowserContext* TestExtensionsBrowserClient::GetContextForOriginalOnly(
-    content::BrowserContext* context,
-    bool force_guest_profile) {
+    content::BrowserContext* context) {
   // Default implementation of
   // `BrowserContextKeyedServiceFactory::GetBrowserContextToUse()`.
   return context->IsOffTheRecord() ? nullptr : context;
@@ -171,7 +168,7 @@ void TestExtensionsBrowserClient::LoadResourceFromResourceBundle(
     scoped_refptr<net::HttpResponseHeaders> headers,
     mojo::PendingRemote<network::mojom::URLLoaderClient> client) {
   // Should not be called because GetBundleResourcePath() returned empty path.
-  NOTREACHED_IN_MIGRATION() << "Resource is not from a bundle.";
+  NOTREACHED() << "Resource is not from a bundle.";
 }
 
 bool TestExtensionsBrowserClient::AllowCrossRendererResourceLoad(

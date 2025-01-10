@@ -32,39 +32,6 @@ namespace {
 
 const double kMinScaleFactor = 0.2;
 
-// A texture swap chain that is not communicated back to the compositor, used
-// for things like depth/stencil attachments that don't assist reprojection.
-class XRGPUStaticSwapChain : public XRGPUSwapChain {
- public:
-  XRGPUStaticSwapChain(GPUDevice* device, const wgpu::TextureDescriptor& desc) {
-    texture_ = GPUTexture::Create(device, &desc);
-    descriptor_ = desc;
-  }
-
-  GPUTexture* GetCurrentTexture() override { return texture_; }
-
-  void OnFrameEnd() override {
-    // TODO(crbug.com/5818595): Prior to shipping the spec needs to determine
-    // if texture re-use is appropriate or not. If re-use is not specified then
-    // it should at the very least be detached from the JavaScript wrapper and
-    // reattached to a new one here. In both cases the texture should be
-    // cleared.
-  }
-
-  const wgpu::TextureDescriptor& descriptor() const override {
-    return descriptor_;
-  }
-
-  void Trace(Visitor* visitor) const override {
-    visitor->Trace(texture_);
-    XRGPUSwapChain::Trace(visitor);
-  }
-
- private:
-  Member<GPUTexture> texture_;
-  wgpu::TextureDescriptor descriptor_;
-};
-
 }  // namespace
 
 XRGPUBinding* XRGPUBinding::Create(XRSession* session,
@@ -151,7 +118,7 @@ XRProjectionLayer* XRGPUBinding::createProjectionLayer(
 
   gfx::Size texture_size = gfx::ToFlooredSize(scaled_size);
 
-  // Create the color swap chain
+  // Create the side-by-side color swap chain
   wgpu::TextureDescriptor color_desc = {};
   color_desc.label = "XRProjectionLayer Color";
   color_desc.format = AsDawnEnum(init->colorFormat());
@@ -192,7 +159,7 @@ XRProjectionLayer* XRGPUBinding::createProjectionLayer(
         MakeGarbageCollected<XRGPUStaticSwapChain>(device_, depth_stencil_desc);
   }
 
-  return MakeGarbageCollected<XRGPUProjectionLayer>(this, color_swap_chain,
+  return MakeGarbageCollected<XRGPUProjectionLayer>(this, wrapped_swap_chain,
                                                     depth_stencil_swap_chain);
 }
 
@@ -218,16 +185,24 @@ XRGPUSubImage* XRGPUBinding::getViewSubImage(XRProjectionLayer* layer,
     depth_stencil_texture = depth_stencil_swap_chain->GetCurrentTexture();
   }
 
-  gfx::Rect viewport =
-      gfx::Rect(0, 0, color_texture->width(), color_texture->height());
+  gfx::Rect viewport = GetViewportForEye(layer, view->EyeValue());
 
   return MakeGarbageCollected<XRGPUSubImage>(
       viewport, view->ViewData()->index(), color_texture,
       depth_stencil_texture);
 }
 
+gfx::Rect XRGPUBinding::GetViewportForEye(XRProjectionLayer* layer,
+                                          device::mojom::blink::XREye eye) {
+  CHECK(OwnsLayer(layer));
+
+  // TODO(crbug.com/5818595): Allow for configurable viewports.
+  return gfx::Rect(0, 0, layer->textureWidth(), layer->textureHeight());
+}
+
 V8GPUTextureFormat XRGPUBinding::getPreferredColorFormat() {
-  return FromDawnEnum(GPU::preferred_canvas_format());
+  // TODO(crbug.com/5818595): Replace with GPU::preferred_canvas_format()?
+  return FromDawnEnum(wgpu::TextureFormat::RGBA8Unorm);
 }
 
 bool XRGPUBinding::CanCreateLayer(ExceptionState& exception_state) {

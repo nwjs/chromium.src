@@ -55,8 +55,20 @@
 
 namespace {
 
-static constexpr std::string_view kUmaReauthenticationHistogramName =
-    "FamilyLinkUser.BlockedSiteVerifyItsYouInterstitialState";
+using ::testing::_;
+
+static constexpr std::string_view
+    kUmaReauthenticationBlockedSitedHistogramName =
+        "FamilyLinkUser.BlockedSiteVerifyItsYouInterstitialState";
+static constexpr std::string_view
+    kUmaReauthenticationYoutubeSubframeHistogramName =
+        "FamilyLinkUser.SubframeYoutubeReauthenticationInterstitial";
+
+static constexpr std::string_view kUmaClosedSignInTabsHistogramName =
+    "FamilyLinkUser.BlockedSiteVerifyItsYouInterstitialSigninTab.ClosedCount";
+static constexpr std::string_view kUmaSkippedSignInTabsHistogramName =
+    "FamilyLinkUser.BlockedSiteVerifyItsYouInterstitialSigninTab."
+    "SkippedClosingCount";
 
 class ThrottleTestParam {
  public:
@@ -269,23 +281,24 @@ INSTANTIATE_TEST_SUITE_P(
 
 // Tests the blocked site main frame re-authentication interstitial.
 IN_PROC_BROWSER_TEST_P(SupervisedUserPendingStateNavigationTest,
-                       DISABLED_TestBlockedSiteMainFrameReauthInterstitial) {
+                       TestBlockedSiteMainFrameReauthInterstitial) {
   kids_management_api_mock().RestrictSubsequentClassifyUrl();
   supervision_mixin_.SetPendingStateForPrimaryAccount();
   // Navigate to the requested URL and wait for the interstitial.
-  ASSERT_TRUE(
-      ui_test_utils::NavigateToURL(browser(), GURL("https://example.com/")));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(),
+      embedded_test_server()->GetURL("/supervised_user/simple.html")));
   ASSERT_TRUE(WaitForRenderFrameReady(contents()->GetPrimaryMainFrame()));
 
   // Verify that the blocked site interstitial is displayed.
   WaitForReauthenticationInterstitial();
 
+  auto* interstitial_contents = contents();
   // Interact with the "Next" button, starting re-authentication.
-  ASSERT_TRUE(content::ExecJs(
-      contents(), "window.certificateErrorPageController.openLogin();"));
+  ASSERT_TRUE(StartSignInFlowFromContent(interstitial_contents));
 
   // Sign in a supervised user, which completes re-authentication.
-  SignInSupervisedUserAndWaitForInterstitialReload(contents());
+  SignInSupervisedUserAndWaitForInterstitialReload(interstitial_contents);
 
   // UKM should not be recorded for the blocked site interstitial.
   EXPECT_EQ(GetReauthInterstitialUKMTotalCount(), 0);
@@ -293,16 +306,8 @@ IN_PROC_BROWSER_TEST_P(SupervisedUserPendingStateNavigationTest,
 
 // Tests that the sign-in tabs opened through the re-auth interstitial
 // are closed on re-authentication.
-// TODO(https://crbug.com/370115099): This test fails on Mac.
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_TestReauthInterstitialClosesSignInTabsAndReloads \
-  DISABLED_TestReauthInterstitialClosesSignInTabsAndReloads
-#else
-#define MAYBE_TestReauthInterstitialClosesSignInTabsAndReloads \
-  TestReauthInterstitialClosesSignInTabsAndReloads
-#endif
 IN_PROC_BROWSER_TEST_P(SupervisedUserPendingStateNavigationTest,
-                       MAYBE_TestReauthInterstitialClosesSignInTabsAndReloads) {
+                       TestReauthInterstitialClosesSignInTabsAndReloads) {
   base::HistogramTester histogram_tester;
 
   kids_management_api_mock().RestrictSubsequentClassifyUrl();
@@ -316,7 +321,7 @@ IN_PROC_BROWSER_TEST_P(SupervisedUserPendingStateNavigationTest,
   // Wait for the re-authentication interstitial. It should be the only tab.
   WaitForReauthenticationInterstitial();
   histogram_tester.ExpectBucketCount(
-      kUmaReauthenticationHistogramName,
+      kUmaReauthenticationBlockedSitedHistogramName,
       static_cast<int>(SupervisedUserVerificationPage::Status::SHOWN), 1);
   auto* interstitial_contents = contents();
   EXPECT_EQ(1, GetTabCount());
@@ -326,7 +331,7 @@ IN_PROC_BROWSER_TEST_P(SupervisedUserPendingStateNavigationTest,
   for (int i = 1; i <= 3; i++) {
     ASSERT_TRUE(StartSignInFlowFromContent(interstitial_contents));
     histogram_tester.ExpectBucketCount(
-        kUmaReauthenticationHistogramName,
+        kUmaReauthenticationBlockedSitedHistogramName,
         static_cast<int>(
             SupervisedUserVerificationPage::Status::REAUTH_STARTED),
         i);
@@ -360,10 +365,14 @@ IN_PROC_BROWSER_TEST_P(SupervisedUserPendingStateNavigationTest,
   // navigation, remain open.
   SignInSupervisedUserAndWaitForInterstitialReload(interstitial_contents);
   histogram_tester.ExpectBucketCount(
-      kUmaReauthenticationHistogramName,
+      kUmaReauthenticationBlockedSitedHistogramName,
       static_cast<int>(
           SupervisedUserVerificationPage::Status::REAUTH_COMPLETED),
       1);
+  histogram_tester.ExpectBucketCount(kUmaClosedSignInTabsHistogramName,
+                                     /*sample=*/2, /*expected_count=*/1);
+  histogram_tester.ExpectBucketCount(kUmaSkippedSignInTabsHistogramName,
+                                     /*sample=*/1, /*expected_count=*/1);
   EXPECT_EQ(2, GetTabCount());
 
   // TODO(b/370115099): Re-introduce a check that the blocked url interstitial
@@ -476,6 +485,7 @@ IN_PROC_BROWSER_TEST_P(SupervisedUserPendingStateNavigationTest,
 // Tests the YouTube subframe re-authentication interstitial.
 IN_PROC_BROWSER_TEST_P(SupervisedUserPendingStateNavigationTest,
                        TestYouTubeSubFrameReauthInterstitial) {
+  base::HistogramTester histogram_tester;
   supervision_mixin_.SetPendingStateForPrimaryAccount();
   kids_management_api_mock().AllowSubsequentClassifyUrl();
 
@@ -502,12 +512,20 @@ IN_PROC_BROWSER_TEST_P(SupervisedUserPendingStateNavigationTest,
               testing::HasSubstr(subframe_description));
   EXPECT_THAT(GetInnerHTMLString(iframe2),
               testing::HasSubstr(subframe_description));
+  // Verify the Uma subframe interstitial metrics.
+  histogram_tester.ExpectBucketCount(
+      kUmaReauthenticationYoutubeSubframeHistogramName,
+      static_cast<int>(SupervisedUserVerificationPage::Status::SHOWN), 2);
 
   // Click the "Next" buttons in both interstitials, which should open
   // re-authentication in two new tabs.
   ASSERT_TRUE(StartSignInFlowFromRenderFrameHost(iframe1));
   ASSERT_TRUE(StartSignInFlowFromRenderFrameHost(iframe2));
   EXPECT_EQ(3, GetTabCount());
+  histogram_tester.ExpectBucketCount(
+      kUmaReauthenticationYoutubeSubframeHistogramName,
+      static_cast<int>(SupervisedUserVerificationPage::Status::REAUTH_STARTED),
+      2);
 
   // Sign in a supervised user, which completes re-authentication.
   // This should close the sign-in tabs.
@@ -516,10 +534,70 @@ IN_PROC_BROWSER_TEST_P(SupervisedUserPendingStateNavigationTest,
   ASSERT_TRUE(base::test::RunUntil([&]() { return GetTabCount() == 1; }));
 
   // TODO(https://crbug.com/365531704): Wait until the re-auth subframe interstitials are no
-  // longer displayed.
+  // longer displayed. Only then check for the re-authentication completion histograms.
 
   // UKM should not be recorded for the subframe interstitial.
   EXPECT_EQ(GetReauthInterstitialUKMTotalCount(), 0);
+}
+
+// Accepts a net::test_server::HttpRequest and checks if the google
+// api key is present in the headers.
+MATCHER(ContainsGoogleApiKey, "") {
+  return base::Contains(arg.headers, "X-Goog-Api-Key");
+}
+
+// Tests that when the user doesn't have a valid access token the request is
+// sent with an api key and not an access token (i.e an anonymous request).
+IN_PROC_BROWSER_TEST_P(SupervisedUserPendingStateNavigationTest,
+                       TestPendingStateRequestHasGoogleApiInHeader) {
+  // TODO(crbug.com/365529863): Move the methods SetAutomaticIssueOfAccessTokens
+  // and WaitForAccessTokenRequestIfNecessaryAndRespondWithError to
+  // supervisionMixin::SetPendingStateForPrimaryAccount.
+  supervision_mixin_.GetIdentityTestEnvironment()
+      ->SetAutomaticIssueOfAccessTokens(false);
+  supervision_mixin_.SetPendingStateForPrimaryAccount();
+  // Invalidates any pending access token requests.
+  supervision_mixin_.GetIdentityTestEnvironment()
+      ->WaitForAccessTokenRequestIfNecessaryAndRespondWithError(
+          supervision_mixin_.GetIdentityTestEnvironment()
+              ->identity_manager()
+              ->GetPrimaryAccountId(signin::ConsentLevel::kSignin),
+          GoogleServiceAuthError(
+              GoogleServiceAuthError::State::INVALID_GAIA_CREDENTIALS));
+  kids_management_api_mock().AllowSubsequentClassifyUrl();
+
+  ASSERT_TRUE(
+      supervision_mixin_.GetIdentityTestEnvironment()
+          ->identity_manager()
+          ->HasAccountWithRefreshTokenInPersistentErrorState(
+              supervision_mixin_.GetIdentityTestEnvironment()
+                  ->identity_manager()
+                  ->GetPrimaryAccountId(signin::ConsentLevel::kSignin)));
+
+  EXPECT_CALL(kids_management_api_mock().classify_url_mock(),
+              ClassifyUrl(ContainsGoogleApiKey()))
+      .Times(1);
+
+  content::TestNavigationObserver observer(contents());
+  observer.set_expected_initial_url(GURL("https://example.com/"));
+
+  contents()->GetController().LoadURLWithParams(
+      content::NavigationController::LoadURLParams(
+          GURL("https://example.com/")));
+
+  // Any pending access token requests should respond with an error since the
+  // access token is invalidated.
+  supervision_mixin_.GetIdentityTestEnvironment()
+      ->WaitForAccessTokenRequestIfNecessaryAndRespondWithError(
+          supervision_mixin_.GetIdentityTestEnvironment()
+              ->identity_manager()
+              ->GetPrimaryAccountId(signin::ConsentLevel::kSignin),
+          GoogleServiceAuthError(
+              GoogleServiceAuthError::State::INVALID_GAIA_CREDENTIALS));
+
+  ASSERT_TRUE(WaitForRenderFrameReady(contents()->GetPrimaryMainFrame()));
+
+  observer.Wait();
 }
 
 }  // namespace

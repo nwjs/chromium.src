@@ -6,6 +6,7 @@
 #define COMPONENTS_SAVED_TAB_GROUPS_PUBLIC_TYPES_H_
 
 #include <optional>
+#include <variant>
 
 #include "base/logging.h"
 #include "base/token.h"
@@ -23,7 +24,7 @@ using LocalTabGroupID = base::Token;
 using LocalTabID = int;
 using LocalTabGroupID = tab_groups::TabGroupId;
 #else
-using LocalTabID = base::Token;
+using LocalTabID = uint32_t;
 using LocalTabGroupID = tab_groups::TabGroupId;
 #endif
 
@@ -82,10 +83,12 @@ enum class OpeningSource {
   // Desktop only. Triggered when a unsaved group from v1 implementation is
   // migrated to autosave.
   kAutoSaveOnSessionRestoreForV1Group = 7,
+  // The group was connected as a part of sharing a group.
+  kConnectOnGroupShare = 8,
 
-  kMaxValue = kAutoSaveOnSessionRestoreForV1Group,
+  kMaxValue = kConnectOnGroupShare,
 };
-// LINT.ThenChange(//tools/metrics/histograms/metadata/tab/enums.xml:GroupOpenReason)
+// LINT.ThenChange(//tools/metrics/histograms/metadata/tab/enums.xml:GroupOpeningSource)
 
 // LINT.IfChange(ClosingSource)
 // Specifies the source of an action that closed a tab group.
@@ -111,9 +114,12 @@ enum class ClosingSource {
   kCloseOtherTabs = 7,
   // iOS only. Triggered when user closes the last tab in a group in tab strip.
   kCloseLastTab = 8,
-  kMaxValue = kCloseLastTab,
+  // The local group was disconnected from its sync group because the group was
+  // shared.
+  kDisconnectOnGroupShared = 9,
+  kMaxValue = kDisconnectOnGroupShared,
 };
-// LINT.ThenChange(//tools/metrics/histograms/metadata/tab/enums.xml:GroupCloseReason)
+// LINT.ThenChange(//tools/metrics/histograms/metadata/tab/enums.xml:GroupClosingSource)
 
 // LINT.IfChange(TabGroupEvent)
 // Various types of mutation events associated with tab groups and tabs.

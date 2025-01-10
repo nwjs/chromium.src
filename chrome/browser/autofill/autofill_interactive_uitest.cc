@@ -23,6 +23,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
+#include "base/test/gmock_callback_support.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_entropy_provider.h"
 #include "base/test/run_until.h"
@@ -107,8 +108,9 @@
 #include "ui/base/test/ui_controls.h"
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH) && BUILDFLAG(ENABLE_EXTENSIONS)
 
-using base::ASCIIToUTF16;
-using content::URLLoaderInterceptor;
+using ::base::ASCIIToUTF16;
+using ::base::test::RunClosure;
+using ::content::URLLoaderInterceptor;
 using ::testing::_;
 using ::testing::AllOf;
 using ::testing::AssertionFailure;
@@ -161,10 +163,6 @@ constexpr char kTestShippingFormString[] = R"(
      <input type="text" id="phone"><br>
     </form>
     )";
-
-ACTION_P(InvokeClosure, closure) {
-  closure.Run();
-}
 
 // Searches all frames of the primary page in |web_contents| and returns one
 // called |name|. If there are none, returns null, if there are more, returns
@@ -290,8 +288,7 @@ const std::vector<FieldValue> kDefaultAddress{
       return fields;
     }
   }
-  NOTREACHED_IN_MIGRATION();
-  return fields;
+  NOTREACHED();
 }
 
 // A generic "map" function, intended to lift values `args...` to a matcher
@@ -2383,7 +2380,7 @@ class AutofillInteractiveFencedFrameTest
         return cross_frame;
       }
     }
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 
  private:
@@ -3307,18 +3304,7 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTestChromeVox,
 
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH) && BUILDFLAG(ENABLE_EXTENSIONS)
 
-// These tests are disabled on LaCros because <select> elements don't listen
-// to typed characters the same way as other platforms. Sending the characters
-// 'W', 'A' while the state selector is focused does not trigger a selection
-// of the entry "WA".
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-#define MAYBE_AutofillInteractiveFormSubmissionTest \
-  DISABLED_AutofillInteractiveFormSubmissionTest
-#else
-#define MAYBE_AutofillInteractiveFormSubmissionTest \
-  AutofillInteractiveFormSubmissionTest
-#endif
-class MAYBE_AutofillInteractiveFormSubmissionTest
+class AutofillInteractiveFormSubmissionTest
     : public AutofillInteractiveTestBase {
  public:
   class MockAutofillManager : public BrowserAutofillManager {
@@ -3327,7 +3313,7 @@ class MAYBE_AutofillInteractiveFormSubmissionTest
         : BrowserAutofillManager(driver, "en-US") {}
     MOCK_METHOD(void,
                 OnFormSubmittedImpl,
-                (const FormData&, bool, mojom::SubmissionSource),
+                (const FormData&, mojom::SubmissionSource),
                 (override));
 
     TestAutofillManagerWaiter& text_field_change_waiter() {
@@ -3457,8 +3443,7 @@ class MAYBE_AutofillInteractiveFormSubmissionTest
 
 // Tests that user-triggered submission triggers a submission event in
 // BrowserAutofillManager.
-IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
-                       Submission) {
+IN_PROC_BROWSER_TEST_F(AutofillInteractiveFormSubmissionTest, Submission) {
   EnterValues();
 
   base::RunLoop run_loop;
@@ -3466,17 +3451,16 @@ IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
   EXPECT_CALL(*autofill_manager(), OnFormSubmittedImpl).Times(0);
   EXPECT_CALL(*autofill_manager(),
               OnFormSubmittedImpl(HasExpectedValues(),
-                                  /*known_success=*/false,
                                   mojom::SubmissionSource::FORM_SUBMISSION))
       .Times(1)
-      .WillRepeatedly(InvokeClosure(run_loop.QuitClosure()));
+      .WillRepeatedly(RunClosure(run_loop.QuitClosure()));
   ExecuteScript("document.getElementById('shipping').submit();");
   run_loop.Run();
 }
 
 // Tests that non-link-click, renderer-initiated navigation triggers a
 // submission event in BrowserAutofillManager.
-IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
+IN_PROC_BROWSER_TEST_F(AutofillInteractiveFormSubmissionTest,
                        ProbableSubmission) {
   EnterValues();
 
@@ -3486,10 +3470,9 @@ IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
   EXPECT_CALL(
       *autofill_manager(),
       OnFormSubmittedImpl(HasExpectedValues(),
-                          /*known_success=*/false,
                           mojom::SubmissionSource::PROBABLY_FORM_SUBMITTED))
       .Times(1)
-      .WillRepeatedly(InvokeClosure(run_loop.QuitClosure()));
+      .WillRepeatedly(RunClosure(run_loop.QuitClosure()));
   // Add a delay before navigating away to avoid race conditions. This is
   // appropriate since we're faking user interaction here.
   ExecuteScript(
@@ -3498,7 +3481,7 @@ IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
 }
 
 // Tests that a same document navigation can trigger a form submission.
-IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
+IN_PROC_BROWSER_TEST_F(AutofillInteractiveFormSubmissionTest,
                        SameDocumentNavigation) {
   EnterValues();
 
@@ -3508,10 +3491,9 @@ IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
   EXPECT_CALL(
       *autofill_manager(),
       OnFormSubmittedImpl(HasExpectedValues(),
-                          /*known_success=*/true,
                           mojom::SubmissionSource::SAME_DOCUMENT_NAVIGATION))
       .Times(1)
-      .WillRepeatedly(InvokeClosure(run_loop.QuitClosure()));
+      .WillRepeatedly(RunClosure(run_loop.QuitClosure()));
 
   // Simulate form submission.
   ExecuteScript(
@@ -3531,7 +3513,7 @@ IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
 }
 
 // Tests that an XHR request can indicate a form submission.
-IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
+IN_PROC_BROWSER_TEST_F(AutofillInteractiveFormSubmissionTest,
                        XhrSucceededAndHideForm) {
   EnterValues();
 
@@ -3541,10 +3523,9 @@ IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
   EXPECT_CALL(*autofill_manager(), OnFormSubmittedImpl).Times(0);
   EXPECT_CALL(*autofill_manager(),
               OnFormSubmittedImpl(HasExpectedValues(),
-                                  /*known_success=*/true,
                                   mojom::SubmissionSource::XHR_SUCCEEDED))
       .Times(1)
-      .WillRepeatedly(InvokeClosure(run_loop.QuitClosure()));
+      .WillRepeatedly(RunClosure(run_loop.QuitClosure()));
 
   // Simulate form submission.
   ExecuteScript(
@@ -3564,7 +3545,7 @@ IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
 
 // Tests that an XHR request can indicate a form submission - even if the form
 // is deleted from the DOM.
-IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
+IN_PROC_BROWSER_TEST_F(AutofillInteractiveFormSubmissionTest,
                        XhrSucceededAndDeleteForm) {
   EnterValues();
 
@@ -3574,10 +3555,9 @@ IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
   EXPECT_CALL(*autofill_manager(), OnFormSubmittedImpl).Times(0);
   EXPECT_CALL(*autofill_manager(),
               OnFormSubmittedImpl(HasExpectedValues(),
-                                  /*known_success=*/true,
                                   mojom::SubmissionSource::XHR_SUCCEEDED))
       .Times(1)
-      .WillRepeatedly(InvokeClosure(run_loop.QuitClosure()));
+      .WillRepeatedly(RunClosure(run_loop.QuitClosure()));
 
   // Simulate form submission.
   ExecuteScript(
@@ -3597,7 +3577,7 @@ IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
 }
 
 // Tests that a DOM mutation after an XHR can indicate a form submission.
-IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
+IN_PROC_BROWSER_TEST_F(AutofillInteractiveFormSubmissionTest,
                        DomMutationAfterXhr) {
   EnterValues();
 
@@ -3607,10 +3587,9 @@ IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
   EXPECT_CALL(*autofill_manager(), OnFormSubmittedImpl).Times(0);
   EXPECT_CALL(*autofill_manager(),
               OnFormSubmittedImpl(HasExpectedValues(),
-                                  /*known_success=*/true,
                                   mojom::SubmissionSource::XHR_SUCCEEDED))
       .Times(1)
-      .WillRepeatedly(InvokeClosure(run_loop.QuitClosure()));
+      .WillRepeatedly(RunClosure(run_loop.QuitClosure()));
 
   // Simulate form submission.
   ExecuteScript(
@@ -3632,7 +3611,7 @@ IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
 // Tests that FormFieldData::user_input has the text that the user typed into
 // the field. This is needed in order to show the save-card dialog when the
 // page replaces the <input> value with '***'.
-IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
+IN_PROC_BROWSER_TEST_F(AutofillInteractiveFormSubmissionTest,
                        RememberUserInput) {
   const std::vector<NameValueUserInput> kExpectedSubmittedValues{
       {u"name", u"JS Modified Name", u"Sarah"},
@@ -3649,13 +3628,12 @@ IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
   base::RunLoop run_loop;
   // Ensure that only expected form submissions are recorded.
   EXPECT_CALL(*autofill_manager(), OnFormSubmittedImpl).Times(0);
-  EXPECT_CALL(
-      *autofill_manager(),
-      OnFormSubmittedImpl(
-          FieldsAre(Map(kExpectedSubmittedValues, HasNameValueUserInput)),
-          /*known_success=*/false, mojom::SubmissionSource::FORM_SUBMISSION))
+  EXPECT_CALL(*autofill_manager(),
+              OnFormSubmittedImpl(FieldsAre(Map(kExpectedSubmittedValues,
+                                                HasNameValueUserInput)),
+                                  mojom::SubmissionSource::FORM_SUBMISSION))
       .Times(1)
-      .WillRepeatedly(InvokeClosure(run_loop.QuitClosure()));
+      .WillRepeatedly(RunClosure(run_loop.QuitClosure()));
   ExecuteScript("document.getElementById('shipping').submit();");
   run_loop.Run();
 }
@@ -3667,7 +3645,7 @@ IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
 // 4) The user submits the form
 // That FormFieldData::user_input is empty and does not contain stale data that
 // the user typed into the form.
-IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
+IN_PROC_BROWSER_TEST_F(AutofillInteractiveFormSubmissionTest,
                        TreatAutofillAsUserInput) {
   CreateTestProfile();
 
@@ -3696,22 +3674,15 @@ IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormSubmissionTest,
                               {base::UTF8ToUTF16(fv.id),
                                base::UTF8ToUTF16(fv.value), u""});
                         })),
-          /*known_success=*/false, mojom::SubmissionSource::FORM_SUBMISSION))
+          mojom::SubmissionSource::FORM_SUBMISSION))
       .Times(1)
-      .WillRepeatedly(InvokeClosure(run_loop.QuitClosure()));
+      .WillRepeatedly(RunClosure(run_loop.QuitClosure()));
   ExecuteScript("document.getElementById('shipping').submit();");
   run_loop.Run();
 }
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-#define MAYBE_AutofillInteractiveFormlessFormSubmissionTest \
-  DISABLED_AutofillInteractiveFormlessFormSubmissionTest
-#else
-#define MAYBE_AutofillInteractiveFormlessFormSubmissionTest \
-  AutofillInteractiveFormlessFormSubmissionTest
-#endif
-class MAYBE_AutofillInteractiveFormlessFormSubmissionTest
-    : public MAYBE_AutofillInteractiveFormSubmissionTest {
+class AutofillInteractiveFormlessFormSubmissionTest
+    : public AutofillInteractiveFormSubmissionTest {
  public:
   void SetUpOnMainThread() override {
     AutofillInteractiveTestBase::SetUpOnMainThread();
@@ -3744,7 +3715,7 @@ class MAYBE_AutofillInteractiveFormlessFormSubmissionTest
 // 1) User fills <input>s on page without <form>.
 // 2) The page does an XHR
 // 3) The page navigates
-IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormlessFormSubmissionTest,
+IN_PROC_BROWSER_TEST_F(AutofillInteractiveFormlessFormSubmissionTest,
                        NavigationAfterXhr) {
   const std::vector<FieldValue> kEnteredValues = {
       {"name", "Sarah"}, {"address", "123 Main Road"}, {"city", "Moonbeam"}};
@@ -3762,10 +3733,9 @@ IN_PROC_BROWSER_TEST_F(MAYBE_AutofillInteractiveFormlessFormSubmissionTest,
                                               {base::UTF8ToUTF16(fv.id),
                                                base::UTF8ToUTF16(fv.value)});
                                         })),
-                          /*known_success=*/false,
                           mojom::SubmissionSource::PROBABLY_FORM_SUBMITTED))
       .Times(1)
-      .WillRepeatedly(InvokeClosure(run_loop.QuitClosure()));
+      .WillRepeatedly(RunClosure(run_loop.QuitClosure()));
 
   // Simulate XHR, then page navigation.
   ExecuteScript(

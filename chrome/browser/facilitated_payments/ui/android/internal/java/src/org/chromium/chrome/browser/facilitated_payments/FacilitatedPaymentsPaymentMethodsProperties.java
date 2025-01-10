@@ -27,9 +27,11 @@ class FacilitatedPaymentsPaymentMethodsProperties {
             new WritableObjectPropertyKey("screen_view_model");
     static final ReadableObjectPropertyKey<Callback<Integer>> DISMISS_HANDLER =
             new ReadableObjectPropertyKey<>("dismiss_handler");
+    static final ReadableObjectPropertyKey<Callback<Integer>> UI_EVENT_LISTENER =
+            new ReadableObjectPropertyKey<>("ui_event_listener");
 
     static final PropertyKey[] ALL_KEYS = {
-        VISIBLE_STATE, SCREEN, SCREEN_VIEW_MODEL, DISMISS_HANDLER
+        VISIBLE_STATE, SCREEN, SCREEN_VIEW_MODEL, DISMISS_HANDLER, UI_EVENT_LISTENER
     };
 
     // TODO: b/348595414 - Rename to FopSelectorItemType and move to a separate directory.
@@ -49,6 +51,8 @@ class FacilitatedPaymentsPaymentMethodsProperties {
 
         // A footer section containing additional actions.
         int FOOTER = 4;
+
+        int EWALLET = 5;
     }
 
     // The visible state of the Facilitated Payments bottom sheet.
@@ -115,6 +119,28 @@ class FacilitatedPaymentsPaymentMethodsProperties {
         };
 
         private BankAccountProperties() {}
+    }
+
+    static class EwalletProperties {
+        static final ReadableObjectPropertyKey<String> EWALLET_NAME =
+                new ReadableObjectPropertyKey("ewallet_name");
+        static final ReadableObjectPropertyKey<String> ACCOUNT_DISPLAY_NAME =
+                new ReadableObjectPropertyKey("account_display_name");
+        static final ReadableIntPropertyKey EWALLET_DRAWABLE_ID =
+                new ReadableIntPropertyKey("ewallet_drawable_id");
+        static final ReadableObjectPropertyKey<Runnable> ON_EWALLET_CLICK_ACTION =
+                new ReadableObjectPropertyKey<>("on_ewallet_click_action");
+        static final ReadableObjectPropertyKey<Bitmap> EWALLET_ICON_BITMAP =
+                new ReadableObjectPropertyKey<>("ewallet_icon_bitmap");
+        static final PropertyKey[] NON_TRANSFORMING_KEYS = {
+            EWALLET_NAME,
+            ACCOUNT_DISPLAY_NAME,
+            EWALLET_DRAWABLE_ID,
+            ON_EWALLET_CLICK_ACTION,
+            EWALLET_ICON_BITMAP
+        };
+
+        private EwalletProperties() {}
     }
 
     /**

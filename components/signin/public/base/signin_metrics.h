@@ -249,6 +249,9 @@ enum class AccessPoint : int {
   ACCESS_POINT_CCT_ACCOUNT_MISMATCH_NOTIFICATION = 71,
   // Access point for the Drive file picker on iOS.
   ACCESS_POINT_DRIVE_FILE_PICKER_IOS = 72,
+  // Access point triggered when a user attempts to share or join a tab group
+  // without being signed in or synced.
+  ACCESS_POINT_COLLABORATION_TAB_GROUP = 73,
 
   // Add values above this line with a corresponding label to the
   // "SigninAccessPoint" enum in
@@ -261,23 +264,19 @@ enum class AccessPoint : int {
 // could be initiated. Transactional reauth is used when the user already has
 // a valid refresh token but a system still wants to verify user's identity.
 enum class ReauthAccessPoint {
-  // The code expects kUnknown to be the first, so it should not be reordered.
-  kUnknown = 0,
-
+  kUnknown,
   // Account password storage opt-in:
-  kAutofillDropdown = 1,
+  kAutofillDropdown,
   // The password save bubble, which included the destination picker (set to
   // "Save to your Google Account").
-  kPasswordSaveBubble = 2,
-  kPasswordSettings = 3,
-  kGeneratePasswordDropdown = 4,
-  kGeneratePasswordContextMenu = 5,
-  // kPasswordMoveBubble = 6, (deprecated)
+  kPasswordSaveBubble,
+  kPasswordSettings,
+  kGeneratePasswordDropdown,
+  kGeneratePasswordContextMenu,
   // The password save bubble *without* a destination picker, i.e. the password
   // was already saved locally.
-  kPasswordSaveLocallyBubble = 7,
-
-  kMaxValue = kPasswordSaveLocallyBubble
+  kPasswordSaveLocallyBubble,
+  kMax = kPasswordSaveLocallyBubble
 };
 
 // Enum values which enumerates all user actions on the sign-in promo.
@@ -484,8 +483,9 @@ enum class SourceForRefreshTokenOperation {
   // DEPRECATED on 05/2024
   // kDiceResponseHandler_PasswordPromoSignin = 22,
   kEnterpriseForcedProfileCreation_UserDecline = 23,
+  kEnterprisePolicy_AccountNotAllowedInContentArea = 24,
 
-  kMaxValue = kEnterpriseForcedProfileCreation_UserDecline,
+  kMaxValue = kEnterprisePolicy_AccountNotAllowedInContentArea,
 };
 
 // Different types of reporting. This is used as a histogram suffix.
@@ -582,8 +582,10 @@ void LogSigninAccessPointCompleted(AccessPoint access_point,
 
 // Logs sign in offered events and their associated access points.
 // Access points (or features) are responsible for recording this where relevant
-// for them.
-void LogSignInOffered(AccessPoint access_point);
+// for them. The `promo_action` determines which specific histogram will be
+// recorded based and should be computed based on the signin state when the
+// promo is offered.
+void LogSignInOffered(AccessPoint access_point, PromoAction promo_action);
 
 // Logs sign in start events and their associated access points. The
 // completion events are automatically logged when the primary account state

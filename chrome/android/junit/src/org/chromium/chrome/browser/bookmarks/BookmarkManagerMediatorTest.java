@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.bookmarks;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -30,8 +29,9 @@ import static org.mockito.Mockito.when;
 import static org.chromium.ui.test.util.MockitoHelper.doCallback;
 import static org.chromium.ui.test.util.MockitoHelper.doRunnable;
 
+import static java.util.Map.entry;
+
 import android.app.Activity;
-import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.util.Pair;
@@ -78,6 +78,7 @@ import org.chromium.chrome.browser.commerce.PriceTrackingUtils;
 import org.chromium.chrome.browser.commerce.PriceTrackingUtilsJni;
 import org.chromium.chrome.browser.commerce.ShoppingServiceFactory;
 import org.chromium.chrome.browser.commerce.ShoppingServiceFactoryJni;
+import org.chromium.chrome.browser.device_reauth.ReauthenticatorBridge;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
@@ -186,6 +187,7 @@ public class BookmarkManagerMediatorTest {
     @Mock private Consumer<OnScrollListener> mOnScrollListenerConsumer;
     @Mock private BookmarkMoveSnackbarManager mBookmarkMoveSnackbarManager;
     @Mock private BasicNativePage mNativePage;
+    @Mock private ReauthenticatorBridge mReauthenticatorMock;
 
     @Captor private ArgumentCaptor<BookmarkModelObserver> mBookmarkModelObserverArgumentCaptor;
     @Captor private ArgumentCaptor<SelectionObserver> mSelectionObserver;
@@ -479,6 +481,8 @@ public class BookmarkManagerMediatorTest {
                 .when(mBookmarkModel)
                 .getPowerBookmarkMeta(mPriceTrackedBookmarkId);
         doReturn(true).when(mCommerceFeatureUtilsJniMock).isShoppingListEligible(anyLong());
+
+        ReauthenticatorBridge.setInstanceForTesting(mReauthenticatorMock);
 
         mDragReorderableRecyclerViewAdapter =
                 spy(new DragReorderableRecyclerViewAdapter(mActivity, mModelList));
@@ -1409,9 +1413,6 @@ public class BookmarkManagerMediatorTest {
                 ViewType.PERSONALIZED_SYNC_PROMO,
                 ViewType.IMPROVED_BOOKMARK_COMPACT,
                 ViewType.IMPROVED_BOOKMARK_COMPACT);
-        assertNotEquals(
-                Resources.ID_NULL,
-                mModelList.get(1).model.get(BookmarkManagerProperties.PROMO_TOP_MARGIN_RES));
 
         BookmarkPromoHeader.forcePromoStateForTesting(SyncPromoState.NO_PROMO);
         mMediator.getPromoHeaderManager().syncStateChanged();
@@ -1420,23 +1421,6 @@ public class BookmarkManagerMediatorTest {
                 ViewType.SEARCH_BOX,
                 ViewType.IMPROVED_BOOKMARK_COMPACT,
                 ViewType.IMPROVED_BOOKMARK_COMPACT);
-    }
-
-    @Test
-    public void testPromoHeaderDefaultMargin() {
-        BookmarkPromoHeader.forcePromoStateForTesting(SyncPromoState.PROMO_FOR_SIGNED_IN_STATE);
-        mMediator.getPromoHeaderManager().syncStateChanged();
-        finishLoading();
-        mMediator.openFolder(mFolderId1);
-
-        verifyCurrentViewTypes(
-                ViewType.SEARCH_BOX,
-                ViewType.PERSONALIZED_SYNC_PROMO,
-                ViewType.IMPROVED_BOOKMARK_COMPACT,
-                ViewType.IMPROVED_BOOKMARK_COMPACT);
-        assertEquals(
-                Resources.ID_NULL,
-                mModelList.get(2).model.get(BookmarkManagerProperties.PROMO_TOP_MARGIN_RES));
     }
 
     @Test

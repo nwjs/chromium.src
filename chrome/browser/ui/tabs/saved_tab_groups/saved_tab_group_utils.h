@@ -63,8 +63,8 @@ class SavedTabGroupUtils {
   static void DeleteSavedGroup(const Browser* browser,
                                const base::Uuid& saved_group_guid);
 
-  // Open the `url` to the end of `browser` tab strip.
-  static void OpenUrlToBrowser(Browser* browser, const GURL& url);
+  // Open the `url` to the end of `browser` tab strip as a new ungrouped tab.
+  static void OpenUrlInNewUngroupedTab(Browser* browser, const GURL& url);
 
   static void OpenOrMoveSavedGroupToNewWindow(
       Browser* browser,
@@ -108,6 +108,10 @@ class SavedTabGroupUtils {
       std::optional<int> tabstrip_index = std::nullopt,
       std::optional<tab_groups::TabGroupId> local_group_id = std::nullopt);
 
+  // Returns whether a navigation was initiated from sync.
+  static bool WasNavigationInitiatedFromSync(
+      content::NavigationHandle* navigation_handle);
+
   // Returns the Browser that contains a local group with id `group_id`.
   static Browser* GetBrowserWithTabGroupId(tab_groups::TabGroupId group_id);
 
@@ -115,7 +119,7 @@ class SavedTabGroupUtils {
   static TabGroup* GetTabGroupWithId(tab_groups::TabGroupId group_id);
 
   // Returns the list of Tabs in the local group `group_id` in order.
-  static std::vector<tabs::TabModel*> GetTabsInGroup(
+  static std::vector<tabs::TabInterface*> GetTabsInGroup(
       tab_groups::TabGroupId group_id);
 
   // TODO(crbug.com/350514491) remove this once all cases are handled by

@@ -46,8 +46,10 @@ class MahiManagerImpl : public chromeos::MahiManager,
   std::u16string GetContentTitle() override;
   gfx::ImageSkia GetContentIcon() override;
   GURL GetContentUrl() override;
+  std::u16string GetSelectedText() override;
   void GetContent(MahiContentCallback callback) override;
   void GetSummary(MahiSummaryCallback callback) override;
+  void GetElucidation(MahiElucidationCallback callback) override;
   void GetOutlines(MahiOutlinesCallback callback) override;
   void GoToOutlineContent(int outline_id) override;
   void AnswerQuestion(const std::u16string& question,
@@ -103,6 +105,9 @@ class MahiManagerImpl : public chromeos::MahiManager,
 
   void MaybeObserveHistoryService();
 
+  void OpenMahiPanelForElucidation(int64_t display_id,
+                                   const gfx::Rect& mahi_menu_bounds);
+
   void OnGetPageContent(crosapi::mojom::MahiPageInfoPtr request_page_info,
                         MahiContentCallback callback,
                         crosapi::mojom::MahiPageContentPtr mahi_content_ptr);
@@ -110,6 +115,12 @@ class MahiManagerImpl : public chromeos::MahiManager,
   void OnGetPageContentForSummary(
       crosapi::mojom::MahiPageInfoPtr request_page_info,
       MahiSummaryCallback callback,
+      crosapi::mojom::MahiPageContentPtr mahi_content_ptr);
+
+  void OnGetPageContentForElucidation(
+      const std::u16string& selected_text,
+      crosapi::mojom::MahiPageInfoPtr request_page_info,
+      MahiElucidationCallback callback,
       crosapi::mojom::MahiPageContentPtr mahi_content_ptr);
 
   void OnGetPageContentForQA(
@@ -124,6 +135,13 @@ class MahiManagerImpl : public chromeos::MahiManager,
       base::Value::Dict dict,
       manta::MantaStatus status);
 
+  void OnMahiProviderElucidationResponse(
+      crosapi::mojom::MahiPageInfoPtr request_page_info,
+      const std::u16string& selected_text,
+      MahiElucidationCallback elucidation_callback,
+      base::Value::Dict dict,
+      manta::MantaStatus status);
+
   void OnMahiProviderQAResponse(
       crosapi::mojom::MahiPageInfoPtr request_page_info,
       const std::u16string& question,
@@ -133,6 +151,10 @@ class MahiManagerImpl : public chromeos::MahiManager,
 
   void CacheCurrentPanelContent(crosapi::mojom::MahiPageInfo request_page_info,
                                 crosapi::mojom::MahiPageContent mahi_content);
+
+  // Updates `current_selected_text_` from web contents manager or media app
+  // content manager.
+  void UpdateCurrentSelectedText();
 
   base::ScopedObservation<chromeos::MagicBoostState,
                           chromeos::MagicBoostState::Observer>
@@ -150,6 +172,10 @@ class MahiManagerImpl : public chromeos::MahiManager,
   crosapi::mojom::MahiPageInfoPtr current_panel_info_ =
       crosapi::mojom::MahiPageInfo::New();
 
+  // Stores current selected text when the user triggers feature that works for
+  // selected text, e.g. Elucidation.
+  std::u16string current_selected_text_;
+
   // Pair of question and their corresponding answer for the current panel
   // content
   std::vector<std::pair<std::string, std::string>> current_panel_qa_;
@@ -161,7 +187,9 @@ class MahiManagerImpl : public chromeos::MahiManager,
 
   // Keeps track of the latest result and code, used for feedback.
   std::u16string latest_summary_;
+  std::u16string latest_elucidation_;
   chromeos::MahiResponseStatus latest_response_status_;
+
   MahiUiController ui_controller_;
 
   std::unique_ptr<MahiCacheManager> cache_manager_;

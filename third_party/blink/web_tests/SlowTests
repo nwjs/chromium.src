@@ -1446,7 +1446,6 @@ crbug.com/326619067 [ Mac ] external/wpt/css/css-scroll-snap-2/scrollsnapchangin
 crbug.com/332903033 [ Mac ] external/wpt/css/css-scroll-snap-2/scrollsnapchanging/scrollsnapchanging-on-user-scroll.tentative.html [ Slow ]
 crbug.com/327390559 [ Win11-arm64 ] virtual/keepalive-in-browser-migration/external/wpt/* [ Slow ]
 
-crbug.com/328860404 virtual/disable-intersection-optimization/external/wpt/html/semantics/embedded-content/the-iframe-element/sandbox-top-navigation-escalate-privileges.tentative.sub.window.html [ Slow ]
 crbug.com/328849073 virtual/no-auto-wpt-origin-isolation/external/wpt/html/semantics/embedded-content/the-iframe-element/sandbox-top-navigation-escalate-privileges.tentative.sub.window.html [ Slow ]
 
 crbug.com/350628679 [ Mac ] external/wpt/css/css-sizing/min-content-negative-margin-crash.html [ Slow ]
@@ -1458,7 +1457,6 @@ crbug.com/363342597 shadow-dom/focus-navigation/focus-scroller-activeElement-on-
 
 # Slow because the test is huge
 crbug.com/352097024 external/wpt/service-workers/service-worker/same-site-cookies.https.html [ Slow ]
-crbug.com/352097024 virtual/plz-dedicated-worker-disabled/external/wpt/service-workers/service-worker/same-site-cookies.https.html [ Slow ]
 
 crbug.com/341380030 [ Mac ] external/wpt/css/css-pseudo/text-selection.html [ Slow ]
 
@@ -1479,11 +1477,14 @@ crbug.com/356963272 external/wpt/webrtc/RTCDataChannel-send-close.html [ Slow ]
 # Slow because it contains a large number of subtests
 crbug.com/369600187 external/wpt/css/css-anchor-position/anchor-size-parse-valid.html [ Slow ]
 
-# Flaky timeouts - assuming the test is slow.
+# Flaky timeouts - assuming the tests are slow.
 crbug.com/369200429 fast/events/touch/gesture/gesture-tap-hover-clear.html [ Slow ]
-crbug.com/374035637 [ Mac14 Debug ] fast/css-grid-layout/grid-auto-repeat-huge-grid-004.html [ Slow ]
-crbug.com/374035637 [ Mac14 Debug ] fast/css-grid-layout/grid-auto-repeat-huge-grid-010.html [ Slow ]
-crbug.com/374035637 [ Mac14 Debug ] fast/css-grid-layout/grid-auto-repeat-huge-grid-016.html [ Slow ]
-crbug.com/374035637 [ Mac14 Debug ] fast/css-grid-layout/grid-auto-repeat-huge-grid-018.html [ Slow ]
-crbug.com/374035637 [ Mac14 Debug ] fast/css-grid-layout/grid-auto-repeat-huge-grid-019.html [ Slow ]
-crbug.com/374045525 [ Mac14 Debug ] webaudio/AudioParam/audioparam-rate-change-357391257.html [ Slow ]
+crbug.com/374035637 [ Debug Mac14 ] fast/css-grid-layout/grid-auto-repeat-huge-grid-004.html [ Slow ]
+crbug.com/374035637 [ Debug Mac14 ] fast/css-grid-layout/grid-auto-repeat-huge-grid-010.html [ Slow ]
+crbug.com/374035637 [ Debug Mac14 ] fast/css-grid-layout/grid-auto-repeat-huge-grid-016.html [ Slow ]
+crbug.com/374035637 [ Debug Mac14 ] fast/css-grid-layout/grid-auto-repeat-huge-grid-018.html [ Slow ]
+crbug.com/374035637 [ Debug Mac14 ] fast/css-grid-layout/grid-auto-repeat-huge-grid-019.html [ Slow ]
+crbug.com/374045525 [ Debug Mac14 ] webaudio/AudioParam/audioparam-rate-change-357391257.html [ Slow ]
+
+# Gardener 2024-10-24
+crbug.com/375337253 external/wpt/shadow-dom/reference-target/tentative/property-reflection.html [ Slow ]

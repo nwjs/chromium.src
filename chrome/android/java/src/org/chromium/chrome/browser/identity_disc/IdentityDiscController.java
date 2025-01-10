@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.identity_disc;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 
@@ -36,10 +37,11 @@ import org.chromium.chrome.browser.toolbar.ButtonData.ButtonSpec;
 import org.chromium.chrome.browser.toolbar.ButtonDataImpl;
 import org.chromium.chrome.browser.toolbar.ButtonDataProvider;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarButtonVariant;
-import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncCoordinator;
+import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncCoordinator;
 import org.chromium.chrome.browser.ui.signin.SigninUtils;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetStrings;
-import org.chromium.chrome.browser.user_education.IPHCommandBuilder;
+import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncConfig;
+import org.chromium.chrome.browser.user_education.IphCommandBuilder;
 import org.chromium.chrome.browser.util.BrowserUiUtils;
 import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.feature_engagement.EventConstants;
@@ -99,7 +101,7 @@ public class IdentityDiscController
                         /* onClickListener= */ view -> onClick(),
                         mContext.getString(R.string.accessibility_toolbar_btn_identity_disc),
                         /* supportsTinting= */ false,
-                        new IPHCommandBuilder(
+                        new IphCommandBuilder(
                                 mContext.getResources(),
                                 FeatureConstants.IDENTITY_DISC_FEATURE,
                                 R.string.iph_identity_disc_text,
@@ -173,7 +175,7 @@ public class IdentityDiscController
                 /* onLongClickListener= */ null,
                 contentDescription,
                 shouldSupportTinting,
-                buttonSpec.getIPHCommandBuilder(),
+                buttonSpec.getIphCommandBuilder(),
                 AdaptiveToolbarButtonVariant.UNKNOWN,
                 buttonSpec.getActionChipLabelResId(),
                 buttonSpec.getHoverTooltipTextId(),
@@ -366,17 +368,23 @@ public class IdentityDiscController
                                         R.string
                                                 .signin_account_picker_bottom_sheet_benefits_subtitle)
                                 .build();
-                SigninAndHistorySyncActivityLauncherImpl.get()
-                        .launchActivityIfAllowed(
-                                mContext,
-                                mProfileSupplier.get().getOriginalProfile(),
-                                bottomSheetStrings,
-                                SigninAndHistorySyncCoordinator.NoAccountSigninMode.BOTTOM_SHEET,
-                                SigninAndHistorySyncCoordinator.WithAccountSigninMode
-                                        .DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                                SigninAndHistorySyncCoordinator.HistoryOptInMode.OPTIONAL,
-                                SigninAccessPoint.NTP_SIGNED_OUT_ICON,
-                                /* selectedCoreAccountId= */ null);
+                @Nullable
+                Intent intent =
+                        SigninAndHistorySyncActivityLauncherImpl.get()
+                                .createBottomSheetSigninIntentOrShowError(
+                                        mContext,
+                                        mProfileSupplier.get().getOriginalProfile(),
+                                        bottomSheetStrings,
+                                        BottomSheetSigninAndHistorySyncCoordinator
+                                                .NoAccountSigninMode.BOTTOM_SHEET,
+                                        BottomSheetSigninAndHistorySyncCoordinator
+                                                .WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
+                                        HistorySyncConfig.OptInMode.OPTIONAL,
+                                        SigninAccessPoint.NTP_SIGNED_OUT_ICON,
+                                        /* selectedCoreAccountId= */ null);
+                if (intent != null) {
+                    mContext.startActivity(intent);
+                }
             } else {
                 SyncConsentActivityLauncherImpl.get()
                         .launchActivityIfAllowed(mContext, SigninAccessPoint.NTP_SIGNED_OUT_ICON);

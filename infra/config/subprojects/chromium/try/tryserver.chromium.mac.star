@@ -6,10 +6,11 @@
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
 load("//lib/builders.star", "cpu", "os", "siso")
-load("//lib/try.star", "try_")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
 load("//lib/html.star", "linkify_builder")
+load("//lib/targets.star", "targets")
+load("//lib/try.star", "try_")
 load("//lib/xcode.star", "xcode")
 
 try_.defaults.set(
@@ -33,6 +34,12 @@ def ios_builder(*, name, **kwargs):
     kwargs.setdefault("ssd", None)
     kwargs.setdefault("xcode", xcode.xcode_default)
     return try_.builder(name = name, **kwargs)
+
+targets.builder_defaults.set(
+    mixins = [
+        "chromium-tester-service-account",
+    ],
+)
 
 consoles.list_view(
     name = "tryserver.chromium.mac",
@@ -113,6 +120,7 @@ try_.builder(
         "ci/mac-fieldtrial-tester",
     ],
     gn_args = "ci/mac-arm64-rel",
+    execution_timeout = 6 * time.hour,
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -175,8 +183,6 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # b/346598710
         "chromium.luci_analysis_v2": 100,
-        # crbug.com/355218109
-        "chromium.use_per_builder_build_dir_name": 100,
     },
     main_list_view = "try",
     tryjob = try_.job(),
@@ -298,10 +304,6 @@ try_.orchestrator_builder(
     ),
     compilator = "mac14-arm64-rel-compilator",
     contact_team_email = "bling-engprod@google.com",
-    experiments = {
-        # crbug.com/355218109
-        "chromium.use_per_builder_build_dir_name": 100,
-    },
     main_list_view = "try",
     tryjob = try_.job(
         # TODO (crbug.com/338209817): move out of
@@ -438,8 +440,6 @@ try_.builder(
     experiments = {
         # crbug/940930
         "chromium.enable_cleandead": 100,
-        # crbug.com/355218109
-        "chromium.use_per_builder_build_dir_name": 100,
     },
     main_list_view = "try",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
@@ -598,8 +598,6 @@ try_.orchestrator_builder(
         "chromium.add_one_test_shard": 10,
         # b/346598710
         "chromium.luci_analysis_v2": 100,
-        # crbug.com/355218109
-        "chromium.use_per_builder_build_dir_name": 100,
     },
     main_list_view = "try",
     tryjob = try_.job(),
@@ -717,7 +715,7 @@ ios_builder(
     mirrors = ["ci/ios17-sdk-simulator"],
     gn_args = "ci/ios17-sdk-simulator",
     cpu = cpu.ARM64,
-    xcode = xcode.x16_1betabots,
+    xcode = xcode.x16_2betabots,
 )
 
 ios_builder(
@@ -783,6 +781,16 @@ try_.gpu.optional_tests_builder(
             "mac",
             "x64",
         ],
+    ),
+    targets = targets.bundle(
+        targets = [
+            "mac_optional_gpu_tests_rel_gtests",
+            "mac_optional_gpu_tests_rel_gpu_telemetry_tests",
+        ],
+    ),
+    targets_settings = targets.settings(
+        browser_config = targets.browser_config.RELEASE,
+        os_type = targets.os_type.MAC,
     ),
     cpu = cpu.ARM64,
     ssd = None,

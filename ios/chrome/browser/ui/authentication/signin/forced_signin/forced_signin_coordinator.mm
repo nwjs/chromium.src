@@ -122,9 +122,7 @@
     case kChoice:
     case kDockingPromo:
     case kStepsCompleted:
-      NOTREACHED_IN_MIGRATION()
-          << "Type of screen not supported." << static_cast<int>(type);
-      break;
+      NOTREACHED() << "Type of screen not supported." << static_cast<int>(type);
   }
   return nil;
 }
@@ -137,8 +135,7 @@
   self.screenProvider = nil;
   SigninCompletionInfo* completionInfo =
       [SigninCompletionInfo signinCompletionInfoWithIdentity:identity];
-  [self runCompletionCallbackWithSigninResult:result
-                               completionInfo:completionInfo];
+  [self runCompletionWithSigninResult:result completionInfo:completionInfo];
 }
 
 #pragma mark - FirstRunScreenDelegate

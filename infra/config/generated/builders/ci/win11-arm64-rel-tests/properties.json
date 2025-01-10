@@ -7,7 +7,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "win-arm64-rel",
-              "project": "chromium-m131"
+              "project": "chromium-m132"
             },
             "builder_spec": {
               "build_gs_bucket": "chromium-win-archive",
@@ -26,8 +26,7 @@
               "legacy_gclient_config": {
                 "apply_configs": [
                   "chromium_with_telemetry_dependencies",
-                  "use_clang_coverage",
-                  "siso_latest"
+                  "use_clang_coverage"
                 ],
                 "config": "chromium"
               }
@@ -37,7 +36,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "win11-arm64-rel-tests",
-              "project": "chromium-m131"
+              "project": "chromium-m132"
             },
             "builder_spec": {
               "build_gs_bucket": "chromium-win-archive",
@@ -62,7 +61,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "win-arm64-rel",
-                "project": "chromium-m131"
+                "project": "chromium-m132"
               }
             }
           }
@@ -72,7 +71,7 @@
         {
           "bucket": "ci",
           "builder": "win11-arm64-rel-tests",
-          "project": "chromium-m131"
+          "project": "chromium-m132"
         }
       ],
       "mirroring_builder_group_and_names": [

@@ -308,7 +308,6 @@
 <translation id="2041220428661959602">Ниво батерије: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848">Пречица <ph name="SIX_PACK_KEY_NAME" /> је тренутно искључена</translation>
 <translation id="2049240716062114887">Име радне површине је промењено у <ph name="DESK_NAME" /></translation>
-<translation id="2050339315714019657">Усправно</translation>
 <translation id="2064048859448024834">Преглед камере је укључен</translation>
 <translation id="2065098273523946419">Линк Сазнајте више. Преусмерава у прегледач када се активира</translation>
 <translation id="2067220651560163985">Прикажи температуру у степенима Целзијуса</translation>
@@ -339,9 +338,6 @@
 <translation id="219905428774326614">Покретач, све апликације</translation>
 <translation id="2201071101391734388"><ph name="INDEX" />. недавна слика од <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Скупи Google задатке</translation>
-<translation id="2206960886090042977">Уграђени тачпед је онемогућен јер је повезан миш. Користите миш или тастатуру да бисте потврдили промену.
-
-У супротном ће уграђени тачпед бити поново омогућен за 30 секунди.</translation>
 <translation id="2208323208084708176">Режим спојених радних површина</translation>
 <translation id="2220572644011485463">PIN или лозинка</translation>
 <translation id="2222841058024245321">Радна површина 7</translation>
@@ -504,6 +500,9 @@
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /> од <ph name="KEY_ONE" /> до <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">ctrl+search+s</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" />-ом управља <ph name="MANAGER" /></translation>
+<translation id="2781658180588759579">Уграђени тачпед је онемогућен. Користите тастатуру или други показивачки уређај да бисте потврдили промену.
+
+У супротном ће уграђени тачпед бити поново омогућен за <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2782591952652094792">Изађите из режима снимања</translation>
 <translation id="2785499565474703580">1 уређај је повезан</translation>
 <translation id="2791421900609674576">Видећете препоруке да бисте могли да наставите тамо где сте стали.  Можете да додирнете и задржите да бисте уклонили препоруке.</translation>
@@ -601,6 +600,9 @@
 <translation id="3113492864356515707">Истакните претходну ставку на полици</translation>
 <translation id="311799651966070385">Затвори аутоматски подсетник</translation>
 <translation id="3120421559657122717">Желите да искључите уређај?</translation>
+<translation id="3121411970001795539">Уграђени тачпед је онемогућен јер је повезан миш. Користите миш или тастатуру да бисте потврдили промену.
+
+У супротном ће уграђени тачпед бити поново омогућен за <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">Тип школских задатака</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -972,13 +974,13 @@
 <translation id="4322742403972824594">Тастерска пречица Ctrl + Alt + стрелица нагоре је промењена. Да бисте користили тастер Home, притисните тастер <ph name="LAUNCHER_KEY_NAME" /> + стрелица налево.</translation>
 <translation id="4324840740119394760">Ово омогућава приступ камери за <ph name="APP_NAME" /> и све апликације и веб-сајтове са дозволом за камеру</translation>
 <translation id="4327147325944669226">Снимите игру</translation>
-<translation id="4333628967105022692">Lacros није подржан када је пријављено више корисника.</translation>
 <translation id="4338109981321384717">Лупа</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, звук је искључен</translation>
 <translation id="4351244548802238354">Затвори дијалог</translation>
 <translation id="4356872429719185452">Прегледајте детаље хотспота. Хотспот се укључује.</translation>
 <translation id="4364101114148522660"><ph name="DURATION" />  Снима се</translation>
 <translation id="4371348193907997655">Подешавања пребацивања</translation>
+<translation id="4371834685492830207">PIN мора да садржи само важеће знакове</translation>
 <translation id="4375482231364171368">Претражи у траци за адресу</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, јачина сигнала <ph name="SIGNAL_STRENGTH" /> посто</translation>
 <translation id="4378551569595875038">Повезује се...</translation>
@@ -1144,6 +1146,7 @@
 <translation id="4902797682482387055">Предложени задатак на који треба да се фокусирате</translation>
 <translation id="490375751687810070">Вертикално</translation>
 <translation id="490788395437447240">Ниво батерије је <ph name="BATTERY_PERCENTAGE" />%</translation>
+<translation id="4911191962826748981">Ово је експериментална функција вештачке интелигенције и неће увек радити како треба.</translation>
 <translation id="491504982845934899">Активирајте мрежу <ph name="NETWORK_NAME" /> после подешавања уређаја</translation>
 <translation id="4917385247580444890">Јак</translation>
 <translation id="4918086044614829423">Прихвати</translation>
@@ -1302,6 +1305,7 @@
 <translation id="5393156353051693207">Додирните и задржите било где да бисте променили редослед апликација</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" /> преко апликације <ph name="IN_PLACE_APP" />, отпустите да бисте направили фолдер.</translation>
 <translation id="5397578532367286026">Менаџер (<ph name="MANAGER_EMAIL" />) може да прегледа коришћење и историју овог корисника на chrome.com.</translation>
+<translation id="540338817371815859">Водоравно</translation>
 <translation id="540713187982329711">Укључите/искључите хотспот. Хотспот је укључен, али ниједан уређај није повезан.</translation>
 <translation id="5409208741270395213">Означите задатак као довршен</translation>
 <translation id="5413656666631274079">Страница подешавања</translation>
@@ -1473,7 +1477,6 @@
 <translation id="5975235751479998104">Кретање кроз прозоре унапред</translation>
 <translation id="5978382165065462689">Делите контролу над екраном преко Даљинске помоћи.</translation>
 <translation id="5980301590375426705">Затвори као гост</translation>
-<translation id="5982119059638483922">Притисните Fn + тастер за претрагу или Shift да бисте отказали.</translation>
 <translation id="5983567367406220847">Hотспот је искључен због неактивности.</translation>
 <translation id="598407983968395253">Користи шаблон</translation>
 <translation id="5986723678596105470">Уђи помоћу Google Meet-а</translation>
@@ -1543,7 +1546,6 @@
 <translation id="6166852626429024716">Претражујте уређај, апликације, подешавања, веб...</translation>
 <translation id="6168318496333165060">Отворите апликацију Дијагностика</translation>
 <translation id="6168622430237609329">Инсталиране апликације</translation>
-<translation id="6173151025443907148">Пријављивање другог корисника није подржано док је Lacros омогућен. Користите други профил за прегледач у Lacros-у или онемогућите Lacros и пробајте поново.</translation>
 <translation id="6179832488876878285">Овде можете да закачите најважније фајлове. Отворите апликацију Фајлови да бисте започели.</translation>
 <translation id="6180193585172850042">Дугме Назад</translation>
 <translation id="6180651297859206670">Дугме за напред</translation>
@@ -1565,6 +1567,7 @@
 <translation id="6232416233079464213">Извор: <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> тренутно користи камеру и микрофон</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">Лозинка може да садржи само важеће знакове</translation>
 <translation id="6240603910551255087">Горње дугме</translation>
 <translation id="6240821072888636753">Увек питај</translation>
 <translation id="6247728804802644171">Отворите обавештења</translation>
@@ -1695,7 +1698,6 @@
 <translation id="6682029141988159141">Налепи садржај из привремене меморије</translation>
 <translation id="6683022854667115063">Слушалице</translation>
 <translation id="6686023075541098243">Подесите преглед обавештења на телефону</translation>
-<translation id="6688019813898140556">Esc 5 пута</translation>
 <translation id="6694462491298752106">Уграђени тачпед је онемогућен</translation>
 <translation id="6694973220096431421">Претражите Google диск</translation>
 <translation id="6696025732084565524">Треба да инсталирате важно ажурирање за одвојиву тастатуру</translation>
@@ -1716,6 +1718,7 @@
 <translation id="6751826523481687655">Праћење учинка је укључено</translation>
 <translation id="6752912906630585008">Радна површина <ph name="REMOVED_DESK" /> је уклоњена и спојена са радном површином <ph name="RECEIVE_DESK" /></translation>
 <translation id="6753390234084146956">картице</translation>
+<translation id="6754918760968695779">Брзо уметање</translation>
 <translation id="6757237461819837179">Медији се не репродукују</translation>
 <translation id="6760438044935091345">Контролна табла игре</translation>
 <translation id="6768043681523654438">меморијски простор</translation>
@@ -1765,6 +1768,7 @@
 <translation id="6921427376813842559">Ажурирајте уређај</translation>
 <translation id="6929081673585394903">Покажи контроле</translation>
 <translation id="6931576957638141829">Сачувајте у</translation>
+<translation id="6935857786205183008">Усправно</translation>
 <translation id="6942518653766415536">Мени за формат снимања</translation>
 <translation id="6945221475159498467">Изабери</translation>
 <translation id="6945922087561257829">Телефон користи мобилну мрежу. Уверите се да су телефон и Chromebook на истој WiFi мрежи, па пробајте поново. <ph name="LEARN_MORE" /></translation>
@@ -1922,9 +1926,6 @@
 Да бисте искључили уређај, поново притисните и задржите дугме за укључивање на уређају.</translation>
 <translation id="7523420897035067483">Омогућите функцију Не узнемиравај док сам у фокусу</translation>
 <translation id="7524043547948122239">Google задаци</translation>
-<translation id="7524919752437339268">Уграђени тачпед је онемогућен. Користите тастатуру или други показивачки уређај да бисте потврдили промену.
-
-У супротном ће уграђени тачпед бити поново омогућен за 30 секунди.</translation>
 <translation id="7525067979554623046">Направи</translation>
 <translation id="7526573455193969409">Мрежа се можда надгледа</translation>
 <translation id="7536035074519304529">IP адреса: <ph name="ADDRESS" /></translation>
@@ -2011,6 +2012,7 @@
 <translation id="780301667611848630">Не, хвала</translation>
 <translation id="7807067443225230855">Претрага и Помоћник</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> и <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">Опција Свиђа ми се шаље повратне информације да вам се свиђа овај предлог</translation>
 <translation id="7825412704590278437">Из предстојећег догађаја у календару</translation>
 <translation id="7829386189513694949">Јак сигнал</translation>
 <translation id="7830453190047749513">Можете да персонализујете радње дугмади, брзину курсора и друго за уређај <ph name="PERIPHERAL_NAME" /></translation>
@@ -2165,6 +2167,7 @@
 <translation id="830868413617744215">Beta</translation>
 <translation id="8314772463905284467">Caps Lock је укључен</translation>
 <translation id="8315514906653279104">Укључује се…</translation>
+<translation id="8319634750346253957">Опција Не свиђа ми се шаље повратне информације да вам се овај предлог не свиђа</translation>
 <translation id="8331351032546853669">Преузимање је на чекању</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2350,6 +2353,7 @@
 <translation id="8982906748181120328">Видљиво у близини</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">Користи се <ph name="IME_NAME" /></translation>
+<translation id="8991648557324317894">Притисните fn + тастер за брзо уметање или Shift да бисте отказали.</translation>
 <translation id="899350903320462459">Откључајте уређај помоћу ИД-а пријављивања <ph name="LOGIN_ID" /> да бисте добили обавештење</translation>
 <translation id="8993733019280019776">Да ли причате? Микрофон је искључен. Изаберите микрофон да бисте га укључили.</translation>
 <translation id="9000771174482730261">УПРАВЉАЈТЕ МЕМОРИЈСКИМ ПРОСТОРОМ</translation>
@@ -2432,9 +2436,9 @@
 <translation id="974545358917229949">Приказују се резултати (<ph name="RESULT_COUNT" />) за: <ph name="QUERY" /></translation>
 <translation id="981011780479609956">Нема рока</translation>
 <translation id="98120814841227350">Идите на крај документа</translation>
-<translation id="98515147261107953">Пејзаж</translation>
 <translation id="987589956647469042">Мобилни подаци су укључени</translation>
 <translation id="989374776391122812">Контроле камере и звука</translation>
+<translation id="990263227494928142">Притисните shift 5 пута да бисте омогућили тачпед</translation>
 <translation id="990277280839877440">Прозор <ph name="WINDOW_TITILE" /> је затворен.</translation>
 <translation id="993398562350683614"><ph name="STEP" />. корак обиласка од <ph name="TOTAL_STEPS" />. Користите апликације да бисте обављали све потребне радње на <ph name="PRODUCT_NAME" />-у. Апликације можете да пронађете у Покретачу. Притисните Alt + Shift + L да бисте фокусирали дугме Покретача.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

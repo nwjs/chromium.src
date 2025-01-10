@@ -236,32 +236,24 @@ def AddCMakeToPath():
   os.environ['PATH'] = cmake_dir + os.pathsep + os.environ.get('PATH', '')
 
 
-def AddGnuWinToPath():
-  """Download some GNU win tools and add them to PATH."""
+def AddGitForWindowsToPath():
+  """Download Git for Windows and add it to PATH.
+
+  Git for Windows provides command line utilities (not Git) for tests."""
   assert sys.platform == 'win32'
 
-  gnuwin_dir = os.path.join(LLVM_BUILD_TOOLS_DIR, 'gnuwin')
-  GNUWIN_VERSION = '14'
-  GNUWIN_STAMP = os.path.join(gnuwin_dir, 'stamp')
-  if ReadStampFile(GNUWIN_STAMP) == GNUWIN_VERSION:
-    print('GNU Win tools already up to date.')
+  git_dir = os.path.join(LLVM_BUILD_TOOLS_DIR, 'git-for-windows')
+  version = '2.47.0'
+  stamp_file = os.path.join(git_dir, 'stamp')
+  if ReadStampFile(stamp_file) == version:
+    print('Git for Windows already up to date.')
   else:
-    zip_name = 'gnuwin-%s.zip' % GNUWIN_VERSION
-    DownloadAndUnpack(CDS_URL + '/tools/' + zip_name, LLVM_BUILD_TOOLS_DIR)
-    WriteStampFile(GNUWIN_VERSION, GNUWIN_STAMP)
+    archive_name = 'PortableGit-%s-64-bit.zip' % version
+    DownloadAndUnpack(CDS_URL + '/tools/' + archive_name, git_dir)
+    WriteStampFile(version, stamp_file)
 
-  os.environ['PATH'] = gnuwin_dir + os.pathsep + os.environ.get('PATH', '')
-
-  # find.exe, mv.exe and rm.exe are from MSYS (see crrev.com/389632). MSYS uses
-  # Cygwin under the hood, and initializing Cygwin has a race-condition when
-  # getting group and user data from the Active Directory is slow. To work
-  # around this, use a horrible hack telling it not to do that.
-  # See https://crbug.com/905289
-  etc = os.path.join(gnuwin_dir, '..', '..', 'etc')
-  EnsureDirExists(etc)
-  with open(os.path.join(etc, 'nsswitch.conf'), 'w') as f:
-    f.write('passwd: files\n')
-    f.write('group: files\n')
+  os.environ['PATH'] = os.path.join(
+      git_dir, 'usr', 'bin') + os.pathsep + os.environ.get('PATH', '')
 
 
 def AddZlibToPath(dry_run = False):
@@ -754,6 +746,40 @@ def main():
   if not args.skip_checkout:
     CheckoutGitRepo('LLVM monorepo', LLVM_GIT_URL, checkout_revision, LLVM_DIR)
 
+    if sys.platform == 'win32' and not args.llvm_force_head_revision:
+      # Apply https://github.com/zmodem/llvm-project/commit/802b816836f1 which
+      # adds printfs to the win/asan runtime which get printed at high verbosity
+      # level or on errors such as CHECK failure.
+      # TODO(crbug.com/341936875): Remove once debugging is done.
+      GitCherryPick(LLVM_DIR, 'https://github.com/zmodem/llvm-project.git',
+                    '802b816836f1dcf9544f250ee5c6977b4cb2bb41')
+
+      # Apply https://github.com/zmodem/llvm-project/commit/89a723c438a5 which
+      # should fix the issue of win/asan failing to allocate memory for
+      # trampoline functions.
+      # TODO(crbug.com/341936875): Land this upstream and remove after debugging.
+      GitCherryPick(LLVM_DIR, 'https://github.com/zmodem/llvm-project.git',
+                    '89a723c438a50a34507a71159ba37f6e60afcea9')
+
+      # Apply https://github.com/zmodem/llvm-project/commit/72112845b8e3 which
+      # fixes an issue in the previous patch and adds more printfs.
+      # TODO(crbug.com/341936875): Remove after debugging.
+      GitCherryPick(LLVM_DIR, 'https://github.com/zmodem/llvm-project.git',
+                    '72112845b8e37ba5296858d0224f916f0afbf88b')
+
+      # Apply https://github.com/zmodem/llvm-project/commit/723a2efebddf which
+      # tries to speed up the runtime by removing calls to GetModuleFileName and
+      # VPrintfs for contigous_containers.
+      # TODO(crbug.com/341936875): Remove after debugging.
+      GitCherryPick(LLVM_DIR, 'https://github.com/zmodem/llvm-project.git',
+                    '723a2efebddf250b58c2dd3bd064c1cd0f57b85f')
+
+      # Apply https://github.com/zmodem/llvm-project/commit/a86b7e95a8a7 which
+      # adds proper clamping of {min,max}_addr in AllocateTrampolineRegion.
+      # TODO(crbug.com/341936875): Remove after debugging.
+      GitCherryPick(LLVM_DIR, 'https://github.com/zmodem/llvm-project.git',
+                    'a86b7e95a8a7a7de750d19e4d189e9a9497e31e8')
+
   if args.llvm_force_head_revision:
     CLANG_REVISION = GetCommitDescription(checkout_revision)
     PACKAGE_VERSION = '%s-0' % CLANG_REVISION
@@ -883,7 +909,7 @@ def main():
       base_cmake_args.append('-DCMAKE_SYSROOT=' + sysroot_amd64)
 
   if sys.platform == 'win32':
-    AddGnuWinToPath()
+    AddGitForWindowsToPath()
 
     base_cmake_args.append('-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded')
 
@@ -1283,6 +1309,8 @@ def main():
             'DARWIN_ios_ARCHS=arm64',
             'DARWIN_iossim_ARCHS=arm64;x86_64',
             'DARWIN_osx_ARCHS=arm64;x86_64',
+            'DARWIN_watchos_BUILTIN_ARCHS=arm64',
+            'DARWIN_watchossim_BUILTIN_ARCHS=arm64;x86_64',
         ],
         "sanitizers":
         True,

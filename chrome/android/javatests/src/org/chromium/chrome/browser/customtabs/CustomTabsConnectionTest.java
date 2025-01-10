@@ -100,7 +100,7 @@ public class CustomTabsConnectionTest {
 
     @After
     public void tearDown() {
-        CustomTabsTestUtils.cleanupSessions(mCustomTabsConnection);
+        CustomTabsTestUtils.cleanupSessions();
         ThreadUtils.runOnUiThreadBlocking(
                 () -> WarmupManager.getInstance().destroySpareWebContents());
         ThreadUtils.runOnUiThreadBlocking(() -> WarmupManager.getInstance().destroySpareTab());
@@ -229,7 +229,7 @@ public class CustomTabsConnectionTest {
     @SmallTest
     public void testMayLaunchUrlNullOrEmptyUrl() throws Exception {
         assertWarmupAndMayLaunchUrl(null, null, true);
-        CustomTabsTestUtils.cleanupSessions(mCustomTabsConnection); // Resets throttling.
+        CustomTabsTestUtils.cleanupSessions(); // Resets throttling.
         assertWarmupAndMayLaunchUrl(null, "", true);
     }
 
@@ -254,7 +254,7 @@ public class CustomTabsConnectionTest {
                     Assert.assertNotNull(
                             "Null speculation, first one",
                             mCustomTabsConnection.getSpeculationParamsForTesting());
-                    Tab tab = mCustomTabsConnection.getSpeculationParamsForTesting().tab;
+                    Tab tab = mCustomTabsConnection.getSpeculationParamsForTesting().hiddenTab.tab;
                     Assert.assertNotNull("No first tab", tab);
                     tab.addObserver(
                             new EmptyTabObserver() {
@@ -277,9 +277,10 @@ public class CustomTabsConnectionTest {
                             mCustomTabsConnection.getSpeculationParamsForTesting());
                     Assert.assertNotNull(
                             "No second tab",
-                            mCustomTabsConnection.getSpeculationParamsForTesting().tab);
+                            mCustomTabsConnection.getSpeculationParamsForTesting().hiddenTab.tab);
                     Assert.assertEquals(
-                            URL2, mCustomTabsConnection.getSpeculationParamsForTesting().url);
+                            URL2,
+                            mCustomTabsConnection.getSpeculationParamsForTesting().hiddenTab.url);
                 });
         tabDestroyedHelper.waitForCallback("The first hidden tab should have been destroyed", 0);
 
@@ -309,7 +310,8 @@ public class CustomTabsConnectionTest {
                     Assert.assertNotNull(
                             "Null speculation",
                             mCustomTabsConnection.getSpeculationParamsForTesting());
-                    Tab speculationTab = mCustomTabsConnection.getSpeculationParamsForTesting().tab;
+                    Tab speculationTab =
+                            mCustomTabsConnection.getSpeculationParamsForTesting().hiddenTab.tab;
                     Assert.assertNotNull("Null speculation tab", speculationTab);
                     speculationTab.addObserver(
                             new EmptyTabObserver() {
@@ -436,7 +438,7 @@ public class CustomTabsConnectionTest {
         Assert.assertTrue("Failed warmup()", mCustomTabsConnection.warmup(0));
         Intent intent =
                 CustomTabsIntentTestUtils.createMinimalCustomTabIntent(context, mTestPageUrl);
-        mCustomTabActivityTestRule.launchActivity(intent);
+        mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
         Tab normalTab = mCustomTabActivityTestRule.getActivity().getActivityTab();
 
         // We can check if the page title is correct to know if the tab is done loading.
@@ -457,7 +459,7 @@ public class CustomTabsConnectionTest {
         Assert.assertTrue("Failed to retrieve JavaScript evaluation results.", JsHelper.hasValue());
         // Verify the tab has the expected cookie.
         Assert.assertEquals("\"foo=bar\"", JsHelper.getJsonResultAndClear());
-        mCustomTabActivityTestRule.getActivity().finish();
+        mCustomTabActivityTestRule.finishActivity();
 
         // Launch the first hidden tab. This tab should use a separate storage partition and
         // therefore shouldn't see the first cookie.
@@ -477,7 +479,7 @@ public class CustomTabsConnectionTest {
                         Criteria.checkThat(
                                 mCustomTabsConnection.getSpeculationParamsForTesting(),
                                 Matchers.notNullValue()));
-        Tab hiddenTab = mCustomTabsConnection.getSpeculationParamsForTesting().tab;
+        Tab hiddenTab = mCustomTabsConnection.getSpeculationParamsForTesting().hiddenTab.tab;
         CriteriaHelper.pollUiThread(
                 () ->
                         Criteria.checkThat(
@@ -510,7 +512,7 @@ public class CustomTabsConnectionTest {
                         Criteria.checkThat(
                                 mCustomTabsConnection.getSpeculationParamsForTesting(),
                                 Matchers.notNullValue()));
-        Tab hiddenTab2 = mCustomTabsConnection.getSpeculationParamsForTesting().tab;
+        Tab hiddenTab2 = mCustomTabsConnection.getSpeculationParamsForTesting().hiddenTab.tab;
         CriteriaHelper.pollUiThread(
                 () ->
                         Criteria.checkThat(
@@ -532,9 +534,8 @@ public class CustomTabsConnectionTest {
         // Launch the second custom tab. Because there is already a hidden tab for the same url this
         // custom tab should just re-use the hidden tab. This means that this tab will use the same
         // storage partition and therefore access the same cookie.
-        mCustomTabActivityTestRule.launchActivity(intent2);
+        mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent2);
         Tab normalTab2 = mCustomTabActivityTestRule.getActivity().getActivityTab();
-
         CriteriaHelper.pollUiThread(
                 () ->
                         Criteria.checkThat(
@@ -550,13 +551,14 @@ public class CustomTabsConnectionTest {
         Assert.assertTrue("Failed to retrieve JavaScript evaluation results.", JsHelper.hasValue());
         // This custom tab should see the third cookie set.
         Assert.assertEquals("\"foo_hidden2=baz\"", JsHelper.getJsonResultAndClear());
+        mCustomTabActivityTestRule.finishActivity();
 
         // Finally, launch a third custom tab. Because there isn't an associated mayLaunchUrl this
         // custom tab will use the default storage partition and will access the first cookie.
         Assert.assertTrue("Failed warmup()", mCustomTabsConnection.warmup(0));
         Intent intent3 =
                 CustomTabsIntentTestUtils.createMinimalCustomTabIntent(context, mTestPageUrl);
-        mCustomTabActivityTestRule.launchActivity(intent3);
+        mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent3);
         Tab normalTab3 = mCustomTabActivityTestRule.getActivity().getActivityTab();
 
         CriteriaHelper.pollUiThread(
@@ -663,7 +665,7 @@ public class CustomTabsConnectionTest {
     @SmallTest
     public void testForgetsSession() throws Exception {
         CustomTabsSessionToken token = assertWarmupAndMayLaunchUrl(null, URL, true);
-        CustomTabsTestUtils.cleanupSessions(mCustomTabsConnection);
+        CustomTabsTestUtils.cleanupSessions();
         assertWarmupAndMayLaunchUrl(token, URL, false);
     }
 

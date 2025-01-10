@@ -1393,7 +1393,7 @@
             "os": "Ubuntu-22.04"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 10
+          "shards": 9
         },
         "test": "blink_web_tests",
         "test_id_prefix": "ninja://:blink_web_tests/"
@@ -1422,7 +1422,7 @@
             "os": "Ubuntu-22.04"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 17
+          "shards": 14
         },
         "test": "blink_wpt_tests",
         "test_id_prefix": "ninja://:blink_wpt_tests/"
@@ -1745,7 +1745,8 @@
           "dimensions": {
             "os": "Ubuntu-22.04"
           },
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 3
         },
         "test": "headless_shell_wpt",
         "test_id_prefix": "ninja://:headless_shell_wpt/"
@@ -1911,7 +1912,7 @@
             "os": "Ubuntu-22.04"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 11
+          "shards": 10
         },
         "test": "blink_wpt_tests",
         "test_id_prefix": "ninja://:blink_wpt_tests/"
@@ -1940,7 +1941,8 @@
           "dimensions": {
             "os": "Ubuntu-22.04"
           },
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 3
         },
         "test": "headless_shell_wpt",
         "test_id_prefix": "ninja://:headless_shell_wpt/"

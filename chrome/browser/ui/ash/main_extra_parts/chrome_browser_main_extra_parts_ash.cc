@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "ash/components/arc/arc_features.h"
+#include "ash/components/arc/window/arc_window_watcher.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/display/refresh_rate_controller.h"
@@ -32,7 +33,6 @@
 #include "base/trace_event/trace_event.h"
 #include "chrome/browser/ash/app_list/app_list_client_impl.h"
 #include "chrome/browser/ash/app_restore/full_restore_service.h"
-#include "chrome/browser/ash/arc/util/arc_window_watcher.h"
 #include "chrome/browser/ash/auth/active_session_fingerprint_client_impl.h"
 #include "chrome/browser/ash/boca/boca_app_client_impl.h"
 #include "chrome/browser/ash/geolocation/system_geolocation_source.h"
@@ -79,9 +79,10 @@
 #include "chrome/browser/ui/ash/network/network_connect_delegate.h"
 #include "chrome/browser/ui/ash/network/network_portal_notification_controller.h"
 #include "chrome/browser/ui/ash/new_window/chrome_new_window_client.h"
-#include "chrome/browser/ui/ash/picker/picker_client_impl.h"
 #include "chrome/browser/ui/ash/projector/projector_app_client_impl.h"
 #include "chrome/browser/ui/ash/projector/projector_client_impl.h"
+#include "chrome/browser/ui/ash/quick_insert/quick_insert_client_impl.h"
+#include "chrome/browser/ui/ash/read_write_cards/read_write_cards_manager_impl.h"
 #include "chrome/browser/ui/ash/screen_orientation_delegate_chromeos.h"
 #include "chrome/browser/ui/ash/session/session_controller_client_impl.h"
 #include "chrome/browser/ui/ash/shelf/app_service/exo_app_type_resolver.h"
@@ -92,12 +93,10 @@
 #include "chrome/browser/ui/ash/wallpaper/wallpaper_controller_client_impl.h"
 #include "chrome/browser/ui/ash/web_view/ash_web_view_factory_impl.h"
 #include "chrome/browser/ui/ash/wm/tab_cluster_ui_client.h"
-#include "chrome/browser/ui/chromeos/read_write_cards/read_write_cards_manager_impl.h"
 #include "chrome/browser/ui/views/select_file_dialog_extension/select_file_dialog_extension.h"
 #include "chrome/browser/ui/views/select_file_dialog_extension/select_file_dialog_extension_factory.h"
 #include "chrome/browser/ui/views/tabs/tab_scrubber_chromeos.h"
 #include "chrome/browser/ui/webui/ash/settings/pref_names.h"
-#include "chromeos/ash/components/boca/boca_role_util.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/dbus/dbus_thread_manager.h"
 #include "chromeos/ash/components/dbus/resourced/resourced_client.h"
@@ -310,9 +309,7 @@ void ChromeBrowserMainExtraPartsAsh::PreProfileInit() {
 
   annotator_client_ = std::make_unique<AnnotatorClientImpl>();
 
-  if (ash::boca_util::IsEnabled()) {
-    boca_client_ = std::make_unique<ash::boca::BocaAppClientImpl>();
-  }
+  boca_client_ = std::make_unique<ash::boca::BocaAppClientImpl>();
 
   projector_app_client_ = std::make_unique<ProjectorAppClientImpl>();
   projector_client_ = std::make_unique<ProjectorClientImpl>();
@@ -416,10 +413,9 @@ void ChromeBrowserMainExtraPartsAsh::PostProfileInit(Profile* profile,
 
   ash_web_view_factory_ = std::make_unique<AshWebViewFactoryImpl>();
 
-  if (auto* picker_controller = ash::Shell::Get()->picker_controller()) {
-    picker_client_ = std::make_unique<PickerClientImpl>(
-        picker_controller, user_manager::UserManager::Get());
-  }
+  quick_insert_client_ = std::make_unique<QuickInsertClientImpl>(
+      ash::Shell::Get()->quick_insert_controller(),
+      user_manager::UserManager::Get());
 
   oobe_dialog_util_ = std::make_unique<ash::OobeDialogUtilImpl>();
 
@@ -522,7 +518,7 @@ void ChromeBrowserMainExtraPartsAsh::PostMainMessageLoopRun() {
   // Initialized in PostProfileInit (which may not get called in some tests).
   game_mode_controller_.reset();
   oobe_dialog_util_.reset();
-  picker_client_.reset();
+  quick_insert_client_.reset();
   ash_web_view_factory_.reset();
   network_portal_notification_controller_.reset();
   display_settings_handler_.reset();

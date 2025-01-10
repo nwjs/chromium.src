@@ -111,7 +111,7 @@ class DIPSRedirectContext {
   void AppendCommitted(DIPSNavigationStart navigation_start,
                        std::vector<DIPSRedirectInfoPtr> server_redirects,
                        const UrlAndSourceId& final_url,
-                       bool current_page_has_sticky_activation);
+                       bool current_page_has_interaction);
 
   // Trims |trim_count| redirect from the front of the in-progress redirect
   // chain. Passes the redirects as partial chains to the
@@ -123,8 +123,7 @@ class DIPSRedirectContext {
   // also starts a fresh redirect chain with `final_url` whilst clearing the
   // state of the terminated chain.
   // NOTE: A chain is valid if it has a non-empty `initial_url_`.
-  void EndChain(UrlAndSourceId final_url,
-                bool current_page_has_sticky_activation);
+  void EndChain(UrlAndSourceId final_url, bool current_page_has_interaction);
 
   void ReportIssue(const GURL& final_url);
 
@@ -142,18 +141,19 @@ class DIPSRedirectContext {
     return redirects_.size() + redirect_prefix_count_;
   }
 
-  const DIPSRedirectInfo& AtForTesting(size_t i) const {
-    return *redirects_.at(i);
+  const DIPSRedirectInfo& operator[](size_t index) const {
+    return *redirects_.at(index);
   }
 
   std::optional<std::pair<size_t, DIPSRedirectInfo*>> GetRedirectInfoFromChain(
       const std::string& site) const;
 
-  // Return whether `site` had an interaction in the current redirect context.
-  bool SiteHadUserActivation(const std::string& site) const;
+  // Return whether `site` had a user activation or authentication interaction
+  // in the current redirect context.
+  bool SiteHadUserActivationOrAuthn(const std::string& site) const;
 
   // Return all sites that had an interaction in the current redirect context.
-  std::set<std::string> AllSitesWithUserActivation() const;
+  std::set<std::string> AllSitesWithUserActivationOrAuthn() const;
 
   // Returns a map of (site, (url, has_current_interaction)) for all URLs in the
   // current redirect chain that satisfy the redirect heuristic. This performs
@@ -175,8 +175,10 @@ class DIPSRedirectContext {
   // Represents the start of a chain and also indicates the presence of a valid
   // chain.
   UrlAndSourceId initial_url_;
-  // Whether the initial_url_ had an interaction while loaded.
-  bool initial_url_had_user_activation_;
+  // Whether the initial_url_ had a user activation or web authentication
+  // interaction while loaded.
+  bool initial_url_had_interaction_;
+
   // TODO(amaliev): Make redirects_ a circular queue to handle the memory bound
   // more gracefully.
   std::vector<DIPSRedirectInfoPtr> redirects_;
@@ -372,7 +374,8 @@ class RedirectChainDetector
     // Called when a navigation has committed and the redirect context has been
     // updated. (If you override WebContentsObserver::DidFinishNavigation()
     // directly, you could be called before the context has been updated.)
-    virtual void OnNavigationCommitted() {}
+    virtual void OnNavigationCommitted(
+        content::NavigationHandle* navigation_handle) {}
     // Called when any redirect chain ends, including ones that end with an
     // uncommitted navigation.
     virtual void OnRedirectChainEnded(const std::vector<DIPSRedirectInfoPtr>&,

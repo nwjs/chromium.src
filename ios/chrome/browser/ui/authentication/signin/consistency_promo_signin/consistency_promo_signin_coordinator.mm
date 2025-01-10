@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/ui/authentication/signin/consistency_promo_signin/consistency_promo_signin_coordinator.h"
 
 #import "base/metrics/user_metrics.h"
+#import "base/strings/sys_string_conversions.h"
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "ios/chrome/browser/shared/coordinator/alert/alert_coordinator.h"
@@ -274,6 +275,10 @@
       base::RecordAction(
           base::UserMetricsAction("Signin_BottomSheet_ClosedByInterrupt"));
       break;
+    case SigninCoordinatorUINotAvailable:
+      // ConsistencyPromoSigninCoordinator presents its child coordinators
+      // directly and does not use `ShowSigninCommand`.
+      NOTREACHED();
   }
   DCHECK(!self.alertCoordinator);
   DCHECK(!self.navigationController);
@@ -283,8 +288,8 @@
   self.accountChooserCoordinator = nil;
   [self.consistencyPromoSigninMediator disconnectWithResult:signinResult];
   self.consistencyPromoSigninMediator = nil;
-  [self runCompletionCallbackWithSigninResult:signinResult
-                               completionInfo:completionInfo];
+  [self runCompletionWithSigninResult:signinResult
+                       completionInfo:completionInfo];
 }
 
 // Starts the sign-in flow.
@@ -320,6 +325,8 @@
 
 - (void)consistencyDefaultAccountCoordinatorSkip:
     (ConsistencyDefaultAccountCoordinator*)coordinator {
+  // This DCHECK is to help to understand crbug.com/372272374.
+  DCHECK(!self.alertCoordinator) << base::SysNSStringToUTF8([self description]);
   ProfileIOS* profile = self.browser->GetProfile();
   PrefService* userPrefService = profile->GetPrefs();
   if (self.accessPoint ==
@@ -395,8 +402,7 @@
              initWithAnimation:ConsistencySheetSlideAnimationPopping
           navigationController:self.navigationController];
   }
-  NOTREACHED_IN_MIGRATION();
-  return nil;
+  NOTREACHED();
 }
 
 - (id<UIViewControllerInteractiveTransitioning>)

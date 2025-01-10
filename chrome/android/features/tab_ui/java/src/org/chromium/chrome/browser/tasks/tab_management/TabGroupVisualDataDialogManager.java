@@ -235,7 +235,7 @@ public class TabGroupVisualDataDialogManager {
             if (!tabModel.isIncognitoBranded()
                     && TabGroupSyncFeatures.isTabGroupSyncEnabled(profile)
                     && ChromeFeatureList.sTabGroupPaneAndroid.isEnabled()
-                    && tracker.shouldTriggerHelpUI(
+                    && tracker.shouldTriggerHelpUi(
                             FeatureConstants.TAB_GROUP_CREATION_DIALOG_SYNC_TEXT_FEATURE)) {
                 descriptionView.setVisibility(View.VISIBLE);
                 SyncService syncService = SyncServiceFactory.getForProfile(profile);
@@ -247,7 +247,7 @@ public class TabGroupVisualDataDialogManager {
                         syncingTabGroups
                                 ? R.string.tab_group_creation_dialog_description_text_sync_on
                                 : R.string.tab_group_creation_dialog_description_text_sync_off;
-                String descriptionText = mContext.getResources().getString(descriptionId);
+                String descriptionText = mContext.getString(descriptionId);
                 descriptionView.setText(descriptionText);
 
                 tracker.notifyEvent(EventConstants.TAB_GROUP_CREATION_DIALOG_SHOWN);
@@ -267,20 +267,17 @@ public class TabGroupVisualDataDialogManager {
         if (mDialogType == DialogType.TAB_GROUP_CREATION) {
             builder.with(
                             ModalDialogProperties.POSITIVE_BUTTON_TEXT,
-                            mContext.getResources()
-                                    .getString(R.string.tab_group_creation_positive_button_text))
+                            mContext.getString(R.string.tab_group_creation_positive_button_text))
                     .with(
                             ModalDialogProperties.BUTTON_STYLES,
                             ModalDialogProperties.ButtonStyles.PRIMARY_FILLED_NO_NEGATIVE);
         } else if (mDialogType == DialogType.TAB_GROUP_EDIT) {
             builder.with(
                             ModalDialogProperties.POSITIVE_BUTTON_TEXT,
-                            mContext.getResources()
-                                    .getString(R.string.tab_group_rename_positive_button_text))
+                            mContext.getString(R.string.tab_group_rename_positive_button_text))
                     .with(
                             ModalDialogProperties.NEGATIVE_BUTTON_TEXT,
-                            mContext.getResources()
-                                    .getString(R.string.tab_group_rename_negative_button_text))
+                            mContext.getString(R.string.tab_group_rename_negative_button_text))
                     .with(
                             ModalDialogProperties.BUTTON_STYLES,
                             ModalDialogProperties.ButtonStyles.PRIMARY_FILLED_NEGATIVE_OUTLINE);

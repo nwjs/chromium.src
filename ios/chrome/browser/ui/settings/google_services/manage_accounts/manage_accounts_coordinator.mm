@@ -9,6 +9,7 @@
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/sync/service/sync_service.h"
+#import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/shared/coordinator/alert/action_sheet_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/alert/alert_coordinator.h"
@@ -31,6 +32,7 @@
 #import "ios/chrome/browser/ui/authentication/signout_action_sheet/signout_action_sheet_coordinator.h"
 #import "ios/chrome/browser/ui/scoped_ui_blocker/scoped_ui_blocker.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_accounts/legacy_accounts_table_view_controller.h"
+#import "ios/chrome/browser/ui/settings/google_services/manage_accounts/manage_accounts_coordinator_delegate.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_accounts/manage_accounts_mediator.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_accounts/manage_accounts_mediator_delegate.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_accounts/manage_accounts_table_view_controller.h"
@@ -93,6 +95,7 @@ using signin_metrics::PromoAction;
                            (BOOL)closeSettingsOnAddAccount {
   if ((self = [self initWithBaseViewController:navigationController
                                        browser:browser])) {
+    _closeSettingsOnAddAccount = closeSettingsOnAddAccount;
     _baseNavigationController = navigationController;
   }
   return self;
@@ -113,16 +116,12 @@ using signin_metrics::PromoAction;
       !syncService->HasSyncConsent()) {
     ManageAccountsTableViewController* viewController =
         [[ManageAccountsTableViewController alloc]
-            initWithOfferSignout:self.showSignoutButton
-                 offerAddAccount:self.showAddAccountButton];
+            initWithOfferSignout:self.showSignoutButton];
     _viewController = viewController;
     _mediator.consumer = viewController;
     _mediator.delegate = self;
     _viewController.modelIdentityDataSource = _mediator;
-    ManageAccountsTableViewController* accountsTableViewController =
-        base::apple::ObjCCast<ManageAccountsTableViewController>(
-            _viewController);
-    accountsTableViewController.mutator = _mediator;
+    viewController.mutator = _mediator;
   } else {
     LegacyAccountsTableViewController* viewController =
         [[LegacyAccountsTableViewController alloc]
@@ -191,11 +190,11 @@ using signin_metrics::PromoAction;
     [_viewController.navigationController dismissViewControllerAnimated:YES
                                                              completion:nil];
   }
-  [self stop];
+  [self requestStop];
 }
 
 - (void)settingsWasDismissed {
-  [self stop];
+  [self requestStop];
 }
 
 #pragma mark - SignoutActionSheetCoordinatorDelegate
@@ -251,18 +250,33 @@ using signin_metrics::PromoAction;
 - (void)showAddAccountToDevice {
   [_viewController preventUserInteraction];
   __weak __typeof(self) weakSelf = self;
-  ShowSigninCommand* command = [[ShowSigninCommand alloc]
-      initWithOperation:AuthenticationOperation::kAddAccount
-               identity:nil
-            accessPoint:AccessPoint::ACCESS_POINT_SETTINGS
-            promoAction:PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO
-               callback:^(SigninCoordinatorResult result,
-                          SigninCompletionInfo* completionInfo) {
+  if (self.delegate &&
+      [self.delegate
+          respondsToSelector:@selector
+          (manageAccountsCoordinator:
+              didRequestAddAccountWithBaseViewController:completion:)]) {
+    [self.delegate manageAccountsCoordinator:self
+        didRequestAddAccountWithBaseViewController:_viewController
+                                        completion:^(
+                                            SigninCoordinatorResult result,
+                                            SigninCompletionInfo*) {
+                                          [weakSelf
+                                              addAccountToDeviceCompleted];
+                                        }];
+  } else {
+    ShowSigninCommand* command = [[ShowSigninCommand alloc]
+        initWithOperation:AuthenticationOperation::kAddAccount
+                 identity:nil
+              accessPoint:AccessPoint::ACCESS_POINT_SETTINGS
+              promoAction:PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO
+               completion:^(SigninCoordinatorResult result,
+                            SigninCompletionInfo* completionInfo) {
                  [weakSelf addAccountToDeviceCompleted];
                }];
-  [HandlerForProtocol(self.browser->GetCommandDispatcher(), ApplicationCommands)
-              showSignin:command
-      baseViewController:_viewController];
+    [HandlerForProtocol(self.browser->GetCommandDispatcher(),
+                        ApplicationCommands) showSignin:command
+                                     baseViewController:_viewController];
+  }
 }
 
 - (void)signOutWithItemView:(UIView*)itemView {
@@ -285,6 +299,23 @@ using signin_metrics::PromoAction;
 
 #pragma mark - Private
 
+// Requests the delegate to stop the coordinator, if set. Otherwise stop itself.
+- (void)requestStop {
+  if (self.delegate) {
+    [self.delegate manageAccountsCoordinatorWantsToBeStopped:self];
+  } else {
+    // This is the case when the manage view controller is displayed in the
+    // settings’ navigation controller.
+    // TODO(crbug.com/375378864): request the owner to stop the current
+    // coordinator.
+    [self stop];
+  }
+}
+
+// Asks the user to confirm whether they want to delete `identity` from the
+// device. If the user confirms, delete the identity. Does nothing if the
+// current scene is blocked or the identity is not present on the device
+// anymore.
 - (void)removeAccountDialogConfirmedWithIdentity:(id<SystemIdentity>)identity {
   [self dismissConfirmRemoveIdentityAlertCoordinator];
   NSArray<id<SystemIdentity>>* allIdentities =
@@ -297,6 +328,11 @@ using signin_metrics::PromoAction;
     return;
   }
   SceneState* sceneState = self.browser->GetSceneState();
+  if (sceneState.isUIBlocked) {
+    // This could occur due to race condition with multiple windows and
+    // simultaneous taps. See crbug.com/368310663.
+    return;
+  }
   _UIBlocker = std::make_unique<ScopedUIBlocker>(sceneState);
   [_viewController preventUserInteraction];
   __weak __typeof(self) weakSelf = self;

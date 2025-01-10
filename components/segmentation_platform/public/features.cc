@@ -4,6 +4,7 @@
 
 #include "components/segmentation_platform/public/features.h"
 
+#include "base/feature_list.h"
 #include "base/strings/strcat.h"
 #include "build/build_config.h"
 #include "components/segmentation_platform/embedder/home_modules/constants.h"
@@ -150,7 +151,11 @@ BASE_FEATURE(kSegmentationPlatformComposePromotion,
 
 BASE_FEATURE(kSegmentationPlatformUmaFromSqlDb,
              "SegmentationPlatformUmaFromSqlDb",
+#if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_CHROMEOS)
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#else
              base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 BASE_FEATURE(kSegmentationPlatformIosModuleRankerSplitBySurface,
              "SegmentationPlatformIosModuleRankerSplitBySurface",
@@ -212,15 +217,20 @@ int GetTipsEphemeralCardModuleMaxImpressionCount() {
 
 BASE_FEATURE(kSegmentationSurveyPage,
              "SegmentationSurveyPage",
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#else
              base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 constexpr base::FeatureParam<bool> kSegmentationSurveyInternalsPage{
     &kSegmentationSurveyPage, "survey_internals_page", /*default_value=*/true};
 
-#if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kEducationalTipModule,
              "EducationalTipModule",
              base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_ANDROID)
+constexpr base::FeatureParam<int> kMaxDefaultBrowserCardImpressions{
+    &kEducationalTipModule, "max_default_browser_card_impressions",
+    /*default_value=*/4};
 
 }  // namespace segmentation_platform::features

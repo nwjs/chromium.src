@@ -14,10 +14,10 @@
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "components/sharing_message/sharing_dialog_data.h"
-#include "components/user_education/common/feature_promo_controller.h"
-#include "components/user_education/common/feature_promo_handle.h"
-#include "components/user_education/common/feature_promo_result.h"
-#include "components/user_education/common/new_badge_controller.h"
+#include "components/user_education/common/feature_promo/feature_promo_controller.h"
+#include "components/user_education/common/feature_promo/feature_promo_handle.h"
+#include "components/user_education/common/feature_promo/feature_promo_result.h"
+#include "components/user_education/common/new_badge/new_badge_controller.h"
 #include "content/public/browser/keyboard_event_processing_result.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
@@ -406,11 +406,11 @@ void TestBrowserWindow::MaybeShowFeaturePromo(
   feature_promo_controller_->MaybeShowPromo(std::move(params));
 }
 
-bool TestBrowserWindow::MaybeShowStartupFeaturePromo(
+void TestBrowserWindow::MaybeShowStartupFeaturePromo(
     user_education::FeaturePromoParams params) {
-  if (!feature_promo_controller_)
-    return false;
-  return feature_promo_controller_->MaybeShowStartupPromo(std::move(params));
+  if (feature_promo_controller_) {
+    feature_promo_controller_->MaybeShowStartupPromo(std::move(params));
+  }
 }
 
 bool TestBrowserWindow::AbortFeaturePromo(const base::Feature& iph_feature) {

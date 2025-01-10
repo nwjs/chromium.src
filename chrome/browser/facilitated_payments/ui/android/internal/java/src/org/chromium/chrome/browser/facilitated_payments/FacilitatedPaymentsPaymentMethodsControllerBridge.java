@@ -12,6 +12,7 @@ import org.jni_zero.NativeMethods;
 
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.components.browser_ui.settings.SettingsNavigation;
+import org.chromium.components.facilitated_payments.core.ui_utils.UiEvent;
 
 /** JNI wrapper for C++ FacilitatedPaymentsController. */
 @JNINamespace("payments::facilitated")
@@ -46,10 +47,26 @@ class FacilitatedPaymentsPaymentMethodsControllerBridge
     }
 
     @Override
+    public void onUiEvent(@UiEvent int uiEvent) {
+        if (mNativeFacilitatedPaymentsController != 0) {
+            FacilitatedPaymentsPaymentMethodsControllerBridgeJni.get()
+                    .onUiEvent(mNativeFacilitatedPaymentsController, uiEvent);
+        }
+    }
+
+    @Override
     public void onBankAccountSelected(long instrumentId) {
         if (mNativeFacilitatedPaymentsController != 0) {
             FacilitatedPaymentsPaymentMethodsControllerBridgeJni.get()
                     .onBankAccountSelected(mNativeFacilitatedPaymentsController, instrumentId);
+        }
+    }
+
+    @Override
+    public void onEwalletSelected(long instrumentId) {
+        if (mNativeFacilitatedPaymentsController != 0) {
+            FacilitatedPaymentsPaymentMethodsControllerBridgeJni.get()
+                    .onEwalletSelected(mNativeFacilitatedPaymentsController, instrumentId);
         }
     }
 
@@ -77,6 +94,10 @@ class FacilitatedPaymentsPaymentMethodsControllerBridge
     interface Natives {
         void onDismissed(long nativeFacilitatedPaymentsController);
 
+        void onUiEvent(long nativeFacilitatedPaymentsController, @UiEvent int uiEvent);
+
         void onBankAccountSelected(long nativeFacilitatedPaymentsController, long instrumentId);
+
+        void onEwalletSelected(long nativeFacilitatedPaymentsController, long instrumentId);
     }
 }

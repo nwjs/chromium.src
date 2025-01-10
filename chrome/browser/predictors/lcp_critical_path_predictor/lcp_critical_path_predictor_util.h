@@ -28,6 +28,7 @@ struct LastVisitTimeCompare {
 };
 
 }  // namespace lcpp
+struct PreconnectPrediction;
 
 // Converts LcppStat to LCPCriticalPathPredictorNavigationTimeHint
 // so that it can be passed to the renderer via the navigation handle.
@@ -205,6 +206,9 @@ bool IsURLValidForLcpp(const GURL& url);
 // the first level path or it length exceeds kLCPPMultipleKeyMaxPathLength.
 std::string GetFirstLevelPath(const GURL& url);
 
+// Returns true if `url1` and `url2` are the same site.
+bool IsSameSite(const GURL& url1, const GURL& url2);
+
 class LcppDataMap {
  public:
   using DataTable = sqlite_proto::KeyValueTable<LcppData>;
@@ -239,6 +243,11 @@ class LcppDataMap {
   void DeleteUrls(const std::vector<GURL>& urls);
 
   void DeleteAllData();
+
+  void GetPreconnectAndPrefetchRequest(
+      const std::optional<url::Origin>& initiator_origin,
+      const GURL& url,
+      PreconnectPrediction& prediction);
 
   static std::unique_ptr<LcppDataMap> CreateWithMockTableForTesting(
 

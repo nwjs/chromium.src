@@ -12,6 +12,7 @@
 #import "base/metrics/histogram_macros.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
+#import "base/strings/sys_string_conversions.h"
 #import "components/content_settings/core/common/features.h"
 #import "components/feature_engagement/public/event_constants.h"
 #import "components/feature_engagement/public/feature_constants.h"
@@ -29,6 +30,7 @@
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/incognito_interstitial/ui_bundled/incognito_interstitial_constants.h"
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/features.h"
+#import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_util.h"
 #import "ios/chrome/browser/net/model/crurl.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -92,6 +94,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
   ItemTypeIncognitoReauthDisabled,
   ItemTypePrivacySafeBrowsing,
   ItemTypeIncognitoLock,
+  ItemTypeIncognitoLockDisabled,
   ItemTypeHTTPSOnlyMode,
   ItemTypeIncognitoInterstitial,
   ItemTypeIncognitoInterstitialDisabled,
@@ -137,6 +140,9 @@ const char kSyncSettingsURL[] = "settings://open_sync";
 
 // Accessor for the incognito reauth pref.
 @property(nonatomic, strong) PrefBackedBoolean* incognitoReauthPref;
+
+// Accessor for the incognito soft lock pref.
+@property(nonatomic, strong) PrefBackedBoolean* incognitoSoftLockPref;
 
 // Switch item for toggling incognito reauth.
 @property(nonatomic, strong) TableViewSwitchItem* incognitoReauthItem;
@@ -196,6 +202,12 @@ const char kSyncSettingsURL[] = "settings://open_sync";
                    prefName:prefs::kIncognitoAuthenticationSetting];
     [_incognitoReauthPref setObserver:self];
 
+    if (IsIOSSoftLockEnabled()) {
+      _incognitoSoftLockPref = [[PrefBackedBoolean alloc]
+          initWithPrefService:GetApplicationContext()->GetLocalState()
+                     prefName:prefs::kIncognitoSoftLockSetting];
+      [_incognitoSoftLockPref setObserver:self];
+    }
     _HTTPSOnlyModePref = [[PrefBackedBoolean alloc]
         initWithPrefService:prefService
                    prefName:prefs::kHttpsOnlyModeEnabled];
@@ -271,21 +283,24 @@ const char kSyncSettingsURL[] = "settings://open_sync";
 
   if (IsIOSSoftLockEnabled()) {
     // Incognito Lock item.
-    [model addItem:[self incognitoLockItem]
+    TableViewItem* incognitoLockItem =
+        IsIncognitoModeDisabled(_profile->GetPrefs())
+            ? self.incognitoLockItemDisabled
+            : self.incognitoLockItem;
+    [model addItem:incognitoLockItem
+        toSectionWithIdentifier:SectionIdentifierIncognitoAuth];
+  } else {
+    // Incognito reauth item is added. If Incognito mode is disabled, or device
+    // authentication is not supported, a disabled version is shown instead with
+    // relevant information as a popover.
+    TableViewItem* incognitoReauthItem =
+        (IsIncognitoModeDisabled(_profile->GetPrefs()) ||
+         ![self deviceSupportsAuthentication])
+            ? self.incognitoReauthItemDisabled
+            : self.incognitoReauthItem;
+    [model addItem:incognitoReauthItem
         toSectionWithIdentifier:SectionIdentifierIncognitoAuth];
   }
-  // TODO(crbug.com/370804664): Hide the toggle behind the feature flag.
-
-  // Incognito reauth item is added. If Incognito mode is disabled, or device
-  // authentication is not supported, a disabled version is shown instead with
-  // relevant information as a popover.
-  TableViewItem* incognitoReauthItem =
-      (IsIncognitoModeDisabled(_profile->GetPrefs()) ||
-       ![self deviceSupportsAuthentication])
-          ? self.incognitoReauthItemDisabled
-          : self.incognitoReauthItem;
-  [model addItem:incognitoReauthItem
-      toSectionWithIdentifier:SectionIdentifierIncognitoAuth];
 
   // Show "Ask to Open Links from Other Apps in Incognito" setting.
   // Incognito interstitial item is added. If Incognito mode is
@@ -374,7 +389,7 @@ const char kSyncSettingsURL[] = "settings://open_sync";
   NSString* privacyFooterText;
 
   syncer::SyncService* syncService =
-      SyncServiceFactory::GetInstance()->GetForProfile(_profile);
+      SyncServiceFactory::GetForProfile(_profile);
 
   NSMutableArray* urls = [[NSMutableArray alloc] init];
   // TODO(crbug.com/40066949): Remove IsSyncFeatureEnabled() usage after kSync
@@ -435,15 +450,23 @@ const char kSyncSettingsURL[] = "settings://open_sync";
 }
 
 - (TableViewItem*)incognitoLockItem {
-  // TODO(crbug.com/370804664): Replace placeholder detail text with actual
-  // string ID for various states of the setting based on the pref value.
-  NSString* detailText = @"placeholder";
   _incognitoLockItem =
       [self detailItemWithType:ItemTypeIncognitoLock
                           titleId:IDS_IOS_INCOGNITO_LOCK_SETTING_NAME
-                       detailText:detailText
+                       detailText:[self incognitoLockDetailText]
           accessibilityIdentifier:kSettingsIncognitoLockCellId];
   return _incognitoLockItem;
+}
+
+- (TableViewInfoButtonItem*)incognitoLockItemDisabled {
+  TableViewInfoButtonItem* itemDisabled = [[TableViewInfoButtonItem alloc]
+      initWithType:ItemTypeIncognitoLockDisabled];
+  itemDisabled.text =
+      l10n_util::GetNSString(IDS_IOS_INCOGNITO_LOCK_SETTING_NAME);
+  itemDisabled.statusText = l10n_util::GetNSString(IDS_IOS_SETTING_OFF);
+  itemDisabled.iconTintColor = [UIColor colorNamed:kGrey300Color];
+  itemDisabled.textColor = [UIColor colorNamed:kTextSecondaryColor];
+  return itemDisabled;
 }
 
 - (TableViewItem*)lockdownModeDetailItem {
@@ -523,6 +546,13 @@ const char kSyncSettingsURL[] = "settings://open_sync";
   [_incognitoReauthPref stop];
   _incognitoReauthPref.observer = nil;
   _incognitoReauthPref = nil;
+
+  if (IsIOSSoftLockEnabled()) {
+    [_incognitoSoftLockPref stop];
+    _incognitoSoftLockPref.observer = nil;
+    _incognitoSoftLockPref = nil;
+  }
+
   [_HTTPSOnlyModePref stop];
   _HTTPSOnlyModePref.observer = nil;
   _HTTPSOnlyModePref = nil;
@@ -635,6 +665,13 @@ const char kSyncSettingsURL[] = "settings://open_sync";
                   action:@selector
                   (didTapIncognitoInterstitialDisabledInfoButton:)
         forControlEvents:UIControlEventTouchUpInside];
+  } else if (itemType == ItemTypeIncognitoLockDisabled) {
+    TableViewInfoButtonCell* managedCell =
+        base::apple::ObjCCastStrict<TableViewInfoButtonCell>(cell);
+    [managedCell.trailingButton
+               addTarget:self
+                  action:@selector(didTapIncognitoLockDisabledInfoButton:)
+        forControlEvents:UIControlEventTouchUpInside];
   }
   return cell;
 }
@@ -678,6 +715,10 @@ const char kSyncSettingsURL[] = "settings://open_sync";
 
 - (void)booleanDidChange:(id<ObservableBoolean>)observableBoolean {
   // Update the cells.
+  if (IsIOSSoftLockEnabled()) {
+    _incognitoLockItem.detailText = [self incognitoLockDetailText];
+    [self reconfigureCellsForItems:@[ _incognitoLockItem ]];
+  }
   self.incognitoReauthItem.on = self.incognitoReauthPref.value;
   [self reconfigureCellsForItems:@[ self.incognitoReauthItem ]];
 
@@ -715,6 +756,22 @@ const char kSyncSettingsURL[] = "settings://open_sync";
 }
 
 #pragma mark - Private
+
+- (void)didTapIncognitoLockDisabledInfoButton:(UIButton*)buttonView {
+  InfoPopoverViewController* popover;
+  if (supervised_user::IsSubjectToParentalControls(_profile)) {
+    popover = [[SupervisedUserInfoPopoverViewController alloc]
+        initWithMessage:
+            l10n_util::GetNSString(
+                IDS_IOS_SNACKBAR_MESSAGE_INCOGNITO_DISABLED_BY_PARENT)];
+  } else {
+    popover = [[EnterpriseInfoPopoverViewController alloc]
+        initWithMessage:l10n_util::GetNSString(
+                            IDS_IOS_SNACKBAR_MESSAGE_INCOGNITO_DISABLED)
+         enterpriseName:nil];
+  }
+  [self showInfoPopover:popover forInfoButton:buttonView];
+}
 
 // Called when the user taps on the information button of the disabled Incognito
 // reauth setting's UI cell.
@@ -845,6 +902,19 @@ const char kSyncSettingsURL[] = "settings://open_sync";
   LAContext* context = [[LAContext alloc] init];
   return [context canEvaluatePolicy:LAPolicyDeviceOwnerAuthentication
                               error:nil];
+}
+
+// Returns the proper detail text for the incognito lock item depending on the
+// incognito lock reauth and soft lock preference values.
+- (NSString*)incognitoLockDetailText {
+  if (_incognitoReauthPref.value) {
+    return l10n_util::GetNSStringF(
+        IDS_IOS_INCOGNITO_LOCK_SETTING_STATE_REAUTH,
+        base::SysNSStringToUTF16(BiometricAuthenticationTypeString()));
+  } else if (_incognitoSoftLockPref.value) {
+    return l10n_util::GetNSString(IDS_IOS_SETTING_ON);
+  }
+  return l10n_util::GetNSString(IDS_IOS_SETTING_OFF);
 }
 
 // Returns the proper detail text for the safe browsing item depending on the

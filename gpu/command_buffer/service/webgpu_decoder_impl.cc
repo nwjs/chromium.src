@@ -9,12 +9,6 @@
 
 #include "gpu/command_buffer/service/webgpu_decoder_impl.h"
 
-#include <dawn/native/DawnNative.h>
-#include <dawn/native/OpenGLBackend.h>
-#include <dawn/platform/DawnPlatform.h>
-#include <dawn/webgpu_cpp.h>
-#include <dawn/wire/WireServer.h>
-
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -62,6 +56,12 @@
 #include "gpu/config/webgpu_blocklist.h"
 #include "gpu/webgpu/callback.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
+#include "third_party/dawn/include/dawn/native/DawnNative.h"
+#include "third_party/dawn/include/dawn/native/OpenGLBackend.h"
+#include "third_party/dawn/include/dawn/platform/DawnPlatform.h"
+#include "third_party/dawn/include/dawn/webgpu_cpp.h"
+#include "third_party/dawn/include/dawn/webgpu_cpp_print.h"
+#include "third_party/dawn/include/dawn/wire/WireServer.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/gpu/ganesh/GrBackendSemaphore.h"
 #include "third_party/skia/include/gpu/ganesh/SkSurfaceGanesh.h"
@@ -128,9 +128,6 @@ void ChainStruct(T1& head, T2* struct_to_chain) {
   head.nextInChain = struct_to_chain;
 }
 
-#if defined(WGPU_BREAKING_CHANGE_STRING_VIEW_CALLBACKS)
-// A few helpers to make WGPUStringViews since the C version of the structure
-// doesn't have helpers that do implicit conversion from other types of strings.
 template <size_t N>
 WGPUStringView MakeStringView(const char (&s)[N]) {
   return {s, N};
@@ -141,11 +138,6 @@ WGPUStringView MakeStringView(const char* s) {
 WGPUStringView MakeStringView() {
   return {nullptr, 0};
 }
-#else   // defined(WGPU_BREAKING_CHANGE_STRING_VIEW_CALLBACKS)
-const char* MakeStringView(const char* s = nullptr) {
-  return s;
-}
-#endif  // defined(WGPU_BREAKING_CHANGE_STRING_VIEW_CALLBACKS)
 
 class WebGPUDecoderImpl final : public WebGPUDecoder {
  public:
@@ -172,10 +164,7 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
   base::WeakPtr<DecoderContext> AsWeakPtr() override {
     return weak_ptr_factory_.GetWeakPtr();
   }
-  const gles2::ContextState* GetContextState() override {
-    NOTREACHED_IN_MIGRATION();
-    return nullptr;
-  }
+  const gles2::ContextState* GetContextState() override { NOTREACHED(); }
   void Destroy(bool have_context) override;
   bool MakeCurrent() override {
     if (gl_context_.get()) {
@@ -184,64 +173,42 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
     return true;
   }
   gl::GLContext* GetGLContext() override { return nullptr; }
-  gl::GLSurface* GetGLSurface() override {
-    NOTREACHED_IN_MIGRATION();
-    return nullptr;
-  }
-  const gles2::FeatureInfo* GetFeatureInfo() const override {
-    NOTREACHED_IN_MIGRATION();
-    return nullptr;
-  }
+  gl::GLSurface* GetGLSurface() override { NOTREACHED(); }
+  const gles2::FeatureInfo* GetFeatureInfo() const override { NOTREACHED(); }
   Capabilities GetCapabilities() override { return {}; }
   GLCapabilities GetGLCapabilities() override { return {}; }
-  void RestoreGlobalState() const override { NOTREACHED_IN_MIGRATION(); }
-  void ClearAllAttributes() const override { NOTREACHED_IN_MIGRATION(); }
-  void RestoreAllAttributes() const override { NOTREACHED_IN_MIGRATION(); }
+  void RestoreGlobalState() const override { NOTREACHED(); }
+  void ClearAllAttributes() const override { NOTREACHED(); }
+  void RestoreAllAttributes() const override { NOTREACHED(); }
   void RestoreState(const gles2::ContextState* prev_state) override {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
-  void RestoreActiveTexture() const override { NOTREACHED_IN_MIGRATION(); }
+  void RestoreActiveTexture() const override { NOTREACHED(); }
   void RestoreAllTextureUnitAndSamplerBindings(
       const gles2::ContextState* prev_state) const override {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
   void RestoreActiveTextureUnitBinding(unsigned int target) const override {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
-  void RestoreBufferBinding(unsigned int target) override {
-    NOTREACHED_IN_MIGRATION();
-  }
-  void RestoreBufferBindings() const override { NOTREACHED_IN_MIGRATION(); }
-  void RestoreFramebufferBindings() const override {
-    NOTREACHED_IN_MIGRATION();
-  }
-  void RestoreRenderbufferBindings() override { NOTREACHED_IN_MIGRATION(); }
-  void RestoreProgramBindings() const override { NOTREACHED_IN_MIGRATION(); }
-  void RestoreTextureState(unsigned service_id) override {
-    NOTREACHED_IN_MIGRATION();
-  }
+  void RestoreBufferBinding(unsigned int target) override { NOTREACHED(); }
+  void RestoreBufferBindings() const override { NOTREACHED(); }
+  void RestoreFramebufferBindings() const override { NOTREACHED(); }
+  void RestoreRenderbufferBindings() override { NOTREACHED(); }
+  void RestoreProgramBindings() const override { NOTREACHED(); }
+  void RestoreTextureState(unsigned service_id) override { NOTREACHED(); }
   void RestoreTextureUnitBindings(unsigned unit) const override {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
-  void RestoreVertexAttribArray(unsigned index) override {
-    NOTREACHED_IN_MIGRATION();
-  }
-  void RestoreAllExternalTextureBindingsIfNeeded() override {
-    NOTREACHED_IN_MIGRATION();
-  }
-  QueryManager* GetQueryManager() override {
-    NOTREACHED_IN_MIGRATION();
-    return nullptr;
-  }
+  void RestoreVertexAttribArray(unsigned index) override { NOTREACHED(); }
+  void RestoreAllExternalTextureBindingsIfNeeded() override { NOTREACHED(); }
+  QueryManager* GetQueryManager() override { NOTREACHED(); }
   void SetQueryCallback(unsigned int query_client_id,
                         base::OnceClosure callback) override {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
-  void CancelAllQueries() override { NOTREACHED_IN_MIGRATION(); }
-  gles2::GpuFenceManager* GetGpuFenceManager() override {
-    NOTREACHED_IN_MIGRATION();
-    return nullptr;
-  }
+  void CancelAllQueries() override { NOTREACHED(); }
+  gles2::GpuFenceManager* GetGpuFenceManager() override { NOTREACHED(); }
   bool HasPendingQueries() const override { return false; }
   void ProcessPendingQueries(bool did_finish) override {}
   bool HasMoreIdleWork() const override { return false; }
@@ -278,10 +245,7 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
     wire_serializer_->Flush();
   }
 
-  TextureBase* GetTextureBase(uint32_t client_id) override {
-    NOTREACHED_IN_MIGRATION();
-    return nullptr;
-  }
+  TextureBase* GetTextureBase(uint32_t client_id) override { NOTREACHED(); }
   void SetLevelInfo(uint32_t client_id,
                     int level,
                     unsigned internal_format,
@@ -291,7 +255,7 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
                     unsigned format,
                     unsigned type,
                     const gfx::Rect& cleared_rect) override {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
   bool WasContextLost() const override {
     NOTIMPLEMENTED();
@@ -301,10 +265,7 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
   void MarkContextLost(error::ContextLostReason reason) override {
     NOTIMPLEMENTED();
   }
-  bool CheckResetStatus() override {
-    NOTREACHED_IN_MIGRATION();
-    return false;
-  }
+  bool CheckResetStatus() override { NOTREACHED(); }
   void BeginDecoding() override {}
   void EndDecoding() override {}
   const char* GetCommandName(unsigned int command_id) const;
@@ -314,14 +275,8 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
                           int* entries_processed) override;
   std::string_view GetLogPrefix() override { return "WebGPUDecoderImpl"; }
   gles2::ContextGroup* GetContextGroup() override { return nullptr; }
-  gles2::ErrorState* GetErrorState() override {
-    NOTREACHED_IN_MIGRATION();
-    return nullptr;
-  }
-  bool IsCompressedTextureFormat(unsigned format) override {
-    NOTREACHED_IN_MIGRATION();
-    return false;
-  }
+  gles2::ErrorState* GetErrorState() override { NOTREACHED(); }
+  bool IsCompressedTextureFormat(unsigned format) override { NOTREACHED(); }
   bool ClearLevel(gles2::Texture* texture,
                   unsigned target,
                   int level,
@@ -331,8 +286,7 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
                   int yoffset,
                   int width,
                   int height) override {
-    NOTREACHED_IN_MIGRATION();
-    return false;
+    NOTREACHED();
   }
   bool ClearCompressedTextureLevel(gles2::Texture* texture,
                                    unsigned target,
@@ -340,8 +294,7 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
                                    unsigned format,
                                    int width,
                                    int height) override {
-    NOTREACHED_IN_MIGRATION();
-    return false;
+    NOTREACHED();
   }
   bool ClearCompressedTextureLevel3D(gles2::Texture* texture,
                                      unsigned target,
@@ -350,8 +303,7 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
                                      int width,
                                      int height,
                                      int depth) override {
-    NOTREACHED_IN_MIGRATION();
-    return false;
+    NOTREACHED();
   }
   bool ClearLevel3D(gles2::Texture* texture,
                     unsigned target,
@@ -361,8 +313,7 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
                     int width,
                     int height,
                     int depth) override {
-    NOTREACHED_IN_MIGRATION();
-    return false;
+    NOTREACHED();
   }
   bool initialized() const override { return true; }
   void SetLogCommands(bool log_commands) override { NOTIMPLEMENTED(); }
@@ -370,10 +321,7 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
     NOTIMPLEMENTED();
     return nullptr;
   }
-  int GetRasterDecoderId() const override {
-    NOTREACHED_IN_MIGRATION();
-    return -1;
-  }
+  int GetRasterDecoderId() const override { NOTREACHED(); }
 
  private:
   typedef error::Error (WebGPUDecoderImpl::*CmdHandler)(
@@ -852,7 +800,7 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
       wgpu::FutureWaitInfo waitInfo{buffer.MapAsync(
           wgpu::MapMode::Read, 0, wgpu::kWholeMapSize,
           wgpu::CallbackMode::WaitAnyOnly,
-          [&](wgpu::MapAsyncStatus status, const char* message) {
+          [&](wgpu::MapAsyncStatus status, wgpu::StringView message) {
             success = status == wgpu::MapAsyncStatus::Success;
             if (!success) {
               DLOG(ERROR) << message;
@@ -1331,6 +1279,8 @@ bool WebGPUDecoderImpl::IsFeatureExposed(wgpu::FeatureName feature) const {
     case wgpu::FeatureName::ChromiumExperimentalSubgroups:
     case wgpu::FeatureName::ChromiumExperimentalSubgroupUniformControlFlow:
     case wgpu::FeatureName::MultiDrawIndirect:
+    case wgpu::FeatureName::Unorm16TextureFormats:
+    case wgpu::FeatureName::Snorm16TextureFormats:
       return safety_level_ == webgpu::SafetyLevel::kUnsafe;
     case wgpu::FeatureName::AdapterPropertiesD3D:
     case wgpu::FeatureName::AdapterPropertiesVk:
@@ -1349,6 +1299,7 @@ bool WebGPUDecoderImpl::IsFeatureExposed(wgpu::FeatureName feature) const {
     case wgpu::FeatureName::RG11B10UfloatRenderable:
     case wgpu::FeatureName::BGRA8UnormStorage:
     case wgpu::FeatureName::Float32Filterable:
+    case wgpu::FeatureName::Float32Blendable:
     case wgpu::FeatureName::ClipDistances:
     case wgpu::FeatureName::DualSourceBlending:
     case wgpu::FeatureName::DawnMultiPlanarFormats:
@@ -1597,15 +1548,15 @@ WGPUFuture WebGPUDecoderImpl::RequestDeviceImpl(
   auto f = adapter_obj.RequestDevice(
       &desc, wgpu::CallbackMode::AllowSpontaneous,
       [&](wgpu::RequestDeviceStatus status, wgpu::Device device,
-          const char* message) {
+          wgpu::StringView message) {
         called = true;
         // Copy the device to save in known_device_metadata_.
         wgpu::Device device_copy = device;
         // Forward to the original callback.
-        callback_info.callback(static_cast<WGPURequestDeviceStatus>(status),
-                               device.MoveToCHandle(), MakeStringView(message),
-                               callback_info.userdata1,
-                               callback_info.userdata2);
+        callback_info.callback(
+            static_cast<WGPURequestDeviceStatus>(status),
+            device.MoveToCHandle(), {message.data, message.length},
+            callback_info.userdata1, callback_info.userdata2);
         if (device_copy) {
           // Intercept the response so we can add a device ref to the list of
           // known devices on.
@@ -2639,8 +2590,7 @@ error::Error WebGPUDecoderImpl::HandleSetWebGPUExecutionContextToken(
       break;
     }
     default:
-      NOTREACHED_IN_MIGRATION();
-      return error::kInvalidArguments;
+      NOTREACHED();
   }
   isolation_key_provider_->GetIsolationKey(
       execution_context_token,

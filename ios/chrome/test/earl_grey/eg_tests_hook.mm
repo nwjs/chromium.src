@@ -5,7 +5,10 @@
 #import <MaterialComponents/MaterialSnackbar.h>
 
 #import "base/command_line.h"
+#import "base/files/file_path.h"
+#import "base/files/file_util.h"
 #import "base/logging.h"
+#import "base/strings/sys_string_conversions.h"
 #import "base/time/time.h"
 #import "components/password_manager/core/browser/sharing/fake_recipients_fetcher.h"
 #import "components/password_manager/ios/fake_bulk_leak_check_service.h"
@@ -25,6 +28,7 @@
 #import "ios/chrome/browser/policy/model/test_platform_policy_provider.h"
 #import "ios/chrome/browser/saved_tab_groups/model/ios_tab_group_sync_delegate.h"
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_local_update_observer.h"
+#import "ios/chrome/browser/share_kit/model/test_share_kit_service.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -220,6 +224,10 @@ std::unique_ptr<tab_groups::TabGroupSyncService> CreateTabGroupSyncService(
   return sync_service;
 }
 
+std::unique_ptr<ShareKitService> CreateShareKitService() {
+  return std::make_unique<TestShareKitService>();
+}
+
 std::unique_ptr<password_manager::BulkLeakCheckServiceInterface>
 GetOverriddenBulkLeakCheckService() {
   return std::make_unique<password_manager::FakeBulkLeakCheckService>();
@@ -287,6 +295,54 @@ std::optional<std::string> FETDemoModeOverride() {
   }
   return base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
       test_switches::kEnableIPH);
+}
+
+void DeleteFilesRecursively(NSString* directoryPath) {
+  NSFileManager* fileManager = [NSFileManager defaultManager];
+  NSError* error = nil;
+  NSArray* contents = [fileManager contentsOfDirectoryAtPath:directoryPath
+                                                       error:&error];
+  for (NSString* itemName in contents) {
+    NSString* itemPath =
+        [directoryPath stringByAppendingPathComponent:itemName];
+    BOOL isDirectory;
+    if ([fileManager fileExistsAtPath:itemPath isDirectory:&isDirectory]) {
+      if (isDirectory) {
+        DeleteFilesRecursively(itemPath);
+      } else {
+        // Deleting files in /Library/Preferences seems to break
+        // NSUserDefaults syncing. Just ignore the directory completely.
+        if ([itemPath containsString:@"/Library/Preferences/"]) {
+          continue;
+        }
+        if (![fileManager removeItemAtPath:itemPath error:&error]) {
+          NSLog(@"Error deleting file: %@", error.localizedDescription);
+        }
+      }
+    }
+  }
+}
+
+void WipeProfileIfRequested(int argc, char* argv[]) {
+  const char kWipeArg[] = "-EGTestWipeProfile";
+  bool found = false;
+  for (int i = 0; i < argc; i++) {
+    if (strncmp(argv[i], kWipeArg, strlen(kWipeArg)) == 0) {
+      found = true;
+    }
+  }
+
+  if (!found) {
+    return;
+  }
+
+  DeleteFilesRecursively(
+      [NSHomeDirectory() stringByAppendingPathComponent:@"Library"]);
+  // Reset NSUserDefaults.
+  [[NSUserDefaults standardUserDefaults]
+      setPersistentDomain:[NSDictionary dictionary]
+                  forName:[[NSBundle mainBundle] bundleIdentifier]];
+  [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
 }  // namespace tests_hook

@@ -20,7 +20,9 @@ import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.WindowAndroid;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * A set of convenience methods used for interacting with {@link TabList}s and {@link TabModel}s.
@@ -304,8 +306,8 @@ public class TabModelUtils {
         return selector.getTabGroupModelFilterProvider().getTabGroupModelFilter(tab.isIncognito());
     }
 
-    /** Converts a {@link TabList} to a {@link List<Tab>}. A null input returns an empty list. */
-    public static @Nullable List<Tab> convertTabListToListOfTabs(@Nullable TabList tabList) {
+    /** Converts a {@link TabList} to a {@link List<Tab>}. */
+    public static @NonNull List<Tab> convertTabListToListOfTabs(@Nullable TabList tabList) {
         ArrayList<Tab> list = new ArrayList<>();
         if (tabList == null) return list;
 
@@ -315,11 +317,8 @@ public class TabModelUtils {
         return list;
     }
 
-    /**
-     * Converts a {@link TabList} to a {@link List<Integer>} tab ids. A null input returns an empty
-     * list.
-     */
-    public static @Nullable List<Integer> convertTabListToListOfTabIds(@Nullable TabList tabList) {
+    /** Converts a {@link TabList} to a {@link List<Integer>} tab ids. */
+    public static @NonNull List<Integer> convertTabListToListOfTabIds(@Nullable TabList tabList) {
         ArrayList<Integer> list = new ArrayList<>();
         if (tabList == null) return list;
 
@@ -327,5 +326,36 @@ public class TabModelUtils {
             list.add(tabList.getTabAt(i).getId());
         }
         return list;
+    }
+
+    /** Returns the list of Tabs for the given Tab IDs. */
+    public static List<Tab> getTabsById(
+            Collection<Integer> tabIds, TabModel tabModel, boolean allowClosing) {
+        return getTabsById(tabIds, tabModel, allowClosing, null);
+    }
+
+    /**
+     * Returns the list of Tabs for the given Tab IDs. Invalid IDs are ignored.
+     *
+     * @param tabIds Tabs IDs to retrieve.
+     * @param tabModel Tab model to get them from.
+     * @param allowClosing Whether to include tabs when tab.isClosing() == true.
+     * @param predicate An additional condition to filter by.
+     */
+    public static List<Tab> getTabsById(
+            Collection<Integer> tabIds,
+            TabModel tabModel,
+            boolean allowClosing,
+            @Nullable Predicate<Tab> predicate) {
+        List<Tab> ret = new ArrayList<>(tabIds.size());
+        for (Integer tabId : tabIds) {
+            Tab tab = tabModel.getTabById(tabId);
+            if (tab != null
+                    && (allowClosing || !tab.isClosing())
+                    && (predicate == null || predicate.test(tab))) {
+                ret.add(tab);
+            }
+        }
+        return ret;
     }
 }

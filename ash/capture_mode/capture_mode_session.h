@@ -44,13 +44,17 @@ class BoxLayoutView;
 
 namespace ash {
 
+class ActionButtonView;
 class CaptureModeBarView;
 class CaptureModeController;
 class CaptureModeSessionFocusCycler;
 class CaptureModeSettingsView;
+class CaptureRegionOverlayController;
 class CaptureWindowObserver;
 class CursorSetter;
+class PillButton;
 class RecordingTypeMenuView;
+class ScannerActionViewModel;
 class UserNudgeController;
 class WindowDimmer;
 
@@ -94,9 +98,6 @@ class ASH_EXPORT CaptureModeSession
   views::Widget* capture_label_widget() { return capture_label_widget_.get(); }
   views::Widget* capture_mode_settings_widget() {
     return capture_mode_settings_widget_.get();
-  }
-  views::Widget* search_results_panel_widget() {
-    return search_results_panel_widget_.get();
   }
   bool is_selecting_region() const { return is_selecting_region_; }
   CaptureModeToastController* capture_toast_controller() {
@@ -151,6 +152,26 @@ class ASH_EXPORT CaptureModeSession
   // `current_root_` is different`.
   void RefreshBarWidgetBounds();
 
+  // Invalidates all pointers previously returned from `GetImageSearchToken()`.
+  // This should be called whenever any parameters relating to the capture
+  // (type, source, bounds - excluding window) change:
+  //
+  // - when `controller_->SetUserCaptureRegion()` is called
+  //   (`UpdateCaptureRegion()` and `ClampCaptureRegionToRootWindowSize()`)
+  // - when `is_drag_in_progress_` is modified (`OnLocatedEventPressed()` and
+  //   `EndSelection()`). Note that this does not directly affect parameters
+  //   relating to the capture (`CaptureModeController::GetCaptureParams()`).
+  // - when the source changes (`OnCaptureSourceChanged()`)
+  // - when the type changes (`OnCaptureTypeChanged()`). Note that this does not
+  //   directly affect parameters relating to the capture
+  //   (`CaptureModeController::GetCaptureParams()`).
+  // - when `current_root_` changes (indirectly from `MaybeChangeRoot()`, as it
+  //   calls `UpdateCaptureRegion()`)
+  // - when the session starts (indirectly from `InitInternal()`, as it calls
+  //   `ClampCaptureRegionToRootWindowSize()`)
+  // - when `is_shutting_down_` is set (`ShutdownInternal()`)
+  void InvalidateImageSearchTokens();
+
   // BaseCaptureModeSession:
   views::Widget* GetCaptureModeBarWidget() override;
   aura::Window* GetSelectedWindow() const override;
@@ -178,10 +199,18 @@ class ASH_EXPORT CaptureModeSession
   void MaybeChangeRoot(aura::Window* new_root,
                        bool root_window_will_shutdown) override;
   std::set<aura::Window*> GetWindowsToIgnoreFromWidgets() override;
-  void ShowSearchResultsPanel(const gfx::ImageSkia& image) override;
-  void AddActionButton(views::Button::PressedCallback callback,
-                       std::u16string text,
-                       const gfx::VectorIcon* icon) override;
+  void OnPerformCaptureForSearchStarting(
+      PerformCaptureType capture_type) override;
+  void OnPerformCaptureForSearchEnded(PerformCaptureType capture_type) override;
+  base::WeakPtr<BaseCaptureModeSession> GetImageSearchToken() override;
+  ActionButtonView* AddActionButton(views::Button::PressedCallback callback,
+                                    std::u16string text,
+                                    const gfx::VectorIcon* icon,
+                                    ActionButtonRank rank) override;
+  void AddScannerActionButtons(
+      std::vector<ScannerActionViewModel> scanner_actions) override;
+  void OnTextDetected() override;
+  gfx::Rect GetFeedbackWidgetScreenBounds() const override;
 
   // ui::LayerDelegate:
   void OnPaintLayer(const ui::PaintContext& context) override;
@@ -239,8 +268,12 @@ class ASH_EXPORT CaptureModeSession
   void HideAllUis();
   void ShowAllUis();
 
-  // Called by `ShowAllUis` for each widget. Returns true if the given `widget`
-  // could be shown, otherwise, returns false.
+  // Shows or hides all session UI widgets.
+  void HideAllWidgets();
+  void ShowAllWidgets();
+
+  // Called by `ShowAllWidgets()` for each widget. Returns true if the given
+  // `widget` could be shown, otherwise, returns false.
   bool CanShowWidget(views::Widget* widget) const;
 
   // If possible, this recreates and shows the nudge that alerts the user about
@@ -253,6 +286,10 @@ class ASH_EXPORT CaptureModeSession
   // record button in the capture label view.
   void DoPerformCapture();
 
+  // Called when the user clicks the Search button while in default capture mode
+  // session.
+  void OnSearchButtonPressed();
+
   // Called when the drop-down button in the `capture_label_widget_` is pressed
   // which toggles the recording type menu on and off.
   void OnRecordingTypeDropDownButtonPressed(const ui::Event& event);
@@ -264,6 +301,10 @@ class ASH_EXPORT CaptureModeSession
 
   // Paints the current capture region depending on the current capture source.
   void PaintCaptureRegion(gfx::Canvas* canvas);
+
+  // Paints the capture region overlay onto `canvas` if supported by the
+  // behavior, otherwise does nothing.
+  void MaybePaintCaptureRegionOverlay(gfx::Canvas& canvas) const;
 
   // Helper to unify mouse/touch events. Forwards events to the three below
   // functions and they are located on |capture_button_widget_|. Blocks events
@@ -394,19 +435,52 @@ class ASH_EXPORT CaptureModeSession
   bool IsPointOverSelectedWindow(const gfx::Point& screen_point) const;
 
   // Creates the the action container widget if it wasn't previously created,
-  // and updates the widget's bounds.
+  // and updates the widget's bounds and visibility.
   void UpdateActionContainerWidget();
-
-  // Updates the action container widget's bounds.
-  void UpdateActionContainerWidgetBounds();
 
   // Calculates the targeted action container widget bounds in screen
   // coordinates.
   gfx::Rect CalculateActionContainerWidgetBounds() const;
 
   // Removes any existing action buttons from `action_container_view_` if the
-  // `action_container_widget_` exists,
+  // `action_container_widget_` exists.
   void RemoveAllActionButtons();
+
+  // Sets the enabled state of all existing action buttons. Action buttons that
+  // are added after this is called will still be enabled by default.
+  void SetActionButtonsEnabled(bool enabled);
+
+  // Called back when the smart actions button is pressed.
+  void OnSmartActionsButtonPressed();
+
+  // Called back when the smart actions button is pressed and disclaimer check
+  // was successful. This will trigger a request to fetch and show Scanner
+  // actions.
+  void OnSmartActionsButtonDisclaimerCheckSuccess();
+
+  // Called back when a Scanner action button is pressed.
+  void OnScannerActionButtonPressed(
+      const ScannerActionViewModel& scanner_action);
+
+  // Called back when a Scanner action, which was executed from the user
+  // clicking an action button added by `AddScannerActionButtons`, finishes
+  // executing.
+  void OnScannerActionExecuted(bool success);
+
+  // Creates the feedback button widget if it wasn't previously created, and
+  // updates the widget's bounds.
+  void UpdateFeedbackButtonWidget();
+
+  // Returns true if `widget` is the `feedback_button_widget_` and we should
+  // hide it, as the button should only be shown when we are in region selection
+  // mode for an image (including Sunfish/Scanner sessions).
+  bool ShouldHideFeedbackWidget(views::Widget* widget) const;
+
+  // Returns true if the action container should be shown.
+  bool ShouldShowActionContainerWidget() const;
+
+  // Shows the feedback page with preset information for sunfish.
+  void ShowFeedbackPage();
 
   // BaseCaptureModeSession:
   void InitInternal() override;
@@ -447,10 +521,9 @@ class ASH_EXPORT CaptureModeSession
   raw_ptr<RecordingTypeMenuView, DanglingUntriaged> recording_type_menu_view_ =
       nullptr;
 
-  // Contains `SearchResultsPanel` as its contents view.
-  // TODO(b/362772923): Determine whether we need to move
-  // `search_results_panel_widget_` to `CaptureModeController`.
-  std::unique_ptr<views::Widget> search_results_panel_widget_;
+  // Widget that shows a feedback button for Sunfish.
+  views::UniqueWidgetPtr feedback_button_widget_;
+  raw_ptr<PillButton> feedback_button_;
 
   // Magnifier glass used during a region capture session.
   MagnifierGlass magnifier_glass_;
@@ -521,6 +594,11 @@ class ASH_EXPORT CaptureModeSession
   // perform the capture.
   bool is_waiting_for_dlp_confirmation_ = false;
 
+  // Controls the overlay shown on the capture region to indicate detected text,
+  // translations, etc.
+  std::unique_ptr<CaptureRegionOverlayController>
+      capture_region_overlay_controller_;
+
   // The object which handles tab focus while in a capture session.
   std::unique_ptr<CaptureModeSessionFocusCycler> focus_cycler_;
 
@@ -538,6 +616,10 @@ class ASH_EXPORT CaptureModeSession
   // Controls creating, destroying or updating the visibility of the capture
   // toast.
   CaptureModeToastController capture_toast_controller_;
+
+  // Weak pointers from this factory are invalidated when any parameters
+  // relating to the capture (type, source, bounds - excluding window) change.
+  base::WeakPtrFactory<CaptureModeSession> weak_token_factory_{this};
 
   base::WeakPtrFactory<CaptureModeSession> weak_ptr_factory_{this};
 };

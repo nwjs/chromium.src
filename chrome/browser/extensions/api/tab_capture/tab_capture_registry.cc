@@ -260,8 +260,7 @@ void TabCaptureRegistry::OnRequestUpdate(
       return;
     case content::MEDIA_REQUEST_STATE_REQUESTED:
     case content::MEDIA_REQUEST_STATE_NOT_REQUESTED:
-      NOTREACHED_IN_MIGRATION();
-      return;
+      NOTREACHED();
   }
 
   if (next_state == tab_capture::TabCaptureState::kPending &&
@@ -326,7 +325,7 @@ void TabCaptureRegistry::KillRequest(LiveRequest* request) {
       return;
     }
   }
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 }  // namespace extensions

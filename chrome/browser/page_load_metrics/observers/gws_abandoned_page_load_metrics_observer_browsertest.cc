@@ -11,7 +11,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/page_load_metrics/integration_tests/metric_integration_test.h"
 #include "chrome/browser/page_load_metrics/observers/chrome_gws_abandoned_page_load_metrics_observer.h"
-#include "chrome/browser/page_load_metrics/observers/gws_page_load_metrics_observer.h"
+#include "chrome/browser/page_load_metrics/observers/chrome_gws_page_load_metrics_observer.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/https_upgrades_util.h"
 #include "chrome/browser/ui/browser.h"
@@ -21,6 +21,7 @@
 #include "components/page_load_metrics/browser/page_load_metrics_test_waiter.h"
 #include "components/page_load_metrics/browser/page_load_metrics_util.h"
 #include "components/page_load_metrics/common/test/page_load_metrics_test_util.h"
+#include "components/page_load_metrics/google/browser/google_url_util.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/public/browser/back_forward_cache.h"
 #include "content/public/browser/navigation_handle.h"
@@ -128,34 +129,34 @@ class GWSAbandonedPageLoadMetricsObserverBrowserTest
 
   GURL url_srp() {
     GURL url(embedded_test_server()->GetURL(kSRPDomain, kSRPPath));
-    CHECK(page_load_metrics::IsGoogleSearchResultUrl(url));
+    EXPECT_TRUE(page_load_metrics::IsGoogleSearchResultUrl(url));
     return url;
   }
   GURL url_srp_redirect() {
     GURL url(embedded_test_server()->GetURL(kSRPDomain, kSRPRedirectPath));
-    CHECK(page_load_metrics::IsGoogleSearchResultUrl(url));
+    EXPECT_TRUE(page_load_metrics::IsGoogleSearchResultUrl(url));
     return url;
   }
   GURL url_non_srp() {
     GURL url(embedded_test_server()->GetURL("a.test", "/title1.html"));
-    CHECK(!page_load_metrics::IsGoogleSearchResultUrl(url));
+    EXPECT_FALSE(page_load_metrics::IsGoogleSearchResultUrl(url));
     return url;
   }
   GURL url_non_srp_2() {
     GURL url(embedded_test_server()->GetURL("b.test", "/title2.html"));
-    CHECK(!page_load_metrics::IsGoogleSearchResultUrl(url));
+    EXPECT_FALSE(page_load_metrics::IsGoogleSearchResultUrl(url));
     return url;
   }
 
   GURL url_non_srp_redirect_to_srp() {
     GURL url(embedded_test_server()->GetURL("a.test", "/redirect-to-srp"));
-    CHECK(!page_load_metrics::IsGoogleSearchResultUrl(url));
+    EXPECT_FALSE(page_load_metrics::IsGoogleSearchResultUrl(url));
     return url;
   }
 
   GURL url_srp_redirect_to_non_srp() {
     GURL url(embedded_test_server()->GetURL(kSRPDomain, "/webhp?q="));
-    CHECK(page_load_metrics::IsGoogleSearchResultUrl(url));
+    EXPECT_TRUE(page_load_metrics::IsGoogleSearchResultUrl(url));
     return url;
   }
 
@@ -978,8 +979,14 @@ IN_PROC_BROWSER_TEST_F(GWSAbandonedPageLoadMetricsObserverBrowserTest,
 // at various points during the navigation. Note that the navigation itself
 // might continue to commit, but we will count it as "abandoned" as soon as it's
 // hidden and stop recording navigation milestones metrics after that.
+// TODO - crbug.com/372878281: flaky on Mac builds
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_SearchTabHidden DISABLED_SearchTabHidden
+#else
+#define MAYBE_SearchTabHidden SearchTabHidden
+#endif
 IN_PROC_BROWSER_TEST_F(GWSAbandonedPageLoadMetricsObserverBrowserTest,
-                       SearchTabHidden) {
+                       MAYBE_SearchTabHidden) {
   for (NavigationMilestone milestone : all_testable_milestones()) {
     // Make sure the WebContents is currently shown, before hiding it later.
     web_contents()->WasShown();

@@ -5,29 +5,96 @@
 
 import unittest
 import web_idl_schema
+
 from web_idl_schema import SchemaCompilerError
 
+# Helper functions for fetching specific parts of a processed API schema
+# dictionary.
 
-def getFunction(schema, name):
+
+def getFunction(schema: dict, name: str) -> dict:
+  """Gets the function dictionary with the specified name from the schema.
+
+  Args:
+    schema: The processed API schema dictionary to look for the function in.
+    name: The name of the function to look for.
+
+  Returns:
+    The dictionary for the function with the specified name.
+
+  Raises:
+    KeyError: If the given function name was not found in the list of functions.
+  """
   for item in schema['functions']:
     if item['name'] == name:
       return item
   raise KeyError('Could not find "function" with name "%s" in schema' % name)
 
 
-def getType(schema, name):
+def getType(schema: dict, name: str) -> dict:
+  """Gets the custom type dictionary with the specified name from the schema.
+
+  Args:
+    schema: The processed API schema dictionary to look for the type in.
+    name: The name of the custom type to look for.
+
+  Returns:
+    The dictionary for the custom type with the specified name.
+
+  Raises:
+    KeyError: If the given type name was not found in the list of types.
+  """
   for item in schema['types']:
     if item['id'] == name:
       return item
   raise KeyError('Could not find "type" with id "%s" in schema' % name)
 
 
-def getReturns(schema, name):
+def getFunctionReturn(schema: dict, name: str) -> dict:
+  """Gets the return dictionary for the function with the specified name.
+
+  Args:
+    schema: The processed API schema dictionary to look for the function in.
+    name: The name of the function to get the return value from.
+
+  Returns:
+    The dictionary representing the return for the specified function name if it
+    has a return, otherwise None if it does not.
+  """
   function = getFunction(schema, name)
   return function.get('returns', None)
 
 
-def getFunctionParameters(schema, name):
+def getFunctionAsyncReturn(schema: dict, name: str) -> dict:
+  """Gets the async return dictionary for the function with the specified name.
+
+  Args:
+    schema: The processed API schema dictionary to look for the function in.
+    name: The name of the function to get the async return value from.
+
+  Returns:
+    The dictionary representing the async return for the function with the
+    specified name if it has one, otherwise None if it does not.
+  """
+  function = getFunction(schema, name)
+  return function.get('returns_async', None)
+
+
+def getFunctionParameters(schema: dict, name: str) -> dict:
+  """Gets the list of parameters for the function with the specified name.
+
+  Args:
+    schema: The processed API schema dictionary to look for the function in.
+    name: The name of the function to get the parameters list from.
+
+  Returns:
+    The list of dictionaries representing the function parameters for the
+    function with the specified name if it has any, otherwise None if it does
+    not.
+  """
+  # TODO(crbug.com/340297705): All functions should have the 'parameters' key,
+  # so we shouldn't have a None fallback and just raise a KeyError if it isn't
+  # present.
   function = getFunction(schema, name)
   return function.get('parameters', None)
 
@@ -45,40 +112,75 @@ class WebIdlSchemaTest(unittest.TestCase):
     # Test basic types.
     self.assertEqual(
         None,
-        getReturns(schema, 'returnsVoid'),
+        getFunctionReturn(schema, 'returnsVoid'),
     )
     self.assertEqual(
         {
             'name': 'returnsBoolean',
             'type': 'boolean'
         },
-        getReturns(schema, 'returnsBoolean'),
+        getFunctionReturn(schema, 'returnsBoolean'),
     )
     self.assertEqual(
         {
             'name': 'returnsDouble',
             'type': 'number'
         },
-        getReturns(schema, 'returnsDouble'),
+        getFunctionReturn(schema, 'returnsDouble'),
     )
     self.assertEqual(
         {
             'name': 'returnsLong',
             'type': 'integer'
         },
-        getReturns(schema, 'returnsLong'),
+        getFunctionReturn(schema, 'returnsLong'),
     )
     self.assertEqual(
         {
             'name': 'returnsDOMString',
             'type': 'string'
         },
-        getReturns(schema, 'returnsDOMString'),
+        getFunctionReturn(schema, 'returnsDOMString'),
     )
     self.assertEqual({
         'name': 'returnsCustomType',
         '$ref': 'ExampleType'
-    }, getReturns(schema, 'returnsCustomType'))
+    }, getFunctionReturn(schema, 'returnsCustomType'))
+
+  def testPromiseBasedReturn(self):
+    schema = self.idl_basics
+    self.assertEqual(
+        {
+            'name': 'callback',
+            'parameters': [{
+                'type': 'string'
+            }],
+            'type': 'promise'
+        }, getFunctionAsyncReturn(schema, 'stringPromiseReturn'))
+    self.assertEqual(
+        {
+            'name': 'callback',
+            'parameters': [{
+                'optional': True,
+                'type': 'string'
+            }],
+            'type': 'promise'
+        }, getFunctionAsyncReturn(schema, 'nullablePromiseReturn'))
+    self.assertEqual(
+        {
+            'name': 'callback',
+            'parameters': [{
+                '$ref': 'ExampleType'
+            }],
+            'type': 'promise'
+        }, getFunctionAsyncReturn(schema, 'customTypePromiseReturn'))
+    self.assertEqual({
+        'name': 'callback',
+        'parameters': [],
+        'type': 'promise'
+    }, getFunctionAsyncReturn(schema, 'undefinedPromiseReturn'))
+
+
 
   # Tests function parameters are processed as expected.
   def testFunctionParameters(self):
@@ -151,6 +253,18 @@ class WebIdlSchemaTest(unittest.TestCase):
         },
         getType(schema, 'ExampleType'),
     )
+
+  # Tests that a top level API comment is processed into a description
+  # attribute, with HTML paragraph nodes added due to the blank commented line.
+  def testApiDescriptionComment(self):
+    schema = self.idl_basics
+    expected_description = (
+        '<p>This comment is an example of a top level API description, which'
+        ' will be extracted and added to the processed python dictionary as a'
+        ' description.</p><p>Note: All comment lines preceding the thing they'
+        ' are attached to will be part of the description, until a blank new'
+        ' line or non-comment is reached.</p>')
+    self.assertEqual(expected_description, schema['description'])
 
   # Tests that if the nodoc extended attribute is not specified on the API
   # interface the related attribute is set to false after processing.

@@ -81,6 +81,7 @@
 #include "net/socket/next_proto.h"
 #include "net/socket/socket_tag.h"
 #include "net/socket/socket_test_util.h"
+#include "net/spdy/multiplexed_session_creation_initiator.h"
 #include "net/spdy/spdy_session_test_util.h"
 #include "net/spdy/spdy_test_util_common.h"
 #include "net/ssl/test_ssl_config_service.h"
@@ -191,7 +192,7 @@ class SessionAttemptHelper : public QuicSessionAttempt::Delegate {
         /*cert_verify_flags=*/0,
         /*dns_resolution_start_time=*/base::TimeTicks(),
         /*dns_resolution_end_time=*/base::TimeTicks(), /*use_dns_aliases=*/true,
-        /*dns_aliases=*/{});
+        /*dns_aliases=*/{}, MultiplexedSessionCreationInitiator::kUnknown);
     return attempt_->Start(base::BindOnce(&SessionAttemptHelper::OnComplete,
                                           base::Unretained(this)));
   }
@@ -5234,9 +5235,7 @@ TEST_P(QuicSessionPoolTest, MultiPortSessionWithMigration) {
 TEST_P(QuicSessionPoolTest, SuccessfullyMigratedToServerPreferredAddress) {
   IPEndPoint server_preferred_address = IPEndPoint(IPAddress(1, 2, 3, 4), 123);
   FLAGS_quic_enable_chaos_protection = false;
-  if (!quic_params_->allow_server_migration) {
-    quic_params_->connection_options.push_back(quic::kSPAD);
-  }
+  quic_params_->allow_server_migration = true;
   socket_factory_ = std::make_unique<TestPortMigrationSocketFactory>();
   Initialize();
 
@@ -5319,9 +5318,7 @@ TEST_P(QuicSessionPoolTest, SuccessfullyMigratedToServerPreferredAddress) {
 TEST_P(QuicSessionPoolTest, FailedToValidateServerPreferredAddress) {
   IPEndPoint server_preferred_address = IPEndPoint(IPAddress(1, 2, 3, 4), 123);
   FLAGS_quic_enable_chaos_protection = false;
-  if (!quic_params_->allow_server_migration) {
-    quic_params_->connection_options.push_back(quic::kSPAD);
-  }
+  quic_params_->allow_server_migration = true;
   socket_factory_ = std::make_unique<TestPortMigrationSocketFactory>();
   Initialize();
 
@@ -5404,6 +5401,94 @@ TEST_P(QuicSessionPoolTest, FailedToValidateServerPreferredAddress) {
   quic_data1.ExpectAllWriteDataConsumed();
   quic_data2.ExpectAllReadDataConsumed();
   quic_data2.ExpectAllWriteDataConsumed();
+}
+
+TEST_P(QuicSessionPoolTest, ServerMigrationDisabled) {
+  // Add alternate IPv4 server address to config.
+  IPEndPoint alt_address = IPEndPoint(IPAddress(1, 2, 3, 4), 123);
+  quic_params_->allow_server_migration = false;
+  FLAGS_quic_enable_chaos_protection = false;
+  socket_factory_ = std::make_unique<TestPortMigrationSocketFactory>();
+  Initialize();
+
+  ProofVerifyDetailsChromium verify_details = DefaultProofVerifyDetails();
+  crypto_client_stream_factory_.AddProofVerifyDetails(&verify_details);
+  quic::QuicConfig config;
+  config.SetIPv4AlternateServerAddressToSend(ToQuicSocketAddress(alt_address));
+  config.SetPreferredAddressConnectionIdAndTokenToSend(
+      kNewCID, quic::QuicUtils::GenerateStatelessResetToken(kNewCID));
+  crypto_client_stream_factory_.SetConfig(config);
+  // Use cold start mode to send crypto message for handshake.
+  crypto_client_stream_factory_.set_handshake_mode(
+      MockCryptoClientStream::COLD_START_WITH_CHLO_SENT);
+
+  // Set up only 1 socket data provider.
+  int packet_num = 1;
+  MockQuicData quic_data1(version_);
+  quic_data1.AddReadPauseForever();
+  quic_data1.AddWrite(ASYNC, client_maker_.MakeDummyCHLOPacket(packet_num++));
+  // Change the encryption level after handshake is confirmed.
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_FORWARD_SECURE);
+  quic_data1.AddWrite(SYNCHRONOUS,
+                      ConstructInitialSettingsPacket(packet_num++));
+  quic_data1.AddWrite(
+      SYNCHRONOUS,
+      client_maker_.Packet(packet_num++)
+          .AddStreamFrame(GetQpackDecoderStreamId(), /*fin=*/false,
+                          StreamCancellationQpackDecoderInstruction(0))
+          .AddStopSendingFrame(GetNthClientInitiatedBidirectionalStreamId(0),
+                               quic::QUIC_STREAM_CANCELLED)
+          .AddRstStreamFrame(GetNthClientInitiatedBidirectionalStreamId(0),
+                             quic::QUIC_STREAM_CANCELLED)
+          .Build());
+  quic_data1.AddSocketDataToFactory(socket_factory_.get());
+
+  // Create request and QuicHttpStream.
+  RequestBuilder builder(this);
+  EXPECT_EQ(ERR_IO_PENDING, builder.CallRequest());
+  EXPECT_FALSE(HasActiveSession(kDefaultDestination));
+  EXPECT_TRUE(HasActiveJob(kDefaultDestination, PRIVACY_MODE_DISABLED));
+  base::RunLoop().RunUntilIdle();
+
+  crypto_client_stream_factory_.last_stream()
+      ->NotifySessionOneRttKeyAvailable();
+  base::RunLoop().RunUntilIdle();
+  EXPECT_THAT(callback_.WaitForResult(), IsOk());
+  ASSERT_TRUE(HasActiveSession(kDefaultDestination));
+  EXPECT_FALSE(HasActiveJob(kDefaultDestination, PRIVACY_MODE_DISABLED));
+
+  std::unique_ptr<HttpStream> stream = CreateStream(&builder.request);
+  EXPECT_TRUE(stream.get());
+
+  // Cause QUIC stream to be created.
+  HttpRequestInfo request_info;
+  request_info.method = "GET";
+  request_info.url = GURL("https://www.example.org/");
+  request_info.traffic_annotation =
+      MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
+  stream->RegisterRequest(&request_info);
+  EXPECT_EQ(OK, stream->InitializeStream(true, DEFAULT_PRIORITY, net_log_,
+                                         CompletionOnceCallback()));
+
+  // Ensure that session is alive and active.
+  QuicChromiumClientSession* session = GetActiveSession(kDefaultDestination);
+  EXPECT_TRUE(QuicSessionPoolPeer::IsLiveSession(factory_.get(), session));
+  EXPECT_TRUE(HasActiveSession(kDefaultDestination));
+
+  IPEndPoint actual_address;
+  session->GetDefaultSocket()->GetPeerAddress(&actual_address);
+  // No migration should have happened.
+  IPEndPoint expected_address =
+      IPEndPoint(IPAddress(127, 0, 0, 1), kDefaultServerPort);
+  EXPECT_EQ(actual_address, expected_address)
+      << "Socket connected to: " << actual_address.address().ToString() << " "
+      << actual_address.port()
+      << ". Expected address: " << expected_address.address().ToString() << " "
+      << expected_address.port();
+
+  stream.reset();
+  quic_data1.ExpectAllReadDataConsumed();
+  quic_data1.ExpectAllWriteDataConsumed();
 }
 
 TEST_P(QuicSessionPoolTest,
@@ -10949,7 +11034,7 @@ TEST_P(QuicSessionPoolTest, NoRetransmittableOnWireTimeout) {
   base::RunLoop().RunUntilIdle();
 
   // Verify the ping alarm is set, but not with the default timeout.
-  const quic::QuicAlarm& ping_alarm =
+  const quic::QuicAlarmProxy ping_alarm =
       quic::test::QuicConnectionPeer::GetPingAlarm(session->connection());
   ASSERT_TRUE(ping_alarm.IsSet());
   quic::QuicTime::Delta delay =
@@ -11202,7 +11287,7 @@ TEST_P(QuicSessionPoolTest,
   base::RunLoop().RunUntilIdle();
 
   // Verify the ping alarm is set, but not with the default timeout.
-  const quic::QuicAlarm& ping_alarm =
+  const quic::QuicAlarmProxy ping_alarm =
       quic::test::QuicConnectionPeer::GetPingAlarm(session->connection());
   ASSERT_TRUE(ping_alarm.IsSet());
   quic::QuicTime::Delta delay =
@@ -12815,8 +12900,7 @@ class QuicSessionPoolWithDestinationTest
       case DIFFERENT:
         return url::SchemeHostPort(url::kHttpsScheme, kDifferentHostname, 443);
       default:
-        NOTREACHED_IN_MIGRATION();
-        return url::SchemeHostPort();
+        NOTREACHED();
     }
   }
 

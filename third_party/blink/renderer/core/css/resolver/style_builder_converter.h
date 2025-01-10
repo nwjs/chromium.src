@@ -46,6 +46,7 @@
 #include "third_party/blink/renderer/core/css/style_sheet_contents.h"
 #include "third_party/blink/renderer/core/style/basic_shapes.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
+#include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/core/style/grid_area.h"
 #include "third_party/blink/renderer/core/style/named_grid_lines_map.h"
 #include "third_party/blink/renderer/core/style/ordered_named_grid_lines.h"
@@ -266,6 +267,10 @@ class StyleBuilderConverter {
                                                  const CSSValue&);
   static LengthSize ConvertRadius(StyleResolverState&, const CSSValue&);
   static EPaintOrder ConvertPaintOrder(StyleResolverState&, const CSSValue&);
+  static GapDataList<StyleColor> ConvertGapDecorationColorDataList(
+      StyleResolverState&,
+      const CSSValue&,
+      bool for_visited_link = false);
   static ShadowData ConvertShadow(const CSSToLengthConversionData&,
                                   StyleResolverState*,
                                   const CSSValue&);
@@ -379,6 +384,9 @@ class StyleBuilderConverter {
   static StyleViewTransitionGroup ConvertViewTransitionGroup(
       StyleResolverState&,
       const CSSValue&);
+  static StyleViewTransitionCaptureMode ConvertViewTransitionCaptureMode(
+      StyleResolverState&,
+      const CSSValue&);
 
   // Take a list value for a specified color-scheme, extract flags for known
   // color-schemes and the 'only' modifier, and push the list items into a
@@ -445,8 +453,7 @@ T StyleBuilderConverter::ConvertLineWidth(StyleResolverState& state,
         result = 5;
         break;
       default:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
     }
     result = state.CssToLengthConversionData().ZoomedComputedPixels(
         result, CSSPrimitiveValue::UnitType::kPixels);
@@ -490,7 +497,7 @@ Length StyleBuilderConverter::ConvertPositionLength(StyleResolverState& state,
       case CSSValueID::kCenter:
         return Length::Percent(50);
       default:
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
     }
   }
 

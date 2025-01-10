@@ -36,7 +36,6 @@ BASE_DECLARE_FEATURE(kBookmarksTreeView);
 BASE_DECLARE_FEATURE(kBookmarkTriggerForPrerender2);
 BASE_DECLARE_FEATURE(kCertificateTransparencyAskBeforeEnabling);
 BASE_DECLARE_FEATURE(kCertVerificationNetworkTime);
-BASE_DECLARE_FEATURE(kClosedTabCache);
 
 #if BUILDFLAG(IS_LINUX)
 BASE_DECLARE_FEATURE(kDbusSecretPortal);
@@ -57,11 +56,6 @@ BASE_DECLARE_FEATURE(kUseAppBoundEncryptionProviderForEncryption);
 
 BASE_DECLARE_FEATURE(kFlexOrgManagementDisclosure);
 BASE_DECLARE_FEATURE(kIncomingCallNotifications);
-BASE_DECLARE_FEATURE(kKeyPinningComponentUpdater);
-
-#if BUILDFLAG(IS_WIN)
-BASE_DECLARE_FEATURE(kLockProfileCookieDatabase);
-#endif
 
 #if !BUILDFLAG(IS_ANDROID)
 BASE_DECLARE_FEATURE(kMuteNotificationSnoozeAction);

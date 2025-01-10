@@ -67,8 +67,10 @@ std::vector<net::ProxyChain> MakeQuicProxyList(
 
 IpProtectionCoreImpl::IpProtectionCoreImpl(
     std::unique_ptr<IpProtectionConfigGetter> config_getter,
+    MaskedDomainListManager* masked_domain_list_manager,
     bool is_ip_protection_enabled)
-    : is_ip_protection_enabled_(is_ip_protection_enabled),
+    : masked_domain_list_manager_(masked_domain_list_manager),
+      is_ip_protection_enabled_(is_ip_protection_enabled),
       ipp_over_quic_(net::features::kIpPrivacyUseQuicProxies.Get()),
       enable_token_caching_by_geo_(
           net::features::kIpPrivacyCacheTokensByGeo.Get()) {
@@ -98,6 +100,17 @@ IpProtectionCoreImpl::IpProtectionCoreImpl(
 
 IpProtectionCoreImpl::~IpProtectionCoreImpl() {
   net::NetworkChangeNotifier::RemoveNetworkChangeObserver(this);
+}
+
+bool IpProtectionCoreImpl::IsMdlPopulated() {
+  return masked_domain_list_manager_->IsPopulated();
+}
+
+bool IpProtectionCoreImpl::RequestShouldBeProxied(
+    const GURL& request_url,
+    const net::NetworkAnonymizationKey& network_anonymization_key) {
+  return masked_domain_list_manager_->Matches(request_url,
+                                              network_anonymization_key);
 }
 
 bool IpProtectionCoreImpl::IsIpProtectionEnabled() {
@@ -157,8 +170,7 @@ std::optional<BlindSignedAuthToken> IpProtectionCoreImpl::GetAuthToken(
   return result;
 }
 
-void IpProtectionCoreImpl::
-    InvalidateIpProtectionConfigCacheTryAgainAfterTime() {
+void IpProtectionCoreImpl::AuthTokensMayBeAvailable() {
   for (const auto& manager : ipp_token_managers_) {
     manager.second->InvalidateTryAgainAfterTime();
   }
@@ -232,7 +244,7 @@ void IpProtectionCoreImpl::GeoObserved(const std::string& geo_id) {
 
   if (ipp_proxy_config_manager_ != nullptr &&
       ipp_proxy_config_manager_->CurrentGeo() != geo_id) {
-    ipp_proxy_config_manager_->RefreshProxyListForGeoChange();
+    ipp_proxy_config_manager_->RequestRefreshProxyList();
   }
 
   for (auto& [_, token_manager] : ipp_token_managers_) {
@@ -252,8 +264,11 @@ void IpProtectionCoreImpl::OnNetworkChanged(
   }
 }
 
-void IpProtectionCoreImpl::VerifyIpProtectionConfigGetterForTesting(
-    VerifyIpProtectionConfigGetterForTestingCallback callback) {
+void IpProtectionCoreImpl::VerifyIpProtectionCoreHostForTesting(
+    VerifyIpProtectionCoreHostForTestingCallback callback) {
+  // TODO(crbug.com/376827614): remove this logging once flakiness is fixed.
+  LOG(WARNING) << "VerifyIpProtectionCoreHostForTesting: Start (" << this
+               << ")";
   auto* ipp_token_manager_impl = static_cast<IpProtectionTokenManagerImpl*>(
       GetIpProtectionTokenManagerForTesting(  // IN-TEST
           ProxyLayer::kProxyA));
@@ -265,13 +280,16 @@ void IpProtectionCoreImpl::VerifyIpProtectionConfigGetterForTesting(
   // browser process sends less than the requested number of tokens, the network
   // service won't immediately request more).
   if (ipp_token_manager_impl->IsCacheManagementEnabledForTesting()) {
+    LOG(WARNING) << "VerifyIpProtectionCoreHostForTesting: Disabling cache "
+                    "management and starting again ("
+                 << this << ")";
     ipp_token_manager_impl->DisableCacheManagementForTesting(  // IN-TEST
         base::BindOnce(
             [](base::WeakPtr<IpProtectionCoreImpl> ipp_core,
-               VerifyIpProtectionConfigGetterForTestingCallback callback) {
+               VerifyIpProtectionCoreHostForTestingCallback callback) {
               DCHECK(ipp_core);
               // Drain auth tokens.
-              ipp_core->InvalidateIpProtectionConfigCacheTryAgainAfterTime();
+              ipp_core->AuthTokensMayBeAvailable();
               while (ipp_core->AreAuthTokensAvailable()) {
                 ipp_core->GetAuthToken(0);  // kProxyA.
               }
@@ -283,7 +301,7 @@ void IpProtectionCoreImpl::VerifyIpProtectionConfigGetterForTesting(
               base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
                   FROM_HERE,
                   base::BindOnce(&IpProtectionCoreImpl::
-                                     VerifyIpProtectionConfigGetterForTesting,
+                                     VerifyIpProtectionCoreHostForTesting,
                                  ipp_core, std::move(callback)));
             },
             weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
@@ -296,10 +314,15 @@ void IpProtectionCoreImpl::VerifyIpProtectionConfigGetterForTesting(
       ipp_token_manager_impl
           ->try_get_auth_tokens_after_for_testing();  // IN-TEST
   if (!try_auth_tokens_after.is_null()) {
+    LOG(WARNING) << "VerifyIpProtectionCoreHostForTesting: Empty return due to "
+                    "cooldown ("
+                 << this << ")";
     std::move(callback).Run(std::nullopt, try_auth_tokens_after);
     return;
   }
 
+  LOG(WARNING) << "VerifyIpProtectionCoreHostForTesting: Waiting (" << this
+               << ")";
   ipp_token_manager_impl->SetOnTryGetAuthTokensCompletedForTesting(  // IN-TEST
       base::BindOnce(
           &IpProtectionCoreImpl::OnIpProtectionConfigAvailableForTesting,
@@ -329,7 +352,10 @@ bool IpProtectionCoreImpl::IsIpProtectionEnabledForTesting() {
 }
 
 void IpProtectionCoreImpl::OnIpProtectionConfigAvailableForTesting(
-    VerifyIpProtectionConfigGetterForTestingCallback callback) {
+    VerifyIpProtectionCoreHostForTestingCallback callback) {
+  // TODO(crbug.com/376827614): remove this logging once flakiness is fixed.
+  LOG(WARNING) << "OnIpProtectionConfigAvailableForTesting: Start (" << this
+               << ")";
   auto* ipp_token_manager_impl = static_cast<IpProtectionTokenManagerImpl*>(
       GetIpProtectionTokenManagerForTesting(  // IN-TEST
           ProxyLayer::kProxyA));
@@ -345,9 +371,13 @@ void IpProtectionCoreImpl::OnIpProtectionConfigAvailableForTesting(
           ipp_token_manager_impl->CurrentGeo()));
   std::optional<BlindSignedAuthToken> result = GetAuthToken(0);  // kProxyA.
   if (result.has_value()) {
+    LOG(WARNING) << "OnIpProtectionConfigAvailableForTesting: Token fetched ("
+                 << this << ")";
     std::move(callback).Run(std::move(result.value()), std::nullopt);
     return;
   }
+  LOG(WARNING) << "OnIpProtectionConfigAvailableForTesting: Token not fetched ("
+               << this << ")";
   base::Time try_auth_tokens_after =
       ipp_token_manager_impl
           ->try_get_auth_tokens_after_for_testing();  // IN-TEST

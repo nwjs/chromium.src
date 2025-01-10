@@ -163,6 +163,7 @@
 #include "third_party/blink/renderer/core/svg/svg_title_element.h"
 #include "third_party/blink/renderer/core/svg/svg_use_element.h"
 #include "third_party/blink/renderer/core/xlink_names.h"
+#include "third_party/blink/renderer/modules/accessibility/ax_block_flow_iterator.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_image_map_link.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_inline_text_box.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_node_object.h"
@@ -178,6 +179,7 @@
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/skia/include/core/SkImage.h"
+#include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_common.h"
 #include "ui/accessibility/ax_role_properties.h"
 #include "ui/events/keycodes/dom/dom_code.h"
@@ -400,8 +402,7 @@ TextDecorationStyleToAXTextDecorationStyle(
       return ax::mojom::blink::TextDecorationStyle::kWavy;
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return ax::mojom::blink::TextDecorationStyle::kNone;
+  NOTREACHED();
 }
 
 String GetTitle(blink::Element* element) {
@@ -653,12 +654,12 @@ AXObject* AXNodeObject::ActiveDescendant() const {
     }
   }
 
-  Element* activedescendant_element =
-      ElementFromAttribute(element, html_names::kAriaActivedescendantAttr);
-  if (!activedescendant_element) {
+  const Element* descendant = ElementFromAttributeOrInternals(
+      element, html_names::kAriaActivedescendantAttr);
+  if (!descendant) {
     return nullptr;
   }
-  AXObject* ax_descendant = AXObjectCache().Get(activedescendant_element);
+  AXObject* ax_descendant = AXObjectCache().Get(descendant);
   return ax_descendant && ax_descendant->IsVisible() ? ax_descendant : nullptr;
 }
 
@@ -810,12 +811,6 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
   if (RawAriaRole() != ax::mojom::blink::Role::kUnknown) {
     return kIncludeObject;
   }
-
-  // Anything with CSS alt should be included.
-  // Descendants are pruned: IsRelevantPseudoElementDescendant() returns false.
-  std::optional<String> alt_text = GetCSSAltText(GetElement());
-  if (alt_text && !alt_text->empty())
-    return kIncludeObject;
 
   // Anything that is an editable root should not be ignored. However, one
   // cannot just call `AXObject::IsEditable()` since that will include the
@@ -981,6 +976,18 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
         GetLayoutObject()->IsInline() &&
         GetLayoutObject()->IsAtomicInlineLevel() &&
         node->parentNode()->childElementCount() > 1) {
+      return kIncludeObject;
+    }
+  }
+
+  // Anything with non empty CSS alt should be included.
+  // https://drafts.csswg.org/css-content/#alt
+  // Descendants are pruned: IsRelevantPseudoElementDescendant() returns false.
+  std::optional<String> alt_text = GetCSSAltText(GetElement());
+  if (alt_text) {
+    if (alt_text->empty()) {
+      return kIgnoreObject;
+    } else {
       return kIncludeObject;
     }
   }
@@ -1964,8 +1971,7 @@ ax::mojom::blink::Role AXNodeObject::RoleFromLayoutObjectOrNode() const {
       return ax::mojom::blink::Role::kGroup;
     }
     if (RuntimeEnabledFeatures::AccessibilityMinRoleTabbableEnabled()) {
-      if (GetElement()->IsKeyboardFocusable(
-              Element::UpdateBehavior::kNoneForAccessibility)) {
+      if (GetElement()->tabIndex() >= 0) {
         return ax::mojom::blink::Role::kGroup;
       }
     }
@@ -2393,9 +2399,7 @@ ax::mojom::blink::Role AXNodeObject::DetermineRoleValue() {
 #endif
 
   if (IsDetached()) {
-    NOTREACHED_IN_MIGRATION()
-        << "Do not compute role on detached object: " << this;
-    return ax::mojom::blink::Role::kUnknown;
+    NOTREACHED() << "Do not compute role on detached object: " << this;
   }
 
   native_role_ = NativeRoleIgnoringAria();
@@ -2881,13 +2885,14 @@ bool AXNodeObject::IsTabItemSelected() const {
     return false;
 
   DCHECK(GetElement());
-  HeapVector<Member<Element>> elements;
-  if (!AXObject::ElementsFromAttribute(GetElement(), elements,
-                                       html_names::kAriaControlsAttr)) {
+  const HeapVector<Member<Element>>* elements =
+      AXObject::ElementsFromAttributeOrInternals(GetElement(),
+                                                 html_names::kAriaControlsAttr);
+  if (!elements) {
     return false;
   }
 
-  for (const auto& element : elements) {
+  for (const auto& element : *elements) {
     AXObject* tab_panel = AXObjectCache().Get(element);
 
     // A tab item should only control tab panels.
@@ -2980,7 +2985,11 @@ AccessibilityExpanded AXNodeObject::IsExpanded() const {
   // it is showing.
   if (auto* form_control = DynamicTo<HTMLFormControlElement>(element)) {
     if (auto popover = form_control->popoverTargetElement().popover) {
-      return popover->popoverOpen() ? kExpandedExpanded : kExpandedCollapsed;
+      if (!form_control->IsDescendantOrShadowDescendantOf(popover)) {
+        // Only expose expanded/collapsed if the trigger button isn't contained
+        // within the popover itself. E.g. a close button within the popover.
+        return popover->popoverOpen() ? kExpandedExpanded : kExpandedCollapsed;
+      }
     }
   }
 
@@ -3280,8 +3289,7 @@ ax::mojom::blink::ListStyle AXNodeObject::GetListStyle() const {
         return ax::mojom::blink::ListStyle::kOther;
       case CounterStyleSpeakAs::kAuto:
       case CounterStyleSpeakAs::kReference:
-        NOTREACHED_IN_MIGRATION();
-        return ax::mojom::blink::ListStyle::kOther;
+        NOTREACHED();
     }
   }
 
@@ -3520,8 +3528,7 @@ ax::mojom::blink::WritingDirection AXNodeObject::GetTextDirection() const {
       return ax::mojom::blink::WritingDirection::kBtt;
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return AXObject::GetTextDirection();
+  NOTREACHED();
 }
 
 ax::mojom::blink::TextPosition AXNodeObject::GetTextPositionFromRole() const {
@@ -4479,8 +4486,7 @@ static LayoutBlockFlow* GetNearestBlockFlow(LayoutObject* object) {
     current = current->Parent();
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 // Returns true if |r1| and |r2| are both non-null, both inline, and are
@@ -4830,11 +4836,12 @@ static bool ShouldInsertSpaceBetweenObjectsIfNeeded(
     case ax::mojom::blink::NameFrom::kAttribute:
     case ax::mojom::blink::NameFrom::kCaption:
     case ax::mojom::blink::NameFrom::kCssAltText:
+    case ax::mojom::blink::NameFrom::kInterestTarget:
     case ax::mojom::blink::NameFrom::kPlaceholder:
     case ax::mojom::blink::NameFrom::kRelatedElement:
     case ax::mojom::blink::NameFrom::kTitle:
     case ax::mojom::blink::NameFrom::kValue:
-    case ax::mojom::blink::NameFrom::kPopoverAttribute:
+    case ax::mojom::blink::NameFrom::kPopoverTarget:
       return true;
   }
   switch (name_from) {
@@ -4847,11 +4854,12 @@ static bool ShouldInsertSpaceBetweenObjectsIfNeeded(
     case ax::mojom::blink::NameFrom::kAttribute:
     case ax::mojom::blink::NameFrom::kCaption:
     case ax::mojom::blink::NameFrom::kCssAltText:
+    case ax::mojom::blink::NameFrom::kInterestTarget:
     case ax::mojom::blink::NameFrom::kPlaceholder:
     case ax::mojom::blink::NameFrom::kRelatedElement:
     case ax::mojom::blink::NameFrom::kTitle:
     case ax::mojom::blink::NameFrom::kValue:
-    case ax::mojom::blink::NameFrom::kPopoverAttribute:
+    case ax::mojom::blink::NameFrom::kPopoverTarget:
       return true;
   }
 
@@ -5010,13 +5018,15 @@ bool AXNodeObject::IsRedundantLabel(HTMLLabelElement* label) {
     return false;
 
   if (!input->GetLayoutObject() ||
-      input->GetLayoutObject()->Style()->UsedVisibility() !=
+      input->GetLayoutObject()->Style()->Visibility() !=
           EVisibility::kVisible) {
     return false;
   }
+
   if (!input->IsCheckable()) {
     return false;
   }
+
   if (!IsNameFromLabelElement(input)) {
     return false;
   }
@@ -5399,7 +5409,7 @@ void AXNodeObject::AddInlineTextBoxChildren() {
   CHECK(ShouldLoadInlineTextBoxes());
   CHECK(GetLayoutObject());
   GetLayoutObject()->CheckIsNotDestroyed();
-  CHECK(GetLayoutObject()->IsText());
+  CHECK(GetLayoutObject()->IsText()) << GetLayoutObject() << " " << this;
   CHECK(!GetLayoutObject()->NeedsLayout());
   CHECK(AXObjectCache().GetAXMode().has_mode(ui::AXMode::kInlineTextBoxes));
   CHECK(!AXObjectCache().GetAXMode().HasExperimentalFlags(
@@ -5408,14 +5418,84 @@ void AXNodeObject::AddInlineTextBoxChildren() {
   CHECK(AXObjectCache().lifecycle().StateAllowsImmediateTreeUpdates())
       << AXObjectCache();
 
+#if EXPENSIVE_DCHECKS_ARE_ON()
+  AXBlockFlowIterator it;
+  if (::features::IsAccessibilityBlockFlowIteratorEnabled()) {
+    it = AXBlockFlowIterator(this);
+  }
+#endif
+
   auto* layout_text = To<LayoutText>(GetLayoutObject());
   for (auto* box = layout_text->FirstAbstractInlineTextBox(); box;
        box = box->NextInlineTextBox()) {
     AXObject* ax_box = AXObjectCache().GetOrCreate(box, this);
-    if (!ax_box)
+    if (!ax_box) {
       continue;
+    }
 
     children_.push_back(ax_box);
+
+#if EXPENSIVE_DCHECKS_ARE_ON()
+    if (::features::IsAccessibilityBlockFlowIteratorEnabled()) {
+      DCHECK(it.Next());
+      WTF::String fragment_text = it.GetText();
+      WTF::String abstract_inline_text = box->GetText();
+
+      if (!layout_text->GetFirstLetterPart()) {
+        // Explicitly skip the check if the layout text has a first letter
+        // pseudo-element part. Currently, this is prefixed to the text, but
+        // this is problematic since:
+        //   * not accounted for in the glyph vector
+        //   * can have a different style including flow direction
+        //   * can be multiple characters due to punctuation
+        DCHECK_EQ(fragment_text, abstract_inline_text)
+            << "Mismatch in extracted text fragment: " << abstract_inline_text
+            << " vs " << fragment_text;
+      }
+      AbstractInlineTextBox* next_on_line_box = box->NextOnLine();
+      AbstractInlineTextBox* previous_on_line_box = box->PreviousOnLine();
+
+      std::optional<AXBlockFlowIterator::MapKey> next_fragment_key =
+          it.NextOnLine();
+      std::optional<AXBlockFlowIterator::MapKey> previous_fragment_key =
+          it.PreviousOnLine();
+
+      if (next_on_line_box) {
+        DCHECK(next_fragment_key) << "Failed to find next on line fragment";
+        InlineCursor cursor = next_on_line_box->GetCursor();
+        DCHECK_EQ(&cursor.Items(), next_fragment_key->first);
+        wtf_size_t item_index = static_cast<wtf_size_t>(
+            cursor.CurrentItem() - &cursor.Items().front());
+        DCHECK_EQ(item_index, next_fragment_key->second)
+            << "Mismatched fragment indices";
+      } else {
+        // TODO: Update once AXBlockFlowIterator::NextOnLine navigates into
+        // box fragments. Currently, we fall back to the parent when
+        // AbstractInlineTextBox::NextOnLine is null. This fallback should no
+        // longer be necessary.
+        DCHECK(!next_fragment_key)
+            << "Expected not to find a next on line fragment";
+      }
+
+      if (previous_on_line_box) {
+        DCHECK(previous_fragment_key)
+            << "Failed to find previous on line fragment";
+        InlineCursor cursor = previous_on_line_box->GetCursor();
+        DCHECK_EQ(&cursor.Items(), previous_fragment_key->first);
+        wtf_size_t item_index = static_cast<wtf_size_t>(
+            cursor.CurrentItem() - &cursor.Items().front());
+        DCHECK_EQ(item_index, previous_fragment_key->second)
+            << "Mismatched fragment indices";
+      } else {
+        // TODO: Update once AXBlockFlowIterator::NextOnLine navigates into
+        // box fragments. Currently, we fall back to the parent when
+        // AbstractInlineTextBox::NextOnLine is null. This fallback should no
+        // longer be necessary.
+        DCHECK(!previous_fragment_key)
+            << "Expected not to find a previous on line fragment";
+      }
+    }
+#endif
   }
 }
 
@@ -5630,10 +5710,9 @@ void AXNodeObject::AddOwnedChildren() {
 }
 
 void AXNodeObject::AddChildrenImpl() {
-#define CHECK_ATTACHED()                                               \
-  if (IsDetached()) {                                                  \
-    NOTREACHED_IN_MIGRATION() << "Detached adding children: " << this; \
-    return;                                                            \
+#define CHECK_ATTACHED()                                  \
+  if (IsDetached()) {                                     \
+    NOTREACHED() << "Detached adding children: " << this; \
   }
 
   CHECK(NeedsToUpdateChildren());
@@ -6255,13 +6334,14 @@ AXObject::AXObjectVector AXNodeObject::RelationVectorFromAria(
     return AXObjectVector();
   }
 
-  HeapVector<Member<Element>> elements_from_attribute;
-  if (!ElementsFromAttribute(el, elements_from_attribute, attr_name)) {
+  const HeapVector<Member<Element>>* elements_from_attribute =
+      ElementsFromAttributeOrInternals(el, attr_name);
+  if (!elements_from_attribute) {
     return AXObjectVector();
   }
 
   AXObjectVector objects;
-  for (Element* element : elements_from_attribute) {
+  for (Element* element : *elements_from_attribute) {
     AXObject* obj = AXObjectCache().Get(element);
     if (obj && !obj->IsIgnored()) {
       objects.push_back(obj);
@@ -6307,36 +6387,46 @@ String AXNodeObject::TextAlternativeFromTooltip(
     return title_text;
   }
 
-  auto* form_control = DynamicTo<HTMLFormControlElement>(GetElement());
-  if (!form_control) {
-    return String();
+  // First try for interest target, then for hint popover.
+  // TODO(accessibility) Consider only using interest target.
+  AXObject* popover_ax_object = nullptr;
+  if (RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled()) {
+    popover_ax_object =
+        AXObjectCache().Get(GetElement()->interestTargetElement());
+  }
+  if (popover_ax_object) {
+    DCHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
+    name_from = ax::mojom::blink::NameFrom::kInterestTarget;
+  } else {
+    auto* form_control = DynamicTo<HTMLFormControlElement>(GetElement());
+    if (!form_control) {
+      return String();
+    }
+    auto popover_target = form_control->popoverTargetElement();
+    if (!popover_target.popover ||
+        popover_target.popover->PopoverType() != PopoverValueType::kHint) {
+      return String();
+    }
+    popover_ax_object = AXObjectCache().Get(popover_target.popover);
+    name_from = ax::mojom::blink::NameFrom::kPopoverTarget;
+    DCHECK(RuntimeEnabledFeatures::HTMLPopoverHintEnabled());
   }
 
-  auto popover_target = form_control->popoverTargetElement();
-  if (!popover_target.popover ||
-      popover_target.popover->PopoverType() != PopoverValueType::kHint) {
-    return String();
-  }
-
-  DCHECK(RuntimeEnabledFeatures::HTMLPopoverHintEnabled());
-
-  name_from = ax::mojom::blink::NameFrom::kPopoverAttribute;
   if (name_sources) {
     name_sources->push_back(
         NameSource(*found_text_alternative, html_names::kPopovertargetAttr));
     name_sources->back().type = name_from;
   }
-  AXObject* popover_ax_object = AXObjectCache().Get(popover_target.popover);
 
-  // Hint popovers are used for text if and only if all of the contents are
-  // plain, e.g. have no interesting semantic or interactive elements.
-  // Otherwise, the hint will be exposed via the kDetails relationship. The
-  // motivation for this is that by reusing the simple mechanism of titles,
-  // screen reader users can easily access the information of plain hints
-  // without having to navigate to it, making the content more accessible.
-  // However, in the case of rich hints, a kDetails relationship is required to
-  // ensure that users are able to access and interact with the hint as they can
-  // navigate to it using commands.
+  // Hint popovers and interest targets are used for text if and only if all of
+  // the contents are plain, e.g. have no interesting semantic or interactive
+  // elements. Otherwise, the hint will be exposed via the kDetails
+  // relationship. The motivation for this is that by reusing the simple
+  // mechanism of titles, screen reader users can easily access the information
+  // of plain hints without having to navigate to it, making the content more
+  // accessible. However, in the case of rich hints, a kDetails relationship is
+  // required to ensure that users are able to access and interact with the hint
+  // as they can navigate to it using commands.
   if (!popover_ax_object || !popover_ax_object->IsPlainContent()) {
     return String();
   }
@@ -6979,7 +7069,8 @@ bool AXNodeObject::ShouldIncludeContentInTextAlternative(
     bool recursive,
     const AXObject* aria_label_or_description_root,
     AXObjectSet& visited) const {
-  if (!aria_label_or_description_root && !SupportsNameFromContents(recursive)) {
+  if (!aria_label_or_description_root &&
+      !SupportsNameFromContents(recursive, /*consider_focus*/ true)) {
     return false;
   }
 
@@ -7084,9 +7175,10 @@ String AXNodeObject::Description(
   if (!element)
     return String();
 
-  HeapVector<Member<Element>> elements_from_attribute;
-  if (ElementsFromAttribute(element, elements_from_attribute,
-                            html_names::kAriaDescribedbyAttr)) {
+  const HeapVector<Member<Element>>* elements_from_attribute =
+      ElementsFromAttributeOrInternals(element,
+                                       html_names::kAriaDescribedbyAttr);
+  if (elements_from_attribute) {
     // TODO(meredithl): Determine description sources when |aria_describedby| is
     // the empty string, in order to make devtools work with attr-associated
     // elements.
@@ -7095,7 +7187,7 @@ String AXNodeObject::Description(
           AriaAttribute(html_names::kAriaDescribedbyAttr);
     }
     AXObjectSet visited;
-    description = TextFromElements(true, visited, elements_from_attribute,
+    description = TextFromElements(true, visited, *elements_from_attribute,
                                    related_objects);
 
     if (!description.IsNull()) {
@@ -7278,15 +7370,49 @@ String AXNodeObject::Description(
     }
   }
 
+  // For form controls that act as interest target triggering elements, use
+  // the target for a description if it only contains plain contents.
+  if (RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled() &&
+      name_from != ax::mojom::blink::NameFrom::kInterestTarget) {
+    if (Element* interest_target = GetElement()->interestTargetElement()) {
+      DCHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled());
+      description_from = ax::mojom::blink::DescriptionFrom::kInterestTarget;
+      if (description_sources) {
+        description_sources->push_back(DescriptionSource(
+            found_description, html_names::kInteresttargetAttr));
+        description_sources->back().type = description_from;
+      }
+      AXObject* interest_ax_object = AXObjectCache().Get(interest_target);
+      if (interest_ax_object && interest_ax_object->IsPlainContent()) {
+        AXObjectSet visited;
+        description = RecursiveTextAlternative(*interest_ax_object,
+                                               interest_ax_object, visited);
+        if (related_objects) {
+          related_objects->push_back(
+              MakeGarbageCollected<NameSourceRelatedObject>(interest_ax_object,
+                                                            description));
+        }
+        if (description_sources) {
+          DescriptionSource& source = description_sources->back();
+          source.related_objects = *related_objects;
+          source.text = description;
+          found_description = true;
+        } else {
+          return description;
+        }
+      }
+    }
+  }
+
   // For form controls that act as triggering elements for popovers of type
   // kHint, then set aria-describedby to the popover.
-  if (name_from != ax::mojom::blink::NameFrom::kPopoverAttribute) {
+  if (name_from != ax::mojom::blink::NameFrom::kPopoverTarget) {
     if (auto* form_control = DynamicTo<HTMLFormControlElement>(element)) {
       auto popover_target = form_control->popoverTargetElement();
       if (popover_target.popover &&
           popover_target.popover->PopoverType() == PopoverValueType::kHint) {
         DCHECK(RuntimeEnabledFeatures::HTMLPopoverHintEnabled());
-        description_from = ax::mojom::blink::DescriptionFrom::kPopoverAttribute;
+        description_from = ax::mojom::blink::DescriptionFrom::kPopoverTarget;
         if (description_sources) {
           description_sources->push_back(DescriptionSource(
               found_description, html_names::kPopovertargetAttr));

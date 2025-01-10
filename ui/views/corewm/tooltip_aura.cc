@@ -11,7 +11,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/strings/string_split.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/screen_position_client.h"
@@ -33,11 +32,13 @@
 
 namespace {
 
+// Max visual tooltip width. If a tooltip is greater than this width, it will
+// be wrapped.
+static constexpr int kTooltipMaxWidth = 800;
+
 // TODO(varkha): Update if native widget can be transparent on Linux.
 bool CanUseTranslucentTooltipWidget() {
-// TODO(crbug.com/40118868): Revisit the macro expression once build flag switch
-// of lacros-chrome is complete.
-#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
   return false;
 #else
   return true;
@@ -57,7 +58,8 @@ TooltipAura::TooltipAura()
 
 TooltipAura::TooltipAura(
     const TooltipAura::TooltipViewFactory& tooltip_view_factory)
-    : tooltip_view_factory_(tooltip_view_factory) {}
+    : tooltip_view_factory_(tooltip_view_factory),
+      max_width_(kTooltipMaxWidth) {}
 
 TooltipAura::~TooltipAura() {
   DestroyWidget();

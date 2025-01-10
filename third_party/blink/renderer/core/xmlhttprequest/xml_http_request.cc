@@ -371,21 +371,17 @@ Document* XMLHttpRequest::responseXML(ExceptionState& exception_state) {
   return response_document_.Get();
 }
 
-v8::Local<v8::Value> XMLHttpRequest::ResponseJSON(
-    v8::Isolate* isolate,
-    ExceptionState& exception_state) {
+v8::Local<v8::Value> XMLHttpRequest::ResponseJSON(ScriptState* script_state) {
   DCHECK_EQ(response_type_code_, V8XMLHttpRequestResponseType::Enum::kJson);
   DCHECK(!error_);
   DCHECK_EQ(state_, kDone);
-  TryRethrowScope rethrow_scope(isolate, exception_state);
   // Catch syntax error. Swallows an exception (when thrown) as the
   // spec says. https://xhr.spec.whatwg.org/#response-body
+  v8::TryCatch try_catch(script_state->GetIsolate());
   v8::Local<v8::Value> json =
-      FromJSONString(isolate, isolate->GetCurrentContext(),
-                     response_text_.ToString(), rethrow_scope);
-  if (rethrow_scope.HasCaught()) {
-    rethrow_scope.SwallowException();
-    return v8::Null(isolate);
+      FromJSONString(script_state, response_text_.ToString());
+  if (try_catch.HasCaught()) {
+    return v8::Null(script_state->GetIsolate());
   }
   return json;
 }
@@ -424,8 +420,7 @@ DOMArrayBuffer* XMLHttpRequest::ResponseArrayBuffer() {
       DOMArrayBuffer* buffer = DOMArrayBuffer::CreateUninitializedOrNull(
           binary_response_builder_->size(), 1);
       if (buffer) {
-        bool result = binary_response_builder_->GetBytes(buffer->Data(),
-                                                         buffer->ByteLength());
+        bool result = binary_response_builder_->GetBytes(buffer->ByteSpan());
         DCHECK(result);
         response_array_buffer_ = buffer;
       }
@@ -447,46 +442,33 @@ DOMArrayBuffer* XMLHttpRequest::ResponseArrayBuffer() {
 }
 
 // https://xhr.spec.whatwg.org/#dom-xmlhttprequest-response
-ScriptValue XMLHttpRequest::response(ScriptState* script_state,
-                                     ExceptionState& exception_state) {
-  v8::Isolate* isolate = script_state->GetIsolate();
-
+v8::Local<v8::Value> XMLHttpRequest::response(ScriptState* script_state) {
   // The spec handles default or `text` responses as a special case, because
   // these cases are allowed to access the response while still loading.
   if (response_type_code_ == kResponseTypeDefault ||
       response_type_code_ == V8XMLHttpRequestResponseType::Enum::kText) {
-    const auto& text = responseText(exception_state);
-    if (exception_state.HadException()) {
-      return ScriptValue();
-    }
-    return ScriptValue(isolate,
-                       ToV8Traits<IDLString>::ToV8(script_state, text));
+    return ToV8Traits<IDLString>::ToV8(script_state,
+                                       responseText(ASSERT_NO_EXCEPTION));
   }
 
   if (error_ || state_ != kDone) {
-    return ScriptValue(isolate, v8::Null(isolate));
+    return v8::Null(script_state->GetIsolate());
   }
 
   switch (response_type_code_) {
     case V8XMLHttpRequestResponseType::Enum::kJson:
-      return ScriptValue(isolate, ResponseJSON(isolate, exception_state));
+      return ResponseJSON(script_state);
     case V8XMLHttpRequestResponseType::Enum::kDocument: {
-      Document* document = responseXML(exception_state);
-      if (exception_state.HadException()) {
-        return ScriptValue();
-      }
-      return ScriptValue(isolate, ToV8Traits<IDLNullable<Document>>::ToV8(
-                                      script_state, document));
+      return ToV8Traits<IDLNullable<Document>>::ToV8(
+          script_state, responseXML(ASSERT_NO_EXCEPTION));
     }
     case V8XMLHttpRequestResponseType::Enum::kBlob:
-      return ScriptValue(isolate,
-                         ToV8Traits<Blob>::ToV8(script_state, ResponseBlob()));
+      return ToV8Traits<Blob>::ToV8(script_state, ResponseBlob());
     case V8XMLHttpRequestResponseType::Enum::kArraybuffer:
-      return ScriptValue(isolate, ToV8Traits<IDLNullable<DOMArrayBuffer>>::ToV8(
-                                      script_state, ResponseArrayBuffer()));
+      return ToV8Traits<IDLNullable<DOMArrayBuffer>>::ToV8(
+          script_state, ResponseArrayBuffer());
     default:
-      NOTREACHED_IN_MIGRATION();
-      return ScriptValue();
+      NOTREACHED();
   }
 }
 
@@ -821,7 +803,7 @@ void XMLHttpRequest::send(const V8UnionDocumentOrXMLHttpRequestBodyInit* body,
       return send(body->GetAsUSVString(), exception_state);
   }
 
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 bool XMLHttpRequest::AreMethodAndURLValidForSend() {
@@ -831,8 +813,6 @@ bool XMLHttpRequest::AreMethodAndURLValidForSend() {
 }
 
 void XMLHttpRequest::send(Document* document, ExceptionState& exception_state) {
-  DVLOG(1) << this << " send() Document " << static_cast<void*>(document);
-
   DCHECK(document);
 
   if (!InitSend(exception_state))
@@ -859,8 +839,6 @@ void XMLHttpRequest::send(Document* document, ExceptionState& exception_state) {
 }
 
 void XMLHttpRequest::send(const String& body, ExceptionState& exception_state) {
-  DVLOG(1) << this << " send() String " << body;
-
   if (!InitSend(exception_state))
     return;
 
@@ -877,8 +855,6 @@ void XMLHttpRequest::send(const String& body, ExceptionState& exception_state) {
 }
 
 void XMLHttpRequest::send(Blob* body, ExceptionState& exception_state) {
-  DVLOG(1) << this << " send() Blob " << body->Uuid();
-
   if (!InitSend(exception_state))
     return;
 
@@ -902,7 +878,7 @@ void XMLHttpRequest::send(Blob* body, ExceptionState& exception_state) {
       else
         DUMP_WILL_BE_NOTREACHED();
     } else {
-      http_body->AppendBlob(body->Uuid(), body->GetBlobDataHandle());
+      http_body->AppendBlob(body->GetBlobDataHandle());
     }
   }
 
@@ -910,8 +886,6 @@ void XMLHttpRequest::send(Blob* body, ExceptionState& exception_state) {
 }
 
 void XMLHttpRequest::send(FormData* body, ExceptionState& exception_state) {
-  DVLOG(1) << this << " send() FormData " << body;
-
   if (!InitSend(exception_state))
     return;
 
@@ -935,8 +909,6 @@ void XMLHttpRequest::send(FormData* body, ExceptionState& exception_state) {
 
 void XMLHttpRequest::send(URLSearchParams* body,
                           ExceptionState& exception_state) {
-  DVLOG(1) << this << " send() URLSearchParams " << body;
-
   if (!InitSend(exception_state))
     return;
 
@@ -954,15 +926,11 @@ void XMLHttpRequest::send(URLSearchParams* body,
 
 void XMLHttpRequest::send(DOMArrayBuffer* body,
                           ExceptionState& exception_state) {
-  DVLOG(1) << this << " send() ArrayBuffer " << body;
-
   SendBytesData(body->Data(), body->ByteLength(), exception_state);
 }
 
 void XMLHttpRequest::send(DOMArrayBufferView* body,
                           ExceptionState& exception_state) {
-  DVLOG(1) << this << " send() ArrayBufferView " << body;
-
   SendBytesData(body->BaseAddress(), body->byteLength(), exception_state);
 }
 
@@ -986,10 +954,6 @@ void XMLHttpRequest::SendForInspectorXHRReplay(
     scoped_refptr<EncodedFormData> form_data,
     ExceptionState& exception_state) {
   CreateRequest(form_data ? form_data->DeepCopy() : nullptr, exception_state);
-  if (exception_state.HadException()) {
-    CHECK(IsDOMExceptionCode(exception_state.Code()));
-    exception_code_ = exception_state.CodeAs<DOMExceptionCode>();
-  }
 }
 
 void XMLHttpRequest::ThrowForLoadFailureIfNeeded(
@@ -1918,11 +1882,9 @@ std::unique_ptr<TextResourceDecoder> XMLHttpRequest::CreateDecoder() const {
     case V8XMLHttpRequestResponseType::Enum::kJson:
     case V8XMLHttpRequestResponseType::Enum::kBlob:
     case V8XMLHttpRequestResponseType::Enum::kArraybuffer:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 void XMLHttpRequest::DidReceiveData(base::span<const char> data) {

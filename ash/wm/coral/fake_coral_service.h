@@ -19,9 +19,11 @@ class FakeCoralService : public coral::mojom::CoralService {
 
   // coral::mojom::CoralService:
   void Group(coral::mojom::GroupRequestPtr request,
+             mojo::PendingRemote<coral::mojom::TitleObserver> observer,
              GroupCallback callback) override;
   void CacheEmbeddings(coral::mojom::CacheEmbeddingsRequestPtr request,
                        CacheEmbeddingsCallback callback) override;
+  void PrepareResource() override;
 };
 
 }  // namespace ash

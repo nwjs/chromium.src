@@ -136,6 +136,7 @@ net::NetworkTrafficAnnotationTag GetNetworkTrafficAnnotation(
       // TODO: b/330346344 - Add traffic annotation.
       return MISSING_TRAFFIC_ANNOTATION;
     case ModelBasedCapabilityKey::kTest:
+    case ModelBasedCapabilityKey::kBlingPrototyping:
       // Used for testing purposes. No real features use this.
       return MISSING_TRAFFIC_ANNOTATION;
     case ModelBasedCapabilityKey::kFormsAnnotations:
@@ -221,8 +222,7 @@ net::NetworkTrafficAnnotationTag GetNetworkTrafficAnnotation(
     case ModelBasedCapabilityKey::kPromptApi:
     case ModelBasedCapabilityKey::kSummarize:
       // On-device only feature.
-      NOTREACHED_IN_MIGRATION();
-      return MISSING_TRAFFIC_ANNOTATION;
+      NOTREACHED();
   }
 }
 
@@ -252,7 +252,7 @@ ModelExecutionFetcher::ModelExecutionFetcher(
 }
 
 ModelExecutionFetcher::~ModelExecutionFetcher() {
-  if (active_url_loader_) {
+  if (model_execution_callback_) {
     DCHECK(model_execution_feature_);
     RecordRequestStatusHistogram(*model_execution_feature_,
                                  FetcherRequestStatus::kRequestCanceled);

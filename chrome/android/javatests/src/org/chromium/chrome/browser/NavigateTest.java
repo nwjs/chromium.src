@@ -35,13 +35,10 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
-import org.chromium.base.test.util.Features.DisableFeatures;
-import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.chrome.browser.back_press.BackPressManager;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
@@ -569,8 +566,14 @@ public class NavigateTest {
     @MediumTest
     @Feature({"Navigation"})
     @DisabledTest(message = "https://crbug.com/1410635")
-    @DisableFeatures({ChromeFeatureList.BACK_GESTURE_REFACTOR})
     public void testNavigateBackWithTabSwitcher() throws Exception {
+        // Disable iph
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    BackPressManager backPressManager =
+                            mActivityTestRule.getActivity().getBackPressManagerForTesting();
+                    backPressManager.removeHandler(BackPressHandler.Type.TEXT_BUBBLE);
+                });
         final String[] urls = {
             mTestServer.getURL("/chrome/test/data/android/navigate/one.html"),
             mTestServer.getURL("/chrome/test/data/android/navigate/two.html"),
@@ -617,23 +620,6 @@ public class NavigateTest {
         }
     }
 
-    /** Test back with tab switcher. */
-    @Test
-    @MediumTest
-    @Feature({"Navigation"})
-    @EnableFeatures({ChromeFeatureList.BACK_GESTURE_REFACTOR})
-    @DisabledTest(message = "https://crbug.com/1410635")
-    public void testNavigateBackWithTabSwitcher_BackPressRefactor() throws Exception {
-        // Disable iph
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    BackPressManager backPressManager =
-                            mActivityTestRule.getActivity().getBackPressManagerForTesting();
-                    backPressManager.removeHandler(BackPressHandler.Type.TEXT_BUBBLE);
-                });
-        testNavigateBackWithTabSwitcher();
-    }
-
     @Test
     @DisableIf.Build(hardware_is = "sprout", message = "fails on android-one: crbug.com/540723")
     @MediumTest
@@ -652,7 +638,7 @@ public class NavigateTest {
                         final Tab tab = TabModelUtils.getCurrentTab(model);
 
                         // Make sure that we are showing the spoofed data and a blank URL.
-                        String url = getTabUrlOnUIThread(tab);
+                        String url = getTabUrlOnUiThread(tab);
                         boolean spoofedUrl = "".equals(url) || "about:blank".equals(url);
                         Assert.assertTrue("URL Spoofed", spoofedUrl);
                         Assert.assertEquals(
@@ -695,7 +681,7 @@ public class NavigateTest {
             mActivityTestRule.assertWaitForPageScaleFactorMatch(0.75f);
             CriteriaHelper.pollInstrumentationThread(
                     () -> {
-                        Criteria.checkThat(getTabUrlOnUIThread(tab), Matchers.is(mockedUrl));
+                        Criteria.checkThat(getTabUrlOnUiThread(tab), Matchers.is(mockedUrl));
                     },
                     5000,
                     50);
@@ -779,9 +765,8 @@ public class NavigateTest {
         ChromeTabUtils.waitForTabPageLoaded(tab, finalUrl);
     }
 
-    private String getTabUrlOnUIThread(final Tab tab) {
-        return ThreadUtils.runOnUiThreadBlocking(
-                () -> ChromeTabUtils.getUrlStringOnUiThread(tab));
+    private String getTabUrlOnUiThread(final Tab tab) {
+        return ThreadUtils.runOnUiThreadBlocking(() -> ChromeTabUtils.getUrlStringOnUiThread(tab));
     }
 
     private String getTabBodyText(Tab tab) {

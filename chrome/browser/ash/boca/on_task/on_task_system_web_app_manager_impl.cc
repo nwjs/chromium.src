@@ -20,7 +20,7 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chromeos/ash/components/boca/activity/active_tab_tracker.h"
+#include "chromeos/ash/components/boca/on_task/activity/active_tab_tracker.h"
 #include "chromeos/ash/components/boca/on_task/on_task_blocklist.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "content/public/browser/browser_thread.h"
@@ -67,15 +67,9 @@ void OnTaskSystemWebAppManagerImpl::LaunchSystemWebAppAsync(
              base::WeakPtr<OnTaskSystemWebAppManagerImpl> instance,
              apps::LaunchResult&& launch_result) {
             if (instance) {
-              // Configure the browser window for OnTask. This is required to
-              // ensure downstream components (especially UI controls) are setup
-              // for locked mode transitions.
               const SessionID active_window_id =
                   instance->GetActiveSystemWebAppWindowID();
-              Browser* const browser = GetBrowserWindowWithID(active_window_id);
-              if (browser) {
-                browser->SetLockedForOnTask(true);
-              }
+              instance->PrepareSystemWebAppWindowForOnTask(active_window_id);
             }
             std::move(callback).Run(launch_result.state ==
                                     apps::LaunchResult::State::kSuccess);
@@ -136,7 +130,7 @@ void OnTaskSystemWebAppManagerImpl::SetPinStateForSystemWebAppWindow(
 // TODO(b/367417612): Add unit test for this function.
 void OnTaskSystemWebAppManagerImpl::SetWindowTrackerForSystemWebAppWindow(
     SessionID window_id,
-    ActiveTabTracker* active_tab_tracker) {
+    const std::vector<boca::BocaWindowObserver*> observers) {
   Browser* const browser = GetBrowserWindowWithID(window_id);
   if (!browser) {
     return;
@@ -146,13 +140,15 @@ void OnTaskSystemWebAppManagerImpl::SetWindowTrackerForSystemWebAppWindow(
     return;
   }
   window_tracker->InitializeBrowserInfoForTracking(browser);
-  window_tracker->SetActiveTabTracker(active_tab_tracker);
+  for (auto* observer : observers) {
+    window_tracker->AddObserver(observer);
+  }
 }
 
 SessionID OnTaskSystemWebAppManagerImpl::CreateBackgroundTabWithUrl(
     SessionID window_id,
     GURL url,
-    OnTaskBlocklist::RestrictionLevel restriction_level) {
+    ::boca::LockedNavigationOptions::NavigationType restriction_level) {
   Browser* const browser = GetBrowserWindowWithID(window_id);
   if (!browser) {
     return SessionID::InvalidValue();
@@ -176,7 +172,7 @@ SessionID OnTaskSystemWebAppManagerImpl::CreateBackgroundTabWithUrl(
 
 void OnTaskSystemWebAppManagerImpl::RemoveTabsWithTabIds(
     SessionID window_id,
-    const base::flat_set<SessionID>& tab_ids_to_remove) {
+    const std::set<SessionID>& tab_ids_to_remove) {
   Browser* const browser = GetBrowserWindowWithID(window_id);
   if (!browser) {
     return;
@@ -198,6 +194,58 @@ void OnTaskSystemWebAppManagerImpl::RemoveTabsWithTabIds(
     }
   }
   window_tracker->set_can_start_navigation_throttle(true);
+}
+
+void OnTaskSystemWebAppManagerImpl::PrepareSystemWebAppWindowForOnTask(
+    SessionID window_id) {
+  Browser* const browser = GetBrowserWindowWithID(window_id);
+  if (!browser) {
+    return;
+  }
+
+  // Configure the browser window for OnTask. This is required to ensure
+  // downstream components (especially UI controls) are setup for locked mode
+  // transitions.
+  browser->SetLockedForOnTask(true);
+
+  // Remove all tabs with pre-existing content. This is to de-dupe content and
+  // ensure that the tabs are set up for locked mode.
+  std::set<SessionID> tab_ids_to_remove;
+  for (int idx = browser->tab_strip_model()->count() - 1; idx > 0; --idx) {
+    content::WebContents* const tab =
+        browser->tab_strip_model()->GetWebContentsAt(idx);
+    const SessionID tab_id = sessions::SessionTabHelper::IdForTab(tab);
+    tab_ids_to_remove.insert(tab_id);
+  }
+  RemoveTabsWithTabIds(window_id, tab_ids_to_remove);
+}
+
+SessionID OnTaskSystemWebAppManagerImpl::GetActiveTabID() {
+  const Browser* const browser =
+      GetBrowserWindowWithID(GetActiveSystemWebAppWindowID());
+  if (!browser) {
+    return SessionID::InvalidValue();
+  }
+  const SessionID tab_id = sessions::SessionTabHelper::IdForTab(
+      browser->tab_strip_model()->GetActiveWebContents());
+  return tab_id;
+}
+
+void OnTaskSystemWebAppManagerImpl::SwitchToTab(SessionID tab_id) {
+  Browser* const browser =
+      GetBrowserWindowWithID(GetActiveSystemWebAppWindowID());
+  if (!browser || !tab_id.is_valid()) {
+    return;
+  }
+  for (int idx = browser->tab_strip_model()->count() - 1; idx >= 0; --idx) {
+    content::WebContents* const tab =
+        browser->tab_strip_model()->GetWebContentsAt(idx);
+    const SessionID id = sessions::SessionTabHelper::IdForTab(tab);
+    if (tab_id == id) {
+      browser->tab_strip_model()->ActivateTabAt(idx);
+      return;
+    }
+  }
 }
 
 void OnTaskSystemWebAppManagerImpl::SetWindowTrackerForTesting(

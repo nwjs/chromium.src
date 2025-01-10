@@ -309,7 +309,6 @@
 <translation id="2041220428661959602">مستوى البطارية: %<ph name="BATTERY_PERCENTAGE" /></translation>
 <translation id="204259843076055848">اختصار <ph name="SIX_PACK_KEY_NAME" /> غير مفعَّل حاليًا.</translation>
 <translation id="2049240716062114887">تم تغيير اسم سطح المكتب إلى <ph name="DESK_NAME" />.</translation>
-<translation id="2050339315714019657">عمودي</translation>
 <translation id="2064048859448024834">يتم عرض معاينة الكاميرا</translation>
 <translation id="2065098273523946419">رابط "مزيد من المعلومات": ستتم إعادة التوجيه إلى المتصفِّح عند التفعيل</translation>
 <translation id="2067220651560163985">عرض درجة الحرارة بالدرجة المئوية</translation>
@@ -340,7 +339,6 @@
 <translation id="219905428774326614">‏Launcher، جميع التطبيقات</translation>
 <translation id="2201071101391734388">الصورة الحديثة رقم <ph name="INDEX" /> من إجمالي <ph name="TOTAL_COUNT" /></translation>
 <translation id="2201687081523799384">‏تصغير "مهام Google"</translation>
-<translation id="2206960886090042977">تم إيقاف لوحة اللمس المُدمَجة لأنّ الماوس متصل. استخدِم الماوس أو لوحة المفاتيح لتأكيد التغيير، وإلّا ستتم إعادة تفعيل لوحة اللمس المُدمَجة بعد 30 ثانية.</translation>
 <translation id="2208323208084708176">وضع سطح المكتب الموحد</translation>
 <translation id="2220572644011485463">رقم التعريف الشخصي أو كلمة المرور</translation>
 <translation id="2222841058024245321">سطح المكتب 7</translation>
@@ -503,6 +501,7 @@
 <translation id="2774348302533424868">‏‫‎<ph name="MODIFIER" /><ph name="DELIMITER" /> من <ph name="KEY_ONE" /> إلى <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">Ctrl+Search+s</translation>
 <translation id="2778650143428714839">تتم إدارة <ph name="DEVICE_TYPE" /> من خلال <ph name="MANAGER" /></translation>
+<translation id="2781658180588759579">تم إيقاف لوحة اللمس المُدمَجة. استخدِم لوحة المفاتيح أو جهاز تأشير آخر لتأكيد التغيير، وإلّا ستتم إعادة تفعيل لوحة اللمس المُدمَجة بعد <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2782591952652094792">الخروج من وضع تصوير الشاشة</translation>
 <translation id="2785499565474703580">هناك جهاز واحد متصل.</translation>
 <translation id="2791421900609674576">ستظهر لك اقتراحات كي تتمكّن من المتابعة من حيث توقفت، ويمكنك النقر مع الاستمرار لإزالة هذه الاقتراحات.</translation>
@@ -600,6 +599,7 @@
 <translation id="3113492864356515707">تمييز العنصر السابق على الرف</translation>
 <translation id="311799651966070385">إغلاق التذكير التلقائي</translation>
 <translation id="3120421559657122717">هل تريد إيقاف تشغيل الجهاز؟</translation>
+<translation id="3121411970001795539">تم إيقاف لوحة اللمس المُدمجة لأنّ الماوس متصل. استخدِم الماوس أو لوحة المفاتيح لتأكيد التغيير، وإلّا ستتم إعادة تفعيل لوحة اللمس المُدمَجة بعد <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="3122464029669770682">وحدة المعالجة المركزية</translation>
 <translation id="3125690294288312932">نوع الواجب الدراسي</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +971,13 @@
 <translation id="4322742403972824594">‏تم تغيير اختصارات لوحة المفاتيح "Ctrl + Alt + السهم المتّجه للأعلى". لاستخدام مفتاح Home، اضغط على المفتاحَين "<ph name="LAUNCHER_KEY_NAME" /> + السهم المتّجه لليسار".</translation>
 <translation id="4324840740119394760">يتيح هذا الإجراء إمكانية الوصول إلى الكاميرا من "<ph name="APP_NAME" />" وجميع التطبيقات والمواقع الإلكترونية التي لديها هذا الإذن.</translation>
 <translation id="4327147325944669226">تسجيل اللعبة</translation>
-<translation id="4333628967105022692">‏لا يمكن استخدام متصفِّح Lacros إذا سجّل العديد من المستخدمين دخولهم.</translation>
 <translation id="4338109981321384717">العدسة المكبرة</translation>
 <translation id="4348580496249286403">‫<ph name="VOLUME_LEVEL" />، الصوت مكتوم</translation>
 <translation id="4351244548802238354">إغلاق مربع الحوار</translation>
 <translation id="4356872429719185452">يمكنك عرض تفاصيل نقطة الاتصال. ويجري الآن تفعيل نقطة الاتصال.</translation>
 <translation id="4364101114148522660"><ph name="DURATION" />  جارٍ التسجيل</translation>
 <translation id="4371348193907997655">إعدادات البث</translation>
+<translation id="4371834685492830207">يجب أن يتضمّن رقم التعريف الشخصي أحرف صالحة فقط</translation>
 <translation id="4375482231364171368">البحث في شريط العناوين</translation>
 <translation id="4378479437904450384">قوة إشارة شبكة <ph name="WIRELESS_PROVIDER" /> هي <ph name="SIGNAL_STRENGTH" /> في المئة.</translation>
 <translation id="4378551569595875038">جارٍ الاتصال...</translation>
@@ -1143,6 +1143,7 @@
 <translation id="4902797682482387055">مهمة مقترَحة للتركيز عليها</translation>
 <translation id="490375751687810070">عمودي</translation>
 <translation id="490788395437447240">مستوى شحن البطارية: <ph name="BATTERY_PERCENTAGE" />%</translation>
+<translation id="4911191962826748981">‏هذه ميزة تجريبية تستخدم الذكاء الاصطناعي (AI) وقد توفِّر نتائج غير دقيقة في بعض الأحيان.</translation>
 <translation id="491504982845934899">يمكنك تفعيل شبكة "<ph name="NETWORK_NAME" />" بعد ضبط إعدادات جهازك.</translation>
 <translation id="4917385247580444890">قوية</translation>
 <translation id="4918086044614829423">قبول</translation>
@@ -1301,6 +1302,7 @@
 <translation id="5393156353051693207">انقر مع الاستمرار على أي مكان على الشاشة لإعادة ترتيب التطبيقات</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" /> في أعلى <ph name="IN_PLACE_APP" />، يُرجى التحرير لإنشاء مجلد.</translation>
 <translation id="5397578532367286026">‏يُمكن للمدير مراجعة الاستخدام والسجل الخاص بهذا المستخدم (<ph name="MANAGER_EMAIL" />) على chrome.com.</translation>
+<translation id="540338817371815859">أفقي</translation>
 <translation id="540713187982329711">نقطة الاتصال مفعَّلة، وما مِن أجهزة متصلة بها. يمكنك إيقافها.</translation>
 <translation id="5409208741270395213">تحديد المهمة على أنها مكتملة</translation>
 <translation id="5413656666631274079">صفحة الإعدادات</translation>
@@ -1472,7 +1474,6 @@
 <translation id="5975235751479998104">الانتقال إلى الأمام في قائمة النوافذ</translation>
 <translation id="5978382165065462689">مشاركة التحكم في شاشتك عن طريق المساعدة عن بُعد.</translation>
 <translation id="5980301590375426705">إنهاء جلسة الضيف</translation>
-<translation id="5982119059638483922">‏للإلغاء، اضغط على المفتاح Fn + مفتاح البحث، أو اضغط على المفتاح Shift.</translation>
 <translation id="5983567367406220847">تم إيقاف نقطة الاتصال بسبب عدم استخدامها.</translation>
 <translation id="598407983968395253">استخدام النموذج</translation>
 <translation id="5986723678596105470">‏الانضمام عبر Google Meet</translation>
@@ -1542,7 +1543,6 @@
 <translation id="6166852626429024716">البحث في الجهاز والتطبيقات والإعدادات والويب...</translation>
 <translation id="6168318496333165060">فتح تطبيق "بيانات التشخيص"</translation>
 <translation id="6168622430237609329">تطبيقاتك المثبَّتة</translation>
-<translation id="6173151025443907148">‏لا يمكن تسجيل الدخول باستخدام حساب مستخدِم آخر في حال تفعيل Lacros. يُرجى استخدام ملف شخصي آخر على متصفِّح Lacros بدلاً من ذلك أو إيقاف المتصفِّح ثم إعادة المحاولة.</translation>
 <translation id="6179832488876878285">يمكنك تثبيت الملفات المهمّة هنا. افتح تطبيق "الملفات" للبدء.</translation>
 <translation id="6180193585172850042">زر الرجوع</translation>
 <translation id="6180651297859206670">زر الانتقال للأمام</translation>
@@ -1564,6 +1564,7 @@
 <translation id="6232416233079464213">من "<ph name="SESSION_NAME" />"</translation>
 <translation id="6232891689835436217">يستخدم "<ph name="APP_NAME" />" الكاميرا والميكروفون حاليًا.</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">يجب أن تتضمّن كلمة المرور أحرف صالحة فقط</translation>
 <translation id="6240603910551255087">الزر الأعلى</translation>
 <translation id="6240821072888636753">السؤال في كل مرة</translation>
 <translation id="6247728804802644171">فتح الإشعارات</translation>
@@ -1694,7 +1695,6 @@
 <translation id="6682029141988159141">لصق المحتوى من الحافظة</translation>
 <translation id="6683022854667115063">سمّاعات رأس</translation>
 <translation id="6686023075541098243">إعداد ميزة عرض الإشعارات في هاتفك</translation>
-<translation id="6688019813898140556">‏مفتاح Esc‏ 5 مرات</translation>
 <translation id="6694462491298752106">لوحة اللمس المُدمَجة غير مفعَّلة</translation>
 <translation id="6694973220096431421">‏البحث في Google Drive</translation>
 <translation id="6696025732084565524">تحتاج لوحة المفاتيح القابلة للفصل إلى تحديث مهم</translation>
@@ -1715,6 +1715,7 @@
 <translation id="6751826523481687655">تتبّع الأداء قيْد التفعيل</translation>
 <translation id="6752912906630585008">تمت إزالة سطح المكتب <ph name="REMOVED_DESK" /> ودمجه مع سطح المكتب <ph name="RECEIVE_DESK" />.</translation>
 <translation id="6753390234084146956">علامات التبويب</translation>
+<translation id="6754918760968695779">الإدراج السريع</translation>
 <translation id="6757237461819837179">لا يتم تشغيل أي وسائط حاليًا</translation>
 <translation id="6760438044935091345">لوحة بيانات الألعاب</translation>
 <translation id="6768043681523654438">مساحة التخزين</translation>
@@ -1764,6 +1765,7 @@
 <translation id="6921427376813842559">تحديث الجهاز</translation>
 <translation id="6929081673585394903">عرض عناصر التحكّم</translation>
 <translation id="6931576957638141829">حفظ في</translation>
+<translation id="6935857786205183008">عمودي</translation>
 <translation id="6942518653766415536">قائمة صيَغ التسجيل</translation>
 <translation id="6945221475159498467">تحديد</translation>
 <translation id="6945922087561257829">‏يستخدم هاتفك شبكة جوّال. تأكَّد من أنّ هاتفك وجهاز Chromebook متصلان بشبكة Wi-Fi نفسها، ثم أعِد المحاولة. <ph name="LEARN_MORE" /></translation>
@@ -1921,7 +1923,6 @@
 لإطفاء الجهاز، اضغط مع الاستمرار على زر تشغيل الجهاز مرة أخرى.</translation>
 <translation id="7523420897035067483">تفعيل ميزة "عدم الإزعاج" أثناء استخدام "وضع التركيز"</translation>
 <translation id="7524043547948122239">‏مهام Google</translation>
-<translation id="7524919752437339268">تم إيقاف لوحة اللمس المُدمَجة. استخدِم لوحة المفاتيح أو جهاز تأشير آخر لتأكيد التغيير، وإلّا ستتم إعادة تفعيل لوحة اللمس المُدمَجة بعد 30 ثانية.</translation>
 <translation id="7525067979554623046">إنشاء</translation>
 <translation id="7526573455193969409">قد تكون الشبكة خاضعة للمراقبة</translation>
 <translation id="7536035074519304529">‏عنوان IP: ‏<ph name="ADDRESS" /></translation>
@@ -2008,6 +2009,7 @@
 <translation id="780301667611848630">لا، شكرًا</translation>
 <translation id="7807067443225230855">البحث والمساعدة</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> و<ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">يؤدي النقر على زر الإعجاب إلى إرسال ملاحظات بأنّ هذا الاقتراح يعجبك</translation>
 <translation id="7825412704590278437">من حدث قادم في التقويم</translation>
 <translation id="7829386189513694949">إشارة قوية</translation>
 <translation id="7830453190047749513">يمكنك تخصيص إجراءات الأزرار وسرعة المؤشر وغير ذلك لجهاز "<ph name="PERIPHERAL_NAME" />"</translation>
@@ -2162,6 +2164,7 @@
 <translation id="830868413617744215">تجريبي</translation>
 <translation id="8314772463905284467">‏مفتاح Caps Lock قيد التفعيل</translation>
 <translation id="8315514906653279104">جارٍ تفعيل نقطة الاتصال…</translation>
+<translation id="8319634750346253957">يؤدي النقر على زر عدم الإعجاب إلى إرسال ملاحظات بأنّ هذا الاقتراح لا يعجبك</translation>
 <translation id="8331351032546853669">بانتظار التنزيل</translation>
 <translation id="8339706171276328417">‏<ph name="ACTION_DESCRIPTION" /> · بتاريخ ‎<ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2347,6 +2350,7 @@
 <translation id="8982906748181120328">مشاركة عن قرب</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">استخدام <ph name="IME_NAME" /></translation>
+<translation id="8991648557324317894">‏للإلغاء، انقر على FN + مفتاح "الإدراج السريع" أو Shift.</translation>
 <translation id="899350903320462459">فتح قفل الجهاز بواسطة <ph name="LOGIN_ID" /> لتنفيذ إجراء الإشعارات</translation>
 <translation id="8993733019280019776">هل تتحدث؟ الميكروفون غير مفعَّل. انقر على الميكروفون لتفعيله.</translation>
 <translation id="9000771174482730261">إدارة مساحة التخزين</translation>
@@ -2429,9 +2433,9 @@
 <translation id="974545358917229949">عرض <ph name="RESULT_COUNT" /> نتيجة عن <ph name="QUERY" /></translation>
 <translation id="981011780479609956">بلا تاريخ تسليم</translation>
 <translation id="98120814841227350">الانتقال إلى نهاية المستند</translation>
-<translation id="98515147261107953">مناظر طبيعية</translation>
 <translation id="987589956647469042">بيانات الجوّال مفعَّلة.</translation>
 <translation id="989374776391122812">عناصر التحكّم في الكاميرا والصوت</translation>
+<translation id="990263227494928142">‏اضغط على مفتاح Shift‏ 5 مرّات لتفعيل لوحة اللمس</translation>
 <translation id="990277280839877440">تم إغلاق النافذة <ph name="WINDOW_TITILE" />.</translation>
 <translation id="993398562350683614">‏الخطوة <ph name="STEP" /> من إجمالي <ph name="TOTAL_STEPS" />: استخدِم التطبيقات لتنفيذ كل مهامك المطلوبة على <ph name="PRODUCT_NAME" />. وانتقِل إلى "مشغِّل التطبيقات" للعثور على كل تطبيقاتك. اضغط على Alt + Shift + L للتركيز على زر "مشغِّل التطبيقات".</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />، <ph name="SUBTEXT" /></translation>

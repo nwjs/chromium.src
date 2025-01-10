@@ -61,21 +61,6 @@ struct GpuMemoryBufferHandle;
 
 namespace media {
 
-// Specifies the type of shared image format used by media video
-// encoder/decoder. Currently, we have (1) one shared image (and texture)
-// created for single planar and multi planar formats and (2) one shared image
-// created for multiplanar formats that are used with external sampler. This
-// enum helps with differentiating between 2 cases: (1)
-// SinglePlaneFormat/MultiPlaneFormat without external sampler, and (2)
-// MultiPlaneFormat with external sampler. NOTE: This enum will be removed soon
-// once ClientSharedImage is always present.
-enum class SharedImageFormatType : uint8_t {
-  // SinglePlaneFormat, MultiPlaneFormat without external sampler
-  kSharedImageFormat,
-  // MultiPlaneFormat with external sampler
-  kSharedImageFormatExternalSampler,
-};
-
 class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
  public:
   static constexpr size_t kFrameSizeAlignment = 16;
@@ -216,8 +201,21 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   // Create a new frame that doesn't contain any valid video content. This frame
   // is meant to be sent to compositor to inform that the compositor should
   // punch a transparent hole so the video underlay will be visible.
+  // |overlay_plane_id| is stored in metadata() as |tracking_token|.
   static scoped_refptr<VideoFrame> CreateVideoHoleFrame(
       const base::UnguessableToken& overlay_plane_id,
+      const gfx::Size& natural_size,
+      base::TimeDelta timestamp);
+
+  // Creates a frame that doesn't contain any valid video content.
+  // |tracking_token| is stored in the frame metadata and can be used to look up
+  // the underlying resource or VideoFrame source. The resulting frame's
+  // |storage_type_| will be STORAGE_OPAQUE.
+  static scoped_refptr<VideoFrame> WrapTrackingToken(
+      VideoPixelFormat format,
+      const base::UnguessableToken& tracking_token,
+      const gfx::Size& coded_size,
+      const gfx::Rect& visible_rect,
       const gfx::Size& natural_size,
       base::TimeDelta timestamp);
 
@@ -239,21 +237,6 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
       const gfx::Size& natural_size,
       base::TimeDelta timestamp,
       bool zero_initialize_memory);
-
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
-  // Wraps RegisteredMailboxFrameConverter mailbox with a VideoFrame. This is
-  // used only by ChromeOS/Linux's out-of-process video decoder.
-  // |mailbox_holder_release_cb| will be called with a sync token as the
-  // argument when the VideoFrame is to be destroyed.
-  static scoped_refptr<VideoFrame> WrapOOPVDMailbox(
-      VideoPixelFormat format,
-      const gpu::Mailbox& mailbox,
-      ReleaseMailboxCB mailbox_holder_release_cb,
-      const gfx::Size& coded_size,
-      const gfx::Rect& visible_rect,
-      const gfx::Size& natural_size,
-      base::TimeDelta timestamp);
-#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
 
   // Wraps a native texture shared image with a VideoFrame.
   // |mailbox_holder_release_cb| will be called with a sync token as the
@@ -551,11 +534,6 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   // visible_data() etc.
   bool IsMappable() const;
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-  // Returns true if `frame` has `oopvd_mailbox`.
-  bool HasOOPVDMailbox() const;
-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-
   // Returns true if the video frame uses ClientSharedImage.
   bool HasSharedImage() const;
 
@@ -635,14 +613,6 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
     hdr_metadata_ = hdr_metadata;
   }
 
-  SharedImageFormatType shared_image_format_type() const {
-    return wrapped_frame_ ? wrapped_frame_->shared_image_format_type()
-                          : shared_image_format_type_;
-  }
-  void set_shared_image_format_type(SharedImageFormatType type) {
-    shared_image_format_type_ = type;
-  }
-
   const VideoFrameLayout& layout() const { return layout_; }
 
   VideoPixelFormat format() const { return layout_.format(); }
@@ -703,11 +673,6 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   const uint8_t* visible_data(size_t plane) const;
   uint8_t* GetWritableVisibleData(size_t plane);
 
-  // Returns a mailbox holder for a given texture.
-  // Only valid to call if this is a NATIVE_TEXTURE frame. Before using the
-  // mailbox, the caller must wait for the included sync point.
-  const gpu::MailboxHolder mailbox_holder(size_t texture_index) const;
-
   // Returns the `acquire_sync_token_`
   gpu::SyncToken acquire_sync_token() const;
 
@@ -718,14 +683,6 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   scoped_refptr<gpu::ClientSharedImage> shared_image() const;
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-  // Returns the OOPVD mailbox set by `WrapOOPVDMailbox`.
-  // Only valid to call if this is a NATIVE_TEXTURE frame. Before using the
-  // mailbox, the caller must wait for the included sync point.
-  const gpu::Mailbox oopvd_mailbox() const {
-    CHECK(!oopvd_mailbox_.IsZero());
-    return wrapped_frame_ ? wrapped_frame_->oopvd_mailbox() : oopvd_mailbox_;
-  }
-
   // The number of DmaBufs will be equal or less than the number of planes of
   // the frame. If there are less, this means that the last FD contains the
   // remaining planes. Should be > 0 for STORAGE_DMABUFS.
@@ -794,7 +751,7 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   // Similar to UpdateReleaseSyncToken() but operates on the gpu::SyncToken
   // for mailbox. This should only be called when a VideoFrame has a single
   // owner. I.e., before it has been vended after creation.
-  gpu::SyncToken UpdateMailboxHolderSyncToken(SyncTokenClient* client);
+  gpu::SyncToken UpdateAcquireSyncToken(SyncTokenClient* client);
 
   // Returns a human-readable string describing |*this|.
   std::string AsHumanReadableString() const;
@@ -823,7 +780,6 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   enum class FrameControlType {
     kNone,
     kEos,
-    kVideoHole,
   };
 
   // Clients must use the static factory/wrapping methods to create a new frame.
@@ -966,11 +922,6 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   // VideoFrame.
   const uint8_t* data_[kMaxPlanes];
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-  // Native texture mailbox, if this frame HasOOPVDMailbox().
-  gpu::Mailbox oopvd_mailbox_;
-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-
   // Sync token associated with the `shared_image_`.
   gpu::SyncToken acquire_sync_token_;
   ReleaseMailboxAndGpuMemoryBufferCB mailbox_holder_and_gmb_release_cb_;
@@ -1024,12 +975,6 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
 
   gfx::ColorSpace color_space_;
   std::optional<gfx::HDRMetadata> hdr_metadata_;
-
-  // The format type used to create shared images. When set to SharedImageFormat
-  // with/without external sampler, creates shared image taking in
-  // SharedImageFormat with/without prefers_external_sampler set.
-  SharedImageFormatType shared_image_format_type_ =
-      SharedImageFormatType::kSharedImageFormatExternalSampler;
 
   // Sampler conversion information which is used in vulkan context for android.
   std::optional<gpu::VulkanYCbCrInfo> ycbcr_info_;

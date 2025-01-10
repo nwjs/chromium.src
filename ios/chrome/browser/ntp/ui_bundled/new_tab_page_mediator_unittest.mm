@@ -68,10 +68,9 @@ class NewTabPageMediatorTest : public PlatformTest {
         ios::TemplateURLServiceFactory::GetDefaultFactory());
     test_cbs_builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetDefaultFactory());
+        AuthenticationServiceFactory::GetFactoryWithDelegate(
+            std::make_unique<FakeAuthenticationServiceDelegate>()));
     profile_ = std::move(test_cbs_builder).Build();
-    AuthenticationServiceFactory::CreateAndInitializeForProfile(
-        profile_.get(), std::make_unique<FakeAuthenticationServiceDelegate>());
     browser_ = std::make_unique<TestBrowser>(profile_.get());
 
     std::unique_ptr<ToolbarTestNavigationManager> navigation_manager =
@@ -85,9 +84,7 @@ class NewTabPageMediatorTest : public PlatformTest {
     url_loader_ = FakeUrlLoadingBrowserAgent::FromUrlLoadingBrowserAgent(
         UrlLoadingBrowserAgent::FromBrowser(browser_.get()));
 
-    auth_service_ = static_cast<AuthenticationService*>(
-        AuthenticationServiceFactory::GetInstance()->GetForProfile(
-            profile_.get()));
+    auth_service_ = AuthenticationServiceFactory::GetForProfile(profile_.get());
     identity_manager_ = IdentityManagerFactory::GetForProfile(profile_.get());
     ChromeAccountManagerService* account_manager_service =
         ChromeAccountManagerServiceFactory::GetForProfile(profile_.get());

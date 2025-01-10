@@ -22,6 +22,7 @@ import org.chromium.chrome.browser.device_reauth.DeviceAuthSource;
 import org.chromium.chrome.browser.device_reauth.ReauthenticatorBridge;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
+import org.chromium.chrome.browser.sync.BatchUploadDialogCoordinator;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
@@ -145,6 +146,15 @@ public class BatchUploadCardPreference extends Preference
         hideBatchUploadCardAndUpdate();
     }
 
+    private boolean hasAnyItems() {
+        for (LocalDataDescription desc : mLocalDataDescriptionsMap.values()) {
+            if (desc.itemCount() > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void update() {
         // Calling getLocalDataDescriptions() API when sync is in configuring state should be
         // avoided. Since it will return an empty map, which could be inconsistent with the actual
@@ -161,15 +171,7 @@ public class BatchUploadCardPreference extends Preference
                         : Set.of(DataType.BOOKMARKS, DataType.READING_LIST, DataType.PASSWORDS),
                 localDataDescriptionsMap -> {
                     mLocalDataDescriptionsMap = localDataDescriptionsMap;
-                    int sum =
-                            mLocalDataDescriptionsMap.values().stream()
-                                    .map(LocalDataDescription::itemCount)
-                                    .reduce(0, Integer::sum);
-                    if (sum == 0) {
-                        setVisible(false);
-                    } else {
-                        setVisible(true);
-                    }
+                    setVisible(hasAnyItems());
                     notifyChanged();
                 });
     }
@@ -177,11 +179,7 @@ public class BatchUploadCardPreference extends Preference
     private void setupBatchUploadCardView(View card) {
         // It does not make sense to set the card text when there are no local data. An early return
         // here would also avoid showing the card with a wrong text before it hides.
-        if (mLocalDataDescriptionsMap == null
-                || mLocalDataDescriptionsMap.values().stream()
-                                .map(LocalDataDescription::itemCount)
-                                .reduce(0, Integer::sum)
-                        == 0) {
+        if (mLocalDataDescriptionsMap == null || !hasAnyItems()) {
             return;
         }
 

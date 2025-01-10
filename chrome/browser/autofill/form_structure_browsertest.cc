@@ -62,6 +62,7 @@ using net::test_server::HttpResponse;
 const base::FilePath::CharType kFeatureName[] = FILE_PATH_LITERAL("autofill");
 const base::FilePath::CharType kTestName[] = FILE_PATH_LITERAL("heuristics");
 
+#if !BUILDFLAG(USE_INTERNAL_AUTOFILL_PATTERNS)
 // To disable a data driven test, please add the name of the test file
 // (i.e., FILE_PATH_LITERAL("NNN_some_site.html")) to the initializer_list given
 // to the failing_test_names constructor.
@@ -69,6 +70,7 @@ const auto& GetFailingTestNames() {
   static std::set<base::FilePath::StringType> failing_test_names{};
   return failing_test_names;
 }
+#endif
 
 const base::FilePath& GetTestDataDir() {
   static base::NoDestructor<base::FilePath> dir([]() {
@@ -218,15 +220,14 @@ FormStructureBrowserTest::FormStructureBrowserTest()
           // TODO(crbug.com/40266396): Remove once launched.
           features::kAutofillEnableExpirationDateImprovements,
           features::kAutofillUseITAddressModel,
+          // TODO(crbug.com/320965828): Remove once launched.
+          features::kAutofillInferLabelFromDefaultSelectText,
       },
       // Disabled
       {// TODO(crbug.com/40220393): Remove once launched.
        // This feature is part of the AutofillRefinedPhoneNumberTypes rollout.
        // As it is not supported on iOS yet, it is disabled.
        features::kAutofillConsiderPhoneNumberSeparatorsValidLabels,
-       // TODO(crbug.com/40222716): Remove once launched. This feature is
-       // disabled since it is not supported on iOS.
-       features::kAutofillAlwaysParsePlaceholders,
        // TODO(crbug.com/1493145): Remove when/if launched. This feature changes
        // default parsing behavior, so must be disabled to avoid
        // fieldtrial_testing_config interference.
@@ -292,17 +293,16 @@ std::unique_ptr<HttpResponse> FormStructureBrowserTest::HandleRequest(
 }
 
 IN_PROC_BROWSER_TEST_P(FormStructureBrowserTest, DataDrivenHeuristics) {
-#if !BUILDFLAG(USE_INTERNAL_AUTOFILL_PATTERNS)
-  if (GetActiveHeuristicSource() != HeuristicSource::kLegacyRegexes) {
-    GTEST_SKIP() << "DataDrivenHeuristics tests are only supported with legacy "
-                    "parsing patterns";
-  }
-#endif
+#if BUILDFLAG(USE_INTERNAL_AUTOFILL_PATTERNS)
+  GTEST_SKIP() << "DataDrivenHeuristics tests are only supported with legacy "
+                  "parsing patterns";
+#else
   // Prints the path of the test to be executed.
   LOG(INFO) << GetParam().MaybeAsASCII();
   bool is_expected_to_pass =
       !base::Contains(GetFailingTestNames(), GetParam().BaseName().value());
   RunOneDataDrivenTest(GetParam(), GetOutputDirectory(), is_expected_to_pass);
+#endif
 }
 
 INSTANTIATE_TEST_SUITE_P(AllForms,

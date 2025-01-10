@@ -448,12 +448,6 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   // LayoutObject.
   LayoutBox* EnclosingBox() const;
 
-  // This is deprecated because it doesn't meet the requirement of its only
-  // caller IntersectionObservation::CanUseCachedRects() because this doesn't
-  // handle programmatically-only scrollable scrollers. Another problem is
-  // that it may return wrong results for out-of-flow positioned objects.
-  LayoutBox* DeprecatedEnclosingScrollableBox() const;
-
   // Return the NG |LayoutBlockFlow| that will have any |FragmentItems| for
   // |this|, or nullptr if the containing block isn't an NG inline formatting
   // context root. |this| is required to be an object that participates in an
@@ -638,7 +632,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
 
   inline bool IsEligibleForPaintOrLayoutContainment() const {
     NOT_DESTROYED();
-    return (!IsInline() || IsAtomicInlineLevel()) && !IsRubyText() &&
+    return (!IsInline() || IsAtomicInlineLevel()) &&
            (!IsTablePart() || IsLayoutBlockFlow());
   }
 
@@ -664,7 +658,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
 
   inline bool IsEligibleForSizeContainment() const {
     NOT_DESTROYED();
-    return (!IsInline() || IsAtomicInlineLevel()) && !IsRubyText() &&
+    return (!IsInline() || IsAtomicInlineLevel()) &&
            (!IsTablePart() || IsTableCaption()) && !IsTable();
   }
   inline bool ShouldApplySizeContainment() const {
@@ -721,7 +715,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     // common logic, which is extracted here to avoid repeated computation.
     return style.IsStackingContextWithoutContainment() ||
            ((style.ContainsLayout() || style.ContainsPaint()) &&
-            (!IsInline() || IsAtomicInlineLevel()) && !IsRubyText() &&
+            (!IsInline() || IsAtomicInlineLevel()) &&
             (!IsTablePart() || IsLayoutBlockFlow()));
   }
 
@@ -978,23 +972,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     NOT_DESTROYED();
     return false;
   }
-  virtual bool IsRubyBase() const {
-    NOT_DESTROYED();
-    return false;
-  }
-  virtual bool IsRubyColumn() const {
-    NOT_DESTROYED();
-    return false;
-  }
-  virtual bool IsRubyText() const {
-    NOT_DESTROYED();
-    return false;
-  }
-  // For line-breakable ruby. This returns true only if RubyLineBreakable
-  // flag is enabled.
   bool IsInlineRuby() const;
-  // For line-breakable ruby. This returns true only if RubyLineBreakable
-  // flag is enabled.
   bool IsInlineRubyText() const;
   virtual bool IsTable() const {
     NOT_DESTROYED();
@@ -1091,12 +1069,17 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     return IsTableCell() || IsLayoutTableCol() || IsTableCaption() ||
            IsTableRow() || IsTableSection();
   }
+  inline bool IsCheckContent() const;
   inline bool IsBeforeContent() const;
   inline bool IsAfterContent() const;
+  inline bool IsSelectArrowContent() const;
   inline bool IsMarkerContent() const;
   inline bool IsBeforeOrAfterContent() const;
   static inline bool IsAfterContent(const LayoutObject* obj) {
     return obj && obj->IsAfterContent();
+  }
+  static inline bool IsSelectArrowContent(const LayoutObject* obj) {
+    return obj && obj->IsSelectArrowContent();
   }
 
   // Returns true if the text is generated (from, e.g., list marker,
@@ -1941,8 +1924,6 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   // and preferred width recalc. Also invalidates shaping on all text nodes.
   virtual void InvalidateSubtreeLayoutForFontUpdates();
 
-  void DeprecatedInvalidateIntersectionObserverCachedRects();
-
   // Mark elements with a principal box and a computed position-try-fallbacks
   // different from 'none' for layout when @position-try rules are removed or
   // added. mark_style_dirty is true if the element should be marked dirty as
@@ -1981,8 +1962,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
         positioned_state_ = kIsStickyPositioned;
         break;
       default:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
     }
   }
   void ClearPositionedState() {
@@ -2695,7 +2675,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
 
   bool VisibleToHitTestRequest(const HitTestRequest& request) const {
     NOT_DESTROYED();
-    return StyleRef().UsedVisibility() == EVisibility::kVisible &&
+    return StyleRef().Visibility() == EVisibility::kVisible &&
            (request.IgnorePointerEventsNone() ||
             StyleRef().UsedPointerEvents() != EPointerEvents::kNone);
   }
@@ -3083,7 +3063,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
 
     void UpdatePreviousVisibilityVisible() {
       layout_object_.bitfields_.SetPreviousVisibilityVisible(
-          layout_object_.StyleRef().UsedVisibility() == EVisibility::kVisible);
+          layout_object_.StyleRef().Visibility() == EVisibility::kVisible);
     }
 
     // Same as LayoutObject::SetNeedsPaintPropertyUpdate(), but does not mark
@@ -3104,10 +3084,6 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
 
     void UpdateInsideBlockingWheelEventHandler(bool inside) {
       layout_object_.UpdateInsideBlockingWheelEventHandler(inside);
-    }
-
-    void InvalidateIntersectionObserverCachedRects() {
-      layout_object_.InvalidateIntersectionObserverCachedRects();
     }
 
 #if DCHECK_IS_ON()
@@ -3173,7 +3149,6 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   // updated, SetNeedsPaintPropertyUpdate marks all ancestors as having a
   // descendant needing a paint property update too.
   void SetNeedsPaintPropertyUpdate();
-  void SetNeedsPaintPropertyUpdatePreservingCachedRects();
   void SetDescendantNeedsPaintPropertyUpdate();
   bool NeedsPaintPropertyUpdate() const {
     NOT_DESTROYED();
@@ -3594,8 +3569,6 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   }
 
  private:
-  void InvalidateIntersectionObserverCachedRects();
-
   gfx::QuadF LocalToAncestorQuadInternal(const gfx::QuadF&,
                                          const LayoutBoxModelObject* ancestor,
                                          MapCoordinatesFlags = 0) const;
@@ -4171,6 +4144,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   static bool affects_parent_block_;
 
 #if DCHECK_IS_ON()
+  friend class CachedTextInputInfo;
   bool is_destroyed_ = false;
 #endif
 };
@@ -4181,6 +4155,17 @@ DEFINE_COMPARISON_OPERATORS_WITH_REFERENCES(LayoutObject)
 
 inline bool LayoutObject::DocumentBeingDestroyed() const {
   return GetDocument().Lifecycle().GetState() >= DocumentLifecycle::kStopping;
+}
+
+inline bool LayoutObject::IsCheckContent() const {
+  if (StyleRef().StyleType() != kPseudoIdCheck) {
+    return false;
+  }
+  // Text nodes don't have their own styles, so ignore the style on a text node.
+  if (IsText() && !IsBR()) {
+    return false;
+  }
+  return true;
 }
 
 inline bool LayoutObject::IsBeforeContent() const {
@@ -4198,6 +4183,17 @@ inline bool LayoutObject::IsAfterContent() const {
   // Text nodes don't have their own styles, so ignore the style on a text node.
   if (IsText() && !IsBR())
     return false;
+  return true;
+}
+
+inline bool LayoutObject::IsSelectArrowContent() const {
+  if (StyleRef().StyleType() != kPseudoIdSelectArrow) {
+    return false;
+  }
+  // Text nodes don't have their own styles, so ignore the style on a text node.
+  if (IsText() && !IsBR()) {
+    return false;
+  }
   return true;
 }
 

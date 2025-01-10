@@ -14,6 +14,7 @@
 #include "chrome/browser/ui/views/chrome_views_export.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/metadata/metadata_header_macros.h"
+#include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/base/pointer/touch_ui_controller.h"
 #include "ui/base/theme_provider.h"
 #include "ui/base/ui_base_features.h"
@@ -115,6 +116,9 @@ class ToolbarButton : public views::LabelButton,
   std::optional<gfx::Insets> GetLayoutInsets() const;
   void SetLayoutInsets(const std::optional<gfx::Insets>& insets);
 
+  // Sets |layout_inset_delta_|, see comment there.
+  void SetLayoutInsetDelta(const gfx::Insets& insets);
+
   // views::LabelButton:
   void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
   void OnThemeChanged() override;
@@ -130,9 +134,10 @@ class ToolbarButton : public views::LabelButton,
   std::unique_ptr<views::ActionViewInterface> GetActionViewInterface() override;
 
   // views::ContextMenuController:
-  void ShowContextMenuForViewImpl(View* source,
-                                  const gfx::Point& point,
-                                  ui::MenuSourceType source_type) override;
+  void ShowContextMenuForViewImpl(
+      View* source,
+      const gfx::Point& point,
+      ui::mojom::MenuSourceType source_type) override;
 
   // ui::PropertyHandler:
   void AfterPropertyChange(const void* key, int64_t old_value) override;
@@ -164,10 +169,7 @@ class ToolbarButton : public views::LabelButton,
   virtual bool ShouldShowInkdropAfterIphInteraction();
 
   // Function to show the dropdown menu.
-  virtual void ShowDropDownMenu(ui::MenuSourceType source_type);
-
-  // Sets |layout_inset_delta_|, see comment there.
-  void SetLayoutInsetDelta(const gfx::Insets& insets);
+  virtual void ShowDropDownMenu(ui::mojom::MenuSourceType source_type);
 
   // Updates the button's background and border.
   virtual void UpdateColorsAndInsets();
@@ -351,12 +353,6 @@ class ToolbarButton : public views::LabelButton,
   // Class responsible for animating highlight color (calling a callback on
   // |this| to refresh UI).
   HighlightColorAnimation highlight_color_animation_;
-
-  // If either |last_border_color_| or |last_paint_insets_| have changed since
-  // the last update to |border_| it must be recalculated  to match current
-  // values.
-  std::optional<SkColor> last_border_color_;
-  gfx::Insets last_paint_insets_;
 
   base::CallbackListSubscription subscription_ =
       ui::TouchUiController::Get()->RegisterCallback(

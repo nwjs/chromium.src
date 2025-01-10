@@ -131,7 +131,7 @@ gfx::Size GetMaxResolution(VideoCodec codec) {
 #endif  // defined(ARCH_CPU_ARM_FAMILY)
 #endif  // BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
     default:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 
@@ -165,9 +165,8 @@ static CFStringRef VideoCodecProfileToVTProfile(VideoCodecProfile profile) {
       return kVTProfileLevel_HEVC_Main_AutoLevel;
 #endif  // BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
-  return kVTProfileLevel_H264_Baseline_AutoLevel;
 }
 
 static CMVideoCodecType VideoCodecToCMVideoCodec(VideoCodec codec) {
@@ -179,9 +178,8 @@ static CMVideoCodecType VideoCodecToCMVideoCodec(VideoCodec codec) {
       return kCMVideoCodecType_HEVC;
 #endif  // BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
-  return kCMVideoCodecType_H264;
 }
 
 bool IsHardwareEncoder(VTSessionRef compression_session) {
@@ -279,7 +277,6 @@ CreateCompressionSession(VideoCodec codec,
       /*compressedDataAllocator=*/nullptr, output_callback,
       reinterpret_cast<void*>(accelerator), session.InitializeInto());
   if (status != noErr) {
-#if BUILDFLAG(IS_MAC)
     if (@available(macOS 13, iOS 16, *)) {
       // No extra steps required.
     } else {
@@ -290,7 +287,6 @@ CreateCompressionSession(VideoCodec codec,
       // VTCompressionSessionInvalidate() on a not fully created session.
       std::ignore = session.release();
     }
-#endif  // BUILDFLAG(IS_MAC)
     return base::unexpected(status);
   }
   DVLOG(3) << " VTCompressionSession created with input size="
@@ -399,7 +395,7 @@ struct VTVideoEncodeAccelerator::BitstreamBufferRef {
   BitstreamBufferRef& operator=(const BitstreamBufferRef&) = delete;
 
   const int32_t id;
-  const base::WritableSharedMemoryMapping mapping;
+  base::WritableSharedMemoryMapping mapping;
   const size_t size;
 };
 
@@ -516,7 +512,8 @@ bool VTVideoEncodeAccelerator::Initialize(const Config& config,
   input_visible_size_ = config.input_visible_size;
   frame_rate_ = config.framerate;
   bitrate_ = config.bitrate;
-  bitstream_buffer_size_ = config.input_visible_size.GetArea();
+  bitstream_buffer_size_ = EstimateBitstreamBufferSize(
+      bitrate_, frame_rate_, config.input_visible_size);
   require_low_delay_ = config.require_low_delay;
   required_encoder_type_ = config.required_encoder_type;
 
@@ -844,8 +841,10 @@ void VTVideoEncodeAccelerator::ReturnBitstreamBuffer(
       codec_, encode_output->sample_buffer.get(), keyframe, buffer_ref->size,
       static_cast<char*>(buffer_ref->mapping.memory()), &used_buffer_size);
   if (!copy_rv) {
-    DLOG(ERROR) << "Cannot copy output from SampleBuffer to AnnexBBuffer.";
-    used_buffer_size = 0;
+    NotifyErrorStatus(
+        {EncoderStatus::Codes::kBitstreamConversionError,
+         "Cannot copy output from SampleBuffer to AnnexBBuffer."});
+    return;
   }
 
   BitstreamBufferMetadata md(used_buffer_size, keyframe,
@@ -856,11 +855,10 @@ void VTVideoEncodeAccelerator::ReturnBitstreamBuffer(
       md.h264.emplace().temporal_idx = belongs_to_base_layer ? 0 : 1;
       break;
     case VideoCodec::kHEVC:
-      md.h265.emplace().temporal_idx = belongs_to_base_layer ? 0 : 1;
+      md.svc_generic.emplace().temporal_idx = belongs_to_base_layer ? 0 : 1;
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 
   md.encoded_color_space = encode_output->encoded_color_space;

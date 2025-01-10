@@ -78,6 +78,7 @@
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/text_position.h"
+#include "third_party/blink/renderer/platform/wtf/text/unicode.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
 
 using blink::protocol::Array;
@@ -224,9 +225,21 @@ bool VerifyNestedDeclarations(Document* document, const String& rule_text) {
   if (rule_count != 1 || source_data->at(0)->type != StyleRule::kStyle) {
     return false;
   }
-  const CSSRuleSourceData& property_data = *source_data->front();
-
-  return property_data.child_rules.size() == 2;
+  const CSSRuleSourceData& rule_data = *source_data->front();
+  if (rule_data.child_rules.size() != 2) {
+    return false;
+  }
+  // It is not allowed to create a CSSNestedDeclarations rule without
+  // any valid properties.
+  // TODO(crbug.com/363985597): List this restriction.
+  auto is_valid = [](const CSSPropertySourceData& data) {
+    return data.parsed_ok && !data.disabled;
+  };
+  if (!base::ranges::any_of(rule_data.child_rules[1]->property_data,
+                            is_valid)) {
+    return false;
+  }
+  return true;
 }
 
 bool VerifyPropertyNameText(Document* document, const String& name_text) {
@@ -487,6 +500,7 @@ void FlattenSourceData(const CSSRuleSourceDataList& data_list,
       case StyleRule::kLayerBlock:
       case StyleRule::kFontFeatureValues:
       case StyleRule::kProperty:
+      case StyleRule::kStartingStyle:
         result->push_back(data);
         FlattenSourceData(data->child_rules, result);
         break;
@@ -506,6 +520,10 @@ CSSRuleList* AsCSSRuleList(CSSRule* rule) {
 
   if (auto* media_rule = DynamicTo<CSSMediaRule>(rule))
     return media_rule->cssRules();
+
+  if (auto* starting_style_rule = DynamicTo<CSSStartingStyleRule>(rule)) {
+    return starting_style_rule->cssRules();
+  }
 
   if (auto* scope_rule = DynamicTo<CSSScopeRule>(rule))
     return scope_rule->cssRules();
@@ -561,6 +579,7 @@ void CollectFlatRules(RuleList rule_list, CSSRuleVector* result) {
       case CSSRule::kLayerBlockRule:
       case CSSRule::kFontFeatureValuesRule:
       case CSSRule::kPropertyRule:
+      case CSSRule::kStartingStyleRule:
         result->push_back(rule);
         CollectFlatRules(AsCSSRuleList(rule), result);
         break;
@@ -1975,7 +1994,8 @@ InspectorStyleSheet::BuildObjectForRuleUsage(CSSRule* rule, bool was_used) {
                                source_data->rule_body_range.end + 1);
   auto type = rule->GetType();
   if (type == CSSRule::kMediaRule || type == CSSRule::kSupportsRule ||
-      type == CSSRule::kScopeRule || type == CSSRule::kContainerRule) {
+      type == CSSRule::kScopeRule || type == CSSRule::kContainerRule ||
+      type == CSSRule::kStartingStyleRule) {
     whole_rule_range.end = source_data->rule_header_range.end + 1;
   }
 
@@ -2292,24 +2312,6 @@ void InspectorStyleSheet::MapSourceDataToCSSOM() {
 
   CSSRuleVector& parsed_rules = parsed_flat_rules_;
 
-  if (page_style_sheet_->IsConstructed()) {
-    // If we are dealing with constructed stylesheets, the order
-    // of the parsed_rules matches the order of cssom_rules
-    // because the source CSS is generated based on CSSOM rules
-    // in the same order.
-    // Therefore, we can skip the expensive diff algorithm below
-    // that causes performance issues if there are subtle differences
-    // in rules due to specific issues with the CSS parser.
-    // See crbug.com/1131113, crbug.com/604023, crbug.com/1132778.
-    DCHECK(parsed_rules.size() == cssom_rules.size());
-    auto min_size = std::min(parsed_rules.size(), cssom_rules.size());
-    for (wtf_size_t i = 0; i < min_size; ++i) {
-      rule_to_source_data_.Set(i, i);
-      source_data_to_rule_.Set(i, i);
-    }
-    return;
-  }
-
   Vector<String> cssom_rules_text = Vector<String>();
   Vector<String> parsed_rules_text = Vector<String>();
   for (wtf_size_t i = 0; i < cssom_rules.size(); ++i)
@@ -2483,8 +2485,8 @@ bool InspectorStyleSheetForInlineStyle::SetText(
   {
     InspectorCSSAgent::InlineStyleOverrideScope override_scope(
         element_->GetExecutionContext());
-    element_->setAttribute(html_names::kStyleAttr, AtomicString(text),
-                           exception_state);
+    element_->SetAttributeWithValidation(html_names::kStyleAttr,
+                                         AtomicString(text), exception_state);
   }
   if (!exception_state.HadException())
     OnStyleSheetTextChanged();

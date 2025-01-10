@@ -16,32 +16,26 @@ import org.chromium.base.Callback;
 import org.chromium.base.CallbackUtils;
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.BackPressResult;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.Type;
-import org.chromium.components.cached_flags.BooleanCachedFieldTrialParameter;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * A central manager class to handle the back gesture. Every component/feature which is going to
- * intercept the back press event must implement the {@link BackPressHandler} and be registered
- * in a proper order.
- * In order to register a Handler:
- * 1. Implement {@link BackPressHandler}.
- * 2. Add a new {@link Type} which implies the order of intercepting.
- * 3. Add a new value in {@link #sMetricsMap} which stands for the histograms.
- * 4. Call {@link #addHandler(BackPressHandler, int)} to register the implementer of
- * {@link BackPressHandler} with the new defined {@link Type}.
+ * intercept the back press event must implement the {@link BackPressHandler} and be registered in a
+ * proper order. In order to register a Handler:
+ *   1. Implement {@link BackPressHandler}.
+ *   2. Add a new {@link Type} which implies the order of intercepting.
+ *   3. Add a new value in {@link #sMetricsMap} which stands for the histograms.
+ *   4. Call {@link #addHandler(BackPressHandler, int)} to register the implementer of
+ *      {@link BackPressHandler} with the new defined {@link Type}.
  */
 public class BackPressManager implements Destroyable {
-    public static final BooleanCachedFieldTrialParameter TAB_HISTORY_RECOVER =
-            ChromeFeatureList.newBooleanCachedFieldTrialParameter(
-                    ChromeFeatureList.BACK_GESTURE_REFACTOR, "tab_history_recover", false);
     private static final SparseIntArray sMetricsMap;
     private static final int sMetricsMaxValue;
 
@@ -94,7 +88,6 @@ public class BackPressManager implements Destroyable {
         @Override
         public void handleOnBackPressed() {
             if (mOnBackPressed != null) mOnBackPressed.run();
-            recordSystemBackCountIfBeforeFirstVisibleContent();
             mLastCalledHandlerType = -1;
             if (ChromeFeatureList.sLockBackPressHandlerAtStart.isEnabled()
                     && mActiveHandler != null) {
@@ -171,42 +164,19 @@ public class BackPressManager implements Destroyable {
     private final Callback<Boolean>[] mObserverCallbacks = new Callback[Type.NUM_TYPES];
     private Runnable mFallbackOnBackPressed;
     private int mLastCalledHandlerType = -1;
-    private boolean mBackBeforeFirstVisibleContentRecorded;
-    private Supplier<Boolean> mIsFirstVisibleContentDrawnSupplier;
     private Runnable mOnBackPressed;
     private Supplier<Boolean> mIsGestureNavEnabledSupplier = () -> false;
-
-    /**
-     * @return True if the back gesture refactor is enabled.
-     */
-    public static boolean isEnabled() {
-        return ChromeFeatureList.sBackGestureRefactorAndroid.isEnabled();
-    }
-
-    /**
-     * @return True if ActivityTabProvider should replace ChromeTabActivity#getActivityTab
-     */
-    public static boolean shouldUseActivityTabProvider() {
-        return isEnabled() || ChromeFeatureList.sBackGestureActivityTabProvider.isEnabled();
-    }
 
     /**
      * @return True if the tab navigation should be corrected on fallback callback.
      */
     public static boolean correctTabNavigationOnFallback() {
-        return isEnabled() && TAB_HISTORY_RECOVER.getValue();
-    }
-
-    /**
-     * @return True if app should be moved to back by manually calling `moveTaskToBack` when back is
-     *     pressed during start up. Otherwise, call `onBackPressed` to trigger default behavior.
-     */
-    public static boolean shouldMoveToBackDuringStartup() {
-        return ChromeFeatureList.sBackGestureMoveToBackDuringStartup.isEnabled();
+        return false;
     }
 
     /**
      * Record when the back press is consumed by a certain feature.
+     *
      * @param type The {@link Type} which consumes the back press event.
      */
     public static void record(@Type int type) {
@@ -328,26 +298,9 @@ public class BackPressManager implements Destroyable {
         mHasSystemBackArm = hasSystemBackArm;
     }
 
-    /** Set a supplier to provide whether first visible content has been drawn. */
-    public void setIsFirstVisibleContentDrawnSupplier(Supplier<Boolean> supplier) {
-        mIsFirstVisibleContentDrawnSupplier = supplier;
-    }
-
     /** Set a supplier to provide whether gesture nav mode is on when called. */
     public void setIsGestureNavEnabledSupplier(Supplier<Boolean> supplier) {
         mIsGestureNavEnabledSupplier = supplier;
-    }
-
-    /**
-     * Record if back press occurs before first visible content is drawn. TODO(crbug.com/40944523):
-     * remove after it is fixed.
-     */
-    public void recordSystemBackCountIfBeforeFirstVisibleContent() {
-        if (mBackBeforeFirstVisibleContentRecorded) return;
-        if (mIsFirstVisibleContentDrawnSupplier != null
-                && mIsFirstVisibleContentDrawnSupplier.get()) return;
-        mBackBeforeFirstVisibleContentRecorded = true;
-        RecordUserAction.record("SystemBackBeforeFirstVisibleContent");
     }
 
     private void backPressStateChanged() {

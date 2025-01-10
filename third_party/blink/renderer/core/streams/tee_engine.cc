@@ -9,7 +9,6 @@
 #include "third_party/blink/renderer/core/execution_context/agent.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/streams/miscellaneous_operations.h"
-#include "third_party/blink/renderer/core/streams/promise_handler.h"
 #include "third_party/blink/renderer/core/streams/read_request.h"
 #include "third_party/blink/renderer/core/streams/readable_stream.h"
 #include "third_party/blink/renderer/core/streams/readable_stream_controller.h"
@@ -323,8 +322,7 @@ void TeeEngine::Start(ScriptState* script_state,
 
   // 12. Let cancelPromise be a new promise.
   cancel_promise_ =
-      MakeGarbageCollected<ScriptPromiseResolver<IDLPromise<IDLUndefined>>>(
-          script_state);
+      MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(script_state);
 
   // 13. Let pullAlgorithm be the following steps:
   // (steps are defined in PullAlgorithm::Run()).
@@ -369,22 +367,21 @@ void TeeEngine::Start(ScriptState* script_state,
     controller_[branch] = To<ReadableStreamDefaultController>(controller);
   }
 
-  class RejectFunction final : public PromiseHandler {
+  class RejectFunction final : public ThenCallable<IDLAny, RejectFunction> {
    public:
     explicit RejectFunction(TeeEngine* engine) : engine_(engine) {}
 
-    void CallWithLocal(ScriptState* script_state,
-                       v8::Local<v8::Value> r) override {
+    void React(ScriptState* script_state, ScriptValue r) {
       // 18. Upon rejection of reader.[[closedPromise]] with reason r,
       //   a. Perform ! ReadableStreamDefaultControllerError(branch1.
       //      [[readableStreamController]], r).
-      ReadableStreamDefaultController::Error(script_state,
-                                             engine_->controller_[0], r);
+      ReadableStreamDefaultController::Error(
+          script_state, engine_->controller_[0], r.V8Value());
 
       //   b. Perform ! ReadableStreamDefaultControllerError(branch2.
       //      [[readableStreamController]], r).
-      ReadableStreamDefaultController::Error(script_state,
-                                             engine_->controller_[1], r);
+      ReadableStreamDefaultController::Error(
+          script_state, engine_->controller_[1], r.V8Value());
 
       // TODO(ricea): Implement https://github.com/whatwg/streams/pull/1045 so
       // this step can be numbered correctly.
@@ -397,7 +394,7 @@ void TeeEngine::Start(ScriptState* script_state,
 
     void Trace(Visitor* visitor) const override {
       visitor->Trace(engine_);
-      PromiseHandler::Trace(visitor);
+      ThenCallable<IDLAny, RejectFunction>::Trace(visitor);
     }
 
    private:
@@ -405,11 +402,8 @@ void TeeEngine::Start(ScriptState* script_state,
   };
 
   // 19. Upon rejection of reader.[[closedPromise]] with reason r,
-  StreamThenPromise(
-      script_state->GetContext(), reader_->closed(script_state).V8Promise(),
-      nullptr,
-      MakeGarbageCollected<ScriptFunction>(
-          script_state, MakeGarbageCollected<RejectFunction>(this)));
+  reader_->closed(script_state)
+      .Catch(script_state, MakeGarbageCollected<RejectFunction>(this));
 
   // Step "20. Return « branch1, branch2 »."
   // is performed by the caller.

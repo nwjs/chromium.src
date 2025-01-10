@@ -158,7 +158,7 @@ void ClientSession::NotifyClientResolution(
   webrtc::DesktopVector dpi_vector{kDefaultDpi, kDefaultDpi};
 #if BUILDFLAG(IS_WIN)
   // Matching the client DPI is only supported on Windows when curtained.
-  if (desktop_environment_options_.enable_curtaining()) {
+  if (effective_policies_.curtain_required.value_or(false)) {
     dpi_vector.set(resolution.x_dpi(), resolution.y_dpi());
   }
 #elif BUILDFLAG(IS_LINUX)
@@ -524,6 +524,16 @@ void ClientSession::OnConnectionAuthenticated(
                                 weak_factory_.GetWeakPtr()));
     HOST_LOG << "Connection authenticated with local session policies: "
              << effective_policies_;
+  }
+
+  std::optional<ErrorCode> validation_result =
+      event_handler_->OnSessionPoliciesReceived(effective_policies_);
+
+  if (validation_result.has_value()) {
+    LOG(ERROR) << "Session policies disallowed by validator. Error code: "
+               << static_cast<int>(*validation_result);
+    DisconnectSession(*validation_result);
+    return;
   }
 
   base::TimeDelta max_duration =

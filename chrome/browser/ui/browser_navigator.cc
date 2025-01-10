@@ -365,9 +365,8 @@ std::tuple<Browser*, int> GetBrowserAndTabForDisposition(
     case WindowOpenDisposition::IGNORE_ACTION:
       return {nullptr, -1};
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
-  return {nullptr, -1};
 }
 
 // Fix disposition and other parameter values depending on prevailing
@@ -479,10 +478,13 @@ base::WeakPtr<content::NavigationHandle> LoadURLInContents(
         params->url_typed_with_http_scheme ||
         params->captive_portal_window_type !=
             captive_portal::CaptivePortalWindowType::kNone;
-    load_url_params.navigation_ui_data =
+    std::unique_ptr<ChromeNavigationUIData> navigation_ui_data =
         ChromeNavigationUIData::CreateForMainFrameNavigation(
             target_contents, params->disposition,
             params->is_using_https_as_default_scheme, force_no_https_upgrade);
+    navigation_ui_data->set_navigation_initiated_from_sync(
+        params->navigation_initiated_from_sync);
+    load_url_params.navigation_ui_data = std::move(navigation_ui_data);
   }
 
   if (params->post_data) {
@@ -818,15 +820,18 @@ base::WeakPtr<content::NavigationHandle> Navigate(NavigateParams* params) {
   // TODO(crbug.com/364657540): Revisit integration with web_application system
   // later if needed.
   int singleton_index;
-  web_app::AppNavigationResult app_navigation_result;
-#if !BUILDFLAG(IS_ANDROID)
-  app_navigation_result = web_app::MaybeHandleAppNavigation(*params);
-#endif  // !BUILDFLAG(IS_ANDROID)
 
+#if !BUILDFLAG(IS_ANDROID)
+  web_app::AppNavigationResult app_navigation_result =
+      web_app::MaybeHandleAppNavigation(*params);
   std::tie(params->browser, singleton_index) =
-      app_navigation_result.browser_tab_override.has_value()
-          ? app_navigation_result.browser_tab_override.value()
+      app_navigation_result.browser_tab_override().has_value()
+          ? *app_navigation_result.browser_tab_override()
           : GetBrowserAndTabForDisposition(*params);
+#else  // !BUILDFLAG(IS_ANDROID)
+  std::tie(params->browser, singleton_index) =
+      GetBrowserAndTabForDisposition(*params);
+#endif
 
   if (!params->browser) {
     return nullptr;

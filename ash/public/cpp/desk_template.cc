@@ -76,7 +76,6 @@ bool DeskTemplate::IsAppTypeSupported(aura::Window* window) {
     case chromeos::AppType::NON_APP:
     case chromeos::AppType::CROSTINI_APP:
       return false;
-    case chromeos::AppType::LACROS:
     case chromeos::AppType::ARC_APP:
     case chromeos::AppType::BROWSER:
     case chromeos::AppType::CHROME_APP:
@@ -158,6 +157,9 @@ std::string DeskTemplate::GetDeskTemplateInfo(bool for_debugging) const {
       break;
     case DeskTemplateType::kSaveAndRecall:
       result += "save and recall\n";
+      break;
+    case DeskTemplateType::kCoral:
+      result += "coral\n";
       break;
     case DeskTemplateType::kFloatingWorkspace:
       result += "floating workspace\n";

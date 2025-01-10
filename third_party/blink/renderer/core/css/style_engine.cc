@@ -798,13 +798,13 @@ void StyleEngine::UpdateCounters(const Element& element,
   if (layout_object) {
     context.EnterObject(*layout_object);
     if (auto* ng_list_item = DynamicTo<LayoutListItem>(layout_object)) {
-      if (!ng_list_item->Ordinal().ExplicitValue().has_value()) {
+      if (!ng_list_item->Ordinal().UseExplicitValue()) {
         ng_list_item->Ordinal().MarkDirty();
         ng_list_item->OrdinalValueChanged();
       }
     } else if (auto* inline_list_item =
                    DynamicTo<LayoutInlineListItem>(layout_object)) {
-      if (!inline_list_item->Ordinal().ExplicitValue().has_value()) {
+      if (!inline_list_item->Ordinal().UseExplicitValue()) {
         inline_list_item->Ordinal().MarkDirty();
         inline_list_item->OrdinalValueChanged();
       }
@@ -1140,19 +1140,18 @@ void StyleEngine::MarkViewportUnitDirty(ViewportUnitFlag flag) {
 
 namespace {
 
-void SetNeedsStyleRecalcForViewportUnits(TreeScope& tree_scope,
-                                         unsigned dirty_flags) {
+template <typename Func>
+void MarkElementsForRecalc(TreeScope& tree_scope,
+                           const StyleChangeReasonForTracing& reason,
+                           Func predicate) {
   for (Element* element = ElementTraversal::FirstWithin(tree_scope.RootNode());
        element; element = ElementTraversal::NextIncludingPseudo(*element)) {
     if (ShadowRoot* root = element->GetShadowRoot()) {
-      SetNeedsStyleRecalcForViewportUnits(*root, dirty_flags);
+      MarkElementsForRecalc(*root, reason, predicate);
     }
     const ComputedStyle* style = element->GetComputedStyle();
-    if (style && ((style->ViewportUnitFlags() & dirty_flags) ||
-                  style->HighlightPseudoElementStylesDependOnViewportUnits())) {
-      element->SetNeedsStyleRecalc(kLocalStyleChange,
-                                   StyleChangeReasonForTracing::Create(
-                                       style_change_reason::kViewportUnits));
+    if (style && predicate(*style)) {
+      element->SetNeedsStyleRecalc(kLocalStyleChange, reason);
     }
   }
 }
@@ -1175,7 +1174,13 @@ void StyleEngine::InvalidateViewportUnitStylesIfNeeded() {
     return;
   }
 
-  SetNeedsStyleRecalcForViewportUnits(GetDocument(), dirty_flags);
+  const auto& reason =
+      StyleChangeReasonForTracing::Create(style_change_reason::kViewportUnits);
+  MarkElementsForRecalc(
+      GetDocument(), reason, [dirty_flags](const ComputedStyle& style) {
+        return (style.ViewportUnitFlags() & dirty_flags) ||
+               style.HighlightPseudoElementStylesDependOnViewportUnits();
+      });
 }
 
 void StyleEngine::InvalidateStyleAndLayoutForFontUpdates() {
@@ -1252,9 +1257,8 @@ bool StyleEngine::ShouldSkipInvalidationFor(const Element& element) const {
   }
   if (!global_rule_set_) {
     // TODO(crbug.com/1175902): This is a speculative fix for a crash.
-    NOTREACHED_IN_MIGRATION()
+    NOTREACHED()
         << "global_rule_set_ should only be null for inactive documents.";
-    return true;
   }
   if (GetDocument().InStyleRecalc()) {
 #if DCHECK_IS_ON()
@@ -1731,26 +1735,21 @@ namespace {
 
 bool HasAttributeDependentGeneratedContent(const Element& element) {
   DCHECK(!RuntimeEnabledFeatures::CSSAdvancedAttrFunctionEnabled());
-  if (PseudoElement* before = element.GetPseudoElement(kPseudoIdBefore)) {
-    const ComputedStyle* style = before->GetComputedStyle();
-    if (style && style->HasAttrFunction()) {
-      return true;
+
+  const auto HasAttrFunc = [](PseudoElement* pseudo_element) {
+    if (!pseudo_element) {
+      return false;
     }
-  }
-  if (PseudoElement* after = element.GetPseudoElement(kPseudoIdAfter)) {
-    const ComputedStyle* style = after->GetComputedStyle();
-    if (style && style->HasAttrFunction()) {
-      return true;
-    }
-  }
-  if (PseudoElement* scroll_marker =
-          element.GetPseudoElement(kPseudoIdScrollMarker)) {
-    const ComputedStyle* style = scroll_marker->GetComputedStyle();
-    if (style && style->HasAttrFunction()) {
-      return true;
-    }
-  }
-  return false;
+
+    const ComputedStyle* style = pseudo_element->GetComputedStyle();
+    return style && style->HasAttrFunction();
+  };
+
+  return HasAttrFunc(element.GetPseudoElement(kPseudoIdCheck)) ||
+         HasAttrFunc(element.GetPseudoElement(kPseudoIdBefore)) ||
+         HasAttrFunc(element.GetPseudoElement(kPseudoIdAfter)) ||
+         HasAttrFunc(element.GetPseudoElement(kPseudoIdSelectArrow)) ||
+         HasAttrFunc(element.GetPseudoElement(kPseudoIdScrollMarker));
 }
 
 bool HasAttributeDependentStyle(const Element& element) {
@@ -3075,13 +3074,13 @@ const MediaQueryEvaluator& StyleEngine::EnsureMediaQueryEvaluator() {
   return *media_query_evaluator_;
 }
 
-bool StyleEngine::StyleMaybeAffectedByLayout(const Node& node) {
+bool StyleEngine::StyleMaybeAffectedByLayout(const Element& element) {
   // Note that the StyleAffectedByLayout flag is set based on which
   // ComputedStyles we've resolved previously. Since style resolution may never
   // reach elements in display:none, we defensively treat any null-or-ensured
   // ComputedStyle as affected by layout.
   return StyleAffectedByLayout() ||
-         ComputedStyle::IsNullOrEnsured(node.GetComputedStyle());
+         ComputedStyle::IsNullOrEnsured(element.GetComputedStyle());
 }
 
 bool StyleEngine::UpdateRootFontRelativeUnits(
@@ -3123,16 +3122,28 @@ void StyleEngine::PropertyRegistryChanged() {
 }
 
 void StyleEngine::EnvironmentVariableChanged() {
-  MarkAllElementsForStyleRecalc(StyleChangeReasonForTracing::Create(
-      style_change_reason::kPropertyRegistration));
+  is_env_dirty_ = true;
   if (resolver_) {
     resolver_->InvalidateMatchedPropertiesCache();
   }
+  GetDocument().ScheduleLayoutTreeUpdateIfNeeded();
+}
+
+void StyleEngine::InvalidateEnvDependentStylesIfNeeded() {
+  if (!is_env_dirty_) {
+    return;
+  }
+  is_env_dirty_ = false;
+  const auto& reason = StyleChangeReasonForTracing::Create(
+      style_change_reason::kEnvironmentVariableChanged);
+  MarkElementsForRecalc(GetDocument(), reason, [](const ComputedStyle& style) {
+    return style.HasEnv();
+  });
 }
 
 void StyleEngine::NodeWillBeRemoved(Node& node) {
   if (auto* element = DynamicTo<Element>(node)) {
-    if (const ComputedStyle* style = node.GetComputedStyle();
+    if (const ComputedStyle* style = element->GetComputedStyle();
         style && style->GetCounterDirectives()) {
       MarkCountersDirty();
     }
@@ -3654,7 +3665,6 @@ void StyleEngine::UpdateStyleAndLayoutTreeForContainer(
   if (StyleContainmentScopeTree* tree = GetStyleContainmentScopeTree()) {
     tree->UpdateQuotes();
   }
-  UpdateCounters();
   if (container == GetDocument().documentElement()) {
     // If the container is the root element, there may be body styles which have
     // changed as a result of the new container query evaluation, and if
@@ -3741,8 +3751,8 @@ void StyleEngine::RecalcPositionTryStyleForPseudoElement(
   SkipStyleRecalcScope skip_scope(*this);
   CheckPseudoHasCacheScope check_pseudo_has_cache_scope(
       &GetDocument(), /*within-selector_checking=*/false);
-  SelectorFilterRootScope filter_scope(
-      FlatTreeTraversal::ParentElement(*pseudo_element.OriginatingElement()));
+  SelectorFilterRootScope filter_scope(FlatTreeTraversal::ParentElement(
+      *pseudo_element.UltimateOriginatingElement()));
   pseudo_element.RecalcStyle(style_recalc_change, style_recalc_context);
 }
 
@@ -4036,8 +4046,10 @@ StyleEngine::AncestorAnalysis StyleEngine::AnalyzeInclusiveAncestor(
   if (IsRootOrSibling(style_invalidation_root_.GetRootNode(), node)) {
     return AncestorAnalysis::kStyleRoot;
   }
-  if (ComputedStyle::IsInterleavingRoot(node.GetComputedStyle())) {
-    return AncestorAnalysis::kInterleavingRoot;
+  if (auto* element = DynamicTo<Element>(node)) {
+    if (ComputedStyle::IsInterleavingRoot(element->GetComputedStyle())) {
+      return AncestorAnalysis::kInterleavingRoot;
+    }
   }
   return AncestorAnalysis::kNone;
 }
@@ -4338,7 +4350,7 @@ void StyleEngine::UpdateViewportStyle() {
 
 bool StyleEngine::NeedsFullStyleUpdate() const {
   return NeedsActiveStyleUpdate() || IsViewportStyleDirty() ||
-         viewport_unit_dirty_flags_;
+         viewport_unit_dirty_flags_ || is_env_dirty_;
 }
 
 void StyleEngine::PropagateWritingModeAndDirectionToHTMLRoot() {

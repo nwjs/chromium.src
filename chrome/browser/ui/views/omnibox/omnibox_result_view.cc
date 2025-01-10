@@ -209,7 +209,12 @@ OmniboxResultView::OmniboxResultView(OmniboxPopupViewViews* popup_view,
       std::make_unique<views::FlexLayout>());
   suggestion_and_button_row->SetProperty(
       views::kFlexBehaviorKey,
-      views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,
+      // FlexSpecification has multiple constructors, and if no direction is
+      // specified, the settings will be used in both horizontal and vertical
+      // directions. Therefore, we must specify the horizontal direction.
+      // Otherwise, the vertical height will be stretched.
+      views::FlexSpecification(views::LayoutOrientation::kHorizontal,
+                               views::MinimumFlexSizeRule::kScaleToZero,
                                views::MaximumFlexSizeRule::kUnbounded));
 
   suggestion_view_ = suggestion_and_button_row->AddChildView(
@@ -266,7 +271,7 @@ OmniboxResultView::OmniboxResultView(OmniboxPopupViewViews* popup_view,
               &OmniboxResultView::ButtonPressed, base::Unretained(this),
               OmniboxPopupSelection::FOCUSED_BUTTON_THUMBS_DOWN)));
   thumbs_down_button_->SetProperty(views::kMarginsKey,
-                                   gfx::Insets::TLBR(0, 0, 0, 16));
+                                   gfx::Insets::TLBR(0, 0, 0, 8));
   views::InstallCircleHighlightPathGenerator(thumbs_down_button_);
   thumbs_down_button_->SetTooltipText(
       l10n_util::GetStringUTF16(IDS_OMNIBOX_THUMBS_DOWN_SUGGESTION));
@@ -386,6 +391,7 @@ void OmniboxResultView::SetMatch(const AutocompleteMatch& match) {
 
   ApplyThemeAndRefreshIcons();
   InvalidateLayout();
+  UpdateAccessibleName();
 }
 
 void OmniboxResultView::ApplyThemeAndRefreshIcons(bool force_reapply_styles) {
@@ -737,7 +743,7 @@ void OmniboxResultView::UpdateAccessibleName() {
   // The positional info is provided via
   // ax::mojom::IntAttribute::kPosInSet/SET_SIZE and providing it via text as
   // well would result in duplicate announcements.
-  std::u16string label;
+
   const auto* autocomplete_controller =
       popup_view_->controller()->autocomplete_controller();
 
@@ -745,13 +751,12 @@ void OmniboxResultView::UpdateAccessibleName() {
   // because |match_| already has its contents and description swapped by this
   // class, and we don't want that for the bubble. We should improve this.
   bool is_selected = GetMatchSelected();
-
   if (model_index_ < autocomplete_controller->result().size()) {
     AutocompleteMatch raw_match =
         autocomplete_controller->result().match_at(model_index_);
     // The selected match can have a special name, e.g. when is one or more
     // buttons that can be tabbed to.
-
+    std::u16string label;
     if (is_selected) {
       // The selected match can have a special name, e.g. when is one or more
       // buttons that can be tabbed to.

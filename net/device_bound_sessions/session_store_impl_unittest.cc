@@ -204,7 +204,7 @@ class SessionStoreImplTest : public testing::Test {
 };
 
 TEST_F(SessionStoreImplTest, FailDBLoadFromInvalidPath) {
-  base::FilePath invalid_path(FILE_PATH_LITERAL("o:\\inaccessible-path"));
+  base::FilePath invalid_path(FILE_PATH_LITERAL("o://inaccessible-path"));
   CreateStore(invalid_path);
   LoadSessions();
   EXPECT_FALSE(store().db_status() == SessionStoreImpl::DBStatus::kSuccess);
@@ -277,8 +277,11 @@ TEST_F(SessionStoreImplTest, UpdateExistingSession) {
   store().SaveSession(site, *session);
   EXPECT_EQ(store().GetAllSessions().size(), 1u);
 
-  // Modify the existing session and save it again to the store.
-  session->set_expiry_date(base::Time::Now());
+  // Modify the existing session and save it again to the store. The
+  // save will fail if time advances past the expiry date, so use a 10
+  // second margin of safety. This is arbitrary, as long as it's longer
+  // than it takes to save a session.
+  session->set_expiry_date(base::Time::Now() + base::Seconds(10));
   store().SaveSession(site, *session);
 
   // Retrieve the session from the store and check that its contents

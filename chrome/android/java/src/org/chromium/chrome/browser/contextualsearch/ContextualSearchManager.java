@@ -59,6 +59,7 @@ import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
 import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
 import org.chromium.components.external_intents.ExternalNavigationHandler;
 import org.chromium.components.external_intents.ExternalNavigationHandler.OverrideUrlLoadingResultType;
@@ -116,7 +117,7 @@ public class ContextualSearchManager
     // How long to wait for a tap near a previous tap before hiding the UI or showing a re-Tap.
     // This setting is not critical: in practice it determines how long to wait after an invalid
     // tap for the page to respond before hiding the UI. Specifically this setting just needs to be
-    // long enough for Blink's decisions before calling handleShowUnhandledTapUIIfNeeded (which
+    // long enough for Blink's decisions before calling handleShowUnhandledTapUiIfNeeded (which
     // probably are page-dependent), and short enough that the Bar goes away fairly quickly after a
     // tap on non-text or whitespace: We currently do not get notification in these cases (hence the
     // timer).
@@ -339,6 +340,7 @@ public class ContextualSearchManager
      * @param toolbarManager The manager of the toolbar, used to query toolbar state.
      * @param canPromoteToNewTab Whether the Conextual search panel can be promoted to a new tab.
      * @param intentRequestTracker The {@link IntentRequestTracker} of the current activity.
+     * @param desktopWindowStateManager Manager to get desktop window and app header state.
      */
     public void initialize(
             @NonNull ViewGroup parentView,
@@ -348,7 +350,8 @@ public class ContextualSearchManager
             float toolbarHeightDp,
             @NonNull ToolbarManager toolbarManager,
             boolean canPromoteToNewTab,
-            @NonNull IntentRequestTracker intentRequestTracker) {
+            @NonNull IntentRequestTracker intentRequestTracker,
+            DesktopWindowStateManager desktopWindowStateManager) {
         mNativeContextualSearchManagerPtr = ContextualSearchManagerJni.get().init(this, mProfile);
 
         mParentView = parentView;
@@ -369,7 +372,8 @@ public class ContextualSearchManager
                         toolbarManager,
                         canPromoteToNewTab,
                         mTabSupplier,
-                        mEdgeToEdgeControllerSupplier);
+                        mEdgeToEdgeControllerSupplier,
+                        desktopWindowStateManager);
         panel.setManagementDelegate(this);
 
         setContextualSearchPanel(panel);
@@ -1486,9 +1490,9 @@ public class ContextualSearchManager
         public void cancelAllRequests() {}
     }
 
-    /** Shows the Unhandled Tap UI.  Called by {@link ContextualSearchTabHelper}. */
-    void onShowUnhandledTapUIIfNeeded(int x, int y) {
-        mSelectionController.handleShowUnhandledTapUIIfNeeded(x, y);
+    /** Shows the Unhandled Tap UI. Called by {@link ContextualSearchTabHelper}. */
+    void onShowUnhandledTapUiIfNeeded(int x, int y) {
+        mSelectionController.handleShowUnhandledTapUiIfNeeded(x, y);
     }
 
     // ============================================================================================
@@ -1496,9 +1500,8 @@ public class ContextualSearchManager
     // ============================================================================================
 
     /**
-     * Returns a new {@code GestureStateListener} that will listen for events in the Base Page.
-     * This listener will handle all Contextual Search-related interactions that go through the
-     * listener.
+     * Returns a new {@code GestureStateListener} that will listen for events in the Base Page. This
+     * listener will handle all Contextual Search-related interactions that go through the listener.
      */
     public GestureStateListener getGestureStateListener() {
         return mSelectionController.getGestureStateListener();

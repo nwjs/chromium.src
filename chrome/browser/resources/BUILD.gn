@@ -56,7 +56,6 @@ group("resources") {
       "settings_shared:resources",
       "side_panel/bookmarks:resources",
       "side_panel/commerce:resources",
-      "side_panel/companion:resources",
       "side_panel/customize_chrome:resources",
       "side_panel/history_clusters:resources",
       "side_panel/read_anything:resources",
@@ -107,11 +106,7 @@ group("resources") {
   }
 
   if (is_chromeos) {
-    public_deps += [ "dlp_internals:resources" ]
-  }
-
-  if (is_win || is_mac || is_linux || is_chromeos_lacros) {
-    public_deps += [ "browser_switch:resources" ]
+    public_deps += [ "chromeos/dlp_internals:resources" ]
   }
 
   if (is_win || is_mac || is_linux || is_chromeos) {
@@ -122,11 +117,9 @@ group("resources") {
     public_deps += [
       "app_home:resources",
       "app_settings:resources",
+      "browser_switch:resources",
+      "on_device_translation_internals:resources",
     ]
-  }
-
-  if (is_win || is_mac || is_linux) {
-    public_deps += [ "on_device_translation_internals:resources" ]
   }
 
   if (is_linux || is_chromeos) {

@@ -16,9 +16,11 @@
 #include "chrome/browser/ui/views/autofill/popup/popup_base_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_cell_utils.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_content_view.h"
+#include "chrome/browser/ui/views/autofill/popup/popup_row_view.h"
+#include "chrome/browser/ui/views/autofill/popup/popup_view_utils.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "components/autofill/core/browser/ui/suggestion_button_action.h"
-#include "components/autofill_prediction_improvements/core/browser/autofill_prediction_improvements_features.h"
+#include "components/autofill_ai/core/browser/autofill_ai_features.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -65,7 +67,7 @@ std::unique_ptr<PopupRowContentView> CreateFeedbackContentView(
       views::BoxLayout::Orientation::kVertical);
   feedback_outer_container->SetMainAxisAlignment(
       views::LayoutAlignment::kStart);
-  if (autofill_prediction_improvements::kShowDetailsText.Get()) {
+  if (autofill_ai::kShowDetailsText.Get()) {
     feedback_outer_container->AddChildView(
         views::Builder<views::Label>()
             .SetText(l10n_util::GetStringUTF16(
@@ -286,6 +288,16 @@ bool PopupRowPredictionImprovementsFeedbackView::HandleKeyPressEvent(
   }
 
   return PopupRowView::HandleKeyPressEvent(event);
+}
+
+void PopupRowPredictionImprovementsFeedbackView::OnCellSelected(
+    std::optional<CellType> type,
+    PopupCellSelectionSource source) {
+  if (source == PopupCellSelectionSource::kMouse) {
+    return;
+  }
+
+  PopupRowView::OnCellSelected(type, source);
 }
 
 views::View&

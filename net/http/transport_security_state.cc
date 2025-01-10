@@ -40,6 +40,7 @@
 #include "net/base/features.h"
 #include "net/base/hash_value.h"
 #include "net/base/host_port_pair.h"
+#include "net/base/url_util.h"
 #include "net/cert/ct_policy_status.h"
 #include "net/cert/x509_certificate.h"
 #include "net/dns/dns_names_util.h"
@@ -105,7 +106,7 @@ std::vector<uint8_t> CanonicalizeHost(std::string_view host) {
     return std::vector<uint8_t>();
   }
 
-  return new_host.value();
+  return std::move(new_host).value();
 }
 
 // PreloadResult is the result of resolving a specific name in the preloaded
@@ -284,10 +285,16 @@ SSLUpgradeDecision TransportSecurityState::GetSSLUpgradeDecision(
       NetLogEventType::TRANSPORT_SECURITY_STATE_SHOULD_UPGRADE_TO_SSL,
       [&] { return NetLogUpgradeToSSLParam(host); });
   STSState sts_state;
+  // Check the dynamic list first (removing the entry if expired).
   if (GetDynamicSTSState(host, &sts_state)) {
-    if (sts_state.ShouldUpgradeToSSL()) {
-      // If the static state also requires an upgrade, the dynamic state didn't
-      // need to be used in the decision.
+    // [*.]localhost hosts now ignore Strict-Transport-Security response
+    // headers, but an entry may have been stored before this restriction
+    // was introduced (crbug.com/41251622).
+    if (sts_state.ShouldUpgradeToSSL() &&
+        !(net::IsLocalHostname(host) &&
+          base::FeatureList::IsEnabled(features::kIgnoreHSTSForLocalhost))) {
+      // If the static state also requires an upgrade, the dynamic state
+      // didn't need to be used in the decision.
       STSState static_sts_state;
       if (GetStaticSTSState(host, &static_sts_state) &&
           static_sts_state.ShouldUpgradeToSSL()) {
@@ -606,6 +613,13 @@ size_t TransportSecurityState::num_sts_entries() const {
   return enabled_sts_hosts_.size();
 }
 
+#if BUILDFLAG(INCLUDE_TRANSPORT_SECURITY_STATE_PRELOAD_LIST)
+// static
+base::Time TransportSecurityState::GetBuiltInPinsListTimestamp() {
+  return kPinsListTimestamp;
+}
+#endif
+
 // static
 bool TransportSecurityState::IsBuildTimely() {
   const base::Time build_time = base::GetBuildTime();
@@ -684,7 +698,7 @@ bool TransportSecurityState::GetStaticPKPState(const std::string& host,
         pkp_result->last_observed = key_pins_list_last_update_time_;
         pkp_result->include_subdomains = iter->second.second;
         const PinSet* pinset = iter->second.first;
-        for (auto hash : pinset->static_spki_hashes()) {
+        for (const auto& hash : pinset->static_spki_hashes()) {
           // If the update is malformed, it's preferable to skip the hash than
           // crash.
           if (hash.size() == 32) {
@@ -692,7 +706,7 @@ bool TransportSecurityState::GetStaticPKPState(const std::string& host,
                     &pkp_result->spki_hashes);
           }
         }
-        for (auto hash : pinset->bad_static_spki_hashes()) {
+        for (const auto& hash : pinset->bad_static_spki_hashes()) {
           // If the update is malformed, it's preferable to skip the hash than
           // crash.
           if (hash.size() == 32) {

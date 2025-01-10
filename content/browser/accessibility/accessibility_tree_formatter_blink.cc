@@ -68,9 +68,7 @@ std::string IntAttrToString(const ui::AXNode& node,
                             int32_t value) {
   if (ui::IsNodeIdIntAttribute(attr)) {
     // Relation
-    ui::AXTreeID tree_id = node.tree()->GetAXTreeID();
-    ui::AXNode* target =
-        ui::AXTreeManager::FromID(tree_id)->GetNodeFromTree(tree_id, value);
+    const ui::AXNode* target = node.tree()->GetFromId(value);
     if (!target) {
       return "null";
     }
@@ -265,8 +263,7 @@ base::Value::Dict AccessibilityTreeFormatterBlink::BuildTree(
 
 base::Value::Dict AccessibilityTreeFormatterBlink::BuildTreeForSelector(
     const AXTreeSelector& selector) const {
-  NOTREACHED_IN_MIGRATION();
-  return base::Value::Dict();
+  NOTREACHED();
 }
 
 base::Value::Dict AccessibilityTreeFormatterBlink::BuildTreeForNode(
@@ -834,8 +831,7 @@ std::string AccessibilityTreeFormatterBlink::ProcessTreeForOutput(
             &line);
         break;
       default:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
     }
   }
 

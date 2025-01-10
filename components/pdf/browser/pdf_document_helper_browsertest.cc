@@ -19,8 +19,8 @@
 #include "pdf/pdf_features.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "ui/base/pointer/touch_editing_controller.h"
 #include "ui/gfx/selection_bound.h"
+#include "ui/touch_selection/touch_editing_controller.h"
 
 namespace pdf {
 
@@ -71,6 +71,8 @@ class TestPDFDocumentHelperClient : public PDFDocumentHelperClient {
     start_ = start;
     end_ = end;
   }
+  void OnSearchifyStateChange(bool busy,
+                              content::WebContents* contents) override {}
 
  private:
   // The last bounds reported by PDFDocumentHelper.

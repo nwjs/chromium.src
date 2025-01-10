@@ -19,6 +19,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.LinearLayout.LayoutParams;
 
@@ -50,9 +51,13 @@ import org.chromium.chrome.browser.metrics.UmaSessionStats;
 import org.chromium.chrome.browser.night_mode.GlobalNightModeStateProviderHolder;
 import org.chromium.chrome.browser.night_mode.NightModeStateProvider;
 import org.chromium.chrome.browser.night_mode.NightModeUtils;
+import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
+import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeManager;
 import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeStateProvider;
+import org.chromium.components.browser_ui.edge_to_edge.layout.EdgeToEdgeLayoutCoordinator;
 import org.chromium.components.browser_ui.util.AutomotiveUtils;
-import org.chromium.components.cached_flags.BooleanCachedFieldTrialParameter;
+import org.chromium.ui.InsetObserver;
+import org.chromium.ui.base.ImmutableWeakReference;
 import org.chromium.ui.display.DisplaySwitches;
 import org.chromium.ui.display.DisplayUtil;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -97,19 +102,14 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
         int NONE = -1;
     }
 
-    public static final String DEFAULT_FONT_FAMILY_TESTING_PARAM = "dev_testing";
-    public static final BooleanCachedFieldTrialParameter DEFAULT_FONT_FAMILY_TESTING =
-            ChromeFeatureList.newBooleanCachedFieldTrialParameter(
-                    ChromeFeatureList.ANDROID_GOOGLE_SANS_TEXT,
-                    DEFAULT_FONT_FAMILY_TESTING_PARAM,
-                    false);
-
     private final ObservableSupplierImpl<ModalDialogManager> mModalDialogManagerSupplier =
             new ObservableSupplierImpl<>();
     private NightModeStateProvider mNightModeStateProvider;
     private LinkedHashSet<Integer> mThemeResIds = new LinkedHashSet<>();
     private ServiceTracingProxyProvider mServiceTracingProxyProvider;
+    private InsetObserver mInsetObserver;
     private EdgeToEdgeStateProvider mEdgeToEdgeStateProvider;
+    private EdgeToEdgeLayoutCoordinator mEdgeToEdgeLayoutCoordinator;
 
     @Override
     protected void attachBaseContext(Context newBase) {
@@ -156,6 +156,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         BundleUtils.restoreLoadedSplits(savedInstanceState);
+
         mEdgeToEdgeStateProvider = new EdgeToEdgeStateProvider(getWindow());
         mModalDialogManagerSupplier.set(createModalDialogManager());
 
@@ -170,6 +171,12 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
         GlobalAppLocaleController.getInstance().maybeOverrideContextConfig(this);
 
         setDefaultTaskDescription();
+
+        mInsetObserver = createInsetObserver();
+        if (EdgeToEdgeUtils.isEdgeToEdgeEverywhereEnabled()) {
+            mEdgeToEdgeLayoutCoordinator = getEdgeToEdgeLayoutCoordinator();
+        }
+        new EdgeToEdgeManager(mEdgeToEdgeStateProvider, supportsEdgeToEdge());
     }
 
     @Override
@@ -178,6 +185,10 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
         if (mModalDialogManagerSupplier.get() != null) {
             mModalDialogManagerSupplier.get().destroy();
             mModalDialogManagerSupplier.set(null);
+        }
+        if (mEdgeToEdgeLayoutCoordinator != null) {
+            mEdgeToEdgeLayoutCoordinator.destroy();
+            mEdgeToEdgeLayoutCoordinator = null;
         }
         super.onDestroy();
     }
@@ -262,6 +273,26 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
         return null;
     }
 
+    private EdgeToEdgeLayoutCoordinator getEdgeToEdgeLayoutCoordinator() {
+        if (mEdgeToEdgeLayoutCoordinator == null) {
+            mEdgeToEdgeLayoutCoordinator = new EdgeToEdgeLayoutCoordinator(this, mInsetObserver);
+        }
+        return mEdgeToEdgeLayoutCoordinator;
+    }
+
+    /** Returns whether this activity should draw its content edge-to-edge by default. */
+    protected boolean supportsEdgeToEdge() {
+        return EdgeToEdgeUtils.isEdgeToEdgeEverywhereEnabled();
+    }
+
+    /**
+     * Returns true if the content hosted by this activity should fit within the window insets, or
+     * false if the content can extend beyond the insets and draw edge-to-edge.
+     */
+    protected boolean shouldContentFitWindowInsets() {
+        return supportsEdgeToEdge();
+    }
+
     /**
      * Called during {@link #attachBaseContext(Context)} to allow configuration overrides to be
      * applied. If this methods return true, the overrides will be applied using {@link
@@ -318,6 +349,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
         // Note that if you're adding new overlays here, it's quite likely they're needed
         // in org.chromium.chrome.browser.WarmupManager#applyContextOverrides for Custom Tabs
         // UI that's pre-inflated using a themed application context as part of CCT warmup.
+        // Note: this should be called before any calls to `Window#getDecorView`.
         DynamicColors.applyToActivityIfAvailable(this);
 
         DeferredStartupHandler.getInstance()
@@ -339,12 +371,9 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
             mThemeResIds.add(elegantTextHeightOverlay);
         }
 
-        if (Build.VERSION.SDK_INT >= VERSION_CODES.TIRAMISU
-                && ChromeFeatureList.sAndroidGoogleSansText.isEnabled()) {
+        if (Build.VERSION.SDK_INT >= VERSION_CODES.TIRAMISU) {
             int defaultFontFamilyOverlay =
-                    DEFAULT_FONT_FAMILY_TESTING.getValue()
-                            ? R.style.ThemeOverlay_BrowserUI_DevTestingDefaultFontFamilyThemeOverlay
-                            : R.style.ThemeOverlay_BrowserUI_DefaultFontFamilyThemeOverlay;
+                    R.style.ThemeOverlay_BrowserUI_DefaultFontFamilyThemeOverlay;
             getTheme().applyStyle(defaultFontFamilyOverlay, true);
             mThemeResIds.add(defaultFontFamilyOverlay);
         }
@@ -406,6 +435,10 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
             ViewStub stub = findViewById(R.id.original_layout);
             stub.setLayoutResource(layoutResID);
             stub.inflate();
+        } else if (shouldContentFitWindowInsets()) {
+            FrameLayout baseLayout = new FrameLayout(this);
+            super.setContentView(getEdgeToEdgeLayoutCoordinator().wrapContentView(baseLayout));
+            getLayoutInflater().inflate(layoutResID, baseLayout, /* attachToRoot= */ true);
         } else {
             super.setContentView(layoutResID);
         }
@@ -420,6 +453,8 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
             setAutomotiveToolbarBackButtonAction();
             LinearLayout linearLayout = findViewById(R.id.automotive_base_linear_layout);
             linearLayout.addView(view, LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
+        } else if (shouldContentFitWindowInsets()) {
+            super.setContentView(getEdgeToEdgeLayoutCoordinator().wrapContentView(view));
         } else {
             super.setContentView(view);
         }
@@ -435,6 +470,8 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
             LinearLayout linearLayout = findViewById(R.id.automotive_base_linear_layout);
             linearLayout.setLayoutParams(params);
             linearLayout.addView(view, LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
+        } else if (shouldContentFitWindowInsets()) {
+            super.setContentView(getEdgeToEdgeLayoutCoordinator().wrapContentView(view, params));
         } else {
             super.setContentView(view, params);
         }
@@ -456,6 +493,8 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
                     automotiveLayout, new LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT));
             setAutomotiveToolbarBackButtonAction();
             automotiveLayout.addView(view, params);
+        } else if (shouldContentFitWindowInsets()) {
+            super.setContentView(getEdgeToEdgeLayoutCoordinator().wrapContentView(view, params));
         } else {
             super.addContentView(view, params);
         }
@@ -482,6 +521,18 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
      */
     protected EdgeToEdgeStateProvider getEdgeToEdgeStateProvider() {
         return mEdgeToEdgeStateProvider;
+    }
+
+    /** Returns the {@link InsetObserver} for observing changes to the system insets. */
+    protected InsetObserver getInsetObserver() {
+        assert mInsetObserver != null
+                : "The inset observer should not be accessed before being initialized.";
+        return mInsetObserver;
+    }
+
+    private InsetObserver createInsetObserver() {
+        return new InsetObserver(
+                new ImmutableWeakReference<>(getWindow().getDecorView().getRootView()));
     }
 
     private void setAutomotiveToolbarBackButtonAction() {

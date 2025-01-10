@@ -244,7 +244,6 @@
 #include "content/public/browser/zygote_host/zygote_host_linux.h"
 #include "media/base/media_switches.h"
 #include "ui/accessibility/accessibility_features.h"
-#include "ui/base/resource/data_pack_with_resource_sharing_lacros.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/gfx/switches.h"
 #endif
@@ -350,7 +349,7 @@ void AdjustLinuxOOMScore(const std::string& process_type) {
     // we want to assign a score that is somewhat representative for debugging.
     score = content::kLowestRendererOomScore;
   } else {
-    NOTREACHED_IN_MIGRATION() << "Unknown process type";
+    NOTREACHED() << "Unknown process type";
   }
   // In the case of a 0 score, still try to adjust it. Most likely the score is
   // 0 already, but it may not be if this process inherited a higher score from
@@ -693,12 +692,15 @@ void InitLogging(const std::string& process_type) {
   const base::CommandLine& command_line =
       *base::CommandLine::ForCurrentProcess();
   logging::InitChromeLogging(command_line, file_state);
+
+#if BUILDFLAG(IS_CHROMEOS)
   // Log the Chrome version for information. Do so at WARNING level as that's
   // the min level on ChromeOS.
   if (process_type.empty()) {
     LOG(WARNING) << "This is Chrome version " << chrome::kChromeVersion
                  << " (not a warning)";
   }
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -1106,14 +1108,6 @@ void ChromeMainDelegate::CommonEarlyInitialization(InvokedIn invoked_in) {
   } else {
     hang_watcher_process_type = base::HangWatcher::ProcessType::kUnknownProcess;
   }
-  bool is_zygote_child = absl::visit(
-      base::Overloaded{[](const InvokedInBrowserProcess& invoked_in_browser) {
-                         return false;
-                       },
-                       [](const InvokedInChildProcess& invoked_in_child) {
-                         return invoked_in_child.is_zygote_child;
-                       }},
-      invoked_in);
 
   const bool is_canary_dev = IsCanaryDev();
   const bool emit_crashes =
@@ -1125,7 +1119,6 @@ void ChromeMainDelegate::CommonEarlyInitialization(InvokedIn invoked_in) {
 #endif
 
   base::HangWatcher::InitializeOnMainThread(hang_watcher_process_type,
-                                            /*is_zygote_child=*/is_zygote_child,
                                             emit_crashes);
 
   // Force emitting `ThreadController` profiler metadata on Canary and Dev only,
@@ -1562,53 +1555,7 @@ void ChromeMainDelegate::PreSandboxStartup() {
     InitializeUserDataDir(base::CommandLine::ForCurrentProcess());
   }
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  // Generate shared resource file only on browser process. This is to avoid
-  // generating a file in different processes again.
-  // Also generate only when resource file sharing feature is enabled.
-  if (command_line.HasSwitch(switches::kEnableResourcesFileSharing) &&
-      process_type.empty()) {
-    // Initialize BrowserInitParams before generating and loading shared
-    // resource file since the path required for the feature is set by
-    // BrowserInitParams initialization.
-    const chromeos::BrowserParamsProxy* init_params =
-        chromeos::BrowserParamsProxy::Get();
-    chrome::SetLacrosDefaultPathsFromInitParams(
-        init_params->DefaultPaths().get());
-    // TODO(crbug.com/40861376): Currently, when launching Lacros at login
-    // screen, and if resource file sharing is also enabled, Lacros will block
-    // here waiting for login. That's before the Zygote process is forked, so we
-    // can't take full advantage of the pre-launching optimization. Investigate
-    // if we can make these two features fully compatible.
-
-    base::FilePath ash_resources_dir;
-    base::FilePath lacros_resources_dir;
-    base::FilePath user_data_dir;
-    if (base::PathService::Get(chromeos::lacros_paths::ASH_RESOURCES_DIR,
-                               &ash_resources_dir) &&
-        base::PathService::Get(base::DIR_ASSETS, &lacros_resources_dir) &&
-        base::PathService::Get(chromeos::lacros_paths::USER_DATA_DIR,
-                               &user_data_dir)) {
-      ui::DataPackWithResourceSharing::MaybeGenerateFallbackAndMapping(
-          ash_resources_dir.Append(FILE_PATH_LITERAL("resources.pak")),
-          lacros_resources_dir.Append(FILE_PATH_LITERAL("resources.pak")),
-          user_data_dir.Append(crosapi::kSharedResourcesPackName),
-          ui::kScaleFactorNone);
-      ui::DataPackWithResourceSharing::MaybeGenerateFallbackAndMapping(
-          ash_resources_dir.Append(FILE_PATH_LITERAL("chrome_100_percent.pak")),
-          lacros_resources_dir.Append(
-              FILE_PATH_LITERAL("chrome_100_percent.pak")),
-          user_data_dir.Append(crosapi::kSharedChrome100PercentPackName),
-          ui::k100Percent);
-      ui::DataPackWithResourceSharing::MaybeGenerateFallbackAndMapping(
-          ash_resources_dir.Append(FILE_PATH_LITERAL("chrome_200_percent.pak")),
-          lacros_resources_dir.Append(
-              FILE_PATH_LITERAL("chrome_200_percent.pak")),
-          user_data_dir.Append(crosapi::kSharedChrome200PercentPackName),
-          ui::k200Percent);
-    }
-  }
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
+  // Register component_updater PathProvider after DIR_USER_DATA overridden by
 
 #if 1
   // command line flags. Maybe move the chrome PathProvider down here also?
@@ -1717,28 +1664,8 @@ void ChromeMainDelegate::PreSandboxStartup() {
 
     base::FilePath resources_pack_path;
     base::PathService::Get(chrome::FILE_RESOURCES_PACK, &resources_pack_path);
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-    if (command_line.HasSwitch(switches::kEnableResourcesFileSharing)) {
-      // If LacrosResourcesFileSharing feature is enabled, Lacros refers to ash
-      // resources pak file.
-      base::FilePath ash_resources_pack_path;
-      base::PathService::Get(chrome::FILE_ASH_RESOURCES_PACK,
-                             &ash_resources_pack_path);
-      base::FilePath shared_resources_pack_path;
-      base::PathService::Get(chrome::FILE_RESOURCES_FOR_SHARING_PACK,
-                             &shared_resources_pack_path);
-      ui::ResourceBundle::GetSharedInstance()
-          .AddDataPackFromPathWithAshResources(
-              shared_resources_pack_path, ash_resources_pack_path,
-              resources_pack_path, ui::kScaleFactorNone);
-    } else {
-      ui::ResourceBundle::GetSharedInstance().AddDataPackFromPath(
-          resources_pack_path, ui::kScaleFactorNone);
-    }
-#else
     ui::ResourceBundle::GetSharedInstance().AddDataPackFromPath(
         resources_pack_path, ui::kScaleFactorNone);
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
 #endif  // BUILDFLAG(IS_ANDROID)
     CHECK(!loaded_locale.empty()) << "Locale could not be found for " << locale;
   }
@@ -1834,8 +1761,7 @@ absl::variant<int, content::MainFunctionParams> ChromeMainDelegate::RunProcess(
     const std::string& process_type,
     content::MainFunctionParams main_function_params) {
 #if BUILDFLAG(IS_ANDROID)
-  NOTREACHED_IN_MIGRATION();  // Android provides a subclass and shares no code
-                              // here.
+  NOTREACHED();  // Android provides a subclass and shares no codehere.
 #else
 
 #if BUILDFLAG(IS_MAC) || (BUILDFLAG(ENABLE_NACL) && !BUILDFLAG(IS_LINUX) && \
@@ -1859,9 +1785,8 @@ absl::variant<int, content::MainFunctionParams> ChromeMainDelegate::RunProcess(
 #endif  // BUILDFLAG(IS_MAC) || (BUILDFLAG(ENABLE_NACL) && !BUILDFLAG(IS_LINUX)
         // && !BUILDFLAG(IS_CHROMEOS))
 
-#endif  // !BUILDFLAG(IS_ANDROID)
-
   return std::move(main_function_params);
+#endif  // !BUILDFLAG(IS_ANDROID)
 }
 
 void ChromeMainDelegate::ProcessExiting(const std::string& process_type) {

@@ -462,9 +462,7 @@ void SparkyDelegateImpl::OnStorageInfoUpdated() {
   if (total_bytes <= 0 || available_bytes < 0) {
     // We can't get useful information from the storage page if total_bytes <=
     // 0 or available_bytes is less than 0. This is not expected to happen.
-    NOTREACHED_IN_MIGRATION()
-        << "Unable to retrieve total or available disk space";
-    return;
+    NOTREACHED() << "Unable to retrieve total or available disk space";
   }
   std::move(storage_callback_)
       .Run(std::make_unique<manta::StorageData>(
@@ -501,7 +499,7 @@ void SparkyDelegateImpl::GetMyFiles(manta::FilesDataCallback callback,
     } else {
       auto enabled_trash_locations =
           file_manager::trash::GenerateEnabledTrashLocationsForProfile(
-              profile_, /*base_path=*/base::FilePath());
+              profile_);
       for (const auto& it : enabled_trash_locations) {
         trash_paths_.emplace_back(
             it.first.Append(it.second.relative_folder_path));

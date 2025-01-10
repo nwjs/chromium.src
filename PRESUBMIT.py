@@ -479,7 +479,9 @@ _BANNED_IOS_OBJC_FUNCTIONS = (
       excluded_paths=(
         'ios/chrome/browser/shared/ui/symbols/symbol_helpers.mm',
         'ios/chrome/common',
-        'ios/chrome/search_widget_extension/',
+        # App extensions have restricted dependencies and thus can't use the
+        # wrappers.
+        '^ios/chrome/\w+_extension/',
       ),
     ),
 )
@@ -752,66 +754,11 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
         [
             # TODO(crbug.com/335672557): Please do not add to this list. Existing
             # uses should removed.
-            "base/linux_util.cc",
-            "chrome/services/file_util/public/cpp/zip_file_creator_browsertest.cc",
-            "chrome/test/chromedriver/chrome/web_view_impl.cc",
-            "chrome/test/chromedriver/log_replay/log_replay_socket.cc",
-            "chromecast/crash/linux/dump_info.cc",
-            "chromeos/ash/components/dbus/biod/fake_biod_client.cc",
-            "chromeos/ash/components/dbus/biod/fake_biod_client_unittest.cc",
-            "chromeos/ash/components/report/utils/time_utils.cc",
-            "chromeos/ash/services/device_sync/cryptauth_device_manager_impl.cc",
-            "chromeos/ash/services/device_sync/cryptauth_device_manager_impl_unittest.cc",
-            "chromeos/ash/services/secure_channel/ble_weave_packet_receiver.cc",
-            "chromeos/ash/services/secure_channel/bluetooth_helper_impl_unittest.cc",
-            "chromeos/process_proxy/process_proxy.cc",
-            "components/chromeos_camera/jpeg_encode_accelerator_unittest.cc",
-            "components/cronet/native/perftest/perf_test.cc",
-            "components/download/internal/common/download_item_impl_unittest.cc",
-            "components/gcm_driver/gcm_client_impl_unittest.cc",
-            "components/history/core/test/fake_web_history_service.cc",
-            "components/history_clusters/core/clustering_test_utils.cc",
-            "components/language/content/browser/ulp_language_code_locator/s2langquadtree_datatest.cc",
-            "components/live_caption/views/caption_bubble_controller_views.cc",
-            "components/offline_pages/core/offline_event_logger_unittest.cc",
-            "components/offline_pages/core/offline_page_model_event_logger.cc",
-            "components/omnibox/browser/history_quick_provider_performance_unittest.cc",
-            "components/omnibox/browser/in_memory_url_index_unittest.cc",
-            "components/payments/content/payment_method_manifest_table_unittest.cc",
-            "components/policy/core/common/cloud/device_management_service_unittest.cc",
-            "components/policy/core/common/schema.cc",
-            "components/sync_bookmarks/bookmark_model_observer_impl_unittest.cc",
-            "components/tracing/test/trace_event_perftest.cc",
-            "components/ui_devtools/views/overlay_agent_views.cc",
-            "components/url_pattern_index/closed_hash_map_unittest.cc",
-            "components/url_pattern_index/url_pattern_index_unittest.cc",
-            "content/browser/accessibility/accessibility_tree_formatter_blink.cc",
-            "content/browser/background_fetch/mock_background_fetch_delegate.cc",
-            "content/browser/background_fetch/storage/database_helpers.cc",
-            "content/browser/background_sync/background_sync_launcher_unittest.cc",
-            "content/browser/browser_child_process_host_impl.cc",
-            "content/browser/devtools/protocol/security_handler.cc",
-            "content/browser/notifications/platform_notification_context_trigger_unittest.cc",
-            "content/browser/renderer_host/input/touch_action_browsertest.cc",
-            "content/browser/renderer_host/render_process_host_impl.cc",
-            "content/browser/renderer_host/text_input_manager.cc",
-            "content/browser/sandbox_parameters_mac.mm",
-            "device/fido/mock_fido_device.cc",
-            "gpu/command_buffer/tests/gl_webgl_multi_draw_test.cc",
-            "gpu/config/gpu_control_list.cc",
-            "media/audio/win/core_audio_util_win.cc",
-            "media/gpu/android/media_codec_video_decoder.cc",
-            "media/gpu/vaapi/vaapi_wrapper.cc",
-            "remoting/host/linux/certificate_watcher_unittest.cc",
-            "testing/libfuzzer/fuzzers/url_parse_proto_fuzzer.cc",
-            "testing/libfuzzer/proto/url_proto_converter.cc",
             "third_party/blink/renderer/core/css/parser/css_proto_converter.cc",
             "third_party/blink/renderer/core/editing/ime/edit_context.cc",
             "third_party/blink/renderer/platform/graphics/bitmap_image_test.cc",
             "tools/binary_size/libsupersize/viewer/caspian/diff_test.cc",
             "tools/binary_size/libsupersize/viewer/caspian/tree_builder_test.cc",
-            "ui/base/ime/win/tsf_text_store.cc",
-            "ui/ozone/platform/drm/gpu/hardware_display_plane.cc",
             _THIRD_PARTY_EXCEPT_BLINK
         ],
     ),
@@ -1364,6 +1311,10 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             # Banned: Views
             # Banned: Range factories
             # Banned: Range adaptors
+            # Incidentally listed on
+            # https://en.cppreference.com/w/cpp/header/ranges:
+            'enable_borrowed_range',
+            'enable_view',
             # From https://en.cppreference.com/w/cpp/algorithm/ranges:
             # Constrained algorithms: non-modifying sequence operations
             'all_of',
@@ -2146,6 +2097,18 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
          'is typically wrong. One valid use case is low-level code that '
          'handles subtleties related to high-levels of optimizations that come '
          'with OFFICIAL_BUILD.',
+        ),
+        treat_as_error=False,
+    ),
+    BanRule(
+        pattern='WebContentsDestroyed',
+        explanation=
+        ('Do not use this method. It is invoked half-way through the '
+         'destructor of WebContentsImpl and using it often results in crashes '
+         'or surprising behavior. Conceptually, this is only necessary by '
+         'objects that depend on, but outlive the WebContents. These objects '
+         'should instead coordinate with the owner of the WebContents which is '
+         'responsible for destroying the WebContents.',
         ),
         treat_as_error=False,
     ),
@@ -5182,23 +5145,23 @@ def CheckPydepsNeedsUpdating(input_api, output_api, checker_for_tests=None):
     # First, check for new / deleted .pydeps.
     for f in input_api.AffectedFiles(include_deletes=True):
         # Check whether we are running the presubmit check for a file in src.
-        # f.LocalPath is relative to repo (src, or internal repo).
-        # os_path.exists is relative to src repo.
-        # Therefore if os_path.exists is true, it means f.LocalPath is relative
-        # to src and we can conclude that the pydeps is in src.
         if f.LocalPath().endswith('.pydeps'):
-            if input_api.os_path.exists(f.LocalPath()):
-                if f.Action() == 'D' and f.LocalPath() in _ALL_PYDEPS_FILES:
-                    results.append(
-                        output_api.PresubmitError(
-                            'Please update _ALL_PYDEPS_FILES within //PRESUBMIT.py to '
-                            'remove %s' % f.LocalPath()))
-                elif f.Action() != 'D' and f.LocalPath(
-                ) not in _ALL_PYDEPS_FILES:
-                    results.append(
-                        output_api.PresubmitError(
-                            'Please update _ALL_PYDEPS_FILES within //PRESUBMIT.py to '
-                            'include %s' % f.LocalPath()))
+            # f.LocalPath is relative to repo (src, or internal repo).
+            # os_path.exists is relative to src repo.
+            # Therefore if os_path.exists is true, it means f.LocalPath is relative
+            # to src and we can conclude that the pydeps is in src.
+            exists = input_api.os_path.exists(f.LocalPath())
+            if f.Action() == 'D' and f.LocalPath() in _ALL_PYDEPS_FILES:
+                results.append(
+                    output_api.PresubmitError(
+                        'Please update _ALL_PYDEPS_FILES within //PRESUBMIT.py to '
+                        'remove %s' % f.LocalPath()))
+            elif (f.Action() != 'D' and exists
+                  and f.LocalPath() not in _ALL_PYDEPS_FILES):
+                results.append(
+                    output_api.PresubmitError(
+                        'Please update _ALL_PYDEPS_FILES within //PRESUBMIT.py to '
+                        'include %s' % f.LocalPath()))
 
     if results:
         return results
@@ -6748,8 +6711,8 @@ def CheckStrings(input_api, output_api):
         return []
 
     affected_png_paths = [
-        f.AbsoluteLocalPath() for f in input_api.AffectedFiles()
-        if (f.LocalPath().endswith('.png'))
+        f.LocalPath() for f in input_api.AffectedFiles()
+        if f.LocalPath().endswith('.png')
     ]
 
     # Check for screenshots. Developers can upload screenshots using
@@ -7315,7 +7278,8 @@ def CheckConsistentGrdChanges(input_api, output_api):
 
 def CheckAssertAshOnlyCode(input_api, output_api):
     """Errors if a BUILD.gn file in an ash/ directory doesn't include
-    assert(is_chromeos_ash).
+    assert(is_chromeos).
+    For a transition period, assert(is_chromeos_ash) is also accepted.
     """
 
     def FileFilter(affected_file):
@@ -7328,16 +7292,16 @@ def CheckAssertAshOnlyCode(input_api, output_api):
             files_to_skip=(input_api.DEFAULT_FILES_TO_SKIP))
 
     errors = []
-    pattern = input_api.re.compile(r'assert\(is_chromeos_ash')
+    pattern = input_api.re.compile(r'assert\(is_chromeos(_ash)?\b')
     for f in input_api.AffectedFiles(include_deletes=False,
                                      file_filter=FileFilter):
         if (not pattern.search(input_api.ReadFile(f))):
             errors.append(
                 output_api.PresubmitError(
-                    'Please add assert(is_chromeos_ash) to %s. If that\'s not '
-                    'possible, please create and issue and add a comment such '
+                    'Please add assert(is_chromeos) to %s. If that\'s not '
+                    'possible, please create an issue and add a comment such '
                     'as:\n  # TODO(crbug.com/XXX): add '
-                    'assert(is_chromeos_ash) when ...' % f.LocalPath()))
+                    'assert(is_chromeos) when ...' % f.LocalPath()))
     return errors
 
 

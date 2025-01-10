@@ -6,6 +6,7 @@
 
 #include "base/debug/dump_without_crashing.h"
 #include "base/notreached.h"
+#include "third_party/blink/public/mojom/ai/ai_manager.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom-shared.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/platform/bindings/exception_code.h"
@@ -39,8 +40,9 @@ const char kExceptionMessageUnableToCreateSession[] =
     "The session cannot be created.";
 const char kExceptionMessageUnableToCloneSession[] =
     "The session cannot be cloned.";
-const char kExceptionMessageSystemPromptAndInitialPromptsExist[] =
-    "The systemPrompt and initialPrompts should not present at the same time.";
+const char kExceptionMessageSystemPromptIsDefinedMultipleTimes[] =
+    "The system prompt should not be defined in both systemPrompt and "
+    "initialPrompts.";
 const char kExceptionMessageSystemPromptIsNotTheFirst[] =
     "The prompt with 'system' role must be placed at the first entry of "
     "initialPrompts.";
@@ -61,7 +63,9 @@ void ThrowAbortedException(ExceptionState& exception_state) {
 }
 
 void RejectPromiseWithInternalError(ScriptPromiseResolverBase* resolver) {
-  resolver->Reject(CreateInternalErrorException());
+  if (resolver) {
+    resolver->Reject(CreateInternalErrorException());
+  }
 }
 
 DOMException* CreateInternalErrorException() {
@@ -130,7 +134,7 @@ DOMException* ConvertModelStreamingResponseErrorToDOMException(
           DOMException::GetErrorName(DOMExceptionCode::kInvalidStateError));
     case ModelStreamingResponseStatus::kOngoing:
     case ModelStreamingResponseStatus::kComplete:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
   NOTREACHED();
 }
@@ -146,8 +150,6 @@ WTF::String ConvertModelAvailabilityCheckResultToDebugString(
       return "The service is unable to create new session.";
     case mojom::blink::ModelAvailabilityCheckResult::kNoFeatureNotEnabled:
       return "The feature flag gating model execution was disabled.";
-    case mojom::blink::ModelAvailabilityCheckResult::kNoModelNotAvailable:
-      return "There was no model available.";
     case mojom::blink::ModelAvailabilityCheckResult::
         kNoConfigNotAvailableForFeature:
       return "The model was available but there was not an execution config "
@@ -174,11 +176,16 @@ WTF::String ConvertModelAvailabilityCheckResultToDebugString(
       return "Model validation is still pending.";
     case mojom::blink::ModelAvailabilityCheckResult::kNoValidationFailed:
       return "Model validation failed.";
+    case mojom::blink::ModelAvailabilityCheckResult::kModelNotEligible:
+      return "The device is not eligible for running on-device model.";
+    case mojom::blink::ModelAvailabilityCheckResult::kNoInsufficientDiskSpace:
+      return "The device does not have enough space for downloading the "
+             "on-device model";
     case mojom::blink::ModelAvailabilityCheckResult::kReadily:
     case mojom::blink::ModelAvailabilityCheckResult::kAfterDownload:
     case mojom::blink::ModelAvailabilityCheckResult::
         kNoModelAdaptationNotAvailable:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
   NOTREACHED();
 }

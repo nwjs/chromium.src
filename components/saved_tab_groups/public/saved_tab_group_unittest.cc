@@ -30,13 +30,8 @@ base::Uuid MakeUniqueGUID() {
 }
 
 LocalTabID MakeUniqueTabID() {
-  static uint64_t unique_value = 0;
-  unique_value++;
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-  return unique_value;
-#else
-  return base::Token(0, unique_value);
-#endif
+  static uint32_t unique_value = 0;
+  return unique_value++;
 }
 
 SavedTabGroup CreateDefaultEmptySavedTabGroup() {
@@ -281,6 +276,25 @@ TEST(SavedTabGroupTest, UpdateCreatorCacheGuid) {
 
   group.SetCreatorCacheGuid(cache_guid_2);
   EXPECT_EQ(group.creator_cache_guid(), cache_guid_2);
+}
+
+TEST(SavedTabGroupTest, IsPendingSanitization) {
+  // Create a group and 2 tabs
+  SavedTabGroup group = CreateDefaultEmptySavedTabGroup();
+  SavedTabGroupTab tab_1 = CreateDefaultSavedTabGroupTab(group.saved_guid());
+  SavedTabGroupTab tab_2 = CreateDefaultSavedTabGroupTab(group.saved_guid());
+  tab_2.SetIsPendingSanitization(true);
+
+  // Add both tabs to the group.
+  group.AddTabLocally(std::move(tab_1));
+  EXPECT_FALSE(group.IsPendingSanitization());
+
+  group.AddTabLocally(tab_2);
+  EXPECT_TRUE(group.IsPendingSanitization());
+
+  tab_2.SetIsPendingSanitization(false);
+  group.UpdateTab(tab_2);
+  EXPECT_FALSE(group.IsPendingSanitization());
 }
 
 }  // namespace tab_groups

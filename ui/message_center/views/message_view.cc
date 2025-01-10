@@ -7,7 +7,6 @@
 #include "base/observer_list.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -38,7 +37,7 @@
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/widget/widget.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 #include "base/time/time.h"
 #endif
 
@@ -150,7 +149,11 @@ void MessageView::UpdateWithNotification(const Notification& notification) {
   } else {
     GetViewAccessibility().SetName(name);
   }
-
+  if (updated_name_callback_) {
+    updated_name_callback_.Run(
+        notification.rich_notification_data()
+            .should_make_spoken_feedback_for_popup_updates);
+  }
   slide_out_controller_.set_slide_mode(CalculateSlideMode());
 }
 
@@ -433,8 +436,7 @@ views::SlideOutController::SlideMode MessageView::CalculateSlideMode() const {
       return views::SlideOutController::SlideMode::kFull;
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return views::SlideOutController::SlideMode::kFull;
+  NOTREACHED();
 }
 
 MessageView::Mode MessageView::GetMode() const {
@@ -514,7 +516,7 @@ void MessageView::OnSnoozeButtonPressed(const ui::Event& event) {
   }
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 base::TimeDelta MessageView::GetBoundsAnimationDuration(
     const Notification& notification) const {
   return base::Milliseconds(0);
@@ -522,7 +524,7 @@ base::TimeDelta MessageView::GetBoundsAnimationDuration(
 #endif
 
 bool MessageView::ShouldShowControlButtons() const {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   // Users on ChromeOS are used to the Settings and Close buttons not being
   // visible at all times, but users on other platforms expect them to be
   // visible.
@@ -560,7 +562,7 @@ void MessageView::UpdateNestedBorder() {
   }
 
   SkColor border_color;
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   border_color = SK_ColorTRANSPARENT;
 #else
   border_color =
@@ -589,6 +591,11 @@ void MessageView::UpdateControlButtonsVisibilityWithNotification(
     control_buttons_view->ShowCloseButton(GetMode() != Mode::PINNED);
   }
   UpdateControlButtonsVisibility();
+}
+
+void MessageView::SetUpdatedNameCallback(UpdatedNameCallback callback) {
+  CHECK(callback);
+  updated_name_callback_ = std::move(callback);
 }
 
 BEGIN_METADATA(MessageView)

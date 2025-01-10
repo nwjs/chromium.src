@@ -82,13 +82,14 @@ import org.chromium.chrome.browser.tabmodel.TabGroupModelFilterObserver.DidRemov
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
 import org.chromium.chrome.browser.toolbar.TabSwitcherDrawable;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
-import org.chromium.chrome.browser.user_education.IPHCommand;
+import org.chromium.chrome.browser.user_education.IphCommand;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.chrome.test.util.browser.tabmodel.MockTabModel;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController.MenuOrKeyboardActionHandler;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.BackPressResult;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
+import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.components.tab_group_sync.LocalTabGroupId;
 import org.chromium.components.tab_group_sync.SavedTabGroup;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
@@ -98,11 +99,12 @@ import java.util.function.DoubleConsumer;
 
 /** Unit tests for {@link TabSwitcherPane} and {@link TabSwitcherPaneBase}. */
 @RunWith(BaseRobolectricTestRunner.class)
+@EnableFeatures(OmniboxFeatureList.ANDROID_HUB_SEARCH)
 @DisableFeatures(ChromeFeatureList.DATA_SHARING)
 public class TabSwitcherPaneUnitTest {
     private static final int TAB_ID = 723849;
 
-    private static class IphCommandMatcher implements ArgumentMatcher<IPHCommand> {
+    private static class IphCommandMatcher implements ArgumentMatcher<IphCommand> {
         private final String mFeatureName;
 
         public IphCommandMatcher(String featureName) {
@@ -110,7 +112,7 @@ public class TabSwitcherPaneUnitTest {
         }
 
         @Override
-        public boolean matches(IPHCommand iphCommand) {
+        public boolean matches(IphCommand iphCommand) {
             return Objects.equals(iphCommand.featureName, mFeatureName);
         }
     }
@@ -762,15 +764,37 @@ public class TabSwitcherPaneUnitTest {
         mTabModel.addTab(TAB_ID);
         mTabSwitcherPane.initWithNative();
         mTabSwitcherPane.notifyLoadHint(LoadHint.HOT);
+        mTabSwitcherPane.setPaneHubController(mPaneHubController);
 
         assertFalse(mIsAnimatingSupplierCaptor.getValue().get());
 
         HubLayoutAnimationListener listener = mTabSwitcherPane.getHubLayoutAnimationListener();
         listener.beforeStart();
         assertTrue(mIsAnimatingSupplierCaptor.getValue().get());
+        verify(mPaneHubController).setSearchBoxBackgroundProperties(true);
 
         listener.afterEnd();
         assertFalse(mIsAnimatingSupplierCaptor.getValue().get());
+        verify(mPaneHubController).setSearchBoxBackgroundProperties(false);
+    }
+
+    @Test
+    public void testAnimationListener_nullPaneHubController_doNotSetSearchBox() {
+        mTabModel.addTab(TAB_ID);
+        mTabSwitcherPane.initWithNative();
+        mTabSwitcherPane.notifyLoadHint(LoadHint.HOT);
+        mTabSwitcherPane.setPaneHubController(null);
+
+        assertFalse(mIsAnimatingSupplierCaptor.getValue().get());
+
+        HubLayoutAnimationListener listener = mTabSwitcherPane.getHubLayoutAnimationListener();
+        listener.beforeStart();
+        assertTrue(mIsAnimatingSupplierCaptor.getValue().get());
+        verify(mPaneHubController, never()).setSearchBoxBackgroundProperties(true);
+
+        listener.afterEnd();
+        assertFalse(mIsAnimatingSupplierCaptor.getValue().get());
+        verify(mPaneHubController, never()).setSearchBoxBackgroundProperties(false);
     }
 
     @Test
@@ -787,7 +811,7 @@ public class TabSwitcherPaneUnitTest {
         mTabGroupModelFilterObserverCaptor
                 .getValue()
                 .didRemoveTabGroup(TAB_ID, groupId, DidRemoveTabGroupReason.CLOSE);
-        verify(mUserEducationHelper).requestShowIPH(argThat(surfaceOnHideIph()));
+        verify(mUserEducationHelper).requestShowIph(argThat(surfaceOnHideIph()));
     }
 
     @Test
@@ -804,7 +828,7 @@ public class TabSwitcherPaneUnitTest {
         mTabGroupModelFilterObserverCaptor
                 .getValue()
                 .didRemoveTabGroup(TAB_ID, groupId, DidRemoveTabGroupReason.CLOSE);
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
     }
 
     @Test
@@ -821,7 +845,7 @@ public class TabSwitcherPaneUnitTest {
         mTabGroupModelFilterObserverCaptor
                 .getValue()
                 .didRemoveTabGroup(TAB_ID, groupId, DidRemoveTabGroupReason.CLOSE);
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
     }
 
     @Test
@@ -838,7 +862,7 @@ public class TabSwitcherPaneUnitTest {
         mTabGroupModelFilterObserverCaptor
                 .getValue()
                 .didRemoveTabGroup(TAB_ID, groupId, DidRemoveTabGroupReason.CLOSE);
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
     }
 
     @Test
@@ -855,7 +879,7 @@ public class TabSwitcherPaneUnitTest {
         mTabGroupModelFilterObserverCaptor
                 .getValue()
                 .didRemoveTabGroup(TAB_ID, groupId, DidRemoveTabGroupReason.UNGROUP);
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
     }
 
     @Test
@@ -877,7 +901,7 @@ public class TabSwitcherPaneUnitTest {
 
         mTabSwitcherPane.getOnTabGroupCreationRunnable().run();
 
-        verify(mUserEducationHelper).requestShowIPH(argThat(surfaceIph()));
+        verify(mUserEducationHelper).requestShowIph(argThat(surfaceIph()));
     }
 
     @Test
@@ -888,7 +912,7 @@ public class TabSwitcherPaneUnitTest {
 
         mTabSwitcherPane.getOnTabGroupCreationRunnable().run();
 
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
     }
 
     @Test
@@ -899,7 +923,7 @@ public class TabSwitcherPaneUnitTest {
 
         mTabSwitcherPane.getOnTabGroupCreationRunnable().run();
 
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
     }
 
     @Test
@@ -910,7 +934,7 @@ public class TabSwitcherPaneUnitTest {
 
         mTabSwitcherPane.getOnTabGroupCreationRunnable().run();
 
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
     }
 
     @Test
@@ -923,11 +947,11 @@ public class TabSwitcherPaneUnitTest {
         hubLayoutAnimationListener.beforeStart();
 
         mTabSwitcherPane.getOnTabGroupCreationRunnable().run();
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
 
         hubLayoutAnimationListener.afterEnd();
         mTabSwitcherPane.getOnTabGroupCreationRunnable().run();
-        verify(mUserEducationHelper).requestShowIPH(argThat(surfaceIph()));
+        verify(mUserEducationHelper).requestShowIph(argThat(surfaceIph()));
     }
 
     @Test
@@ -940,7 +964,7 @@ public class TabSwitcherPaneUnitTest {
 
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
 
-        verify(mUserEducationHelper).requestShowIPH(argThat(surfaceIph()));
+        verify(mUserEducationHelper).requestShowIph(argThat(surfaceIph()));
     }
 
     @Test
@@ -952,7 +976,7 @@ public class TabSwitcherPaneUnitTest {
 
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
 
-        verify(mUserEducationHelper).requestShowIPH(argThat(floatingActionButtonIph()));
+        verify(mUserEducationHelper).requestShowIph(argThat(floatingActionButtonIph()));
     }
 
     @Test
@@ -963,7 +987,7 @@ public class TabSwitcherPaneUnitTest {
 
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
 
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
     }
 
     @Test
@@ -974,7 +998,7 @@ public class TabSwitcherPaneUnitTest {
 
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
 
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
     }
 
     @Test
@@ -986,12 +1010,12 @@ public class TabSwitcherPaneUnitTest {
         hubLayoutAnimationListener.beforeStart();
 
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
 
         hubLayoutAnimationListener.afterEnd();
 
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
     }
 
     @Test
@@ -1010,7 +1034,7 @@ public class TabSwitcherPaneUnitTest {
         mTabSwitcherPane.notifyLoadHint(LoadHint.HOT);
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
 
-        verify(mUserEducationHelper).requestShowIPH(argThat(remoteGroupIph()));
+        verify(mUserEducationHelper).requestShowIph(argThat(remoteGroupIph()));
     }
 
     @Test
@@ -1031,7 +1055,7 @@ public class TabSwitcherPaneUnitTest {
         mIsScrollingSupplierSupplier.set(mIsScrollingSupplier);
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
 
-        verify(mUserEducationHelper).requestShowIPH(argThat(remoteGroupIph()));
+        verify(mUserEducationHelper).requestShowIph(argThat(remoteGroupIph()));
     }
 
     @Test
@@ -1053,7 +1077,7 @@ public class TabSwitcherPaneUnitTest {
         mTabGroupModelFilterObserverCaptor.getValue().didCreateNewGroup(mTab, mTabGroupModelFilter);
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
 
-        verify(mUserEducationHelper).requestShowIPH(argThat(remoteGroupIph()));
+        verify(mUserEducationHelper).requestShowIph(argThat(remoteGroupIph()));
     }
 
     @Test
@@ -1070,7 +1094,7 @@ public class TabSwitcherPaneUnitTest {
         mTabSwitcherPane.notifyLoadHint(LoadHint.HOT);
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
 
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
     }
 
     @Test
@@ -1087,7 +1111,7 @@ public class TabSwitcherPaneUnitTest {
         mTabSwitcherPane.notifyLoadHint(LoadHint.HOT);
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
 
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
     }
 
     @Test
@@ -1104,7 +1128,7 @@ public class TabSwitcherPaneUnitTest {
         mTabSwitcherPane.notifyLoadHint(LoadHint.HOT);
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
 
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
     }
 
     @Test
@@ -1121,7 +1145,7 @@ public class TabSwitcherPaneUnitTest {
         mTabSwitcherPane.notifyLoadHint(LoadHint.HOT);
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
 
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
     }
 
     @Test
@@ -1138,7 +1162,7 @@ public class TabSwitcherPaneUnitTest {
         mTabSwitcherPane.notifyLoadHint(LoadHint.HOT);
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
 
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
     }
 
     @Test
@@ -1155,7 +1179,7 @@ public class TabSwitcherPaneUnitTest {
         mTabSwitcherPane.notifyLoadHint(LoadHint.HOT);
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
 
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
     }
 
     @Test
@@ -1172,7 +1196,7 @@ public class TabSwitcherPaneUnitTest {
         mTabSwitcherPane.notifyLoadHint(LoadHint.HOT);
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
 
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
     }
 
     @Test
@@ -1189,7 +1213,7 @@ public class TabSwitcherPaneUnitTest {
         mTabSwitcherPane.notifyLoadHint(LoadHint.HOT);
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
 
-        verify(mUserEducationHelper, never()).requestShowIPH(any());
+        verify(mUserEducationHelper, never()).requestShowIph(any());
     }
 
     private void createSelectedTab() {

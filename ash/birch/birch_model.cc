@@ -100,7 +100,7 @@ void BirchModel::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(prefs::kBirchUseLostMedia, true);
   registry->RegisterBooleanPref(prefs::kBirchUseWeather, true);
   registry->RegisterBooleanPref(prefs::kBirchUseReleaseNotes, true);
-  // TODO(yulunwu): Change this to false once there is a way to opt-in.
+  // TODO(zxdan): Change this to false once there is a way to opt-in.
   registry->RegisterBooleanPref(prefs::kBirchUseCoral, true);
   // NOTE: If you add a pref here, also update birch_browsertest.cc and
   // birch_model_unittest.cc which have code that disables all prefs.
@@ -472,7 +472,8 @@ std::vector<std::unique_ptr<BirchItem>> BirchModel::GetAllItems() {
           std::make_unique<BirchReleaseNotesItem>(release_notes_item));
     }
   }
-  if (prefs->GetBoolean(prefs::kBirchUseCoral)) {
+
+  if (prefs->GetBoolean(prefs::kBirchUseCoral) && coral_data_.is_fresh) {
     for (auto& coral_item : coral_data_.items) {
       all_items.push_back(std::make_unique<BirchCoralItem>(coral_item));
     }
@@ -542,6 +543,12 @@ void BirchModel::RemoveItem(BirchItem* item) {
     BirchCoralProvider::Get()->RemoveGroup(
         static_cast<BirchCoralItem*>(item)->group_id());
   }
+}
+
+void BirchModel::OnCoralGroupRemoved(const base::Token& group_id) {
+  std::erase_if(coral_data_.items, [&group_id](auto& item) {
+    return static_cast<BirchCoralItem>(item).group_id() == group_id;
+  });
 }
 
 void BirchModel::SetLostMediaDataChangedCallback(

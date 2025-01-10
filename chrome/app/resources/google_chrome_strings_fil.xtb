@@ -80,7 +80,6 @@ Maaaring hindi available ang ilang tampok at hindi mase-save ang mga pagbabago s
 <translation id="2008942457798486387">{NUM_EXTENSIONS,plural, =1{Hindi na sinusuportahan ang extension na ito. Inirerekomenda ng Chrome na alisin mo ito.}one{Hindi na sinusuportahan ang mga extension na ito. Inirerekomenda ng Chrome na alisin mo ang mga ito.}other{Hindi na sinusuportahan ang mga extension na ito. Inirerekomenda ng Chrome na alisin mo ang mga ito.}}</translation>
 <translation id="2018528049276128029">Ang bawat profile ay may sariling impormasyon sa Chrome tulad ng mga bookmark, history, mga password, at iba pa</translation>
 <translation id="2018879682492276940">Hindi na-install. Pakisubukan ulit.</translation>
-<translation id="2022471217832964798">Habang sine-set up namin ang access sa account, magagamit mo pa rin ang Chrome. Posibleng hindi mo ma-access ang ilang resource hangga't hindi nakukumpleto ang pag-set up.</translation>
 <translation id="2034233344106846793">Awtomatikong ina-upgrade ng Chrome ang mga hindi secure na koneksyon sa HTTPS kapag posible</translation>
 <translation id="207902854391093810">Kapag naka-on ang mga trial, nagbibigay-daan ang pagsukat ng ad sa mga site na binibisita mo na humiling ng impormasyon mula sa Chrome na tumutulong sa site na sukatin ang performance ng mga ad ng mga ito. Pinaghihigpitan ng pagsukat ng ad ang cross-site na pagsubaybay sa pamamagitan ng paglilipat ng kaunting impormasyon hangga't posible sa pagitan ng mga site.</translation>
 <translation id="2091012649849228750">Para makatanggap ng mga update sa Google Chrome sa hinaharap, kakailanganin mo ng Windows 10 o mas bago. Gumagamit ng Windows 8 ang computer na ito.</translation>
@@ -249,6 +248,7 @@ Maaaring hindi available ang ilang tampok at hindi mase-save ang mga pagbabago s
 <translation id="3873044882194371212">Buksan ang link sa inco&amp;gnito window ng Chrome</translation>
 <translation id="3885770153807205175">Picker ng wika</translation>
 <translation id="3889417619312448367">I-uninstall ang Google Chrome</translation>
+<translation id="3892148308691398805">Kopyahin ang text</translation>
 <translation id="3941890832296813527">Error sa pag-install: Invalid o hindi sinusuportahan ang filename ng installer.</translation>
 <translation id="3973161977468201858">Gustong i-delete ng Google Chrome ang iyong data sa Google Password Manager. I-type ang iyong password sa Windows para payagan ito.</translation>
 <translation id="398236277091248993">Nananatiling mabilis ang Chrome gamit ang mga feature na nagbu-boost ng performance</translation>
@@ -303,6 +303,7 @@ Maaaring hindi available ang ilang tampok at hindi mase-save ang mga pagbabago s
 <translation id="4567424176335768812">Naka-sign in ka bilang <ph name="USER_EMAIL_ADDRESS" />. Maaari mo na ngayong i-access ang iyong mga bookmark, kasaysayan, at iba pang setting sa lahat ng iyong device na naka-sign in.</translation>
 <translation id="4571503333518166079">Pumunta sa mga setting ng notification ng Chrome</translation>
 <translation id="4575717501879784448">Magagawa ng Chrome na gawing hindi aktibo ang mga tab na ito para pagandahin ang iyong experience sa pag-browse at bakantehin ang mga resource.</translation>
+<translation id="4595162648538023956">Puwede kang mag-sign in para makuha ang kailangan mo, o gamitin ang Chrome nang walang account</translation>
 <translation id="459622048091363950">Kapag mayroon nang access ang Chrome, makakahingi na ang mga website ng access sa iyo.</translation>
 <translation id="4600710005438004015">Hindi ma-update ang Chrome sa pinakabagong bersyon, kaya hindi mo magagamit ang mga bagong feature at pag-aayos sa seguridad.</translation>
 <translation id="4601439950572737842">Naka-encrypt ang iyong data gamit ang passphrase mo. Ilagay ito para magamit at ma-save ang data sa Chrome sa iyong Google account.</translation>
@@ -349,6 +350,7 @@ Maaaring hindi available ang ilang tampok at hindi mase-save ang mga pagbabago s
 <translation id="5170938038195470297">Hindi magagamit ang iyong profile dahil mula ito sa isang mas bagong bersyon ng Google Chrome.
 
 Maaaring hindi available ang ilang tampok. Mangyaring tumukoy ng ibang direktoryo ng profile o gumamit ng mas bagong bersyon ng Chrome.</translation>
+<translation id="5174969993834422967">Kadalasan mong bina-block ang mga notification. Para hayaan ang site na itong abisuhan ka, i-click ang icon ng notification sa kanang sulok ng iyong bar ng lokasyon.</translation>
 <translation id="5201744974236816379">Update sa Chrome</translation>
 <translation id="521447420733633466">Kung magpapahiram ka ng device, puwedeng mag-browse nang hiwalay ang mga kaibigan at kapamilya, at puwede nilang i-set up ang Chrome sa paraang gusto nila</translation>
 <translation id="5234764350956374838">Huwag pansinin</translation>
@@ -395,7 +397,6 @@ Hindi magawang bawiin ng Google Chrome ang iyong mga setting.</translation>
 <translation id="5895138241574237353">I-restart</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> - Pag-sign in sa Network</translation>
 <translation id="5924017743176219022">Kumokonekta sa Internet...</translation>
-<translation id="5932997892801542621">Kapag nag-type ka sa address bar o sa box para sa paghahanap, ipapadala ng Chrome kung ano ang tina-type mo sa Google Drive para makakuha ng mga suhestyon sa item. Naka-off ito sa Incognito.</translation>
 <translation id="5940385492829620908">Makikita dito ang iyong web, mga bookmark at iba pang mga bagay-bagay sa Chrome.</translation>
 <translation id="5941711191222866238">I-minimize</translation>
 <translation id="5941830788786076944">Gawin ang Google Chrome na default browser</translation>
@@ -454,6 +455,7 @@ Hindi magawang bawiin ng Google Chrome ang iyong mga setting.</translation>
 <translation id="6497147134301593682">Awtomatikong isinara ang Chrome</translation>
 <translation id="6506909944137591434">Kailangan ng Chrome ng pahintulot sa camera para makagawa ng 3D na mapa ng iyong kapaligiran</translation>
 <translation id="6515495397637126556"><ph name="PAGE_TITLE" /> - Google Chrome Dev</translation>
+<translation id="6515549163407364048">Para makuha ang iyong mga extension sa lahat ng computer mo, mag-sign in sa Chrome</translation>
 <translation id="6520670145826811516">Para magamit ang iyong lokasyon, bigyan ng access ang Chrome sa <ph name="BEGIN_LINK" />mga setting ng system<ph name="END_LINK" /></translation>
 <translation id="659498884637196217">Sa Google Password Manager sa device na ito</translation>
 <translation id="6600016381025017075">Maghanap ng kahit ano sa page na ito</translation>
@@ -547,6 +549,7 @@ Posibleng malapat sa account na ito ang mga pahintulot na naibigay mo na sa mga 
 <translation id="7655455401911432608">Iyong history ng pag-browse, record ng mga site na binisita mo gamit ang Chrome sa device na ito.</translation>
 <translation id="7655472416356262023">Alisin ang account sa Chrome</translation>
 <translation id="7658239707568436148">Kanselahin</translation>
+<translation id="7659737857277959440">Makikita at mapapamahalaan ng iyong organisasyon ang data mula sa pag-browse, gaya ng mga bookmark, history, at mga password mo. Hindi nito makikita ang data mula sa pag-browse sa mga personal na profile sa Chrome.</translation>
 <translation id="7661924425853052955">Hindi mo ito binisita kamakailan. Inalis ng Chrome ang <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" />, at <ph name="COUNT" /> pa</translation>
 <translation id="7668816516367091728">Magsagawa ng mga gawain tulad ng pagsasalin, pagkalkula, at higit pa nang direkta mula sa address bar</translation>
 <translation id="7670287553302121848">Nagre-require ang Chrome account ng pag-authenticate ulit</translation>
@@ -597,6 +600,7 @@ Posibleng malapat sa account na ito ang mga pahintulot na naibigay mo na sa mga 
 <translation id="8129812357326543296">Tungkol sa &amp;Google Chrome</translation>
 <translation id="813913629614996137">Sinisimulan...</translation>
 <translation id="8162006532256575008">Gamitin ang Chrome nang Walang Account</translation>
+<translation id="8221491193165283816">Kadalasan mong bina-block ang mga notification. Para hayaan ang site na itong abisuhan ka, mag-click dito.</translation>
 <translation id="8255190535488645436">Ginagamit ng Google Chrome ang iyong camera at mikropono.</translation>
 <translation id="8257796129973882597">Puwede mong buksan ang mga bookmark, reading mode, at higit pa mula sa menu ng Chrome</translation>
 <translation id="8267953129876836456">Nakakita ang Chrome ng ilang rekomendasyon sa kaligtasan para sa pagsusuri mo</translation>
@@ -628,6 +632,7 @@ Posibleng malapat sa account na ito ang mga pahintulot na naibigay mo na sa mga 
 <translation id="852529348814672339">Ipakita ang Chrome sa wikang ito</translation>
 <translation id="8550334526674375523">Ang profile sa trabaho na ito ay ganap na hiwalay sa iyong personal na profile.</translation>
 <translation id="8555465886620020932">Error sa serbisyo: <ph name="SERVICE_ERROR" />.</translation>
+<translation id="856656450041460113">Maghanap sa listahan ng wika</translation>
 <translation id="8571790202382503603">Gamit ang mga profile sa Chrome, magagawa mong paghiwalayin ang lahat ng iyong bagay-bagay sa Chrome. Pinapadali nitong mapaghiwalay ang trabaho at kasiyahan.</translation>
 <translation id="8601359445272098721">Bago! Puwede kang magsalin ng text at mga larawan sa iyong screen sa pamamagitan ng pagpili sa button na "isalin ang screen"</translation>
 <translation id="8614913330719544658">Hindi gumagana ang Google Chrome. Ilunsad muli ngayon?</translation>

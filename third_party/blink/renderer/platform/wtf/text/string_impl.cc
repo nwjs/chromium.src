@@ -310,11 +310,6 @@ scoped_refptr<StringImpl> StringImpl::Create(
   return string;
 }
 
-scoped_refptr<StringImpl> StringImpl::Create(const UChar* characters,
-                                             wtf_size_t length) {
-  return Create({characters, length});
-}
-
 scoped_refptr<StringImpl> StringImpl::Create(
     base::span<const LChar> latin1_data) {
   if (latin1_data.empty()) {
@@ -327,17 +322,11 @@ scoped_refptr<StringImpl> StringImpl::Create(
   return string;
 }
 
-scoped_refptr<StringImpl> StringImpl::Create(const LChar* characters,
-                                             wtf_size_t length) {
-  return Create({characters, length});
-}
-
 scoped_refptr<StringImpl> StringImpl::Create(
-    const LChar* characters,
-    wtf_size_t length,
+    base::span<const LChar> characters,
     ASCIIStringAttributes ascii_attributes) {
-  scoped_refptr<StringImpl> ret = Create(characters, length);
-  if (length) {
+  scoped_refptr<StringImpl> ret = Create(characters);
+  if (!characters.empty()) {
     // If length is 0 then `ret` is empty_ and should not have its
     // attributes calculated or changed.
     uint32_t new_flags = ASCIIStringAttributesToFlags(ascii_attributes);
@@ -365,13 +354,6 @@ scoped_refptr<StringImpl> StringImpl::Create8BitIfPossible(
     data[i] = static_cast<LChar>(c);
   }
   return string;
-}
-
-scoped_refptr<StringImpl> StringImpl::Create(const LChar* string) {
-  if (!string)
-    return empty_;
-  size_t length = strlen(reinterpret_cast<const char*>(string));
-  return Create(string, base::checked_cast<wtf_size_t>(length));
 }
 
 bool StringImpl::ContainsOnlyWhitespaceOrEmpty() {

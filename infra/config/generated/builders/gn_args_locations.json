@@ -12,7 +12,6 @@
     "Android arm64 Builder All Targets (dbg)": "ci/Android arm64 Builder All Targets (dbg)/gn-args.json",
     "Android x64 Builder All Targets (dbg)": "ci/Android x64 Builder All Targets (dbg)/gn-args.json",
     "Android x86 Builder (dbg)": "ci/Android x86 Builder (dbg)/gn-args.json",
-    "Cast Android (dbg)": "ci/Cast Android (dbg)/gn-args.json",
     "android-12-x64-rel": "ci/android-12-x64-rel/gn-args.json",
     "android-12l-x64-rel-cq": "ci/android-12l-x64-rel-cq/gn-args.json",
     "android-13-x64-rel": "ci/android-13-x64-rel/gn-args.json",
@@ -28,6 +27,7 @@
     "android-cronet-x86-dbg": "ci/android-cronet-x86-dbg/gn-args.json",
     "android-oreo-x86-rel": "ci/android-oreo-x86-rel/gn-args.json",
     "android-pie-arm64-rel": "ci/android-pie-arm64-rel/gn-args.json",
+    "android-pie-x86-rel": "ci/android-pie-x86-rel/gn-args.json",
     "android-webview-13-x64-hostside-rel": "ci/android-webview-13-x64-hostside-rel/gn-args.json"
   },
   "chromium.chromiumos": {
@@ -137,9 +137,9 @@
     "android-cronet-x86-dbg-10-tests": "try/android-cronet-x86-dbg-10-tests/gn-args.json",
     "android-oreo-arm64-dbg": "try/android-oreo-arm64-dbg/gn-args.json",
     "android-pie-arm64-dbg": "try/android-pie-arm64-dbg/gn-args.json",
+    "android-pie-x86-rel": "try/android-pie-x86-rel/gn-args.json",
     "android-webview-oreo-arm64-dbg": "try/android-webview-oreo-arm64-dbg/gn-args.json",
     "android-webview-pie-arm64-dbg": "try/android-webview-pie-arm64-dbg/gn-args.json",
-    "android-x64-cast": "try/android-x64-cast/gn-args.json",
     "android-x64-rel": "try/android-x64-rel/gn-args.json",
     "android-x86-rel": "try/android-x86-rel/gn-args.json",
     "android_compile_dbg": "try/android_compile_dbg/gn-args.json",

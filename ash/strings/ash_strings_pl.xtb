@@ -308,7 +308,6 @@ Oto kilka rzeczy, które możesz wypróbować na początek.</translation>
 <translation id="2041220428661959602">Poziom naładowania baterii: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848">Skrót symulujący działanie klawisza <ph name="SIX_PACK_KEY_NAME" /> jest obecnie wyłączony</translation>
 <translation id="2049240716062114887">Nazwa biurka została zmieniona na <ph name="DESK_NAME" /></translation>
-<translation id="2050339315714019657">Pionowo</translation>
 <translation id="2064048859448024834">Podgląd z aparatu jest włączony</translation>
 <translation id="2065098273523946419">Link Więcej informacji. Po kliknięciu otwiera przeglądarkę</translation>
 <translation id="2067220651560163985">Pokazuj temperaturę w stopniach Celsjusza</translation>
@@ -339,9 +338,6 @@ Oto kilka rzeczy, które możesz wypróbować na początek.</translation>
 <translation id="219905428774326614">Menu ze wszystkimi aplikacjami</translation>
 <translation id="2201071101391734388">Najnowsze zdjęcie <ph name="INDEX" /> z <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Zwiń Listę zadań Google</translation>
-<translation id="2206960886090042977">Wbudowany touchpad został wyłączony, ponieważ podłączono mysz. Aby potwierdzić tę zmianę, użyj myszy lub klawiatury.
-
-W przeciwnym razie za 30 sekund touchpad znowu się włączy.</translation>
 <translation id="2208323208084708176">Tryb ujednoliconego pulpitu</translation>
 <translation id="2220572644011485463">Kod PIN lub hasło</translation>
 <translation id="2222841058024245321">Biurko 7</translation>
@@ -504,6 +500,9 @@ Podłączone urządzenia: <ph name="DEVICECOUNT" />.</translation>
 <translation id="2774348302533424868"><ph name="MODIFIER" /> <ph name="DELIMITER" /> klawisz od <ph name="KEY_ONE" /> do <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">Ctrl + Szukaj + S</translation>
 <translation id="2778650143428714839">Urządzenie <ph name="DEVICE_TYPE" /> zarządzane przez <ph name="MANAGER" /></translation>
+<translation id="2781658180588759579">Wbudowany touchpad został wyłączony. Aby potwierdzić tę zmianę, użyj klawiatury lub innego urządzenia wskazującego.
+
+W przeciwnym razie za <ph name="TIMEOUT_SECONDS" /> touchpad znowu się włączy.</translation>
 <translation id="2782591952652094792">Zamknij tryb przechwytywania</translation>
 <translation id="2785499565474703580">1 połączone urządzenie</translation>
 <translation id="2791421900609674576">Zobaczysz rekomendacje, dzięki którym możesz kontynuować od ostatniego miejsca. Aby je usunąć, naciśnij i przytrzymaj.</translation>
@@ -601,6 +600,9 @@ Podłączone urządzenia: <ph name="DEVICECOUNT" />.</translation>
 <translation id="3113492864356515707">Podświetl poprzedni element na półce</translation>
 <translation id="311799651966070385">Zamknij ponaglenie</translation>
 <translation id="3120421559657122717">Wyłączyć urządzenie?</translation>
+<translation id="3121411970001795539">Wbudowany touchpad został wyłączony, ponieważ podłączono mysz. Aby potwierdzić tę zmianę, użyj myszy lub klawiatury.
+
+W przeciwnym razie za <ph name="TIMEOUT_SECONDS" /> touchpad znowu się włączy.</translation>
 <translation id="3122464029669770682">Procesor</translation>
 <translation id="3125690294288312932">Typ zadania</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +973,13 @@ W celu wydłużenia czasu pracy na baterii niektóre funkcje zostały ograniczo
 <translation id="4322742403972824594">Skrót klawiszowy Ctrl + Alt + strzałka w górę został zmieniony. Aby użyć klawisza Home, naciśnij klawisz <ph name="LAUNCHER_KEY_NAME" /> + strzałka w lewo.</translation>
 <translation id="4324840740119394760">Spowoduje to przyznanie dostępu do aparatu aplikacji <ph name="APP_NAME" /> oraz wszystkim aplikacjom i stronom internetowym, które mają uprawnienia do korzystania z niego</translation>
 <translation id="4327147325944669226">Nagraj grę</translation>
-<translation id="4333628967105022692">Kiedy zalogowanych jest wielu użytkowników, przeglądarka Lacros nie jest obsługiwana.</translation>
 <translation id="4338109981321384717">Lupa</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, wyciszono</translation>
 <translation id="4351244548802238354">Zamknij okno</translation>
 <translation id="4356872429719185452">Pokaż szczegóły hotspota. Hotspot właśnie się włącza.</translation>
 <translation id="4364101114148522660">Rejestruję <ph name="DURATION" /></translation>
 <translation id="4371348193907997655">Ustawienia przesyłania</translation>
+<translation id="4371834685492830207">Kod PIN musi zawierać tylko prawidłowe znaki</translation>
 <translation id="4375482231364171368">Szukaj na pasku adresu</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, siła sygnału <ph name="SIGNAL_STRENGTH" /> procent</translation>
 <translation id="4378551569595875038">Łączę...</translation>
@@ -1143,6 +1145,7 @@ Połączono 1 urządzenie.</translation>
 <translation id="4902797682482387055">Sugerowane zadanie, na którym warto się skupić</translation>
 <translation id="490375751687810070">Pionowo</translation>
 <translation id="490788395437447240">Bateria: <ph name="BATTERY_PERCENTAGE" />%</translation>
+<translation id="4911191962826748981">Jest to eksperymentalna funkcja oparta na AI, która nie zawsze działa dobrze.</translation>
 <translation id="491504982845934899">Aktywuj po konfiguracji urządzenia – <ph name="NETWORK_NAME" /></translation>
 <translation id="4917385247580444890">Silny</translation>
 <translation id="4918086044614829423">Akceptuj</translation>
@@ -1301,6 +1304,7 @@ Brak połączonych urządzeń.</translation>
 <translation id="5393156353051693207">Naciśnij i przytrzymaj dowolne miejsce, aby zmienić kolejność aplikacji</translation>
 <translation id="5395308026110844773">Aplikacja <ph name="DRAGGED_APP_NAME" /> jest nad aplikacją <ph name="IN_PLACE_APP" /> – puść, by utworzyć folder.</translation>
 <translation id="5397578532367286026">Działania i historia tego użytkownika mogą być sprawdzane przez menedżera (<ph name="MANAGER_EMAIL" />) na chrome.com.</translation>
+<translation id="540338817371815859">Pozioma</translation>
 <translation id="540713187982329711">Przełącz hotspota. Hotspot jest włączony. Żadne urządzenie nie jest połączone.</translation>
 <translation id="5409208741270395213">Oznacz zadanie jako ukończone</translation>
 <translation id="5413656666631274079">Strona ustawień</translation>
@@ -1472,7 +1476,6 @@ Brak połączonych urządzeń.</translation>
 <translation id="5975235751479998104">Przełączaj się do przodu między oknami</translation>
 <translation id="5978382165065462689">Udostępnianie sterowania ekranem przy użyciu pomocy zdalnej.</translation>
 <translation id="5980301590375426705">Zakończ sesję gościa</translation>
-<translation id="5982119059638483922">Aby anulować, naciśnij Fn + Wyszukaj lub Shift.</translation>
 <translation id="5983567367406220847">Z powodu braku aktywności hotspot został wyłączony.</translation>
 <translation id="598407983968395253">Użyj szablonu</translation>
 <translation id="5986723678596105470">Dołącz w Google Meet</translation>
@@ -1542,7 +1545,6 @@ Brak połączonych urządzeń.</translation>
 <translation id="6166852626429024716">Przeszukaj urządzenie, aplikacje, ustawienia, internet…</translation>
 <translation id="6168318496333165060">Otwórz aplikację diagnostyczną</translation>
 <translation id="6168622430237609329">Twoje zainstalowane aplikacje</translation>
-<translation id="6173151025443907148">Logowanie drugiego użytkownika nie jest obsługiwane, jeśli jest włączona aplikacja Lacros. Użyj 2 profilu przeglądarki w Lacros lub zamknij Lacros i spróbuj ponownie.</translation>
 <translation id="6179832488876878285">Tutaj możesz przypiąć ważne pliki. Aby rozpocząć, otwórz aplikację Pliki.</translation>
 <translation id="6180193585172850042">Przycisk Wstecz</translation>
 <translation id="6180651297859206670">Przycisk Dalej</translation>
@@ -1564,6 +1566,7 @@ Brak połączonych urządzeń.</translation>
 <translation id="6232416233079464213">Z: <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> używa teraz kamery i mikrofonu</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">Hasło musi zawierać tylko prawidłowe znaki</translation>
 <translation id="6240603910551255087">Górny przycisk</translation>
 <translation id="6240821072888636753">Zawsze pytaj</translation>
 <translation id="6247728804802644171">Otwórz powiadomienia</translation>
@@ -1693,7 +1696,6 @@ Brak połączonych urządzeń.</translation>
 <translation id="6682029141988159141">Wklej zawartość schowka</translation>
 <translation id="6683022854667115063">Słuchawki</translation>
 <translation id="6686023075541098243">Skonfiguruj wyświetlanie powiadomień z telefonu</translation>
-<translation id="6688019813898140556">Esc 5 razy</translation>
 <translation id="6694462491298752106">Wbudowany touchpad jest wyłączony</translation>
 <translation id="6694973220096431421">Szukaj na Dysku Google</translation>
 <translation id="6696025732084565524">Odłączana klawiatura wymaga krytycznej aktualizacji</translation>
@@ -1714,6 +1716,7 @@ Brak połączonych urządzeń.</translation>
 <translation id="6751826523481687655">Śledzenie wydajności jest włączone</translation>
 <translation id="6752912906630585008">Biurko <ph name="REMOVED_DESK" /> zostało usunięte i połączone z biurkiem <ph name="RECEIVE_DESK" /></translation>
 <translation id="6753390234084146956">karty</translation>
+<translation id="6754918760968695779">Szybkie wstawianie</translation>
 <translation id="6757237461819837179">Multimedia nie są odtwarzane</translation>
 <translation id="6760438044935091345">Panel gier</translation>
 <translation id="6768043681523654438">miejsce na dane</translation>
@@ -1763,6 +1766,7 @@ Brak połączonych urządzeń.</translation>
 <translation id="6921427376813842559">Zaktualizuj urządzenie</translation>
 <translation id="6929081673585394903">Pokaż elementy sterujące</translation>
 <translation id="6931576957638141829">Zapisz w</translation>
+<translation id="6935857786205183008">Pionowa</translation>
 <translation id="6942518653766415536">Menu formatu nagrywania</translation>
 <translation id="6945221475159498467">Wybierz</translation>
 <translation id="6945922087561257829">Telefon korzysta z sieci komórkowej. Upewnij się, że telefon i Chromebook są połączone z tą samą siecią Wi-Fi, a potem spróbuj ponownie. <ph name="LEARN_MORE" /></translation>
@@ -1919,9 +1923,6 @@ Brak połączonych urządzeń.</translation>
 Aby wyłączyć urządzenie, ponownie naciśnij i przytrzymaj na nim przycisk zasilania.</translation>
 <translation id="7523420897035067483">Włącz funkcję Nie przeszkadzać podczas korzystania z trybu skupienia</translation>
 <translation id="7524043547948122239">Lista zadań Google</translation>
-<translation id="7524919752437339268">Wbudowany touchpad został wyłączony. Aby potwierdzić tę zmianę, użyj klawiatury lub innego urządzenia wskazującego.
-
-W przeciwnym razie za 30 sekund touchpad znowu się włączy.</translation>
 <translation id="7525067979554623046">Utwórz</translation>
 <translation id="7526573455193969409">Sieć może być monitorowana</translation>
 <translation id="7536035074519304529">Adres IP: <ph name="ADDRESS" /></translation>
@@ -2008,6 +2009,7 @@ W przeciwnym razie za 30 sekund touchpad znowu się włączy.</translation>
 <translation id="780301667611848630">Nie, dziękuję</translation>
 <translation id="7807067443225230855">Wyszukiwanie i Asystent</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> i <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">Opcja Lubię spowoduje przesłanie opinii, że ta sugestia Ci się podoba</translation>
 <translation id="7825412704590278437">Z nadchodzącego wydarzenia w kalendarzu</translation>
 <translation id="7829386189513694949">silny sygnał</translation>
 <translation id="7830453190047749513">Możesz dostosować działanie przycisków, szybkość kursora i inne ustawienia urządzenia <ph name="PERIPHERAL_NAME" /></translation>
@@ -2162,6 +2164,7 @@ W przeciwnym razie za 30 sekund touchpad znowu się włączy.</translation>
 <translation id="830868413617744215">Beta</translation>
 <translation id="8314772463905284467">Caps Lock jest włączony.</translation>
 <translation id="8315514906653279104">Włączam…</translation>
+<translation id="8319634750346253957">Opcja Nie lubię spowoduje przesłanie opinii, że ta sugestia Ci się nie podoba</translation>
 <translation id="8331351032546853669">Pobieranie oczekuje</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" /> <ph name="GET_STARTED" /></translation>
@@ -2347,6 +2350,7 @@ W przeciwnym razie za 30 sekund touchpad znowu się włączy.</translation>
 <translation id="8982906748181120328">Widoczność w pobliżu</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">W użyciu jest <ph name="IME_NAME" /></translation>
+<translation id="8991648557324317894">Naciśnij fn + szybkie wstawianie lub Shift, aby anulować.</translation>
 <translation id="899350903320462459">Odblokuj urządzenie jako <ph name="LOGIN_ID" />, by zareagować na powiadomienie</translation>
 <translation id="8993733019280019776">Mówisz coś? Twój mikrofon jest wyłączony. Wybierz mikrofon, który chcesz włączyć.</translation>
 <translation id="9000771174482730261">ZARZĄDZAJ MIEJSCEM NA DANE</translation>
@@ -2429,9 +2433,9 @@ W przeciwnym razie za 30 sekund touchpad znowu się włączy.</translation>
 <translation id="974545358917229949">Wyświetlam wyniki (<ph name="RESULT_COUNT" />) dla zapytania <ph name="QUERY" /></translation>
 <translation id="981011780479609956">Brak terminu</translation>
 <translation id="98120814841227350">Przejdź na koniec dokumentu</translation>
-<translation id="98515147261107953">Poziomo</translation>
 <translation id="987589956647469042">Mobilna transmisja danych jest włączona</translation>
 <translation id="989374776391122812">Sterowanie kamerą i dźwiękiem</translation>
+<translation id="990263227494928142">Aby włączyć touchpad, naciśnij 5 razy klawisz Shift</translation>
 <translation id="990277280839877440">Okno <ph name="WINDOW_TITILE" /> zostało zamknięte.</translation>
 <translation id="993398562350683614">Prezentacja – krok <ph name="STEP" /> z <ph name="TOTAL_STEPS" />. Dzięki aplikacjom możesz robić na urządzeniu <ph name="PRODUCT_NAME" /> wszystko, co chcesz. Aplikacje znajdziesz w Menu z aplikacjami. Aby przenieść na nie zaznaczenie, naciśnij Alt + Shift + L.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

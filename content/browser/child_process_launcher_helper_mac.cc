@@ -114,6 +114,7 @@ bool ChildProcessLauncherHelper::BeforeLaunchOnLauncherThread(
   options->disclaim_responsibility = delegate_->DisclaimResponsibility();
   options->enable_cpu_security_mitigations =
       delegate_->EnableCpuSecurityMitigations();
+  options->process_requirement = delegate_->GetProcessRequirement();
 
   auto sandbox_type =
       sandbox::policy::SandboxTypeFromCommandLine(*command_line_);
@@ -244,8 +245,7 @@ base::File OpenFileToShare(const base::FilePath& path,
                            base::MemoryMappedFile::Region* region) {
   // Not used yet (until required files are described in the service manifest on
   // Mac).
-  NOTREACHED_IN_MIGRATION();
-  return base::File();
+  NOTREACHED();
 }
 
 }  //  namespace internal

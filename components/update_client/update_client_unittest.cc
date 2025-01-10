@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -19,7 +20,6 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
-#include "base/notreached.h"
 #include "base/run_loop.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/task_traits.h"
@@ -69,14 +69,20 @@ auto MakeMockCallback() {
 
 // Makes factories for creating update checker instances. `UpdateClient` uses
 // the factory to make one update client checker for each update check. This
-// factory of factories counts instances of update checkers made.
+// factory of factories counts instances of update checkers made. The factory
+// scope must enclose the scope of its clients since the `num_calls_` member
+// is captured by the lambda.
 template <typename MockUpdateChecker>
 class MockUpdateCheckerFactory {
  public:
   typename MockUpdateChecker::Factory GetFactory() {
     return base::BindLambdaForTesting(
         [&](scoped_refptr<Configurator>) -> std::unique_ptr<UpdateChecker> {
-          return std::make_unique<MockUpdateChecker>(++num_calls_);
+          if constexpr (std::is_default_constructible_v<MockUpdateChecker>) {
+            return std::make_unique<MockUpdateChecker>();
+          } else {
+            return std::make_unique<MockUpdateChecker>(++num_calls_);
+          }
         });
   }
 
@@ -307,7 +313,9 @@ class UpdateClientTest : public testing::Test {
 UpdateClientTest::UpdateClientTest() {
   RegisterPersistedDataPrefs(pref_->registry());
   config_ = base::MakeRefCounted<TestConfigurator>(pref_.get());
-  metadata_ = CreatePersistedData(pref_.get(), nullptr);
+  metadata_ = CreatePersistedData(
+      base::BindRepeating([](PrefService* pref) { return pref; }, pref_.get()),
+      nullptr);
 }
 
 void UpdateClientTest::RunThreads() {
@@ -346,7 +354,7 @@ TEST_F(UpdateClientTest, OneCrxNoUpdate) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -378,13 +386,13 @@ TEST_F(UpdateClientTest, OneCrxNoUpdate) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
 
     base::OnceClosure DoStartDownload(const GURL& url) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
       return base::DoNothing();
     }
   };
@@ -479,7 +487,7 @@ TEST_F(UpdateClientTest, TwoCrxUpdateNoUpdate) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -559,7 +567,7 @@ TEST_F(UpdateClientTest, TwoCrxUpdateNoUpdate) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
@@ -754,7 +762,7 @@ TEST_F(UpdateClientTest, TwoCrxUpdateFirstServerIgnoresSecond) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -818,7 +826,7 @@ TEST_F(UpdateClientTest, TwoCrxUpdateFirstServerIgnoresSecond) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
@@ -995,7 +1003,7 @@ TEST_F(UpdateClientTest, TwoCrxUpdateNoCrxComponentData) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -1059,7 +1067,7 @@ TEST_F(UpdateClientTest, TwoCrxUpdateNoCrxComponentData) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
@@ -1082,7 +1090,7 @@ TEST_F(UpdateClientTest, TwoCrxUpdateNoCrxComponentData) {
         result.error = 0;
         result.response = path;
       } else {
-        NOTREACHED_IN_MIGRATION();
+        ADD_FAILURE();
       }
 
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -1218,26 +1226,26 @@ TEST_F(UpdateClientTest, TwoCrxUpdateNoCrxComponentDataAtAll) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
         const base::flat_map<std::string, std::string>& additional_attributes,
         UpdateCheckCallback update_check_callback) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
     }
   };
   MockUpdateCheckerFactory<MockUpdateChecker> mock_update_checker_factory;
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
 
     base::OnceClosure DoStartDownload(const GURL& url) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
       return base::DoNothing();
     }
   };
@@ -1338,7 +1346,7 @@ TEST_F(UpdateClientTest, TwoCrxUpdateDownloadTimeout) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -1437,7 +1445,7 @@ TEST_F(UpdateClientTest, TwoCrxUpdateDownloadTimeout) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
@@ -1471,7 +1479,7 @@ TEST_F(UpdateClientTest, TwoCrxUpdateDownloadTimeout) {
         result.error = 0;
         result.response = path;
       } else {
-        NOTREACHED_IN_MIGRATION();
+        ADD_FAILURE();
       }
 
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -1640,10 +1648,12 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdate) {
       crx.crx_format_requirement = crx_file::VerifierFormat::CRX3;
       if (num_calls_ == 1) {
         crx.version = base::Version("0.8");
+        crx.fingerprint = "20";
       } else if (num_calls_ == 2) {
         crx.version = base::Version("1.0");
+        crx.fingerprint = "21";
       } else {
-        NOTREACHED_IN_MIGRATION();
+        ADD_FAILURE();
       }
 
       std::move(callback).Run({crx});
@@ -1773,7 +1783,7 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdate) {
         result.manifest.packages.push_back(package);
         results.list.push_back(result);
       } else {
-        NOTREACHED_IN_MIGRATION();
+        ADD_FAILURE();
       }
 
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -1788,7 +1798,7 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdate) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
@@ -1826,7 +1836,7 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdate) {
         result.error = 0;
         result.response = path;
       } else {
-        NOTREACHED_IN_MIGRATION();
+        ADD_FAILURE() << url.path();
       }
 
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -1925,17 +1935,17 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdate) {
         .Times(1);
     EXPECT_CALL(observer, OnEvent(Truly([](const CrxUpdateItem& item) {
                   return item.id == "ihfokbkgjpifnbbojhneepfflplebdkc" &&
-                         item.state == ComponentState::kDownloadingDiff;
+                         item.state == ComponentState::kDownloading;
                 })))
         .Times(AtLeast(1));
     EXPECT_CALL(observer, OnEvent(Truly([](const CrxUpdateItem& item) {
                   return item.id == "ihfokbkgjpifnbbojhneepfflplebdkc" &&
-                         item.state == ComponentState::kUpdatingDiff;
+                         item.state == ComponentState::kUpdating;
                 })))
         .Times(1);
     EXPECT_CALL(observer, OnEvent(Truly([](const CrxUpdateItem& item) {
                   return item.id == "ihfokbkgjpifnbbojhneepfflplebdkc" &&
-                         item.state == ComponentState::kUpdatingDiff;
+                         item.state == ComponentState::kUpdating;
                 })))
         .Times(3);
     EXPECT_CALL(observer, OnEvent(Truly([](const CrxUpdateItem& item) {
@@ -2013,19 +2023,19 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdate) {
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[0].id.c_str());
     EXPECT_EQ(ComponentState::kCanUpdate, items[1].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[1].id.c_str());
-    EXPECT_EQ(ComponentState::kDownloadingDiff, items[2].state);
+    EXPECT_EQ(ComponentState::kDownloading, items[2].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[2].id.c_str());
-    EXPECT_EQ(ComponentState::kDownloadingDiff, items[3].state);
+    EXPECT_EQ(ComponentState::kDownloading, items[3].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[3].id.c_str());
-    EXPECT_EQ(ComponentState::kDownloadingDiff, items[4].state);
+    EXPECT_EQ(ComponentState::kDownloading, items[4].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[4].id.c_str());
-    EXPECT_EQ(ComponentState::kUpdatingDiff, items[5].state);
+    EXPECT_EQ(ComponentState::kUpdating, items[5].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[5].id.c_str());
-    EXPECT_EQ(ComponentState::kUpdatingDiff, items[6].state);
+    EXPECT_EQ(ComponentState::kUpdating, items[6].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[6].id.c_str());
-    EXPECT_EQ(ComponentState::kUpdatingDiff, items[7].state);
+    EXPECT_EQ(ComponentState::kUpdating, items[7].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[7].id.c_str());
-    EXPECT_EQ(ComponentState::kUpdatingDiff, items[8].state);
+    EXPECT_EQ(ComponentState::kUpdating, items[8].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[8].id.c_str());
     EXPECT_EQ(ComponentState::kUpdated, items[9].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[9].id.c_str());
@@ -2122,7 +2132,7 @@ TEST_F(UpdateClientTest, OneCrxInstallError) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -2181,7 +2191,7 @@ TEST_F(UpdateClientTest, OneCrxInstallError) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
@@ -2319,10 +2329,12 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdateFailsFullUpdateSucceeds) {
       crx.crx_format_requirement = crx_file::VerifierFormat::CRX3;
       if (num_calls_ == 1) {
         crx.version = base::Version("0.8");
+        crx.fingerprint = "20";
       } else if (num_calls_ == 2) {
         crx.version = base::Version("1.0");
+        crx.fingerprint = "21";
       } else {
-        NOTREACHED_IN_MIGRATION();
+        ADD_FAILURE();
       }
 
       std::move(callback).Run({crx});
@@ -2449,7 +2461,7 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdateFailsFullUpdateSucceeds) {
         result.manifest.packages.push_back(package);
         results.list.push_back(result);
       } else {
-        NOTREACHED_IN_MIGRATION();
+        ADD_FAILURE();
       }
 
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -2464,7 +2476,7 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdateFailsFullUpdateSucceeds) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
@@ -2600,7 +2612,7 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdateFailsFullUpdateSucceeds) {
         .Times(1);
     EXPECT_CALL(observer, OnEvent(Truly([](const CrxUpdateItem& item) {
                   return item.id == "ihfokbkgjpifnbbojhneepfflplebdkc" &&
-                         item.state == ComponentState::kDownloadingDiff;
+                         item.state == ComponentState::kDownloading;
                 })))
         .Times(AtLeast(1));
     EXPECT_CALL(observer, OnEvent(Truly([](const CrxUpdateItem& item) {
@@ -2675,9 +2687,9 @@ TEST_F(UpdateClientTest, OneCrxDiffUpdateFailsFullUpdateSucceeds) {
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[0].id.c_str());
     EXPECT_EQ(ComponentState::kCanUpdate, items[1].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[1].id.c_str());
-    EXPECT_EQ(ComponentState::kDownloadingDiff, items[2].state);
+    EXPECT_EQ(ComponentState::kDownloading, items[2].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[2].id.c_str());
-    EXPECT_EQ(ComponentState::kDownloadingDiff, items[3].state);
+    EXPECT_EQ(ComponentState::kDownloading, items[3].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[3].id.c_str());
     EXPECT_EQ(ComponentState::kDownloading, items[4].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[4].id.c_str());
@@ -2712,10 +2724,12 @@ TEST_F(UpdateClientTest,
       crx.crx_format_requirement = crx_file::VerifierFormat::CRX3;
       if (num_calls_ == 1) {
         crx.version = base::Version("0.8");
+        crx.fingerprint = "20";
       } else if (num_calls_ == 2) {
         crx.version = base::Version("1.0");
+        crx.fingerprint = "21";
       } else {
-        NOTREACHED_IN_MIGRATION();
+        ADD_FAILURE();
       }
 
       std::move(callback).Run({crx});
@@ -2840,7 +2854,7 @@ TEST_F(UpdateClientTest,
         result.manifest.packages.push_back(package);
         results.list.push_back(result);
       } else {
-        NOTREACHED_IN_MIGRATION();
+        ADD_FAILURE();
       }
 
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -2855,7 +2869,7 @@ TEST_F(UpdateClientTest,
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
@@ -2882,13 +2896,13 @@ TEST_F(UpdateClientTest,
         // A download error is injected on this execution path.
         download_metrics.url = url;
         download_metrics.downloader = DownloadMetrics::kNone;
-        download_metrics.error = -1;
+        download_metrics.error = 18;
         download_metrics.downloaded_bytes = 0;
         download_metrics.total_bytes = 2105;
         download_metrics.download_time_ms = 1000;
 
         // The response must not include a file path in the case of errors.
-        result.error = -1;
+        result.error = 18;
       } else if (url.path() ==
                  "/download/ihfokbkgjpifnbbojhneepfflplebdkc_2.crx") {
         download_metrics.url = url;
@@ -2939,7 +2953,7 @@ TEST_F(UpdateClientTest,
       EXPECT_EQ(0, static_cast<int>(ping_data[1].error_category));
       EXPECT_EQ(0, ping_data[1].error_code);
       EXPECT_TRUE(ping_data[1].diff_update_failed);
-      EXPECT_EQ(2, static_cast<int>(ping_data[1].diff_error_category));
+      EXPECT_EQ(1, static_cast<int>(ping_data[1].diff_error_category));
       EXPECT_EQ(18, ping_data[1].diff_error_code);
     }
   };
@@ -3056,7 +3070,7 @@ TEST_F(UpdateClientTest,
                        runloop.QuitClosure()));
     runloop.Run();
 
-    EXPECT_EQ(6u, items.size());
+    EXPECT_EQ(8u, items.size());
     EXPECT_EQ(ComponentState::kChecking, items[0].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[0].id.c_str());
     EXPECT_EQ(ComponentState::kCanUpdate, items[1].state);
@@ -3065,10 +3079,14 @@ TEST_F(UpdateClientTest,
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[2].id.c_str());
     EXPECT_EQ(ComponentState::kDownloading, items[3].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[3].id.c_str());
-    EXPECT_EQ(ComponentState::kUpdating, items[4].state);
+    EXPECT_EQ(ComponentState::kDownloading, items[4].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[4].id.c_str());
-    EXPECT_EQ(ComponentState::kUpdated, items[5].state);
+    EXPECT_EQ(ComponentState::kDownloading, items[5].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[5].id.c_str());
+    EXPECT_EQ(ComponentState::kUpdating, items[6].state);
+    EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[6].id.c_str());
+    EXPECT_EQ(ComponentState::kUpdated, items[7].state);
+    EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[7].id.c_str());
   }
 
   update_client->RemoveObserver(&observer);
@@ -3118,7 +3136,7 @@ TEST_F(UpdateClientTest, OneCrxNoUpdateQueuedCall) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -3149,13 +3167,13 @@ TEST_F(UpdateClientTest, OneCrxNoUpdateQueuedCall) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
 
     base::OnceClosure DoStartDownload(const GURL& url) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
       return base::DoNothing();
     }
   };
@@ -3270,7 +3288,7 @@ TEST_F(UpdateClientTest, OneCrxInstall) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -3336,7 +3354,7 @@ TEST_F(UpdateClientTest, OneCrxInstall) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
@@ -3359,7 +3377,7 @@ TEST_F(UpdateClientTest, OneCrxInstall) {
         result.error = 0;
         result.response = path;
       } else {
-        NOTREACHED_IN_MIGRATION();
+        ADD_FAILURE();
       }
 
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -3509,26 +3527,26 @@ TEST_F(UpdateClientTest, OneCrxInstallNoCrxComponentData) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
         const base::flat_map<std::string, std::string>& additional_attributes,
         UpdateCheckCallback update_check_callback) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
     }
   };
   MockUpdateCheckerFactory<MockUpdateChecker> mock_update_checker_factory;
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
 
     base::OnceClosure DoStartDownload(const GURL& url) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
       return base::DoNothing();
     }
   };
@@ -3637,7 +3655,7 @@ TEST_F(UpdateClientTest, ConcurrentInstallSameCRX) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -3668,13 +3686,13 @@ TEST_F(UpdateClientTest, ConcurrentInstallSameCRX) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
 
     base::OnceClosure DoStartDownload(const GURL& url) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
       return base::DoNothing();
     }
   };
@@ -3765,25 +3783,25 @@ TEST_F(UpdateClientTest, EmptyIdList) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
         const base::flat_map<std::string, std::string>& additional_attributes,
         UpdateCheckCallback update_check_callback) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
     }
   };
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
 
     base::OnceClosure DoStartDownload(const GURL& url) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
       return base::DoNothing();
     }
   };
@@ -3840,7 +3858,7 @@ TEST_F(UpdateClientTest, DiskFull) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -3907,13 +3925,13 @@ TEST_F(UpdateClientTest, DiskFull) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
 
     base::OnceClosure DoStartDownload(const GURL& url) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
       return base::DoNothing();
     }
   };
@@ -4015,10 +4033,12 @@ TEST_F(UpdateClientTest, DiskFullDiff) {
       crx.crx_format_requirement = crx_file::VerifierFormat::CRX3;
       if (num_calls_ == 1) {
         crx.version = base::Version("0.8");
+        crx.fingerprint = "20";
       } else if (num_calls_ == 2) {
         crx.version = base::Version("1.0");
+        crx.fingerprint = "21";
       } else {
-        NOTREACHED_IN_MIGRATION();
+        ADD_FAILURE();
       }
 
       std::move(callback).Run({crx});
@@ -4150,7 +4170,7 @@ TEST_F(UpdateClientTest, DiskFullDiff) {
         result.manifest.packages.push_back(package);
         results.list.push_back(result);
       } else {
-        NOTREACHED_IN_MIGRATION();
+        ADD_FAILURE();
       }
 
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -4165,7 +4185,7 @@ TEST_F(UpdateClientTest, DiskFullDiff) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
@@ -4188,7 +4208,7 @@ TEST_F(UpdateClientTest, DiskFullDiff) {
         result.error = 0;
         result.response = path;
       } else {
-        NOTREACHED_IN_MIGRATION();
+        ADD_FAILURE();
       }
 
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -4280,7 +4300,7 @@ TEST_F(UpdateClientTest, DiskFullDiff) {
         .Times(1);
     EXPECT_CALL(observer, OnEvent(Truly([](const CrxUpdateItem& item) {
                   return item.id == "ihfokbkgjpifnbbojhneepfflplebdkc" &&
-                         item.state == ComponentState::kDownloadingDiff;
+                         item.state == ComponentState::kDownloading;
                 })))
         .Times(AtLeast(1));
     EXPECT_CALL(observer, OnEvent(Truly([](const CrxUpdateItem& item) {
@@ -4363,7 +4383,7 @@ TEST_F(UpdateClientTest, DiskFullDiff) {
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[0].id.c_str());
     EXPECT_EQ(ComponentState::kCanUpdate, items[1].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[1].id.c_str());
-    EXPECT_EQ(ComponentState::kDownloadingDiff, items[2].state);
+    EXPECT_EQ(ComponentState::kDownloading, items[2].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[2].id.c_str());
     EXPECT_EQ(ComponentState::kDownloading, items[3].state);
     EXPECT_STREQ("ihfokbkgjpifnbbojhneepfflplebdkc", items[3].id.c_str());
@@ -4410,13 +4430,13 @@ TEST_P(SendPingTest, TestCases) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
         const base::flat_map<std::string, std::string>& additional_attributes,
         UpdateCheckCallback update_check_callback) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
     }
   };
   MockUpdateCheckerFactory<MockUpdateChecker> mock_update_checker_factory;
@@ -4429,7 +4449,7 @@ TEST_P(SendPingTest, TestCases) {
       return nullptr;
     }
 
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
@@ -4538,7 +4558,7 @@ TEST_F(UpdateClientTest, RetryAfter) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int num_calls = 0) : num_calls_(num_calls) {}
+    explicit MockUpdateChecker(int num_calls) : num_calls_(num_calls) {}
 
    private:
     void CheckForUpdates(
@@ -4578,13 +4598,13 @@ TEST_F(UpdateClientTest, RetryAfter) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
 
     base::OnceClosure DoStartDownload(const GURL& url) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
       return base::DoNothing();
     }
   };
@@ -4728,7 +4748,7 @@ TEST_F(UpdateClientTest, TwoCrxUpdateOneUpdateDisabled) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -4827,7 +4847,7 @@ TEST_F(UpdateClientTest, TwoCrxUpdateOneUpdateDisabled) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
@@ -4850,7 +4870,7 @@ TEST_F(UpdateClientTest, TwoCrxUpdateOneUpdateDisabled) {
         result.error = 0;
         result.response = path;
       } else {
-        NOTREACHED_IN_MIGRATION();
+        ADD_FAILURE();
       }
 
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -5013,7 +5033,7 @@ TEST_F(UpdateClientTest, OneCrxUpdateDownloadTimeout) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -5076,7 +5096,7 @@ TEST_F(UpdateClientTest, OneCrxUpdateDownloadTimeout) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
@@ -5237,7 +5257,7 @@ TEST_F(UpdateClientTest, OneCrxUpdateCheckFails) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -5258,13 +5278,13 @@ TEST_F(UpdateClientTest, OneCrxUpdateCheckFails) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
 
     base::OnceClosure DoStartDownload(const GURL& url) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
       return base::DoNothing();
     }
   };
@@ -5392,7 +5412,7 @@ TEST_F(UpdateClientTest, OneCrxErrorUnknownApp) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -5429,13 +5449,13 @@ TEST_F(UpdateClientTest, OneCrxErrorUnknownApp) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
 
     base::OnceClosure DoStartDownload(const GURL& url) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
       return base::DoNothing();
     }
   };
@@ -5551,7 +5571,7 @@ TEST_F(UpdateClientTest, OneCrxErrorUnknownApp) {
 TEST_F(UpdateClientTest, ActionRun_Install) {
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -5615,7 +5635,7 @@ TEST_F(UpdateClientTest, ActionRun_Install) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
@@ -5638,7 +5658,7 @@ TEST_F(UpdateClientTest, ActionRun_Install) {
         result.error = 0;
         result.response = path;
       } else {
-        NOTREACHED_IN_MIGRATION();
+        ADD_FAILURE();
       }
 
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -5742,7 +5762,7 @@ TEST_F(UpdateClientTest, ActionRun_Install) {
 TEST_F(UpdateClientTest, ActionRun_NoUpdate) {
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -5785,13 +5805,13 @@ TEST_F(UpdateClientTest, ActionRun_NoUpdate) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
 
     base::OnceClosure DoStartDownload(const GURL& url) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
       return base::DoNothing();
     }
   };
@@ -5803,13 +5823,17 @@ TEST_F(UpdateClientTest, ActionRun_NoUpdate) {
 
    protected:
     ~MockPingManager() override {
-      EXPECT_EQ(1u, events().size());
+      EXPECT_EQ(2u, events().size());
 
       // "<event eventtype="42" eventresult="1" errorcode="1877345072"/>"
       const base::Value::Dict& event = events()[0];
       EXPECT_EQ(42, event.FindInt("eventtype"));
       EXPECT_EQ(1, event.FindInt("eventresult"));
       EXPECT_EQ(1877345072, event.FindInt("errorcode"));
+
+      // "<event eventtype="3" eventresult="1"/>"
+      EXPECT_EQ(3, events()[1].FindInt("eventtype"));
+      EXPECT_EQ(1, events()[1].FindInt("eventresult"));
     }
   };
 
@@ -5842,10 +5866,10 @@ TEST_F(UpdateClientTest, ActionRun_NoUpdate) {
 
   EXPECT_FALSE(unpack_path.empty());
   EXPECT_TRUE(base::DirectoryExists(unpack_path));
-  int64_t file_size = 0;
-  EXPECT_TRUE(base::GetFileSize(unpack_path.AppendASCII("ChromeRecovery.crx3"),
-                                &file_size));
-  EXPECT_EQ(44582, file_size);
+  std::optional<int64_t> file_size =
+      base::GetFileSize(unpack_path.AppendASCII("ChromeRecovery.crx3"));
+  EXPECT_TRUE(file_size.has_value());
+  EXPECT_EQ(44582, file_size.value());
 
   base::ScopedTempDir unpack_path_owner;
   EXPECT_TRUE(unpack_path_owner.Set(unpack_path));
@@ -5928,7 +5952,7 @@ TEST_F(UpdateClientTest, CustomAttributeNoUpdate) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -5961,13 +5985,13 @@ TEST_F(UpdateClientTest, CustomAttributeNoUpdate) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
 
     base::OnceClosure DoStartDownload(const GURL& url) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
       return base::DoNothing();
     }
   };
@@ -6110,7 +6134,7 @@ TEST_F(UpdateClientTest, CancelInstallBeforeTaskStart) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -6150,7 +6174,7 @@ TEST_F(UpdateClientTest, CancelInstallBeforeTaskStart) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
@@ -6173,7 +6197,7 @@ TEST_F(UpdateClientTest, CancelInstallBeforeTaskStart) {
         result.error = 0;
         result.response = path;
       } else {
-        NOTREACHED_IN_MIGRATION();
+        ADD_FAILURE();
       }
 
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -6254,7 +6278,7 @@ TEST_F(UpdateClientTest, CancelInstallBeforeInstall) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -6294,7 +6318,7 @@ TEST_F(UpdateClientTest, CancelInstallBeforeInstall) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
@@ -6317,7 +6341,7 @@ TEST_F(UpdateClientTest, CancelInstallBeforeInstall) {
         result.error = 0;
         result.response = path;
       } else {
-        NOTREACHED_IN_MIGRATION();
+        ADD_FAILURE();
       }
 
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -6444,7 +6468,7 @@ TEST_F(UpdateClientTest, CancelInstallBeforeDownload) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -6484,7 +6508,7 @@ TEST_F(UpdateClientTest, CancelInstallBeforeDownload) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
@@ -6507,7 +6531,7 @@ TEST_F(UpdateClientTest, CancelInstallBeforeDownload) {
         result.error = 0;
         result.response = path;
       } else {
-        NOTREACHED_IN_MIGRATION();
+        ADD_FAILURE();
       }
 
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -6616,7 +6640,7 @@ TEST_F(UpdateClientTest, CheckForUpdate_NoUpdate) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -6648,13 +6672,13 @@ TEST_F(UpdateClientTest, CheckForUpdate_NoUpdate) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
 
     base::OnceClosure DoStartDownload(const GURL& url) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
       return base::DoNothing();
     }
   };
@@ -6732,7 +6756,7 @@ TEST_F(UpdateClientTest, CheckForUpdate_UpdateAvailable) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -6793,13 +6817,13 @@ TEST_F(UpdateClientTest, CheckForUpdate_UpdateAvailable) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
 
     base::OnceClosure DoStartDownload(const GURL& url) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
       return base::DoNothing();
     }
   };
@@ -6887,7 +6911,7 @@ TEST_F(UpdateClientTest, CheckForUpdate_QueueChecks) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -6919,13 +6943,13 @@ TEST_F(UpdateClientTest, CheckForUpdate_QueueChecks) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
 
     base::OnceClosure DoStartDownload(const GURL& url) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
       return base::DoNothing();
     }
   };
@@ -7028,7 +7052,7 @@ TEST_F(UpdateClientTest, CheckForUpdate_Stop) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -7060,13 +7084,13 @@ TEST_F(UpdateClientTest, CheckForUpdate_Stop) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
 
     base::OnceClosure DoStartDownload(const GURL& url) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
       return base::DoNothing();
     }
   };
@@ -7141,7 +7165,7 @@ TEST_F(UpdateClientTest, CheckForUpdate_Stop) {
 TEST_F(UpdateClientTest, CheckForUpdate_Errors) {
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -7152,13 +7176,13 @@ TEST_F(UpdateClientTest, CheckForUpdate_Errors) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
 
     base::OnceClosure DoStartDownload(const GURL& url) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
       return base::DoNothing();
     }
   };
@@ -7267,7 +7291,7 @@ TEST_F(UpdateClientTest, UpdateCheck_UpdateDisabled) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -7328,13 +7352,13 @@ TEST_F(UpdateClientTest, UpdateCheck_UpdateDisabled) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;
 
     base::OnceClosure DoStartDownload(const GURL& url) override {
-      NOTREACHED_IN_MIGRATION();
+      ADD_FAILURE();
       return base::DoNothing();
     }
   };
@@ -7431,7 +7455,7 @@ TEST_F(UpdateClientTest, OneCrxCachedUpdate) {
       } else if (num_calls_ == 2) {
         installer->set_installer_progress_samples({-1, 50, 100});
       } else {
-        NOTREACHED_IN_MIGRATION();
+        ADD_FAILURE();
       }
       crx.installer = installer;
 
@@ -7456,7 +7480,7 @@ TEST_F(UpdateClientTest, OneCrxCachedUpdate) {
 
   class MockUpdateChecker : public UpdateChecker {
    public:
-    explicit MockUpdateChecker(int) {}
+    MockUpdateChecker() = default;
 
     void CheckForUpdates(
         scoped_refptr<UpdateContext> context,
@@ -7518,7 +7542,7 @@ TEST_F(UpdateClientTest, OneCrxCachedUpdate) {
 
   class MockCrxDownloader : public CrxDownloader {
    public:
-    MockCrxDownloader() : CrxDownloader(nullptr) {}
+    MockCrxDownloader() = default;
 
    private:
     ~MockCrxDownloader() override = default;

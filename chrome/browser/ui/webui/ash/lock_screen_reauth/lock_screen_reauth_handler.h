@@ -10,6 +10,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/values.h"
+#include "chrome/browser/ash/login/signin/authentication_flow_auto_reload_manager.h"
 #include "chrome/browser/ui/webui/ash/login/check_passwords_against_cryptohome_helper.h"
 #include "chrome/browser/ui/webui/ash/login/online_login_utils.h"
 #include "chromeos/ash/components/login/auth/public/user_context.h"
@@ -30,7 +31,7 @@ class LockScreenReauthHandler : public content::WebUIMessageHandler {
 
   void ShowPasswordChangedScreen();
 
-  void ReloadGaia();
+  void ReloadGaiaAuthenticator();
 
   // WebUI message handlers.
   void HandleStartOnlineAuth(const base::Value::List&);
@@ -42,6 +43,11 @@ class LockScreenReauthHandler : public content::WebUIMessageHandler {
   void HandleGetDeviceId(const std::string& callback_id);
 
   bool IsAuthenticatorLoaded(base::OnceClosure callback);
+
+  // Activating the automatic reloading of authentication flow by the interval
+  // set in `DeviceAuthenticationFlowAutoReloadInterval` policy.
+  void ActivateAutoReload();
+  ash::AuthenticationFlowAutoReloadManager& GetAutoReloadManager();
 
  private:
   enum class AuthenticatorState { NOT_LOADED, LOADING, LOADED };
@@ -134,6 +140,8 @@ class LockScreenReauthHandler : public content::WebUIMessageHandler {
 
   // A test may be waiting for the authenticator to load.
   base::OnceClosure waiting_caller_;
+
+  ash::AuthenticationFlowAutoReloadManager auth_flow_auto_reload_manager_;
 
   base::WeakPtrFactory<LockScreenReauthHandler> weak_factory_{this};
 };

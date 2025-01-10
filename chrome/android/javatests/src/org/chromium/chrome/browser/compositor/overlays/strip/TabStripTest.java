@@ -28,8 +28,10 @@ import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.compositor.layouts.components.CompositorButton;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModel;
@@ -53,6 +55,7 @@ import java.util.concurrent.TimeoutException;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @DoNotBatch(reason = "crbug.com/342984901")
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
+@Features.DisableFeatures(ChromeFeatureList.TAB_STRIP_INCOGNITO_MIGRATION)
 public class TabStripTest {
     @ClassRule
     public static ChromeTabbedActivityTestRule sActivityTestRule =
@@ -878,7 +881,7 @@ public class TabStripTest {
         StripLayoutHelper strip =
                 TabStripUtils.getActiveStripLayoutHelper(sActivityTestRule.getActivity());
         StripLayoutTab[] tabs = strip.getStripLayoutTabsForTesting();
-        float tabDrawWidth = tabs[0].getWidth() - strip.getTabOverlapWidthForTesting();
+        float tabDrawWidth = tabs[0].getWidth() - StripLayoutUtils.TAB_OVERLAP_WIDTH_DP;
 
         // Disable animations. The animation that normally runs when scrolling the tab strip makes
         // this test flaky.
@@ -1031,7 +1034,7 @@ public class TabStripTest {
         Assert.assertFalse("|mFolioAttached| for tab1 should be false.", tab1.getFolioAttached());
         Assert.assertEquals(
                 "tab1 container bottom margin should match.",
-                StripLayoutHelper.FOLIO_DETACHED_BOTTOM_MARGIN_DP,
+                ReorderDelegate.FOLIO_DETACHED_BOTTOM_MARGIN_DP,
                 tab1.getBottomMargin(),
                 0.f);
 
@@ -1048,7 +1051,7 @@ public class TabStripTest {
         Assert.assertTrue("|mFolioAttached| for tab1 should be true.", tab1.getFolioAttached());
         Assert.assertEquals(
                 "tab1 container bottom margin should match.",
-                StripLayoutHelper.FOLIO_ATTACHED_BOTTOM_MARGIN_DP,
+                ReorderDelegate.FOLIO_ATTACHED_BOTTOM_MARGIN_DP,
                 tab1.getBottomMargin(),
                 0.f);
 
@@ -1201,24 +1204,6 @@ public class TabStripTest {
                 });
     }
 
-    /**
-     * Take a model index and figure out which index it will be in the TabStrip's view hierarchy.
-     *
-     * @param tabCount The number of tabs.
-     * @param selectedIndex The index of the selected tab.
-     * @param modelPos The position in the model we want to map.
-     * @return The position in the view hierarchy that represents the tab at modelPos.
-     */
-    private int mapModelToViewIndex(int tabCount, int selectedIndex, int modelPos) {
-        if (modelPos < selectedIndex) {
-            return modelPos;
-        } else if (modelPos == selectedIndex) {
-            return tabCount - 1;
-        } else {
-            return tabCount - 1 - modelPos + selectedIndex;
-        }
-    }
-
     /** Simulates a click to the incognito toggle button. */
     protected void clickIncognitoToggleButton() {
         final CallbackHelper tabModelSelectedCallback = new CallbackHelper();
@@ -1348,23 +1333,21 @@ public class TabStripTest {
 
         Assert.assertEquals("The IDs are not identical", tabView.getTabId(), tab.getId());
 
-        int assumedTabViewIndex =
-                mapModelToViewIndex(model.getCount(), model.index(), model.indexOf(tab));
+        assertTabVisibility(tabStrip, tabView);
 
+        int tabIndexOnStrip =
+                StripLayoutUtils.findIndexForTab(tabStrip.getStripLayoutTabsForTesting(), id);
         Assert.assertEquals(
-                "The tab is not in the proper position ",
-                assumedTabViewIndex,
-                tabStrip.visualIndexOfTabForTesting(tabView));
+                "The tab is not in the proper position ", model.indexOf(tab), tabIndexOnStrip);
 
         if (TabModelUtils.getCurrentTab(model) == tab
                 && sActivityTestRule.getActivity().getTabModelSelector().isIncognitoSelected()
                         == incognito) {
-            Assert.assertTrue(
+            Assert.assertEquals(
                     "ChromeTab is not in the proper selection state",
-                    tabStrip.isForegroundTabForTesting(tabView));
+                    model.indexOf(tab),
+                    tabStrip.getSelectedStripTabIndex());
         }
-
-        assertTabVisibility(tabStrip, tabView);
 
         // TODO(dtrainor): Compare favicon bitmaps?  Only compare a few pixels.
     }

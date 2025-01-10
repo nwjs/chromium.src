@@ -24,11 +24,6 @@ BASE_FEATURE(kWebViewBackForwardCache,
              "WebViewBackForwardCache",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Kill switch for adding CHECKs to loading pak files.
-BASE_FEATURE(kWebViewCheckPakFileDescriptors,
-             "WebViewCheckPakFileDescriptors",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enable loading include statements when checking digital asset links
 BASE_FEATURE(kWebViewDigitalAssetLinksLoadIncludes,
              "WebViewDigitalAssetLinksLoadIncludes",
@@ -37,12 +32,6 @@ BASE_FEATURE(kWebViewDigitalAssetLinksLoadIncludes,
 // Allows JS DataTransfer Files from content URIs in drag-drop.
 BASE_FEATURE(kWebViewDragDropFiles,
              "WebViewDragDropFiles",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Cache origins which have camera/mic permissions approved to allow subsequent
-// calls to enumerate devices to return device labels.
-BASE_FEATURE(kWebViewEnumerateDevicesCache,
-             "WebViewEnumerateDevicesCache",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable JS FileSystemAccess API.
@@ -56,10 +45,6 @@ BASE_FEATURE(kWebViewFileSystemAccess,
 BASE_FEATURE(kWebViewForceDarkModeMatchTheme,
              "WebViewForceDarkModeMatchTheme",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kWebViewHitTestInBlinkOnTouchStart,
-             "WebViewHitTestInBlinkOnTouchStart",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Feature parameter for `network::features::kMaskedDomainList` that sets the
 // exclusion criteria for defining which domains are excluded from the
@@ -172,12 +157,6 @@ BASE_FEATURE(kWebViewUnreducedProductVersion,
              "WebViewUnreducedProductVersion",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enable raster in wide color gamut for apps that use webview in a wide color
-// gamut activity.
-BASE_FEATURE(kWebViewWideColorGamutSupport,
-             "WebViewWideColorGamutSupport",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Control the default behaviour for the XRequestedWith header.
 // TODO(crbug.com/40286009): enable by default after M120 branch point.
 BASE_FEATURE(kWebViewXRequestedWithHeaderControl,
@@ -190,11 +169,6 @@ BASE_FEATURE(kWebViewXRequestedWithHeaderControl,
 // |AwSettings::RequestedWithHeaderMode|
 const base::FeatureParam<int> kWebViewXRequestedWithHeaderMode{
     &kWebViewXRequestedWithHeaderControl, "WebViewXRequestedWithHeaderMode", 0};
-
-// This enables image drage out for Webview.
-BASE_FEATURE(kWebViewImageDrag,
-             "WebViewImageDrag",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled zoom picker is invoked on every kGestureScrollUpdate consumed ack,
 // otherwise the zoom picker is persistently shown from scroll start to scroll
@@ -212,11 +186,6 @@ BASE_FEATURE(kWebViewSeparateResourceContext,
 // startup.
 BASE_FEATURE(kWebViewUseInitialNetworkStateAtStartup,
              "WebViewUseInitialNetworkStateAtStartup",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// This enables zoom keyboard shortcuts for zoom-in, zoom-out and zoom reset.
-BASE_FEATURE(kWebViewZoomKeyboardShortcuts,
-             "WebViewZoomKeyboardShortcuts",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // This enables reducing webview user-agent android version and device model.

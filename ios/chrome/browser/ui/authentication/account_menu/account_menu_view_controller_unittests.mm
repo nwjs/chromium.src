@@ -106,13 +106,12 @@ class AccountMenuViewControllerTest : public PlatformTest {
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetDefaultFactory());
+        AuthenticationServiceFactory::GetFactoryWithDelegate(
+            std::make_unique<FakeAuthenticationServiceDelegate>()));
     profile_ = std::move(builder).Build();
     fake_system_identity_manager_ =
         FakeSystemIdentityManager::FromSystemIdentityManager(
             GetApplicationContext()->GetSystemIdentityManager());
-    AuthenticationServiceFactory::CreateAndInitializeForProfile(
-        profile_.get(), std::make_unique<FakeAuthenticationServiceDelegate>());
     data_source_.accountManagerService =
         ChromeAccountManagerServiceFactory::GetForProfile(profile_.get());
     authentication_service_ =
@@ -295,7 +294,6 @@ TEST_F(AccountMenuViewControllerTest, TestSetError) {
 
   OCMExpect([mutator_ didTapErrorButton]);
   SelectCell(path_for_error_button);
-  EXPECT_EQ(1, user_actions_.GetActionCount("Signin_AccountMenu_ErrorButton"));
 }
 
 // Tests that adding an account adds an extra row in the secondary account
@@ -304,7 +302,8 @@ TEST_F(AccountMenuViewControllerTest, TestAddAccount) {
   fake_system_identity_manager_->AddIdentity(kSecondaryIdentity2);
   [view_controller_
       updateAccountListWithGaiaIDsToAdd:@[ kSecondaryIdentity2.gaiaID ]
-                        gaiaIDsToRemove:@[]];
+                        gaiaIDsToRemove:@[]
+                          gaiaIDsToKeep:@[ kSecondaryIdentity.gaiaID ]];
   EXPECT_EQ(2, TableView().numberOfSections);
   // The secondary accounts and Add Account...
   EXPECT_EQ(3, [TableView() numberOfRowsInSection:0]);
@@ -317,7 +316,8 @@ TEST_F(AccountMenuViewControllerTest, TestAddAccount) {
 TEST_F(AccountMenuViewControllerTest, TestRemoveAccount) {
   [view_controller_
       updateAccountListWithGaiaIDsToAdd:@[]
-                        gaiaIDsToRemove:@[ kSecondaryIdentity.gaiaID ]];
+                        gaiaIDsToRemove:@[ kSecondaryIdentity.gaiaID ]
+                          gaiaIDsToKeep:@[]];
   EXPECT_EQ(2, TableView().numberOfSections);
   // No Secondary account. Just Add Account...
   EXPECT_EQ(1, [TableView() numberOfRowsInSection:0]);

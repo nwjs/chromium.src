@@ -122,19 +122,16 @@ ChromePageInfoDelegate::GetChooserContext(ContentSettingsType type) {
 #if !BUILDFLAG(IS_ANDROID)
       return SerialChooserContextFactory::GetForProfile(GetProfile());
 #else
-      NOTREACHED_IN_MIGRATION();
-      return nullptr;
+      NOTREACHED();
 #endif
     case ContentSettingsType::HID_CHOOSER_DATA:
 #if !BUILDFLAG(IS_ANDROID)
       return HidChooserContextFactory::GetForProfile(GetProfile());
 #else
-      NOTREACHED_IN_MIGRATION();
-      return nullptr;
+      NOTREACHED();
 #endif
     default:
-      NOTREACHED_IN_MIGRATION();
-      return nullptr;
+      NOTREACHED();
   }
 }
 
@@ -202,12 +199,12 @@ void ChromePageInfoDelegate::FocusWebContents() {
 std::optional<std::u16string> ChromePageInfoDelegate::GetRwsOwner(
     const GURL& site_url) {
   return PrivacySandboxServiceFactory::GetForProfile(GetProfile())
-      ->GetFirstPartySetOwnerForDisplay(site_url);
+      ->GetRelatedWebsiteSetOwnerForDisplay(site_url);
 }
 
 bool ChromePageInfoDelegate::IsRwsManaged() {
   return PrivacySandboxServiceFactory::GetForProfile(GetProfile())
-      ->IsFirstPartySetsDataAccessManaged();
+      ->IsRelatedWebsiteSetsDataAccessManaged();
 }
 
 bool ChromePageInfoDelegate::CreateInfoBarDelegate() {
@@ -294,6 +291,17 @@ void ChromePageInfoDelegate::OpenConnectionHelpCenterPage(
 
 void ChromePageInfoDelegate::OpenSafetyTipHelpCenterPage() {
   OpenHelpCenterFromSafetyTip(web_contents_);
+}
+
+void ChromePageInfoDelegate::OpenSafeBrowsingHelpCenterPage(
+    const ui::Event& event) {
+  web_contents_->OpenURL(
+      content::OpenURLParams(
+          GURL(chrome::kSafeBrowsingHelpCenterURL), content::Referrer(),
+          ui::DispositionFromEventFlags(
+              event.flags(), WindowOpenDisposition::NEW_FOREGROUND_TAB),
+          ui::PAGE_TRANSITION_LINK, false),
+      /*navigation_handle_callback=*/{});
 }
 
 void ChromePageInfoDelegate::OpenContentSettingsExceptions(
@@ -434,6 +442,10 @@ bool ChromePageInfoDelegate::IsHttpsFirstModeEnabled() {
   return https_first_mode_fully_enabled ||
          (GetProfile()->IsIncognitoProfile() &&
           https_first_mode_enabled_in_incognito);
+}
+
+bool ChromePageInfoDelegate::IsIncognitoProfile() {
+  return GetProfile()->IsIncognitoProfile();
 }
 
 void ChromePageInfoDelegate::SetSecurityStateForTests(

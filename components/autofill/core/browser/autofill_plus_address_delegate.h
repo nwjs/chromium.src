@@ -93,8 +93,7 @@ class AutofillPlusAddressDelegate {
       const url::Origin& origin,
       bool is_off_the_record,
       const FormData& focused_form,
-      const base::flat_map<autofill::FieldGlobalId, autofill::FieldTypeGroup>&
-          form_field_types,
+      const base::flat_map<FieldGlobalId, FieldTypeGroup>& form_field_types,
       const PasswordFormClassification& focused_form_classification,
       const FieldGlobalId& focused_field_id,
       AutofillSuggestionTriggerSource trigger_source) = 0;
@@ -137,6 +136,9 @@ class AutofillPlusAddressDelegate {
       SuggestionContext suggestion_context,
       PasswordFormClassification::Type form_type,
       SuggestionType suggestion_type) = 0;
+
+  // Called when a plus address was filled into a web input field.
+  virtual void DidFillPlusAddress() = 0;
 
   using UpdateSuggestionsCallback =
       base::OnceCallback<void(std::vector<Suggestion>,

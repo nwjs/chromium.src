@@ -17,9 +17,11 @@
 #import "components/sync/service/sync_service_utils.h"
 #import "components/sync/service/sync_user_settings.h"
 #import "components/trusted_vault/trusted_vault_server_constants.h"
+#import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/shared/coordinator/alert/action_sheet_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/alert/alert_coordinator.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -45,6 +47,7 @@
 #import "ios/chrome/browser/ui/settings/google_services/bulk_upload/bulk_upload_coordinator_delegate.h"
 #import "ios/chrome/browser/ui/settings/google_services/features.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_accounts/manage_accounts_coordinator.h"
+#import "ios/chrome/browser/ui/settings/google_services/manage_accounts/manage_accounts_coordinator_delegate.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_sync_settings_command_handler.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_sync_settings_constants.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_sync_settings_mediator.h"
@@ -65,6 +68,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 
 @interface ManageSyncSettingsCoordinator () <
     BulkUploadCoordinatorDelegate,
+    ManageAccountsCoordinatorDelegate,
     ManageSyncSettingsCommandHandler,
     ManageSyncSettingsTableViewControllerPresentationDelegate,
     PersonalizeGoogleServicesCoordinatorDelegate,
@@ -152,8 +156,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
     case SyncSettingsAccountState::kSignedIn:
       break;
     case SyncSettingsAccountState::kSignedOut:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 
   self.mediator = [[ManageSyncSettingsMediator alloc]
@@ -213,8 +216,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
   [super stop];
   [self.mediator disconnect];
   [self stopBulkUpload];
-  [_manageAccountsCoordinator stop];
-  _manageAccountsCoordinator = nil;
+  [self stopManageAccountsCoordinator];
   self.mediator = nil;
   self.viewController = nil;
   // Unblock any sync data type changes.
@@ -251,6 +253,11 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 }
 
 #pragma mark - Private
+
+- (void)stopManageAccountsCoordinator {
+  [_manageAccountsCoordinator stop];
+  _manageAccountsCoordinator = nil;
+}
 
 - (void)resetDismissAccountDetailsController {
   _accountDetailsControllerDismissCallback.Reset();
@@ -347,6 +354,14 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
   [self stopPersonalizedGoogleServicesCoordinator];
 }
 
+#pragma mark - ManageAccountsCoordinator
+
+- (void)manageAccountsCoordinatorWantsToBeStopped:
+    (ManageAccountsCoordinator*)coordinator {
+  CHECK_EQ(coordinator, _manageAccountsCoordinator, base::NotFatalUntil::M133);
+  [self stopManageAccountsCoordinator];
+}
+
 #pragma mark - ManageSyncSettingsCommandHandler
 
 - (void)openBulkUpload {
@@ -399,7 +414,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
   OpenNewTabCommand* command = [OpenNewTabCommand commandWithURLFromChrome:url];
   id<ApplicationCommands> handler = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), ApplicationCommands);
-  [handler closeSettingsUIAndOpenURL:command];
+  [handler closePresentedViewsAndOpenURL:command];
 }
 
 - (void)signOutFromTargetRect:(CGRect)targetRect {
@@ -455,10 +470,12 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 }
 
 - (void)showAccountsPage {
+  CHECK(!_manageAccountsCoordinator, base::NotFatalUntil::M133);
   _manageAccountsCoordinator = [[ManageAccountsCoordinator alloc]
       initWithBaseViewController:self.viewController
                          browser:self.browser
        closeSettingsOnAddAccount:NO];
+  _manageAccountsCoordinator.delegate = self;
   _manageAccountsCoordinator.signoutDismissalByParentCoordinator = YES;
   [_manageAccountsCoordinator start];
 }
@@ -497,6 +514,12 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 #pragma mark - SyncErrorSettingsCommandHandler
 
 - (void)openPassphraseDialogWithModalPresentation:(BOOL)presentModally {
+  SceneState* sceneState = self.browser->GetSceneState();
+  if (sceneState.isUIBlocked) {
+    // This could occur due to race condition with multiple windows and
+    // simultaneous taps. See crbug.com/368310663.
+    return;
+  }
   if (presentModally) {
     _syncEncryptionPassphraseTableViewController =
         [[SyncEncryptionPassphraseTableViewController alloc]

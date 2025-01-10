@@ -45,9 +45,11 @@
 #import "ios/chrome/app/application_mode.h"
 #import "ios/chrome/app/chrome_overlay_window.h"
 #import "ios/chrome/app/deferred_initialization_runner.h"
+#import "ios/chrome/app/deferred_initialization_task_names.h"
 #import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/app/profile/profile_state_observer.h"
 #import "ios/chrome/app/tests_hook.h"
+#import "ios/chrome/browser/ai_prototyping/ui/ai_prototyping_view_controller.h"
 #import "ios/chrome/browser/app_store_rating/ui_bundled/app_store_rating_scene_agent.h"
 #import "ios/chrome/browser/app_store_rating/ui_bundled/features.h"
 #import "ios/chrome/browser/appearance/ui_bundled/appearance_customization.h"
@@ -75,6 +77,8 @@
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_scene_agent.h"
 #import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
 #import "ios/chrome/browser/intents/user_activity_browser_agent.h"
+#import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_availability.h"
+#import "ios/chrome/browser/lens_overlay/model/lens_overlay_tab_helper.h"
 #import "ios/chrome/browser/mailto_handler/model/mailto_handler_service.h"
 #import "ios/chrome/browser/mailto_handler/model/mailto_handler_service_factory.h"
 #import "ios/chrome/browser/metrics/model/tab_usage_recorder_browser_agent.h"
@@ -589,7 +593,7 @@ void OnListFamilyMembersResponse(
     URLOpenerParams* params =
         [[URLOpenerParams alloc] initWithUIOpenURLContext:context];
     [self openTabFromLaunchWithParams:params
-                   startupInformation:self.sceneState.appState
+                   startupInformation:self.sceneState.profileState.appState
                                           .startupInformation];
   }
   if (self.sceneState.connectionOptions.shortcutItem) {
@@ -1156,7 +1160,7 @@ void OnListFamilyMembersResponse(
     [self.sceneState.window makeKeyAndVisible];
   }
 
-  if (!self.sceneState.appState.startupInformation.isFirstRun) {
+  if (!self.sceneState.profileState.startupInformation.isFirstRun) {
     [self reconcileEulaAsAccepted];
   }
 
@@ -1166,7 +1170,7 @@ void OnListFamilyMembersResponse(
 
   // Inject a NTP before setting the interface, which will trigger a load of
   // the current webState.
-  if (self.sceneState.appState.postCrashAction ==
+  if (self.sceneState.profileState.appState.postCrashAction ==
       PostCrashAction::kShowNTPWithReturnToTab) {
     InjectNTP(browser);
   }
@@ -1394,7 +1398,7 @@ void OnListFamilyMembersResponse(
     return NO;
   }
   // Don't show the promo if already presented.
-  if (self.sceneState.appState.signinUpgradePromoPresentedOnce) {
+  if (self.sceneState.profileState.appState.signinUpgradePromoPresentedOnce) {
     return NO;
   }
   return YES;
@@ -1408,7 +1412,7 @@ void OnListFamilyMembersResponse(
   if (![self shouldPresentSigninUpgradePromo]) {
     return;
   }
-  self.sceneState.appState.signinUpgradePromoPresentedOnce = YES;
+  self.sceneState.profileState.appState.signinUpgradePromoPresentedOnce = YES;
   DCHECK(!self.signinCoordinator)
       << "self.signinCoordinator: "
       << base::SysNSStringToUTF8([self.signinCoordinator description]);
@@ -1481,8 +1485,7 @@ void OnListFamilyMembersResponse(
   [self.historyCoordinator start];
 }
 
-// Opens an url from a link in the settings UI.
-- (void)closeSettingsUIAndOpenURL:(OpenNewTabCommand*)command {
+- (void)closePresentedViewsAndOpenURL:(OpenNewTabCommand*)command {
   DCHECK([command fromChrome]);
   UrlLoadParams params = UrlLoadParams::InNewTab([command URL]);
   params.web_params.transition_type = ui::PAGE_TRANSITION_TYPED;
@@ -1498,7 +1501,7 @@ void OnListFamilyMembersResponse(
   [self closePresentedViews:YES completion:completion];
 }
 
-- (void)closeSettingsUI {
+- (void)closePresentedViews {
   [self closePresentedViews:YES completion:nullptr];
 }
 
@@ -1760,6 +1763,9 @@ using UserFeedbackDataCallback =
       (baseViewController.presentedViewController ||
        ![self isTabAvailableToPresentViewController])) {
     // Make sure the UI is available to present the sign-in view.
+    if (command.completion) {
+      command.completion(SigninCoordinatorUINotAvailable, nil);
+    }
     return;
   }
   if (self.signinCoordinator) {
@@ -1850,7 +1856,7 @@ using UserFeedbackDataCallback =
                                                                  .promoAction];
       break;
   }
-  [self startSigninCoordinatorWithCompletion:command.callback];
+  [self startSigninCoordinatorWithCompletion:command.completion];
 }
 
 - (void)showAccountMenuWithAnchorView:(UIView*)anchorView
@@ -2030,8 +2036,8 @@ using UserFeedbackDataCallback =
                [self.settingsNavigationController.viewControllers description]);
     return;
   }
-  [[DeferredInitializationRunner sharedInstance]
-      runBlockIfNecessary:kPrefObserverInit];
+  [_sceneState.profileState.appState.deferredRunner
+      runBlockNamed:kStartupInitPrefObservers];
 
   Browser* browser = self.mainInterface.browser;
 
@@ -2121,13 +2127,27 @@ using UserFeedbackDataCallback =
   if (self.sceneState.profileState.initStage < ProfileInitStage::kFinal) {
     return NO;
   }
-  if (self.sceneState.appState.currentUIBlocker) {
+  if (self.sceneState.profileState.currentUIBlocker) {
     return NO;
   }
   if (self.mainCoordinator.isTabGridActive) {
     return NO;
   }
   return YES;
+}
+
+- (void)openAIMenu {
+  UIViewController* baseViewController = self.currentInterface.viewController;
+  DCHECK(self.currentInterface.browser);
+  web::WebState* webState =
+      self.currentInterface.browser->GetWebStateList()->GetActiveWebState();
+
+  // View controllers shouldn't be instantiated here. This is allowed as an
+  // exception since the menu was created for prototyping.
+  AIPrototypingViewController* AIMenu =
+      [[AIPrototypingViewController alloc] initWithWebState:webState];
+
+  [baseViewController presentViewController:AIMenu animated:YES completion:nil];
 }
 
 #pragma mark - SettingsCommands
@@ -2150,8 +2170,7 @@ using UserFeedbackDataCallback =
   }
 
   if (self.currentInterface.incognito) {
-    NOTREACHED_IN_MIGRATION();
-    return;
+    NOTREACHED();
   }
   if (self.settingsNavigationController) {
     [self.settingsNavigationController
@@ -2232,7 +2251,11 @@ using UserFeedbackDataCallback =
         showSyncPassphraseSettingsFromViewController:baseViewController];
     return;
   }
-
+  if (self.sceneState.isUIBlocked) {
+    // This could occur due to race condition with multiple windows and
+    // simultaneous taps. See crbug.com/368310663.
+    return;
+  }
   Browser* browser = self.mainInterface.browser;
   self.settingsNavigationController =
       [SettingsNavigationController syncPassphraseControllerForBrowser:browser
@@ -2537,7 +2560,7 @@ using UserFeedbackDataCallback =
 #pragma mark - SettingsNavigationControllerDelegate
 
 - (void)closeSettings {
-  [self closeSettingsUI];
+  [self closePresentedViews];
 }
 
 - (void)settingsWasDismissed {
@@ -3360,9 +3383,21 @@ using UserFeedbackDataCallback =
   web::WebState* currentWebState =
       targetInterface.browser->GetWebStateList()->GetActiveWebState();
 
-  BOOL alwaysInsertNewTab =
+  // Refrain from reusing the same tab for Lens Overlay initiated requests.
+  BOOL initiatedByLensOverlay = false;
+  if (IsLensOverlayAvailable() && currentWebState) {
+    if (LensOverlayTabHelper* lensOverlayTabHelper =
+            LensOverlayTabHelper::FromWebState(currentWebState)) {
+      initiatedByLensOverlay =
+          lensOverlayTabHelper->IsLensOverlayUIAttachedAndAlive();
+    }
+  }
+
+  BOOL forceNewTabForIntentSearch =
       base::FeatureList::IsEnabled(kForceNewTabForIntentSearch) &&
       (self.startupParameters.postOpeningAction == FOCUS_OMNIBOX);
+  BOOL alwaysInsertNewTab =
+      initiatedByLensOverlay || forceNewTabForIntentSearch;
 
   // Don't call loadWithParams for chrome://newtab when it's already loaded.
   // Note that it's safe to use -GetVisibleURL here, as it doesn't matter if the
@@ -3543,13 +3578,6 @@ using UserFeedbackDataCallback =
   }
 }
 
-- (UIViewController*)topPresentedViewController {
-  // TODO(crbug.com/40534720): Implement TopPresentedViewControllerFrom()
-  // privately.
-  return top_view_controller::TopPresentedViewControllerFrom(
-      self.mainCoordinator.baseViewController);
-}
-
 // Interrupts the sign-in coordinator actions and dismisses its views either
 // with or without animation.
 - (void)interruptSigninCoordinatorAnimated:(BOOL)animated
@@ -3564,6 +3592,7 @@ using UserFeedbackDataCallback =
 }
 
 // Starts the sign-in coordinator with a default cleanup completion.
+// Call completion with Cancelled if the current scene is blocked.
 - (void)startSigninCoordinatorWithCompletion:
     (ShowSigninCommandCompletionCallback)completion {
   DCHECK(self.signinCoordinator);
@@ -3599,6 +3628,16 @@ using UserFeedbackDataCallback =
   }
 
   DCHECK(self.signinCoordinator);
+
+  if (self.sceneState.isUIBlocked) {
+    // This could occur due to race condition with multiple windows and
+    // simultaneous taps. See crbug.com/368310663.
+    if (completion) {
+      completion(SigninCoordinatorResultInterrupted, nil);
+    }
+    self.signinCoordinator = nil;
+    return;
+  }
   self.sceneState.signinInProgress = YES;
 
   __block std::unique_ptr<ScopedUIBlocker> uiBlocker =
@@ -3636,7 +3675,7 @@ using UserFeedbackDataCallback =
                 ApplicationCommands);
             OpenNewTabCommand* command = [OpenNewTabCommand
                 commandWithURLFromChrome:GURL(kChromeUIManagementURL)];
-            [dispatcher closeSettingsUIAndOpenURL:command];
+            [dispatcher closePresentedViewsAndOpenURL:command];
             break;
         }
 
@@ -3799,7 +3838,7 @@ using UserFeedbackDataCallback =
 #pragma mark - PasswordManagerReauthenticationDelegate
 
 - (void)dismissPasswordManagerAfterFailedReauthentication {
-  [self closeSettingsUI];
+  [self closePresentedViews];
 }
 
 #pragma mark - Helpers for web state list events
@@ -3946,32 +3985,10 @@ using UserFeedbackDataCallback =
             applicationActive:active
                     tabOpener:self
         connectionInformation:self
-           startupInformation:self.sceneState.appState.startupInformation
+           startupInformation:self.sceneState.profileState.startupInformation
                   prefService:self.currentInterface.profile->GetPrefs()
                     initStage:self.sceneState.profileState.initStage];
   }
-}
-
-- (WrangledBrowser*)extractInterfaceBaseOnMode:
-    (ApplicationModeForTabOpening)targetMode {
-  DCHECK(targetMode != ApplicationModeForTabOpening::UNDETERMINED);
-  ApplicationMode applicationMode;
-
-  if (targetMode == ApplicationModeForTabOpening::CURRENT) {
-    applicationMode = self.currentInterface.incognito
-                          ? ApplicationMode::INCOGNITO
-                          : ApplicationMode::NORMAL;
-  } else if (targetMode == ApplicationModeForTabOpening::NORMAL) {
-    applicationMode = ApplicationMode::NORMAL;
-  } else {
-    applicationMode = ApplicationMode::INCOGNITO;
-  }
-
-  WrangledBrowser* targetInterface = applicationMode == ApplicationMode::NORMAL
-                                         ? self.mainInterface
-                                         : self.incognitoInterface;
-
-  return targetInterface;
 }
 
 #pragma mark - TabGrid helpers

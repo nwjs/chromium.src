@@ -188,6 +188,15 @@ using base::UserMetricsAction;
            object:nil];
 }
 
+- (void)viewIsAppearing:(BOOL)animated {
+  [super viewIsAppearing:animated];
+  if (_isLensOverlay) {
+    self.semanticContentAttribute =
+        [self.textField bestSemanticContentAttribute];
+    [self.textField updateTextDirection];
+  }
+}
+
 - (void)viewWillDisappear:(BOOL)animated {
   [super viewWillDisappear:animated];
   self.textField.selectedTextRange =
@@ -430,7 +439,7 @@ using base::UserMetricsAction;
   } else if ([self.textField canPerformKeyboardAction:keyboardAction]) {
     [self.textField performKeyboardAction:keyboardAction];
   } else {
-    NOTREACHED_IN_MIGRATION() << "Check canPerformKeyboardAction before!";
+    NOTREACHED() << "Check canPerformKeyboardAction before!";
   }
 }
 

@@ -135,13 +135,11 @@ class CupsPrintJobManagerImpl : public CupsPrintJobManager {
   }
 
   bool SuspendPrintJob(CupsPrintJob* job) override {
-    NOTREACHED_IN_MIGRATION() << "Pause printer is not implemented";
-    return false;
+    NOTREACHED() << "Pause printer is not implemented";
   }
 
   bool ResumePrintJob(CupsPrintJob* job) override {
-    NOTREACHED_IN_MIGRATION() << "Resume printer is not implemented";
-    return false;
+    NOTREACHED() << "Resume printer is not implemented";
   }
 
   void OnDocDone(::printing::PrintJob* job,
@@ -540,8 +538,9 @@ class CupsPrintJobManagerImpl : public CupsPrintJobManager {
 };
 
 // static
-CupsPrintJobManager* CupsPrintJobManager::CreateInstance(Profile* profile) {
-  return new CupsPrintJobManagerImpl(profile);
+std::unique_ptr<CupsPrintJobManager> CupsPrintJobManager::CreateInstance(
+    Profile* profile) {
+  return std::make_unique<CupsPrintJobManagerImpl>(profile);
 }
 
 }  // namespace ash

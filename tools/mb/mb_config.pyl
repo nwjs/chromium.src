@@ -149,7 +149,7 @@
     },
 
     'client.v8.fyi': {
-      'Android V8 FYI Release (Nexus 5X)': 'gpu_tests_android_release_trybot_arm64_reclient',
+      'Android V8 FYI Release': 'gpu_tests_android_release_trybot_arm64_reclient',
       'Linux ASAN Builder': 'asan_lsan_release_trybot_reclient',
       'Linux Debug Builder': 'debug_bot_blink',
       'Linux V8 FYI Release (NVIDIA)': 'gpu_tests_release_trybot_minimal_symbols_reclient',
@@ -161,7 +161,7 @@
       'V8 Blink Linux Future': 'release_bot_blink',
       'V8 Blink Mac': 'release_bot_blink',
       'V8 Blink Win': 'release_bot_blink',
-      'V8 Linux GN': 'release_bot_reclient',
+      'V8 Linux GN': 'release_bot_reclient_siso',
       'Win V8 FYI Release (NVIDIA)': 'gpu_tests_release_trybot_minimal_symbol_x86_resource_allowlisting_reclient',
     },
 
@@ -181,10 +181,14 @@
       # take significantly longer to compile, and thus are only for these two builders.
       'optimization_guide-android-arm64': 'optimization_guide_android_arm64_rel',
       'optimization_guide-chromeos': 'optimization_guide_cros_rel',
+      'optimization_guide-ios-device': 'optimization_guide_ios_device_rel',
+      'optimization_guide-ios-simulator': 'optimization_guide_ios_sim_rel',
+      'optimization_guide-linux': 'optimization_guide_rel',
       'optimization_guide-mac-arm64': 'optimization_guide_mac_arm64_rel',
       'optimization_guide-mac-x64': 'optimization_guide_rel',
       'optimization_guide-win-arm64': 'optimization_guide_win_arm64_rel',
       'optimization_guide-win32': 'optimization_guide_x86_rel',
+      'optimization_guide-win64': 'optimization_guide_rel',
       'optimization_guide_official-linux': 'optimization_guide_official_rel',
       'optimization_guide_official-win64': 'optimization_guide_official_rel',
     },
@@ -254,6 +258,8 @@
       'model_validation-win64': 'optimization_guide_rel',
       'optimization_guide-android-arm64': 'optimization_guide_android_arm64_rel',
       'optimization_guide-chromeos': 'optimization_guide_cros_rel',
+      'optimization_guide-ios-device': 'optimization_guide_ios_device_rel',
+      'optimization_guide-ios-simulator': 'optimization_guide_ios_sim_rel',
       'optimization_guide-linux': 'optimization_guide_rel',
       'optimization_guide-mac-arm64': 'optimization_guide_mac_arm64_rel',
       'optimization_guide-mac-x64': 'optimization_guide_rel',
@@ -265,8 +271,8 @@
     },
 
     'tryserver.v8': {
-      'v8_linux_blink_rel': 'release_trybot_blink',
-      'v8_linux_chromium_gn_rel': 'release_trybot_reclient',
+      'v8_linux_blink_rel': 'release_trybot_blink_siso',
+      'v8_linux_chromium_gn_rel': 'release_trybot_reclient_siso',
     },
 
     'tryserver.webrtc': {
@@ -287,7 +293,7 @@
   # is not necessarily so.
   'configs': {
     'android_debug_bot_reclient': [
-      'android', 'debug_bot_reclient',
+      'android', 'debug_bot_reclient', 'use_siso',
     ],
 
     'android_debug_bot_reclient_external_fastbuild': [
@@ -309,7 +315,7 @@
     ],
 
     'asan_lsan_release_trybot_reclient': [
-      'asan', 'lsan', 'release_trybot_minimal_symbols_reclient',
+      'asan', 'lsan', 'release_trybot_minimal_symbols_reclient', 'use_siso'
     ],
 
     'cast_binary_size_reclient': [
@@ -383,7 +389,7 @@
     ],
 
     'debug_bot_blink': [
-      'debug_bot_blink',
+      'debug_bot_blink', 'use_siso',
     ],
 
     'debug_bot_reclient': [
@@ -391,7 +397,7 @@
     ],
 
     'gpu_tests_android_release_trybot_arm64_reclient': [
-      'gpu_tests', 'android', 'release_trybot_minimal_symbols_reclient', 'arm64', 'static_angle',
+      'gpu_tests', 'android', 'release_trybot_minimal_symbols_reclient', 'arm64', 'static_angle', 'use_siso',
     ],
 
     'gpu_tests_chromeos_jacuzzi_release_trybot_dcheck_off_no_symbols_reclient_skylab': [
@@ -403,15 +409,15 @@
     ],
 
     'gpu_tests_release_trybot_minimal_symbol_x86_resource_allowlisting_reclient': [
-      'gpu_tests', 'release_trybot_minimal_symbols_reclient', 'x86', 'resource_allowlisting',
+      'gpu_tests', 'release_trybot_minimal_symbols_reclient', 'x86', 'resource_allowlisting', 'use_siso',
     ],
 
     'gpu_tests_release_trybot_minimal_symbols_reclient': [
-      'gpu_tests', 'release_trybot_minimal_symbols_reclient',
+      'gpu_tests', 'release_trybot_minimal_symbols_reclient', 'use_siso',
     ],
 
     'gpu_tests_release_trybot_ptr_comp_reclient': [
-      'gpu_tests', 'release_trybot_minimal_symbols_reclient', 'v8_pointer_compression',
+      'gpu_tests', 'release_trybot_minimal_symbols_reclient', 'v8_pointer_compression', 'use_siso',
     ],
 
     'gpu_tests_release_trybot_reclient': [
@@ -587,6 +593,13 @@
     'optimization_guide_cros_rel': [
       'minimal_symbols', 'optimization_guide', 'reclient', 'release', 'chromeos',
     ],
+    'optimization_guide_ios_device_rel': [
+      'arm64', 'codesigning_identity', 'ios', 'ios_default_args', 'ios_device', 'minimal_symbols', 'ml_internal', 'optimization_guide', 'reclient', 'release', 'xctest',
+    ],
+
+    'optimization_guide_ios_sim_rel': [
+      'arm64', 'codesigning_identity', 'ios', 'ios_default_args', 'ios_simulator', 'minimal_symbols', 'ml_internal', 'optimization_guide', 'reclient', 'release', 'xctest',
+    ],
 
     'optimization_guide_mac_arm64_rel': [
       'chrome_branded', 'minimal_symbols', 'ml_internal', 'optimization_guide', 'reclient', 'release', 'arm64',
@@ -609,15 +622,19 @@
     ],
 
     'release_bot_blink': [
-      'release_bot_blink',
+      'release_bot_blink', 'use_siso',
     ],
 
     'release_bot_blink_v8_debug_reclient': [
-      'release_bot_blink', 'v8_enable_debugging_features',
+      'release_bot_blink', 'v8_enable_debugging_features', 'use_siso',
     ],
 
     'release_bot_reclient': [
       'release_bot_reclient',
+    ],
+
+    'release_bot_reclient_siso': [
+      'release_bot_reclient', 'use_siso',
     ],
 
     'release_trybot_blink': [
@@ -628,8 +645,16 @@
       'release_trybot_blink', 'devtools_do_typecheck',
     ],
 
+    'release_trybot_blink_siso': [
+      'release_trybot_blink', 'use_siso',
+    ],
+
     'release_trybot_reclient': [
       'release_trybot_reclient',
+    ],
+
+    'release_trybot_reclient_siso': [
+      'release_trybot_reclient', 'use_siso',
     ],
 
     'v8_future_debug_bot_reclient': [
@@ -792,6 +817,10 @@
                  'blink_enable_generated_code_formatting'],
     },
 
+    'codesigning_identity': {
+      'gn_args': 'ios_code_signing_identity_description="Apple Development: Google Development"',
+    },
+
     # Keep in sync with //infra/build/recipes/recipe_modules/chromium_android/chromium_config.py
     'cronet_android': {
       'mixins': ['cronet_common'],
@@ -883,9 +912,21 @@
       'gn_args': 'target_os="ios"',
     },
 
+    'ios_default_args': {
+      'args_file': '//ios_internal/build/default-args.gn',
+    },
+
+    'ios_device': {
+      'gn_args': 'target_environment="device"'
+    },
+
     'ios_disable_code_signing': {
       # defaults to true under ios_sdk.gni
       'gn_args': 'ios_enable_code_signing=false'
+    },
+
+    'ios_simulator': {
+      'gn_args': 'target_environment="simulator"',
     },
 
     'is_cronet_build': {
@@ -1070,6 +1111,10 @@
       'gn_args': 'use_cups=true',
     },
 
+    'use_siso': {
+      'gn_args': 'use_siso=true',
+    },
+
     'v8_enable_debugging_features': {
       'gn_args': 'v8_enable_debugging_features=true',
     },
@@ -1110,6 +1155,10 @@
 
     'x86': {
       'gn_args': 'target_cpu="x86"',
+    },
+
+    'xctest': {
+      'gn_args': 'enable_run_ios_unittests_with_xctest=true'
     },
   },
 }

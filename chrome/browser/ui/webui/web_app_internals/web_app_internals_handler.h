@@ -53,10 +53,6 @@ class WebAppInternalsHandler : public mojom::WebAppInternalsHandler {
   void SelectFileAndUpdateIsolatedWebAppFromDevBundle(
       const webapps::AppId& app_id,
       SelectFileAndUpdateIsolatedWebAppFromDevBundleCallback callback) override;
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  void ClearExperimentalWebAppIsolationData(
-      ClearExperimentalWebAppIsolationDataCallback callback) override;
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
   void SearchForIsolatedWebAppUpdates(
       SearchForIsolatedWebAppUpdatesCallback callback) override;
   void GetIsolatedWebAppDevModeAppInfo(
@@ -70,6 +66,10 @@ class WebAppInternalsHandler : public mojom::WebAppInternalsHandler {
   void UpdateManifestInstalledIsolatedWebApp(
       const webapps::AppId& app_id,
       UpdateManifestInstalledIsolatedWebAppCallback callback) override;
+  void SetUpdateChannelForIsolatedWebApp(
+      const webapps::AppId& app_id,
+      const std::string& update_channel,
+      SetUpdateChannelForIsolatedWebAppCallback callback) override;
 
  private:
   const raw_ref<content::WebUI> web_ui_;

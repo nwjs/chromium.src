@@ -308,7 +308,6 @@ Here are some things that you can try to get started.</translation>
 <translation id="2041220428661959602">Battery level: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848">The <ph name="SIX_PACK_KEY_NAME" /> shortcut is currently off</translation>
 <translation id="2049240716062114887">Desk name was changed to <ph name="DESK_NAME" /></translation>
-<translation id="2050339315714019657">Portrait</translation>
 <translation id="2064048859448024834">Camera preview on</translation>
 <translation id="2065098273523946419">Learn more link. Redirect to the browser when activated</translation>
 <translation id="2067220651560163985">Show temperature in Celsius</translation>
@@ -339,9 +338,6 @@ Here are some things that you can try to get started.</translation>
 <translation id="219905428774326614">Launcher, all apps</translation>
 <translation id="2201071101391734388">Recent photo <ph name="INDEX" /> of <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Collapse Google Tasks</translation>
-<translation id="2206960886090042977">The built-in touchpad is disabled because a mouse is connected. Use the mouse or keyboard to confirm the change.
-
-Otherwise, the built-in touchpad will be re-enabled in 30 seconds.</translation>
 <translation id="2208323208084708176">Unified desktop mode</translation>
 <translation id="2220572644011485463">PIN or password</translation>
 <translation id="2222841058024245321">Desk 7</translation>
@@ -504,6 +500,9 @@ Otherwise, the built-in touchpad will be re-enabled in 30 seconds.</translation>
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> to <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">ctrl+search+s</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" /> managed by <ph name="MANAGER" /></translation>
+<translation id="2781658180588759579">The built-in touchpad is disabled. Use your keyboard or another pointer device to confirm the change.
+
+Otherwise, the built-in touchpad will be re-enabled in <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2782591952652094792">Exit capture mode</translation>
 <translation id="2785499565474703580">One device connected</translation>
 <translation id="2791421900609674576">You’ll see recommendations so that you can continue where you left off. You can touch &amp; hold to remove recommendations.</translation>
@@ -601,6 +600,9 @@ Otherwise, the built-in touchpad will be re-enabled in 30 seconds.</translation>
 <translation id="3113492864356515707">Highlight previous item on shelf</translation>
 <translation id="311799651966070385">Close nudge</translation>
 <translation id="3120421559657122717">Shut down device?</translation>
+<translation id="3121411970001795539">The built-in touchpad is disabled because a mouse is connected. Use the mouse or keyboard to confirm the change.
+
+Otherwise, the built-in touchpad will be re-enabled in <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">Classwork type</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +973,13 @@ Some features are limited to increase battery life.</translation>
 <translation id="4322742403972824594">The Ctrl + Alt + up arrow keyboard shortcut has changed. To use the Home key, press the <ph name="LAUNCHER_KEY_NAME" /> key + left arrow.</translation>
 <translation id="4324840740119394760">This allows camera access for <ph name="APP_NAME" /> and all apps and websites with the camera permission</translation>
 <translation id="4327147325944669226">Record game</translation>
-<translation id="4333628967105022692">Lacros is not supported while multiple users are signed in.</translation>
 <translation id="4338109981321384717">Magnifying glass</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, muted</translation>
 <translation id="4351244548802238354">Close dialogue</translation>
 <translation id="4356872429719185452">Show hotspot details. Hotspot is turning on.</translation>
 <translation id="4364101114148522660"><ph name="DURATION" />  Recording</translation>
 <translation id="4371348193907997655">Cast settings</translation>
+<translation id="4371834685492830207">PIN must contain only valid characters</translation>
 <translation id="4375482231364171368">Search in address bar</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, signal strength <ph name="SIGNAL_STRENGTH" /> per cent.</translation>
 <translation id="4378551569595875038">Connecting...</translation>
@@ -1143,6 +1145,7 @@ One device connected.</translation>
 <translation id="4902797682482387055">Suggested task to focus on</translation>
 <translation id="490375751687810070">Vertical</translation>
 <translation id="490788395437447240"><ph name="BATTERY_PERCENTAGE" />% battery</translation>
+<translation id="4911191962826748981">This is an experimental AI feature and won't always get it right.</translation>
 <translation id="491504982845934899">Activate after device setup <ph name="NETWORK_NAME" /></translation>
 <translation id="4917385247580444890">Strong</translation>
 <translation id="4918086044614829423">Accept</translation>
@@ -1301,6 +1304,7 @@ No devices connected.</translation>
 <translation id="5393156353051693207">Touch &amp; hold anywhere to reorder your apps</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" /> on top of <ph name="IN_PLACE_APP" />, release to create folder.</translation>
 <translation id="5397578532367286026">Usage and history of this user can be reviewed by the manager (<ph name="MANAGER_EMAIL" />) on chrome.com.</translation>
+<translation id="540338817371815859">Landscape</translation>
 <translation id="540713187982329711">Toggle hotspot. Hotspot is on, no device connected.</translation>
 <translation id="5409208741270395213">Mark task as completed</translation>
 <translation id="5413656666631274079">Settings page</translation>
@@ -1472,7 +1476,6 @@ No devices connected.</translation>
 <translation id="5975235751479998104">Cycle forward through windows</translation>
 <translation id="5978382165065462689">Sharing control of your screen via Remote Assistance.</translation>
 <translation id="5980301590375426705">Exit guest</translation>
-<translation id="5982119059638483922">Press Fn+Search or shift to cancel.</translation>
 <translation id="5983567367406220847">Due to inactivity, hotspot has been turned off.</translation>
 <translation id="598407983968395253">Use template</translation>
 <translation id="5986723678596105470">Join with Google Meet</translation>
@@ -1542,7 +1545,6 @@ No devices connected.</translation>
 <translation id="6166852626429024716">Search your device, apps, settings, web…</translation>
 <translation id="6168318496333165060">Open Diagnostics app</translation>
 <translation id="6168622430237609329">Your installed apps</translation>
-<translation id="6173151025443907148">Signing in a second user is not supported if Lacros is enabled. Please use a second browser profile in Lacros instead, or disable Lacros and try again.</translation>
 <translation id="6179832488876878285">You can pin your important files here. Open Files app to get started.</translation>
 <translation id="6180193585172850042">Back button</translation>
 <translation id="6180651297859206670">Forward button</translation>
@@ -1564,6 +1566,7 @@ No devices connected.</translation>
 <translation id="6232416233079464213">From <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> is currently using your camera and microphone</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">Password must contain only valid characters</translation>
 <translation id="6240603910551255087">Top button</translation>
 <translation id="6240821072888636753">Ask every time</translation>
 <translation id="6247728804802644171">Open notifications</translation>
@@ -1694,7 +1697,6 @@ New install</translation>
 <translation id="6682029141988159141">Paste content from clipboard</translation>
 <translation id="6683022854667115063">Headphones</translation>
 <translation id="6686023075541098243">Set up viewing your phone's notifications</translation>
-<translation id="6688019813898140556">Esc 5 times</translation>
 <translation id="6694462491298752106">Built-in touchpad is disabled</translation>
 <translation id="6694973220096431421">Search Google Drive</translation>
 <translation id="6696025732084565524">Your detachable keyboard needs a critical update</translation>
@@ -1715,6 +1717,7 @@ New install</translation>
 <translation id="6751826523481687655">Performance tracing is turned on</translation>
 <translation id="6752912906630585008">Desk <ph name="REMOVED_DESK" /> removed and merged with Desk <ph name="RECEIVE_DESK" /></translation>
 <translation id="6753390234084146956">tabs</translation>
+<translation id="6754918760968695779">Quick Insert</translation>
 <translation id="6757237461819837179">No media playing</translation>
 <translation id="6760438044935091345">Game Dashboard</translation>
 <translation id="6768043681523654438">storage</translation>
@@ -1764,6 +1767,7 @@ New install</translation>
 <translation id="6921427376813842559">Update device</translation>
 <translation id="6929081673585394903">Show controls</translation>
 <translation id="6931576957638141829">Save to</translation>
+<translation id="6935857786205183008">Portrait</translation>
 <translation id="6942518653766415536">Recording format menu</translation>
 <translation id="6945221475159498467">Select</translation>
 <translation id="6945922087561257829">Your phone is using a mobile network. Make sure your phone and Chromebook are on the same Wi-Fi network and then try again. <ph name="LEARN_MORE" /></translation>
@@ -1920,9 +1924,6 @@ New install</translation>
 To shut down the device, press and hold the power button on the device again.</translation>
 <translation id="7523420897035067483">Enable Do Not Disturb while in Focus</translation>
 <translation id="7524043547948122239">Google Tasks</translation>
-<translation id="7524919752437339268">The built-in touchpad is disabled. Use your keyboard or another pointer device to confirm the change.
-
-Otherwise, the built-in touchpad will be re-enabled in 30 seconds.</translation>
 <translation id="7525067979554623046">Create</translation>
 <translation id="7526573455193969409">Network may be monitored</translation>
 <translation id="7536035074519304529">IP address: <ph name="ADDRESS" /></translation>
@@ -2009,6 +2010,7 @@ Otherwise, the built-in touchpad will be re-enabled in 30 seconds.</translation>
 <translation id="780301667611848630">No, thanks</translation>
 <translation id="7807067443225230855">Search and Assistant</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> and <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">Thumbs up would submit the feedback that you like this suggestion</translation>
 <translation id="7825412704590278437">From upcoming calendar event</translation>
 <translation id="7829386189513694949">Strong signal</translation>
 <translation id="7830453190047749513">You can personalise button actions, cursor speed and more for your <ph name="PERIPHERAL_NAME" /></translation>
@@ -2163,6 +2165,7 @@ Otherwise, the built-in touchpad will be re-enabled in 30 seconds.</translation>
 <translation id="830868413617744215">Beta</translation>
 <translation id="8314772463905284467">Caps Lock is on</translation>
 <translation id="8315514906653279104">Turning on…</translation>
+<translation id="8319634750346253957">Thumbs down would submit the feedback that you dislike this suggestion</translation>
 <translation id="8331351032546853669">Download pending</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2348,6 +2351,7 @@ Otherwise, the built-in touchpad will be re-enabled in 30 seconds.</translation>
 <translation id="8982906748181120328">Nearby visibility</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">Using <ph name="IME_NAME" /></translation>
+<translation id="8991648557324317894">Press fn + Quick Insert or shift to cancel.</translation>
 <translation id="899350903320462459">Unlock device as <ph name="LOGIN_ID" /> to perform the notification action</translation>
 <translation id="8993733019280019776">Are you talking? Your mic is off. Select the mic to turn it on.</translation>
 <translation id="9000771174482730261">MANAGE STORAGE</translation>
@@ -2430,9 +2434,9 @@ Otherwise, the built-in touchpad will be re-enabled in 30 seconds.</translation>
 <translation id="974545358917229949">Displaying <ph name="RESULT_COUNT" /> results for <ph name="QUERY" /></translation>
 <translation id="981011780479609956">No due date</translation>
 <translation id="98120814841227350">Go to end of document</translation>
-<translation id="98515147261107953">Landscape</translation>
 <translation id="987589956647469042">Mobile data is turned on</translation>
 <translation id="989374776391122812">Camera and audio controls</translation>
+<translation id="990263227494928142">Press shift 5 times to enable the touchpad</translation>
 <translation id="990277280839877440">Window <ph name="WINDOW_TITILE" /> closed.</translation>
 <translation id="993398562350683614">Tour step <ph name="STEP" /> of <ph name="TOTAL_STEPS" />. Use apps to do everything that you need on your <ph name="PRODUCT_NAME" />. You can find your apps in the Launcher. Press Alt + shift + L to focus on the Launcher button.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

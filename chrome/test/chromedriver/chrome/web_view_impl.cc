@@ -214,8 +214,7 @@ const char* GetAsString(PointerType type) {
     case kPen:
       return "pen";
     default:
-      NOTREACHED_IN_MIGRATION();
-      return "";
+      NOTREACHED();
   }
 }
 
@@ -410,6 +409,13 @@ Status ResolveNode(DevToolsClient& client,
   return status;
 }
 
+Status WrapIfTargetDetached(Status status, StatusCode new_code) {
+  if (status.code() == kTargetDetached) {
+    return Status{new_code, status};
+  }
+  return status;
+}
+
 }  // namespace
 
 std::unique_ptr<WebViewImpl> WebViewImpl::CreateServiceWorkerWebView(
@@ -511,8 +517,7 @@ std::unique_ptr<PageLoadStrategy> WebViewImpl::CreatePageLoadStrategy(
   } else if (strategy == PageLoadStrategy::kEager) {
     return std::make_unique<NavigationTracker>(client_.get(), this, true);
   } else {
-    NOTREACHED_IN_MIGRATION() << "invalid strategy '" << strategy << "'";
-    return nullptr;
+    NOTREACHED() << "invalid strategy '" << strategy << "'";
   }
 }
 
@@ -550,6 +555,10 @@ std::unique_ptr<WebViewImpl> WebViewImpl::CreateChild(
 
 std::string WebViewImpl::GetId() {
   return id_;
+}
+
+std::string WebViewImpl::GetSessionId() {
+  return client_->SessionId();
 }
 
 bool WebViewImpl::WasCrashed() {
@@ -797,7 +806,7 @@ Status WebViewImpl::GetLoaderId(const std::string& frame_id,
     }
     if (current_loader_id->empty()) {
       // There is probably an ongoing navigation. Giving up.
-      return Status{kNoSuchExecutionContext,
+      return Status{kAbortedByNavigation,
                     "no loaderId found for the current frame"};
     }
 
@@ -843,12 +852,12 @@ Status WebViewImpl::CallFunctionWithTimeoutInternal(
 
   status = GetLoaderId(frame_id, local_timeout, loader_id);
   if (status.IsError()) {
-    return status;
+    return WrapIfTargetDetached(status, kAbortedByNavigation);
   }
   std::string context_id;
   status = GetFrameTracker()->GetContextIdForFrame(frame_id, &context_id);
   if (status.IsError()) {
-    return status;
+    return WrapIfTargetDetached(status, kAbortedByNavigation);
   }
 
   ObjectGroup object_group(client_.get());
@@ -864,17 +873,17 @@ Status WebViewImpl::CallFunctionWithTimeoutInternal(
   // navigation.
   // Otherwise the user has sent us a node id that refers a non-existent node.
   if (status.IsError() && status.code() != kNoSuchElement) {
-    return status;
+    return WrapIfTargetDetached(status, kAbortedByNavigation);
   }
 
   std::string new_loader_id;
   Status new_status = GetLoaderId(frame_id, local_timeout, new_loader_id);
   if (new_status.IsError()) {
-    return new_status;
+    return WrapIfTargetDetached(new_status, kAbortedByNavigation);
   }
   if (new_loader_id != loader_id) {
     // A navigation has happened while resolving references. Giving up.
-    return Status{kNoSuchExecutionContext,
+    return Status{kAbortedByNavigation,
                   "loader has changed while resolving nodes"};
   }
   // ResolveElementReferences returned kNoSuchElement.
@@ -884,13 +893,12 @@ Status WebViewImpl::CallFunctionWithTimeoutInternal(
   }
 
   std::string new_context_id;
-  new_status =
-      GetFrameTracker()->GetContextIdForFrame(frame_id, &new_context_id);
-  if (new_status.IsError()) {
-    return new_status;
+  status = GetFrameTracker()->GetContextIdForFrame(frame_id, &new_context_id);
+  if (status.IsError()) {
+    return WrapIfTargetDetached(status, kAbortedByNavigation);
   }
   if (context_id != new_context_id) {
-    return Status{kNoSuchExecutionContext,
+    return Status{kAbortedByNavigation,
                   "context has changed while resolving nodes"};
   }
 
@@ -1214,6 +1222,7 @@ Status WebViewImpl::DispatchTouchEventsForMouseEvents(
 Status WebViewImpl::DispatchMouseEvents(const std::vector<MouseEvent>& events,
                                         const std::string& frame,
                                         bool async_dispatch_events) {
+  WebViewImplHolder target_holder(this);
   if (mobile_emulation_override_manager_->IsEmulatingTouch())
     return DispatchTouchEventsForMouseEvents(events, frame);
 
@@ -1504,7 +1513,7 @@ Status WebViewImpl::WaitForPendingNavigations(const std::string& frame_id,
   while (keep_waiting) {
     status = client_->HandleEventsUntil(not_pending_navigation, timeout);
     keep_waiting = status.code() == kNoSuchExecutionContext ||
-                   status.code() == kNavigationDetectedByRemoteEnd;
+                   status.code() == kAbortedByNavigation;
   }
   if (status.code() == kTimeout && stop_load_on_timeout) {
     VLOG(0) << "Timed out. Stopping navigation...";
@@ -1521,7 +1530,7 @@ Status WebViewImpl::WaitForPendingNavigations(const std::string& frame_id,
           not_pending_navigation,
           Timeout(base::Seconds(kWaitForNavigationStopSeconds)));
       keep_waiting = status.code() == kNoSuchExecutionContext ||
-                     status.code() == kNavigationDetectedByRemoteEnd;
+                     status.code() == kAbortedByNavigation;
     }
     navigation_tracker_->set_timed_out(false);
     if (new_status.IsError())
@@ -2394,6 +2403,7 @@ WebViewImplHolder::~WebViewImplHolder() {
     if (!web_view->IsDetached()) {
       web_view->Unlock();
     } else if (web_view->GetParent() != nullptr) {
+      item.web_view = nullptr;
       web_view->GetParent()->GetFrameTracker()->DeleteTargetForFrame(
           web_view->GetId());
     }

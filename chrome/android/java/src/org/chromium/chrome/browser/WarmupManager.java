@@ -36,6 +36,7 @@ import org.jni_zero.NativeMethods;
 import org.chromium.base.BuildInfo;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.TerminationStatus;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
@@ -110,8 +111,9 @@ public class WarmupManager {
         @Override
         // Invoked when tab crashes, or when the associated renderer process is killed.
         public void onCrash(Tab tab) {
+            if (mSpareTab != tab) return;
             mSpareTabFinalStatus = SpareTabFinalStatus.TAB_CRASHED;
-            destroySpareTabInternal();
+            destroySpareTabInternal(tab);
         }
 
         @Override
@@ -159,7 +161,7 @@ public class WarmupManager {
     private ViewGroup mMainView;
     @VisibleForTesting WebContents mSpareWebContents;
     private RenderProcessGoneObserver mObserver;
-    private boolean mIsCCTPrewarmTabEnabled;
+    private boolean mIsCctPrewarmTabEnabled;
 
     // Stores a prebuilt tab. To load a URL, this can be used if available instead of creating one
     // from scratch.
@@ -206,13 +208,15 @@ public class WarmupManager {
             ThreadUtils.assertOnUiThread();
 
             mSpareTabFinalStatus = SpareTabFinalStatus.TAB_DESTROYED;
-            destroySpareTabInternal();
+            destroySpareTabInternal(null);
         }
     }
 
-    private void destroySpareTabInternal() {
+    private void destroySpareTabInternal(Tab tab) {
         // Don't do anything if the spare tab doesn't exist.
         if (mSpareTab == null) return;
+
+        if (tab != null && tab != mSpareTab) return;
 
         // Record the SpareTabFinalStatus once its destroyed.
         recordSpareTabFinalStatusHistogram(mSpareTabFinalStatus);
@@ -365,9 +369,15 @@ public class WarmupManager {
         return mSpareTab == tab;
     }
 
-    /** Removes the singleton instance for the WarmupManager for testing. */
     public static void deInitForTesting() {
         sWarmupManager = null;
+    }
+
+    /** Removes the singleton instance for the WarmupManager for testing. */
+    public static void setInstanceForTesting(WarmupManager instance) {
+        var oldValue = sWarmupManager;
+        sWarmupManager = instance;
+        ResettersForTesting.register(() -> sWarmupManager = oldValue);
     }
 
     /**
@@ -425,13 +435,9 @@ public class WarmupManager {
             context.getTheme().applyStyle(elegantTextHeightOverlay, true);
         }
 
-        if (Build.VERSION.SDK_INT >= VERSION_CODES.TIRAMISU
-                && ChromeFeatureList.sAndroidGoogleSansText.isEnabled()) {
-            int defaultFontFamilyOverlay =
-                    ChromeBaseAppCompatActivity.DEFAULT_FONT_FAMILY_TESTING.getValue()
-                            ? R.style.ThemeOverlay_BrowserUI_DevTestingDefaultFontFamilyThemeOverlay
-                            : R.style.ThemeOverlay_BrowserUI_DefaultFontFamilyThemeOverlay;
-            context.getTheme().applyStyle(defaultFontFamilyOverlay, true);
+        if (Build.VERSION.SDK_INT >= VERSION_CODES.TIRAMISU) {
+            context.getTheme()
+                    .applyStyle(R.style.ThemeOverlay_BrowserUI_DefaultFontFamilyThemeOverlay, true);
         }
     }
 
@@ -642,9 +648,9 @@ public class WarmupManager {
      * @param verifiedSourceOrigin The origin that prefetch is requested from. Currently, this is
      *     always null.
      */
-    public void startPrefetchFromCCT(
+    public void startPrefetchFromCct(
             String url, boolean usePrefetchProxy, @Nullable String verifiedSourceOrigin) {
-        try (TraceEvent e = TraceEvent.scoped("WarmupManager.startPrefetchFromCCT")) {
+        try (TraceEvent e = TraceEvent.scoped("WarmupManager.startPrefetchFromCct")) {
             ThreadUtils.assertOnUiThread();
             if (!ChromeFeatureList.sPrefetchBrowserInitiatedTriggers.isEnabled()
                     || !ChromeFeatureList.sCctNavigationalPrefetch.isEnabled()) {
@@ -676,7 +682,7 @@ public class WarmupManager {
                 origin = Origin.create(new GURL(verifiedSourceOrigin));
             }
             WarmupManagerJni.get()
-                    .startPrefetchFromCCT(webContents, gurl, usePrefetchProxy, origin);
+                    .startPrefetchFromCct(webContents, gurl, usePrefetchProxy, origin);
         }
     }
 
@@ -692,11 +698,10 @@ public class WarmupManager {
             if (!LibraryLoader.getInstance().isInitialized() || mSpareWebContents != null) return;
 
             mSpareWebContents =
-                    new WebContentsFactory()
-                            .createWebContentsWithWarmRenderer(
-                                    profile,
-                                    /* initiallyHidden= */ true,
-                                    /* targetNetwork= */ NetId.INVALID);
+                    WebContentsFactory.createWebContentsWithWarmRenderer(
+                            profile,
+                            /* initiallyHidden= */ true,
+                            /* targetNetwork= */ NetId.INVALID);
             mObserver = new RenderProcessGoneObserver();
             mSpareWebContents.addObserver(mObserver);
         }
@@ -758,12 +763,12 @@ public class WarmupManager {
     // regardless of whether they actually interact with the feature, cache the flag here.
     // This only works if no non-test code calls
     // ChromeFeatureList.isEnabled(ChromeFeatureList.CCT_PREWARM_TAB) directly.
-    public boolean isCCTPrewarmTabFeatureEnabled(boolean activateExperiment) {
+    public boolean isCctPrewarmTabFeatureEnabled(boolean activateExperiment) {
         if (activateExperiment) {
-            mIsCCTPrewarmTabEnabled =
+            mIsCctPrewarmTabEnabled =
                     ChromeFeatureList.isEnabled(ChromeFeatureList.CCT_PREWARM_TAB);
         }
-        return mIsCCTPrewarmTabEnabled;
+        return mIsCctPrewarmTabEnabled;
     }
 
     @NativeMethods
@@ -773,7 +778,7 @@ public class WarmupManager {
         void preconnectUrlAndSubresources(
                 @JniType("Profile*") Profile profile, @JniType("std::string") String url);
 
-        void startPrefetchFromCCT(
+        void startPrefetchFromCct(
                 @JniType("content::WebContents*") WebContents webContents,
                 @JniType("GURL") GURL url,
                 boolean usePrefetchProxy,

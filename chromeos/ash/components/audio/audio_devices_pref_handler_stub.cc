@@ -119,22 +119,40 @@ void AudioDevicesPrefHandlerStub::DropLeastRecentlySeenDevices(
     const std::vector<AudioDevice>& connected_devices,
     size_t keep_devices) {}
 
+bool AudioDevicesPrefHandlerStub::GetVoiceIsolationState() const {
+  return voice_isolation_state_;
+}
+
+void AudioDevicesPrefHandlerStub::SetVoiceIsolationState(
+    bool voice_isolation_state) {
+  voice_isolation_state_ = voice_isolation_state;
+}
+
+uint32_t AudioDevicesPrefHandlerStub::GetVoiceIsolationPreferredEffect() const {
+  return voice_isolation_preferred_effect_;
+}
+
+void AudioDevicesPrefHandlerStub::SetVoiceIsolationPreferredEffect(
+    uint32_t effect) {
+  voice_isolation_preferred_effect_ = effect;
+}
+
 bool AudioDevicesPrefHandlerStub::GetNoiseCancellationState() {
-  return noise_cancellation_state_;
+  return GetVoiceIsolationState();
 }
 
 void AudioDevicesPrefHandlerStub::SetNoiseCancellationState(
     bool noise_cancellation_state) {
-  noise_cancellation_state_ = noise_cancellation_state;
+  SetVoiceIsolationState(noise_cancellation_state);
 }
 
 bool AudioDevicesPrefHandlerStub::GetStyleTransferState() const {
-  return style_transfer_state_;
+  return GetVoiceIsolationState();
 }
 
 void AudioDevicesPrefHandlerStub::SetStyleTransferState(
     bool style_transfer_state) {
-  style_transfer_state_ = style_transfer_state;
+  SetVoiceIsolationState(style_transfer_state);
 }
 
 bool AudioDevicesPrefHandlerStub::GetAudioOutputAllowedValue() const {

@@ -48,6 +48,22 @@ bool SupervisedUserVerificationPage::ShouldShowPage(
   }
 }
 
+// static
+FamilyLinkUserReauthenticationInterstitialState
+SupervisedUserVerificationPage::GetReauthenticationInterstitialStateFromStatus(
+    Status status) {
+  switch (status) {
+    case Status::SHOWN:
+      return FamilyLinkUserReauthenticationInterstitialState::kInterstitialShown;
+    case Status::REAUTH_STARTED:
+      return FamilyLinkUserReauthenticationInterstitialState::kReauthenticationStarted;
+    case Status::REAUTH_COMPLETED:
+      return FamilyLinkUserReauthenticationInterstitialState::kReauthenticationCompleted;
+    default:
+      NOTREACHED();
+  }
+}
+
 SupervisedUserVerificationPage::SupervisedUserVerificationPage(
     content::WebContents* web_contents,
     const std::string& email_to_reauth,
@@ -80,6 +96,12 @@ SupervisedUserVerificationPage::SupervisedUserVerificationPage(
 SupervisedUserVerificationPage::~SupervisedUserVerificationPage() = default;
 
 void SupervisedUserVerificationPage::CloseSignInTabs() {
+  if (signin_tabs_handle_id_list_.empty()) {
+    return;
+  }
+
+  int closed_tab_count = 0;
+  int skipped_tab_count = 0;
   while (!signin_tabs_handle_id_list_.empty()) {
     auto tab_handle_id = signin_tabs_handle_id_list_.front();
     signin_tabs_handle_id_list_.pop_front();
@@ -96,12 +118,14 @@ void SupervisedUserVerificationPage::CloseSignInTabs() {
     // the rest will be left open as the user might have navigated elsewhere.
     if (!IsSignInUrl(tab_interface->GetContents()->GetLastCommittedURL()) &&
         !IsSignInUrl(tab_interface->GetContents()->GetVisibleURL())) {
+      skipped_tab_count++;
       continue;
     }
     tab_interface->Close();
-    // TODO(b/364546097): Add metrics for the cases where we skip the tab
-    // closure.
-    }
+    closed_tab_count++;
+  }
+  RecordSignInTabUmaMetrics(closed_tab_count, skipped_tab_count);
+
   // TODO(b/364546097): Ideally focus the last visited tab (before the sign-in
   // page), before closing the sign-in tabs.
 }
@@ -204,8 +228,7 @@ void SupervisedUserVerificationPage::CommandReceived(
     case security_interstitials::CMD_OPEN_DIAGNOSTIC:
     case security_interstitials::CMD_REPORT_PHISHING_ERROR:
       // Not supported by the verification page.
-      NOTREACHED_IN_MIGRATION() << "Unsupported command: " << command;
-      break;
+      NOTREACHED() << "Unsupported command: " << command;
     case security_interstitials::CMD_ERROR:
     case security_interstitials::CMD_TEXT_FOUND:
     case security_interstitials::CMD_TEXT_NOT_FOUND:

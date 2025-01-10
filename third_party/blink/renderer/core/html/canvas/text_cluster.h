@@ -44,12 +44,12 @@ class CORE_EXPORT TextCluster final : public ScriptWrappable {
   unsigned end() const { return end_; }
   const String align() const { return TextAlignName(align_); }
   const String baseline() const { return TextBaselineName(baseline_); }
+  TextAlign GetTextAlign() const { return align_; }
+  TextBaseline GetTextBaseline() const { return baseline_; }
   const Member<TextMetrics> textMetrics() const { return text_metrics_; }
 
   void setX(double x) { x_ = x; }
   void setY(double y) { y_ = y; }
-  void setBegin(unsigned begin) { begin_ = begin; }
-  void setEnd(unsigned end) { end_ = end; }
 
   void OffsetPosition(double x_offset, double y_offset);
   void OffsetCharacters(unsigned offset);

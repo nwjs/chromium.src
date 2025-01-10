@@ -73,7 +73,7 @@ class WebViewInternalCaptureVisibleRegionFunction
   void EncodeBitmapOnWorkerThread(
       scoped_refptr<base::TaskRunner> reply_task_runner,
       const SkBitmap& bitmap);
-  void OnBitmapEncodedOnUIThread(bool success, std::string base64_result);
+  void OnBitmapEncodedOnUIThread(std::optional<std::string> base64_result);
 
   std::string GetErrorMessage(CaptureResult result);
 
@@ -129,6 +129,7 @@ class WebViewInternalExecuteCodeFunction
   // Guarded by a process ID check.
   extensions::ScriptExecutor* GetScriptExecutor(std::string* error) final;
   bool IsWebView() const override;
+  int GetRootFrameId() const override;
   const GURL& GetWebViewSrc() const override;
   bool LoadFile(const std::string& file, std::string* error) override;
 

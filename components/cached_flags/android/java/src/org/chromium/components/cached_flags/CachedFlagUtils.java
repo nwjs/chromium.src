@@ -6,18 +6,14 @@ package org.chromium.components.cached_flags;
 
 import android.content.SharedPreferences;
 
-import org.chromium.base.cached_flags.CachedFlagsSharedPreferences;
-
 import java.util.List;
 
-/**
- * Utility methods for {@link CachedFlag}.
- *
- * <p>TODO(crbug.com/40266922): Rename this to CachedFlagUtils.
- */
+/** Utility methods for {@link CachedFlag}s. */
 public class CachedFlagUtils {
     /** Caches flags that must take effect on startup but are set via native code. */
     public static void cacheNativeFlags(List<CachedFlag>... listsOfFeaturesToCache) {
+        if (listsOfFeaturesToCache.length == 0) return;
+
         // Batch the updates into a single apply() call to avoid calling the expensive
         // SharedPreferencesImpl$EditorImpl.commitToMemory() method many times unnecessarily.
         final SharedPreferences.Editor editor =
@@ -33,6 +29,8 @@ public class CachedFlagUtils {
     /** Caches flags that must take effect on startup but are set via native code. */
     public static void cacheFieldTrialParameters(
             List<CachedFieldTrialParameter<?>>... listsOfParameters) {
+        if (listsOfParameters.length == 0) return;
+
         // Batch the updates into a single apply() call to avoid calling the expensive
         // SharedPreferencesImpl$EditorImpl.commitToMemory() method many times unnecessarily.
         final SharedPreferences.Editor editor =

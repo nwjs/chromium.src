@@ -14,7 +14,10 @@ source_set("tabs_public") {
     "tab_network_state.h",
   ]
   sources = [ "tab_network_state.cc" ]
-  public_deps = [ "//base" ]
+  public_deps = [
+    "//base",
+    "//components/tab_groups:tab_groups",
+  ]
   deps = [ "//content/public/browser" ]
 }
 
@@ -37,6 +40,7 @@ if (!is_android) {
     public_deps = [
       "//base",
       "//ui/base",
+      "//ui/menus",
     ]
   }
 
@@ -126,12 +130,14 @@ if (!is_android) {
       ":tabs",
       ":tabs_public",
       "//base",
+      "//components/constrained_window",
       "//components/favicon/core",
       "//components/sessions",
       "//components/sync_sessions",
       "//components/tab_groups",
       "//content/public/browser",
       "//ui/base",
+      "//ui/menus",
     ]
 
     if (is_chromeos) {
@@ -303,6 +309,7 @@ if (!is_android) {
       "//chrome/app/vector_icons",
       "//chrome/browser/commerce",
       "//chrome/browser/content_settings:content_settings_factory",
+      "//chrome/browser/contextual_cueing:contextual_cueing",
       "//chrome/browser/favicon",
       "//chrome/browser/fingerprinting_protection",
       "//chrome/browser/image_fetcher",
@@ -315,12 +322,15 @@ if (!is_android) {
       "//chrome/browser/themes",
       "//chrome/browser/ui:browser_list",
       "//chrome/browser/ui:ui_features",
+      "//chrome/browser/ui/browser_window:browser_window",
       "//chrome/browser/ui/commerce",
       "//chrome/browser/ui/lens",
       "//chrome/browser/ui/views/side_panel",
+      "//chrome/browser/ui/webui:webui_util",
       "//chrome/browser/web_applications",
       "//components/browsing_topics",
       "//components/content_settings/core/browser",
+      "//components/favicon/content",
       "//components/favicon/core",
       "//components/fingerprinting_protection_filter/common:features",
       "//components/image_fetcher/core",
@@ -342,6 +352,7 @@ if (!is_android) {
     ]
     public_deps = [
       "//base",
+      "//chrome/browser/ui/tabs:tabs_public",
       "//components/sessions:session_id",
       "//components/tab_groups",
       "//ui/base",
@@ -397,6 +408,9 @@ if (!is_android) {
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
     sources = [
       "pinned_tab_service_browsertest.cc",
+      "recent_tabs_builder_test_helper.cc",
+      "recent_tabs_builder_test_helper.h",
+      "recent_tabs_sub_menu_model_browsertest.cc",
       "tab_strip_model_browsertest.cc",
     ]
 
@@ -412,10 +426,12 @@ if (!is_android) {
       "//chrome/browser",
       "//chrome/browser/policy:test_support",
       "//chrome/browser/profiles:profile",
+      "//chrome/browser/sync",
       "//chrome/browser/ui",
       "//chrome/browser/ui:browser_list",
       "//chrome/browser/ui:browser_navigator_params_headers",
       "//chrome/browser/ui:ui_features",
+      "//chrome/browser/ui/browser_window:browser_window",
       "//chrome/browser/web_applications",
       "//chrome/browser/web_applications:prevent_close_test_support",
       "//chrome/browser/web_applications:web_applications_test_support",
@@ -446,14 +462,12 @@ if (!is_android) {
       "existing_window_sub_menu_model_unittest.cc",
       "pinned_tab_codec_unittest.cc",
       "pinned_tab_service_unittest.cc",
-      "recent_tabs_builder_test_helper.cc",
-      "recent_tabs_builder_test_helper.h",
-      "recent_tabs_sub_menu_model_unittest.cc",
       "supports_handles_unittest.cc",
       "tab_collection_storage_unittest.cc",
       "tab_collection_unittest.cc",
       "tab_group_deletion_dialog_controller_unittest.cc",
       "tab_menu_model_unittest.cc",
+      "tab_model_unittest.cc",
       "tab_strip_model_stats_recorder_unittest.cc",
       "tab_strip_model_unittest.cc",
       "test_tab_strip_model_delegate.cc",
@@ -479,6 +493,7 @@ if (!is_android) {
       "//chrome/app:command_ids",
       "//chrome/app:generated_resources",
       "//chrome/browser",
+      "//chrome/browser/commerce:commerce",
       "//chrome/browser/content_settings:content_settings_factory",
       "//chrome/browser/extensions",
       "//chrome/browser/optimization_guide",
@@ -490,7 +505,10 @@ if (!is_android) {
       "//chrome/browser/ui/tab_contents",
       "//chrome/common:non_code_constants",
       "//chrome/test:test_support",
+      "//components/commerce/core:account_checker_test_support",
       "//components/commerce/core:feature_list",
+      "//components/commerce/core:shopping_service",
+      "//components/commerce/core:shopping_service_test_support",
       "//components/content_settings/core/browser",
       "//components/optimization_guide/core",
       "//components/optimization_guide/core:features",

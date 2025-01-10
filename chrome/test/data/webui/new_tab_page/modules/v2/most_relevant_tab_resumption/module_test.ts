@@ -156,7 +156,7 @@ suite('NewTabPageModulesMostRelevantTabResumptionModuleTest', () => {
 
     test('Tab dismiss button dispatches dismiss tab event', async () => {
       // Arrange.
-      const moduleElement = await initializeModule(createSampleURLVisits(1));
+      const moduleElement = await initializeModule(createSampleURLVisits(2));
 
       // Assert.
       assertTrue(!!moduleElement);
@@ -171,6 +171,7 @@ suite('NewTabPageModulesMostRelevantTabResumptionModuleTest', () => {
       assertEquals(`Tabs hidden`, dismissEvent.detail.message);
       assertEquals(
           1, metrics.count(`NewTabPage.TabResumption.VisitDismissIndex`, 0));
+      assertEquals(1, handler.getCallCount(`dismissURLVisit`));
 
       // Act.
       const restoreCallback = dismissEvent.detail.restoreCallback!;

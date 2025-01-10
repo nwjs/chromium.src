@@ -52,6 +52,7 @@
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/mojom/base/text_direction.mojom-blink.h"
+#include "net/base/schemeful_site.h"
 #include "services/metrics/public/cpp/delegating_ukm_recorder.h"
 #include "services/metrics/public/cpp/metrics_utils.h"
 #include "services/metrics/public/cpp/mojo_ukm_recorder.h"
@@ -86,12 +87,14 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_value.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_aria_notification_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_caret_position_from_point_options.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_document_ready_state.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_element_creation_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_element_registration_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_observable_array_css_style_sheet.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_throw_dom_exception.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_elementcreationoptions_string.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_htmlscriptelement_svgscriptelement.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_visibility_state.h"
 #include "third_party/blink/renderer/bindings/core/v8/window_proxy.h"
 #include "third_party/blink/renderer/core/accessibility/ax_context.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
@@ -320,6 +323,7 @@
 #include "third_party/blink/renderer/core/resize_observer/resize_observer_controller.h"
 #include "third_party/blink/renderer/core/resize_observer/resize_observer_entry.h"
 #include "third_party/blink/renderer/core/resize_observer/resize_observer_size.h"
+#include "third_party/blink/renderer/core/sanitizer/sanitizer_api.h"
 #include "third_party/blink/renderer/core/script/detect_javascript_frameworks.h"
 #include "third_party/blink/renderer/core/script/script_runner.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
@@ -867,6 +871,8 @@ Document::Document(const DocumentInit& initializer,
         !frame->IsOutermostMainFrame() &&
         !dom_window_->IsFeatureEnabled(
             mojom::blink::PermissionsPolicyFeature::kVerticalScroll);
+    cached_top_frame_site_for_visited_links_ =
+        net::SchemefulSite(TopFrameOrigin()->ToUrlOrigin());
   } else {
     // We disable fetches for frame-less Documents.
     // See https://crbug.com/961614 for details.
@@ -1178,8 +1184,7 @@ AtomicString GetTypeExtension(
                         WebFeature::kDocumentCreateElement2ndArgStringHandling);
       return AtomicString(string_or_options->GetAsString());
   }
-  NOTREACHED_IN_MIGRATION();
-  return AtomicString();
+  NOTREACHED();
 }
 
 // https://dom.spec.whatwg.org/#dom-document-createelement
@@ -1494,22 +1499,16 @@ bool Document::HasValidNamespaceForAttributes(const QualifiedName& q_name) {
   return HasValidNamespaceForElements(q_name);
 }
 
-String Document::readyState() const {
-  DEFINE_STATIC_LOCAL(const String, loading, ("loading"));
-  DEFINE_STATIC_LOCAL(const String, interactive, ("interactive"));
-  DEFINE_STATIC_LOCAL(const String, complete, ("complete"));
-
+V8DocumentReadyState Document::readyState() const {
   switch (ready_state_) {
     case kLoading:
-      return loading;
+      return V8DocumentReadyState(V8DocumentReadyState::Enum::kLoading);
     case kInteractive:
-      return interactive;
+      return V8DocumentReadyState(V8DocumentReadyState::Enum::kInteractive);
     case kComplete:
-      return complete;
+      return V8DocumentReadyState(V8DocumentReadyState::Enum::kComplete);
   }
-
-  NOTREACHED_IN_MIGRATION();
-  return String();
+  NOTREACHED();
 }
 
 void Document::SetReadyState(DocumentReadyState ready_state) {
@@ -1519,6 +1518,7 @@ void Document::SetReadyState(DocumentReadyState ready_state) {
   if (ready_state == ready_state_)
     return;
 
+  auto* frame = GetFrame();
   switch (ready_state) {
     case kLoading:
       if (document_timing_.DomLoading().is_null()) {
@@ -1528,6 +1528,10 @@ void Document::SetReadyState(DocumentReadyState ready_state) {
     case kInteractive:
       if (document_timing_.DomInteractive().is_null())
         document_timing_.MarkDomInteractive();
+
+      if (frame && frame->IsMainFrame()) {
+        frame->GetLocalFrameHostRemote().NotifyDocumentInteractive();
+      }
       break;
     case kComplete:
       if (document_timing_.DomComplete().is_null())
@@ -1536,8 +1540,8 @@ void Document::SetReadyState(DocumentReadyState ready_state) {
   }
 
   ready_state_ = ready_state;
-  if (GetFrame() && GetFrame()->GetPage() &&
-      GetFrame()->GetPage()->GetPageScheduler()->IsInBackForwardCache()) {
+  if (frame && frame->GetPage() &&
+      frame->GetPage()->GetPageScheduler()->IsInBackForwardCache()) {
     // Enqueue the event when the page is in back/forward cache, so that it
     // would not cause JavaScript execution. The event will be dispatched upon
     // restore.
@@ -1938,8 +1942,16 @@ bool Document::IsPrefetchOnly() const {
   return no_state_prefetch_client && no_state_prefetch_client->IsPrefetchOnly();
 }
 
-AtomicString Document::visibilityState() const {
-  return PageHiddenStateString(hidden());
+V8VisibilityState Document::visibilityState() const {
+  if (hidden()) {
+    return V8VisibilityState(V8VisibilityState::Enum::kHidden);
+  } else {
+    return V8VisibilityState(V8VisibilityState::Enum::kVisible);
+  }
+}
+
+String Document::visibilityStateAsString() const {
+  return visibilityState().AsString();
 }
 
 bool Document::prerendering() const {
@@ -2186,8 +2198,10 @@ static void AssertNodeClean(const Node& node) {
 
 static void AssertLayoutTreeUpdatedForPseudoElements(const Element& element) {
   WTF::Vector<PseudoId> pseudo_ids = {kPseudoIdFirstLetter,
+                                      kPseudoIdCheck,
                                       kPseudoIdBefore,
                                       kPseudoIdAfter,
+                                      kPseudoIdSelectArrow,
                                       kPseudoIdMarker,
                                       kPseudoIdBackdrop,
                                       kPseudoIdScrollMarkerGroupBefore,
@@ -2361,9 +2375,7 @@ void Document::UpdateStyleAndLayoutTreeForThisDocument() {
   SlotAssignmentRecalcForbiddenScope forbid_slot_recalc(*this);
 
   if (InStyleRecalc()) {
-    NOTREACHED_IN_MIGRATION()
-        << "We should not re-enter style recalc for the same document";
-    return;
+    NOTREACHED() << "We should not re-enter style recalc for the same document";
   }
 
 #if DCHECK_IS_ON()
@@ -2404,6 +2416,7 @@ void Document::UpdateStyleAndLayoutTreeForThisDocument() {
   style_engine.UpdateCounterStyles();
   style_engine.InvalidatePositionTryStyles();
   style_engine.InvalidateViewportUnitStylesIfNeeded();
+  style_engine.InvalidateEnvDependentStylesIfNeeded();
   InvalidateStyleAndLayoutForFontUpdates();
   UpdateStyleInvalidationIfNeeded();
   UpdateStyle();
@@ -2513,7 +2526,11 @@ bool Document::NeedsLayoutTreeUpdateForNodeIncludingDisplayLocked(
     analyze = !DisplayLockUtilities::IsUnlockedQuickCheck(node);
 
   StyleEngine& style_engine = GetStyleEngine();
-  bool maybe_affected_by_layout = style_engine.StyleMaybeAffectedByLayout(node);
+  bool maybe_affected_by_layout = false;
+  if (const auto* element = DynamicTo<Element>(node)) {
+    maybe_affected_by_layout =
+        style_engine.StyleMaybeAffectedByLayout(*element);
+  }
   // Even if we don't need layout *now*, any dirty style may invalidate layout.
   bool maybe_needs_layout =
       (update != StyleAndLayoutTreeUpdate::kNone) || View()->NeedsLayout();
@@ -4319,8 +4336,7 @@ Document::PageDismissalType Document::PageDismissalEventBeingDispatched()
     case kUnloadEventHandled:
       return kNoDismissal;
   }
-  NOTREACHED_IN_MIGRATION();
-  return kNoDismissal;
+  NOTREACHED();
 }
 
 void Document::SetParsingState(ParsingState parsing_state) {
@@ -4699,11 +4715,10 @@ void Document::ProcessBaseElement() {
         GetExecutionContext()->GetContentSecurityPolicy()->AllowBaseURI(
             base_element_url)) {
       base_element_url_ = base_element_url;
-      UpdateBaseURL();
-    } else if (RuntimeEnabledFeatures::BaseElementUrlUseFallbackEnabled()) {
+    } else {
       base_element_url_ = FallbackBaseURL();
-      UpdateBaseURL();
     }
+    UpdateBaseURL();
   }
 
   AtomicString old_base_target = base_target_;
@@ -4919,13 +4934,17 @@ bool Document::ChildTypeAllowed(NodeType type) const {
 //  -> doctype
 //     parent has a doctype child that is not child, or an element is preceding
 //     child.
-bool Document::CanAcceptChild(const Node& new_child,
+bool Document::CanAcceptChild(const Node* new_child,
+                              const VectorOf<Node>* new_children,
                               const Node* next,
                               const Node* old_child,
                               ExceptionState& exception_state) const {
   DCHECK(!(next && old_child));
-  if (old_child && old_child->getNodeType() == new_child.getNodeType())
+  CHECK_NE(!new_child, !new_children);
+  if (old_child && new_child &&
+      old_child->getNodeType() == new_child->getNodeType()) {
     return true;
+  }
 
   int num_doctypes = 0;
   int num_elements = 0;
@@ -4936,7 +4955,7 @@ bool Document::CanAcceptChild(const Node& new_child,
   // the child we're about to remove.
   bool saw_reference_node = false;
   for (Node& child : NodeTraversal::ChildrenOf(*this)) {
-    if (old_child && *old_child == child) {
+    if (old_child == &child) {
       saw_reference_node = true;
       continue;
     }
@@ -4957,39 +4976,8 @@ bool Document::CanAcceptChild(const Node& new_child,
     }
   }
 
-  // Then, see how many doctypes and elements might be added by the new child.
-  if (auto* new_child_fragment = DynamicTo<DocumentFragment>(new_child)) {
-    for (Node& child : NodeTraversal::ChildrenOf(*new_child_fragment)) {
-      switch (child.getNodeType()) {
-        case kAttributeNode:
-        case kCdataSectionNode:
-        case kDocumentFragmentNode:
-        case kDocumentNode:
-        case kTextNode:
-          exception_state.ThrowDOMException(
-              DOMExceptionCode::kHierarchyRequestError,
-              "Nodes of type '" + new_child.nodeName() +
-                  "' may not be inserted inside nodes of type '#document'.");
-          return false;
-        case kCommentNode:
-        case kProcessingInstructionNode:
-          break;
-        case kDocumentTypeNode:
-          num_doctypes++;
-          break;
-        case kElementNode:
-          num_elements++;
-          if (has_doctype_after_reference_node) {
-            exception_state.ThrowDOMException(
-                DOMExceptionCode::kHierarchyRequestError,
-                "Can't insert an element before a doctype.");
-            return false;
-          }
-          break;
-      }
-    }
-  } else {
-    switch (new_child.getNodeType()) {
+  auto process_child = [&](const Node& child) -> bool {
+    switch (child.getNodeType()) {
       case kAttributeNode:
       case kCdataSectionNode:
       case kDocumentFragmentNode:
@@ -4997,18 +4985,18 @@ bool Document::CanAcceptChild(const Node& new_child,
       case kTextNode:
         exception_state.ThrowDOMException(
             DOMExceptionCode::kHierarchyRequestError,
-            "Nodes of type '" + new_child.nodeName() +
+            "Nodes of type '" + child.nodeName() +
                 "' may not be inserted inside nodes of type '#document'.");
         return false;
       case kCommentNode:
       case kProcessingInstructionNode:
-        return true;
+        break;
       case kDocumentTypeNode:
         num_doctypes++;
         if (num_elements > 0 && !has_element_after_reference_node) {
           exception_state.ThrowDOMException(
               DOMExceptionCode::kHierarchyRequestError,
-              "Can't insert a doctype before the root element.");
+              "Can't insert a doctype after the root element.");
           return false;
         }
         break;
@@ -5021,6 +5009,27 @@ bool Document::CanAcceptChild(const Node& new_child,
           return false;
         }
         break;
+    }
+    return true;
+  };
+
+  // Then, see how many doctypes and elements might be added by the new child.
+  if (new_children) {
+    for (Node* child : *new_children) {
+      if (!process_child(*child)) {
+        return false;
+      }
+    }
+  } else if (auto* new_child_fragment =
+                 DynamicTo<DocumentFragment>(new_child)) {
+    for (Node& child : NodeTraversal::ChildrenOf(*new_child_fragment)) {
+      if (!process_child(child)) {
+        return false;
+      }
+    }
+  } else {
+    if (!process_child(*new_child)) {
+      return false;
     }
   }
 
@@ -6397,7 +6406,7 @@ std::optional<base::Time> Document::lastModifiedTime() const {
     }
   }
   if (!http_last_modified.empty()) {
-    return ParseDate(http_last_modified);
+    return ParseDate(http_last_modified, const_cast<Document&>(*this));
   }
   return std::nullopt;
 }
@@ -6415,8 +6424,8 @@ scoped_refptr<const SecurityOrigin> Document::TopFrameOrigin() const {
   // If this window was opened as a new partitioned popin we need to use the
   // origin of the opener's top-frame as our top-frame.
   // See https://explainers-by-googlers.github.io/partitioned-popins/
-  if (GetPage()->GetPartitionedPopinOpenerTopFrameOrigin()) {
-    return GetPage()->GetPartitionedPopinOpenerTopFrameOrigin();
+  if (GetPage()->IsPartitionedPopin()) {
+    return GetPage()->GetPartitionedPopinOpenerProperties().top_frame_origin;
   }
 
   return GetFrame()->Tree().FindFrameByName(WebString::FromUTF8("_top"), true)->GetSecurityContext()->GetSecurityOrigin();
@@ -6436,20 +6445,32 @@ net::SiteForCookies Document::SiteForCookies() const {
   // enabled, access-controlled media cannot be rendered. We only make this
   // exception in this special case to minimize security/privacy risk.
   url::Origin url_origin = origin->ToUrlOrigin();
-  if (url_origin.opaque() &&
-      !url_origin.GetTupleOrPrecursorTupleIfOpaque().host().empty() &&
-      override_site_for_cookies_for_csp_media_) {
+
+  if (override_site_for_cookies_for_csp_media_ && url_origin.opaque() &&
+      !url_origin.GetTupleOrPrecursorTupleIfOpaque().host().empty()) {
     return net::SiteForCookies::FromOrigin(url::Origin::Create(
         url_origin.GetTupleOrPrecursorTupleIfOpaque().GetURL()));
   }
 
   net::SiteForCookies candidate = net::SiteForCookies::FromOrigin(url_origin);
 
+  // If true, CompareWithFrameTreeOriginAndRevise() is skipped if the
+  // SecurityOrigin of the the frames is the same. If any frame has a different
+  // SecurityOrigin, then this is set to false so that
+  // CompareWithFrameTreeOriginAndRevise() is called for all remaining frames.
+  bool can_avoid_revise_if_security_origins_match = true;
+
   // If this window was opened as a new partitioned popin we need to use the
   // site for cookies of the opener as our initial candidate.
   // See https://explainers-by-googlers.github.io/partitioned-popins/
-  if (GetPage()->GetPartitionedPopinOpenerSiteForCookies()) {
-    candidate = *GetPage()->GetPartitionedPopinOpenerSiteForCookies();
+  if (GetPage()->IsPartitionedPopin()) {
+    candidate =
+        GetPage()->GetPartitionedPopinOpenerProperties().site_for_cookies;
+    // We can only skip comparisons when using the SiteForCookies from the
+    // top frame. Because we reset `candidate`, we need to call
+    // CompareWithFrameTreeOriginAndRevise() regardless of whether a frame
+    // has the same SecurityOrigin as the top frame.
+    can_avoid_revise_if_security_origins_match = false;
   }
 
   if (SchemeRegistry::ShouldTreatURLSchemeAsFirstPartyWhenTopLevel(
@@ -6469,10 +6490,17 @@ net::SiteForCookies Document::SiteForCookies() const {
   while (current_frame) {
     if (current_frame->isNwFakeTop())
       break;
-    const url::Origin cur_security_origin =
-        current_frame->GetSecurityContext()->GetSecurityOrigin()->ToUrlOrigin();
-    if (!candidate.CompareWithFrameTreeOriginAndRevise(cur_security_origin))
-      return candidate;
+    const SecurityOrigin* current_frame_security_origin =
+        current_frame->GetSecurityContext()->GetSecurityOrigin();
+    // If possible, skip revising frames that have the same security origin.
+    if (!can_avoid_revise_if_security_origins_match ||
+        current_frame_security_origin != origin) {
+      if (!candidate.CompareWithFrameTreeOriginAndRevise(
+              current_frame_security_origin->ToUrlOrigin())) {
+        return candidate;
+      }
+      can_avoid_revise_if_security_origins_match = false;
+    }
     current_frame = current_frame->Tree().Parent();
   }
 
@@ -7246,27 +7274,6 @@ void Document::MaybeExecuteDelayedAsyncScripts(
       if (milestone == MilestoneForDelayedAsyncScript::kFinishedParsing)
         script_runner_delayer_->Deactivate();
       break;
-    case features::DelayAsyncScriptDelayType::kEachLcpCandidate:
-      // Notify the ScriptRunner if a LCP candidate is reported.
-      if (milestone == MilestoneForDelayedAsyncScript::kLcpCandidate) {
-        // Flush all async scripts that are already prepared but forced to be
-        // delayed.
-        script_runner_delayer_->Deactivate();
-        // Delay async scripts until next LCP candidate occurs or reaches the
-        // time limit.
-        script_runner_delayer_->Activate();
-      }
-      break;
-    case features::DelayAsyncScriptDelayType::kEachPaint:
-      // Notify the ScriptRunner if paint happened.
-      if (milestone == MilestoneForDelayedAsyncScript::kPaint) {
-        // Flush all async scripts that are already prepared but forced to be
-        // delayed.
-        script_runner_delayer_->Deactivate();
-        // Delay async scripts until next paint or reaches the time limit.
-        script_runner_delayer_->Activate();
-      }
-      break;
     case features::DelayAsyncScriptDelayType::kTillFirstLcpCandidate:
       // Notify the ScriptRunner if a LCP candidate is reported.
       if (milestone == MilestoneForDelayedAsyncScript::kLcpCandidate) {
@@ -7280,10 +7287,6 @@ void Document::MaybeExecuteDelayedAsyncScripts(
 
 void Document::MarkFirstPaint() {
   MaybeExecuteDelayedAsyncScripts(MilestoneForDelayedAsyncScript::kFirstPaint);
-}
-
-void Document::OnPaintFinished() {
-  MaybeExecuteDelayedAsyncScripts(MilestoneForDelayedAsyncScript::kPaint);
 }
 
 void Document::OnLargestContentfulPaintUpdated() {
@@ -7368,9 +7371,8 @@ void Document::FinishedParsing() {
         UpdateStyleAndLayoutTree();
         if (base::FeatureList::IsEnabled(
                 features::kPrerender2EarlyDocumentLifecycleUpdate) &&
-            IsPrerendering()) {
-          View()->UpdateAllLifecyclePhasesExceptPaint(
-              DocumentUpdateReason::kPrerender);
+            IsPrerendering() && GetFrame()->IsLocalRoot()) {
+          View()->DryRunPaintingForPrerender();
         }
       }
     }
@@ -7453,8 +7455,7 @@ void Document::BeginLifecycleUpdatesIfRenderingReady() {
   if (auto* view = View()) {
     view->BeginLifecycleUpdates();
   } else {
-    NOTREACHED_IN_MIGRATION();
-    base::debug::DumpWithoutCrashing();
+    NOTREACHED();
   }
 }
 
@@ -7514,7 +7515,7 @@ Vector<IconURL> Document::IconURLs(int icon_types_mask) {
         secondary_icons.push_back(first_touch_precomposed_icon);
       first_touch_precomposed_icon = new_url;
     } else {
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
     }
   }
 
@@ -7951,6 +7952,14 @@ void Document::RemoveFromTopLayerImmediately(Element* element) {
   }
   element->SetIsInTopLayer(false);
   display_lock_document_state_->ElementRemovedFromTopLayer(element);
+  if (RuntimeEnabledFeatures::PopoverAnchorRelationshipsEnabled() ||
+      RuntimeEnabledFeatures::CustomizableSelectEnabled()) {
+    if (auto* html_element = DynamicTo<HTMLElement>(element)) {
+      if (html_element->HasPopoverAttribute()) {
+        html_element->SetImplicitAnchor(nullptr);
+      }
+    }
+  }
 
   probe::TopLayerElementsChanged(this);
 
@@ -8004,6 +8013,17 @@ HTMLElement* Document::TopmostPopoverOrHint() const {
 void Document::SetPopoverPointerdownTarget(const HTMLElement* popover) {
   DCHECK(!popover || popover->HasPopoverAttribute());
   popover_pointerdown_target_ = popover;
+}
+
+const HTMLDialogElement* Document::DialogPointerdownTarget() const {
+  CHECK(RuntimeEnabledFeatures::HTMLDialogLightDismissEnabled());
+  return dialog_pointerdown_target_.Get();
+}
+
+void Document::SetDialogPointerdownTarget(const HTMLDialogElement* dialog) {
+  CHECK(RuntimeEnabledFeatures::HTMLDialogLightDismissEnabled());
+  DCHECK(!dialog || dialog->IsOpen());
+  dialog_pointerdown_target_ = dialog;
 }
 
 void Document::exitPointerLock() {
@@ -8720,6 +8740,7 @@ void Document::Trace(Visitor* visitor) const {
   visitor->Trace(popover_auto_stack_);
   visitor->Trace(popover_hint_stack_);
   visitor->Trace(popover_pointerdown_target_);
+  visitor->Trace(dialog_pointerdown_target_);
   visitor->Trace(popovers_waiting_to_hide_);
   visitor->Trace(all_open_popovers_);
   visitor->Trace(document_part_root_);
@@ -9293,9 +9314,11 @@ void Document::ScheduleSelectionchangeEvent() {
 }
 
 // static
-Document* Document::parseHTMLUnsafe(ExecutionContext* context,
-                                    const String& html) {
-  UseCounter::Count(context, WebFeature::kHTMLUnsafeMethods);
+Document* Document::parseHTMLInternal(ExecutionContext* context,
+                                      const String& html,
+                                      SetHTMLOptions* options,
+                                      bool safe,
+                                      ExceptionState& exception_state) {
   Document* doc = DocumentInit::Create()
                       .WithTypeFrom(keywords::kTextHtml)
                       .WithExecutionContext(context)
@@ -9304,7 +9327,46 @@ Document* Document::parseHTMLUnsafe(ExecutionContext* context,
   doc->setAllowDeclarativeShadowRoots(true);
   doc->SetContent(html);
   doc->SetMimeType(keywords::kTextHtml);
+  if (RuntimeEnabledFeatures::SanitizerAPIEnabled()) {
+    if (safe) {
+      SanitizerAPI::SanitizeSafeInternal(doc->body(), options, exception_state);
+    } else {
+      SanitizerAPI::SanitizeUnsafeInternal(doc->body(), options,
+                                           exception_state);
+    }
+  }
+
   return doc;
+}
+
+// static
+Document* Document::parseHTMLUnsafe(ExecutionContext* context,
+                                    const String& html,
+                                    ExceptionState& exception_state) {
+  UseCounter::Count(context, WebFeature::kHTMLUnsafeMethods);
+  return parseHTMLInternal(context, html, /*options=*/nullptr, /*safe=*/false,
+                           exception_state);
+}
+
+// static
+Document* Document::parseHTMLUnsafe(ExecutionContext* context,
+                                    const String& html,
+                                    SetHTMLOptions* options,
+                                    ExceptionState& exception_state) {
+  UseCounter::Count(context, WebFeature::kHTMLUnsafeMethods);
+  CHECK(RuntimeEnabledFeatures::SanitizerAPIEnabled());
+  return parseHTMLInternal(context, html, options, /*safe=*/false,
+                           exception_state);
+}
+
+// static
+Document* Document::parseHTML(ExecutionContext* context,
+                              const String& html,
+                              SetHTMLOptions* options,
+                              ExceptionState& exception_state) {
+  CHECK(RuntimeEnabledFeatures::SanitizerAPIEnabled());
+  return parseHTMLInternal(context, html, options, /*safe=*/true,
+                           exception_state);
 }
 
 void Document::SetOverrideSiteForCookiesForCSPMedia(bool value) {
@@ -9331,6 +9393,15 @@ VisitedLinkState& Document::GetVisitedLinkState() {
     visited_link_state_ = MakeGarbageCollected<VisitedLinkState>(*this);
   }
   return *visited_link_state_;
+}
+
+net::SchemefulSite Document::GetCachedTopFrameSite(VisitedLinkPassKey) {
+  // NOTE: frame-less Documents will have a value of std::nullopt, HOWEVER,
+  // since this function can only be called from a Document associated with a
+  // valid VisitedLinkState or HTMLAnchorElement, we are guaranteed to have a
+  // top frame and thus a value for top frame site.
+  DCHECK(cached_top_frame_site_for_visited_links_.has_value());
+  return cached_top_frame_site_for_visited_links_.value();
 }
 
 template class CORE_TEMPLATE_EXPORT Supplement<Document>;

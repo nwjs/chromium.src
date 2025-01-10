@@ -92,8 +92,7 @@ CSSValue* ConsumeAnimationValue(CSSPropertyID property,
       DCHECK(RuntimeEnabledFeatures::ScrollTimelineEnabled());
       return nullptr;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return nullptr;
+      NOTREACHED();
   }
 }
 
@@ -1179,6 +1178,11 @@ bool Flex::ParseShorthand(bool important,
                 CSSValueID::kFitContent>(stream.Peek().Id())) {
           flex_basis = css_parsing_utils::ConsumeIdent(stream);
         }
+        if (RuntimeEnabledFeatures::LayoutStretchEnabled() &&
+            CSSValueID::kStretch == stream.Peek().Id()) {
+          flex_basis = css_parsing_utils::ConsumeIdent(stream);
+        }
+
         if (!flex_basis) {
           flex_basis = css_parsing_utils::ConsumeLengthOrPercent(
               stream, context, CSSPrimitiveValue::ValueRange::kNonNegative);
@@ -3510,8 +3514,7 @@ CSSValue* ConsumeTransitionValue(CSSPropertyID property,
       }
       return nullptr;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return nullptr;
+      NOTREACHED();
   }
 }
 

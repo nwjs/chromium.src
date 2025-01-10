@@ -11,6 +11,7 @@
 #include "chrome/browser/ui/views/tabs/tab_slot_view.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "ui/base/metadata/metadata_header_macros.h"
+#include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/views/context_menu_controller.h"
 #include "ui/views/controls/focus_ring.h"
 #include "ui/views/view_targeter_delegate.h"
@@ -43,8 +44,6 @@ class TabGroupHeader : public TabSlotView,
   TabGroupHeader& operator=(const TabGroupHeader&) = delete;
   ~TabGroupHeader() override;
 
-  void Init(const tab_groups::TabGroupId& group);
-
   // TabSlotView:
   bool OnKeyPressed(const ui::KeyEvent& event) override;
   bool OnMousePressed(const ui::MouseEvent& event) override;
@@ -61,9 +60,10 @@ class TabGroupHeader : public TabSlotView,
   gfx::Rect GetAnchorBoundsInScreen() const override;
 
   // views::ContextMenuController:
-  void ShowContextMenuForViewImpl(views::View* source,
-                                  const gfx::Point& point,
-                                  ui::MenuSourceType source_type) override;
+  void ShowContextMenuForViewImpl(
+      views::View* source,
+      const gfx::Point& point,
+      ui::mojom::MenuSourceType source_type) override;
 
   // views::ViewTargeterDelegate:
   bool DoesIntersectRect(const views::View* target,
@@ -86,7 +86,7 @@ class TabGroupHeader : public TabSlotView,
   // Calculate the width for this View.
   int GetDesiredWidth() const;
   // Determines if the sync icon should be shown in the header.
-  bool ShouldShowSyncIcon() const;
+  bool ShouldShowHeaderIcon() const;
 
   void UpdateIsCollapsed();
 
@@ -123,8 +123,8 @@ class TabGroupHeader : public TabSlotView,
   // The current color of the group.
   SkColor color_;
 
-  // Determines if we should show the sync icon in front of the title.
-  bool should_show_sync_icon_;
+  // Determines if we should show the header icon in front of the title.
+  bool should_show_header_icon_;
 
   // Local saved collapsed state. When this differs from
   // `TabSlotController::IsGroupCollapsed()`, then the collapsed state has

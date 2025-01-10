@@ -78,7 +78,8 @@ int DesiredIndexTableLen(int32_t storage_size) {
 }
 
 int MaxStorageSizeForTable(int table_len) {
-  return table_len * (k64kEntriesStore / kBaseTableLen);
+  return std::min(int64_t{std::numeric_limits<int32_t>::max()},
+                  int64_t{table_len} * (k64kEntriesStore / kBaseTableLen));
 }
 
 size_t GetIndexSize(int table_len) {
@@ -159,10 +160,12 @@ BackendImpl::BackendImpl(
 BackendImpl::BackendImpl(
     const base::FilePath& path,
     uint32_t mask,
+    scoped_refptr<BackendCleanupTracker> cleanup_tracker,
     const scoped_refptr<base::SingleThreadTaskRunner>& cache_thread,
     net::CacheType cache_type,
     net::NetLog* net_log)
     : Backend(cache_type),
+      cleanup_tracker_(std::move(cleanup_tracker)),
       background_queue_(this, FallbackToInternalIfNull(cache_thread)),
       path_(path),
       block_files_(path),
@@ -291,7 +294,7 @@ int BackendImpl::SyncInit() {
   trace_object_->EnableTracing(false);
   int sc = SelfCheck();
   if (sc < 0 && sc != ERR_NUM_ENTRIES_MISMATCH)
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   trace_object_->EnableTracing(true);
 #endif
 
@@ -1417,8 +1420,7 @@ bool BackendImpl::InitStats() {
   }
 
   if (!address.is_block_file()) {
-    NOTREACHED_IN_MIGRATION();
-    return false;
+    NOTREACHED();
   }
 
   // Load the required data.

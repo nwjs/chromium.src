@@ -188,6 +188,10 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 
+#if BUILDFLAG(IS_CHROMEOS)
+#include "ui/native_theme/native_theme.h"
+#endif
+
 #if !BUILDFLAG(IS_MAC)
 #include "skia/ext/legacy_display_globals.h"
 #include "third_party/blink/public/platform/web_font_render_style.h"
@@ -406,8 +410,7 @@ ui::mojom::blink::WindowOpenDisposition NavigationPolicyToDisposition(
     case kNavigationPolicyIgnore:
       return ui::mojom::blink::WindowOpenDisposition::IGNORE_ACTION;
   }
-  NOTREACHED_IN_MIGRATION() << "Unexpected NavigationPolicy";
-  return ui::mojom::blink::WindowOpenDisposition::IGNORE_ACTION;
+  NOTREACHED() << "Unexpected NavigationPolicy";
 }
 
 // Records the queuing duration for activation IPC.
@@ -443,8 +446,7 @@ SkFontHinting RendererPreferencesToSkiaHinting(
       case gfx::FontRenderParams::HINTING_FULL:
         return SkFontHinting::kNormal;
       default:
-        NOTREACHED_IN_MIGRATION();
-        return SkFontHinting::kNormal;
+        NOTREACHED();
     }
   }
 #endif
@@ -459,8 +461,7 @@ SkFontHinting RendererPreferencesToSkiaHinting(
     case gfx::FontRenderParams::HINTING_FULL:
       return SkFontHinting::kFull;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return SkFontHinting::kNormal;
+      NOTREACHED();
   }
 }
 #endif  // !BUILDFLAG(IS_MAC) && !BUILDFLAG(IS_WIN)
@@ -1213,6 +1214,10 @@ void WebViewImpl::ResizeVisualViewport(const gfx::Size& new_size) {
 void WebViewImpl::DidFirstVisuallyNonEmptyPaint() {
   DCHECK(MainFrameImpl());
   local_main_frame_host_remote_->DidFirstVisuallyNonEmptyPaint();
+}
+
+void WebViewImpl::OnFirstContentfulPaint() {
+  local_main_frame_host_remote_->OnFirstContentfulPaint();
 }
 
 void WebViewImpl::UpdateICBAndResizeViewport(
@@ -3435,6 +3440,16 @@ void WebViewImpl::UpdateFontRenderingFromRendererPrefs() {
 #endif  // !BUILDFLAG(IS_MAC)
 }
 
+#if BUILDFLAG(IS_CHROMEOS)
+void WebViewImpl::UpdateUseOverlayScrollbar(bool use_overlay_scrollbar) {
+  ui::NativeTheme::GetInstanceForWeb()->set_use_overlay_scrollbar(
+      use_overlay_scrollbar);
+  if (MainFrameImpl() && MainFrameImpl()->GetFrameView()) {
+    MainFrameImpl()->GetFrameView()->UsesOverlayScrollbarsChanged();
+  }
+}
+#endif
+
 void WebViewImpl::ActivatePrerenderedPage(
     mojom::blink::PrerenderPageActivationParamsPtr
         prerender_page_activation_params,
@@ -3553,13 +3568,13 @@ void WebViewImpl::UpdateRendererPreferences(
   SetExplicitlyAllowedPorts(
       renderer_preferences_.explicitly_allowed_network_ports);
 
-  if (renderer_preferences_.prefixed_fullscreen_video_api_availability
-          .has_value()) {
-    WebRuntimeFeatures::EnableFeatureFromString(
-        "PrefixedVideoFullscreen",
-        renderer_preferences_.prefixed_fullscreen_video_api_availability
-            .value());
+#if BUILDFLAG(IS_CHROMEOS)
+  if (!ScrollbarTheme::MockScrollbarsEnabled()) {
+    WebRuntimeFeatures::EnableOverlayScrollbars(
+        renderer_preferences_.use_overlay_scrollbar);
+    UpdateUseOverlayScrollbar(renderer_preferences_.use_overlay_scrollbar);
   }
+#endif
 
   MaybePreloadSystemFonts(GetPage());
 }

@@ -54,6 +54,11 @@ class ServerCertificateDatabase {
   // Retrieve all of the certificates from the database.
   std::vector<CertInformation> RetrieveAllCertificates();
 
+  uint32_t RetrieveCertificatesCount();
+
+  // Delete the certificate with a matching hash from the database.
+  bool DeleteCertificate(const std::string& sha256hash_hex);
+
  private:
   sql::InitStatus InitInternal(const base::FilePath& storage_dir);
 

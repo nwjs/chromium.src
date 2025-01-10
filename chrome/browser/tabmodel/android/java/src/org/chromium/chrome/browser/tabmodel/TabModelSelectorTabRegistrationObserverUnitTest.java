@@ -44,6 +44,7 @@ public class TabModelSelectorTabRegistrationObserverUnitTest {
     @Mock private TabModelJniBridge.Natives mTabModelJniBridge;
     @Mock private TabContentManager mTabContentManager;
     @Mock private TabCreatorManager mTabCreatorManager;
+    @Mock private TabRemover mTabRemover;
 
     @Mock private Profile mProfile;
     @Mock private Profile mIncognitoProfile;
@@ -88,6 +89,7 @@ public class TabModelSelectorTabRegistrationObserverUnitTest {
                         nextTabPolicySupplier,
                         realAsyncTabParamsManager,
                         selector,
+                        mTabRemover,
                         /* supportUndo= */ true,
                         /* trackInNativeModelList= */ true);
         TestIncognitoTabModel incognitoTabModel =
@@ -101,10 +103,14 @@ public class TabModelSelectorTabRegistrationObserverUnitTest {
                         nextTabPolicySupplier,
                         realAsyncTabParamsManager,
                         selector,
+                        mTabRemover,
                         /* supportUndo= */ false,
                         /* trackInNativeModelList= */ true);
 
-        selector.initialize(normalTabModel, incognitoTabModel);
+        TabUngrouperFactory factory =
+                (isIncognitoBranded, tabGroupModelFilterSupplier) ->
+                        new PassthroughTabUngrouper(tabGroupModelFilterSupplier);
+        selector.initialize(normalTabModel, incognitoTabModel, factory);
 
         return selector;
     }
@@ -372,6 +378,7 @@ public class TabModelSelectorTabRegistrationObserverUnitTest {
                 NextTabPolicy.NextTabPolicySupplier nextTabPolicySupplier,
                 AsyncTabParamsManager asyncTabParamsManager,
                 TabModelDelegate modelDelegate,
+                TabRemover tabRemover,
                 boolean supportUndo,
                 boolean trackInNativeModelList) {
             super(
@@ -384,6 +391,7 @@ public class TabModelSelectorTabRegistrationObserverUnitTest {
                     nextTabPolicySupplier,
                     asyncTabParamsManager,
                     modelDelegate,
+                    tabRemover,
                     supportUndo,
                     trackInNativeModelList);
         }

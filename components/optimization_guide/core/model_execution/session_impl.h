@@ -43,21 +43,16 @@ using ExecuteRemoteFn = base::RepeatingCallback<void(
 class SessionImpl : public OptimizationGuideModelExecutor::Session,
                     public on_device_model::mojom::StreamingResponder {
  public:
-  class OnDeviceModelClient : public TextSafetyClient {
+  class OnDeviceModelClient {
    public:
-    ~OnDeviceModelClient() override = 0;
+    virtual ~OnDeviceModelClient() = 0;
     // Called to check whether this client is still usable.
     virtual bool ShouldUse() = 0;
     // Called to retrieve connection the managed model.
     virtual mojo::Remote<on_device_model::mojom::OnDeviceModel>&
     GetModelRemote() = 0;
-    // Called to retrieve connection the managed model.
-    mojo::Remote<on_device_model::mojom::TextSafetyModel>&
-    GetTextSafetyModelRemote() override = 0;
     // Called to report a successful execution of the model.
     virtual void OnResponseCompleted() = 0;
-    // Called to report a timeout reached while waiting for model response.
-    virtual void OnSessionTimedOut() = 0;
   };
 
   struct OnDeviceOptions final {
@@ -158,6 +153,9 @@ class SessionImpl : public OptimizationGuideModelExecutor::Session,
       OptimizationGuideModelExecutionResultStreamingCallback callback) override;
   void GetSizeInTokens(
       const std::string& text,
+      OptimizationGuideModelSizeInTokenCallback callback) override;
+  void GetExecutionInputSizeInTokens(
+      const google::protobuf::MessageLite& request_metadata,
       OptimizationGuideModelSizeInTokenCallback callback) override;
   void GetContextSizeInTokens(
       const google::protobuf::MessageLite& request_metadata,
@@ -285,9 +283,6 @@ class SessionImpl : public OptimizationGuideModelExecutor::Session,
   // Called when the connection to the service is dropped.
   void OnDisconnect();
 
-  // Called when a on-device response was not received within the timeout.
-  void OnSessionTimedOut();
-
   // Calls SendResponse(kComplete) if we've received the full response and have
   // finished checking raw output safety for it.
   void MaybeSendCompleteResponse();
@@ -349,14 +344,18 @@ class SessionImpl : public OptimizationGuideModelExecutor::Session,
   void SendSuccessCompletionCallback(
       const proto::Any& success_response_metadata);
 
+  // Helper function to get the size of request in tokens with boolean flag to
+  // control if we are extracting the context or the execution text.
+  void GetSizeInTokensInternal(
+      const google::protobuf::MessageLite& request,
+      OptimizationGuideModelSizeInTokenCallback callback,
+      bool want_input_context);
+
   const ModelBasedCapabilityKey feature_;
   ExecuteRemoteFn execute_remote_fn_;
 
   std::unique_ptr<google::protobuf::MessageLite> context_;
   base::TimeTicks context_start_time_;
-
-  // The timeout value for on device model execution.
-  base::TimeDelta on_device_execution_timeout_;
 
   // Last message executed.
   std::unique_ptr<google::protobuf::MessageLite> last_message_;

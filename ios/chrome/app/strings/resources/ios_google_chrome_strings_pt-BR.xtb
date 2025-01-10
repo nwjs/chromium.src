@@ -41,6 +41,7 @@ Considerações:
 <translation id="1790080846677398234">Adiciona os URLs inseridos aos seus favoritos no Chrome.</translation>
 <translation id="1799920918471566157">Dicas do Chrome</translation>
 <translation id="1830634592642484976">Este endereço está salvo no Chrome. Para usá-lo nos produtos do Google, salve-o na sua conta, <ph name="USER_EMAIL" />.</translation>
+<translation id="1891812034154776216">Ocultar guias anônimas abertas ao sair do Chrome</translation>
 <translation id="1917964099031477364">A conta e os dados não salvos serão removidos do Chrome e de outros apps do Google neste dispositivo.</translation>
 <translation id="1919130412786645364">Permitir login no Chrome</translation>
 <translation id="1965935827552890526">Termine o que você estava fazendo na outra janela aberta no Chrome.</translation>
@@ -58,7 +59,7 @@ Considerações:
 <translation id="2342919707875585281">O Chrome compartilha sua localização com os sites aos quais você concede permissão.</translation>
 <translation id="2347208864470321755">Quando este recurso está ativado, o Google Chrome disponibiliza a tradução de páginas escritas em outros idiomas usando o Google Tradutor. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
 <translation id="2423077901494354337">Você já pode aproveitar tudo o que o Chrome tem a oferecer no seu dispositivo.</translation>
-<translation id="2427791862912929107">O Chrome tem recursos que ajudam a gerenciar seus dados de Internet e a velocidade de carregamento de páginas da Web.
+<translation id="2427791862912929107">O Chrome tem recursos que ajudam a gerenciar os dados de Internet e a velocidade de carregamento das páginas da Web.
 <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
 <translation id="2444854139071078915">Para acessar com facilidade suas senhas salvas em outros apps, use o preenchimento automático no Chrome</translation>
 <translation id="2464852008153767546">{THRESHOLD,plural, =1{Isso acontece quando o Chrome não é usado por {THRESHOLD} minuto. Pode incluir o histórico e o preenchimento automático.}one{Isso acontece quando o Chrome não é usado por {THRESHOLD} minuto. Pode incluir o histórico e o preenchimento automático.}other{Isso acontece quando o Chrome não é usado por {THRESHOLD} minutos. Pode incluir o histórico e o preenchimento automático.}}</translation>
@@ -118,7 +119,7 @@ Aguarde alguns minutos antes de sair. Se você sair agora, esses dados serão ex
 <translation id="4064699917955374540">Confirme sua identidade para usar e salvar dados do Chrome na sua Conta do Google.</translation>
 <translation id="417201473131094001">Indisponível no Chrome Canary.</translation>
 <translation id="424864128008805179">Sair do Google Chrome?</translation>
-<translation id="447252321002412580">Ajude a melhorar os recursos e o desempenho do Chrome</translation>
+<translation id="447252321002412580">Ajudar a melhorar os recursos e o desempenho do Chrome</translation>
 <translation id="4523886039239821078">Alguns complementos causam a falha do Google Chrome. Desinstale-os.</translation>
 <translation id="4633328489441962921">Não é possível verificar se há atualizações</translation>
 <translation id="4636900170638246267">Faça login neste site e no Chrome.</translation>
@@ -299,7 +300,7 @@ Seus dados foram criptografados com a senha longa em <ph name="TIME" />. Digite-
 <translation id="8603022514504485810">O Gerenciador de senhas do Google não conseguiu verificar todas as senhas. Tente de novo amanhã ou <ph name="BEGIN_LINK" />verifique-as na sua Conta do Google<ph name="END_LINK" />.</translation>
 <translation id="8630122478628016441">Ative a opção "Bloquear guias anônimas ao fechar o Chrome".</translation>
 <translation id="8673726683583791503">Faça compras com o Google Lens</translation>
-<translation id="8727043961453758442">Aproveite o Chrome ao máximo</translation>
+<translation id="8727043961453758442">Aproveite o Chrome</translation>
 <translation id="8765470054473112089">Quando você digita na barra de endereço ou na caixa de pesquisa, o Chrome envia o conteúdo digitado ao mecanismo de pesquisa padrão para melhorar as sugestões. Essa opção fica desativada na navegação anônima.</translation>
 <translation id="8772179140489533211">Mostra solicitações para fazer login no Chrome.</translation>
 <translation id="8788269841521769222">Você não terá que se lembrar dessa senha. Ela vai ficar salva na conta <ph name="EMAIL" /> do Gerenciador de senhas do Google</translation>

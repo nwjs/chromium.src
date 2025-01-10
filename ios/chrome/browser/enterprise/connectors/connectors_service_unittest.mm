@@ -4,8 +4,10 @@
 
 #import "ios/chrome/browser/enterprise/connectors/connectors_service.h"
 
+#import "base/json/json_reader.h"
 #import "components/enterprise/browser/controller/fake_browser_dm_token_storage.h"
 #import "components/enterprise/connectors/core/connectors_prefs.h"
+#import "components/enterprise/connectors/core/reporting_test_utils.h"
 #import "components/policy/core/common/cloud/cloud_external_data_manager.h"
 #import "components/policy/core/common/cloud/mock_user_cloud_policy_store.h"
 #import "components/policy/core/common/cloud/user_cloud_policy_manager.h"
@@ -116,7 +118,7 @@ TEST_F(ConnectorsServiceTest, ConnectorsEnabled) {
   ASSERT_TRUE(
       ConnectorsServiceFactory::GetForProfile(profile())->ConnectorsEnabled());
   ASSERT_FALSE(ConnectorsServiceFactory::GetForProfile(
-                   profile()->GetOffTheRecordChromeBrowserState())
+                   profile()->GetOffTheRecordProfile())
                    ->ConnectorsEnabled());
   ASSERT_TRUE(
       ConnectorsService(
@@ -182,6 +184,64 @@ TEST_F(ConnectorsServiceTest, RealTimeUrlCheck_OffTheRecord) {
   ASSERT_FALSE(service.GetDMTokenForRealTimeUrlCheck().has_value());
   ASSERT_EQ(service.GetAppliedRealTimeUrlCheck(),
             EnterpriseRealTimeUrlCheckMode::REAL_TIME_CHECK_DISABLED);
+}
+
+TEST_F(ConnectorsServiceTest, ReportingSettings) {
+  auto service = ConnectorsService(
+      /*off_the_record=*/false, prefs(),
+      /*user_cloud_policy_client=*/profile()->GetUserCloudPolicyManager());
+
+  EXPECT_FALSE(service.GetReportingSettings());
+  EXPECT_TRUE(service.GetReportingServiceProviderNames().empty());
+
+  test::SetOnSecurityEventReporting(prefs(), /*enabled=*/true);
+
+  auto settings = service.GetReportingSettings();
+  EXPECT_TRUE(settings.has_value());
+  EXPECT_FALSE(settings->per_profile);
+  EXPECT_EQ(settings->dm_token, kTestBrowserDmToken);
+  EXPECT_EQ(settings->enabled_event_names,
+            std::set<std::string>(kAllReportingEvents.begin(),
+                                  kAllReportingEvents.end()));
+  EXPECT_TRUE(settings->enabled_opt_in_events.empty());
+  auto provider_names = service.GetReportingServiceProviderNames();
+  EXPECT_EQ(provider_names, std::vector<std::string>({"google"}));
+
+  test::SetOnSecurityEventReporting(
+      prefs(), /*enabled=*/true, /*enabled_event_names=*/{},
+      /*enabled_opt_in_events=*/{}, /*machine_scope=*/false);
+
+  settings = service.GetReportingSettings();
+  EXPECT_TRUE(settings.has_value());
+  EXPECT_TRUE(settings->per_profile);
+  EXPECT_EQ(settings->dm_token, kTestProfileDmToken);
+  EXPECT_EQ(settings->enabled_event_names,
+            std::set<std::string>(kAllReportingEvents.begin(),
+                                  kAllReportingEvents.end()));
+  EXPECT_TRUE(settings->enabled_opt_in_events.empty());
+  provider_names = service.GetReportingServiceProviderNames();
+  EXPECT_EQ(provider_names, std::vector<std::string>({"google"}));
+}
+
+TEST_F(ConnectorsServiceTest, ReportingSettings_OffTheRecord) {
+  auto service = ConnectorsService(
+      /*off_the_record=*/true, prefs(),
+      /*user_cloud_policy_client=*/profile()->GetUserCloudPolicyManager());
+
+  EXPECT_FALSE(service.GetReportingSettings());
+  EXPECT_TRUE(service.GetReportingServiceProviderNames().empty());
+
+  test::SetOnSecurityEventReporting(prefs(), /*enabled=*/true);
+
+  EXPECT_FALSE(service.GetReportingSettings());
+  EXPECT_TRUE(service.GetReportingServiceProviderNames().empty());
+
+  test::SetOnSecurityEventReporting(
+      prefs(), /*enabled=*/true, /*enabled_event_names=*/{},
+      /*enabled_opt_in_events=*/{}, /*machine_scope=*/false);
+
+  EXPECT_FALSE(service.GetReportingSettings());
+  EXPECT_TRUE(service.GetReportingServiceProviderNames().empty());
 }
 
 }  // namespace enterprise_connectors

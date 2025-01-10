@@ -20,13 +20,10 @@ class AuthenticationServiceObserverBridgeTest : public PlatformTest {
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetDefaultFactory());
+        AuthenticationServiceFactory::GetFactoryWithDelegate(
+            std::make_unique<FakeAuthenticationServiceDelegate>()));
     profile_ = std::move(builder).Build();
-    AuthenticationServiceFactory::CreateAndInitializeForBrowserState(
-        profile_.get(), std::make_unique<FakeAuthenticationServiceDelegate>());
-    auth_service_ = static_cast<AuthenticationService*>(
-        AuthenticationServiceFactory::GetInstance()->GetForProfile(
-            profile_.get()));
+    auth_service_ = AuthenticationServiceFactory::GetForProfile(profile_.get());
   }
 
   AuthenticationService* GetAuthenticationService() { return auth_service_; }

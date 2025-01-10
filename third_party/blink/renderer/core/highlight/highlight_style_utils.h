@@ -23,10 +23,12 @@ class Color;
 class CSSProperty;
 class Document;
 class ComputedStyle;
+class LayoutObject;
 class Node;
+class Text;
 struct PaintInfo;
 
-enum class SearchTextIsCurrent : bool {
+enum class SearchTextIsActiveMatch : bool {
   kNo,
   kYes,
 };
@@ -74,14 +76,14 @@ class CORE_EXPORT HighlightStyleUtils {
                             PseudoId pseudo,
                             const CSSProperty& property,
                             std::optional<Color> current_color,
-                            SearchTextIsCurrent);
+                            SearchTextIsActiveMatch);
   static std::optional<Color> MaybeResolveColor(
       const Document&,
       const ComputedStyle& originating_style,
       const ComputedStyle* pseudo_style,
       PseudoId pseudo,
       const CSSProperty& property,
-      SearchTextIsCurrent);
+      SearchTextIsActiveMatch);
   static std::optional<AppliedTextDecoration> SelectionTextDecoration(
       const Document& document,
       const ComputedStyle& style,
@@ -91,7 +93,7 @@ class CORE_EXPORT HighlightStyleUtils {
                                         Node*,
                                         std::optional<Color>,
                                         PseudoId,
-                                        SearchTextIsCurrent);
+                                        SearchTextIsActiveMatch);
   static HighlightTextPaintStyle HighlightPaintingStyle(
       const Document&,
       const ComputedStyle& originating_style,
@@ -100,7 +102,7 @@ class CORE_EXPORT HighlightStyleUtils {
       PseudoId,
       const TextPaintStyle&,
       const PaintInfo&,
-      SearchTextIsCurrent);
+      SearchTextIsActiveMatch);
   static const ComputedStyle* HighlightPseudoStyle(
       Node* node,
       const ComputedStyle& style,
@@ -111,11 +113,11 @@ class CORE_EXPORT HighlightStyleUtils {
       HighlightTextPaintStyle& text_style,
       const HighlightTextPaintStyle& previous_layer_style);
 
-  static bool ShouldInvalidateVisualOverflow(const Node& node,
+  static bool ShouldInvalidateVisualOverflow(const LayoutObject& layout_object,
                                              DocumentMarker::MarkerType type);
 
   static bool CustomHighlightHasVisualOverflow(
-      const Node& node,
+      const Text& text_node,
       const AtomicString& pseudo_argument = g_null_atom);
 };
 

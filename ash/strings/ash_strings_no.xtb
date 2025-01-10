@@ -308,7 +308,6 @@ Her er noen ting du kan prøve til å begynne med.</translation>
 <translation id="2041220428661959602">Batterinivå: <ph name="BATTERY_PERCENTAGE" /> %</translation>
 <translation id="204259843076055848"><ph name="SIX_PACK_KEY_NAME" />-hurtigtasten er avslått</translation>
 <translation id="2049240716062114887">Skrivebordsnavnet ble endret til <ph name="DESK_NAME" /></translation>
-<translation id="2050339315714019657">Stående</translation>
 <translation id="2064048859448024834">Kameraforhåndsvisningen er på</translation>
 <translation id="2065098273523946419">Finn ut mer-link. Viderekobling til nettleseren ved aktivering</translation>
 <translation id="2067220651560163985">Vis temperaturen i celsius</translation>
@@ -339,9 +338,6 @@ Her er noen ting du kan prøve til å begynne med.</translation>
 <translation id="219905428774326614">Appoversikt, alle apper</translation>
 <translation id="2201071101391734388">Nylig bilde <ph name="INDEX" /> av <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Skjul Google Huskeliste</translation>
-<translation id="2206960886090042977">Den innebygde styreflaten er deaktivert fordi en mus er koblet til. Bruk musen eller tastaturet for å bekrefte endringen.
-
-Ellers blir den innebygde styreflaten aktivert på nytt om 30 sekunder.</translation>
 <translation id="2208323208084708176">Enhetlig skrivebordsmodus</translation>
 <translation id="2220572644011485463">PIN-kode eller passord</translation>
 <translation id="2222841058024245321">Skrivebord 7</translation>
@@ -504,6 +500,9 @@ Ellers blir den innebygde styreflaten aktivert på nytt om 30 sekunder.</transl
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> til <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">Ctrl + søketasten + S</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" /> administreres av <ph name="MANAGER" /></translation>
+<translation id="2781658180588759579">Den innebygde styreflaten er slått av. Bruk tastaturet eller en annen pekeenhet for å bekrefte endringen.
+
+Ellers blir den innebygde styreflaten slått på igjen om <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2782591952652094792">Avslutt opptaksmodus</translation>
 <translation id="2785499565474703580">1 enhet er tilkoblet</translation>
 <translation id="2791421900609674576">Du ser anbefalinger, slik at du kan fortsette der du slapp. Trykk og hold for å fjerne anbefalinger.</translation>
@@ -601,6 +600,9 @@ Ellers blir den innebygde styreflaten aktivert på nytt om 30 sekunder.</transl
 <translation id="3113492864356515707">Fremhev det forrige elementet på hyllen</translation>
 <translation id="311799651966070385">Lukk påminnelsen</translation>
 <translation id="3120421559657122717">Vil du slå av enheten?</translation>
+<translation id="3121411970001795539">Den innebygde styreflaten er slått av fordi en mus er koblet til. Bruk musen eller tastaturet for å bekrefte endringen.
+
+Ellers blir den innebygde styreflaten slått på igjen om <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="3122464029669770682">Prosessor</translation>
 <translation id="3125690294288312932">Kursarbeidstype</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +973,13 @@ Noen funksjoner er begrenset for å forlenge batterilevetiden.</translation>
 <translation id="4322742403972824594">Hurtigtasten Ctrl + Alt + oppoverpil er endret. For å bruke Home-tasten, trykk på <ph name="LAUNCHER_KEY_NAME" />-tasten + venstrepilen.</translation>
 <translation id="4324840740119394760">Dette gir <ph name="APP_NAME" /> og alle apper og nettsteder som har kameratillatelsen, tilgang til kameraet</translation>
 <translation id="4327147325944669226">Ta opp spillet</translation>
-<translation id="4333628967105022692">Lacros støttes ikke når flere brukere er logget på.</translation>
 <translation id="4338109981321384717">Forstørrelsesglass</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, lyden er kuttet</translation>
 <translation id="4351244548802238354">Lukk dialogboks</translation>
 <translation id="4356872429719185452">Vis detaljer for wifi-sonen. Wifi-sonen slås på.</translation>
 <translation id="4364101114148522660"><ph name="DURATION" /> – opptak</translation>
 <translation id="4371348193907997655">Cast-innstillinger</translation>
+<translation id="4371834685492830207">PIN-koden kan bare inneholde gyldige tegn</translation>
 <translation id="4375482231364171368">Søk i adressefeltet</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" /> – signalstyrke <ph name="SIGNAL_STRENGTH" /> prosent.</translation>
 <translation id="4378551569595875038">Kobler til …</translation>
@@ -1143,6 +1145,7 @@ Noen funksjoner er begrenset for å forlenge batterilevetiden.</translation>
 <translation id="4902797682482387055">Forslag til gjøremål du kan fokusere på</translation>
 <translation id="490375751687810070">Vertikal</translation>
 <translation id="490788395437447240"><ph name="BATTERY_PERCENTAGE" /> % batteri</translation>
+<translation id="4911191962826748981">Dette er en AI-funksjon på forsøksstadiet. Det kan hende at den gjør feil.</translation>
 <translation id="491504982845934899">Aktiver etter enhetsoppsett <ph name="NETWORK_NAME" /></translation>
 <translation id="4917385247580444890">Sterkt</translation>
 <translation id="4918086044614829423">Godta</translation>
@@ -1301,6 +1304,7 @@ Ingen enheter er tilkoblet.</translation>
 <translation id="5393156353051693207">Trykk og hold hvor som helst for å endre rekkefølge på appene</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" /> oppå <ph name="IN_PLACE_APP" /> – slipp for å opprette en mappe.</translation>
 <translation id="5397578532367286026">Bruken og loggen for denne brukeren kan gjennomgås av administratoren (<ph name="MANAGER_EMAIL" />) på chrome.com</translation>
+<translation id="540338817371815859">Liggende</translation>
 <translation id="540713187982329711">Slå av/på wifi-sonen. Wifi-sonen er på. Ingen enheter er tilkoblet.</translation>
 <translation id="5409208741270395213">Merk gjøremålet som fullført</translation>
 <translation id="5413656666631274079">Innstillingssiden</translation>
@@ -1472,7 +1476,6 @@ Ingen enheter er tilkoblet.</translation>
 <translation id="5975235751479998104">Gå fremover gjennom vinduer</translation>
 <translation id="5978382165065462689">Deler kontroll av skjermen via fjernhjelp.</translation>
 <translation id="5980301590375426705">Avslutt gjesteøkten</translation>
-<translation id="5982119059638483922">Trykk på Fn + Søk eller Shift for å avbryte.</translation>
 <translation id="5983567367406220847">Wifi-sonen er slått av på grunn av inaktivitet.</translation>
 <translation id="598407983968395253">Bruk mal</translation>
 <translation id="5986723678596105470">Bli med via Google Meet</translation>
@@ -1542,7 +1545,6 @@ Ingen enheter er tilkoblet.</translation>
 <translation id="6166852626429024716">Søk på enheten, i apper, i innstillinger og på nettet.</translation>
 <translation id="6168318496333165060">Åpne Diagnostikk-appen</translation>
 <translation id="6168622430237609329">Installerte apper</translation>
-<translation id="6173151025443907148">Pålogging med en bruker til støttes ikke hvis Lacros er aktivert. Bruk en nettleserprofil til i Lacros i stedet, eller deaktiver Lacros og prøv igjen.</translation>
 <translation id="6179832488876878285">Du kan feste viktige filer her. Åpne Filer-appen for å komme i gang.</translation>
 <translation id="6180193585172850042">Tilbakeknapp</translation>
 <translation id="6180651297859206670">Fremoverknapp</translation>
@@ -1564,6 +1566,7 @@ Ingen enheter er tilkoblet.</translation>
 <translation id="6232416233079464213">Fra <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> bruker kameraet ditt og mikrofonen din for øyeblikket</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">Passordet kan bare inneholde gyldige tegn</translation>
 <translation id="6240603910551255087">Øverste knapp</translation>
 <translation id="6240821072888636753">Spør hver gang</translation>
 <translation id="6247728804802644171">Åpne varsler</translation>
@@ -1694,7 +1697,6 @@ Nylig installert</translation>
 <translation id="6682029141988159141">Lim inn innhold fra utklippstavlen</translation>
 <translation id="6683022854667115063">Hodetelefoner</translation>
 <translation id="6686023075541098243">Konfigurer visning av varsler fra telefonen din</translation>
-<translation id="6688019813898140556">Esc-tasten 5 ganger</translation>
 <translation id="6694462491298752106">Den innebygde styreflaten er slått av</translation>
 <translation id="6694973220096431421">Søk i Google Disk</translation>
 <translation id="6696025732084565524">Det avtakbare tastaturet trenger en kritisk oppdatering</translation>
@@ -1715,6 +1717,7 @@ Nylig installert</translation>
 <translation id="6751826523481687655">Ytelsessporing er slått på</translation>
 <translation id="6752912906630585008">Skrivebord <ph name="REMOVED_DESK" /> ble fjernet og slått sammen med skrivebord <ph name="RECEIVE_DESK" /></translation>
 <translation id="6753390234084146956">faner</translation>
+<translation id="6754918760968695779">Hurtiginnsetting</translation>
 <translation id="6757237461819837179">Ingen medier spilles av</translation>
 <translation id="6760438044935091345">Spilloversikt</translation>
 <translation id="6768043681523654438">lagring</translation>
@@ -1764,6 +1767,7 @@ Nylig installert</translation>
 <translation id="6921427376813842559">Oppdater enheten</translation>
 <translation id="6929081673585394903">Vis kontroller</translation>
 <translation id="6931576957638141829">Lagre i</translation>
+<translation id="6935857786205183008">Stående</translation>
 <translation id="6942518653766415536">Meny for opptaksformat</translation>
 <translation id="6945221475159498467">Velg</translation>
 <translation id="6945922087561257829">Telefonen bruker et mobilnettverk. Sørg for at telefonen og Chromebooken er koblet til det samme wifi-nettverket, og prøv på nytt. <ph name="LEARN_MORE" /></translation>
@@ -1920,9 +1924,6 @@ Nylig installert</translation>
 For å slå av enheten, trykk og hold på av/på-knappen på enheten igjen.</translation>
 <translation id="7523420897035067483">Slå på Ikke forstyrr mens fokus er på</translation>
 <translation id="7524043547948122239">Google Huskeliste</translation>
-<translation id="7524919752437339268">Den innebygde styreflaten er slått av. Bruk tastaturet eller en annen pekeenhet for å bekrefte endringen.
-
-Ellers blir den innebygde styreflaten aktivert på nytt om 30 sekunder.</translation>
 <translation id="7525067979554623046">Opprett</translation>
 <translation id="7526573455193969409">Nettverket kan være overvåket</translation>
 <translation id="7536035074519304529">IP-adresse: <ph name="ADDRESS" /></translation>
@@ -2009,6 +2010,7 @@ Ellers blir den innebygde styreflaten aktivert på nytt om 30 sekunder.</transl
 <translation id="780301667611848630">Nei takk</translation>
 <translation id="7807067443225230855">Søk og Assistent</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> og <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">Tommel opp sender tilbakemelding om at du liker dette forslaget</translation>
 <translation id="7825412704590278437">Fra en kommende kalenderaktivitet</translation>
 <translation id="7829386189513694949">Sterkt signal</translation>
 <translation id="7830453190047749513">Du kan tilpasse knappehandlinger, markørhastigheten med mer for <ph name="PERIPHERAL_NAME" /></translation>
@@ -2163,6 +2165,7 @@ Ellers blir den innebygde styreflaten aktivert på nytt om 30 sekunder.</transl
 <translation id="830868413617744215">Beta</translation>
 <translation id="8314772463905284467">Caps Lock er på</translation>
 <translation id="8315514906653279104">Slår på …</translation>
+<translation id="8319634750346253957">Tommel ned sender tilbakemelding om at du ikke liker dette forslaget</translation>
 <translation id="8331351032546853669">Nedlasting venter</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" /><ph name="GET_STARTED" /></translation>
@@ -2348,6 +2351,7 @@ Ellers blir den innebygde styreflaten aktivert på nytt om 30 sekunder.</transl
 <translation id="8982906748181120328">Nærdeling synlig</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">Bruker <ph name="IME_NAME" /></translation>
+<translation id="8991648557324317894">Trykk på Fn + Hurtiginnsetting eller Shift for å avbryte.</translation>
 <translation id="899350903320462459">Lås opp enheten som <ph name="LOGIN_ID" /> for å utføre varselhandlingen</translation>
 <translation id="8993733019280019776">Snakker du? Mikrofonen din er av. Velg mikrofonen for å slå den på.</translation>
 <translation id="9000771174482730261">ADMINISTRER LAGRING</translation>
@@ -2430,9 +2434,9 @@ Ellers blir den innebygde styreflaten aktivert på nytt om 30 sekunder.</transl
 <translation id="974545358917229949">Viser <ph name="RESULT_COUNT" /> resultater for <ph name="QUERY" /></translation>
 <translation id="981011780479609956">Ingen frist</translation>
 <translation id="98120814841227350">Gå til slutten av dokumentet</translation>
-<translation id="98515147261107953">Landskap</translation>
 <translation id="987589956647469042">Mobildata er slått på</translation>
 <translation id="989374776391122812">Kamera- og lydkontroller</translation>
+<translation id="990263227494928142">Trykk på Shift fem ganger for å slå på styreflaten</translation>
 <translation id="990277280839877440">Vinduet <ph name="WINDOW_TITILE" /> er lukket.</translation>
 <translation id="993398562350683614">Innføringstrinn <ph name="STEP" /> av <ph name="TOTAL_STEPS" />. Bruk apper til å gjøre alt du trenger, på <ph name="PRODUCT_NAME" />. Du finner appene dine i appoversikten. Trykk på Alt + Shift + L for å fokusere på Appoversikt-knappen.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

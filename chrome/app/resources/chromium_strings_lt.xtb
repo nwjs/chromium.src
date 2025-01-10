@@ -20,6 +20,7 @@ Kai kurios funkcijos gali būti nepasiekiamos ir nuostatų pakeitimai nebus išs
 <translation id="1185134272377778587">Apie „Chromium“</translation>
 <translation id="1188705220418984327">Jei norite bendrinti langą, sistemos nuostatose leiskite įrašyti „Chromium“ ekrano vaizdą.</translation>
 <translation id="1203500561924088507">Dėkojame už diegimą. Turite iš naujo paleisti naršyklę, prieš naudodami „<ph name="BUNDLE_NAME" />“.</translation>
+<translation id="1235768345431527125">Galite prisijungti, kad gautumėte savo duomenis, arba naudoti „Chromium“ be paskyros</translation>
 <translation id="1262876892872089030">Kol šis skirtukas buvo neaktyvus, atmintis buvo atlaisvinta, kad „Chromium“ veiktų sparčiai. Galite pasirinkti visada išskirti šią svetainę, kad būtų aktyvi.</translation>
 <translation id="1265577313130862557">„Chromium“ užblokavo šį atsisiuntimą, nes failas pavojingas</translation>
 <translation id="126567311906253476">Prisijungdami prie „Google“ paslaugų, pvz., „Gmail“ ar „YouTube“, naudodami <ph name="USER_EMAIL" />, galite automatiškai prisijungti prie „Chromium“ naudodami tą pačią paskyrą</translation>
@@ -67,7 +68,6 @@ Leidimai, kuriuos jau esate suteikę svetainėms ir programoms, gali būti taiko
 <translation id="1880677175115548835">Pasirinkti tekstą</translation>
 <translation id="1881322772814446296">Prisijungiate su valdoma paskyra ir leidžiate jos administratoriui valdyti jūsų „Chromium“ profilį. „Chromium“ duomenys, pvz., programos, žymės, istorija, slaptažodžiai ir kiti nustatymai, bus visam laikui susieti su <ph name="USER_NAME" />. Galėsite ištrinti šiuos duomenis naudodami „Google“ paskyrų informacijos suvestinę, bet negalėsite susieti šių duomenų su kita paskyra. Galite pasirinktinai sukurti naują profilį, kad esami „Chromium“ duomenys būtų saugomi atskirai. <ph name="LEARN_MORE" /></translation>
 <translation id="1900969832270057921">„Chromium“ naujinimo priemonės paslauga</translation>
-<translation id="1906696617298807388">Kai įvedate tekstą adreso juostoje ar paieškos laukelyje, „Chromium“ siunčia tai, ką įvedate, į „Google“ diską, kad gautų elementų pasiūlymų. Ši funkcija inkognito režimu išjungta.</translation>
 <translation id="1911763535808217981">Jei išjungsite šį nustatymą, prie „Google“ svetainių galėsite prisijungti kaip prie „Gmail“ neprisijungę prie „Chromium“</translation>
 <translation id="1929939181775079593">„Chromium“ neatsako. Paleisti iš naujo dabar?</translation>
 <translation id="1933341829955786215">Jūsų organizacija (<ph name="MANAGER" />) reikalauja prisijungti prie „Chromium“</translation>
@@ -178,7 +178,6 @@ Leidimai, kuriuos jau esate suteikę svetainėms ir programoms, gali būti taiko
 <translation id="3286538390144397061">Paleisti iš naujo dabar</translation>
 <translation id="328888136576916638">Trūksta „Google“ API raktų. Bus išjungtos kai kurios „Chromium“ funkcijos.</translation>
 <translation id="3296368748942286671">Toliau vykdyti fonines programas, kai „Chromium“ uždaroma</translation>
-<translation id="3300643253493387004">Kol nustatome prieigą prie paskyros, galite naudoti „Chromium“. Gali būti, kad negalėsite pasiekti kai kurių išteklių, kol sąranka nebus baigta.</translation>
 <translation id="3313189106987092621">„Chromium“ perspės jus prieš įkeliant bet kokią svetainę, kurioje naudojamas nesaugus ryšys</translation>
 <translation id="3316771292331273802">Būsite atjungti nuo daugelio svetainių, kai uždarysite visus „Chromium“ langus, išskyrus „Google“ paskyrą, jei esate prisijungę prie „Chromium“. Jei norite, kad svetainės jus prisimintų, <ph name="SETTINGS_LINK" />.</translation>
 <translation id="3350761136195634146">„Chromium“ profilis su tokia paskyra jau yra</translation>
@@ -216,6 +215,7 @@ Leidimai, kuriuos jau esate suteikę svetainėms ir programoms, gali būti taiko
 <translation id="3885770153807205175">Kalbos rinkiklis</translation>
 <translation id="388648406173476553">Tinkinkite ir valdykite „Chromium“. Reikia atkreipti dėmesį – spustelėkite ir peržiūrėkite išsamią informaciją.</translation>
 <translation id="3889543394854987837">Spustelėkite savo vardą, kad atidarytumėte „Chromium“ ir pradėtumėte naršyti.</translation>
+<translation id="3892148308691398805">Kopijuoti tekstą</translation>
 <translation id="390528597099634151">Naudotojas (<ph name="EXISTING_USER" />) jau yra prisijungęs prie šio „Chromium“ profilio. Kad naršytumėte atskirai, „Chromium“ gali sukurti jums atskirą profilį.</translation>
 <translation id="3909353120217047026">Šis plėtinys pažeidžia „Chrome“ internetinės parduotuvės politiką ir gali būti nesaugus. Pašalinkite jį iš „Chromium“, kad jis nebematytų ir negalėtų pakeisti jūsų duomenų svetainėse, kuriose lankotės, įskaitant jūsų asmens informaciją.</translation>
 <translation id="391789666908693569">Jūsų paskyrą tvarko <ph name="MANAGER_NAME" />. Jūsų administratorius gali matyti ir redaguoti šį „Chromium“ naršyklės profilį bei jo duomenis, pvz., žymes, istoriją ir slaptažodžius.</translation>
@@ -300,6 +300,7 @@ Leidimai, kuriuos jau esate suteikę svetainėms ir programoms, gali būti taiko
 <translation id="5051959905407134411">Išbandykite vaizdų paiešką</translation>
 <translation id="5114678101347489141">„Chromium“ tyrinėja naujas funkcijas, leidžiančias svetainėms teikti tas pačias naršymo funkcijas, naudojant mažiau jūsų informacijos</translation>
 <translation id="5123973130450702873">„Chromium“ reikalingas leidimas stebėti jūsų rankas</translation>
+<translation id="5174969993834422967">Įprastai blokuojate pranešimus. Jei norite leisti šiai svetainei siųsti pranešimus, spustelėkite pranešimo piktogramą vietos juostos dešiniajame kampe.</translation>
 <translation id="5187123684706427865">Reikia iš naujo autentifikuoti „Chromium“ paskyrą</translation>
 <translation id="5224391634244552924">Nėra išsaugotų slaptažodžių. „Chromium“ gali tikrinti jūsų slaptažodžius, kai juos išsaugote.</translation>
 <translation id="5231355151045086930">Atsijungimas nuo „Chromium“</translation>
@@ -329,6 +330,7 @@ Leidimai, kuriuos jau esate suteikę svetainėms ir programoms, gali būti taiko
 <translation id="549669000822060376">Palaukite, kol „Chromium“ įdiegs naujausius sistemos naujinius.</translation>
 <translation id="5496810170689441661">„Chromium“ bando redaguoti slaptažodžius. Įveskite „Windows“ slaptažodį, kad tai leistumėte.</translation>
 <translation id="5527463683072221100">Atidaryti PDF failus naudojant „Chromium“</translation>
+<translation id="5568136785038042132">Jei norite naudoti plėtinius visuose kompiuteriuose, prisijunkite prie „Chromium“</translation>
 <translation id="5575418445468216473">Slaptažodžiai ir kiti „Chromium“ duomenys išsaugomi „Google“ paskyroje ir bus pašalinti iš šio įrenginio. Jei ateityje norėsite juos naudoti, vėl prisijunkite prie „Chromium“.</translation>
 <translation id="5579324208890605088">Paleisties klaida: diegimo programą paleiskite kaip įprastas naudotojas, o ne administratorius.</translation>
 <translation id="5596627076506792578">Daugiau parinkčių</translation>
@@ -453,6 +455,7 @@ Kai kurios funkcijos gali būti nepasiekiamos. Nurodykite kitą profilio katalog
 <translation id="6964305034639999644">Atidaryti nuorodą „Chromium“ inko&amp;gnito lange</translation>
 <translation id="6965382102122355670">Gerai</translation>
 <translation id="6978145336957848883">Nesudėtingus slaptažodžius lengva atspėti. Leiskite „Chromium“ <ph name="BEGIN_LINK" />jums sukurti ir įsiminti sudėtingus slaptažodžius<ph name="END_LINK" />.</translation>
+<translation id="6980074797973263542">Organizacija gali peržiūrėti ir tvarkyti naršymo duomenis, pvz., žymes, istoriją ir slaptažodžius. Ji negali peržiūrėti naršymo duomenų asmeniniuose „Chromium“ profiliuose.</translation>
 <translation id="6985329841647292029">„Chromium“ OS sąlygos</translation>
 <translation id="6990124437352146030">„Chromium“ reikia leidimo, kad galėtų naudoti mikrofoną šioje svetainėje</translation>
 <translation id="7011190694940573312">Įdiegti nepavyko, nes ši operacinės sistemos versija nepalaikoma.</translation>
@@ -535,6 +538,7 @@ Kai kurios funkcijos gali būti nepasiekiamos. Nurodykite kitą profilio katalog
 <translation id="813913629614996137">Inicijuojama...</translation>
 <translation id="8166782796394721554">Įjunkite papildomą apsaugą „Chromium“ „JavaScript“ ir „WebAssembly“ variklyje</translation>
 <translation id="81770708095080097">Šis failas pavojingas, todėl „Chromium“ jį užblokavo.</translation>
+<translation id="8221491193165283816">Įprastai blokuojate pranešimus. Jei norite leisti šiai svetainei siųsti pranešimus, spustelėkite čia.</translation>
 <translation id="8223363452568144035">Jei norite naudoti vaizdo kamerą, suteikite „Chromium“ prieigą <ph name="BEGIN_LINK" />sistemos nustatymuose<ph name="END_LINK" /></translation>
 <translation id="8232193495299001329">„Chromium“ negali patvirtinti, iš kur gaunamas šis plėtinys, ir jis gali būti nesaugus. Pašalinkite jį iš „Chromium“, kad jis nebematytų ir negalėtų pakeisti jūsų duomenų svetainėse, kuriose lankotės, įskaitant jūsų asmens informaciją.</translation>
 <translation id="8248265253516264921">Jei nebus naudingo vaizdo aprašo, „Chromium“ bandys jums jį pateikti. Kad būtų galima kurti aprašus, vaizdai siunčiami į sistemą „Google“. Šią parinktį galite bet kada išjungti skiltyje „Nustatymai“.</translation>
@@ -565,6 +569,7 @@ Kai kurios funkcijos gali būti nepasiekiamos. Nurodykite kitą profilio katalog
 <translation id="8550334526674375523">Šis darbo profilis visiškai atskirtas nuo jūsų asmeninio profilio.</translation>
 <translation id="8555465886620020932">Paslaugos klaida: <ph name="SERVICE_ERROR" />.</translation>
 <translation id="8556420416730706394">Galite prisegti vaizdų paiešką, kad lengvai ją pasiektumėte; spustelėkite mygtuką „Prisegti“ šoninio skydelio viršuje</translation>
+<translation id="856656450041460113">Ieškoti kalbų sąrašo</translation>
 <translation id="8568283329061645092">„Chromium“ gali tikrinti jūsų slaptažodžius, kai prisijungiate naudodami „Google“ paskyrą</translation>
 <translation id="8576826849825683917">Kelios organizacijos tvarko „Chromium“</translation>
 <translation id="8586442755830160949">Autorių teisės priklauso „Chromium“ autoriams, <ph name="YEAR" /> m. Visos teisės saugomos.</translation>

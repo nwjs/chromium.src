@@ -71,6 +71,9 @@ class MlAnswerer::SessionManager {
         weak_ptr_factory_(this) {}
 
   ~SessionManager() {
+    // Explicitly invalidate weak pointers to prevent callbacks that may be
+    // triggered by the destructor logic.
+    weak_ptr_factory_.InvalidateWeakPtrs();
     // Run the existing callback if not called yet with canceled status.
     if (!callback_.is_null()) {
       FinishAndResetSessions(AnswererResult(
@@ -101,6 +104,7 @@ class MlAnswerer::SessionManager {
       sessions_[s_index]->Score(
           kPassageIdToken, base::BindOnce(
                                [](size_t index, std::optional<float> score) {
+                                 VLOG(3) << "Score complete for " << index;
                                  return std::make_tuple(index, score);
                                },
                                s_index)
@@ -127,6 +131,7 @@ class MlAnswerer::SessionManager {
     FinishCallback(std::move(answer_result));
 
     // Destroy all existing sessions.
+    VLOG(3) << "Sessions cleared.";
     sessions_.clear();
     urls_.clear();
   }
@@ -316,6 +321,7 @@ void MlAnswerer::StartAndAddSession(
 
   const auto make_model_input = [](std::string text, size_t index,
                                    uint32_t token_count) {
+    VLOG(3) << "Created model input for " << index;
     return ModelInput{text, index, token_count};
   };
 

@@ -78,13 +78,12 @@ import org.chromium.chrome.browser.omnibox.UrlBar;
 import org.chromium.chrome.browser.omnibox.UrlBarCoordinator;
 import org.chromium.chrome.browser.omnibox.UrlBarCoordinator.SelectionState;
 import org.chromium.chrome.browser.omnibox.UrlBarData;
-import org.chromium.chrome.browser.omnibox.status.PageInfoIPHController;
+import org.chromium.chrome.browser.omnibox.status.PageInfoIphController;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestionsVisualState;
 import org.chromium.chrome.browser.page_info.ChromePageInfo;
 import org.chromium.chrome.browser.page_info.ChromePageInfoHighlight;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.searchwidget.SearchActivityClientImpl;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TrustedCdn;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
@@ -99,7 +98,8 @@ import org.chromium.chrome.browser.toolbar.top.ToolbarLayout;
 import org.chromium.chrome.browser.toolbar.top.ToolbarPhone;
 import org.chromium.chrome.browser.toolbar.top.ToolbarSnapshotDifference;
 import org.chromium.chrome.browser.toolbar.top.TopToolbarCoordinator.ToolbarColorObserver;
-import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.IntentOrigin;
+import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityClient;
+import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.ResolutionType;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.components.browser_ui.styles.ChromeColors;
@@ -366,12 +366,16 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
     /**
      * Enables the interactive Omnibox in CCT.
      *
+     * @param searchClient the SearchActivityClient instance used to request Omnibox.
      * @param clientPackageName the package name of the custom tabs embedder.
      * @param tapHandler a handler for taps on the omnibox, or null if the default handler should be
      *     used.
      */
-    public void setOmniboxEnabled(String clientPackageName, @Nullable Consumer<Tab> tapHandler) {
-        mLocationBar.setOmniboxEnabled(clientPackageName, tapHandler);
+    public void setOmniboxEnabled(
+            SearchActivityClient searchClient,
+            String clientPackageName,
+            @Nullable Consumer<Tab> tapHandler) {
+        mLocationBar.setOmniboxEnabled(searchClient, clientPackageName, tapHandler);
     }
 
     private void setButtonsVisibility() {
@@ -1102,7 +1106,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
         private CallbackController mCallbackController = new CallbackController();
         // Cached the state before branding start so we can reset to the state when its done.
         private @Nullable Integer mPreBandingState;
-        private PageInfoIPHController mPageInfoIPHController;
+        private PageInfoIphController mPageInfoIphController;
         private int mTouchTargetSize;
         private ToolbarBrandingOverlayCoordinator mBrandingOverlayCoordinator;
 
@@ -1290,7 +1294,6 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
                     new UrlBarCoordinator(
                             getContext(),
                             (UrlBar) mUrlBar,
-                            /* windowDelegate= */ null,
                             actionModeCallback,
                             /* focusChangeCallback= */ (unused) -> {},
                             this,
@@ -1452,13 +1455,13 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
 
         @Override
         public void onPageLoadStopped() {
-            if (mPageInfoIPHController == null) {
+            if (mPageInfoIphController == null) {
                 Tab currentTab = getCurrentTab();
                 if (currentTab == null) return;
                 Activity activity = currentTab.getWindowAndroid().getActivity().get();
                 if (activity == null) return;
-                mPageInfoIPHController =
-                        new PageInfoIPHController(
+                mPageInfoIphController =
+                        new PageInfoIphController(
                                 new UserEducationHelper(
                                         activity,
                                         currentTab.getProfile(),
@@ -1469,7 +1472,7 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
                 if (!mCookieControlsVisible || !mThirdPartyCookiesBlocked) return;
                 // TODO(b/332761678): Add reminder IPH here.
             } else if (mShouldHighlightCookieControlsIcon) {
-                mPageInfoIPHController.showCookieControlsIPH(
+                mPageInfoIphController.showCookieControlsIph(
                         COOKIE_CONTROLS_ICON_DISPLAY_TIMEOUT, R.string.cookie_controls_iph_message);
                 animateCookieControlsIcon();
                 mShouldHighlightCookieControlsIcon = false;
@@ -1882,11 +1885,14 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
             mTitleUrlContainer = titleUrlContainer;
         }
 
-        void setIPHControllerForTesting(PageInfoIPHController pageInfoIPHController) {
-            mPageInfoIPHController = pageInfoIPHController;
+        void setIphControllerForTesting(PageInfoIphController pageInfoIphController) {
+            mPageInfoIphController = pageInfoIphController;
         }
 
-        void setOmniboxEnabled(String clientPackageName, @Nullable Consumer<Tab> tapHandler) {
+        void setOmniboxEnabled(
+                SearchActivityClient searchClient,
+                String clientPackageName,
+                @Nullable Consumer<Tab> tapHandler) {
             mOmniboxEnabled = true;
             mOmniboxBackground =
                     AppCompatResources.getDrawable(
@@ -1925,13 +1931,15 @@ public class CustomTabToolbar extends ToolbarLayout implements View.OnLongClickL
                         if (tapHandler != null) {
                             tapHandler.accept(tab);
                         } else {
-                            new SearchActivityClientImpl()
-                                    .requestOmniboxForResult(
-                                            tab.getWindowAndroid().getActivity().get(),
-                                            tab.getUrl(),
-                                            IntentOrigin.CUSTOM_TAB,
-                                            clientPackageName,
-                                            tab.isIncognitoBranded());
+                            var intent =
+                                    searchClient
+                                            .newIntentBuilder()
+                                            .setPageUrl(tab.getUrl())
+                                            .setReferrer(clientPackageName)
+                                            .setIncognito(tab.isIncognitoBranded())
+                                            .setResolutionType(ResolutionType.SEND_TO_CALLER)
+                                            .build();
+                            searchClient.requestOmniboxForResult(intent);
                         }
                     });
 

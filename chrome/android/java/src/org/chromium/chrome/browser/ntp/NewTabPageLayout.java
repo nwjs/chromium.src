@@ -374,9 +374,6 @@ public class NewTabPageLayout extends LinearLayout {
                                             mShowingNonStandardGoogleLogo);
                         });
 
-        // If pull up Feed position is enabled, doodle is not supported since there is not enough
-        // room, we don't need to fetch logo image.
-        boolean shouldFetchDoodle = !FeedPositionUtils.isFeedPullUpEnabled();
         mLogoView = findViewById(R.id.search_provider_logo);
 
         mLogoCoordinator =
@@ -384,7 +381,6 @@ public class NewTabPageLayout extends LinearLayout {
                         mContext,
                         logoClickedCallback,
                         mLogoView,
-                        shouldFetchDoodle,
                         mOnLogoAvailableCallback,
                         /* visibilityObserver= */ null,
                         mIsLogoPolishFlagEnabled);
@@ -803,8 +799,6 @@ public class NewTabPageLayout extends LinearLayout {
     // TODO(crbug.com/40226731): Remove this method when the Feed position experiment is
     // cleaned up.
     private int getLogoMargin(boolean isTopMargin) {
-        if (FeedPositionUtils.isFeedPullUpEnabled() && mSearchProviderHasLogo) return 0;
-
         return isTopMargin ? getLogoTopMargin() : getLogoBottomMargin();
     }
 

@@ -23,12 +23,6 @@
 #import "ios/chrome/common/credential_provider/constants.h"
 
 // static
-CredentialProviderService* CredentialProviderServiceFactory::GetForBrowserState(
-    ProfileIOS* profile) {
-  return GetForProfile(profile);
-}
-
-// static
 CredentialProviderService* CredentialProviderServiceFactory::GetForProfile(
     ProfileIOS* profile) {
   return static_cast<CredentialProviderService*>(
@@ -69,7 +63,7 @@ CredentialProviderServiceFactory::BuildServiceInstanceFor(
           IOSChromeAccountPasswordStoreFactory::GetForProfile(
               profile, ServiceAccessType::IMPLICIT_ACCESS);
   webauthn::PasskeyModel* passkeyModel =
-      base::FeatureList::IsEnabled(syncer::kSyncWebauthnCredentials)
+      syncer::IsWebauthnCredentialSyncEnabled()
           ? IOSPasskeyModelFactory::GetForProfile(profile)
           : nullptr;
   ArchivableCredentialStore* credential_store =

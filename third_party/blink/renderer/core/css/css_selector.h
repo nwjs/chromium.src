@@ -247,6 +247,7 @@ class CORE_EXPORT CSSSelector {
     kPseudoAutofillSelected,
     kPseudoBackdrop,
     kPseudoBefore,
+    kPseudoCheck,
     kPseudoChecked,
     kPseudoCornerPresent,
     kPseudoCurrent,
@@ -314,6 +315,7 @@ class CORE_EXPORT CSSSelector {
     kPseudoScrollbarTrack,
     kPseudoScrollbarTrackPiece,
     kPseudoSearchText,
+    kPseudoSelectArrow,
     kPseudoSelectHasChildButton,
     kPseudoPicker,
     kPseudoSelection,
@@ -599,8 +601,8 @@ class CORE_EXPORT CSSSelector {
   bool MatchesPseudoElement() const;
   bool IsAllowedInParentPseudo() const;
   bool IsTreeAbidingPseudoElement() const;
-  bool IsPartLikePseudoElement() const;
-  static bool IsPartLikePseudoElement(CSSSelector::PseudoType pseudo);
+  bool IsElementBackedPseudoElement() const;
+  static bool IsElementBackedPseudoElement(CSSSelector::PseudoType pseudo);
   bool IsAllowedAfterPart() const;
 
   // Returns true if the immediately preceding simple selector is ::part.

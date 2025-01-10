@@ -131,11 +131,25 @@ GpuHostImpl::GpuHostImpl(Delegate* delegate,
   viz_main_->SetHostProcessId(base::GetCurrentProcId());
 #endif
 
+  mojom::GpuServiceCreationParamsPtr gpu_service_params =
+      mojom::GpuServiceCreationParams::New();
+// NOTE: Linux has an issue when running in single-process mode wherein
+// GetPlatformRuntimeProperties() browser-side calls can have a data race with
+// in-process GPU service initialization. This call tickles that data race. As
+// overlays are not currently supported on Linux, elide the call here at this
+// time.
+// TODO(crbug.com/377886734): Fix the underlying issue and re-enable this call.
+#if BUILDFLAG(IS_OZONE) && !BUILDFLAG(IS_LINUX)
+  gpu_service_params->supports_overlays = ui::OzonePlatform::GetInstance()
+                                              ->GetPlatformRuntimeProperties()
+                                              .supports_overlays;
+#endif
+
   viz_main_->CreateGpuService(
       gpu_service_remote_.BindNewPipeAndPassReceiver(task_runner),
       gpu_host_receiver_.BindNewPipeAndPassRemote(task_runner),
       std::move(discardable_manager_remote),
-      use_shader_cache_shm_count_.CloneRegion());
+      use_shader_cache_shm_count_.CloneRegion(), std::move(gpu_service_params));
   MaybeSendFontRenderParams();
 
 #if BUILDFLAG(IS_OZONE)
@@ -400,13 +414,6 @@ std::string GpuHostImpl::GetShaderPrefixKey() {
     std::string build_fp =
         base::android::BuildInfo::GetInstance()->android_build_fp();
     shader_prefix_key_ += "-" + build_fp;
-#elif BUILDFLAG(IS_CHROMEOS_LACROS)
-    // ChromeOS can update independently of Lacros and the GPU driver
-    // information is not enough to ensure blob compatibility. See
-    // crbug.com/1444684
-    std::string chromeos_version = base::SysInfo::OperatingSystemName() + " " +
-                                   base::SysInfo::OperatingSystemVersion();
-    shader_prefix_key_ += "-" + chromeos_version;
 #endif
   }
 

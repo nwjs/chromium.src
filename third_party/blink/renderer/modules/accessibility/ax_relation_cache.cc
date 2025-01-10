@@ -7,6 +7,7 @@
 #include "base/memory/ptr_util.h"
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/dom/shadow_including_tree_order_traversal.h"
+#include "third_party/blink/renderer/core/html/custom/element_internals.h"
 #include "third_party/blink/renderer/core/html/forms/html_label_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_opt_group_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_option_element.h"
@@ -15,7 +16,6 @@
 #include "third_party/blink/renderer/core/html/html_br_element.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_node_object.h"
-#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "ui/accessibility/ax_common.h"
 
 namespace blink {
@@ -100,7 +100,8 @@ void AXRelationCache::CacheRelationIds(Element& element) {
   // Register aria-activedescendant.
   UpdateReverseActiveDescendantRelations(element);
 
-  // Register aria-controls, aria-details, aria-errormessage and aria-flowto.
+  // Register aria-controls, aria-details, aria-errormessage, aria-flowto, and
+  // aria-actions.
   UpdateReverseOtherRelations(element);
 }
 
@@ -324,17 +325,30 @@ void AXRelationCache::UpdateReverseTextRelations(
       relation_source.GetDocument().GetExplicitlySetAttrElementsMap(
           &relation_source);
   auto it = element_attribute_map->find(attr_name);
-  if (it == element_attribute_map->end()) {
-    return;
+  if (it != element_attribute_map->end()) {
+    HeapLinkedHashSet<WeakMember<Element>>* explicitly_set_target_elements =
+        it->value;
+    for (Element* target : *explicitly_set_target_elements) {
+      explicitly_set_text_relations_.insert(target->GetDomNodeId());
+      // Mark root of label dirty so that we can change inclusion states as
+      // necessary (label subtrees are included in the tree even if hidden).
+      object_cache_->MarkElementDirty(target);
+    }
   }
 
-  HeapLinkedHashSet<WeakMember<Element>>* explicitly_set_target_elements =
-      it->value;
-  for (Element* target : *explicitly_set_target_elements) {
-    explicitly_set_text_relations_from_element_attributes_.insert(target);
-    // Mark root of label dirty so that we can change inclusion states as
-    // necessary (label subtrees are included in the tree even if hidden).
-    object_cache_->MarkElementDirty(target);
+  // Also check ElementInternals relations
+  if (const ElementInternals* element_internals =
+          relation_source.GetElementInternals()) {
+    const FrozenArray<Element>* element_internals_target_elements =
+        element_internals->GetElementArrayAttribute(attr_name);
+    if (element_internals_target_elements) {
+      for (Element* target : *element_internals_target_elements) {
+        explicitly_set_text_relations_.insert(target->GetDomNodeId());
+        // Mark root of label dirty so that we can change inclusion states as
+        // necessary (label subtrees are included in the tree even if hidden).
+        object_cache_->MarkElementDirty(target);
+      }
+    }
   }
 }
 
@@ -407,11 +421,14 @@ Vector<AtomicString> AXRelationCache::GetOtherRelationIds(
       relation_source.FastGetAttribute(html_names::kAriaErrormessageAttr));
   SpaceSplitString ids_4(
       relation_source.FastGetAttribute(html_names::kAriaFlowtoAttr));
+  SpaceSplitString ids_5(
+      relation_source.FastGetAttribute(html_names::kAriaActionsAttr));
   Vector<AtomicString> ids;
   ids.AppendRange(ids_1.begin(), ids_1.end());
   ids.AppendRange(ids_2.begin(), ids_2.end());
   ids.AppendRange(ids_3.begin(), ids_3.end());
   ids.AppendRange(ids_4.begin(), ids_4.end());
+  ids.AppendRange(ids_5.begin(), ids_5.end());
   return ids;
 }
 
@@ -481,9 +498,7 @@ bool AXRelationCache::IsValidOwnsRelation(AXObject* owner,
 // static
 bool AXRelationCache::IsValidOwner(AXObject* owner) {
   if (!owner->GetNode()) {
-    NOTREACHED_IN_MIGRATION()
-        << "Cannot use aria-owns without a node on both ends";
-    return false;
+    NOTREACHED() << "Cannot use aria-owns without a node on both ends";
   }
 
   // Can't have element children.
@@ -627,12 +642,6 @@ void AXRelationCache::MapOwnedChildrenWithCleanLayout(
         object_cache_->MarkAXObjectDirtyWithCleanLayout(
             original_parent->ParentObject());
       }
-      // Now that we're replacing the parent, we need to update cached values
-      // for the added child's subtree, because some cached values are inherited
-      // from the parent. Invalidating the cached values at the root of the
-      // subtree is enough, as changed inherited values will propagate down.
-      // Example: the cached_is_used_for_label_or_description_ flag.
-      added_child->InvalidateCachedValues();
     }
     // Now that the child is owned, it's "included in tree" state must be
     // recomputed because owned children are always included in the tree.
@@ -739,6 +748,7 @@ void AXRelationCache::UpdateAriaOwnsWithCleanLayout(AXObject* owner,
                   << owner;
   } else if (element && element->HasExplicitlySetAttrAssociatedElements(
                             html_names::kAriaOwnsAttr)) {
+    // TODO (crbug.com/41469336): Also check ElementInternals here.
     UpdateAriaOwnsFromAttrAssociatedElementsWithCleanLayout(
         owner,
         // TODO (crbug.com/353750122): Set resolve_reference_target to false.
@@ -899,8 +909,8 @@ bool AXRelationCache::MayHaveHTMLLabelViaForAttribute(
 bool AXRelationCache::IsARIALabelOrDescription(Element& element) {
   // Labels and descriptions set by ariaLabelledByElements,
   // ariaDescribedByElements.
-  if (explicitly_set_text_relations_from_element_attributes_.find(&element) !=
-      explicitly_set_text_relations_from_element_attributes_.end()) {
+  if (explicitly_set_text_relations_.find(element.GetDomNodeId()) !=
+      explicitly_set_text_relations_.end()) {
     return true;
   }
 
@@ -1021,8 +1031,8 @@ void AXRelationCache::UpdateRelatedTreeForIdChange(Element& element) {
                                     id_attr_to_active_descendant_mapping_);
   Element* focused_element = element.GetDocument().FocusedElement();
   if (AXObject* ax_focus = Get(focused_element)) {
-    if (AXObject::ElementFromAttribute(focused_element,
-                                       html_names::kAriaActivedescendantAttr) ==
+    if (AXObject::ElementFromAttributeOrInternals(
+            focused_element, html_names::kAriaActivedescendantAttr) ==
         &element) {
       ax_focus->HandleActiveDescendantChanged();
     }
@@ -1033,7 +1043,8 @@ void AXRelationCache::UpdateRelatedTreeForIdChange(Element& element) {
   // the label or description subtree changes.
   MarkOldAndNewRelationSourcesDirty(element, id_attr_to_text_relation_mapping_);
 
-  // aria-controls, aria-details, aria-errormessage and aria-flowto.
+  // aria-controls, aria-details, aria-errormessage, aria-flowto, and
+  // aria-actions.
   MarkOldAndNewRelationSourcesDirty(element,
                                     id_attr_to_other_relation_mapping_);
   UpdateReverseOtherRelations(element);
@@ -1299,11 +1310,6 @@ void AXRelationCache::MaybeRestoreParentOfOwnedChild(AXID removed_child_axid) {
       }
     }
   }
-}
-
-void AXRelationCache::Trace(Visitor* visitor) const {
-  visitor->Trace(explicitly_set_text_relations_from_element_attributes_);
-  visitor->Trace(object_cache_);
 }
 
 }  // namespace blink

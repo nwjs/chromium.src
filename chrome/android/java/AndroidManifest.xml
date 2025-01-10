@@ -850,21 +850,6 @@ by a child template that "extends" this file.
             </intent-filter>
         </activity>
 
-        <!-- configChanges is set here to prevent the destruction of the
-             activity after configuration changes. Since the bulk of this
-             activity's logic is in a feature module, restoring the activity
-             via a Bundle doesn't work. -->
-        <activity
-        android:name="org.chromium.chrome.browser.webauth.authenticator.CableAuthenticatorActivity"
-        android:configChanges="density|fontScale|keyboard|keyboardHidden|layoutDirection|locale|mcc|mnc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|touchscreen|uiMode"
-        android:theme="@style/Theme.Chromium.Activity.Fullscreen"
-        android:label="@string/cablev2_activity_title"
-        android:permission="com.google.android.gms.auth.cryptauth.permission.CABLEV2_SERVER_LINK"
-        android:exported="true"
-        android:excludeFromRecents="true"
-        android:launchMode="singleTop">
-        </activity>
-
         <receiver
             android:name="org.chromium.chrome.browser.browserservices.ui.trustedwebactivity.DisclosureAcceptanceBroadcastReceiver"
             android:exported="false" />
@@ -1101,6 +1086,13 @@ by a child template that "extends" this file.
             android:documentLaunchMode="always"
             android:noHistory="true"/>
 
+        <!-- Activities for task manager. -->
+        <activity
+            android:name="org.chromium.chrome.browser.task_manager.TaskManagerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Chromium.Activity">
+        </activity>
+
         <receiver android:name="org.chromium.chrome.browser.notifications.scheduler.DisplayAgent$Receiver"
             android:exported="false"/>
 
@@ -1183,7 +1175,7 @@ by a child template that "extends" this file.
             android:screenOrientation="landscape"
             android:label="WebXR"
             android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
-            tools:ignore="NonResizeableActivity">
+            tools:ignore="NonResizeableActivity,DiscouragedApi">
             <property android:name="android.window.PROPERTY_ACTIVITY_STARTS_IN_IMMERSIVE_XR"
                 android:value="true" />
             <intent-filter>

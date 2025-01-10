@@ -409,9 +409,7 @@ void SyncServiceImpl::Initialize(DataTypeController::TypeVector controllers) {
                          user_settings_->IsInitialSyncFeatureSetupComplete());
 
   if (registered_trusted_vault_auto_upgrade_synthetic_field_trial_group_
-          .has_value() &&
-      base::FeatureList::IsEnabled(
-          syncer::kTrustedVaultAutoUpgradeSyntheticFieldTrial)) {
+          .has_value()) {
     CHECK(registered_trusted_vault_auto_upgrade_synthetic_field_trial_group_
               ->is_valid());
     registered_trusted_vault_auto_upgrade_synthetic_field_trial_group_
@@ -951,8 +949,7 @@ SyncService::UserActionableError SyncServiceImpl::GetUserActionableError()
     case GoogleServiceAuthError::REQUEST_CANCELED:
     case GoogleServiceAuthError::CHALLENGE_RESPONSE_REQUIRED:
       // Transient errors aren't reachable.
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
     case GoogleServiceAuthError::SERVICE_ERROR:
     case GoogleServiceAuthError::SCOPE_LIMITED_UNRECOVERABLE_ERROR:
     case GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS:
@@ -965,8 +962,7 @@ SyncService::UserActionableError SyncServiceImpl::GetUserActionableError()
       break;
     // Conventional value for counting the states, never used.
     case GoogleServiceAuthError::NUM_STATES:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 
   if (user_settings_->IsPassphraseRequiredForPreferredDataTypes()) {
@@ -1223,7 +1219,7 @@ void SyncServiceImpl::OnActionableProtocolError(
       ResetEngine(ResetEngineReason::kResetLocalData);
       break;
     case UNKNOWN_ACTION:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
   DVLOG(2) << "Notify observers OnActionableProtocolError";
   NotifyObservers();
@@ -2287,41 +2283,18 @@ void SyncServiceImpl::GetLocalDataDescriptionsImpl(
     return;
   }
 
-  if (!base::FeatureList::IsEnabled(
-          syncer::kSyncEnableModelTypeLocalDataBatchUploaders)) {
-    // Only retain types that are not only preferred but also active, that is,
-    // those which are configured and have not encountered any error.
-    types.RetainAll(GetActiveDataTypes());
-
-    sync_client_->GetLocalDataDescriptions(types, std::move(callback));
-    return;
-  }
-
   data_type_manager_->GetLocalDataDescriptions(types, std::move(callback));
 }
 
 void SyncServiceImpl::TriggerLocalDataMigration(DataTypeSet types) {
-  if (base::FeatureList::IsEnabled(
-          syncer::kSyncEnableModelTypeLocalDataBatchUploaders)) {
-    for (DataType type : types) {
-      base::UmaHistogramEnumeration("Sync.BatchUpload.Requests3",
-                                    syncer::DataTypeHistogramValue(type));
-    }
+  for (DataType type : types) {
+    base::UmaHistogramEnumeration("Sync.BatchUpload.Requests3",
+                                  syncer::DataTypeHistogramValue(type));
   }
 
   // Syncing users do not use separate local and account storages. Thus, there's
   // no local-only data to migrate.
   if (HasSyncConsent()) {
-    return;
-  }
-
-  if (!base::FeatureList::IsEnabled(
-          syncer::kSyncEnableModelTypeLocalDataBatchUploaders)) {
-    // Only retain types that are not only preferred but also active, that is,
-    // those which are configured and have not encountered any error.
-    types.RetainAll(GetActiveDataTypes());
-
-    sync_client_->TriggerLocalDataMigration(types);
     return;
   }
 

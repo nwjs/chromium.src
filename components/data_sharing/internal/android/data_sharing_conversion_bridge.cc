@@ -66,19 +66,19 @@ DataSharingConversionBridge::CreatePeopleGroupActionOutcome(JNIEnv* env,
 }
 
 // static
-ScopedJavaLocalRef<jobject> DataSharingConversionBridge::CreateParseURLResult(
+ScopedJavaLocalRef<jobject> DataSharingConversionBridge::CreateParseUrlResult(
     JNIEnv* env,
-    const DataSharingService::ParseURLResult& data) {
+    const DataSharingService::ParseUrlResult& data) {
   ScopedJavaLocalRef<jobject> j_group_data;
-  DataSharingService::ParseURLStatus status =
-      DataSharingService::ParseURLStatus::kUnknown;
+  DataSharingService::ParseUrlStatus status =
+      DataSharingService::ParseUrlStatus::kUnknown;
   if (data.has_value()) {
     j_group_data = conversion::CreateJavaGroupToken(env, data.value());
-    status = DataSharingService::ParseURLStatus::kSuccess;
+    status = DataSharingService::ParseUrlStatus::kSuccess;
   } else {
     status = data.error();
   }
-  return Java_DataSharingConversionBridge_createParseURLResult(
+  return Java_DataSharingConversionBridge_createParseUrlResult(
       env, j_group_data, static_cast<int>(status));
 }
 
@@ -87,20 +87,19 @@ ScopedJavaLocalRef<jobject>
 DataSharingConversionBridge::CreateSharedDataPreviewOrFailureOutcome(
     JNIEnv* env,
     const DataSharingService::SharedDataPreviewOrFailureOutcome& data) {
-  std::vector<ScopedJavaLocalRef<jobject>> j_entities;
   DataSharingService::PeopleGroupActionFailure failure =
       DataSharingService::PeopleGroupActionFailure::kUnknown;
 
-  ScopedJavaLocalRef<jobjectArray> j_entities_array;
-  if (data.has_value()) {
-    j_entities_array = conversion::CreateJavaSharedEntityArray(
-        env, data.value().shared_entities);
+  ScopedJavaLocalRef<jobject> j_preview;
+  if (data.has_value() && data.value().shared_tab_group_preview) {
+    j_preview = conversion::CreateJavaSharedTabGroupPreview(
+        env, data.value().shared_tab_group_preview.value());
 
   } else {
     failure = data.error();
   }
 
   return Java_DataSharingConversionBridge_createSharedDataPreviewOrFailureOutcome(
-      env, j_entities_array, static_cast<int>(failure));
+      env, j_preview, static_cast<int>(failure));
 }
 }  // namespace data_sharing

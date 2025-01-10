@@ -28,11 +28,11 @@
 #include "ash/app_list/views/search_result_page_dialog_controller.h"
 #include "ash/ash_element_identifiers.h"
 #include "ash/bubble/bubble_constants.h"
-#include "ash/constants/ash_features.h"
 #include "ash/keyboard/ui/keyboard_ui_controller.h"
 #include "ash/public/cpp/app_list/app_list_config_provider.h"
 #include "ash/public/cpp/app_list/app_list_features.h"
 #include "ash/public/cpp/app_list/app_list_types.h"
+#include "ash/public/cpp/capture_mode/capture_mode_api.h"
 #include "ash/public/cpp/metrics_util.h"
 #include "ash/public/cpp/shelf_config.h"
 #include "ash/public/cpp/shelf_types.h"
@@ -209,23 +209,27 @@ AppListBubbleView::AppListBubbleView(AppListViewDelegate* view_delegate)
     : view_delegate_(view_delegate) {
   DCHECK(view_delegate);
   SetProperty(views::kElementIdentifierKey, kAppListBubbleViewElementId);
-
-  const float corner_radius = GetBubbleCornerRadius();
   // Set up rounded corners and background blur, similar to TrayBubbleView.
   // Layer background is set in OnThemeChanged().
   SetPaintToLayer();
-  layer()->SetRoundedCornerRadius(gfx::RoundedCornersF{corner_radius});
-  layer()->SetFillsBoundsOpaquely(false);
+  layer()->SetRoundedCornerRadius(gfx::RoundedCornersF{kBubbleCornerRadius});
   layer()->SetIsFastRoundedCorner(true);
-  layer()->SetBackgroundBlur(ColorProvider::kBackgroundBlurSigma);
-  layer()->SetBackdropFilterQuality(ColorProvider::kBackgroundBlurQuality);
+  if (chromeos::features::IsSystemBlurEnabled()) {
+    layer()->SetFillsBoundsOpaquely(false);
+    layer()->SetBackgroundBlur(ColorProvider::kBackgroundBlurSigma);
+    layer()->SetBackdropFilterQuality(ColorProvider::kBackgroundBlurQuality);
+  }
 
-  ui::ColorId background_color_id = cros_tokens::kCrosSysSystemBaseElevated;
+  const ui::ColorId background_color_id =
+      chromeos::features::IsSystemBlurEnabled()
+          ? cros_tokens::kCrosSysSystemBaseElevated
+          : cros_tokens::kCrosSysSystemBaseElevatedOpaque;
   SetBackground(views::CreateThemedRoundedRectBackground(background_color_id,
-                                                         corner_radius));
+                                                         kBubbleCornerRadius));
 
   SetBorder(std::make_unique<views::HighlightBorder>(
-      corner_radius, views::HighlightBorder::Type::kHighlightBorderOnShadow,
+      kBubbleCornerRadius,
+      views::HighlightBorder::Type::kHighlightBorderOnShadow,
       /*insets_type=*/views::HighlightBorder::InsetsType::kHalfInsets));
 
   SetLayoutManager(std::make_unique<views::FillLayout>());
@@ -279,7 +283,7 @@ void AppListBubbleView::InitContentsView() {
 
   // Skip the assistant button on arrow up/down in app list.
   button_focus_skipper_ = std::make_unique<ButtonFocusSkipper>();
-  if (features::IsSunfishFeatureEnabled()) {
+  if (CanStartSunfishSession()) {
     button_focus_skipper_->AddButton(search_box_view_->sunfish_button());
   }
   button_focus_skipper_->AddButton(search_box_view_->assistant_button());

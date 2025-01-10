@@ -128,8 +128,7 @@ VideoDecoderConfig* CopyConfig(const VideoDecoderConfig& config) {
     auto desc_wrapper = AsSpan<const uint8_t>(config.description());
     if (!desc_wrapper.data()) {
       // Checked by IsValidVideoDecoderConfig.
-      NOTREACHED_IN_MIGRATION();
-      return nullptr;
+      NOTREACHED();
     }
     DOMArrayBuffer* buffer_copy = DOMArrayBuffer::Create(desc_wrapper);
     copy->setDescription(
@@ -310,8 +309,8 @@ ScriptPromise<VideoDecoderSupport> VideoDecoder::isConfigSupported(
   support->setConfig(config_copy);
 
   if ((hw_pref == HardwarePreference::kPreferSoftware &&
-       !media::IsBuiltInVideoCodec(video_type->codec)) ||
-      !media::IsSupportedVideoType(*video_type)) {
+       !media::IsDecoderBuiltInVideoCodec(video_type->codec)) ||
+      !media::IsDecoderSupportedVideoType(*video_type)) {
     support->setSupported(false);
     return ToResolvedPromise<VideoDecoderSupport>(script_state, support);
   }
@@ -444,8 +443,7 @@ VideoDecoder::MakeMediaVideoDecoderConfigInternal(
   media::VideoType video_type;
   if (!ParseCodecString(config.codec(), video_type, *js_error_message)) {
     // Checked by IsValidVideoDecoderConfig().
-    NOTREACHED_IN_MIGRATION();
-    return std::nullopt;
+    NOTREACHED();
   }
   if (video_type.codec == media::VideoCodec::kUnknown) {
     return std::nullopt;
@@ -456,8 +454,7 @@ VideoDecoder::MakeMediaVideoDecoderConfigInternal(
     auto desc_wrapper = AsSpan<const uint8_t>(config.description());
     if (!desc_wrapper.data()) {
       // Checked by IsValidVideoDecoderConfig().
-      NOTREACHED_IN_MIGRATION();
-      return std::nullopt;
+      NOTREACHED();
     }
     if (!desc_wrapper.empty()) {
       const uint8_t* start = desc_wrapper.data();

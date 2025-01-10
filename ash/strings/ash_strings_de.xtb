@@ -308,7 +308,6 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="2041220428661959602">Akkustand: <ph name="BATTERY_PERCENTAGE" /> %</translation>
 <translation id="204259843076055848">Die Tastenkombination für <ph name="SIX_PACK_KEY_NAME" /> ist derzeit deaktiviert</translation>
 <translation id="2049240716062114887">Der Name des Desktops wurde zu "<ph name="DESK_NAME" />" geändert</translation>
-<translation id="2050339315714019657">Porträt</translation>
 <translation id="2064048859448024834">Kameravorschau wird angezeigt</translation>
 <translation id="2065098273523946419">Link zu weiteren Informationen. Wenn du darauf klickst, wirst du zum Browser weitergeleitet.</translation>
 <translation id="2067220651560163985">Temperatur in Celsius anzeigen</translation>
@@ -339,9 +338,6 @@ Hier sind ein paar Dinge, die du tun kannst, um loszulegen.</translation>
 <translation id="219905428774326614">Launcher, alle Apps</translation>
 <translation id="2201071101391734388">Vor Kurzem aufgenommenes Foto <ph name="INDEX" /> von <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Google Tasks minimieren</translation>
-<translation id="2206960886090042977">Das integrierte Touchpad ist deaktiviert, weil eine Maus angeschlossen ist. Bestätige die Änderung mit der Maus oder Tastatur.
-
-Ansonsten wird das integrierte Touchpad in 30 Sekunden wieder aktiviert.</translation>
 <translation id="2208323208084708176">Unified Desktop-Modus</translation>
 <translation id="2220572644011485463">PIN oder Passwort</translation>
 <translation id="2222841058024245321">Desktop 7</translation>
@@ -504,6 +500,9 @@ Ansonsten wird das integrierte Touchpad in 30 Sekunden wieder aktiviert.</trans
 <translation id="2774348302533424868"><ph name="MODIFIER" /> <ph name="DELIMITER" /> <ph name="KEY_ONE" /> bis <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">Strg + Suchtaste + S</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" /> verwaltet von <ph name="MANAGER" /></translation>
+<translation id="2781658180588759579">Das integrierte Touchpad ist deaktiviert. Bestätige die Änderung mit der Tastatur oder einem anderen Zeigegerät.
+
+Ansonsten wird das integrierte Touchpad in <ph name="TIMEOUT_SECONDS" /> wieder aktiviert.</translation>
 <translation id="2782591952652094792">Aufnahmemodus beenden</translation>
 <translation id="2785499565474703580">1 Gerät verbunden</translation>
 <translation id="2791421900609674576">Empfehlungen werden angezeigt, damit du dort fortfahren kannst, wo du aufgehört hast. Durch Gedrückthalten kannst du Empfehlungen entfernen.</translation>
@@ -601,6 +600,9 @@ Ansonsten wird das integrierte Touchpad in 30 Sekunden wieder aktiviert.</trans
 <translation id="3113492864356515707">Vorheriges Element in der Ablage hervorheben</translation>
 <translation id="311799651966070385">Erinnerung schließen</translation>
 <translation id="3120421559657122717">Gerät herunterfahren?</translation>
+<translation id="3121411970001795539">Das integrierte Touchpad ist deaktiviert, weil eine Maus angeschlossen ist. Bestätige die Änderung mit der Maus oder Tastatur.
+
+Ansonsten wird das integrierte Touchpad in <ph name="TIMEOUT_SECONDS" /> wieder aktiviert.</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">Kursaufgabentyp</translation>
 <translation id="3126026824346185272">Strg</translation>
@@ -971,13 +973,13 @@ Einige Funktionen sind eingeschränkt, um die Akkulaufzeit zu verlängern.</tran
 <translation id="4322742403972824594">Die Tastenkombination Strg + Alt + Aufwärtspfeil hat sich geändert. Wenn du jetzt die Pos1-Taste benötigst, drücke <ph name="LAUNCHER_KEY_NAME" />-Taste + Linkspfeil.</translation>
 <translation id="4324840740119394760">Dies erlaubt den Kamerazugriff für <ph name="APP_NAME" /> sowie alle Apps und Websites mit Kameraberechtigung</translation>
 <translation id="4327147325944669226">Spiel aufnehmen</translation>
-<translation id="4333628967105022692">Lacros wird nicht unterstützt, wenn viele Nutzer angemeldet sind.</translation>
 <translation id="4338109981321384717">Lupe</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" /> – stummgeschaltet</translation>
 <translation id="4351244548802238354">Dialogfeld schließen</translation>
 <translation id="4356872429719185452">Hotspot-Details anzeigen. Hotspot wird aktiviert.</translation>
 <translation id="4364101114148522660">Aufnahme läuft: <ph name="DURATION" /></translation>
 <translation id="4371348193907997655">Streaming-Einstellungen</translation>
+<translation id="4371834685492830207">PIN darf nur gültige Zeichen enthalten</translation>
 <translation id="4375482231364171368">In Adressleiste suchen</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, Signalstärke <ph name="SIGNAL_STRENGTH" /> %</translation>
 <translation id="4378551569595875038">Verbindung...</translation>
@@ -1143,6 +1145,7 @@ Einige Funktionen sind eingeschränkt, um die Akkulaufzeit zu verlängern.</tran
 <translation id="4902797682482387055">Vorschlag für eine Aufgabe, auf die du dich konzentrieren kannst</translation>
 <translation id="490375751687810070">Vertikal</translation>
 <translation id="490788395437447240">Akku: <ph name="BATTERY_PERCENTAGE" /> %</translation>
+<translation id="4911191962826748981">Dies ist eine experimentelle KI‑Funktion, die manchmal fehlerhaft sein kann.</translation>
 <translation id="491504982845934899">„<ph name="NETWORK_NAME" />“ nach der Geräteeinrichtung aktivieren</translation>
 <translation id="4917385247580444890">Stark</translation>
 <translation id="4918086044614829423">Annehmen</translation>
@@ -1301,6 +1304,7 @@ Keine Geräte verbunden.</translation>
 <translation id="5393156353051693207">Beliebige Stelle gedrückt halten, um Apps neu zu sortieren</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" /> über <ph name="IN_PLACE_APP" />; loslassen, um Ordner zu erstellen.</translation>
 <translation id="5397578532367286026">Die Nutzung und der Verlauf des Nutzers sind für den Manager (<ph name="MANAGER_EMAIL" />) unter chrome.com einsehbar.</translation>
+<translation id="540338817371815859">Querformat</translation>
 <translation id="540713187982329711">Hotspot aktivieren oder deaktivieren. Hotspot ist aktiviert, es ist kein Gerät verbunden.</translation>
 <translation id="5409208741270395213">Aufgabe als abgeschlossen markieren</translation>
 <translation id="5413656666631274079">Seite „Einstellungen“</translation>
@@ -1472,7 +1476,6 @@ Keine Geräte verbunden.</translation>
 <translation id="5975235751479998104">Vorwärts von Fenster zu Fenster wechseln</translation>
 <translation id="5978382165065462689">Du teilst dir die Bildschirmsteuerung per Remote-Unterstützung.</translation>
 <translation id="5980301590375426705">Gastsitzung beenden</translation>
-<translation id="5982119059638483922">Drücke zum Abbrechen Fn + Suchtaste oder die Umschalttaste.</translation>
 <translation id="5983567367406220847">Aufgrund von Inaktivität wurde der Hotspot deaktiviert.</translation>
 <translation id="598407983968395253">Vorlage verwenden</translation>
 <translation id="5986723678596105470">Mit Google Meet teilnehmen</translation>
@@ -1542,7 +1545,6 @@ Keine Geräte verbunden.</translation>
 <translation id="6166852626429024716">Auf deinem Gerät, in Apps, Einstellungen oder im Web suchen…</translation>
 <translation id="6168318496333165060">Diagnose-App öffnen</translation>
 <translation id="6168622430237609329">Deine installierten Apps</translation>
-<translation id="6173151025443907148">Während Lacros aktiviert ist, kann kein zweiter Nutzer angemeldet werden. Verwende stattdessen ein zweites Browserprofil in Lacros oder deaktiviere Lacros und versuche es noch einmal.</translation>
 <translation id="6179832488876878285">Du kannst wichtige Dateien hier anpinnen. Öffne die Dateien App, um zu starten.</translation>
 <translation id="6180193585172850042">Zurück-Taste</translation>
 <translation id="6180651297859206670">Weiter-Taste</translation>
@@ -1564,6 +1566,7 @@ Keine Geräte verbunden.</translation>
 <translation id="6232416233079464213">Von <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> verwendet gerade deine Kamera und dein Mikrofon</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">Passwort darf nur gültige Zeichen enthalten</translation>
 <translation id="6240603910551255087">Obere Taste</translation>
 <translation id="6240821072888636753">Jedes Mal fragen</translation>
 <translation id="6247728804802644171">Benachrichtigungen öffnen</translation>
@@ -1694,7 +1697,6 @@ Neuinstallation</translation>
 <translation id="6682029141988159141">Inhalt aus Zwischenablage einfügen</translation>
 <translation id="6683022854667115063">Kopfhörer</translation>
 <translation id="6686023075541098243">Anzeige der Benachrichtigungen auf deinem Smartphone einrichten</translation>
-<translation id="6688019813898140556">5‑mal die Esc‑Taste drücken</translation>
 <translation id="6694462491298752106">Integriertes Touchpad ist deaktiviert</translation>
 <translation id="6694973220096431421">In Google Drive suchen</translation>
 <translation id="6696025732084565524">Wichtiges Update für deine abnehmbare Tastatur</translation>
@@ -1715,6 +1717,7 @@ Neuinstallation</translation>
 <translation id="6751826523481687655">Leistungsverfolgung ist aktiviert</translation>
 <translation id="6752912906630585008">Desktop <ph name="REMOVED_DESK" /> wurde entfernt und mit Desktop <ph name="RECEIVE_DESK" /> zusammengeführt</translation>
 <translation id="6753390234084146956">Tabs</translation>
+<translation id="6754918760968695779">Schnelles Einfügen</translation>
 <translation id="6757237461819837179">Keine Medien werden abgespielt</translation>
 <translation id="6760438044935091345">Dashboard für Spiele</translation>
 <translation id="6768043681523654438">Speicher</translation>
@@ -1764,6 +1767,7 @@ Neuinstallation</translation>
 <translation id="6921427376813842559">Update des Geräts durchführen</translation>
 <translation id="6929081673585394903">Steuerelemente einblenden</translation>
 <translation id="6931576957638141829">Speichern unter</translation>
+<translation id="6935857786205183008">Hochformat</translation>
 <translation id="6942518653766415536">Menü für Aufnahmeformat</translation>
 <translation id="6945221475159498467">Auswählen</translation>
 <translation id="6945922087561257829">Dein Smartphone ist mit einem Mobilfunknetz verbunden. Achte darauf, dass dein Smartphone und dein Chromebook mit demselben WLAN verbunden sind, und versuche es dann noch einmal. <ph name="LEARN_MORE" /></translation>
@@ -1920,9 +1924,6 @@ Neuinstallation</translation>
 Halte zum Herunterfahren des Geräts die Ein-/Aus-Taste noch einmal gedrückt.</translation>
 <translation id="7523420897035067483">„Bitte nicht stören“ im Konzentrationsmodus aktivieren</translation>
 <translation id="7524043547948122239">Google Tasks</translation>
-<translation id="7524919752437339268">Das integrierte Touchpad ist deaktiviert. Bestätige die Änderung mit der Tastatur oder einem anderen Zeigegerät.
-
-Ansonsten wird das integrierte Touchpad in 30 Sekunden wieder aktiviert.</translation>
 <translation id="7525067979554623046">Erstellen</translation>
 <translation id="7526573455193969409">Das Netzwerk wird möglicherweise überwacht</translation>
 <translation id="7536035074519304529">IP-Adresse: <ph name="ADDRESS" /></translation>
@@ -2009,6 +2010,7 @@ Ansonsten wird das integrierte Touchpad in 30 Sekunden wieder aktiviert.</trans
 <translation id="780301667611848630">Nein danke</translation>
 <translation id="7807067443225230855">Suche und Assistant</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> und <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">Mit „Mag ich“ gibst du an, dass dir dieser Vorschlag gefällt</translation>
 <translation id="7825412704590278437">Von einem anstehenden Termin</translation>
 <translation id="7829386189513694949">Starkes Signal</translation>
 <translation id="7830453190047749513">Du kannst unter anderem Tastenaktionen, die Cursorgeschwindigkeit und mehr für dein Gerät (<ph name="PERIPHERAL_NAME" />) personalisieren</translation>
@@ -2163,6 +2165,7 @@ Ansonsten wird das integrierte Touchpad in 30 Sekunden wieder aktiviert.</trans
 <translation id="830868413617744215">Beta</translation>
 <translation id="8314772463905284467">Die Feststelltaste ist aktiviert.</translation>
 <translation id="8315514906653279104">Wird aktiviert…</translation>
+<translation id="8319634750346253957">Mit „Mag ich nicht“ gibst du an, dass dir dieser Vorschlag nicht gefällt</translation>
 <translation id="8331351032546853669">Download ausstehend</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" />   <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" /> <ph name="GET_STARTED" /></translation>
@@ -2348,6 +2351,7 @@ Ansonsten wird das integrierte Touchpad in 30 Sekunden wieder aktiviert.</trans
 <translation id="8982906748181120328">Nearby-Sichtbarkeit</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590"><ph name="IME_NAME" /> aktiv</translation>
+<translation id="8991648557324317894">Drücke zum Deaktivieren „fn“ + „Schnelles Einfügen“ oder die Umschalttaste.</translation>
 <translation id="899350903320462459">Wenn du die Benachrichtigungsaktion ausführen möchtest, entsperre das Gerät als <ph name="LOGIN_ID" /></translation>
 <translation id="8993733019280019776">Sprichst du gerade? Dein Mikrofon ist deaktiviert. Wähle es aus, um es zu aktivieren.</translation>
 <translation id="9000771174482730261">SPEICHERPLATZ VERWALTEN</translation>
@@ -2430,9 +2434,9 @@ Ansonsten wird das integrierte Touchpad in 30 Sekunden wieder aktiviert.</trans
 <translation id="974545358917229949"><ph name="RESULT_COUNT" /> Suchergebnisse für "<ph name="QUERY" />"</translation>
 <translation id="981011780479609956">Kein Abgabetermin</translation>
 <translation id="98120814841227350">Zum Ende des Dokuments springen</translation>
-<translation id="98515147261107953">Landschaft</translation>
 <translation id="987589956647469042">Mobile Daten sind aktiviert</translation>
 <translation id="989374776391122812">Kamera- und Audiosteuerung</translation>
+<translation id="990263227494928142">Drücke fünfmal die Umschalttaste, um das Touchpad zu aktivieren</translation>
 <translation id="990277280839877440">Fenster "<ph name="WINDOW_TITILE" />" geschlossen.</translation>
 <translation id="993398562350683614">Einführung: Schritt <ph name="STEP" /> von <ph name="TOTAL_STEPS" />. Auf deinem <ph name="PRODUCT_NAME" /> kannst du mit Apps alle deine Aufgaben erledigen. Du findest deine Apps im Launcher. Drücke „Alt + Umschalttaste + L“, um den Fokus auf die Launcher-Schaltfläche zu verschieben.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

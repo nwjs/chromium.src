@@ -41,7 +41,6 @@
 #include "chrome/browser/ui/views/side_panel/side_panel_entry_observer.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_util.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_view_state_observer.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
@@ -58,7 +57,7 @@
 #include "extensions/test/test_extension_dir.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/models/simple_menu_model.h"
+#include "ui/menus/simple_menu_model.h"
 #include "ui/views/layout/animating_layout_manager_test_util.h"
 #include "ui/views/test/button_test_api.h"
 #include "ui/views/test/views_test_utils.h"
@@ -71,8 +70,9 @@ namespace {
 // when shown.
 std::unique_ptr<SidePanelEntry> CreateEntry(const SidePanelEntry::Key& key) {
   return std::make_unique<SidePanelEntry>(
-      key,
-      base::BindRepeating([]() { return std::make_unique<views::View>(); }));
+      key, base::BindRepeating([](SidePanelEntryScope&) {
+        return std::make_unique<views::View>();
+      }));
 }
 
 }  // namespace
@@ -94,7 +94,9 @@ class SidePanelCoordinatorTest : public InProcessBrowserTest {
                          ->side_panel_registry();
     registry->Register(std::make_unique<SidePanelEntry>(
         SidePanelEntry::Id::kShoppingInsights,
-        base::BindRepeating([]() { return std::make_unique<views::View>(); })));
+        base::BindRepeating([](SidePanelEntryScope&) {
+          return std::make_unique<views::View>();
+        })));
     contextual_registries_.push_back(registry);
 
     // Add some entries to the second tab.
@@ -105,7 +107,9 @@ class SidePanelCoordinatorTest : public InProcessBrowserTest {
                    ->side_panel_registry();
     registry->Register(std::make_unique<SidePanelEntry>(
         SidePanelEntry::Id::kLens,
-        base::BindRepeating([]() { return std::make_unique<views::View>(); })));
+        base::BindRepeating([](SidePanelEntryScope&) {
+          return std::make_unique<views::View>();
+        })));
     contextual_registries_.push_back(browser()
                                          ->GetActiveTabInterface()
                                          ->GetTabFeatures()
@@ -115,14 +119,18 @@ class SidePanelCoordinatorTest : public InProcessBrowserTest {
     // tab.
     registry->Register(std::make_unique<SidePanelEntry>(
         SidePanelEntry::Id::kLensOverlayResults,
-        base::BindRepeating([]() { return std::make_unique<views::View>(); }),
+        base::BindRepeating([](SidePanelEntryScope&) {
+          return std::make_unique<views::View>();
+        }),
         std::nullopt, base::BindRepeating([]() {
           return std::unique_ptr<ui::MenuModel>(
               new ui::SimpleMenuModel(nullptr));
         })));
     registry->Register(std::make_unique<SidePanelEntry>(
         SidePanelEntry::Id::kShoppingInsights,
-        base::BindRepeating([]() { return std::make_unique<views::View>(); })));
+        base::BindRepeating([](SidePanelEntryScope&) {
+          return std::make_unique<views::View>();
+        })));
 
     coordinator()->SetNoDelaysForTesting(true);
   }
@@ -133,7 +141,9 @@ class SidePanelCoordinatorTest : public InProcessBrowserTest {
     auto* const registry = SidePanelRegistry::GetDeprecated(web_contents);
     registry->Register(std::make_unique<SidePanelEntry>(
         SidePanelEntry::Id::kAboutThisSite,
-        base::BindRepeating([]() { return std::make_unique<views::View>(); })));
+        base::BindRepeating([](SidePanelEntryScope&) {
+          return std::make_unique<views::View>();
+        })));
     contextual_registries_.push_back(registry);
   }
 
@@ -261,12 +271,6 @@ class SidePanelCoordinatorTest : public InProcessBrowserTest {
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-class MockSidePanelViewStateObserver : public SidePanelViewStateObserver {
- public:
-  MOCK_METHOD(void, OnSidePanelDidClose, (), (override));
-  MOCK_METHOD(void, OnSidePanelDidOpen, (), (override));
-};
-
 IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest, ToggleSidePanel) {
   Init();
   coordinator()->DisableAnimationsForTesting();
@@ -299,6 +303,20 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest, OpenWhileClosing) {
   auto state = browser()->GetBrowserView().unified_side_panel()->state();
   EXPECT_TRUE(state == SidePanel::State::kOpen ||
               state == SidePanel::State::kOpening);
+}
+
+IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest, OpenAndCloseWithoutAnimation) {
+  coordinator()->DisableAnimationsForTesting();
+  Init();
+  // Since there is no animation opening/closing the side-panel should be
+  // synchronous.
+  coordinator()->Show(SidePanelEntry::Key(SidePanelEntry::Id::kBookmarks));
+  EXPECT_EQ(browser()->GetBrowserView().unified_side_panel()->state(),
+            SidePanel::State::kOpen);
+
+  coordinator()->Close();
+  EXPECT_EQ(browser()->GetBrowserView().unified_side_panel()->state(),
+            SidePanel::State::kClosed);
 }
 
 IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest, ChangeSidePanelWidth) {
@@ -436,7 +454,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
   new_bounds.set_size(new_size);
   // Explicitly restore the browser window on ChromeOS, as it would otherwise
   // be maximized and the SetBounds call would be a no-op.
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   browser()->GetBrowserView().Restore();
 #endif
   browser()->GetBrowserView().SetBounds(new_bounds);
@@ -510,74 +528,6 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest, ChangeSidePanelAlignmentRTL) {
             SidePanel::HorizontalAlignment::kLeft);
 }
 
-IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
-                       DontNotifySidePanelObserverOfChangingContent) {
-  Init();
-  MockSidePanelViewStateObserver view_state_observer;
-  EXPECT_CALL(view_state_observer, OnSidePanelDidOpen()).Times(1);
-  EXPECT_CALL(view_state_observer, OnSidePanelDidClose()).Times(0);
-
-  coordinator()->AddSidePanelViewStateObserver(&view_state_observer);
-
-  coordinator()->Show(SidePanelEntry::Id::kReadingList);
-  EXPECT_TRUE(browser()->GetBrowserView().unified_side_panel()->GetVisible());
-
-  // Changing the side panel entry after it is opened, should not notify
-  // observers.
-  coordinator()->Show(SidePanelEntry::Id::kBookmarks);
-  EXPECT_TRUE(browser()->GetBrowserView().unified_side_panel()->GetVisible());
-
-  coordinator()->RemoveSidePanelViewStateObserver(&view_state_observer);
-}
-
-IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest, NotifyingSidePanelObservers) {
-  Init();
-  coordinator()->DisableAnimationsForTesting();
-
-  MockSidePanelViewStateObserver view_state_observer;
-  EXPECT_CALL(view_state_observer, OnSidePanelDidOpen()).Times(3);
-  EXPECT_CALL(view_state_observer, OnSidePanelDidClose()).Times(2);
-
-  coordinator()->AddSidePanelViewStateObserver(&view_state_observer);
-
-  coordinator()->Show(SidePanelEntry::Id::kBookmarks);
-  EXPECT_TRUE(browser()->GetBrowserView().unified_side_panel()->GetVisible());
-  coordinator()->Close();
-  EXPECT_FALSE(browser()->GetBrowserView().unified_side_panel()->GetVisible());
-
-  coordinator()->Show(SidePanelEntry::Id::kBookmarks);
-  EXPECT_TRUE(browser()->GetBrowserView().unified_side_panel()->GetVisible());
-  coordinator()->Close();
-  EXPECT_FALSE(browser()->GetBrowserView().unified_side_panel()->GetVisible());
-
-  coordinator()->Show(SidePanelEntry::Id::kBookmarks);
-  EXPECT_TRUE(browser()->GetBrowserView().unified_side_panel()->GetVisible());
-
-  coordinator()->RemoveSidePanelViewStateObserver(&view_state_observer);
-}
-
-IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
-                       RemovingObserverDoesNotIncrementCount) {
-  Init();
-  coordinator()->DisableAnimationsForTesting();
-
-  MockSidePanelViewStateObserver view_state_observer;
-  EXPECT_CALL(view_state_observer, OnSidePanelDidClose()).Times(1);
-  coordinator()->AddSidePanelViewStateObserver(&view_state_observer);
-  coordinator()->Show(SidePanelEntry::Id::kBookmarks);
-  EXPECT_TRUE(browser()->GetBrowserView().unified_side_panel()->GetVisible());
-
-  coordinator()->Close();
-  EXPECT_FALSE(browser()->GetBrowserView().unified_side_panel()->GetVisible());
-
-  coordinator()->Show(SidePanelEntry::Id::kBookmarks);
-  EXPECT_TRUE(browser()->GetBrowserView().unified_side_panel()->GetVisible());
-
-  coordinator()->RemoveSidePanelViewStateObserver(&view_state_observer);
-
-  coordinator()->Close();
-  EXPECT_FALSE(browser()->GetBrowserView().unified_side_panel()->GetVisible());
-}
 
 IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
                        SidePanelToggleWithEntriesTest) {
@@ -1317,7 +1267,9 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
       std::make_unique<TestSidePanelObserver>(contextual_registries_[0]);
   auto entry = std::make_unique<SidePanelEntry>(
       SidePanelEntry::Id::kAboutThisSite,
-      base::BindRepeating([]() { return std::make_unique<views::View>(); }));
+      base::BindRepeating([](SidePanelEntryScope&) {
+        return std::make_unique<views::View>();
+      }));
   entry->AddObserver(observer.get());
   contextual_registries_[0]->Register(std::move(entry));
   coordinator()->Show(SidePanelEntry::Id::kAboutThisSite);
@@ -1346,7 +1298,9 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
       std::make_unique<TestSidePanelObserver>(contextual_registries_[0]);
   auto entry = std::make_unique<SidePanelEntry>(
       SidePanelEntry::Id::kAboutThisSite,
-      base::BindRepeating([]() { return std::make_unique<views::View>(); }));
+      base::BindRepeating([](SidePanelEntryScope&) {
+        return std::make_unique<views::View>();
+      }));
   entry->AddObserver(observer.get());
   contextual_registries_[0]->Register(std::move(entry));
   coordinator()->Show(SidePanelEntry::Id::kAboutThisSite);
@@ -1373,7 +1327,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
   int count = 0;
   global_registry()->Register(std::make_unique<SidePanelEntry>(
       SidePanelEntry::Id::kLens, base::BindRepeating(
-                                     [](int* count) {
+                                     [](int* count, SidePanelEntryScope&) {
                                        (*count)++;
                                        return std::make_unique<views::View>();
                                      },
@@ -1636,7 +1590,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest, SidePanelTitleUpdates) {
             l10n_util::GetStringUTF16(IDS_PAGE_INFO_ABOUT_THIS_PAGE_TITLE));
 }
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
 IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
                        SidePanelPinButtonsHideInGuestMode) {
   // Check that pin button shows in normal window.
@@ -1662,7 +1616,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
   coordinator->Show(SidePanelEntry::Id::kBookmarks);
   EXPECT_FALSE(coordinator->GetHeaderPinButtonForTesting()->GetVisible());
 }
-#endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 // Verifies that clicking the pin button on an extensions side panel, pins the
 // extension in ToolbarActionModel.
@@ -1742,7 +1696,8 @@ class SidePanelCoordinatorLoadingContentTest : public SidePanelCoordinatorTest {
     // Add a kShoppingInsights entry to the global registry with loading content
     // not available.
     std::unique_ptr<SidePanelEntry> entry1 = std::make_unique<SidePanelEntry>(
-        SidePanelEntry::Id::kShoppingInsights, base::BindRepeating([]() {
+        SidePanelEntry::Id::kShoppingInsights,
+        base::BindRepeating([](SidePanelEntryScope&) {
           auto view = std::make_unique<views::View>();
           SidePanelUtil::GetSidePanelContentProxy(view.get())
               ->SetAvailable(false);
@@ -1754,7 +1709,8 @@ class SidePanelCoordinatorLoadingContentTest : public SidePanelCoordinatorTest {
     // Add a kLens entry to the global registry with loading content not
     // available.
     std::unique_ptr<SidePanelEntry> entry2 = std::make_unique<SidePanelEntry>(
-        SidePanelEntry::Id::kLens, base::BindRepeating([]() {
+        SidePanelEntry::Id::kLens,
+        base::BindRepeating([](SidePanelEntryScope&) {
           auto view = std::make_unique<views::View>();
           SidePanelUtil::GetSidePanelContentProxy(view.get())
               ->SetAvailable(false);
@@ -1765,7 +1721,8 @@ class SidePanelCoordinatorLoadingContentTest : public SidePanelCoordinatorTest {
 
     // Add a kAboutThisSite entry to the global registry with content available.
     std::unique_ptr<SidePanelEntry> entry3 = std::make_unique<SidePanelEntry>(
-        SidePanelEntry::Id::kAboutThisSite, base::BindRepeating([]() {
+        SidePanelEntry::Id::kAboutThisSite,
+        base::BindRepeating([](SidePanelEntryScope&) {
           auto view = std::make_unique<views::View>();
           SidePanelUtil::GetSidePanelContentProxy(view.get())
               ->SetAvailable(true);

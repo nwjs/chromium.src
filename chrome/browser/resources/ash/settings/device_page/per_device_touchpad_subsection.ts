@@ -38,7 +38,7 @@ import {MouseSettingsObserverReceiver} from '../mojom-webui/input_device_setting
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
 import {DisableTouchpadMode} from '../os_a11y_page/disable_touchpad_constants.js';
 import type {Route} from '../router.js';
-import {routes} from '../router.js';
+import {Router, routes} from '../router.js';
 
 import {FakeInputDeviceSettingsProvider} from './fake_input_device_settings_provider.js';
 import {getInputDeviceSettingsProvider} from './input_device_mojo_interface_provider.js';
@@ -214,6 +214,7 @@ export class SettingsPerDeviceTouchpadSubsectionElement extends
           Setting.kTouchpadSpeed,
           Setting.kTouchpadHapticFeedback,
           Setting.kTouchpadHapticClickSensitivity,
+          Setting.kTouchpadSimulateRightClick,
         ]),
       },
 
@@ -441,6 +442,10 @@ export class SettingsPerDeviceTouchpadSubsectionElement extends
         (trackpadMode === DisableTouchpadMode.ALWAYS ||
          (trackpadMode === DisableTouchpadMode.ON_MOUSE_CONNECTED &&
           this.isMouseConnected_()));
+  }
+
+  private onDisabledTouchpadSettingsClick_(): void {
+    Router.getInstance().navigateTo(routes.A11Y_CURSOR_AND_TOUCHPAD);
   }
 
   private isMouseConnected_(): boolean {

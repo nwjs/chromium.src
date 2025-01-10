@@ -766,7 +766,6 @@ TEST_F(FetchDataLoaderTest, LoadAsStringWithNullBytes) {
       MakeGarbageCollected<MockFetchDataLoaderClient>();
 
   constexpr char kPattern[] = "Quick\0brown\0fox";
-  constexpr size_t kLength = sizeof(kPattern);
 
   InSequence s;
   EXPECT_CALL(checkpoint, Call(1));
@@ -782,7 +781,8 @@ TEST_F(FetchDataLoaderTest, LoadAsStringWithNullBytes) {
   EXPECT_CALL(*consumer, EndRead(16)).WillOnce(Return(Result::kOk));
   EXPECT_CALL(*consumer, BeginRead(_)).WillOnce(Return(Result::kDone));
   EXPECT_CALL(*fetch_data_loader_client,
-              DidFetchDataLoadedString(String(kPattern, kLength)));
+              DidFetchDataLoadedString(
+                  String(base::span_with_nul_from_cstring(kPattern))));
   EXPECT_CALL(checkpoint, Call(3));
   EXPECT_CALL(*consumer, Cancel());
   EXPECT_CALL(checkpoint, Call(4));
@@ -880,7 +880,7 @@ TEST_F(FetchDataLoaderTest, LoadAsDataPipeWithCopy) {
   auto result = reader->Run(task_runner.get());
 
   EXPECT_EQ(result.first, BytesConsumer::Result::kDone);
-  EXPECT_EQ(String(result.second.data(), result.second.size()), "hello, world");
+  EXPECT_EQ(String(result.second), "hello, world");
 }
 
 TEST_F(FetchDataLoaderTest, LoadAsDataPipeWithCopyFailure) {

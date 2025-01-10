@@ -70,11 +70,15 @@ class TabGroupSyncServiceImpl : public TabGroupSyncService,
   void AddTab(const LocalTabGroupID& group_id,
               const LocalTabID& tab_id,
               const std::u16string& title,
-              GURL url,
+              const GURL& url,
               std::optional<size_t> position) override;
-  void UpdateTab(const LocalTabGroupID& group_id,
-                 const LocalTabID& tab_id,
-                 const SavedTabGroupTabBuilder& tab_builder) override;
+  void NavigateTab(const LocalTabGroupID& group_id,
+                   const LocalTabID& tab_id,
+                   const GURL& url,
+                   const std::u16string& title) override;
+  void UpdateTabProperties(const LocalTabGroupID& group_id,
+                           const LocalTabID& tab_id,
+                           const SavedTabGroupTabBuilder& tab_builder) override;
   void RemoveTab(const LocalTabGroupID& group_id,
                  const LocalTabID& tab_id) override;
   void MoveTab(const LocalTabGroupID& group_id,
@@ -87,12 +91,14 @@ class TabGroupSyncServiceImpl : public TabGroupSyncService,
 
   void MakeTabGroupShared(const LocalTabGroupID& local_group_id,
                           std::string_view collaboration_id) override;
+  void MakeTabGroupSharedForTesting(const LocalTabGroupID& local_group_id,
+                                    std::string_view collaboration_id);
 
-  std::vector<SavedTabGroup> GetAllGroups() override;
-  std::optional<SavedTabGroup> GetGroup(const base::Uuid& guid) override;
+  std::vector<SavedTabGroup> GetAllGroups() const override;
+  std::optional<SavedTabGroup> GetGroup(const base::Uuid& guid) const override;
   std::optional<SavedTabGroup> GetGroup(
-      const LocalTabGroupID& local_id) override;
-  std::vector<LocalTabGroupID> GetDeletedGroupIds() override;
+      const LocalTabGroupID& local_id) const override;
+  std::vector<LocalTabGroupID> GetDeletedGroupIds() const override;
   void OpenTabGroup(const base::Uuid& sync_group_id,
                     std::unique_ptr<TabGroupActionContext> context) override;
   void UpdateLocalTabGroupMapping(const base::Uuid& sync_id,
@@ -126,6 +132,9 @@ class TabGroupSyncServiceImpl : public TabGroupSyncService,
   void GetURLRestriction(
       const GURL& url,
       TabGroupSyncService::UrlRestrictionCallback callback) override;
+
+  std::unique_ptr<std::vector<SavedTabGroup>>
+  TakeSharedTabGroupsAvailableAtStartupForMessaging() override;
 
   void AddObserver(TabGroupSyncService::Observer* observer) override;
   void RemoveObserver(TabGroupSyncService::Observer* observer) override;
@@ -188,7 +197,7 @@ class TabGroupSyncServiceImpl : public TabGroupSyncService,
   // RemoveLocalTabGroupMapping is invoked from the UI.
   // On startup, UI invokes GetDeletedGroupIdsFromPref to clean up any deleted
   // groups from tab model.
-  std::vector<LocalTabGroupID> GetDeletedGroupIdsFromPref();
+  std::vector<LocalTabGroupID> GetDeletedGroupIdsFromPref() const;
   void AddDeletedGroupIdToPref(const LocalTabGroupID& local_id,
                                const base::Uuid& sync_id);
   void RemoveDeletedGroupIdFromPref(const LocalTabGroupID& local_id);
@@ -213,6 +222,21 @@ class TabGroupSyncServiceImpl : public TabGroupSyncService,
   void LogEvent(TabGroupEvent event,
                 LocalTabGroupID group_id,
                 const std::optional<LocalTabID>& tab_id = std::nullopt);
+
+  using GetTitleCallback = base::OnceCallback<void(const std::u16string&)>;
+  // Get the title on a given URL.
+  void GetPageTitle(const GURL& url, GetTitleCallback callback);
+
+  // Creates a copy of all shared tab groups from the model and stores them in
+  // `shared_tab_groups_available_at_startup_for_messaging_` for later
+  // retrieval.
+  void StoreSharedTabGroupsAvailableAtStartupForMessaging();
+
+  // Transitions the originating saved tab group to the given shared tab group
+  // if the saved tab group is open in the tab strip. Returns true if the group
+  // was transitioned.
+  bool TransitionSavedToSharedTabGroupIfNeeded(
+      const SavedTabGroup& shared_group);
 
   // The in-memory model representing the currently present saved tab groups.
   std::unique_ptr<SavedTabGroupModel> model_;
@@ -241,6 +265,15 @@ class TabGroupSyncServiceImpl : public TabGroupSyncService,
 
   // Obsevers of the model.
   base::ObserverList<TabGroupSyncService::Observer> observers_;
+
+  // Temporary storage for shared tab groups that were available at startup,
+  // before applying local changes. This is retrieved by the
+  // MessagingBackendService when it starts up to safely know what changes are
+  // new, and what were there from before, without needing to persist any data
+  // on its own, but still be able to calculate deltas of all network triggered
+  // updates.
+  std::unique_ptr<std::vector<SavedTabGroup>>
+      shared_tab_groups_available_at_startup_for_messaging_;
 
   // Keeps track of API calls received before the service is initialized.
   // Once the initialization is complete, these callbacks are run in the order

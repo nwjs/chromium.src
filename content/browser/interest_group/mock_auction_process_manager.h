@@ -16,6 +16,7 @@
 
 #include "base/containers/flat_map.h"
 #include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
 #include "base/time/time.h"
 #include "content/browser/interest_group/auction_process_manager.h"
@@ -40,8 +41,6 @@
 #include "url/origin.h"
 
 namespace content {
-
-class ProcessHandle;
 
 // This file contains an AuctionProcessManager that creates mock worklets
 // that tests can control.
@@ -422,21 +421,15 @@ class MockSellerWorklet : public auction_worklet::mojom::SellerWorklet {
 // easier to track which call came over which receiver than using separate
 // classes.
 class MockAuctionProcessManager
-    : public AuctionProcessManager,
+    : public DedicatedAuctionProcessManager,
       public auction_worklet::mojom::AuctionWorkletService {
  public:
   MockAuctionProcessManager();
   ~MockAuctionProcessManager() override;
 
-  // AuctionProcessManager implementation:
-  scoped_refptr<WorkletProcess> LaunchProcess(
-      const ProcessHandle* process_handle,
-      const std::string& display_name) override;
-  scoped_refptr<SiteInstance> MaybeComputeSiteInstance(
-      SiteInstance* frame_site_instance,
-      const url::Origin& worklet_origin) override;
-  bool TryUseSharedProcess(ProcessHandle* process_handle) override;
-  bool UsingDedicatedUtilityProcesses() override;
+  // DedicatedAuctionProcessManager implementation:
+  WorkletProcess::ProcessContext CreateProcessInternal(
+      WorkletProcess& worklet_process) override;
 
   // auction_worklet::mojom::AuctionWorkletService implementation:
   void SetTrustedSignalsCache(
@@ -554,13 +547,12 @@ class MockAuctionProcessManager
   size_t load_bidder_worklet_count_ = 0;
   size_t last_load_bidder_worklet_threads_count_ = 0;
 
-  // Map from ReceiverSet IDs to display name when the process was launched.
-  // Used to verify that worklets are created in the right process.
-  std::map<mojo::ReceiverId, std::string> receiver_display_name_map_;
-
   // ReceiverSet is last so that destroying `this` while there's a pending
-  // callback over the pipe will not DCHECK.
-  mojo::ReceiverSet<auction_worklet::mojom::AuctionWorkletService>
+  // callback over the pipe will not DCHECK. Keeps track of the weak pointers
+  // for each WorkletProcess to make sure each process is only used for the
+  // correct worklets.
+  mojo::ReceiverSet<auction_worklet::mojom::AuctionWorkletService,
+                    base::WeakPtr<WorkletProcess>>
       receiver_set_;
 };
 

@@ -161,6 +161,8 @@ class NET_EXPORT_PRIVATE URLRequestHttpJob : public URLRequestJob {
   int NotifyConnectedCallback(const TransportInfo& info,
                               CompletionOnceCallback callback);
 
+  void RestartTransaction();
+  void RestartTransactionForRefresh();
   void RestartTransactionWithAuth(const AuthCredentials& credentials);
 
   // Overridden from URLRequestJob:
@@ -250,9 +252,6 @@ class NET_EXPORT_PRIVATE URLRequestHttpJob : public URLRequestJob {
   // Returns true if we should log how many partitioned cookies are included
   // in a request.
   bool ShouldRecordPartitionedCookieUsage() const;
-
-  // Applies the relevant Sec-Fetch-Storage-Access header if needed.
-  void MaybeSetSecFetchStorageAccessHeader();
 
   RequestPriority priority_ = DEFAULT_PRIORITY;
 

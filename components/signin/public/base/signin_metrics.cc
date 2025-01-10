@@ -11,12 +11,35 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
+#include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/strcat.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 
 namespace signin_metrics {
+
+namespace {
+
+std::string_view GetPromoActionHistogramSuffix(PromoAction promo_action) {
+  switch (promo_action) {
+    case PromoAction::PROMO_ACTION_WITH_DEFAULT:
+      return ".WithDefault";
+    case PromoAction::PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT:
+      return ".NewAccountNoExistingAccount";
+    case PromoAction::PROMO_ACTION_NEW_ACCOUNT_EXISTING_ACCOUNT:
+    case PromoAction::PROMO_ACTION_NOT_DEFAULT:
+      NOTIMPLEMENTED()
+          << "Those promo actions have no histogram equivalent yet, you need "
+             "to implement the histogram and return the correct histogram "
+             "suffix.";
+      return "NOT IMPLEMENTED";
+    case PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO:
+      NOTREACHED() << "No signin promo should not record metrics.";
+  }
+}
+
+}  // namespace
 
 // These intermediate macros are necessary when we may emit to different
 // histograms from the same logical place in the code. The base histogram macros
@@ -125,9 +148,24 @@ void LogSigninAccessPointCompleted(AccessPoint access_point,
   }
 }
 
-void LogSignInOffered(AccessPoint access_point) {
-  base::UmaHistogramEnumeration("Signin.SignIn.Offered", access_point,
+void LogSignInOffered(AccessPoint access_point, PromoAction promo_action) {
+  // Do not record any histogram if no signin promo.
+  if (promo_action == PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO) {
+    return;
+  }
+
+  static constexpr char signin_offered_base_histogram[] =
+      "Signin.SignIn.Offered";
+
+  // Log the generic offered histogram.
+  base::UmaHistogramEnumeration(signin_offered_base_histogram, access_point,
                                 AccessPoint::ACCESS_POINT_MAX);
+
+  // Log the specific offered histogram based on the `promo_action`.
+  base::UmaHistogramEnumeration(
+      base::StrCat({signin_offered_base_histogram,
+                    GetPromoActionHistogramSuffix(promo_action)}),
+      access_point, AccessPoint::ACCESS_POINT_MAX);
 }
 
 void LogSignInStarted(AccessPoint access_point) {
@@ -421,12 +459,10 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
           base::UserMetricsAction("Signin_Signin_FromNTPFeedTopPromo"));
       break;
     case AccessPoint::ACCESS_POINT_KALEIDOSCOPE:
-      NOTREACHED_IN_MIGRATION()
-          << "Access point " << static_cast<int>(access_point)
-          << " is only used to trigger non-sync sign-in and this"
-          << " action should only be triggered for sync-enabled"
-          << " sign-ins.";
-      break;
+      NOTREACHED() << "Access point " << static_cast<int>(access_point)
+                   << " is only used to trigger non-sync sign-in and this"
+                   << " action should only be triggered for sync-enabled"
+                   << " sign-ins.";
     case AccessPoint::ACCESS_POINT_SYNC_ERROR_CARD:
     case AccessPoint::ACCESS_POINT_FORCED_SIGNIN:
     case AccessPoint::ACCESS_POINT_ACCOUNT_RENAMED:
@@ -443,10 +479,9 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::ACCESS_POINT_WEBAUTHN_MODAL_DIALOG:
     case AccessPoint::ACCESS_POINT_CCT_ACCOUNT_MISMATCH_NOTIFICATION:
     case AccessPoint::ACCESS_POINT_DRIVE_FILE_PICKER_IOS:
-      NOTREACHED_IN_MIGRATION()
-          << "Access point " << static_cast<int>(access_point)
-          << " is not supposed to log signin user actions.";
-      break;
+    case AccessPoint::ACCESS_POINT_COLLABORATION_TAB_GROUP:
+      NOTREACHED() << "Access point " << static_cast<int>(access_point)
+                   << " is not supposed to log signin user actions.";
     case AccessPoint::ACCESS_POINT_SAFETY_CHECK:
       VLOG(1) << "Signin_Signin_From* user action is not recorded "
               << "for access point " << static_cast<int>(access_point);
@@ -548,8 +583,7 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
           base::UserMetricsAction("Signin_Signin_FromAddressBubble"));
       break;
     case AccessPoint::ACCESS_POINT_MAX:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 }
 
@@ -723,11 +757,11 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::ACCESS_POINT_ACCOUNT_MENU_FAILED_SWITCH:
     case AccessPoint::ACCESS_POINT_CCT_ACCOUNT_MISMATCH_NOTIFICATION:
     case AccessPoint::ACCESS_POINT_DRIVE_FILE_PICKER_IOS:
+    case AccessPoint::ACCESS_POINT_COLLABORATION_TAB_GROUP:
     case AccessPoint::ACCESS_POINT_MAX:
-      NOTREACHED_IN_MIGRATION() << "Signin_Impression_From* user actions"
-                                << " are not recorded for access point "
-                                << static_cast<int>(access_point);
-      break;
+      NOTREACHED() << "Signin_Impression_From* user actions are not recorded "
+                      "for access point "
+                   << static_cast<int>(access_point);
   }
 }
 

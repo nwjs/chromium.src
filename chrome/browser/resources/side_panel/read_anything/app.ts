@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import './read_anything_toolbar.js';
-import './strings.m.js';
+import '/strings.m.js';
 import '//read-anything-side-panel.top-chrome/shared/sp_empty_state.js';
 import '//resources/cr_elements/cr_button/cr_button.js';
 import '//resources/cr_elements/cr_toast/cr_toast.js';
@@ -453,11 +453,6 @@ export class AppElement extends AppElementBase {
           this.updateVoicePackStatus(lang, status);
         };
 
-    chrome.readingMode.updateVoicePackStatusFromInstallResponse =
-        (lang: string, status: string) => {
-          this.updateVoicePackStatusFromInstallResponse(lang, status);
-        };
-
     chrome.readingMode.showLoading = () => {
       this.showLoading();
     };
@@ -871,51 +866,44 @@ export class AppElement extends AppElementBase {
     chrome.readingMode.onScrolledToBottom();
   }
 
-  updateVoicePackStatusFromInstallResponse(lang: string, status: string) {
-    if (!lang) {
-      return;
-    }
-
-    const newVoicePackStatus = mojoVoicePackStatusToVoicePackStatusEnum(status);
-
-    if (isVoicePackStatusError(newVoicePackStatus)) {
-      // Keep the server responses.
-      this.setVoicePackServerStatus_(lang, newVoicePackStatus);
-
-      // Update application state.
-      this.updateApplicationState(lang, newVoicePackStatus);
-
-      // Disable the associated language if there are no other Google voices for
-      // it.
-      const availableVoicesForLang = this.getVoices_().filter(
-          v => getVoicePackConvertedLangIfExists(v.lang) === lang);
-      if (availableVoicesForLang.length === 0 ||
-          availableVoicesForLang.every(v => isEspeak(v))) {
-        this.enabledLangs = this.enabledLangs.filter(
-            enabledLang =>
-                getVoicePackConvertedLangIfExists(enabledLang) !== lang);
-      }
-    } else {
-      // Do not rely on the status from Install response. It has responded
-      // "installed" for voices that are not installed. Instead, request the
-      // status from GetVoicePackInfo. The result will be returned in
-      // updateVoicePackStatus().
-      this.sendGetVoicePackInfoRequest(lang);
-    }
-  }
-
   updateVoicePackStatus(lang: string, status: string) {
     if (!lang) {
       return;
     }
 
     const newVoicePackStatus = mojoVoicePackStatusToVoicePackStatusEnum(status);
+    // If the previous status is the same as the new status, no need to update
+    // any state. Updating to an installed state will cause a language to be
+    // automatically enabled because we want the newly downloaded language to be
+    // available in the voice menu. Thus we only want to mark it installed if
+    // it's newly installed, otherwise we may enable a language that was
+    // previously installed but disabled. If the status is not installed, then
+    // we do want to update again, in case we want to request an install now.
+    if ((newVoicePackStatus.code !==
+         VoicePackServerStatusSuccessCode.NOT_INSTALLED) &&
+        (this.getVoicePackServerStatus_(lang)?.code ===
+         newVoicePackStatus.code)) {
+      return;
+    }
 
     // Keep the server responses
     this.setVoicePackServerStatus_(lang, newVoicePackStatus);
 
     // Update application state
     this.updateApplicationState(lang, newVoicePackStatus);
+
+    if (isVoicePackStatusError(newVoicePackStatus)) {
+      // Disable the associated language if there are no other Google voices for
+      // it.
+      const availableVoicesForLang = this.getVoices_().filter(
+          v => getVoicePackConvertedLangIfExists(v.lang) === lang);
+      if (availableVoicesForLang.length === 0 ||
+          availableVoicesForLang.some(v => isEspeak(v))) {
+        this.enabledLangs = this.enabledLangs.filter(
+            enabledLang =>
+                getVoicePackConvertedLangIfExists(enabledLang) !== lang);
+      }
+    }
   }
 
 
@@ -1174,13 +1162,10 @@ export class AppElement extends AppElementBase {
   private populateDisplayNamesForLocaleCodes() {
     this.localeToDisplayName_ = {};
 
-    // Get display names for all the pack manager supported locales, only on
-    // ChromeOS.
-    if (chrome.readingMode.isChromeOsAsh) {
-      AVAILABLE_GOOGLE_TTS_LOCALES.forEach((lang) => {
-        this.maybeAddDisplayName(lang);
-      });
-    }
+    AVAILABLE_GOOGLE_TTS_LOCALES.forEach((lang) => {
+      this.maybeAddDisplayName(lang);
+    });
+
 
     // Get any remaining display names for languages of available voices.
     for (const {lang} of this.availableVoices_) {
@@ -2181,6 +2166,11 @@ export class AppElement extends AppElementBase {
           convertLangOrLocaleForVoicePackManager(toggledLanguage);
       if (langCodeForVoicePackManager) {
         this.languagesForVoiceDownloads.delete(langCodeForVoicePackManager);
+        // Uninstall the Natural voice when a language is deselected.
+        if (chrome.readingMode.isLanguagePackDownloadingEnabled) {
+          chrome.readingMode.sendUninstallVoiceRequest(
+              langCodeForVoicePackManager);
+        }
       }
     }
     this.enabledLangs = currentlyEnabled ?
@@ -2356,8 +2346,9 @@ export class AppElement extends AppElementBase {
 
     // Enable the locale for the preferred voice for this language.
     if (this.selectedVoice_ &&
-        !this.enabledLangs.includes(this.selectedVoice_.lang)) {
-      this.enabledLangs = [...this.enabledLangs, this.selectedVoice_.lang];
+        !this.enabledLangs.includes(this.selectedVoice_.lang.toLowerCase())) {
+      this.enabledLangs =
+          [...this.enabledLangs, this.selectedVoice_.lang.toLowerCase()];
     }
   }
 

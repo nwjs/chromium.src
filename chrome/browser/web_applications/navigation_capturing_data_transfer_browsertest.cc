@@ -7,13 +7,16 @@
 #include <string>
 
 #include "base/test/scoped_feature_list.h"
+#include "base/types/expected.h"
+#include "build/build_config.h"
+#include "chrome/browser/apps/link_capturing/link_capturing_feature_test_support.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/web_applications/navigation_capturing_information_forwarder.h"
+#include "chrome/browser/ui/web_applications/navigation_capturing_navigation_handle_user_data.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/ui/web_applications/web_app_browsertest_base.h"
-#include "chrome/browser/web_applications/navigation_capturing_information_forwarder.h"
-#include "chrome/browser/web_applications/navigation_capturing_navigation_handle_user_data.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/webapps/common/web_app_id.h"
@@ -25,6 +28,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
+#include "third_party/blink/public/mojom/manifest/manifest_launch_handler.mojom-shared.h"
 #include "ui/base/window_open_disposition.h"
 
 namespace web_app {
@@ -35,6 +39,7 @@ constexpr char kStartPageScopeA[] =
     "/banners/link_capturing/scope_a/start.html";
 constexpr char kDestinationPageScopeB[] =
     "/banners/link_capturing/scope_b/destination.html";
+constexpr char kToSiteATargetBlankNoopener[] = "id-LINK-A_TO_A-BLANK-NO_OPENER";
 constexpr char kToSiteATargetBlankWithOpener[] = "id-LINK-A_TO_A-BLANK-OPENER";
 constexpr char kToSiteBTargetBlankNoopener[] = "id-LINK-A_TO_B-BLANK-NO_OPENER";
 constexpr char kToSiteBTargetBlankWithOpener[] = "id-LINK-A_TO_B-BLANK-OPENER";
@@ -107,17 +112,23 @@ class NavigationCapturingDataTransferBrowserTest
     return embedded_test_server()->GetURL(kDestinationPageScopeB);
   }
 
-  webapps::AppId InstallTestWebApp(const GURL& start_url) {
+  webapps::AppId InstallTestWebApp(
+      const GURL& start_url,
+      blink::mojom::ManifestLaunchHandler_ClientMode client_mode =
+          blink::mojom::ManifestLaunchHandler_ClientMode::kAuto) {
     auto web_app_info =
         web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(start_url);
     web_app_info->user_display_mode =
         web_app::mojom::UserDisplayMode::kStandalone;
-    web_app_info->launch_handler = blink::Manifest::LaunchHandler(
-        blink::mojom::ManifestLaunchHandler_ClientMode::kAuto);
+    web_app_info->launch_handler = blink::Manifest::LaunchHandler(client_mode);
     web_app_info->scope = start_url.GetWithoutFilename();
     web_app_info->display_mode = blink::mojom::DisplayMode::kStandalone;
     const webapps::AppId app_id = web_app::test::InstallWebApp(
         browser()->profile(), std::move(web_app_info));
+#if BUILDFLAG(IS_CHROMEOS)
+    EXPECT_EQ(apps::test::EnableLinkCapturingByUser(profile(), app_id),
+              base::ok());
+#endif
     return app_id;
   }
 
@@ -143,7 +154,10 @@ class NavigationCapturingDataTransferBrowserTest
 
     std::string message;
     EXPECT_TRUE(message_queue.WaitForMessage(&message));
-    EXPECT_EQ("\"FinishedNavigating\"", message);
+    std::string unquoted_message;
+    EXPECT_TRUE(base::RemoveChars(message, "\"", &unquoted_message)) << message;
+    EXPECT_TRUE(base::StartsWith(unquoted_message, "FinishedNavigating"))
+        << unquoted_message;
 
     return contents;
   }
@@ -155,7 +169,10 @@ class NavigationCapturingDataTransferBrowserTest
 
     std::string message;
     EXPECT_TRUE(message_queue.WaitForMessage(&message));
-    EXPECT_EQ("\"FinishedNavigating\"", message);
+    std::string unquoted_message;
+    EXPECT_TRUE(base::RemoveChars(message, "\"", &unquoted_message)) << message;
+    EXPECT_TRUE(base::StartsWith(unquoted_message, "FinishedNavigating"))
+        << unquoted_message;
 
     return browser()->tab_strip_model()->GetActiveWebContents();
   }
@@ -190,13 +207,49 @@ IN_PROC_BROWSER_TEST_F(NavigationCapturingDataTransferBrowserTest,
       *nav_awaiter.GetRedirectionInfoForNavigation();
 
   // Triggered from a tab and not an app window.
-  EXPECT_FALSE(redirection_info.app_id_initial_browser.has_value());
-  EXPECT_EQ(NavigationHandlingInitialResult::kAppWindowNavigationCaptured,
-            redirection_info.initial_nav_handling_result);
+  EXPECT_FALSE(redirection_info.source_browser_app_id().has_value());
+  EXPECT_FALSE(redirection_info.source_tab_app_id().has_value());
+  EXPECT_EQ(NavigationHandlingInitialResult::kNavigateCapturedNewAppWindow,
+            redirection_info.initial_nav_handling_result());
   EXPECT_EQ(WindowOpenDisposition::NEW_FOREGROUND_TAB,
-            redirection_info.disposition);
-  EXPECT_TRUE(redirection_info.first_navigation_app_id.has_value());
-  EXPECT_EQ(app_id, *redirection_info.first_navigation_app_id);
+            redirection_info.disposition());
+  EXPECT_TRUE(redirection_info.first_navigation_app_id().has_value());
+  EXPECT_EQ(app_id, *redirection_info.first_navigation_app_id());
+
+  // Post navigation, the WebContentsUserData instances should be cleaned up.
+  EXPECT_THAT(GetForwarderForWebContents(
+                  app_browser->tab_strip_model()->GetActiveWebContents()),
+              testing::IsNull());
+}
+
+IN_PROC_BROWSER_TEST_F(NavigationCapturingDataTransferBrowserTest,
+                       LeftClickNavigateExistingOpensNavigateNew) {
+  const webapps::AppId app_id = InstallTestWebApp(
+      GetDestinationUrl(),
+      blink::mojom::ManifestLaunchHandler_ClientMode::kNavigateExisting);
+
+  content::WebContents* contents = OpenStartPageInTab();
+  ASSERT_NE(nullptr, contents);
+  NavigationCompletionAwaiter nav_awaiter(contents);
+
+  Browser* app_browser = TriggerNavigationCapturingNewAppWindow(
+      contents, test::ClickMethod::kLeftClick, kToSiteBTargetBlankNoopener);
+  nav_awaiter.AwaitNavigationCompletion();
+  ASSERT_NE(nullptr, app_browser);
+  ASSERT_TRUE(nav_awaiter.GetRedirectionInfoForNavigation().has_value());
+
+  NavigationCapturingRedirectionInfo redirection_info =
+      *nav_awaiter.GetRedirectionInfoForNavigation();
+
+  // Triggered from a tab and not an app window.
+  EXPECT_FALSE(redirection_info.source_browser_app_id().has_value());
+  EXPECT_FALSE(redirection_info.source_tab_app_id().has_value());
+  EXPECT_EQ(NavigationHandlingInitialResult::kNavigateCapturedNewAppWindow,
+            redirection_info.initial_nav_handling_result());
+  EXPECT_EQ(WindowOpenDisposition::NEW_FOREGROUND_TAB,
+            redirection_info.disposition());
+  EXPECT_TRUE(redirection_info.first_navigation_app_id().has_value());
+  EXPECT_EQ(app_id, *redirection_info.first_navigation_app_id());
 
   // Post navigation, the WebContentsUserData instances should be cleaned up.
   EXPECT_THAT(GetForwarderForWebContents(
@@ -209,7 +262,7 @@ IN_PROC_BROWSER_TEST_F(NavigationCapturingDataTransferBrowserTest,
   content::WebContents* contents = OpenStartPageInTab();
   ASSERT_NE(nullptr, contents);
   NavigationCompletionAwaiter nav_awaiter(contents);
-  test::SimulateClickOnElement(contents, kToSiteATargetBlankWithOpener,
+  test::SimulateClickOnElement(contents, kToSiteATargetBlankNoopener,
                                test::ClickMethod::kLeftClick);
   nav_awaiter.AwaitNavigationCompletion();
   ASSERT_TRUE(nav_awaiter.GetRedirectionInfoForNavigation().has_value());
@@ -218,12 +271,13 @@ IN_PROC_BROWSER_TEST_F(NavigationCapturingDataTransferBrowserTest,
       *nav_awaiter.GetRedirectionInfoForNavigation();
 
   // Triggered from a tab and not an app window.
-  EXPECT_FALSE(redirection_info.app_id_initial_browser.has_value());
+  EXPECT_FALSE(redirection_info.source_browser_app_id().has_value());
+  EXPECT_FALSE(redirection_info.source_tab_app_id().has_value());
   EXPECT_EQ(NavigationHandlingInitialResult::kBrowserTab,
-            redirection_info.initial_nav_handling_result);
+            redirection_info.initial_nav_handling_result());
   EXPECT_EQ(WindowOpenDisposition::NEW_FOREGROUND_TAB,
-            redirection_info.disposition);
-  EXPECT_FALSE(redirection_info.first_navigation_app_id.has_value());
+            redirection_info.disposition());
+  EXPECT_FALSE(redirection_info.first_navigation_app_id().has_value());
 
   // Post navigation, the WebContentsUserData instances should be cleaned up.
   EXPECT_THAT(GetForwarderForWebContents(contents), testing::IsNull());
@@ -248,16 +302,17 @@ IN_PROC_BROWSER_TEST_F(NavigationCapturingDataTransferBrowserTest,
       *nav_awaiter.GetRedirectionInfoForNavigation();
 
   // Triggered from an app window for app_id_a.
-  ASSERT_TRUE(redirection_info.app_id_initial_browser.has_value());
-  EXPECT_EQ(app_id_a, *redirection_info.app_id_initial_browser);
+  ASSERT_TRUE(redirection_info.source_browser_app_id().has_value());
+  EXPECT_EQ(app_id_a, *redirection_info.source_browser_app_id());
+  EXPECT_TRUE(redirection_info.source_tab_app_id().has_value());
   // Navigation capturing only extends to left clicks creating a capturable
   // experience, and does not extend to user modified clicks like shift and
   // middle clicks.
-  EXPECT_EQ(NavigationHandlingInitialResult::kAppWindowForcedNewContext,
-            redirection_info.initial_nav_handling_result);
-  EXPECT_EQ(WindowOpenDisposition::NEW_WINDOW, redirection_info.disposition);
-  ASSERT_TRUE(redirection_info.first_navigation_app_id.has_value());
-  EXPECT_EQ(app_id_b, *redirection_info.first_navigation_app_id);
+  EXPECT_EQ(NavigationHandlingInitialResult::kForcedNewAppContextAppWindow,
+            redirection_info.initial_nav_handling_result());
+  EXPECT_EQ(WindowOpenDisposition::NEW_WINDOW, redirection_info.disposition());
+  ASSERT_TRUE(redirection_info.first_navigation_app_id().has_value());
+  EXPECT_EQ(app_id_b, *redirection_info.first_navigation_app_id());
 
   EXPECT_THAT(GetForwarderForWebContents(
                   app_browser->tab_strip_model()->GetActiveWebContents()),
@@ -282,14 +337,15 @@ IN_PROC_BROWSER_TEST_F(NavigationCapturingDataTransferBrowserTest,
       *nav_awaiter.GetRedirectionInfoForNavigation();
 
   // Triggered from an app window for app_id.
-  ASSERT_TRUE(redirection_info.app_id_initial_browser.has_value());
-  EXPECT_EQ(app_id, redirection_info.app_id_initial_browser.value());
-  EXPECT_EQ(NavigationHandlingInitialResult::kAppWindowForcedNewContext,
-            redirection_info.initial_nav_handling_result);
+  ASSERT_TRUE(redirection_info.source_browser_app_id().has_value());
+  EXPECT_EQ(app_id, redirection_info.source_browser_app_id().value());
+  EXPECT_TRUE(redirection_info.source_tab_app_id().has_value());
+  EXPECT_EQ(NavigationHandlingInitialResult::kForcedNewAppContextAppWindow,
+            redirection_info.initial_nav_handling_result());
   EXPECT_EQ(WindowOpenDisposition::NEW_BACKGROUND_TAB,
-            redirection_info.disposition);
-  ASSERT_TRUE(redirection_info.first_navigation_app_id.has_value());
-  EXPECT_EQ(app_id, *redirection_info.first_navigation_app_id);
+            redirection_info.disposition());
+  ASSERT_TRUE(redirection_info.first_navigation_app_id().has_value());
+  EXPECT_EQ(app_id, *redirection_info.first_navigation_app_id());
 
   EXPECT_THAT(GetForwarderForWebContents(
                   app_browser->tab_strip_model()->GetActiveWebContents()),
@@ -297,19 +353,34 @@ IN_PROC_BROWSER_TEST_F(NavigationCapturingDataTransferBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(NavigationCapturingDataTransferBrowserTest,
-                       AuxContentsDoNotEnqueueRedirectionInfo) {
+                       AuxContextFromTab) {
+  content::WebContents* contents = OpenStartPageInTab();
+  ASSERT_NE(nullptr, contents);
+  NavigationCompletionAwaiter nav_awaiter(contents);
+  test::SimulateClickOnElement(contents, kToSiteATargetBlankWithOpener,
+                               test::ClickMethod::kLeftClick);
+  nav_awaiter.AwaitNavigationCompletion();
+  EXPECT_FALSE(nav_awaiter.GetRedirectionInfoForNavigation().has_value());
+
+  // Post navigation, the WebContentsUserData instances should be cleaned up.
+  EXPECT_THAT(GetForwarderForWebContents(contents), testing::IsNull());
+}
+
+IN_PROC_BROWSER_TEST_F(NavigationCapturingDataTransferBrowserTest,
+                       AuxContentFromAppWindow) {
   const webapps::AppId app_id_a = InstallTestWebApp(GetStartUrl());
   const webapps::AppId app_id_b = InstallTestWebApp(GetDestinationUrl());
   content::WebContents* contents = OpenStartPageInApp(app_id_a);
   ASSERT_NE(nullptr, contents);
 
   NavigationCompletionAwaiter nav_awaiter(contents);
-  Browser* app_browser = TriggerNavigationCapturingNewAppWindow(
-      contents, test::ClickMethod::kLeftClick, kToSiteBTargetBlankWithOpener);
+  test::SimulateClickOnElement(contents, kToSiteBTargetBlankWithOpener,
+                               test::ClickMethod::kLeftClick);
   nav_awaiter.AwaitNavigationCompletion();
+  EXPECT_FALSE(nav_awaiter.GetRedirectionInfoForNavigation().has_value());
 
-  ASSERT_NE(nullptr, app_browser);
-  ASSERT_FALSE(nav_awaiter.GetRedirectionInfoForNavigation().has_value());
+  // Post navigation, the WebContentsUserData instances should be cleaned up.
+  EXPECT_THAT(GetForwarderForWebContents(contents), testing::IsNull());
 }
 
 }  // namespace

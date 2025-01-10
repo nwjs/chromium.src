@@ -11,6 +11,7 @@
 #include "chrome/browser/accessibility/accessibility_state_utils.h"
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/tabs/public/tab_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/webid/account_selection_modal_view.h"
@@ -49,11 +50,22 @@ int AccountSelectionView::GetBrandIconIdealSize(blink::mojom::RpMode rp_mode) {
 }
 
 FedCmAccountSelectionView::FedCmAccountSelectionView(
-    AccountSelectionView::Delegate* delegate)
+    AccountSelectionView::Delegate* delegate,
+    tabs::TabInterface* tab)
     : AccountSelectionView(delegate),
       content::WebContentsObserver(delegate->GetWebContents()),
-      is_web_contents_visible_(delegate->GetWebContents()->GetVisibility() ==
-                               content::Visibility::VISIBLE) {
+      tab_(tab) {
+  tab_subscriptions_.push_back(tab_->RegisterDidEnterForeground(
+      base::BindRepeating(&FedCmAccountSelectionView::TabForegrounded,
+                          weak_ptr_factory_.GetWeakPtr())));
+  tab_subscriptions_.push_back(tab_->RegisterWillEnterBackground(
+      base::BindRepeating(&FedCmAccountSelectionView::TabWillEnterBackground,
+                          weak_ptr_factory_.GetWeakPtr())));
+  tab_subscriptions_.push_back(tab_->RegisterWillDiscardContents(
+      base::BindRepeating(&FedCmAccountSelectionView::WillDiscardContents,
+                          weak_ptr_factory_.GetWeakPtr())));
+  tab_subscriptions_.push_back(tab_->RegisterWillDetach(base::BindRepeating(
+      &FedCmAccountSelectionView::WillDetach, weak_ptr_factory_.GetWeakPtr())));
 }
 
 FedCmAccountSelectionView::~FedCmAccountSelectionView() {
@@ -76,6 +88,8 @@ void FedCmAccountSelectionView::ShowDialogWidget() {
     return;
   }
   input_protector_->VisibilityChanged(true);
+  GetDialogWidget()->Show();
+  account_selection_view_->DidShowWidget();
   // An active widget would steal the focus when displayed, this would lead
   // to some unexpected consequences. e.g.
   //   1. links/buttons from the web contents area would require two clicks,
@@ -84,7 +98,18 @@ void FedCmAccountSelectionView::ShowDialogWidget() {
   //   gated by user gesture would take the focus
   // TODO(crbug.com/41482141): figure out how to address this issue without
   // causing additional problems such as obscuring other browser UIs.
-  GetDialogWidget()->Show();
+  // This temporarily resolves the Mac-only two-clicks issue by giving the focus
+  // back. For users who have turned on screen readers, until we figure out how
+  // to handle the FedCM stealing focus issue, it's better to keep it focused
+  // because otherwise it's hard for them to understand or interact with the
+  // FedCM UI.
+#if BUILDFLAG(IS_MAC)
+  // `parent()` may return nullptr in tests.
+  if (!accessibility_state_utils::IsScreenReaderEnabled() &&
+      GetDialogWidget()->parent()) {
+    GetDialogWidget()->parent()->Activate();
+  }
+#endif  // IS_MAC
 }
 
 bool FedCmAccountSelectionView::Show(
@@ -94,6 +119,11 @@ bool FedCmAccountSelectionView::Show(
     Account::SignInMode sign_in_mode,
     blink::mojom::RpMode rp_mode,
     const std::vector<IdentityRequestAccountPtr>& new_accounts) {
+  if (!tab_) {
+    delegate_->OnDismiss(DismissReason::kOther);
+    return false;
+  }
+
   // If IDP sign-in pop-up is open, we delay the showing of the accounts dialog
   // until the pop-up is destroyed.
   if (IsIdpSigninPopupOpen()) {
@@ -145,9 +175,17 @@ bool FedCmAccountSelectionView::Show(
 
   size_t returning_accounts_size =
       std::count_if(accounts.begin(), accounts.end(), [](const auto& account) {
-        return account->login_state ==
-               content::IdentityRequestAccount::LoginState::kSignIn;
+        return !account->is_filtered_out &&
+               account->login_state ==
+                   content::IdentityRequestAccount::LoginState::kSignIn;
       });
+  bool has_filtered_out_accounts = false;
+  for (const auto& account : accounts) {
+    if (account->is_filtered_out) {
+      has_filtered_out_accounts = true;
+      break;
+    }
+  }
 
   std::optional<std::u16string> idp_title =
       idp_list_.size() == 1u
@@ -253,12 +291,8 @@ bool FedCmAccountSelectionView::Show(
       }
     }
   } else if (idp_list_.size() == 1u && accounts_or_mismatches_size == 1u) {
-    if (GetDialogType() == DialogType::MODAL) {
-      state_ = State::SINGLE_ACCOUNT_PICKER;
-      account_selection_view_->ShowSingleAccountConfirmDialog(
-          *accounts_[0],
-          /*show_back_button=*/false);
-    } else if (supports_add_account) {
+    if (GetDialogType() == DialogType::BUBBLE &&
+        (supports_add_account || has_filtered_out_accounts)) {
       // The logic to support add account is in ShowMultiAccountPicker for the
       // bubble dialog.
       ShowMultiAccountPicker(accounts_, idp_list_, /*show_back_button=*/false,
@@ -304,7 +338,7 @@ bool FedCmAccountSelectionView::Show(
        *popup_window_state_ ==
            PopupWindowResult::kAccountsReceivedAndPopupNotClosedByIdp)) {
     is_modal_closed_but_accounts_fetch_pending_ = false;
-    if (is_web_contents_visible_ &&
+    if (tab_->IsInForeground() &&
         account_selection_view_->CanFitInWebContents()) {
       ShowDialogWidget();
       if (accounts_displayed_callback_) {
@@ -348,6 +382,11 @@ bool FedCmAccountSelectionView::ShowFailureDialog(
     blink::mojom::RpContext rp_context,
     blink::mojom::RpMode rp_mode,
     const content::IdentityProviderMetadata& idp_metadata) {
+  if (!tab_) {
+    delegate_->OnDismiss(DismissReason::kOther);
+    return false;
+  }
+
   state_ = State::IDP_SIGNIN_STATUS_MISMATCH;
 
   // TODO(crbug.com/41491333): Support modal dialogs for all types of FedCM
@@ -394,7 +433,7 @@ bool FedCmAccountSelectionView::ShowFailureDialog(
 
   if (create_view || is_modal_closed_but_accounts_fetch_pending_) {
     is_modal_closed_but_accounts_fetch_pending_ = false;
-    if (is_web_contents_visible_ &&
+    if (tab_->IsInForeground() &&
         account_selection_view_->CanFitInWebContents()) {
       ShowDialogWidget();
     }
@@ -412,6 +451,11 @@ bool FedCmAccountSelectionView::ShowErrorDialog(
     blink::mojom::RpMode rp_mode,
     const content::IdentityProviderMetadata& idp_metadata,
     const std::optional<TokenError>& error) {
+  if (!tab_) {
+    delegate_->OnDismiss(DismissReason::kOther);
+    return false;
+  }
+
   state_ = State::SIGN_IN_ERROR;
   notify_delegate_of_dismiss_ = true;
 
@@ -453,7 +497,7 @@ bool FedCmAccountSelectionView::ShowErrorDialog(
     input_protector_ = std::make_unique<views::InputEventActivationProtector>();
   }
 
-  if (is_web_contents_visible_ &&
+  if (tab_->IsInForeground() &&
       account_selection_view_->CanFitInWebContents()) {
     ShowDialogWidget();
   }
@@ -468,6 +512,11 @@ bool FedCmAccountSelectionView::ShowLoadingDialog(
     const std::string& idp_etld_plus_one,
     blink::mojom::RpContext rp_context,
     blink::mojom::RpMode rp_mode) {
+  if (!tab_) {
+    delegate_->OnDismiss(DismissReason::kOther);
+    return false;
+  }
+
   CHECK(rp_mode == blink::mojom::RpMode::kActive);
 
   state_ = State::LOADING;
@@ -500,7 +549,7 @@ bool FedCmAccountSelectionView::ShowLoadingDialog(
     input_protector_ = std::make_unique<views::InputEventActivationProtector>();
   }
 
-  if (create_view && is_web_contents_visible_) {
+  if (create_view && tab_->IsInForeground()) {
     ShowDialogWidget();
   }
   // Else:
@@ -534,23 +583,6 @@ std::string FedCmAccountSelectionView::GetTitle() const {
 
 std::optional<std::string> FedCmAccountSelectionView::GetSubtitle() const {
   return std::nullopt;
-}
-
-void FedCmAccountSelectionView::OnTabForegrounded() {
-  is_web_contents_visible_ = true;
-  if (!IsDialogWidgetReady()) {
-    return;
-  }
-  if (ShouldShowDialogWidget()) {
-    UpdateAndShowDialogWidget();
-  }
-}
-
-void FedCmAccountSelectionView::OnTabBackgrounded() {
-  is_web_contents_visible_ = false;
-  if (GetDialogWidget()) {
-    HideDialogWidget();
-  }
 }
 
 void FedCmAccountSelectionView::PrimaryPageChanged(content::Page& page) {
@@ -802,10 +834,9 @@ content::WebContents* FedCmAccountSelectionView::ShowModalDialog(
     }
   }
 
-  // The modal should not be dismissed if it a use other account pop-up, which
-  // can only be triggered from an account selection sheet.
-  if (GetDialogType() == DialogType::MODAL &&
-      GetSheetType() == SheetType::ACCOUNT_SELECTION) {
+  // The FedCM dialog should not be dismissed if the use other account pop-up is
+  // closed, which can only be triggered from account selection.
+  if (GetSheetType() == SheetType::ACCOUNT_SELECTION) {
     notify_delegate_of_dismiss_ = false;
     return popup_window_->ShowPopupWindow(url);
   }
@@ -865,10 +896,46 @@ void FedCmAccountSelectionView::OnChooseAnAccountClicked() {
                             true);
 }
 
+void FedCmAccountSelectionView::WillDiscardContents(
+    tabs::TabInterface* tab,
+    content::WebContents* old_contents,
+    content::WebContents* new_contents) {
+  // The lifetime of FedCmAccountSelectionView is (indirectly) scoped to the
+  // lifetime of the WebContents. If the WebContents will be destroyed, then
+  // FedCmAccountSelectionView will eventually be destroyed as well. Clear the
+  // tab and subscription to avoid doing unnecessary work.
+  tab_ = nullptr;
+  tab_subscriptions_.clear();
+  Close();
+}
+
+void FedCmAccountSelectionView::WillDetach(
+    tabs::TabInterface* tab,
+    tabs::TabInterface::DetachReason reason) {
+  // Whether we clear tab_ depends on whether the tab is going to be destroyed,
+  // or re-inserted into another window.
+  switch (reason) {
+    case tabs::TabInterface::DetachReason::kDelete:
+      tab_ = nullptr;
+      tab_subscriptions_.clear();
+      break;
+    case tabs::TabInterface::DetachReason::kInsertIntoOtherWindow:
+      break;
+  }
+  // If the tab is going to be detached from the window then we must clear all
+  // window-scoped UI.
+  Close();
+}
+
 void FedCmAccountSelectionView::OnPopupWindowDestroyed() {
   popup_window_.reset();
 
   if (!notify_delegate_of_dismiss_) {
+    if (GetSheetType() == SheetType::ACCOUNT_SELECTION &&
+        GetDialogType() == DialogType::BUBBLE && account_selection_view_ &&
+        ShouldShowDialogWidget()) {
+      ShowDialogWidget();
+    }
     return;
   }
 
@@ -1019,12 +1086,18 @@ bool FedCmAccountSelectionView::IsIdpSigninPopupOpen() {
 }
 
 void FedCmAccountSelectionView::PrimaryMainFrameWasResized(bool width_changed) {
-  if (!GetDialogWidget() || GetDialogType() == DialogType::MODAL) {
+  if (!GetDialogWidget() || !tab_) {
+    return;
+  }
+
+  // Use default dialog positioning behavior for modals.
+  if (GetDialogType() == DialogType::MODAL) {
+    account_selection_view_->UpdateDialogPosition();
     return;
   }
 
   if (account_selection_view_->CanFitInWebContents()) {
-    if (!GetDialogWidget()->IsVisible() && is_web_contents_visible_) {
+    if (!GetDialogWidget()->IsVisible() && tab_->IsInForeground()) {
       account_selection_view_->UpdateDialogPosition();
       ShowDialogWidget();
     }
@@ -1044,7 +1117,7 @@ bool FedCmAccountSelectionView::IsDialogWidgetReady() {
 bool FedCmAccountSelectionView::ShouldShowDialogWidget() {
   // TODO(crbug.com/340368623): Figure out what to do when active flow modal
   // cannot fit in web contents.
-  return is_web_contents_visible_ &&
+  return tab_ && tab_->IsInForeground() &&
          (account_selection_view_->CanFitInWebContents() ||
           GetDialogType() == DialogType::MODAL);
 }
@@ -1067,6 +1140,7 @@ void FedCmAccountSelectionView::HideDialogWidget() {
   // views::Widget from being shown during focus traversal.
   // TODO(crbug.com/40239995): fix the issue on Mac.
   GetDialogWidget()->Hide();
+  account_selection_view_->DidHideWidget();
   GetDialogWidget()->widget_delegate()->SetCanActivate(false);
   // TODO(crbug.com/331166928): This is only null in one test. Fix the test to
   // match production.
@@ -1078,6 +1152,22 @@ void FedCmAccountSelectionView::HideDialogWidget() {
 base::WeakPtr<FedCmAccountSelectionView>
 FedCmAccountSelectionView::GetWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
+}
+
+void FedCmAccountSelectionView::TabForegrounded(tabs::TabInterface* tab) {
+  if (!IsDialogWidgetReady()) {
+    return;
+  }
+  if (ShouldShowDialogWidget()) {
+    UpdateAndShowDialogWidget();
+  }
+}
+
+void FedCmAccountSelectionView::TabWillEnterBackground(
+    tabs::TabInterface* tab) {
+  if (GetDialogWidget()) {
+    HideDialogWidget();
+  }
 }
 
 void FedCmAccountSelectionView::ShowMultiAccountPicker(

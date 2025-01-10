@@ -30,20 +30,10 @@ BASE_DECLARE_FEATURE(kAutoApproveSharedPasswordUpdatesFromSameSender);
 // across quarters.
 BASE_DECLARE_FEATURE(kAutofillPasswordUserPerceptionSurvey);
 // Moves the "Use a passkey / Use a different passkey" to the context menu from
-// the autofill dropdown.
+// the autofill dropdown. This is now decoupled from
+// "PasswordManualFallbackAvailable" flag.
 BASE_DECLARE_FEATURE(kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-
-#if BUILDFLAG(IS_WIN)
-// OS authentication will use IUserConsentVerifierInterop api to trigger Windows
-// Hello authentication. This api allows us to specify explicitly to which
-// window, the OS prompt should attach.
-BASE_DECLARE_FEATURE(kAuthenticateUsingUserConsentVerifierInteropApi);
-
-// OS authentication will use UserConsentVerifier api to trigger Windows Hello
-// authentication.
-BASE_DECLARE_FEATURE(kAuthenticateUsingUserConsentVerifierApi);
-#endif  // BUILDFLAG(IS_WIN)
 
 // Enables Biometrics for the Touch To Fill feature. This only effects Android.
 BASE_DECLARE_FEATURE(kBiometricTouchToFill);
@@ -65,6 +55,17 @@ BASE_DECLARE_FEATURE(kFillOnAccountSelect);
 
 #if BUILDFLAG(IS_IOS)
 
+// Enables the clean up of hanging form extraction requests made by the
+// password suggestion helper. This is to fix the cases where the suggestions
+// pipeline is broken because the pipeline is waiting for password suggestions
+// that are never provided.
+BASE_DECLARE_FEATURE(kIosCleanupHangingPasswordFormExtractionRequests);
+
+// The feature parameter that determines the minimal period of time in
+// milliseconds before the form extraction request times out.
+extern const base::FeatureParam<int>
+    kIosPasswordFormExtractionRequestsTimeoutMs;
+
 // Enable saving username in UFF on iOS.
 BASE_DECLARE_FEATURE(kIosDetectUsernameInUff);
 
@@ -80,6 +81,9 @@ BASE_DECLARE_FEATURE(kIOSProactivePasswordGenerationBottomSheet);
 
 // Enables saving enterprise password hashes to a local state preference.
 BASE_DECLARE_FEATURE(kLocalStateEnterprisePasswordHashes);
+
+// Enables running the clientside form classifier to parse password forms.
+BASE_DECLARE_FEATURE(kPasswordFormClientsideClassifier);
 
 // Enables offering credentials for filling across grouped domains.
 BASE_DECLARE_FEATURE(kPasswordFormGroupedAffiliations);
@@ -131,7 +135,6 @@ BASE_DECLARE_FEATURE(kSkipUndecryptablePasswords);
 BASE_DECLARE_FEATURE(kTriggerPasswordResyncAfterDeletingUndecryptablePasswords);
 
 #if BUILDFLAG(IS_ANDROID)
-
 // Enables showing various warnings for password manager users not yet enrolled
 // into the new experience of storing passwords in GMSCore.
 BASE_DECLARE_FEATURE(
@@ -157,6 +160,11 @@ BASE_DECLARE_FEATURE(kBiometricAuthIdentityCheck);
 // Enables clearing the login database for the users who already migrated their
 // credentials to GMS Core.
 BASE_DECLARE_FEATURE(kClearLoginDatabaseForAllMigratedUPMUsers);
+
+// If enabled, the profile login db will no longer be renamed to account
+// login db upon UPM with split stores activation. The db is cleared on
+// the following run anyway.
+BASE_DECLARE_FEATURE(kDropLoginDbRenameForUpmSyncingUsers);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // Improves PSL matching capabilities by utilizing PSL-extension list from
@@ -187,6 +195,13 @@ BASE_DECLARE_FEATURE(kUseNewEncryptionMethod);
 
 // Enables re-encryption of all passwords. Done separately for each store.
 BASE_DECLARE_FEATURE(kEncryptAllPasswordsWithOSCryptAsync);
+
+// Marks all submitted credentials as leaked, useful for testing of a password
+// leak dialog.
+BASE_DECLARE_FEATURE(kMarkAllCredentialsAsLeaked);
+
+// Enables improvements to password change functionality.
+BASE_DECLARE_FEATURE(kImprovedPasswordChangeService);
 
 // All features parameters in alphabetical order.
 }  // namespace password_manager::features

@@ -139,10 +139,6 @@ bool BrowserParamsProxy::PublishChromeApps() const {
   return BrowserInitParams::Get()->publish_chrome_apps;
 }
 
-bool BrowserParamsProxy::PublishHostedApps() const {
-  return BrowserInitParams::Get()->publish_hosted_apps;
-}
-
 crosapi::mojom::BrowserInitParams::InitialKeepAlive
 BrowserParamsProxy::InitialKeepAlive() const {
   return BrowserInitParams::Get()->initial_keep_alive;
@@ -284,10 +280,6 @@ bool BrowserParamsProxy::IsDeskProfilesEnabled() const {
 
 bool BrowserParamsProxy::ShouldDisableChromeComposeOnChromeOS() const {
   return BrowserInitParams::Get()->should_disable_chrome_compose_on_chromeos;
-}
-
-bool BrowserParamsProxy::IsCaptivePortalPopupWindowEnabled() const {
-  return BrowserInitParams::Get()->is_captive_portal_popup_window_enabled;
 }
 
 bool BrowserParamsProxy::IsFileSystemProviderCloudFileSystemEnabled() const {

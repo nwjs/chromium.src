@@ -17,11 +17,16 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
-#include "base/version_info/channel.h"
 
 class PrefService;
 
 namespace variations {
+
+// Trial and group names for the seed file experiment.
+const char kSeedFileTrial[] = "SeedFileTrial";
+const char kDefaultGroup[] = "Default";
+const char kControlGroup[] = "Control_V3";
+const char kSeedFilesGroup[] = "SeedFiles_V3";
 
 // Handles reading and writing seeds to disk.
 class COMPONENT_EXPORT(VARIATIONS) SeedReaderWriter
@@ -29,17 +34,17 @@ class COMPONENT_EXPORT(VARIATIONS) SeedReaderWriter
  public:
   // `local_state` provides access to the local state prefs. Must not be null.
   // `seed_file_dir` denotes the directory for storing a seed file. Note that
-  // Android Webview intentionally uses an empty path as it will continue using
-  // local state to store seeds.
-  // `seed_filename` is the name of the seed file to be appended to
-  // `seed_file_dir` (see GetFilePath()). Must not be null.
-  // `channel` describes the browser's release channel.
-  // `file_task_runner` handles IO-related tasks. Must not be
-  // null.
+  // Android Webview intentionally uses an empty path as it uses only local
+  // state to store seeds.
+  // `seed_filename` is the base name of a file in which seed data is stored.
+  // `seed_pref` is a variations pref (kVariationsCompressedSeed or
+  // kVariationsSafeCompressed) denoting the type of seed handled by this
+  // SeedReaderWriter.
+  // `file_task_runner` handles IO-related tasks. Must not be null.
   SeedReaderWriter(PrefService* local_state,
                    const base::FilePath& seed_file_dir,
-                   const base::FilePath::CharType* seed_filename,
-                   const version_info::Channel channel,
+                   base::FilePath::StringPieceType seed_filename,
+                   std::string_view seed_pref,
                    scoped_refptr<base::SequencedTaskRunner> file_task_runner =
                        base::ThreadPool::CreateSequencedTaskRunner(
                            {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
@@ -50,19 +55,20 @@ class COMPONENT_EXPORT(VARIATIONS) SeedReaderWriter
 
   ~SeedReaderWriter() override;
 
-  // Schedules a write of `serialized_data` to disk. For some clients (see
-  // ShouldWriteToNewSeedStorage()), two writes are scheduled.
-  void StoreValidatedSeed(const std::string& serialized_data);
+  // Schedules a write of `base64_seed_data` to local state. For some clients
+  // (see ShouldUseSeedFile()), also schedules a write of `compressed_seed_data`
+  // to a seed file.
+  void StoreValidatedSeed(const std::string& compressed_seed_data,
+                          const std::string& base64_seed_data);
 
   // Clears seed data by overwriting it with an empty string.
   void ClearSeed();
 
+  // Returns stored seed data.
+  const std::string& GetSeedData() const;
+
   // Overrides the timer used for scheduling writes with `timer_override`.
   void SetTimerForTesting(base::OneShotTimer* timer_override);
-
-  // Returns whether or not `seed_writer_` currently has a write
-  // scheduled/pending.
-  bool HasPendingWriteForTesting() const;
 
  private:
   // Returns the serialized data to be written to disk. This is done
@@ -73,11 +79,21 @@ class COMPONENT_EXPORT(VARIATIONS) SeedReaderWriter
   // Schedules `seed_data` to be written using `seed_writer_`.
   void ScheduleSeedFileWrite(const std::string& seed_data);
 
+  // Schedules the deletion of a seed file.
+  void DeleteSeedFile();
+
+  // Reads seed data from a seed file, and if the read is successful,
+  // populates `seed_data_`. May also schedule a seed file write for
+  // some clients on the first run and for clients that are in the seed
+  // file experiment's treatment group for the first time.
+  void ReadSeedFile();
+
   // Pref service used to persist seeds.
   raw_ptr<PrefService> local_state_;
 
-  // Channel the client is apart of.
-  const version_info::Channel channel_;
+  // A variations pref (kVariationsCompressedSeed or kVariationsSafeCompressed)
+  // denoting the type of seed handled by this SeedReaderWriter.
+  std::string_view seed_pref_;
 
   // Task runner for IO-related operations.
   const scoped_refptr<base::SequencedTaskRunner> file_task_runner_;
@@ -85,7 +101,8 @@ class COMPONENT_EXPORT(VARIATIONS) SeedReaderWriter
   // Helper for safely writing a seed. Null if a seed file path is not given.
   std::unique_ptr<base::ImportantFileWriter> seed_writer_;
 
-  // The compressed seed data.
+  // The compressed seed data. Used to store a seed applied during field trial
+  // setup or a seed fetched from a variations server.
   std::string seed_data_;
 
   SEQUENCE_CHECKER(sequence_checker_);

@@ -42,6 +42,7 @@
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_password_coordinator.h"
 #import "ios/chrome/browser/autofill/ui_bundled/progress_dialog/autofill_progress_dialog_coordinator.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/home/bookmarks_coordinator.h"
+#import "ios/chrome/browser/browser_container/edit_menu_builder.h"
 #import "ios/chrome/browser/browser_view/ui_bundled/browser_coordinator+Testing.h"
 #import "ios/chrome/browser/browser_view/ui_bundled/browser_view_controller+private.h"
 #import "ios/chrome/browser/browser_view/ui_bundled/browser_view_controller.h"
@@ -126,6 +127,7 @@
 #import "ios/chrome/browser/prerender/model/preload_controller_delegate.h"
 #import "ios/chrome/browser/prerender/model/prerender_service.h"
 #import "ios/chrome/browser/prerender/model/prerender_service_factory.h"
+#import "ios/chrome/browser/print/coordinator/print_coordinator.h"
 #import "ios/chrome/browser/promos_manager/model/features.h"
 #import "ios/chrome/browser/qr_scanner/ui_bundled/qr_scanner_legacy_coordinator.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
@@ -221,7 +223,6 @@
 #import "ios/chrome/browser/ui/popup_menu/popup_menu_coordinator.h"
 #import "ios/chrome/browser/ui/presenters/vertical_animation_container.h"
 #import "ios/chrome/browser/ui/price_notifications/price_notifications_view_coordinator.h"
-#import "ios/chrome/browser/ui/print/print_coordinator.h"
 #import "ios/chrome/browser/ui/promos_manager/promos_manager_coordinator.h"
 #import "ios/chrome/browser/ui/reading_list/reading_list_coordinator.h"
 #import "ios/chrome/browser/ui/reading_list/reading_list_coordinator_delegate.h"
@@ -309,6 +310,7 @@ enum class ToolbarKind {
     DefaultBrowserGenericPromoCommands,
     DefaultPromoNonModalPresentationDelegate,
     DriveFilePickerCommands,
+    EditMenuBuilder,
     EnterprisePromptCoordinatorDelegate,
     FormInputAccessoryCoordinatorNavigator,
     MiniMapCommands,
@@ -1609,6 +1611,7 @@ enum class ToolbarKind {
   tabLifecycleMediator.snapshotGeneratorDelegate = self;
   tabLifecycleMediator.overscrollActionsDelegate = self;
   tabLifecycleMediator.appLauncherBrowserPresentationProvider = self;
+  tabLifecycleMediator.editMenuBuilder = self;
 
   self.tabLifecycleMediator = tabLifecycleMediator;
 }
@@ -2913,7 +2916,7 @@ enum class ToolbarKind {
 
 - (void)showTrackingForParcels:(NSArray<CustomTextCheckingResult*>*)parcels {
   commerce::ShoppingService* shoppingService =
-      commerce::ShoppingServiceFactory::GetForBrowserState(
+      commerce::ShoppingServiceFactory::GetForProfile(
           self.browser->GetProfile());
   if (!shoppingService) {
     return;
@@ -2928,7 +2931,7 @@ enum class ToolbarKind {
 - (void)showTrackingForFilteredParcels:
     (NSArray<CustomTextCheckingResult*>*)parcels {
   commerce::ShoppingService* shoppingService =
-      commerce::ShoppingServiceFactory::GetForBrowserState(
+      commerce::ShoppingServiceFactory::GetForProfile(
           self.browser->GetProfile());
   if (!shoppingService) {
     return;
@@ -2949,7 +2952,7 @@ enum class ToolbarKind {
     return;
   }
   ProfileIOS* profile = self.browser->GetProfile();
-  if (!commerce::ShoppingServiceFactory::GetForBrowserState(profile)
+  if (!commerce::ShoppingServiceFactory::GetForProfile(profile)
            ->IsParcelTrackingEligible()) {
     return;
   }
@@ -2992,7 +2995,7 @@ enum class ToolbarKind {
         return;
       }
       commerce::ShoppingService* shoppingService =
-          commerce::ShoppingServiceFactory::GetForBrowserState(
+          commerce::ShoppingServiceFactory::GetForProfile(
               ProfileIOS::FromBrowserState(activeWebState->GetBrowserState()));
       // Track parcels and display infobar if successful.
       TrackParcels(
@@ -3058,6 +3061,7 @@ enum class ToolbarKind {
 - (void)showPasswordSuggestion:(NSString*)passwordSuggestion
                      proactive:(BOOL)proactive
                       webState:(web::WebState*)webState
+                         frame:(base::WeakPtr<web::WebFrame>)frame
                decisionHandler:(void (^)(BOOL accept))decisionHandler {
   // Do not present the bottom sheet if the calling web state does not match the
   // active web state in order to stop the bottom sheet from showing in a tab
@@ -3075,6 +3079,7 @@ enum class ToolbarKind {
       initWithBaseViewController:self.viewController
                          browser:self.browser
               passwordSuggestion:passwordSuggestion
+                           frame:frame
                  decisionHandler:decisionHandler
                        proactive:proactive];
   self.passwordSuggestionCoordinator.delegate = self;
@@ -3252,6 +3257,13 @@ enum class ToolbarKind {
                                  completion:(void (^)())completion {
   [self.nonModalPromoCoordinator dismissInfobarBannerAnimated:animated
                                                    completion:completion];
+}
+
+#pragma mark - EditMenuBuilder
+
+- (void)buildEditMenuWithBuilder:(id<UIMenuBuilder>)builder {
+  return [self.browserContainerCoordinator.editMenuBuilder
+      buildEditMenuWithBuilder:builder];
 }
 
 #pragma mark - EnterprisePromptCoordinatorDelegate
@@ -3460,9 +3472,9 @@ enum class ToolbarKind {
   LensOverlayTabHelper* lensOverlayTabHelper =
       LensOverlayTabHelper::FromWebState(webState);
 
-  BOOL webStateHasLensOverlay = IsLensOverlayAvailable() &&
-                                lensOverlayTabHelper &&
-                                lensOverlayTabHelper->IsLensOverlayShown();
+  BOOL webStateHasLensOverlay =
+      IsLensOverlayAvailable() && lensOverlayTabHelper &&
+      lensOverlayTabHelper->IsLensOverlayUIAttachedAndAlive();
 
   NSMutableArray<UIView*>* overlays = [NSMutableArray array];
 
@@ -3904,9 +3916,9 @@ enum class ToolbarKind {
 
   SceneState* sceneState = self.browser->GetSceneState();
   _quickDeleteCoordinator = [[QuickDeleteCoordinator alloc]
-          initWithBaseViewController:
-              top_view_controller::TopPresentedViewControllerFrom(
-                  sceneState.window.rootViewController)
+          initWithBaseViewController:top_view_controller::
+                                         TopPresentedViewControllerFrom(
+                                             sceneState.rootViewController)
                              browser:self.browser
       canPerformTabsClosureAnimation:canPerformTabsClosureAnimation];
   [_quickDeleteCoordinator start];

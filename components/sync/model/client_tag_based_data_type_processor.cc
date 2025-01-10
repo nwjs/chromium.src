@@ -1291,9 +1291,8 @@ void ClientTagBasedDataTypeProcessor::HasUnsyncedData(
 
 void ClientTagBasedDataTypeProcessor::GetAllNodesForDebugging(
     AllNodesCallback callback) {
-  if (!bridge_) {
-    return;
-  }
+  CHECK(bridge_);
+  CHECK(model_ready_to_sync_);
 
   std::unique_ptr<DataBatch> batch = bridge_->GetAllDataForDebugging();
   if (!batch) {
@@ -1384,10 +1383,6 @@ bool ClientTagBasedDataTypeProcessor::ClearPersistedMetadataIfInvalid(
   if (!IsInitialSyncAtLeastPartiallyDone(
           data_type_state.initial_sync_state()) &&
       !metadata_map.empty()) {
-    base::UmaHistogramEnumeration(
-        "Sync.DataTypeEntityMetadataWithoutInitialSync",
-        DataTypeHistogramValue(type_));
-
     ClearAllProvidedMetadataAndResetState(metadata_map);
     // Not having `entity_tracker_` results in doing the initial sync again.
     CHECK(!entity_tracker_);

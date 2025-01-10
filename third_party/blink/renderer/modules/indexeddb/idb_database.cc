@@ -602,8 +602,9 @@ void IDBDatabase::GetAll(int64_t transaction_id,
                          int64_t object_store_id,
                          int64_t index_id,
                          const IDBKeyRange* key_range,
+                         mojom::blink::IDBGetAllResultType result_type,
                          int64_t max_count,
-                         bool key_only,
+                         mojom::blink::IDBCursorDirection direction,
                          IDBRequest* request) {
   IDBCursor::ResetCursorPrefetchCaches(transaction_id, nullptr);
 
@@ -611,9 +612,9 @@ void IDBDatabase::GetAll(int64_t transaction_id,
       mojom::blink::IDBKeyRange::From(key_range);
   database_remote_->GetAll(
       transaction_id, object_store_id, index_id, std::move(key_range_ptr),
-      key_only, max_count,
+      result_type, max_count, direction,
       WTF::BindOnce(&IDBRequest::OnGetAll, WrapWeakPersistent(request),
-                    key_only));
+                    result_type));
 }
 
 void IDBDatabase::SetIndexKeys(int64_t transaction_id,
@@ -741,6 +742,7 @@ void IDBDatabase::OnSchedulerLifecycleStateChanged(
   if (new_priority == scheduling_priority_) {
     return;
   }
+  scheduling_priority_ = new_priority;
   if (database_remote_) {
     database_remote_->UpdatePriority(scheduling_priority_);
   }

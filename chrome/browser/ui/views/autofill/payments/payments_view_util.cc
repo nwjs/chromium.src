@@ -150,106 +150,93 @@ gfx::Size TitleWithIconAfterLabelView::GetMinimumSize() const {
 BEGIN_METADATA(TitleWithIconAfterLabelView)
 END_METADATA
 
-LegalMessageView::LegalMessageView(const LegalMessageLines& legal_message_lines,
-                                   const std::u16string& user_email,
-                                   const ui::ImageModel& user_avatar,
-                                   LinkClickedCallback callback) {
-  SetOrientation(views::BoxLayout::Orientation::kVertical);
-  SetBetweenChildSpacing(ChromeLayoutProvider::Get()->GetDistanceMetric(
-      DISTANCE_RELATED_CONTROL_VERTICAL_SMALL));
+PaymentsUiClosedReason GetPaymentsUiClosedReasonFromWidget(
+    const views::Widget* widget) {
+  DCHECK(widget);
+  if (!widget->IsClosed()) {
+    return PaymentsUiClosedReason::kUnknown;
+  }
+
+  switch (widget->closed_reason()) {
+    case views::Widget::ClosedReason::kUnspecified:
+      return PaymentsUiClosedReason::kNotInteracted;
+    case views::Widget::ClosedReason::kEscKeyPressed:
+    case views::Widget::ClosedReason::kCloseButtonClicked:
+      return PaymentsUiClosedReason::kClosed;
+    case views::Widget::ClosedReason::kLostFocus:
+      return PaymentsUiClosedReason::kLostFocus;
+    case views::Widget::ClosedReason::kAcceptButtonClicked:
+      return PaymentsUiClosedReason::kAccepted;
+    case views::Widget::ClosedReason::kCancelButtonClicked:
+      return PaymentsUiClosedReason::kCancelled;
+  }
+}
+
+std::unique_ptr<views::View> CreateLegalMessageView(
+    const LegalMessageLines& legal_message_lines,
+    const std::u16string& user_email,
+    const ui::ImageModel& user_avatar,
+    base::RepeatingCallback<void(const GURL&)> callback) {
+  auto result = views::Builder<views::BoxLayoutView>()
+                    .SetOrientation(views::BoxLayout::Orientation::kVertical)
+                    .SetBetweenChildSpacing(
+                        ChromeLayoutProvider::Get()->GetDistanceMetric(
+                            DISTANCE_RELATED_CONTROL_VERTICAL_SMALL))
+                    .Build();
   for (const LegalMessageLine& line : legal_message_lines) {
-    views::StyledLabel* label =
-        AddChildView(std::make_unique<views::StyledLabel>());
-    label->SetText(line.text());
-    label->SetTextContext(CONTEXT_DIALOG_BODY_TEXT_SMALL);
-    label->SetDefaultTextStyle(views::style::STYLE_SECONDARY);
+    auto label = views::Builder<views::StyledLabel>()
+                     .SetText(line.text())
+                     .SetTextContext(CONTEXT_DIALOG_BODY_TEXT_SMALL)
+                     .SetDefaultTextStyle(views::style::STYLE_SECONDARY)
+                     .Build();
     for (const LegalMessageLine::Link& link : line.links()) {
       label->AddStyleRange(link.range,
                            views::StyledLabel::RangeStyleInfo::CreateForLink(
                                base::BindRepeating(callback, link.url)));
     }
+    result->AddChildView(std::move(label));
   }
 
   if (user_email.empty() || user_avatar.IsEmpty()) {
-    return;
+    return result;
   }
 
   // Extra child view for user identity information including the avatar and
   // the email.
-  views::View* user_info_view = AddChildView(std::make_unique<views::View>());
-
-  auto* const user_label_layout =
-      user_info_view->SetLayoutManager(std::make_unique<views::BoxLayout>(
-          views::BoxLayout::Orientation::kHorizontal));
-  user_label_layout->set_between_child_spacing(
-      ChromeLayoutProvider::Get()->GetDistanceMetric(
-          DISTANCE_RELATED_CONTROL_HORIZONTAL_SMALL));
-
-  user_info_view->AddChildView(std::make_unique<views::ImageView>(user_avatar));
-
-  views::Label* email_label =
-      user_info_view->AddChildView(std::make_unique<views::Label>());
-  email_label->SetText(user_email);
-  email_label->SetTextContext(CONTEXT_DIALOG_BODY_TEXT_SMALL);
-  email_label->SetTextStyle(views::style::STYLE_SECONDARY);
-
-  user_info_view->SetID(DialogViewId::USER_INFORMATION_VIEW);
+  result->AddChildView(
+      views::Builder<views::BoxLayoutView>()
+          .SetOrientation(views::BoxLayout::Orientation::kHorizontal)
+          .SetBetweenChildSpacing(
+              ChromeLayoutProvider::Get()->GetDistanceMetric(
+                  DISTANCE_RELATED_CONTROL_HORIZONTAL_SMALL))
+          .SetID(DialogViewId::USER_INFORMATION_VIEW)
+          .AddChildren(views::Builder<views::ImageView>().SetImage(user_avatar),
+                       views::Builder<views::Label>()
+                           .SetText(user_email)
+                           .SetTextContext(CONTEXT_DIALOG_BODY_TEXT_SMALL)
+                           .SetTextStyle(views::style::STYLE_SECONDARY))
+          .Build());
+  return result;
 }
 
-LegalMessageView::~LegalMessageView() = default;
-
-BEGIN_METADATA(LegalMessageView)
-END_METADATA
-
-PaymentsBubbleClosedReason GetPaymentsBubbleClosedReasonFromWidget(
-    const views::Widget* widget) {
-  DCHECK(widget);
-  if (!widget->IsClosed()) {
-    return PaymentsBubbleClosedReason::kUnknown;
-  }
-
-  switch (widget->closed_reason()) {
-    case views::Widget::ClosedReason::kUnspecified:
-      return PaymentsBubbleClosedReason::kNotInteracted;
-    case views::Widget::ClosedReason::kEscKeyPressed:
-    case views::Widget::ClosedReason::kCloseButtonClicked:
-      return PaymentsBubbleClosedReason::kClosed;
-    case views::Widget::ClosedReason::kLostFocus:
-      return PaymentsBubbleClosedReason::kLostFocus;
-    case views::Widget::ClosedReason::kAcceptButtonClicked:
-      return PaymentsBubbleClosedReason::kAccepted;
-    case views::Widget::ClosedReason::kCancelButtonClicked:
-      return PaymentsBubbleClosedReason::kCancelled;
-  }
-}
-
-ProgressBarWithTextView::ProgressBarWithTextView(
+std::unique_ptr<views::View> CreateProgressBarWithTextView(
     const std::u16string& progress_bar_text) {
-  SetOrientation(views::BoxLayout::Orientation::kVertical);
-  SetBetweenChildSpacing(ChromeLayoutProvider::Get()->GetDistanceMetric(
-      views::DISTANCE_RELATED_CONTROL_VERTICAL));
-  SetCrossAxisAlignment(views::BoxLayout::CrossAxisAlignment::kCenter);
-  progress_throbber_ = AddChildView(std::make_unique<views::Throbber>());
-  progress_label_ =
-      AddChildView(std::make_unique<views::Label>(progress_bar_text));
+  views::Throbber* throbber = nullptr;
+  auto result =
+      views::Builder<views::BoxLayoutView>()
+          .SetOrientation(views::BoxLayout::Orientation::kVertical)
+          .SetBetweenChildSpacing(
+              ChromeLayoutProvider::Get()->GetDistanceMetric(
+                  views::DISTANCE_RELATED_CONTROL_VERTICAL))
+          .SetCrossAxisAlignment(views::BoxLayout::CrossAxisAlignment::kCenter)
+          .AddChildren(
+              views::Builder<views::Throbber>().CopyAddressTo(&throbber),
+              views::Builder<views::Label>()
+                  .SetText(progress_bar_text)
+                  .SetEnabledColorId(ui::kColorThrobber))
+          .Build();
+  throbber->Start();
+  return result;
 }
-
-ProgressBarWithTextView::~ProgressBarWithTextView() = default;
-
-void ProgressBarWithTextView::OnThemeChanged() {
-  views::View::OnThemeChanged();
-
-  // We need to ensure |progress_label_|'s color matches the color of the
-  // throbber above it.
-  progress_label_->SetEnabledColor(
-      GetColorProvider()->GetColor(ui::kColorThrobber));
-}
-
-void ProgressBarWithTextView::AddedToWidget() {
-  progress_throbber_->Start();
-}
-
-BEGIN_METADATA(ProgressBarWithTextView)
-END_METADATA
 
 }  // namespace autofill

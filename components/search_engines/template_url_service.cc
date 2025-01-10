@@ -46,7 +46,7 @@
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
 #include "components/search_engines/choice_made_location.h"
-#include "components/search_engines/enterprise/enterprise_site_search_manager.h"
+#include "components/search_engines/enterprise/enterprise_search_manager.h"
 #include "components/search_engines/keyword_web_data_service.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_service.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
@@ -154,28 +154,6 @@ void PruneSyncChanges(const SyncDataMap* sync_data,
 // |initial_sync_data| parameter.
 bool IsFromSync(const TemplateURL* turl, const SyncDataMap& sync_data) {
   return base::Contains(sync_data, turl->sync_guid());
-}
-
-// Log the number of instances of a keyword that exist, with zero or more
-// underscores, which could occur as the result of conflict resolution.
-void LogDuplicatesHistogram(
-    const TemplateURLService::TemplateURLVector& template_urls) {
-  std::map<std::u16string, int> duplicates;
-  for (auto it = template_urls.begin(); it != template_urls.end(); ++it) {
-    std::u16string keyword = (*it)->keyword();
-    base::TrimString(keyword, u"_", &keyword);
-    duplicates[keyword]++;
-  }
-
-  // Count the keywords with duplicates.
-  int num_dupes = 0;
-  for (std::map<std::u16string, int>::const_iterator it = duplicates.begin();
-       it != duplicates.end(); ++it) {
-    if (it->second > 1)
-      num_dupes++;
-  }
-
-  UMA_HISTOGRAM_COUNTS_100("Search.SearchEngineDuplicateCounts", num_dupes);
 }
 
 bool Contains(TemplateURLService::OwnedTemplateURLVector* template_urls,
@@ -413,7 +391,7 @@ TemplateURLService::TemplateURLService(
           for_lacros_main_profile
 #endif  //  BUILDFLAG(IS_CHROMEOS_LACROS)
           ),
-      enterprise_site_search_manager_(GetEnterpriseSiteSearchManager(&prefs)) {
+      enterprise_site_search_manager_(GetEnterpriseSearchManager(&prefs)) {
   DCHECK(search_terms_data_);
   Init();
 }
@@ -542,7 +520,8 @@ bool TemplateURLService::HiddenFromLists(const TemplateURL* t_url) const {
     case TemplateURLData::CreatedByPolicy::kDefaultSearchProvider:
       return false;
 
-    case TemplateURLData::CreatedByPolicy::kSiteSearch: {
+    case TemplateURLData::CreatedByPolicy::kSiteSearch:
+    case TemplateURLData::CreatedByPolicy::kSearchAggregator: {
       // Always show featured Enterprise site search engines.
       if (t_url->featured_by_policy()) {
         return false;
@@ -564,8 +543,10 @@ bool TemplateURLService::HiddenFromLists(const TemplateURL* t_url) const {
       const TemplateURL* t_url_with_at =
           GetTemplateURLForKeyword(u"@" + t_url->keyword());
       return t_url_with_at &&
-             t_url_with_at->created_by_policy() ==
-                 TemplateURLData::CreatedByPolicy::kSiteSearch &&
+             (t_url_with_at->created_by_policy() ==
+                  TemplateURLData::CreatedByPolicy::kSiteSearch ||
+              t_url_with_at->created_by_policy() ==
+                  TemplateURLData::CreatedByPolicy::kSearchAggregator) &&
              t_url_with_at->featured_by_policy();
     }
   }
@@ -1495,6 +1476,21 @@ void TemplateURLService::OnWebDataServiceRequestDone(
       base::UmaHistogramEnumeration(
           "Search.DefaultSearchProviderType2.SetByEnterprisePolicy",
           engine_type, SEARCH_ENGINE_MAX);
+    } else if (default_search_provider_source_ ==
+               DefaultSearchManager::FROM_EXTENSION) {
+      base::UmaHistogramEnumeration(
+          "Search.DefaultSearchProviderType2.SetByExtension", engine_type,
+          SEARCH_ENGINE_MAX);
+    } else if (default_search_provider_source_ ==
+               DefaultSearchManager::FROM_USER) {
+      base::UmaHistogramEnumeration(
+          "Search.DefaultSearchProviderType2.SetByUser", engine_type,
+          SEARCH_ENGINE_MAX);
+    } else if (default_search_provider_source_ ==
+               DefaultSearchManager::FROM_FALLBACK) {
+      base::UmaHistogramEnumeration(
+          "Search.DefaultSearchProviderType2.Fallback", engine_type,
+          SEARCH_ENGINE_MAX);
     }
   }
 }
@@ -1784,7 +1780,6 @@ std::optional<syncer::ModelError> TemplateURLService::MergeDataAndStartSyncing(
   // valid changes to sync_processor_.
   PruneSyncChanges(&sync_data_map, &new_changes);
 
-  LogDuplicatesHistogram(GetTemplateURLs());
   std::optional<syncer::ModelError> error =
       sync_processor_->ProcessSyncChanges(FROM_HERE, new_changes);
   if (!error.has_value()) {
@@ -2205,10 +2200,8 @@ void TemplateURLService::ChangeToLoadedState() {
           ? &pre_loading_providers_->default_search_provider()->data()
           : nullptr,
       default_search_provider_source_);
-  if (base::FeatureList::IsEnabled(omnibox::kSiteSearchSettingsPolicy)) {
-    ApplyEnterpriseSiteSearchChanges(
-        pre_loading_providers_->TakeSiteSearchEngines());
-  }
+  ApplyEnterpriseSiteSearchChanges(
+      pre_loading_providers_->TakeSiteSearchEngines());
   pre_loading_providers_.reset();
 
   if (on_loaded_callback_for_sync_)
@@ -3066,16 +3059,14 @@ bool TemplateURLService::MatchesDefaultSearchProvider(TemplateURL* turl) const {
   return turl->sync_guid() == default_provider->sync_guid();
 }
 
-std::unique_ptr<EnterpriseSiteSearchManager>
-TemplateURLService::GetEnterpriseSiteSearchManager(PrefService* prefs) {
+std::unique_ptr<EnterpriseSearchManager>
+TemplateURLService::GetEnterpriseSearchManager(PrefService* prefs) {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
-  return base::FeatureList::IsEnabled(omnibox::kSiteSearchSettingsPolicy)
-             ? std::make_unique<EnterpriseSiteSearchManager>(
-                   prefs, base::BindRepeating(
-                              &TemplateURLService::EnterpriseSiteSearchChanged,
-                              base::Unretained(this)))
-             : nullptr;
+  return std::make_unique<EnterpriseSearchManager>(
+      prefs,
+      base::BindRepeating(&TemplateURLService::EnterpriseSiteSearchChanged,
+                          base::Unretained(this)));
 #else
   return nullptr;
 #endif

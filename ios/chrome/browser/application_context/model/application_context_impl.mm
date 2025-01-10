@@ -215,7 +215,16 @@ void ApplicationContextImpl::StartTearDown() {
     safe_browsing_service_->ShutDown();
   }
 
-  // Need to clear profiles before the IO thread.
+  // Need to clear profiles before the IO thread. In detail:
+  // - First destroy the profiles, including their keyed services, which may
+  //   depend on the AccountProfileMapper.
+  // - Then destroy the AccountProfileMapper, which depends on the
+  //   ProfileManagerIOS.
+  // - Finally destroy the ProfileManagerIOS.
+  if (profile_manager_) {
+    profile_manager_->DestroyAllProfiles();
+  }
+  account_profile_mapper_.reset();
   profile_manager_.reset();
 
   // The policy providers managed by `browser_policy_connector_` need to shut
@@ -268,7 +277,21 @@ void ApplicationContextImpl::OnAppEnterBackground() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(!tearing_down_);
 
-  OnAppEnterState(AppState::kBackground);
+  OnAppEnterState(AppState::kBackgroundFromActive);
+}
+
+void ApplicationContextImpl::OnAppStartedBackgroundProcessing() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK(!tearing_down_);
+
+  OnAppEnterState(AppState::kBackgroundProcessing);
+}
+
+void ApplicationContextImpl::OnAppFinishedBackgroundProcessing() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK(!tearing_down_);
+
+  OnAppEnterState(AppState::kBackgroundIdle);
 }
 
 bool ApplicationContextImpl::WasLastShutdownClean() {
@@ -588,7 +611,18 @@ void ApplicationContextImpl::OnAppEnterState(AppState app_state) {
           metrics_service->OnAppEnterForeground();
           break;
 
-        case AppState::kBackground:
+        case AppState::kBackgroundFromActive:
+          metrics_service->OnAppEnterBackground();
+          break;
+        case AppState::kBackgroundProcessing:
+          // Background processing should be tracked in metrcis, including
+          // specifically the clean exit beacon, as if it were foreground.
+          metrics_service->OnAppEnterForeground();
+          break;
+        case AppState::kBackgroundIdle:
+          // When background processing is complete, this state should be
+          // treated like normal backgrounding, including specifically the
+          // clean exit beacon.
           metrics_service->OnAppEnterBackground();
           break;
       }
@@ -601,7 +635,9 @@ void ApplicationContextImpl::OnAppEnterState(AppState app_state) {
           variations_service->OnAppEnterForeground();
           break;
 
-        case AppState::kBackground:
+        case AppState::kBackgroundFromActive:
+        case AppState::kBackgroundProcessing:
+        case AppState::kBackgroundIdle:
           // Nothing to do for VariationsService when entering background.
           break;
       }
@@ -614,8 +650,11 @@ void ApplicationContextImpl::OnAppEnterState(AppState app_state) {
           ukm_service->OnAppEnterForeground();
           break;
 
-        case AppState::kBackground:
+        case AppState::kBackgroundFromActive:
           ukm_service->OnAppEnterBackground();
+          break;
+        case AppState::kBackgroundProcessing:
+        case AppState::kBackgroundIdle:
           break;
       }
     }
@@ -631,12 +670,15 @@ void ApplicationContextImpl::OnAppEnterState(AppState app_state) {
           // Nothing extra to do when entering foreground.
           break;
 
-        case AppState::kBackground:
+        case AppState::kBackgroundFromActive:
           if (history::HistoryService* history_service =
                   ios::HistoryServiceFactory::GetForProfileIfExists(
                       profile, ServiceAccessType::EXPLICIT_ACCESS)) {
             history_service->HandleBackgrounding();
           }
+          break;
+        case AppState::kBackgroundProcessing:
+        case AppState::kBackgroundIdle:
           break;
       }
 

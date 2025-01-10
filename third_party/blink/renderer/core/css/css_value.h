@@ -43,6 +43,7 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
   static CSSValue* Create(const Length& value, float zoom);
 
   WTF::String CssText() const;
+  unsigned Hash() const;
 
   bool IsNumericLiteralValue() const {
     return class_type_ == kNumericLiteralClass;
@@ -179,6 +180,9 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
   bool IsGridIntegerRepeatValue() const {
     return class_type_ == kGridIntegerRepeatClass;
   }
+  bool IsGridRepeatValue() const {
+    return IsGridAutoRepeatValue() || IsGridIntegerRepeatValue();
+  }
   bool IsPendingSubstitutionValue() const {
     return class_type_ == kPendingSubstitutionValueClass;
   }
@@ -203,9 +207,6 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
   }
   bool IsLightDarkValuePair() const {
     return class_type_ == kLightDarkValuePairClass;
-  }
-  bool IsAppearanceAutoBaseSelectValuePair() const {
-    return class_type_ == kAppearanceAutoBaseSelectValuePairClass;
   }
 
   bool IsScrollValue() const { return class_type_ == kScrollClass; }
@@ -264,7 +265,6 @@ class CORE_EXPORT CSSValue : public GarbageCollected<CSSValue> {
     kURIClass,
     kValuePairClass,
     kLightDarkValuePairClass,
-    kAppearanceAutoBaseSelectValuePairClass,
     kScrollClass,
     kViewClass,
     kRatioClass,

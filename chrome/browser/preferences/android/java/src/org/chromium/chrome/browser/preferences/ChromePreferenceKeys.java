@@ -10,7 +10,6 @@ import static org.chromium.components.browser_ui.site_settings.SingleCategorySet
 
 import org.chromium.base.shared_preferences.KeyPrefix;
 import org.chromium.build.annotations.CheckDiscard;
-import org.chromium.components.browser_ui.accessibility.AccessibilityConstants;
 
 import java.util.Arrays;
 import java.util.List;
@@ -193,6 +192,9 @@ public final class ChromePreferenceKeys {
     /** Uri of the last launched CCT. */
     public static final String CUSTOM_TABS_LAST_URL = "pref_last_custom_tab_url";
 
+    public static final String CUSTOM_TABS_MISMATCH_NOTICE_SUPPRESSION_PERIOD_START =
+            "Chrome.CustomTabs.MismatchNoticeSuppressionPeriodStart";
+
     /** Keys used to save whether it is ready to promo. */
     public static final String DEFAULT_BROWSER_PROMO_SESSION_COUNT =
             "Chrome.DefaultBrowserPromo.SessionCount";
@@ -252,11 +254,6 @@ public final class ChromePreferenceKeys {
     /** See CachedFeatureFlags.getLastCachedMinimalBrowserFlagsTimeMillis(). */
     public static final String FLAGS_LAST_CACHED_MINIMAL_BROWSER_FLAGS_TIME_MILLIS =
             "Chrome.Flags.LastCachedMinimalBrowserFlagsTimeMillis";
-
-    public static final String FONT_USER_FONT_SCALE_FACTOR =
-            AccessibilityConstants.FONT_USER_FONT_SCALE_FACTOR;
-    public static final String FONT_USER_SET_FORCE_ENABLE_ZOOM =
-            AccessibilityConstants.FONT_USER_SET_FORCE_ENABLE_ZOOM;
 
     public static final String HISTORY_SHOW_HISTORY_INFO = "history_home_show_info";
 
@@ -941,6 +938,7 @@ public final class ChromePreferenceKeys {
                 CUSTOM_TABS_LAST_CLOSE_TIMESTAMP,
                 CUSTOM_TABS_LAST_REFERRER,
                 CUSTOM_TABS_LAST_TASK_ID,
+                CUSTOM_TABS_MISMATCH_NOTICE_SUPPRESSION_PERIOD_START,
                 DEFAULT_BROWSER_PROMO_LAST_DEFAULT_STATE,
                 DEFAULT_BROWSER_PROMO_LAST_SESSION_COUNT,
                 DEFAULT_BROWSER_PROMO_LAST_PROMO_TIME,

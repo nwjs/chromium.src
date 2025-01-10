@@ -8,7 +8,6 @@ import android.app.Activity;
 
 import androidx.annotation.Nullable;
 
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.offlinepages.DownloadUiActionFlags;
@@ -18,6 +17,7 @@ import org.chromium.chrome.browser.preloading.AndroidPrerenderManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tabmodel.TabGroupFeatureUtils;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.document.ChromeAsyncTabLauncher;
@@ -106,9 +106,8 @@ public class NativePageNavigationDelegateImpl implements NativePageNavigationDel
                         TabLaunchType.FROM_LONGPRESS_BACKGROUND_IN_GROUP,
                         mTab,
                         /* incognito= */ false);
-        if (ChromeFeatureList.sTabGroupParityAndroid.isEnabled()
-                && willMergingCreateNewGroup
-                && !TabGroupCreationDialogManager.shouldSkipGroupCreationDialog(
+        if (willMergingCreateNewGroup
+                && !TabGroupFeatureUtils.shouldSkipGroupCreationDialog(
                         /* shouldShow= */ false)) {
             mTabGroupCreationDialogManager.showDialog(mTab.getRootId(), filter);
         }

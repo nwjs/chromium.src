@@ -8,7 +8,6 @@
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
-#include "chrome/browser/profiles/batch_upload/batch_upload_controller.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/browser.h"
@@ -107,11 +106,11 @@ BatchUploadDialogView::~BatchUploadDialogView() {
 BatchUploadDialogView* BatchUploadDialogView::CreateBatchUploadDialogView(
     Browser& browser,
     std::vector<syncer::LocalDataDescription> local_data_description_list,
+    BatchUploadService::EntryPoint entry_point,
     BatchUploadSelectedDataTypeItemsCallback complete_callback) {
-  std::unique_ptr<BatchUploadDialogView> dialog_view =
-      base::WrapUnique(new BatchUploadDialogView(
-          browser.profile(), std::move(local_data_description_list),
-          std::move(complete_callback)));
+  std::unique_ptr<BatchUploadDialogView> dialog_view = base::WrapUnique(
+      new BatchUploadDialogView(browser, std::move(local_data_description_list),
+                                entry_point, std::move(complete_callback)));
   BatchUploadDialogView* dialog_view_ptr = dialog_view.get();
 
   gfx::NativeWindow window = browser.tab_strip_model()
@@ -124,10 +123,12 @@ BatchUploadDialogView* BatchUploadDialogView::CreateBatchUploadDialogView(
 }
 
 BatchUploadDialogView::BatchUploadDialogView(
-    Profile* profile,
+    Browser& browser,
     std::vector<syncer::LocalDataDescription> local_data_description_list,
+    BatchUploadService::EntryPoint entry_point,
     BatchUploadSelectedDataTypeItemsCallback complete_callback)
-    : complete_callback_(std::move(complete_callback)) {
+    : complete_callback_(std::move(complete_callback)),
+      entry_point_(entry_point) {
   SetModalType(ui::mojom::ModalType::kWindow);
   // No native buttons.
   SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
@@ -143,7 +144,7 @@ BatchUploadDialogView::BatchUploadDialogView(
 
   // Create the web view in the native bubble.
   std::unique_ptr<views::WebView> web_view =
-      std::make_unique<views::WebView>(profile);
+      std::make_unique<views::WebView>(browser.profile());
   web_view->LoadInitialURL(GURL(chrome::kChromeUIBatchUploadURL));
   web_view_ = web_view.get();
   web_view_->GetWebContents()->SetDelegate(this);
@@ -153,7 +154,7 @@ BatchUploadDialogView::BatchUploadDialogView(
       gfx::Size(kBatchUploadDialogFixedWidth, kBatchUploadDialogMaxHeight));
 
   signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(profile);
+      IdentityManagerFactory::GetForProfile(browser.profile());
   CHECK(identity_manager);
   primary_account_info_ = GetBatchUploadPrimaryAccountInfo(*identity_manager);
 
@@ -169,8 +170,10 @@ BatchUploadDialogView::BatchUploadDialogView(
   CHECK(web_ui);
   // Initializes the UI that will initialize the handler when ready.
   web_ui->Initialize(
-      primary_account_info_, std::move(local_data_description_list),
+      primary_account_info_, &browser, std::move(local_data_description_list),
       base::BindRepeating(&BatchUploadDialogView::SetHeightAndShowWidget,
+                          base::Unretained(this)),
+      base::BindRepeating(&BatchUploadDialogView::AllowWebViewInput,
                           base::Unretained(this)),
       base::BindOnce(&BatchUploadDialogView::OnDialogSelectionMade,
                      base::Unretained(this)));
@@ -240,8 +243,18 @@ void BatchUploadDialogView::SetHeightAndShowWidget(int height) {
     widget->Show();
 
     RecordAvailableDataTypes(data_item_count_map_);
-    base::UmaHistogramBoolean("Sync.BatchUpload.Opened", true);
+    base::UmaHistogramEnumeration("Sync.BatchUpload.Opened", entry_point_);
   }
+}
+
+void BatchUploadDialogView::AllowWebViewInput(bool allow) {
+  if (allow) {
+    scoped_ignore_events_.reset();
+    return;
+  }
+
+  scoped_ignore_events_ =
+      web_view_->GetWebContents()->IgnoreInputEvents(std::nullopt);
 }
 
 void BatchUploadDialogView::OnPrimaryAccountChanged(
@@ -294,9 +307,10 @@ views::WebView* BatchUploadDialogView::GetWebViewForTesting() {
 void BatchUploadUIDelegate::ShowBatchUploadDialogInternal(
     Browser& browser,
     std::vector<syncer::LocalDataDescription> local_data_description_list,
+    BatchUploadService::EntryPoint entry_point,
     BatchUploadSelectedDataTypeItemsCallback complete_callback) {
   BatchUploadDialogView::CreateBatchUploadDialogView(
-      browser, std::move(local_data_description_list),
+      browser, std::move(local_data_description_list), entry_point,
       std::move(complete_callback));
 }
 

@@ -15,6 +15,7 @@
 #include "third_party/blink/renderer/core/css/properties/css_property.h"
 #include "third_party/blink/renderer/core/css/resolver/cascade_filter.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
+#include "third_party/blink/renderer/core/frame/cached_permission_status.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/intersection_observer/intersection_observer.h"
@@ -30,13 +31,15 @@
 namespace blink {
 
 class Page;
+class V8PermissionState;
 
 class CORE_EXPORT HTMLPermissionElement final
     : public HTMLElement,
       public mojom::blink::PermissionObserver,
       public mojom::blink::EmbeddedPermissionControlClient,
       public ScrollSnapshotClient,
-      public LocalFrameView::LifecycleNotificationObserver {
+      public LocalFrameView::LifecycleNotificationObserver,
+      public CachedPermissionStatus::Client {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
@@ -47,8 +50,8 @@ class CORE_EXPORT HTMLPermissionElement final
   const AtomicString& GetType() const;
   String invalidReason() const;
   bool isValid() const;
-  String initialPermissionStatus() const;
-  String permissionStatus() const;
+  V8PermissionState initialPermissionStatus() const;
+  V8PermissionState permissionStatus() const;
 
   DEFINE_ATTRIBUTE_EVENT_LISTENER(resolve, kResolve)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(dismiss, kDismiss)
@@ -57,6 +60,14 @@ class CORE_EXPORT HTMLPermissionElement final
 
   void Trace(Visitor*) const override;
 
+  using PermissionStatusMap =
+      HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>;
+  // CachedPermissionStatus::Client overrides.
+  void OnPermissionStatusInitialized(
+      PermissionStatusMap initilized_map) override;
+
+  InsertionNotificationRequest InsertedInto(ContainerNode&) override;
+  void RemovedFrom(ContainerNode&) override;
   void AttachLayoutTree(AttachContext& context) override;
   void DetachLayoutTree(bool performing_reattach) override;
   void Focus(const FocusParams& params) override;
@@ -113,6 +124,8 @@ class CORE_EXPORT HTMLPermissionElement final
                            EnableClickingAfterDelay);
   FRIEND_TEST_ALL_PREFIXES(HTMLPemissionElementSimTest,
                            FontSizeCanDisableElement);
+  FRIEND_TEST_ALL_PREFIXES(HTMLPemissionElementSimTest,
+                           MovePEPCToAnotherDocument);
   FRIEND_TEST_ALL_PREFIXES(HTMLPemissionElementLayoutChangeTest,
                            InvalidatePEPCAfterMove);
   FRIEND_TEST_ALL_PREFIXES(HTMLPemissionElementLayoutChangeTest,
@@ -131,6 +144,7 @@ class CORE_EXPORT HTMLPermissionElement final
                            DisableEnableClickingDifferentReasons);
   FRIEND_TEST_ALL_PREFIXES(HTMLPemissionElementTestBase,
                            SetPreciseLocationAttribute);
+  FRIEND_TEST_ALL_PREFIXES(HTMLPemissionElementTest, SetTypeAfterInsertedInto);
 
   enum class DisableReason {
     kUnknown,
@@ -283,6 +297,13 @@ class CORE_EXPORT HTMLPermissionElement final
   mojom::blink::PermissionService* GetPermissionService();
   void OnPermissionServiceConnectionFailed();
 
+  // Register the permission element, which will trigger an IPC registration
+  // call from `permission_service_`.
+  // Return false if this element is not allowed to call registration,
+  // otherwise, return true and might trigger registration IPC call to browser
+  // process.
+  bool MaybeRegisterPageEmbeddedPermissionControl();
+
   // blink::Element implements
   void AttributeChanged(const AttributeModificationParams& params) override;
   void DidAddUserAgentShadowRoot(ShadowRoot&) override;
@@ -347,7 +368,7 @@ class CORE_EXPORT HTMLPermissionElement final
   // populated only *after* the permission element has been registered in
   // browser process.
   bool IsRegisteredInBrowserProcess() const {
-    return !permission_status_map_.empty();
+    return !permission_observer_receivers_.empty();
   }
 
   scoped_refptr<base::SingleThreadTaskRunner> GetTaskRunner();
@@ -406,7 +427,11 @@ class CORE_EXPORT HTMLPermissionElement final
   //   alive temporary disabling reason".
   void RefreshDisableReasonsAndUpdateTimer();
 
-  void UpdateAppearance();
+  // Called when the |permission_status_map_| is updated to
+  // - Ensure that |aggregated_permission_status_| and
+  //   |initial_aggregated_permission_status_| are updated.
+  // - Update appearance based on the current statuses.
+  void UpdatePermissionStatusAndAppearance();
 
   void UpdateText();
 
@@ -453,11 +478,6 @@ class CORE_EXPORT HTMLPermissionElement final
            it->value == base::TimeTicks::Max();
   }
 
-  // Called when the |permission_status_map_| is updated to ensure that
-  // |aggregated_permission_status_| and |initial_aggregated_permission_status_|
-  // are updated.
-  void PermissionStatusUpdated();
-
   bool PermissionsGranted() const {
     return aggregated_permission_status_.has_value() &&
            aggregated_permission_status_ ==
@@ -489,8 +509,6 @@ class CORE_EXPORT HTMLPermissionElement final
       embedded_permission_control_receiver_;
 
   // Map holds all current permission statuses, keyed by permission name.
-  using PermissionStatusMap =
-      HashMap<mojom::blink::PermissionName, mojom::blink::PermissionStatus>;
   PermissionStatusMap permission_status_map_;
 
   // Hold the first-received permission status in this object's lifetime and the
@@ -532,6 +550,9 @@ class CORE_EXPORT HTMLPermissionElement final
   // the element on the viewport.
   IntersectionVisibility intersection_visibility_ =
       IntersectionVisibility::kFullyVisible;
+
+  // Track the node which is overlapping this element.
+  DOMNodeId occluder_node_id_ = kInvalidDOMNodeId;
 
   // Store the up-to-date click state.
   ClickingEnabledState clicking_enabled_state_{false, AtomicString()};

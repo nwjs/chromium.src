@@ -25,6 +25,7 @@
 #include "content/public/browser/preloading.h"
 #include "content/public/browser/preloading_data.h"
 #include "net/http/http_no_vary_search_data.h"
+#include "net/http/http_request_headers.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "url/gurl.h"
@@ -111,8 +112,7 @@ class CONTENT_EXPORT PrefetchContainer {
 
   // Ctor used for browser-initiated prefetch.
   // We can pass the referring origin of prefetches via `referring_origin` if
-  // necessary. When `std::nullopt` is passed, the referring origin will be
-  // opaque.
+  // necessary.
   PrefetchContainer(
       WebContents& referring_web_contents,
       const GURL& url,
@@ -126,8 +126,7 @@ class CONTENT_EXPORT PrefetchContainer {
 
   // Ctor used for browser-initiated prefetch that doesn't depend on web
   // contents. We can pass the referring origin of prefetches via
-  // `referrer_origin` if necessary. When `std::nullopt` is passed, the
-  // referring origin will be opaque.
+  // `referrer_origin` if necessary.
   PrefetchContainer(
       BrowserContext* browser_context,
       const GURL& url,
@@ -137,6 +136,7 @@ class CONTENT_EXPORT PrefetchContainer {
       const std::optional<url::Origin>& referring_origin,
       std::optional<net::HttpNoVarySearchData> no_vary_search_expected,
       base::WeakPtr<PreloadingAttempt> attempt = nullptr,
+      const net::HttpRequestHeaders& additional_headers = {},
       std::optional<PrefetchStartCallback> prefetch_start_callback =
           std::nullopt);
 
@@ -268,7 +268,9 @@ class CONTENT_EXPORT PrefetchContainer {
   bool IsRendererInitiated() const;
 
   // The origin and that initiates the prefetch request.
-  const url::Origin& GetReferringOrigin() const { return referring_origin_; }
+  const std::optional<url::Origin> GetReferringOrigin() const {
+    return referring_origin_;
+  }
 
   // Whether or not an isolated network context is required to the next
   // prefetch.
@@ -383,6 +385,10 @@ class CONTENT_EXPORT PrefetchContainer {
   // response, and not serve any prefetched resources.
   void SetIsDecoy(bool is_decoy) { is_decoy_ = is_decoy; }
   bool IsDecoy() const { return is_decoy_; }
+
+  // Whether the prefetch request is cross-site/cross-origin for given origin.
+  bool IsCrossSiteRequest(const url::Origin& origin) const;
+  bool IsCrossOriginRequest(const url::Origin& origin) const;
 
   // Whether this prefetch is potentially contaminated by cross-site state.
   // If so, it may need special handling for privacy.
@@ -769,7 +775,7 @@ class CONTENT_EXPORT PrefetchContainer {
  private:
   PrefetchContainer(
       const GlobalRenderFrameHostId& referring_render_frame_host_id,
-      const url::Origin& referring_origin,
+      const std::optional<url::Origin>& referring_origin,
       const std::optional<size_t>& referring_url_hash,
       const PrefetchContainer::Key& key,
       const PrefetchType& prefetch_type,
@@ -782,6 +788,7 @@ class CONTENT_EXPORT PrefetchContainer {
       base::WeakPtr<PreloadingAttempt> attempt,
       std::optional<PreloadingHoldbackStatus> holdback_status_override,
       std::optional<base::UnguessableToken> initiator_devtools_navigation_token,
+      const net::HttpRequestHeaders& additional_headers,
       std::optional<PrefetchStartCallback> prefetch_start_callback,
       bool is_javascript_enabled);
 
@@ -837,8 +844,8 @@ class CONTENT_EXPORT PrefetchContainer {
   // The origin and URL that initiates the prefetch request.
   // For renderer-initiated prefetch, this is calculated by referring
   // RenderFrameHost's LastCommittedOrigin. For browser-initiated prefetch, this
-  // is sometimes explicitly passed via ctor, otherwise opaque origin.
-  const url::Origin referring_origin_;
+  // is sometimes explicitly passed via ctor.
+  const std::optional<url::Origin> referring_origin_;
   // Used by metrics for equality checks, only works for renderer-initiated
   // triggers.
   const std::optional<size_t> referring_url_hash_;
@@ -1008,6 +1015,11 @@ class CONTENT_EXPORT PrefetchContainer {
   // TODO(crbug.com/353490734): Remove it.
   base::OnceCallback<void(PrefetchContainer&)>
       on_maybe_determined_head_callback_;
+
+  // Additional headers for WebView initiated prefetch.
+  // This must be empty for non-WebView initiated prefetches.
+  // TODO(crbug.com/369859822): Revisit the semantics if needed.
+  const net::HttpRequestHeaders additional_headers_;
 
   // Browser callbacks.
   std::optional<PrefetchStartCallback> prefetch_start_callback_;

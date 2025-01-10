@@ -216,23 +216,6 @@ void SetAllowFileAccess(const std::string& extension_id,
   ReloadExtension(extension_id, context);
 }
 
-bool ShouldSync(const Extension* extension,
-                content::BrowserContext* context) {
-  ExtensionManagement* extension_management =
-      ExtensionManagementFactory::GetForBrowserContext(context);
-  // Update URL is overridden only for non webstore extensions and offstore
-  // extensions should not be synced.
-  if (extension_management->IsUpdateUrlOverridden(extension->id())) {
-    const GURL update_url =
-        extension_management->GetEffectiveUpdateURL(*extension);
-    DCHECK(!extension_urls::IsWebstoreUpdateUrl(update_url))
-        << "Update URL cannot be overridden to be the webstore URL!";
-    return false;
-  }
-  return sync_helper::IsSyncable(extension) &&
-         !ExtensionPrefs::Get(context)->DoNotSync(extension->id());
-}
-
 bool IsExtensionIdle(const std::string& extension_id,
                      content::BrowserContext* context) {
   std::vector<std::string> ids_to_check;
@@ -350,13 +333,17 @@ void SetDeveloperModeForProfile(Profile* profile, bool in_developer_mode) {
 }
 
 std::u16string GetFixupExtensionNameForUIDisplay(
-    const std::string& extension_name) {
+    const std::u16string& extension_name) {
   const size_t extension_name_char_limit =
       75;  // Extension name char limit on CWS
   gfx::BreakType break_type = gfx::BreakType::CHARACTER_BREAK;
   std::u16string fixup_extension_name = gfx::TruncateString(
-      base::UTF8ToUTF16(extension_name), extension_name_char_limit, break_type);
+      extension_name, extension_name_char_limit, break_type);
   return fixup_extension_name;
+}
+std::u16string GetFixupExtensionNameForUIDisplay(
+    const std::string& extension_name) {
+  return GetFixupExtensionNameForUIDisplay(base::UTF8ToUTF16(extension_name));
 }
 
 }  // namespace util

@@ -8,7 +8,7 @@ import './region_selection.js';
 import './post_selection_renderer.js';
 import './overlay_shimmer.js';
 import './overlay_shimmer_canvas.js';
-import './strings.m.js';
+import '/strings.m.js';
 import '//resources/cr_elements/cr_button/cr_button.js';
 import '//resources/cr_elements/cr_toast/cr_toast.js';
 
@@ -995,7 +995,7 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
 
   private handleTranslate() {
     BrowserProxyImpl.getInstance().handler.issueTranslateSelectionRequest(
-        this.highlightedText, this.contentLanguage,
+        this.highlightedText.replaceAll('\r\n', ' '), this.contentLanguage,
         this.textSelectionStartIndex, this.textSelectionEndIndex);
     this.showSelectedTextContextMenu = false;
     recordLensOverlayInteraction(INVOCATION_SOURCE, UserAction.kTranslateText);
@@ -1083,6 +1083,15 @@ export class SelectionOverlayElement extends SelectionOverlayElementBase {
 
     this.isScreenshotRendered = true;
     this.onImageRendered();
+  }
+
+  /**
+   * Returns the bounding rect of the selection overlay. This is preferred over
+   * using getBoundingClientRect() because it is a cached DOM property which
+   * doesn't need to be recalculated every time.
+   */
+  getBoundingRect() {
+    return this.selectionOverlayRect;
   }
 
   fetchNewScreenshotForTesting() {

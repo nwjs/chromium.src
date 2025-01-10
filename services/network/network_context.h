@@ -27,7 +27,7 @@
 #include "base/unguessable_token.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
-#include "components/ip_protection/common/masked_domain_list_manager.h"
+#include "components/ip_protection/common/ip_protection_core.h"
 #include "mojo/public/cpp/base/big_buffer.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -441,7 +441,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       uint32_t num_streams,
       const GURL& url,
       mojom::CredentialsMode credentials_mode,
-      const net::NetworkAnonymizationKey& network_anonymization_key) override;
+      const net::NetworkAnonymizationKey& network_anonymization_key,
+      const net::MutableNetworkTrafficAnnotationTag& traffic_annotation)
+      override;
 #if BUILDFLAG(IS_P2P_ENABLED)
   void CreateP2PSocketManager(
       const net::NetworkAnonymizationKey& network_anonymization_key,
@@ -748,7 +750,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       mojo::PendingRemote<mojom::CookieAccessObserver> cookie_observer,
       net::FirstPartySetMetadata first_party_set_metadata);
 
-  GURL GetHSTSRedirect(const GURL& original_url);
+  GURL GetHSTSRedirectForPreconnect(const GURL& original_url);
 
 #if BUILDFLAG(IS_P2P_ENABLED)
   void DestroySocketManager(P2PSocketManager* socket_manager);
@@ -810,6 +812,11 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   mojo::Remote<mojom::NetworkContextClient> client_;
 
   std::unique_ptr<ResourceScheduler> resource_scheduler_;
+
+  // The IpProtectionCore for this context, used to coordinate proxying
+  // protected requests. `url_request_context_owner_` indirectly holds
+  // a pointer to and must be defined after `ip_protection_core_`.
+  std::unique_ptr<ip_protection::IpProtectionCore> ip_protection_core_;
 
   // Used only when network::features::kCompressionDictionaryTransportBackend is
   // enabled.

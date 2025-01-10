@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.toolbar;
 
 import android.view.View;
+import android.widget.FrameLayout;
 
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
 
@@ -40,6 +41,9 @@ public interface ControlContainer {
     /** Gets the height of the toolbar contained by the control container. */
     int getToolbarHeight();
 
+    /** Gets the height of the toolbar hairline. */
+    int getToolbarHairlineHeight();
+
     /**
      * @param handler The swipe handler to be notified of swipe events on this container.
      */
@@ -66,6 +70,13 @@ public interface ControlContainer {
      * method.
      */
     CoordinatorLayout.LayoutParams mutateLayoutParams();
+
+    /**
+     * Returns an instance of the hairline view's layout params that can be mutated; changes will
+     * take effect with the next layout pass. A layout pass is requested with each call to this
+     * method.
+     */
+    FrameLayout.LayoutParams mutateHairlineLayoutParams();
 
     /**
      * Destroys the control container, causing it to release any owned native resources and cancel

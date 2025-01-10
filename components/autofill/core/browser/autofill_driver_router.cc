@@ -9,6 +9,7 @@
 
 #include "base/check_deref.h"
 #include "base/containers/contains.h"
+#include "base/containers/to_vector.h"
 #include "base/ranges/algorithm.h"
 #include "base/time/time.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
@@ -141,11 +142,8 @@ void AutofillDriverRouter::FormsSeen(
   base::flat_set<FormGlobalId> forms_with_removed_fields =
       form_forest_.EraseForms(removed_forms);
 
-  std::vector<FormGlobalId> renderer_form_ids;
-  renderer_form_ids.reserve(renderer_forms.size());
-  for (const FormData& renderer_form : renderer_forms) {
-    renderer_form_ids.push_back(renderer_form.global_id());
-  }
+  std::vector<FormGlobalId> renderer_form_ids =
+      base::ToVector(renderer_forms, &FormData::global_id);
 
   for (FormData& form : std::move(renderer_forms)) {
     form_forest_.UpdateTreeOfRendererForm(std::move(form), source);
@@ -191,17 +189,16 @@ void AutofillDriverRouter::FormsSeen(
 }
 
 void AutofillDriverRouter::FormSubmitted(
-    RoutedCallback<const FormData&, bool, mojom::SubmissionSource> callback,
+    RoutedCallback<const FormData&, mojom::SubmissionSource> callback,
     AutofillDriver& source,
     FormData form,
-    bool known_success,
     mojom::SubmissionSource submission_source) {
   FormGlobalId form_id = form.global_id();
   form_forest_.UpdateTreeOfRendererForm(std::move(form), source);
 
   const FormData& browser_form = form_forest_.GetBrowserForm(form_id);
   auto* target = DriverOfFrame(browser_form.host_frame());
-  callback(CHECK_DEREF(target), browser_form, known_success, submission_source);
+  callback(CHECK_DEREF(target), browser_form, submission_source);
 }
 
 void AutofillDriverRouter::CaretMovedInFormField(

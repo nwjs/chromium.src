@@ -7,7 +7,7 @@ import 'chrome://resources/cr_elements/cr_auto_img/cr_auto_img.js';
 import 'chrome://resources/cr_elements/cr_grid/cr_grid.js';
 import 'chrome://resources/cr_elements/cr_toggle/cr_toggle.js';
 import './check_mark_wrapper.js';
-import './strings.m.js';
+import '/strings.m.js';
 
 import type {SpHeadingElement} from 'chrome://customize-chrome-side-panel.top-chrome/shared/sp_heading.js';
 import {HelpBubbleMixinLit} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin_lit.js';
@@ -146,9 +146,6 @@ export class ThemesElement extends ThemesElementBase {
     return !this.imageErrorDetectionEnabled_ || itemLoaded;
   }
 
-  // TODO(b:367702048) -
-  // Record 'NewTabPage.BackgroundService.Images.Headers.ErrorDetected',
-  // whenever a preview image fails to load.
   protected onPreviewImageLoad_(e: Event) {
     if (this.imageErrorDetectionEnabled_) {
       const index = Number((e.currentTarget as HTMLElement).dataset['index']);

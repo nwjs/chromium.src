@@ -14,13 +14,13 @@
 #include "chrome/browser/heavy_ad_intervention/heavy_ad_service_factory.h"
 #include "chrome/browser/page_load_metrics/observers/bookmark_bar_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/chrome_gws_abandoned_page_load_metrics_observer.h"
+#include "chrome/browser/page_load_metrics/observers/chrome_gws_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/core/amp_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/core/ukm_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/document_write_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/foreground_duration_ukm_observer.h"
 #include "chrome/browser/page_load_metrics/observers/from_gws_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/gws_hp_page_load_metrics_observer.h"
-#include "chrome/browser/page_load_metrics/observers/gws_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/https_engagement_metrics/https_engagement_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/javascript_frameworks_ukm_observer.h"
 #include "chrome/browser/page_load_metrics/observers/lcp_critical_path_predictor_page_load_metrics_observer.h"
@@ -80,28 +80,20 @@
 namespace {
 
 #if !BUILDFLAG(IS_ANDROID)
-bool IsNonTabWebUI(content::WebContents* web_contents) {
-  return !!TopChromeWebUIConfig::From(web_contents->GetBrowserContext(),
-                                      web_contents->GetVisibleURL());
+bool IsNonTabWebUI(content::BrowserContext* browser_context, const GURL& url) {
+  return TopChromeWebUIConfig::From(browser_context, url) != nullptr;
 }
 
-std::string GetNonTabWebUIName(content::WebContents* web_contents) {
-  CHECK(IsNonTabWebUI(web_contents));
-  return TopChromeWebUIConfig::From(web_contents->GetBrowserContext(),
-                                    web_contents->GetVisibleURL())
-      ->GetWebUIName();
+std::string GetNonTabWebUIName(content::BrowserContext* browser_context,
+                               const GURL& url) {
+  CHECK(IsNonTabWebUI(browser_context, url));
+  return TopChromeWebUIConfig::From(browser_context, url)->GetWebUIName();
 }
 #else
-bool IsNonTabWebUI(content::WebContents* web_contents) {
+bool IsNonTabWebUI(content::BrowserContext* browser_context, const GURL& url) {
   return false;
 }
 #endif
-
-}  // namespace
-
-namespace chrome {
-
-namespace {
 
 std::string GetApplicationLocale() {
   return g_browser_process->GetApplicationLocale();
@@ -121,7 +113,7 @@ class PageLoadMetricsEmbedder
   bool IsNewTabPageUrl(const GURL& url) override;
   bool IsNoStatePrefetch(content::WebContents* web_contents) override;
   bool IsExtensionUrl(const GURL& url) override;
-  bool IsNonTabWebUI() override;
+  bool IsNonTabWebUI(const GURL& url) override;
   page_load_metrics::PageLoadMetricsMemoryTracker*
   GetMemoryTrackerForBrowserContext(
       content::BrowserContext* browser_context) override;
@@ -150,10 +142,11 @@ void PageLoadMetricsEmbedder::RegisterObservers(
   // (namely `TabHelper`s).
 
 #if !BUILDFLAG(IS_ANDROID)
-  if (IsNonTabWebUI()) {
+  if (IsNonTabWebUI(navigation_handle->GetURL())) {
     // This embedder is for a non-tab chrome:// page.
-    tracker->AddObserver(std::make_unique<NonTabPageLoadMetricsObserver>(
-        GetNonTabWebUIName(web_contents())));
+    tracker->AddObserver(
+        std::make_unique<NonTabPageLoadMetricsObserver>(GetNonTabWebUIName(
+            web_contents()->GetBrowserContext(), navigation_handle->GetURL())));
     return;
   }
 #endif
@@ -171,7 +164,7 @@ void PageLoadMetricsEmbedder::RegisterObservers(
     tracker->AddObserver(std::make_unique<JavascriptFrameworksUkmObserver>());
     tracker->AddObserver(std::make_unique<SchemePageLoadMetricsObserver>());
     tracker->AddObserver(std::make_unique<FromGWSPageLoadMetricsObserver>());
-    tracker->AddObserver(std::make_unique<GWSPageLoadMetricsObserver>());
+    tracker->AddObserver(std::make_unique<ChromeGWSPageLoadMetricsObserver>());
     tracker->AddObserver(std::make_unique<AbandonedPageLoadMetricsObserver>());
     tracker->AddObserver(
         std::make_unique<ChromeGWSAbandonedPageLoadMetricsObserver>());
@@ -283,8 +276,8 @@ bool PageLoadMetricsEmbedder::IsExtensionUrl(const GURL& url) {
 #endif
 }
 
-bool PageLoadMetricsEmbedder::IsNonTabWebUI() {
-  return ::IsNonTabWebUI(web_contents());
+bool PageLoadMetricsEmbedder::IsNonTabWebUI(const GURL& url) {
+  return ::IsNonTabWebUI(web_contents()->GetBrowserContext(), url);
 }
 
 page_load_metrics::PageLoadMetricsMemoryTracker*
@@ -308,5 +301,3 @@ void InitializePageLoadMetricsForWebContents(
   page_load_metrics::MetricsWebContentsObserver::CreateForWebContents(
       web_contents, std::make_unique<PageLoadMetricsEmbedder>(web_contents));
 }
-
-}  // namespace chrome

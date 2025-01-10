@@ -194,14 +194,14 @@ depending on the version of Android running on a device. Chrome uses this
 feature to package optimized versions for different OS versions.
 
 1. `monochrome_public_bundle` (`MonochromePublic.aab`)
-   * `minSdkVersion=24` (Nougat).
+   * `minSdkVersion=26` (Oreo).
    * Contains both Chrome and WebView (to save disk space).
 2. `trichrome_chrome_bundle` (`TrichromeChrome.aab`)
    * `minSdkVersion=29` (Android 10).
    * Native code shared with WebView through a "Static Shared Library APK": `trichrome_library_apk`
    * Corresponding WebView target: `trichrome_webview_bundle`
 3. `chrome_public_bundle` & `chrome_public_apk` (`ChromePublic.aab`, `ChromePublic.apk`)
-   * `minSdkVersion=24` (Nougat).
+   * `minSdkVersion=26` (Oreo).
    * Used for local development (to avoid building WebView).
    * WebView packaged independently (`system_webview_bundle` / `system_webview_apk`).
 
@@ -503,3 +503,12 @@ committing code to chromium.
 3.  Go to
     [http://storage.googleapis.com/chrome-browser-components/BUILD\_ID\_FROM\_STEP\_2/index.html](http://storage.googleapis.com/chrome-browser-components/BUILD_ID_FROM_STEP_2/index.html)
 4.  Download the listed files and follow the steps in the README.
+
+### Building with Docker
+
+To build Chromium for Android using Docker, please follow the
+instructions in the [Docker in Linux build instructions](/docs/linux/build_instructions.md#docker).
+
+*** note
+**Note:** You need install the [Android dependencies](#install-additional-build-dependencies) after setting up the [Build dependencies](/docs/linux/build_instructions.md#install-additional-build-dependencies).
+***

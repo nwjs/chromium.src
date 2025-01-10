@@ -6,10 +6,10 @@ package org.chromium.webapk.shell_apk;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.text.TextUtils;
 import android.util.Log;
 
 import org.chromium.webapk.lib.common.WebApkConstants;
@@ -23,11 +23,6 @@ public class HostBrowserLauncher {
     // it is propagated to all the Chrome's channels.
     public static final String ACTION_START_WEBAPK =
             "com.google.android.apps.chrome.webapps.WebappManager.ACTION_START_WEBAPP";
-
-    // Must stay in sync with {@link
-    // org.chromium.chrome.browser.ShortcutHelper#REUSE_URL_MATCHING_TAB_ELSE_NEW_TAB}.
-    private static final String REUSE_URL_MATCHING_TAB_ELSE_NEW_TAB =
-            "REUSE_URL_MATCHING_TAB_ELSE_NEW_TAB";
 
     /**
      * Launches host browser in WebAPK mode if the browser is WebAPK-compatible. Otherwise, launches
@@ -60,14 +55,11 @@ public class HostBrowserLauncher {
             intent = new Intent(Intent.ACTION_VIEW, Uri.parse(params.getStartUrl()));
         }
 
-        String hostBrowserPackageName = params.getHostBrowserPackageName();
-        // Sending a VIEW intent with package="android" fails, even though
-        // PackageManager.resolveActivity() suggests it should succeed.
-        //
-        // Luckily, package="android" indicates that there is no default browser set, so we can just
-        // send an intent without a package and it will be forwarded by the disambiguation dialog.
-        if (!TextUtils.equals(hostBrowserPackageName, "android")) {
-            intent.setPackage(hostBrowserPackageName);
+        ComponentName hostBrowserComponentName = params.getHostBrowserComponentName();
+        if (hostBrowserComponentName != null) {
+            intent.setComponent(hostBrowserComponentName);
+        } else {
+            intent.setPackage(params.getHostBrowserPackageName());
         }
 
         intent.setFlags(flags);

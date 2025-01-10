@@ -14,7 +14,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "win-arm64-rel",
-              "project": "chromium-m131"
+              "project": "chromium-m132"
             },
             "builder_spec": {
               "build_gs_bucket": "chromium-win-archive",
@@ -33,8 +33,7 @@
               "legacy_gclient_config": {
                 "apply_configs": [
                   "chromium_with_telemetry_dependencies",
-                  "use_clang_coverage",
-                  "siso_latest"
+                  "use_clang_coverage"
                 ],
                 "config": "chromium"
               }
@@ -44,7 +43,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "win11-arm64-rel-tests",
-              "project": "chromium-m131"
+              "project": "chromium-m132"
             },
             "builder_spec": {
               "build_gs_bucket": "chromium-win-archive",
@@ -69,7 +68,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "win-arm64-rel",
-                "project": "chromium-m131"
+                "project": "chromium-m132"
               }
             }
           }
@@ -79,14 +78,14 @@
         {
           "bucket": "ci",
           "builder": "win-arm64-rel",
-          "project": "chromium-m131"
+          "project": "chromium-m132"
         }
       ],
       "builder_ids_in_scope_for_testing": [
         {
           "bucket": "ci",
           "builder": "win11-arm64-rel-tests",
-          "project": "chromium-m131"
+          "project": "chromium-m132"
         }
       ],
       "targets_spec_directory": "src/infra/config/generated/builders/try/win-arm64-rel/targets"

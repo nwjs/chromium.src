@@ -9,13 +9,11 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sessions/session_service.h"
 #include "chrome/browser/sessions/session_service_factory.h"
-#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_keyed_service.h"
-#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_service_factory.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
-#include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_sync_service_proxy.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
-#include "components/saved_tab_groups/public/features.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/saved_tab_groups/public/types.h"
 #include "components/sessions/core/session_id.h"
 
@@ -28,53 +26,17 @@ SessionServiceTabGroupSyncObserver::SessionServiceTabGroupSyncObserver(
     : profile_(profile),
       tab_strip_model_(tab_strip_model),
       session_id_(session_id) {
-  // TODO(crbug.com/361110303): Consider consolidating logic by forwarding
-  // observer in proxy.
-  if (tab_groups::IsTabGroupSyncServiceDesktopMigrationEnabled()) {
-    TabGroupSyncService* tab_group_service =
-        tab_groups::SavedTabGroupUtils::GetServiceForProfile(profile_);
-    CHECK(tab_group_service);
-    tab_group_service->AddObserver(this);
-  } else {
-    SavedTabGroupKeyedService* saved_tab_group_keyed_service =
-        tab_groups::SavedTabGroupServiceFactory::GetForProfile(profile_);
-    if (saved_tab_group_keyed_service) {
-      saved_tab_group_observation_.Observe(
-          saved_tab_group_keyed_service->model());
-    }
-  }
-}
-
-SessionServiceTabGroupSyncObserver::~SessionServiceTabGroupSyncObserver() {
-  // TODO(crbug.com/361110303): Consider consolidating logic by forwarding
-  // observer in proxy.
-  if (tab_groups::IsTabGroupSyncServiceDesktopMigrationEnabled()) {
-    TabGroupSyncService* tab_group_service =
-        tab_groups::SavedTabGroupUtils::GetServiceForProfile(profile_);
-    CHECK(tab_group_service);
-    tab_group_service->RemoveObserver(this);
-  } else {
-    saved_tab_group_observation_.Reset();
-  }
-}
-
-void SessionServiceTabGroupSyncObserver::SavedTabGroupAddedLocally(
-    const base::Uuid& guid) {
   TabGroupSyncService* tab_group_service =
       tab_groups::SavedTabGroupUtils::GetServiceForProfile(profile_);
   CHECK(tab_group_service);
-
-  const std::optional<tab_groups::SavedTabGroup> saved_group =
-      tab_group_service->GetGroup(guid);
-  CHECK(saved_group);
-
-  UpdateTabGroupSessionMetadata(saved_group->local_group_id(),
-                                guid.AsLowercaseString());
+  tab_group_service->AddObserver(this);
 }
 
-void SessionServiceTabGroupSyncObserver::SavedTabGroupRemovedLocally(
-    const tab_groups::SavedTabGroup& removed_group) {
-  UpdateTabGroupSessionMetadata(removed_group.local_group_id(), std::nullopt);
+SessionServiceTabGroupSyncObserver::~SessionServiceTabGroupSyncObserver() {
+  TabGroupSyncService* tab_group_service =
+      tab_groups::SavedTabGroupUtils::GetServiceForProfile(profile_);
+  CHECK(tab_group_service);
+  tab_group_service->RemoveObserver(this);
 }
 
 void SessionServiceTabGroupSyncObserver::OnTabGroupAdded(

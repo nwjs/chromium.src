@@ -10,6 +10,7 @@
  * #css_wrapper_metadata_end */
 
 cr-icon-button {
+  --cr-icon-button-fill-color: var(--color-tab-search-secondary-foreground);
   --cr-icon-button-icon-size: 16px;
   --cr-icon-button-margin-end: 0;
   --cr-icon-button-margin-start: 0;
@@ -17,7 +18,7 @@ cr-icon-button {
 }
 
 tab-search-item {
-  --tab-search-item-icon-margin: 8px;
+  --tab-search-item-icon-margin: 16px;
   --tab-search-favicon-background: var(--color-tab-search-background);
   align-items: center;
   display: flex;
@@ -49,9 +50,11 @@ tab-search-item {
   --non-scroll-border: solid 1px transparent;
   border-bottom: var(--non-scroll-border);
   border-top: var(--non-scroll-border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   /* Render the scroll bar and scroll borders at the edge of the dialog */
   margin: 0 calc(-1 * var(--external-margin));
-  max-height: 280px;
   overflow-y: auto;
   padding: 0 calc(var(--external-margin) - var(--scrollbar-width))
            0 var(--external-margin);
@@ -64,15 +67,6 @@ tab-search-item {
 
 #scrollable.can-scroll:not(.scrolled-to-bottom) {
   border-bottom: var(--scroll-border);
-}
-
-#tabList {
-  background-color: var(--color-tab-search-card-background);
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px 0;
 }
 
 .action-button {
@@ -113,6 +107,15 @@ tab-search-item {
   font-size: 12px;
   font-weight: 400;
   line-height: 16px;
+}
+
+.tabList {
+  background-color: var(--color-tab-search-card-background);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 0;
 }
 
 .title {

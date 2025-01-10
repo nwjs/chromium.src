@@ -47,6 +47,7 @@
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/bookmarks/bookmark_drag_drop.h"
 #include "chrome/browser/ui/bookmarks/bookmark_tab_helper.h"
+#include "chrome/browser/ui/bookmarks/bookmark_ui_operations_helper.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils_desktop.h"
 #include "chrome/browser/ui/browser.h"
@@ -106,6 +107,7 @@
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model_utils.h"
+#include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/pointer/touch_ui_controller.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -1405,7 +1407,7 @@ void BookmarkBarView::OnMenuButtonPressed(const bookmarks::BookmarkNode* node,
 void BookmarkBarView::ShowContextMenuForViewImpl(
     views::View* source,
     const gfx::Point& point,
-    ui::MenuSourceType source_type) {
+    ui::mojom::MenuSourceType source_type) {
   if (!bookmark_model_->loaded()) {
     // Don't do anything if the model isn't loaded.
     return;
@@ -2192,9 +2194,13 @@ void BookmarkBarView::PerformDrop(
   DCHECK_NE(index, static_cast<size_t>(-1));
 
   base::RecordAction(base::UserMetricsAction("BookmarkBar_DragEnd"));
-  output_drag_op = chrome::DropBookmarks(
-      browser_->profile(), data, parent_node, index, copy,
-      chrome::BookmarkReorderDropTarget::kBookmarkBarView);
+  // TODO(crbug.com/369304373): Update to use
+  // `BookmarkUIOperationsHelperMergedSurfaces` once this class is migrated to
+  // use `BookmarkMergedSurfaceService`.
+  output_drag_op =
+      BookmarkUIOperationsHelperNonMergedSurfaces(bookmark_model_, parent_node)
+          .DropBookmarks(browser_->profile(), data, index, copy,
+                         chrome::BookmarkReorderDropTarget::kBookmarkBarView);
 }
 
 int BookmarkBarView::GetDropLocationModelIndexForTesting() const {

@@ -5,216 +5,345 @@
 #include "components/performance_manager/public/scenarios/performance_scenarios.h"
 
 #include <atomic>
-#include <memory>
-#include <optional>
 #include <utility>
 
-#include "base/check_is_test.h"
-#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
-#include "base/location.h"
 #include "base/memory/read_only_shared_memory_region.h"
-#include "base/memory/ref_counted.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/structured_shared_memory.h"
+#include "base/memory/weak_ptr.h"
 #include "base/no_destructor.h"
-#include "base/supports_user_data.h"
-#include "base/task/sequenced_task_runner.h"
-#include "components/performance_manager/public/features.h"
+#include "base/notreached.h"
+#include "base/observer_list.h"
+#include "base/trace_event/typed_macros.h"
+#include "components/performance_manager/public/graph/graph.h"
 #include "components/performance_manager/public/graph/process_node.h"
 #include "components/performance_manager/public/performance_manager.h"
-#include "components/performance_manager/public/render_process_host_proxy.h"
+#include "components/performance_manager/public/scenarios/performance_scenario_observer.h"
+#include "components/performance_manager/scenarios/performance_scenario_data.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_process_host.h"
-#include "content/public/common/process_type.h"
 #include "third_party/blink/public/common/performance/performance_scenarios.h"
+#include "third_party/perfetto/include/perfetto/tracing/track.h"
 
 namespace performance_manager {
 
-namespace {
-
-using SharedScenarioState = blink::performance_scenarios::SharedScenarioState;
-
-// Pointers to the mapped shared memory are held in thread-safe scoped_refptr's.
-// The memory will be unmapped when the final reference is dropped. Functions
-// that write to the shared memory must hold a reference to it so that it's not
-// unmapped while writing.
-using RefCountedScenarioMemory = base::RefCountedData<SharedScenarioState>;
-
-// Holds the browser's scenario state handle for a child's scenario state.
-class ProcessUserData final : public base::SupportsUserData::Data {
+// Shim to get observer lists from PerformanceScenarioNotifier.
+class PerformanceScenarioNotifierAccessor {
  public:
-  ~ProcessUserData() final = default;
+  static base::ObserverList<PerformanceScenarioObserver>* GetGlobalObservers(
+      Graph* graph) {
+    if (auto* notifier = PerformanceScenarioNotifier::GetFromGraph(graph)) {
+      return notifier->GetGlobalObservers();
+    }
+    return nullptr;
+  }
 
-  scoped_refptr<RefCountedScenarioMemory> shared_mem;
-
-  static const char kKey[];
+  static base::ObserverList<PerformanceScenarioObserver>* GetProcessObservers(
+      const ProcessNode* process_node) {
+    if (auto* notifier = PerformanceScenarioNotifier::GetFromGraph(
+            process_node->GetGraph())) {
+      return notifier->GetProcessObservers(process_node);
+    }
+    return nullptr;
+  }
 };
 
-const char ProcessUserData::kKey[] = "performance_manager::ProcessUserData";
+namespace {
+
+// Generic methods that change according to the Scenario type.
+template <typename Scenario>
+struct ScenarioTraits {
+  explicit ScenarioTraits(scoped_refptr<RefCountedScenarioState> state_ptr);
+
+  // Returns a reference to the Scenario slot in shared memory.
+  std::atomic<Scenario>& ScenarioRef();
+
+  // Opens a trace event for `scenario` if a tracing track is registered.
+  void MaybeBeginTraceEvent(Scenario scenario) const;
+
+  // Closes the trace event for `scenario` if a tracing track is registered.
+  void MaybeEndTraceEvent(Scenario scenario) const;
+
+  // ProcessObserver methods called by ObserverList::Notify() for this scenario.
+  static constexpr void (PerformanceScenarioObserver::*kGlobalNotifyMethod)(
+      Scenario,
+      Scenario) = nullptr;
+  static constexpr void (PerformanceScenarioObserver::*kProcessNotifyMethod)(
+      const ProcessNode*,
+      Scenario,
+      Scenario) = nullptr;
+};
+
+template <>
+struct ScenarioTraits<LoadingScenario> {
+  explicit ScenarioTraits(scoped_refptr<RefCountedScenarioState> state_ptr)
+      : state_ptr(std::move(state_ptr)) {}
+
+  std::atomic<LoadingScenario>& ScenarioRef() {
+    return state_ptr->shared_state().WritableRef().loading;
+  }
+
+  void MaybeBeginTraceEvent(LoadingScenario scenario) const {
+    if (!state_ptr->loading_tracing_track()) {
+      return;
+    }
+    switch (scenario) {
+      case LoadingScenario::kNoPageLoading:
+        // No trace event.
+        return;
+      case LoadingScenario::kBackgroundPageLoading:
+        TRACE_EVENT_BEGIN("loading", "BackgroundPageLoading",
+                          *state_ptr->loading_tracing_track());
+        return;
+      case LoadingScenario::kVisiblePageLoading:
+        TRACE_EVENT_BEGIN("loading", "VisiblePageLoading",
+                          *state_ptr->loading_tracing_track());
+        return;
+      case LoadingScenario::kFocusedPageLoading:
+        TRACE_EVENT_BEGIN("loading", "FocusedPageLoading",
+                          *state_ptr->loading_tracing_track());
+        return;
+    }
+    NOTREACHED();
+  }
+
+  void MaybeEndTraceEvent(LoadingScenario scenario) const {
+    if (!state_ptr->loading_tracing_track()) {
+      return;
+    }
+    switch (scenario) {
+      case LoadingScenario::kNoPageLoading:
+        // No trace event.
+        return;
+      case LoadingScenario::kBackgroundPageLoading:
+      case LoadingScenario::kVisiblePageLoading:
+      case LoadingScenario::kFocusedPageLoading:
+        TRACE_EVENT_END("loading", *state_ptr->loading_tracing_track());
+        return;
+    }
+    NOTREACHED();
+  }
+
+  static constexpr void (PerformanceScenarioObserver::*kGlobalNotifyMethod)(
+      LoadingScenario,
+      LoadingScenario) =
+      &PerformanceScenarioObserver::OnGlobalLoadingScenarioChanged;
+
+  static constexpr void (PerformanceScenarioObserver::*kProcessNotifyMethod)(
+      const ProcessNode*,
+      LoadingScenario,
+      LoadingScenario) =
+      &PerformanceScenarioObserver::OnProcessLoadingScenarioChanged;
+
+  scoped_refptr<RefCountedScenarioState> state_ptr;
+};
+
+template <>
+struct ScenarioTraits<InputScenario> {
+  explicit ScenarioTraits(scoped_refptr<RefCountedScenarioState> state_ptr)
+      : state_ptr(std::move(state_ptr)) {}
+
+  std::atomic<InputScenario>& ScenarioRef() {
+    return state_ptr->shared_state().WritableRef().input;
+  }
+
+  void MaybeBeginTraceEvent(InputScenario scenario) const {
+    if (!state_ptr->input_tracing_track()) {
+      return;
+    }
+    switch (scenario) {
+      case InputScenario::kNoInput:
+        // No trace event.
+        return;
+    }
+    NOTREACHED();
+  }
+
+  void MaybeEndTraceEvent(InputScenario scenario) const {
+    if (!state_ptr->input_tracing_track()) {
+      return;
+    }
+    switch (scenario) {
+      case InputScenario::kNoInput:
+        // No trace event.
+        return;
+    }
+    NOTREACHED();
+  }
+
+  static constexpr void (PerformanceScenarioObserver::*kGlobalNotifyMethod)(
+      InputScenario,
+      InputScenario) =
+      &PerformanceScenarioObserver::OnGlobalInputScenarioChanged;
+  static constexpr void (PerformanceScenarioObserver::*kProcessNotifyMethod)(
+      const ProcessNode*,
+      InputScenario,
+      InputScenario) =
+      &PerformanceScenarioObserver::OnProcessInputScenarioChanged;
+
+  scoped_refptr<RefCountedScenarioState> state_ptr;
+};
 
 // Holds the browser's global scenario state handle.
-scoped_refptr<RefCountedScenarioMemory>& GlobalSharedMemPtr() {
-  static base::NoDestructor<scoped_refptr<RefCountedScenarioMemory>> shared_mem;
-  return *shared_mem;
+scoped_refptr<RefCountedScenarioState>& GlobalSharedStatePtr() {
+  static base::NoDestructor<scoped_refptr<RefCountedScenarioState>> state_ptr;
+  return *state_ptr;
 }
 
 // Returns a pointer to the shared memory region for communicating private state
-// to the process hosted in `host`. Creates a region if none exists yet,
-// returning nullptr on failure. The region's lifetime is tied to `host`. Must
-// be called from the UI thread.
-scoped_refptr<RefCountedScenarioMemory> GetScenarioMemoryForProcess(
-    content::RenderProcessHost* host) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  if (!host) {
-    // `host` may be null if it came from RenderProcessHostProxy::Get().
-    return nullptr;
-  }
-  ProcessUserData* data =
-      static_cast<ProcessUserData*>(host->GetUserData(&ProcessUserData::kKey));
-  if (!data) {
-    // Create a new shared memory region to communicate private state for the
-    // child process. The region will be destroyed when `host` is deleted.
-    auto new_data = std::make_unique<ProcessUserData>();
-    data = new_data.get();
-    host->SetUserData(&ProcessUserData::kKey, std::move(new_data));
-    std::optional<SharedScenarioState> shared_state =
-        SharedScenarioState::Create();
-    if (shared_state.has_value()) {
-      data->shared_mem = base::MakeRefCounted<RefCountedScenarioMemory>(
-          std::move(shared_state.value()));
-    }
-  }
+// for `process_node`. Creates a region if none exists yet, returning nullptr on
+// failure. The region's lifetime is tied to `process_node`. Must be called from
+// the PM sequence.
+scoped_refptr<RefCountedScenarioState> GetSharedStateForProcessNode(
+    const ProcessNode* process_node) {
   // Returns a copy of the pointer.
-  return data->shared_mem;
+  return PerformanceScenarioMemoryData::GetOrCreate(process_node).state_ptr;
 }
 
 // Returns a pointer to the global shared memory region that can be read by all
 // processes, or nullptr if none exists. GlobalPerformanceScenarioMemory
 // manages the lifetime of the region.
-scoped_refptr<RefCountedScenarioMemory> GetGlobalScenarioMemory() {
+scoped_refptr<RefCountedScenarioState> GetGlobalSharedState() {
   // Returns a copy of the pointer.
-  return GlobalSharedMemPtr();
+  return GlobalSharedStatePtr();
 }
 
-void SetLoadingScenario(scoped_refptr<RefCountedScenarioMemory> shared_mem,
-                        LoadingScenario scenario) {
-  if (shared_mem) {
+// Sets the value for Scenario in the memory region held in `state_ptr` to
+// `new_scenario`, and returns the old value.
+template <typename Scenario>
+Scenario SetScenarioValue(Scenario new_scenario,
+                          scoped_refptr<RefCountedScenarioState> state_ptr) {
+  if (state_ptr) {
+    ScenarioTraits<Scenario> traits(std::move(state_ptr));
     // std::memory_order_relaxed is sufficient since no other memory depends on
     // the scenario value.
-    shared_mem->data.WritableRef().loading.store(scenario,
-                                                 std::memory_order_relaxed);
-  }
-}
-
-void SetInputScenario(scoped_refptr<RefCountedScenarioMemory> shared_mem,
-                      InputScenario scenario) {
-  if (shared_mem) {
-    // std::memory_order_relaxed is sufficient since no other memory depends on
-    // the scenario value.
-    shared_mem->data.WritableRef().input.store(scenario,
-                                               std::memory_order_relaxed);
-  }
-}
-
-// Posts `task` to the UI thread from the PM sequence, or runs it directly for
-// performance if PM already runs on the UI thread.
-void PostOrRunOnUIThread(
-    base::OnceCallback<void(content::RenderProcessHost*)> task,
-    RenderProcessHostProxy proxy,
-    const base::Location& from_here = base::Location::Current()) {
-  // Get the host from `proxy` and pass it to `task`.
-  auto task_closure =
-      base::BindOnce([](RenderProcessHostProxy proxy) { return proxy.Get(); },
-                     std::move(proxy))
-          .Then(std::move(task));
-  auto ui_task_runner = content::GetUIThreadTaskRunner();
-  if (ui_task_runner->RunsTasksInCurrentSequence()) {
-    if (!base::FeatureList::IsEnabled(features::kRunOnMainThreadSync)) {
-      // This can also be called from the main thread in unit tests.
-      CHECK_IS_TEST();
+    Scenario old_scenario =
+        traits.ScenarioRef().exchange(new_scenario, std::memory_order_relaxed);
+    if (old_scenario != new_scenario) {
+      traits.MaybeEndTraceEvent(old_scenario);
+      traits.MaybeBeginTraceEvent(new_scenario);
     }
-    std::move(task_closure).Run();
-  } else {
-    content::GetUIThreadTaskRunner()->PostTask(from_here,
-                                               std::move(task_closure));
+    return old_scenario;
   }
+  // Pretend the scenario already had this value, to not trigger observers.
+  return new_scenario;
+}
+
+template <typename Scenario>
+void SetScenarioValueForProcessNode(Scenario scenario,
+                                    const ProcessNode* process_node) {
+  Scenario old_scenario =
+      SetScenarioValue(scenario, GetSharedStateForProcessNode(process_node));
+  if (old_scenario != scenario) {
+    auto* observers =
+        PerformanceScenarioNotifierAccessor::GetProcessObservers(process_node);
+    if (observers) {
+      observers->Notify(ScenarioTraits<Scenario>::kProcessNotifyMethod,
+                        process_node, old_scenario, scenario);
+    }
+  }
+}
+
+template <typename Scenario>
+void SetScenarioValueForRenderProcessHost(Scenario scenario,
+                                          content::RenderProcessHost* host) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  PerformanceManager::CallOnGraph(
+      FROM_HERE,
+      base::BindOnce(
+          [](Scenario scenario, base::WeakPtr<ProcessNode> process_node) {
+            if (process_node) {
+              SetScenarioValueForProcessNode(scenario, process_node.get());
+            }
+          },
+          scenario,
+          PerformanceManager::GetProcessNodeForRenderProcessHost(host)));
+}
+
+template <typename Scenario>
+void SetGlobalScenarioValue(Scenario scenario) {
+  Scenario old_scenario = SetScenarioValue(scenario, GetGlobalSharedState());
+  if (old_scenario == scenario) {
+    return;
+  }
+  // The global scenario can be set on any thread, but the observers must be
+  // notified on the PM sequence.
+  PerformanceManager::CallOnGraph(
+      FROM_HERE,
+      base::BindOnce(
+          [](Scenario scenario, Scenario old_scenario, Graph* graph) {
+            auto* observers =
+                PerformanceScenarioNotifierAccessor::GetGlobalObservers(graph);
+            if (observers) {
+              observers->Notify(ScenarioTraits<Scenario>::kGlobalNotifyMethod,
+                                old_scenario, scenario);
+            }
+          },
+          scenario, old_scenario));
 }
 
 }  // namespace
 
 ScopedGlobalScenarioMemory::ScopedGlobalScenarioMemory() {
-  std::optional<SharedScenarioState> shared_state =
-      SharedScenarioState::Create();
-  if (shared_state.has_value()) {
-    base::ReadOnlySharedMemoryRegion region =
-        shared_state->DuplicateReadOnlyRegion();
-    GlobalSharedMemPtr() = base::MakeRefCounted<RefCountedScenarioMemory>(
-        std::move(shared_state.value()));
+  CHECK(!GlobalSharedStatePtr());
+  auto state_ptr = RefCountedScenarioState::Create();
+  if (state_ptr) {
+    state_ptr->EnsureTracingTracks();
+    GlobalSharedStatePtr() = std::move(state_ptr);
     read_only_mapping_.emplace(blink::performance_scenarios::Scope::kGlobal,
-                               std::move(region));
+                               GetGlobalSharedScenarioRegion());
   }
 }
 
 ScopedGlobalScenarioMemory::~ScopedGlobalScenarioMemory() {
-  GlobalSharedMemPtr().reset();
+  GlobalSharedStatePtr().reset();
 }
 
-base::ReadOnlySharedMemoryRegion GetSharedScenarioRegionForProcess(
-    content::RenderProcessHost* host) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  auto shared_mem = GetScenarioMemoryForProcess(host);
-  return shared_mem ? shared_mem->data.DuplicateReadOnlyRegion()
-                    : base::ReadOnlySharedMemoryRegion();
+base::ReadOnlySharedMemoryRegion GetSharedScenarioRegionForProcessNode(
+    const ProcessNode* process_node) {
+  auto state_ptr = GetSharedStateForProcessNode(process_node);
+  // When this is called, the ProcessTrack should be available.
+  if (state_ptr) {
+    state_ptr->EnsureTracingTracks(process_node);
+  }
+  return state_ptr ? state_ptr->shared_state().DuplicateReadOnlyRegion()
+                   : base::ReadOnlySharedMemoryRegion();
 }
 
 base::ReadOnlySharedMemoryRegion GetGlobalSharedScenarioRegion() {
-  auto shared_mem = GetGlobalScenarioMemory();
-  return shared_mem ? shared_mem->data.DuplicateReadOnlyRegion()
-                    : base::ReadOnlySharedMemoryRegion();
+  auto state_ptr = GetGlobalSharedState();
+  return state_ptr ? state_ptr->shared_state().DuplicateReadOnlyRegion()
+                   : base::ReadOnlySharedMemoryRegion();
 }
 
 void SetLoadingScenarioForProcess(LoadingScenario scenario,
                                   content::RenderProcessHost* host) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  SetLoadingScenario(GetScenarioMemoryForProcess(host), scenario);
+  SetScenarioValueForRenderProcessHost(scenario, host);
 }
 
 void SetLoadingScenarioForProcessNode(LoadingScenario scenario,
                                       const ProcessNode* process_node) {
-  if (!process_node ||
-      process_node->GetProcessType() != content::PROCESS_TYPE_RENDERER) {
-    // TODO(crbug.com/365586676): Handle other process types.
-    return;
-  }
-  PostOrRunOnUIThread(base::BindOnce(&SetLoadingScenarioForProcess, scenario),
-                      process_node->GetRenderProcessHostProxy());
+  SetScenarioValueForProcessNode(scenario, process_node);
 }
 
 void SetGlobalLoadingScenario(LoadingScenario scenario) {
-  SetLoadingScenario(GetGlobalScenarioMemory(), scenario);
+  SetGlobalScenarioValue(scenario);
 }
 
 void SetInputScenarioForProcess(InputScenario scenario,
                                 content::RenderProcessHost* host) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  SetInputScenario(GetScenarioMemoryForProcess(host), scenario);
+  SetScenarioValueForRenderProcessHost(scenario, host);
 }
 
 void SetInputScenarioForProcessNode(InputScenario scenario,
                                     const ProcessNode* process_node) {
-  if (!process_node ||
-      process_node->GetProcessType() != content::PROCESS_TYPE_RENDERER) {
-    // TODO(crbug.com/365586676): Handle other process types.
-    return;
-  }
-  PostOrRunOnUIThread(base::BindOnce(&SetInputScenarioForProcess, scenario),
-                      process_node->GetRenderProcessHostProxy());
+  SetScenarioValueForProcessNode(scenario, process_node);
 }
 
 void SetGlobalInputScenario(InputScenario scenario) {
-  SetInputScenario(GetGlobalScenarioMemory(), scenario);
+  SetGlobalScenarioValue(scenario);
 }
 
 }  // namespace performance_manager

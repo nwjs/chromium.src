@@ -72,8 +72,7 @@ const String GetMessageForResponseError(ServiceWorkerResponseError error,
           "is not no-cors";
       break;
     case ServiceWorkerResponseError::kResponseTypeNotBasicOrDefault:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
     case ServiceWorkerResponseError::kBodyUsed:
       error_message =
           error_message +
@@ -262,14 +261,8 @@ void FetchRespondWithObserver::OnResponseRejected(
 }
 
 void FetchRespondWithObserver::OnResponseFulfilled(ScriptState* script_state,
-                                                   const ScriptValue& value) {
+                                                   Response* response) {
   DCHECK(GetExecutionContext());
-  Response* response =
-      V8Response::ToWrappable(script_state->GetIsolate(), value.V8Value());
-  if (!response) {
-    OnResponseRejected(ServiceWorkerResponseError::kNoV8Instance);
-    return;
-  }
   // "If one of the following conditions is true, return a network error:
   //   - |response|'s type is |error|.
   //   - |request|'s mode is |same-origin| and |response|'s type is |cors|.

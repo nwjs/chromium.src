@@ -655,6 +655,19 @@ void BrowserAccessibilityManager::OnLocationChanges(
   SCOPED_UMA_HISTOGRAM_TIMER_MICROS(
       "Accessibility.Performance.BrowserAccessibilityManager::"
       "OnLocationChanges");
+
+  // Track as both a location change and a deserialization, so that we 'get
+  // credit' for the performance moving location-only changes to this
+  // lightweight code path (average time of OnAccessibilityEvents will go down).
+  TRACE_EVENT0(
+      "accessibility",
+      is_post_load_
+          ? "BrowserAccessibilityManager::OnAccessibilityEvents"
+          : "BrowserAccessibilityManager::OnAccessibilityEventsLoading");
+  SCOPED_UMA_HISTOGRAM_TIMER_MICROS(
+      "Accessibility.Performance.BrowserAccessibilityManager::"
+      "OnAccessibilityEvents2");
+
   bool can_fire_events = CanFireEvents();
   for (auto& change : changes.scroll_changes) {
     BrowserAccessibility* obj = GetFromID(change.id);
@@ -1027,8 +1040,7 @@ void BrowserAccessibilityManager::Scroll(const BrowserAccessibility& node,
     case ax::mojom::Action::kScrollRight:
       break;
     default:
-      NOTREACHED_IN_MIGRATION()
-          << "Cannot call Scroll with action=" << scroll_action;
+      NOTREACHED() << "Cannot call Scroll with action=" << scroll_action;
   }
   AXActionData action_data;
   action_data.action = scroll_action;
@@ -1631,7 +1643,7 @@ void BrowserAccessibilityManager::OnAtomicUpdateFinished(
   }
 }
 
-AXNode* BrowserAccessibilityManager::GetNode(const AXNodeID node_id) const {
+AXNode* BrowserAccessibilityManager::GetNode(AXNodeID node_id) const {
   // This does not use ax_tree()->FromID(), because that uses a different map
   // that does not contain extra mac nodes from AXTableInfo.
   BrowserAccessibility* browser_accessibility = GetFromID(node_id);
@@ -1639,7 +1651,7 @@ AXNode* BrowserAccessibilityManager::GetNode(const AXNodeID node_id) const {
 }
 
 AXPlatformNode* BrowserAccessibilityManager::GetPlatformNodeFromTree(
-    const AXNodeID node_id) const {
+    AXNodeID node_id) const {
   BrowserAccessibility* wrapper = GetFromID(node_id);
   if (wrapper)
     return wrapper->GetAXPlatformNode();
@@ -1967,8 +1979,7 @@ BrowserAccessibilityManager::RetargetBrowserAccessibilityForEvents(
     // ClusterFuzz was able to come up with a reliably-reproducible test case
     // which can be seen in https://crbug.com/1362230. This needs to be
     // investigated further.
-    NOTREACHED_IN_MIGRATION();
-    return nullptr;
+    NOTREACHED();
   }
   return GetFromAXNode(RetargetForEvents(node->node(), event_type));
 }

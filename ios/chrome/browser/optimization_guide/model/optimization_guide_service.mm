@@ -179,6 +179,11 @@ OptimizationGuideService::OptimizationGuideService(
             std::make_unique<OnDeviceModelComponentStateManagerDelegate>());
     on_device_model_state_manager_->OnStartup();
 
+    // TODO(crbug.com/370768381): Always set a high perfomance class for
+    // prototyping.
+    on_device_model_state_manager_->DevicePerformanceClassChanged(
+        optimization_guide::OnDeviceModelPerformanceClass::kHigh);
+
     // Create the manager for on-device model execution.
     scoped_refptr<optimization_guide::OnDeviceModelServiceController>
         on_device_model_service_controller =
@@ -393,11 +398,14 @@ void OptimizationGuideService::ExecuteModel(
   DCHECK_CURRENTLY_ON(web::WebThread::UI);
   if (!model_execution_manager_) {
     std::move(callback).Run(
-        base::unexpected(
-            optimization_guide::OptimizationGuideModelExecutionError::
-                FromModelExecutionError(
-                    optimization_guide::OptimizationGuideModelExecutionError::
-                        ModelExecutionError::kGenericFailure)),
+        optimization_guide::OptimizationGuideModelExecutionResult(
+            base::unexpected(
+                optimization_guide::OptimizationGuideModelExecutionError::
+                    FromModelExecutionError(
+                        optimization_guide::
+                            OptimizationGuideModelExecutionError::
+                                ModelExecutionError::kGenericFailure)),
+            /*model_execution_info=*/nullptr),
         nullptr);
     return;
   }

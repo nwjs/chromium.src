@@ -64,14 +64,21 @@ void DeviceDisabledScreen::HideImpl() {
     return;
   }
 
-  NOTREACHED_IN_MIGRATION() << "Device disabled screen can't be hidden";
-  DeviceDisablingManager()->RemoveObserver(this);
+  NOTREACHED() << "Device disabled screen can't be hidden";
 }
 
 void DeviceDisabledScreen::OnDisabledMessageChanged(
     const std::string& disabled_message) {
   if (view_) {
     view_->UpdateMessage(disabled_message);
+  }
+}
+
+void DeviceDisabledScreen::OnRestrictionScheduleMessageChanged() {
+  if (view_) {
+    view_->UpdateRestrictionScheduleMessage(
+        DeviceRestrictionScheduleController().RestrictionScheduleEndDay(),
+        DeviceRestrictionScheduleController().RestrictionScheduleEndTime());
   }
 }
 

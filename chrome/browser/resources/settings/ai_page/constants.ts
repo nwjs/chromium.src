@@ -11,6 +11,15 @@ export enum FeatureOptInState {
   DISABLED = 2,
 }
 
+// LINT.IfChange(ModelExecutionEnterprisePolicyValue)
+export enum ModelExecutionEnterprisePolicyValue {
+  ALLOW = 0,
+  ALLOW_WITHOUT_LOGGING = 1,
+  DISABLE = 2,
+}
+// LINT.ThenChange(/components/optimization_guide/core/model_execution/model_execution_prefs.h:ModelExecutionEnterprisePolicyValue)
+
+
 // Exporting pref names so that they can be referenced by tests.
 export enum SettingsAiPageFeaturePrefName {
   MAIN = 'optimization_guide.model_execution_main_toggle_setting_state',
@@ -18,6 +27,20 @@ export enum SettingsAiPageFeaturePrefName {
   COMPOSE = 'optimization_guide.compose_setting_state',
   TAB_ORGANIZATION = 'optimization_guide.tab_organization_setting_state',
   WALLPAPER_SEARCH = 'optimization_guide.wallpaper_search_setting_state',
+}
+
+// Exporting enterprise pref names so that they can be referenced by tests.
+export enum AiEnterpriseFeaturePrefName {
+  HISTORY_SEARCH =
+      'optimization_guide.model_execution.history_search_enterprise_policy_allowed',
+  COMPOSE =
+      'optimization_guide.model_execution.compose_enterprise_policy_allowed',
+  TAB_ORGANIZATION =
+      'optimization_guide.model_execution.tab_organization_enterprise_policy_allowed',
+  WALLPAPER_SEARCH =
+      'optimization_guide.model_execution.wallpaper_search_enterprise_policy_allowed',
+  COMPARE =
+      'optimization_guide.model_execution.tab_compare_settings_enterprise_policy',
 }
 
 export enum AiPageActions {

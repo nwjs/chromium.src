@@ -55,13 +55,13 @@
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/accelerator_utils.h"
 #include "chrome/browser/ui/autofill/address_bubbles_controller.h"
+#include "chrome/browser/ui/autofill/payments/filled_card_information_bubble_controller_impl.h"
 #include "chrome/browser/ui/autofill/payments/iban_bubble_controller_impl.h"
 #include "chrome/browser/ui/autofill/payments/manage_migration_ui_controller.h"
 #include "chrome/browser/ui/autofill/payments/mandatory_reauth_bubble_controller_impl.h"
 #include "chrome/browser/ui/autofill/payments/offer_notification_bubble_controller_impl.h"
 #include "chrome/browser/ui/autofill/payments/save_card_bubble_controller_impl.h"
 #include "chrome/browser/ui/autofill/payments/virtual_card_enroll_bubble_controller_impl.h"
-#include "chrome/browser/ui/autofill/payments/virtual_card_manual_fallback_bubble_controller_impl.h"
 #include "chrome/browser/ui/bookmarks/bookmark_stats.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils_desktop.h"
@@ -123,6 +123,7 @@
 #include "components/bookmarks/common/bookmark_pref_names.h"
 #include "components/browsing_data/content/browsing_data_helper.h"
 #include "components/commerce/core/commerce_utils.h"
+#include "components/commerce/core/mojom/product_specifications.mojom.h"
 #include "components/commerce/core/pref_names.h"
 #include "components/content_settings/browser/page_specific_content_settings.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
@@ -155,7 +156,7 @@
 #include "components/translate/core/browser/language_state.h"
 #include "components/translate/core/browser/translate_manager.h"
 #include "components/translate/core/common/translate_constants.h"
-#include "components/user_education/common/feature_promo_controller.h"
+#include "components/user_education/common/feature_promo/feature_promo_controller.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "components/webapps/common/web_app_id.h"
 #include "components/zoom/page_zoom.h"
@@ -185,7 +186,6 @@
 #include "ui/base/models/list_selection_model.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/events/keycodes/keyboard_codes.h"
-#include "ui/webui/resources/cr_components/commerce/shopping_service.mojom.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
 
@@ -1332,15 +1332,13 @@ void ConvertPopupToTabbedBrowser(Browser* browser) {
   // object first, before removing the existing object from the browser-list in
   // order to avoid incorrectly triggering a shutdown.
   Browser* b = Browser::Create(Browser::CreateParams(browser->profile(), true));
-  std::unique_ptr<tabs::TabModel> tab_model =
-      tab_strip->DetachTabAtForInsertion(tab_strip->active_index());
   // This method moves a WebContents from a non-normal browser window to a
   // normal browser window. We cannot move the Tab over directly since TabModel
   // enforces the requirement that it cannot move between window types.
   // https://crbug.com/334281979): Non-normal browser windows should not have a
   // tab to begin with.
   std::unique_ptr<content::WebContents> contents_move =
-      tabs::TabModel::DestroyAndTakeWebContents(std::move(tab_model));
+      tab_strip->DetachWebContentsAtForInsertion(tab_strip->active_index());
 
   // This method moves a WebContents from a non-normal browser window to a
   // normal browser window. We cannot move the Tab over directly since TabModel
@@ -1577,11 +1575,11 @@ void SaveAutofillAddress(Browser* browser) {
   controller->OnIconClicked();
 }
 
-void ShowVirtualCardManualFallbackBubble(Browser* browser) {
+void ShowFilledCardInformationBubble(Browser* browser) {
   WebContents* web_contents =
       browser->tab_strip_model()->GetActiveWebContents();
   auto* controller =
-      autofill::VirtualCardManualFallbackBubbleControllerImpl::FromWebContents(
+      autofill::FilledCardInformationBubbleControllerImpl::FromWebContents(
           web_contents);
   if (controller) {
     controller->ReshowBubble();
@@ -1604,7 +1602,6 @@ void StartTabOrganizationRequest(Browser* browser) {
       TabOrganizationServiceFactory::GetForProfile(browser->profile());
   UMA_HISTOGRAM_BOOLEAN("Tab.Organization.AllEntrypoints.Clicked", true);
   UMA_HISTOGRAM_BOOLEAN("Tab.Organization.ThreeDotMenu.Clicked", true);
-  browser->window()->NotifyNewBadgeFeatureUsed(features::kTabOrganization);
 
   service->RestartSessionAndShowUI(browser,
                                    TabOrganizationEntryPoint::kThreeDotMenu);
@@ -1748,10 +1745,10 @@ bool CanSavePage(const Browser* browser) {
           prefs::kAllowFileSelectionDialogs)) {
     return false;
   }
-  if (static_cast<DownloadPrefs::DownloadRestriction>(
+  if (static_cast<policy::DownloadRestriction>(
           browser->profile()->GetPrefs()->GetInteger(
-              prefs::kDownloadRestrictions)) ==
-      DownloadPrefs::DownloadRestriction::ALL_FILES) {
+              policy::policy_prefs::kDownloadRestrictions)) ==
+      policy::DownloadRestriction::ALL_FILES) {
     return false;
   }
   return !browser->is_type_devtools() &&
@@ -1986,7 +1983,7 @@ void OpenTaskManager(Browser* browser) {
   base::RecordAction(UserMetricsAction("TaskManager"));
   chrome::ShowTaskManager(browser);
 #else
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 #endif
 }
 
@@ -2283,7 +2280,7 @@ void ProcessInterceptedChromeURLNavigationInIncognito(Browser* browser,
   } else if (url == GURL(chrome::kChromeUIHistoryURL)) {
     ShowIncognitoHistoryDisclaimerDialog(browser);
   } else {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 }
 
@@ -2338,11 +2335,10 @@ void OpenCommerceProductSpecificationsTab(Browser* browser,
   auto* prefs = browser->profile()->GetPrefs();
   // If user has not accepted the latest disclosure, show the disclosure dialog
   // first.
-  if (prefs &&
-      prefs->GetInteger(
-          commerce::kProductSpecificationsAcceptedDisclosureVersion) !=
-          static_cast<int>(shopping_service::mojom::
-                               ProductSpecificationsDisclosureVersion::kV1)) {
+  if (prefs && prefs->GetInteger(
+                   commerce::kProductSpecificationsAcceptedDisclosureVersion) !=
+                   static_cast<int>(commerce::product_specifications::mojom::
+                                        DisclosureVersion::kV1)) {
     commerce::DialogArgs dialog_args(urls, std::string(), /*set_id=*/"",
                                      /*in_new_tab=*/true);
     commerce::ProductSpecificationsDisclosureDialog::ShowDialog(

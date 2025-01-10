@@ -23,7 +23,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
@@ -180,6 +179,7 @@ public class TouchToFillPaymentMethodRenderTest {
                     VISA.getObfuscatedLastFourDigits(),
                     VISA.getFormattedExpirationDate(ContextUtils.getApplicationContext()),
                     /* secondarySubLabel= */ "",
+                    /* labelContentDescription= */ "",
                     /* applyDeactivatedStyle= */ false,
                     /* shouldDisplayTermsAvailable= */ false);
     private static final AutofillSuggestion VISA_SUGGESTION_WITH_CARD_BENEFITS =
@@ -188,6 +188,7 @@ public class TouchToFillPaymentMethodRenderTest {
                     VISA.getObfuscatedLastFourDigits(),
                     /* subLabel= */ "2% cashback on travel",
                     VISA.getFormattedExpirationDate(ContextUtils.getApplicationContext()),
+                    /* labelContentDescription= */ "",
                     /* applyDeactivatedStyle= */ false,
                     /* shouldDisplayTermsAvailable= */ true);
     private static final AutofillSuggestion MASTERCARD_SUGGESTION =
@@ -196,6 +197,7 @@ public class TouchToFillPaymentMethodRenderTest {
                     MASTERCARD.getObfuscatedLastFourDigits(),
                     MASTERCARD.getFormattedExpirationDate(ContextUtils.getApplicationContext()),
                     /* secondarySubLabel= */ "",
+                    /* labelContentDescription= */ "",
                     /* applyDeactivatedStyle= */ false,
                     /* shouldDisplayTermsAvailable= */ false);
     private static final AutofillSuggestion SERVER_MASTERCARD_SUGGESTION =
@@ -205,6 +207,7 @@ public class TouchToFillPaymentMethodRenderTest {
                     SERVER_MASTERCARD.getFormattedExpirationDate(
                             ContextUtils.getApplicationContext()),
                     /* secondarySubLabel= */ "",
+                    /* labelContentDescription= */ "",
                     /* applyDeactivatedStyle= */ false,
                     /* shouldDisplayTermsAvailable= */ false);
     private static final AutofillSuggestion DISCOVER_SUGGESTION =
@@ -213,6 +216,7 @@ public class TouchToFillPaymentMethodRenderTest {
                     DISCOVER.getObfuscatedLastFourDigits(),
                     DISCOVER.getFormattedExpirationDate(ContextUtils.getApplicationContext()),
                     /* secondarySubLabel= */ "",
+                    /* labelContentDescription= */ "",
                     /* applyDeactivatedStyle= */ false,
                     /* shouldDisplayTermsAvailable= */ false);
     private static final AutofillSuggestion AMERICAN_EXPRESS_SUGGESTION =
@@ -222,6 +226,7 @@ public class TouchToFillPaymentMethodRenderTest {
                     AMERICAN_EXPRESS.getFormattedExpirationDate(
                             ContextUtils.getApplicationContext()),
                     /* secondarySubLabel= */ "",
+                    /* labelContentDescription= */ "",
                     /* applyDeactivatedStyle= */ false,
                     /* shouldDisplayTermsAvailable= */ false);
     private static final AutofillSuggestion ACCEPTABLE_MASTERCARD_VIRTUAL_CARD_SUGGESTION =
@@ -230,6 +235,7 @@ public class TouchToFillPaymentMethodRenderTest {
                     MASTERCARD_VIRTUAL_CARD.getObfuscatedLastFourDigits(),
                     /* subLabel= */ "Virtual card",
                     /* secondarySubLabel= */ "",
+                    /* labelContentDescription= */ "",
                     /* applyDeactivatedStyle= */ false,
                     /* shouldDisplayTermsAvailable= */ false);
     private static final AutofillSuggestion NON_ACCEPTABLE_MASTERCARD_VIRTUAL_CARD_SUGGESTION =
@@ -238,6 +244,7 @@ public class TouchToFillPaymentMethodRenderTest {
                     MASTERCARD_VIRTUAL_CARD.getObfuscatedLastFourDigits(),
                     /* subLabel= */ "Merchant doesn't accept this virtual card",
                     /* secondarySubLabel= */ "",
+                    /* labelContentDescription= */ "",
                     /* applyDeactivatedStyle= */ true,
                     /* shouldDisplayTermsAvailable= */ false);
     private static final AutofillSuggestion MASTERCARD_VIRTUAL_CARD_SUGGESTION_WITH_CARD_BENEFITS =
@@ -246,6 +253,7 @@ public class TouchToFillPaymentMethodRenderTest {
                     MASTERCARD_VIRTUAL_CARD.getObfuscatedLastFourDigits(),
                     /* subLabel= */ "2% cashback on travel",
                     /* secondarySubLabel= */ "Virtual card",
+                    /* labelContentDescription= */ "",
                     /* applyDeactivatedStyle= */ false,
                     /* shouldDisplayTermsAvailable= */ true);
     private static final AutofillSuggestion LONG_CARD_NAME_CARD_SUGGESTION =
@@ -255,6 +263,7 @@ public class TouchToFillPaymentMethodRenderTest {
                     LONG_CARD_NAME_CARD.getFormattedExpirationDate(
                             ContextUtils.getApplicationContext()),
                     /* secondarySubLabel= */ "",
+                    /* labelContentDescription= */ "",
                     /* applyDeactivatedStyle= */ false,
                     /* shouldDisplayTermsAvailable= */ false);
 
@@ -270,7 +279,6 @@ public class TouchToFillPaymentMethodRenderTest {
 
     @Before
     public void setUp() throws InterruptedException {
-        MockitoAnnotations.initMocks(this);
         mActivityTestRule.startMainActivityOnBlankPage();
         mActivityTestRule.waitForActivityCompletelyLoaded();
         mBottomSheetController =

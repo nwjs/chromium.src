@@ -6,11 +6,13 @@ package org.chromium.chrome.browser.tasks.tab_management;
 
 import android.app.Activity;
 import android.content.Context;
+import android.os.Build;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.widget.FrameLayout;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 
 import org.chromium.base.Callback;
 import org.chromium.chrome.browser.data_sharing.DataSharingServiceFactory;
@@ -22,14 +24,17 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabUtils;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncUtils;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
+import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModel;
-import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationManager.ConfirmationResult;
+import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.tab_ui.R;
+import org.chromium.components.browser_ui.widget.ActionConfirmationResult;
 import org.chromium.components.data_sharing.DataSharingService;
 import org.chromium.components.data_sharing.PeopleGroupActionOutcome;
 import org.chromium.components.embedder_support.util.UrlConstants;
@@ -45,8 +50,6 @@ import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogUtils;
 
 import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
 
 /** Static utilities for Tab UI. */
 public class TabUiUtils {
@@ -70,7 +73,12 @@ public class TabUiUtils {
             boolean isSyncEnabled,
             @Nullable Callback<Boolean> didCloseCallback) {
         TabModel tabModel = filter.getTabModel();
-        int rootId = tabModel.getTabById(tabId).getRootId();
+        @Nullable Tab tab = tabModel.getTabById(tabId);
+        if (tab == null) {
+            Callback.runNullSafe(didCloseCallback, false);
+            return;
+        }
+        int rootId = tab.getRootId();
         List<Tab> tabs = filter.getRelatedTabListForRootId(rootId);
         boolean isIncognito = filter.isIncognitoBranded();
 
@@ -78,19 +86,19 @@ public class TabUiUtils {
             filter.closeTabs(TabClosureParams.closeTabs(tabs).hideTabGroups(hideTabGroups).build());
             Callback.runNullSafe(didCloseCallback, true);
         } else {
-            List<Integer> tabIds = tabs.stream().map(Tab::getId).collect(Collectors.toList());
+            List<Integer> tabIds = TabUtils.getTabIds(tabs);
 
             // Present a confirmation dialog to the user before closing the tab group.
             Callback<Integer> onResult =
-                    (@ConfirmationResult Integer result) -> {
-                        if (result != ConfirmationResult.CONFIRMATION_NEGATIVE) {
-                            boolean allowUndo = result == ConfirmationResult.IMMEDIATE_CONTINUE;
+                    (@ActionConfirmationResult Integer result) -> {
+                        if (result != ActionConfirmationResult.CONFIRMATION_NEGATIVE) {
+                            boolean allowUndo =
+                                    result == ActionConfirmationResult.IMMEDIATE_CONTINUE;
                             List<Tab> tabsToClose =
-                                    tabIds.stream()
-                                            .map(filter.getTabModel()::getTabById)
-                                            .filter(Objects::nonNull)
-                                            .filter(tab -> !tab.isClosing())
-                                            .collect(Collectors.toList());
+                                    TabModelUtils.getTabsById(
+                                            tabIds,
+                                            filter.getTabModel(),
+                                            /* allowClosing= */ false);
                             filter.closeTabs(
                                     TabClosureParams.closeTabs(tabsToClose)
                                             .allowUndo(allowUndo)
@@ -123,7 +131,7 @@ public class TabUiUtils {
         int rootId = tabModel.getTabById(tabId).getRootId();
         boolean isIncognito = filter.getTabModel().isIncognito();
         List<Tab> tabs = filter.getRelatedTabListForRootId(rootId);
-        List<Integer> tabIds = tabs.stream().map(Tab::getId).collect(Collectors.toList());
+        List<Integer> tabIds = TabUtils.getTabIds(tabs);
 
         if (isIncognito || !isSyncEnabled || actionConfirmationManager == null) {
             for (Tab tab : tabs) {
@@ -132,17 +140,15 @@ public class TabUiUtils {
         } else {
             // Present a confirmation dialog to the user before ungrouping the tab group.
             Callback<Integer> onResult =
-                    (@ConfirmationResult Integer result) -> {
-                        if (result != ConfirmationResult.CONFIRMATION_NEGATIVE) {
+                    (@ActionConfirmationResult Integer result) -> {
+                        if (result != ActionConfirmationResult.CONFIRMATION_NEGATIVE) {
                             List<Tab> tabsToUngroup =
-                                    tabIds.stream()
-                                            .map(filter.getTabModel()::getTabById)
-                                            .filter(Objects::nonNull)
-                                            .filter(
-                                                    tab ->
-                                                            !tab.isClosing()
-                                                                    && filter.isTabInTabGroup(tab))
-                                            .collect(Collectors.toList());
+                                    TabModelUtils.getTabsById(
+                                            tabIds,
+                                            filter.getTabModel(),
+                                            /* allowClosing= */ false,
+                                            tab -> filter.isTabInTabGroup(tab));
+
                             for (Tab tab : tabsToUngroup) {
                                 filter.moveTabOutOfGroupInDirection(
                                         tab.getId(), /* trailing= */ true);
@@ -238,8 +244,8 @@ public class TabUiUtils {
 
         actionConfirmationManager.processDeleteSharedGroupAttempt(
                 savedTabGroup.title,
-                (@ConfirmationResult Integer result) -> {
-                    if (result != ConfirmationResult.CONFIRMATION_NEGATIVE) {
+                (@ActionConfirmationResult Integer result) -> {
+                    if (result != ActionConfirmationResult.CONFIRMATION_NEGATIVE) {
                         dataSharingService.deleteGroup(
                                 savedTabGroup.collaborationId,
                                 bindOnLeaveOrDeleteGroup(context, modalDialogManager));
@@ -282,8 +288,8 @@ public class TabUiUtils {
 
         actionConfirmationManager.processLeaveGroupAttempt(
                 savedTabGroup.title,
-                (@ConfirmationResult Integer result) -> {
-                    if (result != ConfirmationResult.CONFIRMATION_NEGATIVE) {
+                (@ActionConfirmationResult Integer result) -> {
+                    if (result != ActionConfirmationResult.CONFIRMATION_NEGATIVE) {
                         dataSharingService.removeMember(
                                 savedTabGroup.collaborationId,
                                 account.getEmail(),
@@ -357,5 +363,59 @@ public class TabUiUtils {
                         R.string.data_sharing_invitation_failure_button);
             }
         };
+    }
+
+    /**
+     * Mark the tab switcher view as sensitive if at least one of the tabs in {@param tabList} has
+     * sensitive content. Note that if all sensitive tabs are removed from the tab switcher, the tab
+     * switcher will have to be closed and opened again to become not sensitive.
+     *
+     * @param tabList List of all tabs to be checked for sensitive content.
+     * @param contentSensitivitySetter Function that sets the content sensitivity on the tab
+     *     switcher view. The parameter of this function is a boolean, which is true if the content
+     *     is sensitive.
+     */
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
+    public static void updateViewContentSensitivityForTabs(
+            @Nullable TabList tabList, Callback<Boolean> contentSensitivitySetter) {
+        if (tabList == null) {
+            return;
+        }
+
+        for (int i = 0; i < tabList.getCount(); i++) {
+            if (tabList.getTabAt(i).getTabHasSensitiveContent()) {
+                contentSensitivitySetter.onResult(/* contentIsSensitive= */ true);
+                return;
+            }
+        }
+        // If not marked as not sensitive, the tab switcher might remain sensitive from a previous
+        // set of tabs.
+        contentSensitivitySetter.onResult(/* contentIsSensitive= */ false);
+    }
+
+    /**
+     * Mark the tab switcher view as sensitive if at least one of the tabs in {@param tabList} has
+     * sensitive content. Note that if all sensitive tabs are removed from the tab switcher, the tab
+     * switcher will have to be closed and opened again to become not sensitive.
+     *
+     * @param tabList List of all tabs to be checked for sensitive content.
+     * @param contentSensitivitySetter Function that sets the content sensitivity on the tab
+     *     switcher view. The parameter of this function is a boolean, which is true if the content
+     *     is sensitive.
+     */
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
+    public static void updateViewContentSensitivityForTabs(
+            @Nullable List<Tab> tabList, Callback<Boolean> contentSensitivitySetter) {
+        if (tabList == null) {
+            return;
+        }
+
+        if (tabList.stream().anyMatch(tab -> tab.getTabHasSensitiveContent())) {
+            contentSensitivitySetter.onResult(/* contentIsSensitive= */ true);
+        } else {
+            // If not marked as not sensitive, the tab switcher might remain sensitive from a
+            // previous set of tabs.
+            contentSensitivitySetter.onResult(/* contentIsSensitive= */ false);
+        }
     }
 }

@@ -4,6 +4,15 @@
 
 package org.chromium.chrome.browser.app.tabmodel;
 
+import static androidx.test.espresso.Espresso.onView;
+import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
+import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
+import static androidx.test.espresso.matcher.ViewMatchers.withId;
+import static androidx.test.espresso.matcher.ViewMatchers.withText;
+
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -13,9 +22,11 @@ import static org.mockito.Mockito.verify;
 
 import static org.chromium.base.ThreadUtils.runOnUiThreadBlocking;
 import static org.chromium.chrome.browser.tabmodel.TabList.INVALID_TAB_INDEX;
+import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.enterTabSwitcher;
 
 import android.util.Pair;
 
+import androidx.test.espresso.matcher.ViewMatchers.Visibility;
 import androidx.test.filters.MediumTest;
 
 import org.junit.Before;
@@ -34,16 +45,21 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.DeferredStartupHandler;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.searchwidget.SearchActivity;
 import org.chromium.chrome.browser.tab.TabArchiveSettings;
 import org.chromium.chrome.browser.tab.TabArchiver;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tasks.tab_management.TabSwitcherSearchTestUtils;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
+import org.chromium.chrome.test.R;
+import org.chromium.components.omnibox.OmniboxFeatureList;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -61,6 +77,7 @@ import java.util.concurrent.TimeUnit;
 @DisableFeatures(ChromeFeatureList.ANDROID_TAB_DECLUTTER_ARCHIVE_ALL_BUT_ACTIVE)
 public class ArchivedTabModelOrchestratorTest {
     private static final String TEST_PATH = "/chrome/test/data/android/about.html";
+    private static final String TEST_PATH_2 = "/chrome/test/data/android/google.html";
 
     private static class FakeTaskRunner implements TaskRunner {
 
@@ -359,5 +376,82 @@ public class ArchivedTabModelOrchestratorTest {
         // Running the archive task should have had no effect after the destroy.
         assertEquals(2, mRegularTabModel.getCount());
         assertEquals(0, mArchivedTabModel.getCount());
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures(OmniboxFeatureList.ANDROID_HUB_SEARCH)
+    public void testOpenArchivedTabFromHubSearch() {
+        finishLoading();
+        mActivityTestRule.loadUrl(mActivityTestRule.getTestServer().getURL(TEST_PATH));
+        mActivityTestRule.loadUrlInNewTab(
+                mActivityTestRule.getTestServer().getURL(TEST_PATH_2), /* incognito= */ false);
+
+        assertEquals(2, mRegularTabModel.getCount());
+        assertEquals(0, mArchivedTabModel.getCount());
+        runOnUiThreadBlocking(
+                () -> {
+                    doReturn(TimeUnit.HOURS.toMillis(2)).when(mClock).currentTimeMillis();
+                    mOrchestrator.getTabArchiver().setClockForTesting(mClock);
+                    mRegularTabModel.getTabAt(0).setTimestampMillis(0L);
+                    mRegularTabModel.getTabAt(1).setTimestampMillis(0L);
+                    mTabArchiveSettings.setArchiveTimeDeltaHours(1);
+                    mOrchestrator.resetBeginDeclutterForTesting();
+                    mOrchestrator.maybeBeginDeclutter();
+                });
+
+        CriteriaHelper.pollUiThread(() -> 1 == mRegularTabModel.getCount());
+        assertEquals(1, mArchivedTabModel.getCount());
+
+        ChromeTabbedActivity cta = mActivityTestRule.getActivity();
+        enterTabSwitcher(cta);
+
+        SearchActivity searchActivity =
+                TabSwitcherSearchTestUtils.launchSearchActivityFromTabSwitcherAndWaitForLoad(cta);
+
+        onView(
+                        allOf(
+                                withId(R.id.line_2),
+                                withText(containsString(TEST_PATH)),
+                                withEffectiveVisibility(Visibility.VISIBLE)))
+                .perform(click());
+        CriteriaHelper.pollUiThread(() -> 2 == mRegularTabModel.getCount());
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures(OmniboxFeatureList.ANDROID_HUB_SEARCH)
+    public void testOpenArchivedTabFromHubSearch_Incognito() {
+        finishLoading();
+        mActivityTestRule.loadUrl(mActivityTestRule.getTestServer().getURL(TEST_PATH));
+        mActivityTestRule.loadUrlInNewTab(
+                mActivityTestRule.getTestServer().getURL(TEST_PATH_2), /* incognito= */ false);
+
+        assertEquals(2, mRegularTabModel.getCount());
+        assertEquals(0, mArchivedTabModel.getCount());
+        runOnUiThreadBlocking(
+                () -> {
+                    doReturn(TimeUnit.HOURS.toMillis(2)).when(mClock).currentTimeMillis();
+                    mOrchestrator.getTabArchiver().setClockForTesting(mClock);
+                    mRegularTabModel.getTabAt(0).setTimestampMillis(0L);
+                    mRegularTabModel.getTabAt(1).setTimestampMillis(0L);
+                    mTabArchiveSettings.setArchiveTimeDeltaHours(1);
+                    mOrchestrator.resetBeginDeclutterForTesting();
+                    mOrchestrator.maybeBeginDeclutter();
+                });
+
+        CriteriaHelper.pollUiThread(() -> 1 == mRegularTabModel.getCount());
+        assertEquals(1, mArchivedTabModel.getCount());
+
+        mActivityTestRule.loadUrlInNewTab(
+                mActivityTestRule.getTestServer().getURL(TEST_PATH_2), /* incognito= */ true);
+        ChromeTabbedActivity cta = mActivityTestRule.getActivity();
+        enterTabSwitcher(cta);
+
+        SearchActivity searchActivity =
+                TabSwitcherSearchTestUtils.launchSearchActivityFromTabSwitcherAndWaitForLoad(cta);
+
+        onView(allOf(withId(R.id.line_2), withText(containsString(TEST_PATH))))
+                .check(doesNotExist());
     }
 }

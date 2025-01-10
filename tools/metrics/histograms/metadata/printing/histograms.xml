@@ -233,7 +233,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.NearbyNetworkAutomaticPrintersCount"
-    units="printers" expires_after="2024-12-30">
+    units="printers" expires_after="2025-06-30">
   <owner>bmgordon@chromium.org</owner>
   <owner>project-bolton@google.com</owner>
   <summary>
@@ -244,7 +244,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.NearbyNetworkDiscoveredPrintersCount"
-    units="printers" expires_after="2024-12-30">
+    units="printers" expires_after="2025-06-30">
   <owner>bmgordon@chromium.org</owner>
   <owner>project-bolton@google.com</owner>
   <summary>
@@ -255,7 +255,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.NearbyNetworkPrintersCount" units="printers"
-    expires_after="2024-12-08">
+    expires_after="2025-06-30">
   <owner>bmgordon@chromium.org</owner>
   <owner>project-bolton@google.com</owner>
   <summary>
@@ -266,7 +266,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.PrintDocumentSize" units="KB"
-    expires_after="2025-02-10">
+    expires_after="2025-04-13">
   <owner>bmgordon@chromium.org</owner>
   <owner>project-bolton@google.com</owner>
   <summary>
@@ -276,7 +276,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.PrinterAdded" enum="PrinterProtocol"
-    expires_after="2025-02-10">
+    expires_after="2025-04-13">
   <owner>bmgordon@chromium.org</owner>
   <owner>src/chromeos/printing/OWNERS</owner>
   <summary>
@@ -302,7 +302,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.PrinterRemoved" enum="PrinterProtocol"
-    expires_after="2025-03-01">
+    expires_after="2025-05-04">
   <owner>bmgordon@chromium.org</owner>
   <owner>src/chromeos/printing/OWNERS</owner>
   <summary>
@@ -336,7 +336,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.PrinterSetupResult.PrintPreview"
-    enum="PrinterSetupResult" expires_after="2025-02-10">
+    enum="PrinterSetupResult" expires_after="2025-04-13">
   <owner>bmgordon@chromium.org</owner>
   <owner>cros-printing-dev@chromium.org</owner>
   <summary>
@@ -406,7 +406,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.SettingsUserAction"
-    enum="PrinterSettingsUserAction" expires_after="2025-03-02">
+    enum="PrinterSettingsUserAction" expires_after="2025-05-04">
   <owner>gavinwill@chromium.org</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -415,7 +415,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.TotalNetworkPrintersCount2" units="printers"
-    expires_after="2024-11-26">
+    expires_after="2025-06-30">
   <owner>bmgordon@chromium.org</owner>
   <owner>project-bolton@google.com</owner>
   <summary>
@@ -430,7 +430,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.TotalNetworkPrintersCount2.SettingsOpened"
-    units="printers" expires_after="2024-11-26">
+    units="printers" expires_after="2025-06-30">
   <owner>bmgordon@chromium.org</owner>
   <owner>project-bolton@google.com</owner>
   <summary>
@@ -479,7 +479,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Printing.CUPS.ZeroconfPrinterSetupResult.PrintPreview"
-    enum="PrinterSetupResult" expires_after="2025-02-10">
+    enum="PrinterSetupResult" expires_after="2025-04-13">
   <owner>bmgordon@chromium.org</owner>
   <owner>cros-printing-dev@chromium.org</owner>
   <summary>
@@ -490,34 +490,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Printing.LacrosExtensions.FromAsh.Job.Result"
-    enum="ExtensionPrintJobStatus" expires_after="2025-06-03">
-  <owner>xiangdongkong@google.com</owner>
-  <owner>cros-device-enablement@google.com</owner>
-  <summary>
-    Records the result of sending a print job to a lacros extension printer from
-    ash. When lacros is enabled, printing extensions can only be installed in
-    lacros browser. When printing from CrOS native apps, print requests will be
-    sent from ash side to lacros side via mojom service.
-  </summary>
-</histogram>
-
-<histogram name="Printing.LacrosExtensions.FromAsh.NumberOfPrinters"
-    units="printers" expires_after="2025-06-03">
-  <owner>xiangdongkong@google.com</owner>
-  <owner>cros-device-enablement@google.com</owner>
-  <summary>
-    Records the number of printers reported by lacros extensions when getting
-    printers request comes from ash. When lacros is enabled, printing extensions
-    can only be installed in lacros browser. When printing from CrOS native
-    apps, get printers requests will be sent from ash side to lacros side via
-    mojom service. Since not many users have extension printers, Only non-zero
-    values will be recorded.
-  </summary>
-</histogram>
-
 <histogram name="Printing.Oop.PrintResult" enum="PrintOopResult"
-    expires_after="2025-02-10">
+    expires_after="2025-04-13">
   <owner>awscreen@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -616,7 +590,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PrintPreview.GetPrintersTime.{PrinterType}" units="ms"
-    expires_after="2025-02-16">
+    expires_after="2025-04-20">
   <owner>gavinwill@chromium.org</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -641,7 +615,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PrintPreview.InitialDisplayTime.LongTimes" units="ms"
-    expires_after="2025-02-10">
+    expires_after="2025-04-13">
   <owner>gavinwill@chromium.org</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -665,7 +639,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PrintPreview.InitialDisplayTimeFirstPrint.LongTimes"
-    units="ms" expires_after="2025-02-10">
+    units="ms" expires_after="2025-04-13">
   <owner>gavinwill@chromium.org</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -691,7 +665,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PrintPreview.NumberOfPrinters" units="units"
-    expires_after="2025-02-10">
+    expires_after="2025-04-13">
   <owner>thestig@chromium.org</owner>
   <owner>dhoss@chromium.org</owner>
   <summary>
@@ -712,7 +686,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PrintPreview.PrintDocumentType"
-    enum="PrintPreviewPrintDocumentTypeBuckets" expires_after="2025-02-10">
+    enum="PrintPreviewPrintDocumentTypeBuckets" expires_after="2025-04-13">
   <owner>rbpotter@chromium.org</owner>
   <owner>awscreen@chromium.org</owner>
   <summary>
@@ -739,7 +713,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PrintPreview.PrinterStatus.{StatusReason}.PrintJobSuccess"
-    enum="BooleanSuccess" expires_after="2024-11-03">
+    enum="BooleanSuccess" expires_after="2025-11-03">
   <owner>gavinwill@chromium.org</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>

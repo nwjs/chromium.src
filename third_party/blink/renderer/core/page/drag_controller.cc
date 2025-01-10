@@ -124,9 +124,7 @@ static bool DragTypeIsValid(DragSourceAction action) {
     case kDragSourceActionNone:
       return false;
   }
-  // Make sure MSVC doesn't complain that not all control paths return a value.
-  NOTREACHED_IN_MIGRATION();
-  return false;
+  NOTREACHED();
 }
 #endif  // DCHECK_IS_ON()
 
@@ -1111,7 +1109,7 @@ std::unique_ptr<DragImage> DragImageForImage(
   if (image_size.Area64() > kMaxOriginalImageArea)
     return nullptr;
 
-  InterpolationQuality interpolation_quality = kInterpolationDefault;
+  InterpolationQuality interpolation_quality = GetDefaultInterpolationQuality();
   if (layout_image->StyleRef().ImageRendering() == EImageRendering::kPixelated)
     interpolation_quality = kInterpolationNone;
 
@@ -1345,8 +1343,7 @@ bool DragController::StartDrag(LocalFrame* frame,
       return false;
   } else if (state.drag_type_ != kDragSourceActionSelection &&
              state.drag_type_ != kDragSourceActionDHTML) {
-    NOTREACHED_IN_MIGRATION();
-    return false;
+    NOTREACHED();
   }
 
   if (state.drag_type_ == kDragSourceActionLink)

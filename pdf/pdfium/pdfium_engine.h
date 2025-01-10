@@ -11,11 +11,13 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
 #include "base/containers/flat_map.h"
 #include "base/containers/span.h"
+#include "base/dcheck_is_on.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_span.h"
@@ -58,6 +60,11 @@
 #include "pdf/flatten_pdf_result.h"
 #endif
 
+#if BUILDFLAG(ENABLE_PDF_INK2)
+#include "pdf/pdf_ink_ids.h"
+#include "third_party/ink/src/ink/geometry/modeled_shape.h"
+#endif
+
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 #include "pdf/pdfium/pdfium_searchify.h"
 #include "services/screen_ai/public/mojom/screen_ai_service.mojom-forward.h"
@@ -70,6 +77,12 @@ class WebMouseEvent;
 class WebTouchEvent;
 struct WebPrintParams;
 }  // namespace blink
+
+#if BUILDFLAG(ENABLE_PDF_INK2)
+namespace ink {
+class Stroke;
+}  // namespace ink
+#endif
 
 namespace chrome_pdf {
 
@@ -356,7 +369,65 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
 #if BUILDFLAG(ENABLE_PDF_INK2)
   // Virtual to support testing.
   virtual gfx::Size GetThumbnailSize(int page_index, float device_pixel_ratio);
-#endif
+
+  // Writes the supplied stroke for the page at `page_index`.  The same `id`
+  // gets used with `UpdateStrokeUsage()`.  Must provide a valid `page_index`.
+  // Virtual to support testing.
+  virtual void ApplyStroke(int page_index,
+                           InkStrokeId id,
+                           const ink::Stroke& stroke);
+
+  // Modifies an existing stroke identified by `id` on the page at `page_index`
+  // to become either active or inactive.  The caller must pass the same
+  // consistent and valid `page_index`/`id` pair as was provided to
+  // `ApplyStroke()`.
+  // Stroke objects that become inactive will no longer be included for
+  // rendering or saving out to PDF data.  Their inclusion can be restored if
+  // another call makes them active again.  Virtual to support testing.
+  virtual void UpdateStrokeActive(int page_index, InkStrokeId id, bool active);
+
+  // Removes an existing stroke identified by `id`. The caller must pass the
+  // same consistent and valid `page_index/`id` pair as was provided to
+  // `ApplyStroke()`. Virtual to support testing.
+  virtual void DiscardStroke(int page_index, InkStrokeId id);
+
+  // Loads "V2" Ink paths from a page in the PDF identified by `page_index`. The
+  // `page_index` must be in bounds.
+  //
+  // Returns a mapping to identify shapes by IDs. In `this`, store a mapping
+  // from IDs to PDFium page objects. This allows the caller to associate shapes
+  // with their corresponding PDFium page objects, without any direct exposure
+  // to PDFium types.
+  //
+  // It is the caller's responsibility to not call this multiple times per page,
+  // or else there will be multiple IDs associated with the same underlying
+  // PDFium page object.
+  //
+  // Virtual to support testing.
+  virtual std::map<InkModeledShapeId, ink::ModeledShape> LoadV2InkPathsForPage(
+      int page_index);
+
+  // Modifies an existing shape identified by `id` on the page at `page_index`
+  // to become either active or inactive. The caller must pass the same
+  // consistent and valid `page_index`/`id` pair as was provided by
+  // `LoadV2InkPathsForPage()`.
+  // Shape objects that become inactive will no longer be included for
+  // rendering or saving out to PDF data. Their inclusion can be restored if
+  // another call makes them active again.
+  //
+  // Virtual to support testing.
+  virtual void UpdateShapeActive(int page_index,
+                                 InkModeledShapeId id,
+                                 bool active);
+
+  const std::map<InkModeledShapeId, FPDF_PAGEOBJECT>&
+  ink_modeled_shape_map_for_testing() const {
+    return ink_modeled_shape_map_;
+  }
+
+  // Regenerate contents for all pages that need it due to Ink strokes.
+  void RegenerateContents();
+#endif  // BUILDFLAG(ENABLE_PDF_INK2)
 
   // DocumentLoader::Client:
   std::unique_ptr<URLLoaderWrapper> CreateURLLoader() override;
@@ -387,10 +458,16 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   // if the page is not scheduled for searchify.
   void CancelPendingSearchify(int page_index);
 
+  // See the comment for `OnSearchifyStateChange` in pdf/pdf.mojom.
+  void OnSearchifyStateChange(bool busy);
+
+  // Called when searchify text is added.
+  void OnHasSearchifyText();
+
   PDFiumOnDemandSearchifier* GetSearchifierForTesting() {
     return searchifier_.get();
   }
-#endif
+#endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
   void UnsupportedFeature(const std::string& feature);
 
@@ -862,6 +939,13 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
   std::unique_ptr<PDFiumOnDemandSearchifier> searchifier_;
+
+  // Keeps track of the indices of pages for which "PDF.PageHasText" metric is
+  // reported.
+  std::set<int> page_has_text_metric_reported_;
+
+  // Records if at least one page has searchify text.
+  bool has_searchify_text_ = false;
 #endif
 
   std::unique_ptr<PDFiumDocument> document_;
@@ -1015,6 +1099,12 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   // The timeout to use for the current progressive paint.
   base::TimeDelta progressive_paint_timeout_;
 
+  // When this class was created.
+  const base::TimeTicks engine_creation_time_;
+
+  // Keeps track of sending `PDF.FirstPaintTime` metric.
+  bool first_paint_metric_reported_ = false;
+
   // Shadow matrix for generating the page shadow bitmap.
   std::unique_ptr<draw_utils::ShadowMatrix> page_shadow_;
 
@@ -1056,6 +1146,42 @@ class PDFiumEngine : public DocumentLoader::Client, public IFSDK_PAUSE {
   bool read_only_ = false;
 
   PDFiumPrint print_;
+
+#if BUILDFLAG(ENABLE_PDF_INK2)
+  // Map of zero-based page indices with Ink strokes to page unload preventers.
+  // Pages with Ink strokes have page references in `ink_stroke_objects_map_`,
+  // so these unload preventers ensure those page pointers stay valid by
+  // keeping the pages in memory.  Entries don't get deleted from
+  // `ink_stroke_objects_map_`, so just need one preventer per page instead of
+  // per stroke.
+  std::map<int, PDFiumPage::ScopedUnloadPreventer>
+      stroked_pages_unload_preventers_;
+
+  // The handles for stroke path page objects within the PDF document, mapped
+  // using the `InkStrokeId` provided during stroke creation.  The handles are
+  // protected against becoming stale from page unloads by
+  // `stroked_pages_unload_preventers_`.
+  std::map<InkStrokeId, std::vector<FPDF_PAGEOBJECT>> ink_stroke_objects_map_;
+
+  // Tracks the pages which need to be regenerated before saving due to Ink
+  // stroke changes.
+  std::set<int> ink_stroked_pages_needing_regeneration_;
+
+#if DCHECK_IS_ON()
+  // Used to keep track of LoadV2InkPathsForPage() calls as a sanity check.
+  // Stores the 0-based page indices for pages that have been loaded.
+  std::set<int> pages_with_loaded_v2_ink_paths_;
+#endif  // DCHECK_IS_ON()
+
+  // Used to hand out unique IDs of type InkModeledShapeId for the V2 Ink paths
+  // read out of the PDF. It is stored here as the raw type to simplify
+  // management.
+  size_t next_ink_modeled_shape_id_ = 0;
+
+  // Key: ID to identify a shape.
+  // Value: The PDFium page object associated with the shape.
+  std::map<InkModeledShapeId, FPDF_PAGEOBJECT> ink_modeled_shape_map_;
+#endif  // BUILDFLAG(ENABLE_PDF_INK2)
 
   base::WeakPtrFactory<PDFiumEngine> weak_factory_{this};
 

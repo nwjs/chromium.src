@@ -283,7 +283,7 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest {
 
   void Cancel() {
     DontClassifyForPhishing(PreClassificationCheckResult::NO_CLASSIFY_CANCEL);
-    // Just to make sure we don't do anything stupid we reset all these
+    // Just to make sure we don't do anything bad we reset all these
     // pointers except for the safebrowsing service class which may be
     // accessed by CheckSafeBrowsingDatabase().
     web_contents_ = nullptr;
@@ -951,6 +951,11 @@ void ClientSideDetectionHost::MaybeSendClientPhishingRequest(
 
   base::UmaHistogramBoolean("SBClientPhishing.LocalModelDetectsPhishing",
                             verdict->is_phishing());
+  std::string request_type_name =
+      GetRequestTypeName(verdict->client_side_detection_type());
+  base::UmaHistogramBoolean(
+      "SBClientPhishing.LocalModelDetectsPhishing." + request_type_name,
+      verdict->is_phishing());
 
   bool force_request_from_rt_url_lookup = false;
 

@@ -10,6 +10,7 @@
 #import "ios/chrome/app/application_delegate/app_init_stage.h"
 #import "ios/chrome/app/application_delegate/app_state_agent.h"
 #import "ios/chrome/app/application_delegate/app_state_observer.h"
+#import "ios/chrome/app/background_refresh/background_refresh_app_agent_audience.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state_observer.h"
 #import "ios/chrome/browser/ui/device_orientation/portait_orientation_manager.h"
 #import "ios/chrome/browser/ui/scoped_ui_blocker/ui_blocker_manager.h"
@@ -19,6 +20,7 @@
 @class MemoryWarningHelper;
 @class MetricsMediator;
 @class ProfileState;
+@class DeferredInitializationRunner;
 @protocol StartupInformation;
 
 namespace base {
@@ -43,7 +45,8 @@ enum class PostCrashAction {
 
 // Represents the application state and responds to application state changes
 // and system events.
-@interface AppState : NSObject <PortraitOrientationManager,
+@interface AppState : NSObject <BackgroundRefreshAudience,
+                                PortraitOrientationManager,
                                 SceneStateObserver,
                                 UIBlockerManager>
 
@@ -69,12 +72,6 @@ enum class PostCrashAction {
 
 // YES if the sign-in upgrade promo has been presented to the user, once.
 @property(nonatomic) BOOL signinUpgradePromoPresentedOnce;
-
-// YES if the sign-out prompt should be shown to the user when the scene becomes
-// active and enters the foreground. This can happen if the policies have
-// changed since the last cold start, meaning the user was signed out during
-// startup.
-@property(nonatomic) BOOL shouldShowForceSignOutPrompt;
 
 // Indicates what action, if any, is taken after a crash (stash tabs, show NTP,
 // show safe mode).
@@ -103,6 +100,9 @@ enum class PostCrashAction {
 // All agents that have been attached. Use -addAgent: and -removeAgent: to
 // add and remove agents.
 @property(nonatomic, readonly) NSArray<id<AppStateAgent>>* connectedAgents;
+
+// Can be used to schedule deferred initialization tasks.
+@property(nonatomic, readonly) DeferredInitializationRunner* deferredRunner;
 
 // Logs duration of the session and records that chrome is no longer in cold
 // start.

@@ -472,8 +472,7 @@ void CreditCardAccessManagerTestBase::
       EXPECT_TRUE(vcn_3ds_context.user_consent_already_given);
       break;
     case CardUnmaskChallengeOptionType::kUnknownType:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 }
 
@@ -523,5 +522,17 @@ void CreditCardAccessManagerTestBase::OptUserInToFido() {
   SetCreditCardFIDOAuthEnabled(true);
 }
 #endif
+
+void CreditCardAccessManagerTestBase::
+    PrepareToFetchCreditCardAndWaitForCallbacks() {
+  credit_card_access_manager().PrepareToFetchCreditCard();
+  WaitForCallbacks();
+}
+
+void CreditCardAccessManagerTestBase::FetchCreditCard(const CreditCard* card) {
+  credit_card_access_manager().FetchCreditCard(
+      card, base::BindOnce(&TestAccessor::OnCreditCardFetched,
+                           accessor_->GetWeakPtr()));
+}
 
 }  // namespace autofill

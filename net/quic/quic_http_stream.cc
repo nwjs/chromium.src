@@ -66,8 +66,7 @@ HttpConnectionInfo QuicHttpStream::ConnectionInfoFromQuicVersion(
       DCHECK(quic_version.UsesTls());
       return HttpConnectionInfo::kQUIC_2_DRAFT_8;
   }
-  NOTREACHED_IN_MIGRATION();
-  return HttpConnectionInfo::kQUIC_UNKNOWN_VERSION;
+  NOTREACHED();
 }
 
 void QuicHttpStream::RegisterRequest(const HttpRequestInfo* request_info) {
@@ -454,8 +453,7 @@ int QuicHttpStream::DoLoop(int rv) {
         CHECK_EQ(OK, rv);
         break;
       default:
-        NOTREACHED_IN_MIGRATION() << "next_state_: " << next_state_;
-        break;
+        NOTREACHED() << "next_state_: " << next_state_;
     }
   } while (next_state_ != STATE_NONE && next_state_ != STATE_OPEN &&
            rv != ERR_IO_PENDING);
@@ -628,7 +626,8 @@ int QuicHttpStream::ProcessResponseHeaders(
   response_info_->was_alpn_negotiated = true;
   response_info_->alpn_negotiated_protocol =
       HttpConnectionInfoToString(response_info_->connection_info);
-  response_info_->response_time = base::Time::Now();
+  response_info_->response_time = response_info_->original_response_time =
+      base::Time::Now();
   response_info_->request_time = request_time_;
   response_headers_received_ = true;
 

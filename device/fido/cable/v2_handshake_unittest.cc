@@ -99,7 +99,7 @@ TEST(CableV2Encoding, QRs) {
     std::string url = qr::Encode(qr_key, FidoRequestType::kMakeCredential);
     const std::optional<qr::Components> decoded = qr::Parse(url);
     ASSERT_TRUE(decoded.has_value()) << url;
-    static_assert(EXTENT(qr_key) >= EXTENT(decoded->secret), "");
+    static_assert(kQRKeySize >= std::tuple_size_v<decltype(decoded->secret)>);
     EXPECT_EQ(memcmp(decoded->secret.data(),
                      &qr_key[qr_key.size() - decoded->secret.size()],
                      decoded->secret.size()),
@@ -315,6 +315,25 @@ TEST(CableV2Encoding, RequestTypeToString) {
             RequestTypeFromString("nonsense"));
   EXPECT_EQ(RequestType(FidoRequestType::kGetAssertion),
             RequestTypeFromString(""));
+}
+
+TEST(CableV2Encoding, ShouldOfferLinking) {
+  for (const auto type :
+       {FidoRequestType::kMakeCredential, FidoRequestType::kGetAssertion}) {
+    EXPECT_TRUE(ShouldOfferLinking(type));
+  }
+  {
+    base::test::ScopedFeatureList disable_linking_for_dc;
+    disable_linking_for_dc.InitAndDisableFeature(
+        device::kDigitalCredentialsHybridLinking);
+    EXPECT_FALSE(ShouldOfferLinking(CredentialRequestType::kPresentation));
+  }
+  {
+    base::test::ScopedFeatureList enable_linking_for_dc;
+    enable_linking_for_dc.InitAndEnableFeature(
+        device::kDigitalCredentialsHybridLinking);
+    EXPECT_TRUE(ShouldOfferLinking(CredentialRequestType::kPresentation));
+  }
 }
 
 TEST(CableV2Encoding, PaddedCBOR) {

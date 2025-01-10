@@ -240,15 +240,11 @@ bool AcceleratedStaticBitmapImage::CopyToResourceProvider(
   if (!IsValid())
     return false;
 
-  const bool unpack_flip_y =
-      (IsOriginTopLeft() != resource_provider->IsOriginTopLeft());
-
   const gpu::SyncToken& ready_sync_token = mailbox_ref_->sync_token();
   gpu::SyncToken completion_sync_token;
-  if (!resource_provider->OverwriteImage(
-          shared_image_->mailbox(), copy_rect, unpack_flip_y,
-          /*unpack_premultiply_alpha=*/false, ready_sync_token,
-          completion_sync_token)) {
+  if (!resource_provider->OverwriteImage(shared_image_->mailbox(), copy_rect,
+                                         ready_sync_token,
+                                         completion_sync_token)) {
     return false;
   }
 
@@ -460,46 +456,6 @@ void AcceleratedStaticBitmapImage::Transfer() {
 
 bool AcceleratedStaticBitmapImage::CurrentFrameKnownToBeOpaque() {
   return sk_image_info_.isOpaque();
-}
-
-scoped_refptr<StaticBitmapImage>
-AcceleratedStaticBitmapImage::ConvertToColorSpace(
-    sk_sp<SkColorSpace> color_space,
-    SkColorType color_type) {
-  SkImageInfo image_info = PaintImageForCurrentFrame().GetSkImageInfo();
-  DCHECK(color_space);
-  DCHECK(color_type == kRGBA_F16_SkColorType ||
-         color_type == kRGBA_8888_SkColorType ||
-         color_type == image_info.colorType());
-
-  if (!ContextProviderWrapper())
-    return nullptr;
-
-  if (SkColorSpace::Equals(color_space.get(), image_info.colorSpace()) &&
-      color_type == image_info.colorType()) {
-    return this;
-  }
-  image_info = image_info.makeColorSpace(color_space)
-                   .makeColorType(color_type)
-                   .makeWH(Size().width(), Size().height());
-
-  const auto usage_flags = ContextProviderWrapper()
-                               ->ContextProvider()
-                               ->SharedImageInterface()
-                               ->UsageForMailbox(shared_image_->mailbox());
-  auto provider = CanvasResourceProvider::CreateSharedImageProvider(
-      image_info, cc::PaintFlags::FilterQuality::kLow,
-      CanvasResourceProvider::ShouldInitialize::kNo, ContextProviderWrapper(),
-      RasterMode::kGPU, usage_flags);
-  if (!provider) {
-    return nullptr;
-  }
-
-  cc::PaintFlags paint;
-  paint.setBlendMode(SkBlendMode::kSrc);
-  provider->Canvas().drawImage(PaintImageForCurrentFrame(), 0, 0,
-                               SkSamplingOptions(), &paint);
-  return provider->Snapshot(FlushReason::kNon2DCanvas, orientation_);
 }
 
 gpu::SharedImageUsageSet AcceleratedStaticBitmapImage::GetUsage() const {

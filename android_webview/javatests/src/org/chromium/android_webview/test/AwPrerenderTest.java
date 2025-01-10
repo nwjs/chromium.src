@@ -334,7 +334,6 @@ public class AwPrerenderTest extends AwParameterizedTest {
     @Test
     @LargeTest
     @Feature({"AndroidWebView"})
-    @Features.EnableFeatures({BlinkFeatures.PRERENDER2_NO_VARY_SEARCH})
     @Features.DisableFeatures({BlinkFeatures.PRERENDER2_MEMORY_CONTROLS})
     public void testNoVarySearchHeader() throws Throwable {
         setSpeculativeLoadingAllowed(SpeculativeLoadingAllowedFlags.PRERENDER_ENABLED);
@@ -364,7 +363,6 @@ public class AwPrerenderTest extends AwParameterizedTest {
     @Test
     @LargeTest
     @Feature({"AndroidWebView"})
-    @Features.EnableFeatures({BlinkFeatures.PRERENDER2_NO_VARY_SEARCH})
     @Features.DisableFeatures({BlinkFeatures.PRERENDER2_MEMORY_CONTROLS})
     public void testNoVarySearchHeaderMultipleParams() throws Throwable {
         setSpeculativeLoadingAllowed(SpeculativeLoadingAllowedFlags.PRERENDER_ENABLED);
@@ -400,7 +398,6 @@ public class AwPrerenderTest extends AwParameterizedTest {
     @Test
     @LargeTest
     @Feature({"AndroidWebView"})
-    @Features.EnableFeatures({BlinkFeatures.PRERENDER2_NO_VARY_SEARCH})
     @Features.DisableFeatures({BlinkFeatures.PRERENDER2_MEMORY_CONTROLS})
     public void testNoVarySearchHeaderUnignorableSearchParam() throws Throwable {
         setSpeculativeLoadingAllowed(SpeculativeLoadingAllowedFlags.PRERENDER_ENABLED);
@@ -432,7 +429,10 @@ public class AwPrerenderTest extends AwParameterizedTest {
     @Test
     @LargeTest
     @Feature({"AndroidWebView"})
-    @Features.DisableFeatures({BlinkFeatures.PRERENDER2_MEMORY_CONTROLS})
+    @Features.DisableFeatures({
+        BlinkFeatures.PRERENDER2_MEMORY_CONTROLS,
+        "Prerender2FallbackPrefetchSpecRules"
+    })
     public void testAwContentsIoThreadClientHandleFrameTreeSwapForward() throws Throwable {
         setSpeculativeLoadingAllowed(SpeculativeLoadingAllowedFlags.PRERENDER_ENABLED);
         loadInitialPage();
@@ -488,7 +488,10 @@ public class AwPrerenderTest extends AwParameterizedTest {
     @Test
     @LargeTest
     @Feature({"AndroidWebView"})
-    @Features.DisableFeatures({BlinkFeatures.PRERENDER2_MEMORY_CONTROLS})
+    @Features.DisableFeatures({
+        BlinkFeatures.PRERENDER2_MEMORY_CONTROLS,
+        "Prerender2FallbackPrefetchSpecRules"
+    })
     public void testAwContentsIoThreadClientHandleFrameTreeSwapBack() throws Throwable {
         setSpeculativeLoadingAllowed(SpeculativeLoadingAllowedFlags.PRERENDER_ENABLED);
         loadInitialPage();
@@ -593,7 +596,10 @@ public class AwPrerenderTest extends AwParameterizedTest {
     @Test
     @LargeTest
     @Feature({"AndroidWebView"})
-    @Features.DisableFeatures({BlinkFeatures.PRERENDER2_MEMORY_CONTROLS})
+    @Features.DisableFeatures({
+        BlinkFeatures.PRERENDER2_MEMORY_CONTROLS,
+        "Prerender2FallbackPrefetchSpecRules"
+    })
     public void testPrerenderingAndShouldInterceptRequestForSubresources() throws Throwable {
         setSpeculativeLoadingAllowed(SpeculativeLoadingAllowedFlags.PRERENDER_ENABLED);
         loadInitialPage();
@@ -657,7 +663,10 @@ public class AwPrerenderTest extends AwParameterizedTest {
     @Test
     @LargeTest
     @Feature({"AndroidWebView"})
-    @Features.DisableFeatures({BlinkFeatures.PRERENDER2_MEMORY_CONTROLS})
+    @Features.DisableFeatures({
+        BlinkFeatures.PRERENDER2_MEMORY_CONTROLS,
+        "Prerender2FallbackPrefetchSpecRules"
+    })
     public void testPrerenderingWithCustomResponse() throws Throwable {
         setSpeculativeLoadingAllowed(SpeculativeLoadingAllowedFlags.PRERENDER_ENABLED);
         loadInitialPage();
@@ -742,7 +751,10 @@ public class AwPrerenderTest extends AwParameterizedTest {
     @Test
     @LargeTest
     @Feature({"AndroidWebView"})
-    @Features.DisableFeatures({BlinkFeatures.PRERENDER2_MEMORY_CONTROLS})
+    @Features.DisableFeatures({
+        BlinkFeatures.PRERENDER2_MEMORY_CONTROLS,
+        "Prerender2FallbackPrefetchSpecRules"
+    })
     public void testRedirectedPrerenderingAndShouldOverrideUrlLoading() throws Throwable {
         setSpeculativeLoadingAllowed(SpeculativeLoadingAllowedFlags.PRERENDER_ENABLED);
         loadInitialPage();
@@ -802,7 +814,10 @@ public class AwPrerenderTest extends AwParameterizedTest {
     @Test
     @LargeTest
     @Feature({"AndroidWebView"})
-    @Features.DisableFeatures({BlinkFeatures.PRERENDER2_MEMORY_CONTROLS})
+    @Features.DisableFeatures({
+        BlinkFeatures.PRERENDER2_MEMORY_CONTROLS,
+        "Prerender2FallbackPrefetchSpecRules"
+    })
     public void testSubframeOfPrerenderedPageAndShouldInterceptRequest() throws Throwable {
         setSpeculativeLoadingAllowed(SpeculativeLoadingAllowedFlags.PRERENDER_ENABLED);
         loadInitialPage();

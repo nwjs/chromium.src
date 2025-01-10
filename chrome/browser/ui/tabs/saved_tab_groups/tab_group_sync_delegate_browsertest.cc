@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include <memory>
+#include <optional>
 
 #include "base/callback_list.h"
 #include "base/functional/bind.h"
@@ -39,11 +40,15 @@
 #include "components/tab_groups/tab_group_color.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/test/browser_test.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/views/view_utils.h"
 #include "url/gurl.h"
 
 namespace tab_groups {
+namespace {
+
+using testing::NotNull;
 
 class TabGroupSyncDelegateBrowserTest : public InProcessBrowserTest,
                                         public TabGroupSyncService::Observer {
@@ -190,6 +195,117 @@ IN_PROC_BROWSER_TEST_F(TabGroupSyncDelegateBrowserTest,
   EXPECT_FALSE(service->GetGroup(sync_id)->local_group_id().has_value());
 }
 
+IN_PROC_BROWSER_TEST_F(TabGroupSyncDelegateBrowserTest,
+                       OpenNewTabAndNavigateExistingOnConnectNewSavedGroup) {
+  TabGroupSyncService* service =
+      TabGroupSyncServiceFactory::GetForProfile(browser()->profile());
+  service->AddObserver(this);
+
+  // Create a new tab group with one tab. The tab group should be saved.
+  chrome::AddTabAt(browser(), GURL("chrome://newtab"), 0, false);
+  LocalTabGroupID local_id = browser()->tab_strip_model()->AddToNewGroup({0});
+  ASSERT_TRUE(
+      browser()->tab_strip_model()->group_model()->ContainsTabGroup(local_id));
+  ASSERT_TRUE(service->GetGroup(local_id));
+
+  // Unsave the local group.
+  service->UnsaveGroup(local_id);
+  ASSERT_TRUE(
+      browser()->tab_strip_model()->group_model()->ContainsTabGroup(local_id));
+  ASSERT_FALSE(service->GetGroup(local_id));
+
+  // Connect the local tab group with a new saved group.
+  SavedTabGroup new_saved_group(u"Title", tab_groups::TabGroupColorId::kBlue,
+                                {}, 0);
+  new_saved_group.AddTabLocally(SavedTabGroupTab(
+      GURL("http://www.google.com/1"), u"title 1", new_saved_group.saved_guid(),
+      /*position=*/0));
+  new_saved_group.AddTabLocally(SavedTabGroupTab(
+      GURL("http://www.google.com/2"), u"title 2", new_saved_group.saved_guid(),
+      /*position=*/1));
+  service->AddGroup(new_saved_group);
+
+  service->ConnectLocalTabGroup(new_saved_group.saved_guid(), local_id,
+                                OpeningSource::kUnknown);
+
+  // Local group model should be updated to match the new saved group.
+  ASSERT_TRUE(
+      browser()->tab_strip_model()->group_model()->ContainsTabGroup(local_id));
+  const TabGroup* local_tab_group =
+      browser()->tab_strip_model()->group_model()->GetTabGroup(local_id);
+
+  EXPECT_EQ(local_tab_group->visual_data()->title(), u"Title");
+  EXPECT_EQ(local_tab_group->visual_data()->color(),
+            tab_groups::TabGroupColorId::kBlue);
+
+  // Verify that a new tab was added, and the existing one navigated to the
+  // correct URL.
+  const gfx::Range tab_range = local_tab_group->ListTabs();
+  ASSERT_EQ(tab_range.length(), 2u);
+  EXPECT_EQ(browser()
+                ->tab_strip_model()
+                ->GetWebContentsAt(tab_range.start())
+                ->GetURL(),
+            GURL("http://www.google.com/1"));
+  EXPECT_EQ(browser()
+                ->tab_strip_model()
+                ->GetWebContentsAt(tab_range.start() + 1)
+                ->GetURL(),
+            GURL("http://www.google.com/2"));
+}
+
+IN_PROC_BROWSER_TEST_F(TabGroupSyncDelegateBrowserTest,
+                       CloseTabAndNavigateRemainingOnConnectNewSavedGroup) {
+  TabGroupSyncService* service =
+      TabGroupSyncServiceFactory::GetForProfile(browser()->profile());
+  service->AddObserver(this);
+
+  // Create a new tab group with one tab. The tab group should be saved.
+  chrome::AddTabAt(browser(), GURL("chrome://newtab"), 0, false);
+  chrome::AddTabAt(browser(), GURL("about:blank"), 1, false);
+  LocalTabGroupID local_id =
+      browser()->tab_strip_model()->AddToNewGroup({0, 1});
+  ASSERT_TRUE(
+      browser()->tab_strip_model()->group_model()->ContainsTabGroup(local_id));
+  ASSERT_TRUE(service->GetGroup(local_id));
+
+  // Unsave the local group.
+  service->UnsaveGroup(local_id);
+  ASSERT_TRUE(
+      browser()->tab_strip_model()->group_model()->ContainsTabGroup(local_id));
+  ASSERT_FALSE(service->GetGroup(local_id));
+
+  // Connect the local tab group with a new saved group.
+  SavedTabGroup new_saved_group(u"Title", tab_groups::TabGroupColorId::kBlue,
+                                {}, 0);
+  new_saved_group.AddTabLocally(SavedTabGroupTab(
+      GURL("http://www.google.com/1"), u"title 1", new_saved_group.saved_guid(),
+      /*position=*/0));
+  service->AddGroup(new_saved_group);
+
+  service->ConnectLocalTabGroup(new_saved_group.saved_guid(), local_id,
+                                OpeningSource::kUnknown);
+
+  // Local group model should be updated to match the new saved group.
+  ASSERT_TRUE(
+      browser()->tab_strip_model()->group_model()->ContainsTabGroup(local_id));
+  const TabGroup* local_tab_group =
+      browser()->tab_strip_model()->group_model()->GetTabGroup(local_id);
+
+  EXPECT_EQ(local_tab_group->visual_data()->title(), u"Title");
+  EXPECT_EQ(local_tab_group->visual_data()->color(),
+            tab_groups::TabGroupColorId::kBlue);
+
+  // Verify that only one tab remains and it's navigated to the correct URL.
+  const gfx::Range tab_range = local_tab_group->ListTabs();
+  ASSERT_EQ(tab_range.length(), 1u);
+  EXPECT_EQ(browser()
+                ->tab_strip_model()
+                ->GetWebContentsAt(tab_range.start())
+                ->GetURL(),
+            GURL("http://www.google.com/1"));
+}
+
 // Regression test. See crbug.com/370013915.
 IN_PROC_BROWSER_TEST_F(
     TabGroupSyncDelegateBrowserTest,
@@ -258,4 +374,45 @@ IN_PROC_BROWSER_TEST_F(
                            ->guid());
 }
 
+IN_PROC_BROWSER_TEST_F(TabGroupSyncDelegateBrowserTest,
+                       PreserveCollapsedStateOnRemoteUpdate) {
+  TabGroupSyncService* service =
+      TabGroupSyncServiceFactory::GetForProfile(browser()->profile());
+  service->AddObserver(this);
+
+  chrome::AddTabAt(browser(), GURL("chrome://newtab"), 0, false);
+  const LocalTabGroupID local_id =
+      browser()->tab_strip_model()->AddToNewGroup({0});
+
+  TabGroup* local_group =
+      browser()->tab_strip_model()->group_model()->GetTabGroup(local_id);
+  ASSERT_THAT(local_group, NotNull());
+  local_group->SetVisualData(
+      TabGroupVisualData(u"Title", tab_groups::TabGroupColorId::kBlue,
+                         /*is_collapsed=*/true),
+      /*is_customized=*/true);
+
+  // Verify that the group is saved.
+  std::optional<SavedTabGroup> saved_group = service->GetGroup(local_id);
+  ASSERT_TRUE(saved_group.has_value());
+
+  // Simulate a remote update to the group.
+  model_->MergeRemoteGroupMetadata(
+      saved_group->saved_guid(), u"title", TabGroupColorId::kRed,
+      /*position=*/std::nullopt, /*creator_cache_guid=*/std::nullopt,
+      /*last_updater_cache_guid=*/std::nullopt,
+      /*update_time=*/base::Time::Now());
+
+  // Wait for the tab group update to complete because sync updates are
+  // asynchronous.
+  ASSERT_TRUE(base::test::RunUntil([local_group]() {
+    return local_group->visual_data()->color() ==
+           tab_groups::TabGroupColorId::kRed;
+  }));
+
+  // The local group should still be collapsed.
+  EXPECT_TRUE(local_group->visual_data()->is_collapsed());
+}
+
+}  // namespace
 }  // namespace tab_groups

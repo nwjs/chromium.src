@@ -274,6 +274,7 @@ class AvdConfig:
       avd_proto_path: path to a textpb file containing an Avd message.
     """
     self.avd_proto_path = avd_proto_path
+    self.avd_proto_name = os.path.splitext(os.path.basename(avd_proto_path))[0]
     self._config = _Load(avd_proto_path)
 
     self._initialized = False
@@ -286,7 +287,8 @@ class AvdConfig:
     It corresponds to the environment variable $ANDROID_EMULATOR_HOME.
     Configs like advancedFeatures.ini are expected to be under this dir.
     """
-    return os.path.join(COMMON_CIPD_ROOT, self._config.avd_package.dest_path)
+    return os.path.join(COMMON_CIPD_ROOT,
+                        self.GetDestPath(self._config.avd_package))
 
   @property
   def emulator_sdk_root(self):
@@ -299,8 +301,8 @@ class AvdConfig:
 
     Also, it is expected to have subdirecotries "emulator" and "system-images".
     """
-    emulator_sdk_root = os.path.join(COMMON_CIPD_ROOT,
-                                     self._config.emulator_package.dest_path)
+    emulator_sdk_root = os.path.join(
+        COMMON_CIPD_ROOT, self.GetDestPath(self._config.emulator_package))
     # Ensure this is a valid sdk root.
     required_dirs = [
         os.path.join(emulator_sdk_root, 'platforms'),
@@ -394,7 +396,7 @@ class AvdConfig:
     This is used to rebase the paths in qcow2 images.
     """
     return os.path.join(COMMON_CIPD_ROOT,
-                        self._config.system_image_package.dest_path,
+                        self.GetDestPath(self._config.system_image_package),
                         *self._config.system_image_name.split(';'))
 
   @property
@@ -448,6 +450,13 @@ class AvdConfig:
       metadata['avd_variants'] = avd_variant_keys
 
     return metadata
+
+  def GetDestPath(self, cipd_pkg):
+    """Get the "dest_path" of a given CIPDPackage message.
+
+    Fall back to "self.avd_proto_name" if "dest_path" is empty.
+    """
+    return cipd_pkg.dest_path or self.avd_proto_name
 
   def HasSnapshot(self, snapshot_name):
     """Check if a given snapshot exists or not."""
@@ -527,7 +536,7 @@ class AvdConfig:
       if not additional_apks:
         additional_apks = []
       for pkg in self._config.additional_apk:
-        apk_dir = os.path.join(COMMON_CIPD_ROOT, pkg.dest_path)
+        apk_dir = os.path.join(COMMON_CIPD_ROOT, self.GetDestPath(pkg))
         apk_file = _FindMinSdkFile(apk_dir, self._config.min_sdk)
         # Some of these files come from chrome internal, so may not be
         # available to non-internal permissioned users.
@@ -538,7 +547,7 @@ class AvdConfig:
       if not privileged_apk_tuples:
         privileged_apk_tuples = []
       for pkg in self._config.privileged_apk:
-        apk_dir = os.path.join(COMMON_CIPD_ROOT, pkg.dest_path)
+        apk_dir = os.path.join(COMMON_CIPD_ROOT, self.GetDestPath(pkg))
         apk_file = _FindMinSdkFile(apk_dir, self._config.min_sdk)
         # Some of these files come from chrome internal, so may not be
         # available to non-internal permissioned users.
@@ -562,8 +571,6 @@ class AvdConfig:
           writable_system=writable_system,
           gpu_mode=gpu_mode,
           debug_tags=debug_tags,
-          # Set this flag to True to align with swarming AVD run.
-          require_fast_start=True,
       )
 
       assert instance.device is not None, '`instance.device` not initialized.'
@@ -879,7 +886,7 @@ class AvdConfig:
     pkgs_by_dir = collections.defaultdict(list)
     for pkg in self._ListPackages(packages):
       if pkg.version:
-        pkgs_by_dir[pkg.dest_path].append(pkg)
+        pkgs_by_dir[self.GetDestPath(pkg)].append(pkg)
       elif check_version:
         raise AvdException('Expecting a version for the package %s' %
                            pkg.package_name)
@@ -1043,14 +1050,15 @@ class _AvdInstance:
             debug_tags=None,
             disk_size=None,
             enable_network=False,
-            require_fast_start=False,
+            # TODO(crbug.com/364943269): Remove after clean all the references.
+            require_fast_start=False,  # pylint: disable=unused-argument
             retries=0):
     """Starts the emulator running an instance of the given AVD.
 
     Note when ensure_system_settings is True, the program will wait until the
     emulator is fully booted, and then update system settings.
     """
-    is_slow_start = not require_fast_start
+    is_slow_start = False
     # Force to load system snapshot if detected.
     if self.HasSystemSnapshot():
       if not writable_system:
@@ -1096,9 +1104,6 @@ class _AvdInstance:
         emulator_cmd.append('-wipe-data')
       if disk_size:
         emulator_cmd.extend(['-partition-size', str(disk_size)])
-      elif not require_fast_start:
-        # This emulator is being run locally, ensure it has a large enough disk.
-        emulator_cmd.extend(['-partition-size', '12000'])
 
       if read_only:
         emulator_cmd.append('-read-only')

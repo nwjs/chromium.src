@@ -29,12 +29,12 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/menu_separator_types.h"
-#include "ui/base/models/simple_menu_model.h"
 #include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/color/color_id.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/image/image_skia_operations.h"
+#include "ui/menus/simple_menu_model.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/background.h"
@@ -109,14 +109,19 @@ ContinueTaskView::ContinueTaskView(AppListViewDelegate* view_delegate,
                   : cros_tokens::kCrosSysHoverOnSubtle);
 
   if (tablet_mode) {
-    layer()->SetBackgroundBlur(ColorProvider::kBackgroundBlurSigma);
-    layer()->SetBackdropFilterQuality(ColorProvider::kBackgroundBlurQuality);
+    if (chromeos::features::IsSystemBlurEnabled()) {
+      layer()->SetBackgroundBlur(ColorProvider::kBackgroundBlurSigma);
+      layer()->SetBackdropFilterQuality(ColorProvider::kBackgroundBlurQuality);
+    }
+
     layer()->SetRoundedCornerRadius(
         gfx::RoundedCornersF(GetCornerRadius(/*tablet_mode=*/true)));
 
-    const ui::ColorId background_color =
-        static_cast<ui::ColorId>(cros_tokens::kCrosSysSystemBaseElevated);
-    SetBackground(views::CreateThemedSolidBackground(background_color));
+    const ui::ColorId background_color_id =
+        chromeos::features::IsSystemBlurEnabled()
+            ? cros_tokens::kCrosSysSystemBaseElevated
+            : cros_tokens::kCrosSysSystemBaseElevatedOpaque;
+    SetBackground(views::CreateThemedSolidBackground(background_color_id));
     SetBorder(std::make_unique<views::HighlightBorder>(
         GetCornerRadius(/*tablet_mode=*/true),
         views::HighlightBorder::Type::kHighlightBorderNoShadow));

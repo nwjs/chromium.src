@@ -76,7 +76,6 @@
 <translation id="2008942457798486387">{NUM_EXTENSIONS,plural, =1{‏התוסף הזה כבר לא נתמך. אנחנו ממליצים להסיר אותו מ-Chrome.}one{‏התוספים האלה כבר לא נתמכים. אנחנו ממליצים להסיר אותם מ-Chrome.}two{‏התוספים האלה כבר לא נתמכים. אנחנו ממליצים להסיר אותם מ-Chrome.}other{‏התוספים האלה כבר לא נתמכים. אנחנו ממליצים להסיר אותם מ-Chrome.}}</translation>
 <translation id="2018528049276128029">‏בכל פרופיל מאוחסנים נתוני Chrome משלו כמו סימניות, היסטוריה, סיסמאות ועוד</translation>
 <translation id="2018879682492276940">ההתקנה נכשלה. יש לנסות שוב.</translation>
-<translation id="2022471217832964798">‏אנחנו מגדירים את הגישה לחשבון, אבל עדיין אפשר להשתמש ב-Chrome. לחלק מהמשאבים תהיה לך גישה רק אחרי שההגדרה תסתיים.</translation>
 <translation id="2034233344106846793">‏‫Chrome משדרג חיבורים לא מאובטחים ל-HTTPS באופן אוטומטי כשאפשר</translation>
 <translation id="207902854391093810">‏כשגרסאות הניסיון פעילות, מדידת המודעות מאפשרת לאתרים שבהם ביקרת לבקש מ-Chrome מידע שיעזור לבעלי האתרים למדוד את הביצועים של המודעות שלהם. מדידת המודעות מגבילה את המעקב באתרים שונים על ידי העברת כמות קטנה ככל האפשר של מידע בין אתרים.</translation>
 <translation id="2091012649849228750">‏כדי לקבל עדכונים של Google Chrome בעתיד, צריך להשתמש ב-Windows מגרסה 10 ואילך. במחשב הזה פועלת מערכת Windows 8.</translation>
@@ -245,6 +244,7 @@
 <translation id="3873044882194371212">‏פתיחת הקישור בחלון &amp;אנונימי של Chrome</translation>
 <translation id="3885770153807205175">הכלי לבחירת שפה</translation>
 <translation id="3889417619312448367">‏הסרת Google Chrome</translation>
+<translation id="3892148308691398805">העתקת הטקסט</translation>
 <translation id="3941890832296813527">שגיאת התקנה: שם הקובץ של מנהל ההתקנה לא תקין או לא נתמך.</translation>
 <translation id="3973161977468201858">‏‫Google Chrome רוצה למחוק את הנתונים שלך במנהל הסיסמאות של Google. כדי לאפשר זאת, צריך להזין את הסיסמה שלך ל-Windows.</translation>
 <translation id="398236277091248993">‏‫Chrome ממשיך לפעול במהירות עם תכונות שמשפרות את הביצועים</translation>
@@ -299,6 +299,7 @@
 <translation id="4567424176335768812">נכנסת למערכת בתור <ph name="USER_EMAIL_ADDRESS" />. כעת יש לך אפשרות לגשת אל הסימניות, ההיסטוריה והגדרות אחרות שלך בכל המכשירים שבהם התחברת לחשבון.</translation>
 <translation id="4571503333518166079">‏מעבר אל הגדרות של הודעות ב-Chrome</translation>
 <translation id="4575717501879784448">‏‫Chrome יכול להשבית את הכרטיסיות האלה כדי לשפר את חוויית הגלישה ולפנות משאבים.</translation>
+<translation id="4595162648538023956">‏אפשר להיכנס לחשבון כדי לגשת לדברים שלך, או להשתמש ב-Chrome ללא חשבון</translation>
 <translation id="459622048091363950">‏אחרי מתן גישה ל-Chrome, אתרים יוכלו לבקש ממך גישה.</translation>
 <translation id="4600710005438004015">‏עדכון Chrome לגרסה האחרונה לא הצליח, ולכן אין לך גישה אל תכונות חדשות ותיקוני אבטחה.</translation>
 <translation id="4601439950572737842">‏הנתונים שלך מוצפנים באמצעות ביטוי הסיסמה. כדי להשתמש בנתוני Chrome ולשמור אותם בחשבון Google, עליך להזין את ביטוי הסיסמה.</translation>
@@ -343,6 +344,7 @@
 <translation id="5163087008893166964">‏ברוך בואך אל Chrome. נפתח חלון חדש בדפדפן</translation>
 <translation id="5166439563123238795">‏צריך לתת ל-Chrome הרשאה כדי לעקוב אחרי תנועות הידיים</translation>
 <translation id="5170938038195470297">‏לא ניתן להשתמש בפרופיל שלך משום שהוא מגרסה חדשה יותר של Google Chrome. ייתכן שחלק מהתכונות לא יהיו זמינות. ציין ספריית פרופיל אחרת או השתמש בגרסה חדשה יותר של Chrome.</translation>
+<translation id="5174969993834422967">הבחירה שלך היא בדרך כלל לחסום התראות. כדי לאפשר לאתר הזה להציג התראות, יש ללחוץ על סמל ההתראה בפינה השמאלית של סרגל המיקום.</translation>
 <translation id="5201744974236816379">‏עדכון ל-Chrome</translation>
 <translation id="521447420733633466">‏כשמשתפים מכשיר, חברים ובני משפחה יכולים לגלוש בנפרד ולהגדיר את Chrome בדיוק כפי שהם רוצים</translation>
 <translation id="5234764350956374838">סגירה</translation>
@@ -387,7 +389,6 @@
 <translation id="5895138241574237353">הפעלה מחדש</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> – כניסה לרשת</translation>
 <translation id="5924017743176219022">מתבצעת התחברות לאינטרנט…</translation>
-<translation id="5932997892801542621">‏כשמקלידים טקסט בסרגל הכתובות או בתיבת החיפוש, Chrome שולח את הטקסט הזה ל-Google Drive כדי לקבל הצעות לפריטים. האפשרות הזו מושבתת במצב הפרטי.</translation>
 <translation id="5940385492829620908">‏היסטוריית האתרים, הסימניות ופריטים נוספים מ-Chrome נמצאים כאן.</translation>
 <translation id="5941711191222866238">מזעור</translation>
 <translation id="5941830788786076944">‏Google Chrome יהיה דפדפן ברירת המחדל</translation>
@@ -446,6 +447,7 @@
 <translation id="6497147134301593682">‏Chrome נסגר באופן אוטומטי</translation>
 <translation id="6506909944137591434">‏נדרשת הרשאת גישה למצלמה ב-Chrome כדי ליצור מפה תלת-ממדית של הסביבה שלך</translation>
 <translation id="6515495397637126556">‏<ph name="PAGE_TITLE" /> - Google Chrome בגרסת פיתוח</translation>
+<translation id="6515549163407364048">‏כדי לקבל גישה לתוספים שלך בכל המחשבים, צריך להיכנס לחשבון ב-Chrome</translation>
 <translation id="6520670145826811516">‏כדי להשתמש בשירותי המיקום, צריך להיכנס אל <ph name="BEGIN_LINK" />הגדרות המערכת<ph name="END_LINK" /> ולתת ל-Chrome גישה</translation>
 <translation id="659498884637196217">‏שמורה במנהל הסיסמאות של Google במכשיר הזה</translation>
 <translation id="6600016381025017075">אפשר לחפש משהו בדף הזה</translation>
@@ -539,6 +541,7 @@
 <translation id="7655455401911432608">‏היסטוריית הגלישה – תיעוד האתרים שביקרת בהם באמצעות Chrome במכשיר הזה.</translation>
 <translation id="7655472416356262023">‏הסרת החשבון מ-Chrome</translation>
 <translation id="7658239707568436148">ביטול</translation>
+<translation id="7659737857277959440">‏האדמין בארגון שלך יכול לראות ולנהל את נתוני הגלישה, כמו הסימניות, ההיסטוריה והסיסמאות. אין לאדמין אפשרות לראות את נתוני הגלישה בפרופילים אישיים של Chrome.</translation>
 <translation id="7661924425853052955">‏לא נכנסת לאתר הזה בזמן האחרון. ההרשאות '<ph name="PERMISSION_1" />', '<ph name="PERMISSION_2" />' ועוד <ph name="COUNT" /> הרשאות הוסרו על ידי Chrome</translation>
 <translation id="7668816516367091728">אפשר לבצע משימות כמו תרגום, חישוב ועוד ישירות מסרגל הכתובות</translation>
 <translation id="7670287553302121848">‏נדרש אימות מחדש לחשבון Chrome</translation>
@@ -589,6 +592,7 @@
 <translation id="8129812357326543296">‏מידע על Google Chrome&amp;</translation>
 <translation id="813913629614996137">מתבצע אתחול...</translation>
 <translation id="8162006532256575008">‏שימוש ב-Chrome ללא חשבון</translation>
+<translation id="8221491193165283816">הבחירה שלך היא בדרך כלל לחסום התראות. כדי לאפשר לאתר הזה להציג התראות יש ללחוץ כאן.</translation>
 <translation id="8255190535488645436">‏Google Chrome משתמש במצלמה ובמיקרופון שלך.</translation>
 <translation id="8257796129973882597">‏אפשר לפתוח סימניות, מצב קריאה ועוד מתפריט Chrome</translation>
 <translation id="8267953129876836456">‏יש ל-Chrome כמה המלצות לגבי בטיחות שכדאי לבדוק</translation>
@@ -620,6 +624,7 @@
 <translation id="852529348814672339">‏הצגת Chrome בשפה הזו</translation>
 <translation id="8550334526674375523">פרופיל העבודה שלך נפרד לחלוטין מהפרופיל האישי שלך.</translation>
 <translation id="8555465886620020932">שגיאה בשירות: <ph name="SERVICE_ERROR" />.</translation>
+<translation id="856656450041460113">רשימת שפות לחיפוש</translation>
 <translation id="8571790202382503603">‏בעזרת פרופילים ב-Chrome, אפשר להפריד בין הפריטים ששומרים ב-Chrome. באופן הזה קל יותר להפריד בין עבודה לפנאי.</translation>
 <translation id="8601359445272098721">חדש! אפשר לתרגם טקסט ותמונות במסך באמצעות לחיצה על הלחצן 'תרגום המסך'</translation>
 <translation id="8614913330719544658">‏Google Chrome אינו מגיב. להפעיל מחדש עכשיו?</translation>

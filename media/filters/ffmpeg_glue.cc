@@ -66,7 +66,7 @@ static int64_t AVIOSeekOperation(void* opaque, int64_t offset, int whence) {
       break;
 
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
   return new_offset;
 }
@@ -174,7 +174,7 @@ const char* FFmpegGlue::GetAllowedAudioDecoders() {
 const char* FFmpegGlue::GetAllowedVideoDecoders() {
   // This should match the configured lists in //third_party/ffmpeg.
 #if BUILDFLAG(USE_PROPRIETARY_CODECS) && BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS)
-  return IsBuiltInVideoCodec(VideoCodec::kH264) ? "h264" : "";
+  return IsDecoderBuiltInVideoCodec(VideoCodec::kH264) ? "h264" : "";
 #else
   return "";
 #endif

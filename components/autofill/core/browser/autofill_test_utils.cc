@@ -26,6 +26,7 @@
 #include "components/autofill/core/browser/data_model/bnpl_issuer.h"
 #include "components/autofill/core/browser/data_model/credit_card.h"
 #include "components/autofill/core/browser/data_model/credit_card_test_api.h"
+#include "components/autofill/core/browser/data_model/ewallet.h"
 #include "components/autofill/core/browser/data_model/iban.h"
 #include "components/autofill/core/browser/data_model/payment_instrument.h"
 #include "components/autofill/core/browser/field_types.h"
@@ -426,6 +427,13 @@ CreditCard GetMaskedServerCardEnrolledIntoVirtualCardNumber() {
   return credit_card;
 }
 
+CreditCard GetMaskedServerCardEnrolledIntoRuntimeRetrieval() {
+  CreditCard credit_card = GetMaskedServerCard();
+  credit_card.set_card_info_retrieval_enrollment_state(
+      CreditCard::CardInfoRetrievalEnrollmentState::kRetrievalEnrolled);
+  return credit_card;
+}
+
 CreditCard GetFullServerCard() {
   CreditCard credit_card(CreditCard::RecordType::kFullServerCard, "c123");
   test::SetCreditCardInfo(&credit_card, "Full Carter",
@@ -622,8 +630,7 @@ std::vector<CardUnmaskChallengeOption> GetCardUnmaskChallengeOptions(
         break;
       }
       default:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
     }
   }
   return challenge_options;
@@ -998,11 +1005,14 @@ Suggestion CreateAutofillSuggestion(SuggestionType type,
 
 Suggestion CreateAutofillSuggestion(const std::u16string& main_text_value,
                                     const std::u16string& minor_text_value,
-                                    bool apply_deactivated_style) {
+                                    bool has_deactivated_style) {
   Suggestion suggestion;
   suggestion.main_text.value = main_text_value;
   suggestion.minor_text.value = minor_text_value;
-  suggestion.apply_deactivated_style = apply_deactivated_style;
+  suggestion.acceptability =
+      has_deactivated_style
+          ? Suggestion::Acceptability::kUnacceptableWithDeactivatedStyle
+          : Suggestion::Acceptability::kAcceptable;
   return suggestion;
 }
 
@@ -1011,6 +1021,13 @@ BankAccount CreatePixBankAccount(int64_t instrument_id) {
       instrument_id, u"nickname", GURL("http://www.example.com"), u"bank_name",
       u"account_number", BankAccount::AccountType::kChecking);
   return bank_account;
+}
+
+Ewallet CreateEwalletAccount(int64_t instrument_id) {
+  Ewallet ewallet(instrument_id, u"nickname", GURL("http://www.example.com"),
+                  u"ewallet_name", u"account_display_name",
+                  {u"supported_payment_link_uri"}, true);
+  return ewallet;
 }
 
 sync_pb::PaymentInstrument CreatePaymentInstrumentWithBankAccount(

@@ -19,7 +19,6 @@
 #import "components/prefs/pref_member.h"
 #import "ios/chrome/browser/net/model/net_types.h"
 #import "ios/chrome/browser/profile/model/ios_chrome_io_thread.h"
-#import "ios/chrome/browser/shared/model/profile/profile_ios_forward.h"
 #import "net/cookies/cookie_monster.h"
 #import "net/http/http_cache.h"
 #import "net/http/http_network_session.h"
@@ -32,6 +31,7 @@ enum class ProfileIOSType;
 class HostContentSettingsMap;
 class IOSChromeHttpUserAgentSettings;
 class IOSChromeURLRequestContextGetter;
+class ProfileIOS;
 
 namespace content_settings {
 class CookieSettings;
@@ -116,7 +116,7 @@ class ProfileIOSIOData {
 
   void InitializeOnUIThread(ProfileIOS* profile);
 
-  // Called when the ChromeBrowserState is destroyed. `context_getters` must
+  // Called when the ProfileIOS is destroyed. `context_getters` must
   // include all URLRequestContextGetters that refer to the
   // ProfileIOSIOData's URLRequestContexts. Triggers destruction of the
   // ProfileIOSIOData and shuts down `context_getters` safely on the IO
@@ -157,7 +157,7 @@ class ProfileIOSIOData {
   // Tracks whether or not we've been lazily initialized.
   mutable bool initialized_;
 
-  // Data from the UI thread from the ChromeBrowserState, used to initialize
+  // Data from the UI thread from the ProfileIOS, used to initialize
   // ProfileIOSIOData. Deleted after lazy initialization.
   mutable std::unique_ptr<ProfileParams> profile_params_;
 

@@ -172,7 +172,10 @@ void ExpectContextMenuHistoryEntryActionsHistogram(int count,
   _URL2 = self.testServer->GetURL(kURL2);
   _URL3 = self.testServer->GetURL(kURL3);
 
-  [ChromeEarlGrey clearBrowsingHistory];
+  if (![ChromeTestCase forceRestartAndWipe]) {
+    [ChromeEarlGrey clearBrowsingHistory];
+  }
+
   // Some tests rely on a clean state for the "Clear Browsing Data" settings
   // screen.
   [ChromeEarlGrey resetBrowsingDataPrefs];
@@ -182,7 +185,7 @@ void ExpectContextMenuHistoryEntryActionsHistogram(int count,
   [MetricsAppInterface overrideMetricsAndCrashReportingForTesting];
 }
 
-- (void)tearDown {
+- (void)tearDownHelper {
   [MetricsAppInterface stopOverridingMetricsAndCrashReportingForTesting];
   GREYAssertNil([MetricsAppInterface releaseHistogramTester],
                 @"Cannot reset histogram tester.");
@@ -205,7 +208,7 @@ void ExpectContextMenuHistoryEntryActionsHistogram(int count,
   // Shutdown network process after tests run to avoid hanging from
   // clearing browsing history.
   [ChromeEarlGrey killWebKitNetworkProcess];
-  [super tearDown];
+  [super tearDownHelper];
 }
 
 // From history, delets browsing data with the default values which is 15min

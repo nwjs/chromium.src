@@ -1651,8 +1651,7 @@ void AppListSyncableService::ProcessNewSyncItem(SyncItem* sync_item) {
     case sync_pb::AppListSpecifics::TYPE_PAGE_BREAK:
       return;
   }
-  NOTREACHED_IN_MIGRATION()
-      << "Unrecognized sync item type: " << sync_item->ToString();
+  NOTREACHED() << "Unrecognized sync item type: " << sync_item->ToString();
 }
 
 void AppListSyncableService::ProcessExistingSyncItem(SyncItem* sync_item) {
@@ -2224,7 +2223,7 @@ bool AppListSyncableService::IsAppDefaultPositionedForNewUsersOnly(
   }
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   if (chromeos::features::IsGeminiAppPreinstallEnabled() &&
-      app_id == ash::kContainerAppId) {
+      app_id == ash::kGeminiAppId) {
     return true;
   }
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)

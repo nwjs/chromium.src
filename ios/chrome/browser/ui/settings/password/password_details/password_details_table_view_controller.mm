@@ -290,7 +290,7 @@ bool ShouldAllowToRestoreWarning(DetailsContext context, bool is_muted) {
 
   // Enter editing mode.
   if (!self.tableView.editing && !self.isPasswordShown) {
-    [self showPasswordFor:PasswordAccessReasonEdit];
+    [self showPasswordFor:PasswordAccessReasonEdit copyCompletion:nil];
     return;
   }
 
@@ -417,9 +417,7 @@ bool ShouldAllowToRestoreWarning(DetailsContext context, bool is_muted) {
   item.autoCapitalizationType = UITextAutocapitalizationTypeNone;
   item.delegate = self;
   item.hideIcon = YES;
-  if (!self.tableView.editing) {
-    item.textFieldTextColor = [UIColor colorNamed:kTextSecondaryColor];
-  }
+  item.textFieldTextColor = [UIColor colorNamed:kTextSecondaryColor];
 
   // For testing: only use this custom accessibility identifier if there are
   // more than one password shown on the Password Details.
@@ -670,7 +668,7 @@ bool ShouldAllowToRestoreWarning(DetailsContext context, bool is_muted) {
 
         OpenNewTabCommand* command = [OpenNewTabCommand
             commandWithURLFromChrome:passwordDetails.changePasswordURL.value()];
-        [self.applicationCommandsHandler closeSettingsUIAndOpenURL:command];
+        [self.applicationCommandsHandler closePresentedViewsAndOpenURL:command];
       }
       break;
     case PasswordDetailsItemTypeNote: {
@@ -1026,8 +1024,10 @@ bool ShouldAllowToRestoreWarning(DetailsContext context, bool is_muted) {
                                             kRecommendationSymbolSize);
 }
 
-// Reveals password to the user.
-- (void)showPasswordFor:(PasswordAccessReason)reason {
+// Reveals password to the user. If copyCompletion is provided and the user
+// copies the password, it will be called.
+- (void)showPasswordFor:(PasswordAccessReason)reason
+         copyCompletion:(void (^)())copyCompletion {
   switch (reason) {
     case PasswordAccessReasonShow: {
       self.passwordShown = YES;
@@ -1060,7 +1060,9 @@ bool ShouldAllowToRestoreWarning(DetailsContext context, bool is_muted) {
       NSString* copiedString =
           self.credentials[self.tableView.indexPathForSelectedRow.section]
               .password;
-      StoreTextInPasteboard(copiedString);
+      StoreTextInPasteboard(copiedString, (copyCompletion)
+                                              ? base::BindOnce(copyCompletion)
+                                              : base::DoNothing());
 
       [self showToast:l10n_util::GetNSString(
                           IDS_IOS_SETTINGS_PASSWORD_WAS_COPIED_MESSAGE)
@@ -1462,7 +1464,7 @@ bool ShouldAllowToRestoreWarning(DetailsContext context, bool is_muted) {
               handler:^(__kindof UIAction* _Nonnull action) {
                 base::RecordAction(
                     base::UserMetricsAction("MobilePasswordDetailsCopy"));
-                [self copyPasswordDetailsHelper:itemType];
+                [self copyPasswordDetailsHelper:itemType completion:nil];
               }];
   return [UIMenu menuWithChildren:@[ copy ]];
 }
@@ -1490,7 +1492,7 @@ bool ShouldAllowToRestoreWarning(DetailsContext context, bool is_muted) {
       self.passwordDetailsInfoItems[_passwordIndexToReveal].passwordTextItem
     ]];
   } else {
-    [self showPasswordFor:PasswordAccessReasonShow];
+    [self showPasswordFor:PasswordAccessReasonShow copyCompletion:nil];
     base::RecordAction(
         base::UserMetricsAction("MobilePasswordDetailsViewPassword"));
   }
@@ -1524,9 +1526,14 @@ bool ShouldAllowToRestoreWarning(DetailsContext context, bool is_muted) {
 }
 
 // A helper function that copies the password information to system pasteboard
-// and shows a toast of success/failure.
-- (void)copyPasswordDetailsHelper:(NSInteger)itemType {
+// and shows a toast of success/failure. The optional completion is called when
+// the copy operation finishes.
+- (void)copyPasswordDetailsHelper:(NSInteger)itemType
+                       completion:(void (^)())completion {
   NSString* message = nil;
+
+  base::OnceClosure closureCompletion =
+      (completion) ? base::BindOnce(completion) : base::DoNothing();
 
   switch (itemType) {
     case PasswordDetailsItemTypeWebsite: {
@@ -1543,7 +1550,8 @@ bool ShouldAllowToRestoreWarning(DetailsContext context, bool is_muted) {
       for (NSUInteger index = 1U; index < websites.count; index++) {
         [websitesForPasteboard appendFormat:@" %@", websites[index]];
       }
-      StoreTextInPasteboard(websitesForPasteboard);
+      StoreTextInPasteboard(websitesForPasteboard,
+                            std::move(closureCompletion));
       break;
     }
     case PasswordDetailsItemTypeUsername: {
@@ -1551,7 +1559,7 @@ bool ShouldAllowToRestoreWarning(DetailsContext context, bool is_muted) {
           self.credentials[self.tableView.indexPathForSelectedRow.section]
               .username;
 
-      StoreTextInPasteboard(copiedString);
+      StoreTextInPasteboard(copiedString, std::move(closureCompletion));
       message =
           l10n_util::GetNSString(IDS_IOS_SETTINGS_USERNAME_WAS_COPIED_MESSAGE);
       break;
@@ -1560,11 +1568,11 @@ bool ShouldAllowToRestoreWarning(DetailsContext context, bool is_muted) {
       NSString* copiedString =
           self.credentials[self.tableView.indexPathForSelectedRow.section]
               .federation;
-      StoreTextInPasteboard(copiedString);
+      StoreTextInPasteboard(copiedString, std::move(closureCompletion));
       return;
     }
     case PasswordDetailsItemTypePassword: {
-      [self showPasswordFor:PasswordAccessReasonCopy];
+      [self showPasswordFor:PasswordAccessReasonCopy copyCompletion:completion];
       return;
     }
   }

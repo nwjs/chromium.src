@@ -248,9 +248,7 @@ static bool IsAnchorStart(const VisibleSelectionInFlatTree& visible_selection,
     case SelectionModifyDirection::kBackward:
       return false;
   }
-  NOTREACHED_IN_MIGRATION()
-      << "We should handle " << static_cast<int>(direction);
-  return true;
+  NOTREACHED() << "We should handle " << static_cast<int>(direction);
 }
 
 // This function returns |VisibleSelectionInFlatTree| from start and end
@@ -383,8 +381,7 @@ VisiblePositionInFlatTree SelectionModifier::ModifyExtendingRightInternal(
       // TODO(editing-dev): implement all of the above?
       return ModifyExtendingForwardInternal(granularity);
   }
-  NOTREACHED_IN_MIGRATION() << static_cast<int>(granularity);
-  return VisiblePositionInFlatTree();
+  NOTREACHED() << static_cast<int>(granularity);
 }
 
 VisiblePositionInFlatTree SelectionModifier::ModifyExtendingRight(
@@ -437,8 +434,7 @@ VisiblePositionInFlatTree SelectionModifier::ModifyExtendingForwardInternal(
       return EndOfDocument(pos);
     }
   }
-  NOTREACHED_IN_MIGRATION() << static_cast<int>(granularity);
-  return VisiblePositionInFlatTree();
+  NOTREACHED() << static_cast<int>(granularity);
 }
 
 VisiblePositionInFlatTree SelectionModifier::ModifyExtendingForward(
@@ -480,8 +476,7 @@ VisiblePositionInFlatTree SelectionModifier::ModifyMovingRight(
       return RightBoundaryOfLine(StartForPlatform(),
                                  DirectionOfEnclosingBlock());
   }
-  NOTREACHED_IN_MIGRATION() << static_cast<int>(granularity);
-  return VisiblePositionInFlatTree();
+  NOTREACHED() << static_cast<int>(granularity);
 }
 
 VisiblePositionInFlatTree SelectionModifier::ModifyMovingForward(
@@ -547,8 +542,7 @@ VisiblePositionInFlatTree SelectionModifier::ModifyMovingForward(
       return EndOfDocument(pos);
     }
   }
-  NOTREACHED_IN_MIGRATION() << static_cast<int>(granularity);
-  return VisiblePositionInFlatTree();
+  NOTREACHED() << static_cast<int>(granularity);
 }
 
 VisiblePositionInFlatTree SelectionModifier::ModifyExtendingLeftInternal(
@@ -586,8 +580,7 @@ VisiblePositionInFlatTree SelectionModifier::ModifyExtendingLeftInternal(
     case TextGranularity::kDocumentBoundary:
       return ModifyExtendingBackwardInternal(granularity);
   }
-  NOTREACHED_IN_MIGRATION() << static_cast<int>(granularity);
-  return VisiblePositionInFlatTree();
+  NOTREACHED() << static_cast<int>(granularity);
 }
 
 VisiblePositionInFlatTree SelectionModifier::ModifyExtendingLeft(
@@ -643,8 +636,7 @@ VisiblePositionInFlatTree SelectionModifier::ModifyExtendingBackwardInternal(
       return CreateVisiblePosition(StartOfDocument(pos.DeepEquivalent()));
     }
   }
-  NOTREACHED_IN_MIGRATION() << static_cast<int>(granularity);
-  return VisiblePositionInFlatTree();
+  NOTREACHED() << static_cast<int>(granularity);
 }
 
 VisiblePositionInFlatTree SelectionModifier::ModifyExtendingBackward(
@@ -686,8 +678,7 @@ VisiblePositionInFlatTree SelectionModifier::ModifyMovingLeft(
       return LeftBoundaryOfLine(StartForPlatform(),
                                 DirectionOfEnclosingBlock());
   }
-  NOTREACHED_IN_MIGRATION() << static_cast<int>(granularity);
-  return VisiblePositionInFlatTree();
+  NOTREACHED() << static_cast<int>(granularity);
 }
 
 VisiblePositionInFlatTree SelectionModifier::ModifyMovingBackward(
@@ -795,8 +786,7 @@ VisiblePositionInFlatTree SelectionModifier::ComputeModifyPosition(
         return ModifyExtendingBackward(granularity);
       return ModifyMovingBackward(granularity);
   }
-  NOTREACHED_IN_MIGRATION() << static_cast<int>(direction);
-  return VisiblePositionInFlatTree();
+  NOTREACHED() << static_cast<int>(direction);
 }
 
 bool SelectionModifier::Modify(SelectionModifyAlteration alter,
@@ -805,7 +795,7 @@ bool SelectionModifier::Modify(SelectionModifyAlteration alter,
   DCHECK(!GetFrame().GetDocument()->NeedsLayoutTreeUpdate());
   if (granularity == TextGranularity::kLine ||
       granularity == TextGranularity::kParagraph)
-    UpdateLifecycleToPrePaintClean();
+    UpdateAllLifecyclePhasesExceptPaint();
   DocumentLifecycle::DisallowTransitionScope disallow_transition(
       GetFrame().GetDocument()->Lifecycle());
 
@@ -930,7 +920,7 @@ bool SelectionModifier::ModifyWithPageGranularity(
     return false;
 
   DCHECK(!GetFrame().GetDocument()->NeedsLayoutTreeUpdate());
-  UpdateLifecycleToPrePaintClean();
+  UpdateAllLifecyclePhasesExceptPaint();
   DocumentLifecycle::DisallowTransitionScope disallow_transition(
       GetFrame().GetDocument()->Lifecycle());
 
@@ -1073,11 +1063,12 @@ LayoutUnit SelectionModifier::LineDirectionPointForBlockDirectionNavigation(
   return x;
 }
 
-void SelectionModifier::UpdateLifecycleToPrePaintClean() {
+void SelectionModifier::UpdateAllLifecyclePhasesExceptPaint() {
   LocalFrameView* const frame_view = frame_->View();
   if (!frame_view)
     return;
-  frame_view->UpdateLifecycleToPrePaintClean(DocumentUpdateReason::kSelection);
+  frame_view->UpdateAllLifecyclePhasesExceptPaint(
+      DocumentUpdateReason::kSelection);
 }
 
 }  // namespace blink

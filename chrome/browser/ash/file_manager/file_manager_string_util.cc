@@ -1158,6 +1158,8 @@ void AddStringsGeneric(base::Value::Dict* dict) {
              IDS_FILE_BROWSER_ONEDRIVE_FROZEN_ACCOUNT_TITLE);
   SET_STRING("ONEDRIVE_FROZEN_ACCOUNT_SUBTITLE",
              IDS_FILE_BROWSER_ONEDRIVE_FROZEN_ACCOUNT_SUBTITLE);
+  SET_STRING("ONEDRIVE_OFFLINE_TITLE", IDS_FILE_BROWSER_ONEDRIVE_OFFLINE_TITLE);
+  SET_STRING("ONEDRIVE", IDS_OFFICE_CLOUD_PROVIDER_ONEDRIVE);
 }  // NOLINT(readability/fn_size): Structure of AddStringsGeneric function
    // should be easy to manage.
 
@@ -1369,8 +1371,6 @@ void AddFileManagerFeatureStrings(const std::string& locale,
   DCHECK(profile);
 
   dict->Set("HIDE_SPACE_INFO", ash::DemoSession::IsDeviceInDemoMode());
-  dict->Set("ARC_USB_STORAGE_UI_ENABLED",
-            base::FeatureList::IsEnabled(arc::kUsbStorageUIFeature));
   dict->Set("ARC_VM_ENABLED", arc::IsArcVmEnabled());
   dict->Set("FILES_LOCAL_IMAGE_SEARCH",
             ash::features::IsFilesLocalImageSearchEnabled());
@@ -1395,8 +1395,7 @@ void AddFileManagerFeatureStrings(const std::string& locale,
   dict->Set("MATERIALIZED_VIEWS", base::FeatureList::IsEnabled(
                                       ash::features::kFilesMaterializedViews));
 
-  if (base::FeatureList::IsEnabled(features::kDataLeakPreventionPolicy) &&
-      base::FeatureList::IsEnabled(
+  if (base::FeatureList::IsEnabled(
           features::kDataLeakPreventionFilesRestriction)) {
     policy::DlpRulesManager* rules_manager =
         policy::DlpRulesManagerFactory::GetForPrimaryProfile();

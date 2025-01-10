@@ -40,24 +40,22 @@ import java.util.HashSet;
 import java.util.List;
 
 /**
- * Most classes that are Activity-scoped should take an {@link ChromeOriginVerifierFactory} and use
- * that to get instances of this.
- * Added functionality over {@link OriginVerifier}:
- *  - Parsing of {@link Relation} to String which is used in {@link OriginVerifier}.
- *  - Check for `ChromeSwitches.DISABLE_DIGITAL_ASSET_LINK_VERIFICATION` command line switch to skip
- * the verification.
- *  - Implementation of {@link wasPreviouslyVerified} using {@link ChromeVerificationResultStore}.
- *  - Clearing of data in {@link ChromeVerificationResultStore} as this safes data in
- * SharedPreferences.
- *  - Implementation of {@link isAllowlisted} for bypassing verification of TWA for {@code
- * mPackageName}.
- *  - Chrome specific metric logging.
+ * Should be acquired through {@link ChromeOriginVerifierFactory} for ease of mocking in tests.
+ * Added functionality over {@link OriginVerifier}: <br>
+ * - Parsing of {@link Relation} to String which is used in {@link OriginVerifier}. <br>
+ * - Check for `ChromeSwitches.DISABLE_DIGITAL_ASSET_LINK_VERIFICATION` command line switch to skip
+ * the verification. <br>
+ * - Implementation of {@link wasPreviouslyVerified} using {@link ChromeVerificationResultStore}.
+ * <br>
+ * - Clearing of data in {@link ChromeVerificationResultStore} as this safes data in
+ * SharedPreferences. <br>
+ * - Implementation of {@link isAllowlisted} for bypassing verification of TWA for {@code
+ * mPackageName}. <br>
+ * - Chrome specific metric logging.
  */
 @JNINamespace("customtabs")
 public class ChromeOriginVerifier extends OriginVerifier {
     private static final String TAG = "ChromeOriginVerifier";
-
-    @Nullable private ExternalAuthUtils mExternalAuthUtils;
 
     static String relationToRelationship(@Relation int relation) {
         switch (relation) {
@@ -72,21 +70,20 @@ public class ChromeOriginVerifier extends OriginVerifier {
     }
 
     /**
-     * Main constructor.
-     * Use {@link ChromeOriginVerifier#start}
+     * Main constructor. Use {@link ChromeOriginVerifier#start}
+     *
      * @param packageName The package for the Android application for verification.
      * @param relation Digital Asset Links {@link Relation} to use during verification.
      * @param webContents The web contents of the tab used for reporting errors to DevTools. Can be
-     *         null if unavailable.
+     *     null if unavailable.
      * @param externalAuthUtils The auth utils used to check if an origin is allowlisted to bypass/
      * @param verificationResultStore The {@link ChromeVerificationResultStore} for persisting
-     *         results.
+     *     results.
      */
     public ChromeOriginVerifier(
             String packageName,
             @Relation int relation,
             @Nullable WebContents webContents,
-            @Nullable ExternalAuthUtils externalAuthUtils,
             ChromeVerificationResultStore verificationResultStore) {
         super(
                 packageName,
@@ -94,7 +91,6 @@ public class ChromeOriginVerifier extends OriginVerifier {
                 webContents,
                 null,
                 verificationResultStore);
-        mExternalAuthUtils = externalAuthUtils;
     }
 
     /**
@@ -134,11 +130,11 @@ public class ChromeOriginVerifier extends OriginVerifier {
 
     @Override
     public boolean isAllowlisted(String packageName, Origin origin, String relation) {
-        if (mExternalAuthUtils == null) return false;
+        if (ExternalAuthUtils.getInstance() == null) return false;
 
         if (!relation.equals(HANDLE_ALL_URLS)) return false;
 
-        return mExternalAuthUtils.isAllowlistedForTwaVerification(packageName, origin);
+        return ExternalAuthUtils.getInstance().isAllowlistedForTwaVerification(packageName, origin);
     }
 
     @Override

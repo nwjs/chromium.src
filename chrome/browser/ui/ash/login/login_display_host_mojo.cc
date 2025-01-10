@@ -787,11 +787,6 @@ void LoginDisplayHostMojo::HandleOnFocusPod(const AccountId& account_id) {
   focused_pod_account_id_ = account_id;
 }
 
-bool LoginDisplayHostMojo::HandleFocusLockScreenApps(bool reverse) {
-  NOTREACHED_IN_MIGRATION();
-  return false;
-}
-
 void LoginDisplayHostMojo::HandleFocusOobeDialog() {
   if (!dialog_->IsVisible()) {
     return;

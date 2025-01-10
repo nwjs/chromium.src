@@ -176,14 +176,17 @@ void RecordDefaultAppLaunch(apps::DefaultAppName default_app_name,
       base::UmaHistogramEnumeration("Apps.DefaultAppLaunch.FromSparky",
                                     default_app_name);
       break;
+    case apps::LaunchSource::kFromWebInstallApi:
+      base::UmaHistogramEnumeration("Apps.DefaultAppLaunch.FromWebInstallApi",
+                                    default_app_name);
+      break;
     case apps::LaunchSource::kFromCommandLine:
     case apps::LaunchSource::kFromBackgroundMode:
     case apps::LaunchSource::kFromAppHomePage:
     case apps::LaunchSource::kFromReparenting:
     case apps::LaunchSource::kFromProfileMenu:
     case apps::LaunchSource::kFromNavigationCapturing:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 }
 
@@ -311,12 +314,12 @@ const std::optional<apps::DefaultAppName> PreinstalledWebAppIdToName(
     return apps::DefaultAppName::kCalculator;
   } else if (app_id == ash::kCanvasAppId) {
     return apps::DefaultAppName::kChromeCanvas;
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING) && BUILDFLAG(IS_CHROMEOS)
-  } else if (app_id == ash::kContainerAppId) {
-    return apps::DefaultAppName::kContainer;
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING) && BUILDFLAG(IS_CHROMEOS)
   } else if (app_id == ash::kCursiveAppId) {
     return apps::DefaultAppName::kCursive;
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING) && BUILDFLAG(IS_CHROMEOS)
+  } else if (app_id == ash::kGeminiAppId) {
+    return apps::DefaultAppName::kGemini;
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING) && BUILDFLAG(IS_CHROMEOS)
   } else if (app_id == ash::kGmailAppId) {
     return apps::DefaultAppName::kGmail;
   } else if (app_id == ash::kGoogleMoviesAppId) {
@@ -339,8 +342,6 @@ const std::optional<apps::DefaultAppName> PreinstalledWebAppIdToName(
     return apps::DefaultAppName::kKeep;
   } else if (app_id == ash::kGoogleMapsAppId) {
     return apps::DefaultAppName::kGoogleMaps;
-  } else if (app_id == ash::kMallAppId) {
-    return DefaultAppName::kMall;
   } else if (app_id == ash::kMessagesAppId) {
     return apps::DefaultAppName::kGoogleMessages;
   } else if (app_id == ash::kPlayBooksAppId) {
@@ -366,6 +367,8 @@ const std::optional<apps::DefaultAppName> SystemWebAppIdToName(
     return apps::DefaultAppName::kFiles;
   } else if (app_id == ash::kFirmwareUpdateAppId) {
     return apps::DefaultAppName::kFirmwareUpdateApp;
+  } else if (app_id == ash::kGraduationAppId) {
+    return apps::DefaultAppName::kGraduationApp;
   } else if (app_id == ash::kHelpAppId) {
     return apps::DefaultAppName::kHelpApp;
   } else if (app_id == ash::kMallSystemAppId) {

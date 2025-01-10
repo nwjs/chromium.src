@@ -27,6 +27,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/simple_test_clock.h"
 #include "base/test/task_environment.h"
@@ -327,8 +328,7 @@ class ContentSettingSourceSetter {
         return prefs::kManagedDefaultNotificationsSetting;
       default:
         // Add support as needed.
-        NOTREACHED_IN_MIGRATION();
-        return "";
+        NOTREACHED();
     }
   }
 
@@ -933,7 +933,7 @@ class SiteSettingsHandlerBaseTest : public testing::Test {
   }
 
   void SetupDefaultRelatedWebsiteSets(MockPrivacySandboxService* mock_service) {
-    EXPECT_CALL(*mock_service, GetFirstPartySetOwner(_))
+    EXPECT_CALL(*mock_service, GetRelatedWebsiteSetOwner(_))
         .WillRepeatedly(
             [&](const GURL& url) -> std::optional<net::SchemefulSite> {
               auto related_website_sets = GetTestRelatedWebsiteSets();
@@ -4341,37 +4341,50 @@ TEST_F(SmartCardReaderPermissionsSiteSettingsHandlerTest,
   SmartCardPermissionContext& context =
       SmartCardPermissionContextFactory::GetForProfile(*profile());
 
-  const auto kTestOrigin1 = url::Origin::Create(
+  const auto kTestOrigin0 = url::Origin::Create(
       GURL("isolated-app://"
            "amoiebz32b7o24tilu257xne2yf3nkblkploanxzm7ebeglseqpfeaacai/"));
-  const auto kTestOrigin2 = url::Origin::Create(
-      GURL("isolated-app://"
-           "anayaszofsyqapbofoli7ljxoxkp32qkothweire2o6t7xy6taz6oaacai/"));
+  const auto kTestOrigin1 =
+      url::Origin::Create(GURL("https://www.example.com"));
+  const std::string kTestOrigin1DisplayName = "www.example.com";
 
   const std::string kReader0 = "Reader 0";
   const std::string kReader1 = "Reader 1";
 
-  GrantPersistentReaderPermission(context, kTestOrigin1, kReader0);
+  GrantPersistentReaderPermission(context, kTestOrigin0, kReader0);
+  GrantPersistentReaderPermission(context, kTestOrigin0, kReader1);
   GrantPersistentReaderPermission(context, kTestOrigin1, kReader1);
-  GrantPersistentReaderPermission(context, kTestOrigin2, kReader1);
   context.FlushScheduledSaveSettingsCalls();
 
   handler_->HandleGetSmartCardReaderGrants(
       base::Value::List().Append(kCallbackId));
 
-  EXPECT_EQ(web_ui()->call_data().back()->arg3()->GetList(),
-            base::Value::List()
-                .Append(base::Value::Dict()
-                            .Set(site_settings::kReaderName, kReader0)
-                            .Set(site_settings::kOrigins,
-                                 base::Value::List().Append(
-                                     kTestOrigin1.Serialize())))
-                .Append(base::Value::Dict()
-                            .Set(site_settings::kReaderName, kReader1)
-                            .Set(site_settings::kOrigins,
-                                 base::Value::List()
-                                     .Append(kTestOrigin1.Serialize())
-                                     .Append(kTestOrigin2.Serialize()))));
+  EXPECT_EQ(
+      web_ui()->call_data().back()->arg3()->GetList(),
+      base::Value::List()
+          .Append(base::Value::Dict()
+                      .Set(site_settings::kReaderName, kReader0)
+                      .Set(site_settings::kOrigins,
+                           base::Value::List().Append(
+                               base::Value::Dict()
+                                   .Set(site_settings::kOrigin,
+                                        kTestOrigin0.Serialize())
+                                   .Set(site_settings::kDisplayName,
+                                        kTestOrigin0.Serialize()))))
+          .Append(base::Value::Dict()
+                      .Set(site_settings::kReaderName, kReader1)
+                      .Set(site_settings::kOrigins,
+                           base::Value::List()
+                               .Append(base::Value::Dict()
+                                           .Set(site_settings::kOrigin,
+                                                kTestOrigin0.Serialize())
+                                           .Set(site_settings::kDisplayName,
+                                                kTestOrigin0.Serialize()))
+                               .Append(base::Value::Dict()
+                                           .Set(site_settings::kOrigin,
+                                                kTestOrigin1.Serialize())
+                                           .Set(site_settings::kDisplayName,
+                                                kTestOrigin1DisplayName)))));
 }
 
 TEST_F(SmartCardReaderPermissionsSiteSettingsHandlerTest,
@@ -4618,8 +4631,7 @@ class SiteSettingsHandlerChooserExceptionTest
                                  GetDevicesFromVendor18D2DisplayName()));
         break;
       default:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
     }
 
     // Don't include WebUI schemes.
@@ -4680,8 +4692,7 @@ class SiteSettingsHandlerChooserExceptionTest
                           GetUnknownProductDisplayName()));
           break;
         default:
-          NOTREACHED_IN_MIGRATION();
-          break;
+          NOTREACHED();
       }
     }
 
@@ -4721,8 +4732,7 @@ class SiteSettingsHandlerChooserExceptionTest
                                    GetDevicesFromVendor18D2DisplayName()));
           break;
         default:
-          NOTREACHED_IN_MIGRATION();
-          break;
+          NOTREACHED();
       }
     }
   }
@@ -4780,8 +4790,7 @@ class SiteSettingsHandlerChooserExceptionTest
                                    GetDevicesFromVendor18D2DisplayName()));
           break;
         default:
-          NOTREACHED_IN_MIGRATION();
-          break;
+          NOTREACHED();
       }
     }
 
@@ -4835,8 +4844,7 @@ class SiteSettingsHandlerChooserExceptionTest
                                    GetDevicesFromVendor18D2DisplayName()));
           break;
         default:
-          NOTREACHED_IN_MIGRATION();
-          break;
+          NOTREACHED();
       }
 
       // Ensure that the sites list does not contain the URLs of the removed
@@ -4899,8 +4907,7 @@ class SiteSettingsHandlerChooserExceptionTest
                           GetUnknownProductDisplayName()));
           break;
         default:
-          NOTREACHED_IN_MIGRATION();
-          break;
+          NOTREACHED();
       }
 
       // Ensure that the sites list still displays a site exception entry for an
@@ -4967,8 +4974,7 @@ class SiteSettingsHandlerChooserExceptionTest
                                    GetUnknownProductDisplayName()));
           break;
         default:
-          NOTREACHED_IN_MIGRATION();
-          break;
+          NOTREACHED();
       }
       EXPECT_FALSE(ChooserExceptionContainsSiteException(
           exceptions, "user-granted-device", kAndroidOriginStr));
@@ -5010,8 +5016,7 @@ class SiteSettingsHandlerChooserExceptionTest
                           GetUnknownProductDisplayName()));
           break;
         default:
-          NOTREACHED_IN_MIGRATION();
-          break;
+          NOTREACHED();
       }
       EXPECT_TRUE(ChooserExceptionContainsSiteException(
           exceptions, "user-granted-device", kYoutubeOriginStr));
@@ -5054,8 +5059,7 @@ class SiteSettingsHandlerChooserExceptionTest
                                    GetUnknownProductDisplayName()));
           break;
         default:
-          NOTREACHED_IN_MIGRATION();
-          break;
+          NOTREACHED();
       }
       EXPECT_FALSE(ChooserExceptionContainsSiteException(
           exceptions, "user-granted-device", kYoutubeOriginStr));
@@ -5092,8 +5096,7 @@ class SiteSettingsHandlerChooserExceptionTest
                                    GetUnknownProductDisplayName()));
           break;
         default:
-          NOTREACHED_IN_MIGRATION();
-          break;
+          NOTREACHED();
       }
     }
 
@@ -5129,8 +5132,7 @@ class SiteSettingsHandlerChooserExceptionTest
                                    GetUnknownProductDisplayName()));
           break;
         default:
-          NOTREACHED_IN_MIGRATION();
-          break;
+          NOTREACHED();
       }
     }
   }
@@ -6518,12 +6520,13 @@ TEST_F(SiteSettingsHandlerTest, HandleGetFormattedBytes) {
 TEST_F(SiteSettingsHandlerTest, HandleGetUsageInfo) {
   SetupDefaultRelatedWebsiteSets(mock_privacy_sandbox_service());
 
-  EXPECT_CALL(*mock_privacy_sandbox_service(), IsPartOfManagedFirstPartySet(_))
+  EXPECT_CALL(*mock_privacy_sandbox_service(),
+              IsPartOfManagedRelatedWebsiteSet(_))
       .Times(1)
       .WillOnce(Return(false));
-  EXPECT_CALL(
-      *mock_privacy_sandbox_service(),
-      IsPartOfManagedFirstPartySet(ConvertEtldToSchemefulSite("example.com")))
+  EXPECT_CALL(*mock_privacy_sandbox_service(),
+              IsPartOfManagedRelatedWebsiteSet(
+                  ConvertEtldToSchemefulSite("example.com")))
       .Times(2)
       .WillRepeatedly(Return(true));
 
@@ -6573,12 +6576,13 @@ TEST_F(SiteSettingsHandlerTest, HandleGetUsageInfo) {
 TEST_F(SiteSettingsHandlerTest, RelatedWebsiteSetsMembership) {
   SetupDefaultRelatedWebsiteSets(mock_privacy_sandbox_service());
 
-  EXPECT_CALL(*mock_privacy_sandbox_service(), IsPartOfManagedFirstPartySet(_))
+  EXPECT_CALL(*mock_privacy_sandbox_service(),
+              IsPartOfManagedRelatedWebsiteSet(_))
       .Times(2)
       .WillRepeatedly(Return(false));
-  EXPECT_CALL(
-      *mock_privacy_sandbox_service(),
-      IsPartOfManagedFirstPartySet(ConvertEtldToSchemefulSite("example.com")))
+  EXPECT_CALL(*mock_privacy_sandbox_service(),
+              IsPartOfManagedRelatedWebsiteSet(
+                  ConvertEtldToSchemefulSite("example.com")))
       .Times(1)
       .WillOnce(Return(true));
 
@@ -6684,6 +6688,82 @@ TEST_F(SiteSettingsHandlerTest, IsolatedWebAppClearUnpartitionedUsage) {
       /*expected_usage_string=*/"",
       /*expected_cookie_string=*/"",
       /*expected_rws_member_count_string=*/"", /*expected_rws_policy=*/false);
+}
+
+TEST_F(SiteSettingsHandlerTest, SiteExceptionScopeTypeMetrics) {
+  constexpr char kScopeTypeHistogram[] =
+      "Privacy.SiteExceptionsAdded.ScopeType";
+  constexpr char kContentSettingTypeHistogram[] =
+      "Privacy.SiteExceptionsAdded.ContentSettingType";
+  base::HistogramTester tester;
+  tester.ExpectTotalCount(kScopeTypeHistogram, 0);
+
+  {
+    base::Value::List set_args;
+    set_args.Append("https://www.blocked.com:443");  // Primary pattern.
+    set_args.Append(std::string());                  // Secondary pattern.
+    set_args.Append(kNotifications);
+    set_args.Append(
+        content_settings::ContentSettingToString(CONTENT_SETTING_BLOCK));
+    set_args.Append(false);  // Incognito.
+
+    handler()->HandleSetCategoryPermissionForPattern(set_args);
+    ASSERT_EQ(2U, web_ui()->call_data().size());
+
+    tester.ExpectBucketCount(kScopeTypeHistogram,
+                             ContentSettingsPattern::Scope::kOriginScoped,
+                             1 /* expected_count */);
+    tester.ExpectBucketCount(
+        kContentSettingTypeHistogram,
+        content_settings_uma_util::ContentSettingTypeToHistogramValue(
+            ContentSettingsType::NOTIFICATIONS),
+        1 /* expected_count */);
+  }
+
+  {
+    base::Value::List set_args;
+    set_args.Append("https://[*.]blocked.com:443");  // Primary pattern.
+    set_args.Append(std::string());                  // Secondary pattern.
+    set_args.Append(kCookies);
+    set_args.Append(
+        content_settings::ContentSettingToString(CONTENT_SETTING_BLOCK));
+    set_args.Append(false);  // Incognito.
+
+    handler()->HandleSetCategoryPermissionForPattern(set_args);
+    ASSERT_EQ(3U, web_ui()->call_data().size());
+
+    tester.ExpectBucketCount(kScopeTypeHistogram,
+                             ContentSettingsPattern::Scope::kWithDomainWildcard,
+                             1 /* expected_count */);
+    tester.ExpectBucketCount(
+        kContentSettingTypeHistogram,
+        content_settings_uma_util::ContentSettingTypeToHistogramValue(
+            ContentSettingsType::COOKIES),
+        1 /* expected_count */);
+  }
+
+  {
+    base::Value::List set_args;
+    set_args.Append("*");                        // Primary pattern.
+    set_args.Append("https://[*.]blocked.com");  // Secondary pattern.
+    set_args.Append(kTrackingProtection);
+    set_args.Append(
+        content_settings::ContentSettingToString(CONTENT_SETTING_BLOCK));
+    set_args.Append(false);  // Incognito.
+
+    handler()->HandleSetCategoryPermissionForPattern(set_args);
+    ASSERT_EQ(4U, web_ui()->call_data().size());
+
+    tester.ExpectBucketCount(
+        kScopeTypeHistogram,
+        ContentSettingsPattern::Scope::kWithDomainAndPortWildcard,
+        1 /* expected_count */);
+    tester.ExpectBucketCount(
+        kContentSettingTypeHistogram,
+        content_settings_uma_util::ContentSettingTypeToHistogramValue(
+            ContentSettingsType::TRACKING_PROTECTION),
+        1 /* expected_count */);
+  }
 }
 
 #if BUILDFLAG(IS_CHROMEOS)

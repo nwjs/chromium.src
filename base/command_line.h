@@ -27,6 +27,7 @@
 
 #include "base/base_export.h"
 #include "base/containers/span.h"
+#include "base/compiler_specific.h"
 #include "base/debug/debugging_buildflags.h"
 #include "base/memory/raw_ptr.h"
 #include "build/build_config.h"
@@ -179,7 +180,7 @@ class BASE_EXPORT CommandLine {
   StringType GetArgumentsString() const;
 
   // Returns the original command line string as a vector of strings.
-  const StringVector& argv() const { return argv_; }
+  const StringVector& argv() const LIFETIME_BOUND { return argv_; }
   int argc0() { return argc0_; }
   char** argv0() { return argv0_; }
 
@@ -206,7 +207,7 @@ class BASE_EXPORT CommandLine {
   StringType GetSwitchValueNative(std::string_view switch_string) const;
 
   // Get a copy of all switches, along with their values.
-  const SwitchMap& GetSwitches() const { return switches_; }
+  const SwitchMap& GetSwitches() const LIFETIME_BOUND { return switches_; }
 
   // Append a switch [with optional value] to the command line.
   // Note: Switches will precede arguments regardless of appending order.

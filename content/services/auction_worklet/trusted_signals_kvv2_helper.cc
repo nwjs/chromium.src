@@ -628,6 +628,37 @@ ResultOrError ParseBiddingPartition(
       std::move(maybe_key_data_map).value(), data_version);
 }
 
+// Attempts to create a TrustedSignals::Result for all fields in a scoring
+// partition, given the result of calling ParseKeyGroupOutputsToMap() on the
+// partition and the partition's data version.
+ResultOrError ParseScoringPartition(
+    AuctionV8Helper* v8_helper,
+    const std::map<std::string, const cbor::Value::MapValue*>&
+        key_group_outputs_map,
+    std::optional<uint32_t> data_version) {
+  auto maybe_render_urls_map = SerializeKeyGroupOutputsMap(
+      v8_helper, key_group_outputs_map, /*keys=*/std::nullopt, kTagRenderUrls);
+  // Note that the map not being present is valid - there's only an error in the
+  // case invalid data is received.
+  if (!maybe_render_urls_map.has_value()) {
+    return base::unexpected(std::move(maybe_render_urls_map).error().error_msg);
+  }
+
+  auto maybe_ad_component_render_urls_map = SerializeKeyGroupOutputsMap(
+      v8_helper, key_group_outputs_map, /*keys=*/std::nullopt,
+      kTagAdComponentRenderUrls);
+  // Note that the map not being present is valid - there's only an error in the
+  // case invalid data is received.
+  if (!maybe_ad_component_render_urls_map.has_value()) {
+    return base::unexpected(
+        std::move(maybe_ad_component_render_urls_map).error().error_msg);
+  }
+
+  return base::MakeRefCounted<TrustedSignals::Result>(
+      std::move(maybe_render_urls_map).value(),
+      std::move(maybe_ad_component_render_urls_map).value(), data_version);
+}
+
 // Takes a cbor::Value corresponding to a partition of type `signals_type` and
 // attempts to parse it to a TrustedSignals::Result.
 ResultOrError ParsePartition(
@@ -657,8 +688,8 @@ ResultOrError ParsePartition(
     return ParseBiddingPartition(v8_helper, *key_group_outputs_map,
                                  data_version);
   } else {
-    // Scoring signals not yet supported.
-    NOTREACHED();
+    return ParseScoringPartition(v8_helper, *key_group_outputs_map,
+                                 data_version);
   }
 }
 
@@ -703,8 +734,13 @@ TrustedSignalsKVv2RequestHelperBuilder::Build() {
   cbor::Value::MapValue request_map_value;
   AddPostRequestConstants(request_map_value);
 
-  cbor::Value::ArrayValue partition_array;
+  // Add hostname to metadata.
+  cbor::Value::MapValue metadata;
+  metadata.try_emplace(cbor::Value("hostname"), cbor::Value(hostname()));
+  request_map_value.try_emplace(cbor::Value("metadata"),
+                                cbor::Value(std::move(metadata)));
 
+  cbor::Value::ArrayValue partition_array;
   for (const auto& group_pair : compression_groups()) {
     int compression_group_id = group_pair.first;
     const CompressionGroup& partition_map = group_pair.second;
@@ -732,31 +768,30 @@ TrustedSignalsKVv2RequestHelperBuilder::Partition::Partition(
     int partition_id,
     const std::string& interest_group_name,
     const std::set<std::string>& bidding_keys,
-    const std::string& hostname,
     const std::optional<int>& experiment_group_id,
-    std::pair<std::string, std::string> trusted_bidding_signals_slot_size_param)
+    const std::optional<std::pair<std::string, std::string>>&
+        trusted_bidding_signals_slot_size_param)
     : partition_id(partition_id),
       interest_group_names({interest_group_name}),
       bidding_signals_keys(bidding_keys) {
-  additional_params.Set("hostname", hostname);
   if (experiment_group_id.has_value()) {
     additional_params.Set("experimentGroupId",
                           base::NumberToString(experiment_group_id.value()));
   }
-  additional_params.Set(trusted_bidding_signals_slot_size_param.first,
-                        trusted_bidding_signals_slot_size_param.second);
+  if (trusted_bidding_signals_slot_size_param) {
+    additional_params.Set(trusted_bidding_signals_slot_size_param->first,
+                          trusted_bidding_signals_slot_size_param->second);
+  }
 }
 
 TrustedSignalsKVv2RequestHelperBuilder::Partition::Partition(
     int partition_id,
     const std::string& render_url,
     const std::set<std::string>& ad_component_render_urls,
-    const std::string& hostname,
     const std::optional<int>& experiment_group_id)
     : partition_id(partition_id),
       render_urls({render_url}),
       ad_component_render_urls(ad_component_render_urls) {
-  additional_params.Set("hostname", hostname);
   if (experiment_group_id.has_value()) {
     additional_params.Set("experimentGroupId",
                           base::NumberToString(experiment_group_id.value()));
@@ -788,8 +823,8 @@ TrustedBiddingSignalsKVv2RequestHelperBuilder::
     CHECK_NE(pos, std::string::npos);
     std::string key = trusted_bidding_signals_slot_size_param.substr(0, pos);
     std::string value = trusted_bidding_signals_slot_size_param.substr(pos + 1);
-    trusted_bidding_signals_slot_size_param_ = {std::move(key),
-                                                std::move(value)};
+    trusted_bidding_signals_slot_size_param_ = {
+        {std::move(key), std::move(value)}};
   }
 }
 
@@ -847,7 +882,7 @@ TrustedBiddingSignalsKVv2RequestHelperBuilder::AddTrustedSignalsRequest(
   // Find or create partition.
   if (partition_it == compression_group_ptr->end()) {
     Partition new_partition(partition_id, interest_group_name, bidding_keys,
-                            hostname(), experiment_group_id(),
+                            experiment_group_id(),
                             trusted_bidding_signals_slot_size_param());
     compression_group_ptr->emplace(partition_id, std::move(new_partition));
   } else {
@@ -875,17 +910,19 @@ TrustedBiddingSignalsKVv2RequestHelperBuilder::BuildMapForPartition(
                                  cbor::Value(compression_group_id));
 
   // metadata
-  cbor::Value::MapValue metadata;
-  for (const auto param : partition.additional_params) {
-    CHECK(param.second.is_string());
-    // TODO(xtlsheep): The slot size param probably will be changed to a new
-    // format in the future. Check if these are still the right types if the
-    // spec is changed.
-    metadata.try_emplace(cbor::Value(param.first),
-                         cbor::Value(param.second.GetString()));
+  if (!partition.additional_params.empty()) {
+    cbor::Value::MapValue metadata;
+    for (const auto param : partition.additional_params) {
+      CHECK(param.second.is_string());
+      // TODO(xtlsheep): The slot size param probably will be changed to a new
+      // format in the future. Check if these are still the right types if the
+      // spec is changed.
+      metadata.try_emplace(cbor::Value(param.first),
+                           cbor::Value(param.second.GetString()));
+    }
+    partition_cbor_map.try_emplace(cbor::Value("metadata"),
+                                   cbor::Value(std::move(metadata)));
   }
-  partition_cbor_map.try_emplace(cbor::Value("metadata"),
-                                 cbor::Value(std::move(metadata)));
 
   cbor::Value::ArrayValue arguments;
   arguments.emplace_back(
@@ -940,8 +977,7 @@ TrustedScoringSignalsKVv2RequestHelperBuilder::AddTrustedSignalsRequest(
   // means the next partition ID is the size of compression group.
   partition_id = compression_group_ptr->size();
   Partition new_partition(partition_id, render_url.spec(),
-                          ad_component_render_urls, hostname(),
-                          experiment_group_id());
+                          ad_component_render_urls, experiment_group_id());
   compression_group_ptr->emplace(partition_id, std::move(new_partition));
 
   return IsolationIndex(compression_group_id, partition_id);
@@ -959,19 +995,23 @@ TrustedScoringSignalsKVv2RequestHelperBuilder::BuildMapForPartition(
                                  cbor::Value(compression_group_id));
 
   // metadata
-  cbor::Value::MapValue metadata;
-  for (const auto param : partition.additional_params) {
-    CHECK(param.second.is_string());
-    metadata.try_emplace(cbor::Value(param.first),
-                         cbor::Value(param.second.GetString()));
+  if (!partition.additional_params.empty()) {
+    cbor::Value::MapValue metadata;
+    for (const auto param : partition.additional_params) {
+      CHECK(param.second.is_string());
+      metadata.try_emplace(cbor::Value(param.first),
+                           cbor::Value(param.second.GetString()));
+    }
+    partition_cbor_map.try_emplace(cbor::Value("metadata"),
+                                   cbor::Value(std::move(metadata)));
   }
-  partition_cbor_map.try_emplace(cbor::Value("metadata"),
-                                 cbor::Value(std::move(metadata)));
 
   cbor::Value::ArrayValue arguments;
   arguments.emplace_back(MakeArgument("renderUrls", partition.render_urls));
-  arguments.emplace_back(MakeArgument("adComponentRenderUrls",
-                                      partition.ad_component_render_urls));
+  if (!partition.ad_component_render_urls.empty()) {
+    arguments.emplace_back(MakeArgument("adComponentRenderUrls",
+                                        partition.ad_component_render_urls));
+  }
 
   partition_cbor_map.try_emplace(cbor::Value("arguments"),
                                  cbor::Value(std::move(arguments)));

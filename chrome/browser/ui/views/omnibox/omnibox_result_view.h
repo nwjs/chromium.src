@@ -88,6 +88,8 @@ class OmniboxResultView : public views::View {
 
   void UpdateAccessibilityProperties();
 
+  void UpdateAccessibleName();
+
   // views::View:
   bool OnMousePressed(const ui::MouseEvent& event) override;
   bool OnMouseDragged(const ui::MouseEvent& event) override;
@@ -118,9 +120,6 @@ class OmniboxResultView : public views::View {
   // Updates the 'selected' state of the view as applicable based on whether or
   // not the view is selected.
   void UpdateAccessibilitySelectedState();
-
-  // Updates the accessible name based on the current state.
-  void UpdateAccessibleName();
 
   // views::View:
   void OnBoundsChanged(const gfx::Rect& previous_bounds) override;

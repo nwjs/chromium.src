@@ -53,11 +53,39 @@ export enum NavigationType {
   BLOCK = 2,
   DOMAIN = 3,
   LIMITED = 4,
+  SAME_DOMAIN_OPEN_OTHER_DOMAIN_LIMITED = 5
 }
 
 export enum JoinMethod {
   ROSTER = 0,
   ACCESS_CODE = 1,
+}
+
+export enum SubmitAccessCodeResult {
+  UNKNOWN = 0,
+  SUCCESS = 1,
+  INVALID_CODE = 2,
+}
+
+/**
+ * Declare network state enum type
+ */
+export enum NetworkState {
+  ONLINE = 0,
+  CONNECTED = 1,
+  PORTAL = 2,
+  CONNECTING = 3,
+  NOTCONNECTED = 4,
+}
+
+/**
+ * Declare network type enum type
+ */
+export enum NetworkType {
+  CELLULAR = 0,
+  ETHERNET = 1,
+  WIFI = 2,
+  UNSUPPORTED = 3,
 }
 
 /**
@@ -92,9 +120,11 @@ export declare interface SessionConfig {
   sessionStartTime?: Date;
   sessionDurationInMinutes: number;
   students: Identity[];
+  studentsJoinViaCode?: Identity[];
   teacher?: Identity;
   onTaskConfig: OnTaskConfig;
   captionConfig: CaptionConfig;
+  accessCode?: string;
 }
 
 /**
@@ -124,8 +154,18 @@ export declare interface StudentActivity {
  * Declare IdentifiedActivity
  */
 export declare interface IdentifiedActivity {
-  email: string;
+  id: string;
   studentActivity: StudentActivity;
+}
+
+/**
+ * Declare NetworkInfo
+ */
+export declare interface NetworkInfo {
+  networkState: NetworkState;
+  networkType: NetworkType;
+  name: string;
+  signalStrength: number;
 }
 
 /**
@@ -153,6 +193,11 @@ export declare interface ClientApiDelegate {
   createSession(sessionConfig: SessionConfig): Promise<boolean>;
 
   /**
+   * Remove a student from the current session.
+   */
+  removeStudent(id: string): Promise<boolean>;
+
+  /**
    * Retrivies the current session.
    */
   getSession(): Promise<Session|null>;
@@ -169,6 +214,15 @@ export declare interface ClientApiDelegate {
    * Update caption config
    */
   updateCaptionConfig(captionConfig: CaptionConfig): Promise<boolean>;
+  /**
+   * Set float mode
+   */
+  setFloatMode(isFloatMode: boolean): Promise<boolean>;
+
+  /**
+   * Submit an access code for student to join the session.
+   */
+  submitAccessCode(accessCode: string): Promise<SubmitAccessCodeResult>;
 }
 
 /**
@@ -192,4 +246,9 @@ export declare interface ClientApi {
    * The entire payload would be sent.
    */
   onStudentActivityUpdated(studentActivity: IdentifiedActivity[]): void;
+
+  /**
+   * Notify the app that the active networks has been updated.
+   */
+  onActiveNetworkStateChanged(activeNetworks: NetworkInfo[]): void;
 }

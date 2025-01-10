@@ -33,6 +33,7 @@ import org.chromium.components.autofill.IbanRecordType;
 import org.chromium.components.autofill.SubKeyRequester;
 import org.chromium.components.autofill.VirtualCardEnrollmentState;
 import org.chromium.components.autofill.payments.BankAccount;
+import org.chromium.components.autofill.payments.Ewallet;
 import org.chromium.content_public.browser.test.util.TouchCommon;
 import org.chromium.url.GURL;
 
@@ -468,6 +469,7 @@ public class AutofillTestHelper {
             String secondaryLabel,
             String subLabel,
             String secondarySubLabel,
+            String labelContentDescription,
             boolean applyDeactivatedStyle,
             boolean shouldDisplayTermsAvailable) {
         return new AutofillSuggestion.Builder()
@@ -475,6 +477,7 @@ public class AutofillTestHelper {
                 .setSecondaryLabel(secondaryLabel)
                 .setSubLabel(subLabel)
                 .setSecondarySubLabel(secondarySubLabel)
+                .setLabelContentDescription(labelContentDescription)
                 .setApplyDeactivatedStyle(applyDeactivatedStyle)
                 .setShouldDisplayTermsAvailable(shouldDisplayTermsAvailable)
                 .build();
@@ -482,6 +485,10 @@ public class AutofillTestHelper {
 
     public static void addMaskedBankAccount(BankAccount bankAccount) {
         runOnUiThreadBlocking(() -> AutofillTestHelperJni.get().addMaskedBankAccount(bankAccount));
+    }
+
+    public static void addEwallet(Ewallet ewallet) {
+        runOnUiThreadBlocking(() -> AutofillTestHelperJni.get().addEwallet(ewallet));
     }
 
     private void registerDataObserver() {
@@ -648,5 +655,7 @@ public class AutofillTestHelper {
         void setSyncService();
 
         void addMaskedBankAccount(BankAccount bankAccount);
+
+        void addEwallet(Ewallet ewallet);
     }
 }

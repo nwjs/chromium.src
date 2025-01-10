@@ -44,11 +44,10 @@ std::unique_ptr<views::Button> CreateAddonButton(
 
 std::unique_ptr<views::Button> CreateCoralAddonButton(
     views::Button::PressedCallback callback,
-    const gfx::VectorIcon& button_icon,
-    const std::u16string& accessible_name) {
+    const gfx::VectorIcon& button_icon) {
   auto button = std::make_unique<IconButton>(
       std::move(callback), IconButton::Type::kMediumProminent, &button_icon,
-      accessible_name, /*is_togglable=*/true, /*has_border=*/true);
+      /*is_togglable=*/true, /*has_border=*/true);
   button->SetProperty(views::kMarginsKey, kAddonMargins);
   button->SetBackgroundColor(cros_tokens::kCrosSysSystemBaseElevated);
   button->SetIconColor(cros_tokens::kCrosSysSecondary);
@@ -101,8 +100,7 @@ BirchSuggestionType CommandIdToSuggestionType(int command_id) {
     default:
       break;
   }
-  NOTREACHED_NORETURN() << "No matching suggestion type for command Id: "
-                        << command_id;
+  NOTREACHED() << "No matching suggestion type for command Id: " << command_id;
 }
 
 TabAppSelectionHost* GetVisibleTabAppSelectionHost() {

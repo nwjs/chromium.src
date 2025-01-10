@@ -132,8 +132,7 @@ bool ShouldConsiderDecoyRequestForStatus(PreloadingEligibility eligibility) {
     case PreloadingEligibility::kEligible:
     default:
       // Other ineligible cases are not used in `PrefetchService`.
-      NOTREACHED_IN_MIGRATION();
-      return false;
+      NOTREACHED();
   }
 }
 
@@ -523,8 +522,9 @@ void PrefetchService::PrefetchUrl(
           (PrefetchAllowAllDomainsForExtendedPreloading() &&
            delegate_->IsExtendedPreloadingEnabled());
       if (!allow_all_domains &&
+          prefetch_container->GetReferringOrigin().has_value() &&
           !delegate_->IsDomainInPrefetchAllowList(
-              prefetch_container->GetReferringOrigin().GetURL())) {
+              prefetch_container->GetReferringOrigin().value().GetURL())) {
         DVLOG(1) << *prefetch_container
                  << ": not prefetched (not in allow list)";
         return;

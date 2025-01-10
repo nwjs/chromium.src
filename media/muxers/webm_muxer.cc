@@ -112,6 +112,9 @@ static double GetFrameRate(const Muxer::VideoParameters& params) {
 }
 
 static const char kH264CodecId[] = "V_MPEG4/ISO/AVC";
+#if BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
+static const char kHevcCodecId[] = "V_MPEGH/ISO/HEVC";
+#endif
 static const char kPcmCodecId[] = "A_PCM/FLOAT/IEEE";
 
 static const char* MkvCodeIcForMediaVideoCodecId(VideoCodec video_codec) {
@@ -124,10 +127,12 @@ static const char* MkvCodeIcForMediaVideoCodecId(VideoCodec video_codec) {
       return mkvmuxer::Tracks::kAv1CodecId;
     case VideoCodec::kH264:
       return kH264CodecId;
+#if BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
+    case VideoCodec::kHEVC:
+      return kHevcCodecId;
+#endif
     default:
-      NOTREACHED_IN_MIGRATION()
-          << "Unsupported codec " << GetCodecName(video_codec);
-      return "";
+      NOTREACHED() << "Unsupported codec " << GetCodecName(video_codec);
   }
 }
 
@@ -268,8 +273,7 @@ void WebmMuxer::AddVideoTrack(
   video_track_index_ =
       segment_.AddVideoTrack(frame_size.width(), frame_size.height(), 0);
   if (video_track_index_ <= 0) {  // See https://crbug.com/616391.
-    NOTREACHED_IN_MIGRATION() << "Error adding video track";
-    return;
+    NOTREACHED() << "Error adding video track";
   }
 
   mkvmuxer::VideoTrack* const video_track =
@@ -294,7 +298,7 @@ void WebmMuxer::AddVideoTrack(
   DCHECK_EQ(1000000ull, segment_.GetSegmentInfo()->timecode_scale());
 
   // Set alpha channel parameters for only VPX (crbug.com/711825).
-  if (video_codec_ == VideoCodec::kH264) {
+  if (video_codec_ == VideoCodec::kH264 || video_codec_ == VideoCodec::kHEVC) {
     return;
   }
   video_track->SetAlphaMode(mkvmuxer::VideoTrack::kAlpha);
@@ -315,8 +319,7 @@ void WebmMuxer::AddAudioTrack(const AudioParameters& params) {
   audio_track_index_ =
       segment_.AddAudioTrack(params.sample_rate(), params.channels(), 0);
   if (audio_track_index_ <= 0) {  // See https://crbug.com/616391.
-    NOTREACHED_IN_MIGRATION() << "Error adding audio track";
-    return;
+    NOTREACHED() << "Error adding audio track";
   }
 
   mkvmuxer::AudioTrack* const audio_track =
@@ -374,7 +377,11 @@ bool WebmMuxer::PutFrame(EncodedFrame frame,
     DCHECK(video_params->codec == VideoCodec::kVP8 ||
            video_params->codec == VideoCodec::kVP9 ||
            video_params->codec == VideoCodec::kH264 ||
-           video_params->codec == VideoCodec::kAV1)
+           video_params->codec == VideoCodec::kAV1
+#if BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
+           || video_params->codec == VideoCodec::kHEVC
+#endif
+           )
         << " Unsupported video codec: " << GetCodecName(video_params->codec);
     DCHECK(video_codec_ == VideoCodec::kUnknown ||
            video_codec_ == video_params->codec)

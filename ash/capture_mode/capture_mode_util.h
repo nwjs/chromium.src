@@ -9,6 +9,7 @@
 #include <string>
 
 #include "ash/ash_export.h"
+#include "ash/capture_mode/capture_mode_constants.h"
 #include "ash/capture_mode/capture_mode_types.h"
 #include "base/time/time.h"
 #include "ui/gfx/animation/tween.h"
@@ -242,7 +243,14 @@ gfx::Rect GetEffectivePartialRegionBounds(
 // active.
 ASH_EXPORT void AddActionButton(views::Button::PressedCallback callback,
                                 std::u16string text,
-                                const gfx::VectorIcon* icon);
+                                const gfx::VectorIcon* icon,
+                                const ActionButtonRank rank);
+
+ASH_EXPORT void AnimateToOpacity(
+    ui::Layer* layer,
+    const float opacity,
+    const base::TimeDelta duration =
+        capture_mode::kCaptureUIOpacityChangeDuration);
 
 }  // namespace capture_mode_util
 

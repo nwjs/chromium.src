@@ -111,9 +111,10 @@ class WizardContext {
   enum class PinSetupMode {
     kSetupAsPrimaryFactor,
     kSetupAsSecondaryFactor,
-    // TODO(b/365059362) : Add support for recovery.
-    // kRecovery
+    kRecovery,
+    // Setup modes that reflect the past user choice.
     kAlreadyPerformed,
+    kUserChosePasswordInstead,
   };
 
   struct KnowledgeFactorSetup {
@@ -126,7 +127,7 @@ class WizardContext {
 
     AuthFactorsSet modified_factors;
 
-    std::optional<PinSetupMode> pin_setup_mode = std::nullopt;
+    PinSetupMode pin_setup_mode = PinSetupMode::kSetupAsSecondaryFactor;
   };
 
   enum class OSAuthErrorKind {
@@ -173,7 +174,9 @@ class WizardContext {
   bool skip_to_update_for_tests = false;
 
   // Whether the post login screens should be skipped. Used in MaybeSkip by
-  // screens in tests. Is set by WizardController::SkipPostLoginScreensForTests.
+  // screens in tests. Is set by WizardController::SkipPostLoginScreensForTests
+  // and LoginDisplayHost::SkipPostLoginScreensForDemoMode.
+  // TODO(crbug.com/376527458): Rename to `skip_post_login_screens`.
   bool skip_post_login_screens_for_tests = false;
 
   // Whether CHOOBE screen should be skipped. Setting this flag will force skip

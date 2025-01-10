@@ -23,12 +23,22 @@ targets.tests.gtest_test(
 targets.tests.isolated_script_test(
     name = "android_blink_wpt_tests",
     args = [
+        "--skipped",
+        "always",
     ],
     binary = "chrome_public_wpt",
 )
 
 targets.tests.gtest_test(
     name = "android_browsertests",
+)
+
+targets.tests.gtest_test(
+    name = "accessibility_unittests_no_field_trial",
+    args = [
+        "--disable-field-trial-config",
+    ],
+    binary = "accessibility_unittests",
 )
 
 targets.tests.gtest_test(
@@ -336,7 +346,6 @@ targets.tests.gtest_test(
     name = "browser_tests_functional",
     args = [
         "--test-launcher-filter-file=../../testing/buildbot/filters/webrtc_functional.browser_tests.filter",
-        "--run-manual",
         "--test-launcher-jobs=1",
     ],
     binary = "browser_tests",
@@ -686,7 +695,6 @@ targets.tests.gtest_test(
     name = "content_browsertests_sequential",
     args = [
         "--gtest_filter=UsingRealWebcam*",
-        "--run-manual",
         "--test-launcher-jobs=1",
     ],
     binary = "content_browsertests",
@@ -695,10 +703,17 @@ targets.tests.gtest_test(
 targets.tests.gtest_test(
     name = "content_browsertests_stress",
     args = [
-        "--gtest_filter=WebRtc*MANUAL*:-UsingRealWebcam*",
-        "--run-manual",
+        "--gtest_filter=WebRtc*:-UsingRealWebcam*",
         "--ui-test-action-max-timeout=110000",
         "--test-launcher-timeout=120000",
+    ],
+    binary = "content_browsertests",
+)
+
+targets.tests.gtest_test(
+    name = "content_browsertests_no_field_trial",
+    args = [
+        "--disable-field-trial-config",
     ],
     binary = "content_browsertests",
 )
@@ -976,7 +991,7 @@ targets.tests.gtest_test(
 )
 
 targets.tests.gtest_test(
-    name = "video_decode_accelerator_tests_fake_vaapi",
+    name = "video_decode_accelerator_tests_fake_vaapi_vp9",
     args = [
         "--env-var",
         "LIBVA_DRIVERS_PATH",
@@ -986,6 +1001,36 @@ targets.tests.gtest_test(
         "libfake",
         "../../media/test/data/test-25fps.vp9",
         "../../media/test/data/test-25fps.vp9.json",
+    ],
+    binary = "video_decode_accelerator_tests",
+)
+
+targets.tests.gtest_test(
+    name = "video_decode_accelerator_tests_fake_vaapi_vp8",
+    args = [
+        "--env-var",
+        "LIBVA_DRIVERS_PATH",
+        "./",
+        "--env-var",
+        "LIBVA_DRIVER_NAME",
+        "libfake",
+        "../../media/test/data/test-25fps.vp8",
+        "../../media/test/data/test-25fps.vp8.json",
+    ],
+    binary = "video_decode_accelerator_tests",
+)
+
+targets.tests.gtest_test(
+    name = "video_decode_accelerator_tests_fake_vaapi_av1",
+    args = [
+        "--env-var",
+        "LIBVA_DRIVERS_PATH",
+        "./",
+        "--env-var",
+        "LIBVA_DRIVER_NAME",
+        "libfake",
+        "../../media/test/data/av1-1-b8-02-allintra.ivf",
+        "../../media/test/data/av1-1-b8-02-allintra.ivf.json",
     ],
     binary = "video_decode_accelerator_tests",
 )
@@ -1701,10 +1746,6 @@ targets.tests.isolated_script_test(
 
 targets.tests.gtest_test(
     name = "notification_helper_unittests",
-)
-
-targets.tests.isolated_script_test(
-    name = "ondevice_quality_tests",
 )
 
 targets.tests.isolated_script_test(
@@ -2847,6 +2888,8 @@ targets.tests.gtest_test(
 targets.tests.isolated_script_test(
     name = "webview_blink_wpt_tests",
     args = [
+        "--skipped",
+        "always",
     ],
     binary = "trichrome_webview_wpt_64",
 )

@@ -15,7 +15,7 @@
       </h2>
       <cr-link-row id="cursorTouchpadSubpageButton" class="hr"
           label="$i18n{builtInTouchpadDisabled}"
-          on-click="onDisabledTrackpadSettingsClick_"
+          on-click="onDisabledTouchpadSettingsClick_"
           role-description="$i18n{subpageArrowRoleDescription}" embedded>
       </cr-link-row>
     </div>
@@ -53,7 +53,8 @@
                 label="$i18n{touchpadSimulateRightClickLabel}"
                 pref="{{simulateRightClickPref}}"
                 aria-describedby="touchpadName"
-                menu-options="[[simulateRightClickOptions]]">
+                menu-options="[[simulateRightClickOptions]]"
+                deep-link-focus-id$="[[Setting.kTouchpadSimulateRightClick]]">
             </settings-dropdown-menu>
           </div>
         </template>

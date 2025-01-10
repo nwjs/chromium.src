@@ -4,35 +4,83 @@
 
 #include "ash/scanner/fake_scanner_profile_scoped_delegate.h"
 
-#include <utility>
-
 #include "ash/public/cpp/scanner/scanner_enums.h"
 #include "ash/public/cpp/scanner/scanner_system_state.h"
 #include "base/check.h"
-#include "base/functional/callback.h"
-#include "base/memory/ref_counted_memory.h"
-#include "base/memory/scoped_refptr.h"
+#include "base/check_op.h"
+#include "base/command_line.h"
+#include "base/functional/bind.h"
+#include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
+#include "components/drive/service/drive_service_interface.h"
+#include "google_apis/common/dummy_auth_service.h"
+#include "google_apis/common/request_sender.h"
+#include "google_apis/gaia/gaia_urls.h"
+#include "google_apis/gaia/gaia_urls_overrider_for_testing.h"
+#include "net/test/embedded_test_server/embedded_test_server.h"
+#include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
+#include "services/network/test/test_shared_url_loader_factory.h"
+#include "testing/gmock/include/gmock/gmock.h"
 
 namespace ash {
 
-FakeScannerProfileScopedDelegate::FakeScannerProfileScopedDelegate() = default;
+namespace {
+using ::testing::Return;
+}  // namespace
+
+FakeScannerProfileScopedDelegate::FakeScannerProfileScopedDelegate() {
+  ON_CALL(*this, GetSystemState)
+      .WillByDefault(Return(
+          ScannerSystemState(ScannerStatus::kEnabled, /*failed_checks=*/{})));
+}
 
 FakeScannerProfileScopedDelegate::~FakeScannerProfileScopedDelegate() = default;
 
-ScannerSystemState FakeScannerProfileScopedDelegate::GetSystemState() const {
-  return ScannerSystemState(ScannerStatus::kEnabled, /*failed_checks=*/{});
+drive::DriveServiceInterface*
+FakeScannerProfileScopedDelegate::GetDriveService() {
+  return &drive_service_;
 }
 
-void FakeScannerProfileScopedDelegate::FetchActionsForImage(
-    scoped_refptr<base::RefCountedMemory> jpeg_bytes,
-    base::OnceCallback<void(ScannerActionsResponse)> callback) {
-  fetch_actions_callback_ = std::move(callback);
+google_apis::RequestSender*
+FakeScannerProfileScopedDelegate::GetGoogleApisRequestSender() {
+  if (request_sender_ == nullptr) {
+    request_sender_ = std::make_unique<google_apis::RequestSender>(
+        std::make_unique<google_apis::DummyAuthService>(),
+        base::MakeRefCounted<network::TestSharedURLLoaderFactory>(
+            /*network_service=*/nullptr,
+            /*is_trusted=*/true),
+        base::ThreadPool::CreateSequencedTaskRunner(
+            {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
+             base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN}),
+        "test-user-agent", TRAFFIC_ANNOTATION_FOR_TESTS);
+
+    test_server_ = std::make_unique<net::test_server::EmbeddedTestServer>();
+    test_server_->RegisterRequestHandler(
+        base::BindRepeating(&FakeScannerProfileScopedDelegate::HandleRequest,
+                            base::Unretained(this)));
+    CHECK(test_server_->Start());
+
+    gaia_urls_overrider_ = std::make_unique<GaiaUrlsOverriderForTesting>(
+        base::CommandLine::ForCurrentProcess(), "people_api_origin_url",
+        test_server_->base_url().spec());
+
+    CHECK_EQ(test_server_->base_url(),
+             GaiaUrls::GetInstance()->people_api_origin_url());
+  }
+
+  return request_sender_.get();
 }
 
-void FakeScannerProfileScopedDelegate::SendFakeActionsResponse(
-    ScannerActionsResponse actions_response) {
-  CHECK(!fetch_actions_callback_.is_null());
-  std::move(fetch_actions_callback_).Run(actions_response);
+std::unique_ptr<net::test_server::HttpResponse>
+FakeScannerProfileScopedDelegate::HandleRequest(
+    const net::test_server::HttpRequest& request) {
+  CHECK(!request_callback_.is_null());
+
+  return request_callback_.Run(request);
+}
+
+bool FakeScannerProfileScopedDelegate::IsGoogler() {
+  return false;
 }
 
 }  // namespace ash

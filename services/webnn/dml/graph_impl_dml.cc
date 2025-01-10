@@ -24,16 +24,18 @@
 #include "base/feature_list.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/ranges/algorithm.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/thread_pool.h"
 #include "base/trace_event/trace_event.h"
 #include "base/types/expected.h"
 #include "base/types/expected_macros.h"
-#include "base/types/fixed_array.h"
 #include "base/types/optional_ref.h"
 #include "mojo/public/cpp/bindings/self_owned_associated_receiver.h"
 #include "services/webnn/dml/adapter.h"
@@ -82,6 +84,35 @@ static constexpr auto kDmlFloatDataTypes =
     base::MakeFixedFlatSet<DML_TENSOR_DATA_TYPE>(
         {DML_TENSOR_DATA_TYPE_FLOAT32, DML_TENSOR_DATA_TYPE_FLOAT16});
 
+// TODO(crbug.com/335909582): Take an MLNumber rather than a float, and replace
+// all these saturated_casts with conversions handled by MLNumber.
+DML_SCALAR_UNION ToScalarUnion(float value, DML_TENSOR_DATA_TYPE type) {
+  switch (type) {
+    case DML_TENSOR_DATA_TYPE_FLOAT32:
+      return DML_SCALAR_UNION{.Float32 = value};
+    case DML_TENSOR_DATA_TYPE_FLOAT16:
+      // Use UInt16 since DML_SCALAR_UNION does not have a float16 variant. The
+      // bits in this value will correctly be interpreted as float16 by
+      // functions which allow passing a DML_SCALAR_UNION paired with a
+      // corresponding DML_TENSOR_DATA_TYPE of DML_TENSOR_DATA_TYPE_FLOAT16.
+      return DML_SCALAR_UNION{.UInt16 = fp16_ieee_from_fp32_value(value)};
+    case DML_TENSOR_DATA_TYPE_INT8:
+      return DML_SCALAR_UNION{.Int8 = base::saturated_cast<int8_t>(value)};
+    case DML_TENSOR_DATA_TYPE_UINT8:
+      return DML_SCALAR_UNION{.UInt8 = base::saturated_cast<uint8_t>(value)};
+    case DML_TENSOR_DATA_TYPE_INT64:
+      return DML_SCALAR_UNION{.Int64 = base::saturated_cast<int64_t>(value)};
+    case DML_TENSOR_DATA_TYPE_UINT64:
+      return DML_SCALAR_UNION{.UInt64 = base::saturated_cast<uint64_t>(value)};
+    case DML_TENSOR_DATA_TYPE_INT32:
+      return DML_SCALAR_UNION{.Int32 = base::saturated_cast<int32_t>(value)};
+    case DML_TENSOR_DATA_TYPE_UINT32:
+      return DML_SCALAR_UNION{.UInt32 = base::saturated_cast<uint32_t>(value)};
+    default:
+      NOTREACHED() << "[WebNN] This data type is not supported.";
+  }
+}
+
 DML_TENSOR_DATA_TYPE GetTensorDataType(OperandDataType type) {
   switch (type) {
     case OperandDataType::kFloat32:
@@ -100,6 +131,10 @@ DML_TENSOR_DATA_TYPE GetTensorDataType(OperandDataType type) {
       return DML_TENSOR_DATA_TYPE_INT32;
     case OperandDataType::kUint32:
       return DML_TENSOR_DATA_TYPE_UINT32;
+    case OperandDataType::kInt4:
+      return DML_TENSOR_DATA_TYPE_INT4;
+    case OperandDataType::kUint4:
+      return DML_TENSOR_DATA_TYPE_UINT4;
   }
 }
 
@@ -121,6 +156,10 @@ OperandDataType DmlDataTypeToOperand(DML_TENSOR_DATA_TYPE type) {
       return OperandDataType::kInt32;
     case DML_TENSOR_DATA_TYPE_UINT32:
       return OperandDataType::kUint32;
+    case DML_TENSOR_DATA_TYPE_INT4:
+      return OperandDataType::kInt4;
+    case DML_TENSOR_DATA_TYPE_UINT4:
+      return OperandDataType::kUint4;
     default:
       NOTREACHED() << "[WebNN] This data type is not supported.";
   }
@@ -399,11 +438,12 @@ uint32_t CreateInputNode(const IdToOperandMap& id_to_operand_map,
 }
 
 // Create a graph node for constant operand.
-// When DML_FEATURE_LEVEL >= 6.2 and the operand is a scalar, create a constant
-// node and transfer the ownership of the operand to `graph_builder` which will
-// be consumed directly during graph compilation, the corresponding element will
-// be erased from `constant_operands`. Otherwise, create an input node, the
-// constant buffer should be later uploaded during graph initialization.
+// When DML_FEATURE_LEVEL >= 6.2 and the operand tensor only has one element,
+// create a constant node and transfer the ownership of the operand to
+// `graph_builder` which will be consumed directly during graph compilation, the
+// corresponding element will be erased from `constant_operands`. Otherwise,
+// create an input node, the constant buffer should be later uploaded during
+// graph initialization.
 void CreateConstantNode(
     Adapter* adapter,
     uint64_t operand_id,
@@ -417,8 +457,8 @@ void CreateConstantNode(
 
   // DML_GRAPH_NODE_TYPE_CONSTANT is introduced in DML_FEATURE_LEVEL_6_2.
   bool should_create_dml_constant_node =
-      operand_descriptor.Rank() == 0 &&
-      adapter->IsDMLFeatureLevelSupported(DML_FEATURE_LEVEL_6_2);
+      adapter->IsDMLFeatureLevelSupported(DML_FEATURE_LEVEL_6_2) &&
+      CalculatePhysicalElementCount(operand_descriptor.shape()) == 1;
 
   const Node* node = nullptr;
   if (should_create_dml_constant_node) {
@@ -751,6 +791,46 @@ std::optional<uint64_t> GetFusibleActivationOutputId(
     default:
       return std::optional<uint64_t>();
   }
+}
+
+std::string_view GetOperatorLabel(std::string_view original_label,
+                                  std::string_view default_label) {
+  return original_label.empty() ? default_label : original_label;
+}
+
+std::string_view GetFusibleActivationLabel(const mojom::Operation& operation) {
+  switch (operation.which()) {
+    case mojom::Operation::Tag::kElu:
+      return GetOperatorLabel(operation.get_elu()->label, "elu");
+    case mojom::Operation::Tag::kHardSigmoid:
+      return GetOperatorLabel(operation.get_hard_sigmoid()->label,
+                              "hard_sigmoid");
+    case mojom::Operation::Tag::kLeakyRelu:
+      return GetOperatorLabel(operation.get_leaky_relu()->label, "leaky_relu");
+    case mojom::Operation::Tag::kLinear:
+      return GetOperatorLabel(operation.get_linear()->label, "linear");
+    case mojom::Operation::Tag::kRelu:
+      return GetOperatorLabel(operation.get_relu()->label, "relu");
+    case mojom::Operation::Tag::kSigmoid:
+      return GetOperatorLabel(operation.get_sigmoid()->label, "sigmoid");
+    case mojom::Operation::Tag::kSoftplus:
+      return GetOperatorLabel(operation.get_softplus()->label, "softplus");
+    case mojom::Operation::Tag::kSoftsign:
+      return GetOperatorLabel(operation.get_softsign()->label, "softsign");
+    case mojom::Operation::Tag::kTanh:
+      return GetOperatorLabel(operation.get_tanh()->label, "tanh");
+    default:
+      NOTREACHED() << "The operation is not a fusible activation.";
+  }
+}
+
+std::string GetFusedOperatorLabel(std::string_view original_label,
+                                  std::string_view default_label,
+                                  const mojom::Operation& fusible_activation) {
+  return base::JoinString(
+      {original_label.empty() ? default_label : original_label,
+       GetFusibleActivationLabel(fusible_activation)},
+      "+");
 }
 
 ActivationOperatorDesc CreateOperatorDescForFusibleActivation(
@@ -1550,12 +1630,15 @@ void CreateOperatorNodeForBatchNormalization(
           operation_to_fusible_standalone_activation_map, operation);
   std::optional<ActivationOperatorDesc> activation_operator_desc;
   std::optional<DML_OPERATOR_DESC> activation_dml_desc;
+  std::string label = batch_normalization->label;
   if (fusible_activation) {
     activation_operator_desc =
         CreateOperatorDescForFusibleActivation(*fusible_activation.value());
     output_id =
         GetFusibleActivationOutputId(*fusible_activation.value()).value();
     activation_dml_desc = activation_operator_desc->GetActivationDmlDesc();
+    label = GetFusedOperatorLabel(label, "batch_normalization",
+                                  *fusible_activation.value());
   }
 
   DML_BATCH_NORMALIZATION_OPERATOR_DESC batch_normalization_operator_desc{
@@ -1574,7 +1657,6 @@ void CreateOperatorNodeForBatchNormalization(
           activation_dml_desc ? &activation_dml_desc.value() : nullptr,
   };
 
-  const std::string& label = batch_normalization->label;
   const GraphNode* batch_normalization_node = graph_builder.CreateOperatorNode(
       DML_OPERATOR_BATCH_NORMALIZATION, &batch_normalization_operator_desc,
       inputs, label);
@@ -1585,7 +1667,8 @@ void CreateOperatorNodeForBatchNormalization(
   CHECK(id_to_node_output_map.try_emplace(output_id, output).second);
 }
 
-void CreateOperatorNodeForClamp(const ContextProperties& context_properties,
+void CreateOperatorNodeForClamp(Adapter* adapter,
+                                const ContextProperties& context_properties,
                                 const IdToOperandMap& id_to_operand_map,
                                 const mojom::ClampPtr& clamp,
                                 GraphBuilderDml& graph_builder,
@@ -1601,18 +1684,35 @@ void CreateOperatorNodeForClamp(const ContextProperties& context_properties,
   auto output_tensor_desc =
       CreateOutputTensorDesc(id_to_operand_map, output_id);
 
-  DML_ELEMENT_WISE_CLIP_OPERATOR_DESC clamp_operator_desc{
-      .InputTensor = &input_tensor_desc.GetDMLTensorDesc(),
-      .OutputTensor = &output_tensor_desc.GetDMLTensorDesc(),
-      // No scale or bias applies to the input.
-      .ScaleBias = nullptr,
-      .Min = clamp->min_value,
-      .Max = clamp->max_value};
-
+  const GraphNode* clamp_node = nullptr;
   std::array<const NodeOutput*, 1> inputs = {input};
-  const GraphNode* clamp_node = graph_builder.CreateOperatorNode(
-      DML_OPERATOR_ELEMENT_WISE_CLIP, &clamp_operator_desc, inputs,
-      clamp->label);
+
+  if (adapter->IsDMLFeatureLevelSupported(DML_FEATURE_LEVEL_5_0)) {
+    DML_ELEMENT_WISE_CLIP1_OPERATOR_DESC clamp_operator_desc{
+        .InputTensor = &input_tensor_desc.GetDMLTensorDesc(),
+        .OutputTensor = &output_tensor_desc.GetDMLTensorDesc(),
+        // No scale or bias applies to the input.
+        .ScaleBias = nullptr,
+        .MinMaxDataType = output_tensor_desc.GetDataType(),
+        .Min =
+            ToScalarUnion(clamp->min_value, output_tensor_desc.GetDataType()),
+        .Max =
+            ToScalarUnion(clamp->max_value, output_tensor_desc.GetDataType())};
+    clamp_node = graph_builder.CreateOperatorNode(
+        DML_OPERATOR_ELEMENT_WISE_CLIP1, &clamp_operator_desc, inputs,
+        clamp->label);
+  } else {
+    DML_ELEMENT_WISE_CLIP_OPERATOR_DESC clamp_operator_desc{
+        .InputTensor = &input_tensor_desc.GetDMLTensorDesc(),
+        .OutputTensor = &output_tensor_desc.GetDMLTensorDesc(),
+        // No scale or bias applies to the input.
+        .ScaleBias = nullptr,
+        .Min = clamp->min_value,
+        .Max = clamp->max_value};
+    clamp_node = graph_builder.CreateOperatorNode(
+        DML_OPERATOR_ELEMENT_WISE_CLIP, &clamp_operator_desc, inputs,
+        clamp->label);
+  }
 
   const NodeOutput* output = graph_builder.CreateNodeOutput(
       clamp_node, std::move(output_tensor_desc), 0);
@@ -1752,12 +1852,14 @@ void CreateOperatorNodeForConv2d(
           operation_to_fusible_standalone_activation_map, operation);
   std::optional<ActivationOperatorDesc> activation_operator_desc;
   std::optional<DML_OPERATOR_DESC> activation_dml_desc;
+  std::string label = conv2d->label;
   if (fusible_activation) {
     activation_operator_desc =
         CreateOperatorDescForFusibleActivation(*fusible_activation.value());
     output_id =
         GetFusibleActivationOutputId(*fusible_activation.value()).value();
     activation_dml_desc = activation_operator_desc->GetActivationDmlDesc();
+    label = GetFusedOperatorLabel(label, "conv2d", *fusible_activation.value());
   }
 
   DML_CONVOLUTION_OPERATOR_DESC conv2d_operator_desc{
@@ -1780,7 +1882,6 @@ void CreateOperatorNodeForConv2d(
           activation_dml_desc ? &activation_dml_desc.value() : nullptr,
   };
 
-  const std::string& label = conv2d->label;
   const GraphNode* conv2d_node = graph_builder.CreateOperatorNode(
       DML_OPERATOR_CONVOLUTION, &conv2d_operator_desc, inputs, label);
 
@@ -1848,11 +1949,18 @@ const GraphNode* CreateBinaryOperator(const TensorDesc& a_tensor,
 }
 
 template <typename DML_OPERATOR_DESC, typename DequantizeOrQuantizeLinearPtr>
-  requires(
-      std::is_same_v<DequantizeOrQuantizeLinearPtr,
-                     mojom::DequantizeLinearPtr> ||
-      std::is_same_v<DequantizeOrQuantizeLinearPtr, mojom::QuantizeLinearPtr>)
-void CreateOperatorNodeForDequantizeOrQuantizeLinear(
+  requires((std::is_same_v<DequantizeOrQuantizeLinearPtr,
+                           mojom::DequantizeLinearPtr> ||
+            std::is_same_v<DequantizeOrQuantizeLinearPtr,
+                           mojom::QuantizeLinearPtr>) &&
+           (std::is_same_v<DML_OPERATOR_DESC, DML_QUANTIZE_OPERATOR_DESC> ||
+            std::is_same_v<DML_OPERATOR_DESC, DML_DEQUANTIZE_OPERATOR_DESC> ||
+            std::is_same_v<DML_OPERATOR_DESC,
+                           DML_ELEMENT_WISE_DEQUANTIZE_LINEAR_OPERATOR_DESC> ||
+            std::is_same_v<DML_OPERATOR_DESC,
+                           DML_ELEMENT_WISE_QUANTIZE_LINEAR_OPERATOR_DESC>))
+base::expected<void, mojom::ErrorPtr>
+CreateOperatorNodeForDequantizeOrQuantizeLinear(
     const ContextProperties& context_properties,
     const IdToOperandMap& id_to_operand_map,
     const DequantizeOrQuantizeLinearPtr& operation_ptr,
@@ -1861,7 +1969,7 @@ void CreateOperatorNodeForDequantizeOrQuantizeLinear(
     IdToNodeOutputMap& id_to_node_output_map) {
   const NodeOutput* input = GetNodeOutputForOperand(
       id_to_node_output_map, operation_ptr->input_operand_id);
-  const auto& input_tensor_desc = input->GetTensorDesc();
+  auto input_tensor_desc = input->GetTensorDesc();
 
   const NodeOutput* scale = GetNodeOutputForOperand(
       id_to_node_output_map, operation_ptr->scale_operand_id);
@@ -1874,13 +1982,53 @@ void CreateOperatorNodeForDequantizeOrQuantizeLinear(
   uint64_t output_id = operation_ptr->output_operand_id;
   const auto output_tensor_desc =
       CreateOutputTensorDesc(id_to_operand_map, output_id);
-
+  auto adjusted_output_tensor_desc = output_tensor_desc;
   const auto& output_dimensions = output_tensor_desc.GetDimensions();
-  if (scale_tensor_desc.GetDimensions() != output_dimensions) {
-    scale_tensor_desc.BroadcastTo(output_dimensions);
-  }
-  if (zero_point_tensor_desc.GetDimensions() != output_dimensions) {
-    zero_point_tensor_desc.BroadcastTo(output_dimensions);
+  const std::string& label = operation_ptr->label;
+
+  if constexpr (std::is_same_v<DML_OPERATOR_DESC, DML_QUANTIZE_OPERATOR_DESC> ||
+                std::is_same_v<DML_OPERATOR_DESC,
+                               DML_DEQUANTIZE_OPERATOR_DESC>) {
+    const auto input_rank = input_tensor_desc.GetDimensions().size();
+    // DML_QUANTIZE_OPERATOR_DESC and DML_DEQUANTIZE_OPERATOR_DESC constraint
+    // scale and zeroPoint must have the same dimension rank with input.
+    if (scale_tensor_desc.GetDimensions().size() < input_rank) {
+      scale_tensor_desc.EnsureMinimumRank(input_rank,
+                                          TensorDesc::Alignment::kTrailing);
+      zero_point_tensor_desc.EnsureMinimumRank(
+          input_rank, TensorDesc::Alignment::kTrailing);
+    }
+
+    // A invalid parameter error will be reported from DirectML when a
+    // dequantize is followed by a matmul and the input rank of the dequantize
+    // is smaller than 4 which found in phi-3 mini model. This is a workaround
+    // for reshape the input rank to 4D and onnxruntime DML EP also did this -
+    // https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/core/providers/dml/DmlExecutionProvider/src/Operators/DmlOperatorElementWise.cpp#L625.
+    // TODO(crbug.com/376777334): Remove these workaround code after DirectML
+    // fixes this bug.
+    if (input_rank < 4) {
+      input_tensor_desc.EnsureMinimumRank(4, TensorDesc::Alignment::kTrailing);
+      scale_tensor_desc.EnsureMinimumRank(4, TensorDesc::Alignment::kTrailing);
+      zero_point_tensor_desc.EnsureMinimumRank(
+          4, TensorDesc::Alignment::kTrailing);
+      adjusted_output_tensor_desc.EnsureMinimumRank(
+          4, TensorDesc::Alignment::kTrailing);
+    }
+  } else {
+    // TODO(crbug.com/376777336): Add emulation support for block-wise
+    // dequantizeLinear and quantizeLinear when FL < 6.3.
+    if (!BroadcastShapes(scale_tensor_desc.GetDimensions(), output_dimensions,
+                         /*bidirectional=*/false)) {
+      return base::unexpected(
+          CreateError(mojom::Error::Code::kUnknownError,
+                      "DequantizeLinear and quantizeLinear can't support "
+                      "block-wise when FL < 6.3.",
+                      label));
+    }
+    if (scale_tensor_desc.GetDimensions() != output_dimensions) {
+      scale_tensor_desc.BroadcastTo(output_dimensions);
+      zero_point_tensor_desc.BroadcastTo(output_dimensions);
+    }
   }
 
   if constexpr (std::is_same_v<DequantizeOrQuantizeLinearPtr,
@@ -1896,12 +2044,26 @@ void CreateOperatorNodeForDequantizeOrQuantizeLinear(
         DmlDataTypeToOperand(zero_point_tensor_desc.GetDataType())));
   }
 
-  DML_OPERATOR_DESC operator_desc{
-      .InputTensor = &input_tensor_desc.GetDMLTensorDesc(),
-      .ScaleTensor = &scale_tensor_desc.GetDMLTensorDesc(),
-      .ZeroPointTensor = &zero_point_tensor_desc.GetDMLTensorDesc(),
-      .OutputTensor = &output_tensor_desc.GetDMLTensorDesc()};
-  const std::string& label = operation_ptr->label;
+  DML_OPERATOR_DESC operator_desc;
+  std::array<DML_TENSOR_DESC, 2> quantization_tensors = {
+      scale_tensor_desc.GetDMLTensorDesc(),
+      zero_point_tensor_desc.GetDMLTensorDesc()};
+  if constexpr (std::is_same_v<DML_OPERATOR_DESC, DML_QUANTIZE_OPERATOR_DESC> ||
+                std::is_same_v<DML_OPERATOR_DESC,
+                               DML_DEQUANTIZE_OPERATOR_DESC>) {
+    operator_desc = {
+        .InputTensor = &input_tensor_desc.GetDMLTensorDesc(),
+        .QuantizationType = DML_QUANTIZATION_TYPE_SCALE_ZERO_POINT,
+        .QuantizationTensorCount = quantization_tensors.size(),
+        .QuantizationTensors = quantization_tensors.data(),
+        .OutputTensor = &adjusted_output_tensor_desc.GetDMLTensorDesc()};
+  } else {
+    operator_desc = {
+        .InputTensor = &input_tensor_desc.GetDMLTensorDesc(),
+        .ScaleTensor = &scale_tensor_desc.GetDMLTensorDesc(),
+        .ZeroPointTensor = &zero_point_tensor_desc.GetDMLTensorDesc(),
+        .OutputTensor = &output_tensor_desc.GetDMLTensorDesc()};
+  }
   std::array<const NodeOutput*, 3> inputs = {input, scale, zero_point};
   const GraphNode* operator_node = graph_builder.CreateOperatorNode(
       operator_type, &operator_desc, inputs, label);
@@ -1909,11 +2071,11 @@ void CreateOperatorNodeForDequantizeOrQuantizeLinear(
       operator_node, std::move(output_tensor_desc));
   // The output id must be unique in the map.
   CHECK(id_to_node_output_map.try_emplace(output_id, node_output).second);
+
+  return base::ok();
 }
 
-// TODO(crbug.com/368222740): Change return type back to void once logicalAnd,
-// logicalNot, logicalOr are implemented.
-base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForBinary(
+void CreateOperatorNodeForBinary(
     const ContextProperties& context_properties,
     const IdToOperandMap& id_to_operand_map,
     const Operation* operation,
@@ -1947,7 +2109,7 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForBinary(
 
   const OperandDataType input_data_type =
       DmlDataTypeToOperand(input_a_tensor_desc.GetDataType());
-  const std::string& label = binary->label;
+  std::string label = binary->label;
   const GraphNode* binary_node = nullptr;
   std::array<const NodeOutput*, 2> inputs = {input_a, input_b};
   switch (binary->kind) {
@@ -1968,6 +2130,10 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForBinary(
             .OutputTensor = &output_tensor_desc.GetDMLTensorDesc(),
             .FusedActivation = &activation_dml_desc,
         };
+
+        label =
+            GetFusedOperatorLabel(label, "add", *fusible_activation.value());
+
         binary_node = graph_builder.CreateOperatorNode(
             DML_OPERATOR_ELEMENT_WISE_ADD1, &add1_operator_desc, inputs, label);
         output_id =
@@ -2082,14 +2248,35 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForBinary(
           inputs, label);
       break;
     }
-    case mojom::ElementWiseBinary::Kind::kLogicalAnd:
-    case mojom::ElementWiseBinary::Kind::kLogicalOr:
+    case mojom::ElementWiseBinary::Kind::kLogicalAnd: {
+      CHECK(context_properties.data_type_limits.logical_and_input.Has(
+          input_data_type));
+      binary_node =
+          CreateBinaryOperator<DML_ELEMENT_WISE_LOGICAL_AND_OPERATOR_DESC>(
+              input_a_tensor_desc, input_b_tensor_desc, output_tensor_desc,
+              graph_builder, DML_OPERATOR_ELEMENT_WISE_LOGICAL_AND, inputs,
+              label);
+      break;
+    }
+    case mojom::ElementWiseBinary::Kind::kLogicalOr: {
+      CHECK(context_properties.data_type_limits.logical_or_input.Has(
+          input_data_type));
+      binary_node =
+          CreateBinaryOperator<DML_ELEMENT_WISE_LOGICAL_OR_OPERATOR_DESC>(
+              input_a_tensor_desc, input_b_tensor_desc, output_tensor_desc,
+              graph_builder, DML_OPERATOR_ELEMENT_WISE_LOGICAL_OR, inputs,
+              label);
+      break;
+    }
     case mojom::ElementWiseBinary::Kind::kLogicalXor: {
-      // TODO(crbug.com/368222740): Implement logical binary ops for DML.
-      return base::unexpected(
-          CreateError(mojom::Error::Code::kNotSupportedError,
-                      "logicalAnd, logicalXor, and logicalXor are not yet "
-                      "supported on DML."));
+      CHECK(context_properties.data_type_limits.logical_xor_input.Has(
+          input_data_type));
+      binary_node =
+          CreateBinaryOperator<DML_ELEMENT_WISE_LOGICAL_XOR_OPERATOR_DESC>(
+              input_a_tensor_desc, input_b_tensor_desc, output_tensor_desc,
+              graph_builder, DML_OPERATOR_ELEMENT_WISE_LOGICAL_XOR, inputs,
+              label);
+      break;
     }
   }
 
@@ -2097,8 +2284,6 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForBinary(
       binary_node, std::move(output_tensor_desc), 0);
   // The output id must be unique in the map.
   CHECK(id_to_node_output_map.try_emplace(output_id, output).second);
-
-  return base::ok();
 }
 
 void CreateOperatorNodeForPad(const ContextProperties& context_properties,
@@ -2196,9 +2381,8 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForPool2d(
       // TODO(crbug.com/40206287): Work around dilation support for L2 and
       // average pooling. According to WebNN spec:
       // https://www.w3.org/TR/webnn/#api-mlgraphbuilder-pool2d, dilations are
-      // supported by pooling operations, while for DirectML AVERAGE_POOLING and
-      // LP_POOLING don't support dilations.
-      // Spec issue tracked on
+      // supported by pooling operations, while for DirectML AVERAGE_POOLING
+      // and LP_POOLING don't support dilations. Spec issue tracked on
       // https://github.com/webmachinelearning/webnn/issues/180.
       if (dilations[0] != 1 || dilations[1] != 1) {
         return base::unexpected(CreateError(
@@ -2452,23 +2636,28 @@ void CreateOperatorNodeForSlice(const IdToOperandMap& id_to_operand_map,
   const NodeOutput* input =
       GetNodeOutputForOperand(id_to_node_output_map, slice->input_operand_id);
   const TensorDesc& input_tensor_desc = input->GetTensorDesc();
-  const auto& input_dimensions = input_tensor_desc.GetDimensions();
-
-  // Start and size attributes must be unpacked from the mojo interface.
-  base::FixedArray<uint32_t> starts(slice->starts_and_sizes.size());
-  base::FixedArray<uint32_t> sizes(slice->starts_and_sizes.size());
-  for (size_t i = 0; i < slice->starts_and_sizes.size(); ++i) {
-    starts[i] = slice->starts_and_sizes[i]->start;
-    sizes[i] = slice->starts_and_sizes[i]->size;
-  }
-  CHECK_EQ(input_dimensions.size(), slice->starts_and_sizes.size());
+  const std::vector<uint32_t>& input_dimensions =
+      input_tensor_desc.GetDimensions();
+  const size_t input_rank = input_dimensions.size();
 
   const TensorDesc& output_tensor_desc =
       CreateOutputTensorDesc(id_to_operand_map, slice->output_operand_id);
+  const std::vector<uint32_t>& output_dimensions =
+      output_tensor_desc.GetDimensions();
 
-  // WebNN doesn't support the strides parameter, but DML expects one. Create
-  // an appropriately sized array of 1s to produce the expected operation.
-  base::FixedArray<uint32_t> strides(input_dimensions.size(), 1u);
+  CHECK_EQ(input_rank, output_dimensions.size());
+  CHECK_EQ(input_rank, slice->ranges.size());
+
+  // Start, size and stride attributes must be unpacked from the mojo interface.
+  base::FixedArray<uint32_t> starts(input_rank);
+  base::FixedArray<uint32_t> sizes(input_rank);
+  base::FixedArray<uint32_t> strides(input_rank);
+  for (size_t i = 0; i < input_rank; ++i) {
+    starts[i] = slice->ranges[i].start;
+    // `sizes` should be the number of elements to copy.
+    sizes[i] = output_dimensions[i];
+    strides[i] = slice->ranges[i].stride;
+  }
 
   DML_SLICE_OPERATOR_DESC slice_operator_desc{
       .InputTensor = &input_tensor_desc.GetDMLTensorDesc(),
@@ -2581,10 +2770,10 @@ void CreateOperatorNodeForNeg(const IdToOperandMap& id_to_operand_map,
   const auto output_tensor_desc =
       CreateOutputTensorDesc(id_to_operand_map, output_id);
 
-  // Set the values of scale and bias terms supplied to identity operator. Scale
-  // and bias have the effect of applying the function g(x) = x * Scale + Bias.
-  // When we set Scale to -1 and Bias to 0, we can simulate identity as negate
-  // operator.
+  // Set the values of scale and bias terms supplied to identity operator.
+  // Scale and bias have the effect of applying the function g(x) = x * Scale
+  // + Bias. When we set Scale to -1 and Bias to 0, we can simulate identity
+  // as negate operator.
   DML_SCALE_BIAS scale_bias{.Scale = -1.f, .Bias = 0.f};
   DML_ELEMENT_WISE_IDENTITY_OPERATOR_DESC identity_operator_desc{
       .InputTensor = &input_tensor_desc.GetDMLTensorDesc(),
@@ -2747,8 +2936,8 @@ void CreateOperatorNodeForResample2d(
   CHECK_EQ(input_rank, output_dimensions.size());
 
   // Use explicit scales if given, otherwise, compute scales from output
-  // dimensions / input dimensions. Then expand scales to full scales (same size
-  // as input rank using axes).
+  // dimensions / input dimensions. Then expand scales to full scales (same
+  // size as input rank using axes).
   base::FixedArray<float> full_scales(input_rank, 1);
   const auto& scales = resample2d->scales;
   const auto& axes = resample2d->axes;
@@ -2809,10 +2998,10 @@ void CreateOperatorNodeForReduce(const ContextProperties& context_properties,
   const auto& output_tensor_desc =
       CreateOutputTensorDesc(id_to_operand_map, output_id);
   const auto& axes = reduce->axes;
-  // Determine output sizes. Ignore output_desc->dimensions for the dimensions,
-  // since DirectML expects the output dimensions to have the same rank as the
-  // input, and output_desc->dimensions may have removed dimensions if
-  // keepDimensions was false.
+  // Determine output sizes. Ignore output_desc->dimensions for the
+  // dimensions, since DirectML expects the output dimensions to have the same
+  // rank as the input, and output_desc->dimensions may have removed
+  // dimensions if keepDimensions was false.
   std::vector<uint32_t> output_dimensions = input_tensor_desc.GetDimensions();
   for (uint32_t axis : axes) {
     CHECK_LT(axis, output_dimensions.size());
@@ -2995,8 +3184,8 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForGather(
 
   // According to the DirectML documentation
   // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_gather_operator_desc,
-  // the parameters `InputTensor`, `OutputTensor` and `IndicesTensor` must have
-  // the same dimension count.
+  // the parameters `InputTensor`, `OutputTensor` and `IndicesTensor` must
+  // have the same dimension count.
   input_tensor_desc.EnsureMinimumRank(expanded_rank,
                                       TensorDesc::Alignment::kTrailing);
   indices_tensor_desc.EnsureMinimumRank(expanded_rank,
@@ -3004,11 +3193,11 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForGather(
 
   uint32_t axis = gather->axis;
   if (output_rank < input_rank) {
-    // There is only one case in which `output_rank` is less than `input_rank`,
-    // that is when indices is scalar. In this case, a one value should be
-    // inserted at the `axis` position of the output dimensions, because the
-    // indices dimensions is set to {1} since DirectML requires the tensor
-    // dimension count to be at least 1.
+    // There is only one case in which `output_rank` is less than
+    // `input_rank`, that is when indices is scalar. In this case, a one value
+    // should be inserted at the `axis` position of the output dimensions,
+    // because the indices dimensions is set to {1} since DirectML requires
+    // the tensor dimension count to be at least 1.
     CHECK_EQ(indices_rank, 1u);
     CHECK_EQ(output_rank, input_rank - 1);
 
@@ -3077,8 +3266,8 @@ void CreateOperatorNodeForGatherElements(
   const TensorDesc output_tensor_desc =
       CreateOutputTensorDesc(id_to_operand_map, output_id);
 
-  // DirectML implementation for gatherElements operator has already handled the
-  // indices tensor by clamping it in the shader to prevent out-of-bounds
+  // DirectML implementation for gatherElements operator has already handled
+  // the indices tensor by clamping it in the shader to prevent out-of-bounds
   // access.
   DML_GATHER_ELEMENTS_OPERATOR_DESC gather_elements_desc{
       .InputTensor = &input_tensor_desc.GetDMLTensorDesc(),
@@ -3380,6 +3569,7 @@ void CreateOperatorNodeForGemm(
           operation_to_fusible_standalone_activation_map, operation);
   std::optional<ActivationOperatorDesc> activation_operator_desc;
   std::optional<DML_OPERATOR_DESC> activation_dml_desc;
+  std::string label = gemm->label;
   if (fusible_activation) {
     activation_operator_desc =
         CreateOperatorDescForFusibleActivation(*fusible_activation.value());
@@ -3387,6 +3577,7 @@ void CreateOperatorNodeForGemm(
 
     output_id =
         GetFusibleActivationOutputId(*fusible_activation.value()).value();
+    label = GetFusedOperatorLabel(label, "gemm", *fusible_activation.value());
   }
 
   DML_GEMM_OPERATOR_DESC gemm_operator_desc{
@@ -3404,7 +3595,6 @@ void CreateOperatorNodeForGemm(
           activation_dml_desc ? &activation_dml_desc.value() : nullptr,
   };
 
-  const std::string& label = gemm->label;
   const GraphNode* gemm_node = graph_builder.CreateOperatorNode(
       DML_OPERATOR_GEMM, &gemm_operator_desc, inputs, label);
 
@@ -3427,8 +3617,8 @@ const NodeOutput* AppendIdentityToConstantOperand(
   }
   // Append an identity node if the input is with the
   // DML_TENSOR_FLAG_OWNED_BY_DML flag. For certain operators like lstm and
-  // gru, their input tensors don't support this flag and an identity is needed
-  // to remove it.
+  // gru, their input tensors don't support this flag and an identity is
+  // needed to remove it.
   return AppendIdentityNode(graph_builder, input);
 }
 
@@ -3477,8 +3667,8 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForGru(
     direction = mojom::RecurrentNetworkDirection::kForward;
   }
 
-  // The input tensor is 4-D for gru and 3-D for gruCell, while DirectML expects
-  // a 4-D tensor.
+  // The input tensor is 4-D for gru and 3-D for gruCell, while DirectML
+  // expects a 4-D tensor.
   input_tensor_desc.EnsureMinimumRank(/*rank=*/4,
                                       TensorDesc::Alignment::kTrailing);
 
@@ -3496,8 +3686,9 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForGru(
 
   const NodeOutput* recurrent_weight = GetNodeOutputForOperand(
       id_to_node_output_map, gru->recurrent_weight_operand_id);
-  // Since the RecurrenceTensor doesn't support the DML_TENSOR_FLAG_OWNED_BY_DML
-  // flag, add an identity operator to change the input type:
+  // Since the RecurrenceTensor doesn't support the
+  // DML_TENSOR_FLAG_OWNED_BY_DML flag, add an identity operator to change the
+  // input type:
   // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_gru_operator_desc
   recurrent_weight =
       AppendIdentityToConstantOperand(graph_builder, recurrent_weight);
@@ -3519,14 +3710,15 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForGru(
     // Use a nullptr to indicate there is no input edge for BiasTensor.
     inputs.push_back(nullptr);
   } else {
-    // The DirectML bias tensor is the concatenation of bias and recurrent bias
-    // (if bidirectional). Get or create the node output of bias and recurrent
-    // bias for the following concat operation.
+    // The DirectML bias tensor is the concatenation of bias and recurrent
+    // bias (if bidirectional). Get or create the node output of bias and
+    // recurrent bias for the following concat operation.
     std::optional<const NodeOutput*> zero_bias;
     if (!gru->bias_operand_id.has_value() ||
         !gru->recurrent_bias_operand_id.has_value()) {
       uint64_t zero_bias_operand_id = BuildConstantOperandForFloatValue(
-          graph_info, constant_operands, next_operand_id, data_type, /*rank*/ 1,
+          graph_info, constant_operands, next_operand_id, data_type,
+          /*rank*/ 1,
           /*default bias*/ 0);
       CreateConstantNode(adapter, zero_bias_operand_id, constant_operands,
                          graph_builder, id_to_node_output_map,
@@ -3568,9 +3760,9 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForGru(
         bias_tensor_desc.GetDMLTensorDesc(),
         recurrent_bias_tensor_desc.GetDMLTensorDesc()};
 
-    // The DirectML bias dimensions is [1, 1, num_directions, 6 * hidden_size].
-    // Ideally, 6 * hidden_size validation should be part of the spec and
-    // validated for all backends. Spec issue tracked on
+    // The DirectML bias dimensions is [1, 1, num_directions, 6 *
+    // hidden_size]. Ideally, 6 * hidden_size validation should be part of the
+    // spec and validated for all backends. Spec issue tracked on
     // https://github.com/webmachinelearning/webnn/issues/625.
     auto checked_six_times_hidden_size = base::MakeCheckedNum(hidden_size) * 6;
     if (!checked_six_times_hidden_size.IsValid()) {
@@ -3604,8 +3796,8 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForGru(
     const NodeOutput* initial_hidden_state = GetNodeOutputForOperand(
         id_to_node_output_map, initial_hidden_state_operand_id.value());
     // Since the HiddenInitTensor doesn't support the
-    // DML_TENSOR_FLAG_OWNED_BY_DML flag, add an identity operator to change the
-    // input type:
+    // DML_TENSOR_FLAG_OWNED_BY_DML flag, add an identity operator to change
+    // the input type:
     // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_gru_operator_desc
     initial_hidden_state =
         AppendIdentityToConstantOperand(graph_builder, initial_hidden_state);
@@ -3898,7 +4090,7 @@ CreateOperatorNodeForMeanVarianceNormalization(
     }
   }
 
-  const std::string& label = normalization->label;
+  std::string label = normalization->label;
   if (!base::MakeCheckedNum(mean_variance_axes.size()).IsValid<uint32_t>()) {
     return base::unexpected(CreateError(
         mojom::Error::Code::kUnknownError,
@@ -3920,8 +4112,8 @@ CreateOperatorNodeForMeanVarianceNormalization(
   if (bias) {
     inputs.push_back(bias);
     bias_tensor_desc = bias->GetTensorDesc();
-    // The bias tensor should have the same rank as the input tensor required by
-    // DML_MEAN_VARIANCE_NORMALIZATION1_OPERATOR_DESC.
+    // The bias tensor should have the same rank as the input tensor required
+    // by DML_MEAN_VARIANCE_NORMALIZATION1_OPERATOR_DESC.
     bias_tensor_desc->MakeBroadcastCompatible(input_rank,
                                               scale_bias_broadcast_axes);
   }
@@ -3938,6 +4130,18 @@ CreateOperatorNodeForMeanVarianceNormalization(
 
     output_id =
         GetFusibleActivationOutputId(*fusible_activation.value()).value();
+
+    std::string_view default_label;
+    if (label.empty()) {
+      if constexpr (std::is_same_v<NormalizationPtr,
+                                   mojom::InstanceNormalizationPtr>) {
+        default_label = "instance_normalization";
+      } else /* `NormalizationPtr` is `mojom::LayerNormalizationPtr` */ {
+        default_label = "layer_normalization";
+      }
+    }
+    label = GetFusedOperatorLabel(label, default_label,
+                                  *fusible_activation.value());
   }
 
   DML_MEAN_VARIANCE_NORMALIZATION1_OPERATOR_DESC
@@ -4100,8 +4304,9 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForLstm(
 
   const NodeOutput* recurrent_weight = GetNodeOutputForOperand(
       id_to_node_output_map, lstm.recurrent_weight_operand_id);
-  // Append an identity node if the recurrent weight is a constant operand since
-  // RecurrenceTensor doesn't support the DML_TENSOR_FLAG_OWNED_BY_DML flag.
+  // Append an identity node if the recurrent weight is a constant operand
+  // since RecurrenceTensor doesn't support the DML_TENSOR_FLAG_OWNED_BY_DML
+  // flag.
   recurrent_weight =
       AppendIdentityToConstantOperand(graph_builder, recurrent_weight);
   TensorDesc recurrent_weight_tensor_desc = recurrent_weight->GetTensorDesc();
@@ -4124,8 +4329,8 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForLstm(
   TensorDesc output_hidden_state_tensor_desc(
       GetTensorDataType(output_data_type),
       output_hidden_state_operand->descriptor.shape());
-  // The output hidden state tensor is 2-D for lstmCell and 3-D for lstm, while
-  // DirectML expects a 4-D tensor.
+  // The output hidden state tensor is 2-D for lstmCell and 3-D for lstm,
+  // while DirectML expects a 4-D tensor.
   output_hidden_state_tensor_desc.EnsureMinimumRank(
       /*rank=*/4, TensorDesc::Alignment::kTrailing);
 
@@ -4153,9 +4358,9 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForLstm(
   const NodeOutput* recurrent_bias = GetOptionalNodeOutputForOperand(
       id_to_node_output_map, lstm.recurrent_bias_operand_id);
 
-  // DML_LSTM_OPERATOR_DESC only takes a concatenation of {bias, recurrent_bias}
-  // or none, so create a constant bias operand if one of the biases is not
-  // given.
+  // DML_LSTM_OPERATOR_DESC only takes a concatenation of {bias,
+  // recurrent_bias} or none, so create a constant bias operand if one of the
+  // biases is not given.
   if ((bias && !recurrent_bias) || (!bias && recurrent_bias)) {
     uint64_t bias_operand_id = BuildConstantOperandForFloatValue(
         graph_info, constant_operands, next_operand_id, output_data_type,
@@ -4188,9 +4393,9 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForLstm(
     const std::array<uint32_t, 4> bias_dimensions = {
         1, 1, direction_count, checked_four_times_hidden_size.ValueOrDie()};
 
-    // The bias tensor shape is [1] or `[4 * hidden_size]` or [direction_count,
-    // 4 * hidden_size], which can be broadcasted to [1, 1, direction_count, 4 *
-    // hidden_size] as DirectML requires.
+    // The bias tensor shape is [1] or `[4 * hidden_size]` or
+    // [direction_count, 4 * hidden_size], which can be broadcasted to [1, 1,
+    // direction_count, 4 * hidden_size] as DirectML requires.
     TensorDesc bias_tensor_desc = bias->GetTensorDesc();
     bias_tensor_desc.BroadcastTo(bias_dimensions);
 
@@ -4239,9 +4444,9 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForLstm(
   if (initial_hidden_state_operand_id.has_value()) {
     const NodeOutput* initial_hidden_state = GetNodeOutputForOperand(
         id_to_node_output_map, initial_hidden_state_operand_id.value());
-    // Append an identity node if the initial hidden state is a constant operand
-    // since HiddenInitTensor doesn't support the DML_TENSOR_FLAG_OWNED_BY_DML
-    // flag.
+    // Append an identity node if the initial hidden state is a constant
+    // operand since HiddenInitTensor doesn't support the
+    // DML_TENSOR_FLAG_OWNED_BY_DML flag.
     initial_hidden_state =
         AppendIdentityToConstantOperand(graph_builder, initial_hidden_state);
     inputs.push_back(initial_hidden_state);
@@ -4260,14 +4465,14 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForLstm(
     const NodeOutput* initial_cell_state = GetNodeOutputForOperand(
         id_to_node_output_map, initial_cell_state_operand_id.value());
     // Append an identity node if the initial cell state is a constant operand
-    // since CellMemInitTensor doesn't support the DML_TENSOR_FLAG_OWNED_BY_DML
-    // flag.
+    // since CellMemInitTensor doesn't support the
+    // DML_TENSOR_FLAG_OWNED_BY_DML flag.
     initial_cell_state =
         AppendIdentityToConstantOperand(graph_builder, initial_cell_state);
     inputs.push_back(initial_cell_state);
     initial_cell_state_tensor_desc = initial_cell_state->GetTensorDesc();
-    // The initial cell state tensor is 2-D for lstmCell and 3-D for lstm, while
-    // DirectML expects a 4-D tensor.
+    // The initial cell state tensor is 2-D for lstmCell and 3-D for lstm,
+    // while DirectML expects a 4-D tensor.
     initial_cell_state_tensor_desc->EnsureMinimumRank(
         /*rank=*/4, TensorDesc::Alignment::kTrailing);
   } else {
@@ -4275,7 +4480,8 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForLstm(
     inputs.push_back(nullptr);
   }
 
-  // Use a nullptr to indicate there is no input edge for SequenceLengthsTensor.
+  // Use a nullptr to indicate there is no input edge for
+  // SequenceLengthsTensor.
   inputs.push_back(nullptr);
 
   std::optional<TensorDesc> peephole_weight_tensor_desc;
@@ -4392,16 +4598,26 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForMatmul(
     IdToNodeOutputMap& id_to_node_output_map) {
   const auto& matmul = operation->get_matmul();
 
-  // If the transpose operation that produces input a (or b) is fusible, use the
-  // the input operand of that transpose operation instead and set the `TransA`
-  // (or `TransB`) of DirectML GEMM operator to
+  // If the transpose operation that produces input a (or b) is fusible, use
+  // the the input operand of that transpose operation instead and set the
+  // `TransA` (or `TransB`) of DirectML GEMM operator to
   // `DML_MATRIX_TRANSFORM_TRANSPOSE`.
   bool transpose_a = false;
   uint64_t a_operand_id = matmul->a_operand_id;
   std::optional<uint64_t> fusible_transpose_input_id =
       GetFusibleTransposeInputId(output_id_to_fusible_transpose_map,
                                  a_operand_id);
+
+  std::string label;
   if (fusible_transpose_input_id) {
+    std::string_view transpose_a_label =
+        output_id_to_fusible_transpose_map.at(a_operand_id)
+            ->get_transpose()
+            ->label;
+    base::StrAppend(
+        &label,
+        {transpose_a_label.empty() ? "transpose_a" : transpose_a_label, "+"});
+
     a_operand_id = fusible_transpose_input_id.value();
     transpose_a = true;
   }
@@ -4415,6 +4631,14 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForMatmul(
   fusible_transpose_input_id = GetFusibleTransposeInputId(
       output_id_to_fusible_transpose_map, b_operand_id);
   if (fusible_transpose_input_id) {
+    std::string_view transpose_b_label =
+        output_id_to_fusible_transpose_map.at(b_operand_id)
+            ->get_transpose()
+            ->label;
+    base::StrAppend(
+        &label,
+        {transpose_b_label.empty() ? "transpose_b" : transpose_b_label, "+"});
+
     b_operand_id = fusible_transpose_input_id.value();
     transpose_b = true;
   }
@@ -4426,9 +4650,10 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForMatmul(
   const auto output_tensor_desc =
       CreateOutputTensorDesc(id_to_operand_map, output_id);
   const auto output_tensor_dims = output_tensor_desc.GetDimensions();
-  // Because DML_GEMM_OPERATOR_DESC restricts input_a_tensor and input_b_tensor,
-  // output_tensor must have the same DimensionCount and can't support
-  // broadcasting, input_a_tensor and input_b_tensor may need to be broadcasted.
+  // Because DML_GEMM_OPERATOR_DESC restricts input_a_tensor and
+  // input_b_tensor, output_tensor must have the same DimensionCount and can't
+  // support broadcasting, input_a_tensor and input_b_tensor may need to be
+  // broadcasted.
   if (output_tensor_dims.size() > 2) {
     input_a_tensor_desc.BroadcastTo(output_tensor_dims, 2);
     input_b_tensor_desc.BroadcastTo(output_tensor_dims, 2);
@@ -4441,7 +4666,11 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForMatmul(
   CHECK_EQ(input_a_tensor_desc.GetDimensions().size(),
            output_tensor_dims.size());
 
-  const std::string& label = matmul->label;
+  if (!label.empty()) {
+    base::StrAppend(&label, {matmul->label.empty() ? "matmul" : matmul->label});
+  } else {
+    label = matmul->label;
+  }
   // Flatten adjacent dimensions for GEMM > 4D because DML_GEMM_OPERATOR_DESC
   // restricts tensor's rank <= 4.
   auto adjusted_output_tensor_desc = output_tensor_desc;
@@ -4493,6 +4722,7 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForMatmul(
 
     output_id =
         GetFusibleActivationOutputId(*fusible_activation.value()).value();
+    label = GetFusedOperatorLabel(label, "matmul", *fusible_activation.value());
   }
 
   DML_GEMM_OPERATOR_DESC matmul_operator_desc{
@@ -4574,8 +4804,8 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForSoftmax(
     // The output id must be unique in the map.
     CHECK(id_to_node_output_map.try_emplace(output_id, output).second);
   } else {
-    // Emulate softmax with N-D input and axis parameter supported when feature
-    // level less than DML_FEATURE_LEVEL_5_1:
+    // Emulate softmax with N-D input and axis parameter supported when
+    // feature level less than DML_FEATURE_LEVEL_5_1:
     // https://learn.microsoft.com/en-us/windows/win32/api/directml/ns-directml-dml_activation_softmax_operator_desc.
     //
     // Transpose the input tensor to make the axis to be the last dimension if
@@ -4762,25 +4992,25 @@ void CreateOperatorNodeForTranspose(const ContextProperties& context_properties,
 //  4. mask the input via bitwise and
 //
 // A simple constant mask is created with two values, one to
-// fully preserve input values and one to fully zero them. Then, expand the mask
-// from [1, 2, 1] to [mask_height, 2, mask_width]. Note the mask_width is
+// fully preserve input values and one to fully zero them. Then, expand the
+// mask from [1, 2, 1] to [mask_height, 2, mask_width]. Note the mask_width is
 // calculated according to the input width and the diagonal. Next, shear the
 // mask to achieve a diagonal shape by reshaping the dimensions from
-// [mask_height, 2, mask_width] to [mask_height, 2 * mask_width] and set strides
-// = {2 * mask_width - 1, 1}. By changing the default strides, the shape of the
-// mask looks like a rhomboid. Then, we can get a mask with bit values filled
-// with 0 or 0xFFFF using DML_SLICE_OPERATOR_DESC.
+// [mask_height, 2, mask_width] to [mask_height, 2 * mask_width] and set
+// strides = {2 * mask_width - 1, 1}. By changing the default strides, the
+// shape of the mask looks like a rhomboid. Then, we can get a mask with bit
+// values filled with 0 or 0xFFFF using DML_SLICE_OPERATOR_DESC.
 //                                              ----------------
 // [ 0xFFFF, 0xFFFF, 0, 0     [0xFFFF, 0xFFFF, | 0,      0      |
 //   0xFFFF, 0xFFFF, 0, 0  =>          0xFFFF, | 0xFFFF, 0,     | 0
 //   0xFFFF, 0xFFFF, 0, 0]                     | 0xFFFF, 0xFFFF,| 0, 0]
 //                                              -----------------
 // Finally, the mask is a matrix shown above which
-// has the same shape and the same data type with the input and consists of 0 or
-// 1 value in each bit. So the mask can be used to get either the upper or lower
-// triangular part of the input tensor by doing bitwise and computation between
-// the mask and the input. For example:
-// [ 2, 3              [0,      0,]           [0, 0,
+// has the same shape and the same data type with the input and consists of 0
+// or 1 value in each bit. So the mask can be used to get either the upper or
+// lower triangular part of the input tensor by doing bitwise and computation
+// between the mask and the input. For example: [ 2, 3              [0, 0,]
+// [0, 0,
 //   4, 5,   bit_and   [0xFFFF, 0,]      =>    4, 0,
 //   6, 7]             [0xFFFF, 0xFFFF]        6, 7]
 base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForTriangular(
@@ -4815,16 +5045,16 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForTriangular(
   const std::string& label = triangular->label;
   // Initialize scale union with a zero value.
   DML_SCALAR_UNION scalar_union = {};
-  // DML_DIAGONAL_MATRIX1_OPERATOR_DESC was introduced in DML_FEATURE_LEVEL_5_1
-  // and supported input dimension count is from 2 to 4.
+  // DML_DIAGONAL_MATRIX1_OPERATOR_DESC was introduced in
+  // DML_FEATURE_LEVEL_5_1 and supported input dimension count is from 2 to 4.
   if (adapter->IsDMLFeatureLevelSupported(DML_FEATURE_LEVEL_5_1) &&
       input_rank <= 4) {
-    // DML_DIAGONAL_MATRIX1_OPERATOR_DESC will generate an identity-like matrix
-    // with zero between the given diagonal span, with other elements being
-    // filled with the input values. The diagonal values may be shifted anywhere
-    // between DiagonalFillBegin and DiagonalFillEnd, where a value greater than
-    // zero shifts all values to the right, and less than zero shifts them to
-    // the left.
+    // DML_DIAGONAL_MATRIX1_OPERATOR_DESC will generate an identity-like
+    // matrix with zero between the given diagonal span, with other elements
+    // being filled with the input values. The diagonal values may be shifted
+    // anywhere between DiagonalFillBegin and DiagonalFillEnd, where a value
+    // greater than zero shifts all values to the right, and less than zero
+    // shifts them to the left.
     DML_DIAGONAL_MATRIX1_OPERATOR_DESC diagonal_matrix1_desc{
         .InputTensor = &input_tensor_desc.GetDMLTensorDesc(),
         .OutputTensor = &output_tensor_desc.GetDMLTensorDesc(),
@@ -4945,8 +5175,8 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForTriangular(
       break;
     }
     case OperandDataType::kFloat16: {
-      // Here we create a mask with float16 data type since WebNN doesn't define
-      // uint16.
+      // Here we create a mask with float16 data type since WebNN doesn't
+      // define uint16.
       webnn_mask_data_type = OperandDataType::kFloat16;
       dml_mask_data_type = DML_TENSOR_DATA_TYPE_UINT16;
       std::array<uint16_t, 2> values = {static_cast<uint16_t>(lower_mask),
@@ -4974,13 +5204,15 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForTriangular(
           base::as_bytes(base::make_span(values)));
       break;
     }
+    default:
+      NOTREACHED() << "Unsupported data type.";
   }
 
   auto descriptor = *OperandDescriptor::Create(
       webnn_mask_data_type, std::array<uint32_t, 3>{1, 2, 1});
 
-  auto constant_operand =
-      Operand::New(Operand::Kind::kConstant, descriptor, /*name=*/std::nullopt);
+  auto constant_operand = Operand::New(Operand::Kind::kConstant, descriptor,
+                                       /*name=*/std::nullopt);
 
   uint64_t constant_operand_id = next_operand_id++;
   CHECK(graph_info->id_to_operand_map
@@ -5106,8 +5338,8 @@ base::expected<void, mojom::ErrorPtr> CreateOperatorNodeForTriangular(
   // Fifth step: using bit_and_operator to do the bit computation between
   // input and mask.
   // Here we need to cast the input and mask tensor data type to the data type
-  // that DML elementwise-bit-and operator supports and has the same bit width.
-  // For example casting float16 to uint16, float32 to uint32.
+  // that DML elementwise-bit-and operator supports and has the same bit
+  // width. For example casting float16 to uint16, float32 to uint32.
   TensorDesc bit_and_operator_input_tensor_desc =
       TensorDesc(dml_mask_data_type, input_tensor_desc.GetFlags(),
                  input_tensor_desc.GetDimensions());
@@ -5453,6 +5685,10 @@ HRESULT GraphImplDml::RecordGraphExecution(
     const PersistentResource* persistent_resource,
     const GraphBufferBindingInfo& graph_buffer_binding_info) {
   TRACE_EVENT0("gpu", "dml::GraphImpl::RecordGraphExecution");
+
+  SCOPED_UMA_HISTOGRAM_TIMER(
+      "WebNN.DML.TimingMs.RecordGraphExecutionOnMainThread");
+
   // Open the command recorder for recording the graph execution commands.
   RETURN_IF_FAILED(compute_resources->command_recorder->Open());
 
@@ -5551,7 +5787,8 @@ GraphImplDml::GraphImplDml(
     ComPtr<IDMLCompiledOperator> compiled_operator,
     ComputeResourceInfo compute_resource_info,
     GraphBufferBindingInfo graph_buffer_binding_info,
-    std::unique_ptr<ComputeResources> compute_resources)
+    std::unique_ptr<ComputeResources> compute_resources,
+    std::unique_ptr<GraphResources> graph_resources)
     : WebNNGraphImpl(context, std::move(compute_resource_info)),
       persistent_resource_(std::move(persistent_resource)),
       adapter_(std::move(adapter)),
@@ -5559,21 +5796,17 @@ GraphImplDml::GraphImplDml(
       command_recorder_(std::move(command_recorder)),
       compiled_operator_(std::move(compiled_operator)),
       graph_buffer_binding_info_(std::move(graph_buffer_binding_info)),
-      compute_resources_(std::move(compute_resources)) {}
+      compute_resources_(std::move(compute_resources)),
+      graph_resources_(std::move(graph_resources)) {}
 
 //  Notice that it's the CommandQueue's responsibility to wait for all of the
 //  queued work to complete before destructing itself.
 GraphImplDml::~GraphImplDml() = default;
 
 base::expected<ComPtr<IDMLCompiledOperator>, HRESULT>
-GraphImplDml::CompileOnBackgroundThread(
-    GraphBuilderDml graph_builder,
-    const bool pass_dml_execution_disable_meta_commands) {
+GraphImplDml::CompileOnBackgroundThread(GraphBuilderDml graph_builder,
+                                        DML_EXECUTION_FLAGS flags) {
   TRACE_EVENT0("gpu", "dml::GraphImplDml::CompileOnBackgroundThread");
-  DML_EXECUTION_FLAGS flags = DML_EXECUTION_FLAG_NONE;
-  if (pass_dml_execution_disable_meta_commands) {
-    flags |= DML_EXECUTION_FLAG_DISABLE_META_COMMANDS;
-  }
   return graph_builder.Compile(flags);
 }
 
@@ -5833,6 +6066,9 @@ GraphImplDml::RecordGraphExecutionOnBackgroundThread(
   TRACE_EVENT0("gpu",
                "dml::GraphImplDml::RecordGraphExecutionOnBackgroundThread");
 
+  SCOPED_UMA_HISTOGRAM_TIMER(
+      "WebNN.DML.TimingMs.RecordGraphExecutionOnBackgroundThread");
+
   RETURN_UNEXPECTED_IF_FAILED(RecordGraphExecution(
       adapter.get(), compiled_operator.Get(), compute_resources.get(),
       persistent_resource.get(), graph_buffer_binding_info));
@@ -5877,12 +6113,54 @@ void GraphImplDml::CreateWebNNGraphImpl(
       "Failed to create the command recorder for dispatch.",
       std::move(callback), context.get());
 
+  ASSIGN_OR_RETURN(
+      std::unique_ptr<GraphResources> graph_resources,
+      AllocateGraphResources(adapter.get(), compiled_operator.Get()),
+      &HandleGraphCreationFailure,
+      "Failed to create the graph resource for dispatch.", std::move(callback),
+      context.get());
+
+  HRESULT hr = command_recorder_for_dispatch->Open();
+  if (FAILED(hr)) {
+    HandleGraphCreationFailure("Failed to open the command recorder.",
+                               std::move(callback), context.get(), hr);
+    return;
+  }
+
+  std::optional<DML_BINDING_DESC> persistent_buffer_binding_desc;
+  if (persistent_resource) {
+    persistent_buffer_binding_desc =
+        persistent_resource->persistent_buffer_binding_desc();
+  }
+
+  // Execute the graph with temporary and persistent bindings, as inputs and
+  // outputs will be late bound.
+  hr = command_recorder_for_dispatch->ExecuteOperator(
+      compiled_operator, graph_resources->descriptor_heap,
+      /*input_bindings*/ std::nullopt, /*output_bindings*/ std::nullopt,
+      persistent_buffer_binding_desc,
+      graph_resources->temporary_buffer_binding_desc);
+  if (FAILED(hr)) {
+    HandleGraphCreationFailure(
+        "Failed to record graph execution for late binding.",
+        std::move(callback), context.get(), hr);
+    return;
+  }
+
+  hr = command_recorder_for_dispatch->Close();
+  if (FAILED(hr)) {
+    HandleGraphCreationFailure("Failed to close the command recorder.",
+                               std::move(callback), context.get(), hr);
+    return;
+  }
+
   // The receiver bound to GraphImplDml.
   std::move(callback).Run(base::WrapUnique(new GraphImplDml(
       std::move(adapter), context.get(),
       std::move(command_recorder_for_dispatch), std::move(persistent_resource),
       std::move(compiled_operator), std::move(compute_resource_info),
-      std::move(graph_buffer_binding_info), std::move(compute_resources))));
+      std::move(graph_buffer_binding_info), std::move(compute_resources),
+      std::move(graph_resources))));
 }
 
 // static
@@ -6049,9 +6327,9 @@ base::expected<void, mojom::ErrorPtr> GraphImplDml::CreateAndBuildInternal(
         break;
       }
       case Operation::Tag::kClamp: {
-        CreateOperatorNodeForClamp(context_properties, id_to_operand_map,
-                                   operation->get_clamp(), graph_builder,
-                                   id_to_node_output_map);
+        CreateOperatorNodeForClamp(adapter.get(), context_properties,
+                                   id_to_operand_map, operation->get_clamp(),
+                                   graph_builder, id_to_node_output_map);
         break;
       }
       case Operation::Tag::kConcat: {
@@ -6074,15 +6352,26 @@ base::expected<void, mojom::ErrorPtr> GraphImplDml::CreateAndBuildInternal(
         break;
       }
       case Operation::Tag::kDequantizeLinear: {
-        CreateOperatorNodeForDequantizeOrQuantizeLinear<
-            DML_ELEMENT_WISE_DEQUANTIZE_LINEAR_OPERATOR_DESC>(
-            context_properties, id_to_operand_map,
-            operation->get_dequantize_linear(), graph_builder,
-            DML_OPERATOR_ELEMENT_WISE_DEQUANTIZE_LINEAR, id_to_node_output_map);
+        if (adapter->IsDMLFeatureLevelSupported(DML_FEATURE_LEVEL_6_3)) {
+          create_operator_result =
+              CreateOperatorNodeForDequantizeOrQuantizeLinear<
+                  DML_DEQUANTIZE_OPERATOR_DESC>(
+                  context_properties, id_to_operand_map,
+                  operation->get_dequantize_linear(), graph_builder,
+                  DML_OPERATOR_DEQUANTIZE, id_to_node_output_map);
+        } else {
+          create_operator_result =
+              CreateOperatorNodeForDequantizeOrQuantizeLinear<
+                  DML_ELEMENT_WISE_DEQUANTIZE_LINEAR_OPERATOR_DESC>(
+                  context_properties, id_to_operand_map,
+                  operation->get_dequantize_linear(), graph_builder,
+                  DML_OPERATOR_ELEMENT_WISE_DEQUANTIZE_LINEAR,
+                  id_to_node_output_map);
+        }
         break;
       }
       case mojom::Operation::Tag::kElementWiseBinary: {
-        create_operator_result = CreateOperatorNodeForBinary(
+        CreateOperatorNodeForBinary(
             context_properties, id_to_operand_map, operation.get(),
             graph_fusion_info.operation_to_fusible_standalone_activation_map,
             graph_builder, id_to_node_output_map);
@@ -6258,11 +6547,22 @@ base::expected<void, mojom::ErrorPtr> GraphImplDml::CreateAndBuildInternal(
         break;
       }
       case Operation::Tag::kQuantizeLinear: {
-        CreateOperatorNodeForDequantizeOrQuantizeLinear<
-            DML_ELEMENT_WISE_QUANTIZE_LINEAR_OPERATOR_DESC>(
-            context_properties, id_to_operand_map,
-            operation->get_quantize_linear(), graph_builder,
-            DML_OPERATOR_ELEMENT_WISE_QUANTIZE_LINEAR, id_to_node_output_map);
+        if (adapter->IsDMLFeatureLevelSupported(DML_FEATURE_LEVEL_6_3)) {
+          create_operator_result =
+              CreateOperatorNodeForDequantizeOrQuantizeLinear<
+                  DML_QUANTIZE_OPERATOR_DESC>(
+                  context_properties, id_to_operand_map,
+                  operation->get_quantize_linear(), graph_builder,
+                  DML_OPERATOR_QUANTIZE, id_to_node_output_map);
+        } else {
+          create_operator_result =
+              CreateOperatorNodeForDequantizeOrQuantizeLinear<
+                  DML_ELEMENT_WISE_QUANTIZE_LINEAR_OPERATOR_DESC>(
+                  context_properties, id_to_operand_map,
+                  operation->get_quantize_linear(), graph_builder,
+                  DML_OPERATOR_ELEMENT_WISE_QUANTIZE_LINEAR,
+                  id_to_node_output_map);
+        }
         break;
       }
       case Operation::Tag::kReduce: {
@@ -6425,7 +6725,7 @@ void GraphImplDml::CreateAndBuild(
     base::flat_map<uint64_t, std::unique_ptr<WebNNConstantOperand>>
         constant_operands,
     WebNNContextImpl::CreateGraphImplCallback callback,
-    const bool pass_dml_execution_disable_meta_commands) {
+    const bool disable_dml_meta_commands_for_gpu) {
   TRACE_EVENT0("gpu", "dml::GraphImplDml::CreateAndBuild");
 
   GraphBuilderDml graph_builder(adapter->dml_device());
@@ -6445,13 +6745,22 @@ void GraphImplDml::CreateAndBuild(
     return;
   }
 
+  // Use `DML_EXECUTION_FLAG_DESCRIPTORS_VOLATILE` to allow late bindings on the
+  // compiled operator which you've already recorded onto the command list,
+  // before you submit the command list for execution.
+  DML_EXECUTION_FLAGS flags = DML_EXECUTION_FLAG_DESCRIPTORS_VOLATILE;
+  // Only apply `DML_EXECUTION_FLAG_DISABLE_META_COMMANDS` for GPU, because NPU
+  // currently requires metacommands to be enabled.
+  if (disable_dml_meta_commands_for_gpu && !adapter->IsNPU()) {
+    flags |= DML_EXECUTION_FLAG_DISABLE_META_COMMANDS;
+  }
+
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE,
       {base::TaskPriority::USER_BLOCKING,
        base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
       base::BindOnce(&GraphImplDml::CompileOnBackgroundThread,
-                     std::move(graph_builder),
-                     pass_dml_execution_disable_meta_commands),
+                     std::move(graph_builder), flags),
       base::BindOnce(&GraphImplDml::OnCompilationComplete, std::move(adapter),
                      std::move(context), std::move(callback),
                      std::move(constant_id_to_input_index_map),
@@ -6641,24 +6950,104 @@ void GraphImplDml::OnComputationComplete(
       ComputeResult::NewNamedOutputs(std::move(named_outputs)));
 }
 
+GraphImplDml::IoBindings::IoBindings(
+    std::vector<DML_BUFFER_BINDING> buffer_bindings,
+    base::FixedArray<DML_BINDING_DESC> buffer_binding_desc)
+    : buffer_bindings(std::move(buffer_bindings)),
+      buffer_binding_desc(std::move(buffer_binding_desc)) {}
+GraphImplDml::IoBindings::~IoBindings() = default;
+
+GraphImplDml::IoBindings GraphImplDml::CreateAndCacheInputBindings(
+    const base::flat_map<std::string_view, WebNNTensorImpl*>& named_inputs) {
+  TRACE_EVENT0("gpu", "dml::GraphImplDml::CreateAndCacheInputBindings");
+  // Create the MLTensor input bindings needed for graph execution.
+  std::vector<DML_BUFFER_BINDING> graph_input_buffer_bindings(
+      graph_buffer_binding_info_.input_buffer_binding_count,
+      DML_BUFFER_BINDING{.Buffer = nullptr, .Offset = 0, .SizeInBytes = 0});
+
+  previous_input_tensors_.reserve(named_inputs.size());
+
+  // The graph input tensors must be bound to the binding table during the
+  // graph execution.
+  base::FixedArray<DML_BINDING_DESC> input_buffer_binding_desc(
+      graph_buffer_binding_info_.input_buffer_binding_count,
+      DML_BINDING_DESC{.Type = DML_BINDING_TYPE_NONE, .Desc = nullptr});
+
+  for (auto& [name, input_tensor] : named_inputs) {
+    TensorImplDml* input_tensor_impl =
+        static_cast<TensorImplDml*>(input_tensor);
+    // Get the graph input index for the name.
+    const size_t graph_input_index =
+        graph_buffer_binding_info_.graph_input_name_to_index_map.at(
+            std::string(name));
+    graph_input_buffer_bindings[graph_input_index] = DML_BUFFER_BINDING{
+        .Buffer = input_tensor_impl->buffer(),
+        .Offset = 0,
+        .SizeInBytes = input_tensor_impl->PackedByteLength()};
+    input_buffer_binding_desc[graph_input_index] = {
+        DML_BINDING_TYPE_BUFFER,
+        &graph_input_buffer_bindings[graph_input_index]};
+    previous_input_tensors_[std::string(name)] =
+        input_tensor_impl->GetWeakPtr();
+    command_recorder_->OnTensorAccessed(input_tensor_impl);
+  }
+  return IoBindings(std::move(graph_input_buffer_bindings),
+                    std::move(input_buffer_binding_desc));
+}
+
+GraphImplDml::IoBindings GraphImplDml::CreateAndCacheOutputBindings(
+    const base::flat_map<std::string_view, WebNNTensorImpl*>& named_outputs) {
+  TRACE_EVENT0("gpu", "dml::GraphImplDml::CreateAndCacheOutputBindings");
+  // TODO(crbug.com/40278771): consider pre-computing the output binding
+  // count.
+  const size_t output_buffer_binding_count =
+      graph_buffer_binding_info_.graph_output_name_to_index_map.size();
+
+  // Create the MLTensor output bindings needed for graph execution.
+  std::vector<DML_BUFFER_BINDING> graph_output_buffer_bindings(
+      output_buffer_binding_count,
+      DML_BUFFER_BINDING{.Buffer = nullptr, .Offset = 0, .SizeInBytes = 0});
+
+  // The graph output tensors must be bound to the binding table during the
+  // graph execution.
+  base::FixedArray<DML_BINDING_DESC> output_buffer_binding_desc(
+      output_buffer_binding_count,
+      DML_BINDING_DESC{.Type = DML_BINDING_TYPE_NONE, .Desc = nullptr});
+
+  previous_output_tensors_.reserve(named_outputs.size());
+
+  for (auto& [name, output_tensor] : named_outputs) {
+    TensorImplDml* output_tensor_impl =
+        static_cast<TensorImplDml*>(output_tensor);
+    // Get the graph output index with the name.
+    const size_t graph_output_index =
+        graph_buffer_binding_info_.graph_output_name_to_index_map.at(
+            std::string(name));
+    graph_output_buffer_bindings[graph_output_index] = DML_BUFFER_BINDING{
+        .Buffer = output_tensor_impl->buffer(),
+        .Offset = 0,
+        .SizeInBytes = output_tensor_impl->PackedByteLength()};
+    output_buffer_binding_desc[graph_output_index] = {
+        DML_BINDING_TYPE_BUFFER,
+        &graph_output_buffer_bindings[graph_output_index]};
+    previous_output_tensors_[std::string(name)] =
+        output_tensor_impl->GetWeakPtr();
+    // Only output buffers could get modified upon execution.
+    command_recorder_->OnTensorAccessed(output_tensor_impl);
+  }
+  return IoBindings(std::move(graph_output_buffer_bindings),
+                    std::move(output_buffer_binding_desc));
+}
+
 void GraphImplDml::DispatchImpl(
     const base::flat_map<std::string_view, WebNNTensorImpl*>& named_inputs,
     const base::flat_map<std::string_view, WebNNTensorImpl*>& named_outputs) {
   TRACE_EVENT0("gpu", "dml::GraphImplDml::DispatchImpl");
 
   // It indicates whether we need to record commands and bind resources again.
-  // If either the I/O tensors change or `graph_resources_` is not available
+  // If either the `command_recorder_` or `graph_resources_` is not available
   // during the graph execution, it must be set to true.
   bool is_command_recording_needed = false;
-
-  // TODO(crbug.com/40278771): avoid re-bindings for all tensors
-  if (!IsDispatchBindingValid(named_inputs, previous_input_tensors_)) {
-    is_command_recording_needed = true;
-  }
-
-  if (!IsDispatchBindingValid(named_outputs, previous_output_tensors_)) {
-    is_command_recording_needed = true;
-  }
 
   if (!command_recorder_) {
     ASSIGN_OR_RETURN(command_recorder_,
@@ -6669,10 +7058,8 @@ void GraphImplDml::DispatchImpl(
     is_command_recording_needed = true;
   }
 
-  // Use the existing graph resource if it is available, otherwise allocate
-  // a new one.
-  // TODO(crbug.com/40278771): pre-allocate graph resources in graph
-  // initialization.
+  // Use the existing graph resource if it is available, else allocate a new
+  // one.
   std::unique_ptr<GraphResources> graph_resources = std::move(graph_resources_);
   if (!graph_resources) {
     base::expected<std::unique_ptr<GraphResources>, HRESULT> result =
@@ -6696,76 +7083,6 @@ void GraphImplDml::DispatchImpl(
       return;
     }
 
-    // Create the MLTensor input bindings needed for graph execution.
-    std::vector<DML_BUFFER_BINDING> graph_input_buffer_bindings(
-        graph_buffer_binding_info_.input_buffer_binding_count,
-        DML_BUFFER_BINDING{.Buffer = nullptr, .Offset = 0, .SizeInBytes = 0});
-
-    previous_input_tensors_.reserve(named_inputs.size());
-
-    // The graph input tensors must be bound to the binding table during the
-    // graph execution.
-    base::FixedArray<DML_BINDING_DESC> input_buffer_binding_desc(
-        graph_buffer_binding_info_.input_buffer_binding_count,
-        DML_BINDING_DESC{.Type = DML_BINDING_TYPE_NONE, .Desc = nullptr});
-
-    for (auto& [name, input_tensor] : named_inputs) {
-      TensorImplDml* input_tensor_impl =
-          static_cast<TensorImplDml*>(input_tensor);
-      // Get the graph input index for the name.
-      const size_t graph_input_index =
-          graph_buffer_binding_info_.graph_input_name_to_index_map.at(
-              std::string(name));
-      graph_input_buffer_bindings[graph_input_index] = DML_BUFFER_BINDING{
-          .Buffer = input_tensor_impl->buffer(),
-          .Offset = 0,
-          .SizeInBytes = input_tensor_impl->PackedByteLength()};
-      input_buffer_binding_desc[graph_input_index] = {
-          DML_BINDING_TYPE_BUFFER,
-          &graph_input_buffer_bindings[graph_input_index]};
-      previous_input_tensors_[std::string(name)] =
-          input_tensor_impl->GetWeakPtr();
-      command_recorder_->OnTensorAccessed(input_tensor_impl);
-    }
-
-    // TODO(crbug.com/40278771): consider pre-computing the output binding
-    // count.
-    const size_t output_buffer_binding_count =
-        graph_buffer_binding_info_.graph_output_name_to_index_map.size();
-
-    // Create the MLTensor output bindings needed for graph execution.
-    std::vector<DML_BUFFER_BINDING> graph_output_buffer_bindings(
-        output_buffer_binding_count,
-        DML_BUFFER_BINDING{.Buffer = nullptr, .Offset = 0, .SizeInBytes = 0});
-
-    // The graph output tensors must be bound to the binding table during the
-    // graph execution.
-    base::FixedArray<DML_BINDING_DESC> output_buffer_binding_desc(
-        output_buffer_binding_count,
-        DML_BINDING_DESC{.Type = DML_BINDING_TYPE_NONE, .Desc = nullptr});
-
-    previous_output_tensors_.reserve(named_outputs.size());
-
-    for (auto& [name, output_tensor] : named_outputs) {
-      TensorImplDml* output_tensor_impl =
-          static_cast<TensorImplDml*>(output_tensor);
-      // Get the graph output index with the name.
-      const size_t graph_output_index =
-          graph_buffer_binding_info_.graph_output_name_to_index_map.at(
-              std::string(name));
-      graph_output_buffer_bindings[graph_output_index] = DML_BUFFER_BINDING{
-          .Buffer = output_tensor_impl->buffer(),
-          .Offset = 0,
-          .SizeInBytes = output_tensor_impl->PackedByteLength()};
-      output_buffer_binding_desc[graph_output_index] = {
-          DML_BINDING_TYPE_BUFFER,
-          &graph_output_buffer_bindings[graph_output_index]};
-      previous_output_tensors_[std::string(name)] =
-          output_tensor_impl->GetWeakPtr();
-      // Only output buffers could get modified upon execution.
-      command_recorder_->OnTensorAccessed(output_tensor_impl);
-    }
-
     std::optional<DML_BINDING_DESC> persistent_buffer_binding_desc;
     if (persistent_resource_) {
       persistent_buffer_binding_desc =
@@ -6773,9 +7090,11 @@ void GraphImplDml::DispatchImpl(
     }
 
     // Execute the graph with input, output, temporary, and persistent bindings.
+    IoBindings input_bindings = CreateAndCacheInputBindings(named_inputs);
+    IoBindings output_bindings = CreateAndCacheOutputBindings(named_outputs);
     hr = command_recorder_->ExecuteOperator(
         compiled_operator_.Get(), graph_resources->descriptor_heap,
-        input_buffer_binding_desc, output_buffer_binding_desc,
+        input_bindings.buffer_binding_desc, output_bindings.buffer_binding_desc,
         persistent_buffer_binding_desc,
         graph_resources->temporary_buffer_binding_desc);
     if (FAILED(hr)) {
@@ -6787,6 +7106,25 @@ void GraphImplDml::DispatchImpl(
     if (FAILED(hr)) {
       HandleDispatchFailure("Failed to close the command recorder.", hr);
       return;
+    }
+  } else {
+    // We need bind the input/output tensors if they are not bound yet.
+    if (!IsDispatchBindingValid(named_inputs, previous_input_tensors_)) {
+      IoBindings input_bindings = CreateAndCacheInputBindings(named_inputs);
+      hr = command_recorder_->BindInputs(input_bindings.buffer_binding_desc);
+      if (FAILED(hr)) {
+        HandleDispatchFailure("Failed to bind inputs.", hr);
+        return;
+      }
+    }
+
+    if (!IsDispatchBindingValid(named_outputs, previous_output_tensors_)) {
+      IoBindings output_bindings = CreateAndCacheOutputBindings(named_outputs);
+      hr = command_recorder_->BindOutputs(output_bindings.buffer_binding_desc);
+      if (FAILED(hr)) {
+        HandleDispatchFailure("Failed to bind outputs.", hr);
+        return;
+      }
     }
   }
 

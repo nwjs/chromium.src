@@ -526,11 +526,11 @@ void CommerceUiTabHelper::MakeShoppingInsightsSidePanelUnavailable() {
       SidePanelEntry::Key(SidePanelEntry::Id::kShoppingInsights));
 }
 
-std::unique_ptr<views::View>
-CommerceUiTabHelper::CreateShoppingInsightsWebView() {
+std::unique_ptr<views::View> CommerceUiTabHelper::CreateShoppingInsightsWebView(
+    SidePanelEntryScope& scope) {
   auto shopping_insights_web_view =
       std::make_unique<SidePanelWebUIViewT<ShoppingInsightsSidePanelUI>>(
-          base::RepeatingClosure(), base::RepeatingClosure(),
+          scope, base::RepeatingClosure(), base::RepeatingClosure(),
           std::make_unique<WebUIContentsWrapperT<ShoppingInsightsSidePanelUI>>(
               GURL(kChromeUIShoppingInsightsSidePanelUrl),
               Profile::FromBrowserContext(web_contents()->GetBrowserContext()),
@@ -775,7 +775,7 @@ void CommerceUiTabHelper::MaybeRecordShoppingInformationUKM(
       promoted_feature =
           static_cast<int64_t>(ShoppingContextualFeature::kPriceTracking);
     } else {
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
     }
     ukm_builder.SetPromotedFeature(promoted_feature);
   }

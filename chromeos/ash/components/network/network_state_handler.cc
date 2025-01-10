@@ -63,8 +63,7 @@ std::string GetManagedStateLogType(const ManagedState* state) {
     case ManagedState::MANAGED_TYPE_DEVICE:
       return "Device";
   }
-  NOTREACHED_IN_MIGRATION();
-  return "";
+  NOTREACHED();
 }
 
 std::string GetLogName(const ManagedState* state) {
@@ -119,7 +118,7 @@ class NetworkStateHandler::ActiveNetworkState {
         connect_requested_(network->connect_requested()),
         signal_strength_(network->signal_strength()),
         network_technology_(network->network_technology()),
-        portal_state_(network->GetPortalState()) {}
+        portal_state_(network->portal_state()) {}
 
   bool MatchesNetworkState(const NetworkState* network) {
     return guid_ == network->guid() &&
@@ -129,7 +128,7 @@ class NetworkStateHandler::ActiveNetworkState {
            (abs(signal_strength_ - network->signal_strength()) <
             NetworkState::kSignalStrengthChangeThreshold) &&
            network_technology_ == network->network_technology() &&
-           portal_state_ == network->GetPortalState();
+           portal_state_ == network->portal_state();
   }
 
  private:
@@ -1871,7 +1870,7 @@ void NetworkStateHandler::ManagedStateListChanged(
       SyncStubCellularNetworks();
       return;
   }
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void NetworkStateHandler::SortNetworkList() {
@@ -2168,8 +2167,7 @@ NetworkStateHandler::ManagedStateList* NetworkStateHandler::GetManagedList(
     case ManagedState::MANAGED_TYPE_DEVICE:
       return &device_list_;
   }
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 void NetworkStateHandler::OnNetworkConnectionStateChanged(
@@ -2249,9 +2247,9 @@ void NetworkStateHandler::UpdatePortalStateAndNotify(
   NetworkState::PortalState new_portal_state;
   std::string new_default_network_path;
   if (default_network &&
-      (default_network->GetPortalState() != default_network_portal_state_ ||
+      (default_network->portal_state() != default_network_portal_state_ ||
        default_network->proxy_config() != default_network_proxy_config_)) {
-    new_portal_state = default_network->GetPortalState();
+    new_portal_state = default_network->portal_state();
     new_default_network_path = default_network->path();
     if (default_network->proxy_config()) {
       default_network_proxy_config_ = default_network->proxy_config()->Clone();

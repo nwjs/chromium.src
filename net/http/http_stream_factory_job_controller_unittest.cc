@@ -71,6 +71,7 @@
 #include "net/quic/quic_test_packet_maker.h"
 #include "net/quic/test_quic_crypto_client_config_handle.h"
 #include "net/socket/socket_test_util.h"
+#include "net/spdy/multiplexed_session_creation_initiator.h"
 #include "net/spdy/spdy_session_key.h"
 #include "net/spdy/spdy_test_util_common.h"
 #include "net/test/cert_test_util.h"
@@ -740,6 +741,8 @@ class JobControllerReconsiderProxyAfterErrorTest
         /*socket_performance_watcher=*/nullptr, ConnectionEndpointMetadata(),
         /*report_ecn=*/true,
         /*enable_origin_frame=*/true,
+        /*allow_server_preferred_address=*/true,
+        MultiplexedSessionCreationInitiator::kUnknown,
         NetLogWithSource::Make(NetLogSourceType::NONE));
     mock_proxy_sessions_.emplace_back(new_session.get());
 
@@ -5341,6 +5344,7 @@ class HttpStreamFactoryJobControllerDnsHttpsAlpnTest
                  SecureDnsPolicy::kAllow, require_dns_https_alpn,
                  /*cert_verify_flags=*/0, GURL("https://www.example.org/"),
                  net_log_with_source_, &net_error_details,
+                 MultiplexedSessionCreationInitiator::kUnknown,
                  base::BindLambdaForTesting([&](int result) {}),
                  base::BindLambdaForTesting([&quic_request_result](int result) {
                    quic_request_result = result;

@@ -11,9 +11,11 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/values.h"
+#include "base/version_info/channel.h"
 #include "chrome/browser/ash/floating_sso/cookie_sync_conversions.h"
 #include "chrome/browser/ash/floating_sso/floating_sso_sync_bridge.h"
 #include "chrome/browser/ash/floating_workspace/floating_workspace_util.h"
+#include "chrome/common/channel_info.h"
 #include "chrome/common/pref_names.h"
 #include "components/google/core/common/google_util.h"
 #include "components/prefs/pref_change_registrar.h"
@@ -44,9 +46,9 @@ bool IsGoogleCookie(const net::CanonicalCookie& cookie) {
 FloatingSsoService::FloatingSsoService(
     PrefService* prefs,
     std::unique_ptr<FloatingSsoSyncBridge> bridge,
-    network::mojom::CookieManager* cookie_manager)
+    CookieManagerGetter cookie_manager_getter)
     : prefs_(prefs),
-      cookie_manager_(cookie_manager),
+      cookie_manager_getter_(cookie_manager_getter),
       bridge_(std::move(bridge)),
       pref_change_registrar_(std::make_unique<PrefChangeRegistrar>()) {
   pref_change_registrar_->Init(prefs_);
@@ -128,6 +130,15 @@ void FloatingSsoService::StartOrStop() {
 }
 
 bool FloatingSsoService::IsFloatingSsoEnabled() {
+  // The feature is restricted to Beta users for the initial testing
+  // period. Unknown channel is added to support test execution in CQ,
+  // where tests are run on non-branded builds.
+  version_info::Channel channel = chrome::GetChannel();
+  if (channel != version_info::Channel::BETA &&
+      channel != version_info::Channel::DEV &&
+      channel != version_info::Channel::UNKNOWN) {
+    return false;
+  }
   // Check FloatingSsoEnabled policy.
   if (!prefs_->GetBoolean(::prefs::kFloatingSsoEnabled)) {
     return false;
@@ -144,11 +155,15 @@ bool FloatingSsoService::IsFloatingSsoEnabled() {
   return true;
 }
 
-void FloatingSsoService::MaybeStartListening() {
-  if (!cookie_manager_) {
-    return;
+void FloatingSsoService::RunWhenCookiesAreReady(base::OnceClosure callback) {
+  if (changes_in_progress_count_ == 0) {
+    std::move(callback).Run();
+  } else {
+    on_no_changes_in_progress_callback_ = std::move(callback);
   }
+}
 
+void FloatingSsoService::MaybeStartListening() {
   if (!receiver_.is_bound()) {
     BindToCookieManager();
   }
@@ -164,13 +179,16 @@ void FloatingSsoService::StopListening() {
 }
 
 void FloatingSsoService::BindToCookieManager() {
-  cookie_manager_->AddGlobalChangeListener(
-      receiver_.BindNewPipeAndPassRemote());
+  network::mojom::CookieManager* cookie_manager = cookie_manager_getter_.Run();
+  if (!cookie_manager) {
+    return;
+  }
+  cookie_manager->AddGlobalChangeListener(receiver_.BindNewPipeAndPassRemote());
   receiver_.set_disconnect_handler(base::BindOnce(
       &FloatingSsoService::OnConnectionError, base::Unretained(this)));
 
   if (fetch_accumulated_cookies_) {
-    cookie_manager_->GetAllCookies(base::BindOnce(
+    cookie_manager->GetAllCookies(base::BindOnce(
         &FloatingSsoService::OnCookiesLoaded, base::Unretained(this)));
   }
 }
@@ -225,37 +243,47 @@ void FloatingSsoService::OnCookieChange(const net::CookieChangeInfo& change) {
 
 void FloatingSsoService::OnCookiesAddedOrUpdatedRemotely(
     const std::vector<net::CanonicalCookie>& cookies) {
+  network::mojom::CookieManager* cookie_manager = cookie_manager_getter_.Run();
   net::CookieOptions options;
   // Allow to alter http_only and SameSite cookies since we are restoring this
   // cookie from another Chrome session.
   options.set_include_httponly();
   options.set_same_site_cookie_context(
       net::CookieOptions::SameSiteCookieContext::MakeInclusive());
+  changes_in_progress_count_ += cookies.size();
   for (const net::CanonicalCookie& cookie : cookies) {
     // Sync server might contain changes for cookies which should no longer be
     // synced due to a change of policies or a change in feature design and
     // implementation. In that case, ignore them on the client side and let
     // corresponding sync entities die on the server side based on TTL .
     if (!ShouldSyncCookie(cookie)) {
+      --changes_in_progress_count_;
       continue;
     }
-    cookie_manager_->SetCanonicalCookie(
+    cookie_manager->SetCanonicalCookie(
         cookie, net::cookie_util::SimulatedCookieSource(cookie, "https"),
-        options, base::DoNothing());
+        options,
+        base::BindOnce(&FloatingSsoService::OnCookieSet,
+                       base::Unretained(this)));
   }
 }
 
 void FloatingSsoService::OnCookiesRemovedRemotely(
     const std::vector<net::CanonicalCookie>& cookies) {
+  network::mojom::CookieManager* cookie_manager = cookie_manager_getter_.Run();
+  changes_in_progress_count_ += cookies.size();
   for (const net::CanonicalCookie& cookie : cookies) {
     // Sync server might contain changes for cookies which should no longer be
     // synced due to a change of policies or a change in feature design and
     // implementation. In that case, ignore them on the client side.
     if (!ShouldSyncCookie(cookie)) {
+      --changes_in_progress_count_;
       continue;
     }
 
-    cookie_manager_->DeleteCanonicalCookie(cookie, base::DoNothing());
+    cookie_manager->DeleteCanonicalCookie(
+        cookie, base::BindOnce(&FloatingSsoService::OnCookieDeleted,
+                               base::Unretained(this)));
   }
 }
 
@@ -307,6 +335,22 @@ bool FloatingSsoService::IsDomainAllowed(
 
   // The domain is not blocked if it doesn't have matches in the blocklist.
   return block_url_matcher_->MatchURL(cookie_domain_url).empty();
+}
+
+void FloatingSsoService::OnCookieSet(net::CookieAccessResult result) {
+  DecrementChangesCountAndMaybeNotify();
+}
+
+void FloatingSsoService::OnCookieDeleted(bool success) {
+  DecrementChangesCountAndMaybeNotify();
+}
+
+void FloatingSsoService::DecrementChangesCountAndMaybeNotify() {
+  CHECK(changes_in_progress_count_ > 0);
+  --changes_in_progress_count_;
+  if (changes_in_progress_count_ == 0 && on_no_changes_in_progress_callback_) {
+    std::move(on_no_changes_in_progress_callback_).Run();
+  }
 }
 
 void FloatingSsoService::OnConnectionError() {

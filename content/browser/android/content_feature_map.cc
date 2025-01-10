@@ -29,12 +29,12 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &blink::features::kViewportSegments,
     &input::features::kInputOnViz,
     &features::kAccessibilityIncludeLongClickAction,
-    &features::kAccessibilityPageZoom,
     &features::kAccessibilityPageZoomEnhancements,
     &features::kAccessibilityPageZoomV2,
     &features::kAccessibilityUnifiedSnapshots,
     &features::kAccessibilityManageBroadcastReceiverOnBackground,
     &features::kAndroidOpenPdfInline,
+    &features::kChangeUnfocusedPriority,
     &features::kFedCm,
     &features::kHidePastePopupOnGSB,
     &features::kMouseAndTrackpadDropdownMenu,
@@ -48,6 +48,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &features::kWebBluetoothNewPermissionsBackend,
     &features::kWebIdentityDigitalCredentials,
     &features::kWebNfc,
+    &features::kDIPSTtl,
 };
 
 // static

@@ -198,7 +198,7 @@
     "includes": [2940],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/certificate_viewer/resources.grd": {
-    "META": {"sizes": {"includes": [5],}},
+    "META": {"sizes": {"includes": [10],}},
     "includes": [2960],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/chromeos/add_supervision/resources.grd": {
@@ -373,7 +373,7 @@
     "META": {"sizes": {"includes": [20],}},
     "includes": [3840],
   },
-  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/dlp_internals/resources.grd": {
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/chromeos/dlp_internals/resources.grd": {
     "META": {"sizes": {"includes": [15]}},
     "includes": [3860],
   },
@@ -410,7 +410,7 @@
     "includes": [4020],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/history/resources.grd": {
-    "META": {"sizes": {"includes": [40]}},
+    "META": {"sizes": {"includes": [50]}},
     "includes": [4040],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/identity_internals/resources.grd": {
@@ -450,7 +450,7 @@
     "includes": [4220],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/lens/shared/resources.grd": {
-    "META": {"sizes": {"includes": [10]}},
+    "META": {"sizes": {"includes": [20]}},
     "includes": [4240],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/location_internals/resources.grd": {
@@ -568,10 +568,6 @@
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/side_panel/commerce/resources.grd": {
     "META": {"sizes": {"includes": [20],}},
     "includes": [4800],
-  },
-  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/side_panel/companion/resources.grd": {
-    "META": {"sizes": {"includes": [10],}},
-    "includes": [4820],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/side_panel/customize_chrome/resources.grd": {
     "META": {"sizes": {"includes": [80],}},
@@ -941,7 +937,17 @@
   "components/headless/command_handler/headless_command.grd": {
     "includes": [7120],
   },
+  # metrics/internal/url_constants.grd and metrics/url_constants.grd must
+  # share the same id because they define the same strings, but only one of them
+  # is built depending on whether src_internal is available.
+  "components/metrics/internal/url_constants.grd": {
+    "messages": [7130],
+  },
+  "components/metrics/url_constants.grd": {
+    "messages": [7130],
+  },
   "components/omnibox/resources/omnibox_pedal_synonyms.grd": {
+    "META": {"join": 2},
     "messages": [7140],
   },
   # plus_addresses_internal_strings.grd and plus_addresses_strings.grd must
@@ -980,7 +986,7 @@
   },
 
   "<(SHARED_INTERMEDIATE_DIR)/components/commerce/core/internals/resources/resources.grd": {
-    "META": {"sizes": {"includes": [10]}},
+    "META": {"sizes": {"includes": [30]}},
     "includes": [7300],
   },
   "<(SHARED_INTERMEDIATE_DIR)/components/download/resources/download_internals/resources.grd": {
@@ -1083,19 +1089,19 @@
     "messages": [1220],
   },
   "ios/chrome/widget_kit_extension/strings/ios_widget_kit_extension_strings.grd": {
-    "messages": [1240],
+    "messages": [1320],
   },
   "ios/web/ios_web_resources.grd": {
-    "includes": [1260],
+    "includes": [1340],
   },
   "ios/web/test/test_resources.grd": {
-    "includes": [1280],
+    "includes": [1360],
   },
   # END ios/ section.
 
   # START ios_internal/ section.
   "ios_internal/chrome/app/ios_internal_strings.grd": {
-    "messages": [1300],
+    "messages": [1380],
   },
   "ios_internal/chrome/app/ios_internal_chromium_strings.grd": {
     "META": {"join": 2},
@@ -1226,6 +1232,9 @@
   },
   "ash/system/video_conference/resources/vc_resources.grd": {
     "structures":[9220],
+  },
+  "ash/wm/overview/birch/resources/coral_resources.grd": {
+    "structures":[9230],
   },
   "base/tracing/protos/resources.grd": {
     "includes": [9240],

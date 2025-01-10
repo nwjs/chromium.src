@@ -13,8 +13,6 @@
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
-#import "ios/chrome/browser/signin/model/authentication_service.h"
-#import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
 #import "ios/chrome/browser/ui/authentication/account_menu/account_menu_coordinator.h"
 #import "ios/chrome/browser/ui/authentication/signin/add_account_signin/add_account_signin_coordinator.h"
@@ -206,8 +204,9 @@ using signin_metrics::PromoAction;
 }
 
 - (void)dealloc {
-  // -[SigninCoordinator runCompletionCallbackWithSigninResult:completionInfo:]
-  // has to be called by the subclass before the coordinator is deallocated.
+  // -[SigninCoordinator
+  // runCompletionWithSigninResult:completionInfo:] has to be called
+  // by the subclass before the coordinator is deallocated.
   DCHECK(!self.signinCompletion) << base::SysNSStringToUTF8([self description]);
 }
 
@@ -229,18 +228,17 @@ using signin_metrics::PromoAction;
   // need to close the view. You need to call -[SigninCoordinator
   // interruptWithAction:completion:].
   // If you work on a SigninCoordinator subclass:
-  // -[SigninCoordinator runCompletionCallbackWithSigninResult:completionInfo:]
-  // has to be called by the subclass before
+  // -[SigninCoordinator
+  // runCompletionWithSigninResult:completionInfo:] has to be called
+  // by the subclass before
   // -[SigninCoordinator stop] is called.
   DCHECK(!self.signinCompletion);
 }
 
 #pragma mark - Private
 
-- (void)runCompletionCallbackWithSigninResult:
-            (SigninCoordinatorResult)signinResult
-                               completionInfo:
-                                   (SigninCompletionInfo*)completionInfo {
+- (void)runCompletionWithSigninResult:(SigninCoordinatorResult)signinResult
+                       completionInfo:(SigninCompletionInfo*)completionInfo {
   // `identity` is set, if and only if the sign-in is successful.
   DCHECK(((signinResult == SigninCoordinatorResultSuccess) &&
           completionInfo.identity) ||

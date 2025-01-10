@@ -7,13 +7,16 @@
 #include <memory>
 
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/webui/certificate_manager/certificate_manager_utils.h"
 #include "chrome/browser/ui/webui/certificate_manager_localized_strings_provider.h"
 #include "chrome/browser/ui/webui/plural_string_handler.h"
 #include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/common/chrome_features.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/browser_resources.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
@@ -138,7 +141,8 @@ void AddCertificateManagerV2Strings(content::WebUIDataSource* html_source) {
        IDS_CERTIFICATE_MANAGER_V2_CERT_ENTRY_DELETE_ARIA_LABEL},
       {"certificateManagerV2CertHashCopyAriaLabel",
        IDS_CERTIFICATE_MANAGER_V2_CERT_HASH_COPY_ARIA_LABEL},
-  };
+      {"certificateManagerV2UserCertsTitle",
+       IDS_SETTINGS_CERTIFICATE_MANAGER_V2_USER_CERTS_TITLE}};
   html_source->AddLocalizedStrings(kLocalizedStrings);
 }
 #endif  // BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
@@ -202,6 +206,9 @@ CertificateManagerUI::CertificateManagerUI(content::WebUI* web_ui)
         "certificateManagerV2NumCerts",
         IDS_SETTINGS_CERTIFICATE_MANAGER_V2_NUM_CERTS);
     web_ui->AddMessageHandler(std::move(plural_string_handler));
+    PrefService* prefs = profile->GetPrefs();
+    source->AddBoolean("userCertsImportAllowed",
+                       IsCACertificateManagementAllowed(*prefs));
   }
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS)

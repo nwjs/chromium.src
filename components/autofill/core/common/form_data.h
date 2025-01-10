@@ -121,9 +121,6 @@ struct FrameTokenWithPredecessor {
 // The input B is an unassociated and unowned field.
 // The input C is an unassociated but an owned field.
 //
-// TODO(crbug.com/40195555): Currently, Autofill ignores unowned fields in
-// shadow DOMs.
-//
 // The unowned fields of the frame constitute that frame's *unowned form*.
 //
 // Forms from different frames of the same WebContents may furthermore be
@@ -180,11 +177,6 @@ class FormData {
   // FormData::fields.
   const FormFieldData* FindFieldByGlobalId(
       const FieldGlobalId& global_id) const;
-
-  // Finds a field in the FormData by its name or id.
-  // Returns a pointer to the field if found, otherwise returns nullptr.
-  // TODO(crbug.com/40100455): Move to FormDataTestApi.
-  FormFieldData* FindFieldByNameForTest(std::u16string_view name_or_id);
 
   // The id attribute of the form.
   const std::u16string& id_attribute() const { return id_attribute_; }

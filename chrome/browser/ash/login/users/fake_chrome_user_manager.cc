@@ -18,9 +18,9 @@
 #include "chrome/browser/ash/login/users/default_user_image/default_user_images.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/test/base/testing_profile.h"
 #include "chromeos/ash/components/login/login_state/login_state.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
+#include "components/prefs/pref_service.h"
 #include "components/user_manager/fake_user_manager.h"
 #include "components/user_manager/fake_user_manager_delegate.h"
 #include "components/user_manager/known_user.h"
@@ -78,7 +78,7 @@ FakeChromeUserManager::AddUserWithAffiliationAndTypeAndProfile(
     const AccountId& account_id,
     bool is_affiliated,
     user_manager::UserType user_type,
-    TestingProfile* profile) {
+    Profile* profile) {
   user_manager::User* user =
       user_manager::User::CreateRegularUser(account_id, user_type);
   user->SetAffiliated(is_affiliated);
@@ -281,7 +281,7 @@ void FakeChromeUserManager::UserLoggedIn(const AccountId& account_id,
 }
 
 void FakeChromeUserManager::SwitchToLastActiveUser() {
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 bool FakeChromeUserManager::IsKnownUser(const AccountId& account_id) const {
@@ -335,7 +335,7 @@ const user_manager::User* FakeChromeUserManager::GetPrimaryUser() const {
 void FakeChromeUserManager::SaveUserOAuthStatus(
     const AccountId& account_id,
     user_manager::User::OAuthTokenStatus oauth_token_status) {
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void FakeChromeUserManager::SaveForceOnlineSignin(const AccountId& account_id,
@@ -375,7 +375,7 @@ void FakeChromeUserManager::SaveUserDisplayEmail(
 }
 
 void FakeChromeUserManager::SaveUserType(const user_manager::User* user) {
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 std::optional<std::string> FakeChromeUserManager::GetOwnerEmail() {
@@ -426,6 +426,13 @@ bool FakeChromeUserManager::IsLoggedInAsWebKioskApp() const {
   const user_manager::User* active_user = GetActiveUser();
   return active_user
              ? active_user->GetType() == user_manager::UserType::kWebKioskApp
+             : false;
+}
+
+bool FakeChromeUserManager::IsLoggedInAsKioskIWA() const {
+  const user_manager::User* active_user = GetActiveUser();
+  return active_user
+             ? active_user->GetType() == user_manager::UserType::kKioskIWA
              : false;
 }
 

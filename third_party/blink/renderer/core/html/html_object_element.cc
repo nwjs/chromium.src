@@ -175,8 +175,7 @@ void HTMLObjectElement::ReloadPluginOnAttributeChange(
   } else if (name == html_names::kClassidAttr) {
     needs_invalidation = true;
   } else {
-    NOTREACHED_IN_MIGRATION();
-    needs_invalidation = false;
+    NOTREACHED();
   }
   SetNeedsPluginUpdate(true);
   if (needs_invalidation)
@@ -408,23 +407,6 @@ bool HTMLObjectElement::DidFinishLoading() const {
 
 int HTMLObjectElement::DefaultTabIndex() const {
   return 0;
-}
-
-const HTMLObjectElement* ToHTMLObjectElementFromListedElement(
-    const ListedElement* element) {
-  SECURITY_DCHECK(!element || !element->IsFormControlElement());
-  const HTMLObjectElement* object_element =
-      static_cast<const HTMLObjectElement*>(element);
-  // We need to assert after the cast because ListedElement doesn't
-  // have hasTagName.
-  SECURITY_DCHECK(!object_element ||
-                  object_element->HasTagName(html_names::kObjectTag));
-  return object_element;
-}
-
-const HTMLObjectElement& ToHTMLObjectElementFromListedElement(
-    const ListedElement& element) {
-  return *ToHTMLObjectElementFromListedElement(&element);
 }
 
 }  // namespace blink

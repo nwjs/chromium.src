@@ -101,7 +101,7 @@ class RedirectResponseURLLoader : public network::mojom::URLLoader {
       const net::HttpRequestHeaders& modified_headers,
       const net::HttpRequestHeaders& modified_cors_exempt_headers,
       const std::optional<GURL>& new_url) override {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
   void SetPriority(net::RequestPriority priority,
                    int intra_priority_value) override {
@@ -351,9 +351,9 @@ bool ExtractSHA256HashValueFromString(std::string_view value,
 std::map<GURL, net::SHA256HashValue> GetAllowedAltSXG(
     const PrefetchedSignedExchangeCacheEntry& main_exchange) {
   std::map<GURL, net::SHA256HashValue> result;
-  std::string link_header;
-  main_exchange.inner_response()->headers->GetNormalizedHeader("link",
-                                                               &link_header);
+  std::string link_header = main_exchange.inner_response()
+                                ->headers->GetNormalizedHeader("link")
+                                .value_or(std::string());
   if (link_header.empty())
     return result;
 

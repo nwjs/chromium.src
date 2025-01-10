@@ -13,14 +13,14 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "ios/chrome/browser/net/model/net_types.h"
-#include "ios/chrome/browser/shared/model/profile/profile_ios_forward.h"
 #include "ios/web/public/browser_state.h"
 #include "net/url_request/url_request_job_factory.h"
 
-class BrowserStatePolicyConnector;
 class PrefProxyConfigTracker;
 class PrefService;
+class ProfileIOS;
 class ProfileIOSIOData;
+class ProfilePolicyConnector;
 
 namespace base {
 class SequencedTaskRunner;
@@ -96,51 +96,27 @@ class ProfileIOS : public web::BrowserState {
   // operations should be performed.
   virtual scoped_refptr<base::SequencedTaskRunner> GetIOTaskRunner();
 
-  // Returns the original "recording" ProfileIOS. This method returns
-  // `this` if the ProfileIOS is not incognito.
-  // TODO(crbug.com/358299863): Remove this function once fully migrated.
-  virtual ProfileIOS* GetOriginalChromeBrowserState() = 0;
-
   // Returns the original "recording" Profile. This method returns `this` if the
   // Profile is not incognito.
   virtual ProfileIOS* GetOriginalProfile() = 0;
-
-  // Returns true if the ProfileIOS is off-the-record or if the
-  // associated off-the-record profile has been created.
-  // Calling this method does not create the off-the-record profile if it
-  // does not already exist.
-  // TODO(crbug.com/358299863): Remove this function once fully migrated.
-  virtual bool HasOffTheRecordChromeBrowserState() const = 0;
 
   // Returns true if the Profile is off-the-record or if the associated
   // off-the-record profile has been created. Calling this method does not
   // create the off-the-record profile if it does not already exist.
   virtual bool HasOffTheRecordProfile() const = 0;
 
-  // Returns the incognito version of this ProfileIOS. The returned
-  // ProfileIOS instance is owned by this ProfileIOS instance.
-  // WARNING: This will create the OffTheRecord ProfileIOS if it
-  // doesn't already exist.
-  // TODO(crbug.com/358299863): Remove this function once fully migrated.
-  virtual ProfileIOS* GetOffTheRecordChromeBrowserState() = 0;
-
   // Returns the incognito version of this Profile. The returned Profile
   // instance is owned by this Profile instance. WARNING: This will create the
   // OffTheRecord Profile if it doesn't already exist.
   virtual ProfileIOS* GetOffTheRecordProfile() = 0;
 
-  // Destroys the OffTheRecord ProfileIOS that is associated with this
-  // ProfileIOS, if one exists.
-  // TODO(crbug.com/358299863): Remove this function once fully migrated.
-  virtual void DestroyOffTheRecordChromeBrowserState() = 0;
-
   // Destroys the OffTheRecord Profile that is associated with this Profile, if
   // one exists.
   virtual void DestroyOffTheRecordProfile() = 0;
 
-  // Retrieves a pointer to the BrowserStatePolicyConnector that manages policy
+  // Retrieves a pointer to the ProfilePolicyConnector that manages policy
   // for this BrowserState. May return nullptr if policy is disabled.
-  virtual BrowserStatePolicyConnector* GetPolicyConnector() = 0;
+  virtual ProfilePolicyConnector* GetPolicyConnector() = 0;
 
   // Returns a pointer to the UserCloudPolicyManager that is a facade for the
   // user cloud policy system.
@@ -206,7 +182,5 @@ class ProfileIOS : public web::BrowserState {
   scoped_refptr<base::SequencedTaskRunner> io_task_runner_;
   scoped_refptr<net::URLRequestContextGetter> request_context_getter_;
 };
-
-using ChromeBrowserState = ProfileIOS;
 
 #endif  // IOS_CHROME_BROWSER_SHARED_MODEL_PROFILE_PROFILE_IOS_H_

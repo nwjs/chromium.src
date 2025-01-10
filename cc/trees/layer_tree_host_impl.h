@@ -480,7 +480,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
 
   bool RunsOnCurrentThread() const override;
 
-  void ScrollOffsetAnimationFinished() override;
+  void ScrollOffsetAnimationFinished(ElementId element_id) override;
 
   void NotifyAnimationWorkletStateChange(AnimationWorkletMutationState state,
                                          ElementListType tree_type) override;
@@ -539,6 +539,10 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   DrawMode GetDrawMode() const;
 
   void DidNotNeedBeginFrame();
+
+  bool ScrollCheckerboardsIncompleteRecording() const {
+    return scroll_checkerboards_incomplete_recording_;
+  }
 
   // TileManagerClient implementation.
   void NotifyReadyToActivate() override;
@@ -972,10 +976,6 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   // a cache create by this instance. Which is used depends on the settings.
   class ImageDecodeCacheHolder;
 
-  // TODO(https://crbug.com/365813260): Remove once the bug is analyzed and
-  // solved.
-  void CrashWhenMaxTextureSizeIsUninitialized() const;
-
   void UpdateChildLocalSurfaceId();
 
   void CollectScrollbarUpdatesForCommit(
@@ -1239,6 +1239,8 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   // TODO(danakj): Delete the LayerTreeFrameSink and all resources when
   // it's lost instead of having this bool.
   bool has_valid_layer_tree_frame_sink_ = false;
+
+  bool scroll_checkerboards_incomplete_recording_ = false;
 
   // If it is enabled in the LayerTreeSettings, we can check damage in
   // WillBeginImplFrame and abort early if there is no damage. We only check

@@ -16,6 +16,7 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
@@ -59,8 +60,6 @@ public class PlusAddressCreationBottomSheetContent extends EmptyBottomSheetObser
     final TextView mProposedPlusAddress;
     // The clickable icon used to refresh the suggested plus address.
     final ImageView mRefreshIcon;
-    // Legacy error reporting instruction.
-    final TextViewWithClickableSpans mPlusAddressErrorReportView;
     // The button to confirm the proposed plus address.
     final Button mPlusAddressConfirmButton;
     // The button to cancel the plus address creation dialog. Only visible on
@@ -106,10 +105,10 @@ public class PlusAddressCreationBottomSheetContent extends EmptyBottomSheetObser
         mProposedPlusAddressLoadingView.addObserver(
                 new LoadingView.Observer() {
                     @Override
-                    public void onShowLoadingUIComplete() {}
+                    public void onShowLoadingUiComplete() {}
 
                     @Override
-                    public void onHideLoadingUIComplete() {
+                    public void onHideLoadingUiComplete() {
                         if (mDelegate != null) {
                             mContentView.post(mDelegate::onPlusAddressLoadingViewHidden);
                         }
@@ -117,10 +116,6 @@ public class PlusAddressCreationBottomSheetContent extends EmptyBottomSheetObser
                 });
         mProposedPlusAddress = mContentView.findViewById(R.id.proposed_plus_address);
         mProposedPlusAddress.setTypeface(Typeface.MONOSPACE);
-
-        mPlusAddressErrorReportView =
-                mContentView.findViewById(R.id.plus_address_modal_error_report);
-        mPlusAddressErrorReportView.setMovementMethod(LinkMovementMethod.getInstance());
 
         mRefreshIcon = mContentView.findViewById(R.id.refresh_plus_address_icon);
 
@@ -137,10 +132,10 @@ public class PlusAddressCreationBottomSheetContent extends EmptyBottomSheetObser
         mLoadingView.addObserver(
                 new LoadingView.Observer() {
                     @Override
-                    public void onShowLoadingUIComplete() {}
+                    public void onShowLoadingUiComplete() {}
 
                     @Override
-                    public void onHideLoadingUIComplete() {
+                    public void onHideLoadingUiComplete() {
                         if (mDelegate != null) {
                             mDelegate.onConfirmationLoadingViewHidden();
                         }
@@ -199,9 +194,9 @@ public class PlusAddressCreationBottomSheetContent extends EmptyBottomSheetObser
 
     void setPlusAddressLoadingViewVisible(boolean visible) {
         if (visible) {
-            mProposedPlusAddressLoadingView.showLoadingUI(/* skipDelay= */ true);
+            mProposedPlusAddressLoadingView.showLoadingUi(/* skipDelay= */ true);
         } else {
-            mProposedPlusAddressLoadingView.hideLoadingUI();
+            mProposedPlusAddressLoadingView.hideLoadingUi();
         }
     }
 
@@ -239,32 +234,14 @@ public class PlusAddressCreationBottomSheetContent extends EmptyBottomSheetObser
         mDelegate = delegate;
     }
 
-    void setLegacyErrorReportingInstructionVisible(boolean visible) {
-        mProposedPlusAddressContainer.setVisibility(visible ? View.GONE : View.VISIBLE);
-        mPlusAddressErrorReportView.setVisibility(visible ? View.VISIBLE : View.GONE);
-    }
-
-    void setLegacyErrorReportingInstruction(String intruction, GURL errorReportUrl) {
-        NoUnderlineClickableSpan errorReportLink =
-                new NoUnderlineClickableSpan(
-                        mContext,
-                        v -> {
-                            mDelegate.openUrl(errorReportUrl);
-                        });
-        SpannableString errorReportString =
-                SpanApplier.applySpans(
-                        intruction, new SpanApplier.SpanInfo("<link>", "</link>", errorReportLink));
-        mPlusAddressErrorReportView.setText(errorReportString);
-    }
-
     void setLoadingIndicatorVisible(boolean visible) {
         if (visible) {
             // We skip the delay because otherwise the height of the bottomsheet
             // is adjusted once on hiding the confirm button and then again after
             // the loading view appears.
-            mLoadingView.showLoadingUI(/* skipDelay= */ true);
+            mLoadingView.showLoadingUi(/* skipDelay= */ true);
         } else {
-            mLoadingView.hideLoadingUI();
+            mLoadingView.hideLoadingUi();
         }
     }
 
@@ -316,9 +293,9 @@ public class PlusAddressCreationBottomSheetContent extends EmptyBottomSheetObser
     }
 
     @Override
-    public int getSheetContentDescriptionStringId() {
+    public @NonNull String getSheetContentDescription(Context context) {
         // TODO(crbug.com/40276862): Replace with final version.
-        return R.string.plus_address_bottom_sheet_content_description;
+        return context.getString(R.string.plus_address_bottom_sheet_content_description);
     }
 
     @Override

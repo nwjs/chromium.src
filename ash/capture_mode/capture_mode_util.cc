@@ -6,7 +6,6 @@
 
 #include "ash/accessibility/accessibility_controller.h"
 #include "ash/capture_mode/capture_mode_camera_controller.h"
-#include "ash/capture_mode/capture_mode_constants.h"
 #include "ash/capture_mode/capture_mode_controller.h"
 #include "ash/capture_mode/capture_mode_session.h"
 #include "ash/capture_mode/capture_mode_types.h"
@@ -587,11 +586,27 @@ gfx::Rect GetEffectivePartialRegionBounds(
 
 void AddActionButton(views::Button::PressedCallback callback,
                      std::u16string text,
-                     const gfx::VectorIcon* icon) {
+                     const gfx::VectorIcon* icon,
+                     const ActionButtonRank rank) {
   if (auto* controller = CaptureModeController::Get(); controller->IsActive()) {
     controller->capture_mode_session()->AddActionButton(std::move(callback),
-                                                        text, icon);
+                                                        text, icon, rank);
   }
+}
+
+void AnimateToOpacity(ui::Layer* layer,
+                      const float opacity,
+                      const base::TimeDelta duration) {
+  if (layer->GetTargetOpacity() == opacity) {
+    return;
+  }
+
+  views::AnimationBuilder()
+      .SetPreemptionStrategy(
+          ui::LayerAnimator::IMMEDIATELY_ANIMATE_TO_NEW_TARGET)
+      .Once()
+      .SetDuration(duration)
+      .SetOpacity(layer, opacity, gfx::Tween::FAST_OUT_SLOW_IN);
 }
 
 }  // namespace ash::capture_mode_util

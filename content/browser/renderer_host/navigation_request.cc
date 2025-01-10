@@ -64,6 +64,7 @@
 #include "content/browser/network_service_instance_impl.h"
 #include "content/browser/origin_agent_cluster_isolation_state.h"
 #include "content/browser/origin_trials/origin_trials_utils.h"
+#include "content/browser/permissions/permission_controller_impl.h"
 #include "content/browser/preloading/prefetch/prefetch_document_manager.h"
 #include "content/browser/preloading/prefetch/prefetch_features.h"
 #include "content/browser/preloading/prefetch/prefetch_serving_page_metrics_container.h"
@@ -387,11 +388,10 @@ void AddAdditionalRequestHeaders(
     return;
 
   bool is_reload = NavigationTypeUtils::IsReload(navigation_type);
-  blink::RendererPreferences render_prefs =
-      frame_tree_node->current_frame_host()
-          ->render_view_host()
-          ->GetDelegate()
-          ->GetRendererPrefs();
+  RenderViewHostImpl* render_view_host =
+      frame_tree_node->current_frame_host()->render_view_host();
+  const blink::RendererPreferences& render_prefs =
+      render_view_host->GetDelegate()->GetRendererPrefs(render_view_host);
   UpdateAdditionalHeadersForBrowserInitiatedRequest(
       headers, browser_context, is_reload, render_prefs,
       /*is_for_worker_script*=*/false);
@@ -501,7 +501,7 @@ bool ShouldPropagateUserActivation(const url::Origin& previous_origin,
       UMA_HISTOGRAM_CUSTOM_TIMES("Navigation." histogram ".NewNavigation",    \
                                  duration, kMinTime, kMaxTime, kBuckets);     \
     } else {                                                                  \
-      NOTREACHED_IN_MIGRATION() << "Invalid page transition: " << transition; \
+      NOTREACHED() << "Invalid page transition: " << transition;              \
     }                                                                         \
     if (priority.has_value()) {                                               \
       if (priority.value() == base::Process::Priority::kBestEffort) {         \
@@ -752,12 +752,10 @@ network::mojom::RequestDestination GetDestinationFromFrameTreeNode(
       return network::mojom::RequestDestination::kFrame;
     // Main frames are handled above.
     case blink::FrameOwnerElementType::kNone:
-      NOTREACHED_IN_MIGRATION();
-      return network::mojom::RequestDestination::kDocument;
-      // Fenced frames are handled above.
+      NOTREACHED();
     case blink::FrameOwnerElementType::kFencedframe:
-      NOTREACHED_IN_MIGRATION();
-      return network::mojom::RequestDestination::kFencedframe;
+      // Fenced frames are handled above.
+      NOTREACHED();
   }
 }
 
@@ -1436,7 +1434,8 @@ std::unique_ptr<NavigationRequest> NavigationRequest::CreateRendererInitiated(
           /*lcpp_hint=*/nullptr, blink::CreateDefaultRendererContentSettings(),
           /*cookie_deprecation_label=*/std::nullopt,
           /*visited_link_salt=*/std::nullopt,
-          /*local_surface_id=*/std::nullopt);
+          /*local_surface_id=*/std::nullopt,
+          frame_tree_node->current_frame_host()->GetCachedPermissionStatuses());
 
   commit_params->navigation_timing->system_entropy_at_navigation_start =
       SystemEntropyUtils::ComputeSystemEntropyForFrameTreeNode(
@@ -1586,7 +1585,8 @@ NavigationRequest::CreateForSynchronousRendererCommit(
           /*lcpp_hint=*/nullptr, blink::CreateDefaultRendererContentSettings(),
           /*cookie_deprecation_label=*/std::nullopt,
           /*visited_link_salt=*/std::nullopt,
-          /*local_surface_id=*/std::nullopt);
+          /*local_surface_id=*/std::nullopt,
+          render_frame_host->GetCachedPermissionStatuses());
   blink::mojom::BeginNavigationParamsPtr begin_params =
       blink::mojom::BeginNavigationParams::New();
   std::unique_ptr<NavigationRequest> navigation_request(new NavigationRequest(
@@ -2058,7 +2058,8 @@ NavigationRequest::NavigationRequest(
           frame_tree_node_->current_frame_host()->GetStoragePartition();
       storage_partition->GetNetworkContext()->PreconnectSockets(
           1, common_params_->url, network::mojom::CredentialsMode::kInclude,
-          GetIsolationInfo().network_anonymization_key());
+          GetIsolationInfo().network_anonymization_key(),
+          net::MutableNetworkTrafficAnnotationTag());
     }
   }
 
@@ -2795,8 +2796,7 @@ void NavigationRequest::BeginNavigationImpl() {
     // - MHTML document, not supported by CSPEE (https://crbug.com/1164353).
     if (CheckCSPEmbeddedEnforcement() ==
         CSPEmbeddedEnforcementResult::BLOCK_RESPONSE) {
-      NOTREACHED_IN_MIGRATION();
-      base::debug::DumpWithoutCrashing();
+      NOTREACHED();
     }
 
     ComputePoliciesToCommit();
@@ -3124,6 +3124,10 @@ void NavigationRequest::ResetForCrossDocumentRestart() {
   if (navigation_visible_to_embedder_)
     navigation_handle_proxy_->DidFinish();
 #endif
+
+  // Set this bit so the observers on `DidFinishNavigation()` are also aware of
+  // the restart.
+  was_reset_for_cross_document_restart_ = true;
 
   // It is necessary to call DidFinishNavigation before resetting
   // |navigation_handle_proxy_|. See https://crbug.com/958396.
@@ -4943,6 +4947,13 @@ void NavigationRequest::OnRequestFailedInternal(
            error_page_content.has_value()));
   ScopedCrashKeys crash_keys(*this);
 
+  if (MaybeEvictFromBackForwardCacheBySubframeNavigation(
+          frame_tree_node_->current_frame_host())) {
+    // DO NOT ADD CODE AFTER THIS, as the NavigationRequest might have been
+    // deleted by the previous calls.
+    return;
+  }
+
   // The request failed, the |loader_| must not call the NavigationRequest
   // anymore from now while the error page is being loaded.
   loader_.reset();
@@ -5042,8 +5053,7 @@ void NavigationRequest::SelectFrameHostForOnRequestFailedInternal(
       break;
     case ErrorPageProcess::kNotErrorPage:
     case ErrorPageProcess::kPostCommitErrorPage:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 
   RenderFrameHostImpl* render_frame_host = nullptr;
@@ -5699,18 +5709,22 @@ void NavigationRequest::OnFailureChecksComplete(
   ErrorPageProcess old_error_page_process = ComputeErrorPageProcess();
   net_error_ = result.net_error_code();
 
+  // The new `net_error_` value may mean we want to cancel the navigation.
+  if (MaybeCancelFailedNavigation()) {
+    return;
+  }
+
   // FIXME: Should we clear out |extended_error_code_| here?
 
   // Ensure that WillFailRequest() isn't changing the error code in a way that
   // switches the destination process for the error page - see
   // https://crbug.com/817881.
+  // NOTE: The throttle may change the error code to cancel a navigation which
+  // could lead to a failure here, and therefore this must be done after
+  // `MaybeCancelFailedNavigation`.
   CHECK_EQ(old_error_page_process, ComputeErrorPageProcess())
       << " Unsupported error code change in WillFailRequest(): from "
       << old_net_error << " to " << net_error_;
-
-  // The new `net_error_` value may mean we want to cancel the navigation.
-  if (MaybeCancelFailedNavigation())
-    return;
 
   // The OnRequestFailedInternal() did not commit the error page as it
   // deferred to WillFailRequest(), which has called through to here, and
@@ -7317,7 +7331,7 @@ void NavigationRequest::OnNavigationEventProcessed(
       OnWillCommitWithoutUrlLoaderProcessed(result);
       return;
   }
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void NavigationRequest::OnWillStartRequestProcessed(
@@ -7550,7 +7564,7 @@ void NavigationRequest::CancelDeferredNavigationInternal(
       OnWillCommitWithoutUrlLoaderChecksComplete(result);
       return;
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
   // DO NOT ADD CODE AFTER THIS, as the NavigationRequest might have been
   // deleted by the previous calls.
@@ -8731,6 +8745,7 @@ bool NavigationRequest::IsInOutermostMainFrame() {
   switch (GetNavigatingFrameType()) {
     case FrameType::kPrimaryMainFrame:
     case FrameType::kPrerenderMainFrame:
+    case FrameType::kGuestMainFrame:
       return true;
     case FrameType::kSubframe:
     case FrameType::kFencedFrameRoot:
@@ -9192,6 +9207,9 @@ void NavigationRequest::SetSourceSiteInstanceToInitiatorIfNeeded() {
   if (source_site_instance_ || !RequiresInitiatorBasedSourceSiteInstance())
     return;
 
+  // TODO(crbug.com/349972037): Reconsider source SiteInstance usage. E.g. if
+  // the initiator is sandboxed, the source SiteInstance we get here isn't and
+  // they don't technically match.
   const auto tuple =
       common_params_->initiator_origin->GetTupleOrPrecursorTupleIfOpaque();
   source_site_instance_ = static_cast<SiteInstanceImpl*>(
@@ -9367,9 +9385,7 @@ bool NavigationRequest::CoopCoepSanityCheck() {
           network::mojom::CrossOriginOpenerPolicyValue::kSameOriginPlusCoep &&
       !CompatibleWithCrossOriginIsolated(
           policies.cross_origin_embedder_policy)) {
-    NOTREACHED_IN_MIGRATION();
-    base::debug::DumpWithoutCrashing();
-    return false;
+    NOTREACHED();
   }
   return true;
 }
@@ -9469,10 +9485,12 @@ NavigationRequest::BuildClientSecurityStateForNavigationFetch() {
     // [1] https://fetch.spec.whatwg.org/#concept-request-client
     //
     // The `kPrimaryMainFrame` case also covers guest views
-    // (https://crbug.com/1261928) since they do not use MPArch.
+    // (https://crbug.com/1261928) when the MPArch implementation is not being
+    // used.
     //
     // TODO(crbug.com/40258826): Determine how to treat guest views.
     case FrameType::kPrimaryMainFrame:
+    case FrameType::kGuestMainFrame:
     case FrameType::kSubframe: {
       if (!policy_container_builder_->InitiatorPolicies()) {
         return nullptr;
@@ -11035,10 +11053,28 @@ void NavigationRequest::SanitizeDocumentIsolationPolicyHeader() {
     return;
   }
 
-  // Set DocumentIsolationPolicy to its default value if the feature is not
-  // enabled.
-  if (!base::FeatureList::IsEnabled(
-          network::features::kDocumentIsolationPolicy)) {
+  // First check if the document we're navigating to can be used
+  // Document-Isolation-Policy. This is the case if the DocumentIsolationPolicy
+  // feature is enabled.
+  bool can_use_dip =
+      base::FeatureList::IsEnabled(network::features::kDocumentIsolationPolicy);
+
+  // If the Origin Trial for DocumentIsolationPolicy is
+  // enabled and the navigation has a valid Origin Trial token, the document can
+  // also use Document-Isolation-Policy.
+  if (base::FeatureList::IsEnabled(
+          features::kDocumentIsolationPolicyOriginTrial) &&
+      response_head_->headers.get()) {
+    bool has_valid_ot_token =
+        blink::TrialTokenValidator().RequestEnablesFeature(
+            GetURL(), response_head_->headers.get(), "DocumentIsolationPolicy",
+            base::Time::Now());
+    can_use_dip |= has_valid_ot_token;
+  }
+
+  // If the document cannot use DocumentIsolationPolicy, set its
+  // DocumentIsolationPolicy to its default value.
+  if (!can_use_dip) {
     response_head_->parsed_headers->document_isolation_policy =
         network::DocumentIsolationPolicy();
     return;

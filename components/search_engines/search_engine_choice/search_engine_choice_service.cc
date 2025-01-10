@@ -365,7 +365,8 @@ void SearchEngineChoiceService::RecordChoiceMade(
   }
 
   RecordChoiceScreenDefaultSearchProviderType(
-      GetDefaultSearchEngineType(CHECK_DEREF(template_url_service)));
+      GetDefaultSearchEngineType(CHECK_DEREF(template_url_service)),
+      choice_location);
   MarkSearchEngineChoiceCompleted(*profile_prefs_);
 }
 
@@ -423,7 +424,7 @@ void SearchEngineChoiceService::MaybeRecordChoiceScreenDisplayState(
                      : "no")
               : "no value");
 
-      NOTREACHED(base::NotFatalUntil::M132);
+      NOTREACHED(base::NotFatalUntil::M135);
       caller_trace_key.Clear();
     }
   }

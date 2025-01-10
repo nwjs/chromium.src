@@ -458,8 +458,6 @@ SigninViewController::ShowReauthPrompt(
       identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSignin);
 
   if (account_id != primary_account_id) {
-    signin_ui_util::RecordTransactionalReauthResult(
-        access_point, signin::ReauthResult::kAccountNotSignedIn);
     std::move(wrapped_reauth_callback)
         .Run(signin::ReauthResult::kAccountNotSignedIn);
     return abort_handle;
@@ -496,7 +494,7 @@ void SigninViewController::ShowModalManagedUserNoticeDialog(
           browser_, std::move(create_param)),
       GetOnModalDialogClosedCallback());
 #else
-  NOTREACHED_IN_MIGRATION() << "Managed user notice dialog modal not supported";
+  NOTREACHED() << "Managed user notice dialog modal not supported";
 #endif
 }
 
@@ -555,7 +553,7 @@ void SigninViewController::ShowDiceSigninTab(
 
     // Account consistency mode does not support signing in to Chrome due to
     // some other unexpected reason. Signing in to Chrome is not supported.
-    NOTREACHED_IN_MIGRATION()
+    NOTREACHED()
         << "OAuth client ID and client secret is configured, but "
            "the account consistency mode does not support signing in to "
            "Chromium.";

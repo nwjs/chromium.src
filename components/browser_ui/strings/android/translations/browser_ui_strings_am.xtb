@@ -4,13 +4,16 @@
 <translation id="1006017844123154345">መስመር ላይ ክፈት</translation>
 <translation id="1036348656032585052">አጥፋ</translation>
 <translation id="1044891598689252897">ጣቢያዎች እንደተለመደው ሆነው ይሠራሉ</translation>
+<translation id="1070329623210597193">ይህ ጣቢያ ማየት ወይም አርትዖት ማድረግ የሚችላቸው ፋይሎች</translation>
 <translation id="1073417869336441572">የሦስተኛ ወገን ኩኪዎችን ለምን እንደፈቀዱ ለእኛ በመንገር Chrome እንድናሻሽል ያግዙን። <ph name="BEGIN_LINK" />ግብረመልስ ይላኩ<ph name="END_LINK" /></translation>
+<translation id="1085696779717592361">በነባሪነት Chromeን ይጠቀሙ</translation>
 <translation id="1178581264944972037">ለአፍታ አቁም</translation>
 <translation id="1181037720776840403">አስወግድ</translation>
 <translation id="1192844206376121885">ይህ በ<ph name="ORIGIN" /> የተከማቹ ሁሉንም ውሂብ እና ኩኪዎች ይሰርዛል።</translation>
 <translation id="1201402288615127009">ቀጣይ</translation>
 <translation id="1240190568154816272">ጠቃሚ የChrome ምክሮች</translation>
 <translation id="1242008676835033345"><ph name="WEBSITE_URL" /> ላይ ተካትቷል</translation>
+<translation id="1263609676484797429">መተግበሪያዎች &gt; ነባሪ መተግበሪያዎች ላይ መታ ያድርጉ</translation>
 <translation id="1272079795634619415">አቁም</translation>
 <translation id="1289742167380433257">ውሂብ እንዲቆጥብልዎ የዚህ ገፅ ምስሎች በGoogle እንዲተቡ ተደርገዋል።</translation>
 <translation id="129382876167171263">በድር ጣቢያዎች የተቀመጡ ፋይሎች እዚህ ይታያሉ</translation>
@@ -65,6 +68,7 @@
 <translation id="2182457891543959921">ጣቢያዎች የዙሪያዎ የ3ል ካርታ እንዲፈጥሩ ወይም የካሜራ ቦታን እንዲከታተል ከመፍቀድ በፊት ጠይቅ (የሚመከር)</translation>
 <translation id="2185965788978862351">ይህ በጣቢያዎች ወይም በመነሻ ገፅዎ ላይ ባሉ መተግበሪያዎች የተከማቹ <ph name="DATASIZE" /> ውሂብ እና ኩኪዎችን ይሰርዛል።</translation>
 <translation id="2194856509914051091">ከግምት ውስጥ መግባት ያለባቸው ነገሮች</translation>
+<translation id="2215727959747642672">የፋይል አርትዖት አደራረግ</translation>
 <translation id="2228071138934252756">የእርስዎን ካሜራ <ph name="APP_NAME" /> እንዲደርስበት ለማድረግ፣ በ <ph name="BEGIN_LINK" />Android ቅንብሮች<ph name="END_LINK" /> ውስጥ ካሜራን በተጨማሪ ያብሩ።</translation>
 <translation id="2235344399760031203">የሦስተኛ ወገን ኩኪዎች ታግደዋል</translation>
 <translation id="2238944249568001759">በእርስዎ የመጨረሻ ትር ላይ በመመስረት የተጠቆሙ ፍለጋዎች</translation>
@@ -74,10 +78,8 @@
 <translation id="228293613124499805">እርስዎ የሚጎበኟቸው አብዛኞቹ ጣቢያዎች ምርጫዎችዎን ወይም እርስዎ ያጋሩትን መረጃ በጣቢያው ውስጥ በማስቀመጥ ብዙ ጊዜ የእርስዎን ተሞክሮ ለማሻሻል በመሣሪያዎ ላይ ውሂብን ሊያስቀምጡ ይችላሉ። ይህ ቅንብር እንደበራ እንዲቆይ እንመክራለን።</translation>
 <translation id="2289270750774289114">አንድ ጣቢያ በአቅራቢያ ያሉ ብሉቱዝ መሣሪያዎችን ፈልጎ ለማግኘት ሲፈልግ ጠይቅ (የሚመከር)</translation>
 <translation id="2315043854645842844">የደንበኛ ወገን ዕውቅና ማረጋገጫ ምርጫ በስርዓተ-ክወናው አይደገፍም።</translation>
-<translation id="2321958826496381788">ይህን በሚመች ሁኔታ ማንበብ እስኪችሉ ድረስ ተንሸራታቹን ይጎትቱት። በአንድ አንቀጽ ላይ ሁለቴ መታ ካደረጉ በኋላ ጽሁፍ ቢያንስ የዚህ ያህል ትልቀት ሊኖረው ይገባል።</translation>
 <translation id="2359808026110333948">ቀጥል</translation>
 <translation id="2379925928934107488">በሚቻልበት ጊዜ Chrome ጠቆር ያለ ገጽታ ሲጠቀም ጠቆር ያለ ገጽታን ጣቢያዎች ላይ ተግብር</translation>
-<translation id="2387895666653383613">የጽሑፍ ልኬት</translation>
 <translation id="2390272837142897736">ማጉላትን ጨምር</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> ሜባ</translation>
 <translation id="2404630663942400771">{PERMISSIONS_SUMMARY_ALLOWED,plural, =1{<ph name="PERMISSION_1" />፣ <ph name="PERMISSION_2" />፣ እና <ph name="NUM_MORE" /> ተጨማሪ ተፈቅደዋል}one{<ph name="PERMISSION_1" />፣ <ph name="PERMISSION_2" /> እና <ph name="NUM_MORE" /> ተጨማሪ ተፈቅደዋል}other{<ph name="PERMISSION_1" />፣ <ph name="PERMISSION_2" /> እና <ph name="NUM_MORE" /> ተጨማሪ ተፈቅደዋል}}</translation>
@@ -102,7 +104,6 @@
 <translation id="2621115761605608342">ጃቫስክሪፕትን ለአንድ የተወሰነ ጣቢያ ፍቀድ።</translation>
 <translation id="2653659639078652383">አስገባ</translation>
 <translation id="2677748264148917807">ለቅቀህ ውጣ</translation>
-<translation id="2678468611080193228">በጊዜያዊነት የሦስተኛ ወገን ኩኪዎችን ለመፍቀድ ይሞክሩ፣ ይህ ያነሰ ጥበቃ ነው ማለት ነው ነገር ግን የጣቢያ ባህሪያት የመሥራት ዕድላቸው ከፍተኛ ነው።</translation>
 <translation id="2682367912565197520">የተቀመጠ የማጉላት-ደረጃን ሰርዝ</translation>
 <translation id="2683434792633810741">ይሰረዝ እና ዳግም ይጀመር?</translation>
 <translation id="2713106313042589954">ካሜራ አጥፋ</translation>
@@ -154,7 +155,6 @@
 <translation id="3403537308306431953"><ph name="ZOOM_LEVEL" /> %%</translation>
 <translation id="344449859752187052">የሦስተኛ ወገን ኩኪዎች ታግደዋል</translation>
 <translation id="3448554387819310837">ሲበራ፣ ጣቢያዎች ካሜራዎን ለመጠቀም ሊጠይቁ ይችላሉ። ሲጠፋ፣ ጣቢያዎች ካሜራዎን መጠቀም አይችሉም።</translation>
-<translation id="3465378418721443318">{DAYS,plural, =1{Chrome ነገ እንደገና ኩኪዎችን ያግዳል}one{Chrome እንደገና ኩኪዎችን እስከሚያግድ ድረስ # ቀን}other{Chrome እንደገና ኩኪዎችን እስከሚያግድ ድረስ # ቀናት}}</translation>
 <translation id="3521663503435878242">ከ<ph name="DOMAIN" /> ስር ያሉ ጣቢያዎች</translation>
 <translation id="3523447078673133727">ጣቢያዎች እጆችዎን እንዲከታተሉ አይፍቀዱ</translation>
 <translation id="3536227077203206203">ለዚህ ጊዜ የሚፈቀድ</translation>
@@ -170,6 +170,7 @@
 <translation id="3669841141196828854">{COUNT,plural, =1{በ<ph name="RWS_OWNER" /> ጣቢያ ቡድን ውስጥ በቡድኑ ውስጥ ያለዎትን እንቅስቃሴ የሚመለከት <ph name="RWS_MEMBERS_COUNT" /> ጣቢያ}one{በ<ph name="RWS_OWNER" /> ጣቢያ ቡድን ውስጥ በቡድኑ ውስጥ ያለዎትን እንቅስቃሴ የሚመለከት <ph name="RWS_MEMBERS_COUNT" /> ጣቢያ}other{በ<ph name="RWS_OWNER" /> ጣቢያዎች ቡድን ውስጥ በቡድኑ ውስጥ ያለዎትን እንቅስቃሴ የሚመለከቱ <ph name="RWS_MEMBERS_COUNT" /> ጣቢያዎች}}</translation>
 <translation id="3697164069658504920">ሲበራ፣ ጣቢያዎች የUSB መሳሪያዎችን ለመጠቀም ሊጠይቁ ይችላሉ። ሲጠፋ፣ ጣቢያዎች የUSB መሳሪያዎችን መጠቀም አይችሉም።</translation>
 <translation id="3707034683772193706">እርስዎ የሚጎበኙት ጣቢያ በዋነኛነት እርስዎ ቦት አለመሆንዎን ለማረጋገጥ በChrome ትንሽ መጠን ያለው መረጃ ሊያስቀምጥ ይችላል</translation>
+<translation id="3709818294139939629">የተወገደ የጣቢያው የፋይል መዳረሻ</translation>
 <translation id="3721953990244350188">ያሰናብቱ እና የሚገኘውን ቀጣይ ያሳዩ</translation>
 <translation id="3744111561329211289">የዳራ ስምረት</translation>
 <translation id="3763247130972274048">10 ሴ ለመዝለል ቪዲዮ ወደ ግራ ወይም ቀኝ ላይ ሁለቴ መታ ያድርጉ</translation>
@@ -188,6 +189,7 @@
 <translation id="3908288065506437185">በማንነትን የማያሳውቅ ሁነታ ውስጥ የሦስተኛ ወገን ኩኪዎችን ያግዱ</translation>
 <translation id="3913461097001554748"><ph name="DOMAIN_URL" /> <ph name="SEPARATOR1" /> <ph name="DEVICE_NAME" /></translation>
 <translation id="3918378745482005425">አንዳንድ ባህሪያት ላይሰሩ ይችላሉ። የተገናኙ ጣቢያዎች አሁንም የሦስተኛ ወገን ኩኪዎችን መጠቀም ይችላሉ።</translation>
+<translation id="3922092564198021702">በስልክዎ ላይ ቅንብሮችን ይክፈቱ</translation>
 <translation id="3933121352599513978">ያልተፈለጉ ጥያቄዎችን ሰብስብ (የሚመከር)</translation>
 <translation id="3955193568934677022">ጥበቃ የሚደረግበትን ይዘት እንዲያጫውቱ ለጣቢያዎች ፍቀድ (የሚመከር)</translation>
 <translation id="3967822245660637423">ማውረድ ተጠናቅቋል</translation>
@@ -331,6 +333,7 @@
 <translation id="6042308850641462728">ተጨማሪ</translation>
 <translation id="6064125863973209585">የተጠናቀቁ ማውረዶች</translation>
 <translation id="6071501408666570960">ከዚህ ጣቢያ ዘግተው እንዲወጡ ሊደረጉ ይችላሉ</translation>
+<translation id="6085954183010297841">ፋይል አርትዖት የማድረግ ፈቃድ ይሰረዝ? <ph name="FILE" /></translation>
 <translation id="6120483543004435978">ሲበራ፣ ጣቢያዎች መሳሪያዎን በንቃት ሲጠቀሙ ለማወቅ መጠየቅ ይችላሉ። ሲጠፋ፣ ጣቢያዎች መሳሪያዎን በንቃት ሲጠቀሙ ማወቅ አይችሉም።</translation>
 <translation id="6140839633433422817">እርግጠኛ ነዎት ፈቃዶችን ዳግም ማስጀመር እና ኩኪዎችን እና የጣቢያ ውሂብን መሰረዝ ይፈልጋሉ?</translation>
 <translation id="6165508094623778733">የበለጠ ለመረዳት</translation>
@@ -345,6 +348,7 @@
 <translation id="6205314730813004066">የማስታወቂያ ግላዊነት</translation>
 <translation id="6207207788774442484">ውሂብ ሰርዝ እና ፈቃዶችን ዳግም አስጀምር</translation>
 <translation id="6231752747840485235">«<ph name="APP_NAME" />» ይራገፍ?</translation>
+<translation id="6234351944623978659">የአሳሽ መተግበሪያ &gt; Chrome ላይ መታ ያድርጉ</translation>
 <translation id="6262191102408817757">በእርስዎ የመጨረሻ ትር ላይ በመመስረት</translation>
 <translation id="6262279340360821358"><ph name="PERMISSION_1" /> እና <ph name="PERMISSION_2" /> ታግደዋል</translation>
 <translation id="6270391203985052864">ጣቢያዎች ማሳወቂያዎችን ለመላክ መጠየቅ ይችላሉ</translation>
@@ -429,6 +433,7 @@
 <translation id="7425915948813553151">ለጣቢያዎች ጠቆር ያለ ገጽታ</translation>
 <translation id="7521387064766892559">ጃቫስክሪፕት</translation>
 <translation id="7547989957535180761">ሲበራ፣ ጣቢያዎች የመግባት ጥያቄዎችን ሊያሳዩ ይችላሉ። ሲጠፋ፣ ጣቢያዎች የመግባት ጥያቄዎችን ማሳየት አይችሉም።</translation>
+<translation id="7553211568594248088">ከማዕከል ፍለጋ ውጣ</translation>
 <translation id="7554752735887601236">አንድ ጣቢያ የእርስዎን ማይክሮፎን እየተጠቀመ ነው</translation>
 <translation id="7561196759112975576">ሁልጊዜ</translation>
 <translation id="757524316907819857">ጣቢያዎች ጥበቃ የሚደረግለትን ይዘት እንዳያጫውቱ ያግዱ</translation>
@@ -437,7 +442,6 @@
 <translation id="7649070708921625228">እገዛ</translation>
 <translation id="7658239707568436148">ይቅር</translation>
 <translation id="7667547420449112975">አስደናቂው የኦዝ ምትሃተኛ</translation>
-<translation id="7684642910516280563">አንድ ጣቢያ የሦስተኛ ወገን ኩኪዎችን እንዲጠቀም አይፍቀዱ</translation>
 <translation id="7688240020069572972">የChrome ጠቃሚ ምክሮች ካርድ</translation>
 <translation id="7719367874908701697">ገፅ አጉላ</translation>
 <translation id="7759147511335618829">የMIDI መሣሪያ ቁጥጥር እና ዳግም ፕሮግራም</translation>
@@ -471,6 +475,7 @@
 <translation id="813082847718468539">የጣቢያ መረጃን ይመልከቱ</translation>
 <translation id="8131740175452115882">አረጋግጥ</translation>
 <translation id="8168435359814927499">ይዘት</translation>
+<translation id="818487310457576362">ከሙሉ ገፅ ዕይታ ለመውጣት ከማያ ገፁ ጎን ላይ ይጎትቱ።</translation>
 <translation id="8186479265534291036">ጣቢያው እየሰራ አይደለም? የሦስተኛ ወገን ኩኪዎች ታግደዋል</translation>
 <translation id="8197286292360124385"><ph name="PERMISSION_1" /> ተፈቅዷል</translation>
 <translation id="8200772114523450471">ከቆመበት ቀጥል</translation>
@@ -500,6 +505,7 @@
 <translation id="851751545965956758">ጣቢያዎች ከመሣሪያዎች ጋር እንዳይገናኙ አግድ</translation>
 <translation id="8525306231823319788">ሙሉ ማያ ገፅ</translation>
 <translation id="8541410041357371550">ይህ ጣቢያ ይበልጥ አግባብነት ያላቸው ማስታወቂያዎችን ለእርስዎ ለማሳየት የእርስዎን የማስታወቂያ ርዕሶች ከChrome ያገኛል</translation>
+<translation id="8558480467877843976">አሁን በሚያስሱበት ወይም በመልዕክቶች ውስጥ አገናኞችን መታ በሚያደርጉበት በማንኛውም ጊዜ Chromeን እና ሌሎች መተግበሪያዎችን መጠቀም ይችላሉ።</translation>
 <translation id="857943718398505171">ተፈቅዷል (የሚመከር)</translation>
 <translation id="8609465669617005112">ወደላይ አውጣ</translation>
 <translation id="8617611086246832542">ሲበራ፣ የድር ጣቢያዎች የዴስክቶፕ እይታ ይታያል። ሲጠፋ፣ የድር ጣቢያዎች የሞባይል እይታ ይታያል።</translation>
@@ -526,6 +532,7 @@
 <translation id="8899807382908246773">ጣልቃ ገቢ ማስታወቂያዎች</translation>
 <translation id="8903921497873541725">አጉላ</translation>
 <translation id="8921772741368021346"><ph name="POSITION" /> / <ph name="DURATION" /></translation>
+<translation id="8926389886865778422">ደግመው አይጠይቁ</translation>
 <translation id="8926666909099850184">NFC ለዚህ መሣሪያ ጠፍቷል። በ<ph name="BEGIN_LINK" />Android ቅንበሮች<ph name="END_LINK" /> ውስጥ ያብሩት።</translation>
 <translation id="8928445016601307354">ጣቢያዎች በኤንኤፍሲ መሣሪያዎች ላይ መረጃን እንዳያዩ እና እንዳይቀይሩ ያግዱ</translation>
 <translation id="8944485226638699751">የተወሰነ</translation>

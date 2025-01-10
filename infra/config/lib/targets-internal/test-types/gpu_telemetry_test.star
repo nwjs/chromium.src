@@ -55,7 +55,6 @@ def _gpu_telemetry_test_spec_finalize(builder_name, test_name, settings, spec_va
     # stderr goes nowhere on CrOS) AND --log-level=0 is required for some reason
     # in order to see JavaScript console messages. See
     # https://chromium.googlesource.com/chromium/src.git/+/HEAD/docs/chrome_os_logging.md
-    # TODO: crbug.com/40258588 - Handle log level for CrOS
     if settings.is_cros:
         extra_browser_args.append("--log-level=0")
     elif not settings.is_fuchsia or browser_config != "fuchsia-chrome":
@@ -67,8 +66,14 @@ def _gpu_telemetry_test_spec_finalize(builder_name, test_name, settings, spec_va
     # reproduce GC-related bugs in the V8 bindings.
     extra_browser_args.append("--js-flags=--expose-gc")
 
+    telemetry_test_name = spec_value["telemetry_test_name"]
+    if not telemetry_test_name:
+        telemetry_test_name = test_name
+        if "variant_id" in spec_value:
+            telemetry_test_name = telemetry_test_name[:-(len(spec_value["variant_id"]) + 1)]
+
     spec_value["args"] = args_lib.listify(
-        spec_value["telemetry_test_name"] or test_name,
+        telemetry_test_name,
         "--show-stdout",
         "--browser={}".format(browser_config),
         # --passthrough displays more of the logging in Telemetry when run via

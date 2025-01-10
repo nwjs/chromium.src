@@ -17,14 +17,12 @@ import "chromeos/crosapi/mojom/authentication.mojom";
 import "chromeos/crosapi/mojom/automation.mojom";
 import "chromeos/crosapi/mojom/browser_app_instance_registry.mojom";
 import "chromeos/crosapi/mojom/browser_service.mojom";
-import "chromeos/crosapi/mojom/browser_version.mojom";
 import "chromeos/crosapi/mojom/guest_os_sk_forwarder.mojom";
 import "chromeos/crosapi/mojom/cec_private.mojom";
 import "chromeos/crosapi/mojom/cert_database.mojom";
 import "chromeos/crosapi/mojom/cert_provisioning.mojom";
 import "chromeos/crosapi/mojom/chaps_service.mojom";
 import "chromeos/crosapi/mojom/chrome_app_kiosk_service.mojom";
-import "chromeos/crosapi/mojom/clipboard.mojom";
 import "chromeos/crosapi/mojom/clipboard_history.mojom";
 import "chromeos/crosapi/mojom/content_protection.mojom";
 import "chromeos/crosapi/mojom/cros_display_config.mojom";
@@ -48,7 +46,6 @@ import "chromeos/crosapi/mojom/editor_panel.mojom";
 import "chromeos/crosapi/mojom/emoji_picker.mojom";
 import "chromeos/crosapi/mojom/extension_info_private.mojom";
 import "chromeos/crosapi/mojom/extension_keeplist.mojom";
-import "chromeos/crosapi/mojom/extension_printer.mojom";
 import "chromeos/crosapi/mojom/eye_dropper.mojom";
 import "chromeos/crosapi/mojom/field_trial.mojom";
 import "chromeos/crosapi/mojom/file_change_service_bridge.mojom";
@@ -74,12 +71,10 @@ import "chromeos/crosapi/mojom/login_screen_storage.mojom";
 import "chromeos/crosapi/mojom/login_state.mojom";
 import "chromeos/crosapi/mojom/policy_namespace.mojom";
 import "chromeos/crosapi/mojom/policy_service.mojom";
-import "chromeos/crosapi/mojom/message_center.mojom";
 import "chromeos/crosapi/mojom/magic_boost.mojom";
 import "chromeos/crosapi/mojom/mahi.mojom";
 import "chromeos/crosapi/mojom/media_app.mojom";
 import "chromeos/crosapi/mojom/metrics.mojom";
-import "chromeos/crosapi/mojom/metrics_reporting.mojom";
 import "chromeos/crosapi/mojom/multi_capture_service.mojom";
 import "chromeos/crosapi/mojom/native_theme.mojom";
 import "chromeos/crosapi/mojom/network_change.mojom";
@@ -110,7 +105,6 @@ import "chromeos/crosapi/mojom/task_manager.mojom";
 import "chromeos/crosapi/mojom/telemetry_diagnostic_routine_service.mojom";
 import "chromeos/crosapi/mojom/telemetry_event_service.mojom";
 import "chromeos/crosapi/mojom/telemetry_management_service.mojom";
-import "chromeos/crosapi/mojom/test_controller.mojom";
 import "chromeos/crosapi/mojom/timezone.mojom";
 import "chromeos/crosapi/mojom/trusted_vault.mojom";
 import "chromeos/crosapi/mojom/url_handler.mojom";
@@ -126,7 +120,6 @@ import "chromeos/crosapi/mojom/vpn_extension_observer.mojom";
 import "chromeos/crosapi/mojom/wallpaper.mojom";
 import "chromeos/crosapi/mojom/web_app_service.mojom";
 import "chromeos/crosapi/mojom/web_kiosk_service.mojom";
-import "chromeos/crosapi/mojom/web_page_info.mojom";
 import "chromeos/crosapi/mojom/media_ui.mojom";
 import "mojo/public/mojom/base/big_string.mojom";
 import "mojo/public/mojom/base/file_path.mojom";
@@ -210,12 +203,7 @@ interface Crosapi {
   [MinVersion=50] BindBrowserAppInstanceRegistry@54(
       pending_receiver<BrowserAppInstanceRegistry> receiver);
 
-  // Binds the BrowserVersionService interface for getting browser version
-  // information.
-  // Added in M95.
-  [MinVersion=45]
-  BindBrowserVersionService@50(
-      pending_receiver<BrowserVersionService> receiver);
+  // BindBrowserVersionService@50 was removed.
 
   // Binds the BrowserServiceHost interface to prepare registering
   // a BrowserService to crosapi.
@@ -281,9 +269,7 @@ interface Crosapi {
   [MinVersion=44]
   BindChromeAppWindowTracker@49(pending_receiver<AppWindowTracker> receiver);
 
-  // Bind the clipboard interface to allow lacros-chrome to interact with the
-  // system clipboard.
-  [MinVersion=10] BindClipboard@15(pending_receiver<Clipboard> receiver);
+  // BindClipboard@15 was removed.
 
   // Bind the ClipboardHistory interface to allow lacros-chrome to show
   // ClipboardHistory.
@@ -398,11 +384,6 @@ interface Crosapi {
   // to get and set system properties. Implemented in Ash.
   [MinVersion=72] BindExtensionInfoPrivate@75(
       pending_receiver<ExtensionInfoPrivate> receiver);
-
-  // Binds the ExtensionPrinterService which gives ash access to lacros
-  // extension printers.
-  [MinVersion=139] BindExtensionPrinterService@141(
-      pending_receiver<ExtensionPrinterService> receiver);
 
   // Deprecated in M114; use chromeos::FirewallHole directly.
   [MinVersion=101] REMOVED_105@105(
@@ -554,10 +535,6 @@ interface Crosapi {
   // Added in M113.
   [MinVersion=105] BindMediaUI@108(pending_receiver<MediaUI> receiver);
 
-  // Binds the MessageCenter interface for showing notification messages.
-  // Added in M86.
-  BindMessageCenter@3(pending_receiver<MessageCenter> receiver);
-
   // Binds the NativeThemeService interface for reading native theme changes.
   // Added in M93.
   [MinVersion=33]
@@ -568,11 +545,6 @@ interface Crosapi {
   // Added in M110.
   [MinVersion=102]
   BindMetrics@106(pending_receiver<Metrics> receiver);
-
-  // Binds the MetricsReporting interface for metrics reporting consent.
-  // Added in M89.
-  [MinVersion=8]
-  BindMetricsReporting@13(pending_receiver<MetricsReporting> receiver);
 
   // Binds the MultiCaptureService interface that handles multi capture related
   // usage indicators and notifications.
@@ -816,10 +788,7 @@ interface Crosapi {
   [MinVersion=93] BindTelemetryProbeService@97(
       pending_receiver<crosapi.mojom.TelemetryProbeService> receiver);
 
-  // Binds the test controller service, which tests can use to mutate ash. This
-  // is not available on production devices.
-  [MinVersion=9] BindTestController@14(
-      pending_receiver<TestController> receiver);
+  // BindTestController@14 was removed.
 
   // Binds the TimeZoneService which notifies system timezone change.
   // Added in M99.
@@ -883,11 +852,7 @@ interface Crosapi {
   [MinVersion=79] BindVpnService@82(
       pending_receiver<VpnService> receiver);
 
-  // Binds the web page info factory interface which allows ash to request web
-  // page info from Lacros.
-  // Added in M93.
-  [MinVersion=34]
-  BindWebPageInfoFactory@39(pending_receiver<WebPageInfoFactory> receiver);
+  // BindWebPageInfoFactory@39 was removed.
 
   // Binds the web app publisher service to allow web app publishing from
   // lacros-chrome to the App Service in ash-chrome.
@@ -910,10 +875,7 @@ interface Crosapi {
   [MinVersion=121] BindGuestOsSkForwarderFactory@123(
       pending_receiver<GuestOsSkForwarderFactory> receiver);
 
-  // Passes generic browser information such as version, etc into ash in
-  // |browser_info| during startup.
-  // Added in M87.
-  [MinVersion=3] OnBrowserStartup@6(BrowserInfo browser_info);
+  // OnBrowserStartup@6 was removed.
 
   // Binds the service containing input method related functionality such
   // as changing the keyboard input language.
@@ -1551,13 +1513,13 @@ struct BrowserInitParams {
 
   // Tells if PDF OCR feature is enabled.
   [MinVersion=64]
-  bool is_pdf_ocr_enabled@64;
+  bool REMOVED_64@64;
 
-  // If true, the DriveFsBulkPinning flag and it's accompanying feature
-  // management flag has been enabled.
+  // If true, the DriveFsBulkPinning feature management flag has been enabled.
   [MinVersion=65, RenamedFrom="is_drivefs_bulk_pinning_enabled"]
   bool is_drivefs_bulk_pinning_available@65;
 
+  // Deprecated, always true since M132
   // Tell lacros whether the device is available to enable Floss.
   [MinVersion=66]
   bool is_floss_available@66;
@@ -1572,6 +1534,7 @@ struct BrowserInitParams {
   [MinVersion=68]
   bool is_cros_battery_saver_available@68;
 
+  // Deprecated, always false since M132
   // Tells lacros whether to check Floss availability of the machine. The check
   // is used to block Floss from enabling if the machine is indicated
   // unavailable.
@@ -1611,6 +1574,7 @@ struct BrowserInitParams {
   [MinVersion=76]
   uint64 limited_entropy_synthetic_trial_seed@76;
 
+  // Deprecated.
   // If true, captive portal signin windows are opened as a popup window.
   [MinVersion=77]
   bool is_captive_portal_popup_window_enabled@77;

@@ -43,14 +43,16 @@ static_library("on_task") {
     "//chrome/browser/ui/ash/system_web_apps",
     "//chrome/browser/ui/tabs:tab_strip",
     "//chromeos/ash/components/boca",
-    "//chromeos/ash/components/boca:activity",
     "//chromeos/ash/components/boca/on_task",
+    "//chromeos/ash/components/boca/on_task:activity",
     "//chromeos/ash/components/browser_context_helper",
+    "//chromeos/strings:strings_grit",
     "//components/keyed_service/content",
     "//components/policy/core/browser",
     "//components/policy/core/common",
     "//components/prefs",
     "//components/sessions",
+    "//components/user_manager",
     "//components/user_prefs",
     "//extensions/browser",
     "//ui/base",
@@ -80,7 +82,9 @@ source_set("unit_tests") {
     "//chrome/browser/extensions",
     "//chrome/browser/profiles:profile",
     "//chrome/test:test_support",
-    "//chromeos/ash/components/boca:activity",
+    "//chromeos/ash/components/boca:boca",
+    "//chromeos/ash/components/boca/on_task",
+    "//chromeos/ash/components/boca/on_task:activity",
     "//content/test:test_support",
   ]
 }
@@ -91,15 +95,19 @@ source_set("browser_tests") {
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
   sources = [
+    "on_task_locked_session_navigation_throttle_browsertest.cc",
     "on_task_locked_session_window_tracker_browsertest.cc",
     "on_task_system_web_app_manager_impl_browsertest.cc",
   ]
 
   deps = [
     ":on_task",
+    "//ash/webui/boca_ui",
     "//base/test:test_support",
+    "//chrome/browser/ash/boca",
     "//chrome/browser/ui/ash/system_web_apps",
     "//chrome/test:test_support",
     "//chromeos/ash/components/boca/on_task",
+    "//chromeos/ash/components/boca/proto",
   ]
 }

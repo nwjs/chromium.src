@@ -23,6 +23,7 @@
 #include "chrome/browser/ash/file_manager/documents_provider_root_manager.h"
 #include "chrome/browser/ash/file_manager/fusebox_daemon.h"
 #include "chrome/browser/ash/file_manager/io_task_controller.h"
+#include "chrome/browser/ash/file_manager/trash_auto_cleanup.h"
 #include "chrome/browser/ash/file_manager/volume.h"
 #include "chrome/browser/ash/file_system_provider/observer.h"
 #include "chrome/browser/ash/file_system_provider/service.h"
@@ -131,7 +132,7 @@ class VolumeManager
 
   // Add sftp Guest OS volume mounted at `sftp_mount_path`. Note: volume must be
   // removed on unmount (including Guest OS shutdown).
-  void AddSftpGuestOsVolume(const std::string display_name,
+  void AddSftpGuestOsVolume(std::string display_name,
                             const base::FilePath& sftp_mount_path,
                             const base::FilePath& remote_mount_path,
                             const guest_os::VmType vm_type);
@@ -381,6 +382,10 @@ class VolumeManager
   // Removes My Files after SkyVault migration completes successufully.
   void OnMigrationSucceeded() override;
 
+  // Resets the local folders state in case migration previously completed
+  // thus removing all local volumes.
+  void OnMigrationReset() override;
+
   static int counter_;
   const int id_ = ++counter_;  // Only used in log traces
 
@@ -399,6 +404,7 @@ class VolumeManager
   std::unique_ptr<DocumentsProviderRootManager>
       documents_provider_root_manager_;
   io_task::IOTaskController io_task_controller_;
+  std::unique_ptr<trash::TrashAutoCleanup> trash_auto_cleanup_;
   // TODO(b/328006921): Replace with a check if the volumes are mounted.
   bool arc_volumes_mounted_ = false;
   bool ignore_clipboard_changed_ = false;

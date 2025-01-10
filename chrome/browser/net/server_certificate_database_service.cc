@@ -46,32 +46,23 @@ void ServerCertificateDatabaseService::AddOrUpdateUserCertificate(
   server_cert_database_
       .AsyncCall(&net::ServerCertificateDatabase::InsertOrUpdateCert)
       .WithArgs(std::move(cert_info))
-      .Then(std::move(callback));
+      .Then(base::BindOnce(
+          &ServerCertificateDatabaseService::HandleModificationResult,
+          weak_factory_.GetWeakPtr(), std::move(callback)));
 }
 
 void ServerCertificateDatabaseService::GetAllCertificates(
     base::OnceCallback<
         void(std::vector<net::ServerCertificateDatabase::CertInformation>)>
         callback) {
-  server_cert_database_
-      .AsyncCall(&net::ServerCertificateDatabase::RetrieveAllCertificates)
-      .Then(std::move(callback));
-}
-
 #if BUILDFLAG(IS_CHROMEOS)
-void ServerCertificateDatabaseService::
-    GetAllCertificatesMigrateFromNSSFirstIfNeeded(
-        base::OnceCallback<
-            void(std::vector<net::ServerCertificateDatabase::CertInformation>)>
-            callback) {
+  // Migrate certificates from NSS and then read all certificates from the
+  // database. Migration will only be done once per profile. If called multiple
+  // times before migration completes, all the callbacks will be queued and
+  // processed once the migration is done.
   if (profile_->GetPrefs()->GetInteger(
-          prefs::kNSSCertsMigratedToServerCertDb) !=
+          prefs::kNSSCertsMigratedToServerCertDb) ==
       static_cast<int>(NSSMigrationResultPref::kNotMigrated)) {
-    DVLOG(1) << "Migration already done, starting GetAllCertificates";
-    // If the NSS certs are already migrated, just get the certs from the DB
-    // immediately..
-    GetAllCertificates(std::move(callback));
-  } else {
     if (!nss_migrator_) {
       DVLOG(1) << "starting migration for profile "
                << profile_->GetPath().AsUTF8Unsafe();
@@ -85,9 +76,16 @@ void ServerCertificateDatabaseService::
     }
     DVLOG(1) << "queuing migration request";
     get_certificates_pending_migration_.push_back(std::move(callback));
+    return;
   }
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
+  server_cert_database_
+      .AsyncCall(&net::ServerCertificateDatabase::RetrieveAllCertificates)
+      .Then(std::move(callback));
 }
 
+#if BUILDFLAG(IS_CHROMEOS)
 void ServerCertificateDatabaseService::NSSMigrationComplete(
     ServerCertificateDatabaseNSSMigrator::MigrationResult result) {
   DVLOG(1) << "Migration for " << profile_->GetPath().AsUTF8Unsafe()
@@ -130,6 +128,38 @@ void ServerCertificateDatabaseService::NSSMigrationComplete(
 void ServerCertificateDatabaseService::PostTaskWithDatabase(
     base::OnceCallback<void(net::ServerCertificateDatabase*)> callback) {
   server_cert_database_.PostTaskWithThisObject(std::move(callback));
+}
+
+void ServerCertificateDatabaseService::GetCertificatesCount(
+    base::OnceCallback<void(uint32_t)> callback) {
+  server_cert_database_
+      .AsyncCall(&net::ServerCertificateDatabase::RetrieveCertificatesCount)
+      .Then(std::move(callback));
+}
+
+void ServerCertificateDatabaseService::DeleteCertificate(
+    const std::string& sha256hash_hex,
+    base::OnceCallback<void(bool)> callback) {
+  server_cert_database_
+      .AsyncCall(&net::ServerCertificateDatabase::DeleteCertificate)
+      .WithArgs(sha256hash_hex)
+      .Then(base::BindOnce(
+          &ServerCertificateDatabaseService::HandleModificationResult,
+          weak_factory_.GetWeakPtr(), std::move(callback)));
+}
+
+base::CallbackListSubscription ServerCertificateDatabaseService::AddObserver(
+    base::RepeatingClosure callback) {
+  return observers_.Add(std::move(callback));
+}
+
+void ServerCertificateDatabaseService::HandleModificationResult(
+    base::OnceCallback<void(bool)> callback,
+    bool success) {
+  std::move(callback).Run(success);
+  if (success) {
+    observers_.Notify();
+  }
 }
 
 }  // namespace net

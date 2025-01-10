@@ -21,6 +21,7 @@
 #include "ash/webui/common/trusted_types_util.h"
 #include "ash/webui/graduation/graduation_ui_handler.h"
 #include "ash/webui/graduation/mojom/graduation_ui.mojom.h"
+#include "ash/webui/graduation/webview_auth_handler.h"
 #include "ash/webui/grit/ash_graduation_resources.h"
 #include "ash/webui/grit/ash_graduation_resources_map.h"
 #include "base/containers/span.h"
@@ -39,15 +40,24 @@ namespace ash::graduation {
 
 namespace {
 const std::string GetTransferUrl() {
-  const std::string language_code =
-      ash::graduation::GraduationManager::Get()->GetLanguageCode();
+  const std::string language_code = GraduationManager::Get()->GetLanguageCode();
 
-  const GURL transfer_url_base(kTransferURLBase);
+  std::string url_base;
+  // TODO(crbug.com/376690096): Clean up feature flag when the new
+  // endpoint is launched.
+  if (features::IsGraduationUseEmbeddedTransferEndpointEnabled()) {
+    url_base = kEmbeddedTransferURLBase;
+  } else {
+    url_base = kTransferURLBase;
+  }
+  const GURL transfer_url_base(url_base);
+
   GURL::Replacements replacements;
   const std::string query_string =
       base::StringPrintf("hl=%s", language_code.c_str());
   replacements.SetQueryStr(query_string);
   const GURL transfer_url = transfer_url_base.ReplaceComponents(replacements);
+
   CHECK(transfer_url.is_valid())
       << "Invalid URL for Takeout Transfer tool: \"" << transfer_url << "\"";
   return transfer_url.spec();
@@ -58,6 +68,7 @@ void AddResources(content::WebUIDataSource* source) {
   source->AddResourcePaths(
       base::make_span(kAshGraduationResources, kAshGraduationResourcesSize));
   static constexpr webui::LocalizedString kLocalizedStrings[] = {
+      {"appTitle", IDS_GRADUATION_APP_TITLE},
       {"backButtonLabel", IDS_GRADUATION_APP_BACK_BUTTON_LABEL},
       {"doneButtonLabel", IDS_GRADUATION_APP_DONE_BUTTON_LABEL},
       {"getStartedButtonLabel", IDS_GRADUATION_APP_GET_STARTED_BUTTON_LABEL},
@@ -73,7 +84,11 @@ void AddResources(content::WebUIDataSource* source) {
 
   source->AddLocalizedStrings(kLocalizedStrings);
 
-  source->AddString("webviewUrl", GetTransferUrl());
+  source->AddBoolean(
+      "isEmbeddedEndpointEnabled",
+      features::IsGraduationUseEmbeddedTransferEndpointEnabled());
+
+  source->AddString("startTransferUrl", GetTransferUrl());
 
   // Set up test resources used in browser tests.
   source->AddResourcePath("test_loader.html", IDR_WEBUI_TEST_LOADER_HTML);
@@ -85,7 +100,7 @@ void AddResources(content::WebUIDataSource* source) {
 
 bool GraduationUIConfig::IsWebUIEnabled(
     content::BrowserContext* browser_context) {
-  return features::IsGraduationEnabled() &&
+  return features::IsGraduationEnabled() && Shell::HasInstance() &&
          IsEligibleForGraduation(Shell::Get()
                                      ->session_controller()
                                      ->GetLastActiveUserPrefService());
@@ -115,7 +130,14 @@ GraduationUI::~GraduationUI() = default;
 
 void GraduationUI::BindInterface(
     mojo::PendingReceiver<graduation_ui::mojom::GraduationUiHandler> receiver) {
-  ui_handler_ = std::make_unique<GraduationUiHandler>(std::move(receiver));
+  content::BrowserContext* context =
+      web_ui()->GetWebContents()->GetBrowserContext();
+  CHECK(context);
+  const std::string host_name =
+      web_ui()->GetWebContents()->GetVisibleURL().host();
+  auto auth_handler = std::make_unique<WebviewAuthHandler>(context, host_name);
+  ui_handler_ = std::make_unique<GraduationUiHandler>(std::move(receiver),
+                                                      std::move(auth_handler));
 }
 
 void GraduationUI::BindInterface(

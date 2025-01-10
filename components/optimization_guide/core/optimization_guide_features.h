@@ -82,7 +82,17 @@ BASE_DECLARE_FEATURE(kOnDeviceModelValidation);
 #if !BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 BASE_DECLARE_FEATURE(kAiSettingsPageRefresh);
+
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+extern const base::FeatureParam<bool> kShowAiSettingsForTesting;
 #endif
+
+// Comma-separated list of performance classes (e.g. "3,4,5") that should
+// download the base model. Use "*" if there is no performance class
+// requirement.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+extern const base::FeatureParam<std::string>
+    kPerformanceClassListForOnDeviceModel;
 
 typedef base::EnumSet<proto::RequestContext,
                       proto::RequestContext_MIN,
@@ -396,30 +406,19 @@ uint32_t GetOnDeviceModelMaxTokens();
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 int GetOnDeviceModelCrashCountBeforeDisable();
 
-// Returns the number of sessions that timed out before the on-device model
-// won't be used.
+// Feature params for handling exponential backoff after crashes.
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-int GetOnDeviceModelTimeoutCountBeforeDisable();
+base::TimeDelta GetOnDeviceModelMaxCrashBackoffTime();
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+base::TimeDelta GetOnDeviceModelCrashBackoffBaseTime();
 
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 base::TimeDelta GetOnDeviceStartupMetricDelay();
-
-// Returns the amount of time before the initial response needs to be received
-// from the on-device model before falling back to the server.
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-base::TimeDelta GetOnDeviceModelTimeForInitialResponse();
 
 // Returns true if during execution a disconnect is received (which generally
 // means a crash) the message should be sent to the server for processing.
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 bool GetOnDeviceFallbackToServerOnDisconnect();
-
-// Returns whether the performance class is compatible with executing the
-// on-device model. Used to determine whether or not to fetch the on-device
-// model.
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-bool IsPerformanceClassCompatibleWithOnDeviceModel(
-    OnDeviceModelPerformanceClass performance_class);
 
 // Whether any features are enabled that allow launching the on-device
 // service.

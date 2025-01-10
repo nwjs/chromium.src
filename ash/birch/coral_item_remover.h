@@ -8,7 +8,6 @@
 #include <set>
 
 #include "ash/ash_export.h"
-#include "ash/public/cpp/coral_util.h"
 #include "chromeos/ash/services/coral/public/mojom/coral_service.mojom.h"
 
 namespace ash {
@@ -23,15 +22,15 @@ class ASH_EXPORT CoralItemRemover {
   CoralItemRemover& operator=(const CoralItemRemover&) = delete;
   ~CoralItemRemover();
 
-  // Records the coral::mojom::EntityKey to be removed for the current session.
-  void RemoveItem(const coral::mojom::EntityKey& key);
-
-  // Records the coral::mojom::EntityKeyPtr to be removed for the current
+  // Records the coral::mojom::EntityPtr to be removed for the current
   // session.
-  void RemoveItem(const coral::mojom::EntityKeyPtr& key);
+  void RemoveItem(const coral::mojom::EntityPtr& item);
 
   // Records the coral::mojom::Entity to be removed for the current session.
   void RemoveItem(const coral::mojom::Entity& item);
+
+  // Records the identifier to be removed for the current session.
+  void RemoveItem(const std::string& item_identifier);
 
   // Erases from the ContentItem list any items which have been removed by the
   // user. The list is mutated in place.

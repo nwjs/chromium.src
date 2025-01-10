@@ -116,10 +116,10 @@ ManagedUserProfileNoticeHandler::ManagedUserProfileNoticeHandler(
       account_id_(create_param->account_info.account_id),
       done_callback_(std::move(create_param->done_callback)),
       retry_callback_(std::move(create_param->retry_callback)) {
-  if (std::holds_alternative<signin::SigninChoiceWithConfirmationCallback>(
+  if (std::holds_alternative<signin::SigninChoiceWithConfirmAndRetryCallback>(
           create_param->process_user_choice_callback)) {
     process_user_choice_with_confirmation_callback_ =
-        std::move(std::get<signin::SigninChoiceWithConfirmationCallback>(
+        std::move(std::get<signin::SigninChoiceWithConfirmAndRetryCallback>(
             create_param->process_user_choice_callback));
     CHECK(process_user_choice_with_confirmation_callback_);
   }
@@ -129,7 +129,8 @@ ManagedUserProfileNoticeHandler::ManagedUserProfileNoticeHandler(
         create_param->process_user_choice_callback));
     process_user_choice_with_confirmation_callback_ = base::BindOnce(
         [](signin::SigninChoiceCallback callback, signin::SigninChoice choice,
-           signin::SigninChoiceOperationDoneCallback done) {
+           signin::SigninChoiceOperationDoneCallback done,
+           signin::SigninChoiceOperationRetryCallback) {
           std::move(callback).Run(choice);
           std::move(done).Run(
               signin::SigninChoiceOperationResult::SIGNIN_SILENT_SUCCESS);
@@ -242,7 +243,12 @@ void ManagedUserProfileNoticeHandler::HandleProceed(
   int state = args[0].GetIfInt().value_or(0);
   CHECK_NE(state, ManagedUserProfileNoticeHandler::State::kProcessing)
       << "User should not be able to click the proceed button while processing";
-  if (state == ManagedUserProfileNoticeHandler::State::kValueProposition &&
+
+  bool is_consumer_domain =
+      enterprise_util::IsKnownConsumerDomain(domain_name_);
+
+  if (!is_consumer_domain &&
+      state == ManagedUserProfileNoticeHandler::State::kValueProposition &&
       IsJavascriptAllowed()) {
     FireWebUIListener("on-state-changed",
                       ManagedUserProfileNoticeHandler::State::kDisclosure);
@@ -250,17 +256,21 @@ void ManagedUserProfileNoticeHandler::HandleProceed(
   }
 
 #if !BUILDFLAG(IS_CHROMEOS)
-  if (show_link_data_option_ &&
-      state == ManagedUserProfileNoticeHandler::State::kDisclosure &&
-      IsJavascriptAllowed() && UseMultiscreen()) {
-    FireWebUIListener(
-        "on-state-changed",
-        ManagedUserProfileNoticeHandler::State::kUserDataHandling);
-    return;
+  if (show_link_data_option_ && IsJavascriptAllowed() && UseMultiscreen()) {
+    if ((is_consumer_domain &&
+         state == ManagedUserProfileNoticeHandler::State::kValueProposition) ||
+        (!is_consumer_domain &&
+         state == ManagedUserProfileNoticeHandler::State::kDisclosure)) {
+      FireWebUIListener(
+          "on-state-changed",
+          ManagedUserProfileNoticeHandler::State::kUserDataHandling);
+      return;
+    }
   }
 #endif
   if (process_user_choice_with_confirmation_callback_ &&
-      state == ManagedUserProfileNoticeHandler::State::kDisclosure &&
+      (state == ManagedUserProfileNoticeHandler::State::kDisclosure ||
+       state == ManagedUserProfileNoticeHandler::State::kTimeout) &&
       IsJavascriptAllowed()) {
     if (type_ == ManagedUserProfileNoticeUI::ScreenType::kEnterpriseOIDC) {
       processing_timer_.Start(
@@ -275,11 +285,25 @@ void ManagedUserProfileNoticeHandler::HandleProceed(
 
   if (process_user_choice_with_confirmation_callback_) {
     std::move(process_user_choice_with_confirmation_callback_)
-        .Run(result, base::BindOnce(
-                         &ManagedUserProfileNoticeHandler::OnUserChoiceHandled,
-                         weak_ptr_factory_.GetWeakPtr()));
+        .Run(result,
+             base::BindOnce(
+                 &ManagedUserProfileNoticeHandler::OnUserChoiceHandled,
+                 weak_ptr_factory_.GetWeakPtr()),
+             base::BindRepeating(
+                 &ManagedUserProfileNoticeHandler::OnUserChoiceHandled,
+                 weak_ptr_factory_.GetWeakPtr()));
     return;
   }
+
+  if (retry_callback_ &&
+      state == ManagedUserProfileNoticeHandler::State::kTimeout &&
+      IsJavascriptAllowed()) {
+    FireWebUIListener("on-state-changed",
+                      ManagedUserProfileNoticeHandler::State::kProcessing);
+    retry_callback_.Run();
+    return;
+  }
+
   if (done_callback_) {
     DisallowJavascript();
     std::move(done_callback_).Run();
@@ -298,7 +322,8 @@ void ManagedUserProfileNoticeHandler::HandleCancel(
   auto done_callback = std::move(done_callback_);
   if (process_user_choice_with_confirmation_callback_) {
     std::move(process_user_choice_with_confirmation_callback_)
-        .Run(signin::SIGNIN_CHOICE_CANCEL, base::DoNothing());
+        .Run(signin::SIGNIN_CHOICE_CANCEL, base::DoNothing(),
+             base::DoNothing());
   }
   if (done_callback) {
     std::move(done_callback).Run();
@@ -524,9 +549,13 @@ void ManagedUserProfileNoticeHandler::CallProceedCallbackForTesting(
     signin::SigninChoice choice) {
   if (process_user_choice_with_confirmation_callback_) {
     std::move(process_user_choice_with_confirmation_callback_)
-        .Run(choice, base::BindOnce(
-                         &ManagedUserProfileNoticeHandler::OnUserChoiceHandled,
-                         weak_ptr_factory_.GetWeakPtr()));
+        .Run(choice,
+             base::BindOnce(
+                 &ManagedUserProfileNoticeHandler::OnUserChoiceHandled,
+                 weak_ptr_factory_.GetWeakPtr()),
+             base::BindRepeating(
+                 &ManagedUserProfileNoticeHandler::OnUserChoiceHandled,
+                 weak_ptr_factory_.GetWeakPtr()));
   }
 }
 

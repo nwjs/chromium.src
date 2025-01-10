@@ -30,7 +30,6 @@ import static org.mockito.Mockito.verify;
 
 import static org.chromium.base.test.util.Restriction.RESTRICTION_TYPE_LOW_END_DEVICE;
 import static org.chromium.base.test.util.Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE;
-import static org.chromium.chrome.browser.flags.ChromeFeatureList.TAB_GROUP_PARITY_ANDROID;
 import static org.chromium.ui.test.util.MockitoHelper.doCallback;
 
 import android.content.Intent;
@@ -72,7 +71,6 @@ import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features;
-import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.base.test.util.Restriction;
@@ -90,14 +88,12 @@ import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationManager.ConfirmationResult;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.ButtonType;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.IconPosition;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.ShowMode;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.TabActionState;
 import org.chromium.chrome.browser.ui.desktop_windowing.AppHeaderCoordinator;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
-import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -108,6 +104,8 @@ import org.chromium.chrome.test.util.BookmarkTestUtil;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
+import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgePadAdjuster;
+import org.chromium.components.browser_ui.widget.ActionConfirmationResult;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -122,16 +120,9 @@ import java.util.Map;
 
 /** End-to-end test for the selectable TabListEditor. */
 @RunWith(ChromeJUnit4ClassRunner.class)
-@CommandLineFlags.Add({
-    ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE,
-    "force-fieldtrials=Study/Group",
-    "force-fieldtrial-params=Study.Group:enable_launch_polish/true"
-})
-@DisableFeatures({TAB_GROUP_PARITY_ANDROID})
+@CommandLineFlags.Add(ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE)
 @Batch(Batch.PER_CLASS)
 public class SelectableTabListEditorTest {
-    private static final String TAB_GROUP_LAUNCH_POLISH_PARAMS =
-            "force-fieldtrial-params=Study.Group:enable_launch_polish/true";
     private static final String PAGE_WITH_HTTPS_CANONICAL_URL =
             "/chrome/test/data/android/share/link_share_https_canonical.html";
     private static final String PAGE_WITH_HTTP_CANONICAL_URL =
@@ -214,7 +205,7 @@ public class SelectableTabListEditorTest {
                                     sActivityTestRule
                                             .getActivity()
                                             .getRootUiCoordinatorForTesting()
-                                            .getDesktopWindowStateProvider();
+                                            .getDesktopWindowStateManager();
                     mEdgeToEdgeSupplier = new ObservableSupplierImpl<>();
                     mTabListEditorCoordinator =
                             new TabListEditorCoordinator(
@@ -246,7 +237,9 @@ public class SelectableTabListEditorTest {
         Callback<Callback<Integer>> immediateContinue =
                 (Callback<Integer> callback) ->
                         ThreadUtils.runOnUiThreadBlocking(
-                                () -> callback.onResult(ConfirmationResult.IMMEDIATE_CONTINUE));
+                                () ->
+                                        callback.onResult(
+                                                ActionConfirmationResult.IMMEDIATE_CONTINUE));
         doCallback(1, immediateContinue)
                 .when(mActionConfirmationManager)
                 .processCloseTabAttempt(any(), any());

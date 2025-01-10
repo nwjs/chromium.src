@@ -17,9 +17,19 @@ BASE_FEATURE(kDetectInconsistentPageImpl,
              "DetectInconsistentPageImpl",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enable parsing and using K-Anonymity features for B&A.
+BASE_FEATURE(kEnableBandAKAnonEnforcement,
+             "EnableBandAKAnonEnforcement",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enable parsing private aggregation contributions from B&A response.
 BASE_FEATURE(kEnableBandAPrivateAggregation,
              "EnableBandAPrivateAggregation",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enable deals support from B&A response.
+BASE_FEATURE(kEnableBandADealSupport,
+             "EnableBandADealSupport",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable parsing forDebuggingOnly reports from B&A response, for down sampling.
@@ -38,9 +48,9 @@ BASE_FEATURE(kEnableIFrameAdAuctionHeaders,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable the user agent header in auction requests to be overridden.
-BASE_FEATURE(kFledgeEnableUserAgentAndClientHints,
-             "FledgeEnableUserAgentAndClientHints",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kFledgeEnableUserAgentOverrides,
+             "FledgeEnableUserAgentOverrides",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable write ahead logging for interest group storage.
 BASE_FEATURE(kFledgeEnableWALForInterestGroupStorage,
@@ -73,6 +83,14 @@ BASE_FEATURE_PARAM(base::TimeDelta,
 BASE_FEATURE(kFledgeStoreBandAKeysInDB,
              "FledgeStoreBandAKeysInDB",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables using a cache in the browser process for FLEDGE KVv2 fetches. The
+// fetches are also initiated by and managed in the browser process. This
+// feature also requires blink::features::kFledgeTrustedSignalsKVv2Support to
+// also be enabled for KVv2 to be enabled.
+BASE_FEATURE(kFledgeUseKVv2SignalsCache,
+             "kFledgeUseKVv2SignalsCache",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables preconnecting to interest group owner origins and a bidding signals
 // URL origin at the start of an auction.

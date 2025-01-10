@@ -1082,6 +1082,11 @@ void FrameSinkManagerImpl::OnScreenshotCaptured(
                                 std::move(copy_output_result));
 }
 
+bool FrameSinkManagerImpl::IsFrameSinkIdInRootSinkMap(
+    const FrameSinkId& frame_sink_id) {
+  return root_sink_map_.find(frame_sink_id) != root_sink_map_.end();
+}
+
 gpu::SharedImageInterface* FrameSinkManagerImpl::GetSharedImageInterface() {
   DCHECK(shared_image_interface_provider_);
   return shared_image_interface_provider_->GetSharedImageInterface();
@@ -1173,6 +1178,14 @@ void FrameSinkManagerImpl::EnableFrameSinkManagerTestApi(
     mojo::PendingReceiver<mojom::FrameSinkManagerTestApi> receiver) {
   CHECK(!test_api_receiver_.is_bound());
   test_api_receiver_.Bind(std::move(receiver));
+}
+
+void FrameSinkManagerImpl::SetupRenderInputRouterDelegateConnection(
+    uint32_t grouping_id,
+    mojo::PendingRemote<input::mojom::RenderInputRouterDelegateClient>
+        rir_delegate_client_remote) {
+  input_manager_->SetupRenderInputRouterDelegateConnection(
+      grouping_id, std::move(rir_delegate_client_remote));
 }
 
 void FrameSinkManagerImpl::RequestBeginFrameForGpuService(bool toggle) {

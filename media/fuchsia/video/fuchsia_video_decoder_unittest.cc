@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/memory/raw_ptr.h"
+
 #ifdef UNSAFE_BUFFERS_BUILD
 // TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
 #pragma allow_unsafe_buffers
@@ -188,7 +190,7 @@ class FakeClientNativePixmap : public gfx::ClientNativePixmap {
 
   // gfx::ClientNativePixmap implementation.
   bool Map() override { NOTREACHED(); }
-  void Unmap() override { NOTREACHED_IN_MIGRATION(); }
+  void Unmap() override { NOTREACHED(); }
   size_t GetNumberOfPlanes() const override { NOTREACHED(); }
   void* GetMemoryAddress(size_t plane) const override { NOTREACHED(); }
   int GetStride(size_t plane) const override { NOTREACHED(); }
@@ -332,7 +334,7 @@ class FuchsiaVideoDecoderTest : public testing::Test {
   size_t num_output_frames_ = 0;
 
   DecoderStatus last_decode_status_;
-  base::RunLoop* run_loop_ = nullptr;
+  raw_ptr<base::RunLoop> run_loop_ = nullptr;
 
   // Number of frames that OnVideoFrame() should keep in |output_frames_|.
   size_t frames_to_keep_ = 2;

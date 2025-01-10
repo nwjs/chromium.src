@@ -26,6 +26,7 @@ class BatchUploadDelegate {
   virtual void ShowBatchUploadDialog(
       Browser* browser,
       std::vector<syncer::LocalDataDescription> local_data_descriptions_list,
+      BatchUploadService::EntryPoint entry_point,
       BatchUploadSelectedDataTypeItemsCallback complete_callback) = 0;
 };
 

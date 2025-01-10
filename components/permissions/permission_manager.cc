@@ -231,7 +231,7 @@ void PermissionManager::RequestPermissionsInternal(
   std::vector<ContentSettingsType> permissions;
   base::ranges::transform(request_description.permissions,
                           back_inserter(permissions),
-                          PermissionUtil::PermissionTypeToContentSettingType);
+                          PermissionUtil::PermissionTypeToContentSettingsType);
 
   base::OnceCallback<void(const std::vector<ContentSetting>&)> callback =
       base::BindOnce(&PermissionStatusVectorCallbackWrapper,
@@ -282,7 +282,7 @@ void PermissionManager::ResetPermission(PermissionType permission,
                                         const GURL& embedding_origin) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   ContentSettingsType type =
-      PermissionUtil::PermissionTypeToContentSettingType(permission);
+      PermissionUtil::PermissionTypeToContentSettingsType(permission);
   PermissionContextBase* context = GetPermissionContext(type);
   if (!context)
     return;
@@ -309,7 +309,7 @@ PermissionStatus PermissionManager::GetPermissionStatus(
   // GetPermissionStatusForPermissionsAPI.
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   return GetPermissionStatusInternal(
-             PermissionUtil::PermissionTypeToContentSettingType(permission),
+             PermissionUtil::PermissionTypeToContentSettingsType(permission),
              /*render_process_host=*/nullptr,
              /*render_frame_host=*/nullptr, requesting_origin, embedding_origin,
              /*should_include_device_status=*/false)
@@ -323,7 +323,7 @@ PermissionManager::GetPermissionResultForOriginWithoutContext(
     const url::Origin& embedding_origin) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   return GetPermissionStatusInternal(
-      PermissionUtil::PermissionTypeToContentSettingType(permission),
+      PermissionUtil::PermissionTypeToContentSettingsType(permission),
       /*render_process_host=*/nullptr,
       /*render_frame_host=*/nullptr, requesting_origin.GetURL(),
       embedding_origin.GetURL(), /*should_include_device_status=*/false);
@@ -345,7 +345,7 @@ PermissionManager::GetPermissionResultForCurrentDocument(
     bool should_include_device_status) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   ContentSettingsType type =
-      PermissionUtil::PermissionTypeToContentSettingType(permission);
+      PermissionUtil::PermissionTypeToContentSettingsType(permission);
 
   const GURL requesting_origin =
       PermissionUtil::GetLastCommittedOriginAsURL(render_frame_host);
@@ -364,7 +364,7 @@ PermissionStatus PermissionManager::GetPermissionStatusForWorker(
     const GURL& worker_origin) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   ContentSettingsType type =
-      PermissionUtil::PermissionTypeToContentSettingType(permission);
+      PermissionUtil::PermissionTypeToContentSettingsType(permission);
   return GetPermissionStatusInternal(type, render_process_host,
                                      /*render_frame_host=*/nullptr,
                                      worker_origin, worker_origin,
@@ -378,7 +378,7 @@ PermissionStatus PermissionManager::GetPermissionStatusForEmbeddedRequester(
     const url::Origin& requesting_origin) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   ContentSettingsType type =
-      PermissionUtil::PermissionTypeToContentSettingType(permission);
+      PermissionUtil::PermissionTypeToContentSettingsType(permission);
 
   const GURL embedding_origin =
       GetEmbeddingOrigin(render_frame_host, requesting_origin.GetURL());
@@ -395,7 +395,7 @@ bool PermissionManager::IsPermissionOverridable(
     PermissionType permission,
     const std::optional<url::Origin>& origin) {
   ContentSettingsType type =
-      PermissionUtil::PermissionTypeToContentSettingTypeSafe(permission);
+      PermissionUtil::PermissionTypeToContentSettingsTypeSafe(permission);
   PermissionContextBase* context = GetPermissionContext(type);
 
   if (!context || context->IsPermissionKillSwitchOn())
@@ -419,7 +419,7 @@ void PermissionManager::OnPermissionStatusChangeSubscriptionAdded(
     return;
   }
   ContentSettingsType content_type =
-      PermissionUtil::PermissionTypeToContentSettingType(
+      PermissionUtil::PermissionTypeToContentSettingsType(
           subscription->permission);
   auto& type_count = subscription_type_counts_[content_type];
   if (type_count == 0) {
@@ -471,8 +471,9 @@ void PermissionManager::UnsubscribeFromPermissionStatusChange(
   if (!subscription)
     return;
 
-  ContentSettingsType type = PermissionUtil::PermissionTypeToContentSettingType(
-      subscription->permission);
+  ContentSettingsType type =
+      PermissionUtil::PermissionTypeToContentSettingsType(
+          subscription->permission);
   auto type_count = subscription_type_counts_.find(type);
   CHECK(type_count != subscription_type_counts_.end());
   // type_count is zero only in the tests that we are directly calling
@@ -539,7 +540,7 @@ void PermissionManager::OnPermissionChanged(
       continue;
     }
     if (!content_type_set.Contains(
-            PermissionUtil::PermissionTypeToContentSettingType(
+            PermissionUtil::PermissionTypeToContentSettingsType(
                 subscription->permission))) {
       continue;
     }
@@ -567,7 +568,7 @@ void PermissionManager::OnPermissionChanged(
                   subscription->render_process_id);
 
     content::PermissionResult new_value = GetPermissionStatusInternal(
-        PermissionUtil::PermissionTypeToContentSettingType(
+        PermissionUtil::PermissionTypeToContentSettingsType(
             subscription->permission),
         rph, rfh, subscription->requesting_origin_delegation, embedding_origin,
         subscription->should_include_device_status);

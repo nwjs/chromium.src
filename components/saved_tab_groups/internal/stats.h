@@ -7,11 +7,16 @@
 
 #include <stddef.h>
 
+#include <unordered_set>
+
+#include "base/uuid.h"
 #include "components/saved_tab_groups/public/types.h"
 
 namespace tab_groups {
 
 class SavedTabGroupModel;
+class SavedTabGroup;
+class SavedTabGroupTab;
 class TabGroupVisualData;
 
 namespace stats {
@@ -43,6 +48,20 @@ enum class MigrationResult {
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/tab/enums.xml:SavedTabGroupSyncBridge.MigrationResult)
 
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(SharedTabGroupDataLoadFromDiskResult)
+enum class SharedTabGroupDataLoadFromDiskResult {
+  kSuccess = 0,
+  kFailedToParse = 1,
+  kUnexpectedGuid = 2,
+  kMissingCollaborationId = 3,
+  kMissingGroupAndTab = 4,
+
+  kMaxValue = kMissingGroupAndTab,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/tab/enums.xml:SharedTabGroupDataLoadFromDiskResult)
+
 // Records metrics about the state of model such as the number of saved groups,
 // the number of tabs in each group, and more.
 // Only used for desktop code that uses SavedTabGroupKeyedService. Soon to be
@@ -70,6 +89,32 @@ void RecordParsedSavedTabGroupDataCount(int parsed_entries_count,
 // Records metrics related to tab group creation dialog.
 void RecordTabGroupVisualsMetrics(
     const tab_groups::TabGroupVisualData* visual_data);
+
+// Records the result of loading SharedTabGroupData from disk.
+void RecordSharedTabGroupDataLoadFromDiskResult(
+    SharedTabGroupDataLoadFromDiskResult result);
+
+void RecordEmptyGroupsMetricsOnLoad(
+    const std::vector<SavedTabGroup>& all_groups,
+    const std::vector<SavedTabGroupTab>& all_tabs,
+    const std::unordered_set<base::Uuid, base::UuidHash>&
+        groups_with_filtered_tabs);
+
+// Records whether the group is currently empty when it is added to the
+// SavedTabGroupModel.
+void RecordEmptyGroupsMetricsOnGroupAddedLocally(const SavedTabGroup& group,
+                                                 bool model_is_loaded);
+void RecordEmptyGroupsMetricsOnGroupAddedFromSync(const SavedTabGroup& group,
+                                                  bool model_is_loaded);
+
+// Records whether the group is currently empty, before the tab is added to the
+// SavedTabGroupModel. The tab must not be in the group yet.
+void RecordEmptyGroupsMetricsOnTabAddedLocally(const SavedTabGroup& group,
+                                               const SavedTabGroupTab& tab,
+                                               bool model_is_loaded);
+void RecordEmptyGroupsMetricsOnTabAddedFromSync(const SavedTabGroup& group,
+                                                const SavedTabGroupTab& tab,
+                                                bool model_is_loaded);
 
 }  // namespace stats
 }  // namespace tab_groups

@@ -124,21 +124,13 @@ SyncPrefs::SyncPrefs(PrefService* pref_service)
       prefs::internal::kSelectedTypesPerAccount,
       base::BindRepeating(&SyncPrefs::OnSelectedTypesPrefChanged,
                           base::Unretained(this)));
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  // On ChromeOS-Lacros, syncing of apps is determined by a special
-  // Ash-controlled pref.
-  pref_change_registrar_.Add(
-      prefs::internal::kSyncAppsEnabledByOs,
-      base::BindRepeating(&SyncPrefs::OnSelectedTypesPrefChanged,
-                          base::Unretained(this)));
-#endif
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
   pref_initial_sync_feature_setup_complete_.Init(
       prefs::internal::kSyncInitialSyncFeatureSetupComplete, pref_service_,
       base::BindRepeating(&SyncPrefs::OnFirstSetupCompletePrefChange,
                           base::Unretained(this)));
-#endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 }
 
 SyncPrefs::~SyncPrefs() {
@@ -154,7 +146,7 @@ void SyncPrefs::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   for (UserSelectableType type : UserSelectableTypeSet::All()) {
     RegisterTypeSelectedPref(registry, type);
   }
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   registry->RegisterBooleanPref(prefs::internal::kSyncDisabledViaDashboard,
                                 false);
   registry->RegisterBooleanPref(prefs::internal::kSyncAllOsTypes, true);
@@ -162,14 +154,10 @@ void SyncPrefs::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(prefs::internal::kSyncOsPreferences, false);
   registry->RegisterBooleanPref(prefs::internal::kSyncWifiConfigurations,
                                 false);
-#else   // BUILDFLAG(IS_CHROMEOS_ASH)
+#else   // BUILDFLAG(IS_CHROMEOS)
   registry->RegisterBooleanPref(
       prefs::internal::kSyncInitialSyncFeatureSetupComplete, false);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  registry->RegisterBooleanPref(prefs::internal::kSyncAppsEnabledByOs, false);
-#endif
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   registry->RegisterBooleanPref(kObsoleteAutofillWalletImportEnabledMigrated,
                                 false);
@@ -232,19 +220,19 @@ void SyncPrefs::RemoveObserver(SyncPrefObserver* sync_pref_observer) {
 
 bool SyncPrefs::IsInitialSyncFeatureSetupComplete() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   return true;
-#else   // BUILDFLAG(IS_CHROMEOS_ASH)
+#else   // BUILDFLAG(IS_CHROMEOS)
   return pref_service_->GetBoolean(
       prefs::internal::kSyncInitialSyncFeatureSetupComplete);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
 bool SyncPrefs::IsExplicitBrowserSignin() const {
   return pref_service_->GetBoolean(::prefs::kExplicitBrowserSignin);
 }
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
 void SyncPrefs::SetInitialSyncFeatureSetupComplete() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   pref_service_->SetBoolean(
@@ -256,7 +244,7 @@ void SyncPrefs::ClearInitialSyncFeatureSetupComplete() {
   pref_service_->ClearPref(
       prefs::internal::kSyncInitialSyncFeatureSetupComplete);
 }
-#endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 bool SyncPrefs::HasKeepEverythingSynced() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -482,7 +470,7 @@ void SyncPrefs::KeepAccountSettingsPrefsOnlyForUsers(
                                                           available_gaia_ids);
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 bool SyncPrefs::IsSyncFeatureDisabledViaDashboard() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return pref_service_->GetBoolean(prefs::internal::kSyncDisabledViaDashboard);
@@ -563,8 +551,7 @@ const char* SyncPrefs::GetPrefNameForOsType(UserSelectableOsType type) {
     case UserSelectableOsType::kOsWifiConfigurations:
       return prefs::internal::kSyncWifiConfigurations;
   }
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 // static
@@ -574,20 +561,7 @@ void SyncPrefs::SetOsTypeDisabledByPolicy(PrefValueMap* policy_prefs,
   CHECK(pref_name);
   policy_prefs->SetValue(pref_name, base::Value(false));
 }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-bool SyncPrefs::IsAppsSyncEnabledByOs() const {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return pref_service_->GetBoolean(prefs::internal::kSyncAppsEnabledByOs);
-}
-
-void SyncPrefs::SetAppsSyncEnabledByOs(bool apps_sync_enabled) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  pref_service_->SetBoolean(prefs::internal::kSyncAppsEnabledByOs,
-                            apps_sync_enabled);
-}
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 bool SyncPrefs::IsSyncClientDisabledByPolicy() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -717,8 +691,7 @@ const char* SyncPrefs::GetPrefNameForType(UserSelectableType type) {
     case UserSelectableType::kCookies:
       return prefs::internal::kSyncCookies;
   }
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 // static
@@ -752,15 +725,7 @@ bool SyncPrefs::IsTypeSupportedInTransportMode(UserSelectableType type) {
       return base::FeatureList::IsEnabled(kReplaceSyncPromosWithSignInPromos) &&
              base::FeatureList::IsEnabled(kEnablePreferencesAccountStorage);
     case UserSelectableType::kPasswords:
-      // WARNING: This should actually be checking
-      // password_manager::features_util::CanCreateAccountStore() too, otherwise
-      // a crash can happen. But a) it would require a cyclic dependency, and
-      // b) by the time kEnablePasswordsAccountStorageForNonSyncingUsers is
-      // rolled out on Android, CanCreateAccountStore() should always return
-      // true (or at least it can be some trivial GmsCore version check and live
-      // in components/sync/).
-      return base::FeatureList::IsEnabled(
-          kEnablePasswordsAccountStorageForNonSyncingUsers);
+      return true;
     case UserSelectableType::kAutofill:
       return base::FeatureList::IsEnabled(
           kSyncEnableContactInfoDataTypeInTransportMode);
@@ -809,7 +774,7 @@ void SyncPrefs::OnSelectedTypesPrefChanged(const std::string& pref_name) {
   }
 }
 
-#if !BUILDFLAG(IS_CHROMEOS_ASH)
+#if !BUILDFLAG(IS_CHROMEOS)
 void SyncPrefs::OnFirstSetupCompletePrefChange() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   for (SyncPrefObserver& observer : sync_pref_observers_) {
@@ -817,7 +782,7 @@ void SyncPrefs::OnFirstSetupCompletePrefChange() {
         *pref_initial_sync_feature_setup_complete_);
   }
 }
-#endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 // static
 void SyncPrefs::RegisterTypeSelectedPref(PrefRegistrySimple* registry,

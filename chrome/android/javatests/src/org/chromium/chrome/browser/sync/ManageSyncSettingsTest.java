@@ -104,6 +104,8 @@ import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.util.ActivityTestUtils;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
+import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
+import org.chromium.chrome.test.util.browser.signin.SigninTestUtil;
 import org.chromium.chrome.test.util.browser.sync.SyncTestUtil;
 import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
@@ -111,6 +113,7 @@ import org.chromium.components.policy.test.annotations.Policies;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
+import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.components.sync.DataType;
 import org.chromium.components.sync.LocalDataDescription;
 import org.chromium.components.sync.SyncFeatureMap;
@@ -283,6 +286,7 @@ public class ManageSyncSettingsTest {
                 new HashSet<>(
                         Arrays.asList(
                                 ManageSyncSettings.PREF_ACCOUNT_SECTION_PAYMENTS_TOGGLE,
+                                ManageSyncSettings.PREF_ACCOUNT_SECTION_PASSWORDS_TOGGLE,
                                 ManageSyncSettings.PREF_ACCOUNT_SECTION_SETTINGS_TOGGLE));
         if (SyncFeatureMap.isEnabled(SyncFeatureMap.SYNC_ENABLE_BOOKMARKS_IN_TRANSPORT_MODE)) {
             expectedEnabledTypes.add(ManageSyncSettings.PREF_ACCOUNT_SECTION_BOOKMARKS_TOGGLE);
@@ -290,10 +294,6 @@ public class ManageSyncSettingsTest {
         if (ChromeFeatureList.isEnabled(
                 ChromeFeatureList.READING_LIST_ENABLE_SYNC_TRANSPORT_MODE_UPON_SIGNIN)) {
             expectedEnabledTypes.add(ManageSyncSettings.PREF_ACCOUNT_SECTION_READING_LIST_TOGGLE);
-        }
-        if (ChromeFeatureList.isEnabled(
-                ChromeFeatureList.ENABLE_PASSWORDS_ACCOUNT_STORAGE_FOR_NON_SYNCING_USERS)) {
-            expectedEnabledTypes.add(ManageSyncSettings.PREF_ACCOUNT_SECTION_PASSWORDS_TOGGLE);
         }
         if (ChromeFeatureList.isEnabled(
                 ChromeFeatureList.SYNC_ENABLE_CONTACT_INFO_DATA_TYPE_IN_TRANSPORT_MODE)) {
@@ -369,6 +369,45 @@ public class ManageSyncSettingsTest {
         onView(withText("Addresses and more"))
                 .check(matches(hasSibling(withText(R.string.managed_by_your_organization))));
         onView(withText("Payment methods, offers, and addresses using Google Pay"))
+                .check(matches(hasSibling(withText(R.string.managed_by_your_organization))));
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"Sync"})
+    @Policies.Add({
+        @Policies.Item(key = "SyncTypesListDisabled", string = "[\"bookmarks\", \"passwords\"]")
+    })
+    @EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
+    public void testSignInWithManagedDataTypes() {
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+        ManageSyncSettings fragment = startManageSyncPreferences();
+
+        Map<Integer, ChromeSwitchPreference> dataTypes = getAccountDataTypes(fragment);
+        // When one or more sync types are managed, the respective preference should be disabled and
+        // not checked, while all other preferences should be user selectable.
+        for (ChromeSwitchPreference dataType : dataTypes.values()) {
+            // Filter the history switch, since it's currently not enabled by default.
+            if (dataType.getKey().equals(ManageSyncSettings.PREF_ACCOUNT_SECTION_HISTORY_TOGGLE)) {
+                continue;
+            }
+            boolean shouldBeEnabled =
+                    !dataType.getKey()
+                                    .equals(
+                                            ManageSyncSettings
+                                                    .PREF_ACCOUNT_SECTION_BOOKMARKS_TOGGLE)
+                            && !dataType.getKey()
+                                    .equals(
+                                            ManageSyncSettings
+                                                    .PREF_ACCOUNT_SECTION_PASSWORDS_TOGGLE);
+            Assert.assertEquals(dataType.isChecked(), shouldBeEnabled);
+            Assert.assertEquals(dataType.isEnabled(), shouldBeEnabled);
+        }
+
+        // Check that the preference shows the managed text.
+        onView(withText(R.string.account_section_bookmarks_toggle))
+                .check(matches(hasSibling(withText(R.string.managed_by_your_organization))));
+        onView(withText(R.string.account_section_passwords_toggle))
                 .check(matches(hasSibling(withText(R.string.managed_by_your_organization))));
     }
 
@@ -460,6 +499,101 @@ public class ManageSyncSettingsTest {
     @LargeTest
     @Feature({"Sync"})
     @EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
+    public void testHistoryOptInDoNotCarryOverFromOneUserToAnother() {
+        mSyncTestRule.getSigninTestRule().addAccountThenSignin(TestAccounts.ACCOUNT1);
+
+        ManageSyncSettings fragment = startManageSyncPreferences();
+
+        ChromeSwitchPreference history_and_tabs_toggle =
+                (ChromeSwitchPreference)
+                        fragment.findPreference(
+                                ManageSyncSettings.PREF_ACCOUNT_SECTION_HISTORY_TOGGLE);
+        mSyncTestRule.togglePreference(history_and_tabs_toggle);
+        Assert.assertTrue(history_and_tabs_toggle.isChecked());
+
+        mSyncTestRule.signOut();
+
+        // Add a different account, and open the sync settings to check that history opt-in did not
+        // carry over from one user to another.
+        mSyncTestRule.getSigninTestRule().addAccountThenSignin(TestAccounts.ACCOUNT2);
+
+        fragment = startManageSyncPreferences();
+
+        history_and_tabs_toggle =
+                (ChromeSwitchPreference)
+                        fragment.findPreference(
+                                ManageSyncSettings.PREF_ACCOUNT_SECTION_HISTORY_TOGGLE);
+        Assert.assertFalse(history_and_tabs_toggle.isChecked());
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync"})
+    @EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
+    public void testRemoveAccountFromDeviceShouldClearSyncPrefs() {
+        SigninTestRule signinTestRule = mSyncTestRule.getSigninTestRule();
+        signinTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
+
+        ManageSyncSettings fragment = startManageSyncPreferences();
+
+        ChromeSwitchPreference passwords_toggle =
+                (ChromeSwitchPreference)
+                        fragment.findPreference(
+                                ManageSyncSettings.PREF_ACCOUNT_SECTION_PASSWORDS_TOGGLE);
+        mSyncTestRule.togglePreference(passwords_toggle);
+        Assert.assertFalse(passwords_toggle.isChecked());
+
+        mSyncTestRule.signOut();
+        signinTestRule.removeAccount(TestAccounts.ACCOUNT1.getId());
+
+        // Add the same account again, and open the sync settings to check that prefs was cleared
+        // upon the account removal.
+        signinTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
+
+        fragment = startManageSyncPreferences();
+
+        passwords_toggle =
+                (ChromeSwitchPreference)
+                        fragment.findPreference(
+                                ManageSyncSettings.PREF_ACCOUNT_SECTION_PASSWORDS_TOGGLE);
+        Assert.assertTrue(passwords_toggle.isChecked());
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync"})
+    @EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
+    public void testHistoryOptInCarriesOverThroughSignoutSignin() {
+        mSyncTestRule.getSigninTestRule().addAccountThenSignin(TestAccounts.ACCOUNT1);
+
+        ManageSyncSettings fragment = startManageSyncPreferences();
+
+        ChromeSwitchPreference history_and_tabs_toggle =
+                (ChromeSwitchPreference)
+                        fragment.findPreference(
+                                ManageSyncSettings.PREF_ACCOUNT_SECTION_HISTORY_TOGGLE);
+        mSyncTestRule.togglePreference(history_and_tabs_toggle);
+        Assert.assertTrue(history_and_tabs_toggle.isChecked());
+
+        mSyncTestRule.signOut();
+
+        // Sign-in again with the same account, and open the sync settings to check that history
+        // opt-in did carry over through sign-out & sign-in.
+        SigninTestUtil.signin(TestAccounts.ACCOUNT1);
+
+        fragment = startManageSyncPreferences();
+
+        history_and_tabs_toggle =
+                (ChromeSwitchPreference)
+                        fragment.findPreference(
+                                ManageSyncSettings.PREF_ACCOUNT_SECTION_HISTORY_TOGGLE);
+        Assert.assertTrue(history_and_tabs_toggle.isChecked());
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"Sync"})
+    @EnableFeatures({ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS})
     public void testSyncAddressesWithCustomPasspharaseShowsWarningDialog() {
         mSyncTestRule.getFakeServerHelper().setCustomPassphraseNigori("passphrase");
 
@@ -493,12 +627,31 @@ public class ManageSyncSettingsTest {
                         fragment.findPreference(
                                 ManageSyncSettings.PREF_ACCOUNT_SECTION_HISTORY_TOGGLE);
 
+        SyncService syncService = mSyncTestRule.getSyncService();
+
         // Switching history sync on from settings clears history sync declined prefs.
         mSyncTestRule.togglePreference(historyToggle);
         verify(mHistorySyncHelperMock).clearHistorySyncDeclinedPrefs();
+
+        Set<Integer> activeDataTypes =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> {
+                            return syncService.getActiveDataTypes();
+                        });
+        Assert.assertTrue(activeDataTypes.contains(DataType.HISTORY));
+        Assert.assertTrue(activeDataTypes.contains(DataType.SESSIONS));
+
         // Switching history sync off from settings records history sync declined prefs.
         mSyncTestRule.togglePreference(historyToggle);
         verify(mHistorySyncHelperMock).recordHistorySyncDeclinedPrefs();
+
+        activeDataTypes =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> {
+                            return syncService.getActiveDataTypes();
+                        });
+        Assert.assertFalse(activeDataTypes.contains(DataType.HISTORY));
+        Assert.assertFalse(activeDataTypes.contains(DataType.SESSIONS));
     }
 
     @Test

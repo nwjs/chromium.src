@@ -4,13 +4,16 @@
 <translation id="1006017844123154345">Ava veebis</translation>
 <translation id="1036348656032585052">Lülita välja</translation>
 <translation id="1044891598689252897">Saidid töötavad tavapärasel moel</translation>
+<translation id="1070329623210597193">Failid, mida see sait saab vaadata või muuta</translation>
 <translation id="1073417869336441572">Aidake meil Chrome’i täiustada, andes teada, miks lubasite kolmanda osapoole küpsisefailid. <ph name="BEGIN_LINK" />Tagasiside saatmine<ph name="END_LINK" /></translation>
+<translation id="1085696779717592361">Vaikimisi Chrome'i kasutamine</translation>
 <translation id="1178581264944972037">Peata</translation>
 <translation id="1181037720776840403">Eemalda</translation>
 <translation id="1192844206376121885">See kustutab kõik saidi <ph name="ORIGIN" /> salvestatud andmed ja küpsisefailid.</translation>
 <translation id="1201402288615127009">Järgmine</translation>
 <translation id="1240190568154816272">Chrome’i nõuanded</translation>
 <translation id="1242008676835033345">Manustatud aadressil <ph name="WEBSITE_URL" /></translation>
+<translation id="1263609676484797429">Puudutage valikuid Rakendused &gt; Vaikerakendused</translation>
 <translation id="1272079795634619415">Peata</translation>
 <translation id="1289742167380433257">Andmemahu säästmiseks optimeerib Google selle lehe kujutisi.</translation>
 <translation id="129382876167171263">Veebisaitide salvestatud failid kuvatakse siin</translation>
@@ -65,6 +68,7 @@
 <translation id="2182457891543959921">Küsi enne saitidele loa andmist mind ümbritsevast 3D-kaardi loomiseks või kaamera asendi jälgimiseks (soovitatav)</translation>
 <translation id="2185965788978862351">See kustutab <ph name="DATASIZE" /> andmeid ja küpsisefaile, mille saidid või rakendused on teie avakuvale salvestanud.</translation>
 <translation id="2194856509914051091">Olulised aspektid</translation>
+<translation id="2215727959747642672">Failide muutmine</translation>
 <translation id="2228071138934252756">Selleks et anda rakendusele <ph name="APP_NAME" /> juurdepääs teie kaamerale, lülitage kaamera sisse ka <ph name="BEGIN_LINK" />Androidi seadetes<ph name="END_LINK" />.</translation>
 <translation id="2235344399760031203">Kolmanda osapoole küpsisefailid on blokeeritud</translation>
 <translation id="2238944249568001759">Soovitatud otsingud teie viimase vahelehe põhjal</translation>
@@ -74,10 +78,8 @@
 <translation id="228293613124499805">Enamik külastatavaid saite salvestavad teie seadmesse tõenäoliselt andmeid, sageli selleks, et täiustada teie kasutuskogemust, salvestades teie eelistused või teabe, mida saidiga jagate. Soovitame selle seade sisselülitatuks jätta.</translation>
 <translation id="2289270750774289114">Küsi, kui sait soovib läheduses asuvaid Bluetoothi seadmeid tuvastada (soovitatav)</translation>
 <translation id="2315043854645842844">Operatsioonisüsteem ei toeta kliendipoolset sertifikaadi valimist.</translation>
-<translation id="2321958826496381788">Lohistage liugurit, kuni saate seda mugavalt lugeda. Lõigu topeltkoputamisel peab tekst olema vähemalt nii suur.</translation>
 <translation id="2359808026110333948">Jätka</translation>
 <translation id="2379925928934107488">Kui Chrome kasutab tumedat teemat, rakendatakse saitidele võimaluse korral tume teema</translation>
-<translation id="2387895666653383613">Teksti skaleerimine</translation>
 <translation id="2390272837142897736">Suumi suurendamine</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
 <translation id="2404630663942400771">{PERMISSIONS_SUMMARY_ALLOWED,plural, =1{<ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> ja veel <ph name="NUM_MORE" /> on lubatud}other{<ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> ja veel <ph name="NUM_MORE" /> on lubatud}}</translation>
@@ -92,7 +94,7 @@
 <translation id="2490684707762498678">Haldab <ph name="APP_NAME" /></translation>
 <translation id="2498359688066513246">Abi ja tagasiside</translation>
 <translation id="2501278716633472235">Mine tagasi</translation>
-<translation id="2546283357679194313">Küpsised ja saidiandmed</translation>
+<translation id="2546283357679194313">Küpsised ja saidi andmed</translation>
 <translation id="2570922361219980984">Ka juurdepääs asukohale on selle seadme puhul välja lülitatud. Lülitage see sisse <ph name="BEGIN_LINK" />Androidi seadetes<ph name="END_LINK" />.</translation>
 <translation id="257931822824936280">Laiendatud – ahendamiseks klõpsake.</translation>
 <translation id="2586657967955657006">Lõikelaud</translation>
@@ -102,7 +104,6 @@
 <translation id="2621115761605608342">Lubage JavaScript konkreetse saidi jaoks.</translation>
 <translation id="2653659639078652383">Esita</translation>
 <translation id="2677748264148917807">Lahku</translation>
-<translation id="2678468611080193228">Proovige kolmanda osapoole küpsisefailid ajutiselt lubada. See vähendab kaitset, kuid saidi funktsiooni töötavad suurema tõenäosusega.</translation>
 <translation id="2682367912565197520">Salvestatud suumitaseme kustutamine</translation>
 <translation id="2683434792633810741">Kas kustutada ja lähtestada?</translation>
 <translation id="2713106313042589954">Lülita kaamera välja</translation>
@@ -154,7 +155,6 @@
 <translation id="3403537308306431953"><ph name="ZOOM_LEVEL" />%%</translation>
 <translation id="344449859752187052">Kolmanda osapoole küpsisefailid on blokeeritud</translation>
 <translation id="3448554387819310837">Kui see on sisse lülitatud, võivad saidid küsida luba teie kaamera kasutamiseks. Kui see on välja lülitatud, ei saa saidid teie kaamerat kasutada.</translation>
-<translation id="3465378418721443318">{DAYS,plural, =1{Chrome blokeerib homme küpsisefailid uuesti}other{Chrome blokeerib # päeva pärast küpsisefailid uuesti}}</translation>
 <translation id="3521663503435878242">Saidid domeenil <ph name="DOMAIN" /></translation>
 <translation id="3523447078673133727">Saitidel keelatakse teie käeliigutusi jälgida</translation>
 <translation id="3536227077203206203">Seekord lubatud</translation>
@@ -170,6 +170,7 @@
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_MEMBERS_COUNT" /> sait domeeni <ph name="RWS_OWNER" /> saidigrupis, mis näeb teie tegevusi grupis}other{<ph name="RWS_MEMBERS_COUNT" /> saiti domeeni <ph name="RWS_OWNER" /> saidigrupis, mis näevad teie tegevusi grupis}}</translation>
 <translation id="3697164069658504920">Kui see on sisse lülitatud, võivad saidid küsida luba USB-seadmete kasutamiseks. Kui see on välja lülitatud, ei saa saidid USB-seadmeid kasutada.</translation>
 <translation id="3707034683772193706">Külastatav sait võib Chrome’iga salvestada väikese hulga teavet, peamiselt kinnitamaks, et te pole robot.</translation>
+<translation id="3709818294139939629">Saidi juurdepääs failile on eemaldatud</translation>
 <translation id="3721953990244350188">Loobu ja kuva järgmine saadaolev toiming</translation>
 <translation id="3744111561329211289">Taustal sünkroonimine</translation>
 <translation id="3763247130972274048">10 sekundi võrra kerimiseks topeltpuudutage videos vasakul või paremal</translation>
@@ -188,6 +189,7 @@
 <translation id="3908288065506437185">Blokeeri kolmanda osapoole küpsisefailid inkognito režiimis</translation>
 <translation id="3913461097001554748"><ph name="DOMAIN_URL" /> <ph name="SEPARATOR1" /> <ph name="DEVICE_NAME" /></translation>
 <translation id="3918378745482005425">Mõned funktsioonid ei pruugi töötada. Seotud saidid saavad siiski kolmanda osapoole küpsisefaile kasutada.</translation>
+<translation id="3922092564198021702">Avage telefonis menüü Seaded</translation>
 <translation id="3933121352599513978">Ahenda soovimatud taotlused (soovitatud)</translation>
 <translation id="3955193568934677022">Luba saitidel esitada kaitstud sisu (soovitatav)</translation>
 <translation id="3967822245660637423">Allalaadimine on lõpule viidud</translation>
@@ -331,6 +333,7 @@
 <translation id="6042308850641462728">Rohkem</translation>
 <translation id="6064125863973209585">Lõpetatud allalaadimised</translation>
 <translation id="6071501408666570960">Teid võidakse sellel saidil välja logida</translation>
+<translation id="6085954183010297841">Kas kustutada faili muutmise luba? <ph name="FILE" /></translation>
 <translation id="6120483543004435978">Kui see on sisse lülitatud, võivad saidid küsida luba selle teadmiseks, millal seadet aktiivselt kasutate. Kui see on välja lülitatud, ei saa saidid teada, millal seadet aktiivselt kasutate.</translation>
 <translation id="6140839633433422817">Kas olete kindel, et soovite load lähtestada ning küpsisefailid ja saidi andmed kustutada?</translation>
 <translation id="6165508094623778733">Lisateave</translation>
@@ -345,6 +348,7 @@
 <translation id="6205314730813004066">Reklaamide privaatsus</translation>
 <translation id="6207207788774442484">Kustuta andmed ja õigused</translation>
 <translation id="6231752747840485235">Kas desinstallida rakendus <ph name="APP_NAME" />?</translation>
+<translation id="6234351944623978659">Puudutage valikuid Brauserirakendus &gt; Chrome</translation>
 <translation id="6262191102408817757">Teie viimase vahelehe põhjal</translation>
 <translation id="6262279340360821358"><ph name="PERMISSION_1" /> ja <ph name="PERMISSION_2" /> on keelatud</translation>
 <translation id="6270391203985052864">Saidid saavad küsida luba märguannete saatmiseks</translation>
@@ -429,6 +433,7 @@
 <translation id="7425915948813553151">Tume teema saitide jaoks</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7547989957535180761">Kui see on sisse lülitatud, saavad saidid sisselogimisviipasid kuvada. Kui see on välja lülitatud, ei saa saidid sisselogimisviipasid kuvada.</translation>
+<translation id="7553211568594248088">Välju Hubi otsingust</translation>
 <translation id="7554752735887601236">Sait kasutab teie mikrofoni</translation>
 <translation id="7561196759112975576">Alati</translation>
 <translation id="757524316907819857">Saitidel kaitstud sisu esitamise blokeerimine</translation>
@@ -437,7 +442,6 @@
 <translation id="7649070708921625228">Abi</translation>
 <translation id="7658239707568436148">Tühista</translation>
 <translation id="7667547420449112975">Võlur Oz</translation>
-<translation id="7684642910516280563">Saidil ei lubata kasutada kolmanda osapoole küpsisefaile</translation>
 <translation id="7688240020069572972">Chrome'i nõuannete kaardi peitmine</translation>
 <translation id="7719367874908701697">Lehe suum</translation>
 <translation id="7759147511335618829">MIDI-seadme juhtimine ja ümberprogrammeerimine</translation>
@@ -471,6 +475,7 @@
 <translation id="813082847718468539">Kuvab saidi teabe</translation>
 <translation id="8131740175452115882">Kinnita</translation>
 <translation id="8168435359814927499">Sisu</translation>
+<translation id="818487310457576362">Täisekraanilt väljumiseks lohistage ekraani küljelt.</translation>
 <translation id="8186479265534291036">Kas sait ei tööta? Kolmanda osapoole küpsisefailid on blokeeritud</translation>
 <translation id="8197286292360124385"><ph name="PERMISSION_1" /> on lubatud</translation>
 <translation id="8200772114523450471">Taasta</translation>
@@ -500,6 +505,7 @@
 <translation id="851751545965956758">Blokeeri saitidel seadmetega ühenduse loomine</translation>
 <translation id="8525306231823319788">Täisekraan</translation>
 <translation id="8541410041357371550">See sait hangib Chrome'ist teie reklaamiteemad, et näidata teile asjakohasemaid reklaame</translation>
+<translation id="8558480467877843976">Nüüd saate kasutada Chrome'i iga kord, kui sirvite või puudutate linke sõnumites, dokumentides ja muudes rakendustes.</translation>
 <translation id="857943718398505171">Lubatud (soovitatav)</translation>
 <translation id="8609465669617005112">Liiguta üles</translation>
 <translation id="8617611086246832542">Kui see on sisse lülitatud, kuvatakse veebisaitide arvutivaade. Kui see on välja lülitatud, kuvatakse veebisaitide mobiilivaade.</translation>
@@ -526,6 +532,7 @@
 <translation id="8899807382908246773">Sekkuvad reklaamid</translation>
 <translation id="8903921497873541725">Suurendab</translation>
 <translation id="8921772741368021346"><ph name="POSITION" />/<ph name="DURATION" /></translation>
+<translation id="8926389886865778422">Ära enam küsi</translation>
 <translation id="8926666909099850184">NFC on selle seadme puhul välja lülitatud. Lülitage see <ph name="BEGIN_LINK" />Androidi seadetes<ph name="END_LINK" /> sisse.</translation>
 <translation id="8928445016601307354">Saitidel keelatakse NFC-seadmetes teabe nägemine ja muutmine</translation>
 <translation id="8944485226638699751">Piiratud</translation>

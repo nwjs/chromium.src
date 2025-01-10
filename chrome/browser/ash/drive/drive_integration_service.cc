@@ -324,7 +324,7 @@ DriveMountStatus ConvertMountFailure(
     case drivefs::DriveFsHost::MountObserver::MountFailure::kUnknown:
       return DriveMountStatus::kUnknownFailure;
   }
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void UmaEmitMountStatus(DriveMountStatus status) {
@@ -423,7 +423,7 @@ std::optional<PersistedMessage> ConvertNotificationToMessage(
       LOG(ERROR) << "unknown notification received";
       return std::nullopt;
   }
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 std::optional<PersistedMessage> ConvertSyncErrorToMessage(
@@ -785,7 +785,7 @@ void DriveIntegrationService::SetEnabled(bool enabled) {
         AddDriveMountPoint();
         return;
     }
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   } else {
     RemoveDriveMountPoint();
     enabled_ = false;
@@ -1696,9 +1696,8 @@ void DriveIntegrationService::PollHostedFilePinStates() {
 void DriveIntegrationService::ForceReSyncFile(const base::FilePath& local_path,
                                               base::OnceClosure callback) {
   base::FilePath drive_path;
-  bool is_feature_enabled = ash::features::IsForceReSyncDriveEnabled() &&
-                            chromeos::features::IsUploadOfficeToCloudEnabled();
-  if (!is_feature_enabled || !IsMounted() || !GetDriveFsInterface() ||
+  if (!chromeos::features::IsUploadOfficeToCloudEnabled() || !IsMounted() ||
+      !GetDriveFsInterface() ||
       !GetRelativeDrivePath(local_path, &drive_path)) {
     std::move(callback).Run();
     return;

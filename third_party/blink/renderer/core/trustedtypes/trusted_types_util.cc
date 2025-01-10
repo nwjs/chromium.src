@@ -109,8 +109,7 @@ const char* GetMessage(TrustedTypeViolationKind kind) {
              "This script element was modified without use of TrustedScript "
              "assignment and the 'default' policy failed to execute.";
   }
-  NOTREACHED_IN_MIGRATION();
-  return "";
+  NOTREACHED();
 }
 
 String GetSamplePrefix(const char* interface_name,
@@ -147,8 +146,7 @@ const char* GetElementName(const ScriptElementBase::Type type) {
     case ScriptElementBase::Type::kSVGScriptElement:
       return "SVGScriptElement";
   }
-  NOTREACHED_IN_MIGRATION();
-  return "";
+  NOTREACHED();
 }
 
 HeapVector<ScriptValue> GetDefaultCallbackArgs(
@@ -285,7 +283,7 @@ String GetStringFromScriptHelper(
     return script;
   }
 
-  TrustedScript* result = default_policy->CreateScript(
+  TrustedScript* result = default_policy->createScript(
       context->GetIsolate(), script,
       GetDefaultCallbackArgs(context->GetIsolate(), "TrustedScript",
                              interface_name, property_name, script),
@@ -344,7 +342,7 @@ String TrustedTypesCheckForHTML(const String& html,
   // TODO(ajwong): This can be optimized to avoid a AddRef in the
   // StringCache::CreateStringAndInsertIntoCache() also, but it's a hard mess.
   // Punt for now.
-  TrustedHTML* result = default_policy->CreateHTML(
+  TrustedHTML* result = default_policy->createHTML(
       execution_context->GetIsolate(), html,
       GetDefaultCallbackArgs(execution_context->GetIsolate(), "TrustedHTML",
                              interface_name, property_name),
@@ -398,7 +396,7 @@ String TrustedTypesCheckForScript(const String& script,
   // TODO(ajwong): This can be optimized to avoid a AddRef in the
   // StringCache::CreateStringAndInsertIntoCache() also, but it's a hard mess.
   // Punt for now.
-  TrustedScript* result = default_policy->CreateScript(
+  TrustedScript* result = default_policy->createScript(
       execution_context->GetIsolate(), script,
       GetDefaultCallbackArgs(execution_context->GetIsolate(), "TrustedScript",
                              interface_name, property_name, script),
@@ -453,7 +451,7 @@ String TrustedTypesCheckForScriptURL(const String& script_url,
   // TODO(ajwong): This can be optimized to avoid a AddRef in the
   // StringCache::CreateStringAndInsertIntoCache() also, but it's a hard mess.
   // Punt for now.
-  TrustedScriptURL* result = default_policy->CreateScriptURL(
+  TrustedScriptURL* result = default_policy->createScriptURL(
       execution_context->GetIsolate(), script_url,
       GetDefaultCallbackArgs(execution_context->GetIsolate(),
                              "TrustedScriptURL", interface_name, property_name),
@@ -534,8 +532,7 @@ String TrustedTypesCheckForScript(const V8UnionStringOrTrustedScript* value,
       return value->GetAsTrustedScript()->toString();
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return String();
+  NOTREACHED();
 }
 
 String TrustedTypesCheckForScript(
@@ -565,8 +562,7 @@ String TrustedTypesCheckForScript(
       return value->GetAsTrustedScript()->toString();
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return String();
+  NOTREACHED();
 }
 
 String TrustedTypesCheckFor(SpecificTrustedType type,
@@ -591,8 +587,7 @@ String TrustedTypesCheckFor(SpecificTrustedType type,
     case SpecificTrustedType::kNone:
       return trusted;
   }
-  NOTREACHED_IN_MIGRATION();
-  return g_empty_string;
+  NOTREACHED();
 }
 
 String CORE_EXPORT

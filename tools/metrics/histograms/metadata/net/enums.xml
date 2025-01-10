@@ -382,6 +382,23 @@ chromium-metrics-reviews@google.com.
   <int value="15" label="Not-ECT, ECT(1), ECT(0), CE"/>
 </enum>
 
+<!-- LINT.IfChange(EraseReason) -->
+
+<enum name="EraseReason">
+  <int value="0" label="kEraseEvict"/>
+  <int value="1" label="kEraseClear"/>
+  <int value="2" label="kEraseDestruct"/>
+</enum>
+
+<!-- LINT.ThenChange(//net/dns/host_cache.h:EraseReason) -->
+
+<enum name="HSTSRedirectUpgradeReason">
+  <int value="0" label="URL not HTTP"/>
+  <int value="1" label="HSTS unavailable"/>
+  <int value="2" label="No HSTS pin"/>
+  <int value="3" label="URL upgraded by HSTS"/>
+</enum>
+
 <enum name="Http2WireErrorCodes">
   <summary>
     Error codes defined at
@@ -542,6 +559,26 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="CryptoConnectFailedSync"/>
   <int value="5" label="CryptoConnectFailedAsync"/>
 </enum>
+
+<!-- LINT.IfChange(LookupOutcome) -->
+
+<enum name="LookupOutcome">
+  <int value="0" label="kLookupMissAbsent"/>
+  <int value="1" label="kLookupMissStale"/>
+  <int value="2" label="kLookupHitValid"/>
+  <int value="3" label="kLookupHitStale"/>
+</enum>
+
+<!-- LINT.ThenChange(//net/dns/host_cache.h:LookupOutcome) -->
+
+<!-- LINT.IfChange(MultiplexedSessionCreationInitiator) -->
+
+<enum name="MultiplexedSessionCreationInitiator">
+  <int value="0" label="kUnknown"/>
+  <int value="1" label="kPreconnect"/>
+</enum>
+
+<!-- LINT.ThenChange(//net/spdy/multiplexed_session_creation_initiator.h:MultiplexedSessionCreationInitiator) -->
 
 <enum name="MultiPortStatusOnMigration">
   <int value="0" label="Not validated"/>

@@ -22,6 +22,7 @@
 #include "third_party/blink/renderer/modules/webgpu/dawn_conversions.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_adapter.h"
+#include "third_party/blink/renderer/modules/webgpu/gpu_adapter_info.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_bind_group.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_bind_group_layout.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_buffer.h"
@@ -115,6 +116,16 @@ std::optional<V8GPUFeatureName::Enum> RequiredFeatureForTextureFormat(
     case V8GPUTextureFormat::Enum::kDepth32FloatStencil8:
       return V8GPUFeatureName::Enum::kDepth32FloatStencil8;
 
+    case V8GPUTextureFormat::Enum::kR16Unorm:
+    case V8GPUTextureFormat::Enum::kRg16Unorm:
+    case V8GPUTextureFormat::Enum::kRgba16Unorm:
+      return V8GPUFeatureName::Enum::kChromiumExperimentalUnorm16TextureFormats;
+
+    case V8GPUTextureFormat::Enum::kR16Snorm:
+    case V8GPUTextureFormat::Enum::kRg16Snorm:
+    case V8GPUTextureFormat::Enum::kRgba16Snorm:
+      return V8GPUFeatureName::Enum::kChromiumExperimentalSnorm16TextureFormats;
+
     default:
       return std::nullopt;
   }
@@ -187,6 +198,8 @@ void GPUDevice::Initialize(wgpu::Device handle,
   GetHandle().GetLimits(&limits);
   limits_ = MakeGarbageCollected<GPUSupportedLimits>(limits);
 
+  adapter_info_ = adapter_->CreateAdapterInfoForAdapter();
+
   GetHandle().SetLoggingCallback(logging_callback_->UnboundCallback(),
                                  logging_callback_->AsUserdata());
 
@@ -216,10 +229,12 @@ void GPUDevice::InjectError(wgpu::ErrorType type, const char* message) {
   GetHandle().InjectError(type, message);
 }
 
+void GPUDevice::AddConsoleWarning(wgpu::StringView message) {
+  AddConsoleWarning(StringFromASCIIAndUTF8(message));
+}
 void GPUDevice::AddConsoleWarning(const char* message) {
   AddConsoleWarning(StringFromASCIIAndUTF8(message));
 }
-
 void GPUDevice::AddConsoleWarning(const String& message) {
   ExecutionContext* execution_context = GetExecutionContext();
   if (execution_context && allowed_console_warnings_remaining_ > 0) {
@@ -261,7 +276,7 @@ void GPUDevice::AddSingletonWarning(GPUSingletonWarning type) {
             "intended instead.";
         break;
       case GPUSingletonWarning::kCount:
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
     }
 
     ExecutionContext* execution_context = GetExecutionContext();
@@ -338,7 +353,7 @@ bool GPUDevice::ValidateBlendFactor(V8GPUBlendFactor blend_factor,
 
 void GPUDevice::OnUncapturedError(const wgpu::Device& device,
                                   wgpu::ErrorType errorType,
-                                  const char* message) {
+                                  wgpu::StringView message) {
   // Suppress errors once the device is lost.
   if (lost_property_->GetState() == LostProperty::kResolved) {
     return;
@@ -346,7 +361,7 @@ void GPUDevice::OnUncapturedError(const wgpu::Device& device,
 
   DCHECK_NE(errorType, wgpu::ErrorType::NoError);
   DCHECK_NE(errorType, wgpu::ErrorType::DeviceLost);
-  LOG(ERROR) << "GPUDevice: " << message;
+  LOG(ERROR) << "GPUDevice: " << std::string_view(message);
 
   GPUUncapturedErrorEventInit* init = GPUUncapturedErrorEventInit::Create();
   if (errorType == wgpu::ErrorType::Validation) {
@@ -370,14 +385,9 @@ void GPUDevice::OnUncapturedError(const wgpu::Device& device,
   }
 }
 
-#if defined(WGPU_BREAKING_CHANGE_STRING_VIEW_CALLBACKS)
 void GPUDevice::OnLogging(WGPULoggingType cLoggingType,
                           WGPUStringView message) {
   std::string_view messageView = {message.data, message.length};
-#else   // defined(WGPU_BREAKING_CHANGE_STRING_VIEW_CALLBACKS)
-void GPUDevice::OnLogging(WGPULoggingType cLoggingType, const char* message) {
-  std::string_view messageView = message;
-#endif  // defined(WGPU_BREAKING_CHANGE_STRING_VIEW_CALLBACKS)
   wgpu::LoggingType loggingType = static_cast<wgpu::LoggingType>(cLoggingType);
   // Callback function for WebGPU logging return command
   mojom::blink::ConsoleMessageLevel level;
@@ -414,7 +424,7 @@ void GPUDevice::OnLogging(WGPULoggingType cLoggingType, const char* message) {
 
 void GPUDevice::OnDeviceLostError(const wgpu::Device& device,
                                   wgpu::DeviceLostReason reason,
-                                  const char* message) {
+                                  wgpu::StringView message) {
   // Early-out if the context is being destroyed (see WrapCallbackInScriptScope)
   if (!GetExecutionContext()) {
     return;
@@ -436,7 +446,7 @@ void GPUDevice::OnCreateRenderPipelineAsyncCallback(
     ScriptPromiseResolver<GPURenderPipeline>* resolver,
     wgpu::CreatePipelineAsyncStatus status,
     wgpu::RenderPipeline render_pipeline,
-    const char* message) {
+    wgpu::StringView message) {
   ScriptState* script_state = resolver->GetScriptState();
   switch (status) {
     case wgpu::CreatePipelineAsyncStatus::Success: {
@@ -471,7 +481,7 @@ void GPUDevice::OnCreateComputePipelineAsyncCallback(
     ScriptPromiseResolver<GPUComputePipeline>* resolver,
     wgpu::CreatePipelineAsyncStatus status,
     wgpu::ComputePipeline compute_pipeline,
-    const char* message) {
+    wgpu::StringView message) {
   ScriptState* script_state = resolver->GetScriptState();
   switch (status) {
     case wgpu::CreatePipelineAsyncStatus::Success: {
@@ -507,6 +517,10 @@ GPUAdapter* GPUDevice::adapter() const {
 
 GPUSupportedFeatures* GPUDevice::features() const {
   return features_.Get();
+}
+
+GPUAdapterInfo* GPUDevice::adapterInfo() const {
+  return adapter_info_.Get();
 }
 
 ScriptPromise<GPUDeviceLostInfo> GPUDevice::lost(ScriptState* script_state) {
@@ -711,7 +725,7 @@ void GPUDevice::OnPopErrorScopeCallback(
     ScriptPromiseResolver<IDLNullable<GPUError>>* resolver,
     wgpu::PopErrorScopeStatus status,
     wgpu::ErrorType type,
-    const char* message) {
+    wgpu::StringView message) {
   switch (status) {
     case wgpu::PopErrorScopeStatus::InstanceDropped:
       resolver->RejectWithDOMException(DOMExceptionCode::kOperationError,
@@ -761,6 +775,7 @@ void GPUDevice::Trace(Visitor* visitor) const {
   visitor->Trace(adapter_);
   visitor->Trace(features_);
   visitor->Trace(limits_);
+  visitor->Trace(adapter_info_);
   visitor->Trace(queue_);
   visitor->Trace(lost_property_);
   visitor->Trace(external_texture_cache_);
@@ -809,13 +824,14 @@ void GPUDevice::UntrackTextureWithMailbox(GPUTexture* texture) {
   textures_with_mailbox_.erase(texture);
 }
 
-WGPURepeatingCallback<void(const wgpu::Device&, wgpu::ErrorType, const char*)>*
+WGPURepeatingCallback<
+    void(const wgpu::Device&, wgpu::ErrorType, wgpu::StringView)>*
 GPUDevice::error_callback() {
   return error_callback_.get();
 }
 
 WGPURepeatingCallback<
-    void(const wgpu::Device&, wgpu::DeviceLostReason, const char*)>*
+    void(const wgpu::Device&, wgpu::DeviceLostReason, wgpu::StringView)>*
 GPUDevice::lost_callback() {
   return lost_callback_.get();
 }

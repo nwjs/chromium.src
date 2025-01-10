@@ -21,9 +21,11 @@
 #include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
+#include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/test/interaction/dom_message_observer.h"
 #include "chrome/test/user_education/interactive_feature_promo_test.h"
+#include "components/feature_engagement/public/feature_constants.h"
 #include "components/user_education/views/help_bubble_view.h"
 #include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/web_contents.h"
@@ -50,7 +52,9 @@ constexpr char kToSiteBTargetBlankNoOpener[] = "id-LINK-A_TO_B-BLANK-NO_OPENER";
 constexpr char kToSiteBTargetBlankWithOpener[] = "id-LINK-A_TO_B-BLANK-OPENER";
 
 DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kStartPageId);
+DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kNewPageId);
 DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kAppPageId);
+DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kDestinationPageId);
 DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(LatestDomMessageObserver,
                                     kLatestDomMessage);
 
@@ -62,7 +66,8 @@ class WebAppNavigationCapturingIphUiTest
  public:
   WebAppNavigationCapturingIphUiTest()
       : InteractiveFeaturePromoTestT(UseDefaultTrackerAllowingPromos(
-            {feature_engagement::kIPHDesktopPWAsLinkCapturingLaunch})) {
+            {feature_engagement::kIPHDesktopPWAsLinkCapturingLaunch,
+             feature_engagement::kIPHDesktopPWAsLinkCapturingLaunchAppInTab})) {
     base::FieldTrialParams params;
     params["link_capturing_state"] = "reimpl_default_on";
     scoped_feature_list_.InitAndEnableFeatureWithParameters(
@@ -128,13 +133,11 @@ class WebAppNavigationCapturingIphUiTest
 
   // Opens the "start" page for app testing, with links to launch various apps.
   auto OpenStartPage() {
-    auto steps =
-        Steps(InstrumentTab(kStartPageId),
-              ObserveState(kLatestDomMessage, kStartPageId),
-              NavigateWebContents(kStartPageId, GetStartUrl()),
-              // TODO(crbug.com/371180649): Implement 'contains' logic so
-              // this message can include debug info.
-              WaitForState(kLatestDomMessage, "\"FinishedNavigating\""));
+    auto steps = Steps(InstrumentTab(kStartPageId),
+                       ObserveState(kLatestDomMessage, kStartPageId),
+                       NavigateWebContents(kStartPageId, GetStartUrl()),
+                       WaitForState(kLatestDomMessage,
+                                    testing::HasSubstr("FinishedNavigating")));
     AddDescription(steps, "OpenStartPage( %s )");
     return steps;
   }
@@ -154,9 +157,8 @@ class WebAppNavigationCapturingIphUiTest
         InAnyContext(WaitForShow(kStartPageId)),
         InSameContext(
             Steps(ObserveState(kLatestDomMessage, kStartPageId),
-                  // TODO(crbug.com/371180649): Implement 'contains' logic so
-                  // this message can include debug info.
-                  WaitForState(kLatestDomMessage, "\"FinishedNavigating\""))));
+                  WaitForState(kLatestDomMessage,
+                               testing::HasSubstr("FinishedNavigating")))));
     AddDescription(steps, "OpenAppStartPage( %s )");
     return steps;
   }
@@ -173,20 +175,35 @@ class WebAppNavigationCapturingIphUiTest
             .SetDescription("ClickLaunchLink()"));
   }
 
+  auto TriggerNavigateExisting(
+      const std::string& element_id,
+      ui_controls::MouseButton button,
+      ui_controls::AcceleratorState accel = ui_controls::kNoAccelerator) {
+    auto steps = Steps(ClickLaunchLink(element_id, button, accel),
+                       InAnyContext(WaitForShow(kDestinationPageId)));
+    AddDescription(steps, "TriggerNavigateExisting( %s )");
+    return steps;
+  }
+
   // Clicks on `element_id` in the start page, which must be open in at least
   // one browser, launching a new app window. The context of the last step is
   // the window in which the link was opened.
   auto TriggerAppLaunch(
       const std::string& element_id,
       ui_controls::MouseButton button,
-      ui_controls::AcceleratorState accel = ui_controls::kNoAccelerator) {
-    auto steps = Steps(
-        ClickLaunchLink(element_id, button, accel),
-        InAnyContext(
-            WaitForShow(kBrowserViewElementId).SetTransitionOnlyOnEvent(true)),
-        InSameContext(CheckViewProperty(kBrowserViewElementId,
-                                        &BrowserView::browser,
-                                        testing::Ne(browser()))));
+      ui_controls::AcceleratorState accel = ui_controls::kNoAccelerator,
+      bool expect_new_browser = false) {
+    // Note: on Mac, the web contents for a new app can become "visible" well
+    // before the browser itself does, which can cause a race condition.
+    // Therefore, throughout, we wait for the web contents and not the browser
+    // to enforce consistency.
+    auto steps =
+        Steps(InstrumentNextTab(kDestinationPageId, AnyBrowser()),
+              ClickLaunchLink(element_id, button, accel),
+              InAnyContext(WaitForShow(kDestinationPageId)),
+              InSameContext(CheckViewProperty(
+                  kBrowserViewElementId, &BrowserView::browser,
+                  testing::Ne(expect_new_browser ? browser() : nullptr))));
     AddDescription(steps, "TriggerAppLaunch( %s )");
     return steps;
   }
@@ -216,39 +233,41 @@ IN_PROC_BROWSER_TEST_F(WebAppNavigationCapturingIphUiTest,
           feature_engagement::kIPHDesktopPWAsLinkCapturingLaunch)));
 }
 
-// Middle click does not work (consistently?) on Mac; see
-// http://crbug.com/366580804
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_IPHShownOnLinkMiddleClick DISABLED_IPHShownOnLinkMiddleClick
-#else
-#define MAYBE_IPHShownOnLinkMiddleClick IPHShownOnLinkMiddleClick
-#endif
 IN_PROC_BROWSER_TEST_F(WebAppNavigationCapturingIphUiTest,
-                       MAYBE_IPHShownOnLinkMiddleClick) {
+                       IPHShownOnLinkMiddleClick) {
   const webapps::AppId app_id = InstallTestWebApp(GetStartUrl());
-  RunTestSequence(
-      OpenAppStartPage(app_id),
-      TriggerAppLaunch(kToSiteATargetBlankWithOpener, ui_controls::MIDDLE),
-      InSameContext(WaitForPromo(
-          feature_engagement::kIPHDesktopPWAsLinkCapturingLaunch)));
-}
-
-// Shift-click click does not work (consistently?) on Mac; see
-// http://crbug.com/366580804
+  RunTestSequence(OpenAppStartPage(app_id),
+                  TriggerAppLaunch(kToSiteATargetBlankWithOpener,
 #if BUILDFLAG(IS_MAC)
-#define MAYBE_IPHShownOnLinkShiftClick DISABLED_IPHShownOnLinkShiftClick
+                                   // Middle click does not work (consistently?)
+                                   // on Mac; see http://crbug.com/366580804
+                                   ui_controls::LEFT, ui_controls::kCommand
 #else
-#define MAYBE_IPHShownOnLinkShiftClick IPHShownOnLinkShiftClick
+                                   ui_controls::MIDDLE
 #endif
-IN_PROC_BROWSER_TEST_F(WebAppNavigationCapturingIphUiTest,
-                       MAYBE_IPHShownOnLinkShiftClick) {
-  const webapps::AppId app_id_a = InstallTestWebApp(GetStartUrl());
-  const webapps::AppId app_id_b = InstallTestWebApp(GetDestinationUrl());
-  RunTestSequence(OpenAppStartPage(app_id_a),
-                  TriggerAppLaunch(kToSiteBTargetBlankWithOpener,
-                                   ui_controls::LEFT, ui_controls::kShift),
+                                   ),
                   InSameContext(WaitForPromo(
                       feature_engagement::kIPHDesktopPWAsLinkCapturingLaunch)));
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppNavigationCapturingIphUiTest,
+                       /*MAYBE_*/ IPHShownOnLinkShiftClick) {
+  const webapps::AppId app_id_a = InstallTestWebApp(GetStartUrl());
+  const webapps::AppId app_id_b = InstallTestWebApp(GetDestinationUrl());
+  RunTestSequence(
+      OpenAppStartPage(app_id_a),
+      TriggerAppLaunch(kToSiteBTargetBlankWithOpener, ui_controls::LEFT,
+#if BUILDFLAG(IS_MAC)
+                       // Shift-click click does not work (consistently?) on
+                       // Mac; see http://crbug.com/366580804
+                       static_cast<ui_controls::AcceleratorState>(
+                           ui_controls::kCommand | ui_controls::kAlt)
+#else
+                       ui_controls::kShift
+#endif
+                           ),
+      InSameContext(WaitForPromo(
+          feature_engagement::kIPHDesktopPWAsLinkCapturingLaunch)));
 }
 
 IN_PROC_BROWSER_TEST_F(WebAppNavigationCapturingIphUiTest,
@@ -323,6 +342,52 @@ IN_PROC_BROWSER_TEST_F(WebAppNavigationCapturingIphUiTest,
           WaitForPromo(feature_engagement::kIPHDesktopPWAsLinkCapturingLaunch),
           PressDefaultPromoButton(),
           CheckActionCount("LinkCapturingIPHAppBubbleNotAccepted", 1))));
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppNavigationCapturingIphUiTest,
+                       IPHShownForNavigateExistingAppInTab) {
+  webapps::AppId app_id = test::InstallWebApp(
+      browser()->profile(),
+      WebAppInstallInfo::CreateForTesting(
+          GetDestinationUrl(), blink::mojom::DisplayMode::kBrowser,
+          mojom::UserDisplayMode::kBrowser,
+          blink::mojom::ManifestLaunchHandler_ClientMode::kNavigateExisting));
+  RunTestSequence(
+      OpenStartPage(),
+      TriggerAppLaunch(kToSiteBTargetBlankNoOpener, ui_controls::LEFT,
+                       ui_controls::kNoAccelerator,
+                       /* expect_new_browser= */ false),
+      // The second launch is required to trigger the kNavigateExisting behavior
+      // and show the IPH.
+      TriggerNavigateExisting(kToSiteBTargetBlankNoOpener, ui_controls::LEFT,
+                              ui_controls::kNoAccelerator),
+      InSameContext(WaitForPromo(
+          feature_engagement::kIPHDesktopPWAsLinkCapturingLaunchAppInTab)));
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppNavigationCapturingIphUiTest,
+                       IPHForAppInTabDisappearsOnNewTabOpen) {
+  webapps::AppId app_id = test::InstallWebApp(
+      browser()->profile(),
+      WebAppInstallInfo::CreateForTesting(
+          GetDestinationUrl(), blink::mojom::DisplayMode::kBrowser,
+          mojom::UserDisplayMode::kBrowser,
+          blink::mojom::ManifestLaunchHandler_ClientMode::kNavigateExisting));
+  RunTestSequence(
+      OpenStartPage(),
+      TriggerAppLaunch(kToSiteBTargetBlankNoOpener, ui_controls::LEFT,
+                       ui_controls::kNoAccelerator,
+                       /* expect_new_browser= */ false),
+      TriggerNavigateExisting(kToSiteBTargetBlankNoOpener, ui_controls::LEFT,
+                              ui_controls::kNoAccelerator),
+      WaitForWebContentsReady(kDestinationPageId),
+      InSameContext(WaitForPromo(
+          feature_engagement::kIPHDesktopPWAsLinkCapturingLaunchAppInTab)),
+      AddInstrumentedTab(kNewPageId, GURL("https://www.example.com")),
+      WaitForWebContentsReady(kNewPageId),
+      InSameContext(CheckPromoIsActive(
+          feature_engagement::kIPHDesktopPWAsLinkCapturingLaunchAppInTab,
+          false)));
 }
 
 }  // namespace

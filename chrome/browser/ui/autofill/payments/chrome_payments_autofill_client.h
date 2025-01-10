@@ -54,6 +54,7 @@ class CreditCardCvcAuthenticator;
 class CreditCardOtpAuthenticator;
 class ContentAutofillClient;
 class CreditCardRiskBasedAuthenticator;
+struct FilledCardInformationBubbleOptions;
 class IbanAccessManager;
 class IbanManager;
 class MerchantPromoCodeManager;
@@ -63,7 +64,6 @@ enum class OtpUnmaskResult;
 class TouchToFillDelegate;
 struct VirtualCardEnrollmentFields;
 class VirtualCardEnrollmentManager;
-struct VirtualCardManualFallbackBubbleOptions;
 
 namespace payments {
 
@@ -143,8 +143,8 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
       base::OnceClosure accept_virtual_card_callback,
       base::OnceClosure decline_virtual_card_callback) override;
   void VirtualCardEnrollCompleted(PaymentsRpcResult result) override;
-  void OnVirtualCardDataAvailable(
-      const VirtualCardManualFallbackBubbleOptions& options) override;
+  void OnCardDataAvailable(
+      const FilledCardInformationBubbleOptions& options) override;
   void ConfirmSaveIbanLocally(const Iban& iban,
                               bool should_show_prompt,
                               SaveIbanPromptCallback callback) override;

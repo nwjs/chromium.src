@@ -42,6 +42,7 @@
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "net/base/net_errors.h"
+#include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
@@ -131,10 +132,23 @@ void LockScreenReauthHandler::HandleAuthenticatorLoaded(
     std::move(waiting_caller_).Run();
   }
 
+  ActivateAutoReload();
+
   // Recreate the client cert usage observer, in order to track only the certs
   // used during the current sign-in attempt.
   extension_provided_client_cert_usage_observer_ =
       std::make_unique<LoginClientCertUsageObserver>();
+}
+
+void LockScreenReauthHandler::ActivateAutoReload() {
+  auth_flow_auto_reload_manager_.Activate(base::BindOnce(
+      &LockScreenReauthHandler::LoadAuthenticatorParam,
+      weak_factory_.GetWeakPtr(), /*force_reauth_gaia_page=*/false));
+}
+
+ash::AuthenticationFlowAutoReloadManager&
+LockScreenReauthHandler::GetAutoReloadManager() {
+  return auth_flow_auto_reload_manager_;
 }
 
 void LockScreenReauthHandler::LoadAuthenticatorParam(
@@ -266,6 +280,8 @@ void LockScreenReauthHandler::OnSetCookieForLoadGaiaWithPartition(
         local_state->GetString(prefs::kUrlParameterToAutofillSAMLUsername));
   }
 
+  // TODO(crbug.com/377862442) Add autoreload url param.
+
   CallJavascript("loadAuthenticator", params);
   if (features::IsNewLockScreenReauthLayoutEnabled()) {
     UpdateOrientationAndWidth();
@@ -289,6 +305,10 @@ void LockScreenReauthHandler::CallJavascript(const std::string& function,
 
 void LockScreenReauthHandler::HandleCompleteAuthentication(
     const base::Value::List& params) {
+  absl::Cleanup run_callback_on_return = [this] {
+    auth_flow_auto_reload_manager_.Terminate();
+  };
+
   CHECK_EQ(params.size(), 7u);
   std::string gaia_id, email, password;
   bool using_saml;
@@ -317,8 +337,7 @@ void LockScreenReauthHandler::HandleCompleteAuthentication(
     auto challenge_response_key_or_error = login::ExtractClientCertificates(
         *extension_provided_client_cert_usage_observer_);
     if (!challenge_response_key_or_error.has_value()) {
-      NOTREACHED_IN_MIGRATION();
-      return;
+      NOTREACHED();
     }
     challenge_response_key = challenge_response_key_or_error.value();
   }
@@ -368,9 +387,7 @@ void LockScreenReauthHandler::FinishAuthentication(
 }
 
 void LockScreenReauthHandler::OnCookieWaitTimeout() {
-  NOTREACHED_IN_MIGRATION()
-      << "Cookie has timed out while attempting to login in.";
-  LockScreenStartReauthDialog::Dismiss();
+  NOTREACHED() << "Cookie has timed out while attempting to login in.";
 }
 
 void LockScreenReauthHandler::OnReauthDialogReadyForTesting() {
@@ -495,7 +512,7 @@ void LockScreenReauthHandler::HandleGetDeviceId(
   ResolveJavascriptCallback(callback_id, GetDeviceId(known_user));
 }
 
-void LockScreenReauthHandler::ReloadGaia() {
+void LockScreenReauthHandler::ReloadGaiaAuthenticator() {
   CallJavascriptFunction(std::string(kMainElement) + "reloadAuthenticator");
 }
 

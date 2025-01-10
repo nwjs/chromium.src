@@ -112,11 +112,7 @@ class MEDIA_GPU_EXPORT MediaFoundationVideoEncodeAccelerator
   class EncodeOutput;
 
   // Pending encode input.
-  struct PendingInput : public VideoEncoder::PendingEncode {
-    // If true, output bits should be discarded and the rate control object
-    // shouldn't be let known about the encode.
-    bool discard_output = false;
-  };
+  struct PendingInput;
 
   // Metadata whose meaning should be carried over from input to output.
   struct OutOfBandMetadata {
@@ -143,9 +139,9 @@ class MEDIA_GPU_EXPORT MediaFoundationVideoEncodeAccelerator
     kError,
   };
 
-  PendingInput MakeInput(scoped_refptr<media::VideoFrame> frame,
-                         const VideoEncoder::EncodeOptions& options,
-                         bool discard_output);
+  void QueueInput(scoped_refptr<media::VideoFrame> frame,
+                  const VideoEncoder::EncodeOptions& options,
+                  bool discard_output);
   void EncodeInternal(scoped_refptr<VideoFrame> frame,
                       const EncodeOptions& options,
                       bool discard_output);
@@ -181,9 +177,12 @@ class MEDIA_GPU_EXPORT MediaFoundationVideoEncodeAccelerator
   void FeedInputs();
 
   // Populates input sample buffer with contents of a video frame
-  HRESULT PopulateInputSampleBuffer(const PendingInput& input);
-  HRESULT PopulateInputSampleBufferGpu(scoped_refptr<VideoFrame> frame);
-  HRESULT CopyInputSampleBufferFromGpu(const VideoFrame& frame);
+  HRESULT PopulateInputSampleBuffer(const PendingInput& input,
+                                    scoped_refptr<VideoFrame> frame);
+  HRESULT PopulateInputSampleBufferGpu(scoped_refptr<VideoFrame> frame,
+                                       ComMFSample input_sample);
+  HRESULT CopyInputSampleBufferFromGpu(scoped_refptr<VideoFrame> frame,
+                                       ComMFSample input_sample);
 
   bool IsTemporalScalabilityCoding() const { return num_temporal_layers_ > 1; }
 
@@ -290,11 +289,6 @@ class MEDIA_GPU_EXPORT MediaFoundationVideoEncodeAccelerator
   ComMFMediaType imf_input_media_type_;
   ComMFMediaType imf_output_media_type_;
 
-  ComMFSample input_sample_;
-  // True if `input_sample_` has been populated with data/metadata
-  // of the next frame to be encoded.
-  bool has_prepared_input_sample_ = false;
-
   // MF video processor used for color format conversion; only
   // created if needed.
   std::unique_ptr<MediaFoundationVideoProcessorAccelerator> mf_video_processor_;
@@ -347,6 +341,8 @@ class MEDIA_GPU_EXPORT MediaFoundationVideoEncodeAccelerator
 
   // Max supported framerate and resolution combinations.
   std::vector<FramerateAndResolution> max_framerate_and_resolutions_;
+
+  bool encoder_produces_svc_spec_compliant_bitstream_ = false;
 
   // Declared last to ensure that all weak pointers are invalidated before
   // other destructors run.

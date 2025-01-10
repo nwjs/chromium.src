@@ -340,6 +340,9 @@ void SetFlags(IsolateHolder::ScriptMode mode,
   SetV8FlagsIfOverridden(features::kV8ExternalMemoryAccountedInGlobalLimit,
                          "--external-memory-accounted-in-global-limit",
                          "--no-external-memory-accounted-in-global-limit");
+  SetV8FlagsIfOverridden(features::kV8GCSpeedUsesCounters,
+                         "--gc-speed-uses-counters",
+                         "--no-gc-speed-uses-counters");
   SetV8FlagsIfOverridden(features::kV8TurboFastApiCalls,
                          "--turbo-fast-api-calls", "--no-turbo-fast-api-calls");
   SetV8FlagsIfOverridden(features::kV8MegaDomIC, "--mega-dom-ic",
@@ -441,16 +444,6 @@ void SetFlags(IsolateHolder::ScriptMode mode,
     }
   } else {
     SetV8FlagsFormatted("--no-efficiency-mode-for-tiering-heuristics");
-  }
-
-  if (base::FeatureList::IsEnabled(
-          features::kWebAssemblyMoreAggressiveCodeCaching)) {
-    SetV8FlagsFormatted(
-        "--wasm-caching-threshold=%d --wasm-caching-hard-threshold=%d "
-        "--wasm-caching-timeout-ms=%d",
-        features::kWebAssemblyMoreAggressiveCodeCachingThreshold.Get(),
-        features::kWebAssemblyMoreAggressiveCodeCachingHardThreshold.Get(),
-        features::kWebAssemblyMoreAggressiveCodeCachingTimeoutMs.Get());
   }
 
   // Make sure aliases of kV8SlowHistograms only enable the feature to

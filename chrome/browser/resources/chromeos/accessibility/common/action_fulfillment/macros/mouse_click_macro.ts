@@ -45,10 +45,9 @@ export class MouseClickMacro extends Macro {
     }
     const mouseButton = this.leftClick_ ? SyntheticMouseEventButton.LEFT :
                                           SyntheticMouseEventButton.RIGHT;
-
-    EventGenerator.sendMousePress(
-        this.location_.x, this.location_.y, mouseButton);
-    EventGenerator.sendMouseRelease(this.location_.x, this.location_.y);
+    EventGenerator.sendMouseClick(this.location_.x, this.location_.y, {
+      mouseButton,
+    });
     return this.createRunMacroResult_(/*isSuccess=*/ true);
   }
 }
@@ -75,12 +74,39 @@ export class MouseClickLeftDoubleMacro extends Macro {
       return this.createRunMacroResult_(/*isSuccess=*/ false);
     }
 
-    const mouseButton = SyntheticMouseEventButton.LEFT;
-    EventGenerator.sendMousePress(
-        this.location_.x, this.location_.y, mouseButton,
-        /*isDoubleClick=*/ true);
-    EventGenerator.sendMouseRelease(
-        this.location_.x, this.location_.y, /*isDoubleClick=*/ true);
+    EventGenerator.sendMouseClick(this.location_.x, this.location_.y, {
+      clickArgs: {isDoubleClick: true},
+    });
+
+    return this.createRunMacroResult_(/*isSuccess=*/ true);
+  }
+}
+
+/** Class that implements a macro to send a triple left click. */
+export class MouseClickLeftTripleMacro extends Macro {
+  private location_: ScreenPoint|undefined;
+
+  constructor(location: ScreenPoint|undefined) {
+    super(MacroName.MOUSE_CLICK_LEFT_TRIPLE);
+    this.location_ = location;
+  }
+
+  override checkContext(): CheckContextResult {
+    if (!this.location_) {
+      return this.createFailureCheckContextResult_(MacroError.BAD_CONTEXT);
+    }
+
+    return this.createSuccessCheckContextResult_();
+  }
+
+  override run(): RunMacroResult {
+    if (!this.location_) {
+      return this.createRunMacroResult_(/*isSuccess=*/ false);
+    }
+
+    EventGenerator.sendMouseClick(this.location_.x, this.location_.y, {
+      clickArgs: {isTripleClick: true},
+    });
 
     return this.createRunMacroResult_(/*isSuccess=*/ true);
   }

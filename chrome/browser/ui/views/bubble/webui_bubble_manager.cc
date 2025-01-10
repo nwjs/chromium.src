@@ -6,6 +6,7 @@
 
 #include "base/notimplemented.h"
 #include "base/timer/timer.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/webui/top_chrome/webui_contents_warmup_level_recorder.h"
 #include "chrome/browser/ui/webui/top_chrome/webui_url_utils.h"
@@ -68,7 +69,8 @@ bool WebUIBubbleManager::ShowBubble(const std::optional<gfx::Rect>& anchor,
   if ((!disable_close_bubble_helper_) &&
       BrowserList::GetInstance()->GetLastActive()) {
     close_bubble_helper_ = std::make_unique<CloseBubbleOnTabActivationHelper>(
-        bubble_view_.get(), BrowserList::GetInstance()->GetLastActive());
+        bubble_view_.get(),
+        BrowserList::GetInstance()->GetLastActive()->tab_strip_model());
   }
 
   if (identifier)
@@ -115,6 +117,14 @@ void WebUIBubbleManager::ResetContentsWrapperForTesting() {
   ResetContentsWrapper();
 }
 
+void WebUIBubbleManager::DisableCloseBubbleHelperForTesting() {
+  disable_close_bubble_helper_ = true;
+}
+
+WebUIContentsWrapper* WebUIBubbleManager::GetContentsWrapperForTesting() {
+  return GetContentsWrapper();
+}
+
 void WebUIBubbleManager::ResetContentsWrapper() {
   if (!cached_contents_wrapper_)
     return;
@@ -123,8 +133,4 @@ void WebUIBubbleManager::ResetContentsWrapper() {
     CloseBubble();
   DCHECK(!cached_contents_wrapper_->GetHost());
   cached_contents_wrapper_.reset();
-}
-
-void WebUIBubbleManager::DisableCloseBubbleHelperForTesting() {
-  disable_close_bubble_helper_ = true;
 }

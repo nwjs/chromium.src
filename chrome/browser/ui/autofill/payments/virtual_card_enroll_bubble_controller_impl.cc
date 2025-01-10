@@ -17,7 +17,7 @@
 #include "chrome/browser/ui/android/autofill/autofill_vcn_enroll_bottom_sheet_bridge.h"
 #include "components/autofill/core/browser/payments/autofill_virtual_card_enrollment_infobar_delegate_mobile.h"
 #include "components/autofill/core/browser/payments/autofill_virtual_card_enrollment_infobar_mobile.h"
-#include "components/infobars/core/infobar.h"
+#include "components/infobars/core/infobar.h"  // nogncheck
 #else
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -193,7 +193,7 @@ void VirtualCardEnrollBubbleControllerImpl::OnLinkClicked(
 }
 
 void VirtualCardEnrollBubbleControllerImpl::OnBubbleClosed(
-    PaymentsBubbleClosedReason closed_reason) {
+    PaymentsUiClosedReason closed_reason) {
   set_bubble_view(nullptr);
   UpdatePageActionIcon();
 
@@ -203,24 +203,24 @@ void VirtualCardEnrollBubbleControllerImpl::OnBubbleClosed(
     return;
   }
 
-  auto get_metric = [](PaymentsBubbleClosedReason reason) {
+  auto get_metric = [](PaymentsUiClosedReason reason) {
     switch (reason) {
-      case PaymentsBubbleClosedReason::kAccepted:
+      case PaymentsUiClosedReason::kAccepted:
         return VirtualCardEnrollmentBubbleResult::
             VIRTUAL_CARD_ENROLLMENT_BUBBLE_ACCEPTED;
-      case PaymentsBubbleClosedReason::kCancelled:
+      case PaymentsUiClosedReason::kCancelled:
         return VirtualCardEnrollmentBubbleResult::
             VIRTUAL_CARD_ENROLLMENT_BUBBLE_CANCELLED;
-      case PaymentsBubbleClosedReason::kClosed:
+      case PaymentsUiClosedReason::kClosed:
         return VirtualCardEnrollmentBubbleResult::
             VIRTUAL_CARD_ENROLLMENT_BUBBLE_CLOSED;
-      case PaymentsBubbleClosedReason::kNotInteracted:
+      case PaymentsUiClosedReason::kNotInteracted:
         return VirtualCardEnrollmentBubbleResult::
             VIRTUAL_CARD_ENROLLMENT_BUBBLE_NOT_INTERACTED;
-      case PaymentsBubbleClosedReason::kLostFocus:
+      case PaymentsUiClosedReason::kLostFocus:
         return VirtualCardEnrollmentBubbleResult::
             VIRTUAL_CARD_ENROLLMENT_BUBBLE_LOST_FOCUS;
-      case PaymentsBubbleClosedReason::kUnknown:
+      case PaymentsUiClosedReason::kUnknown:
         return VirtualCardEnrollmentBubbleResult::
             VIRTUAL_CARD_ENROLLMENT_BUBBLE_RESULT_UNKNOWN;
     }
@@ -264,7 +264,7 @@ void VirtualCardEnrollBubbleControllerImpl::OnBubbleClosed(
 #endif
 }
 
-base::OnceCallback<void(PaymentsBubbleClosedReason)>
+base::OnceCallback<void(PaymentsUiClosedReason)>
 VirtualCardEnrollBubbleControllerImpl::GetOnBubbleClosedCallback() {
   return base::BindOnce(&VirtualCardEnrollBubbleControllerImpl::OnBubbleClosed,
                         weak_ptr_factory_.GetWeakPtr());
@@ -327,18 +327,13 @@ void VirtualCardEnrollBubbleControllerImpl::DoShowBubble() {
   Browser* browser = chrome::FindBrowserWithTab(web_contents());
 
   if (enrollment_status_ == EnrollmentStatus::kCompleted) {
-    if (base::FeatureList::IsEnabled(
-            features::kAutofillEnableVcnEnrollLoadingAndConfirmation)) {
-      set_bubble_view(
-          browser->window()
-              ->GetAutofillBubbleHandler()
-              ->ShowVirtualCardEnrollConfirmationBubble(web_contents(), this));
-      LogVirtualCardEnrollmentConfirmationViewShown(
-          /*is_shown=*/true, confirmation_ui_params_->is_success);
-    } else {
-      LogVirtualCardEnrollmentConfirmationViewShown(
-          /*is_shown=*/false, confirmation_ui_params_->is_success);
-    }
+    set_bubble_view(
+        browser->window()
+            ->GetAutofillBubbleHandler()
+            ->ShowVirtualCardEnrollConfirmationBubble(web_contents(), this));
+    LogVirtualCardEnrollmentConfirmationViewShown(
+        /*is_shown=*/true, confirmation_ui_params_->is_success);
+
   } else {
     // For reprompts after link clicks, `is_user_gesture` is set to false.
     bool user_gesture_reprompt = reprompt_required_ ? false : is_user_gesture_;

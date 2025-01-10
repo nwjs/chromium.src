@@ -11,6 +11,7 @@
 #include "components/autofill/core/browser/payments/payments_network_interface.h"
 #include "components/autofill/core/browser/payments/payments_util.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
+#include "components/autofill/core/common/autofill_payments_features.h"
 
 namespace autofill {
 namespace {
@@ -54,9 +55,10 @@ void CreditCardRiskBasedAuthenticator::Authenticate(
   unmask_request_details_ = std::make_unique<payments::UnmaskRequestDetails>();
   card_ = std::move(card);
   requester_ = requester;
-
   unmask_request_details_->card = card_;
-  if (card_.record_type() == CreditCard::RecordType::kVirtualCard) {
+  if (card_.record_type() == CreditCard::RecordType::kVirtualCard ||
+      card_.card_info_retrieval_enrollment_state() ==
+          CreditCard::CardInfoRetrievalEnrollmentState::kRetrievalEnrolled) {
     unmask_request_details_->last_committed_primary_main_frame_origin =
         autofill_client_->GetLastCommittedPrimaryMainFrameURL()
             .DeprecatedGetOriginAsURL();
@@ -131,6 +133,12 @@ void CreditCardRiskBasedAuthenticator::OnUnmaskResponseReceived(
           RiskBasedAuthenticationResponse::Result::kNoAuthenticationRequired;
       card_.SetNumber(base::UTF8ToUTF16(response_details.real_pan));
       card_.set_record_type(CreditCard::RecordType::kFullServerCard);
+      if (!response_details.dcvv.empty() &&
+          (unmask_request_details_->card
+               .card_info_retrieval_enrollment_state() ==
+           CreditCard::CardInfoRetrievalEnrollmentState::kRetrievalEnrolled)) {
+        card_.set_cvc(base::UTF8ToUTF16(response_details.dcvv));
+      }
       response.card = card_;
 
       autofill_metrics::LogRiskBasedAuthResult(

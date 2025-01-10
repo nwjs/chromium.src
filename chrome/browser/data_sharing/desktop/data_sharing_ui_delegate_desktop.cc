@@ -20,11 +20,13 @@ DataSharingUIDelegateDesktop::DataSharingUIDelegateDesktop(Profile* profile)
 
 DataSharingUIDelegateDesktop::~DataSharingUIDelegateDesktop() = default;
 
-void DataSharingUIDelegateDesktop::HandleShareURLIntercepted(const GURL& url) {
+void DataSharingUIDelegateDesktop::HandleShareURLIntercepted(
+    const GURL& url,
+    std::unique_ptr<ShareURLInterceptionContext> context) {
   DataSharingService* const service =
       DataSharingServiceFactory::GetForProfile(profile_);
-  const data_sharing::DataSharingService::ParseURLResult token =
-      service->ParseDataSharingURL(url);
+  const data_sharing::DataSharingService::ParseUrlResult token =
+      service->ParseDataSharingUrl(url);
   if (!token->IsValid()) {
     // TODO(crbug.com/371068565): show an error to tell users what happened.
     return;

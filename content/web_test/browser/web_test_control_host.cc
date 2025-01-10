@@ -1403,12 +1403,13 @@ void WebTestControlHost::ReportResults() {
 
   // Use the browser-generated |layout_dump_| if present, else use the
   // renderer's.
-  if (layout_dump_)
+  if (layout_dump_) {
     OnTextDump(*layout_dump_);
-  else if (renderer_dump_result_->layout)
+  } else if (renderer_dump_result_->layout) {
     OnTextDump(*renderer_dump_result_->layout);
-  else
-    NOTREACHED_IN_MIGRATION();
+  } else {
+    NOTREACHED();
+  }
 
   // Use the browser-generated |pixel_dump_| if present, else use the
   // renderer's.
@@ -1443,8 +1444,6 @@ void WebTestControlHost::OnImageDump(const std::string& actual_pixel_hash,
   // Only encode and dump the png if the hashes don't match. Encoding the
   // image is really expensive.
   if (actual_pixel_hash != expected_pixel_hash_) {
-    std::vector<unsigned char> png;
-
     bool discard_transparency = true;
     if (web_test_runtime_flags().dump_drag_image())
       discard_transparency = false;
@@ -1458,21 +1457,20 @@ void WebTestControlHost::OnImageDump(const std::string& actual_pixel_hash,
         pixel_format = gfx::PNGCodec::FORMAT_RGBA;
         break;
       default:
-        NOTREACHED_IN_MIGRATION();
-        return;
+        NOTREACHED();
     }
 
     std::vector<gfx::PNGCodec::Comment> comments;
     // Used by
     // //third_party/blink/tools/blinkpy/common/read_checksum_from_png.py
-    comments.push_back(gfx::PNGCodec::Comment("checksum", actual_pixel_hash));
-    bool success = gfx::PNGCodec::Encode(
+    comments.emplace_back("checksum", actual_pixel_hash);
+    std::optional<std::vector<uint8_t>> png = gfx::PNGCodec::Encode(
         static_cast<const unsigned char*>(image.getPixels()), pixel_format,
         gfx::Size(image.width(), image.height()),
-        static_cast<int>(image.rowBytes()), discard_transparency, comments,
-        &png);
-    if (success)
-      printer_->PrintImageBlock(png);
+        static_cast<int>(image.rowBytes()), discard_transparency, comments);
+    if (png) {
+      printer_->PrintImageBlock(png.value());
+    }
   }
   printer_->PrintImageFooter();
 }
@@ -1563,8 +1561,7 @@ void WebTestControlHost::SetPermission(const std::string& name,
   } else if (name == "top-level-storage-access") {
     type = blink::PermissionType::TOP_LEVEL_STORAGE_ACCESS;
   } else {
-    NOTREACHED_IN_MIGRATION();
-    type = blink::PermissionType::NOTIFICATIONS;
+    NOTREACHED();
   }
 
   WebTestContentBrowserClient::Get()

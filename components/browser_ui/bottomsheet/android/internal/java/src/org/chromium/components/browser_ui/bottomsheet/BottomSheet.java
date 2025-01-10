@@ -1037,9 +1037,7 @@ class BottomSheet extends FrameLayout
             setFocusable(true);
             setFocusableInTouchMode(true);
             String contentDescription =
-                    getResources()
-                            .getString(
-                                    getCurrentSheetContent().getSheetContentDescriptionStringId());
+                    getCurrentSheetContent().getSheetContentDescription(getContext());
 
             if (getCurrentSheetContent().swipeToDismissEnabled()) {
                 contentDescription +=
@@ -1089,8 +1087,10 @@ class BottomSheet extends FrameLayout
         return mContainerHeight;
     }
 
-    /** @return The maximum width of the bottom sheet based on its current state and container. */
-    private int getMaxSheetWidth() {
+    /**
+     * @return The maximum width of the bottom sheet based on its current state and container.
+     */
+    public int getMaxSheetWidth() {
         if (!mAlwaysFullWidth) {
             int narrowWidthThreshold =
                     getResources()

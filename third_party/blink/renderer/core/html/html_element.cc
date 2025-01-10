@@ -92,6 +92,7 @@
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_label_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/forms/labels_node_list.h"
 #include "third_party/blink/renderer/core/html/forms/text_control_element.h"
 #include "third_party/blink/renderer/core/html/html_bdi_element.h"
@@ -661,6 +662,8 @@ AttributeTriggers* HTMLElement::TriggersForAttributeName(
        nullptr},
 
       // Begin ARIA attributes.
+      {html_names::kAriaActionsAttr, WebFeature::kARIAActionsAttribute,
+       kNoEvent, nullptr},
       {html_names::kAriaActivedescendantAttr,
        WebFeature::kARIAActiveDescendantAttribute, kNoEvent, nullptr},
       {html_names::kAriaAtomicAttr, WebFeature::kARIAAtomicAttribute, kNoEvent,
@@ -1232,6 +1235,16 @@ void HTMLElement::UpdatePopoverAttribute(const AtomicString& value) {
   }
   if (type == PopoverValueType::kNone) {
     if (HasPopoverAttribute()) {
+      if (RuntimeEnabledFeatures::CustomizableSelectEnabled() &&
+          !RuntimeEnabledFeatures::PopoverAnchorRelationshipsEnabled()) {
+        // CustomizableSelect allows the implicit anchor to be set but only for
+        // the UA ::picker(select) popover, which will never have its popover
+        // attribute removed and therefore never hit this code path.
+        DCHECK_EQ(implicitAnchor(), nullptr);
+      }
+      if (RuntimeEnabledFeatures::PopoverAnchorRelationshipsEnabled()) {
+        SetImplicitAnchor(nullptr);
+      }
       // If the popover attribute is being removed, remove the PopoverData.
       RemovePopoverData();
     }
@@ -1249,7 +1262,7 @@ void HTMLElement::UpdatePopoverAttribute(const AtomicString& value) {
       UseCounter::Count(GetDocument(), WebFeature::kPopoverTypeManual);
       break;
     case PopoverValueType::kNone:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
   CHECK_EQ(type, GetPopoverTypeFromAttributeValue(
                      FastGetAttribute(html_names::kPopoverAttr)));
@@ -1315,6 +1328,13 @@ bool HTMLElement::IsPopoverReady(PopoverTriggerAction action,
     maybe_throw_exception(DOMExceptionCode::kNotSupportedError,
                           "Not supported on elements that do not have a valid "
                           "value for the 'popover' attribute.");
+    return false;
+  }
+  if (!GetDocument().IsActive() &&
+      RuntimeEnabledFeatures::TopLayerInactiveDocumentExceptionsEnabled()) {
+    maybe_throw_exception(
+        DOMExceptionCode::kInvalidStateError,
+        "Invalid for popovers within documents that are not fully active.");
     return false;
   }
   if (action == PopoverTriggerAction::kShow &&
@@ -1582,10 +1602,20 @@ void HTMLElement::ShowPopoverInternal(Element* invoker,
   // Make the popover match `:popover-open` and remove `display:none` styling:
   GetPopoverData()->setVisibilityState(PopoverVisibilityState::kShowing);
   GetPopoverData()->setInvoker(invoker);
-  if (RuntimeEnabledFeatures::PopoverAnchorRelationshipsEnabled()) {
+  if (RuntimeEnabledFeatures::PopoverAnchorRelationshipsEnabled() ||
+      (RuntimeEnabledFeatures::CustomizableSelectEnabled() &&
+       HTMLSelectElement::IsPopoverForAppearanceBase(this))) {
     SetImplicitAnchor(invoker);
   }
+
   PseudoStateChanged(CSSSelector::kPseudoPopoverOpen);
+  if (HTMLSelectElement::IsPopoverForAppearanceBase(this)) {
+    // If this element is the ::picker(select) popover, then we need to
+    // invalidate the select element's :open pseudo-class at the same time as
+    // :popover-open https://issues.chromium.org/issues/375004874
+    OwnerShadowHost()->PseudoStateChanged(CSSSelector::kPseudoOpen);
+  }
+
   CHECK(!original_document.AllOpenPopovers().Contains(this));
   original_document.AllOpenPopovers().insert(this);
 
@@ -1689,8 +1719,7 @@ void HTMLElement::HideAllPopoversUntil(
       }
       last_to_hide = *it;
     }
-    NOTREACHED_IN_MIGRATION() << "ancestor must be in the stack";
-    return nullptr;
+    NOTREACHED() << "ancestor must be in the stack";
   };
 
   auto hide_stack_until = [&find_last_to_hide, &focus_behavior,
@@ -1802,9 +1831,6 @@ void HTMLElement::HidePopoverInternal(
 
   MarkPopoverInvokersDirty(*this);
   GetPopoverData()->setInvoker(nullptr);
-  if (RuntimeEnabledFeatures::PopoverAnchorRelationshipsEnabled()) {
-    SetImplicitAnchor(nullptr);
-  }
   // Events are only fired in the case that the popover is not being removed
   // from the document.
   if (transition_behavior ==
@@ -1897,7 +1923,15 @@ void HTMLElement::HidePopoverInternal(
 
   // Re-apply display:none, and stop matching `:popover-open`.
   GetPopoverData()->setVisibilityState(PopoverVisibilityState::kHidden);
+
   PseudoStateChanged(CSSSelector::kPseudoPopoverOpen);
+  if (HTMLSelectElement::IsPopoverForAppearanceBase(this)) {
+    // If this element is the ::picker(select) popover, then we need to
+    // invalidate the select element's :open pseudo-class at the same time as
+    // :popover-open https://issues.chromium.org/issues/375004874
+    OwnerShadowHost()->PseudoStateChanged(CSSSelector::kPseudoOpen);
+  }
+
   document.AllOpenPopovers().erase(this);
 
   Element* previously_focused_element =

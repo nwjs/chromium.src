@@ -4,13 +4,15 @@
 
 #include "components/variations/seed_reader_writer.h"
 
+#include "base/base64.h"
+#include "base/containers/contains.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/important_file_writer.h"
-#include "base/functional/bind.h"
-#include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/metrics/field_trial.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/string_util.h"
 #include "base/task/sequenced_task_runner.h"
 #include "components/prefs/pref_service.h"
@@ -21,14 +23,13 @@ namespace {
 
 // Histogram suffix used by ImportantFileWriter for recording seed file write
 // information.
-// TODO(crbug.com/369080917): Add this back when we begin writing.
-// constexpr char kSeedWriterHistogramSuffix[] = "VariationsSeedsV1";
+constexpr char kSeedWriterHistogramSuffix[] = "VariationsSeedsV1";
 
-// Returns true if a seed should be written to its new storage.
-bool ShouldWriteToNewSeedStorage(version_info::Channel channel) {
-  return channel == version_info::Channel::CANARY ||
-         channel == version_info::Channel::DEV ||
-         channel == version_info::Channel::BETA;
+// Returns true if a seed file should be used.
+bool ShouldUseSeedFile() {
+  // Use the plain FieldTrialList API here because the trial is registered
+  // client-side in VariationsSeedStore SetUpSeedFileTrial().
+  return base::FieldTrialList::FindFullName(kSeedFileTrial) == kSeedFilesGroup;
 }
 
 // Serializes and returns seed data used during write to disk. Will be run
@@ -42,7 +43,7 @@ std::optional<std::string> DoSerialize(std::string seed_data) {
 // Returns the file path used to store a seed. If `seed_file_dir` is empty, an
 // empty file path is returned.
 base::FilePath GetFilePath(const base::FilePath& seed_file_dir,
-                           const base::FilePath::CharType* filename) {
+                           base::FilePath::StringPieceType filename) {
   return seed_file_dir.empty() ? base::FilePath()
                                : seed_file_dir.Append(filename);
 }
@@ -52,17 +53,20 @@ base::FilePath GetFilePath(const base::FilePath& seed_file_dir,
 SeedReaderWriter::SeedReaderWriter(
     PrefService* local_state,
     const base::FilePath& seed_file_dir,
-    const base::FilePath::CharType* seed_filename,
-    const version_info::Channel channel,
+    base::FilePath::StringPieceType seed_filename,
+    std::string_view seed_pref,
     scoped_refptr<base::SequencedTaskRunner> file_task_runner)
     : local_state_(local_state),
-      channel_(channel),
+      seed_pref_(seed_pref),
       file_task_runner_(std::move(file_task_runner)) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!seed_file_dir.empty()) {
     seed_writer_ = std::make_unique<base::ImportantFileWriter>(
         GetFilePath(seed_file_dir, seed_filename), file_task_runner_,
-        std::string());
+        kSeedWriterHistogramSuffix);
+    if (ShouldUseSeedFile()) {
+      ReadSeedFile();
+    }
   }
 }
 
@@ -73,28 +77,42 @@ SeedReaderWriter::~SeedReaderWriter() {
   }
 }
 
-void SeedReaderWriter::StoreValidatedSeed(const std::string& seed_data) {
+void SeedReaderWriter::StoreValidatedSeed(
+    const std::string& compressed_seed_data,
+    const std::string& base64_seed_data) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  local_state_->SetString(prefs::kVariationsCompressedSeed, seed_data);
-  if (ShouldWriteToNewSeedStorage(channel_)) {
-    ScheduleSeedFileWrite(seed_data);
+  local_state_->SetString(seed_pref_, base64_seed_data);
+  if (ShouldUseSeedFile()) {
+    ScheduleSeedFileWrite(compressed_seed_data);
   }
 }
 
 void SeedReaderWriter::ClearSeed() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  local_state_->ClearPref(prefs::kVariationsCompressedSeed);
-  // TODO(crbug.com/372009105): Remove if-statement when all channels are ready
-  // to launch.
-  if (!ShouldWriteToNewSeedStorage(channel_) && seed_writer_ &&
-      !base::PathExists(seed_writer_->path())) {
+  local_state_->ClearPref(seed_pref_);
+  // TODO(crbug.com/372009105): Remove if-statements when experiment has ended.
+  if (!seed_writer_) {
     return;
   }
-  // Although only pre-Stable clients write seeds to dedicated seed files,
-  // attempt to clear the seed file on all channels here. If a client
-  // switches from a pre-Stable client to a Stable client, their device
-  // could have a seed file.
-  ScheduleSeedFileWrite(std::string());
+
+  // Although only clients in the treatment group write seeds to dedicated seed
+  // files, attempt to clear the seed file for all groups here. If a client
+  // switches experiment groups or channels, their device could have a seed file
+  // with stale seed data.
+  if (ShouldUseSeedFile()) {
+    ScheduleSeedFileWrite(std::string());
+  } else if (base::PathExists(seed_writer_->path())) {
+    DeleteSeedFile();
+  }
+}
+
+const std::string& SeedReaderWriter::GetSeedData() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (ShouldUseSeedFile()) {
+    return seed_data_;
+  } else {
+    return local_state_->GetString(seed_pref_);
+  }
 }
 
 void SeedReaderWriter::SetTimerForTesting(base::OneShotTimer* timer_override) {
@@ -102,11 +120,6 @@ void SeedReaderWriter::SetTimerForTesting(base::OneShotTimer* timer_override) {
   if (seed_writer_) {
     seed_writer_->SetTimerForTesting(timer_override);  // IN-TEST
   }
-}
-
-bool SeedReaderWriter::HasPendingWriteForTesting() const {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return seed_writer_ ? seed_writer_->HasPendingWrite() : false;
 }
 
 base::ImportantFileWriter::BackgroundDataProducerCallback
@@ -142,6 +155,47 @@ void SeedReaderWriter::ScheduleSeedFileWrite(const std::string& seed_data) {
     // being scheduled.
     seed_writer_->ScheduleWriteWithBackgroundDataSerializer(this);
   }
+}
+
+void SeedReaderWriter::DeleteSeedFile() {
+  if (seed_writer_) {
+    file_task_runner_->PostTask(
+        FROM_HERE, base::BindOnce(base::IgnoreResult(&base::DeleteFile),
+                                  seed_writer_->path()));
+  }
+}
+
+void SeedReaderWriter::ReadSeedFile() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  std::string seed_file_data;
+  const bool success =
+      base::ReadFileToString(seed_writer_->path(), &seed_file_data);
+
+  if (success) {
+    seed_data_ = std::move(seed_file_data);
+  } else {
+    // Export seed data from Local State to a seed file in the following cases.
+    // 1. Seed file does not exists because this is the first run for Windows
+    // OS. In this case, the first run seed may be stored in Local State, see
+    // https://crsrc.org/s?q=file:chrome_feature_list_creator.cc+symbol:SetupInitialPrefs.
+    // 2. Seed file does not exists because this is the first time a client is
+    // in the seed file experiment's treatment group.
+    // 3. Seed file exists and read failed.
+    std::string decoded_data;
+    if (base::Base64Decode(local_state_->GetString(seed_pref_),
+                           &decoded_data)) {
+      // Write will only occur if ShouldUseSeedFile() is true.
+      ScheduleSeedFileWrite(decoded_data);
+    }
+  }
+
+  base::UmaHistogramBoolean(
+      base::StrCat({"Variations.SeedFileRead.",
+                    base::Contains(
+                        seed_writer_->path().BaseName().MaybeAsASCII(), "Safe")
+                        ? "Safe"
+                        : "Latest"}),
+      success);
 }
 
 }  // namespace variations

@@ -50,7 +50,7 @@ bool IsFedCmWithoutWellKnownEnforcementEnabled();
 bool IsWebIdentityDigitalCredentialsEnabled();
 
 // Whether "Use Other Account" is enabled.
-bool IsFedCmUseOtherAccountEnabled(bool is_active_mode);
+bool IsFedCmUseOtherAccountEnabled();
 
 // Whether the ActiveMode feature is enabled.
 bool IsFedCmActiveModeEnabled();
@@ -60,6 +60,9 @@ bool IsFedCmSameSiteLaxEnabled();
 
 // Whether specifying a subset of the default fields is enabled.
 bool IsFedCmFlexibleFieldsEnabled();
+
+// Whether showing filtered accounts is enabled.
+bool IsFedCmShowFilteredAccountsEnabled();
 
 }  // namespace content
 

@@ -40,8 +40,7 @@
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_types.h"
 #include "ui/base/metadata/metadata_utils.h"
-#include "ui/base/mojom/menu_source_type.mojom.h"
-#include "ui/base/ui_base_types.h"
+#include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/compositor/layer_delegate.h"
 #include "ui/compositor/layer_observer.h"
 #include "ui/compositor/layer_owner.h"
@@ -818,12 +817,8 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
 
   // Sets whether or not the layout manager need to respect the available space.
   //
-  // TODO(crbug.com/40232718): Remove this. When the vertical flexlayout with
-  // cross axis is stretched, it will be (width, GetHeightForWidth(width)) when
-  // calculating preferredsize, thus setting the width to an incorrect value.
-  // This will cause unexpected results in some client code. This problem also
-  // exists in BoxLayout. When we switch GetHeightForWidth in them to
-  // GetPreferredSize, this problem should be solved.
+  // TODO(crbug.com/363826230): Remove this. Modify the layout alignment
+  // properties or overload `CalculatePreferredSize(SizeBounds)`.
   void SetLayoutManagerUseConstrainedSpace(
       bool layout_manager_use_constrained_space);
 
@@ -2008,9 +2003,10 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // not obscure debug rects.
   void PaintFromPaintRoot(const ui::PaintContext& parent_context);
 
-  // Draws a semitransparent rect to indicate the bounds of this view.
-  // Recursively does the same for all children.  Invoked only with
-  // --draw-view-bounds-rects.
+  // Draws a semitransparent red rect to indicate the bounds of this view.
+  // Recursively does the same for all children. Also, draws a blue
+  // semitransparent rect when GetContentBounds() differs from GetLocalBounds().
+  // Invoked only with --draw-view-bounds-rects.
   void PaintDebugRects(const PaintInfo& paint_info);
 
   // Tree operations -----------------------------------------------------------

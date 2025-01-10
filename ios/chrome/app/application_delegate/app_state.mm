@@ -27,7 +27,9 @@
 #import "ios/chrome/app/application_delegate/memory_warning_helper.h"
 #import "ios/chrome/app/application_delegate/metrics_mediator.h"
 #import "ios/chrome/app/application_delegate/startup_information.h"
+#import "ios/chrome/app/deferred_initialization_queue.h"
 #import "ios/chrome/app/deferred_initialization_runner.h"
+#import "ios/chrome/app/deferred_initialization_task_names.h"
 #import "ios/chrome/app/profile/profile_init_stage.h"
 #import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/browser/browsing_data/model/sessions_storage_util.h"
@@ -66,7 +68,6 @@
 #import "ui/base/device_form_factor.h"
 
 namespace {
-NSString* const kStartupAttemptReset = @"StartupAttemptReset";
 
 // Flushes the CookieStore on the IO thread and invoke `closure` upon
 // completion. The sequence where `closure` is invoked is unspecified.
@@ -76,6 +77,13 @@ void FlushCookieStoreOnIOThread(
   DCHECK_CURRENTLY_ON(web::WebThread::IO);
   getter->GetURLRequestContext()->cookie_store()->FlushStore(
       std::move(closure));
+}
+
+// Returns YES if the UIApplication is currently in the background, regardless
+// of where it is in the lifecycle.
+BOOL ApplicationIsInBackground() {
+  return [[UIApplication sharedApplication] applicationState] ==
+         UIApplicationStateBackground;
 }
 }  // namespace
 
@@ -87,7 +95,7 @@ void FlushCookieStoreOnIOThread(
 @implementation AppStateObserverList
 @end
 
-#pragma mark - AppStateObserverList
+#pragma mark - UIBlockerManagerObserverList
 
 @interface UIBlockerManagerObserverList
     : CRBProtocolObservers <UIBlockerManagerObserver>
@@ -98,7 +106,7 @@ void FlushCookieStoreOnIOThread(
 
 #pragma mark - AppState
 
-@interface AppState () <AppStateObserver>
+@interface AppState ()
 
 // Container for observers.
 @property(nonatomic, strong) AppStateObserverList* observers;
@@ -119,9 +127,6 @@ void FlushCookieStoreOnIOThread(
 // INITIALIZATION_STAGE_BACKGROUND so this
 // step cannot be included in the `startUpBrowserToStage:` method.
 - (void)initializeUIPreSafeMode;
-
-// Complete the browser initialization for a regular startup.
-- (void)completeUIInitialization;
 
 // Saves the current launch details to user defaults.
 - (void)saveLaunchDetailsToDefaults;
@@ -177,6 +182,8 @@ void FlushCookieStoreOnIOThread(
     _agents = [[NSMutableArray alloc] init];
     _startupInformation = startupInformation;
     _appCommandDispatcher = [[CommandDispatcher alloc] init];
+    _deferredRunner = [[DeferredInitializationRunner alloc]
+        initWithQueue:[DeferredInitializationQueue sharedInstance]];
 
     // Subscribe to scene connection notifications.
     [[NSNotificationCenter defaultCenter]
@@ -192,8 +199,6 @@ void FlushCookieStoreOnIOThread(
                name:UIAccessibilityVoiceOverStatusDidChangeNotification
              object:nil];
     crash_keys::SetVoiceOverRunning(UIAccessibilityIsVoiceOverRunning());
-
-    [self addObserver:self];
   }
   return self;
 }
@@ -324,8 +329,8 @@ void FlushCookieStoreOnIOThread(
   }
 
   // Mark the startup as clean if it hasn't already been.
-  [[DeferredInitializationRunner sharedInstance]
-      runBlockIfNecessary:kStartupAttemptReset];
+  [_deferredRunner runBlockNamed:kStartupResetAttemptCount];
+
   // Set date/time that the background fetch handler was called in the user
   // defaults.
   [MetricsMediator logDateInUserDefaults];
@@ -590,10 +595,6 @@ void FlushCookieStoreOnIOThread(
   [self queueTransitionToNextInitStage];
 }
 
-- (void)completeUIInitialization {
-  DCHECK([self.startupInformation isColdStart]);
-}
-
 #pragma mark - Internal methods.
 
 - (void)saveLaunchDetailsToDefaults {
@@ -627,7 +628,7 @@ void FlushCookieStoreOnIOThread(
   self.initStage = initStage;
   // TODO(crbug.com/353683675) Improve this logic once ProfileInitStage and
   // AppInitStage are fully decoupled.
-  if (initStage >= AppInitStage::kBrowserObjectsForBackgroundHandlers) {
+  if (initStage >= AppInitStage::kLoadProfiles) {
     for (ProfileState* profileState in self.connectedProfileStates) {
       ProfileInitStage currStage = profileState.initStage;
       ProfileInitStage nextStage = ProfileInitStageFromAppInitStage(initStage);
@@ -646,6 +647,27 @@ void FlushCookieStoreOnIOThread(
   if (self.needsIncrementInitStage) {
     self.needsIncrementInitStage = NO;
     [self queueTransitionToNextInitStage];
+  }
+}
+
+#pragma mark - BackgroundRefreshAudience
+
+- (void)backgroundRefreshDidStart {
+  // If  refresh is starting, and the app is in the background, then let the
+  // application state know so it can enable the clean exit beacon while work
+  // is underway.
+  if (ApplicationIsInBackground()) {
+    GetApplicationContext()->OnAppStartedBackgroundProcessing();
+  }
+}
+
+- (void)backgroundRefreshDidEnd {
+  // If  refresh has completed, and the app is in the background, then let the
+  // application state know so it can disable the clean exit beacon. If iOS
+  // kills the app in the background at this point it should not be a crash for
+  // the purposes of metrics or experiments.
+  if (ApplicationIsInBackground()) {
+    GetApplicationContext()->OnAppFinishedBackgroundProcessing();
   }
 }
 
@@ -675,18 +697,16 @@ void FlushCookieStoreOnIOThread(
 #pragma mark - UIBlockerManager
 
 - (void)incrementBlockingUICounterForTarget:(id<UIBlockerTarget>)target {
-  DCHECK(self.uiBlockerTarget == nil || target == self.uiBlockerTarget)
+  CHECK(self.uiBlockerTarget == nil || target == self.uiBlockerTarget)
       << "Another scene is already showing a blocking UI!";
   self.blockingUICounter++;
-  if (!self.uiBlockerTarget) {
-    self.uiBlockerTarget = target;
-  }
+  self.uiBlockerTarget = target;
 }
 
 - (void)decrementBlockingUICounterForTarget:(id<UIBlockerTarget>)target {
-  DCHECK(self.blockingUICounter > 0 && self.uiBlockerTarget == target);
-  self.blockingUICounter--;
-  if (self.blockingUICounter == 0) {
+  CHECK_GT(self.blockingUICounter, 0u);
+  CHECK_EQ(self.uiBlockerTarget, target);
+  if (--self.blockingUICounter == 0) {
     self.uiBlockerTarget = nil;
     [self.uiBlockerManagerObservers currentUIBlockerRemoved];
   }
@@ -749,18 +769,6 @@ void FlushCookieStoreOnIOThread(
 
 - (void)voiceOverStatusDidChange:(NSNotification*)notification {
   crash_keys::SetVoiceOverRunning(UIAccessibilityIsVoiceOverRunning());
-}
-
-#pragma mark - AppStateObserver
-
-// TODO(crbug.com/40756629): Move this logic to a specific agent.
-- (void)appState:(AppState*)appState
-    didTransitionFromInitStage:(AppInitStage)previousInitStage {
-  if (previousInitStage != AppInitStage::kBrowserObjectsForUI) {
-    return;
-  }
-
-  [self completeUIInitialization];
 }
 
 #pragma mark - Private

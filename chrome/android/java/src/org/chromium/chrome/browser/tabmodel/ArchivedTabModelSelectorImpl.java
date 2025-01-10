@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.tabmodel;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
@@ -24,7 +25,6 @@ public class ArchivedTabModelSelectorImpl extends TabModelSelectorBase implement
     private final AtomicBoolean mSessionRestoreCompleted = new AtomicBoolean(true);
 
     private final Profile mProfile;
-    private final TabModelOrderController mOrderController;
     private final NextTabPolicySupplier mNextTabPolicySupplier;
     private final AsyncTabParamsManager mAsyncTabParamsManager;
 
@@ -45,7 +45,6 @@ public class ArchivedTabModelSelectorImpl extends TabModelSelectorBase implement
             AsyncTabParamsManager asyncTabParamsManager) {
         super(tabCreatorManager, /* startIncognito= */ false);
         mProfile = profile;
-        mOrderController = new TabModelOrderControllerImpl(this);
         mNextTabPolicySupplier = nextTabPolicySupplier;
         mAsyncTabParamsManager = asyncTabParamsManager;
     }
@@ -72,6 +71,12 @@ public class ArchivedTabModelSelectorImpl extends TabModelSelectorBase implement
         assert mTabContentManager == null : "onNativeLibraryReady called twice!";
 
         TabCreator tabCreator = getTabCreatorManager().getTabCreator(false);
+        TabModelOrderController orderController = new TabModelOrderControllerImpl(this);
+        TabRemover tabRemover =
+                new PassthroughTabRemover(
+                        () ->
+                                getTabGroupModelFilterProvider()
+                                        .getTabGroupModelFilter(/* isIncognito= */ false));
         // TODO(crbug.com/331688951): Consider using a custom TabModel.
         TabModelImpl normalModel =
                 new TabModelImpl(
@@ -79,11 +84,12 @@ public class ArchivedTabModelSelectorImpl extends TabModelSelectorBase implement
                         ActivityType.TABBED,
                         tabCreator,
                         /* incognitoTabCreator= */ null,
-                        mOrderController,
+                        orderController,
                         tabContentProvider,
                         mNextTabPolicySupplier,
                         mAsyncTabParamsManager,
                         this,
+                        tabRemover,
                         /* supportUndo= */ true,
                         /* isArchivedTabModel= */ true) {
                     @Override
@@ -116,7 +122,7 @@ public class ArchivedTabModelSelectorImpl extends TabModelSelectorBase implement
             TabModelInternal normalModel,
             IncognitoTabModelInternal incognitoModel) {
         mTabContentManager = tabContentProvider;
-        initialize(normalModel, incognitoModel);
+        initialize(normalModel, incognitoModel, ArchivedTabModelSelectorImpl::createTabUngrouper);
 
         new TabModelSelectorTabObserver(this) {
             @Override
@@ -146,7 +152,7 @@ public class ArchivedTabModelSelectorImpl extends TabModelSelectorBase implement
      */
     public void initializeForTesting(
             TabModelInternal normalModel, IncognitoTabModelInternal incognitoModel) {
-        initialize(normalModel, incognitoModel);
+        initialize(normalModel, incognitoModel, ArchivedTabModelSelectorImpl::createTabUngrouper);
     }
 
     @Override
@@ -165,5 +171,10 @@ public class ArchivedTabModelSelectorImpl extends TabModelSelectorBase implement
     @Override
     public boolean isSessionRestoreInProgress() {
         return mSessionRestoreCompleted.get();
+    }
+
+    private static TabUngrouper createTabUngrouper(
+            boolean isIncognitoBranded, Supplier<TabGroupModelFilter> tabGroupModelFilterSupplier) {
+        return new PassthroughTabUngrouper(tabGroupModelFilterSupplier);
     }
 }

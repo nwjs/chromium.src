@@ -241,10 +241,11 @@ class ModelExecutionBrowserTestBase : public InProcessBrowserTest {
       base::OnceClosure on_model_execution_closure,
       OptimizationGuideModelExecutionResult result,
       std::unique_ptr<ModelQualityLogEntry> log_entry) {
-    if (result.has_value() ||
-        result.error().error() == OptimizationGuideModelExecutionError::
-                                      ModelExecutionError::kFiltered ||
-        result.error().error() ==
+    if (result.response.has_value() ||
+        result.response.error().error() ==
+            OptimizationGuideModelExecutionError::ModelExecutionError::
+                kFiltered ||
+        result.response.error().error() ==
             OptimizationGuideModelExecutionError::ModelExecutionError::
                 kUnsupportedLanguage) {
       EXPECT_TRUE(log_entry);
@@ -257,15 +258,13 @@ class ModelExecutionBrowserTestBase : public InProcessBrowserTest {
       EXPECT_TRUE(log_ai_data_request->mutable_compose()->has_request());
     }
 
-    if (result.has_value()) {
+    if (result.response.has_value()) {
       EXPECT_TRUE(log_entry.get()
                       ->log_ai_data_request()
                       ->mutable_compose()
                       ->has_response());
-      model_execution_result_ = base::ok(result.value());
-    } else {
-      model_execution_result_ = base::unexpected(result.error());
     }
+    model_execution_result_.emplace(std::move(result));
     ModelQualityLogEntry::Upload(std::move(log_entry));
     std::move(on_model_execution_closure).Run();
   }
@@ -312,7 +311,7 @@ class ModelExecutionBrowserTestBase : public InProcessBrowserTest {
       response->set_code(net::HTTP_OK);
       response->set_content(serialized_response);
     } else {
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
     }
 
     return std::move(response);
@@ -381,11 +380,11 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionDisabledBrowserTest,
   request.mutable_generate_params()->set_user_input("a user typed this");
   ExecuteModel(UserVisibleFeatureKey::kCompose, request);
   EXPECT_TRUE(model_execution_result_.has_value());
-  EXPECT_FALSE(model_execution_result_->has_value());
+  EXPECT_FALSE(model_execution_result_->response.has_value());
   EXPECT_EQ(OptimizationGuideModelExecutionError::ModelExecutionError::
                 kGenericFailure,
-            model_execution_result_->error().error());
-  EXPECT_TRUE(model_execution_result_->error().transient());
+            model_execution_result_->response.error().error());
+  EXPECT_TRUE(model_execution_result_->response.error().transient());
 }
 
 IN_PROC_BROWSER_TEST_F(ModelExecutionDisabledBrowserTest,
@@ -475,11 +474,11 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnabledBrowserTest,
   ExecuteModel(UserVisibleFeatureKey::kCompose, request,
                otr_browser->profile());
   EXPECT_TRUE(model_execution_result_.has_value());
-  EXPECT_FALSE(model_execution_result_->has_value());
+  EXPECT_FALSE(model_execution_result_->response.has_value());
   EXPECT_EQ(OptimizationGuideModelExecutionError::ModelExecutionError::
                 kGenericFailure,
-            model_execution_result_->error().error());
-  EXPECT_TRUE(model_execution_result_->error().transient());
+            model_execution_result_->response.error().error());
+  EXPECT_TRUE(model_execution_result_->response.error().transient());
 
   // The logs shouldn't be uploaded because model execution is disabled for
   // incognito and we wouldn't be receiving any log entry.
@@ -493,11 +492,11 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnabledBrowserTest,
   request.mutable_generate_params()->set_user_input("a user typed this");
   ExecuteModel(UserVisibleFeatureKey::kCompose, request);
   EXPECT_TRUE(model_execution_result_.has_value());
-  EXPECT_FALSE(model_execution_result_->has_value());
+  EXPECT_FALSE(model_execution_result_->response.has_value());
   EXPECT_EQ(OptimizationGuideModelExecutionError::ModelExecutionError::
                 kPermissionDenied,
-            model_execution_result_->error().error());
-  EXPECT_FALSE(model_execution_result_->error().transient());
+            model_execution_result_->response.error().error());
+  EXPECT_FALSE(model_execution_result_->response.error().transient());
 
   // The logs shouldn't be uploaded because model execution is denied without
   // user signin, also model quality logs.
@@ -508,15 +507,18 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnabledBrowserTest,
 IN_PROC_BROWSER_TEST_F(ModelExecutionEnabledBrowserTest,
                        ModelExecutionSuccess) {
   EnableSignin();
+  // TODO(335033244): Verify if this addresses flakes. If it does, we should
+  // try to understand why the metrics consent is sometimes on for flakes.
+  SetMetricsConsent(false);
   SetExpectedBearerAccessToken("Bearer access_token");
 
   proto::ComposeRequest request;
   request.mutable_generate_params()->set_user_input("a user typed this");
   ExecuteModel(UserVisibleFeatureKey::kCompose, request);
   EXPECT_TRUE(model_execution_result_.has_value());
-  EXPECT_TRUE(model_execution_result_->has_value());
+  EXPECT_TRUE(model_execution_result_->response.has_value());
   auto response = ParsedAnyMetadata<proto::ComposeResponse>(
-      model_execution_result_->value());
+      model_execution_result_->response.value());
   EXPECT_EQ("foo response", response->output());
 
   // The logs shouldn't be uploaded because there is no metrics consent.
@@ -540,11 +542,11 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnabledBrowserTest,
   request.mutable_generate_params()->set_user_input("a user typed this");
   ExecuteModel(UserVisibleFeatureKey::kCompose, request);
   EXPECT_TRUE(model_execution_result_.has_value());
-  EXPECT_FALSE(model_execution_result_->has_value());
+  EXPECT_FALSE(model_execution_result_->response.has_value());
   EXPECT_EQ(OptimizationGuideModelExecutionError::ModelExecutionError::
                 kGenericFailure,
-            model_execution_result_->error().error());
-  EXPECT_TRUE(model_execution_result_->error().transient());
+            model_execution_result_->response.error().error());
+  EXPECT_TRUE(model_execution_result_->response.error().transient());
 
   // The logs shouldn't be uploaded when model execution fails for unsuccessful
   // response.
@@ -562,11 +564,11 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnabledBrowserTest,
   request.mutable_generate_params()->set_user_input("a user typed this");
   ExecuteModel(UserVisibleFeatureKey::kCompose, request);
   EXPECT_TRUE(model_execution_result_.has_value());
-  EXPECT_FALSE(model_execution_result_->has_value());
+  EXPECT_FALSE(model_execution_result_->response.has_value());
   EXPECT_EQ(OptimizationGuideModelExecutionError::ModelExecutionError::
                 kGenericFailure,
-            model_execution_result_->error().error());
-  EXPECT_TRUE(model_execution_result_->error().transient());
+            model_execution_result_->response.error().error());
+  EXPECT_TRUE(model_execution_result_->response.error().transient());
 }
 
 IN_PROC_BROWSER_TEST_F(ModelExecutionEnabledBrowserTest,
@@ -579,10 +581,10 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnabledBrowserTest,
   request.mutable_generate_params()->set_user_input("a user typed this");
   ExecuteModel(UserVisibleFeatureKey::kCompose, request);
   EXPECT_TRUE(model_execution_result_.has_value());
-  EXPECT_FALSE(model_execution_result_->has_value());
+  EXPECT_FALSE(model_execution_result_->response.has_value());
   EXPECT_EQ(
       OptimizationGuideModelExecutionError::ModelExecutionError::kFiltered,
-      model_execution_result_->error().error());
+      model_execution_result_->response.error().error());
 }
 
 IN_PROC_BROWSER_TEST_F(ModelExecutionEnabledBrowserTest,
@@ -604,10 +606,10 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnabledBrowserTest,
   request.mutable_generate_params()->set_user_input("a user typed this");
   ExecuteModel(UserVisibleFeatureKey::kCompose, request);
   EXPECT_TRUE(model_execution_result_.has_value());
-  EXPECT_FALSE(model_execution_result_->has_value());
+  EXPECT_FALSE(model_execution_result_->response.has_value());
   EXPECT_EQ(OptimizationGuideModelExecutionError::ModelExecutionError::
                 kUnsupportedLanguage,
-            model_execution_result_->error().error());
+            model_execution_result_->response.error().error());
 
   // There should be no error-status reports about log uploading (we don't try
   // to upload logs in this test, so there's no success report either).
@@ -617,12 +619,12 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnabledBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(ModelExecutionEnabledBrowserTest,
-                       CanCreateOnDeviceSessionNoModelAvailable) {
+                       CanCreateOnDeviceSessionModelNotEligible) {
   OnDeviceModelEligibilityReason on_device_model_eligibility_reason;
   EXPECT_FALSE(CanCreateOnDeviceSession(ModelBasedCapabilityKey::kCompose,
                                         &on_device_model_eligibility_reason));
   EXPECT_EQ(on_device_model_eligibility_reason,
-            OnDeviceModelEligibilityReason::kModelNotAvailable);
+            OnDeviceModelEligibilityReason::kModelNotEligible);
 }
 
 IN_PROC_BROWSER_TEST_F(
@@ -659,7 +661,7 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionInternalsPageBrowserTest,
   request.mutable_generate_params()->set_user_input("foo");
   ExecuteModel(UserVisibleFeatureKey::kCompose, request);
   EXPECT_TRUE(model_execution_result_.has_value());
-  EXPECT_TRUE(model_execution_result_->has_value());
+  EXPECT_TRUE(model_execution_result_->response.has_value());
   CheckInternalsLog("ExecuteModel");
   // CheckInternalsLog("TabOrganization Request");
   CheckInternalsLog("OnModelExecutionResponse");
@@ -799,9 +801,9 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionComposeLoggingDisabledTest,
   request.mutable_generate_params()->set_user_input("a user typed this");
   ExecuteModel(UserVisibleFeatureKey::kCompose, request);
   EXPECT_TRUE(model_execution_result_.has_value());
-  EXPECT_TRUE(model_execution_result_->has_value());
+  EXPECT_TRUE(model_execution_result_->response.has_value());
   auto response = ParsedAnyMetadata<proto::ComposeResponse>(
-      model_execution_result_->value());
+      model_execution_result_->response.value());
   EXPECT_EQ("foo response", response->output());
 
   // The logs shouldn't be uploaded because the feature is not enabled for
@@ -933,7 +935,7 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnterprisePolicyBrowserTest,
   EXPECT_TRUE(ShouldFeatureBeCurrentlyAllowedForLogging(
       proto::LogAiDataRequest::FeatureCase::kTabOrganization));
   EXPECT_FALSE(IsSettingVisible(UserVisibleFeatureKey::kCompose));
-  EXPECT_FALSE(ShouldFeatureBeCurrentlyAllowedForLogging(
+  EXPECT_TRUE(ShouldFeatureBeCurrentlyAllowedForLogging(
       proto::LogAiDataRequest::FeatureCase::kCompose));
 
   // Disable via the enterprise policy.
@@ -951,7 +953,7 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnterprisePolicyBrowserTest,
   EXPECT_FALSE(ShouldFeatureBeCurrentlyEnabledForUser(
       UserVisibleFeatureKey::kTabOrganization));
   EXPECT_FALSE(IsSettingVisible(UserVisibleFeatureKey::kCompose));
-  EXPECT_FALSE(ShouldFeatureBeCurrentlyAllowedForLogging(
+  EXPECT_TRUE(ShouldFeatureBeCurrentlyAllowedForLogging(
       proto::LogAiDataRequest::FeatureCase::kCompose));
   EXPECT_FALSE(ShouldFeatureBeCurrentlyAllowedForLogging(
       proto::LogAiDataRequest::FeatureCase::kTabOrganization));
@@ -974,7 +976,7 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnterprisePolicyBrowserTest,
   EXPECT_TRUE(ShouldFeatureBeCurrentlyAllowedForLogging(
       proto::LogAiDataRequest::FeatureCase::kTabOrganization));
   EXPECT_FALSE(IsSettingVisible(UserVisibleFeatureKey::kCompose));
-  EXPECT_FALSE(ShouldFeatureBeCurrentlyAllowedForLogging(
+  EXPECT_TRUE(ShouldFeatureBeCurrentlyAllowedForLogging(
       proto::LogAiDataRequest::FeatureCase::kCompose));
 }
 
@@ -1025,7 +1027,7 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnterprisePolicyBrowserTest,
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelQualityLogsUploaderService.UploadStatus.Compose",
       optimization_guide::ModelQualityLogsUploadStatus::
-          kFeatureNotEnabledForUser,
+          kDisabledDueToEnterprisePolicy,
       1);
 
   // Enable via the enterprise policy and check upload.
@@ -1052,7 +1054,7 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnterprisePolicyBrowserTest,
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelQualityLogsUploaderService.UploadStatus.Compose",
       optimization_guide::ModelQualityLogsUploadStatus::
-          kFeatureNotEnabledForUser,
+          kDisabledDueToEnterprisePolicy,
       1);
 }
 
@@ -1203,7 +1205,7 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnterprisePolicyBrowserTest,
   EXPECT_FALSE(ShouldFeatureBeCurrentlyAllowedForLogging(
       proto::LogAiDataRequest::FeatureCase::kTabOrganization));
   EXPECT_FALSE(IsSettingVisible(UserVisibleFeatureKey::kCompose));
-  EXPECT_FALSE(ShouldFeatureBeCurrentlyAllowedForLogging(
+  EXPECT_TRUE(ShouldFeatureBeCurrentlyAllowedForLogging(
       proto::LogAiDataRequest::FeatureCase::kCompose));
 }
 

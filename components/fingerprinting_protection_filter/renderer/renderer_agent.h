@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <optional>
+#include <string_view>
 #include <vector>
 
 #include "base/containers/flat_set.h"
@@ -83,7 +84,7 @@ class RendererAgent
   // Used to signal to the remote host that a subresource load has been
   // disallowed; must be run on the main thread. Virtual to allow mocking in
   // tests.
-  virtual void OnSubresourceDisallowed();
+  virtual void OnSubresourceDisallowed(std::string_view subresource_url);
 
   // Callback for when activation returns from the browser after calling
   // `CheckActivation()`;
@@ -145,6 +146,9 @@ class RendererAgent
  private:
   // Initializes `filter_`. Assumes that activation has been computed.
   void MaybeCreateNewFilter();
+
+  void RecordHistogramsOnFilterCreation(
+      const subresource_filter::mojom::ActivationState& activation_state);
 
   // Remote used to pass messages to the browser-side `ThrottleManager`.
   mojo::AssociatedRemote<mojom::FingerprintingProtectionHost>

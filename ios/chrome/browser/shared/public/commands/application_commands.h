@@ -122,11 +122,11 @@ enum class TabGridOpeningMode {
 // Shows the History UI.
 - (void)showHistory;
 
-// Closes the History UI and opens a URL.
-- (void)closeSettingsUIAndOpenURL:(OpenNewTabCommand*)command;
+// Closes presented views and opens a URL in a new tab.
+- (void)closePresentedViewsAndOpenURL:(OpenNewTabCommand*)command;
 
-// Closes the History UI.
-- (void)closeSettingsUI;
+// Closes presented views.
+- (void)closePresentedViews;
 
 // Prepare to show the TabSwitcher UI.
 - (void)prepareTabSwitcher;
@@ -188,6 +188,9 @@ enum class TabGridOpeningMode {
 // Closes all open modals and ensures that a non-incognito NTP tab is open. If
 // incognito is forced, then it will ensure an incognito NTP tab is open.
 - (void)prepareToPresentModal:(ProceduralBlock)completion;
+
+// Opens a debug menu for AI prototyping.
+- (void)openAIMenu;
 
 @end
 

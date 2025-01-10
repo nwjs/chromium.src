@@ -90,10 +90,7 @@ class DataOnlyBytesConsumer : public BytesConsumer {
     flatten_form_data_offset_ = 0;
   }
   PublicState GetPublicState() const override { return state_; }
-  Error GetError() const override {
-    NOTREACHED_IN_MIGRATION();
-    return Error();
-  }
+  Error GetError() const override { NOTREACHED(); }
   String DebugName() const override { return "DataOnlyBytesConsumer"; }
 
  private:
@@ -238,8 +235,7 @@ class DataAndDataPipeBytesConsumer final : public BytesConsumer {
       return Result::kOk;
     }
 
-    NOTREACHED_IN_MIGRATION() << "No consumer. BeginRead() was not called?";
-    return Result::kError;
+    NOTREACHED() << "No consumer. BeginRead() was not called?";
   }
 
   scoped_refptr<EncodedFormData> DrainAsFormData() override {
@@ -409,9 +405,9 @@ class DataAndEncodedFileOrBlobBytesConsumer final : public BytesConsumer {
           break;
         }
         case FormDataElement::kEncodedBlob:
-          if (element.optional_blob_data_handle_) {
-            blob_data->AppendBlob(element.optional_blob_data_handle_, 0,
-                                  element.optional_blob_data_handle_->size());
+          if (element.blob_data_handle_) {
+            blob_data->AppendBlob(element.blob_data_handle_, 0,
+                                  element.blob_data_handle_->size());
           }
           break;
         case FormDataElement::kDataPipe:

@@ -16,7 +16,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/profiles/avatar_menu.h"
@@ -426,9 +425,11 @@ void AvatarToolbarButton::OnThemeChanged() {
 }
 
 // static
-void AvatarToolbarButton::SetIPHMinDelayAfterCreationForTesting(
+base::AutoReset<base::TimeDelta>
+AvatarToolbarButton::SetScopedIPHMinDelayAfterCreationForTesting(
     base::TimeDelta delay) {
-  g_iph_min_delay_after_creation = delay;
+  return base::AutoReset<base::TimeDelta>(&g_iph_min_delay_after_creation,
+                                          delay);
 }
 
 void AvatarToolbarButton::ButtonPressed(bool is_source_accelerator) {

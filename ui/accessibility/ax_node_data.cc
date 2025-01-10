@@ -182,8 +182,7 @@ bool IsNodeIdIntAttribute(ax::mojom::IntAttribute attr) {
       return false;
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return false;
+  NOTREACHED();
 }
 
 // Returns true if |attr| contains a vector of node ids that would need
@@ -191,6 +190,7 @@ bool IsNodeIdIntAttribute(ax::mojom::IntAttribute attr) {
 bool IsNodeIdIntListAttribute(ax::mojom::IntListAttribute attr) {
   switch (attr) {
     case ax::mojom::IntListAttribute::kIndirectChildIds:
+    case ax::mojom::IntListAttribute::kActionsIds:
     case ax::mojom::IntListAttribute::kControlsIds:
     case ax::mojom::IntListAttribute::kDetailsIds:
     case ax::mojom::IntListAttribute::kDescribedbyIds:
@@ -660,8 +660,7 @@ void AXNodeData::RemoveState(ax::mojom::State state_enum) {
 void AXNodeData::AddAction(ax::mojom::Action action_enum) {
   switch (action_enum) {
     case ax::mojom::Action::kNone:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
 
     // Note: all of the attributes are included here explicitly, rather than
     // using "default:", so that it's a compiler error to add a new action
@@ -1819,6 +1818,9 @@ std::string AXNodeData::ToString(bool verbose) const {
         break;
       case ax::mojom::IntListAttribute::kIndirectChildIds:
         result += " indirect_child_ids=" + IntVectorToString(values);
+        break;
+      case ax::mojom::IntListAttribute::kActionsIds:
+        result += " actions_ids=" + IntVectorToString(values);
         break;
       case ax::mojom::IntListAttribute::kControlsIds:
         result += " controls_ids=" + IntVectorToString(values);

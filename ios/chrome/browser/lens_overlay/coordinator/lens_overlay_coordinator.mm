@@ -9,12 +9,10 @@
 #import "base/memory/raw_ptr.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
-#import "base/timer/elapsed_timer.h"
-#import "components/lens/lens_overlay_first_interaction_type.h"
-#import "components/lens/lens_overlay_metrics.h"
+#import "base/strings/sys_string_conversions.h"
 #import "components/prefs/pref_service.h"
-#import "components/ukm/ios/ukm_url_recorder.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
+#import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/browser/context_menu/ui_bundled/context_menu_configuration_provider.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_omnibox_client.h"
@@ -23,12 +21,16 @@
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_mediator.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_mediator_delegate.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_result_page_mediator.h"
+#import "ios/chrome/browser/lens_overlay/model/lens_overlay_detents_manager.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_entrypoint.h"
+#import "ios/chrome/browser/lens_overlay/model/lens_overlay_metrics_recorder.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_pan_tracker.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_snapshot_controller.h"
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_tab_helper.h"
+#import "ios/chrome/browser/lens_overlay/model/snapshot_cover_view_controller.h"
 #import "ios/chrome/browser/lens_overlay/ui/lens_overlay_consent_view_controller.h"
 #import "ios/chrome/browser/lens_overlay/ui/lens_overlay_container_view_controller.h"
+#import "ios/chrome/browser/lens_overlay/ui/lens_overlay_network_issue_alert_presenter.h"
 #import "ios/chrome/browser/lens_overlay/ui/lens_result_page_consumer.h"
 #import "ios/chrome/browser/lens_overlay/ui/lens_result_page_view_controller.h"
 #import "ios/chrome/browser/lens_overlay/ui/lens_toolbar_consumer.h"
@@ -43,6 +45,7 @@
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/lens_overlay_commands.h"
+#import "ios/chrome/browser/shared/public/commands/load_query_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -59,7 +62,6 @@
 #import "ios/chrome/browser/ui/omnibox/omnibox_coordinator.h"
 #import "ios/chrome/browser/ui/omnibox/omnibox_focus_delegate.h"
 #import "ios/chrome/browser/web/model/web_state_delegate_browser_agent.h"
-#import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/public/provider/chrome/browser/lens/lens_configuration.h"
 #import "ios/public/provider/chrome/browser/lens/lens_overlay_api.h"
@@ -92,32 +94,25 @@ const int kExpectedExitAnimationCount = 2;
 // The duration of the dismiss animation when exiting the selection UI.
 const CGFloat kSelectionViewDismissAnimationDuration = 0.2f;
 
-NSString* const kCustomConsentSheetDetentIdentifier =
-    @"kCustomConsentSheetDetentIdentifier";
-
 #if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
 const CGFloat kMenuSymbolSize = 18;
 #endif
 
 }  // namespace
 
-// Indicates the state of the bottom sheet
-typedef NS_ENUM(NSUInteger, SheetDetentState) {
-  // The bottom sheet is locked in large detent.
-  SheetStateLockedInLargeDetent,
-  // The bottom sheet is free to oscilate between medium and large.
-  SheetStateUnrestrictedMovement,
-  // The bottom sheet is presenting the consent dialog sheet.
-  SheetStateConsentDialog,
-};
+@interface LensOverlayCoordinator () <LensOverlayCommands,
+                                      LensOverlayMediatorDelegate,
+                                      LensOverlayResultConsumer,
+                                      LensOverlayDetentsChangeObserver,
+                                      LensOverlayConsentViewControllerDelegate,
+                                      LensOverlayPanTrackerDelegate,
+                                      LensOverlayNetworkIssueDelegate>
 
-@interface LensOverlayCoordinator () <
-    LensOverlayCommands,
-    UISheetPresentationControllerDelegate,
-    LensOverlayMediatorDelegate,
-    LensOverlayResultConsumer,
-    LensOverlayBottomSheetPresentationDelegate,
-    LensOverlayConsentViewControllerDelegate>
+// Whether the `_containerViewController` is currently presented.
+@property(nonatomic, assign, readonly) BOOL isLensOverlayVisible;
+
+// Whether the UI is created.
+@property(nonatomic, assign, readonly) BOOL isUICreated;
 
 @end
 
@@ -147,23 +142,6 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
 
   UIViewController<ChromeLensOverlay>* _selectionViewController;
 
-  // View that blocks user interaction with selection UI when the consent view
-  // controller is displayed. Note that selection UI isn't started, so it won't
-  // accept many interactions, but we do this to be extra safe.
-  UIView* _selectionInteractionBlockingView;
-
-  /// Entrypoint used for the current lens overlay invocation.
-  LensOverlayEntrypoint _currentEntrypoint;
-  /// The time at which the overlay was invoked.
-  base::ElapsedTimer _invocationTime;
-  /// The time at which the overlay UI was `shown`. null when hidden.
-  base::TimeTicks _foregroundTime;
-  /// The total foregroud duration since invoked.
-  base::TimeDelta _foregroundDuration;
-  /// Whether a lens request has been performed during this session.
-  BOOL _searchPerformedInSession;
-  /// Whether the first interaction has been recorded.
-  BOOL _firstInteractionRecorded;
   /// Indicates the Lens Overlay is in the exit flow.
   BOOL _isExiting;
   /// Forces the device orientation in portrait mode.
@@ -172,6 +150,21 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
   LensOverlayPanTracker* _windowPanTracker;
   /// Used to monitor the results sheet position relative to the container.
   CADisplayLink* _displayLink;
+  /// Command handler for loadQueryCommands.
+  id<LoadQueryCommands> _loadQueryHandler;
+
+  /// Orchestrates the change in detents of the associated bottom sheet.
+  LensOverlayDetentsManager* _detentsManager;
+
+  /// This auxiliary window is used while restoring the sheet state when
+  /// returning to the tab where Lens Overlay is active.
+  UIWindow* _restorationWindow;
+
+  /// A helper object that provides a central point for recording metrics.
+  LensOverlayMetricsRecorder* _metricsRecorder;
+
+  /// Network issue alert presenter.
+  LensOverlayNetworkIssueAlertPresenter* _networkIssueAlertPresenter;
 }
 
 #pragma mark - public
@@ -200,10 +193,15 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
   [_selectionViewController setLensOverlayDelegate:_mediator];
   _mediator.lensHandler = _selectionViewController;
   _mediator.commandsHandler = self;
+  _mediator.delegate = self;
   // The mediator might destroy lens UI if the search engine doesn't support
   // lens.
   _mediator.templateURLService =
       ios::TemplateURLServiceFactory::GetForProfile(self.browser->GetProfile());
+
+  _networkIssueAlertPresenter = [[LensOverlayNetworkIssueAlertPresenter alloc]
+      initWithBaseViewController:_containerViewController];
+  _networkIssueAlertPresenter.delegate = self;
 
   if ([self termsOfServiceAccepted]) {
     [_selectionViewController start];
@@ -274,12 +272,15 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
   [browser->GetCommandDispatcher()
       startDispatchingToTarget:self
                    forProtocol:@protocol(LensOverlayCommands)];
+  _loadQueryHandler =
+      HandlerForProtocol(browser->GetCommandDispatcher(), LoadQueryCommands);
 }
 
 - (void)stop {
   if (Browser* browser = self.browser) {
     [browser->GetCommandDispatcher() stopDispatchingToTarget:self];
   }
+  [self destroyLensUI:NO reason:lens::LensOverlayDismissalSource::kTabClosed];
 
   [super stop];
 }
@@ -289,7 +290,7 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
 - (void)createAndShowLensUI:(BOOL)animated
                  entrypoint:(LensOverlayEntrypoint)entrypoint
                  completion:(void (^)(BOOL))completion {
-  if ([self isUICreated]) {
+  if (self.isUICreated) {
     // The UI is probably associated with the non-active tab. Destroy it with no
     // animation.
     [self destroyLensUI:NO
@@ -302,20 +303,17 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
              name:UIApplicationDidReceiveMemoryWarningNotification
            object:nil];
 
-  _currentEntrypoint = entrypoint;
-  _invocationTime = base::ElapsedTimer();
-  _foregroundTime = base::TimeTicks();
-  _foregroundDuration = base::TimeDelta();
-  _searchPerformedInSession = NO;
-  _firstInteractionRecorded = NO;
-
   _associatedTabHelper = [self activeTabHelper];
   CHECK(_associatedTabHelper, kLensOverlayNotFatalUntil);
+
+  _metricsRecorder = [[LensOverlayMetricsRecorder alloc]
+      initWithEntrypoint:entrypoint
+      associatedWebState:_associatedTabHelper->GetWebState()];
 
   // The instance that creates the Lens UI designates itself as the command
   // handler for the associated tab.
   _associatedTabHelper->SetLensOverlayCommandsHandler(self);
-  _associatedTabHelper->SetLensOverlayShown(true);
+  _associatedTabHelper->SetLensOverlayUIAttachedAndAlive(true);
 
   __weak __typeof(self) weakSelf = self;
   [self captureSnapshotWithCompletion:^(UIImage* snapshot) {
@@ -352,16 +350,18 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
 }
 
 - (void)showLensUI:(BOOL)animated {
-  if (![self isUICreated]) {
+  if (!self.isUICreated || self.isLensOverlayVisible) {
     return;
   }
 
   [self lockOrientationInPortrait:YES];
   [_selectionViewController setTopIconsHidden:self.shouldShowConsentFlow];
 
-  _foregroundTime = base::TimeTicks::Now();
+  [_metricsRecorder setLensOverlayInForeground:YES];
 
   __weak __typeof(self) weakSelf = self;
+
+  [self showRestorationWindowIfNeeded];
   [self.baseViewController
       presentViewController:_containerViewController
                    animated:animated
@@ -371,7 +371,7 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
 }
 
 - (void)lockOrientationInPortrait:(BOOL)portraitLock {
-  AppState* appState = self.browser->GetSceneState().appState;
+  AppState* appState = self.browser->GetSceneState().profileState.appState;
   if (portraitLock) {
     if (!appState) {
       return;
@@ -402,19 +402,19 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
 - (void)presentConsentFlow {
   [self createConsentViewController];
   [self showConsentViewController];
-  lens::RecordPermissionRequestedToBeShown(true, self.currentInvocationSource);
+  [_metricsRecorder recordPermissionRequestedToBeShown];
 }
 
 - (void)hideLensUI:(BOOL)animated {
-  if (![self isUICreated]) {
+  if (!self.isUICreated) {
     return;
   }
-  [self lockOrientationInPortrait:NO];
 
-  // Add the foreground duration and reset the timer.
-  _foregroundDuration =
-      _foregroundDuration + (base::TimeTicks::Now() - _foregroundTime);
-  _foregroundTime = base::TimeTicks();
+  _displayLink.paused = YES;
+  [_metricsRecorder setLensOverlayInForeground:NO];
+  _associatedTabHelper->UpdateSnapshotStorage();
+  [self dismissRestorationWindow];
+  [self lockOrientationInPortrait:NO];
 
   [_containerViewController.presentingViewController
       dismissViewControllerAnimated:animated
@@ -434,13 +434,16 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
                 name:UIApplicationDidReceiveMemoryWarningNotification
               object:nil];
 
-  RecordAction(base::UserMetricsAction("Mobile.LensOverlay.Closed"));
-  [self recordDismissalMetrics:dismissalSource];
+  [_metricsRecorder
+      recordDismissalMetricsWithSource:dismissalSource
+                     generatedTabCount:_mediator.generatedTabCount];
 
   // The reason the UI is destroyed can be that Omnient gets associated to a
   // different tab. In this case mark the stale tab helper as not shown.
   if (_associatedTabHelper) {
-    _associatedTabHelper->SetLensOverlayShown(false);
+    _associatedTabHelper->SetLensOverlayUIAttachedAndAlive(false);
+    _associatedTabHelper->RecordSheetDimensionState(SheetDimensionStateHidden);
+    _associatedTabHelper->ClearViewportSnapshot();
     _associatedTabHelper->UpdateSnapshot();
   }
 
@@ -453,18 +456,13 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
   // the cleanup process. Exiting fullscreen has to happen on destruction to
   // ensure a smooth transition back to the content.
   __weak __typeof(self) weakSelf = self;
-  __block int completionCount = 0;
   void (^onAnimationFinished)() = ^{
-    completionCount++;
-    if (completionCount == kExpectedExitAnimationCount) {
-      [weakSelf dismissLensOverlayWithCompletion:^{
-        [weakSelf destroyViewControllersAndMediators];
-      }];
-    }
+    [weakSelf dismissLensOverlayWithCompletion:^{
+      [weakSelf destroyViewControllersAndMediators];
+    }];
   };
 
-  [self animateBottomSheetExitWithCompletion:onAnimationFinished];
-  [self animateSelectionUIExitWithCompletion:onAnimationFinished];
+  [self executeExitAnimationFlowWithCompletion:onAnimationFinished];
 }
 
 #pragma mark - Exit animations
@@ -486,6 +484,21 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
 
   [presentingViewController dismissViewControllerAnimated:NO
                                                completion:completion];
+}
+
+- (void)executeExitAnimationFlowWithCompletion:(void (^)())completion {
+  __block int completionCount = 0;
+  void (^onAnimationFinished)() = ^{
+    completionCount++;
+    if (completionCount == kExpectedExitAnimationCount) {
+      if (completion) {
+        completion();
+      }
+    }
+  };
+
+  [self animateBottomSheetExitWithCompletion:onAnimationFinished];
+  [self animateSelectionUIExitWithCompletion:onAnimationFinished];
 }
 
 - (void)animateBottomSheetExitWithCompletion:(void (^)())completion {
@@ -541,55 +554,81 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
                          }];
 }
 
-#pragma mark - UISheetPresentationControllerDelegate
+#pragma mark - LensOverlayPanTrackerDelegate
 
-- (BOOL)presentationControllerShouldDismiss:
-    (UIPresentationController*)presentationController {
-  UIViewController* presentedViewController =
-      presentationController.presentedViewController;
-
-  if (presentedViewController == _consentViewController) {
-    return YES;
-  }
-
-  CHECK_EQ(presentedViewController, _resultViewController);
-  // Only allow swiping down to dismiss when not at the largest detent.
-  UISheetPresentationController* sheet =
-      base::apple::ObjCCastStrict<UISheetPresentationController>(
-          presentationController);
-  BOOL isInLargestDetent = [sheet.selectedDetentIdentifier
-      isEqualToString:UISheetPresentationControllerDetentIdentifierLarge];
-
-  // If the user is actively adjusting a selection (by moving the selection
-  // frame), it means the sheet dismissal was incidental and shouldn't be
-  // processed. Only when the sheet is directly dragged downwards should the
-  // dismissal intent be considered.
-  BOOL isSelecting = _selectionViewController.isPanningSelectionUI;
-
-  if (isSelecting || isInLargestDetent) {
-    return NO;
-  }
-
-  return YES;
+- (void)onPanGestureStarted:(LensOverlayPanTracker*)tracker {
+  // NO-OP
 }
 
-- (void)sheetPresentationControllerDidChangeSelectedDetentIdentifier:
-    (UISheetPresentationController*)presentationController {
-  BOOL isInLargestDetent = [presentationController.selectedDetentIdentifier
-      isEqualToString:UISheetPresentationControllerDetentIdentifierLarge];
-
-  [self disableSelectionInteraction:isInLargestDetent];
+- (void)onPanGestureEnded:(LensOverlayPanTracker*)tracker {
+  if (tracker == _windowPanTracker) {
+    // Keep peaking only for the duration of the gesture.
+    if (_detentsManager.sheetDimension == SheetDimensionStatePeaking) {
+      [_detentsManager
+          adjustDetentsForState:SheetDetentStateUnrestrictedMovement];
+    }
+  }
 }
 
-- (void)presentationControllerDidDismiss:
-    (UIPresentationController*)presentationController {
-  UIViewController* presentedViewController =
-      presentationController.presentedViewController;
+#pragma mark - LensOverlayNetworkIssueDelegate
 
-  CHECK(presentedViewController == _resultViewController ||
-        presentedViewController == _consentViewController);
+- (void)onNetworkIssueAlertWillShow {
+  // Only one view controller may be presented at a time, so dismiss the bottom
+  // sheet.
+  [self stopResultPage];
+}
+
+- (void)onNetworkIssueAlertAcknowledged {
   [self destroyLensUI:YES
-               reason:lens::LensOverlayDismissalSource::kBottomSheetDismissed];
+               reason:lens::LensOverlayDismissalSource::kNetworkIssue];
+}
+
+#pragma mark - LensOverlayDetentsChangeObserver
+
+- (void)onBottomSheetDimensionStateChanged:(SheetDimensionState)state {
+  if (_associatedTabHelper) {
+    _associatedTabHelper->RecordSheetDimensionState(state);
+  }
+
+  switch (state) {
+    case SheetDimensionStateHidden:
+      [self destroyLensUI:YES
+                   reason:lens::LensOverlayDismissalSource::
+                              kBottomSheetDismissed];
+      break;
+    case SheetDimensionStateLarge:
+      [self disableSelectionInteraction:YES];
+      break;
+    case SheetDimensionStateConsent:
+      break;
+    default:
+      [self disableSelectionInteraction:NO];
+      [_mediator defocusOmnibox];
+      break;
+  }
+}
+
+- (BOOL)bottomSheetShouldDismissFromState:(SheetDimensionState)state {
+  switch (state) {
+    case SheetDimensionStateConsent:
+    case SheetDimensionStateHidden:
+      return YES;
+    case SheetDimensionStatePeaking:
+    case SheetDimensionStateLarge:
+      return NO;
+    case SheetDimensionStateMedium:
+      // If the user is actively adjusting a selection (by moving the selection
+      // frame), it means the sheet dismissal was incidental and shouldn't be
+      // processed. Only when the sheet is directly dragged downwards should the
+      // dismissal intent be considered.
+      BOOL isSelecting = _selectionViewController.isPanningSelectionUI;
+      if (isSelecting) {
+        // Instead, when a touch collision is detected, go into the peak state.
+        [_detentsManager adjustDetentsForState:SheetDetentStatePeakEnabled];
+        return NO;
+      }
+      return YES;
+  }
 }
 
 - (void)adjustSelectionOcclusionInsets {
@@ -612,8 +651,26 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
 #pragma mark - LensOverlayMediatorDelegate
 
 - (void)lensOverlayMediatorDidOpenOverlayMenu:(LensOverlayMediator*)mediator {
-  [self
-      recordFirstInteraction:lens::LensOverlayFirstInteractionType::kLensMenu];
+  [_metricsRecorder recordOverflowMenuOpened];
+}
+
+- (void)lensOverlayMediatorOpenURLInNewTabRequsted:(GURL)URL {
+  // Take a snapshot of the current tab before opening the URL in a new tab.
+  // A side effect of opening a new tab is that the snapshot storage associated
+  // to the current web state is updated. This snapshot would not include the
+  // bottom sheet in the view hierarchy. Refrain from commiting it to
+  // the storage until the web state is marked hidden, as by that point all
+  // other updates should be issued.
+  _associatedTabHelper->RecordViewportSnaphot();
+  _associatedTabHelper->RecordSheetDimensionState(
+      _detentsManager.sheetDimension);
+  if (IsLensOverlaySameTabNavigationEnabled()) {
+    [_loadQueryHandler loadQuery:base::SysUTF8ToNSString(URL.spec())
+                     immediately:YES];
+  } else {
+    [self openURLInNewTab:URL];
+    [self showRestorationWindowIfNeeded];
+  }
 }
 
 #pragma mark - LensOverlayResultConsumer
@@ -621,18 +678,14 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
 // This coordinator acts as a proxy consumer to the result consumer to implement
 // lazy initialization of the result UI.
 - (void)loadResultsURL:(GURL)url {
-  DCHECK(!_resultMediator);
+  [_metricsRecorder
+      recordResultLoadedWithTextSelection:_mediator.currentLensResult
+                                              .isTextSelection];
 
-  // Time to first interaction metrics.
-  if (!_searchPerformedInSession) {
-    _searchPerformedInSession = YES;
-    [self recordFirstInteraction:
-              _mediator.currentLensResult.isTextSelection
-                  ? lens::LensOverlayFirstInteractionType::kTextSelect
-                  : lens::LensOverlayFirstInteractionType::kRegionSelect];
+  if (!_resultMediator) {
+    [self startResultPage];
   }
 
-  [self startResultPage];
   [_resultMediator loadResultsURL:url];
 }
 
@@ -641,8 +694,18 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
 }
 
 - (void)handleSearchRequestErrored {
-  [_resultMediator handleSearchRequestErrored];
-  [self showNoInternetAlert];
+  if (_resultMediator) {
+    [_resultMediator handleSearchRequestErrored];
+  } else {
+    [_networkIssueAlertPresenter showNoInternetAlert];
+  }
+}
+
+- (void)handleSlowRequestHasStarted {
+  if (!_resultMediator) {
+    [self startResultPage];
+  }
+  [_resultMediator handleSlowRequestHasStarted];
 }
 
 #pragma mark - LensOverlayConsentViewControllerDelegate
@@ -651,11 +714,7 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
   self.browser->GetProfile()->GetPrefs()->SetBoolean(
       prefs::kLensOverlayConditionsAccepted, true);
   _consentViewController = nil;
-  lens::RecordPermissionUserAction(
-      lens::LensPermissionUserAction::kAcceptButtonPressed,
-      self.currentInvocationSource);
-  [self recordFirstInteraction:lens::LensOverlayFirstInteractionType::
-                                   kPermissionDialog];
+  [_metricsRecorder recordPermissionsAccepted];
 
   __weak __typeof(self) weakSelf = self;
   [_containerViewController
@@ -666,131 +725,25 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
 }
 
 - (void)didTapSecondaryActionButton {
-  lens::RecordPermissionUserAction(
-      lens::LensPermissionUserAction::kCancelButtonPressed,
-      self.currentInvocationSource);
-  [self recordFirstInteraction:lens::LensOverlayFirstInteractionType::
-                                   kPermissionDialog];
+  [_metricsRecorder recordPermissionsDenied];
   [self destroyLensUI:YES
                reason:lens::LensOverlayDismissalSource::kLensPermissionsDenied];
 }
 
 - (void)didPressLearnMore {
-  lens::RecordPermissionUserAction(lens::LensPermissionUserAction::kLinkOpened,
-                                   self.currentInvocationSource);
-  [self recordFirstInteraction:lens::LensOverlayFirstInteractionType::
-                                   kPermissionDialog];
-  OpenNewTabCommand* command = [OpenNewTabCommand
-      commandWithURLFromChrome:GURL(kLearnMoreLensURL)
-                   inIncognito:self.browser->GetProfile()->IsOffTheRecord()];
-
-  [HandlerForProtocol(self.browser->GetCommandDispatcher(), ApplicationCommands)
-      openURLInNewTab:command];
-}
-
-#pragma mark - LensOverlayBottomSheetPresentationDelegate
-
-- (void)requestMaximizeBottomSheet {
-  CHECK(_containerViewController.presentedViewController ==
-        _resultViewController);
-  UISheetPresentationController* sheet =
-      _resultViewController.sheetPresentationController;
-
-  [sheet animateChanges:^{
-    sheet.selectedDetentIdentifier =
-        [UISheetPresentationControllerDetent largeDetent].identifier;
-  }];
-}
-
-- (void)requestMinimizeBottomSheet {
-  CHECK(_containerViewController.presentedViewController ==
-        _resultViewController);
-  UISheetPresentationController* sheet =
-      _resultViewController.sheetPresentationController;
-
-  [sheet animateChanges:^{
-    sheet.selectedDetentIdentifier =
-        [UISheetPresentationControllerDetent mediumDetent].identifier;
-  }];
-}
-
-- (void)restrictSheetToLargeDetent:(BOOL)restrictToLargeDetent {
-  UISheetPresentationController* sheet =
-      _resultViewController.sheetPresentationController;
-
-  if (restrictToLargeDetent) {
-    [self requestMaximizeBottomSheet];
-    [self adjustDetentsOfBottomSheet:sheet
-                            forState:SheetStateLockedInLargeDetent];
-  } else {
-    [self adjustDetentsOfBottomSheet:sheet
-                            forState:SheetStateUnrestrictedMovement];
-  }
+  [_metricsRecorder recordPermissionsLinkOpen];
+  [self openURLInNewTab:GURL(kLearnMoreLensURL)];
 }
 
 #pragma mark - private
 
-- (void)showNoInternetAlert {
-  if (!_containerViewController) {
-    return;
-  }
+- (void)openURLInNewTab:(GURL)URL {
+  OpenNewTabCommand* command = [OpenNewTabCommand
+      commandWithURLFromChrome:URL
+                   inIncognito:self.browser->GetProfile()->IsOffTheRecord()];
 
-  UIAlertController* alert = [UIAlertController
-      alertControllerWithTitle:l10n_util::GetNSString(IDS_IOS_LENS_ALERT_TITLE)
-                       message:l10n_util::GetNSString(
-                                   IDS_IOS_LENS_ALERT_SUBTITLE)
-                preferredStyle:UIAlertControllerStyleAlert];
-
-  __weak __typeof(self) weakSelf = self;
-  UIAlertAction* defaultAction = [UIAlertAction
-      actionWithTitle:l10n_util::GetNSString(IDS_IOS_LENS_ALERT_CLOSE_ACTION)
-                style:UIAlertActionStyleDefault
-              handler:^(UIAlertAction* action) {
-                [weakSelf destroyLensUI:YES
-                                 reason:lens::LensOverlayDismissalSource::
-                                            kLensPermissionsDenied];
-              }];
-  [alert addAction:defaultAction];
-
-  [_containerViewController presentViewController:alert
-                                         animated:YES
-                                       completion:nil];
-}
-
-// Adjust the detents of the given sheet based on the sheet state.
-- (void)adjustDetentsOfBottomSheet:(UISheetPresentationController*)sheet
-                          forState:(SheetDetentState)state {
-  if (!sheet) {
-    return;
-  }
-
-  UISheetPresentationControllerDetent* largeDetent =
-      [UISheetPresentationControllerDetent largeDetent];
-  UISheetPresentationControllerDetent* mediumDetent =
-      [UISheetPresentationControllerDetent mediumDetent];
-
-  switch (state) {
-    case SheetStateUnrestrictedMovement:
-      sheet.detents = @[ mediumDetent, largeDetent ];
-      break;
-    case SheetStateLockedInLargeDetent:
-      sheet.detents = @[ largeDetent ];
-      break;
-    case SheetStateConsentDialog:
-      __weak UIViewController* weakConsentController = _consentViewController;
-      auto preferredHeightForContent = ^CGFloat(
-          id<UISheetPresentationControllerDetentResolutionContext> context) {
-        return weakConsentController.preferredContentSize.height;
-      };
-      UISheetPresentationControllerDetent* consentDialogDetent =
-          [UISheetPresentationControllerDetent
-              customDetentWithIdentifier:kCustomConsentSheetDetentIdentifier
-                                resolver:preferredHeightForContent];
-      sheet.detents = @[ consentDialogDetent ];
-      break;
-  }
-
-  sheet.largestUndimmedDetentIdentifier = largeDetent.identifier;
+  [HandlerForProtocol(self.browser->GetCommandDispatcher(), ApplicationCommands)
+      openURLInNewTab:command];
 }
 
 // Lens needs to have visibility into the user's identity and whether the search
@@ -842,8 +795,8 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
       HandlerForProtocol(browser->GetCommandDispatcher(), ApplicationCommands);
   _resultMediator.snackbarHandler =
       HandlerForProtocol(browser->GetCommandDispatcher(), SnackbarCommands);
+  _resultMediator.errorHandler = _networkIssueAlertPresenter;
   _resultMediator.delegate = _mediator;
-  _resultMediator.presentationDelegate = self;
   _mediator.resultConsumer = _resultMediator;
 
   _resultViewController = [[LensResultPageViewController alloc] init];
@@ -894,7 +847,6 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
 
   _mediator.omniboxCoordinator = _omniboxCoordinator;
   _mediator.toolbarConsumer = _resultViewController;
-  _mediator.presentationDelegate = self;
   _omniboxCoordinator.focusDelegate = _mediator;
 }
 
@@ -947,7 +899,11 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
   _consentViewController = nil;
   _isExiting = NO;
   _associatedTabHelper = nil;
+  _metricsRecorder = nil;
+  [_displayLink invalidate];
+  _displayLink = nil;
   _scopedForceOrientation.reset();
+  _networkIssueAlertPresenter = nil;
 }
 
 // The tab helper for the active web state.
@@ -1043,18 +999,20 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
 }
 
 - (BOOL)isLensOverlayVisible {
-  return self.baseViewController.presentedViewController != nil;
+  return _containerViewController.presentingViewController != nil;
 }
 
 - (void)showConsentViewController {
-  RecordAction(base::UserMetricsAction("Mobile.LensOverlay.Consent.Show"));
+  [_metricsRecorder recordLensOverlayConsentShown];
   [self disableSelectionInteraction:YES];
   // Configure sheet presentation
   UISheetPresentationController* sheet =
       _consentViewController.sheetPresentationController;
-  sheet.delegate = self;
   sheet.prefersEdgeAttachedInCompactHeight = YES;
-  [self adjustDetentsOfBottomSheet:sheet forState:SheetStateConsentDialog];
+  _detentsManager =
+      [[LensOverlayDetentsManager alloc] initWithBottomSheet:sheet];
+  _detentsManager.observer = self;
+  [_detentsManager adjustDetentsForState:SheetDetentStateConsentDialog];
 
   [_containerViewController presentViewController:_consentViewController
                                          animated:YES
@@ -1063,24 +1021,8 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
 
 // Blocks user interaction with the Lens UI.
 - (void)disableSelectionInteraction:(BOOL)disabled {
-  if (disabled) {
-    if (_selectionInteractionBlockingView) {
-      return;
-    }
-
-    UIView* containerView = _containerViewController.view;
-    UIView* blocker = [[UIView alloc] init];
-    blocker.backgroundColor = UIColor.clearColor;
-    blocker.userInteractionEnabled = YES;
-    [containerView addSubview:blocker];
-
-    blocker.translatesAutoresizingMaskIntoConstraints = NO;
-    AddSameConstraints(containerView, blocker);
-    _selectionInteractionBlockingView = blocker;
-  } else {
-    [_selectionInteractionBlockingView removeFromSuperview];
-    _selectionInteractionBlockingView = nil;
-  }
+  _containerViewController.selectionInteractionDisabled = disabled;
+  [_selectionViewController disableFlyoutMenu:disabled];
 }
 
 // Called after consent dialog was dismissed and TOS accepted.
@@ -1092,14 +1034,32 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
 }
 
 - (void)showResultsBottomSheet {
+  if (!_associatedTabHelper) {
+    return;
+  }
+
   UISheetPresentationController* sheet =
       _resultViewController.sheetPresentationController;
-  sheet.delegate = self;
   sheet.prefersEdgeAttachedInCompactHeight = YES;
   sheet.prefersGrabberVisible = YES;
   sheet.preferredCornerRadius = 14;
-  [self adjustDetentsOfBottomSheet:sheet
-                          forState:SheetStateUnrestrictedMovement];
+
+  // Extract the restored state before showing the sheet to avoid having it
+  // overwritten.
+  SheetDimensionState restoredState =
+      _associatedTabHelper->GetRecordedSheetDimensionState();
+
+  _detentsManager =
+      [[LensOverlayDetentsManager alloc] initWithBottomSheet:sheet];
+  _detentsManager.observer = self;
+  [_detentsManager adjustDetentsForState:SheetDetentStateUnrestrictedMovement];
+  _resultMediator.presentationDelegate = _detentsManager;
+  _mediator.presentationDelegate = _detentsManager;
+
+  BOOL isStateRestoration = restoredState != SheetDimensionStateHidden;
+  if (restoredState == SheetDimensionStateLarge) {
+    [self->_detentsManager requestMaximizeBottomSheet];
+  }
 
   // Adjust the occlusion insets so that selections in the bottom half of the
   // screen are repositioned, to avoid being hidden by the bottom sheet.
@@ -1119,12 +1079,47 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
   __weak __typeof(self) weakSelf = self;
   [_containerViewController
       presentViewController:_resultViewController
-                   animated:YES
+                   animated:!isStateRestoration
                  completion:^{
-                   [weakSelf monitorResultsBottomSheetPosition];
+                   [weakSelf resultsBottomSheetPresented];
                    [weakSelf handlePanRecognizersAddedAfter:
                                  panRecognizersBeforePresenting];
                  }];
+}
+
+- (void)showRestorationWindowIfNeeded {
+  // If there is a pending snapshot, show it in a separate fullscreen window to
+  // ease the transition.
+  UIWindow* sceneWindow = self.browser->GetSceneState().window;
+  if (!_associatedTabHelper || !sceneWindow) {
+    return;
+  }
+  UIImage* viewportSnapshot = _associatedTabHelper->GetViewportSnapshot();
+  // If no snapshot was stored, it means that a restoration of state is not
+  // needed.
+  if (!viewportSnapshot) {
+    return;
+  }
+  _restorationWindow =
+      [[UIWindow alloc] initWithWindowScene:sceneWindow.windowScene];
+  _restorationWindow.rootViewController =
+      [[SnapshotCoverViewController alloc] initWithImage:viewportSnapshot];
+  _restorationWindow.windowLevel = sceneWindow.windowLevel + 1;
+  _restorationWindow.hidden = NO;
+}
+
+- (void)dismissRestorationWindow {
+  _restorationWindow.hidden = YES;
+  _restorationWindow = nil;
+}
+
+- (void)resultsBottomSheetPresented {
+  [self dismissRestorationWindow];
+  if (_associatedTabHelper) {
+    _associatedTabHelper->ClearViewportSnapshot();
+  }
+
+  [self monitorResultsBottomSheetPosition];
 }
 
 - (void)monitorResultsBottomSheetPosition {
@@ -1136,6 +1131,9 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
   // Currently there is no system API for reactively obtaining the position of a
   // bottom sheet. For the lifetime of the LRP, use the display link to monitor
   // the position of it's frame relative to the container.
+
+  // Invalidate any pre-existing display link before creating a new one.
+  [_displayLink invalidate];
   _displayLink =
       [CADisplayLink displayLinkWithTarget:self
                                   selector:@selector(onDisplayLinkUpdate:)];
@@ -1143,6 +1141,7 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
                      forMode:NSRunLoopCommonModes];
 
   _windowPanTracker = [[LensOverlayPanTracker alloc] initWithView:sceneWindow];
+  _windowPanTracker.delegate = self;
   [_windowPanTracker startTracking];
 }
 
@@ -1203,67 +1202,6 @@ typedef NS_ENUM(NSUInteger, SheetDetentState) {
   for (UIGestureRecognizer* recognizer in panRecognizersAfterPresenting) {
     recognizer.cancelsTouchesInView = NO;
   }
-}
-
-/// Converts the current entrypoint to LensOverlayInvocationSource.
-- (lens::LensOverlayInvocationSource)currentInvocationSource {
-  return lens::InvocationSourceFromEntrypoint(_currentEntrypoint);
-}
-
-/// Returns the UKM source id from the associated tab.
-- (ukm::SourceId)associatedTabSourceId {
-  if (_associatedTabHelper) {
-    if (web::WebState* webState = _associatedTabHelper->GetWebState()) {
-      return ukm::GetSourceIdForWebStateDocument(webState);
-    }
-  }
-  return ukm::kInvalidSourceId;
-}
-
-/// Records the first interaction time.
-- (void)recordFirstInteraction:
-    (lens::LensOverlayFirstInteractionType)firstInteractionType {
-  if (_firstInteractionRecorded) {
-    return;
-  }
-  _firstInteractionRecorded = YES;
-  lens::RecordTimeToFirstInteraction(
-      self.currentInvocationSource, _invocationTime.Elapsed(),
-      firstInteractionType, self.associatedTabSourceId);
-}
-
-/// Metrics recorded on lens overlay dismissal.
-- (void)recordDismissalMetrics:
-    (lens::LensOverlayDismissalSource)dismissalSource {
-  lens::LensOverlayInvocationSource invocationSource =
-      self.currentInvocationSource;
-
-  // Invocation metrics.
-  lens::RecordInvocation(invocationSource);
-  lens::RecordInvocationResultedInSearch(invocationSource,
-                                         _searchPerformedInSession);
-  // Dismissal metric.
-  lens::RecordDismissal(dismissalSource);
-
-  // Session foreground duration metrics.
-  if (_foregroundTime != base::TimeTicks()) {
-    _foregroundDuration =
-        _foregroundDuration + (base::TimeTicks::Now() - _foregroundTime);
-  }
-  lens::RecordSessionForegroundDuration(invocationSource, _foregroundDuration);
-
-  // Session duration metrics.
-  base::TimeDelta sessionDuration = _invocationTime.Elapsed();
-  lens::RecordSessionDuration(invocationSource, sessionDuration);
-
-  // Records number of tabs opened by the lens overlay during session.
-  lens::RecordGeneratedTabCount(_mediator.generatedTabCount);
-
-  // Session end UKM metrics.
-  lens::RecordUKMSessionEndMetrics(
-      self.associatedTabSourceId, self.currentInvocationSource,
-      _searchPerformedInSession, sessionDuration, _foregroundDuration,
-      _mediator.generatedTabCount);
 }
 
 @end

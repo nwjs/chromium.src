@@ -55,8 +55,7 @@ WebGLRenderingContextBase* webglRenderingContextBaseFromUnion(
     case V8XRWebGLRenderingContext::ContentType::kWebGLRenderingContext:
       return context->GetAsWebGLRenderingContext();
   }
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 std::optional<device::Pose> CreatePose(const gfx::Transform& matrix) {
@@ -117,8 +116,7 @@ device::mojom::blink::XRHandJoint StringToMojomHandJoint(
     return device::mojom::blink::XRHandJoint::kPinkyFingerTip;
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return device::mojom::blink::XRHandJoint::kMaxValue;
+  NOTREACHED();
 }
 
 V8XRHandJoint::Enum MojomHandJointToV8Enum(
@@ -274,8 +272,9 @@ bool IsFeatureEnabledForContext(device::mojom::XRSessionFeature feature,
     case device::mojom::XRSessionFeature::HAND_INPUT:
       return RuntimeEnabledFeatures::WebXRHandInputEnabled(context);
     case device::mojom::XRSessionFeature::LAYERS:
-    case device::mojom::XRSessionFeature::WEBGPU:
       return RuntimeEnabledFeatures::WebXRLayersEnabled(context);
+    case device::mojom::XRSessionFeature::WEBGPU:
+      return RuntimeEnabledFeatures::WebXRGPUBindingEnabled(context);
     case device::mojom::XRSessionFeature::FRONT_FACING:
       return RuntimeEnabledFeatures::WebXRFrontFacingEnabled(context);
     case device::mojom::XRSessionFeature::HIT_TEST:

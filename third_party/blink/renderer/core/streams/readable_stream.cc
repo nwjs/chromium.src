@@ -65,7 +65,7 @@ class ReadableStream::PullAlgorithm final : public StreamAlgorithm {
                              v8::Local<v8::Value> argv[]) override {
     DCHECK_EQ(argc, 0);
     DCHECK(controller_);
-    ScriptPromiseUntyped promise;
+    ScriptPromise<IDLUndefined> promise;
     if (script_state->ContextIsValid()) {
       v8::TryCatch try_catch(script_state->GetIsolate());
       {
@@ -113,7 +113,7 @@ class ReadableStream::CancelAlgorithm final : public StreamAlgorithm {
                              int argc,
                              v8::Local<v8::Value> argv[]) override {
     DCHECK_EQ(argc, 1);
-    ScriptPromiseUntyped promise;
+    ScriptPromise<IDLUndefined> promise;
     if (script_state->ContextIsValid()) {
       v8::TryCatch try_catch(script_state->GetIsolate());
       {
@@ -251,7 +251,7 @@ void ReadableStream::IterationSource::AsyncIteratorReturn(ScriptValue arg) {
     // 4.2. Perform ! ReadableStreamDefaultReaderRelease(reader).
     ReadableStreamDefaultReader::Release(script_state, reader_);
     // 4.3. Return result.
-    TakePendingPromiseResolver()->Resolve(result.V8Value());
+    TakePendingPromiseResolver()->Resolve(result.V8Promise());
     return;
   }
 
@@ -1119,13 +1119,9 @@ ScriptPromise<IDLUndefined> ReadableStream::Cancel(
   auto* resolver =
       MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(script_state);
   StreamThenPromise(
-      script_state->GetContext(), source_cancel_promise,
-      MakeGarbageCollected<ScriptFunction>(
-          script_state,
-          MakeGarbageCollected<ResolveUndefinedFunction>(resolver, kResolve)),
-      MakeGarbageCollected<ScriptFunction>(
-          script_state,
-          MakeGarbageCollected<ResolveUndefinedFunction>(resolver, kReject)));
+      script_state, source_cancel_promise,
+      MakeGarbageCollected<ResolveUndefinedFunction>(resolver, kResolve),
+      MakeGarbageCollected<ResolveUndefinedFunction>(resolver, kReject));
   return resolver->Promise();
 }
 

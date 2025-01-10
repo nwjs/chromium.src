@@ -22,7 +22,7 @@
 #include "components/autofill/core/browser/ui/suggestion.h"
 #include "components/autofill/core/browser/ui/suggestion_type.h"
 #include "components/compose/core/browser/compose_features.h"
-#include "components/user_education/common/new_badge_controller.h"
+#include "components/user_education/common/new_badge/new_badge_controller.h"
 #include "components/user_education/common/user_education_features.h"
 #include "content/public/test/browser_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -95,6 +95,10 @@ const Suggestion kSuggestions[] = {
                Suggestion::Icon::kGlobe,
                SuggestionType::kSeePromoCodeDetails),
     CreatePredictionImprovementsFeedback(),
+    Suggestion("Autofill_with_AI",
+               "",
+               Suggestion::Icon::kAutofillPredictionImprovements,
+               SuggestionType::kRetrievePredictionImprovements),
 };
 const Suggestion kExpandableSuggestions[] = {CreateSuggestionWithChildren(
     u"Address_entry",

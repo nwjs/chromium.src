@@ -73,14 +73,16 @@ constexpr char kIsFledgeSellAllowedHistogram[] =
     "PrivacySandbox.IsFledgeSellAllowed";
 constexpr char kIsFledgeBuyAllowedHistogram[] =
     "PrivacySandbox.IsFledgeBuyAllowed";
+constexpr char kIsFledgeReadAllowedHistogram[] =
+    "PrivacySandbox.IsFledgeReadAllowed";
 constexpr char kIsPrivacySandboxReportingDestinationAttestedHistogram[] =
     "PrivacySandbox.IsPrivacySandboxReportingDestinationAttested";
 constexpr char kIsSharedStorageAllowedHistogram[] =
     "PrivacySandbox.IsSharedStorageAllowed";
 constexpr char kIsSharedStorageSelectURLAllowedHistogram[] =
     "PrivacySandbox.IsSharedStorageSelectURLAllowed";
-constexpr char kIsLocalUnpartitionedDataAccessAllowedHistogram[] =
-    "PrivacySandbox.IsLocalUnpartitionedDataAccessAllowed";
+constexpr char kIsFencedStorageReadAllowedHistogram[] =
+    "PrivacySandbox.IsFencedStorageReadAllowed";
 constexpr char kIsPrivateAggregationAllowedHistogram[] =
     "PrivacySandbox.IsPrivateAggregationAllowed";
 
@@ -157,6 +159,9 @@ void PrivacySandboxSettingsImpl::JoinFledgeHistogram(
       break;
     case content::InterestGroupApiOperation::kBuy:
       JoinHistogram(kIsFledgeBuyAllowedHistogram, status);
+      break;
+    case content::InterestGroupApiOperation::kRead:
+      JoinHistogram(kIsFledgeReadAllowedHistogram, status);
       break;
   }
 }
@@ -437,7 +442,8 @@ bool PrivacySandboxSettingsImpl::MaySendAttributionReport(
   Status attestation_status =
       PrivacySandboxAttestations::GetInstance()->IsSiteAttested(
           net::SchemefulSite(reporting_origin),
-          PrivacySandboxAttestationsGatedAPI::kAttributionReporting);
+          PrivacySandboxAttestationsGatedAPI::kAttributionReporting,
+          AttestationsDefaultBehavior::kAllow);
   if (!IsAllowed(attestation_status)) {
     JoinHistogram(kMaySendAttributionReportHistogram, attestation_status);
     if (console_frame) {
@@ -589,8 +595,7 @@ PrivacySandboxSettingsImpl::GetM1FledgeAllowedStatus(
 }
 
 PrivacySandboxSettingsImpl::Status
-PrivacySandboxSettingsImpl::GetLocalUnpartitionedDataAccessEnabledStatus()
-    const {
+PrivacySandboxSettingsImpl::GetFencedStorageReadEnabledStatus() const {
   // User has turned on the setting to block all third party cookies.
   if (cookie_settings_->ShouldBlockThirdPartyCookies() &&
       !cookie_settings_->AreThirdPartyCookiesLimited()) {
@@ -734,18 +739,17 @@ bool PrivacySandboxSettingsImpl::IsSharedStorageSelectURLAllowed(
   return IsAllowed(status);
 }
 
-bool PrivacySandboxSettingsImpl::IsLocalUnpartitionedDataAccessAllowed(
+bool PrivacySandboxSettingsImpl::IsFencedStorageReadAllowed(
     const url::Origin& top_frame_origin,
     const url::Origin& accessing_origin,
     content::RenderFrameHost* console_frame) const {
-  if (Status status = GetLocalUnpartitionedDataAccessEnabledStatus();
-      !IsAllowed(status)) {
-    JoinHistogram(kIsLocalUnpartitionedDataAccessAllowedHistogram, status);
+  if (Status status = GetFencedStorageReadEnabledStatus(); !IsAllowed(status)) {
+    JoinHistogram(kIsFencedStorageReadAllowedHistogram, status);
     if (console_frame) {
       console_frame->AddMessageToConsole(
           blink::mojom::ConsoleMessageLevel::kError,
-          "Fenced frame local unpartitioned data access is disabled because "
-          "all third-party cookies are blocked.");
+          "Fenced storage read is disabled because all third-party cookies are "
+          "blocked.");
     }
     return false;
   }
@@ -753,16 +757,14 @@ bool PrivacySandboxSettingsImpl::IsLocalUnpartitionedDataAccessAllowed(
   Status attestation_status =
       PrivacySandboxAttestations::GetInstance()->IsSiteAttested(
           net::SchemefulSite(accessing_origin),
-          PrivacySandboxAttestationsGatedAPI::kLocalUnpartitionedDataAccess);
+          PrivacySandboxAttestationsGatedAPI::kFencedStorageRead);
   if (!IsAllowed(attestation_status)) {
-    JoinHistogram(kIsLocalUnpartitionedDataAccessAllowedHistogram,
-                  attestation_status);
+    JoinHistogram(kIsFencedStorageReadAllowedHistogram, attestation_status);
     if (console_frame) {
       console_frame->AddMessageToConsole(
           blink::mojom::ConsoleMessageLevel::kError,
-          base::StrCat(
-              {"Attestation check for local unpartitioned data access on ",
-               accessing_origin.Serialize(), " failed."}));
+          base::StrCat({"Attestation check for fenced storage read on ",
+                        accessing_origin.Serialize(), " failed."}));
     }
     return false;
   }
@@ -772,7 +774,7 @@ bool PrivacySandboxSettingsImpl::IsLocalUnpartitionedDataAccessAllowed(
     status =
         GetSiteAccessAllowedStatus(top_frame_origin, accessing_origin.GetURL());
   }
-  JoinHistogram(kIsLocalUnpartitionedDataAccessAllowedHistogram, status);
+  JoinHistogram(kIsFencedStorageReadAllowedHistogram, status);
 
   return IsAllowed(status);
 }
@@ -872,7 +874,7 @@ void PrivacySandboxSettingsImpl::OnCookiesCleared() {
 
 void PrivacySandboxSettingsImpl::OnRelatedWebsiteSetsEnabledPrefChanged() {
   for (auto& observer : observers_) {
-    observer.OnFirstPartySetsEnabledChanged(AreRelatedWebsiteSetsEnabled());
+    observer.OnRelatedWebsiteSetsEnabledChanged(AreRelatedWebsiteSetsEnabled());
   }
 }
 
@@ -889,7 +891,7 @@ void PrivacySandboxSettingsImpl::OnCookieControlsModePrefChanged() {
   }
 
   for (Observer& obs : observers_) {
-    obs.OnFirstPartySetsEnabledChanged(AreRelatedWebsiteSetsEnabled());
+    obs.OnRelatedWebsiteSetsEnabledChanged(AreRelatedWebsiteSetsEnabled());
   }
 }
 
@@ -1000,7 +1002,7 @@ bool PrivacySandboxSettingsImpl::IsCookieDeprecationLabelAllowedForContext(
 
 void PrivacySandboxSettingsImpl::OnBlockAllThirdPartyCookiesChanged() {
   for (auto& observer : observers_) {
-    observer.OnFirstPartySetsEnabledChanged(AreRelatedWebsiteSetsEnabled());
+    observer.OnRelatedWebsiteSetsEnabledChanged(AreRelatedWebsiteSetsEnabled());
   }
 }
 

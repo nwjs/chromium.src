@@ -335,6 +335,10 @@ ProfileIOS* ProfileManagerIOSImpl::CreateProfile(std::string_view name) {
   return iter->second.profile();
 }
 
+void ProfileManagerIOSImpl::DestroyAllProfiles() {
+  profiles_map_.clear();
+}
+
 ProfileAttributesStorageIOS*
 ProfileManagerIOSImpl::GetProfileAttributesStorage() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -469,8 +473,15 @@ bool ProfileManagerIOSImpl::CreateProfileWithMode(
     }
   }
 
+  // If this is the first profile ever loaded, mark it as the personal profile.
+  // TODO(crbug.com/331783685): Handle the (theoretical) case where the pref
+  // does have a value, but no profile with that name actually exists.
+  if (profile_attributes_storage_.GetPersonalProfileName().empty()) {
+    profile_attributes_storage_.SetPersonalProfileName(name);
+  }
+
   // If asked to load synchronously but an asynchronous load was already in
-  // progress, pretend the load failed, as we cannot return an unitialized
+  // progress, pretend the load failed, as we cannot return an uninitialized
   // Profile, nor can we wait for the asynchronous initialisation to complete.
   if (creation_mode == CreationMode::kSynchronous) {
     if (!inserted && !profile_info.is_loaded()) {

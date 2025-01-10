@@ -51,6 +51,7 @@ const char kInspectedTargetNavigatedOrClosed[] =
     "Inspected target navigated or closed";
 const char kFrameDosNotBelongToTarget[] =
     "Frame with the given id does not belong to the target.";
+const char kNotAttachedToActivePage[] = "Not attached to an active page";
 
 static constexpr int kSessionNotFoundInspectorCode = -32001;
 static constexpr int kCdpMethodNotFoundCode = -32601;
@@ -1010,8 +1011,7 @@ Status DevToolsClientImpl::ProcessNextMessage(int expected_id,
       return Status(kTimeout, err);
     }
     default:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 
   return HandleMessage(expected_id, message, caller);
@@ -1485,7 +1485,9 @@ Status ParseInspectorError(const std::string& error_json) {
                error_message == kInspectedTargetNavigatedOrClosed) {
       // The error messages that arise if navigation was started by the
       // asynchronous script before the script execution was finished..
-      return Status{kNavigationDetectedByRemoteEnd, error_message};
+      return Status{kAbortedByNavigation, error_message};
+    } else if (error_message == kNotAttachedToActivePage) {
+      return Status{kAbortedByNavigation, error_message};
     }
     std::optional<int> error_code = error_dict->FindInt("code");
     if (error_code == kInvalidParamsInspectorCode) {

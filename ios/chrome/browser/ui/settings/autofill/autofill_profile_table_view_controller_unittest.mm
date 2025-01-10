@@ -52,12 +52,10 @@ class AutofillProfileTableViewControllerTest
                               ios::WebDataServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetDefaultFactory());
+        AuthenticationServiceFactory::GetFactoryWithDelegate(
+            std::make_unique<FakeAuthenticationServiceDelegate>()));
     profile_ = std::move(builder).Build();
     browser_ = std::make_unique<TestBrowser>(profile_.get());
-
-    AuthenticationServiceFactory::CreateAndInitializeForProfile(
-        profile_.get(), std::make_unique<FakeAuthenticationServiceDelegate>());
 
     // Set circular SyncService dependency to null.
     autofill::PersonalDataManagerFactory::GetForProfile(profile_.get())
@@ -154,7 +152,7 @@ TEST_F(AutofillProfileTableViewControllerTest, TestOneProfile) {
 TEST_F(AutofillProfileTableViewControllerTest, TestPlusAddressSection) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(
-      plus_addresses::features::kPlusAddressIOSErrorAndLoadingStatesEnabled);
+      plus_addresses::features::kPlusAddressesEnabled);
 
   SignIn();
 

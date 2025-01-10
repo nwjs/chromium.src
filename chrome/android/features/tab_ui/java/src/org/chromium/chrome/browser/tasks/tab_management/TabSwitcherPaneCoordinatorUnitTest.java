@@ -19,6 +19,7 @@ import static org.chromium.chrome.browser.tasks.tab_management.TabListContainerP
 import static org.chromium.chrome.browser.tasks.tab_management.TabListContainerProperties.FOCUS_TAB_INDEX_FOR_ACCESSIBILITY;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListContainerProperties.INITIAL_SCROLL_INDEX;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListContainerProperties.IS_CLIP_TO_PADDING;
+import static org.chromium.chrome.browser.tasks.tab_management.TabListContainerProperties.IS_CONTENT_SENSITIVE;
 import static org.chromium.ui.test.util.MockitoHelper.doCallback;
 
 import android.app.Activity;
@@ -49,6 +50,8 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
+import org.chromium.chrome.browser.collaboration.messaging.MessagingBackendServiceFactory;
 import org.chromium.chrome.browser.data_sharing.DataSharingServiceFactory;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
@@ -63,7 +66,6 @@ import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncFeatures;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncFeaturesJni;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
-import org.chromium.chrome.browser.tab_group_sync.messaging.MessagingBackendServiceFactory;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabSwitcherCustomViewManager;
 import org.chromium.chrome.browser.tab_ui.TabThumbnailView;
@@ -79,14 +81,16 @@ import org.chromium.chrome.test.util.browser.tabmodel.MockTabModel;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.BackPressResult;
 import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
+import org.chromium.components.collaboration.CollaborationService;
+import org.chromium.components.collaboration.ServiceStatus;
+import org.chromium.components.collaboration.messaging.MessagingBackendService;
 import org.chromium.components.data_sharing.DataSharingService;
-import org.chromium.components.data_sharing.ServiceStatus;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
-import org.chromium.components.tab_group_sync.messaging.MessagingBackendService;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.modaldialog.ModalDialogManager;
+import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.Collections;
 
@@ -113,6 +117,7 @@ public class TabSwitcherPaneCoordinatorUnitTest {
     @Mock private TabCreatorManager mTabCreatorManager;
     @Mock private BrowserControlsStateProvider mBrowserControlsStateProvider;
     @Mock private ScrimCoordinator mScrimCoordinator;
+    @Mock private DataSharingService mDataSharingService;
     @Mock private ModalDialogManager mModalDialogManager;
     @Mock private TabSwitcherMessageManager mMessageManager;
     @Mock private TabSwitcherResetHandler mResetHandler;
@@ -125,7 +130,7 @@ public class TabSwitcherPaneCoordinatorUnitTest {
     @Mock private IdentityServicesProvider mIdentityServicesProvider;
     @Mock private IdentityManager mIdentityManager;
     @Mock private TabGroupSyncService mTabGroupSyncService;
-    @Mock private DataSharingService mDataSharingService;
+    @Mock private CollaborationService mCollaborationService;
     @Mock private MessagingBackendService mMessagingBackendService;
     @Mock private ServiceStatus mServiceStatus;
     @Mock private EdgeToEdgeController mEdgeToEdgeController;
@@ -158,9 +163,10 @@ public class TabSwitcherPaneCoordinatorUnitTest {
         when(mTabGroupSyncFeaturesJniMock.isTabGroupSyncEnabled(mProfile)).thenReturn(true);
         TabGroupSyncServiceFactory.setForTesting(mTabGroupSyncService);
         DataSharingServiceFactory.setForTesting(mDataSharingService);
+        CollaborationServiceFactory.setForTesting(mCollaborationService);
         MessagingBackendServiceFactory.setForTesting(mMessagingBackendService);
         when(mServiceStatus.isAllowedToJoin()).thenReturn(true);
-        when(mDataSharingService.getServiceStatus()).thenReturn(mServiceStatus);
+        when(mCollaborationService.getServiceStatus()).thenReturn(mServiceStatus);
 
         TrackerFactory.setTrackerForTests(mTracker);
 
@@ -224,7 +230,7 @@ public class TabSwitcherPaneCoordinatorUnitTest {
                             mDestroyed = true;
                         },
                         mEdgeToEdgeSupplier,
-                        /* desktopWindowStateProvider= */ null);
+                        /* desktopWindowStateManager= */ null);
         watcher.assertExpected();
 
         mCoordinator.initWithNative();
@@ -310,7 +316,6 @@ public class TabSwitcherPaneCoordinatorUnitTest {
     @Test
     @SmallTest
     @DisableFeatures({ChromeFeatureList.DATA_SHARING})
-    @EnableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_ANDROID)
     public void testTabGridDialogVisibilitySupplier() {
 
         Supplier<Boolean> tabGridDialogVisibilitySupplier =
@@ -405,7 +410,7 @@ public class TabSwitcherPaneCoordinatorUnitTest {
 
     @Test
     @SmallTest
-    @EnableFeatures({ChromeFeatureList.TAB_GROUP_PARITY_ANDROID, ChromeFeatureList.DATA_SHARING})
+    @EnableFeatures({ChromeFeatureList.DATA_SHARING})
     public void testOpenInvitationModal() {
         IdentityServicesProvider.setInstanceForTests(mIdentityServicesProvider);
         when(mIdentityServicesProvider.getIdentityManager(any())).thenReturn(mIdentityManager);
@@ -451,5 +456,16 @@ public class TabSwitcherPaneCoordinatorUnitTest {
         mEdgeToEdgeSupplier.set(mEdgeToEdgeController);
         var padAdjuster = mCoordinator.getEdgeToEdgePadAdjusterForTesting();
         assertNull("Pad adjuster should be created when feature enabled.", padAdjuster);
+    }
+
+    @Test
+    @SmallTest
+    public void testSetTabSwitcherContentSensitivity() {
+        PropertyModel containerViewModel = mCoordinator.getContainerViewModelForTesting();
+        assertFalse(containerViewModel.get(IS_CONTENT_SENSITIVE));
+        mCoordinator.setTabSwitcherContentSensitivity(/* contentIsSensitive= */ true);
+        assertTrue(containerViewModel.get(IS_CONTENT_SENSITIVE));
+        mCoordinator.setTabSwitcherContentSensitivity(/* contentIsSensitive= */ false);
+        assertFalse(containerViewModel.get(IS_CONTENT_SENSITIVE));
     }
 }

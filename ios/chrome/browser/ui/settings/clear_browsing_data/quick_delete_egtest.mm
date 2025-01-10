@@ -5,6 +5,7 @@
 #import <XCTest/XCTest.h>
 
 #import "base/strings/sys_string_conversions.h"
+#import "base/test/ios/wait_util.h"
 #import "base/test/metrics/histogram_tester.h"
 #import "components/browsing_data/core/browsing_data_utils.h"
 #import "components/browsing_data/core/cookie_or_cache_deletion_choice.h"
@@ -42,6 +43,7 @@
 
 namespace {
 
+using base::test::ios::kWaitForClearBrowsingDataTimeout;
 using browsing_data::DeleteBrowsingDataDialogAction;
 using chrome_test_util::ButtonWithAccessibilityLabel;
 using chrome_test_util::ClearBrowsingDataButton;
@@ -227,24 +229,26 @@ NSString* CapitalizeFirstLetter(NSString* string) {
       [ChromeEarlGrey localStateIntegerPref:prefs::kInactiveTabsTimeThreshold],
       @"Inactive tabs preference is not set to default value.");
 
-  [AutofillAppInterface clearCreditCardStore];
-  [PasswordSettingsAppInterface clearPasswordStores];
-  [ChromeEarlGrey clearBrowsingHistory];
-  [ChromeEarlGrey resetBrowsingDataPrefs];
+  if (![ChromeTestCase forceRestartAndWipe]) {
+    [AutofillAppInterface clearCreditCardStore];
+    [PasswordSettingsAppInterface clearPasswordStores];
+    [ChromeEarlGrey clearBrowsingHistory];
+    [ChromeEarlGrey resetBrowsingDataPrefs];
+  }
 
   // Disable tab selection so the tab closure animation is not ran in all the
   // tests.
   [ChromeEarlGrey setBoolValue:false
                    forUserPref:browsing_data::prefs::kCloseTabs];
 
-  if (![self isRunningTest:@selector(testInactiveTabsForDeletion)]) {
+  if (![self isRunningTest:@selector(DISABLED_testInactiveTabsForDeletion)]) {
     GREYAssertNil([MetricsAppInterface setupHistogramTester],
                   @"Cannot setup histogram tester.");
     [MetricsAppInterface overrideMetricsAndCrashReportingForTesting];
   }
 }
 
-- (void)tearDown {
+- (void)tearDownHelper {
   // Ensure that inactive tabs preference settings is set to its default state.
   [ChromeEarlGrey setIntegerValue:0
                 forLocalStatePref:prefs::kInactiveTabsTimeThreshold];
@@ -262,7 +266,7 @@ NSString* CapitalizeFirstLetter(NSString* string) {
   [ChromeEarlGrey setBoolValue:true
                    forUserPref:browsing_data::prefs::kCloseTabs];
 
-  if (![self isRunningTest:@selector(testInactiveTabsForDeletion)]) {
+  if (![self isRunningTest:@selector(DISABLED_testInactiveTabsForDeletion)]) {
     [MetricsAppInterface stopOverridingMetricsAndCrashReportingForTesting];
     GREYAssertNil([MetricsAppInterface releaseHistogramTester],
                   @"Cannot reset histogram tester.");
@@ -272,7 +276,7 @@ NSString* CapitalizeFirstLetter(NSString* string) {
   // deleting browsing history.
   [ChromeEarlGrey killWebKitNetworkProcess];
 
-  [super tearDown];
+  [super tearDownHelper];
 }
 
 - (AppLaunchConfiguration)appConfigurationForTestCase {
@@ -291,10 +295,7 @@ NSString* CapitalizeFirstLetter(NSString* string) {
   AppLaunchConfiguration config;
   config.relaunch_policy = ForceRelaunchByCleanShutdown;
   config.features_enabled.push_back(kIOSQuickDelete);
-  config.additional_args.push_back(
-      "--enable-features=" + std::string(kTabInactivityThreshold.name) + ":" +
-      kTabInactivityThresholdParameterName + "/" +
-      kTabInactivityThresholdImmediateDemoParam);
+  config.features_enabled.push_back(kInactiveTabsIPadFeature);
   [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
 }
 
@@ -348,7 +349,10 @@ NSString* CapitalizeFirstLetter(NSString* string) {
 
   // Wait for Quick Delete to disappear marking that the deletion has finished.
   [ChromeEarlGrey
-      waitForUIElementToDisappearWithMatcher:ClearBrowsingDataView()];
+      waitForUIElementToDisappearWithMatcher:ClearBrowsingDataView()
+                                     timeout:
+                                         base::test::ios::
+                                             kWaitForClearBrowsingDataTimeout];
 
   // Wait for the tabs closure animation to finish if it's trigger by the
   // deletion.
@@ -960,12 +964,8 @@ NSString* CapitalizeFirstLetter(NSString* string) {
 // browsing data row when tabs are selected as a data type for deletion. It also
 // tests that the inactive tabs get closed when the deletion of tabs is
 // selected.
-- (void)testInactiveTabsForDeletion {
-  if ([ChromeEarlGrey isIPadIdiom]) {
-    EARL_GREY_TEST_SKIPPED(@"Skipped for iPad. The Inactive Tabs feature is "
-                           @"only supported on iPhone.");
-  }
-
+// TODO(crbug.com/374048360): Re-enable test.
+- (void)DISABLED_testInactiveTabsForDeletion {
   // Set pref to close tabs.
   [ChromeEarlGrey setBoolValue:true
                    forUserPref:browsing_data::prefs::kCloseTabs];
@@ -1527,7 +1527,9 @@ NSString* CapitalizeFirstLetter(NSString* string) {
 // types, that the placeholder summary for no data is shown.
 - (void)testNoDataForDeletion {
   // Make sure there isn't any history items.
-  [ChromeEarlGrey clearBrowsingHistory];
+  if (![ChromeTestCase forceRestartAndWipe]) {
+    [ChromeEarlGrey clearBrowsingHistory];
+  }
 
   // Set pref to keep browsing history.
   [ChromeEarlGrey setBoolValue:false

@@ -18,6 +18,7 @@
 #include "components/performance_manager/graph/worker_node_impl.h"
 #include "components/performance_manager/public/v8_memory/web_memory.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/common/content_features.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/frame/lifecycle.mojom.h"
 #include "third_party/blink/public/mojom/frame/viewport_intersection_state.mojom.h"
@@ -50,14 +51,14 @@ FrameNodeImpl::FrameNodeImpl(
     ProcessNodeImpl* process_node,
     PageNodeImpl* page_node,
     FrameNodeImpl* parent_frame_node,
-    FrameNodeImpl* outer_document_for_fenced_frame,
+    FrameNodeImpl* outer_document_for_inner_frame_root,
     int render_frame_id,
     const blink::LocalFrameToken& frame_token,
     content::BrowsingInstanceId browsing_instance_id,
     content::SiteInstanceGroupId site_instance_group_id,
     bool is_current)
     : parent_frame_node_(parent_frame_node),
-      outer_document_for_fenced_frame_(outer_document_for_fenced_frame),
+      outer_document_for_inner_frame_root_(outer_document_for_inner_frame_root),
       page_node_(page_node),
       process_node_(process_node),
       render_frame_id_(render_frame_id),
@@ -77,8 +78,8 @@ FrameNodeImpl::FrameNodeImpl(
 
   DCHECK(process_node);
   DCHECK(page_node);
-  // A <fencedframe> has no parent node.
-  CHECK(!outer_document_for_fenced_frame || !parent_frame_node_);
+  // A <fencedframe>, MPArch <webview> has no parent node.
+  CHECK(!outer_document_for_inner_frame_root_ || !parent_frame_node_);
 }
 
 FrameNodeImpl::~FrameNodeImpl() {
@@ -315,8 +316,8 @@ FrameNodeImpl* FrameNodeImpl::parent_or_outer_document_or_embedder() const {
     return parent_frame_node_;
   }
 
-  if (outer_document_for_fenced_frame_) {
-    return outer_document_for_fenced_frame_;
+  if (outer_document_for_inner_frame_root_) {
+    return outer_document_for_inner_frame_root_;
   }
 
   if (page_node()->embedder_frame_node()) {
@@ -893,7 +894,6 @@ void FrameNodeImpl::SetViewportIntersectionImpl(bool is_intersecting_viewport) {
 void FrameNodeImpl::SetViewportIntersectionImpl(
     ViewportIntersection viewport_intersection) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
   // Nothing to do if the value didn't change.
   if (GetViewportIntersection() &&
       GetViewportIntersection().value() == viewport_intersection) {

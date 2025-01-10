@@ -14,7 +14,7 @@ namespace ios::provider {
 
 // Creates a new instance of ShareKitService.
 std::unique_ptr<ShareKitService> CreateShareKitService(
-    const ShareKitServiceConfiguration& configuration);
+    std::unique_ptr<ShareKitServiceConfiguration> configuration);
 
 }  // namespace ios::provider
 

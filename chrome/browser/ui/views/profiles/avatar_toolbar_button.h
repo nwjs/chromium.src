@@ -13,7 +13,6 @@
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
 #include "base/time/time.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
 #include "components/signin/public/base/signin_buildflags.h"
 #include "ui/base/metadata/metadata_header_macros.h"
@@ -120,7 +119,8 @@ class AvatarToolbarButton : public ToolbarButton {
   void RemoveObserver(Observer* observer);
 
   // Can be used in tests to reduce or remove the delay before showing the IPH.
-  static void SetIPHMinDelayAfterCreationForTesting(base::TimeDelta delay);
+  [[nodiscard]] static base::AutoReset<base::TimeDelta>
+  SetScopedIPHMinDelayAfterCreationForTesting(base::TimeDelta delay);
 
   // These helper functions allow tests to be time independent; tests that are
   // time dependent tend to create a lot of flakiness.

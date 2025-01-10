@@ -98,7 +98,6 @@ COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kCampbellKey[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kCellularFirst[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kChildWallpaperLarge[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kChildWallpaperSmall[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kConchKey[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kCrosRegion[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kCryptohomeRecoveryServiceBaseUrl[];
@@ -145,7 +144,6 @@ extern const char kDisableHIDDetectionOnOOBEForTesting[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kDisableLacrosKeepAliveForTesting[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisableLoginAnimations[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisableLoginLacrosOpening[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisableMachineCertRequest[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kDisableOOBEChromeVoxHintTimerForTesting[];
@@ -153,8 +151,6 @@ COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kDisableOOBENetworkScreenSkippingForTesting[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisablePerUserTimezone[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisableRollbackOption[];
-COMPONENT_EXPORT(ASH_CONSTANTS)
-extern const char kDisableSigninFrameClientCerts[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisableVolumeAdjustSound[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableArc[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableArcVm[];
@@ -169,7 +165,6 @@ COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kEnableExtensionAssetsSharing[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableHoudini[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableHoudini64[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableHoudiniDlc[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableNdkTranslation[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableNdkTranslation64[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
@@ -283,10 +278,9 @@ COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLoginProfile[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kLoginUser[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisallowLacros[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisableDisallowLacros[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kEnableLacrosForTesting[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kMahiFeatureKey[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kSparkyFeatureKey[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kSparkyServerUrl[];
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kSunfishFeatureKey[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kBrowserDataMigrationForUser[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
@@ -302,7 +296,6 @@ COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kForceBrowserDataMigrationForTesting[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kMallUrl[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kMarketingOptInUrl[];
-COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kModifierSplitFeatureKey[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kNaturalScrollDefault[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kNoteTakingAppIds[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kOobeEulaUrlForTests[];
@@ -412,10 +405,6 @@ COMPONENT_EXPORT(ASH_CONSTANTS) bool IsCellularFirstDevice();
 
 // Returns true if this is reven board.
 COMPONENT_EXPORT(ASH_CONSTANTS) bool IsRevenBranding();
-
-// Returns true if client certificate authentication for the sign-in frame on
-// the Chrome OS sign-in screen is enabled.
-COMPONENT_EXPORT(ASH_CONSTANTS) bool IsSigninFrameClientCertsEnabled();
 
 // Returns true if the Chromebook should ignore its wired connections when
 // deciding whether to run scans for tethering hosts. Should be used only for
@@ -528,15 +517,6 @@ COMPONENT_EXPORT(ASH_CONSTANTS)
 bool IsCampbellSecretKeyMatched();
 
 COMPONENT_EXPORT(ASH_CONSTANTS)
-bool IsConchSecretKeyMatched();
-
-COMPONENT_EXPORT(ASH_CONSTANTS)
-bool IsMahiSecretKeyMatched();
-
-COMPONENT_EXPORT(ASH_CONSTANTS)
-base::AutoReset<bool> SetIgnoreMahiSecretKeyForTest();
-
-COMPONENT_EXPORT(ASH_CONSTANTS)
 bool IsSparkySecretKeyMatched();
 
 COMPONENT_EXPORT(ASH_CONSTANTS)
@@ -546,16 +526,16 @@ COMPONENT_EXPORT(ASH_CONSTANTS)
 std::optional<std::string> ObtainSparkyServerUrl();
 
 COMPONENT_EXPORT(ASH_CONSTANTS)
-bool IsModifierSplitSecretKeyMatched();
-
-COMPONENT_EXPORT(ASH_CONSTANTS)
-base::AutoReset<bool> SetIgnoreModifierSplitSecretKeyForTest();
-
-COMPONENT_EXPORT(ASH_CONSTANTS)
 bool IsScannerUpdateSecretKeyMatched();
 
 COMPONENT_EXPORT(ASH_CONSTANTS)
 base::AutoReset<bool> SetIgnoreScannerUpdateSecretKeyForTest();
+
+COMPONENT_EXPORT(ASH_CONSTANTS)
+bool IsSunfishSecretKeyMatched();
+
+COMPONENT_EXPORT(ASH_CONSTANTS)
+base::AutoReset<bool> SetIgnoreSunfishSecretKeyForTest();
 
 }  // namespace ash::switches
 

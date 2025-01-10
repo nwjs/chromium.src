@@ -74,7 +74,8 @@ class BrowserViewWranglerTest : public PlatformTest {
         ios::BookmarkModelFactory::GetDefaultFactory());
     test_cbs_builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetDefaultFactory());
+        AuthenticationServiceFactory::GetFactoryWithDelegate(
+            std::make_unique<FakeAuthenticationServiceDelegate>()));
     test_cbs_builder.AddTestingFactory(
         SessionRestorationServiceFactory::GetInstance(),
         TestSessionRestorationService::GetTestingFactory());
@@ -85,9 +86,6 @@ class BrowserViewWranglerTest : public PlatformTest {
             SessionRestorationServiceFactory::GetInstance(),
             TestSessionRestorationService::GetTestingFactory(),
         }});
-
-    AuthenticationServiceFactory::CreateAndInitializeForProfile(
-        profile_.get(), std::make_unique<FakeAuthenticationServiceDelegate>());
 
     scoped_session_restoration_observation_.AddObservation(
         SessionRestorationServiceFactory::GetForProfile(profile_.get()));
@@ -188,7 +186,7 @@ TEST_F(BrowserViewWranglerTest, TestBrowserList) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
       {/* Enabled features */},
-      {/* Disabled features */ kTabInactivityThreshold});
+      {/* Disabled features */ kInactiveTabsIPadFeature});
 
   BrowserViewWrangler* wrangler =
       [[BrowserViewWrangler alloc] initWithProfile:profile()
@@ -257,17 +255,9 @@ TEST_F(BrowserViewWranglerTest, TestBrowserList) {
 }
 
 TEST_F(BrowserViewWranglerTest, TestInactiveInterface) {
-  // No inactive tabs on iPad.
-  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
-    return;
-  }
   // Enabled inactive tabs feature.
   base::test::ScopedFeatureList feature_list;
-  std::map<std::string, std::string> parameters;
-  parameters[kTabInactivityThresholdParameterName] =
-      kTabInactivityThresholdOneWeekParam;
-  feature_list.InitAndEnableFeatureWithParameters(kTabInactivityThreshold,
-                                                  parameters);
+  feature_list.InitAndEnableFeature(kInactiveTabsIPadFeature);
 
   BrowserViewWrangler* wrangler =
       [[BrowserViewWrangler alloc] initWithProfile:profile()

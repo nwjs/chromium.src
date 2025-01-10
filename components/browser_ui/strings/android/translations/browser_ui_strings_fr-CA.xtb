@@ -4,13 +4,16 @@
 <translation id="1006017844123154345">Ouvrir en ligne</translation>
 <translation id="1036348656032585052">Désactiver</translation>
 <translation id="1044891598689252897">Les sites fonctionneront normalement</translation>
+<translation id="1070329623210597193">Les fichiers que ce site peut afficher ou modifier</translation>
 <translation id="1073417869336441572">Aidez-nous à améliorer Chrome en nous indiquant pourquoi vous avez autorisé les témoins tiers. <ph name="BEGIN_LINK" />Envoyer des commentaires<ph name="END_LINK" /></translation>
+<translation id="1085696779717592361">Utiliser Chrome par défaut</translation>
 <translation id="1178581264944972037">Interrompre</translation>
 <translation id="1181037720776840403">Supprimer</translation>
 <translation id="1192844206376121885">Cette action supprimera toutes les données et tous les témoins stockés par <ph name="ORIGIN" />.</translation>
 <translation id="1201402288615127009">Suivant</translation>
 <translation id="1240190568154816272">Astuces de Chrome</translation>
 <translation id="1242008676835033345">Intégré sur <ph name="WEBSITE_URL" /></translation>
+<translation id="1263609676484797429">Touchez Applis &gt; Applis par défaut.</translation>
 <translation id="1272079795634619415">Arrêter</translation>
 <translation id="1289742167380433257">Pour vous faire économiser les données, Google a optimisé les images de cette page.</translation>
 <translation id="129382876167171263">Les fichiers enregistrés par les sites Web s'affichent ici</translation>
@@ -65,6 +68,7 @@
 <translation id="2182457891543959921">Demander avant d'autoriser les sites à créer une carte 3D de votre environnement ou à faire le suivi de la position de l'appareil photo (recommandé)</translation>
 <translation id="2185965788978862351">Cette action supprimera <ph name="DATASIZE" /> de données et de témoins stockés par des sites ou des applications sur votre écran d'accueil.</translation>
 <translation id="2194856509914051091">Points à prendre en compte</translation>
+<translation id="2215727959747642672">Modification des fichiers</translation>
 <translation id="2228071138934252756">Pour autoriser <ph name="APP_NAME" /> à accéder à votre appareil photo, activez aussi celui-ci dans les <ph name="BEGIN_LINK" />paramètres d'Android<ph name="END_LINK" />.</translation>
 <translation id="2235344399760031203">Les témoins tiers sont bloqués</translation>
 <translation id="2238944249568001759">Recherches suggérées en fonction de votre dernier onglet</translation>
@@ -74,10 +78,8 @@
 <translation id="228293613124499805">La plupart des sites que vous visitez peuvent enregistrer des données sur votre appareil, souvent pour améliorer votre expérience en enregistrant vos préférences ou en fonction de vos interactions avec le site. Nous vous recommandons de conserver ce paramètre activé.</translation>
 <translation id="2289270750774289114">Demander quand un site souhaite rechercher les appareils Bluetooth à proximité (recommandé)</translation>
 <translation id="2315043854645842844">La sélection du certificat client SSL n'est pas prise en charge par le système d'exploitation.</translation>
-<translation id="2321958826496381788">Faites glisser le curseur pour lire le texte aisément. Sa taille doit être similaire à celle-ci lorsque vous appuyez deux fois sur un paragraphe.</translation>
 <translation id="2359808026110333948">Continuer</translation>
 <translation id="2379925928934107488">Si possible, appliquer le thème sombre aux sites lorsque Chrome l'utilise</translation>
-<translation id="2387895666653383613">Mise à l'échelle texte</translation>
 <translation id="2390272837142897736">Augmenter le zoom</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" /> Mo</translation>
 <translation id="2404630663942400771">{PERMISSIONS_SUMMARY_ALLOWED,plural, =1{Autorisations <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> et <ph name="NUM_MORE" /> autre accordées}one{Autorisations <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> et <ph name="NUM_MORE" /> autre accordées}other{Autorisations <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> et <ph name="NUM_MORE" /> autres accordées}}</translation>
@@ -102,7 +104,6 @@
 <translation id="2621115761605608342">Autoriser JavaScript pour un site en particulier.</translation>
 <translation id="2653659639078652383">Envoyer</translation>
 <translation id="2677748264148917807">Quitter</translation>
-<translation id="2678468611080193228">Essayez d'autoriser temporairement les témoins tiers, ce qui signifie moins de protection, mais les fonctionnalités du site sont plus susceptibles de fonctionner</translation>
 <translation id="2682367912565197520">Supprimer le niveau de zoom enregistré</translation>
 <translation id="2683434792633810741">Supprimer et réinitialiser?</translation>
 <translation id="2713106313042589954">Désactiver la caméra</translation>
@@ -154,7 +155,6 @@
 <translation id="3403537308306431953"><ph name="ZOOM_LEVEL" /> %%</translation>
 <translation id="344449859752187052">Témoins tiers bloqués</translation>
 <translation id="3448554387819310837">Lorsque cette option est activée, les sites peuvent demander à utiliser votre appareil photo. Lorsqu'elle est désactivée, les sites ne peuvent pas utiliser votre appareil photo.</translation>
-<translation id="3465378418721443318">{DAYS,plural, =1{Chrome bloquera à nouveau les témoins demain}one{# jour jusqu'à ce que Chrome bloque à nouveau les témoins}other{# jours jusqu'à ce que Chrome bloque à nouveau les témoins}}</translation>
 <translation id="3521663503435878242">Sites associés à <ph name="DOMAIN" /></translation>
 <translation id="3523447078673133727">Ne pas permettre aux sites de suivre vos mains</translation>
 <translation id="3536227077203206203">Autorisé cette fois</translation>
@@ -170,6 +170,7 @@
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_MEMBERS_COUNT" /> site du groupe de sites de <ph name="RWS_OWNER" /> peut voir votre activité dans le groupe}one{<ph name="RWS_MEMBERS_COUNT" /> site du groupe de sites de <ph name="RWS_OWNER" /> peut voir votre activité dans le groupe}other{<ph name="RWS_MEMBERS_COUNT" /> sites du groupe de sites de <ph name="RWS_OWNER" /> peut voir votre activité dans le groupe}}</translation>
 <translation id="3697164069658504920">Lorsque cette option est activée, les sites peuvent demander à utiliser des appareils USB. Lorsqu'elle est désactivée, les sites ne peuvent pas utiliser d'appareils USB.</translation>
 <translation id="3707034683772193706">Un site que vous visitez peut enregistrer une petite quantité d'informations avec Chrome, principalement pour confirmer que vous n'êtes pas un robot</translation>
+<translation id="3709818294139939629">Accès du site au fichier retiré</translation>
 <translation id="3721953990244350188">Ignorer et afficher la prochaine action proposée</translation>
 <translation id="3744111561329211289">Synchronisation en arrière-plan</translation>
 <translation id="3763247130972274048">Touchez deux fois à gauche ou à droite de la vidéo pour sauter 10 secondes</translation>
@@ -188,6 +189,7 @@
 <translation id="3908288065506437185">Bloquer les témoins tiers en mode de navigation privée</translation>
 <translation id="3913461097001554748"><ph name="DOMAIN_URL" /> <ph name="SEPARATOR1" /> <ph name="DEVICE_NAME" /></translation>
 <translation id="3918378745482005425">Certaines fonctionnalités pourraient ne pas fonctionner. Les sites associés peuvent toujours utiliser des témoins tiers.</translation>
+<translation id="3922092564198021702">Sur votre téléphone, ouvrez Paramètres.</translation>
 <translation id="3933121352599513978">Réduire les requêtes indésirables (recommandé)</translation>
 <translation id="3955193568934677022">Autoriser les sites à lire le contenu protégé (recommandé)</translation>
 <translation id="3967822245660637423">Téléchargement terminé</translation>
@@ -331,6 +333,7 @@
 <translation id="6042308850641462728">Plus</translation>
 <translation id="6064125863973209585">Téléchargements terminés</translation>
 <translation id="6071501408666570960">Vous pouvez être déconnecté de ce site</translation>
+<translation id="6085954183010297841">Supprimer l'autorisation de modification de fichier? <ph name="FILE" /></translation>
 <translation id="6120483543004435978">Lorsque cette option est activée, les sites peuvent vous demander si vous utilisez activement votre appareil. Lorsqu'elle est désactivée, les sites ne peuvent pas savoir si vous utilisez activement votre appareil.</translation>
 <translation id="6140839633433422817">Voulez-vous vraiment réinitialiser les autorisations et supprimer les témoins et les données relatives à ce site?</translation>
 <translation id="6165508094623778733">En savoir plus</translation>
@@ -345,6 +348,7 @@
 <translation id="6205314730813004066">Confidentialité des annonces</translation>
 <translation id="6207207788774442484">Supprimer les données et réinitialiser les autorisations</translation>
 <translation id="6231752747840485235">Désinstaller « <ph name="APP_NAME" /> »?</translation>
+<translation id="6234351944623978659">Touchez Appli de navigation &gt; Chrome.</translation>
 <translation id="6262191102408817757">En fonction de votre dernier onglet</translation>
 <translation id="6262279340360821358">Autorisations <ph name="PERMISSION_1" /> et <ph name="PERMISSION_2" /> bloquées</translation>
 <translation id="6270391203985052864">Les sites peuvent vous demander l'autorisation d'envoyer des notifications</translation>
@@ -429,6 +433,7 @@
 <translation id="7425915948813553151">Thème sombre pour les sites</translation>
 <translation id="7521387064766892559">JavaScript</translation>
 <translation id="7547989957535180761">Lorsque cette option est activée, les sites peuvent afficher des invites de connexion. Lorsqu'elle est désactivée, les sites ne peuvent pas afficher d'invites de connexion.</translation>
+<translation id="7553211568594248088">Quitter la recherche Hub</translation>
 <translation id="7554752735887601236">Un site utilise votre microphone</translation>
 <translation id="7561196759112975576">Toujours</translation>
 <translation id="757524316907819857">Empêcher les sites de lire du contenu protégé</translation>
@@ -437,7 +442,6 @@
 <translation id="7649070708921625228">Aide</translation>
 <translation id="7658239707568436148">Annuler</translation>
 <translation id="7667547420449112975">Le Magicien d'Oz</translation>
-<translation id="7684642910516280563">Ne pas autoriser un site à utiliser des témoins tiers</translation>
 <translation id="7688240020069572972">Masquer la carte des astuces de Chrome</translation>
 <translation id="7719367874908701697">Zoom de la page</translation>
 <translation id="7759147511335618829">Contrôler et reprog. app. MIDI</translation>
@@ -471,6 +475,7 @@
 <translation id="813082847718468539">Afficher l'information sur le site</translation>
 <translation id="8131740175452115882">Confirmer</translation>
 <translation id="8168435359814927499">Contenu</translation>
+<translation id="818487310457576362">Balayez l'écran à partir du côté pour quitter le plein écran.</translation>
 <translation id="8186479265534291036">Le site ne fonctionne pas? Témoins tiers bloqués</translation>
 <translation id="8197286292360124385">Autorisation <ph name="PERMISSION_1" /> accordée</translation>
 <translation id="8200772114523450471">Reprendre</translation>
@@ -500,6 +505,7 @@
 <translation id="851751545965956758">Empêcher les sites de se connecter à des appareils</translation>
 <translation id="8525306231823319788">Plein écran</translation>
 <translation id="8541410041357371550">Ce site récupère vos sujets d'annonces à partir de Chrome pour vous montrer des annonces plus pertinentes</translation>
+<translation id="8558480467877843976">Vous pouvez désormais utiliser Chrome chaque fois que vous naviguez ou que vous touchez des liens dans des messages, des documents et d'autres applications.</translation>
 <translation id="857943718398505171">Autorisée (recommandé)</translation>
 <translation id="8609465669617005112">Déplacer vers le haut</translation>
 <translation id="8617611086246832542">Lorsque cette option est activée, les sites Web s'afficheront au moyen de l'affichage sur ordinateur de bureau. Lorsqu'elle est désactivée, les sites Web s'afficheront au moyen de l'affichage sur appareil mobile.</translation>
@@ -526,6 +532,7 @@
 <translation id="8899807382908246773">Annonces intrusives</translation>
 <translation id="8903921497873541725">Zoom avant</translation>
 <translation id="8921772741368021346"><ph name="POSITION" /> sur <ph name="DURATION" /></translation>
+<translation id="8926389886865778422">Ne plus afficher ce message</translation>
 <translation id="8926666909099850184">La CCP est désactivée pour cet appareil. Activez-la dans le menu <ph name="BEGIN_LINK" />Paramètres Android<ph name="END_LINK" />.</translation>
 <translation id="8928445016601307354">Empêcher les sites de consulter et de modifier les données stockées sur les appareils CCP</translation>
 <translation id="8944485226638699751">Limités</translation>

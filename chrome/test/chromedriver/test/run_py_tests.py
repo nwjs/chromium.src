@@ -89,27 +89,23 @@ _NEGATIVE_FILTER = [
     'ChromeDriverTest.testEmulateNetworkConditionsNameSpeed',
     'ChromeDriverTest.testEmulateNetworkConditionsSpeed',
     # https://bugs.chromium.org/p/chromedriver/issues/detail?id=833
+    # The test fails reliably.
     'ChromeDriverTest.testAlertOnNewWindow',
     # Flaky https://bugs.chromium.org/p/chromium/issues/detail?id=1143940
     'ChromeDriverTest.testTakeLargeElementFullPageScreenshot',
+    # crbug.com/40096991. Reliable page crash.
     'BidiTest.testOpenMultipleTabsInJavaScript',
-    # crbug.com/350916212
+    # Flaky crbug.com/350916212
     'BidiTest.testFocusInFirstTab',
-    # crbug.com/372153090
+    # crbug.com/372153090. The feature is not yet supported.
     'ChromeDriverTest.testCreateWindowFromScript',
 ]
 
 
 _OS_SPECIFIC_FILTER = {}
 _OS_SPECIFIC_FILTER['win'] = [
-    # https://bugs.chromium.org/p/chromedriver/issues/detail?id=299
+    # crbug.com/42322046. The feature is not yet implemented.
     'ChromeLogPathCapabilityTest.testChromeLogPath',
-    # https://bugs.chromium.org/p/chromium/issues/detail?id=1196363
-    'ChromeDownloadDirTest.testFileDownloadAfterTab',
-    'InvalidCertificateTest.testLoadsPage',
-    'InvalidCertificateTest.testNavigateNewWindow',
-    # Flaky on Win7 bots: crbug.com/1132559
-    'ChromeDriverTest.testTakeElementScreenshotInIframe',
     # TODO(https://crbug.com/360058651): Flaky on win11.
     'ChromeDriverTest.testClickElementObscuredByScrollBar',
     'ChromeDriverTest.testClickElementAlmostObscuredByScrollBar',
@@ -117,16 +113,11 @@ _OS_SPECIFIC_FILTER['win'] = [
 _OS_SPECIFIC_FILTER['linux'] = [
 ]
 _OS_SPECIFIC_FILTER['mac'] = [
-    # https://bugs.chromium.org/p/chromium/issues/detail?id=1011225
+    # Flaky: crbug.com/40651570
     'ChromeDriverTest.testActionsMultiTouchPoint',
     # Flaky: https://crbug.com/1156576.
     'ChromeDriverTestLegacy.testContextMenuEventFired',
-    # Flaky: https://crbug.com/1157533.
-    'ChromeDriverTest.testShadowDomFindElement',
     # Flaky: https://crbug.com/1336871.
-    'ChromeDriverTest.testTakeElementScreenshot',
-    'ChromeDriverTest.testTakeElementScreenshotInIframe',
-    'ChromeDriverTest.testTakeElementScreenshotPartlyVisible',
     'ChromeDriverTest.testTakeLargeElementScreenshot',
     # Flaky: https://crbug.com/333826980 (fails in 80% of cases on mac-arm64)
     # Error message: Timed out receiving message from renderer: 10.000
@@ -144,9 +135,6 @@ _OS_SPECIFIC_FILTER['mac'] = [
 
 _BROWSER_SPECIFIC_FILTER = {}
 _BROWSER_SPECIFIC_FILTER['chrome'] = [
-    # The following two tests are intended solely for chrome-headless-shell
-    'ChromeDriverTest.testHeadlessWithExistingUserDataDirStarts',
-    'ChromeDriverTest.testHeadlessWithUserDataDirStarts',
     # This test is a chrome-headless-shell version of testWindowFullScreen
     'ChromeDriverTest.testWindowFullScreenHeadless',
 ]
@@ -292,9 +280,6 @@ _ANDROID_NEGATIVE_FILTER['chrome'] = (
         'ChromeDriverTest.testCanClickAlertInIframes',
         # https://bugs.chromium.org/p/chromedriver/issues/detail?id=2081
         'ChromeDriverTest.testCloseWindowUsingJavascript',
-        # Android doesn't support headless mode
-        'ChromeDriverTest.testHeadlessWithUserDataDirStarts',
-        'ChromeDriverTest.testHeadlessWithExistingUserDataDirStarts',
         # Tests of the desktop Chrome launch process.
         'LaunchDesktopTest.*',
         # https://bugs.chromium.org/p/chromedriver/issues/detail?id=2737
@@ -783,6 +768,57 @@ class ChromeDriverTestWithCustomCapability(ChromeDriverBaseTestWithWebServer):
     else:
       pass
 
+  def testBrowserWithCustomUserDataDirStarts(self):
+    """Tests that ChromeDriver can launch the browser
+       with user-data-dir provided as a command line argument.
+       See crbug.com/40096990.
+    """
+    temp_dir = self.CreateTempDir()
+    driver = self.CreateDriver(chrome_switches=[
+                                   '--user-data-dir=%s' % temp_dir,
+                               ])
+    self.assertEqual(len(driver.GetWindowHandles()), 1)
+
+  def testBrowserWithExistingUserDataDirStarts(self):
+    """Tests that ChromeDriver can launch the browser
+       with user-data-dir, that already contains user data,
+       provided as a command line argument
+       See crbug.com/40096990.
+    """
+    temp_dir = self.CreateTempDir()
+    driver = self.CreateDriver(chrome_switches=[
+                                   '--user-data-dir=%s' % temp_dir,
+                               ])
+    self.assertEqual(len(driver.GetWindowHandles()), 1)
+    driver.Quit()
+    driver = self.CreateDriver(chrome_switches=[
+                                   '--user-data-dir=%s' % temp_dir,
+                               ])
+    self.assertEqual(len(driver.GetWindowHandles()), 1)
+
+  def testBrowserWithUsedUserDataDir(self):
+    """Verify that it is impossible to create a parallel Chrome session using
+    the same user data directory.
+    Verify that it is possible to create a parallel chrome-headless-shell
+    session using the same user data directory.
+    See go/headless:user-data-directory
+    """
+    temp_dir = self.CreateTempDir()
+    driver = self.CreateDriver(chrome_switches=[
+                                   '--user-data-dir=%s' % temp_dir,
+                               ])
+    self.assertEqual(len(driver.GetWindowHandles()), 1)
+
+    if (_BROWSER_NAME == 'chrome-headless-shell'):
+      driver2 = self.CreateDriver(
+          chrome_switches=['--user-data-dir=%s' % temp_dir,])
+      self.assertEqual(len(driver2.GetWindowHandles()), 1)
+    else:
+      with self.assertRaises(chromedriver.SessionNotCreated):
+        self.CreateDriver(chrome_switches=['--user-data-dir=%s' % temp_dir,])
+
+    self.assertEqual(len(driver.GetWindowHandles()), 1)
+
 class ChromeDriverWebSocketTest(ChromeDriverBaseTestWithWebServer):
   @staticmethod
   def composeWebSocketUrl(server_url, session_id):
@@ -951,9 +987,16 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
     self.assertNotEqual(None, new_window_handle)
     self._driver.SwitchToWindow(new_window_handle)
     self.assertEqual(new_window_handle, self._driver.GetCurrentWindowHandle())
-    self.assertRaises(chromedriver.NoSuchElement,
-                      self._driver.FindElement, 'css selector', '#link')
-    self._driver.ExecuteScript('window.close()')
+    with self.assertRaises(chromedriver.NoSuchElement):
+      self._driver.FindElement('css selector', '#link')
+    try:
+      self._driver.ExecuteScript('window.close()')
+    except chromedriver.ScriptTimeout:
+      # Scripts making navigation or closing the window are not guaranteed to
+      # exit on the browser side. ChromeDriver can only make sure that such
+      # scripts are deemed as timed out. Still the code below verifies that the
+      # side effect has taken place.
+      pass
     with self.assertRaises(chromedriver.NoSuchWindow):
       self._driver.GetTitle()
     with self.assertRaises(chromedriver.NoSuchWindow):
@@ -1309,14 +1352,16 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
       self._driver.SwitchToFrame(element)
 
   def testReturnFrameElement(self):
-    # According to https://w3c.github.io/webdriver/#execute-script
-    # Upon rejection of promise the error code must be javascript error.
-    # The error message must mention that the element is stale.
+    # The promise will be fulfilled, however the JSON.clone step of the
+    # ExecuteScript function (https://w3c.github.io/webdriver/#execute-script)
+    # must fail with "stale element reference" error as the returned element
+    # belongs to a different frame.
     self._driver.Load(self.GetHttpUrlForFile(
         '/chromedriver/nested.html'))
     frame = self._driver.FindElement('tag name', 'iframe')
     self._driver.SwitchToFrame(frame)
-    with self.assertRaisesRegex(chromedriver.JavaScriptError, 'stale element'):
+    with self.assertRaisesRegex(
+            chromedriver.StaleElementReference, 'stale element'):
       self._driver.ExecuteScript('return window.frameElement')
 
   def testGetTitle(self):
@@ -4025,33 +4070,6 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
     self.assertEqual(_BROWSER_NAME, driver.capabilities['browserName'])
     driver.Quit()
 
-  def testHeadlessWithUserDataDirStarts(self):
-    """Tests that ChromeDriver can launch chrome-headless-shell
-       with user-data-dir provided as a command line argument.
-       See https://bugs.chromium.org/p/chromedriver/issues/detail?id=4357
-    """
-    temp_dir = self.CreateTempDir()
-    driver = self.CreateDriver(chrome_switches=[
-                                   '--user-data-dir=%s' % temp_dir,
-                               ])
-    self.assertEqual(driver.GetTitle(), '')
-
-  def testHeadlessWithExistingUserDataDirStarts(self):
-    """Tests that ChromeDriver can launch chrome-headless-shell
-       with user-data-dir, that already contains user data,
-       provided as a command line argument
-       See https://bugs.chromium.org/p/chromedriver/issues/detail?id=4357
-    """
-    temp_dir = self.CreateTempDir()
-    driver = self.CreateDriver(chrome_switches=[
-                                   '--user-data-dir=%s' % temp_dir,
-                               ])
-    self.assertEqual(driver.GetTitle(), '')
-    driver.Quit()
-    driver = self.CreateDriver(chrome_switches=[
-                                   '--user-data-dir=%s' % temp_dir,
-                               ])
-
   def testFindElementWhileNavigating(self):
     """A regression test for chromedriver:4459.
        The error manifests itself in flakiness rate >= 75%.
@@ -4151,6 +4169,28 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
     self.assertTrue(
         self.WaitForCondition(
             lambda: len(self._driver.GetWindowHandles()) == 1))
+
+  def _sessionIsOver(self):
+    try:
+      self._driver.GetWindowHandles()
+      return False
+    except chromedriver.InvalidSessionId:
+      return True
+
+  def testCloseLastWindow(self):
+    self._driver.CloseWindow()
+    self.WaitForCondition(self._sessionIsOver)
+
+  def testDoesntCrashOnClosingBrowserFromAsyncScript(self):
+    # Regression test for https://crbug.com/42323264.
+    old_handles = self._driver.GetWindowHandles()
+    self._driver.ExecuteScript('window.open()')
+    new_window = self.WaitForNewWindow(self._driver, old_handles)
+    self._driver.CloseWindow()
+    self._driver.SwitchToWindow(new_window)
+    self._driver.ExecuteAsyncScript(
+        'done=arguments[0]; setTimeout(() => {done();}, 1); window.close()')
+    self.WaitForCondition(self._sessionIsOver)
 
 class ChromeDriverBackgroundTest(ChromeDriverBaseTestWithWebServer):
   def setUp(self):
@@ -5563,7 +5603,12 @@ class ChromeDriverSiteIsolation(ChromeDriverBaseTestWithWebServer):
         timeout=1)
       frame = self._driver.FindElement('tag name', 'iframe')
       self._driver.SwitchToFrame(frame)
-      self._driver.ExecuteScript('location.href=arguments[0]', local2_url)
+      try:
+        self._driver.ExecuteScript('location.href=arguments[0]', local2_url)
+      except chromedriver.ScriptTimeout:
+        # Presumably it has timed out due to the navigation.
+        # The checks below verify this assumption.
+        pass
       self.WaitForCondition(
         lambda: len(self._driver.FindElements('tag name', 'p')) > 0,
         timeout=1)
@@ -5591,7 +5636,12 @@ class ChromeDriverSiteIsolation(ChromeDriverBaseTestWithWebServer):
         timeout=1)
       frame = self._driver.FindElement('tag name', 'iframe')
       self._driver.SwitchToFrame(frame)
-      self._driver.ExecuteScript('location.href=arguments[0]', remote_url)
+      try:
+        self._driver.ExecuteScript('location.href=arguments[0]', remote_url)
+      except chromedriver.ScriptTimeout:
+        # Presumably it has timed out due to the navigation.
+        # The checks below verify this assumption.
+        pass
       self.WaitForCondition(
         lambda: len(self._driver.FindElements('tag name', 'p')) > 0,
         timeout=1)
@@ -5622,7 +5672,12 @@ class ChromeDriverSiteIsolation(ChromeDriverBaseTestWithWebServer):
         timeout=1)
       frame = self._driver.FindElement('tag name', 'iframe')
       self._driver.SwitchToFrame(frame)
-      self._driver.ExecuteScript('location.href=arguments[0]', remote2_url)
+      try:
+        self._driver.ExecuteScript('location.href=arguments[0]', remote2_url)
+      except chromedriver.ScriptTimeout:
+        # Presumably it has timed out due to the navigation.
+        # The checks below verify this assumption.
+        pass
       self.WaitForCondition(
         lambda: len(self._driver.FindElements('tag name', 'p')) > 0,
         timeout=1)
@@ -5648,9 +5703,16 @@ class ChromeDriverSiteIsolation(ChromeDriverBaseTestWithWebServer):
       bytes('<p>Ready, Steady, Go!</p>', 'utf-8'))
     self._http_server.SetDataForPath('/main.html',
       bytes('<iframe src="%s">' % remote_url, 'utf-8'))
-    # The first iteration after session creation frequently succeeds.
-    # Therefore we make two iterations.
-    for _ in range(0, 2):
+    # It was reproted that the test with 2 internal iterations fails twice in a
+    # row with 2% rate on some Mac builders. This corresponds to 0.92 success
+    # rate for a single iteration.
+    # If we make 15 internal iterations the chance that two consecutive runs
+    # will fail rises to 0.5:
+    # 0.92 ^ 15 - is the probability that single test run will succeed.
+    # 1 - 0.92 ^ 15 - the probability that single test run fails.
+    # (1 - 0.92 ^ 15) ** 2 == 0.509 - the probability the two consecutive runs
+    # fail.
+    for _ in range(0, 15):
       self._driver.SwitchToMainFrame()
       self._driver.Load(self.GetHttpUrlForFile('/main.html'))
       self.WaitForCondition(
@@ -5658,7 +5720,12 @@ class ChromeDriverSiteIsolation(ChromeDriverBaseTestWithWebServer):
         timeout=1)
       frame = self._driver.FindElement('tag name', 'iframe')
       self._driver.SwitchToFrame(frame)
-      self._driver.ExecuteScript('location.href=arguments[0]', local_url)
+      try:
+        self._driver.ExecuteScript('location.href=arguments[0]', local_url)
+      except chromedriver.ScriptTimeout:
+        # Presumably it has timed out due to the navigation.
+        # The checks below verify this assumption.
+        pass
       self.WaitForCondition(
         lambda: len(self._driver.FindElements('tag name', 'p')) > 0,
         timeout=1)
@@ -6811,7 +6878,32 @@ class MobileEmulationCapabilityTest(ChromeDriverBaseTestWithWebServer):
     self.assertEqual(expected_ua, actual_ua)
 
 
-class ChromeDriverLogTest(ChromeDriverBaseTest):
+class CustomChromeDriverInstanceTest(ChromeDriverBaseTest):
+  """Tests that need to create a temporary ChromeDriver instance
+
+  This class makes sure that the temporary instances are shut down in the
+  tearDown.
+  See crbug.com/375974725.
+  """
+
+  def setUp(self):
+    self._chromedriver_servers = []
+
+  def tearDown(self):
+    for server in self._chromedriver_servers:
+      try:
+        server.Kill()
+      except:
+        pass
+    self._chromedriver_servers = []
+
+  def CreateChromeDriverServer(self, exe_path, **kwargs):
+    chromedriver_server = server.Server(exe_path, **kwargs)
+    self._chromedriver_servers.append(chromedriver_server)
+    return chromedriver_server
+
+
+class ChromeDriverLogTest(CustomChromeDriverInstanceTest):
   """Tests that chromedriver produces the expected log file."""
 
   UNEXPECTED_CHROMEOPTION_CAP = 'unexpected_chromeoption_capability'
@@ -6819,7 +6911,7 @@ class ChromeDriverLogTest(ChromeDriverBaseTest):
 
   def testChromeDriverLog(self):
     _, tmp_log_path = tempfile.mkstemp(prefix='chromedriver_log_')
-    chromedriver_server = server.Server(
+    chromedriver_server = self.CreateChromeDriverServer(
         _CHROMEDRIVER_BINARY, log_path=tmp_log_path)
     try:
       driver = chromedriver.ChromeDriver(
@@ -6837,7 +6929,7 @@ class ChromeDriverLogTest(ChromeDriverBaseTest):
 
   def testDisablingDriverLogsSuppressesChromeDriverLog(self):
     _, tmp_log_path = tempfile.mkstemp(prefix='chromedriver_log_')
-    chromedriver_server = server.Server(
+    chromedriver_server = self.CreateChromeDriverServer(
         _CHROMEDRIVER_BINARY, log_path=tmp_log_path, verbose=False)
     try:
       driver = self.CreateDriver(
@@ -7021,9 +7113,7 @@ class LaunchDesktopTest(ChromeDriverBaseTest):
     # the http client in the CommandExecutor has a relatively small timeout for
     # HTTP requests.
     # S/A: //chrome/teest/chromedriver/client/command_executor.py
-    self.assertIn('Chrome failed to start', str(exception))
-    self.assertIn('exited normally', str(exception))
-    self.assertIn('ChromeDriver is assuming that Chrome has crashed',
+    self.assertIn('probably user data directory is already in use',
                   str(exception))
 
   def testHelpfulErrorMessage_NormalExitIfTimedOut(self):
@@ -8122,14 +8212,27 @@ class BidiTest(ChromeDriverBaseTestWithWebServer):
     # S/A: https://w3c.github.io/webdriver/#dfn-new-sessions
     self.assertTrue(self._driver.ExecuteScript("return document.hasFocus()"))
 
+  def testCustomProfile(self):
+    """Regression test for crbug.com/366886096"""
 
-class CustomBidiMapperTest(ChromeDriverBaseTest):
+    temp_dir = self.CreateTempDir()
+    driver = self.CreateDriver(
+        web_socket_url=True,
+        chrome_switches=[
+          '--user-data-dir=%s' % temp_dir,
+          '--profile-directory=squaregreen',
+        ]
+    )
+    self.assertEqual(driver.GetTitle(), '')
+
+
+class CustomBidiMapperTest(CustomChromeDriverInstanceTest):
   """Base class for testing chromedriver with a custom bidi mapper path."""
 
   def CreateDriver(self, bidi_mapper_path=None, **kwargs):
     log_path = os.path.join(_MINIDUMP_PATH, self.id() + '.chromedriver.log')
 
-    chromedriver_server = server.Server(
+    chromedriver_server = self.CreateChromeDriverServer(
         _CHROMEDRIVER_BINARY,
         log_path=log_path,
         bidi_mapper_path=bidi_mapper_path)
@@ -8834,6 +8937,30 @@ class NavTrackingMitigationSpecificTest(ChromeDriverBaseTestWithWebServer):
         lambda: "tracker.test" in
                 self._driver.RunBounceTrackingMitigations(), 30, 0.5))
 
+
+class IncognitoTest(ChromeDriverBaseTestWithWebServer):
+
+  def setUp(self):
+    super().setUp()
+    self._driver = self.CreateDriver(chrome_switches=[
+        '--incognito',
+    ])
+
+  def tearDown(self):
+    super().tearDown()
+
+  def testCreateWindow(self):
+    old_handles = self._driver.GetWindowHandles()
+    self._driver.NewWindow(window_type='window')
+    new_window = self.WaitForNewWindow(self._driver, old_handles)
+    self.assertIsNotNone(new_window)
+
+  def testCreateTab(self):
+    old_handles = self._driver.GetWindowHandles()
+    self._driver.NewWindow(window_type='tab')
+    new_window = self.WaitForNewWindow(self._driver, old_handles)
+    self.assertIsNotNone(new_window)
+
 # 'Z' in the beginning is to make test executed in the end of suite.
 class ZChromeStartRetryCountTest(unittest.TestCase):
 
@@ -8898,6 +9025,17 @@ if __name__ == '__main__':
       help='Attach tests to the running instance of ChromeDriver server. '
            'This parameter is intended for debugging purposes only. Don\'t '
            'use it in production as it does not clean up resources properly')
+
+  parser.add_argument(
+      '--repeat',
+      type=int,
+      default=1,
+      help='Amount of attempts to detect any flakes')
+  parser.add_argument(
+      '--retry-limit',
+      type=int,
+      default=None,
+      help='Maximum amount of failed attempts until the test is deemed failed')
 
   ##############################################################################
   # Note for other Chromium based browsers!!!
@@ -9026,8 +9164,7 @@ Delegating this task to ChromeDriver'''
 
   all_tests_suite = unittest.defaultTestLoader.loadTestsFromModule(
       sys.modules[__name__])
-  test_suite = unittest_util.FilterTestSuite(all_tests_suite, options.filter)
-  test_suites = [list(map(lambda t: t.id(),  test_suite))]
+  test_suites = []
 
   ChromeDriverBaseTestWithWebServer.GlobalSetUp()
 
@@ -9035,23 +9172,43 @@ Delegating this task to ChromeDriver'''
       stream=sys.stdout, descriptions=False, verbosity=2,
       failfast=options.failfast,
       resultclass=unittest_util.AddSuccessTextTestResult)
-  result = runner.run(test_suite)
-  results = [result]
 
-  num_failed = len(result.failures) + len(result.errors)
+  results = [];
+
+  invocation_count = options.repeat
+  has_failures = False
+  for _ in range(0, invocation_count):
+      test_suite = unittest_util.FilterTestSuite(
+              all_tests_suite,
+              options.filter)
+      test_suites.append(list(map(lambda t: t.id(),  test_suite)))
+      result = runner.run(test_suite)
+      results.append(result)
+      num_failed = len(result.failures) + len(result.errors)
+      has_failures = has_failures or (num_failed > 0)
+
+  # The default retry-limit for local runs is 0
+  retry_limit = 0
+  # However on the bots it must be 3 unless specified explicitly
+  if options.test_type == 'integration':
+    retry_limit = 3
+  if options.retry_limit is not None:
+    retry_limit = options.retry_limit
+
   # Limit fail tests to 10 to avoid real bug causing many tests to fail
   # Only enable retry for automated bot test
-  if (num_failed > 0 and num_failed <= 10
-      and options.test_type == 'integration'):
+  while retry_limit > 0 and has_failures:
+    retry_limit -= 1
     retry_test_suite = unittest.TestSuite()
-    for f in result.failures:
+    for f in results[-1].failures:
       retry_test_suite.addTest(f[0])
-    for e in result.errors:
+    for e in results[-1].errors:
       retry_test_suite.addTest(e[0])
     test_suites.append(list(map(lambda t: t.id(),  retry_test_suite)))
     print('\nRetrying failed tests\n')
     retry_result = runner.run(retry_test_suite)
     results.append(retry_result)
+    has_failures = len(retry_result.failures) + len(retry_result.errors) > 0
 
   ChromeDriverBaseTestWithWebServer.GlobalTearDown()
 
@@ -9059,4 +9216,6 @@ Delegating this task to ChromeDriver'''
     util.WriteResultToJSONFile(test_suites, results,
                                options.isolated_script_test_output)
   util.TryUploadingResultToResultSink(results)
-  sys.exit(len(results[-1].failures) + len(results[-1].errors))
+
+
+  sys.exit(1 if has_failures else 0)

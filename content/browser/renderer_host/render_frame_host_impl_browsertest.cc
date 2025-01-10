@@ -3862,10 +3862,9 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
 
   // Call RequestAXSnapshotTree method. The browser process should not crash.
   auto params = mojom::SnapshotAccessibilityTreeParams::New();
-  rfh->RequestAXTreeSnapshot(base::BindOnce([](ui::AXTreeUpdate& snapshot) {
-                               NOTREACHED_IN_MIGRATION();
-                             }),
-                             std::move(params));
+  rfh->RequestAXTreeSnapshot(
+      base::BindOnce([](ui::AXTreeUpdate& snapshot) { NOTREACHED(); }),
+      std::move(params));
 
   base::RunLoop().RunUntilIdle();
 
@@ -7146,7 +7145,9 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplCredentiallessIframeNikBrowserTest,
         ->PreconnectSockets(1, fetch_url.DeprecatedGetOriginAsURL(),
                             network::mojom::CredentialsMode::kInclude,
                             main_rfh->GetIsolationInfoForSubresources()
-                                .network_anonymization_key());
+                                .network_anonymization_key(),
+                            net::MutableNetworkTrafficAnnotationTag(
+                                TRAFFIC_ANNOTATION_FOR_TESTS));
 
     connection_tracker_->WaitForAcceptedConnections(1);
     EXPECT_EQ(1u, connection_tracker_->GetAcceptedSocketCount());
@@ -8339,6 +8340,41 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplPartitionedPopinBrowserTest,
       "Partitioned popins can only open https URLs.",
       crash_observer.Wait());
   // The test passes if the renderer crashes but not the browser.
+}
+
+// Test that a popin doesn't crash the browser if the opener goes away during
+// navigation. This simulates a case where the opening frame gets deleted before
+// the popin is closed by `PartitionedPopinController`.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplPartitionedPopinBrowserTest,
+                       PopinNavigationAfterOpenerCleared) {
+  // Navigate to a.test.
+  ASSERT_TRUE(NavigateToURL(web_contents(), embedded_https_test_server().GetURL(
+                                                "a.test", "/empty.html")));
+
+  // Open a popin.
+  WebContentsAddedObserver new_tab_observer;
+  const GURL old_url = embedded_https_test_server().GetURL(
+      "a.test", "/partitioned_popins/wildcard_policy.html");
+  EXPECT_TRUE(content::ExecJs(web_contents(), "window.open('" + old_url.spec() +
+                                                  "', '_blank', 'popin')"));
+  WebContentsImpl* popin_web_contents =
+      static_cast<WebContentsImpl*>(new_tab_observer.GetWebContents());
+  EXPECT_TRUE(popin_web_contents->IsPartitionedPopin());
+  EXPECT_EQ(popin_web_contents->GetPrimaryMainFrame()->GetStorageKey(),
+            blink::StorageKey::CreateFromStringForTesting(old_url.spec()));
+
+  // Clear opener so the popin cannot use it as a source of data.
+  popin_web_contents->ClearPartitionedPopinOpenerForTesting();
+
+  // Navigate the popin and see it work.
+  const GURL new_url = embedded_https_test_server().GetURL(
+      "b.test", "/partitioned_popins/wildcard_policy.html");
+  EXPECT_TRUE(NavigateToURL(popin_web_contents, new_url));
+  EXPECT_TRUE(popin_web_contents->IsPartitionedPopin());
+  EXPECT_EQ(popin_web_contents->GetPrimaryMainFrame()->GetStorageKey(),
+            blink::StorageKey::Create(
+                url::Origin::Create(new_url), net::SchemefulSite(GURL(old_url)),
+                blink::mojom::AncestorChainBit::kCrossSite));
 }
 
 class RenderFrameHostImplBrowserTestWithBFCache

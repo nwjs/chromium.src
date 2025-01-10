@@ -9,6 +9,7 @@
 #include "third_party/blink/renderer/core/css/css_test_helpers.h"
 #include "third_party/blink/renderer/core/css/css_to_length_conversion_data.h"
 #include "third_party/blink/renderer/core/css/css_value_list.h"
+#include "third_party/blink/renderer/core/css/parser/css_parser_context.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_observer.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_token_stream.h"
 #include "third_party/blink/renderer/core/css/parser/css_tokenizer.h"
@@ -70,7 +71,6 @@ class TestCSSParserObserver : public CSSParserObserver {
       CSSAtRuleID id,
       const Vector<CSSPropertyID, 2>& invalid_properties) override {}
   void ObserveNestedDeclarations(wtf_size_t insert_rule_index) override {
-    nested_declarations_insert_rule_index = insert_rule_index;
   }
 
   bool IsAtTargetLevel() const {
@@ -92,7 +92,6 @@ class TestCSSParserObserver : public CSSParserObserver {
   unsigned rule_header_end_ = 0;
   unsigned rule_body_start_ = 0;
   unsigned rule_body_end_ = 0;
-  unsigned nested_declarations_insert_rule_index = 0;
 };
 
 // Exists solely to access private parts of CSSParserImpl.
@@ -111,7 +110,8 @@ class TestCSSParserImpl {
                               bool nested,
                               bool& invalid_rule_error) {
     return impl_.ConsumeStyleRule(stream, nesting_type, parent_rule_for_nesting,
-                                  nested, invalid_rule_error);
+                                  /* is_within_scope */ false, nested,
+                                  invalid_rule_error);
   }
 
  private:
@@ -308,9 +308,7 @@ TEST(CSSParserImplTest, DirectNesting) {
   auto* context = MakeGarbageCollected<CSSParserContext>(
       kHTMLStandardMode, SecureContextMode::kInsecureContext);
   auto* sheet = MakeGarbageCollected<StyleSheetContents>(context);
-  TestCSSParserObserver test_css_parser_observer;
-  CSSParserImpl::ParseStyleSheetForInspector(sheet_text, context, sheet,
-                                             test_css_parser_observer);
+  CSSParserImpl::ParseStyleSheet(sheet_text, context, sheet);
 
   ASSERT_EQ(1u, sheet->ChildRules().size());
   StyleRule* parent = DynamicTo<StyleRule>(sheet->ChildRules()[0].Get());
@@ -333,9 +331,7 @@ TEST(CSSParserImplTest, RuleNotStartingWithAmpersand) {
   auto* context = MakeGarbageCollected<CSSParserContext>(
       kHTMLStandardMode, SecureContextMode::kInsecureContext);
   auto* sheet = MakeGarbageCollected<StyleSheetContents>(context);
-  TestCSSParserObserver test_css_parser_observer;
-  CSSParserImpl::ParseStyleSheetForInspector(sheet_text, context, sheet,
-                                             test_css_parser_observer);
+  CSSParserImpl::ParseStyleSheet(sheet_text, context, sheet);
 
   ASSERT_EQ(1u, sheet->ChildRules().size());
   StyleRule* parent = DynamicTo<StyleRule>(sheet->ChildRules()[0].Get());
@@ -360,9 +356,7 @@ TEST(CSSParserImplTest, ImplicitDescendantSelectors) {
   auto* context = MakeGarbageCollected<CSSParserContext>(
       kHTMLStandardMode, SecureContextMode::kInsecureContext);
   auto* sheet = MakeGarbageCollected<StyleSheetContents>(context);
-  TestCSSParserObserver test_css_parser_observer;
-  CSSParserImpl::ParseStyleSheetForInspector(sheet_text, context, sheet,
-                                             test_css_parser_observer);
+  CSSParserImpl::ParseStyleSheet(sheet_text, context, sheet);
 
   ASSERT_EQ(1u, sheet->ChildRules().size());
   StyleRule* parent = DynamicTo<StyleRule>(sheet->ChildRules()[0].Get());
@@ -386,9 +380,7 @@ TEST(CSSParserImplTest, NestedRelativeSelector) {
   auto* context = MakeGarbageCollected<CSSParserContext>(
       kHTMLStandardMode, SecureContextMode::kInsecureContext);
   auto* sheet = MakeGarbageCollected<StyleSheetContents>(context);
-  TestCSSParserObserver test_css_parser_observer;
-  CSSParserImpl::ParseStyleSheetForInspector(sheet_text, context, sheet,
-                                             test_css_parser_observer);
+  CSSParserImpl::ParseStyleSheet(sheet_text, context, sheet);
 
   ASSERT_EQ(1u, sheet->ChildRules().size());
   StyleRule* parent = DynamicTo<StyleRule>(sheet->ChildRules()[0].Get());
@@ -412,9 +404,7 @@ TEST(CSSParserImplTest, NestingAtTopLevelIsLegalThoughIsMatchesNothing) {
   auto* context = MakeGarbageCollected<CSSParserContext>(
       kHTMLStandardMode, SecureContextMode::kInsecureContext);
   auto* sheet = MakeGarbageCollected<StyleSheetContents>(context);
-  TestCSSParserObserver test_css_parser_observer;
-  CSSParserImpl::ParseStyleSheetForInspector(sheet_text, context, sheet,
-                                             test_css_parser_observer);
+  CSSParserImpl::ParseStyleSheet(sheet_text, context, sheet);
 
   ASSERT_EQ(1u, sheet->ChildRules().size());
   const StyleRule* rule = DynamicTo<StyleRule>(sheet->ChildRules()[0].Get());
@@ -436,9 +426,7 @@ TEST(CSSParserImplTest, ErrorRecoveryEatsOnlyFirstDeclaration) {
   auto* context = MakeGarbageCollected<CSSParserContext>(
       kHTMLStandardMode, SecureContextMode::kInsecureContext);
   auto* sheet = MakeGarbageCollected<StyleSheetContents>(context);
-  TestCSSParserObserver test_css_parser_observer;
-  CSSParserImpl::ParseStyleSheetForInspector(sheet_text, context, sheet,
-                                             test_css_parser_observer);
+  CSSParserImpl::ParseStyleSheet(sheet_text, context, sheet);
 
   ASSERT_EQ(1u, sheet->ChildRules().size());
   const StyleRule* rule = DynamicTo<StyleRule>(sheet->ChildRules()[0].Get());
@@ -454,9 +442,7 @@ TEST(CSSParserImplTest, NestedEmptySelectorCrash) {
   auto* context = MakeGarbageCollected<CSSParserContext>(
       kHTMLStandardMode, SecureContextMode::kInsecureContext);
   auto* sheet = MakeGarbageCollected<StyleSheetContents>(context);
-  TestCSSParserObserver test_css_parser_observer;
-  CSSParserImpl::ParseStyleSheetForInspector(sheet_text, context, sheet,
-                                             test_css_parser_observer);
+  CSSParserImpl::ParseStyleSheet(sheet_text, context, sheet);
 
   // We only really care that it doesn't crash.
 }
@@ -477,9 +463,7 @@ TEST(CSSParserImplTest, NestedRulesInsideMediaQueries) {
   auto* context = MakeGarbageCollected<CSSParserContext>(
       kHTMLStandardMode, SecureContextMode::kInsecureContext);
   auto* sheet = MakeGarbageCollected<StyleSheetContents>(context);
-  TestCSSParserObserver test_css_parser_observer;
-  CSSParserImpl::ParseStyleSheetForInspector(sheet_text, context, sheet,
-                                             test_css_parser_observer);
+  CSSParserImpl::ParseStyleSheet(sheet_text, context, sheet);
 
   ASSERT_EQ(1u, sheet->ChildRules().size());
   StyleRule* parent = DynamicTo<StyleRule>(sheet->ChildRules()[0].Get());
@@ -530,9 +514,7 @@ TEST(CSSParserImplTest,
   auto* context = MakeGarbageCollected<CSSParserContext>(
       kHTMLStandardMode, SecureContextMode::kInsecureContext);
   auto* sheet = MakeGarbageCollected<StyleSheetContents>(context);
-  TestCSSParserObserver test_css_parser_observer;
-  CSSParserImpl::ParseStyleSheetForInspector(sheet_text, context, sheet,
-                                             test_css_parser_observer);
+  CSSParserImpl::ParseStyleSheet(sheet_text, context, sheet);
 
   ASSERT_EQ(1u, sheet->ChildRules().size());
   StyleRule* parent = DynamicTo<StyleRule>(sheet->ChildRules()[0].Get());
@@ -634,58 +616,6 @@ TEST(CSSParserImplTest, NestedIdent) {
   EXPECT_EQ(test_css_parser_observer.rule_header_start_, 6u);
 }
 
-TEST(CSSParserImplTest, ObserveNestedDeclarations_Interleaved) {
-  test::TaskEnvironment task_environment;
-
-  String sheet_text = R"CSS(
-    .element {
-      left: 1px;
-      right: 2px;
-      .a {}
-      .b {}
-      top: 3px;
-      bottom: 4px;
-      .c {}
-    }
-    )CSS";
-  auto* context = MakeGarbageCollected<CSSParserContext>(
-      kHTMLStandardMode, SecureContextMode::kInsecureContext);
-  auto* style_sheet = MakeGarbageCollected<StyleSheetContents>(context);
-  TestCSSParserObserver test_css_parser_observer;
-  CSSParserImpl::ParseStyleSheetForInspector(sheet_text, context, style_sheet,
-                                             test_css_parser_observer);
-
-  // The nested declarations rule should be inserted before the .c child rule,
-  // at index 2.
-  EXPECT_EQ(test_css_parser_observer.nested_declarations_insert_rule_index, 2u);
-}
-
-TEST(CSSParserImplTest, ObserveNestedDeclarations_Trailing) {
-  test::TaskEnvironment task_environment;
-
-  String sheet_text = R"CSS(
-    .element {
-      left: 1px;
-      right: 2px;
-      .a {}
-      .b {}
-      .c {}
-      top: 3px;
-      bottom: 4px;
-    }
-    )CSS";
-  auto* context = MakeGarbageCollected<CSSParserContext>(
-      kHTMLStandardMode, SecureContextMode::kInsecureContext);
-  auto* style_sheet = MakeGarbageCollected<StyleSheetContents>(context);
-  TestCSSParserObserver test_css_parser_observer;
-  CSSParserImpl::ParseStyleSheetForInspector(sheet_text, context, style_sheet,
-                                             test_css_parser_observer);
-
-  // The nested declarations rule should be inserted at the end
-  // of the child rules vector, at index 3.
-  EXPECT_EQ(test_css_parser_observer.nested_declarations_insert_rule_index, 3u);
-}
-
 TEST(CSSParserImplTest,
      ConsumeUnparsedDeclarationRemovesImportantAnnotationIfPresent) {
   test::TaskEnvironment task_environment;
@@ -708,6 +638,8 @@ TEST(CSSParserImplTest,
       {"7px !important !important", "PARSE ERROR", true},
       {"8px important", "8px important", false},
   };
+  auto* context = MakeGarbageCollected<CSSParserContext>(
+      kHTMLStandardMode, SecureContextMode::kInsecureContext);
   for (auto current_case : test_cases) {
     SCOPED_TRACE(current_case.input);
     CSSParserTokenStream stream(current_case.input);
@@ -717,8 +649,7 @@ TEST(CSSParserImplTest,
         /*is_animation_tainted=*/false,
         /*must_contain_variable_reference=*/false,
         /*restricted_value=*/true, /*comma_ends_declaration=*/false,
-        is_important,
-        /*context=*/nullptr);
+        is_important, *context);
     if (current_case.expected_text == "PARSE ERROR") {
       EXPECT_FALSE(data);
     } else {

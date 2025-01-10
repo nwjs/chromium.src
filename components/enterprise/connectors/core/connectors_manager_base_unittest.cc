@@ -13,16 +13,11 @@ namespace enterprise_connectors {
 
 namespace {
 
-constexpr ReportingConnector kAllReportingConnectors[] = {
-    ReportingConnector::SECURITY_EVENT};
-
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 constexpr char kNormalReportingSettingsPref[] = R"([
   {
     "service_provider": "google"
   }
 ])";
-#endif
 }  // namespace
 
 class ConnectorsManagerBaseTest : public testing::Test {
@@ -65,21 +60,12 @@ class ConnectorsManagerBaseTest : public testing::Test {
   TestingPrefServiceSimple prefs_;
 };
 
-class ConnectorsManagerBaseReportingTest
-    : public ConnectorsManagerBaseTest,
-      public testing::WithParamInterface<ReportingConnector> {
+class ConnectorsManagerBaseReportingTest : public ConnectorsManagerBaseTest {
  public:
-  ReportingConnector connector() const { return GetParam(); }
-
   const char* pref() const { return kOnSecurityEventPref; }
 };
 
-TEST_P(ConnectorsManagerBaseReportingTest, DynamicPolicies) {
-  // TODO(b/344593927): Re-enable this test for Android and iOS
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-  ASSERT_FALSE(pref_service()->FindPreference(
-      "enterprise_connectors.on_security_event"));
-#else
+TEST_F(ConnectorsManagerBaseReportingTest, DynamicPolicies) {
   ConnectorsManagerBase manager(pref_service(), GetServiceProviderConfig());
   // The cache is initially empty.
   ASSERT_TRUE(manager.GetReportingConnectorsSettingsForTesting().empty());
@@ -91,21 +77,14 @@ TEST_P(ConnectorsManagerBaseReportingTest, DynamicPolicies) {
     const auto& cached_settings =
         manager.GetReportingConnectorsSettingsForTesting();
     ASSERT_FALSE(cached_settings.empty());
-    ASSERT_EQ(1u, cached_settings.count(connector()));
-    ASSERT_EQ(1u, cached_settings.at(connector()).size());
+    ASSERT_EQ(1u, cached_settings.size());
 
-    auto settings =
-        cached_settings.at(connector()).at(0).GetReportingSettings();
+    auto settings = cached_settings.at(0).GetReportingSettings();
     ASSERT_TRUE(settings.has_value());
   }
 
   // The cache should be empty again after the pref is reset.
   ASSERT_TRUE(manager.GetReportingConnectorsSettingsForTesting().empty());
-#endif
 }
-
-INSTANTIATE_TEST_SUITE_P(ConnectorsManagerBaseReportingTest,
-                         ConnectorsManagerBaseReportingTest,
-                         testing::ValuesIn(kAllReportingConnectors));
 
 }  // namespace enterprise_connectors

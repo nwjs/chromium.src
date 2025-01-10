@@ -269,17 +269,13 @@ class WaylandWindow : public PlatformWindow,
 
     bool is_maximized = false;
     bool is_fullscreen = false;
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-    bool is_immersive_fullscreen = false;
-    bool is_pinned_fullscreen = false;
-    bool is_trusted_pinned_fullscreen = false;
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
     bool is_activated = false;
     bool is_minimized = false;
     bool is_snapped_primary = false;
     bool is_snapped_secondary = false;
     bool is_floated = false;
     bool is_pip = false;
+    bool is_suspended = false;
 #if BUILDFLAG(IS_LINUX)
     WindowTiledEdges tiled_edges;
 #endif
@@ -386,6 +382,7 @@ class WaylandWindow : public PlatformWindow,
   // both platform activation in wayland server's perspective as toplevel, and
   // activation status of delegate()->OnActivationChanged() as bubble.
   virtual bool IsActive() const;
+  virtual bool IsSuspended() const;
 
   // WaylandWindow can be any type of object - WaylandBubble,
   // WaylandToplevelWindow, WaylandPopup. The following methods cast itself to
@@ -528,9 +525,6 @@ class WaylandWindow : public PlatformWindow,
   // wayland server.
   struct PendingConfigureState {
     std::optional<PlatformWindowState> window_state;
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-    std::optional<PlatformFullscreenType> fullscreen_type;
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
     std::optional<gfx::Rect> bounds_dip;
     std::optional<gfx::Size> size_px;
     std::optional<float> raster_scale;
@@ -611,6 +605,9 @@ class WaylandWindow : public PlatformWindow,
   raw_ptr<WaylandConnection> connection_;
   raw_ptr<WaylandWindow> parent_window_ = nullptr;
   raw_ptr<WaylandPopup> child_popup_ = nullptr;
+
+  // AcceleratedWidget for this window. This will be unique even over time.
+  gfx::AcceleratedWidget accelerated_widget_;
 
   // `active_bubble_` represents the WaylandBubble that should take activation
   // when this WaylandWindow has activation from wayland server. It can be set
@@ -745,9 +742,6 @@ class WaylandWindow : public PlatformWindow,
   bool latch_immediately_for_testing_ = true;
   int64_t latest_applied_viz_seq_for_testing_ = -1;
   int64_t latest_latched_viz_seq_for_testing_ = -1;
-
-  // AcceleratedWidget for this window. This will be unique even over time.
-  gfx::AcceleratedWidget accelerated_widget_;
 
   WmDragHandler::DragFinishedCallback drag_finished_callback_;
 

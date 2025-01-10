@@ -65,7 +65,9 @@ std::unique_ptr<WindowTreeHost> WindowTreeHost::Create(
 WindowTreeHostPlatform::WindowTreeHostPlatform(
     ui::PlatformWindowInitProperties properties,
     std::unique_ptr<Window> window)
-    : WindowTreeHost(std::move(window)) {
+    : WindowTreeHost(std::move(window)),
+      widget_(gfx::kNullAcceleratedWidget),
+      current_cursor_(ui::mojom::CursorType::kNull) {
   size_in_pixels_ = properties.bounds.size();
   CreateCompositor(false, false, properties.enable_compositing_based_throttling,
                    properties.compositor_memory_limit_mb);
@@ -249,12 +251,6 @@ void WindowTreeHostPlatform::SetPlatformWindowFactoryDelegateForTesting(
   g_platform_window_factory_delegate_for_testing = delegate;
 }
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-std::string WindowTreeHostPlatform::GetUniqueId() const {
-  return platform_window()->GetWindowUniqueId();
-}
-#endif
-
 void WindowTreeHostPlatform::OnBoundsChanged(const BoundsChange& change) {
   // It's possible this function may be called recursively. Only notify
   // observers on initial entry. This way observers can safely assume that
@@ -370,14 +366,6 @@ void WindowTreeHostPlatform::OnOcclusionStateChanged(
 int64_t WindowTreeHostPlatform::OnStateUpdate(
     const PlatformWindowDelegate::State& old,
     const PlatformWindowDelegate::State& latest) {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  // Notify the fullscreen type change before the window state change to reflect
-  // the immersive status at OnWindowStateChanged.
-  if (old.fullscreen_type != latest.fullscreen_type) {
-    OnFullscreenTypeChanged(old.fullscreen_type, latest.fullscreen_type);
-  }
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
-
   if (old.window_state != latest.window_state) {
     OnWindowStateChanged(old.window_state, latest.window_state);
   }

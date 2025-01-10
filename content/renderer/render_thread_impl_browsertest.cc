@@ -53,7 +53,6 @@
 #include "gpu/config/gpu_switches.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/common/performance/performance_scenarios.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
 #include "third_party/blink/public/platform/scheduler/test/web_mock_thread_scheduler.h"
@@ -439,86 +438,26 @@ TEST_F(RenderThreadImplBrowserTest, RendererStateTransitionForegrounded) {
   testing::Mock::AllowLeak(main_thread_scheduler_);
 }
 
-TEST_F(RenderThreadImplBrowserTest, TransferSharedMemoryRegions) {
-  using blink::performance_scenarios::Scope;
-  using blink::performance_scenarios::ScopedReadOnlyScenarioMemory;
-
+TEST_F(RenderThreadImplBrowserTest, TransferSharedLastForegroundTime) {
   auto time_memory = base::AtomicSharedMemory<base::TimeTicks>::Create();
   ASSERT_TRUE(time_memory.has_value());
-  auto scenario_memory =
-      blink::performance_scenarios::SharedScenarioState::Create();
-  ASSERT_TRUE(scenario_memory.has_value());
 
-  // No shared memory regions mapped by default.
+  // No shared memory region mapped by default.
   EXPECT_EQ(base::internal::GetSharedLastForegroundTimeForMetricsForTesting(),
-            nullptr);
-  EXPECT_EQ(ScopedReadOnlyScenarioMemory::GetMappingForTesting(
-                Scope::kCurrentProcess),
-            nullptr);
-  EXPECT_EQ(ScopedReadOnlyScenarioMemory::GetMappingForTesting(Scope::kGlobal),
-            nullptr);
-
-  // Invalid handles should be accepted.
-  thread_->TransferSharedMemoryRegions(base::ReadOnlySharedMemoryRegion(),
-                                       base::ReadOnlySharedMemoryRegion(),
-                                       base::ReadOnlySharedMemoryRegion());
-  EXPECT_EQ(base::internal::GetSharedLastForegroundTimeForMetricsForTesting(),
-            nullptr);
-  EXPECT_EQ(ScopedReadOnlyScenarioMemory::GetMappingForTesting(
-                Scope::kCurrentProcess),
-            nullptr);
-  EXPECT_EQ(ScopedReadOnlyScenarioMemory::GetMappingForTesting(Scope::kGlobal),
             nullptr);
 
   // SharedLastForegroundTimeForMetrics should never be overwritten after it's
-  // set, in case a thread is accessing the memory as it's unmapped. Performance
-  // scenario memory can be overwritten since the mapping is refcounted.
-  thread_->TransferSharedMemoryRegions(time_memory->DuplicateReadOnlyRegion(),
-                                       base::ReadOnlySharedMemoryRegion(),
-                                       base::ReadOnlySharedMemoryRegion());
+  // set, in case a thread is accessing the memory as it's unmapped.
+  thread_->TransferSharedLastForegroundTime(
+      time_memory->DuplicateReadOnlyRegion());
   const auto* last_foreground_time_ptr =
       base::internal::GetSharedLastForegroundTimeForMetricsForTesting();
   EXPECT_NE(last_foreground_time_ptr, nullptr);
-  EXPECT_EQ(ScopedReadOnlyScenarioMemory::GetMappingForTesting(
-                Scope::kCurrentProcess),
-            nullptr);
-  EXPECT_EQ(ScopedReadOnlyScenarioMemory::GetMappingForTesting(Scope::kGlobal),
-            nullptr);
 
-  thread_->TransferSharedMemoryRegions(
-      time_memory->DuplicateReadOnlyRegion(),
-      scenario_memory->DuplicateReadOnlyRegion(),
-      base::ReadOnlySharedMemoryRegion());
+  thread_->TransferSharedLastForegroundTime(
+      time_memory->DuplicateReadOnlyRegion());
   EXPECT_EQ(base::internal::GetSharedLastForegroundTimeForMetricsForTesting(),
             last_foreground_time_ptr);
-  EXPECT_NE(ScopedReadOnlyScenarioMemory::GetMappingForTesting(
-                Scope::kCurrentProcess),
-            nullptr);
-  EXPECT_EQ(ScopedReadOnlyScenarioMemory::GetMappingForTesting(Scope::kGlobal),
-            nullptr);
-
-  thread_->TransferSharedMemoryRegions(
-      time_memory->DuplicateReadOnlyRegion(),
-      scenario_memory->DuplicateReadOnlyRegion(),
-      scenario_memory->DuplicateReadOnlyRegion());
-  EXPECT_EQ(base::internal::GetSharedLastForegroundTimeForMetricsForTesting(),
-            last_foreground_time_ptr);
-  EXPECT_NE(ScopedReadOnlyScenarioMemory::GetMappingForTesting(
-                Scope::kCurrentProcess),
-            nullptr);
-  EXPECT_NE(ScopedReadOnlyScenarioMemory::GetMappingForTesting(Scope::kGlobal),
-            nullptr);
-
-  thread_->TransferSharedMemoryRegions(base::ReadOnlySharedMemoryRegion(),
-                                       base::ReadOnlySharedMemoryRegion(),
-                                       base::ReadOnlySharedMemoryRegion());
-  EXPECT_EQ(base::internal::GetSharedLastForegroundTimeForMetricsForTesting(),
-            last_foreground_time_ptr);
-  EXPECT_EQ(ScopedReadOnlyScenarioMemory::GetMappingForTesting(
-                Scope::kCurrentProcess),
-            nullptr);
-  EXPECT_EQ(ScopedReadOnlyScenarioMemory::GetMappingForTesting(Scope::kGlobal),
-            nullptr);
 }
 
 }  // namespace content

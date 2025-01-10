@@ -5,6 +5,7 @@
 #ifndef COMPONENTS_UPDATE_CLIENT_CRX_CACHE_H_
 #define COMPONENTS_UPDATE_CLIENT_CRX_CACHE_H_
 
+#include <optional>
 #include <string>
 
 #include "base/files/file_path.h"
@@ -26,25 +27,27 @@ class CrxCache : public base::RefCountedThreadSafe<CrxCache> {
   CrxCache& operator=(const CrxCache&) = delete;
 
   // Constructs an CrxCache to facilitate lookups and updates on a given path.
-  explicit CrxCache(const std::optional<base::FilePath>& path);
+  explicit CrxCache(std::optional<base::FilePath> path);
 
   // Requests a lookup of the previous CRX for the requested component given
   // `id` and `fp`.
-  void Get(const std::string& id,
-           const std::string& fp,
-           base::OnceCallback<void(
-               const base::expected<base::FilePath, UnpackerError>&)> callback);
+  void Get(
+      const std::string& id,
+      const std::string& fp,
+      base::OnceCallback<void(base::expected<base::FilePath, UnpackerError>)>
+          callback);
 
   // Requests an entry for the current CRX to be added given the path `crx`,
   // `id` and `fp`. An entry with the same `id` is overwritten. This helps
   // to reduce cache size. This method takes ownership of the file, moves it,
   // and can only be accessed via the new path in the cache, given by `result`.
   // `callback` is called with the result.
-  void Put(const base::FilePath& crx,
-           const std::string& id,
-           const std::string& fp,
-           base::OnceCallback<void(
-               const base::expected<base::FilePath, UnpackerError>&)> callback);
+  void Put(
+      const base::FilePath& crx,
+      const std::string& id,
+      const std::string& fp,
+      base::OnceCallback<void(base::expected<base::FilePath, UnpackerError>)>
+          callback);
 
   // Removes any stale entries for the given product, should any exist. Runs as
   // a best effort and ignores any delete errors.

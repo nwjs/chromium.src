@@ -24,6 +24,9 @@ void AddMaterialNewTabPageColorMixer(ui::ColorProvider* provider,
       key.color_mode == ui::ColorProviderKey::ColorMode::kDark;
 
   ui::ColorMixer& mixer = provider->AddMixer();
+  // When adding a new color ID to this mixer, ensure it is ALSO added
+  // to the GM2 color mixer.
+  // LINT.IfChange
   mixer[kColorNewTabPageActiveBackground] = {
       ui::kColorSysStateRippleNeutralOnSubtle};
   mixer[kColorNewTabPageAddShortcutBackground] = {ui::kColorSysTonalContainer};
@@ -72,9 +75,6 @@ void AddMaterialNewTabPageColorMixer(ui::ColorProvider* provider,
   mixer[kColorNewTabPageModuleCalendarAttachmentScrollbarThumb] = {
       ui::kColorSysTonalOutline};
   mixer[kColorNewTabPageModuleCalendarDividerColor] = {ui::kColorSysDivider};
-
-  mixer[kColorNewTabPageMobilePromoDismissButton] = {
-      ui::kColorSysOnSurfaceVariant};
 
   mixer[kColorNewTabPagePromoBackground] = {ui::kColorSysBase};
   mixer[kColorNewTabPagePrimaryForeground] = {ui::kColorSysOnSurface};
@@ -139,4 +139,5 @@ void AddMaterialNewTabPageColorMixer(ui::ColorProvider* provider,
       mixer[kColorSearchboxResultsBackground] = {kColorOmniboxResultsBackground};
     }
   }
+  // LINT.ThenChange(chrome/browser/ui/color/new_tab_page_color_mixer.cc)
 }

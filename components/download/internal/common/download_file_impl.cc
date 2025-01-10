@@ -693,8 +693,7 @@ void DownloadFileImpl::StreamActive(SourceStream* source_stream,
       case InputStream::COMPLETE:
         break;
       default:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
     }
     now = base::TimeTicks::Now();
   } while (state == InputStream::HAS_DATA &&
@@ -1016,6 +1015,6 @@ DownloadFileImpl::RenameParameters::RenameParameters(
       retries_left(kMaxRenameRetries),
       completion_callback(std::move(completion_callback)) {}
 
-DownloadFileImpl::RenameParameters::~RenameParameters() {}
+DownloadFileImpl::RenameParameters::~RenameParameters() = default;
 
 }  // namespace download

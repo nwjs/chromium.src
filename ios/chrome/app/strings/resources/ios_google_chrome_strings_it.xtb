@@ -41,6 +41,7 @@ Aspetti da considerare:
 <translation id="1790080846677398234">Aggiunge gli URL inseriti ai preferiti in Chrome.</translation>
 <translation id="1799920918471566157">Suggerimenti per Chrome</translation>
 <translation id="1830634592642484976">Al momento questo indirizzo è salvato su Chrome. Per usarlo su tutti i prodotti Google, salvalo nel tuo Account Google <ph name="USER_EMAIL" />.</translation>
+<translation id="1891812034154776216">Nascondi le schede di navigazione in incognito aperte quando esci da Chrome</translation>
 <translation id="1917964099031477364">Questo account e gli eventuali dati non salvati verranno rimossi da Chrome e da altre app Google su questo dispositivo.</translation>
 <translation id="1919130412786645364">Consenti l'accesso a Chrome</translation>
 <translation id="1965935827552890526">Finisci ciò che stavi facendo in un'altra finestra di Chrome aperta.</translation>
@@ -108,7 +109,7 @@ Prova ad attendere qualche minuto prima di uscire. Se esci ora, questi dati verr
 <translation id="3655656110921623717">Ciò significa che Chrome richiederà ogni volta il sito per dispositivi mobili.</translation>
 <translation id="3740397331642243698">Consente di aprire gli URL inseriti in Google Chrome nella modalità in incognito.</translation>
 <translation id="3741995255368156336">Consente di aprire l'elenco di lettura di Chrome.</translation>
-<translation id="3827545470516145620">Otterrai la protezione di sicurezza standard su questo dispositivo</translation>
+<translation id="3827545470516145620">Stai utilizzando la protezione di sicurezza standard su questo dispositivo</translation>
 <translation id="384394811301901750">Google Chrome non può utilizzare la videocamera al momento</translation>
 <translation id="3863841106411295595">Aggiunge gli URL inseriti al tuo elenco di lettura in Chrome.</translation>
 <translation id="3901001113120561395">Usa al meglio Chrome.</translation>
@@ -282,7 +283,7 @@ Per altre impostazioni che utilizzano i dati per migliorare la tua esperienza co
 
 Solo chi conosce la tua passphrase può leggere i tuoi dati criptati. La passphrase non viene inviata a Google o memorizzata da Google. Se dimentichi la passphrase o vuoi modificare questa impostazione, <ph name="BEGIN_LINK" />elimina i dati di Chrome nel tuo account<ph name="END_LINK" />.</translation>
 <translation id="8357607116237445042">Scegli se cancellare i tuoi dati di Chrome da questo dispositivo o se conservarli</translation>
-<translation id="8370517070665726704">Copyright <ph name="YEAR" /> Google LLC Tutti i diritti riservati.</translation>
+<translation id="8370517070665726704">Copyright <ph name="YEAR" /> Google LLC. Tutti i diritti riservati.</translation>
 <translation id="8371138994040262994">Apre le impostazioni in Chrome.</translation>
 <translation id="8387459386171870978">Continua a utilizzare Chrome</translation>
 <translation id="840168496893712993">Alcuni componenti aggiuntivi provocano l'arresto anomalo di Chrome. Prova a disinstallarli.</translation>
@@ -301,7 +302,7 @@ I tuoi dati sono stati criptati con la tua passphrase il giorno <ph name="TIME" 
 <translation id="8673726683583791503">Acquista con Google Lens</translation>
 <translation id="8727043961453758442">Ottieni il massimo da Chrome</translation>
 <translation id="8765470054473112089">Quando digiti nella barra degli indirizzi o nella casella di ricerca, Chrome invia ciò che digiti al tuo motore di ricerca predefinito per ricevere suggerimenti migliori. Questa opzione è disattivata nella modalità di navigazione in incognito</translation>
-<translation id="8772179140489533211">Vengono mostrate richieste di accesso a Chrome.</translation>
+<translation id="8772179140489533211">Mostra le richieste di accesso a Chrome.</translation>
 <translation id="8788269841521769222">Non dovrai ricordare questa password perché verrà salvata in Gestore delle password di Google per <ph name="EMAIL" /></translation>
 <translation id="880967149107462122">Vai alle Impostazioni di Chrome</translation>
 <translation id="8842132678697187091">Puoi aprire Google Lens qui.</translation>

@@ -20,7 +20,6 @@
 #include "net/base/proxy_chain.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
-#include "services/network/public/mojom/network_context.mojom.h"
 #include "url/gurl.h"
 
 namespace network {
@@ -106,6 +105,12 @@ class IpProtectionProxyConfigDirectFetcher
   base::Time GetNoGetProxyConfigUntilTime() {
     return no_get_proxy_config_until_;
   }
+
+  base::TimeDelta GetNextGetProxyConfigBackoffForTesting() {
+    return next_get_proxy_config_backoff_;
+  }
+
+  void ClearNoGetProxyConfigUntilTime();
 
   // Timeout for failures from GetProxyConfig. This is doubled for
   // each subsequent failure.

@@ -107,20 +107,13 @@ class RendererSavePasswordProgressLogger;
 class PasswordGenerationAgent;
 
 // This class is responsible for filling password forms.
-// TODO(crbug.com/40281981): Remove FormTracker::Observer after launching
-// kAutofillUnifyAndFixFormTracking.
 class PasswordAutofillAgent : public content::RenderFrameObserver,
-                              public FormTracker::Observer,
                               public mojom::PasswordAutofillAgent {
  public:
-  using EnableHeavyFormDataScraping =
-      base::StrongAlias<class EnableHeavyFormDataScrapingTag, bool>;
   using UseFallbackData = base::StrongAlias<class UseFallbackDataTag, bool>;
 
-  PasswordAutofillAgent(
-      content::RenderFrame* render_frame,
-      blink::AssociatedInterfaceRegistry* registry,
-      EnableHeavyFormDataScraping enable_heavy_form_data_scraping);
+  PasswordAutofillAgent(content::RenderFrame* render_frame,
+                        blink::AssociatedInterfaceRegistry* registry);
 
   PasswordAutofillAgent(const PasswordAutofillAgent&) = delete;
   PasswordAutofillAgent& operator=(const PasswordAutofillAgent&) = delete;
@@ -144,10 +137,12 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   void FillPasswordSuggestion(const std::u16string& username,
                               const std::u16string& password,
                               base::OnceCallback<void(bool)> callback) override;
-  void FillPasswordSuggestionById(FieldRendererId username_element_id,
-                                  FieldRendererId password_element_id,
-                                  const std::u16string& username,
-                                  const std::u16string& password) override;
+  void FillPasswordSuggestionById(
+      FieldRendererId username_element_id,
+      FieldRendererId password_element_id,
+      const std::u16string& username,
+      const std::u16string& password,
+      AutofillSuggestionTriggerSource suggestion_source) override;
   void PreviewPasswordSuggestionById(FieldRendererId username_element_id,
                                      FieldRendererId password_element_id,
                                      const std::u16string& username,
@@ -159,7 +154,8 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   void PreviewField(FieldRendererId field_id,
                     const std::u16string& value) override;
   void FillField(FieldRendererId field_id,
-                 const std::u16string& value) override;
+                 const std::u16string& value,
+                 AutofillSuggestionTriggerSource suggestion_source) override;
   void SetLoggingState(bool active) override;
   void AnnotateFieldsWithParsingResult(
       const ParsingResult& parsing_result) override;
@@ -168,13 +164,7 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   void TriggerFormSubmission() override;
 #endif
 
-  // FormTracker::Observer
-  void OnProvisionallySaveForm(const blink::WebFormElement& form,
-                               const blink::WebFormControlElement& element,
-                               SaveFormReason source) override;
-  void OnProbablyFormSubmitted() override;
-  void OnFormSubmitted(const blink::WebFormElement& form) override;
-  void OnInferredFormSubmission(mojom::SubmissionSource source) override;
+  void OnFormSubmitted(const blink::WebFormElement& form);
 
   // WebLocalFrameClient editor related calls forwarded by AutofillAgent.
   // If they return true, it indicates the event was consumed and should not
@@ -182,8 +172,11 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   bool TextDidChangeInTextField(const blink::WebInputElement& element);
 
   // Called from AutofillAgent::UpdateStateForTextChange() to do
-  // password-manager specific work.
-  void UpdatePasswordStateForTextChange(const blink::WebInputElement& element);
+  // password-manager specific work. `extracted_form`, if not null, is the
+  // updated `FormData` objects where `element` exists as a `FormFieldData`.
+  void UpdatePasswordStateForTextChange(
+      const blink::WebInputElement& element,
+      base::optional_ref<FormData> extracted_form = std::nullopt);
 
   // Instructs `autofill_agent_` to track the autofilled `element`.
   void TrackAutofilledElement(const blink::WebFormControlElement& element);
@@ -250,9 +243,13 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   // `form` and `input` are the elements user has just been interacting with
   // before the form save. `form` or `input` can be null but not both at the
   // same time. For example: if the form is unowned, `form` will be null; if the
-  // user has submitted the form, `input` will be null.
-  void InformBrowserAboutUserInput(const blink::WebFormElement& form,
-                                   const blink::WebInputElement& input);
+  // user has submitted the form, `input` will be null. `extracted_form`, if not
+  // null, is the updated `FormData` objects where `input` exists as a
+  // `FormFieldData`.
+  void InformBrowserAboutUserInput(
+      const blink::WebFormElement& form,
+      const blink::WebInputElement& input,
+      base::optional_ref<FormData> extracted_form = std::nullopt);
 
   // Determine whether the current frame is allowed to access the password
   // manager. For example, frames with about:blank documents or documents with
@@ -350,7 +347,7 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   // Stores information about form field structure.
   struct FormFieldInfo {
     FieldRendererId renderer_id;
-    autofill::FormControlType form_control_type;
+    FormControlType form_control_type;
     std::string autocomplete_attribute;
     bool is_focusable = false;
   };
@@ -480,8 +477,11 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
 
   // Checks that a given input field is valid before filling the given `input`
   // with the given `credential` and marking the field as auto-filled.
+  // Uses `suggestion_source` to update the `FieldPropertiesMask` of filled
+  // field.
   void DoFillField(blink::WebInputElement input,
-                   const std::u16string& credential);
+                   const std::u16string& credential,
+                   AutofillSuggestionTriggerSource suggestion_source);
 
   // Given `username_element` and `password_element`, previews `username` and
   // `password` respectively into them.
@@ -493,15 +493,23 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
 
   // Given `username_element` and `password_element`, fills `username` and
   // `password` respectively into them.
-  bool FillUsernameAndPasswordElements(blink::WebInputElement username_element,
-                                       blink::WebInputElement password_element,
-                                       const std::u16string& username,
-                                       const std::u16string& password);
+  // Uses `suggestion_source` to update the `FieldPropertiesMask` of filled
+  // fields.
+  bool FillUsernameAndPasswordElements(
+      blink::WebInputElement username_element,
+      blink::WebInputElement password_element,
+      const std::u16string& username,
+      const std::u16string& password,
+      AutofillSuggestionTriggerSource suggestion_source);
 
   // Uses `FillField` to fill the given `credential` into the `password_input`.
   // Saves the password for its associated form.
-  void FillPasswordFieldAndSave(blink::WebInputElement password_input,
-                                const std::u16string& credential);
+  // Uses `suggestion_source` to update the `FieldPropertiesMask` of filled
+  // fields.
+  void FillPasswordFieldAndSave(
+      blink::WebInputElement password_input,
+      const std::u16string& credential,
+      AutofillSuggestionTriggerSource suggestion_source);
 
   // This function attempts to fill `username_element` and `password_element`
   // with values from `fill_data`. The `username_element` and `password_element`
@@ -587,10 +595,6 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   FieldDataManager& field_data_manager() const {
     return autofill_agent_->field_data_manager();
   }
-
-  // Controls heavy scraping of form data (e.g., button titles for unowned
-  // forms) is enabled.
-  EnableHeavyFormDataScraping enable_heavy_form_data_scraping_;
 
   // A map from WebInput elements to `PasswordInfo` for all elements that
   // password manager has fill information for.

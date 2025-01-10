@@ -25,6 +25,7 @@
 #include "components/viz/common/surfaces/surface_id.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/blink/public/mojom/input/input_event_result.mojom-shared.h"
+#include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/gfx/geometry/transform.h"
 #include "ui/gfx/geometry/vector2d_conversions.h"
 #include "ui/gfx/mojom/delegated_ink_point_renderer.mojom.h"
@@ -217,10 +218,9 @@ class COMPONENT_EXPORT(INPUT) RenderWidgetHostInputEventRouter final
       const blink::WebTouchEvent& event,
       RenderWidgetHostViewInput* target) override;
   void SetCursor(const ui::Cursor& cursor) override;
-  void ShowContextMenuAtPoint(
-      const gfx::Point& point,
-      const ui::MenuSourceType source_type,
-      RenderWidgetHostViewInput* target) override;
+  void ShowContextMenuAtPoint(const gfx::Point& point,
+                              const ui::mojom::MenuSourceType source_type,
+                              RenderWidgetHostViewInput* target) override;
 
   // HitTestRegionObserver
   void OnAggregatedHitTestRegionListUpdated(
@@ -361,7 +361,8 @@ class COMPONENT_EXPORT(INPUT) RenderWidgetHostInputEventRouter final
       RenderWidgetHostViewInput* target,
       const blink::WebGestureEvent& gesture_event,
       const ui::LatencyInfo& latency,
-      const std::optional<gfx::PointF>& target_location);
+      const std::optional<gfx::PointF>& target_location,
+      bool is_emulated);
 
   // TODO(crbug.com/41380487): Remove once this issue no longer occurs.
   void ReportBubblingScrollToSameView(
@@ -489,6 +490,21 @@ class COMPONENT_EXPORT(INPUT) RenderWidgetHostInputEventRouter final
     PinchState state_;
   };
   TouchscreenPinchState touchscreen_pinch_state_;
+
+  // Logs debug data for https://crbug.com/346629231.
+  struct TouchscreenGestureEventDebugData {
+    blink::mojom::EventType type;
+    blink::mojom::GestureDevice device;
+    bool is_emulated;
+  };
+  std::deque<TouchscreenGestureEventDebugData>
+      touchscreen_gesture_event_debug_queue_;
+  base::debug::CrashKeyString* GetTouchscreenGestureEventHistoryCrashString();
+  void LogTouchscreenEventHistoryForDebug(void* target_view,
+                                          void* resending_view,
+                                          void* touchscreen_gesture_target,
+                                          void* touchpad_gesture_target,
+                                          void* touch_target);
 
   // This is expected to outlive RenderWidgetHostInputEventRouter object.
   const raw_ptr<viz::HitTestDataProvider> hit_test_provider_ = nullptr;

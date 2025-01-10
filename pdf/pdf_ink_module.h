@@ -5,8 +5,6 @@
 #ifndef PDF_PDF_INK_MODULE_H_
 #define PDF_PDF_INK_MODULE_H_
 
-#include <stddef.h>
-
 #include <map>
 #include <memory>
 #include <optional>
@@ -14,13 +12,18 @@
 #include <vector>
 
 #include "base/containers/flat_set.h"
+#include "base/gtest_prod_util.h"
 #include "base/memory/raw_ref.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "pdf/buildflags.h"
+#include "pdf/pdf_ink_brush.h"
+#include "pdf/pdf_ink_ids.h"
 #include "pdf/pdf_ink_undo_redo_model.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
+#include "third_party/ink/src/ink/geometry/modeled_shape.h"
 #include "third_party/ink/src/ink/strokes/in_progress_stroke.h"
+#include "third_party/ink/src/ink/strokes/input/stroke_input.h"
 #include "third_party/ink/src/ink/strokes/input/stroke_input_batch.h"
 #include "third_party/ink/src/ink/strokes/stroke.h"
 #include "ui/gfx/geometry/point_f.h"
@@ -32,11 +35,11 @@ class SkCanvas;
 namespace blink {
 class WebInputEvent;
 class WebMouseEvent;
+class WebTouchEvent;
 }  // namespace blink
 
 namespace chrome_pdf {
 
-class PdfInkBrush;
 class PdfInkModuleClient;
 
 class PdfInkModule {
@@ -46,7 +49,7 @@ class PdfInkModule {
   // A stroke that has been completed, its ID, and whether it should be drawn
   // or not.
   struct FinishedStrokeState {
-    FinishedStrokeState(ink::Stroke stroke, size_t id);
+    FinishedStrokeState(ink::Stroke stroke, InkStrokeId id);
     FinishedStrokeState(const FinishedStrokeState&) = delete;
     FinishedStrokeState& operator=(const FinishedStrokeState&) = delete;
     FinishedStrokeState(FinishedStrokeState&&) noexcept;
@@ -58,7 +61,7 @@ class PdfInkModule {
     ink::Stroke stroke;
 
     // A unique ID to identify this stroke.
-    size_t id;
+    InkStrokeId id;
 
     bool should_draw = true;
   };
@@ -167,15 +170,50 @@ class PdfInkModule {
   DocumentStrokeInputPointsMap GetVisibleStrokesInputPositionsForTesting()
       const;
 
+  // For testing only. Returns the number of stroke inputs of a particular
+  // `tool_type` for a given page at `page_index`. The `page_index` must be
+  // non-negative.
+  int GetInputOfTypeCountForPageForTesting(
+      int page_index,
+      ink::StrokeInput::ToolType tool_type) const;
+
  private:
+  FRIEND_TEST_ALL_PREFIXES(PdfInkModuleTest, HandleSetAnnotationModeMessage);
+
+  // A shape that was loaded from a "V2" path from the PDF itself, its ID, and
+  // whether it should be drawn or not.
+  struct LoadedV2ShapeState {
+    LoadedV2ShapeState(ink::ModeledShape shape, InkModeledShapeId id);
+    LoadedV2ShapeState(const LoadedV2ShapeState&) = delete;
+    LoadedV2ShapeState& operator=(const LoadedV2ShapeState&) = delete;
+    LoadedV2ShapeState(LoadedV2ShapeState&&) noexcept;
+    LoadedV2ShapeState& operator=(LoadedV2ShapeState&&) noexcept;
+    ~LoadedV2ShapeState();
+
+    // Coordinates for each shape are stored in a canonical format specified in
+    // pdf_ink_transform.h.
+    ink::ModeledShape shape;
+
+    // A unique ID to identify this shape.
+    InkModeledShapeId id;
+
+    bool should_draw = true;
+  };
+
+  // Like PageStrokes, but for shapes created from "V2" paths in the PDF.
+  using PageV2InkPathShapes = std::vector<LoadedV2ShapeState>;
+
+  // Like DocumentStrokesMap, but for PageV2InkPathShapes.
+  using DocumentV2InkPathShapesMap = std::map<int, PageV2InkPathShapes>;
+
   struct DrawingStrokeState {
     DrawingStrokeState();
     DrawingStrokeState(const DrawingStrokeState&) = delete;
     DrawingStrokeState& operator=(const DrawingStrokeState&) = delete;
     ~DrawingStrokeState();
 
-    // The current brush to use for drawing strokes. Never null.
-    std::unique_ptr<PdfInkBrush> brush;
+    // The current brush type to use for drawing strokes.
+    PdfInkBrush::Type brush_type;
 
     std::optional<base::TimeTicks> start_time;
 
@@ -203,13 +241,13 @@ class PdfInkModule {
     ~StrokeIdGenerator();
 
     // Returns an available ID and advance the next available ID internally.
-    size_t GetIdAndAdvance();
+    InkStrokeId GetIdAndAdvance();
 
-    void ResetIdTo(size_t id);
+    void ResetIdTo(InkStrokeId id);
 
    private:
     // The next available ID for use in FinishedStrokeState.
-    size_t next_stroke_id_ = 0;
+    InkStrokeId next_stroke_id_ = InkStrokeId(0);
   };
 
   struct EraserState {
@@ -219,31 +257,40 @@ class PdfInkModule {
     ~EraserState();
 
     bool erasing = false;
-    base::flat_set<int> page_indices_with_erased_strokes;
-    float eraser_size = 0;
+    base::flat_set<int> page_indices_with_erasures;
   };
 
   // Returns whether the event was handled or not.
   bool OnMouseDown(const blink::WebMouseEvent& event);
   bool OnMouseUp(const blink::WebMouseEvent& event);
   bool OnMouseMove(const blink::WebMouseEvent& event);
+  bool OnTouchStart(const blink::WebTouchEvent& event);
+  bool OnTouchEnd(const blink::WebTouchEvent& event);
+  bool OnTouchMove(const blink::WebTouchEvent& event);
 
-  // Return values have the same semantics as OnMouse()* above.
-  bool StartStroke(const gfx::PointF& position, base::TimeTicks timestamp);
-  bool ContinueStroke(const gfx::PointF& position, base::TimeTicks timestamp);
-  bool FinishStroke(const gfx::PointF& position, base::TimeTicks timestamp);
+  // Return values have the same semantics as On{Mouse,Touch}*() above.
+  bool StartStroke(const gfx::PointF& position,
+                   base::TimeTicks timestamp,
+                   ink::StrokeInput::ToolType tool_type);
+  bool ContinueStroke(const gfx::PointF& position,
+                      base::TimeTicks timestamp,
+                      ink::StrokeInput::ToolType tool_type);
+  bool FinishStroke(const gfx::PointF& position,
+                    base::TimeTicks timestamp,
+                    ink::StrokeInput::ToolType tool_type);
 
-  // Return values have the same semantics as OnMouse*() above.
+  // Return values have the same semantics as On{Mouse,Touch}*() above.
   bool StartEraseStroke(const gfx::PointF& position);
   bool ContinueEraseStroke(const gfx::PointF& position);
   bool FinishEraseStroke(const gfx::PointF& position);
 
-  // Shared code for the Erase methods above. Returns if stroke(s) got erased or
+  // Shared code for the Erase methods above. Returns if something got erased or
   // not.
   bool EraseHelper(const gfx::PointF& position, int page_index);
 
   void HandleAnnotationRedoMessage(const base::Value::Dict& message);
   void HandleAnnotationUndoMessage(const base::Value::Dict& message);
+  void HandleGetAnnotationBrushMessage(const base::Value::Dict& message);
   void HandleSetAnnotationBrushMessage(const base::Value::Dict& message);
   void HandleSetAnnotationModeMessage(const base::Value::Dict& message);
 
@@ -266,6 +313,13 @@ class PdfInkModule {
     return absl::get<EraserState>(current_tool_state_);
   }
 
+  // Returns the current brush. Must be in a drawing stroke state.
+  PdfInkBrush& GetDrawingBrush();
+  const PdfInkBrush& GetDrawingBrush() const;
+
+  // Returns the brush with type `brush_type`.
+  const PdfInkBrush& GetBrush(PdfInkBrush::Type brush_type) const;
+
   // Converts `current_tool_state_` into segments of `ink::InProgressStroke`.
   // Requires `current_tool_state_` to hold a `DrawingStrokeState`. If there is
   // no `DrawingStrokeState`, or the state currently has no inputs, then the
@@ -280,13 +334,15 @@ class PdfInkModule {
       int page_index);
 
   // Helper to convert `position` to a canonical position and record it into
-  // `current_tool_state_` for the indicated time. Can only be called when
-  // drawing.
+  // `current_tool_state_` for the indicated `timestamp` and `tool_type`.
+  // Can only be called when drawing.
   void RecordStrokePosition(const gfx::PointF& position,
-                            base::TimeTicks timestamp);
+                            base::TimeTicks timestamp,
+                            ink::StrokeInput::ToolType tool_type);
 
   void ApplyUndoRedoCommands(const PdfInkUndoRedoModel::Commands& commands);
-  void ApplyUndoRedoCommandsHelper(std::set<size_t> ids, bool should_draw);
+  void ApplyUndoRedoCommandsHelper(std::set<PdfInkUndoRedoModel::IdType> ids,
+                                   bool should_draw);
 
   void ApplyUndoRedoDiscards(
       const PdfInkUndoRedoModel::DiscardedDrawCommands& discards);
@@ -297,8 +353,19 @@ class PdfInkModule {
 
   bool enabled_ = false;
 
+  bool loaded_data_from_pdf_ = false;
+
+  // Shapes loaded from the PDF.
+  DocumentV2InkPathShapesMap loaded_v2_shapes_;
+
   // Generates IDs for use in FinishedStrokeState and PdfInkUndoRedoModel.
   StrokeIdGenerator stroke_id_generator_;
+
+  // Store a PdfInkBrush for each brush type so that the brush parameters are
+  // saved when swapping between brushes.
+  PdfInkBrush highlighter_brush_;
+  PdfInkBrush pen_brush_;
+  float eraser_size_ = 3.0f;
 
   // The state of the current tool that is in use.
   absl::variant<DrawingStrokeState, EraserState> current_tool_state_;

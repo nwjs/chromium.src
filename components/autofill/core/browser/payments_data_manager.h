@@ -140,15 +140,15 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
 
   // Returns the credit card with the specified `number`, or nullptr if there is
   // no credit card with the specified `number`.
-  CreditCard* GetCreditCardByNumber(const std::string& number);
+  const CreditCard* GetCreditCardByNumber(const std::string& number) const;
 
   // Returns the credit card with the specified |instrument_id|, or nullptr if
   // there is no credit card with the specified |instrument_id|.
-  CreditCard* GetCreditCardByInstrumentId(int64_t instrument_id);
+  const CreditCard* GetCreditCardByInstrumentId(int64_t instrument_id) const;
 
   // Returns the credit card with the given server id, or nullptr if there is no
   // match.
-  CreditCard* GetCreditCardByServerId(const std::string& server_id);
+  const CreditCard* GetCreditCardByServerId(const std::string& server_id) const;
 
   // Return the first valid flat rate benefit linked with the card with the
   // specific `instrument_id`.
@@ -476,6 +476,10 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   // Add a bank account to the cached list of bank accounts in
   // PaymentsDataManager.
   void AddMaskedBankAccountForTest(const BankAccount& bank_account);
+
+  // Add an eWallet account to the cached list of eWallet accounts in
+  // PaymentsDataManager.
+  void AddEwalletForTest(const Ewallet& ewallet);
 
   // Sets a server credit card for test.
   //

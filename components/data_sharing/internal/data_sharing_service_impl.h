@@ -43,7 +43,7 @@ class PreviewServerProxy;
 
 // The internal implementation of the DataSharingService.
 class DataSharingServiceImpl : public DataSharingService,
-                               public GroupDataModel::Observer{
+                               public GroupDataModel::Observer {
  public:
   // `identity_manager` must not be null and must outlive this object.
   // `sdk_delegate` is nullable, indicating that SDK is not available.
@@ -71,6 +71,9 @@ class DataSharingServiceImpl : public DataSharingService,
   bool IsGroupDataModelLoaded() override;
   std::optional<GroupData> ReadGroup(const GroupId& group_id) override;
   std::set<GroupData> ReadAllGroups() override;
+  std::optional<GroupMemberPartialData> GetPossiblyRemovedGroupMember(
+      const GroupId& group_id,
+      const std::string& member_gaia_id) override;
   void ReadAllGroups(
       base::OnceCallback<void(const GroupsDataSetOrFailureOutcome&)> callback)
       override;
@@ -95,10 +98,15 @@ class DataSharingServiceImpl : public DataSharingService,
       const GroupId& group_id,
       const std::string& member_email,
       base::OnceCallback<void(PeopleGroupActionOutcome)> callback) override;
+  void LeaveGroup(
+      const GroupId& group_id,
+      base::OnceCallback<void(PeopleGroupActionOutcome)> callback) override;
   bool ShouldInterceptNavigationForShareURL(const GURL& url) override;
-  void HandleShareURLNavigationIntercepted(const GURL& url) override;
-  std::unique_ptr<GURL> GetDataSharingURL(const GroupData& group_data) override;
-  ParseURLResult ParseDataSharingURL(const GURL& url) override;
+  void HandleShareURLNavigationIntercepted(
+      const GURL& url,
+      std::unique_ptr<ShareURLInterceptionContext> context) override;
+  std::unique_ptr<GURL> GetDataSharingUrl(const GroupData& group_data) override;
+  ParseUrlResult ParseDataSharingUrl(const GURL& url) override;
   void Shutdown() override;
   void EnsureGroupVisibility(
       const GroupId& group_id,
@@ -108,14 +116,26 @@ class DataSharingServiceImpl : public DataSharingService,
       const GroupToken& group_token,
       base::OnceCallback<void(const SharedDataPreviewOrFailureOutcome&)>
           callback) override;
-  DataSharingUIDelegate* GetUIDelegate() override;
-  ServiceStatus GetServiceStatus() override;
+  void SetSDKDelegate(
+      std::unique_ptr<DataSharingSDKDelegate> sdk_delegate) override;
+  void SetUIDelegate(
+      std::unique_ptr<DataSharingUIDelegate> ui_delegate) override;
+  DataSharingUIDelegate* GetUiDelegate() override;
 
   // GroupDataModel::Observer implementation.
   void OnModelLoaded() override;
-  void OnGroupAdded(const GroupId& group_id) override;
-  void OnGroupUpdated(const GroupId& group_id) override;
-  void OnGroupDeleted(const GroupId& group_id) override;
+  void OnGroupAdded(const GroupId& group_id,
+                    const base::Time& event_time) override;
+  void OnGroupUpdated(const GroupId& group_id,
+                      const base::Time& event_time) override;
+  void OnGroupDeleted(const GroupId& group_id,
+                      const base::Time& event_time) override;
+  void OnMemberAdded(const GroupId& group_id,
+                     const std::string& member_gaia_id,
+                     const base::Time& event_time) override;
+  void OnMemberRemoved(const GroupId& group_id,
+                       const std::string& member_gaia_id,
+                       const base::Time& event_time) override;
 
   CollaborationGroupSyncBridge* GetCollaborationGroupSyncBridgeForTesting();
 
@@ -154,7 +174,10 @@ class DataSharingServiceImpl : public DataSharingService,
       const base::expected<data_sharing_pb::AddAccessTokenResult, absl::Status>&
           result);
 
-  ServiceStatus current_status_;
+  // Called when the SDK delegate has been updated, allowing the group data
+  // model to be updated too.
+  void OnSDKDelegateUpdated();
+
   // It must be destroyed after the `sdk_delegate_` member because
   // `sdk_delegate` needs the `data_sharing_network_loader_`.
   std::unique_ptr<DataSharingNetworkLoader> data_sharing_network_loader_;
@@ -165,6 +188,8 @@ class DataSharingServiceImpl : public DataSharingService,
   std::unique_ptr<DataSharingUIDelegate> ui_delegate_;
   // Nullable when `sdk_delegate_` is null.
   std::unique_ptr<GroupDataModel> group_data_model_;
+
+  base::FilePath profile_dir_;
 
   base::ObserverList<DataSharingService::Observer> observers_;
   std::unique_ptr<PreviewServerProxy> preview_server_proxy_;

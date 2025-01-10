@@ -18,9 +18,20 @@
 namespace optimization_guide {
 
 // The result type of model execution.
-using OptimizationGuideModelExecutionResult =
-    base::expected<const proto::Any /*response_metadata*/,
-                   OptimizationGuideModelExecutionError>;
+struct OptimizationGuideModelExecutionResult {
+  OptimizationGuideModelExecutionResult();
+  explicit OptimizationGuideModelExecutionResult(
+      base::expected<const proto::Any /*response_metadata*/,
+                     OptimizationGuideModelExecutionError> response,
+      std::unique_ptr<proto::ModelExecutionInfo> execution_info);
+  OptimizationGuideModelExecutionResult(
+      OptimizationGuideModelExecutionResult&& other);
+  ~OptimizationGuideModelExecutionResult();
+  base::expected<const proto::Any /*response_metadata*/,
+                 OptimizationGuideModelExecutionError>
+      response;
+  std::unique_ptr<proto::ModelExecutionInfo> execution_info;
+};
 
 // A response type used for OptimizationGuideModelExecutor::Session.
 struct StreamingResponse {
@@ -40,7 +51,9 @@ struct OptimizationGuideModelStreamingExecutionResult {
       base::expected<const StreamingResponse,
                      OptimizationGuideModelExecutionError> response,
       bool provided_by_on_device,
-      std::unique_ptr<ModelQualityLogEntry> log_entry = nullptr);
+      // TODO(372535824): remove this parameter.
+      std::unique_ptr<ModelQualityLogEntry> log_entry = nullptr,
+      std::unique_ptr<proto::ModelExecutionInfo> execution_info = nullptr);
 
   ~OptimizationGuideModelStreamingExecutionResult();
   OptimizationGuideModelStreamingExecutionResult(
@@ -52,12 +65,16 @@ struct OptimizationGuideModelStreamingExecutionResult {
   bool provided_by_on_device = false;
   // The log entry will be null until `StreamingResponse.is_complete` is true.
   std::unique_ptr<ModelQualityLogEntry> log_entry;
+  // The execution info will be null until `StreamingResponse.is_complete` is
+  // true.
+  std::unique_ptr<proto::ModelExecutionInfo> execution_info;
 };
 
 // The callback for receiving the model execution result and model quality log
 // entry.
 using OptimizationGuideModelExecutionResultCallback =
     base::OnceCallback<void(OptimizationGuideModelExecutionResult,
+                            // TODO(372535824): remove this parameter.
                             std::unique_ptr<ModelQualityLogEntry>)>;
 
 // A callback for receiving a score from the model, or nullopt if the model
@@ -97,13 +114,6 @@ struct SessionConfigParams {
   // How the execution of this feature should be configured.
   ExecutionMode execution_mode = ExecutionMode::kDefault;
 
-  // The amount of time to wait before the initial response is received from the
-  // on device model. If unset, a default value will be used.
-  //
-  // If `execution_mode` allows, model execution will fall back to the server
-  // instead of failing entirely when this timeout is reached.
-  std::optional<base::TimeDelta> on_device_execution_timeout;
-
   enum class LoggingMode {
     // Enable logging if it's enabled for ModelBasedCapability.
     kDefault,
@@ -123,8 +133,10 @@ enum class OnDeviceModelEligibilityReason {
   kSuccess = 1,
   // The feature flag gating on-device model execution was disabled.
   kFeatureNotEnabled = 2,
+  // DEPRECATED: split into kModelNotEligible, kInsufficientDiskSpace and
+  // kNoOnDeviceFeatureUsed.
   // There was no on-device model available.
-  kModelNotAvailable = 3,
+  kDeprecatedModelNotAvailable = 3,
   // The on-device model was available but there was not an execution config
   // available for the feature.
   kConfigNotAvailableForFeature = 4,
@@ -152,12 +164,20 @@ enum class OnDeviceModelEligibilityReason {
   // There was no on-device model available, but it may be downloaded and
   // installed later.
   kModelToBeInstalled = 15,
+  // The device is not eligible for running the on-device model.
+  kModelNotEligible = 16,
+  // The device does not have enough space to download and install the
+  // on-device model.
+  kInsufficientDiskSpace = 17,
+  // There was no on-device feature usage so the model has not been
+  // downloaded yet.
+  kNoOnDeviceFeatureUsed = 18,
 
   // This must be kept in sync with
   // OptimizationGuideOnDeviceModelEligibilityReason in optimization/enums.xml.
 
   // Insert new values before this line.
-  kMaxValue = kModelToBeInstalled,
+  kMaxValue = kNoOnDeviceFeatureUsed,
 };
 
 // Observer that is notified when the on-device model availability changes for
@@ -230,6 +250,13 @@ class OptimizationGuideModelExecutor {
     // in tokens. The result will be passed back through the callback.
     virtual void GetSizeInTokens(
         const std::string& text,
+        OptimizationGuideModelSizeInTokenCallback callback) = 0;
+
+    // Gets the size in tokens used by request_metadata in tokens as it would be
+    // formatted by a call to `ExecuteModel()`. The result will be passed back
+    // through the callback.
+    virtual void GetExecutionInputSizeInTokens(
+        const google::protobuf::MessageLite& request_metadata,
         OptimizationGuideModelSizeInTokenCallback callback) = 0;
 
     // Gets the size in tokens used by request_metadata as it would be formatted

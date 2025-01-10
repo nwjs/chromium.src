@@ -371,9 +371,6 @@ class CORE_EXPORT LocalFrameView final
   // throttle frames for printing.
   void UpdateLifecyclePhasesForPrinting();
 
-  // TODO(pdr): Remove this in favor of |UpdateAllLifecyclePhasesExceptPaint|.
-  bool UpdateLifecycleToPrePaintClean(DocumentUpdateReason reason);
-
   // Computes the style, layout, and compositing inputs lifecycle stages if
   // needed. After calling this method, all frames will be in a lifecycle state
   // >= CompositingInputsClean, unless the frame was throttled (if frame
@@ -390,6 +387,12 @@ class CORE_EXPORT LocalFrameView final
   // Returns whether the lifecycle was successfully updated to the
   // desired state.
   bool UpdateLifecycleToLayoutClean(DocumentUpdateReason reason);
+
+  // Executes prepaint lifecycle for prerendering page, and pre-builds paint
+  // tree. A prerendering page should never been shown before activation, so
+  // this step just caches intermediate results, and the painting pipeline can
+  // reuse them after activation.
+  void DryRunPaintingForPrerender();
 
   void SetTargetStateForTest(DocumentLifecycle::LifecycleState state) {
     target_state_ = state;

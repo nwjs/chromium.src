@@ -26,6 +26,7 @@ try_.defaults.set(
     siso_enabled = True,
     siso_project = siso.project.DEFAULT_UNTRUSTED,
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_linking = True,
 )
 
 consoles.list_view(
@@ -89,7 +90,7 @@ try_.builder(
             "dcheck_always_on",
         ],
     ),
-    contact_team_email = "chromeos-sw-engprod@google.com",
+    contact_team_email = "chromeos-chrome-build@google.com",
     main_list_view = "try",
 )
 
@@ -113,11 +114,7 @@ try_.orchestrator_builder(
         ],
     ),
     compilator = "chromeos-amd64-generic-rel-gtest-compilator",
-    contact_team_email = "chromeos-sw-engprod@google.com",
-    experiments = {
-        # crbug.com/355218109
-        "chromium.use_per_builder_build_dir_name": 100,
-    },
+    contact_team_email = "chromeos-chrome-build@google.com",
     main_list_view = "try",
     tryjob = try_.job(
         equivalent_builder = "try/chromeos-amd64-generic-rel-gtest-and-tast",
@@ -153,11 +150,7 @@ try_.orchestrator_builder(
         ],
     ),
     compilator = "chromeos-amd64-generic-rel-gtest-and-tast-compilator",
-    contact_team_email = "chromeos-sw-engprod@google.com",
-    experiments = {
-        # crbug.com/355218109
-        "chromium.use_per_builder_build_dir_name": 100,
-    },
+    contact_team_email = "chromeos-chrome-build@google.com",
     main_list_view = "try",
     tryjob = try_.job(
         omit_from_luci_cv = True,
@@ -178,7 +171,7 @@ try_.compilator_builder(
             wait_for_warm_cache = 4 * time.minute,
         ),
     ],
-    contact_team_email = "chromeos-sw-engprod@google.com",
+    contact_team_email = "chromeos-chrome-build@google.com",
     main_list_view = "try",
 )
 
@@ -194,7 +187,7 @@ try_.compilator_builder(
             wait_for_warm_cache = 4 * time.minute,
         ),
     ],
-    contact_team_email = "chromeos-sw-engprod@google.com",
+    contact_team_email = "chromeos-chrome-build@google.com",
     main_list_view = "try",
 )
 
@@ -251,10 +244,9 @@ try_.builder(
         "chromium.enable_cleandead": 100,
         # b/346598710
         "chromium.luci_analysis_v2": 100,
-        # crbug.com/355218109
-        "chromium.use_per_builder_build_dir_name": 100,
     },
     main_list_view = "try",
+    siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
     tryjob = try_.job(),
 )
 
@@ -295,11 +287,8 @@ try_.builder(
     experiments = {
         # crbug/940930
         "chromium.enable_cleandead": 100,
-        # crbug.com/355218109
-        "chromium.use_per_builder_build_dir_name": 100,
     },
     main_list_view = "try",
-    siso_enabled = True,
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
     tryjob = try_.job(),
 )
@@ -311,7 +300,7 @@ try_.builder(
         "ci/chromeos-jacuzzi-rel",
     ],
     gn_args = "ci/chromeos-jacuzzi-rel",
-    contact_team_email = "chromeos-velocity@google.com",
+    contact_team_email = "chromeos-chrome-build@google.com",
     execution_timeout = 8 * time.hour,
     main_list_view = "try",
 )
@@ -323,7 +312,7 @@ try_.builder(
         "ci/chromeos-octopus-rel",
     ],
     gn_args = "ci/chromeos-octopus-rel",
-    contact_team_email = "chromeos-velocity@google.com",
+    contact_team_email = "chromeos-chrome-build@google.com",
     execution_timeout = 8 * time.hour,
     main_list_view = "try",
 )
@@ -354,8 +343,6 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # b/346598710
         "chromium.luci_analysis_v2": 100,
-        # crbug.com/355218109
-        "chromium.use_per_builder_build_dir_name": 100,
     },
     main_list_view = "try",
     # TODO(crbug.com/40241638): Use orchestrator pool once overloaded test pools

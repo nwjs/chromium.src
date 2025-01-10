@@ -76,7 +76,6 @@
 <translation id="2008942457798486387">{NUM_EXTENSIONS,plural, =1{Denne utvidelsen støttes ikke lenger. Chrome anbefaler at du fjerner den.}other{Disse utvidelsene støttes ikke lenger. Chrome anbefaler at du fjerner dem.}}</translation>
 <translation id="2018528049276128029">Hver profil har sin egen Chrome-informasjon, som bokmerker, logg, passord med mer</translation>
 <translation id="2018879682492276940">Installasjonen mislyktes. Prøv igjen.</translation>
-<translation id="2022471217832964798">Du kan fortsatt bruke Chrome mens vi konfigurerer kontotilgangen. Det kan hende du ikke har tilgang til enkelte ressurser før konfigureringen er fullført.</translation>
 <translation id="2034233344106846793">Chrome oppgraderer usikre tilkoblinger til HTTPS automatisk når det er mulig</translation>
 <translation id="207902854391093810">Når prøveprosjekter er påslått, kan nettsteder du besøker, bruke annonsemålinger for å spørre Chrome om informasjon som hjelper nettstedet å måle annonseresultatene sine. Annonsemålinger begrenser sporing på tvers av nettsteder ved å overføre så lite informasjon som mulig mellom nettsteder.</translation>
 <translation id="2091012649849228750">For å få fremtidige Google Chrome-oppdateringer må du ha Windows 10 eller nyere. Denne datamaskinen bruker Windows 8.</translation>
@@ -245,6 +244,7 @@
 <translation id="3873044882194371212">Åpne linken i et inko&amp;gnitovindu i Chrome</translation>
 <translation id="3885770153807205175">Språkvelger</translation>
 <translation id="3889417619312448367">Avinstaller Google Chrome</translation>
+<translation id="3892148308691398805">Kopier teksten</translation>
 <translation id="3941890832296813527">Installasjonsfeil: Navnet på installasjonsprogrammet er ugyldig eller støttes ikke.</translation>
 <translation id="3973161977468201858">Google Chrome vil slette Google Passordlagring-dataene dine. Skriv inn Windows-passordet ditt for å tillate dette.</translation>
 <translation id="398236277091248993">Chrome holder seg rask med funksjoner som gir økt ytelse</translation>
@@ -299,6 +299,7 @@
 <translation id="4567424176335768812">Du er logget på som <ph name="USER_EMAIL_ADDRESS" />. Nå kan du bruke bokmerkene, loggen og andre innstillinger på alle enhetene du er logget på.</translation>
 <translation id="4571503333518166079">Gå til innstillingene for Chrome-varsler</translation>
 <translation id="4575717501879784448">Chrome kan gjøre disse fanene inaktive for å frigjøre ressurser og gi deg en bedre surfeopplevelse.</translation>
+<translation id="4595162648538023956">Du kan logge på for å få tilgang til tingene dine, eller du kan bruke Chrome uten konto</translation>
 <translation id="459622048091363950">Når Chrome har fått tilgang, kan nettsteder spørre deg om tilgang.</translation>
 <translation id="4600710005438004015">Chrome kunne ikke oppdateres til den nyeste versjonen, så du går glipp av nye funksjoner og sikkerhetsforbedringer.</translation>
 <translation id="4601439950572737842">Dataene dine er kryptert med passordfrasen din. Skriv den inn for å bruke og lagre Chrome-data i Google-kontoen din.</translation>
@@ -343,6 +344,7 @@
 <translation id="5163087008893166964">Velkommen til Chrome – et nytt nettleservindu er åpnet</translation>
 <translation id="5166439563123238795">Chrome trenger tillatelse til å spore hendene dine</translation>
 <translation id="5170938038195470297">Profilen din kan ikke brukes fordi den er fra en nyere versjon av Google Chrome. Enkelte funksjoner kan være utilgjengelige. Angi en annen profilkatalog, eller bruk en nyere versjon av Chrome.</translation>
+<translation id="5174969993834422967">Du blokkerer vanligvis varsler. For å la dette nettstedet sende deg varsler, klikk på varselikonet i høyre hjørne av adressefeltet.</translation>
 <translation id="5201744974236816379">Chrome-oppdatering</translation>
 <translation id="521447420733633466">Hvis du deler en enhet med andre, kan venner og familie surfe hver for seg og konfigurere Chrome akkurat slik de vil</translation>
 <translation id="5234764350956374838">Lukk</translation>
@@ -387,7 +389,6 @@
 <translation id="5895138241574237353">Start på nytt</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> – nettverkspålogging</translation>
 <translation id="5924017743176219022">Kobler til internett …</translation>
-<translation id="5932997892801542621">Når du skriver i adressefeltet eller søkefeltet, sender Chrome det du skriver til Google Disk for å få forslag til elementer. Dette er av i Inkognito.</translation>
 <translation id="5940385492829620908">Her finner du nettinnholdet, bokmerkene og de andre Chrome-tingene dine.</translation>
 <translation id="5941711191222866238">Minimer</translation>
 <translation id="5941830788786076944">Gjør Google Chrome til standardleser</translation>
@@ -446,6 +447,7 @@
 <translation id="6497147134301593682">Chrome ble lukket automatisk</translation>
 <translation id="6506909944137591434">Chrome trenger kameratillatelse for å lage et 3D-kart av omgivelsene dine</translation>
 <translation id="6515495397637126556"><ph name="PAGE_TITLE" /> – Google Chrome for utviklere</translation>
+<translation id="6515549163407364048">For å få utvidelsene dine på alle datamaskinene dine, logg på Chrome</translation>
 <translation id="6520670145826811516">For å la Chrome bruke posisjonen din må du gi tilgang i <ph name="BEGIN_LINK" />systeminnstillingene<ph name="END_LINK" />.</translation>
 <translation id="659498884637196217">I Google Passordlagring på denne enheten</translation>
 <translation id="6600016381025017075">Søk etter hva som helst på denne siden</translation>
@@ -539,6 +541,7 @@ Tillatelser du allerede har gitt nettsteder og apper, kan gjelde for denne konto
 <translation id="7655455401911432608">Nettleserloggen din, som er en logg over nettsteder du har besøkt med Chrome på denne enheten.</translation>
 <translation id="7655472416356262023">Fjern kontoen fra Chrome</translation>
 <translation id="7658239707568436148">Avbryt</translation>
+<translation id="7659737857277959440">Organisasjonen din kan se og administrere nettlesingsdata, for eksempel bokmerker, logg og passord. Den kan ikke se nettlesingsdata i personlige Chrome-profiler.</translation>
 <translation id="7661924425853052955">Du har ikke vært her i det siste. Chrome har fjernet <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> og <ph name="COUNT" /> til</translation>
 <translation id="7668816516367091728">Utfør oppgaver som oversetting, utregninger med mer – direkte fra adressefeltet</translation>
 <translation id="7670287553302121848">Chrome-kontoen krever ny autentisering</translation>
@@ -589,6 +592,7 @@ Tillatelser du allerede har gitt nettsteder og apper, kan gjelde for denne konto
 <translation id="8129812357326543296">Om &amp;Google Chrome</translation>
 <translation id="813913629614996137">Initialiserer …</translation>
 <translation id="8162006532256575008">Bruk Chrome uten noen konto</translation>
+<translation id="8221491193165283816">Du blokkerer vanligvis varsler. For å la dette nettstedet varsle deg, klikk her.</translation>
 <translation id="8255190535488645436">Google Chrome bruker kameraet og mikrofonen din.</translation>
 <translation id="8257796129973882597">Du kan åpne bokmerker, lesemodus med mer via Chrome-menyen</translation>
 <translation id="8267953129876836456">Chrome har noen sikkerhetsanbefalinger til deg</translation>
@@ -620,6 +624,7 @@ Tillatelser du allerede har gitt nettsteder og apper, kan gjelde for denne konto
 <translation id="852529348814672339">Vis Chrome på dette språket</translation>
 <translation id="8550334526674375523">Denne jobbprofilen er helt separat fra den personlige profilen din.</translation>
 <translation id="8555465886620020932">Tjenestefeil: ‏<ph name="SERVICE_ERROR" />.</translation>
+<translation id="856656450041460113">Søk på språklisten</translation>
 <translation id="8571790202382503603">Med Chrome-profiler kan du holde alle Chrome-tingene dine atskilt. Dette gjør det lettere å skille mellom arbeid og fritid.</translation>
 <translation id="8601359445272098721">Nyhet! Du kan oversette både tekst og bilder på skjermen ved å velge «Oversett skjermen»-knappen</translation>
 <translation id="8614913330719544658">Google Chrome svarer ikke. Vil du starte på nytt nå?</translation>

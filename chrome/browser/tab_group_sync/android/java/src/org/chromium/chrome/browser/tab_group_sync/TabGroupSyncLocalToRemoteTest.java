@@ -52,7 +52,6 @@ import java.util.List;
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @EnableFeatures({
     ChromeFeatureList.TAB_GROUP_SYNC_ANDROID,
-    ChromeFeatureList.TAB_GROUP_PARITY_ANDROID,
     ChromeFeatureList.TAB_GROUP_PANE_ANDROID
 })
 @Restriction({DeviceFormFactor.PHONE, Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE})
@@ -83,7 +82,7 @@ public class TabGroupSyncLocalToRemoteTest {
         String firstTabTitle = ChromeTabUtils.getTitleOnUiThread(firstTab);
         String firstTabUrl = ChromeTabUtils.getUrlStringOnUiThread(firstTab);
 
-        RegularNewTabPageStation secondPage = firstPage.openRegularTabAppMenu().openNewTab();
+        RegularNewTabPageStation secondPage = firstPage.openNewTabFast();
         Tab secondTab = secondPage.getLoadedTab();
         int secondTabId = secondTab.getId();
         String secondTabTitle = ChromeTabUtils.getTitleOnUiThread(secondTab);
@@ -96,7 +95,7 @@ public class TabGroupSyncLocalToRemoteTest {
 
         String title = "test_tab_group_name";
         NewTabGroupDialogFacility dialog =
-                editor.openAppMenuWithEditor().groupTabsWithParityEnabled();
+                editor.openAppMenuWithEditor().groupTabs();
         dialog = dialog.inputName(title);
         dialog = dialog.pickColor(TabGroupColorId.RED);
         dialog.pressDone();

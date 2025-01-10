@@ -51,8 +51,6 @@
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_link_item.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
-#import "ios/chrome/browser/signin/model/authentication_service.h"
-#import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/ui/scoped_ui_blocker/ui_blocker_manager.h"
@@ -106,8 +104,7 @@ UIImage* SymbolForItemType(ClearBrowsingDataItemType itemType) {
                                                   kSymbolPointSize);
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
   return symbol;
 }
@@ -116,7 +113,7 @@ UIImage* SymbolForItemType(ClearBrowsingDataItemType itemType) {
 // task to start.
 BOOL UIIsBlocking(Browser* browser) {
   SceneState* sceneState = browser->GetSceneState();
-  return [sceneState.uiBlockerManager currentUIBlocker];
+  return sceneState.isUIBlocked;
 }
 
 }  // namespace
@@ -678,8 +675,7 @@ BOOL UIIsBlocking(Browser* browser) {
     case ItemTypeDataTypeAutofill:
       return kClearAutofillCellAccessibilityIdentifier;
     default: {
-      NOTREACHED_IN_MIGRATION();
-      return nil;
+      NOTREACHED();
     }
   }
 }
@@ -760,9 +756,6 @@ BOOL UIIsBlocking(Browser* browser) {
     if (!showDialog) {
       return;
     }
-    UMA_HISTOGRAM_BOOLEAN(
-        "History.ClearBrowsingData.ShownHistoryNoticeAfterClearing",
-        showDialog);
 
     // Increment the preference.
     prefService->SetInteger(

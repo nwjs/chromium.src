@@ -285,6 +285,7 @@ apps::InstallSource GetInstallSource(
     case webapps::WebappInstallSource::PROFILE_MENU:
     case webapps::WebappInstallSource::ALMANAC_INSTALL_APP_URI:
     case webapps::WebappInstallSource::OOBE_APP_RECOMMENDATIONS:
+    case webapps::WebappInstallSource::WEB_INSTALL:
       return apps::InstallSource::kBrowser;
     case webapps::WebappInstallSource::ARC:
       return apps::InstallSource::kPlayStore;
@@ -299,8 +300,7 @@ apps::InstallSource GetInstallSource(
     case webapps::WebappInstallSource::WEBAPK_RESTORE:
       return apps::InstallSource::kSync;
     case webapps::WebappInstallSource::COUNT:
-      NOTREACHED_IN_MIGRATION();
-      return apps::InstallSource::kUnknown;
+      NOTREACHED();
   }
 }
 
@@ -1369,6 +1369,15 @@ void WebAppPublisherHelper::OnWebAppInstalled(const webapps::AppId& app_id) {
     app->icon_key->update_version = true;
     delegate_->PublishWebApp(std::move(app));
   }
+
+// Todo(b:372661290): Extract custom link preference handling into a new post
+// web app install hook.
+#if BUILDFLAG(IS_CHROMEOS)
+  if (ChromeOsWebAppExperiments::ShouldAddLinkPreference(app_id, profile_)) {
+    auto* proxy = apps::AppServiceProxyFactory::GetForProfile(profile_);
+    proxy->SetSupportedLinksPreference(app_id);
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
 void WebAppPublisherHelper::OnWebAppInstalledWithOsHooks(
@@ -1902,10 +1911,7 @@ void WebAppPublisherHelper::LaunchAppWithFilesCheckingUserPermission(
     case ApiApprovalState::kDisallowed:
       // We shouldn't have gotten this far (i.e. "open with" should not have
       // been selectable) if file handling was already disallowed for the app.
-      NOTREACHED_IN_MIGRATION();
-      std::move(launch_callback)
-          .Run(/*allowed=*/false, /*remember_user_choice=*/false);
-      break;
+      NOTREACHED();
   }
 }
 

@@ -10,11 +10,15 @@
 #import "base/types/cxx23_to_underlying.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/app/application_delegate/startup_information.h"
+#import "ios/chrome/app/deferred_initialization_queue.h"
+#import "ios/chrome/app/deferred_initialization_runner.h"
 #import "ios/chrome/app/profile/profile_state_agent.h"
 #import "ios/chrome/app/profile/profile_state_observer.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state_observer.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
+
+#pragma mark - ProfileStateObserverList
 
 // A sub-class of CRBProtocolObservers that declares it conforms to the
 // ProfileStateObserver protocol to please the compiler as it can't see
@@ -35,8 +39,18 @@
 
 @end
 
-@interface ProfileState () <SceneStateObserver>
+#pragma mark - UIBlockerManagerObserverList
 
+@interface UIBlockerManagerObservers
+    : CRBProtocolObservers <UIBlockerManagerObserver>
+@end
+
+@implementation UIBlockerManagerObservers
+@end
+
+#pragma mark - ProfileState
+
+@interface ProfileState () <SceneStateObserver>
 @end
 
 @implementation ProfileState {
@@ -50,6 +64,17 @@
 
   // Observers registered with this profile state.
   ProfileStateObserverList* _observers;
+
+  // The current blocker target if any.
+  id<UIBlockerTarget> _uiBlockerTarget;
+
+  // The counter of currently shown blocking UIs. Do not use this directly,
+  // instead use incrementBlockingUICounterForScene: and
+  // incrementBlockingUICounterForScene or the ScopedUIBlocker.
+  NSUInteger _blockingUICounter;
+
+  // Container for observers.
+  UIBlockerManagerObservers* _uiBlockerManagerObservers;
 }
 
 #pragma mark - NSObject
@@ -60,6 +85,10 @@
     _agents = [[NSMutableArray alloc] init];
     _connectedSceneStates = [[NSMutableArray alloc] init];
     _observers = [ProfileStateObserverList observers];
+    _uiBlockerManagerObservers = [UIBlockerManagerObservers
+        observersWithProtocol:@protocol(UIBlockerManagerObserver)];
+    _deferredRunner = [[DeferredInitializationRunner alloc]
+        initWithQueue:[DeferredInitializationQueue sharedInstance]];
   }
   return self;
 }
@@ -76,10 +105,6 @@
 }
 
 - (SceneState*)foregroundActiveScene {
-  if (_initStage < ProfileInitStage::kUIReady) {
-    return nil;
-  }
-
   for (SceneState* sceneState in _connectedSceneStates) {
     if (sceneState.activationLevel == SceneActivationLevelForegroundActive) {
       return sceneState;
@@ -90,18 +115,10 @@
 }
 
 - (NSArray<SceneState*>*)connectedScenes {
-  if (_initStage < ProfileInitStage::kUIReady) {
-    return nil;
-  }
-
   return [_connectedSceneStates copy];
 }
 
 - (NSArray<SceneState*>*)foregroundScenes {
-  if (_initStage < ProfileInitStage::kUIReady) {
-    return nil;
-  }
-
   NSMutableArray<SceneState*>* foregroundScenes = [[NSMutableArray alloc] init];
   for (SceneState* sceneState in _connectedSceneStates) {
     if (sceneState.activationLevel >= SceneActivationLevelForegroundInactive) {
@@ -139,19 +156,21 @@
   [_observers profileState:self
       didTransitionToInitStage:initStage
                  fromInitStage:fromStage];
-
-  if (initStage == ProfileInitStage::kUIReady) {
-    for (SceneState* sceneState in _connectedSceneStates) {
-      [_observers profileState:self sceneConnected:sceneState];
-      if (sceneState.activationLevel >= SceneActivationLevelForegroundActive) {
-        [_observers profileState:self sceneDidBecomeActive:sceneState];
-      }
-    }
-  }
 }
 
 - (id<StartupInformation>)startupInformation {
   return _appState.startupInformation;
+}
+
+- (void)setUiBlockerTarget:(id<UIBlockerTarget>)uiBlockerTarget {
+  _uiBlockerTarget = uiBlockerTarget;
+  for (SceneState* scene in _connectedSceneStates) {
+    // When there's a scene with blocking UI, all other scenes should show the
+    // overlay.
+    BOOL shouldPresentOverlay =
+        (uiBlockerTarget != nil) && (scene != uiBlockerTarget);
+    scene.presentingModalOverlay = shouldPresentOverlay;
+  }
 }
 
 #pragma mark - Public
@@ -195,9 +214,7 @@
 - (void)sceneStateConnected:(SceneState*)sceneState {
   [sceneState addObserver:self];
   [_connectedSceneStates addObject:sceneState];
-  if (_initStage >= ProfileInitStage::kUIReady) {
-    [_observers profileState:self sceneConnected:sceneState];
-  }
+  [_observers profileState:self sceneConnected:sceneState];
 }
 
 - (void)queueTransitionToNextInitStage {
@@ -231,9 +248,7 @@
       break;
 
     case SceneActivationLevelForegroundActive:
-      if (_initStage >= ProfileInitStage::kUIReady) {
-        [_observers profileState:self sceneDidBecomeActive:sceneState];
-      }
+      [_observers profileState:self sceneDidBecomeActive:sceneState];
       break;
   }
 }
@@ -244,6 +259,39 @@
     _firstSceneHasInitializedUI = YES;
     [_observers profileState:self firstSceneHasInitializedUI:sceneState];
   }
+}
+
+#pragma mark - UIBlockerManager
+
+- (void)incrementBlockingUICounterForTarget:(id<UIBlockerTarget>)target {
+  CHECK(_uiBlockerTarget == nil || target == _uiBlockerTarget)
+      << "Another scene is already showing a blocking UI!";
+  _blockingUICounter++;
+  [self setUiBlockerTarget:target];
+}
+
+- (void)decrementBlockingUICounterForTarget:(id<UIBlockerTarget>)target {
+  CHECK_GT(_blockingUICounter, 0u);
+  CHECK_EQ(_uiBlockerTarget, target);
+  if (--_blockingUICounter == 0) {
+    [self setUiBlockerTarget:nil];
+    [_uiBlockerManagerObservers currentUIBlockerRemoved];
+  }
+}
+
+- (id<UIBlockerTarget>)currentUIBlocker {
+  if (_appState.currentUIBlocker) {
+    return _appState.currentUIBlocker;
+  }
+  return _uiBlockerTarget;
+}
+
+- (void)addUIBlockerManagerObserver:(id<UIBlockerManagerObserver>)observer {
+  [_uiBlockerManagerObservers addObserver:observer];
+}
+
+- (void)removeUIBlockerManagerObserver:(id<UIBlockerManagerObserver>)observer {
+  [_uiBlockerManagerObservers removeObserver:observer];
 }
 
 @end

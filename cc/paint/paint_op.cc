@@ -10,7 +10,6 @@
 #include "cc/paint/paint_op.h"
 
 #include <algorithm>
-#include <iterator>
 #include <limits>
 #include <memory>
 #include <type_traits>
@@ -79,13 +78,13 @@ PaintFlags::FilterQuality sampling_to_quality(
 
 DrawImage CreateDrawImage(const PaintImage& image,
                           const PaintFlags* flags,
-                          const SkSamplingOptions& sampling,
+                          const PaintFlags::FilterQuality& quality,
                           const SkM44& matrix) {
   if (!image)
     return DrawImage();
   return DrawImage(image, flags->useDarkModeForImage(),
-                   SkIRect::MakeWH(image.width(), image.height()),
-                   sampling_to_quality(sampling), matrix);
+                   SkIRect::MakeWH(image.width(), image.height()), quality,
+                   matrix);
 }
 
 bool IsScaleAdjustmentIdentity(const SkSize& scale_adjustment) {
@@ -483,9 +482,9 @@ void DrawImageOp::Serialize(PaintOpWriter& writer,
   writer.Write(*flags_to_serialize, current_ctm);
 
   SkSize serialized_scale_adjustment = SkSize::Make(1.f, 1.f);
-  writer.Write(
-      CreateDrawImage(image, flags_to_serialize, sampling, current_ctm),
-      &serialized_scale_adjustment);
+  writer.Write(CreateDrawImage(image, flags_to_serialize, GetImageQuality(),
+                               current_ctm),
+               &serialized_scale_adjustment);
   writer.Write(serialized_scale_adjustment.width());
   writer.Write(serialized_scale_adjustment.height());
 
@@ -505,8 +504,9 @@ void DrawImageRectOp::Serialize(PaintOpWriter& writer,
   // Note that we don't request subsets here since the GpuImageCache has no
   // optimizations for using subsets.
   SkSize serialized_scale_adjustment = SkSize::Make(1.f, 1.f);
-  writer.Write(CreateDrawImage(image, flags_to_serialize, sampling, matrix),
-               &serialized_scale_adjustment);
+  writer.Write(
+      CreateDrawImage(image, flags_to_serialize, GetImageQuality(), matrix),
+      &serialized_scale_adjustment);
   writer.Write(serialized_scale_adjustment.width());
   writer.Write(serialized_scale_adjustment.height());
 
@@ -1293,10 +1293,33 @@ void DrawImageOp::RasterWithFlags(const DrawImageOp* op,
     return;
   }
 
+  if (op->image.IsDeferredPaintRecord()) {
+    ImageProvider::ScopedResult result =
+        params.image_provider->GetRasterContent(DrawImage(op->image));
+
+    // Check that we are not using loopers with paint worklets, since converting
+    // PaintFlags to SkPaint drops loopers.
+    DCHECK(!flags->getLooper());
+
+    DCHECK(IsScaleAdjustmentIdentity(op->scale_adjustment));
+    SkAutoCanvasRestore save_restore(canvas, true);
+    canvas->translate(op->left, op->top);
+
+    // Compositor thread animations can cause PaintWorklet jobs to be dispatched
+    // to the worklet thread even after main has torn down the worklet (e.g.
+    // because a navigation is happening). In that case the PaintWorklet jobs
+    // will fail and there will be no result to raster here. This state is
+    // transient as the next main frame commit will remove the PaintWorklets.
+    if (result && result.has_paint_record()) {
+      result.ReleaseAsRecord().Playback(canvas, params);
+    }
+    return;
+  }
+
   // Dark mode is applied only for OOP raster during serialization.
-  DrawImage draw_image(
-      op->image, false, SkIRect::MakeWH(op->image.width(), op->image.height()),
-      sampling_to_quality(op->sampling), canvas->getLocalToDevice());
+  DrawImage draw_image(op->image, false,
+                       SkIRect::MakeWH(op->image.width(), op->image.height()),
+                       op->GetImageQuality(), canvas->getLocalToDevice());
   auto scoped_result = params.image_provider->GetRasterContent(draw_image);
   if (!scoped_result)
     return;
@@ -1424,8 +1447,8 @@ void DrawImageRectOp::RasterWithFlags(const DrawImageRectOp* op,
   op->src.roundOut(&int_src_rect);
 
   // Dark mode is applied only for OOP raster during serialization.
-  DrawImage draw_image(op->image, false, int_src_rect,
-                       sampling_to_quality(op->sampling), matrix);
+  DrawImage draw_image(op->image, false, int_src_rect, op->GetImageQuality(),
+                       matrix);
   auto scoped_result = params.image_provider->GetRasterContent(draw_image);
   if (!scoped_result)
     return;
@@ -1498,16 +1521,34 @@ void DrawArcImpl(SkCanvas* canvas,
     return;
   }
 
-  if (SkScalarNearlyEqual(std::abs(sweep_angle_degrees), 360)) {
-    // Closed ellipses can be rendered using drawOval.
-    canvas->drawOval(oval, paint);
-  } else {
+  SkScalar s180 = SkIntToScalar(180);
+  SkPath path;
+  if (SkScalarNearlyEqual(sweep_angle_degrees, SkIntToScalar(360))) {
+    // incReserve() results in a single allocation instead of multiple as is
+    // done by multiple calls to arcTo().
+    path.incReserve(10, 5, 4);
+    // SkPath::arcTo can't handle the sweepAngle that is equal to 2Pi.
+    path.arcTo(oval, start_angle_degrees, s180, false);
+    path.arcTo(oval, start_angle_degrees + s180, s180, false);
+    path.close();
+    canvas->drawPath(path, paint);
+    return;
+  }
+  if (SkScalarNearlyEqual(sweep_angle_degrees, SkIntToScalar(-360))) {
+    // incReserve() results in a single allocation instead of multiple as is
+    // done by multiple calls to arcTo().
+    path.incReserve(10, 5, 4);
+    // SkPath::arcTo can't handle the sweepAngle that is equal to 2Pi.
+    path.arcTo(oval, start_angle_degrees, -s180, false);
+    path.arcTo(oval, start_angle_degrees - s180, -s180, false);
+    path.close();
+    canvas->drawPath(path, paint);
+    return;
+  }
     // Closed partial arcs -> general SkPath.
-    SkPath path;
     path.arcTo(oval, start_angle_degrees, sweep_angle_degrees, false);
     path.close();
     canvas->drawPath(path, paint);
-  }
 }
 
 void DrawArcOp::RasterWithFlags(const DrawArcOp* op,
@@ -2468,6 +2509,10 @@ bool DrawImageOp::HasDiscardableImages(
   return IsDiscardableImage(image, content_color_usage);
 }
 
+PaintFlags::FilterQuality DrawImageOp::GetImageQuality() const {
+  return sampling_to_quality(sampling);
+}
+
 DrawImageOp::~DrawImageOp() = default;
 
 DrawImageRectOp::DrawImageRectOp() : PaintOpWithFlags(kType) {}
@@ -2498,6 +2543,10 @@ DrawImageRectOp::DrawImageRectOp(const PaintImage& image,
 bool DrawImageRectOp::HasDiscardableImages(
     gfx::ContentColorUsage* content_color_usage) const {
   return IsDiscardableImage(image, content_color_usage);
+}
+
+PaintFlags::FilterQuality DrawImageRectOp::GetImageQuality() const {
+  return sampling_to_quality(sampling);
 }
 
 DrawImageRectOp::~DrawImageRectOp() = default;
@@ -2606,11 +2655,10 @@ DrawSlugOp::DrawSlugOp(sk_sp<sktext::gpu::Slug> slug, const PaintFlags& flags)
 
 DrawSlugOp::~DrawSlugOp() = default;
 
-SaveLayerFiltersOp::SaveLayerFiltersOp(base::span<sk_sp<PaintFilter>> filters,
-                                       const PaintFlags& flags)
-    : PaintOpWithFlags(kType, flags),
-      filters(std::make_move_iterator(filters.begin()),
-              std::make_move_iterator(filters.end())) {}
+SaveLayerFiltersOp::SaveLayerFiltersOp(
+    base::span<const sk_sp<PaintFilter>> filters,
+    const PaintFlags& flags)
+    : PaintOpWithFlags(kType, flags), filters(filters.begin(), filters.end()) {}
 
 SaveLayerFiltersOp::SaveLayerFiltersOp() : PaintOpWithFlags(kType) {}
 

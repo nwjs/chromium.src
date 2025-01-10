@@ -23,8 +23,8 @@ class ComputedStyle;
 class ContainerQuery;
 class Element;
 class MatchResult;
+class ScrollStateQuerySnapshot;
 class SnappedQueryScrollSnapshot;
-class StuckQueryScrollSnapshot;
 class StyleRecalcContext;
 
 class CORE_EXPORT ContainerQueryEvaluator final
@@ -59,11 +59,13 @@ class CORE_EXPORT ContainerQueryEvaluator final
   std::optional<double> Height() const;
   void SetReferencedByUnit() { referenced_by_unit_ = true; }
   bool DependsOnStyle() const { return depends_on_style_; }
-  bool DependsOnStuck() const { return depends_on_snapped_; }
+  bool DependsOnStuck() const { return depends_on_stuck_; }
   bool DependsOnSnapped() const { return depends_on_snapped_; }
+  bool DependsOnOverflowing() const { return depends_on_overflowing_; }
   bool DependsOnSize() const { return depends_on_size_; }
   bool MayDependOnWritingDirection() const {
-    return DependsOnSize() || DependsOnStuck() || DependsOnSnapped();
+    return DependsOnSize() || DependsOnStuck() || DependsOnSnapped() ||
+           DependsOnOverflowing();
   }
 
   enum class Change : uint8_t {
@@ -89,7 +91,7 @@ class CORE_EXPORT ContainerQueryEvaluator final
   // To be called during style recalc to make any necessary invalidation of
   // container queries based on computed style changes on the container.
   // style_changed is true if there is a diff between old_style and new_style.
-  StyleRecalcChange ApplyStateAndStyleChanges(
+  StyleRecalcChange ApplyScrollStateAndStyleChanges(
       const StyleRecalcChange& child_change,
       const ComputedStyle& old_style,
       const ComputedStyle& new_style,
@@ -142,6 +144,11 @@ class CORE_EXPORT ContainerQueryEvaluator final
   // Update the CSSContainerValues with the new stuck state.
   void UpdateContainerSnapped(ContainerSnappedFlags snapped);
 
+  // Update the CSSContainerValues with the new overflowing state.
+  void UpdateContainerOverflowing(
+      ContainerOverflowingFlags overflowing_horizontal,
+      ContainerOverflowingFlags overflowing_vertical);
+
   // Re-evaluate the cached results and clear any results which are affected by
   // the ContainerStuckPhysical changes.
   Change StickyContainerChanged(ContainerStuckPhysical stuck_horizontal,
@@ -151,11 +158,18 @@ class CORE_EXPORT ContainerQueryEvaluator final
   // the snapped target changes.
   Change SnapContainerChanged(ContainerSnappedFlags snapped);
 
+  // Re-evaluate the cached results and clear any results which are affected by
+  // the snapped target changes.
+  Change OverflowContainerChanged(
+      ContainerOverflowingFlags overflowing_horizontal,
+      ContainerOverflowingFlags overflowing_vertical);
+
   enum ContainerType {
     kSizeContainer,
     kStyleContainer,
     kStickyContainer,
-    kSnapContainer
+    kSnapContainer,
+    kOverflowContainer,
   };
   void ClearResults(Change change, ContainerType container_type);
 
@@ -166,8 +180,18 @@ class CORE_EXPORT ContainerQueryEvaluator final
   // Re-evaluate cached query results after a style change and return which
   // elements need to be invalidated if necessary.
   Change ComputeStyleChange() const;
+
+  // Re-evaluate cached query results after a stuck state change and return
+  // which elements need to be invalidated if necessary.
   Change ComputeStickyChange() const;
+
+  // Re-evaluate cached query results after a snapped state change and return
+  // which elements need to be invalidated if necessary.
   Change ComputeSnapChange() const;
+
+  // Re-evaluate cached query results after a overflowing state change and
+  // return which elements need to be invalidated if necessary.
+  Change ComputeOverflowChange() const;
 
   struct Result {
     // Main evaluation result.
@@ -198,8 +222,12 @@ class CORE_EXPORT ContainerQueryEvaluator final
       static_cast<ContainerSnappedFlags>(ContainerSnapped::kNone);
   ContainerSnappedFlags pending_snapped_ =
       static_cast<ContainerSnappedFlags>(ContainerSnapped::kNone);
+  ContainerOverflowingFlags overflowing_horizontal_ =
+      static_cast<ContainerOverflowingFlags>(ContainerOverflowing::kNone);
+  ContainerOverflowingFlags overflowing_vertical_ =
+      static_cast<ContainerOverflowingFlags>(ContainerOverflowing::kNone);
   HeapHashMap<Member<const ContainerQuery>, Result> results_;
-  Member<StuckQueryScrollSnapshot> stuck_snapshot_;
+  Member<ScrollStateQuerySnapshot> scroll_state_snapshot_;
   // The MediaQueryExpValue::UnitFlags of all queries evaluated against this
   // ContainerQueryEvaluator.
   unsigned unit_flags_ = 0;
@@ -207,6 +235,7 @@ class CORE_EXPORT ContainerQueryEvaluator final
   bool depends_on_style_ = false;
   bool depends_on_stuck_ = false;
   bool depends_on_snapped_ = false;
+  bool depends_on_overflowing_ = false;
   bool depends_on_size_ = false;
 };
 

@@ -19,9 +19,28 @@ class TimeDelta;
 // Set Up List, and video promos.
 BASE_DECLARE_FEATURE(kSegmentedDefaultBrowserPromo);
 
+// Name of the parameter that controls the experiment type for the Segmented
+// Default Browser promo, determining whether or not the Default Browser promo
+// is animated.
+extern const char kSegmentedDefaultBrowserExperimentType[];
+
+// Defines the different experiment arms for the Segmented Default Browser
+// promo, which determine if the Default Browser promo is animated.
+enum class SegmentedDefaultBrowserExperimentType {
+  // The experiment arm that shows the static Default Browser promo.
+  kStaticPromo = 0,
+  // The experiment arm that show the animated Default Browser promo.
+  kAnimatedPromo = 1,
+};
+
 // Whether personalized messaging for Default Browser First Run, Set Up List,
 // and video promos is enabled.
 bool IsSegmentedDefaultBrowserPromoEnabled();
+
+// Returns the experiment type for the Segmented Default Browser promo, which
+// determines whether or not the promo is animated.
+SegmentedDefaultBrowserExperimentType
+SegmentedDefaultBrowserExperimentTypeEnabled();
 
 // Feature flag to enable the Keyboard Accessory Upgrade.
 BASE_DECLARE_FEATURE(kIOSKeyboardAccessoryUpgrade);
@@ -263,16 +282,6 @@ const base::TimeDelta InactiveThresholdForNewUsersUntilDockingPromoShown();
 // Promo to old users.
 const base::TimeDelta InactiveThresholdForOldUsersUntilDockingPromoShown();
 
-// Feature flag to enable the non-modal DB promo cooldown refactor separating
-// the cooldown periods for full screen and non-modal promos, as well as
-// Finchable cooldown period for non-modal promos.
-BASE_DECLARE_FEATURE(kNonModalDefaultBrowserPromoCooldownRefactor);
-
-// The default param value for the non-modal promo cooldown period, in days,
-// overridable through Finch.
-extern const base::FeatureParam<int>
-    kNonModalDefaultBrowserPromoCooldownRefactorParam;
-
 // Feature flag to hide search web in the edit menu.
 BASE_DECLARE_FEATURE(kIOSEditMenuHideSearchWeb);
 
@@ -299,14 +308,20 @@ BASE_DECLARE_FEATURE(kEnableLensInOmniboxCopiedImage);
 BASE_DECLARE_FEATURE(kEnableLensOverlay);
 extern const base::NotFatalUntil kLensOverlayNotFatalUntil;
 
+// Feature flag to enable the Lens overlay location bar entrypoint. Enabled by
+// default.
+BASE_DECLARE_FEATURE(kLensOverlayEnableLocationBarEntrypoint);
+
 // Feature flag to disable price insights for a lens overlay experiment. As the
 // price insights entrypoint trumps the lens overlay entrypoint. This flag
 // should only be used for experiment.
 BASE_DECLARE_FEATURE(kLensOverlayDisablePriceInsights);
 
-// Feature flag to enable the Lens overlay location bar entrypoint. Enabled by
-// default.
-BASE_DECLARE_FEATURE(kLensOverlayEnableLocationBarEntrypoint);
+// Feature to force allow iPad support of lens overlay.
+BASE_DECLARE_FEATURE(kLensOverlayEnableIPadCompatibility);
+
+// Feature to open lens overlay navigation in the same tab.
+BASE_DECLARE_FEATURE(kLensOverlayEnableSameTabNavigation);
 
 // Feature to enable force showing the lens overlay onboarding screen.
 BASE_DECLARE_FEATURE(kLensOverlayForceShowOnboardingScreen);
@@ -818,9 +833,6 @@ extern const char kIOSTipsNotificationsDismissLimitParam[];
 // Helper for whether Tips Notifications are enabled.
 bool IsIOSTipsNotificationsEnabled();
 
-// Feature flag to disable fullscreen scrolling logic.
-BASE_DECLARE_FEATURE(kDisableFullscreenScrolling);
-
 // Convenience method for determining if Pinned Tabs is enabled.
 // The Pinned Tabs feature is fully enabled on iPhone and disabled on iPad.
 bool IsPinnedTabsEnabled();
@@ -830,12 +842,6 @@ BASE_DECLARE_FEATURE(kSegmentationPlatformIosModuleRankerCaching);
 
 // Whether the Segmentation Tips Manager is enabled for Chrome iOS.
 bool IsSegmentationTipsManagerEnabled();
-
-// Feature flag for default browser promo experimental string for iPad.
-BASE_DECLARE_FEATURE(kDefaultBrowserPromoIPadExperimentalString);
-
-// Returns `YES` if the title and subtitle should be tailored for iPad.
-BOOL UseIPadTailoredStringForDefaultBrowserPromo();
 
 // Flag to not keep a strong reference to the spotlight index, as a tentative
 // memory improvement measure.
@@ -908,9 +914,56 @@ BASE_DECLARE_FEATURE(kBlueDotOnToolsMenuButton);
 bool IsBlueDotOnToolsMenuButtoneEnabled();
 
 // Feature flag to assign each managed account to its own separate profile.
+// DO NOT CHECK DIRECTLY, use AreSeparateProfilesForManagedAccountsEnabled()!
 BASE_DECLARE_FEATURE(kSeparateProfilesForManagedAccounts);
+
+// Returns whether the feature to put each managed account into its own separate
+// profile is enabled. This is the case if `kSeparateProfilesForManagedAccounts`
+// is enabled *and* the iOS version is >= 17 (required for multiprofile).
+bool AreSeparateProfilesForManagedAccountsEnabled();
 
 // Feature to control resyncing the omaha ping timer on foregrounding.
 BASE_DECLARE_FEATURE(kOmahaResyncTimerOnForeground);
+
+// Feature to support post-profile switch actions support.
+BASE_DECLARE_FEATURE(kPostProfileSwitchActions);
+
+// Feature flag to use the async version of the chrome startup method.
+BASE_DECLARE_FEATURE(kChromeStartupParametersAsync);
+
+// Feature flag to enable Reactivation Notifications.
+BASE_DECLARE_FEATURE(kIOSReactivationNotifications);
+
+// Feature param to specify how much time should elapse before a Reactivation
+// notification should trigger.
+extern const char kIOSReactivationNotificationsTriggerTimeParam[];
+
+// Returns whether `kIOSReactivationNotifications` is enabled.
+bool IsIOSReactivationNotificationsEnabled();
+
+// Feature flag to show an alert to the user when only provisiona notifications
+// are allowed.
+BASE_DECLARE_FEATURE(kProvisionalNotificationAlert);
+
+// Returns whether `kIOSReactivationNotifications` is enabled.
+bool IsProvisionalNotificationAlertEnabled();
+
+// Feature and parameters for the feed positioning experiment, which will
+// determine two things: 1) whether the MVT should be combined with the magic
+// stack 2) whether homestack should be enabled.
+BASE_DECLARE_FEATURE(kNewFeedPositioning);
+extern const char kNewFeedPositioningCombinedMVTForHighEngaged[];
+extern const char kNewFeedPositioningCombinedMVTForMidEngaged[];
+extern const char kNewFeedPositioningCombinedMVTForLowEngaged[];
+extern const char kNewFeedPositioningHomestackOnForAll[];
+
+// Returns whether homestack should be enabled.
+bool ShouldEnableHomestack();
+
+// Feature flag to control whether the Default Browser banner promo is enabled.
+BASE_DECLARE_FEATURE(kDefaultBrowserBannerPromo);
+
+// Returns whether `kDefaultBrowserBannerPromo` is enabled.
+bool IsDefaultBrowserBannerPromoEnabled();
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

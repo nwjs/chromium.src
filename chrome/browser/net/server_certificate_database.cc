@@ -145,6 +145,29 @@ ServerCertificateDatabase::RetrieveAllCertificates() {
   return certs;
 }
 
+uint32_t ServerCertificateDatabase::RetrieveCertificatesCount() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  static constexpr char kSqlSelectCertsCount[] =
+      "SELECT COUNT(*) FROM certificates";
+  sql::Statement statement(
+      db_.GetCachedStatement(SQL_FROM_HERE, kSqlSelectCertsCount));
+  DCHECK(statement.is_valid());
+  if (!statement.Step()) {
+    return 0;
+  }
+  return statement.ColumnInt(0);
+}
+
+bool ServerCertificateDatabase::DeleteCertificate(
+    const std::string& sha256hash_hex) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  sql::Statement delete_statement(db_.GetCachedStatement(
+      SQL_FROM_HERE, "DELETE FROM certificates WHERE sha256hash_hex=?"));
+  DCHECK(delete_statement.is_valid());
+  delete_statement.BindString(0, sha256hash_hex);
+  return delete_statement.Run() && db_.GetLastChangeCount() > 0;
+}
+
 ServerCertificateDatabase::CertInformation::CertInformation() = default;
 ServerCertificateDatabase::CertInformation::~CertInformation() = default;
 ServerCertificateDatabase::CertInformation::CertInformation(

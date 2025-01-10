@@ -148,23 +148,7 @@ BrowserAccessibilityAndroid::GetLocalizedStringForImageAnnotationStatus(
         status);
   }
 
-  int message_id = 0;
-  switch (static_cast<ax::mojom::WritingDirection>(
-      GetIntAttribute(ax::mojom::IntAttribute::kTextDirection))) {
-    case ax::mojom::WritingDirection::kRtl:
-      message_id = IDS_AX_IMAGE_ELIGIBLE_FOR_ANNOTATION_ANDROID_RTL;
-      break;
-    case ax::mojom::WritingDirection::kTtb:
-    case ax::mojom::WritingDirection::kBtt:
-    case ax::mojom::WritingDirection::kNone:
-    case ax::mojom::WritingDirection::kLtr:
-      message_id = IDS_AX_IMAGE_ELIGIBLE_FOR_ANNOTATION_ANDROID_LTR;
-      break;
-  }
-
-  DCHECK(message_id);
-
-  return GetLocalizedString(message_id);
+  return GetLocalizedString(IDS_AX_IMAGE_ELIGIBLE_FOR_ANNOTATION_ANDROID);
 }
 
 void BrowserAccessibilityAndroid::AppendTextToString(
@@ -284,8 +268,7 @@ bool BrowserAccessibilityAndroid::IsEnabled() const {
       return false;
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return true;
+  NOTREACHED();
 }
 
 bool BrowserAccessibilityAndroid::IsExpanded() const {
@@ -729,7 +712,7 @@ std::u16string BrowserAccessibilityAndroid::GetSubstringTextContentUTF16(
   // First, always return the |value| attribute if this is an
   // input field.
   std::u16string value = GetValueForControl();
-  if (ShouldExposeValueAsName()) {
+  if (ShouldExposeValueAsName(value)) {
     return value;
   }
 
@@ -875,7 +858,7 @@ std::u16string BrowserAccessibilityAndroid::GetHint() const {
 
   // If we're returning the value as the main text, the name needs to be
   // part of the hint.
-  if (ShouldExposeValueAsName()) {
+  if (ShouldExposeValueAsName(GetValueForControl())) {
     std::u16string name = GetNameAsString16();
     if (!name.empty()) {
       strings.push_back(name);
@@ -1510,7 +1493,7 @@ bool BrowserAccessibilityAndroid::Scroll(int direction,
       x = std::clamp(x_initial + page_x, x_min, x_max);
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
 
   manager()->SetScrollOffset(*this, gfx::Point(x, y));
@@ -1784,7 +1767,7 @@ void BrowserAccessibilityAndroid::GetGranularityBoundaries(
       GetWordBoundaries(starts, ends, offset);
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
 }
 
@@ -2061,7 +2044,8 @@ bool BrowserAccessibilityAndroid::HasListMarkerChild() const {
   return false;
 }
 
-bool BrowserAccessibilityAndroid::ShouldExposeValueAsName() const {
+bool BrowserAccessibilityAndroid::ShouldExposeValueAsName(
+    const std::u16string& value) const {
   switch (GetRole()) {
     case ax::mojom::Role::kDate:
     case ax::mojom::Role::kDateTime:
@@ -2075,6 +2059,8 @@ bool BrowserAccessibilityAndroid::ShouldExposeValueAsName() const {
 
   if (GetData().IsRangeValueSupported()) {
     return false;
+  } else if (!value.empty()) {
+    return true;
   }
 
   if (IsTextField()) {

@@ -29,6 +29,7 @@ import org.chromium.base.Log;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.cc.input.BrowserControlsState;
 import org.chromium.chrome.browser.back_press.BackPressMetrics;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.gesturenav.BackActionDelegate.ActionType;
 import org.chromium.chrome.browser.gesturenav.NavigationBubble.CloseTarget;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
@@ -76,6 +77,14 @@ class NavigationHandler implements TouchEventObserver {
         int SHOW_ARROW = 1;
         int RELEASE_BUBBLE = 2;
         int RESET_BUBBLE = 3;
+    }
+
+    @IntDef({GestureEndState.INVOKE, GestureEndState.CANCEL, GestureEndState.RESET})
+    @Retention(RetentionPolicy.SOURCE)
+    @interface GestureEndState {
+        int INVOKE = 1;
+        int CANCEL = 2;
+        int RESET = 3;
     }
 
     @IntDef({
@@ -170,7 +179,11 @@ class NavigationHandler implements TouchEventObserver {
 
     void setTab(Tab tab) {
         if (mTab != null) mTab.removeObserver(mTabObserver);
-        mBackGestureForTabHistoryInProgress = false;
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.BACK_FORWARD_TRANSITIONS)) {
+            onGestureEnd(GestureEndState.RESET);
+        } else {
+            mBackGestureForTabHistoryInProgress = false;
+        }
         mTab = tab;
         if (tab != null) tab.addObserver(mTabObserver);
     }
@@ -371,6 +384,27 @@ class NavigationHandler implements TouchEventObserver {
      * @see {@link HistoryNavigationCoordinator#release(boolean)}
      */
     void release(boolean allowNav) {
+        onGestureEnd(allowNav ? GestureEndState.INVOKE : GestureEndState.CANCEL);
+    }
+
+    /**
+     * @see {@link HistoryNavigationCoordinator#reset()}
+     */
+    void reset() {
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.BACK_FORWARD_TRANSITIONS)) {
+            onGestureEnd(GestureEndState.RESET);
+        } else {
+            if (mState == GestureState.DRAGGED) {
+                mModel.set(ACTION, GestureAction.RESET_BUBBLE);
+            }
+            mState = GestureState.NONE;
+            mTriggerUiCallSource = TriggerUiCallSource.NO_TRIGGER;
+            mPullOffsetX = 0.f;
+        }
+    }
+
+    private void onGestureEnd(@GestureEndState int endState) {
+        boolean allowNav = endState == GestureEndState.INVOKE;
         // If the back gesture will update history, record the metrics.
         if (mBackGestureForTabHistoryInProgress) {
             BackPressMetrics.recordNavStatusDuringGesture(
@@ -381,9 +415,14 @@ class NavigationHandler implements TouchEventObserver {
         mStartNavDuringOngoingGesture = false;
         mModel.set(ALLOW_NAV, allowNav);
         if (mState == GestureState.DRAGGED) {
-            mModel.set(ACTION, GestureAction.RELEASE_BUBBLE);
+            if (endState == GestureEndState.RESET) {
+                mModel.set(ACTION, GestureAction.RESET_BUBBLE);
+            } else {
+                mModel.set(ACTION, GestureAction.RELEASE_BUBBLE);
+            }
         }
         mPullOffsetX = 0.f;
+        mState = GestureState.NONE;
         if (mTabOnBackGestureHandler != null) {
             if (allowNav && mWillNavigateSupplier.get()) {
                 mTabOnBackGestureHandler.onBackInvoked(false);
@@ -393,18 +432,6 @@ class NavigationHandler implements TouchEventObserver {
             mTabOnBackGestureHandler = null;
         }
         mTriggerUiCallSource = TriggerUiCallSource.NO_TRIGGER;
-    }
-
-    /**
-     * @see {@link HistoryNavigationCoordinator#reset()}
-     */
-    void reset() {
-        if (mState == GestureState.DRAGGED) {
-            mModel.set(ACTION, GestureAction.RESET_BUBBLE);
-        }
-        mState = GestureState.NONE;
-        mTriggerUiCallSource = TriggerUiCallSource.NO_TRIGGER;
-        mPullOffsetX = 0.f;
     }
 
     /**

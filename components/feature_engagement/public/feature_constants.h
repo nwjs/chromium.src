@@ -59,6 +59,7 @@ BASE_DECLARE_FEATURE(kIPHPasswordsManagementBubbleDuringSigninFeature);
 BASE_DECLARE_FEATURE(kIPHPasswordsWebAppProfileSwitchFeature);
 BASE_DECLARE_FEATURE(kIPHPasswordManagerShortcutFeature);
 BASE_DECLARE_FEATURE(kIPHPasswordSharingFeature);
+BASE_DECLARE_FEATURE(kIPHPdfSearchifyFeature);
 BASE_DECLARE_FEATURE(kIPHPerformanceInterventionDialogFeature);
 BASE_DECLARE_FEATURE(kIPHPlusAddressFirstSaveFeature);
 BASE_DECLARE_FEATURE(kIPHPowerBookmarksSidePanelFeature);
@@ -76,6 +77,7 @@ BASE_DECLARE_FEATURE(kIPHSidePanelLensOverlayPinnableFollowupFeature);
 BASE_DECLARE_FEATURE(kIPHSideSearchAutoTriggeringFeature);
 BASE_DECLARE_FEATURE(kIPHSideSearchPageActionLabelFeature);
 BASE_DECLARE_FEATURE(kIPHSignoutWebInterceptFeature);
+BASE_DECLARE_FEATURE(kIPHPwaQuietNotificationFeature);
 BASE_DECLARE_FEATURE(kIPHTabGroupsSaveV2IntroFeature);
 BASE_DECLARE_FEATURE(kIPHTabGroupsSaveV2CloseGroupFeature);
 BASE_DECLARE_FEATURE(kIPHTabOrganizationSuccessFeature);
@@ -160,8 +162,6 @@ BASE_DECLARE_FEATURE(kIPHRequestDesktopSiteExceptionsGenericFeature);
 BASE_DECLARE_FEATURE(kIPHRequestDesktopSiteWindowSettingFeature);
 BASE_DECLARE_FEATURE(kIPHShoppingListMenuItemFeature);
 BASE_DECLARE_FEATURE(kIPHShoppingListSaveFlowFeature);
-BASE_DECLARE_FEATURE(kIPHTabGroupsQuicklyComparePagesFeature);
-BASE_DECLARE_FEATURE(kIPHTabGroupsTapToSeeAnotherTabFeature);
 BASE_DECLARE_FEATURE(kIPHTabGroupCreationDialogSyncTextFeature);
 BASE_DECLARE_FEATURE(kIPHTabGroupSyncOnStripFeature);
 BASE_DECLARE_FEATURE(kIPHTabGroupsDragAndDropFeature);
@@ -267,6 +267,7 @@ BASE_DECLARE_FEATURE(kIPHAutofillDisabledVirtualCardSuggestionFeature);
 BASE_DECLARE_FEATURE(kIPHAutofillExternalAccountProfileSuggestionFeature);
 BASE_DECLARE_FEATURE(kIPHAutofillManualFallbackFeature);
 BASE_DECLARE_FEATURE(kIPHAutofillPredictionImprovementsFeature);
+BASE_DECLARE_FEATURE(kIPHAutofillPredictionImprovementsBootstrappingFeature);
 BASE_DECLARE_FEATURE(kIPHAutofillVirtualCardCVCSuggestionFeature);
 BASE_DECLARE_FEATURE(kIPHAutofillVirtualCardSuggestionFeature);
 BASE_DECLARE_FEATURE(kIPHCookieControlsFeature);
@@ -315,6 +316,7 @@ BASE_DECLARE_FEATURE(kIPHScalableIphGamingFeature);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 BASE_DECLARE_FEATURE(kIPHDesktopPWAsLinkCapturingLaunch);
+BASE_DECLARE_FEATURE(kIPHDesktopPWAsLinkCapturingLaunchAppInTab);
 BASE_DECLARE_FEATURE(kIPHToolbarManagementButtonFeature);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 

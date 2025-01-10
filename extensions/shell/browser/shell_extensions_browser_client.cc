@@ -95,21 +95,18 @@ BrowserContext* ShellExtensionsBrowserClient::GetOriginalContext(
 
 content::BrowserContext*
 ShellExtensionsBrowserClient::GetContextRedirectedToOriginal(
-    content::BrowserContext* context,
-    bool force_guest_profile) {
+    content::BrowserContext* context) {
   return context;
 }
 
 content::BrowserContext* ShellExtensionsBrowserClient::GetContextOwnInstance(
-    content::BrowserContext* context,
-    bool force_guest_profile) {
+    content::BrowserContext* context) {
   return context;
 }
 
 content::BrowserContext*
 ShellExtensionsBrowserClient::GetContextForOriginalOnly(
-    content::BrowserContext* context,
-    bool force_guest_profile) {
+    content::BrowserContext* context) {
   return context;
 }
 
@@ -159,7 +156,7 @@ void ShellExtensionsBrowserClient::LoadResourceFromResourceBundle(
     int resource_id,
     scoped_refptr<net::HttpResponseHeaders> headers,
     mojo::PendingRemote<network::mojom::URLLoaderClient> client) {
-  NOTREACHED_IN_MIGRATION() << "Load resources from bundles not supported.";
+  NOTREACHED() << "Load resources from bundles not supported.";
 }
 
 bool ShellExtensionsBrowserClient::AllowCrossRendererResourceLoad(

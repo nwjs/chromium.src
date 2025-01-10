@@ -113,7 +113,6 @@
 #include "ash/metrics/user_metrics_recorder.h"
 #include "ash/multi_capture/multi_capture_service_client.h"
 #include "ash/multi_device_setup/multi_device_notification_presenter.h"
-#include "ash/picker/picker_controller.h"
 #include "ash/policy/policy_recommendation_restorer.h"
 #include "ash/projector/projector_controller_impl.h"
 #include "ash/public/cpp/accelerator_keycode_lookup_cache.h"
@@ -129,6 +128,7 @@
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/cpp/tab_cluster/tab_cluster_ui_controller.h"
 #include "ash/public/cpp/views_text_services_context_menu_ash.h"
+#include "ash/quick_insert/quick_insert_controller.h"
 #include "ash/quick_pair/keyed_service/quick_pair_mediator.h"
 #include "ash/rgb_keyboard/rgb_keyboard_manager.h"
 #include "ash/root_window_controller.h"
@@ -207,7 +207,6 @@
 #include "ash/system/video_conference/fake_video_conference_tray_controller.h"
 #include "ash/touch/ash_touch_transform_controller.h"
 #include "ash/touch/touch_devices_controller.h"
-#include "ash/tray_action/tray_action.h"
 #include "ash/user_education/user_education_controller.h"
 #include "ash/user_education/user_education_delegate.h"
 #include "ash/utility/occlusion_tracker_pauser.h"
@@ -703,7 +702,11 @@ Shell::Shell(std::unique_ptr<ShellDelegate> shell_delegate)
       locale_update_controller_(std::make_unique<LocaleUpdateControllerImpl>()),
       parent_access_controller_(std::make_unique<ParentAccessControllerImpl>()),
       local_authentication_request_controller_(
-          std::make_unique<LocalAuthenticationRequestControllerImpl>()),
+          features::IsLocalAuthenticationWithPinEnabled()
+              ? std::unique_ptr<LocalAuthenticationRequestController>(
+                    new LocalAuthenticationWithPinControllerImpl())
+              : std::unique_ptr<LocalAuthenticationRequestController>(
+                    new LocalAuthenticationRequestControllerImpl())),
       active_session_auth_controller_(
           std::make_unique<ActiveSessionAuthControllerImpl>()),
       session_controller_(std::make_unique<SessionControllerImpl>()),
@@ -826,7 +829,7 @@ Shell::~Shell() {
   // EventRewriterController directly, so it must be reset first to avoid
   // accessing invalid memory (see b/315127220).
   AccessibilityController::Get()->SetAccessibilityEventRewriter(nullptr);
-  AccessibilityController::Get()->SetDisableTrackpadEventRewriter(nullptr);
+  AccessibilityController::Get()->SetDisableTouchpadEventRewriter(nullptr);
   AccessibilityController::Get()->SetFilterKeysEventRewriter(nullptr);
   // AccessibilityController observes
   // input_device_settings_controller_; it also outlives
@@ -849,7 +852,7 @@ Shell::~Shell() {
   // since the latters destructor triggers events that the former is listening
   // to but no longer cares about.
   keyboard_controller_->DestroyVirtualKeyboard();
-  picker_controller_.reset();
+  quick_insert_controller_.reset();
 
   // Depends on |tablet_mode_controller_|.
   window_restore_controller_.reset();
@@ -1015,8 +1018,6 @@ Shell::~Shell() {
   toplevel_window_event_handler_.reset();
   visibility_controller_.reset();
 
-  tray_action_.reset();
-
   power_button_controller_.reset();
   lock_state_controller_.reset();
   backlights_forced_off_setter_.reset();
@@ -1061,6 +1062,7 @@ Shell::~Shell() {
   accessibility_focus_ring_controller_.reset();
   policy_recommendation_restorer_.reset();
   active_session_auth_controller_.reset();
+  local_authentication_request_controller_.reset();
   ime_controller_.reset();
   back_gesture_event_handler_.reset();
 
@@ -1454,10 +1456,8 @@ void Shell::Init(
 
   // `GameDashboardController` has dependencies on `OverviewController` and
   // `CaptureModeController`.
-  if (features::IsGameDashboardEnabled()) {
-    game_dashboard_controller_ = std::make_unique<GameDashboardController>(
-        shell_delegate_->CreateGameDashboardDelegate());
-  }
+  game_dashboard_controller_ = std::make_unique<GameDashboardController>(
+      shell_delegate_->CreateGameDashboardDelegate());
 
   // `SnapGroupController` has dependencies on `OverviewController` and
   // `TabletModeController`.
@@ -1470,6 +1470,8 @@ void Shell::Init(
 
   if (features::IsCoralFeatureEnabled()) {
     tab_cluster_ui_controller_ = std::make_unique<TabClusterUIController>();
+    coral_controller_ = std::make_unique<CoralController>();
+    coral_delegate_ = shell_delegate_->CreateCoralDelegate();
   }
 
   window_tree_host_manager_->Start();
@@ -1571,9 +1573,6 @@ void Shell::Init(
       chromeos::PowerManagerClient::Get(), local_state_);
 
   backlights_forced_off_setter_ = std::make_unique<BacklightsForcedOffSetter>();
-
-  tray_action_ =
-      std::make_unique<TrayAction>(backlights_forced_off_setter_.get());
 
   lock_state_controller_ = std::make_unique<LockStateController>(
       shutdown_controller_.get(), local_state_);
@@ -1823,22 +1822,13 @@ void Shell::Init(
         shell_delegate_->CreateUserEducationDelegate());
   }
 
-  if (features::IsCoralFeatureEnabled()) {
-    coral_controller_ = std::make_unique<CoralController>();
-  }
-  if (features::IsCoralFeatureEnabled()) {
-    coral_delegate_ = shell_delegate_->CreateCoralDelegate();
-  }
+  quick_insert_controller_ = std::make_unique<QuickInsertController>();
 
-  if (features::IsPickerUpdateEnabled()) {
-    picker_controller_ = std::make_unique<PickerController>();
-  }
-
-  if (features::IsLobsterEnabled() && LobsterController::IsEnabled()) {
+  if (features::IsLobsterEnabled()) {
     lobster_controller_ = std::make_unique<LobsterController>();
   }
 
-  if (features::IsScannerEnabled() && ScannerController::IsEnabled()) {
+  if (features::IsScannerEnabled()) {
     scanner_controller_ = std::make_unique<ScannerController>(
         shell_delegate_->CreateScannerDelegate());
   }

@@ -687,24 +687,22 @@ void HttpResponseHeaders::Parse(const std::string& raw_input) {
   DCHECK_EQ('\0', raw_headers_[raw_headers_.size() - 1]);
 }
 
-bool HttpResponseHeaders::GetNormalizedHeader(std::string_view name,
-                                              std::string* value) const {
+std::optional<std::string> HttpResponseHeaders::GetNormalizedHeader(
+    std::string_view name) const {
   // If you hit this assertion, please use EnumerateHeader instead!
   DCHECK(!HttpUtil::IsNonCoalescingHeader(name));
 
-  value->clear();
-
-  bool found = false;
-  size_t i = 0;
-  while (i < parsed_.size()) {
+  std::optional<std::string> value;
+  for (size_t i = 0; i < parsed_.size();) {
     i = FindHeader(i, name);
     if (i == std::string::npos)
       break;
 
-    if (found)
+    if (value) {
       value->append(", ");
-
-    found = true;
+    } else {
+      value.emplace();
+    }
 
     std::string::const_iterator value_begin = parsed_[i].value_begin;
     std::string::const_iterator value_end = parsed_[i].value_end;
@@ -713,15 +711,7 @@ bool HttpResponseHeaders::GetNormalizedHeader(std::string_view name,
     value->append(value_begin, value_end);
   }
 
-  return found;
-}
-
-std::optional<std::string> HttpResponseHeaders::GetNormalizedHeader(
-    std::string_view name) const {
-  std::string value;
-  return GetNormalizedHeader(name, &value)
-             ? std::make_optional(std::move(value))
-             : std::nullopt;
+  return value;
 }
 
 std::string HttpResponseHeaders::GetStatusLine() const {

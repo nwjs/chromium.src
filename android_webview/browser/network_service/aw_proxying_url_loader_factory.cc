@@ -16,6 +16,7 @@
 #include "android_webview/browser/aw_contents_client_bridge.h"
 #include "android_webview/browser/aw_contents_io_thread_client.h"
 #include "android_webview/browser/aw_contents_origin_matcher.h"
+#include "android_webview/browser/aw_contents_statics.h"
 #include "android_webview/browser/aw_cookie_access_policy.h"
 #include "android_webview/browser/aw_settings.h"
 #include "android_webview/browser/cookie_manager.h"
@@ -63,7 +64,7 @@
 #include "services/network/public/mojom/fetch_api.mojom.h"
 #include "services/network/public/mojom/restricted_cookie_manager.mojom.h"
 #include "third_party/blink/public/mojom/loader/resource_load_info.mojom-shared.h"
-#include "third_party/blink/public/mojom/origin_trial_feature/origin_trial_feature.mojom-shared.h"
+#include "third_party/blink/public/mojom/origin_trials/origin_trial_feature.mojom-shared.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -382,6 +383,9 @@ InterceptedRequest::InterceptedRequest(
       &InterceptedRequest::OnURLLoaderClientError, base::Unretained(this)));
   proxied_loader_receiver_.set_disconnect_with_reason_handler(base::BindOnce(
       &InterceptedRequest::OnURLLoaderError, base::Unretained(this)));
+
+  // Update the resource request with the socketTag
+  request_.socket_tag = GetDefaultSocketTag();
 }
 
 InterceptedRequest::~InterceptedRequest() {
@@ -821,10 +825,11 @@ void InterceptedRequest::OnReceiveResponse(
   if (request_.destination == network::mojom::RequestDestination::kDocument) {
     // Check for x-auto-login-header
     HeaderData header_data;
-    std::string header_string;
-    if (head->headers && head->headers->GetNormalizedHeader(
-                             kAutoLoginHeaderName, &header_string)) {
-      if (ParseHeader(header_string, ALLOW_ANY_REALM, &header_data)) {
+    if (head->headers) {
+      std::optional<std::string> header_string =
+          head->headers->GetNormalizedHeader(kAutoLoginHeaderName);
+      if (header_string &&
+          ParseHeader(*header_string, ALLOW_ANY_REALM, &header_data)) {
         // TODO(timvolodine): consider simplifying this and above callback
         // code, crbug.com/897149.
         content::GetUIThreadTaskRunner({})->PostTask(

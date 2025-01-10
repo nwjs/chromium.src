@@ -11,8 +11,11 @@
 
 #include <stdint.h>
 
+#include <memory>
+#include <optional>
 #include <utility>
 
+#include "base/cfi_buildflags.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
 #include "base/hash/md5.h"
@@ -53,6 +56,17 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/geometry/skia_conversions.h"
+
+#if BUILDFLAG(ENABLE_PDF_INK2)
+#include <array>
+
+#include "pdf/pdf_ink_brush.h"
+#include "pdf/pdf_ink_constants.h"
+#include "pdf/pdfium/pdfium_test_helpers.h"
+#include "pdf/test/pdf_ink_test_helpers.h"
+#include "third_party/ink/src/ink/strokes/input/stroke_input_batch.h"
+#include "third_party/ink/src/ink/strokes/stroke.h"
+#endif
 
 namespace chrome_pdf {
 
@@ -133,6 +147,9 @@ class MockTestClient : public TestClient {
 #if BUILDFLAG(ENABLE_PDF_INK2)
   MOCK_METHOD(bool, IsInAnnotationMode, (), (const override));
 #endif  // BUILDFLAG(ENABLE_PDF_INK2)
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+  MOCK_METHOD(void, OnSearchifyStateChange, (bool), (override));
+#endif
 };
 
 }  // namespace
@@ -1987,33 +2004,15 @@ TEST_P(PDFiumEngineReadOnlyTest, UnselectText) {
 INSTANTIATE_TEST_SUITE_P(All, PDFiumEngineReadOnlyTest, testing::Bool());
 
 #if BUILDFLAG(ENABLE_PDF_INK2)
-class AnnotationModeTestClient : public MockTestClient {
- public:
-  AnnotationModeTestClient() = default;
-  AnnotationModeTestClient(const AnnotationModeTestClient&) = delete;
-  AnnotationModeTestClient& operator=(const AnnotationModeTestClient&) = delete;
-  ~AnnotationModeTestClient() override = default;
+using PDFiumEngineInkTest = PDFiumTestBase;
 
-  // PDFiumEngineClient overrides:
-  bool IsInAnnotationMode() const override { return annotation_mode_; }
-
-  void set_annotation_mode(bool annotation_mode) {
-    annotation_mode_ = annotation_mode;
-  }
-
- private:
-  bool annotation_mode_ = false;
-};
-
-using PDFiumEngineAnnotationModeTest = PDFiumTestBase;
-
-TEST_P(PDFiumEngineAnnotationModeTest, KillFormFocus) {
-  NiceMock<AnnotationModeTestClient> client;
+TEST_P(PDFiumEngineInkTest, KillFormFocusInAnnotationMode) {
+  NiceMock<MockTestClient> client;
   std::unique_ptr<PDFiumEngine> engine = InitializeEngine(
       &client, FILE_PATH_LITERAL("annotation_form_fields.pdf"));
   ASSERT_TRUE(engine);
 
-  client.set_annotation_mode(true);
+  EXPECT_CALL(client, IsInAnnotationMode()).WillOnce(Return(true));
 
   // Attempting to focus in annotation mode should once more trigger a killing
   // of form focus.
@@ -2022,8 +2021,8 @@ TEST_P(PDFiumEngineAnnotationModeTest, KillFormFocus) {
   engine->UpdateFocus(true);
 }
 
-TEST_P(PDFiumEngineAnnotationModeTest, CannotSelectText) {
-  NiceMock<AnnotationModeTestClient> client;
+TEST_P(PDFiumEngineInkTest, CannotSelectTextInAnnotationMode) {
+  NiceMock<MockTestClient> client;
   std::unique_ptr<PDFiumEngine> engine =
       InitializeEngine(&client, FILE_PATH_LITERAL("hello_world2.pdf"));
   ASSERT_TRUE(engine);
@@ -2033,14 +2032,285 @@ TEST_P(PDFiumEngineAnnotationModeTest, CannotSelectText) {
   // `SelectionChangeInvalidator`.
   engine->PluginSizeUpdated({500, 500});
 
-  client.set_annotation_mode(true);
+  EXPECT_CALL(client, IsInAnnotationMode()).WillOnce(Return(true));
 
   // Attempting to select text should do nothing in annotation mode.
   engine->SelectAll();
   EXPECT_THAT(engine->GetSelectedText(), IsEmpty());
 }
 
-INSTANTIATE_TEST_SUITE_P(All, PDFiumEngineAnnotationModeTest, testing::Bool());
+// TODO(crbug.com/377704081): Enable test for CFI.
+#if BUILDFLAG(CFI_ICALL_CHECK)
+#define MAYBE_LoadV2InkPathsForPage DISABLED_LoadV2InkPathsForPage
+#else
+#define MAYBE_LoadV2InkPathsForPage LoadV2InkPathsForPage
+#endif
+TEST_P(PDFiumEngineInkTest, MAYBE_LoadV2InkPathsForPage) {
+  NiceMock<MockTestClient> client;
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("ink_v2.pdf"));
+  ASSERT_TRUE(engine);
+  ASSERT_EQ(1, engine->GetNumberOfPages());
+  EXPECT_TRUE(engine->ink_modeled_shape_map_for_testing().empty());
+
+  std::map<InkModeledShapeId, ink::ModeledShape> ink_shapes =
+      engine->LoadV2InkPathsForPage(/*page_index=*/0);
+  ASSERT_EQ(1u, ink_shapes.size());
+  const auto ink_shapes_it = ink_shapes.begin();
+
+  const std::map<InkModeledShapeId, FPDF_PAGEOBJECT>& pdf_shapes =
+      engine->ink_modeled_shape_map_for_testing();
+  ASSERT_EQ(1u, pdf_shapes.size());
+  const auto pdf_shapes_it = pdf_shapes.begin();
+
+  EXPECT_EQ(ink_shapes_it->first, pdf_shapes_it->first);
+  EXPECT_EQ(1u, ink_shapes_it->second.Meshes().size());
+  EXPECT_TRUE(pdf_shapes_it->second);
+}
+
+INSTANTIATE_TEST_SUITE_P(All, PDFiumEngineInkTest, testing::Bool());
+
+using PDFiumEngineInkDrawTest = PDFiumTestBase;
+
+TEST_P(PDFiumEngineInkDrawTest, NoStrokeData) {
+  NiceMock<MockTestClient> client;
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("blank.pdf"));
+  ASSERT_TRUE(engine);
+
+  EXPECT_EQ(GetPdfMarkObjCountForTesting(engine->doc(),
+                                         kInkAnnotationIdentifierKeyV2),
+            0);
+}
+
+TEST_P(PDFiumEngineInkDrawTest, StrokeData) {
+  NiceMock<MockTestClient> client;
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("blank.pdf"));
+  ASSERT_TRUE(engine);
+  int page_count = FPDF_GetPageCount(engine->doc());
+  ASSERT_EQ(page_count, 1);
+
+  // Original document drawn on has no stroke data.
+  EXPECT_EQ(GetPdfMarkObjCountForTesting(engine->doc(),
+                                         kInkAnnotationIdentifierKeyV2),
+            0);
+
+  std::vector<uint8_t> saved_pdf_data = engine->GetSaveData();
+  ASSERT_FALSE(saved_pdf_data.empty());
+  constexpr int kPageIndex = 0;
+  constexpr gfx::Size kPageSizeInPoints(200, 200);
+  const base::FilePath kBlankPngFilePath(FILE_PATH_LITERAL("blank.png"));
+  CheckPdfRendering(saved_pdf_data, kPageIndex, kPageSizeInPoints,
+                    kBlankPngFilePath);
+
+  // Draw 2 strokes.
+  auto brush = std::make_unique<PdfInkBrush>(PdfInkBrush::Type::kPen,
+                                             SK_ColorRED, /*size=*/4.0f);
+  constexpr auto kInputs1 = std::to_array<PdfInkInputData>({
+      {{5.0f, 5.0f}, base::Seconds(0.0f)},
+      {{50.0f, 5.0f}, base::Seconds(0.1f)},
+  });
+  constexpr auto kInputs2 = std::to_array<PdfInkInputData>({
+      {{75.0f, 5.0f}, base::Seconds(0.0f)},
+      {{75.0f, 60.0f}, base::Seconds(0.1f)},
+  });
+  std::optional<ink::StrokeInputBatch> inputs1 = CreateInkInputBatch(kInputs1);
+  ASSERT_TRUE(inputs1.has_value());
+  std::optional<ink::StrokeInputBatch> inputs2 = CreateInkInputBatch(kInputs2);
+  ASSERT_TRUE(inputs2.has_value());
+  ink::Stroke stroke1(brush->ink_brush(), inputs1.value());
+  ink::Stroke stroke2(brush->ink_brush(), inputs2.value());
+  constexpr InkStrokeId kStrokeId1(1);
+  constexpr InkStrokeId kStrokeId2(2);
+  engine->ApplyStroke(kPageIndex, kStrokeId1, stroke1);
+  engine->ApplyStroke(kPageIndex, kStrokeId2, stroke2);
+
+  PDFiumPage& page = GetPDFiumPageForTest(*engine, kPageIndex);
+
+  // Verify the visibility of strokes for in-memory PDF.
+  const base::FilePath kAppliedStroke2FilePath(
+      GetInkTestDataFilePath("applied_stroke2.png"));
+  CheckPdfRendering(page.GetPage(), kPageSizeInPoints, kAppliedStroke2FilePath);
+
+  // Getting the save data should now have the new strokes.
+  // Verify visibility of strokes in that copy.  Must call GetSaveData()
+  // before checking mark objects count, so that the PDF gets regenerated.
+  saved_pdf_data = engine->GetSaveData();
+  ASSERT_FALSE(saved_pdf_data.empty());
+  CheckPdfRendering(saved_pdf_data, kPageIndex, kPageSizeInPoints,
+                    kAppliedStroke2FilePath);
+  EXPECT_EQ(GetPdfMarkObjCountForTesting(engine->doc(),
+                                         kInkAnnotationIdentifierKeyV2),
+            2);
+
+  // Perform equivalent of an "undo", to cause stroke to be inactive.
+  // This causes a stroke to no longer be included in the saved PDF data.
+  engine->UpdateStrokeActive(kPageIndex, kStrokeId2, /*active=*/false);
+  const base::FilePath kAppliedStroke1FilePath(
+      GetInkTestDataFilePath("applied_stroke1.png"));
+  CheckPdfRendering(page.GetPage(), kPageSizeInPoints, kAppliedStroke1FilePath);
+  saved_pdf_data = engine->GetSaveData();
+  ASSERT_FALSE(saved_pdf_data.empty());
+  CheckPdfRendering(saved_pdf_data, kPageIndex, kPageSizeInPoints,
+                    kAppliedStroke1FilePath);
+  EXPECT_EQ(GetPdfMarkObjCountForTesting(engine->doc(),
+                                         kInkAnnotationIdentifierKeyV2),
+            1);
+
+  // Perform equivalent of a "redo", to cause stroke to become active again.
+  // This causes the stroke to be included in saved PDF data again.
+  engine->UpdateStrokeActive(kPageIndex, kStrokeId2, /*active=*/true);
+  CheckPdfRendering(page.GetPage(), kPageSizeInPoints, kAppliedStroke2FilePath);
+  saved_pdf_data = engine->GetSaveData();
+  ASSERT_FALSE(saved_pdf_data.empty());
+  CheckPdfRendering(saved_pdf_data, kPageIndex, kPageSizeInPoints,
+                    kAppliedStroke2FilePath);
+  EXPECT_EQ(GetPdfMarkObjCountForTesting(engine->doc(),
+                                         kInkAnnotationIdentifierKeyV2),
+            2);
+}
+
+TEST_P(PDFiumEngineInkDrawTest, StrokeDiscardStroke) {
+  NiceMock<MockTestClient> client;
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("blank.pdf"));
+  ASSERT_TRUE(engine);
+  int page_count = FPDF_GetPageCount(engine->doc());
+  ASSERT_EQ(page_count, 1);
+
+  // Original document drawn on has no stroke data.
+  EXPECT_EQ(GetPdfMarkObjCountForTesting(engine->doc(),
+                                         kInkAnnotationIdentifierKeyV2),
+            0);
+
+  std::vector<uint8_t> saved_pdf_data = engine->GetSaveData();
+  ASSERT_FALSE(saved_pdf_data.empty());
+  constexpr int kPageIndex = 0;
+  constexpr gfx::Size kPageSizeInPoints(200, 200);
+  const base::FilePath kBlankPngFilePath(FILE_PATH_LITERAL("blank.png"));
+  CheckPdfRendering(saved_pdf_data, kPageIndex, kPageSizeInPoints,
+                    kBlankPngFilePath);
+
+  // Draw a stroke.
+  auto brush = std::make_unique<PdfInkBrush>(PdfInkBrush::Type::kPen,
+                                             SK_ColorRED, /*size=*/4.0f);
+  constexpr auto kInputs0 = std::to_array<PdfInkInputData>({
+      {{5.0f, 5.0f}, base::Seconds(0.0f)},
+      {{50.0f, 5.0f}, base::Seconds(0.1f)},
+  });
+  std::optional<ink::StrokeInputBatch> batch = CreateInkInputBatch(kInputs0);
+  ASSERT_TRUE(batch.has_value());
+  ink::Stroke stroke0(brush->ink_brush(), batch.value());
+  constexpr InkStrokeId kStrokeId(0);
+  engine->ApplyStroke(kPageIndex, kStrokeId, stroke0);
+
+  PDFiumPage& page = GetPDFiumPageForTest(*engine, kPageIndex);
+
+  // Verify the visibility of strokes for in-memory PDF.
+  const base::FilePath kAppliedStroke1FilePath(
+      GetInkTestDataFilePath("applied_stroke1.png"));
+  CheckPdfRendering(page.GetPage(), kPageSizeInPoints, kAppliedStroke1FilePath);
+
+  // Perform the equivalent of an "undo", to cause the stroke to be inactive.
+  engine->UpdateStrokeActive(kPageIndex, kStrokeId, /*active=*/false);
+
+  // The document should not have any stroke data.
+  saved_pdf_data = engine->GetSaveData();
+  ASSERT_FALSE(saved_pdf_data.empty());
+  CheckPdfRendering(saved_pdf_data, kPageIndex, kPageSizeInPoints,
+                    kBlankPngFilePath);
+  EXPECT_EQ(GetPdfMarkObjCountForTesting(engine->doc(),
+                                         kInkAnnotationIdentifierKeyV2),
+            0);
+  EXPECT_EQ(FPDFPage_CountObjects(page.GetPage()), 1);
+
+  // Discard the stroke.
+  engine->DiscardStroke(kPageIndex, kStrokeId);
+
+  EXPECT_EQ(FPDFPage_CountObjects(page.GetPage()), 0);
+
+  // Draw a new stroke, reusing the same InkStrokeId. This can occur after an
+  // undo action.
+  constexpr auto kInputs1 = std::to_array<PdfInkInputData>({
+      {{75.0f, 5.0f}, base::Seconds(0.0f)},
+      {{75.0f, 60.0f}, base::Seconds(0.1f)},
+  });
+  batch = CreateInkInputBatch(kInputs1);
+  ASSERT_TRUE(batch.has_value());
+  ink::Stroke stroke1(brush->ink_brush(), batch.value());
+  engine->ApplyStroke(kPageIndex, kStrokeId, stroke1);
+
+  // Verify the visibility of strokes for in-memory PDF.
+  const base::FilePath kAppliedStroke3FilePath(
+      GetInkTestDataFilePath("applied_stroke3.png"));
+  CheckPdfRendering(page.GetPage(), kPageSizeInPoints, kAppliedStroke3FilePath);
+  EXPECT_EQ(FPDFPage_CountObjects(page.GetPage()), 1);
+}
+
+// TODO(crbug.com/377704081): Enable test for CFI.
+#if BUILDFLAG(CFI_ICALL_CHECK)
+#define MAYBE_LoadedV2InkPathsAndUpdateShapeActive \
+  DISABLED_LoadedV2InkPathsAndUpdateShapeActive
+#else
+#define MAYBE_LoadedV2InkPathsAndUpdateShapeActive \
+  LoadedV2InkPathsAndUpdateShapeActive
+#endif
+TEST_P(PDFiumEngineInkDrawTest, MAYBE_LoadedV2InkPathsAndUpdateShapeActive) {
+  NiceMock<MockTestClient> client;
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("ink_v2.pdf"));
+  ASSERT_TRUE(engine);
+  ASSERT_EQ(1, engine->GetNumberOfPages());
+
+  // Check the initial loaded PDF.
+  constexpr int kPageIndex = 0;
+  constexpr gfx::Size kPageSizeInPoints(200, 200);
+  const base::FilePath kInkV2PngPath = GetInkTestDataFilePath("ink_v2.png");
+  PDFiumPage& page = GetPDFiumPageForTest(*engine, kPageIndex);
+  CheckPdfRendering(page.GetPage(), kPageSizeInPoints, kInkV2PngPath);
+  EXPECT_EQ(GetPdfMarkObjCountForTesting(engine->doc(),
+                                         kInkAnnotationIdentifierKeyV2),
+            1);
+
+  // Check the LoadV2InkPathsForPage() call does not change the rendering.
+  std::map<InkModeledShapeId, ink::ModeledShape> ink_shapes =
+      engine->LoadV2InkPathsForPage(kPageIndex);
+  ASSERT_EQ(1u, ink_shapes.size());
+  CheckPdfRendering(page.GetPage(), kPageSizeInPoints, kInkV2PngPath);
+  EXPECT_EQ(GetPdfMarkObjCountForTesting(engine->doc(),
+                                         kInkAnnotationIdentifierKeyV2),
+            1);
+
+  // Erase the shape and check the rendering. Also check the save version.
+  const auto ink_shapes_it = ink_shapes.begin();
+  const InkModeledShapeId& shape_id = ink_shapes_it->first;
+  engine->UpdateShapeActive(kPageIndex, shape_id, /*active=*/false);
+  const base::FilePath kBlankPngPath(FILE_PATH_LITERAL("blank.png"));
+  CheckPdfRendering(page.GetPage(), kPageSizeInPoints, kBlankPngPath);
+  std::vector<uint8_t> saved_pdf_data = engine->GetSaveData();
+  ASSERT_FALSE(saved_pdf_data.empty());
+  CheckPdfRendering(saved_pdf_data, kPageIndex, kPageSizeInPoints,
+                    kBlankPngPath);
+  EXPECT_EQ(GetPdfMarkObjCountForTesting(engine->doc(),
+                                         kInkAnnotationIdentifierKeyV2),
+            0);
+
+  // Undo the erasure and check the rendering.
+  engine->UpdateShapeActive(kPageIndex, shape_id, /*active=*/true);
+  CheckPdfRendering(page.GetPage(), kPageSizeInPoints, kInkV2PngPath);
+  saved_pdf_data = engine->GetSaveData();
+  ASSERT_FALSE(saved_pdf_data.empty());
+  CheckPdfRendering(saved_pdf_data, kPageIndex, kPageSizeInPoints,
+                    kInkV2PngPath);
+  EXPECT_EQ(GetPdfMarkObjCountForTesting(engine->doc(),
+                                         kInkAnnotationIdentifierKeyV2),
+            1);
+}
+
+// Don't be concerned about any slight rendering differences in AGG vs. Skia,
+// covering one of these is sufficient for checking how data is written out.
+INSTANTIATE_TEST_SUITE_P(All, PDFiumEngineInkDrawTest, testing::Values(false));
 
 #endif  // BUILDFLAG(ENABLE_PDF_INK2)
 

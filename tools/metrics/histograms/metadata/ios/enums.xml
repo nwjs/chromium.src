@@ -125,6 +125,52 @@ the generic promo launch. -->
   <int value="2" label="Disabled"/>
 </enum>
 
+<!-- LINT.IfChange(IncognitoLockImpressionType) -->
+
+<enum name="IncognitoLockImpressionType">
+  <int value="0" label="Soft lock on a single tab"/>
+  <int value="1" label="Soft lock on the tab grid"/>
+  <int value="2" label="Reauth lock on a single tab"/>
+  <int value="3" label="Reauth lock on tab grid"/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_constants.h:IncognitoLockImpression) -->
+
+<!-- LINT.IfChange(IncognitoLockOverlayInteractionType) -->
+
+<enum name="IncognitoLockOverlayInteractionType">
+  <int value="0"
+      label="User clicked unlock with reauth method button on the overlay."/>
+  <int value="1"
+      label="User clicked continue in incognito button on the overlay."/>
+  <int value="2"
+      label="User clicked close incognito tabs button on the overlay."/>
+  <int value="3" label="User clicked see other tabs button on the overlay."/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_constants.h:IncognitoLockOverlayInteraction) -->
+
+<!-- LINT.IfChange(IncognitoLockSettingInteractionType) -->
+
+<enum name="IncognitoLockSettingInteractionType">
+  <int value="0" label="User selected Don't hide in settings"/>
+  <int value="1"
+      label="User selected hide with reauth method option in settings"/>
+  <int value="2" label="User selected wide with soft lock option in settings"/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_constants.h:IncognitoLockSettingInteraction) -->
+
+<!-- LINT.IfChange(IncognitoLockSettingStartupState) -->
+
+<enum name="IncognitoLockSettingStartupState">
+  <int value="0" label="Do not hide"/>
+  <int value="1" label="Hide with reauthentication method"/>
+  <int value="2" label="Hide with soft lock"/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_constants.h:IncognitoLockSettingStartupState) -->
+
 <enum name="IOSAnnotationType">
   <int value="0" label="Unknown"/>
   <int value="1" label="Date"/>
@@ -218,6 +264,7 @@ the generic promo launch. -->
   <int value="0" label="Primary Action Button"/>
   <int value="1" label="Secondary Action Button"/>
   <int value="2" label="Swipe Down"/>
+  <int value="3" label="Tertiary Action Button"/>
 </enum>
 
 <enum name="IOSDockingPromoAction">
@@ -422,6 +469,15 @@ the generic promo launch. -->
   <int value="1" label="Magic Stack entrypoint"/>
 </enum>
 
+<enum name="IOSIncognitoGridStatus">
+  <int value="0" label="Enabled for unmanaged user"/>
+  <int value="1" label="Enabled for supervised user"/>
+  <int value="2" label="Enabled by enterprise policies"/>
+  <int value="3" label="Disabled for unmanaged user"/>
+  <int value="4" label="Disabled for supervised user"/>
+  <int value="5" label="Disabled by enterprise policies"/>
+</enum>
+
 <enum name="IOSJavascriptContentBlockType">
   <int value="0" label="Cookie"/>
   <int value="1" label="Local Storage"/>
@@ -475,6 +531,7 @@ the generic promo launch. -->
   <int value="15" label="Price Tracking Promo"/>
   <int value="16" label="Tips (with Product Image)"/>
   <int value="17" label="Tips"/>
+  <int value="18" label="Send Tab to Self Promo"/>
 </enum>
 
 <enum name="IOSMiniMapConsentOutcome">
@@ -516,6 +573,11 @@ the generic promo launch. -->
   <int value="0" label="Swiped to dismiss"/>
   <int value="1" label="No thanks tapped"/>
   <int value="2" label="Enable notifications tapped"/>
+</enum>
+
+<enum name="IOSNotificationsProminenceAlertActionResult">
+  <int value="0" label="Open Settings tapped"/>
+  <int value="1" label="No thanks tapped"/>
 </enum>
 
 <enum name="IOSNTPImpressionCustomizationState">
@@ -1201,6 +1263,7 @@ the generic promo launch. -->
   <int value="2" label="Authorized"/>
   <int value="3" label="Provisional"/>
   <int value="4" label="Ephemeral"/>
+  <int value="5" label="Invalid"/>
 </enum>
 
 <enum name="TextSelectionDetectedEntityType">

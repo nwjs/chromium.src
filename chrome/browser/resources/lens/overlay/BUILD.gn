@@ -30,7 +30,6 @@ build_webui("build_overlay") {
   static_files = [
     "feedback.svg",
     "icon_clear.svg",
-    "info.svg",
     "arrow_right.svg",
     "learn_more.svg",
     "lens_overlay.html",
@@ -54,7 +53,6 @@ build_webui("build_overlay") {
     "overlay_shimmer_canvas.ts",
     "post_selection_renderer.ts",
     "region_selection.ts",
-    "searchbox_ghost_loader.ts",
     "selection_overlay.ts",
     "shimmer_circle.ts",
     "side_panel/side_panel_app.ts",
@@ -71,6 +69,7 @@ build_webui("build_overlay") {
     "hit.ts",
     "language_browser_proxy.ts",
     "metrics_utils.ts",
+    "performance_tracker.ts",
     "post_selection_paint_worklet.ts",
     "screenshot_bitmap_browser_proxy.ts",
     "screenshot_utils.ts",
@@ -108,6 +107,7 @@ build_webui("build_overlay") {
     "$root_gen_dir/chrome/browser/lens/core/mojom/overlay_object.mojom-webui.ts",
     "$root_gen_dir/chrome/browser/lens/core/mojom/polygon.mojom-webui.ts",
     "$root_gen_dir/chrome/browser/lens/core/mojom/geometry.mojom-webui.ts",
+    "$root_gen_dir/chrome/browser/lens/core/mojom/translate.mojom-webui.ts",
   ]
 
   ts_path_mappings =

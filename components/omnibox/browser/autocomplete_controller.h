@@ -59,6 +59,9 @@ class ZeroSuggestProvider;
 // built-in keyword.
 inline constexpr char kOmniboxGeminiHeader[] = "X-Omnibox-Gemini";
 
+inline constexpr base::TimeDelta kAutocompleteDefaultStopTimerDuration =
+    base::Milliseconds(1500);
+
 // The AutocompleteController is the center of the autocomplete system.  A
 // class creates an instance of the controller, which in turn creates a set of
 // AutocompleteProviders to serve it.  The owning class can ask the controller
@@ -134,6 +137,10 @@ class AutocompleteController : public AutocompleteProviderListener,
     // completes.
     virtual void OnMlScored(AutocompleteController* controller,
                             const AutocompleteResult& result) {}
+
+    // Invoked when autocomplete stop timer is triggered.
+    virtual void OnAutocompleteStopTimerTriggered(
+        const AutocompleteInput& input) {}
   };
 
   // Converts `UpdateType` to string.
@@ -164,6 +171,12 @@ class AutocompleteController : public AutocompleteProviderListener,
   AutocompleteController(
       std::unique_ptr<AutocompleteProviderClient> provider_client,
       int provider_types,
+      bool is_cros_launcher = false,
+      bool disable_ml = false);
+  AutocompleteController(
+      std::unique_ptr<AutocompleteProviderClient> provider_client,
+      int provider_types,
+      base::TimeDelta stop_timer_duration,
       bool is_cros_launcher = false,
       bool disable_ml = false);
   ~AutocompleteController() override;
@@ -309,7 +322,7 @@ class AutocompleteController : public AutocompleteProviderListener,
   FRIEND_TEST_ALL_PREFIXES(AutocompleteControllerTest,
                            FilterMatchesForInstantKeywordWithBareAt);
   FRIEND_TEST_ALL_PREFIXES(AutocompleteControllerTest,
-                           NoPedalsAttachedToLensSearchboxMatches);
+                           NoActionsAttachedToLensSearchboxMatches);
   FRIEND_TEST_ALL_PREFIXES(AutocompleteProviderTest,
                            RedundantKeywordsIgnoredInResult);
   FRIEND_TEST_ALL_PREFIXES(AutocompleteProviderTest, UpdateSearchboxStats);
@@ -402,7 +415,7 @@ class AutocompleteController : public AutocompleteProviderListener,
   // `UpdateResult()` helper. Returns whether the default match changed.
   bool CheckWhetherDefaultMatchChanged(
       std::optional<AutocompleteMatch> last_default_match,
-      std::u16string last_default_associated_keyword);
+      const std::u16string& last_default_associated_keyword);
 
   // Attaches actions to matches: pedals, history clusters, tab switch, etc.
   void AttachActions();
@@ -448,6 +461,10 @@ class AutocompleteController : public AutocompleteProviderListener,
 
   // Starts |stop_timer_|.
   void StartStopTimer();
+
+  // Helper function for `Stop()`. Called specifically when the stop timer
+  // expires.
+  void OnStopTimerTriggered();
 
   // MemoryDumpProvider:
   bool OnMemoryDump(
@@ -566,7 +583,7 @@ class AutocompleteController : public AutocompleteProviderListener,
   // to every provider.  This is intended to avoid the disruptive effect of
   // belated omnibox updates, updates that come after the user has had to time
   // to read the whole dropdown and doesn't expect it to change.
-  base::TimeDelta stop_timer_duration_ = base::Milliseconds(1500);
+  base::TimeDelta stop_timer_duration_;
 
   // Debouncer to avoid invoking `NotifyChange()` after updating results in
   // quick succession. The last call, i.e. when all providers complete and

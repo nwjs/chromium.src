@@ -65,6 +65,7 @@
 #include "third_party/blink/renderer/core/css/css_ratio_value.h"
 #include "third_party/blink/renderer/core/css/css_reflect_value.h"
 #include "third_party/blink/renderer/core/css/css_relative_color_value.h"
+#include "third_party/blink/renderer/core/css/css_repeat_value.h"
 #include "third_party/blink/renderer/core/css/css_scoped_keyword_value.h"
 #include "third_party/blink/renderer/core/css/css_shadow_value.h"
 #include "third_party/blink/renderer/core/css/css_uri_value.h"
@@ -171,8 +172,7 @@ Color ResolveQuirkOrLinkOrFocusRingColor(
     case CSSValueID::kWebkitFocusRingColor:
       return LayoutTheme::GetTheme().FocusRingColor(used_color_scheme);
     default:
-      NOTREACHED_IN_MIGRATION();
-      return Color();
+      NOTREACHED();
   }
 }
 
@@ -214,18 +214,23 @@ DynamicRangeLimit StyleBuilderConverterBase::ConvertDynamicRangeLimit(
     const CSSValue& value) {
   if (auto* mix_value =
           DynamicTo<cssvalue::CSSDynamicRangeLimitMixValue>(value)) {
-    const DynamicRangeLimit limit1 =
-        ConvertDynamicRangeLimit(mix_value->Limit1());
-    const DynamicRangeLimit limit2 =
-        ConvertDynamicRangeLimit(mix_value->Limit2());
-    const float fraction = 0.01f * mix_value->Percentage().GetFloatValue();
+    float standard_mix_sum = 0.f;
+    float constrained_high_mix_sum = 0.f;
+    float fraction_sum = 0.f;
+    for (size_t i = 0; i < mix_value->Limits().size(); ++i) {
+      const DynamicRangeLimit limit =
+          ConvertDynamicRangeLimit(*mix_value->Limits()[i]);
+      const float fraction =
+          0.01f * mix_value->Percentages()[i]->GetFloatValue();
+      fraction_sum += fraction;
+      standard_mix_sum += fraction * limit.standard_mix;
+      constrained_high_mix_sum += fraction * limit.constrained_high_mix;
+    }
+    CHECK_NE(fraction_sum, 0.f);
     return DynamicRangeLimit(
-        /*standard_mix=*/(1 - fraction) * limit1.standard_mix +
-            fraction * limit2.standard_mix,
-        /*constrained_high_mix=*/(1 - fraction) * limit1.constrained_high_mix +
-            fraction * limit2.constrained_high_mix);
-  }
-  if (auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
+        /*standard_mix=*/standard_mix_sum / fraction_sum,
+        /*constrained_high_mix=*/constrained_high_mix_sum / fraction_sum);
+  } else if (auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
     switch (identifier_value->GetValueID()) {
       case CSSValueID::kHigh:
         return DynamicRangeLimit(cc::PaintFlags::DynamicRangeLimit::kHigh);
@@ -278,6 +283,10 @@ ClipPathOperation* StyleBuilderConverter::ConvertClipPath(
       if (list->length() == 2) {
         geometry_box_value = DynamicTo<CSSIdentifierValue>(list->Item(1));
       }
+      if (geometry_box_value) {
+        UseCounter::Count(state.GetDocument(),
+                          WebFeature::kClipPathGeometryBox);
+      }
       // If <geometry-box> is omitted, default to border-box.
       GeometryBox geometry_box =
           geometry_box_value ? geometry_box_value->ConvertTo<GeometryBox>()
@@ -285,6 +294,7 @@ ClipPathOperation* StyleBuilderConverter::ConvertClipPath(
       return MakeGarbageCollected<ShapeClipPathOperation>(
           BasicShapeForValue(state, shape_value), geometry_box);
     }
+    UseCounter::Count(state.GetDocument(), WebFeature::kClipPathGeometryBox);
     auto& geometry_box_value = To<CSSIdentifierValue>(list->First());
     GeometryBox geometry_box = geometry_box_value.ConvertTo<GeometryBox>();
     return MakeGarbageCollected<GeometryBoxClipPathOperation>(geometry_box);
@@ -484,8 +494,7 @@ FontDescription::Kerning StyleBuilderConverter::ConvertFontKerning(
     case CSSValueID::kNone:
       return FontDescription::kNoneKerning;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return FontDescription::kAutoKerning;
+      NOTREACHED();
   }
 }
 
@@ -510,8 +519,7 @@ StyleBuilderConverter::ConvertFontVariantPosition(StyleResolverState&,
     case CSSValueID::kSuper:
       return FontDescription::kSuperVariantPosition;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return FontDescription::kNormalVariantPosition;
+      NOTREACHED();
   }
 }
 
@@ -549,8 +557,7 @@ OpticalSizing StyleBuilderConverter::ConvertFontOpticalSizing(
     case CSSValueID::kNone:
       return kNoneOpticalSizing;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return kAutoOpticalSizing;
+      NOTREACHED();
   }
 }
 
@@ -764,8 +771,7 @@ static float ComputeFontSize(const CSSToLengthConversionData& conversion_data,
         .ToCalcValue(conversion_data)
         ->Evaluate(parent_size.value);
   }
-  NOTREACHED_IN_MIGRATION();
-  return 0;
+  NOTREACHED();
 }
 
 FontDescription::Size StyleBuilderConverterBase::ConvertFontSize(
@@ -785,8 +791,7 @@ FontDescription::Size StyleBuilderConverterBase::ConvertFontSize(
     if (value_id == CSSValueID::kLarger) {
       return FontDescription::LargerSize(parent_size);
     }
-    NOTREACHED_IN_MIGRATION();
-    return FontBuilder::InitialSize();
+    NOTREACHED();
   }
 
   if (const auto* system_font =
@@ -938,8 +943,7 @@ FontSelectionValue StyleBuilderConverterBase::ConvertFontStretch(
     return kNormalWidthValue;
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return kNormalWidthValue;
+  NOTREACHED();
 }
 
 FontSelectionValue StyleBuilderConverter::ConvertFontStretch(
@@ -962,8 +966,7 @@ FontSelectionValue StyleBuilderConverterBase::ConvertFontStyle(
       case CSSValueID::kNormal:
         return kNormalSlopeValue;
       default:
-        NOTREACHED_IN_MIGRATION();
-        return kNormalSlopeValue;
+        NOTREACHED();
     }
   } else if (IsA<cssvalue::CSSPendingSystemFontValue>(value)) {
     return kNormalSlopeValue;
@@ -986,8 +989,7 @@ FontSelectionValue StyleBuilderConverterBase::ConvertFontStyle(
     }
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return kNormalSlopeValue;
+  NOTREACHED();
 }
 
 FontSelectionValue StyleBuilderConverter::ConvertFontStyle(
@@ -1021,12 +1023,10 @@ FontSelectionValue StyleBuilderConverterBase::ConvertFontWeight(
       case CSSValueID::kLighter:
         return FontDescription::LighterWeight(parent_weight);
       default:
-        NOTREACHED_IN_MIGRATION();
-        return kNormalWeightValue;
+        NOTREACHED();
     }
   }
-  NOTREACHED_IN_MIGRATION();
-  return kNormalWeightValue;
+  NOTREACHED();
 }
 
 FontSelectionValue StyleBuilderConverter::ConvertFontWeight(
@@ -1102,8 +1102,7 @@ StyleBuilderConverter::ConvertFontVariantLigatures(StyleResolverState&,
           ligatures.contextual = FontDescription::kEnabledLigaturesState;
           break;
         default:
-          NOTREACHED_IN_MIGRATION();
-          break;
+          NOTREACHED();
       }
     }
     return ligatures;
@@ -1165,8 +1164,7 @@ FontVariantNumeric StyleBuilderConverter::ConvertFontVariantNumeric(
         variant_numeric.SetSlashedZero(FontVariantNumeric::kSlashedZeroOn);
         break;
       default:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
     }
   }
   return variant_numeric;
@@ -1219,7 +1217,7 @@ StyleBuilderConverter::ConvertFontVariantAlternates(StyleResolverState&,
               ValueListToAtomicStringVector(alternate_value->Aliases()));
           break;
         default:
-          NOTREACHED_IN_MIGRATION();
+          NOTREACHED();
       }
     }
     const CSSIdentifierValue* alternate_value_ident =
@@ -1281,8 +1279,7 @@ FontVariantEastAsian StyleBuilderConverter::ConvertFontVariantEastAsian(
         variant_east_asian.SetRuby(true);
         break;
       default:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
     }
   }
   return variant_east_asian;
@@ -1376,8 +1373,7 @@ GridAutoFlow StyleBuilderConverter::ConvertGridAutoFlow(StyleResolverState&,
       }
       return kAutoFlowRowDense;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return ComputedStyleInitialValues::InitialGridAutoFlow();
+      NOTREACHED();
   }
 }
 
@@ -1515,8 +1511,7 @@ NGGridTrackList StyleBuilderConverter::ConvertGridTrackSizeList(
   Vector<GridTrackSize, 1> track_sizes;
   for (auto& curr_value : To<CSSValueList>(value)) {
     DCHECK(!curr_value->IsGridLineNamesValue());
-    DCHECK(!curr_value->IsGridAutoRepeatValue());
-    DCHECK(!curr_value->IsGridIntegerRepeatValue());
+    DCHECK(!curr_value->IsGridRepeatValue());
     track_sizes.push_back(ConvertGridTrackSize(state, *curr_value));
   }
 
@@ -1706,7 +1701,7 @@ StyleHyphenateLimitChars StyleBuilderConverter::ConvertHyphenateLimitChars(
       values.push_back(0);
       continue;
     }
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
   values.Grow(3);
   return StyleHyphenateLimitChars(values[0], values[1], values[2]);
@@ -1728,8 +1723,7 @@ int StyleBuilderConverter::ConvertBorderWidth(StyleResolverState& state,
         result = 5;
         break;
       default:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
     }
 
     result = state.CssToLengthConversionData().ZoomedComputedPixels(
@@ -1806,8 +1800,7 @@ float StyleBuilderConverter::ConvertZoom(const StyleResolverState& state,
     }
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return 1.0f;
+  NOTREACHED();
 }
 
 Length StyleBuilderConverter::ConvertLengthOrAuto(
@@ -1850,6 +1843,7 @@ Length StyleBuilderConverter::ConvertLengthSizing(StyleResolverState& state,
     case CSSValueID::kMaxContent:
     case CSSValueID::kWebkitMaxContent:
       return Length::MaxContent();
+    case CSSValueID::kStretch:
     case CSSValueID::kWebkitFillAvailable:
       return Length::Stretch();
     case CSSValueID::kWebkitFitContent:
@@ -1860,8 +1854,7 @@ Length StyleBuilderConverter::ConvertLengthSizing(StyleResolverState& state,
     case CSSValueID::kAuto:
       return Length::Auto();
     default:
-      NOTREACHED_IN_MIGRATION();
-      return Length();
+      NOTREACHED();
   }
 }
 
@@ -2093,8 +2086,7 @@ StyleInitialLetter StyleBuilderConverter::ConvertInitialLetter(
     if (sink_type->GetValueID() == CSSValueID::kRaise) {
       return StyleInitialLetter::Raise(size);
     }
-    NOTREACHED_IN_MIGRATION() << "Unexpected sink type " << sink_type;
-    return StyleInitialLetter::Normal();
+    NOTREACHED() << "Unexpected sink type " << sink_type;
   }
 
   if (auto* sink = DynamicTo<CSSPrimitiveValue>(second)) {
@@ -2208,8 +2200,7 @@ EPaintOrder StyleBuilderConverter::ConvertPaintOrder(
         return order_type_list->length() > 1 ? kPaintOrderMarkersStrokeFill
                                              : kPaintOrderMarkersFillStroke;
       default:
-        NOTREACHED_IN_MIGRATION();
-        return kPaintOrderNormal;
+        NOTREACHED();
     }
   }
 
@@ -2253,6 +2244,89 @@ LengthSize StyleBuilderConverter::ConvertRadius(StyleResolverState& state,
       To<CSSPrimitiveValue>(pair.Second())
           .ConvertToLength(state.CssToLengthConversionData());
   return LengthSize(radius_width, radius_height);
+}
+
+template <typename T>
+T ConvertGapDecorationPropertyValue(
+    StyleResolverState& state,
+    const CSSValue& value,
+    const CSSGapDecorationPropertyType property_type,
+    bool for_visited_link = false);
+
+template <>
+StyleColor ConvertGapDecorationPropertyValue<StyleColor>(
+    StyleResolverState& state,
+    const CSSValue& value,
+    const CSSGapDecorationPropertyType property_type,
+    bool for_visited_link) {
+  CHECK_EQ(property_type, CSSGapDecorationPropertyType::kColor);
+  return StyleBuilderConverter::ConvertStyleColor(state, value,
+                                                  for_visited_link);
+}
+
+template <typename T>
+GapDataList<T> ConvertGapDecorationDataList(
+    StyleResolverState& state,
+    const CSSValue& value,
+    bool for_visited_link,
+    const CSSGapDecorationPropertyType property_type) {
+  // The `value` will not be a list in two scenarios:
+  // 1. When using the legacy 'column-rule-*' properties.
+  // 2. When the fast parse path is taken (see
+  // CSSParserFastPaths::MaybeParseValue). In these cases, construct a
+  // GapDataList with a single Value.
+  if (!DynamicTo<CSSValueList>(value)) {
+    return GapDataList<T>(ConvertGapDecorationPropertyValue<T>(
+        state, value, property_type, for_visited_link));
+  }
+  CHECK(RuntimeEnabledFeatures::CSSGapDecorationEnabled());
+
+  // The CSS Gap Decorations API accepts a space separated list of values.
+  // These values can be an auto repeater, an integer repeater, or a single
+  // value.
+  // See: https://kbabbitt.github.io/css-gap-decorations/#column-row-rule-color
+  const auto& values = To<CSSValueList>(value);
+  typename GapDataList<T>::GapDataVector gap_data_list;
+  gap_data_list.ReserveInitialCapacity(values.length());
+
+  for (const auto& curr_value : values) {
+    GapData<T> gap_data;
+    if (auto* gap_repeat_value =
+            DynamicTo<cssvalue::CSSRepeatValue>(curr_value.Get())) {
+      typename ValueRepeater<T>::VectorType gap_values;
+      gap_values.ReserveInitialCapacity(gap_repeat_value->Values().length());
+      for (const auto& repeat_value : gap_repeat_value->Values()) {
+        gap_values.push_back(ConvertGapDecorationPropertyValue<T>(
+            state, *repeat_value, property_type, for_visited_link));
+      }
+
+      std::optional<int> repeat_count = std::nullopt;
+      if (!gap_repeat_value->IsAutoRepeatValue()) {
+        repeat_count = gap_repeat_value->Repetitions()->ComputeInteger(
+            state.CssToLengthConversionData());
+      }
+      ValueRepeater<T>* value_repeater = value_repeater =
+          MakeGarbageCollected<ValueRepeater<T>>(std::move(gap_values),
+                                                 repeat_count);
+      gap_data = GapData<T>(value_repeater);
+    } else {
+      gap_data = GapData<T>(ConvertGapDecorationPropertyValue<T>(
+          state, *curr_value.Get(), property_type, for_visited_link));
+    }
+
+    gap_data_list.push_back(gap_data);
+  }
+
+  return GapDataList<T>(std::move(gap_data_list));
+}
+
+GapDataList<StyleColor>
+StyleBuilderConverter::ConvertGapDecorationColorDataList(
+    StyleResolverState& state,
+    const CSSValue& value,
+    bool for_visited_link) {
+  return ConvertGapDecorationDataList<blink::StyleColor>(
+      state, value, for_visited_link, CSSGapDecorationPropertyType::kColor);
 }
 
 ShadowData StyleBuilderConverter::ConvertShadow(
@@ -2393,6 +2467,24 @@ StyleViewTransitionGroup StyleBuilderConverter::ConvertViewTransitionGroup(
   }
   return StyleViewTransitionGroup::Create(
       ConvertCustomIdent(state, value)->GetName());
+}
+
+StyleViewTransitionCaptureMode
+StyleBuilderConverter::ConvertViewTransitionCaptureMode(
+    StyleResolverState& state,
+    const CSSValue& value) {
+  if (auto* ident = DynamicTo<CSSIdentifierValue>(value)) {
+    switch (ident->GetValueID()) {
+      case CSSValueID::kLayered:
+        return StyleViewTransitionCaptureMode::kLayered;
+      case CSSValueID::kFlat:
+        return StyleViewTransitionCaptureMode::kFlat;
+      default:
+        NOTREACHED();
+    }
+  }
+
+  return StyleViewTransitionCaptureMode::kLayered;
 }
 
 StyleViewTransitionName* StyleBuilderConverter::ConvertViewTransitionName(
@@ -2544,7 +2636,14 @@ StyleColor ResolveColorValue(const CSSValue& value,
   if (ShouldConvertLegacyColorSpaceToSRGB(value) && result.IsAbsoluteColor()) {
     Color color = result.GetColor();
     if (Color::IsLegacyColorSpace(color.GetColorSpace())) {
-      color.ConvertToColorSpace(Color::ColorSpace::kSRGB);
+      // Missing components can be carried forward when converting rgb(...) to
+      // color(srgb, ...) since the two color spaces have analogous components.
+      // For other legacy spaces, conversion to color(srgb, ...) requires
+      // resolving missing components.
+      const bool resolve_missing_components =
+          (color.GetColorSpace() != Color::ColorSpace::kSRGBLegacy);
+      color.ConvertToColorSpace(Color::ColorSpace::kSRGB,
+                                resolve_missing_components);
       result = StyleColor(color);
     }
   }
@@ -2607,6 +2706,7 @@ SVGPaint StyleBuilderConverter::ConvertSVGPaint(StyleResolverState& state,
           DCHECK(!paint.resource);
           if (RuntimeEnabledFeatures::SvgContextPaintEnabled()) {
             paint.type = SVGPaintType::kContextFill;
+            state.GetDocument().CountUse(WebFeature::kSvgContextFillOrStroke);
           } else {
             local_identifier_value = nullptr;
           }
@@ -2616,6 +2716,7 @@ SVGPaint StyleBuilderConverter::ConvertSVGPaint(StyleResolverState& state,
           DCHECK(!paint.resource);
           if (RuntimeEnabledFeatures::SvgContextPaintEnabled()) {
             paint.type = SVGPaintType::kContextStroke;
+            state.GetDocument().CountUse(WebFeature::kSvgContextFillOrStroke);
           } else {
             local_identifier_value = nullptr;
           }
@@ -3259,8 +3360,7 @@ RubyPosition StyleBuilderConverter::ConvertRubyPosition(
     }
     return identifier_value->ConvertTo<blink::RubyPosition>();
   }
-  NOTREACHED_IN_MIGRATION();
-  return RubyPosition::kOver;
+  NOTREACHED();
 }
 
 StyleScrollbarColor* StyleBuilderConverter::ConvertScrollbarColor(
@@ -3390,7 +3490,7 @@ ColorSchemeFlags StyleBuilderConverter::ExtractColorSchemes(
           break;
       }
     } else {
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
     }
   }
   return flags;
@@ -3437,7 +3537,7 @@ StyleBuilderConverter::ConvertOverflowClipMargin(StyleResolverState& state,
         reference_box = StyleOverflowClipMargin::ReferenceBox::kPaddingBox;
         break;
       default:
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
     }
   }
 
@@ -3689,8 +3789,7 @@ PositionArea StyleBuilderConverter::ConvertPositionArea(
         end = PositionAreaRegion::kSelfEnd;
         break;
       default:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
     }
     return std::make_pair(start, end);
   };

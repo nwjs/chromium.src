@@ -71,11 +71,6 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kBackgroundModeAllowRestart);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
-#if BUILDFLAG(IS_CHROMEOS)
-COMPONENT_EXPORT(CHROME_FEATURES)
-BASE_DECLARE_FEATURE(kQuickOfficeForceFileDownload);
-#endif  // BUILDFLAG(IS_CHROMEOS)
-
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kBoardingPassDetector);
@@ -94,8 +89,6 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kBrowserAppInstanceTracking);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kChangePictureVideoMode);
-
 // Enable the Certificate Management UI v2.
 //
 // TODO(crbug.com/40928765) Remove this flag when UI is complete.
@@ -107,10 +100,11 @@ BASE_DECLARE_FEATURE(kEnableCertManagementUIV2);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kEnableCertManagementUIV2Write);
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+// TODO(crbug.com/40928765) Remove this flag when UI is complete.
 COMPONENT_EXPORT(CHROME_FEATURES)
-BASE_DECLARE_FEATURE(kCrOSEnableUSMUserService);
-COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kCrosCompUpdates);
+BASE_DECLARE_FEATURE(kEnableCertManagementUIV2EditCerts);
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kCrostini);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kCrostiniAdditionalEnterpriseReporting);
@@ -130,16 +124,9 @@ BASE_DECLARE_FEATURE(kCryptohomeUserDataAuthKillswitch);
 
 #if BUILDFLAG(IS_CHROMEOS)
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kCrosPrivacyHub);
-COMPONENT_EXPORT(CHROME_FEATURES)
-BASE_DECLARE_FEATURE(kDataLeakPreventionPolicy);
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kDataLeakPreventionFilesRestriction);
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-COMPONENT_EXPORT(CHROME_FEATURES)
-BASE_DECLARE_FEATURE(kDMServerOAuthForChildUser);
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -163,9 +150,6 @@ BASE_DECLARE_FEATURE(kDesktopPWAsElidedExtensionsMenu);
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kDesktopPWAsFlashAppNameInsteadOfOrigin);
-
-COMPONENT_EXPORT(CHROME_FEATURES)
-BASE_DECLARE_FEATURE(kDesktopPWAsIconHealthChecks);
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kPwaNavigationCapturingWithScopeExtensions);
@@ -204,11 +188,6 @@ BASE_DECLARE_FEATURE(kEnableAmbientAuthenticationInIncognito);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kEnableWebUsbOnExtensionServiceWorker);
 
-#if !BUILDFLAG(IS_ANDROID)
-COMPONENT_EXPORT(CHROME_FEATURES)
-BASE_DECLARE_FEATURE(kExtensionDeferredIndividualSettings);
-#endif
-
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kEnterpriseReportingInChromeOS);
@@ -238,6 +217,10 @@ BASE_DECLARE_FEATURE(kForcedAppRelaunchOnPlaceholderUpdate);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGeoLanguage);
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlic);
+#endif
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kPrivacyGuideForceAvailable);
@@ -277,6 +260,13 @@ extern const base::FeatureParam<base::TimeDelta>
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kHappinessTrackingSurveysForDesktopNtpModules);
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kHappinessTrackingSurveysForHistoryEmbeddings);
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<base::TimeDelta>
+    kHappinessTrackingSurveysForHistoryEmbeddingsDelayTime;
+
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kHappinessTrackingSurveysForNtpPhotosOptOut);
 
@@ -596,16 +586,6 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kPrintPreviewCrosPrimary);
 #endif
 
-#if BUILDFLAG(IS_ANDROID)
-COMPONENT_EXPORT(CHROME_FEATURES)
-BASE_DECLARE_FEATURE(kPrivacyGuideAndroid3);
-#endif
-
-#if BUILDFLAG(IS_ANDROID)
-COMPONENT_EXPORT(CHROME_FEATURES)
-BASE_DECLARE_FEATURE(kPrivacyGuidePreloadAndroid);
-#endif
-
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kPushMessagingBackgroundMode);
 
@@ -649,10 +629,22 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kSafetyHubFollowup);
 
 COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kSafetyHubAndroidOrganicSurvey);
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<std::string> kSafetyHubAndroidOrganicTriggerId;
+
+COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kSafetyHubAndroidSurvey);
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<std::string> kSafetyHubAndroidTriggerId;
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kSafetyHubAndroidSurveyV2);
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kSafetyHubWeakAndReusedPasswords);
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -760,8 +752,6 @@ COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kSkyVaultV2);
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kSmartDim);
 #endif
 
-COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kSoundContentSetting);
-
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kSysInternals);
 
@@ -809,18 +799,6 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<double>
     kTrustSafetySentimentSurveyTransactionsProbability;
 COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<double>
-    kTrustSafetySentimentSurveyPrivacySandbox4ConsentAcceptProbability;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<double>
-    kTrustSafetySentimentSurveyPrivacySandbox4ConsentDeclineProbability;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<double>
-    kTrustSafetySentimentSurveyPrivacySandbox4NoticeOkProbability;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<double>
-    kTrustSafetySentimentSurveyPrivacySandbox4NoticeSettingsProbability;
-COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<std::string>
     kTrustSafetySentimentSurveyPrivacySettingsTriggerId;
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -829,18 +807,6 @@ extern const base::FeatureParam<std::string>
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<std::string>
     kTrustSafetySentimentSurveyTransactionsTriggerId;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<std::string>
-    kTrustSafetySentimentSurveyPrivacySandbox4ConsentAcceptTriggerId;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<std::string>
-    kTrustSafetySentimentSurveyPrivacySandbox4ConsentDeclineTriggerId;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<std::string>
-    kTrustSafetySentimentSurveyPrivacySandbox4NoticeOkTriggerId;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<std::string>
-    kTrustSafetySentimentSurveyPrivacySandbox4NoticeSettingsTriggerId;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<base::TimeDelta>
     kTrustSafetySentimentSurveyPrivacySettingsTime;
@@ -903,18 +869,6 @@ extern const base::FeatureParam<double>
     kTrustSafetySentimentSurveyV2PrivacyGuideProbability;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<double>
-    kTrustSafetySentimentSurveyV2PrivacySandbox4ConsentAcceptProbability;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<double>
-    kTrustSafetySentimentSurveyV2PrivacySandbox4ConsentDeclineProbability;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<double>
-    kTrustSafetySentimentSurveyV2PrivacySandbox4NoticeOkProbability;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<double>
-    kTrustSafetySentimentSurveyV2PrivacySandbox4NoticeSettingsProbability;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<double>
     kTrustSafetySentimentSurveyV2SafeBrowsingInterstitialProbability;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<std::string>
@@ -948,18 +902,6 @@ extern const base::FeatureParam<std::string>
     kTrustSafetySentimentSurveyV2PrivacyGuideTriggerId;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<std::string>
-    kTrustSafetySentimentSurveyV2PrivacySandbox4ConsentAcceptTriggerId;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<std::string>
-    kTrustSafetySentimentSurveyV2PrivacySandbox4ConsentDeclineTriggerId;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<std::string>
-    kTrustSafetySentimentSurveyV2PrivacySandbox4NoticeOkTriggerId;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<std::string>
-    kTrustSafetySentimentSurveyV2PrivacySandbox4NoticeSettingsTriggerId;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<std::string>
     kTrustSafetySentimentSurveyV2SafeBrowsingInterstitialTriggerId;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<base::TimeDelta>
@@ -970,16 +912,6 @@ extern const base::FeatureParam<base::TimeDelta>
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kUseChromiumUpdater);
 #endif  // BUILDFLAG(IS_MAC)
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-COMPONENT_EXPORT(CHROME_FEATURES)
-BASE_DECLARE_FEATURE(kUserActivityEventLogging);
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-COMPONENT_EXPORT(CHROME_FEATURES)
-BASE_DECLARE_FEATURE(kUserTypeByDeviceTypeMetricsProvider);
-#endif
 
 #if !BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(CHROME_FEATURES)

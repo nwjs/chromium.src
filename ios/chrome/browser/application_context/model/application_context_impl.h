@@ -55,6 +55,8 @@ class ApplicationContextImpl : public ApplicationContext {
   // ApplicationContext implementation.
   void OnAppEnterForeground() override;
   void OnAppEnterBackground() override;
+  void OnAppStartedBackgroundProcessing() override;
+  void OnAppFinishedBackgroundProcessing() override;
   bool WasLastShutdownClean() override;
   PrefService* GetLocalState() override;
   net::URLRequestContextGetter* GetSystemURLRequestContext() override;
@@ -99,7 +101,9 @@ class ApplicationContextImpl : public ApplicationContext {
   // Represents the possible application states the app can be in.
   enum class AppState {
     kForeground,
-    kBackground,
+    kBackgroundFromActive,
+    kBackgroundProcessing,
+    kBackgroundIdle
   };
 
   // Helper method to implement the work required when transitioning between
@@ -126,7 +130,7 @@ class ApplicationContextImpl : public ApplicationContext {
   // Will be null if breadcrumbs feature is not enabled.
   std::unique_ptr<ApplicationBreadcrumbsLogger> application_breadcrumbs_logger_;
 
-  // Must be destroyed after `local_state_`. BrowserStatePolicyConnector isn't a
+  // Must be destroyed after `local_state_`. ProfilePolicyConnector isn't a
   // keyed service because the pref service, which isn't a keyed service, has a
   // hard dependency on the policy infrastructure. In order to outlive the pref
   // service, the policy connector must live outside the keyed services.

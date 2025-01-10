@@ -57,7 +57,9 @@ public interface TabGroupModelFilter extends TabList {
      * A wrapper around {@link TabModel#closeTabs} that sets hiding state for tab groups correctly.
      *
      * @param tabClosureParams The params to use when closing tabs.
+     * @deprecated Use {@link TabRemover#closeTabs(TabClosureParams, boolean)} instead.
      */
+    @Deprecated
     public boolean closeTabs(TabClosureParams tabClosureParams);
 
     /** Returns the total tab count in the underlying {@link TabModel}. */
@@ -181,6 +183,19 @@ public interface TabGroupModelFilter extends TabList {
     public void createSingleTabGroup(Tab tab, boolean notify);
 
     /**
+     * Creates a tab group with a preallocated {@link Token} for the TabGroupId.
+     *
+     * <p>This should only be used by the tab group sync service and related code. Ideally, this
+     * would be locked down using a mechanism like {@code friend class} or some sort of access
+     * token. However, for now this disclaimer will suffice.
+     *
+     * @param tabs The list of tabs to make a tab group from. The first tab in the list will be the
+     *     root tab. An empty list will no-op.
+     * @param tabGroupId An externally minted tab group id token.
+     */
+    public void createTabGroupForTabGroupSync(@NonNull List<Tab> tabs, @NonNull Token tabGroupId);
+
+    /**
      * This method merges the source group that contains the {@code sourceTabId} to the destination
      * group that contains the {@code destinationTabId}. This method only operates if two groups are
      * in the same {@code TabModel}.
@@ -214,6 +229,9 @@ public interface TabGroupModelFilter extends TabList {
      */
     public void mergeListOfTabsToGroup(List<Tab> tabs, Tab destinationTab, boolean notify);
 
+    /** Returns a utility interface to help with that ungrouping tabs from a tab group. */
+    public @NonNull TabUngrouper getTabUngrouper();
+
     /**
      * This method moves Tab with id as {@code sourceTabId} out of the group it belongs to in the
      * specified direction.
@@ -221,7 +239,9 @@ public interface TabGroupModelFilter extends TabList {
      * @param sourceTabId The id of the {@link Tab} to get the source group.
      * @param trailing True if the tab should be placed after the tab group when removed. False if
      *     it should be placed before.
+     * @deprecated Use {@link TabUngrouper#ungroupTabs(List<Tab>, boolean)} instead.
      */
+    @Deprecated
     public void moveTabOutOfGroupInDirection(int sourceTabId, boolean trailing);
 
     // TODO(crbug.com/372068933): This method should probably have more restricted access.

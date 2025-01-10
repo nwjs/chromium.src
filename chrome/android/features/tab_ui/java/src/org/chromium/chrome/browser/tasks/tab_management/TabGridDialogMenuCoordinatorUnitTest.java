@@ -30,9 +30,7 @@ import org.mockito.junit.MockitoRule;
 import org.chromium.base.Callback;
 import org.chromium.base.Token;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.data_sharing.DataSharingServiceFactory;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.tab.Tab;
@@ -60,7 +58,6 @@ import java.util.List;
 
 /** Unit tests for {@link TabGridDialogMenuCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@EnableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_ANDROID)
 public class TabGridDialogMenuCoordinatorUnitTest {
     private static final int TAB_ID = 123;
     private static final String COLLABORATION_ID1 = "A";
@@ -143,8 +140,8 @@ public class TabGridDialogMenuCoordinatorUnitTest {
                         R.id.select_tabs,
                         R.id.edit_group_name,
                         R.id.edit_group_color,
-                        R.id.close_tab,
-                        R.id.delete_tab);
+                        R.id.close_tab_group,
+                        R.id.delete_tab_group);
         assertListMenuItemsAre(modelList, menuIds);
     }
 
@@ -162,7 +159,7 @@ public class TabGridDialogMenuCoordinatorUnitTest {
                         R.id.select_tabs,
                         R.id.edit_group_name,
                         R.id.edit_group_color,
-                        R.id.close_tab);
+                        R.id.close_tab_group);
         assertListMenuItemsAre(modelList, menuIds);
     }
 
@@ -180,7 +177,7 @@ public class TabGridDialogMenuCoordinatorUnitTest {
                         R.id.select_tabs,
                         R.id.edit_group_name,
                         R.id.edit_group_color,
-                        R.id.close_tab);
+                        R.id.close_tab_group);
         assertListMenuItemsAre(modelList, menuIds);
     }
 
@@ -198,7 +195,7 @@ public class TabGridDialogMenuCoordinatorUnitTest {
                         R.id.select_tabs,
                         R.id.edit_group_name,
                         R.id.edit_group_color,
-                        R.id.close_tab);
+                        R.id.close_tab_group);
         assertListMenuItemsAre(modelList, menuIds);
     }
 
@@ -274,7 +271,7 @@ public class TabGridDialogMenuCoordinatorUnitTest {
                         R.id.edit_group_color,
                         R.id.manage_sharing,
                         R.id.recent_activity,
-                        R.id.close_tab,
+                        R.id.close_tab_group,
                         R.id.leave_group);
         assertListMenuItemsAre(mModelListCaptor.getValue(), menuIds);
 
@@ -319,7 +316,7 @@ public class TabGridDialogMenuCoordinatorUnitTest {
                         R.id.edit_group_color,
                         R.id.manage_sharing,
                         R.id.recent_activity,
-                        R.id.close_tab,
+                        R.id.close_tab_group,
                         R.id.delete_shared_group);
         assertListMenuItemsAre(mModelListCaptor.getValue(), menuIds);
 

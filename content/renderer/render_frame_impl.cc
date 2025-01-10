@@ -83,7 +83,6 @@
 #include "content/public/renderer/render_thread.h"
 #include "content/public/renderer/renderer_ppapi_host.h"
 #include "content/public/renderer/window_features_converter.h"
-#include "content/renderer/accessibility/aom_content_ax_tree.h"
 #include "content/renderer/accessibility/ax_tree_snapshotter_impl.h"
 #include "content/renderer/accessibility/render_accessibility_impl.h"
 #include "content/renderer/accessibility/render_accessibility_manager.h"
@@ -205,7 +204,6 @@
 #include "third_party/blink/public/web/blink.h"
 #include "third_party/blink/public/web/modules/media/audio/audio_device_factory.h"
 #include "third_party/blink/public/web/modules/media/audio/audio_output_ipc_factory.h"
-#include "third_party/blink/public/web/modules/media/web_media_player_util.h"
 #include "third_party/blink/public/web/modules/mediastream/web_media_stream_device_observer.h"
 #include "third_party/blink/public/web/web_autofill_client.h"
 #include "third_party/blink/public/web/web_console_message.h"
@@ -702,8 +700,7 @@ WebFrameLoadType NavigationTypeToLoadType(
                  : WebFrameLoadType::kStandard;
 
     default:
-      NOTREACHED_IN_MIGRATION();
-      return WebFrameLoadType::kStandard;
+      NOTREACHED();
   }
 }
 
@@ -1109,6 +1106,8 @@ void FillMiscNavigationParams(
     navigation_params->cookie_deprecation_label =
         WebString::FromASCII(*commit_params.cookie_deprecation_label);
   }
+  navigation_params->initial_permission_statuses =
+      std::move(commit_params.initial_permission_statuses);
 }
 
 std::string GetUniqueNameOfWebFrame(WebFrame* web_frame) {
@@ -1132,8 +1131,7 @@ perfetto::protos::pbzero::FrameDeleteIntention FrameDeleteIntentionToProto(
           FRAME_DELETE_INTENTION_SPECULATIVE_MAIN_FRAME_FOR_NAVIGATION_CANCELLED;
   }
   // All cases should've been handled by the switch case above.
-  NOTREACHED_IN_MIGRATION();
-  return ProtoLevel::FRAME_DELETE_INTENTION_NOT_MAIN_FRAME;
+  NOTREACHED();
 }
 
 void CallClientDeferMediaLoad(base::WeakPtr<RenderFrameImpl> frame,
@@ -1231,8 +1229,7 @@ WindowOpenDisposition NavigationPolicyToDisposition(
     case blink::kWebNavigationPolicyPictureInPicture:
       return WindowOpenDisposition::NEW_PICTURE_IN_PICTURE;
   }
-  NOTREACHED_IN_MIGRATION() << "Unexpected WebNavigationPolicy";
-  return WindowOpenDisposition::IGNORE_ACTION;
+  NOTREACHED() << "Unexpected WebNavigationPolicy";
 }
 
 bool ShouldNotifySubresourceResponseStarted(blink::RendererPreferences pref) {
@@ -1639,7 +1636,7 @@ RenderFrameImpl* RenderFrameImpl::CreateMainFrame(
   if (!params->is_on_initial_empty_document)
     render_frame->frame_->SetIsNotOnInitialEmptyDocument();
 
-  CHECK(!params->widget_params->previous_frame_token_for_compositor_reuse);
+  CHECK(!params->widget_params->reuse_compositor);
 
   // Non-owning pointer that is self-referencing and destroyed by calling
   // Close(). The RenderViewImpl has a RenderWidget already, but not a
@@ -1713,10 +1710,10 @@ void RenderFrameImpl::CreateFrame(
     mojo::PendingAssociatedRemote<blink::mojom::AssociatedInterfaceProvider>
         associated_interface_provider,
     blink::WebView* web_view,
-    const std::optional<blink::FrameToken>& previous_frame_token,
-    const std::optional<blink::FrameToken>& opener_frame_token,
-    const std::optional<blink::FrameToken>& parent_frame_token,
-    const std::optional<blink::FrameToken>& previous_sibling_frame_token,
+    base::optional_ref<const blink::FrameToken> previous_frame_token,
+    base::optional_ref<const blink::FrameToken> opener_frame_token,
+    base::optional_ref<const blink::FrameToken> parent_frame_token,
+    base::optional_ref<const blink::FrameToken> previous_sibling_frame_token,
     const base::UnguessableToken& devtools_frame_token,
     blink::mojom::TreeScopeType tree_scope_type,
     blink::mojom::FrameReplicationStatePtr replicated_state,
@@ -2206,7 +2203,18 @@ void RenderFrameImpl::BindFrameBindingsControl(
 
 void RenderFrameImpl::BindNavigationClient(
     mojo::PendingAssociatedReceiver<mojom::NavigationClient> receiver) {
-  navigation_client_impl_ = std::make_unique<NavigationClient>(this);
+  // If the provisional owner frame is a local frame and it has a non-null
+  // `navigation_client_impl_`, it began the navigation. Some properties need
+  // to be copied over from the original `NavigationClient` to preserve
+  // behaviour.
+  NavigationClient* initiator_navigation_client = nullptr;
+  WebFrame* initiator_frame = GetWebFrame()->GetProvisionalOwnerFrame();
+  if (initiator_frame && initiator_frame->IsWebLocalFrame()) {
+    initiator_navigation_client = RenderFrameImpl::FromWebFrame(initiator_frame)
+                                      ->navigation_client_impl_.get();
+  }
+  navigation_client_impl_ =
+      std::make_unique<NavigationClient>(this, initiator_navigation_client);
   navigation_client_impl_->Bind(std::move(receiver));
 }
 
@@ -2321,9 +2329,11 @@ void RenderFrameImpl::Delete(mojom::FrameDeleteIntention intent) {
       // TODO(dcheng): This is the case of https://crbug.com/838348.
       DCHECK(is_main_frame_);
 #if !BUILDFLAG(IS_ANDROID)
-      // This check is not enabled on Android, since it seems like it's much
-      // easier to trigger data races there.
       CHECK(!in_frame_tree_);
+#else
+      // Previously this CHECK() was disabled on Android because it was much
+      // easier to hit the race there.
+      CHECK(!in_frame_tree_, base::NotFatalUntil::M135);
 #endif  // !BUILDFLAG(IS_ANDROID)
       break;
   }
@@ -3831,12 +3841,7 @@ blink::WebFrame* RenderFrameImpl::FindFrame(const blink::WebString& name) {
 
 void RenderFrameImpl::MaybeInitializeWidget(
     mojom::CreateFrameWidgetParamsPtr widget_params) {
-  if (!PreviousWidgetForLazyCompositorInitialization(
-          widget_params->previous_frame_token_for_compositor_reuse)) {
-    InitializeFrameWidgetForFrame(*frame_, /*previous_widget=*/nullptr,
-                                  std::move(widget_params),
-                                  is_for_nested_main_frame_);
-  } else {
+  if (widget_params->reuse_compositor) {
     // Initializing the widget is deferred until commit if this RenderFrame
     // will be replacing a previous RenderFrame. This enables reuse of the
     // compositing setup which is expensive.
@@ -3850,45 +3855,23 @@ void RenderFrameImpl::MaybeInitializeWidget(
     // the GPU process) is not done until the frame is made visible, which
     // happens at commit.
     widget_params_for_lazy_widget_creation_ = std::move(widget_params);
-  }
-}
-
-void RenderFrameImpl::EnsureWidgetInitialized() {
-  if (!widget_params_for_lazy_widget_creation_) {
-    CHECK(GetLocalRootWebFrameWidget());
     return;
   }
 
-  auto* previous_widget = PreviousWidgetForLazyCompositorInitialization(
-      widget_params_for_lazy_widget_creation_
-          ->previous_frame_token_for_compositor_reuse);
-  CHECK(previous_widget);
-
-  InitializeFrameWidgetForFrame(
-      *frame_, previous_widget,
-      std::move(widget_params_for_lazy_widget_creation_),
-      is_for_nested_main_frame_);
+  InitializeFrameWidgetForFrame(*frame_, /*previous_widget=*/nullptr,
+                                std::move(widget_params),
+                                is_for_nested_main_frame_);
 }
 
-blink::WebFrameWidget*
-RenderFrameImpl::PreviousWidgetForLazyCompositorInitialization(
-    const std::optional<blink::FrameToken>& previous_frame_token) const {
-  if (!previous_frame_token) {
-    return nullptr;
-  }
+void RenderFrameImpl::InitializeWidgetAtSwap(
+    blink::WebLocalFrame& frame_for_compositor_reuse) {
+  CHECK(widget_params_for_lazy_widget_creation_);
+  DCHECK(widget_params_for_lazy_widget_creation_->reuse_compositor);
 
-  auto* previous_web_frame = WebFrame::FromFrameToken(*previous_frame_token);
-
-  CHECK(previous_web_frame);
-  CHECK(previous_web_frame->IsWebLocalFrame());
-
-  auto* previous_render_frame =
-      RenderFrameImpl::FromWebFrame(previous_web_frame);
-  CHECK(previous_render_frame);
-  CHECK_EQ(previous_render_frame->is_for_nested_main_frame_,
-           is_for_nested_main_frame_);
-
-  return previous_web_frame->ToWebLocalFrame()->FrameWidget();
+  InitializeFrameWidgetForFrame(
+      *frame_, frame_for_compositor_reuse.FrameWidget(),
+      std::move(widget_params_for_lazy_widget_creation_),
+      is_for_nested_main_frame_);
 }
 
 void RenderFrameImpl::WillDetach(blink::DetachReason detach_reason) {
@@ -3898,11 +3881,19 @@ void RenderFrameImpl::WillDetach(blink::DetachReason detach_reason) {
       navigation_client_impl_->ResetWithoutCancelling();
     }
 
-    // Defer initializing the new widget until the previous Document has been
-    // torn down. Script handles like unload dispatched during tear down can
-    // access the compositor.
+    // If `provisional_frame_for_local_root_swap_` is set by `Swap()`, the
+    // widget for the frame being swapped in needs to be initialized now. At
+    // this point, the compositor can be passed off safely since the `Document`
+    // has already been torn down.
+    //
+    // TODO(dcheng): This mechanism could probably be used for passing off the
+    // unique name as well...
     if (provisional_frame_for_local_root_swap_) {
-      provisional_frame_for_local_root_swap_->EnsureWidgetInitialized();
+      CHECK_EQ(
+          provisional_frame_for_local_root_swap_->is_for_nested_main_frame_,
+          is_for_nested_main_frame_);
+      provisional_frame_for_local_root_swap_->InitializeWidgetAtSwap(
+          CHECK_DEREF(GetWebFrame()));
       provisional_frame_for_local_root_swap_ = nullptr;
     }
   }
@@ -5455,7 +5446,16 @@ bool RenderFrameImpl::SwapIn(WebFrame* previous_web_frame) {
   // Swapping out a frame can dispatch JS event handlers, causing `this` to be
   // deleted.
   bool is_main_frame = is_main_frame_;
-  if (auto* render_frame = RenderFrameImpl::FromWebFrame(previous_web_frame)) {
+  if (auto* render_frame = RenderFrameImpl::FromWebFrame(previous_web_frame);
+      render_frame && widget_params_for_lazy_widget_creation_) {
+    // For local -> local swaps that lazily initialize the widget, tell the
+    // previous RenderFrame (i.e. the frame being swapped out) about `this`
+    // (i.e. the frame being swapped in), so `WillDetach()` on the previous
+    // RenderFrame can pass off its compositor to `this` for reuse.
+    //
+    // TODO(dcheng): Blink should already know the provisional frame internally;
+    // consider exposing that through the public API to avoid having to plumb
+    // state at a distance like this.
     render_frame->provisional_frame_for_local_root_swap_ = GetWeakPtr();
   }
   if (!previous_web_frame->Swap(frame_)) {
@@ -5464,6 +5464,12 @@ bool RenderFrameImpl::SwapIn(WebFrame* previous_web_frame) {
     DCHECK(!is_main_frame);
     return false;
   }
+
+  // For local roots, whether the frame widget is created eagerly or lazily, it
+  // must be initialized by this point.
+  //
+  // For non local roots, they must have a local root ancestor which already has
+  // a frame widget.
   CHECK(GetLocalRootWebFrameWidget());
 
   // `previous_web_frame` is now detached, and should no longer be referenced.
@@ -6185,6 +6191,9 @@ void RenderFrameImpl::BeginNavigationInternal(
     bool is_history_navigation_in_new_child_frame,
     base::TimeTicks renderer_before_unload_start,
     base::TimeTicks renderer_before_unload_end) {
+  // Provisional frames shouldn't initiate navigations.
+  CHECK(!GetWebFrame()->IsProvisional());
+
   if (!frame_->WillStartNavigation(*info))
     return;
 
@@ -6329,6 +6338,8 @@ void RenderFrameImpl::BeginNavigationInternal(
                                  request_destination);
 
   bool is_duplicate_navigation = false;
+  base::TimeDelta nav_start_diff;
+
   if (navigation_client_impl_ &&
       navigation_client_impl_->HasBeginNavigationParams()) {
     // We ignore navigations that are identical to the ongoing navigation. This
@@ -6336,9 +6347,7 @@ void RenderFrameImpl::BeginNavigationInternal(
     // the same link multiple times, etc).
     auto& prev_begin_params = navigation_client_impl_->begin_params();
     auto& prev_common_params = navigation_client_impl_->common_params();
-    if (common_params->navigation_start - prev_common_params.navigation_start <=
-            features::kDuplicateNavThreshold.Get() &&
-        begin_params->was_initiated_by_link_click ==
+    if (begin_params->was_initiated_by_link_click ==
             prev_begin_params.was_initiated_by_link_click &&
         common_params->url == prev_common_params.url &&
         common_params->method == "GET" && prev_common_params.method == "GET" &&
@@ -6353,13 +6362,29 @@ void RenderFrameImpl::BeginNavigationInternal(
         begin_params->headers == prev_begin_params.headers &&
         begin_params->has_rel_opener == prev_begin_params.has_rel_opener) {
       is_duplicate_navigation = true;
+      nav_start_diff = (common_params->navigation_start -
+                        prev_common_params.navigation_start);
     }
   }
-  base::UmaHistogramBoolean("Navigation.RendererInitiated.IsDuplicate",
-                            is_duplicate_navigation);
-  if (is_duplicate_navigation &&
-      base::FeatureList::IsEnabled(features::kIgnoreDuplicateNavs)) {
-    return;
+  base::UmaHistogramBoolean(
+      "Navigation.RendererInitiated.IsDuplicateWithoutThresholdCheck",
+      is_duplicate_navigation);
+  if (is_duplicate_navigation) {
+    // The navigation is similar to a previous navigation. Check if it's started
+    // close enough to the start of the previous navigation, in which case we
+    // can just ignore the new navigation and keep the previous navigation.
+    bool start_diff_under_threshold =
+        (nav_start_diff <= features::kDuplicateNavThreshold.Get());
+    base::UmaHistogramBoolean(
+        "Navigation.RendererInitiated.DuplicateNavIsUnderThreshold",
+        start_diff_under_threshold);
+    base::UmaHistogramTimes(
+        "Navigation.RendererInitiated.DuplicateNavStartTimeDiff",
+        nav_start_diff);
+    if (start_diff_under_threshold &&
+        base::FeatureList::IsEnabled(features::kIgnoreDuplicateNavs)) {
+      return;
+    }
   }
 
   mojo::PendingAssociatedRemote<mojom::NavigationClient>
@@ -6512,19 +6537,6 @@ void RenderFrameImpl::BindMhtmlFileWriter(
   mhtml_file_writer_receiver_.reset();
   mhtml_file_writer_receiver_.Bind(
       std::move(receiver), GetTaskRunner(blink::TaskType::kInternalDefault));
-}
-
-// TODO(crbug.com/40550966): Move this method to Blink, and eliminate
-// the plumbing logic through blink::WebLocalFrameClient.
-void RenderFrameImpl::CheckIfAudioSinkExistsAndIsAuthorized(
-    const blink::WebString& sink_id,
-    blink::WebSetSinkIdCompleteCallback completion_callback) {
-  std::move(
-      blink::ConvertToOutputDeviceStatusCB(std::move(completion_callback)))
-      .Run(blink::AudioDeviceFactory::GetInstance()
-               ->GetOutputDeviceInfo(GetWebFrame()->GetLocalFrameToken(),
-                                     sink_id.Utf8())
-               .device_status());
 }
 
 scoped_refptr<network::SharedURLLoaderFactory>
@@ -6707,12 +6719,6 @@ void RenderFrameImpl::PepperFocusChanged(PepperPluginInstanceImpl* instance,
 }
 
 #endif  // BUILDFLAG(ENABLE_PPAPI)
-
-blink::WebComputedAXTree* RenderFrameImpl::GetOrCreateWebComputedAXTree() {
-  if (!computed_ax_tree_)
-    computed_ax_tree_ = std::make_unique<AomContentAxTree>(this);
-  return computed_ax_tree_.get();
-}
 
 std::unique_ptr<blink::WebSocketHandshakeThrottle>
 RenderFrameImpl::CreateWebSocketHandshakeThrottle() {

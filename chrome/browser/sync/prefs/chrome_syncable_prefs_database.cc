@@ -24,7 +24,6 @@
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/constants/ash_pref_names.h"
 #include "ash/public/cpp/shelf_prefs.h"
-#include "chrome/browser/ash/app_restore/full_restore_prefs.h"
 #include "chrome/browser/ash/guest_os/guest_os_pref_names.h"
 #include "chrome/browser/ash/login/login_pref_names.h"
 #include "chromeos/ash/components/tether/pref_names.h"
@@ -74,7 +73,7 @@ enum {
   kHomePageIsNewTabPage = 100015,
   kNtpCustomBackgroundDict = 100016,
   kLiveCaptionBubbleExpanded = 100017,
-  kLiveCaptionBubblePinned = 100018,
+  // kLiveCaptionBubblePinned = 100018,  // deprecated
   kLiveCaptionEnabled = 100019,
   kLiveCaptionLanguageCode = 100020,
   kLiveCaptionMediaFoundationRendererErrorSilenced = 100021,
@@ -331,7 +330,7 @@ enum {
   kFingerprintingProtectionEnabled = 100269,
   kAccessibilityFaceGazeGesturesToMacros = 100270,
   kAccessibilityFaceGazeGesturesToConfidence = 100271,
-  kShelfContainerAppPinRolls = 100272,
+  kShelfGeminiAppPinRolls = 100272,
   kProfileContentSettingsExceptionsTrackingProtection = 100273,
   kProfileContentSettingsPartitionedExceptionsTrackingProtection = 100274,
   kProfileDefaultContentSettingValuesTrackingProtection = 100275,
@@ -369,6 +368,11 @@ enum {
   kDesktopToiOSPaymentPromoOptOut = 100307,
   kDesktopToiOSNtpPromoAppearanceTimestamps = 100308,
   kDesktopToiOSNtpPromoDismissed = 100309,
+  kPrivacySandboxFakeNoticePromptShownTimeSync = 100310,
+  kAccessibilityBounceKeysDelay = 100311,
+  kAccessibilitySlowKeysDelay = 100312,
+  kAccessibilityFaceGazePrecisionClick = 100313,
+  kAccessibilityFaceGazePrecisionClickSpeedFactor = 100314,
   // See components/sync_preferences/README.md about adding new entries here.
   // vvvvv IMPORTANT! vvvvv
   // Note to the reviewer: IT IS YOUR RESPONSIBILITY to ensure that new syncable
@@ -497,10 +501,6 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
      {syncable_prefs_ids::kLiveCaptionBubbleExpanded, syncer::PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
-    {prefs::kLiveCaptionBubblePinned,
-     {syncable_prefs_ids::kLiveCaptionBubblePinned, syncer::PREFERENCES,
-      sync_preferences::PrefSensitivity::kNone,
-      sync_preferences::MergeBehavior::kNone}},
     {prefs::kLiveCaptionEnabled,
      {syncable_prefs_ids::kLiveCaptionEnabled, syncer::PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
@@ -593,6 +593,10 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
      {syncable_prefs_ids::kAccessibilityAutoclickStabilizePosition,
       syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
+    {ash::prefs::kAccessibilityBounceKeysDelay,
+     {syncable_prefs_ids::kAccessibilityBounceKeysDelay, syncer::OS_PREFERENCES,
+      sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
     {ash::prefs::kAccessibilityColorCorrectionEnabled,
      {syncable_prefs_ids::kAccessibilityColorCorrectionEnabled,
       syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
@@ -669,6 +673,10 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
     {ash::prefs::kAccessibilitySelectToSpeakWordHighlight,
      {syncable_prefs_ids::kAccessibilitySelectToSpeakWordHighlight,
       syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {ash::prefs::kAccessibilitySlowKeysDelay,
+     {syncable_prefs_ids::kAccessibilitySlowKeysDelay, syncer::OS_PREFERENCES,
+      sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
     {ash::prefs::kAccessibilitySwitchAccessAutoScanEnabled,
      {syncable_prefs_ids::kAccessibilitySwitchAccessAutoScanEnabled,
@@ -1188,6 +1196,14 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
      {syncable_prefs_ids::kAccessibilityFaceGazeVelocityThreshold,
       syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
+    {ash::prefs::kAccessibilityFaceGazePrecisionClick,
+     {syncable_prefs_ids::kAccessibilityFaceGazePrecisionClick,
+      syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {ash::prefs::kAccessibilityFaceGazePrecisionClickSpeedFactor,
+     {syncable_prefs_ids::kAccessibilityFaceGazePrecisionClickSpeedFactor,
+      syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
     {ash::prefs::kAccessibilityFlashNotificationsEnabled,
      {syncable_prefs_ids::kAccessibilityFlashNotificationsEnabled,
       syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
@@ -1196,8 +1212,8 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
      {syncable_prefs_ids::kAccessibilityFlashNotificationsColor,
       syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
-    {prefs::kShelfContainerAppPinRolls,
-     {syncable_prefs_ids::kShelfContainerAppPinRolls, syncer::OS_PREFERENCES,
+    {prefs::kShelfGeminiAppPinRolls,
+     {syncable_prefs_ids::kShelfGeminiAppPinRolls, syncer::OS_PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kMergeableListWithRewriteOnUpdate}},
     {ash::prefs::kKeyboardDefaultSplitModifierSettings,
@@ -1592,6 +1608,10 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
     {promos_prefs::kDesktopToiOSNtpPromoDismissed,
      {syncable_prefs_ids::kDesktopToiOSNtpPromoDismissed, syncer::PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {prefs::kPrivacySandboxFakeNoticePromptShownTimeSync,
+     {syncable_prefs_ids::kPrivacySandboxFakeNoticePromptShownTimeSync,
+      syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
 });
 

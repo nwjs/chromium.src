@@ -11,6 +11,7 @@
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/autocomplete_match_classification.h"
+#include "components/omnibox/browser/autocomplete_provider_client.h"
 #include "components/omnibox/browser/in_memory_url_index_types.h"
 #include "components/omnibox/browser/keyword_provider.h"
 #include "components/omnibox/browser/match_compare.h"
@@ -32,10 +33,10 @@ constexpr int kOpenTabDefaultScore = 1500;
 
 int Score(const AutocompleteInput& input,
           const query_parser::QueryNodeVector& input_query_nodes,
-          const std::u16string& title,
-          const GURL& url) {
+          const TabMatcher::TabWrapper tab) {
   if ((input.IsZeroSuggest() || input.text().empty()) && is_android) {
-    return kOpenTabDefaultScore;
+    return kOpenTabDefaultScore +
+           tab.last_shown_time.InSecondsFSinceUnixEpoch();
   }
   // TODO(crbug.com/40211187): The bookmark provider also uses on `query_parser`
   // and
@@ -45,13 +46,13 @@ int Score(const AutocompleteInput& input,
   //  should either verify it's unnecessary here, or do likewise here.
 
   // Extract query words from the title.
-  const std::u16string lower_title = base::i18n::ToLower(title);
+  const std::u16string lower_title = base::i18n::ToLower(tab.title);
   query_parser::QueryWordVector title_words;
   query_parser::QueryParser::ExtractQueryWords(lower_title, &title_words);
 
   // Extract query words from the URL.
   const std::u16string lower_url =
-      base::i18n::ToLower(base::UTF8ToUTF16(url.spec()));
+      base::i18n::ToLower(base::UTF8ToUTF16(tab.url.spec()));
   query_parser::QueryWordVector url_words;
   query_parser::QueryParser::ExtractQueryWords(lower_url, &url_words);
 
@@ -89,9 +90,15 @@ int Score(const AutocompleteInput& input,
   return normalized_factors * kMaxScore;
 }
 
-bool ShouldRunProvider(const AutocompleteInput& input,
+bool ShouldRunProvider(AutocompleteProviderClient* client,
+                       const AutocompleteInput& input,
                        const AutocompleteInput& adjusted_input) {
-  return is_android || !(input.IsZeroSuggest() || input.text().empty());
+  bool zps_or_empty = input.IsZeroSuggest() || input.text().empty();
+  if (is_android) {
+    return !zps_or_empty || !client->IsIncognitoProfile();
+  } else {
+    return !zps_or_empty;
+  }
 }
 
 }  // namespace
@@ -111,7 +118,7 @@ void OpenTabProvider::Start(const AutocompleteInput& input,
   const auto [adjusted_input, template_url] =
       KeywordProvider::AdjustInputForStarterPackEngines(
           input, client_->GetTemplateURLService());
-  if (!ShouldRunProvider(input, adjusted_input)) {
+  if (!ShouldRunProvider(client_, input, adjusted_input)) {
     return;
   }
 
@@ -126,12 +133,12 @@ void OpenTabProvider::Start(const AutocompleteInput& input,
       &input_query_nodes);
 
   // Perform basic substring matching on the query terms.
-  for (auto& open_tab : client_->GetTabMatcher().GetOpenTabs()) {
+  for (auto& open_tab : client_->GetTabMatcher().GetOpenTabs(&input)) {
     const GURL& url = open_tab.url;
     if (!url.is_valid()) {
       continue;
     }
-    int score = Score(input, input_query_nodes, open_tab.title, url);
+    int score = Score(input, input_query_nodes, open_tab);
     if (score > 0) {
       matches_.push_back(CreateOpenTabMatch(adjusted_input, open_tab.title, url,
                                             score, template_url));

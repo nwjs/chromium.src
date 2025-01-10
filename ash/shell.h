@@ -214,7 +214,6 @@ class PciePeripheralNotificationController;
 class PeripheralBatteryListener;
 class PeripheralBatteryNotifier;
 class PersistentWindowController;
-class PickerController;
 class PipController;
 class PolicyRecommendationRestorer;
 class PostLoginGlanceablesMetricsRecorder;
@@ -225,6 +224,7 @@ class PrivacyHubController;
 class PrivacyScreenController;
 class ProjectingObserver;
 class ProjectorControllerImpl;
+class QuickInsertController;
 class RapidKeySequenceRecorder;
 class RasterScaleController;
 class RefreshRateController;
@@ -269,7 +269,6 @@ class ToastManagerImpl;
 class ToplevelWindowEventHandler;
 class ClipboardHistoryControllerImpl;
 class TouchDevicesController;
-class TrayAction;
 class UserEducationController;
 class UserMetricsRecorder;
 class VideoActivityNotifier;
@@ -698,7 +697,9 @@ class ASH_EXPORT Shell : public SessionObserver,
   PeripheralBatteryListener* peripheral_battery_listener() {
     return peripheral_battery_listener_.get();
   }
-  PickerController* picker_controller() { return picker_controller_.get(); }
+  QuickInsertController* quick_insert_controller() {
+    return quick_insert_controller_.get();
+  }
   InformedRestoreController* informed_restore_controller() {
     return informed_restore_controller_.get();
   }
@@ -817,8 +818,6 @@ class ASH_EXPORT Shell : public SessionObserver,
   AshTouchTransformController* touch_transformer_controller() {
     return touch_transformer_controller_.get();
   }
-  TrayAction* tray_action() { return tray_action_.get(); }
-
   UserMetricsRecorder* metrics() { return user_metrics_recorder_.get(); }
 
   VideoDetector* video_detector() { return video_detector_.get(); }
@@ -1124,7 +1123,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<ActiveSessionAuthController> active_session_auth_controller_;
   std::unique_ptr<PciePeripheralNotificationController>
       pcie_peripheral_notification_controller_;
-  std::unique_ptr<PickerController> picker_controller_;
+  std::unique_ptr<QuickInsertController> quick_insert_controller_;
   std::unique_ptr<PrivacyHubController> privacy_hub_controller_;
   std::unique_ptr<UsbPeripheralNotificationController>
       usb_peripheral_notification_controller_;
@@ -1159,7 +1158,6 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<ToastManagerImpl> toast_manager_;
   std::unique_ptr<ClipboardHistoryControllerImpl> clipboard_history_controller_;
   std::unique_ptr<TouchDevicesController> touch_devices_controller_;
-  std::unique_ptr<TrayAction> tray_action_;
   std::unique_ptr<UserEducationController> user_education_controller_;
   std::unique_ptr<TabStripDelegate> tab_strip_delegate_;
   std::unique_ptr<WallpaperControllerImpl> wallpaper_controller_;

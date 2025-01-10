@@ -24,10 +24,6 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/events/event_constants.h"
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "chrome/browser/ash/crosapi/browser_util.h"
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-
 namespace {
 
 // For ChromeOS only: If you plan on adding a new accelerator and want it
@@ -307,20 +303,11 @@ std::vector<AcceleratorMapping> GetAcceleratorList() {
     accelerators->insert(accelerators->begin(), std::begin(kAcceleratorMap),
                          std::end(kAcceleratorMap));
 
-    bool enable_devtools = true;
-#if !defined(NWJS_SDK)
-    enable_devtools = false;
+#if defined(NWJS_SDK)
+    accelerators->insert(accelerators->begin(),
+                         std::begin(kDevToolsAcceleratorMap),
+                         std::end(kDevToolsAcceleratorMap));
 #endif
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-    // In Ash, DevTools is disabled by default if lacros is the only browser, in
-    // order not to confuse users by opening Ash browser windows.
-    enable_devtools = crosapi::browser_util::IsAshDevToolEnabled();
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-    if (enable_devtools) {
-      accelerators->insert(accelerators->begin(),
-                           std::begin(kDevToolsAcceleratorMap),
-                           std::end(kDevToolsAcceleratorMap));
-    }
 
     // See https://devblogs.microsoft.com/oldnewthing/20040329-00/?p=40003
     // Doing this check here and not at the bottom since kUIDebugAcceleratorMap

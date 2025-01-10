@@ -44,7 +44,7 @@ class TransformStream::FlushAlgorithm final : public StreamAlgorithm {
                                              isolate, "invalid realm"));
     }
     v8::TryCatch try_catch(isolate);
-    ScriptPromiseUntyped promise;
+    ScriptPromise<IDLUndefined> promise;
     {
       // This is needed because the realm of the transformer can be different
       // from the realm of the transform stream.
@@ -379,10 +379,8 @@ class TransformStream::DefaultSinkWriteAlgorithm final
 
       // c. Return the result of transforming backpressureChangePromise ...
       return StreamThenPromise(
-          script_state->GetContext(), backpressure_change_promise->V8Promise(),
-          MakeGarbageCollected<ScriptFunction>(
-              script_state, MakeGarbageCollected<ResponseFunction>(
-                                script_state, stream_, chunk)));
+          script_state, backpressure_change_promise->V8Promise(),
+          MakeGarbageCollected<ResponseFunction>(script_state, stream_, chunk));
     }
 
     //  4. Return ! TransformStreamDefaultControllerPerformTransform(controller,
@@ -521,12 +519,9 @@ class TransformStream::DefaultSinkCloseAlgorithm final
     };
 
     // 5. Return the result of transforming flushPromise ...
-    return StreamThenPromise(
-        script_state->GetContext(), flush_promise,
-        MakeGarbageCollected<ScriptFunction>(
-            script_state, MakeGarbageCollected<ResolveFunction>(stream_)),
-        MakeGarbageCollected<ScriptFunction>(
-            script_state, MakeGarbageCollected<RejectFunction>(stream_)));
+    return StreamThenPromise(script_state, flush_promise,
+                             MakeGarbageCollected<ResolveFunction>(stream_),
+                             MakeGarbageCollected<RejectFunction>(stream_));
   }
 
   void Trace(Visitor* visitor) const override {

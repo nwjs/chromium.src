@@ -42,6 +42,8 @@
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_option_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_text_area_element.h"
 #include "third_party/blink/renderer/core/html/html_template_element.h"
 #include "third_party/blink/renderer/core/html/parser/atomic_html_token.h"
@@ -438,8 +440,7 @@ void HTMLTreeBuilder::ProcessToken(AtomicHTMLToken* token) {
   switch (token->GetType()) {
     case HTMLToken::kUninitialized:
     case HTMLToken::kCharacter:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
     case HTMLToken::DOCTYPE:
       ProcessDoctypeToken(token);
       break;
@@ -947,8 +948,6 @@ void HTMLTreeBuilder::ProcessStartTagForInBody(AtomicHTMLToken* token) {
         // <button>s.
         ParseError(token);
         ProcessFakeEndTag(HTMLTag::kSelect);
-        ProcessStartTag(token);
-        break;
       }
       tree_.ReconstructTheActiveFormattingElements();
       tree_.InsertHTMLElement(token);
@@ -1556,7 +1555,7 @@ void HTMLTreeBuilder::ProcessStartTag(AtomicHTMLToken* token) {
           tree_.InsertSelfClosingHTMLElementDestroyingToken(token);
           return;
         case HTMLTag::kSelect: {
-        tree_.OpenElements()->TopNode()->AddConsoleMessage(
+          tree_.OpenElements()->TopNode()->AddConsoleMessage(
             mojom::blink::ConsoleMessageSource::kJavaScript,
             mojom::blink::ConsoleMessageLevel::kError,
             "A <select> tag was parsed within another <select> tag and was converted into </select>. This behavior will change in a future browser version. Please add the missing </select> end tag.");
@@ -1646,8 +1645,7 @@ void HTMLTreeBuilder::ProcessStartTag(AtomicHTMLToken* token) {
       ProcessStartTag(token);
       break;
     case kTextMode:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
     case kTemplateContentsMode:
       switch (tag) {
         case HTMLTag::kTemplate:
@@ -2095,6 +2093,21 @@ void HTMLTreeBuilder::ProcessEndTagForInBody(AtomicHTMLToken* token) {
         ParseError(token);
       tree_.OpenElements()->PopUntilPopped(tag);
       return;
+    case HTMLTag::kOption: {
+      auto* option =
+          DynamicTo<HTMLOptionElement>(tree_.OpenElements()->TopNode());
+      ProcessAnyOtherEndTagForInBody(token);
+      if (RuntimeEnabledFeatures::CustomizableSelectEnabled()) {
+        if (option && option->Selected()) {
+          auto* select = option->OwnerSelectElement();
+          if (select && select->UsesMenuList() && !select->IsMultiple()) {
+            CHECK_EQ(option, select->SelectedOption());
+            select->UpdateAllSelectedcontents();
+          }
+        }
+      }
+      return;
+    }
     case HTMLTag::kForm:
       if (!IsParsingTemplateContents()) {
         Element* node = tree_.TakeForm();
@@ -3010,8 +3023,7 @@ void HTMLTreeBuilder::ProcessTokenInForeignContent(AtomicHTMLToken* token) {
 
   switch (token->GetType()) {
     case HTMLToken::kUninitialized:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
     case HTMLToken::DOCTYPE:
     // TODO(crbug.com/1453291) This needs to be expanded to properly handle
     // foreign content (e.g. <svg>) inside an element with `parseparts`.
@@ -3146,8 +3158,7 @@ void HTMLTreeBuilder::ProcessTokenInForeignContent(AtomicHTMLToken* token) {
       break;
     case HTMLToken::kCharacter:
     case HTMLToken::kEndOfFile:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 }
 

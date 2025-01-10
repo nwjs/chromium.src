@@ -403,6 +403,12 @@ void ScrollableShelfView::ScrollToNewPage(bool forward) {
     ScrollByYOffset(offset, /*animating=*/true);
 }
 
+void ScrollableShelfView::UpdateAccessiblePreviousAndNextFocus() {
+  GetViewAccessibility().SetNextFocus(GetShelf()->GetStatusAreaWidget());
+  GetViewAccessibility().SetPreviousFocus(
+      GetShelf()->shelf_widget()->navigation_widget());
+}
+
 views::FocusSearch* ScrollableShelfView::GetFocusSearch() {
   return focus_search_.get();
 }
@@ -852,12 +858,6 @@ void ScrollableShelfView::OnGestureEvent(ui::GestureEvent* event) {
   }
 }
 
-void ScrollableShelfView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
-  GetViewAccessibility().SetNextFocus(GetShelf()->GetStatusAreaWidget());
-  GetViewAccessibility().SetPreviousFocus(
-      GetShelf()->shelf_widget()->navigation_widget());
-}
-
 void ScrollableShelfView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
   const gfx::Insets old_edge_padding_insets = edge_padding_insets_;
   const gfx::Vector2dF old_scroll_offset = scroll_offset_;
@@ -1198,7 +1198,7 @@ void ScrollableShelfView::ScheduleScrollForItemDragIfNeeded(
 
   drag_item_bounds_in_screen_.emplace(item_bounds_in_screen);
   if (AreBoundsWithinVisibleSpace(*drag_item_bounds_in_screen_)) {
-    page_flip_timer_.AbandonAndStop();
+    page_flip_timer_.Stop();
     return;
   }
 
@@ -1210,7 +1210,7 @@ void ScrollableShelfView::ScheduleScrollForItemDragIfNeeded(
 void ScrollableShelfView::CancelScrollForItemDrag() {
   drag_item_bounds_in_screen_.reset();
   if (page_flip_timer_.IsRunning())
-    page_flip_timer_.AbandonAndStop();
+    page_flip_timer_.Stop();
 }
 
 void ScrollableShelfView::OnImplicitAnimationsCompleted() {

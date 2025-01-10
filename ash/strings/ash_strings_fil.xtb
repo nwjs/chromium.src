@@ -308,7 +308,6 @@ Narito ang ilang bagay na puwede mong subukang simulan.</translation>
 <translation id="2041220428661959602">Level ng baterya: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848">Kasalukuyang naka-off ang shortcut para sa <ph name="SIX_PACK_KEY_NAME" /></translation>
 <translation id="2049240716062114887">Ginawang <ph name="DESK_NAME" /> ang pangalan ng desk</translation>
-<translation id="2050339315714019657">Portrait</translation>
 <translation id="2064048859448024834">Naka-on ang preview ng camera</translation>
 <translation id="2065098273523946419">Link ng matuto pa. Magre-redirect sa browser kapag na-activate</translation>
 <translation id="2067220651560163985">Ipakita ang temperatura sa Celsius</translation>
@@ -339,9 +338,6 @@ Narito ang ilang bagay na puwede mong subukang simulan.</translation>
 <translation id="219905428774326614">Launcher, lahat ng app</translation>
 <translation id="2201071101391734388">Kamakailang larawan <ph name="INDEX" /> ng <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">I-collapse ang Google Tasks</translation>
-<translation id="2206960886090042977">Naka-disable ang naka-built in na touchpad dahil nakakonekta ang mouse. Gamitin ang mouse o keyboard para kumpirmahin ang pagbabago.
-
-Kung hindi naman, ie-enable ulit ang naka-built in na touchpad sa loob ng 30 segundo.</translation>
 <translation id="2208323208084708176">Unified desktop mode</translation>
 <translation id="2220572644011485463">PIN o password</translation>
 <translation id="2222841058024245321">Desk 7</translation>
@@ -504,6 +500,9 @@ Kung hindi naman, ie-enable ulit ang naka-built in na touchpad sa loob ng 30 seg
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> hanggang <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">ctrl+search+s</translation>
 <translation id="2778650143428714839">Pinapamahalaan ng <ph name="MANAGER" /> ang <ph name="DEVICE_TYPE" /></translation>
+<translation id="2781658180588759579">Naka-disable ang naka-built in na touchpad. Gamitin ang iyong keyboard o ibang device na panturo para kumpirmahin ang pagbabago.
+
+Kung hindi naman, ie-enable ulit ang naka-built in na touchpad sa loob ng <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2782591952652094792">Lumabas sa capture mode</translation>
 <translation id="2785499565474703580">1 device ang nakakonekta</translation>
 <translation id="2791421900609674576">Makakakita ka ng mga rekomendasyon para makapagpatuloy ka kung saan ka huminto. Puwede kang pumindot nang matagal para alisin ang mga rekomendasyon.</translation>
@@ -601,6 +600,9 @@ Kung hindi naman, ie-enable ulit ang naka-built in na touchpad sa loob ng 30 seg
 <translation id="3113492864356515707">I-highlight ang nakaraang item sa shelf</translation>
 <translation id="311799651966070385">Isara ang nudge</translation>
 <translation id="3120421559657122717">I-shut down ang device?</translation>
+<translation id="3121411970001795539">Naka-disable ang naka-built in na touchpad dahil nakakonekta ang mouse. Gamitin ang mouse o keyboard para kumpirmahin ang pagbabago.
+
+Kung hindi naman, ie-enable ulit ang naka-built in na touchpad sa loob ng <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">Uri ng classwork</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +973,13 @@ Limitado ang ilang feature para mapatagal ang baterya.</translation>
 <translation id="4322742403972824594">Nagbago ang keyboard shortcut na Ctrl + Alt + Pataas na Arrow. Para magamit ang Home key, pindutin ang <ph name="LAUNCHER_KEY_NAME" /> key + Kaliwang Arrow.</translation>
 <translation id="4324840740119394760">Pinapayagan nito ang access sa camera para sa <ph name="APP_NAME" /> at lahat ng app at website na may pahintulot sa camera</translation>
 <translation id="4327147325944669226">I-record ang laro</translation>
-<translation id="4333628967105022692">Hindi sinusuportahan ang Lacros kapag maraming user ang naka-sign in.</translation>
 <translation id="4338109981321384717">Magnifying glass</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, Naka-mute</translation>
 <translation id="4351244548802238354">Isara ang dialog</translation>
 <translation id="4356872429719185452">Ipakita ang mga detalye ng hotspot. Ino-on ang hotspot.</translation>
 <translation id="4364101114148522660"><ph name="DURATION" />  Nire-record</translation>
 <translation id="4371348193907997655">Mga Cast Setting</translation>
+<translation id="4371834685492830207">Binubuo lang dapat ng mga valid na character ang PIN</translation>
 <translation id="4375482231364171368">Maghanap sa address bar</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, lakas ng signal <ph name="SIGNAL_STRENGTH" /> porsyento</translation>
 <translation id="4378551569595875038">Kumokonekta...</translation>
@@ -1143,6 +1145,7 @@ Limitado ang ilang feature para mapatagal ang baterya.</translation>
 <translation id="4902797682482387055">Iminumungkahing gawain na pagtutuunan ng pansin</translation>
 <translation id="490375751687810070">Vertical</translation>
 <translation id="490788395437447240"><ph name="BATTERY_PERCENTAGE" />% ang baterya</translation>
+<translation id="4911191962826748981">Isa itong pang-eksperimentong feature ng AI at hindi ito palaging tama.</translation>
 <translation id="491504982845934899">I-activate ang <ph name="NETWORK_NAME" /> pagkatapos ng pag-set up ng device</translation>
 <translation id="4917385247580444890">Malakas</translation>
 <translation id="4918086044614829423">Tanggapin</translation>
@@ -1301,6 +1304,7 @@ Walang nakakonektang device.</translation>
 <translation id="5393156353051693207">Pumindot nang matagal kahit saan para baguhin ang pagkakaayos ng iyong mga app</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" /> sa ibabaw ng <ph name="IN_PLACE_APP" />, bitawan para gumawa ng folder.</translation>
 <translation id="5397578532367286026">Ang paggamit at kasaysayan ng user na ito ay maaaring suriin ng manager (<ph name="MANAGER_EMAIL" />) sa chrome.com.</translation>
+<translation id="540338817371815859">Landscape</translation>
 <translation id="540713187982329711">I-toggle ang hotspot. Naka-on ang hotspot, walang nakakonektang device.</translation>
 <translation id="5409208741270395213">Markahan ang gawain bilang nakumpleto na</translation>
 <translation id="5413656666631274079">Page na Mga Setting</translation>
@@ -1472,7 +1476,6 @@ Walang nakakonektang device.</translation>
 <translation id="5975235751479998104">Mag-navigate nang paabante sa mga window</translation>
 <translation id="5978382165065462689">Pagbabahagi ng kontrol sa iyong screen sa pamamagitan ng Remote Assistance.</translation>
 <translation id="5980301590375426705">Lumabas</translation>
-<translation id="5982119059638483922">Pindutin ang Fn+Search o Shift para kanselahin.</translation>
 <translation id="5983567367406220847">Dahil sa kawalan ng aktibidad, na-off ang hotspot.</translation>
 <translation id="598407983968395253">Gamitin ang template</translation>
 <translation id="5986723678596105470">Sumali gamit ang Google Meet</translation>
@@ -1542,7 +1545,6 @@ Walang nakakonektang device.</translation>
 <translation id="6166852626429024716">Maghanap sa iyong device, mga app, mga setting, web...</translation>
 <translation id="6168318496333165060">Buksan ang Diagnostics app</translation>
 <translation id="6168622430237609329">Ang iyong mga naka-install na app</translation>
-<translation id="6173151025443907148">Hindi sinusuportahan ang pag-sign in ng pangalawang user kung naka-enable ang Lacros. Gumamit na lang ng pangalawang profile ng browser sa Lacros o i-disable ang Lacros at subukan ulit.</translation>
 <translation id="6179832488876878285">Puwede mong i-pin ang iyong mahahalagang file dito. Buksan ang app na Mga File para magsimula.</translation>
 <translation id="6180193585172850042">Button na Bumalik</translation>
 <translation id="6180651297859206670">Button na Pa-forward</translation>
@@ -1564,6 +1566,7 @@ Walang nakakonektang device.</translation>
 <translation id="6232416233079464213">Mula sa <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217">Kasalukuyang ginagamit ng <ph name="APP_NAME" /> ang iyong camera at mikropono</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">Binubuo lang dapat ng mga valid na character ang password</translation>
 <translation id="6240603910551255087">Button sa Itaas</translation>
 <translation id="6240821072888636753">Itanong palagi</translation>
 <translation id="6247728804802644171">Buksan ang mga notification</translation>
@@ -1694,7 +1697,6 @@ Kaka-install lang</translation>
 <translation id="6682029141988159141">I-paste ang content mula sa clipboard</translation>
 <translation id="6683022854667115063">Headphones</translation>
 <translation id="6686023075541098243">I-set up ang pagtingin sa mga notification ng iyong telepono</translation>
-<translation id="6688019813898140556">Esc nang 5 beses</translation>
 <translation id="6694462491298752106">Naka-disable ang built-in na touchpad</translation>
 <translation id="6694973220096431421">Maghanap sa Google Drive</translation>
 <translation id="6696025732084565524">Nangangailangan ng mahalagang update ang iyong naaalis na keyboard</translation>
@@ -1715,6 +1717,7 @@ Kaka-install lang</translation>
 <translation id="6751826523481687655">Naka-on ang pag-trace ng performance</translation>
 <translation id="6752912906630585008">Inalis ang Desk na <ph name="REMOVED_DESK" /> at isinama sa Desk na <ph name="RECEIVE_DESK" /></translation>
 <translation id="6753390234084146956">mga tab</translation>
+<translation id="6754918760968695779">Quick Insert</translation>
 <translation id="6757237461819837179">Walang nagpe-play na media</translation>
 <translation id="6760438044935091345">Dashboard ng game</translation>
 <translation id="6768043681523654438">storage</translation>
@@ -1764,6 +1767,7 @@ Kaka-install lang</translation>
 <translation id="6921427376813842559">I-update ang device</translation>
 <translation id="6929081673585394903">Ipakita ang mga kontrol</translation>
 <translation id="6931576957638141829">I-save sa</translation>
+<translation id="6935857786205183008">Portrait</translation>
 <translation id="6942518653766415536">Menu ng format ng recording</translation>
 <translation id="6945221475159498467">Pumili</translation>
 <translation id="6945922087561257829">Gumagamit ang iyong telepono ng mobile network. Tiyaking nasa iisang Wi-Fi network ang iyong telepono at Chromebook at pagkatapos ay subukan ulit. <ph name="LEARN_MORE" /></translation>
@@ -1919,9 +1923,6 @@ Kaka-install lang</translation>
 Para i-shut down ang device, pindutin ulit nang matagal ang power button sa device.</translation>
 <translation id="7523420897035067483">I-enable ang Huwag Istorbohin habang Naka-focus</translation>
 <translation id="7524043547948122239">Google Tasks</translation>
-<translation id="7524919752437339268">Naka-disable ang naka-built in na touchpad. Gamitin ang iyong keyboard o ibang device na panturo para kumpirmahin ang pagbabago.
-
-Kung hindi naman, ie-enable ulit ang naka-built in na touchpad sa loob ng 30 segundo.</translation>
 <translation id="7525067979554623046">Gumawa</translation>
 <translation id="7526573455193969409">Maaaring sinusubaybayan ang network</translation>
 <translation id="7536035074519304529">IP address: <ph name="ADDRESS" /></translation>
@@ -2008,6 +2009,7 @@ Kung hindi naman, ie-enable ulit ang naka-built in na touchpad sa loob ng 30 seg
 <translation id="780301667611848630">Hindi salamat</translation>
 <translation id="7807067443225230855">Paghahanap at Assistant</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> at <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">Sa pag-thumbs up, magsusumite ng feedback na gusto mo ang suhestyong ito</translation>
 <translation id="7825412704590278437">Mula sa paparating na event sa kalendaryo</translation>
 <translation id="7829386189513694949">Malakas ang signal</translation>
 <translation id="7830453190047749513">Puwede mong i-personalize ang mga pagkilos ng button, bilis ng cursor, at higit pa para sa iyong <ph name="PERIPHERAL_NAME" /></translation>
@@ -2162,6 +2164,7 @@ Kung hindi naman, ie-enable ulit ang naka-built in na touchpad sa loob ng 30 seg
 <translation id="830868413617744215">Beta</translation>
 <translation id="8314772463905284467">Naka-on ang Caps Lock</translation>
 <translation id="8315514906653279104">Ino-on...</translation>
+<translation id="8319634750346253957">Sa pag-thumbs down, magsusumite ng feedback na hindi mo gusto ang suhestyong ito</translation>
 <translation id="8331351032546853669">Nakabinbin ang pag-download</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2346,6 +2349,7 @@ Kung hindi naman, ie-enable ulit ang naka-built in na touchpad sa loob ng 30 seg
 <translation id="8982906748181120328">Visible Nearby</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">Gamit ang <ph name="IME_NAME" /></translation>
+<translation id="8991648557324317894">Pindutin ang fn + Quick Insert o Shift para magkansela.</translation>
 <translation id="899350903320462459">I-unlock ang device bilang <ph name="LOGIN_ID" /> para maisagawa ang pagkilos sa notification</translation>
 <translation id="8993733019280019776">Nagsasalita ka ba? Naka-off ang iyong mikropono. Piliin ang mikropono para i-on ito.</translation>
 <translation id="9000771174482730261">PAMAHALAAN ANG STORAGE</translation>
@@ -2428,9 +2432,9 @@ Kung hindi naman, ie-enable ulit ang naka-built in na touchpad sa loob ng 30 seg
 <translation id="974545358917229949">Ipinapakita ang <ph name="RESULT_COUNT" /> (na) resulta para sa <ph name="QUERY" /></translation>
 <translation id="981011780479609956">Walang takdang petsa</translation>
 <translation id="98120814841227350">Pumunta sa dulo ng dokumento</translation>
-<translation id="98515147261107953">Landscape</translation>
 <translation id="987589956647469042">Naka-on ang mobile data</translation>
 <translation id="989374776391122812">Mga kontrol ng camera at audio</translation>
+<translation id="990263227494928142">Pindutin ang Shift nang 5 beses para i-enable ang touchpad</translation>
 <translation id="990277280839877440">Isinara ang window na <ph name="WINDOW_TITILE" />.</translation>
 <translation id="993398562350683614">Hakbang <ph name="STEP" /> sa <ph name="TOTAL_STEPS" /> ng tour. Gumamit ng mga app para gawin ang lahat ng kailangan mong gawin sa iyong <ph name="PRODUCT_NAME" />. Makikita mo ang iyong mga app sa Launcher. Pindutin ang Alt + Shift + L para mag-focus sa button ng Launcher.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

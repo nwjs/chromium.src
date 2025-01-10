@@ -21,12 +21,17 @@
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "crypto/crypto_buildflags.h"
+#include "device/fido/features.h"
 #include "third_party/blink/public/common/features_generated.h"
 #include "ui/compositor/compositor_switches.h"
 
 #if BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 #include "chrome/browser/browser_features.h"
 #endif  // BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+
+#if BUILDFLAG(ENABLE_COMPOSE)
+#include "chrome/browser/compose/compose_enabling.h"
+#endif  // BUILDFLAG(ENABLE_COMPOSE)
 
 class SettingsBrowserTest : public WebUIMochaBrowserTest {
  protected:
@@ -178,18 +183,28 @@ IN_PROC_BROWSER_TEST_F(SettingsAiPageTest,
           "runMochaSuite('ExperimentalAdvancedPageRefreshDisabled')");
 }
 
+IN_PROC_BROWSER_TEST_F(SettingsAiPageTest, AiInfoCard) {
+  RunTest("settings/ai_info_card_test.js", "runMochaSuite('AiInfoCard')");
+}
+
 IN_PROC_BROWSER_TEST_F(SettingsAiPageTest, TabOrganizationSubpage) {
-  RunTest("settings/ai_subpage_test.js",
+  RunTest("settings/ai_tab_organization_subpage_test.js",
           "runMochaSuite('TabOrganizationSubpage')");
 }
 
 IN_PROC_BROWSER_TEST_F(SettingsAiPageTest, HistorySearchSubpage) {
-  RunTest("settings/ai_subpage_test.js",
+  RunTest("settings/ai_history_search_subpage_test.js",
           "runMochaSuite('HistorySearchSubpage')");
 }
 
 IN_PROC_BROWSER_TEST_F(SettingsAiPageTest, CompareSubpage) {
-  RunTest("settings/ai_subpage_test.js", "runMochaSuite('CompareSubpage')");
+  RunTest("settings/ai_compare_subpage_test.js",
+          "runMochaSuite('CompareSubpage')");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsAiPageTest, LoggingInfoBullet) {
+  RunTest("settings/ai_logging_info_bullet_test.js",
+          "runMochaSuite('LoggingInfoBullet')");
 }
 
 IN_PROC_BROWSER_TEST_F(SettingsTest, ExtensionControlledIndicator) {
@@ -408,6 +423,23 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, SecureDnsDialog) {
 }
 #endif
 
+// TODO(crbug.com/372493822): remove when hybrid linking is disabled by default.
+class HybridDisabledSettingsTest : public SettingsTest {
+ public:
+  HybridDisabledSettingsTest() {
+    scoped_feature_list_.InitWithFeatures(
+        /*enabled_features=*/{},
+        /*disabled_features=*/{device::kWebAuthnHybridLinking});
+  }
+
+ protected:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(HybridDisabledSettingsTest, SecurityKeysSubpage) {
+  RunTest("settings/security_keys_subpage_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(SettingsTest, SecurityKeysBioEnrollment) {
   RunTest("settings/security_keys_bio_enrollment_test.js", "mocha.run()");
 }
@@ -537,8 +569,14 @@ class SettingsComposePageTest : public SettingsBrowserTest {
         /*disabled_features=*/{});
   }
 
+  void SetUpOnMainThread() override {
+    SettingsBrowserTest::SetUpOnMainThread();
+    scoped_enable_compose_ = ComposeEnabling::ScopedEnableComposeForTesting();
+  }
+
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
+  ComposeEnabling::ScopedOverride scoped_enable_compose_;
 };
 
 IN_PROC_BROWSER_TEST_F(SettingsComposePageTest, ComposePage) {
@@ -1261,6 +1299,7 @@ class SettingsSecurityPageTest : public SettingsBrowserTest {
         {
             features::kEnableCertManagementUIV2,
             safe_browsing::kEsbAiStringUpdate,
+            safe_browsing::kPasswordLeakToggleMove,
         },
         {});
   }

@@ -120,11 +120,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * TabListCoordinator}.
  */
 @RunWith(ChromeJUnit4ClassRunner.class)
-@CommandLineFlags.Add({
-    ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE,
-    "enable-features=" + ChromeFeatureList.COMMERCE_PRICE_TRACKING + "<Study",
-    "force-fieldtrials=Study/Group"
-})
+@CommandLineFlags.Add(ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE)
+@EnableFeatures(ChromeFeatureList.COMMERCE_PRICE_TRACKING)
 @Batch(Batch.UNIT_TESTS)
 public class TabListViewHolderTest extends BlankUiTestActivityTestCase {
     @Rule public JniMocker mMocker = new JniMocker();
@@ -185,7 +182,7 @@ public class TabListViewHolderTest extends BlankUiTestActivityTestCase {
 
     @Mock private Profile mProfile;
 
-    @Mock private LevelDBPersistedDataStorage.Natives mLevelDBPersistedTabDataStorage;
+    @Mock private LevelDBPersistedDataStorage.Natives mLevelDbPersistedTabDataStorage;
 
     @Mock private UrlUtilities.Natives mUrlUtilitiesJniMock;
 
@@ -356,9 +353,9 @@ public class TabListViewHolderTest extends BlankUiTestActivityTestCase {
                             PropertyModelChangeProcessor.create(
                                     mGridModel, mTabListView, TabListViewBinder::bindTab);
                 });
-        mMocker.mock(LevelDBPersistedDataStorageJni.TEST_HOOKS, mLevelDBPersistedTabDataStorage);
+        mMocker.mock(LevelDBPersistedDataStorageJni.TEST_HOOKS, mLevelDbPersistedTabDataStorage);
         doNothing()
-                .when(mLevelDBPersistedTabDataStorage)
+                .when(mLevelDbPersistedTabDataStorage)
                 .init(any(LevelDBPersistedDataStorage.class), any(BrowserContextHandle.class));
         doReturn(false).when(mProfile).isOffTheRecord();
         LevelDBPersistedDataStorage.setSkipNativeAssertionsForTesting(true);
@@ -1023,7 +1020,6 @@ public class TabListViewHolderTest extends BlankUiTestActivityTestCase {
     @Test
     @MediumTest
     @UiThreadTest
-    @EnableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_ANDROID)
     public void testColorIcon_Grid() {
         // Prevent errors with duplicate view attachment.
         mListMcp.destroy();
@@ -1039,7 +1035,8 @@ public class TabListViewHolderTest extends BlankUiTestActivityTestCase {
                         /* isIncognito= */ false,
                         TabGroupColorId.BLUE,
                         /* tabGroupSyncService= */ null,
-                        /* dataSharingService= */ null);
+                        /* dataSharingService= */ null,
+                        /* collaborationService= */ null);
 
         mGridModel.set(TabProperties.TAB_GROUP_COLOR_VIEW_PROVIDER, provider);
         assertEquals(1, gridContainer.getChildCount());
@@ -1063,7 +1060,6 @@ public class TabListViewHolderTest extends BlankUiTestActivityTestCase {
     @Test
     @MediumTest
     @UiThreadTest
-    @EnableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_ANDROID)
     public void testColorIcon_List() {
         // Prevent errors with duplicate view attachment.
         mSelectableMcp.destroy();
@@ -1080,7 +1076,8 @@ public class TabListViewHolderTest extends BlankUiTestActivityTestCase {
                         /* isIncognito= */ false,
                         TabGroupColorId.BLUE,
                         /* tabGroupSyncService= */ null,
-                        /* dataSharingService= */ null);
+                        /* dataSharingService= */ null,
+                        /* collaborationService= */ null);
 
         mGridModel.set(TabProperties.TAB_GROUP_COLOR_VIEW_PROVIDER, provider);
         assertEquals(1, listContainer.getChildCount());

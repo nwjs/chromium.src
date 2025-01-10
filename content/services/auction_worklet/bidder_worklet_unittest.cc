@@ -49,6 +49,7 @@
 #include "mojo/public/cpp/bindings/unique_receiver_set.h"
 #include "net/http/http_status_code.h"
 #include "net/third_party/quiche/src/quiche/oblivious_http/oblivious_http_gateway.h"
+#include "services/network/public/mojom/shared_storage.mojom.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock-matchers.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -1178,32 +1179,6 @@ class BidderWorkletMultiBidDisabledTest : public BidderWorkletTest {
 
  protected:
   base::test::ScopedFeatureList feature_list_;
-};
-
-// kCookieDeprecationFacilitatedTesting disables kFledgeMultiBid.
-class BidderWorkletMultiBidAndCookieDeprecationTest : public BidderWorkletTest {
- public:
-  BidderWorkletMultiBidAndCookieDeprecationTest() {
-    feature_list_.InitWithFeatures(
-        /*enabled_features=*/{blink::features::kFledgeMultiBid,
-                              features::kCookieDeprecationFacilitatedTesting},
-        /*disabled_features=*/{});
-  }
-
- protected:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-class BidderWorkletCrossOriginTrustedSignalsDisabledTest
-    : public BidderWorkletTest {
- public:
-  BidderWorkletCrossOriginTrustedSignalsDisabledTest() {
-    scoped_feature_list_.InitAndDisableFeature(
-        blink::features::kFledgePermitCrossOriginTrustedSignals);
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Test the case the BidderWorklet pipe is closed before invoking the
@@ -2899,49 +2874,9 @@ TEST_F(BidderWorkletMultiBidDisabledTest, GenerateBidMultiBid) {
       /*expected_bids=*/mojom::BidderWorkletBidPtr());
 }
 
-// Cookie disabling trial forces multibid off.
-TEST_F(BidderWorkletMultiBidAndCookieDeprecationTest, GenerateBidMultiBid) {
-  RunGenerateBidWithReturnValueExpectingResult(
-      R"([{ad: "ad", bid: 1,
-          render: "https://response.test/"}])",
-      /*expected_bids=*/mojom::BidderWorkletBidPtr());
-}
-
 // Make sure that fields that are only available with multibid on aren't
 // read when its off.
 TEST_F(BidderWorkletMultiBidDisabledTest, ComponentTargetFieldsOnlyMultiBid) {
-  auto expected_bid = mojom::BidderWorkletBid::New(
-      auction_worklet::mojom::BidRole::kUnenforcedKAnon, "\"ad\"", 5,
-      /*bid_currency=*/std::nullopt,
-      /*ad_cost=*/std::nullopt,
-      blink::AdDescriptor(GURL("https://response.test/")),
-      /*selected_buyer_and_seller_reporting_id=*/std::nullopt,
-      /*ad_component_descriptors=*/std::nullopt,
-      /*modeling_signals=*/std::nullopt, base::TimeDelta());
-
-  RunGenerateBidWithReturnValueExpectingResult(
-      R"({ad: "ad", bid: 5,
-          render: {url: "https://response.test/"},
-          get numMandatoryAdComponents() {
-            throw 'used numMandatoryAdComponents';
-          }
-      })",
-      expected_bid->Clone());
-
-  RunGenerateBidWithReturnValueExpectingResult(
-      R"({ad: "ad", bid: 5,
-          render: {url: "https://response.test/"},
-          get targetNumAdComponents() {
-            throw 'used targetNumAdComponents';
-          }
-      })",
-      expected_bid->Clone());
-}
-
-// Make sure that fields that are only available with multibid on aren't
-// read when its forced off by kCookieDeprecationFacilitatedTesting.
-TEST_F(BidderWorkletMultiBidAndCookieDeprecationTest,
-       ComponentTargetFieldsOnlyMultiBid) {
   auto expected_bid = mojom::BidderWorkletBid::New(
       auction_worklet::mojom::BidRole::kUnenforcedKAnon, "\"ad\"", 5,
       /*bid_currency=*/std::nullopt,
@@ -6461,14 +6396,6 @@ TEST_F(BidderWorkletTest, GenerateBidTrustedBiddingSignals) {
           /*ad_component_descriptors=*/std::nullopt,
           /*modeling_signals=*/std::nullopt, base::TimeDelta()));
   EXPECT_EQ(observed_requests += 2, url_loader_factory_.total_requests());
-}
-
-// With the cross-origin trusted signals flag off, nothing is passed in to the
-// cross-original signals parameter.
-TEST_F(BidderWorkletCrossOriginTrustedSignalsDisabledTest, Basic) {
-  RunGenerateBidExpectingExpressionIsTrue(
-      "crossOriginTrustedSignals === undefined");
-  RunGenerateBidExpectingExpressionIsTrue("arguments.length === 6");
 }
 
 TEST_F(BidderWorkletTest, GenerateBidTrustedBiddingSignalsV1) {
@@ -10611,43 +10538,34 @@ TEST_F(BidderWorkletSharedStorageAPIEnabledTest,
     // dedicated pipe.
     task_environment_.RunUntilIdle();
 
-    using RequestType =
-        auction_worklet::TestAuctionSharedStorageHost::RequestType;
     using Request = auction_worklet::TestAuctionSharedStorageHost::Request;
 
     EXPECT_THAT(
         test_shared_storage_host.observed_requests(),
         testing::ElementsAre(
-            Request{.type = RequestType::kSet,
-                    .key = u"a",
-                    .value = u"b",
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kBidderGenerateBid},
-            Request{.type = RequestType::kSet,
-                    .key = u"a",
-                    .value = u"b",
-                    .ignore_if_present = true,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kBidderGenerateBid},
-            Request{.type = RequestType::kAppend,
-                    .key = u"a",
-                    .value = u"b",
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kBidderGenerateBid},
-            Request{.type = RequestType::kDelete,
-                    .key = u"a",
-                    .value = std::u16string(),
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kBidderGenerateBid},
-            Request{.type = RequestType::kClear,
-                    .key = std::u16string(),
-                    .value = std::u16string(),
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kBidderGenerateBid}));
+            Request(network::mojom::SharedStorageModifierMethod::NewSetMethod(
+                        network::mojom::SharedStorageSetMethod::New(
+                            /*key=*/u"a", /*value=*/u"b",
+                            /*ignore_if_present=*/false)),
+                    mojom::AuctionWorkletFunction::kBidderGenerateBid),
+            Request(network::mojom::SharedStorageModifierMethod::NewSetMethod(
+                        network::mojom::SharedStorageSetMethod::New(
+                            /*key=*/u"a", /*value=*/u"b",
+                            /*ignore_if_present=*/true)),
+                    mojom::AuctionWorkletFunction::kBidderGenerateBid),
+            Request(
+                network::mojom::SharedStorageModifierMethod::NewAppendMethod(
+                    network::mojom::SharedStorageAppendMethod::New(
+                        /*key=*/u"a", /*value=*/u"b")),
+                mojom::AuctionWorkletFunction::kBidderGenerateBid),
+            Request(
+                network::mojom::SharedStorageModifierMethod::NewDeleteMethod(
+                    network::mojom::SharedStorageDeleteMethod::New(
+                        /*key=*/u"a")),
+                mojom::AuctionWorkletFunction::kBidderGenerateBid),
+            Request(network::mojom::SharedStorageModifierMethod::NewClearMethod(
+                        network::mojom::SharedStorageClearMethod::New()),
+                    mojom::AuctionWorkletFunction::kBidderGenerateBid)));
   }
 
   {
@@ -10710,43 +10628,34 @@ TEST_F(BidderWorkletSharedStorageAPIEnabledTest,
     // dedicated pipe.
     task_environment_.RunUntilIdle();
 
-    using RequestType =
-        auction_worklet::TestAuctionSharedStorageHost::RequestType;
     using Request = auction_worklet::TestAuctionSharedStorageHost::Request;
 
     EXPECT_THAT(
         test_shared_storage_host.observed_requests(),
         testing::ElementsAre(
-            Request{.type = RequestType::kSet,
-                    .key = u"a",
-                    .value = u"b",
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kBidderReportWin},
-            Request{.type = RequestType::kSet,
-                    .key = u"a",
-                    .value = u"b",
-                    .ignore_if_present = true,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kBidderReportWin},
-            Request{.type = RequestType::kAppend,
-                    .key = u"a",
-                    .value = u"b",
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kBidderReportWin},
-            Request{.type = RequestType::kDelete,
-                    .key = u"a",
-                    .value = std::u16string(),
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kBidderReportWin},
-            Request{.type = RequestType::kClear,
-                    .key = std::u16string(),
-                    .value = std::u16string(),
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kBidderReportWin}));
+            Request(network::mojom::SharedStorageModifierMethod::NewSetMethod(
+                        network::mojom::SharedStorageSetMethod::New(
+                            /*key=*/u"a", /*value=*/u"b",
+                            /*ignore_if_present=*/false)),
+                    mojom::AuctionWorkletFunction::kBidderReportWin),
+            Request(network::mojom::SharedStorageModifierMethod::NewSetMethod(
+                        network::mojom::SharedStorageSetMethod::New(
+                            /*key=*/u"a", /*value=*/u"b",
+                            /*ignore_if_present=*/true)),
+                    mojom::AuctionWorkletFunction::kBidderReportWin),
+            Request(
+                network::mojom::SharedStorageModifierMethod::NewAppendMethod(
+                    network::mojom::SharedStorageAppendMethod::New(
+                        /*key=*/u"a", /*value=*/u"b")),
+                mojom::AuctionWorkletFunction::kBidderReportWin),
+            Request(
+                network::mojom::SharedStorageModifierMethod::NewDeleteMethod(
+                    network::mojom::SharedStorageDeleteMethod::New(
+                        /*key=*/u"a")),
+                mojom::AuctionWorkletFunction::kBidderReportWin),
+            Request(network::mojom::SharedStorageModifierMethod::NewClearMethod(
+                        network::mojom::SharedStorageClearMethod::New()),
+                    mojom::AuctionWorkletFunction::kBidderReportWin)));
   }
 
   {
@@ -10851,18 +10760,15 @@ TEST_F(BidderWorkletTwoThreadsSharedStorageAPIEnabledTest,
   // handling the GenerateBid has observed the requests.
   EXPECT_TRUE(test_shared_storage_host1.observed_requests().empty());
 
-  using RequestType =
-      auction_worklet::TestAuctionSharedStorageHost::RequestType;
   using Request = auction_worklet::TestAuctionSharedStorageHost::Request;
 
   EXPECT_THAT(test_shared_storage_host0.observed_requests(),
-              testing::ElementsAre(Request{
-                  .type = RequestType::kSet,
-                  .key = u"a",
-                  .value = u"b",
-                  .ignore_if_present = false,
-                  .source_auction_worklet_function =
-                      mojom::AuctionWorkletFunction::kBidderGenerateBid}));
+              testing::ElementsAre(Request(
+                  network::mojom::SharedStorageModifierMethod::NewSetMethod(
+                      network::mojom::SharedStorageSetMethod::New(
+                          /*key=*/u"a", /*value=*/u"b",
+                          /*ignore_if_present=*/false)),
+                  mojom::AuctionWorkletFunction::kBidderGenerateBid)));
 }
 
 class BidderWorkletPrivateAggregationEnabledTest : public BidderWorkletTest {
@@ -12524,6 +12430,59 @@ class BidderWorkletLatenciesTest : public BidderWorkletTest {
       : BidderWorkletTest(TaskEnvironment::TimeSource::MOCK_TIME) {}
 };
 
+TEST_F(BidderWorkletLatenciesTest,
+       PostSignalsReceivedResumeGenerateBidTimeUMA) {
+  interest_group_trusted_bidding_signals_url_ = GURL("https://signals.test/");
+  const GURL kFullSignalsUrl(
+      "https://signals.test/?hostname=top.window.test&interestGroupNames=Fred");
+
+  const char kJson[] = R"({"perInterestGroupData":
+                            {"Fred": {"priorityVector": {"foo": 1.0}}}
+                          })";
+
+  auto bidder_worklet = CreateWorklet();
+  AddJavascriptResponse(
+      &url_loader_factory_, interest_group_bidding_url_,
+      CreateGenerateBidScript(CreateBasicGenerateBidScript()));
+
+  base::HistogramTester histogram_tester;
+  base::RunLoop on_bidding_signals_received_run_loop;
+  base::OnceClosure on_bidding_signals_received_continue_callback;
+  // Pause for 10ms after receiving signals.
+  auto on_bidding_signals_received_callback = base::BindLambdaForTesting(
+      [&](const base::flat_map<std::string, double>& priority_vector,
+          base::TimeDelta trusted_signals_fetch_latency,
+          std::optional<base::TimeDelta> update_if_older_than,
+          base::OnceClosure callback) {
+        on_bidding_signals_received_run_loop.Quit();
+        on_bidding_signals_received_continue_callback = std::move(callback);
+        task_environment_.FastForwardBy(base::Milliseconds(10));
+      });
+  generate_bid_run_loop_ = std::make_unique<base::RunLoop>();
+  GenerateBid(bidder_worklet.get(),
+              GenerateBidClientWithCallbacks::Create(
+                  base::BindOnce(&BidderWorkletTest::GenerateBidCallback,
+                                 base::Unretained(this)),
+                  std::move(on_bidding_signals_received_callback)));
+
+  task_environment_.RunUntilIdle();
+  EXPECT_FALSE(on_bidding_signals_received_run_loop.AnyQuitCalled());
+  EXPECT_FALSE(generate_bid_run_loop_->AnyQuitCalled());
+
+  AddBidderJsonResponse(&url_loader_factory_, kFullSignalsUrl, kJson);
+  task_environment_.RunUntilIdle();
+  EXPECT_TRUE(on_bidding_signals_received_run_loop.AnyQuitCalled());
+  EXPECT_FALSE(generate_bid_run_loop_->AnyQuitCalled());
+  ASSERT_TRUE(on_bidding_signals_received_continue_callback);
+
+  std::move(on_bidding_signals_received_continue_callback).Run();
+  generate_bid_run_loop_->Run();
+
+  histogram_tester.ExpectUniqueSample(
+      "Ads.InterestGroup.Auction.PostSignalsReceivedResumeGenerateBidTime", 10,
+      1);
+}
+
 TEST_F(BidderWorkletLatenciesTest, GenerateBidLatenciesAreReturned) {
   interest_group_trusted_bidding_signals_url_ =
       GURL("https://url.test/trustedsignals");
@@ -13595,20 +13554,9 @@ TEST_F(BidderWorkletSampleDebugReportsDisabledTest,
   )");
 }
 
-class BidderWorkletCrossOriginTrustedSignalsTest : public BidderWorkletTest {
- public:
-  BidderWorkletCrossOriginTrustedSignalsTest() {
-    scoped_feature_list_.InitAndEnableFeature(
-        blink::features::kFledgePermitCrossOriginTrustedSignals);
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
 // With the feature on, same-origin trusted signals still come in the same,
 // only there is an extra null param.
-TEST_F(BidderWorkletCrossOriginTrustedSignalsTest, SameOrigin) {
+TEST_F(BidderWorkletTest, SameOrigin) {
   base::HistogramTester histogram_tester;
 
   const GURL kBaseSignalsUrl("https://signals.test/");
@@ -13653,7 +13601,7 @@ TEST_F(BidderWorkletCrossOriginTrustedSignalsTest, SameOrigin) {
 
 // Cross-origin signals (and their version) come in as different parameters
 // and fields.
-TEST_F(BidderWorkletCrossOriginTrustedSignalsTest, CrossOrigin) {
+TEST_F(BidderWorkletTest, CrossOrigin) {
   base::HistogramTester histogram_tester;
   const GURL kBaseSignalsUrl("https://signals.test/");
   interest_group_bidding_url_ = GURL("https://url.test/");
@@ -14128,7 +14076,7 @@ class BidderWorkletKVv2Test : public BidderWorkletTest,
         std::move(client_it->second));
     pending_cache_clients_.erase(client_it);
     client->OnSuccess(mojom::TrustedSignalsCompressionScheme::kNone,
-                      test::ToCborVector(response_json_content));
+                      {test::ToCborVector(response_json_content)});
   }
 
   static std::string GenerateResponseBody(

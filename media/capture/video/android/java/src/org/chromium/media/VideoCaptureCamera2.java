@@ -322,9 +322,8 @@ public class VideoCaptureCamera2 extends VideoCapture {
                 final ByteBuffer buffer = image.getPlanes()[0].getBuffer();
                 capturedData = new byte[buffer.remaining()];
                 buffer.get(capturedData);
-            } finally {
-                return capturedData;
             }
+            return capturedData;
         }
 
         @Override
@@ -1736,26 +1735,9 @@ public class VideoCaptureCamera2 extends VideoCapture {
         mCameraNativeOrientation =
                 cameraCharacteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
 
-        // Update the capture width and height based on the camera orientation.
-        // With device's native orientation being Portrait for Android devices,
-        // for cameras that are mounted 0 or 180 degrees in respect to device's
-        // native orientation, we will need to swap the width and height in
-        // order to capture upright frames in respect to device's current
-        // orientation.
-        int capture_width = width;
-        int capture_height = height;
-        if (mCameraNativeOrientation == 0 || mCameraNativeOrientation == 180) {
-            Log.d(
-                    TAG,
-                    "Flipping capture width and height to match device's " + "natural orientation");
-            capture_width = height;
-            capture_height = width;
-        }
-
         // Find closest supported size.
         final Size[] supportedSizes = streamMap.getOutputSizes(ImageFormat.YUV_420_888);
-        final Size closestSupportedSize =
-                findClosestSizeInArray(supportedSizes, capture_width, capture_height);
+        final Size closestSupportedSize = findClosestSizeInArray(supportedSizes, width, height);
         if (closestSupportedSize == null) {
             Log.e(TAG, "No supported resolutions.");
             return false;

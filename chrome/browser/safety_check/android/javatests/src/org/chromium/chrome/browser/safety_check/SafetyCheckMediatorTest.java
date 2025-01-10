@@ -89,9 +89,10 @@ import org.chromium.chrome.browser.safety_check.SafetyCheckProperties.SafeBrowsi
 import org.chromium.chrome.browser.safety_check.SafetyCheckProperties.UpdatesState;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
+import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncCoordinator;
 import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncActivityLauncher;
-import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncCoordinator;
 import org.chromium.chrome.browser.ui.signin.SyncConsentActivityLauncher;
+import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncConfig;
 import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.signin.base.CoreAccountInfo;
@@ -789,15 +790,17 @@ public class SafetyCheckMediatorTest {
         click(getPasswordsClickListener(mPasswordCheckModel));
 
         verify(mSigninLauncher)
-                .launchActivityIfAllowed(
+                .createBottomSheetSigninIntentOrShowError(
                         any(),
                         eq(mProfile),
                         any(),
-                        eq(SigninAndHistorySyncCoordinator.NoAccountSigninMode.ADD_ACCOUNT),
                         eq(
-                                SigninAndHistorySyncCoordinator.WithAccountSigninMode
+                                BottomSheetSigninAndHistorySyncCoordinator.NoAccountSigninMode
+                                        .ADD_ACCOUNT),
+                        eq(
+                                BottomSheetSigninAndHistorySyncCoordinator.WithAccountSigninMode
                                         .DEFAULT_ACCOUNT_BOTTOM_SHEET),
-                        eq(SigninAndHistorySyncCoordinator.HistoryOptInMode.NONE),
+                        eq(HistorySyncConfig.OptInMode.NONE),
                         eq(SigninAccessPoint.SAFETY_CHECK),
                         isNull());
     }

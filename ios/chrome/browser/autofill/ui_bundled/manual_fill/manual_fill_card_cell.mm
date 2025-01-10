@@ -12,6 +12,7 @@
 #import "components/autofill/core/browser/data_model/credit_card.h"
 #import "components/autofill/core/browser/payments/autofill_payments_feature_availability.h"
 #import "components/autofill/core/browser/payments/payments_service_url.h"
+#import "components/autofill/core/browser/ui/suggestion.h"
 #import "components/autofill/core/common/autofill_payments_features.h"
 #import "components/autofill/ios/browser/form_suggestion.h"
 #import "components/grit/components_scaled_resources.h"
@@ -461,25 +462,25 @@ CGFloat GPayIconTopAnchorOffset() {
       setLabelText:
           (card.recordType == kVirtualCard
                ? l10n_util::GetNSString(
-                     IDS_AUTOFILL_VIRTUAL_CARD_MANUAL_FALLBACK_BUBBLE_CARD_NUMBER_LABEL_IOS)
+                     IDS_AUTOFILL_FILLED_CARD_INFORMATION_BUBBLE_CARD_NUMBER_LABEL_VIRTUAL_CARD_IOS)
                : l10n_util::GetNSString(
                      IDS_AUTOFILL_REGULAR_CARD_MANUAL_FALLBACK_BUBBLE_CARD_NUMBER_LABEL_IOS))
       buttonTitles:@[ card.obfuscatedNumber ]];
   [self.expirationDateLabeledChip
       setLabelText:
           l10n_util::GetNSString(
-              IDS_AUTOFILL_VIRTUAL_CARD_MANUAL_FALLBACK_BUBBLE_EXP_DATE_LABEL_IOS)
+              IDS_AUTOFILL_FILLED_CARD_INFORMATION_BUBBLE_EXP_DATE_LABEL_VIRTUAL_CARD_IOS)
       buttonTitles:@[ card.expirationMonth, card.expirationYear ]];
   [self.cardholderLabeledChip
       setLabelText:
           l10n_util::GetNSString(
-              IDS_AUTOFILL_VIRTUAL_CARD_MANUAL_FALLBACK_BUBBLE_NAME_ON_CARD_LABEL_IOS)
+              IDS_AUTOFILL_FILLED_CARD_INFORMATION_BUBBLE_NAME_ON_CARD_LABEL_VIRTUAL_CARD_IOS)
       buttonTitles:@[ card.cardHolder ]];
   if (card.recordType == kVirtualCard) {
     [self.CVCLabeledChip
         setLabelText:
             l10n_util::GetNSString(
-                IDS_AUTOFILL_VIRTUAL_CARD_MANUAL_FALLBACK_BUBBLE_CVC_LABEL_IOS)
+                IDS_AUTOFILL_FILLED_CARD_INFORMATION_BUBBLE_CVC_LABEL_VIRTUAL_CARD_IOS)
         buttonTitles:@[ card.CVC ]];
   }
 
@@ -661,18 +662,19 @@ CGFloat GPayIconTopAnchorOffset() {
               [self.card recordType] == kVirtualCard
           ? autofill::SuggestionType::kVirtualCreditCardEntry
           : autofill::SuggestionType::kCreditCardEntry;
-  FormSuggestion* suggestion =
-      [FormSuggestion suggestionWithValue:nil
-                               minorValue:nil
-                       displayDescription:nil
-                                     icon:nil
-                                     type:type
-                        backendIdentifier:[self.card GUID]
-              fieldByFieldFillingTypeUsed:autofill::EMPTY_TYPE
-                           requiresReauth:NO
-               acceptanceA11yAnnouncement:
-                   base::SysUTF16ToNSString(l10n_util::GetStringUTF16(
-                       IDS_AUTOFILL_A11Y_ANNOUNCE_FILLED_FORM))];
+  FormSuggestion* suggestion = [FormSuggestion
+              suggestionWithValue:nil
+                       minorValue:nil
+               displayDescription:nil
+                             icon:nil
+                             type:type
+                          payload:autofill::Suggestion::Guid(
+                                      base::SysNSStringToUTF8([self.card GUID]))
+      fieldByFieldFillingTypeUsed:autofill::EMPTY_TYPE
+                   requiresReauth:NO
+       acceptanceA11yAnnouncement:
+           base::SysUTF16ToNSString(l10n_util::GetStringUTF16(
+               IDS_AUTOFILL_A11Y_ANNOUNCE_FILLED_FORM))];
 
   [self.contentInjector autofillFormWithSuggestion:suggestion
                                            atIndex:_cellIndex];

@@ -12,7 +12,6 @@
 #include <utility>
 #include <vector>
 
-#include "base/check.h"
 #include "base/check_op.h"
 #include "base/containers/span.h"
 #include "base/files/file.h"
@@ -239,7 +238,7 @@ void NetworkFetcher::ContinueFetch(
       return HRESULTFromLastError();
     }
 
-    SetProxyForRequest(request_handle_.get(), winhttp_proxy_info);
+    SetProxyForRequest(request_handle_.get(), std::move(winhttp_proxy_info));
 
     const auto winhttp_callback = ::WinHttpSetStatusCallback(
         request_handle_.get(), &NetworkFetcher::WinHttpStatusCallback,

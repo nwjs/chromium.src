@@ -21,19 +21,21 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
-#include "ui/base/models/simple_menu_model.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
+#include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/color/color_provider.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/image/image_skia.h"
+#include "ui/menus/simple_menu_model.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/image_button_factory.h"
 #include "ui/views/controls/button/menu_button.h"
 #include "ui/views/controls/button/menu_button_controller.h"
+#include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/view_class_properties.h"
@@ -51,22 +53,30 @@ LensPreselectionBubble::LensPreselectionBubble(
     base::WeakPtr<LensOverlayController> lens_overlay_controller,
     views::View* anchor_view,
     bool offline,
-    ExitClickedCallback callback)
+    ExitClickedCallback exit_clicked_callback,
+    base::OnceClosure on_cancel_callback)
     : BubbleDialogDelegateView(anchor_view,
                                views::BubbleBorder::NONE,
                                views::BubbleBorder::NO_SHADOW),
       lens_overlay_controller_(lens_overlay_controller),
       offline_(offline),
-      callback_(std::move(callback)) {
-  // Toast bubble doesn't have any buttons, cannot be active, and should not be
-  // focus traversable.
+      exit_clicked_callback_(std::move(exit_clicked_callback)) {
   SetShowCloseButton(false);
+  // Should be true to enable the menu button, although this constraint is not
+  // being upheld on Mac and Linux, and setting it to true on Mac causes
+  // undesired mouse pointer behavior on the overlay. See crbug.com/378566071.
+  // TODO(crbug.com/379927907): Rewrite this class to avoid these issues.
+#if BUILDFLAG(IS_MAC)
   SetCanActivate(false);
-  set_focus_traversable_from_anchor_view(false);
+#else
+  SetCanActivate(true);
+#endif
+  set_close_on_deactivate(false);
   DialogDelegate::SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
   set_corner_radius(48);
   SetProperty(views::kElementIdentifierKey, kLensPreselectionBubbleElementId);
   SetAccessibleWindowRole(ax::mojom::Role::kAlertDialog);
+  SetCancelCallback(std::move(on_cancel_callback));
 }
 
 LensPreselectionBubble::~LensPreselectionBubble() = default;
@@ -94,6 +104,9 @@ void LensPreselectionBubble::Init() {
     auto button = views::CreateVectorImageButtonWithNativeTheme(
         base::RepeatingClosure(), kHelpMenuIcon, 20,
         kColorLensOverlayToastForeground, kColorLensOverlayToastForeground);
+    views::HighlightPathGenerator::Install(
+        button.get(),
+        std::make_unique<views::CircleHighlightPathGenerator>(gfx::Insets()));
     button->SetTooltipText(l10n_util::GetStringUTF16(
         IDS_SIDE_PANEL_HEADER_MORE_INFO_BUTTON_TOOLTIP));
     more_info_button_ = AddChildView(std::move(button));
@@ -112,7 +125,7 @@ void LensPreselectionBubble::Init() {
   label_->SetAutoColorReadabilityEnabled(false);
   if (offline_) {
     exit_button_ = AddChildView(std::make_unique<views::MdTextButton>(
-        std::move(callback_),
+        std::move(exit_clicked_callback_),
         l10n_util::GetStringUTF16(
             IDS_LENS_OVERLAY_INITIAL_TOAST_ERROR_EXIT_BUTTON_TEXT)));
     exit_button_->SetProperty(views::kMarginsKey,
@@ -147,9 +160,14 @@ gfx::Rect LensPreselectionBubble::GetBubbleBounds() {
         anchor_bounds.x() + (anchor_bounds.width() - bubble_size.width()) / 2;
     // Take bubble out of its original bounds to cross "line of death". However,
     // if there is no line of death, we set the bubble to below the top of the
-    // screen.
-    const int y = std::max(kPreselectionBubbleMinY,
-                           anchor_bounds.bottom() - bubble_size.height() / 2);
+    // screen. On Mac, the |bottom| of |anchor_bounds| can be negative so set
+    // the appropriate minY based on whether the top container is showing (has a
+    // height > 0).
+    const int minY = anchor_bounds.height() > 0
+                         ? anchor_bounds.bottom() - bubble_size.height() / 2
+                         : kPreselectionBubbleMinY;
+    const int y =
+        std::max(minY, anchor_bounds.bottom() - bubble_size.height() / 2);
     return gfx::Rect(x, y, bubble_size.width(), bubble_size.height());
   }
   return gfx::Rect();
@@ -198,7 +216,7 @@ void LensPreselectionBubble::OpenMoreInfoMenu() {
                               more_info_button_->button_controller()),
                           more_info_button_->GetAnchorBoundsInScreen(),
                           views::MenuAnchorPosition::kTopRight,
-                          ui::MENU_SOURCE_NONE);
+                          ui::mojom::MenuSourceType::kNone);
 }
 
 void LensPreselectionBubble::ExecuteCommand(int command_id, int event_flags) {

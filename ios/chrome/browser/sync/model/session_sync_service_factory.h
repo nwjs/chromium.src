@@ -9,9 +9,9 @@
 
 #import "base/no_destructor.h"
 #import "components/keyed_service/ios/browser_state_keyed_service_factory.h"
-#import "ios/chrome/browser/shared/model/profile/profile_ios_forward.h"
 
 class GURL;
+class ProfileIOS;
 
 namespace sync_sessions {
 class SessionSyncService;
@@ -21,10 +21,6 @@ class SessionSyncService;
 // ProfileIOS.
 class SessionSyncServiceFactory : public BrowserStateKeyedServiceFactory {
  public:
-  // TODO(crbug.com/358301380): remove this method.
-  static sync_sessions::SessionSyncService* GetForBrowserState(
-      ProfileIOS* profile);
-
   static sync_sessions::SessionSyncService* GetForProfile(ProfileIOS* profile);
   static SessionSyncServiceFactory* GetInstance();
 

@@ -612,7 +612,6 @@
     "visible",
     //hidden
     "collapse",
-    "inert",
     //
     // white-space and its longhands (white-space-collapse and text-wrap)
     // https://w3c.github.io/csswg-drafts/css-text-4/#white-space-property
@@ -1669,6 +1668,10 @@
     // https://drafts.csswg.org/css-conditional-4/#typedef-supports-selector-fn
     "selector",
 
+    // @supports at-rule(...)
+    // https://github.com/w3c/csswg-drafts/issues/2463#issuecomment-1016720310
+    "at-rule",
+
     // (device-posture) media feature
     "continuous",
     "folded",
@@ -1787,6 +1790,10 @@
     // @view-transition navigation
     // auto
     // none
+
+    // view-transition-capture-mode
+    "layered",
+    // flat
 
     // container-type
     // inline-size,
@@ -1909,5 +1916,9 @@
     // interpolate-size
     "numeric-only",
     "allow-keywords",
+
+    // interactivity
+    // auto
+    "inert",
   ],
 }

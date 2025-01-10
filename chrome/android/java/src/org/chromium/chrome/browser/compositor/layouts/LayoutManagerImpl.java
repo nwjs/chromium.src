@@ -13,6 +13,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
@@ -535,12 +536,13 @@ public class LayoutManagerImpl
 
     /**
      * Updates the state of the layout.
+     *
      * @param timeMs The time in milliseconds.
-     * @param dtMs   The delta time since the last update in milliseconds.
-     * @return       Whether or not the {@link LayoutManagerImpl} needs more updates.
+     * @param dtMs The delta time since the last update in milliseconds.
+     * @return Whether or not the {@link LayoutManagerImpl} needs more updates.
      */
     @VisibleForTesting
-    boolean onUpdate(long timeMs, long dtMs) {
+    public boolean onUpdate(long timeMs, long dtMs) {
         if (!mUpdateRequested) {
             mFrameRequestSupplier.set(timeMs);
             return false;
@@ -578,19 +580,23 @@ public class LayoutManagerImpl
     }
 
     /**
-     * Initializes the {@link LayoutManagerImpl}.  Must be called before using this object.
-     * @param selector                 A {@link TabModelSelector} instance.
-     * @param creator                  A {@link TabCreatorManager} instance.
-     * @param controlContainer         A {@link ControlContainer} for browser controls' layout.
-     * @param dynamicResourceLoader    A {@link DynamicResourceLoader} instance.
-     * @param topUiColorProvider       A theme color provider for the top browser controls.
+     * Initializes the {@link LayoutManagerImpl}. Must be called before using this object.
+     *
+     * @param selector A {@link TabModelSelector} instance.
+     * @param creator A {@link TabCreatorManager} instance.
+     * @param controlContainer A {@link ControlContainer} for browser controls' layout.
+     * @param dynamicResourceLoader A {@link DynamicResourceLoader} instance.
+     * @param topUiColorProvider A theme color provider for the top browser controls.
+     * @param bottomControlsOffsetSupplier Supplier of the offset, relative to the bottom of the
+     *     viewport, of the bottom-anchored toolbar.
      */
     public void init(
             TabModelSelector selector,
             TabCreatorManager creator,
             @Nullable ControlContainer controlContainer,
             DynamicResourceLoader dynamicResourceLoader,
-            TopUiThemeColorProvider topUiColorProvider) {
+            TopUiThemeColorProvider topUiColorProvider,
+            Supplier<Integer> bottomControlsOffsetSupplier) {
         LayoutRenderHost renderHost = mHost.getLayoutRenderHost();
 
         mBrowserControlsStateProvider = mHost.getBrowserControlsManager();
@@ -1357,11 +1363,16 @@ public class LayoutManagerImpl
         return mTabCache.get(tabId);
     }
 
+    public @NonNull ViewGroup getContentContainer() {
+        return mContentContainer;
+    }
+
     /**
      * Should be called when a tab switch event is triggered, only can switch to the Tab which in
      * the current TabModel.
-     * @param tab        The tab that will be switched to.
-     * @param lastTabId  The id of the tab that was switched from.
+     *
+     * @param tab The tab that will be switched to.
+     * @param lastTabId The id of the tab that was switched from.
      */
     protected void switchToTab(Tab tab, int lastTabId) {
         tabSelected(tab.getId(), lastTabId, tab.isIncognito());

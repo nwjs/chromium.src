@@ -318,8 +318,7 @@ WebContents* RenderFrameDevToolsAgentHost::GetWebContents() {
   return web_contents();
 }
 
-bool RenderFrameDevToolsAgentHost::AttachSession(DevToolsSession* session,
-                                                 bool acquire_wake_lock) {
+bool RenderFrameDevToolsAgentHost::AttachSession(DevToolsSession* session) {
   if (!ShouldAllowSession(frame_host_, session)) {
     return false;
   }
@@ -379,14 +378,14 @@ bool RenderFrameDevToolsAgentHost::AttachSession(DevToolsSession* session,
                           },
                           base::Unretained(this)));
   session->CreateAndAddHandler<protocol::SchemaHandler>();
-  const bool may_attach_to_brower = session->GetClient()->IsTrusted();
+  const bool may_attach_to_browser = session->GetClient()->IsTrusted();
   session->CreateAndAddHandler<protocol::ServiceWorkerHandler>(
-      /* allow_inspect_worker= */ may_attach_to_brower);
+      /* allow_inspect_worker= */ may_attach_to_browser);
   session->CreateAndAddHandler<protocol::StorageHandler>(session->GetClient());
   session->CreateAndAddHandler<protocol::SystemInfoHandler>(
       /* is_browser_session= */ false);
   session->CreateAndAddHandler<protocol::TargetHandler>(
-      may_attach_to_brower
+      may_attach_to_browser
           ? protocol::TargetHandler::AccessMode::kRegular
           : protocol::TargetHandler::AccessMode::kAutoAttachOnly,
       GetId(), auto_attacher_.get(), session);
@@ -413,8 +412,7 @@ bool RenderFrameDevToolsAgentHost::AttachSession(DevToolsSession* session,
   if (sessions().empty()) {
     UpdateRawHeadersAccess(frame_host_);
 #if BUILDFLAG(IS_ANDROID)
-    if (acquire_wake_lock)
-      GetWakeLock()->RequestWakeLock();
+    GetWakeLock()->RequestWakeLock();
 #endif
   }
   return true;
@@ -915,6 +913,7 @@ std::string RenderFrameDevToolsAgentHost::GetSubtype() {
 
   switch (frame_tree_node_->GetFrameType()) {
     case FrameType::kPrimaryMainFrame:
+    case FrameType::kGuestMainFrame:
     // TODO(caseq): figure out what's best to return for subframes in a tree
     // other than primary.
     case FrameType::kSubframe:

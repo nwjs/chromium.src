@@ -18,6 +18,7 @@
 #include "chrome/browser/predictors/loading_data_collector.h"
 #include "chrome/browser/predictors/loading_stats_collector.h"
 #include "chrome/browser/predictors/predictors_features.h"
+#include "chrome/browser/predictors/predictors_traffic_annotations.h"
 #include "chrome/browser/predictors/resource_prefetch_predictor.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/service_worker_context.h"
@@ -36,14 +37,6 @@
 #endif  // BUILDFLAG(IS_ANDROID)
 
 namespace features {
-
-// Don't preconnect on weak signal to save power.
-BASE_FEATURE(kNoPreconnectToSearchOnWeakSignal,
-             "NoPreconnectToSearchOnWeakSignal",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kNoNavigationPreconnectOnWeakSignal,
-             "NoNavigationPreconnectOnWeakSignal",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, suppresses LoadingPredictor (https://crbug.com/350519234)
 BASE_FEATURE(kSuppressesLoadingPredictorOnSlowNetwork,
@@ -88,26 +81,6 @@ bool AddInitialUrlToPreconnectPrediction(const GURL& initial_url,
   }
 
   return !prediction->requests.empty();
-}
-
-bool IsPreconnectExpensive() {
-#if BUILDFLAG(IS_ANDROID)
-  // Preconnecting is expensive while on battery power and cellular data and
-  // the radio signal is weak.
-  if (auto* power_monitor = base::PowerMonitor::GetInstance();
-      (power_monitor->IsInitialized() && !power_monitor->IsOnBatteryPower()) ||
-      (base::android::RadioUtils::GetConnectionType() !=
-       base::android::RadioConnectionType::kCell)) {
-    return false;
-  }
-
-  std::optional<base::android::RadioSignalLevel> maybe_level =
-      base::android::RadioUtils::GetCellSignalLevel();
-  return maybe_level.has_value() &&
-         *maybe_level <= base::android::RadioSignalLevel::kModerate;
-#else
-  return false;
-#endif
 }
 
 void MaybeWarmUpServiceWorker(const GURL& url, Profile* profile) {
@@ -251,71 +224,8 @@ bool LoadingPredictor::PrepareForPageLoad(
     AddInitialUrlToPreconnectPrediction(url, &prediction);
   }
 
-  // LCPP: AutoPreconnectLCPOrigins experiment (crbug.com/1518996)
-  // Preconnect to LCPP predicted LCP origins in all platforms including those
-  // without optimization guide.
-  if (base::FeatureList::IsEnabled(
-          blink::features::kLCPPAutoPreconnectLcpOrigin)) {
-    std::optional<LcppStat> lcpp_stat =
-        resource_prefetch_predictor()->GetLcppStat(initiator_origin, url);
-    if (lcpp_stat) {
-      size_t count = 0;
-      std::vector<PreconnectRequest> additional_preconnects;
-      auto anonymization_key =
-          net::NetworkAnonymizationKey::CreateSameSite(net::SchemefulSite(url));
-      for (const GURL& preconnect_origin :
-           PredictPreconnectableOrigins(*lcpp_stat)) {
-        additional_preconnects.emplace_back(
-            url::Origin::Create(preconnect_origin), 1, anonymization_key);
-        ++count;
-      }
-
-      if (count) {
-        // The first preconnect record is usually to the url origin itself.
-        // We want to prioritize LCP preconnects just after the page origin
-        // preconnect, to minimize any performance regression. If no new
-        // requests were identified, leave the existing set as-is.
-        if (prediction.requests.empty()) {
-          prediction.requests = std::move(additional_preconnects);
-        } else {
-          prediction.requests.reserve(count + prediction.requests.size());
-          prediction.requests.insert(++prediction.requests.begin(),
-                                     additional_preconnects.begin(),
-                                     additional_preconnects.end());
-        }
-      }
-      base::UmaHistogramCounts10000("Blink.LCPP.PreconnectPredictionCount",
-                                    count);
-    }
-  }
-
-  // LCPP: set fonts to be prefetched to prefetch_requests.
-  // TODO(crbug.com/40285959): make prefetch work for platforms without the
-  // optimization guide.
-  static const bool kLCPPFontURLPredictorEnabled =
-      base::FeatureList::IsEnabled(blink::features::kLCPPFontURLPredictor) &&
-      blink::features::kLCPPFontURLPredictorEnablePrefetch.Get();
-  static const bool kLoadingPredictorPrefetchEnabled =
-      base::FeatureList::IsEnabled(features::kLoadingPredictorPrefetch) &&
-      features::kLoadingPredictorPrefetchSubresourceType.Get() ==
-          features::PrefetchSubresourceType::kAll;
-  if (kLCPPFontURLPredictorEnabled && kLoadingPredictorPrefetchEnabled) {
-    std::optional<LcppStat> lcpp_stat =
-        resource_prefetch_predictor()->GetLcppStat(initiator_origin, url);
-    if (lcpp_stat) {
-      auto network_anonymization_key =
-          net::NetworkAnonymizationKey::CreateSameSite(
-              net::SchemefulSite(url::Origin::Create(url)));
-      size_t count = 0;
-      for (const GURL& font_url : PredictFetchedFontUrls(*lcpp_stat)) {
-        prediction.prefetch_requests.emplace_back(
-            font_url, network_anonymization_key,
-            network::mojom::RequestDestination::kFont);
-        ++count;
-      }
-      base::UmaHistogramCounts1000("Blink.LCPP.PrefetchFontCount", count);
-    }
-  }
+  resource_prefetch_predictor()->GetPreconnectAndPrefetchRequest(
+      initiator_origin, url, prediction);
 
   // Return early if we do not have any requests.
   if (prediction.requests.empty() && prediction.prefetch_requests.empty())
@@ -361,7 +271,9 @@ PreconnectManager* LoadingPredictor::preconnect_manager() {
 }
 
 PrefetchManager* LoadingPredictor::prefetch_manager() {
-  CHECK(base::FeatureList::IsEnabled(features::kLoadingPredictorPrefetch));
+  CHECK(
+      base::FeatureList::IsEnabled(features::kLoadingPredictorPrefetch) ||
+      base::FeatureList::IsEnabled(blink::features::kLCPPPrefetchSubresource));
   CHECK(!shutdown_);
 
   if (!prefetch_manager_) {
@@ -468,14 +380,10 @@ void LoadingPredictor::MaybeAddPreconnect(const GURL& url,
       (AfterStartupTaskUtils::IsBrowserStartupComplete() ||
        !base::FeatureList::IsEnabled(
            features::kAvoidLoadingPredictorPrefetchDuringBrowserStartup))) {
-    CHECK(base::FeatureList::IsEnabled(features::kLoadingPredictorPrefetch));
+    CHECK(base::FeatureList::IsEnabled(features::kLoadingPredictorPrefetch) ||
+          base::FeatureList::IsEnabled(
+              blink::features::kLCPPPrefetchSubresource));
     prefetch_manager()->Start(url, std::move(prediction.prefetch_requests));
-  }
-
-  if (base::FeatureList::IsEnabled(
-          features::kNoNavigationPreconnectOnWeakSignal) &&
-      IsPreconnectExpensive()) {
-    return;
   }
 
   if (!prediction.requests.empty())
@@ -521,8 +429,9 @@ bool LoadingPredictor::HandleHintByOrigin(const GURL& url,
     if (is_new_origin || now - preconnect_data.last_preconnect_time_ >=
                              kMinDelayBetweenPreconnectRequests) {
       preconnect_data.last_preconnect_time_ = now;
-      preconnect_manager()->StartPreconnectUrl(url, true,
-                                               network_anonymization_key);
+      preconnect_manager()->StartPreconnectUrl(
+          url, true, network_anonymization_key,
+          kLoadingPredictorPreconnectTrafficAnnotation);
     }
     return true;
   }
@@ -530,7 +439,9 @@ bool LoadingPredictor::HandleHintByOrigin(const GURL& url,
   if (is_new_origin || now - preconnect_data.last_preresolve_time_ >=
                            kMinDelayBetweenPreresolveRequests) {
     preconnect_data.last_preresolve_time_ = now;
-    preconnect_manager()->StartPreresolveHost(url, network_anonymization_key);
+    preconnect_manager()->StartPreresolveHost(
+        url, network_anonymization_key,
+        kLoadingPredictorPreconnectTrafficAnnotation);
     return true;
   }
 
@@ -587,18 +498,13 @@ void LoadingPredictor::PrefetchFinished(std::unique_ptr<PrefetchStats> stats) {
 void LoadingPredictor::PreconnectURLIfAllowed(
     const GURL& url,
     bool allow_credentials,
-    const net::NetworkAnonymizationKey& network_anonymization_key) {
+    const net::NetworkAnonymizationKey& network_anonymization_key,
+    const net::NetworkTrafficAnnotationTag& traffic_annotation) {
   if (!url.is_valid() || !url.has_host() || !IsPreconnectAllowed(profile_))
     return;
 
-  if (base::FeatureList::IsEnabled(
-          features::kNoPreconnectToSearchOnWeakSignal) &&
-      IsPreconnectExpensive()) {
-    return;
-  }
-
-  preconnect_manager()->StartPreconnectUrl(url, allow_credentials,
-                                           network_anonymization_key);
+  preconnect_manager()->StartPreconnectUrl(
+      url, allow_credentials, network_anonymization_key, traffic_annotation);
 }
 
 void LoadingPredictor::MaybePrewarmResources(

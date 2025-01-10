@@ -120,13 +120,16 @@ AIAssistant::Context::Context(const Context& context) = default;
 
 AIAssistant::Context::~Context() = default;
 
-void AIAssistant::Context::AddContextItem(ContextItem context_item) {
+bool AIAssistant::Context::AddContextItem(ContextItem context_item) {
+  bool is_overflow = false;
   context_items_.emplace_back(context_item);
   current_tokens_ += context_item.tokens;
   while (current_tokens_ > max_tokens_) {
+    is_overflow = true;
     current_tokens_ -= context_items_.begin()->tokens;
     context_items_.pop_front();
   }
+  return is_overflow;
 }
 
 std::unique_ptr<google::protobuf::MessageLite>
@@ -156,7 +159,7 @@ AIAssistant::AIAssistant(
         session,
     base::WeakPtr<content::BrowserContext> browser_context,
     mojo::PendingRemote<blink::mojom::AIAssistant> pending_remote,
-    AIContextBoundObjectSet* context_bound_object_set,
+    AIContextBoundObjectSet& context_bound_object_set,
     const std::optional<const Context>& context)
     : session_(std::move(session)),
       browser_context_(browser_context),
@@ -237,14 +240,15 @@ void AIAssistant::AddPromptHistoryAndSendCompletion(
   // If the on device model service fails to get the size, it will be 0.
   // TODO(crbug.com/351935691): make sure the error is explicitly returned and
   // handled accordingly.
+  bool did_overflow = false;
   if (size) {
     auto item = Context::ContextItem();
     item.tokens = size;
     item.prompts = history_request.prompt_history();
-    context_->AddContextItem(std::move(item));
+    did_overflow = context_->AddContextItem(std::move(item));
   }
-  responder->OnResponse(blink::mojom::ModelStreamingResponseStatus::kComplete,
-                        std::nullopt, context_->current_tokens());
+  responder->OnCompletion(blink::mojom::ModelExecutionContextInfo::New(
+      context_->current_tokens(), did_overflow));
 }
 
 void AIAssistant::ModelExecutionCallback(
@@ -258,17 +262,15 @@ void AIAssistant::ModelExecutionCallback(
   }
 
   if (!result.response.has_value()) {
-    responder->OnResponse(
-        AIUtils::ConvertModelExecutionError(result.response.error().error()),
-        /*text=*/std::nullopt, /*current_tokens=*/std::nullopt);
+    responder->OnError(
+        AIUtils::ConvertModelExecutionError(result.response.error().error()));
     return;
   }
 
   auto response = optimization_guide::ParsedAnyMetadata<
       optimization_guide::proto::StringValue>(result.response->response);
   if (response->has_value()) {
-    responder->OnResponse(blink::mojom::ModelStreamingResponseStatus::kOngoing,
-                          response->value(), /*current_tokens=*/std::nullopt);
+    responder->OnStreaming(response->value());
   }
   if (result.response->is_complete) {
     // TODO(crbug.com/351935390): instead of calculating this from the
@@ -292,9 +294,8 @@ void AIAssistant::Prompt(
   if (!session_) {
     mojo::Remote<blink::mojom::ModelStreamingResponder> responder(
         std::move(pending_responder));
-    responder->OnResponse(
-        blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed,
-        /*text=*/std::nullopt, /*current_tokens=*/std::nullopt);
+    responder->OnError(
+        blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed);
     return;
   }
 
@@ -334,7 +335,7 @@ void AIAssistant::Fork(
           base::PassKey<AIAssistant>(),
           blink::mojom::AIAssistantSamplingParams::New(
               sampling_param.top_k, sampling_param.temperature),
-          context_bound_object_set_, *context_, std::move(client_remote));
+          context_bound_object_set_.get(), *context_, std::move(client_remote));
 }
 
 void AIAssistant::Destroy() {
@@ -343,9 +344,8 @@ void AIAssistant::Destroy() {
   }
 
   for (auto& responder : responder_set_) {
-    responder->OnResponse(
-        blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed,
-        /*text=*/std::nullopt, /*current_tokens=*/std::nullopt);
+    responder->OnError(
+        blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed);
   }
 
   responder_set_.Clear();
@@ -368,7 +368,7 @@ void AIAssistant::CountPromptTokens(
   *request.add_current_prompts() =
       MakePrompt(PromptApiRole::PROMPT_API_ROLE_USER, input);
 
-  session_->GetContextSizeInTokens(
+  session_->GetExecutionInputSizeInTokens(
       *context_->MaybeFormatRequest(request),
       base::BindOnce(
           [](mojo::Remote<blink::mojom::AIAssistantCountPromptTokensClient>

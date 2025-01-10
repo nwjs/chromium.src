@@ -97,9 +97,9 @@ class IntegrationTests : public ::testing::Test {
  protected:
   // Launches the installed app.
   void LaunchApp() {
-    std::optional<base::FilePath> install_dir = GetInstallDirectory();
-    ASSERT_TRUE(install_dir);
-    base::CommandLine command_line(install_dir->AppendASCII(kExecutableName));
+    std::optional<base::FilePath> exe_path = FindExistingInstall();
+    ASSERT_TRUE(exe_path);
+    base::CommandLine command_line(*exe_path);
     // This will change the verification key to be used by the
     // CloudPolicyValidator. It will allow for the policy data provided by tests
     // to pass signature validation.
@@ -301,15 +301,6 @@ class IntegrationTests : public ::testing::Test {
 
     ASSERT_NO_FATAL_FAILURE(
         CopyApplicationArtifacts(*install_dir, artifacts_dir));
-
-#if BUILDFLAG(IS_WIN)
-    std::optional<base::FilePath> alt_install_dir =
-        GetInstallDirectoryForAlternateArch();
-    if (alt_install_dir) {
-      ASSERT_NO_FATAL_FAILURE(CopyApplicationArtifacts(
-          *alt_install_dir, artifacts_dir.AppendASCII("alt_arch")));
-    }
-#endif
   }
 
   void CopyApplicationArtifacts(const base::FilePath& install_dir,
@@ -347,9 +338,9 @@ TEST_F(IntegrationTests, Uninstall) {
   ASSERT_NO_FATAL_FAILURE(LaunchApp());
   ASSERT_NO_FATAL_FAILURE(WaitForServerStart());
 
-  std::optional<base::FilePath> install_dir = GetInstallDirectory();
-  ASSERT_TRUE(install_dir);
-  base::CommandLine command_line(install_dir->AppendASCII(kExecutableName));
+  std::optional<base::FilePath> exe_path = FindExistingInstall();
+  ASSERT_TRUE(exe_path);
+  base::CommandLine command_line(*exe_path);
   command_line.AppendSwitch(kUninstallSwitch);
   base::Process uninstall_process = base::LaunchProcess(command_line, {});
   ASSERT_TRUE(uninstall_process.IsValid());
@@ -363,76 +354,6 @@ TEST_F(IntegrationTests, Uninstall) {
 
   ASSERT_NO_FATAL_FAILURE(GetTestMethods().ExpectClean());
 }
-
-// Running the application's "install if needed" command should install the
-// application if an enrollment token is present.
-TEST_F(IntegrationTests, InstallIfNeeded_WithEnrollmentToken_Installs) {
-  StoreEnrollmentToken(kFakeEnrollmentToken);
-
-  ASSERT_NO_FATAL_FAILURE(GetTestMethods().InstallIfNeeded());
-
-  ASSERT_NO_FATAL_FAILURE(GetTestMethods().ExpectInstalled());
-}
-
-// Running the application's "install if needed" command should install the
-// application if a device management token is present.
-TEST_F(IntegrationTests, InstallIfNeeded_WithDMToken_Installs) {
-  StoreDMToken(policy::kFakeDeviceToken);
-
-  ASSERT_NO_FATAL_FAILURE(GetTestMethods().InstallIfNeeded());
-
-  ASSERT_NO_FATAL_FAILURE(GetTestMethods().ExpectInstalled());
-}
-
-// Running the application's "install if needed" command should not install the
-// application if the device does not appear to be managed.
-TEST_F(IntegrationTests, InstallIfNeeded_NotManaged_SkipsInstall) {
-  ASSERT_NO_FATAL_FAILURE(GetTestMethods().InstallIfNeeded());
-
-  std::optional<base::FilePath> install_dir = GetInstallDirectory();
-  ASSERT_TRUE(install_dir);
-  EXPECT_FALSE(base::PathExists(install_dir->AppendASCII(kExecutableName)));
-}
-
-// Running the application's "install if needed" command should not install the
-// application if the application is already installed.
-TEST_F(IntegrationTests, InstallIfNeeded_AlreadyInstalled_SkipsInstall) {
-  std::optional<base::FilePath> install_dir = GetInstallDirectory();
-  ASSERT_TRUE(install_dir);
-  ASSERT_TRUE(base::CreateDirectory(*install_dir));
-  ASSERT_TRUE(
-      base::WriteFile(install_dir->AppendASCII(kExecutableName), "fake_exe"));
-
-  ASSERT_NO_FATAL_FAILURE(GetTestMethods().InstallIfNeeded());
-
-  std::string exe_contents;
-  ASSERT_TRUE(base::ReadFileToStringWithMaxSize(
-      install_dir->AppendASCII(kExecutableName), &exe_contents, 64));
-  EXPECT_EQ(exe_contents, "fake_exe");
-}
-
-#if BUILDFLAG(IS_WIN)
-// Running the application's "install if needed" command should not install the
-// application if the application is already installed for a different
-// architecture.
-TEST_F(IntegrationTests, InstallIfNeeded_AlreadyInstalledAltArch_SkipsInstall) {
-  std::optional<base::FilePath> install_dir =
-      GetInstallDirectoryForAlternateArch();
-  if (!install_dir) {
-    GTEST_SKIP() << "Not implemented for x86 hosts.";
-  }
-  ASSERT_TRUE(base::CreateDirectory(*install_dir));
-  ASSERT_TRUE(
-      base::WriteFile(install_dir->AppendASCII(kExecutableName), "fake_exe"));
-
-  ASSERT_NO_FATAL_FAILURE(GetTestMethods().InstallIfNeeded());
-
-  std::string exe_contents;
-  ASSERT_TRUE(base::ReadFileToStringWithMaxSize(
-      install_dir->AppendASCII(kExecutableName), &exe_contents, 64));
-  EXPECT_EQ(exe_contents, "fake_exe");
-}
-#endif
 
 // Attempting to shut down the server when it's not running should fail.
 TEST_F(IntegrationTests, ShutdownWithoutServerFails) {
@@ -551,30 +472,27 @@ TEST_F(IntegrationTests, ReloadsTokens) {
   ASSERT_NO_FATAL_FAILURE(LaunchApp());
   ASSERT_NO_FATAL_FAILURE(WaitForServerStart());
 
-  // Attempt a registration with the invalid enrollment token, it should fail.
-  ASSERT_NO_FATAL_FAILURE(
-      StoreEnrollmentToken(policy::kInvalidEnrollmentToken));
   test_server_.ExpectOnce(
       {CreateEventLogMatcher(
           test_server_,
           {{proto::EnterpriseCompanionEvent::kBrowserEnrollmentEvent,
             EnterpriseCompanionStatus::FromDeviceManagementStatus(
-                policy::DM_STATUS_SERVICE_MANAGEMENT_TOKEN_INVALID)}})},
+                policy::DM_STATUS_SERVICE_MANAGEMENT_TOKEN_INVALID)},
+           {proto::EnterpriseCompanionEvent::kBrowserEnrollmentEvent,
+            EnterpriseCompanionStatus::Success()},
+           {proto::EnterpriseCompanionEvent::kPolicyFetchEvent,
+            EnterpriseCompanionStatus::Success()}})},
       CreateLogResponse());
+
+  // Attempt a registration with the invalid enrollment token, it should fail.
+  ASSERT_NO_FATAL_FAILURE(
+      StoreEnrollmentToken(policy::kInvalidEnrollmentToken));
   EXPECT_TRUE(CreateAppFetchPolicies()->Run().EqualsDeviceManagementStatus(
       policy::DM_STATUS_SERVICE_MANAGEMENT_TOKEN_INVALID));
 
   // Change the enrollment token externally and attempt enrollment again, it
   // should succeed.
   ASSERT_NO_FATAL_FAILURE(StoreEnrollmentToken(kFakeEnrollmentToken));
-  test_server_.ExpectOnce(
-      {CreateEventLogMatcher(
-          test_server_,
-          {{proto::EnterpriseCompanionEvent::kBrowserEnrollmentEvent,
-            EnterpriseCompanionStatus::Success()},
-           {proto::EnterpriseCompanionEvent::kPolicyFetchEvent,
-            EnterpriseCompanionStatus::Success()}})},
-      CreateLogResponse());
   EXPECT_TRUE(CreateAppFetchPolicies()->Run().ok());
 
   ASSERT_NO_FATAL_FAILURE(ExpectDefaultPolicyValuesPersisted());

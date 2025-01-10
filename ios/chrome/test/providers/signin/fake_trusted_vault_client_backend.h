@@ -20,7 +20,7 @@ class FakeTrustedVaultClientBackend final : public TrustedVaultClientBackend {
       VerifierCallback verifier) final;
   void FetchKeys(id<SystemIdentity> identity,
                  trusted_vault::SecurityDomainId security_domain_id,
-                 KeyFetchedCallback completion) final;
+                 KeysFetchedCallback completion) final;
   void MarkLocalKeysAsStale(id<SystemIdentity> identity,
                             trusted_vault::SecurityDomainId security_domain_id,
                             base::OnceClosure completion) final;
@@ -43,7 +43,7 @@ class FakeTrustedVaultClientBackend final : public TrustedVaultClientBackend {
                       base::OnceCallback<void(bool)> completion) final;
   void GetPublicKeyForIdentity(id<SystemIdentity> identity,
                                GetPublicKeyCallback completion) final;
-  CancelDialogCallback UpdateGPMPinForAccount(
+  void UpdateGPMPinForAccount(
       id<SystemIdentity> identity,
       trusted_vault::SecurityDomainId security_domain_id,
       UINavigationController* navigationController,

@@ -28,6 +28,15 @@ enum SelectorCTREvent {
   kDeclutterClicked = 2,
 };
 
+// These values are persisted and must not be renumbered or reordered.
+// See TabDeclutterEntryPoint at
+// tools/metrics/histograms/metadata/tab/enums.xml.
+enum TabDeclutterEntryPoint {
+  kNudge = 0,
+  kAppMenu = 1,
+  kSelector = 2,
+};
+
 enum TabOrganizationState {
   kInitializing,
   kNotStarted,
@@ -303,10 +312,6 @@ interface PageHandler {
   // Save a user's preference for the state of the expandable 'Recently Closed'
   // list section.
   SaveRecentlyClosedExpandedPref(bool expanded);
-
-  // Set the user preference for which tab the tab search UI should display
-  // when next shown.
-  SetTabSearchSection(TabSearchSection section);
 
   // Set the user preference for which feature the tab organization selector
   // should display when next shown.

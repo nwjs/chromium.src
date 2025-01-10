@@ -8,7 +8,7 @@
  */
 
 /** Necessary imports to load the app */
-import './strings.m.js';
+import '/strings.m.js';
 import './os_settings_ui/os_settings_ui.js';
 // TODO(b/263414034) Determine if these imports are needed here at all,
 // or should be moved to lazy_load.ts
@@ -142,6 +142,7 @@ export {ControlledButtonElement} from './controls/controlled_button.js';
 export {ControlledRadioButtonElement} from './controls/controlled_radio_button.js';
 export {ExtensionControlledIndicatorElement} from './controls/extension_controlled_indicator.js';
 export {SettingsDropdownMenuElement} from './controls/settings_dropdown_menu.js';
+export {SettingsRadioGroupElement} from './controls/settings_radio_group.js';
 export {SettingsSliderElement} from './controls/settings_slider.js';
 export {SettingsToggleButtonElement} from './controls/settings_toggle_button.js';
 export {BaseRowMixin} from './controls/v2/base_row_mixin.js';

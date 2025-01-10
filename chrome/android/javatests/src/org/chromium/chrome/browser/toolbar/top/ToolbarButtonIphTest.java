@@ -61,7 +61,7 @@ public class ToolbarButtonIphTest {
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         // Pretend the feature engagement feature is already initialized. Otherwise
-        // UserEducationHelper#requestShowIPH() calls get dropped during test.
+        // UserEducationHelper#requestShowIph() calls get dropped during test.
         doAnswer(
                         invocation -> {
                             invocation.<Callback<Boolean>>getArgument(0).onResult(true);
@@ -71,7 +71,7 @@ public class ToolbarButtonIphTest {
                 .addOnInitializedCallback(any());
         TrackerFactory.setTrackerForTests(mTracker);
 
-        when(mTracker.shouldTriggerHelpUIWithSnooze(any()))
+        when(mTracker.shouldTriggerHelpUiWithSnooze(any()))
                 .thenReturn(new TriggerDetails(false, false));
 
         // Start on a page from the test server. This works around a bug that causes the top toolbar
@@ -86,16 +86,16 @@ public class ToolbarButtonIphTest {
     @Restriction({DeviceFormFactor.PHONE})
     public void testPriceDropIph() throws InterruptedException {
         setPriceTrackingFeatures();
-        when(mTracker.shouldTriggerHelpUI(FeatureConstants.PRICE_DROP_NTP_FEATURE))
+        when(mTracker.shouldTriggerHelpUi(FeatureConstants.PRICE_DROP_NTP_FEATURE))
                 .thenReturn(true);
-        when(mTracker.shouldTriggerHelpUIWithSnooze(FeatureConstants.PRICE_DROP_NTP_FEATURE))
+        when(mTracker.shouldTriggerHelpUiWithSnooze(FeatureConstants.PRICE_DROP_NTP_FEATURE))
                 .thenReturn(new TriggerDetails(true, false));
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     ChromeActivity activity = mActivityTestRule.getActivity();
                     ToolbarManager toolbarManager = activity.getToolbarManager();
-                    toolbarManager.showPriceDropIPH();
+                    toolbarManager.showPriceDropIph();
                 });
 
         ViewInteraction toolbarTabButtonInteraction = onView(withId(R.id.tab_switcher_button));
@@ -124,9 +124,9 @@ public class ToolbarButtonIphTest {
     @Restriction({DeviceFormFactor.PHONE})
     @DisabledTest(message = "https://crbug.com/1142979")
     public void testTabSwitcherButtonIph() throws InterruptedException {
-        when(mTracker.shouldTriggerHelpUI(FeatureConstants.TAB_SWITCHER_BUTTON_FEATURE))
+        when(mTracker.shouldTriggerHelpUi(FeatureConstants.TAB_SWITCHER_BUTTON_FEATURE))
                 .thenReturn(true);
-        when(mTracker.shouldTriggerHelpUIWithSnooze(FeatureConstants.TAB_SWITCHER_BUTTON_FEATURE))
+        when(mTracker.shouldTriggerHelpUiWithSnooze(FeatureConstants.TAB_SWITCHER_BUTTON_FEATURE))
                 .thenReturn(new TriggerDetails(true, false));
 
         mActivityTestRule.loadUrl("about:blank");

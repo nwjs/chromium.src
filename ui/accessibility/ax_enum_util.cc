@@ -997,8 +997,7 @@ ax::mojom::Role StringToRole(const std::string& role) {
   }
 
   // We should never pass in an invalid role.
-  NOTREACHED_IN_MIGRATION() << "Invalid role was provided: " << role;
-  return ax::mojom::Role::kUnknown;
+  NOTREACHED() << "Invalid role was provided: " << role;
 }
 
 const char* ToString(ax::mojom::State state) {
@@ -1017,6 +1016,8 @@ const char* ToString(ax::mojom::State state) {
       return "expanded";
     case ax::mojom::State::kFocusable:
       return "focusable";
+    case ax::mojom::State::kHasActions:
+      return "hasActions";
     case ax::mojom::State::kHorizontal:
       return "horizontal";
     case ax::mojom::State::kHovered:
@@ -1088,8 +1089,7 @@ ax::mojom::State StringToState(const std::string& str) {
   }
 
   // We should never pass in an invalid state.
-  NOTREACHED_IN_MIGRATION() << "An invalid state was provided: " << str;
-  return ax::mojom::State::kNone;
+  NOTREACHED() << "An invalid state was provided: " << str;
 }
 
 const char* ToString(ax::mojom::Action action) {
@@ -1443,9 +1443,8 @@ ax::mojom::StringAttribute StringToStringAttribute(
   } else if (string_attribute == "kVirtualContent") {
     return ax::mojom::StringAttribute::kVirtualContent;
   } else {
-    NOTREACHED_IN_MIGRATION()
-        << "An invalid StringAttribute was provided: " << string_attribute;
-    return ax::mojom::StringAttribute::kNone;
+    NOTREACHED() << "An invalid StringAttribute was provided: "
+                 << string_attribute;
   }
 }
 
@@ -1731,9 +1730,7 @@ ax::mojom::IntAttribute StringToIntAttribute(const std::string& int_attribute) {
     return ax::mojom::IntAttribute::kMaxLength;
   }
 
-  NOTREACHED_IN_MIGRATION()
-      << "An invalid IntAttribute was provided: " << int_attribute;
-  return ax::mojom::IntAttribute::kNone;
+  NOTREACHED() << "An invalid IntAttribute was provided: " << int_attribute;
 }
 
 const char* ToString(ax::mojom::FloatAttribute float_attribute) {
@@ -1861,9 +1858,7 @@ ax::mojom::BoolAttribute StringToBoolAttribute(
   } else if (bool_attribute == "kLongClickable") {
     return ax::mojom::BoolAttribute::kLongClickable;
   } else {
-    NOTREACHED_IN_MIGRATION()
-        << "An invalid BoolAttribute was provided: " << bool_attribute;
-    return ax::mojom::BoolAttribute::kNone;
+    NOTREACHED() << "An invalid BoolAttribute was provided: " << bool_attribute;
   }
 }
 
@@ -1873,6 +1868,8 @@ const char* ToString(ax::mojom::IntListAttribute int_list_attribute) {
       return "none";
     case ax::mojom::IntListAttribute::kIndirectChildIds:
       return "indirectChildIds";
+    case ax::mojom::IntListAttribute::kActionsIds:
+      return "actionsIds";
     case ax::mojom::IntListAttribute::kControlsIds:
       return "controlsIds";
     case ax::mojom::IntListAttribute::kDetailsIds:
@@ -2398,6 +2395,8 @@ const char* ToString(ax::mojom::NameFrom name_from) {
       return "contents";
     case ax::mojom::NameFrom::kCssAltText:
       return "cssAltText";
+    case ax::mojom::NameFrom::kInterestTarget:
+      return "interestTarget";
     case ax::mojom::NameFrom::kPlaceholder:
       return "placeholder";
     case ax::mojom::NameFrom::kProhibited:
@@ -2408,8 +2407,8 @@ const char* ToString(ax::mojom::NameFrom name_from) {
       return "relatedElement";
     case ax::mojom::NameFrom::kTitle:
       return "title";
-    case ax::mojom::NameFrom::kPopoverAttribute:
-      return "popoverAttribute";
+    case ax::mojom::NameFrom::kPopoverTarget:
+      return "popoverTarget";
     case ax::mojom::NameFrom::kValue:
       return "value";
   }
@@ -2427,8 +2426,10 @@ const char* ToString(ax::mojom::DescriptionFrom description_from) {
       return "attributeExplicitlyEmpty";
     case ax::mojom::DescriptionFrom::kButtonLabel:
       return "buttonLabel";
-    case ax::mojom::DescriptionFrom::kPopoverAttribute:
-      return "popoverAttribute";
+    case ax::mojom::DescriptionFrom::kInterestTarget:
+      return "interestTarget";
+    case ax::mojom::DescriptionFrom::kPopoverTarget:
+      return "popoverTarget";
     case ax::mojom::DescriptionFrom::kProhibitedNameRepair:
       return "prohibitedNameRepair";
     case ax::mojom::DescriptionFrom::kRelatedElement:
@@ -2469,8 +2470,10 @@ const char* ToString(ax::mojom::DetailsFrom details_from) {
       return "ariaDetails";
     case ax::mojom::DetailsFrom::kCssAnchor:
       return "cssAnchor";
-    case ax::mojom::DetailsFrom::kPopoverAttribute:
-      return "popoverAttribute";
+    case ax::mojom::DetailsFrom::kPopoverTarget:
+      return "popoverTarget";
+    case ax::mojom::DetailsFrom::kInterestTarget:
+      return "interestTarget";
   }
 
   return "";

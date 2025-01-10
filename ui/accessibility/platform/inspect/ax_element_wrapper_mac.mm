@@ -4,12 +4,14 @@
 
 #include "ui/accessibility/platform/inspect/ax_element_wrapper_mac.h"
 
+#import <Accessibility/Accessibility.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <Foundation/Foundation.h>
 
 #include <ostream>
 
 #include "base/apple/bridging.h"
+#include "base/apple/foundation_util.h"
 #include "base/apple/scoped_cftyperef.h"
 #include "base/containers/fixed_flat_set.h"
 #include "base/debug/stack_trace.h"
@@ -25,6 +27,31 @@
 // NSAccessibilityProtocols.h
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
+namespace ui {
+
+// AXUIElementCopyAttributeValue("AXCustomContent") returns an NSData
+// that contains an NSDictionary in NSKeyedArchiver format.
+// This function unpacks the array of AXCustomContents contained within.
+NSArray<AXCustomContent*>* CustomContentFromArchive(NSData* archive_data) {
+  NSError* error = nil;
+  NSKeyedUnarchiver* unarchiver =
+      [[NSKeyedUnarchiver alloc] initForReadingFromData:archive_data
+                                                  error:&error];
+
+  if (error) {
+    return nil;
+  }
+
+  id contents = [unarchiver
+      decodeObjectOfClasses:
+          [NSSet setWithArray:@[ NSArray.class, AXCustomContent.class ]]
+                     forKey:NSKeyedArchiveRootObjectKey];
+
+  return base::apple::ObjCCast<NSArray>(contents);
+}
+
+}  // namespace ui
 
 namespace ui {
 
@@ -106,9 +133,8 @@ NSArray* AXElementWrapper::Children() const {
     return nil;
   }
 
-  NOTREACHED_IN_MIGRATION()
+  NOTREACHED()
       << "Only AXUIElementRef and BrowserAccessibilityCocoa are supported.";
-  return nil;
 }
 
 NSSize AXElementWrapper::Size() const {
@@ -117,9 +143,8 @@ NSSize AXElementWrapper::Size() const {
   }
 
   if (!IsAXUIElement()) {
-    NOTREACHED_IN_MIGRATION()
+    NOTREACHED()
         << "Only AXUIElementRef and BrowserAccessibilityCocoa are supported.";
-    return NSMakeSize(0, 0);
   }
 
   id value = *GetAttributeValue(NSAccessibilitySizeAttribute);
@@ -154,9 +179,8 @@ NSPoint AXElementWrapper::Position() const {
     return NSMakePoint(0, 0);
   }
 
-  NOTREACHED_IN_MIGRATION()
+  NOTREACHED()
       << "Only AXUIElementRef and BrowserAccessibilityCocoa are supported.";
-  return NSMakePoint(0, 0);
 }
 
 NSArray* AXElementWrapper::AttributeNames() const {
@@ -181,9 +205,8 @@ NSArray* AXElementWrapper::AttributeNames() const {
     return nil;
   }
 
-  NOTREACHED_IN_MIGRATION()
+  NOTREACHED()
       << "Only AXUIElementRef and BrowserAccessibilityCocoa are supported.";
-  return nil;
 }
 
 NSArray* AXElementWrapper::ParameterizedAttributeNames() const {
@@ -201,9 +224,8 @@ NSArray* AXElementWrapper::ParameterizedAttributeNames() const {
     return nil;
   }
 
-  NOTREACHED_IN_MIGRATION()
+  NOTREACHED()
       << "Only AXUIElementRef and BrowserAccessibilityCocoa are supported.";
-  return nil;
 }
 
 AXOptionalNSObject AXElementWrapper::GetAttributeValue(
@@ -217,6 +239,20 @@ AXOptionalNSObject AXElementWrapper::GetAttributeValue(
     AXError result = AXUIElementCopyAttributeValue(
         (__bridge AXUIElementRef)node_, (__bridge CFStringRef)attribute,
         value_ref.InitializeInto());
+
+    // AXCustomContent returns an NSData which contains a NSKeyedArchiver,
+    // which cannot be easily understood. Convert to NSArray of AXCustomContent
+    // objects.
+    if ([attribute isEqualToString:@"AXCustomContent"] &&
+        result == kAXErrorSuccess &&
+        CFGetTypeID(value_ref.get()) == CFDataGetTypeID()) {
+      NSData* data = (__bridge NSData*)value_ref.get();
+      NSArray<AXCustomContent*>* custom_contents =
+          CustomContentFromArchive(data);
+
+      return AXOptionalNSObject(custom_contents);
+    }
+
     return ToOptional(
         (__bridge id)value_ref.get(), result,
         "AXGetAttributeValue(" + base::SysNSStringToUTF8(attribute) + ")");
@@ -299,7 +335,7 @@ void AXElementWrapper::SetAttributeValue(NSString* attribute, id value) const {
     return;
   }
 
-  NOTREACHED_IN_MIGRATION()
+  NOTREACHED()
       << "Only AXUIElementRef and BrowserAccessibilityCocoa are supported.";
 }
 
@@ -317,9 +353,8 @@ NSArray* AXElementWrapper::ActionNames() const {
     return nil;
   }
 
-  NOTREACHED_IN_MIGRATION()
+  NOTREACHED()
       << "Only AXUIElementRef and BrowserAccessibilityCocoa are supported.";
-  return nil;
 }
 
 void AXElementWrapper::PerformAction(NSString* action) const {
@@ -334,7 +369,7 @@ void AXElementWrapper::PerformAction(NSString* action) const {
     return;
   }
 
-  NOTREACHED_IN_MIGRATION()
+  NOTREACHED()
       << "Only AXUIElementRef and BrowserAccessibilityCocoa are supported.";
 }
 

@@ -11,6 +11,7 @@
 #include "base/check_op.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/devtools/devtools_window.h"
+#include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/sharing_hub/sharing_hub_features.h"
@@ -34,9 +35,9 @@
 #include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/media_router/cast_browser_controller.h"
 #include "chrome/browser/ui/views/page_info/page_info_view_factory.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_toolbar_bubble_controller.h"
-#include "chrome/browser/ui/views/side_panel/companion/companion_utils.h"
 #include "chrome/browser/ui/views/side_panel/history_clusters/history_clusters_side_panel_utils.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_action_callback.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry_id.h"
@@ -49,17 +50,19 @@
 #include "components/media_router/browser/media_router_dialog_controller.h"
 #include "components/media_router/browser/media_router_metrics.h"
 #include "components/omnibox/browser/vector_icons.h"
+#include "components/policy/core/common/policy_pref_names.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/user_prefs/user_prefs.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/actions/actions.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/models/simple_menu_model.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/gfx/text_utils.h"
 #include "ui/gfx/vector_icon_types.h"
+#include "ui/menus/simple_menu_model.h"
 
 namespace {
 
@@ -76,6 +79,24 @@ actions::ActionItem::ActionItemBuilder ChromeMenuAction(
       .SetTooltipText(BrowserActions::GetCleanTitleAndTooltipText(
           l10n_util::GetStringUTF16(tooltip_id)))
       .SetImage(ui::ImageModel::FromVectorIcon(icon, ui::kColorIcon))
+      .SetProperty(actions::kActionItemPinnableKey, true);
+}
+
+actions::StatefulImageActionItem::StatefulImageActionItemBuilder
+StatefulChromeMenuAction(actions::ActionItem::InvokeActionCallback callback,
+                         actions::ActionId action_id,
+                         int title_id,
+                         int tooltip_id,
+                         const gfx::VectorIcon& icon) {
+  ui::ImageModel image = ui::ImageModel::FromVectorIcon(icon, ui::kColorIcon);
+  return actions::StatefulImageActionItem::Builder(callback)
+      .SetActionId(action_id)
+      .SetText(BrowserActions::GetCleanTitleAndTooltipText(
+          l10n_util::GetStringUTF16(title_id)))
+      .SetTooltipText(BrowserActions::GetCleanTitleAndTooltipText(
+          l10n_util::GetStringUTF16(tooltip_id)))
+      .SetImage(image)
+      .SetStatefulImage(image)
       .SetProperty(actions::kActionItemPinnableKey, true);
 }
 
@@ -97,8 +118,7 @@ actions::ActionItem::ActionItemBuilder SidePanelAction(
 }
 }  // namespace
 
-BrowserActions::BrowserActions(Browser& browser) : browser_(browser) {
-}
+BrowserActions::BrowserActions(Browser& browser) : browser_(browser) {}
 
 BrowserActions::~BrowserActions() {
   // Extract the unique ptr and destruct it after the raw_ptr to avoid a
@@ -114,7 +134,7 @@ std::u16string BrowserActions::GetCleanTitleAndTooltipText(
   const std::u16string ellipsis_unicode = u"\u2026";
   const std::u16string ellipsis_text = u"...";
 
-  auto remove_ellipsis = [&string](const std::u16string& ellipsis) {
+  auto remove_ellipsis = [&string](const std::u16string ellipsis) {
     size_t ellipsis_pos = string.find(ellipsis);
     if (ellipsis_pos != std::u16string::npos) {
       string.erase(ellipsis_pos);
@@ -192,7 +212,7 @@ void BrowserActions::InitializeBrowserActions() {
 
           // Toggle the Lens overlay. There's no need to show or hide the side
           // panel as the overlay controller will handle that.
-          if (controller->IsOverlayShowing()) {
+          if (controller->IsOverlayActive()) {
             controller->CloseUIAsync(
                 lens::LensOverlayDismissalSource::kToolbar);
           } else {
@@ -216,29 +236,6 @@ void BrowserActions::InitializeBrowserActions() {
                 icon, ui::kColorIcon, ui::SimpleMenuModel::kDefaultIconSize))
             .SetProperty(actions::kActionItemPinnableKey, true)
             .Build());
-  } else if (companion::IsCompanionFeatureEnabled()) {
-    if (companion::IsSearchInCompanionSidePanelSupportedForProfile(
-            profile,
-            /*include_runtime_checks=*/false)) {
-      actions::ActionItem* companion_action_item = root_action_item_->AddChild(
-          SidePanelAction(
-              SidePanelEntryId::kSearchCompanion,
-              IDS_SIDE_PANEL_COMPANION_TITLE,
-              IDS_SIDE_PANEL_COMPANION_TOOLBAR_TOOLTIP,
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-              vector_icons::
-                  kGoogleSearchCompanionMonochromeLogoChromeRefreshIcon,
-#else
-              vector_icons::kSearchChromeRefreshIcon,
-#endif
-              kActionSidePanelShowSearchCompanion, browser, true)
-              .Build());
-
-      companion_action_item->SetVisible(
-          companion::IsSearchInCompanionSidePanelSupportedForProfile(
-              profile,
-              /*include_runtime_checks=*/true));
-    }
   }
 
   // Create the lens action item. The icon and text are set appropriately in the
@@ -255,11 +252,14 @@ void BrowserActions::InitializeBrowserActions() {
         ChromeMenuAction(base::BindRepeating(
                              [](Browser* browser, actions::ActionItem* item,
                                 actions::ActionInvocationContext context) {
+                               CHECK(IncognitoModePrefs::IsIncognitoAllowed(
+                                   browser->profile()));
                                chrome::NewIncognitoWindow(browser->profile());
                              },
                              base::Unretained(browser)),
                          kActionNewIncognitoWindow, IDS_NEW_INCOGNITO_WINDOW,
                          IDS_NEW_INCOGNITO_WINDOW, kIncognitoRefreshMenuIcon)
+            .SetEnabled(IncognitoModePrefs::IsIncognitoAllowed(profile))
             .Build());
 
     root_action_item_->AddChild(
@@ -481,24 +481,15 @@ void BrowserActions::InitializeBrowserActions() {
 
     if (base::FeatureList::IsEnabled(features::kPinnedCastButton)) {
     root_action_item_->AddChild(
-        ChromeMenuAction(
+        StatefulChromeMenuAction(
             base::BindRepeating(
                 [](Browser* browser, actions::ActionItem* item,
                    actions::ActionInvocationContext context) {
-                  media_router::MediaRouterDialogController* dialog_controller =
-                      media_router::MediaRouterDialogController::
-                          GetOrCreateForWebContents(
-                              browser->tab_strip_model()
-                                  ->GetActiveWebContents());
-                  if (dialog_controller->IsShowingMediaRouterDialog()) {
-                    dialog_controller->HideMediaRouterDialog();
-                  } else {
-                    // TODO(b/356468503): Figure out how to capture action
-                    // invocation location.
-                    dialog_controller->ShowMediaRouterDialog(
-                        media_router::MediaRouterDialogActivationLocation::
-                            TOOLBAR);
-                  }
+                  // TODO(crbug.com/356468503): Figure out how to capture action
+                  // invocation location.
+                  browser->browser_window_features()
+                      ->cast_browser_controller()
+                      ->ToggleDialog();
                 },
                 base::Unretained(browser)),
             kActionRouteMedia, IDS_MEDIA_ROUTER_MENU_ITEM_TITLE,

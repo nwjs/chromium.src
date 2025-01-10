@@ -19,7 +19,6 @@
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/functional/callback_forward.h"
-#include "base/memory/read_only_shared_memory_region.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/supports_user_data.h"
 #include "base/time/time.h"
@@ -251,7 +250,6 @@ class NavigationUIData;
 class PrefetchServiceDelegate;
 class PrerenderWebContentsDelegate;
 class PresentationObserver;
-class PrivacySandboxAttestationsObserver;
 class PrivateNetworkDeviceDelegate;
 class ReceiverPresentationServiceDelegate;
 class RenderFrameHost;
@@ -572,10 +570,16 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual network::mojom::IPAddressSpace DetermineAddressSpaceFromURL(
       const GURL& url);
 
-  // Called when WebUI objects are created to get aggregate usage data (i.e. is
-  // chrome://downloads used more than chrome://bookmarks?). Only internal (e.g.
-  // chrome://) URLs are logged. Returns whether the URL was actually logged.
-  virtual bool LogWebUIUrl(const GURL& web_ui_url);
+  // Called when WebUI objects are created. Only internal (e.g. chrome://) URLs
+  // are logged. Note that a WebUI can be created but never shown, which will
+  // also be logged by this function. Returns whether the URL was actually
+  // logged. This is used to collect WebUI usage data.
+  virtual bool LogWebUICreated(const GURL& web_ui_url);
+
+  // Called when a WebUI completes the first non-empty paint. Only internal
+  // (e.g. chrome://) URLs are logged. Returns whether the URL was actually
+  // logged. This is used to collect WebUI usage data.
+  virtual bool LogWebUIShown(const GURL& web_ui_url);
 
   // http://crbug.com/829412
   // Renderers with WebUI bindings shouldn't make http(s) requests for security
@@ -879,6 +883,11 @@ class CONTENT_EXPORT ContentBrowserClient {
   // feature can be used. This is called on the UI thread.
   virtual bool AllowCompressionDictionaryTransport(BrowserContext* context);
 
+  // Allow to apply the fix to make SharedWorker with a blob URL inherit a
+  // ServiceWorker controller, which is aligned with the specification.
+  // https://w3c.github.io/ServiceWorker/#control-and-use-worker-client.
+  virtual bool AllowSharedWorkerBlobURLFix(BrowserContext* context);
+
   virtual bool IsDataSaverEnabled(BrowserContext* context);
 
   // Updates the given prefs for Service Worker and Shared Worker. The prefs
@@ -957,9 +966,15 @@ class CONTENT_EXPORT ContentBrowserClient {
 
   using InterestGroupApiOperation = content::InterestGroupApiOperation;
 
-  // Returns whether |api_origin| on |top_frame_origin| can perform
-  // |operation| within the interest group API.
+  // Returns whether `api_origin` on `top_frame_origin` can perform `operation`
+  // within the interest group API.
+  //
+  // If `render_frame_host` is null (e.g., due to the initiator frame being
+  // destroyed for a keep-alive worklet), certain operations like console error
+  // will be skipped. However, the core permission check will still be
+  // performed.
   virtual bool IsInterestGroupAPIAllowed(
+      content::BrowserContext* browser_context,
       content::RenderFrameHost* render_frame_host,
       InterestGroupApiOperation operation,
       const url::Origin& top_frame_origin,
@@ -1125,6 +1140,14 @@ class CONTENT_EXPORT ContentBrowserClient {
       const url::Origin& accessing_origin,
       std::string* out_debug_message,
       bool* out_block_is_site_setting_specific);
+
+  // Allows the embedder to control if fenced storage read can happen in a given
+  // context.
+  virtual bool IsFencedStorageReadAllowed(
+      content::BrowserContext* browser_context,
+      content::RenderFrameHost* rfh,
+      const url::Origin& top_frame_origin,
+      const url::Origin& accessing_origin);
 
   // Allows the embedder to control if Private Aggregation API operations can
   // happen in a given context.
@@ -1619,14 +1642,6 @@ class CONTENT_EXPORT ContentBrowserClient {
                                        WebContents* web_contents);
   virtual void RemovePresentationObserver(PresentationObserver* observer,
                                           WebContents* web_contents);
-
-  // Add or remove an observer for privacy sandbox attestations. Returns true if
-  // privacy sandbox attestations have ever been loaded, or if attestations are
-  // not enforced.
-  virtual bool AddPrivacySandboxAttestationsObserver(
-      PrivacySandboxAttestationsObserver* observer);
-  virtual void RemovePrivacySandboxAttestationsObserver(
-      PrivacySandboxAttestationsObserver* observer);
 
   // Allows programmatic opening of a new tab/window without going through
   // another WebContents. For example, from a Worker. |site_instance|
@@ -3042,7 +3057,7 @@ class CONTENT_EXPORT ContentBrowserClient {
 
   virtual void BindAIManager(
       BrowserContext* browser_context,
-      std::variant<RenderFrameHost*, base::SupportsUserData*> host,
+      base::SupportsUserData* context_user_data,
       mojo::PendingReceiver<blink::mojom::AIManager> receiver);
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -3075,21 +3090,6 @@ class CONTENT_EXPORT ContentBrowserClient {
   // satisfied, and false when the request was refused.
   virtual void OnUiaProviderRequested(bool uia_provider_enabled);
 #endif
-
-  // Returns a handle to a shared memory region to hold performance scenario
-  // state for the given process, or an invalid handle if there is none. The
-  // result can be transferred to the child process and passed to a
-  // ScopedReadOnlyScenarioMemory object with Scope::kCurrentProcess (see
-  // //third_party/blink/public/common/performance/performance_scenarios.h)
-  virtual base::ReadOnlySharedMemoryRegion
-  GetPerformanceScenarioRegionForProcess(RenderProcessHost* process_host);
-
-  // Returns a handle to a shared memory region to hold performance scenario
-  // state for all processes, or an invalid handle if there is none. The result
-  // can be transferred to a child process and passed to a
-  // ScopedReadOnlyScenarioMemory object with Scope::kGlobal
-  // (see//third_party/blink/public/common/performance/performance_scenarios.h)
-  virtual base::ReadOnlySharedMemoryRegion GetGlobalPerformanceScenarioRegion();
 
   // Indicates whether this client allows paint holding in cross-origin
   // navigations even if there was no user activation.

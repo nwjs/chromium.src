@@ -114,8 +114,7 @@ WebGPUExecutionContextToken GetExecutionContextToken(
   if (execution_context->IsWindow()) {
     return To<LocalDOMWindow>(execution_context)->document()->Token();
   }
-  NOTREACHED_IN_MIGRATION();
-  return WebGPUExecutionContextToken();
+  NOTREACHED();
 }
 
 }  // anonymous namespace
@@ -188,7 +187,7 @@ void GPU::OnRequestAdapterCallback(
     ScriptPromiseResolver<IDLNullable<GPUAdapter>>* resolver,
     wgpu::RequestAdapterStatus status,
     wgpu::Adapter adapter,
-    const char* error_message) {
+    wgpu::StringView error_message) {
   GPUAdapter* gpu_adapter = nullptr;
   switch (status) {
     case wgpu::RequestAdapterStatus::Success:
@@ -204,7 +203,7 @@ void GPU::OnRequestAdapterCallback(
     case wgpu::RequestAdapterStatus::InstanceDropped:
       break;
   }
-  if (error_message) {
+  if (error_message.length != 0) {
     ExecutionContext* execution_context = ExecutionContext::From(script_state);
     auto* console_message = MakeGarbageCollected<ConsoleMessage>(
         mojom::blink::ConsoleMessageSource::kRendering,
@@ -289,6 +288,19 @@ void GPU::RequestAdapterImpl(
                              "Unknown feature level");
     return;
   }
+
+#if BUILDFLAG(IS_WIN)
+  // TODO(crbug.com/369219127): Chrome always uses the same GPU adapter that's
+  // been allocated for other Chrome workloads on Windows, which for laptops is
+  // generally the integrated graphics card, due to the power usage aspect (ie:
+  // power saving).
+  if (options->hasPowerPreference()) {
+    AddConsoleWarning(
+        execution_context,
+        "The powerPreference option is currently ignored when calling "
+        "requestAdapter() on Windows. See https://crbug.com/369219127");
+  }
+#endif
 
   if (!dawn_control_client_ || dawn_control_client_->IsContextLost()) {
     dawn_control_client_initialized_callbacks_.push_back(WTF::BindOnce(

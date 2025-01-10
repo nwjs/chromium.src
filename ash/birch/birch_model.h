@@ -13,7 +13,6 @@
 #include "ash/birch/birch_client.h"
 #include "ash/birch/birch_coral_item.h"
 #include "ash/birch/birch_item.h"
-#include "ash/public/cpp/coral_util.h"
 #include "ash/public/cpp/session/session_observer.h"
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
@@ -138,8 +137,12 @@ class ASH_EXPORT BirchModel : public SessionObserver,
   // Returns whether all data in the model is currently fresh.
   bool IsDataFresh();
 
-  // Add the BirchItem to the list of persistenly removed items.
+  // Adds the BirchItem to the list of persistently removed items.
   void RemoveItem(BirchItem* item);
+
+  // Removes the `BirchCoralItem` with given `group_id`. The removed item will
+  // NOT be added to the `item_remover_`.
+  void OnCoralGroupRemoved(const base::Token& group_id);
 
   void SetLostMediaDataChangedCallback(LostMediaDataChangedCallback callback);
 

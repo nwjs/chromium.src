@@ -105,6 +105,7 @@ class PopoverElementForAppearanceBase : public HTMLDivElement {
   explicit PopoverElementForAppearanceBase(Document& document)
       : HTMLDivElement(document) {
     CHECK(RuntimeEnabledFeatures::CustomizableSelectEnabled());
+    SetHasCustomStyleCallbacks();
   }
 
   void ShowPopoverInternal(Element* invoker,
@@ -132,7 +133,6 @@ class PopoverElementForAppearanceBase : public HTMLDivElement {
       if (option_to_focus) {
         option_to_focus->Focus(FocusParams(FocusTrigger::kScript));
       }
-      select->PseudoStateChanged(CSSSelector::kPseudoOpen);
       if (AXObjectCache* cache =
               select->GetDocument().ExistingAXObjectCache()) {
         cache->DidShowMenuListPopup(select);
@@ -159,7 +159,6 @@ class PopoverElementForAppearanceBase : public HTMLDivElement {
         element_to_focus->Focus(FocusParams(FocusTrigger::kScript));
       }
 
-      select->PseudoStateChanged(CSSSelector::kPseudoOpen);
       if (AXObjectCache* cache =
               select->GetDocument().ExistingAXObjectCache()) {
         cache->DidHideMenuListPopup(select);
@@ -186,6 +185,16 @@ class PopoverElementForAppearanceBase : public HTMLDivElement {
       select->DecrementImplicitlyAnchoredElementCount();
     }
     HTMLDivElement::RemovedFrom(container);
+  }
+
+  void DidRecalcStyle(const StyleRecalcChange change) override {
+    HTMLDivElement::DidRecalcStyle(change);
+    if (auto* style = GetComputedStyle()) {
+      if (style->EffectiveAppearance() == ControlPart::kBaseSelectPart) {
+        UseCounter::Count(GetDocument(),
+                          WebFeature::kSelectElementPickerAppearanceBaseSelect);
+      }
+    }
   }
 
  private:
@@ -606,7 +615,6 @@ void MenuListSelectType::ManuallyAssignSlots() {
     // case which would require switching appearance values after the user has
     // opened the select.
     if (popover_->IsInTopLayer()) {
-      CHECK(IsAppearanceBasePicker());
       popover_options_slot_->Assign(all_children_except_first_button);
       option_slot_->Assign(nullptr);
     } else {
@@ -921,6 +929,10 @@ void MenuListSelectType::DidRecalcStyle(const StyleRecalcChange change) {
       // instead of the <select> itself.
       select_->GetShadowRoot()->SetDelegatesFocus(is_appearance_base_select &&
                                                   SlottedButton());
+    }
+    if (is_appearance_base_select) {
+      UseCounter::Count(select_->GetDocument(),
+                        WebFeature::kSelectElementAppearanceBaseSelect);
     }
   }
 
@@ -1883,13 +1895,11 @@ void SelectType::UpdateTextStyle() {}
 void SelectType::UpdateTextStyleAndContent() {}
 
 HTMLOptionElement* SelectType::OptionToBeShown() const {
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 const ComputedStyle* SelectType::OptionStyle() const {
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 void SelectType::MaximumOptionWidthMightBeChanged() const {}
@@ -1899,8 +1909,7 @@ HTMLOptionElement* SelectType::SpatialNavigationFocusedOption() {
 }
 
 HTMLOptionElement* SelectType::ActiveSelectionEnd() const {
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 void SelectType::ScrollToSelection() {}
@@ -1908,7 +1917,7 @@ void SelectType::ScrollToSelection() {}
 void SelectType::ScrollToOption(HTMLOptionElement* option) {}
 
 void SelectType::SelectAll() {
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void SelectType::SaveListboxActiveSelection() {}
@@ -1920,24 +1929,21 @@ void SelectType::ListBoxOnChange() {}
 void SelectType::ClearLastOnChangeSelection() {}
 
 Element& SelectType::InnerElement() const {
-  NOTREACHED_IN_MIGRATION();
-  // Returning select_ doesn't make sense, but we need to return an element
-  // to compile this source. This function must not be called.
-  return *select_;
+  NOTREACHED();
 }
 
 void SelectType::ShowPicker() {}
 
 void SelectType::ShowPopup(PopupMenu::ShowEventType) {
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void SelectType::HidePopup() {
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void SelectType::PopupDidHide() {
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 bool SelectType::PopupIsVisible() const {
@@ -1945,13 +1951,11 @@ bool SelectType::PopupIsVisible() const {
 }
 
 PopupMenu* SelectType::PopupForTesting() const {
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 AXObject* SelectType::PopupRootAXObject() const {
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 // Returns the 1st valid OPTION |skip| items from |list_index| in direction

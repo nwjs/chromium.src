@@ -10,6 +10,8 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/weak_ptr.h"
+#include "base/metrics/user_metrics.h"
+#include "base/metrics/user_metrics_action.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
@@ -30,9 +32,9 @@
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/core/browser/address_data_manager.h"
+#include "components/autofill/core/browser/autofill_ai_delegate.h"
 #include "components/autofill/core/browser/autofill_driver.h"
 #include "components/autofill/core/browser/autofill_feedback_data.h"
-#include "components/autofill/core/browser/autofill_prediction_improvements_delegate.h"
 #include "components/autofill/core/browser/browser_autofill_manager.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
 #include "components/autofill/core/browser/field_type_utils.h"
@@ -46,7 +48,7 @@
 #include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/unique_ids.h"
-#include "components/autofill_prediction_improvements/core/browser/autofill_prediction_improvements_features.h"
+#include "components/autofill_ai/core/browser/autofill_ai_features.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/password_manager/content/browser/content_password_manager_driver.h"
 #include "components/password_manager/core/browser/features/password_features.h"
@@ -249,8 +251,14 @@ AutofillContextMenuManager::AutofillContextMenuManager(
 AutofillContextMenuManager::~AutofillContextMenuManager() = default;
 
 void AutofillContextMenuManager::AppendItems() {
-  MaybeAddAutofillFeedbackItem();
-  MaybeAddAutofillManualFallbackItems();
+  if (base::FeatureList::IsEnabled(
+          password_manager::features::kPasswordManualFallbackAvailable)) {
+    MaybeAddAutofillManualFallbackItems();
+    MaybeAddAutofillFeedbackItem();
+  } else {
+    MaybeAddAutofillFeedbackItem();
+    MaybeAddAutofillManualFallbackItems();
+  }
 }
 
 bool AutofillContextMenuManager::IsCommandIdSupported(int command_id) {
@@ -397,8 +405,7 @@ void AutofillContextMenuManager::MaybeAddAutofillManualFallbackItems() {
     auto* web_contents = content::WebContents::FromRenderFrameHost(
         autofill_driver->render_frame_host());
     add_prediction_improvements = ShouldAddPredictionImprovementsItem(
-        autofill_driver->GetAutofillClient()
-            .GetAutofillPredictionImprovementsDelegate(),
+        autofill_driver->GetAutofillClient().GetAutofillAiDelegate(),
         web_contents->GetPrimaryMainFrame()->GetLastCommittedURL());
     add_plus_address_fallback =
         ShouldAddPlusAddressManualFallbackItem(*autofill_driver);
@@ -428,6 +435,16 @@ void AutofillContextMenuManager::MaybeAddAutofillManualFallbackItems() {
   menu_model_->AddTitle(
       l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_AUTOFILL_FALLBACK_TITLE));
 
+  if (add_passwords_fallback) {
+    AddPasswordsManualFallbackItems(*password_manager_driver);
+
+    const bool select_passwords_option_shown =
+        UserHasPasswordsSaved(*password_manager_driver);
+    if (select_passwords_option_shown) {
+      LogSelectPasswordManualFallbackContextMenuEntryShown(
+          CHECK_DEREF(password_manager_driver));
+    }
+  }
   if (add_prediction_improvements) {
     menu_model_->AddItemWithStringIdAndIcon(
         IDC_CONTENT_CONTEXT_AUTOFILL_PREDICTION_IMPROVEMENTS,
@@ -436,7 +453,6 @@ void AutofillContextMenuManager::MaybeAddAutofillManualFallbackItems() {
             vector_icons::kLocationOnChromeRefreshIcon, ui::kColorIcon,
             kContextMenuIconSize));
   }
-
   if (add_address_fallback) {
     menu_model_->AddItemWithStringIdAndIcon(
         IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_ADDRESS,
@@ -460,16 +476,6 @@ void AutofillContextMenuManager::MaybeAddAutofillManualFallbackItems() {
 
     LogPaymentsManualFallbackContextMenuEntryShown(
         CHECK_DEREF(autofill_driver));
-  }
-  if (add_passwords_fallback) {
-    AddPasswordsManualFallbackItems(*password_manager_driver);
-
-    const bool select_passwords_option_shown =
-        UserHasPasswordsSaved(*password_manager_driver);
-    if (select_passwords_option_shown) {
-      LogSelectPasswordManualFallbackContextMenuEntryShown(
-          CHECK_DEREF(password_manager_driver));
-    }
   }
   if (add_plus_address_fallback) {
     menu_model_->AddItemWithStringIdAndIcon(
@@ -507,7 +513,7 @@ bool AutofillContextMenuManager::ShouldAddPlusAddressManualFallbackItem(
 }
 
 bool AutofillContextMenuManager::ShouldAddPredictionImprovementsItem(
-    AutofillPredictionImprovementsDelegate* delegate,
+    AutofillAiDelegate* delegate,
     const GURL& url) {
   // TODO(crbug.com/372158654): Implement suitable criteria or remove the entry.
   return false;
@@ -566,21 +572,22 @@ bool AutofillContextMenuManager::ShouldAddPasswordsManualFallbackItem(
 
 void AutofillContextMenuManager::AddPasswordsManualFallbackItems(
     ContentPasswordManagerDriver& password_manager_driver) {
+  const bool add_passkey_from_another_device_option =
+      base::FeatureList::IsEnabled(
+          password_manager::features::
+              kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu);
   const bool add_select_password_option =
       UserHasPasswordsSaved(password_manager_driver);
-  const bool add_no_saved_passwords_option = !add_select_password_option;
+  const bool add_no_saved_passwords_option =
+      !add_select_password_option && !add_passkey_from_another_device_option;
   const bool add_import_passwords_option = !add_select_password_option;
 
   const bool add_password_generation_option =
       password_manager_util::ManualPasswordGenerationEnabled(
           &password_manager_driver) &&
-      (password_manager_driver.IsPasswordFieldForPasswordManager(
-          autofill::FieldRendererId(params_.field_renderer_id), params_));
-
-  const bool add_passkey_from_another_device_option =
-      base::FeatureList::IsEnabled(
-          password_manager::features::
-              kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu);
+      password_manager_driver.IsPasswordFieldForPasswordManager(
+          autofill::FieldRendererId(params_.field_renderer_id),
+          params_.form_control_type);
 
   const bool add_submenu =
       std::ranges::count(
@@ -608,6 +615,11 @@ void AutofillContextMenuManager::AddPasswordsManualFallbackItems(
         IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PASSWORDS_SELECT_PASSWORD,
         IDS_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PASSWORDS_SELECT_PASSWORD);
   }
+  if (add_password_generation_option) {
+    passwords_submenu_model_.AddItemWithStringId(
+        IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PASSWORDS_SUGGEST_PASSWORD,
+        IDS_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PASSWORDS_SUGGEST_PASSWORD);
+  }
   if (add_no_saved_passwords_option) {
     // This entry is disabled (i.e. it is greyed out and doesn't do anything
     // upon clicking). The logic which disables it is in
@@ -621,13 +633,6 @@ void AutofillContextMenuManager::AddPasswordsManualFallbackItems(
         IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PASSWORDS_IMPORT_PASSWORDS,
         IDS_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PASSWORDS_IMPORT_PASSWORDS);
   }
-
-  if (add_password_generation_option) {
-    passwords_submenu_model_.AddItemWithStringId(
-        IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PASSWORDS_SUGGEST_PASSWORD,
-        IDS_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PASSWORDS_SUGGEST_PASSWORD);
-  }
-
   if (add_passkey_from_another_device_option) {
     passwords_submenu_model_.AddItemWithStringId(
         IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PASSWORDS_USE_PASSKEY_FROM_ANOTHER_DEVICE,
@@ -777,7 +782,8 @@ void AutofillContextMenuManager::ExecuteFallbackForPlusAddressesCommand(
                     FieldRendererId(params_.field_renderer_id)},
       AutofillSuggestionTriggerSource::kManualFallbackPlusAddresses);
 
-  // TODO(crbug.com/327566698): Add metrics for plus addresses.
+  base::RecordAction(base::UserMetricsAction(
+      "PlusAddresses.ManualFallbackDesktopContextManualFallbackSelected"));
   UserEducationService::MaybeNotifyNewBadgeFeatureUsed(
       delegate_->GetBrowserContext(),
       plus_addresses::features::kPlusAddressFallbackFromContextMenu);

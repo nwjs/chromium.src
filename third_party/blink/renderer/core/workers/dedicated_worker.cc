@@ -156,11 +156,11 @@ void DedicatedWorker::Dispose() {
 
 void DedicatedWorker::postMessage(ScriptState* script_state,
                                   const ScriptValue& message,
-                                  HeapVector<ScriptValue>& transfer,
+                                  HeapVector<ScriptValue> transfer,
                                   ExceptionState& exception_state) {
   PostMessageOptions* options = PostMessageOptions::Create();
   if (!transfer.empty())
-    options->setTransfer(transfer);
+    options->setTransfer(std::move(transfer));
   postMessage(script_state, message, options, exception_state);
 }
 
@@ -218,7 +218,7 @@ void DedicatedWorker::PostCustomEvent(
         event_factory_callback,
     CrossThreadFunction<Event*(ScriptState*)> event_factory_error_callback,
     const ScriptValue& message,
-    HeapVector<ScriptValue>& transfer,
+    HeapVector<ScriptValue> transfer,
     ExceptionState& exception_state) {
   CHECK(!GetExecutionContext() || GetExecutionContext()->IsContextThread());
   if (!GetExecutionContext()) {
@@ -227,7 +227,7 @@ void DedicatedWorker::PostCustomEvent(
 
   StructuredSerializeOptions* options = StructuredSerializeOptions::Create();
   if (!transfer.empty()) {
-    options->setTransfer(transfer);
+    options->setTransfer(std::move(transfer));
   }
   CustomEventMessage transferable_message;
   Transferables transferables;
@@ -295,7 +295,7 @@ void DedicatedWorker::Start() {
 
     mojo::PendingRemote<mojom::blink::BlobURLToken> blob_url_token;
     if (script_request_url_.ProtocolIs("blob")) {
-      GetExecutionContext()->GetPublicURLManager().Resolve(
+      GetExecutionContext()->GetPublicURLManager().ResolveForWorkerScriptFetch(
           script_request_url_, blob_url_token.InitWithNewPipeAndPassReceiver());
     }
 
@@ -388,8 +388,7 @@ void DedicatedWorker::OnHostCreated(
                   std::move(back_forward_cache_controller_host));
     return;
   }
-  NOTREACHED_IN_MIGRATION()
-      << "Invalid type: " << IDLEnumAsString(options_->type());
+  NOTREACHED() << "Invalid type: " << IDLEnumAsString(options_->type());
 }
 
 void DedicatedWorker::terminate() {

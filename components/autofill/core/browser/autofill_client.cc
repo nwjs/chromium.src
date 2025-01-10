@@ -8,9 +8,9 @@
 #include "base/no_destructor.h"
 #include "build/build_config.h"
 #include "components/autofill/core/browser/autofill_ablation_study.h"
+#include "components/autofill/core/browser/autofill_ai_delegate.h"
 #include "components/autofill/core/browser/autofill_compose_delegate.h"
 #include "components/autofill/core/browser/autofill_plus_address_delegate.h"
-#include "components/autofill/core/browser/autofill_prediction_improvements_delegate.h"
 #include "components/autofill/core/browser/filling_product.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
 #include "components/autofill/core/browser/ui/popup_open_enums.h"
@@ -64,8 +64,13 @@ AutofillOptimizationGuide* AutofillClient::GetAutofillOptimizationGuide()
   return nullptr;
 }
 
-AutofillMlPredictionModelHandler*
-AutofillClient::GetAutofillMlPredictionModelHandler() {
+FieldClassificationModelHandler*
+AutofillClient::GetAutofillFieldClassificationModelHandler() {
+  return nullptr;
+}
+
+FieldClassificationModelHandler*
+AutofillClient::GetPasswordManagerFieldClassificationModelHandler() {
   return nullptr;
 }
 
@@ -77,8 +82,7 @@ AutofillPlusAddressDelegate* AutofillClient::GetPlusAddressDelegate() {
   return nullptr;
 }
 
-AutofillPredictionImprovementsDelegate*
-AutofillClient::GetAutofillPredictionImprovementsDelegate() {
+AutofillAiDelegate* AutofillClient::GetAutofillAiDelegate() {
   return nullptr;
 }
 
@@ -168,11 +172,6 @@ bool AutofillClient::ShowAutofillFieldIphForFeature(
 void AutofillClient::HideAutofillFieldIph() {}
 
 void AutofillClient::NotifyIphFeatureUsed(AutofillClient::IphFeature feature) {}
-
-void AutofillClient::ShowSaveAutofillPredictionImprovementsBubble(
-    const std::vector<optimization_guide::proto::UserAnnotationsEntry>&
-        to_be_upserted_entries,
-    user_annotations::PromptAcceptanceCallback prompt_acceptance_callback) {}
 
 std::optional<AutofillClient::PopupScreenLocation>
 AutofillClient::GetPopupScreenLocation() const {

@@ -38,6 +38,8 @@ import("//build/config/sanitizers/sanitizers.gni")
 import("//build/config/sysroot.gni")
 import("//build/config/ui.gni")
 import("//build/nocompile.gni")
+import("//build/rust/rust_bindgen.gni")
+import("//build/rust/rust_static_library.gni")
 import("//build/timestamp.gni")
 import("//build/util/process_version.gni")
 import("//build_overrides/build.gni")
@@ -101,30 +103,6 @@ if (is_android || is_robolectric) {
 
 if (is_fuchsia) {
   import("//third_party/fuchsia-gn-sdk/src/fidl_library.gni")
-}
-
-# The Rust implementation of base::JSONReader. NaCl depends on base and doesn't
-# have a Rust toolchain, so we need a fallback to C++ for it until it removes
-# its dependency on //base.
-#
-# TODO(crbug.com/40811643): Drop toolchain_has_rust and move the C++ parser into
-# components/nacl to just run in-process there. Don't compile base::JSONReader
-# on NaCL at all.
-build_rust_json_reader = toolchain_has_rust && enable_rust_json
-
-# Rust to C++ type conversions. Also can not be enabled while NaCl depends on
-# //base.
-build_rust_base_conversions = toolchain_has_rust && enable_rust_base_conversions
-
-assert(build_rust_base_conversions || !build_rust_json_reader,
-       "Cannot enable Rust JSON decoder without also base conversions")
-
-buildflag_header("rust_buildflags") {
-  header = "rust_buildflags.h"
-  flags = [
-    "BUILD_RUST_JSON_READER=$build_rust_json_reader",
-    "BUILD_RUST_BASE_CONVERSIONS=$build_rust_base_conversions",
-  ]
 }
 
 if (is_win) {
@@ -361,6 +339,7 @@ component("base") {
     "location.h",
     "logging.cc",
     "logging.h",
+    "logging/log_severity.h",
     "macros/concat.h",
     "macros/if.h",
     "macros/is_empty.h",
@@ -572,6 +551,7 @@ component("base") {
     "profiler/stack_unwind_data.h",
     "profiler/suspendable_thread_delegate.h",
     "profiler/thread_delegate.h",
+    "profiler/thread_group_profiler_client.h",
     "profiler/unwinder.cc",
     "profiler/unwinder.h",
     "rand_util.cc",
@@ -1047,16 +1027,18 @@ component("base") {
   if (!is_nacl) {
     # Used by metrics/crc32, except on NaCl builds.
     deps += [ "//third_party/zlib" ]
+
+    # NaCl does not support Rust.
+    deps += [
+      ":rust_logger",
+      "//third_party/rust/serde_json_lenient/v0_2/wrapper",
+    ]
   }
 
   # `raw_ptr` cannot be made a component due to CRT symbol issues.
   # Its gateway to being a component is through `//base`, so we have
   # to provide the appropriate `#define` here.
   defines += [ "IS_RAW_PTR_IMPL" ]
-
-  if (build_rust_json_reader) {
-    deps += [ "//third_party/rust/serde_json_lenient/v0_2/wrapper" ]
-  }
 
   # native_unwinder_android is intended for use solely via a dynamic feature
   # module, to avoid increasing Chrome's executable size.
@@ -1071,12 +1053,10 @@ component("base") {
     ":debugging_buildflags",
     ":feature_list_buildflags",
     ":ios_cronet_buildflags",
-    ":logging_buildflags",
     ":orderfile_buildflags",
     ":power_monitor_buildflags",
     ":profiler_buildflags",
     ":protected_memory_buildflags",
-    ":rust_buildflags",
     ":sanitizer_buildflags",
     ":synchronization_buildflags",
     ":tracing_buildflags",
@@ -1089,7 +1069,7 @@ component("base") {
     "//third_party/abseil-cpp:absl",
   ]
 
-  if (build_rust_base_conversions) {
+  if (!is_nacl) {
     sources += [
       "containers/span_rust.h",
       "strings/string_view_rust.h",
@@ -1569,6 +1549,8 @@ component("base") {
       "files/scoped_temp_file.h",
       "json/json_file_value_serializer.cc",
       "json/json_file_value_serializer.h",
+      "logging/rust_log_integration.cc",
+      "logging/rust_log_integration.h",
       "memory/discardable_memory.cc",
       "memory/discardable_memory.h",
       "memory/discardable_memory_allocator.cc",
@@ -2473,6 +2455,41 @@ component("base") {
   }
 }
 
+rust_bindgen("logging_log_severity_bindgen") {
+  # TODO(danakj): Maybe combine all base bindgen targets, or all base/logging
+  # ones even) into a single GN target? But the GN rule needs to handle multiple
+  # headers then.
+  header = "logging/log_severity.h"
+  cpp = true
+  visibility = [ ":*" ]
+
+  # Transitive generated header dependency.
+  deps = [ ":debugging_buildflags" ]
+}
+
+rust_bindgen("logging_rust_log_integration_bindgen") {
+  header = "logging/rust_log_integration.h"
+  cpp = true
+  visibility = [ ":*" ]
+
+  # Transitive generated header dependency.
+  deps = [ ":debugging_buildflags" ]
+}
+
+rust_static_library("rust_logger") {
+  allow_unsafe = true  # Unsafe needed for FFI.
+  deps = [
+    ":logging_log_severity_bindgen",
+    ":logging_rust_log_integration_bindgen",
+    "//third_party/rust/log/v0_4:lib",
+  ]
+  visibility = [ ":base" ]
+  sources = [ "logging/rust_logger.rs" ]
+  crate_root = "logging/rust_logger.rs"
+
+  cxx_bindings = [ "logging/rust_logger.rs" ]
+}
+
 if (is_linux || is_chromeos) {
   # Split out as a separate target for two reasons:
   # - the line number reader is 2x slower in debug builds if not optimized,
@@ -2565,12 +2582,6 @@ buildflag_header("feature_list_buildflags") {
   } else {
     flags = [ "ENABLE_BANNED_BASE_FEATURE_PREFIX=false" ]
   }
-}
-
-buildflag_header("logging_buildflags") {
-  header = "logging_buildflags.h"
-
-  flags = [ "ENABLE_LOG_ERROR_NOT_REACHED=$enable_log_error_not_reached" ]
 }
 
 buildflag_header("orderfile_buildflags") {
@@ -3282,6 +3293,7 @@ test("base_unittests") {
     "json/string_escape_unittest.cc",
     "json/values_util_unittest.cc",
     "lazy_instance_unittest.cc",
+    "logging/rust_log_integration_unittest.cc",
     "logging_unittest.cc",
     "memory/aligned_memory_unittest.cc",
     "memory/discardable_memory_backing_field_trial_unittest.cc",
@@ -3560,7 +3572,7 @@ test("base_unittests") {
     sources += [ "location_unittest.cc" ]
   }
 
-  if (build_rust_base_conversions) {
+  if (!is_nacl) {
     sources += [
       "containers/span_rust_unittest.cc",
       "strings/string_piece_rust_unittest.cc",
@@ -3613,6 +3625,10 @@ test("base_unittests") {
     deps += [ "allocator/partition_allocator/src/partition_alloc:unittests" ]
   }
 
+  if (!is_nacl) {
+    deps += [ "//build/rust:cxx_cppdeps" ]
+  }
+
   data_deps = [
     "//base/test:immediate_crash_test_helper",
     "//base/test:test_child_process",
@@ -3632,10 +3648,6 @@ test("base_unittests") {
   configs += [
     "//base/allocator/partition_allocator/src/partition_alloc:memory_tagging",
   ]
-
-  if (build_rust_base_conversions) {
-    deps += [ "//build/rust:cxx_cppdeps" ]
-  }
 
   if (is_apple) {
     public_deps = [
@@ -4497,6 +4509,12 @@ if (is_android) {
     sources = [ "metrics/histogram_base.h" ]
   }
 
+  android_library("metrics_ScopedSysTraceEvent_java") {
+    sources = [
+      "android/java/src/org/chromium/base/metrics/ScopedSysTraceEvent.java",
+    ]
+  }
+
   android_library("metrics_java") {
     srcjar_deps = [
       ":metrics_enum_srcjar",
@@ -4509,7 +4527,6 @@ if (is_android) {
       "android/java/src/org/chromium/base/metrics/NoopUmaRecorder.java",
       "android/java/src/org/chromium/base/metrics/RecordHistogram.java",
       "android/java/src/org/chromium/base/metrics/RecordUserAction.java",
-      "android/java/src/org/chromium/base/metrics/ScopedSysTraceEvent.java",
       "android/java/src/org/chromium/base/metrics/StatisticsRecorderAndroid.java",
       "android/java/src/org/chromium/base/metrics/TimingMetric.java",
       "android/java/src/org/chromium/base/metrics/UmaRecorder.java",
@@ -4525,6 +4542,7 @@ if (is_android) {
       "//third_party/androidx:androidx_annotation_annotation_java",
       "//third_party/jni_zero:jni_zero_java",
     ]
+    public_deps = [ ":metrics_ScopedSysTraceEvent_java" ]
   }
 
   generate_jni("jank_tracker_jni") {
@@ -4928,8 +4946,6 @@ if (is_android) {
     ]
 
     sources = [
-      "android/java/src/org/chromium/base/cached_flags/CachedFlagsSharedPreferences.java",
-      "android/java/src/org/chromium/base/cached_flags/ValuesOverridden.java",
       "android/java/src/org/chromium/base/cached_flags/ValuesReturned.java",
     ]
   }

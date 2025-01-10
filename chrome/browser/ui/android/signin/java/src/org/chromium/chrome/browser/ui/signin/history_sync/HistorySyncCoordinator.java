@@ -23,9 +23,10 @@ import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 
 public class HistorySyncCoordinator {
+
     /*Delegate for the History Sync MVC */
     public interface HistorySyncDelegate {
-        void dismissHistorySync();
+        void dismissHistorySync(boolean isHistorySyncAccepted);
 
         default void maybeRecordFreProgress(@MobileFreProgress int state) {}
     }
@@ -55,6 +56,7 @@ public class HistorySyncCoordinator {
             Activity activity,
             HistorySyncDelegate delegate,
             Profile profile,
+            HistorySyncConfig config,
             @SigninAccessPoint int accessPoint,
             boolean showEmailInFooter,
             boolean shouldSignOutOnDecline,
@@ -69,6 +71,7 @@ public class HistorySyncCoordinator {
                         activity,
                         delegate,
                         profile,
+                        config,
                         accessPoint,
                         showEmailInFooter,
                         shouldSignOutOnDecline,

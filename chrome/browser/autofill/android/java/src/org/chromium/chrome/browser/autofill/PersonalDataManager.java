@@ -25,6 +25,7 @@ import org.chromium.components.autofill.IbanRecordType;
 import org.chromium.components.autofill.ImageSize;
 import org.chromium.components.autofill.VirtualCardEnrollmentState;
 import org.chromium.components.autofill.payments.BankAccount;
+import org.chromium.components.autofill.payments.Ewallet;
 import org.chromium.components.image_fetcher.ImageFetcher;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
@@ -283,17 +284,15 @@ public class PersonalDataManager implements Destroyable {
         public String getFormattedExpirationDate(Context context) {
             String twoDigityear = getYear().substring(2);
             return getMonth()
-                    + context.getResources().getString(R.string.autofill_expiration_date_separator)
+                    + context.getString(R.string.autofill_expiration_date_separator)
                     + twoDigityear;
         }
 
         public String getFormattedExpirationDateWithCvcSavedMessage(Context context) {
-            return context.getResources()
-                    .getString(
-                            R.string.autofill_settings_page_summary_separated_by_pipe,
-                            getFormattedExpirationDate(context),
-                            context.getResources()
-                                    .getString(R.string.autofill_settings_page_cvc_saved_label));
+            return context.getString(
+                    R.string.autofill_settings_page_summary_separated_by_pipe,
+                    getFormattedExpirationDate(context),
+                    context.getString(R.string.autofill_settings_page_cvc_saved_label));
         }
 
         @CalledByNative("CreditCard")
@@ -929,6 +928,11 @@ public class PersonalDataManager implements Destroyable {
         return PersonalDataManagerJni.get().getMaskedBankAccounts(mPersonalDataManagerAndroid);
     }
 
+    public Ewallet[] getEwallets() {
+        ThreadUtils.assertOnUiThread();
+        return PersonalDataManagerJni.get().getEwallets(mPersonalDataManagerAndroid);
+    }
+
     /**
      * Records the use of the profile associated with the specified {@code guid}. Effectively
      * increments the use count of the profile and sets its use date to the current time. Also logs
@@ -1272,5 +1276,7 @@ public class PersonalDataManager implements Destroyable {
         boolean shouldShowAddIbanButtonOnSettingsPage(long nativePersonalDataManagerAndroid);
 
         BankAccount[] getMaskedBankAccounts(long nativePersonalDataManagerAndroid);
+
+        Ewallet[] getEwallets(long nativePersonalDataManagerAndroid);
     }
 }

@@ -75,8 +75,6 @@ class COMPONENT_EXPORT(CHROMEOS_STARTUP) BrowserParamsProxy {
 
   bool PublishChromeApps() const;
 
-  bool PublishHostedApps() const;
-
   crosapi::mojom::BrowserInitParams::InitialKeepAlive InitialKeepAlive() const;
 
   bool IsUnfilteredBluetoothDeviceEnabled() const;
@@ -147,8 +145,6 @@ class COMPONENT_EXPORT(CHROMEOS_STARTUP) BrowserParamsProxy {
   bool IsDeskProfilesEnabled() const;
 
   bool ShouldDisableChromeComposeOnChromeOS() const;
-
-  bool IsCaptivePortalPopupWindowEnabled() const;
 
   bool IsFileSystemProviderCloudFileSystemEnabled() const;
 

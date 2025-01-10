@@ -67,11 +67,10 @@ class AuthenticationFlowTest : public PlatformTest {
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetDefaultFactory());
+        AuthenticationServiceFactory::GetFactoryWithDelegate(
+            std::make_unique<FakeAuthenticationServiceDelegate>()));
     builder.SetPrefService(CreatePrefService());
     profile_ = std::move(builder).Build();
-    AuthenticationServiceFactory::CreateAndInitializeForProfile(
-        profile_.get(), std::make_unique<FakeAuthenticationServiceDelegate>());
     browser_ = std::make_unique<TestBrowser>(profile_.get());
 
     identity1_ = [FakeSystemIdentity fakeIdentity1];
@@ -93,6 +92,7 @@ class AuthenticationFlowTest : public PlatformTest {
         case SigninCoordinatorResult::SigninCoordinatorResultInterrupted:
         case SigninCoordinatorResult::SigninCoordinatorResultCanceledByUser:
         case SigninCoordinatorResult::SigninCoordinatorResultDisabled:
+        case SigninCoordinatorResult::SigninCoordinatorUINotAvailable:
           signin_result_ = signin::Tribool::kFalse;
           break;
       }

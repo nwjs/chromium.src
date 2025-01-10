@@ -23,6 +23,7 @@
 #include "content/public/browser/web_contents.h"
 #include "ppapi/buildflags/buildflags.h"
 #include "third_party/blink/public/mojom/context_menu/context_menu.mojom.h"
+#include "ui/base/accelerators/accelerator.h"
 #include "ui/base/models/image_model.h"
 #include "url/origin.h"
 
@@ -109,6 +110,17 @@ void AddCustomItemsToMenu(
           menu_model->SetMinorIcon(
               menu_model->GetItemCount() - 1,
               ui::ImageModel::FromVectorIcon(vector_icons::kScienceIcon));
+        }
+        if (item->accelerator) {
+          menu_model->SetAcceleratorAt(
+              menu_model->GetItemCount() - 1,
+              ui::Accelerator(
+                  static_cast<ui::KeyboardCode>(item->accelerator->key_code),
+                  item->accelerator->modifiers));
+          if (item->force_show_accelerator_for_item) {
+            menu_model->SetForceShowAcceleratorForItemAt(
+                menu_model->GetItemCount() - 1, true);
+          }
         }
         break;
       case blink::mojom::CustomContextMenuItemType::kCheckableOption:

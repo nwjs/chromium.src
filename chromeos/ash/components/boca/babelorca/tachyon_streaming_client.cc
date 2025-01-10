@@ -11,9 +11,12 @@
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/location.h"
+#include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/sequence_checker.h"
 #include "base/strings/stringprintf.h"
+#include "base/time/time.h"
 #include "chromeos/ash/components/boca/babelorca/request_data_wrapper.h"
 #include "chromeos/ash/components/boca/babelorca/tachyon_client.h"
 #include "chromeos/ash/components/boca/babelorca/tachyon_constants.h"
@@ -28,6 +31,9 @@
 #include "url/gurl.h"
 
 namespace ash::babelorca {
+namespace {
+constexpr base::TimeDelta kReceiveTimeout = base::Minutes(1);
+}  // namespace
 
 TachyonStreamingClient::TachyonStreamingClient(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
@@ -68,6 +74,8 @@ void TachyonStreamingClient::StartRequest(
   url_loader_->AttachStringForUpload(request_data_->content_data,
                                      "application/x-protobuf");
   url_loader_->DownloadAsStream(url_loader_factory_.get(), this);
+  timeout_timer_.Start(FROM_HERE, kReceiveTimeout, this,
+                       &TachyonStreamingClient::OnTimeout);
 }
 
 void TachyonStreamingClient::OnDataReceived(std::string_view string_piece,
@@ -83,11 +91,14 @@ void TachyonStreamingClient::OnDataReceived(std::string_view string_piece,
       std::string(string_piece),
       base::BindOnce(&TachyonStreamingClient::OnParsed, base::Unretained(this),
                      std::move(resume)));
+  timeout_timer_.Start(FROM_HERE, kReceiveTimeout, this,
+                       &TachyonStreamingClient::OnTimeout);
 }
 
 void TachyonStreamingClient::OnComplete(bool success) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   parsing_service_.reset();
+  timeout_timer_.Stop();
   if (success) {
     std::move(request_data_->response_cb)
         .Run(TachyonResponse(TachyonResponse::Status::kOk));
@@ -101,6 +112,8 @@ void TachyonStreamingClient::OnRetry(base::OnceClosure start_retry) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   parsing_service_.reset();
   std::move(start_retry).Run();
+  timeout_timer_.Start(FROM_HERE, kReceiveTimeout, this,
+                       &TachyonStreamingClient::OnTimeout);
 }
 
 void TachyonStreamingClient::OnParsed(
@@ -118,14 +131,19 @@ void TachyonStreamingClient::OnParsed(
   }
   url_loader_.reset();
   parsing_service_.reset();
-  // Report internal error if there is a parsing error or the stream is closed
-  // and stream_status is not present.
+  timeout_timer_.Stop();
+  //  Report internal error if there is a parsing error or the stream is closed
+  //  and stream_status is not present.
   if (parsing_state == mojom::ParsingState::kError || stream_status.is_null()) {
+    LOG(ERROR) << "Stream closed with parsing state: " << parsing_state;
     std::move(request_data_->response_cb)
         .Run(TachyonResponse(TachyonResponse::Status::kInternalError));
     return;
   }
   TachyonResponse response(stream_status->code, stream_status->message);
+  VLOG_IF(1, !response.ok())
+      << "Stream closed with error. Status: " << stream_status->code
+      << ", message: " << stream_status->message;
   if (response.status() == TachyonResponse::Status::kAuthError) {
     std::move(auth_failure_cb_).Run(std::move(request_data_));
     return;
@@ -136,10 +154,21 @@ void TachyonStreamingClient::OnParsed(
 
 void TachyonStreamingClient::OnParsingServiceDisconnected() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  LOG(ERROR) << "Parsing service disconnected";
+  url_loader_.reset();
+  parsing_service_.reset();
+  timeout_timer_.Stop();
+  std::move(request_data_->response_cb)
+      .Run(TachyonResponse(TachyonResponse::Status::kInternalError));
+}
+
+void TachyonStreamingClient::OnTimeout() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  VLOG(1) << "Streaming request timeout";
   url_loader_.reset();
   parsing_service_.reset();
   std::move(request_data_->response_cb)
-      .Run(TachyonResponse(TachyonResponse::Status::kInternalError));
+      .Run(TachyonResponse(TachyonResponse::Status::kTimeout));
 }
 
 }  // namespace ash::babelorca

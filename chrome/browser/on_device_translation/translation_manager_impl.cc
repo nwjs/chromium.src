@@ -6,26 +6,26 @@
 
 #include <string_view>
 
-#if !BUILDFLAG(IS_ANDROID)
 #include "base/feature_list.h"
 #include "base/strings/string_split.h"
 #include "chrome/browser/on_device_translation/language_pack_util.h"
+#include "chrome/browser/on_device_translation/pref_names.h"
 #include "chrome/browser/on_device_translation/service_controller.h"
+#include "chrome/browser/on_device_translation/translation_metrics.h"
 #include "chrome/browser/on_device_translation/translator.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/services/on_device_translation/public/cpp/features.h"
-#include "ui/base/l10n/l10n_util.h"
-#endif  // !BUILDFLAG(IS_ANDROID)
 #include "content/public/browser/render_frame_host.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "third_party/blink/public/mojom/on_device_translation/translation_manager.mojom.h"
+#include "ui/base/l10n/l10n_util.h"
+
+namespace on_device_translation {
 
 namespace {
-
-#if !BUILDFLAG(IS_ANDROID)
-using on_device_translation::SupportedLanguage;
 
 bool IsInAcceptLanguage(const std::vector<std::string_view>& accept_languages,
                         const std::string& lang) {
@@ -38,13 +38,12 @@ bool IsInAcceptLanguage(const std::vector<std::string_view>& accept_languages,
 
 bool IsSupportedPopularLanguage(const std::string& lang) {
   const std::optional<SupportedLanguage> supported_lang =
-      on_device_translation::ToSupportedLanguage(lang);
+      ToSupportedLanguage(lang);
   if (!supported_lang) {
     return false;
   }
-  return on_device_translation::IsPopularLanguage(*supported_lang);
+  return IsPopularLanguage(*supported_lang);
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 }  // namespace
 
@@ -70,13 +69,18 @@ void TranslationManagerImpl::CanCreateTranslator(
     const std::string& source_lang,
     const std::string& target_lang,
     CanCreateTranslatorCallback callback) {
-  // The API is not supported on Android yet.
-#if !BUILDFLAG(IS_ANDROID)
   CHECK(browser_context_);
+  PrefService* profile_pref =
+      Profile::FromBrowserContext(browser_context_.get())->GetPrefs();
+  RecordTranslationAPICallForLanguagePair("CanTranslate", source_lang,
+                                          target_lang);
+  if (!profile_pref->GetBoolean(prefs::kTranslatorAPIAllowed)) {
+    std::move(callback).Run(
+        blink::mojom::CanCreateTranslatorResult::kNoDisallowedByPolicy);
+    return;
+  }
   if (!PassAcceptLanguagesCheck(
-          Profile::FromBrowserContext(browser_context_.get())
-              ->GetPrefs()
-              ->GetString(language::prefs::kAcceptLanguages),
+          profile_pref->GetString(language::prefs::kAcceptLanguages),
           source_lang, target_lang)) {
     std::move(callback).Run(
         blink::mojom::CanCreateTranslatorResult::kNoAcceptLanguagesCheckFailed);
@@ -84,44 +88,71 @@ void TranslationManagerImpl::CanCreateTranslator(
   }
   OnDeviceTranslationServiceController::GetInstance()->CanTranslate(
       source_lang, target_lang, std::move(callback));
-#else
-  std::move(callback).Run(
-      blink::mojom::CanCreateTranslatorResult::kNoNotSupportedLanguage);
-#endif  // !BUILDFLAG(IS_ANDROID)
 }
 
 void TranslationManagerImpl::CreateTranslator(
-    const std::string& source_lang,
-    const std::string& target_lang,
-    mojo::PendingReceiver<blink::mojom::Translator> receiver,
-    CreateTranslatorCallback callback) {
-  // The API is not supported on Android yet.
-#if !BUILDFLAG(IS_ANDROID)
+    mojo::PendingRemote<blink::mojom::TranslationManagerCreateTranslatorClient>
+        client,
+    blink::mojom::TranslatorCreateOptionsPtr options) {
+  RecordTranslationAPICallForLanguagePair("Create", options->source_lang,
+                                          options->target_lang);
   CHECK(browser_context_);
-  if (!PassAcceptLanguagesCheck(
-          Profile::FromBrowserContext(browser_context_.get())
-              ->GetPrefs()
-              ->GetString(language::prefs::kAcceptLanguages),
-          source_lang, target_lang)) {
-    std::move(callback).Run(false);
+  PrefService* profile_pref =
+      Profile::FromBrowserContext(browser_context_.get())->GetPrefs();
+  if (!profile_pref->GetBoolean(prefs::kTranslatorAPIAllowed)) {
+    mojo::Remote(std::move(client))->OnResult(mojo::NullRemote());
     return;
   }
-  mojo::MakeSelfOwnedReceiver(
-      std::make_unique<Translator>(source_lang, target_lang,
-                                   std::move(callback)),
-      std::move(receiver));
-#else
-  std::move(callback).Run(false);
-#endif  // !BUILDFLAG(IS_ANDROID)
+  if (!PassAcceptLanguagesCheck(
+          profile_pref->GetString(language::prefs::kAcceptLanguages),
+          options->source_lang, options->target_lang)) {
+    mojo::Remote(std::move(client))->OnResult(mojo::NullRemote());
+    return;
+  }
+
+  OnDeviceTranslationServiceController::GetInstance()->CreateTranslator(
+      options->source_lang, options->target_lang,
+      base::BindOnce(
+          [](base::WeakPtr<TranslationManagerImpl> self,
+             mojo::PendingRemote<
+                 blink::mojom::TranslationManagerCreateTranslatorClient> client,
+             const std::string& source_lang, const std::string& target_lang,
+             mojo::PendingRemote<on_device_translation::mojom::Translator>
+                 remote) {
+            if (!client || !self) {
+              // Request was aborted or the frame was destroyed. Note: Currently
+              // aborting createTranslator() is not supported yet.
+              // TODO(crbug.com/331735396): Support abort signal.
+              return;
+            }
+            if (!remote) {
+              mojo::Remote<
+                  blink::mojom::TranslationManagerCreateTranslatorClient>(
+                  std::move(client))
+                  ->OnResult(mojo::NullRemote());
+              return;
+            }
+            mojo::PendingRemote<::blink::mojom::Translator> blink_remote;
+            self->translators_.Add(
+                std::make_unique<Translator>(self->browser_context_,
+                                             source_lang, target_lang,
+                                             std::move(remote)),
+                blink_remote.InitWithNewPipeAndPassReceiver());
+            mojo::Remote<
+                blink::mojom::TranslationManagerCreateTranslatorClient>(
+                std::move(client))
+                ->OnResult(std::move(blink_remote));
+          },
+          weak_ptr_factory_.GetWeakPtr(), std::move(client),
+          options->source_lang, options->target_lang));
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 // static
 bool TranslationManagerImpl::PassAcceptLanguagesCheck(
     const std::string& accept_languages_str,
     const std::string& source_lang,
     const std::string& target_lang) {
-  if (!on_device_translation::kTranslationAPIAcceptLanguagesCheck.Get()) {
+  if (!kTranslationAPIAcceptLanguagesCheck.Get()) {
     return true;
   }
   // When the TranslationAPIAcceptLanguagesCheck feature is enabled, the
@@ -153,4 +184,5 @@ bool TranslationManagerImpl::PassAcceptLanguagesCheck(
   }
   return true;
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
+
+}  // namespace on_device_translation

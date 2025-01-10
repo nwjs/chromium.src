@@ -38,6 +38,7 @@
 #include "chrome/browser/first_party_sets/first_party_sets_policy_service.h"
 #include "chrome/browser/first_party_sets/first_party_sets_policy_service_factory.h"
 #include "chrome/browser/ip_protection/ip_protection_core_host.h"
+#include "chrome/browser/ip_protection/ip_protection_core_host_factory.h"
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_settings_factory.h"
 #include "chrome/browser/privacy_sandbox/tracking_protection_settings_factory.h"
@@ -211,9 +212,7 @@ bool IsAmbientAuthAllowedForProfile(Profile* profile) {
   }
 
   // Profile type not yet supported.
-  NOTREACHED_IN_MIGRATION();
-
-  return false;
+  NOTREACHED();
 }
 
 void UpdateAntiAbuseSettings(Profile* profile) {
@@ -365,6 +364,17 @@ bool MaybeAddCertWithConstraints(
 }
 #endif
 
+// Returns true if IP Protection is needed.
+// Returns false if any of the following:
+//   1. ipp_core_host == nullptr. A nullptr implies the profile does not
+//      participate in IPP.
+//   2. kIpPrivacyIncognitoMode is enabled and the profile in not incognito.
+bool NeedsIpProtection(const IpProtectionCoreHost* ipp_core_host,
+                       const Profile& profile) {
+  return ipp_core_host && (profile.IsIncognitoProfile() ||
+                           !net::features::kIpPrivacyOnlyInIncognito.Get());
+}
+
 }  // namespace
 
 ProfileNetworkContextService::ProfileNetworkContextService(Profile* profile)
@@ -419,6 +429,22 @@ ProfileNetworkContextService::ProfileNetworkContextService(Profile* profile)
 #if !BUILDFLAG(IS_CHROMEOS)
   pref_change_registrar_.Add(prefs::kCAPlatformIntegrationEnabled,
                              schedule_update_cert_policy);
+#endif
+
+#if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
+  if (base::FeatureList::IsEnabled(features::kEnableCertManagementUIV2Write)) {
+    // Register observer to update certificates when changes are made to the
+    // server cert database. Unretained is safe as the
+    // `server_cert_database_observer_` is a CallbackListSubscription which
+    // will unregister the observer once the ProfileNetworkContextService is
+    // destroyed.
+    server_cert_database_observer_ =
+        net::ServerCertificateDatabaseServiceFactory::GetForBrowserContext(
+            profile_)
+            ->AddObserver(base::BindRepeating(
+                &ProfileNetworkContextService::UpdateAdditionalCertificates,
+                base::Unretained(this)));
+  }
 #endif
 
   pref_change_registrar_.Add(
@@ -780,17 +806,10 @@ void ProfileNetworkContextService::UpdateAdditionalCertificates() {
         net::ServerCertificateDatabaseServiceFactory::GetForBrowserContext(
             profile_);
 
-#if BUILDFLAG(IS_CHROMEOS)
-    cert_db_service->GetAllCertificatesMigrateFromNSSFirstIfNeeded(
-        base::BindOnce(&ProfileNetworkContextService::
-                           UpdateAdditionalCertificatesWithUserAddedCerts,
-                       base::Unretained(this)));
-#else
     cert_db_service->GetAllCertificates(
         base::BindOnce(&ProfileNetworkContextService::
                            UpdateAdditionalCertificatesWithUserAddedCerts,
-                       base::Unretained(this)));
-#endif
+                       weak_factory_.GetWeakPtr()));
   } else {
     profile_->ForEachLoadedStoragePartition(
         [&](content::StoragePartition* storage_partition) {
@@ -1093,9 +1112,8 @@ ProfileNetworkContextService::CreateClientCertStore() {
   // Note that while this applies to the whole sign-in profile / lock screen
   // profile, client certificates will only be selected for the StoragePartition
   // currently used in the sign-in frame (see SigninPartitionManager).
-  if (ash::switches::IsSigninFrameClientCertsEnabled() &&
-      (ash::ProfileHelper::IsSigninProfile(profile_) ||
-       ash::ProfileHelper::IsLockScreenProfile(profile_))) {
+  if (ash::ProfileHelper::IsSigninProfile(profile_) ||
+      ash::ProfileHelper::IsLockScreenProfile(profile_)) {
     use_system_key_slot = true;
   }
 
@@ -1304,11 +1322,11 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
         base::FilePath(chrome::kCookieFilename);
 
 #if BUILDFLAG(IS_WIN)
-    // If this feature is enabled, then the cookie database used by this profile
-    // will be locked for exclusive access by sqlite3 implementation in the
-    // network service.
-    network_context_params->enable_locking_cookie_database =
-        base::FeatureList::IsEnabled(features::kLockProfileCookieDatabase);
+    // The cookie database used by this profile will be locked for exclusive
+    // access by sqlite3 implementation in the network service.
+    //
+    // TODO(crbug.com/377642763): See if we can remove this flag.
+    network_context_params->enable_locking_cookie_database = true;
 #endif  // BUILDFLAG(IS_WIN)
 
     g_browser_process->system_network_context_manager()
@@ -1344,6 +1362,8 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
         base::FilePath(chrome::kTransportSecurityPersisterFilename);
     network_context_params->file_paths->sct_auditing_pending_reports_file_name =
         base::FilePath(chrome::kSCTAuditingPendingReportsFileName);
+    network_context_params->file_paths->device_bound_sessions_database_name =
+        base::FilePath(chrome::kDeviceBoundSessionsFilename);
   }
   const base::Value::List& hsts_policy_bypass_list =
       profile_->GetPrefs()->GetList(prefs::kHSTSPolicyBypassList);
@@ -1522,10 +1542,11 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
       profile_->GetPrefs()->GetBoolean(
           prefs::kAccessControlAllowMethodsInCORSPreflightSpecConformant);
 
-  IpProtectionCoreHost* ipp_core_host = IpProtectionCoreHost::Get(profile_);
-  if (ipp_core_host) {
+  IpProtectionCoreHost* ipp_core_host =
+      IpProtectionCoreHostFactory::GetForProfile(profile_);
+  if (NeedsIpProtection(ipp_core_host, *profile_)) {
     ipp_core_host->AddNetworkService(
-        network_context_params->ip_protection_config_getter
+        network_context_params->ip_protection_core_host
             .InitWithNewPipeAndPassReceiver(),
         network_context_params->ip_protection_control
             .InitWithNewPipeAndPassRemote());

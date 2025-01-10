@@ -70,13 +70,19 @@ MATCHER_P(HasDisplayName, expected_name, "") {
   return arg.display_name == expected_name;
 }
 
+// Enum cases for parameterizing the tests.
+enum Variant {
+  kDelegateAtCreation,
+  kDelegateAfter,
+};
+
 }  // namespace
 
-class DataSharingServiceImplTest : public testing::Test {
+class DataSharingServiceImplTest : public ::testing::TestWithParam<Variant> {
  public:
   DataSharingServiceImplTest() = default;
 
-  ~DataSharingServiceImplTest() override = default;
+  ~DataSharingServiceImplTest() override { task_environment_.RunUntilIdle(); }
 
   void SetUp() override {
     EXPECT_TRUE(profile_dir_.CreateUniqueTempDir());
@@ -85,9 +91,11 @@ class DataSharingServiceImplTest : public testing::Test {
         base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
             &test_url_loader_factory_);
 
-    std::unique_ptr<FakeDataSharingSDKDelegate> sdk_delegate =
-        std::make_unique<FakeDataSharingSDKDelegate>();
-    not_owned_sdk_delegate_ = sdk_delegate.get();
+    std::unique_ptr<FakeDataSharingSDKDelegate> sdk_delegate;
+    if (!ShouldSetSDKLater()) {
+      sdk_delegate = std::make_unique<FakeDataSharingSDKDelegate>();
+      not_owned_sdk_delegate_ = sdk_delegate.get();
+    }
 
     data_sharing_service_ = std::make_unique<DataSharingServiceImpl>(
         profile_dir_.GetPath(),
@@ -96,9 +104,26 @@ class DataSharingServiceImplTest : public testing::Test {
         syncer::DataTypeStoreTestUtil::FactoryForInMemoryStoreForTest(),
         version_info::Channel::UNKNOWN, std::move(sdk_delegate),
         /*ui_delegate=*/nullptr);
+
+    if (ShouldSetSDKLater()) {
+      sdk_delegate = std::make_unique<FakeDataSharingSDKDelegate>();
+      not_owned_sdk_delegate_ = sdk_delegate.get();
+      data_sharing_service_->SetSDKDelegate(std::move(sdk_delegate));
+    }
   }
 
  protected:
+  // Returns whether the SDK delegate should be set after the DataSharingService
+  // creation.
+  bool ShouldSetSDKLater() {
+    switch (GetParam()) {
+      case kDelegateAtCreation:
+        return false;
+      case kDelegateAfter:
+        return true;
+    }
+  }
+
   base::test::TaskEnvironment task_environment_;
   base::ScopedTempDir profile_dir_;
   signin::IdentityTestEnvironment identity_test_env_;
@@ -107,15 +132,15 @@ class DataSharingServiceImplTest : public testing::Test {
   raw_ptr<FakeDataSharingSDKDelegate> not_owned_sdk_delegate_;
 };
 
-TEST_F(DataSharingServiceImplTest, ConstructionAndEmptyServiceCheck) {
+TEST_P(DataSharingServiceImplTest, ConstructionAndEmptyServiceCheck) {
   EXPECT_FALSE(data_sharing_service_->IsEmptyService());
 }
 
-TEST_F(DataSharingServiceImplTest, GetDataSharingNetworkLoader) {
+TEST_P(DataSharingServiceImplTest, GetDataSharingNetworkLoader) {
   EXPECT_TRUE(data_sharing_service_->GetDataSharingNetworkLoader());
 }
 
-TEST_F(DataSharingServiceImplTest, ShouldCreateGroup) {
+TEST_P(DataSharingServiceImplTest, ShouldCreateGroup) {
   // TODO(crbug.com/301390275): add a version of this test for unhappy path.
   const std::string display_name = "display_name";
 
@@ -141,7 +166,7 @@ TEST_F(DataSharingServiceImplTest, ShouldCreateGroup) {
               Eq(display_name));
 }
 
-TEST_F(DataSharingServiceImplTest, ShouldDeleteGroup) {
+TEST_P(DataSharingServiceImplTest, ShouldDeleteGroup) {
   // TODO(crbug.com/301390275): add a version of this test for unhappy path.
   const GroupId group_id =
       not_owned_sdk_delegate_->AddGroupAndReturnId("display_name");
@@ -160,7 +185,7 @@ TEST_F(DataSharingServiceImplTest, ShouldDeleteGroup) {
   EXPECT_FALSE(not_owned_sdk_delegate_->GetGroup(group_id).has_value());
 }
 
-TEST_F(DataSharingServiceImplTest, ShouldReadGroup) {
+TEST_P(DataSharingServiceImplTest, ShouldReadGroup) {
   // TODO(crbug.com/301390275): add a version of this test for unhappy path.
   const std::string display_name = "display_name";
   const GroupId group_id =
@@ -183,7 +208,7 @@ TEST_F(DataSharingServiceImplTest, ShouldReadGroup) {
   EXPECT_THAT(outcome->group_token.group_id, Eq(group_id));
 }
 
-TEST_F(DataSharingServiceImplTest, ShouldReadAllGroups) {
+TEST_P(DataSharingServiceImplTest, ShouldReadAllGroups) {
   // TODO(crbug.com/301390275): add a version of this test for unhappy path.
   // Delegate stores 2 groups.
   const std::string display_name1 = "group1";
@@ -229,7 +254,7 @@ TEST_F(DataSharingServiceImplTest, ShouldReadAllGroups) {
   EXPECT_THAT(group2.group_token.group_id, Eq(group_id2));
 }
 
-TEST_F(DataSharingServiceImplTest, ShouldInviteMember) {
+TEST_P(DataSharingServiceImplTest, ShouldInviteMember) {
   // TODO(crbug.com/301390275): add a version of this test for unhappy paths.
   const GroupId group_id =
       not_owned_sdk_delegate_->AddGroupAndReturnId("display_name");
@@ -254,7 +279,7 @@ TEST_F(DataSharingServiceImplTest, ShouldInviteMember) {
   EXPECT_THAT(group->members(0).gaia_id(), Eq(gaia_id));
 }
 
-TEST_F(DataSharingServiceImplTest, ShouldRemoveMember) {
+TEST_P(DataSharingServiceImplTest, ShouldRemoveMember) {
   // TODO(crbug.com/301390275): add a version of this test for unhappy paths.
   const GroupId group_id =
       not_owned_sdk_delegate_->AddGroupAndReturnId("display_name");
@@ -279,15 +304,40 @@ TEST_F(DataSharingServiceImplTest, ShouldRemoveMember) {
   EXPECT_TRUE(group->members().empty());
 }
 
-TEST_F(DataSharingServiceImplTest, ParseAndInterceptDataSharingURL) {
+TEST_P(DataSharingServiceImplTest, ShouldLeaveGroup) {
+  const GroupId group_id =
+      not_owned_sdk_delegate_->AddGroupAndReturnId("display_name");
+
+  const std::string email = "user@gmail.com";
+  const std::string gaia_id = "123456789";
+  not_owned_sdk_delegate_->SetUserGaiaId(gaia_id);
+  not_owned_sdk_delegate_->AddAccount(email, gaia_id);
+  not_owned_sdk_delegate_->AddMember(group_id, gaia_id);
+
+  base::RunLoop run_loop;
+  base::MockOnceCallback<void(DataSharingService::PeopleGroupActionOutcome)>
+      callback;
+  EXPECT_CALL(callback,
+              Run(DataSharingService::PeopleGroupActionOutcome::kSuccess))
+      .WillOnce(RunClosure(run_loop.QuitClosure()));
+
+  data_sharing_service_->LeaveGroup(group_id, callback.Get());
+  run_loop.Run();
+
+  auto group = not_owned_sdk_delegate_->GetGroup(group_id);
+  ASSERT_TRUE(group.has_value());
+  EXPECT_TRUE(group->members().empty());
+}
+
+TEST_P(DataSharingServiceImplTest, ParseAndInterceptDataSharingURL) {
   GroupData group_data = GroupData();
   group_data.group_token =
       GroupToken(data_sharing::GroupId(kGroupId), kTokenBlob);
   GURL url = GURL(data_sharing::features::kDataSharingURL.Get() +
                   "?group_id=" + kGroupId + "&token_blob=" + kTokenBlob);
 
-  DataSharingService::ParseURLResult result =
-      data_sharing_service_->ParseDataSharingURL(url);
+  DataSharingService::ParseUrlResult result =
+      data_sharing_service_->ParseDataSharingUrl(url);
 
   // Verify valid path.
   EXPECT_TRUE(result.has_value());
@@ -299,25 +349,25 @@ TEST_F(DataSharingServiceImplTest, ParseAndInterceptDataSharingURL) {
   // Verify host/path error.
   std::string invalid = "https://www.test.com/";
   url = GURL(invalid + "?group_id=" + kGroupId + "&token_blob=" + kTokenBlob);
-  result = data_sharing_service_->ParseDataSharingURL(url);
+  result = data_sharing_service_->ParseDataSharingUrl(url);
   EXPECT_FALSE(result.has_value());
   EXPECT_EQ(result.error(),
-            DataSharingService::ParseURLStatus::kHostOrPathMismatchFailure);
+            DataSharingService::ParseUrlStatus::kHostOrPathMismatchFailure);
   EXPECT_FALSE(
       data_sharing_service_->ShouldInterceptNavigationForShareURL(url));
 
   // Verify query missing error.
   url = GURL(data_sharing::features::kDataSharingURL.Get() +
              "?group_id=" + kGroupId);
-  result = data_sharing_service_->ParseDataSharingURL(url);
+  result = data_sharing_service_->ParseDataSharingUrl(url);
   EXPECT_FALSE(result.has_value());
   EXPECT_EQ(result.error(),
-            DataSharingService::ParseURLStatus::kQueryMissingFailure);
+            DataSharingService::ParseUrlStatus::kQueryMissingFailure);
   EXPECT_FALSE(
       data_sharing_service_->ShouldInterceptNavigationForShareURL(url));
 }
 
-TEST_F(DataSharingServiceImplTest, GetDataSharingURL) {
+TEST_P(DataSharingServiceImplTest, GetDataSharingUrl) {
   GroupData group_data = GroupData();
   group_data.group_token =
       GroupToken(data_sharing::GroupId(kGroupId), kTokenBlob);
@@ -325,15 +375,20 @@ TEST_F(DataSharingServiceImplTest, GetDataSharingURL) {
                   kEncodedGroupId + "&token_blob=" + kEncodedTokenBlob);
 
   std::unique_ptr<GURL> result_url =
-      data_sharing_service_->GetDataSharingURL(group_data);
+      data_sharing_service_->GetDataSharingUrl(group_data);
 
   // Verify valid path.
   EXPECT_TRUE(result_url);
   EXPECT_EQ(url, *result_url);
 
   // Verify invalid group data.
-  result_url = data_sharing_service_->GetDataSharingURL(GroupData());
+  result_url = data_sharing_service_->GetDataSharingUrl(GroupData());
   EXPECT_FALSE(result_url);
 }
+
+INSTANTIATE_TEST_SUITE_P(DataSharingServiceImplTestInstantiation,
+                         DataSharingServiceImplTest,
+                         ::testing::Values(Variant::kDelegateAtCreation,
+                                           Variant::kDelegateAfter));
 
 }  // namespace data_sharing

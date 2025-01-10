@@ -69,8 +69,7 @@ class ProductSpecificationsTest : public WebUIMochaBrowserTest {
   base::WeakPtrFactory<ProductSpecificationsTest> weak_ptr_factory_{this};
 };
 
-// TODO(crbug.com/364441518): Flaky on all platforms.
-IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, DISABLED_App) {
+IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, App) {
   RunTest("commerce/product_specifications/app_test.js", "mocha.run()");
 }
 
@@ -89,7 +88,13 @@ IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, DescriptionSection) {
           "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, DisclosureApp) {
+// TODO(https://crbug.com/374855688): Fix flaky timeout on Mac.
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_DisclosureApp DISABLED_DisclosureApp
+#else
+#define MAYBE_DisclosureApp DisclosureApp
+#endif
+IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, MAYBE_DisclosureApp) {
   RunTest("commerce/product_specifications/disclosure_app_test.js",
           "mocha.run()");
 }
@@ -103,13 +108,7 @@ IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, Header) {
   RunTest("commerce/product_specifications/header_test.js", "mocha.run()");
 }
 
-// TODO(crbug.com/370252258): Flaky on win11-arm64-rel-tests.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_HorizontalCarousel DISABLED_HorizontalCarousel
-#else
-#define MAYBE_HorizontalCarousel HorizontalCarousel
-#endif
-IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, MAYBE_HorizontalCarousel) {
+IN_PROC_BROWSER_TEST_F(ProductSpecificationsTest, HorizontalCarousel) {
   RunTest("commerce/product_specifications/horizontal_carousel_test.js",
           "mocha.run()");
 }

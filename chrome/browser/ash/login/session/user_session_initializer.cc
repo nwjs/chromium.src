@@ -16,7 +16,6 @@
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "chrome/browser/ash/accessibility/live_caption/system_live_caption_service_factory.h"
-#include "chrome/browser/ash/accessibility/live_caption/user_microphone_caption_service_factory.h"
 #include "chrome/browser/ash/arc/session/arc_service_launcher.h"
 #include "chrome/browser/ash/boca/boca_manager_factory.h"
 #include "chrome/browser/ash/calendar/calendar_keyed_service_factory.h"
@@ -29,7 +28,6 @@
 #include "chrome/browser/ash/eche_app/eche_app_manager_factory.h"
 #include "chrome/browser/ash/guest_os/guest_os_session_tracker.h"
 #include "chrome/browser/ash/guest_os/guest_os_session_tracker_factory.h"
-#include "chrome/browser/ash/lock_screen_apps/state_controller.h"
 #include "chrome/browser/ash/login/startup_utils.h"
 #include "chrome/browser/ash/phonehub/phone_hub_manager_factory.h"
 #include "chrome/browser/ash/plugin_vm/plugin_vm_manager.h"
@@ -41,6 +39,7 @@
 #include "chrome/browser/browser_process_platform_part_ash.h"
 #include "chrome/browser/component_updater/crl_set_component_installer.h"
 #include "chrome/browser/google/google_brand_chromeos.h"
+#include "chrome/browser/manta/manta_service_factory.h"
 #include "chrome/browser/net/nss_service.h"
 #include "chrome/browser/net/nss_service_factory.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -53,6 +52,7 @@
 #include "chrome/common/pref_names.h"
 #include "chromeos/ash/components/audio/cras_audio_handler.h"
 #include "chromeos/ash/components/boca/boca_role_util.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/cryptohome/cryptohome_parameters.h"
 #include "chromeos/ash/components/dbus/pciguard/pciguard_client.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
@@ -61,6 +61,7 @@
 #include "chromeos/ash/components/peripheral_notification/peripheral_notification_manager.h"
 #include "chromeos/ash/components/scalable_iph/scalable_iph_factory.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
+#include "chromeos/ash/services/cros_safety/cros_safety_service.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "components/live_caption/caption_util.h"
 #include "components/prefs/pref_service.h"
@@ -176,9 +177,7 @@ void UserSessionInitializer::OnUserProfileLoaded(const AccountId& account_id) {
     // TODO(https://crbug.com/1208416): Investigate why OnUserProfileLoaded
     // is called more than once.
     if (primary_profile_ != nullptr) {
-      NOTREACHED_IN_MIGRATION();
-      CHECK_EQ(primary_profile_, profile);
-      return;
+      NOTREACHED();
     }
     primary_profile_ = profile;
 
@@ -190,6 +189,10 @@ void UserSessionInitializer::OnUserProfileLoaded(const AccountId& account_id) {
     FamilyUserMetricsServiceFactory::GetForBrowserContext(profile);
     if (chromeos::features::IsSparkyEnabled()) {
       ash::SparkyManagerServiceFactory::GetForProfile(profile);
+    }
+    if (features::IsCrosSafetyServiceEnabled()) {
+      cros_safety_service_ = std::make_unique<CrosSafetyService>(
+          manta::MantaServiceFactory::GetForProfile(profile));
     }
   }
 
@@ -265,8 +268,6 @@ void UserSessionInitializer::InitializePrimaryProfileServices(
   ++call_count;
   CHECK_EQ(call_count, 1);
 
-  lock_screen_apps::StateController::Get()->SetPrimaryProfile(profile);
-
   if (user->GetType() == user_manager::UserType::kRegular) {
     // App install logs for extensions and ARC++ are uploaded via the user's
     // communication channel with the management server. This channel exists for
@@ -284,10 +285,9 @@ void UserSessionInitializer::InitializePrimaryProfileServices(
   if (crostini_manager)
     crostini_manager->MaybeUpdateCrostini();
 
-  if (captions::IsLiveCaptionFeatureSupported() &&
+  if (::captions::IsLiveCaptionFeatureSupported() &&
       features::IsSystemLiveCaptionEnabled()) {
     SystemLiveCaptionServiceFactory::GetInstance()->GetForProfile(profile);
-    UserMicrophoneCaptionServiceFactory::GetInstance()->GetForProfile(profile);
   }
 
   g_browser_process->platform_part()->InitializePrimaryProfileServices(profile);
@@ -314,7 +314,8 @@ void UserSessionInitializer::OnUserSessionStarted(bool is_primary_user) {
   // created one per user in a multiprofile session.
   GlanceablesKeyedServiceFactory::GetInstance()->GetService(profile);
 
-  if (boca_util::IsEnabled()) {
+  if (ash::boca_util::IsEnabled(
+          ash::BrowserContextHelper::Get()->GetUserByBrowserContext(profile))) {
     // Ensure that the `BocaManager` for `profile` is created. It is created one
     // per user in a multiprofile session.
     BocaManagerFactory::GetInstance()->GetForProfile(profile);
@@ -356,7 +357,8 @@ void UserSessionInitializer::OnUserSessionStarted(bool is_primary_user) {
     TypecdClient::Get()->SetPeripheralDataAccessPermissionState(
         settings::PeripheralDataAccessHandler::GetPrefState());
 
-    CrasAudioHandler::Get()->RefreshNoiseCancellationState();
+    CrasAudioHandler::Get()->RefreshVoiceIsolationState();
+    CrasAudioHandler::Get()->RefreshVoiceIsolationPreferredEffect();
 
     MediaNotificationProvider::Get()->OnPrimaryUserSessionStarted();
     if (base::FeatureList::IsEnabled(media::kShowForceRespectUiGainsToggle)) {
@@ -367,7 +369,6 @@ void UserSessionInitializer::OnUserSessionStarted(bool is_primary_user) {
       CrasAudioHandler::Get()->RefreshHfpMicSrState();
     }
 
-    CrasAudioHandler::Get()->RefreshStyleTransferState();
     if (base::FeatureList::IsEnabled(ash::features::kShowSpatialAudioToggle)) {
       CrasAudioHandler::Get()->RefreshSpatialAudioState();
     }

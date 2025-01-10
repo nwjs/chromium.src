@@ -49,6 +49,7 @@
 #include "mojo/public/cpp/bindings/unique_receiver_set.h"
 #include "net/http/http_status_code.h"
 #include "net/third_party/quiche/src/quiche/oblivious_http/oblivious_http_gateway.h"
+#include "services/network/public/mojom/shared_storage.mojom.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock-matchers.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -928,18 +929,6 @@ class SellerWorkletTest : public testing::Test {
   // a ClosePipeCallback which behaves just like the one in
   // AuctionWorkletServiceImpl, to better match production behavior.
   mojo::UniqueReceiverSet<mojom::SellerWorklet> seller_worklets_;
-};
-
-class SellerWorkletCrossOriginTrustedSignalsDisabledTest
-    : public SellerWorkletTest {
- public:
-  SellerWorkletCrossOriginTrustedSignalsDisabledTest() {
-    scoped_feature_list_.InitAndDisableFeature(
-        blink::features::kFledgePermitCrossOriginTrustedSignals);
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 class SellerWorkletTwoThreadsTest : public SellerWorkletTest {
@@ -2106,14 +2095,6 @@ TEST_P(SellerWorkletMultiThreadingTest, ScoreAdTrustedScoringSignals) {
       mojom::ComponentAuctionModifiedBidParamsPtr(),
       TrustedSignalsRequestManager::kAutoSendDelay, /*expected_errors=*/{},
       /*expected_data_version=*/5);
-}
-
-// With the cross-origin trusted signals flag off, nothing is passed in to the
-// cross-original signals parameter.
-TEST_F(SellerWorkletCrossOriginTrustedSignalsDisabledTest, Basic) {
-  RunScoreAdWithReturnValueExpectingResult(
-      "crossOriginTrustedSignals === undefined ? 1 : 0", 1);
-  RunScoreAdWithReturnValueExpectingResult("arguments.length", 6);
 }
 
 TEST_F(SellerWorkletTest, ScoreAdTrustedScoringSignalsLatency) {
@@ -5976,43 +5957,34 @@ TEST_F(SellerWorkletSharedStorageAPIEnabledTest, SharedStorageWriteInScoreAd) {
     // dedicated pipe.
     task_environment_.RunUntilIdle();
 
-    using RequestType =
-        auction_worklet::TestAuctionSharedStorageHost::RequestType;
     using Request = auction_worklet::TestAuctionSharedStorageHost::Request;
 
     EXPECT_THAT(
         test_shared_storage_host.observed_requests(),
         testing::ElementsAre(
-            Request{.type = RequestType::kSet,
-                    .key = u"a",
-                    .value = u"b",
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kSellerScoreAd},
-            Request{.type = RequestType::kSet,
-                    .key = u"a",
-                    .value = u"b",
-                    .ignore_if_present = true,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kSellerScoreAd},
-            Request{.type = RequestType::kAppend,
-                    .key = u"a",
-                    .value = u"b",
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kSellerScoreAd},
-            Request{.type = RequestType::kDelete,
-                    .key = u"a",
-                    .value = std::u16string(),
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kSellerScoreAd},
-            Request{.type = RequestType::kClear,
-                    .key = std::u16string(),
-                    .value = std::u16string(),
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kSellerScoreAd}));
+            Request(network::mojom::SharedStorageModifierMethod::NewSetMethod(
+                        network::mojom::SharedStorageSetMethod::New(
+                            /*key=*/u"a", /*value=*/u"b",
+                            /*ignore_if_present=*/false)),
+                    mojom::AuctionWorkletFunction::kSellerScoreAd),
+            Request(network::mojom::SharedStorageModifierMethod::NewSetMethod(
+                        network::mojom::SharedStorageSetMethod::New(
+                            /*key=*/u"a", /*value=*/u"b",
+                            /*ignore_if_present=*/true)),
+                    mojom::AuctionWorkletFunction::kSellerScoreAd),
+            Request(
+                network::mojom::SharedStorageModifierMethod::NewAppendMethod(
+                    network::mojom::SharedStorageAppendMethod::New(
+                        /*key=*/u"a", /*value=*/u"b")),
+                mojom::AuctionWorkletFunction::kSellerScoreAd),
+            Request(
+                network::mojom::SharedStorageModifierMethod::NewDeleteMethod(
+                    network::mojom::SharedStorageDeleteMethod::New(
+                        /*key=*/u"a")),
+                mojom::AuctionWorkletFunction::kSellerScoreAd),
+            Request(network::mojom::SharedStorageModifierMethod::NewClearMethod(
+                        network::mojom::SharedStorageClearMethod::New()),
+                    mojom::AuctionWorkletFunction::kSellerScoreAd)));
   }
 
   {
@@ -6073,43 +6045,34 @@ TEST_F(SellerWorkletSharedStorageAPIEnabledTest,
     // dedicated pipe.
     task_environment_.RunUntilIdle();
 
-    using RequestType =
-        auction_worklet::TestAuctionSharedStorageHost::RequestType;
     using Request = auction_worklet::TestAuctionSharedStorageHost::Request;
 
     EXPECT_THAT(
         test_shared_storage_host.observed_requests(),
         testing::ElementsAre(
-            Request{.type = RequestType::kSet,
-                    .key = u"a",
-                    .value = u"b",
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kSellerReportResult},
-            Request{.type = RequestType::kSet,
-                    .key = u"a",
-                    .value = u"b",
-                    .ignore_if_present = true,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kSellerReportResult},
-            Request{.type = RequestType::kAppend,
-                    .key = u"a",
-                    .value = u"b",
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kSellerReportResult},
-            Request{.type = RequestType::kDelete,
-                    .key = u"a",
-                    .value = std::u16string(),
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kSellerReportResult},
-            Request{.type = RequestType::kClear,
-                    .key = std::u16string(),
-                    .value = std::u16string(),
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kSellerReportResult}));
+            Request(network::mojom::SharedStorageModifierMethod::NewSetMethod(
+                        network::mojom::SharedStorageSetMethod::New(
+                            /*key=*/u"a", /*value=*/u"b",
+                            /*ignore_if_present=*/false)),
+                    mojom::AuctionWorkletFunction::kSellerReportResult),
+            Request(network::mojom::SharedStorageModifierMethod::NewSetMethod(
+                        network::mojom::SharedStorageSetMethod::New(
+                            /*key=*/u"a", /*value=*/u"b",
+                            /*ignore_if_present=*/true)),
+                    mojom::AuctionWorkletFunction::kSellerReportResult),
+            Request(
+                network::mojom::SharedStorageModifierMethod::NewAppendMethod(
+                    network::mojom::SharedStorageAppendMethod::New(
+                        /*key=*/u"a", /*value=*/u"b")),
+                mojom::AuctionWorkletFunction::kSellerReportResult),
+            Request(
+                network::mojom::SharedStorageModifierMethod::NewDeleteMethod(
+                    network::mojom::SharedStorageDeleteMethod::New(
+                        /*key=*/u"a")),
+                mojom::AuctionWorkletFunction::kSellerReportResult),
+            Request(network::mojom::SharedStorageModifierMethod::NewClearMethod(
+                        network::mojom::SharedStorageClearMethod::New()),
+                    mojom::AuctionWorkletFunction::kSellerReportResult)));
   }
 
   {
@@ -6343,18 +6306,15 @@ TEST_F(SellerWorkletTwoThreadsSharedStorageAPIEnabledTest,
   // handling the ScoreAd has observed the requests.
   EXPECT_TRUE(test_shared_storage_host1.observed_requests().empty());
 
-  using RequestType =
-      auction_worklet::TestAuctionSharedStorageHost::RequestType;
   using Request = auction_worklet::TestAuctionSharedStorageHost::Request;
 
   EXPECT_THAT(test_shared_storage_host0.observed_requests(),
-              testing::ElementsAre(
-                  Request{.type = RequestType::kSet,
-                          .key = u"a",
-                          .value = u"b",
-                          .ignore_if_present = false,
-                          .source_auction_worklet_function =
-                              mojom::AuctionWorkletFunction::kSellerScoreAd}));
+              testing::ElementsAre(Request(
+                  network::mojom::SharedStorageModifierMethod::NewSetMethod(
+                      network::mojom::SharedStorageSetMethod::New(
+                          /*key=*/u"a", /*value=*/u"b",
+                          /*ignore_if_present=*/false)),
+                  mojom::AuctionWorkletFunction::kSellerScoreAd)));
 }
 
 class SellerWorkletRealTimeTest : public SellerWorkletTest {
@@ -7501,20 +7461,9 @@ TEST_F(SellerWorkletDeprecatedRenderURLReplacementsEnabledTest,
       /*expected_debug_win_report_url=*/std::nullopt);
 }
 
-class SellerWorkletCrossOriginTrustedSignalsTest : public SellerWorkletTest {
- public:
-  SellerWorkletCrossOriginTrustedSignalsTest() {
-    scoped_feature_list_.InitAndEnableFeature(
-        blink::features::kFledgePermitCrossOriginTrustedSignals);
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
 // With the feature on, same-origin trusted signals still come in the same,
 // only there is an extra null param.
-TEST_F(SellerWorkletCrossOriginTrustedSignalsTest, SameOrigin) {
+TEST_F(SellerWorkletTest, SameOrigin) {
   trusted_scoring_signals_url_ =
       GURL("https://url.test/trusted_scoring_signals");
   const GURL kNoComponentSignalsUrl(
@@ -7547,7 +7496,7 @@ TEST_F(SellerWorkletCrossOriginTrustedSignalsTest, SameOrigin) {
 
 // Cross-origin signals need explicit header to work; so if it's not there,
 // or doesn't permit the origin, they will get blocked including the version.
-TEST_F(SellerWorkletCrossOriginTrustedSignalsTest, ForbiddenCrossOrigin) {
+TEST_F(SellerWorkletTest, ForbiddenCrossOrigin) {
   trusted_scoring_signals_url_ =
       GURL("https://other.test/trusted_scoring_signals");
   const GURL kNoComponentSignalsUrl(
@@ -7592,8 +7541,7 @@ TEST_F(SellerWorkletCrossOriginTrustedSignalsTest, ForbiddenCrossOrigin) {
 }
 
 // Not allowed cross-origin trusted seller signals do not get fetched
-TEST_F(SellerWorkletCrossOriginTrustedSignalsTest,
-       ForbiddenCrossOriginNoFetch) {
+TEST_F(SellerWorkletTest, ForbiddenCrossOriginNoFetch) {
   trusted_scoring_signals_url_ =
       GURL("https://other.test/trusted_scoring_signals");
   const char kScoreExpr[] = "crossOriginTrustedSignals === null ? 1 : 0";
@@ -7666,7 +7614,7 @@ TEST_F(SellerWorkletCrossOriginTrustedSignalsTest,
 // Note that the fetch also involves CORS, but this isn't really a good place
 // to test it since we're using a TestURLLoaderFactory so all the CORS code is
 // bypassed.
-TEST_F(SellerWorkletCrossOriginTrustedSignalsTest, AllowedCrossOrigin) {
+TEST_F(SellerWorkletTest, AllowedCrossOrigin) {
   trusted_scoring_signals_url_ =
       GURL("https://other.test/trusted_scoring_signals");
   const GURL kNoComponentSignalsUrl(
@@ -7717,7 +7665,7 @@ TEST_F(SellerWorkletCrossOriginTrustedSignalsTest, AllowedCrossOrigin) {
 // When cross-origin trusted seller signals are allowed, they must happen
 // after the script headers complete (approximated as script /fetch/
 // completes in this test, since TestURLLoaderFactory isn't that fine-grained).
-TEST_F(SellerWorkletCrossOriginTrustedSignalsTest, AllowedCrossOriginTiming) {
+TEST_F(SellerWorkletTest, AllowedCrossOriginTiming) {
   trusted_scoring_signals_url_ =
       GURL("https://other.test/trusted_scoring_signals");
   const GURL kNoComponentSignalsUrl(
@@ -7804,7 +7752,7 @@ TEST_F(SellerWorkletCrossOriginTrustedSignalsTest, AllowedCrossOriginTiming) {
 
 // Handling of errors in trusted signals other than the cross-origin permission;
 // it should look identical except for the error message test.
-TEST_F(SellerWorkletCrossOriginTrustedSignalsTest, ErrorCrossOrigin) {
+TEST_F(SellerWorkletTest, ErrorCrossOrigin) {
   trusted_scoring_signals_url_ =
       GURL("https://other.test/trusted_scoring_signals");
   const GURL kNoComponentSignalsUrl(

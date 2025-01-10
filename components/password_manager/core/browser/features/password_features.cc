@@ -18,21 +18,11 @@ BASE_FEATURE(kAutoApproveSharedPasswordUpdatesFromSameSender,
 BASE_FEATURE(kAutofillPasswordUserPerceptionSurvey,
              "AutofillPasswordUserPerceptionSurvey",
              base::FEATURE_DISABLED_BY_DEFAULT);
-// Default enabled in M131. Remove in or after M134.
+// Disabled by default.
 BASE_FEATURE(kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu,
              "WebAuthnUsePasskeyFromAnotherDeviceInContextMenu",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-
-#if BUILDFLAG(IS_WIN)
-BASE_FEATURE(kAuthenticateUsingUserConsentVerifierInteropApi,
-             "AuthenticateUsingUserConsentVerifierInteropApi",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kAuthenticateUsingUserConsentVerifierApi,
-             "AuthenticateUsingUserConsentVerifierApi",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 BASE_FEATURE(kBiometricTouchToFill,
              "BiometricTouchToFill",
@@ -63,6 +53,13 @@ BASE_FEATURE(kFillOnAccountSelect,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_IOS)
+BASE_FEATURE(kIosCleanupHangingPasswordFormExtractionRequests,
+             "IosCleanupHangingPasswordFormExtractionRequests",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<int> kIosPasswordFormExtractionRequestsTimeoutMs = {
+    &kIosCleanupHangingPasswordFormExtractionRequests,
+    /*name=*/"period-ms", /*default_value=*/250};
+
 BASE_FEATURE(kIosDetectUsernameInUff,
              "IosSaveUsernameInUff",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -84,6 +81,10 @@ BASE_FEATURE(kPasswordFormGroupedAffiliations,
              "PasswordFormGroupedAffiliations",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kPasswordFormClientsideClassifier,
+             "PasswordFormClientsideClassifier",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
 
 BASE_FEATURE(kPasswordGenerationChunking,
@@ -92,7 +93,7 @@ BASE_FEATURE(kPasswordGenerationChunking,
 
 BASE_FEATURE(kPasswordGenerationSoftNudge,
              "PasswordGenerationSoftNudge",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #endif
 
@@ -154,7 +155,10 @@ BASE_FEATURE(kBiometricAuthIdentityCheck,
 
 BASE_FEATURE(kClearLoginDatabaseForAllMigratedUPMUsers,
              "ClearLoginDatabaseForAllMigratedUPMUsers",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kDropLoginDbRenameForUpmSyncingUsers,
+             "DropLoginDbRenameForUpmSyncingUsers",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 BASE_FEATURE(kUsernameFirstFlowFallbackCrowdsourcing,
@@ -179,6 +183,14 @@ BASE_FEATURE(kUseNewEncryptionMethod,
 
 BASE_FEATURE(kEncryptAllPasswordsWithOSCryptAsync,
              "EncryptAllPasswordsWithOSCryptAsync",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kMarkAllCredentialsAsLeaked,
+             "MarkAllCredentialsAsLeaked",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kImprovedPasswordChangeService,
+             "ImprovedPasswordChangeService",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace password_manager::features

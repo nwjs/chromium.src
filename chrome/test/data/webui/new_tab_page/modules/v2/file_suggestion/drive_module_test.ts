@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {FileSuggestionHandlerRemote} from 'chrome://new-tab-page/file_suggestion.mojom-webui.js';
-import type {DisableModuleEvent, DismissModuleEvent, DriveModuleV2Element} from 'chrome://new-tab-page/lazy_load.js';
+import {DriveSuggestionHandlerRemote} from 'chrome://new-tab-page/drive_suggestion.mojom-webui.js';
+import type {DisableModuleEvent, DismissModuleInstanceEvent, DriveModuleV2Element} from 'chrome://new-tab-page/lazy_load.js';
 import {driveModuleV2Descriptor, FileProxy} from 'chrome://new-tab-page/lazy_load.js';
 import {$$} from 'chrome://new-tab-page/new_tab_page.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -14,11 +14,11 @@ import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.
 import {installMock} from '../../../test_support.js';
 
 suite('DriveModuleV2', () => {
-  let handler: TestMock<FileSuggestionHandlerRemote>;
+  let handler: TestMock<DriveSuggestionHandlerRemote>;
 
   setup(() => {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
-    handler = installMock(FileSuggestionHandlerRemote, FileProxy.setHandler);
+    handler = installMock(DriveSuggestionHandlerRemote, FileProxy.setHandler);
   });
 
   test(
@@ -155,7 +155,7 @@ suite('DriveModuleV2', () => {
         // Assert.
         const event: DisableModuleEvent = await whenFired;
         assertEquals(
-            'You won\'t see Drive files on this page again',
+            'You won\'t see Google Drive on this page again',
             event.detail.message);
       });
 
@@ -187,7 +187,7 @@ suite('DriveModuleV2', () => {
     dismissButton.click();
 
     // Assert.
-    const event: DismissModuleEvent = await whenFired;
+    const event: DismissModuleInstanceEvent = await whenFired;
     assertEquals('Files hidden', event.detail.message);
     assertTrue(!!event.detail.restoreCallback);
     assertEquals(1, handler.getCallCount('dismissModule'));

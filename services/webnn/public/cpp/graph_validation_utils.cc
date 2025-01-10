@@ -338,6 +338,10 @@ std::string DataTypeConstraintToString(
                                 return "int8";
                               case OperandDataType::kUint8:
                                 return "uint8";
+                              case OperandDataType::kInt4:
+                                return "int4";
+                              case OperandDataType::kUint4:
+                                return "uint4";
                             }
                           });
   return base::JoinString(data_types, /*separator=*/",");
@@ -886,18 +890,28 @@ ValidateScaleZeroPointOperandShapeIsCompatibleWithInput(
     base::span<const uint32_t> scale_shape,
     base::span<const uint32_t> zero_point_shape,
     std::string_view label) {
-  if (!BroadcastShapes(scale_shape, input_shape, /*bidirectional=*/false)) {
+  // Check whether `scale_shape` is a subsample of `input_shape`.
+  if (scale_shape.size() > input_shape.size()) {
     return base::unexpected(ErrorWithLabel(
-        label,
-        "The shape of scale is not broadcastable to the shape of input."));
-  }
-  if (!BroadcastShapes(zero_point_shape, input_shape,
-                       /*bidirectional=*/false)) {
-    return base::unexpected(ErrorWithLabel(
-        label,
-        "The shape of zeroPoint is not broadcastable to the shape of input."));
+        label, "The rank of scale is larger than the rank of input."));
   }
 
+  for (size_t i = 0; i < scale_shape.size(); ++i) {
+    auto scale_dim = scale_shape[scale_shape.size() - i - 1];
+    auto input_dim = input_shape[input_shape.size() - i - 1];
+    // The block_size should be an integer where block_size = dim_input /
+    // dim_scale along the axis.
+    if (input_dim % scale_dim != 0) {
+      return base::unexpected(ErrorWithLabel(
+          label,
+          "The shape of scale is not a subsample of the shape of input."));
+    }
+  }
+
+  if (!base::ranges::equal(scale_shape, zero_point_shape)) {
+    return base::unexpected(ErrorWithLabel(
+        label, "The shape of scale and zero point must be the same."));
+  }
   return base::ok();
 }
 
@@ -2404,6 +2418,16 @@ base::expected<OperandDescriptor, std::string> ValidateSliceAndInferOutput(
         "The length of sizes must be equal to the rank of the input tensor."));
   }
 
+  if (attributes.strides.size() != input_rank) {
+    return base::unexpected(
+        ErrorWithLabel(label,
+                       "The length of strides must be equal to the rank of the "
+                       "input tensor."));
+  }
+
+  std::vector<uint32_t> output_shape;
+  output_shape.reserve(input_rank);
+
   for (uint32_t i = 0; i < input_rank; ++i) {
     if (attributes.starts[i] >= input.shape()[i]) {
       return base::unexpected(ErrorWithLabel(
@@ -2421,6 +2445,14 @@ base::expected<OperandDescriptor, std::string> ValidateSliceAndInferOutput(
                      "For dimension (%u): the number of elements to slice "
                      "must not be 0.",
                      i)));
+    }
+
+    if (attributes.strides[i] < 1) {
+      return base::unexpected(ErrorWithLabel(
+          label,
+          base::StringPrintf(
+              "For dimension (%u): the stride (%u) must not be less than 1.", i,
+              attributes.strides[i])));
     }
 
     auto checked_ending_index =
@@ -2441,11 +2473,12 @@ base::expected<OperandDescriptor, std::string> ValidateSliceAndInferOutput(
                              "must not be greater than input size (%u).",
                              i, input.shape()[i])));
     }
+
+    uint32_t output_size = attributes.sizes[i] / attributes.strides[i] +
+                           (attributes.sizes[i] % attributes.strides[i] != 0);
+    output_shape.push_back(output_size);
   }
 
-  // The output is a tensor the same as the specified slice sizes.
-  std::vector<uint32_t> output_shape;
-  output_shape.assign(attributes.sizes.begin(), attributes.sizes.end());
   return OperandDescriptor::Create(input.data_type(), std::move(output_shape));
 }
 

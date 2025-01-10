@@ -24,7 +24,6 @@
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/core/browser/autofill_ablation_study.h"
 #include "components/autofill/core/browser/autofill_plus_address_delegate.h"
-#include "components/autofill/core/browser/autofill_prediction_improvements_delegate.h"
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/crowdsourcing/autofill_crowdsourcing_manager.h"
 #include "components/autofill/core/browser/filling_product.h"
@@ -54,6 +53,7 @@ class SaveUpdateAddressProfileFlowManager;
 #endif
 
 class AutofillOptimizationGuide;
+class AutofillAiDelegate;
 class FormFieldData;
 enum class SuggestionType;
 
@@ -97,14 +97,15 @@ class ChromeAutofillClient : public ContentAutofillClient,
   scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory() override;
   AutofillCrowdsourcingManager* GetCrowdsourcingManager() override;
   AutofillOptimizationGuide* GetAutofillOptimizationGuide() const override;
-  AutofillMlPredictionModelHandler* GetAutofillMlPredictionModelHandler()
+  FieldClassificationModelHandler* GetAutofillFieldClassificationModelHandler()
       override;
+  FieldClassificationModelHandler*
+  GetPasswordManagerFieldClassificationModelHandler() override;
   PersonalDataManager* GetPersonalDataManager() override;
   AutocompleteHistoryManager* GetAutocompleteHistoryManager() override;
   AutofillComposeDelegate* GetComposeDelegate() override;
   AutofillPlusAddressDelegate* GetPlusAddressDelegate() override;
-  AutofillPredictionImprovementsDelegate*
-  GetAutofillPredictionImprovementsDelegate() override;
+  AutofillAiDelegate* GetAutofillAiDelegate() override;
   void OfferPlusAddressCreation(const url::Origin& main_frame_origin,
                                 PlusAddressCallback callback) override;
   void ShowPlusAddressError(PlusAddressErrorDialogType error_dialog_type,
@@ -186,11 +187,6 @@ class ChromeAutofillClient : public ContentAutofillClient,
       AutofillClient::IphFeature feature) override;
   void HideAutofillFieldIph() override;
   void NotifyIphFeatureUsed(AutofillClient::IphFeature feature) override;
-  void ShowSaveAutofillPredictionImprovementsBubble(
-      const std::vector<optimization_guide::proto::UserAnnotationsEntry>&
-          to_be_upserted_entries,
-      user_annotations::PromptAcceptanceCallback prompt_acceptance_callback)
-      override;
   void set_test_addresses(std::vector<AutofillProfile> test_addresses) override;
   base::span<const AutofillProfile> GetTestAddresses() const override;
   PasswordFormClassification ClassifyAsPasswordForm(

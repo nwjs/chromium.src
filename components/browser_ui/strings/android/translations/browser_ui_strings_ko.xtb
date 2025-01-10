@@ -4,13 +4,16 @@
 <translation id="1006017844123154345">온라인 열기</translation>
 <translation id="1036348656032585052">사용 중지</translation>
 <translation id="1044891598689252897">사이트가 정상적으로 작동합니다.</translation>
+<translation id="1070329623210597193">이 사이트에서 볼 수 있거나 수정할 수 있는 파일</translation>
 <translation id="1073417869336441572">서드 파티 쿠키를 허용한 이유를 알려주시면 Chrome을 개선하는 데 도움이 됩니다. <ph name="BEGIN_LINK" />의견 보내기<ph name="END_LINK" /></translation>
+<translation id="1085696779717592361">Chrome을 기본 브라우저로 사용</translation>
 <translation id="1178581264944972037">일시중지</translation>
 <translation id="1181037720776840403">삭제</translation>
 <translation id="1192844206376121885"><ph name="ORIGIN" />에서 저장한 모든 데이터와 쿠키가 삭제됩니다.</translation>
 <translation id="1201402288615127009">다음</translation>
 <translation id="1240190568154816272">Chrome 사용 팁</translation>
 <translation id="1242008676835033345"><ph name="WEBSITE_URL" />에 삽입됨</translation>
+<translation id="1263609676484797429">앱 &gt; 기본 앱을 탭합니다.</translation>
 <translation id="1272079795634619415">중지</translation>
 <translation id="1289742167380433257">데이터를 저장하기 위해 Google에서 이 페이지의 이미지를 최적화했습니다.</translation>
 <translation id="129382876167171263">웹사이트에서 저장한 파일이 여기에 표시됩니다.</translation>
@@ -65,6 +68,7 @@
 <translation id="2182457891543959921">사이트에서 주변 환경의 3D 지도를 생성하거나 카메라 위치를 추적하도록 허용하기 전에 확인(권장)</translation>
 <translation id="2185965788978862351">이렇게 하면 사이트 또는 홈 화면의 앱에서 저장한 <ph name="DATASIZE" />의 데이터 및 쿠키가 삭제됩니다.</translation>
 <translation id="2194856509914051091">고려사항</translation>
+<translation id="2215727959747642672">파일 수정</translation>
 <translation id="2228071138934252756"><ph name="APP_NAME" />에서 카메라에 액세스하도록 허용하려면 <ph name="BEGIN_LINK" />Android 설정<ph name="END_LINK" />에서도 카메라를 사용 설정하세요.</translation>
 <translation id="2235344399760031203">타사 쿠키가 차단됨</translation>
 <translation id="2238944249568001759">마지막 탭을 바탕으로 한 추천 검색어</translation>
@@ -74,10 +78,8 @@
 <translation id="228293613124499805">내가 방문하는 대부분의 사이트에서는 기기에 데이터를 저장하며, 사이트에 공유한 환경설정이나 정보를 저장하여 사용자 환경을 개선하는 경우가 많습니다. 이 설정을 유지하는 것이 좋습니다.</translation>
 <translation id="2289270750774289114">사이트가 주변 블루투스 기기를 조회하려고 할 때 확인(권장)</translation>
 <translation id="2315043854645842844">클라이언트측 인증서 선택이 운영체제에서 지원되지 않습니다.</translation>
-<translation id="2321958826496381788">편하게 읽을 수 있을 때까지 슬라이더를 드래그하세요. 단락을 두 번 탭하면 텍스트가 이 이상의 크기로 표시됩니다.</translation>
 <translation id="2359808026110333948">계속</translation>
 <translation id="2379925928934107488">가능하면 Chrome에서 어두운 테마를 사용할 때 사이트에도 어두운 테마를 적용합니다.</translation>
-<translation id="2387895666653383613">텍스트 크기 조정</translation>
 <translation id="2390272837142897736">확대</translation>
 <translation id="2402980924095424747"><ph name="MEGABYTES" />MB</translation>
 <translation id="2404630663942400771">{PERMISSIONS_SUMMARY_ALLOWED,plural, =1{<ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> 외 <ph name="NUM_MORE" />개 허용됨}other{<ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> 외 <ph name="NUM_MORE" />개 허용됨}}</translation>
@@ -102,7 +104,6 @@
 <translation id="2621115761605608342">특정 사이트에서 자바스크립트를 허용합니다.</translation>
 <translation id="2653659639078652383">제출</translation>
 <translation id="2677748264148917807">나가기</translation>
-<translation id="2678468611080193228">서드 파티 쿠키를 일시적으로 허용해 보세요. 보안은 취약해지지만 사이트 기능이 작동할 가능성은 높아집니다.</translation>
 <translation id="2682367912565197520">저장된 확대/축소 수준 삭제</translation>
 <translation id="2683434792633810741">삭제하고 재설정하시겠습니까?</translation>
 <translation id="2713106313042589954">카메라 끄기</translation>
@@ -154,7 +155,6 @@
 <translation id="3403537308306431953"><ph name="ZOOM_LEVEL" />%%</translation>
 <translation id="344449859752187052">서드 파티 쿠키 차단됨</translation>
 <translation id="3448554387819310837">사용 설정하면 사이트에서 카메라 사용을 요청할 수 있습니다. 사용 중지하면 사이트에서 카메라를 사용할 수 없습니다.</translation>
-<translation id="3465378418721443318">{DAYS,plural, =1{내일 Chrome에서 다시 쿠키를 차단합니다}other{#일 후 Chrome에서 다시 쿠키를 차단합니다}}</translation>
 <translation id="3521663503435878242"><ph name="DOMAIN" />의 사이트</translation>
 <translation id="3523447078673133727">사이트에서 내 손을 추적하도록 허용하지 않음</translation>
 <translation id="3536227077203206203">현재 허용됨</translation>
@@ -170,6 +170,7 @@
 <translation id="3669841141196828854">{COUNT,plural, =1{사이트 <ph name="RWS_MEMBERS_COUNT" />개는 <ph name="RWS_OWNER" />의 사이트 그룹에 있으며, 여기에서는 그룹 내 활동을 볼 수 있습니다.}other{사이트 <ph name="RWS_MEMBERS_COUNT" />개는 <ph name="RWS_OWNER" />의 사이트 그룹에 있으며, 여기에서는 그룹 내 활동을 볼 수 있습니다.}}</translation>
 <translation id="3697164069658504920">사용 설정하면 사이트에서 USB 기기 사용을 요청할 수 있습니다. 사용 중지하면 사이트에서 USB 기기를 사용할 수 없습니다.</translation>
 <translation id="3707034683772193706">방문하는 사이트에서 주로 내가 봇이 아님을 확인하기 위해 Chrome에 약간의 정보를 저장할 수 있습니다.</translation>
+<translation id="3709818294139939629">사이트의 파일 액세스 권한 삭제됨</translation>
 <translation id="3721953990244350188">닫기 후 가능한 다음 작업 표시</translation>
 <translation id="3744111561329211289">백그라운드 동기화</translation>
 <translation id="3763247130972274048">10초를 건너뛰려면 동영상 왼쪽이나 오른쪽을 두 번 탭하세요.</translation>
@@ -188,6 +189,7 @@
 <translation id="3908288065506437185">시크릿 모드에서 서드 파티 쿠키 차단</translation>
 <translation id="3913461097001554748"><ph name="DOMAIN_URL" /> <ph name="SEPARATOR1" /> <ph name="DEVICE_NAME" /></translation>
 <translation id="3918378745482005425">일부 기능이 작동하지 않을 수 있습니다. 관련 사이트에서는 계속 서드 파티 쿠키를 사용할 수 있습니다.</translation>
+<translation id="3922092564198021702">휴대전화에서 설정을 엽니다.</translation>
 <translation id="3933121352599513978">원치 않는 요청 접기(권장)</translation>
 <translation id="3955193568934677022">사이트에서 보호된 콘텐츠를 재생하도록 허용(권장)</translation>
 <translation id="3967822245660637423">다운로드 완료</translation>
@@ -331,6 +333,7 @@
 <translation id="6042308850641462728">자세히</translation>
 <translation id="6064125863973209585">다운로드 완료</translation>
 <translation id="6071501408666570960">이 사이트에서 로그아웃될 수 있습니다</translation>
+<translation id="6085954183010297841">파일 수정 권한을 삭제하시겠습니까? <ph name="FILE" /></translation>
 <translation id="6120483543004435978">사용 설정하면 사이트에서 사용자가 현재 기기를 사용 중인지에 관한 확인을 요청할 수 있습니다. 사용 중지하면 사이트에서 사용자가 현재 기기를 사용 중인지 확인할 수 없습니다.</translation>
 <translation id="6140839633433422817">권한을 재설정하고 쿠키 및 사이트 데이터를 삭제하시겠습니까?</translation>
 <translation id="6165508094623778733">자세히 알아보기</translation>
@@ -345,6 +348,7 @@
 <translation id="6205314730813004066">광고 개인 정보 보호</translation>
 <translation id="6207207788774442484">데이터 삭제 및 권한 재설정</translation>
 <translation id="6231752747840485235">'<ph name="APP_NAME" />' 앱을 제거하시겠습니까?</translation>
+<translation id="6234351944623978659">브라우저 앱 &gt; Chrome을 탭합니다.</translation>
 <translation id="6262191102408817757">마지막 탭 기준</translation>
 <translation id="6262279340360821358"><ph name="PERMISSION_1" /> 및 <ph name="PERMISSION_2" /> 차단됨</translation>
 <translation id="6270391203985052864">사이트에서 알림 전송 허용을 요청할 수 있음</translation>
@@ -429,6 +433,7 @@
 <translation id="7425915948813553151">사이트에 어두운 테마 적용</translation>
 <translation id="7521387064766892559">자바스크립트</translation>
 <translation id="7547989957535180761">사용 설정하면 사이트에서 로그인 메시지를 표시할 수 있습니다. 사용 중지하면 사이트에서 로그인 메시지를 표시할 수 없습니다.</translation>
+<translation id="7553211568594248088">허브 검색 종료</translation>
 <translation id="7554752735887601236">사이트에서 마이크를 사용 중입니다.</translation>
 <translation id="7561196759112975576">항상</translation>
 <translation id="757524316907819857">사이트에서 보호된 콘텐츠를 재생하지 못하도록 차단</translation>
@@ -437,7 +442,6 @@
 <translation id="7649070708921625228">도움말</translation>
 <translation id="7658239707568436148">취소</translation>
 <translation id="7667547420449112975">오즈의 마법사</translation>
-<translation id="7684642910516280563">사이트에서 서드 파티 쿠키를 사용하도록 허용하지 않습니다</translation>
 <translation id="7688240020069572972">Chrome 도움말 카드 숨기기</translation>
 <translation id="7719367874908701697">페이지 확대/축소</translation>
 <translation id="7759147511335618829">MIDI 기기 제어 및 다시 프로그래밍</translation>
@@ -471,6 +475,7 @@
 <translation id="813082847718468539">사이트 정보 보기</translation>
 <translation id="8131740175452115882">확인</translation>
 <translation id="8168435359814927499">콘텐츠</translation>
+<translation id="818487310457576362">전체 화면을 종료하려면 화면 측면에서 드래그하세요.</translation>
 <translation id="8186479265534291036">사이트가 작동하지 않나요? 서드 파티 쿠키가 차단되었습니다.</translation>
 <translation id="8197286292360124385"><ph name="PERMISSION_1" /> 허용됨</translation>
 <translation id="8200772114523450471">다시 시작</translation>
@@ -500,6 +505,7 @@
 <translation id="851751545965956758">사이트에서 기기에 연결하지 못하도록 차단</translation>
 <translation id="8525306231823319788">전체화면</translation>
 <translation id="8541410041357371550">이 사이트는 Chrome에 저장된 내 광고 주제를 기반으로 더 관련성 있는 광고를 표시합니다.</translation>
+<translation id="8558480467877843976">이제 언제든지 메시지, 문서, 기타 앱에서 탐색하거나 링크를 탭하여 Chrome을 사용할 수 있습니다.</translation>
 <translation id="857943718398505171">허용(권장)</translation>
 <translation id="8609465669617005112">위로 이동</translation>
 <translation id="8617611086246832542">사용 설정하면 웹사이트 데스크톱 뷰가 표시됩니다. 사용 중지하면 웹사이트 모바일 뷰가 표시됩니다.</translation>
@@ -526,6 +532,7 @@
 <translation id="8899807382908246773">방해가 되는 광고</translation>
 <translation id="8903921497873541725">확대</translation>
 <translation id="8921772741368021346"><ph name="POSITION" />/<ph name="DURATION" /></translation>
+<translation id="8926389886865778422">이 메시지 그만 보기</translation>
 <translation id="8926666909099850184">기기에서 NFC가 사용 중지되어 있습니다. <ph name="BEGIN_LINK" />Android 설정<ph name="END_LINK" />에서 NFC를 사용 설정하세요.</translation>
 <translation id="8928445016601307354">사이트에서 NFC 기기의 정보를 보고 변경할 수 없도록 차단</translation>
 <translation id="8944485226638699751">제한됨</translation>

@@ -137,6 +137,8 @@ std::optional<PasswordStoreBackendError> GetErrorForErrorMessage(
       PasswordStoreBackendErrorType::kAuthErrorResolvable,
       PasswordStoreBackendErrorType::kAuthErrorUnresolvable,
       PasswordStoreBackendErrorType::kKeyRetrievalRequired,
+      PasswordStoreBackendErrorType::kEmptySecurityDomain,
+      PasswordStoreBackendErrorType::kIrretrievableSecurityDomain,
   };
 
   if (account_store_backend_error.has_value() &&
@@ -414,9 +416,11 @@ bool PasswordFormManager::IsBlocklisted() const {
 }
 
 bool PasswordFormManager::IsMovableToAccountStore() const {
-  DCHECK(
-      client_->GetPasswordFeatureManager()->ShouldShowAccountStorageBubbleUi())
-      << "Ensure that the client supports moving passwords for this user!";
+  if (client_->GetPasswordFeatureManager()->GetDefaultPasswordStore() !=
+      PasswordForm::Store::kAccountStore) {
+    return false;
+  }
+
   signin::IdentityManager* identity_manager = client_->GetIdentityManager();
   DCHECK(identity_manager);
   const std::string gaia_id =
@@ -950,12 +954,8 @@ bool PasswordFormManager::WebAuthnCredentialsAvailable() const {
     WebAuthnCredentialsDelegate* delegate =
         client_->GetWebAuthnCredentialsDelegateForDriver(driver_.get());
 #if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
-    const bool passkey_from_another_device_in_context_menu =
-        (base::FeatureList::IsEnabled(
-             features::kPasswordManualFallbackAvailable) &&
-         base::FeatureList::IsEnabled(
-             features::kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu));
-    if (passkey_from_another_device_in_context_menu) {
+    if (base::FeatureList::IsEnabled(
+            features::kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu)) {
       return delegate && delegate->GetPasskeys().has_value() &&
              !delegate->GetPasskeys()->empty();
     }
@@ -1154,14 +1154,15 @@ void PasswordFormManager::FillNow() {
       ParseFormAndMakeLogging(*observed_form(), FormDataParser::Mode::kFilling);
   parsed_observed_form_ = std::move(form_parsing_result.password_form);
 
-  // Server predicts new password field on a text field. Enable manual
-  // generation on such fields.
-  if (!form_parsing_result.manual_generation_enabled_field.is_null()) {
-    PasswordGenerationFrameHelper* password_generation_helper =
-        driver_->GetPasswordGenerationHelper();
-    if (password_generation_helper) {
+  // Enable manual generation on fields that form parser classified as eligible
+  // for password generation.
+  PasswordGenerationFrameHelper* password_generation_helper =
+      driver_->GetPasswordGenerationHelper();
+  if (password_generation_helper) {
+    for (const autofill::FieldRendererId& field_renderer_id :
+         form_parsing_result.manual_generation_enabled_fields) {
       password_generation_helper->AddManualGenerationEnabledField(
-          form_parsing_result.manual_generation_enabled_field);
+          field_renderer_id);
     }
   }
 
@@ -1767,10 +1768,12 @@ std::unique_ptr<FormFetcher> PasswordFormManager::CreateFormFetcher() {
       observed_digest() ? *observed_digest()
                         : PasswordFormDigest(*observed_form()),
       client_, true /* should_migrate_http_passwords */);
+#if !BUILDFLAG(IS_IOS)
   if (base::FeatureList::IsEnabled(
           password_manager::features::kPasswordFormGroupedAffiliations)) {
     form_fetcher->set_filter_grouped_credentials(false);
   }
+#endif  // !BUILDFLAG(IS_IOS)
   return form_fetcher;
 }
 

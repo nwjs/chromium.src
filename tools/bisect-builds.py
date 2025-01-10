@@ -71,6 +71,7 @@ IOS_ARCHIVE_BASE_URL = 'gs://bling-archive'
 GOOGLE_APIS_URL = 'commondatastorage.googleapis.com'
 
 # URL template for viewing changelogs between revisions.
+SHORT_CHANGELOG_URL = 'https://crrev.com/%s..%s'
 CHANGELOG_URL = ('https://chromium.googlesource.com/chromium/src/+log/%s..%s')
 
 # URL to convert SVN revision to git hash.
@@ -78,7 +79,10 @@ CRREV_URL = ('https://cr-rev.appspot.com/_ah/api/crrev/v1/redirect/')
 
 # URL template for viewing changelogs between release versions.
 RELEASE_CHANGELOG_URL = ('https://chromium.googlesource.com/chromium/'
-                         'src/+log/%s..%s?pretty=fuller&n=10000')
+                         'src/+log/%s..%s?n=10000')
+
+# show change logs during bisecting for last 5 steps
+STEPS_TO_SHOW_CHANGELOG_URL = 5
 
 # DEPS file URL.
 DEPS_FILE_OLD = ('http://src.chromium.org/viewvc/chrome/trunk/src/'
@@ -719,7 +723,7 @@ class ArchiveBuild(abc.ABC):
       raise BisectException(f"chromedriver is not supported on {self.platform}")
     return '%s/*/%s' % (tempdir, self.chromedriver_binary_name)
 
-  def _run(self, runcommand, cwd=None, shell=False):
+  def _run(self, runcommand, cwd=None, shell=False, print_when_error=True):
     # is_verbos is a global variable.
     if is_verbose:
       print(('Running ' + str(runcommand)))
@@ -730,8 +734,10 @@ class ArchiveBuild(abc.ABC):
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
     (stdout, stderr) = subproc.communicate()
-    if is_verbose:
-      print(f'retcode:{subproc.returncode}\nstdout:\n')
+    if print_when_error and subproc.returncode:
+      print('command: ' + str(runcommand))
+    if is_verbose or (print_when_error and subproc.returncode):
+      print(f'retcode: {subproc.returncode}\nstdout:\n')
       sys.stdout.buffer.write(stdout)
       sys.stdout.flush()
       print('stderr:\n')
@@ -771,10 +777,11 @@ class ArchiveBuild(abc.ABC):
   def _launch_revision(self, tempdir, executables, args=()):
     args = [*self._get_extra_args(), *args]
     args_str = shlex.join(args)
-    command = (self.command.replace(r'%p', executables['chrome']).replace(
-        r'%s', args_str).replace(r'%a', args_str).replace(r'%t', tempdir))
+    command = (self.command.replace(r'%p', shlex.quote(
+        executables['chrome'])).replace(r'%s', args_str).replace(
+            r'%a', args_str).replace(r'%t', tempdir))
     if self.chromedriver:
-      command = command.replace(r'%d', executables['chromedriver'])
+      command = command.replace(r'%d', shlex.quote(executables['chromedriver']))
     return self._run(command, shell=True)
 
   def run_revision(self, download, tempdir, args=()):
@@ -1747,6 +1754,10 @@ def Bisect(archive_build,
   # Ensure rev_list[0] is good and rev_list[-1] is bad for easier process.
   if archive_build.good_revision > archive_build.bad_revision:
     rev_list = rev_list[::-1]
+  if IsVersionNumber(rev_list[0]):
+    change_log_url_fn = GetReleaseChangeLogURL
+  else:
+    change_log_url_fn = GetShortChangeLogURL
 
   if verify_range:
     good_rev_fetch = archive_build.get_download_job(rev_list[0],
@@ -1782,8 +1793,11 @@ def Bisect(archive_build,
       # count towards the steps when calculating the number the steps.
       print('You have %d revisions with about %d steps left.' %
             (len(rev_list), ((len(rev_list) - 2).bit_length())))
-      print('Bisecting range [%s (bad), %s (good)].' %
-            (rev_list[-1], rev_list[0]))
+      change_log_url = ""
+      if (len(rev_list) - 2).bit_length() <= STEPS_TO_SHOW_CHANGELOG_URL:
+        change_log_url = f"({change_log_url_fn(rev_list[-1], rev_list[0])})"
+      print('Bisecting range [%s (bad), %s (good)]%s.' % (
+          rev_list[-1], rev_list[0], change_log_url))
       # clean prefetch to keep only the valid fetches
       for key in list(prefetch.keys()):
         if key not in rev_list:
@@ -1806,19 +1820,20 @@ def Bisect(archive_build,
       else:
         pivot = len(rev_list) // 2
         fetch = archive_build.get_download_job(rev_list[pivot], 'fetch').start()
-      # prefetch left_pivot = len(rev_list[:pivot+1]) // 2
-      left_revision = rev_list[(pivot + 1) // 2]
-      if left_revision != rev_list[0] and left_revision not in prefetch:
-        prefetch[left_revision] = archive_build.get_download_job(
-            left_revision, 'prefetch').start()
-      # prefetch right_pivot = len(rev_list[pivot:]) // 2
-      right_revision = rev_list[(len(rev_list) + pivot) // 2]
-      if right_revision != rev_list[-1] and right_revision not in prefetch:
-        prefetch[right_revision] = archive_build.get_download_job(
-            right_revision, 'prefetch').start()
+
       try:
-        # evaluate the revision
         download = fetch.wait_for()
+        # prefetch left_pivot = len(rev_list[:pivot+1]) // 2
+        left_revision = rev_list[(pivot + 1) // 2]
+        if left_revision != rev_list[0] and left_revision not in prefetch:
+          prefetch[left_revision] = archive_build.get_download_job(
+              left_revision, 'prefetch').start()
+        # prefetch right_pivot = len(rev_list[pivot:]) // 2
+        right_revision = rev_list[(len(rev_list) + pivot) // 2]
+        if right_revision != rev_list[-1] and right_revision not in prefetch:
+          prefetch[right_revision] = archive_build.get_download_job(
+              right_revision, 'prefetch').start()
+        # evaluate the revision
         answer = EvaluateRevision(archive_build, download, rev_list[pivot],
                                   try_args, evaluate)
         # Ensure rev_list[0] is good and rev_list[-1] is bad after adjust.
@@ -1862,7 +1877,10 @@ def FetchJsonFromURL(url):
   # Allow retry for 3 times for unexpected network error
   for i in range(3):
     try:
-      return json.loads(urllib.request.urlopen(url).read())
+      data = urllib.request.urlopen(url).read()
+      # Remove the potential XSSI prefix from JSON output
+      data = data.lstrip(b")]}',\n")
+      return json.loads(data)
     except urllib.request.HTTPError as e:
       print(f'urlopen {url} HTTPError: {e}')
     except json.JSONDecodeError as e:
@@ -1877,14 +1895,28 @@ def GetGitHashFromSVNRevision(svn_revision):
     return data['git_sha']
   return None
 
-def PrintChangeLog(min_chromium_rev, max_chromium_rev):
+def GetShortChangeLogURL(rev1, rev2):
+  min_rev, max_rev = sorted([rev1, rev2])
+  return SHORT_CHANGELOG_URL % (min_rev, max_rev)
+
+def GetChangeLogURL(rev1, rev2):
   """Prints the changelog URL."""
-  print(('  ' + CHANGELOG_URL % (GetGitHashFromSVNRevision(min_chromium_rev),
-                                 GetGitHashFromSVNRevision(max_chromium_rev))))
+  min_rev, max_rev = sorted([rev1, rev2])
+  return CHANGELOG_URL % (GetGitHashFromSVNRevision(min_rev),
+                          GetGitHashFromSVNRevision(max_rev))
+
+def GetReleaseChangeLogURL(version1, version2):
+  """Prints the changelog URL."""
+  min_ver, max_ver= sorted([version1, version2])
+  return RELEASE_CHANGELOG_URL % (min_ver, max_ver)
 
 
 def IsVersionNumber(revision):
   """Checks if provided revision is version_number"""
+  if isinstance(revision, LooseVersion):
+    return True
+  if not isinstance(revision, str):
+    return False
   return re.match(r'^\d+\.\d+\.\d+\.\d+$', revision) is not None
 
 
@@ -1901,7 +1933,7 @@ def GetRevisionFromSourceTag(tag):
     # The commit message for version tag before M116 doesn't contains
     # Cr-Branched-From and Cr-Commit-Position message lines. However they might
     # exists in the parent commit.
-    source_url = SOURCE_TAG_URL % str(tag) + '^'
+    source_url = SOURCE_TAG_URL % (str(tag) + '^')
     data = FetchJsonFromURL(source_url)
     match = revision_regex.search(data.get('message', ''))
   if match:
@@ -1936,7 +1968,7 @@ def GetRevisionFromMilestone(milestone):
   response = urllib.request.urlopen(MILESTONES_URL % milestone)
   milestones = json.loads(response.read())
   for m in milestones:
-    if m['milestone'] == milestone:
+    if m['milestone'] == milestone and m.get('chromium_main_branch_position'):
       return m['chromium_main_branch_position']
   raise BisectException(f'Can not find revision for milestone {milestone}')
 
@@ -2101,7 +2133,6 @@ Tip: add "-- --no-first-run" to bypass the first run prompts.
       '--archive',
       choices=choices,
       metavar='ARCHIVE',
-      required=True,
       help='The buildbot platform to bisect {%s}.' % ','.join(choices),
   )
 
@@ -2262,9 +2293,8 @@ Tip: add "-- --no-first-run" to bypass the first run prompts.
   )
   parser.add_argument(
       '--update-script',
-      dest='update_script',
-      action='store_true',
-      default=False,
+      action=UpdateScriptAction,
+      nargs=0,
       help='Update this script to the latest.',
   )
   parser.add_argument(
@@ -2303,9 +2333,6 @@ def ParseCommandLine(args=None):
   """Parses the command line for bisect options."""
   parser = _CreateCommandLineParser()
   opts = parser.parse_args(args)
-
-  if opts.update_script:
-    UpdateScript()
 
   if opts.archive is None:
     archive = _DetectArchive()
@@ -2458,17 +2485,18 @@ def MaybeSwitchBuildType(opts, good, bad):
   return command_line
 
 
-def UpdateScript():
-  script_path = sys.argv[0]
-  script_content = str(
-      base64.b64decode(
-          urllib.request.urlopen(
-              "https://chromium.googlesource.com/chromium/src/+/HEAD/"
-              "tools/bisect-builds.py?format=TEXT").read()), 'utf-8')
-  with open(script_path, "w") as f:
-    f.write(script_content)
-  print("Update successful!")
-  exit(0)
+class UpdateScriptAction(argparse.Action):
+  def __call__(self, parser, namespace, values, option_string=None):
+    script_path = sys.argv[0]
+    script_content = str(
+        base64.b64decode(
+            urllib.request.urlopen(
+                "https://chromium.googlesource.com/chromium/src/+/HEAD/"
+                "tools/bisect-builds.py?format=TEXT").read()), 'utf-8')
+    with open(script_path, "w") as f:
+      f.write(script_content)
+    print("Update successful!")
+    exit(0)
 
 
 def main():
@@ -2511,13 +2539,13 @@ def main():
 
   print('CHANGELOG URL:')
   if opts.build_type == 'release':
-    print(RELEASE_CHANGELOG_URL % (min_chromium_rev, max_chromium_rev))
+    print(GetReleaseChangeLogURL(min_chromium_rev, max_chromium_rev))
     MaybeSwitchBuildType(opts, good=good_rev, bad=bad_rev)
   else:
+    print(GetChangeLogURL(min_chromium_rev, max_chromium_rev))
     if opts.build_type == 'official':
       print('The script might not always return single CL as suspect '
             'as some perf builds might get missing due to failure.')
-    PrintChangeLog(min_chromium_rev, max_chromium_rev)
 
 if __name__ == '__main__':
   sys.exit(main())

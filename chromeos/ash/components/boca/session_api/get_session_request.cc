@@ -18,7 +18,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/types/expected.h"
 #include "base/values.h"
-#include "chromeos/ash/components/boca/boca_role_util.h"
 #include "chromeos/ash/components/boca/proto/bundle.pb.h"
 #include "chromeos/ash/components/boca/proto/roster.pb.h"
 #include "chromeos/ash/components/boca/proto/session.pb.h"
@@ -36,11 +35,13 @@
 namespace ash::boca {
 
 GetSessionRequest::GetSessionRequest(google_apis::RequestSender* sender,
+                                     bool is_producer,
                                      std::string gaia_id,
                                      Callback callback)
     : UrlFetchRequestBase(sender,
                           google_apis::ProgressCallback(),
                           google_apis::ProgressCallback()),
+      is_producer_(is_producer),
       gaia_id_(std::move(gaia_id)),
       url_base_(kSchoolToolsApiBaseUrl),
       callback_(std::move(callback)) {}
@@ -76,7 +77,8 @@ void GetSessionRequest::ProcessURLFetchResults(
     case google_apis::HTTP_SUCCESS:
       blocking_task_runner()->PostTaskAndReplyWithResult(
           FROM_HERE,
-          base::BindOnce(&GetSessionProtoFromJson, std::move(response_body)),
+          base::BindOnce(&GetSessionProtoFromJson, std::move(response_body),
+                         is_producer_),
           base::BindOnce(&GetSessionRequest::OnDataParsed,
                          weak_ptr_factory_.GetWeakPtr()));
       break;

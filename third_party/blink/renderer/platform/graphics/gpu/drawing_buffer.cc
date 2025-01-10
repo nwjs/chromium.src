@@ -828,11 +828,13 @@ scoped_refptr<StaticBitmapImage> DrawingBuffer::TransferToStaticBitmapImage() {
   // TODO(xidachen): Create a small pool of recycled textures from
   // ImageBitmapRenderingContext's transferFromImageBitmap, and try to use them
   // in DrawingBuffer.
+  const bool is_origin_top_left =
+      client_si->surface_origin() == kTopLeft_GrSurfaceOrigin;
   return AcceleratedStaticBitmapImage::CreateFromCanvasSharedImage(
       std::move(client_si), sk_image_sync_token,
       /* shared_image_texture_id = */ 0, sk_image_info,
       transferable_resource.texture_target(),
-      /* is_origin_top_left = */ opengl_flip_y_extension_,
+      /*is_origin_top_left=*/is_origin_top_left,
       context_provider_->GetWeakPtr(), base::PlatformThread::CurrentRef(),
       ThreadScheduler::Current()->CleanupTaskRunner(),
       std::move(release_callback),
@@ -882,10 +884,12 @@ scoped_refptr<CanvasResource> DrawingBuffer::ExportLowLatencyCanvasResource(
     color_buffer->BeginAccess(gpu::SyncToken(), /*readonly=*/false);
   }
 
+  const bool is_origin_top_left =
+      color_buffer->shared_image->surface_origin() == kTopLeft_GrSurfaceOrigin;
   return ExternalCanvasResource::Create(
       color_buffer->shared_image, resource, viz::ReleaseCallback(),
       context_provider_->GetWeakPtr(), resource_provider, filter_quality_,
-      /*is_origin_top_left=*/opengl_flip_y_extension_);
+      /*is_origin_top_left=*/is_origin_top_left);
 }
 
 scoped_refptr<CanvasResource> DrawingBuffer::ExportCanvasResource() {
@@ -910,11 +914,13 @@ scoped_refptr<CanvasResource> DrawingBuffer::ExportCanvasResource() {
   // * FinishPrepareTransferableResourceGpu() always populates `client_si` if it
   //   returns true
   CHECK(client_si);
+  const bool is_origin_top_left =
+      client_si->surface_origin() == kTopLeft_GrSurfaceOrigin;
   return ExternalCanvasResource::Create(
       client_si, out_resource, std::move(out_release_callback),
       context_provider_->GetWeakPtr(), /*resource_provider=*/nullptr,
       filter_quality_,
-      /*is_origin_top_left=*/opengl_flip_y_extension_);
+      /*is_origin_top_left=*/is_origin_top_left);
 }
 
 DrawingBuffer::ColorBuffer::ColorBuffer(
@@ -1026,6 +1032,12 @@ bool DrawingBuffer::Initialize(const gfx::Size& size, bool use_multisampling) {
       supports_implicit_resolve &&
       gpu_feature_info.status_values[gpu::GPU_FEATURE_TYPE_SKIA_GRAPHITE] !=
           gpu::kGpuFeatureStatusEnabled;
+
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_IOS)
+  // crbug.com/376174085: On Mac using implicit resolve causes flickering due to
+  // losses of precision when render passes are interleaved. So disabling it.
+  supports_implicit_resolve = false;
+#endif
 
   if (webgl_preferences.anti_aliasing_mode == kAntialiasingModeUnspecified) {
     if (use_multisampling) {
@@ -1172,8 +1184,7 @@ bool DrawingBuffer::CopyToPlatformInternal(gpu::InterfaceBase* dst_interface,
 
   std::optional<gpu::SyncToken> sync_token =
       copy_function(src_color_buffer->shared_image, produce_sync_token,
-                    src_color_buffer->format, src_alpha_type,
-                    src_color_buffer->size, src_color_buffer->color_space);
+                    src_alpha_type, src_color_buffer->size);
 
   if (need_restore_access) {
     src_color_buffer->BeginAccess(sync_token.value_or(gpu::SyncToken()),
@@ -1196,9 +1207,8 @@ bool DrawingBuffer::CopyToPlatformTexture(gpu::gles2::GLES2Interface* dst_gl,
 
   auto copy_function =
       [&](scoped_refptr<gpu::ClientSharedImage> src_shared_image,
-          const gpu::SyncToken& produce_sync_token, viz::SharedImageFormat,
-          SkAlphaType src_alpha_type, const gfx::Size&,
-          const gfx::ColorSpace&) -> std::optional<gpu::SyncToken> {
+          const gpu::SyncToken& produce_sync_token, SkAlphaType src_alpha_type,
+          const gfx::Size&) -> std::optional<gpu::SyncToken> {
     dst_gl->WaitSyncTokenCHROMIUM(produce_sync_token.GetConstData());
 
     GLboolean unpack_premultiply_alpha_needed = GL_FALSE;
@@ -1230,29 +1240,20 @@ bool DrawingBuffer::CopyToPlatformTexture(gpu::gles2::GLES2Interface* dst_gl,
 bool DrawingBuffer::CopyToPlatformMailbox(
     gpu::raster::RasterInterface* dst_raster_interface,
     gpu::Mailbox dst_mailbox,
-    GLenum dst_texture_target,
-    bool flip_y,
     const gfx::Point& dst_texture_offset,
     const gfx::Rect& src_sub_rectangle,
     SourceDrawingBuffer src_buffer) {
   auto copy_function =
       [&](scoped_refptr<gpu::ClientSharedImage> src_shared_image,
-          const gpu::SyncToken& produce_sync_token, viz::SharedImageFormat,
-          SkAlphaType src_alpha_type, const gfx::Size&,
-          const gfx::ColorSpace&) -> std::optional<gpu::SyncToken> {
+          const gpu::SyncToken& produce_sync_token, SkAlphaType src_alpha_type,
+          const gfx::Size&) -> std::optional<gpu::SyncToken> {
     dst_raster_interface->WaitSyncTokenCHROMIUM(
         produce_sync_token.GetConstData());
 
-    GLboolean unpack_premultiply_alpha_needed = GL_FALSE;
-    if (src_alpha_type == kUnpremul_SkAlphaType) {
-      unpack_premultiply_alpha_needed = GL_TRUE;
-    }
-
     dst_raster_interface->CopySharedImage(
-        src_shared_image->mailbox(), dst_mailbox, dst_texture_target,
-        dst_texture_offset.x(), dst_texture_offset.y(), src_sub_rectangle.x(),
-        src_sub_rectangle.y(), src_sub_rectangle.width(),
-        src_sub_rectangle.height(), flip_y, unpack_premultiply_alpha_needed);
+        src_shared_image->mailbox(), dst_mailbox, dst_texture_offset.x(),
+        dst_texture_offset.y(), src_sub_rectangle.x(), src_sub_rectangle.y(),
+        src_sub_rectangle.width(), src_sub_rectangle.height());
 
     gpu::SyncToken sync_token;
     dst_raster_interface->GenUnverifiedSyncTokenCHROMIUM(sync_token.GetData());
@@ -1267,7 +1268,6 @@ bool DrawingBuffer::CopyToPlatformMailbox(
 bool DrawingBuffer::CopyToVideoFrame(
     WebGraphicsContext3DVideoFramePool* frame_pool,
     SourceDrawingBuffer src_buffer,
-    bool src_origin_is_top_left,
     const gfx::ColorSpace& dst_color_space,
     WebGraphicsContext3DVideoFramePool::FrameReadyCallback callback) {
   // Ensure that `frame_pool` has not experienced a context loss.
@@ -1275,19 +1275,13 @@ bool DrawingBuffer::CopyToVideoFrame(
   auto* raster_interface = frame_pool->GetRasterInterface();
   if (!raster_interface)
     return false;
-  const GrSurfaceOrigin src_surface_origin = src_origin_is_top_left
-                                                 ? kTopLeft_GrSurfaceOrigin
-                                                 : kBottomLeft_GrSurfaceOrigin;
   auto copy_function =
       [&](scoped_refptr<gpu::ClientSharedImage> src_shared_image,
-          const gpu::SyncToken& produce_sync_token,
-          viz::SharedImageFormat src_format, SkAlphaType src_alpha_type,
-          const gfx::Size& src_size, const gfx::ColorSpace& src_color_space)
-      -> std::optional<gpu::SyncToken> {
+          const gpu::SyncToken& produce_sync_token, SkAlphaType src_alpha_type,
+          const gfx::Size& src_size) -> std::optional<gpu::SyncToken> {
     raster_interface->WaitSyncTokenCHROMIUM(produce_sync_token.GetConstData());
     bool succeeded = frame_pool->CopyRGBATextureToVideoFrame(
-        src_format, src_size, src_color_space, src_surface_origin,
-        src_shared_image, gpu::SyncToken(), dst_color_space,
+        src_size, src_shared_image, gpu::SyncToken(), dst_color_space,
         std::move(callback));
     if (!succeeded) {
       return std::nullopt;
@@ -1418,8 +1412,7 @@ bool DrawingBuffer::ReallocateDefaultFramebuffer(const gfx::Size& size,
           internal_format = GL_RGBA;
           break;
         default:
-          NOTREACHED_IN_MIGRATION();
-          break;
+          NOTREACHED();
       }
 
       gl_->TexImage2D(GL_TEXTURE_2D, 0, internal_format, size.width(),
@@ -1616,8 +1609,7 @@ bool DrawingBuffer::ResizeFramebufferInternal(GLenum requested_format,
       color_buffer_format_ = viz::SinglePlaneFormat::kRGBA_F16;
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
   needs_reallocate |= requested_alpha_type_ != requested_alpha_type;
   requested_alpha_type_ = requested_alpha_type;
@@ -1965,7 +1957,7 @@ void DrawingBuffer::ReadBackFramebuffer(base::span<uint8_t> pixels,
         pixels[i + j] = (pixels[i + j] * alpha + 127) / 255;
     }
   } else if (op != WebGLImageConversion::kAlphaDoNothing) {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 }
 

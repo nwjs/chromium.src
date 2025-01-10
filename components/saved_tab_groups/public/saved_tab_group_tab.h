@@ -35,7 +35,8 @@ class SavedTabGroupTab {
       std::optional<base::Time> creation_time_windows_epoch_micros =
           std::nullopt,
       std::optional<base::Time> update_time_windows_epoch_micros = std::nullopt,
-      std::optional<gfx::Image> favicon = std::nullopt);
+      std::optional<gfx::Image> favicon = std::nullopt,
+      bool is_pending_sanitization = false);
   SavedTabGroupTab(const SavedTabGroupTab& other);
   SavedTabGroupTab& operator=(const SavedTabGroupTab& other);
   SavedTabGroupTab(SavedTabGroupTab&& other);
@@ -65,6 +66,7 @@ class SavedTabGroupTab {
   const std::vector<GURL>& redirect_url_chain() const {
     return redirect_url_chain_;
   }
+  bool is_pending_sanitization() const { return is_pending_sanitization_; }
 
   // Mutators.
   SavedTabGroupTab& SetURL(GURL url) {
@@ -111,13 +113,14 @@ class SavedTabGroupTab {
     redirect_url_chain_ = redirect_url_chain;
     return *this;
   }
+  SavedTabGroupTab& SetIsPendingSanitization(bool is_pending_sanitization) {
+    is_pending_sanitization_ = is_pending_sanitization;
+    return *this;
+  }
 
   // Merges this tabs data with a specific from sync and returns the newly
   // merged specific. Side effect: Updates the values in the tab.
   void MergeRemoteTab(const SavedTabGroupTab& remote_tab);
-
-  // Returns whether the `remote_tab` should be merged into the current one.
-  bool ShouldMergeTab(const SavedTabGroupTab& remote_tab) const;
 
   // Returns true iff syncable data fields in `this` and `other` are equivalent.
   bool IsSyncEquivalent(const SavedTabGroupTab& other) const;
@@ -172,6 +175,11 @@ class SavedTabGroupTab {
   // incoming URL update. If any of the URLs in the chain matches with the new
   // URL, we don't do a navigation.
   std::vector<GURL> redirect_url_chain_;
+
+  // Whether there are pending saninization tasks on the tab. This could include
+  // URL or title sanitization. If a tab is pending sanitization, the group
+  // will not be synced until the pending state is cleared.
+  bool is_pending_sanitization_;
 };
 
 class SavedTabGroupTabBuilder {
@@ -179,12 +187,10 @@ class SavedTabGroupTabBuilder {
   SavedTabGroupTabBuilder();
   ~SavedTabGroupTabBuilder();
 
-  // Disallow copy/assign.
-  SavedTabGroupTabBuilder(const SavedTabGroupTabBuilder&) = delete;
-  SavedTabGroupTabBuilder& operator=(const SavedTabGroupTabBuilder&) = delete;
+  // Allow copy/assign.
+  SavedTabGroupTabBuilder(const SavedTabGroupTabBuilder&);
+  SavedTabGroupTabBuilder& operator=(const SavedTabGroupTabBuilder&);
 
-  SavedTabGroupTabBuilder& SetURL(const GURL& url);
-  SavedTabGroupTabBuilder& SetTitle(const std::u16string& title);
   SavedTabGroupTabBuilder& SetPosition(size_t position);
   SavedTabGroupTabBuilder& SetRedirectURLChain(
       const std::vector<GURL>& redirect_url_chain);
@@ -192,20 +198,14 @@ class SavedTabGroupTabBuilder {
   SavedTabGroupTab Build(const SavedTabGroupTab& tab) const;
 
   // Accessors for testing.
-  GURL url() const { return url_; }
-  std::u16string title() const { return title_; }
   size_t position() const { return position_; }
 
  private:
-  GURL url_;
-  std::u16string title_;
   size_t position_ = 0;
+  std::vector<GURL> redirect_url_chain_;
 
   // Flags to indicate which properties have been set.
-  bool has_url_ = false;
-  bool has_title_ = false;
   bool has_position_ = false;
-  std::vector<GURL> redirect_url_chain_;
   bool has_redirect_url_chain_ = false;
 };
 

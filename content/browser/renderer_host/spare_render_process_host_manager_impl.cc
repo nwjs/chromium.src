@@ -10,6 +10,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
+#include "base/strings/strcat.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/common/features.h"
@@ -18,6 +19,66 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
+
+using SpareProcessMaybeTakeAction =
+    content::RenderProcessHostImpl::SpareProcessMaybeTakeAction;
+
+namespace {
+
+constexpr char kSpareRendererDispatchResultUmaName[] =
+    "BrowserRenderProcessHost.SpareRendererDispatchResult";
+
+content::NoSpareRendererReason MapToNoSpareRendererReason(
+    content::SpareRendererDispatchResult dispatch_result) {
+  switch (dispatch_result) {
+    case content::SpareRendererDispatchResult::kUsed:
+      return content::NoSpareRendererReason::kTakenByPreviousNavigation;
+    case content::SpareRendererDispatchResult::kTimeout:
+      return content::NoSpareRendererReason::kTimeout;
+    case content::SpareRendererDispatchResult::kOverridden:
+      return content::NoSpareRendererReason::kNotYetCreated;
+    case content::SpareRendererDispatchResult::kDestroyedNotEnabled:
+      return content::NoSpareRendererReason::kNotEnabled;
+    case content::SpareRendererDispatchResult::kDestroyedProcessLimit:
+      return content::NoSpareRendererReason::kProcessLimit;
+    case content::SpareRendererDispatchResult::kProcessExited:
+      return content::NoSpareRendererReason::kProcessExited;
+    case content::SpareRendererDispatchResult::kProcessHostDestroyed:
+      return content::NoSpareRendererReason::kProcessHostDestroyed;
+  }
+}
+
+std::string GetCategorizedSpareProcessMaybeTakeTimeUMAName(
+    SpareProcessMaybeTakeAction action) {
+  std::string action_name;
+  switch (action) {
+    case SpareProcessMaybeTakeAction::kNoSparePresent:
+      action_name = "NoSparePresent";
+      break;
+    case SpareProcessMaybeTakeAction::kMismatchedBrowserContext:
+      action_name = "MismatchedBrowserContext";
+      break;
+    case SpareProcessMaybeTakeAction::kMismatchedStoragePartition:
+      action_name = "MismatchedStoragePartition";
+      break;
+    case SpareProcessMaybeTakeAction::kRefusedByEmbedder:
+      action_name = "RefusedByEmbedder";
+      break;
+    case SpareProcessMaybeTakeAction::kSpareTaken:
+      action_name = "SpareTaken";
+      break;
+    case SpareProcessMaybeTakeAction::kRefusedBySiteInstance:
+      action_name = "RefusedBySiteInstance";
+      break;
+    case SpareProcessMaybeTakeAction::kRefusedForPdfContent:
+      action_name = "RefusedForPdfContent";
+      break;
+  }
+  return base::StrCat(
+      {"BrowserRenderProcessHost.SpareProcessMaybeTakeTime.", action_name});
+}
+
+}  // namespace
 
 namespace content {
 
@@ -45,7 +106,8 @@ void SpareRenderProcessHostManagerImpl::StartDestroyTimer(
   deferred_destroy_timer_.Start(
       FROM_HERE, timeout.value(),
       base::BindOnce(&SpareRenderProcessHostManagerImpl::CleanupSpares,
-                     base::Unretained(this)));
+                     base::Unretained(this),
+                     SpareRendererDispatchResult::kTimeout));
 }
 
 bool SpareRenderProcessHostManagerImpl::DestroyTimerWillFireBefore(
@@ -82,7 +144,7 @@ std::vector<int> SpareRenderProcessHostManagerImpl::GetSpareIds() {
 }
 
 void SpareRenderProcessHostManagerImpl::CleanupSparesForTesting() {
-  CleanupSpares();
+  CleanupSpares(std::nullopt);
 }
 
 void SpareRenderProcessHostManagerImpl::WarmupSpare(
@@ -117,7 +179,7 @@ void SpareRenderProcessHostManagerImpl::WarmupSpare(
   }
 
   bool had_spare_renderer = !!spare_rph;
-  CleanupSpares();
+  CleanupSpares(SpareRendererDispatchResult::kOverridden);
   UMA_HISTOGRAM_BOOLEAN(
       "BrowserRenderProcessHost.SpareProcessEvictedOtherSpare",
       had_spare_renderer);
@@ -147,6 +209,7 @@ void SpareRenderProcessHostManagerImpl::WarmupSpare(
   if (RenderProcessHost::run_renderer_in_process() ||
       RenderProcessHostImpl::GetProcessCountForLimit() >=
           RenderProcessHostImpl::GetMaxRendererProcessCount()) {
+    no_spare_renderer_reason_ = NoSpareRendererReason::kProcessLimit;
     return;
   }
 
@@ -157,11 +220,14 @@ void SpareRenderProcessHostManagerImpl::WarmupSpare(
   if (memory_monitor &&
       memory_monitor->GetCurrentPressureLevel() >=
           base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_MODERATE) {
+    no_spare_renderer_reason_ = NoSpareRendererReason::kMemoryPressure;
     return;
   }
 
   process_startup_timer_ = std::make_unique<base::ElapsedTimer>();
 
+  // Start the timer to track how long it takes for a spare renderer to be used.
+  spare_renderer_maybe_take_timer_ = std::make_unique<base::ElapsedTimer>();
   RenderProcessHost* new_spare_rph =
       RenderProcessHostImpl::CreateRenderProcessHost(
           browser_context, nullptr /* site_instance */);
@@ -282,8 +348,6 @@ RenderProcessHost* SpareRenderProcessHostManagerImpl::MaybeTakeSpare(
       browser_context->GetStoragePartition(site_instance);
 
   // GetSpare UMA metrics.
-  using SpareProcessMaybeTakeAction =
-      RenderProcessHostImpl::SpareProcessMaybeTakeAction;
   SpareProcessMaybeTakeAction action =
       SpareProcessMaybeTakeAction::kNoSparePresent;
 
@@ -307,6 +371,19 @@ RenderProcessHost* SpareRenderProcessHostManagerImpl::MaybeTakeSpare(
   }
   UMA_HISTOGRAM_ENUMERATION(
       "BrowserRenderProcessHost.SpareProcessMaybeTakeAction", action);
+  if (action == SpareProcessMaybeTakeAction::kNoSparePresent) {
+    base::UmaHistogramEnumeration(
+        "BrowserRenderProcessHost.NoSparePresentReason",
+        no_spare_renderer_reason_);
+  }
+  if (spare_renderer_maybe_take_timer_) {
+    auto maybe_take_time = spare_renderer_maybe_take_timer_->Elapsed();
+    base::UmaHistogramLongTimes(
+        "BrowserRenderProcessHost.SpareProcessMaybeTakeTime", maybe_take_time);
+    base::UmaHistogramLongTimes(
+        GetCategorizedSpareProcessMaybeTakeTimeUMAName(action),
+        maybe_take_time);
+  }
 
   // Decide whether to take or drop the spare process.
   RenderProcessHost* returned_process = nullptr;
@@ -324,18 +401,18 @@ RenderProcessHost* SpareRenderProcessHostManagerImpl::MaybeTakeSpare(
 
     DCHECK_EQ(SpareProcessMaybeTakeAction::kSpareTaken, action);
     returned_process = next_spare_rph;
-    ReleaseSpare(next_spare_rph);
+    ReleaseSpare(next_spare_rph, SpareRendererDispatchResult::kUsed);
   } else if (!RenderProcessHostImpl::IsSpareProcessKeptAtAllTimes()) {
     // If the spare shouldn't be kept around, then discard it as soon as we
     // find that the current spare was mismatched.
-    CleanupSpares();
+    CleanupSpares(SpareRendererDispatchResult::kDestroyedNotEnabled);
   } else if (RenderProcessHostImpl::GetProcessCountForLimit() >=
              RenderProcessHostImpl::GetMaxRendererProcessCount()) {
     // Drop all spares if we are at a process limit and the spare wasn't taken.
     // This helps avoid process reuse.
     // TODO(pmonette): Only cleanup n spares, where n is the count of processes
     // that is over the limit.
-    CleanupSpares();
+    CleanupSpares(SpareRendererDispatchResult::kDestroyedProcessLimit);
   }
 
   return returned_process;
@@ -370,17 +447,22 @@ void SpareRenderProcessHostManagerImpl::PrepareForFutureRequests(
   } else {
     // Discard the ignored (probably non-matching) spares so as not to waste
     // resources.
-    CleanupSpares();
+    CleanupSpares(SpareRendererDispatchResult::kDestroyedNotEnabled);
   }
 }
 
-void SpareRenderProcessHostManagerImpl::CleanupSpares() {
+void SpareRenderProcessHostManagerImpl::CleanupSpares(
+    std::optional<SpareRendererDispatchResult> dispatch_result) {
   std::vector<RenderProcessHost*> spare_rphs = std::move(spare_rphs_);
 
   // Stop the destroy timer since it is no longer required.
   deferred_destroy_timer_.Stop();
 
   for (RenderProcessHost* spare_rph : spare_rphs) {
+    if (dispatch_result.has_value()) {
+      base::UmaHistogramEnumeration(kSpareRendererDispatchResultUmaName,
+                                    dispatch_result.value());
+    }
     // Stop observing the process, to avoid getting notifications as a
     // consequence of the Cleanup call below - such notification could call
     // back into CleanupSpare leading to stack overflow.
@@ -395,6 +477,16 @@ void SpareRenderProcessHostManagerImpl::CleanupSpares() {
       observer.OnSpareRenderProcessHostRemoved(spare_rph);
     }
   }
+  if (dispatch_result.has_value()) {
+    no_spare_renderer_reason_ =
+        MapToNoSpareRendererReason(dispatch_result.value());
+    // The timer is not reset during the timeout to collect data about
+    // when the spare renderers will be used without timeout. The data
+    // will be used to set an appropriate timeout value.
+    if (dispatch_result.value() != SpareRendererDispatchResult::kTimeout) {
+      spare_renderer_maybe_take_timer_.reset();
+    }
+  }
 }
 
 void SpareRenderProcessHostManagerImpl::SetDeferTimerTaskRunnerForTesting(
@@ -403,13 +495,20 @@ void SpareRenderProcessHostManagerImpl::SetDeferTimerTaskRunnerForTesting(
   deferred_destroy_timer_.SetTaskRunner(task_runner);
 }
 
-void SpareRenderProcessHostManagerImpl::ReleaseSpare(RenderProcessHost* host) {
+void SpareRenderProcessHostManagerImpl::ReleaseSpare(
+    RenderProcessHost* host,
+    SpareRendererDispatchResult dispatch_result) {
   // Erase while intentionally preserving the order of the other elements.
   size_t removed = std::erase(spare_rphs_, host);
+  base::UmaHistogramEnumeration(kSpareRendererDispatchResultUmaName,
+                                dispatch_result);
   CHECK_EQ(removed, 1u);
   host->RemoveObserver(this);
   for (auto& observer : observer_list_) {
     observer.OnSpareRenderProcessHostRemoved(host);
+  }
+  if (spare_rphs_.empty()) {
+    no_spare_renderer_reason_ = MapToNoSpareRendererReason(dispatch_result);
   }
 }
 
@@ -430,7 +529,7 @@ void SpareRenderProcessHostManagerImpl::RenderProcessReady(
 void SpareRenderProcessHostManagerImpl::RenderProcessExited(
     RenderProcessHost* host,
     const ChildProcessTerminationInfo& info) {
-  ReleaseSpare(host);
+  ReleaseSpare(host, SpareRendererDispatchResult::kProcessExited);
 
   // Make sure the RenderProcessHost object gets destroyed.
   if (!host->AreRefCountsDisabled()) {
@@ -444,7 +543,7 @@ void SpareRenderProcessHostManagerImpl::RenderProcessExited(
 
 void SpareRenderProcessHostManagerImpl::RenderProcessHostDestroyed(
     RenderProcessHost* host) {
-  ReleaseSpare(host);
+  ReleaseSpare(host, SpareRendererDispatchResult::kProcessHostDestroyed);
 }
 
 }  // namespace content

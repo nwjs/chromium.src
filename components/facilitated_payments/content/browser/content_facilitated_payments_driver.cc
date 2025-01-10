@@ -28,7 +28,10 @@ ContentFacilitatedPaymentsDriver::ContentFacilitatedPaymentsDriver(
                                     GetFacilitatedPaymentsApiClientCreator(
                                         render_frame_host->GetGlobalId()),
                                     optimization_guide_decider),
-                                std::make_unique<EwalletManager>()),
+                                std::make_unique<EwalletManager>(
+                                    client,
+                                    GetFacilitatedPaymentsApiClientCreator(
+                                        render_frame_host->GetGlobalId()))),
       render_frame_host_id_(render_frame_host->GetGlobalId()),
       security_checker_(std::move(security_checker)) {}
 
@@ -64,6 +67,9 @@ void ContentFacilitatedPaymentsDriver::HandlePaymentLink(const GURL& url) {
 
 void ContentFacilitatedPaymentsDriver::SetPaymentLinkHandlerReceiver(
     mojo::PendingReceiver<mojom::PaymentLinkHandler> pending_receiver) {
+  if (receiver_.is_bound()) {
+    receiver_.reset();
+  }
   receiver_.Bind(std::move(pending_receiver));
 }
 

@@ -12,7 +12,7 @@ import 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import 'chrome://resources/cr_elements/cr_shared_style.css.js';
 import '/shared/settings/prefs/prefs.js';
-import 'chrome://resources/cr_elements/icons_lit.html.js';
+import 'chrome://resources/cr_elements/icons.html.js';
 import '../controls/settings_toggle_button.js';
 import '../icons.html.js';
 import '../settings_columned_section.css.js';
@@ -21,6 +21,7 @@ import '../simple_confirmation_dialog.js';
 
 import {I18nMixin} from '//resources/cr_elements/i18n_mixin.js';
 import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
+import {HelpBubbleMixin} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {OpenWindowProxyImpl} from 'chrome://resources/js/open_window_proxy.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
@@ -38,14 +39,19 @@ import {UserAnnotationsManagerProxyImpl} from './user_annotations_manager_proxy.
 
 type UserAnnotationsEntry = chrome.autofillPrivate.UserAnnotationsEntry;
 
+// browser_element_identifiers constants
+const PREDICTION_IMPROVEMENTS_HEADER_ELEMENT_ID =
+    'SettingsUI::kAutofillPredictionImprovementsHeaderElementId';
+
 export interface SettingsAutofillPredictionImprovementsSectionElement {
   $: {
     prefToggle: SettingsToggleButtonElement,
+    entriesHeaderTitle: HTMLElement,
   };
 }
 
 const SettingsAutofillPredictionImprovementsSectionElementBase =
-    PrefsMixin(I18nMixin(PolymerElement));
+    HelpBubbleMixin(PrefsMixin(I18nMixin(PolymerElement)));
 
 export class SettingsAutofillPredictionImprovementsSectionElement extends
     SettingsAutofillPredictionImprovementsSectionElementBase {
@@ -96,6 +102,9 @@ export class SettingsAutofillPredictionImprovementsSectionElement extends
           }
           this.userAnnotationsEntries_ = entries;
         });
+
+    this.registerHelpBubble(
+        PREDICTION_IMPROVEMENTS_HEADER_ELEMENT_ID, this.$.entriesHeaderTitle);
   }
 
   private onToggleSubLabelLinkClick_(): void {

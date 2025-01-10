@@ -81,17 +81,20 @@ class SavedTabGroupModel {
   // Helper for getting empty state of the SavedTabGroup vector.
   bool IsEmpty() const { return Count() <= 0; }
 
-  // Add / Remove / Update a single tab group from the model.
-  void Add(SavedTabGroup saved_group);
-  void Remove(const LocalTabGroupID local_group_id);
-  void Remove(const base::Uuid& id);
-  void UpdateVisualData(const LocalTabGroupID local_group_id,
-                        const tab_groups::TabGroupVisualData* visual_data);
+  // Add / Remove / Update a single tab group from the model. For local changes
+  // that should be synced.
+  void AddedLocally(SavedTabGroup saved_group);
+  void RemovedLocally(const LocalTabGroupID local_group_id);
+  void RemovedLocally(const base::Uuid& id);
+  void UpdateVisualDataLocally(
+      const LocalTabGroupID local_group_id,
+      const tab_groups::TabGroupVisualData* visual_data);
 
-  // Make the tab group shared and associate it with the `collaboration_id`. The
-  // tab group must exist and must not be shared.
-  void MakeTabGroupShared(const LocalTabGroupID& local_group_id,
-                          std::string collaboration_id);
+  // Does not notify observers or create a deep copy. Rather this directly sets
+  // the collaboration_id on the group. It is up to callers to ensure the
+  // updated group is retrieved from the service before use.
+  void MakeTabGroupSharedForTesting(const LocalTabGroupID& local_group_id,
+                                    std::string collaboration_id);
 
   // Pin SavedTabGroup if it's unpinned. Unpin SavedTabGroup if it's pinned.
   void TogglePinState(base::Uuid id);
@@ -121,8 +124,11 @@ class SavedTabGroupModel {
   void AddTabToGroupFromSync(const base::Uuid& group_id, SavedTabGroupTab tab);
 
   // Calls the UpdateTab method on a group found by group id in the model.
-  // Calls the observer function SavedTabGroupUpdatedLocally.
-  void UpdateTabInGroup(const base::Uuid& group_id, SavedTabGroupTab tab);
+  // Calls the observer function SavedTabGroupUpdatedLocally, if
+  // `notify_observers` is true.
+  void UpdateTabInGroup(const base::Uuid& group_id,
+                        SavedTabGroupTab tab,
+                        bool notify_observers);
 
   // Updates `tab` with a new `local_id`. Unlike `UpdateTabInGroup`, this method
   // does not notify observers, as this is not a change we want to sync.
@@ -138,14 +144,15 @@ class SavedTabGroupModel {
 
   // Similar to above but the group with `group_id` must exist. Notifies
   // observers that the tab was removed from sync. If
-  // `prevent_group_destruction` is set to true, then the group will not be
-  // removed as a result of calling this method on the last tab in the group.
-  // This should only be used for testing, since there are no cases where the
-  // group should live after the tab is deleted, except during a race condition
-  // in sync.
-  void RemoveTabFromGroupFromSync(const base::Uuid& group_id,
-                                  const base::Uuid& tab_id,
-                                  bool prevent_group_destruction = false);
+  // `prevent_group_destruction_for_testing` is set to true, then the group will
+  // not be removed as a result of calling this method on the last tab in the
+  // group. This should only be used for testing, since there are no cases where
+  // the group should live after the tab is deleted, except during a race
+  // condition in sync.
+  void RemoveTabFromGroupFromSync(
+      const base::Uuid& group_id,
+      const base::Uuid& tab_id,
+      bool prevent_group_destruction_for_testing = false);
 
   // Moves a saved tab from its current position to `index` in the specified
   // group denoted by `group_id` if it exists.

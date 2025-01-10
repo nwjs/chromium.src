@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.omnibox.suggestions;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -160,9 +161,9 @@ public class AutocompleteMediatorUnitTest {
     // Interface abstracting calls to CachedZeroSuggestionsManager, making interactions with that
     // more idiomatic.
     interface CachedZeroSuggestionsManagerCalls {
-        void saveToCache(AutocompleteResult r);
+        void saveToCache(int pageClass, AutocompleteResult r);
 
-        AutocompleteResult readFromCache();
+        AutocompleteResult readFromCache(int pageClass);
     }
 
     // CachedZeroSuggestionsManager shadow that helps us intercept interactions with manager's
@@ -173,13 +174,13 @@ public class AutocompleteMediatorUnitTest {
                 mock(CachedZeroSuggestionsManagerCalls.class);
 
         @Implementation
-        public static void saveToCache(AutocompleteResult r) {
-            mock.saveToCache(r);
+        public static void saveToCache(int pageClass, AutocompleteResult r) {
+            mock.saveToCache(pageClass, r);
         }
 
         @Implementation
-        public static AutocompleteResult readFromCache() {
-            return mock.readFromCache();
+        public static AutocompleteResult readFromCache(int pageClass) {
+            return mock.readFromCache(pageClass);
         }
     }
 
@@ -1384,17 +1385,19 @@ public class AutocompleteMediatorUnitTest {
                         PageClassification.ANDROID_SEARCH_WIDGET_VALUE,
                         PageClassification.ANDROID_SHORTCUTS_WIDGET_VALUE);
 
-        doReturn(mAutocompleteResult).when(ShadowCachedSuggestionsManager.mock).readFromCache();
+        doReturn(mAutocompleteResult)
+                .when(ShadowCachedSuggestionsManager.mock)
+                .readFromCache(anyInt());
 
         for (var pageClass : PageClassification.values()) {
-            setUpLocationBarDataProvider(PAGE_URL, PAGE_TITLE, pageClass.getNumber());
-
+            mMediator.getAutocompleteInputForTesting().setPageClassification(pageClass.getNumber());
             mMediator.onTextChanged("");
 
             // Should only be invoked if page class is eligible.
             int numTimesInvoked = eligibleClasses.contains(pageClass.getNumber()) ? 1 : 0;
-            verify(ShadowCachedSuggestionsManager.mock, times(numTimesInvoked)).readFromCache();
-            verify(ShadowCachedSuggestionsManager.mock, never()).saveToCache(any());
+            verify(ShadowCachedSuggestionsManager.mock, times(numTimesInvoked))
+                    .readFromCache(anyInt());
+            verify(ShadowCachedSuggestionsManager.mock, never()).saveToCache(anyInt(), any());
 
             clearInvocations(ShadowCachedSuggestionsManager.mock);
         }
@@ -1402,7 +1405,9 @@ public class AutocompleteMediatorUnitTest {
 
     @Test
     public void onTextChanged_cachedZpsNotInvokedInTypedContext() {
-        doReturn(mAutocompleteResult).when(ShadowCachedSuggestionsManager.mock).readFromCache();
+        doReturn(mAutocompleteResult)
+                .when(ShadowCachedSuggestionsManager.mock)
+                .readFromCache(anyInt());
 
         for (var pageClass : PageClassification.values()) {
             setUpLocationBarDataProvider(PAGE_URL, PAGE_TITLE, pageClass.getNumber());
@@ -1410,8 +1415,8 @@ public class AutocompleteMediatorUnitTest {
             mMediator.onTextChanged("text");
 
             // Should only be invoked if page class is eligible.
-            verify(ShadowCachedSuggestionsManager.mock, never()).readFromCache();
-            verify(ShadowCachedSuggestionsManager.mock, never()).saveToCache(any());
+            verify(ShadowCachedSuggestionsManager.mock, never()).readFromCache(anyInt());
+            verify(ShadowCachedSuggestionsManager.mock, never()).saveToCache(anyInt(), any());
 
             clearInvocations(ShadowCachedSuggestionsManager.mock);
         }
@@ -1419,7 +1424,9 @@ public class AutocompleteMediatorUnitTest {
 
     @Test
     public void onTextChanged_cachedZpsNotInvokedWithAutocompleteControllerReady() {
-        doReturn(mAutocompleteResult).when(ShadowCachedSuggestionsManager.mock).readFromCache();
+        doReturn(mAutocompleteResult)
+                .when(ShadowCachedSuggestionsManager.mock)
+                .readFromCache(anyInt());
         mMediator.setAutocompleteProfile(mProfile);
 
         for (var pageClass : PageClassification.values()) {
@@ -1428,8 +1435,8 @@ public class AutocompleteMediatorUnitTest {
             mMediator.onTextChanged("");
 
             // Should only be invoked if page class is eligible.
-            verify(ShadowCachedSuggestionsManager.mock, never()).readFromCache();
-            verify(ShadowCachedSuggestionsManager.mock, never()).saveToCache(any());
+            verify(ShadowCachedSuggestionsManager.mock, never()).readFromCache(anyInt());
+            verify(ShadowCachedSuggestionsManager.mock, never()).saveToCache(anyInt(), any());
 
             clearInvocations(ShadowCachedSuggestionsManager.mock);
         }
@@ -1437,20 +1444,26 @@ public class AutocompleteMediatorUnitTest {
 
     @Test
     public void onTextChanged_cacheZpsFromEligiblePageClasses() {
-        Set<Integer> eligibleClasses = Set.of(PageClassification.ANDROID_SEARCH_WIDGET_VALUE);
+        Set<Integer> eligibleClasses =
+                Set.of(
+                        PageClassification.ANDROID_SEARCH_WIDGET_VALUE,
+                        PageClassification.ANDROID_SHORTCUTS_WIDGET_VALUE);
 
         mMediator.onOmniboxSessionStateChange(true);
-        doReturn(mAutocompleteResult).when(ShadowCachedSuggestionsManager.mock).readFromCache();
+        doReturn(mAutocompleteResult)
+                .when(ShadowCachedSuggestionsManager.mock)
+                .readFromCache(anyInt());
         doReturn(false).when(mAutocompleteResult).isFromCachedResult();
 
         for (var pageClass : PageClassification.values()) {
-            setUpLocationBarDataProvider(PAGE_URL, PAGE_TITLE, pageClass.getNumber());
+            mMediator.getAutocompleteInputForTesting().setPageClassification(pageClass.getNumber());
 
             mMediator.onTextChanged("");
 
             // Should only be invoked if page class is eligible.
             int numTimesInvoked = eligibleClasses.contains(pageClass.getNumber()) ? 1 : 0;
-            verify(ShadowCachedSuggestionsManager.mock, times(numTimesInvoked)).saveToCache(any());
+            verify(ShadowCachedSuggestionsManager.mock, times(numTimesInvoked))
+                    .saveToCache(anyInt(), any());
 
             clearInvocations(ShadowCachedSuggestionsManager.mock);
         }
@@ -1458,26 +1471,30 @@ public class AutocompleteMediatorUnitTest {
 
     @Test
     public void onTextChanged_dontCacheTypedSuggestions() {
-        doReturn(mAutocompleteResult).when(ShadowCachedSuggestionsManager.mock).readFromCache();
+        doReturn(mAutocompleteResult)
+                .when(ShadowCachedSuggestionsManager.mock)
+                .readFromCache(anyInt());
         doReturn(false).when(mAutocompleteResult).isFromCachedResult();
 
         for (var pageClass : PageClassification.values()) {
             setUpLocationBarDataProvider(PAGE_URL, PAGE_TITLE, pageClass.getNumber());
             mMediator.onTextChanged("x");
-            verify(ShadowCachedSuggestionsManager.mock, never()).saveToCache(any());
+            verify(ShadowCachedSuggestionsManager.mock, never()).saveToCache(anyInt(), any());
             clearInvocations(ShadowCachedSuggestionsManager.mock);
         }
     }
 
     @Test
     public void onTextChanged_dontCacheCachedSuggestions() {
-        doReturn(mAutocompleteResult).when(ShadowCachedSuggestionsManager.mock).readFromCache();
+        doReturn(mAutocompleteResult)
+                .when(ShadowCachedSuggestionsManager.mock)
+                .readFromCache(anyInt());
         doReturn(true).when(mAutocompleteResult).isFromCachedResult();
 
         for (var pageClass : PageClassification.values()) {
             setUpLocationBarDataProvider(PAGE_URL, PAGE_TITLE, pageClass.getNumber());
             mMediator.onTextChanged("");
-            verify(ShadowCachedSuggestionsManager.mock, never()).saveToCache(any());
+            verify(ShadowCachedSuggestionsManager.mock, never()).saveToCache(anyInt(), any());
             clearInvocations(ShadowCachedSuggestionsManager.mock);
         }
     }
@@ -1510,11 +1527,25 @@ public class AutocompleteMediatorUnitTest {
 
     @Test
     public void propagateOmniboxSessionStateChange_informsVisualStateObserver() {
+        mMediator
+                .getAutocompleteInputForTesting()
+                .setPageClassification(PageClassification.NTP_VALUE);
+
         mMediator.propagateOmniboxSessionStateChange(true);
         verify(mVisualStateObserver, atLeastOnce()).onOmniboxSessionStateChange(eq(true));
 
         mMediator.propagateOmniboxSessionStateChange(false);
         verify(mVisualStateObserver, atLeastOnce()).onOmniboxSessionStateChange(eq(false));
+    }
+
+    @Test
+    public void propagateOmniboxSessionStateChange_hubSearchContainerVisible() {
+        mMediator
+                .getAutocompleteInputForTesting()
+                .setPageClassification(PageClassification.ANDROID_HUB_VALUE);
+
+        mMediator.propagateOmniboxSessionStateChange(true);
+        assertTrue(mListModel.get(SuggestionListProperties.CONTAINER_ALWAYS_VISIBLE));
     }
 
     @Test

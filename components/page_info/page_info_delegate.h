@@ -90,6 +90,7 @@ class PageInfoDelegate {
   virtual void OpenCertificateDialog(net::X509Certificate* certificate) = 0;
   virtual void OpenConnectionHelpCenterPage(const ui::Event& event) = 0;
   virtual void OpenSafetyTipHelpCenterPage() = 0;
+  virtual void OpenSafeBrowsingHelpCenterPage(const ui::Event& event) = 0;
   virtual void OpenContentSettingsExceptions(
       ContentSettingsType content_settings_type) = 0;
   virtual void OnPageInfoActionOccurred(page_info::PageInfoAction action) = 0;
@@ -129,6 +130,7 @@ class PageInfoDelegate {
   virtual const std::u16string GetClientApplicationName() = 0;
 #endif
   virtual bool IsHttpsFirstModeEnabled() = 0;
+  virtual bool IsIncognitoProfile() = 0;
 };
 
 #endif  // COMPONENTS_PAGE_INFO_PAGE_INFO_DELEGATE_H_

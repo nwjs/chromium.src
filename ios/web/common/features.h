@@ -96,6 +96,13 @@ BASE_DECLARE_FEATURE(kUserAgentBugFixVersion);
 // Enables logging JavaScript errors.
 BASE_DECLARE_FEATURE(kLogJavaScriptErrors);
 
+// Feature flag to let WebKit handle MarketplaceKit links. This is intended to
+// be used as a kill switch.
+BASE_DECLARE_FEATURE(kWebKitHandlesMarketplaceKitLinks);
+
+// Feature flag to restore the WKWebView edit menu customization.
+BASE_DECLARE_FEATURE(kRestoreWKWebViewEditMenuHandler);
+
 }  // namespace features
 }  // namespace web
 

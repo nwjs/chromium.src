@@ -38,6 +38,7 @@ import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
 import org.chromium.chrome.browser.data_sharing.ui.invitation_dialog.DataSharingInvitationDialogCoordinator;
 import org.chromium.chrome.browser.hub.HubFieldTrial;
@@ -56,13 +57,15 @@ import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabLi
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.GridCardOnClickListenerProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcherMessageManager.MessageUpdateObserver;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
-import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
-import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateProvider;
+import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
+import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
+import org.chromium.components.collaboration.CollaborationService;
+import org.chromium.components.collaboration.ServiceStatus;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -138,6 +141,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
             new OneshotSupplierImpl<>();
     private final Callback<EdgeToEdgeController> mOnEdgeToEdgeControllerChangedCallback =
             new ValueChangedCallback<>(this::onEdgeToEdgeControllerChanged);
+    private final @Nullable TabGroupLabeller mTabGroupLabeller;
 
     /** Lazily initialized when shown. */
     private @Nullable TabGridDialogCoordinator mTabGridDialogCoordinator;
@@ -175,7 +179,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
      * @param onTabGroupCreation Should be run when the UI is used to create a tab group.
      * @param onDestroyed A {@link Runnable} to execute when {@link #destroy()} is invoked.
      * @param edgeToEdgeSupplier Supplier to the {@link EdgeToEdgeController} instance.
-     * @param desktopWindowStateProvider Provider to get desktop window and app header state.
+     * @param desktopWindowStateManager Manager to get desktop window and app header state.
      */
     public TabSwitcherPaneCoordinator(
             @NonNull Activity activity,
@@ -200,7 +204,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
             @Nullable Runnable onTabGroupCreation,
             @NonNull Runnable onDestroyed,
             @NonNull ObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier,
-            @Nullable DesktopWindowStateProvider desktopWindowStateProvider) {
+            @Nullable DesktopWindowStateManager desktopWindowStateManager) {
         try (TraceEvent e = TraceEvent.scoped("TabSwitcherPaneCoordinator.constructor")) {
             mProfileProviderSupplier = profileProviderSupplier;
             mIsVisibleSupplier = isVisibleSupplier;
@@ -261,7 +265,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
                                                 getTabGroupTitleEditor(),
                                                 actionConfirmationManager,
                                                 mModalDialogManager,
-                                                desktopWindowStateProvider);
+                                                desktopWindowStateManager);
                                 return mTabGridDialogCoordinator.getDialogController();
                             });
 
@@ -367,7 +371,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
                             bottomSheetController,
                             mode,
                             onTabGroupCreation,
-                            desktopWindowStateProvider,
+                            desktopWindowStateManager,
                             mEdgeToEdgeSupplier);
             mTabListEditorManager = tabListEditorManager;
             mMediator.setTabListEditorControllerSupplier(
@@ -375,6 +379,19 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
 
             mMessageManager = messageManager;
             mMessageManager.registerMessages(tabListCoordinator);
+
+            CollaborationService collaborationService =
+                    CollaborationServiceFactory.getForProfile(profile);
+            @NonNull ServiceStatus serviceStatus = collaborationService.getServiceStatus();
+            if (serviceStatus.isAllowedToJoin()) {
+                mTabGroupLabeller =
+                        new TabGroupLabeller(
+                                profile,
+                                mTabListCoordinator.getTabListNotificationHandler(),
+                                tabGroupModelFilterSupplier);
+            } else {
+                mTabGroupLabeller = null;
+            }
 
             mOnVisibilityChanged.onResult(isVisibleSupplier.addObserver(mOnVisibilityChanged));
         }
@@ -398,6 +415,9 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
         if (mEdgeToEdgePadAdjuster != null && mEdgeToEdgeSupplier.get() != null) {
             mEdgeToEdgeSupplier.get().unregisterAdjuster(mEdgeToEdgePadAdjuster);
             mEdgeToEdgePadAdjuster = null;
+        }
+        if (mTabGroupLabeller != null) {
+            mTabGroupLabeller.destroy();
         }
     }
 
@@ -432,6 +452,9 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
                 tabList == null ? null : tabs, /* quickMode= */ false);
         mMessageManager.afterReset(tabs.size());
         mTabListOnScrollListener.postUpdate(mTabListCoordinator.getContainerView());
+        if (mTabGroupLabeller != null) {
+            mTabGroupLabeller.showAll();
+        }
     }
 
     /** Performs soft cleanup which removes thumbnails to relieve memory usage. */
@@ -546,6 +569,16 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
     /** Returns a nested supplier for the scrolling state of the view. */
     public OneshotSupplier<ObservableSupplier<Boolean>> getIsScrollingSupplier() {
         return mIsScrollingSupplier;
+    }
+
+    /**
+     * Sets the content sensitivity on the recycler view of the tab switcher.
+     *
+     * @param contentIsSensitive True if the tab switcher is sensitive.
+     */
+    public void setTabSwitcherContentSensitivity(boolean contentIsSensitive) {
+        mContainerViewModel.set(
+                TabListContainerProperties.IS_CONTENT_SENSITIVE, contentIsSensitive);
     }
 
     @Override

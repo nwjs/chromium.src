@@ -53,6 +53,7 @@ using OIT = metrics::OmniboxInputType;
 namespace {
 
 using ResultType = ZeroSuggestProvider::ResultType;
+constexpr bool is_ios = !!BUILDFLAG(IS_IOS);
 
 // Represents whether ZeroSuggestProvider is allowed to display zero-prefix
 // suggestions, and if not, why not.
@@ -134,9 +135,7 @@ bool ShouldCacheResultTypeInContext(const ResultType result_type,
                  : base::FeatureList::IsEnabled(
                        omnibox::kZeroSuggestPrefetchingOnWeb);
     case ResultType::kNone:
-      NOTREACHED_IN_MIGRATION()
-          << "kNone is not a valid zero suggest result type.";
-      return false;
+      NOTREACHED() << "kNone is not a valid zero suggest result type.";
   }
 }
 
@@ -264,26 +263,19 @@ ResultType ResultTypeForInput(const AutocompleteInput& input) {
   }
 
   // The following cases require sending the current page URL in the request.
-  // Ensure the URL is valid with an HTTP(S) scheme and is not the NTP page URL.
-  if (omnibox::IsNTPPage(page_class) ||
-      !BaseSearchProvider::PageURLIsEligibleForSuggestRequest(
-          input.current_url())) {
+  // Ensure the page URL is valid with an HTTP(S) scheme and is not the NTP URL.
+  if (!BaseSearchProvider::PageURLIsEligibleForSuggestRequest(
+          input.current_url(), page_class)) {
     return ResultType::kNone;
   }
 
   // Open Web and Search Results Page.
   if (omnibox::IsOtherWebPage(page_class) ||
       omnibox::IsSearchResultsPage(page_class)) {
-    if (focus_type_input_type ==
-            std::make_pair(OFT::INTERACTION_FOCUS, OIT::URL) &&
-        !base::FeatureList::IsEnabled(
-            omnibox::kOmniboxOnClobberFocusTypeOnContent)) {
+    if (focus_type_input_type.second == OIT::URL && is_ios) {
       return ResultType::kRemoteSendURL;
     }
-    if (focus_type_input_type ==
-            std::make_pair(OFT::INTERACTION_CLOBBER, OIT::EMPTY) &&
-        (base::FeatureList::IsEnabled(
-            omnibox::kOmniboxOnClobberFocusTypeOnContent))) {
+    if (focus_type_input_type.second == OIT::EMPTY && !is_ios) {
       return ResultType::kRemoteSendURL;
     }
   }
@@ -315,15 +307,15 @@ ZeroSuggestProvider::GetResultTypeAndEligibility(
   const auto result_type = ResultTypeForInput(input);
 
   const auto* template_url_service = client->GetTemplateURLService();
-  if (!template_url_service ||
-      !template_url_service->GetDefaultSearchProvider()) {
+  if (!template_url_service) {
     return std::make_pair(result_type, /*eligibility=*/false);
   }
 
   auto eligibility = true;
   switch (result_type) {
     case ResultType::kRemoteNoURL: {
-      if (!CanSendSuggestRequestWithoutPageURL(
+      if (!CanSendSecureSuggestRequest(
+              input.current_page_classification(),
               template_url_service->GetDefaultSearchProvider(),
               template_url_service->search_terms_data(), client)) {
         eligibility = false;
@@ -332,7 +324,7 @@ ZeroSuggestProvider::GetResultTypeAndEligibility(
     }
     case ResultType::kRemoteSendURL: {
       if (!CanSendSuggestRequestWithPageURL(
-              input.current_url(),
+              input.current_url(), input.current_page_classification(),
               template_url_service->GetDefaultSearchProvider(),
               template_url_service->search_terms_data(), client)) {
         eligibility = false;
@@ -464,8 +456,10 @@ void ZeroSuggestProvider::Start(const AutocompleteInput& input,
 
   const auto* template_url_service = client()->GetTemplateURLService();
   // Create a loader for the request and take ownership of it.
-  // Request for zero-prefix suggestions in OTR contexts is not allowed.
-  DCHECK(!client()->IsOffTheRecord());
+  // Request for zero-prefix suggestions in OTR contexts is not allowed; except
+  // for the Lens searchboxes.
+  DCHECK(!client()->IsOffTheRecord() ||
+         omnibox::IsLensSearchbox(input.current_page_classification()));
   loader_ =
       client()
           ->GetRemoteSuggestionsService(/*create_if_necessary=*/true)

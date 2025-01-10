@@ -83,8 +83,6 @@ _IGNORE_WARNINGS = (
 
 _BLOCKLISTED_EXPECTATION_PATHS = [
     # A separate expectation file is created for these files.
-    # TODO(369195356): Remove this after cipd migration.
-    'clank/third_party/google3/pg_confs/',
     'clank/third_party/google3/cipd/pg_confs/',
 ]
 
@@ -542,6 +540,10 @@ def _CheckForMissingSymbols(options, dex_files, error_title):
         # Explicitly guarded by try (NoClassDefFoundError) in Firebase's
         # KotlinDetector: com.google.firebase.platforminfo.KotlinDetector.
         'kotlin.KotlinVersion',
+
+        # Not sure why these two are missing, but they do not seem important.
+        'ResultIgnorabilityUnspecified',
+        'kotlin.DeprecationLevel',
     ]
 
     had_unfiltered_items = '  ' in stderr

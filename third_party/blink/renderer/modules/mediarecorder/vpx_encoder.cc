@@ -90,9 +90,7 @@ void VpxEncoder::EncodeFrame(scoped_refptr<media::VideoFrame> frame,
     }
   }
 
-  bool keyframe = false;
   bool force_keyframe = request_keyframe;
-  bool alpha_keyframe = false;
   scoped_refptr<media::DecoderBuffer> output_data;
   switch (frame->format()) {
     case media::PIXEL_FORMAT_NV12: {
@@ -158,20 +156,23 @@ void VpxEncoder::EncodeFrame(scoped_refptr<media::VideoFrame> frame,
                frame->stride(VideoFrame::Plane::kV), duration, force_keyframe,
                &output_data, /*is_alpha=*/false, VPX_IMG_FMT_I420);
 
+      if (!output_data) {
+        break;
+      }
+      bool alpha_force_keyframe = output_data->is_key_frame();
       DoEncode(alpha_encoder_.get(), frame_size,
                frame->data(VideoFrame::Plane::kA),
                frame->visible_data(VideoFrame::Plane::kA),
                frame->stride(VideoFrame::Plane::kA), alpha_dummy_planes_.data(),
                base::checked_cast<int>(u_plane_stride_),
                alpha_dummy_planes_.data() + v_plane_offset_,
-               base::checked_cast<int>(v_plane_stride_), duration, keyframe,
-               &output_data, /*is_alpha=*/true, VPX_IMG_FMT_I420);
-      DCHECK_EQ(keyframe, alpha_keyframe);
+               base::checked_cast<int>(v_plane_stride_), duration,
+               alpha_force_keyframe, &output_data, /*is_alpha=*/true,
+               VPX_IMG_FMT_I420);
       break;
     }
     default:
-      NOTREACHED_IN_MIGRATION()
-          << media::VideoPixelFormatToString(frame->format());
+      NOTREACHED() << media::VideoPixelFormatToString(frame->format());
   }
   frame = nullptr;
 
@@ -238,9 +239,9 @@ void VpxEncoder::DoEncode(vpx_codec_ctx_t* const encoder,
       // If is_alpha is true, it needs *output_data to already be a valid
       // scoped_refptr.
       CHECK(*output_data);
-      (*output_data)
-          ->WritableSideData()
-          .alpha_data.assign(alpha_data, alpha_data + pkt->data.frame.sz);
+      (*output_data)->WritableSideData().alpha_data =
+          base::HeapArray<uint8_t>::CopiedFrom(
+              base::span<const uint8_t>(alpha_data, pkt->data.frame.sz));
     } else {
       *output_data = media::DecoderBuffer::CopyFrom(
           {reinterpret_cast<const uint8_t*>(pkt->data.frame.buf),

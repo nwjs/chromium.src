@@ -38,12 +38,14 @@ import androidx.customview.widget.ExploreByTouchHelper;
 
 import org.chromium.base.BuildInfo;
 import org.chromium.base.Callback;
+import org.chromium.base.InputHintChecker;
 import org.chromium.base.ObserverList;
 import org.chromium.base.SysUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsUtils;
@@ -71,7 +73,6 @@ import org.chromium.chrome.browser.tasks.tab_management.TabManagementFieldTrial;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.ControlContainer;
-import org.chromium.chrome.browser.toolbar.ToolbarFeatures;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
 import org.chromium.components.browser_ui.widget.TouchEventObserver;
 import org.chromium.components.browser_ui.widget.TouchEventProvider;
@@ -83,7 +84,6 @@ import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.UiUtils;
 import org.chromium.ui.base.ApplicationViewportInsetSupplier;
-import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.EventForwarder;
 import org.chromium.ui.base.EventOffsetHandler;
 import org.chromium.ui.base.SPenSupport;
@@ -779,6 +779,9 @@ public class CompositorViewHolder extends FrameLayout
     @Override
     public boolean dispatchTouchEvent(MotionEvent e) {
         assert e != null : "The motion event dispatched shouldn't be null!";
+        if (mNativeInitialized) {
+            InputHintChecker.onCompositorViewHolderTouchEvent();
+        }
         updateIsInGesture(e);
         for (TouchEventObserver o : mTouchEventObservers) {
             if (o.dispatchTouchEvent(e)) return true;
@@ -1023,8 +1026,7 @@ public class CompositorViewHolder extends FrameLayout
         // When scrolling browser controls in viz, don't produce new browser frames unless it's
         // forced with |needs_animate|
         boolean scrollingWithBciv =
-                ToolbarFeatures.isBrowserControlsInVizEnabled(
-                                DeviceFormFactor.isNonMultiDisplayContextOnTablet(getContext()))
+                ChromeFeatureList.sBrowserControlsInViz.isEnabled()
                         && (mInGesture || mContentViewScrolling);
         if (needsAnimate && !scrollingWithBciv) {
             requestRender();
@@ -1419,19 +1421,24 @@ public class CompositorViewHolder extends FrameLayout
 
     /**
      * Sets the appropriate objects this class should represent.
-     * @param tabModelSelector        The {@link TabModelSelector} this View should hold and
-     *                                represent.
-     * @param tabCreatorManager       The {@link TabCreatorManager} for this view.
+     *
+     * @param tabModelSelector The {@link TabModelSelector} this View should hold and represent.
+     * @param tabCreatorManager The {@link TabCreatorManager} for this view.
+     * @param bottomControlsOffsetSupplier Supplier of the offset, relative to the bottom of the
+     *     viewport, of the bottom-anchored toolbar.
      */
     public void onFinishNativeInitialization(
-            TabModelSelector tabModelSelector, TabCreatorManager tabCreatorManager) {
+            TabModelSelector tabModelSelector,
+            TabCreatorManager tabCreatorManager,
+            Supplier<Integer> bottomControlsOffsetSupplier) {
         assert mLayoutManager != null;
         mLayoutManager.init(
                 tabModelSelector,
                 tabCreatorManager,
                 mControlContainer,
                 mCompositorView.getResourceManager().getDynamicResourceLoader(),
-                mTopUiThemeColorProvider);
+                mTopUiThemeColorProvider,
+                bottomControlsOffsetSupplier);
 
         mTabModelSelector = tabModelSelector;
         tabModelSelector.addObserver(

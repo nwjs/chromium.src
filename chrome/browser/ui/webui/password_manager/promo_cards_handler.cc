@@ -32,16 +32,6 @@
 #include "chrome/browser/ui/webui/password_manager/promo_cards/relaunch_chrome_promo.h"
 #endif
 
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS_ASH)
-#include "chrome/browser/ui/webui/password_manager/promo_cards/screenlock_reauth_promo.h"
-#endif
-
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-#include "chrome/browser/profiles/batch_upload/batch_upload_service.h"
-#include "chrome/browser/profiles/batch_upload/batch_upload_service_factory.h"
-#include "chrome/browser/ui/browser_finder.h"
-#endif
-
 namespace password_manager {
 
 namespace {
@@ -86,9 +76,6 @@ std::vector<std::unique_ptr<PasswordPromoCardBase>> GetAllPromoCardsForProfile(
       std::make_unique<RelaunchChromePromo>(profile->GetPrefs()));
 #endif
 
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS_ASH)
-  promo_cards.push_back(std::make_unique<ScreenlockReauthPromo>(profile));
-#endif
   return promo_cards;
 }
 
@@ -118,26 +105,11 @@ void PromoCardsHandler::RegisterMessages() {
   web_ui()->RegisterMessageCallback(
       "restartBrowser", base::BindRepeating(&PromoCardsHandler::RestartChrome,
                                             base::Unretained(this)));
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-  web_ui()->RegisterMessageCallback(
-      "openBatchUpload",
-      base::BindRepeating(&PromoCardsHandler::OpenBatchUpload,
-                          base::Unretained(this)));
-#endif
 }
 
 void PromoCardsHandler::RestartChrome(const base::Value::List& args) {
   chrome::AttemptRestart();
 }
-
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-void PromoCardsHandler::OpenBatchUpload(const base::Value::List& args) {
-  BatchUploadService* batch_upload =
-      BatchUploadServiceFactory::GetForProfile(profile_);
-  CHECK(batch_upload);
-  batch_upload->OpenBatchUpload(chrome::FindBrowserWithProfile(profile_));
-}
-#endif
 
 void PromoCardsHandler::HandleGetAvailablePromoCard(
     const base::Value::List& args) {

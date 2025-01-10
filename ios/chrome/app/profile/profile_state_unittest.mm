@@ -19,6 +19,8 @@
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
+#import "third_party/ocmock/OCMock/OCMock.h"
+#import "third_party/ocmock/gtest_support.h"
 
 @interface ObserverForProfileStateTest : NSObject <ProfileStateObserver>
 
@@ -122,26 +124,18 @@ TEST_F(ProfileStateTest, observers) {
   EXPECT_EQ(observer2.lastStage, ProfileInitStage::kLoadProfile);
 }
 
-// Tests that -connectedSceneStates returns all the connected scenes if the
-// init stage is at least ProfileInitStage::kUIReady or nil.
+// Tests that -connectedSceneStates returns all the connected scenes.
 TEST_F(ProfileStateTest, connectedSceneStates) {
   ProfileState* state = [[ProfileState alloc] initWithAppState:nil];
-  ASSERT_NSEQ(state.connectedScenes, nil);
+  ASSERT_NSEQ(state.connectedScenes, @[]);
 
-  // Connect a scene before reaching the kUIReady stage. The scene must not be
-  // returned by -connectedScenes.
+  // Check that scenes are immediately visible in -connectedScenes.
   SceneState* scene1 = [[SceneState alloc] initWithAppState:nil];
   [state sceneStateConnected:scene1];
-  EXPECT_NSEQ(state.connectedScenes, nil);
-
-  // Progress the init stage to kUIReady, the scene should be returned now.
-  SetProfileStateInitStage(state, ProfileInitStage::kUIReady);
   EXPECT_NSEQ(state.connectedScenes, @[ scene1 ]);
 
-  // Connect another scene. It should be visible in -connectedScenes.
   SceneState* scene2 = [[SceneState alloc] initWithAppState:nil];
   [state sceneStateConnected:scene2];
-
   EXPECT_NSEQ(state.connectedScenes, (@[ scene1, scene2 ]));
 }
 
@@ -149,16 +143,11 @@ TEST_F(ProfileStateTest, connectedSceneStates) {
 // SceneActivationLevelDisconnected activation level.
 TEST_F(ProfileStateTest, connectedSceneStates_scenesRemovedWhenDisconnected) {
   ProfileState* state = [[ProfileState alloc] initWithAppState:nil];
-  ASSERT_NSEQ(state.connectedScenes, nil);
+  ASSERT_NSEQ(state.connectedScenes, @[]);
 
-  // Connect a scene before reaching the kUIReady stage. The scene must not be
-  // returned by -connectedScenes.
+  // Connect a scene. It should be returned by -connectedScenes.
   SceneState* scene1 = [[SceneState alloc] initWithAppState:nil];
   [state sceneStateConnected:scene1];
-  EXPECT_NSEQ(state.connectedScenes, nil);
-
-  // Progress the init stage to kUIReady, the scene should be returned now.
-  SetProfileStateInitStage(state, ProfileInitStage::kUIReady);
   EXPECT_NSEQ(state.connectedScenes, @[ scene1 ]);
 
   // Pretend the scene transitioned to SceneActivationLevelDisconnected, it
@@ -167,59 +156,50 @@ TEST_F(ProfileStateTest, connectedSceneStates_scenesRemovedWhenDisconnected) {
   EXPECT_NSEQ(state.connectedScenes, @[]);
 }
 
-// Tests that -foregroundActiveScene returns the first foreground active scene
-// when the stage is at least ProfileInitStage::kUIReady or nil.
+// Tests that -foregroundActiveScene returns the first foreground active scene.
 TEST_F(ProfileStateTest, foregroundActiveScene) {
   ProfileState* state = [[ProfileState alloc] initWithAppState:nil];
   ASSERT_NSEQ(state.foregroundActiveScene, nil);
 
-  // Connect two scenes, one that is in foreground and active, before the
-  // stage kUIReady. No scene should be returned by -foregroundActiveScene.
+  // Connect two scenes, one that is in foreground and active. The foreground
+  // active scene should be returned by -foregroundActiveScene.
   SceneState* scene1 = [[SceneState alloc] initWithAppState:nil];
   [state sceneStateConnected:scene1];
+  EXPECT_NSEQ(state.foregroundActiveScene, nil);
 
   SceneState* scene2 = [[SceneState alloc] initWithAppState:nil];
   scene2.activationLevel = SceneActivationLevelForegroundActive;
   [state sceneStateConnected:scene2];
-
-  EXPECT_NSEQ(state.foregroundActiveScene, nil);
-
-  // The -foregroundActiveScene should not return scene2.
-  SetProfileStateInitStage(state, ProfileInitStage::kUIReady);
   EXPECT_NSEQ(state.foregroundActiveScene, scene2);
 
   // Pretend that scene1 became foreground active. It should now be returned
   // by -foregroundActiveScene (since it is before in the -connectedScenes).
   // This is here to check that the scene returned may change over time.
   scene1.activationLevel = SceneActivationLevelForegroundActive;
-
   EXPECT_NSEQ(state.foregroundActiveScene, scene1);
 }
 
 // Tests that -foregroundScenes returns all the foreground (but maybe unactive)
-// scenes when the stage is at least ProfileInitStage::kUIReady or nil
+// scenes.
 TEST_F(ProfileStateTest, foregroundScenes) {
   ProfileState* state = [[ProfileState alloc] initWithAppState:nil];
   ASSERT_NSEQ(state.foregroundActiveScene, nil);
 
   // Connect three scenes, one that is in the foreground and active, one that
-  // is in foreground but inactive, and one that is in the background. No scene
-  // should be returned by -foregroundScenes.
+  // is in foreground but inactive, and one that is in the background. Only
+  // the foreground ones should be returned in -foregroundScenes.
   SceneState* scene1 = [[SceneState alloc] initWithAppState:nil];
   [state sceneStateConnected:scene1];
+  EXPECT_NSEQ(state.foregroundScenes, @[]);
 
   SceneState* scene2 = [[SceneState alloc] initWithAppState:nil];
   scene2.activationLevel = SceneActivationLevelForegroundActive;
   [state sceneStateConnected:scene2];
+  EXPECT_NSEQ(state.foregroundScenes, @[ scene2 ]);
 
   SceneState* scene3 = [[SceneState alloc] initWithAppState:nil];
   scene3.activationLevel = SceneActivationLevelForegroundInactive;
   [state sceneStateConnected:scene3];
-
-  EXPECT_NSEQ(state.foregroundScenes, nil);
-
-  // The -foregroundScenes should now contains both scene2 and scene3.
-  SetProfileStateInitStage(state, ProfileInitStage::kUIReady);
   EXPECT_NSEQ(state.foregroundScenes, (@[ scene2, scene3 ]));
 }
 
@@ -274,4 +254,26 @@ TEST_F(ProfileStateTest, firstSceneHasInitializedUI) {
 
   scene2.activationLevel = SceneActivationLevelDisconnected;
   EXPECT_TRUE(state.firstSceneHasInitializedUI);
+}
+
+// Tests observers for UIBlockerManager
+TEST_F(ProfileStateTest, ProfileAgentUIBlockerManagerObserver) {
+  ProfileState* state = [[ProfileState alloc] initWithAppState:nil];
+
+  id<UIBlockerManagerObserver> observer =
+      [OCMockObject mockForProtocol:@protocol(UIBlockerManagerObserver)];
+  id<UIBlockerTarget> blocker_target =
+      [OCMockObject mockForProtocol:@protocol(UIBlockerTarget)];
+
+  [state addUIBlockerManagerObserver:observer];
+  EXPECT_EQ(state.currentUIBlocker, nil);
+
+  [state incrementBlockingUICounterForTarget:blocker_target];
+  EXPECT_NSEQ(state.currentUIBlocker, blocker_target);
+  EXPECT_OCMOCK_VERIFY(observer);
+
+  OCMExpect([observer currentUIBlockerRemoved]);
+  [state decrementBlockingUICounterForTarget:blocker_target];
+  EXPECT_NSEQ(state.currentUIBlocker, nil);
+  EXPECT_OCMOCK_VERIFY(observer);
 }

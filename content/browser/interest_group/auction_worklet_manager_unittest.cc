@@ -16,6 +16,7 @@
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
@@ -26,6 +27,7 @@
 #include "base/types/expected.h"
 #include "content/browser/interest_group/auction_metrics_recorder.h"
 #include "content/browser/interest_group/auction_process_manager.h"
+#include "content/browser/interest_group/interest_group_features.h"
 #include "content/browser/interest_group/subresource_url_authorizations.h"
 #include "content/browser/interest_group/subresource_url_builder.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
@@ -59,32 +61,6 @@
 using testing::UnorderedElementsAre;
 
 namespace content {
-class ProcessHandleTestPeer {
- public:
-  explicit ProcessHandleTestPeer(
-      const AuctionProcessManager::ProcessHandle* handle)
-      : handle_(handle) {}
-
-  void CallOnLaunchedWithPid() {
-    handle_->OnBaseProcessLaunchedForTesting(base::Process::Current());
-  }
-
-  std::unique_ptr<AuctionProcessManager::ProcessHandle> CloneHandle(
-      AuctionProcessManager& auction_process_manager) {
-    auto new_handle = std::make_unique<AuctionProcessManager::ProcessHandle>();
-    base::test::TestFuture<void> process_available;
-    if (!auction_process_manager.RequestWorkletService(
-            handle_->worklet_type_, handle_->origin_,
-            /*frame_site_instance=*/nullptr, new_handle.get(),
-            process_available.GetCallback())) {
-      CHECK(process_available.Wait());
-    }
-    return new_handle;
-  }
-
- private:
-  raw_ptr<const AuctionProcessManager::ProcessHandle> handle_;
-};
 
 namespace {
 
@@ -248,7 +224,7 @@ class MockBidderWorklet : public auction_worklet::mojom::BidderWorklet {
       mojo::PendingAssociatedReceiver<
           auction_worklet::mojom::GenerateBidFinalizer> bid_finalizer)
       override {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 
   void SendPendingSignalsRequests() override {
@@ -293,7 +269,7 @@ class MockBidderWorklet : public auction_worklet::mojom::BidderWorklet {
       std::optional<uint32_t> bidding_signals_data_version,
       uint64_t trace_id,
       ReportWinCallback report_win_callback) override {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 
   void ConnectDevToolsAgent(
@@ -432,7 +408,7 @@ class MockSellerWorklet : public auction_worklet::mojom::SellerWorklet {
       const url::Origin& bidder_joining_origin,
       mojo::PendingRemote<auction_worklet::mojom::ScoreAdClient>
           score_ad_client) override {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 
   void SendPendingSignalsRequests() override {
@@ -471,7 +447,7 @@ class MockSellerWorklet : public auction_worklet::mojom::SellerWorklet {
       std::optional<uint32_t> browser_signal_data_version,
       uint64_t trace_id,
       ReportResultCallback report_result_callback) override {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 
   void ConnectDevToolsAgent(
@@ -550,55 +526,55 @@ class MockSellerWorklet : public auction_worklet::mojom::SellerWorklet {
 // mojo::ReceiverSet makes it easier to track which call came over which
 // receiver than using separate classes.
 class MockAuctionProcessManager
-    : public AuctionProcessManager,
+    : public DedicatedAuctionProcessManager,
       public auction_worklet::mojom::AuctionWorkletService {
  public:
-  MockAuctionProcessManager() = default;
+  MockAuctionProcessManager()
+      : DedicatedAuctionProcessManager(/*trusted_signals_cache=*/nullptr) {}
   ~MockAuctionProcessManager() override = default;
 
-  // AuctionProcessManager implementation:
-  void SetTrustedSignalsCache(
-      mojo::PendingRemote<auction_worklet::mojom::TrustedSignalsCache>
-          trusted_signals_cache) override {}
-  scoped_refptr<AuctionProcessManager::WorkletProcess> LaunchProcess(
-      const ProcessHandle* process_handle,
-      const std::string& display_name) override {
-    mojo::PendingReceiver<auction_worklet::mojom::AuctionWorkletService>
-        pending_receiver;
-    auto worklet_process = base::MakeRefCounted<WorkletProcess>(
-        this, /*site_instance=*/nullptr, /*render_process_host=*/nullptr,
-        pending_receiver.InitWithNewPipeAndPassRemote(),
-        process_handle->worklet_type(), process_handle->origin(),
-        /*uses_shared_process=*/false);
-    mojo::ReceiverId receiver_id =
-        receiver_set_.Add(this, std::move(pending_receiver));
+  struct WorkletInfo {
+    bool operator==(const WorkletInfo& other) const = default;
+
+    WorkletType worklet_type;
+    url::Origin origin;
+  };
+
+  // DedicatedAuctionProcessManager implementation:
+  WorkletProcess::ProcessContext CreateProcessInternal(
+      WorkletProcess& worklet_process) override {
+    mojo::PendingRemote<auction_worklet::mojom::AuctionWorkletService> service;
 
     // Have to flush the receiver set, so that any closed receivers are removed,
-    // before searching for duplicate process names.
+    // before searching for duplicate worklets.
     receiver_set_.FlushForTesting();
 
-    // Each receiver should get a unique display name. This check serves to help
-    // ensure that processes are correctly reused.
-    EXPECT_EQ(0u, receiver_display_name_map_.count(receiver_id));
-    for (auto receiver : receiver_display_name_map_) {
-      // Ignore closed receivers. ReportWin() will result in re-loading a
-      // worklet, after closing the original worklet, which may require
-      // re-creating the AuctionWorkletService.
-      if (receiver_set_.HasReceiver(receiver.first)) {
-        EXPECT_NE(receiver.second, display_name);
-      }
+    WorkletInfo info{worklet_process.worklet_type(), worklet_process.origin()};
+
+    for (auto context : receiver_set_.GetAllContexts()) {
+      EXPECT_NE(*context.second, info);
     }
 
-    receiver_display_name_map_[receiver_id] = display_name;
-    return worklet_process;
+    receiver_set_.Add(this, service.InitWithNewPipeAndPassReceiver(),
+                      std::move(info));
+
+    return WorkletProcess::ProcessContext(std::move(service));
   }
 
   void OnNewProcessAssigned(const ProcessHandle* handle) override {
     if (defer_on_launched_for_handles_) {
-      deferred_on_launch_call_handles_.push_back(
-          ProcessHandleTestPeer(handle).CloneHandle(*this));
+      auto new_handle =
+          std::make_unique<AuctionProcessManager::ProcessHandle>();
+      base::test::TestFuture<void> process_available;
+      if (!RequestWorkletService(handle->worklet_type(), handle->origin(),
+                                 /*frame_site_instance=*/nullptr,
+                                 new_handle.get(),
+                                 process_available.GetCallback())) {
+        CHECK(process_available.Wait());
+      }
+      deferred_on_launch_call_handles_.push_back(std::move(new_handle));
     } else {
-      ProcessHandleTestPeer(handle).CallOnLaunchedWithPid();
+      handle->OnBaseProcessLaunchedForTesting(base::Process::Current());
     }
   }
 
@@ -606,28 +582,20 @@ class MockAuctionProcessManager
 
   void CallOnLaunchedWithPidForAllHandles() {
     for (auto& handle : deferred_on_launch_call_handles_) {
-      ProcessHandleTestPeer(handle.get()).CallOnLaunchedWithPid();
+      handle->OnBaseProcessLaunchedForTesting(base::Process::Current());
     }
     deferred_on_launch_call_handles_.clear();
   }
-
-  scoped_refptr<SiteInstance> MaybeComputeSiteInstance(
-      SiteInstance* frame_site_instance,
-      const url::Origin& worklet_origin) override {
-    return nullptr;
-  }
-
-  bool TryUseSharedProcess(ProcessHandle* process_handle) override {
-    return false;
-  }
-
-  bool UsingDedicatedUtilityProcesses() override { return false; }
 
   void DisableBidderWorkletDtorPendingSignalsCheck() {
     enable_bidder_worklet_dtor_pending_signals_check_ = false;
   }
 
   // auction_worklet::mojom::AuctionWorkletService implementation:
+
+  void SetTrustedSignalsCache(
+      mojo::PendingRemote<auction_worklet::mojom::TrustedSignalsCache>
+          trusted_signals_cache) override {}
 
   void LoadBidderWorklet(
       mojo::PendingReceiver<auction_worklet::mojom::BidderWorklet>
@@ -652,9 +620,10 @@ class MockAuctionProcessManager
     DCHECK(!bidder_worklet_);
 
     // Make sure this request came over the right pipe.
-    EXPECT_EQ(receiver_display_name_map_[receiver_set_.current_receiver()],
-              ComputeDisplayName(AuctionProcessManager::WorkletType::kBidder,
-                                 url::Origin::Create(script_source_url)));
+    EXPECT_EQ(receiver_set_.current_context().worklet_type,
+              AuctionProcessManager::WorkletType::kBidder);
+    EXPECT_EQ(receiver_set_.current_context().origin,
+              url::Origin::Create(script_source_url));
 
     bidder_worklet_ = std::make_unique<MockBidderWorklet>(
         std::move(bidder_worklet_receiver),
@@ -689,9 +658,10 @@ class MockAuctionProcessManager
     DCHECK(!seller_worklet_);
 
     // Make sure this request came over the right pipe.
-    EXPECT_EQ(receiver_display_name_map_[receiver_set_.current_receiver()],
-              ComputeDisplayName(AuctionProcessManager::WorkletType::kSeller,
-                                 url::Origin::Create(script_source_url)));
+    EXPECT_EQ(receiver_set_.current_context().worklet_type,
+              AuctionProcessManager::WorkletType::kSeller);
+    EXPECT_EQ(receiver_set_.current_context().origin,
+              url::Origin::Create(script_source_url));
 
     seller_worklet_ = std::make_unique<MockSellerWorklet>(
         std::move(seller_worklet_receiver),
@@ -750,9 +720,11 @@ class MockAuctionProcessManager
   // Used to verify that worklets are created in the right process.
   std::map<mojo::ReceiverId, std::string> receiver_display_name_map_;
 
-  // ReceiverSet is last so that destroying `this` while there's a pending
-  // callback over the pipe will not DCHECK.
-  mojo::ReceiverSet<auction_worklet::mojom::AuctionWorkletService>
+  // ReceiverSet is last (except for ProcessHandles) so that destroying `this`
+  // while there's a pending callback over the pipe will not DCHECK. Each
+  // context is the WorkletProcess associated with the pipe, to make sure
+  // worklets are requested over the correct pipe.
+  mojo::ReceiverSet<auction_worklet::mojom::AuctionWorkletService, WorkletInfo>
       receiver_set_;
 
   bool defer_on_launched_for_handles_ = false;
@@ -2803,8 +2775,11 @@ TEST_F(AuctionWorkletManagerTest,
 class AuctionWorkletManagerKVv2Test : public AuctionWorkletManagerTest {
  public:
   AuctionWorkletManagerKVv2Test() {
-    feature_list_.InitAndEnableFeature(
-        blink::features::kFledgeTrustedSignalsKVv2Support);
+    feature_list_.InitWithFeatures(
+        /*enabled_features=*/
+        {blink::features::kFledgeTrustedSignalsKVv2Support},
+        /*disabled_features=*/
+        {features::kFledgeUseKVv2SignalsCache});
   }
 
   ~AuctionWorkletManagerKVv2Test() override { DCHECK(!fetch_key_callback_); }
@@ -3421,6 +3396,50 @@ TEST_F(AuctionWorkletManagerKVv2Test, SellerWorkletWithoutCoordinator) {
   EXPECT_EQ(kDecisionLogicUrl, seller_worklet->script_source_url());
   EXPECT_EQ(kTrustedSignalsUrl, seller_worklet->trusted_scoring_signals_url());
   EXPECT_TRUE(!seller_worklet->public_key());
+}
+
+// Test that when both kFledgeTrustedSignalsKVv2Support and
+// kFledgeUseKVv2SignalsCache are enabled, bidder worklets don't get
+// TrustedSignalsPublicKey, but seller worklets do. This is because the cache
+// currently only supports bidder worklets, and manages the keys itself, while
+// seller worklet KVv2 requests still must be managed by the worklet process.
+TEST_F(AuctionWorkletManagerKVv2Test, KVv2SignalsCacheEnabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(features::kFledgeUseKVv2SignalsCache);
+
+  std::unique_ptr<AuctionWorkletManager::WorkletHandle> bidder_handle;
+  base::test::TestFuture<void> bidder_worklet_available;
+  auction_worklet_manager_->RequestBidderWorklet(
+      kAuction1, kDecisionLogicUrl, kWasmUrl, kTrustedSignalsUrl,
+      /*needs_cors_for_additional_bid=*/false,
+      /*experiment_group_id=*/std::nullopt,
+      /*trusted_bidding_signals_slot_size_param=*/"", coordinator_,
+      bidder_worklet_available.GetCallback(), NeverInvokedFatalErrorCallback(),
+      bidder_handle,
+      auction_metrics_recorder_manager_->CreateAuctionMetricsRecorder());
+  ASSERT_TRUE(bidder_worklet_available.Wait());
+  EXPECT_TRUE(bidder_handle->GetBidderWorklet());
+  std::unique_ptr<MockBidderWorklet> bidder_worklet =
+      auction_process_manager_.WaitForBidderWorklet();
+  EXPECT_EQ(kDecisionLogicUrl, bidder_worklet->script_source_url());
+  EXPECT_EQ(kTrustedSignalsUrl, bidder_worklet->trusted_bidding_signals_url());
+  EXPECT_FALSE(bidder_worklet->public_key());
+
+  std::unique_ptr<AuctionWorkletManager::WorkletHandle> seller_handle;
+  base::test::TestFuture<void> seller_worklet_available;
+  auction_worklet_manager_->RequestSellerWorklet(
+      kAuction1, kDecisionLogicUrl, kTrustedSignalsUrl,
+      /*experiment_group_id=*/std::nullopt, coordinator_,
+      seller_worklet_available.GetCallback(), NeverInvokedFatalErrorCallback(),
+      seller_handle,
+      auction_metrics_recorder_manager_->CreateAuctionMetricsRecorder());
+  ASSERT_TRUE(seller_worklet_available.Wait());
+  EXPECT_TRUE(seller_handle->GetSellerWorklet());
+  std::unique_ptr<MockSellerWorklet> seller_worklet =
+      auction_process_manager_.WaitForSellerWorklet();
+  EXPECT_EQ(kDecisionLogicUrl, seller_worklet->script_source_url());
+  EXPECT_EQ(kTrustedSignalsUrl, seller_worklet->trusted_scoring_signals_url());
+  EXPECT_TRUE(PublicKeyEvaluateHelper(seller_worklet->public_key(), key_));
 }
 
 }  // namespace

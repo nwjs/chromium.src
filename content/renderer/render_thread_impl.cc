@@ -59,7 +59,6 @@
 #include "base/trace_event/memory_dump_manager.h"
 #include "base/trace_event/memory_pressure_level_proto.h"
 #include "base/trace_event/trace_event.h"
-#include "base/trace_event/typed_macros.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -149,7 +148,6 @@
 #include "skia/ext/skia_memory_dump_provider.h"
 #include "third_party/blink/public/common/origin_trials/origin_trials_settings_provider.h"
 #include "third_party/blink/public/common/page/launching_process_state.h"
-#include "third_party/blink/public/common/performance/performance_scenarios.h"
 #include "third_party/blink/public/common/switches.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/origin_trials/origin_trials_settings.mojom.h"
@@ -349,6 +347,30 @@ bool IsBackgrounded(std::optional<base::Process::Priority> process_priority) {
   }
 }
 
+perfetto::StaticString ProcessPriorityToString(
+    base::Process::Priority priority) {
+  switch (priority) {
+    case base::Process::Priority::kBestEffort:
+      return "Best effort";
+    case base::Process::Priority::kUserVisible:
+      return "User visible";
+    case base::Process::Priority::kUserBlocking:
+      return "User blocking";
+  }
+  NOTREACHED();
+}
+
+perfetto::StaticString ProcessVisibilityToString(
+    mojom::RenderProcessVisibleState visible_state) {
+  switch (visible_state) {
+    case mojom::RenderProcessVisibleState::kVisible:
+      return "Visible";
+    case mojom::RenderProcessVisibleState::kHidden:
+      return "Hidden";
+  }
+  NOTREACHED();
+}
+
 }  // namespace
 
 RenderThreadImpl::HistogramCustomizer::HistogramCustomizer() {
@@ -480,6 +502,8 @@ RenderThreadImpl::RenderThreadImpl(
       main_thread_scheduler_(std::move(scheduler)),
       client_id_(client_id) {
   TRACE_EVENT0("startup", "RenderThreadImpl::Create");
+  TRACE_EVENT_BEGIN("renderer", "Unknown", process_priority_track_);
+  TRACE_EVENT_BEGIN("renderer", "Unknown", process_visibility_track_);
   Init();
 }
 
@@ -510,6 +534,8 @@ RenderThreadImpl::RenderThreadImpl(
       main_thread_scheduler_(std::move(scheduler)),
       client_id_(GetClientIdFromCommandLine()) {
   TRACE_EVENT0("startup", "RenderThreadImpl::Create");
+  TRACE_EVENT_BEGIN("renderer", "Unknown", process_priority_track_);
+  TRACE_EVENT_BEGIN("renderer", "Unknown", process_visibility_track_);
   Init();
 }
 
@@ -665,6 +691,9 @@ void RenderThreadImpl::Init() {
 }
 
 RenderThreadImpl::~RenderThreadImpl() {
+  TRACE_EVENT_END("renderer", process_priority_track_);
+  TRACE_EVENT_END("renderer", process_visibility_track_);
+
   // The destructor should not run in multi-process mode because Shutdown()
   // terminates the process. The destructor only needs to clean up for tests.
   CHECK(IsSingleProcess());
@@ -1331,7 +1360,7 @@ void RenderThreadImpl::OnProcessFinalRelease() {
   // caused race conditions, where the browser process was reusing renderer
   // processes that were shutting down.
   // See https://crbug.com/535246 or https://crbug.com/873541/#c8.
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 #if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
@@ -1388,6 +1417,17 @@ void RenderThreadImpl::SetProcessState(
       OnRendererHidden();
   }
 
+  if (process_priority_ != process_priority) {
+    TRACE_EVENT_END("renderer", process_priority_track_);
+    TRACE_EVENT_BEGIN("renderer", ProcessPriorityToString(process_priority),
+                      process_priority_track_);
+  }
+
+  if (visible_state_ != visible_state) {
+    TRACE_EVENT_END("renderer", process_visibility_track_);
+    TRACE_EVENT_BEGIN("renderer", ProcessVisibilityToString(visible_state),
+                      process_visibility_track_);
+  }
   process_priority_ = process_priority;
   visible_state_ = visible_state;
 }
@@ -1490,46 +1530,26 @@ void RenderThreadImpl::CreateAssociatedAgentSchedulingGroup(
       *this, std::move(agent_scheduling_group)));
 }
 
-void RenderThreadImpl::TransferSharedMemoryRegions(
-    base::ReadOnlySharedMemoryRegion last_foreground_time_region,
-    base::ReadOnlySharedMemoryRegion performance_scenario_region,
-    base::ReadOnlySharedMemoryRegion global_performance_scenario_region) {
+void RenderThreadImpl::TransferSharedLastForegroundTime(
+    base::ReadOnlySharedMemoryRegion last_foreground_time_region) {
   if (!last_foreground_time_mapping_.has_value()) {
     last_foreground_time_mapping_ =
         base::AtomicSharedMemory<base::TimeTicks>::MapReadOnlyRegion(
             std::move(last_foreground_time_region));
   }
 
-  // The result of ReadOnlyPtr() will only be valid until
-  // `last_foreground_time_mapping_` is unmapped. In multi-process mode, that's
-  // on process exit, so it's safe to save the pointer and never reset it. In
-  // single-process mode, it's important that other threads not have a copy of
-  // the pointer after `this` is destroyed. But also, since base stores the
-  // pointer in a per-process global, in single-process-mode each
-  // RenderThreadImpl would overwrite it and the stored value would be wrong for
-  // most "renderers" anyway. So the easiest way to avoid accessing the pointer
-  // after it's unmapped is to never set it in the first place.
-  const bool is_single_process = IsSingleProcess();
-  if (!is_single_process && last_foreground_time_mapping_.has_value()) {
+  if (!IsSingleProcess()) {
+    // The pointer will only be valid until `last_foreground_time_mapping_` is
+    // unmapped. In multi-process mode, that's on process exit, so it's safe to
+    // save the pointer and never reset it. In single-process mode, it's
+    // important that other threads not have a copy of the pointer after `this`
+    // is destroyed. But also, since base stores the pointer in a per-process
+    // global, in single-process-mode each RenderThreadImpl would overwrite it
+    // and the stored value would be wrong for most "renderers" anyway. So the
+    // easiest way to avoid accessing the pointer after it's unmapped is to
+    // never set it in the first place.
     base::internal::SetSharedLastForegroundTimeForMetrics(
         last_foreground_time_mapping_->ReadOnlyPtr());
-  }
-
-  // Only map the per-process scenario region when the renderer is not running
-  // in the browser process.
-  if (!is_single_process) {
-    performance_scenario_memory_.emplace(
-        blink::performance_scenarios::Scope::kCurrentProcess,
-        std::move(performance_scenario_region));
-  }
-
-  // The global scenario region is the same for every process, but it should
-  // already be mapped by the browser process so no need to map it here in
-  // single-process mode.
-  if (!is_single_process) {
-    global_performance_scenario_memory_.emplace(
-        blink::performance_scenarios::Scope::kGlobal,
-        std::move(global_performance_scenario_region));
   }
 }
 
@@ -1563,7 +1583,7 @@ void RenderThreadImpl::SetWebKitSharedTimersSuspended(bool suspend) {
     main_thread_scheduler_->ResumeTimersForAndroidWebView();
   }
 #else
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 #endif
 }
 
@@ -1583,7 +1603,7 @@ void RenderThreadImpl::UpdateScrollbarTheme(
 #if BUILDFLAG(IS_APPLE)
   is_elastic_overscroll_enabled_ = params->scroll_view_rubber_banding;
 #else
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 #endif  // BUILDFLAG(IS_APPLE)
 }
 
@@ -1593,7 +1613,7 @@ void RenderThreadImpl::OnSystemColorsChanged(int32_t aqua_color_variant) {
   // that rely on system colors, such as the accent and highlight colors.
   blink::SystemColorsChanged();
 #else
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 #endif
 }
 
@@ -1620,7 +1640,7 @@ void RenderThreadImpl::PurgePluginListCache(bool reload_pages) {
   for (auto& observer : observers_)
     observer.PluginListChanged();
 #else
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 #endif
 }
 

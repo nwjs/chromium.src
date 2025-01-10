@@ -305,10 +305,9 @@
 <translation id="2018630726571919839">‏Tell me a joke (لطیفه‌ای بگو)</translation>
 <translation id="2021864487439853900">قفل‌گشایی با کلیک کردن</translation>
 <translation id="2034971124472263449">درهرصورت ذخیره شود</translation>
-<translation id="2041220428661959602">‏مقدار شارژ باتری: ‎<ph name="BATTERY_PERCENTAGE" />٪</translation>
+<translation id="2041220428661959602">‏سطح باتری: ‎<ph name="BATTERY_PERCENTAGE" />٪</translation>
 <translation id="204259843076055848">میان‌بر <ph name="SIX_PACK_KEY_NAME" /> درحال‌حاضر خاموش است</translation>
 <translation id="2049240716062114887">نام میز کار به <ph name="DESK_NAME" /> تغییر کرد</translation>
-<translation id="2050339315714019657">پرتره</translation>
 <translation id="2064048859448024834">پیش‌نمای دوربین روشن است</translation>
 <translation id="2065098273523946419">پیوند کسب اطلاعات بیشتر. وقتی فعال شود به مرورگر هدایت می‌شود</translation>
 <translation id="2067220651560163985">نمایش دما به سلسیوس</translation>
@@ -339,9 +338,6 @@
 <translation id="219905428774326614">راه‌انداز، همه برنامه‌ها</translation>
 <translation id="2201071101391734388">عکس اخیر <ph name="INDEX" /> از <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">‏جمع کردن Google Tasks</translation>
-<translation id="2206960886090042977">صفحه لمسی داخلی غیرفعال شد زیرا موشواره متصل شده است. از موشواره یا صفحه‌کلید برای تأیید این تغییر استفاده کنید.
-
-درغیراین‌صورت صفحه لمسی داخلی پس‌از ۳۰ ثانیه دوباره فعال می‌شود.</translation>
 <translation id="2208323208084708176">حالت میز کار یکپارچه</translation>
 <translation id="2220572644011485463">پین یا گذرواژه</translation>
 <translation id="2222841058024245321">میز کار ۷</translation>
@@ -504,6 +500,9 @@
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> تا <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">‏مهار+جستجو+s</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" /> تحت مدیریت <ph name="MANAGER" /></translation>
+<translation id="2781658180588759579">صفحه لمسی داخلی غیرفعال شد. از صفحه‌کلید یا دستگاه اشاره‌گر دیگری برای تأیید این تغییر استفاده کنید.
+
+درغیراین‌صورت، صفحه لمسی داخلی پس‌از <ph name="TIMEOUT_SECONDS" /> دوباره فعال می‌شود.</translation>
 <translation id="2782591952652094792">خروج از حالت ضبط</translation>
 <translation id="2785499565474703580">یک دستگاه متصل است</translation>
 <translation id="2791421900609674576">توصیه‌هایی خواهید دید تا بتوانید کارتان را از جایی که رها کرده‌اید ادامه دهید. برای حذف توصیه‌ها می‌توانید لمس کنید و نگه دارید.</translation>
@@ -601,6 +600,9 @@
 <translation id="3113492864356515707">برجسته کردن مورد قبلی در قفسه</translation>
 <translation id="311799651966070385">بستن یادآوری خودکار</translation>
 <translation id="3120421559657122717">دستگاه خاموش شود؟</translation>
+<translation id="3121411970001795539">صفحه لمسی داخلی غیرفعال شد زیرا موشواره متصل شده است. از موشواره یا صفحه‌کلید برای تأیید این تغییر استفاده کنید.
+
+درغیراین‌صورت، صفحه لمسی داخلی پس‌از <ph name="TIMEOUT_SECONDS" /> دوباره فعال می‌شود.</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">نوع کار کلاسی</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +973,13 @@
 <translation id="4322742403972824594">میان‌بر صفحه‌کلید «مهار + دگرساز + جهت‌نمای بالا» تغییر کرده است. برای استفاده از کلید «صفحه اصلی»، کلید «<ph name="LAUNCHER_KEY_NAME" /> + جهت‌نمای چپ» را فشار دهید.</translation>
 <translation id="4324840740119394760">با این کار، دسترسی به دوربین برای <ph name="APP_NAME" /> و همه برنامه‌ها و وب‌سایت‌های دارای اجازه دوربین مجاز می‌شود</translation>
 <translation id="4327147325944669226">ضبط کردن بازی</translation>
-<translation id="4333628967105022692">‏وقتی چند کاربر به سیستم وارد شده باشند، از Lacros پشتیبانی نمی‌شود.</translation>
 <translation id="4338109981321384717">ذره‌بین</translation>
 <translation id="4348580496249286403">‫<ph name="VOLUME_LEVEL" />، بی‌صدا است</translation>
 <translation id="4351244548802238354">بستن کادر گفتگو</translation>
 <translation id="4356872429719185452">نمایش جزئیات نقطه اتصال. نقطه اتصال درحال روشن شدن است.</translation>
 <translation id="4364101114148522660">درحال ضبط کردن <ph name="DURATION" /></translation>
 <translation id="4371348193907997655">تنظیمات پخش محتوا</translation>
+<translation id="4371834685492830207">پین باید فقط حاوی نویسه‌های معتبر باشد</translation>
 <translation id="4375482231364171368">جستجو در نوار نشانی</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />، قدرت سیگنال <ph name="SIGNAL_STRENGTH" /> درصد</translation>
 <translation id="4378551569595875038">در حال اتصال..</translation>
@@ -1124,7 +1126,7 @@
 <translation id="485806788160414322">پخش یا مکث رسانه</translation>
 <translation id="4858764087721901597"><ph name="MODIFIER_ONE" />سپس <ph name="KEY_ONE" /> یا <ph name="KEY_TWO" /> یا <ph name="KEY_THREE" /> یا <ph name="KEY_FOUR" /></translation>
 <translation id="4860284199500934869">برای بارگیری <ph name="FILENAME" />، اتصال شبکه را بررسی کنید</translation>
-<translation id="4864369630010738180">در حال ورود به سیستم...</translation>
+<translation id="4864369630010738180">درحال ورود به سیستم…</translation>
 <translation id="4864648187878336334">میز کار ۱۵</translation>
 <translation id="4868492592575313542">فعال شد</translation>
 <translation id="4871905435473761992">نمایش جزئیات نقطه اتصال. شبکه تلفن همراه شما از نقطه اتصال پشتیبانی نمی‌کند.</translation>
@@ -1143,6 +1145,7 @@
 <translation id="4902797682482387055">تکلیف پیشنهادی برای تمرکز کردن</translation>
 <translation id="490375751687810070">عمودی</translation>
 <translation id="490788395437447240"><ph name="BATTERY_PERCENTAGE" />٪ باتری</translation>
+<translation id="4911191962826748981">این یک ویژگی آزمایشی مبتنی بر هوش مصنوعی است و همیشه درست عمل نمی‌کند.</translation>
 <translation id="491504982845934899">فعال‌سازی بعداز راه‌اندازی دستگاه <ph name="NETWORK_NAME" /></translation>
 <translation id="4917385247580444890">قوی</translation>
 <translation id="4918086044614829423">می‌پذیرم</translation>
@@ -1301,6 +1304,7 @@
 <translation id="5393156353051693207">برای تغییر ترتیب برنامه‌ها، جایی را لمس کنید و نگه دارید</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" /> موجود در بالای <ph name="IN_PLACE_APP" />، برای ایجاد پوشه رها کنید.</translation>
 <translation id="5397578532367286026">‏میزان مصرف و سابقه این کاربر می‌تواند توسط مدیر (<ph name="MANAGER_EMAIL" />) در chrome.com بازبینی شود.</translation>
+<translation id="540338817371815859">افقی</translation>
 <translation id="540713187982329711">روشن/ خاموش کردن نقطه اتصال. نقطه اتصال روشن است، هیچ دستگاهی متصل نیست.</translation>
 <translation id="5409208741270395213">علامت‌گذاری تکلیف به‌عنوان تکمیل‌شده</translation>
 <translation id="5413656666631274079">صفحه تنظیمات</translation>
@@ -1371,7 +1375,7 @@
 <translation id="5625955975703555628">LTE+‎</translation>
 <translation id="5627392655516693966">گذرواژه‌تان تأیید نشد. دوباره امتحان کنید.</translation>
 <translation id="5632485077360054581">نمایش روش انجام کار</translation>
-<translation id="5633826232582408011">‏وقتی «کمک گرفتن در نوشتن» و «کمک گرفتن در خواندن» را روشن می‌کنید، نوشتار ورودی، محتوای سند، و نشانی وب صفحه وب برای تولید پیشنهادهای نوشتاری، تولید خلاصه، پاسخ به سؤالات، و بهبود محصول، منوط به رعایت <ph name="LINK_TO_SERVICE_TERMS" />، به سرورهای هوش مصنوعی Google ارسال می‌شود. اطلاعات شخصی، حساس، یا محرمانه را وارد نکنید.</translation>
+<translation id="5633826232582408011">‏وقتی «کمک گرفتن در نوشتن» و «کمک گرفتن در خواندن» را روشن می‌کنید، نوشتار ورودی، محتوای سند، و نشانی وب صفحه وب برای تولید پیشنهادهای نگارشی، تولید خلاصه، پاسخ به سؤالات، و بهبود محصول، منوط به رعایت <ph name="LINK_TO_SERVICE_TERMS" />، به سرورهای هوش مصنوعی Google ارسال می‌شود. اطلاعات شخصی، حساس، یا محرمانه را وارد نکنید.</translation>
 <translation id="5648021990716966815">فیش میکروفون</translation>
 <translation id="5652575806481723716"><ph name="FOCUSED_APP_NAME" /> به توجه شما نیاز دارد.</translation>
 <translation id="5662075790140998213">میز کار ۱۰</translation>
@@ -1472,7 +1476,6 @@
 <translation id="5975235751479998104">چرخش روبه جلو میان پنجره‌ها</translation>
 <translation id="5978382165065462689">هم‌رسانی کنترل صفحه‌تان از طریق راهنمایی ازراه‌دور.</translation>
 <translation id="5980301590375426705">خروج از مهمان</translation>
-<translation id="5982119059638483922">‏برای لغو کردن، کلیدهای «Fn+جستجو» یا «تبدیل» را فشار دهید.</translation>
 <translation id="5983567367406220847">نقطه اتصال به‌دلیل عدم فعالیت خاموش شد.</translation>
 <translation id="598407983968395253">استفاده از الگو</translation>
 <translation id="5986723678596105470">‏پیوستن با Google Meet</translation>
@@ -1542,7 +1545,6 @@
 <translation id="6166852626429024716">جستجوی دستگاه، برنامه‌ها، تنظیمات، وب، و غیره</translation>
 <translation id="6168318496333165060">باز کردن برنامه «عیب‌یابی»</translation>
 <translation id="6168622430237609329">برنامه‌های نصب‌شده شما</translation>
-<translation id="6173151025443907148">‏اگر Lacros فعال باشد، از ورود به سیستم کاربر دوم پشتیبانی نمی‌شود. لطفاً به‌جای آن از نمایه مرورگر دیگری در Lacros استفاده کنید یا Lacros را غیرفعال کنید و دوباره امتحان کنید.</translation>
 <translation id="6179832488876878285">‏می‌توانید فایل‌های مهم را اینجا پین کنید. برای شروع کار، برنامه Files را باز کنید.</translation>
 <translation id="6180193585172850042">دکمه برگشت</translation>
 <translation id="6180651297859206670">دکمه جلو بردن</translation>
@@ -1564,6 +1566,7 @@
 <translation id="6232416233079464213">از <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> درحال استفاده از دوربین و میکروفون است</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">گذرواژه باید فقط حاوی نویسه‌های معتبر باشد</translation>
 <translation id="6240603910551255087">دکمه بالایی</translation>
 <translation id="6240821072888636753">هربار پرسیده شود</translation>
 <translation id="6247728804802644171">باز کردن اعلان‌ها</translation>
@@ -1659,7 +1662,7 @@
 <translation id="6574622320167699133">قفل با تلفنتان باز شد. برای ورود، تک‌ضرب بزنید یا کلیک کنید.</translation>
 <translation id="6578407462441924264">بدون نام</translation>
 <translation id="6582012689384648647">‏برای فهرست‌های پخش تمرکز که برای شما شخصی‌سازی شده است، دسترسی به YouTube Music را مجاز کنید</translation>
-<translation id="6582034443359256692">درحال محاسبه سطح شارژ باتری.</translation>
+<translation id="6582034443359256692">درحال محاسبه سطح باتری.</translation>
 <translation id="6585808820553845416">جلسه در <ph name="SESSION_TIME_REMAINING" /> به پایان می‌رسد.</translation>
 <translation id="6593850935013518327"><ph name="PRIMARY_TEXT" />، <ph name="SECONDARY_TEXT" /></translation>
 <translation id="6597278316891651699">دوربین به گوشه پایین سمت چپ چسبید. تداخلی با سطح سیستم روی داد.</translation>
@@ -1694,7 +1697,6 @@
 <translation id="6682029141988159141">جای‌گذاری محتوا از بریده‌دان</translation>
 <translation id="6683022854667115063">هدفون</translation>
 <translation id="6686023075541098243">راه‌اندازی مشاهده اعلان‌های تلفن</translation>
-<translation id="6688019813898140556">‏‫۵ بار کلید Esc</translation>
 <translation id="6694462491298752106">صفحه لمسی داخلی غیرفعال است</translation>
 <translation id="6694973220096431421">‏در Google Drive جستجو کنید</translation>
 <translation id="6696025732084565524">لازم است صفحه‌کلید قابل جدا شدن به‌روزرسانی ضروری شود</translation>
@@ -1715,6 +1717,7 @@
 <translation id="6751826523481687655">ردیابی عملکرد روشن است</translation>
 <translation id="6752912906630585008">میز <ph name="REMOVED_DESK" /> برداشته شد و با میز <ph name="RECEIVE_DESK" /> ادغام شد</translation>
 <translation id="6753390234084146956">برگه‌ها</translation>
+<translation id="6754918760968695779">درج سریع</translation>
 <translation id="6757237461819837179">هیچ رسانه‌ای درحال پخش نیست</translation>
 <translation id="6760438044935091345">داشبورد بازی‌ها</translation>
 <translation id="6768043681523654438">فضای ذخیره‌سازی</translation>
@@ -1764,6 +1767,7 @@
 <translation id="6921427376813842559">به‌روزرسانی دستگاه</translation>
 <translation id="6929081673585394903">نمایش کنترل‌ها</translation>
 <translation id="6931576957638141829">ذخیره در</translation>
+<translation id="6935857786205183008">عمودی</translation>
 <translation id="6942518653766415536">منوی قالب ضبط</translation>
 <translation id="6945221475159498467">انتخاب</translation>
 <translation id="6945922087561257829">‏تلفن شما از شبکه تلفن همراه استفاده می‌کند. مطمئن شوید تلفن و Chromebook به یک شبکه Wi-Fi متصل باشند و سپس دوباره امتحان کنید. <ph name="LEARN_MORE" /></translation>
@@ -1920,9 +1924,6 @@
 برای خاموش کردن دستگاه، دکمه روشن/خاموش روی دستگاه را دوباره فشار دهید و نگه دارید.</translation>
 <translation id="7523420897035067483">وقتی در حالت «تمرکز» هستید، «مزاحم نشوید» فعال می‌شود</translation>
 <translation id="7524043547948122239">Google Tasks</translation>
-<translation id="7524919752437339268">صفحه لمسی داخلی غیرفعال شد. از صفحه‌کلید یا دستگاه اشاره‌گر دیگری برای تأیید این تغییر استفاده کنید.
-
-درغیراین‌صورت صفحه لمسی داخلی پس‌از ۳۰ ثانیه دوباره فعال می‌شود.</translation>
 <translation id="7525067979554623046">ایجاد</translation>
 <translation id="7526573455193969409">ممکن است شبکه پایش شود</translation>
 <translation id="7536035074519304529">‏نشانی IP: <ph name="ADDRESS" /></translation>
@@ -2009,6 +2010,7 @@
 <translation id="780301667611848630">نه متشکرم</translation>
 <translation id="7807067443225230855">جستجو و دستیار</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> و <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">«رأی موافق» بازخوردی با این معنا ارسال می‌کند که شما این پیشنهاد را می‌پسندید</translation>
 <translation id="7825412704590278437">از رویداد تقویم پیش‌رو</translation>
 <translation id="7829386189513694949">سیگنال قوی</translation>
 <translation id="7830453190047749513">می‌توانید کنش دکمه‌ها، سرعت مکان‌نما، و موارد دیگر را در <ph name="PERIPHERAL_NAME" /> شخصی‌سازی کنید</translation>
@@ -2163,6 +2165,7 @@
 <translation id="830868413617744215">بتا</translation>
 <translation id="8314772463905284467">‏Caps Lock روشن است</translation>
 <translation id="8315514906653279104">درحال روشن کردن…</translation>
+<translation id="8319634750346253957">«رأی مخالف» بازخوردی با این معنا ارسال می‌کند که شما این پیشنهاد را نمی‌پسندید</translation>
 <translation id="8331351032546853669">بارگیری درحالت تعلیق است</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2347,6 +2350,7 @@
 <translation id="8982906748181120328">نمایان برای اطراف</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">درحال استفاده از <ph name="IME_NAME" /></translation>
+<translation id="8991648557324317894">‏برای لغو کردن، کلیدهای fn‏ + Quick Insert (درج سریع) یا Shift را فشار دهید.</translation>
 <translation id="899350903320462459">به‌عنوان <ph name="LOGIN_ID" />، قفل دستگاه را باز کنید تا کنش اعلان اجرا شود</translation>
 <translation id="8993733019280019776">درحال صحبت کردن هستید؟ میکروفون شما خاموش است. برای روشن کردن آن، میکروفون را انتخاب کنید.</translation>
 <translation id="9000771174482730261">مدیریت فضای ذخیره‌سازی</translation>
@@ -2429,9 +2433,9 @@
 <translation id="974545358917229949">نمایش <ph name="RESULT_COUNT" /> نتیجه برای <ph name="QUERY" /></translation>
 <translation id="981011780479609956">بدون سررسید</translation>
 <translation id="98120814841227350">رفتن به انتهای سند</translation>
-<translation id="98515147261107953">افقی</translation>
 <translation id="987589956647469042">داده تلفن همراه روشن است</translation>
 <translation id="989374776391122812">کنترل‌های دوربین و صدا</translation>
+<translation id="990263227494928142">‏کلید Shift را ۵ بار فشار دهید تا صفحه لمسی فعال شود</translation>
 <translation id="990277280839877440">پنجره <ph name="WINDOW_TITILE" /> بسته شد.</translation>
 <translation id="993398562350683614">‏مرحله <ph name="STEP" /> از <ph name="TOTAL_STEPS" /> در مراحل گشت. بااستفاده از برنامه‌ها، کارهای موردنیازتان را در <ph name="PRODUCT_NAME" /> انجام دهید. می‌توانید برنامه‌ها را در «راه‌انداز» پیدا کنید. برای تمرکز کردن روی «راه‌انداز»، کلیدهای «دگرساز + تبدیل + L» را فشار دهید.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />، <ph name="SUBTEXT" /></translation>

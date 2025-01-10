@@ -9,6 +9,7 @@
 
 #include "chrome/browser/ui/webui/ash/settings/pages/multidevice/multidevice_section.h"
 
+#include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "base/feature_list.h"
 #include "base/no_destructor.h"
@@ -770,9 +771,6 @@ void MultiDeviceSection::AddLoadTimeData(
   html_source->AddBoolean("isEcheAppEnabled", features::IsEcheSWAEnabled());
   OnEnableScreenLockChanged();
   OnScreenLockStatusChanged();
-  html_source->AddBoolean("isOnePageOnboardingEnabled",
-                          base::FeatureList::IsEnabled(
-                              ::features::kNearbySharingOnePageOnboarding));
   html_source->AddBoolean(
       "isSmartLockSignInRemoved",
       base::FeatureList::IsEnabled(features::kSmartLockSignInRemoved));

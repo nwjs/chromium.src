@@ -53,6 +53,7 @@ void SetExecutionRequest(
     case ModelBasedCapabilityKey::kSummarize:
     case ModelBasedCapabilityKey::kTextSafety:
     case ModelBasedCapabilityKey::kTest:
+    case ModelBasedCapabilityKey::kBlingPrototyping:
       // Do not log requests for these features.
       return;
   }
@@ -93,6 +94,7 @@ void SetExecutionResponse(ModelBasedCapabilityKey feature,
     case ModelBasedCapabilityKey::kSummarize:
     case ModelBasedCapabilityKey::kTextSafety:
     case ModelBasedCapabilityKey::kTest:
+    case ModelBasedCapabilityKey::kBlingPrototyping:
       // Do not log responses for these features.
       return;
   }
@@ -137,7 +139,7 @@ ReadOnDeviceModelExecutionConfig(const base::FilePath& config_path) {
 
 bool WasOnDeviceEligibleFeatureRecentlyUsed(ModelBasedCapabilityKey feature,
                                             const PrefService& local_state) {
-  if (!features::internal::IsOnDeviceModelEnabled(feature)) {
+  if (!features::internal::GetOptimizationTargetForCapability(feature)) {
     return false;
   }
   base::Time last_use = local_state.GetTime(

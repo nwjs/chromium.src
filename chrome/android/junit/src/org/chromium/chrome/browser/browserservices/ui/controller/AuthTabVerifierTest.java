@@ -8,17 +8,16 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import static org.chromium.chrome.browser.browserservices.ui.controller.AuthTabVerifier.RESULT_VERIFICATION_FAILED;
-import static org.chromium.chrome.browser.browserservices.ui.controller.AuthTabVerifier.RESULT_VERIFICATION_TIMED_OUT;
 import static org.chromium.chrome.browser.browserservices.ui.controller.AuthTabVerifier.VERIFICATION_TIMEOUT_MS;
 
 import android.app.Activity;
+
+import androidx.browser.auth.AuthTabIntent;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -38,12 +37,12 @@ import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.browserservices.verification.ChromeOriginVerifier;
 import org.chromium.chrome.browser.browserservices.verification.ChromeOriginVerifierFactory;
 import org.chromium.chrome.browser.customtabs.AuthTabIntentDataProvider;
+import org.chromium.chrome.browser.customtabs.BaseCustomTabActivity;
 import org.chromium.chrome.browser.customtabs.content.CustomTabActivityTabProvider;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.components.content_relationship_verification.OriginVerifier.OriginVerificationListener;
 import org.chromium.components.embedder_support.util.Origin;
 import org.chromium.components.embedder_support.util.UrlConstants;
-import org.chromium.components.externalauth.ExternalAuthUtils;
 import org.chromium.url.GURL;
 
 import java.util.concurrent.TimeUnit;
@@ -63,11 +62,9 @@ public class AuthTabVerifierTest {
 
     @Mock ActivityLifecycleDispatcher mLifecycleDispatcher;
     @Mock AuthTabIntentDataProvider mIntentDataProvider;
-    @Mock ChromeOriginVerifierFactory mOriginVerifierFactory;
     @Mock ChromeOriginVerifier mOriginVerifier;
     @Mock CustomTabActivityTabProvider mActivityTabProvider;
-    @Mock ExternalAuthUtils mExternalAuthUtils;
-    @Mock Activity mActivity;
+    @Mock BaseCustomTabActivity mActivity;
 
     private AuthTabVerifier mDelegate;
     private Runnable mDelayedTask;
@@ -79,17 +76,10 @@ public class AuthTabVerifierTest {
         when(mIntentDataProvider.getAuthRedirectHost()).thenReturn(REDIRECT_HOST);
         when(mIntentDataProvider.getAuthRedirectPath()).thenReturn(REDIRECT_PATH);
         when(mIntentDataProvider.getClientPackageName()).thenReturn("org.chromium.authtab");
-        when(mOriginVerifierFactory.create(anyString(), anyInt(), any(), any()))
-                .thenReturn(mOriginVerifier);
+        ChromeOriginVerifierFactory.setInstanceForTesting(mOriginVerifier);
+        when(mActivity.getCustomTabActivityTabProvider()).thenReturn(mActivityTabProvider);
 
-        mDelegate =
-                new AuthTabVerifier(
-                        mLifecycleDispatcher,
-                        mActivityTabProvider,
-                        mIntentDataProvider,
-                        mOriginVerifierFactory,
-                        mActivity,
-                        mExternalAuthUtils);
+        mDelegate = new AuthTabVerifier(mLifecycleDispatcher, mIntentDataProvider, mActivity);
     }
 
     void simulateVerificationResultFromNetwork(String url, boolean success) {
@@ -147,7 +137,7 @@ public class AuthTabVerifierTest {
         simulateVerificationResultFromNetwork(url, false);
 
         mDelegate.returnAsActivityResult(new GURL(url));
-        verify(mActivity).setResult(eq(RESULT_VERIFICATION_FAILED), any());
+        verify(mActivity).setResult(eq(AuthTabIntent.RESULT_VERIFICATION_FAILED), any());
         verify(mActivity).finish();
         histograms.assertExpected();
     }
@@ -204,11 +194,11 @@ public class AuthTabVerifierTest {
         verify(mActivity, never()).setResult(anyInt(), any());
         verify(mActivity, never()).finish();
 
-        ShadowSystemClock.advanceBy(VERIFICATION_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        ShadowSystemClock.advanceBy(VERIFICATION_TIMEOUT_MS.getValue(), TimeUnit.MILLISECONDS);
         // Simulate timeout.
         mDelayedTask.run();
 
-        verify(mActivity).setResult(eq(RESULT_VERIFICATION_TIMED_OUT), any());
+        verify(mActivity).setResult(eq(AuthTabIntent.RESULT_VERIFICATION_TIMED_OUT), any());
         verify(mActivity).finish();
         histograms.assertExpected();
     }

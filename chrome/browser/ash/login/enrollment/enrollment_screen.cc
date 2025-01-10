@@ -369,8 +369,7 @@ void EnrollmentScreen::ShowImpl() {
       AuthenticateUsingEnrollmentToken();
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 }
 
@@ -413,7 +412,7 @@ void EnrollmentScreen::OnTpmStatusResponse(
       ClearAuth(base::BindOnce(exit_callback_, Result::TPM_DBUS_ERROR));
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
 }
 
@@ -455,7 +454,7 @@ void EnrollmentScreen::CheckInstallAttributesState() {
       ClearAuth(base::BindOnce(exit_callback_, Result::TPM_ERROR));
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
 }
 
@@ -868,8 +867,17 @@ bool EnrollmentScreen::ShouldAutoRetryOnError() const {
 }
 
 bool EnrollmentScreen::AutoCloseEnrollmentConfirmationOnSuccess() const {
-  return prescribed_config_.mode ==
-         policy::EnrollmentConfig::MODE_ATTESTATION_ROLLBACK_FORCED;
+  if (prescribed_config_.mode ==
+      policy::EnrollmentConfig::MODE_ATTESTATION_ROLLBACK_FORCED) {
+    return true;
+  }
+  const std::optional<bool> skip_enrollment_success_screen =
+      context()->configuration.FindBool(
+          configuration::kSkipEnrollmentSuccessScreen);
+  if (!skip_enrollment_success_screen.has_value()) {
+    return false;
+  }
+  return skip_enrollment_success_screen.value();
 }
 
 bool EnrollmentScreen::IsEnrollmentScreenHiddenByError() {

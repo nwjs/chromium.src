@@ -24,7 +24,6 @@
 #include "base/trace_event/trace_event.h"
 #include "base/values.h"
 #include "build/chromeos_buildflags.h"
-#include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/favicon/favicon_utils.h"
 #include "chrome/browser/feedback/show_feedback_page.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
@@ -48,6 +47,7 @@
 #include "chrome/browser/ui/tabs/organization/tab_organization_service_factory.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_session.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_utils.h"
+#include "chrome/browser/ui/tabs/public/tab_interface.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_renderer_data.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
@@ -55,8 +55,8 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search_prefs.h"
-#include "chrome/browser/ui/webui/tab_search/tab_search_ui.h"
 #include "chrome/browser/ui/webui/util/image_util.h"
+#include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/browser/user_education/tutorial_identifiers.h"
 #include "chrome/browser/user_education/user_education_service.h"
 #include "chrome/browser/user_education/user_education_service_factory.h"
@@ -66,8 +66,8 @@
 #include "components/optimization_guide/core/optimization_guide_model_executor.h"
 #include "components/optimization_guide/proto/model_quality_service.pb.h"
 #include "components/signin/public/base/signin_metrics.h"
-#include "components/user_education/common/tutorial_identifier.h"
-#include "components/user_education/common/tutorial_service.h"
+#include "components/user_education/common/tutorial/tutorial_identifier.h"
+#include "components/user_education/common/tutorial/tutorial_service.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/time_format.h"
 #include "ui/color/color_provider.h"
@@ -195,7 +195,7 @@ TabSearchPageHandler::TabSearchPageHandler(
     mojo::PendingReceiver<tab_search::mojom::PageHandler> receiver,
     mojo::PendingRemote<tab_search::mojom::Page> page,
     content::WebUI* web_ui,
-    TabSearchUI* webui_controller,
+    TopChromeWebUIController* webui_controller,
     MetricsReporter* metrics_reporter)
     : optimization_guide::SettingsEnabledObserver(
           optimization_guide::UserVisibleFeatureKey::kTabOrganization),
@@ -208,7 +208,13 @@ TabSearchPageHandler::TabSearchPageHandler(
           FROM_HERE,
           kTabsChangeDelay,
           base::BindRepeating(&TabSearchPageHandler::NotifyTabsChanged,
-                              base::Unretained(this)))) {
+                              base::Unretained(this)))),
+      browser_window_changed_subscription_(
+          webui::RegisterBrowserWindowInterfaceChanged(
+              web_ui->GetWebContents(),
+              base::BindRepeating(
+                  &TabSearchPageHandler::BrowserWindowInterfaceChanged,
+                  base::Unretained(this)))) {
   browser_tab_strip_tracker_.Init();
   Profile* profile = Profile::FromWebUI(web_ui_);
   pref_change_registrar_.Init(profile->GetPrefs());
@@ -235,6 +241,7 @@ TabSearchPageHandler::TabSearchPageHandler(
     optimization_guide_keyed_service_->AddModelExecutionSettingsEnabledObserver(
         this);
   }
+  BrowserWindowInterfaceChanged();
 }
 
 TabSearchPageHandler::~TabSearchPageHandler() {
@@ -255,9 +262,10 @@ TabSearchPageHandler::~TabSearchPageHandler() {
 }
 
 void TabSearchPageHandler::CloseTab(int32_t tab_id) {
-  std::optional<TabDetails> optional_details = GetTabDetails(tab_id);
-  if (!optional_details)
+  std::optional<TabDetails> details = GetTabDetails(tab_id);
+  if (!details) {
     return;
+  }
 
   ++num_tabs_closed_;
 
@@ -267,36 +275,38 @@ void TabSearchPageHandler::CloseTab(int32_t tab_id) {
   // TabSearchPageHandler object, causing it to be immediately destroyed. Ensure
   // that no further actions are performed following the call to
   // CloseWebContentsAt(). See (https://crbug.com/1175507).
-  auto* tab_strip_model = optional_details->tab_strip_model.get();
-  const int tab_index = optional_details->index;
+  TabStripModel* const tab_strip_model =
+      details->tab->GetBrowserWindowInterface()->GetTabStripModel();
+  CHECK(tab_strip_model);
+  const int index = details->GetIndex();
+  // Don't dangle a tabs::TabInterface* in `details`.
+  details.reset();
   tab_strip_model->CloseWebContentsAt(
-      tab_index, TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
+      index, TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
   // Do not add code past this point.
 }
 
 void TabSearchPageHandler::DeclutterTabs(const std::vector<int32_t>& tab_ids) {
   // TODO(crbug.com/358382903): Add metrics logging.
   // Potentially also invoke IPH pending UX.
-  tabs::TabDeclutterController* controller = GetTabDeclutterController();
-  if (!controller) {
+  if (!tab_declutter_controller_) {
     return;
   }
 
-  std::vector<tabs::TabModel*> tab_models;
+  std::vector<tabs::TabInterface*> tabs;
 
   // Add tabs that are present in the current browser.
-  for (auto tab_id : tab_ids) {
-    std::optional<TabDetails> optional_details = GetTabDetails(tab_id);
-    if (!optional_details || optional_details->tab_strip_model.get() !=
-                                 controller->tab_strip_model()) {
+  for (const int32_t tab_id : tab_ids) {
+    const std::optional<TabDetails> details = GetTabDetails(tab_id);
+    if (!details ||
+        details->tab->GetBrowserWindowInterface()->GetTabStripModel() !=
+            tab_declutter_controller_->tab_strip_model()) {
       continue;
     }
 
-    const int tab_index = optional_details->index;
-    tab_models.push_back(
-        controller->tab_strip_model()->GetTabAtIndex(tab_index));
+    tabs.push_back(details->tab);
   }
-  controller->DeclutterTabs(tab_models);
+  tab_declutter_controller_->DeclutterTabs(tabs);
 
   auto embedder = webui_controller_->embedder();
   if (embedder) {
@@ -323,16 +333,15 @@ void TabSearchPageHandler::AcceptTabOrganization(
     return;
   }
 
-  std::vector<int> tabs_tab_ids;
+  std::unordered_set<int> tabs_tab_ids;
   for (tab_search::mojom::TabPtr& tab : tabs) {
-    tabs_tab_ids.emplace_back(tab->tab_id);
+    tabs_tab_ids.emplace(tab->tab_id);
   }
 
   std::vector<TabData::TabID> tab_ids_to_remove;
   for (const auto& tab_data : organization->tab_datas()) {
-    if (!tab_data->tab()->contents() ||
-        !base::Contains(tabs_tab_ids, extensions::ExtensionTabUtil::GetTabId(
-                                          tab_data->tab()->contents()))) {
+    if (!tab_data->tab()->GetContents() ||
+        !base::Contains(tabs_tab_ids, tab_data->tab_id())) {
       tab_ids_to_remove.emplace_back(tab_data->tab_id());
     }
   }
@@ -374,21 +383,98 @@ void TabSearchPageHandler::RenameTabOrganization(int32_t session_id,
 }
 
 void TabSearchPageHandler::ExcludeFromStaleTabs(int32_t tab_id) {
-  tabs::TabDeclutterController* controller = GetTabDeclutterController();
-  if (!controller) {
+  if (!tab_declutter_controller_) {
     return;
   }
 
-  std::optional<TabDetails> optional_details = GetTabDetails(tab_id);
+  std::optional<TabDetails> details = GetTabDetails(tab_id);
 
-  if (!optional_details || optional_details->tab_strip_model.get() !=
-                               controller->tab_strip_model()) {
+  if (!details ||
+      details->tab->GetBrowserWindowInterface()->GetTabStripModel() !=
+          tab_declutter_controller_->tab_strip_model()) {
     return;
   }
 
-  controller->ExcludeFromStaleTabs(
-      controller->tab_strip_model()->GetTabAtIndex(optional_details->index));
-  page_->StaleTabsChanged(FindStaleTabs());
+  tab_declutter_controller_->ExcludeFromStaleTabs(details->tab);
+
+  std::erase(stale_tabs_, details->tab);
+
+  page_->StaleTabsChanged(GetMojoStaleTabs());
+}
+
+void TabSearchPageHandler::RegisterTabDeclutterCallbacks(
+    tabs::TabInterface* tab) {
+  std::vector<base::CallbackListSubscription> subscriptions;
+
+  subscriptions.push_back(tab->RegisterDidEnterForeground(
+      base::BindRepeating(&TabSearchPageHandler::OnStaleTabDidEnterForeground,
+                          base::Unretained(this))));
+
+  subscriptions.push_back(tab->RegisterWillDetach(base::BindRepeating(
+      &TabSearchPageHandler::OnStaleTabWillDetach, base::Unretained(this))));
+
+  subscriptions.push_back(tab->RegisterPinnedStateChanged(
+      base::BindRepeating(&TabSearchPageHandler::OnStaleTabPinnedStateChanged,
+                          base::Unretained(this))));
+
+  subscriptions.push_back(tab->RegisterGroupChanged(base::BindRepeating(
+      &TabSearchPageHandler::OnStaleTabGroupChanged, base::Unretained(this))));
+
+  tab_declutter_subscriptions_map_[tab] = std::move(subscriptions);
+}
+
+void TabSearchPageHandler::UnregisterTabCallbacks() {
+  tab_declutter_subscriptions_map_.clear();
+}
+
+void TabSearchPageHandler::RemoveStaleTab(tabs::TabInterface* tab) {
+  CHECK(tab);
+  CHECK(std::find(stale_tabs_.begin(), stale_tabs_.end(), tab) !=
+        stale_tabs_.end());
+  CHECK(tab_declutter_subscriptions_map_.find(tab) !=
+        tab_declutter_subscriptions_map_.end());
+
+  // Remove the TabInterface from stale_tabs_
+  stale_tabs_.erase(std::remove(stale_tabs_.begin(), stale_tabs_.end(), tab),
+                    stale_tabs_.end());
+
+  // Unregister the subscriptions for this TabInterface
+  tab_declutter_subscriptions_map_.erase(tab);
+}
+
+void TabSearchPageHandler::BrowserWindowInterfaceChanged() {
+  auto* browser_window_interface =
+      webui::GetBrowserWindowInterface(web_ui_->GetWebContents());
+  SetTabDeclutterController(
+      browser_window_interface
+          ? browser_window_interface->GetFeatures().tab_declutter_controller()
+          : nullptr);
+}
+
+void TabSearchPageHandler::OnStaleTabDidEnterForeground(
+    tabs::TabInterface* tab) {
+  RemoveStaleTab(static_cast<tabs::TabInterface*>(tab));
+  page_->StaleTabsChanged(GetMojoStaleTabs());
+}
+
+void TabSearchPageHandler::OnStaleTabWillDetach(
+    tabs::TabInterface* tab,
+    tabs::TabInterface::DetachReason reason) {
+  RemoveStaleTab(static_cast<tabs::TabInterface*>(tab));
+  page_->StaleTabsChanged(GetMojoStaleTabs());
+}
+
+void TabSearchPageHandler::OnStaleTabPinnedStateChanged(tabs::TabInterface* tab,
+                                                        bool new_pinned_state) {
+  RemoveStaleTab(tab);
+  page_->StaleTabsChanged(GetMojoStaleTabs());
+}
+
+void TabSearchPageHandler::OnStaleTabGroupChanged(
+    tabs::TabInterface* tab,
+    std::optional<tab_groups::TabGroupId> new_group) {
+  RemoveStaleTab(tab);
+  page_->StaleTabsChanged(GetMojoStaleTabs());
 }
 
 void TabSearchPageHandler::GetProfileData(GetProfileDataCallback callback) {
@@ -418,7 +504,8 @@ void TabSearchPageHandler::GetProfileData(GetProfileDataCallback callback) {
 }
 
 void TabSearchPageHandler::GetStaleTabs(GetStaleTabsCallback callback) {
-  std::move(callback).Run(FindStaleTabs());
+  UpdateStaleTabs();
+  std::move(callback).Run(GetMojoStaleTabs());
 }
 
 void TabSearchPageHandler::GetTabSearchSection(
@@ -471,17 +558,21 @@ void TabSearchPageHandler::GetTabOrganizationSession(
 
 std::optional<TabSearchPageHandler::TabDetails>
 TabSearchPageHandler::GetTabDetails(int32_t tab_id) {
+  const tabs::TabHandle handle = tabs::TabHandle(tab_id);
+  tabs::TabInterface* const tab = handle.Get();
+  if (!tab) {
+    return std::nullopt;
+  }
+
   for (Browser* browser : *BrowserList::GetInstance()) {
     if (!ShouldTrackBrowser(browser)) {
       continue;
     }
 
-    TabStripModel* tab_strip_model = browser->tab_strip_model();
-    for (int index = 0; index < tab_strip_model->count(); ++index) {
-      content::WebContents* contents = tab_strip_model->GetWebContentsAt(index);
-      if (extensions::ExtensionTabUtil::GetTabId(contents) == tab_id) {
-        return TabDetails(browser, tab_strip_model, index);
-      }
+    TabStripModel* const tab_strip_model = browser->tab_strip_model();
+    if (tab_strip_model ==
+        tab->GetBrowserWindowInterface()->GetTabStripModel()) {
+      return TabDetails(browser, tab);
     }
   }
 
@@ -501,16 +592,17 @@ void TabSearchPageHandler::GetTabOrganizationModelStrategy(
 
 void TabSearchPageHandler::SwitchToTab(
     tab_search::mojom::SwitchToTabInfoPtr switch_to_tab_info) {
-  std::optional<TabDetails> optional_details =
+  const std::optional<TabDetails> details =
       GetTabDetails(switch_to_tab_info->tab_id);
-  if (!optional_details)
+  if (!details) {
     return;
+  }
 
   called_switch_to_tab_ = true;
 
-  const TabDetails& details = optional_details.value();
-  details.tab_strip_model->ActivateTabAt(details.index);
-  details.browser->window()->Activate();
+  details->tab->GetBrowserWindowInterface()->GetTabStripModel()->ActivateTabAt(
+      details->GetIndex());
+  details->browser->window()->Activate();
   metrics_reporter_->Measure(
       "SwitchToTab",
       base::BindOnce(
@@ -582,13 +674,7 @@ void TabSearchPageHandler::RemoveTabFromOrganization(
     return;
   }
 
-  for (const auto& tab_data : organization->tab_datas()) {
-    if (extensions::ExtensionTabUtil::GetTabId(tab_data->tab()->contents()) ==
-        tab->tab_id) {
-      organization->RemoveTabData(tab_data->tab_id());
-      break;
-    }
-  }
+  organization->RemoveTabData(tab->tab_id);
 }
 
 void TabSearchPageHandler::RejectSession(int32_t session_id) {
@@ -631,7 +717,7 @@ void TabSearchPageHandler::RestartSession() {
   restarting_ = true;
   TabOrganizationSession* current_session =
       organization_service_->GetSessionForBrowser(browser);
-  const tabs::TabModel* base_session_tab =
+  const tabs::TabInterface* base_session_tab =
       current_session ? current_session->base_session_tab() : nullptr;
   // Don't notify observers to avoid a repaint
   TabOrganizationSession* session =
@@ -658,15 +744,6 @@ void TabSearchPageHandler::SaveRecentlyClosedExpandedPref(bool expanded) {
       "Tabs.TabSearch.RecentlyClosedSectionToggleAction",
       expanded ? TabSearchRecentlyClosedToggleAction::kExpand
                : TabSearchRecentlyClosedToggleAction::kCollapse);
-}
-
-void TabSearchPageHandler::SetTabSearchSection(
-    tab_search::mojom::TabSearchSection section) {
-  if (section != tab_search::mojom::TabSearchSection::kNone) {
-    Profile::FromWebUI(web_ui_)->GetPrefs()->SetInteger(
-        tab_search_prefs::kTabSearchTabIndex,
-        tab_search_prefs::GetIntFromTabSearchSection(section));
-  }
 }
 
 void TabSearchPageHandler::SetOrganizationFeature(
@@ -731,7 +808,12 @@ void TabSearchPageHandler::TriggerFeedback(int32_t session_id) {
 
 void TabSearchPageHandler::TriggerSignIn() {
   Profile* profile = chrome::FindLastActive()->profile();
-  if (SigninErrorControllerFactory::GetForProfile(profile)->HasError()) {
+  const signin::IdentityManager* const identity_manager(
+      IdentityManagerFactory::GetInstance()->GetForProfile(profile));
+  CoreAccountId primary_account_id =
+      identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSignin);
+  if (identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
+          primary_account_id)) {
     signin_ui_util::ShowReauthForPrimaryAccountWithAuthError(
         profile, signin_metrics::AccessPoint::ACCESS_POINT_TAB_ORGANIZATION);
   } else {
@@ -884,74 +966,63 @@ tab_search::mojom::ProfileDataPtr TabSearchPageHandler::CreateProfileData() {
   return profile_data;
 }
 
-std::vector<tab_search::mojom::TabPtr> TabSearchPageHandler::FindStaleTabs() {
-  std::vector<tab_search::mojom::TabPtr> tabs;
-  tabs::TabDeclutterController* controller = GetTabDeclutterController();
-  if (!controller) {
-    return tabs;
+void TabSearchPageHandler::UpdateStaleTabs() {
+  stale_tabs_.clear();
+  UnregisterTabCallbacks();
+  if (!tab_declutter_controller_) {
+    return;
   }
-  std::vector<tabs::TabModel*> stale_tabs = controller->GetStaleTabs();
-  TabStripModel* tab_strip_model = controller->tab_strip_model();
-
-  for (tabs::TabModel* tab_model : stale_tabs) {
-    const int tab_index =
-        tab_strip_model->GetIndexOfWebContents(tab_model->contents());
-    const std::string last_active_text = GetLastActiveElapsedTextForDeclutter(
-        tab_model->contents()->GetLastActiveTime());
-    tabs.push_back(GetTab(tab_strip_model, tab_model->contents(), tab_index,
-                          last_active_text));
+  std::vector<tabs::TabInterface*> stale_tabs =
+      tab_declutter_controller_->GetStaleTabs();
+  stale_tabs_ = stale_tabs;
+  for (tabs::TabInterface* tab : stale_tabs_) {
+    RegisterTabDeclutterCallbacks(tab);
   }
-
-  return tabs;
 }
 
-void TabSearchPageHandler::TabDeclutterControllerInstalled() {
-  CHECK(GetTabDeclutterController());
-  tab_declutter_observation_.Observe(GetTabDeclutterController());
-  page_->StaleTabsChanged(FindStaleTabs());
+void TabSearchPageHandler::SetTabDeclutterController(
+    tabs::TabDeclutterController* tab_declutter_controller) {
+  if (tab_declutter_controller == tab_declutter_controller_) {
+    return;
+  }
+
+  tab_declutter_observation_.Reset();
+  tab_declutter_controller_ = tab_declutter_controller;
+  if (tab_declutter_controller_) {
+    tab_declutter_observation_.Observe(tab_declutter_controller_.get());
+    UpdateStaleTabs();
+    page_->StaleTabsChanged(GetMojoStaleTabs());
+  }
 }
 
 void TabSearchPageHandler::OnStaleTabsProcessed(
-    std::vector<tabs::TabModel*> tabs) {
-  std::vector<tab_search::mojom::TabPtr> stale_tabs;
-  TabStripModel* tab_strip_model =
-      GetTabDeclutterController()->tab_strip_model();
-  for (tabs::TabModel* tab_model : tabs) {
-    const int tab_index =
-        tab_strip_model->GetIndexOfWebContents(tab_model->contents());
-    stale_tabs.push_back(
-        GetTab(tab_strip_model, tab_model->contents(), tab_index));
+    std::vector<tabs::TabInterface*> tabs) {
+  stale_tabs_.clear();
+  UnregisterTabCallbacks();
+  stale_tabs_ = tabs;
+  for (tabs::TabInterface* tab : stale_tabs_) {
+    RegisterTabDeclutterCallbacks(tab);
   }
-
-  page_->StaleTabsChanged(std::move(stale_tabs));
+  page_->StaleTabsChanged(GetMojoStaleTabs());
 }
 
-tabs::TabDeclutterController*
-TabSearchPageHandler::GetTabDeclutterController() {
-  // There are multiple cases to consider here -
-  // 1. The declutter controller may not be installed in the webui controller at
-  // this time. This is because the webcontents can be preloaded ahead of time
-  // before the TabSearchBubbleHost is aware of its creation.
-  // 2. The declutter controller may be nullptr in cases like guest or incognito
-  // mode.
-  // 3. The webui may be hosted in other contexts like tab.
-  if (webui_controller_->tab_declutter_controller()) {
-    return webui_controller_->tab_declutter_controller();
+std::vector<mojo::StructPtr<tab_search::mojom::Tab>>
+TabSearchPageHandler::GetMojoStaleTabs() {
+  std::vector<mojo::StructPtr<tab_search::mojom::Tab>> mojo_tabs;
+  if (!tab_declutter_controller_) {
+    return mojo_tabs;
   }
+  TabStripModel* tab_strip_model = tab_declutter_controller_->tab_strip_model();
 
-  // TODO(b/366467114): Look into installing the declutter controller in the
-  // webui controller instead.
-  tabs::TabInterface* tab =
-      tabs::TabInterface::MaybeGetFromContents(web_ui_->GetWebContents());
-
-  if (tab) {
-    CHECK(tab->GetBrowserWindowInterface());
-    return tab->GetBrowserWindowInterface()
-        ->GetFeatures()
-        .tab_declutter_controller();
+  for (tabs::TabInterface* tab : stale_tabs_) {
+    const int tab_index =
+        tab_strip_model->GetIndexOfWebContents(tab->GetContents());
+    const std::string last_active_text = GetLastActiveElapsedTextForDeclutter(
+        tab->GetContents()->GetLastActiveTime());
+    mojo_tabs.push_back(GetTab(tab_strip_model, tab->GetContents(), tab_index,
+                               last_active_text));
   }
-
-  return nullptr;
+  return mojo_tabs;
 }
 
 void TabSearchPageHandler::AddRecentlyClosedEntries(
@@ -1087,18 +1158,19 @@ tab_search::mojom::TabPtr TabSearchPageHandler::GetTab(
     int index,
     std::string custom_last_active_text) const {
   auto tab_data = tab_search::mojom::Tab::New();
+  const tabs::TabInterface* const tab = tab_strip_model->GetTabAtIndex(index);
 
-  tab_data->active = tab_strip_model->active_index() == index;
-  tab_data->tab_id = extensions::ExtensionTabUtil::GetTabId(contents);
+  tab_data->active = tab->IsInForeground();
+  tab_data->tab_id = tab->GetTabHandle();
   tab_data->index = index;
-  const std::optional<tab_groups::TabGroupId> group_id =
-      tab_strip_model->GetTabGroupForTab(index);
+  const std::optional<tab_groups::TabGroupId> group_id = tab->GetGroup();
   if (group_id.has_value()) {
     tab_data->group_id = group_id.value().token();
   }
+  tab_data->pinned = tab->IsPinned();
+
   TabRendererData tab_renderer_data =
       TabRendererData::FromTabInModel(tab_strip_model, index);
-  tab_data->pinned = tab_renderer_data.pinned;
   tab_data->title = base::UTF16ToUTF8(tab_renderer_data.title);
   const auto& last_committed_url = tab_renderer_data.last_committed_url;
   // A visible URL is used when the a new tab is still loading.
@@ -1167,6 +1239,7 @@ TabSearchPageHandler::GetRecentlyClosedTab(sessions::tab_restore::Tab* tab,
   DCHECK(tab->navigations.size() > 0);
   sessions::SerializedNavigationEntry& entry =
       tab->navigations[tab->current_navigation_index];
+  // N.B. Recently closed tabs use session ids, not TabHandle ids.
   recently_closed_tab->tab_id = tab->id.id();
   recently_closed_tab->url = entry.virtual_url();
   recently_closed_tab->title = entry.title().empty()
@@ -1199,13 +1272,13 @@ void TabSearchPageHandler::OnTabStripModelChanged(
   if (change.type() == TabStripModelChange::kRemoved) {
     std::vector<int> tab_ids;
     std::set<SessionID> tab_restore_ids;
-    for (auto& content_with_index : change.GetRemove()->contents) {
-      tab_ids.push_back(
-          extensions::ExtensionTabUtil::GetTabId(content_with_index.contents));
+    for (const auto& removed_tab : change.GetRemove()->contents) {
+      tabs::TabInterface* tab = removed_tab.tab;
+      tab_ids.push_back(tab->GetTabHandle());
 
-      if (content_with_index.session_id.has_value() &&
-          content_with_index.session_id.value().is_valid()) {
-        tab_restore_ids.insert(content_with_index.session_id.value());
+      if (removed_tab.session_id.has_value() &&
+          removed_tab.session_id.value().is_valid()) {
+        tab_restore_ids.insert(removed_tab.session_id.value());
       }
     }
 
@@ -1309,9 +1382,9 @@ bool TabSearchPageHandler::IsWebContentsVisible() {
 tab_search::mojom::TabPtr TabSearchPageHandler::GetMojoForTabData(
     TabData* tab_data) const {
   return TabSearchPageHandler::GetTab(
-      tab_data->original_tab_strip_model(), tab_data->tab()->contents(),
+      tab_data->original_tab_strip_model(), tab_data->tab()->GetContents(),
       tab_data->original_tab_strip_model()->GetIndexOfWebContents(
-          tab_data->tab()->contents()));
+          tab_data->tab()->GetContents()));
 }
 
 tab_search::mojom::TabOrganizationPtr
@@ -1346,9 +1419,8 @@ TabSearchPageHandler::GetMojoForTabOrganizationSession(
   mojo_session->session_id = session->session_id();
   mojo_session->error = tab_search::mojom::TabOrganizationError::kNone;
   mojo_session->active_tab_id =
-      session->base_session_tab() ? extensions::ExtensionTabUtil::GetTabId(
-                                        session->base_session_tab()->contents())
-                                  : -1;
+      session->base_session_tab() ? session->base_session_tab()->GetTabHandle()
+                                  : tabs::TabHandle::NullValue;
   std::vector<tab_search::mojom::TabOrganizationPtr> organizations;
 
   TabOrganizationRequest::State state = session->request()->state();
@@ -1451,6 +1523,11 @@ void TabSearchPageHandler::OnChangeInFeatureCurrentlyEnabledState(
   // difference in some edge cases.
   bool enabled = TabOrganizationUtils::GetInstance()->IsEnabled(profile);
   page_->TabOrganizationEnabledChanged(enabled && organization_service_);
+}
+
+void TabSearchPageHandler::SetTabDeclutterControllerForTesting(
+    tabs::TabDeclutterController* tab_declutter_controller) {
+  SetTabDeclutterController(tab_declutter_controller);
 }
 
 bool TabSearchPageHandler::ShouldTrackBrowser(Browser* browser) {

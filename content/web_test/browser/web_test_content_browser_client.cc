@@ -149,6 +149,7 @@ class BoundsMatchVideoSizeOverlayWindow : public VideoOverlayWindow {
   void SetHangUpButtonVisibility(bool is_visible) override {}
   void SetNextSlideButtonVisibility(bool is_visible) override {}
   void SetPreviousSlideButtonVisibility(bool is_visible) override {}
+  void SetMediaPosition(const media_session::MediaPosition&) override {}
   void SetSurfaceId(const viz::SurfaceId& surface_id) override {}
 
  private:
@@ -743,6 +744,7 @@ std::string WebTestContentBrowserClient::GetAcceptLangs(
 }
 
 bool WebTestContentBrowserClient::IsInterestGroupAPIAllowed(
+    content::BrowserContext* browser_context,
     content::RenderFrameHost* render_frame_host,
     InterestGroupApiOperation operation,
     const url::Origin& top_frame_origin,

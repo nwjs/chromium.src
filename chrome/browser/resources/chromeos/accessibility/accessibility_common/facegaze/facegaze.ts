@@ -26,7 +26,7 @@ export class FaceGaze {
   private webCamFaceLandmarker_: WebCamFaceLandmarker;
   private bubbleController_: BubbleController;
 
-  constructor() {
+  constructor(isDictationActive: () => boolean) {
     this.webCamFaceLandmarker_ = new WebCamFaceLandmarker(
         (resultWithLatency: FaceLandmarkerResultWithLatency) => {
           const {result, latency} = resultWithLatency;
@@ -35,13 +35,25 @@ export class FaceGaze {
 
     this.bubbleController_ = new BubbleController(() => {
       return {
-        paused: this.gestureHandler_.isPaused(),
-        scrollModeActive: this.mouseController_.isScrollModeActive(),
+        paused: this.gestureHandler_.isPaused() ?
+            this.gestureHandler_.getGestureForPause() :
+            undefined,
+        scrollMode: this.mouseController_.isScrollModeActive() ?
+            this.gestureHandler_.getGestureForScroll() :
+            undefined,
+        longClick: this.mouseController_.isLongClickActive() ?
+            this.gestureHandler_.getGestureForLongClick() :
+            undefined,
+        dictation: isDictationActive() ?
+            this.gestureHandler_.getGestureForDictation() :
+            undefined,
+        heldActions: this.gestureHandler_.getHeldMacroDisplayStrings(),
       };
     });
 
     this.mouseController_ = new MouseController(this.bubbleController_);
-    this.gestureHandler_ = new GestureHandler(this.mouseController_);
+    this.gestureHandler_ = new GestureHandler(
+        this.mouseController_, this.bubbleController_, isDictationActive);
     this.metricsUtils_ = new MetricsUtils();
     this.prefsListener_ = prefs => this.updateFromPrefs_(prefs);
     this.init_();
@@ -143,11 +155,16 @@ export class FaceGaze {
       this.gestureHandler_.start();
     } else {
       this.gestureHandler_.stop();
+
+      // If actions are turned off while a toggled action is active, then we
+      // should toggle out of the relevant action. Otherwise, the user will be
+      // stuck in the action with no way to exit.
       if (this.mouseController_.isScrollModeActive()) {
-        // If actions are turned off while scroll mode is active, then we should
-        // toggle out of scroll mode. Otherwise, the user will be stuck in
-        // scroll mode with no way to exit.
         this.mouseController_.toggleScrollMode();
+      }
+
+      if (this.mouseController_.isLongClickActive()) {
+        this.mouseController_.toggleLongClick();
       }
     }
   }

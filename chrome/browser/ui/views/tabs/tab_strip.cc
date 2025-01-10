@@ -45,7 +45,6 @@
 #include "base/timer/elapsed_timer.h"
 #include "base/types/to_address.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/themes/theme_service_factory.h"
@@ -93,6 +92,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/list_selection_model.h"
+#include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/theme_provider.h"
 #include "ui/color/color_provider.h"
@@ -1217,7 +1217,7 @@ void TabStrip::SetTabData(int model_index, TabRendererData data) {
 
 void TabStrip::AddTabToGroup(std::optional<tab_groups::TabGroupId> group,
                              int model_index) {
-  tab_at(model_index)->SetGroup(group);
+  tab_at(model_index)->set_group(group);
 
   // Expand the group if the tab that is getting grouped is the active tab. This
   // can result in the group expanding in a series of actions where the final
@@ -1287,11 +1287,11 @@ bool TabStrip::ShouldDrawStrokes() const {
     return false;
   }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   if (chromeos::features::IsJellyrollEnabled()) {
     return false;
   }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   // The tabstrip normally avoids strokes and relies on the active tab
   // contrasting sufficiently with the frame background.  When there isn't
@@ -1460,6 +1460,10 @@ views::View* TabStrip::GetTabViewForPromoAnchor(int index_hint) {
 views::View* TabStrip::GetDefaultFocusableChild() {
   const std::optional<int> active = GetActiveIndex();
   return active.has_value() ? tab_at(active.value()) : nullptr;
+}
+
+BrowserWindowInterface* TabStrip::GetBrowserWindowInterface() {
+  return controller_->GetBrowserWindowInterface();
 }
 
 bool TabStrip::IsValidModelIndex(int index) const {
@@ -1702,7 +1706,7 @@ void TabStrip::NotifyTabGroupEditorBubbleClosed() {
 
 void TabStrip::ShowContextMenuForTab(Tab* tab,
                                      const gfx::Point& p,
-                                     ui::MenuSourceType source_type) {
+                                     ui::mojom::MenuSourceType source_type) {
   controller_->ShowContextMenuForTab(tab, p, source_type);
 }
 
@@ -1942,7 +1946,7 @@ bool TabStrip::IsFrameCondensed() const {
   return controller_->IsFrameCondensed();
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
 bool TabStrip::IsLockedForOnTask() {
   return controller_->IsLockedForOnTask();
 }
@@ -2321,7 +2325,7 @@ TabStrip::TabContextMenuController::TabContextMenuController(TabStrip* parent)
 void TabStrip::TabContextMenuController::ShowContextMenuForViewImpl(
     views::View* source,
     const gfx::Point& point,
-    ui::MenuSourceType source_type) {
+    ui::mojom::MenuSourceType source_type) {
   // We are only intended to be installed as a context-menu handler for tabs, so
   // this cast should be safe.
   CHECK(views::IsViewClass<Tab>(source), base::NotFatalUntil::M128)

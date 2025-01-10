@@ -209,7 +209,6 @@ public class PrivacySandboxDialogConsentEEA extends ChromeDialog
                     R.string.privacy_sandbox_m1_consent_learn_more_expand_label);
             view.announceForAccessibility(
                     getContext()
-                            .getResources()
                             .getString(
                                     isDropdownExpanded()
                                             ? R.string.accessibility_expanded_group
@@ -231,7 +230,6 @@ public class PrivacySandboxDialogConsentEEA extends ChromeDialog
             mLearnMoreText.setText(
                     SpanApplier.applySpans(
                             getContext()
-                                    .getResources()
                                     .getString(
                                             R.string.privacy_sandbox_m1_notice_learn_more_v2_clank),
                             new SpanApplier.SpanInfo(
@@ -274,7 +272,6 @@ public class PrivacySandboxDialogConsentEEA extends ChromeDialog
                                         errorCode);
                             }
                         };
-                // TODO(crbug.com/366010532): Add in functionality to add language code to the url
                 mThinWebView =
                         PrivacySandboxDialogController.createThinWebView(
                                 mWebContents, mProfile, mActivityWindowAndroid, privacyPolicyUrl);
@@ -297,9 +294,9 @@ public class PrivacySandboxDialogConsentEEA extends ChromeDialog
      * Handles clicks on the Privacy Policy link. If a ThinWebView is available, loads and displays
      * the privacy policy within it, replacing the consent view.
      *
-     * @param view The View that was clicked (typically the TextView containing the link).
+     * @param unused_view The View that was clicked (typically the TextView containing the link).
      */
-    private void onPrivacyPolicyClicked(View view) {
+    private void onPrivacyPolicyClicked(View unused_view) {
         RecordUserAction.record("Settings.PrivacySandbox.Consent.PrivacyPolicyLinkClicked");
         mPrivacyPolicyClickedTimestamp = System.currentTimeMillis();
         mPrivacyPolicyContent.removeAllViews();

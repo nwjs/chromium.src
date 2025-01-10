@@ -632,6 +632,52 @@ class MiscellaneousElementBrowserTest
   }
 };
 
+IN_PROC_BROWSER_TEST_F(MiscellaneousElementBrowserTest,
+                       EventsBubbleAndAreCancelable) {
+  NavigateToURL("/permissions/permission_element_events_tester.html");
+  const char* id = "camera";
+
+  {
+    permissions::PermissionRequestManager::FromWebContents(web_contents())
+        ->set_auto_response_for_test(
+            permissions::PermissionRequestManager::AutoResponseType::DISMISS);
+    permissions::PermissionRequestObserver observer(web_contents());
+    ClickElementWithId(web_contents(), id);
+    observer.Wait();
+
+    // The event is reported by the parent element, then the grandparent
+    // element.
+    WaitForDismissEvent(base::StrCat({"parent-", id}));
+    ExpectConsoleMessage(base::StrCat({"parent-", id, "-cancelable-true"}));
+    ExpectConsoleMessage(base::StrCat({"parent-", id, "-bubbles-true"}));
+
+    WaitForDismissEvent(base::StrCat({"grandparent-", id}));
+    ExpectConsoleMessage(
+        base::StrCat({"grandparent-", id, "-cancelable-true"}));
+    ExpectConsoleMessage(base::StrCat({"grandparent-", id, "-bubbles-true"}));
+  }
+
+  {
+    permissions::PermissionRequestManager::FromWebContents(web_contents())
+        ->set_auto_response_for_test(permissions::PermissionRequestManager::
+                                         AutoResponseType::ACCEPT_ALL);
+    permissions::PermissionRequestObserver observer(web_contents());
+    ClickElementWithId(web_contents(), id);
+    observer.Wait();
+
+    // The event is reported by the parent element, then the grandparent
+    // element.
+    WaitForResolveEvent(base::StrCat({"parent-", id}));
+    ExpectConsoleMessage(base::StrCat({"parent-", id, "-cancelable-true"}));
+    ExpectConsoleMessage(base::StrCat({"parent-", id, "-bubbles-true"}));
+
+    WaitForResolveEvent(base::StrCat({"grandparent-", id}));
+    ExpectConsoleMessage(
+        base::StrCat({"grandparent-", id, "-cancelable-true"}));
+    ExpectConsoleMessage(base::StrCat({"grandparent-", id, "-bubbles-true"}));
+  }
+}
+
 // Test crash reported in crbug.com/374034614, caused by a race condition
 // between HtmlPermissionElement::OnEmbeddedPermissionsDecided and
 // HtmlPermissionElement::OnPermissionStatusChange.

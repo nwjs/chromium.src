@@ -96,9 +96,13 @@ void ExceptionToRejectPromiseScope::ConvertExceptionToRejectPromise() {
   // As exceptions must always be created in the current realm, reject
   // promises must also be created in the current realm while regular promises
   // are created in the relevant realm of the context object.
-  ScriptState* script_state = ScriptState::ForCurrentRealm(info_);
-  bindings::V8SetReturnValue(info_, ScriptPromiseUntyped::Reject(
-                                        script_state, try_catch_.Exception()));
+  //
+  // We don't know the type of the promise here - but given that we're only
+  // going to extract the v8::Value and discard the ScriptPromise, it
+  // doesn't matter what type we use.
+  bindings::V8SetReturnValue(
+      info_, ScriptPromise<IDLUndefined>::Reject(
+                 ScriptState::ForCurrentRealm(info_), try_catch_.Exception()));
 }
 
 namespace bindings {
@@ -380,23 +384,6 @@ v8::Local<v8::Array> EnumerateIndexedProperties(v8::Isolate* isolate,
   for (uint32_t i = 0; i < length; ++i)
     elements.push_back(v8::Integer::New(isolate, i));
   return v8::Array::New(isolate, elements.data(), elements.size());
-}
-
-void AddDictionaryContextToException(v8::Isolate* isolate,
-                                     const char* dictionary_name,
-                                     v8::Local<v8::Name> v8_member_name,
-                                     ExceptionState& exception_state) {
-  DCHECK(exception_state.HadException());
-  if (exception_state.GetException().IsEmpty()) {
-    return;
-  }
-
-  CHECK(v8_member_name->IsString());
-  String member_name = ToCoreString(isolate, v8_member_name.As<v8::String>());
-  ExceptionContext exception_context(v8::ExceptionContext::kAttributeGet,
-                                     dictionary_name, member_name);
-  ApplyContextToException(ScriptState::ForCurrentRealm(isolate),
-                          exception_state.GetException(), exception_context);
 }
 
 template <typename IDLType,

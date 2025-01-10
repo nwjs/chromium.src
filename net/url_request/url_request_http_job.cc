@@ -329,18 +329,6 @@ void RecordSTSHistograms(net::SSLUpgradeDecision upgrade_decision,
       GetMetricForSSLUpgradeDecision(upgrade_decision, is_secure));
 }
 
-char const* GetSecFetchStorageAccessHeaderValue(
-    net::cookie_util::StorageAccessStatus storage_access_status) {
-  switch (storage_access_status) {
-    case net::cookie_util::StorageAccessStatus::kInactive:
-      return "inactive";
-    case net::cookie_util::StorageAccessStatus::kActive:
-      return "active";
-    case net::cookie_util::StorageAccessStatus::kNone:
-      return "none";
-  }
-}
-
 }  // namespace
 
 namespace net {
@@ -481,15 +469,6 @@ bool ShouldBlockAllCookies(PrivacyMode privacy_mode) {
 
 }  // namespace
 
-void URLRequestHttpJob::MaybeSetSecFetchStorageAccessHeader() {
-  if (request_->storage_access_status()) {
-    request_info_.extra_headers.SetHeader(
-        HttpRequestHeaders::kSecFetchStorageAccess,
-        GetSecFetchStorageAccessHeaderValue(
-            request_->storage_access_status().value()));
-  }
-}
-
 void URLRequestHttpJob::OnGotFirstPartySetMetadata(
     FirstPartySetMetadata first_party_set_metadata,
     FirstPartySetsCacheFilter::MatchInfo match_info) {
@@ -598,8 +577,7 @@ PrivacyMode URLRequestHttpJob::DeterminePrivacyMode() const {
     case NetworkDelegate::PrivacySetting::kStateDisallowed:
       return PRIVACY_MODE_ENABLED;
   }
-  NOTREACHED_IN_MIGRATION();
-  return PRIVACY_MODE_ENABLED;
+  NOTREACHED();
 }
 
 void URLRequestHttpJob::NotifyHeadersComplete() {
@@ -791,7 +769,6 @@ void URLRequestHttpJob::AddExtraHeaders() {
           accept_language);
     }
   }
-  MaybeSetSecFetchStorageAccessHeader();
 }
 
 void URLRequestHttpJob::AddCookieHeaderAndStart() {
@@ -952,6 +929,30 @@ void URLRequestHttpJob::SetCookieHeaderAndStart(
 
   request_->set_maybe_sent_cookies(std::move(maybe_sent_cookies));
 
+#if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
+  // Check if the right device bound cookies are set for the request, see
+  // https://wicg.github.io/dbsc/ for specification.
+  device_bound_sessions::SessionService* service =
+      request_->context()->device_bound_session_service();
+  if (service) {
+    std::optional<device_bound_sessions::Session::Id> id =
+        service->GetAnySessionRequiringDeferral(request_);
+    // If the request needs to be deferred while waiting for refresh,
+    // do not start the transaction at this time.
+    if (id) {
+      service->DeferRequestForRefresh(
+          request_, *id,
+          // restart with new cookies callback
+          base::BindOnce(&URLRequestHttpJob::RestartTransactionForRefresh,
+                         weak_factory_.GetWeakPtr()),
+          // continue callback
+          base::BindOnce(&URLRequestHttpJob::StartTransaction,
+                         weak_factory_.GetWeakPtr()));
+      return;
+    }
+  }
+#endif  // BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
+
   StartTransaction();
 }
 
@@ -1003,8 +1004,9 @@ void URLRequestHttpJob::SaveCookiesAndNotifyHeadersComplete(int result) {
   // If we're clearing the cookies as part of a clear-site-data header we must
   // not also write new ones in the same response.
   bool clear_site_data_prevents_cookies_from_being_stored = false;
-  std::string clear_site_data_header;
-  headers->GetNormalizedHeader(kClearSiteDataHeader, &clear_site_data_header);
+  std::string clear_site_data_header =
+      headers->GetNormalizedHeader(kClearSiteDataHeader)
+          .value_or(std::string());
   std::vector<std::string> clear_site_data_types =
       ClearSiteDataHeaderContents(clear_site_data_header);
   std::set<std::string> clear_site_data_set(clear_site_data_types.begin(),
@@ -1039,7 +1041,7 @@ void URLRequestHttpJob::SaveCookiesAndNotifyHeadersComplete(int result) {
   // Set all cookies, without waiting for them to be set. Any subsequent
   // read will see the combined result of all cookie operation.
   const std::string_view name("Set-Cookie");
-  std::string cookie_string;
+  std::optional<std::string_view> cookie_string_view;
   size_t iter = 0;
 
   // NotifyHeadersComplete needs to be called once and only once after the
@@ -1051,7 +1053,9 @@ void URLRequestHttpJob::SaveCookiesAndNotifyHeadersComplete(int result) {
   // still waiting when the loop ends, then NotifyHeadersComplete will be
   // called when it reaches 0 in the callback itself.
   num_cookie_lines_left_ = 1;
-  while (headers->EnumerateHeader(&iter, name, &cookie_string)) {
+  while ((cookie_string_view = headers->EnumerateHeader(&iter, name))) {
+    // Will need a copy of the string on all paths, so go ahead and make on now.
+    std::string cookie_string(*cookie_string_view);
     CookieInclusionStatus returned_status;
 
     num_cookie_lines_left_++;
@@ -1093,7 +1097,7 @@ void URLRequestHttpJob::SaveCookiesAndNotifyHeadersComplete(int result) {
         std::move(cookie), request_->url(), options,
         base::BindOnce(&URLRequestHttpJob::OnSetCookieResult,
                        weak_factory_.GetWeakPtr(), options, cookie_to_return,
-                       cookie_string),
+                       std::move(cookie_string)),
         std::move(cookie_access_result));
   }
   // Removing the 1 that |num_cookie_lines_left| started with, signifing that
@@ -1147,14 +1151,18 @@ void URLRequestHttpJob::ProcessDeviceBoundSessionsHeader() {
       device_bound_sessions::RegistrationFetcherParam::CreateIfValid(
           request_url, headers);
   for (auto& param : params) {
-    service->RegisterBoundSession(std::move(param), request_->isolation_info());
+    service->RegisterBoundSession(
+        request_->device_bound_session_access_callback(), std::move(param),
+        request_->isolation_info());
   }
 
   std::vector<device_bound_sessions::SessionChallengeParam> challenge_params =
       device_bound_sessions::SessionChallengeParam::CreateIfValid(request_url,
                                                                   headers);
   for (auto& param : challenge_params) {
-    service->SetChallengeForBoundSession(request_url, std::move(param));
+    service->SetChallengeForBoundSession(
+        request_->device_bound_session_access_callback(), request_url,
+        std::move(param));
   }
 }
 #endif  // BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
@@ -1175,6 +1183,12 @@ void URLRequestHttpJob::ProcessStrictTransportSecurityHeader() {
   // Don't accept HSTS headers when the hostname is an IP address.
   if (request_info_.url.HostIsIPAddress())
     return;
+
+  // Don't accept HSTS headers for localhost. (crbug.com/41251622)
+  if (net::IsLocalHostname(request_info_.url.host()) &&
+      base::FeatureList::IsEnabled(features::kIgnoreHSTSForLocalhost)) {
+    return;
+  }
 
   // http://tools.ietf.org/html/draft-ietf-websec-strict-transport-sec:
   //
@@ -1318,11 +1332,8 @@ void URLRequestHttpJob::OnReadCompleted(int result) {
   ReadRawDataComplete(result);
 }
 
-void URLRequestHttpJob::RestartTransactionWithAuth(
-    const AuthCredentials& credentials) {
+void URLRequestHttpJob::RestartTransaction() {
   DCHECK(!override_response_info_);
-
-  auth_credentials_ = credentials;
 
   // These will be reset in OnStartCompleted.
   response_info_ = nullptr;
@@ -1349,6 +1360,16 @@ void URLRequestHttpJob::RestartTransactionWithAuth(
   } else {
     StartTransaction();
   }
+}
+
+void URLRequestHttpJob::RestartTransactionForRefresh() {
+  RestartTransaction();
+}
+
+void URLRequestHttpJob::RestartTransactionWithAuth(
+    const AuthCredentials& credentials) {
+  auth_credentials_ = credentials;
+  RestartTransaction();
 }
 
 void URLRequestHttpJob::SetUpload(UploadDataStream* upload) {
@@ -1449,10 +1470,10 @@ std::unique_ptr<SourceStream> URLRequestHttpJob::SetUpSourceStream() {
   HttpResponseHeaders* headers = GetResponseHeaders();
   std::vector<SourceStream::SourceType> types;
   size_t iter = 0;
-  for (std::string type;
-       headers->EnumerateHeader(&iter, "Content-Encoding", &type);) {
+  while (std::optional<std::string_view> type =
+             headers->EnumerateHeader(&iter, "Content-Encoding")) {
     SourceStream::SourceType source_type =
-        FilterSourceStream::ParseEncodingType(type);
+        FilterSourceStream::ParseEncodingType(*type);
     switch (source_type) {
       case SourceStream::TYPE_BROTLI:
       case SourceStream::TYPE_DEFLATE:
@@ -1499,8 +1520,7 @@ std::unique_ptr<SourceStream> URLRequestHttpJob::SetUpSourceStream() {
         break;
       case SourceStream::TYPE_NONE:
       case SourceStream::TYPE_UNKNOWN:
-        NOTREACHED_IN_MIGRATION();
-        return nullptr;
+        NOTREACHED();
     }
     if (downstream == nullptr)
       return nullptr;
@@ -1813,9 +1833,8 @@ IPEndPoint URLRequestHttpJob::GetResponseRemoteEndpoint() const {
 
 void URLRequestHttpJob::RecordTimer() {
   if (request_creation_time_.is_null()) {
-    NOTREACHED_IN_MIGRATION()
+    NOTREACHED()
         << "The same transaction shouldn't start twice without new timing.";
-    return;
   }
 
   base::TimeDelta to_start = base::Time::Now() - request_creation_time_;
@@ -1842,8 +1861,7 @@ void URLRequestHttpJob::RecordTimer() {
 
 void URLRequestHttpJob::ResetTimer() {
   if (!request_creation_time_.is_null()) {
-    NOTREACHED_IN_MIGRATION() << "The timer was reset before it was recorded.";
-    return;
+    NOTREACHED() << "The timer was reset before it was recorded.";
   }
   request_creation_time_ = base::Time::Now();
 }

@@ -99,8 +99,6 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
 
   aura::Window* content_window() { return content_window_; }
 
-  views::corewm::TooltipController* tooltip_controller();
-
   Widget::InitParams::Type widget_type() const { return widget_type_; }
 
   // Ensures that the correct window is activated/deactivated based on whether
@@ -149,8 +147,6 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
   bool SetWindowTitle(const std::u16string& title) override;
   void SetWindowIcons(const gfx::ImageSkia& window_icon,
                       const gfx::ImageSkia& app_icon) override;
-  const gfx::ImageSkia* GetWindowIcon() override;
-  const gfx::ImageSkia* GetWindowAppIcon() override;
   void InitModalType(ui::mojom::ModalType modal_type) override;
   gfx::Rect GetWindowBoundsInScreen() const override;
   gfx::Rect GetClientAreaBoundsInScreen() const override;

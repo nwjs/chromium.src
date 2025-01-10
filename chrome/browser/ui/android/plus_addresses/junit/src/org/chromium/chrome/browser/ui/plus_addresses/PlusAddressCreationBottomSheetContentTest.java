@@ -12,10 +12,10 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.verify;
 
 import static org.chromium.chrome.browser.ui.plus_addresses.PlusAddressCreationProperties.ERROR_STATE_INFO;
-import static org.chromium.chrome.browser.ui.plus_addresses.PlusAddressCreationProperties.LEGACY_ERROR_REPORTING_INSTRUCTION_VISIBLE;
 import static org.chromium.chrome.browser.ui.plus_addresses.PlusAddressCreationProperties.PLUS_ADDRESS_LOADING_VIEW_VISIBLE;
 import static org.chromium.chrome.browser.ui.plus_addresses.PlusAddressCreationProperties.PROPOSED_PLUS_ADDRESS;
 
+import android.content.Context;
 import android.text.style.ClickableSpan;
 import android.view.View;
 import android.widget.Button;
@@ -38,8 +38,6 @@ import org.robolectric.shadows.ShadowView;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Batch;
-import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent.ContentPriority;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent.HeightMode;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
@@ -54,7 +52,6 @@ import org.chromium.url.GURL;
         shadows = {ShadowView.class})
 @LooperMode(LooperMode.Mode.LEGACY)
 @Batch(Batch.UNIT_TESTS)
-@EnableFeatures(ChromeFeatureList.PLUS_ADDRESS_ANDROID_ENHANCED_LOADING_STATES_ENABLED)
 public class PlusAddressCreationBottomSheetContentTest {
     private static final PlusAddressCreationNormalStateInfo FIRST_TIME_USAGE_INFO =
             new PlusAddressCreationNormalStateInfo(
@@ -64,9 +61,7 @@ public class PlusAddressCreationBottomSheetContentTest {
                     /* proposedPlusAddressPlaceholder= */ "First time placeholder",
                     /* confirmText= */ "First Ok",
                     /* cancelText= */ "First Cancel",
-                    /* errorReportInstruction= */ "First error! <link>test link</link>",
-                    /* learnMoreUrl= */ new GURL("first.time.com"),
-                    /* errorReportUrl= */ new GURL("first.time.error.com"));
+                    /* learnMoreUrl= */ new GURL("first.time.com"));
     private static final PlusAddressCreationNormalStateInfo SECOND_TIME_USAGE_INFO =
             new PlusAddressCreationNormalStateInfo(
                     /* title= */ "Second time title",
@@ -75,9 +70,7 @@ public class PlusAddressCreationBottomSheetContentTest {
                     /* proposedPlusAddressPlaceholder= */ "Second time placeholder",
                     /* confirmText= */ "Second Ok",
                     /* cancelText= */ "",
-                    /* errorReportInstruction= */ "Second error! <link>test link</link>",
-                    /* learnMoreUrl= */ new GURL("second.time.com"),
-                    /* errorReportUrl= */ new GURL("second.time.error.com"));
+                    /* learnMoreUrl= */ new GURL("second.time.com"));
     private static final PlusAddressCreationErrorStateInfo RESERVE_ERROR_STATE =
             new PlusAddressCreationErrorStateInfo(
                     PlusAddressCreationBottomSheetErrorType.RESERVE_TIMEOUT,
@@ -218,25 +211,6 @@ public class PlusAddressCreationBottomSheetContentTest {
 
     @Test
     @SmallTest
-    public void testLegacyErrorHandling_displaysErrorMessage() {
-        PropertyModel model =
-                PlusAddressCreationCoordinator.createDefaultModel(
-                        SECOND_TIME_USAGE_INFO, mDelegate, /* refreshSupported= */ false);
-        PropertyModelChangeProcessor.create(
-                model, mView, PlusAddressCreationViewBinder::bindPlusAddressCreationBottomSheet);
-        assertEquals(mView.mPlusAddressErrorReportView.getVisibility(), View.GONE);
-
-        model.set(LEGACY_ERROR_REPORTING_INSTRUCTION_VISIBLE, true);
-        assertEquals(mView.mPlusAddressErrorReportView.getVisibility(), View.VISIBLE);
-        assertEquals(mView.mProposedPlusAddressContainer.getVisibility(), View.GONE);
-        assertEquals(mView.mPlusAddressErrorReportView.getVisibility(), View.VISIBLE);
-        assertEquals(
-                mView.mPlusAddressErrorReportView.getText().toString(),
-                MODAL_FORMATTED_ERROR_MESSAGE);
-    }
-
-    @Test
-    @SmallTest
     public void testReserveError() {
         PropertyModel model =
                 PlusAddressCreationCoordinator.createDefaultModel(
@@ -270,27 +244,6 @@ public class PlusAddressCreationBottomSheetContentTest {
 
     @Test
     @SmallTest
-    public void testBottomsheetLinkClicked_callsDelegateOpenErrorReportLink() {
-        PropertyModel model =
-                PlusAddressCreationCoordinator.createDefaultModel(
-                        SECOND_TIME_USAGE_INFO, mDelegate, /* refreshSupported= */ false);
-        PropertyModelChangeProcessor.create(
-                model, mView, PlusAddressCreationViewBinder::bindPlusAddressCreationBottomSheet);
-
-        assertEquals(mView.mPlusAddressErrorReportView.getVisibility(), View.GONE);
-
-        model.set(LEGACY_ERROR_REPORTING_INSTRUCTION_VISIBLE, true);
-        assertEquals(mView.mPlusAddressErrorReportView.getVisibility(), View.VISIBLE);
-
-        ClickableSpan[] spans = mView.mPlusAddressErrorReportView.getClickableSpans();
-        assertEquals(spans.length, 1);
-        spans[0].onClick(mView.mPlusAddressErrorReportView);
-
-        verify(mDelegate).openUrl(SECOND_TIME_USAGE_INFO.getErrorReportUrl());
-    }
-
-    @Test
-    @SmallTest
     public void testLearnMoreLickClicked_callsDelegateOpenLearnMoreLink() {
         PropertyModel model =
                 PlusAddressCreationCoordinator.createDefaultModel(
@@ -315,9 +268,10 @@ public class PlusAddressCreationBottomSheetContentTest {
         assertEquals(mView.getPeekHeight(), HeightMode.DISABLED);
         assertEquals(mView.getHalfHeightRatio(), HeightMode.DISABLED, 0.1);
         assertEquals(mView.getFullHeightRatio(), HeightMode.WRAP_CONTENT, 0.1);
+        Context context = mView.getContentView().getContext();
         assertEquals(
-                mView.getSheetContentDescriptionStringId(),
-                R.string.plus_address_bottom_sheet_content_description);
+                mView.getSheetContentDescription(context),
+                context.getString(R.string.plus_address_bottom_sheet_content_description));
         assertEquals(
                 mView.getSheetFullHeightAccessibilityStringId(),
                 R.string.plus_address_bottom_sheet_content_description);

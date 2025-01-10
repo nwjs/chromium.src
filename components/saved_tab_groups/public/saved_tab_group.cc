@@ -9,7 +9,8 @@
 #include <string>
 #include <vector>
 
-#include "base/notreached.h"
+#include "base/metrics/histogram_functions.h"
+#include "base/not_fatal_until.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
@@ -256,8 +257,9 @@ SavedTabGroup& SavedTabGroup::RemoveTabLocally(
 }
 
 SavedTabGroup& SavedTabGroup::RemoveTabFromSync(
-    const base::Uuid& saved_tab_guid) {
-  RemoveTabImpl(saved_tab_guid);
+    const base::Uuid& saved_tab_guid,
+    bool ignore_empty_groups_for_testing) {
+  RemoveTabImpl(saved_tab_guid, ignore_empty_groups_for_testing);
   SetUpdateTimeWindowsEpochMicros(base::Time::Now());
   return *this;
 }
@@ -358,17 +360,6 @@ void SavedTabGroup::UpdateTabPositionsImpl() {
   SetUpdateTimeWindowsEpochMicros(base::Time::Now());
 }
 
-bool SavedTabGroup::RemoteGroupHasMoreRecentUpdates(
-    base::Time remote_group_update_time) const {
-  if (AlwaysAcceptServerDataInModel()) {
-    return true;
-  }
-
-  // TODO(crbug.com/40870787): Investigate if we should consider the creation
-  // time.
-  return remote_group_update_time >= update_time_windows_epoch_micros();
-}
-
 void SavedTabGroup::MergeRemoteGroupMetadata(
     const std::u16string& title,
     TabGroupColorId color,
@@ -376,10 +367,6 @@ void SavedTabGroup::MergeRemoteGroupMetadata(
     std::optional<std::string> creator_cache_guid,
     std::optional<std::string> last_updater_cache_guid,
     base::Time update_time) {
-  if (!RemoteGroupHasMoreRecentUpdates(update_time)) {
-    return;
-  }
-
   SetTitle(title);
   SetColor(color);
   if (position.has_value()) {
@@ -404,7 +391,6 @@ SavedTabGroup SavedTabGroup::CloneAsSharedTabGroup(
   SavedTabGroup shared_group(title(), color(), /*urls=*/{});
   shared_group.SetCollaborationId(std::move(collaboration_id));
   shared_group.SetOriginatingSavedTabGroupGuid(saved_guid());
-  shared_group.SetLocalGroupId(local_group_id());
 
   for (size_t i = 0; i < saved_tabs().size(); ++i) {
     const SavedTabGroupTab& tab = saved_tabs()[i];
@@ -414,18 +400,33 @@ SavedTabGroup SavedTabGroup::CloneAsSharedTabGroup(
     SavedTabGroupTab shared_tab(tab.url(), tab.title(),
                                 shared_group.saved_guid(), /*position=*/i);
     shared_tab.SetFavicon(tab.favicon());
-    shared_tab.SetLocalTabID(tab.local_tab_id());
     shared_group.AddTabLocally(std::move(shared_tab));
   }
   return shared_group;
 }
 
-void SavedTabGroup::RemoveTabImpl(const base::Uuid& saved_tab_guid) {
+bool SavedTabGroup::IsPendingSanitization() const {
+  for (const auto& tab : saved_tabs()) {
+    if (tab.is_pending_sanitization()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void SavedTabGroup::RemoveTabImpl(const base::Uuid& saved_tab_guid,
+                                  bool ignore_empty_groups_for_testing) {
   std::optional<size_t> index = GetIndexOfTab(saved_tab_guid);
   CHECK(index.has_value());
   CHECK_GE(index.value(), 0u);
   CHECK_LT(index.value(), saved_tabs_.size());
   saved_tabs_.erase(saved_tabs_.begin() + index.value());
+
+  base::UmaHistogramBoolean(
+      "TabGroups.SavedTabGroups.TabRemovedFromGroupWasLastTab",
+      saved_tabs_.empty());
+  CHECK(ignore_empty_groups_for_testing || !saved_tabs_.empty(),
+        base::NotFatalUntil::M135);
 }
 
 }  // namespace tab_groups

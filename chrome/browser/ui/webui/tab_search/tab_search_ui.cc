@@ -16,7 +16,6 @@
 #include "build/branding_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/tabs/organization/tab_declutter_controller.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_service_factory.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_utils.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -154,6 +153,9 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
       {"thumbsDown", IDS_TAB_ORGANIZATION_THUMBS_DOWN},
       {"thumbsUp", IDS_TAB_ORGANIZATION_THUMBS_UP},
       // Declutter UI strings
+      {"closeTabs", IDS_DECLUTTER_CLOSE_TABS},
+      {"declutterCloseTabAriaLabel", IDS_DECLUTTER_CLOSE_TAB_ARIA_LABEL},
+      {"declutterCloseTabTooltip", IDS_DECLUTTER_CLOSE_TAB_TOOLTIP},
       {"declutterEmptyBody", IDS_DECLUTTER_EMPTY_BODY},
       {"declutterEmptyTitle", IDS_DECLUTTER_EMPTY_TITLE},
       {"declutterTimestamp", IDS_DECLUTTER_TIMESTAMP},
@@ -162,6 +164,7 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
       {"autoTabGroupsSelectorHeading", IDS_AUTO_TAB_GROUPS_SELECTOR_HEADING},
       {"autoTabGroupsSelectorSubheading",
        IDS_AUTO_TAB_GROUPS_SELECTOR_SUBHEADING},
+      {"backButtonAriaLabel", IDS_TAB_ORGANIZATION_BACK_BUTTON_ARIA_LABEL},
       {"declutterSelectorSubheading", IDS_DECLUTTER_SELECTOR_SUBHEADING},
   };
   source->AddLocalizedStrings(kStrings);
@@ -196,6 +199,8 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
   source->AddBoolean(
       "declutterEnabled",
       features::IsTabstripDeclutterEnabled() && !profile->IsIncognitoProfile());
+  source->AddBoolean("dedupeEnabled", features::IsTabstripDedupeEnabled() &&
+                                          !profile->IsIncognitoProfile());
 
   ui::Accelerator accelerator(ui::VKEY_A,
                               ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR);
@@ -204,11 +209,11 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
   // configurable, replace the hardcoded 7 below with the value of that
   // parameter.
   source->AddString("declutterBody",
-                    l10n_util::GetStringFUTF16(IDS_DECLUTTER_BODY, u"7")),
+                    l10n_util::GetStringFUTF16(IDS_DECLUTTER_BODY, u"7"));
 
-      webui::SetupWebUIDataSource(
-          source, base::make_span(kTabSearchResources, kTabSearchResourcesSize),
-          IDR_TAB_SEARCH_TAB_SEARCH_HTML);
+  webui::SetupWebUIDataSource(
+      source, base::make_span(kTabSearchResources, kTabSearchResourcesSize),
+      IDR_TAB_SEARCH_TAB_SEARCH_HTML);
 
   content::URLDataSource::Add(
       profile, std::make_unique<FaviconSource>(
@@ -278,17 +283,4 @@ void TabSearchUI::CreatePageHandler(
 bool TabSearchUI::ShowTabOrganizationFRE() {
   PrefService* prefs = Profile::FromWebUI(web_ui())->GetPrefs();
   return prefs->GetBoolean(tab_search_prefs::kTabOrganizationShowFRE);
-}
-
-void TabSearchUI::InstallTabDeclutterController(
-    tabs::TabDeclutterController* tab_declutter_controller) {
-  if (tab_declutter_controller_ == tab_declutter_controller) {
-    return;
-  }
-
-  tab_declutter_controller_ = tab_declutter_controller;
-
-  if (page_handler_) {
-    page_handler_->TabDeclutterControllerInstalled();
-  }
 }

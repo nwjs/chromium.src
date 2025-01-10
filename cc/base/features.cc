@@ -45,18 +45,6 @@ BASE_FEATURE(kSynchronizedScrolling,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-BASE_FEATURE(kScrollSnapCoveringAvoidNestedSnapAreas,
-             "ScrollSnapCoveringAvoidNestedSnapAreas",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kScrollSnapCoveringUseNativeFling,
-             "ScrollSnapCoveringUseNativeFling",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kScrollSnapPreferCloserCovering,
-             "ScrollSnapPreferCloserCovering",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kMainRepaintScrollPrefersNewContent,
              "MainRepaintScrollPrefersNewContent",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -64,14 +52,6 @@ BASE_FEATURE(kMainRepaintScrollPrefersNewContent,
 
 BASE_FEATURE(kRenderSurfaceCommonAncestorClip,
              "RenderSurfaceCommonAncestorClip",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kNonBlockingCommit,
-             "NonBlockingCommit",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kNoPreserveLastMutation,
-             "NoPreserveLastMutation",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDeferImplInvalidation,
@@ -98,15 +78,7 @@ BASE_FEATURE(kUseDMSAAForTiles,
 BASE_FEATURE(kUseDMSAAForTilesAndroidGL,
              "UseDMSAAForTilesAndroidGL",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kAndroidNoSurfaceSyncForBrowserControls,
-             "AndroidNoSurfaceSyncForBrowserControls",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
-
-BASE_FEATURE(kUpdateBrowserControlsWithoutProxy,
-             "UpdateBrowserControlsWithoutProxy",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUIEnableSharedImageCacheForGpu,
              "UIEnableSharedImageCacheForGpu",
@@ -115,10 +87,6 @@ BASE_FEATURE(kUIEnableSharedImageCacheForGpu,
 #else
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
-
-BASE_FEATURE(kReclaimResourcesFlushInBackground,
-             "ReclaimResourcesFlushInBackground",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kReclaimResourcesDelayedFlushInBackground,
              "ReclaimResourcesDelayedFlushInBackground",
@@ -179,7 +147,7 @@ BASE_FEATURE(kMetricsBackfillAdjustmentHoldback,
 
 BASE_FEATURE(kWaitForLateScrollEvents,
              "WaitForLateScrollEvents",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 const base::FeatureParam<double> kWaitForLateScrollEventsDeadlineRatio{
     &kWaitForLateScrollEvents, "deadline_ratio", 0.333};
@@ -190,29 +158,33 @@ BASE_FEATURE(kNonBatchedCopySharedImage,
 
 BASE_FEATURE(kDontAlwaysPushPictureLayerImpls,
              "DontAlwaysPushPictureLayerImpls",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPreserveDiscardableImageMapQuality,
+             "PreserveDiscardableImageMapQuality",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWarmUpCompositor,
              "WarmUpCompositor",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kCCSlimming, "CCSlimming", base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kCCSlimming, "CCSlimming", base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsCCSlimmingEnabled() {
   static const bool enabled = base::FeatureList::IsEnabled(kCCSlimming);
   return enabled;
 }
 
-const base::FeatureParam<std::string> kScrollEventDispatchMode(
-    &kWaitForLateScrollEvents,
-    "mode",
-    "EnqueueScrollEvents");
 constexpr const char kScrollEventDispatchModeDispatchScrollEventsImmediately[] =
     "DispatchScrollEventsImmediately";
 constexpr const char kScrollEventDispatchModeUseScrollPredictorForEmptyQueue[] =
     "UseScrollPredictorForEmptyQueue";
 constexpr const char kScrollEventDispatchModeUseScrollPredictorForDeadline[] =
     "UseScrollPredictorForDeadline";
+const base::FeatureParam<std::string> kScrollEventDispatchMode(
+    &kWaitForLateScrollEvents,
+    "mode",
+    kScrollEventDispatchModeDispatchScrollEventsImmediately);
 
 BASE_FEATURE(kVizLayers, "VizLayers", base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -222,6 +194,10 @@ BASE_FEATURE(kSendExplicitDecodeRequestsImmediately,
 
 BASE_FEATURE(kThrottleFrameRateOnManyDidNotProduceFrame,
              "ThrottleFrameRateOnManyDidNotProduceFrame",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kNewContentForCheckerboardedScrolls,
+             "NewContentForCheckerboardedScrolls",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // By default, frame rate starts being throttled when 4 consecutive "did not
@@ -238,5 +214,9 @@ bool MultiImplOnlyScrollAnimationsSupported() {
   return base::FeatureList::IsEnabled(
       features::kMultipleImplOnlyScrollAnimations);
 }
+
+BASE_FEATURE(kPreventDuplicateImageDecodes,
+             "PreventDuplicateImageDecodes",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

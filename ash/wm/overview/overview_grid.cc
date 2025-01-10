@@ -564,6 +564,7 @@ int GetTooltipID(DeskTemplateType type, TooltipStatus status) {
       return kSaveAsTemplateButtonTooltipIDs[static_cast<int>(status)];
     case DeskTemplateType::kSaveAndRecall:
       return kSaveForLaterButtonTooltipIDs[static_cast<int>(status)];
+    case DeskTemplateType::kCoral:
     case DeskTemplateType::kFloatingWorkspace:
     case DeskTemplateType::kUnknown:
       NOTREACHED();
@@ -719,6 +720,14 @@ void OverviewGrid::Shutdown(OverviewEnterExitType exit_type) {
   }
 
   if (birch_bar_widget_) {
+    // Shutdown the selection widget so its ownership is not passed as well.
+    base::ranges::for_each(
+        birch_bar_view_->chips(), [](BirchChipButtonBase* chip) {
+          if (auto* chip_button = views::AsViewClass<BirchChipButton>(chip)) {
+            chip_button->ShutdownSelectionWidget();
+          }
+        });
+
     // Cache the widget since we may need to pass the ownership to animation
     // observer.
     auto birch_bar_widget = std::move(birch_bar_widget_);
@@ -1938,9 +1947,7 @@ bool OverviewGrid::MaybeDropItemOnDeskMiniViewOrNewDeskButton(
   if (chromeos::features::IsDeskProfilesEnabled() && windows.size() == 1) {
     if (auto lacros_profile_id = windows[0]->GetProperty(kLacrosProfileId);
         lacros_profile_id != 0) {
-      target_desk->SetLacrosProfileId(
-          lacros_profile_id,
-          DeskProfilesSelectProfileSource::kNewDeskButtonDrop);
+      target_desk->SetLacrosProfileId(lacros_profile_id);
     }
   }
 

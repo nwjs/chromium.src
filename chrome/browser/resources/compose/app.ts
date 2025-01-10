@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import './icons.html.js';
-import './strings.m.js';
+import '/strings.m.js';
 import './textarea.js';
 import './result_text.js';
 import '//resources/cr_elements/cr_button/cr_button.js';
@@ -12,7 +12,7 @@ import '//resources/cr_elements/cr_feedback_buttons/cr_feedback_buttons.js';
 import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import '//resources/cr_elements/cr_loading_gradient/cr_loading_gradient.js';
 import '//resources/cr_elements/cr_shared_vars.css.js';
-import '//resources/cr_elements/icons_lit.html.js';
+import '//resources/cr_elements/icons.html.js';
 import '//resources/cr_elements/md_select.css.js';
 import '//resources/cr_elements/cr_icon/cr_icon.js';
 

@@ -10,6 +10,7 @@
 #import "base/strings/string_util.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/version.h"
+#import "ios/chrome/browser/price_insights/model/price_insights_feature.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/ui/whats_new/data_source/whats_new_item.h"
 #import "ios/chrome/browser/ui/whats_new/whats_new_util.h"
@@ -24,8 +25,10 @@ namespace {
 // The size of the icon image.
 const CGFloat kIconImageWhatsNew = 16;
 
-// The file name.
+// The file names.
 NSString* const kfileName = @"whats_new_entries.plist";
+NSString* const kfilePriceInsightsName =
+    @"whats_new_price_insights_entries.plist";
 
 // Dictionary keys.
 NSString* const kDictionaryFeaturesKey = @"Features";
@@ -124,8 +127,7 @@ WhatsNewType WhatsNewTypeFromInt(int type) {
   const int max_value = static_cast<int>(WhatsNewType::kMaxValue);
 
   if (min_value > type || type > max_value) {
-    NOTREACHED_IN_MIGRATION() << "unexpected type: " << type;
-    return WhatsNewType::kError;
+    NOTREACHED() << "unexpected type: " << type;
   }
 
   return static_cast<WhatsNewType>(type);
@@ -136,8 +138,7 @@ WhatsNewPrimaryAction WhatsNewPrimaryActionFromInt(int type) {
   const int max_value = static_cast<int>(WhatsNewPrimaryAction::kMaxValue);
 
   if (min_value > type || type > max_value) {
-    NOTREACHED_IN_MIGRATION() << "unexpected type: " << type;
-    return WhatsNewPrimaryAction::kError;
+    NOTREACHED() << "unexpected type: " << type;
   }
 
   return static_cast<WhatsNewPrimaryAction>(type);
@@ -305,6 +306,8 @@ WhatsNewItem* ConstructWhatsNewItem(NSDictionary* entry) {
 NSString* WhatsNewFilePath() {
   NSString* bundle_path = [base::apple::FrameworkBundle() bundlePath];
   NSString* entries_file_path =
-      [bundle_path stringByAppendingPathComponent:kfileName];
+      [bundle_path stringByAppendingPathComponent:IsPriceInsightsEnabled()
+                                                      ? kfilePriceInsightsName
+                                                      : kfileName];
   return entries_file_path;
 }

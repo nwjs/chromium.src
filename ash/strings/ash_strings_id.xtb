@@ -308,7 +308,6 @@ Berikut ini beberapa hal yang dapat Anda coba untuk memulai.</translation>
 <translation id="2041220428661959602">Tingkat daya baterai: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848">Pintasan <ph name="SIX_PACK_KEY_NAME" /> saat ini nonaktif</translation>
 <translation id="2049240716062114887">Nama desktop diubah menjadi <ph name="DESK_NAME" /></translation>
-<translation id="2050339315714019657">Potret</translation>
 <translation id="2064048859448024834">Pratinjau kamera aktif</translation>
 <translation id="2065098273523946419">Pelajari lebih lanjut link. Alihkan ke browser saat diaktifkan</translation>
 <translation id="2067220651560163985">Tampilkan suhu dalam Celcius</translation>
@@ -339,9 +338,6 @@ Berikut ini beberapa hal yang dapat Anda coba untuk memulai.</translation>
 <translation id="219905428774326614">Peluncur, semua aplikasi</translation>
 <translation id="2201071101391734388">Foto terbaru <ph name="INDEX" /> dari <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Ciutkan Google Tasks</translation>
-<translation id="2206960886090042977">Touchpad bawaan dinonaktifkan karena mouse terhubung. Gunakan mouse atau keyboard untuk mengonfirmasi perubahan.
-
-Jika tidak, touchpad bawaan akan diaktifkan kembali dalam 30 detik.</translation>
 <translation id="2208323208084708176">Mode desktop terpadu</translation>
 <translation id="2220572644011485463">PIN atau sandi</translation>
 <translation id="2222841058024245321">Desktop 7</translation>
@@ -504,6 +500,9 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam 30 detik.</translation
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> hingga <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">Ctrl+penelusuran+s</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" /> dikelola oleh <ph name="MANAGER" /></translation>
+<translation id="2781658180588759579">Touchpad bawaan dinonaktifkan. Gunakan keyboard atau perangkat penunjuk lainnya untuk mengonfirmasi perubahan.
+
+Jika tidak, touchpad bawaan akan diaktifkan kembali dalam <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2782591952652094792">Keluar dari mode tangkapan layar</translation>
 <translation id="2785499565474703580">1 perangkat terhubung</translation>
 <translation id="2791421900609674576">Rekomendasi akan ditampilkan sehingga Anda dapat melanjutkan aktivitas terakhir yang Anda lakukan. Anda dapat menyentuh lama untuk menghapus rekomendasi.</translation>
@@ -601,6 +600,9 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam 30 detik.</translation
 <translation id="3113492864356515707">Tandai item sebelumnya di rak</translation>
 <translation id="311799651966070385">Tutup saran tindak lanjut</translation>
 <translation id="3120421559657122717">Matikan perangkat?</translation>
+<translation id="3121411970001795539">Touchpad bawaan dinonaktifkan karena mouse terhubung. Gunakan mouse atau keyboard untuk mengonfirmasi perubahan.
+
+Jika tidak, touchpad bawaan akan diaktifkan kembali dalam <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">Jenis tugas kelas</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +973,13 @@ Beberapa fitur dibatasi untuk meningkatkan daya tahan baterai.</translation>
 <translation id="4322742403972824594">Pintasan keyboard Ctrl + Alt + Panah Atas telah diubah. Untuk menggunakan tombol Home, tekan tombol <ph name="LAUNCHER_KEY_NAME" /> + Panah Kiri.</translation>
 <translation id="4324840740119394760">Tindakan ini akan mengizinkan akses kamera untuk <ph name="APP_NAME" /> dan semua aplikasi serta situs yang memiliki izin kamera</translation>
 <translation id="4327147325944669226">Rekam game</translation>
-<translation id="4333628967105022692">Lacros tidak didukung saat beberapa pengguna login.</translation>
 <translation id="4338109981321384717">Kaca pembesar</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, Dibisukan</translation>
 <translation id="4351244548802238354">Tutup dialog</translation>
 <translation id="4356872429719185452">Tampilkan detail hotspot. Hotspot sedang diaktifkan.</translation>
 <translation id="4364101114148522660"><ph name="DURATION" /> Merekam</translation>
 <translation id="4371348193907997655">Setelan Transmisi</translation>
+<translation id="4371834685492830207">PIN hanya boleh berisi karakter yang valid</translation>
 <translation id="4375482231364171368">Telusuri dalam kolom URL</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, kekuatan sinyal <ph name="SIGNAL_STRENGTH" /> persen</translation>
 <translation id="4378551569595875038">Menghubungkan...</translation>
@@ -1143,6 +1145,7 @@ Beberapa fitur dibatasi untuk meningkatkan daya tahan baterai.</translation>
 <translation id="4902797682482387055">Tugas yang disarankan untuk difokuskan</translation>
 <translation id="490375751687810070">Vertikal</translation>
 <translation id="490788395437447240">Baterai <ph name="BATTERY_PERCENTAGE" />%</translation>
+<translation id="4911191962826748981">Fitur ini adalah fitur AI eksperimental dan tidak selalu benar.</translation>
 <translation id="491504982845934899">Aktifkan setelah penyiapan perangkat <ph name="NETWORK_NAME" /></translation>
 <translation id="4917385247580444890">Kuat</translation>
 <translation id="4918086044614829423">Terima</translation>
@@ -1301,6 +1304,7 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="5393156353051693207">Sentuh lama di sembarang tempat untuk mengurutkan ulang aplikasi</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" /> di atas <ph name="IN_PLACE_APP" />, lalu lepaskan untuk membuat folder.</translation>
 <translation id="5397578532367286026">Penggunaan dan histori pengguna ini dapat ditinjau oleh pengelola (<ph name="MANAGER_EMAIL" />) di chrome.com.</translation>
+<translation id="540338817371815859">Lanskap</translation>
 <translation id="540713187982329711">Tombol hotspot. Hotspot aktif, tidak ada perangkat yang terhubung.</translation>
 <translation id="5409208741270395213">Tandai tugas sebagai selesai</translation>
 <translation id="5413656666631274079">Halaman setelan</translation>
@@ -1472,7 +1476,6 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="5975235751479998104">Berpindah maju melalui jendela</translation>
 <translation id="5978382165065462689">Berbagi kontrol layar via Remote Assistance.</translation>
 <translation id="5980301590375426705">Hentikan sesi tamu</translation>
-<translation id="5982119059638483922">Tekan Fn+Search atau Shift untuk membatalkan.</translation>
 <translation id="5983567367406220847">Karena tidak ada aktivitas, hotspot telah dinonaktifkan.</translation>
 <translation id="598407983968395253">Gunakan template</translation>
 <translation id="5986723678596105470">Bergabung dengan Google Meet</translation>
@@ -1542,7 +1545,6 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="6166852626429024716">Telusuri perangkat, aplikasi, setelan, web ...</translation>
 <translation id="6168318496333165060">Buka aplikasi Diagnostik</translation>
 <translation id="6168622430237609329">Aplikasi terinstal Anda</translation>
-<translation id="6173151025443907148">Login sebagai pengguna kedua tidak didukung jika Lacros diaktifkan. Gunakan profil browser kedua di Lacros atau nonaktifkan Lacros lalu coba lagi.</translation>
 <translation id="6179832488876878285">Anda dapat menyematkan file penting di sini. Buka aplikasi File untuk memulai.</translation>
 <translation id="6180193585172850042">Tombol Kembali</translation>
 <translation id="6180651297859206670">Tombol Teruskan</translation>
@@ -1564,6 +1566,7 @@ Tidak ada perangkat yang terhubung.</translation>
 <translation id="6232416233079464213">Dari <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> sedang menggunakan kamera dan mikrofon Anda</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">Sandi hanya boleh berisi karakter yang valid</translation>
 <translation id="6240603910551255087">Tombol Atas</translation>
 <translation id="6240821072888636753">Selalu tanya</translation>
 <translation id="6247728804802644171">Buka notifikasi</translation>
@@ -1694,7 +1697,6 @@ Baru diinstal</translation>
 <translation id="6682029141988159141">Tempelkan konten dari papan klip</translation>
 <translation id="6683022854667115063">Headphone</translation>
 <translation id="6686023075541098243">Siapkan untuk melihat notifikasi ponsel Anda</translation>
-<translation id="6688019813898140556">Esc 5 kali</translation>
 <translation id="6694462491298752106">Touchpad bawaan dinonaktifkan</translation>
 <translation id="6694973220096431421">Telusuri Google Drive</translation>
 <translation id="6696025732084565524">Keyboard yang dapat dilepas memerlukan update penting</translation>
@@ -1715,6 +1717,7 @@ Baru diinstal</translation>
 <translation id="6751826523481687655">Pelacakan performa diaktifkan</translation>
 <translation id="6752912906630585008">Desktop <ph name="REMOVED_DESK" /> dihapus dan digabung dengan Desktop <ph name="RECEIVE_DESK" /></translation>
 <translation id="6753390234084146956">tab</translation>
+<translation id="6754918760968695779">Penyisipan Cepat</translation>
 <translation id="6757237461819837179">Tidak ada media yang diputar</translation>
 <translation id="6760438044935091345">Dasbor game</translation>
 <translation id="6768043681523654438">penyimpanan</translation>
@@ -1764,6 +1767,7 @@ Baru diinstal</translation>
 <translation id="6921427376813842559">Update perangkat</translation>
 <translation id="6929081673585394903">Tampilkan kontrol</translation>
 <translation id="6931576957638141829">Simpan ke</translation>
+<translation id="6935857786205183008">Potret</translation>
 <translation id="6942518653766415536">Menu format rekaman</translation>
 <translation id="6945221475159498467">Pilih</translation>
 <translation id="6945922087561257829">Ponsel Anda menggunakan jaringan seluler. Pastikan ponsel dan Chromebook berada di jaringan Wi-Fi yang sama, lalu coba lagi. <ph name="LEARN_MORE" /></translation>
@@ -1920,9 +1924,6 @@ Baru diinstal</translation>
 Untuk mematikan perangkat, tekan lama tombol daya di perangkat lagi.</translation>
 <translation id="7523420897035067483">Aktifkan mode Jangan Ganggu saat dalam mode Fokus</translation>
 <translation id="7524043547948122239">Google Tasks</translation>
-<translation id="7524919752437339268">Touchpad bawaan dinonaktifkan. Gunakan keyboard atau perangkat penunjuk lainnya untuk mengonfirmasi perubahan.
-
-Jika tidak, touchpad bawaan akan diaktifkan kembali dalam 30 detik.</translation>
 <translation id="7525067979554623046">Buat</translation>
 <translation id="7526573455193969409">Jaringan mungkin dipantau</translation>
 <translation id="7536035074519304529">Alamat IP: <ph name="ADDRESS" /></translation>
@@ -2009,6 +2010,7 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam 30 detik.</translation
 <translation id="780301667611848630">Lain kali</translation>
 <translation id="7807067443225230855">Penelusuran dan Asisten</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> dan <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">Memberi tanda Suka akan mengirimkan masukan bahwa Anda menyukai saran ini</translation>
 <translation id="7825412704590278437">Dari acara kalender mendatang</translation>
 <translation id="7829386189513694949">Sinyal kuat</translation>
 <translation id="7830453190047749513">Anda dapat mempersonalisasi tindakan tombol, kecepatan kursor, dan lainnya untuk <ph name="PERIPHERAL_NAME" /></translation>
@@ -2163,6 +2165,7 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam 30 detik.</translation
 <translation id="830868413617744215">Beta</translation>
 <translation id="8314772463905284467">Caps Lock aktif</translation>
 <translation id="8315514906653279104">Mengaktifkan...</translation>
+<translation id="8319634750346253957">Memberi tanda Tidak suka akan mengirimkan masukan bahwa Anda tidak menyukai saran ini</translation>
 <translation id="8331351032546853669">Download tertunda</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2348,6 +2351,7 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam 30 detik.</translation
 <translation id="8982906748181120328">Visibilitas Berbagi Langsung</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">Menggunakan <ph name="IME_NAME" /></translation>
+<translation id="8991648557324317894">Tekan fn + Penyisipan Cepat atau Shift untuk membatalkan.</translation>
 <translation id="899350903320462459">Buka kunci perangkat sebagai <ph name="LOGIN_ID" /> untuk melakukan tindakan notifikasi</translation>
 <translation id="8993733019280019776">Sedang berbicara? Mikrofon Anda nonaktif. Pilih mikrofon untuk mengaktifkannya.</translation>
 <translation id="9000771174482730261">KELOLA PENYIMPANAN</translation>
@@ -2430,9 +2434,9 @@ Jika tidak, touchpad bawaan akan diaktifkan kembali dalam 30 detik.</translation
 <translation id="974545358917229949">Menampilkan <ph name="RESULT_COUNT" /> hasil untuk <ph name="QUERY" /></translation>
 <translation id="981011780479609956">Tidak ada tenggat</translation>
 <translation id="98120814841227350">Membuka akhir dokumen</translation>
-<translation id="98515147261107953">Lanskap</translation>
 <translation id="987589956647469042">Data seluler diaktifkan</translation>
 <translation id="989374776391122812">Kontrol kamera dan audio</translation>
+<translation id="990263227494928142">Tekan Shift 5 kali untuk mengaktifkan touchpad</translation>
 <translation id="990277280839877440">Jendela <ph name="WINDOW_TITILE" /> menutup.</translation>
 <translation id="993398562350683614">Langkah tur <ph name="STEP" /> dari <ph name="TOTAL_STEPS" />. Gunakan aplikasi untuk melakukan semua hal yang Anda perlukan di <ph name="PRODUCT_NAME" />. Anda dapat menemukan aplikasi di Peluncur. Tekan Alt + Shift + L untuk memfokuskan tombol Peluncur.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

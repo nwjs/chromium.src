@@ -138,13 +138,15 @@ public class AppModalPresenter extends ModalDialogManager.Presenter {
         // Observe application of dialog window insets, to calculate margins to avoid drawing the
         // dialog into the insets' regions. See crbug/365110749 for more details on why we use
         // |mInsetObserver|, and for tracking a more favorable long-term solution.
-        mWindowInsetsListener =
-                (view, windowInsetsCompat) -> {
-                    updateMargins();
-                    return windowInsetsCompat;
-                };
-        ViewCompat.setOnApplyWindowInsetsListener(
-                getWindow().getDecorView().getRootView(), mWindowInsetsListener);
+        if (ModalDialogFeatureMap.sModalDialogLayoutWithSystemInsets.isEnabled()) {
+            mWindowInsetsListener =
+                    (view, windowInsetsCompat) -> {
+                        updateMargins();
+                        return windowInsetsCompat;
+                    };
+            ViewCompat.setOnApplyWindowInsetsListener(
+                    getWindow().getDecorView().getRootView(), mWindowInsetsListener);
+        }
 
         mModelChangeProcessor =
                 PropertyModelChangeProcessor.create(mModel, mDialogView, new ViewBinder());
@@ -154,8 +156,10 @@ public class AppModalPresenter extends ModalDialogManager.Presenter {
         }
 
         mDialog.setOnShowListener(
-                (dialogInterface) -> {
-                    mDialogView.onEnterAnimationStarted(ENTER_ANIMATION_ESTIMATION_MS);
+                (ignored) -> {
+                    if (mDialogView != null) {
+                        mDialogView.onEnterAnimationStarted(ENTER_ANIMATION_ESTIMATION_MS);
+                    }
                 });
 
         if (onDialogCreatedCallback != null) {
@@ -178,10 +182,15 @@ public class AppModalPresenter extends ModalDialogManager.Presenter {
         }
 
         if (mDialog != null) {
+            if (mWindowInsetsListener != null) {
+                mWindowInsetsListener = null;
+                ViewCompat.setOnApplyWindowInsetsListener(
+                        getWindow().getDecorView().getRootView(), null);
+            }
             mDialog.dismiss();
             mDialog = null;
+            mDialogView = null;
             mModel = null;
-            mWindowInsetsListener = null;
         }
 
         if (mEdgeToEdgeStateSupplier != null) {
@@ -196,6 +205,7 @@ public class AppModalPresenter extends ModalDialogManager.Presenter {
 
     @Override
     protected void setEdgeToEdgeStateSupplier(ObservableSupplier<Boolean> edgeToEdgeStateSupplier) {
+        if (!ModalDialogFeatureMap.sModalDialogLayoutWithSystemInsets.isEnabled()) return;
         mEdgeToEdgeStateSupplier = edgeToEdgeStateSupplier;
         mEdgeToEdgeStateObserver = isEdgeToEdgeActive -> updateMargins();
         mEdgeToEdgeStateSupplier.addObserver(mEdgeToEdgeStateObserver);

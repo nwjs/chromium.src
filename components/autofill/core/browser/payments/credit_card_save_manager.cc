@@ -475,8 +475,14 @@ void CreditCardSaveManager::OnDidUploadCard(
     // Do not save if card does not have the expiration month or the year
     // because the local save bubble does not support the expiration date fix
     // flow.
-    if (base::FeatureList::IsEnabled(
-            features::kAutofillEnableSaveCardLocalSaveFallback) &&
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+    bool run_save_card_fallback = base::FeatureList::IsEnabled(
+        features::kAutofillEnableSaveCardLocalSaveFallback);
+#else
+    bool run_save_card_fallback = true;
+#endif  // #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+
+    if (run_save_card_fallback &&
         !upload_request_.card.GetInfo(CREDIT_CARD_EXP_MONTH, app_locale_)
              .empty() &&
         !upload_request_.card.GetInfo(CREDIT_CARD_EXP_4_DIGIT_YEAR, app_locale_)
@@ -505,8 +511,7 @@ void CreditCardSaveManager::OnDidUploadCard(
           /*uploaded_card=*/&upload_request_.card);
 
   auto on_confirmation_closed_callback =
-      IsSaveCardLoadingAndConfirmationEnabled() &&
-              get_details_for_enrollment_response_details.has_value()
+      get_details_for_enrollment_response_details.has_value()
           ? std::make_optional(base::BindOnce(
                 &CreditCardSaveManager::InitVirtualCardEnroll,
                 weak_ptr_factory_.GetWeakPtr(), upload_request_.card,
@@ -516,17 +521,6 @@ void CreditCardSaveManager::OnDidUploadCard(
   // Show credit card upload feedback.
   client_->GetPaymentsAutofillClient()->CreditCardUploadCompleted(
       result, std::move(on_confirmation_closed_callback));
-
-  // Init virtual card enrollment since there is no save card
-  // confirmation bubble showing if the flag is disabled.
-  // TODO(crbug.com/309627643): Clean up Chrome feature flag:
-  // autofill-enable-save-card-loading-and-confirmation
-  if (get_details_for_enrollment_response_details.has_value() &&
-      !IsSaveCardLoadingAndConfirmationEnabled()) {
-    InitVirtualCardEnroll(
-        upload_request_.card,
-        std::move(get_details_for_enrollment_response_details));
-  }
 
   if (observer_for_testing_) {
     observer_for_testing_->OnShowCardSavedFeedback();

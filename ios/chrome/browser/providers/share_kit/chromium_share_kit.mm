@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #import "ios/chrome/browser/share_kit/model/share_kit_service.h"
+#import "ios/chrome/browser/share_kit/model/share_kit_service_configuration.h"
 #import "ios/public/provider/chrome/browser/share_kit/share_kit_api.h"
 
 namespace {
@@ -15,8 +16,17 @@ class ChromiumShareKitService final : public ShareKitService {
 
   // ShareKitService.
   bool IsSupported() const override { return false; }
-  void ShareGroup(const TabGroup* group,
-                  UIViewController* base_view_controller) override {}
+  void ShareGroup(ShareKitShareGroupConfiguration* config) override {}
+  void ManageGroup(ShareKitManageConfiguration* config) override {}
+  void JoinGroup(ShareKitJoinConfiguration* config) override {}
+  UIViewController* FacePile(ShareKitFacePileConfiguration* config) override {
+    return nil;
+  }
+  void ReadGroups(ShareKitReadConfiguration* config) override {}
+  id<ShareKitAvatarPrimitive> AvatarImage(
+      ShareKitAvatarConfiguration* config) override {
+    return nil;
+  }
 };
 
 }  // namespace
@@ -24,7 +34,7 @@ class ChromiumShareKitService final : public ShareKitService {
 namespace ios::provider {
 
 std::unique_ptr<ShareKitService> CreateShareKitService(
-    const ShareKitServiceConfiguration& configuration) {
+    std::unique_ptr<ShareKitServiceConfiguration> configuration) {
   return std::make_unique<ChromiumShareKitService>();
 }
 

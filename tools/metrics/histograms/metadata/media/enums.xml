@@ -391,7 +391,7 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Succeeded."/>
   <int value="1" label="Unknown error."/>
   <int value="2" label="CDM creation aborted."/>
-  <int value="3" label="Failed to load the CDM."/>
+  <int value="3" label="(Obsolete) Failed to load the CDM."/>
   <int value="4" label="CreateCdmFunc not available."/>
   <int value="5" label="CDM helper creation failed."/>
   <int value="6" label="Failed to get the CDM preference data."/>
@@ -1050,11 +1050,11 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Ash bundled"/>
 </enum>
 
-<enum name="MakeAudioInputStreamStatus">
+<enum name="MakeAudioStreamStatus">
   <int value="0" label="Success"/>
   <int value="1" label="Error: Had switch fail-audio-stream-creation"/>
   <int value="2" label="Error: Invalid params"/>
-  <int value="3" label="Error: Excessive input streams"/>
+  <int value="3" label="Error: Excessive input/output streams"/>
   <int value="4" label="Error: Failed to create a stream object"/>
 </enum>
 
@@ -1067,6 +1067,30 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Not shown because allowed once"/>
   <int value="6" label="Not shown because blocked"/>
   <int value="7" label="Not shown because incognito"/>
+</enum>
+
+<enum name="MediaCodecError">
+  <int value="0" label="MEDIA_CODEC_OK"/>
+  <int value="1" label="MEDIA_CODEC_TRY_AGAIN_LATER"/>
+  <int value="2" label="MEDIA_CODEC_OUTPUT_BUFFERS_CHANGED"/>
+  <int value="3" label="MEDIA_CODEC_OUTPUT_FORMAT_CHANGED"/>
+  <int value="4" label="MEDIA_CODEC_NO_KEY"/>
+  <int value="5" label="MEDIA_CODEC_ERROR"/>
+  <int value="6" label="MEDIA_CODEC_KEY_EXPIRED"/>
+  <int value="7" label="MEDIA_CODEC_RESOURCE_BUSY"/>
+  <int value="8" label="MEDIA_CODEC_INSUFFICIENT_OUTPUT_PROTECTION"/>
+  <int value="9" label="MEDIA_CODEC_SESSION_NOT_OPENED"/>
+  <int value="10" label="MEDIA_CODEC_UNSUPPORTED_OPERATION"/>
+  <int value="11" label="MEDIA_CODEC_INSUFFICIENT_SECURITY"/>
+  <int value="12" label="MEDIA_CODEC_FRAME_TOO_LARGE"/>
+  <int value="13" label="MEDIA_CODEC_LOST_STATE"/>
+  <int value="14" label="MEDIA_CODEC_GENERIC_OEM"/>
+  <int value="15" label="MEDIA_CODEC_GENERIC_PLUGIN"/>
+  <int value="16" label="MEDIA_CODEC_LICENSE_PARSE"/>
+  <int value="17" label="MEDIA_CODEC_MEDIA_FRAMEWORK"/>
+  <int value="18" label="MEDIA_CODEC_ZERO_SUBSAMPLES"/>
+  <int value="19" label="MEDIA_CODEC_UNKNOWN_CIPHER_MODE"/>
+  <int value="20" label="MEDIA_CODEC_PATTERN_ENCRYPTION_NOT_SUPPORTED"/>
 </enum>
 
 <enum name="MediaContainers">
@@ -1504,6 +1528,15 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Not muted"/>
 </enum>
 
+<!-- LINT.IfChange(MidiBackendType) -->
+
+<enum name="MidiBackendType">
+  <int value="0" label="AndroidMidi"/>
+  <int value="1" label="AndroidUsb"/>
+</enum>
+
+<!-- LINT.ThenChange(//media/midi/midi_manager_android.cc:MidiBackendType) -->
+
 <enum name="MidiSendReceiveUsage">
   <int value="0" label="No transaction"/>
   <int value="1" label="Sent"/>
@@ -1740,6 +1773,11 @@ chromium-metrics-reviews@google.com.
   <int value="2"
       label="Reaction effects enabled, but not triggered by gestures"/>
   <int value="3" label="Gestures trigger reaction effects"/>
+</enum>
+
+<enum name="ReasonToClearRenderBuffer">
+  <int value="0" label="Video frame with out-of-order timestamp."/>
+  <int value="1" label="Call to UpdateCurrentFrame() is overdue."/>
 </enum>
 
 <enum name="RemotingCompatibility">

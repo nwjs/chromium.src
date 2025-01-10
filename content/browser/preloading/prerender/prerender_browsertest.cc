@@ -481,8 +481,8 @@ class PrerenderBrowserTest : public ContentBrowserTest,
         "EmbedderSuffixForTest",
         ui::PageTransitionFromInt(ui::PAGE_TRANSITION_TYPED |
                                   ui::PAGE_TRANSITION_FROM_ADDRESS_BAR),
-        should_warm_up_compositor, PreloadingHoldbackStatus::kUnspecified,
-        preloading_attempt,
+        should_warm_up_compositor, /*should_prepare_paint_tree=*/true,
+        PreloadingHoldbackStatus::kUnspecified, preloading_attempt,
         /*url_match_predicate=*/{},
         /*prerender_navigation_handle_callback=*/{});
   }
@@ -5489,12 +5489,11 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, ForEachRenderFrameHost) {
 
   // WebContentsImpl::ForEachFrameTree should include prerenders.
   bool visited_prerender_frame_tree = false;
-  web_contents_impl()->ForEachFrameTree(
-      base::BindLambdaForTesting([&](FrameTree& frame_tree) {
-        if (&frame_tree == prerendered_render_frame_host->frame_tree()) {
-          visited_prerender_frame_tree = true;
-        }
-      }));
+  web_contents_impl()->ForEachFrameTree([&](FrameTree& frame_tree) {
+    if (&frame_tree == prerendered_render_frame_host->frame_tree()) {
+      visited_prerender_frame_tree = true;
+    }
+  });
   EXPECT_TRUE(visited_prerender_frame_tree);
 }
 
@@ -6747,9 +6746,10 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
   // Check the event sequence seen in the prerendered page.
   EvalJsResult results = EvalJs(prerender_render_frame_host, "eventsSeen");
   std::vector<std::string> eventsSeen;
-  base::Value resultsList = results.ExtractList();
-  for (auto& result : resultsList.GetList())
+  base::Value::List results_list = results.ExtractList();
+  for (auto& result : results_list) {
     eventsSeen.push_back(result.GetString());
+  }
   EXPECT_THAT(eventsSeen,
               testing::ElementsAreArray(
                   {"accessOriginPrivateFileSystem (prerendering: true)",
@@ -11872,6 +11872,7 @@ PrerenderEmbedderTriggeredCrossOriginRedirectionPage(
           ui::PageTransitionFromInt(ui::PAGE_TRANSITION_TYPED |
                                     ui::PAGE_TRANSITION_FROM_ADDRESS_BAR),
           /*should_warm_up_compositor=*/false,
+          /*should_prepare_paint_tree=*/true,
           PreloadingHoldbackStatus::kUnspecified,
           /*preloading_attempt=*/nullptr, /*url_match_predicate=*/{},
           /*prerender_navigation_handle_callback=*/{});

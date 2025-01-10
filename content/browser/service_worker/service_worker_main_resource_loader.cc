@@ -249,6 +249,7 @@ void ServiceWorkerMainResourceLoader::StartRequest(
 
   RaceNetworkRequestMode race_network_request_mode =
       RaceNetworkRequestMode::kDefault;
+  std::optional<blink::ServiceWorkerRouterRaceSource> race_source;
   // Check if registered static router rules match the request.
   if (active_worker->router_evaluator()) {
     CHECK(active_worker->router_evaluator()->IsValid());
@@ -339,6 +340,7 @@ void ServiceWorkerMainResourceLoader::StartRequest(
           return;
         case network::mojom::ServiceWorkerRouterSourceType::kRace:
           race_network_request_mode = RaceNetworkRequestMode::kForced;
+          race_source = sources[0].race_source;
           break;
         case network::mojom::ServiceWorkerRouterSourceType::kFetchEvent:
           race_network_request_mode = RaceNetworkRequestMode::kSkipped;
@@ -391,6 +393,17 @@ void ServiceWorkerMainResourceLoader::StartRequest(
     MaybeDispatchPreload(race_network_request_mode, context, active_worker);
   }
 
+  if (race_network_request_mode == RaceNetworkRequestMode::kForced) {
+    CHECK_EQ(race_source->target, blink::ServiceWorkerRouterRaceSource::
+                                      TargetEnum::kNetworkAndFetchHandler);
+    if (base::FeatureList::IsEnabled(
+            features::
+                kServiceWorkerStaticRouterRaceNetworkRequestPerformanceImprovement)) {
+      active_worker->CountFeature(
+          blink::mojom::WebFeature::
+              kServiceWorkerStaticRouter_RaceNetworkAndFetchHandlerImprovement);
+    }
+  }
   // Record worker start time here as |fetch_dispatcher_| will start a service
   // worker if there is no running service worker.
   response_head_->load_timing.service_worker_start_time =
@@ -449,7 +462,7 @@ bool ServiceWorkerMainResourceLoader::MaybeStartAutoPreload(
   // improve the coverage.
   if (base::GetFieldTrialParamByFeatureAsBool(
           features::kServiceWorkerAutoPreload, "has_web_request_api_proxy",
-          /*default_value=*/false) &&
+          /*default_value=*/true) &&
       (GetContentClient()->browser()->HasWebRequestAPIProxy(
           context->browser_context()))) {
     return false;
@@ -630,6 +643,16 @@ void ServiceWorkerMainResourceLoader::CommitResponseBody(
     }
     response_head->initial_service_worker_status =
         initial_service_worker_status_;
+
+    // Update receive_headers_start and receive_headers_end to record
+    // histograms.
+    if (response_head_->load_timing.receive_headers_start.is_null()) {
+      CHECK(!response_head->load_timing.receive_headers_start.is_null());
+      response_head_->load_timing.receive_headers_start =
+          response_head->load_timing.receive_headers_start;
+      response_head_->load_timing.receive_headers_end =
+          response_head->load_timing.receive_headers_end;
+    }
   }
 
   url_loader_client_->OnReceiveResponse(response_head.Clone(),
@@ -666,8 +689,7 @@ void ServiceWorkerMainResourceLoader::CommitCompleted(int error_code,
       case FetchResponseFrom::kNoResponseYet:
       case FetchResponseFrom::kSubresourceLoaderIsHandlingRedirect:
       case FetchResponseFrom::kAutoPreloadHandlingFallback:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
       case FetchResponseFrom::kServiceWorker:
         RecordTimingMetricsForFetchHandlerHandledCase();
         break;
@@ -959,9 +981,11 @@ void ServiceWorkerMainResourceLoader::StartResponse(
 
   response_head_->did_service_worker_navigation_preload =
       dispatched_preload_type() == DispatchedPreloadType::kNavigationPreload;
-  response_head_->load_timing.receive_headers_start = base::TimeTicks::Now();
-  response_head_->load_timing.receive_headers_end =
-      response_head_->load_timing.receive_headers_start;
+  if (response_head_->load_timing.receive_headers_start.is_null()) {
+    response_head_->load_timing.receive_headers_start = base::TimeTicks::Now();
+    response_head_->load_timing.receive_headers_end =
+        response_head_->load_timing.receive_headers_start;
+  }
   response_source_ = response->response_source;
   if (ShouldRecordServiceWorkerFetchStart()) {
     response_head_->load_timing.service_worker_fetch_start =
@@ -1214,21 +1238,30 @@ std::string ServiceWorkerMainResourceLoader::GetFrameTreeNodeTypeString() {
   }
 }
 
+void ServiceWorkerMainResourceLoader::RecordFindRegistrationTiming(
+    bool is_fallback) {
+  RecordFindRegistrationToCompletedTrace();
+  RecordFindRegistrationToRequestStartTiming();
+  if (is_fallback) {
+    RecordFindRegistrationToFallbackNetworkTiming();
+  } else {
+    RecordFindRegistrationToCompletedTiming();
+  }
+}
+
 void ServiceWorkerMainResourceLoader::
     RecordTimingMetricsForFetchHandlerHandledCase() {
   if (!IsEligibleForRecordingTimingMetrics()) {
     return;
   }
   CHECK(initial_service_worker_status_);
-  RecordFindRegistrationToCompletedTrace();
-  RecordFindRegistrationToRequestStartTiming();
+  RecordFindRegistrationTiming(/*is_fallback=*/false);
   RecordRequestStartToForwardServiceWorkerTiming();
   RecordForwardServiceWorkerToWorkerReadyTiming();
   RecordWorkerReadyToFetchHandlerStartTiming();
   RecordFetchHandlerStartToFetchHandlerEndTiming();
   RecordFetchHandlerEndToResponseReceivedTiming();
   RecordResponseReceivedToCompletedTiming();
-  RecordFindRegistrationToCompletedTiming();
   RecordRequestStartToCompletedTiming(
       response_head_->load_timing.request_start);
 }
@@ -1239,13 +1272,11 @@ void ServiceWorkerMainResourceLoader::
     return;
   }
   CHECK(initial_service_worker_status_);
-  RecordFindRegistrationToCompletedTrace();
-  RecordFindRegistrationToRequestStartTiming();
+  RecordFindRegistrationTiming(/*is_fallback=*/true);
   RecordRequestStartToForwardServiceWorkerTiming();
   RecordForwardServiceWorkerToWorkerReadyTiming();
   RecordWorkerReadyToFetchHandlerStartTiming();
   RecordFetchHandlerStartToFetchHandlerEndTiming();
-  RecordFindRegistrationToFallbackNetworkTiming();
   RecordStartToFallbackNetworkTiming();
   RecordFetchHandlerEndToFallbackNetworkTiming();
 }
@@ -1257,9 +1288,8 @@ void ServiceWorkerMainResourceLoader::
     return;
   }
   CHECK(initial_service_worker_status_);
-  RecordFindRegistrationToCompletedTrace();
-  RecordFindRegistrationToRequestStartTiming();
-  RecordFindRegistrationToCompletedTiming();
+  RecordFindRegistrationTiming(/*is_fallback=*/false);
+  RecordResponseReceivedToCompletedTiming();
   RecordRequestStartToCompletedTiming(
       race_network_request_url_loader_client_->GetLoadTimingInfo()
           .request_start);
@@ -1599,8 +1629,7 @@ void ServiceWorkerMainResourceLoader::TransitionToStatus(Status new_status) {
 #if DCHECK_IS_ON()
   switch (new_status) {
     case Status::kNotStarted:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
     case Status::kStarted:
       DCHECK_EQ(status_, Status::kNotStarted);
       break;

@@ -61,6 +61,7 @@
 #include "components/optimization_guide/core/model_quality/test_model_quality_logs_uploader_service.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_model_executor.h"
+#include "components/optimization_guide/core/optimization_guide_proto_util.h"
 #include "components/optimization_guide/proto/features/compose.pb.h"
 #include "components/optimization_guide/proto/model_execution.pb.h"
 #include "components/optimization_guide/proto/model_quality_service.pb.h"
@@ -80,10 +81,14 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+namespace {
+
 using ::base::test::EqualsProto;
 using base::test::RunOnceCallback;
 using testing::_;
+using testing::NiceMock;
 using ComposeCallback = base::OnceCallback<void(const std::u16string&)>;
+using optimization_guide::MockSession;
 using optimization_guide::ModelQualityLogEntry;
 using optimization_guide::OptimizationGuideModelExecutionError;
 using optimization_guide::
@@ -94,14 +99,10 @@ using optimization_guide::TestModelQualityLogsUploaderService;
 using optimization_guide::proto::LogAiDataRequest;
 using segmentation_platform::MockSegmentationPlatformService;
 
-namespace {
-
 const uint64_t kSessionIdHigh = 1234;
 const uint64_t kSessionIdLow = 5678;
 const segmentation_platform::TrainingRequestId kTrainingRequestId =
     segmentation_platform::TrainingRequestId(456);
-constexpr char kTypeURL[] =
-    "type.googleapis.com/optimization_guide.proto.ComposeResponse";
 
 class MockInnerText : public InnerTextProvider {
  public:
@@ -194,8 +195,7 @@ class ChromeComposeClientTest : public BrowserWithTestWindowTest {
               std::move(callback).Run(std::move(expected_inner_text));
             })));
     ON_CALL(model_executor_, StartSession(_, _)).WillByDefault([&] {
-      return std::make_unique<optimization_guide::MockSessionWrapper>(
-          &session());
+      return std::make_unique<NiceMock<MockSession>>(&session());
     });
     ON_CALL(session(), ExecuteModel(_, _))
         .WillByDefault(testing::WithArg<1>(testing::Invoke(
@@ -210,7 +210,6 @@ class ChromeComposeClientTest : public BrowserWithTestWindowTest {
                                          ComposeResponse(true, "Cucumbers"))),
                                      /*provided_by_on_device=*/false,
                                      std::make_unique<ModelQualityLogEntry>(
-                                         std::make_unique<LogAiDataRequest>(),
                                          logs_uploader().GetWeakPtr()))));
             })));
 
@@ -409,11 +408,8 @@ class ChromeComposeClientTest : public BrowserWithTestWindowTest {
   StreamingResponse OptimizationGuideResponse(
       const optimization_guide::proto::ComposeResponse compose_response,
       bool is_complete = true) {
-    optimization_guide::proto::Any any;
-    any.set_type_url(kTypeURL);
-    compose_response.SerializeToString(any.mutable_value());
     return StreamingResponse{
-        .response = any,
+        .response = optimization_guide::AnyWrapProto(compose_response),
         .is_complete = is_complete,
     };
   }
@@ -1016,6 +1012,9 @@ TEST_F(ChromeComposeClientTest,
 }
 
 TEST_F(ChromeComposeClientTest, TestShouldTriggerProactiveNudgeDisabledUKM) {
+  // Disable the proactive nudge
+  compose::Config& config = compose::GetMutableConfigForTesting();
+  config.proactive_nudge_enabled = false;
   autofill::FormData form_data;
   form_data.set_url(
       web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL());
@@ -1414,7 +1413,7 @@ TEST_F(ChromeComposeClientTest, TestComposeSessionIgnoresPreviousResponse) {
 TEST_F(ChromeComposeClientTest, TestComposeRequestTimeout) {
   // Set config such that requests time out immediately.
   compose::Config& config = compose::GetMutableConfigForTesting();
-  config.request_latency_timeout_seconds = 0;
+  config.request_latency_timeout = base::Seconds(0);
 
   ShowDialogAndBindMojo();
   base::test::TestFuture<compose::mojom::ComposeResponsePtr> test_future;
@@ -1478,7 +1477,6 @@ TEST_F(ChromeComposeClientTest, TestComposeGenericServerError) {
                                     ModelExecutionError::kGenericFailure)),
                     false,
                     std::make_unique<ModelQualityLogEntry>(
-                        std::make_unique<LogAiDataRequest>(),
                         logs_uploader().GetWeakPtr())));
           })));
 
@@ -1550,7 +1548,6 @@ TEST_F(ChromeComposeClientTest, TestComposeSetTriggeredFromModifierOnError) {
                                     ModelExecutionError::kGenericFailure)),
                     false,
                     std::make_unique<ModelQualityLogEntry>(
-                        std::make_unique<LogAiDataRequest>(),
                         logs_uploader().GetWeakPtr())));
           })));
   page_handler()->Rewrite(compose::mojom::StyleModifier::kRetry);
@@ -3766,7 +3763,6 @@ TEST_F(ChromeComposeClientTest, TestComposeQualityLoggedOnSubsequentError) {
                                     ModelExecutionError::kGenericFailure)),
                     /*provided_by_on_device=*/false,
                     std::make_unique<ModelQualityLogEntry>(
-                        std::make_unique<LogAiDataRequest>(),
                         logs_uploader().GetWeakPtr())));
           })));
 
@@ -4459,7 +4455,6 @@ TEST_F(ChromeComposeClientTest, TestOfflineError) {
                                         ModelExecutionError::kGenericFailure)),
                     /*provided_by_on_device=*/false,
                     std::make_unique<ModelQualityLogEntry>(
-                        std::make_unique<LogAiDataRequest>(),
                         logs_uploader().GetWeakPtr())));
           })));
 

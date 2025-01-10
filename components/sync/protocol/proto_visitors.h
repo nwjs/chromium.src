@@ -229,6 +229,14 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillProfileSpecifics& proto) {
   VISIT_REP(name_last_status);
   VISIT_REP(name_full_status);
 
+  VISIT(alternative_full_name);
+  VISIT(alternative_given_name);
+  VISIT(alternative_family_name);
+
+  VISIT_ENUM(alternative_full_name_status);
+  VISIT_ENUM(alternative_given_name_status);
+  VISIT_ENUM(alternative_family_name_status);
+
   VISIT_REP(email_address);
   VISIT(company_name);
 
@@ -320,6 +328,12 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillWalletSpecifics& proto) {
   VISIT(customer_data);
   VISIT(cloud_token_data);
   VISIT(payment_instrument);
+  VISIT(payment_instrument_creation_option);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::BnplIssuerDetails& proto) {
+  VISIT(issuer_id);
+  VISIT_REP(eligible_price_range);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::BookmarkSpecifics& proto) {
@@ -392,6 +406,9 @@ VISIT_PROTO_FIELDS(const sync_pb::ContactInfoSpecifics& proto) {
   VISIT(name_last_conjunction);
   VISIT(name_last_second);
   VISIT(name_full);
+  VISIT(alternative_full_name);
+  VISIT(alternative_given_name);
+  VISIT(alternative_family_name);
   VISIT(email_address);
   VISIT(company_name);
   VISIT(address_city);
@@ -612,6 +629,12 @@ VISIT_PROTO_FIELDS(const sync_pb::DeviceInfoSpecifics& proto) {
   VISIT(google_play_services_version_info);
   VISIT_ENUM(os_type);
   VISIT_ENUM(device_form_factor);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::EligiblePriceRange& proto) {
+  VISIT(currency);
+  VISIT(min_price_in_micros);
+  VISIT(max_price_in_micros);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::FeatureSpecificFields& proto) {
@@ -1690,6 +1713,11 @@ VISIT_PROTO_FIELDS(const sync_pb::PaymentInstrument& proto) {
   VISIT(iban);
   VISIT(ewallet_details);
   VISIT(device_details);
+  VISIT(bnpl_issuer_details);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::PaymentInstrumentCreationOption& proto) {
+  VISIT(buy_now_pay_later_option);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::BankAccountDetails& proto) {

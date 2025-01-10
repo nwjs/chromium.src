@@ -13,7 +13,6 @@
 #import "base/test/task_environment.h"
 #import "ios/chrome/app/app_startup_parameters.h"
 #import "ios/chrome/app/application_delegate/app_init_stage_test_utils.h"
-#import "ios/chrome/app/application_delegate/app_state+Testing.h"
 #import "ios/chrome/app/application_delegate/app_state_observer.h"
 #import "ios/chrome/app/application_delegate/fake_startup_information.h"
 #import "ios/chrome/app/application_delegate/memory_warning_helper.h"
@@ -116,6 +115,9 @@
       break;
     case AppInitStage::kEnterprise:
       break;
+    case AppInitStage::kLoadProfiles:
+      [appState queueTransitionToNextInitStage];
+      break;
     case AppInitStage::kBrowserObjectsForUI:
       [appState queueTransitionToNextInitStage];
       break;
@@ -215,11 +217,9 @@ class AppStateTest : public BlockCleanupTest {
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetDefaultFactory());
+        AuthenticationServiceFactory::GetFactoryWithDelegate(
+            std::make_unique<FakeAuthenticationServiceDelegate>()));
     profile_ = profile_manager_.AddProfileWithBuilder(std::move(builder));
-
-    AuthenticationServiceFactory::CreateAndInitializeForProfile(
-        profile_.get(), std::make_unique<FakeAuthenticationServiceDelegate>());
   }
 
   void TearDown() override {
@@ -413,9 +413,6 @@ TEST_F(AppStateTest, WillTerminate) {
 
   AppState* appState = GetAppStateWithMock();
 
-  id appStateMock = OCMPartialMock(GetAppStateWithMock());
-  [[appStateMock expect] completeUIInitialization];
-
   // Start init stages.
   [appState startInitialization];
   [appState queueTransitionToNextInitStage];
@@ -465,9 +462,6 @@ TEST_F(AppStateTest, ApplicationWillEnterForeground) {
                                           [OCMArg anyPointer])];
   [[memoryHelper expect] resetForegroundMemoryWarningCount];
   [[[memoryHelper stub] andReturnValue:@0] foregroundMemoryWarningCount];
-
-  id appStateMock = OCMPartialMock(GetAppStateWithMock());
-  [[appStateMock expect] completeUIInitialization];
 
   // Simulate finishing the initialization before going to background.
   [GetAppStateWithMock() startInitialization];

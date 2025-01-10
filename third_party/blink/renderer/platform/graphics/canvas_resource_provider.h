@@ -247,7 +247,7 @@ class PLATFORM_EXPORT CanvasResourceProvider
   // write to complete.
   virtual void EndExternalWrite(
       const gpu::SyncToken& external_write_sync_token) {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 
   // Returns the ClientSharedImage backing this CanvasResourceProvider, if one
@@ -263,8 +263,7 @@ class PLATFORM_EXPORT CanvasResourceProvider
         /*internal_access_sync_token=*/nullptr, gpu::SharedImageUsageSet());
   }
   virtual gpu::SharedImageUsageSet GetSharedImageUsageFlags() const {
-    NOTREACHED_IN_MIGRATION();
-    return gpu::SharedImageUsageSet();
+    NOTREACHED();
   }
 
   CanvasResourceProvider(const CanvasResourceProvider&) = delete;
@@ -325,8 +324,6 @@ class PLATFORM_EXPORT CanvasResourceProvider
   // with a WebGPUMailboxTexture.
   bool OverwriteImage(const gpu::Mailbox& shared_image_mailbox,
                       const gfx::Rect& copy_rect,
-                      bool unpack_flip_y,
-                      bool unpack_premultiply_alpha,
                       const gpu::SyncToken& ready_sync_token,
                       gpu::SyncToken& completion_sync_token);
 

@@ -63,10 +63,9 @@ class MigrationNotificationManager : public KeyedService {
       const base::FilePath& destination_path);
 
   // Shows a notification that migration completed with errors.
-  void ShowMigrationErrorNotification(
-      CloudProvider provider,
-      const base::FilePath& destination_path,
-      std::map<base::FilePath, MigrationUploadError> errors);
+  void ShowMigrationErrorNotification(CloudProvider provider,
+                                      const std::string& folder_name,
+                                      const base::FilePath& error_log_path);
 
   // Shows the policy configuration error notification.
   // Virtual to override in tests.
@@ -78,8 +77,8 @@ class MigrationNotificationManager : public KeyedService {
   base::CallbackListSubscription ShowOneDriveSignInNotification(
       SignInCallback callback);
 
-  // Closes any open notification or dialog.
-  void CloseAll();
+  // Closes any open notification.
+  void CloseNotifications();
 
   // Closes the migration dialog. No-op if dialog isn't opened.
   void CloseDialog();

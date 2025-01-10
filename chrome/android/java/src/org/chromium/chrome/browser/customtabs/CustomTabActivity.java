@@ -45,7 +45,7 @@ import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntent
 import org.chromium.chrome.browser.customtabs.content.CustomTabActivityTabProvider;
 import org.chromium.chrome.browser.customtabs.dependency_injection.BaseCustomTabActivityComponent;
 import org.chromium.chrome.browser.customtabs.features.CustomTabNavigationBarController;
-import org.chromium.chrome.browser.customtabs.features.toolbar.CustomTabHistoryIPHController;
+import org.chromium.chrome.browser.customtabs.features.toolbar.CustomTabHistoryIphController;
 import org.chromium.chrome.browser.dependency_injection.ChromeActivityCommonsModule;
 import org.chromium.chrome.browser.firstrun.FirstRunSignInProcessor;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -58,14 +58,10 @@ import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.night_mode.NightModeStateProvider;
 import org.chromium.chrome.browser.page_info.ChromePageInfo;
 import org.chromium.chrome.browser.page_info.ChromePageInfoHighlight;
-import org.chromium.chrome.browser.searchwidget.SearchActivityClientImpl;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TrustedCdn;
 import org.chromium.chrome.browser.ui.google_bottom_bar.GoogleBottomBarCoordinator;
-import org.chromium.components.cached_flags.AllCachedFieldTrialParameters;
 import org.chromium.components.page_info.PageInfoController.OpenedFromSource;
-import org.chromium.components.signin.SigninFeatureMap;
-import org.chromium.components.signin.SigninFeatures;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.PageTransition;
@@ -77,11 +73,6 @@ public class CustomTabActivity extends BaseCustomTabActivity {
 
     private final CustomTabsConnection mConnection = CustomTabsConnection.getInstance();
     private int mNumOmniboxNavigationEventsPerSession;
-
-    /** Contains all the parameters of the EXPERIMENTS_FOR_AGSA feature. */
-    public static final AllCachedFieldTrialParameters EXPERIMENTS_FOR_AGSA_PARAMS =
-            ChromeFeatureList.newAllCachedFieldTrialParameters(
-                    ChromeFeatureList.EXPERIMENTS_FOR_AGSA);
 
     /** Prevents Tapjacking on T-. See crbug.com/1430867 */
     private static final boolean sPreventTouches =
@@ -244,10 +235,6 @@ public class CustomTabActivity extends BaseCustomTabActivity {
                                     mConnection.getClientPackageNameForSession(mSession));
                 });
         super.finishNativeInitialization();
-        if (SigninFeatureMap.isEnabled(SigninFeatures.CCT_SIGN_IN_PROMPT)) {
-            mConnection.maybeShowAccountMismatchNotification(
-                    mSession, getIntent(), this, getWindowAndroid(), getProfileProviderSupplier());
-        }
     }
 
     @Override
@@ -334,10 +321,10 @@ public class CustomTabActivity extends BaseCustomTabActivity {
                     getTabModelSelector().isIncognitoSelected(),
                     mIntentDataProvider.getClientPackageNameIdentitySharing());
 
-            CustomTabHistoryIPHController historyIPH =
-                    mBaseCustomTabRootUiCoordinator.getHistoryIPHController();
-            if (historyIPH != null) {
-                historyIPH.notifyUserEngaged();
+            CustomTabHistoryIphController historyIph =
+                    mBaseCustomTabRootUiCoordinator.getHistoryIphController();
+            if (historyIph != null) {
+                historyIph.notifyUserEngaged();
             }
             return true;
         }
@@ -456,10 +443,9 @@ public class CustomTabActivity extends BaseCustomTabActivity {
 
         if (resultCode != Activity.RESULT_OK) return;
 
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.SEARCH_IN_CCT)
-                && SearchActivityClientImpl.isOmniboxResult(requestCode, data)) {
-            LoadUrlParams params =
-                    SearchActivityClientImpl.getOmniboxResult(requestCode, resultCode, data);
+        var searchClient = mBaseCustomTabRootUiCoordinator.getCustomTabSearchClient();
+        if (searchClient.isOmniboxResult(requestCode, data)) {
+            LoadUrlParams params = searchClient.getOmniboxResult(requestCode, resultCode, data);
 
             RecordHistogram.recordBooleanHistogram(
                     "CustomTabs.Omnibox.FocusResultedInNavigation", params != null);

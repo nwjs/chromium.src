@@ -44,6 +44,7 @@ class ServerCertificateDatabaseTest : public testing::Test {
 
 TEST_F(ServerCertificateDatabaseTest, StoreAndRetrieve) {
   EXPECT_TRUE(database_->RetrieveAllCertificates().empty());
+  EXPECT_EQ(database_->RetrieveCertificatesCount(), 0u);
 
   auto [leaf, intermediate, root] = CertBuilder::CreateSimpleChain3();
 
@@ -60,6 +61,7 @@ TEST_F(ServerCertificateDatabaseTest, StoreAndRetrieve) {
       database_->RetrieveAllCertificates(),
       UnorderedElementsAre(CertInfoEquals(std::ref(root_cert_info)),
                            CertInfoEquals(std::ref(intermediate_cert_info))));
+  EXPECT_EQ(database_->RetrieveCertificatesCount(), 2u);
 
   // Reopen the database, and it should have the entries.
   database_.reset();
@@ -68,6 +70,7 @@ TEST_F(ServerCertificateDatabaseTest, StoreAndRetrieve) {
       database_->RetrieveAllCertificates(),
       UnorderedElementsAre(CertInfoEquals(std::ref(intermediate_cert_info)),
                            CertInfoEquals(std::ref(root_cert_info))));
+  EXPECT_EQ(database_->RetrieveCertificatesCount(), 2u);
 }
 
 TEST_F(ServerCertificateDatabaseTest, Update) {
@@ -98,6 +101,37 @@ TEST_F(ServerCertificateDatabaseTest, Update) {
       database_->RetrieveAllCertificates(),
       UnorderedElementsAre(CertInfoEquals(std::ref(root_cert_info)),
                            CertInfoEquals(std::ref(intermediate_cert_info))));
+}
+
+TEST_F(ServerCertificateDatabaseTest, Delete) {
+  EXPECT_TRUE(database_->RetrieveAllCertificates().empty());
+
+  auto [leaf, intermediate, root] = CertBuilder::CreateSimpleChain3();
+
+  ServerCertificateDatabase::CertInformation root_cert_info = MakeCertInfo(
+      root->GetDER(), CertificateTrust::CERTIFICATE_TRUST_TYPE_TRUSTED);
+  ServerCertificateDatabase::CertInformation intermediate_cert_info =
+      MakeCertInfo(intermediate->GetDER(),
+                   CertificateTrust::CERTIFICATE_TRUST_TYPE_UNSPECIFIED);
+
+  EXPECT_TRUE(database_->InsertOrUpdateCert(root_cert_info));
+  EXPECT_TRUE(database_->InsertOrUpdateCert(intermediate_cert_info));
+
+  EXPECT_THAT(
+      database_->RetrieveAllCertificates(),
+      UnorderedElementsAre(CertInfoEquals(std::ref(root_cert_info)),
+                           CertInfoEquals(std::ref(intermediate_cert_info))));
+
+  EXPECT_TRUE(
+      database_->DeleteCertificate(intermediate_cert_info.sha256hash_hex));
+
+  EXPECT_THAT(database_->RetrieveAllCertificates(),
+              UnorderedElementsAre(CertInfoEquals(std::ref(root_cert_info))));
+
+  // Trying to delete a certificate hash that doesn't exist in the database
+  // should return false.
+  EXPECT_FALSE(
+      database_->DeleteCertificate(intermediate_cert_info.sha256hash_hex));
 }
 
 TEST(ServerCertificateDatabaseTrustTest, TestTrustMappings) {

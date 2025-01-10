@@ -780,7 +780,7 @@ static PositionTemplate<Strategy> MostBackwardCaretPosition(
         IsA<Text>(current_node) ? current_pos.OffsetInTextNode() : 0,
         LayoutObjectSide::kFirstLetterIfOnBoundary);
     if (!layout_object ||
-        layout_object->Style()->UsedVisibility() != EVisibility::kVisible) {
+        layout_object->Style()->Visibility() != EVisibility::kVisible) {
       if (boundary_crossed && rule == kCannotCrossEditingBoundary)
         break;
       continue;
@@ -888,7 +888,7 @@ bool HasInvisibleFirstLetter(const Node* node) {
       DynamicTo<LayoutTextFragment>(AssociatedLayoutObjectOf(*node, 0));
   if (!first_letter || first_letter == remaining_text)
     return false;
-  return first_letter->StyleRef().UsedVisibility() != EVisibility::kVisible ||
+  return first_letter->StyleRef().Visibility() != EVisibility::kVisible ||
          DisplayLockUtilities::LockedAncestorPreventingPaint(*first_letter);
 }
 }  // namespace
@@ -973,7 +973,7 @@ PositionTemplate<Strategy> MostForwardCaretPosition(
         *current_node,
         IsA<Text>(current_node) ? current_pos.OffsetInTextNode() : 0);
     if (!layout_object ||
-        layout_object->Style()->UsedVisibility() != EVisibility::kVisible) {
+        layout_object->Style()->Visibility() != EVisibility::kVisible) {
       if (boundary_crossed && rule == kCannotCrossEditingBoundary)
         break;
       continue;
@@ -1095,7 +1095,7 @@ static bool IsVisuallyEquivalentCandidateAlgorithm(
   if (!layout_object)
     return false;
 
-  if (layout_object->Style()->UsedVisibility() != EVisibility::kVisible) {
+  if (layout_object->Style()->Visibility() != EVisibility::kVisible) {
     return false;
   }
 
@@ -1258,8 +1258,7 @@ static VisiblePositionTemplate<Strategy> NextPositionOfAlgorithm(
       return CreateVisiblePosition(SkipToEndOfEditingBoundary(
           next.DeepEquivalent(), position.GetPosition()));
   }
-  NOTREACHED_IN_MIGRATION();
-  return next;
+  NOTREACHED();
 }
 
 VisiblePosition NextPositionOf(const Position& position,
@@ -1345,8 +1344,7 @@ static VisiblePositionTemplate<Strategy> PreviousPositionOfAlgorithm(
           SkipToStartOfEditingBoundary(prev.DeepEquivalent(), position));
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return prev;
+  NOTREACHED();
 }
 
 VisiblePosition PreviousPositionOf(const VisiblePosition& visible_position,
@@ -1494,7 +1492,7 @@ gfx::Rect FirstRectForRange(const EphemeralRange& range) {
   //  - RenderViewImplTest.GetCompositionCharacterBoundsTest
   //  - LocalFrameTest.CharacterIndexAtPointWithPinchZoom
   if (start_position.AnchorNode()
-          ->GetComputedStyle()
+          ->GetComputedStyleForElementOrLayoutObject()
           ->IsHorizontalWritingMode()) {
     end_caret_rect.set_width(0);
     start_caret_rect.set_width(0);

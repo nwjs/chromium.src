@@ -236,10 +236,12 @@ class TabGridViewBinder {
             view.setVisibility(model.get(TabProperties.VISIBILITY));
         } else if (TabProperties.IS_SELECTED == propertyKey
                 || TabProperties.TAB_ACTION_BUTTON_DATA == propertyKey) {
-            updateColorForActionButton(
-                    view,
-                    model.get(TabProperties.IS_INCOGNITO),
-                    model.get(TabProperties.IS_SELECTED));
+            ((TabGridView) view)
+                    .setTabActionButtonTint(
+                            TabUiThemeProvider.getActionButtonTintList(
+                                    view.getContext(),
+                                    model.get(TabProperties.IS_INCOGNITO),
+                                    model.get(TabProperties.IS_SELECTED)));
         } else if (TabProperties.TAB_CARD_LABEL_DATA == propertyKey) {
             updateTabCardLabel(view, model.get(TabProperties.TAB_CARD_LABEL_DATA));
         }
@@ -333,11 +335,10 @@ class TabGridViewBinder {
 
             TextResolver contentDescriptionResolver =
                     (context) -> {
-                        return context.getResources()
-                                .getString(
-                                        R.string.accessibility_tab_price_card,
-                                        priceDrop.previousPrice,
-                                        priceDrop.price);
+                        return context.getString(
+                                R.string.accessibility_tab_price_card,
+                                priceDrop.previousPrice,
+                                priceDrop.price);
                     };
             PriceDropTextResolver priceDropResolver =
                     new PriceDropTextResolver(priceDrop.price, priceDrop.previousPrice);
@@ -472,15 +473,6 @@ class TabGridViewBinder {
                 backgroundView,
                 TabUiThemeProvider.getHoveredCardBackgroundTintList(
                         backgroundView.getContext(), isIncognito, isSelected));
-    }
-
-    private static void updateColorForActionButton(
-            ViewLookupCachingFrameLayout rootView, boolean isIncognito, boolean isSelected) {
-        ImageView actionButton = (ImageView) rootView.fastFindViewById(R.id.action_button);
-        ImageViewCompat.setImageTintList(
-                actionButton,
-                TabUiThemeProvider.getActionButtonTintList(
-                        actionButton.getContext(), isIncognito, isSelected));
     }
 
     private static void updateColorForSelectionToggleButton(

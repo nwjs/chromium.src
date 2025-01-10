@@ -35,6 +35,9 @@ namespace autofillPrivate {
     NAME_MIDDLE_INITIAL,
     NAME_FULL,
     NAME_SUFFIX,
+    ALTERNATIVE_FULL_NAME,
+    ALTERNATIVE_GIVEN_NAME,
+    ALTERNATIVE_FAMILY_NAME,
     EMAIL_ADDRESS,
     PHONE_HOME_NUMBER,
     PHONE_HOME_CITY_CODE,
@@ -388,7 +391,7 @@ namespace autofillPrivate {
     // Logs that the server cards edit link was clicked.
     static void logServerCardLinkClicked();
 
-    // Logs that a serve IBAN's edit link was clicked.
+    // Logs that a server IBAN's edit link was clicked.
     static void logServerIbanLinkClicked();
 
     // Enrolls a credit card into virtual cards.

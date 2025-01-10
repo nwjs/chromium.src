@@ -20,9 +20,9 @@ import org.chromium.chrome.browser.omnibox.UrlBar.ScrollType;
 import org.chromium.chrome.browser.omnibox.UrlBar.UrlBarDelegate;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.ui.KeyboardVisibilityDelegate;
-import org.chromium.ui.base.WindowDelegate;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
+import org.chromium.ui.widget.ViewRectProvider;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -72,7 +72,6 @@ public class UrlBarCoordinator
     public UrlBarCoordinator(
             @NonNull Context context,
             @NonNull UrlBar urlBar,
-            @Nullable WindowDelegate windowDelegate,
             @NonNull ActionMode.Callback actionModeCallback,
             @NonNull Callback<Boolean> focusChangeCallback,
             @NonNull UrlBarDelegate delegate,
@@ -86,7 +85,6 @@ public class UrlBarCoordinator
         PropertyModel model =
                 new PropertyModel.Builder(UrlBarProperties.ALL_KEYS)
                         .with(UrlBarProperties.ACTION_MODE_CALLBACK, actionModeCallback)
-                        .with(UrlBarProperties.WINDOW_DELEGATE, windowDelegate)
                         .with(UrlBarProperties.DELEGATE, delegate)
                         .with(UrlBarProperties.INCOGNITO_COLORS_ENABLED, isIncognitoBranded)
                         .with(UrlBarProperties.LONG_CLICK_LISTENER, onLongClickListener)
@@ -142,7 +140,7 @@ public class UrlBarCoordinator
         return mMediator.setUrlBarData(data, scrollType, state);
     }
 
-    /** Returns the UrlBarData representing the current contents of the UrsssdddsssslBar. */
+    /** Returns the UrlBarData representing the current contents of the UrlBar. */
     public @NonNull UrlBarData getUrlBarData() {
         return mMediator.getUrlBarData();
     }
@@ -225,6 +223,11 @@ public class UrlBarCoordinator
     @Override
     public String getTextWithoutAutocomplete() {
         return mUrlBar.getTextWithoutAutocomplete();
+    }
+
+    /** Returns the {@link ViewRectProvider} for the UrlBar. */
+    public ViewRectProvider getViewRectProvider() {
+        return new ViewRectProvider(mUrlBar);
     }
 
     /**

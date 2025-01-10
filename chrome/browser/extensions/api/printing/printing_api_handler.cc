@@ -306,7 +306,7 @@ void PrintingAPIHandler::OnPrintJobUpdateDeprecated(
     const std::string& printer_id,
     unsigned int job_id,
     crosapi::mojom::PrintJobStatus status) {
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void PrintingAPIHandler::OnPrintJobUpdate(
@@ -354,9 +354,10 @@ void PrintingAPIHandler::OnPrintJobUpdate(
 }
 
 template <>
-KeyedService*
-BrowserContextKeyedAPIFactory<PrintingAPIHandler>::BuildServiceInstanceFor(
-    content::BrowserContext* context) const {
+std::unique_ptr<KeyedService>
+BrowserContextKeyedAPIFactory<PrintingAPIHandler>::
+    BuildServiceInstanceForBrowserContext(
+        content::BrowserContext* context) const {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   Profile* profile = Profile::FromBrowserContext(context);
@@ -365,7 +366,7 @@ BrowserContextKeyedAPIFactory<PrintingAPIHandler>::BuildServiceInstanceFor(
   if (!profile->IsRegularProfile()) {
     return nullptr;
   }
-  return new PrintingAPIHandler(context);
+  return std::make_unique<PrintingAPIHandler>(context);
 }
 
 }  // namespace extensions

@@ -9,16 +9,10 @@
 #include "base/android/scoped_java_ref.h"
 #include "components/data_sharing/public/data_sharing_network_loader.h"
 #include "components/data_sharing/public/group_data.h"
-#include "components/data_sharing/public/service_status.h"
 
 using base::android::ScopedJavaLocalRef;
 
 namespace data_sharing::conversion {
-
-// Creates an object of org.chromium.components.data_sharing.ServiceStatus.
-ScopedJavaLocalRef<jobject> CreateJavaServiceStatus(
-    JNIEnv* env,
-    const ServiceStatus& status);
 
 // Creates an object of org.chromium.components.data_sharing.GroupMember.
 ScopedJavaLocalRef<jobject> CreateJavaGroupMember(JNIEnv* env,
@@ -36,13 +30,11 @@ ScopedJavaLocalRef<jobjectArray> CreateGroupedDataArray(
     JNIEnv* env,
     const std::set<GroupData>& data);
 
-// Creates an object of org.chromium.components.data_sharing.SharedEntity.
-ScopedJavaLocalRef<jobject> CreateJavaSharedEntity(JNIEnv* env,
-                                                   const SharedEntity& entity);
-
-ScopedJavaLocalRef<jobjectArray> CreateJavaSharedEntityArray(
+// Creates an object of
+// org.chromium.components.data_sharing.SharedTabGroupPreview.
+ScopedJavaLocalRef<jobject> CreateJavaSharedTabGroupPreview(
     JNIEnv* env,
-    const std::vector<SharedEntity>& entities);
+    const SharedTabGroupPreview& preview);
 
 ScopedJavaLocalRef<jobject> CreateDataSharingNetworkResult(
     JNIEnv* env,

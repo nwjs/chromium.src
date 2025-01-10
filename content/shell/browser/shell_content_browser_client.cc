@@ -524,6 +524,14 @@ bool ShellContentBrowserClient::IsSharedStorageSelectURLAllowed(
   return true;
 }
 
+bool ShellContentBrowserClient::IsFencedStorageReadAllowed(
+    content::BrowserContext* browser_context,
+    content::RenderFrameHost* rfh,
+    const url::Origin& top_frame_origin,
+    const url::Origin& accessing_origin) {
+  return true;
+}
+
 bool ShellContentBrowserClient::IsCookieDeprecationLabelAllowed(
     content::BrowserContext* browser_context) {
   return true;
@@ -894,7 +902,8 @@ void ShellContentBrowserClient::SetUpFieldTrials() {
           GetSharedState().local_state.get(), std::move(initial_seed),
           /*signature_verification_enabled=*/true,
           std::make_unique<variations::VariationsSafeSeedStoreLocalState>(
-              GetSharedState().local_state.get()),
+              GetSharedState().local_state.get(),
+              variations_service_client.GetVariationsSeedFileDir()),
           variations_service_client.GetChannelForVariations(),
           variations_service_client.GetVariationsSeedFileDir()),
       variations::UIStringOverrider(),
@@ -937,7 +946,9 @@ void ShellContentBrowserClient::SetUpFieldTrials() {
           variations::switches::kForceVariationIds),
       feature_overrides, std::move(feature_list), metrics_state_manager.get(),
       &synthetic_trial_registry, &platform_field_trials, &safe_seed_manager,
-      /*add_entropy_source_to_variations_ids=*/false);
+      /*add_entropy_source_to_variations_ids=*/false,
+      *metrics_state_manager->CreateEntropyProviders(
+          /*enable_limited_entropy_mode=*/false));
 }
 
 std::optional<blink::ParsedPermissionsPolicy>

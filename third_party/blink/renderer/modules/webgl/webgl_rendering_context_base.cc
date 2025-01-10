@@ -120,12 +120,12 @@
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/bindings/v8_binding_macros.h"
 #include "third_party/blink/renderer/platform/graphics/accelerated_static_bitmap_image.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_2d_layer_bridge.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/image_extractor.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
 #include "third_party/blink/renderer/platform/graphics/skia/sk_image_info_hash.h"
+#include "third_party/blink/renderer/platform/graphics/static_bitmap_image_transform.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/video_frame_image_util.h"
 #include "third_party/blink/renderer/platform/graphics/web_graphics_context_3d_provider_util.h"
@@ -966,7 +966,7 @@ void WebGLRenderingContextBase::OnMakeXrCompatibleFinished(
         break;
       case device::mojom::blink::XrCompatibleResult::kCompatibleAfterRestart:
       case device::mojom::blink::XrCompatibleResult::kNotCompatibleAfterRestart:
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
     }
     CompleteXrCompatiblePromiseIfPending(exception_code);
   }
@@ -1297,7 +1297,7 @@ scoped_refptr<DrawingBuffer> WebGLRenderingContextBase::CreateDrawingBuffer(
   } else if (context_type_ == Platform::kWebGL2ContextType) {
     web_gl_version = DrawingBuffer::kWebGL2;
   } else {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 
   // On Mac OS, DrawingBuffer is using an IOSurface as its backing storage, this
@@ -1855,8 +1855,7 @@ bool WebGLRenderingContextBase::PaintRenderingResultsToCanvas(
             GetDrawingBuffer()->ExportLowLatencyCanvasResource(
                 resource_provider->CreateWeakPtr()))) {
       // This isn't expected to fail for single buffered resource provider.
-      NOTREACHED_IN_MIGRATION();
-      return false;
+      NOTREACHED();
     }
     return true;
   }
@@ -1900,7 +1899,6 @@ bool WebGLRenderingContextBase::CopyRenderingResultsFromDrawingBuffer(
   if (!GetDrawingBuffer()->ResolveAndBindForReadAndDraw())
     return false;
 
-  const bool flip_y = IsOriginTopLeft() != resource_provider->IsOriginTopLeft();
   if (resource_provider->IsAccelerated()) {
     base::WeakPtr<WebGraphicsContext3DProviderWrapper> shared_context_wrapper =
         SharedGpuContext::ContextProviderWrapper();
@@ -1919,13 +1917,13 @@ bool WebGLRenderingContextBase::CopyRenderingResultsFromDrawingBuffer(
     raster_interface->Flush();
 
     return GetDrawingBuffer()->CopyToPlatformMailbox(
-        raster_interface, client_si->mailbox(), client_si->GetTextureTarget(),
-        flip_y, gfx::Point(0, 0), gfx::Rect(drawing_buffer_->Size()),
-        source_buffer);
+        raster_interface, client_si->mailbox(), gfx::Point(0, 0),
+        gfx::Rect(drawing_buffer_->Size()), source_buffer);
   }
 
   // As the resource provider is not accelerated, we don't need an accelerated
   // image.
+  const bool flip_y = IsOriginTopLeft() != resource_provider->IsOriginTopLeft();
   scoped_refptr<StaticBitmapImage> image =
       GetDrawingBuffer()->GetUnacceleratedStaticBitmapImage(flip_y);
 
@@ -1963,8 +1961,7 @@ bool WebGLRenderingContextBase::CopyRenderingResultsToVideoFrame(
     return false;
 
   return drawing_buffer->CopyToVideoFrame(frame_pool, src_buffer,
-                                          is_origin_top_left_, dst_color_space,
-                                          std::move(callback));
+                                          dst_color_space, std::move(callback));
 }
 
 gfx::Size WebGLRenderingContextBase::DrawingBufferSize() const {
@@ -2152,8 +2149,7 @@ bool WebGLRenderingContextBase::ValidateAndUpdateBufferBindTarget(
       bound_vertex_array_object_->SetElementArrayBuffer(buffer);
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return false;
+      NOTREACHED();
   }
 
   if (buffer && !buffer->GetInitialTarget())
@@ -4571,10 +4567,8 @@ ScriptValue WebGLRenderingContextBase::getVertexAttrib(
           return WebGLAny(script_state, DOMUint32Array::Create(uint_value));
         }
         default:
-          NOTREACHED_IN_MIGRATION();
-          break;
+          NOTREACHED();
       }
-      return ScriptValue::CreateNull(script_state->GetIsolate());
     }
     case GL_VERTEX_ATTRIB_ARRAY_INTEGER:
       if (IsWebGL2()) {
@@ -5016,6 +5010,15 @@ void WebGLRenderingContextBase::ReadPixelsHelper(GLint x,
       return;
     }
     ContextGL()->ReadPixels(x, y, width, height, format, type, data);
+
+    if (IdentifiabilityStudySettings::Get()->ShouldSampleType(
+            IdentifiableSurface::Type::kWebFeature)) {
+      const auto& ukm_params = GetUkmParameters();
+      IdentifiabilityMetricBuilder(ukm_params.source_id)
+          .AddWebFeature(WebFeature::kWebGLRenderingContextReadPixels,
+                         IdentifiableToken())
+          .Record(ukm_params.ukm_recorder);
+    }
   }
 }
 
@@ -5448,24 +5451,15 @@ void WebGLRenderingContextBase::TexImageStaticBitmapImage(
   // in TexImageSkImage.
   scoped_refptr<StaticBitmapImage> color_converted_image;
   if (params.unpack_colorspace_conversion && image->IsTextureBacked()) {
-    const auto image_color_info = image->GetSkColorInfo();
-    const auto image_color_space = image_color_info.colorSpace()
-                                       ? image_color_info.refColorSpace()
-                                       : SkColorSpace::MakeSRGB();
-    const auto unpack_color_space =
-        PredefinedColorSpaceToSkColorSpace(unpack_color_space_);
-    if (!SkColorSpace::Equals(unpack_color_space.get(),
-                              image_color_space.get())) {
-      color_converted_image = image->ConvertToColorSpace(
-          unpack_color_space, image_color_info.colorType());
-      if (!color_converted_image) {
-        SynthesizeGLError(
-            GL_OUT_OF_MEMORY, func_name,
-            "ImageBitmap in unpack color space unexpectedly empty");
-        return;
-      }
-      image = color_converted_image.get();
+    color_converted_image = StaticBitmapImageTransform::ConvertToColorSpace(
+        FlushReason::kWebGLTexImage, image,
+        PredefinedColorSpaceToSkColorSpace(unpack_color_space_));
+    if (!color_converted_image) {
+      SynthesizeGLError(GL_OUT_OF_MEMORY, func_name,
+                        "ImageBitmap in unpack color space unexpectedly empty");
+      return;
     }
+    image = color_converted_image.get();
   }
 
   // Copy using the GPU, if possible.
@@ -5983,7 +5977,7 @@ void WebGLRenderingContextBase::TexImageViaGPU(
               params.unpack_premultiply_alpha, flip_y,
               gfx::Point(params.xoffset, params.yoffset), source_sub_rectangle,
               kBackBuffer)) {
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
       }
     }
   }
@@ -8064,7 +8058,7 @@ bool WebGLRenderingContextBase::ValidateTexFuncData(
                         "ArrayBufferView is not NULL");
       return false;
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
 
   unsigned total_bytes_required, skip_bytes;

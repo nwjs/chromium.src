@@ -46,10 +46,7 @@ namespace blink {
 
 namespace {
 
-void ReportHibernationEvent(Canvas2DLayerBridge::HibernationEvent event) {
-  UMA_HISTOGRAM_ENUMERATION("Blink.Canvas.HibernationEvents", event);
-}
-
+// TODO(crbug.com/40280152): Remove this method when no longer used.
 gpu::ContextSupport* GetContextSupport() {
   if (!SharedGpuContext::ContextProviderWrapper() ||
       !SharedGpuContext::ContextProviderWrapper()->ContextProvider()) {
@@ -73,7 +70,8 @@ Canvas2DLayerBridge::Canvas2DLayerBridge(CanvasResourceHost* resource_host)
 
 Canvas2DLayerBridge::~Canvas2DLayerBridge() {
   if (hibernation_handler_.IsHibernating()) {
-    ReportHibernationEvent(kHibernationEndedWithTeardown);
+    ReportHibernationEvent(CanvasHibernationHandler::HibernationEvent::
+                               kHibernationEndedWithTeardown);
   }
 }
 
@@ -85,7 +83,7 @@ void Canvas2DLayerBridge::HibernateOrLogFailure(
     bridge->Hibernate();
   } else {
     ReportHibernationEvent(
-        Canvas2DLayerBridge::
+        CanvasHibernationHandler::HibernationEvent::
             kHibernationAbortedDueToDestructionWhileHibernatePending);
   }
 }
@@ -98,23 +96,27 @@ void Canvas2DLayerBridge::Hibernate() {
   hibernation_scheduled_ = false;
 
   if (!resource_host_->ResourceProvider()) {
-    ReportHibernationEvent(kHibernationAbortedBecauseNoSurface);
+    ReportHibernationEvent(CanvasHibernationHandler::HibernationEvent::
+                               kHibernationAbortedBecauseNoSurface);
     return;
   }
 
   if (resource_host_->IsPageVisible()) {
-    ReportHibernationEvent(kHibernationAbortedDueToVisibilityChange);
+    ReportHibernationEvent(CanvasHibernationHandler::HibernationEvent::
+                               kHibernationAbortedDueToVisibilityChange);
     return;
   }
 
   if (!resource_host_->IsResourceValid()) {
-    ReportHibernationEvent(kHibernationAbortedDueGpuContextLoss);
+    ReportHibernationEvent(CanvasHibernationHandler::HibernationEvent::
+                               kHibernationAbortedDueGpuContextLoss);
     return;
   }
 
   if (resource_host_->GetRasterMode() == RasterMode::kCPU) {
     ReportHibernationEvent(
-        kHibernationAbortedDueToSwitchToUnacceleratedRendering);
+        CanvasHibernationHandler::HibernationEvent::
+            kHibernationAbortedDueToSwitchToUnacceleratedRendering);
     return;
   }
 
@@ -126,13 +128,15 @@ void Canvas2DLayerBridge::Hibernate() {
   scoped_refptr<StaticBitmapImage> snapshot =
       resource_host_->ResourceProvider()->Snapshot(FlushReason::kHibernating);
   if (!snapshot) {
-    ReportHibernationEvent(kHibernationAbortedDueSnapshotFailure);
+    ReportHibernationEvent(CanvasHibernationHandler::HibernationEvent::
+                               kHibernationAbortedDueSnapshotFailure);
     return;
   }
   sk_sp<SkImage> sw_image =
       snapshot->PaintImageForCurrentFrame().GetSwSkImage();
   if (!sw_image) {
-    ReportHibernationEvent(kHibernationAbortedDueSnapshotFailure);
+    ReportHibernationEvent(CanvasHibernationHandler::HibernationEvent::
+                               kHibernationAbortedDueSnapshotFailure);
     return;
   }
   hibernation_handler_.SaveForHibernation(
@@ -161,127 +165,18 @@ void Canvas2DLayerBridge::Hibernate() {
   }
 }
 
-CanvasResourceProvider* Canvas2DLayerBridge::GetOrCreateResourceProvider() {
-  CanvasResourceProvider* resource_provider =
-      resource_host_->ResourceProvider();
-
-  if (resource_host_->context_lost()) {
-    DCHECK(!resource_provider);
-    return nullptr;
+void Canvas2DLayerBridge::InitiateHibernationIfNecessary() {
+  if (hibernation_scheduled_) {
+    return;
   }
 
-  if (resource_provider && resource_provider->IsValid()) {
-    return resource_provider;
-  }
-
-  // Restore() is tried at most four times in two seconds to recreate the
-  // ResourceProvider before the final attempt, in which a new
-  // Canvas2DLayerBridge is created along with its resource provider.
-
-  bool want_acceleration = resource_host_->ShouldTryToUseGpuRaster();
-  RasterModeHint adjusted_hint = want_acceleration ? RasterModeHint::kPreferGPU
-                                                   : RasterModeHint::kPreferCPU;
-
-  // Re-creation will happen through Restore().
-  // If the Canvas2DLayerBridge has just been created, possibly due to failed
-  // attempts of Restore(), the layer would not exist, therefore, it will not
-  // fall through this clause to try Restore() again
-  if (resource_host_->CcLayer() &&
-      adjusted_hint == RasterModeHint::kPreferGPU &&
-      !hibernation_handler_.IsHibernating()) {
-    return nullptr;
-  }
-
-  // We call GetOrCreateCanvasResourceProviderImpl directly here to prevent a
-  // circular callstack from HTMLCanvasElement.
-  resource_provider =
-      resource_host_->GetOrCreateCanvasResourceProviderImpl(adjusted_hint);
-  if (!resource_provider || !resource_provider->IsValid())
-    return nullptr;
-
-  if (!hibernation_handler_.IsHibernating()) {
-    return resource_provider;
-  }
-
-  if (resource_provider->IsAccelerated()) {
-    ReportHibernationEvent(kHibernationEndedNormally);
-  } else {
-    if (!resource_host_->IsPageVisible()) {
-      ReportHibernationEvent(kHibernationEndedWithSwitchToBackgroundRendering);
-    } else {
-      ReportHibernationEvent(kHibernationEndedWithFallbackToSW);
-    }
-  }
-
-  PaintImageBuilder builder = PaintImageBuilder::WithDefault();
-  builder.set_image(hibernation_handler_.GetImage(),
-                    PaintImage::GetNextContentId());
-  builder.set_id(PaintImage::GetNextId());
-  resource_provider->RestoreBackBuffer(builder.TakePaintImage());
-  resource_provider->SetRecorder(hibernation_handler_.ReleaseRecorder());
-  // The hibernation image is no longer valid, clear it.
-  hibernation_handler_.Clear();
-  DCHECK(!hibernation_handler_.IsHibernating());
-
-  // shouldBeDirectComposited() may have changed.
-  resource_host_->SetNeedsCompositingUpdate();
-
-  return resource_provider;
-}
-
-void Canvas2DLayerBridge::PageVisibilityChanged() {
-  bool page_is_visible = resource_host_->IsPageVisible();
-  if (resource_host_->ResourceProvider()) {
-    resource_host_->ResourceProvider()->SetResourceRecyclingEnabled(
-        page_is_visible);
-  }
-
-  // Conserve memory.
-  if (resource_host_->GetRasterMode() == RasterMode::kGPU) {
-    if (auto* context_support = GetContextSupport()) {
-      context_support->SetAggressivelyFreeResources(!page_is_visible);
-    }
-  }
-
-  if (features::IsCanvas2DHibernationEnabled() &&
-      resource_host_->ResourceProvider() &&
-      resource_host_->GetRasterMode() == RasterMode::kGPU && !page_is_visible &&
-      !hibernation_scheduled_) {
-    resource_host_->ClearLayerTexture();
-    ReportHibernationEvent(kHibernationScheduled);
-    hibernation_scheduled_ = true;
-    ThreadScheduler::Current()->PostIdleTask(
-        FROM_HERE, WTF::BindOnce(&Canvas2DLayerBridge::HibernateOrLogFailure,
-                                 weak_ptr_factory_.GetWeakPtr()));
-  }
-
-  // The impl tree may have dropped the transferable resource for this canvas
-  // while it wasn't visible. Make sure that it gets pushed there again, now
-  // that we've visible.
-  //
-  // This is done all the time, but it is especially important when canvas
-  // hibernation is disabled. In this case, when the impl-side active tree
-  // releases the TextureLayer's transferable resource, it will not be freed
-  // since the texture has not been cleared above (there is a remaining
-  // reference held from the TextureLayer). Then the next time the page becomes
-  // visible, the TextureLayer will note the resource hasn't changed (in
-  // Update()), and will not add the layer to the list of those that need to
-  // push properties. But since the impl-side tree no longer holds the resource,
-  // we need TreeSynchronizer to always consider this layer.
-  //
-  // This makes sure that we do push properties. It is a not needed when canvas
-  // hibernation is enabled (since the resource will have changed, it will be
-  // pushed), but we do it anyway, since these interactions are subtle.
-  bool resource_may_have_been_dropped =
-      cc::TextureLayerImpl::MayEvictResourceInBackground(
-          viz::TransferableResource::ResourceSource::kCanvas);
-  if (page_is_visible && resource_may_have_been_dropped) {
-    resource_host_->SetNeedsPushProperties();
-  }
-
-  if (page_is_visible && hibernation_handler_.IsHibernating()) {
-    GetOrCreateResourceProvider();  // Rude awakening
-  }
+  resource_host_->ClearLayerTexture();
+  ReportHibernationEvent(
+      CanvasHibernationHandler::HibernationEvent::kHibernationScheduled);
+  hibernation_scheduled_ = true;
+  ThreadScheduler::Current()->PostIdleTask(
+      FROM_HERE, WTF::BindOnce(&Canvas2DLayerBridge::HibernateOrLogFailure,
+                               weak_ptr_factory_.GetWeakPtr()));
 }
 
 }  // namespace blink

@@ -161,8 +161,7 @@ URLLoader::DeleteCallback DeleteLoaderCallback(
 // this method, as URLLoaders don't expect to be alive after they invoke their
 // delete callback.
 URLLoader::DeleteCallback NeverInvokedDeleteLoaderCallback() {
-  return base::BindOnce(
-      [](URLLoader* /* loader*/) { NOTREACHED_IN_MIGRATION(); });
+  return base::BindOnce([](URLLoader* /* loader*/) { NOTREACHED(); });
 }
 
 constexpr char kTestAuthURL[] = "/auth-basic?password=PASS&realm=REALM";
@@ -4280,8 +4279,7 @@ class ClientCertAuthObserver : public TestURLLoaderNetworkObserver {
         std::move(client_cert_responder_remote));
     switch (certificate_response_) {
       case CertificateResponse::INVALID:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
       case CertificateResponse::URL_LOADER_REQUEST_CANCELLED:
         ASSERT_TRUE(url_loader_remote_);
         url_loader_remote_->reset();
@@ -4559,7 +4557,7 @@ TEST_F(URLLoaderTest, FollowRedirectTwice) {
   client()->RunUntilRedirectReceived();
 
   url_loader->FollowRedirect({}, {}, {}, std::nullopt);
-  EXPECT_DCHECK_DEATH(url_loader->FollowRedirect({}, {}, {}, std::nullopt));
+  EXPECT_NOTREACHED_DEATH(url_loader->FollowRedirect({}, {}, {}, std::nullopt));
 
   client()->RunUntilComplete();
   delete_run_loop.Run();
@@ -6462,7 +6460,7 @@ class MockTrustTokenRequestHelperFactory
         return;
     }
 
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 
  private:
@@ -7607,9 +7605,9 @@ TEST_F(URLLoaderTest, CookieSettingOverridesCopiedToURLRequest) {
 TEST_F(URLLoaderTest, ReadAndDiscardBody) {
   const std::string file = "simple_page.html";
   const GURL url = test_server()->GetURL("/" + file);
-  int64_t actual_size = 0;
-  bool got_file_size = base::GetFileSize(GetTestFilePath(file), &actual_size);
-  ASSERT_TRUE(got_file_size);
+  std::optional<int64_t> file_size = base::GetFileSize(GetTestFilePath(file));
+  ASSERT_TRUE(file_size.has_value());
+  int64_t actual_size = file_size.value();
 
   TestURLLoaderClient loader_client;
   ResourceRequest request = CreateResourceRequest("GET", url);
@@ -7951,5 +7949,22 @@ TEST_F(SharedStorageRequestHelperURLLoaderTest, RedirectBecomesEligible) {
 
   delete_run_loop_.Run();
 }
+
+#if BUILDFLAG(IS_ANDROID)
+TEST_F(URLLoaderTest, SocketTaggingWorks) {
+  if (!net::CanGetTaggedBytes()) {
+    GTEST_SKIP() << "Skipping test - GetTaggedBytes unsupported.";
+  }
+  GURL url = test_server()->GetURL("/empty.html");
+  ResourceRequest request = CreateResourceRequest("GET", url);
+  request.request_initiator = url::Origin::Create(url);
+  int32_t tag_val = 0x12345678;
+  uint64_t old_traffic = net::GetTaggedBytes(tag_val);
+  request.socket_tag = net::SocketTag(-1, tag_val);
+
+  EXPECT_EQ(net::OK, LoadRequest(request));
+  EXPECT_GT(net::GetTaggedBytes(tag_val), old_traffic);
+}
+#endif
 
 }  // namespace network

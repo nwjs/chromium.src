@@ -12,7 +12,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.supplier.Supplier;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.widget.BrowserUiListMenuUtils;
@@ -93,21 +92,19 @@ public class TabGridDialogMenuCoordinator extends TabGroupOverflowMenuCoordinato
                         R.style.TextAppearance_TextLarge_Primary_Baseline_Light,
                         isIncognito,
                         /* enabled= */ true));
-        if (ChromeFeatureList.sTabGroupParityAndroid.isEnabled()) {
-            itemList.add(
-                    BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(
-                            R.string.tab_grid_dialog_toolbar_edit_group_color,
-                            R.id.edit_group_color,
-                            R.drawable.ic_colorize_24dp,
-                            R.color.default_icon_color_light_tint_list,
-                            R.style.TextAppearance_TextLarge_Primary_Baseline_Light,
-                            isIncognito,
-                            /* enabled= */ true));
-        }
+        itemList.add(
+                BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(
+                        R.string.tab_grid_dialog_toolbar_edit_group_color,
+                        R.id.edit_group_color,
+                        R.drawable.ic_colorize_24dp,
+                        R.color.default_icon_color_light_tint_list,
+                        R.style.TextAppearance_TextLarge_Primary_Baseline_Light,
+                        isIncognito,
+                        /* enabled= */ true));
         itemList.add(
                 BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(
                         R.string.tab_grid_dialog_toolbar_close_group,
-                        R.id.close_tab,
+                        R.id.close_tab_group,
                         R.drawable.ic_tab_close_24dp,
                         R.color.default_icon_color_light_tint_list,
                         R.style.TextAppearance_TextLarge_Primary_Baseline_Light,
@@ -117,7 +114,7 @@ public class TabGridDialogMenuCoordinator extends TabGroupOverflowMenuCoordinato
             itemList.add(
                     BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(
                             R.string.tab_grid_dialog_toolbar_delete_group,
-                            R.id.delete_tab,
+                            R.id.delete_tab_group,
                             R.drawable.material_ic_delete_24dp,
                             R.color.default_icon_color_light_tint_list,
                             R.style.TextAppearance_TextLarge_Primary_Baseline_Light,
@@ -135,7 +132,7 @@ public class TabGridDialogMenuCoordinator extends TabGroupOverflowMenuCoordinato
         @MemberRole int memberRole = TabShareUtils.getSelfMemberRole(outcome, identityManager);
         if (memberRole != MemberRole.UNKNOWN) {
             // Insert these items above the close group menu item.
-            int insertionIndex = getMenuItemIndex(itemList, R.id.close_tab);
+            int insertionIndex = getMenuItemIndex(itemList, R.id.close_tab_group);
             itemList.add(
                     insertionIndex++,
                     BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(

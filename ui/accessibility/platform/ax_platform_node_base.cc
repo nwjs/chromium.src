@@ -130,10 +130,11 @@ AXPlatformNodeMemoryDumpProvider::AXPlatformNodeMemoryDumpProvider(
 }  // namespace
 
 const char16_t AXPlatformNodeBase::kEmbeddedCharacter = u'\xfffc';
+const std::string AXPlatformNodeBase::kAriaActionsPrefix = "custom";
 
 // TODO(fxbug.dev/91030): Remove the !BUILDFLAG(IS_FUCHSIA) condition once
 // fuchsia has native accessibility.
-#if !BUILDFLAG_INTERNAL_HAS_NATIVE_ACCESSIBILITY() && !BUILDFLAG(IS_FUCHSIA)
+#if !BUILDFLAG(HAS_NATIVE_ACCESSIBILITY) && !BUILDFLAG(IS_FUCHSIA)
 // static
 AXPlatformNode* AXPlatformNode::Create(AXPlatformNodeDelegate* delegate) {
   AXPlatformNodeBase* node = new AXPlatformNodeBase();
@@ -1178,6 +1179,10 @@ void AXPlatformNodeBase::ComputeAttributes(PlatformAttributeList* attributes) {
     AddAttributeToList("autocomplete", "list", attributes);
   }
 
+  if (HasState(ax::mojom::State::kHasActions)) {
+    AddAttributeToList("has-actions", "true", attributes);
+  }
+
   std::u16string role_description =
       GetRoleDescriptionFromImageAnnotationStatusOrFromAttribute();
   if (!role_description.empty() ||
@@ -1222,11 +1227,13 @@ void AXPlatformNodeBase::ComputeAttributes(PlatformAttributeList* attributes) {
         from = "table-caption";
         break;
       case ax::mojom::DescriptionFrom::kTitle:
-      case ax::mojom::DescriptionFrom::kPopoverAttribute:
+      case ax::mojom::DescriptionFrom::kPopoverTarget:
+      case ax::mojom::DescriptionFrom::kInterestTarget:
         // The following types of markup are mapped to "tooltip":
         // * The title attribute.
         // * A popover=something related via the `popovertarget` attribute.
         // * A tooltip related via aria-describedby (see kRelatedElement above).
+        // * An interesttarget pointing to plain content.
         from = "tooltip";
         break;
       case ax::mojom::DescriptionFrom::kNone:
@@ -1313,7 +1320,8 @@ void AXPlatformNodeBase::ComputeAttributes(PlatformAttributeList* attributes) {
       from = "related-element";
       DCHECK(!GetName().empty());
       break;
-    case ax::mojom::NameFrom::kPopoverAttribute:
+    case ax::mojom::NameFrom::kPopoverTarget:
+    case ax::mojom::NameFrom::kInterestTarget:
     case ax::mojom::NameFrom::kTitle:
       from = "tooltip";
       DCHECK(!GetName().empty());
@@ -1513,7 +1521,7 @@ void AXPlatformNodeBase::ComputeAttributes(PlatformAttributeList* attributes) {
   // aria-dropeffect is deprecated in WAI-ARIA 1.1.
   if (delegate_->HasIntAttribute(
           ax::mojom::IntAttribute::kDropeffectDeprecated)) {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 
   // Expose class attribute.
@@ -1598,8 +1606,11 @@ void AXPlatformNodeBase::ComputeAttributes(PlatformAttributeList* attributes) {
       case ax::mojom::DetailsFrom::kCssAnchor:
         AddAttributeToList("details-from", "css-anchor", attributes);
         break;
-      case ax::mojom::DetailsFrom::kPopoverAttribute:
-        AddAttributeToList("details-from", "popover-attribute", attributes);
+      case ax::mojom::DetailsFrom::kPopoverTarget:
+        AddAttributeToList("details-from", "popover-target", attributes);
+        break;
+      case ax::mojom::DetailsFrom::kInterestTarget:
+        AddAttributeToList("details-from", "interest-target", attributes);
         break;
     }
   }
@@ -1793,6 +1804,8 @@ void AXPlatformNodeBase::SanitizeStringAttribute(const std::string& input,
   base::ReplaceChars(*output, ",", "\\,", output);
   base::ReplaceChars(*output, "=", "\\=", output);
   base::ReplaceChars(*output, ";", "\\;", output);
+  base::ReplaceChars(*output, "\r", " ", output);
+  base::ReplaceChars(*output, "\n", " ", output);
 }
 
 int32_t AXPlatformNodeBase::GetHyperlinkIndexFromChild(

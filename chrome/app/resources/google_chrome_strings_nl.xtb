@@ -80,7 +80,6 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="2008942457798486387">{NUM_EXTENSIONS,plural, =1{Deze extensie wordt niet meer ondersteund. Chrome raadt je aan deze te verwijderen.}other{Deze extensies worden niet meer ondersteund. Chrome raadt je aan deze te verwijderen.}}</translation>
 <translation id="2018528049276128029">Elk profiel heeft eigen Chrome-informatie, zoals bookmarks, geschiedenis en wachtwoorden</translation>
 <translation id="2018879682492276940">Installatie mislukt. Probeer het opnieuw.</translation>
-<translation id="2022471217832964798">Terwijl we de accounttoegang instellen, kun je Chrome nog steeds gebruiken. Misschien heb je pas toegang tot bepaalde bronnen nadat het instellen is afgerond.</translation>
 <translation id="2034233344106846793">Chrome upgradet niet-beveiligde verbindingen automatisch naar HTTPS als dat mogelijk is</translation>
 <translation id="207902854391093810">Tijdens actieve proeven kunnen sites die je bezoekt Chrome via Advertentiemeting om informatie vragen zodat ze de prestaties van hun advertenties kunnen meten. Advertentiemeting beperkt tracking op meerdere sites door zo min mogelijk informatie over te dragen tussen sites.</translation>
 <translation id="2091012649849228750">Als je toekomstige Google Chrome-updates wilt krijgen, heb je Windows 10 of hoger nodig. Deze computer gebruikt Windows 8.</translation>
@@ -248,6 +247,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="3873044882194371212">Link openen in een Chrome-inco&amp;gnitovenster</translation>
 <translation id="3885770153807205175">Taalkiezer</translation>
 <translation id="3889417619312448367">Google Chrome verwijderen</translation>
+<translation id="3892148308691398805">Tekst kopiëren</translation>
 <translation id="3941890832296813527">Installatiefout: De bestandsnaam van het installatieprogramma is ongeldig of wordt niet ondersteund.</translation>
 <translation id="3973161977468201858">Google Chrome wil je Google Wachtwoordmanager-gegevens verwijderen. Typ je Windows-wachtwoord om dit toe te staan.</translation>
 <translation id="398236277091248993">Chrome blijft snel met functies om de prestaties te verbeteren</translation>
@@ -302,6 +302,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="4567424176335768812">Je bent ingelogd als <ph name="USER_EMAIL_ADDRESS" />. Je hebt nu toegang tot je bookmarks, geschiedenis en andere instellingen op al je apparaten waarop je bent ingelogd.</translation>
 <translation id="4571503333518166079">Ga naar instellingen voor Chrome-meldingen</translation>
 <translation id="4575717501879784448">Chrome kan deze tabbladen inactief maken om de browsefunctionaliteit te verbeteren en resources vrij te maken.</translation>
+<translation id="4595162648538023956">Je kunt inloggen om toegang tot je gegevens te krijgen of Chrome gebruiken zonder account</translation>
 <translation id="459622048091363950">Zodra Chrome toegang heeft, kunnen websites je om toegang vragen.</translation>
 <translation id="4600710005438004015">Chrome kan niet worden geüpdatet naar de nieuwste versie, dus je loopt nieuwe functies en beveiligingsoplossingen mis.</translation>
 <translation id="4601439950572737842">Je gegevens zijn versleuteld met je wachtwoordzin. Voer deze in om Chrome-gegevens te gebruiken en op te slaan in je Google-account.</translation>
@@ -348,6 +349,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="5170938038195470297">Je profiel kan niet worden gebruikt omdat dit afkomstig is van een nieuwere versie van Google Chrome.
 
 Sommige functies zijn wellicht niet beschikbaar. Geef een andere profieldirectory op of gebruik een nieuwere versie van Chrome.</translation>
+<translation id="5174969993834422967">Meestal blokkeer je meldingen. Klik op het meldingsicoon in de rechterhoek van de locatiebalk om toe te staan dat deze site meldingen stuurt.</translation>
 <translation id="5201744974236816379">Chrome-update</translation>
 <translation id="521447420733633466">Als je een apparaat deelt, kunnen vrienden en familie afzonderlijk surfen en Chrome instellen zoals zij dat willen.</translation>
 <translation id="5234764350956374838">Sluiten</translation>
@@ -392,7 +394,6 @@ Sommige functies zijn wellicht niet beschikbaar. Geef een andere profieldirector
 <translation id="5895138241574237353">Opnieuw starten</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> - Inloggen bij netwerk</translation>
 <translation id="5924017743176219022">Verbinding maken met internet...</translation>
-<translation id="5932997892801542621">Als je in de adresbalk of het zoekvak typt, stuurt Chrome wat je typt naar Google Drive om itemsuggesties te krijgen. Dit staat uit in de incognitomodus.</translation>
 <translation id="5940385492829620908">Hier vind je internet, bookmarks en andere Chrome-instellingen.</translation>
 <translation id="5941711191222866238">Minimaliseren</translation>
 <translation id="5941830788786076944">Google Chrome instellen als mijn standaardbrowser</translation>
@@ -451,6 +452,7 @@ Sommige functies zijn wellicht niet beschikbaar. Geef een andere profieldirector
 <translation id="6497147134301593682">Chrome is automatisch gesloten</translation>
 <translation id="6506909944137591434">Chrome heeft camerarechten nodig om een 3D-kaart van je omgeving te maken</translation>
 <translation id="6515495397637126556"><ph name="PAGE_TITLE" /> - Google Chrome Dev</translation>
+<translation id="6515549163407364048">Log in bij Chrome om op al je computers toegang te krijgen tot je extensies</translation>
 <translation id="6520670145826811516">Geef Chrome toegang via de <ph name="BEGIN_LINK" />systeeminstellingen<ph name="END_LINK" /> om je locatie te gebruiken</translation>
 <translation id="659498884637196217">In Google Wachtwoordmanager op dit apparaat</translation>
 <translation id="6600016381025017075">Zoek naar iets op deze pagina</translation>
@@ -499,7 +501,7 @@ Rechten die je al hebt gegeven aan websites en apps, kunnen van toepassing zijn 
 <translation id="7099479769133613710">Opnieuw starten om &amp;Chrome OS te updaten</translation>
 <translation id="7100085796996987445">Als je je scherm wilt delen, sta je schermopname voor Chrome toe in Systeemvoorkeuren</translation>
 <translation id="7106741999175697885">Taakbeheer - Google Chrome</translation>
-<translation id="7113423803153683764">Chrome maakt geheugen van inactieve tabbladen vrij. Zo krijgen actieve tabbladen en andere apps meer computerbronnen en blijft Chrome snel. Je inactieve tabbladen worden automatisch weer actief als je ernaar terugkeert.</translation>
+<translation id="7113423803153683764">Chrome maakt geheugen van inactieve tabbladen vrij. Zo krijgen actieve tabbladen en andere apps meer resources en blijft Chrome snel. Je inactieve tabbladen worden automatisch weer actief als je ernaar terugkeert.</translation>
 <translation id="7140653346177713799">{COUNT,plural, =0{Er is een nieuwe update voor Chrome beschikbaar die wordt uitgevoerd zodra je het programma opnieuw start.}=1{Er is een nieuwe update voor Chrome beschikbaar die wordt uitgevoerd zodra je het programma opnieuw start. Je incognitovenster kan niet opnieuw worden geopend.}other{Er is een nieuwe update voor Chrome beschikbaar die wordt uitgevoerd zodra je het programma opnieuw start. Je # incognitovensters kunnen niet opnieuw worden geopend.}}</translation>
 <translation id="7155997830309522122">Als dit het geval is, bewerk je het opgeslagen wachtwoord in Chrome, zodat het overeenkomt met je nieuwe wachtwoord.</translation>
 <translation id="7161904924553537242">Welkom bij Google Chrome</translation>
@@ -544,6 +546,7 @@ Rechten die je al hebt gegeven aan websites en apps, kunnen van toepassing zijn 
 <translation id="7655455401911432608">Je browsegeschiedenis, een lijst van de sites die je via Chrome op dit apparaat hebt bezocht.</translation>
 <translation id="7655472416356262023">Account verwijderen uit Chrome</translation>
 <translation id="7658239707568436148">Annuleren</translation>
+<translation id="7659737857277959440">Je organisatie kan browsegegevens bekijken en beheren, zoals je bookmarks, geschiedenis en wachtwoorden. De app kan geen browsegegevens bekijken in persoonlijke Chrome-profielen.</translation>
 <translation id="7661924425853052955">Je bent hier niet recent geweest. Chrome heeft <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> en nog <ph name="COUNT" /> verwijderd</translation>
 <translation id="7668816516367091728">Voer rechtstreeks vanuit de adresbalk taken uit, zoals vertalen en berekenen</translation>
 <translation id="7670287553302121848">Chrome-account moet opnieuw worden geverifieerd</translation>
@@ -594,9 +597,10 @@ Rechten die je al hebt gegeven aan websites en apps, kunnen van toepassing zijn 
 <translation id="8129812357326543296">Over &amp;Google Chrome</translation>
 <translation id="813913629614996137">Starten...</translation>
 <translation id="8162006532256575008">Chrome gebruiken zonder account</translation>
+<translation id="8221491193165283816">Meestal blokkeer je meldingen. Klik hier om toe te staan dat deze site meldingen stuurt.</translation>
 <translation id="8255190535488645436">Google Chrome gebruikt je camera en microfoon.</translation>
 <translation id="8257796129973882597">Je kunt onder meer bookmarks en de leesmodus openen via het Chrome-menu</translation>
-<translation id="8267953129876836456">Chrome heeft een aantal veiligheidsaanbevelingen gevonden die je moet controleren</translation>
+<translation id="8267953129876836456">Chrome heeft een aantal veiligheidsaanbevelingen gevonden</translation>
 <translation id="8270775718612349140">Certificaten beheerd door Chrome</translation>
 <translation id="8286862437124483331">Google Chrome probeert wachtwoorden te bekijken. Geef je Windows-wachtwoord op om dit toe te staan.</translation>
 <translation id="8290100596633877290">Oeps! Google Chrome is vastgelopen. Nu opnieuw starten?</translation>
@@ -625,6 +629,7 @@ Rechten die je al hebt gegeven aan websites en apps, kunnen van toepassing zijn 
 <translation id="852529348814672339">Chrome in deze taal weergeven</translation>
 <translation id="8550334526674375523">Dit werkprofiel is volledig gescheiden van je persoonlijke profiel.</translation>
 <translation id="8555465886620020932">Servicefout: <ph name="SERVICE_ERROR" />.</translation>
+<translation id="856656450041460113">Zoeken in lijst met talen</translation>
 <translation id="8571790202382503603">Met Chrome-profielen kun je alle Chrome-gegevens gescheiden houden. Zo kun je makkelijker onderscheid maken tussen werk en privé.</translation>
 <translation id="8601359445272098721">Nieuw! Je kunt zowel tekst als afbeeldingen op je scherm vertalen door de knop Scherm vertalen te selecteren</translation>
 <translation id="8614913330719544658">Google Chrome reageert niet meer. Nu opnieuw starten?</translation>

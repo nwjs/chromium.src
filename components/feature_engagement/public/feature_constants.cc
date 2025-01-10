@@ -126,6 +126,9 @@ BASE_FEATURE(kIPHPasswordManagerShortcutFeature,
 BASE_FEATURE(kIPHPasswordSharingFeature,
              "IPH_PasswordSharingFeature",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHPdfSearchifyFeature,
+             "IPH_PdfSearchifyFeature",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHPerformanceInterventionDialogFeature,
              "IPH_PerformanceInterventionDialogFeature",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -176,6 +179,9 @@ BASE_FEATURE(kIPHSideSearchPageActionLabelFeature,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHSignoutWebInterceptFeature,
              "IPH_SignoutWebIntercept",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHPwaQuietNotificationFeature,
+             "IPH_PwaQuietNotification",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHTabGroupsSaveV2IntroFeature,
              "IPH_TabGroupsSaveV2Intro",
@@ -394,12 +400,6 @@ BASE_FEATURE(kIPHPriceDropNTPFeature,
 BASE_FEATURE(kIPHShoppingListMenuItemFeature,
              "IPH_ShoppingListMenuItem",
              base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHTabGroupsQuicklyComparePagesFeature,
-             "IPH_TabGroupsQuicklyComparePages",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHTabGroupsTapToSeeAnotherTabFeature,
-             "IPH_TabGroupsTapToSeeAnotherTab",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHTabGroupCreationDialogSyncTextFeature,
              "IPH_TabGroupCreationDialogSyncText",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -662,6 +662,9 @@ BASE_FEATURE(kIPHAutofillManualFallbackFeature,
 BASE_FEATURE(kIPHAutofillPredictionImprovementsFeature,
              "IPH_AutofillPredictionImprovements",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHAutofillPredictionImprovementsBootstrappingFeature,
+             "IPH_AutofillPredictionImprovementsBootstrapping",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAutofillVirtualCardCVCSuggestionFeature,
              "IPH_AutofillVirtualCardCVCSuggestion",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -793,6 +796,14 @@ BASE_FEATURE(kIPHScalableIphGamingFeature,
 BASE_FEATURE(kIPHDesktopPWAsLinkCapturingLaunch,
              "IPH_DesktopPWAsLinkCapturingLaunch",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// This can be enabled by default, as the DesktopPWAsLinkCapturing
+// flag is needed for the IPH linked to this feature to work, and
+// use-cases to show the IPH are guarded by that flag.
+BASE_FEATURE(kIPHDesktopPWAsLinkCapturingLaunchAppInTab,
+             "IPH_DesktopPWAsLinkCapturingLaunchAppInTab",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // This can be enabled by default, as the kManagementToolbarButton
 // flag is needed for the IPH linked to this feature to work, and
 // use-cases to show the IPH are guarded by that flag. This feature is

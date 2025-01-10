@@ -65,6 +65,32 @@ constexpr auto kWebBundleDownloadTrafficAnnotation =
       }
     }
   })");
+
+IsolatedWebAppInstallSource GetIsolatedWebAppInstallSource(
+    IwaInstaller::InstallSourceType install_source_type,
+    const base::FilePath& path) {
+  auto src_bundle =
+      IwaSourceBundleProdModeWithFileOp(path, IwaSourceBundleProdFileOp::kMove);
+
+  switch (install_source_type) {
+    case IwaInstaller::InstallSourceType::kPolicy:
+      return IsolatedWebAppInstallSource::FromExternalPolicy(
+          std::move(src_bundle));
+    case IwaInstaller::InstallSourceType::kKiosk:
+      return IsolatedWebAppInstallSource::FromKiosk(std::move(src_bundle));
+  }
+}
+
+std::optional<UpdateManifest::VersionEntry> GetVersionWithOptions(
+    const UpdateManifest& update_manifest,
+    const IsolatedWebAppExternalInstallOptions& install_options) {
+  if (install_options.pinned_version()) {
+    return update_manifest.GetVersion(*install_options.pinned_version(),
+                                      install_options.update_channel());
+  } else {
+    return update_manifest.GetLatestVersion(install_options.update_channel());
+  }
+}
 }  // namespace
 
 IwaInstaller::IwaInstallCommandWrapperImpl::IwaInstallCommandWrapperImpl(
@@ -97,11 +123,13 @@ base::Value::Dict IwaInstallerResult::ToDebugValue() const {
 
 IwaInstaller::IwaInstaller(
     IsolatedWebAppExternalInstallOptions install_options,
+    InstallSourceType install_source_type,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     std::unique_ptr<IwaInstallCommandWrapper> install_command_wrapper,
     base::Value::List& log,
     ResultCallback callback)
     : install_options_(std::move(install_options)),
+      install_source_type_(install_source_type),
       url_loader_factory_(std::move(url_loader_factory)),
       install_command_wrapper_(std::move(install_command_wrapper)),
       log_(log),
@@ -177,18 +205,20 @@ void IwaInstaller::OnUpdateManifestParsed(
         }
       });
 
-  std::optional<UpdateManifest::VersionEntry> latest_version =
-      update_manifest.GetLatestVersion(install_options_.update_channel());
-  if (!latest_version.has_value()) {
+  std::optional<UpdateManifest::VersionEntry> version_to_install =
+      GetVersionWithOptions(update_manifest, install_options_);
+
+  if (!version_to_install) {
     Finish(Result(Result::Type::kErrorWebBundleUrlCantBeDetermined));
     return;
   }
 
-  log_->Append(base::Value("Downloaded Update Manifest. Latest version: " +
-                           latest_version->version().GetString() + " from " +
-                           latest_version->src().possibly_invalid_spec()));
+  log_->Append(base::Value("Downloaded Update Manifest. Version to install: " +
+                           version_to_install->version().GetString() +
+                           " from " +
+                           version_to_install->src().possibly_invalid_spec()));
   std::move(next_step_callback)
-      .Run(latest_version->src(), latest_version->version());
+      .Run(version_to_install->src(), version_to_install->version());
 }
 
 void IwaInstaller::DownloadWebBundle(
@@ -233,9 +263,7 @@ void IwaInstaller::RunInstallCommand(base::Version expected_version) {
   // app might have already been installed by other means.
 
   install_command_wrapper_->Install(
-      IsolatedWebAppInstallSource::FromExternalPolicy(
-          IwaSourceBundleProdModeWithFileOp(bundle_.path(),
-                                            IwaSourceBundleProdFileOp::kMove)),
+      GetIsolatedWebAppInstallSource(install_source_type_, bundle_.path()),
       url_info, std::move(expected_version),
       base::BindOnce(&IwaInstaller::OnIwaInstalled,
                      weak_factory_.GetWeakPtr()));
@@ -260,13 +288,14 @@ void IwaInstaller::Finish(Result result) {
 
 std::unique_ptr<IwaInstaller> IwaInstallerFactory::Create(
     IsolatedWebAppExternalInstallOptions install_options,
+    IwaInstaller::InstallSourceType install_source_type,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     base::Value::List& log,
     WebAppProvider* provider,
     IwaInstaller::ResultCallback callback) {
-  return GetIwaInstallerFactory().Run(std::move(install_options),
-                                      std::move(url_loader_factory), log,
-                                      provider, std::move(callback));
+  return GetIwaInstallerFactory().Run(
+      std::move(install_options), install_source_type,
+      std::move(url_loader_factory), log, provider, std::move(callback));
 }
 
 IwaInstallerFactory::IwaInstallerFactoryCallback&
@@ -276,11 +305,13 @@ IwaInstallerFactory::GetIwaInstallerFactory() {
   if (!iwa_installer_factory.Get()) {
     iwa_installer_factory.Get() = base::BindRepeating(
         [](IsolatedWebAppExternalInstallOptions install_options,
+           IwaInstaller::InstallSourceType install_source_type,
            scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
            base::Value::List& log, WebAppProvider* provider,
            IwaInstaller::ResultCallback callback) {
           return std::make_unique<IwaInstaller>(
-              std::move(install_options), std::move(url_loader_factory),
+              std::move(install_options), install_source_type,
+              std::move(url_loader_factory),
               std::make_unique<IwaInstaller::IwaInstallCommandWrapperImpl>(
                   provider),
               log, std::move(callback));

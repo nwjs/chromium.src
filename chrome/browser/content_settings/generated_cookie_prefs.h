@@ -19,10 +19,12 @@ namespace content_settings {
 extern const char kCookieDefaultContentSetting[];
 extern const char kThirdPartyCookieBlockingSetting[];
 
+// LINT.IfChange(ThirdPartyCookieBlockingSetting)
 enum class ThirdPartyCookieBlockingSetting {
   BLOCK_THIRD_PARTY,
-  INCOGNITO_ONLY
+  INCOGNITO_ONLY,
 };
+// LINT.ThenChange(/chrome/browser/resources/settings/site_settings/site_settings_prefs_browser_proxy.ts:ThirdPartyCookieBlockingSetting)
 
 // A generated preference that represents cookies content setting and supports
 // three states: allow, session only and block.
@@ -68,8 +70,11 @@ class GeneratedThirdPartyCookieBlockingSettingPref
   extensions::settings_private::SetPrefResult SetPrefResult(
       CookieControlsMode value);
   ThirdPartyCookieBlockingSetting GetValue() const;
+  // Fired when preferences used to generate this preference are changed.
+  void OnSourcePreferencesChanged();
 
   const raw_ptr<Profile> profile_;
+  PrefChangeRegistrar user_prefs_registrar_;
 };
 
 }  // namespace content_settings

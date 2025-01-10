@@ -8,6 +8,7 @@ import android.util.Pair;
 
 import androidx.test.filters.LargeTest;
 
+import org.junit.AfterClass;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -51,6 +52,11 @@ public class OmniboxPTTest {
     ChromeTabbedActivityPublicTransitEntryPoints mEntryPoints =
             new ChromeTabbedActivityPublicTransitEntryPoints(sChromeTabbedActivityTestRule);
 
+    @AfterClass
+    public static void tearDownClass() {
+        sFakeSuggestions.destroy();
+    }
+
     @LargeTest
     @Test
     public void testOpenTypeDelete_fromWebPage() {
@@ -66,7 +72,7 @@ public class OmniboxPTTest {
     @Test
     public void testOpenTypeDelete_fromNtp() {
         WebPageStation blankPage = mEntryPoints.startOnBlankPage(mBatchedRule);
-        RegularNewTabPageStation ntp = blankPage.openGenericAppMenu().openNewTab();
+        RegularNewTabPageStation ntp = blankPage.openNewTabFast();
         var omniboxAndKeyboard = ntp.openOmnibox(sFakeSuggestions);
 
         doOpenTypeDelete(omniboxAndKeyboard);
@@ -81,8 +87,7 @@ public class OmniboxPTTest {
     @Test
     public void testOpenTypeDelete_fromIncognitoNtp() {
         WebPageStation blankPage = mEntryPoints.startOnBlankPage(mBatchedRule);
-        IncognitoNewTabPageStation incognitoNtp =
-                blankPage.openGenericAppMenu().openNewIncognitoTab();
+        IncognitoNewTabPageStation incognitoNtp = blankPage.openNewIncognitoTabFast();
         var omniboxAndKeyboard = incognitoNtp.openOmnibox(sFakeSuggestions);
 
         doOpenTypeDelete(omniboxAndKeyboard);

@@ -80,7 +80,6 @@ Disa funksione mund të mos ofrohen dhe ndryshimet në preferenca nuk do të ruh
 <translation id="2008942457798486387">{NUM_EXTENSIONS,plural, =1{Kjo shtesë nuk mbështetet më. Chrome rekomandon që ta heqësh atë.}other{Këto shtesa nuk mbështeten më. Chrome rekomandon që t'i heqësh ato.}}</translation>
 <translation id="2018528049276128029">Secili profil duhet të zotërojë informacionin e vet të Chrome, si: faqeshënuesit, historikun, fjalëkalimet etj.</translation>
 <translation id="2018879682492276940">Instalimi nuk u krye. Provo përsëri.</translation>
-<translation id="2022471217832964798">Mund ta përdorësh përsëri Chrome ndërkohë që konfigurojmë qasjen në llogari. Mund të mos arrish të qasesh në disa burime derisa të përfundojë konfigurimi.</translation>
 <translation id="2034233344106846793">Chrome i përmirëson lidhjet e pasigurta automatikisht në HTTPS kur është e mundur</translation>
 <translation id="207902854391093810">Kur provat janë aktive, Ad measurement lejon që sajtet që ti viziton të kërkojnë informacione nga Chrome të cilat ndihmojnë sajtin të masë cilësinë e funksionimit të reklamave të tij. Ad measurement kufizon gjurmimin nëpër sajte duke transferuar sa më pak informacion të jetë e mundur ndërmjet sajteve.</translation>
 <translation id="2091012649849228750">Për të marrë përditësimet e ardhshme të Google Chrome, do të të duhet Windows 10 ose një version i mëvonshëm. Ky kompjuter përdor Windows 8.</translation>
@@ -248,6 +247,7 @@ Disa funksione mund të mos ofrohen dhe ndryshimet në preferenca nuk do të ruh
 <translation id="3873044882194371212">Hape lidhjen në një dritare të fshehtë të Chrome</translation>
 <translation id="3885770153807205175">Zgjedhësi i gjuhës</translation>
 <translation id="3889417619312448367">Çinstalo Google Chrome</translation>
+<translation id="3892148308691398805">Kopjo tekstin</translation>
 <translation id="3941890832296813527">Gabim gjatë instalimit: Emri i skedarit të instaluesit është i pavlefshëm ose nuk mbështetet.</translation>
 <translation id="3973161977468201858">Google Chrome dëshiron të fshijë të dhënat e tua të "Menaxherit të fjalëkalimeve të Google". Shkruaj fjalëkalimin tënd të Windows për ta lejuar këtë.</translation>
 <translation id="398236277091248993">Chrome qëndron i shpejtë me veçori për përmirësimin e performancës</translation>
@@ -302,6 +302,7 @@ Disa funksione mund të mos ofrohen dhe ndryshimet në preferenca nuk do të ruh
 <translation id="4567424176335768812">Je identifikuar si <ph name="USER_EMAIL_ADDRESS" />. Tani mund të qasesh te faqeshënuesit, historiku dhe cilësime të tjera në të gjitha pajisjet ku je identifikuar.</translation>
 <translation id="4571503333518166079">Shko te "Cilësimet e njoftimeve" të Chrome</translation>
 <translation id="4575717501879784448">Chrome mund t'i bëjë joaktive këto skeda për të përmirësuar përvojën tënde të shfletimit dhe për të liruar burimet.</translation>
+<translation id="4595162648538023956">Mund të identifikohesh për të marrë gjërat e tua ose mund ta përdorësh Chrome pa llogari</translation>
 <translation id="459622048091363950">Pasi Chrome të ketë qasje, uebsajtet do të jenë në gjendje të kërkojnë prej teje qasje.</translation>
 <translation id="4600710005438004015">Chrome nuk mund të përditësohej me versionin më të fundit, kështu që të mungojnë rregullimet e sigurisë dhe funksionet e reja.</translation>
 <translation id="4601439950572737842">Të dhënat e tua janë të enkriptuara me frazën tënde të kalimit. Fute atë për të përdorur dhe ruajtur të dhënat e Chrome në "Llogarinë tënde të Google".</translation>
@@ -348,6 +349,7 @@ Disa funksione mund të mos ofrohen dhe ndryshimet në preferenca nuk do të ruh
 <translation id="5170938038195470297">Profili yt nuk mund të përdoret sepse është nga një version më i ri i Google Chrome.
 
 Disa funksione mund të mos ofrohen. Specifiko një direktori tjetër të profilit ose përdor një version më të ri të Chrome.</translation>
+<translation id="5174969993834422967">Ti i bllokon zakonisht njoftimet. Për ta lejuar këtë sajt që të të njoftojë, kliko tek ikona e njoftimit në këndin e djathtë të shiritit të vendndodhjes.</translation>
 <translation id="5201744974236816379">Përditësimi i Chrome</translation>
 <translation id="521447420733633466">Nëse e ndan një pajisje, miqtë dhe familja mund të shfletojnë veçmas dhe ta konfigurojnë Chrome pikërisht ashtu si dëshirojnë.</translation>
 <translation id="5234764350956374838">Hiq</translation>
@@ -394,7 +396,6 @@ Google Chrome nuk është në gjendje të rikuperojë cilësimet e tua.</transla
 <translation id="5895138241574237353">Rinis</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> - identifikimi në rrjet</translation>
 <translation id="5924017743176219022">Po lidhet me internetin...</translation>
-<translation id="5932997892801542621">Kur shkruan në shiritin e adresës ose në kutinë e kërkimit, Chrome i dërgon ato që shkruan te "Disku i Google" për të marrë sugjerime për artikujt. Kjo është joaktive në modalitetin "e fshehtë".</translation>
 <translation id="5940385492829620908">Këtu janë materialet e tua të uebit, të faqeshënuesve dhe të tjera nga Chrome.</translation>
 <translation id="5941711191222866238">Minimizo</translation>
 <translation id="5941830788786076944">Bëje Google Chrome shfletuesin e parazgjedhur</translation>
@@ -453,6 +454,7 @@ Google Chrome nuk është në gjendje të rikuperojë cilësimet e tua.</transla
 <translation id="6497147134301593682">Chrome u mbyll automatikisht</translation>
 <translation id="6506909944137591434">Chrome ka nevojë për lejen e kamerës për të krijuar një hartë 3D të ambientit tënd rrethues</translation>
 <translation id="6515495397637126556"><ph name="PAGE_TITLE" /> - Google Chrome Dev</translation>
+<translation id="6515549163407364048">Për të marrë shtesat e tua në të gjithë kompjuterët e tu, identifikohu në Chrome</translation>
 <translation id="6520670145826811516">Për të përdorur vendndodhjen tënde, jepi Chrome qasje te <ph name="BEGIN_LINK" />cilësimet e sistemit<ph name="END_LINK" /></translation>
 <translation id="659498884637196217">Në "Menaxherin e fjalëkalimeve të Google" në këtë pajisje</translation>
 <translation id="6600016381025017075">Kërko për çdo gjë në këtë faqe</translation>
@@ -546,6 +548,7 @@ Lejet që u ke dhënë sajteve të uebit dhe aplikacioneve mund të zbatohen pë
 <translation id="7655455401911432608">Historiku yt i shfletimit, regjistri i sajteve që ke vizituar duke përdorur Chrome në këtë pajisje.</translation>
 <translation id="7655472416356262023">Hiqe llogarinë nga Chrome</translation>
 <translation id="7658239707568436148">Anulo</translation>
+<translation id="7659737857277959440">Organizata jote mund të shikojë dhe të menaxhojë të dhënat e shfletimit, si p.sh. faqeshënuesit, historikun dhe fjalëkalimet e tua. Ajo nuk mund të shikojë të dhënat e shfletimit në profilet personale të Chrome.</translation>
 <translation id="7661924425853052955">Nuk ke vizituar së fundi. Chrome ka hequr lejet (<ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> dhe <ph name="COUNT" /> të tjera)</translation>
 <translation id="7668816516367091728">Kryej detyra, si p.sh. përkthimi, llogaritja etj., drejtpërdrejt nga shiriti i adresave</translation>
 <translation id="7670287553302121848">Llogaria e Chrome kërkon rivërtetim</translation>
@@ -596,6 +599,7 @@ Lejet që u ke dhënë sajteve të uebit dhe aplikacioneve mund të zbatohen pë
 <translation id="8129812357326543296">Informacion rreth &amp;Google Chrome</translation>
 <translation id="813913629614996137">Po fillon...</translation>
 <translation id="8162006532256575008">Përdor Chrome pa pasur llogari</translation>
+<translation id="8221491193165283816">Ti i bllokon zakonisht njoftimet. Për ta lejuar këtë sajt që të të njoftojë, kliko këtu.</translation>
 <translation id="8255190535488645436">Google Chrome po përdor kamerën dhe mikrofonin tënd.</translation>
 <translation id="8257796129973882597">Mund të hapësh faqeshënuesit, modalitetin e leximit etj. nga menyja e Chrome</translation>
 <translation id="8267953129876836456">Chrome gjeti disa rekomandime për sigurinë për t'u rishikuar nga ti</translation>
@@ -627,6 +631,7 @@ Lejet që u ke dhënë sajteve të uebit dhe aplikacioneve mund të zbatohen pë
 <translation id="852529348814672339">Shfaqe Chrome në këtë gjuhë</translation>
 <translation id="8550334526674375523">Ky profil pune është plotësisht i veçuar nga profili yt personal.</translation>
 <translation id="8555465886620020932">Gabim shërbimi: <ph name="SERVICE_ERROR" />.</translation>
+<translation id="856656450041460113">Kërko në listën e gjuhëve</translation>
 <translation id="8571790202382503603">Me profilet e Chrome mund t'i mbash veçmas të gjitha gjërat e tua të Chrome. Kjo e bën më të lehtë ta ndash punën nga argëtimi.</translation>
 <translation id="8601359445272098721">E re! Mund të përkthesh tekstet dhe imazhet në ekranin tënd duke zgjedhur butonin "përkthe ekranin"</translation>
 <translation id="8614913330719544658">Google Chrome nuk përgjigjet. Dëshiron ta hapësh sërish tani?</translation>

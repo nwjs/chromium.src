@@ -12,7 +12,7 @@ import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationManager;
-import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationManager.ConfirmationResult;
+import org.chromium.components.browser_ui.widget.ActionConfirmationResult;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
 
@@ -112,7 +112,7 @@ public class ActionConfirmationDelegate {
         // when the tab is re-parented, so no action is needed here.
         boolean shouldRunIfImmediateContinue = !dragTabOffStrip || tabClosing;
         Callback<Integer> onResult =
-                (@ConfirmationResult Integer result) ->
+                (@ActionConfirmationResult Integer result) ->
                         handleUserConfirmation(
                                 result, confirmationCallback, shouldRunIfImmediateContinue);
 
@@ -135,17 +135,17 @@ public class ActionConfirmationDelegate {
      *     skipped.
      */
     private void handleUserConfirmation(
-            @ConfirmationResult Integer result,
+            @ActionConfirmationResult Integer result,
             Runnable confirmationCallback,
             boolean shouldRunIfImmediateContinue) {
         switch (result) {
-            case ConfirmationResult.IMMEDIATE_CONTINUE:
+            case ActionConfirmationResult.IMMEDIATE_CONTINUE:
                 if (shouldRunIfImmediateContinue) confirmationCallback.run();
                 break;
-            case ConfirmationResult.CONFIRMATION_POSITIVE:
+            case ActionConfirmationResult.CONFIRMATION_POSITIVE:
                 confirmationCallback.run();
                 break;
-            case ConfirmationResult.CONFIRMATION_NEGATIVE:
+            case ActionConfirmationResult.CONFIRMATION_NEGATIVE:
                 // Restore the hidden group.
                 mGroupIdToHideSupplier.set(Tab.INVALID_TAB_ID);
                 break;

@@ -308,7 +308,6 @@
 <translation id="2041220428661959602">Επίπεδο μπαταρίας: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848">Η συντόμευση <ph name="SIX_PACK_KEY_NAME" /> είναι απενεργοποιημένη αυτήν τη στιγμή</translation>
 <translation id="2049240716062114887">Το όνομα γραφείου άλλαξε σε <ph name="DESK_NAME" /></translation>
-<translation id="2050339315714019657">Κάθετα</translation>
 <translation id="2064048859448024834">Η προεπισκόπηση κάμερας είναι ενεργή</translation>
 <translation id="2065098273523946419">Σύνδεσμος Μάθετε περισσότερα. Ανακατεύθυνση στο πρόγραμμα περιήγησης κατά την ενεργοποίηση</translation>
 <translation id="2067220651560163985">Εμφάνιση θερμοκρασίας σε βαθμούς Κελσίου</translation>
@@ -339,9 +338,6 @@
 <translation id="219905428774326614">Εφαρμογή εκκίνησης, όλες οι εφαρμογές</translation>
 <translation id="2201071101391734388">Πρόσφατη φωτογραφία <ph name="INDEX" /> από <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Σύμπτυξη του Google Tasks</translation>
-<translation id="2206960886090042977">Η ενσωματωμένη επιφάνεια αφής είναι απενεργοποιημένη, επειδή είναι συνδεδεμένο ένα ποντίκι. Χρησιμοποιήστε το ποντίκι ή το πληκτρολόγιο, για να επιβεβαιώσετε την αλλαγή.
-
-Διαφορετικά, η ενσωματωμένη επιφάνεια αφής θα ενεργοποιηθεί ξανά σε 30 δευτερόλεπτα.</translation>
 <translation id="2208323208084708176">Ενιαία λειτουργία επιφάνειας εργασίας.</translation>
 <translation id="2220572644011485463">PIN ή κωδικός πρόσβασης</translation>
 <translation id="2222841058024245321">Γραφείο 7</translation>
@@ -462,7 +458,7 @@
 <translation id="2612072250312279703">παρακολούθηση δραστηριότητας</translation>
 <translation id="2612614436418177118">Μετακίνηση εικονιδίου εφαρμογής στο πλέγμα εφαρμογής</translation>
 <translation id="2619052155095999743">Εισαγωγή</translation>
-<translation id="2619326010008283367">Βήμα περιήγησης <ph name="STEP" /> από <ph name="TOTAL_STEPS" />. Μπορείτε να βρείτε τις Ρυθμίσεις της συσκευής σας στη Λειτουργία εκκίνησης εφαρμογών. Δοκιμάστε να προσαρμόσετε το <ph name="PRODUCT_NAME" /> από τις Ρυθμίσεις, αλλάζοντας, για παράδειγμα, την ταπετσαρία ή ορίζοντας μια προστασία οθόνης.</translation>
+<translation id="2619326010008283367">Βήμα περιήγησης <ph name="STEP" /> από <ph name="TOTAL_STEPS" />. Μπορείτε να βρείτε τις Ρυθμίσεις της συσκευής σας στη Λειτουργία εκκίνησης εφαρμογών. Δοκιμάστε να προσαρμόσετε το <ph name="PRODUCT_NAME" /> από τις Ρυθμίσεις, αλλάζοντας, για παράδειγμα, την ταπετσαρία ή ορίζοντας μια προφύλαξη οθόνης.</translation>
 <translation id="2620016719323068571">Αναζητήστε <ph name="CATEGORY" />, αρχεία, εφαρμογές και άλλα…</translation>
 <translation id="2620436844016719705">Σύστημα</translation>
 <translation id="2620900772667816510">Bluetooth Super Resolution</translation>
@@ -504,6 +500,9 @@
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> έως <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">ctrl+αναζήτηση+s</translation>
 <translation id="2778650143428714839">Η διαχείριση της συσκευής <ph name="DEVICE_TYPE" /> γίνεται από τον τομέα <ph name="MANAGER" />.</translation>
+<translation id="2781658180588759579">Η ενσωματωμένη επιφάνεια αφής είναι απενεργοποιημένη. Χρησιμοποιήστε το πληκτρολόγιο ή κάποια άλλη συσκευή κατάδειξης, για να επιβεβαιώσετε την αλλαγή.
+
+Διαφορετικά, η ενσωματωμένη επιφάνεια αφής θα ενεργοποιηθεί ξανά σε <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2782591952652094792">Έξοδος από τη λειτουργία λήψης</translation>
 <translation id="2785499565474703580">1 συνδεδεμένη συσκευή</translation>
 <translation id="2791421900609674576">Θα βλέπετε προτάσεις για να συνεχίσετε από εκεί που σταματήσατε. Μπορείτε να αγγίξετε παρατεταμένα για να καταργήσετε προτάσεις.</translation>
@@ -601,6 +600,9 @@
 <translation id="3113492864356515707">Επισήμανση προηγούμενου στοιχείου στο ράφι</translation>
 <translation id="311799651966070385">Κλείσιμο υπενθύμισης</translation>
 <translation id="3120421559657122717">Να τερματιστεί η λειτουργία της συσκευής;</translation>
+<translation id="3121411970001795539">Η ενσωματωμένη επιφάνεια αφής είναι απενεργοποιημένη, επειδή είναι συνδεδεμένο ένα ποντίκι. Χρησιμοποιήστε το ποντίκι ή το πληκτρολόγιο, για να επιβεβαιώσετε την αλλαγή.
+
+Διαφορετικά, η ενσωματωμένη επιφάνεια αφής θα ενεργοποιηθεί ξανά σε <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="3122464029669770682">Κεντρική μονάδα επεξεργασίας</translation>
 <translation id="3125690294288312932">Τύπος εργασιών</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +973,13 @@
 <translation id="4322742403972824594">Η συντόμευση πληκτρολογίου Ctrl + Alt + Επάνω βέλος άλλαξε. Για να χρησιμοποιήσετε το πλήκτρο Home, πατήστε το πλήκτρο <ph name="LAUNCHER_KEY_NAME" /> + Αριστερό βέλος.</translation>
 <translation id="4324840740119394760">Αυτό επιτρέπει την πρόσβαση στην κάμερα για την εφαρμογή <ph name="APP_NAME" /> και όλες τις εφαρμογές και τους ιστοτόπους με άδεια κάμερας.</translation>
 <translation id="4327147325944669226">Εγγραφή παιχνιδιού</translation>
-<translation id="4333628967105022692">Το Lacros δεν υποστηρίζεται κατά τη σύνδεση πολλών χρηστών.</translation>
 <translation id="4338109981321384717">Μεγεθυντικός φακός</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, Σε σίγαση</translation>
 <translation id="4351244548802238354">Κλείσιμο παραθύρου διαλόγου</translation>
 <translation id="4356872429719185452">Εμφάνιση λεπτομερειών σημείου πρόσβασης Wi-Fi. Γίνεται ενεργοποίηση του σημείου πρόσβασης Wi-Fi.</translation>
 <translation id="4364101114148522660">Εγγραφή  <ph name="DURATION" /></translation>
 <translation id="4371348193907997655">Ρυθμίσεις μετάδοσης</translation>
+<translation id="4371834685492830207">Το PIN πρέπει να περιέχει μόνο έγκυρους χαρακτήρες</translation>
 <translation id="4375482231364171368">Αναζήτηση στη γραμμή διευθύνσεων</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, ισχύς σήματος <ph name="SIGNAL_STRENGTH" /> τοις εκατό</translation>
 <translation id="4378551569595875038">Σύνδεση…</translation>
@@ -1143,6 +1145,7 @@
 <translation id="4902797682482387055">Προτεινόμενη εργασία για εστίαση</translation>
 <translation id="490375751687810070">Κατακόρυφη περιστροφή</translation>
 <translation id="490788395437447240">Μπαταρία <ph name="BATTERY_PERCENTAGE" />%</translation>
+<translation id="4911191962826748981">Πρόκειται για πειραματική λειτουργία AI που μπορεί να μην λειτουργεί πάντα σωστά.</translation>
 <translation id="491504982845934899">Ενεργοποίηση μετά τη ρύθμιση της συσκευής <ph name="NETWORK_NAME" /></translation>
 <translation id="4917385247580444890">Ισχυρό</translation>
 <translation id="4918086044614829423">Αποδοχή</translation>
@@ -1203,7 +1206,7 @@
 <translation id="5091636240353511739">Εμφάνιση PIN</translation>
 <translation id="5092436659250499817">Ενεργοποίηση/απενεργοποίηση οπίσθιου φωτισμού πληκτρολογίου</translation>
 <translation id="5094577350232361255">σχετικά με</translation>
-<translation id="5095136268899496849">Προσαρμόστε και εξατομικεύστε το <ph name="PRODUCT_NAME" /> σας στις Ρυθμίσεις. Δοκιμάστε να αλλάξετε την ταπετσαρία ή να ορίσετε μια προστασία οθόνης.</translation>
+<translation id="5095136268899496849">Προσαρμόστε και εξατομικεύστε το <ph name="PRODUCT_NAME" /> σας στις Ρυθμίσεις. Δοκιμάστε να αλλάξετε την ταπετσαρία ή να ορίσετε μια προφύλαξη οθόνης.</translation>
 <translation id="5096125376090473584">Για να ακούσετε το κείμενο να εκφωνείται, επιλέξτε το εικονίδιο "Επιλέξτε για αυτόματη ανάγνωση" στο κάτω μέρος της οθόνης σας και, στη συνέχεια, επισημάνετε το κείμενο.
 
 Μπορείτε επίσης να χρησιμοποιήσετε τη συντόμευση πληκτρολογίου. Αρχικά, επισημάνετε το κείμενο και, στη συνέχεια, πατήστε <ph name="MODIFIER" /> + s.</translation>
@@ -1301,6 +1304,7 @@
 <translation id="5393156353051693207">Αγγίξτε παρατεταμένα οπουδήποτε για να αναδιατάξετε τις εφαρμογές σας</translation>
 <translation id="5395308026110844773">Η εφαρμογή <ph name="DRAGGED_APP_NAME" /> πάνω από την εφαρμογή <ph name="IN_PLACE_APP" />, αφήστε για να δημιουργήσετε φάκελο.</translation>
 <translation id="5397578532367286026">Ο διαχειριστής (<ph name="MANAGER_EMAIL" />) μπορεί να ελέγξει τη χρήση και το ιστορικό αυτού του χρήστη στη διεύθυνση chrome.com.</translation>
+<translation id="540338817371815859">Οριζόντια</translation>
 <translation id="540713187982329711">Εναλλαγή σημείου πρόσβασης Wi-Fi. Το σημείο πρόσβασης Wi-Fi είναι ενεργό. Δεν υπάρχει συνδεδεμένη συσκευή.</translation>
 <translation id="5409208741270395213">Επισήμανση εργασίας ως ολοκληρωμένης</translation>
 <translation id="5413656666631274079">Σελίδα ρυθμίσεων</translation>
@@ -1472,7 +1476,6 @@
 <translation id="5975235751479998104">Μετακίνηση προς τα εμπρός μέσω παραθύρων</translation>
 <translation id="5978382165065462689">Κοινόχρηστος έλεγχος της οθόνης σας μέσω της απομακρυσμένης βοήθειας.</translation>
 <translation id="5980301590375426705">Έξοδος επισκέπτη</translation>
-<translation id="5982119059638483922">Πατήστε Fn+Search ή Shift για ακύρωση.</translation>
 <translation id="5983567367406220847">Λόγω αδράνειας, το σημείο πρόσβασης Wi-Fi απενεργοποιήθηκε.</translation>
 <translation id="598407983968395253">Χρήση προτύπου</translation>
 <translation id="5986723678596105470">Συμμετοχή με Google Meet</translation>
@@ -1542,7 +1545,6 @@
 <translation id="6166852626429024716">Κάντε αναζήτηση στη συσκευή, στις εφαρμογές, στις ρυθμίσεις και στον ιστό…</translation>
 <translation id="6168318496333165060">Άνοιγμα εφαρμογής Διαγνωστικά στοιχεία</translation>
 <translation id="6168622430237609329">Οι εγκατεστημένες εφαρμογές</translation>
-<translation id="6173151025443907148">Η σύνδεση δεύτερου χρήστη δεν υποστηρίζεται, εάν είναι ενεργοποιημένο το Lacros. Αντί αυτού, χρησιμοποιήστε ένα δεύτερο προφίλ προγράμματος περιήγησης στο Lacros ή απενεργοποιήστε το Lacros και δοκιμάστε ξανά.</translation>
 <translation id="6179832488876878285">Μπορείτε να καρφιτσώσετε εδώ σημαντικά αρχεία. Ανοίξτε την εφαρμογή Αρχεία για να ξεκινήσετε.</translation>
 <translation id="6180193585172850042">Κουμπί Πίσω</translation>
 <translation id="6180651297859206670">Κουμπί Εμπρός</translation>
@@ -1564,6 +1566,7 @@
 <translation id="6232416233079464213">Από <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217">Η εφαρμογή <ph name="APP_NAME" /> χρησιμοποιεί την κάμερα και το μικρόφωνό σας αυτήν τη στιγμή.</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">Ο κωδικός πρόσβασης πρέπει να περιέχει μόνο έγκυρους χαρακτήρες</translation>
 <translation id="6240603910551255087">Επάνω κουμπί</translation>
 <translation id="6240821072888636753">Ερώτηση κάθε φορά</translation>
 <translation id="6247728804802644171">Άνοιγμα ειδοποιήσεων</translation>
@@ -1694,7 +1697,6 @@
 <translation id="6682029141988159141">Επικόλληση περιεχομένου από το πρόχειρο</translation>
 <translation id="6683022854667115063">Ακουστικά</translation>
 <translation id="6686023075541098243">Ρύθμιση προβολής των ειδοποιήσεων του τηλεφώνου σας</translation>
-<translation id="6688019813898140556">Esc 5 φορές</translation>
 <translation id="6694462491298752106">Η ενσωματωμένη επιφάνεια αφής είναι απενεργοποιημένη</translation>
 <translation id="6694973220096431421">Αναζήτηση στο Google Drive</translation>
 <translation id="6696025732084565524">Απαιτείται σημαντική ενημέρωση του αποσπώμενου πληκτρολογίου σας</translation>
@@ -1715,6 +1717,7 @@
 <translation id="6751826523481687655">Η παρακολούθηση απόδοσης έχει ενεργοποιηθεί</translation>
 <translation id="6752912906630585008">Η επιφάνεια εργασίας <ph name="REMOVED_DESK" /> καταργήθηκε και συγχωνεύτηκε με την επιφάνεια εργασίας <ph name="RECEIVE_DESK" />.</translation>
 <translation id="6753390234084146956">καρτέλες</translation>
+<translation id="6754918760968695779">Άμεση εισαγωγή</translation>
 <translation id="6757237461819837179">Καμία αναπαραγωγή μέσων</translation>
 <translation id="6760438044935091345">Πίνακας ελέγχου παιχνιδιού</translation>
 <translation id="6768043681523654438">αποθηκευτικός χώρος</translation>
@@ -1764,6 +1767,7 @@
 <translation id="6921427376813842559">Ενημέρωση συσκευής</translation>
 <translation id="6929081673585394903">Εμφάνιση στοιχείων ελέγχου</translation>
 <translation id="6931576957638141829">Αποθήκευση σε</translation>
+<translation id="6935857786205183008">Πορτρέτο</translation>
 <translation id="6942518653766415536">Μενού μορφής εγγραφής</translation>
 <translation id="6945221475159498467">Επιλογή</translation>
 <translation id="6945922087561257829">Το τηλέφωνό σας χρησιμοποιεί δίκτυο κινητής τηλεφωνίας. Βεβαιωθείτε ότι το τηλέφωνό σας και το Chromebook βρίσκονται στο ίδιο δίκτυο Wi-Fi και έπειτα δοκιμάστε ξανά. <ph name="LEARN_MORE" /></translation>
@@ -1920,9 +1924,6 @@
 Για να τερματίσετε τη λειτουργία της συσκευής, πατήστε παρατεταμένα το κουμπί λειτουργίας στη συσκευή σας ξανά.</translation>
 <translation id="7523420897035067483">Ενεργοποίηση της λειτουργίας Μην ενοχλείτε κατά τη χρήση της λειτουργίας συγκέντρωσης</translation>
 <translation id="7524043547948122239">Google Tasks</translation>
-<translation id="7524919752437339268">Η ενσωματωμένη επιφάνεια αφής είναι απενεργοποιημένη. Χρησιμοποιήστε το πληκτρολόγιο ή κάποια άλλη συσκευή κατάδειξης, για να επιβεβαιώσετε την αλλαγή.
-
-Διαφορετικά, η ενσωματωμένη επιφάνεια αφής θα ενεργοποιηθεί ξανά σε 30 δευτερόλεπτα.</translation>
 <translation id="7525067979554623046">Δημιουργία</translation>
 <translation id="7526573455193969409">Το δίκτυο ενδέχεται να παρακολουθείται</translation>
 <translation id="7536035074519304529">Διεύθυνση IP: <ph name="ADDRESS" /></translation>
@@ -2009,6 +2010,7 @@
 <translation id="780301667611848630">Όχι, ευχαριστώ</translation>
 <translation id="7807067443225230855">Αναζήτηση και Βοηθός</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> και <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">Με την επιλογή "Μου αρέσει" θα δηλώνατε ότι σας αρέσει αυτή η πρόταση</translation>
 <translation id="7825412704590278437">Από προσεχές συμβάν ημερολογίου</translation>
 <translation id="7829386189513694949">Ισχυρό σήμα</translation>
 <translation id="7830453190047749513">Μπορείτε να εξατομικεύσετε τις ενέργειες κουμπιών, την ταχύτητα του δείκτη και πολλά άλλα για τη συσκευή <ph name="PERIPHERAL_NAME" /></translation>
@@ -2163,6 +2165,7 @@
 <translation id="830868413617744215">Beta</translation>
 <translation id="8314772463905284467">Το Caps Lock είναι ενεργοποιημένο</translation>
 <translation id="8315514906653279104">Ενεργοποίηση…</translation>
+<translation id="8319634750346253957">Με την επιλογή "Δεν μου αρέσει" θα δηλώνατε ότι δεν σας αρέσει αυτή η πρόταση</translation>
 <translation id="8331351032546853669">Λήψη σε εκκρεμότητα</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2348,6 +2351,7 @@
 <translation id="8982906748181120328">Ορατότ. κοντά</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">Χρήση <ph name="IME_NAME" /></translation>
+<translation id="8991648557324317894">Πατήστε fn + Άμεση εισαγωγή ή Shift για ακύρωση.</translation>
 <translation id="899350903320462459">Ξεκλειδώστε τη συσκευή ως <ph name="LOGIN_ID" /> για εκτέλεση της ενέργειας ειδοποίησης</translation>
 <translation id="8993733019280019776">Μήπως μιλάτε; Το μικρόφωνό σας είναι απενεργοποιημένο. Επιλέξτε το μικρόφωνο για να το ενεργοποιήσετε.</translation>
 <translation id="9000771174482730261">ΔΙΑΧΕΙΡΙΣΗ ΑΠΟΘΗΚΕΥΤΙΚΟΥ ΧΩΡΟΥ</translation>
@@ -2430,9 +2434,9 @@
 <translation id="974545358917229949">Εμφάνιση <ph name="RESULT_COUNT" /> αποτελεσμάτων για την αναζήτηση <ph name="QUERY" /></translation>
 <translation id="981011780479609956">Χωρίς ημερομηνία λήξης</translation>
 <translation id="98120814841227350">Μετάβαση στο τέλος του εγγράφου</translation>
-<translation id="98515147261107953">Τοπίο</translation>
 <translation id="987589956647469042">Τα δεδομένα κινητής τηλεφωνίας είναι ενεργοποιημένα</translation>
 <translation id="989374776391122812">Στοιχεία ελέγχου κάμερας και ήχου</translation>
+<translation id="990263227494928142">Πατήστε το Shift 5 φορές, για να ενεργοποιήσετε την επιφάνεια αφής</translation>
 <translation id="990277280839877440">Το παράθυρο <ph name="WINDOW_TITILE" /> έκλεισε.</translation>
 <translation id="993398562350683614">Βήμα περιήγησης <ph name="STEP" /> από <ph name="TOTAL_STEPS" />. Χρησιμοποιήστε εφαρμογές για να κάνετε ό,τι χρειάζεστε στο <ph name="PRODUCT_NAME" />. Μπορείτε να βρείτε τις εφαρμογές σας στη Λειτουργία εκκίνησης εφαρμογών. Πατήστε Alt + Shift + L για να εστιάσετε στο κουμπί της Λειτουργίας εκκίνησης εφαρμογών.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

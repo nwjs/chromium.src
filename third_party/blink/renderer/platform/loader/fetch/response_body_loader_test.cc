@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "third_party/blink/renderer/platform/loader/fetch/response_body_loader.h"
 
 #include <memory>
@@ -357,7 +352,7 @@ TEST_F(ResponseBodyLoaderTest, Suspend) {
 TEST_F(ResponseBodyLoaderTest, ReadTooBigBuffer) {
   auto task_runner = base::MakeRefCounted<scheduler::FakeTaskRunner>();
   auto* consumer = MakeGarbageCollected<ReplayingBytesConsumer>(task_runner);
-  const size_t kMax = network::features::GetLoaderChunkSize();
+  const size_t kMax = network::features::kMaxNumConsumedBytesInTask;
 
   consumer->Add(Command(Command::kData, std::string(kMax - 1, 'a').data()));
   consumer->Add(Command(Command::kData, std::string(2, 'b').data()));
@@ -449,8 +444,8 @@ TEST_F(ResponseBodyLoaderTest, DrainAsDataPipe) {
   ASSERT_TRUE(client);
   EXPECT_TRUE(body_loader->IsDrained());
 
-  client_for_draining->DidReceiveData(base::make_span("xyz", 3u));
-  client_for_draining->DidReceiveData(base::make_span("abc", 3u));
+  client_for_draining->DidReceiveData(base::span_from_cstring("xyz"));
+  client_for_draining->DidReceiveData(base::span_from_cstring("abc"));
 
   EXPECT_FALSE(client->LoadingIsFinished());
   EXPECT_FALSE(client->LoadingIsFailed());
@@ -722,8 +717,8 @@ TEST_F(ResponseBodyLoaderTest, DrainAsDataPipeAndReportError) {
   ASSERT_TRUE(client);
   EXPECT_TRUE(body_loader->IsDrained());
 
-  client_for_draining->DidReceiveData(base::make_span("xyz", 3u));
-  client_for_draining->DidReceiveData(base::make_span("abc", 3u));
+  client_for_draining->DidReceiveData(base::span_from_cstring("xyz"));
+  client_for_draining->DidReceiveData(base::span_from_cstring("abc"));
 
   EXPECT_FALSE(client->LoadingIsFinished());
   EXPECT_FALSE(client->LoadingIsFailed());
@@ -760,7 +755,7 @@ TEST_F(ResponseBodyLoaderTest, DrainAsBytesConsumer) {
 
   auto result = reader->Run(task_runner.get());
   EXPECT_EQ(result.first, BytesConsumer::Result::kDone);
-  EXPECT_EQ(String(result.second.data(), result.second.size()), "hello");
+  EXPECT_EQ(String(result.second), "hello");
   EXPECT_FALSE(client->LoadingIsCancelled());
   EXPECT_TRUE(client->LoadingIsFinished());
   EXPECT_FALSE(client->LoadingIsFailed());
@@ -791,7 +786,7 @@ TEST_F(ResponseBodyLoaderTest, CancelDrainedBytesConsumer) {
 
   auto result = reader->Run(task_runner.get());
   EXPECT_EQ(result.first, BytesConsumer::Result::kDone);
-  EXPECT_EQ(String(result.second.data(), result.second.size()), String());
+  EXPECT_EQ(String(result.second), String());
 
   EXPECT_FALSE(client->LoadingIsCancelled());
   EXPECT_FALSE(client->LoadingIsFinished());
@@ -846,7 +841,7 @@ TEST_F(ResponseBodyLoaderTest, DrainAsBytesConsumerWithError) {
 
   auto result = reader->Run(task_runner.get());
   EXPECT_EQ(result.first, BytesConsumer::Result::kError);
-  EXPECT_EQ(String(result.second.data(), result.second.size()), "hello");
+  EXPECT_EQ(String(result.second), "hello");
   EXPECT_FALSE(client->LoadingIsCancelled());
   EXPECT_FALSE(client->LoadingIsFinished());
   EXPECT_TRUE(client->LoadingIsFailed());
@@ -1046,7 +1041,7 @@ TEST_F(ResponseBodyLoaderDrainedBytesConsumerNotificationOutOfOnStateChangeTest,
   EXPECT_FALSE(client->LoadingIsFinished());
   EXPECT_FALSE(client->LoadingIsFailed());
   ASSERT_EQ(5u, buffer.size());
-  EXPECT_EQ(String(buffer.data(), buffer.size()), "hello");
+  EXPECT_EQ(String(base::as_bytes(buffer)), "hello");
 
   task_runner->RunUntilIdle();
   EXPECT_FALSE(client->LoadingIsCancelled());
@@ -1296,7 +1291,7 @@ TEST_F(ResponseBodyLoaderTestAllowDrainAsBytesConsumerInBFCache,
 
   auto result = reader->Run(task_runner.get());
   EXPECT_EQ(result.first, BytesConsumer::Result::kDone);
-  EXPECT_EQ(String(result.second.data(), result.second.size()), "helloworld");
+  EXPECT_EQ(String(result.second), "helloworld");
   // Check that `DidFinishLoadingBody()` has not been called.
   EXPECT_FALSE(client->LoadingIsCancelled());
   EXPECT_FALSE(client->LoadingIsFinished());

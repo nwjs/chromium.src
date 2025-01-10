@@ -261,7 +261,7 @@ void SyncConsentScreen::ShowImpl() {
 void SyncConsentScreen::HideImpl() {
   session_refresher_.reset();
   sync_service_observation_.Reset();
-  timeout_waiter_.AbandonAndStop();
+  timeout_waiter_.Stop();
 }
 
 void SyncConsentScreen::OnStateChanged(syncer::SyncService* sync) {
@@ -275,8 +275,7 @@ void SyncConsentScreen::MaybeEnableSyncForSkip() {
   switch (behavior_) {
     case SyncScreenBehavior::kUnknown:
     case SyncScreenBehavior::kShow:
-      NOTREACHED_IN_MIGRATION();
-      return;
+      NOTREACHED();
     case SyncScreenBehavior::kSkipNonGaiaAccount:
     case SyncScreenBehavior::kSkipPublicAccount:
     case SyncScreenBehavior::kSkipPermissionsPolicy:
@@ -366,7 +365,7 @@ void SyncConsentScreen::UpdateScreen(const WizardContext& context) {
       view_->ShowLoadedStep(IsOsSyncLacros());
     }
     GetSyncService(profile_)->RemoveObserver(this);
-    timeout_waiter_.AbandonAndStop();
+    timeout_waiter_.Stop();
     base::UmaHistogramCustomTimes("OOBE.SyncConsentScreen.LoadingTime",
                                   base::TimeTicks::Now() - start_time_,
                                   base::Milliseconds(1), base::Seconds(10), 50);

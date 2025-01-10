@@ -216,8 +216,7 @@ std::unique_ptr<net::UploadDataStream> CreateUploadDataStream(
       case network::mojom::DataElementDataView::Tag::kChunkedDataPipe: {
         // This shouldn't happen, as the traits logic should ensure that if
         // there's a chunked pipe, there's one and only one element.
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
       }
     }
   }
@@ -305,7 +304,11 @@ bool ShouldNotifyAboutCookie(net::CookieInclusionStatus status) {
          status.HasExclusionReason(
              net::CookieInclusionStatus::EXCLUDE_THIRD_PARTY_PHASEOUT) ||
          status.HasExclusionReason(
-             net::CookieInclusionStatus::EXCLUDE_DOMAIN_NON_ASCII);
+             net::CookieInclusionStatus::EXCLUDE_DOMAIN_NON_ASCII) ||
+         status.HasExclusionReason(
+             net::CookieInclusionStatus::EXCLUDE_PORT_MISMATCH) ||
+         status.HasExclusionReason(
+             net::CookieInclusionStatus::EXCLUDE_SCHEME_MISMATCH);
 }
 
 // Parses AcceptCHFrame and removes client hints already in the headers.
@@ -505,13 +508,13 @@ bool IncludesValidLoadField(const net::HttpResponseHeaders* headers) {
     return false;
   }
 
-  std::string header_value;
-  if (!headers->GetNormalizedHeader(kActivateStorageAccessHeader,
-                                    &header_value)) {
+  std::optional<std::string> header_value =
+      headers->GetNormalizedHeader(kActivateStorageAccessHeader);
+  if (!header_value) {
     return false;
   }
   const std::optional<net::structured_headers::ParameterizedItem> item =
-      net::structured_headers::ParseItem(header_value);
+      net::structured_headers::ParseItem(*header_value);
   if (!item.has_value()) {
     return false;
   }
@@ -761,7 +764,8 @@ URLLoader::URLLoader(
           ? std::make_optional(
                 shared_dictionary_manager->MaybeCreateSharedDictionaryGetter(
                     request.load_flags, request_destination_))
-          : std::nullopt);
+          : std::nullopt,
+      request.socket_tag);
 
   if (context.ShouldRequireIsolationInfo()) {
     DCHECK(!url_request_->isolation_info().IsEmpty());
@@ -812,7 +816,8 @@ void URLLoader::ConfigureRequest(
     int request_load_flags,
     bool priority_incremental,
     net::CookieSettingOverrides cookie_setting_overrides,
-    std::optional<net::SharedDictionaryGetter> shared_dictionary_getter) {
+    std::optional<net::SharedDictionaryGetter> shared_dictionary_getter,
+    net::SocketTag socket_tag) {
   url_request_->set_method(method);
   url_request_->set_site_for_cookies(site_for_cookies);
   url_request_->set_force_ignore_site_for_cookies(
@@ -880,6 +885,10 @@ void URLLoader::ConfigureRequest(
   if (shared_dictionary_getter) {
     url_request_->SetSharedDictionaryGetter(
         std::move(shared_dictionary_getter).value());
+  }
+
+  if (socket_tag != net::SocketTag()) {
+    url_request_->set_socket_tag(std::move(socket_tag));
   }
 }
 
@@ -1257,8 +1266,7 @@ void URLLoader::FollowRedirect(
     const net::HttpRequestHeaders& modified_cors_exempt_headers,
     const std::optional<GURL>& new_url) {
   if (!deferred_redirect_url_) {
-    NOTREACHED_IN_MIGRATION();
-    return;
+    NOTREACHED();
   }
 
   // Set seen_raw_request_headers_ to false in order to make sure this redirect
@@ -1451,6 +1459,7 @@ mojom::URLResponseHeadPtr URLLoader::BuildResponseHead() const {
 
   response->request_time = url_request_->request_time();
   response->response_time = url_request_->response_time();
+  response->original_response_time = url_request_->original_response_time();
   response->headers = url_request_->response_headers();
   response->parsed_headers =
       PopulateParsedHeaders(response->headers.get(), url_request_->url());
@@ -1591,6 +1600,11 @@ void URLLoader::OnReceivedRedirect(net::URLRequest* url_request,
   net::cookie_util::AddOrRemoveStorageAccessApiOverride(
       redirect_info.new_url, storage_access_api_status_,
       url_request_->initiator(), url_request_->cookie_setting_overrides());
+  if (!url::Origin::Create(url_request_->url())
+           .IsSameOriginWith(redirect_info.new_url)) {
+    url_request_->cookie_setting_overrides().Remove(
+        net::CookieSettingOverride::kStorageAccessGrantEligibleViaHeader);
+  }
 
   // Note: There are some ordering dependencies here.
   // `CalculateStorageAccessStatus` depends on
@@ -1598,7 +1612,7 @@ void URLLoader::OnReceivedRedirect(net::URLRequest* url_request,
   // depend on `url_request_->storage_access_status()`, once
   // https://crbug.com/366284840 is fixed.
   url_request_->set_storage_access_status(
-      url_request_->CalculateStorageAccessStatus());
+      url_request_->CalculateStorageAccessStatus(redirect_info));
 
   // We may need to clear out old Sec- prefixed request headers. We'll attempt
   // to do this before we re-add any.
@@ -1950,19 +1964,22 @@ void URLLoader::ContinueOnResponseStarted() {
   // to read auction-only signals for ad auctions; only the browser process
   // is allowed to read those, and only the browser process can issue trusted
   // requests.
-  std::string auction_only;
   // TODO(crbug.com/40269364): Remove old names once API users have migrated to
   // new names.
-  if (!factory_params_->is_trusted && response_->headers &&
-      (response_->headers->GetNormalizedHeader("Ad-Auction-Only",
-                                               &auction_only) ||
-       response_->headers->GetNormalizedHeader("X-FLEDGE-Auction-Only",
-                                               &auction_only)) &&
-      base::EqualsCaseInsensitiveASCII(auction_only, "true")) {
-    CompleteBlockedResponse(net::ERR_BLOCKED_BY_RESPONSE, false);
-    url_request_->AbortAndCloseConnection();
-    DeleteSelf();
-    return;
+  if (!factory_params_->is_trusted && response_->headers) {
+    std::optional<std::string> auction_only =
+        response_->headers->GetNormalizedHeader("Ad-Auction-Only");
+    if (!auction_only) {
+      auction_only =
+          response_->headers->GetNormalizedHeader("X-FLEDGE-Auction-Only");
+    }
+    if (auction_only &&
+        base::EqualsCaseInsensitiveASCII(*auction_only, "true")) {
+      CompleteBlockedResponse(net::ERR_BLOCKED_BY_RESPONSE, false);
+      url_request_->AbortAndCloseConnection();
+      DeleteSelf();
+      return;
+    }
   }
 
   // Figure out if we need to sniff (for MIME type detection or for Opaque

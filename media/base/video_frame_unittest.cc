@@ -25,6 +25,7 @@
 #include "build/build_config.h"
 #include "gpu/command_buffer/common/mailbox_holder.h"
 #include "media/base/color_plane_layout.h"
+#include "media/base/limits.h"
 #include "media/base/simple_sync_token_client.h"
 #include "media/video/fake_gpu_memory_buffer.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -82,7 +83,7 @@ media::VideoFrameMetadata GetFullVideoFrameMetadata() {
   metadata.interactive_content = true;
 
   // base::UnguessableTokens
-  metadata.overlay_plane_id = base::UnguessableToken::Create();
+  metadata.tracking_token = base::UnguessableToken::Create();
 
   // doubles
   metadata.device_scale_factor = 2.0;
@@ -129,7 +130,7 @@ void VerifyVideoFrameMetadataEquality(const media::VideoFrameMetadata& a,
   EXPECT_EQ(a.wants_promotion_hint, b.wants_promotion_hint);
   EXPECT_EQ(a.protected_video, b.protected_video);
   EXPECT_EQ(a.hw_protected, b.hw_protected);
-  EXPECT_EQ(a.overlay_plane_id, b.overlay_plane_id);
+  EXPECT_EQ(a.tracking_token, b.tracking_token);
   EXPECT_EQ(a.power_efficient, b.power_efficient);
   EXPECT_EQ(a.device_scale_factor, b.device_scale_factor);
   EXPECT_EQ(a.page_scale_factor, b.page_scale_factor);
@@ -850,6 +851,28 @@ TEST(VideoFrame, AllocationSize_OddSize) {
       case PIXEL_FORMAT_UNKNOWN:
         continue;
     }
+  }
+}
+
+// Test ensures we don't overflow on 32-bit platforms.
+TEST(VideoFrame, NoFrameSizeExceedsUint32) {
+  const int max_dimension = std::sqrt(limits::kMaxCanvas);
+  const auto max_size = gfx::Size(max_dimension, max_dimension);
+  for (unsigned int i = 1u; i <= PIXEL_FORMAT_MAX; ++i) {
+    // Deprecated pixel formats.
+    if (i == 13 || i == 15 || i == 25) {
+      continue;
+    }
+
+    const auto format = static_cast<VideoPixelFormat>(i);
+
+    ASSERT_TRUE(
+        VideoFrame::IsValidConfig(format, VideoFrame::STORAGE_UNOWNED_MEMORY,
+                                  max_size, gfx::Rect(max_size), max_size));
+
+    base::CheckedNumeric<uint32_t> allocation_size =
+        VideoFrame::AllocationSize(format, max_size);
+    ASSERT_TRUE(allocation_size.IsValid());
   }
 }
 

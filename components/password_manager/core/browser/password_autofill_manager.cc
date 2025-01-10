@@ -101,9 +101,9 @@ bool HasLoadingSuggestion(base::span<const Suggestion> suggestions,
   });
 }
 
-std::string GetBackendId(const Suggestion& suggestion) {
-  return absl::holds_alternative<Suggestion::BackendId>(suggestion.payload)
-             ? suggestion.GetBackendId<Suggestion::Guid>().value()
+std::string GetGuidFromSuggestion(const Suggestion& suggestion) {
+  return absl::holds_alternative<Suggestion::Guid>(suggestion.payload)
+             ? suggestion.GetPayload<Suggestion::Guid>().value()
              : std::string();
 }
 
@@ -120,16 +120,17 @@ std::vector<Suggestion> SetUnlockLoadingState(
   return suggestions;
 }
 
-std::vector<autofill::Suggestion> PrepareLoadingStateSuggestions(
-    std::vector<autofill::Suggestion> current_suggestions,
-    const autofill::Suggestion& selected_suggestion) {
+std::vector<Suggestion> PrepareLoadingStateSuggestions(
+    std::vector<Suggestion> current_suggestions,
+    const Suggestion& selected_suggestion) {
   auto modifier_fun = [&selected_suggestion](auto& suggestion) {
+    using enum Suggestion::Acceptability;
     if (suggestion == selected_suggestion) {
+      suggestion.acceptability = kUnacceptable;
       suggestion.is_loading = IsLoading(true);
     } else {
-      suggestion.apply_deactivated_style = true;
+      suggestion.acceptability = kUnacceptableWithDeactivatedStyle;
     }
-    suggestion.is_acceptable = false;
   };
   base::ranges::for_each(current_suggestions, modifier_fun);
   return current_suggestions;
@@ -288,7 +289,7 @@ void PasswordAutofillManager::DidAcceptSuggestion(
           password_client_->IsOffTheRecord());
       password_client_
           ->GetWebAuthnCredentialsDelegateForDriver(password_manager_driver_)
-          ->SelectPasskey(GetBackendId(suggestion),
+          ->SelectPasskey(GetGuidFromSuggestion(suggestion),
                           base::BindOnce(&PasswordAutofillManager::HidePopup,
                                          weak_ptr_factory_.GetWeakPtr()));
       // Disable all entries and set the `selected_suggestion` in loading state.
@@ -364,7 +365,7 @@ void PasswordAutofillManager::DidPerformButtonActionForSuggestion(
     const Suggestion&,
     const autofill::SuggestionButtonAction&) {
   // Button actions do currently not exist for password entries.
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 bool PasswordAutofillManager::RemoveSuggestion(const Suggestion& suggestion) {

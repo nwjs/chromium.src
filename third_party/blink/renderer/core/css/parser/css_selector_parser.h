@@ -81,7 +81,8 @@ class CORE_EXPORT CSSSelectorParser {
       bool semicolon_aborts_nested_selector,
       StyleSheetContents*,
       CSSParserObserver*,
-      HeapVector<CSSSelector>&);
+      HeapVector<CSSSelector>&,
+      bool* has_visited_pseudo);
 
   static bool ConsumeANPlusB(CSSParserTokenStream&, std::pair<int, int>&);
   CSSSelectorList* ConsumeNthChildOfSelectors(CSSParserTokenStream&);
@@ -100,10 +101,8 @@ class CORE_EXPORT CSSSelectorParser {
   // https://drafts.csswg.org/css-cascade-6/#typedef-scope-start
   // https://drafts.csswg.org/css-cascade-6/#typedef-scope-end
   //
-  // Parse errors are signalled by returning std::nullopt. Empty spans are
-  // normal and expected, since <scope-start> / <scope-end> are forgiving
-  // selector lists.
-  static std::optional<base::span<CSSSelector>> ParseScopeBoundary(
+  // Parse errors are signalled by an empty span.
+  static base::span<CSSSelector> ParseScopeBoundary(
       CSSParserTokenStream&,
       const CSSParserContext*,
       CSSNestingType,
@@ -216,7 +215,8 @@ class CORE_EXPORT CSSSelectorParser {
                                    wtf_size_t start_index_of_compound_selector);
   void SplitCompoundAtImplicitShadowCrossingCombinator(
       base::span<CSSSelector> compound_selector);
-  void RecordUsageAndDeprecations(base::span<CSSSelector>);
+  void RecordUsageAndDeprecations(base::span<CSSSelector>,
+                                  bool* has_visited_style = nullptr);
   static bool ContainsUnknownWebkitPseudoElements(
       base::span<CSSSelector> selectors);
 

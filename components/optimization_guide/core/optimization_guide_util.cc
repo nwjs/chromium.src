@@ -92,6 +92,9 @@ std::string_view GetStringNameForModelExecutionFeature(
     case proto::ModelExecutionFeature::
         MODEL_EXECUTION_FEATURE_FORMS_ANNOTATIONS:
       return "FormsAnnotations";
+    case proto::ModelExecutionFeature::
+        MODEL_EXECUTION_FEATURE_BLING_PROTOTYPING:
+      return "BlingPrototyping";
     case proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_UNSPECIFIED:
       return "Unknown";
       // Must be in sync with the ModelExecutionFeature variant in
@@ -123,8 +126,7 @@ std::string GetStringForOptimizationGuideDecision(
     case OptimizationGuideDecision::kFalse:
       return "False";
   }
-  NOTREACHED_IN_MIGRATION();
-  return std::string();
+  NOTREACHED();
 }
 
 optimization_guide::proto::OriginInfo GetClientOriginInfo() {

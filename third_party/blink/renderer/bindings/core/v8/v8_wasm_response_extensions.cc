@@ -70,11 +70,10 @@ void SendCachedData(String response_url,
 
   CodeCacheHost* code_cache_host =
       ExecutionContext::GetCodeCacheHostFromContext(execution_context);
-  base::span<const uint8_t> serialized_data = cached_metadata->SerializedData();
   CachedMetadataSender::SendToCodeCacheHost(
       code_cache_host, mojom::blink::CodeCacheType::kWebAssembly, response_url,
-      response_time, cache_storage_cache_name, serialized_data.data(),
-      serialized_data.size());
+      response_time, cache_storage_cache_name,
+      cached_metadata->SerializedData());
 }
 
 class WasmCodeCachingCallback {
@@ -227,8 +226,7 @@ class FetchDataLoaderForWasmStreaming final : public FetchDataLoader,
       }
       switch (result) {
         case BytesConsumer::Result::kShouldWait:
-          NOTREACHED_IN_MIGRATION();
-          return;
+          NOTREACHED();
         case BytesConsumer::Result::kOk:
           break;
         case BytesConsumer::Result::kDone: {
@@ -343,18 +341,19 @@ class FetchDataLoaderForWasmStreaming final : public FetchDataLoader,
                                     WasmCodeCaching::kMiss);
       return CodeCacheState::kNoCodeCache;
     }
+    base::span<const uint8_t> metadata_with_digest = cached_module->Data();
 
     TRACE_EVENT_INSTANT2(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"),
                          "v8.wasm.moduleCacheHit", TRACE_EVENT_SCOPE_THREAD,
                          "url", url_.Utf8(), "consumedCacheSize",
-                         cached_module->size());
+                         metadata_with_digest.size());
 
-    bool is_valid =
-        cached_module->size() >= kWireBytesDigestSize &&
-        streaming_->SetCompiledModuleBytes(
-            reinterpret_cast<const uint8_t*>(cached_module->Data()) +
-                kWireBytesDigestSize,
-            cached_module->size() - kWireBytesDigestSize);
+    bool is_valid = false;
+    if (metadata_with_digest.size() >= kWireBytesDigestSize) {
+      auto metadata = metadata_with_digest.subspan(kWireBytesDigestSize);
+      is_valid =
+          streaming_->SetCompiledModuleBytes(metadata.data(), metadata.size());
+    }
 
     if (!is_valid) {
       TRACE_EVENT_INSTANT0(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"),
@@ -392,14 +391,15 @@ class FetchDataLoaderForWasmStreaming final : public FetchDataLoader,
         cache_handler_->GetCachedMetadata(kWasmModuleTag);
     if (!cached_module)
       return false;
-    if (cached_module->size() < kWireBytesDigestSize)
+    base::span<const uint8_t> metadata_with_digest = cached_module->Data();
+    if (metadata_with_digest.size() < kWireBytesDigestSize) {
       return false;
+    }
 
     DigestValue wire_bytes_digest;
     digestor_.Finish(wire_bytes_digest);
     if (digestor_.has_failed() ||
-        memcmp(wire_bytes_digest.data(), cached_module->Data(),
-               kWireBytesDigestSize) != 0) {
+        wire_bytes_digest != metadata_with_digest.first(kWireBytesDigestSize)) {
       TRACE_EVENT_INSTANT0(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"),
                            "v8.wasm.moduleCacheInvalidDigest",
                            TRACE_EVENT_SCOPE_THREAD);
@@ -437,7 +437,7 @@ class WasmDataLoaderClient final
   WasmDataLoaderClient& operator=(const WasmDataLoaderClient&) = delete;
 
   void DidFetchDataLoadedCustomFormat() override {}
-  void DidFetchDataLoadFailed() override { NOTREACHED_IN_MIGRATION(); }
+  void DidFetchDataLoadFailed() override { NOTREACHED(); }
   void Abort() override { loader_->AbortFromClient(); }
 
   void Trace(Visitor* visitor) const override {

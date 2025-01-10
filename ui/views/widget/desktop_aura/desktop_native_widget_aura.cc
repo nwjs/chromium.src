@@ -14,7 +14,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/aura/client/aura_constants.h"
@@ -116,14 +115,6 @@ class DesktopNativeWidgetTopLevelHandler : public aura::WindowObserver {
         full_screen ? Widget::InitParams::TYPE_WINDOW
         : is_menu   ? Widget::InitParams::TYPE_MENU
                     : Widget::InitParams::TYPE_POPUP);
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-    // Evaluate if the window needs shadow.
-    init_params.shadow_type =
-        (wm::GetShadowElevationConvertDefault(child_window) > 0)
-            ? Widget::InitParams::ShadowType::kDrop
-            : Widget::InitParams::ShadowType::kNone;
-#endif
 
 #if BUILDFLAG(IS_WIN)
     // For menus, on Windows versions that support drop shadow remove
@@ -424,11 +415,6 @@ void DesktopNativeWidgetAura::NotifyAccessibilityEvent(
   if (!GetWidget() || !GetWidget()->GetRootView())
     return;
   GetWidget()->GetRootView()->NotifyAccessibilityEvent(event_type, true);
-}
-
-views::corewm::TooltipController*
-DesktopNativeWidgetAura::tooltip_controller() {
-  return tooltip_controller_.get();
 }
 
 void DesktopNativeWidgetAura::HandleActivationChanged(bool active) {
@@ -830,14 +816,6 @@ void DesktopNativeWidgetAura::SetWindowIcons(const gfx::ImageSkia& window_icon,
   if (content_window_)
     NativeWidgetAura::AssignIconToAuraWindow(content_window_, window_icon,
                                              app_icon);
-}
-
-const gfx::ImageSkia* DesktopNativeWidgetAura::GetWindowIcon() {
-  return nullptr;
-}
-
-const gfx::ImageSkia* DesktopNativeWidgetAura::GetWindowAppIcon() {
-  return nullptr;
 }
 
 void DesktopNativeWidgetAura::InitModalType(ui::mojom::ModalType modal_type) {

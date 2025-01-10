@@ -4,6 +4,7 @@
 
 #include "components/autofill/content/renderer/form_autofill_util.h"
 
+#include <algorithm>
 #include <limits>
 #include <map>
 #include <memory>
@@ -169,6 +170,7 @@ constexpr std::string_view kSpan = "span";
 constexpr std::string_view kSrc = "src";
 #endif
 constexpr std::string_view kStrong = "strong";
+constexpr std::string_view kStyle = "style";
 constexpr std::string_view kSubmit = "submit";
 constexpr std::string_view kTable = "table";
 constexpr std::string_view kTableCell = "td";
@@ -292,8 +294,8 @@ bool IsTraversableContainerElement(const WebNode& node) {
          HasTagName<kTable>(element);
 }
 
-// This function checks whether the children of |element|
-// are of the type <script>, <meta>, or <title>.
+// This function checks whether the children of `element` are of the type
+// <script>, <meta>, <title> or <style>.
 bool IsWebElementEmpty(const WebElement& root) {
   if (!root) {
     return true;
@@ -313,7 +315,8 @@ bool IsWebElementEmpty(const WebElement& root) {
     WebElement element = child.To<WebElement>();
     if (!element.HasHTMLTagName(GetWebString<kScript>()) &&
         !element.HasHTMLTagName(GetWebString<kMeta>()) &&
-        !element.HasHTMLTagName(GetWebString<kTitle>())) {
+        !element.HasHTMLTagName(GetWebString<kTitle>()) &&
+        !element.HasHTMLTagName(GetWebString<kStyle>())) {
       return false;
     }
   }
@@ -397,7 +400,8 @@ std::u16string FindChildTextInner(const WebNode& node,
         IsAutofillableElement(element.DynamicTo<WebFormControlElement>())) {
       return std::u16string();
     }
-    skip_node = HasTagName<kScript>(element) || HasTagName<kNoScript>(element);
+    skip_node = HasTagName<kScript>(element) ||
+                HasTagName<kNoScript>(element) || HasTagName<kStyle>(element);
   }
 
   std::u16string node_text;
@@ -1024,6 +1028,44 @@ std::optional<InferredLabel> InferLabelFromAncestors(
   }
   return std::nullopt;
 }
+
+// The first <option> of <select> elements sometimes represents a default value
+// like <option>Select country</option> (with no value attribute). In this case,
+// the text of this <option> is a useful label.
+// `InferLabelFromDefaultSelectValue()` attempts to decide if this is the case,
+// by checking if only the first <option> is lacking a value.
+std::optional<InferredLabel> InferLabelFromDefaultSelectText(
+    const WebFormControlElement& element) {
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillInferLabelFromDefaultSelectText)) {
+    return std::nullopt;
+  }
+  CHECK(IsSelectElement(element));
+  std::vector<WebElement> options =
+      element.To<WebSelectElement>().GetListItems().ReleaseVector();
+  // `options` can contain other elements like <optgroup>.
+  std::erase_if(options, [](const WebElement& e) {
+    return !e.DynamicTo<WebOptionElement>();
+  });
+  auto has_non_empty_value_attribute = [](const WebElement& e) {
+    // If an <option>'s value is unspecified, it default to its text content.
+    // For this reason the `HasAttribute<>()` check is necessary.
+    if (!HasAttribute<kValue>(e)) {
+      return false;
+    }
+    std::u16string value = GetAttribute<kValue>(e).Utf16();
+    base::TrimWhitespace(value, base::TRIM_ALL, &value);
+    return !value.empty();
+  };
+  if (options.size() >= 2 && !has_non_empty_value_attribute(options[0]) &&
+      std::all_of(options.begin() + 1, options.end(),
+                  has_non_empty_value_attribute)) {
+    return InferredLabel::BuildIfValid(FindChildText(options[0]),
+                                       LabelSource::kDefaultSelectText);
+  }
+  return std::nullopt;
+}
+
 // Infers corresponding label for `element` from surrounding context in the DOM,
 // e.g. the contents of the preceding <p> tag or text element. Returns an empty
 // string if it could not find a label for `element`.
@@ -1037,11 +1079,8 @@ std::optional<InferredLabel> InferLabelForElement(
   if (auto r = InferLabelFromPrevious(element)) {
     return r;
   }
-  if (!base::FeatureList::IsEnabled(
-          features::kAutofillAlwaysParsePlaceholders)) {
-    if (auto r = InferLabelFromPlaceholder(element)) {
-      return r;
-    }
+  if (auto r = InferLabelFromPlaceholder(element)) {
+    return r;
   }
   if (auto r = InferLabelFromOverlayingSuccessor(element)) {
     return r;
@@ -1053,6 +1092,11 @@ std::optional<InferredLabel> InferLabelForElement(
   // If we didn't find a label, check the `element`'s ancestors.
   if (auto r = InferLabelFromAncestors(element)) {
     return r;
+  }
+  if (IsSelectElement(element)) {
+    if (auto r = InferLabelFromDefaultSelectText(element)) {
+      return r;
+    }
   }
   // If we didn't find a label, check the value attr used as the placeholder.
   if (auto r = InferLabelFromValueAttribute(element)) {
@@ -1279,7 +1323,7 @@ void FillFormField(const FormFieldData::FillData& data,
   if (IsTextInput(field)) {
     field_data_manager.UpdateFieldDataMap(
         GetFieldRendererId(field), data.value.substr(0, field.MaxLength()),
-        FieldPropertiesFlags::kAutofilled);
+        FieldPropertiesFlags::kAutofilledOnUserTrigger);
   }
 
   field.SetAutofillValue(WebString::FromUTF16(data.value), new_autofill_state);
@@ -1768,7 +1812,7 @@ std::vector<SelectOption> GetDataListOptions(const WebInputElement& element) {
   WebVector<WebOptionElement> option_elements =
       element.FilteredDataListOptions();
   std::vector<SelectOption> options;
-  options.reserve(std::max(option_elements.size(), kMaxListSize));
+  options.reserve(std::min(option_elements.size(), kMaxListSize));
   for (const WebOptionElement& option_element : option_elements) {
     if (options.size() > kMaxListSize) {
       break;
@@ -2436,7 +2480,7 @@ FindFormAndFieldForFormControlElement(
   SCOPED_CRASH_KEYS_FOR_FORM(owng, owning_form);
 #undef FORM_CRASH_KEYS
   // clang-format on
-  NOTREACHED(base::NotFatalUntil::M132);
+  NOTREACHED(base::NotFatalUntil::M134);
   return std::nullopt;
 }
 

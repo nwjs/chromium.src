@@ -68,6 +68,11 @@ public class EmptyTabModel implements IncognitoTabModelInternal {
     }
 
     @Override
+    public @NonNull TabRemover getTabRemover() {
+        return new EmptyTabRemover();
+    }
+
+    @Override
     public boolean closeTabs(TabClosureParams tabClosureParams) {
         return false;
     }
@@ -154,6 +159,12 @@ public class EmptyTabModel implements IncognitoTabModelInternal {
     public @NonNull ObservableSupplier<Integer> getTabCountSupplier() {
         assert false : "This should be unreachable in production, it may be mocked for testing.";
         return new ObservableSupplierImpl<>();
+    }
+
+    @Override
+    public @NonNull TabCreator getTabCreator() {
+        assert false : "This should be unreachable in production, it may be mocked for testing.";
+        return null;
     }
 
     @Override

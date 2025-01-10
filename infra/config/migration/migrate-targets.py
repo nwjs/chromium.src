@@ -245,6 +245,8 @@ def _update_starlark(
       ('targets.builder_defaults.set', targets_builder_defaults),
       ('targets.settings_defaults.set', targets_settings_defaults),
   ):
+    if not defaults:
+      continue
     defaults_target = create_defaults(kind)
     for attr, value in defaults.items():
       buildozer.run(f'set {attr} {_escape_spaces(value)}', defaults_target)
@@ -259,6 +261,7 @@ def main(argv: list[str]):
   parser = argparse.ArgumentParser()
   parser.add_argument('builder_group')
   parser.add_argument('builder', nargs='*', default=None)
+  parser.add_argument('--star-file', default=None)
   args = parser.parse_args(argv)
 
   builders = set(args.builder) or None
@@ -296,11 +299,15 @@ def main(argv: list[str]):
           if builders is not None and builder_name not in builders:
             continue
 
-          edits_by_builder[builder_name] = _compute_edits(
-              builder_name,
-              builder_config,
-              test_suite_exceptions,
-          )
+          try:
+            edits_by_builder[builder_name] = _compute_edits(
+                builder_name,
+                builder_config,
+                test_suite_exceptions,
+            )
+          except SkylabSuite:
+            if builders is not None:
+              raise
 
           if builders is not None:
             builders.remove(builder_name)
@@ -322,9 +329,16 @@ def main(argv: list[str]):
           file=sys.stderr)
     sys.exit(1)
 
-  bucket = 'try' if args.builder_group.startswith('tryserver.') else 'ci'
-  star_file = (_INFRA_CONFIG_DIR /
-               f'subprojects/chromium/{bucket}/{args.builder_group}.star')
+  if args.star_file:
+    if not os.path.exists(args.star_file):
+      print(f'The given starlark file does not exist: "{args.star_file}"',
+            file=sys.stderr)
+      sys.exit(1)
+    star_file = args.star_file
+  else:
+    bucket = 'try' if args.builder_group.startswith('tryserver.') else 'ci'
+    star_file = (_INFRA_CONFIG_DIR /
+                f'subprojects/chromium/{bucket}/{args.builder_group}.star')
 
   _update_starlark(
       args.builder_group,

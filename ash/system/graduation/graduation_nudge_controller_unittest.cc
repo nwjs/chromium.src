@@ -25,7 +25,9 @@
 #include "ash/system/toast/anchored_nudge_manager_impl.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller_test_api.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/time/time.h"
 #include "components/prefs/testing_pref_service.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -37,6 +39,10 @@ namespace ash {
 namespace {
 
 constexpr char kAppId[] = "test_id";
+constexpr char kInvalidAppId[] = "invalid_app_id";
+constexpr NudgeCatalogName kGraduationNudgeCatalogName =
+    NudgeCatalogName::kGraduationAppEnabled;
+constexpr char kNudgeShownCount[] = "Ash.NotifierFramework.Nudge.ShownCount";
 
 bool IsNudgeShown() {
   return Shell::Get()->anchored_nudge_manager()->IsNudgeShown(
@@ -55,9 +61,9 @@ gfx::ImageSkia CreateImageSkiaIcon() {
 class GraduationNudgeControllerTest : public AshTestBase {
  public:
   GraduationNudgeControllerTest() {
+    graduation_prefs::RegisterProfilePrefs(profile_prefs_.registry());
     nudge_controller_ = std::make_unique<graduation::GraduationNudgeController>(
         &profile_prefs_);
-    graduation_prefs::RegisterProfilePrefs(profile_prefs_.registry());
   }
 
   void SetUp() override {
@@ -81,8 +87,12 @@ class GraduationNudgeControllerTest : public AshTestBase {
     return item.id;
   }
 
-  void SetNudgeShownPref(bool shown) {
-    profile_prefs_.SetBoolean(prefs::kGraduationNudgeShown, shown);
+  void SetNudgeShownCountPref(int count) {
+    profile_prefs_.SetInteger(prefs::kGraduationNudgeShownCount, count);
+  }
+
+  void SetLastShownNudgeTimePref(base::Time time) {
+    profile_prefs_.SetTime(prefs::kGraduationNudgeLastShownTime, time);
   }
 
  private:
@@ -104,8 +114,10 @@ TEST_F(GraduationNudgeControllerTest, NudgeShownWhenAppInstalled) {
   EXPECT_TRUE(IsNudgeShown());
 }
 
-TEST_F(GraduationNudgeControllerTest, NudgeNotShownWhenAlreadyShown) {
-  SetNudgeShownPref(true);
+TEST_F(GraduationNudgeControllerTest, NudgeNotShownWhenShownMaximumTimes) {
+  SetNudgeShownCountPref(3);
+  base::Time two_days_ago = base::Time::Now() - base::Days(2);
+  SetLastShownNudgeTimePref(two_days_ago);
   ShelfID added_item = AddItem(ShelfItemType::TYPE_PINNED_APP, true);
 
   EXPECT_FALSE(IsNudgeShown());
@@ -113,8 +125,33 @@ TEST_F(GraduationNudgeControllerTest, NudgeNotShownWhenAlreadyShown) {
   EXPECT_FALSE(IsNudgeShown());
 }
 
+TEST_F(GraduationNudgeControllerTest, NudgeNotShownWhenShownLessThanADayAgo) {
+  SetNudgeShownCountPref(1);
+  base::Time twelve_hours_ago = base::Time::Now() - base::Hours(12);
+  SetLastShownNudgeTimePref(twelve_hours_ago);
+  ShelfID added_item = AddItem(ShelfItemType::TYPE_PINNED_APP, true);
+
+  EXPECT_FALSE(IsNudgeShown());
+  nudge_controller()->MaybeShowNudge(added_item);
+  EXPECT_FALSE(IsNudgeShown());
+}
+
+TEST_F(GraduationNudgeControllerTest, NudgeShownWhenLastShownOverADayAgo) {
+  SetNudgeShownCountPref(1);
+  base::Time two_days_ago = base::Time::Now() - base::Days(2);
+  SetLastShownNudgeTimePref(two_days_ago);
+
+  ShelfID added_item = AddItem(ShelfItemType::TYPE_PINNED_APP, true);
+
+  EXPECT_FALSE(IsNudgeShown());
+  nudge_controller()->MaybeShowNudge(added_item);
+  EXPECT_TRUE(IsNudgeShown());
+}
+
 TEST_F(GraduationNudgeControllerTest, NudgeShownIfPrefReset) {
-  SetNudgeShownPref(true);
+  SetNudgeShownCountPref(3);
+  base::Time two_days_ago = base::Time::Now() - base::Days(2);
+  SetLastShownNudgeTimePref(two_days_ago);
   ShelfID added_item = AddItem(ShelfItemType::TYPE_PINNED_APP, true);
 
   EXPECT_FALSE(IsNudgeShown());
@@ -145,4 +182,34 @@ TEST_F(GraduationNudgeControllerTest, EnableAppWhenHotseatHidden) {
   nudge_controller()->MaybeShowNudge(added_item);
   EXPECT_FALSE(IsNudgeShown());
 }
+
+TEST_F(GraduationNudgeControllerTest, RecordNudgeShownCountMetric) {
+  base::HistogramTester histogram_tester;
+  histogram_tester.ExpectUniqueSample(kNudgeShownCount,
+                                      kGraduationNudgeCatalogName, 0);
+
+  ShelfID added_item = AddItem(ShelfItemType::TYPE_PINNED_APP, true);
+  nudge_controller()->MaybeShowNudge(added_item);
+
+  histogram_tester.ExpectUniqueSample(kNudgeShownCount,
+                                      kGraduationNudgeCatalogName, 1);
+}
+
+TEST_F(GraduationNudgeControllerTest, RecordShowNudgeFailedMetric) {
+  base::HistogramTester histogram_tester;
+  histogram_tester.ExpectUniqueSample(
+      graduation::GraduationNudgeController::kShowNudgeFailedHistogramName,
+      graduation::GraduationNudgeController::ShowNudgeFailureReason::
+          kAppIconUnavailable,
+      0);
+
+  nudge_controller()->MaybeShowNudge(ShelfID(kInvalidAppId));
+
+  histogram_tester.ExpectUniqueSample(
+      graduation::GraduationNudgeController::kShowNudgeFailedHistogramName,
+      graduation::GraduationNudgeController::ShowNudgeFailureReason::
+          kAppIconUnavailable,
+      1);
+}
+
 }  // namespace ash

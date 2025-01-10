@@ -8,10 +8,8 @@
 #include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/test/scoped_feature_list.h"
-#include "chrome/browser/companion/core/constants.h"
 #include "chrome/browser/companion/core/features.h"
 #include "chrome/browser/companion/core/mock_signin_delegate.h"
-#include "chrome/browser/companion/core/promo_handler.h"
 #include "chrome/browser/companion/core/proto/companion_url_params.pb.h"
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -46,15 +44,8 @@ class CompanionUrlBuilderTest : public testing::Test {
         false);
 
     pref_service_.registry()->RegisterBooleanPref(
-        prefs::kSidePanelCompanionEntryPinnedToToolbar,
-        EntryPointDefaultPinned());
-
-    pref_service_.registry()->RegisterBooleanPref(
         unified_consent::prefs::kPageContentCollectionEnabled, false);
 
-    PromoHandler::RegisterProfilePrefs(pref_service_.registry());
-
-    pref_service_.SetUserPref(kSigninPromoDeclinedCountPref, base::Value(1));
     SetSignInAndMsbbExpectations(/*is_sign_in_allowed=*/true,
                                  /*is_signed_in=*/true,
                                  /*msbb_pref_enabled=*/true);
@@ -162,11 +153,9 @@ TEST_F(CompanionUrlBuilderTest, SignIn) {
 }
 
 TEST_F(CompanionUrlBuilderTest, MsbbAndPcOff) {
-  pref_service_.SetUserPref(kSigninPromoDeclinedCountPref, base::Value(1));
   SetSignInAndMsbbExpectations(/*is_sign_in_allowed=*/true,
                                /*is_signed_in=*/true,
                                /*msbb_pref_enabled=*/false);
-  pref_service_.SetUserPref(kSigninPromoDeclinedCountPref, base::Value(1));
 
   GURL page_url(kValidUrl);
   GURL companion_url = url_builder_->BuildCompanionURL(page_url);
@@ -204,9 +193,6 @@ TEST_F(CompanionUrlBuilderTest, MsbbAndPcOff) {
 TEST_F(CompanionUrlBuilderTest, MsbbAndPcOn) {
   EXPECT_CALL(signin_delegate_, IsSignedIn())
       .WillRepeatedly(testing::Return(true));
-  pref_service_.SetUserPref(kExpsPromoShownCountPref, base::Value(3));
-  pref_service_.SetUserPref(kPcoPromoShownCountPref, base::Value(2));
-  pref_service_.SetUserPref(kPcoPromoDeclinedCountPref, base::Value(1));
   pref_service_.SetUserPref(
       unified_consent::prefs::kPageContentCollectionEnabled, base::Value(true));
 
@@ -239,7 +225,7 @@ TEST_F(CompanionUrlBuilderTest, MsbbAndPcOn) {
   EXPECT_TRUE(proto.is_page_content_sharing_enabled());
   EXPECT_TRUE(proto.is_page_content_enabled());
   EXPECT_TRUE(proto.is_signed_in());
-  EXPECT_TRUE(proto.is_entrypoint_pinned_by_default());
+  EXPECT_FALSE(proto.is_entrypoint_pinned_by_default());
   EXPECT_TRUE(proto.links_open_in_new_tab());
   EXPECT_FALSE(proto.is_vqs_enabled_on_chrome());
   EXPECT_TRUE(proto.is_upload_dialog_supported());
@@ -247,12 +233,12 @@ TEST_F(CompanionUrlBuilderTest, MsbbAndPcOn) {
 
   // Verify promo state.
   EXPECT_TRUE(proto.has_promo_state());
-  EXPECT_EQ(1, proto.promo_state().signin_promo_denial_count());
+  EXPECT_EQ(0, proto.promo_state().signin_promo_denial_count());
   EXPECT_EQ(0, proto.promo_state().msbb_promo_denial_count());
   EXPECT_EQ(0, proto.promo_state().exps_promo_denial_count());
-  EXPECT_EQ(3, proto.promo_state().exps_promo_shown_count());
-  EXPECT_EQ(2, proto.promo_state().pco_promo_shown_count());
-  EXPECT_EQ(1, proto.promo_state().pco_promo_denial_count());
+  EXPECT_EQ(0, proto.promo_state().exps_promo_shown_count());
+  EXPECT_EQ(0, proto.promo_state().pco_promo_shown_count());
+  EXPECT_EQ(0, proto.promo_state().pco_promo_denial_count());
   EXPECT_TRUE(proto.promo_state().should_show_region_search_iph());
 }
 

@@ -505,8 +505,7 @@ error::Error GLES2DecoderPassthroughImpl::DoBindFramebuffer(
       break;
 
     default:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 
   return error::kNoError;
@@ -2453,8 +2452,7 @@ error::Error GLES2DecoderPassthroughImpl::DoMultiDrawEndCHROMIUM() {
           result.baseinstances.data(), result.drawcount);
       return error::kNoError;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return error::kLostContext;
+      NOTREACHED();
   }
 }
 
@@ -5168,7 +5166,6 @@ error::Error GLES2DecoderPassthroughImpl::DoCopySharedImageINTERNAL(
     GLint y,
     GLsizei width,
     GLsizei height,
-    GLboolean unpack_flip_y,
     const volatile GLbyte* mailboxes) {
   if (!lazy_context_) {
     lazy_context_ = LazySharedContextState::Create(this);
@@ -5181,8 +5178,8 @@ error::Error GLES2DecoderPassthroughImpl::DoCopySharedImageINTERNAL(
                             lazy_context_->shared_context_state()->surface());
   CopySharedImageHelper helper(group_->shared_image_representation_factory(),
                                lazy_context_->shared_context_state());
-  auto result = helper.CopySharedImage(xoffset, yoffset, x, y, width, height,
-                                       unpack_flip_y, mailboxes);
+  auto result =
+      helper.CopySharedImage(xoffset, yoffset, x, y, width, height, mailboxes);
   if (!result.has_value()) {
     InsertError(result.error().gl_error, result.error().msg);
   }

@@ -20,9 +20,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/extensions/api/enterprise_platform_keys.h"
 #include "chrome/common/extensions/api/enterprise_platform_keys_internal.h"
-#include "chrome/common/pref_names.h"
 #include "chromeos/crosapi/mojom/keystore_service.mojom.h"
-#include "components/pref_registry/pref_registry_syncable.h"
 #include "extensions/browser/extension_function.h"
 
 namespace extensions {
@@ -44,10 +42,12 @@ crosapi::mojom::KeystoreService* GetKeystoreService(
 
 std::optional<crosapi::mojom::KeystoreType> KeystoreTypeFromString(
     const std::string& input) {
-  if (input == "user")
+  if (input == "user") {
     return crosapi::mojom::KeystoreType::kUser;
-  if (input == "system")
+  }
+  if (input == "system") {
     return crosapi::mojom::KeystoreType::kDevice;
+  }
   return std::nullopt;
 }
 
@@ -59,21 +59,14 @@ std::string ValidateInput(const std::string& token_id,
                           crosapi::mojom::KeystoreType* keystore) {
   std::optional<crosapi::mojom::KeystoreType> keystore_type =
       KeystoreTypeFromString(token_id);
-  if (!keystore_type)
+  if (!keystore_type) {
     return platform_keys::kErrorInvalidToken;
+  }
 
   *keystore = keystore_type.value();
   return "";
 }
 }  // namespace
-
-namespace platform_keys {
-
-void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
-  registry->RegisterListPref(prefs::kAttestationExtensionAllowlist);
-}
-
-}  // namespace platform_keys
 
 //------------------------------------------------------------------------------
 
@@ -88,8 +81,9 @@ EnterprisePlatformKeysInternalGenerateKeyFunction::Run() {
   EXTENSION_FUNCTION_VALIDATE(params);
   std::optional<chromeos::platform_keys::TokenId> platform_keys_token_id =
       platform_keys::ApiIdToPlatformKeysTokenId(params->token_id);
-  if (!platform_keys_token_id)
+  if (!platform_keys_token_id) {
     return RespondNow(Error(platform_keys::kErrorInvalidToken));
+  }
 
   chromeos::ExtensionPlatformKeysService* service =
       chromeos::ExtensionPlatformKeysServiceFactory::GetForBrowserContext(
@@ -115,8 +109,7 @@ EnterprisePlatformKeysInternalGenerateKeyFunction::Run() {
             &EnterprisePlatformKeysInternalGenerateKeyFunction::OnGeneratedKey,
             this));
   } else {
-    NOTREACHED_IN_MIGRATION();
-    EXTENSION_FUNCTION_VALIDATE(false);
+    NOTREACHED();
   }
   return RespondLater();
 }
@@ -293,8 +286,7 @@ EnterprisePlatformKeysChallengeMachineKeyFunction::Run() {
       ->ChallengeAttestationOnlyKeystore(
           crosapi::mojom::KeystoreType::kDevice, params->challenge,
           /*migrate=*/params->register_key ? *params->register_key : false,
-          crosapi::mojom::KeystoreSigningAlgorithmName::kRsassaPkcs115,
-          std::move(c));
+          crosapi::mojom::KeystoreAlgorithmName::kRsassaPkcs115, std::move(c));
   return RespondLater();
 }
 
@@ -336,8 +328,7 @@ EnterprisePlatformKeysChallengeUserKeyFunction::Run() {
       ->ChallengeAttestationOnlyKeystore(
           crosapi::mojom::KeystoreType::kUser, params->challenge,
           /*migrate=*/params->register_key,
-          crosapi::mojom::KeystoreSigningAlgorithmName::kRsassaPkcs115,
-          std::move(c));
+          crosapi::mojom::KeystoreAlgorithmName::kRsassaPkcs115, std::move(c));
   return RespondLater();
 }
 
@@ -383,27 +374,26 @@ EnterprisePlatformKeysChallengeKeyFunction::Run() {
       keystore_type = crosapi::mojom::KeystoreType::kDevice;
       break;
     case api::enterprise_platform_keys::Scope::kNone:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
 
   // Default to RSA when not registering a key.
-  crosapi::mojom::KeystoreSigningAlgorithmName algorithm =
-      crosapi::mojom::KeystoreSigningAlgorithmName::kRsassaPkcs115;
+  crosapi::mojom::KeystoreAlgorithmName algorithm =
+      crosapi::mojom::KeystoreAlgorithmName::kRsassaPkcs115;
   if (params->options.register_key.has_value()) {
     EXTENSION_FUNCTION_VALIDATE(
         params->options.register_key->algorithm !=
         api::enterprise_platform_keys::Algorithm::kNone);
     switch (params->options.register_key->algorithm) {
       case api::enterprise_platform_keys::Algorithm::kRsa:
-        algorithm =
-            crosapi::mojom::KeystoreSigningAlgorithmName::kRsassaPkcs115;
+        algorithm = crosapi::mojom::KeystoreAlgorithmName::kRsassaPkcs115;
         break;
       case api::enterprise_platform_keys::Algorithm::kEcdsa: {
-        algorithm = crosapi::mojom::KeystoreSigningAlgorithmName::kEcdsa;
+        algorithm = crosapi::mojom::KeystoreAlgorithmName::kEcdsa;
         break;
       }
       case api::enterprise_platform_keys::Algorithm::kNone:
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
     }
   }
 

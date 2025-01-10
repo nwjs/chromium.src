@@ -30,11 +30,10 @@
 namespace gfx {
 
 PNGCodec::DecodeOutput::DecodeOutput() = default;
-PNGCodec::DecodeOutput::~DecodeOutput() = default;
-PNGCodec::DecodeOutput::DecodeOutput(const PNGCodec::DecodeOutput& other) =
-    default;
+PNGCodec::DecodeOutput::DecodeOutput(PNGCodec::DecodeOutput&& other) = default;
 PNGCodec::DecodeOutput& PNGCodec::DecodeOutput::operator=(
-    const PNGCodec::DecodeOutput& other) = default;
+    PNGCodec::DecodeOutput&& other) = default;
+PNGCodec::DecodeOutput::~DecodeOutput() = default;
 
 // Decoder --------------------------------------------------------------------
 
@@ -47,7 +46,7 @@ std::unique_ptr<SkCodec> CreatePngDecoder(std::unique_ptr<SkStream> stream,
     return SkPngRustDecoder::Decode(std::move(stream), result);
 #else
     // The `if` condition guarantees `SKIA_BUILD_RUST_PNG`.
-    NOTREACHED_NORETURN();
+    NOTREACHED();
 #endif
   }
 
@@ -98,8 +97,7 @@ std::optional<PreparationOutput> PrepareForPNGDecode(
       }
       break;
     default:
-      NOTREACHED_IN_MIGRATION() << "Invalid color format " << format;
-      return std::nullopt;
+      NOTREACHED() << "Invalid color format " << format;
   }
   output.image_info =
       SkImageInfo::Make(codec_info.width(), codec_info.height(), color_type,
@@ -136,11 +134,10 @@ std::optional<PNGCodec::DecodeOutput> PNGCodec::Decode(
   SkCodec::Result result = preparation_output->codec->getPixels(
       info_srgb, output.output.data(),
       preparation_output->image_info.minRowBytes());
-  if (result == SkCodec::kSuccess) {
-    return output;
-  } else {
+  if (result != SkCodec::kSuccess) {
     return std::nullopt;
   }
+  return output;
 }
 
 SkBitmap PNGCodec::Decode(base::span<const uint8_t> input) {
@@ -177,19 +174,6 @@ SkBitmap PNGCodec::Decode(base::span<const uint8_t> input) {
   } else {
     return SkBitmap();
   }
-}
-
-// DEPRECATED
-bool PNGCodec::Decode(const unsigned char* input,
-                      size_t input_size,
-                      SkBitmap* bitmap) {
-  SkBitmap result = Decode(UNSAFE_TODO(base::span(input, input_size)));
-  if (result.isNull()) {
-    return false;
-  }
-
-  *bitmap = std::move(result);
-  return true;
 }
 
 // Encoder --------------------------------------------------------------------
@@ -314,26 +298,6 @@ std::optional<std::vector<uint8_t>> PNGCodec::Encode(
                         DEFAULT_ZLIB_COMPRESSION, /*disable_filters=*/false);
 }
 
-// DEPRECATED
-bool PNGCodec::Encode(const unsigned char* input,
-                      ColorFormat format,
-                      const Size& size,
-                      int row_byte_width,
-                      bool discard_transparency,
-                      const std::vector<Comment>& comments,
-                      std::vector<unsigned char>* output) {
-  std::optional<std::vector<uint8_t>> result = Encode(
-      input, format, size, row_byte_width, discard_transparency, comments);
-
-  if (!result) {
-    output->clear();
-    return false;
-  }
-
-  *output = std::move(*result);
-  return true;
-}
-
 std::optional<std::vector<uint8_t>> PNGCodec::EncodeBGRASkBitmap(
     const SkBitmap& input,
     bool discard_transparency) {
@@ -341,45 +305,11 @@ std::optional<std::vector<uint8_t>> PNGCodec::EncodeBGRASkBitmap(
                         /*disable_filters=*/false);
 }
 
-// DEPRECATED
-bool PNGCodec::EncodeBGRASkBitmap(const SkBitmap& input,
-                                  bool discard_transparency,
-                                  std::vector<unsigned char>* output) {
-  std::optional<std::vector<uint8_t>> result =
-      EncodeSkBitmap(input, discard_transparency, DEFAULT_ZLIB_COMPRESSION,
-                     /*disable_filters=*/false);
-
-  if (!result) {
-    output->clear();
-    return false;
-  }
-
-  *output = std::move(*result);
-  return true;
-}
-
 std::optional<std::vector<uint8_t>> PNGCodec::FastEncodeBGRASkBitmap(
     const SkBitmap& input,
     bool discard_transparency) {
   return EncodeSkBitmap(input, discard_transparency, Z_BEST_SPEED,
                         /*disable_filters=*/true);
-}
-
-// DEPRECATED
-bool PNGCodec::FastEncodeBGRASkBitmap(const SkBitmap& input,
-                                      bool discard_transparency,
-                                      std::vector<unsigned char>* output) {
-  std::optional<std::vector<uint8_t>> result =
-      EncodeSkBitmap(input, discard_transparency, Z_BEST_SPEED,
-                     /*disable_filters=*/true);
-
-  if (!result) {
-    output->clear();
-    return false;
-  }
-
-  *output = std::move(*result);
-  return true;
 }
 
 PNGCodec::Comment::Comment(const std::string& k, const std::string& t)

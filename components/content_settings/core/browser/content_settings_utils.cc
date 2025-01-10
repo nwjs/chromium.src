@@ -13,6 +13,7 @@
 
 #include <vector>
 
+#include "base/containers/contains.h"
 #include "base/notreached.h"
 #include "base/strings/string_split.h"
 #include "base/values.h"
@@ -255,6 +256,7 @@ const std::vector<ContentSettingsType>& GetTypesWithTemporaryGrants() {
   static base::NoDestructor<const std::vector<ContentSettingsType>> types{{
 #if !BUILDFLAG(IS_ANDROID)
       ContentSettingsType::CAMERA_PAN_TILT_ZOOM,
+      ContentSettingsType::CAPTURED_SURFACE_CONTROL,
 #endif
       ContentSettingsType::KEYBOARD_LOCK,
       ContentSettingsType::GEOLOCATION,
@@ -270,6 +272,7 @@ const std::vector<ContentSettingsType>& GetTypesWithTemporaryGrantsInHcsm() {
   static base::NoDestructor<const std::vector<ContentSettingsType>> types{{
 #if !BUILDFLAG(IS_ANDROID)
       ContentSettingsType::CAMERA_PAN_TILT_ZOOM,
+      ContentSettingsType::CAPTURED_SURFACE_CONTROL,
 #endif
       ContentSettingsType::KEYBOARD_LOCK,
       ContentSettingsType::GEOLOCATION,
@@ -278,6 +281,12 @@ const std::vector<ContentSettingsType>& GetTypesWithTemporaryGrantsInHcsm() {
       ContentSettingsType::HAND_TRACKING,
   }};
   return *types;
+}
+
+bool ShouldTypeExpireActively(ContentSettingsType type) {
+  return base::FeatureList::IsEnabled(
+             content_settings::features::kActiveContentSettingExpiry) &&
+         base::Contains(GetTypesWithTemporaryGrantsInHcsm(), type);
 }
 
 }  // namespace content_settings

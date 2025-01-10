@@ -88,8 +88,8 @@ specific_include_rules = {
   'RequestDesktopUtils\.java': [
     "+chrome/android/java/src/org/chromium/chrome/browser/page_info/SiteSettingsHelper.java",
   ],
-  'TabBrowserControlsConstraintsHelper\.java': [
-    "+chrome/browser/ui/android/toolbar/java/src/org/chromium/chrome/browser/toolbar/ToolbarFeatures.java",
+  'TabContextMenuItemDelegate\.java': [
+    "+chrome/browser/tabmodel/android/java/src/org/chromium/chrome/browser/tabmodel/TabGroupFeatureUtils.java",
   ],
   'TabImpl\.java': [
     "+chrome/android/features/vr/java/src/org/chromium/chrome/browser/vr/VrModuleProvider.java",
@@ -117,6 +117,7 @@ specific_include_rules = {
     "+components/navigation_interception/android/java/src/org/chromium/components/navigation_interception",
     "+components/prefs/android/java/src/org/chromium/components/prefs/PrefService.java",
     "+components/security_state/content/android/java/src/org/chromium/components/security_state/SecurityStateModel.java",
+    "+components/sensitive_content/android/java/src/org/chromium/components/sensitive_content/SensitiveContentClient.java",
     "+components/user_prefs/android/java/src/org/chromium/components/user_prefs/UserPrefs.java",
     "+components/version_info/android",
   ],

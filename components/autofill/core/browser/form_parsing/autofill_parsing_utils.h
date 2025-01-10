@@ -60,7 +60,10 @@ enum class RegexFeature : uint8_t {
   kAutofillGreekRegexes = 1,
   kAutofillUseITAddressModel = 2,
   kAutofillUsePLAddressModel = 3,
-  kMaxValue = kAutofillUsePLAddressModel
+  kAutofillUseFRAddressModel = 4,
+  kAutofillSupportPhoneticNameForJP = 5,
+  kAutofillUseNLAddressModel = 6,
+  kMaxValue = kAutofillUseNLAddressModel
 };
 
 // Returns a `DenseSet` containing all `RegexFeature`s whose corresponding

@@ -98,6 +98,7 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
     public static final String PREF_OS_PERMISSIONS_WARNING_EXTRA = "os_permissions_warning_extra";
     public static final String PREF_OS_PERMISSIONS_WARNING_DIVIDER =
             "os_permissions_warning_divider";
+    public static final String PREF_FILE_EDITING_GRANTS = "file_editing_grants";
     public static final String PREF_INTRUSIVE_ADS_INFO = "intrusive_ads_info";
     public static final String PREF_INTRUSIVE_ADS_INFO_DIVIDER = "intrusive_ads_info_divider";
     // Actions at the top (if adding new, see hasUsagePreferences below):
@@ -171,9 +172,23 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
                 return "vr_permission_list";
             case ContentSettingsType.CLIPBOARD_READ_WRITE:
                 return "clipboard_permission_list";
+            case ContentSettingsType.FILE_SYSTEM_WRITE_GUARD:
+                return "file_system_write_guard_permission_list";
             default:
                 return null;
         }
+    }
+
+    /**
+     * @param type ContentSettingsType
+     * @return The enabled value of this type (ALLOW or ASK).
+     */
+    @VisibleForTesting
+    public static @ContentSettingValues int getEnabledValue(int contentType) {
+        if (contentType == ContentSettingsType.FILE_SYSTEM_WRITE_GUARD) {
+            return ContentSettingValues.ASK;
+        }
+        return ContentSettingValues.ALLOW;
     }
 
     // A list of preferences keys that will be hidden on this page if this boolean below is true
@@ -456,10 +471,15 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
                     merged.addSharedDictionaryInfo(sharedDictionaryInfo);
                 }
             }
-            if (merged.getRWSCookieInfo() == null
-                    && other.getRWSCookieInfo() != null
+            if (merged.getRwsCookieInfo() == null
+                    && other.getRwsCookieInfo() != null
                     && domainAndRegistry.equals(other.getAddress().getDomainAndRegistry())) {
-                merged.setRWSCookieInfo(other.getRWSCookieInfo());
+                merged.setRwsCookieInfo(other.getRwsCookieInfo());
+            }
+            if (merged.getFileEditingInfo() == null
+                    && other.getFileEditingInfo() != null
+                    && origin.equals(other.getFileEditingInfo().getOrigin())) {
+                merged.setFileEditingInfo(other.getFileEditingInfo());
             }
             for (ChosenObjectInfo objectInfo : other.getChosenObjectInfo()) {
                 if (origin.equals(objectInfo.getOrigin())) {
@@ -516,6 +536,7 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
         setupContentSettingsPreferences();
         setUpEmbeddedContentSettingPreferences();
         setUpChosenObjectPreferences();
+        setupFileEditingGrants(/* setOrder= */ true);
         setupResetSitePreference();
         setUpClearDataPreference();
         setUpOsWarningPreferences();
@@ -864,7 +885,7 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
                 setting == ContentSettingValues.ALLOW
                         ? R.string.website_settings_site_allowed
                         : R.string.website_settings_site_blocked;
-        return getContext().getResources().getString(id, embeddedHost);
+        return getContext().getString(id, embeddedHost);
     }
 
     private void setUpEmbeddedContentSettingPreferences() {
@@ -952,14 +973,14 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
         PreferenceCategory relatedSitesHeader = findPreference(PREF_RELATED_SITES_HEADER);
         TextMessagePreference relatedSitesText = new TextMessagePreference(getContext(), null);
         boolean shouldRelatedSitesPrefBeVisible =
-                getSiteSettingsDelegate().isPrivacySandboxFirstPartySetsUIFeatureEnabled()
+                getSiteSettingsDelegate().isPrivacySandboxFirstPartySetsUiFeatureEnabled()
                         && getSiteSettingsDelegate().isRelatedWebsiteSetsDataAccessEnabled()
-                        && mSite.getRWSCookieInfo() != null;
+                        && mSite.getRwsCookieInfo() != null;
         relatedSitesHeader.setVisible(shouldRelatedSitesPrefBeVisible);
         relatedSitesText.setVisible(shouldRelatedSitesPrefBeVisible);
 
         if (shouldRelatedSitesPrefBeVisible) {
-            var rwsInfo = mSite.getRWSCookieInfo();
+            var rwsInfo = mSite.getRwsCookieInfo();
             relatedSitesText.setTitle(
                     getContext()
                             .getResources()
@@ -983,7 +1004,7 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
             if (getSiteSettingsDelegate().shouldShowPrivacySandboxRwsUi()) {
                 relatedSitesHeader.removeAll();
                 relatedSitesHeader.addPreference(relatedSitesText);
-                for (Website site : mSite.getRWSCookieInfo().getMembers()) {
+                for (Website site : mSite.getRwsCookieInfo().getMembers()) {
                     WebsiteRowPreference preference =
                             new RwsRowPreference(
                                     relatedSitesHeader.getContext(),
@@ -993,6 +1014,37 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
                     relatedSitesHeader.addPreference(preference);
                 }
             }
+        }
+    }
+
+    private void setupFileEditingGrants(boolean setOrder) {
+        FileEditingInfo info = mSite.getFileEditingInfo();
+        if (info == null || info.getGrants() == null || info.getGrants().isEmpty()) {
+            removePreferenceSafely(PREF_FILE_EDITING_GRANTS);
+            return;
+        }
+
+        PreferenceCategory header = findPreference(PREF_FILE_EDITING_GRANTS);
+        if (setOrder) {
+            header.setOrder(++mMaxPermissionOrder);
+        }
+        header.removeAll();
+        for (FileEditingInfo.Grant grant : info.getGrants()) {
+            ChromeImageViewPreference row = new ChromeImageViewPreference(getContext());
+            row.setIcon(SettingsUtils.getTintedIcon(getContext(), R.drawable.ic_file_type_24));
+            row.setTitle(grant.getDisplayName());
+            row.setImageView(
+                    R.drawable.ic_delete_white_24dp,
+                    getContext()
+                            .getResources()
+                            .getString(
+                                    R.string.website_settings_file_editing_grant_revoke,
+                                    grant.getDisplayName()),
+                    (View view) -> {
+                        info.revokeGrant(getSiteSettingsDelegate(), grant);
+                        setupFileEditingGrants(/* setOrder= */ false);
+                    });
+            header.addPreference(row);
         }
     }
 
@@ -1089,14 +1141,14 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
         setUpPreferenceCommon(preference, value);
 
         ChromeSwitchPreference switchPreference = (ChromeSwitchPreference) preference;
-        switchPreference.setChecked(value == ContentSettingValues.ALLOW);
+        @ContentSettingsType.EnumType
+        int contentType = getContentSettingsTypeFromPreferenceKey(preference.getKey());
+        switchPreference.setChecked(value == getEnabledValue(contentType));
         switchPreference.setSummary(
                 isEmbargoed
                         ? getString(R.string.automatically_blocked)
                         : getString(ContentSettingsResources.getCategorySummary(value, isOneTime)));
         switchPreference.setOnPreferenceChangeListener(this);
-        @ContentSettingsType.EnumType
-        int contentType = getContentSettingsTypeFromPreferenceKey(preference.getKey());
         if (contentType == mHighlightedPermission) {
             switchPreference.setBackgroundColor(
                     AppCompatResources.getColorStateList(getContext(), mHighlightColor)
@@ -1261,7 +1313,7 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
                 isOneTime(ContentSettingsType.ADS));
     }
 
-    private String getDSECategorySummary(@ContentSettingValues int value) {
+    private String getDseCategorySummary(@ContentSettingValues int value) {
         return value == ContentSettingValues.ALLOW
                 ? getString(R.string.website_settings_permissions_allowed_dse)
                 : getString(R.string.website_settings_permissions_blocked_dse);
@@ -1290,9 +1342,13 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
             // Save the paused fragment before finishing the current fragment as it may cause the
             // paused fragment to resume.
             GroupedWebsitesSettings groupFragment = GroupedWebsitesSettings.getPausedInstance();
-            getSettingsNavigation().finishCurrentSettings(this);
-            if (mFromGrouped && groupFragment != null) {
-                getSettingsNavigation().finishCurrentSettings(groupFragment);
+            Activity activity = getActivity();
+            if (activity != null) {
+                getSettingsNavigation().finishCurrentSettings(this);
+                if (mFromGrouped && groupFragment != null) {
+                    getSettingsNavigation().executePendingNavigations(activity);
+                    getSettingsNavigation().finishCurrentSettings(groupFragment);
+                }
             }
         }
     }
@@ -1309,8 +1365,7 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
 
         @ContentSettingValues int permission;
         if (newValue instanceof Boolean) {
-            permission =
-                    (Boolean) newValue ? ContentSettingValues.ALLOW : ContentSettingValues.BLOCK;
+            permission = (Boolean) newValue ? getEnabledValue(type) : ContentSettingValues.BLOCK;
         } else {
             permission = (Integer) newValue;
         }
@@ -1379,9 +1434,13 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
             // Save the paused fragment before finishing the current fragment as it may cause the
             // paused fragment to resume.
             GroupedWebsitesSettings groupFragment = GroupedWebsitesSettings.getPausedInstance();
-            getSettingsNavigation().finishCurrentSettings(this);
-            if (mFromGrouped && groupFragment != null) {
-                getSettingsNavigation().finishCurrentSettings(groupFragment);
+            Activity activity = getActivity();
+            if (activity != null) {
+                getSettingsNavigation().finishCurrentSettings(this);
+                if (mFromGrouped && groupFragment != null) {
+                    getSettingsNavigation().executePendingNavigations(activity);
+                    getSettingsNavigation().finishCurrentSettings(groupFragment);
+                }
             }
         }
     }

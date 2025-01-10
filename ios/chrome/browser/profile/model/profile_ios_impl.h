@@ -37,19 +37,12 @@ class ProfileIOSImpl final : public ProfileIOS {
   ~ProfileIOSImpl() override;
 
   // ProfileIOS:
-  // TODO(crbug.com/358299863): Remove these functions once fully migrated.
-  ProfileIOS* GetOriginalChromeBrowserState() override;
-  bool HasOffTheRecordChromeBrowserState() const override;
-  ProfileIOS* GetOffTheRecordChromeBrowserState() override;
-  void DestroyOffTheRecordChromeBrowserState() override;
-
-  // ProfileIOS:
   ProfileIOS* GetOriginalProfile() override;
   bool HasOffTheRecordProfile() const override;
   ProfileIOS* GetOffTheRecordProfile() override;
   void DestroyOffTheRecordProfile() override;
   PrefProxyConfigTracker* GetProxyConfigTracker() override;
-  BrowserStatePolicyConnector* GetPolicyConnector() override;
+  ProfilePolicyConnector* GetPolicyConnector() override;
   policy::UserCloudPolicyManager* GetUserCloudPolicyManager() override;
   sync_preferences::PrefServiceSyncable* GetSyncablePrefs() override;
   const sync_preferences::PrefServiceSyncable* GetSyncablePrefs()
@@ -103,7 +96,7 @@ class ProfileIOSImpl final : public ProfileIOS {
   // `user_cloud_policy_manager_` which depends on `policy_schema_registry_`.
   std::unique_ptr<policy::SchemaRegistry> policy_schema_registry_;
   std::unique_ptr<policy::UserCloudPolicyManager> user_cloud_policy_manager_;
-  std::unique_ptr<BrowserStatePolicyConnector> policy_connector_;
+  std::unique_ptr<ProfilePolicyConnector> policy_connector_;
 
   // Keep `prefs_` above the rest for destruction order because `io_data_` and
   // others store pointers to `prefs_` and shall be destructed first.

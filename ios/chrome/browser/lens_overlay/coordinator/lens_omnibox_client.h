@@ -12,10 +12,11 @@
 #import "components/omnibox/browser/autocomplete_match.h"
 #import "components/omnibox/browser/omnibox_client.h"
 #import "ios/chrome/browser/autocomplete/model/autocomplete_scheme_classifier_impl.h"
-#import "ios/chrome/browser/shared/model/profile/profile_ios_forward.h"
 
 @protocol LensOmniboxClientDelegate;
 @protocol LensWebProvider;
+class ProfileIOS;
+
 namespace feature_engagement {
 class Tracker;
 }
@@ -41,6 +42,14 @@ class LensOmniboxClient final : public OmniboxClient {
 
   void SetLensResultHasThumbnail(BOOL has_thumbnail) {
     lens_result_has_thumbnail_ = has_thumbnail;
+  }
+
+  void SetOmniboxSteadyStateText(NSString* text) {
+    omnibox_steady_state_text_ = [text copy];
+  }
+
+  NSString* GetOmniboxSteadyStateText() const {
+    return omnibox_steady_state_text_;
   }
 
   // OmniboxClient.
@@ -108,9 +117,9 @@ class LensOmniboxClient final : public OmniboxClient {
   __weak id<LensWebProvider> web_provider_;
   __weak id<LensOmniboxClientDelegate> delegate_;
   BOOL lens_result_has_thumbnail_;
-  BOOL thumbnail_removed_in_session_;
   std::optional<lens::proto::LensOverlaySuggestInputs>
       lens_overlay_suggest_inputs_;
+  NSString* omnibox_steady_state_text_;
 
   base::WeakPtrFactory<LensOmniboxClient> weak_factory_{this};
 };

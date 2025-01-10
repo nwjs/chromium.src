@@ -11,7 +11,6 @@
 #import "components/signin/ios/browser/features.h"
 #import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/signin_metrics.h"
-#import "components/signin/public/base/signin_switches.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/sync/base/user_selectable_type.h"
 #import "components/unified_consent/pref_names.h"
@@ -69,16 +68,6 @@ id<GREYMatcher> ManageUMALinkMatcher() {
 @end
 
 @implementation FirstRunWithoutSearchEngineChoiceTestCase
-
-- (AppLaunchConfiguration)appConfigurationForTestCase {
-  AppLaunchConfiguration config = [super appConfigurationForTestCase];
-  if ([self isRunningTest:@selector
-            (testHistorySyncShownWithEquallyWeightedButtons)]) {
-    config.features_enabled.push_back(switches::kAlwaysLoadDeviceAccounts);
-  }
-
-  return config;
-}
 
 #pragma mark - Tests
 
@@ -227,14 +216,8 @@ id<GREYMatcher> ManageUMALinkMatcher() {
 }
 
 // Tests to turn off UMA, and open the UMA dialog to turn it back on.
-// TODO(crbug.com/40073685): Test fails on official builds.
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-#define MAYBE_testUMAUncheckedAndCheckItAgain \
-  DISABLED_testUMAUncheckedAndCheckItAgain
-#else
-#define MAYBE_testUMAUncheckedAndCheckItAgain testUMAUncheckedAndCheckItAgain
-#endif
-- (void)MAYBE_testUMAUncheckedAndCheckItAgain {
+// TODO(crbug.com/377227225): Reenable when flakiness is fixed.
+- (void)DISABLED_testUMAUncheckedAndCheckItAgain {
   // Verify 2 steps FRE.
   [self verifyEnterpriseWelcomeScreenIsDisplayedWithFRESigninIntent:
             FRESigninIntentRegular];

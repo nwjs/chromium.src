@@ -52,6 +52,15 @@ class WebStateID;
 - (void)showTabStripTabGroupSnackbarAfterClosingGroups:
     (int)numberOfClosedGroups;
 
+// Presents the manage shared tab group screen.
+- (void)manageTabGroup:(base::WeakPtr<const TabGroup>)group;
+
+// Starts sharing the local tab group.
+- (void)shareTabGroup:(base::WeakPtr<const TabGroup>)group;
+
+// Shows the recent activity for the shared group.
+- (void)showRecentActivityForTabGroup:(base::WeakPtr<const TabGroup>)tabGroup;
+
 @end
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_COMMANDS_TAB_STRIP_COMMANDS_H_

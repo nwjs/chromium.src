@@ -301,7 +301,7 @@ bool CanHandleLockButton(const ui::Accelerator& accelerator) {
   if (accelerator.key_code() == ui::VKEY_F13 &&
       Shell::Get()->keyboard_capability()->HasFunctionKey(
           accelerator.source_device_id())) {
-    CHECK(Shell::Get()->keyboard_capability()->IsModifierSplitEnabled());
+    CHECK(features::IsModifierSplitEnabled());
     return false;
   }
   return true;
@@ -324,7 +324,7 @@ bool CanHandleToggleCapsLock(
       // Check if from modifier split keyboard. if not, show notification.
       if (Shell::Get()->keyboard_capability()->HasFunctionKey(
               accelerator.source_device_id())) {
-        CHECK(Shell::Get()->keyboard_capability()->IsModifierSplitEnabled());
+        CHECK(features::IsModifierSplitEnabled());
         notification_controller->ShowCapsLockRewritingNudge();
         return false;
       }
@@ -938,8 +938,6 @@ bool AcceleratorControllerImpl::CanPerformAction(
     case AcceleratorAction::kScaleUiReset:
     case AcceleratorAction::kScaleUiUp:
       return true;
-    case AcceleratorAction::kTogglePicker:
-      return accelerators::CanTogglePicker();
     case AcceleratorAction::kToggleStylusTools:
       return accelerators::CanShowStylusTools();
     case AcceleratorAction::kStartAssistant:
@@ -977,7 +975,7 @@ bool AcceleratorControllerImpl::CanPerformAction(
     case AcceleratorAction::kToggleClipboardHistory:
       return true;
     case AcceleratorAction::kEnableSelectToSpeak:
-      return ::features::IsAccessibilitySelectToSpeakShortcutEnabled();
+      return true;
     case AcceleratorAction::kEnableOrToggleDictation:
       return accelerators::CanEnableOrToggleDictation();
     case AcceleratorAction::kToggleDockedMagnifier:
@@ -1075,6 +1073,7 @@ bool AcceleratorControllerImpl::CanPerformAction(
     case AcceleratorAction::kRotateWindow:
     case AcceleratorAction::kShowEmojiPicker:
     case AcceleratorAction::kToggleImeMenuBubble:
+    case AcceleratorAction::kTogglePicker:
     case AcceleratorAction::kShowShortcutViewer:
     case AcceleratorAction::kShowTaskManager:
     case AcceleratorAction::kSuspend:
@@ -1269,10 +1268,8 @@ void AcceleratorControllerImpl::PerformAction(
       accelerators::FocusPip();
       break;
     case AcceleratorAction::kKeyboardBacklightToggle:
-      if (ash::features::IsKeyboardBacklightToggleEnabled()) {
-        base::RecordAction(base::UserMetricsAction("Accel_Keyboard_Backlight"));
-        accelerators::ToggleKeyboardBacklight();
-      }
+      base::RecordAction(base::UserMetricsAction("Accel_Keyboard_Backlight"));
+      accelerators::ToggleKeyboardBacklight();
       break;
     case AcceleratorAction::kKeyboardBrightnessDown: {
       base::RecordAction(UserMetricsAction("Accel_KeyboardBrightnessDown_F6"));

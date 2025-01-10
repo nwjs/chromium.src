@@ -12,6 +12,7 @@
 #include "components/page_load_metrics/browser/observers/core/largest_contentful_paint_handler.h"
 #include "components/page_load_metrics/browser/page_load_metrics_util.h"
 #include "components/page_load_metrics/common/page_load_timing.h"
+#include "components/page_load_metrics/google/browser/google_url_util.h"
 #include "content/public/browser/navigation_handle.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
@@ -238,8 +239,7 @@ void LogProvisionalAborts(const page_load_metrics::PageAbortInfo& abort_info) {
           abort_info.time_to_abort);
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 }
 

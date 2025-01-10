@@ -103,6 +103,9 @@ class PrefetchManager {
   PrefetchManager(const PrefetchManager&) = delete;
   PrefetchManager& operator=(const PrefetchManager&) = delete;
 
+  static bool IsAvailableForPrefetch(
+      network::mojom::RequestDestination destination);
+
   // Starts prefetch jobs keyed by |url|.
   void Start(const GURL& url, std::vector<PrefetchRequest> requests);
 

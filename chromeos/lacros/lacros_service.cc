@@ -35,7 +35,6 @@
 #include "chromeos/crosapi/mojom/cert_provisioning.mojom.h"
 #include "chromeos/crosapi/mojom/chaps_service.mojom.h"
 #include "chromeos/crosapi/mojom/chrome_app_kiosk_service.mojom.h"
-#include "chromeos/crosapi/mojom/clipboard.mojom.h"
 #include "chromeos/crosapi/mojom/clipboard_history.mojom.h"
 #include "chromeos/crosapi/mojom/content_protection.mojom.h"
 #include "chromeos/crosapi/mojom/cros_display_config.mojom.h"
@@ -59,7 +58,6 @@
 #include "chromeos/crosapi/mojom/embedded_accessibility_helper.mojom.h"
 #include "chromeos/crosapi/mojom/emoji_picker.mojom.h"
 #include "chromeos/crosapi/mojom/extension_info_private.mojom.h"
-#include "chromeos/crosapi/mojom/extension_printer.mojom.h"
 #include "chromeos/crosapi/mojom/eye_dropper.mojom.h"
 #include "chromeos/crosapi/mojom/feedback.mojom.h"
 #include "chromeos/crosapi/mojom/field_trial.mojom.h"
@@ -89,9 +87,7 @@
 #include "chromeos/crosapi/mojom/mahi.mojom.h"
 #include "chromeos/crosapi/mojom/media_app.mojom.h"
 #include "chromeos/crosapi/mojom/media_ui.mojom.h"
-#include "chromeos/crosapi/mojom/message_center.mojom.h"
 #include "chromeos/crosapi/mojom/metrics.mojom.h"
-#include "chromeos/crosapi/mojom/metrics_reporting.mojom.h"
 #include "chromeos/crosapi/mojom/multi_capture_service.mojom.h"
 #include "chromeos/crosapi/mojom/network_change.mojom.h"
 #include "chromeos/crosapi/mojom/network_settings_service.mojom.h"
@@ -131,7 +127,6 @@
 #include "chromeos/crosapi/mojom/wallpaper.mojom.h"
 #include "chromeos/crosapi/mojom/web_app_service.mojom.h"
 #include "chromeos/crosapi/mojom/web_kiosk_service.mojom.h"
-#include "chromeos/crosapi/mojom/web_page_info.mojom.h"
 #include "chromeos/lacros/lacros_service_never_blocking_state.h"
 #include "chromeos/lacros/native_theme_cache.h"
 #include "chromeos/lacros/system_idle_cache.h"
@@ -317,8 +312,6 @@ LacrosService::LacrosService()
       Crosapi::MethodMinVersions::kBindCfmServiceContextMinVersion>();
   ConstructRemote<crosapi::mojom::ChapsService, &Crosapi::BindChapsService,
                   Crosapi::MethodMinVersions::kBindChapsServiceMinVersion>();
-  ConstructRemote<crosapi::mojom::Clipboard, &Crosapi::BindClipboard,
-                  Crosapi::MethodMinVersions::kBindClipboardMinVersion>();
   ConstructRemote<
       crosapi::mojom::ClipboardHistory, &Crosapi::BindClipboardHistory,
       Crosapi::MethodMinVersions::kBindClipboardHistoryMinVersion>();
@@ -392,10 +385,6 @@ LacrosService::LacrosService()
       crosapi::mojom::ExtensionInfoPrivate,
       &crosapi::mojom::Crosapi::BindExtensionInfoPrivate,
       Crosapi::MethodMinVersions::kBindExtensionInfoPrivateMinVersion>();
-  ConstructRemote<
-      crosapi::mojom::ExtensionPrinterService,
-      &crosapi::mojom::Crosapi::BindExtensionPrinterService,
-      Crosapi::MethodMinVersions::kBindExtensionPrinterServiceMinVersion>();
   ConstructRemote<crosapi::mojom::EyeDropper,
                   &crosapi::mojom::Crosapi::BindEyeDropper,
                   Crosapi::MethodMinVersions::kBindEyeDropperMinVersion>();
@@ -501,9 +490,6 @@ LacrosService::LacrosService()
   ConstructRemote<crosapi::mojom::MediaUI,
                   &crosapi::mojom::Crosapi::BindMediaUI,
                   Crosapi::MethodMinVersions::kBindMediaUIMinVersion>();
-  ConstructRemote<crosapi::mojom::MessageCenter,
-                  &crosapi::mojom::Crosapi::BindMessageCenter,
-                  Crosapi::MethodMinVersions::kBindMessageCenterMinVersion>();
   ConstructRemote<crosapi::mojom::Metrics,
                   &crosapi::mojom::Crosapi::BindMetrics,
                   Crosapi::MethodMinVersions::kBindMetricsMinVersion>();
@@ -647,10 +633,6 @@ LacrosService::LacrosService()
   ConstructRemote<crosapi::mojom::WebAppService,
                   &crosapi::mojom::Crosapi::BindWebAppService,
                   Crosapi::MethodMinVersions::kBindWebAppServiceMinVersion>();
-  ConstructRemote<
-      crosapi::mojom::WebPageInfoFactory,
-      &crosapi::mojom::Crosapi::BindWebPageInfoFactory,
-      Crosapi::MethodMinVersions::kBindWebPageInfoFactoryMinVersion>();
   ConstructRemote<crosapi::mojom::VolumeManager,
                   &crosapi::mojom::Crosapi::BindVolumeManager,
                   Crosapi::MethodMinVersions::kBindVolumeManagerMinVersion>();
@@ -825,14 +807,6 @@ void LacrosService::BindMediaControllerManager(
   BindPendingReceiverOrRemote<
       mojo::PendingReceiver<media_session::mojom::MediaControllerManager>,
       &crosapi::mojom::Crosapi::BindMediaSessionController>(std::move(remote));
-}
-
-void LacrosService::BindMetricsReporting(
-    mojo::PendingReceiver<crosapi::mojom::MetricsReporting> receiver) {
-  DCHECK(IsSupported<crosapi::mojom::MetricsReporting>());
-  BindPendingReceiverOrRemote<
-      mojo::PendingReceiver<crosapi::mojom::MetricsReporting>,
-      &crosapi::mojom::Crosapi::BindMetricsReporting>(std::move(receiver));
 }
 
 void LacrosService::BindPrintPreviewCrosDelegate(

@@ -59,9 +59,11 @@ namespace webnn::test {
 
 namespace {
 
-// Since there is no float16 data type in C++, use uint16_t to represent the
-// binary data.
-using float16 = uint16_t;
+// TODO(crbug.com/373443096): Consolidate with the other Float16 types declared
+// elsewhere.
+struct Float16 {
+  uint16_t data;
+};
 
 template <typename T>
 std::vector<T> BigBufferToVector(const mojo_base::BigBuffer& big_buffer) {
@@ -93,8 +95,7 @@ BuildAndCompute(
   base::test::TestFuture<mojom::CreateContextResultPtr> create_context_future;
   webnn_provider_remote->CreateWebNNContext(
       mojom::CreateContextOptions::New(
-          device, mojom::CreateContextOptions::PowerPreference::kDefault,
-          /*thread_count_hint=*/0),
+          device, mojom::CreateContextOptions::PowerPreference::kDefault),
       create_context_future.GetCallback());
   mojom::CreateContextResultPtr create_context_result =
       create_context_future.Take();
@@ -184,12 +185,13 @@ void VerifyFloatDataIsEqual(base::span<const float> data,
 
 // Convert a vector of 32-bit floating-point data to a vector of 16-bit
 // floating-point data, both in IEEE precision format.
-std::vector<float16> Float16FromFloat32(const std::vector<float>& fp32_data) {
-  std::vector<float16> fp16_data;
+std::vector<Float16> Float16FromFloat32(const std::vector<float>& fp32_data) {
+  std::vector<Float16> fp16_data;
   fp16_data.reserve(fp32_data.size());
 
   for (size_t i = 0; i < fp32_data.size(); i++) {
-    fp16_data.push_back(fp16_ieee_from_fp32_value(fp32_data[i]));
+    fp16_data.push_back(
+        Float16{.data = fp16_ieee_from_fp32_value(fp32_data[i])});
   }
 
   return fp16_data;
@@ -197,12 +199,12 @@ std::vector<float16> Float16FromFloat32(const std::vector<float>& fp32_data) {
 
 // Convert a vector of 16-bit floating-point data to a vector of 32-bit
 // floating-point data, both in IEEE precision format.
-std::vector<float> Float16ToFloat32(const std::vector<float16>& fp16_data) {
+std::vector<float> Float16ToFloat32(const std::vector<Float16>& fp16_data) {
   std::vector<float> fp32_data;
   fp32_data.reserve(fp16_data.size());
 
   for (size_t i = 0; i < fp16_data.size(); i++) {
-    fp32_data.push_back(fp16_ieee_to_fp32_value(fp16_data[i]));
+    fp32_data.push_back(fp16_ieee_to_fp32_value(fp16_data[i].data));
   }
 
   return fp32_data;
@@ -661,9 +663,8 @@ struct Conv2dTester {
     GraphInfoBuilder builder;
     uint64_t input_operand_id =
         builder.BuildInput("input", input.dimensions, input.type);
-    uint64_t filter_operand_id =
-        builder.BuildConstant(filter.dimensions, filter.type,
-                              base::as_bytes(base::make_span(filter.values)));
+    uint64_t filter_operand_id = builder.BuildConstant(
+        filter.dimensions, filter.type, base::as_byte_span(filter.values));
     uint64_t conv2d_output_operand_id =
         builder.BuildIntermediateOperand(output.dimensions, output.type);
 
@@ -671,7 +672,7 @@ struct Conv2dTester {
     if (attributes.bias.has_value()) {
       bias_operand_id = builder.BuildConstant(
           attributes.bias->dimensions, attributes.bias->type,
-          base::as_bytes(base::make_span(attributes.bias->values)));
+          base::as_byte_span(attributes.bias->values));
     }
 
     builder.BuildConv2d(type, input_operand_id, filter_operand_id,
@@ -1136,7 +1137,7 @@ struct UnaryOperatorTester {
         builder.BuildTanh(input_operand_id, output_operand_id);
         break;
       default:
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
     }
 
     base::flat_map<std::string, base::span<const T>> named_inputs;
@@ -1513,7 +1514,7 @@ struct GruTester {
     if (initial_hidden_state.has_value()) {
       attributes.initial_hidden_state_operand_id = builder.BuildConstant(
           initial_hidden_state->dimensions, initial_hidden_state->type,
-          base::as_bytes(base::make_span(initial_hidden_state->values)));
+          base::as_byte_span(initial_hidden_state->values));
     }
 
     std::vector<uint64_t> output_operand_ids;
@@ -1997,9 +1998,8 @@ TEST_F(WebNNGraphImplBackendTest, BuildOneInputAndOneConstantOperand) {
   GraphInfoBuilder builder;
   uint64_t input_a_operand_id =
       builder.BuildInput("input_a", {2, 2}, OperandDataType::kFloat32);
-  uint64_t input_b_operand_id =
-      builder.BuildConstant({2, 2}, OperandDataType::kFloat32,
-                            base::as_bytes(base::make_span(constant_data)));
+  uint64_t input_b_operand_id = builder.BuildConstant(
+      {2, 2}, OperandDataType::kFloat32, base::as_byte_span(constant_data));
   uint64_t output_operand_id =
       builder.BuildOutput("output", {2, 2}, OperandDataType::kFloat32);
   builder.BuildGemm(input_a_operand_id, input_b_operand_id, output_operand_id,
@@ -2452,26 +2452,24 @@ TEST_F(WebNNGraphImplBackendTest, BuildAndComputeSingleOperatorLstm) {
     GraphInfoBuilder builder;
     uint64_t input_operand_id = builder.BuildConstant(
         {steps, batch_size, input_size}, OperandDataType::kFloat32,
-        base::as_bytes(base::make_span(input_data)));
-    uint64_t weight_operand_id =
-        builder.BuildConstant({direction_count, 4 * hidden_size, input_size},
-                              OperandDataType::kFloat32,
-                              base::as_bytes(base::make_span(weight_data)));
+        base::as_byte_span(input_data));
+    uint64_t weight_operand_id = builder.BuildConstant(
+        {direction_count, 4 * hidden_size, input_size},
+        OperandDataType::kFloat32, base::as_byte_span(weight_data));
     uint64_t recurrent_weight_operand_id = builder.BuildConstant(
         {direction_count, 4 * hidden_size, hidden_size},
-        OperandDataType::kFloat32,
-        base::as_bytes(base::make_span(recurrent_weight_data)));
+        OperandDataType::kFloat32, base::as_byte_span(recurrent_weight_data));
 
     LstmTester<float>::LstmAttributes attributes;
     attributes.peephole_weight_operand_id = builder.BuildConstant(
         {direction_count, 3 * hidden_size}, OperandDataType::kFloat32,
-        base::as_bytes(base::make_span(peephole_weight_data)));
+        base::as_byte_span(peephole_weight_data));
     attributes.initial_hidden_state_operand_id = builder.BuildConstant(
         {direction_count, batch_size, hidden_size}, OperandDataType::kFloat32,
-        base::as_bytes(base::make_span(initial_hidden_state_data)));
+        base::as_byte_span(initial_hidden_state_data));
     attributes.initial_cell_state_operand_id = builder.BuildConstant(
         {direction_count, batch_size, hidden_size}, OperandDataType::kFloat32,
-        base::as_bytes(base::make_span(initial_cell_state_data)));
+        base::as_byte_span(initial_cell_state_data));
     attributes.activations = {mojom::RecurrentNetworkActivation::kRelu,
                               mojom::RecurrentNetworkActivation::kRelu,
                               mojom::RecurrentNetworkActivation::kRelu};
@@ -2760,12 +2758,10 @@ TEST_F(WebNNGraphImplBackendTest, BuildMultipleInputsAppendingConstants) {
   uint64_t input_b_operand_id =
       builder.BuildInput("input_b", {2, 2}, OperandDataType::kFloat32);
   std::vector<float> constant_data = {1, 1, 1, 1};
-  uint64_t constant_a_operand_id =
-      builder.BuildConstant({2, 2}, OperandDataType::kFloat32,
-                            base::as_bytes(base::make_span(constant_data)));
-  uint64_t constant_b_operand_id =
-      builder.BuildConstant({2, 2}, OperandDataType::kFloat32,
-                            base::as_bytes(base::make_span(constant_data)));
+  uint64_t constant_a_operand_id = builder.BuildConstant(
+      {2, 2}, OperandDataType::kFloat32, base::as_byte_span(constant_data));
+  uint64_t constant_b_operand_id = builder.BuildConstant(
+      {2, 2}, OperandDataType::kFloat32, base::as_byte_span(constant_data));
 
   // The order of inputs are [input_a, constant_a, input_b, constant_b].
   uint64_t intermediate_1_operand_id =
@@ -2807,12 +2803,10 @@ TEST_F(WebNNGraphImplBackendTest, BuildMultipleConstantsAppendingInputs) {
   uint64_t input_b_operand_id =
       builder.BuildInput("input_b", {2, 2}, OperandDataType::kFloat32);
   std::vector<float> constant_data = {1, 2, 3, 4};
-  uint64_t constant_a_operand_id =
-      builder.BuildConstant({2, 2}, OperandDataType::kFloat32,
-                            base::as_bytes(base::make_span(constant_data)));
-  uint64_t constant_b_operand_id =
-      builder.BuildConstant({2, 2}, OperandDataType::kFloat32,
-                            base::as_bytes(base::make_span(constant_data)));
+  uint64_t constant_a_operand_id = builder.BuildConstant(
+      {2, 2}, OperandDataType::kFloat32, base::as_byte_span(constant_data));
+  uint64_t constant_b_operand_id = builder.BuildConstant(
+      {2, 2}, OperandDataType::kFloat32, base::as_byte_span(constant_data));
 
   // The order of inputs are [constant_a, input_a, constant_b, input_b].
   uint64_t intermediate_1_operand_id =
@@ -2857,9 +2851,8 @@ TEST_F(WebNNGraphImplBackendTest, BuildGemmWithReshapedConstantOperand) {
   uint64_t input_b_operand_id =
       builder.BuildInput("input_b", {2, 2}, OperandDataType::kFloat32);
   std::vector<float> constant_data = {1, 1};
-  uint64_t constant_c_operand_id =
-      builder.BuildConstant({2}, OperandDataType::kFloat32,
-                            base::as_bytes(base::make_span(constant_data)));
+  uint64_t constant_c_operand_id = builder.BuildConstant(
+      {2}, OperandDataType::kFloat32, base::as_byte_span(constant_data));
   // Reshape constant_c from [2] to [1, 2] and use it as operand c for gemm.
   uint64_t reshape_operand_id =
       builder.BuildIntermediateOperand({1, 2}, OperandDataType::kFloat32);
@@ -2895,9 +2888,8 @@ TEST_F(WebNNGraphImplBackendTest, BuildAddWithReshapedConstantOperand) {
   uint64_t input_a_operand_id =
       builder.BuildInput("input_a", {1, 1, 2, 2}, OperandDataType::kFloat32);
   std::vector<float> constant_data = {1, 1};
-  uint64_t constant_b_operand_id =
-      builder.BuildConstant({2}, OperandDataType::kFloat32,
-                            base::as_bytes(base::make_span(constant_data)));
+  uint64_t constant_b_operand_id = builder.BuildConstant(
+      {2}, OperandDataType::kFloat32, base::as_byte_span(constant_data));
   // Reshape constant_b from [2] to [1, 2] and use it as operand b for add.
   uint64_t reshape_operand_id =
       builder.BuildIntermediateOperand({1, 2}, OperandDataType::kFloat32);
@@ -2926,9 +2918,8 @@ TEST_F(WebNNGraphImplBackendTest, BuildAndComputeReluWithOnlyConstantInput) {
   // Build the mojom graph info.
   GraphInfoBuilder builder;
   std::vector<float> constant_data = {-1, 0, 1};
-  uint64_t constant_operand_id =
-      builder.BuildConstant({3}, OperandDataType::kFloat32,
-                            base::as_bytes(base::make_span(constant_data)));
+  uint64_t constant_operand_id = builder.BuildConstant(
+      {3}, OperandDataType::kFloat32, base::as_byte_span(constant_data));
   uint64_t output_operand_id =
       builder.BuildOutput("output", {3}, OperandDataType::kFloat32);
   builder.BuildRelu(constant_operand_id, output_operand_id);
@@ -2949,13 +2940,11 @@ TEST_F(WebNNGraphImplBackendTest, BuildAndComputeAddWithOnlyConstantInputs) {
   // Build the mojom graph info.
   GraphInfoBuilder builder;
   std::vector<float> constant_a_data = {1, 1, 1, 1};
-  uint64_t constant_a_operand_id =
-      builder.BuildConstant({2, 2}, OperandDataType::kFloat32,
-                            base::as_bytes(base::make_span(constant_a_data)));
+  uint64_t constant_a_operand_id = builder.BuildConstant(
+      {2, 2}, OperandDataType::kFloat32, base::as_byte_span(constant_a_data));
   std::vector<float> constant_b_data = {2, 2, 2, 2};
-  uint64_t constant_b_operand_id =
-      builder.BuildConstant({2, 2}, OperandDataType::kFloat32,
-                            base::as_bytes(base::make_span(constant_b_data)));
+  uint64_t constant_b_operand_id = builder.BuildConstant(
+      {2, 2}, OperandDataType::kFloat32, base::as_byte_span(constant_b_data));
   uint64_t output_operand_id =
       builder.BuildOutput("output", {2, 2}, OperandDataType::kFloat32);
   builder.BuildElementWiseBinary(mojom::ElementWiseBinary::Kind::kAdd,
@@ -2981,22 +2970,19 @@ TEST_F(WebNNGraphImplBackendTest,
   // Build the mojom graph info.
   GraphInfoBuilder builder;
   std::vector<float> constant_a_data = {1, 1, 1, 1};
-  uint64_t constant_a_operand_id =
-      builder.BuildConstant({2, 2}, OperandDataType::kFloat32,
-                            base::as_bytes(base::make_span(constant_a_data)));
+  uint64_t constant_a_operand_id = builder.BuildConstant(
+      {2, 2}, OperandDataType::kFloat32, base::as_byte_span(constant_a_data));
   std::vector<float> constant_b_data = {2, 2, 2, 2};
-  uint64_t constant_b_operand_id =
-      builder.BuildConstant({2, 2}, OperandDataType::kFloat32,
-                            base::as_bytes(base::make_span(constant_b_data)));
+  uint64_t constant_b_operand_id = builder.BuildConstant(
+      {2, 2}, OperandDataType::kFloat32, base::as_byte_span(constant_b_data));
   uint64_t intermediate_operand_id =
       builder.BuildIntermediateOperand({2, 2}, OperandDataType::kFloat32);
   builder.BuildElementWiseBinary(mojom::ElementWiseBinary::Kind::kAdd,
                                  constant_a_operand_id, constant_b_operand_id,
                                  intermediate_operand_id);
   std::vector<float> constant_c_data = {3, 3, 3, 3};
-  uint64_t constant_c_operand_id =
-      builder.BuildConstant({2, 2}, OperandDataType::kFloat32,
-                            base::as_bytes(base::make_span(constant_c_data)));
+  uint64_t constant_c_operand_id = builder.BuildConstant(
+      {2, 2}, OperandDataType::kFloat32, base::as_byte_span(constant_c_data));
   uint64_t output_operand_id =
       builder.BuildOutput("output", {2, 2}, OperandDataType::kFloat32);
   builder.BuildElementWiseBinary(mojom::ElementWiseBinary::Kind::kMul,
@@ -3193,21 +3179,21 @@ TEST_F(WebNNGraphImplBackendTest, BuildAndComputeReshapeConcatAndClamp) {
       builder.BuildOutput("output", {1, 3, 2, 3}, OperandDataType::kFloat16);
   builder.BuildClamp(concat_operand_id, output_operand_id, 1.25, 8.75);
 
-  base::flat_map<std::string, base::span<const float16>> named_inputs;
+  base::flat_map<std::string, base::span<const Float16>> named_inputs;
   // [[ 1  2  3]
   //  [ 4  5  6]
   //  [ 7  8  9]
   //  [10 11 12]] with shape (4, 3)
-  std::vector<float16> input_data1 =
+  std::vector<Float16> input_data1 =
       Float16FromFloat32({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
   // [[[[-6 -5 -4]
   //    [-3 -2 -1]]]] with shape (1, 1, 2, 3)
-  std::vector<float16> input_data2 =
+  std::vector<Float16> input_data2 =
       Float16FromFloat32({-6, -5, -4, -3, -2, -1});
 
   named_inputs.insert({"input_a", input_data1});
   named_inputs.insert({"input_b", input_data2});
-  base::flat_map<std::string, std::vector<float16>> named_outputs =
+  base::flat_map<std::string, std::vector<Float16>> named_outputs =
       BuildAndCompute(builder.TakeGraphInfo(), std::move(named_inputs));
 
   // [[[[1.25 2.   3.  ]
@@ -3240,14 +3226,14 @@ TEST_F(WebNNGraphImplBackendTest, BuildAndComputeConcatWithConstants) {
   std::vector<float> constant_data_a = {1, 2, 3};
   uint64_t constant_a_operand_id =
       builder.BuildConstant({1, 1, 1, 3}, OperandDataType::kFloat32,
-                            base::as_bytes(base::make_span(constant_data_a)));
+                            base::as_byte_span(constant_data_a));
 
   // [[[[-1 -2 -3]
   //    [-4 -5 -6]]]] with shape (1, 1, 2, 3)
   std::vector<float> constant_data_b = {-1, -2, -3, -4, -5, -6};
   uint64_t constant_b_operand_id =
       builder.BuildConstant({1, 1, 2, 3}, OperandDataType::kFloat32,
-                            base::as_bytes(base::make_span(constant_data_b)));
+                            base::as_byte_span(constant_data_b));
 
   uint64_t concat_operand_id =
       builder.BuildIntermediateOperand({1, 1, 2, 3}, OperandDataType::kFloat32);
@@ -3554,9 +3540,9 @@ TEST_F(WebNNGraphImplBackendTest,
     GraphInfoBuilder builder;
     uint64_t input_operand_id =
         builder.BuildInput("input", {1, 1, 5, 5}, OperandDataType::kFloat32);
-    uint64_t filter_operand_id = builder.BuildConstant(
-        {1, 1, 3, 3}, OperandDataType::kFloat32,
-        base::as_bytes(base::make_span(std::vector<float>(9, 1))));
+    uint64_t filter_operand_id =
+        builder.BuildConstant({1, 1, 3, 3}, OperandDataType::kFloat32,
+                              base::as_byte_span(std::vector<float>(9, 1)));
     uint64_t conv2d_output_operand_id = builder.BuildIntermediateOperand(
         {1, 1, 5, 5}, OperandDataType::kFloat32);
 
@@ -3571,7 +3557,7 @@ TEST_F(WebNNGraphImplBackendTest,
     if (attributes.bias.has_value()) {
       bias_operand_id = builder.BuildConstant(
           attributes.bias->dimensions, attributes.bias->type,
-          base::as_bytes(base::make_span(attributes.bias->values)));
+          base::as_byte_span(attributes.bias->values));
     }
 
     builder.BuildConv2d(mojom::Conv2d::Kind::kDirect, input_operand_id,
@@ -3614,9 +3600,9 @@ TEST_F(WebNNGraphImplBackendTest,
     GraphInfoBuilder builder;
     uint64_t input_operand_id =
         builder.BuildInput("input", {1, 1, 5, 5}, OperandDataType::kFloat32);
-    uint64_t filter_operand_id = builder.BuildConstant(
-        {1, 1, 3, 3}, OperandDataType::kFloat32,
-        base::as_bytes(base::make_span(std::vector<float>(9, 1))));
+    uint64_t filter_operand_id =
+        builder.BuildConstant({1, 1, 3, 3}, OperandDataType::kFloat32,
+                              base::as_byte_span(std::vector<float>(9, 1)));
     uint64_t conv2d_output_operand_id = builder.BuildIntermediateOperand(
         {1, 1, 5, 5}, OperandDataType::kFloat32);
 
@@ -3631,7 +3617,7 @@ TEST_F(WebNNGraphImplBackendTest,
     if (attributes.bias.has_value()) {
       bias_operand_id = builder.BuildConstant(
           attributes.bias->dimensions, attributes.bias->type,
-          base::as_bytes(base::make_span(attributes.bias->values)));
+          base::as_byte_span(attributes.bias->values));
     }
 
     builder.BuildConv2d(mojom::Conv2d::Kind::kDirect, input_operand_id,
@@ -3678,9 +3664,9 @@ TEST_F(WebNNGraphImplBackendTest,
     GraphInfoBuilder builder;
     uint64_t input_operand_id =
         builder.BuildInput("input", {1, 1, 5, 5}, OperandDataType::kFloat32);
-    uint64_t filter_operand_id = builder.BuildConstant(
-        {1, 1, 3, 3}, OperandDataType::kFloat32,
-        base::as_bytes(base::make_span(std::vector<float>(9, 1))));
+    uint64_t filter_operand_id =
+        builder.BuildConstant({1, 1, 3, 3}, OperandDataType::kFloat32,
+                              base::as_byte_span(std::vector<float>(9, 1)));
     uint64_t conv2d_output_operand_id = builder.BuildIntermediateOperand(
         {1, 1, 5, 5}, OperandDataType::kFloat32);
 
@@ -3695,7 +3681,7 @@ TEST_F(WebNNGraphImplBackendTest,
     if (attributes.bias.has_value()) {
       bias_operand_id = builder.BuildConstant(
           attributes.bias->dimensions, attributes.bias->type,
-          base::as_bytes(base::make_span(attributes.bias->values)));
+          base::as_byte_span(attributes.bias->values));
     }
 
     builder.BuildConv2d(mojom::Conv2d::Kind::kDirect, input_operand_id,

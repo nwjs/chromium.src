@@ -593,7 +593,7 @@ TEST_F(USBDeviceImplTest, OpenDelayedFailure) {
   EXPECT_CALL(device_client, OnDeviceClosed()).Times(0);
 
   device->Open(base::BindOnce(
-      [](mojom::UsbOpenDeviceResultPtr result) { NOTREACHED_IN_MIGRATION(); }));
+      [](mojom::UsbOpenDeviceResultPtr result) { NOTREACHED(); }));
   device.reset();
   base::RunLoop().RunUntilIdle();
 
@@ -807,7 +807,7 @@ TEST_F(USBDeviceImplTest, ClaimAndReleaseInterface) {
 
 TEST_F(USBDeviceImplTest, ClaimProtectedInterface) {
   mojo::Remote<mojom::UsbDevice> device =
-      GetMockDeviceProxyWithBlockedInterfaces({{2}});
+      GetMockDeviceProxyWithBlockedInterfaces(base::span_from_ref(uint8_t{2}));
 
   EXPECT_CALL(mock_device(), OpenInternal(_));
 

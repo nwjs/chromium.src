@@ -35,6 +35,7 @@
 #include "content/browser/interest_group/interest_group_pa_report_util.h"
 #include "content/browser/interest_group/interest_group_storage.h"
 #include "content/browser/interest_group/subresource_url_builder.h"
+#include "content/browser/interest_group/trusted_signals_cache_impl.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/auction_result.h"
 #include "content/public/browser/content_browser_client.h"
@@ -234,6 +235,9 @@ class CONTENT_EXPORT InterestGroupAuction
     // ReceiverId for use as a GenerateBidClient. Only populated while
     // generateBid() is running.
     std::optional<mojo::ReceiverId> generate_bid_client_receiver_id;
+
+    // Trusted signals cache handle for the bidder signals.
+    scoped_refptr<TrustedSignalsCacheImpl::Handle> bidding_signals_handle;
 
     // Mojo pipe to use to fill in potentially promise-provided arguments.
     // Only populated in between BeginGenerateBid and FinishGenerateBid().
@@ -480,6 +484,7 @@ class CONTENT_EXPORT InterestGroupAuction
   // additionalBids are permitted to participate.
   InterestGroupAuction(
       auction_worklet::mojom::KAnonymityBidMode kanon_mode,
+      const url::Origin& main_frame_origin,
       const blink::AuctionConfig* config,
       const InterestGroupAuction* parent,
       AuctionMetricsRecorder* auction_metrics_recorder,
@@ -511,6 +516,9 @@ class CONTENT_EXPORT InterestGroupAuction
   // completion. Passes it false if there are no interest groups that may
   // participate in the auction (possibly because sellers aren't allowed to
   // participate in the auction)
+  //
+  // Worklet processes may be created at this point for cached buyers, and for
+  // any seller whose auction has a cached buyer.
   void StartLoadInterestGroupsPhase(
       AuctionPhaseCompletionCallback load_interest_groups_phase_callback);
 
@@ -922,6 +930,9 @@ class CONTENT_EXPORT InterestGroupAuction
   // See StartBiddingAndScoringPhase() for discussion of this.
   void OnComponentSellerWorkletReceived();
 
+  // Posts a task to request a seller worklet from the AuctionWorkletManager.
+  void RequestSellerWorkletAsync();
+
   // Requests a seller worklet from the AuctionWorkletManager.
   void RequestSellerWorklet();
 
@@ -964,17 +975,21 @@ class CONTENT_EXPORT InterestGroupAuction
   // `num_scoring_dependencies_`.
   void DecodeAdditionalBidsIfReady();
 
-  // Processes a singled signed additional bid.
+  // Processes a single signed additional bid.
   void HandleDecodedSignedAdditionalBid(
+      std::optional<std::string> seller_nonce,
       data_decoder::DataDecoder::ValueOrError result);
 
   // Processes payload of a single additionalBids entry.
   // `signatures` are the signatures it was supposedly signed with.
   // `valid_signatures` are the indices of signatures in `signatures` that
-  // actually verify.
+  //   actually verify.
+  // `seller_nonce`, if provided in the additional bid response header, is used
+  //   to validate the bidNonce in the additional bid.
   void HandleDecodedAdditionalBid(
       const std::vector<SignedAdditionalBidSignature>& signatures,
       const std::vector<size_t>& valid_signatures,
+      std::optional<std::string> seller_nonce,
       data_decoder::DataDecoder::ValueOrError result);
 
   // Invoked by the AuctionWorkletManager on fatal errors, at any point after
@@ -1223,9 +1238,15 @@ class CONTENT_EXPORT InterestGroupAuction
       BiddingAndAuctionResponse response,
       std::optional<SingleStorageInterestGroup> maybe_group);
 
-  void OnLoadedWinningGroupImpl(
+  void OnLoadedGhostWinnerGroup(
       BiddingAndAuctionResponse response,
-      std::optional<SingleStorageInterestGroup> maybe_group);
+      std::optional<SingleStorageInterestGroup> maybe_group,
+      std::optional<SingleStorageInterestGroup> maybe_ghost_group);
+
+  void OnLoadedGhostWinnerGroupImpl(
+      BiddingAndAuctionResponse response,
+      std::optional<SingleStorageInterestGroup> maybe_group,
+      std::optional<SingleStorageInterestGroup> maybe_ghost_group);
 
   void MaybeLoadDebugReportLockoutAndCooldowns();
 
@@ -1234,6 +1255,9 @@ class CONTENT_EXPORT InterestGroupAuction
           debug_report_lockout_and_cooldowns);
 
   void CreateBidFromServerResponse();
+  std::unique_ptr<InterestGroupAuction::Bid> CreatePrimaryBidFromServerResponse(
+      auction_worklet::mojom::BidRole bid_role);
+  std::unique_ptr<InterestGroupAuction::Bid> CreateGhostBidFromServerResponse();
 
   // Completion callback for AdAuctionPageData::ParseAndFindAdAuctionSignals().
   // Sets `direct_from_seller_signals_header_ad_slot_`, and sets
@@ -1266,6 +1290,8 @@ class CONTENT_EXPORT InterestGroupAuction
   // Whether k-anonymity enforcement or simulation (or none) are performed.
   const auction_worklet::mojom::KAnonymityBidMode kanon_mode_;
 
+  const url::Origin main_frame_origin_;
+
   const raw_ptr<AuctionMetricsRecorder> auction_metrics_recorder_;
   const raw_ptr<AuctionWorkletManager> auction_worklet_manager_;
   const raw_ptr<AuctionNonceManager> auction_nonce_manager_;
@@ -1296,8 +1322,8 @@ class CONTENT_EXPORT InterestGroupAuction
   // finds. This is only populated when encoded_signed_additional_bids_ is.
   base::flat_set<url::Origin> interest_group_buyers_;
 
-  // Base64-encoded signed additional bid entries.
-  std::vector<std::string> encoded_signed_additional_bids_;
+  // Base64-encoded signed additional bid entries, with metadata.
+  std::vector<SignedAdditionalBidWithMetadata> encoded_signed_additional_bids_;
 
   // This needs pointer stability for the BidState*.
   std::vector<std::unique_ptr<BidState>> bid_states_for_additional_bids_;

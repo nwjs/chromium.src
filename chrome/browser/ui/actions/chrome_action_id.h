@@ -80,7 +80,7 @@
   E(kActionWebauthn, IDC_WEBAUTHN) \
   E(kActionSharingHub, IDC_SHARING_HUB) \
   E(kActionSharingHubMenu, IDC_SHARING_HUB_MENU) \
-  E(kActionVirtualCardManualFallback, IDC_VIRTUAL_CARD_MANUAL_FALLBACK) \
+  E(kActionFilledCardInformation, IDC_FILLED_CARD_INFORMATION) \
   E(kActionSharingHubScreenshot, IDC_SHARING_HUB_SCREENSHOT) \
   E(kActionVirtualCardEnroll, IDC_VIRTUAL_CARD_ENROLL) \
   E(kActionFollow, IDC_FOLLOW) \
@@ -335,6 +335,8 @@
   E(kActionContentContextExitFullscreen, IDC_CONTENT_CONTEXT_EXIT_FULLSCREEN) \
   E(kActionContentContextShowAllSavedPasswords, \
     IDC_CONTENT_CONTEXT_SHOWALLSAVEDPASSWORDS) \
+  E(kActionContentContextUsePasskeyFromAnotherDeviceTopLevel, \
+    IDC_CONTENT_CONTEXT_USE_PASSKEY_FROM_ANOTHER_DEVICE) \
   E(kActionContentContextPartialTranslate, \
     IDC_CONTENT_CONTEXT_PARTIAL_TRANSLATE) \
   /* Frame items. */ \

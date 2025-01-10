@@ -30,9 +30,7 @@ import org.mockito.junit.MockitoRule;
 import org.chromium.base.Callback;
 import org.chromium.base.Token;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.data_sharing.DataSharingServiceFactory;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.tab.Tab;
@@ -60,7 +58,6 @@ import java.util.List;
 
 /** Unit tests for {@link TabListGroupMenuCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@EnableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_ANDROID)
 public class TabListGroupMenuCoordinatorUnitTest {
     private static final int TAB_ID = 123;
     private static final String COLLABORATION_ID1 = "A";
@@ -138,7 +135,11 @@ public class TabListGroupMenuCoordinatorUnitTest {
                 /* hasCollaborationData= */ false);
 
         List<Integer> menuIds =
-                List.of(R.id.close_tab, R.id.edit_group_name, R.id.ungroup_tab, R.id.delete_tab);
+                List.of(
+                        R.id.close_tab_group,
+                        R.id.edit_group_name,
+                        R.id.ungroup_tab,
+                        R.id.delete_tab_group);
         assertListMenuItemsAre(modelList, menuIds);
     }
 
@@ -151,7 +152,7 @@ public class TabListGroupMenuCoordinatorUnitTest {
                 /* isTabGroupSyncEnabled= */ true,
                 /* hasCollaborationData= */ true);
 
-        List<Integer> menuIds = List.of(R.id.close_tab, R.id.edit_group_name);
+        List<Integer> menuIds = List.of(R.id.close_tab_group, R.id.edit_group_name);
         assertListMenuItemsAre(modelList, menuIds);
 
         modelList = new ModelList();
@@ -161,7 +162,7 @@ public class TabListGroupMenuCoordinatorUnitTest {
                 /* isTabGroupSyncEnabled= */ false,
                 /* hasCollaborationData= */ false);
 
-        menuIds = List.of(R.id.close_tab, R.id.edit_group_name, R.id.ungroup_tab);
+        menuIds = List.of(R.id.close_tab_group, R.id.edit_group_name, R.id.ungroup_tab);
         assertListMenuItemsAre(modelList, menuIds);
 
         modelList = new ModelList();
@@ -238,7 +239,8 @@ public class TabListGroupMenuCoordinatorUnitTest {
         verify(mMenuCoordinator)
                 .buildCollaborationMenuItems(mModelListCaptor.capture(), any(), any());
 
-        List<Integer> menuIds = List.of(R.id.close_tab, R.id.edit_group_name, R.id.leave_group);
+        List<Integer> menuIds =
+                List.of(R.id.close_tab_group, R.id.edit_group_name, R.id.leave_group);
         assertListMenuItemsAre(mModelListCaptor.getValue(), menuIds);
 
         mMenuCoordinator.dismissForTesting();
@@ -275,7 +277,7 @@ public class TabListGroupMenuCoordinatorUnitTest {
                 .buildCollaborationMenuItems(mModelListCaptor.capture(), any(), any());
 
         List<Integer> menuIds =
-                List.of(R.id.close_tab, R.id.edit_group_name, R.id.delete_shared_group);
+                List.of(R.id.close_tab_group, R.id.edit_group_name, R.id.delete_shared_group);
         assertListMenuItemsAre(mModelListCaptor.getValue(), menuIds);
 
         mMenuCoordinator.dismissForTesting();

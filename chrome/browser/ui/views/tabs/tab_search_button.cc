@@ -27,16 +27,17 @@ constexpr int kCRTabSearchFlatCornerRadius = 4;
 
 TabSearchButton::TabSearchButton(
     TabStripController* tab_strip_controller,
-    tabs::TabDeclutterController* tab_declutter_controller,
-    Edge flat_edge)
+    BrowserWindowInterface* browser_window_interface,
+    Edge fixed_flat_edge,
+    Edge animated_flat_edge)
     : TabStripControlButton(tab_strip_controller,
                             PressedCallback(),
                             vector_icons::kExpandMoreIcon,
-                            flat_edge),
-      tab_search_bubble_host_(std::make_unique<TabSearchBubbleHost>(
-          this,
-          tab_declutter_controller,
-          tab_strip_controller->GetProfile())) {
+                            fixed_flat_edge,
+                            animated_flat_edge),
+      tab_search_bubble_host_(
+          std::make_unique<TabSearchBubbleHost>(this,
+                                                browser_window_interface)) {
   SetProperty(views::kElementIdentifierKey, kTabSearchButtonElementId);
 
   SetTooltipText(l10n_util::GetStringUTF16(IDS_TOOLTIP_TAB_SEARCH));

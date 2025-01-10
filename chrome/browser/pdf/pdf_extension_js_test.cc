@@ -517,6 +517,9 @@ class PDFExtensionJSInk2Test : public PDFExtensionJSTest {
 };
 
 IN_PROC_BROWSER_TEST_P(PDFExtensionJSInk2Test, Ink2) {
+  // One of the tests checks if the side panel is visible, so make the window
+  // wide enough.
+  GetActiveWebContents()->Resize({0, 0, 960, 100});
   RunTestsInJsModule("ink2_test.js", "test.pdf");
 }
 
@@ -524,8 +527,32 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionJSInk2Test, Ink2Save) {
   RunTestsInJsModule("ink2_save_test.js", "test.pdf");
 }
 
+IN_PROC_BROWSER_TEST_P(PDFExtensionJSInk2Test, Ink2BottomToolbar) {
+  // The window must be smaller than 960px to show the bottom toolbar.
+  GetActiveWebContents()->Resize({0, 0, 959, 100});
+  RunTestsInJsModule("ink2_bottom_toolbar_test.js", "test.pdf");
+}
+
+IN_PROC_BROWSER_TEST_P(PDFExtensionJSInk2Test, Ink2BottomToolbarDropdown) {
+  RunTestsInJsModule("ink2_bottom_toolbar_dropdown_test.js", "test.pdf");
+}
+
 IN_PROC_BROWSER_TEST_P(PDFExtensionJSInk2Test, Ink2SidePanel) {
+  // The window must be at least 960px to show the side panel.
+  GetActiveWebContents()->Resize({0, 0, 960, 100});
   RunTestsInJsModule("ink2_side_panel_test.js", "test.pdf");
+}
+
+IN_PROC_BROWSER_TEST_P(PDFExtensionJSInk2Test, Ink2BrushSelector) {
+  RunTestsInJsModule("ink2_brush_selector_test.js", "test.pdf");
+}
+
+IN_PROC_BROWSER_TEST_P(PDFExtensionJSInk2Test, Ink2ColorSelector) {
+  RunTestsInJsModule("ink2_color_selector_test.js", "test.pdf");
+}
+
+IN_PROC_BROWSER_TEST_P(PDFExtensionJSInk2Test, Ink2SizeSelector) {
+  RunTestsInJsModule("ink2_size_selector_test.js", "test.pdf");
 }
 
 IN_PROC_BROWSER_TEST_P(PDFExtensionJSInk2Test, Ink2ViewerToolbar) {

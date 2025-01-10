@@ -262,10 +262,12 @@ class FakePasswordAutofillAgent
       const std::u16string& password,
       base::OnceCallback<void(bool)> success_callback) override {}
 
-  void FillPasswordSuggestionById(autofill::FieldRendererId username_element_id,
-                                  autofill::FieldRendererId password_element_id,
-                                  const std::u16string& username,
-                                  const std::u16string& password) override {}
+  void FillPasswordSuggestionById(
+      autofill::FieldRendererId username_element_id,
+      autofill::FieldRendererId password_element_id,
+      const std::u16string& username,
+      const std::u16string& password,
+      autofill::AutofillSuggestionTriggerSource suggestion_source) override {}
 
   void PreviewPasswordSuggestionById(
       autofill::FieldRendererId username_element_id,
@@ -280,11 +282,12 @@ class FakePasswordAutofillAgent
                             const std::u16string& credential) override {}
   void PreviewField(autofill::FieldRendererId field_id,
                     const std::u16string& value) override {}
-  void FillField(autofill::FieldRendererId field_id,
-                 const std::u16string& value) override {}
+  void FillField(
+      autofill::FieldRendererId field_id,
+      const std::u16string& value,
+      autofill::AutofillSuggestionTriggerSource suggestion_source) override {}
   void AnnotateFieldsWithParsingResult(
       const autofill::ParsingResult& parsing_result) override {}
-
   void SetLoggingState(bool active) override {
     called_set_logging_state_ = true;
     logging_state_active_ = active;
@@ -316,17 +319,19 @@ class MockPasswordAccessoryControllerImpl
       base::WeakPtr<ManualFillingController> mf_controller,
       password_manager::PasswordManagerClient* password_client,
       PasswordDriverSupplierForFocusedFrame driver_supplier)
-      : PasswordAccessoryControllerImpl(web_contents,
-                                        credential_cache,
-                                        mf_controller,
-                                        password_client,
-                                        driver_supplier,
-                                        base::DoNothing(),
-                                        nullptr) {}
+      : PasswordAccessoryControllerImpl(
+            web_contents,
+            credential_cache,
+            mf_controller,
+            password_client,
+            driver_supplier,
+            /*grouped_credential_sheet_controller=*/nullptr,
+            base::DoNothing(),
+            nullptr) {}
 
   MOCK_METHOD(void,
               RefreshSuggestionsForField,
-              (autofill::mojom::FocusedFieldType),
+              (autofill::mojom::FocusedFieldType, bool),
               (override));
   MOCK_METHOD(void,
               UpdateCredManReentryUi,
@@ -1388,7 +1393,7 @@ TEST_F(ChromePasswordManagerClientAndroidTest,
   PasswordGenerationController* pwd_generation_controller =
       PasswordGenerationController::GetOrCreate(web_contents());
   pwd_generation_controller->FocusedInputChanged(
-      FocusedFieldType::kFillablePasswordField, driver->AsWeakPtrImpl());
+      /*is_field_eligible_for_generation=*/true, driver->AsWeakPtrImpl());
 
   ChromePasswordManagerClient* client = GetClient();
 
@@ -1457,9 +1462,10 @@ TEST_F(ChromePasswordManagerClientAndroidTest,
   MockPasswordAccessoryControllerImpl* weak_mock_pwd_controller =
       SetUpMockPwdAccessoryForClientUse(driver.get());
 
-  EXPECT_CALL(
-      *weak_mock_pwd_controller,
-      RefreshSuggestionsForField(FocusedFieldType::kFillablePasswordField));
+  EXPECT_CALL(*weak_mock_pwd_controller,
+              RefreshSuggestionsForField(
+                  FocusedFieldType::kFillablePasswordField,
+                  /*is_field_eligible_for_manual_generation=*/true));
   GetClient()->FocusedInputChanged(driver.get(),
                                    observed_form_data.fields()[0].renderer_id(),
                                    FocusedFieldType::kFillablePasswordField);
@@ -1507,9 +1513,10 @@ TEST_F(ChromePasswordManagerClientAndroidTest,
 
   MockPasswordAccessoryControllerImpl* weak_mock_pwd_controller =
       SetUpMockPwdAccessoryForClientUse(driver.get());
-  EXPECT_CALL(
-      *weak_mock_pwd_controller,
-      RefreshSuggestionsForField(FocusedFieldType::kFillablePasswordField));
+  EXPECT_CALL(*weak_mock_pwd_controller,
+              RefreshSuggestionsForField(
+                  FocusedFieldType::kFillablePasswordField,
+                  /*is_field_eligible_for_manual_generation=*/true));
   GetClient()->FocusedInputChanged(driver.get(),
                                    observed_form_data.fields()[0].renderer_id(),
                                    FocusedFieldType::kFillablePasswordField);
@@ -1547,9 +1554,10 @@ TEST_F(ChromePasswordManagerClientAndroidTest,
 
   MockPasswordAccessoryControllerImpl* weak_mock_pwd_controller =
       SetUpMockPwdAccessoryForClientUse(driver.get());
-  EXPECT_CALL(
-      *weak_mock_pwd_controller,
-      RefreshSuggestionsForField(FocusedFieldType::kFillablePasswordField));
+  EXPECT_CALL(*weak_mock_pwd_controller,
+              RefreshSuggestionsForField(
+                  FocusedFieldType::kFillablePasswordField,
+                  /*is_field_eligible_for_manual_generation=*/true));
   GetClient()->FocusedInputChanged(driver.get(),
                                    observed_form_data.fields()[0].renderer_id(),
                                    FocusedFieldType::kFillablePasswordField);

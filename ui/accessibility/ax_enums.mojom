@@ -357,7 +357,10 @@ enum Role {
   kWindow = 184,
 };
 
-// Next value: 19
+// Bitfield value. Each state can either be true or false.
+//
+// Next version: 2
+// Next value: 20
 [Extensible, Stable, Uuid="35e7123a-f31f-4de7-94a4-3412dcb6bd5a"]
 enum State {
   [Default]kNone = 0,
@@ -382,6 +385,7 @@ enum State {
   // Grows vertically, e.g. menu or combo box.
   kVertical = 17,
   kVisited = 18,
+  [MinVersion=1] kHasActions = 19,
 };
 
 // An action to be taken on an accessibility node.
@@ -406,6 +410,8 @@ enum Action {
   // Collapse the collapsible node.
   kCollapse = 4,
 
+  // Used for custom actions in Android window. See kCustomActionIds for
+  // more info.
   kCustomAction = 5,
 
   // Decrement a slider or range control by one step value.
@@ -915,8 +921,8 @@ enum BoolAttribute {
   [MinVersion=2] kHasHiddenOffscreenNodes = 22,
 };
 
-// Next version: 7
-// Next value: 29
+// Next version: 8
+// Next value: 30
 // Note: if changing an IntListAttribute property that stores a relation where
 // the reverse should be computed, be sure to also update
 // kReverseRelationIntListAttributes in AXTree.
@@ -938,6 +944,7 @@ enum IntListAttribute {
   kFlowtoIds = 5,
   kLabelledbyIds = 6,
   kRadioGroupIds = 7,
+  [MinVersion=7]kActionsIds = 29,
 
   // For static text. These int lists must be the same size; they represent
   // the start and end character offset of each marker. Examples of markers
@@ -1333,7 +1340,11 @@ enum NameFrom {
 
   // The name comes from a tooltip-style popover (aka hint popover), where the
   // contents could be distilled to a plain text string.
-  kPopoverAttribute,
+  kPopoverTarget,
+
+  // The name comes from an interest target, where the contents could be
+  // distilled to a plain text string.
+  kInterestTarget,
 };
 
 // The source of the accessible description. Used by some screen readers
@@ -1387,9 +1398,12 @@ enum DescriptionFrom {
   // (SVG), or a View's tooltip.
   kTitle,
 
-  // The description comes from a non-tooltip popover, e.g. the
-  // |popovertarget| attribute pointing to a `popover=auto`.
-  kPopoverAttribute,
+  // The description comes from a tooltip popover, e.g. the
+  // |popovertarget| attribute pointing to a `popover=hint`.
+  kPopoverTarget,
+
+  // The description comes from an interest target.
+  kInterestTarget,
 };
 
 // The source of the accessible details.
@@ -1401,8 +1415,13 @@ enum DetailsFrom {
   // https://www.w3.org/TR/css-anchor-position-1/
   kCssAnchor,
 
-  // The details comes from a tooltip-style popover (aka hint popover).
-  kPopoverAttribute,
+  // The details comes from a popover that will show when the current element
+  // is triggered (e.g. click or space key on a button).
+  kPopoverTarget,
+
+  // The details comes from a popover that will show when the user shows
+  // interest in the current element, e.g. hovers.
+  kInterestTarget,
 };
 
 // Next value: 4

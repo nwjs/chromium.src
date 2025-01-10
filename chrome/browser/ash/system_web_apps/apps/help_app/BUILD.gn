@@ -42,6 +42,7 @@ static_library("help_app") {
     "//chrome/browser/apps/app_service:constants",
     "//chrome/browser/ash/accessibility",
     "//chrome/browser/ash/arc",
+    "//chrome/browser/ash/arc:arc_util",
     "//chrome/browser/ash/assistant",
     "//chrome/browser/ash/borealis",
     "//chrome/browser/ash/child_accounts/on_device_controls",
@@ -77,6 +78,7 @@ static_library("help_app") {
     "//ui/chromeos",
     "//ui/chromeos/styles:cros_styles_views",
     "//ui/display",
+    "//ui/events/ash",
     "//ui/events/devices",
     "//url",
   ]
@@ -97,6 +99,7 @@ source_set("browser_tests") {
     "//ash/constants",
     "//ash/webui/help_app_ui",
     "//ash/webui/help_app_ui:buildflags",
+    "//ash/webui/help_app_ui:help_app_ui_pref",
     "//ash/webui/help_app_ui/search:mojo_bindings",
     "//ash/webui/web_applications/test:test_support",
     "//base",

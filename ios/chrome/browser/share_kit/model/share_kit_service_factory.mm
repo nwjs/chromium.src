@@ -5,8 +5,10 @@
 #import "ios/chrome/browser/share_kit/model/share_kit_service_factory.h"
 
 #import "components/keyed_service/ios/browser_state_dependency_manager.h"
+#import "ios/chrome/app/tests_hook.h"
+#import "ios/chrome/browser/collaboration/model/collaboration_service_factory.h"
+#import "ios/chrome/browser/collaboration/model/features.h"
 #import "ios/chrome/browser/data_sharing/model/data_sharing_service_factory.h"
-#import "ios/chrome/browser/data_sharing/model/features.h"
 #import "ios/chrome/browser/favicon/model/ios_chrome_favicon_loader_factory.h"
 #import "ios/chrome/browser/saved_tab_groups/favicon/coordinator/tab_group_favicons_grid_configurator.h"
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
@@ -36,6 +38,7 @@ ShareKitServiceFactory::ShareKitServiceFactory()
   DependsOn(AuthenticationServiceFactory::GetInstance());
   DependsOn(IdentityManagerFactory::GetInstance());
   DependsOn(data_sharing::DataSharingServiceFactory::GetInstance());
+  DependsOn(collaboration::CollaborationServiceFactory::GetInstance());
   DependsOn(tab_groups::TabGroupSyncServiceFactory::GetInstance());
   DependsOn(IOSChromeFaviconLoaderFactory::GetInstance());
 }
@@ -51,16 +54,24 @@ std::unique_ptr<KeyedService> ShareKitServiceFactory::BuildServiceInstanceFor(
     return nullptr;
   }
 
+  // Give the opportunity for the test hook to override the service from
+  // the provider (allowing EG tests to use a test ShareKitService).
+  if (auto share_kit_service = tests_hook::CreateShareKitService()) {
+    return share_kit_service;
+  }
+
   tab_groups::TabGroupSyncService* sync_service =
       tab_groups::TabGroupSyncServiceFactory::GetForProfile(profile);
   FaviconLoader* favicon_loader =
       IOSChromeFaviconLoaderFactory::GetForProfile(profile);
 
-  ShareKitServiceConfiguration configuration(
-      IdentityManagerFactory::GetForProfile(profile),
-      AuthenticationServiceFactory::GetForProfile(profile),
-      data_sharing::DataSharingServiceFactory::GetForProfile(profile),
-      std::make_unique<TabGroupFaviconsGridConfigurator>(sync_service,
-                                                         favicon_loader));
-  return ios::provider::CreateShareKitService(configuration);
+  std::unique_ptr<ShareKitServiceConfiguration> configuration =
+      std::make_unique<ShareKitServiceConfiguration>(
+          IdentityManagerFactory::GetForProfile(profile),
+          AuthenticationServiceFactory::GetForProfile(profile),
+          data_sharing::DataSharingServiceFactory::GetForProfile(profile),
+          sync_service,
+          std::make_unique<TabGroupFaviconsGridConfigurator>(sync_service,
+                                                             favicon_loader));
+  return ios::provider::CreateShareKitService(std::move(configuration));
 }

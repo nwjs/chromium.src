@@ -24,10 +24,12 @@ import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.signin.services.SigninMetricsUtils;
 import org.chromium.chrome.browser.ui.signin.fullscreen_signin.FullscreenSigninCoordinator;
 import org.chromium.chrome.browser.ui.signin.fullscreen_signin.FullscreenSigninView;
+import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncConfig;
 import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncCoordinator;
 import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncHelper;
 import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncView;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
+import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.BackPressResult;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.metrics.AccountConsistencyPromoAction;
@@ -40,7 +42,8 @@ import java.lang.annotation.RetentionPolicy;
 
 /** Parent coordinator for the re-FRE promo */
 public final class FullscreenSigninAndHistorySyncCoordinator
-        implements HistorySyncCoordinator.HistorySyncDelegate,
+        implements SigninAndHistorySyncCoordinator,
+                HistorySyncCoordinator.HistorySyncDelegate,
                 FullscreenSigninCoordinator.Delegate {
     public interface Delegate {
         /** Notifies when the user clicked the "add account" button. */
@@ -62,7 +65,7 @@ public final class FullscreenSigninAndHistorySyncCoordinator
          */
         Promise<Void> getNativeInitializationPromise();
 
-        void onFlowComplete();
+        void onFlowComplete(@SigninAndHistorySyncCoordinator.Result int result);
     }
 
     /**
@@ -86,6 +89,8 @@ public final class FullscreenSigninAndHistorySyncCoordinator
     private final ModalDialogManager mModalDialogManager;
     private final OneshotSupplier<ProfileProvider> mProfileSupplier;
     private final PrivacyPreferencesManager mPrivacyPreferencesManager;
+    private final FullscreenSigninAndHistorySyncConfig mConfig;
+    private final @SigninAccessPoint int mSigninAccessPoint;
     private final Delegate mDelegate;
     private final boolean mDidShowSignin;
     private @ChildView int mCurrentView;
@@ -100,6 +105,8 @@ public final class FullscreenSigninAndHistorySyncCoordinator
             ModalDialogManager modalDialogManager,
             OneshotSupplier<ProfileProvider> profileSupplier,
             PrivacyPreferencesManager privacyPreferencesManager,
+            FullscreenSigninAndHistorySyncConfig config,
+            @SigninAccessPoint int signinAccessPoint,
             Delegate delegate) {
         mActivity = activity;
         mCurrentView = ChildView.SIGNIN;
@@ -108,6 +115,8 @@ public final class FullscreenSigninAndHistorySyncCoordinator
         mModalDialogManager = modalDialogManager;
         mProfileSupplier = profileSupplier;
         mPrivacyPreferencesManager = privacyPreferencesManager;
+        mConfig = config;
+        mSigninAccessPoint = signinAccessPoint;
         mDelegate = delegate;
         inflateViewBundle();
         if (isSignedIn()) {
@@ -120,16 +129,19 @@ public final class FullscreenSigninAndHistorySyncCoordinator
                             mModalDialogManager,
                             this,
                             mPrivacyPreferencesManager,
-                            SigninAccessPoint.SIGNIN_PROMO);
+                            mConfig.signinConfig,
+                            mSigninAccessPoint);
             mViewHolder.addView(getCurrentChildView());
             mSigninCoordinator.setView((FullscreenSigninView) getCurrentChildView());
             // TODO(crbug.com/347657449): Record other AccountConsistencyPromoActions.
             SigninMetricsUtils.logAccountConsistencyPromoAction(
-                    AccountConsistencyPromoAction.SHOWN, SigninAccessPoint.SIGNIN_PROMO);
+                    AccountConsistencyPromoAction.SHOWN, mSigninAccessPoint);
             mDidShowSignin = true;
         }
     }
 
+    /** Implements {@link SigninAndHistorySyncCoordinator}. */
+    @Override
     public void destroy() {
         mViewHolder.removeAllViews();
         if (mSigninCoordinator != null) {
@@ -143,8 +155,55 @@ public final class FullscreenSigninAndHistorySyncCoordinator
         }
     }
 
+    /** Implements {@link SigninAndHistorySyncCoordinator}. */
+    @Override
+    public void onAddAccountCanceled() {}
+
+    /** Implements {@link SigninAndHistorySyncCoordinator}. */
+    @Override
+    public void onAccountAdded(String accountName) {
+        mSigninCoordinator.onAccountSelected(accountName);
+    }
+
+    /** Implements {@link SigninAndHistorySyncCoordinator}. */
+    @Override
     public View getView() {
         return mViewHolder;
+    }
+
+    /**
+     * Implements {@link SigninAndHistorySyncCoordinator}. Removes existing views from the view
+     * switcher and re-inflates them with the correct layout after a configuration change.
+     */
+    @Override
+    public void onConfigurationChange() {
+        mViewHolder.removeAllViews();
+        inflateViewBundle();
+        showChildView(mCurrentView);
+    }
+
+    /** Implements {@link SigninAndHistorySyncCoordinator}. */
+    @Override
+    public @BackPressResult int handleBackPress() {
+        switch (mCurrentView) {
+            case ChildView.SIGNIN:
+                if (isSignedIn()) {
+                    SigninManager signinManager =
+                            IdentityServicesProvider.get()
+                                    .getSigninManager(mProfileSupplier.get().getOriginalProfile());
+                    signinManager.signOut(SignoutReason.ABORT_SIGNIN);
+                }
+                mDelegate.onFlowComplete(SigninAndHistorySyncCoordinator.Result.INTERRUPTED);
+                break;
+            case ChildView.HISTORY_SYNC:
+                if (!mDidShowSignin) {
+                    mDelegate.onFlowComplete(SigninAndHistorySyncCoordinator.Result.INTERRUPTED);
+                    return BackPressResult.SUCCESS;
+                }
+                showChildView(ChildView.SIGNIN);
+                mSigninCoordinator.reset();
+        }
+        return BackPressResult.SUCCESS;
     }
 
     /** Implements {@link FullscreenSigninCoordinator.Delegate} */
@@ -157,7 +216,7 @@ public final class FullscreenSigninAndHistorySyncCoordinator
     @Override
     public void advanceToNextPage() {
         if (!isSignedIn() || mCurrentView == ChildView.HISTORY_SYNC) {
-            mDelegate.onFlowComplete();
+            mDelegate.onFlowComplete(SigninAndHistorySyncCoordinator.Result.INTERRUPTED);
             return;
         }
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.FORCE_STARTUP_SIGNIN_PROMO)) {
@@ -166,10 +225,12 @@ public final class FullscreenSigninAndHistorySyncCoordinator
             return;
         }
         Profile profile = mProfileSupplier.get().getOriginalProfile();
-        HistorySyncHelper historySyncHelper = HistorySyncHelper.getForProfile(profile);
-        if (historySyncHelper.shouldSuppressHistorySync() || historySyncHelper.isDeclinedOften()) {
-            historySyncHelper.recordHistorySyncNotShown(SigninAccessPoint.SIGNIN_PROMO);
-            mDelegate.onFlowComplete();
+        if (!SigninAndHistorySyncCoordinator.shouldShowHistorySync(
+                profile, mConfig.historyOptInMode)) {
+            HistorySyncHelper historySyncHelper = HistorySyncHelper.getForProfile(profile);
+            historySyncHelper.recordHistorySyncNotShown(mSigninAccessPoint);
+            // TODO(crbug.com/376469696): Differentiate the failure & completion case here.
+            mDelegate.onFlowComplete(SigninAndHistorySyncCoordinator.Result.COMPLETED);
             return;
         }
         showChildView(ChildView.HISTORY_SYNC);
@@ -219,48 +280,18 @@ public final class FullscreenSigninAndHistorySyncCoordinator
 
     /** Implements {@link HistorySyncDelegate} */
     @Override
-    public void dismissHistorySync() {
+    public void dismissHistorySync(boolean isHistorySyncAccepted) {
         mViewHolder.removeAllViews();
         if (mHistorySyncCoordinator != null) {
             mHistorySyncCoordinator.destroy();
             mHistorySyncCoordinator = null;
         }
-        mDelegate.onFlowComplete();
-    }
-
-    /**
-     * Removes existing views from the view switcher and re-inflates them with the correct layout
-     * after a configuration change.
-     */
-    public void recreateLayoutAfterConfigurationChange() {
-        mViewHolder.removeAllViews();
-        inflateViewBundle();
-        showChildView(mCurrentView);
-    }
-
-    public void onAccountSelected(String accountName) {
-        mSigninCoordinator.onAccountSelected(accountName);
-    }
-
-    public void handleBackPress() {
-        switch (mCurrentView) {
-            case ChildView.SIGNIN:
-                if (isSignedIn()) {
-                    SigninManager signinManager =
-                            IdentityServicesProvider.get()
-                                    .getSigninManager(mProfileSupplier.get().getOriginalProfile());
-                    signinManager.signOut(SignoutReason.ABORT_SIGNIN);
-                }
-                mDelegate.onFlowComplete();
-                break;
-            case ChildView.HISTORY_SYNC:
-                if (!mDidShowSignin) {
-                    mDelegate.onFlowComplete();
-                    return;
-                }
-                showChildView(ChildView.SIGNIN);
-                mSigninCoordinator.reset();
-        }
+        @SigninAndHistorySyncCoordinator.Result
+        int flowResult =
+                isHistorySyncAccepted
+                        ? SigninAndHistorySyncCoordinator.Result.COMPLETED
+                        : SigninAndHistorySyncCoordinator.Result.INTERRUPTED;
+        mDelegate.onFlowComplete(flowResult);
     }
 
     private void inflateViewBundle() {
@@ -301,7 +332,8 @@ public final class FullscreenSigninAndHistorySyncCoordinator
                                 mModalDialogManager,
                                 this,
                                 mPrivacyPreferencesManager,
-                                SigninAccessPoint.SIGNIN_PROMO);
+                                mConfig.signinConfig,
+                                mSigninAccessPoint);
                 mSigninCoordinator.setView((FullscreenSigninView) getCurrentChildView());
                 if (mHistorySyncCoordinator != null) {
                     mHistorySyncCoordinator.destroy();
@@ -335,14 +367,17 @@ public final class FullscreenSigninAndHistorySyncCoordinator
             return;
         }
 
+        boolean shouldSignOutOnDecline =
+                mDidShowSignin && mConfig.historyOptInMode == HistorySyncConfig.OptInMode.REQUIRED;
         mHistorySyncCoordinator =
                 new HistorySyncCoordinator(
                         mActivity,
                         this,
                         mProfileSupplier.get().getOriginalProfile(),
-                        SigninAccessPoint.SIGNIN_PROMO,
-                        /* showEmailInFooter= */ isSignedIn(),
-                        /* shouldSignOutOnDecline= */ false,
+                        mConfig.historySyncConfig,
+                        mSigninAccessPoint,
+                        /* showEmailInFooter= */ !mDidShowSignin,
+                        /* shouldSignOutOnDecline= */ shouldSignOutOnDecline,
                         null);
     }
 }

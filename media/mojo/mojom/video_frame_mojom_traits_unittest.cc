@@ -11,6 +11,7 @@
 
 #include "base/functional/callback_helpers.h"
 #include "base/memory/ref_counted.h"
+#include "base/memory/writable_shared_memory_region.h"
 #include "base/test/task_environment.h"
 #include "build/build_config.h"
 #include "gpu/command_buffer/common/mailbox.h"
@@ -122,13 +123,19 @@ TEST_F(VideoFrameStructTraitsTest, MappableVideoFrame) {
 
         uint8_t* data[3] = {};
         data[0] = const_cast<uint8_t*>(region.mapping.GetMemoryAs<uint8_t>());
-        for (size_t i = 1; i < strides.size(); ++i)
-          data[i] = data[i - 1] + sizes[i];
+        for (size_t i = 1; i < strides.size(); ++i) {
+          data[i] = data[i - 1] + sizes[i - 1];
+        }
 
-        strides.resize(3, 0);
-        frame = media::VideoFrame::WrapExternalYuvData(
-            format, kCodedSize, kVisibleRect, kNaturalSize, strides[0],
-            strides[1], strides[2], data[0], data[1], data[2], kTimestamp);
+        if (format == PIXEL_FORMAT_I420) {
+          frame = media::VideoFrame::WrapExternalYuvData(
+              format, kCodedSize, kVisibleRect, kNaturalSize, strides[0],
+              strides[1], strides[2], data[0], data[1], data[2], kTimestamp);
+        } else {
+          frame = media::VideoFrame::WrapExternalYuvData(
+              format, kCodedSize, kVisibleRect, kNaturalSize, strides[0],
+              strides[1], data[0], data[1], kTimestamp);
+        }
         if (storage_type == VideoFrame::STORAGE_SHMEM)
           frame->BackWithSharedMemory(&region.region);
       }
@@ -148,6 +155,71 @@ TEST_F(VideoFrameStructTraitsTest, MappableVideoFrame) {
       ASSERT_EQ(frame->storage_type(), VideoFrame::STORAGE_SHMEM);
       EXPECT_TRUE(frame->shm_region()->IsValid());
     }
+  }
+}
+
+TEST_F(VideoFrameStructTraitsTest, InterleavedPlanes) {
+  constexpr VideoFrame::StorageType storage_type = VideoFrame::STORAGE_SHMEM;
+  constexpr VideoPixelFormat format = PIXEL_FORMAT_I420;
+  constexpr gfx::Size kCodedSize(100, 100);
+  constexpr gfx::Rect kVisibleRect(kCodedSize);
+  constexpr gfx::Size kNaturalSize = kCodedSize;
+  constexpr base::TimeDelta kTimestamp;
+
+  scoped_refptr<media::VideoFrame> frame;
+
+  std::vector<int32_t> strides = VideoFrame::ComputeStrides(format, kCodedSize);
+  ASSERT_EQ(strides[1], strides[2]);
+
+  size_t aggregate_size = 0;
+  size_t sizes[3] = {};
+  for (size_t i = 0; i < strides.size(); ++i) {
+    sizes[i] =
+        media::VideoFrame::Rows(i, format, kCodedSize.height()) * strides[i];
+    aggregate_size += sizes[i];
+  }
+  auto region = base::WritableSharedMemoryRegion::Create(aggregate_size);
+  ASSERT_TRUE(region.IsValid());
+  auto mapping = region.MapAt(0, aggregate_size);
+
+  auto region_span = mapping.GetMemoryAsSpan<uint8_t>();
+  auto y_plane = region_span.first(sizes[0]);
+  std::fill(y_plane.begin(), y_plane.end(), 1);
+
+  // Setup memory layout where U and V planes occupy the same space, but have
+  // interleaving Y and V rows. This is achieved by doubling the stride.
+  auto u_plane = region_span.subspan(sizes[0]);
+  int32_t normal_stride = strides[1];
+  auto v_plane = u_plane.subspan(normal_stride);
+  strides[1] = strides[2] = normal_stride * 2;
+
+  int yu_rows = media::VideoFrame::Rows(1, format, kCodedSize.height());
+  for (int i = 0; i < yu_rows; ++i) {
+    auto u_row = u_plane.subspan(i * strides[1], normal_stride);
+    std::fill(u_row.begin(), u_row.end(), 2);
+    auto v_row = v_plane.subspan(i * strides[2], normal_stride);
+    std::fill(v_row.begin(), v_row.end(), 3);
+  }
+
+  frame = media::VideoFrame::WrapExternalYuvData(
+      format, kCodedSize, kVisibleRect, kNaturalSize, strides[0], strides[1],
+      strides[2], y_plane.data(), u_plane.data(), v_plane.data(), kTimestamp);
+  auto ro_region =
+      base::WritableSharedMemoryRegion::ConvertToReadOnly(std::move(region));
+  frame->BackWithSharedMemory(&ro_region);
+
+  EXPECT_TRUE(frame);
+  EXPECT_EQ(frame->storage_type(), storage_type);
+  EXPECT_TRUE(RoundTrip(&frame));
+  EXPECT_TRUE(frame);
+  EXPECT_EQ(frame->format(), format);
+  EXPECT_EQ(frame->coded_size(), kCodedSize);
+
+  for (int i = 0; i < yu_rows; ++i) {
+    EXPECT_EQ(0, memcmp(frame->visible_data(1) + i * frame->stride(1),
+                        u_plane.data() + i * strides[1], normal_stride));
+    EXPECT_EQ(0, memcmp(frame->visible_data(2) + i * frame->stride(2),
+                        v_plane.data() + i * strides[2], normal_stride));
   }
 }
 
@@ -217,13 +289,32 @@ TEST_F(VideoFrameStructTraitsTest, InvalidOffsets) {
                                                          &new_frame));
 }
 
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
-TEST_F(VideoFrameStructTraitsTest, OOPVDMailboxVideoFrame) {
-  gpu::Mailbox mailbox = gpu::Mailbox::Generate();
-  scoped_refptr<VideoFrame> frame = VideoFrame::WrapOOPVDMailbox(
-      PIXEL_FORMAT_ARGB, mailbox, VideoFrame::ReleaseMailboxCB(),
-      gfx::Size(100, 100), gfx::Rect(10, 10, 80, 80), gfx::Size(200, 100),
-      base::Seconds(100));
+TEST_F(VideoFrameStructTraitsTest, HoleVideoFrame) {
+  base::UnguessableToken overlay_plane_id = base::UnguessableToken::Create();
+  scoped_refptr<VideoFrame> frame = VideoFrame::CreateVideoHoleFrame(
+      overlay_plane_id, gfx::Size(200, 100), base::Seconds(100));
+
+  // Saves the VideoFrame metadata from the created frame. The test should not
+  // assume these have any particular value.
+  const VideoFrame::StorageType storage_type = frame->storage_type();
+  const VideoPixelFormat format = frame->format();
+
+  ASSERT_TRUE(RoundTrip(&frame));
+  ASSERT_TRUE(frame);
+  EXPECT_FALSE(frame->metadata().end_of_stream);
+  EXPECT_EQ(frame->storage_type(), storage_type);
+  EXPECT_EQ(frame->format(), format);
+  EXPECT_EQ(frame->natural_size(), gfx::Size(200, 100));
+  EXPECT_EQ(frame->timestamp(), base::Seconds(100));
+  ASSERT_TRUE(frame->metadata().tracking_token.has_value());
+  ASSERT_EQ(*frame->metadata().tracking_token, overlay_plane_id);
+}
+
+TEST_F(VideoFrameStructTraitsTest, TrackingTokenVideoFrame) {
+  base::UnguessableToken tracking_token = base::UnguessableToken::Create();
+  scoped_refptr<VideoFrame> frame = VideoFrame::WrapTrackingToken(
+      PIXEL_FORMAT_ARGB, tracking_token, gfx::Size(100, 100),
+      gfx::Rect(10, 10, 80, 80), gfx::Size(200, 100), base::Seconds(100));
 
   ASSERT_TRUE(RoundTrip(&frame));
   ASSERT_TRUE(frame);
@@ -233,10 +324,9 @@ TEST_F(VideoFrameStructTraitsTest, OOPVDMailboxVideoFrame) {
   EXPECT_EQ(frame->visible_rect(), gfx::Rect(10, 10, 80, 80));
   EXPECT_EQ(frame->natural_size(), gfx::Size(200, 100));
   EXPECT_EQ(frame->timestamp(), base::Seconds(100));
-  ASSERT_TRUE(frame->HasOOPVDMailbox());
-  ASSERT_EQ(frame->oopvd_mailbox(), mailbox);
+  ASSERT_TRUE(frame->metadata().tracking_token.has_value());
+  ASSERT_EQ(*frame->metadata().tracking_token, tracking_token);
 }
-#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
 
 TEST_F(VideoFrameStructTraitsTest, SharedImageVideoFrame) {
   scoped_refptr<gpu::ClientSharedImage> shared_image =

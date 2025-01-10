@@ -2,15 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import type {BrowserProxy} from 'chrome://resources/cr_components/commerce/browser_proxy.js';
-import type {BookmarkProductInfo, PageRemote, PriceInsightsInfo, ProductInfo, ProductSpecifications, ProductSpecificationsDisclosureVersion, UserFeedback} from 'chrome://resources/cr_components/commerce/shopping_service.mojom-webui.js';
+import type {BookmarkProductInfo, PageRemote, PriceInsightsInfo, ProductInfo, ProductSpecifications, UserFeedback} from 'chrome://resources/cr_components/commerce/shopping_service.mojom-webui.js';
 import {PageCallbackRouter, PriceInsightsInfo_PriceBucket} from 'chrome://resources/cr_components/commerce/shopping_service.mojom-webui.js';
+import type {ShoppingServiceBrowserProxy} from 'chrome://resources/cr_components/commerce/shopping_service_browser_proxy.js';
 import type {Uuid} from 'chrome://resources/mojo/mojo/public/mojom/base/uuid.mojom-webui.js';
 import type {Url} from 'chrome://resources/mojo/url/mojom/url.mojom-webui.js';
 import {TestBrowserProxy as BaseTestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 
 export class TestBrowserProxy extends BaseTestBrowserProxy implements
-    BrowserProxy {
+    ShoppingServiceBrowserProxy {
   callbackRouter: PageCallbackRouter;
   callbackRouterRemote: PageRemote;
   private products_: BookmarkProductInfo[] = [];
@@ -64,7 +64,6 @@ export class TestBrowserProxy extends BaseTestBrowserProxy implements
       'setPriceTrackingStatusForCurrentUrl',
       'getParentBookmarkFolderNameForCurrentUrl',
       'showBookmarkEditorForCurrentUrl',
-      'showProductSpecificationsSetForUuid',
       'getPriceInsightsInfoForUrl',
       'getProductInfoForUrl',
       'getProductSpecificationsForUrls',
@@ -75,12 +74,7 @@ export class TestBrowserProxy extends BaseTestBrowserProxy implements
       'setNameForProductSpecificationsSet',
       'setUrlsForProductSpecificationsSet',
       'setProductSpecificationsUserFeedback',
-      'setProductSpecificationDisclosureAcceptVersion',
-      'maybeShowProductSpecificationDisclosure',
-      'declineProductSpecificationDisclosure',
-      'showSyncSetupFlow',
       'getProductSpecificationsFeatureState',
-      'getPageTitleFromHistory',
     ]);
 
     this.callbackRouter = new PageCallbackRouter();
@@ -194,10 +188,6 @@ export class TestBrowserProxy extends BaseTestBrowserProxy implements
     this.methodCalled('showBookmarkEditorForCurrentUrl');
   }
 
-  showProductSpecificationsSetForUuid(uuid: Uuid, inNewTab: boolean) {
-    this.methodCalled('showProductSpecificationsSetForUuid', uuid, inNewTab);
-  }
-
   getAllProductSpecificationsSets() {
     this.methodCalled('getAllProductSpecificationsSets');
     return Promise.resolve({sets: []});
@@ -231,35 +221,9 @@ export class TestBrowserProxy extends BaseTestBrowserProxy implements
     this.methodCalled('setUrlsForProductSpecificationsSet', feedback);
   }
 
-  setProductSpecificationDisclosureAcceptVersion(
-      version: ProductSpecificationsDisclosureVersion) {
-    this.methodCalled(
-        'setProductSpecificationDisclosureAcceptVersion', version);
-  }
-
-  maybeShowProductSpecificationDisclosure(
-      urls: Url[], name: string, setId: string) {
-    this.methodCalled(
-        'maybeShowProductSpecificationDisclosure', urls, name, setId);
-    return Promise.resolve({disclosureShown: false});
-  }
-
-  declineProductSpecificationDisclosure() {
-    this.methodCalled('declineProductSpecificationDisclosure');
-  }
-
-  showSyncSetupFlow() {
-    this.methodCalled('showSyncSetupFlow');
-  }
-
   getProductSpecificationsFeatureState() {
     this.methodCalled('getProductSpecificationsFeatureState');
     return Promise.resolve({state: null});
-  }
-
-  getPageTitleFromHistory() {
-    this.methodCalled('getPageTitleFromHistory');
-    return Promise.resolve({title: ''});
   }
 
   getCallbackRouter() {

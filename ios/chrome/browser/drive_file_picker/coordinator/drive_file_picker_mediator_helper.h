@@ -10,6 +10,7 @@
 #import <optional>
 #import <vector>
 
+#import "base/files/file_path.h"
 #import "ios/chrome/browser/drive_file_picker/ui/drive_file_picker_constants.h"
 #import "ios/web/public/web_state_id.h"
 
@@ -31,6 +32,7 @@ void ApplySortToDriveListQuery(DriveItemsSortingType sorting_criteria,
 
 // Appends an extra term in `query` to account for `filter`.
 void ApplyFilterToDriveListQuery(DriveFilePickerFilter filter,
+                                 bool include_folders,
                                  DriveListQuery& query);
 
 // Creates a query accounting for `collection_type`, `folder_identifier`,
@@ -53,6 +55,13 @@ bool DriveFilePickerItemShouldBeEnabled(const DriveItem& item,
 
 // Returns the subtitle which contains the last modified date for `item`.
 NSString* DriveFilePickerItemSubtitleModified(const DriveItem& item);
+
+// Returns the subtitle which contains the date when `item` was last modified by
+// the user.
+NSString* DriveFilePickerItemSubtitleModifiedByMe(const DriveItem& item);
+
+// Returns the subtitle which contains the creation date for `item`.
+NSString* DriveFilePickerItemSubtitleCreated(const DriveItem& item);
 
 // Returns the subtitle which contains the last opened date for `item`.
 NSString* DriveFilePickerItemSubtitleOpened(const DriveItem& item);
@@ -87,8 +96,11 @@ std::optional<DriveItem> FindDriveItemFromIdentifier(
     NSString* identifier);
 
 // Generates the `URL` to which the local copy of a file will be saved.
-NSURL* DriveFilePickerGenerateDownloadFileURL(web::WebStateID web_state_id,
-                                              NSString* download_file_name);
+// This function should always return the same output for a given input.
+std::optional<base::FilePath> DriveFilePickerGenerateDownloadFilePath(
+    web::WebStateID web_state_id,
+    NSString* download_file_identifier,
+    NSString* download_file_name);
 
 // Returns the placeholder icon for `item`.
 UIImage* GetPlaceholderIconForDriveItem(const DriveItem& item);

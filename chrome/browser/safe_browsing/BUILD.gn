@@ -52,6 +52,7 @@ static_library("safe_browsing") {
     "//components/safe_browsing/content/browser",
     "//components/safe_browsing/content/browser:client_side_detection",
     "//components/safe_browsing/content/browser:client_side_detection_service",
+    "//components/safe_browsing/content/browser/notification_content_detection:notification_content_detection",
     "//components/safe_browsing/content/browser/triggers:suspicious_site_trigger",
     "//components/safe_browsing/content/browser/web_ui",
     "//components/safe_browsing/core/browser",
@@ -89,6 +90,14 @@ static_library("safe_browsing") {
     deps += [ "//chrome/browser/ash/file_manager" ]
 
     allow_circular_includes_from += [ "//chrome/browser/ash/file_manager" ]
+  }
+
+  if (is_win || is_mac || is_linux || is_chromeos) {
+    deps += [
+      "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/toasts:toasts",
+      "//chrome/browser/ui/toasts/api:toasts",
+    ]
   }
 
   if (safe_browsing_mode != 0) {
@@ -129,6 +138,8 @@ static_library("safe_browsing") {
       "network_context_service.h",
       "network_context_service_factory.cc",
       "network_context_service_factory.h",
+      "notification_content_detection_service_factory.cc",
+      "notification_content_detection_service_factory.h",
       "phishy_interaction_tracker.cc",
       "phishy_interaction_tracker.h",
       "safe_browsing_navigation_observer_manager_factory.cc",
@@ -409,6 +420,7 @@ static_library("safe_browsing") {
         "//components/keyed_service/content",
         "//components/language/core/common",
         "//components/policy/core/browser",
+        "//components/policy/core/common:common_constants",
         "//components/prefs",
         "//components/safe_browsing/content/common:interfaces",
         "//components/safe_browsing/core/browser:verdict_cache_manager",

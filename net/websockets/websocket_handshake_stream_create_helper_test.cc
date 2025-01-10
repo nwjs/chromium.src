@@ -63,6 +63,7 @@
 #include "net/socket/socket_tag.h"
 #include "net/socket/socket_test_util.h"
 #include "net/socket/websocket_endpoint_lock_manager.h"
+#include "net/spdy/multiplexed_session_creation_initiator.h"
 #include "net/spdy/spdy_session_key.h"
 #include "net/spdy/spdy_test_util_common.h"
 #include "net/ssl/ssl_config_service_defaults.h"
@@ -267,7 +268,7 @@ class WebSocketHandshakeStreamCreateHelperTest
         break;
 
       default:
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
     }
 
     EXPECT_CALL(stream_request_, OnFailure(_, _, _)).Times(0);
@@ -520,6 +521,8 @@ class WebSocketHandshakeStreamCreateHelperTest
             /*socket_performance_watcher=*/nullptr,
             ConnectionEndpointMetadata(), /*report_ecn=*/true,
             /*enable_origin_frame=*/true,
+            /*allow_server_preferred_address=*/true,
+            MultiplexedSessionCreationInitiator::kUnknown,
             NetLogWithSource::Make(NetLogSourceType::NONE));
 
         session_->Initialize();
@@ -562,8 +565,7 @@ class WebSocketHandshakeStreamCreateHelperTest
         return handshake->Upgrade();
       }
       default:
-        NOTREACHED_IN_MIGRATION();
-        return nullptr;
+        NOTREACHED();
     }
   }
 

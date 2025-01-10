@@ -113,6 +113,10 @@ BASE_FEATURE(kEsbAiStringUpdate,
              "EsbAiStringUpdate",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kEsbAsASyncedSetting,
+             "EsbAsASyncedSetting",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kExtendedReportingRemovePrefDependency,
              "ExtendedReportingRemovePrefDependency",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -213,13 +217,6 @@ BASE_FEATURE(kEnterprisePasswordReuseUiRefresh,
              "EnterprisePasswordReuseUiRefresh",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kHashDatabaseOffsetMap,
-             "SafeBrowsingHashDatabaseOffsetMap",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-constexpr base::FeatureParam<int> kHashDatabaseOffsetMapBytesPerOffset{
-    &kHashDatabaseOffsetMap, "HashDatabaseOffsetMapBytesPerOffset",
-    /*default_value=*/0};
-
 BASE_FEATURE(kLocalListsUseSBv5,
              "SafeBrowsingLocalListsUseSBv5",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -227,6 +224,16 @@ BASE_FEATURE(kLocalListsUseSBv5,
 BASE_FEATURE(kLogAccountEnhancedProtectionStateInProtegoPings,
              "TailoredSecurityLogAccountEnhancedProtectionStateInProtegoPings",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kOnDeviceNotificationContentDetectionModel,
+             "OnDeviceNotificationContentDetectionModel",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+constexpr base::FeatureParam<int>
+    kOnDeviceNotificationContentDetectionModelAllowlistSamplingRate{
+        &kOnDeviceNotificationContentDetectionModel,
+        "OnDeviceNotificationContentDetectionModelAllowlistSamplingRate",
+        /*default_value=*/0};
 
 BASE_FEATURE(kPasswordLeakToggleMove,
              "PasswordLeakToggleMove",
@@ -310,7 +317,7 @@ BASE_FEATURE(kSafeBrowsingPhishingClassificationESBThreshold,
 
 BASE_FEATURE(kSafeBrowsingDailyPhishingReportsLimit,
              "SafeBrowsingDailyPhishingReportsLimit",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSavePasswordHashFromProfilePicker,
              "SavePasswordHashFromProfilePicker",
@@ -363,6 +370,7 @@ base::Value::List GetFeatureStatusList() {
       &kHashPrefixRealTimeLookupsFasterOhttpKeyRotation,
       &kLocalListsUseSBv5,
       &kLogAccountEnhancedProtectionStateInProtegoPings,
+      &kOnDeviceNotificationContentDetectionModel,
       &kSafeBrowsingAsyncRealTimeCheck,
       &kSafeBrowsingRemoveCookiesInAuthRequests,
       &kSafetyHubAbusiveNotificationRevocation,

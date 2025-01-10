@@ -50,6 +50,12 @@ const CountryLocaleMap& GetAllowedCountryToLocaleMap() {
     map[&kShoppingListRegionLaunched] = {{"us", {"en-us"}}};
     map[&kShoppingPageTypesRegionLaunched] = {{"us", {"en-us"}}};
     map[&kShoppingPDPMetricsRegionLaunched] = {{"us", {"en-us"}}};
+    map[&kSubscriptionsApiRegionLaunched] = {
+        {"us", {"en", "en-gb", "en-us"}},
+        {"au", {"en", "en-au", "en-gb", "en-us"}},
+        {"ca", {"en", "en-ca", "en-gb", "en-us"}},
+        {"in", {"en", "en-gb", "en-in", "en-us"}},
+        {"jp", {"ja", "ja-jp"}}};
 
     return map;
   }());
@@ -107,11 +113,6 @@ const re2::RE2& GetCouponPartnerMerchantPattern() {
 }
 
 }  // namespace
-
-namespace switches {
-// Specifies whether ChromeCart is enabled.
-const char kEnableChromeCart[] = "enable-chrome-cart";
-}  // namespace switches
 
 BASE_FEATURE(kCommerceAllowChipExpansion,
              "CommerceAllowChipExpansion",
@@ -246,8 +247,14 @@ BASE_FEATURE(kEnableDiscountInfoApi,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 const char kDiscountOnShoppyPageParam[] = "discount-on-shoppy-page";
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+const base::FeatureParam<bool> kDiscountOnShoppyPage{
+    &kEnableDiscountInfoApi, kDiscountOnShoppyPageParam, true};
+#else
 const base::FeatureParam<bool> kDiscountOnShoppyPage{
     &kEnableDiscountInfoApi, kDiscountOnShoppyPageParam, false};
+#endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
@@ -315,6 +322,17 @@ BASE_FEATURE(kShoppingPDPMetricsRegionLaunched,
              "ShoppingPDPMetricsRegionLaunched",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_DECLARE_FEATURE(kSubscriptionsApi);
+BASE_DECLARE_FEATURE(kSubscriptionsApiRegionLaunched);
+
+BASE_FEATURE(kSubscriptionsApi,
+             "SubscriptionsApi",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSubscriptionsApiRegionLaunched,
+             "SubscriptionsApiRegionLaunched",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kTrackByDefaultOnMobile,
              "TrackByDefaultOnMobile",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -366,14 +384,6 @@ BASE_FEATURE(kParcelTracking,
 BASE_FEATURE(kParcelTrackingRegionLaunched,
              "ParcelTrackingRegionLaunched",
              base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kParcelTrackingTestData,
-             "ParcelTrackingTestData",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-const char kParcelTrackingTestDataParam[] = "ParcelTrackingTestData";
-const char kParcelTrackingTestDataParamDelivered[] = "Delivered";
-const char kParcelTrackingTestDataParamInProgress[] = "InProgress";
-const char kParcelTrackingTestDataParamOutForDelivery[] = "OutForDelivery";
 
 // Params for Discount Consent V2 in the NTP Cart module.
 const char kNtpChromeCartModuleDiscountConsentNtpVariationParam[] =

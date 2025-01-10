@@ -17,7 +17,6 @@
 #include "base/containers/flat_map.h"
 #include "base/functional/callback.h"
 #include "base/gtest_prod_util.h"
-#include "base/memory/read_only_shared_memory_region.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/supports_user_data.h"
@@ -29,6 +28,7 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/startup_data.h"
 #include "components/file_access/scoped_file_access.h"
+#include "components/guest_view/buildflags/buildflags.h"
 #include "components/safe_browsing/buildflags.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/content_browser_client.h"
@@ -36,7 +36,6 @@
 #include "content/public/browser/legacy_tech_cookie_issue_details.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/alternative_error_page_override_info.mojom-forward.h"
-#include "extensions/buildflags/buildflags.h"
 #include "media/media_buildflags.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -222,7 +221,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       std::vector<std::string>* additional_schemes) override;
   network::mojom::IPAddressSpace DetermineAddressSpaceFromURL(
       const GURL& url) override;
-  bool LogWebUIUrl(const GURL& web_ui_url) override;
+  bool LogWebUICreated(const GURL& web_ui_url) override;
+  bool LogWebUIShown(const GURL& web_ui_url) override;
   bool IsWebUIAllowedToMakeNetworkRequests(const url::Origin& origin) override;
   bool IsHandledURL(const GURL& url) override;
   bool HasCustomSchemeHandler(content::BrowserContext* browser_context,
@@ -317,6 +317,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool AllowSignedExchange(content::BrowserContext* browser_context) override;
   bool AllowCompressionDictionaryTransport(
       content::BrowserContext* context) override;
+  bool AllowSharedWorkerBlobURLFix(content::BrowserContext* context) override;
   void RequestFilesAccess(
       const std::vector<base::FilePath>& files,
       const GURL& destination_url,
@@ -346,7 +347,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       const url::Origin& requesting_origin,
       const url::Origin& embedding_origin) override;
   std::string GetWebBluetoothBlocklist() override;
-  bool IsInterestGroupAPIAllowed(content::RenderFrameHost* render_frame_host,
+  bool IsInterestGroupAPIAllowed(content::BrowserContext* browser_context,
+                                 content::RenderFrameHost* render_frame_host,
                                  InterestGroupApiOperation operation,
                                  const url::Origin& top_frame_origin,
                                  const url::Origin& api_origin) override;
@@ -374,6 +376,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       content::RenderFrameHost* rfh,
       const url::Origin& context_origin,
       const url::Origin& reporting_origin) override;
+  // TODO(crbug.com/369436599): Remove the default arguments in virtual methods.
   bool IsSharedStorageAllowed(
       content::BrowserContext* browser_context,
       content::RenderFrameHost* rfh,
@@ -387,6 +390,10 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       const url::Origin& accessing_origin,
       std::string* out_debug_message = nullptr,
       bool* out_block_is_site_setting_specific = nullptr) override;
+  bool IsFencedStorageReadAllowed(content::BrowserContext* browser_context,
+                                  content::RenderFrameHost* rfh,
+                                  const url::Origin& top_frame_origin,
+                                  const url::Origin& accessing_origin) override;
   bool IsPrivateAggregationAllowed(
       content::BrowserContext* browser_context,
       const url::Origin& top_frame_origin,
@@ -605,10 +612,6 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
                                content::WebContents* web_contents) override;
   void RemovePresentationObserver(content::PresentationObserver* observer,
                                   content::WebContents* web_contents) override;
-  bool AddPrivacySandboxAttestationsObserver(
-      content::PrivacySandboxAttestationsObserver* observer) override;
-  void RemovePrivacySandboxAttestationsObserver(
-      content::PrivacySandboxAttestationsObserver* observer) override;
   std::vector<std::unique_ptr<content::NavigationThrottle>>
   CreateThrottlesForNavigation(content::NavigationHandle* handle) override;
   std::vector<std::unique_ptr<content::CommitDeferringCondition>>
@@ -1074,7 +1077,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
 
   void BindAIManager(
       content::BrowserContext* browser_context,
-      std::variant<content::RenderFrameHost*, base::SupportsUserData*> host,
+      base::SupportsUserData* context_user_data,
       mojo::PendingReceiver<blink::mojom::AIManager> receiver) override;
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -1092,11 +1095,6 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
 #if BUILDFLAG(IS_WIN)
   void OnUiaProviderRequested(bool uia_provider_enabled) override;
 #endif
-
-  base::ReadOnlySharedMemoryRegion GetPerformanceScenarioRegionForProcess(
-      content::RenderProcessHost* process_host) override;
-  base::ReadOnlySharedMemoryRegion GetGlobalPerformanceScenarioRegion()
-      override;
 
   bool ShouldDispatchPagehideDuringCommit(
       content::BrowserContext* browser_context,

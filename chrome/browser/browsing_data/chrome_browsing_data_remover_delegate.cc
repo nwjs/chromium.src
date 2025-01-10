@@ -42,6 +42,7 @@
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/crash_upload_list/crash_upload_list.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
+#include "chrome/browser/dips/chrome_dips_delegate.h"
 #include "chrome/browser/dips/dips_service_impl.h"
 #include "chrome/browser/dips/dips_utils.h"
 #include "chrome/browser/domain_reliability/service_factory.h"
@@ -113,6 +114,7 @@
 #include "components/history/core/common/pref_names.h"
 #include "components/keyed_service/core/service_access_type.h"
 #include "components/language/core/browser/url_language_histogram.h"
+#include "components/lens/lens_features.h"
 #include "components/media_device_salt/media_device_salt_service.h"
 #include "components/nacl/browser/nacl_browser.h"
 #include "components/nacl/browser/pnacl_host.h"
@@ -150,6 +152,7 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/browsing_data_filter_builder.h"
+#include "content/public/browser/dips_delegate.h"
 #include "content/public/browser/host_zoom_map.h"
 #include "content/public/browser/origin_trials_controller_delegate.h"
 #include "content/public/browser/prefetch_service_delegate.h"
@@ -186,7 +189,7 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/user_annotations/user_annotations_service_factory.h"
-#include "chrome/browser/user_education/browser_feature_promo_storage_service.h"
+#include "chrome/browser/user_education/browser_user_education_storage_service.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
@@ -278,7 +281,8 @@ ChromeBrowsingDataRemoverDelegate::ChromeBrowsingDataRemoverDelegate(
       webapp_registry_(std::make_unique<WebappRegistry>())
 #endif
       ,
-      credential_store_(MakeCredentialStore()) {
+      credential_store_(MakeCredentialStore()),
+      dips_delegate_(ChromeDipsDelegate::Create()) {
   domain_reliability_clearer_ = base::BindRepeating(
       [](BrowserContext* browser_context,
          content::BrowsingDataFilterBuilder* filter_builder,
@@ -542,6 +546,17 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
     if (optimization_guide_keyed_service)
       optimization_guide_keyed_service->ClearData();
 
+#if !BUILDFLAG(IS_ANDROID)
+    // Remove localStorage data from Lens Overlay UI whenever any history is
+    // deleted.
+    if (lens::features::IsLensOverlayTranslateLanguagesFetchEnabled()) {
+      profile_->GetDefaultStoragePartition()->ClearDataForOrigin(
+          content::StoragePartition::REMOVE_DATA_MASK_LOCAL_STORAGE,
+          /*quota_storage_remove_mask=*/0,
+          GURL(chrome::kChromeUILensOverlayUntrustedURL), base::DoNothing());
+    }
+#endif
+
     content::PrefetchServiceDelegate::ClearData(profile_);
 
 #if BUILDFLAG(IS_ANDROID)
@@ -611,7 +626,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
     // Clear any stored User Education session data. Note that we can't clear a
     // specific date range, as this is used for longitudinal metrics reporting,
     // so selectively deleting entries would make the telemetry invalid.
-    BrowserFeaturePromoStorageService::ClearUsageHistory(profile_);
+    BrowserUserEducationStorageService::ClearUsageHistory(profile_);
 #endif
 
     // Cleared for DATA_TYPE_HISTORY, DATA_TYPE_COOKIES and DATA_TYPE_PASSWORDS.
@@ -897,9 +912,14 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
   DIPSEventRemovalType dips_mask = DIPSEventRemovalType::kNone;
   if ((remove_mask & content::BrowsingDataRemover::DATA_TYPE_COOKIES) &&
       !filter_builder->PartitionedCookiesOnly()) {
-    dips_mask |= DIPSEventRemovalType::kStorage;
+    // If there's no delegate, delete everything whenever the user is deleting
+    // cookies.
+    dips_mask |= dips_delegate_ ? DIPSEventRemovalType::kStorage
+                                : DIPSEventRemovalType::kAll;
   }
-  if (remove_mask & constants::DATA_TYPE_HISTORY) {
+  // If there's a delegate, ask it whether to delete DIPS history.
+  if (dips_delegate_ &&
+      dips_delegate_->ShouldDeleteInteractionRecords(remove_mask)) {
     dips_mask |= DIPSEventRemovalType::kHistory;
   }
 

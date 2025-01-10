@@ -154,6 +154,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { policy::key::kTabCompareSettings,
     optimization_guide::prefs::kProductSpecificationsEnterprisePolicyAllowed,
     base::Value::Type::INTEGER},
+  { policy::key::kDownloadRestrictions,
+    policy::policy_prefs::kDownloadRestrictions,
+    base::Value::Type::INTEGER },
 };
 // clang-format on
 
@@ -242,6 +245,13 @@ std::unique_ptr<policy::ConfigurationPolicyHandlerList> BuildPolicyHandlerList(
           enterprise_connectors::kEnterpriseRealTimeUrlCheckMode,
           enterprise_connectors::kEnterpriseRealTimeUrlCheckScope,
           chrome_schema));
+
+  handlers->AddHandler(
+      std::make_unique<
+          enterprise_connectors::EnterpriseConnectorsPolicyHandler>(
+          policy::key::kOnSecurityEventEnterpriseConnector,
+          enterprise_connectors::kOnSecurityEventPref,
+          enterprise_connectors::kOnSecurityEventScopePref, chrome_schema));
 
   return handlers;
 }

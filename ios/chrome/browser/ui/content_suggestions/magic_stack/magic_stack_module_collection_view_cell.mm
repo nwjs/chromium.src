@@ -33,6 +33,9 @@ const float kCornerRadius = 24;
 
 @property(nonatomic, assign) ContentSuggestionsModuleType type;
 
+// Indicates whether the user has chosen to hide this module type.
+@property(nonatomic, assign) BOOL shouldHide;
+
 @end
 
 @implementation MagicStackModuleCollectionViewCell {
@@ -83,6 +86,7 @@ const float kCornerRadius = 24;
     [self removeInteraction:_contextMenuInteraction];
     _contextMenuInteraction = nil;
   }
+  _shouldHide = NO;
   [_moduleContainer resetView];
 }
 
@@ -102,6 +106,18 @@ const float kCornerRadius = 24;
       [UIContextMenuConfiguration configurationWithIdentifier:nil
                                               previewProvider:nil
                                                actionProvider:actionProvider];
+}
+
+- (void)contextMenuInteraction:(UIContextMenuInteraction*)interaction
+       willEndForConfiguration:(UIContextMenuConfiguration*)configuration
+                      animator:(id<UIContextMenuInteractionAnimating>)animator {
+  if (configuration && _shouldHide) {
+    __weak MagicStackModuleCollectionViewCell* weakSelf = self;
+
+    [animator addCompletion:^{
+      [weakSelf.delegate neverShowModuleType:weakSelf.type];
+    }];
+  }
 }
 
 #pragma mark - Helpers
@@ -132,14 +148,17 @@ const float kCornerRadius = 24;
 // Returns the menu action to hide this module type.
 - (UIAction*)hideAction {
   __weak __typeof(self) weakSelf = self;
+
   UIAction* hideAction = [UIAction
       actionWithTitle:[self contextMenuHideDescription]
                 image:DefaultSymbolWithPointSize(kHideActionSymbol, 18)
            identifier:nil
               handler:^(UIAction* action) {
-                [weakSelf.delegate neverShowModuleType:weakSelf.type];
+                weakSelf.shouldHide = YES;
               }];
+
   hideAction.attributes = UIMenuElementAttributesDestructive;
+
   return hideAction;
 }
 
@@ -171,6 +190,7 @@ const float kCornerRadius = 24;
     case ContentSuggestionsModuleType::kCompactedSetUpList:
     case ContentSuggestionsModuleType::kParcelTracking:
     case ContentSuggestionsModuleType::kPriceTrackingPromo:
+    case ContentSuggestionsModuleType::kSendTabPromo:
     case ContentSuggestionsModuleType::kTipsWithProductImage:
     case ContentSuggestionsModuleType::kTips:
       return YES;
@@ -296,6 +316,7 @@ const float kCornerRadius = 24;
     case ContentSuggestionsModuleType::kParcelTracking:
       return l10n_util::GetNSString(IDS_IOS_PARCEL_TRACKING_CONTEXT_MENU_TITLE);
     case ContentSuggestionsModuleType::kPriceTrackingPromo:
+    case ContentSuggestionsModuleType::kSendTabPromo:
       return @"";
     case ContentSuggestionsModuleType::kTipsWithProductImage:
     case ContentSuggestionsModuleType::kTips:
@@ -332,6 +353,11 @@ const float kCornerRadius = 24;
     case ContentSuggestionsModuleType::kPriceTrackingPromo:
       return l10n_util::GetNSString(
           IDS_IOS_CONTENT_SUGGESTIONS_PRICE_TRACKING_PROMO_HIDE_CARD);
+    case ContentSuggestionsModuleType::kSendTabPromo:
+      return l10n_util::GetNSStringF(
+          IDS_IOS_SEND_TAB_TO_SELF_HIDE_CONTEXT_MENU_DESCRIPTION,
+          base::SysNSStringToUTF16(
+              l10n_util::GetNSString(IDS_IOS_SEND_TAB_PROMO_TITLE)));
     case ContentSuggestionsModuleType::kTipsWithProductImage:
     case ContentSuggestionsModuleType::kTips:
       return l10n_util::GetNSStringF(

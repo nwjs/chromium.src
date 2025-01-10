@@ -35,9 +35,7 @@ struct CC_EXPORT ScrollNode {
   // The node index of the parent node in the scroll tree node vector.
   int parent_id = kInvalidPropertyNodeId;
 
-  // This will be renamed to main_thread_repaint_reasons when we clean up
-  // blink killswitch ExcludePopupMainThreadScrollingReason.
-  uint32_t main_thread_scrolling_reasons =
+  uint32_t main_thread_repaint_reasons =
       MainThreadScrollingReason::kNotScrollingOnMain;
 
   // Size of the container area that the contents scrolls in, not including
@@ -64,7 +62,6 @@ struct CC_EXPORT ScrollNode {
   int transform_id = kRootPropertyNodeId;
 
   // The container area origin in the parent transform space of transform_id.
-  // Used for scroll debug rect visualization only.
   gfx::Point container_origin;
 
   OverscrollBehavior overscroll_behavior{OverscrollBehavior::Type::kAuto};

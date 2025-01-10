@@ -298,8 +298,7 @@ void AutofillPopupControllerImpl::Show(
             SuggestionType::kComposeSavedStateNotification) {
       const compose::Config& config = compose::GetComposeConfig();
       fading_popup_timer_.Start(
-          FROM_HERE,
-          base::Milliseconds(config.saved_state_timeout_milliseconds),
+          FROM_HERE, config.saved_state_timeout,
           base::BindOnce(&AutofillSuggestionController::Hide, GetWeakPtr(),
                          SuggestionHidingReason::kFadeTimerExpired));
     }
@@ -421,7 +420,7 @@ void AutofillPopupControllerImpl::AcceptSuggestion(int index) {
   // `DidAcceptSuggestion()` can call `SetSuggestions()` and invalidate the
   // reference.
   Suggestion suggestion = GetSuggestions()[index];
-  if (!suggestion.is_acceptable) {
+  if (!suggestion.IsAcceptable()) {
     return;
   }
   NotifyUserEducationAboutAcceptedSuggestion(web_contents_.get(), suggestion);
@@ -763,7 +762,7 @@ void AutofillPopupControllerImpl::SelectSuggestion(int index) {
   }
 
   const autofill::Suggestion& suggestion = GetSuggestionAt(index);
-  if (!suggestion.is_acceptable) {
+  if (!suggestion.IsAcceptable()) {
     UnselectSuggestion();
     return;
   }

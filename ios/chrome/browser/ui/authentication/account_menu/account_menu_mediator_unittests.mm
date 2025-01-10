@@ -5,12 +5,14 @@
 #import "ios/chrome/browser/ui/authentication/account_menu/account_menu_mediator.h"
 
 #import "base/memory/raw_ptr.h"
+#import "base/test/metrics/user_action_tester.h"
 #import "base/test/task_environment.h"
 #import "components/sync/test/test_sync_service.h"
 #import "ios/chrome/browser/settings/model/sync/utils/account_error_ui_info.h"
 #import "ios/chrome/browser/settings/model/sync/utils/identity_error_util.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
@@ -56,12 +58,11 @@ class AccountMenuMediatorTest : public PlatformTest {
                               base::BindRepeating(&CreateMockSyncService));
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetDefaultFactory());
+        AuthenticationServiceFactory::GetFactoryWithDelegate(
+            std::make_unique<FakeAuthenticationServiceDelegate>()));
     profile_ = std::move(builder).Build();
 
     // Set the manager and services variables.
-    AuthenticationServiceFactory::CreateAndInitializeForProfile(
-        profile_.get(), std::make_unique<FakeAuthenticationServiceDelegate>());
     fake_system_identity_manager_ =
         FakeSystemIdentityManager::FromSystemIdentityManager(
             GetApplicationContext()->GetSystemIdentityManager());
@@ -142,6 +143,7 @@ class AccountMenuMediatorTest : public PlatformTest {
   raw_ptr<AuthenticationService> authentication_service_;
   raw_ptr<FakeSystemIdentityManager> fake_system_identity_manager_;
   raw_ptr<signin::IdentityManager> identity_manager_;
+  base::UserActionTester user_actions_;
 
  private:
   // Signs in kPrimaryIdentity as primary identity.
@@ -170,7 +172,8 @@ TEST_F(AccountMenuMediatorTest, TestAddSecondaryIdentity) {
   const FakeSystemIdentity* thirdIdentity = [FakeSystemIdentity fakeIdentity3];
   OCMExpect([consumer_
       updateAccountListWithGaiaIDsToAdd:@[ thirdIdentity.gaiaID ]
-                        gaiaIDsToRemove:@[]]);
+                        gaiaIDsToRemove:@[]
+                          gaiaIDsToKeep:@[ kSecondaryIdentity.gaiaID ]]);
   fake_system_identity_manager_->AddIdentity(thirdIdentity);
 }
 
@@ -178,15 +181,20 @@ TEST_F(AccountMenuMediatorTest, TestAddSecondaryIdentity) {
 // consumer.
 TEST_F(AccountMenuMediatorTest, TestRemoveSecondaryIdentity) {
   // Expectations due to ChromeAccountManagerServiceObserver updates.
-  OCMExpect([consumer_ updateAccountListWithGaiaIDsToAdd:@[]
-                                         gaiaIDsToRemove:@[]]);
+  OCMExpect([consumer_
+      updateAccountListWithGaiaIDsToAdd:@[]
+                        gaiaIDsToRemove:@[]
+                          gaiaIDsToKeep:@[ kSecondaryIdentity.gaiaID ]]);
   OCMExpect([consumer_ updatePrimaryAccount]);
-  OCMExpect([consumer_ updateAccountListWithGaiaIDsToAdd:@[]
-                                         gaiaIDsToRemove:@[]]);
+  OCMExpect([consumer_
+      updateAccountListWithGaiaIDsToAdd:@[]
+                        gaiaIDsToRemove:@[]
+                          gaiaIDsToKeep:@[ kSecondaryIdentity.gaiaID ]]);
 
   OCMExpect([consumer_
       updateAccountListWithGaiaIDsToAdd:@[]
-                        gaiaIDsToRemove:@[ kSecondaryIdentity.gaiaID ]]);
+                        gaiaIDsToRemove:@[ kSecondaryIdentity.gaiaID ]
+                          gaiaIDsToKeep:@[]]);
   {
     base::RunLoop run_loop;
     base::RepeatingClosure closure = run_loop.QuitClosure();
@@ -205,11 +213,11 @@ TEST_F(AccountMenuMediatorTest, TestRemoveSecondaryIdentity) {
 // consumer.
 TEST_F(AccountMenuMediatorTest, TestRemovePrimaryIdentity) {
   OCMExpect([delegate_ mediatorWantsToBeDismissed:mediator_]);
-  {
-    authentication_service_->SignOut(signin_metrics::ProfileSignout::kTest,
-                                     /*force_clear_browsing_data=*/false, ^() {
-                                     });
-  }
+  OCMExpect([consumer_ setUserInteractionsEnabled:NO]);
+  authentication_service_->SignOut(signin_metrics::ProfileSignout::kTest,
+                                   /*force_clear_browsing_data=*/false,
+                                   ^(){
+                                   });
 }
 
 #pragma mark - AccountMenuDataSource
@@ -290,7 +298,7 @@ TEST_F(AccountMenuMediatorTest, TestError) {
 // Tests the result of accountTappedWithGaiaID:targetRect:
 // when sign-out fail.
 TEST_F(AccountMenuMediatorTest, TestAccountTapedSignoutFailed) {
-  // Given that the method  `triggerSignoutWithTargetRect:completion` create a
+  // Given that the method  `triggerSignoutWithTargetRect:completion` creates a
   // callback in a callback, this tests has three parts.  One part by callback,
   // and one part for the initial part of the run.
 
@@ -302,20 +310,24 @@ TEST_F(AccountMenuMediatorTest, TestAccountTapedSignoutFailed) {
   OCMExpect([delegate_
       signOutFromTargetRect:target
                   forSwitch:YES
-                   callback:[OCMArg checkWithBlock:^BOOL(id value) {
-                     onSignoutSuccess = value;
-                     return true;
-                   }]]);
-  OCMExpect([delegate_ blockOtherScene]);
+                 completion:[OCMArg checkWithBlock:^BOOL(id value) {
+                   onSignoutSuccess = value;
+                   return true;
+                 }]]);
+  OCMExpect([delegate_ blockOtherScenesIfPossible]);
   OCMExpect([consumer_ switchingStarted]);
+  OCMExpect([consumer_ setUserInteractionsEnabled:NO]);
   [mediator_ accountTappedWithGaiaID:kSecondaryIdentity.gaiaID
                           targetRect:target];
   VerifyMock();
 
-  OCMExpect([consumer_ updateAccountListWithGaiaIDsToAdd:@[]
-                                         gaiaIDsToRemove:@[]]);
-  OCMExpect([delegate_ unblockOtherScene]);
+  OCMExpect([consumer_
+      updateAccountListWithGaiaIDsToAdd:@[]
+                        gaiaIDsToRemove:@[]
+                          gaiaIDsToKeep:@[ kSecondaryIdentity.gaiaID ]]);
+  OCMExpect([delegate_ unblockOtherScenes]);
   OCMExpect([consumer_ switchingStopped]);
+  OCMExpect([consumer_ setUserInteractionsEnabled:YES]);
   // Simulate a sign-out failure
   onSignoutSuccess(false);
 }
@@ -335,14 +347,15 @@ TEST_F(AccountMenuMediatorTest, TestAccountTapedSignInFailed) {
   OCMExpect([delegate_
       signOutFromTargetRect:target
                   forSwitch:YES
-                   callback:[OCMArg checkWithBlock:^BOOL(id value) {
-                     onSignoutSuccess = value;
-                     // Actually sign-out, in order to test next step.
-                     SignOut();
-                     return true;
-                   }]]);
-  OCMExpect([delegate_ blockOtherScene]);
+                 completion:[OCMArg checkWithBlock:^BOOL(id value) {
+                   onSignoutSuccess = value;
+                   // Actually sign-out, in order to test next step.
+                   SignOut();
+                   return true;
+                 }]]);
+  OCMExpect([delegate_ blockOtherScenesIfPossible]);
   OCMExpect([consumer_ switchingStarted]);
+  OCMExpect([consumer_ setUserInteractionsEnabled:NO]);
   [mediator_ accountTappedWithGaiaID:kSecondaryIdentity.gaiaID
                           targetRect:target];
   VerifyMock();
@@ -364,11 +377,14 @@ TEST_F(AccountMenuMediatorTest, TestAccountTapedSignInFailed) {
   // Testing the sign-in callback.
   // The delegate should not receive any message. The mediator directly sign the
   // user back in the previous account.
-  OCMExpect([delegate_ unblockOtherScene]);
-  OCMExpect([consumer_ updateAccountListWithGaiaIDsToAdd:@[]
-                                         gaiaIDsToRemove:@[]]);
+  OCMExpect([delegate_ unblockOtherScenes]);
+  OCMExpect([consumer_
+      updateAccountListWithGaiaIDsToAdd:@[]
+                        gaiaIDsToRemove:@[]
+                          gaiaIDsToKeep:@[ kSecondaryIdentity.gaiaID ]]);
   OCMExpect([consumer_ updatePrimaryAccount]);
   OCMExpect([consumer_ switchingStopped]);
+  OCMExpect([consumer_ setUserInteractionsEnabled:YES]);
   onSigninSuccess(SigninCoordinatorResult::SigninCoordinatorResultInterrupted);
 
   // Checks the user is signed-back in.
@@ -391,12 +407,13 @@ TEST_F(AccountMenuMediatorTest, TestAccountTapedWithSuccesfulSwitch) {
   OCMExpect([delegate_
       signOutFromTargetRect:target
                   forSwitch:YES
-                   callback:[OCMArg checkWithBlock:^BOOL(id value) {
-                     onSignoutSuccess = value;
-                     return true;
-                   }]]);
-  OCMExpect([delegate_ blockOtherScene]);
+                 completion:[OCMArg checkWithBlock:^BOOL(id value) {
+                   onSignoutSuccess = value;
+                   return true;
+                 }]]);
+  OCMExpect([delegate_ blockOtherScenesIfPossible]);
   OCMExpect([consumer_ switchingStarted]);
+  OCMExpect([consumer_ setUserInteractionsEnabled:NO]);
   [mediator_ accountTappedWithGaiaID:kSecondaryIdentity.gaiaID
                           targetRect:target];
   VerifyMock();
@@ -422,7 +439,7 @@ TEST_F(AccountMenuMediatorTest, TestAccountTapedWithSuccesfulSwitch) {
   }
   VerifyMock();
 
-  OCMExpect([delegate_ unblockOtherScene]);
+  OCMExpect([delegate_ unblockOtherScenes]);
   OCMExpect(
       [delegate_ triggerAccountSwitchSnackbarWithIdentity:kSecondaryIdentity]);
   OCMExpect([delegate_ mediatorWantsToBeDismissed:mediator_]);
@@ -440,6 +457,8 @@ TEST_F(AccountMenuMediatorTest, TestTapErrorButtonPassphrase) {
   setPassphraseRequired();
   OCMExpect([delegate_ openPassphraseDialogWithModalPresentation:YES]);
   [mediator_ didTapErrorButton];
+  EXPECT_EQ(1, user_actions_.GetActionCount(
+                   "Signin_AccountMenu_ErrorButton_Passphrase"));
 }
 
 // Tests the effect of didTapManageYourGoogleAccount.
@@ -448,59 +467,77 @@ TEST_F(AccountMenuMediatorTest, TestDidTapManageYourGoogleAccount) {
   [mediator_ didTapManageYourGoogleAccount];
 }
 
-// Tests the effect of didTapEditAccountList.
+// Tests the effect of didTapManageAccounts.
 TEST_F(AccountMenuMediatorTest, TestDidTapEditAccountList) {
-  OCMExpect([delegate_ didTapEditAccountList]);
-  [mediator_ didTapEditAccountList];
+  OCMExpect([delegate_ didTapManageAccounts]);
+  [mediator_ didTapManageAccounts];
 }
 
 // Tests the effect of didTapAddAccount.
 TEST_F(AccountMenuMediatorTest, TestDidTapAddAccount) {
-  OCMExpect([delegate_ didTapAddAccount:[OCMArg any]]);
+  __block ShowSigninCommandCompletionCallback completion = nil;
+  OCMExpect([delegate_
+      didTapAddAccountWithCompletion:[OCMArg checkWithBlock:^BOOL(id value) {
+        completion = value;
+        return true;
+      }]]);
+  OCMExpect([consumer_ setUserInteractionsEnabled:NO]);
   [mediator_ didTapAddAccount];
+  OCMExpect([consumer_ switchingStopped]);
+  OCMExpect([consumer_
+      updateAccountListWithGaiaIDsToAdd:@[]
+                        gaiaIDsToRemove:@[]
+                          gaiaIDsToKeep:@[ kSecondaryIdentity.gaiaID ]]);
+  OCMExpect([consumer_ setUserInteractionsEnabled:YES]);
+  completion(SigninCoordinatorResult::SigninCoordinatorResultInterrupted, nil);
 }
 
 // Tests the effect of signOutFromTargetRect.
 TEST_F(AccountMenuMediatorTest, TestSignoutFromTargetRect) {
   CGRect rect = CGRectMake(0, 0, 40, 24);
 
-  __block void (^callback)(BOOL) = nil;
+  __block void (^completion)(BOOL) = nil;
   OCMExpect([delegate_
       signOutFromTargetRect:rect
                   forSwitch:NO
-                   callback:[OCMArg checkWithBlock:^BOOL(id value) {
-                     callback = value;
-                     return true;
-                   }]]);
-  OCMExpect([delegate_ blockOtherScene]);
+                 completion:[OCMArg checkWithBlock:^BOOL(id value) {
+                   completion = value;
+                   return true;
+                 }]]);
+  OCMExpect([delegate_ blockOtherScenesIfPossible]).andReturn(YES);
+  OCMExpect([consumer_ setUserInteractionsEnabled:NO]);
   [mediator_ signOutFromTargetRect:rect];
-  OCMExpect([delegate_ unblockOtherScene]);
+  OCMExpect([delegate_ unblockOtherScenes]);
   OCMExpect([delegate_ mediatorWantsToBeDismissed:mediator_]);
-  callback(YES);
+  completion(YES);
 }
 
 // Tests tapping on the close button just after the sign-out button.
 // This is a regression test for crbug.com/371046656.
 TEST_F(AccountMenuMediatorTest, TestSignoutAndClose) {
   CGRect rect = CGRectMake(0, 0, 40, 24);
-  __block void (^callback)(BOOL) = nil;
+  __block void (^completion)(BOOL) = nil;
   OCMExpect([delegate_
       signOutFromTargetRect:rect
                   forSwitch:NO
-                   callback:[OCMArg checkWithBlock:^BOOL(id value) {
-                     callback = value;
-                     return true;
-                   }]]);
-  OCMExpect([delegate_ blockOtherScene]);
+                 completion:[OCMArg checkWithBlock:^BOOL(id value) {
+                   completion = value;
+                   return true;
+                 }]]);
+  OCMExpect([delegate_ blockOtherScenesIfPossible]).andReturn(YES);
+  OCMExpect([consumer_ setUserInteractionsEnabled:NO]);
   [mediator_ signOutFromTargetRect:rect];
   [mediator_ disconnect];
-  OCMExpect([delegate_ unblockOtherScene]);
-  callback(NO);
+  OCMExpect([delegate_ unblockOtherScenes]);
+  OCMExpect([consumer_ setUserInteractionsEnabled:YES]);
+  completion(NO);
 }
+
 // Tests tapping on the close button just after the sign-out button.
 // This is a regression test for crbug.com/371046656.
 TEST_F(AccountMenuMediatorTest, TestViewControllerWantToBeClosed) {
   OCMExpect([delegate_ mediatorWantsToBeDismissed:mediator_]);
+  OCMExpect([consumer_ setUserInteractionsEnabled:NO]);
   [mediator_
       viewControllerWantsToBeClosed:(AccountMenuViewController*)consumer_];
 }

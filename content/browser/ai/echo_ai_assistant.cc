@@ -10,6 +10,7 @@
 #include "base/location.h"
 #include "base/time/time.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
+#include "content/browser/ai/echo_ai_manager_impl.h"
 #include "content/public/browser/browser_thread.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
@@ -30,14 +31,22 @@ void EchoAIAssistant::DoMockExecution(const std::string& input,
     return;
   }
 
-  const std::string response = "Model not available in Chromium\n" + input;
+  const std::string response =
+      "On-device model is not available in Chromium, this API is just echoing "
+      "back the input:\n" +
+      input;
   // To make EchoAIAssistant simple, we will use the string length as the size
-  // in tokens.
+  // in tokens, and the `current_tokens_` will only keep track of the response
+  // size. Once overflow, it will be cleared.
   current_tokens_ += response.size();
-  responder->OnResponse(blink::mojom::ModelStreamingResponseStatus::kOngoing,
-                        response, /*current_tokens=*/std::nullopt);
-  responder->OnResponse(blink::mojom::ModelStreamingResponseStatus::kComplete,
-                        /*text=*/std::nullopt, current_tokens_);
+  bool did_overflow = false;
+  if (current_tokens_ > EchoAIManagerImpl::kMaxContextSizeInTokens) {
+    current_tokens_ = 0;
+    did_overflow = true;
+  }
+  responder->OnStreaming(response);
+  responder->OnCompletion(blink::mojom::ModelExecutionContextInfo::New(
+      current_tokens_, did_overflow));
 }
 
 void EchoAIAssistant::Prompt(
@@ -47,9 +56,8 @@ void EchoAIAssistant::Prompt(
   if (is_destroyed_) {
     mojo::Remote<blink::mojom::ModelStreamingResponder> responder(
         std::move(pending_responder));
-    responder->OnResponse(
-        blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed,
-        /*text=*/std::nullopt, /*current_tokens=*/std::nullopt);
+    responder->OnError(
+        blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed);
     return;
   }
 
@@ -74,7 +82,7 @@ void EchoAIAssistant::Fork(
   client_remote->OnResult(
       std::move(assistant),
       blink::mojom::AIAssistantInfo::New(
-          optimization_guide::features::GetOnDeviceModelMaxTokensForContext(),
+          EchoAIManagerImpl::kMaxContextSizeInTokens,
           blink::mojom::AIAssistantSamplingParams::New(
               optimization_guide::features::GetOnDeviceModelDefaultTopK(),
               optimization_guide::features::
@@ -85,9 +93,8 @@ void EchoAIAssistant::Destroy() {
   is_destroyed_ = true;
 
   for (auto& responder : responder_set_) {
-    responder->OnResponse(
-        blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed,
-        /*text=*/std::nullopt, /*current_tokens=*/std::nullopt);
+    responder->OnError(
+        blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed);
   }
   responder_set_.Clear();
 }

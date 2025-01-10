@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.pdf;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.net.Uri;
 import android.os.SystemClock;
@@ -18,10 +19,17 @@ import androidx.fragment.app.FragmentTransaction;
 import androidx.pdf.viewer.fragment.PdfViewerFragment;
 
 import org.chromium.base.Log;
+import org.chromium.chrome.browser.pdf.PdfUtils.PdfLoadResult;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 
-/** The class responsible for setting up PdfPage. */
+/**
+ * The class responsible for setting up PdfPage.
+ *
+ * <p>Lint suppression for NewApi is added because we are using PdfViewerFragment and inline pdf
+ * support is enabled via PdfUtils#shouldOpenPdfInline.
+ */
+@SuppressLint("NewApi")
 public class PdfCoordinator {
     private static final String TAG = "PdfCoordinator";
     private static boolean sSkipLoadPdfForTesting;
@@ -87,27 +95,43 @@ public class PdfCoordinator {
         /** Whether the pdf has been loaded successfully. */
         boolean mIsLoadDocumentSuccess;
 
+        /** Whether the pdf has emitted any load error. */
+        boolean mIsLoadDocumentError;
+
         /** The timestamp when the pdf document starts to load. */
         long mDocumentLoadStartTimestamp;
 
         @Override
         public void onLoadDocumentSuccess() {
-            mIsLoadDocumentSuccess = true;
             long duration = SystemClock.elapsedRealtime() - mDocumentLoadStartTimestamp;
-            if (mDocumentLoadStartTimestamp > 0) {
-                PdfUtils.recordPdfLoadTimePaired(duration);
-                PdfUtils.recordPdfLoadResultPaired(true);
-            }
             PdfUtils.recordPdfLoadTime(duration);
             PdfUtils.recordPdfLoadResult(true);
+            if (mDocumentLoadStartTimestamp <= 0) {
+                return;
+            }
+            PdfUtils.recordPdfLoadTimePaired(duration);
+            PdfUtils.recordPdfLoadResultPaired(true);
+            // There should be only one success callback for each pdf. Add this confidence check to
+            // be consistent with the error callback.
+            if (!mIsLoadDocumentSuccess) {
+                PdfUtils.recordPdfLoadTimeFirstPaired(duration);
+                PdfUtils.recordPdfLoadResultDetail(PdfLoadResult.SUCCESS);
+            }
+            mIsLoadDocumentSuccess = true;
         }
 
         @Override
         public void onLoadDocumentError(@NonNull Throwable throwable) {
-            if (mDocumentLoadStartTimestamp > 0) {
-                PdfUtils.recordPdfLoadResultPaired(false);
-            }
             PdfUtils.recordPdfLoadResult(false);
+            if (mDocumentLoadStartTimestamp <= 0) {
+                return;
+            }
+            PdfUtils.recordPdfLoadResultPaired(false);
+            // Only record the first error emitted.
+            if (!mIsLoadDocumentError) {
+                PdfUtils.recordPdfLoadResultDetail(PdfLoadResult.ERROR);
+            }
+            mIsLoadDocumentError = true;
         }
     }
 
@@ -138,6 +162,12 @@ public class PdfCoordinator {
             PdfUtils.recordHasFilepathWithoutFragmentOnDestroy(mPdfFilePath != null);
             Log.w(TAG, "Fragment is null when pdf page is destroyed.");
             return;
+        }
+        // Record abort when there is paired pdf load but no load success or error.
+        if (mChromePdfViewerFragment.mDocumentLoadStartTimestamp > 0
+                && !mChromePdfViewerFragment.mIsLoadDocumentSuccess
+                && !mChromePdfViewerFragment.mIsLoadDocumentError) {
+            PdfUtils.recordPdfLoadResultDetail(PdfLoadResult.ABORT);
         }
         if (!mFragmentManager.isDestroyed()) {
             mFragmentManager

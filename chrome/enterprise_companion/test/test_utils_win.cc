@@ -15,6 +15,7 @@
 #include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
+#include "base/path_service.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/win/registry.h"
@@ -32,6 +33,7 @@ namespace enterprise_companion {
 
 namespace {
 
+constexpr char kTestExe[] = "enterprise_companion_test.exe";
 constexpr wchar_t kRegKeyCompanyCloudManagement[] =
     L"Software\\Policies\\" COMPANY_SHORTNAME_STRING "\\CloudManagement\\";
 
@@ -40,6 +42,10 @@ class TestMethodsWin : public TestMethods {
   TestMethodsWin() = default;
   ~TestMethodsWin() override = default;
 
+  base::FilePath GetTestExePath() override {
+    return base::PathService::CheckedGet(base::DIR_EXE).AppendASCII(kTestExe);
+  }
+
   void ExpectInstalled() override {
     TestMethods::ExpectInstalled();
     ExpectUpdaterRegistration();
@@ -47,16 +53,6 @@ class TestMethodsWin : public TestMethods {
 
   void Clean() override {
     TestMethods::Clean();
-
-    std::optional<base::FilePath> alt_install_dir =
-        GetInstallDirectoryForAlternateArch();
-    if (alt_install_dir) {
-      EXPECT_TRUE(WaitFor(
-          [&] { return base::DeletePathRecursively(*alt_install_dir); },
-          [&] {
-            VLOG(1) << "Waiting to delete " << *alt_install_dir << "...";
-          }));
-    }
 
     EXPECT_EQ(base::win::RegKey(HKEY_LOCAL_MACHINE, kAppRegKey,
                                 KEY_ALL_ACCESS | KEY_WOW64_32KEY)
@@ -69,6 +65,14 @@ class TestMethodsWin : public TestMethods {
     EXPECT_EQ(base::win::RegKey(HKEY_LOCAL_MACHINE, UPDATER_POLICIES_KEY,
                                 KEY_ALL_ACCESS)
                   .DeleteKey(L""),
+              ERROR_SUCCESS);
+  }
+
+  void ExpectClean() override {
+    TestMethods::ExpectClean();
+    base::win::RegKey app_key;
+    EXPECT_NE(app_key.Open(HKEY_LOCAL_MACHINE, kAppRegKey,
+                           KEY_QUERY_VALUE | KEY_WOW64_32KEY),
               ERROR_SUCCESS);
   }
 };

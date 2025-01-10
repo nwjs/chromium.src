@@ -4441,27 +4441,23 @@ TEST_P(PasswordManagerTest, FillSingleUsernameForgotPassword) {
 TEST_P(PasswordManagerTest,
        MarkServerPredictedClearTextPasswordFieldEligibleForGeneration) {
   PasswordFormManager::set_wait_for_server_predictions_for_filling(true);
-  EXPECT_CALL(client_, IsSavingAndFillingEnabled(_))
-      .WillRepeatedly(Return(true));
+  EXPECT_CALL(client_, IsSavingAndFillingEnabled).WillRepeatedly(Return(true));
   PasswordForm saved_match(MakeSavedForm());
   store_->AddLogin(saved_match);
 
-  // Create FormdData for a form with 1 text field.
+  // Create FormData for a form with 1 text field.
   FormData form_data;
-  constexpr FormRendererId form_id(1001);
-  form_data.set_renderer_id(form_id);
+  form_data.set_renderer_id(FormRendererId(1001));
   form_data.set_url(GURL("http://example.com"));
 
   FormFieldData username_field;
   username_field.set_form_control_type(autofill::FormControlType::kInputText);
-  constexpr FieldRendererId username_field_id(10);
-  username_field.set_renderer_id(username_field_id);
+  username_field.set_renderer_id(FieldRendererId(10));
   test_api(form_data).Append(username_field);
 
   FormFieldData password_field;
   password_field.set_form_control_type(autofill::FormControlType::kInputText);
-  constexpr FieldRendererId password_field_id(11);
-  password_field.set_renderer_id(password_field_id);
+  password_field.set_renderer_id(FieldRendererId(11));
   test_api(form_data).Append(password_field);
 
   // No automatic generation should be offered on the text field.
@@ -4477,6 +4473,40 @@ TEST_P(PasswordManagerTest,
       &driver_, form_data,
       CreateServerPredictions(form_data,
                               {{1, FieldType::ACCOUNT_CREATION_PASSWORD}}));
+  task_environment_.RunUntilIdle();
+
+  EXPECT_TRUE(password_generation_frame_helper.IsManualGenerationEnabledField(
+      password_field.renderer_id()));
+}
+
+// Checks that manual generation is available for a text field with password in
+// name attribute.
+TEST_P(PasswordManagerTest,
+       MarkTextFieldWithPasswordInNameAsManualGenerationEnabledField) {
+  PasswordFormManager::set_wait_for_server_predictions_for_filling(false);
+  EXPECT_CALL(client_, IsSavingAndFillingEnabled).WillRepeatedly(Return(true));
+
+  // Create FormData for a form with 1 text field.
+  FormFieldData password_field;
+  password_field.set_form_control_type(autofill::FormControlType::kInputText);
+  password_field.set_renderer_id(FieldRendererId(11));
+  password_field.set_name_attribute(u"password");
+  FormData form_data;
+  form_data.set_renderer_id(FormRendererId(1001));
+  form_data.set_url(GURL("http://example.com"));
+  test_api(form_data).Append(password_field);
+
+  // No automatic generation should be offered on the text field.
+  EXPECT_CALL(driver_, FormEligibleForGenerationFound).Times(0);
+
+  PasswordGenerationFrameHelper password_generation_frame_helper =
+      PasswordGenerationFrameHelper(&client_, &driver_);
+  EXPECT_CALL(driver_, GetPasswordGenerationHelper)
+      .WillRepeatedly(Return(&password_generation_frame_helper));
+  EXPECT_CALL(driver_, GetLastCommittedURL)
+      .WillRepeatedly(ReturnRef(form_data.url()));
+  manager()->OnPasswordFormsParsed(&driver_, {form_data});
+  // Wait for PasswordStore to return no credentials.
   task_environment_.RunUntilIdle();
 
   EXPECT_TRUE(password_generation_frame_helper.IsManualGenerationEnabledField(
@@ -5334,6 +5364,58 @@ TEST_P(PasswordManagerTest,
   EXPECT_CALL(client_, PromptUserToSaveOrUpdatePassword).Times(0);
   manager()->OnPasswordFormCleared(&driver_, form_data);
 }
+
+#if !BUILDFLAG(IS_IOS)
+// Expect no automatic save prompt when user fills grouped match credentials.
+TEST_P(PasswordManagerTest, NoAutomaticPromptOnGroupedMatchSave) {
+  base::test::ScopedFeatureList feature_list{
+      password_manager::features::kPasswordFormGroupedAffiliations};
+
+  PasswordForm saved_match(MakeSavedForm());
+  saved_match.signon_realm = "https://affiliated.example.com/";
+  saved_match.url = GURL(saved_match.signon_realm);
+  store_->AddLogin(saved_match);
+  EXPECT_CALL(client_, IsSavingAndFillingEnabled).WillRepeatedly(Return(true));
+
+  PasswordForm password_form(MakeSimpleForm());
+  test_api(password_form.form_data)
+      .field(0)
+      .set_value(saved_match.username_value);
+  test_api(password_form.form_data)
+      .field(1)
+      .set_value(saved_match.password_value);
+
+  // `saved_match` credential will be considered as a grouped match.
+  mock_match_helper_->ExpectCallToGetAffiliatedAndGrouped(
+      PasswordFormDigest(password_form),
+      /*affiliated_realms=*/{password_form.signon_realm},
+      /*grouped_realms=*/{saved_match.signon_realm, password_form.signon_realm},
+      /*repeatedly=*/true);
+
+  manager()->OnPasswordFormsParsed(&driver_, {password_form.form_data});
+  manager()->OnPasswordFormsRendered(&driver_, {password_form.form_data});
+  // Load the credentials from `PasswordStore`.
+  task_environment_.RunUntilIdle();
+
+  // After user input `password_form` becomes available for submission from
+  // `PasswordManager` perspective.
+  manager()->OnInformAboutUserInput(&driver_, password_form.form_data);
+
+  EXPECT_CALL(client_, PromptUserToSaveOrUpdatePassword).Times(0);
+
+  // Form is submitted and credentials are added to `PasswordStore`.
+  manager()->OnPasswordFormsRendered(&driver_, {});
+  // Wait for `PasswordStore` to get updated.
+  task_environment_.RunUntilIdle();
+
+  EXPECT_THAT(
+      store_->stored_passwords(),
+      UnorderedElementsAre(
+          Pair(saved_match.signon_realm, ElementsAre(FormMatches(saved_match))),
+          Pair(password_form.signon_realm,
+               ElementsAre(FormMatches(password_form)))));
+}
+#endif  // !BUILDFLAG(IS_IOS)
 
 // Similar test as above with fields that have empty names.
 TEST_P(PasswordManagerTest, SubmissionDetectedOnClearedNamelessForm) {

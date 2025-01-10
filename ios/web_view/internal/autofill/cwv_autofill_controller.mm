@@ -337,6 +337,11 @@ using UserDecision = autofill::AutofillClient::AddressPromptUserDecision;
   return [_autofillAgent isLastQueriedField:fieldId];
 }
 
+- (void)showPlusAddressEmailOverrideNotification:
+    (base::OnceClosure)emailOverrideUndoCallback {
+  NOTIMPLEMENTED();
+}
+
 - (void)
     confirmSaveCreditCardToCloud:(const autofill::CreditCard&)creditCard
                legalMessageLines:(autofill::LegalMessageLines)legalMessageLines
@@ -479,9 +484,19 @@ using UserDecision = autofill::AutofillClient::AddressPromptUserDecision;
   // Not supported.
 }
 
-- (void)scanFormsInWebState:(web::WebState*)webState
-                    inFrame:(web::WebFrame*)webFrame {
-  [_autofillAgent scanFormsInWebState:webState inFrame:webFrame];
+- (void)notifyFormsSeen:(const std::vector<autofill::FormData>&)updatedForms
+                inFrame:(web::WebFrame*)frame {
+  [_autofillAgent notifyFormsSeen:updatedForms inFrame:frame];
+}
+
+- (void)fetchFormsFiltered:(BOOL)filtered
+                  withName:(const std::u16string&)formName
+                   inFrame:(web::WebFrame*)frame
+         completionHandler:(FormFetchCompletion)completionHandler {
+  [_autofillAgent fetchFormsFiltered:filtered
+                            withName:formName
+                             inFrame:frame
+                   completionHandler:std::move(completionHandler)];
 }
 
 #pragma mark - CRWWebStateObserver
@@ -710,6 +725,7 @@ using UserDecision = autofill::AutofillClient::AddressPromptUserDecision;
 - (void)sharedPasswordController:(SharedPasswordController*)controller
     showGeneratedPotentialPassword:(NSString*)generatedPotentialPassword
                          proactive:(BOOL)proactive
+                             frame:(base::WeakPtr<web::WebFrame>)frame
                    decisionHandler:(void (^)(BOOL accept))decisionHandler {
   if ([self.delegate
           respondsToSelector:@selector(autofillController:

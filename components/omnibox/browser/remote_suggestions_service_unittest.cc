@@ -49,18 +49,17 @@ class TestObserver : public RemoteSuggestionsService::Observer {
   std::string response_body() { return response_body_; }
 
   // RemoteSuggestionsService::Observer:
-  void OnSuggestRequestCreated(
-      const base::UnguessableToken& request_id,
-      const network::ResourceRequest* request) override {
+  void OnRequestCreated(const base::UnguessableToken& request_id,
+                        const network::ResourceRequest* request) override {
     request_id_ = request_id;
     url_ = request->url;
   }
-  void OnSuggestRequestStarted(const base::UnguessableToken& request_id,
-                               network::SimpleURLLoader* loader,
-                               const std::string& request_body) override {
+  void OnRequestStarted(const base::UnguessableToken& request_id,
+                        network::SimpleURLLoader* loader,
+                        const std::string& request_body) override {
     ASSERT_EQ(request_id_, request_id);
   }
-  void OnSuggestRequestCompleted(
+  void OnRequestCompleted(
       const base::UnguessableToken& request_id,
       const int response_code,
       const std::unique_ptr<std::string>& response_body) override {
@@ -89,7 +88,7 @@ class MockDelegate : public NiceMock<RemoteSuggestionsService::Delegate> {
   // RemoteSuggestionsService::Delegate:
   MOCK_METHOD(
       void,
-      OnSuggestRequestCompleted,
+      OnRequestCompleted,
       (const network::SimpleURLLoader* source,
        const int response_code,
        std::unique_ptr<std::string> response_body,
@@ -107,9 +106,9 @@ class RemoteSuggestionsServiceTest : public testing::Test {
     return test_url_loader_factory_.GetSafeWeakWrapper();
   }
 
-  void OnRequestComplete(const network::SimpleURLLoader* source,
-                         const int response_code,
-                         std::unique_ptr<std::string> response_body) {
+  void OnRequestCompleted(const network::SimpleURLLoader* source,
+                          const int response_code,
+                          std::unique_ptr<std::string> response_body) {
     response_body_ = *response_body;
   }
 
@@ -250,7 +249,7 @@ TEST_F(RemoteSuggestionsServiceTest, Observer) {
       template_url_service().GetDefaultSearchProvider(),
       TemplateURLRef::SearchTermsArgs(),
       template_url_service().search_terms_data(),
-      base::BindOnce(&RemoteSuggestionsServiceTest::OnRequestComplete,
+      base::BindOnce(&RemoteSuggestionsServiceTest::OnRequestCompleted,
                      base::Unretained(this)));
 
   base::RunLoop().RunUntilIdle();
@@ -294,17 +293,17 @@ TEST_F(RemoteSuggestionsServiceTest, Delegate) {
 
   // Set up a delegate that will be replaced.
   MockDelegate delegate1(&service);
-  EXPECT_CALL(delegate1, OnSuggestRequestCompleted(_, _, _, _)).Times(0);
+  EXPECT_CALL(delegate1, OnRequestCompleted(_, _, _, _)).Times(0);
 
   // Set up a delegate that will be deallocated.
   {
     MockDelegate delegate2(&service);
-    EXPECT_CALL(delegate2, OnSuggestRequestCompleted(_, _, _, _)).Times(0);
+    EXPECT_CALL(delegate2, OnRequestCompleted(_, _, _, _)).Times(0);
   }
 
   // Set up a delegate that will call the completion callback asynchronously.
   MockDelegate delegate3(&service);
-  EXPECT_CALL(delegate3, OnSuggestRequestCompleted(_, _, _, _))
+  EXPECT_CALL(delegate3, OnRequestCompleted(_, _, _, _))
       .WillOnce(Invoke(
           [](const network::SimpleURLLoader* source, const int response_code,
              std::unique_ptr<std::string> response_body,
@@ -320,7 +319,7 @@ TEST_F(RemoteSuggestionsServiceTest, Delegate) {
       template_url_service().GetDefaultSearchProvider(),
       TemplateURLRef::SearchTermsArgs(),
       template_url_service().search_terms_data(),
-      base::BindOnce(&RemoteSuggestionsServiceTest::OnRequestComplete,
+      base::BindOnce(&RemoteSuggestionsServiceTest::OnRequestCompleted,
                      base::Unretained(this)));
 
   base::RunLoop().RunUntilIdle();
@@ -405,7 +404,8 @@ TEST_F(RemoteSuggestionsServiceTest,
   // No additional query params is appended for empty Lens suggest inputs.
   // iil is not expected to be sent for contextual searchbox requests.
   ASSERT_EQ(endpoint_url.spec(),
-            "https://www.google.com/suggest?q=query&client=chrome-contextual");
+            "https://www.google.com/"
+            "suggest?q=query&client=chrome-contextual&gs_ps=1");
 
   search_terms_args.lens_overlay_suggest_inputs->set_encoded_request_id(
       "vsrid");
@@ -417,7 +417,8 @@ TEST_F(RemoteSuggestionsServiceTest,
   // No additional query params are appended for empty Lens suggest inputs
   // because send_gsession_vsrid_for_contextual_suggest is false.
   ASSERT_EQ(endpoint_url.spec(),
-            "https://www.google.com/suggest?q=query&client=chrome-contextual");
+            "https://www.google.com/"
+            "suggest?q=query&client=chrome-contextual&gs_ps=1");
 
   search_terms_args.lens_overlay_suggest_inputs
       ->set_send_gsession_vsrid_for_contextual_suggest(true);
@@ -427,8 +428,19 @@ TEST_F(RemoteSuggestionsServiceTest,
   // Appended gsessionid and vsrids.
   ASSERT_EQ(endpoint_url.spec(),
             "https://www.google.com/"
-            "suggest?q=query&client=chrome-contextual&vsrid=vsrid&gsessionid="
-            "gsessionid");
+            "suggest?q=query&client=chrome-contextual&gs_ps=1&vsrid=vsrid&"
+            "gsessionid=gsessionid");
+
+  search_terms_args.lens_overlay_suggest_inputs
+      ->set_contextual_visual_input_type("vit");
+  endpoint_url = RemoteSuggestionsService::EndpointUrl(
+      &google_template_url, search_terms_args, SearchTermsData());
+
+  // Appended vit.
+  ASSERT_EQ(endpoint_url.spec(),
+            "https://www.google.com/"
+            "suggest?q=query&client=chrome-contextual&vit=vit&gs_ps=1&vsrid="
+            "vsrid&gsessionid=gsessionid");
 }
 
 TEST_F(RemoteSuggestionsServiceTest,
@@ -523,6 +535,8 @@ TEST_F(RemoteSuggestionsServiceTest,
   search_terms_args.lens_overlay_suggest_inputs
       ->set_encoded_visual_search_interaction_log_data("vsint");
   search_terms_args.lens_overlay_suggest_inputs
+      ->set_contextual_visual_input_type("vit");
+  search_terms_args.lens_overlay_suggest_inputs
       ->set_send_gsession_vsrid_for_contextual_suggest(true);
   search_terms_args.lens_overlay_suggest_inputs
       ->set_send_vsint_for_lens_suggest(true);
@@ -552,6 +566,7 @@ TEST_F(RemoteSuggestionsServiceTest,
   lens_overlay_suggest_inputs.set_search_session_id("gsessionid");
   lens_overlay_suggest_inputs.set_encoded_visual_search_interaction_log_data(
       "vsint");
+  lens_overlay_suggest_inputs.set_contextual_visual_input_type("vit");
   lens_overlay_suggest_inputs.set_send_gsession_vsrid_for_contextual_suggest(
       true);
   lens_overlay_suggest_inputs.set_send_vsint_for_lens_suggest(true);

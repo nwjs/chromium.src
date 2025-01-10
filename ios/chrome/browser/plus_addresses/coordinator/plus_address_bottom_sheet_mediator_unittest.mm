@@ -41,13 +41,13 @@ class PlusAddressBottomSheetMediatorTest : public PlatformTest {
  protected:
   PlusAddressBottomSheetMediatorTest()
       : consumer_(OCMProtocolMock(@protocol(PlusAddressBottomSheetConsumer))),
-        browser_state_(TestChromeBrowserState::Builder().Build()),
-        browser_(browser_state_.get()) {
+        profile_(TestProfileIOS::Builder().Build()),
+        browser_(profile_.get()) {
     UrlLoadingNotifierBrowserAgent::CreateForBrowser(&browser_);
     FakeUrlLoadingBrowserAgent::InjectForBrowser(&browser_);
     url_loader_ = FakeUrlLoadingBrowserAgent::FromUrlLoadingBrowserAgent(
         UrlLoadingBrowserAgent::FromBrowser(&browser_));
-    BOOL incognito = browser_state_.get()->IsOffTheRecord();
+    BOOL incognito = profile_.get()->IsOffTheRecord();
     mediator_ = [[PlusAddressBottomSheetMediator alloc]
         initWithPlusAddressService:&service()
          plusAddressSettingService:&plus_address_setting_service_
@@ -69,7 +69,7 @@ class PlusAddressBottomSheetMediatorTest : public PlatformTest {
 
  private:
   base::test::TaskEnvironment task_environment_;
-  std::unique_ptr<TestChromeBrowserState> browser_state_;
+  std::unique_ptr<TestProfileIOS> profile_;
   TestBrowser browser_;
   FakePlusAddressService service_;
   MockPlusAddressSettingService plus_address_setting_service_;
@@ -156,16 +156,6 @@ TEST_F(PlusAddressBottomSheetMediatorTest, OpenManagementUrlOnNewTab) {
   [mediator() openNewTab:PlusAddressURLType::kManagement];
 
   EXPECT_EQ(GURL(plus_addresses::features::kPlusAddressManagementUrl.Get()),
-            url_loader()->last_params.web_params.url);
-  // Ensure one new tab is opened.
-  EXPECT_EQ(1, url_loader()->load_new_tab_call_count);
-}
-
-// Ensure that `openNewTab` opens errorReportUrl.
-TEST_F(PlusAddressBottomSheetMediatorTest, OpenErrorReportUrlOnNewTab) {
-  [mediator() openNewTab:PlusAddressURLType::kErrorReport];
-
-  EXPECT_EQ(GURL(plus_addresses::features::kPlusAddressErrorReportUrl.Get()),
             url_loader()->last_params.web_params.url);
   // Ensure one new tab is opened.
   EXPECT_EQ(1, url_loader()->load_new_tab_call_count);

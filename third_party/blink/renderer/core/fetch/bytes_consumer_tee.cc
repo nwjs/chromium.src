@@ -76,8 +76,7 @@ class TeeHelper final : public GarbageCollected<TeeHelper>,
           has_enqueued = true;
           break;
         case Result::kShouldWait:
-          NOTREACHED_IN_MIGRATION();
-          return;
+          NOTREACHED();
         case Result::kDone:
           if (chunk) {
             destination1_->Enqueue(chunk);
@@ -137,6 +136,11 @@ class TeeHelper final : public GarbageCollected<TeeHelper>,
     const char* data() const { return buffer_.data(); }
     wtf_size_t size() const { return buffer_.size(); }
 
+    // Iterators, so this type meets the requirements of
+    // `std::ranges::contiguous_range`.
+    auto begin() const { return buffer_.begin(); }
+    auto end() const { return buffer_.end(); }
+
     void Trace(Visitor* visitor) const {}
 
    private:
@@ -172,8 +176,7 @@ class TeeHelper final : public GarbageCollected<TeeHelper>,
           ClearClient();
           return Result::kError;
       }
-      NOTREACHED_IN_MIGRATION();
-      return Result::kError;
+      NOTREACHED();
     }
 
     Result EndRead(size_t read) override {

@@ -64,8 +64,8 @@
 #include "chrome/browser/profiles/profile_selections.h"
 #include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/signin/account_reconcilor_factory.h"
+#include "chrome/browser/signin/accounts_policy_manager_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/signin/primary_account_policy_manager_factory.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/supervised_user/child_accounts/child_account_service_factory.h"
 #include "chrome/browser/supervised_user/child_accounts/list_family_members_service_factory.h"
@@ -129,6 +129,7 @@
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/accessibility/live_caption/live_caption_controller_factory.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
+#include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/nuke_profile_directory_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -900,8 +901,7 @@ Profile* ProfileManager::GetProfileFromProfileKey(ProfileKey* profile_key) {
       return otr;
   }
 
-  NOTREACHED_IN_MIGRATION() << "An invalid profile key is passed.";
-  return nullptr;
+  NOTREACHED() << "An invalid profile key is passed.";
 }
 
 std::map<ProfileKeepAliveOrigin, int> ProfileManager::GetKeepAlivesByPath(
@@ -1369,9 +1369,9 @@ void ProfileManager::UnloadProfileIfNoKeepAlive(const ProfileInfo* info) {
     return;
 
   if (!info->GetCreatedProfile()) {
-    NOTREACHED_IN_MIGRATION() << "Attempted to unload profile "
-                              << info->GetRawProfile()->GetDebugName()
-                              << " before it was loaded. This is not valid.";
+    NOTREACHED() << "Attempted to unload profile "
+                 << info->GetRawProfile()->GetDebugName()
+                 << " before it was loaded. This is not valid.";
   }
 
   VLOG(1) << "Unloading profile " << info->GetCreatedProfile()->GetDebugName();
@@ -1398,9 +1398,9 @@ void ProfileManager::DoFinalInit(ProfileInfo* profile_info,
   for (auto& observer : observers_)
     observer.OnProfileAdded(profile);
 
-  if (PrimaryAccountPolicyManager* primary_account_policy_manager =
-          PrimaryAccountPolicyManagerFactory::GetForProfile(profile)) {
-    primary_account_policy_manager->Initialize();
+  if (AccountsPolicyManager* accounts_policy_manager =
+          AccountsPolicyManagerFactory::GetForProfile(profile)) {
+    accounts_policy_manager->Initialize();
   }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -1439,7 +1439,6 @@ void ProfileManager::DoFinalInitForServices(Profile* profile,
   if ((!base::CommandLine::ForCurrentProcess()->HasSwitch(
            switches::kDisableLoginScreenApps) &&
        ash::ProfileHelper::IsSigninProfile(profile)) ||
-      ash::ProfileHelper::IsLockScreenAppProfile(profile) ||
       ash::IsShimlessRmaAppBrowserContext(profile)) {
     extensions_enabled = true;
   }

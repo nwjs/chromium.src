@@ -91,18 +91,6 @@ std::string AnswerTypeToString(int answer_type) {
   }
 }
 
-std::string SuggestionAnswerImageLineToString(
-    const SuggestionAnswer::ImageLine& image_line) {
-  std::string string;
-  for (auto text_field : image_line.text_fields())
-    string += base::UTF16ToUTF8(text_field.text());
-  if (image_line.additional_text())
-    string += " " + base::UTF16ToUTF8(image_line.additional_text()->text());
-  if (image_line.status_text())
-    string += " " + base::UTF16ToUTF8(image_line.status_text()->text());
-  return string;
-}
-
 }  // namespace
 
 namespace mojo {
@@ -294,18 +282,11 @@ struct TypeConverter<mojom::AutocompleteMatchPtr, AutocompleteMatch> {
         mojo::ConvertTo<std::vector<mojom::ACMatchClassificationPtr>>(
             input.description_class);
     result->swap_contents_and_description = input.swap_contents_and_description;
-    if (omnibox_feature_configs::SuggestionAnswerMigration::Get().enabled &&
-        input.answer_template) {
+    if (input.answer_template.has_value()) {
       omnibox::AnswerData answer_data = input.answer_template->answers(0);
       result->answer = answer_data.headline().text() + " / " +
                        answer_data.subhead().text() + " / " +
                        AnswerTypeToString(input.answer_type);
-    } else if (input.answer) {
-      result->answer =
-          SuggestionAnswerImageLineToString(input.answer->first_line()) +
-          " / " +
-          SuggestionAnswerImageLineToString(input.answer->second_line()) +
-          " / " + AnswerTypeToString(input.answer_type);
     }
     result->transition =
         ui::PageTransitionGetCoreTransitionString(input.transition);
@@ -525,11 +506,9 @@ void OmniboxPageHandler::StartOmniboxQuery(const std::string& input_string,
   input.set_prefer_keyword(prefer_keyword);
   if (prefer_keyword)
     input.set_keyword_mode_entry_method(metrics::OmniboxEventProto::TAB);
-  input.set_focus_type(
-      zero_suggest ? input.text().empty() && current_url_gurl.is_valid()
-                         ? metrics::OmniboxFocusType::INTERACTION_CLOBBER
-                         : metrics::OmniboxFocusType::INTERACTION_FOCUS
-                   : metrics::OmniboxFocusType::INTERACTION_DEFAULT);
+  input.set_focus_type(zero_suggest
+                           ? metrics::OmniboxFocusType::INTERACTION_FOCUS
+                           : metrics::OmniboxFocusType::INTERACTION_DEFAULT);
   controller_->Start(input);
 }
 

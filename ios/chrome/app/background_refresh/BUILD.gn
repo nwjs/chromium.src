@@ -16,6 +16,7 @@ source_set("background_refresh") {
     "test_refresher.mm",
   ]
   deps = [
+    ":headers",
     ":metrics",
     "//base",
     "//components/metrics",
@@ -34,6 +35,10 @@ source_set("background_refresh") {
   ]
 }
 
+source_set("headers") {
+  sources = [ "background_refresh_app_agent_audience.h" ]
+}
+
 source_set("metrics") {
   sources = [
     "background_refresh_metrics.h",
@@ -44,10 +49,22 @@ source_set("metrics") {
 
 source_set("unit_tests") {
   testonly = true
-  sources = [ "app_refresh_provider_unittest.mm" ]
+  sources = [
+    "app_refresh_provider_unittest.mm",
+    "background_refresh_app_agent_unittest.mm",
+  ]
   deps = [
     ":background_refresh",
     "//base/test:test_support",
+    "//ios/chrome/app:constants",
+    "//ios/chrome/app/application_delegate:app_state_header",
+    "//ios/chrome/browser/profile/model:ios_thread",
+    "//ios/chrome/browser/shared/model/application_context",
+    "//ios/chrome/browser/shared/public/features",
+    "//ios/chrome/test:test_support",
+    "//ios/web/public/test",
+    "//ios/web/public/thread",
     "//testing/gtest",
+    "//third_party/ocmock",
   ]
 }

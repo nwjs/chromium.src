@@ -228,6 +228,9 @@ chromium-metrics-reviews@google.com.
   <int value="60" label="Add Drive Account"/>
   <int value="61" label="Manage In New Tab"/>
   <int value="62" label="Recent Activity in Shared Tab Group"/>
+  <int value="63" label="AI Prototyping"/>
+  <int value="64" label="Manage shared tab group"/>
+  <int value="65" label="Share local tab group"/>
 </enum>
 
 <enum name="IOSMenuScenario">
@@ -291,6 +294,7 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <enum name="LaunchCause">
+  <int value="-1" label="Uninitialized"/>
   <int value="0" label="Other - External"/>
   <int value="1" label="Chrome Custom Tab"/>
   <int value="2" label="Trusted Web Activity"/>

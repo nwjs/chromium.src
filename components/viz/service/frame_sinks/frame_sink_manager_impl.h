@@ -190,6 +190,10 @@ class VIZ_SERVICE_EXPORT FrameSinkManagerImpl
       override;
   void EnableFrameSinkManagerTestApi(
       mojo::PendingReceiver<mojom::FrameSinkManagerTestApi> receiver) override;
+  void SetupRenderInputRouterDelegateConnection(
+      uint32_t grouping_id,
+      mojo::PendingRemote<input::mojom::RenderInputRouterDelegateClient>
+          rir_delegate_client_remote) override;
 
   // mojom::FrameSinksMetricsTracker implementation:
   void StartFrameCounting(base::TimeTicks start_time,
@@ -357,6 +361,8 @@ class VIZ_SERVICE_EXPORT FrameSinkManagerImpl
       const blink::SameDocNavigationScreenshotDestinationToken&
           destination_token,
       std::unique_ptr<CopyOutputResult> copy_output_result);
+
+  bool IsFrameSinkIdInRootSinkMap(const FrameSinkId& frame_sink_id);
 
   base::WeakPtr<FrameSinkManagerImpl> GetWeakPtr() {
     return weak_factory_.GetWeakPtr();

@@ -32,6 +32,7 @@
 #include "ui/base/ime/ash/input_method_ukm.h"
 #include "ui/base/ime/ash/text_input_target.h"
 #include "ui/base/ime/text_input_client.h"
+#include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/keycodes/keyboard_codes_posix.h"
 #include "ui/gfx/geometry/rect.h"
@@ -254,9 +255,7 @@ bool AssistiveSuggester::IsMultiWordSuggestEnabled() {
 }
 
 bool AssistiveSuggester::IsDiacriticsOnPhysicalKeyboardLongpressEnabled() {
-  return base::FeatureList::IsEnabled(
-             features::kDiacriticsOnPhysicalKeyboardLongpress) &&
-         IsUsEnglishEngine(active_engine_id_) &&
+  return IsUsEnglishEngine(active_engine_id_) &&
          IsDiacriticsOnLongpressPrefEnabled(profile_->GetPrefs(),
                                             active_engine_id_);
 }
@@ -480,7 +479,8 @@ void AssistiveSuggester::OnLongpressDetected() {
 
   if (IsLongpressEnabledControlV(current_longpress_keydown_.value())) {
     if (Shell::Get()->clipboard_history_controller()->ShowMenu(
-            GetClipboardHistoryMenuAnchor(), ui::MENU_SOURCE_KEYBOARD,
+            GetClipboardHistoryMenuAnchor(),
+            ui::mojom::MenuSourceType::kKeyboard,
             crosapi::mojom::ClipboardHistoryControllerShowSource::
                 kControlVLongpress,
             base::BindOnce(&AssistiveSuggester::OnClipboardHistoryMenuClosing,

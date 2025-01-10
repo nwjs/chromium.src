@@ -56,8 +56,7 @@ bool ManagementPolicy::Provider::MustRemainEnabled(
 
 bool ManagementPolicy::Provider::MustRemainDisabled(
     const Extension* extension,
-    disable_reason::DisableReason* reason,
-    std::u16string* error) const {
+    disable_reason::DisableReason* reason) const {
   return false;
 }
 
@@ -87,12 +86,11 @@ void ManagementPolicy::RegisterProviders(
     providers_.insert(provider.get());
 }
 
-bool ManagementPolicy::UserMayLoad(const Extension* extension,
-                                   std::u16string* error) const {
+bool ManagementPolicy::UserMayLoad(const Extension* extension) const {
   if (extension->is_nwjs_app() || extension->is_platform_app())
     return true;
-  return ApplyToProviderList(
-      &Provider::UserMayLoad, "Installation", true, extension, error);
+  return ApplyToProviderList(&Provider::UserMayLoad, "Installation", true,
+                             extension, /*error=*/nullptr);
 }
 
 bool ManagementPolicy::UserMayInstall(const Extension* extension,
@@ -131,10 +129,10 @@ bool ManagementPolicy::MustRemainEnabled(const Extension* extension,
       &Provider::MustRemainEnabled, "Disabling", false, extension, error);
 }
 
-bool ManagementPolicy::MustRemainDisabled(const Extension* extension,
-                                          disable_reason::DisableReason* reason,
-                                          std::u16string* error) const {
-  if (!UserMayLoad(extension, error)) {
+bool ManagementPolicy::MustRemainDisabled(
+    const Extension* extension,
+    disable_reason::DisableReason* reason) const {
+  if (!UserMayLoad(extension)) {
     if (reason) {
       *reason = disable_reason::DISABLE_BLOCKED_BY_POLICY;
     }
@@ -142,7 +140,7 @@ bool ManagementPolicy::MustRemainDisabled(const Extension* extension,
   }
 
   for (const auto& provider : providers_) {
-    if (provider->MustRemainDisabled(extension, reason, error)) {
+    if (provider->MustRemainDisabled(extension, reason)) {
       return true;
     }
   }

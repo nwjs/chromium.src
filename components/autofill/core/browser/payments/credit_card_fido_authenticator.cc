@@ -149,20 +149,13 @@ void CreditCardFidoAuthenticator::IsUserVerifiable(
     return;
   }
 #if BUILDFLAG(IS_ANDROID)
-  // When kAutofillEnableAndroidNKeyForFidoAuthentication is on,
-  // Payments servers only accept WebAuthn credentials for Android N
-  // and above. When kAutofillEnableAndroidNKeyForFidoAuthentication is off,
-  // Payments servers only accept WebAuthn credentials for Android P
-  // and above. Do nothing for the other cases.
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillEnableAndroidNKeyForFidoAuthentication)) {
-    if (base::android::BuildInfo::GetInstance()->sdk_int() <
-        base::android::SDK_VERSION_NOUGAT) {
-      std::move(callback).Run(false);
-      return;
-    }
-  } else if (base::android::BuildInfo::GetInstance()->sdk_int() <
-             base::android::SDK_VERSION_P) {
+  // Due to Android N devices having a low market share, only Android P or
+  // higher version devices are allowed to go through FIDO authentication.
+  // Because Android N key is better than P key and can provide additional PIN
+  // device unlock, payments servers accept WebAuthn credentials for Android N
+  // key so that Android P+ devices can use N key to do the FIDO authentication.
+  if (base::android::BuildInfo::GetInstance()->sdk_int() <
+      base::android::SDK_VERSION_P) {
     std::move(callback).Run(false);
     return;
   }
@@ -378,8 +371,7 @@ void CreditCardFidoAuthenticator::OptChange(
           payments::OptChangeRequestDetails::ADD_CARD_FOR_FIDO_AUTH;
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 
   // If |authenticator_response| is set, that means the user just signed a
@@ -611,7 +603,7 @@ CreditCardFidoAuthenticator::ParseCreationOptions(
   } else if (base::EqualsCaseInsensitiveASCII(*attestation, "DIRECT")) {
     options->attestation = device::AttestationConveyancePreference::kDirect;
   } else {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 
   // Only allow user-verifying platform authenticators.
@@ -719,8 +711,7 @@ void CreditCardFidoAuthenticator::LogWebauthnResult(
                   : autofill_metrics::WebauthnFlowEvent::kCheckoutOptIn;
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return;
+      NOTREACHED();
   }
 
   // TODO(crbug.com/40621544): Add metrics for revoked pending WebAuthn
@@ -793,8 +784,7 @@ void CreditCardFidoAuthenticator::HandleGetAssertionSuccess(
     case NONE_FLOW:
     case OPT_IN_FETCH_CHALLENGE_FLOW:
     case OPT_OUT_FLOW: {
-      NOTREACHED_IN_MIGRATION();
-      return;
+      NOTREACHED();
     }
   }
 
@@ -845,8 +835,7 @@ void CreditCardFidoAuthenticator::HandleGetAssertionFailure() {
     case NONE_FLOW:
     case OPT_IN_FETCH_CHALLENGE_FLOW:
     case OPT_OUT_FLOW: {
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
     }
   }
   current_flow_ = NONE_FLOW;

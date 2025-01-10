@@ -77,12 +77,13 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
         }
     }
 
-    private final TabModel mTabModel;
     private final ObserverList<TabModelObserver> mFilteredObservers = new ObserverList<>();
     private final ObserverList<TabGroupModelFilterObserver> mGroupFilterObserver =
             new ObserverList<>();
     private final Map<Integer, Integer> mRootIdToGroupIndexMap = new HashMap<>();
     private final Map<Integer, TabGroup> mRootIdToGroupMap = new HashMap<>();
+    private final TabModel mTabModel;
+    private final TabUngrouper mTabUngrouper;
 
     /**
      * The set of tab group IDs that are currently hiding. This cannot be stored on {@link TabGroup}
@@ -101,8 +102,9 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
     /**
      * @param tabModel The tab model to filter.
      */
-    public TabGroupModelFilterImpl(TabModel tabModel) {
+    TabGroupModelFilterImpl(@NonNull TabModel tabModel, @NonNull TabUngrouper tabUngrouper) {
         mTabModel = tabModel;
+        mTabUngrouper = tabUngrouper;
         mTabModel.addObserver(this);
     }
 
@@ -219,18 +221,33 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
 
     @Override
     public void createSingleTabGroup(Tab tab, boolean notify) {
+        createSingleTabGroupInternal(tab, Token.createRandom(), notify);
+    }
+
+    @Override
+    public void createTabGroupForTabGroupSync(@NonNull List<Tab> tabs, @NonNull Token tabGroupId) {
+        if (tabs.isEmpty()) return;
+
+        Tab rootTab = tabs.get(0);
+        createSingleTabGroupInternal(rootTab, tabGroupId, /* notify= */ false);
+
+        if (tabs.size() == 1) return;
+
+        mergeListOfTabsToGroup(tabs, rootTab, /* notify= */ false);
+    }
+
+    private void createSingleTabGroupInternal(Tab tab, @NonNull Token tabGroupId, boolean notify) {
         assert tab.getTabGroupId() == null;
 
         for (TabGroupModelFilterObserver observer : mGroupFilterObserver) {
             observer.willMergeTabToGroup(tab, tab.getRootId());
         }
 
-        tab.setTabGroupId(Token.createRandom());
+        tab.setTabGroupId(tabGroupId);
 
         // If this is a new tab group creation that will show a dialog, do not trigger a snackbar.
-        if (ChromeFeatureList.sTabGroupParityAndroid.isEnabled()
-                && !shouldSkipGroupCreationDialog(
-                        TabGroupFeatureUtils.shouldShowGroupCreationDialogViaSettingsSwitch())) {
+        if (!TabGroupFeatureUtils.shouldSkipGroupCreationDialog(
+                TabGroupFeatureUtils.shouldShowGroupCreationDialogViaSettingsSwitch())) {
             notify = false;
         }
 
@@ -246,13 +263,13 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
             int index = TabModelUtils.getTabIndexById(getTabModel(), tab.getId());
             for (TabGroupModelFilterObserver observer : mGroupFilterObserver) {
                 observer.didCreateGroup(
-                        Collections.singletonList(tab),
-                        Collections.singletonList(index),
-                        Collections.singletonList(tab.getRootId()),
-                        Collections.singletonList(null),
-                        null,
-                        TabGroupColorUtils.INVALID_COLOR_ID,
-                        /* destinationGroupTitleCollapsed= */ false);
+                    Collections.singletonList(tab),
+                    Collections.singletonList(index),
+                    Collections.singletonList(tab.getRootId()),
+                    Collections.singletonList(null),
+                    null,
+                    TabGroupColorUtils.INVALID_COLOR_ID,
+                    /* destinationGroupTitleCollapsed= */ false);
             }
         }
     }
@@ -286,14 +303,9 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
             List<Token> originalTabGroupIds = new ArrayList<>();
             Set<Pair<Integer, Token>> removedGroups = new HashSet<>();
             String destinationGroupTitle = TabGroupTitleUtils.getTabGroupTitle(destinationRootId);
-            int destinationGroupColorId = TabGroupColorUtils.INVALID_COLOR_ID;
             boolean willMergingCreateNewGroup =
                     willMergingCreateNewGroup(List.of(sourceTab, destinationTab));
-
-            if (ChromeFeatureList.sTabGroupParityAndroid.isEnabled()) {
-                destinationGroupColorId = TabGroupColorUtils.getTabGroupColor(destinationRootId);
-            }
-
+            int destinationGroupColorId = TabGroupColorUtils.getTabGroupColor(destinationRootId);
             final boolean destinationGroupTitleCollapsed;
             if (ChromeFeatureList.sTabStripGroupCollapse.isEnabled()) {
                 destinationGroupTitleCollapsed = getTabGroupCollapsed(destinationRootId);
@@ -356,10 +368,9 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
 
                     // If this is a new tab group creation that will show a dialog, do not trigger a
                     // snackbar.
-                    if (ChromeFeatureList.sTabGroupParityAndroid.isEnabled()
-                            && !shouldSkipGroupCreationDialog(
-                                    TabGroupFeatureUtils
-                                            .shouldShowGroupCreationDialogViaSettingsSwitch())) {
+                    if (!TabGroupFeatureUtils.shouldSkipGroupCreationDialog(
+                            TabGroupFeatureUtils
+                                    .shouldShowGroupCreationDialogViaSettingsSwitch())) {
                         continue;
                     }
                 }
@@ -432,10 +443,7 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
         }
         int destinationIndexInTabModel = getTabModelDestinationIndex(destinationTab);
         String destinationGroupTitle = TabGroupTitleUtils.getTabGroupTitle(destinationRootId);
-        int destinationGroupColorId = TabGroupColorUtils.INVALID_COLOR_ID;
-        if (ChromeFeatureList.sTabGroupParityAndroid.isEnabled()) {
-            destinationGroupColorId = TabGroupColorUtils.getTabGroupColor(destinationRootId);
-        }
+        int destinationGroupColorId = TabGroupColorUtils.getTabGroupColor(destinationRootId);
 
         final boolean destinationGroupTitleCollapsed;
         if (ChromeFeatureList.sTabStripGroupCollapse.isEnabled()) {
@@ -501,8 +509,7 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
             // snackbar.
             boolean skipSnackbarForCreation =
                     willMergingCreateNewGroup
-                            && ChromeFeatureList.sTabGroupParityAndroid.isEnabled()
-                            && !shouldSkipGroupCreationDialog(
+                            && !TabGroupFeatureUtils.shouldSkipGroupCreationDialog(
                                     TabGroupFeatureUtils
                                             .shouldShowGroupCreationDialogViaSettingsSwitch());
             if (notify && !skipSnackbarForCreation) {
@@ -528,6 +535,12 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
                         removedGroup.first, removedGroup.second, DidRemoveTabGroupReason.MERGE);
             }
         }
+    }
+
+    @Override
+    public @NonNull TabUngrouper getTabUngrouper() {
+        assert mTabUngrouper != null;
+        return mTabUngrouper;
     }
 
     @Override
@@ -1497,10 +1510,8 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
     @Override
     public void deleteTabGroupVisualData(int rootId) {
         deleteTabGroupTitle(rootId);
+        deleteTabGroupColor(rootId);
 
-        if (ChromeFeatureList.sTabGroupParityAndroid.isEnabled()) {
-            deleteTabGroupColor(rootId);
-        }
         if (ChromeFeatureList.sTabStripGroupCollapse.isEnabled()) {
             deleteTabGroupCollapsed(rootId);
         }
@@ -1694,14 +1705,6 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
 
         if (!skipAttributes) {
             tabStateAttributes.endBatchEdit();
-        }
-    }
-
-    private static boolean shouldSkipGroupCreationDialog(boolean shouldShow) {
-        if (ChromeFeatureList.sTabGroupCreationDialogAndroid.isEnabled()) {
-            return !shouldShow;
-        } else {
-            return TabGroupFeatureUtils.SKIP_TAB_GROUP_CREATION_DIALOG.getValue();
         }
     }
 

@@ -37,12 +37,15 @@ namespace {
 
 class MockBufferMapCallback {
  public:
-  MOCK_METHOD(void, Call, (wgpu::MapAsyncStatus status, const char* message));
+  MOCK_METHOD(void,
+              Call,
+              (wgpu::MapAsyncStatus status, wgpu::StringView message));
 };
 std::unique_ptr<testing::StrictMock<MockBufferMapCallback>>
     mock_buffer_map_callback;
 
-void ToMockBufferMapCallback(wgpu::MapAsyncStatus status, const char* message) {
+void ToMockBufferMapCallback(wgpu::MapAsyncStatus status,
+                             wgpu::StringView message) {
   mock_buffer_map_callback->Call(status, message);
 }
 
@@ -80,8 +83,7 @@ uint32_t BytesPerTexel(viz::SharedImageFormat format) {
     return 8;
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return 0;
+  NOTREACHED();
 }
 
 }  // namespace
@@ -388,7 +390,7 @@ TEST_P(WebGPUMailboxTextureTest, AssociateMailboxCmd) {
           packed_data.push_back(
               static_cast<uint32_t>(WGPUTextureFormat_BGRA8Unorm));
         } else {
-          NOTREACHED_IN_MIGRATION();
+          NOTREACHED();
         }
 
         // Error case: packed data empty.
@@ -671,7 +673,7 @@ TEST_P(WebGPUMailboxTextureTest, WriteToMailboxThenReadFromIt) {
     } else if (GetParam().format == viz::SinglePlaneFormat::kBGRA_8888) {
       EXPECT_EQ(0xFF0000FFu, *static_cast<const uint32_t*>(data));
     } else {
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
     }
   }
 }

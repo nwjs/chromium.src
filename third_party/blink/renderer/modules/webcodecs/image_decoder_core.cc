@@ -180,8 +180,7 @@ gfx::ColorSpace YUVColorSpaceToGfxColorSpace(SkYUVColorSpace yuv_cs,
                              gfx::ColorSpace::MatrixID::YCOCG,
                              gfx::ColorSpace::RangeID::LIMITED);
     case kIdentity_SkYUVColorSpace:
-      NOTREACHED_IN_MIGRATION();
-      return gfx::ColorSpace();
+      NOTREACHED();
   };
 }
 
@@ -320,10 +319,7 @@ std::unique_ptr<ImageDecoderCore::ImageDecodeResult> ImageDecoderCore::Decode(
   auto sk_image = is_complete ? image->FinalizePixelsAndGetImage()
                               : SkImages::RasterFromBitmap(image->Bitmap());
   if (!sk_image) {
-    NOTREACHED_IN_MIGRATION()
-        << "Failed to retrieve SkImage for decoded image.";
-    result->status = Status::kDecodeError;
-    return result;
+    NOTREACHED() << "Failed to retrieve SkImage for decoded image.";
   }
 
   if (!is_complete) {
@@ -350,7 +346,6 @@ std::unique_ptr<ImageDecoderCore::ImageDecodeResult> ImageDecoderCore::Decode(
       media::CreateFromSkImage(sk_image, gfx::Rect(coded_size), coded_size,
                                GetTimestampForFrame(frame_index));
   if (!frame) {
-    NOTREACHED_IN_MIGRATION() << "Failed to create VideoFrame from SkImage.";
     result->status = Status::kDecodeError;
     return result;
   }
@@ -390,18 +385,13 @@ std::unique_ptr<ImageDecoderCore::ImageDecodeResult> ImageDecoderCore::Decode(
   return result;
 }
 
-void ImageDecoderCore::AppendData(size_t data_size,
-                                  std::unique_ptr<uint8_t[]> data,
-                                  bool data_complete) {
+void ImageDecoderCore::AppendData(Vector<uint8_t> data, bool data_complete) {
   DCHECK(stream_buffer_);
   DCHECK(stream_buffer_);
   DCHECK(!data_complete_);
   data_complete_ = data_complete;
-  if (data) {
-    stream_buffer_->Append(reinterpret_cast<const char*>(data.get()),
-                           base::checked_cast<wtf_size_t>(data_size));
-  } else {
-    DCHECK_EQ(data_size, 0u);
+  if (!data.empty()) {
+    stream_buffer_->Append(std::move(data));
   }
 
   // We may not have a decoder if Clear() was called while data arrives.

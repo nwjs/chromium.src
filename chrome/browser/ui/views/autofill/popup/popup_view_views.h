@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/timer/timer.h"
@@ -109,7 +110,6 @@ class PopupViewViews : public PopupBaseView,
                        PopupCellSelectionSource source) override;
 
   // views::View:
-  void GetAccessibleNodeData(ui::AXNodeData* node_data) override;
   void OnMouseEntered(const ui::MouseEvent& event) override;
   void OnMouseExited(const ui::MouseEvent& event) override;
   void OnPaint(gfx::Canvas* canvas) override;
@@ -166,7 +166,7 @@ class PopupViewViews : public PopupBaseView,
     return *absl::get<PopupRowView*>(rows_[index]);
   }
 
-  void UpdateExpandedCollapsedAccessibleState() const;
+  void UpdateAccessibleStates() const;
 
   // Returns whether the row at `index` exists, is a `PopupRowView` and is
   // selectable.
@@ -218,11 +218,11 @@ class PopupViewViews : public PopupBaseView,
   void OnSuggestionsChanged(bool prefer_prev_arrow_side) override;
 
   // PopupBaseView:
-  bool DoUpdateBoundsAndRedrawPopup() override;
+  [[nodiscard]] bool DoUpdateBoundsAndRedrawPopup() override;
 
   // If `prefer_prev_arrow_side` is `true`, the view takes prev arrow side as
   // the first preferred when recalculating the popup position.
-  bool DoUpdateBoundsAndRedrawPopup(bool prefer_prev_arrow_side);
+  [[nodiscard]] bool DoUpdateBoundsAndRedrawPopup(bool prefer_prev_arrow_side);
 
   // ExpandablePopupParentView:
   void OnMouseEnteredInChildren() override;
@@ -247,9 +247,6 @@ class PopupViewViews : public PopupBaseView,
   // level up. Returns whether this was successful.
   bool SelectParentPopupContentCell();
 
-  // Announces a string without assertively alerting a user.
-  void AnnouncePolitely(const std::u16string& text);
-
   // The popup can be used for informing the user without providing suggestions
   // to select, e.g. when the suggestions are loading. It has only one
   // suggestion with a special type in this case. This method makes sure
@@ -265,6 +262,11 @@ class PopupViewViews : public PopupBaseView,
   std::optional<base::WeakPtr<ExpandablePopupParentView>> parent_;
 
   std::unique_ptr<PasswordFaviconLoaderImpl> password_favicon_loader_;
+
+  // The implementation of the a11y announcer. When testing the announcements,
+  // it's replaced with a mock function.
+  base::RepeatingCallback<void(const std::u16string& message, bool polite)>
+      a11y_announcer_;
 
   // The index of the row with a selected cell.
   std::optional<size_t> row_with_selected_cell_;

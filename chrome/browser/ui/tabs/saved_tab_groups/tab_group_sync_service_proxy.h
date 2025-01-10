@@ -10,13 +10,15 @@
 #include <variant>
 #include <vector>
 
+#include "base/observer_list.h"
+#include "components/saved_tab_groups/internal/saved_tab_group_model_observer.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/saved_tab_groups/public/types.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "url/gurl.h"
 
 namespace tab_groups {
-class SavedTabGroupModelObserver;
+
 class SavedTabGroupKeyedService;
 
 // Proxy service which implements TabGroupSyncService. Forwards and translates
@@ -27,7 +29,8 @@ class SavedTabGroupKeyedService;
 // This class should be kept around until the full migration from
 // SavedTabGroupKeyedService to TabGroupSyncService is completed. See
 // crbug.com/350514491 for change-lists related to this effort.
-class TabGroupSyncServiceProxy : public TabGroupSyncService {
+class TabGroupSyncServiceProxy : public TabGroupSyncService,
+                                 public SavedTabGroupModelObserver {
  public:
   explicit TabGroupSyncServiceProxy(SavedTabGroupKeyedService* service);
 
@@ -48,11 +51,15 @@ class TabGroupSyncServiceProxy : public TabGroupSyncService {
   void AddTab(const LocalTabGroupID& group_id,
               const LocalTabID& tab_id,
               const std::u16string& title,
-              GURL url,
+              const GURL& url,
               std::optional<size_t> position) override;
-  void UpdateTab(const LocalTabGroupID& group_id,
-                 const LocalTabID& tab_id,
-                 const SavedTabGroupTabBuilder& tab_builder) override;
+  void NavigateTab(const LocalTabGroupID& group_id,
+                   const LocalTabID& tab_id,
+                   const GURL& url,
+                   const std::u16string& title) override;
+  void UpdateTabProperties(const LocalTabGroupID& group_id,
+                           const LocalTabID& tab_id,
+                           const SavedTabGroupTabBuilder& tab_builder) override;
   void RemoveTab(const LocalTabGroupID& group_id,
                  const LocalTabID& tab_id) override;
   void MoveTab(const LocalTabGroupID& group_id,
@@ -66,11 +73,11 @@ class TabGroupSyncServiceProxy : public TabGroupSyncService {
   void MakeTabGroupShared(const LocalTabGroupID& local_group_id,
                           std::string_view collaboration_id) override;
 
-  std::vector<SavedTabGroup> GetAllGroups() override;
-  std::optional<SavedTabGroup> GetGroup(const base::Uuid& guid) override;
+  std::vector<SavedTabGroup> GetAllGroups() const override;
+  std::optional<SavedTabGroup> GetGroup(const base::Uuid& guid) const override;
   std::optional<SavedTabGroup> GetGroup(
-      const LocalTabGroupID& local_id) override;
-  std::vector<LocalTabGroupID> GetDeletedGroupIds() override;
+      const LocalTabGroupID& local_id) const override;
+  std::vector<LocalTabGroupID> GetDeletedGroupIds() const override;
 
   void OpenTabGroup(const base::Uuid& sync_group_id,
                     std::unique_ptr<TabGroupActionContext> context) override;
@@ -101,25 +108,13 @@ class TabGroupSyncServiceProxy : public TabGroupSyncService {
   void GetURLRestriction(
       const GURL& url,
       TabGroupSyncService::UrlRestrictionCallback callback) override;
+  std::unique_ptr<std::vector<SavedTabGroup>>
+  TakeSharedTabGroupsAvailableAtStartupForMessaging() override;
+
   void AddObserver(Observer* observer) override;
   void RemoveObserver(Observer* observer) override;
 
   void SetIsInitializedForTesting(bool initialized) override;
-
-  void AddSavedTabGroupModelObserver(
-      SavedTabGroupModelObserver* saved_tab_group_model_observer);
-  void RemoveSavedTabGroupModelObserver(
-      SavedTabGroupModelObserver* saved_tab_group_model_observer);
-
-  // These functions are only called for the SavedTabGroupKeyedService to log
-  // metrics that the TabGroupSyncService is already recording.
-  void OnTabAddedToGroupLocally(const base::Uuid& group_guid);
-  void OnTabRemovedFromGroupLocally(const base::Uuid& group_guid,
-                                    const base::Uuid& tab_guid);
-  void OnTabNavigatedLocally(const base::Uuid& group_guid,
-                             const base::Uuid& tab_guid);
-  void OnTabsReorderedLocally(const base::Uuid& group_guid);
-  void OnTabGroupVisualsChanged(const base::Uuid& group_guid);
 
   // Used to manually set the favicon for a specific tab.
   // TODO(crbug.com/348486163): Find a way to support favicons for the
@@ -129,8 +124,26 @@ class TabGroupSyncServiceProxy : public TabGroupSyncService {
                         std::optional<gfx::Image> favicon);
 
  private:
+  // SavedTabGroupModelObserver:
+  void SavedTabGroupModelLoaded() override;
+  void SavedTabGroupAddedLocally(const base::Uuid& guid) override;
+  void SavedTabGroupAddedFromSync(const base::Uuid& guid) override;
+  void SavedTabGroupRemovedLocally(const SavedTabGroup& removed_group) override;
+  void SavedTabGroupRemovedFromSync(
+      const SavedTabGroup& removed_group) override;
+  void SavedTabGroupLocalIdChanged(const base::Uuid& saved_group_id) override;
+  void SavedTabGroupUpdatedLocally(
+      const base::Uuid& group_guid,
+      const std::optional<base::Uuid>& tab_guid) override;
+  void SavedTabGroupUpdatedFromSync(
+      const base::Uuid& group_guid,
+      const std::optional<base::Uuid>& tab_guid) override;
+  void SavedTabGroupReorderedLocally() override;
+  void SavedTabGroupReorderedFromSync() override;
+
   // The service used to manage SavedTabGroups.
   raw_ptr<SavedTabGroupKeyedService> service_ = nullptr;
+  base::ObserverList<Observer> observers_;
 };
 }  // namespace tab_groups
 

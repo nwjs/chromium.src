@@ -277,14 +277,16 @@ void FocusFakebox() {
   _URL1 = self.testServer->GetURL(kPage1URL);
 
   [ChromeEarlGrey clearPasteboard];
-  [ChromeEarlGrey clearBrowsingHistory];
+  if (![ChromeTestCase forceRestartAndWipe]) {
+    [ChromeEarlGrey clearBrowsingHistory];
+  }
 
   [ChromeEarlGrey setBoolValue:NO forLocalStatePref:prefs::kBottomOmnibox];
 }
 
-- (void)tearDown {
+- (void)tearDownHelper {
   [ChromeEarlGrey setBoolValue:NO forLocalStatePref:prefs::kBottomOmnibox];
-  [super tearDown];
+  [super tearDownHelper];
 }
 
 #pragma mark - Helpers
@@ -327,7 +329,9 @@ void FocusFakebox() {
   // TODO(crbug.com/40145916) This test is flakily because of a DCHECK in
   // ios/web.  Clearing browser history first works around the problem, but
   // shouldn't be necessary otherwise.  Remove once the bug is fixed.
-  [ChromeEarlGrey clearBrowsingHistory];
+  if (![ChromeTestCase forceRestartAndWipe]) {
+    [ChromeEarlGrey clearBrowsingHistory];
+  }
 
   // Rewrite the google URL to localhost URL.
   [OmniboxAppInterface rewriteGoogleURLToLocalhost];
@@ -511,7 +515,9 @@ void FocusFakebox() {
   _URL1 = self.testServer->GetURL(kPage1URL);
   _URL2 = self.testServer->GetURL(kPage2URL);
 
-  [ChromeEarlGrey clearBrowsingHistory];
+  if (![ChromeTestCase forceRestartAndWipe]) {
+    [ChromeEarlGrey clearBrowsingHistory];
+  }
 
   // Clear the pasteboard in case there is a URL copied.
   UIPasteboard* pasteboard = UIPasteboard.generalPasteboard;
@@ -520,9 +526,9 @@ void FocusFakebox() {
   [ChromeEarlGrey setBoolValue:NO forLocalStatePref:prefs::kBottomOmnibox];
 }
 
-- (void)tearDown {
+- (void)tearDownHelper {
   [ChromeEarlGrey setBoolValue:NO forLocalStatePref:prefs::kBottomOmnibox];
-  [super tearDown];
+  [super tearDownHelper];
 }
 
 // Tapping on steady view starts editing.
@@ -751,7 +757,9 @@ void FocusFakebox() {
 - (void)setUp {
   [super setUp];
 
-  [ChromeEarlGrey clearBrowsingHistory];
+  if (![ChromeTestCase forceRestartAndWipe]) {
+    [ChromeEarlGrey clearBrowsingHistory];
+  }
 
   // Start a server to be able to navigate to a web page.
   self.testServer->RegisterRequestHandler(
@@ -764,10 +772,10 @@ void FocusFakebox() {
   [ChromeEarlGrey clearPasteboard];
 }
 
-- (void)tearDown {
+- (void)tearDownHelper {
   // Clear the pasteboard after every test.
   [ChromeEarlGrey clearPasteboard];
-  [super tearDown];
+  [super tearDownHelper];
 }
 
 // Tests that tapping on steady view on webpage and starting typing a query
@@ -903,7 +911,9 @@ void FocusFakebox() {
 - (void)setUp {
   [super setUp];
 
-  [ChromeEarlGrey clearBrowsingHistory];
+  if (![ChromeTestCase forceRestartAndWipe]) {
+    [ChromeEarlGrey clearBrowsingHistory];
+  }
 
   // Start a server to be able to navigate to a web page.
   self.testServer->RegisterRequestHandler(
@@ -1227,8 +1237,9 @@ void FocusFakebox() {
 - (void)setUp {
   [super setUp];
 
-  [ChromeEarlGrey clearBrowsingHistory];
-
+  if (![ChromeTestCase forceRestartAndWipe]) {
+    [ChromeEarlGrey clearBrowsingHistory];
+  }
   // Start a server to be able to navigate to a web page.
   self.testServer->RegisterRequestHandler(
       base::BindRepeating(&StandardResponse));
@@ -1241,8 +1252,8 @@ void FocusFakebox() {
   [ChromeEarlGrey clearPasteboard];
 }
 
-- (void)tearDown {
-  [super tearDown];
+- (void)tearDownHelper {
+  [super tearDownHelper];
   // HW keyboard simulation can mess up the SW keyboard simulator state.
   // Relaunching resets the state.
   AppLaunchConfiguration config = [super appConfigurationForTestCase];

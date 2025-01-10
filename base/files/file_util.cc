@@ -418,13 +418,9 @@ std::optional<int64_t> GetFileSize(const FilePath& file_path) {
   return info.size;
 }
 
-bool GetFileSize(const FilePath& file_path, int64_t* file_size) {
-  std::optional<int64_t> maybe_size = GetFileSize(file_path);
-  if (!maybe_size.has_value()) {
-    return false;
-  }
-  *file_size = maybe_size.value();
-  return true;
+OnceCallback<std::optional<int64_t>()> GetFileSizeCallback(
+    const FilePath& path) {
+  return BindOnce([](const FilePath& path) { return GetFileSize(path); }, path);
 }
 
 bool TouchFile(const FilePath& path,

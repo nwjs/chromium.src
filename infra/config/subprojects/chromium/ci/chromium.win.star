@@ -211,6 +211,12 @@ ci.builder(
             "blink_wpt_tests": targets.remove(
                 reason = "Not enabled on dbg due to resource limits.",
             ),
+            "chrome_wpt_tests": targets.remove(
+                reason = "Not enabled on dbg due to resource limits.",
+            ),
+            "headless_shell_wpt_tests": targets.remove(
+                reason = "Not enabled on dbg due to resource limits.",
+            ),
             "browser_tests": targets.remove(
                 reason = "Disabled due to failing test suites (crbug/40565753)",
             ),
@@ -377,9 +383,6 @@ ci.builder(
         short_name = "64",
     ),
     cq_mirrors_console_view = "mirrors",
-    experiments = {
-        "chromium.use_per_builder_build_dir_name": 100,
-    },
 )
 
 ci.builder(
@@ -610,9 +613,6 @@ ci.builder(
                 # telemetry_perf_unittests suite.
                 "chromium_with_telemetry_dependencies",
                 "use_clang_coverage",
-                # mitigate for tree close due to unfinished siso.
-                # TODO(crbug.com/360961799): remove this
-                "siso_latest",
             ],
         ),
         chromium_config = builder_config.chromium_config(
@@ -837,6 +837,12 @@ ci.thin_tester(
                 reason = "Not enabled on dbg due to resource limits.",
             ),
             "blink_wpt_tests": targets.remove(
+                reason = "Not enabled on dbg due to resource limits.",
+            ),
+            "chrome_wpt_tests": targets.remove(
+                reason = "Not enabled on dbg due to resource limits.",
+            ),
+            "headless_shell_wpt_tests": targets.remove(
                 reason = "Not enabled on dbg due to resource limits.",
             ),
             "browser_tests": targets.remove(

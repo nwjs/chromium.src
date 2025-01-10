@@ -7,9 +7,9 @@
 
 #import "base/no_destructor.h"
 #import "components/keyed_service/ios/browser_state_keyed_service_factory.h"
-#import "ios/chrome/browser/shared/model/profile/profile_ios_forward.h"
 
 class KeyedService;
+class ProfileIOS;
 
 namespace safe_browsing {
 class RealTimeUrlLookupService;
@@ -27,9 +27,6 @@ class BrowserState;
 // profile. It returns nullptr for Incognito profiles.
 class RealTimeUrlLookupServiceFactory : public BrowserStateKeyedServiceFactory {
  public:
-  // TODO(crbug.com/358301380): remove this method.
-  static safe_browsing::RealTimeUrlLookupService* GetForBrowserState(
-      ProfileIOS* profile);
   // Returns null if `profile` is in Incognito mode.
   static safe_browsing::RealTimeUrlLookupService* GetForProfile(
       ProfileIOS* profile);

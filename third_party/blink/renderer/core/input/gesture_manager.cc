@@ -110,8 +110,7 @@ HitTestRequest::HitTestRequestType GestureManager::GetHitTypeForGestureType(
       // FIXME: Shouldn't LongTap and TwoFingerTap clear the Active state?
       return hit_type | HitTestRequest::kActive | HitTestRequest::kReadOnly;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return hit_type | HitTestRequest::kActive | HitTestRequest::kReadOnly;
+      NOTREACHED();
   }
 }
 
@@ -161,7 +160,7 @@ WebInputEventResult GestureManager::HandleGestureEventInFrame(
     case WebInputEvent::Type::kGestureTapUnconfirmed:
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
 
   return WebInputEventResult::kNotHandled;
@@ -375,8 +374,9 @@ WebInputEventResult GestureManager::HandleGestureTap(
 
   if (RuntimeEnabledFeatures::TextFragmentTapOpensContextMenuEnabled() &&
       current_hit_test.InnerNodeFrame()) {
-    current_hit_test.InnerNodeFrame()->View()->UpdateLifecycleToPrePaintClean(
-        DocumentUpdateReason::kHitTest);
+    current_hit_test.InnerNodeFrame()
+        ->View()
+        ->UpdateAllLifecyclePhasesExceptPaint(DocumentUpdateReason::kHitTest);
     current_hit_test = event_handling_util::HitTestResultInFrame(
         frame_, HitTestLocation(adjusted_point), hit_type);
     if (TextFragmentHandler::IsOverTextFragment(current_hit_test) &&

@@ -28,12 +28,12 @@
 
 #include "base/memory/raw_ptr.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_hibernation_handler.h"
+#include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
 
 namespace blink {
 
 class CanvasResourceHost;
-class CanvasResourceProvider;
 
 class PLATFORM_EXPORT Canvas2DLayerBridge {
  public:
@@ -43,34 +43,18 @@ class PLATFORM_EXPORT Canvas2DLayerBridge {
 
   virtual ~Canvas2DLayerBridge();
 
-  void PageVisibilityChanged();
-
-  // The values of the enum entries must not change because they are used for
-  // usage metrics histograms. New values can be added to the end.
-  enum HibernationEvent {
-    kHibernationScheduled = 0,
-    kHibernationAbortedDueToDestructionWhileHibernatePending = 1,
-    // kHibernationAbortedDueToPendingDestruction = 2, (obsolete)
-    kHibernationAbortedDueToVisibilityChange = 3,
-    kHibernationAbortedDueGpuContextLoss = 4,
-    kHibernationAbortedDueToSwitchToUnacceleratedRendering = 5,
-    // kHibernationAbortedDueToAllocationFailure = 6, (obsolete)
-    kHibernationAbortedDueSnapshotFailure = 7,
-    kHibernationEndedNormally = 8,
-    kHibernationEndedWithSwitchToBackgroundRendering = 9,
-    kHibernationEndedWithFallbackToSW = 10,
-    kHibernationEndedWithTeardown = 11,
-    kHibernationAbortedBecauseNoSurface = 12,
-    kMaxValue = kHibernationAbortedBecauseNoSurface,
-  };
-
-  CanvasResourceProvider* GetOrCreateResourceProvider();
+  void InitiateHibernationIfNecessary();
 
   // Allow access to the hibernation handler while Canvas2DLayerBridge is being
   // incrementally folded into CanvasRenderingContext2D.
   // TODO(crbug.com/40280152): Eliminate Canvas2DLayerBridge entirely.
   CanvasHibernationHandler& GetHibernationHandler() {
     return hibernation_handler_;
+  }
+
+  static void ReportHibernationEvent(
+      CanvasHibernationHandler::HibernationEvent event) {
+    UMA_HISTOGRAM_ENUMERATION("Blink.Canvas.HibernationEvents", event);
   }
 
  private:

@@ -15,6 +15,7 @@
 #include "base/metrics/user_metrics.h"
 #include "base/no_destructor.h"
 #include "base/trace_event/trace_event.h"
+#include "components/guest_view/buildflags/buildflags.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_process_host.h"
@@ -41,7 +42,6 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extensions_browser_client.h"
 #include "extensions/browser/process_map.h"
-#include "extensions/buildflags/buildflags.h"
 #include "extensions/common/api/web_request/web_request_activity_log_constants.h"
 #include "extensions/common/error_utils.h"
 #include "extensions/common/extension_id.h"
@@ -143,9 +143,7 @@ events::HistogramValue GetEventHistogramValue(const std::string& event_name) {
 
   // There is no histogram value for this event name. It should be added to
   // either the mapping here, or in guest_view_events.
-  NOTREACHED_IN_MIGRATION()
-      << "Event " << event_name << " must have a histogram value";
-  return events::UNKNOWN;
+  NOTREACHED() << "Event " << event_name << " must have a histogram value";
 }
 
 const char* GetRequestStageAsString(WebRequestEventRouter::EventTypes type) {
@@ -171,8 +169,7 @@ const char* GetRequestStageAsString(WebRequestEventRouter::EventTypes type) {
     case WebRequestEventRouter::kOnCompleted:
       return keys::kOnCompleted;
   }
-  NOTREACHED_IN_MIGRATION();
-  return "Not reached";
+  NOTREACHED();
 }
 
 void LogRequestAction(RequestAction action) {
@@ -607,8 +604,7 @@ helpers::EventResponseDelta CalculateDelta(
           response->extension_id, response->extension_install_time,
           response->cancel, response->auth_credentials);
     default:
-      NOTREACHED_IN_MIGRATION();
-      return helpers::EventResponseDelta("", base::Time());
+      NOTREACHED();
   }
 }
 
@@ -1599,6 +1595,19 @@ void WebRequestEventRouter::DispatchEventToListeners(
     cross_inactive_listeners = &cross_data.inactive_listeners[event_name];
   }
 
+  UMA_HISTOGRAM_COUNTS_10000("Extensions.ListenersContainerSize.Global",
+                             listener_ids ? listener_ids->size() : 0);
+  UMA_HISTOGRAM_COUNTS_10000("Extensions.ListenersContainerSize.Active",
+                             active_listeners.size());
+  UMA_HISTOGRAM_COUNTS_10000("Extensions.ListenersContainerSize.Inactive",
+                             inactive_listeners.size());
+  UMA_HISTOGRAM_COUNTS_10000(
+      "Extensions.ListenersContainerSize.CrossActive",
+      cross_active_listeners ? cross_active_listeners->size() : 0);
+  UMA_HISTOGRAM_COUNTS_10000(
+      "Extensions.ListenersContainerSize.CrossInactive",
+      cross_inactive_listeners ? cross_inactive_listeners->size() : 0);
+
   for (const EventListener::ID& id : *listener_ids) {
     // Look for the event listener in the different listener sources.
     bool is_active = id.render_process_id != -1;
@@ -2438,7 +2447,7 @@ int WebRequestEventRouter::ExecuteDeltas(
         blocked_request.response_deltas, blocked_request.auth_credentials,
         &ignored_actions);
   } else {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 
   SendMessages(browser_context, blocked_request);

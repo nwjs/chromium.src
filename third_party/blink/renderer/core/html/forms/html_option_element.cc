@@ -62,9 +62,6 @@ class OptionTextObserver : public MutationObserver::Delegate {
     init->setCharacterData(true);
     init->setChildList(true);
     init->setSubtree(true);
-    if (RuntimeEnabledFeatures::CustomizableSelectEnabled()) {
-      init->setAttributes(true);
-    }
     observer_->observe(option_, init, ASSERT_NO_EXCEPTION);
   }
 
@@ -364,6 +361,11 @@ HTMLSelectElement* HTMLOptionElement::OwnerSelectElement() const {
     // rather than doing a tree traversal here every time OwnerSelectElement is
     // called, which may be a lot.
     for (Node& ancestor : NodeTraversal::AncestorsOf(*this)) {
+      if (IsA<HTMLOptionElement>(ancestor)) {
+        // Don't associate nested <option>s with <select>s. This matches the
+        // traversals in OptionList and HTMLOptionElement::InsertedInto.
+        return nullptr;
+      }
       if (auto* select = DynamicTo<HTMLSelectElement>(ancestor)) {
         return select;
       }
@@ -497,9 +499,13 @@ Node::InsertionNotificationRequest HTMLOptionElement::InsertedInto(
   // OptionInserted. Otherwise, if this option is being inserted into a <select>
   // ancestor, then we must call OptionInserted on it.
   bool passed_insertion_point = false;
-  for (Node* ancestor = parentNode(); ancestor;
-       ancestor = ancestor->parentNode()) {
-    if (ancestor == insertion_point) {
+  for (Node& ancestor : NodeTraversal::AncestorsOf(*this)) {
+    if (IsA<HTMLOptionElement>(ancestor)) {
+      // Don't call OptionInserted() on nested <option>s. This matches the
+      // traversals in OptionList and OwnerSelectElement.
+      break;
+    }
+    if (&ancestor == &insertion_point) {
       passed_insertion_point = true;
     }
     if (auto* select = DynamicTo<HTMLSelectElement>(ancestor)) {
@@ -556,19 +562,22 @@ void HTMLOptionElement::RemovedFrom(ContainerNode& insertion_point) {
     return;
   }
 
-  for (Node* ancestor = parentNode(); ancestor;
-       ancestor = ancestor->parentNode()) {
+  for (Node& ancestor : NodeTraversal::AncestorsOf(*this)) {
     // If this option is still associated with a <select> inside the detached
     // subtree, then we should not call OptionRemoved() because we don't call
     // OptionInserted() in the corresponding attachment case. Also, APIs like
     // select.options should still work when the <select> is detached.
-    if (IsA<HTMLSelectElement>(ancestor)) {
+    // Nested options should not be associated with selects.
+    if (IsA<HTMLSelectElement>(ancestor) || IsA<HTMLOptionElement>(ancestor)) {
       return;
     }
   }
 
-  for (Node* ancestor = &insertion_point; ancestor;
-       ancestor = ancestor->parentNode()) {
+  for (Node& ancestor : NodeTraversal::InclusiveAncestorsOf(insertion_point)) {
+    if (IsA<HTMLOptionElement>(ancestor)) {
+      // Nested options should not be associated with selects.
+      return;
+    }
     if (auto* select = DynamicTo<HTMLSelectElement>(ancestor)) {
       SetTextOnlyRendering(true);
       select->OptionRemoved(*this);
@@ -592,6 +601,13 @@ void HTMLOptionElement::SetTextOnlyRendering(bool text_only) {
     DCHECK_EQ(select && select->UsesMenuList(), !text_only);
   }
 #endif
+
+  // If the label attribute is present, then we should be rendering that
+  // instead, even in appearance:base-select mode:
+  // https://github.com/openui/open-ui/issues/1115
+  if (!FastGetAttribute(html_names::kLabelAttr).empty()) {
+    text_only = true;
+  }
 
   if (auto* first_child = GetShadowRoot()->firstChild()) {
     bool currently_text_only = first_child->getNodeType() == kTextNode;
@@ -627,6 +643,11 @@ bool HTMLOptionElement::IsDisplayNone() const {
 }
 
 void HTMLOptionElement::DefaultEventHandler(Event& event) {
+  DefaultEventHandlerInternal(event);
+  HTMLElement::DefaultEventHandler(event);
+}
+
+void HTMLOptionElement::DefaultEventHandlerInternal(Event& event) {
   auto* select = OwnerSelectElement();
   if (select && !select->IsAppearanceBasePicker()) {
     // We only want to apply mouse/keyboard behavior for appearance:base-select
@@ -644,7 +665,7 @@ void HTMLOptionElement::DefaultEventHandler(Event& event) {
         (event.type() == event_type_names::kMousedown && mouse_event &&
          mouse_event->button() ==
              static_cast<int16_t>(WebPointerProperties::Button::kLeft))) {
-      SetSelected(true);
+      select->SelectOptionByPopup(this);
       select->HidePopup();
       event.SetDefaultHandled();
       return;
@@ -669,9 +690,9 @@ void HTMLOptionElement::DefaultEventHandler(Event& event) {
         }
         if (previous_option) {
           previous_option->Focus(FocusParams(FocusTrigger::kUserGesture));
-          event.SetDefaultHandled();
-          return;
         }
+        event.SetDefaultHandled();
+        return;
       } else if (key == keywords::kArrowDown && select) {
         OptionListIterator option_list = select->GetOptionList().begin();
         while (*option_list && *option_list != this) {
@@ -683,12 +704,12 @@ void HTMLOptionElement::DefaultEventHandler(Event& event) {
           auto* next_option = *option_list;
           if (next_option) {
             next_option->Focus(FocusParams(FocusTrigger::kUserGesture));
-            event.SetDefaultHandled();
-            return;
           }
+          event.SetDefaultHandled();
+          return;
         }
       } else if ((key == " " || key == keywords::kCapitalEnter) && select) {
-        SetSelected(true);
+        select->SelectOptionByPopup(this);
         select->HidePopup();
         event.SetDefaultHandled();
         return;
@@ -706,8 +727,6 @@ void HTMLOptionElement::DefaultEventHandler(Event& event) {
       }
     }
   }
-
-  HTMLElement::DefaultEventHandler(event);
 }
 
 }  // namespace blink

@@ -147,13 +147,10 @@ bool ClientSharedImage::ScopedMapping::Init(
   return true;
 }
 
-void* ClientSharedImage::ScopedMapping::Memory(const uint32_t plane_index) {
-  CHECK(buffer_);
-  return buffer_->memory(plane_index);
-}
-
 base::span<uint8_t> ClientSharedImage::ScopedMapping::GetMemoryForPlane(
     const uint32_t plane_index) {
+  CHECK(buffer_);
+
   size_t height_in_pixels;
   size_t row_size_in_bytes;
 
@@ -176,7 +173,7 @@ base::span<uint8_t> ClientSharedImage::ScopedMapping::GetMemoryForPlane(
   // the start of the plane, as that region is by definition the memory storing
   // the data of the plane.
   return UNSAFE_BUFFERS(base::span<uint8_t>(
-      reinterpret_cast<uint8_t*>(Memory(plane_index)), span_length));
+      reinterpret_cast<uint8_t*>(buffer_->memory(plane_index)), span_length));
 }
 
 SkPixmap ClientSharedImage::ScopedMapping::GetSkPixmapForPlane(
@@ -289,6 +286,7 @@ ClientSharedImage::ClientSharedImage(
               base::DoNothing(),
               gpu_memory_buffer_manager_.get(),
               std::move(shared_memory_pool))),
+      buffer_usage_(handle_info.buffer_usage),
       sii_holder_(std::move(sii_holder)) {
   CHECK(!mailbox.IsZero());
   CHECK(sii_holder_);
@@ -443,9 +441,22 @@ void ClientSharedImage::HelperGpuMemoryBufferManager::CopyGpuMemoryBufferAsync(
     gfx::GpuMemoryBufferHandle buffer_handle,
     base::UnsafeSharedMemoryRegion memory_region,
     base::OnceCallback<void(bool)> callback) {
-  // Will be implemented in follow up CLs once IPC changes to perform this
-  // operation are done.
-  NOTIMPLEMENTED();
+  auto sii = GetSharedImageInterface();
+  if (!sii) {
+    DLOG(WARNING) << "No SharedImageInterface.";
+    return;
+  }
+  sii->CopyNativeGmbToSharedMemoryAsync(
+      std::move(buffer_handle), std::move(memory_region), std::move(callback));
+}
+
+bool ClientSharedImage::HelperGpuMemoryBufferManager::IsConnected() {
+  auto sii = GetSharedImageInterface();
+  if (!sii) {
+    DLOG(WARNING) << "No SharedImageInterface.";
+    return false;
+  }
+  return sii->IsConnected();
 }
 
 // Access the SharedImageInterface via the SharedImageInterfaceHolder.

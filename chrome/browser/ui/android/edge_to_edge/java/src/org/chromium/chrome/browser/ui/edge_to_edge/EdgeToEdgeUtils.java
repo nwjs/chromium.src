@@ -73,6 +73,15 @@ public class EdgeToEdgeUtils {
                     PARAM_DISABLE_CCT_MEDIA_VIEWER_E2E,
                     false);
 
+    private static final String PARAM_DISABLE_RECENT_TABS_E2E = "disable_recent_tabs_e2e";
+
+    /** Cached param whether we disable e2e on the recent tabs page. */
+    public static BooleanCachedFieldTrialParameter DISABLE_RECENT_TABS_E2E =
+            ChromeFeatureList.newBooleanCachedFieldTrialParameter(
+                    ChromeFeatureList.DRAW_KEY_NATIVE_EDGE_TO_EDGE,
+                    PARAM_DISABLE_RECENT_TABS_E2E,
+                    false);
+
     private static final String PARAM_E2E_FIELD_TRIAL_OEM_LIST = "e2e_field_trial_oem_list";
     private static final String PARAM_E2E_FIELD_TRIAL_OEM_MIN_VERSIONS =
             "e2e_field_trial_oem_min_versions";
@@ -118,23 +127,9 @@ public class EdgeToEdgeUtils {
      * drawing edge to edge on start up.
      */
     public static boolean isEnabled() {
-        return isLegacyWebsiteOptInEnabled()
-                || isEdgeToEdgeBottomChinEnabled()
+        return isEdgeToEdgeBottomChinEnabled()
                 || isEdgeToEdgeWebOptInEnabled()
                 || isEdgeToEdgeEverywhereEnabled();
-    }
-
-    /**
-     * Whether drawing website opt-in is enabled.
-     *
-     * <p>When enabled, Chrome will add bottom padding to the root view if the current tab / UI is
-     * not a tab with `viewport-fit=cover`. Additionally, bottom attached UI will be padded to avoid
-     * drawing into the bottom navigation bar region.
-     *
-     * @deprecated This method will be removed. External references should use {@link #isEnabled()}.
-     */
-    public static boolean isLegacyWebsiteOptInEnabled() {
-        return ChromeFeatureList.sDrawEdgeToEdge.isEnabled();
     }
 
     /**

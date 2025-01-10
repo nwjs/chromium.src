@@ -15,9 +15,10 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_side_panel_controller.h"
 #include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_screenshotter.h"
-#include "chrome/common/accessibility/read_anything.mojom.h"
-#include "chrome/common/accessibility/read_anything_constants.h"
+#include "chrome/common/read_anything/read_anything.mojom.h"
+#include "chrome/common/read_anything/read_anything_constants.h"
 #include "components/translate/core/browser/translate_client.h"
+#include "content/public/browser/tts_controller.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -84,6 +85,8 @@ class ReadAnythingWebContentsObserver : public content::WebContentsObserver {
 class ReadAnythingUntrustedPageHandler :
 #if BUILDFLAG(IS_CHROMEOS_ASH)
     public ash::SessionObserver,
+#else
+    public content::UpdateLanguageStatusDelegate,
 #endif
     public ui::AXActionHandlerObserver,
     public read_anything::mojom::UntrustedPageHandler,
@@ -94,7 +97,8 @@ class ReadAnythingUntrustedPageHandler :
       mojo::PendingRemote<read_anything::mojom::UntrustedPage> page,
       mojo::PendingReceiver<read_anything::mojom::UntrustedPageHandler>
           receiver,
-      content::WebUI* web_ui);
+      content::WebUI* web_ui,
+      bool use_screen_ai_service);
   ReadAnythingUntrustedPageHandler(const ReadAnythingUntrustedPageHandler&) =
       delete;
   ReadAnythingUntrustedPageHandler& operator=(
@@ -130,6 +134,13 @@ class ReadAnythingUntrustedPageHandler :
                              const std::vector<gfx::Size>& sizes);
 
  private:
+#if !BUILDFLAG(IS_CHROMEOS_ASH)
+  // content::UpdateLanguageStatusDelegate:
+  void OnUpdateLanguageStatus(const std::string& lang,
+                              content::LanguageInstallStatus install_status,
+                              const std::string& error) override;
+#endif
+
   // TranslateDriver::LanguageDetectionObserver:
   void OnLanguageDetermined(
       const translate::LanguageDetectionDetails& details) override;
@@ -141,10 +152,9 @@ class ReadAnythingUntrustedPageHandler :
   // read_anything::mojom::UntrustedPageHandler:
   void GetDependencyParserModel(
       GetDependencyParserModelCallback callback) override;
-  void GetVoicePackInfo(const std::string& language,
-                        GetVoicePackInfoCallback mojo_remote_callback) override;
-  void InstallVoicePack(const std::string& language,
-                        InstallVoicePackCallback mojo_remote_callback) override;
+  void GetVoicePackInfo(const std::string& language) override;
+  void InstallVoicePack(const std::string& language) override;
+  void UninstallVoice(const std::string& language) override;
   void OnCopy() override;
   void OnLineSpaceChange(
       read_anything::mojom::LineSpacing line_spacing) override;
@@ -186,6 +196,8 @@ class ReadAnythingUntrustedPageHandler :
 
   void OnActiveAXTreeIDChanged();
 
+  void OnGetVoicePackInfo(read_anything::mojom::VoicePackInfoPtr info);
+
   // Logs the current visual settings values.
   void LogTextStyle();
 
@@ -224,6 +236,8 @@ class ReadAnythingUntrustedPageHandler :
   base::ScopedObservation<ui::AXActionHandlerRegistry,
                           ui::AXActionHandlerObserver>
       ax_action_handler_observer_{this};
+
+  const bool use_screen_ai_service_;
 
   void OnScreenAIServiceInitialized(bool successful);
 

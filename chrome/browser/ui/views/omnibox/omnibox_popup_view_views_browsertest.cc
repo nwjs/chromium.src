@@ -366,12 +366,10 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupViewViewsTest,
   popup_view()->UpdatePopupAppearance();
   EXPECT_EQ(observer.text_changed_on_listboxoption_count(), 0);
 
-  // Changing the user text while in the input rather than the list should not
-  // result in a text/name change accessibility event.
   edit_model()->SetUserText(u"bar");
   edit_model()->StartAutocomplete(false, false);
   popup_view()->UpdatePopupAppearance();
-  EXPECT_EQ(observer.text_changed_on_listboxoption_count(), 0);
+  EXPECT_EQ(observer.text_changed_on_listboxoption_count(), 1);
   EXPECT_EQ(observer.selected_children_changed_count(), 1);
   EXPECT_EQ(observer.selection_changed_count(), 1);
   EXPECT_EQ(observer.active_descendant_changed_count(), 1);

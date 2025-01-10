@@ -49,13 +49,14 @@
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/lens/lens_features.h"
 #include "components/strings/grit/components_strings.h"
-#include "components/user_education/common/feature_promo_controller.h"
-#include "components/user_education/common/feature_promo_result.h"
+#include "components/user_education/common/feature_promo/feature_promo_controller.h"
+#include "components/user_education/common/feature_promo/feature_promo_result.h"
 #include "ui/actions/action_id.h"
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/color/color_id.h"
@@ -313,16 +314,6 @@ void SidePanelCoordinator::Show(
   Show(unique_key.value(), open_trigger, /*suppress_animations=*/false);
 }
 
-void SidePanelCoordinator::AddSidePanelViewStateObserver(
-    SidePanelViewStateObserver* observer) {
-  view_state_observers_.AddObserver(observer);
-}
-
-void SidePanelCoordinator::RemoveSidePanelViewStateObserver(
-    SidePanelViewStateObserver* observer) {
-  view_state_observers_.RemoveObserver(observer);
-}
-
 void SidePanelCoordinator::Close() {
   Close(/*suppress_animations=*/false);
 }
@@ -421,7 +412,7 @@ void SidePanelCoordinator::OpenMoreInfoMenu() {
                               header_more_info_button_->button_controller()),
                           header_more_info_button_->GetAnchorBoundsInScreen(),
                           views::MenuAnchorPosition::kTopRight,
-                          ui::MENU_SOURCE_NONE);
+                          ui::mojom::MenuSourceType::kNone);
 }
 
 std::optional<SidePanelEntry::Id> SidePanelCoordinator::GetCurrentEntryId()
@@ -503,13 +494,6 @@ void SidePanelCoordinator::Show(
 
   SidePanelUtil::RecordSidePanelShowOrChangeEntryTrigger(open_trigger);
 
-  // If the side panel was in the process of closing, notify observers that the
-  // close was cancelled.
-  if (browser_view_->unified_side_panel()->IsClosing()) {
-    view_state_observers_.Notify(
-        &SidePanelViewStateObserver::OnSidePanelCloseInterrupted);
-  }
-
   // If the side panel is already showing, cancel all loads and do nothing.
   if (current_key_ && *current_key_ == input) {
     waiter_->ResetLoadingEntryIfNecessary();
@@ -530,6 +514,11 @@ void SidePanelCoordinator::Show(
       entry,
       base::BindOnce(&SidePanelCoordinator::PopulateSidePanel,
                      base::Unretained(this), suppress_animations, input));
+}
+
+base::CallbackListSubscription SidePanelCoordinator::RegisterSidePanelShown(
+    ShownCallback callback) {
+  return shown_callback_list_.Add(std::move(callback));
 }
 
 // There are 3 different contexts in which the side panel can be closed. All go
@@ -622,8 +611,6 @@ void SidePanelCoordinator::PopulateSidePanel(
   // the currently hosted SidePanelEntry.
   DCHECK(content_wrapper->children().size() <= 1);
 
-  const bool opening_side_panel = !IsSidePanelShowing();
-
   content_wrapper->SetVisible(true);
   browser_view_->unified_side_panel()->Open(/*animated=*/!suppress_animations);
 
@@ -674,12 +661,7 @@ void SidePanelCoordinator::PopulateSidePanel(
     browser_view_->unified_side_panel()->UpdateWidthOnEntryChanged();
   }
 
-  // Notify the observers when the side panel is opened (made visible). However,
-  // the observers are not renotified when the side panel entry changes.
-  if (opening_side_panel) {
-    view_state_observers_.Notify(
-        &SidePanelViewStateObserver::OnSidePanelDidOpen);
-  }
+  shown_callback_list_.Notify();
 }
 
 void SidePanelCoordinator::ClearCachedEntryViews() {
@@ -922,12 +904,12 @@ void SidePanelCoordinator::OnTabStripModelChanged(
   // Handle removing the previous tab's contextual registry if one exists. In
   // the event that the tab was removed for deletion, registry removal is
   // already handled by SidePanelCoordinator::OnRegistryDestroying
-  bool removed_for_deletion =
+  bool tab_removed_for_deletion =
       (change.type() == TabStripModelChange::kRemoved) &&
-      (change.GetRemove()->contents[0].remove_reason ==
-       TabStripModelChange::RemoveReason::kDeleted);
+      (change.GetRemove()->contents[0].tab_detach_reason ==
+       tabs::TabInterface::DetachReason::kDelete);
   SidePanelRegistry* old_contextual_registry = nullptr;
-  if (!removed_for_deletion && selection.old_contents) {
+  if (!tab_removed_for_deletion && selection.old_contents) {
     old_contextual_registry =
         SidePanelRegistry::GetDeprecated(selection.old_contents);
   }
@@ -1103,9 +1085,6 @@ void SidePanelCoordinator::OnViewVisibilityChanged(views::View* observed_view,
     content_wrapper->RemoveChildViewT(content_wrapper->children().front());
   }
   SidePanelUtil::RecordSidePanelClosed(opened_timestamp_);
-
-  view_state_observers_.Notify(
-      &SidePanelViewStateObserver::OnSidePanelDidClose);
 }
 
 void SidePanelCoordinator::OnActionsChanged() {

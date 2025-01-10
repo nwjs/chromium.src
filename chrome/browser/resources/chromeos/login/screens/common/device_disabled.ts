@@ -121,7 +121,7 @@ export class DeviceDisabled extends DeviceDisabledElementBase {
 
   /** @override */
   override get EXTERNAL_API(): string[] {
-    return ['setMessage'];
+    return ['updateData'];
   }
 
   /** Initial UI State for screen */
@@ -140,6 +140,13 @@ export class DeviceDisabled extends DeviceDisabledElementBase {
    */
   override onBeforeShow(data: DeviceDisabledScreenData): void {
     super.onBeforeShow(data);
+    this.updateData(data);
+  }
+
+  /**
+   * Updates the data used in the screen.
+   */
+  updateData(data: DeviceDisabledScreenData): void {
     if ('serial' in data) {
       this.serial = data.serial;
     }
@@ -162,13 +169,6 @@ export class DeviceDisabled extends DeviceDisabledElementBase {
     if ('restrictionScheduleEndTime' in data) {
       this.restrictionScheduleEndTime = data.restrictionScheduleEndTime;
     }
-  }
-
-  /**
-   * Sets the message to be shown to the user.
-   */
-  setMessage(message: string): void {
-    this.message = message;
   }
 
   /**
@@ -199,23 +199,18 @@ export class DeviceDisabled extends DeviceDisabledElementBase {
    * deviceRestrictionScheduleEnabled flag indicating if the device was disabled
    *     because the device is in restriction schedule.
    * deviceName The name of the ChromeOS device.
-   * restrictionScheduleEndDay The day at which the restriction schedule ends.
-   * restrictionScheduleEndTime The time at which the restriction schedule ends.
    * return The internationalized explanation.
    */
   private disabledText(
       locale: string, serial: string, domain: string,
-      deviceRestrictionScheduleEnabled: boolean, deviceName: string,
-      restrictionScheduleEndDay: string,
-      restrictionScheduleEndTime: string): TrustedHTML {
+      deviceRestrictionScheduleEnabled: boolean,
+      deviceName: string): TrustedHTML {
     if (deviceRestrictionScheduleEnabled) {
       return this.i18nAdvancedDynamic(
           locale, 'deviceDisabledExplanationRestrictionSchedule', {
             substitutions: [
               domain,
               deviceName,
-              restrictionScheduleEndDay,
-              restrictionScheduleEndTime,
             ],
           });
     }
@@ -227,6 +222,25 @@ export class DeviceDisabled extends DeviceDisabledElementBase {
     return this.i18nAdvancedDynamic(
         locale, 'deviceDisabledExplanationWithoutDomain',
         {substitutions: [serial]});
+  }
+
+  /**
+   * Updates the detailed message shown to the user.
+   * locale The i18n locale.
+   * restrictionScheduleEndDay The day at which the restriction schedule ends.
+   * restrictionScheduleEndTime The time at which the restriction schedule ends.
+   * return The internationalized explanation.
+   */
+  private disabledMessage(
+      locale: string, restrictionScheduleEndDay: string,
+      restrictionScheduleEndTime: string): TrustedHTML {
+    return this.i18nAdvancedDynamic(
+        locale, 'deviceDisabledExplanationRestrictionScheduleTime', {
+          substitutions: [
+            restrictionScheduleEndDay,
+            restrictionScheduleEndTime,
+          ],
+        });
   }
 }
 

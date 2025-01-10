@@ -499,8 +499,7 @@ bool WebGL2RenderingContextBase::ValidateTexFuncLayer(const char* function_name,
       }
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return false;
+      NOTREACHED();
   }
   return true;
 }
@@ -4248,20 +4247,21 @@ WebGLActiveInfo* WebGL2RenderingContextBase::getTransformFeedbackVarying(
   if (max_name_length <= 0) {
     return nullptr;
   }
-  auto name = std::make_unique<GLchar[]>(max_name_length);
+  auto name = base::HeapArray<GLchar>::WithSize(max_name_length);
   GLsizei length = 0;
   GLsizei size = 0;
   GLenum type = 0;
   ContextGL()->GetTransformFeedbackVarying(ObjectOrZero(program), index,
                                            max_name_length, &length, &size,
-                                           &type, name.get());
+                                           &type, name.data());
 
   if (length <= 0 || size == 0 || type == 0) {
     return nullptr;
   }
 
   return MakeGarbageCollected<WebGLActiveInfo>(
-      String(name.get(), static_cast<uint32_t>(length)), type, size);
+      String(base::span(name).first(static_cast<uint32_t>(length))), type,
+      size);
 }
 
 void WebGL2RenderingContextBase::pauseTransformFeedback() {
@@ -4548,8 +4548,7 @@ ScriptValue WebGL2RenderingContextBase::getActiveUniforms(
       return WebGLAny(script_state, bool_result);
     }
     default:
-      NOTREACHED_IN_MIGRATION();
-      return ScriptValue::CreateNull(script_state->GetIsolate());
+      NOTREACHED();
   }
 }
 
@@ -4656,16 +4655,16 @@ String WebGL2RenderingContextBase::getActiveUniformBlockName(
                       "invalid uniform block index");
     return String();
   }
-  auto name = std::make_unique<GLchar[]>(max_name_length);
+  auto name = base::HeapArray<GLchar>::WithSize(max_name_length);
 
   GLsizei length = 0;
   ContextGL()->GetActiveUniformBlockName(ObjectOrZero(program),
                                          uniform_block_index, max_name_length,
-                                         &length, name.get());
+                                         &length, name.data());
 
   if (length <= 0)
     return String();
-  return String(name.get(), static_cast<uint32_t>(length));
+  return String(base::span(name).first(static_cast<uint32_t>(length)));
 }
 
 void WebGL2RenderingContextBase::uniformBlockBinding(
@@ -5144,8 +5143,7 @@ bool WebGL2RenderingContextBase::ValidateAndUpdateBufferBindTarget(
       bound_uniform_buffer_ = buffer;
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 
   if (buffer && !buffer->GetInitialTarget())
@@ -5198,8 +5196,7 @@ bool WebGL2RenderingContextBase::ValidateAndUpdateBufferBindBaseTarget(
       bound_uniform_buffer_ = buffer;
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 
   if (buffer && !buffer->GetInitialTarget())

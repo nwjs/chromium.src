@@ -36,6 +36,7 @@
 #include "chrome/browser/preloading/preloading_prefs.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_attestations/privacy_sandbox_attestations_mixin.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ssl/https_upgrades_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/webui_url_constants.h"
@@ -153,6 +154,9 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
 
 IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
                        CreateBrowserContextAcceptsProxyServer) {
+  ScopedAllowHttpForHostnamesForTesting allow_http(
+      {"this-page-does-not-exist.com"}, browser()->profile()->GetPrefs());
+
   AttachToBrowserTarget();
   embedded_test_server()->RegisterRequestHandler(base::BindLambdaForTesting(
       [&](const net::test_server::HttpRequest& request)
@@ -939,12 +943,10 @@ class DevToolsProtocolScreenshotTest : public DevToolsProtocolTest {
     CHECK(!error());
     const std::string* base64_data = result()->FindString("data");
     CHECK(base64_data);
-    std::string png_data;
-    CHECK(base::Base64Decode(*base64_data, &png_data));
-    SkBitmap bitmap;
-    CHECK(gfx::PNGCodec::Decode(
-        reinterpret_cast<unsigned const char*>(png_data.data()),
-        png_data.size(), &bitmap));
+    std::optional<std::vector<uint8_t>> png_data =
+        base::Base64Decode(*base64_data);
+    SkBitmap bitmap = gfx::PNGCodec::Decode(png_data.value());
+    CHECK(!bitmap.isNull());
     return bitmap;
   }
 };

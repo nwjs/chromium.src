@@ -9,6 +9,7 @@
 #import "base/memory/raw_ptr.h"
 #import "components/sync/service/sync_service_utils.h"
 #import "components/trusted_vault/trusted_vault_server_constants.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
@@ -66,13 +67,15 @@ class AccountMenuCoordinatorTest : public PlatformTest {
  public:
   void SetUp() override {
     PlatformTest::SetUp();
+    scene_state_ = [[SceneState alloc] initWithAppState:nil];
 
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetDefaultFactory());
+        AuthenticationServiceFactory::GetFactoryWithDelegate(
+            std::make_unique<FakeAuthenticationServiceDelegate>()));
     profile_ = std::move(builder).Build();
-    browser_ = std::make_unique<TestBrowser>(profile_.get());
+    browser_ = std::make_unique<TestBrowser>(profile_.get(), scene_state_);
 
     mock_application_commands_handler_ =
         OCMStrictProtocolMock(@protocol(ApplicationCommands));
@@ -97,8 +100,6 @@ class AccountMenuCoordinatorTest : public PlatformTest {
         startDispatchingToTarget:mock_browser_coordinator_commands_handler_
                      forProtocol:@protocol(BrowserCoordinatorCommands)];
 
-    AuthenticationServiceFactory::CreateAndInitializeForProfile(
-        profile_.get(), std::make_unique<FakeAuthenticationServiceDelegate>());
     fake_system_identity_manager_ =
         FakeSystemIdentityManager::FromSystemIdentityManager(
             GetApplicationContext()->GetSystemIdentityManager());
@@ -170,6 +171,7 @@ class AccountMenuCoordinatorTest : public PlatformTest {
   id<SnackbarCommands> mock_snackbar_commands_handler_;
   id<SettingsCommands> mock_settings_commands_handler_;
   id<BrowserCommands> mock_browser_commands_handler_;
+  SceneState* scene_state_;
   id<BrowserCoordinatorCommands> mock_browser_coordinator_commands_handler_;
   AccountMenuViewController* view_controller_;
   AccountMenuMediator* mediator_;
@@ -235,10 +237,10 @@ TEST_F(AccountMenuCoordinatorNonManagedTest, testManageYourGoogleAccount) {
   assertOpenAndInterrupt();
 }
 
-// Tests that `didTapEditAccountList` has no impact on the view controller and
+// Tests that `didTapManageAccounts` has no impact on the view controller and
 // mediator.
 TEST_F(AccountMenuCoordinatorNonManagedTest, testEditAccountList) {
-  [coordinator_ didTapEditAccountList];
+  [coordinator_ didTapManageAccounts];
   assertOpenAndInterrupt();
 }
 
@@ -252,11 +254,11 @@ TEST_F(AccountMenuCoordinatorNonManagedTest, testSignOut) {
       showSnackbarMessageOverBrowserToolbar:[OCMArg isNotNil]]);
   [coordinator_ signOutFromTargetRect:rect
                             forSwitch:NO
-                             callback:^(BOOL success) {
-                               EXPECT_TRUE(success);
-                               assertOpenAndInterrupt();
-                               closure.Run();
-                             }];
+                           completion:^(BOOL success) {
+                             EXPECT_TRUE(success);
+                             assertOpenAndInterrupt();
+                             closure.Run();
+                           }];
   run_loop.Run();
   EXPECT_EQ(authentication_service_->GetPrimaryIdentity(
                 signin::ConsentLevel::kSignin),
@@ -280,10 +282,10 @@ TEST_F(AccountMenuCoordinatorNonManagedTest, testTriggerSignout) {
   CGRect rect = CGRect();
   [coordinator_ signOutFromTargetRect:rect
                             forSwitch:NO
-                             callback:^(BOOL success) {
-                               EXPECT_TRUE(success);
-                               closure.Run();
-                             }];
+                           completion:^(BOOL success) {
+                             EXPECT_TRUE(success);
+                             closure.Run();
+                           }];
   run_loop.Run();
   assertOpenAndInterrupt();
 }
@@ -352,18 +354,6 @@ TEST_F(AccountMenuCoordinatorNonManagedTest, testPassphrase) {
 // Tests that `openTrustedVaultReauthForFetchKeys` calls
 // `showTrustedVaultReauthForFetchKeysFromViewController`.
 TEST_F(AccountMenuCoordinatorNonManagedTest, testFetchKeys) {
-  OCMExpect([mock_application_commands_handler_
-      showTrustedVaultReauthForFetchKeysFromViewController:[OCMArg any]
-                                          securityDomainID:
-                                              trusted_vault::SecurityDomainId::
-                                                  kChromeSync
-                                                   trigger:
-                                                       syncer::
-                                                           TrustedVaultUserActionTriggerForUMA::
-                                                               kSettings
-                                               accessPoint:
-                                                   signin_metrics::AccessPoint::
-                                                       ACCESS_POINT_ACCOUNT_MENU]);
   [coordinator_ openTrustedVaultReauthForFetchKeys];
   assertOpenAndInterrupt();
 }
@@ -371,22 +361,6 @@ TEST_F(AccountMenuCoordinatorNonManagedTest, testFetchKeys) {
 // Tests that `openTrustedVaultReauthForDegradedRecoverability` calls
 // `showTrustedVaultReauthForDegradedRecoverabilityFromViewController`.
 TEST_F(AccountMenuCoordinatorNonManagedTest, testDegradedRecoverability) {
-  OCMExpect([mock_application_commands_handler_
-      showTrustedVaultReauthForDegradedRecoverabilityFromViewController:[OCMArg
-                                                                            any]
-
-                                                       securityDomainID:
-                                                           trusted_vault::
-                                                               SecurityDomainId::
-                                                                   kChromeSync
-                                                                trigger:
-                                                                    syncer::
-                                                                        TrustedVaultUserActionTriggerForUMA::
-                                                                            kSettings
-                                                            accessPoint:
-                                                                signin_metrics::
-                                                                    AccessPoint::
-                                                                        ACCESS_POINT_ACCOUNT_MENU]);
   [coordinator_ openTrustedVaultReauthForDegradedRecoverability];
   assertOpenAndInterrupt();
 }
@@ -395,21 +369,5 @@ TEST_F(AccountMenuCoordinatorNonManagedTest, testDegradedRecoverability) {
 // mediator and view controller.
 TEST_F(AccountMenuCoordinatorNonManagedTest, testMDMError) {
   [coordinator_ openMDMErrodDialogWithSystemIdentity:kPrimaryIdentity];
-  assertOpenAndInterrupt();
-}
-
-// Tests that `openPrimaryAccountReauthDialog` calls `showSignin`.
-TEST_F(AccountMenuCoordinatorNonManagedTest, testReauth) {
-  OCMExpect([mock_application_commands_handler_
-              showSignin:[OCMArg checkWithBlock:^BOOL(
-                                     ShowSigninCommand* value) {
-                return value.operation ==
-                           AuthenticationOperation::kPrimaryAccountReauth &&
-                       value.accessPoint == signin_metrics::AccessPoint::
-                                                ACCESS_POINT_ACCOUNT_MENU &&
-                       value.identity == nil;
-              }]
-      baseViewController:[OCMArg any]]);
-  [coordinator_ openPrimaryAccountReauthDialog];
   assertOpenAndInterrupt();
 }

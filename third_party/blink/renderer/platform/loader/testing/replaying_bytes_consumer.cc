@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "third_party/blink/renderer/platform/loader/testing/replaying_bytes_consumer.h"
 
 #include "base/task/single_thread_task_runner.h"
@@ -48,7 +43,7 @@ BytesConsumer::Result ReplayingBytesConsumer::BeginRead(
       Close();
       return Result::kDone;
     case Command::kError: {
-      Error e(String::FromUTF8(command.Body().data(), command.Body().size()));
+      Error e(String::FromUTF8(base::as_byte_span(command.Body())));
       commands_.pop_front();
       MakeErrored(std::move(e));
       return Result::kError;
@@ -61,8 +56,7 @@ BytesConsumer::Result ReplayingBytesConsumer::BeginRead(
                                    WrapPersistent(this), notification_token_));
       return Result::kShouldWait;
   }
-  NOTREACHED_IN_MIGRATION();
-  return Result::kError;
+  NOTREACHED();
 }
 
 BytesConsumer::Result ReplayingBytesConsumer::EndRead(size_t read) {

@@ -10,7 +10,8 @@
 #import "base/files/file_path.h"
 #import "base/functional/callback_forward.h"
 #import "components/keyed_service/ios/browser_state_keyed_service_factory.h"
-#import "ios/chrome/browser/shared/model/profile/profile_ios_forward.h"
+
+class ProfileIOS;
 
 namespace web {
 class WebStateID;
@@ -24,8 +25,7 @@ class WebStateID;
 @interface WebSessionStateCache : NSObject
 
 // Designated initializer.
-- (instancetype)initWithBrowserState:(ProfileIOS*)profile
-    NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithProfile:(ProfileIOS*)profile NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
 

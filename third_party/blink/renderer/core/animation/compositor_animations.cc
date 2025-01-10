@@ -36,7 +36,6 @@
 
 #include "cc/animation/animation_id_provider.h"
 #include "cc/animation/filter_animation_curve.h"
-#include "cc/base/features.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/core/animation/animation_effect.h"
 #include "third_party/blink/renderer/core/animation/css/compositor_keyframe_color.h"
@@ -108,8 +107,7 @@ bool ConsiderAnimationAsIncompatible(const Animation& animation,
       }
       return true;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return true;
+      NOTREACHED();
   }
 }
 
@@ -244,9 +242,8 @@ CompositorAnimations::CompositorElementNamespaceForProperty(
       // target node - the effect namespace.
       return CompositorElementIdNamespace::kPrimaryEffect;
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
-  return CompositorElementIdNamespace::kPrimary;
 }
 
 CompositorAnimations::FailureReasons
@@ -804,9 +801,7 @@ bool CompositorAnimations::ConvertTimingForCompositor(
   // after finishing until it is removed by a subsequent main thread commit.
   // This allows developers to apply a post animation style or start a
   // subsequent animation without flicker.
-  if ((base::FeatureList::IsEnabled(features::kNoPreserveLastMutation) &&
-       is_monotonic_timeline) ||
-      is_boundary_aligned) {
+  if (is_monotonic_timeline || is_boundary_aligned) {
     if (animation_playback_rate >= 0) {
       switch (out.fill_mode) {
         case Timing::FillMode::BOTH:
@@ -819,8 +814,7 @@ bool CompositorAnimations::ConvertTimingForCompositor(
           out.fill_mode = Timing::FillMode::FORWARDS;
           break;
         case Timing::FillMode::AUTO:
-          NOTREACHED_IN_MIGRATION();
-          break;
+          NOTREACHED();
       }
     } else {
       switch (out.fill_mode) {
@@ -834,8 +828,7 @@ bool CompositorAnimations::ConvertTimingForCompositor(
           out.fill_mode = Timing::FillMode::BACKWARDS;
           break;
         case Timing::FillMode::AUTO:
-          NOTREACHED_IN_MIGRATION();
-          break;
+          NOTREACHED();
       }
     }
   }
@@ -1060,9 +1053,7 @@ void CompositorAnimations::GetAnimationOnCompositor(
                 cc::TargetProperty::TRANSFORM);
             break;
           default:
-            NOTREACHED_IN_MIGRATION()
-                << "only possible cases for nested switch";
-            break;
+            NOTREACHED() << "only possible cases for nested switch";
         }
         break;
       }
@@ -1107,8 +1098,7 @@ void CompositorAnimations::GetAnimationOnCompositor(
         break;
       }
       default:
-        NOTREACHED_IN_MIGRATION();
-        continue;
+        NOTREACHED();
     }
     DCHECK(curve.get());
     DCHECK(target_property_id.has_value());
@@ -1156,9 +1146,7 @@ bool CompositorAnimations::CanStartScrollTimelineOnCompositor(Node* target) {
     return false;
   }
   if (auto* properties = layout_box->FirstFragment().PaintProperties()) {
-    return properties->Scroll() &&
-           (!RuntimeEnabledFeatures::ScrollNodeForOverflowHiddenEnabled() ||
-            properties->Scroll()->UserScrollable());
+    return properties->Scroll() && properties->Scroll()->UserScrollable();
   }
   return false;
 }

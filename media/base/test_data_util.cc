@@ -10,6 +10,8 @@
 #include "media/base/test_data_util.h"
 
 #include <stdint.h>
+
+#include <optional>
 #include <ostream>
 
 #include "base/check_op.h"
@@ -72,6 +74,7 @@ using FileToMimeTypeMap = base::flat_map<std::string, std::string>;
 // main profile, a new mime type should be added.
 const FileToMimeTypeMap& GetFileToMimeTypeMap() {
   static const base::NoDestructor<FileToMimeTypeMap> kFileToMimeTypeMap({
+      {"bear-1280x720-av_frag.mp4", kMp4AacAudioAvc1Video},
       {"bear-1280x720-a_frag-cenc-key_rotation.mp4", kMp4AacAudio},
       {"bear-1280x720-a_frag-cenc.mp4", kMp4AacAudio},
       {"bear-1280x720-a_frag-cenc_clear-all.mp4", kMp4AacAudio},
@@ -233,11 +236,10 @@ std::string GetURLQueryString(const base::StringPairs& query_params) {
 scoped_refptr<DecoderBuffer> ReadTestDataFile(std::string_view name) {
   base::FilePath file_path = GetTestDataFilePath(name);
 
-  int64_t tmp = 0;
-  CHECK(base::GetFileSize(file_path, &tmp))
-      << "Failed to get file size for '" << name << "'";
+  std::optional<int64_t> tmp = base::GetFileSize(file_path);
+  CHECK(tmp.has_value()) << "Failed to get file size for '" << name << "'";
 
-  int file_size = base::checked_cast<int>(tmp);
+  int file_size = base::checked_cast<int>(tmp.value());
 
   scoped_refptr<DecoderBuffer> buffer(new DecoderBuffer(file_size));
   auto* data = reinterpret_cast<char*>(buffer->writable_data());

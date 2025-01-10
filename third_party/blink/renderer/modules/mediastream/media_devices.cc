@@ -29,6 +29,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver_with_tracker.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_audio_output_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_capture_handle_config.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_display_media_stream_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_media_device_kind.h"
@@ -210,7 +211,7 @@ void RecordUma(SubCaptureTarget::Type type,
     base::UmaHistogramEnumeration(
         "Media.ElementCapture.ProduceTarget.Function.Result", result);
   } else {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 }
 
@@ -230,7 +231,7 @@ void RecordUma(SubCaptureTarget::Type type, ProduceTargetPromiseResult result) {
     base::UmaHistogramEnumeration(
         "Media.ElementCapture.ProduceTarget.Promise.Result", result);
   } else {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 }
 
@@ -321,10 +322,8 @@ bool IsExtensionScreenSharingFunctionCall(const MediaStreamConstraints* options,
 #endif
 
 MediaStreamConstraints* ToMediaStreamConstraints(
-    const UserMediaStreamConstraints* source,
-    ExceptionState& exception_state) {
+    const UserMediaStreamConstraints* source) {
   DCHECK(source);
-  DCHECK(!exception_state.HadException());
 
   MediaStreamConstraints* const constraints = MediaStreamConstraints::Create();
 
@@ -335,26 +334,6 @@ MediaStreamConstraints* ToMediaStreamConstraints(
   if (source->hasVideo()) {
     constraints->setVideo(source->video());
   }
-
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-  if (source->hasController()) {
-    const bool is_screen_sharing =
-        IsExtensionScreenSharingFunctionCall(constraints, exception_state);
-
-    if (exception_state.HadException()) {
-      return nullptr;
-    }
-
-    if (!is_screen_sharing) {
-      exception_state.ThrowDOMException(
-          DOMExceptionCode::kNotSupportedError,
-          "CaptureController supplied for a non-screen-capture call.");
-      return nullptr;
-    }
-
-    constraints->setController(source->controller());
-  }
-#endif
 
   return constraints;
 }
@@ -490,8 +469,7 @@ ScriptPromise<MediaStream> MediaDevices::getUserMedia(
   DCHECK(options);  // Guaranteed by the default value in the IDL.
   DCHECK(!exception_state.HadException());
 
-  MediaStreamConstraints* const constraints =
-      ToMediaStreamConstraints(options, exception_state);
+  MediaStreamConstraints* const constraints = ToMediaStreamConstraints(options);
   if (!constraints) {
     DCHECK(exception_state.HadException());
     resolver->RecordAndDetach(UserMediaRequestResult::kInvalidConstraints);
@@ -569,9 +547,6 @@ ScriptPromise<IDLResolvedType> MediaDevices::SendUserMediaRequest(
   if (!request) {
     DCHECK(exception_state.HadException());
     resolver->RecordAndDetach(UserMediaRequestResult::kInvalidConstraints);
-    RecordIdentifiabilityMetric(
-        surface, GetExecutionContext(),
-        IdentifiabilityBenignStringToken(exception_state.Message()));
     return promise;
   }
 
@@ -732,6 +707,94 @@ ScriptPromise<MediaStream> MediaDevices::getDisplayMedia(
 
   return SendUserMediaRequest(UserMediaRequestType::kDisplayMedia, resolver,
                               constraints, exception_state, std::move(tracer));
+}
+
+ScriptPromise<MediaDeviceInfo> MediaDevices::selectAudioOutput(
+    ScriptState* script_state,
+    const AudioOutputOptions* options,
+    ExceptionState& exception_state) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  LocalDOMWindow* window = LocalDOMWindow::From(script_state);
+
+  if (!script_state->ContextIsValid() || !window || !window->GetFrame()) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kAbortError,
+        "No local DOM window; is this a detached window?");
+    return EmptyPromise();
+  }
+  auto* resolver = MakeGarbageCollected<ScriptPromiseResolverWithTracker<
+      AudioOutputSelectionResult, MediaDeviceInfo>>(
+      script_state, "Media.MediaDevices.SelectAudioOutput", base::Seconds(8));
+  if (!LocalFrame::HasTransientUserActivation(window->GetFrame())) {
+    resolver->Reject<DOMException>(
+        MakeGarbageCollected<DOMException>(
+            DOMExceptionCode::kInvalidStateError,
+            "selectAudioOutput() requires transient "
+            "activation (user gesture)."),
+        AudioOutputSelectionResult::kNoUserActivation);
+    return resolver->Promise();
+  }
+
+  GetDispatcherHost(window->GetFrame())
+      .SelectAudioOutput(
+          options->hasDeviceId() ? options->deviceId() : String(),
+          WTF::BindOnce(&MediaDevices::OnSelectAudioOutputResult,
+                        WrapPersistent(this), WrapPersistent(resolver)));
+
+  return resolver->Promise();
+}
+
+void MediaDevices::OnSelectAudioOutputResult(
+    ScriptPromiseResolverWithTracker<AudioOutputSelectionResult,
+                                     MediaDeviceInfo>* resolver,
+    mojom::blink::SelectAudioOutputResultPtr result) {
+  if (result->status == mojom::blink::AudioOutputStatus::kSuccess) {
+    MediaDeviceInfo* media_device_info = MakeGarbageCollected<MediaDeviceInfo>(
+        String::FromUTF8(result->device_info.device_id),
+        String::FromUTF8(result->device_info.label),
+        String::FromUTF8(result->device_info.group_id),
+        mojom::MediaDeviceType::kMediaAudioOutput);
+    resolver->Resolve(media_device_info, AudioOutputSelectionResult::kSuccess);
+    return;
+  } else {
+    String error_message;
+    DOMExceptionCode exception_code = DOMExceptionCode::kUnknownError;
+    AudioOutputSelectionResult result_enum =
+        AudioOutputSelectionResult::kOtherError;
+
+    switch (result->status) {
+      case mojom::blink::AudioOutputStatus::kNoPermission:
+        error_message = "Permission denied to select audio output.";
+        exception_code = DOMExceptionCode::kNotAllowedError;
+        result_enum = AudioOutputSelectionResult::kPermissionDenied;
+        break;
+      case mojom::blink::AudioOutputStatus::kNoDevices:
+        error_message = "No audio output devices found.";
+        exception_code = DOMExceptionCode::kNotFoundError;
+        result_enum = AudioOutputSelectionResult::kNoDevices;
+        break;
+      case mojom::blink::AudioOutputStatus::kNotSupported:
+        error_message = "Audio output is not supported.";
+        exception_code = DOMExceptionCode::kInvalidStateError;
+        result_enum = AudioOutputSelectionResult::kNotSupported;
+        break;
+      case mojom::blink::AudioOutputStatus::kNoUserActivation:
+        error_message =
+            "selectAudioOutput() requires transient activation (user gesture).";
+        exception_code = DOMExceptionCode::kInvalidStateError;
+        result_enum = AudioOutputSelectionResult::kNoUserActivation;
+        break;
+      default:
+        error_message =
+            "An unknown error occurred during audio output selection.";
+        exception_code = DOMExceptionCode::kUnknownError;
+        result_enum = AudioOutputSelectionResult::kOtherError;
+    }
+
+    resolver->Reject<DOMException>(
+        MakeGarbageCollected<DOMException>(exception_code, error_message),
+        result_enum);
+  }
 }
 
 void MediaDevices::setCaptureHandleConfig(ScriptState* script_state,

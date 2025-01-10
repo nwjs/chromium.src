@@ -580,7 +580,7 @@ gfx::Size CodedSize(const VideoFrame* video_frame,
       output = gfx::Size(base::bits::AlignUp(width, size_t{2}), height);
       break;
     case GpuVideoAcceleratorFactories::OutputFormat::UNDEFINED:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
   DCHECK(gfx::Rect(video_frame->coded_size()).Contains(gfx::Rect(output)));
   return output;
@@ -964,7 +964,7 @@ void GpuMemoryBufferVideoFramePool::PoolImpl::CopyRowsToBuffer(
     }
 
     case GpuVideoAcceleratorFactories::OutputFormat::UNDEFINED:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
 }
 
@@ -1086,13 +1086,6 @@ scoped_refptr<VideoFrame> GpuMemoryBufferVideoFramePool::PoolImpl::
 
   if (ycbcr_info) {
     frame->set_ycbcr_info(ycbcr_info);
-  }
-
-  frame->set_shared_image_format_type(
-      SharedImageFormatType::kSharedImageFormat);
-  if (frame_resource->shared_image->format().PrefersExternalSampler()) {
-    frame->set_shared_image_format_type(
-        SharedImageFormatType::kSharedImageFormatExternalSampler);
   }
 
   bool allow_overlay = false;
@@ -1236,7 +1229,7 @@ GpuMemoryBufferVideoFramePool::PoolImpl::GetOrCreateFrameResource(
       si_usage |= gpu::SHARED_IMAGE_USAGE_SCANOUT;
     }
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
     // TODO(crbug.com/40194712): Always add the flag once the
     // OzoneImageBacking is by default turned on.
     if (base::CommandLine::ForCurrentProcess()->HasSwitch(
@@ -1244,6 +1237,9 @@ GpuMemoryBufferVideoFramePool::PoolImpl::GetOrCreateFrameResource(
       // This SharedImage may be used for zero-copy import into WebGPU.
       si_usage |= gpu::SHARED_IMAGE_USAGE_WEBGPU_READ;
     }
+#elif BUILDFLAG(IS_MAC)
+    // This SharedImage may be used for zero-copy import into WebGPU.
+    si_usage |= gpu::SHARED_IMAGE_USAGE_WEBGPU_READ;
 #endif
     // Create a Mappable shared image.
     frame_resource->shared_image =

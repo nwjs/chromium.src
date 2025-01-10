@@ -27,8 +27,6 @@ import org.robolectric.RuntimeEnvironment;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Batch;
-import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.tab.Tab;
@@ -44,7 +42,6 @@ import org.chromium.url.GURL;
 
 @RunWith(BaseRobolectricTestRunner.class)
 @Batch(Batch.UNIT_TESTS)
-@EnableFeatures(ChromeFeatureList.PLUS_ADDRESS_ANDROID_ENHANCED_LOADING_STATES_ENABLED)
 public final class PlusAddressCreationMediatorTest {
     private static final PlusAddressCreationNormalStateInfo FIRST_TIME_USAGE_INFO =
             new PlusAddressCreationNormalStateInfo(
@@ -54,9 +51,7 @@ public final class PlusAddressCreationMediatorTest {
                     /* proposedPlusAddressPlaceholder= */ "placeholder",
                     /* confirmText= */ "ok",
                     /* cancelText= */ "cancel",
-                    /* errorReportInstruction= */ "error! <link>test link</link>",
-                    /* learnMoreUrl= */ new GURL("learn.more.com"),
-                    /* errorReportUrl= */ new GURL("bug.com"));
+                    /* learnMoreUrl= */ new GURL("learn.more.com"));
     private static final int TAB1_ID = 1;
     private static final int TAB2_ID = 2;
     private static final String PLUS_ADDRESS = "foo@bar.com";

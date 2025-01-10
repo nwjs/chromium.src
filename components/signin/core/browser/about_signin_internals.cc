@@ -114,8 +114,7 @@ std::string SigninStatusFieldToLabel(
     case signin_internals_util::USERNAME:
       return "Username";
   }
-  NOTREACHED_IN_MIGRATION();
-  return std::string();
+  NOTREACHED();
 }
 
 std::string TokenServiceLoadCredentialsStateToLabel(
@@ -143,8 +142,7 @@ std::string TokenServiceLoadCredentialsStateToLabel(
         LOAD_CREDENTIALS_FINISHED_WITH_UNKNOWN_ERRORS:
       return "Load credentials failed with unknown errors";
   }
-  NOTREACHED_IN_MIGRATION();
-  return std::string();
+  NOTREACHED();
 }
 
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
@@ -160,11 +158,9 @@ std::string SigninStatusFieldToLabel(
     case signin_internals_util::LAST_SIGNOUT_SOURCE:
       return "Last Sign-out Source";
     case signin_internals_util::TIMED_FIELDS_END:
-      NOTREACHED_IN_MIGRATION();
-      return "Error";
+      NOTREACHED();
   }
-  NOTREACHED_IN_MIGRATION();
-  return "Error";
+  NOTREACHED();
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
 
@@ -208,8 +204,7 @@ std::string GetAccountConsistencyDescription(
     case signin::AccountConsistencyMethod::kDice:
       return "DICE";
   }
-  NOTREACHED_IN_MIGRATION();
-  return "";
+  NOTREACHED();
 }
 
 std::string GetSigninStatusDescription(
@@ -559,7 +554,7 @@ AboutSigninInternals::TokenInfo::TokenInfo(const std::string& consumer_id,
       error(GoogleServiceAuthError::AuthErrorNone()),
       removed_(false) {}
 
-AboutSigninInternals::TokenInfo::~TokenInfo() {}
+AboutSigninInternals::TokenInfo::~TokenInfo() = default;
 
 bool AboutSigninInternals::TokenInfo::LessThan(
     const std::unique_ptr<TokenInfo>& a,
@@ -634,7 +629,7 @@ std::string AboutSigninInternals::RefreshTokenEvent::GetTypeAsString() const {
 AboutSigninInternals::SigninStatus::SigninStatus()
     : timed_signin_fields(signin_internals_util::TIMED_FIELDS_END) {}
 
-AboutSigninInternals::SigninStatus::~SigninStatus() {}
+AboutSigninInternals::SigninStatus::~SigninStatus() = default;
 
 AboutSigninInternals::TokenInfo* AboutSigninInternals::SigninStatus::FindToken(
     const CoreAccountId& account_id,

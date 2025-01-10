@@ -10,13 +10,14 @@
 namespace ash::boca {
 
 inline constexpr char kSchoolToolsApiBaseUrl[] =
-    "https://staging-schooltools-pa.sandbox.googleapis.com";
+    "https://schooltools-pa.googleapis.com";
 
 inline constexpr char kCreateSessionUrlTemplate[] = "v1/teachers/$1/sessions";
 
 inline constexpr char kContentTypeApplicationJson[] = "application/json";
 
 inline constexpr char kMainStudentGroupName[] = "main";
+inline constexpr char kAccessCodeGroupName[] = "accessCode";
 
 inline constexpr char kSchoolToolsAuthScope[] =
     "https://www.googleapis.com/auth/chromeosschooltools";
@@ -34,6 +35,11 @@ inline constexpr char kInsertStudentActivity[] =
 
 inline constexpr char kRemoveStudentUrlTemplate[] =
     "v1/teachers/$1/sessions/$2/students:remove";
+
+inline constexpr char kJoinTachyonGroupUrlTemplate[] =
+    "/v1/students/$1/sessions/$2/tachyon:join";
+
+inline constexpr char kJoinSessionUrlTemplate[] = "v1/students/$1/session:join";
 
 inline constexpr char kSessionId[] = "sessionId";
 inline constexpr char kTeacher[] = "teacher";
@@ -73,6 +79,14 @@ inline constexpr char kDevices[] = "devices";
 inline constexpr char kDeviceId[] = "deviceId";
 inline constexpr char kActivity[] = "activity";
 inline constexpr char kUsers[] = "users";
+inline constexpr char kTachyonGroupId[] = "tachyonGroupId";
+inline constexpr char kJoinCode[] = "joinCode";
+inline constexpr char kJoinCodeEnabled[] = "enabled";
+inline constexpr char kCode[] = "code";
+inline constexpr char kSessionJoinCode[] = "sessionJoinCode";
+inline constexpr char kDeviceInfo[] = "deviceInfo";
+inline constexpr char kStudent[] = "student";
+inline constexpr char kGroupSource[] = "groupSource";
 
 inline constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
     net::DefineNetworkTrafficAnnotation("boca_classroom_integration", R"(

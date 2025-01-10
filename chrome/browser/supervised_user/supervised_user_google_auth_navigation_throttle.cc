@@ -4,6 +4,8 @@
 
 #include "chrome/browser/supervised_user/supervised_user_google_auth_navigation_throttle.h"
 
+#include <utility>
+
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
@@ -130,7 +132,7 @@ void SupervisedUserGoogleAuthNavigationThrottle::OnGoogleAuthStateChanged() {
     case content::NavigationThrottle::BLOCK_REQUEST:
     case content::NavigationThrottle::BLOCK_REQUEST_AND_COLLAPSE:
     case content::NavigationThrottle::BLOCK_RESPONSE: {
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
     }
   }
 }
@@ -184,7 +186,7 @@ SupervisedUserGoogleAuthNavigationThrottle::ShouldProceed() {
     case content::FrameType::kPrerenderMainFrame:
       return content::NavigationThrottle::PROCEED;
     default:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 
   // Cancel the navigation and show the re-authentication page.
@@ -193,7 +195,7 @@ SupervisedUserGoogleAuthNavigationThrottle::ShouldProceed() {
           *navigation_handle());
   return content::NavigationThrottle::ThrottleCheckResult(
       content::NavigationThrottle::CANCEL, net::ERR_BLOCKED_BY_CLIENT,
-      interstitial_html);
+      std::move(interstitial_html));
 #elif BUILDFLAG(IS_CHROMEOS_ASH)
   // A credentials re-mint is already underway when we reach here (Mirror
   // account reconciliation). Nothing to do here except block the navigation

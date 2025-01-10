@@ -38,6 +38,12 @@ namespace blink {
 class Document;
 class ExceptionState;
 
+enum class ClosedByState {
+  kAny,
+  kCloseRequest,
+  kNone,
+};
+
 class CORE_EXPORT HTMLDialogElement final : public HTMLElement {
   DEFINE_WRAPPERTYPEINFO();
 
@@ -48,16 +54,25 @@ class CORE_EXPORT HTMLDialogElement final : public HTMLElement {
 
   void close(const String& return_value = String(),
              bool ignore_open_attribute = false);
+  void requestClose(const String& return_value = String());
   void show(ExceptionState&);
   void showModal(ExceptionState&);
   void RemovedFrom(ContainerNode&) override;
 
   bool IsModal() const { return is_modal_; }
+  bool IsOpen() const { return FastHasAttribute(html_names::kOpenAttr); }
 
   String returnValue() const { return return_value_; }
   void setReturnValue(const String& return_value) {
     return_value_ = return_value;
   }
+
+  ClosedByState ClosedBy() const;
+  String closedBy() const;
+  void setClosedBy(const String& return_value);
+
+  static void HandleDialogLightDismiss(const Event& event,
+                                       const Node& target_node);
 
   void CloseWatcherFiredCancel(Event*);
   void CloseWatcherFiredClose();
@@ -87,13 +102,17 @@ class CORE_EXPORT HTMLDialogElement final : public HTMLElement {
   bool HandleCommandInternal(HTMLElement& invoker,
                              CommandEventType command) override;
 
- private:
+  void AttributeChanged(const AttributeModificationParams&) override;
   void ParseAttribute(const AttributeModificationParams&) override;
+
+ private:
+  void SetCloseWatcherEnabledState();
+  void CreateCloseWatcher();
 
   void SetIsModal(bool is_modal);
   void ScheduleCloseEvent();
 
-  bool DispatchToggleEvents(bool opening);
+  bool DispatchToggleEvents(bool opening, bool asModal = false);
   void DispatchPendingToggleEvent();
 
   bool is_modal_;

@@ -72,7 +72,7 @@ public class SiteSettings extends BaseSiteSettingsFragment
     }
 
     private void configurePreferences() {
-        if (getSiteSettingsDelegate().shouldShowTrackingProtectionUI()) {
+        if (getSiteSettingsDelegate().shouldShowTrackingProtectionUi()) {
             findPreference(Type.THIRD_PARTY_COOKIES).setVisible(false);
             findPreference(Type.TRACKING_PROTECTION).setVisible(true);
         }
@@ -152,8 +152,11 @@ public class SiteSettings extends BaseSiteSettingsFragment
                 p.setSummary(ContentSettingsResources.getSiteDataListSummary(checked));
             } else if (Type.THIRD_PARTY_COOKIES == prefCategory) {
                 p.setSummary(
-                        ContentSettingsResources.getThirdPartyCookieListSummary(
-                                cookieControlsMode));
+                        getSiteSettingsDelegate().isAlwaysBlock3pcsIncognitoEnabled()
+                                        && cookieControlsMode == CookieControlsMode.INCOGNITO_ONLY
+                                ? R.string.third_party_cookies_link_row_sub_label_enabled
+                                : ContentSettingsResources.getThirdPartyCookieListSummary(
+                                        cookieControlsMode));
             } else if (Type.DEVICE_LOCATION == prefCategory
                     && checked
                     && WebsitePreferenceBridge.isLocationAllowedByPolicy(browserContextHandle)) {
@@ -202,17 +205,17 @@ public class SiteSettings extends BaseSiteSettingsFragment
         p = findPreference(Type.ZOOM);
         if (p != null) p.setOnPreferenceClickListener(this);
         // Handle Tracking Protection separately.
-        if (getSiteSettingsDelegate().shouldShowTrackingProtectionUI()) {
+        if (getSiteSettingsDelegate().shouldShowTrackingProtectionUi()) {
             p = findPreference(Type.TRACKING_PROTECTION);
             if (p != null) {
-                if (getSiteSettingsDelegate().shouldShowTrackingProtectionBrandedUI()) {
+                if (getSiteSettingsDelegate().shouldShowTrackingProtectionBrandedUi()) {
                     p.setTitle(R.string.tracking_protection_settings_title);
                     p.setIcon(SettingsUtils.getTintedIcon(getContext(), R.drawable.ic_eye_crossed));
                 }
                 p.setSummary(
                         ContentSettingsResources.getTrackingProtectionListSummary(
                                 getSiteSettingsDelegate()
-                                        .isBlockAll3PCDEnabledInTrackingProtection()));
+                                        .isBlockAll3pcEnabledInTrackingProtection()));
             }
         }
 

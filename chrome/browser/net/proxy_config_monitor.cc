@@ -126,8 +126,7 @@ void ProxyConfigMonitor::OnProxyConfigChanged(
             net::ProxyConfigWithAnnotation::CreateDirect());
         break;
       case net::ProxyConfigService::CONFIG_PENDING:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
     }
   }
 }

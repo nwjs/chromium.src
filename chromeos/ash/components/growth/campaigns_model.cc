@@ -13,6 +13,7 @@
 #include <optional>
 
 #include "ash/constants/ash_features.h"
+#include "ash/resources/vector_icons/vector_icons.h"
 #include "base/logging.h"
 #include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
@@ -71,6 +72,7 @@ inline constexpr char kMaxVersion[] = "version.max";
 inline constexpr char kFeatureAware[] = "isFeatureAwareDevice";
 inline constexpr char kRegisteredTime[] = "registeredTime";
 inline constexpr char kDeviceAgeInHours[] = "deviceAgeInHours";
+inline constexpr char kChannels[] = "channels";
 
 // Session Targeting paths.
 inline constexpr char kSessionTargeting[] = "session";
@@ -208,8 +210,8 @@ std::optional<int> GetBuiltInImageResourceId(
   }
 
   switch (image_model_type.value()) {
-    case BuiltInImage::kContainerApp:
-      return IDR_GROWTH_FRAMEWORK_CONTAINER_APP_PNG;
+    case BuiltInImage::kGeminiApp:
+      return IDR_GROWTH_FRAMEWORK_GEMINI_APP_PNG;
     case BuiltInImage::kG1:
       return IDR_GROWTH_FRAMEWORK_G1_PNG;
     case BuiltInImage::kSparkRebuy:
@@ -325,8 +327,7 @@ const Payload* GetPayloadBySlot(const Campaign* campaign, Slot slot) {
       return campaign->FindDictByDottedPath(base::StringPrintf(
           kPayloadPathTemplate, kOobePerkDiscoveryPayloadPath));
     case Slot::kDemoModeFreePlayApps:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 
   return nullptr;
@@ -493,6 +494,16 @@ const std::unique_ptr<NumberRangeTargeting> DeviceTargeting::GetDeviceAge()
   }
 
   return std::make_unique<NumberRangeTargeting>(number_range_dict);
+}
+
+const std::unique_ptr<StringListTargeting> DeviceTargeting::GetChannels()
+    const {
+  auto* string_list_dict = GetDictCriteria(kChannels);
+  if (!string_list_dict) {
+    return nullptr;
+  }
+
+  return std::make_unique<StringListTargeting>(string_list_dict);
 }
 
 // Apps Targeting.
@@ -708,7 +719,7 @@ const std::vector<std::string> RuntimeTargeting::GetActiveUrlRegexes() const {
   return active_urls_regexs;
 }
 
-std::unique_ptr<EventsTargeting> RuntimeTargeting::GetEventsConfig() const {
+std::unique_ptr<EventsTargeting> RuntimeTargeting::GetEventsTargeting() const {
   auto* config = GetDictCriteria(kEventsTargetings);
   if (!config) {
     return nullptr;
@@ -861,14 +872,22 @@ const gfx::VectorIcon* VectorIcon::GetVectorIcon() const {
 
 const gfx::VectorIcon* VectorIcon::GetBuiltInVectorIcon() const {
   const auto icon = GetBuiltInVectorIconType(vector_icon_dict_);
-  if (!icon || icon.value() != BuiltInVectorIcon::kRedeem) {
-    // TODO: b/340895798 - record error metric.
-    CAMPAIGNS_LOG(ERROR) << "Unrecognized built in vector icon.";
+  if (!icon) {
+    // TODO: b/376659798 - record error metric.
+    CAMPAIGNS_LOG(ERROR) << "Missing built in vector icon.";
 
     return nullptr;
   }
 
-  return &chromeos::kRedeemIcon;
+  switch (icon.value()) {
+    case BuiltInVectorIcon::kRedeem:
+      return &chromeos::kRedeemIcon;
+    case BuiltInVectorIcon::kHelpApp:
+      return &ash::kNotificationHelpAppIcon;
+  }
+
+  // TODO: b/376659798 - record error metric.
+  CAMPAIGNS_LOG(ERROR) << "Unrecognized built in vector icon.";
 }
 
 // Image Model.

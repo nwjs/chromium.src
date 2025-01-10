@@ -186,7 +186,7 @@ void OmniboxMatchCellView::ComputeMatchMaxWidths(int contents_width,
       *contents_max_width = std::max((available_width + 1) / 2,
                                      available_width - description_width);
 
-      const int kMinimumContentsWidth = 300;
+      constexpr int kMinimumContentsWidth = 300;
       *contents_max_width = std::min(
           std::min(std::max(*contents_max_width, kMinimumContentsWidth),
                    contents_width),
@@ -323,8 +323,7 @@ void OmniboxMatchCellView::OnMatchUpdate(const OmniboxResultView* result_view,
           : std::u16string());
 
   // Set content & description texts.
-  if (omnibox_feature_configs::SuggestionAnswerMigration::Get().enabled &&
-      match.answer_template.has_value()) {
+  if (match.answer_template.has_value()) {
     content_view_->SetTextWithStyling(match.contents, match.contents_class);
     omnibox::AnswerData answer_data = match.answer_template->answers(0);
     content_view_->AppendTextWithStyling(
@@ -334,9 +333,6 @@ void OmniboxMatchCellView::OnMatchUpdate(const OmniboxResultView* result_view,
     description_view_->SetMultilineText(
         /*formatted_string=*/answer_data.subhead(),
         /*answer_type=*/match.answer_type);
-  } else if (match.answer) {
-    content_view_->AppendExtraText(match.answer->first_line());
-    description_view_->SetTextWithStyling(match.answer->second_line());
   } else if (layout_style_ == LayoutStyle::HISTORY_EMBEDDING_ANSWER) {
     content_view_->SetMultilineText(match.contents);
     description_view_->SetTextWithStyling(match.description,
@@ -350,10 +346,11 @@ void OmniboxMatchCellView::OnMatchUpdate(const OmniboxResultView* result_view,
 
 void OmniboxMatchCellView::SetIcon(const gfx::ImageSkia& image,
                                    const AutocompleteMatch& match) {
-  bool is_pedal_suggestion_row = match.type == AutocompleteMatchType::PEDAL;
-  bool is_journeys_suggestion_row =
+  const bool is_pedal_suggestion_row =
+      match.type == AutocompleteMatchType::PEDAL;
+  const bool is_journeys_suggestion_row =
       match.type == AutocompleteMatchType::HISTORY_CLUSTER;
-  bool is_instant_keyword_row =
+  const bool is_instant_keyword_row =
       match.type == AutocompleteMatchType::STARTER_PACK ||
       match.type == AutocompleteMatchType::FEATURED_ENTERPRISE_SEARCH;
   if (is_pedal_suggestion_row || is_journeys_suggestion_row ||
@@ -384,7 +381,8 @@ void OmniboxMatchCellView::SetImage(const gfx::ImageSkia& image,
                                     const AutocompleteMatch& match) {
   // Weather icons are also sourced remotely and therefore fall into this flow.
   // Other answers don't.
-  bool is_weather_answer = match.answer_type == omnibox::ANSWER_TYPE_WEATHER;
+  const bool is_weather_answer =
+      match.answer_type == omnibox::ANSWER_TYPE_WEATHER;
 
   int width = image.width();
   int height = image.height();
@@ -434,11 +432,11 @@ void OmniboxMatchCellView::Layout(PassKey) {
 
   const gfx::Rect child_area = GetContentsBounds();
   int x = child_area.x();
-  int y = child_area.y();
+  const int y = child_area.y();
 
   const int row_height = child_area.height();
 
-  int image_x = GetImageIndent();
+  const int image_x = GetImageIndent();
   views::ImageView* const image_view =
       layout_style_ == LayoutStyle::SEARCH_SUGGESTION_WITH_IMAGE
           ? answer_image_view_.get()

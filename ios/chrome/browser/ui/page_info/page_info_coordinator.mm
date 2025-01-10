@@ -81,12 +81,8 @@
 
   self.viewController.pageInfoPresentationHandler = self;
 
-  self.navigationController =
-      IsRevampPageInfoIosEnabled()
-          ? [[UINavigationController alloc]
-                initWithRootViewController:self.viewController]
-          : [[TableViewNavigationController alloc]
-                initWithTable:self.viewController];
+  self.navigationController = [[UINavigationController alloc]
+      initWithRootViewController:self.viewController];
   self.navigationController.modalPresentationStyle =
       UIModalPresentationFormSheet;
   self.navigationController.presentationController.delegate =
@@ -132,12 +128,11 @@
 
     const GURL& siteURL =
         webState->GetNavigationManager()->GetVisibleItem()->GetURL();
-
     _pageInfoHistoryMediator =
         [[PageInfoHistoryMediator alloc] initWithHistoryService:historyService
                                                         siteURL:siteURL];
-
     _pageInfoHistoryMediator.consumer = self.viewController;
+    self.viewController.pageInfoHistoryMutator = _pageInfoHistoryMediator;
   }
 
   [self.baseViewController presentViewController:self.navigationController

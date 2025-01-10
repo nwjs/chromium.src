@@ -43,7 +43,8 @@ class StubArImageTransport : public ArImageTransport {
         shared_buffer_(std::make_unique<WebXrSharedBuffer>()) {}
 
   void Initialize(WebXrPresentationState*,
-                  XrInitStatusCallback callback) override {
+                  XrInitStatusCallback callback,
+                  bool webgpu_session) override {
     std::move(callback).Run(true);
   }
 
@@ -150,7 +151,7 @@ class StubXrJavaCoordinator : public XrJavaCoordinator {
       SurfaceTouchCallback touch_callback,
       JavaShutdownCallback destroyed_callback,
       XrSessionButtonTouchedCallback button_touched_callback) override {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
   void EndSession() override {}
 

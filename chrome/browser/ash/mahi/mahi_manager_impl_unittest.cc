@@ -12,18 +12,22 @@
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
 #include "ash/system/mahi/mahi_constants.h"
+#include "ash/system/mahi/test/mock_mahi_media_app_content_manager.h"
 #include "ash/system/toast/anchored_nudge_manager_impl.h"
 #include "ash/test/ash_test_base.h"
 #include "base/auto_reset.h"
 #include "base/command_line.h"
 #include "base/functional/callback_helpers.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/gmock_callback_support.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/test_future.h"
 #include "base/unguessable_token.h"
 #include "chrome/browser/ash/magic_boost/magic_boost_state_ash.h"
 #include "chrome/browser/ash/mahi/mahi_cache_manager.h"
 #include "chrome/browser/ash/mahi/web_contents/test_support/fake_mahi_web_contents_manager.h"
 #include "chromeos/components/magic_boost/public/cpp/magic_boost_state.h"
+#include "chromeos/components/mahi/public/cpp/mahi_media_app_content_manager.h"
 #include "chromeos/components/mahi/public/cpp/mahi_web_contents_manager.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "chromeos/constants/chromeos_switches.h"
@@ -41,11 +45,15 @@
 
 namespace {
 
+using base::test::RunOnceCallback;
 using mahi::FakeMahiWebContentsManager;
+using ::testing::_;
 using ::testing::IsNull;
+using ::testing::Return;
 
 constexpr char kFakeSummary[] = "Fake summary";
 constexpr char kFakeContent[] = "Test page content";
+constexpr char kFakeElucidation[] = "Fake elucidation";
 
 class FakeMahiProvider : public manta::MahiProvider {
  public:
@@ -65,15 +73,31 @@ class FakeMahiProvider : public manta::MahiProvider {
                             {manta::MantaStatusCode::kOk, "Status string ok"});
   }
 
+  void Elucidate(const std::string& input,
+                 const std::string& context,
+                 const std::string& title,
+                 const std::optional<std::string>& url,
+                 manta::MantaGenericCallback callback) override {
+    latest_elucidation_input_ = input;
+    std::move(callback).Run(
+        base::Value::Dict().Set("outputData", kFakeElucidation),
+        {manta::MantaStatusCode::kOk, "Status string ok"});
+  }
+
   // Counts the number of call to `Summarize()`
   int NumberOfSumarizeCall() { return num_summarize_call_; }
 
   const std::string& latest_title() const { return latest_title_; }
   const std::optional<std::string>& latest_url() const { return latest_url_; }
 
+  const std::string& latest_elucidation_input() const {
+    return latest_elucidation_input_;
+  }
+
  private:
   int num_summarize_call_ = 0;
   std::string latest_title_;
+  std::string latest_elucidation_input_;
   std::optional<std::string> latest_url_;
 };
 
@@ -173,6 +197,10 @@ class MahiManagerImplTest : public NoSessionAshTestBase {
     mahi_manager_impl_->GetContent(base::DoNothing());
   }
 
+  void UpdateCurrentSelectedText() {
+    mahi_manager_impl_->UpdateCurrentSelectedText();
+  }
+
   // void RequestSummary(const std::string& url = "http://url1.com/abc#skip",
   // bool incognito = false) {
   void RequestSummary(bool incognito = false,
@@ -196,10 +224,17 @@ class MahiManagerImplTest : public NoSessionAshTestBase {
   std::unique_ptr<MahiManagerImpl> mahi_manager_impl_;
   base::test::ScopedFeatureList feature_list_;
 
+  testing::StrictMock<MockMahiMediaAppContentManager>
+      mock_mahi_media_app_content_manager_;
+  chromeos::ScopedMahiMediaAppContentManagerSetter
+      scoped_mahi_media_app_content_manager_{
+          &mock_mahi_media_app_content_manager_};
+
  private:
   mahi::FakeMahiWebContentsManager fake_mahi_web_contents_manager_;
   chromeos::ScopedMahiWebContentsManagerOverride
       scoped_mahi_web_contents_manager_{&fake_mahi_web_contents_manager_};
+
   network::TestURLLoaderFactory test_url_loader_factory_;
   signin::IdentityTestEnvironment identity_test_env_;
 };
@@ -464,6 +499,57 @@ TEST_F(MahiManagerImplTest, ShowEducationalNudge) {
   // Notifying that a refresh is not available should have no effect.
   NotifyRefreshAvailability(/*available=*/false);
   EXPECT_TRUE(IsMahiNudgeShown());
+}
+
+// Tests that `GetElucidation` can send request to and get response from mahi
+// provider.
+TEST_F(MahiManagerImplTest, GetElucidation) {
+  // `GetElucidation` requires non empty selected text from mahi web contents
+  // manager.
+  const std::u16string selected_text = u"test selected text";
+  chromeos::MahiWebContentsManager::Get()->SetSelectedText(selected_text);
+
+  base::test::TestFuture<std::u16string, chromeos::MahiResponseStatus>
+      test_future;
+
+  UpdateCurrentSelectedText();
+  mahi_manager_impl_->GetElucidation(test_future.GetCallback());
+
+  // Checks mahi provider receives the request.
+  EXPECT_EQ(GetMahiProvider()->latest_elucidation_input(),
+            base::UTF16ToUTF8(selected_text));
+  // Checks the elucidation result.
+  EXPECT_EQ(test_future.Get<std::u16string>(),
+            base::UTF8ToUTF16(std::string(kFakeElucidation)));
+}
+
+// Similar to `GetElucidation` above but verifies MahiManager requests content
+// and selected text from media app content manager when media app is focused.
+TEST_F(MahiManagerImplTest, GetElucidationForMediaApp) {
+  std::string selected_text = "test PDF selected text";
+  EXPECT_CALL(mock_mahi_media_app_content_manager_, GetSelectedText)
+      .WillOnce(Return(selected_text));
+
+  EXPECT_CALL(mock_mahi_media_app_content_manager_, GetFileName(_))
+      .WillOnce(Return("test PDF file name"));
+  EXPECT_CALL(mock_mahi_media_app_content_manager_, GetContent(_, _))
+      .WillOnce(RunOnceCallback<1>(crosapi::mojom::MahiPageContent::New(
+          base::UnguessableToken::Create(), base::UnguessableToken::Create(),
+          u"test PDF content")));
+
+  mahi_manager_impl_->SetMediaAppPDFFocused();
+
+  base::test::TestFuture<std::u16string, chromeos::MahiResponseStatus>
+      test_future;
+
+  UpdateCurrentSelectedText();
+  mahi_manager_impl_->GetElucidation(test_future.GetCallback());
+
+  // Checks mahi provider receives the request.
+  EXPECT_EQ(GetMahiProvider()->latest_elucidation_input(), selected_text);
+  // Checks the elucidation result.
+  EXPECT_EQ(test_future.Get<std::u16string>(),
+            base::UTF8ToUTF16(std::string(kFakeElucidation)));
 }
 
 }  // namespace ash

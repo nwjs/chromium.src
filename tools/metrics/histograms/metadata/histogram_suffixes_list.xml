@@ -26,8 +26,6 @@ chromium-metrics-reviews@google.com.
   <suffix name="Addresses" label="Address suggestions."/>
   <suffix name="CreditCards" label="Payment suggestions."/>
   <suffix name="Passwords" label="Password suggestions and generation."/>
-  <affected-histogram
-      name="KeyboardAccessory.AccessorySheetSuggestionsSelected"/>
   <affected-histogram name="KeyboardAccessory.AccessorySheetTriggered"/>
 </histogram_suffixes>
 
@@ -233,6 +231,7 @@ chromium-metrics-reviews@google.com.
   <suffix name="vr" label="Virtual Reality Module"/>
   <affected-histogram name="Android.IsolatedSplits.ClassLoaderReplaced"/>
   <affected-histogram name="Android.IsolatedSplits.ContextCreateTime"/>
+  <affected-histogram name="Android.IsolatedSplits.ContextCreateTime2"/>
   <affected-histogram name="Android.IsolatedSplits.PreloadWaitTime"/>
 </histogram_suffixes>
 
@@ -332,13 +331,6 @@ chromium-metrics-reviews@google.com.
   <affected-histogram name="Autofill.DaysSinceLastUse.StoredCreditCard"/>
   <affected-histogram name="Autofill.StoredCreditCardCount"/>
   <affected-histogram name="Autofill.StoredCreditCardDisusedCount"/>
-</histogram_suffixes>
-
-<histogram_suffixes name="AutofillFrame" separator=".">
-  <suffix name="IsInIFrame" label="form is in an iframe"/>
-  <suffix name="IsInMainFrame" label="form is in the main frame"/>
-  <affected-histogram name="Autofill.FormEvents.Address"/>
-  <affected-histogram name="Autofill.FormEvents.CreditCard"/>
 </histogram_suffixes>
 
 <histogram_suffixes name="AutofillSaveCreditCardPromptWithMultipleLegalLines"
@@ -756,6 +748,10 @@ chromium-metrics-reviews@google.com.
   <suffix name="TemporaryAllowThirdParty"
       label="Third-party cookies temporarily allowed on a domain"/>
   <affected-histogram name="ContentSettings.RegularProfile.Exceptions.cookies"/>
+  <affected-histogram
+      name="ContentSettings.RegularProfile.Exceptions.javascript-jit"/>
+  <affected-histogram
+      name="ContentSettings.RegularProfile.Exceptions.javascript-optimizer"/>
   <affected-histogram name="ContentSettings.RegularProfile.Exceptions.popups"/>
   <affected-histogram
       name="ContentSettings.RegularProfile.Exceptions.storage-access"/>
@@ -2002,10 +1998,6 @@ chromium-metrics-reviews@google.com.
   <suffix name="custom_links" label="User customized links."/>
   <suffix name="explore" label="Explore sites related entry points."/>
   <suffix name="homepage" label="The currently set home page."/>
-<!-- TODO(fhorschig): Add <obsolete> tag as soon as M-62 is rolled out. -->
-
-  <suffix name="popular"
-      label="Deprecated with M-62! Non-personalized, popular suggestions."/>
   <suffix name="popular_baked_in" label="Baked-in, popular suggestions."/>
   <suffix name="popular_fetched"
       label="Non-personalized, popular suggestions (fetched from the server)."/>
@@ -4251,23 +4243,6 @@ chromium-metrics-reviews@google.com.
   <affected-histogram name="Settings.TrackedPreferenceNullInitialized"/>
   <affected-histogram name="Settings.TrackedPreferenceTrustedInitialized"/>
   <affected-histogram name="Settings.TrackedPreferenceUnchanged"/>
-</histogram_suffixes>
-
-<histogram_suffixes name="TransactionalReauthEntryPoint" separator=".">
-  <suffix name="ToFillPassword"
-      label="The reauth happened to fill an account-stored password."/>
-  <suffix name="ToGeneratePassword"
-      label="The reauth happened to trigger the password generation."/>
-  <suffix name="ToManageInSettings"
-      label="The reauth happened to manage account-stored passwords in
-             settings."/>
-  <suffix name="ToSaveOrUpdatePassword"
-      label="The reauth happened to save a password to the account store."/>
-  <suffix name="ToSavePasswordLocallyThenMove"
-      label="The reauth happened to move a just-locally-saved password to the
-             account store."/>
-  <affected-histogram name="Signin.TransactionalReauthResult"/>
-  <affected-histogram name="Signin.TransactionalReauthUserAction"/>
 </histogram_suffixes>
 
 <histogram_suffixes name="TrustTokenOperationSuccess" separator=".">

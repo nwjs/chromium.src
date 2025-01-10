@@ -14,6 +14,7 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/notreached.h"
@@ -27,6 +28,7 @@
 #include "base/test/run_until.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_file_util.h"
+#include "base/test/test_future.h"
 #include "base/test/test_timeouts.h"
 #include "base/thread_annotations.h"
 #include "base/threading/thread.h"
@@ -67,6 +69,17 @@ base::AtomicSequenceNumber g_next_delegate_id;
 constexpr size_t kExpectedEventsForNewFileWrite = 2;
 #else
 constexpr size_t kExpectedEventsForNewFileWrite = 1;
+#endif
+
+#define CHANGE_INFO_SUPPORTED                                               \
+  BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
+      BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+
+#if CHANGE_INFO_SUPPORTED
+// Only the inotify FilePathWatcher's usage can change while watching a file
+// entry. Other FilePathWatchers have a constant amount of usage.
+constexpr bool kUsageCanChange =
+    BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID);
 #endif
 
 enum class ExpectedEventsSinceLastWait { kNone, kSome };
@@ -161,8 +174,7 @@ inline constexpr auto HasModifiedPath = [](const base::FilePath& path) {
       &Event::change_info,
       testing::Field(&FilePathWatcher::ChangeInfo::modified_path, path));
 };
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
-    BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#if CHANGE_INFO_SUPPORTED
 inline constexpr auto HasMovedFromPath = [](const base::FilePath& path) {
   return testing::Field(
       &Event::change_info,
@@ -367,7 +379,7 @@ class EventExpecterWithChangeInfo : public EventExpecter {
     if (each_event_matcher_) {
       return *each_event_matcher_;
     }
-    NOTREACHED_NORETURN();
+    NOTREACHED();
   }
 
   EventListMatcher GetFailureMatcher() override {
@@ -381,7 +393,7 @@ class EventExpecterWithChangeInfo : public EventExpecter {
     if (each_event_matcher_) {
       return testing::Not(*each_event_matcher_);
     }
-    NOTREACHED_NORETURN();
+    NOTREACHED();
   }
 
   ExpectedEventsSinceLastWait GetAndResetExpectedEventsSinceLastWait()
@@ -542,6 +554,63 @@ class TestDelegate final : public TestDelegateBase {
   base::WeakPtrFactory<TestDelegateBase> weak_ptr_factory_{this};
 };
 
+class TestUsageDelegate {
+ public:
+  void OnUsageChange(size_t old_usage, size_t new_usage) {
+    collected_events_.emplace_back(old_usage, new_usage);
+  }
+
+  std::vector<std::pair<size_t, size_t>> CollectEvents() {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+    base::test::TestFuture<std::vector<std::pair<size_t, size_t>>> future;
+
+    CollectEventsImpl(future.GetCallback());
+
+    return future.Take();
+  }
+
+  base::WeakPtr<TestUsageDelegate> AsWeakPtr() {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+    return weak_factory_.GetWeakPtr();
+  }
+
+ private:
+  using CollectEventsCallback =
+      base::OnceCallback<void(std::vector<std::pair<size_t, size_t>>)>;
+
+  void CollectEventsImpl(CollectEventsCallback future_callback) {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+    auto finish_collecting_events_callback = base::BindOnce(
+        &TestUsageDelegate::FinishCollectingEvents, weak_factory_.GetWeakPtr(),
+        collected_events_.size(), std::move(future_callback));
+
+    base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE, std::move(finish_collecting_events_callback),
+        TestTimeouts::tiny_timeout());
+  }
+
+  void FinishCollectingEvents(size_t collected_events_previous_size,
+                              CollectEventsCallback future_callback) {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+    if (collected_events_.size() == collected_events_previous_size) {
+      std::move(future_callback).Run(std::move(collected_events_));
+    } else {
+      CollectEventsImpl(std::move(future_callback));
+    }
+  }
+
+  SEQUENCE_CHECKER(sequence_checker_);
+
+  std::vector<std::pair<size_t, size_t>> collected_events_;
+
+  base::WeakPtrFactory<TestUsageDelegate> weak_factory_
+      GUARDED_BY_CONTEXT(sequence_checker_){this};
+};
+
 }  // namespace
 
 #if BUILDFLAG(IS_FUCHSIA)
@@ -665,6 +734,11 @@ class FilePathWatcherTest : public testing::Test {
                                 TestDelegateBase* delegate,
                                 FilePathWatcher::WatchOptions watch_options);
 
+  bool SetupWatchWithUsageChanges(const base::FilePath& target,
+                                  FilePathWatcher& watcher,
+                                  TestUsageDelegate& delegate,
+                                  FilePathWatcher::WatchOptions watch_options);
+
   base::test::TaskEnvironment task_environment_;
 
   base::ScopedTempDir temp_dir_;
@@ -706,7 +780,25 @@ bool FilePathWatcherTest::SetupWatchWithChangeInfo(
   return watcher->WatchWithChangeInfo(
       target, watch_options,
       base::BindPostTaskToCurrentDefault(base::BindRepeating(
-          &TestDelegateBase::OnFileChangedWithInfo, delegate->AsWeakPtr())));
+          &TestDelegateBase::OnFileChangedWithInfo, delegate->AsWeakPtr())),
+      base::DoNothingAs<void(size_t, size_t)>());
+}
+
+bool FilePathWatcherTest::SetupWatchWithUsageChanges(
+    const base::FilePath& target,
+    FilePathWatcher& watcher,
+    TestUsageDelegate& delegate,
+    FilePathWatcher::WatchOptions watch_options) {
+#if BUILDFLAG(IS_MAC)
+  // Flush events before the watch begins.
+  SpinEventLoopForABit();
+#endif
+  return watcher.WatchWithChangeInfo(
+      target, watch_options,
+      base::DoNothingAs<void(const FilePathWatcher::ChangeInfo&,
+                             const base::FilePath&, bool)>(),
+      base::BindPostTaskToCurrentDefault(base::BindRepeating(
+          &TestUsageDelegate::OnUsageChange, delegate.AsWeakPtr())));
 }
 
 // Basic test: Create the file and verify that we notice.
@@ -2273,8 +2365,7 @@ TEST_F(FilePathWatcherTest, TrivialDirMove) {
 
 #endif  // BUILDFLAG(IS_APPLE)
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
-    BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#if CHANGE_INFO_SUPPORTED
 // TODO(crbug.com/40263777): Ideally most all of the tests above would be
 // parameterized in this way.
 class FilePathWatcherWithChangeInfoTest
@@ -3455,7 +3546,150 @@ TEST_P(FilePathWatcherWithChangeInfoTest, DeleteDirectoryRecursively) {
   ASSERT_TRUE(DeletePathRecursively(grandparent));
   delegate.RunUntilEventsMatch(matcher);
 }
-#endif
+#endif  // !BUILDFLAG(IS_WIN)
+
+TEST_P(FilePathWatcherWithChangeInfoTest, UsageChanges_InitialWatch) {
+  ASSERT_TRUE(CreateDirectory(test_file()));
+
+  FilePathWatcher watcher;
+  TestUsageDelegate delegate;
+  ASSERT_TRUE(SetupWatchWithUsageChanges(test_file(), watcher, delegate,
+                                         GetWatchOptions()));
+
+  std::vector<std::pair<size_t, size_t>> usage_changes =
+      delegate.CollectEvents();
+
+  // The initial watch shouldn't report any usage changes.
+  EXPECT_EQ(usage_changes.size(), 0u);
+
+  // The initial usage should at least be greater than zero since we must be
+  // using some resources to watch `test_file()`.
+  EXPECT_GT(watcher.current_usage(), 0u);
+}
+
+TEST_P(FilePathWatcherWithChangeInfoTest, UsageChanges_ChildCreation) {
+  base::FilePath dir(temp_dir_.GetPath().AppendASCII("dir"));
+  base::FilePath subdir1(dir.AppendASCII("subdir1"));
+  base::FilePath subdir2(dir.AppendASCII("subdir2"));
+  ASSERT_TRUE(CreateDirectory(dir));
+
+  FilePathWatcher watcher;
+  TestUsageDelegate delegate;
+  ASSERT_TRUE(
+      SetupWatchWithUsageChanges(dir, watcher, delegate, GetWatchOptions()));
+
+  // The initial usage should at least be greater than zero since we must be
+  // using some resources to watch `dir`.
+  size_t initial_usage = watcher.current_usage();
+  EXPECT_GT(initial_usage, 0u);
+
+  ASSERT_TRUE(CreateDirectory(subdir1));
+  SpinEventLoopForABit();
+  ASSERT_TRUE(CreateDirectory(subdir2));
+
+  std::vector<std::pair<size_t, size_t>> usage_changes =
+      delegate.CollectEvents();
+
+  // The inotify watcher uses a constant amount of inotify watches for
+  // non-recursive watches.
+  bool expect_usage_to_change =
+      kUsageCanChange && type() == FilePathWatcher::Type::kRecursive;
+
+  size_t current_usage = watcher.current_usage();
+
+  if (expect_usage_to_change) {
+    // We expect the usage to change, so we should receive an event for it.
+    EXPECT_GT(usage_changes.size(), 0u);
+
+    // The current usage should be greater than the `initial_usage` since we've
+    // increased the number of file entries watched.
+    EXPECT_GT(current_usage, initial_usage);
+
+    // Expect the first usage change's old usage to be equal to the
+    // `initial_usage`.
+    EXPECT_EQ(usage_changes.front().first, initial_usage);
+
+    // Expect the last usage change's new usage to be equal to the
+    // `current_usage`.
+    EXPECT_EQ(usage_changes.back().second, current_usage);
+
+    // Every usage change should be an increase in usage since we've only
+    // increased the number of file entries watched.
+    for (const auto [old_usage, new_usage] : usage_changes) {
+      EXPECT_GT(new_usage, old_usage);
+    }
+  } else {
+    // The initial watch shouldn't report any usage changes.
+    EXPECT_EQ(usage_changes.size(), 0u);
+
+    // The current usage shouldn't have changed since this FilePathWatcher usage
+    // is constant.
+    EXPECT_EQ(current_usage, initial_usage);
+  }
+}
+
+TEST_P(FilePathWatcherWithChangeInfoTest, UsageChanges_ChildDeletion) {
+  base::FilePath dir(temp_dir_.GetPath().AppendASCII("dir"));
+  base::FilePath subdir1(dir.AppendASCII("subdir1"));
+  base::FilePath subdir2(dir.AppendASCII("subdir2"));
+  ASSERT_TRUE(CreateDirectory(dir));
+  ASSERT_TRUE(CreateDirectory(subdir1));
+  ASSERT_TRUE(CreateDirectory(subdir2));
+
+  FilePathWatcher watcher;
+  TestUsageDelegate delegate;
+  ASSERT_TRUE(
+      SetupWatchWithUsageChanges(dir, watcher, delegate, GetWatchOptions()));
+
+  // The initial usage should at least be greater than zero since we must be
+  // using some resources to watch `dir`.
+  size_t initial_usage = watcher.current_usage();
+  EXPECT_GT(initial_usage, 0u);
+
+  ASSERT_TRUE(DeletePathRecursively(subdir1));
+  SpinEventLoopForABit();
+  ASSERT_TRUE(DeletePathRecursively(subdir2));
+
+  std::vector<std::pair<size_t, size_t>> usage_changes =
+      delegate.CollectEvents();
+
+  // The inotify watcher uses a constant amount of inotify watches for
+  // non-recursive watches.
+  bool expect_usage_to_change =
+      kUsageCanChange && type() == FilePathWatcher::Type::kRecursive;
+
+  size_t current_usage = watcher.current_usage();
+
+  if (expect_usage_to_change) {
+    // We expect the usage to change, so we should receive an event for it.
+    EXPECT_GT(usage_changes.size(), 0u);
+
+    // The current usage should be less than the `initial_usage` since we've
+    // decreased the number of file entries watched.
+    EXPECT_LT(current_usage, initial_usage);
+
+    // Expect the first usage change's old usage to be equal to the
+    // `initial_usage`.
+    EXPECT_EQ(usage_changes.front().first, initial_usage);
+
+    // Expect the last usage change's new usage to be equal to the
+    // `current_usage`.
+    EXPECT_EQ(usage_changes.back().second, current_usage);
+
+    // Every usage change should be a decrease in usage since we've only
+    // decreased the number of file entries watched.
+    for (const auto [old_usage, new_usage] : usage_changes) {
+      EXPECT_LT(new_usage, old_usage);
+    }
+  } else {
+    // The initial watch shouldn't report any usage changes.
+    EXPECT_EQ(usage_changes.size(), 0u);
+
+    // The initial usage should at least be greater than zero we must be using
+    // some resources to watch `test_file()`.
+    EXPECT_EQ(current_usage, initial_usage);
+  }
+}
 
 INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,

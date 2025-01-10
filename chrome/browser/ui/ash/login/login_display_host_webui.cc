@@ -649,11 +649,11 @@ WizardController* LoginDisplayHostWebUI::GetWizardController() {
 }
 
 void LoginDisplayHostWebUI::OnStartUserAdding() {
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void LoginDisplayHostWebUI::CancelUserAdding() {
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void LoginDisplayHostWebUI::OnStartSignInScreen() {
@@ -929,7 +929,7 @@ void LoginDisplayHostWebUI::LoadURL(const GURL& url) {
 
 void LoginDisplayHostWebUI::ShowWebUI() {
   session_observation_.Reset();
-  show_webui_guard_.AbandonAndStop();
+  show_webui_guard_.Stop();
 
   DCHECK(login_window_);
   DCHECK(login_view_);
@@ -1089,11 +1089,11 @@ void LoginDisplayHostWebUI::HandleDisplayCaptivePortal() {
 void LoginDisplayHostWebUI::OnCancelPasswordChangedFlow() {}
 
 void LoginDisplayHostWebUI::UpdateAddUserButtonStatus() {
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void LoginDisplayHostWebUI::RequestSystemInfoUpdate() {
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 bool LoginDisplayHostWebUI::HasUserPods() {
@@ -1101,7 +1101,7 @@ bool LoginDisplayHostWebUI::HasUserPods() {
 }
 
 void LoginDisplayHostWebUI::StartUserRecovery(const AccountId& account_id) {
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void LoginDisplayHostWebUI::UseAlternativeAuthentication(
@@ -1112,7 +1112,7 @@ void LoginDisplayHostWebUI::UseAlternativeAuthentication(
 
 void LoginDisplayHostWebUI::RunLocalAuthentication(
     std::unique_ptr<UserContext> user_context) {
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void LoginDisplayHostWebUI::AddObserver(LoginDisplayHost::Observer* observer) {

@@ -32,6 +32,7 @@
 #include "content/browser/interest_group/auction_shared_storage_host.h"
 #include "content/browser/interest_group/auction_url_loader_factory_proxy.h"
 #include "content/browser/interest_group/debuggable_auction_worklet.h"
+#include "content/browser/interest_group/interest_group_features.h"
 #include "content/browser/interest_group/subresource_url_authorizations.h"
 #include "content/browser/interest_group/subresource_url_builder.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
@@ -276,13 +277,20 @@ AuctionWorkletManager::WorkletOwner::WorkletOwner(
     DCHECK(!waiting_on_trusted_signals_kvv2_public_key_);
     DCHECK(!trusted_signals_kvv2_public_key_);
 
-    waiting_on_trusted_signals_kvv2_public_key_ = true;
-    worklet_manager->delegate()->GetBiddingAndAuctionServerKey(
-        std::move(worklet_info_.trusted_signals_coordinator),
-        base::BindOnce(&AuctionWorkletManager::WorkletOwner::
-                           OnTrustedSignalsKVv2KeyFetched,
-                       weak_ptr_factory_.GetWeakPtr(),
-                       number_of_bidder_threads));
+    // When `kFledgeUseKVv2SignalsCache` is enabled, the TrustedSignalsCache
+    // manages KVv2 fetches in the browser process, so don't need get a key to
+    // pass to the worklet process. It's currently only supported for bidder
+    // signals, though, so still need the key for seller signals.
+    if (!base::FeatureList::IsEnabled(features::kFledgeUseKVv2SignalsCache) ||
+        worklet_info_.type != WorkletType::kBidder) {
+      waiting_on_trusted_signals_kvv2_public_key_ = true;
+      worklet_manager->delegate()->GetBiddingAndAuctionServerKey(
+          std::move(worklet_info_.trusted_signals_coordinator),
+          base::BindOnce(&AuctionWorkletManager::WorkletOwner::
+                             OnTrustedSignalsKVv2KeyFetched,
+                         weak_ptr_factory_.GetWeakPtr(),
+                         number_of_bidder_threads));
+    }
   }
 
   if (worklet_manager_->auction_process_manager()->RequestWorkletService(
@@ -958,6 +966,13 @@ void AuctionWorkletManager::RequestWorkletByKey(
   out_worklet_handle.reset(new WorkletHandle(
       std::move(devtools_auction_id), std::move(worklet),
       std::move(worklet_available_callback), std::move(fatal_error_callback)));
+}
+
+void AuctionWorkletManager::MaybeStartAnticipatoryProcess(
+    const url::Origin& origin,
+    WorkletType worklet_type) {
+  auction_process_manager()->MaybeStartAnticipatoryProcess(
+      origin, delegate_->GetFrameSiteInstance().get(), worklet_type);
 }
 
 void AuctionWorkletManager::OnWorkletNoLongerUsable(WorkletOwner* worklet) {

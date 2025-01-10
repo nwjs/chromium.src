@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/exclusive_access/fullscreen_observer.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "ui/base/models/image_model.h"
 #include "ui/views/widget/widget_observer.h"
 
 class BrowserWindowInterface;
@@ -33,6 +34,10 @@ enum class ToastCloseReason;
 class ToastView;
 }
 
+namespace ui {
+class MenuModel;
+}
+
 namespace views {
 class Widget;
 }
@@ -43,9 +48,11 @@ struct ToastParams {
   ToastParams& operator=(ToastParams&& other) noexcept;
   ~ToastParams();
 
-  ToastId toast_id_;
-  std::vector<std::u16string> body_string_replacement_params_;
-  std::vector<std::u16string> action_button_string_replacement_params_;
+  ToastId toast_id;
+  std::vector<std::u16string> body_string_replacement_params;
+  std::vector<std::u16string> action_button_string_replacement_params;
+  std::optional<ui::ImageModel> image_override;
+  std::unique_ptr<ui::MenuModel> menu_model;
 };
 
 class ToastController : public views::WidgetObserver,
@@ -63,12 +70,8 @@ class ToastController : public views::WidgetObserver,
   std::optional<ToastId> GetCurrentToastId() const;
 
   // Attempts to show the toast and returns true if the toast was successfully
-  // shown, otherwise return false. Callers that show a persistent toast must
-  // eventually call ClosePersistentToast() to ensure their toast closes.
+  // shown, otherwise return false.
   bool MaybeShowToast(ToastParams params);
-
-  // Closes the currently showing persistent toast that must correspond to `id`.
-  void ClosePersistentToast(ToastId id);
 
   // views::WidgetObserver:
 #if BUILDFLAG(IS_MAC)
@@ -99,8 +102,7 @@ class ToastController : public views::WidgetObserver,
   void OnActiveTabChanged(BrowserWindowInterface* browser_interface);
   void QueueToast(ToastParams params);
   void ShowToast(ToastParams params);
-  virtual void CreateToast(const ToastParams& params,
-                           const ToastSpecification* spec);
+  virtual void CreateToast(ToastParams params, const ToastSpecification* spec);
   virtual void CloseToast(toasts::ToastCloseReason reason);
   std::u16string FormatString(int string_id,
                               std::vector<std::u16string> replacement);
@@ -113,9 +115,7 @@ class ToastController : public views::WidgetObserver,
 
   const raw_ptr<BrowserWindowInterface> browser_window_interface_;
   const raw_ptr<const ToastRegistry> toast_registry_;
-  std::optional<ToastParams> current_ephemeral_params_;
-  std::optional<ToastParams> next_ephemeral_params_;
-  std::optional<ToastParams> persistent_params_;
+  std::optional<ToastParams> next_toast_params_;
   std::optional<ToastId> currently_showing_toast_id_;
   base::OneShotTimer toast_close_timer_;
   bool is_omnibox_popup_showing_ = false;

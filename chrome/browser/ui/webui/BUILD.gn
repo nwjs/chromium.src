@@ -25,9 +25,15 @@ source_set("configs") {
 
   configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
+  if (!is_android) {
+    public_deps = [ "//chrome/browser/ui/webui/commerce" ]
+  }
+
   deps = [
     ":webui",
+    "//chrome/browser/optimization_guide:optimization_guide",
     "//chrome/browser/ui",
+    "//chrome/browser/ui/webui/safe_browsing",
     "//components/compose:buildflags",
     "//components/lens:buildflags",
     "//components/security_interstitials/content:security_interstitial_page",
@@ -75,6 +81,18 @@ source_set("webui_util") {
     "//services/network/public/mojom",
     "//ui/resources",
   ]
+
+  if (!is_android) {
+    sources += [
+      "webui_embedding_context.cc",
+      "webui_embedding_context.h",
+    ]
+
+    deps += [
+      "//chrome/browser/ui/browser_window:browser_window",
+      "//chrome/browser/ui/tabs:tabs_public",
+    ]
+  }
 }
 
 source_set("webui") {

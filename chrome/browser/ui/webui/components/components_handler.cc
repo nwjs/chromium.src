@@ -18,13 +18,9 @@
 #include "ui/base/l10n/l10n_util.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "chrome/common/webui_url_constants.h"
-#if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/ash/crosapi/browser_manager.h"
 #include "chrome/browser/ash/crosapi/browser_util.h"
-#elif BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "chrome/browser/lacros/lacros_url_handling.h"
-#endif
+#include "chrome/common/webui_url_constants.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 ComponentsHandler::ComponentsHandler(
@@ -86,13 +82,11 @@ void ComponentsHandler::HandleRequestComponentsData(
 // button. (https://code.google.com/p/chromium/issues/detail?id=272540)
 void ComponentsHandler::HandleCheckUpdate(const base::Value::List& args) {
   if (args.size() != 1) {
-    NOTREACHED_IN_MIGRATION();
-    return;
+    NOTREACHED();
   }
 
   if (!args[0].is_string()) {
-    NOTREACHED_IN_MIGRATION();
-    return;
+    NOTREACHED();
   }
   const std::string& component_id = args[0].GetString();
 
@@ -142,15 +136,11 @@ std::u16string ComponentsHandler::ServiceStatusToString(
 #if BUILDFLAG(IS_CHROMEOS)
 void ComponentsHandler::HandleCrosUrlComponentsRedirect(
     const base::Value::List& args) {
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  lacros_url_handling::NavigateInAsh(GURL(chrome::kChromeUIComponentsUrl));
-#else
   // Note: This will only be called by the UI when Lacros is available.
   DCHECK(crosapi::BrowserManager::Get());
   crosapi::BrowserManager::Get()->SwitchToTab(
       GURL(chrome::kChromeUIComponentsUrl),
       /*path_behavior=*/NavigateParams::RESPECT);
-#endif
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 

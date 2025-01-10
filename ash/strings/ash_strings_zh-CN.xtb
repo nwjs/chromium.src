@@ -308,7 +308,6 @@
 <translation id="2041220428661959602">电池电量：<ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848">“<ph name="SIX_PACK_KEY_NAME" />”对应的快捷键目前处于停用状态</translation>
 <translation id="2049240716062114887">桌面名称已更改为“<ph name="DESK_NAME" />”</translation>
-<translation id="2050339315714019657">纵向</translation>
 <translation id="2064048859448024834">已显示相机预览画面</translation>
 <translation id="2065098273523946419">了解详情链接。点击后会重定向到浏览器</translation>
 <translation id="2067220651560163985">以摄氏度显示温度</translation>
@@ -339,9 +338,6 @@
 <translation id="219905428774326614">启动器，所有应用</translation>
 <translation id="2201071101391734388">近期照片中的第 <ph name="INDEX" /> 张，共 <ph name="TOTAL_COUNT" /> 张。</translation>
 <translation id="2201687081523799384">收起 Google Tasks</translation>
-<translation id="2206960886090042977">由于已连接鼠标，内置触控板已停用。请使用鼠标或键盘确认更改。
-
-否则，系统会在 30 秒后重新启用内置触控板。</translation>
 <translation id="2208323208084708176">统一桌面模式</translation>
 <translation id="2220572644011485463">PIN 码或密码</translation>
 <translation id="2222841058024245321">桌面 7</translation>
@@ -504,6 +500,9 @@
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> 至 <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">Ctrl + 搜索键 + S</translation>
 <translation id="2778650143428714839">此 <ph name="DEVICE_TYPE" /> 由 <ph name="MANAGER" /> 管理</translation>
+<translation id="2781658180588759579">内置触控板已停用。请使用键盘或其他指控设备确认更改。
+
+否则，系统会在 <ph name="TIMEOUT_SECONDS" />后重新启用内置触控板。</translation>
 <translation id="2782591952652094792">退出截屏/录屏模式</translation>
 <translation id="2785499565474703580">已连接 1 部设备</translation>
 <translation id="2791421900609674576">系统会显示建议项目，以便您继续使用上次打开的内容。您可以通过轻触并按住建议项目将其移除。</translation>
@@ -601,6 +600,9 @@
 <translation id="3113492864356515707">突出显示任务栏上的前一项</translation>
 <translation id="311799651966070385">关闭智能推送</translation>
 <translation id="3120421559657122717">要关机吗？</translation>
+<translation id="3121411970001795539">由于已连接鼠标，内置触控板已停用。请使用鼠标或键盘确认更改。
+
+否则，系统会在 <ph name="TIMEOUT_SECONDS" />后重新启用内置触控板。</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">课业类型</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -970,13 +972,13 @@
 <translation id="4322742403972824594">键盘快捷键“Ctrl + Alt + 向上键”已更改。若要使用 Home 键，请按<ph name="LAUNCHER_KEY_NAME" />键 + 向左键。</translation>
 <translation id="4324840740119394760">如果您开启摄像头，即意味着允许“<ph name="APP_NAME" />”以及所有具有摄像头使用权限的应用和网站使用摄像头</translation>
 <translation id="4327147325944669226">录制游戏</translation>
-<translation id="4333628967105022692">当有多个用户登录时，Lacros 不受支持。</translation>
 <translation id="4338109981321384717">放大镜</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />，已设为静音</translation>
 <translation id="4351244548802238354">关闭对话框</translation>
 <translation id="4356872429719185452">显示热点详情。热点正在开启。</translation>
 <translation id="4364101114148522660"><ph name="DURATION" />  正在录制</translation>
 <translation id="4371348193907997655">投放设置</translation>
+<translation id="4371834685492830207">PIN 码必须仅包含有效字符</translation>
 <translation id="4375482231364171368">在地址栏中搜索</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />，信号强度为 <ph name="SIGNAL_STRENGTH" />%</translation>
 <translation id="4378551569595875038">正在连接…</translation>
@@ -1142,6 +1144,7 @@
 <translation id="4902797682482387055">建议要专注处理的任务</translation>
 <translation id="490375751687810070">纵向</translation>
 <translation id="490788395437447240">电池电量：<ph name="BATTERY_PERCENTAGE" />%</translation>
+<translation id="4911191962826748981">这是一项实验性 AI 功能，并非始终准确无误。</translation>
 <translation id="491504982845934899">在设备完成设置后启用“<ph name="NETWORK_NAME" />”</translation>
 <translation id="4917385247580444890">强</translation>
 <translation id="4918086044614829423">接受</translation>
@@ -1299,6 +1302,7 @@
 <translation id="5393156353051693207">若要将您的应用重新排序，请轻触并按住任意位置</translation>
 <translation id="5395308026110844773">“<ph name="DRAGGED_APP_NAME" />”已拖至“<ph name="IN_PLACE_APP" />”上，松开即可创建文件夹。</translation>
 <translation id="5397578532367286026">管理员 (<ph name="MANAGER_EMAIL" />) 可在 chrome.com 上查看该用户的使用情况和历史记录。</translation>
+<translation id="540338817371815859">横向</translation>
 <translation id="540713187982329711">开启/关闭热点。热点处于开启状态，但尚未连接任何设备。</translation>
 <translation id="5409208741270395213">将任务标记为已完成</translation>
 <translation id="5413656666631274079">“设置”页面</translation>
@@ -1470,7 +1474,6 @@
 <translation id="5975235751479998104">正向浏览各个窗口</translation>
 <translation id="5978382165065462689">正在通过远程协助共享您屏幕的控制权限。</translation>
 <translation id="5980301590375426705">退出访客模式</translation>
-<translation id="5982119059638483922">按 Fn+搜索键或按 Shift 键可停用。</translation>
 <translation id="5983567367406220847">由于闲置过久，热点已关闭。</translation>
 <translation id="598407983968395253">使用模板</translation>
 <translation id="5986723678596105470">通过 Google Meet 加入</translation>
@@ -1540,7 +1543,6 @@
 <translation id="6166852626429024716">搜索您的设备、应用、设置、网站…</translation>
 <translation id="6168318496333165060">打开“诊断”应用</translation>
 <translation id="6168622430237609329">您已安装的应用</translation>
-<translation id="6173151025443907148">如果已启用 Lacros，则不支持多用户登录。请在 Lacros 中改用另一份浏览器个人资料，或者停用 Lacros 并重试。</translation>
 <translation id="6179832488876878285">您可将自己的重要文件固定在此处。打开“文件”应用即可开始操作。</translation>
 <translation id="6180193585172850042">返回按钮</translation>
 <translation id="6180651297859206670">前进按钮</translation>
@@ -1562,6 +1564,7 @@
 <translation id="6232416233079464213">来自<ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" />正在使用您的摄像头和麦克风</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">密码必须仅包含有效字符</translation>
 <translation id="6240603910551255087">顶部按钮</translation>
 <translation id="6240821072888636753">每次都询问</translation>
 <translation id="6247728804802644171">打开通知</translation>
@@ -1692,7 +1695,6 @@
 <translation id="6682029141988159141">粘贴剪贴板中的内容</translation>
 <translation id="6683022854667115063">头戴式耳机</translation>
 <translation id="6686023075541098243">设置查看手机中的通知</translation>
-<translation id="6688019813898140556">Esc 键 5 次</translation>
 <translation id="6694462491298752106">内置触控板已停用</translation>
 <translation id="6694973220096431421">在 Google 云端硬盘中搜索</translation>
 <translation id="6696025732084565524">您的可拆卸式键盘需要安装一项重要更新</translation>
@@ -1713,6 +1715,7 @@
 <translation id="6751826523481687655">已启用性能跟踪</translation>
 <translation id="6752912906630585008">桌面“<ph name="REMOVED_DESK" />”已移除并与桌面“<ph name="RECEIVE_DESK" />”合并</translation>
 <translation id="6753390234084146956">标签页</translation>
+<translation id="6754918760968695779">快捷插入</translation>
 <translation id="6757237461819837179">目前未播放任何媒体</translation>
 <translation id="6760438044935091345">游戏信息中心</translation>
 <translation id="6768043681523654438">存储空间</translation>
@@ -1762,6 +1765,7 @@
 <translation id="6921427376813842559">更新设备</translation>
 <translation id="6929081673585394903">显示控件</translation>
 <translation id="6931576957638141829">保存到</translation>
+<translation id="6935857786205183008">纵向</translation>
 <translation id="6942518653766415536">录制格式菜单</translation>
 <translation id="6945221475159498467">选择</translation>
 <translation id="6945922087561257829">手机使用的是移动网络。请确保您的手机和 Chromebook 已连接到同一 Wi-Fi 网络，然后重试。<ph name="LEARN_MORE" /></translation>
@@ -1918,9 +1922,6 @@
 要将设备关机，请再次按住设备上的电源按钮。</translation>
 <translation id="7523420897035067483">在专注模式下启用勿扰模式</translation>
 <translation id="7524043547948122239">Google Tasks</translation>
-<translation id="7524919752437339268">内置触控板已停用。请使用键盘或其他指控设备确认更改。
-
-否则，系统会在 30 秒后重新启用内置触控板。</translation>
 <translation id="7525067979554623046">创建</translation>
 <translation id="7526573455193969409">网络可能受到了监控</translation>
 <translation id="7536035074519304529">IP 地址：<ph name="ADDRESS" /></translation>
@@ -2007,6 +2008,7 @@
 <translation id="780301667611848630">不用了，谢谢</translation>
 <translation id="7807067443225230855">Google 搜索和 Google 助理</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">选择“我喜欢”将提交您喜欢这条建议的反馈</translation>
 <translation id="7825412704590278437">来自即将进行的日历活动</translation>
 <translation id="7829386189513694949">信号较强</translation>
 <translation id="7830453190047749513">您可以为 <ph name="PERIPHERAL_NAME" /> 设置个性化按钮操作、光标速度等</translation>
@@ -2161,6 +2163,7 @@
 <translation id="830868413617744215">测试版</translation>
 <translation id="8314772463905284467">Caps Lock 已打开</translation>
 <translation id="8315514906653279104">正在开启…</translation>
+<translation id="8319634750346253957">选择“不喜欢”将提交您不喜欢这条建议的反馈</translation>
 <translation id="8331351032546853669">待下载</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2346,6 +2349,7 @@
 <translation id="8982906748181120328">“附近分享”的高可见度模式</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">目前使用的是“<ph name="IME_NAME" />”</translation>
+<translation id="8991648557324317894">按 fn + 快捷插入键或 shift 键可取消。</translation>
 <translation id="899350903320462459">以 <ph name="LOGIN_ID" /> 身份解锁设备即可执行通知操作</translation>
 <translation id="8993733019280019776">您正在说话吗？您的麦克风处于关闭状态。选择麦克风即可开启它。</translation>
 <translation id="9000771174482730261">管理存储空间</translation>
@@ -2428,9 +2432,9 @@
 <translation id="974545358917229949">显示了 <ph name="RESULT_COUNT" /> 条与“<ph name="QUERY" />”相符的结果</translation>
 <translation id="981011780479609956">无截止日期</translation>
 <translation id="98120814841227350">转到文档末尾</translation>
-<translation id="98515147261107953">风光</translation>
 <translation id="987589956647469042">移动流量已开启</translation>
 <translation id="989374776391122812">摄像头和音频控件</translation>
+<translation id="990263227494928142">按 Shift 键 5 次即可启用触控板</translation>
 <translation id="990277280839877440">已关闭窗口“<ph name="WINDOW_TITILE" />”。</translation>
 <translation id="993398562350683614">导览第 <ph name="STEP" /> 步，共 <ph name="TOTAL_STEPS" /> 步。您可在 <ph name="PRODUCT_NAME" /> 上使用应用完成各种任务。可以在启动器中查找应用。按 Alt + Shift + L 键即可将焦点移至启动器按钮。</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />，<ph name="SUBTEXT" /></translation>

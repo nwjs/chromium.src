@@ -75,7 +75,7 @@ class ScopedModuleModifier {
   }
 
  private:
-  base::span<const uint8_t> modification_region_;
+  base::raw_span<const uint8_t> modification_region_;
 };
 
 }  // namespace

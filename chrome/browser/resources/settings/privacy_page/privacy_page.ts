@@ -8,7 +8,7 @@
  * security settings.
  */
 import '/shared/settings/prefs/prefs.js';
-import 'chrome://resources/cr_elements/icons_lit.html.js';
+import 'chrome://resources/cr_elements/icons.html.js';
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import 'chrome://resources/cr_elements/cr_link_row/cr_link_row.js';
@@ -111,6 +111,13 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
         type: Boolean,
         value() {
           return loadTimeData.getBoolean('enableBlockAutoplayContentSetting');
+        },
+      },
+
+      enableManagePhones_: {
+        type: Boolean,
+        value() {
+          return loadTimeData.getBoolean('enableSecurityKeysManagePhones');
         },
       },
 
@@ -625,7 +632,9 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
       case CookieControlsMode.OFF:
         return this.i18n('thirdPartyCookiesLinkRowSublabelEnabled');
       case CookieControlsMode.INCOGNITO_ONLY:
-        return this.i18n('thirdPartyCookiesLinkRowSublabelDisabledIncognito');
+        return loadTimeData.getBoolean('isAlwaysBlock3pcsIncognitoEnabled') ?
+            this.i18n('thirdPartyCookiesLinkRowSublabelEnabled') :
+            this.i18n('thirdPartyCookiesLinkRowSublabelDisabledIncognito');
       case CookieControlsMode.BLOCK_THIRD_PARTY:
         return this.i18n('thirdPartyCookiesLinkRowSublabelDisabled');
       default:

@@ -4,6 +4,7 @@
 
 module ash.boca.mojom;
 
+import "chromeos/services/network_config/public/mojom/network_types.mojom";
 import "url/mojom/url.mojom";
 import "mojo/public/mojom/base/time.mojom";
 
@@ -47,19 +48,41 @@ struct Window {
   // User-customized window name.
   string? name;
   // Tabs within browser window. Tabs are ordererd using non-increasing order
-  // for tab's last access
-  // timestamp
+  // for tab's last access timestamp.
   array<TabInfo> tab_list;
+};
+
+// The network technology type.
+enum NetworkType {
+  kCellular,
+  kEthernet,
+  kWiFi,
+  kUnsupported,
+};
+
+// Represents the network information.
+struct NetworkInfo {
+  chromeos.network_config.mojom.ConnectionStateType state;
+  NetworkType type;
+  // The human readable name of the network.
+  string name;
+  // The signal strength of the network in percentage.
+  int32 signal_strength;
 };
 
 struct Config{
   mojo_base.mojom.TimeDelta session_duration;
   mojo_base.mojom.JSTime? session_start_time;
   Identity? teacher;
-  // Selected students to be joined for session.
+  // Students joined via Classroom roster selection.
   array<Identity> students;
+  // Students joined via access code.
+  array<Identity> students_join_via_code;
   OnTaskConfig on_task_config;
   CaptionConfig caption_config;
+  // Strings allow consumer to type and join a session. Will be alphabetic
+  // characters.
+  string? access_code;
 };
 
 struct CaptionConfig {
@@ -77,6 +100,7 @@ enum NavigationType {
   kBlock,
   kDomain,
   kLimited,
+  kSameDomainOpenOtherDomainLimited,
 };
 
 struct ControlledTab {
@@ -130,11 +154,21 @@ enum UpdateSessionError{
   kHTTPError,
 };
 
+enum RemoveStudentError{
+  // Invalid access code.
+  kInvalid,
+  // Network failure.
+  kHTTPError,
+};
+
+enum SubmitAccessCodeError {
+  kInvalid,
+};
+
 // Implemented by browser process for page chrome-untrusted://boca-app/
 interface PageHandler {
   // Fetches a list of browser windows and tabs in it. Windows are ordered using
-  // non-increasing order for most recent tab's last
-  // access timestamp
+  // non-increasing order for most recent tab's last access timestamp.
   GetWindowsTabsList() => (array<Window> window_list);
   // Fetch a list of courses for the current teacher.
   ListCourses() => (array<Course> courses);
@@ -148,13 +182,18 @@ interface PageHandler {
   GetSession() => (SessionResult result);
   // End session.
   EndSession() => (UpdateSessionError? error);
+  // Remove student from session.
+  RemoveStudent(string id) => (RemoveStudentError? error);
   // Update OnTask config.
   UpdateOnTaskConfig(OnTaskConfig on_task_config)
   => (UpdateSessionError? error);
   // Update caption config.
   UpdateCaptionConfig(CaptionConfig caption_config)
   => (UpdateSessionError? error);
-
+  // Set app float mode.
+  SetFloatMode(bool isFloatMode)=> (bool success);
+  // Submit access code to join a current class session.
+  SubmitAccessCode(string access_code) => (SubmitAccessCodeError? error);
 };
 
 // Implemented by renderer process
@@ -162,7 +201,9 @@ interface Page {
   // Notifies when student activities updated.
   OnStudentActivityUpdated(array<IdentifiedActivity> activities);
   // Notifies when session config updated.
-  OnSessionConfigUpdated(Config config);
+  OnSessionConfigUpdated(SessionResult config);
+  // Notifies when active networks updated.
+  OnActiveNetworkStateChanged(array<NetworkInfo> active_networks);
 };
 
 // Implemented in browser process to set up the communication between the Page

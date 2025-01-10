@@ -44,12 +44,6 @@ const std::string GetCountryCodeFromVariations() {
 }  // namespace
 
 // static
-PersonalDataManager* PersonalDataManagerFactory::GetForBrowserState(
-    ProfileIOS* profile) {
-  return GetForProfile(profile);
-}
-
-// static
 PersonalDataManager* PersonalDataManagerFactory::GetForProfile(
     ProfileIOS* profile) {
   return static_cast<PersonalDataManager*>(
@@ -85,7 +79,7 @@ PersonalDataManagerFactory::BuildServiceInstanceFor(
       ios::WebDataServiceFactory::GetAutofillWebDataForAccount(
           profile, ServiceAccessType::EXPLICIT_ACCESS);
   history::HistoryService* history_service =
-      ios::HistoryServiceFactory::GetForBrowserState(
+      ios::HistoryServiceFactory::GetForProfile(
           profile, ServiceAccessType::EXPLICIT_ACCESS);
   StrikeDatabase* strike_database =
       StrikeDatabaseFactory::GetForProfile(profile);

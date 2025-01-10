@@ -18,12 +18,15 @@
 #include "base/path_service.h"
 #include "base/strings/string_split.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "components/autofill/content/renderer/form_autofill_util.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/field_data_manager.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_field_data.h"
+#include "components/autofill/core/common/label_source_util.h"
 #include "content/public/test/render_view_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/web/web_document.h"
@@ -83,43 +86,6 @@ std::vector<TestCase> GetTests() {
   return tests;
 }
 
-std::string LabelSourceToString(FormFieldData::LabelSource source) {
-  switch (source) {
-    case FormFieldData::LabelSource::kUnknown:
-      return "unknown";
-    case FormFieldData::LabelSource::kLabelTag:
-      return "labelTag";
-    case FormFieldData::LabelSource::kPTag:
-      return "pTag";
-    case FormFieldData::LabelSource::kDivTable:
-      return "divTable";
-    case FormFieldData::LabelSource::kTdTag:
-      return "tdTag";
-    case FormFieldData::LabelSource::kDdTag:
-      return "ddTag";
-    case FormFieldData::LabelSource::kLiTag:
-      return "liTag";
-    case FormFieldData::LabelSource::kPlaceHolder:
-      return "placeholder";
-    case FormFieldData::LabelSource::kAriaLabel:
-      return "ariaLabel";
-    case FormFieldData::LabelSource::kCombined:
-      return "combined";
-    case FormFieldData::LabelSource::kValue:
-      return "value";
-    case FormFieldData::LabelSource::kForId:
-      return "forId";
-    case FormFieldData::LabelSource::kForName:
-      return "forName";
-    case FormFieldData::LabelSource::kForShadowHostId:
-      return "forShadowHostId";
-    case FormFieldData::LabelSource::kForShadowHostName:
-      return "forShadowHostName";
-    case FormFieldData::LabelSource::kOverlayingLabel:
-      return "overlayingLabel";
-  }
-}
-
 class DomLabelTest : public content::RenderViewTest,
                      public testing::WithParamInterface<TestCase> {
  public:
@@ -154,6 +120,8 @@ class DomLabelTest : public content::RenderViewTest,
   }
 
  private:
+  base::test::ScopedFeatureList feature{
+      features::kAutofillInferLabelFromDefaultSelectText};
   scoped_refptr<FieldDataManager> field_data_manager_ =
       base::MakeRefCounted<FieldDataManager>();
 };

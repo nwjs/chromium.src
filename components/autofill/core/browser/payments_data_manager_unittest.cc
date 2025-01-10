@@ -42,7 +42,6 @@
 #include "components/autofill/core/browser/payments_data_manager_test_api.h"
 #include "components/autofill/core/browser/payments_data_manager_test_base.h"
 #include "components/autofill/core/browser/personal_data_manager_test_utils.h"
-#include "components/autofill/core/browser/test_autofill_clock.h"
 #include "components/autofill/core/browser/ui/autofill_image_fetcher_base.h"
 #include "components/autofill/core/browser/ui/suggestion.h"
 #include "components/autofill/core/common/autofill_clock.h"
@@ -73,8 +72,9 @@ namespace {
 
 using testing::Pointee;
 
-const base::Time kArbitraryTime = base::Time::FromSecondsSinceUnixEpoch(25);
-const base::Time kSomeLaterTime = base::Time::FromSecondsSinceUnixEpoch(1000);
+constexpr auto kArbitraryTime =
+    base::Time::FromSecondsSinceUnixEpoch(86400 * 365 * 2);
+constexpr auto kSomeLaterTime = kArbitraryTime + base::Seconds(1000);
 
 template <typename T>
 bool CompareElements(T* a, T* b) {
@@ -481,8 +481,7 @@ TEST_F(PaymentsDataManagerTest, RemoveLocalIbans) {
 TEST_F(PaymentsDataManagerTest, RecordIbanUsage_LocalIban) {
   base::HistogramTester histogram_tester;
   // Create the test clock and set the time to a specific value.
-  TestAutofillClock test_clock;
-  test_clock.SetNow(kArbitraryTime);
+  AdvanceClock(kArbitraryTime - base::Time::Now());
   Iban local_iban;
   local_iban.set_value(u"FR76 3000 6000 0112 3456 7890 189");
   EXPECT_EQ(local_iban.use_count(), 1u);
@@ -492,7 +491,7 @@ TEST_F(PaymentsDataManagerTest, RecordIbanUsage_LocalIban) {
   AddLocalIban(local_iban);
 
   // Set the current time to sometime later.
-  test_clock.SetNow(kSomeLaterTime);
+  AdvanceClock(kSomeLaterTime - base::Time::Now());
 
   // Use `local_iban`, then verify usage stats.
   EXPECT_EQ(payments_data_manager().GetLocalIbans().size(), 1u);
@@ -508,8 +507,7 @@ TEST_F(PaymentsDataManagerTest, RecordIbanUsage_LocalIban) {
 TEST_F(PaymentsDataManagerTest, RecordIbanUsage_ServerIban) {
   base::HistogramTester histogram_tester;
   // Create the test clock and set the time to a specific value.
-  TestAutofillClock test_clock;
-  test_clock.SetNow(kArbitraryTime);
+  AdvanceClock(kArbitraryTime - base::Time::Now());
   Iban server_iban = test::GetServerIban();
   EXPECT_EQ(server_iban.use_count(), 1u);
   EXPECT_EQ(server_iban.use_date(), kArbitraryTime);
@@ -519,7 +517,7 @@ TEST_F(PaymentsDataManagerTest, RecordIbanUsage_ServerIban) {
   WaitForOnPaymentsDataChanged();
 
   // Set the current time to sometime later.
-  test_clock.SetNow(kSomeLaterTime);
+  AdvanceClock(kSomeLaterTime - base::Time::Now());
 
   // Use `server_iban`, then verify usage stats.
   EXPECT_EQ(payments_data_manager().GetServerIbans().size(), 1u);
@@ -628,15 +626,14 @@ TEST_F(PaymentsDataManagerTest, RemoveLocalDataModifiedBetween) {
   base::test::ScopedFeatureList features(
       features::kAutofillEnableCvcStorageAndFilling);
 
-  TestAutofillClock test_clock;
-  test_clock.SetNow(kArbitraryTime);
+  AdvanceClock(kArbitraryTime - base::Time::Now());
   CreditCard local_card1 = test::GetCreditCard();
   // PaymentsAutofillTable sets modification dates when adding/updating.
   payments_data_manager().AddCreditCard(local_card1);
   WaitForOnPaymentsDataChanged();
 
   CreditCard local_card2 = test::GetCreditCard2();
-  test_clock.Advance(base::Minutes(2));
+  AdvanceClock(base::Minutes(2));
   payments_data_manager().AddCreditCard(local_card2);
   WaitForOnPaymentsDataChanged();
 
@@ -644,7 +641,7 @@ TEST_F(PaymentsDataManagerTest, RemoveLocalDataModifiedBetween) {
   WaitForOnPaymentsDataChanged();
 
   CreditCard server_card = test::GetMaskedServerCard();
-  test_clock.Advance(base::Minutes(3));
+  AdvanceClock(base::Minutes(3));
   test_api(payments_data_manager()).AddServerCreditCard(server_card);
   WaitForOnPaymentsDataChanged();
 
@@ -663,8 +660,7 @@ TEST_F(PaymentsDataManagerTest, RemoveLocalDataModifiedBetween) {
 }
 
 TEST_F(PaymentsDataManagerTest, RecordUseOfCard) {
-  TestAutofillClock test_clock;
-  test_clock.SetNow(kArbitraryTime);
+  AdvanceClock(kArbitraryTime - base::Time::Now());
   CreditCard card = test::GetCreditCard();
   ASSERT_EQ(card.use_count(), 1u);
   ASSERT_EQ(card.use_date(), kArbitraryTime);
@@ -672,7 +668,7 @@ TEST_F(PaymentsDataManagerTest, RecordUseOfCard) {
   payments_data_manager().AddCreditCard(card);
   WaitForOnPaymentsDataChanged();
 
-  test_clock.SetNow(kSomeLaterTime);
+  AdvanceClock(kSomeLaterTime - base::Time::Now());
   payments_data_manager().RecordUseOfCard(&card);
   WaitForOnPaymentsDataChanged();
 
@@ -760,8 +756,7 @@ TEST_F(PaymentsDataManagerTest, ClearServerCvc) {
 // Test that a new credit card has its basic information set.
 TEST_F(PaymentsDataManagerTest, AddCreditCard_BasicInformation) {
   // Create the test clock and set the time to a specific value.
-  TestAutofillClock test_clock;
-  test_clock.SetNow(kArbitraryTime);
+  AdvanceClock(kArbitraryTime - base::Time::Now());
 
   // Add a credit card to the database.
   CreditCard credit_card(base::Uuid::GenerateRandomV4().AsLowercaseString(),
@@ -2270,6 +2265,41 @@ TEST_F(PaymentsDataManagerTest, EwalletAccountsIconsFetched_DatabaseUpdated) {
   payments_data_manager().Refresh();
   WaitForOnPaymentsDataChanged();
 }
+
+TEST_F(
+    PaymentsDataManagerTest,
+    GetEwalletAccounts_PaymentsDataManagerRefreshedTwice_NoDuplicatedEwalletAccounts) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kAutofillSyncEwalletAccounts);
+  sync_pb::PaymentInstrument payment_instrument_1 =
+      test::CreatePaymentInstrumentWithEwalletAccount(1234L);
+  sync_pb::PaymentInstrument payment_instrument_2 =
+      test::CreatePaymentInstrumentWithEwalletAccount(2345L);
+  ASSERT_TRUE(GetServerDataTable()->SetPaymentInstruments(
+      {payment_instrument_1, payment_instrument_2}));
+
+  // Since the PaymentsDataManager was initialized before adding the eWallet
+  // payment instruments to the WebDatabase, we expect GetEwalletAccounts to
+  // return an empty list.
+  base::span<const Ewallet> ewallet_accounts =
+      payments_data_manager().GetEwalletAccounts();
+  EXPECT_EQ(0u, ewallet_accounts.size());
+
+  // We need to call `Refresh()` to ensure that the eWallet payment instruments
+  // are loaded again from the WebDatabase.
+  payments_data_manager().Refresh();
+  WaitForOnPaymentsDataChanged();
+
+  ewallet_accounts = payments_data_manager().GetEwalletAccounts();
+  EXPECT_EQ(2u, ewallet_accounts.size());
+
+  // Invoke `Refresh()` again.
+  payments_data_manager().Refresh();
+  WaitForOnPaymentsDataChanged();
+
+  ewallet_accounts = payments_data_manager().GetEwalletAccounts();
+  EXPECT_EQ(2u, ewallet_accounts.size());
+}
 #endif  // BUILDFLAG(IS_ANDROID)
 
 TEST_F(PaymentsDataManagerTest,
@@ -3358,6 +3388,24 @@ TEST_F(PaymentsDataManagerTest, OnAccountsCookieDeletedByUserAction) {
 
   // Make sure the pref is now empty.
   EXPECT_TRUE(prefs_->GetDict(prefs::kAutofillSyncTransportOptIn).empty());
+}
+
+TEST_F(PaymentsDataManagerTest, RecordLocalCardAdded) {
+  base::HistogramTester histogram_tester;
+  // Add a local card.
+  CreditCard credit_card0("287151C8-6AB1-487C-9095-28E80BE5DA15",
+                          test::kEmptyOrigin);
+  test::SetCreditCardInfo(&credit_card0, "Clyde Barrow",
+                          "4234 5678 9012 2110" /* Visa */, "04", "2999", "1");
+  payments_data_manager().AddCreditCard(credit_card0);
+
+  // Make sure everything is set up correctly.
+  payments_data_manager().Refresh();
+  WaitForOnPaymentsDataChanged();
+  EXPECT_EQ(1U, payments_data_manager().GetCreditCards().size());
+
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.PaymentsDataManager.LocalCardAdded", true, 1);
 }
 
 }  // namespace

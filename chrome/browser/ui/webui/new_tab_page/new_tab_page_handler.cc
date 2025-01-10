@@ -109,10 +109,6 @@ constexpr auto kModuleInteractionNames =
         {kDisableInteraction, kDismissInteraction, kIgnoreInteraction,
          kUseInteraction});
 
-const char kMobilePromoQRCodeURL[] =
-    "https://apps.apple.com/app/apple-store/"
-    "id535886823?pt=9008&ct=desktop-chr-ntp&mt=8";
-
 // Returns a list of module IDs that are eligible for HATS.
 std::vector<std::string> GetSurveyEligibleModuleIds() {
   return base::SplitString(
@@ -435,12 +431,7 @@ base::Value::Dict MakeModuleInteractionTriggerIdDictionary() {
 }
 
 std::string MakeMobilePromoQRCode() {
-  std::string field_trial_url = base::GetFieldTrialParamValueByFeature(
-      ntp_features::kNtpMobilePromo,
-      ntp_features::kNtpMobilePromoTargetUrlParam);
-  std::string_view qr_code_url = (field_trial_url.empty())
-                                     ? std::string_view(kMobilePromoQRCodeURL)
-                                     : field_trial_url;
+  std::string qr_code_url = ntp_features::GetMobilePromoTargetURL();
   auto generated_code = qr_code_generator::GenerateImage(
       base::as_byte_span(qr_code_url), qr_code_generator::ModuleStyle::kCircles,
       qr_code_generator::LocatorStyle::kRounded,
@@ -452,12 +443,12 @@ std::string MakeMobilePromoQRCode() {
   }
 
   SkBitmap bitmap = generated_code.value().GetRepresentation(1.0f).GetBitmap();
-  std::vector<unsigned char> encoded_bitmap;
-  bool result = gfx::WebpCodec::Encode(bitmap, 100, &encoded_bitmap);
-  if (!result) {
+  std::optional<std::vector<uint8_t>> encoded_bitmap =
+      gfx::WebpCodec::Encode(bitmap, /*quality=*/100);
+  if (!encoded_bitmap) {
     return "";
   }
-  return base::Base64Encode(encoded_bitmap);
+  return base::Base64Encode(encoded_bitmap.value());
 }
 
 }  // namespace
@@ -587,6 +578,8 @@ void NewTabPageHandler::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterDictionaryPref(prefs::kNtpModulesInteractedCountDict);
   registry->RegisterDictionaryPref(prefs::kNtpModulesLoadedCountDict);
   registry->RegisterIntegerPref(prefs::kNtpWallpaperSearchButtonShownCount, 0);
+  registry->RegisterBooleanPref(prefs::kNtpOutlookModuleVisible, false);
+  registry->RegisterBooleanPref(prefs::kNtpSharepointModuleVisible, false);
 }
 
 void NewTabPageHandler::SetMostVisitedSettings(bool custom_links_enabled,
@@ -963,7 +956,7 @@ void NewTabPageHandler::MaybeShowFeaturePromo(
           web_contents_.get());
     } break;
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
 }
 
@@ -1044,7 +1037,7 @@ void NewTabPageHandler::OnCustomizeDialogAction(
       event = NTP_CUSTOMIZE_SHORTCUT_VISIBILITY_TOGGLE_CLICKED;
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
   LogEvent(event);
 }
@@ -1064,8 +1057,7 @@ void NewTabPageHandler::OnDoodleImageClicked(
       event = NTP_STATIC_LOGO_CLICKED;
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return;
+      NOTREACHED();
   }
   LogEvent(event);
 
@@ -1113,8 +1105,7 @@ void NewTabPageHandler::OnDoodleShared(
       channel_id = 6;
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
   std::string query =
       base::StringPrintf("gen_204?atype=i&ct=doodle&ntp=2&cad=sh,%d,ct:%s",

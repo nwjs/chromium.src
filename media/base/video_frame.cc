@@ -96,8 +96,7 @@ std::string VideoFrame::StorageTypeToString(
       return "GPU_MEMORY_BUFFER";
   }
 
-  NOTREACHED_IN_MIGRATION() << "Invalid StorageType provided: " << storage_type;
-  return "INVALID";
+  NOTREACHED() << "Invalid StorageType provided: " << storage_type;
 }
 
 // static
@@ -294,15 +293,29 @@ scoped_refptr<VideoFrame> VideoFrame::CreateVideoHoleFrame(
     const base::UnguessableToken& overlay_plane_id,
     const gfx::Size& natural_size,
     base::TimeDelta timestamp) {
-  auto layout = VideoFrameLayout::Create(PIXEL_FORMAT_UNKNOWN, natural_size);
+  return VideoFrame::WrapTrackingToken(PIXEL_FORMAT_UNKNOWN, overlay_plane_id,
+                                       /*coded_size=*/natural_size,
+                                       /*visible_rect=*/gfx::Rect(natural_size),
+                                       natural_size, timestamp);
+}
+
+// static
+scoped_refptr<VideoFrame> VideoFrame::WrapTrackingToken(
+    VideoPixelFormat format,
+    const base::UnguessableToken& tracking_token,
+    const gfx::Size& coded_size,
+    const gfx::Rect& visible_rect,
+    const gfx::Size& natural_size,
+    base::TimeDelta timestamp) {
+  auto layout = VideoFrameLayout::Create(format, coded_size);
   if (!layout) {
     DLOG(ERROR) << "Invalid layout.";
     return nullptr;
   }
-  scoped_refptr<VideoFrame> frame = new VideoFrame(
-      *layout, StorageType::STORAGE_OPAQUE, gfx::Rect(natural_size),
-      natural_size, timestamp, FrameControlType::kVideoHole);
-  frame->metadata().overlay_plane_id = overlay_plane_id;
+  scoped_refptr<VideoFrame> frame =
+      new VideoFrame(*layout, StorageType::STORAGE_OPAQUE, visible_rect,
+                     natural_size, timestamp);
+  frame->metadata().tracking_token = tracking_token;
   return frame;
 }
 
@@ -451,33 +464,6 @@ VideoFrame::CreateFrameForGpuMemoryBufferOrMappableSIInternal(
   frame->is_mappable_si_enabled_ = enable_mappable_si;
   return frame;
 }
-
-// static
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
-scoped_refptr<VideoFrame> VideoFrame::WrapOOPVDMailbox(
-    VideoPixelFormat format,
-    const gpu::Mailbox& mailbox,
-    ReleaseMailboxCB mailbox_holder_release_cb,
-    const gfx::Size& coded_size,
-    const gfx::Rect& visible_rect,
-    const gfx::Size& natural_size,
-    base::TimeDelta timestamp) {
-  scoped_refptr<VideoFrame> frame = CreateFrameForNativeTexturesInternal(
-      format, coded_size, visible_rect, natural_size, timestamp);
-  if (!frame) {
-    return nullptr;
-  }
-
-  frame->oopvd_mailbox_ = mailbox;
-  frame->mailbox_holder_and_gmb_release_cb_ =
-      WrapReleaseMailboxCB(std::move(mailbox_holder_release_cb));
-
-  // Wrapping native textures should... have textures. https://crbug.com/864145.
-  DCHECK(frame->HasOOPVDMailbox());
-
-  return frame;
-}
-#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
 
 // static
 scoped_refptr<VideoFrame> VideoFrame::WrapSharedImage(
@@ -1063,10 +1049,14 @@ size_t VideoFrame::NumPlanes(VideoPixelFormat format) {
 // static
 size_t VideoFrame::AllocationSize(VideoPixelFormat format,
                                   const gfx::Size& coded_size) {
-  size_t total = 0;
-  for (size_t i = 0; i < NumPlanes(format); ++i)
-    total += PlaneSize(format, i, coded_size).GetArea();
-  return total;
+  base::CheckedNumeric<size_t> total = 0;
+  for (size_t i = 0; i < NumPlanes(format); ++i) {
+    total += PlaneSize(format, i, coded_size).Area64();
+  }
+
+  // If the line below is crashing, someone has likely added a pixel format with
+  // more than 8 bytes per pixel.
+  return total.ValueOrDie();
 }
 
 // static
@@ -1260,13 +1250,6 @@ void VideoFrame::BackWithOwnedSharedMemory(
 bool VideoFrame::IsMappable() const {
   return IsStorageTypeMappable(storage_type_);
 }
-
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-bool VideoFrame::HasOOPVDMailbox() const {
-  return wrapped_frame_ ? wrapped_frame_->HasOOPVDMailbox()
-                        : !oopvd_mailbox_.IsZero();
-}
-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
 bool VideoFrame::HasSharedImage() const {
   return wrapped_frame_ ? wrapped_frame_->HasSharedImage()
@@ -1467,18 +1450,6 @@ uint8_t* VideoFrame::GetWritableVisibleData(size_t plane) {
   return GetVisibleDataInternal(writable_data(plane), plane);
 }
 
-// TODO(crbug.com/332564976): Update method to not take in param.
-const gpu::MailboxHolder VideoFrame::mailbox_holder(
-    size_t texture_index) const {
-  CHECK_EQ(texture_index, 0u);
-  CHECK(HasSharedImage());
-  if (wrapped_frame_) {
-    return wrapped_frame_->mailbox_holder(texture_index);
-  }
-  return gpu::MailboxHolder(shared_image_->mailbox(), acquire_sync_token_,
-                            shared_image_->GetTextureTarget());
-}
-
 gpu::SyncToken VideoFrame::acquire_sync_token() const {
   CHECK(HasSharedImage());
   return wrapped_frame_ ? wrapped_frame_->acquire_sync_token()
@@ -1564,8 +1535,7 @@ gpu::SyncToken VideoFrame::UpdateReleaseSyncToken(SyncTokenClient* client) {
   return release_sync_token_;
 }
 
-gpu::SyncToken VideoFrame::UpdateMailboxHolderSyncToken(
-    SyncTokenClient* client) {
+gpu::SyncToken VideoFrame::UpdateAcquireSyncToken(SyncTokenClient* client) {
   DCHECK(HasOneRef());
   DCHECK(HasSharedImage());
   DCHECK(!wrapped_frame_);
@@ -1719,10 +1689,6 @@ bool VideoFrame::IsValidConfigInternal(VideoPixelFormat format,
       DCHECK_EQ(format, PIXEL_FORMAT_UNKNOWN);
       return coded_size.IsEmpty() && visible_rect.IsEmpty() &&
              natural_size.IsEmpty();
-    case FrameControlType::kVideoHole:
-      DCHECK_EQ(format, PIXEL_FORMAT_UNKNOWN);
-      return !coded_size.IsEmpty() && !visible_rect.IsEmpty() &&
-             !natural_size.IsEmpty();
   }
 }
 

@@ -30,6 +30,7 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
+#include "base/notreached.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/system/sys_info.h"
 #include "base/task/single_thread_task_runner.h"
@@ -420,8 +421,10 @@ WizardController::WizardController(WizardContext* wizard_context)
       wizard_context_(wizard_context),
       shared_url_loader_factory_(
           g_browser_process->shared_url_loader_factory()) {
+  const auto has_been_skipped =
+      wizard_context_->skip_post_login_screens_for_tests;
   wizard_context_->skip_post_login_screens_for_tests =
-      switches::ShouldSkipOobePostLogin();
+      has_been_skipped || switches::ShouldSkipOobePostLogin();
   AccessibilityManager* accessibility_manager = AccessibilityManager::Get();
   if (accessibility_manager) {
     // accessibility_manager could be null in Tests.
@@ -726,12 +729,10 @@ WizardController::CreateScreens() {
                             weak_factory_.GetWeakPtr())));
   }
 
-  if (features::IsOobeGeminiIntroEnabled()) {
-    append(std::make_unique<GeminiIntroScreen>(
-        oobe_ui->GetView<GeminiIntroScreenHandler>()->AsWeakPtr(),
-        base::BindRepeating(&WizardController::OnGeminiIntroScreenExit,
-                            weak_factory_.GetWeakPtr())));
-  }
+  append(std::make_unique<GeminiIntroScreen>(
+      oobe_ui->GetView<GeminiIntroScreenHandler>()->AsWeakPtr(),
+      base::BindRepeating(&WizardController::OnGeminiIntroScreenExit,
+                          weak_factory_.GetWeakPtr())));
 
   append(std::make_unique<WrongHWIDScreen>(
       oobe_ui->GetView<WrongHWIDScreenHandler>()->AsWeakPtr(),
@@ -1198,10 +1199,21 @@ void WizardController::ShowFingerprintSetupScreen() {
   SetCurrentScreen(GetScreen(FingerprintSetupScreenView::kScreenId));
 }
 
-void WizardController::ShowPinSetupScreen() {
-  // The PIN Setup screen can be used for setting up PIN as a main factor, or as
-  // a secondary one. At this point, the mode must be known.
-  CHECK(wizard_context_->knowledge_factor_setup.pin_setup_mode.has_value());
+void WizardController::ShowPinSetupScreenAsSecondaryFactor() {
+  wizard_context_->knowledge_factor_setup.pin_setup_mode =
+      WizardContext::PinSetupMode::kSetupAsSecondaryFactor;
+  SetCurrentScreen(GetScreen(PinSetupScreenView::kScreenId));
+}
+
+void WizardController::ShowPinSetupScreenAsMainFactor() {
+  wizard_context_->knowledge_factor_setup.pin_setup_mode =
+      WizardContext::PinSetupMode::kSetupAsPrimaryFactor;
+  SetCurrentScreen(GetScreen(PinSetupScreenView::kScreenId));
+}
+
+void WizardController::ShowPinSetupScreenForRecovery() {
+  wizard_context_->knowledge_factor_setup.pin_setup_mode =
+      WizardContext::PinSetupMode::kRecovery;
   SetCurrentScreen(GetScreen(PinSetupScreenView::kScreenId));
 }
 
@@ -1778,9 +1790,7 @@ void WizardController::OnCryptohomeRecoveryScreenExit(
     case CryptohomeRecoveryScreen::Result::kAuthenticated: {
       switch (wizard_context_->knowledge_factor_setup.auth_setup_flow) {
         case WizardContext::AuthChangeFlow::kInitialSetup:
-          NOTREACHED_IN_MIGRATION()
-              << "Recovery can not be used during initial setup.";
-          return;
+          NOTREACHED() << "Recovery can not be used during initial setup.";
         case WizardContext::AuthChangeFlow::kRecovery:
           ShowPasswordSelectionScreen();
           return;
@@ -1803,9 +1813,7 @@ void WizardController::OnCryptohomeRecoveryScreenExit(
     case CryptohomeRecoveryScreen::Result::kFallbackLocal: {
       switch (wizard_context_->knowledge_factor_setup.auth_setup_flow) {
         case WizardContext::AuthChangeFlow::kInitialSetup:
-          NOTREACHED_IN_MIGRATION()
-              << "Recovery is not used during initial setup";
-          return;
+          NOTREACHED() << "Recovery is not used during initial setup";
         case WizardContext::AuthChangeFlow::kReauthentication:
           AttemptLocalAuthenticationWithContext(
               std::move(wizard_context_->user_context));
@@ -1868,9 +1876,7 @@ void WizardController::OnEnterOldPasswordScreenExit(
     case EnterOldPasswordScreen::Result::kAuthenticated: {
       switch (wizard_context_->knowledge_factor_setup.auth_setup_flow) {
         case WizardContext::AuthChangeFlow::kInitialSetup:
-          NOTREACHED_IN_MIGRATION()
-              << "Old password is not used during initial setup";
-          break;
+          NOTREACHED() << "Old password is not used during initial setup";
         case WizardContext::AuthChangeFlow::kRecovery:
         case WizardContext::AuthChangeFlow::kReauthentication:
           ShowApplyOnlinePasswordScreen();
@@ -1930,10 +1936,8 @@ void WizardController::OnPerksDiscoveryScreenExit(
                PerksDiscoveryScreen::GetResultString(result));
   if (features::IsOobeAiIntroEnabled()) {
     ShowAiIntroScreen();
-  } else if (features::IsOobeGeminiIntroEnabled()) {
-    ShowGeminiIntroScreen();
   } else {
-    ShowAssistantOptInFlowScreen();
+    ShowGeminiIntroScreen();
   }
 }
 
@@ -2129,8 +2133,7 @@ void WizardController::OnNetworkScreenExit(NetworkScreen::Result result) {
         ShowWelcomeScreen();
         break;
       case NetworkScreen::Result::QUICK_START:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
     }
     return;
   }
@@ -2148,8 +2151,7 @@ void WizardController::OnNetworkScreenExit(NetworkScreen::Result result) {
         ShowOsTrialScreen();
         break;
       case NetworkScreen::Result::QUICK_START:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
     }
     return;
   }
@@ -2425,10 +2427,7 @@ void WizardController::OnCryptohomeRecoverySetupScreenExit(
   if (features::IsAllowPasswordlessSetupEnabled()) {
     // First step of the AuthFactor setup flow. Offer PIN as a main factor. If
     // there isn't hardware support, the screen exits gracefully.
-    CHECK(!wizard_context_->knowledge_factor_setup.pin_setup_mode.has_value());
-    wizard_context_->knowledge_factor_setup.pin_setup_mode =
-        WizardContext::PinSetupMode::kSetupAsPrimaryFactor;
-    ShowPinSetupScreen();
+    ShowPinSetupScreenAsMainFactor();
   } else {
     ShowPasswordSelectionScreen();
   }
@@ -2438,6 +2437,7 @@ void WizardController::OnPasswordSelectionScreenExit(
     PasswordSelectionScreen::Result result) {
   OnScreenExit(PasswordSelectionScreenView::kScreenId,
                PasswordSelectionScreen::GetResultString(result));
+
   switch (result) {
     // TODO(b/291808449): add an edge case for Enterprise users
     // without GAIA/SAML password.
@@ -2445,9 +2445,19 @@ void WizardController::OnPasswordSelectionScreenExit(
       ShowFingerprintSetupScreen();
       return;
     case PasswordSelectionScreen::Result::BACK: {
-      // TODO(b/291808449): It should not be possible to go back
-      const bool did_go_back = MaybeSetToPreviousScreen();
-      DCHECK(did_go_back);
+      // The back button is only shown for going back to main PIN setup.
+      CHECK_EQ(wizard_context_->knowledge_factor_setup.pin_setup_mode,
+               WizardContext::PinSetupMode::kUserChosePasswordInstead);
+      ShowPinSetupScreenAsMainFactor();
+      return;
+    }
+    case PasswordSelectionScreen::Result::PIN_RESET: {
+      // User has PIN-only. This can only happen during the recovery path.
+      CHECK_EQ(wizard_context_->knowledge_factor_setup.auth_setup_flow,
+               WizardContext::AuthChangeFlow::kRecovery)
+          << "PasswordSelection exited with PIN_RESET result outside recovery.";
+      CHECK(features::IsAllowPasswordlessRecoveryEnabled());
+      ShowPinSetupScreenForRecovery();
       return;
     }
     case PasswordSelectionScreen::Result::LOCAL_PASSWORD_CHOICE:
@@ -2468,7 +2478,19 @@ void WizardController::OnLocalPasswordSetupScreenExit(
                LocalPasswordSetupScreen::GetResultString(result));
   switch (result) {
     case LocalPasswordSetupScreen::Result::kBack:
-      ShowPasswordSelectionScreen();
+      // Go back to the PasswordSelectionScreen if the user had a choice between
+      // local vs. online password.
+      if (!wizard_context_->knowledge_factor_setup.local_password_forced) {
+        ShowPasswordSelectionScreen();
+        return;
+      }
+
+      // The user could not choose between an online vs. local password because
+      // they went through a passwordless signin. In that case, going back is
+      // only possible for returning to the PinSetupScreen as a main factor.
+      CHECK_EQ(wizard_context_->knowledge_factor_setup.pin_setup_mode,
+               WizardContext::PinSetupMode::kUserChosePasswordInstead);
+      ShowPinSetupScreenAsMainFactor();
       return;
     case LocalPasswordSetupScreen::Result::kDone:
     case LocalPasswordSetupScreen::Result::kNotApplicable:
@@ -2495,9 +2517,8 @@ void WizardController::OnApplyOnlinePasswordScreenExit(
           ShowFactorSetupSuccessScreen();
           return;
         case WizardContext::AuthChangeFlow::kReauthentication:
-          NOTREACHED_IN_MIGRATION()
-              << "Reauthentication should have been switched to "
-                 "Recovery if there was password update";
+          NOTREACHED() << "Reauthentication should have been switched to "
+                          "Recovery if there was password update";
       }
     }
       return;
@@ -2515,9 +2536,7 @@ void WizardController::OnOSAuthErrorScreenExit(
     case OSAuthErrorScreen::Result::kFallbackLocal: {
       switch (wizard_context_->knowledge_factor_setup.auth_setup_flow) {
         case WizardContext::AuthChangeFlow::kInitialSetup:
-          NOTREACHED_IN_MIGRATION()
-              << "Recovery is not used during initial setup";
-          return;
+          NOTREACHED() << "Recovery is not used during initial setup";
         case WizardContext::AuthChangeFlow::kReauthentication:
           AttemptLocalAuthenticationWithContext(
               std::move(wizard_context_->user_context));
@@ -2573,17 +2592,25 @@ void WizardController::OnFactorSetupSuccessScreenExit(
   }
 }
 
+// After FingerprintSetup, PIN is offered as an additional factor, unless:
+// - The user has already set a PIN as their main factor.
+// - The user chose 'Use Password instead' when offered a PIN.
 void WizardController::OnFingerprintSetupScreenExit(
     FingerprintSetupScreen::Result result) {
   OnScreenExit(FingerprintSetupScreenView::kScreenId,
                FingerprintSetupScreen::GetResultString(result));
-  if (!features::IsAllowPasswordlessSetupEnabled()) {
-    // First time surfacing the screen for the non PIN-only OOBE.
-    CHECK(!wizard_context_->knowledge_factor_setup.pin_setup_mode.has_value());
-    wizard_context_->knowledge_factor_setup.pin_setup_mode =
-        WizardContext::PinSetupMode::kSetupAsSecondaryFactor;
+  const bool pin_was_already_set =
+      wizard_context_->knowledge_factor_setup.pin_setup_mode ==
+      WizardContext::PinSetupMode::kAlreadyPerformed;
+  const bool user_chose_password_instead =
+      wizard_context_->knowledge_factor_setup.pin_setup_mode ==
+      WizardContext::PinSetupMode::kUserChosePasswordInstead;
+
+  if (pin_was_already_set || user_chose_password_instead) {
+    FinishAuthFactorsSetup();
+  } else {
+    ShowPinSetupScreenAsSecondaryFactor();
   }
-  ShowPinSetupScreen();
 }
 
 void WizardController::OnPinSetupScreenExit(PinSetupScreen::Result result) {
@@ -2591,21 +2618,24 @@ void WizardController::OnPinSetupScreenExit(PinSetupScreen::Result result) {
                PinSetupScreen::GetResultString(result));
   if (features::IsAllowPasswordlessSetupEnabled()) {
     switch (result) {
-      // Possible exit results when the PIN screen is shown for PIN-only setup.
-      case PinSetupScreen::Result::kNotApplicableAsPrimaryFactor:
+      // PIN as a main factor is not supported or not wanted. In both cases,
+      // proceed to the PasswordSelectionScreen.
       case PinSetupScreen::Result::kUserChosePassword:
-        // PIN as a main factor is not supported or not wanted, it will be
-        // offered later again as a secondary factor after the fingerprint setup
-        // screen.
+        // The user does not wish to have a PIN as their main authentication
+        // factor. Setting this setup mode ensures that the screen is not
+        // resurfaced later in the flow a second time, and that a back button
+        // will be shown on PasswordSelectionScreen for the user to go back.
         wizard_context_->knowledge_factor_setup.pin_setup_mode =
-            WizardContext::PinSetupMode::kSetupAsSecondaryFactor;
+            WizardContext::PinSetupMode::kUserChosePasswordInstead;
+        [[fallthrough]];
+      case PinSetupScreen::Result::kNotApplicableAsPrimaryFactor:
         ShowPasswordSelectionScreen();
-        break;
+        return;
       case PinSetupScreen::Result::kDoneAsMainFactor:
         wizard_context_->knowledge_factor_setup.pin_setup_mode =
             WizardContext::PinSetupMode::kAlreadyPerformed;
         ShowFingerprintSetupScreen();
-        break;
+        return;
       // These are emitted when the screen is surfaced at the end of the flow,
       // offering PIN as an additional factor.
       case PinSetupScreen::Result::kDoneAsSecondaryFactor:
@@ -2613,7 +2643,14 @@ void WizardController::OnPinSetupScreenExit(PinSetupScreen::Result result) {
       case PinSetupScreen::Result::kNotApplicable:
       case PinSetupScreen::Result::kTimedOut:
         FinishAuthFactorsSetup();
-        break;
+        return;
+      // Proceed into session when PIN is reset via recovery.
+      case PinSetupScreen::Result::kDoneRecoveryReset:
+        CHECK_EQ(wizard_context_->knowledge_factor_setup.auth_setup_flow,
+                 WizardContext::AuthChangeFlow::kRecovery);
+        CHECK(features::IsAllowPasswordlessRecoveryEnabled());
+        ObtainContextAndLoginAuthenticated();
+        return;
     }
   } else {
     FinishAuthFactorsSetup();
@@ -2721,12 +2758,7 @@ void WizardController::OnAppDownloadingScreenExit() {
 void WizardController::OnAiIntroScreenExit(AiIntroScreen::Result result) {
   OnScreenExit(AiIntroScreenView::kScreenId,
                AiIntroScreen::GetResultString(result));
-
-  if (features::IsOobeGeminiIntroEnabled()) {
-    ShowGeminiIntroScreen();
-  } else {
-    ShowAssistantOptInFlowScreen();
-  }
+  ShowGeminiIntroScreen();
 }
 
 void WizardController::OnGeminiIntroScreenExit(
@@ -3201,7 +3233,7 @@ void WizardController::AdvanceToScreen(OobeScreenId screen_id) {
   } else if (screen_id == GestureNavigationScreenView::kScreenId) {
     ShowGestureNavigationScreen();
   } else if (screen_id == PinSetupScreenView::kScreenId) {
-    ShowPinSetupScreen();
+    ShowPinSetupScreenAsSecondaryFactor();
   } else if (screen_id == FingerprintSetupScreenView::kScreenId) {
     ShowFingerprintSetupScreen();
   } else if (screen_id == MarketingOptInScreenView::kScreenId) {
@@ -3269,7 +3301,7 @@ void WizardController::AdvanceToScreen(OobeScreenId screen_id) {
              screen_id == QuickStartView::kScreenId) {
     SetCurrentScreen(GetScreen(screen_id));
   } else {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 }
 

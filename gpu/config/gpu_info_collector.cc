@@ -71,13 +71,10 @@ namespace {
 #define EGL_ANGLE_feature_control 1
 #define EGL_FEATURE_NAME_ANGLE 0x3460
 #define EGL_FEATURE_CATEGORY_ANGLE 0x3461
-#define EGL_FEATURE_DESCRIPTION_ANGLE 0x3462
-#define EGL_FEATURE_BUG_ANGLE 0x3463
 #define EGL_FEATURE_STATUS_ANGLE 0x3464
 #define EGL_FEATURE_COUNT_ANGLE 0x3465
 #define EGL_FEATURE_OVERRIDES_ENABLED_ANGLE 0x3466
 #define EGL_FEATURE_OVERRIDES_DISABLED_ANGLE 0x3467
-#define EGL_FEATURE_CONDITION_ANGLE 0x3468
 #endif /* EGL_ANGLE_feature_control */
 
 scoped_refptr<gl::GLSurface> InitializeGLSurface(gl::GLDisplay* display) {
@@ -200,8 +197,7 @@ std::string GetDisplayTypeString(gl::DisplayType type) {
     case gl::ANGLE_METAL_NULL:
       return "ANGLE_METAL_NULL";
     default:
-      NOTREACHED_IN_MIGRATION();
-      return "";
+      NOTREACHED();
   }
 }
 
@@ -234,8 +230,7 @@ std::string GetDawnBackendTypeString(wgpu::BackendType type) {
     case wgpu::BackendType::OpenGLES:
       return "OpenGLES backend";
     default:
-      NOTREACHED_IN_MIGRATION();
-      return "";
+      NOTREACHED();
   }
 }
 
@@ -313,9 +308,10 @@ void ReportWebGPUAdapterMetrics(dawn::native::Instance* instance) {
 #endif
 
   bool supports_shader_f16 = false;
-  for (dawn::native::Adapter& adapter :
+  for (dawn::native::Adapter& nativeAdapter :
        instance->EnumerateAdapters(&adapter_options)) {
-    adapter.SetUseTieredLimits(false);
+    nativeAdapter.SetUseTieredLimits(false);
+    wgpu::Adapter adapter = wgpu::Adapter(nativeAdapter.Get());
     wgpu::AdapterInfo info;
     adapter.GetInfo(&info);
     if (info.adapterType != wgpu::AdapterType::DiscreteGPU &&
@@ -324,7 +320,7 @@ void ReportWebGPUAdapterMetrics(dawn::native::Instance* instance) {
       continue;
     }
 
-    WGPUSupportedLimits limits;
+    wgpu::SupportedLimits limits;
     limits.nextInChain = nullptr;
     if (adapter.GetLimits(&limits) != wgpu::Status::Success) {
       continue;
@@ -821,14 +817,8 @@ bool CollectGpuExtraInfo(gfx::GpuExtraInfo* gpu_extra_info,
           QueryEGLStringi(display, EGL_FEATURE_NAME_ANGLE, i);
       gpu_extra_info->angle_features[i].category =
           QueryEGLStringi(display, EGL_FEATURE_CATEGORY_ANGLE, i);
-      gpu_extra_info->angle_features[i].description =
-          QueryEGLStringi(display, EGL_FEATURE_DESCRIPTION_ANGLE, i);
-      gpu_extra_info->angle_features[i].bug =
-          QueryEGLStringi(display, EGL_FEATURE_BUG_ANGLE, i);
       gpu_extra_info->angle_features[i].status =
           QueryEGLStringi(display, EGL_FEATURE_STATUS_ANGLE, i);
-      gpu_extra_info->angle_features[i].condition =
-          QueryEGLStringi(display, EGL_FEATURE_CONDITION_ANGLE, i);
     }
   }
 

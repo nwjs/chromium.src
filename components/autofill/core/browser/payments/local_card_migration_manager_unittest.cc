@@ -121,7 +121,7 @@ class LocalCardMigrationManagerTest : public testing::Test {
 
   void FormSubmitted(const FormData& form) {
     browser_autofill_manager_->OnFormSubmitted(
-        form, false, mojom::SubmissionSource::FORM_SUBMISSION);
+        form, mojom::SubmissionSource::FORM_SUBMISSION);
   }
 
   void EditCreditCardForm(FormData& credit_card_form,
@@ -685,17 +685,17 @@ TEST_F(LocalCardMigrationManagerTest, MigrateCreditCard_MigrationSuccess) {
       local_card_migration_manager_->migratable_credit_cards_[0]
           .credit_card()
           .guid(),
-      autofill::kMigrationResultSuccess);
+      kMigrationResultSuccess);
 
   EXPECT_EQ(local_card_migration_manager_->migratable_credit_cards_[0]
                 .migration_status(),
-            autofill::MigratableCreditCard::MigrationStatus::UNKNOWN);
+            MigratableCreditCard::MigrationStatus::UNKNOWN);
 
   local_card_migration_manager_->AttemptToOfferLocalCardMigration(true);
 
   EXPECT_EQ(local_card_migration_manager_->migratable_credit_cards_[0]
                 .migration_status(),
-            autofill::MigratableCreditCard::MigrationStatus::SUCCESS_ON_UPLOAD);
+            MigratableCreditCard::MigrationStatus::SUCCESS_ON_UPLOAD);
 
   // Local card should *not* be present as it is migrated already.
   EXPECT_FALSE(personal_data().payments_data_manager().GetCreditCardByNumber(
@@ -729,18 +729,18 @@ TEST_F(LocalCardMigrationManagerTest,
       local_card_migration_manager_->migratable_credit_cards_[0]
           .credit_card()
           .guid(),
-      autofill::kMigrationResultTemporaryFailure);
+      kMigrationResultTemporaryFailure);
 
   EXPECT_EQ(local_card_migration_manager_->migratable_credit_cards_[0]
                 .migration_status(),
-            autofill::MigratableCreditCard::MigrationStatus::UNKNOWN);
+            MigratableCreditCard::MigrationStatus::UNKNOWN);
 
   // Start the migration.
   local_card_migration_manager_->AttemptToOfferLocalCardMigration(true);
 
   EXPECT_EQ(local_card_migration_manager_->migratable_credit_cards_[0]
                 .migration_status(),
-            autofill::MigratableCreditCard::MigrationStatus::FAILURE_ON_UPLOAD);
+            MigratableCreditCard::MigrationStatus::FAILURE_ON_UPLOAD);
 
   // Local card should be present as it is not migrated.
   EXPECT_TRUE(personal_data().payments_data_manager().GetCreditCardByNumber(
@@ -774,18 +774,18 @@ TEST_F(LocalCardMigrationManagerTest,
       local_card_migration_manager_->migratable_credit_cards_[0]
           .credit_card()
           .guid(),
-      autofill::kMigrationResultPermanentFailure);
+      kMigrationResultPermanentFailure);
 
   EXPECT_EQ(local_card_migration_manager_->migratable_credit_cards_[0]
                 .migration_status(),
-            autofill::MigratableCreditCard::MigrationStatus::UNKNOWN);
+            MigratableCreditCard::MigrationStatus::UNKNOWN);
 
   // Start the migration.
   local_card_migration_manager_->AttemptToOfferLocalCardMigration(true);
 
   EXPECT_EQ(local_card_migration_manager_->migratable_credit_cards_[0]
                 .migration_status(),
-            autofill::MigratableCreditCard::MigrationStatus::FAILURE_ON_UPLOAD);
+            MigratableCreditCard::MigrationStatus::FAILURE_ON_UPLOAD);
 
   // Local card should be present as it is not migrated.
   EXPECT_TRUE(personal_data().payments_data_manager().GetCreditCardByNumber(

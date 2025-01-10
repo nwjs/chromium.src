@@ -69,9 +69,7 @@ std::string FormatFileSystemTypeToString(FormatFileSystemType filesystem) {
     case FormatFileSystemType::kNtfs:
       return "ntfs";
   }
-  NOTREACHED_IN_MIGRATION()
-      << "Unknown filesystem type " << static_cast<int>(filesystem);
-  return "";
+  NOTREACHED() << "Unknown filesystem type " << static_cast<int>(filesystem);
 }
 
 // The DiskMountManager implementation.
@@ -85,6 +83,7 @@ class DiskMountManagerImpl : public DiskMountManager,
 
   ~DiskMountManagerImpl() override { cros_disks_client_->RemoveObserver(this); }
 
+ private:
   using DiskMountManager::Observer;
 
   // DiskMountManager override.
@@ -96,14 +95,6 @@ class DiskMountManagerImpl : public DiskMountManager,
   void RemoveObserver(Observer* observer) override {
     observers_.RemoveObserver(observer);
   }
-
-  // DiskMountManager override.
-  void RegisterArcDelegate(DiskMountManager::ArcDelegate* delegate) override {
-    arc_delegate_ = delegate;
-  }
-
-  // DiskMountManager override.
-  void UnregisterArcDelegate() override { arc_delegate_ = nullptr; }
 
   // DiskMountManager override.
   void MountPath(const std::string& source_path,
@@ -154,21 +145,16 @@ class DiskMountManagerImpl : public DiskMountManager,
     VLOG(1) << "Unmounting '" << mount_path << "'...";
 
     const base::FilePath mount_file_path(mount_path);
-
-    // TODO(crbug.com/317944073) Enable this code path once crbug.com/373514367
-    // is fixed.
-#if 0
     if (arc_delegate_ &&
         cros_disks_client_->GetRemovableDiskMountPoint().IsParent(
             mount_file_path)) {
       VLOG(1) << "Dropping ARC caches for " << Redact(mount_path);
-      arc_delegate_->PrepareForRemovableMediaUnmount(
+      arc_delegate_->DropArcCaches(
           mount_file_path, BindOnce(&DiskMountManagerImpl::UnmountPathContinue,
                                     weak_ptr_factory_.GetWeakPtr(), mount_path,
                                     std::move(callback)));
       return;
     }
-#endif
 
     UnmountPathContinue(mount_path, std::move(callback), true /* success */);
   }
@@ -404,7 +390,6 @@ class DiskMountManagerImpl : public DiskMountManager,
     return ok;
   }
 
- private:
   // A struct to represent information about a format changes.
   struct FormatChange {
     // new file system type
@@ -1149,8 +1134,6 @@ class DiskMountManagerImpl : public DiskMountManager,
 
   // Mount event change observers.
   base::ObserverList<Observer> observers_;
-
-  raw_ptr<DiskMountManager::ArcDelegate> arc_delegate_;
 
   const raw_ptr<CrosDisksClient> cros_disks_client_ = CrosDisksClient::Get();
 

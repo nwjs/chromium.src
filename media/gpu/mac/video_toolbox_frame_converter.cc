@@ -234,7 +234,7 @@ void VideoToolboxFrameConverter::Convert(
   }
 
   auto shared_image = shared_image_interface->CreateSharedImage(
-      {*format, coded_size, metadata->color_space, kTopLeft_GrSurfaceOrigin,
+      {*format, coded_size, color_space, kTopLeft_GrSurfaceOrigin,
        kOpaque_SkAlphaType, shared_image_usage, kSharedImageDebugLabel},
       std::move(handle));
   if (!shared_image) {
@@ -266,8 +266,6 @@ void VideoToolboxFrameConverter::Convert(
 
   frame->set_color_space(color_space);
   frame->set_hdr_metadata(metadata->hdr_metadata);
-  frame->set_shared_image_format_type(
-      SharedImageFormatType::kSharedImageFormat);
   if (metadata->duration != kNoTimestamp && !metadata->duration.is_zero()) {
     frame->metadata().frame_duration = metadata->duration;
   }

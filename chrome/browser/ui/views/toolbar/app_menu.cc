@@ -23,7 +23,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
@@ -79,7 +78,7 @@
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
-#include "ui/base/models/simple_menu_model.h"
+#include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/themed_vector_icon.h"
 #include "ui/base/ui_base_features.h"
@@ -95,6 +94,7 @@
 #include "ui/gfx/scoped_canvas.h"
 #include "ui/gfx/text_elider.h"
 #include "ui/gfx/text_utils.h"
+#include "ui/menus/simple_menu_model.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
@@ -540,7 +540,7 @@ class FullscreenButton : public ImageButton {
     GetViewAccessibility().SetRole(ax::mojom::Role::kMenuItem);
     GetViewAccessibility().SetName(GetAccessibleNameForAppMenuItem(
         menu_model, fullscreen_index, accname_string_id,
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
         // ChromeOS uses a dedicated "fullscreen" media key for fullscreen
         // mode on most ChromeOS devices which cannot be specified in the
         // standard way here, so omit the accelerator to avoid providing
@@ -1013,7 +1013,7 @@ void AppMenu::RunMenu(views::MenuButtonController* host) {
   menu_runner_->RunMenuAt(
       host->button()->GetWidget(), host,
       host->button()->GetAnchorBoundsInScreen(),
-      views::MenuAnchorPosition::kTopRight, ui::MENU_SOURCE_NONE,
+      views::MenuAnchorPosition::kTopRight, ui::mojom::MenuSourceType::kNone,
       /*native_view_for_gestures=*/gfx::NativeView(), /*corners=*/std::nullopt,
       "Chrome.AppMenu.MenuHostInitToNextFramePresented");
 }
@@ -1107,7 +1107,7 @@ views::View::DropCallback AppMenu::GetDropCallback(
 bool AppMenu::ShowContextMenu(MenuItemView* source,
                               int command_id,
                               const gfx::Point& p,
-                              ui::MenuSourceType source_type) {
+                              ui::mojom::MenuSourceType source_type) {
   return IsBookmarkCommand(command_id)
              ? bookmark_menu_delegate_->ShowContextMenu(source, command_id, p,
                                                         source_type)
@@ -1482,7 +1482,7 @@ void AppMenu::PopulateMenu(MenuItemView* parent, MenuModel* model) {
         break;
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
       case IDC_TAKE_SCREENSHOT:
         DCHECK(!screenshot_menu_item_);
         screenshot_menu_item_ = item;

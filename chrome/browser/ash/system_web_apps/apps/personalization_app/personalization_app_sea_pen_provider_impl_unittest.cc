@@ -22,6 +22,7 @@
 #include "ash/webui/common/mojom/sea_pen.mojom-forward.h"
 #include "ash/webui/common/mojom/sea_pen.mojom.h"
 #include "base/containers/flat_map.h"
+#include "base/containers/span.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/i18n/rtl.h"
@@ -91,9 +92,9 @@ SkBitmap CreateBitmap() {
 // Create fake Jpg image bytes.
 std::string CreateJpgBytes() {
   SkBitmap bitmap = CreateBitmap();
-  std::vector<unsigned char> data;
-  gfx::JPEGCodec::Encode(bitmap, /*quality=*/100, &data);
-  return std::string(data.begin(), data.end());
+  std::optional<std::vector<uint8_t>> data =
+      gfx::JPEGCodec::Encode(bitmap, /*quality=*/100);
+  return std::string(base::as_string_view(data.value()));
 }
 
 // Repeat `string_view` until the output is size `target_size` or as close as
@@ -435,7 +436,7 @@ TEST_F(PersonalizationAppSeaPenProviderImplTest, QueryLengthExceeded) {
       base::BindLambdaForTesting(
           [](std::optional<std::vector<
                  ash::personalization_app::mojom::SeaPenThumbnailPtr>>,
-             manta::MantaStatusCode) { NOTREACHED_IN_MIGRATION(); }));
+             manta::MantaStatusCode) { NOTREACHED(); }));
 
   EXPECT_EQ("GetSeaPenThumbnails exceeded maximum text length",
             bad_message_observer.WaitForBadMessage())

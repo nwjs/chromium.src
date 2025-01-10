@@ -9,10 +9,12 @@ source_set("ai") {
     "ai_assistant.h",
     "ai_context_bound_object.h",
     "ai_context_bound_object_set.h",
+    "ai_create_on_device_session_task.h",
     "ai_data_keyed_service.h",
     "ai_data_keyed_service_factory.h",
     "ai_manager_keyed_service.h",
     "ai_manager_keyed_service_factory.h",
+    "ai_on_device_model_component_observer.h",
     "ai_rewriter.h",
     "ai_summarizer.h",
     "ai_utils.h",
@@ -22,8 +24,12 @@ source_set("ai") {
   ]
   public_deps = [
     "//base",
+    "//chrome/browser:browser_process",
+    "//chrome/browser/optimization_guide",
     "//chrome/browser/profiles:profile",
+    "//components/component_updater:component_updater",
     "//components/optimization_guide/core",
+    "//components/update_client:update_client",
     "//content/public/browser",
   ]
 }
@@ -32,10 +38,12 @@ source_set("impl") {
   sources = [
     "ai_assistant.cc",
     "ai_context_bound_object_set.cc",
+    "ai_create_on_device_session_task.cc",
     "ai_data_keyed_service.cc",
     "ai_data_keyed_service_factory.cc",
     "ai_manager_keyed_service.cc",
     "ai_manager_keyed_service_factory.cc",
+    "ai_on_device_model_component_observer.cc",
     "ai_rewriter.cc",
     "ai_summarizer.cc",
     "ai_utils.cc",
@@ -48,7 +56,8 @@ source_set("impl") {
   ]
   deps = [
     ":ai",
-    "//chrome/browser/optimization_guide",
+    "//components/site_engagement/content:content",
+    "//skia",
   ]
   if (!is_android) {
     deps += [

@@ -361,7 +361,7 @@ void InsertPinsAfterChromeAndBeforeFirstPinnedApp(
   }
 }
 
-void AddContainerAppPinIfNeeded(
+void AddGeminiAppPinIfNeeded(
     Profile* profile,
     ShelfControllerHelper* helper,
     app_list::AppListSyncableService* syncable_service) {
@@ -370,36 +370,32 @@ void AddContainerAppPinIfNeeded(
     return;
   }
 
-  if (!profile->GetPrefs()
-           ->GetList(prefs::kShelfContainerAppPinRolls)
-           .empty()) {
+  if (!profile->GetPrefs()->GetList(prefs::kShelfGeminiAppPinRolls).empty()) {
     return;
   }
 
-  const std::string app_id = ash::kContainerAppId;
-
-  if (!helper->IsAppDefaultInstalled(profile, app_id)) {
+  if (!helper->IsAppDefaultInstalled(profile, ash::kGeminiAppId)) {
     return;
   }
 
   const app_list::AppListSyncableService::SyncItem* sync_item =
-      syncable_service->GetSyncItem(app_id);
+      syncable_service->GetSyncItem(ash::kGeminiAppId);
   if (sync_item && sync_item->item_pin_ordinal.IsValid()) {
     if (sync_item->is_user_pinned.value_or(true)) {
       ScopedListPrefUpdate update(profile->GetPrefs(),
-                                  prefs::kShelfContainerAppPinRolls);
+                                  prefs::kShelfGeminiAppPinRolls);
       update->Append("v1");
     }
     return;
   }
 
-  // Pin the container app before chrome.
-  syncable_service->SetPinPosition(app_id,
+  // Pin the Gemini app before Chrome.
+  syncable_service->SetPinPosition(ash::kGeminiAppId,
                                    CreateFirstPinPosition(syncable_service),
                                    /*is_policy_initiated=*/false);
   {
     ScopedListPrefUpdate update(profile->GetPrefs(),
-                                prefs::kShelfContainerAppPinRolls);
+                                prefs::kShelfGeminiAppPinRolls);
     update->Append("v1");
   }
 #endif  // GOOGLE_CHROME_BRANDING
@@ -410,15 +406,6 @@ void AddContainerAppPinIfNeeded(
 void AddMallPinIfNeeded(Profile* profile,
                         app_list::AppListSyncableService* syncable_service) {
   if (!base::FeatureList::IsEnabled(chromeos::features::kCrosMall)) {
-    return;
-  }
-
-  // When Mall SWA is disabled, always pin the Mall web app if it is not
-  // already pinned. There is no option to unpin the web app.
-  if (!chromeos::features::IsCrosMallSwaEnabled()) {
-    InsertPinsAfterChromeAndBeforeFirstPinnedApp(syncable_service,
-                                                 {{ash::kMallAppId}},
-                                                 /*is_policy_initiated=*/false);
     return;
   }
 
@@ -462,7 +449,7 @@ void ChromeShelfPrefs::RegisterProfilePrefs(
       prefs::kShelfDefaultPinLayoutRolls,
       user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PRIORITY_PREF);
   registry->RegisterListPref(
-      prefs::kShelfContainerAppPinRolls,
+      prefs::kShelfGeminiAppPinRolls,
       user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
   registry->RegisterListPref(
       prefs::kShelfDefaultPinLayoutRollsForTabletFormFactor,
@@ -584,7 +571,7 @@ std::vector<ash::ShelfID> ChromeShelfPrefs::GetPinnedAppsFromSync(
   }
 
   if (IsSafeToApplyDefaultPinLayout(profile_)) {
-    AddContainerAppPinIfNeeded(profile_, helper, syncable_service);
+    AddGeminiAppPinIfNeeded(profile_, helper, syncable_service);
     AddMallPinIfNeeded(profile_, syncable_service);
   }
 

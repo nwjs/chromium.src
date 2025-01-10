@@ -496,9 +496,6 @@ class PasswordFormManagerTest : public testing::Test,
         .WillRepeatedly(Return(&crowdsourcing_manager()));
     ON_CALL(client_, GetPrefs()).WillByDefault(Return(&pref_service_));
     ON_CALL(client_, IsCommittedMainFrameSecure()).WillByDefault(Return(true));
-    ON_CALL(*client_.GetPasswordFeatureManager(),
-            ShouldShowAccountStorageBubbleUi)
-        .WillByDefault(Return(true));
     ON_CALL(crowdsourcing_manager(), StartUploadRequest)
         .WillByDefault(Return(true));
     ON_CALL(*client_.GetPasswordFeatureManager(), GetDefaultPasswordStore)
@@ -2554,6 +2551,43 @@ TEST_P(PasswordFormManagerTest, FillingAssistanceMetric) {
       PasswordFormMetricsRecorder::FillingAssistance::kManual, 1);
 }
 
+TEST_P(PasswordFormManagerTest, FillingAssistanceMetric_ManualFallback) {
+  SetNonFederatedAndNotifyFetchCompleted({saved_match_});
+
+  // Simulate that the user fills the saved credentials manually.
+  test_api(submitted_form_)
+      .field(kUsernameFieldIndex)
+      .set_value(saved_match_.username_value);
+  test_api(submitted_form_)
+      .field(kUsernameFieldIndex)
+      .set_properties_mask(
+          FieldPropertiesFlags::kAutofilledPasswordFormFilledViaManualFallback);
+  test_api(submitted_form_)
+      .field(kPasswordFieldIndex)
+      .set_value(saved_match_.password_value);
+  test_api(submitted_form_)
+      .field(kPasswordFieldIndex)
+      .set_properties_mask(
+          FieldPropertiesFlags::kAutofilledPasswordFormFilledViaManualFallback);
+
+  base::HistogramTester histogram_tester;
+  //  Simulate successful submission.
+  form_manager_->ProvisionallySave(submitted_form_, &driver_,
+                                   possible_usernames_);
+  form_manager_->GetMetricsRecorder()->LogSubmitPassed();
+
+  form_manager_.reset();
+
+  // Verify that the filling assistance metric for single username forms isn't
+  // recorded for password forms.
+  histogram_tester.ExpectTotalCount(
+      "PasswordManager.SingleUsernameFillingAssistance", 0);
+
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.FillingAssistance",
+      PasswordFormMetricsRecorder::FillingAssistance::kManualFallbackUsed, 1);
+}
+
 // Test calculating the filling assistance metric on a single username form on
 // provisional save.
 TEST_P(PasswordFormManagerTest, FillingAssistanceMetric_SingleUsernameForm) {
@@ -2583,6 +2617,42 @@ TEST_P(PasswordFormManagerTest, FillingAssistanceMetric_SingleUsernameForm) {
   histogram_tester.ExpectUniqueSample(
       "PasswordManager.FillingAssistanceForSingleUsername",
       PasswordFormMetricsRecorder::SingleUsernameFillingAssistance::kManual, 1);
+}
+
+// Test calculating the filling assistance metric when using manual fallbacks on
+// a single username form on provisional save.
+TEST_P(
+    PasswordFormManagerTest,
+    FillingAssistanceMetric_ManualFallback_SingleUsernameForm_ManualFallback) {
+  SetNonFederatedAndNotifyFetchCompleted({saved_match_});
+
+  // Simulate that the user fills the saved username manually.
+  test_api(non_password_form_)
+      .field(kUsernameFieldIndex)
+      .set_value(saved_match_.username_value);
+  test_api(non_password_form_)
+      .field(kUsernameFieldIndex)
+      .set_autocomplete_attribute("username");
+  test_api(non_password_form_)
+      .field(kUsernameFieldIndex)
+      .set_properties_mask(
+          FieldPropertiesFlags::kAutofilledPasswordFormFilledViaManualFallback);
+
+  base::HistogramTester histogram_tester;
+
+  form_manager_->ProvisionallySave(non_password_form_, &driver_,
+                                   possible_usernames_);
+  form_manager_.reset();
+
+  // Verify that the filling assistance metric for forms with a password isn't
+  // recorded for single username forms.
+  histogram_tester.ExpectTotalCount("PasswordManager.FillingAssistance", 0);
+
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.FillingAssistanceForSingleUsername",
+      PasswordFormMetricsRecorder::SingleUsernameFillingAssistance::
+          kManualFallbackUsed,
+      1);
 }
 
 TEST_P(PasswordFormManagerTest, PasswordRevealedVote) {
@@ -4116,6 +4186,8 @@ TEST_P(PasswordFormManagerTest, MovableToAccountStore) {
                                        signin::ConsentLevel::kSync);
   ON_CALL(client_, GetIdentityManager())
       .WillByDefault(Return(identity_test_env_.identity_manager()));
+  ON_CALL(*client_.GetPasswordFeatureManager(), GetDefaultPasswordStore)
+      .WillByDefault(Return(PasswordForm::Store::kAccountStore));
   EXPECT_TRUE(form_manager_->IsMovableToAccountStore());
 }
 
@@ -4575,6 +4647,30 @@ TEST_P(PasswordFormManagerTest,
   fetcher_->NotifyFetchCompleted();
 }
 
+TEST_P(PasswordFormManagerTest,
+       ClientShouldShowErrorMessageForEmptySecurityDomainError) {
+  fetcher_->SetProfileStoreBackendError(PasswordStoreBackendError(
+      PasswordStoreBackendErrorType::kEmptySecurityDomain));
+
+  EXPECT_CALL(client_,
+              ShowPasswordManagerErrorMessage(
+                  password_manager::ErrorMessageFlowType::kFillFlow,
+                  PasswordStoreBackendErrorType::kEmptySecurityDomain));
+  fetcher_->NotifyFetchCompleted();
+}
+
+TEST_P(PasswordFormManagerTest,
+       ClientShouldShowErrorMessageForIrretrievableSecurityDomainError) {
+  fetcher_->SetProfileStoreBackendError(PasswordStoreBackendError(
+      PasswordStoreBackendErrorType::kIrretrievableSecurityDomain));
+
+  EXPECT_CALL(client_,
+              ShowPasswordManagerErrorMessage(
+                  password_manager::ErrorMessageFlowType::kFillFlow,
+                  PasswordStoreBackendErrorType::kIrretrievableSecurityDomain));
+  fetcher_->NotifyFetchCompleted();
+}
+
 // Tests that the error message is displayed in the case when both account and
 // profile store are requested and the result is the following:
 // - account store replies with an authentication error,
@@ -4989,6 +5085,8 @@ TEST_F(PasswordFormManagerTestWithMockedSaver,
 
   ON_CALL(client_, GetIdentityManager())
       .WillByDefault(Return(identity_test_env_.identity_manager()));
+  ON_CALL(*client_.GetPasswordFeatureManager(), GetDefaultPasswordStore)
+      .WillByDefault(Return(PasswordForm::Store::kAccountStore));
 
   identity_test_env_.SetPrimaryAccount(kEmail, signin::ConsentLevel::kSync);
 
@@ -5237,6 +5335,12 @@ TEST_F(PasswordFormManagerTestWithMockedSaver,
 
 class PasswordFormManagerWebAuthnCredentialsTest : public testing::Test {
  protected:
+  PasswordFormManagerWebAuthnCredentialsTest() {
+#if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
+    features_.InitAndDisableFeature(
+        features::kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu);
+#endif  //! BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
+  }
   void SetUp() override {
     PasswordFormManager::set_wait_for_server_predictions_for_filling(false);
 #if BUILDFLAG(IS_ANDROID)
@@ -5266,6 +5370,7 @@ class PasswordFormManagerWebAuthnCredentialsTest : public testing::Test {
   PasswordFormManager& form_manager() { return *form_manager_.get(); }
 
  private:
+  base::test::ScopedFeatureList features_;
   MockPasswordManagerClient client_;
   MockPasswordManagerDriver driver_;
   MockWebAuthnCredentialsDelegate webauthn_credentials_delegate_;
@@ -5302,11 +5407,8 @@ TEST_F(PasswordFormManagerWebAuthnCredentialsTest,
 TEST_F(
     PasswordFormManagerWebAuthnCredentialsTest,
     NoPasskeysFromConditionalRequest_WhenUseAnotherDeviceInContextMenu_ThenNoWebauthnCredentials) {
-  base::test::ScopedFeatureList features;
-  features.InitWithFeatures(
-      {features::kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu,
-       features::kPasswordManualFallbackAvailable},
-      {});
+  base::test::ScopedFeatureList features(
+      features::kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu);
   ON_CALL(webauthn_credentials_delegate(), GetPasskeys)
       .WillByDefault(ReturnRef(kNoPasskeys));
 
@@ -5316,10 +5418,6 @@ TEST_F(
 TEST_F(
     PasswordFormManagerWebAuthnCredentialsTest,
     NoPasskeysFromConditionalRequest_WhenUseAnotherDeviceInAutofillPopup_ThenWebauthnCredentials) {
-  base::test::ScopedFeatureList features;
-  features.InitWithFeatures(
-      {features::kPasswordManualFallbackAvailable},
-      {features::kWebAuthnUsePasskeyFromAnotherDeviceInContextMenu});
   ON_CALL(webauthn_credentials_delegate(), GetPasskeys)
       .WillByDefault(ReturnRef(kNoPasskeys));
 

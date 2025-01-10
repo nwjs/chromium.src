@@ -86,6 +86,13 @@ suite('PrivacyPage', function() {
     return CrSettingsPrefs.initialized;
   });
 
+  function createPage() {
+    page = document.createElement('settings-privacy-page');
+    page.prefs = settingsPrefs.prefs!;
+    document.body.appendChild(page);
+    return flushTasks();
+  }
+
   setup(function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
 
@@ -97,10 +104,7 @@ suite('PrivacyPage', function() {
     metricsBrowserProxy = new TestMetricsBrowserProxy();
     MetricsBrowserProxyImpl.setInstance(metricsBrowserProxy);
 
-    page = document.createElement('settings-privacy-page');
-    page.prefs = settingsPrefs.prefs!;
-    document.body.appendChild(page);
-    return flushTasks();
+    return createPage();
   });
 
   teardown(function() {
@@ -133,29 +137,46 @@ suite('PrivacyPage', function() {
   test('cookiesLinkRowSublabel', async function() {
     page.set(
         'prefs.profile.cookie_controls_mode.value', CookieControlsMode.OFF);
+    const thirdPartyCookiesLinkRow =
+        page.shadowRoot!.querySelector<CrLinkRowElement>(
+            '#thirdPartyCookiesLinkRow');
+    assertTrue(!!thirdPartyCookiesLinkRow);
     assertEquals(
         page.i18n('thirdPartyCookiesLinkRowSublabelEnabled'),
-        page.shadowRoot!
-            .querySelector<CrLinkRowElement>(
-                '#thirdPartyCookiesLinkRow')!.subLabel);
+        thirdPartyCookiesLinkRow.subLabel);
 
     page.set(
         'prefs.profile.cookie_controls_mode.value',
         CookieControlsMode.INCOGNITO_ONLY);
     assertEquals(
         page.i18n('thirdPartyCookiesLinkRowSublabelDisabledIncognito'),
-        page.shadowRoot!
-            .querySelector<CrLinkRowElement>(
-                '#thirdPartyCookiesLinkRow')!.subLabel);
+        thirdPartyCookiesLinkRow.subLabel);
 
     page.set(
         'prefs.profile.cookie_controls_mode.value',
         CookieControlsMode.BLOCK_THIRD_PARTY);
     assertEquals(
         page.i18n('thirdPartyCookiesLinkRowSublabelDisabled'),
-        page.shadowRoot!
-            .querySelector<CrLinkRowElement>(
-                '#thirdPartyCookiesLinkRow')!.subLabel);
+        thirdPartyCookiesLinkRow.subLabel);
+  });
+
+  test('cookiesLinkRowSublabelAlwaysBlock3pcsIncognito', async function() {
+    loadTimeData.overrideValues({
+      isAlwaysBlock3pcsIncognitoEnabled: true,
+    });
+    resetRouterForTesting();
+    await createPage();
+
+    page.set(
+        'prefs.profile.cookie_controls_mode.value',
+        CookieControlsMode.INCOGNITO_ONLY);
+    const thirdPartyCookiesLinkRow =
+        page.shadowRoot!.querySelector<CrLinkRowElement>(
+            '#thirdPartyCookiesLinkRow');
+    assertTrue(!!thirdPartyCookiesLinkRow);
+    assertEquals(
+        page.i18n('thirdPartyCookiesLinkRowSublabelEnabled'),
+        thirdPartyCookiesLinkRow.subLabel);
   });
 
   test('ContentSettingsVisibility', async function() {
@@ -188,7 +209,8 @@ suite('PrivacyPage', function() {
 
     assertTrue(isChildVisible(page, '#notificationRadioGroup'));
     const categorySettingExceptions =
-        page.shadowRoot!.querySelector('category-setting-exceptions')!;
+        page.shadowRoot!.querySelector('category-setting-exceptions');
+    assertTrue(!!categorySettingExceptions);
     assertTrue(isVisible(categorySettingExceptions));
     assertEquals(
         ContentSettingsTypes.NOTIFICATIONS, categorySettingExceptions.category);
@@ -200,7 +222,8 @@ suite('PrivacyPage', function() {
 
     assertTrue(isChildVisible(page, '#locationRadioGroup'));
     const categorySettingExceptions =
-        page.shadowRoot!.querySelector('category-setting-exceptions')!;
+        page.shadowRoot!.querySelector('category-setting-exceptions');
+    assertTrue(!!categorySettingExceptions);
     assertTrue(isVisible(categorySettingExceptions));
     assertEquals(
         ContentSettingsTypes.GEOLOCATION, categorySettingExceptions.category);
@@ -214,7 +237,8 @@ suite('PrivacyPage', function() {
     Router.getInstance().navigateTo(routes.SITE_SETTINGS_HID_DEVICES);
     await flushTasks();
 
-    const settingsSubpage = page.shadowRoot!.querySelector('settings-subpage')!;
+    const settingsSubpage = page.shadowRoot!.querySelector('settings-subpage');
+    assertTrue(!!settingsSubpage);
     assertTrue(isVisible(settingsSubpage));
     assertEquals(
         settingsSubpage.learnMoreUrl,
@@ -225,7 +249,8 @@ suite('PrivacyPage', function() {
     Router.getInstance().navigateTo(routes.SITE_SETTINGS_SERIAL_PORTS);
     await flushTasks();
 
-    const settingsSubpage = page.shadowRoot!.querySelector('settings-subpage')!;
+    const settingsSubpage = page.shadowRoot!.querySelector('settings-subpage');
+    assertTrue(!!settingsSubpage);
     assertTrue(isVisible(settingsSubpage));
     assertEquals(
         settingsSubpage.learnMoreUrl,
@@ -236,7 +261,8 @@ suite('PrivacyPage', function() {
     Router.getInstance().navigateTo(routes.SITE_SETTINGS_USB_DEVICES);
     await flushTasks();
 
-    const settingsSubpage = page.shadowRoot!.querySelector('settings-subpage')!;
+    const settingsSubpage = page.shadowRoot!.querySelector('settings-subpage');
+    assertTrue(!!settingsSubpage);
     assertTrue(isVisible(settingsSubpage));
     assertEquals(
         settingsSubpage.learnMoreUrl,
@@ -308,7 +334,8 @@ suite(`PrivacySandbox`, function() {
   test('privacySandboxRowLabel', function() {
     const privacySandboxLinkRow =
         page.shadowRoot!.querySelector<CrLinkRowElement>(
-            '#privacySandboxLinkRow')!;
+            '#privacySandboxLinkRow');
+    assertTrue(!!privacySandboxLinkRow);
     assertEquals(
         loadTimeData.getString('adPrivacyLinkRowLabel'),
         privacySandboxLinkRow.label);
@@ -466,8 +493,11 @@ suite(`TrackingProtectionSubpage`, function() {
 
   test('trackingProtectionSubpageAttributes', async function() {
     // The subpage is only in the DOM if the corresponding route is open.
-    page.shadowRoot!
-        .querySelector<CrLinkRowElement>('#trackingProtectionLinkRow')!.click();
+    const trackingProtectionLinkRow =
+        page.shadowRoot!.querySelector<CrLinkRowElement>(
+            '#trackingProtectionLinkRow');
+    assertTrue(!!trackingProtectionLinkRow);
+    trackingProtectionLinkRow.click();
     await flushTasks();
 
     const trackingProtectionSubpage =
@@ -528,8 +558,11 @@ suite(`TrackingProtectionUxDisabled`, function() {
 
   test('cookiesSubpageAttributes', async function() {
     // The subpage is only in the DOM if the corresponding route is open.
-    page.shadowRoot!
-        .querySelector<CrLinkRowElement>('#thirdPartyCookiesLinkRow')!.click();
+    const thirdPartyCookiesLinkRow =
+        page.shadowRoot!.querySelector<CrLinkRowElement>(
+            '#thirdPartyCookiesLinkRow');
+    assertTrue(!!thirdPartyCookiesLinkRow);
+    thirdPartyCookiesLinkRow.click();
     await flushTasks();
 
     const cookiesSubpage =
@@ -652,7 +685,8 @@ suite(`PrivacySandbox4EnabledButRestrictedWithNotice`, function() {
   test('privacySandboxRowSublabel', function() {
     const privacySandboxLinkRow =
         page.shadowRoot!.querySelector<CrLinkRowElement>(
-            '#privacySandboxLinkRow')!;
+            '#privacySandboxLinkRow');
+    assertTrue(!!privacySandboxLinkRow);
     // Ensure that a measurement-specific message is shown in this
     // configuration. The default is tested in the regular
     // PrivacySandbox4Enabled suite.
@@ -740,8 +774,10 @@ suite('PrivacyGuideRow', function() {
   });
 
   test('privacyGuideRowClick', async function() {
-    page.shadowRoot!.querySelector<HTMLElement>(
-                        '#privacyGuideLinkRow')!.click();
+    const privacyGuideLinkRow =
+        page.shadowRoot!.querySelector<HTMLElement>('#privacyGuideLinkRow');
+    assertTrue(!!privacyGuideLinkRow);
+    privacyGuideLinkRow.click();
 
     const result = await metricsBrowserProxy.whenCalled(
         'recordPrivacyGuideEntryExitHistogram');
@@ -892,8 +928,11 @@ suite('HappinessTrackingSurveys', function() {
   });
 
   test('CookiesTrigger', async function() {
-    page.shadowRoot!.querySelector<HTMLElement>(
-                        '#thirdPartyCookiesLinkRow')!.click();
+    const thirdPartyCookiesLinkRow =
+        page.shadowRoot!.querySelector<HTMLElement>(
+            '#thirdPartyCookiesLinkRow');
+    assertTrue(!!thirdPartyCookiesLinkRow);
+    thirdPartyCookiesLinkRow.click();
     const interaction =
         await testHatsBrowserProxy.whenCalled('trustSafetyInteractionOccurred');
     assertEquals(TrustSafetyInteraction.USED_PRIVACY_CARD, interaction);
@@ -1117,7 +1156,8 @@ suite('EnableWebBluetoothNewPermissionsBackend', function() {
         routes.SITE_SETTINGS.createChild('bluetoothDevices'));
     await flushTasks();
 
-    const settingsSubpage = page.shadowRoot!.querySelector('settings-subpage')!;
+    const settingsSubpage = page.shadowRoot!.querySelector('settings-subpage');
+    assertTrue(!!settingsSubpage);
     assertTrue(isVisible(settingsSubpage));
     assertEquals(
         settingsSubpage.learnMoreUrl,

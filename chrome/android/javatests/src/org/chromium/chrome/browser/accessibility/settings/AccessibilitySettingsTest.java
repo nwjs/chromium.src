@@ -11,6 +11,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.hasDescendant;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import static org.chromium.chrome.browser.accessibility.settings.AccessibilitySettings.PREF_FORCE_ENABLE_ZOOM;
 import static org.chromium.chrome.browser.accessibility.settings.AccessibilitySettings.PREF_IMAGE_DESCRIPTIONS;
 
 import android.app.Instrumentation;
@@ -35,29 +36,21 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.base.task.PostTask;
-import org.chromium.base.task.TaskTraits;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.settings.SettingsActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.R;
-import org.chromium.components.browser_ui.accessibility.FontSizePrefs;
 import org.chromium.components.browser_ui.accessibility.PageZoomPreference;
 import org.chromium.components.browser_ui.accessibility.PageZoomUtils;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.content_public.browser.ContentFeatureList;
-import org.chromium.content_public.browser.test.util.UiUtils;
 import org.chromium.ui.accessibility.AccessibilityState;
 import org.chromium.ui.test.util.ViewUtils;
 import org.chromium.ui.widget.ChromeImageButton;
-
-import java.text.NumberFormat;
 
 /**
  * Tests for the Accessibility Settings menu.
@@ -70,9 +63,6 @@ import java.text.NumberFormat;
     ContentFeatureList.ACCESSIBILITY_PAGE_ZOOM_ENHANCEMENTS,
     ContentFeatureList.ACCESSIBILITY_PAGE_ZOOM_V2,
     ContentFeatureList.SMART_ZOOM
-})
-@Features.EnableFeatures({
-    ContentFeatureList.ACCESSIBILITY_PAGE_ZOOM,
 })
 public class AccessibilitySettingsTest {
     private AccessibilitySettings mAccessibilitySettings;
@@ -100,105 +90,31 @@ public class AccessibilitySettingsTest {
 
     // Generic AccessibilitySettings tests (no feature flag dependency).
 
-    /**
-     * Tests setting FontScaleFactor and ForceEnableZoom in AccessibilitySettings and ensures that
-     * ForceEnableZoom changes corresponding to FontScaleFactor.
-     */
     @Test
     @SmallTest
     @Feature({"Accessibility"})
-    @DisableFeatures({ContentFeatureList.ACCESSIBILITY_PAGE_ZOOM})
-    public void testAccessibilitySettings() throws Exception {
-        TextScalePreference textScalePref =
-                (TextScalePreference)
-                        mAccessibilitySettings.findPreference(
-                                AccessibilitySettings.PREF_TEXT_SCALE);
+    public void testForceEnableZoom() {
         ChromeSwitchPreference forceEnableZoomPref =
                 (ChromeSwitchPreference)
-                        mAccessibilitySettings.findPreference(
-                                AccessibilitySettings.PREF_FORCE_ENABLE_ZOOM);
-        NumberFormat percentFormat = NumberFormat.getPercentInstance();
-        // Arbitrary value 0.4f to be larger and smaller than threshold.
-        float fontSmallerThanThreshold =
-                FontSizePrefs.FORCE_ENABLE_ZOOM_THRESHOLD_MULTIPLIER - 0.4f;
-        float fontBiggerThanThreshold = FontSizePrefs.FORCE_ENABLE_ZOOM_THRESHOLD_MULTIPLIER + 0.4f;
+                        mAccessibilitySettings.findPreference(PREF_FORCE_ENABLE_ZOOM);
+        Assert.assertNotNull(forceEnableZoomPref);
+        Assert.assertNotNull(forceEnableZoomPref.getOnPreferenceChangeListener());
 
-        // Set the textScaleFactor above the threshold.
-        userSetTextScale(mAccessibilitySettings, textScalePref, fontBiggerThanThreshold);
-        UiUtils.settleDownUI(InstrumentationRegistry.getInstrumentation());
-        // Since above the threshold, this will check the force enable zoom button.
-        Assert.assertEquals(
-                percentFormat.format(fontBiggerThanThreshold), textScalePref.getAmountForTesting());
-        Assert.assertTrue(forceEnableZoomPref.isChecked());
-        assertFontSizePrefs(true, fontBiggerThanThreshold);
+        // First scroll to the Force Enable Zoom preference, then click.
+        onView(withId(R.id.recycler_view))
+                .perform(
+                        RecyclerViewActions.scrollTo(
+                                hasDescendant(withText(R.string.force_enable_zoom_title))));
+        onView(withText(R.string.force_enable_zoom_title)).perform(click());
+        Assert.assertTrue(
+                "Force enable zoom option was not toggled", forceEnableZoomPref.isChecked());
 
-        // Set the textScaleFactor below the threshold.
-        userSetTextScale(mAccessibilitySettings, textScalePref, fontSmallerThanThreshold);
-        UiUtils.settleDownUI(InstrumentationRegistry.getInstrumentation());
-        // Since below the threshold and userSetForceEnableZoom is false, this will uncheck
-        // the force enable zoom button.
-        Assert.assertEquals(
-                percentFormat.format(fontSmallerThanThreshold),
-                textScalePref.getAmountForTesting());
-        Assert.assertFalse(forceEnableZoomPref.isChecked());
-        assertFontSizePrefs(false, fontSmallerThanThreshold);
-
-        userSetTextScale(mAccessibilitySettings, textScalePref, fontBiggerThanThreshold);
-        // Sets onUserSetForceEnableZoom to be true.
-        userSetForceEnableZoom(mAccessibilitySettings, forceEnableZoomPref, true);
-        UiUtils.settleDownUI(InstrumentationRegistry.getInstrumentation());
-        // Since userSetForceEnableZoom is true, when the text scale is moved below the threshold
-        // ForceEnableZoom should remain checked.
-        userSetTextScale(mAccessibilitySettings, textScalePref, fontSmallerThanThreshold);
-        Assert.assertTrue(forceEnableZoomPref.isChecked());
-        assertFontSizePrefs(true, fontSmallerThanThreshold);
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"Accessibility"})
-    @DisableFeatures({ContentFeatureList.ACCESSIBILITY_PAGE_ZOOM})
-    public void testChangedFontPrefSavedOnStop() {
-        TextScalePreference textScalePref =
-                mAccessibilitySettings.findPreference(AccessibilitySettings.PREF_TEXT_SCALE);
-
-        // Change text scale a couple of times.
-        userSetTextScale(mAccessibilitySettings, textScalePref, 0.5f);
-        userSetTextScale(mAccessibilitySettings, textScalePref, 1.75f);
-
-        Assert.assertEquals(
-                "Histogram should not be recorded yet.",
-                0,
-                RecordHistogram.getHistogramTotalCountForTesting(
-                        FontSizePrefs.FONT_SIZE_CHANGE_HISTOGRAM));
-
-        // Simulate activity stopping.
-        ThreadUtils.runOnUiThreadBlocking(() -> mAccessibilitySettings.onStop());
-
-        Assert.assertEquals(
-                "Histogram should have been recorded once.",
-                1,
-                RecordHistogram.getHistogramTotalCountForTesting(
-                        FontSizePrefs.FONT_SIZE_CHANGE_HISTOGRAM));
-        Assert.assertEquals(
-                "Histogram should have recorded final value.",
-                1,
-                RecordHistogram.getHistogramValueCountForTesting(
-                        FontSizePrefs.FONT_SIZE_CHANGE_HISTOGRAM, 175));
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"Accessibility"})
-    @DisableFeatures({ContentFeatureList.ACCESSIBILITY_PAGE_ZOOM})
-    public void testUnchangedFontPrefNotSavedOnStop() {
-        // Simulate activity stopping.
-        ThreadUtils.runOnUiThreadBlocking(() -> mAccessibilitySettings.onStop());
-        Assert.assertEquals(
-                "Histogram should not have been recorded.",
-                0,
-                RecordHistogram.getHistogramTotalCountForTesting(
-                        FontSizePrefs.FONT_SIZE_CHANGE_HISTOGRAM));
+        // Assert that UserPref was updated.
+        ThreadUtils.runOnUiThreadBlocking(
+                () ->
+                        Assert.assertTrue(
+                                "Force enable zoom user pref was not updated on toggle",
+                                mAccessibilitySettings.mFontSizePrefs.getForceEnableZoom()));
     }
 
     @Test
@@ -257,28 +173,6 @@ public class AccessibilitySettingsTest {
     }
 
     // Tests related to Page Zoom feature.
-
-    @Test
-    @SmallTest
-    @Feature({"Accessibility"})
-    @DisableFeatures({ContentFeatureList.ACCESSIBILITY_PAGE_ZOOM})
-    public void testPageZoomPreference_hiddenWhenDisabled() {
-        mPageZoomPref =
-                (PageZoomPreference)
-                        mAccessibilitySettings.findPreference(
-                                AccessibilitySettings.PREF_PAGE_ZOOM_DEFAULT_ZOOM);
-        Assert.assertNotNull(mPageZoomPref);
-        Assert.assertFalse(
-                "Page Zoom default zoom option should not be visible when disabled",
-                mPageZoomPref.isVisible());
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"Accessibility"})
-    public void testPageZoomPreference_visibleWhenEnabled() {
-        getPageZoomPref();
-    }
 
     @Test
     @SmallTest
@@ -387,7 +281,6 @@ public class AccessibilitySettingsTest {
     @SmallTest
     @Feature({"Accessibility"})
     @Features.EnableFeatures({
-        ContentFeatureList.ACCESSIBILITY_PAGE_ZOOM,
         ContentFeatureList.ACCESSIBILITY_PAGE_ZOOM_ENHANCEMENTS,
         ContentFeatureList.ACCESSIBILITY_PAGE_ZOOM_V2
     })
@@ -560,38 +453,6 @@ public class AccessibilitySettingsTest {
                         mAccessibilitySettings.findPreference(
                                 AccessibilitySettings.PREF_PAGE_ZOOM_DEFAULT_ZOOM);
         Assert.assertNotNull(mPageZoomPref);
-        Assert.assertTrue(
-                "Page Zoom pref should be visible when enabled.", mPageZoomPref.isVisible());
-    }
-
-    private void assertFontSizePrefs(
-            final boolean expectedForceEnableZoom, final float expectedFontScale) {
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    FontSizePrefs fontSizePrefs =
-                            FontSizePrefs.getInstance(ProfileManager.getLastUsedRegularProfile());
-                    Assert.assertEquals(
-                            expectedForceEnableZoom, fontSizePrefs.getForceEnableZoom());
-                    Assert.assertEquals(
-                            expectedFontScale, fontSizePrefs.getFontScaleFactor(), 0.001f);
-                });
-    }
-
-    private static void userSetTextScale(
-            final AccessibilitySettings accessibilitySettings,
-            final TextScalePreference textScalePref,
-            final float textScale) {
-        PostTask.runOrPostTask(
-                TaskTraits.UI_DEFAULT,
-                () -> accessibilitySettings.onPreferenceChange(textScalePref, textScale));
-    }
-
-    private static void userSetForceEnableZoom(
-            final AccessibilitySettings accessibilitySettings,
-            final ChromeSwitchPreference forceEnableZoomPref,
-            final boolean enabled) {
-        PostTask.runOrPostTask(
-                TaskTraits.UI_DEFAULT,
-                () -> accessibilitySettings.onPreferenceChange(forceEnableZoomPref, enabled));
+        Assert.assertTrue("Page Zoom pref should be visible.", mPageZoomPref.isVisible());
     }
 }

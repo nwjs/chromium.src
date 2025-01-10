@@ -187,5 +187,11 @@ public class EmptyTabObserver implements TabObserver {
     public void onGestureEnd() {}
 
     @Override
+    public void didBackForwardTransitionAnimationChange(Tab tab) {}
+
+    @Override
     public void onTabContentSensitivityChanged(Tab tab, boolean contentIsSensitive) {}
+
+    @Override
+    public void onTabUnarchived(Tab tab) {}
 }

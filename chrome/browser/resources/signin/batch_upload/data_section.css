@@ -39,9 +39,9 @@
 }
 
 #separator {
-  border-inline-start: var(--cr-separator-line);
+  border-inline-start: 1px solid var(--color-batch-upload-data-separator);
   flex-shrink: 0;
-  height: 32px;
+  height: 20px;
   margin: 0 16px;
 }
 
@@ -69,8 +69,33 @@
   column-gap: 8px;
 }
 
+.item-checkbox {
+  padding-inline-end: 12px;
+  width: 16px;
+  flex-grow: 0;
+}
+
+/* Visually hide the label but still allow the screen reader to pick it up. */
+cr-checkbox::part(label-container) {
+  clip: rect(0,0,0,0);
+  display: block;
+  position: fixed;
+}
+
+.item-icon-container {
+  --item-icon-container-size: 24px;
+  align-items: center;
+  display: flex;
+  background-color: white;
+  border-radius: 25%;
+  flex-wrap: wrap;
+  height: var(--item-icon-container-size);
+  justify-content: center;
+  width: var(--item-icon-container-size);
+}
+
 .item-icon {
-  --item-icon-size: 20px;
+  --item-icon-size: 16px;
   height: var(--item-icon-size);
   width: var(--item-icon-size);
 }

@@ -49,8 +49,7 @@ std::string WriteBlobToFileResultToString(
     case storage::mojom::WriteBlobToFileResult::kSuccess:
       return "Success";
   }
-  NOTREACHED_IN_MIGRATION();
-  return "";
+  NOTREACHED();
 }
 
 // Disabled in some tests.
@@ -86,9 +85,8 @@ UmaIDBException ExceptionCodeToUmaEnum(blink::mojom::IDBException code) {
     case blink::mojom::IDBException::kTimeoutError:
       return UmaIDBExceptionTimeoutError;
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
-  return UmaIDBExceptionUnknownError;
 }
 
 }  // namespace
@@ -329,6 +327,8 @@ void Transaction::Start() {
     return;
   }
   DCHECK_EQ(CREATED, state_);
+  std::optional scheduling_priority_at_last_state_change =
+      scheduling_priority_at_last_state_change_;
   SetState(STARTED);
   DCHECK(!locks_receiver_.locks.empty());
   diagnostics_.start_time = base::Time::Now();
@@ -345,15 +345,30 @@ void Transaction::Start() {
     case blink::mojom::IDBTransactionMode::ReadOnly:
       base::UmaHistogramMediumTimes(
           "WebCore.IndexedDB.Transaction.ReadOnly.TimeQueued", time_queued);
+      if (scheduling_priority_at_last_state_change == 0) {
+        base::UmaHistogramMediumTimes(
+            "WebCore.IndexedDB.Transaction.ReadOnly.TimeQueued.Foreground",
+            time_queued);
+      }
       break;
     case blink::mojom::IDBTransactionMode::ReadWrite:
       base::UmaHistogramMediumTimes(
           "WebCore.IndexedDB.Transaction.ReadWrite.TimeQueued", time_queued);
+      if (scheduling_priority_at_last_state_change == 0) {
+        base::UmaHistogramMediumTimes(
+            "WebCore.IndexedDB.Transaction.ReadWrite.TimeQueued.Foreground",
+            time_queued);
+      }
       break;
     case blink::mojom::IDBTransactionMode::VersionChange:
       base::UmaHistogramMediumTimes(
           "WebCore.IndexedDB.Transaction.VersionChange.TimeQueued",
           time_queued);
+      if (scheduling_priority_at_last_state_change == 0) {
+        base::UmaHistogramMediumTimes(
+            "WebCore.IndexedDB.Transaction.VersionChange.TimeQueued.Foreground",
+            time_queued);
+      }
       break;
   }
 
@@ -555,7 +570,7 @@ Status Transaction::BlobWriteComplete(
       return CommitPhaseTwo();
     }
   }
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 Status Transaction::DoPendingCommit() {
@@ -626,6 +641,8 @@ Status Transaction::CommitPhaseTwo() {
 
   DCHECK_EQ(state_, COMMITTING);
 
+  std::optional scheduling_priority_at_last_state_change =
+      scheduling_priority_at_last_state_change_;
   SetState(FINISHED);
 
   Status s;
@@ -650,6 +667,11 @@ Status Transaction::CommitPhaseTwo() {
             "WebCore.IndexedDB.Transaction.ReadOnly.TimeActive", active_time);
         base::UmaHistogramMediumTimes(
             "WebCore.IndexedDB.Transaction.ReadOnly.TimeActive2", active_time2);
+        if (scheduling_priority_at_last_state_change == 0) {
+          base::UmaHistogramMediumTimes(
+              "WebCore.IndexedDB.Transaction.ReadOnly.TimeActive2.Foreground",
+              active_time2);
+        }
         break;
       case blink::mojom::IDBTransactionMode::ReadWrite:
         DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(
@@ -657,6 +679,11 @@ Status Transaction::CommitPhaseTwo() {
         base::UmaHistogramMediumTimes(
             "WebCore.IndexedDB.Transaction.ReadWrite.TimeActive2",
             active_time2);
+        if (scheduling_priority_at_last_state_change == 0) {
+          base::UmaHistogramMediumTimes(
+              "WebCore.IndexedDB.Transaction.ReadWrite.TimeActive2.Foreground",
+              active_time2);
+        }
         break;
       case blink::mojom::IDBTransactionMode::VersionChange:
         DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(
@@ -665,9 +692,15 @@ Status Transaction::CommitPhaseTwo() {
         base::UmaHistogramMediumTimes(
             "WebCore.IndexedDB.Transaction.VersionChange.TimeActive2",
             active_time2);
+        if (scheduling_priority_at_last_state_change == 0) {
+          base::UmaHistogramMediumTimes(
+              "WebCore.IndexedDB.Transaction.VersionChange.TimeActive2."
+              "Foreground",
+              active_time2);
+        }
         break;
       default:
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
     }
 
     committed = s.ok();
@@ -873,6 +906,12 @@ void Transaction::ResetTimeoutTimer() {
 
 void Transaction::SetState(State state) {
   state_ = state;
+  if (connection_) {
+    scheduling_priority_at_last_state_change_ =
+        connection_->scheduling_priority();
+  } else {
+    scheduling_priority_at_last_state_change_ = std::nullopt;
+  }
   NotifyOfIdbInternalsRelevantChange();
 }
 

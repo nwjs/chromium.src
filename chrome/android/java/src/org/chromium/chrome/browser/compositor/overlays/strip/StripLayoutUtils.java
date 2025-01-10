@@ -4,30 +4,40 @@
 
 package org.chromium.chrome.browser.compositor.overlays.strip;
 
-import android.animation.Animator;
+import android.view.HapticFeedbackConstants;
+import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.chrome.browser.layouts.animation.CompositorAnimationHandler;
-import org.chromium.chrome.browser.layouts.animation.CompositorAnimator;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
 
 public class StripLayoutUtils {
+    // Position Constants.
     // The bottom indicator should align with the contents of the last tab in group. This value is
     // calculated as:
     // closeButtonEndPadding(10) + tabContainerEndPadding(16) + groupTitleStartMargin(13)
     //         - overlap(28-16) =
     @VisibleForTesting static final float TAB_GROUP_BOTTOM_INDICATOR_WIDTH_OFFSET = 27.f;
+    static final float MIN_TAB_WIDTH_DP = 108.f;
+    static final float MAX_TAB_WIDTH_DP = TabUiThemeUtil.getMaxTabStripTabWidthDp();
+    static final float TAB_OVERLAP_WIDTH_DP = 28.f;
 
+    // Animation Constants.
     static final int ANIM_TAB_MOVE_MS = 125;
     static final int ANIM_TAB_SLIDE_OUT_MS = 250;
-    static final float REORDER_OVERLAP_SWITCH_PERCENTAGE = 0.53f;
 
-    // Tab group methods.
+    // Reorder Constants.
+    static final float REORDER_OVERLAP_SWITCH_PERCENTAGE = 0.53f;
+    static final long INVALID_TIME = 0L;
+
+    // ============================================================================================
+    // Tab group helpers
+    // ============================================================================================
 
     /**
      * @param modelFilter The {@link TabGroupModelFilter} that holds the given tabs.
@@ -39,6 +49,20 @@ public class StripLayoutUtils {
             TabGroupModelFilter modelFilter, @NonNull Tab tab1, @NonNull Tab tab2) {
         return tab1.getRootId() != tab2.getRootId()
                 && (modelFilter.isTabInTabGroup(tab1) || modelFilter.isTabInTabGroup(tab2));
+    }
+
+    /**
+     * @param modelFilter The {@link TabGroupModelFilter} that holds the given group.
+     * @param tabId The ID of the given tab.
+     * @return {@code true} if the tab is grouped and is the last tab in the group. False otherwise.
+     */
+    static boolean isLastTabInGroup(TabGroupModelFilter modelFilter, int tabId) {
+        Tab tab = modelFilter.getTabModel().getTabById(tabId);
+        if (tab == null) {
+            return false;
+        }
+        return modelFilter.isTabInTabGroup(tab)
+                && modelFilter.getRelatedTabCountForRootId(tab.getRootId()) == 1;
     }
 
     /**
@@ -55,42 +79,27 @@ public class StripLayoutUtils {
     }
 
     /**
-     * @param animationHandler The {@link CompositorAnimationHandler}.
-     * @param groupTitle The {@link StripLayoutGroupTitle} of the interacting group.
-     * @param numTabsInGroup The number of tabs in the given tab group.
-     * @param effectiveTabWidth The width of a tab, account for overlap.
-     * @param isMovingOutOfGroup Whether the action is merging/removing a tab to/from a group.
-     * @param throughGroupTitle True if the tab is passing the {@link StripLayoutGroupTitle}.
-     * @return An {@link Animator} for the bottom indicator's width change.
+     * @param model The {@link TabModel} that holds the given tab.
+     * @param stripTab The {@link StripLayoutTab} to find the root ID for.
+     * @return The root ID for the given tab. {@code Tab.INVALID_TAB_ID} if no {@link Tab} found.
      */
-    static Animator getBottomIndicatorAnimatorForMergeOrMoveOutOfGroup(
-            CompositorAnimationHandler animationHandler,
-            StripLayoutGroupTitle groupTitle,
-            int numTabsInGroup,
-            float effectiveTabWidth,
-            boolean isMovingOutOfGroup,
-            boolean throughGroupTitle) {
-        // TODO(crbug.com/356448558): Move to ReorderDelegate.
-        // Calculate the initial width and the target width for the bottom indicator.
-        float startWidth =
-                calculateBottomIndicatorWidth(groupTitle, numTabsInGroup, effectiveTabWidth);
-        float endWidth =
-                isMovingOutOfGroup
-                        ? startWidth - effectiveTabWidth
-                        : startWidth + effectiveTabWidth;
+    static int getRootId(TabModel model, StripLayoutTab stripTab) {
+        if (stripTab == null) return Tab.INVALID_TAB_ID;
+        Tab tab = model.getTabById(stripTab.getTabId());
+        return tab == null ? Tab.INVALID_TAB_ID : tab.getRootId();
+    }
 
-        // Bottom indicator animation.
-        int animDuration = throughGroupTitle ? ANIM_TAB_MOVE_MS : ANIM_TAB_SLIDE_OUT_MS;
-        Animator animator =
-                CompositorAnimator.ofFloatProperty(
-                        animationHandler,
-                        groupTitle,
-                        StripLayoutGroupTitle.BOTTOM_INDICATOR_WIDTH,
-                        startWidth,
-                        endWidth,
-                        animDuration);
-
-        return animator;
+    /**
+     * @param groupTitles A list of {@link StripLayoutGroupTitle}.
+     * @param rootId The root ID for the tab group title we're searching for.
+     * @return The {@link StripLayoutGroupTitle} with the given root ID. {@code null} otherwise.
+     */
+    static StripLayoutGroupTitle findGroupTitle(StripLayoutGroupTitle[] groupTitles, int rootId) {
+        for (int i = 0; i < groupTitles.length; i++) {
+            final StripLayoutGroupTitle groupTitle = groupTitles[i];
+            if (groupTitle.getRootId() == rootId) return groupTitle;
+        }
+        return null;
     }
 
     /**
@@ -109,7 +118,9 @@ public class StripLayoutUtils {
         return groupTitle.getWidth() + totalTabWidth;
     }
 
-    // StripLayoutView/Tab array util methods.
+    // ============================================================================================
+    // StripLayoutView/Tab array util methods
+    // ============================================================================================
 
     /**
      * @param stripViews The list of all of the tab strip's views.
@@ -158,7 +169,9 @@ public class StripLayoutUtils {
         return null;
     }
 
-    // Array util methods.
+    // ============================================================================================
+    // Array helpers
+    // ============================================================================================
 
     /**
      * Moves an element in the given array.
@@ -195,5 +208,12 @@ public class StripLayoutUtils {
             array[i + 1] = array[i];
         }
         array[newIndex] = elem;
+    }
+
+    // Other methods.
+
+    static void performHapticFeedback(View view) {
+        if (view == null) return;
+        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
     }
 }

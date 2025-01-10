@@ -18,6 +18,7 @@
 #include "base/test/gmock_callback_support.h"
 #include "base/test/gmock_expected_support.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/metrics/user_action_tester.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
@@ -109,19 +110,20 @@ auto IsSingleCreatePlusAddressSuggestion() {
     labels = {{Suggestion::Text(l10n_util::GetStringUTF16(
         IDS_PLUS_ADDRESS_CREATE_SUGGESTION_SECONDARY_TEXT))}};
   }
-  return ElementsAre(
-      AllOf(EqualsSuggestion(SuggestionType::kCreateNewPlusAddress,
-                             /*main_text=*/l10n_util::GetStringUTF16(
-                                 IDS_PLUS_ADDRESS_CREATE_SUGGESTION_MAIN_TEXT)),
-            Field(&Suggestion::icon, Suggestion::Icon::kPlusAddress),
-            Field(&Suggestion::feature_for_iph,
-                  &feature_engagement::kIPHPlusAddressCreateSuggestionFeature),
+  return ElementsAre(AllOf(
+      EqualsSuggestion(SuggestionType::kCreateNewPlusAddress,
+                       /*main_text=*/l10n_util::GetStringUTF16(
+                           IDS_PLUS_ADDRESS_CREATE_SUGGESTION_MAIN_TEXT)),
+      Field(&Suggestion::icon, Suggestion::Icon::kPlusAddress),
+      Field(&Suggestion::iph_metadata,
+            Suggestion::IPHMetadata(
+                &feature_engagement::kIPHPlusAddressCreateSuggestionFeature)),
 #if BUILDFLAG(IS_ANDROID)
-            Field(&Suggestion::iph_description_text,
-                  l10n_util::GetStringUTF16(
-                      IDS_PLUS_ADDRESS_CREATE_SUGGESTION_IPH_ANDROID)),
+      Field(&Suggestion::iph_description_text,
+            l10n_util::GetStringUTF16(
+                IDS_PLUS_ADDRESS_CREATE_SUGGESTION_IPH_ANDROID)),
 #endif  // BUILDFLAG(IS_ANDROID)
-            Field(&Suggestion::labels, labels)));
+      Field(&Suggestion::labels, labels)));
 }
 
 auto EqualsFillPlusAddressSuggestion(std::string_view address) {
@@ -248,6 +250,10 @@ class PlusAddressServiceTest : public ::testing::Test {
     return test_url_loader_factory_;
   }
 
+  base::test::TestFuture<hats::SurveyType>& launch_survey_future() {
+    return launch_survey_future_;
+  }
+
   // Forces (re-)initialization of the `PlusAddressService`, which can be useful
   // when classes override feature parameters.
   void InitService() {
@@ -259,7 +265,8 @@ class PlusAddressServiceTest : public ::testing::Test {
                      /*affiliation_service=*/
                      &affiliation_service(),
                      /*feature_enabled_for_profile_check=*/
-                     base::BindRepeating(&base::FeatureList::IsEnabled));
+                     base::BindRepeating(&base::FeatureList::IsEnabled),
+                     launch_survey_future_.GetRepeatingCallback());
   }
 
  private:
@@ -270,6 +277,7 @@ class PlusAddressServiceTest : public ::testing::Test {
   scoped_refptr<network::SharedURLLoaderFactory> test_shared_loader_factory_;
   data_decoder::test::InProcessDataDecoder decoder_;
   std::optional<PlusAddressServiceImpl> service_;
+  base::test::TestFuture<hats::SurveyType> launch_survey_future_;
 };
 
 TEST_F(PlusAddressServiceTest, BasicTest) {
@@ -702,6 +710,7 @@ TEST_F(PlusAddressServiceRequestsTest,
   base::test::ScopedFeatureList feature_list{
       features::kPlusAddressInlineCreation};
   base::HistogramTester histogram_tester;
+  base::UserActionTester user_action_tester;
   base::MockCallback<PlusAddressService::UpdateSuggestionsCallback> callback;
 
   EXPECT_CALL(callback, Run).Times(0);
@@ -716,6 +725,9 @@ TEST_F(PlusAddressServiceRequestsTest,
   histogram_tester.ExpectUniqueSample(
       kPlusAddressSuggestionMetric,
       SuggestionEvent::kCreateNewPlusAddressInlineSuggested, 1);
+  EXPECT_EQ(
+      user_action_tester.GetActionCount("PlusAddresses.CreateSuggestionShown"),
+      1);
   EXPECT_EQ(url_loader_factory().NumPending(), 0);
 }
 
@@ -726,11 +738,20 @@ TEST_F(PlusAddressServiceRequestsTest, OnAcceptedInlineSuggestion) {
   base::test::ScopedFeatureList feature_list{
       features::kPlusAddressInlineCreation};
   base::HistogramTester histogram_tester;
+  base::UserActionTester user_action_tester;
   base::test::TestFuture<std::vector<Suggestion>,
                          AutofillSuggestionTriggerSource>
       update_callback;
   base::test::TestFuture<autofill::SuggestionHidingReason> hide_callback;
   base::test::TestFuture<const std::string&> fill_callback;
+
+  // Simulate the scenario when the user has already created 2 other plus
+  // addresses. This is relevant only for the HaTS survey triggering
+  // verification.
+  service().SavePlusProfile(test::CreatePlusProfileWithFacet(
+      FacetURI::FromPotentiallyInvalidSpec("https://example1.com")));
+  service().SavePlusProfile(test::CreatePlusProfileWithFacet(
+      FacetURI::FromPotentiallyInvalidSpec("https://example2.com")));
 
   PlusProfile profile = test::CreatePlusProfile();
 
@@ -750,6 +771,9 @@ TEST_F(PlusAddressServiceRequestsTest, OnAcceptedInlineSuggestion) {
   histogram_tester.ExpectUniqueSample(
       kPlusAddressSuggestionMetric,
       SuggestionEvent::kCreateNewPlusAddressInlineChosen, 1);
+  EXPECT_EQ(user_action_tester.GetActionCount(
+                "PlusAddresses.OfferedPlusAddressAccepted"),
+            1);
   url_loader_factory().SimulateResponseForPendingRequest(
       kCreatePlusAddressEndpoint, test::MakeCreationResponse(profile));
 
@@ -765,6 +789,11 @@ TEST_F(PlusAddressServiceRequestsTest, OnAcceptedInlineSuggestion) {
   ASSERT_TRUE(hide_callback.Wait());
   EXPECT_THAT(hide_callback.Get(),
               Eq(autofill::SuggestionHidingReason::kAcceptSuggestion));
+  // Feature perception survey should be triggered after the user has created
+  // the 3rd+ plus address.
+  ASSERT_TRUE(launch_survey_future().Wait());
+  ASSERT_THAT(launch_survey_future().Get(),
+              Eq(hats::SurveyType::kCreatedMultiplePlusAddresses));
 }
 
 // Tests that when the server call to create a plus address from an inline
@@ -780,6 +809,14 @@ TEST_F(PlusAddressServiceRequestsTest,
   base::test::TestFuture<autofill::SuggestionHidingReason> hide_callback;
   base::test::TestFuture<std::u16string, std::u16string>
       show_affiliation_error_callback;
+
+  // Simulate the scenario when the user has already created 2 other plus
+  // addresses. This is relevant only for the HaTS survey triggering
+  // verification.
+  service().SavePlusProfile(test::CreatePlusProfileWithFacet(
+      FacetURI::FromPotentiallyInvalidSpec("https://example1.com")));
+  service().SavePlusProfile(test::CreatePlusProfileWithFacet(
+      FacetURI::FromPotentiallyInvalidSpec("https://example2.com")));
 
   PlusProfile profile = test::CreatePlusProfile();
   PlusProfile affiliated_profile = test::CreatePlusProfile2();
@@ -816,6 +853,9 @@ TEST_F(PlusAddressServiceRequestsTest,
   EXPECT_THAT(show_affiliation_error_callback.Get<0>(), Eq(u"bar.com"));
   EXPECT_THAT(show_affiliation_error_callback.Get<1>(),
               Eq(base::UTF8ToUTF16(*affiliated_profile.plus_address)));
+  // Feature perception survey should not be triggered if the plus address was
+  // not created.
+  ASSERT_FALSE(launch_survey_future().IsReady());
 }
 
 // Tests that when the server call to create a plus address from an inline
@@ -830,6 +870,14 @@ TEST_F(PlusAddressServiceRequestsTest, OnAcceptedInlineSuggestionTimeoutError) {
   base::MockCallback<PlusAddressService::ShowErrorDialogCallback>
       show_error_callback;
   base::MockCallback<base::OnceClosure> reshow_callback;
+
+  // Simulate the scenario when the user has already created 2 other plus
+  // addresses. This is relevant only for the HaTS survey triggering
+  // verification.
+  service().SavePlusProfile(test::CreatePlusProfileWithFacet(
+      FacetURI::FromPotentiallyInvalidSpec("https://example1.com")));
+  service().SavePlusProfile(test::CreatePlusProfileWithFacet(
+      FacetURI::FromPotentiallyInvalidSpec("https://example2.com")));
 
   PlusProfile profile = test::CreatePlusProfile();
   PlusProfile affiliated_profile = test::CreatePlusProfile2();
@@ -867,6 +915,9 @@ TEST_F(PlusAddressServiceRequestsTest, OnAcceptedInlineSuggestionTimeoutError) {
 
   url_loader_factory().SimulateResponseForPendingRequest(
       kCreatePlusAddressEndpoint, "", net::HTTP_REQUEST_TIMEOUT);
+  // Feature perception survey should not be triggered if the plus address was
+  // not created.
+  ASSERT_FALSE(launch_survey_future().IsReady());
 }
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
@@ -924,131 +975,6 @@ TEST_F(PlusAddressServicePreAllocationTest,
               ElementsAre(IsPreallocatedPlusAddress(kPlusAddress2)));
 }
 
-class PlusAddressHttpForbiddenResponseTest
-    : public PlusAddressServiceRequestsTest {
- public:
-  PlusAddressHttpForbiddenResponseTest() {
-    base::FieldTrialParams params =
-        PlusAddressServiceRequestsTest::GetFieldTrialParams();
-    params[features::kDisableForForbiddenUsers.name] = "true";
-    features_.InitAndEnableFeatureWithParameters(
-        features::kPlusAddressesEnabled, params);
-  }
-
- private:
-  base::test::ScopedFeatureList features_;
-};
-
-// Tests that two `HTTP_FORBIDDEN` responses and no successful network request
-// lead to a disabled service.
-TEST_F(PlusAddressHttpForbiddenResponseTest, RepeatedHttpForbiddenFromConfirm) {
-  ASSERT_FALSE(service().IsPlusAddress(kPlusAddress));
-
-  // The service remains enabled after a single `HTTP_FORBIDDEN` response.
-  service().ConfirmPlusAddress(kNoSubdomainOrigin, PlusAddress(kPlusAddress),
-                               base::DoNothing());
-  ASSERT_TRUE(url_loader_factory().SimulateResponseForPendingRequest(
-      kCreatePlusAddressEndpoint, "", net::HTTP_FORBIDDEN));
-  EXPECT_TRUE(service().IsEnabled());
-
-  // A second `HTTP_FORBIDDEN` responses disables it.
-  service().ConfirmPlusAddress(kNoSubdomainOrigin, PlusAddress(kPlusAddress),
-                               base::DoNothing());
-  ASSERT_TRUE(url_loader_factory().SimulateResponseForPendingRequest(
-      kCreatePlusAddressEndpoint, "", net::HTTP_FORBIDDEN));
-  EXPECT_FALSE(service().IsEnabled());
-}
-
-// Tests that two `HTTP_FORBIDDEN` responses and no successful network request
-// do not lead to a disabled service unless the feature param is set.
-TEST_F(PlusAddressHttpForbiddenResponseTest,
-       RepeatedHttpForbiddenFromConfirmWithDisabledParam) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      features::kPlusAddressesEnabled,
-      PlusAddressServiceRequestsTest::GetFieldTrialParams());
-
-  ASSERT_FALSE(service().IsPlusAddress(kPlusAddress));
-
-  // The service remains enabled after a single `HTTP_FORBIDDEN` response.
-  service().ConfirmPlusAddress(kNoSubdomainOrigin, PlusAddress(kPlusAddress),
-                               base::DoNothing());
-  ASSERT_TRUE(url_loader_factory().SimulateResponseForPendingRequest(
-      kCreatePlusAddressEndpoint, "", net::HTTP_FORBIDDEN));
-  EXPECT_TRUE(service().IsEnabled());
-
-  // A second `HTTP_FORBIDDEN` responses disables it.
-  service().ConfirmPlusAddress(kNoSubdomainOrigin, PlusAddress(kPlusAddress),
-                               base::DoNothing());
-  ASSERT_TRUE(url_loader_factory().SimulateResponseForPendingRequest(
-      kCreatePlusAddressEndpoint, "", net::HTTP_FORBIDDEN));
-  EXPECT_TRUE(service().IsEnabled());
-}
-
-// Tests that two `HTTP_FORBIDDEN` responses and no successful network request
-// lead to a disabled service and that other network errors do not have an
-// impact.
-TEST_F(PlusAddressHttpForbiddenResponseTest, OtherErrorsHaveNoEffect) {
-  ASSERT_FALSE(service().IsPlusAddress(kPlusAddress));
-
-  // The service remains enabled after a single `HTTP_FORBIDDEN` response.
-  service().ReservePlusAddress(kNoSubdomainOrigin, base::DoNothing());
-  ASSERT_TRUE(url_loader_factory().SimulateResponseForPendingRequest(
-      kReservePlusAddressEndpoint, "", net::HTTP_FORBIDDEN));
-  EXPECT_TRUE(service().IsEnabled());
-
-  // A failure that is not `HTTP_FORBIDDEN` does not disable the service.
-  service().ReservePlusAddress(kNoSubdomainOrigin, base::DoNothing());
-  ASSERT_TRUE(url_loader_factory().SimulateResponseForPendingRequest(
-      kReservePlusAddressEndpoint, "", net::HTTP_REQUEST_TIMEOUT));
-  EXPECT_TRUE(service().IsEnabled());
-
-  // But a second `HTTP_FORBIDDEN` does.
-  service().ReservePlusAddress(kNoSubdomainOrigin, base::DoNothing());
-  ASSERT_TRUE(url_loader_factory().SimulateResponseForPendingRequest(
-      kReservePlusAddressEndpoint, "", net::HTTP_FORBIDDEN));
-  EXPECT_FALSE(service().IsEnabled());
-}
-
-// Tests a single successful response prevents later `HTTP_FORBIDDEN` responses
-// from disabling the service.
-TEST_F(PlusAddressHttpForbiddenResponseTest, NoDisablingAfterSuccess) {
-  const PlusProfile profile1 = test::CreatePlusProfile();
-  ASSERT_FALSE(service().IsPlusAddress(*profile1.plus_address));
-
-  // The service remains enabled after a single `HTTP_FORBIDDEN` response.
-  base::test::TestFuture<const PlusProfileOrError&> future;
-  service().ConfirmPlusAddress(OriginFromFacet(profile1.facet),
-                               profile1.plus_address, future.GetCallback());
-  ASSERT_TRUE(url_loader_factory().SimulateResponseForPendingRequest(
-      kCreatePlusAddressEndpoint, "", net::HTTP_FORBIDDEN));
-  ASSERT_TRUE(future.Wait());
-  EXPECT_TRUE(service().IsEnabled());
-
-  // After a single successful call ...
-  future.Clear();
-  service().ConfirmPlusAddress(OriginFromFacet(profile1.facet),
-                               profile1.plus_address, future.GetCallback());
-  ASSERT_TRUE(url_loader_factory().SimulateResponseForPendingRequest(
-      kCreatePlusAddressEndpoint, test::MakeCreationResponse(profile1)));
-  ASSERT_TRUE(future.Wait());
-  EXPECT_TRUE(service().IsPlusAddress(*profile1.plus_address));
-
-  // ... even repeated `HTTP_FORBIDDEN` responses do not disable the service.
-  const PlusProfile profile2 = test::CreatePlusProfile2();
-  for (int i = 0; i < 5; ++i) {
-    SCOPED_TRACE(::testing::Message() << "Iteration #" << 1);
-    // But a second `HTTP_FORBIDDEN` does.
-    future.Clear();
-    service().ConfirmPlusAddress(OriginFromFacet(profile2.facet),
-                                 profile2.plus_address, future.GetCallback());
-    ASSERT_TRUE(url_loader_factory().SimulateResponseForPendingRequest(
-        kCreatePlusAddressEndpoint, "", net::HTTP_FORBIDDEN));
-    ASSERT_TRUE(future.Wait());
-    EXPECT_TRUE(service().IsEnabled());
-  }
-}
-
 // Tests that communication with `PlusAddressTable` works.
 class PlusAddressServiceWebDataTest : public ::testing::Test {
  protected:
@@ -1079,7 +1005,8 @@ class PlusAddressServiceWebDataTest : public ::testing::Test {
         plus_webdata_service_,
         /*affiliation_service=*/&plus_environment_.affiliation_service(),
         /*feature_enabled_for_profile_check=*/
-        base::BindRepeating(&base::FeatureList::IsEnabled));
+        base::BindRepeating(&base::FeatureList::IsEnabled),
+        /*lauch_hats_survey=*/base::DoNothing());
   }
 
   signin::IdentityManager* identity_manager() {
@@ -1223,59 +1150,9 @@ TEST_F(PlusAddressServiceEnabledTest, CreationDisabledOnHttp) {
       /*is_off_the_record=*/false));
 }
 
-// `ShouldShowManualFallback` returns false when `origin` is included on
-// `kPlusAddressExcludedSites` and true otherwise.
-TEST_F(PlusAddressServiceEnabledTest, ExcludedSitesAreNotSupported) {
-  identity_env().MakeAccountAvailable("plus@plus.plus",
-                                      {signin::ConsentLevel::kSignin});
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      features::kPlusAddressesEnabled,
-      {{features::kEnterprisePlusAddressServerUrl.name, "mattwashere"},
-       {features::kPlusAddressExcludedSites.name,
-        "exclude.co.th,forbidden.com"}});
-  InitService();
-
-  // Verify that url not on the excluded site continues to work.
-  const url::Origin allowed_origin =
-      url::Origin::Create(GURL("https://test.example"));
-  EXPECT_TRUE(service().IsPlusAddressFillingEnabled(allowed_origin));
-  EXPECT_TRUE(service().IsPlusAddressCreationEnabled(
-      allowed_origin, /*is_off_the_record=*/false));
-  EXPECT_TRUE(service().ShouldShowManualFallback(allowed_origin,
-                                                 /*is_off_the_record=*/false));
-
-  // Sites on excluded list are not supported.
-  const url::Origin blocked_origin_1 =
-      url::Origin::Create(GURL("https://www.forbidden.com"));
-  EXPECT_FALSE(service().IsPlusAddressFillingEnabled(blocked_origin_1));
-  EXPECT_FALSE(service().IsPlusAddressCreationEnabled(
-      blocked_origin_1, /*is_off_the_record=*/false));
-  EXPECT_FALSE(service().ShouldShowManualFallback(blocked_origin_1,
-                                                  /*is_off_the_record=*/false));
-  const url::Origin blocked_origin_2 =
-      url::Origin::Create(GURL("https://www.exclude.co.th"));
-  EXPECT_FALSE(service().IsPlusAddressFillingEnabled(blocked_origin_2));
-  EXPECT_FALSE(service().IsPlusAddressCreationEnabled(
-      blocked_origin_2, /*is_off_the_record=*/false));
-  EXPECT_FALSE(service().ShouldShowManualFallback(blocked_origin_2,
-                                                  /*is_off_the_record=*/false));
-
-  // Excluded site with different subdomain are also not supported.
-  const url::Origin different_subdomain =
-      url::Origin::Create(GURL("https://myaccount.forbidden.com"));
-  EXPECT_FALSE(service().IsPlusAddressFillingEnabled(different_subdomain));
-  EXPECT_FALSE(service().IsPlusAddressCreationEnabled(
-      different_subdomain, /*is_off_the_record=*/false));
-  EXPECT_FALSE(service().ShouldShowManualFallback(different_subdomain,
-                                                  /*is_off_the_record=*/false));
-}
-
 // Tests that the blocklist data is available and used to check for domain
 // support in the plus address service.
 TEST_F(PlusAddressServiceEnabledTest, BlocklistMechanism) {
-  base::test::ScopedFeatureList feature_list{
-      features::kPlusAddressBlocklistEnabled};
   identity_env().MakeAccountAvailable("plus@plus.plus",
                                       {signin::ConsentLevel::kSignin});
   InitService();
@@ -1529,6 +1406,7 @@ class PlusAddressSuggestionsTest : public PlusAddressServiceTest {
 // focused field matches the prefix of an existing plus address.
 TEST_F(PlusAddressSuggestionsTest, SuggestionsForExistingPlusAddress) {
   base::HistogramTester histogram_tester;
+  base::UserActionTester user_action_tester;
   const PlusProfile profile = test::CreatePlusProfile();
   const url::Origin origin = OriginFromFacet(profile.facet);
   service().SavePlusProfile(profile);
@@ -1543,7 +1421,9 @@ TEST_F(PlusAddressSuggestionsTest, SuggestionsForExistingPlusAddress) {
   histogram_tester.ExpectUniqueSample(
       kPlusAddressSuggestionMetric,
       SuggestionEvent::kExistingPlusAddressSuggested, 1);
-
+  EXPECT_EQ(user_action_tester.GetActionCount(
+                "PlusAddresses.StandaloneFillSuggestionShown"),
+            1);
   // If the user types a letter and it matches the plus address (after
   // normalization), the plus address continues to be offered.
   focused_field.set_value(u"P");
@@ -1555,7 +1435,9 @@ TEST_F(PlusAddressSuggestionsTest, SuggestionsForExistingPlusAddress) {
   histogram_tester.ExpectUniqueSample(
       kPlusAddressSuggestionMetric,
       SuggestionEvent::kExistingPlusAddressSuggested, 2);
-
+  EXPECT_EQ(user_action_tester.GetActionCount(
+                "PlusAddresses.StandaloneFillSuggestionShown"),
+            2);
   // If the value does not match the prefix of the plus address, nothing is
   // shown.
   focused_field.set_value(u"pp");
@@ -1574,6 +1456,7 @@ TEST_F(PlusAddressSuggestionsTest, SuggestionsForExistingPlusAddress) {
 TEST_F(PlusAddressSuggestionsTest,
        SuggestionsForExistingPlusAddressWithManualFallback) {
   base::HistogramTester histogram_tester;
+  base::UserActionTester user_action_tester;
   const PlusProfile profile = test::CreatePlusProfile();
   const url::Origin origin = OriginFromFacet(profile.facet);
   service().SavePlusProfile(profile);
@@ -1589,7 +1472,9 @@ TEST_F(PlusAddressSuggestionsTest,
   histogram_tester.ExpectUniqueSample(
       kPlusAddressSuggestionMetric,
       SuggestionEvent::kExistingPlusAddressSuggested, 1);
-
+  EXPECT_EQ(user_action_tester.GetActionCount(
+                "PlusAddresses.StandaloneFillSuggestionShown"),
+            1);
   // We also offer filling if the field is not empty and the prefix does not
   // match the address.
   focused_field.set_value(u"pp");
@@ -1602,6 +1487,9 @@ TEST_F(PlusAddressSuggestionsTest,
   histogram_tester.ExpectUniqueSample(
       kPlusAddressSuggestionMetric,
       SuggestionEvent::kExistingPlusAddressSuggested, 2);
+  EXPECT_EQ(user_action_tester.GetActionCount(
+                "PlusAddresses.StandaloneFillSuggestionShown"),
+            2);
 }
 
 // Tests that a create plus address suggestion is offered if there is no
@@ -1631,6 +1519,77 @@ TEST_F(PlusAddressSuggestionsTest, SuggestionsForCreateNewPlusAddress) {
   histogram_tester.ExpectUniqueSample(
       kPlusAddressSuggestionMetric,
       SuggestionEvent::kCreateNewPlusAddressSuggested, 1);
+}
+
+// Tests that a user action is recorded when a create plus address suggestion is
+// shown to the user, and the user has never accepted the notice.
+TEST_F(PlusAddressSuggestionsTest,
+       RecordCreateSuggestionUserActionFirstTimeNotice) {
+  base::HistogramTester histogram_tester;
+  base::UserActionTester user_action_tester;
+  base::test::ScopedFeatureList feature_list{
+      features::kPlusAddressUserOnboardingEnabled};
+  setting_service().set_has_accepted_notice(false);
+  const auto origin = url::Origin::Create(GURL("https://foo.com"));
+
+  // We offer creation if the field is empty.
+  FormFieldData focused_field;
+  FetchPlusAddressSuggestions(
+      origin, /*is_off_the_record=*/false, PasswordFormClassification(),
+      focused_field,
+      AutofillSuggestionTriggerSource::kFormControlElementClicked);
+  histogram_tester.ExpectUniqueSample(
+      kPlusAddressSuggestionMetric,
+      SuggestionEvent::kCreateNewPlusAddressSuggested, 1);
+  EXPECT_EQ(user_action_tester.GetActionCount(
+                "PlusAddresses.CreateSuggestionFirstTimeNoticeShown"),
+            1);
+}
+
+// Tests that a user action is recorded when a plus address suggestion fill is
+// reported.
+TEST_F(PlusAddressSuggestionsTest, RecordExistingPlusAddressChosenUserAction) {
+  base::UserActionTester user_action_tester;
+  service().RecordAutofillSuggestionEvent(
+      SuggestionEvent::kExistingPlusAddressChosen);
+  EXPECT_EQ(user_action_tester.GetActionCount(
+                "PlusAddresses.FillStandaloneSuggestionAccepted"),
+            1);
+}
+
+// Tests that a user action is recorded when a create plus address suggestion is
+// shown to the user, and the user has already accepted the notice.
+TEST_F(PlusAddressSuggestionsTest, RecordCreateSuggestionUserActionShown) {
+  base::HistogramTester histogram_tester;
+  base::UserActionTester user_action_tester;
+  base::test::ScopedFeatureList feature_list{
+      features::kPlusAddressUserOnboardingEnabled};
+  setting_service().set_has_accepted_notice(true);
+  const auto origin = url::Origin::Create(GURL("https://foo.com"));
+
+  // We offer creation if the field is empty.
+  FormFieldData focused_field;
+  FetchPlusAddressSuggestions(
+      origin, /*is_off_the_record=*/false, PasswordFormClassification(),
+      focused_field,
+      AutofillSuggestionTriggerSource::kFormControlElementClicked);
+  histogram_tester.ExpectUniqueSample(
+      kPlusAddressSuggestionMetric,
+      SuggestionEvent::kCreateNewPlusAddressSuggested, 1);
+  EXPECT_EQ(
+      user_action_tester.GetActionCount("PlusAddresses.CreateSuggestionShown"),
+      1);
+}
+
+// Tests that a user action is recorded when the user selects the plus address
+// creation option.
+TEST_F(PlusAddressSuggestionsTest, RecordCreateSuggestionUserActionChosen) {
+  base::UserActionTester user_action_tester;
+  service().RecordAutofillSuggestionEvent(
+      SuggestionEvent::kCreateNewPlusAddressChosen);
+  EXPECT_EQ(user_action_tester.GetActionCount(
+                "PlusAddresses.CreateSuggestionAccepted"),
+            1);
 }
 
 // Tests that a create plus address suggestion is offered regardless of the
@@ -1859,11 +1818,19 @@ TEST_F(PlusAddressSuggestionsTest, GetManagePlusAddressSuggestion) {
                                Suggestion::Icon::kGoogleMonochrome));
 }
 
+// Tests that the last plus address usage time is recorded correctly.
+TEST_F(PlusAddressSuggestionsTest, DidFillPlusAddress) {
+  service().DidFillPlusAddress();
+  EXPECT_EQ(pref_service().GetTime(prefs::kLastPlusAddressFillingTime),
+            base::Time::Now());
+}
+
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 TEST_F(PlusAddressSuggestionsTest, OnClickedRefreshInlineSuggestion) {
   base::test::ScopedFeatureList feature_list{
       features::kPlusAddressInlineCreation};
   base::HistogramTester histogram_tester;
+  base::UserActionTester user_action_tester;
   base::MockCallback<PlusAddressService::UpdateSuggestionsCallback> callback;
   EXPECT_CALL(callback,
               Run(ElementsAre(EqualsSuggestion(
@@ -1881,6 +1848,7 @@ TEST_F(PlusAddressSuggestionsTest, OnClickedRefreshInlineSuggestion) {
   histogram_tester.ExpectUniqueSample(
       kPlusAddressSuggestionMetric,
       SuggestionEvent::kRefreshPlusAddressInlineClicked, 1);
+  EXPECT_EQ(user_action_tester.GetActionCount("PlusAddresses.Refreshed"), 1);
 }
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 

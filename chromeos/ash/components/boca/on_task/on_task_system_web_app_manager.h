@@ -5,9 +5,7 @@
 #ifndef CHROMEOS_ASH_COMPONENTS_BOCA_ON_TASK_ON_TASK_SYSTEM_WEB_APP_MANAGER_H_
 #define CHROMEOS_ASH_COMPONENTS_BOCA_ON_TASK_ON_TASK_SYSTEM_WEB_APP_MANAGER_H_
 
-#include "base/containers/flat_set.h"
 #include "base/functional/callback_forward.h"
-#include "chromeos/ash/components/boca/activity/active_tab_tracker.h"
 #include "chromeos/ash/components/boca/on_task/on_task_blocklist.h"
 #include "components/sessions/core/session_id.h"
 #include "url/gurl.h"
@@ -44,19 +42,31 @@ class OnTaskSystemWebAppManager {
   // id.
   virtual void SetWindowTrackerForSystemWebAppWindow(
       SessionID window_id,
-      ActiveTabTracker* observer) = 0;
+      const std::vector<boca::BocaWindowObserver*> observers) = 0;
 
   // Creates a background tab with the given URL and restriction_level in the
   // specified Boca SWA window.
   virtual SessionID CreateBackgroundTabWithUrl(
       SessionID window_id,
       GURL url,
-      OnTaskBlocklist::RestrictionLevel restriction_level) = 0;
+      ::boca::LockedNavigationOptions::NavigationType restriction_level) = 0;
 
   // Removes tabs with the given tab ids in the specified Boca SWA window.
   virtual void RemoveTabsWithTabIds(
       SessionID window_id,
-      const base::flat_set<SessionID>& tab_ids_to_remove) = 0;
+      const std::set<SessionID>& tab_ids_to_remove) = 0;
+
+  // Sets up the specified Boca SWA window for OnTask. This may remove all
+  // pre-existing content tabs except for the homepage one, normally required
+  // when the app instance was restored manually.
+  virtual void PrepareSystemWebAppWindowForOnTask(SessionID window_id) = 0;
+
+  // Returns a valid tab id associated with the active tab. If
+  // there is no valid active tab, it returns `SessionID::InvalidValue()`.
+  virtual SessionID GetActiveTabID() = 0;
+
+  // Switch to the tab with associated with `tab_id`.
+  virtual void SwitchToTab(SessionID tab_id) = 0;
 
  protected:
   OnTaskSystemWebAppManager() = default;

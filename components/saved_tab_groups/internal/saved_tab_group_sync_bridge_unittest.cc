@@ -14,6 +14,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ref.h"
+#include "base/run_loop.h"
 #include "base/scoped_observation.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
@@ -26,10 +27,13 @@
 #include "components/saved_tab_groups/internal/saved_tab_group_model.h"
 #include "components/saved_tab_groups/internal/saved_tab_group_model_observer.h"
 #include "components/saved_tab_groups/internal/sync_bridge_tab_group_model_wrapper.h"
+#include "components/saved_tab_groups/proto/saved_tab_group_data.pb.h"
 #include "components/saved_tab_groups/public/features.h"
 #include "components/saved_tab_groups/public/pref_names.h"
 #include "components/saved_tab_groups/public/saved_tab_group.h"
 #include "components/saved_tab_groups/public/saved_tab_group_tab.h"
+#include "components/saved_tab_groups/public/types.h"
+#include "components/saved_tab_groups/public/utils.h"
 #include "components/saved_tab_groups/test_support/saved_tab_group_test_utils.h"
 #include "components/sync/base/data_type.h"
 #include "components/sync/engine/commit_queue.h"
@@ -40,6 +44,7 @@
 #include "components/sync/model/entity_change.h"
 #include "components/sync/model/metadata_batch.h"
 #include "components/sync/model/metadata_change_list.h"
+#include "components/sync/model/model_error.h"
 #include "components/sync/model/mutable_data_batch.h"
 #include "components/sync/protocol/entity_data.h"
 #include "components/sync/protocol/entity_specifics.pb.h"
@@ -56,6 +61,7 @@
 using syncer::ConflictResolution;
 using syncer::EntityData;
 using testing::_;
+using testing::Invoke;
 
 namespace tab_groups {
 namespace {
@@ -112,6 +118,19 @@ class ModelObserverForwarder : public SavedTabGroupModelObserver {
   raw_ref<SavedTabGroupModel> model_;
   raw_ref<SavedTabGroupSyncBridge> bridge_;
 
+  base::ScopedObservation<SavedTabGroupModel, SavedTabGroupModelObserver>
+      observation_{this};
+};
+
+class MockTabGroupModelObserver : public SavedTabGroupModelObserver {
+ public:
+  MockTabGroupModelObserver() = default;
+
+  void ObserveModel(SavedTabGroupModel* model) { observation_.Observe(model); }
+
+  MOCK_METHOD(void, SavedTabGroupAddedFromSync, (const base::Uuid&));
+
+ private:
   base::ScopedObservation<SavedTabGroupModel, SavedTabGroupModelObserver>
       observation_{this};
 };
@@ -242,6 +261,7 @@ class SavedTabGroupSyncBridgeTest : public ::testing::Test {
         processor_.CreateForwardingProcessor(), &pref_service_);
     observer_forwarder_ = std::make_unique<ModelObserverForwarder>(
         saved_tab_group_model_, *bridge_);
+    mock_model_observer_.ObserveModel(&saved_tab_group_model_);
     task_environment_.RunUntilIdle();
   }
 
@@ -258,6 +278,33 @@ class SavedTabGroupSyncBridgeTest : public ::testing::Test {
     EXPECT_EQ(expected_count, entries->size());
   }
 
+  std::optional<proto::SavedTabGroupData> ReadSavedTabGroupDataFromStore(
+      const base::Uuid& guid) {
+    const std::string storage_key = guid.AsLowercaseString();
+    base::RunLoop run_loop;
+    std::optional<std::string> read_value;
+    store_->ReadData(
+        {storage_key},
+        base::BindLambdaForTesting(
+            [&run_loop, &read_value](
+                const std::optional<syncer::ModelError>& error,
+                std::unique_ptr<syncer::DataTypeStore::RecordList> data_records,
+                std::unique_ptr<syncer::DataTypeStore::IdList>
+                    missing_id_list) {
+              if (data_records->size() == 1) {
+                read_value = data_records->front().value;
+              }
+              run_loop.Quit();
+            }));
+    run_loop.Run();
+
+    proto::SavedTabGroupData data;
+    if (!read_value.has_value() || !data.ParseFromString(read_value.value())) {
+      return std::nullopt;
+    }
+    return data;
+  }
+
   base::test::TaskEnvironment task_environment_;
   SavedTabGroupModel saved_tab_group_model_;
   SyncBridgeTabGroupModelWrapper sync_bridge_model_wrapper_;
@@ -266,6 +313,7 @@ class SavedTabGroupSyncBridgeTest : public ::testing::Test {
   TestingPrefServiceSimple pref_service_;
   std::unique_ptr<SavedTabGroupSyncBridge> bridge_;
   std::unique_ptr<ModelObserverForwarder> observer_forwarder_;
+  testing::NiceMock<MockTabGroupModelObserver> mock_model_observer_;
 };
 
 // Verify that when we add data into the sync bridge the SavedTabGroupModel will
@@ -314,7 +362,7 @@ TEST_F(SavedTabGroupSyncBridgeTest, ConflictResolutionForTabGroup) {
                        group.saved_guid(), /*position=*/std::nullopt);
   group.AddTabLocally(tab);
   base::Uuid group_id = group.saved_guid();
-  saved_tab_group_model_.Add(std::move(group));
+  saved_tab_group_model_.AddedLocally(std::move(group));
   ASSERT_EQ(saved_tab_group_model_.saved_tab_groups().size(), 1u);
   const SavedTabGroup* group_from_model = saved_tab_group_model_.Get(group_id);
 
@@ -346,7 +394,7 @@ TEST_F(SavedTabGroupSyncBridgeTest, ConflictResolutionForTabGroup) {
               testing::Eq(syncer::ConflictResolution::kUseLocal));
 
   // Local doesn't exist.
-  saved_tab_group_model_.Remove(group_id);
+  saved_tab_group_model_.RemovedLocally(group_id);
   EXPECT_EQ(saved_tab_group_model_.saved_tab_groups().size(), 0u);
   remote_data = CreateEntityData(group_specific);
   EXPECT_THAT(bridge_->ResolveConflict("storagekey1", remote_data),
@@ -363,7 +411,7 @@ TEST_F(SavedTabGroupSyncBridgeTest, ConflictResolutionForTab) {
   group.AddTabLocally(tab);
   base::Uuid group_id = group.saved_guid();
   base::Uuid tab_id = tab.saved_tab_guid();
-  saved_tab_group_model_.Add(std::move(group));
+  saved_tab_group_model_.AddedLocally(std::move(group));
   EXPECT_EQ(saved_tab_group_model_.saved_tab_groups().size(), 1u);
   const SavedTabGroup* group_from_model = saved_tab_group_model_.Get(group_id);
 
@@ -396,7 +444,7 @@ TEST_F(SavedTabGroupSyncBridgeTest, ConflictResolutionForTab) {
               testing::Eq(syncer::ConflictResolution::kUseLocal));
 
   // Local doesn't exist.
-  saved_tab_group_model_.Remove(group_id);
+  saved_tab_group_model_.RemovedLocally(group_id);
   EXPECT_EQ(saved_tab_group_model_.saved_tab_groups().size(), 0u);
   remote_data = CreateEntityData(tab_specific);
   EXPECT_THAT(bridge_->ResolveConflict("storagekey1", remote_data),
@@ -429,7 +477,7 @@ TEST_F(SavedTabGroupSyncBridgeTest, MergeFullSyncDataWithExistingData) {
   base::Time tab_1_creation_time = tab_1.creation_time_windows_epoch_micros();
   base::Time tab_2_creation_time = tab_2.creation_time_windows_epoch_micros();
 
-  saved_tab_group_model_.Add(std::move(group));
+  saved_tab_group_model_.AddedLocally(std::move(group));
 
   const SavedTabGroup* group_from_model =
       saved_tab_group_model_.Get(group_guid);
@@ -449,12 +497,6 @@ TEST_F(SavedTabGroupSyncBridgeTest, MergeFullSyncDataWithExistingData) {
 
   syncer::EntityChangeList entity_change_list = CreateEntityChangeListFromGroup(
       updated_group, syncer::EntityChange::ChangeType::ACTION_UPDATE);
-
-  // Ensure the updated data is eligible to be merged.
-  EXPECT_TRUE(group_from_model->RemoteGroupHasMoreRecentUpdates(
-      updated_group.update_time_windows_epoch_micros()));
-  EXPECT_TRUE(
-      group_from_model->GetTab(tab_1_guid)->ShouldMergeTab(updated_tab_1));
 
   bridge_->MergeFullSyncData(bridge_->CreateMetadataChangeList(),
                              std::move(entity_change_list));
@@ -506,8 +548,8 @@ TEST_F(SavedTabGroupSyncBridgeTest,
 
   base::Uuid group_id1 = group1.saved_guid();
   base::Uuid group_id2 = group2.saved_guid();
-  saved_tab_group_model_.Add(std::move(group1));
-  saved_tab_group_model_.Add(std::move(group2));
+  saved_tab_group_model_.AddedLocally(std::move(group1));
+  saved_tab_group_model_.AddedLocally(std::move(group2));
   VerifyEntriesCount(4u);
 
   EXPECT_EQ(saved_tab_group_model_.saved_tab_groups().size(), 2u);
@@ -917,7 +959,7 @@ TEST_F(SavedTabGroupSyncBridgeTest, AddGroupLocally) {
   EXPECT_CALL(processor_, Put(tab_2_guid.AsLowercaseString(), _, _));
   EXPECT_CALL(processor_, Put(group_guid.AsLowercaseString(), _, _));
 
-  saved_tab_group_model_.Add(std::move(group));
+  saved_tab_group_model_.AddedLocally(std::move(group));
 }
 
 // Verify that local ID change events aren't passed to the processor.
@@ -929,7 +971,7 @@ TEST_F(SavedTabGroupSyncBridgeTest, LocalIdChanged) {
   SavedTabGroupTab tab_1(GURL("https://website.com"), u"Website Title",
                          group.saved_guid(), /*position=*/std::nullopt);
   group.AddTabLocally(tab_1);
-  saved_tab_group_model_.Add(group);
+  saved_tab_group_model_.AddedLocally(group);
 
   // Local ID change events on tabs or groups shouldn't propagate to the
   // processor.
@@ -959,7 +1001,7 @@ TEST_F(SavedTabGroupSyncBridgeTest, RemoveGroupLocally) {
   base::Uuid group_guid = group.saved_guid();
   base::Uuid tab_1_guid = tab_1.saved_tab_guid();
   base::Uuid tab_2_guid = tab_2.saved_tab_guid();
-  saved_tab_group_model_.Add(std::move(group));
+  saved_tab_group_model_.AddedLocally(std::move(group));
 
   EXPECT_CALL(processor_, Delete(group_guid.AsLowercaseString(), _, _));
   EXPECT_CALL(processor_, Delete(tab_1_guid.AsLowercaseString(), _, _))
@@ -967,7 +1009,7 @@ TEST_F(SavedTabGroupSyncBridgeTest, RemoveGroupLocally) {
   EXPECT_CALL(processor_, Delete(tab_2_guid.AsLowercaseString(), _, _))
       .Times(0);
 
-  saved_tab_group_model_.Remove(group_guid);
+  saved_tab_group_model_.RemovedLocally(group_guid);
 
   // Verify that the orphaned tabs are still stored locally in the sync bridge.
   const std::vector<proto::SavedTabGroupData>& tabs_missing_groups =
@@ -1003,7 +1045,7 @@ TEST_F(SavedTabGroupSyncBridgeTest, UpdateGroupLocally) {
   base::Uuid group_guid = group.saved_guid();
   base::Uuid tab_1_guid = tab_1.saved_tab_guid();
   base::Uuid tab_2_guid = tab_2.saved_tab_guid();
-  saved_tab_group_model_.Add(std::move(group));
+  saved_tab_group_model_.AddedLocally(std::move(group));
 
   EXPECT_CALL(processor_, Put(group_guid.AsLowercaseString(), _, _));
   EXPECT_CALL(processor_, Put(tab_1_guid.AsLowercaseString(), _, _)).Times(0);
@@ -1011,8 +1053,8 @@ TEST_F(SavedTabGroupSyncBridgeTest, UpdateGroupLocally) {
 
   tab_groups::TabGroupVisualData visual_data(
       u"New Title", tab_groups::TabGroupColorId::kYellow);
-  saved_tab_group_model_.UpdateVisualData(group.local_group_id().value(),
-                                          &visual_data);
+  saved_tab_group_model_.UpdateVisualDataLocally(group.local_group_id().value(),
+                                                 &visual_data);
 }
 
 // Verify duplicate tab added from sync is merged with the correct tab and not
@@ -1035,7 +1077,7 @@ TEST_F(SavedTabGroupSyncBridgeTest, AddTabFromSync) {
   base::Uuid tab_1_guid = tab_1.saved_tab_guid();
   base::Uuid tab_2_guid = tab_2.saved_tab_guid();
   base::Uuid tab_3_guid = tab_3.saved_tab_guid();
-  saved_tab_group_model_.Add(std::move(group));
+  saved_tab_group_model_.AddedLocally(std::move(group));
   EXPECT_CALL(processor_, Put(tab_3_guid.AsLowercaseString(), _, _)).Times(0);
   EXPECT_CALL(processor_, Put(tab_1_guid.AsLowercaseString(), _, _)).Times(0);
   EXPECT_CALL(processor_, Put(tab_2_guid.AsLowercaseString(), _, _)).Times(0);
@@ -1067,7 +1109,7 @@ TEST_F(SavedTabGroupSyncBridgeTest, AddTabLocally) {
   base::Uuid tab_1_guid = tab_1.saved_tab_guid();
   base::Uuid tab_2_guid = tab_2.saved_tab_guid();
   base::Uuid tab_3_guid = tab_3.saved_tab_guid();
-  saved_tab_group_model_.Add(std::move(group));
+  saved_tab_group_model_.AddedLocally(std::move(group));
 
   EXPECT_CALL(processor_, Put(tab_3_guid.AsLowercaseString(), _, _));
   EXPECT_CALL(processor_, Put(tab_1_guid.AsLowercaseString(), _, _)).Times(0);
@@ -1092,7 +1134,7 @@ TEST_F(SavedTabGroupSyncBridgeTest, RemoveTabLocally) {
   base::Uuid group_guid = group.saved_guid();
   base::Uuid tab_1_guid = tab_1.saved_tab_guid();
   base::Uuid tab_2_guid = tab_2.saved_tab_guid();
-  saved_tab_group_model_.Add(std::move(group));
+  saved_tab_group_model_.AddedLocally(std::move(group));
 
   EXPECT_CALL(processor_, Delete(tab_1_guid.AsLowercaseString(), _, _));
   EXPECT_CALL(processor_, Put(tab_2_guid.AsLowercaseString(), _, _)).Times(0);
@@ -1120,13 +1162,18 @@ TEST_F(SavedTabGroupSyncBridgeTest, UpdateTabLocally) {
   base::Uuid group_guid = group.saved_guid();
   base::Uuid tab_1_guid = tab_1.saved_tab_guid();
   base::Uuid tab_2_guid = tab_2.saved_tab_guid();
-  saved_tab_group_model_.Add(std::move(group));
+  saved_tab_group_model_.AddedLocally(std::move(group));
 
   EXPECT_CALL(processor_, Put(tab_1_guid.AsLowercaseString(), _, _));
   EXPECT_CALL(processor_, Put(tab_2_guid.AsLowercaseString(), _, _)).Times(0);
   EXPECT_CALL(processor_, Put(group_guid.AsLowercaseString(), _, _)).Times(0);
 
-  saved_tab_group_model_.UpdateTabInGroup(group_guid, updated_tab_1);
+  saved_tab_group_model_.UpdateTabInGroup(group_guid, updated_tab_1,
+                                          /*notify_observers=*/true);
+
+  EXPECT_CALL(processor_, Put(tab_1_guid.AsLowercaseString(), _, _)).Times(0);
+  saved_tab_group_model_.UpdateTabInGroup(group_guid, updated_tab_1,
+                                          /*notify_observers=*/false);
 }
 
 // Verify that locally reordered tabs updates all tabs in the group.
@@ -1148,7 +1195,7 @@ TEST_F(SavedTabGroupSyncBridgeTest, ReorderTabsInGroupLocally) {
   base::Uuid group_guid = group.saved_guid();
   base::Uuid tab_1_guid = tab_1.saved_tab_guid();
   base::Uuid tab_2_guid = tab_2.saved_tab_guid();
-  saved_tab_group_model_.Add(std::move(group));
+  saved_tab_group_model_.AddedLocally(std::move(group));
 
   EXPECT_CALL(processor_, Put(tab_1_guid.AsLowercaseString(), _, _));
   EXPECT_CALL(processor_, Put(tab_2_guid.AsLowercaseString(), _, _));
@@ -1179,8 +1226,8 @@ TEST_F(SavedTabGroupSyncBridgeTest, ReorderGroupLocally) {
   base::Uuid group_2_guid = group_2.saved_guid();
   base::Uuid tab_1_guid = tab_1.saved_tab_guid();
   base::Uuid tab_2_guid = tab_2.saved_tab_guid();
-  saved_tab_group_model_.Add(std::move(group));
-  saved_tab_group_model_.Add(std::move(group_2));
+  saved_tab_group_model_.AddedLocally(std::move(group));
+  saved_tab_group_model_.AddedLocally(std::move(group_2));
 
   EXPECT_CALL(processor_, Put(tab_1_guid.AsLowercaseString(), _, _)).Times(0);
   EXPECT_CALL(processor_, Put(tab_2_guid.AsLowercaseString(), _, _)).Times(0);
@@ -1506,7 +1553,7 @@ TEST_F(SavedTabGroupSyncBridgeTest, NewlyOrphanedGroupsDontGetDestroyed) {
   group.SetPosition(0);
   group.SetUpdateTimeWindowsEpochMicros(base::Time::Now());
 
-  saved_tab_group_model_.Add(std::move(group));
+  saved_tab_group_model_.AddedLocally(std::move(group));
   EXPECT_EQ(1u, saved_tab_group_model_.saved_tab_groups().size());
 
   bridge_->MergeFullSyncData(bridge_->CreateMetadataChangeList(), {});
@@ -1524,12 +1571,48 @@ TEST_F(SavedTabGroupSyncBridgeTest, OldOrphanedGroupsGetDestroyed) {
   group.SetUpdateTimeWindowsEpochMicros(
       (base::Time::Now() - kDiscardOrphanedTabsThreshold) - base::Days(1));
 
-  saved_tab_group_model_.Add(std::move(group));
+  saved_tab_group_model_.AddedLocally(std::move(group));
   EXPECT_EQ(1u, saved_tab_group_model_.saved_tab_groups().size());
 
   bridge_->MergeFullSyncData(bridge_->CreateMetadataChangeList(), {});
 
   EXPECT_EQ(0u, saved_tab_group_model_.saved_tab_groups().size());
+}
+
+TEST_F(SavedTabGroupSyncBridgeTest, StoreLocalIdOnRemoteUpdate) {
+  if (!AreLocalIdsPersisted()) {
+    // This test is only relevant if local IDs are persisted.
+    return;
+  }
+  const LocalTabGroupID kLocalGroupId = test::GenerateRandomTabGroupID();
+
+  // Initialize the bridge.
+  syncer::EntityChangeList empty_change_list;
+  bridge_->MergeFullSyncData(bridge_->CreateMetadataChangeList(),
+                             std::move(empty_change_list));
+
+  // Simulate a reentrant call during applying remote updates.
+  EXPECT_CALL(mock_model_observer_, SavedTabGroupAddedFromSync)
+      .WillOnce(Invoke([this, &kLocalGroupId](const base::Uuid& group_guid) {
+        saved_tab_group_model_.OnGroupOpenedInTabStrip(group_guid,
+                                                       kLocalGroupId);
+      }));
+  SavedTabGroup group(u"Test Title", tab_groups::TabGroupColorId::kBlue, {},
+                      /*position=*/std::nullopt);
+  bridge_->ApplyIncrementalSyncChanges(
+      bridge_->CreateMetadataChangeList(),
+      CreateEntityChangeListFromGroup(
+          group, syncer::EntityChange::ChangeType::ACTION_ADD));
+  testing::Mock::VerifyAndClearExpectations(&mock_model_observer_);
+
+  // Verify that the local group ID is persisted.
+  std::optional<proto::SavedTabGroupData> stored_saved_tab_group =
+      ReadSavedTabGroupDataFromStore(group.saved_guid());
+  ASSERT_TRUE(stored_saved_tab_group.has_value());
+  EXPECT_EQ(
+      LocalTabGroupIDFromString(
+          stored_saved_tab_group->local_tab_group_data().local_group_id()),
+      kLocalGroupId);
 }
 
 }  // namespace tab_groups

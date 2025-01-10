@@ -53,6 +53,7 @@ import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.night_mode.WebContentsDarkModeController;
 import org.chromium.chrome.browser.omaha.UpdateMenuItemHelper;
+import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.quick_delete.QuickDeleteController;
 import org.chromium.chrome.browser.readaloud.ReadAloudController;
@@ -83,6 +84,7 @@ import org.chromium.components.commerce.core.SubscriptionType;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtils;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.embedder_support.util.UrlUtilities;
+import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.components.webapk.lib.client.WebApkValidator;
 import org.chromium.components.webapps.AppBannerManager;
 import org.chromium.components.webapps.WebappsUtils;
@@ -462,7 +464,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
 
             MenuItem bookmarkMenuItemShortcut = actionBar.findItem(R.id.bookmark_this_page_id);
             updateBookmarkMenuItemShortcut(
-                    bookmarkMenuItemShortcut, currentTab, /* fromCCT= */ false);
+                    bookmarkMenuItemShortcut, currentTab, /* fromCct= */ false);
 
             MenuItem offlineMenuItem = actionBar.findItem(R.id.offline_page_id);
             offlineMenuItem.setEnabled(isCurrentTabNotNull && shouldEnableDownloadPage(currentTab));
@@ -499,12 +501,19 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
 
         // Don't allow either "chrome://" pages or interstitial pages to be shared, or when the
         // current tab is null.
-        menu.findItem(R.id.share_row_menu_id)
-                .setVisible(isCurrentTabNotNull && mShareUtils.shouldEnableShare(currentTab));
+        boolean showShare = isCurrentTabNotNull && mShareUtils.shouldEnableShare(currentTab);
+        menu.findItem(R.id.share_row_menu_id).setVisible(showShare);
 
         if (isCurrentTabNotNull) {
             updateDirectShareMenuItem(menu.findItem(R.id.direct_share_menu_id));
         }
+
+        // For the non-desktop case, Print action will be showed in the Share UI instead.
+        boolean showPrint =
+                showShare
+                        && BuildConfig.IS_DESKTOP_ANDROID
+                        && UserPrefs.get(currentTab.getProfile()).getBoolean(Pref.PRINTING_ENABLED);
+        menu.findItem(R.id.print_id).setVisible(showPrint);
 
         menu.findItem(R.id.paint_preview_show_id)
                 .setVisible(
@@ -1060,7 +1069,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
             if (SyncSettingsUtils.getIdentityError(profile) != SyncSettingsUtils.SyncError.NO_ERROR
                     || SyncSettingsUtils.getSyncError(profile)
                             != SyncSettingsUtils.SyncError.NO_ERROR) {
-                return mContext.getResources().getString(R.string.menu_settings_account_error);
+                return mContext.getString(R.string.menu_settings_account_error);
             }
         }
         return null;
@@ -1163,7 +1172,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
      * @param currentTab Current tab being displayed.
      */
     protected void updateBookmarkMenuItemShortcut(
-            MenuItem bookmarkMenuItemShortcut, @Nullable Tab currentTab, boolean fromCCT) {
+            MenuItem bookmarkMenuItemShortcut, @Nullable Tab currentTab, boolean fromCct) {
         if (!mBookmarkModelSupplier.hasValue() || currentTab == null) {
             // If the BookmarkModel still isn't available, assume the bookmark menu item is not
             // editable.

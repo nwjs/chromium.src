@@ -145,7 +145,9 @@ NSString* HostnameFromGURL(GURL URL) {
 
 - (void)setUp {
   [super setUp];
-  [ChromeEarlGrey clearBrowsingHistory];
+  if (![ChromeTestCase forceRestartAndWipe]) {
+    [ChromeEarlGrey clearBrowsingHistory];
+  }
   GREYAssertTrue(self.testServer->Start(), @"Test server failed to start.");
   SignInAndEnableHistorySync();
   [NewTabPageAppInterface disableSetUpList];
@@ -153,7 +155,7 @@ NSString* HostnameFromGURL(GURL URL) {
   [ChromeEarlGrey openNewTab];
 }
 
-- (void)tearDown {
+- (void)tearDownHelper {
   [SigninEarlGrey signOut];
   [ChromeEarlGrey waitForSyncEngineInitialized:NO
                                    syncTimeout:kSyncOperationTimeout];
@@ -162,7 +164,7 @@ NSString* HostnameFromGURL(GURL URL) {
                                                  kTabResumptioDisabledPref];
   [ChromeEarlGrey clearUserPrefWithName:tab_resumption_prefs::
                                             kTabResumptionLastOpenedTabURLPref];
-  [super tearDown];
+  [super tearDownHelper];
 }
 
 // Tests that the tab resumption tile is correctly displayed for a distant tab.

@@ -59,6 +59,9 @@ const float kMaxModuleEngagementIndex = 50;
           kMagicStackModuleEngagementMostVisitedIndexHistogram, index,
           kMaxModuleEngagementIndex);
       break;
+    case ContentSuggestionsModuleType::kSendTabPromo:
+      // TODO(crbug.com/343495516): log metrics.
+      break;
     case ContentSuggestionsModuleType::kShortcuts:
       UMA_HISTOGRAM_EXACT_LINEAR(
           kMagicStackModuleEngagementShortcutsIndexHistogram, index,
@@ -127,8 +130,7 @@ const float kMaxModuleEngagementIndex = 50;
       base::RecordAction(base::UserMetricsAction(kShowWhatsNewAction));
       break;
     case NTPCollectionShortcutTypeCount:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 }
 

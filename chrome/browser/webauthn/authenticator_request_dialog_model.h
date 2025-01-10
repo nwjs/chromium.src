@@ -43,6 +43,12 @@ struct VectorIcon;
 struct AccountInfo;
 class Profile;
 
+enum class EnclaveEnabledStatus {
+  kDisabled,
+  kEnabled,
+  kEnabledAndReauthNeeded,
+};
+
 //                ┌───────┐
 //                │ View  │
 //                └───────┘ Events are
@@ -83,14 +89,11 @@ class Profile;
   /* powered. Valid action when at step: kBlePowerOnManual, */                \
   /* kBlePowerOnAutomatic. */                                                 \
   AUTHENTICATOR_REQUEST_EVENT_0(ContinueWithFlowAfterBleAdapterPowered)       \
-  /* Called when the enclave authenticator is available for a request. */     \
-  AUTHENTICATOR_REQUEST_EVENT_0(EnclaveEnabled)                               \
-  /* Called when the enclave authenticator needs a reauth before it is */     \
-  /* available for a request. */                                              \
-  AUTHENTICATOR_REQUEST_EVENT_0(EnclaveNeedsReauth)                           \
-  /* Called when the ChromeOS authenticator is ready to handle a pending */   \
+  /* Called when the enclave authenticator is available for a request or */   \
+  /* the enclave authenticator needs a reauth before it is available for a */ \
   /* request. */                                                              \
-  AUTHENTICATOR_REQUEST_EVENT_0(OnChromeOSGPMRequestReady)                    \
+  AUTHENTICATOR_REQUEST_EVENT_1(EnclaveEnabledStatusChanged,                  \
+                                EnclaveEnabledStatus)                         \
   AUTHENTICATOR_REQUEST_EVENT_0(OnBioEnrollmentDone)                          \
   /* Called when the power state of the Bluetooth adapter has changed. */     \
   AUTHENTICATOR_REQUEST_EVENT_0(OnBluetoothPoweredStateChanged)               \
@@ -112,8 +115,7 @@ class Profile;
   AUTHENTICATOR_REQUEST_EVENT_0(OnGPMConfirmOffTheRecordCreate)               \
   /* Called when the user clicks "Forgot PIN" during UV. */                   \
   AUTHENTICATOR_REQUEST_EVENT_0(OnForgotGPMPinPressed)                        \
-  /* Called when the user clicks “Manage Devices” to manage their */      \
-  /* phones. */                                                               \
+  /* Called when the user clicks Manage Devices to manage their phones. */    \
   AUTHENTICATOR_REQUEST_EVENT_0(OnManageDevicesClicked)                       \
   /* OnOffTheRecordInterstitialAccepted is called when the user accepts */    \
   /* the interstitial that warns that platform/caBLE authenticators may */    \
@@ -194,9 +196,10 @@ struct AuthenticatorRequestDialogModel
   enum class Step {
     // The UX flow has not started yet, the dialog should still be hidden.
     kNotStarted,
-    // Conditionally mediated UI. No dialog is shown, instead credentials are
-    // offered to the user on the password autofill prompt.
-    kConditionalMediation,
+    // Passkey autofill (i.e. WebAuthn get() with conditional mediation). No
+    // dialog is shown, instead credentials are offered to the user on the
+    // password autofill prompt.
+    kPasskeyAutofill,
     kMechanismSelection,
     // The request errored out before completing. Error will only be sent
     // after user interaction.

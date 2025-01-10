@@ -10,6 +10,7 @@
 #include "base/timer/timer.h"
 #include "chromeos/ash/components/audio/audio_device.h"
 #include "chromeos/ash/components/audio/cras_audio_handler.h"
+#include "chromeos/ash/components/audio/public/mojom/cros_audio_config.mojom-shared.h"
 
 namespace ash::audio_config {
 
@@ -136,6 +137,10 @@ mojom::AudioEffectState GetHfpMicSrState(const AudioDevice& device) {
 mojom::AudioEffectState GetSpatialAudioState(const AudioDevice& device) {
   CrasAudioHandler* audio_handler = CrasAudioHandler::Get();
   CHECK(audio_handler);
+
+  if (!audio_handler->IsSpatialAudioSupportedForDevice(device.id)) {
+    return mojom::AudioEffectState::kNotSupported;
+  }
 
   // Get current device wide preference state from `CrasAudioHandler`.
   return audio_handler->GetSpatialAudioState()
@@ -382,6 +387,32 @@ void CrosAudioConfigImpl::SetInputMuted(bool muted) {
   RecordMuteStateChanged(kInputMuteChangeHistogramName, muted);
 }
 
+mojom::VoiceIsolationUIAppearancePtr
+CrosAudioConfigImpl::GetVoiceIsolationUIAppearance() const {
+  auto mojom_appearance = mojom::VoiceIsolationUIAppearance::New();
+  CrasAudioHandler* audio_handler = CrasAudioHandler::Get();
+  if (audio_handler->input_muted_by_microphone_mute_switch()) {
+    return mojom_appearance;
+  }
+
+  VoiceIsolationUIAppearance appearance =
+      audio_handler->GetVoiceIsolationUIAppearance();
+  mojom_appearance->toggle_type =
+      static_cast<mojom::AudioEffectType>(appearance.toggle_type);
+  mojom_appearance->effect_mode_options = appearance.effect_mode_options;
+  mojom_appearance->show_effect_fallback_message =
+      appearance.show_effect_fallback_message;
+  return mojom_appearance;
+}
+
+void CrosAudioConfigImpl::RefreshVoiceIsolationState() {
+  CrasAudioHandler::Get()->RefreshVoiceIsolationState();
+}
+
+void CrosAudioConfigImpl::RefreshVoiceIsolationPreferredEffect() {
+  CrasAudioHandler::Get()->RefreshVoiceIsolationPreferredEffect();
+}
+
 void CrosAudioConfigImpl::SetNoiseCancellationEnabled(bool enabled) {
   CrasAudioHandler* audio_handler = CrasAudioHandler::Get();
 
@@ -497,6 +528,11 @@ void CrosAudioConfigImpl::OnInputMuteChanged(
 
 void CrosAudioConfigImpl::OnInputMutedByMicrophoneMuteSwitchChanged(
     bool muted) {
+  NotifyObserversAudioSystemPropertiesChanged();
+}
+
+void CrosAudioConfigImpl::OnVoiceIsolationUIAppearanceChanged(
+    VoiceIsolationUIAppearance appearance) {
   NotifyObserversAudioSystemPropertiesChanged();
 }
 

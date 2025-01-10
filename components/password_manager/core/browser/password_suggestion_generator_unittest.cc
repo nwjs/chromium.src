@@ -47,6 +47,7 @@ using testing::IsEmpty;
 using testing::Matcher;
 using testing::NiceMock;
 using testing::Not;
+using testing::Property;
 using testing::Return;
 using testing::ReturnRef;
 
@@ -107,7 +108,7 @@ Matcher<Suggestion> EqualsManualFallbackSuggestion(
       Field(
           "labels", &Suggestion::labels,
           ElementsAre(ElementsAre(autofill::Suggestion::Text(username_label)))),
-      Field("is_acceptable", &Suggestion::is_acceptable, is_acceptable),
+      Property(&Suggestion::IsAcceptable, is_acceptable),
       Field("custom_icon", &Suggestion::custom_icon, custom_icon),
       Field("payload", &Suggestion::payload, payload));
 }
@@ -127,11 +128,16 @@ Matcher<Suggestion> EqualsOptInToAccountThenGeneratePasswordSuggestion() {
       Suggestion::Icon::kKey);
 }
 
-Matcher<Suggestion> EqualsEntryToOptInToAccountStorageThenFill(
-    bool has_passkey_sync) {
+Matcher<Suggestion> EqualsEntryToOptInToAccountStorageThenFill() {
+#if BUILDFLAG(IS_IOS)
+  const bool webauthn_sync_credentials =
+      syncer::IsWebauthnCredentialSyncEnabled();
+#else
+  constexpr bool webauthn_sync_credentials = true;
+#endif
   return EqualsSuggestion(
       SuggestionType::kPasswordAccountStorageOptIn,
-      has_passkey_sync
+      webauthn_sync_credentials
           ? l10n_util::GetStringUTF16(
                 IDS_PASSWORD_MANAGER_OPT_INTO_ACCOUNT_STORE_WITH_PASSKEYS)
           : l10n_util::GetStringUTF16(
@@ -409,11 +415,6 @@ TEST_F(PasswordSuggestionGeneratorTest,
 // Verify the suggestion content for the additional login.
 TEST_F(PasswordSuggestionGeneratorTest,
        PasswordSuggestions_WithAdditionalLogin) {
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatureStates(
-      {{syncer::kSyncWebauthnCredentials, false}});
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   PasswordFormFillData fill_data = password_form_fill_data();
   PasswordAndMetadata additional_login;
   additional_login.username_value = u"additional_login";
@@ -660,10 +661,6 @@ TEST_F(PasswordSuggestionGeneratorTest, GeneratePassword_HasSavedPasskey) {
 // should be shown to the user.
 TEST_F(PasswordSuggestionGeneratorTest,
        GeneratePassword_ShouldShowAccountStorageOptIn) {
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(syncer::kSyncWebauthnCredentials);
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   ON_CALL(*client().GetPasswordFeatureManager(), ShouldShowAccountStorageOptIn)
       .WillByDefault(Return(true));
   std::vector<Suggestion> suggestions = generator().GetSuggestionsForDomain(
@@ -677,8 +674,7 @@ TEST_F(PasswordSuggestionGeneratorTest,
                               password_label(8u),
                               /*realm_label=*/u"", favicon()),
                           EqualsOptInToAccountThenGeneratePasswordSuggestion(),
-                          EqualsEntryToOptInToAccountStorageThenFill(
-                              /*has_passkey_sync=*/false),
+                          EqualsEntryToOptInToAccountStorageThenFill(),
                           EqualsSuggestion(SuggestionType::kSeparator),
                           EqualsManagePasswordsSuggestion()));
 }
@@ -687,10 +683,6 @@ TEST_F(PasswordSuggestionGeneratorTest,
 // no saved credentials for the current domain.
 TEST_F(PasswordSuggestionGeneratorTest,
        OptInToAccountStorage_NoSavedCredentials) {
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(syncer::kSyncWebauthnCredentials);
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   ON_CALL(*client().GetPasswordFeatureManager(), ShouldShowAccountStorageOptIn)
       .WillByDefault(Return(true));
   std::vector<Suggestion> suggestions = generator().GetSuggestionsForDomain(
@@ -699,33 +691,8 @@ TEST_F(PasswordSuggestionGeneratorTest,
       ShowWebAuthnCredentials(false));
 
   EXPECT_THAT(suggestions,
-              ElementsAre(EqualsEntryToOptInToAccountStorageThenFill(
-                  /*has_passkey_sync=*/false)));
+              ElementsAre(EqualsEntryToOptInToAccountStorageThenFill()));
 }
-
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-// Verifies the opt into account storage suggestion content when the
-// `kSyncWebauthnCredentials` feature is enabled.
-TEST_F(PasswordSuggestionGeneratorTest, OptInToAccountStorage_HasPasskeySync) {
-  base::test::ScopedFeatureList feature_list(syncer::kSyncWebauthnCredentials);
-  ON_CALL(*client().GetPasswordFeatureManager(), ShouldShowAccountStorageOptIn)
-      .WillByDefault(Return(true));
-  std::vector<Suggestion> suggestions = generator().GetSuggestionsForDomain(
-      password_form_fill_data(), favicon(), /*username_filter=*/u"",
-      OffersGeneration(false), ShowPasswordSuggestions(true),
-      ShowWebAuthnCredentials(false));
-
-  EXPECT_THAT(suggestions,
-              ElementsAre(EqualsDomainPasswordSuggestion(
-                              SuggestionType::kPasswordEntry, u"username",
-                              password_label(8u),
-                              /*realm_label=*/u"", favicon()),
-                          EqualsEntryToOptInToAccountStorageThenFill(
-                              /*has_passkey_sync=*/true),
-                          EqualsSuggestion(SuggestionType::kSeparator),
-                          EqualsManagePasswordsSuggestion()));
-}
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 // Test that account storage resignin suggestion is still shown if the there're
 // no credentials saved for the current domain.
@@ -787,9 +754,8 @@ TEST_F(PasswordSuggestionGeneratorTest, DomainSuggestions_SuggestionOrder) {
       .WillByDefault(ReturnRef(passkeys));
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures({device::kWebAuthnEnclaveAuthenticator},
-                                {syncer::kSyncWebauthnCredentials});
+  base::test::ScopedFeatureList feature_list{
+      device::kWebAuthnEnclaveAuthenticator};
   bool use_new_strings = true;
 #else
   bool use_new_strings = false;
@@ -835,8 +801,7 @@ TEST_F(PasswordSuggestionGeneratorTest, DomainSuggestions_SuggestionOrder) {
                                          password_label(12u),
                                          /*realm_label=*/u"", favicon()),
           EqualsOptInToAccountThenGeneratePasswordSuggestion(),
-          EqualsEntryToOptInToAccountStorageThenFill(
-              /*has_passkey_sync=*/false),
+          EqualsEntryToOptInToAccountStorageThenFill(),
           EqualsAccountStorageResignin(),
           EqualsSuggestion(SuggestionType::kSeparator),
           EqualsManagePasswordsSuggestion(

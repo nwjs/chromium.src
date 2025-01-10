@@ -20,10 +20,6 @@
 #include "ui/webui/resources/cr_components/history_clusters/history_clusters.mojom-forward.h"
 #include "ui/webui/resources/cr_components/history_embeddings/history_embeddings.mojom.h"
 
-namespace content {
-class BrowserContext;
-}
-
 namespace ui {
 class ColorChangeHandler;
 }
@@ -38,6 +34,10 @@ namespace page_image_service {
 class ImageServiceHandler;
 }
 
+namespace content {
+class BrowserContext;
+}
+
 class BrowserWindowInterface;
 class HistoryClustersSidePanelUI;
 
@@ -47,8 +47,8 @@ class HistoryClustersSidePanelUIConfig
   HistoryClustersSidePanelUIConfig();
 
   // DefaultTopChromeWebUIConfig::
-  bool IsWebUIEnabled(content::BrowserContext* browser_context) override;
   bool IsPreloadable() override;
+  bool IsWebUIEnabled(content::BrowserContext* browser_context) override;
   std::optional<int> GetCommandIdForTesting() override;
 };
 

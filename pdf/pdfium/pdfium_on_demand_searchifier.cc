@@ -4,8 +4,11 @@
 
 #include "pdf/pdfium/pdfium_on_demand_searchifier.h"
 
+#include <utility>
+
 #include "base/check.h"
 #include "base/containers/contains.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "pdf/pdfium/pdfium_searchify.h"
 
@@ -64,6 +67,7 @@ void PDFiumOnDemandSearchifier::OnOcrDisconnected() {
       current_page_ = nullptr;
       pages_queue_.clear();
       state_ = State::kFailed;
+      engine_->OnSearchifyStateChange(/*busy=*/false);
       return;
 
     case State::kFailed:
@@ -87,6 +91,9 @@ void PDFiumOnDemandSearchifier::SchedulePage(int page_index) {
   CHECK_NE(state_, State::kFailed);
   if (IsPageScheduled(page_index)) {
     return;
+  }
+  if (!current_page_ && pages_queue_.empty() && state_ == State::kIdle) {
+    engine_->OnSearchifyStateChange(/*busy=*/true);
   }
   pages_queue_.push_back(page_index);
   if (state_ == State::kWaitingForResults || !perform_ocr_callback_) {
@@ -121,6 +128,7 @@ void PDFiumOnDemandSearchifier::SearchifyNextPage() {
 
   if (pages_queue_.empty()) {
     state_ = State::kIdle;
+    engine_->OnSearchifyStateChange(/*busy=*/false);
     return;
   }
 
@@ -147,15 +155,30 @@ void PDFiumOnDemandSearchifier::SearchifyNextImage() {
     return;
   }
 
+  // Report metric only once for each page.
+  bool not_reported =
+      searchify_added_text_metric_reported_.insert(current_page_->index())
+          .second;
+  if (not_reported) {
+    base::UmaHistogramBoolean("PDF.SearchifyAddedText",
+                              !current_page_ocr_results_.empty());
+  }
+
   if (!current_page_ocr_results_.empty()) {
     // It is expected that the page would be still loaded.
     FPDF_PAGE page = current_page_->page();
     CHECK(page);
-    current_page_->OnSearchifyGotOcrResult();
+    bool added_text = false;
     for (auto& result : current_page_ocr_results_) {
       FPDF_PAGEOBJECT image = FPDFPage_GetObject(page, result.image_index);
-      AddTextOnImage(engine_->doc(), page, font_.get(), image,
-                     std::move(result.annotation), result.image_size);
+      std::vector<FPDF_PAGEOBJECT> added_text_objects =
+          AddTextOnImage(engine_->doc(), page, font_.get(), image,
+                         std::move(result.annotation), result.image_size);
+      current_page_->OnSearchifyGotOcrResult(added_text_objects);
+      added_text |= !added_text_objects.empty();
+    }
+    if (added_text) {
+      engine_->OnHasSearchifyText();
     }
     current_page_ocr_results_.clear();
 

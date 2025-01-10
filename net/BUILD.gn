@@ -979,6 +979,7 @@ component("net") {
     "spdy/multiplexed_http_stream.h",
     "spdy/multiplexed_session.cc",
     "spdy/multiplexed_session.h",
+    "spdy/multiplexed_session_creation_initiator.h",
     "spdy/spdy_buffer.cc",
     "spdy/spdy_buffer.h",
     "spdy/spdy_buffer_producer.cc",
@@ -1177,6 +1178,8 @@ component("net") {
       "device_bound_sessions/registration_fetcher.h",
       "device_bound_sessions/registration_fetcher_param.cc",
       "device_bound_sessions/registration_fetcher_param.h",
+      "device_bound_sessions/registration_request_param.cc",
+      "device_bound_sessions/registration_request_param.h",
       "device_bound_sessions/session.cc",
       "device_bound_sessions/session.h",
       "device_bound_sessions/session_binding_utils.cc",
@@ -1187,12 +1190,15 @@ component("net") {
       "device_bound_sessions/session_inclusion_rules.h",
       "device_bound_sessions/session_json_utils.cc",
       "device_bound_sessions/session_json_utils.h",
+      "device_bound_sessions/session_key.cc",
+      "device_bound_sessions/session_key.h",
       "device_bound_sessions/session_params.cc",
       "device_bound_sessions/session_params.h",
       "device_bound_sessions/session_service.cc",
       "device_bound_sessions/session_service.h",
       "device_bound_sessions/session_service_impl.cc",
       "device_bound_sessions/session_service_impl.h",
+      "device_bound_sessions/session_store.cc",
       "device_bound_sessions/session_store.h",
       "device_bound_sessions/session_store_impl.cc",
       "device_bound_sessions/session_store_impl.h",
@@ -1622,6 +1628,8 @@ component("net") {
       "websockets/websocket_basic_stream_adapters.h",
       "websockets/websocket_channel.cc",
       "websockets/websocket_channel.h",
+      "websockets/websocket_chunk_assembler.cc",
+      "websockets/websocket_chunk_assembler.h",
       "websockets/websocket_deflate_parameters.cc",
       "websockets/websocket_deflate_parameters.h",
       "websockets/websocket_deflate_predictor.h",
@@ -2054,6 +2062,8 @@ static_library("test_support") {
     "test/embedded_test_server/connection_tracker.h",
     "test/embedded_test_server/controllable_http_response.cc",
     "test/embedded_test_server/controllable_http_response.h",
+    "test/embedded_test_server/create_websocket_handler.cc",
+    "test/embedded_test_server/create_websocket_handler.h",
     "test/embedded_test_server/default_handlers.cc",
     "test/embedded_test_server/default_handlers.h",
     "test/embedded_test_server/embedded_test_server.cc",
@@ -2074,6 +2084,14 @@ static_library("test_support") {
     "test/embedded_test_server/request_handler_util.h",
     "test/embedded_test_server/simple_connection_listener.cc",
     "test/embedded_test_server/simple_connection_listener.h",
+    "test/embedded_test_server/websocket_connection.cc",
+    "test/embedded_test_server/websocket_connection.h",
+    "test/embedded_test_server/websocket_echo_handler.cc",
+    "test/embedded_test_server/websocket_echo_handler.h",
+    "test/embedded_test_server/websocket_handler.cc",
+    "test/embedded_test_server/websocket_handler.h",
+    "test/embedded_test_server/websocket_message_assembler.cc",
+    "test/embedded_test_server/websocket_message_assembler.h",
     "test/event_waiter.h",
     "test/key_util.cc",
     "test/key_util.h",
@@ -2093,6 +2111,8 @@ static_library("test_support") {
     "test/test_data_directory.h",
     "test/test_doh_server.cc",
     "test/test_doh_server.h",
+    "test/test_net_log_manager.cc",
+    "test/test_net_log_manager.h",
     "test/test_with_task_environment.cc",
     "test/test_with_task_environment.h",
     "test/url_request/ssl_certificate_error_job.cc",
@@ -3347,6 +3367,7 @@ target(_test_target_type, "net_unittests") {
       "device_bound_sessions/session_service_impl_unittest.cc",
       "device_bound_sessions/session_service_unittest.cc",
       "device_bound_sessions/session_store_impl_unittest.cc",
+      "device_bound_sessions/session_store_unittest.cc",
       "device_bound_sessions/session_unittest.cc",
       "device_bound_sessions/test_util.cc",
       "device_bound_sessions/test_util.h",
@@ -3489,7 +3510,7 @@ fuzzer_test("disk_cache_lpm_fuzzer") {
 proto_library("backoff_entry_serializer_fuzzer_input") {
   proto_in_dir = "//"
   sources = [ "base/backoff_entry_serializer_fuzzer_input.proto" ]
-  link_deps = [ "//testing/libfuzzer/proto:json_proto" ]
+  deps = [ "//testing/libfuzzer/proto:json_proto" ]
 }
 
 fuzzer_test("net_backoff_entry_serializer_fuzzer") {
@@ -4009,8 +4030,7 @@ fuzzer_test("net_hpack_decoder_fuzzer") {
 proto_library("reporting_policy_proto") {
   proto_in_dir = "//"
   sources = [ "reporting/reporting_policy.proto" ]
-  link_deps = [ "//testing/libfuzzer/proto:json_proto" ]
-  proto_data_sources = [ "//testing/libfuzzer/proto/json.proto" ]
+  deps = [ "//testing/libfuzzer/proto:json_proto" ]
 }
 
 fuzzer_test("net_reporting_header_parser_fuzzer") {

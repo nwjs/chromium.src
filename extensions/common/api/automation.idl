@@ -382,7 +382,8 @@
     required,
     richlyEditable,
     vertical,
-    visited
+    visited,
+    hasActions
   };
 
   // All possible actions that can be performed on automation nodes.
@@ -476,8 +477,9 @@
     caption,
     contents,
     cssAltText,
+    interestTarget,
     placeholder,
-    popoverAttribute,
+    popoverTarget,
     prohibited,
     prohibitedAndRedundant,
     relatedElement,
@@ -489,7 +491,8 @@
     ariaDescription,
     attributeExplicitlyEmpty,
     buttonLabel,
-    popoverAttribute,
+    interestTarget,
+    popoverTarget,
     prohibitedNameRepair,
     relatedElement,
     rubyAnnotation,

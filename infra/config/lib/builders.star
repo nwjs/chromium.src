@@ -376,6 +376,7 @@ defaults = args.defaults(
     siso_fail_if_reapi_used = None,
     siso_remote_linking = None,
     siso_output_local_strategy = None,
+    siso_limits = None,
     health_spec = None,
     builder_config_settings = None,
 
@@ -476,6 +477,7 @@ def builder(
         siso_fail_if_reapi_used = None,
         siso_output_local_strategy = args.DEFAULT,
         siso_remote_linking = args.DEFAULT,
+        siso_limits = args.DEFAULT,
         skip_profile_upload = args.DEFAULT,
         health_spec = args.DEFAULT,
         shadow_builderless = args.DEFAULT,
@@ -692,6 +694,7 @@ def builder(
         siso_remote_linking: If True, enable remote linking. Siso has to use the
             builtin RBE client instead of Reclient. Relevant configs and GN args
             will be adjusted accordingly.
+        siso_limits: a string to override sito limits.
         health_spec: a health spec instance describing the threshold for when
             the builder should be considered unhealthy.
         shadow_builderless: If set to True, then led builds created for this
@@ -921,6 +924,9 @@ def builder(
             siso_output_local_strategy = "minimum"
         if siso_output_local_strategy:
             siso["output_local_strategy"] = siso_output_local_strategy
+        siso_limits = defaults.get_value("siso_limits", siso_limits)
+        if siso_limits:
+            siso["limits"] = siso_limits
 
         # Since Siso's remote linking doesn't use Reclient, it needs to enable
         # Cloud Monitoring for monitoring and alerts.

@@ -404,13 +404,13 @@ Style notes:
       <message name="IDS_ASH_STATUS_TRAY_SWITCH_ACCESS_ENABLED_TITLE" desc="The title message shown on a notification when Switch Access is enabled.">
         Switch Access enabled
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_TRACKPAD_DISABLED_DESCRIPTION" desc="The message shown on a notification when the internal trackpad is disabled.">
-        Esc 5 times
+      <message name="IDS_ASH_STATUS_TRAY_TOUCHPAD_DISABLED_DESCRIPTION" desc="The message shown on a notification when the internal touchpad is disabled.">
+        Press Shift 5 times to enable the touchpad
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_TRACKPAD_DISABLED_TURN_ON" desc="Title of the dialog for disabling the internal trackpad.">
+      <message name="IDS_ASH_STATUS_TRAY_TOUCHPAD_DISABLED_TURN_ON" desc="Title of the dialog for disabling the internal touchpad.">
         Turn on
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_TRACKPAD_DISABLED_TITLE" desc="The title message shown on a notification when the internal trackpad is disabled">
+      <message name="IDS_ASH_STATUS_TRAY_TOUCHPAD_DISABLED_TITLE" desc="The title message shown on a notification when the internal touchpad is disabled">
        Built-in touchpad is disabled
       </message>
       <message name="IDS_ASH_STATUS_TRAY_USER_INFO_ACCESSIBILITY" desc="The accessibility string used for an item in user chooser that tells the user name and the mail address.">
@@ -436,9 +436,6 @@ Style notes:
       </message>
       <message name="IDS_ASH_STATUS_TRAY_LOCK" desc="The label used for the button in the status tray to lock the screen.">
         Lock
-      </message>
-      <message name="IDS_ASH_STATUS_TRAY_MESSAGE_NOT_ALLOWED_LACROS" desc="The error message multiple signin is prevented because Lacros is enabled.">
-        Signing in a second user is not supported if Lacros is enabled. Please use a second browser profile in Lacros instead or disable Lacros and try again.
       </message>
       <message name="IDS_ASH_STATUS_TRAY_SIGN_IN_ANOTHER_ACCOUNT" desc="The string for the button which lets the user add another account to the current session.">
         Sign in another user...
@@ -1084,9 +1081,6 @@ Style notes:
       <message name="IDS_DIALOG_MESSAGE_SLOW_BOOT" desc="The body of the Slow Boot Shutdown Confirmation Dialog.">
         Your screen will go blank for longer than usual (up to a minute) during this update. Please don't press the power button while the update is in progress.
       </message>
-      <message name="IDS_LACROS_CANNOT_LAUNCH_MULTI_SIGNIN_MESSAGE" desc="The body of the notification informing the user that the experimental 'Lacros' browser cannot launch.">
-        Lacros is not supported while multiple users are signed in.
-      </message>
 
       <message name="IDS_ASH_FLOATING_ACCESSIBILITY_DETAILED_MENU" desc="The name of the quick settings view of floating accessibility menu.">
         Accessibility settings
@@ -1525,7 +1519,7 @@ You can also use the keyboard shortcut. First, highlight text, then press <ph na
       <message name="IDS_ASH_ACCESSIBILITY_NUDGE_DICTATION_MIC_MUTED" desc="Displayed in a nudge when Dictation cannot start because the active microphone is muted.">
         Can't start dictation. Your mic is off.
       </message>
-      <message name="IDS_ASH_ACCESSIBILITY_NUDGE_TRACKPAD_DISABLED" desc="Displayed in a nudge when the touchpad is turned back on.">
+      <message name="IDS_ASH_ACCESSIBILITY_NUDGE_TOUCHPAD_DISABLED" desc="Displayed in a nudge when the touchpad is turned back on.">
        Built-in touchpad is turned on
       </message>
 
@@ -3754,8 +3748,8 @@ No devices connected.
       <message name="IDS_ASH_STATUS_TRAY_CAPS_LOCK_CANCEL_BY_SEARCH" desc="The message shown on a bubble when caps lock is turned on.">
         Press Search or Shift to cancel.
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_CAPS_LOCK_CANCEL_BY_FN_SEARCH" desc="The message shown on a bubble when caps lock is turned on.">
-        Press Fn+Search or Shift to cancel.
+      <message name="IDS_ASH_STATUS_TRAY_CAPS_LOCK_CANCEL_BY_FN_QUICK_INSERT" desc="The message shown on a bubble when caps lock is turned on.">
+        Press fn + Quick Insert or Shift to cancel.
       </message>
       <message name="IDS_ASH_STATUS_TRAY_BUBBLE_SESSION_LENGTH_LIMIT" desc="Tray bubble item shown to inform the user that the session length is limited.">
         Session ends in <ph name="session_time_remaining">$1<ex>4 minutes 23 seconds</ex></ph>.
@@ -4345,9 +4339,8 @@ No devices connected.
       <message name="IDS_ASH_ACCELERATOR_DESCRIPTION_SHOW_EMOJI_PICKER" desc="Label for accelerator action - Open Emoji Picker.">
         Open Emoji Picker
       </message>
-      <!-- TODO(b/286268215): Translate this string -->
-      <message name="IDS_ASH_ACCELERATOR_DESCRIPTION_SHOW_PICKER" translateable="false" desc="Label for accelerator action - Open Picker.">
-        Open Picker
+      <message name="IDS_ASH_ACCELERATOR_DESCRIPTION_QUICK_INSERT" desc="Label for accelerator action - Right alt.">
+        Quick Insert
       </message>
       <message name="IDS_ASH_ACCELERATOR_DESCRIPTION_STOP_SCREEN_RECORDING" desc="Label for accelerator action - Stop screen recording.">
         Stop screen recording
@@ -5392,11 +5385,17 @@ No devices connected.
       <message name="IDS_ASH_IN_SESSION_AUTH_PASSWORD_INCORRECT" desc="Text shown in the auth dialog to tell the user that incorrect password was entered">
         Incorrect password
       </message>
+      <message name="IDS_ASH_IN_SESSION_AUTH_PASSWORD_INVALID" desc="Error message displayed when the password contains characters that are not UTF-8 encoded">
+        Password must contain only valid characters
+      </message>
       <message name="IDS_ASH_IN_SESSION_AUTH_PIN_PLACEHOLDER" desc="Text to display as placeholder in the PIN input field when PIN autosubmit is disabled.">
         PIN
       </message>
       <message name="IDS_ASH_IN_SESSION_AUTH_PIN_INCORRECT" desc="Text shown in the auth dialog to tell the user that incorrect PIN was entered">
         Incorrect PIN
+      </message>
+      <message name="IDS_ASH_IN_SESSION_AUTH_PIN_INVALID" desc="Error message displayed when the PIN contains characters that are not UTF-8 encoded">
+        PIN must contain only valid characters
       </message>
       <message name="IDS_ASH_IN_SESSION_AUTH_PIN_TOO_MANY_ATTEMPTS" desc="Text shown in the auth dialog to tell the user that PIN auth has reached maximum attempts">
         Too many PIN attempts
@@ -7950,19 +7949,19 @@ New install
         Update and shut down
       </message>
 
-      <!-- Disable trackpad feature -->
-      <message name="IDS_ASH_DISABLE_TRACKPAD_DIALOG_TITLE" desc="Title of the dialog for disabling the internal trackpad.">
+      <!-- Disable touchpad feature -->
+      <message name="IDS_ASH_DISABLE_TOUCHPAD_DIALOG_TITLE" desc="Title of the dialog for disabling the internal touchpad.">
         Confirm that you want to disable the built-in touchpad
       </message>
-      <message name="IDS_ASH_DISABLE_TRACKPAD_DIALOG_DESCRIPTION" desc="Content of the dialog for disabling the internal trackpad.">
+      <message name="IDS_ASH_DISABLE_TOUCHPAD_DIALOG_DESCRIPTION" desc="Content of the dialog for disabling the internal touchpad.">
         The built-in touchpad is disabled. Use your keyboard or another pointer device to confirm the change.
 
-Otherwise the built-in touchpad will be re-enabled in 30 seconds.
+Otherwise the built-in touchpad will be re-enabled in <ph name="TIMEOUT_SECONDS">$1<ex>30 seconds</ex></ph>.
       </message>
-      <message name="IDS_ASH_DISABLE_TRACKPAD_DIALOG_EXTERNAL_MOUSE_DESCRIPTION" desc="Sign out button.">
+      <message name="IDS_ASH_DISABLE_TOUCHPAD_DIALOG_EXTERNAL_MOUSE_DESCRIPTION" desc="Sign out button.">
         The built-in touchpad is disabled because a mouse is connected. Use the mouse or keyboard to confirm the change.
 
-Otherwise the built-in touchpad will be re-enabled in 30 seconds.
+Otherwise the built-in touchpad will be re-enabled in <ph name="TIMEOUT_SECONDS">$1<ex>30 seconds</ex></ph>.
       </message>
 
       <!-- Guest session confirmation dialog -->
@@ -8569,10 +8568,10 @@ To shut down the device, press and hold the power button on the device again.
 
 
       <!-- Compat Mode Resize States-->
-      <message name="IDS_ARC_COMPAT_MODE_RESIZE_TOGGLE_MENU_PORTRAIT" desc="Item in a list of possible sizes for the app. Makes the app in a portrait, phone size.">
+      <message name="IDS_ARC_COMPAT_MODE_RESIZE_TOGGLE_MENU_PORTRAIT" desc="Item in a list of possible sizes for the app. Makes the app in a portrait, phone size." meaning="Orientation whose height is larger than width">
         Portrait
       </message>
-      <message name="IDS_ARC_COMPAT_MODE_RESIZE_TOGGLE_MENU_LANDSCAPE" desc="Item in a list of possible sizes for the app. Makes the app bigger and wider in a tablet size.">
+      <message name="IDS_ARC_COMPAT_MODE_RESIZE_TOGGLE_MENU_LANDSCAPE" desc="Item in a list of possible sizes for the app. Makes the app bigger and wider in a tablet size." meaning="Orientation whose width is larger than height">
         Landscape
       </message>
       <message name="IDS_ARC_COMPAT_MODE_RESIZE_TOGGLE_MENU_RESIZABLE" desc="Item in a list of possible sizes for the app. Makes the app resizable.">
@@ -8806,6 +8805,15 @@ To shut down the device, press and hold the power button on the device again.
       <message name="IDS_ASH_BIRCH_SEND_FEEDBACK" desc="Context menu item that sends feedback about suggestions in informed restore/overview UI">
         Send feedback
       </message>
+      <message name="IDS_ASH_BIRCH_CORAL_USER_FEEDBACK_DESCRIPTION" desc="The description for the user feedback UI">
+        This is experimental AI feature and won't always get it right.
+      </message>
+      <message name="IDS_ASH_BIRCH_CORAL_THUMB_UP_ACCESSIBLE_NAME" desc="The accessible name for the thumb up button which is in the user feedback UI">
+        Thumbs up would submit the feedback that you like this suggestion
+      </message>
+      <message name="IDS_ASH_BIRCH_CORAL_THUMB_DOWN_ACCESSIBLE_NAME" desc="The accessible name for the thumb down button which is in the user feedback UI">
+        Thumbs down would submit the feedback that you dislike this suggestion
+      </message>
       <message name="IDS_ASH_BIRCH_CORAL_SELECTOR_TAB_SUBTITLE" translateable="false" desc="In the birch coral button selector UI, the subtitle for the tab section.">
         Tabs
       </message>
@@ -8814,6 +8822,12 @@ To shut down the device, press and hold the power button on the device again.
       </message>
       <message name="IDS_ASH_BIRCH_CORAL_SELECTOR_ACCESSIBLE_NAME" translateable="false" desc="The accessible name for the birch coral button selector UI.">
         Coral selector
+      </message>
+      <message name="IDS_ASH_BIRCH_CORAL_ADDON_SELECTOR_SHOWN" translateable="false" desc="The accessible name for the birch coral button selector UI.">
+        Hide
+      </message>
+      <message name="IDS_ASH_BIRCH_CORAL_ADDON_SELECTOR_HIDDEN" translateable="false" desc="The accessible name for the birch coral button selector UI.">
+        Show
       </message>
 
       <!-- Graduation app strings -->

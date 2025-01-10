@@ -59,6 +59,7 @@ class PlusAddressServiceImpl : public PlusAddressService,
  public:
   using FeatureEnabledForProfileCheck =
       base::RepeatingCallback<bool(const base::Feature&)>;
+  using LaunchHatsSurvey = base::RepeatingCallback<void(hats::SurveyType)>;
 
   PlusAddressServiceImpl(
       PrefService* pref_service,
@@ -67,7 +68,8 @@ class PlusAddressServiceImpl : public PlusAddressService,
       std::unique_ptr<PlusAddressHttpClient> plus_address_http_client,
       scoped_refptr<PlusAddressWebDataService> webdata_service,
       affiliations::AffiliationService* affiliation_service,
-      FeatureEnabledForProfileCheck feature_enabled_for_profile_check);
+      FeatureEnabledForProfileCheck feature_enabled_for_profile_check,
+      LaunchHatsSurvey launch_hats_survey);
   ~PlusAddressServiceImpl() override;
 
   // autofill::AutofillPlusAddressDelegate:
@@ -96,6 +98,7 @@ class PlusAddressServiceImpl : public PlusAddressService,
       SuggestionContext suggestion_context,
       autofill::PasswordFormClassification::Type form_type,
       autofill::SuggestionType suggestion_type) override;
+  void DidFillPlusAddress() override;
   void OnClickedRefreshInlineSuggestion(
       const url::Origin& last_committed_primary_main_frame_origin,
       base::span<const autofill::Suggestion> current_suggestions,
@@ -150,13 +153,9 @@ class PlusAddressServiceImpl : public PlusAddressService,
                                 bool is_off_the_record) const override;
   void SavePlusProfile(const PlusProfile& profile) override;
   bool IsEnabled() const override;
+  void TriggerUserPerceptionSurvey(hats::SurveyType survey_type) override;
 
  private:
-  // Checks whether `error` is a `HTTP_FORBIDDEN` network error and, if there
-  // have been more than `kMaxAllowedForbiddenResponses` such calls without a
-  // successful one, disables plus addresses for the session.
-  void HandlePlusAddressRequestError(const PlusAddressRequestError& error);
-
   // signin::IdentityManager::Observer:
   void OnPrimaryAccountChanged(
       const signin::PrimaryAccountChangeEvent& event) override;
@@ -168,16 +167,23 @@ class PlusAddressServiceImpl : public PlusAddressService,
 
   void HandleSignout();
 
-  // Analyzes `maybe_profile` and, if is an error, it reacts to it (e.g.
-  // by disabling the service for this user). If it is a confirmed plus profile,
-  // it saves it.
-  void HandleCreateOrConfirmResponse(const url::Origin& origin,
-                                     PlusAddressRequestCallback callback,
-                                     const PlusProfileOrError& maybe_profile);
+  // Analyzes `maybe_profile` and saves it if it is a confirmed plus profile.
+  // Returns `maybe_profile` to make for easier chaining of callbacks.
+  const PlusProfileOrError& HandleCreateOrConfirmResponse(
+      const PlusProfileOrError& maybe_profile);
+
+  // Analyzes `maybe_profile` and triggers a HaTS survey if
+  // * plus address was confirmed successfully.
+  // * it's identical to the `requested_address` (it might be different if there
+  //   is an affiliation error).
+  // * the user has created 3 or more plus addresses.
+  const PlusProfileOrError& MaybeTriggerUserPerceptionSurvey(
+      const PlusAddress& requested_address,
+      const PlusProfileOrError& maybe_profile);
 
   // Checks whether the `origin` supports plus address.
-  // Returns `true` when origin is not opaque, ETLD+1 of `origin` is not
-  // on `excluded_sites_` set, and scheme is http or https.
+  // Returns `true` when origin is not opaque, not excluded, and scheme is
+  // http or https.
   bool IsSupportedOrigin(const url::Origin& origin) const;
 
   // Reacts to the server response for confirming a plus address from an inline
@@ -227,19 +233,8 @@ class PlusAddressServiceImpl : public PlusAddressService,
   // profile associated with this `KeyedService`.
   const FeatureEnabledForProfileCheck feature_enabled_for_profile_check_;
 
-  // Store set of excluded sites ETLD+1 where PlusAddressService is not
-  // supported.
-  // TODO(crbug.com/324556906): Remove once `kPlusAddressBlocklistEnabled` is
-  // launched.
-  base::flat_set<std::string> excluded_sites_;
-
-  // Counts the number of HTTP_FORBIDDEN that the client has received.
-  int http_forbidden_responses_ = 0;
-
-  // Stores whether the account for this ProfileKeyedService is forbidden from
-  // using the remote server. This is populated once on the initial poll request
-  // and not updated afterwards.
-  std::optional<bool> account_is_forbidden_ = std::nullopt;
+  // Allows launching feature perception surveys.
+  const LaunchHatsSurvey launch_hats_survey_;
 
   base::ScopedObservation<signin::IdentityManager,
                           signin::IdentityManager::Observer>

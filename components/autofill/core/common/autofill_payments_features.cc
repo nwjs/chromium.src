@@ -8,6 +8,11 @@
 
 namespace autofill::features {
 
+// When enabled, local credit card migration flows will not be offered.
+BASE_FEATURE(kAutofillDisableLocalCardMigration,
+             "AutofillDisableLocalCardMigration",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || \
     (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS))
 // When enabled, Chrome will extract the checkout amount from the checkout page
@@ -16,11 +21,6 @@ BASE_FEATURE(kAutofillEnableAmountExtractionDesktop,
              "AutofillEnableAmountExtractionDesktop",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
-
-// When enabled, Android N+ devices will be supported for FIDO authentication.
-BASE_FEATURE(kAutofillEnableAndroidNKeyForFidoAuthentication,
-             "AutofillEnableAndroidNKeyForFidoAuthentication",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, buy now pay later (BNPL) in Autofill will be offered through
 // Affirm.
@@ -177,21 +177,13 @@ BASE_FEATURE(kAutofillEnablePrefetchingRiskDataForRetrieval,
 // result when completed.
 BASE_FEATURE(kAutofillEnableSaveCardLoadingAndConfirmation,
              "AutofillEnableSaveCardLoadingAndConfirmation",
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#else
              base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 // When enabled, save card will fallback to a local save if the server upload of
 // a card encounters a failure.
 BASE_FEATURE(kAutofillEnableSaveCardLocalSaveFallback,
              "AutofillEnableSaveCardLocalSaveFallback",
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#else
              base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 // When enabled, Autofill will attempt to offer upload save for IBANs
 // (International Bank Account Numbers) and autofill server-based IBANs.
@@ -219,11 +211,7 @@ BASE_FEATURE(kAutofillEnableVcn3dsAuthentication,
 // result when completed.
 BASE_FEATURE(kAutofillEnableVcnEnrollLoadingAndConfirmation,
              "AutofillEnableVcnEnrollLoadingAndConfirmation",
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#else
              base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 // When enabled, Chrome will display grayed out virtual card suggestions on
 // merchant websites where the merchant has opted-out of virtual cards.

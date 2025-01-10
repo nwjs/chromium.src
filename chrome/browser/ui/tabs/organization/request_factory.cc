@@ -66,7 +66,7 @@ void OnTabOrganizationModelExecutionResult(
     TabOrganizationRequest::BackendFailureCallback on_failure,
     optimization_guide::OptimizationGuideModelExecutionResult result,
     std::unique_ptr<optimization_guide::ModelQualityLogEntry> log_entry) {
-  if (!result.has_value()) {
+  if (!result.response.has_value()) {
     // TODO(b/322206302): remove this when this is fixed in the
     // ModelQualityLogEntry API
     optimization_guide::ModelQualityLogEntry::Upload(std::move(log_entry));
@@ -75,7 +75,8 @@ void OnTabOrganizationModelExecutionResult(
   }
 
   auto response = optimization_guide::ParsedAnyMetadata<
-      optimization_guide::proto::TabOrganizationResponse>(result.value());
+      optimization_guide::proto::TabOrganizationResponse>(
+      result.response.value());
 
   if (!response) {
     optimization_guide::ModelQualityLogEntry::Upload(std::move(log_entry));
@@ -131,7 +132,8 @@ void PerformTabOrganizationExecution(
 
     auto* tab = tab_organization_request.add_tabs();
     tab->set_tab_id(tab_data->tab_id());
-    tab->set_title(base::UTF16ToUTF8(tab_data->tab()->contents()->GetTitle()));
+    tab->set_title(
+        base::UTF16ToUTF8(tab_data->tab()->GetContents()->GetTitle()));
     tab->set_url(tab_data->original_url().spec());
   }
 
@@ -162,7 +164,7 @@ void PerformTabOrganizationExecution(
       auto* tab = group->add_tabs();
       tab->set_tab_id(tab_data->tab_id());
       tab->set_title(
-          base::UTF16ToUTF8(tab_data->tab()->contents()->GetTitle()));
+          base::UTF16ToUTF8(tab_data->tab()->GetContents()->GetTitle()));
       tab->set_url(tab_data->original_url().spec());
     }
   }

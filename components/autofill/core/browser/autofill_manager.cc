@@ -8,6 +8,7 @@
 #include "base/command_line.h"
 #include "base/containers/adapters.h"
 #include "base/containers/contains.h"
+#include "base/containers/to_vector.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
@@ -18,6 +19,7 @@
 #include "components/autofill/core/browser/data_model/credit_card.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
+#include "components/autofill/core/browser/metrics/form_interactions_ukm_logger.h"
 #include "components/autofill/core/browser/metrics/quality_metrics.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_data_validation.h"
@@ -33,7 +35,7 @@
 #include "ui/gfx/geometry/rect_f.h"
 
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
-#include "components/autofill/core/browser/ml_model/autofill_ml_prediction_model_handler.h"
+#include "components/autofill/core/browser/ml_model/field_classification_model_handler.h"
 #endif
 
 namespace autofill {
@@ -91,16 +93,6 @@ NotifyObserversCallback(Functor&& functor, Args&&... args) {
 // See ParsingCallback().
 base::OnceCallback<void(AutofillManager&)> NotifyNoObserversCallback() {
   return base::DoNothingAs<void(AutofillManager&)>();
-}
-
-// Collects the FormGlobalIds of `forms`.
-std::vector<FormGlobalId> GetFormGlobalIds(base::span<const FormData> forms) {
-  std::vector<FormGlobalId> form_ids;
-  form_ids.reserve(forms.size());
-  for (const FormData& form : forms) {
-    form_ids.push_back(form.global_id());
-  }
-  return form_ids;
 }
 
 // Returns true if |live_form| does not match |cached_form|.
@@ -229,13 +221,12 @@ void AutofillManager::OnDidFillAutofillFormData(
 }
 
 void AutofillManager::OnFormSubmitted(const FormData& form,
-                                      const bool known_success,
                                       const mojom::SubmissionSource source) {
   if (!IsValidFormData(form)) {
     return;
   }
   NotifyObservers(&Observer::OnFormSubmitted, form);
-  OnFormSubmittedImpl(form, known_success, source);
+  OnFormSubmittedImpl(form, source);
 }
 
 void AutofillManager::OnFormsSeen(
@@ -259,7 +250,8 @@ void AutofillManager::OnFormsSeen(
     return;
   }
 
-  NotifyObservers(&Observer::OnBeforeFormsSeen, GetFormGlobalIds(updated_forms),
+  NotifyObservers(&Observer::OnBeforeFormsSeen,
+                  base::ToVector(updated_forms, &FormData::global_id),
                   removed_forms);
   erase_removed_forms();
 
@@ -269,7 +261,8 @@ void AutofillManager::OnFormsSeen(
     if (!parsed_forms.empty())
       self.OnFormsParsed(parsed_forms);
     self.NotifyObservers(&Observer::OnAfterFormsSeen,
-                         GetFormGlobalIds(parsed_forms), removed_forms);
+                         base::ToVector(parsed_forms, &FormData::global_id),
+                         removed_forms);
   };
   ParseFormsAsync(updated_forms,
                   base::BindOnce(ProcessParsedForms, std::move(removed_forms)));
@@ -285,8 +278,7 @@ void AutofillManager::OnFormsParsed(const std::vector<FormData>& forms) {
   for (const FormData& form : forms) {
     FormStructure* form_structure = FindCachedFormById(form.global_id());
     if (!form_structure) {
-      NOTREACHED_IN_MIGRATION();
-      continue;
+      NOTREACHED();
     }
 
     form_types.insert_all(form_structure->GetFormTypes());
@@ -465,11 +457,11 @@ void AutofillManager::OnJavaScriptChangedAutofilledValue(
 }
 
 bool AutofillManager::GetCachedFormAndField(
-    const FormData& form,
-    const FormFieldData& field,
+    const FormGlobalId& form_id,
+    const FieldGlobalId& field_id,
     FormStructure** form_structure,
     AutofillField** autofill_field) const {
-  FormStructure* cached_form = FindCachedFormById(form.global_id());
+  FormStructure* cached_form = FindCachedFormById(form_id);
   // TODO: crbug.com/40232021 - Look into removing the `autofill_count() == 0`
   // disjunct. Because it is inconvenient that some code needs to tolerate null
   // FormStructures and/or AutofillFields because for Autocomplete still needs
@@ -483,15 +475,15 @@ bool AutofillManager::GetCachedFormAndField(
     return false;
   }
   *form_structure = cached_form;
-  auto field_it = base::ranges::find(*cached_form, field.global_id(),
-                                     &AutofillField::global_id);
+  auto field_it =
+      base::ranges::find(*cached_form, field_id, &AutofillField::global_id);
   *autofill_field = field_it == cached_form->end() ? nullptr : field_it->get();
   return *autofill_field != nullptr;
 }
 
-std::unique_ptr<AutofillMetrics::FormInteractionsUkmLogger>
+std::unique_ptr<autofill_metrics::FormInteractionsUkmLogger>
 AutofillManager::CreateFormInteractionsUkmLogger() {
-  return std::make_unique<AutofillMetrics::FormInteractionsUkmLogger>(
+  return std::make_unique<autofill_metrics::FormInteractionsUkmLogger>(
       &client(), client().GetUkmRecorder());
 }
 
@@ -602,14 +594,11 @@ void AutofillManager::ParseFormsAsync(
 
   // To be run on a different task (must not access global or member
   // variables).
-  // TODO(crbug.com/40219607): We can't pass a UKM logger because it's a member
-  // variable. To be fixed.
   auto run_heuristics = [](AsyncContext context) {
     SCOPED_UMA_HISTOGRAM_TIMER("Autofill.Timing.ParseFormsAsync.RunHeuristics");
     for (auto& form_structure : context.form_structures) {
-      form_structure->DetermineHeuristicTypes(
-          context.country_code,
-          /*form_interactions_ukm_logger=*/nullptr, context.log_manager.get());
+      form_structure->DetermineHeuristicTypes(context.country_code,
+                                              context.log_manager.get());
     }
     return context;
   };
@@ -664,7 +653,8 @@ void AutofillManager::ParseFormsAsync(
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
   // Run ML Model before running heuristics to ensure that
   // rationalization and sectioning are done.
-  if (auto* ml_handler = client().GetAutofillMlPredictionModelHandler()) {
+  if (auto* ml_handler =
+          client().GetAutofillFieldClassificationModelHandler()) {
     ml_handler->GetModelPredictionsForForms(
         std::move(form_structures), std::move(run_heuristics_and_update_cache));
     return;
@@ -734,13 +724,10 @@ void AutofillManager::ParseFormAsync(
 
   // To be run on a different task (must not access global or member
   // variables).
-  // TODO(crbug.com/40219607): We can't pass a UKM logger because it's a member
-  // variable. To be fixed.
   auto run_heuristics = [](AsyncContext context) {
     SCOPED_UMA_HISTOGRAM_TIMER("Autofill.Timing.ParseFormAsync.RunHeuristics");
-    context.form_structure->DetermineHeuristicTypes(
-        context.country_code,
-        /*form_interactions_ukm_logger=*/nullptr, context.log_manager.get());
+    context.form_structure->DetermineHeuristicTypes(context.country_code,
+                                                    context.log_manager.get());
     return context;
   };
 
@@ -796,7 +783,8 @@ void AutofillManager::ParseFormAsync(
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
   // Run ML Model before running heuristics to ensure that
   // rationalization and sectioning are done.
-  if (auto* ml_handler = client().GetAutofillMlPredictionModelHandler()) {
+  if (auto* ml_handler =
+          client().GetAutofillFieldClassificationModelHandler()) {
     ml_handler->GetModelPredictionsForForm(
         std::move(form_structure), std::move(run_heuristics_and_update_cache));
     return;
@@ -842,8 +830,7 @@ void AutofillManager::OnLoadedServerPredictions(
   // Parse and store the server predictions.
   ParseServerPredictionsQueryResponse(
       std::move(response->response), queried_forms,
-      response->queried_form_signatures, form_interactions_ukm_logger(),
-      log_manager_);
+      response->queried_form_signatures, log_manager_);
 
   // Will log quality metrics for each FormStructure based on the presence of
   // autocomplete attributes, if available.

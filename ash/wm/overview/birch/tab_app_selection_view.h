@@ -13,7 +13,6 @@ class ScrollView;
 }  // namespace views
 
 namespace ash {
-
 // A selection view that allows users to pick which tabs and apps they want to
 // move to a new desk. Its main child is a scroll view that contains many
 // `TabAppSelectionItemView`'s representing tabs and apps.
@@ -22,7 +21,8 @@ class ASH_EXPORT TabAppSelectionView : public views::BoxLayoutView {
   METADATA_HEADER(TabAppSelectionView, views::BoxLayoutView)
 
  public:
-  explicit TabAppSelectionView(int group_id);
+  TabAppSelectionView(const base::Token& group_id,
+                      base::RepeatingClosure on_item_removed);
   TabAppSelectionView(const TabAppSelectionView&) = delete;
   TabAppSelectionView& operator=(const TabAppSelectionView&) = delete;
   ~TabAppSelectionView() override;
@@ -32,8 +32,13 @@ class ASH_EXPORT TabAppSelectionView : public views::BoxLayoutView {
 
   void ProcessKeyEvent(ui::KeyEvent* event);
 
+  // Removes the item associated with given `identifier` when corresponding
+  // windows or desks are closed.
+  void RemoveItemBySystem(std::string_view identifier);
+
  private:
   class TabAppSelectionItemView;
+  FRIEND_TEST_ALL_PREFIXES(CoralPixelDiffTest, CoralSelectorView);
   FRIEND_TEST_ALL_PREFIXES(TabAppSelectionViewTest, CloseSelectorItems);
 
   // We don't use an enum class to avoid too many explicit casts at callsites.
@@ -49,8 +54,15 @@ class ASH_EXPORT TabAppSelectionView : public views::BoxLayoutView {
   // last tab or app).
   void OnCloseButtonPressed(TabAppSelectionItemView* sender);
 
+  void RemoveItemView(TabAppSelectionItemView* item_view);
+
   // Deselects all items except `sender`.
   void OnItemTapped(TabAppSelectionItemView* sender);
+
+  // Unique identifier for the contents of the selection view.
+  const base::Token group_id_;
+
+  base::RepeatingClosure on_item_removed_;
 
   raw_ptr<views::ScrollView> scroll_view_;
 

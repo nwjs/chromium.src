@@ -379,10 +379,6 @@ bool ExtensionManagement::IsExemptFromMV2DeprecationByPolicy(
 
 bool ExtensionManagement::IsAllowedByUnpublishedAvailabilityPolicy(
     const Extension* extension) {
-  // Check the kill switch before applying policy check.
-  if (!base::FeatureList::IsEnabled(kCWSInfoService)) {
-    return true;
-  }
   // This policy only applies to extensions that update from CWS.
   if (!UpdatesFromWebstore(*extension)) {
     return true;
@@ -728,15 +724,11 @@ void ExtensionManagement::Refresh() {
   if (dict_pref) {
     // Parse new extension management preference.
 
-    bool defer_load_settings = base::FeatureList::IsEnabled(
-        features::kExtensionDeferredIndividualSettings);
     std::unordered_set<std::string> installed_extensions;
-    if (defer_load_settings) {
-      auto* extension_prefs = ExtensionPrefs::Get(profile_);
-      auto extensions_info = extension_prefs->GetInstalledExtensionsInfo();
-      for (const auto& extension_info : extensions_info) {
-        installed_extensions.insert(extension_info.extension_id);
-      }
+    auto* extension_prefs = ExtensionPrefs::Get(profile_);
+    auto extensions_info = extension_prefs->GetInstalledExtensionsInfo();
+    for (const auto& extension_info : extensions_info) {
+      installed_extensions.insert(extension_info.extension_id);
     }
 
     for (auto iter : *dict_pref) {
@@ -771,31 +763,30 @@ void ExtensionManagement::Refresh() {
             continue;
           }
 
-          if (defer_load_settings) {
-            auto should_defer = [&extension_id, &installed_extensions](
-                                    const base::Value::Dict& dict,
-                                    const SettingsIdMap* settings_by_id) {
-              // If in legacy force list, don't defer since already have an
-              // entry. This ensures that the entry in these settings matches
-              // the entry in the forcelist. Also don't defer if the extension
-              // is installed.
-              if (base::Contains(*settings_by_id, extension_id) ||
-                  base::Contains(installed_extensions, extension_id)) {
-                return false;
-              }
-              auto* install_mode =
-                  dict.FindString(schema_constants::kInstallationMode);
-              if (!install_mode)
-                return true;
-              // Don't defer if the extension needs to be installed.
-              return *install_mode != schema_constants::kForceInstalled &&
-                     *install_mode != schema_constants::kNormalInstalled;
-            };
-
-            if (should_defer(*subdict, &settings_by_id_)) {
-              deferred_ids_.insert(extension_id);
-              continue;
+          auto should_defer = [&extension_id, &installed_extensions](
+                                  const base::Value::Dict& dict,
+                                  const SettingsIdMap* settings_by_id) {
+            // If in legacy force list, don't defer since already have an
+            // entry. This ensures that the entry in these settings matches
+            // the entry in the forcelist. Also don't defer if the extension
+            // is installed.
+            if (base::Contains(*settings_by_id, extension_id) ||
+                base::Contains(installed_extensions, extension_id)) {
+              return false;
             }
+            auto* install_mode =
+                dict.FindString(schema_constants::kInstallationMode);
+            if (!install_mode) {
+              return true;
+            }
+            // Don't defer if the extension needs to be installed.
+            return *install_mode != schema_constants::kForceInstalled &&
+                   *install_mode != schema_constants::kNormalInstalled;
+          };
+
+          if (should_defer(*subdict, &settings_by_id_)) {
+            deferred_ids_.insert(extension_id);
+            continue;
           }
 
           internal::IndividualSettings* by_id = AccessById(extension_id);

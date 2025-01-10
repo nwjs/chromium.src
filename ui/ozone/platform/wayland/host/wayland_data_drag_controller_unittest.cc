@@ -374,6 +374,26 @@ TEST_P(WaylandDataDragControllerTest, StartDragWithFileContents) {
   });
 }
 
+TEST_P(WaylandDataDragControllerTest, StartDragWithEmptyMimeTypeList) {
+  FocusAndPressLeftPointerButton(window_.get(), &delegate_);
+
+  OSExchangeData os_exchange_data;
+  bool started = drag_controller()->StartSession(
+      os_exchange_data, DragDropTypes::DRAG_MOVE, DragEventSource::kMouse);
+  ASSERT_TRUE(started);
+
+  PostToServerAndWait([kExpectedMimeType = "chromium/x-empty-drag-data"](
+                          wl::TestWaylandServerThread* server) {
+    auto* server_data_source = server->data_device_manager()->data_source();
+    ASSERT_TRUE(server_data_source);
+
+    EXPECT_EQ(server_data_source->mime_types().size(), 1u);
+    EXPECT_EQ(server_data_source->mime_types().back(), kExpectedMimeType);
+
+    server_data_source->OnCancelled();
+  });
+}
+
 // Cancels a DnD session that we initiated while the cursor is over our window.
 TEST_P(WaylandDataDragControllerTest, CancelOutgoingDrag) {
   FocusAndPressLeftPointerButton(window_.get(), &delegate_);
@@ -512,81 +532,6 @@ TEST_P(WaylandDataDragControllerTest, ReceiveDrag) {
 
   SendDndLeave();
   ASSERT_FALSE(data_device()->drag_delegate_);
-}
-
-TEST_P(WaylandDataDragControllerTest, ReceiveDragPixelSurface) {
-  constexpr int32_t kTripleScale = 3;
-
-  // Set connection to use pixel coordinates.
-  connection_->set_surface_submission_in_pixel_coordinates(true);
-
-  const uint32_t surface_id = window_->root_surface()->get_surface_id();
-  gfx::Point entered_point{900, 600};
-  {
-    gfx::PointF expected_position(entered_point);
-    expected_position.InvScale(kTripleScale);
-
-    EXPECT_CALL(*drop_handler_,
-                MockDragMotion(PointFNear(expected_position), _, _));
-
-    PostToServerAndWait([surface_id, entered_point,
-                         mime_type_text = std::string(kMimeTypeText),
-                         sample_text = std::string(kSampleTextForDragAndDrop)](
-                            wl::TestWaylandServerThread* server) {
-      wl::TestOutput* output = server->output();
-      // Place the window onto the output.
-      wl::MockSurface* surface = server->GetObject<wl::MockSurface>(surface_id);
-      wl_surface_send_enter(surface->resource(), output->resource());
-
-      // Change the scale of the output.  Windows looking into that output must
-      // get the new scale and update scale of their buffers.  The default UI
-      // scale equals the output scale.
-      if (output->xdg_output()) {
-        // Use logical size to control the scale when the pixel coordinates
-        // is enabled.
-        output->SetLogicalSize({400, 300});
-      } else {
-        output->SetScale(kTripleScale);
-      }
-      server->output()->SetDeviceScaleFactor(kTripleScale);
-      output->Flush();
-
-      auto* data_offer = server->data_device_manager()
-                             ->data_device()
-                             ->CreateAndSendDataOffer();
-      data_offer->OnOffer(mime_type_text, ToClipboardData(sample_text));
-
-      // The server sends an enter event at the bottom right corner of the
-      // window.
-      server->data_device_manager()->data_device()->OnEnter(
-          1002, surface->resource(), wl_fixed_from_int(entered_point.x()),
-          wl_fixed_from_int(entered_point.y()), data_offer);
-    });
-    WaitForDragDropTasks();
-  }
-
-  EXPECT_EQ(window_->applied_state().window_scale, kTripleScale);
-
-  gfx::Point center_point{400, 300};
-  {
-    gfx::PointF expected_position(center_point);
-    expected_position.InvScale(kTripleScale);
-
-    EXPECT_CALL(*drop_handler_,
-                MockDragMotion(PointFNear(expected_position), _, _))
-        .Times(::testing::AtLeast(1));
-
-    // The server sends a motion event through the center of the output.
-    SendMotionEvent(center_point);
-  }
-
-  EXPECT_CALL(*drop_handler_,
-              MockDragMotion(PointFNear(gfx::PointF(0, 0)), _, _))
-      .Times(::testing::AtLeast(1));
-
-  // The server sends a motion event to the top-left corner.
-  gfx::Point top_left(0, 0);
-  SendMotionEvent(top_left);
 }
 
 // Emulating an incoming DnD session, ensures that data drag controller

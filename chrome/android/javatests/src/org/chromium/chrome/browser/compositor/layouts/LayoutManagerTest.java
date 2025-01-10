@@ -179,7 +179,7 @@ public class LayoutManagerTest implements MockTabModelDelegate {
         mTabModelSelector =
                 new MockTabModelSelector(
                         ProfileManager.getLastUsedRegularProfile(),
-                        ProfileManager.getLastUsedRegularProfile().getPrimaryOTRProfile(true),
+                        ProfileManager.getLastUsedRegularProfile().getPrimaryOtrProfile(true),
                         standardTabCount,
                         incognitoTabCount,
                         this);
@@ -220,7 +220,7 @@ public class LayoutManagerTest implements MockTabModelDelegate {
         tabContentManagerSupplier.set(tabContentManager);
         mManager = mManagerPhone;
         CompositorAnimationHandler.setTestingMode(true);
-        mManager.init(mTabModelSelector, null, null, null, mTopUiThemeColorProvider);
+        mManager.init(mTabModelSelector, null, null, null, mTopUiThemeColorProvider, () -> 0);
         initializeMotionEvent();
     }
 
@@ -230,7 +230,8 @@ public class LayoutManagerTest implements MockTabModelDelegate {
     @UiThreadTest
     @Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
     public void testCreation() {
-        initializeLayoutManagerPhone(0, 0);
+        // Initialize with 1 tab to avoid hub initialization with 0 tabs.
+        initializeLayoutManagerPhone(1, 0);
     }
 
     @Test
@@ -772,6 +773,6 @@ public class LayoutManagerTest implements MockTabModelDelegate {
     public MockTab createTab(int id, boolean incognito) {
         Profile profile = ProfileManager.getLastUsedRegularProfile();
         return MockTab.createAndInitialize(
-                id, incognito ? profile.getPrimaryOTRProfile(true) : profile);
+                id, incognito ? profile.getPrimaryOtrProfile(true) : profile);
     }
 }

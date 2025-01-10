@@ -93,9 +93,7 @@ public class ModalDialogView extends BoundedLinearLayout implements View.OnClick
             // TODO (crbug/369842880): Remove the check when this attr is added for phones.
             widthMeasureSpec = MeasureSpec.makeMeasureSpec(widthMeasureSpec, MeasureSpec.EXACTLY);
         }
-        if (!ModalDialogFeatureMap.isEnabled(
-                        ModalDialogFeatureList.MODAL_DIALOG_LAYOUT_WITH_SYSTEM_INSETS)
-                || (mHorizontalMargin <= 0 && mVerticalMargin <= 0)) {
+        if (mHorizontalMargin <= 0 && mVerticalMargin <= 0) {
             super.onMeasure(widthMeasureSpec, heightMeasureSpec);
             return;
         }
@@ -375,20 +373,30 @@ public class ModalDialogView extends BoundedLinearLayout implements View.OnClick
             ModalDialogProperties.ModalDialogButtonSpec spec = buttonSpecList[i];
             int style = 0;
             if (numButtons == 1) {
-                style = R.style.FilledButton_Tonal_SingleButton;
+                style = R.style.FilledButton_Tonal_ThemeOverlay_SingleButton;
             } else {
                 if (i == 0) {
-                    style = R.style.FilledButton_Tonal_TopButton;
+                    style = R.style.FilledButton_Tonal_ThemeOverlay_TopButton;
                 } else if (i == numButtons - 1) {
-                    style = R.style.FilledButton_Tonal_BottomButton;
+                    style = R.style.FilledButton_Tonal_ThemeOverlay_BottomButton;
                 } else {
-                    style = R.style.FilledButton_Tonal_MiddleButton;
+                    style = R.style.FilledButton_Tonal_ThemeOverlay_MiddleButton;
                 }
             }
 
             Button button = new ButtonCompat(mButtonGroup.getContext(), style);
             button.setText(spec.getText());
             button.setContentDescription(spec.getContentDescription());
+
+            int button_padding_in_px =
+                    getContext()
+                            .getResources()
+                            .getDimensionPixelSize(R.dimen.modal_dialog_button_group_padding);
+            button.setPadding(
+                    button_padding_in_px,
+                    button_padding_in_px,
+                    button_padding_in_px,
+                    button_padding_in_px);
 
             setupClickableView(button, spec.getButtonType());
             setFilterTouchForSecurityIfNecessary(button);

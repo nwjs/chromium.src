@@ -196,10 +196,26 @@ export interface OriginFileSystemGrants {
   editGrants: FileSystemGrant[];
 }
 
+export interface OriginWithDisplayName {
+  origin: string;
+  displayName: string;
+}
+
 export interface SmartCardReaderGrants {
   readerName: string;
-  origins: string[];
+  origins: OriginWithDisplayName[];
 }
+
+/**
+ * Must be kept in sync with the C++ enum of the same name in
+ * chrome/browser/content_settings/generated_cookie_prefs.h
+ */
+// LINT.IfChange(ThirdPartyCookieBlockingSetting)
+export enum ThirdPartyCookieBlockingSetting {
+  BLOCK_THIRD_PARTY = 0,
+  INCOGNITO_ONLY = 1,
+}
+// LINT.ThenChange(/chrome/browser/content_settings/generated_cookie_prefs.h:ThirdPartyCookieBlockingSetting)
 
 export interface SiteSettingsPrefsBrowserProxy {
   /**

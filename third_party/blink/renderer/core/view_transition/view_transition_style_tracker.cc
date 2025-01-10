@@ -5,7 +5,9 @@
 #include "third_party/blink/renderer/core/view_transition/view_transition_style_tracker.h"
 
 #include <limits>
+#include <unordered_map>
 
+#include "base/check.h"
 #include "base/containers/contains.h"
 #include "base/not_fatal_until.h"
 #include "components/viz/common/view_transition_element_resource_id.h"
@@ -18,6 +20,7 @@
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/css/style_sheet_contents.h"
+#include "third_party/blink/renderer/core/css_value_keywords.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_document_state.h"
 #include "third_party/blink/renderer/core/dom/node.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
@@ -27,6 +30,7 @@
 #include "third_party/blink/renderer/core/frame/page_scale_constraints_set.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
+#include "third_party/blink/renderer/core/layout/geometry/box_strut.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
 #include "third_party/blink/renderer/core/layout/layout_text.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
@@ -56,9 +60,11 @@
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "ui/display/screen_info.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/size_conversions.h"
 #include "ui/gfx/geometry/transform.h"
+#include "ui/gfx/geometry/vector2d_f.h"
 
 namespace blink {
 namespace {
@@ -79,12 +85,30 @@ CSSPropertyID kLayeredCaptureProperties[] = {
     // Deliberately capturing the shorthand, to include all the mask-related
     // properties.
     CSSPropertyID::kMask,
+    CSSPropertyID::kBorderTop,
+    CSSPropertyID::kBorderRight,
+    CSSPropertyID::kBorderBottom,
+    CSSPropertyID::kBorderLeft,
+    CSSPropertyID::kBackground,
+    CSSPropertyID::kBorderRadius,
+    CSSPropertyID::kBoxShadow,
+    CSSPropertyID::kOutline,
+    CSSPropertyID::kBorderImage,
+    CSSPropertyID::kPadding,
+    CSSPropertyID::kOverflow,
+    CSSPropertyID::kOverflowClipMargin,
+    CSSPropertyID::kContain,
 };
 
 CSSPropertyID kPropertiesToAnimate[] = {
     CSSPropertyID::kBackdropFilter, CSSPropertyID::kOpacity,
     CSSPropertyID::kClipPath,       CSSPropertyID::kFilter,
-    CSSPropertyID::kMask,
+    CSSPropertyID::kMask,           CSSPropertyID::kBorderTop,
+    CSSPropertyID::kBorderRight,    CSSPropertyID::kBorderBottom,
+    CSSPropertyID::kBorderLeft,     CSSPropertyID::kBackground,
+    CSSPropertyID::kBorderRadius,   CSSPropertyID::kBoxShadow,
+    CSSPropertyID::kOutline,        CSSPropertyID::kBorderImage,
+    CSSPropertyID::kPadding,
 };
 
 template <typename K, typename V>
@@ -127,9 +151,8 @@ mojom::blink::ViewTransitionPropertyId ToTranstionPropertyId(CSSPropertyID id) {
     case CSSPropertyID::kMask:
       return mojom::blink::ViewTransitionPropertyId::kMask;
     default:
-      NOTREACHED_IN_MIGRATION() << "Unknown id " << static_cast<uint32_t>(id);
+      NOTREACHED() << "Unknown id " << static_cast<uint32_t>(id);
   }
-  return mojom::blink::ViewTransitionPropertyId::kMinValue;
 }
 
 CSSPropertyID FromTransitionPropertyId(
@@ -513,10 +536,11 @@ ViewTransitionStyleTracker::ViewTransitionStyleTracker(
     DCHECK(!element_data_map_.Contains(name));
     auto* element_data = MakeGarbageCollected<ElementData>();
 
-    element_data->container_properties.emplace_back(
-        PhysicalSize::FromSizeFFloor(
-            transition_state_element.border_box_size_in_css_space),
-        transition_state_element.viewport_matrix);
+    element_data->container_properties = ContainerProperties{
+        PhysicalRect::EnclosingRect(
+            transition_state_element
+                .border_box_rect_in_enclosing_layer_css_space),
+        transition_state_element.viewport_matrix};
     element_data->old_snapshot_id = transition_state_element.snapshot_id;
 
     element_data->element_index = transition_state_element.paint_order;
@@ -660,10 +684,8 @@ bool ViewTransitionStyleTracker::MatchForOnlyChild(
     }
 
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
-
-  return false;
 }
 
 void ViewTransitionStyleTracker::AddTransitionElementsFromCSS() {
@@ -958,6 +980,55 @@ bool ViewTransitionStyleTracker::Capture(bool snap_browser_controls) {
   return true;
 }
 
+void ViewTransitionStyleTracker::SetCaptureRectsFromCompositor(
+    const std::unordered_map<viz::ViewTransitionElementResourceId, gfx::RectF>&
+        rects) {
+  if (!RuntimeEnabledFeatures::ViewTransitionOverflowRectFromSurfaceEnabled()) {
+    // CC might collect these rects when the feature is disabled, but we're
+    // ignoring them in that case.
+    return;
+  }
+
+  CHECK(!HasLiveNewContent());
+  for (auto& entry : element_data_map_) {
+    auto& element_data = entry.value;
+
+    // This implies that the snapshot wasn't painted.
+    if (!rects.contains(element_data->old_snapshot_id) ||
+        !element_data->ShouldPropagateVisualOverflowRectAsMaxExtentsRect()) {
+      continue;
+    }
+
+    // The capture rects from the compositor are now the source of truth for the
+    // old elements. We no longer need to guess the max extents using the layout
+    // ink overflow and apply corrections, as old pseudo-elements paint existing
+    // textures with the captured geometry.
+    auto rect_from_compositor = rects.at(element_data->old_snapshot_id);
+    auto captured_rect =
+        PhysicalRect(gfx::ToEnclosedRect(rect_from_compositor));
+
+    // TODO(crbug.com/40840594): Add a CHECK that the compositor rect is a
+    // subset of the computed visual overflow. ATM this fails in one edge case
+    // (negative clip-path), the CHECK should be added once that's fixed.
+
+    element_data->cached_visual_overflow_rect_in_layout_space =
+        element_data->visual_overflow_rect_in_layout_space = captured_rect;
+
+    // This rect no longer matters.
+    element_data->cached_captured_rect_in_layout_space.reset();
+
+    if (auto* pseudo_element =
+            document_->documentElement()->GetStyledPseudoElement(
+                PseudoId::kPseudoIdViewTransitionOld, entry.key)) {
+      static_cast<ViewTransitionContentElement*>(pseudo_element)
+          ->SetIntrinsicSize(rect_from_compositor,
+                             element_data->GetBorderBoxRect(
+                                 /*use_cached_data=*/true, device_pixel_ratio_),
+                             /*propagates_max_extents_rect=*/false);
+    }
+  }
+}
+
 void ViewTransitionStyleTracker::CaptureResolved() {
   DCHECK_EQ(state_, State::kCapturing);
 
@@ -1246,7 +1317,9 @@ PseudoElement* ViewTransitionStyleTracker::CreatePseudoElement(
       auto* pseudo_element = MakeGarbageCollected<ViewTransitionContentElement>(
           parent, pseudo_id, view_transition_name, snapshot_id,
           /*is_live_content_element=*/false, this);
-      pseudo_element->SetIntrinsicSize(captured_rect, border_box_rect);
+      pseudo_element->SetIntrinsicSize(
+          captured_rect, border_box_rect,
+          element_data->ShouldPropagateVisualOverflowRectAsMaxExtentsRect());
       return pseudo_element;
     }
 
@@ -1263,15 +1336,15 @@ PseudoElement* ViewTransitionStyleTracker::CreatePseudoElement(
       auto* pseudo_element = MakeGarbageCollected<ViewTransitionContentElement>(
           parent, pseudo_id, view_transition_name, snapshot_id,
           /*is_live_content_element=*/true, this);
-      pseudo_element->SetIntrinsicSize(captured_rect, border_box_rect);
+      pseudo_element->SetIntrinsicSize(
+          captured_rect, border_box_rect,
+          element_data->ShouldPropagateVisualOverflowRectAsMaxExtentsRect());
       return pseudo_element;
     }
 
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
-
-  return nullptr;
 }
 
 bool ViewTransitionStyleTracker::RunPostPrePaintSteps() {
@@ -1355,8 +1428,9 @@ bool ViewTransitionStyleTracker::RunPostPrePaintSteps() {
       auto layout_view_size = PhysicalSize(GetSnapshotRootSize());
       auto layout_view_size_in_css_space = layout_view_size;
       layout_view_size_in_css_space.Scale(1 / device_pixel_ratio_);
-      container_properties =
-          ContainerProperties(layout_view_size_in_css_space, gfx::Transform());
+      container_properties = ContainerProperties{
+          PhysicalRect(PhysicalOffset(), layout_view_size_in_css_space),
+          gfx::Transform(), gfx::Vector2dF()};
       visual_overflow_rect_in_layout_space.size = layout_view_size;
     } else {
       ComputeLiveElementGeometry(
@@ -1382,16 +1456,18 @@ bool ViewTransitionStyleTracker::RunPostPrePaintSteps() {
       capture_property(id);
     }
 
-    if (RuntimeEnabledFeatures::ViewTransitionLayeredCaptureEnabled()) {
+    if (ViewTransitionUtils::UseLayeredCapture(layout_object->StyleRef())) {
       for (CSSPropertyID id : kLayeredCaptureProperties) {
         capture_property(id);
       }
+
+      // TODO(noamr) Figure out the right model for box-sizing with the CSSWG.
+      css_property_builder.Insert(CSSPropertyID::kBoxSizing, "border-box");
     }
 
     auto css_properties = std::move(css_property_builder).Finish();
 
-    if (!element_data->container_properties.empty() &&
-        element_data->container_properties.back() == container_properties &&
+    if (element_data->container_properties == container_properties &&
         visual_overflow_rect_in_layout_space ==
             element_data->visual_overflow_rect_in_layout_space &&
         captured_rect_in_layout_space ==
@@ -1400,18 +1476,7 @@ bool ViewTransitionStyleTracker::RunPostPrePaintSteps() {
       continue;
     }
 
-    // Only add a new container properties entry if it differs from the last
-    // one.
-    if (element_data->container_properties.empty()) {
-      element_data->container_properties.push_back(container_properties);
-    } else if (element_data->container_properties.back() !=
-               container_properties) {
-      if (state_ == State::kStarted) {
-        element_data->container_properties.push_back(container_properties);
-      } else {
-        element_data->container_properties.back() = container_properties;
-      }
-    }
+    element_data->container_properties = container_properties;
 
     element_data->visual_overflow_rect_in_layout_space =
         visual_overflow_rect_in_layout_space;
@@ -1432,7 +1497,10 @@ bool ViewTransitionStyleTracker::RunPostPrePaintSteps() {
       auto border_box_rect =
           element_data->GetBorderBoxRect(use_cached_data, device_pixel_ratio_);
       static_cast<ViewTransitionContentElement*>(pseudo_element)
-          ->SetIntrinsicSize(captured_rect, border_box_rect);
+          ->SetIntrinsicSize(
+              captured_rect, border_box_rect,
+              element_data
+                  ->ShouldPropagateVisualOverflowRectAsMaxExtentsRect());
     }
 
     // Ensure that the cached state stays in sync with the current state while
@@ -1490,6 +1558,19 @@ void ViewTransitionStyleTracker::ComputeLiveElementGeometry(
   auto snapshot_matrix_in_css_space = snapshot_matrix_in_layout_space;
   snapshot_matrix_in_css_space.Zoom(1.0 / device_pixel_ratio_);
 
+  PhysicalOffset offset_in_css_space;
+  if (RuntimeEnabledFeatures::ViewTransitionOverflowRectFromSurfaceEnabled()) {
+    // In this mode, the max extents rect (the capture rect we guess here) and
+    // the border box are in the enclosing layer coordinate space. That's a more
+    // convenient coordinate space than the element's own space as it matches
+    // CC's coordinate space (e.g. RenderSurfaceImpl::content_rect()).
+    if (auto* layout_inline = DynamicTo<LayoutInline>(layout_object)) {
+      offset_in_css_space = layout_inline->PhysicalLinesBoundingBox().offset;
+    }
+
+    offset_in_css_space.Scale(1.f / device_pixel_ratio_);
+  }
+
   PhysicalSize border_box_size_in_css_space;
   if (layout_object.IsSVGChild() || IsA<LayoutBox>(layout_object)) {
     // ResizeObserverEntry is created to reuse the logic for parsing object
@@ -1523,8 +1604,12 @@ void ViewTransitionStyleTracker::ComputeLiveElementGeometry(
   snapshot_matrix_in_css_space = ConvertFromTopLeftToCenter(
       snapshot_matrix_in_css_space, border_box_size_in_css_space);
 
+  gfx::Vector2dF border_offset;
   if (auto* box = DynamicTo<LayoutBoxModelObject>(layout_object)) {
     visual_overflow_rect_in_layout_space = ComputeVisualOverflowRect(*box);
+    if (ViewTransitionUtils::UseLayeredCapture(layout_object.StyleRef())) {
+      border_offset = gfx::Vector2dF(box->BorderOutsets().Offset());
+    }
   }
 
   // This is intentionally computed in layout space to include scaling from
@@ -1534,8 +1619,11 @@ void ViewTransitionStyleTracker::ComputeLiveElementGeometry(
       max_capture_size, visual_overflow_rect_in_layout_space,
       snapshot_matrix_in_layout_space, *snapshot_root_layout_size_at_capture_);
 
-  container_properties = ContainerProperties(border_box_size_in_css_space,
-                                             snapshot_matrix_in_css_space);
+  container_properties = ContainerProperties{
+      .border_box_rect_in_css_space =
+          PhysicalRect(offset_in_css_space, border_box_size_in_css_space),
+      .snapshot_matrix = snapshot_matrix_in_css_space,
+      .border_offset = border_offset};
 }
 
 bool ViewTransitionStyleTracker::HasActiveAnimations() const {
@@ -1583,8 +1671,7 @@ PaintPropertyChangeType ViewTransitionStyleTracker::UpdateCaptureClip(
     }
     return element_data->clip_node->Update(*current_clip, std::move(state));
   }
-  NOTREACHED_IN_MIGRATION();
-  return PaintPropertyChangeType::kUnchanged;
+  NOTREACHED();
 }
 
 const ClipPaintPropertyNode* ViewTransitionStyleTracker::GetCaptureClip(
@@ -1597,8 +1684,7 @@ const ClipPaintPropertyNode* ViewTransitionStyleTracker::GetCaptureClip(
     DCHECK(element_data->clip_node);
     return element_data->clip_node.Get();
   }
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 }
 
 bool ViewTransitionStyleTracker::IsTransitionElement(
@@ -1650,8 +1736,7 @@ StyleRequest::RulesToInclude ViewTransitionStyleTracker::StyleRulesToInclude()
       return StyleRequest::kAll;
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return StyleRequest::kAll;
+  NOTREACHED();
 }
 
 namespace {
@@ -1772,18 +1857,17 @@ ViewTransitionState ViewTransitionStyleTracker::GetViewTransitionState() const {
 
   for (const auto& entry : element_data_map_) {
     const auto& element_data = entry.value;
-    DCHECK_EQ(element_data->container_properties.size(), 1u)
-        << "Multiple container properties are only created in the Animate "
-           "phase";
+    DCHECK(element_data->container_properties.has_value());
 
     auto& element = transition_state.elements.emplace_back();
     element.tag_name = entry.key.Utf8();
-    element.border_box_size_in_css_space = gfx::SizeF(
-        element_data->container_properties[0].border_box_size_in_css_space);
+    element.border_box_rect_in_enclosing_layer_css_space = gfx::RectF(
+        element_data->container_properties->border_box_rect_in_css_space);
     element.viewport_matrix =
-        element_data->container_properties[0].snapshot_matrix;
+        element_data->container_properties->snapshot_matrix;
     element.overflow_rect_in_layout_space =
         gfx::RectF(element_data->visual_overflow_rect_in_layout_space);
+
     element.snapshot_id = element_data->old_snapshot_id;
     element.paint_order = element_data->element_index;
     element.captured_rect_in_layout_space =
@@ -1924,8 +2008,9 @@ CSSStyleSheet& ViewTransitionStyleTracker::UAStyleSheet() {
     // a chance to update our rendering in RunPostPrePaintSteps. There is no
     // point in adding any styles here, because those will be wrong. The TODO
     // here is to skip this step earlier, instead of per each element.
-    if (element_data->container_properties.empty())
+    if (!element_data->container_properties) {
       continue;
+    }
 
     gfx::Transform old_parent_inverse_transform;
     gfx::Transform new_parent_inverse_transform;
@@ -1937,17 +2022,24 @@ CSSStyleSheet& ViewTransitionStyleTracker::UAStyleSheet() {
           containing_group_data->cached_container_properties.snapshot_matrix
               .InverseOrIdentity();
 
-      if (!containing_group_data->container_properties.empty()) {
+      old_parent_inverse_transform.Translate(
+          -containing_group_data->cached_container_properties.border_offset);
+
+      if (containing_group_data->container_properties) {
+        const auto& new_container_properties =
+            *containing_group_data->container_properties;
         new_parent_inverse_transform =
-            containing_group_data->container_properties.back()
-                .snapshot_matrix.InverseOrIdentity();
+
+            new_container_properties.snapshot_matrix.InverseOrIdentity();
+        new_parent_inverse_transform.Translate(
+            -new_container_properties.border_offset);
       }
     }
 
     // This updates the styles on the pseudo-elements as described in
     // https://drafts.csswg.org/css-view-transitions-1/#style-transition-pseudo-elements-algorithm.
     builder.AddContainerStyles(
-        view_transition_name, element_data->container_properties.back(),
+        view_transition_name, *element_data->container_properties,
         element_data->captured_css_properties, new_parent_inverse_transform);
 
     // This sets up the styles to animate the pseudo-elements as described in
@@ -2028,6 +2120,10 @@ gfx::RectF ViewTransitionStyleTracker::ElementData::GetInkOverflowRect(
 
 gfx::RectF ViewTransitionStyleTracker::ElementData::GetCapturedSubrect(
     bool use_cached_data) const {
+  if (RuntimeEnabledFeatures::ViewTransitionOverflowRectFromSurfaceEnabled() &&
+      use_cached_data) {
+    return GetInkOverflowRect(true);
+  }
   auto captured_rect = use_cached_data ? cached_captured_rect_in_layout_space
                                        : captured_rect_in_layout_space;
   return captured_rect.value_or(GetInkOverflowRect(use_cached_data));
@@ -2037,24 +2133,26 @@ gfx::RectF ViewTransitionStyleTracker::ElementData::GetBorderBoxRect(
     bool use_cached_data,
     float device_scale_factor) const {
   // TODO(vmpstr): Make container_properties a non-vector non-optional member.
-  if (!use_cached_data && container_properties.size() == 0) {
+  if (!use_cached_data && !container_properties) {
     return gfx::RectF();
   }
-  PhysicalSize border_box_size_in_layout_space =
-      use_cached_data
-          ? cached_container_properties.border_box_size_in_css_space
-          : container_properties.back().border_box_size_in_css_space;
-  border_box_size_in_layout_space.Scale(device_scale_factor);
-  return gfx::RectF(gfx::SizeF(border_box_size_in_layout_space));
+  auto border_box_rect_in_layout_space =
+      use_cached_data ? cached_container_properties.border_box_rect_in_css_space
+                      : container_properties->border_box_rect_in_css_space;
+  border_box_rect_in_layout_space.Scale(device_scale_factor);
+  return gfx::RectF(border_box_rect_in_layout_space);
+}
+
+bool ViewTransitionStyleTracker::ElementData::
+    ShouldPropagateVisualOverflowRectAsMaxExtentsRect() const {
+  return RuntimeEnabledFeatures::
+             ViewTransitionOverflowRectFromSurfaceEnabled() &&
+         target_element && !target_element->IsDocumentElement();
 }
 
 void ViewTransitionStyleTracker::ElementData::CacheStateForOldSnapshot() {
-  // This could be empty if the element was uncontained and was ignored for a
-  // transition.
-  DCHECK_LT(container_properties.size(), 2u);
-
-  if (!container_properties.empty()) {
-    cached_container_properties = container_properties.back();
+  if (container_properties) {
+    cached_container_properties = *container_properties;
   }
   cached_visual_overflow_rect_in_layout_space =
       visual_overflow_rect_in_layout_space;
@@ -2077,6 +2175,25 @@ PhysicalRect ViewTransitionStyleTracker::ComputeVisualOverflowRect(
     LayoutBoxModelObject& box,
     const LayoutBoxModelObject* ancestor) const {
   DCHECK(!box.IsLayoutView());
+  if (RuntimeEnabledFeatures::ViewTransitionOverflowRectFromSurfaceEnabled()) {
+    // In this mode, we don't try to compute the pixel-precise capture rect.
+    // Instead, we compute the max extents: a rect that's close enough to that
+    // rect and contains it. This rect is used for clipping computation in CC.
+    // When displaying live content, ViewTransitionContentImpl would later
+    // "correct" this rect to the actual capture rect that's computed inside CC.
+    // Note that this rect is in enclosing layer space, to match the CC
+    // coordinate space. So the border box rect also has to be in the same
+    // coordinate space.
+    auto rect = box.EnclosingLayer()
+                    ->LocalBoundingBoxIncludingSelfPaintingDescendants();
+    if (!ViewTransitionUtils::UseLayeredCapture(box.StyleRef())) {
+      rect = box.ApplyFiltersToRect(rect);
+    }
+
+    // Correct for fractional offset.
+    rect.Move(box.FirstFragment().PaintOffset());
+    return PhysicalRect(ToEnclosingRect(rect));
+  }
 
   if (ancestor) {
     if (auto* element = DynamicTo<Element>(box.GetNode());
@@ -2085,12 +2202,10 @@ PhysicalRect ViewTransitionStyleTracker::ComputeVisualOverflowRect(
     }
   }
 
-  const bool visible =
-      box.StyleRef().UsedVisibility() == EVisibility::kVisible ||
-      !box.VisualRectRespectsVisibility();
+  const bool visible = box.StyleRef().Visibility() == EVisibility::kVisible ||
+                       !box.VisualRectRespectsVisibility();
   const bool layered_effects_contribute_to_visual_overflow =
-      ancestor ||
-      !RuntimeEnabledFeatures::ViewTransitionLayeredCaptureEnabled();
+      ancestor || !ViewTransitionUtils::UseLayeredCapture(box.StyleRef());
   PhysicalRect result;
 
   if (layered_effects_contribute_to_visual_overflow) {
@@ -2133,7 +2248,7 @@ PhysicalRect ViewTransitionStyleTracker::ComputeVisualOverflowRect(
         }
 
         const bool child_visible =
-            child_text->StyleRef().UsedVisibility() == EVisibility::kVisible ||
+            child_text->StyleRef().Visibility() == EVisibility::kVisible ||
             !child_text->VisualRectRespectsVisibility();
         if (!child_visible) {
           continue;
@@ -2227,8 +2342,7 @@ const char* ViewTransitionStyleTracker::StateToString(State state) {
     case State::kFinished:
       return "Finished";
   }
-  NOTREACHED_IN_MIGRATION();
-  return "???";
+  NOTREACHED();
 }
 
 viz::ViewTransitionElementResourceId

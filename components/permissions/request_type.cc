@@ -40,6 +40,8 @@ int GetIconIdAndroid(RequestType type) {
       return IDR_ANDROID_INFOBAR_CLIPBOARD;
     case RequestType::kDiskQuota:
       return IDR_ANDROID_INFOBAR_FOLDER;
+    case RequestType::kFileSystemAccess:
+      NOTREACHED();
     case RequestType::kGeolocation:
       return IDR_ANDROID_INFOBAR_GEOLOCATION;
     case RequestType::kHandTracking:
@@ -64,8 +66,7 @@ int GetIconIdAndroid(RequestType type) {
     case RequestType::kTopLevelStorageAccess:
       return IDR_ANDROID_STORAGE_ACCESS;
   }
-  NOTREACHED_IN_MIGRATION();
-  return 0;
+  NOTREACHED();
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -110,8 +111,7 @@ const gfx::VectorIcon& GetIconIdDesktop(RequestType type) {
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
     case RequestType::kProtectedMediaIdentifier:
       // This icon is provided by ChromePermissionsClient::GetOverrideIconId.
-      NOTREACHED_IN_MIGRATION();
-      return gfx::kNoneIcon;
+      NOTREACHED();
 #endif
     case RequestType::kRegisterProtocolHandler:
       return vector_icons::kProtocolHandlerIcon;
@@ -137,8 +137,7 @@ const gfx::VectorIcon& GetIconIdDesktop(RequestType type) {
       // TODO(crbug.com/40252825): provide a dedicated icon.
       return vector_icons::kFolderIcon;
   }
-  NOTREACHED_IN_MIGRATION();
-  return gfx::kNoneIcon;
+  NOTREACHED();
 }
 
 const gfx::VectorIcon& GetBlockedIconIdDesktop(RequestType type) {
@@ -177,10 +176,8 @@ const gfx::VectorIcon& GetBlockedIconIdDesktop(RequestType type) {
       // TODO(crbug.com/333795265): provide a dedicated icon.
       return gfx::kNoneIcon;
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
-  NOTREACHED_IN_MIGRATION();
-  return gfx::kNoneIcon;
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -247,10 +244,8 @@ std::optional<RequestType> ContentSettingsTypeToRequestTypeIfExists(
 #endif
     case ContentSettingsType::TOP_LEVEL_STORAGE_ACCESS:
       return RequestType::kTopLevelStorageAccess;
-#if !BUILDFLAG(IS_ANDROID)
     case ContentSettingsType::FILE_SYSTEM_WRITE_GUARD:
       return RequestType::kFileSystemAccess;
-#endif
 #if BUILDFLAG(IS_CHROMEOS)
     case ContentSettingsType::SMART_CARD_DATA:
       return RequestType::kSmartCard;
@@ -398,10 +393,8 @@ const char* PermissionKeyForRequestType(permissions::RequestType request_type) {
       return "clipboard";
     case permissions::RequestType::kDiskQuota:
       return "disk_quota";
-#if !BUILDFLAG(IS_ANDROID)
     case permissions::RequestType::kFileSystemAccess:
       return "file_system";
-#endif
     case permissions::RequestType::kGeolocation:
       return "geolocation";
     case permissions::RequestType::kHandTracking:

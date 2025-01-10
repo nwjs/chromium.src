@@ -798,7 +798,7 @@ BrowserProcessImpl::GetMetricsServicesManager() {
 metrics::MetricsService* BrowserProcessImpl::metrics_service() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   auto* metrics_services_manager = GetMetricsServicesManager();
-  if (metrics_services_manager_) {
+  if (metrics_services_manager) {
     return metrics_services_manager->GetMetricsService();
   }
   return nullptr;
@@ -856,7 +856,7 @@ BrowserProcessImpl::active_primary_accounts_metrics_recorder() {
 variations::VariationsService* BrowserProcessImpl::variations_service() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   auto* metrics_services_manager = GetMetricsServicesManager();
-  if (metrics_services_manager_) {
+  if (metrics_services_manager) {
     return metrics_services_manager->GetVariationsService();
   }
   return nullptr;
@@ -950,8 +950,7 @@ printing::PrintJobManager* BrowserProcessImpl::print_job_manager() {
 #if BUILDFLAG(ENABLE_PRINTING)
   return print_job_manager_.get();
 #else
-  NOTREACHED_IN_MIGRATION();
-  return nullptr;
+  NOTREACHED();
 #endif
 }
 
@@ -1142,18 +1141,14 @@ DownloadRequestLimiter* BrowserProcessImpl::download_request_limiter() {
   return download_request_limiter_.get();
 }
 
-BackgroundModeManager* BrowserProcessImpl::background_mode_manager() {
 #if BUILDFLAG(ENABLE_BACKGROUND_MODE)
+BackgroundModeManager* BrowserProcessImpl::background_mode_manager() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!background_mode_manager_)
     CreateBackgroundModeManager();
   return background_mode_manager_.get();
-#else
-  return nullptr;
-#endif
 }
 
-#if BUILDFLAG(ENABLE_BACKGROUND_MODE)
 void BrowserProcessImpl::set_background_mode_manager_for_test(
     std::unique_ptr<BackgroundModeManager> manager) {
   background_mode_manager_ = std::move(manager);

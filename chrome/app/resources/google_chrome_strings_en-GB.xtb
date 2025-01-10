@@ -80,7 +80,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="2008942457798486387">{NUM_EXTENSIONS,plural, =1{This extension is no longer supported. Chrome recommends that you remove it.}other{These extensions are no longer supported. Chrome recommends that you remove them.}}</translation>
 <translation id="2018528049276128029">Each profile holds its own Chrome info, like bookmarks, history, passwords and more</translation>
 <translation id="2018879682492276940">Installation failed. Please try again.</translation>
-<translation id="2022471217832964798">While we're setting up account access, you can still use Chrome. You may not be able to access some resources until setup is complete.</translation>
 <translation id="2034233344106846793">Chrome upgrades insecure connections to HTTPS automatically when possible</translation>
 <translation id="207902854391093810">When trials are on, ad measurement allows sites that you visit to request information from Chrome that helps the site measure the performance of their ads. Ad measurement restricts cross-site tracking by transferring as little information as possible between sites.</translation>
 <translation id="2091012649849228750">To get future Google Chrome updates, you'll need Windows 10 or later. This computer is using Windows 8.</translation>
@@ -249,6 +248,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="3873044882194371212">Open link in Chrome inco&amp;gnito window</translation>
 <translation id="3885770153807205175">Language picker</translation>
 <translation id="3889417619312448367">Uninstall Google Chrome</translation>
+<translation id="3892148308691398805">Copy text</translation>
 <translation id="3941890832296813527">Install error: The installer filename is invalid or unsupported.</translation>
 <translation id="3973161977468201858">Google Chrome wants to delete your Google Password Manager data. Type in your Windows password to allow this.</translation>
 <translation id="398236277091248993">Chrome stays fast with performance-boosting features</translation>
@@ -303,6 +303,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="4567424176335768812">You're signed in as <ph name="USER_EMAIL_ADDRESS" />. Now you can access your bookmarks, history and other settings on all your signed in devices.</translation>
 <translation id="4571503333518166079">Go to Chrome notification settings</translation>
 <translation id="4575717501879784448">Chrome can make these tabs inactive to improve your browsing experience and free up resources.</translation>
+<translation id="4595162648538023956">You can sign in to get your stuff, or use Chrome without an account</translation>
 <translation id="459622048091363950">Once Chrome has access, websites will be able to ask you for access.</translation>
 <translation id="4600710005438004015">Chrome couldn't update to the latest version, so you're missing out on new features and security fixes.</translation>
 <translation id="4601439950572737842">Your data is encrypted with your passphrase. Enter it to use and save Chrome data in your Google Account.</translation>
@@ -349,6 +350,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="5170938038195470297">Your profile cannot be used because it is from a newer version of Google Chrome.
 
 Some features may be unavailable. Please specify a different profile directory or use a newer version of Chrome.</translation>
+<translation id="5174969993834422967">You usually block notifications. To let this site notify you, click the notification icon on the right corner of your location bar.</translation>
 <translation id="5201744974236816379">Chrome update</translation>
 <translation id="521447420733633466">If you share a device, friends and family can browse separately and set up Chrome just the way they want</translation>
 <translation id="5234764350956374838">Dismiss</translation>
@@ -395,7 +397,6 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="5895138241574237353">Restart</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> – Network sign-in</translation>
 <translation id="5924017743176219022">Connecting to the Internet…</translation>
-<translation id="5932997892801542621">When you type in the address bar or search box, Chrome sends what you type to Google Drive to get item suggestions. This is off in Incognito.</translation>
 <translation id="5940385492829620908">Your web, bookmarks and other Chrome stuff live here.</translation>
 <translation id="5941711191222866238">Minimise</translation>
 <translation id="5941830788786076944">Make Google Chrome the default browser</translation>
@@ -454,6 +455,7 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="6497147134301593682">Chrome was automatically closed</translation>
 <translation id="6506909944137591434">Chrome needs camera permission to create a 3D map of your surroundings</translation>
 <translation id="6515495397637126556"><ph name="PAGE_TITLE" /> – Google Chrome Dev</translation>
+<translation id="6515549163407364048">To get your extensions on all your computers, sign in to Chrome</translation>
 <translation id="6520670145826811516">To use your location, give Chrome access in <ph name="BEGIN_LINK" />system settings<ph name="END_LINK" /></translation>
 <translation id="659498884637196217">In Google Password Manager on this device</translation>
 <translation id="6600016381025017075">Search anything on this page</translation>
@@ -547,6 +549,7 @@ Permissions that you've already given to websites and apps may apply to this acc
 <translation id="7655455401911432608">Your browsing history, a record of sites that you've visited using Chrome on this device.</translation>
 <translation id="7655472416356262023">Remove account from Chrome</translation>
 <translation id="7658239707568436148">Cancel</translation>
+<translation id="7659737857277959440">Your organisation can see and manage browsing data, such as your bookmarks, history and passwords. It can't see browsing data in personal Chrome profiles.</translation>
 <translation id="7661924425853052955">You haven't visited recently. Chrome removed <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> and <ph name="COUNT" /> more</translation>
 <translation id="7668816516367091728">Perform tasks like translate, calculate and more directly from the address bar</translation>
 <translation id="7670287553302121848">Chrome account requires re-authentication</translation>
@@ -597,6 +600,7 @@ Permissions that you've already given to websites and apps may apply to this acc
 <translation id="8129812357326543296">About &amp;Google Chrome</translation>
 <translation id="813913629614996137">Initialising...</translation>
 <translation id="8162006532256575008">Use Chrome without an account</translation>
+<translation id="8221491193165283816">You usually block notifications. To let this site notify you, click here.</translation>
 <translation id="8255190535488645436">Google Chrome is using your camera and microphone.</translation>
 <translation id="8257796129973882597">You can open bookmarks, reading mode and more from the Chrome menu</translation>
 <translation id="8267953129876836456">Chrome found some safety recommendations for your review</translation>
@@ -628,6 +632,7 @@ Permissions that you've already given to websites and apps may apply to this acc
 <translation id="852529348814672339">Display Chrome in this language</translation>
 <translation id="8550334526674375523">This work profile is completely separate from your personal profile.</translation>
 <translation id="8555465886620020932">Service error: <ph name="SERVICE_ERROR" />.</translation>
+<translation id="856656450041460113">Search language list</translation>
 <translation id="8571790202382503603">With Chrome profiles you can separate all of your Chrome things. This makes it easier to split between work and fun.</translation>
 <translation id="8601359445272098721">New! You can translate both text and images on your screen by selecting the 'translate screen' button</translation>
 <translation id="8614913330719544658">Google Chrome is unresponsive. Relaunch now?</translation>

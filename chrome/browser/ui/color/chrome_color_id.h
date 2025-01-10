@@ -76,6 +76,7 @@
   /* Batch Upload colors. */ \
   E_CPONLY(kColorBatchUploadBackground) \
   E_CPONLY(kColorBatchUploadDataBackground) \
+  E_CPONLY(kColorBatchUploadDataSeparator) \
   /* Compose colors */ \
   E_CPONLY(kColorComposeDialogBackground) \
   E_CPONLY(kColorComposeDialogDivider) \
@@ -102,6 +103,8 @@
   /* Desktop media tab list colors. */ \
   E_CPONLY(kColorDesktopMediaTabListBorder) \
   E_CPONLY(kColorDesktopMediaTabListPreviewBackground) \
+  /* Desktop to iOS promo bubble. */ \
+  E_CPONLY(kColorDesktopToIOSPromoFooterSubtitleLabel) \
   /* Common Download colors. */ \
   E_CPONLY(kColorDownloadItemIconDangerous) \
   E_CPONLY(kColorDownloadItemTextDangerous) \
@@ -266,7 +269,6 @@
   E_CPONLY(kColorNewTabPageMenuOuterShadow) \
   E_CPONLY(kColorNewTabPageMicBorderColor) \
   E_CPONLY(kColorNewTabPageMicIconColor) \
-  E_CPONLY(kColorNewTabPageMobilePromoDismissButton) \
   E_CPONLY(kColorNewTabPageModuleControlBorder) \
   E_CPONLY(kColorNewTabPageModuleContextMenuDivider) \
   E_CPONLY(kColorNewTabPageModuleBackground) \
@@ -430,11 +432,10 @@
   E_CPONLY(kColorProductSpecificationsIconButtonHoveredBackground) \
   E_CPONLY(kColorProductSpecificationsLink) \
   E_CPONLY(kColorProductSpecificationsPageBackground) \
-  E_CPONLY(kColorProductSpecificationsPrimaryTitle) \
-  E_CPONLY(kColorProductSpecificationsSecondaryTitle) \
   E_CPONLY(kColorProductSpecificationsSummaryBackground) \
   E_CPONLY(kColorProductSpecificationsSummaryBackgroundDragging) \
   E_CPONLY(kColorProductSpecificationsTonalButtonBackground) \
+  E_CPONLY(kColorProductSpecificationsTonalButtonIcon) \
   /* Profile Menu colors. */ \
   E_CPONLY(kColorProfileMenuBackground) \
   E_CPONLY(kColorProfileMenuHeaderBackground) \
@@ -754,6 +755,8 @@
   E_CPONLY(kColorTabThrobberPreconnect) \
   /* Tab Search colors */ \
   E_CPONLY(kColorTabSearchButtonBackground) \
+  E_CPONLY(kColorTabSearchButtonIcon) \
+  E_CPONLY(kColorTabSearchButtonIconBackground) \
   E_CPONLY(kColorTabSearchBackground) \
   E_CPONLY(kColorTabSearchButtonCRForegroundFrameActive) \
   E_CPONLY(kColorTabSearchButtonCRForegroundFrameInactive) \

@@ -24,8 +24,12 @@ try_.defaults.set(
     orchestrator_siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
     siso_enabled = True,
+    # crbug.com/372192123 - downloading with "minimum" strategy doesn't work
+    # well for Fuchsia builds because some packaging steps require executables.
+    siso_output_local_strategy = "greedy",
     siso_project = siso.project.DEFAULT_UNTRUSTED,
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
+    siso_remote_linking = True,
 )
 
 consoles.list_view(
@@ -73,10 +77,6 @@ try_.builder(
     ),
     builderless = not settings.is_main,
     cores = 16 if settings.is_main else 8,
-    experiments = {
-        # crbug.com/355218109
-        "chromium.use_per_builder_build_dir_name": 100,
-    },
     properties = {
         "$build/binary_size": {
             "analyze_targets": [
@@ -207,8 +207,6 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # b/346598710
         "chromium.luci_analysis_v2": 100,
-        # crbug.com/355218109
-        "chromium.use_per_builder_build_dir_name": 100,
     },
     main_list_view = "try",
     tryjob = try_.job(),

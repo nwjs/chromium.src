@@ -6,6 +6,7 @@
 
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
@@ -52,9 +53,8 @@ ProfileErrorType ProfileErrorFromWebDataServiceWrapperError(
       return ProfileErrorType::DB_WEB_DATA;
 
     default:
-      NOTREACHED_IN_MIGRATION()
-          << "Unknown WebDataServiceWrapper::ErrorType: " << error_type;
-      return ProfileErrorType::DB_WEB_DATA;
+      NOTREACHED() << "Unknown WebDataServiceWrapper::ErrorType: "
+                   << error_type;
   }
 }
 
@@ -65,6 +65,84 @@ void ProfileErrorCallback(WebDataServiceWrapper::ErrorType error_type,
   ShowProfileErrorDialog(ProfileErrorFromWebDataServiceWrapperError(error_type),
                          SqlInitStatusToMessageId(status), diagnostics);
 }
+
+// The logic and metrics below are used on desktop only, as on mobile autofill
+// account data is always persisted on disk.
+#if !BUILDFLAG(IS_ANDROID)
+// List of possible outcomes for the logic that determines whether the autofill
+// account web database should be persisted on disk or in-memory only.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(WebDatabaseAutofillAccountStorageWithReason)
+enum class AutofillAccountStorageResult {
+  kInMemory_FlagDisabled = 0,
+  kInMemory_SignedInImplicitly = 1,
+  kOnDisk_SignedOut = 2,
+  kOnDisk_SignedInExplicitly = 3,
+  kOnDisk_SyncFeatureEnabled = 4,
+  kMaxValue = kOnDisk_SyncFeatureEnabled
+};
+// LINT.ThenChange(/tools/metrics/histograms/metadata/others/enums.xml:WebDatabaseAutofillAccountStorageWithReason)
+
+// See `ShouldUseInMemoryAutofillAccountDatabase()` for details about how this
+// function is useful. Instead of returning a boolean, this function returns an
+// enum that is useful for logging metrics.
+AutofillAccountStorageResult DetermineAutofillAccountStorage(
+    PrefService* pref_service) {
+  // Historically, and before the flag rollout represented by the predicate
+  // below, desktop platforms have used an in-memory database for autofill
+  // account data.
+  if (!switches::IsImprovedSigninUIOnDesktopEnabled()) {
+    return AutofillAccountStorageResult::kInMemory_FlagDisabled;
+  }
+  CHECK(pref_service);
+  // The interpretation of the pref mimics what PrimaryAccountManager's
+  // constructor does.
+  const bool is_signed_in =
+      !pref_service->GetString(::prefs::kGoogleServicesAccountId).empty();
+  // If the user is signed out during profile startup, as per switch above
+  // being enabled, any new sign-ins will involve an explicit sign-in (i.e.
+  // interaction with native UI). In this case, on-disk storage is appropriate.
+  if (!is_signed_in) {
+    return AutofillAccountStorageResult::kOnDisk_SignedOut;
+  }
+  // It is possible that the user already is in an explicit sign-in state. In
+  // this case, on-disk storage is appropriate, as any additional future
+  // sign-ins (if the user first signs out) are guaranteed to be explicit
+  // sign-ins too.
+  if (pref_service->GetBoolean(::prefs::kExplicitBrowserSignin)) {
+    return AutofillAccountStorageResult::kOnDisk_SignedInExplicitly;
+  }
+  // The interpretation of the pref mimics what PrimaryAccountManager's
+  // constructor does.
+  const bool is_consented_to_sync =
+      pref_service->GetBoolean(::prefs::kGoogleServicesConsentedToSync);
+  // If Sync (the feature) is on, the account storage isn't currently used. This
+  // is because the only way to activate the account storate requires signing
+  // out first, which means the predicate can return false as per earlier
+  // rationale. With one exception: managed profiles may turn sync off without
+  // signing out. Either way, having turned sync on implies the user interacted
+  // explicitly with a sync UI, so in this particular context it is no different
+  // from explicit sign-in, and on-disk storage is appropriate.
+  if (is_consented_to_sync) {
+    return AutofillAccountStorageResult::kOnDisk_SyncFeatureEnabled;
+  }
+  // The remaining case implies a legacy signed-in-non-syncing state with
+  // implicit sign-in, which means the user signed in before the latest feature
+  // flags rolled out. This is the only case where in-memory storage should be
+  // used.
+  //
+  // Note that, during the lifetime of the browser/profile, it is still possible
+  // that the users signs out and signs back in, where the latter is guaranteed
+  // to be an explicit sign-in. In this case, it would be theoretically better
+  // to immediately switch to on-disk storage, but this isn't possible once a
+  // profile is initialized (as this predicate only gets evaluated once).
+  // Conveniently, it is also harmless to use the in-memory storage until the
+  // next browser restart, given that this is a one-off transition (upon restart
+  // the code would run into one of the cases listed earlier that return false).
+  return AutofillAccountStorageResult::kInMemory_SignedInImplicitly;
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 // Predicate that determines whether autofill should use an in-memory database
 // for account data (i.e. data corresponding to signed-in-non-syncing users) as
@@ -80,57 +158,22 @@ bool ShouldUseInMemoryAutofillAccountDatabase(PrefService* pref_service) {
   // On Android (and iOS), the account storage is persisted on disk.
   return false;
 #else   // BUILDFLAG(IS_ANDROID)
-  // Historically, and before the flag rollout represented by the predicate
-  // below, desktop platforms have used an in-memory database for autofill
-  // account data.
-  if (!switches::IsImprovedSigninUIOnDesktopEnabled()) {
-    return true;
+  const AutofillAccountStorageResult result =
+      DetermineAutofillAccountStorage(pref_service);
+
+  base::UmaHistogramEnumeration("WebDatabase.AutofillAccountStorage", result);
+
+  switch (result) {
+    case AutofillAccountStorageResult::kInMemory_FlagDisabled:
+    case AutofillAccountStorageResult::kInMemory_SignedInImplicitly:
+      return true;
+    case AutofillAccountStorageResult::kOnDisk_SignedOut:
+    case AutofillAccountStorageResult::kOnDisk_SignedInExplicitly:
+    case AutofillAccountStorageResult::kOnDisk_SyncFeatureEnabled:
+      return false;
   }
-  // The interpretation of the pref mimics what PrimaryAccountManager's
-  // constructor does.
-  const bool is_signed_in =
-      !pref_service->GetString(::prefs::kGoogleServicesAccountId).empty();
-  // If the user is signed out during profile startup, as per switch above
-  // being enabled, any new sign-ins will involve an explicit sign-in (i.e.
-  // interaction with native UI). In this case, on-disk storage is appropriate.
-  if (!is_signed_in) {
-    return false;
-  }
-  // It is possible that the user already is in an explicit sign-in state. In
-  // this case, on-disk storage is appropriate, as any additional future
-  // sign-ins (if the user first signs out) are guaranteed to be explicit
-  // sign-ins too.
-  if (pref_service->GetBoolean(::prefs::kExplicitBrowserSignin)) {
-    return false;
-  }
-  // The interpretation of the pref mimics what PrimaryAccountManager's
-  // constructor does.
-  const bool is_consented_to_sync =
-      pref_service->GetBoolean(::prefs::kGoogleServicesConsentedToSync);
-  // If Sync (the feature) is on, the account storage isn't currently used. This
-  // is because the only way to activate the account storate requires signing
-  // out first, which means the predicate can return false as per earlier
-  // rationale. With one exception: managed profiles may turn sync off without
-  // signing out. Either way, having turned sync on implies the user interacted
-  // explicitly with a sync UI, so in this particular context it is no different
-  // from explicit sign-in, and on-disk storage is appropriate.
-  if (is_consented_to_sync) {
-    return false;
-  }
-  // The remaining case implies a legacy signed-in-non-syncing state with
-  // implicit sign-in, which means the user signed in before the latest feature
-  // flags rolled out. This is the only case where in-memory storage should be
-  // used.
-  //
-  // Note that, during the lifetime of the browser/profile, it is still possible
-  // that the users signs out and signs back in, where the latter is guaranteed
-  // to be an explicit sign-in. In this case, it would be theoretically better
-  // to immediately switch to on-disk storage, but this isn't possible once a
-  // profile is initialized (as this predicate only gets evaluated once).
-  // Conveniently, it is also harmless to use the in-memory storage until the
-  // next browser restart, given that this is a one-off transition (upon restart
-  // the code would run into one of the cases listed earlier that return false).
-  return true;
+
+  NOTREACHED();
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 

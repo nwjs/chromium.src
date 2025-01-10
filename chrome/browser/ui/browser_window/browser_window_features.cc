@@ -10,9 +10,11 @@
 #include "base/feature_list.h"
 #include "base/memory/ptr_util.h"
 #include "base/no_destructor.h"
-#include "chrome/browser/data_sharing/data_sharing_service_factory.h"
+#include "chrome/browser/collaboration/collaboration_service_factory.h"
+#include "chrome/browser/commerce/shopping_service_factory.h"
 #include "chrome/browser/extensions/manifest_v2_experiment_manager.h"
 #include "chrome/browser/extensions/mv2_experiment_stage.h"
+#include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
@@ -31,15 +33,15 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/data_sharing/data_sharing_open_group_helper.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/media_router/cast_browser_controller.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_toolbar_bubble_controller.h"
 #include "chrome/browser/ui/views/side_panel/extensions/extension_side_panel_manager.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/toolbar/chrome_labs/chrome_labs_coordinator.h"
-#include "chrome/browser/ui/web_applications/app_browser_controller.h"
-#include "chrome/browser/ui/web_applications/web_app_browser_controller.h"
+#include "components/collaboration/public/collaboration_service.h"
 #include "components/commerce/core/commerce_feature_list.h"
-#include "components/data_sharing/public/data_sharing_service.h"
-#include "components/data_sharing/public/features.h"
+#include "components/commerce/core/feature_utils.h"
+#include "components/commerce/core/shopping_service.h"
 #include "components/lens/lens_features.h"
 #include "components/profile_metrics/browser_profile_type.h"
 #include "components/saved_tab_groups/public/features.h"
@@ -86,9 +88,16 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
   // with an omnibox and a tab strip). By default most features should be
   // instantiated in this block.
   if (browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL) {
-    product_specifications_entry_point_controller_ =
-        std::make_unique<commerce::ProductSpecificationsEntryPointController>(
-            browser);
+    if (browser->GetProfile()->IsRegularProfile()) {
+      auto* shopping_service =
+          commerce::ShoppingServiceFactory::GetForBrowserContext(
+              browser->GetProfile());
+      if (shopping_service && commerce::CanLoadProductSpecificationsFullPageUi(
+                                  shopping_service->GetAccountChecker())) {
+        product_specifications_entry_point_controller_ = std::make_unique<
+            commerce::ProductSpecificationsEntryPointController>(browser);
+      }
+    }
 
     if (browser->GetProfile()->IsRegularProfile() &&
         tab_groups::IsTabGroupsSaveV2Enabled() &&
@@ -112,13 +121,6 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
   // logic for code shared by both normal and non-normal windows.
   lens_overlay_entry_point_controller_ =
       std::make_unique<lens::LensOverlayEntryPointController>();
-
-  if (browser->GetAppBrowserController() &&
-      browser->GetAppBrowserController()->AsWebAppBrowserController()) {
-    auto* web_app_browser_controller =
-        browser->GetAppBrowserController()->AsWebAppBrowserController();
-    web_app_browser_controller->InitForBrowserWindowFeatures(browser);
-  }
 
   tab_strip_model_ = browser->GetTabStripModel();
 }
@@ -165,8 +167,8 @@ void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
     toast_service_ = std::make_unique<ToastService>(browser);
   }
 
-  data_sharing::DataSharingService* service =
-      data_sharing::DataSharingServiceFactory::GetForProfile(
+  collaboration::CollaborationService* service =
+      collaboration::CollaborationServiceFactory::GetForProfile(
           browser->profile());
   if (service && service->GetServiceStatus().IsAllowedToJoin() &&
       tab_groups::IsTabGroupSyncServiceDesktopMigrationEnabled()) {
@@ -200,6 +202,11 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
     memory_saver_opt_in_iph_controller_ =
         std::make_unique<MemorySaverOptInIPHController>(
             browser_view->browser());
+
+    if (media_router::MediaRouterEnabled(browser_view->browser()->profile())) {
+      cast_browser_controller_ =
+          std::make_unique<media_router::CastBrowserController>(browser_view->browser());
+    }
   }
 }
 

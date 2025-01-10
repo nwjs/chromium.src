@@ -308,7 +308,6 @@
 <translation id="2041220428661959602">ବେଟେରୀ ଲେଭେଲ: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848"><ph name="SIX_PACK_KEY_NAME" /> ସର୍ଟକଟ ବର୍ତ୍ତମାନ ବନ୍ଦ ଅଛି</translation>
 <translation id="2049240716062114887">ଡେସ୍କ ନାମକୁ <ph name="DESK_NAME" />ରେ ବଦଳା ଯାଇଥିଲା</translation>
-<translation id="2050339315714019657">ପୋର୍ଟ୍ରେଟ</translation>
 <translation id="2064048859448024834">କ୍ୟାମେରା ପ୍ରିଭ୍ୟୁ ଚାଲୁ ଅଛି</translation>
 <translation id="2065098273523946419">ଅଧିକ ଜାଣନ୍ତୁ ଲିଙ୍କ। ସକ୍ରିୟ କରାଗଲେ ବ୍ରାଉଜରକୁ ରିଡାଇରେକ୍ଟ କରନ୍ତୁ</translation>
 <translation id="2067220651560163985">ସେଲସିୟସରେ ତାପମାତ୍ରା ଦେଖାନ୍ତୁ</translation>
@@ -339,9 +338,6 @@
 <translation id="219905428774326614">ଲଞ୍ଚର୍, ସମସ୍ତ ଆପ୍</translation>
 <translation id="2201071101391734388">ବର୍ତ୍ତମାନର ଫଟୋ <ph name="TOTAL_COUNT" />ଟିରୁ <ph name="INDEX" />।</translation>
 <translation id="2201687081523799384">Google Tasksକୁ ସଙ୍କୁଚିତ କରନ୍ତୁ</translation>
-<translation id="2206960886090042977">ଏକ ମାଉସ କନେକ୍ଟ କରାଯାଇଥିବା ଯୋଗୁଁ ବିଲ୍ଟ-ଇନ ଟଚପେଡକୁ ଅକ୍ଷମ କରାଯାଇଛି। ପରିବର୍ତ୍ତନକୁ ସୁନିଶ୍ଚିତ କରିବା ପାଇଁ ମାଉସ କିମ୍ବା କୀବୋର୍ଡକୁ ବ୍ୟବହାର କରନ୍ତୁ।
-
-ଅନ୍ୟଥା ବିଲ୍ଟ-ଇନ ଟଚପେଡକୁ 30 ସେକେଣ୍ଡରେ ପୁଣି-ସକ୍ଷମ କରାଯିବ।</translation>
 <translation id="2208323208084708176">ଏକୀକୃତ ଡେସ୍କଟପ୍ ମୋଡ୍</translation>
 <translation id="2220572644011485463">ପିନ୍‌ କିମ୍ବା ପାସ୍‌ୱର୍ଡ</translation>
 <translation id="2222841058024245321">ଡେସ୍କ 7</translation>
@@ -504,6 +500,9 @@
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" />ରୁ <ph name="KEY_TWO" /> ପର୍ଯ୍ୟନ୍ତ</translation>
 <translation id="2778197796481941784">ctrl+search+s</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" />, <ph name="MANAGER" /> ଦ୍ୱାରା ପରିଚାଳିତ ହେଉଛି</translation>
+<translation id="2781658180588759579">ବିଲ୍ଟ-ଇନ ଟଚପେଡକୁ ଅକ୍ଷମ କରାଯାଇଛି। ପରିବର୍ତ୍ତନକୁ ସୁନିଶ୍ଚିତ କରିବା ପାଇଁ ଆପଣଙ୍କ କୀବୋର୍ଡ କିମ୍ବା ଅନ୍ୟ ଏକ ପଏଣ୍ଟର ଡିଭାଇସକୁ ବ୍ୟବହାର କରନ୍ତୁ।
+
+ଅନ୍ୟଥା ବିଲ୍ଟ-ଇନ ଟଚପେଡକୁ <ph name="TIMEOUT_SECONDS" />ରେ ପୁଣି-ସକ୍ଷମ କରାଯିବ।</translation>
 <translation id="2782591952652094792">କ୍ୟାପଚର୍ ମୋଡରୁ ବାହାରି ଯାଆନ୍ତୁ</translation>
 <translation id="2785499565474703580">1ଟି ଡିଭାଇସ କନେକ୍ଟ କରାଯାଇଛି</translation>
 <translation id="2791421900609674576">ଆପଣ ଯେଉଁଠାରେ ଛାଡ଼ିଥିଲେ ସେଠାରୁ ଜାରି ରଖିବା ପାଇଁ ସୁପାରିଶଗୁଡ଼ିକ ଦେଖିବେ। ଆପଣ ସୁପାରିଶଗୁଡ଼ିକୁ କାଢ଼ି ଦେବା ପାଇଁ ସ୍ପର୍ଶ କରି ଧରି ରଖିପାରିବେ।</translation>
@@ -601,6 +600,9 @@
 <translation id="3113492864356515707">ସେଲ୍ଫରେ ପୂର୍ବବର୍ତ୍ତୀ ଆଇଟମକୁ ହାଇଲାଇଟ କରନ୍ତୁ</translation>
 <translation id="311799651966070385">ନଜକୁ ବନ୍ଦ କରନ୍ତୁ</translation>
 <translation id="3120421559657122717">ଡିଭାଇସକୁ ବନ୍ଦ କରିବେ?</translation>
+<translation id="3121411970001795539">ଏକ ମାଉସ କନେକ୍ଟ କରାଯାଇଥିବା ଯୋଗୁଁ ବିଲ୍ଟ-ଇନ ଟଚପେଡକୁ ଅକ୍ଷମ କରାଯାଇଛି। ପରିବର୍ତ୍ତନକୁ ସୁନିଶ୍ଚିତ କରିବା ପାଇଁ ମାଉସ କିମ୍ବା କୀବୋର୍ଡକୁ ବ୍ୟବହାର କରନ୍ତୁ।
+
+ଅନ୍ୟଥା ବିଲ୍ଟ-ଇନ ଟଚପେଡକୁ <ph name="TIMEOUT_SECONDS" />ରେ ପୁଣି-ସକ୍ଷମ କରାଯିବ।</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">କ୍ଲାସୱାର୍କର ପ୍ରକାର</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +973,13 @@
 <translation id="4322742403972824594">Ctrl + Alt + ଉପର ତୀର କୀବୋର୍ଡ ସର୍ଟକଟ୍ ବଦଳି ଯାଇଛି। Home କୀକୁ ବ୍ୟବହାର କରିବା ପାଇଁ, <ph name="LAUNCHER_KEY_NAME" /> କୀ + ବାମ ତୀର କୀ ଦବାନ୍ତୁ।</translation>
 <translation id="4324840740119394760">ଏହା କେମେରା ଅନୁମତି ଥିବା <ph name="APP_NAME" />, ଏବଂ ସମସ୍ତ ଆପ୍ସ ଓ ୱେବସାଇଟ ପାଇଁ କେମେରା ଆକ୍ସେସକୁ ଅନୁମତି ଦିଏ</translation>
 <translation id="4327147325944669226">ଗେମ ରେକର୍ଡ କରନ୍ତୁ</translation>
-<translation id="4333628967105022692">ଏକାଧିକ ୟୁଜର ସାଇନ ଇନ କରିଥିବା ସମୟରେ Lacros ବ୍ରାଉଜର ସପୋର୍ଟ କରେ ନାହିଁ।</translation>
 <translation id="4338109981321384717">ମାଗ୍ନିଫାଇଂ ଗ୍ଲାସ୍</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, ମ୍ୟୁଟ କରାଯାଇଛି</translation>
 <translation id="4351244548802238354">ଡାୟଲଗ୍‍କୁ ବନ୍ଦ କରନ୍ତୁ</translation>
 <translation id="4356872429719185452">ହଟସ୍ପଟ ବିବରଣୀ ଦେଖାନ୍ତୁ। ହଟସ୍ପଟକୁ ଚାଲୁ କରାଯାଉଛି।</translation>
 <translation id="4364101114148522660"><ph name="DURATION" />  ରେକର୍ଡିଂ</translation>
 <translation id="4371348193907997655">କାଷ୍ଟ ସେଟିଂସ୍</translation>
+<translation id="4371834685492830207">PINରେ କେବଳ ବୈଧ କେରେକ୍ଟର ରହିବା ଆବଶ୍ୟକ</translation>
 <translation id="4375482231364171368">ଠିକଣା ବାରରେ ସର୍ଚ୍ଚ କରନ୍ତୁ</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, ସିଗନାଲ୍ କ୍ଷମତା <ph name="SIGNAL_STRENGTH" /> ଶତକଡ଼ା</translation>
 <translation id="4378551569595875038">ସଂଯୋଗ କରୁଛି...</translation>
@@ -1143,6 +1145,7 @@
 <translation id="4902797682482387055">ଫୋକସ କରିବାକୁ ଥିବା ପ୍ରସ୍ତାବିତ ଟାସ୍କ</translation>
 <translation id="490375751687810070">ଭୂଲମ୍ଵ</translation>
 <translation id="490788395437447240"><ph name="BATTERY_PERCENTAGE" />% ବ୍ୟାଟେରୀ</translation>
+<translation id="4911191962826748981">ଏହା ପରୀକ୍ଷାମୂଳକ AI ଫିଚର ଅଟେ ଏବଂ ଏହା ସର୍ବଦା ସଠିକ ଭାବେ କାମ କରିବ ନାହିଁ।</translation>
 <translation id="491504982845934899">ଡିଭାଇସ ସେଟଅପ କରିବା ପରେ <ph name="NETWORK_NAME" /> ସକ୍ରିୟ କରନ୍ତୁ</translation>
 <translation id="4917385247580444890">ଦୃଢ଼</translation>
 <translation id="4918086044614829423">ସ୍ୱୀକାର କରନ୍ତୁ</translation>
@@ -1301,6 +1304,7 @@
 <translation id="5393156353051693207">ଆପଣଙ୍କ ଆପଗୁଡ଼ିକୁ ପୁଣି କ୍ରମରେ ରଖିବା ପାଇଁ ଯେ କୌଣସି ସ୍ଥାନରେ ସ୍ପର୍ଶ କରି ଧରି ରଖନ୍ତୁ</translation>
 <translation id="5395308026110844773"><ph name="IN_PLACE_APP" />ର ଶୀର୍ଷରେ <ph name="DRAGGED_APP_NAME" />କୁ, ଫୋଲ୍ଡର୍ ତିଆରି କରିବା ପାଇଁ ରିଲିଜ୍ କରନ୍ତୁ।</translation>
 <translation id="5397578532367286026">chrome.comରେ ପରିଚାଳକ (<ph name="MANAGER_EMAIL" />)ଙ୍କ ଦ୍ଵାରା ଏହି ୟୁଜରଙ୍କ ବ୍ୟବହାର ଓ ଇତିହାସକୁ ସମୀକ୍ଷା କରାଯାଇପାରିବ।</translation>
+<translation id="540338817371815859">ଲେଣ୍ଡସ୍କେପ</translation>
 <translation id="540713187982329711">ହଟସ୍ପଟକୁ ଟୋଗଲ କରନ୍ତୁ। ହଟସ୍ପଟ ଚାଲୁ ଅଛି, କୌଣସି ଡିଭାଇସ କନେକ୍ଟ କରାଯାଇନାହିଁ।</translation>
 <translation id="5409208741270395213">ଟାସ୍କ ସମ୍ପୂର୍ଣ୍ଣ ହୋଇଛି ବୋଲି ମାର୍କ କରନ୍ତୁ</translation>
 <translation id="5413656666631274079">ସେଟିଂସ ପୃଷ୍ଠା</translation>
@@ -1472,7 +1476,6 @@
 <translation id="5975235751479998104">ୱିଣ୍ଡୋଗୁଡ଼ିକ ମାଧ୍ୟମରେ ଆଗକୁ ଯାଆନ୍ତୁ</translation>
 <translation id="5978382165065462689">ରିମୋଟ୍‍ ସହାୟତା ମାଧ୍ୟମରେ ଆପଣଙ୍କର ସ୍କ୍ରିନ୍‌ର ନିୟନ୍ତ୍ରଣ ସେୟାର୍‌ ହେଉଛି।</translation>
 <translation id="5980301590375426705">ଅତିଥିରୁ ବାହାରି ଯାଅ</translation>
-<translation id="5982119059638483922">ବାତିଲ କରିବାକୁ Fn+Search କିମ୍ବା ସିଫ୍ଟ ଦବାନ୍ତୁ।</translation>
 <translation id="5983567367406220847">ନିଷ୍କ୍ରିୟତା ଯୋଗୁଁ ହଟସ୍ପଟକୁ ବନ୍ଦ କରାଯାଇଛି।</translation>
 <translation id="598407983968395253">ଟେମ୍ପଲେଟ ବ୍ୟବହାର କରନ୍ତୁ</translation>
 <translation id="5986723678596105470">Google Meet ମାଧ୍ୟମରେ ଯୋଗ ଦିଅନ୍ତୁ</translation>
@@ -1542,7 +1545,6 @@
 <translation id="6166852626429024716">ଆପଣଙ୍କର ଡିଭାଇସ, ଆପ୍ସ, ସେଟିଂସ ଏବଂ ୱେବରେ ସର୍ଚ୍ଚ କରନ୍ତୁ…</translation>
 <translation id="6168318496333165060">Diagnostics ଆପ ଖୋଲନ୍ତୁ</translation>
 <translation id="6168622430237609329">ଆପଣଙ୍କ ଇନଷ୍ଟଲ କରାଯାଇଥିବା ଆପ୍ସ</translation>
-<translation id="6173151025443907148">ଯଦି Lacros ସକ୍ଷମ କରାଯାଏ ତେବେ ଜଣେ ଦ୍ୱିତୀୟ ୟୁଜର ସାଇନ ଇନ କରିବା ସମର୍ଥିତ ନୁହେଁ। ଦୟାକରି ଏହା ପରିବର୍ତ୍ତେ Lacrosରେ ଏକ ଦ୍ୱିତୀୟ ବ୍ରାଉଜର ପ୍ରୋଫାଇଲ ବ୍ୟବହାର କରନ୍ତୁ କିମ୍ବା Lacrosକୁ ଅକ୍ଷମ କରି ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।</translation>
 <translation id="6179832488876878285">ଆପଣ ଆପଣଙ୍କର ଗୁରୁତ୍ୱପୂର୍ଣ୍ଣ ଫାଇଲଗୁଡ଼ିକୁ ଏଠାରେ ପିନ୍ କରିପାରିବେ। ଆରମ୍ଭ କରିବାକୁ Files ଆପ୍ ଖୋଲନ୍ତୁ।</translation>
 <translation id="6180193585172850042">'ପଛକୁ ଫେରନ୍ତୁ' ବଟନ</translation>
 <translation id="6180651297859206670">'ଫରୱାର୍ଡ କରନ୍ତୁ' ବଟନ</translation>
@@ -1564,6 +1566,7 @@
 <translation id="6232416233079464213"><ph name="SESSION_NAME" />ରୁ</translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> ବର୍ତ୍ତମାନ ଆପଣଙ୍କ କେମେରା ଏବଂ ମାଇକ୍ରୋଫୋନ ବ୍ୟବହାର କରୁଛି</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">ପାସୱାର୍ଡରେ କେବଳ ବୈଧ କେରେକ୍ଟର ରହିବା ଆବଶ୍ୟକ</translation>
 <translation id="6240603910551255087">ଟପ ବଟନ</translation>
 <translation id="6240821072888636753">ପ୍ରତ୍ୟେକ ଥର ପଚାରନ୍ତୁ</translation>
 <translation id="6247728804802644171">ବିଜ୍ଞପ୍ତିଗୁଡ଼ିକୁ ଖୋଲନ୍ତୁ</translation>
@@ -1693,7 +1696,6 @@
 <translation id="6682029141988159141">କ୍ଲିପବୋର୍ଡରୁ ବିଷୟବସ୍ତୁ ପେଷ୍ଟ କରନ୍ତୁ</translation>
 <translation id="6683022854667115063">ହେଡଫୋନଗୁଡ଼ିକ</translation>
 <translation id="6686023075541098243">ଆପଣଙ୍କ ଫୋନର ବିଜ୍ଞପ୍ତିଗୁଡ଼ିକୁ ଭ୍ୟୁ କରିବା ସେଟ ଅପ କରନ୍ତୁ</translation>
-<translation id="6688019813898140556">Esc କୀ'କୁ 5 ଥର ଦବାନ୍ତୁ</translation>
 <translation id="6694462491298752106">ବିଲ୍ଟ-ଇନ ଟଚପେଡକୁ ଅକ୍ଷମ କରାଯାଇଛି</translation>
 <translation id="6694973220096431421">Google Driveରେ ସର୍ଚ୍ଚ କରନ୍ତୁ</translation>
 <translation id="6696025732084565524">ଆପଣଙ୍କର ଅଲଗା ହୋ‍ଇପାରୁଥିବା କୀବୋର୍ଡରେ ଏକ ମହତ୍ତ୍ୱପୂର୍ଣ୍ଣ ଅପ୍‌ଡେଟ୍‌ ଆବଶ୍ୟକ</translation>
@@ -1714,6 +1716,7 @@
 <translation id="6751826523481687655">କାର୍ଯ୍ୟ-ସମ୍ପାଦନ ଟ୍ରେସିଂ ଚାଲୁ କରାଯାଇଛି</translation>
 <translation id="6752912906630585008"><ph name="REMOVED_DESK" /> ଡେସ୍କ କାଢ଼ି ଦିଆଯାଇଛି ଏବଂ <ph name="RECEIVE_DESK" /> ଡେସ୍କ ସହ ମିଶାଇ ଦିଆଯାଇଛି</translation>
 <translation id="6753390234084146956">ଟାବଗୁଡ଼ିକ</translation>
+<translation id="6754918760968695779">କୁଇକ ଇନସାର୍ଟ</translation>
 <translation id="6757237461819837179">କୌଣସି ମିଡିଆ ଚାଲୁନାହିଁ</translation>
 <translation id="6760438044935091345">ଗେମ ଡେସବୋର୍ଡ</translation>
 <translation id="6768043681523654438">ଷ୍ଟୋରେଜ</translation>
@@ -1763,6 +1766,7 @@
 <translation id="6921427376813842559">ଡିଭାଇସକୁ ଅପଡେଟ କରନ୍ତୁ</translation>
 <translation id="6929081673585394903">ନିୟନ୍ତ୍ରଣଗୁଡ଼ିକ ଦେଖାନ୍ତୁ</translation>
 <translation id="6931576957638141829">ଏଥିରେ ସେଭ୍ କରନ୍ତୁ</translation>
+<translation id="6935857786205183008">ପୋର୍ଟ୍ରେଟ</translation>
 <translation id="6942518653766415536">ରେକର୍ଡିଂ ଫର୍ମାଟ ମେନୁ</translation>
 <translation id="6945221475159498467">ଚୟନ କରନ୍ତୁ</translation>
 <translation id="6945922087561257829">ଆପଣଙ୍କ ଫୋନ ଏକ ମୋବାଇଲ ନେଟୱାର୍କ ବ୍ୟବହାର କରୁଛି। ଆପଣଙ୍କ ଫୋନ ଏବଂ Chromebook ସମାନ ୱାଇ-ଫାଇ ନେଟୱାର୍କରେ ଥିବା ସୁନିଶ୍ଚିତ କରି ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ। <ph name="LEARN_MORE" /></translation>
@@ -1919,9 +1923,6 @@
 ଡିଭାଇସକୁ ବନ୍ଦ କରିବା ପାଇଁ ପୁଣି ଡିଭାଇସରେ ପାୱାର ବଟନକୁ ଦବାଇ ଧରନ୍ତୁ।</translation>
 <translation id="7523420897035067483">ଫୋକସ ମୋଡ ଚାଲୁ ଥିବା ସମୟରେ 'ବିରକ୍ତ କରନ୍ତୁ ନାହିଁ'କୁ ସକ୍ଷମ କରନ୍ତୁ</translation>
 <translation id="7524043547948122239">Google Tasks</translation>
-<translation id="7524919752437339268">ବିଲ୍ଟ-ଇନ ଟଚପେଡକୁ ଅକ୍ଷମ କରାଯାଇଛି। ପରିବର୍ତ୍ତନକୁ ସୁନିଶ୍ଚିତ କରିବା ପାଇଁ ଆପଣଙ୍କ କୀବୋର୍ଡ କିମ୍ବା ଅନ୍ୟ ଏକ ପଏଣ୍ଟର ଡିଭାଇସକୁ ବ୍ୟବହାର କରନ୍ତୁ।
-
-ଅନ୍ୟଥା ବିଲ୍ଟ-ଇନ ଟଚପେଡକୁ 30 ସେକେଣ୍ଡରେ ପୁଣି-ସକ୍ଷମ କରାଯିବ।</translation>
 <translation id="7525067979554623046">ତିଆରି କରନ୍ତୁ</translation>
 <translation id="7526573455193969409">ନେଟ୍‌ୱର୍କ ଉପରେ ହୁଏତ ନଜର ରଖାଯାଇପାରେ</translation>
 <translation id="7536035074519304529">IP ଠିକଣା: <ph name="ADDRESS" /></translation>
@@ -2008,6 +2009,7 @@
 <translation id="780301667611848630">ନା, ଧନ୍ୟବାଦ</translation>
 <translation id="7807067443225230855">ସର୍ଚ୍ଚ ଓ ଆସିଷ୍ଟାଣ୍ଟ</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> ଓ <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">ଥମ୍ବସ ଅପ 'ଆପଣ ଏହି ପରାମର୍ଶକୁ ପସନ୍ଦ କରନ୍ତି' ବୋଲି ମତାମତ ଦାଖଲ କରିବ</translation>
 <translation id="7825412704590278437">ଆଗାମୀ କେଲେଣ୍ଡର ଇଭେଣ୍ଟ ଠାରୁ</translation>
 <translation id="7829386189513694949">ଶକ୍ତିଶାଳୀ ସିଗ୍‌‌‌‌‌‌‌ନାଲ୍</translation>
 <translation id="7830453190047749513">ଆପଣ ଆପଣଙ୍କ <ph name="PERIPHERAL_NAME" /> ପାଇଁ ବଟନ କାର୍ଯ୍ୟ, କର୍ସର ସ୍ପିଡ ଏବଂ ଆହୁରି ଅନେକ କିଛିକୁ ପର୍ସନାଲାଇଜ କରିପାରିବେ</translation>
@@ -2162,6 +2164,7 @@
 <translation id="830868413617744215">ବେଟା</translation>
 <translation id="8314772463905284467">Caps Lock ଚାଲୁ ଅଛି</translation>
 <translation id="8315514906653279104">ଚାଲୁ କରାଯାଉଛି...</translation>
+<translation id="8319634750346253957">ଥମ୍ବସ ଡାଉନ 'ଆପଣ ଏହି ପରାମର୍ଶକୁ ନାପସନ୍ଦ କରନ୍ତି' ବୋଲି ମତାମତ ଦାଖଲ କରିବ</translation>
 <translation id="8331351032546853669">ଡାଉନଲୋଡ ବାକି ଅଛି</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2347,6 +2350,7 @@
 <translation id="8982906748181120328">Nearby ଭିଜିବିଲିଟୀ</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590"><ph name="IME_NAME" /> ବ୍ୟବହାର କରି</translation>
+<translation id="8991648557324317894">ବାତିଲ କରିବା ପାଇଁ fn + କୁଇକ ଇନସାର୍ଟ କିମ୍ବା ସିଫ୍ଟ କୀ'କୁ ଦବାନ୍ତୁ।</translation>
 <translation id="899350903320462459">ବିଜ୍ଞପ୍ତି କାର୍ଯ୍ୟ ସମ୍ପାଦନ କରିବାକୁ ଡିଭାଇସ୍‌କୁ <ph name="LOGIN_ID" /> ଭାବେ ଅନ୍‌ଲକ୍‌ କରନ୍ତୁ</translation>
 <translation id="8993733019280019776">ଆପଣ କିଛି କହୁଛନ୍ତି? ଆପଣଙ୍କ ମାଇକ ବନ୍ଦ ଅଛି। ମାଇକକୁ ଚାଲୁ କରିବା ପାଇଁ ଏହାକୁ ଚୟନ କରନ୍ତୁ।</translation>
 <translation id="9000771174482730261">ଷ୍ଟୋରେଜ ପରିଚାଳନା କରନ୍ତୁ</translation>
@@ -2429,9 +2433,9 @@
 <translation id="974545358917229949"><ph name="QUERY" /> ପାଇଁ <ph name="RESULT_COUNT" />ଟି ଫଳାଫଳ ଡିସ୍‌ପ୍ଲେ ହେଉଛି</translation>
 <translation id="981011780479609956">କୌଣସି ଧାର୍ଯ୍ୟ ତାରିଖ ନାହିଁ</translation>
 <translation id="98120814841227350">ଡକ୍ୟୁମେଣ୍ଟର ଶେଷକୁ ଯାଆନ୍ତୁ</translation>
-<translation id="98515147261107953">ଲେଣ୍ଡସ୍କେପ</translation>
 <translation id="987589956647469042">ମୋବାଇଲ ଡାଟାକୁ ଚାଲୁ କରାଯାଇଛି</translation>
 <translation id="989374776391122812">କେମେରା ଏବଂ ଅଡିଓ ନିୟନ୍ତ୍ରଣଗୁଡ଼ିକ</translation>
+<translation id="990263227494928142">ଟଚପେଡକୁ ସକ୍ଷମ କରିବା ପାଇଁ ସିଫ୍ଟକୁ 5 ଥର ଦବାନ୍ତୁ</translation>
 <translation id="990277280839877440">Window <ph name="WINDOW_TITILE" /> ବନ୍ଦ କରାଯାଇଛି।</translation>
 <translation id="993398562350683614">ଟୁରର <ph name="TOTAL_STEPS" /> ଷ୍ଟେପରୁ <ph name="STEP" /> ନମ୍ବର ଷ୍ଟେପ। ଆପଣଙ୍କ <ph name="PRODUCT_NAME" />ରେ ଆପଣ ଆବଶ୍ୟକ କରୁଥିବା ସବୁକିଛି କରିବା ପାଇଁ ଆପ୍ସ ବ୍ୟବହାର କରନ୍ତୁ। ଆପଣ ଲଞ୍ଚରରେ ଆପଣଙ୍କ ଆପ୍ସ ପାଇପାରିବେ। ଲଞ୍ଚର ବଟନରେ ଫୋକସ କରିବା ପାଇଁ Alt + Shift + L ଦବାନ୍ତୁ।</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

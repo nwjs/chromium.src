@@ -28,13 +28,11 @@ bool SupportsInvalidation(CSSSelector::MatchType match) {
     case CSSSelector::kUnknown:
     case CSSSelector::kPagePseudoClass:
       // These should not appear in StyleRule selectors.
-      NOTREACHED_IN_MIGRATION();
-      return false;
+      NOTREACHED();
     default:
       // New match type added. Figure out if it needs a subtree invalidation or
       // not.
-      NOTREACHED_IN_MIGRATION();
-      return false;
+      NOTREACHED();
   }
 }
 
@@ -86,8 +84,10 @@ bool SupportsInvalidation(CSSSelector::PseudoType type) {
     case CSSSelector::kPseudoIndeterminate:
     case CSSSelector::kPseudoTarget:
     case CSSSelector::kPseudoCurrent:
+    case CSSSelector::kPseudoCheck:
     case CSSSelector::kPseudoBefore:
     case CSSSelector::kPseudoAfter:
+    case CSSSelector::kPseudoSelectArrow:
     case CSSSelector::kPseudoMarker:
     case CSSSelector::kPseudoModal:
     case CSSSelector::kPseudoSelectorFragmentAnchor:
@@ -184,13 +184,11 @@ bool SupportsInvalidation(CSSSelector::PseudoType type) {
     case CSSSelector::kPseudoRightPage:
     case CSSSelector::kPseudoFirstPage:
       // These should not appear in StyleRule selectors.
-      NOTREACHED_IN_MIGRATION();
-      return false;
+      NOTREACHED();
     default:
       // New pseudo type added. Figure out if it needs a subtree invalidation or
       // not.
-      NOTREACHED_IN_MIGRATION();
-      return false;
+      NOTREACHED();
   }
 }
 
@@ -1118,6 +1116,11 @@ bool RuleInvalidationDataVisitor<VisitorType>::
       case CSSSelector::kPseudoVisited:
         // Ignore :visited to prevent history leakage.
         break;
+      case CSSSelector::kPseudoScope:
+        // Ignore :scope inside :has() because :has() anchor element doesn't
+        // have any descendant/sibling/sibling-descendant element that matches
+        // document root or scope root.
+        break;
       default:
         if constexpr (is_builder()) {
           rule_invalidation_data_.pseudos_in_has_argument.insert(pseudo_type);
@@ -1402,8 +1405,7 @@ void RuleInvalidationDataVisitor<VisitorType>::
       combinator = CSSSelector::kIndirectAdjacent;
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return;
+      NOTREACHED();
   }
 
   UpdateFeaturesFromCombinator(combinator, last_compound_in_adjacent_chain,
@@ -1439,7 +1441,8 @@ const CSSSelector* RuleInvalidationDataVisitor<VisitorType>::
       default:
         break;
     }
-    if (simple->Relation() != CSSSelector::kSubSelector) {
+    if (simple->Relation() != CSSSelector::kSubSelector &&
+        simple->Relation() != CSSSelector::kScopeActivation) {
       break;
     }
   }
@@ -1483,7 +1486,8 @@ const CSSSelector* RuleInvalidationDataVisitor<VisitorType>::
       compound_has_features_for_rule_set_invalidation = true;
     }
 
-    if (simple->Relation() != CSSSelector::kSubSelector) {
+    if (simple->Relation() != CSSSelector::kSubSelector &&
+        simple->Relation() != CSSSelector::kScopeActivation) {
       break;
     }
   }

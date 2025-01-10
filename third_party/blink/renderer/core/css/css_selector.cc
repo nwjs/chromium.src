@@ -88,7 +88,11 @@ unsigned MaximumSpecificity(
 
 struct SameSizeAsCSSSelector {
   unsigned bitfields;
-  void* pointers[1];
+  union {
+    AtomicString value_;
+    QualifiedName tag_q_name_or_attribute_;
+    Member<void*> rare_data_;
+  } pointers;
 };
 
 ASSERT_SIZE(CSSSelector, SameSizeAsCSSSelector);
@@ -284,13 +288,11 @@ inline unsigned CSSSelector::SpecificityForOneSelector() const {
       return kTagSpecificity;
     case kInvalidList:
     case kPagePseudoClass:
-      NOTREACHED_IN_MIGRATION();
-      return 0;
+      NOTREACHED();
     case kUnknown:
       return 0;
   }
-  NOTREACHED_IN_MIGRATION();
-  return 0;
+  NOTREACHED();
 }
 
 unsigned CSSSelector::SpecificityForPage() const {
@@ -313,7 +315,7 @@ unsigned CSSSelector::SpecificityForPage() const {
             s += 1;
             break;
           default:
-            NOTREACHED_IN_MIGRATION();
+            NOTREACHED();
         }
         break;
       default:
@@ -331,10 +333,14 @@ PseudoId CSSSelector::GetPseudoId(PseudoType type) {
       return kPseudoIdFirstLetter;
     case kPseudoSelection:
       return kPseudoIdSelection;
+    case kPseudoCheck:
+      return kPseudoIdCheck;
     case kPseudoBefore:
       return kPseudoIdBefore;
     case kPseudoAfter:
       return kPseudoIdAfter;
+    case kPseudoSelectArrow:
+      return kPseudoIdSelectArrow;
     case kPseudoMarker:
       return kPseudoIdMarker;
     case kPseudoBackdrop:
@@ -510,8 +516,7 @@ PseudoId CSSSelector::GetPseudoId(PseudoType type) {
       return kPseudoIdNone;
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return kPseudoIdNone;
+  NOTREACHED();
 }
 
 void CSSSelector::Reparent(StyleRule* new_parent) {
@@ -574,6 +579,7 @@ constexpr static NameToPseudoStruct kPseudoTypeWithoutArgumentsMap[] = {
     {"autofill", CSSSelector::kPseudoAutofill},
     {"backdrop", CSSSelector::kPseudoBackdrop},
     {"before", CSSSelector::kPseudoBefore},
+    {"check", CSSSelector::kPseudoCheck},
     {"checked", CSSSelector::kPseudoChecked},
     {"closed", CSSSelector::kPseudoClosed},
     {"column", CSSSelector::kPseudoColumn},
@@ -642,6 +648,7 @@ constexpr static NameToPseudoStruct kPseudoTypeWithoutArgumentsMap[] = {
     {"scroll-next-button", CSSSelector::kPseudoScrollNextButton},
     {"scroll-prev-button", CSSSelector::kPseudoScrollPrevButton},
     {"search-text", CSSSelector::kPseudoSearchText},
+    {"select-arrow", CSSSelector::kPseudoSelectArrow},
     {"selection", CSSSelector::kPseudoSelection},
     {"single-button", CSSSelector::kPseudoSingleButton},
     {"spelling-error", CSSSelector::kPseudoSpellingError},
@@ -865,13 +872,15 @@ void CSSSelector::UpdatePseudoType(const AtomicString& value,
     case kPseudoFirstLetter:
     case kPseudoFirstLine:
       // The spec says some pseudos allow both single and double colons like
-      // :before for backwards compatability. Single colon becomes PseudoClass,
+      // :before for backwards compatibility. Single colon becomes PseudoClass,
       // but should be PseudoElement like double colon.
       if (Match() == kPseudoClass) {
         bits_.set<MatchField>(kPseudoElement);
       }
       [[fallthrough]];
     // For pseudo elements
+    case kPseudoSelectArrow:
+    case kPseudoCheck:
     case kPseudoBackdrop:
     case kPseudoCue:
     case kPseudoMarker:
@@ -1208,8 +1217,7 @@ bool CSSSelector::SerializeSimpleSelector(StringBuilder& builder) const {
         }
         break;
       case kPseudoRelativeAnchor:
-        NOTREACHED_IN_MIGRATION();
-        return false;
+        NOTREACHED();
       case kPseudoActiveViewTransitionType: {
         CHECK(!IdentList().empty());
         String separator = "(";
@@ -1394,8 +1402,7 @@ String CSSSelector::SelectorTextInternal() const {
         break;
       case kSubSelector:
       case kScopeActivation:
-        NOTREACHED_IN_MIGRATION();
-        break;
+        NOTREACHED();
       case kShadowPart:
       case kUAShadow:
       case kShadowSlot:
@@ -1411,8 +1418,7 @@ String CSSSelector::SelectorTextInternal() const {
         return "~ " + builder.ReleaseString() + result;
     }
   }
-  NOTREACHED_IN_MIGRATION();
-  return String();
+  NOTREACHED();
 }
 
 String CSSSelector::SimpleSelectorTextForDebug() const {
@@ -1473,7 +1479,7 @@ static bool ValidateSubSelector(const CSSSelector* selector) {
     case CSSSelector::kPseudoClass:
       break;
     case CSSSelector::kInvalidList:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
 
   switch (selector->GetPseudoType()) {
@@ -1597,7 +1603,9 @@ bool CSSSelector::IsAllowedInParentPseudo() const {
 
 bool CSSSelector::IsTreeAbidingPseudoElement() const {
   return Match() == CSSSelector::kPseudoElement &&
-         (GetPseudoType() == kPseudoBefore || GetPseudoType() == kPseudoAfter ||
+         (GetPseudoType() == kPseudoCheck || GetPseudoType() == kPseudoBefore ||
+          GetPseudoType() == kPseudoAfter ||
+          GetPseudoType() == kPseudoSelectArrow ||
           GetPseudoType() == kPseudoMarker ||
           GetPseudoType() == kPseudoPlaceholder ||
           GetPseudoType() == kPseudoFileSelectorButton ||
@@ -1607,17 +1615,17 @@ bool CSSSelector::IsTreeAbidingPseudoElement() const {
           GetPseudoType() == kPseudoViewTransitionImagePair ||
           GetPseudoType() == kPseudoViewTransitionOld ||
           GetPseudoType() == kPseudoViewTransitionNew ||
-          IsPartLikePseudoElement(GetPseudoType()));
+          IsElementBackedPseudoElement(GetPseudoType()));
 }
 
-/* static */ bool CSSSelector::IsPartLikePseudoElement(
+/* static */ bool CSSSelector::IsElementBackedPseudoElement(
     CSSSelector::PseudoType pseudo) {
   return pseudo == kPseudoDetailsContent || pseudo == kPseudoPicker;
 }
 
-bool CSSSelector::IsPartLikePseudoElement() const {
+bool CSSSelector::IsElementBackedPseudoElement() const {
   return Match() == CSSSelector::kPseudoElement &&
-         IsPartLikePseudoElement(GetPseudoType());
+         IsElementBackedPseudoElement(GetPseudoType());
 }
 
 bool CSSSelector::IsAllowedAfterPart() const {
@@ -1630,8 +1638,10 @@ bool CSSSelector::IsAllowedAfterPart() const {
     //
     // All pseudo-elements other than ::part() should be allowed after
     // ::part().
+    case kPseudoCheck:
     case kPseudoBefore:
     case kPseudoAfter:
+    case kPseudoSelectArrow:
     case kPseudoPlaceholder:
     case kPseudoFileSelectorButton:
     case kPseudoFirstLine:
@@ -2010,8 +2020,7 @@ CSSSelector::RelationType ConvertRelationToRelative(
     case CSSSelector::kIndirectAdjacent:
       return CSSSelector::kRelativeIndirectAdjacent;
     default:
-      NOTREACHED_IN_MIGRATION();
-      return {};
+      NOTREACHED();
   }
 }
 

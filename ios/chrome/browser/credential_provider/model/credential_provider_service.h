@@ -93,6 +93,11 @@ class CredentialProviderService
   // Syncs the credential store to disk.
   void SyncStore();
 
+  // Saves the Gaia and email of the current user to the ios keychain for the
+  // Credential Provider Extension to use when creating new credentials. Returns
+  // whether writing the data to the ios keychain succeeded.
+  bool SaveAccountInfo();
+
   // Add credentials from `forms`. Currently simply calls either the legacy or
   // refactored version of this function.
   void AddCredentials(MemoryCredentialStore* store,
@@ -128,6 +133,10 @@ class CredentialProviderService
   // Syncs the current logged in user's email to the extension if they are
   // syncing passwords.
   void UpdateUserEmail();
+
+  // Syncs whether or not the user is currently syncing passwords. (This
+  // includes account storage.)
+  void UpdatePasswordSyncSetting();
 
   // PasswordStoreConsumer:
   void OnGetPasswordStoreResultsOrErrorFrom(

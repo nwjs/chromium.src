@@ -14,26 +14,33 @@ source_set("lens") {
   public = [
     "lens_overlay_controller.h",
     "lens_overlay_entry_point_controller.h",
+    "lens_overlay_gen204_controller.h",
+    "lens_overlay_image_helper.h",
     "lens_overlay_side_panel_navigation_throttle.h",
     "lens_overlay_untrusted_ui.h",
     "lens_side_panel_untrusted_ui.h",
     "search_bubble_ui.h",
   ]
-  friend = [ ":*" ]
+  friend = [
+    ":*",
+
+    # TODO(crbug.com/375491451): This short-term solution allows Ash Chrome to # depend on Lens Overlay directly for expediency. Remove this when the
+    # long-term refactor to separate clients is implemented.
+    "//chrome/browser/ui/ash/capture_mode",
+  ]
   sources = [
     "lens_overlay_blur_layer_delegate.cc",
     "lens_overlay_blur_layer_delegate.h",
     "lens_overlay_colors.h",
     "lens_overlay_controller.cc",
-    "lens_overlay_controller_glue.cc",
-    "lens_overlay_controller_glue.h",
     "lens_overlay_entry_point_controller.cc",
     "lens_overlay_event_handler.cc",
     "lens_overlay_event_handler.h",
     "lens_overlay_gen204_controller.cc",
-    "lens_overlay_gen204_controller.h",
     "lens_overlay_image_helper.cc",
     "lens_overlay_image_helper.h",
+    "lens_overlay_languages_controller.cc",
+    "lens_overlay_languages_controller.h",
     "lens_overlay_proto_converter.cc",
     "lens_overlay_proto_converter.h",
     "lens_overlay_query_controller.cc",
@@ -71,6 +78,8 @@ source_set("lens") {
     "//components/find_in_page",
     "//components/lens",
     "//content/public/browser",
+    "//third_party/lens_server_proto:lens_overlay_proto",
+    "//ui/base/mojom:ui_base_types",
   ]
 
   deps = [
@@ -133,6 +142,7 @@ source_set("lens") {
     "//components/zoom",
     "//google_apis",
     "//google_apis/common:common",
+    "//google_apis/common:request_util",
     "//mojo/public/cpp/bindings",
     "//net",
     "//net/traffic_annotation",
@@ -147,6 +157,7 @@ source_set("lens") {
     "//ui/gfx:gfx",
     "//ui/gfx/codec:codec",
     "//ui/gfx/geometry:geometry",
+    "//ui/menus",
     "//ui/views",
     "//ui/webui",
     "//url",
@@ -158,6 +169,18 @@ source_set("lens") {
   }
 }
 
+source_set("test_query_controller") {
+  sources = [
+    "test_lens_overlay_query_controller.cc",
+    "test_lens_overlay_query_controller.h",
+  ]
+
+  deps = [
+    ":lens",
+    "//google_apis/common",
+  ]
+}
+
 source_set("browser_tests") {
   testonly = true
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
@@ -167,6 +190,7 @@ source_set("browser_tests") {
   ]
   deps = [
     ":lens",
+    ":test_query_controller",
     "//base",
     "//base/test:test_support",
     "//chrome/browser",
@@ -186,6 +210,7 @@ source_set("browser_tests") {
     "//chrome/browser/ui/views/side_panel",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",
+    "//components/constrained_window",
     "//components/feature_engagement/public",
     "//components/lens:enterprise_policy",
     "//components/lens:features",
@@ -226,6 +251,7 @@ source_set("interactive_ui_tests") {
   ]
   deps = [
     ":lens",
+    ":test_query_controller",
     "//base/test:test_support",
     "//chrome/browser",
     "//chrome/browser/profiles:profile",
@@ -253,6 +279,7 @@ source_set("unit_tests") {
   sources = [
     "lens_overlay_gen204_controller_unittest.cc",
     "lens_overlay_image_helper_unittest.cc",
+    "lens_overlay_languages_controller_unittest.cc",
     "lens_overlay_proto_converter_unittest.cc",
     "lens_overlay_query_controller_unittest.cc",
     "lens_overlay_request_id_generator_unittest.cc",
@@ -261,6 +288,7 @@ source_set("unit_tests") {
   ]
   deps = [
     ":lens",
+    ":test_query_controller",
     "//base",
     "//base/test:test_support",
     "//chrome/browser",

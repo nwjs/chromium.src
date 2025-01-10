@@ -19,7 +19,8 @@ source_set("default_browser_scene_agent") {
     "//ios/chrome/browser/promos_manager/model",
     "//ios/chrome/browser/promos_manager/model:constants",
     "//ios/chrome/browser/shared/coordinator/scene:observing_scene_agent",
-    "//ios/chrome/browser/signin/model",
+    "//ios/chrome/browser/signin/model:authentication_service",
+    "//ios/chrome/browser/signin/model:authentication_service_factory",
   ]
   frameworks = [ "UIKit.framework" ]
 }
@@ -46,6 +47,7 @@ source_set("scene") {
     "//base",
     "//ios/chrome/app:blocking_scene_commands",
     "//ios/chrome/app/application_delegate:app_state_header",
+    "//ios/chrome/app/profile",
     "//ios/chrome/browser/blocking_overlay/ui_bundled",
     "//ios/chrome/browser/shared/coordinator/scene:observing_scene_agent",
     "//ios/chrome/browser/shared/public/commands",
@@ -80,7 +82,6 @@ source_set("main") {
     "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
     "//ios/chrome/browser/shared/model/browser",
     "//ios/chrome/browser/shared/model/profile",
-    "//ios/chrome/browser/shared/model/profile:forward",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/snapshots/model",
@@ -144,7 +145,8 @@ source_set("unit_tests") {
     "//ios/chrome/browser/shared/model/profile/test",
     "//ios/chrome/browser/shared/public/features",
     "//ios/chrome/browser/shared/public/features:system_flags",
-    "//ios/chrome/browser/signin/model",
+    "//ios/chrome/browser/signin/model:authentication_service",
+    "//ios/chrome/browser/signin/model:authentication_service_factory",
     "//ios/chrome/browser/signin/model:fake_system_identity",
     "//ios/chrome/browser/signin/model:fake_system_identity_manager",
     "//ios/chrome/browser/signin/model:test_support",

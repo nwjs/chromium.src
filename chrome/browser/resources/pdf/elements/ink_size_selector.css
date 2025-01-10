@@ -7,6 +7,10 @@
  * #import=./shared_vars.css.js
  * #css_wrapper_metadata_end */
 
+:host {
+  display: inline-block;
+}
+
 div {
   display: flex;
   justify-content: center;
@@ -15,7 +19,8 @@ div {
 cr-icon-button {
   --cr-icon-button-fill-color: var(--viewer-icon-ink-fill-color);
   --cr-icon-button-icon-size: 24px;
-  --cr-icon-button-size: 48px;
+  --cr-icon-button-size: 36px;
+  margin: 6px;
 }
 
 cr-icon-button[data-selected="true"] {

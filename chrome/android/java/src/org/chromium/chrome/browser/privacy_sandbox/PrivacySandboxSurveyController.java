@@ -9,12 +9,15 @@ import android.app.Activity;
 import androidx.annotation.Nullable;
 
 import org.chromium.base.ResettersForTesting;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.BuildConfig;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ActivityTabProvider.ActivityTabTabObserver;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
+import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.hats.MessageSurveyUiDelegate;
@@ -25,9 +28,14 @@ import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.messages.MessageBannerProperties;
 import org.chromium.components.messages.MessageDispatcher;
 import org.chromium.components.messages.MessageIdentifier;
+import org.chromium.components.prefs.PrefService;
+import org.chromium.components.signin.identitymanager.ConsentLevel;
+import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /** Class that controls and manages when and if surveys should be shown. */
 public class PrivacySandboxSurveyController {
@@ -39,7 +47,6 @@ public class PrivacySandboxSurveyController {
     private TabModelSelector mTabModelSelector;
     private MessageDispatcher mMessageDispatcher;
     private Profile mProfile;
-    private PrivacySandboxSurveyBridge mPrivacySandboxSurveyBridge;
     private boolean mHasSeenNtp;
     private static boolean sEnableForTesting;
 
@@ -56,8 +63,6 @@ public class PrivacySandboxSurveyController {
         mTabModelSelector = tabModelSelector;
         mMessageDispatcher = messageDispatcher;
         mProfile = profile;
-        mPrivacySandboxSurveyBridge = new PrivacySandboxSurveyBridge(mProfile);
-
         setSurveyMessageToDefault();
         createTabObserver(activityTabProvider);
     }
@@ -81,6 +86,10 @@ public class PrivacySandboxSurveyController {
             return null;
         }
         if (!ChromeFeatureList.isEnabled(ChromeFeatureList.PRIVACY_SANDBOX_SENTIMENT_SURVEY)) {
+            recordSentimentSurveyStatus(PrivacySandboxSentimentSurveyStatus.FEATURE_DISABLED);
+            return null;
+        }
+        if (profile.isOffTheRecord()) {
             return null;
         }
         return new PrivacySandboxSurveyController(
@@ -92,22 +101,21 @@ public class PrivacySandboxSurveyController {
                 profile);
     }
 
-    private SurveyClient constructSurveyClient(String triggerId) {
-        SurveyConfig config = SurveyConfig.get(triggerId);
-        if (config == null) {
+    private SurveyClient constructSentimentSurveyClient() {
+        SurveyConfig sentimentSurveyConfig = SurveyConfig.get(SENTIMENT_SURVEY_TRIGGER);
+        if (sentimentSurveyConfig == null) {
+            recordSentimentSurveyStatus(PrivacySandboxSentimentSurveyStatus.INVALID_SURVEY_CONFIG);
             return null;
         }
-        assert SurveyClientFactory.getInstance() != null;
-
         MessageSurveyUiDelegate messageDelegate =
                 new MessageSurveyUiDelegate(
                         mMessage,
                         mMessageDispatcher,
                         mTabModelSelector,
                         SurveyClientFactory.getInstance().getCrashUploadPermissionSupplier());
-
         SurveyClient surveyClient =
-                SurveyClientFactory.getInstance().createClient(config, messageDelegate, mProfile);
+                SurveyClientFactory.getInstance()
+                        .createClient(sentimentSurveyConfig, messageDelegate, mProfile);
         return surveyClient;
     }
 
@@ -123,7 +131,7 @@ public class PrivacySandboxSurveyController {
     }
 
     private void maybeLaunchSurvey() {
-        SurveyClient sentimentSurveyClient = constructSurveyClient(SENTIMENT_SURVEY_TRIGGER);
+        SurveyClient sentimentSurveyClient = constructSentimentSurveyClient();
         if (sentimentSurveyClient == null) {
             return;
         }
@@ -131,7 +139,7 @@ public class PrivacySandboxSurveyController {
         sentimentSurveyClient.showSurvey(
                 mActivity,
                 mActivityLifecycleDispatcher,
-                mPrivacySandboxSurveyBridge.getPrivacySandboxSentimentSurveyPsb(),
+                getSentimentSurveyPsb(),
                 Collections.emptyMap());
     }
 
@@ -151,6 +159,32 @@ public class PrivacySandboxSurveyController {
                         }
                     }
                 };
+    }
+
+    public Map<String, Boolean> getSentimentSurveyPsb() {
+        Map<String, Boolean> psb = new HashMap<>();
+        PrefService prefs = UserPrefs.get(mProfile);
+        psb.put("Topics enabled", prefs.getBoolean(Pref.PRIVACY_SANDBOX_M1_TOPICS_ENABLED));
+        psb.put(
+                "Protected audience enabled",
+                prefs.getBoolean(Pref.PRIVACY_SANDBOX_M1_FLEDGE_ENABLED));
+        psb.put(
+                "Measurement enabled",
+                prefs.getBoolean(Pref.PRIVACY_SANDBOX_M1_AD_MEASUREMENT_ENABLED));
+        psb.put(
+                "Signed in",
+                IdentityServicesProvider.get()
+                        .getIdentityManager(mProfile)
+                        .hasPrimaryAccount(ConsentLevel.SIGNIN));
+        return psb;
+    }
+
+    private static void recordSentimentSurveyStatus(
+            @PrivacySandboxSentimentSurveyStatus int status) {
+        RecordHistogram.recordEnumeratedHistogram(
+                "PrivacySandbox.SentimentSurvey.Status",
+                status,
+                PrivacySandboxSentimentSurveyStatus.MAX_VALUE + 1);
     }
 
     /** Set whether to trigger the start up survey in tests. */

@@ -16,7 +16,7 @@
 #include "components/autofill/core/browser/filling_product.h"
 #include "components/autofill/core/browser/form_filler_test_api.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
-#include "components/autofill/core/browser/single_field_form_fill_router.h"
+#include "components/autofill/core/browser/single_field_fill_router.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace autofill {
@@ -53,17 +53,17 @@ class BrowserAutofillManagerTestApi : public AutofillManagerTestApi {
         .form_interactions_flow_id_for_test();
   }
 
-  SingleFieldFormFillRouter& single_field_form_fill_router() {
-    return *manager_->single_field_form_fill_router_;
+  SingleFieldFillRouter& single_field_fill_router() {
+    return *manager_->single_field_fill_router_;
   }
 
   autofill_metrics::CreditCardFormEventLogger* credit_card_form_event_logger() {
     return &manager_->metrics_->credit_card_form_event_logger;
   }
 
-  void set_single_field_form_fill_router(
-      std::unique_ptr<SingleFieldFormFillRouter> router) {
-    manager_->single_field_form_fill_router_ = std::move(router);
+  void set_single_field_fill_router(
+      std::unique_ptr<SingleFieldFillRouter> router) {
+    manager_->single_field_fill_router_ = std::move(router);
   }
 
   void set_credit_card_access_manager(
@@ -72,16 +72,12 @@ class BrowserAutofillManagerTestApi : public AutofillManagerTestApi {
   }
 
   void OnCreditCardFetched(const FormData& form,
-                           const FormFieldData& field,
+                           const FieldGlobalId& field_id,
                            AutofillTriggerSource trigger_source,
                            CreditCardFetchResult result,
                            const CreditCard* credit_card = nullptr) {
-    manager_->OnCreditCardFetched(form, field, trigger_source, result,
+    manager_->OnCreditCardFetched(form, field_id, trigger_source, result,
                                   credit_card);
-  }
-
-  std::optional<FormData>& pending_form_data() {
-    return manager_->pending_form_data_;
   }
 
   void OnFormProcessed(const FormData& form,
@@ -114,8 +110,8 @@ class BrowserAutofillManagerTestApi : public AutofillManagerTestApi {
       std::optional<std::string> plus_address_override = std::nullopt) {
     FormStructure* form_structure;
     AutofillField* autofill_field;
-    CHECK(manager_->GetCachedFormAndField(form, field, &form_structure,
-                                          &autofill_field));
+    CHECK(manager_->GetCachedFormAndField(form.global_id(), field.global_id(),
+                                          &form_structure, &autofill_field));
     return manager_->GetProfileSuggestions(form, form_structure, field,
                                            autofill_field, trigger_source,
                                            std::move(plus_address_override));

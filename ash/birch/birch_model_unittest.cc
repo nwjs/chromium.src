@@ -22,6 +22,7 @@
 #include "ash/shell.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/wm/coral/coral_controller.h"
+#include "ash/wm/coral/coral_test_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
@@ -531,7 +532,8 @@ TEST_F(BirchModelTest, DisablingPrefsClearsModel) {
       SecondaryIconType::kLostMediaVideo, base::DoNothing());
   model->SetLostMediaItems(lost_media_item_list);
   std::vector<BirchCoralItem> coral_item_list;
-  coral_item_list.emplace_back(u"title", u"subtext", /*group_id=*/0);
+  coral_item_list.emplace_back(u"title", u"subtext", CoralSource::kInSession,
+                               /*group_id=*/base::Token());
   model->SetCoralItems(coral_item_list);
 
   ASSERT_TRUE(model->IsDataFresh());
@@ -835,6 +837,7 @@ TEST_F(BirchModelWithoutWeatherTest, MAYBE_DataFetchTimeout) {
   model->SetCalendarItems({});
   model->SetAttachmentItems({});
   model->SetReleaseNotesItems({});
+  model->SetCoralItems({});
 
   EXPECT_TRUE(model->IsDataFresh());
   EXPECT_THAT(consumer.items_ready_responses(), testing::IsEmpty());
@@ -1080,7 +1083,8 @@ TEST_F(BirchModelTest, ResponseAfterFirstTimeout) {
       SecondaryIconType::kLostMediaVideo, base::DoNothing());
   model->SetLostMediaItems(lost_media_item_list);
   std::vector<BirchCoralItem> coral_item_list;
-  coral_item_list.emplace_back(u"title", u"subtext", /*group_id=*/0);
+  coral_item_list.emplace_back(u"title", u"subtext", CoralSource::kInSession,
+                               /*group_id=*/base::Token());
   model->SetCoralItems(coral_item_list);
 
   EXPECT_TRUE(model->IsDataFresh());
@@ -1438,43 +1442,44 @@ TEST_F(BirchModelTest, RemoveAndFilterCoralItem) {
   content_items.push_back(item2.Clone());
   content_items.push_back(item3.Clone());
 
-  // Setup clusters with title and content keys.
-  auto key0 = coral::mojom::EntityKey::NewTabUrl(item0->get_tab()->url);
-  auto key1 = coral::mojom::EntityKey::NewTabUrl(item1->get_tab()->url);
-  auto key2 = coral::mojom::EntityKey::NewAppId(item2->get_app()->id);
-  auto key3 = coral::mojom::EntityKey::NewAppId(item3->get_app()->id);
-
-  std::vector<coral::mojom::EntityKeyPtr> entity_keys0;
-  entity_keys0.emplace_back(std::move(key0));
-  entity_keys0.emplace_back(std::move(key1));
-  entity_keys0.emplace_back(std::move(key2));
-  entity_keys0.emplace_back(std::move(key3));
+  // Setup clusters with title and content.
+  std::vector<coral::mojom::EntityPtr> entities0;
+  entities0.emplace_back(item0.Clone());
+  entities0.emplace_back(item1.Clone());
+  entities0.emplace_back(item2.Clone());
+  entities0.emplace_back(item3.Clone());
 
   coral::mojom::GroupPtr group0 = coral::mojom::Group::New();
+  group0->id = base::Token(1, 2);
   group0->title = "Group Title 0";
-  group0->entities = std::move(entity_keys0);
+  group0->entities = std::move(entities0);
 
-  coral::mojom::GroupPtr group1 = coral::mojom::Group::New();
-  group1->title = "Group Title 1 (empty)";
+  coral::mojom::GroupPtr group1 =
+      CreateTestGroup({}, "Group Title 1 (empty)", base::Token(2, 3));
 
   // Setup fake coral backend response and pass to the coral provider.
   std::vector<coral::mojom::GroupPtr> groups;
   groups.push_back(std::move(group0));
   groups.push_back(std::move(group1));
-  std::unique_ptr<CoralResponse> response = std::make_unique<CoralResponse>();
+  auto response = std::make_unique<CoralResponse>();
   response->set_groups(std::move(groups));
-  BirchModel* model = Shell::Get()->birch_model();
+
   BirchCoralProvider::Get()->OverrideCoralResponseForTest(std::move(response));
   BirchCoralProvider::Get()->RequestBirchDataFetch();
 
+  BirchModel* model = Shell::Get()->birch_model();
   auto* item_remover = model->GetCoralItemRemoverForTest();
 
   // Verify that the model's CoralItemRemover doesn't remove any items yet.
   item_remover->FilterRemovedItems(&content_items);
   ASSERT_EQ(4u, content_items.size());
 
-  BirchCoralItem coral_item0(u"Coral Title", u"Coral Text", /*group_id=*/0);
-  BirchCoralItem coral_item1(u"Coral Title", u"Coral Text", /*group_id=*/1);
+  BirchCoralItem coral_item0(u"Coral Title", u"Coral Text",
+                             CoralSource::kInSession,
+                             /*group_id=*/base::Token(1, 2));
+  BirchCoralItem coral_item1(u"Coral Title", u"Coral Text",
+                             CoralSource::kInSession,
+                             /*group_id=*/base::Token(2, 3));
   model->SetCoralItems({coral_item0, coral_item1});
 
   model->RemoveItem(&coral_item1);

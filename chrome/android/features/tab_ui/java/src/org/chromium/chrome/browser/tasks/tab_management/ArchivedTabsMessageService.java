@@ -43,7 +43,7 @@ import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabLi
 import org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType;
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcherMessageManager.MessageUpdateObserver;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
-import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateProvider;
+import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
 import org.chromium.components.browser_ui.widget.highlight.ViewHighlighter;
 import org.chromium.components.browser_ui.widget.highlight.ViewHighlighter.HighlightParams;
 import org.chromium.components.browser_ui.widget.highlight.ViewHighlighter.HighlightShape;
@@ -84,7 +84,7 @@ public class ArchivedTabsMessageService extends MessageService
                     mCustomCardView =
                             LayoutInflater.from(mContext)
                                     .inflate(R.layout.archived_tabs_message_card_view, null);
-                    if (mShowTwoStepIPH) {
+                    if (mShowTwoStepIph) {
                         mCustomCardView.addOnAttachStateChangeListener(
                                 new OnAttachStateChangeListener() {
                                     @Override
@@ -141,7 +141,7 @@ public class ArchivedTabsMessageService extends MessageService
     private final @NonNull Tracker mTracker;
     private final @NonNull Runnable mAppendMessageRunnable;
     private final @NonNull ObservableSupplier<TabListCoordinator> mTabListCoordinatorSupplier;
-    private final @Nullable DesktopWindowStateProvider mDesktopWindowStateProvider;
+    private final @Nullable DesktopWindowStateManager mDesktopWindowStateManager;
 
     private TabArchiveSettings mTabArchiveSettings;
     private ArchivedTabsDialogCoordinator mArchivedTabsDialogCoordinator;
@@ -151,7 +151,7 @@ public class ArchivedTabsMessageService extends MessageService
     private PropertyModel mCustomCardModel;
     private boolean mMessageSentToQueue;
     private OnTabSelectingListener mOnTabSelectingListener;
-    private boolean mShowTwoStepIPH;
+    private boolean mShowTwoStepIph;
 
     ArchivedTabsMessageService(
             @NonNull Context context,
@@ -167,7 +167,7 @@ public class ArchivedTabsMessageService extends MessageService
             @NonNull Tracker tracker,
             @NonNull Runnable appendMessageRunnable,
             @NonNull ObservableSupplier<TabListCoordinator> tabListCoordinatorSupplier,
-            @Nullable DesktopWindowStateProvider desktopWindowStateProvider) {
+            @Nullable DesktopWindowStateManager desktopWindowStateManager) {
         super(MessageType.ARCHIVED_TABS_MESSAGE);
         mContext = context;
         mArchivedTabModelOrchestrator = archivedTabModelOrchestrator;
@@ -182,7 +182,7 @@ public class ArchivedTabsMessageService extends MessageService
         mTracker = tracker;
         mAppendMessageRunnable = appendMessageRunnable;
         mTabListCoordinatorSupplier = tabListCoordinatorSupplier;
-        mDesktopWindowStateProvider = desktopWindowStateProvider;
+        mDesktopWindowStateManager = desktopWindowStateManager;
         mTabListCoordinatorSupplier.addObserver(
                 (tabListCoordinator) -> {
                     if (tabListCoordinator == null) return;
@@ -199,7 +199,7 @@ public class ArchivedTabsMessageService extends MessageService
         // happen regardless of user behavior. The TabArchiveSettings tracks whether the main IPH
         // was followed. When that's true, the archived tabs message should be highlighted as part
         // of the 2-step IPH.
-        mShowTwoStepIPH = TabArchiveSettings.getIphShownThisSession();
+        mShowTwoStepIph = TabArchiveSettings.getIphShownThisSession();
 
         if (mArchivedTabModelOrchestrator.isTabModelInitialized()) {
             mArchivedTabModelOrchestratorObserver.onTabModelCreated(
@@ -224,6 +224,10 @@ public class ArchivedTabsMessageService extends MessageService
             mTabListCoordinatorSupplier
                     .get()
                     .removeTabListItemSizeChangedObserver(mTabListItemSizeChangedObserver);
+        }
+
+        if (mArchivedTabModel != null) {
+            mArchivedTabModel.getTabCountSupplier().removeObserver(mTabCountObserver);
         }
     }
 
@@ -259,8 +263,8 @@ public class ArchivedTabsMessageService extends MessageService
     @Override
     public void onAppendedMessage() {
         // When the two-step IPH is active, highlight the end icon.
-        if (mShowTwoStepIPH) {
-            mShowTwoStepIPH = false;
+        if (mShowTwoStepIph) {
+            mShowTwoStepIph = false;
             // Reset this manually, in case the IPH wasn't dismissed for some reason.
             TabArchiveSettings.setIphShownThisSession(false);
             // Scrolling the recycler view only works when posted.
@@ -333,7 +337,7 @@ public class ArchivedTabsMessageService extends MessageService
                         mBackPressManager,
                         mTabArchiveSettings,
                         mModalDialogManager,
-                        mDesktopWindowStateProvider);
+                        mDesktopWindowStateManager);
     }
 
     private void updateModelProperties() {

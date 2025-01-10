@@ -41,8 +41,10 @@ std::optional<std::pair<unsigned, int>> DetermineCounterTypeAndValue(
   const ComputedStyle& style = layout_object.StyleRef();
   switch (style.StyleType()) {
     case kPseudoIdNone:
+    case kPseudoIdCheck:
     case kPseudoIdBefore:
     case kPseudoIdAfter:
+    case kPseudoIdSelectArrow:
     case kPseudoIdMarker:
     case kPseudoIdScrollMarkerGroup:
     case kPseudoIdScrollMarker:
@@ -289,6 +291,9 @@ Vector<int> CountersAttachmentContext::GetCounterValues(
     if (!is_page_counter) {
       is_page_counter = !entry->layout_object->GetNode();
     }
+  }
+  if (result.empty()) {
+    result.push_back(0);
   }
   return result;
 }

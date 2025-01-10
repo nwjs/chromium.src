@@ -14,12 +14,14 @@
 #include "components/prefs/pref_change_registrar.h"
 #include "components/services/on_device_translation/public/mojom/on_device_translation_service.mojom.h"
 #include "components/services/on_device_translation/public/mojom/translator.mojom.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/blink/public/mojom/on_device_translation/translation_manager.mojom-forward.h"
 
 namespace on_device_translation {
+
+class FileOperationProxyImpl;
 enum class LanguagePackKey;
-}  // namespace on_device_translation
 
 // This class is the controller that launches the on-device translation service
 // and delegates the functionalities.
@@ -33,20 +35,14 @@ class OnDeviceTranslationServiceController {
 
   static OnDeviceTranslationServiceController* GetInstance();
 
-  // If the TranslateKit binary path is passed via the command line, returns the
-  // binary path. If the TranslateKit binary is installed as a component,
-  // returns the directory path of the component. Otherwise, returns an empty
-  // path.
-  static base::FilePath GetTranslateKitComponentPath();
-
   // Creates a translator class that implements
-  // `on_device_translation::mojom::Translator`, and bind it with the
+  // `mojom::Translator`, and bind it with the
   // `receiver`.
   void CreateTranslator(
       const std::string& source_lang,
       const std::string& target_lang,
-      mojo::PendingReceiver<on_device_translation::mojom::Translator> receiver,
-      base::OnceCallback<void(bool)> callback);
+      base::OnceCallback<void(mojo::PendingRemote<mojom::Translator>)>
+          callback);
 
   // Checks if the translate service can do translation from `source_lang` to
   // `target_lang`.
@@ -56,37 +52,14 @@ class OnDeviceTranslationServiceController {
       base::OnceCallback<void(blink::mojom::CanCreateTranslatorResult)>
           callback);
 
-  // Returns the language packs that are registered.
-  static std::set<on_device_translation::LanguagePackKey>
-  GetRegisteredLanguagePacks();
-  // Returns the language packs that are installed.
-  static std::set<on_device_translation::LanguagePackKey>
-  GetInstalledLanguagePacks();
-
-  // Registers the language pack component.
-  static void RegisterLanguagePackComponent(
-      on_device_translation::LanguagePackKey);
-  // Uninstalls the language pack component.
-  static void UninstallLanguagePackage(
-      on_device_translation::LanguagePackKey language_pack_key);
-
  private:
   friend base::NoDestructor<OnDeviceTranslationServiceController>;
-
-  class FileOperationProxyImpl;
-
-  // The information of a language pack.
-  struct LanguagePackInfo {
-    std::string language1;
-    std::string language2;
-    base::FilePath package_path;
-  };
 
   // The information of a pending task. This is used to keep the tasks that are
   // waiting for the language packs to be installed.
   class PendingTask {
    public:
-    PendingTask(std::set<on_device_translation::LanguagePackKey> required_packs,
+    PendingTask(std::set<LanguagePackKey> required_packs,
                 base::OnceClosure once_closure);
     ~PendingTask();
     PendingTask(const PendingTask&) = delete;
@@ -95,7 +68,7 @@ class OnDeviceTranslationServiceController {
     PendingTask(PendingTask&&);
     PendingTask& operator=(PendingTask&&);
 
-    std::set<on_device_translation::LanguagePackKey> required_packs;
+    std::set<LanguagePackKey> required_packs;
     base::OnceClosure once_closure;
   };
 
@@ -112,11 +85,8 @@ class OnDeviceTranslationServiceController {
   void CreateTranslatorImpl(
       const std::string& source_lang,
       const std::string& target_lang,
-      mojo::PendingReceiver<on_device_translation::mojom::Translator> receiver,
-      base::OnceCallback<void(bool)> callback);
-
-  // Returns the language packs that are installed or set by the command line.
-  std::vector<LanguagePackInfo> GetLanguagePackInfo();
+      base::OnceCallback<void(mojo::PendingRemote<mojom::Translator>)>
+          callback);
 
   // Called when the TranslateKitBinaryPath pref is changed.
   void OnTranslateKitBinaryPathChanged(const std::string& pref_name);
@@ -124,36 +94,23 @@ class OnDeviceTranslationServiceController {
   // Called when the language pack key pref is changed.
   void OnLanguagePackKeyPrefChanged(const std::string& pref_name);
 
-  mojo::Remote<on_device_translation::mojom::OnDeviceTranslationService>&
-  GetRemote();
+  mojo::Remote<mojom::OnDeviceTranslationService>& GetRemote();
 
   void MaybeRunPendingTasks();
 
-  void CalculateLanguagePackRequirements(
+  static void CalculateLanguagePackRequirements(
       const std::string& source_lang,
       const std::string& target_lang,
-      std::set<on_device_translation::LanguagePackKey>& required_packs,
-      std::vector<on_device_translation::LanguagePackKey>&
-          required_not_installed_packs,
-      std::vector<on_device_translation::LanguagePackKey>&
-          to_be_registered_packs);
-
-  // Get a list of LanguagePackInfo from the command line flag
-  // `--translate-kit-packages`.
-  static std::optional<std::vector<LanguagePackInfo>>
-  GetLanguagePackInfoFromCommandLine();
+      std::set<LanguagePackKey>& required_packs,
+      std::vector<LanguagePackKey>& required_not_installed_packs,
+      std::vector<LanguagePackKey>& to_be_registered_packs);
 
   // TODO(crbug.com/335374928): implement the error handling for the translation
   // service crash.
-  mojo::Remote<on_device_translation::mojom::OnDeviceTranslationService>
-      service_remote_;
+  mojo::Remote<mojom::OnDeviceTranslationService> service_remote_;
   // Used to listen for changes on the pref values of TranslateKit component and
   // language pack components.
   PrefChangeRegistrar pref_change_registrar_;
-  // The LanguagePackInfo from the command line. This is nullopt if the command
-  // line flag `--translate-kit-packages` is not set.
-  const std::optional<std::vector<LanguagePackInfo>>
-      language_packs_from_command_line_;
   // The file operation proxy to access the files on disk. This is deleted on
   // a background task runner.
   std::unique_ptr<FileOperationProxyImpl, base::OnTaskRunnerDeleter>
@@ -161,5 +118,7 @@ class OnDeviceTranslationServiceController {
   // The pending tasks that are waiting for the language packs to be installed.
   std::vector<PendingTask> pending_tasks_;
 };
+
+}  // namespace on_device_translation
 
 #endif  // CHROME_BROWSER_ON_DEVICE_TRANSLATION_SERVICE_CONTROLLER_H_

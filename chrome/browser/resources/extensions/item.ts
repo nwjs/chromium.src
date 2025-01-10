@@ -6,10 +6,10 @@ import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import 'chrome://resources/cr_elements/cr_toggle/cr_toggle.js';
 import 'chrome://resources/cr_elements/cr_tooltip/cr_tooltip.js';
-import 'chrome://resources/cr_elements/icons_lit.html.js';
+import 'chrome://resources/cr_elements/icons.html.js';
 import 'chrome://resources/js/action_link.js';
 import './icons.html.js';
-import './strings.m.js';
+import '/strings.m.js';
 import 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 
 import type {ChromeEvent} from '/tools/typescript/definitions/chrome_event.js';
@@ -21,7 +21,7 @@ import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
 import {getCss} from './item.css.js';
 import {getHtml} from './item.html.js';
-import {ItemMixinLit} from './item_mixin_lit.js';
+import {ItemMixin} from './item_mixin.js';
 import {computeInspectableViewLabel, createDummyExtensionInfo, EnableControl, getEnableControl, getEnableToggleAriaLabel, getEnableToggleTooltipText, getItemSource, getItemSourceString, isEnabled, sortViews, SourceType, userCanChangeEnablement} from './item_util.js';
 import {Mv2ExperimentStage} from './mv2_deprecation_util.js';
 import {navigation, Page} from './navigation_helper.js';
@@ -116,7 +116,7 @@ export interface ExtensionsItemElement {
   };
 }
 
-const ExtensionsItemElementBase = I18nMixinLit(ItemMixinLit(CrLitElement));
+const ExtensionsItemElementBase = I18nMixinLit(ItemMixin(CrLitElement));
 
 export class ExtensionsItemElement extends ExtensionsItemElementBase {
   static get is() {
@@ -146,9 +146,6 @@ export class ExtensionsItemElement extends ExtensionsItemElementBase {
 
       mv2ExperimentStage: {type: Number},
 
-      // Whether or not the expanded view of the item is shown.
-      showingDetails_: {type: Boolean},
-
       // First inspectable view after sorting.
       firstInspectView_: {type: Object},
     };
@@ -159,8 +156,7 @@ export class ExtensionsItemElement extends ExtensionsItemElementBase {
   mv2ExperimentStage: Mv2ExperimentStage = Mv2ExperimentStage.NONE;
   safetyCheckShowing: boolean = false;
   data: chrome.developerPrivate.ExtensionInfo = createDummyExtensionInfo();
-  private showingDetails_: boolean = false;
-  private firstInspectView_: chrome.developerPrivate.ExtensionView;
+  private firstInspectView_?: chrome.developerPrivate.ExtensionView;
 
   override willUpdate(changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties);
@@ -243,12 +239,14 @@ export class ExtensionsItemElement extends ExtensionsItemElementBase {
     navigation.navigateTo({page: Page.DETAILS, extensionId: this.data.id});
   }
 
-  private computeFirstInspectView_(): chrome.developerPrivate.ExtensionView {
-    return sortViews(this.data.views)[0];
+  private computeFirstInspectView_(): (chrome.developerPrivate.ExtensionView|
+                                       undefined) {
+    return this.data.views.length === 0 ? undefined :
+                                          sortViews(this.data.views)[0]!;
   }
 
   protected onInspectClick_() {
-    assert(this.delegate);
+    assert(this.delegate && this.firstInspectView_);
     this.delegate.inspectItemView(this.data.id, this.firstInspectView_);
   }
 
@@ -337,7 +335,7 @@ export class ExtensionsItemElement extends ExtensionsItemElementBase {
     // sometimes it can. Even when it is, the UI behaves properly, but we
     // need to handle the case gracefully.
     return this.data.views.length > 0 ?
-        computeInspectableViewLabel(this.firstInspectView_) :
+        computeInspectableViewLabel(this.firstInspectView_!) :
         '';
   }
 

@@ -264,6 +264,7 @@
   X(TRACE_DISABLED_BY_DEFAULT("network"))                                \
   X(TRACE_DISABLED_BY_DEFAULT("paint-worklet"))                          \
   X(TRACE_DISABLED_BY_DEFAULT("power"))                                  \
+  X(TRACE_DISABLED_BY_DEFAULT("system_metrics"))                         \
   X(TRACE_DISABLED_BY_DEFAULT("renderer.scheduler"))                     \
   X(TRACE_DISABLED_BY_DEFAULT("renderer.scheduler.debug"))               \
   X(TRACE_DISABLED_BY_DEFAULT("sequence_manager"))                       \
@@ -276,7 +277,6 @@
   X(TRACE_DISABLED_BY_DEFAULT("skottie"))                                \
   X(TRACE_DISABLED_BY_DEFAULT("SyncFileSystem"))                         \
   X(TRACE_DISABLED_BY_DEFAULT("system_power"))                           \
-  X(TRACE_DISABLED_BY_DEFAULT("system_stats"))                           \
   X(TRACE_DISABLED_BY_DEFAULT("thread_pool_diagnostics"))                \
   X(TRACE_DISABLED_BY_DEFAULT("toplevel.ipc"))                           \
   X(TRACE_DISABLED_BY_DEFAULT("user_action_samples"))                    \
@@ -329,6 +329,7 @@
   X("blink,blink.resource")                                                   \
   X("blink,blink_style")                                                      \
   X("blink,devtools.timeline")                                                \
+  X("blink,latency")                                                          \
   X("blink,loading")                                                          \
   X("blink,rail")                                                             \
   X("blink.animations,devtools.timeline,benchmark,rail")                      \

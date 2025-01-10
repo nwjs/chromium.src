@@ -82,6 +82,9 @@ Vector<uint32_t> CreateAllAxes(const wtf_size_t rank);
 // https://www.w3.org/TR/webnn/#api-mlgraphbuilder-layernorm.
 Vector<uint32_t> CreateLayerNormalizationDefaultAxes(const wtf_size_t rank);
 
+// Create a default strides vector [1, ..., 1] for slice.
+Vector<uint32_t> CreateSliceDefaultStrides(wtf_size_t rank);
+
 // Helper to validate filer layout for Nhwc input layout.
 base::expected<void, String> ValidateFilterLayout(
     bool depthwise,
@@ -107,15 +110,6 @@ webnn::OperandDataType FromBlinkDataType(V8MLOperandDataType::Enum data_type);
 
 MODULES_EXPORT bool IsLogicalBinaryOperator(
     webnn::mojom::blink::ElementWiseBinary::Kind kind);
-
-// Allows a tensor's shape to be specified through either the
-// `MLOperandDescriptor`'s `shape` or `dimensions` fields. This code exists for
-// now to give callers the opportunity to migrate their code to use `shape`.
-//
-// TODO(crbug.com/365813262): Remove this function after about a milestone.
-MODULES_EXPORT base::expected<Vector<uint32_t>, std::string>
-GetShapeFromDescriptor(ScriptState* script_state,
-                       const MLOperandDescriptor& desc);
 
 MODULES_EXPORT void LogConsoleWarning(
     ScriptState* script_state,

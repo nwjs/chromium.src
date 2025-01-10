@@ -182,6 +182,13 @@ void It2MeHost::Connect(
   observer_ = std::move(observer);
   confirmation_dialog_factory_ = std::move(dialog_factory);
 
+  if (is_enterprise_session()) {
+    // Don't notify on local policy changes for Admin sessions as the policies
+    // can change as they log into different sessions and this should not cause
+    // them to be disconnected: See crbug.com/380421478.
+    local_session_policies_provider_.send_policy_change_notifications(false);
+  }
+
   OnPolicyUpdate(std::move(policies));
 
 #if BUILDFLAG(IS_LINUX)
@@ -229,7 +236,7 @@ void It2MeHost::ConnectOnNetworkThread(
   auto connection_context = std::move(create_context).Run(host_context_.get());
   log_to_server_ = std::move(connection_context->log_to_server);
   signal_strategy_ = std::move(connection_context->signal_strategy);
-  oauth_token_getter_ = std::move(connection_context->oauth_token_getter);
+  api_token_getter_ = std::move(connection_context->api_token_getter);
   DCHECK(log_to_server_);
   DCHECK(signal_strategy_);
 
@@ -296,7 +303,7 @@ void It2MeHost::ConnectOnNetworkThread(
                      weak_factory_.GetWeakPtr()));
 
   auto ice_config_fetcher = std::make_unique<protocol::IceConfigFetcherDefault>(
-      host_context_->url_loader_factory(), oauth_token_getter_.get());
+      host_context_->url_loader_factory(), api_token_getter_.get());
   auto transport_context = base::MakeRefCounted<protocol::TransportContext>(
       std::make_unique<protocol::ChromiumPortAllocatorFactory>(),
       webrtc::ThreadWrapper::current()->SocketServer(),
@@ -325,7 +332,7 @@ void It2MeHost::ConnectOnNetworkThread(
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH) || !defined(NDEBUG)
-  if (chrome_os_enterprise_params_.has_value()) {
+  if (is_enterprise_session()) {
     options.set_enable_user_interface(
         !chrome_os_enterprise_params_->suppress_user_dialogs);
     options.set_enable_notifications(
@@ -340,6 +347,7 @@ void It2MeHost::ConnectOnNetworkThread(
       desktop_environment_factory_.get(), std::move(session_manager),
       transport_context, host_context_->audio_task_runner(),
       host_context_->video_encode_task_runner(), options,
+      /* extra_session_policies_validator= */ base::NullCallback(),
       &local_session_policies_provider_);
   host_->status_monitor()->AddStatusObserver(this);
   host_status_logger_ = std::make_unique<HostStatusLogger>(
@@ -556,7 +564,7 @@ void It2MeHost::UpdateSessionPolicies(
   local_session_policies->allow_uri_forwarding = false;
 
 #if BUILDFLAG(IS_CHROMEOS_ASH) || !defined(NDEBUG)
-  if (chrome_os_enterprise_params_.has_value()) {
+  if (is_enterprise_session()) {
     local_session_policies->curtain_required =
         chrome_os_enterprise_params_->curtain_local_user_session;
 

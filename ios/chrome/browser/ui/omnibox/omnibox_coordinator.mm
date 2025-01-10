@@ -137,17 +137,15 @@
   BOOL isIncognito = self.browser->GetProfile()->IsOffTheRecord();
   self.mediator = [[OmniboxMediator alloc]
       initWithIncognito:isIncognito
-                tracker:feature_engagement::TrackerFactory::GetForBrowserState(
+                tracker:feature_engagement::TrackerFactory::GetForProfile(
                             self.browser->GetProfile())
           isLensOverlay:_isLensOverlay];
 
   TemplateURLService* templateURLService =
-      ios::TemplateURLServiceFactory::GetForBrowserState(
-          self.browser->GetProfile());
+      ios::TemplateURLServiceFactory::GetForProfile(self.browser->GetProfile());
   self.mediator.templateURLService = templateURLService;
   self.mediator.faviconLoader =
-      IOSChromeFaviconLoaderFactory::GetForBrowserState(
-          self.browser->GetProfile());
+      IOSChromeFaviconLoaderFactory::GetForProfile(self.browser->GetProfile());
   self.mediator.consumer = self.viewController;
   self.mediator.omniboxCommandsHandler =
       HandlerForProtocol(self.browser->GetCommandDispatcher(), OmniboxCommands);
@@ -237,7 +235,7 @@
       (!self.isSearchOnlyUI ||
        experimental_flags::IsOmniboxDebuggingEnabled())) {
     TemplateURLService* templateURLService =
-        ios::TemplateURLServiceFactory::GetForBrowserState(
+        ios::TemplateURLServiceFactory::GetForProfile(
             self.browser->GetProfile());
     self.keyboardAccessoryView = ConfigureAssistiveKeyboardViews(
         self.textField, kDotComTLD, _keyboardMediator, templateURLService,
@@ -265,7 +263,12 @@
 }
 
 - (void)endEditing {
-  [self.textField resignFirstResponder];
+  // This check is a tentative fix for a crash that happens when calling
+  // `resignFirstResponder`. TODO(crbug.com/375429786): Verify the crash rate
+  // and remove the comment or check if needed.
+  if (self.textField.window) {
+    [self.textField resignFirstResponder];
+  }
   _editView->EndEditing();
 }
 

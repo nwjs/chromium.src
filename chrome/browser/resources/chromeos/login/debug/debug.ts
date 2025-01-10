@@ -1560,6 +1560,42 @@ const KNOWN_SCREENS: ScreenDefType[] = [
           usingPinAsMainSignInFactor: false,
         },
       },
+      {
+        id: 'pin-recovery',
+        data: {
+          authToken: '',
+          isChildAccount: false,
+          hasLoginSupport: true,
+          usingPinAsMainSignInFactor: false,
+          isRecoveryMode: true,
+        },
+      },
+      {
+        id: 'pin-recovery-child',
+        data: {
+          authToken: '',
+          isChildAccount: true,
+          hasLoginSupport: true,
+          usingPinAsMainSignInFactor: false,
+          isRecoveryMode: true,
+        },
+      },
+      {
+        id: 'pin-recovery-done',
+        trigger: (screen: any) => {
+          screen.setUIStep('done');
+        },
+        data: {
+          authToken: '',
+          isChildAccount: false,
+          hasLoginSupport: true,
+          usingPinAsMainSignInFactor: false,
+          isRecoveryMode: true,
+        },
+      },
+
+
+
     ],
   },
   {
@@ -1892,12 +1928,12 @@ const KNOWN_SCREENS: ScreenDefType[] = [
   {
     id: 'quick-start',
     kind: ScreenKind.NORMAL,
-    handledSteps: 'verification,connecting_to_wifi,signing_in,setup_complete',
+    handledSteps:
+        'verification,connecting_to_wifi,signing_in,setup_complete,connected_to_wifi',
     states: [
       {
         id: 'PinVerification',
         trigger: (screen: any) => {
-          screen.setDiscoverableName('Chromebook (123)');
           screen.setPin('1234');
         },
       },
@@ -2516,6 +2552,7 @@ export class DebuggerUi {
       button.id = 'invokeDebuggerButton';
       button.className = 'debugger-button';
       button.textContent = 'Debug';
+      button.setAttribute('role', 'button');
       button.addEventListener('click', this.toggleDebugUi.bind(this));
 
       this.debuggerButton_ = button;
@@ -2525,7 +2562,6 @@ export class DebuggerUi {
       const overlay = (document.createElement('div')) as HTMLDivElement;
       overlay.id = 'debuggerOverlay';
       overlay.className = 'debugger-overlay';
-      overlay.setAttribute('aria-label', 'OOBE debug overlay');
       overlay.setAttribute('hidden', 'true');
       this.debuggerOverlay_ = overlay;
     }

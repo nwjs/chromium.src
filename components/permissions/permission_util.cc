@@ -284,7 +284,7 @@ GURL PermissionUtil::GetLastCommittedOriginAsURL(
   return render_frame_host->GetLastCommittedOrigin().GetURL();
 }
 
-ContentSettingsType PermissionUtil::PermissionTypeToContentSettingTypeSafe(
+ContentSettingsType PermissionUtil::PermissionTypeToContentSettingsTypeSafe(
     PermissionType permission) {
   switch (permission) {
     case PermissionType::MIDI:
@@ -371,17 +371,17 @@ ContentSettingsType PermissionUtil::PermissionTypeToContentSettingTypeSafe(
   return ContentSettingsType::DEFAULT;
 }
 
-ContentSettingsType PermissionUtil::PermissionTypeToContentSettingType(
+ContentSettingsType PermissionUtil::PermissionTypeToContentSettingsType(
     PermissionType permission) {
   ContentSettingsType content_setting =
-      PermissionTypeToContentSettingTypeSafe(permission);
+      PermissionTypeToContentSettingsTypeSafe(permission);
   DCHECK_NE(content_setting, ContentSettingsType::DEFAULT)
       << "Unknown content setting for permission "
       << static_cast<int>(permission);
   return content_setting;
 }
 
-PermissionType PermissionUtil::ContentSettingTypeToPermissionType(
+PermissionType PermissionUtil::ContentSettingsTypeToPermissionType(
     ContentSettingsType permission) {
   PermissionType permission_type;
   bool success =
@@ -403,8 +403,7 @@ ContentSetting PermissionUtil::PermissionStatusToContentSetting(
       return CONTENT_SETTING_BLOCK;
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return CONTENT_SETTING_DEFAULT;
+  NOTREACHED();
 }
 
 blink::mojom::PermissionStatus PermissionUtil::ContentSettingToPermissionStatus(
@@ -423,8 +422,7 @@ blink::mojom::PermissionStatus PermissionUtil::ContentSettingToPermissionStatus(
       break;
   }
 
-  NOTREACHED_IN_MIGRATION();
-  return blink::mojom::PermissionStatus::DENIED;
+  NOTREACHED();
 }
 
 bool PermissionUtil::IsPermissionBlockedInPartition(
@@ -501,7 +499,7 @@ bool PermissionUtil::CanPermissionRequestIgnoreStatus(
       return true;
   }
 
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 // static

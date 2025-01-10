@@ -5,14 +5,23 @@
 #ifndef CHROMEOS_ASH_COMPONENTS_BOCA_SESSION_API_SESSION_CLIENT_IMPL_H_
 #define CHROMEOS_ASH_COMPONENTS_BOCA_SESSION_API_SESSION_CLIENT_IMPL_H_
 
+#include <memory>
+
 #include "base/functional/callback_forward.h"
-#include "chromeos/ash/components/boca/session_api/create_session_request.h"
-#include "chromeos/ash/components/boca/session_api/get_session_request.h"
-#include "chromeos/ash/components/boca/session_api/update_session_request.h"
-#include "chromeos/ash/components/boca/session_api/update_student_activities_request.h"
-#include "chromeos/ash/components/boca/session_api/upload_token_request.h"
+
+namespace google_apis {
+class RequestSender;
+}
 
 namespace ash::boca {
+class RemoveStudentRequest;
+class CreateSessionRequest;
+class GetSessionRequest;
+class UpdateSessionRequest;
+class UpdateStudentActivitiesRequest;
+class UploadTokenRequest;
+class JoinSessionRequest;
+
 class SessionClientImpl {
  public:
   SessionClientImpl();
@@ -29,6 +38,8 @@ class SessionClientImpl {
   virtual void UpdateSession(std::unique_ptr<UpdateSessionRequest> request);
   virtual void UpdateStudentActivity(
       std::unique_ptr<UpdateStudentActivitiesRequest> request);
+  virtual void RemoveStudent(std::unique_ptr<RemoveStudentRequest> request);
+  virtual void JoinSession(std::unique_ptr<JoinSessionRequest> request);
   google_apis::RequestSender* sender() { return sender_.get(); }
 
  private:

@@ -23,7 +23,7 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.browser.download.internal.R;
 import org.chromium.chrome.browser.download.items.OfflineContentAggregatorFactory;
-import org.chromium.chrome.browser.profiles.OTRProfileID;
+import org.chromium.chrome.browser.profiles.OtrProfileId;
 import org.chromium.components.browser_ui.util.DownloadUtils;
 import org.chromium.components.browser_ui.util.TraceEventVectorDrawableCompat;
 import org.chromium.components.messages.DismissReason;
@@ -750,7 +750,7 @@ public class DownloadMessageUiControllerImpl implements DownloadMessageUiControl
                 info.id = itemToShow.id;
                 info.link = getContext().getString(R.string.open_downloaded_label);
                 info.icon = R.drawable.infobar_download_complete_animation;
-            } else {
+            } else if (resultState == ResultState.FAILED) {
                 // TODO(shaktisahu): Incorporate various types of failure messages.
                 // TODO(shaktisahu, xingliu): Consult UX to handle multiple schedule variations.
                 boolean allFailedDownloadsAreBlocked =
@@ -778,6 +778,8 @@ public class DownloadMessageUiControllerImpl implements DownloadMessageUiControl
                 } else {
                     info.link = getContext().getString(R.string.details_link);
                 }
+            } else {
+                info.link = getContext().getString(R.string.details_link);
             }
         }
 
@@ -1032,7 +1034,7 @@ public class DownloadMessageUiControllerImpl implements DownloadMessageUiControl
         if (itemId != null) {
             mDelegate.openDownload(
                     offlineItem,
-                    OTRProfileID.deserializeWithoutVerify(
+                    OtrProfileId.deserializeWithoutVerify(
                             offlineItem == null ? null : offlineItem.otrProfileId),
                     DownloadOpenSource.DOWNLOAD_PROGRESS_MESSAGE,
                     getContext());
@@ -1041,19 +1043,19 @@ public class DownloadMessageUiControllerImpl implements DownloadMessageUiControl
             // TODO(shaktisahu): Make a best guess for which profile, maybe from the last updated
             // item.
             mDelegate.openDownloadsPage(
-                    getOTRProfileIDForTrackedItems(), DownloadOpenSource.DOWNLOAD_PROGRESS_MESSAGE);
+                    getOtrProfileIdForTrackedItems(), DownloadOpenSource.DOWNLOAD_PROGRESS_MESSAGE);
             recordLinkClicked(/* openItem= */ false);
         }
         return PrimaryActionClickBehavior.DISMISS_IMMEDIATELY;
     }
 
-    private OTRProfileID getOTRProfileIDForTrackedItems() {
+    private OtrProfileId getOtrProfileIdForTrackedItems() {
         String otrProfileId = null;
         for (OfflineItem offlineItem : mTrackedItems.values()) {
             if (TextUtils.isEmpty(offlineItem.otrProfileId)) continue;
             otrProfileId = offlineItem.otrProfileId;
         }
-        return OTRProfileID.deserializeWithoutVerify(otrProfileId);
+        return OtrProfileId.deserializeWithoutVerify(otrProfileId);
     }
 
     private void onMessageDismissed(Integer dismissReason) {

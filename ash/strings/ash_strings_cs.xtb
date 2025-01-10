@@ -308,7 +308,6 @@ Pro začátek můžete vyzkoušet třeba tohle.</translation>
 <translation id="2041220428661959602">Stav baterie: <ph name="BATTERY_PERCENTAGE" /> %</translation>
 <translation id="204259843076055848">Zkratka ke stisknutí klávesy <ph name="SIX_PACK_KEY_NAME" /> je momentálně vypnutá</translation>
 <translation id="2049240716062114887">Název plochy byl změněn na <ph name="DESK_NAME" /></translation>
-<translation id="2050339315714019657">Na výšku</translation>
 <translation id="2064048859448024834">Je zapnutý náhled kamery</translation>
 <translation id="2065098273523946419">Odkaz na další informace. Při aktivaci přesměrovává do prohlížeče</translation>
 <translation id="2067220651560163985">Zobrazit teplotu ve stupních Celsia</translation>
@@ -339,9 +338,6 @@ Pro začátek můžete vyzkoušet třeba tohle.</translation>
 <translation id="219905428774326614">Spouštěč, všechny aplikace</translation>
 <translation id="2201071101391734388">Nedávná fotka <ph name="INDEX" /> z <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Sbalit Úkoly Google</translation>
-<translation id="2206960886090042977">Vestavěný touchpad je deaktivován, protože je připojena myš. Myší nebo klávesnicí změnu potvrďte.
-
-Když to neuděláte, vestavěný touchpad se za 30 sekund zase aktivuje.</translation>
 <translation id="2208323208084708176">Jednotný režim klasické plochy</translation>
 <translation id="2220572644011485463">PIN nebo heslo</translation>
 <translation id="2222841058024245321">Plocha 7</translation>
@@ -504,6 +500,9 @@ Je připojen tento počet zařízení: <ph name="DEVICECOUNT" />.</translation>
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> až <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">ctrl+search+s</translation>
 <translation id="2778650143428714839">Zařízení <ph name="DEVICE_TYPE" /> spravované doménou <ph name="MANAGER" /></translation>
+<translation id="2781658180588759579">Vestavěný touchpad je deaktivován. Pomocí klávesnice nebo jiného ukazovacího zařízení změnu potvrďte.
+
+Když to neuděláte, vestavěný touchpad se za <ph name="TIMEOUT_SECONDS" /> znovu aktivuje.</translation>
 <translation id="2782591952652094792">Ukončit režim nahrávání</translation>
 <translation id="2785499565474703580">Připojené zařízení: 1</translation>
 <translation id="2791421900609674576">Budou se zobrazovat doporučení, abyste mohli pokračovat od místa, kde jste skončili. Doporučení můžete odstranit podržením.</translation>
@@ -601,6 +600,9 @@ Je připojen tento počet zařízení: <ph name="DEVICECOUNT" />.</translation>
 <translation id="3113492864356515707">Zvýraznit předchozí položku na poličce</translation>
 <translation id="311799651966070385">Zavřít šťouchnutí</translation>
 <translation id="3120421559657122717">Vypnout zařízení?</translation>
+<translation id="3121411970001795539">Vestavěný touchpad je deaktivován, protože je připojena myš. Myší nebo klávesnicí změnu potvrďte.
+
+Když to neuděláte, vestavěný touchpad se za <ph name="TIMEOUT_SECONDS" /> znovu aktivuje.</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">Typ práce v kurzu</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +973,13 @@ Některé funkce jsou za účelem prodloužení výdrže baterie omezeny.</trans
 <translation id="4322742403972824594">Klávesová zkratka Ctrl + Alt + šipka nahoru se změnila. Pokud chcete použít klávesu Home, stiskněte <ph name="LAUNCHER_KEY_NAME" /> + šipku vlevo.</translation>
 <translation id="4324840740119394760">Umožňuje přístup k fotoaparátu aplikaci <ph name="APP_NAME" />, a všem aplikacím a webům s příslušným oprávněním</translation>
 <translation id="4327147325944669226">Zaznamenat hru</translation>
-<translation id="4333628967105022692">Lacros není podporován, když je přihlášeno více uživatelů.</translation>
 <translation id="4338109981321384717">Lupa</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, ztlumeno</translation>
 <translation id="4351244548802238354">Zavřít dialogové okno</translation>
 <translation id="4356872429719185452">Zobrazit podrobnosti o hotspotu. Probíhá zapínání hotspotu.</translation>
 <translation id="4364101114148522660">Zaznamenávání (<ph name="DURATION" />)</translation>
 <translation id="4371348193907997655">Nastavení odesílání</translation>
+<translation id="4371834685492830207">PIN smí obsahovat jen platné znaky</translation>
 <translation id="4375482231364171368">Hledat v adresním řádku</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, síla signálu: <ph name="SIGNAL_STRENGTH" /> %</translation>
 <translation id="4378551569595875038">Připojování...</translation>
@@ -1143,6 +1145,7 @@ Je připojeno 1 zařízení.</translation>
 <translation id="4902797682482387055">Navrhovaný úkol, na který byste se měli zaměřit</translation>
 <translation id="490375751687810070">Na výšku</translation>
 <translation id="490788395437447240"><ph name="BATTERY_PERCENTAGE" /> % baterie</translation>
+<translation id="4911191962826748981">Toto je experimentální funkce založená na umělé inteligenci a nemusí vždy fungovat správně.</translation>
 <translation id="491504982845934899">Síť <ph name="NETWORK_NAME" /> lze aktivovat až po nastavení zařízení</translation>
 <translation id="4917385247580444890">Silný</translation>
 <translation id="4918086044614829423">Přijmout</translation>
@@ -1301,6 +1304,7 @@ Nejsou připojena žádná zařízení.</translation>
 <translation id="5393156353051693207">Pokud chcete změnit pořadí aplikací, podržte kdekoliv prst</translation>
 <translation id="5395308026110844773">Aplikace <ph name="DRAGGED_APP_NAME" /> je nad aplikací <ph name="IN_PLACE_APP" />. Uvolněním vytvoříte složku.</translation>
 <translation id="5397578532367286026">Údaje o využití a historii tohoto uživatele si správce (<ph name="MANAGER_EMAIL" />) může prohlédnout na webu chrome.com.</translation>
+<translation id="540338817371815859">Na šířku</translation>
 <translation id="540713187982329711">Přepnout hotspot. Hotspot je zapnutý, není připojeno žádné zařízení.</translation>
 <translation id="5409208741270395213">Označit úkol jako hotový</translation>
 <translation id="5413656666631274079">Stránka nastavení</translation>
@@ -1472,7 +1476,6 @@ Nejsou připojena žádná zařízení.</translation>
 <translation id="5975235751479998104">Procházet okna vpřed</translation>
 <translation id="5978382165065462689">Ovládání obrazovky je sdíleno prostřednictvím Vzdálené pomoci.</translation>
 <translation id="5980301590375426705">Odhlásit hosta</translation>
-<translation id="5982119059638483922">Vypnete ho stisknutím kombinace kláves Alt + Hledat nebo Shift.</translation>
 <translation id="5983567367406220847">Hotspot byl z důvodu nečinnosti vypnut.</translation>
 <translation id="598407983968395253">Použít šablonu</translation>
 <translation id="5986723678596105470">Připojit se přes Google Meet</translation>
@@ -1542,7 +1545,6 @@ Nejsou připojena žádná zařízení.</translation>
 <translation id="6166852626429024716">Prohledejte zařízení, aplikace, nastavení, internet…</translation>
 <translation id="6168318496333165060">Otevřít aplikaci Diagnostika</translation>
 <translation id="6168622430237609329">Vaše nainstalované aplikace</translation>
-<translation id="6173151025443907148">Když je povolen prohlížeč Lacros, přihlášení druhého uživatele není podporováno. Použijte druhý profil v prohlížeči Lacros nebo Lacros zakažte.</translation>
 <translation id="6179832488876878285">Sem si můžete připnout důležité soubory. Začněte tím, že otevřete aplikaci Soubory.</translation>
 <translation id="6180193585172850042">Tlačítko Zpět</translation>
 <translation id="6180651297859206670">Tlačítko Vpřed</translation>
@@ -1564,6 +1566,7 @@ Nejsou připojena žádná zařízení.</translation>
 <translation id="6232416233079464213">Zdroj: <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217">Aplikace <ph name="APP_NAME" /> používá vaši kameru a mikrofon</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">Heslo smí obsahovat jen platné znaky</translation>
 <translation id="6240603910551255087">Horní tlačítko</translation>
 <translation id="6240821072888636753">Pokaždé se zeptat</translation>
 <translation id="6247728804802644171">Otevřít oznámení</translation>
@@ -1694,7 +1697,6 @@ Nová instalace</translation>
 <translation id="6682029141988159141">Vložit obsah ze schránky</translation>
 <translation id="6683022854667115063">Sluchátka</translation>
 <translation id="6686023075541098243">Nastavit zobrazování oznámení z telefonu</translation>
-<translation id="6688019813898140556">Esc pětkrát</translation>
 <translation id="6694462491298752106">Vestavěný touchpad je vypnutý</translation>
 <translation id="6694973220096431421">Hledat na Disku Google</translation>
 <translation id="6696025732084565524">Odpojitelná klávesnice vyžaduje kritickou aktualizaci</translation>
@@ -1715,6 +1717,7 @@ Nová instalace</translation>
 <translation id="6751826523481687655">Trasování výkonu je zapnuté</translation>
 <translation id="6752912906630585008">Plocha <ph name="REMOVED_DESK" /> byla odstraněna a sloučena s plochou <ph name="RECEIVE_DESK" /></translation>
 <translation id="6753390234084146956">karty</translation>
+<translation id="6754918760968695779">Rychle vložit</translation>
 <translation id="6757237461819837179">Nepřehrává se žádný mediální obsah</translation>
 <translation id="6760438044935091345">Herní panel</translation>
 <translation id="6768043681523654438">úložiště</translation>
@@ -1764,6 +1767,7 @@ Nová instalace</translation>
 <translation id="6921427376813842559">Aktualizujte zařízení</translation>
 <translation id="6929081673585394903">Zobrazit ovládací prvky</translation>
 <translation id="6931576957638141829">Uložit do</translation>
+<translation id="6935857786205183008">Na výšku</translation>
 <translation id="6942518653766415536">Nabídka formátu záznamu</translation>
 <translation id="6945221475159498467">Vybrat</translation>
 <translation id="6945922087561257829">Telefon používá mobilní síť. Zkontrolujte, zda jsou telefon a Chromebook připojeny ke stejné síti Wi-Fi, a zkuste to znovu. <ph name="LEARN_MORE" /></translation>
@@ -1919,9 +1923,6 @@ Nová instalace</translation>
 Pokud zařízení chcete vypnout, znovu podržte tlačítko napájení na zařízení.</translation>
 <translation id="7523420897035067483">Při soustředění zapnout režim Nerušit</translation>
 <translation id="7524043547948122239">Úkoly Google</translation>
-<translation id="7524919752437339268">Vestavěný touchpad je deaktivován. Pomocí klávesnice nebo jiného ukazovacího zařízení změnu potvrďte.
-
-Když to neuděláte, vestavěný touchpad se za 30 sekund zase aktivuje.</translation>
 <translation id="7525067979554623046">Vytvořit</translation>
 <translation id="7526573455193969409">Síť může být sledována</translation>
 <translation id="7536035074519304529">IP adresa: <ph name="ADDRESS" /></translation>
@@ -2008,6 +2009,7 @@ Když to neuděláte, vestavěný touchpad se za 30 sekund zase aktivuje.</tran
 <translation id="780301667611848630">Ne, děkuji</translation>
 <translation id="7807067443225230855">Vyhledávání a Asistent</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> a <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">Palec nahoru odešle zpětnou vazbu, že se vám tento návrh líbí</translation>
 <translation id="7825412704590278437">Z nadcházející události v kalendáři</translation>
 <translation id="7829386189513694949">Silný signál</translation>
 <translation id="7830453190047749513">U zařízení <ph name="PERIPHERAL_NAME" /> si můžete přizpůsobit akce tlačítek, rychlost kurzoru a další možnosti</translation>
@@ -2162,6 +2164,7 @@ Když to neuděláte, vestavěný touchpad se za 30 sekund zase aktivuje.</tran
 <translation id="830868413617744215">Beta</translation>
 <translation id="8314772463905284467">Caps Lock je zapnutý</translation>
 <translation id="8315514906653279104">Zapínání…</translation>
+<translation id="8319634750346253957">Palec dolů odešle zpětnou vazbu, že se vám tento návrh nelíbí</translation>
 <translation id="8331351032546853669">Nevyřízené stahování</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2346,6 +2349,7 @@ Když to neuděláte, vestavěný touchpad se za 30 sekund zase aktivuje.</tran
 <translation id="8982906748181120328">Viditelnost nablízko</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">Metoda zadávání: <ph name="IME_NAME" /></translation>
+<translation id="8991648557324317894">Stiskněte fn + Rychle vložit. Zrušíte stisknutím klávesy Shift.</translation>
 <translation id="899350903320462459">Chcete-li provést akci s oznámením, odemkněte zařízení jako <ph name="LOGIN_ID" /></translation>
 <translation id="8993733019280019776">Mluvíte? Mikrofon je vypnutý. Zapnete ho tím, že ho vyberete.</translation>
 <translation id="9000771174482730261">SPRAVOVAT ÚLOŽIŠTĚ</translation>
@@ -2428,9 +2432,9 @@ Když to neuděláte, vestavěný touchpad se za 30 sekund zase aktivuje.</tran
 <translation id="974545358917229949">Zobrazuje se tento počet výsledků pro dotaz <ph name="QUERY" />: <ph name="RESULT_COUNT" /></translation>
 <translation id="981011780479609956">Bez termínu</translation>
 <translation id="98120814841227350">Přejít na konec dokumentu</translation>
-<translation id="98515147261107953">Krajina</translation>
 <translation id="987589956647469042">Mobilní data jsou zapnutá</translation>
 <translation id="989374776391122812">Ovládání kamery a zvuku</translation>
+<translation id="990263227494928142">Touchpad aktivujete stisknutím klávesy Shift pětkrát</translation>
 <translation id="990277280839877440">Okno <ph name="WINDOW_TITILE" /> bylo zavřeno.</translation>
 <translation id="993398562350683614">Krok <ph name="STEP" /> z <ph name="TOTAL_STEPS" /> v prohlídce. Pomocí aplikací můžete na zařízení <ph name="PRODUCT_NAME" /> dělat vše, co potřebujete. Své aplikace najdete ve Spouštěči. Stisknutím kombinace kláves Alt + Shift + L vyberete tlačítko Spouštěče.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

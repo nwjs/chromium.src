@@ -7,7 +7,6 @@
 
 #include <memory>
 
-#include "build/chromeos_buildflags.h"
 #include "ui/aura/aura_export.h"
 #include "ui/aura/client/window_types.h"
 #include "ui/aura/window.h"
@@ -72,10 +71,6 @@ class AURA_EXPORT WindowTreeHostPlatform : public WindowTreeHost,
   };
   static void SetPlatformWindowFactoryDelegateForTesting(
       PlatformWindowFactoryDelegateForTesting* delegate);
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  std::string GetUniqueId() const override;
-#endif
 
  protected:
   // NOTE: this does not call CreateCompositor(); subclasses must call

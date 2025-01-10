@@ -9,7 +9,9 @@
 #include <string>
 
 #include "ash/public/cpp/ash_public_export.h"
+#include "ash/public/cpp/lobster/lobster_enums.h"
 #include "ash/public/cpp/lobster/lobster_feedback_preview.h"
+#include "ash/public/cpp/lobster/lobster_metrics_state_enums.h"
 #include "ash/public/cpp/lobster/lobster_result.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
@@ -24,11 +26,12 @@ class ASH_PUBLIC_EXPORT LobsterSession {
   virtual ~LobsterSession() = default;
 
   virtual void DownloadCandidate(int candidate_id,
-                                 const base::FilePath& file_path,
+                                 const base::FilePath& download_dir,
                                  StatusCallback) = 0;
-  virtual void CommitAsInsert(int candidate_id, StatusCallback callback) = 0;
+  virtual void CommitAsInsert(int candidate_id,
+                              StatusCallback callback) = 0;
   virtual void CommitAsDownload(int candidate_id,
-                                const base::FilePath& file_path,
+                                const base::FilePath& download_dir,
                                 StatusCallback callback) = 0;
   virtual void RequestCandidates(const std::string& query,
                                  int num_candidates,
@@ -39,9 +42,10 @@ class ASH_PUBLIC_EXPORT LobsterSession {
   virtual bool SubmitFeedback(int candidate_id,
                               const std::string& description) = 0;
 
-  virtual void LoadUI(std::optional<std::string> query) = 0;
+  virtual void LoadUI(std::optional<std::string> query, LobsterMode mode) = 0;
   virtual void ShowUI() = 0;
   virtual void CloseUI() = 0;
+  virtual void RecordWebUIMetricEvent(LobsterMetricState metric_state) = 0;
 };
 
 }  // namespace ash

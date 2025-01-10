@@ -54,8 +54,7 @@ v8::Local<v8::Value> HashMapToValue(ScriptState* script_state,
   }
   v8::Local<v8::Object> v8_object = builder.V8Value();
   if (v8_object.IsEmpty()) {
-    NOTREACHED_IN_MIGRATION();
-    return v8::Undefined(script_state->GetIsolate());
+    NOTREACHED();
   }
   return v8_object;
 }
@@ -160,6 +159,17 @@ RTCInboundRtpStreamStats* ToV8Stat(
   }
   if (webrtc_stat.qp_sum.has_value()) {
     v8_stat->setQpSum(*webrtc_stat.qp_sum);
+  }
+  if (webrtc_stat.total_corruption_probability.has_value()) {
+    v8_stat->setTotalCorruptionProbability(
+        *webrtc_stat.total_corruption_probability);
+  }
+  if (webrtc_stat.total_squared_corruption_probability.has_value()) {
+    v8_stat->setTotalSquaredCorruptionProbability(
+        *webrtc_stat.total_squared_corruption_probability);
+  }
+  if (webrtc_stat.corruption_measurements.has_value()) {
+    v8_stat->setCorruptionMeasurements(*webrtc_stat.corruption_measurements);
   }
   if (webrtc_stat.total_decode_time.has_value()) {
     v8_stat->setTotalDecodeTime(*webrtc_stat.total_decode_time);

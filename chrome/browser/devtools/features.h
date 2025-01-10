@@ -15,9 +15,6 @@ extern const base::FeatureParam<std::string> kDevToolsConsoleInsightsModelId;
 extern const base::FeatureParam<double> kDevToolsConsoleInsightsTemperature;
 extern const base::FeatureParam<bool> kDevToolsConsoleInsightsOptIn;
 
-BASE_DECLARE_FEATURE(kDevToolsFreestylerDogfood);
-extern const base::FeatureParam<std::string> kDevToolsFreestylerDogfoodModelId;
-extern const base::FeatureParam<double> kDevToolsFreestylerDogfoodTemperature;
 
 enum class DevToolsFreestylerUserTier {
   // Users who are internal testers or validators.
@@ -40,9 +37,6 @@ enum class DevToolsFreestylerExecutionMode {
   kNoScripts
 };
 
-extern const base::FeatureParam<DevToolsFreestylerUserTier>
-    kDevToolsFreestylerDogfoodUserTier;
-
 BASE_DECLARE_FEATURE(kDevToolsFreestyler);
 extern const base::FeatureParam<std::string> kDevToolsFreestylerModelId;
 extern const base::FeatureParam<double> kDevToolsFreestylerTemperature;
@@ -59,6 +53,14 @@ extern const base::FeatureParam<double>
 extern const base::FeatureParam<DevToolsFreestylerUserTier>
     kDevToolsExplainThisResourceDogfoodUserTier;
 
+BASE_DECLARE_FEATURE(kDevToolsAiAssistanceNetworkAgent);
+extern const base::FeatureParam<std::string>
+    kDevToolsAiAssistanceNetworkAgentModelId;
+extern const base::FeatureParam<double>
+    kDevToolsAiAssistanceNetworkAgentTemperature;
+extern const base::FeatureParam<DevToolsFreestylerUserTier>
+    kDevToolsAiAssistanceNetworkAgentUserTier;
+
 BASE_DECLARE_FEATURE(kDevToolsAiAssistancePerformanceAgentDogfood);
 extern const base::FeatureParam<std::string>
     kDevToolsAiAssistancePerformanceAgentDogfoodModelId;
@@ -67,6 +69,14 @@ extern const base::FeatureParam<double>
 extern const base::FeatureParam<DevToolsFreestylerUserTier>
     kDevToolsAiAssistancePerformanceAgentDogfoodUserTier;
 
+BASE_DECLARE_FEATURE(kDevToolsAiAssistancePerformanceAgent);
+extern const base::FeatureParam<std::string>
+    kDevToolsAiAssistancePerformanceAgentModelId;
+extern const base::FeatureParam<double>
+    kDevToolsAiAssistancePerformanceAgentTemperature;
+extern const base::FeatureParam<DevToolsFreestylerUserTier>
+    kDevToolsAiAssistancePerformanceAgentUserTier;
+
 BASE_DECLARE_FEATURE(kDevToolsAiAssistanceFileAgentDogfood);
 extern const base::FeatureParam<std::string>
     kDevToolsAiAssistanceFileAgentDogfoodModelId;
@@ -74,6 +84,14 @@ extern const base::FeatureParam<double>
     kDevToolsAiAssistanceFileAgentDogfoodTemperature;
 extern const base::FeatureParam<DevToolsFreestylerUserTier>
     kDevToolsAiAssistanceFileAgentDogfoodUserTier;
+
+BASE_DECLARE_FEATURE(kDevToolsAiAssistanceFileAgent);
+extern const base::FeatureParam<std::string>
+    kDevToolsAiAssistanceFileAgentModelId;
+extern const base::FeatureParam<double>
+    kDevToolsAiAssistanceFileAgentTemperature;
+extern const base::FeatureParam<DevToolsFreestylerUserTier>
+    kDevToolsAiAssistanceFileAgentUserTier;
 
 BASE_DECLARE_FEATURE(kDevToolsSharedProcessInfobar);
 BASE_DECLARE_FEATURE(kDevToolsVeLogging);

@@ -943,6 +943,7 @@ TEST_F(RootViewTest, AnnounceTextAsTest) {
 #else
   EXPECT_EQ(node_data.role, ax::mojom::Role::kAlert);
 #endif
+  EXPECT_TRUE(node_data.HasState(ax::mojom::State::kInvisible));
 
   const std::u16string kPoliteText = u"Something polite";
   root_view->AnnounceTextAs(kPoliteText,
@@ -952,11 +953,11 @@ TEST_F(RootViewTest, AnnounceTextAsTest) {
   EXPECT_EQ(kPoliteText,
             node_data.GetString16Attribute(ax::mojom::StringAttribute::kName));
   hidden_polite_view->GetViewAccessibility().GetAccessibleNodeData(&node_data);
-  ASSERT_TRUE(node_data.HasStringAttribute(
+  EXPECT_TRUE(node_data.HasStringAttribute(
       ax::mojom::StringAttribute::kContainerLiveStatus));
   const std::string& val = node_data.GetStringAttribute(
       ax::mojom::StringAttribute::kContainerLiveStatus);
-  ASSERT_EQ("polite", val);
+  EXPECT_EQ("polite", val);
 
 #if BUILDFLAG(IS_CHROMEOS)
   EXPECT_EQ(node_data.role, ax::mojom::Role::kStaticText);
@@ -965,6 +966,16 @@ TEST_F(RootViewTest, AnnounceTextAsTest) {
 #else
   EXPECT_EQ(node_data.role, ax::mojom::Role::kStatus);
 #endif
+
+  EXPECT_TRUE(
+      node_data.GetBoolAttribute(ax::mojom::BoolAttribute::kLiveAtomic));
+  EXPECT_EQ("polite", node_data.GetStringAttribute(
+                          ax::mojom::StringAttribute::kLiveStatus));
+  EXPECT_EQ("additions text", node_data.GetStringAttribute(
+                                  ax::mojom::StringAttribute::kLiveRelevant));
+  EXPECT_EQ("additions text",
+            node_data.GetStringAttribute(
+                ax::mojom::StringAttribute::kContainerLiveRelevant));
 }
 
 #endif  // !BUILDFLAG(IS_MAC)

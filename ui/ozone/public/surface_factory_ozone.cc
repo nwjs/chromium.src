@@ -21,9 +21,9 @@
 
 namespace ui {
 
-SurfaceFactoryOzone::SurfaceFactoryOzone() {}
+SurfaceFactoryOzone::SurfaceFactoryOzone() = default;
 
-SurfaceFactoryOzone::~SurfaceFactoryOzone() {}
+SurfaceFactoryOzone::~SurfaceFactoryOzone() = default;
 
 std::vector<gl::GLImplementationParts>
 SurfaceFactoryOzone::GetAllowedGLImplementations() {
@@ -33,10 +33,6 @@ SurfaceFactoryOzone::GetAllowedGLImplementations() {
 GLOzone* SurfaceFactoryOzone::GetGLOzone(
     const gl::GLImplementationParts& implementation) {
   return nullptr;
-}
-
-bool SurfaceFactoryOzone::SupportsOverlays() {
-  return false;
 }
 
 GLOzone* SurfaceFactoryOzone::GetCurrentGLOzone() {

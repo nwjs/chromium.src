@@ -313,10 +313,9 @@ void DiceResponseHandler::ProcessDiceHeader(
       ProcessDiceSignoutHeader(dice_params.signout_info->account_infos);
       return;
     case signin::DiceAction::NONE:
-      NOTREACHED_IN_MIGRATION() << "Invalid Dice response parameters.";
-      return;
+      NOTREACHED() << "Invalid Dice response parameters.";
   }
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 size_t DiceResponseHandler::GetPendingDiceTokenFetchersCountForTesting() const {
@@ -518,6 +517,9 @@ void DiceResponseHandler::OnTokenExchangeSuccess(
 ) {
   const std::string& email = token_fetcher->email();
   const std::string& gaia_id = token_fetcher->gaia_id();
+
+  // Log is consumed by E2E tests. Please CC potassium-engprod@google.com if you
+  // have to change this log.
   VLOG(1) << "[Dice] OAuth success for email " << email;
   bool should_enable_sync = token_fetcher->should_enable_sync();
   CoreAccountId account_id =

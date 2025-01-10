@@ -127,7 +127,6 @@ Refer to README.md for content description and update process.
  <item id="network_location_request" added_in_milestone="65" type="completing" content_hash_code="04d00293" os_list="linux,windows,chromeos,android" semantics_fields="2,3,4,5" policy_fields="-1" file_path="services/device/geolocation/network_location_request.cc" />
  <item id="network_time_component" added_in_milestone="62" content_hash_code="01ac0991" os_list="linux,windows,chromeos,android" file_path="components/network_time/network_time_tracker.cc" />
  <item id="new_tab_page_handler" added_in_milestone="84" content_hash_code="02ee5881" os_list="linux,windows,chromeos" file_path="chrome/browser/ui/webui/new_tab_page/new_tab_page_handler.cc" />
- <item id="notification_client" added_in_milestone="79" content_hash_code="07bdb896" os_list="linux,windows,chromeos,android" file_path="remoting/client/notification/notification_client.cc" />
  <item id="nux_ntp_background_preview" added_in_milestone="74" content_hash_code="01df3270" os_list="linux,windows" file_path="chrome/browser/ui/webui/welcome/ntp_background_fetcher.cc" />
  <item id="oauth2_access_token_fetcher" added_in_milestone="62" content_hash_code="01ff32b0" os_list="linux,windows,chromeos,android" file_path="google_apis/gaia/gaia_access_token_fetcher.cc" />
  <item id="oauth2_api_call_flow" added_in_milestone="65" type="completing" content_hash_code="067ca204" os_list="linux,windows,chromeos,android" policy_fields="-1" file_path="google_apis/gaia/oauth2_api_call_flow.cc" />
@@ -448,18 +447,14 @@ Refer to README.md for content description and update process.
  <item id="wallpaper_request" added_in_milestone="125" content_hash_code="0192ac19" os_list="chromeos" file_path="chrome/browser/ash/wallpaper_handlers/sea_pen_fetcher.cc" />
  <item id="cws_fetch_item_snippet" added_in_milestone="124" content_hash_code="05d82ce1" os_list="linux,windows,chromeos" file_path="chrome/browser/extensions/webstore_data_fetcher.cc" />
  <item id="remoting_cloud_provision_gce_instance" added_in_milestone="125" content_hash_code="020ad462" os_list="linux,windows,android,chromeos" file_path="remoting/base/cloud_service_client.cc" />
- <item id="lens_overlay" added_in_milestone="125" content_hash_code="004895e8" os_list="linux,windows,chromeos" file_path="chrome/browser/ui/lens/lens_overlay_query_controller.cc" />
+ <item id="lens_overlay" added_in_milestone="125" content_hash_code="07dab263" os_list="linux,windows,chromeos" file_path="chrome/browser/ui/lens/lens_overlay_query_controller.cc" />
  <item id="register_push_notification_service" added_in_milestone="124" type="partial" second_id="oauth2_api_call_flow" content_hash_code="04e0c60d" os_list="chromeos" semantics_fields="1,2,3,4,5,7,8,9" policy_fields="3,4" file_path="chrome/browser/push_notification/server_client/push_notification_server_client_desktop_impl.cc" />
  <item id="youtube_music_integration" added_in_milestone="126" content_hash_code="0168e5a0" os_list="chromeos" file_path="ash/system/focus_mode/sounds/youtube_music/youtube_music_client.cc" />
  <item id="personalized_recommended_apps_download" added_in_milestone="127" content_hash_code="0216d0f6" os_list="chromeos" file_path="chrome/browser/ash/login/oobe_apps_service/oobe_apps_almanac_endpoint.cc" />
  <item id="focus_sounds_configuration" added_in_milestone="127" content_hash_code="02bcde5b" os_list="chromeos" file_path="ash/system/focus_mode/sounds/soundscape/soundscapes_downloader.cc" />
  <item id="device_image_downloader" added_in_milestone="127" content_hash_code="04c18c2c" os_list="chromeos" file_path="ash/system/input_device_settings/device_image_downloader.cc" />
- <item id="data_sharing_service_create_group" added_in_milestone="127" content_hash_code="0364db3a" os_list="android" file_path="components/data_sharing/public/android/java/src/org/chromium/components/data_sharing/DataSharingNetworkUtils.java" />
- <item id="data_sharing_service_read_groups" added_in_milestone="127" content_hash_code="0324f200" os_list="android" file_path="components/data_sharing/public/android/java/src/org/chromium/components/data_sharing/DataSharingNetworkUtils.java" />
- <item id="data_sharing_service_delete_groups" added_in_milestone="127" content_hash_code="073cd77e" os_list="android" file_path="components/data_sharing/public/android/java/src/org/chromium/components/data_sharing/DataSharingNetworkUtils.java" />
- <item id="data_sharing_service_update_group" added_in_milestone="127" content_hash_code="0639ccee" os_list="android" file_path="components/data_sharing/public/android/java/src/org/chromium/components/data_sharing/DataSharingNetworkUtils.java" />
  <item id="glanceables_icon_downloader" added_in_milestone="127" content_hash_code="0704f787" os_list="chromeos" file_path="ash/birch/birch_item.cc" />
- <item id="dbsc_registration" added_in_milestone="127" content_hash_code="00aa70d3" os_list="windows" file_path="net/device_bound_sessions/registration_fetcher.cc" />
+ <item id="dbsc_registration" added_in_milestone="127" content_hash_code="03c42469" os_list="windows,linux" file_path="net/device_bound_sessions/registration_fetcher.cc" />
  <item id="google_calendar_page_handler" added_in_milestone="127" content_hash_code="00ab702c" os_list="linux,windows,chromeos" file_path="chrome/browser/new_tab_page/modules/v2/calendar/google_calendar_page_handler.cc" />
  <item id="nearby_connections_wifi_direct" added_in_milestone="127" content_hash_code="00cec3a0" os_list="chromeos" file_path="chrome/services/sharing/nearby/platform/wifi_direct_socket.cc" />
  <item id="chrome_commerce_comparable_products" added_in_milestone="127" content_hash_code="07478997" os_list="linux,windows,android,chromeos" file_path="components/commerce/core/compare/cluster_server_proxy.cc" />
@@ -493,9 +488,16 @@ Refer to README.md for content description and update process.
  <item id="chromeos_emoji_picker_categories_fetcher" added_in_milestone="131" content_hash_code="02ee9118" os_list="chromeos" file_path="chromeos/ash/components/emoji/gif_tenor_api_fetcher.cc" />
  <item id="chromeos_emoji_picker_featured_fetcher" added_in_milestone="131" content_hash_code="00482dd6" os_list="chromeos" file_path="chromeos/ash/components/emoji/gif_tenor_api_fetcher.cc" />
  <item id="chromeos_emoji_picker_posts_fetcher" added_in_milestone="131" content_hash_code="069ed9b2" os_list="chromeos" file_path="chromeos/ash/components/emoji/gif_tenor_api_fetcher.cc" />
- <item id="chromeos_picker_gif_media_fetcher" added_in_milestone="131" content_hash_code="0674a2dd" os_list="chromeos" file_path="ash/picker/picker_asset_fetcher_impl.cc" />
+ <item id="chromeos_picker_gif_media_fetcher" added_in_milestone="131" content_hash_code="0674a2dd" os_list="chromeos" file_path="ash/quick_insert/quick_insert_asset_fetcher_impl.cc" />
  <item id="remoting_cloud_generate_ice_config" added_in_milestone="131" content_hash_code="067b6408" os_list="linux,windows,android,chromeos" file_path="remoting/base/cloud_service_client.cc" />
- <item id="demo_login_controller" added_in_milestone="131" content_hash_code="04b91873" os_list="chromeos" file_path="chrome/browser/ash/login/demo_mode/demo_login_controller.cc" />
+ <item id="demo_login_controller" added_in_milestone="131" content_hash_code="06f0d8af" os_list="chromeos" file_path="chrome/browser/ash/login/demo_mode/demo_login_controller.cc" />
  <item id="forms_annotations_model_execution" added_in_milestone="131" content_hash_code="00add55e" os_list="linux,windows,android,chromeos" file_path="components/optimization_guide/core/model_execution/model_execution_fetcher.cc" />
  <item id="forms_predictions_model_execution" added_in_milestone="131" content_hash_code="02b70ea8" os_list="linux,windows,android,chromeos" file_path="components/optimization_guide/core/model_execution/model_execution_fetcher.cc" />
+ <item id="ash_babelorca_tachyon_registrar" added_in_milestone="132" content_hash_code="03b91268" os_list="chromeos" file_path="chromeos/ash/components/boca/babelorca/tachyon_registrar.cc" />
+ <item id="ash_babelorca_transcript_receiver" added_in_milestone="132" content_hash_code="05e0545b" os_list="chromeos" file_path="chromeos/ash/components/boca/babelorca/transcript_receiver.cc" />
+ <item id="ash_babelorca_transcript_sender_impl" added_in_milestone="132" content_hash_code="03bd3254" os_list="chromeos" file_path="chromeos/ash/components/boca/babelorca/transcript_sender_impl.cc" />
+ <item id="ash_babelorca_babel_orca_consumer" added_in_milestone="132" content_hash_code="032ed9d7" os_list="chromeos" file_path="chromeos/ash/components/boca/babelorca/babel_orca_consumer.cc" />
+ <item id="chromeos_scanner" added_in_milestone="132" content_hash_code="05157491" os_list="chromeos" file_path="chrome/browser/ash/scanner/scanner_keyed_service.cc" />
+ <item id="lens_overlay_languages" added_in_milestone="132" content_hash_code="06a41fb0" os_list="linux,windows,chromeos" file_path="chrome/browser/ui/lens/lens_overlay_languages_controller.cc" />
+ <item id="demo_login_controller_account_clean_up" added_in_milestone="132" content_hash_code="0034c2c2" os_list="chromeos" file_path="chrome/browser/ash/login/demo_mode/demo_login_controller.cc" />
 </annotations>

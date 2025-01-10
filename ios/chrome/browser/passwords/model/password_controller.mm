@@ -69,8 +69,6 @@
 #import "ios/chrome/browser/shared/public/commands/password_breach_commands.h"
 #import "ios/chrome/browser/shared/public/commands/password_protection_commands.h"
 #import "ios/chrome/browser/shared/public/commands/password_suggestion_commands.h"
-#import "ios/chrome/browser/signin/model/authentication_service.h"
-#import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/grit/ios_branded_strings.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -506,11 +504,13 @@ constexpr int kNotifyAutoSigninDuration = 3;  // seconds
 - (void)sharedPasswordController:(SharedPasswordController*)controller
     showGeneratedPotentialPassword:(NSString*)generatedPotentialPassword
                          proactive:(BOOL)proactive
+                             frame:(base::WeakPtr<web::WebFrame>)frame
                    decisionHandler:(void (^)(BOOL accept))decisionHandler {
   [self.passwordSuggestionDispatcher
       showPasswordSuggestion:generatedPotentialPassword
                    proactive:proactive
                     webState:_webState
+                       frame:frame
              decisionHandler:decisionHandler];
 }
 

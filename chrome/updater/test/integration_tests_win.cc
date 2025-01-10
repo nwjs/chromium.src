@@ -21,6 +21,7 @@
 #include "base/command_line.h"
 #include "base/containers/adapters.h"
 #include "base/containers/contains.h"
+#include "base/file_version_info.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -633,11 +634,11 @@ void RunOfflineInstallWithManifest(UpdaterScope scope,
       offline_app_dir.AppendASCII(kAppInstallerName);
   EXPECT_TRUE(BuildTestAppInstaller(batch_script_path, app_installer));
   base::FilePath manifest_path = offline_dir.Append(manifest_filename);
-  int64_t app_installer_size = 0;
-  EXPECT_TRUE(base::GetFileSize(app_installer, &app_installer_size));
+  std::optional<int64_t> app_installer_size = base::GetFileSize(app_installer);
+  ASSERT_TRUE(app_installer_size.has_value());
   const std::string manifest = base::StringPrintfNonConstexpr(
       manifest_format.c_str(), kTestAppID, /*pv=*/"", kAppInstallerName,
-      app_installer_size, kAppInstallerName);
+      app_installer_size.value(), kAppInstallerName);
   EXPECT_TRUE(base::WriteFile(manifest_path, manifest));
 
   // Trigger offline install.
@@ -722,6 +723,7 @@ void Clean(UpdaterScope scope) {
   const HKEY root = UpdaterScopeToHKeyRoot(scope);
   for (const wchar_t* key : {CLIENT_STATE_KEY, CLIENTS_KEY, UPDATER_KEY}) {
     EXPECT_TRUE(DeleteRegKey(root, key));
+    EXPECT_TRUE(DeleteRegKey64(root, key));
   }
 
   if (::IsUserAnAdmin()) {
@@ -1635,40 +1637,53 @@ void InvokeTestServiceFunction(const std::string& function_name,
   EXPECT_EQ(RunVPythonCommand(command), 0);
 }
 
-base::FilePath GetRealUpdaterLowerVersionPath() {
+std::vector<TestUpdaterVersion> GetRealUpdaterLowerVersions() {
+  std::vector<std::wstring> supported_archs;
+
+// TODO(crbug.com/374217027): Test with newer x64 chrome-branded executables
+// that install to %ProgramFiles(x86)%.
+#if BUILDFLAG(CHROMIUM_BRANDING)
+#if defined(ARCH_CPU_ARM64)
+  supported_archs = {
+      L"chromium_win_arm64",
+      L"chromium_win_x86_64",
+      L"chromium_win_x86",
+  };
+#elif defined(ARCH_CPU_X86_64) || defined(ARCH_CPU_X86)
+  supported_archs = {
+      L"chromium_win_x86_64",
+      L"chromium_win_x86",
+  };
+#endif
+#elif BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  supported_archs = {
+      L"chrome_win_x86",
+  };
+#endif
+
   base::FilePath exe_path;
   EXPECT_TRUE(base::PathService::Get(base::DIR_EXE, &exe_path));
   base::FilePath old_updater_path =
       exe_path.Append(FILE_PATH_LITERAL("old_updater"));
 
-#if BUILDFLAG(CHROMIUM_BRANDING)
-#if defined(ARCH_CPU_ARM64)
-  old_updater_path =
-      old_updater_path.Append(FILE_PATH_LITERAL("chromium_win_arm64"));
-#elif defined(ARCH_CPU_X86_64)
-  old_updater_path =
-      old_updater_path.Append(FILE_PATH_LITERAL("chromium_win_x86_64"));
-#elif defined(ARCH_CPU_X86)
-  old_updater_path =
-      old_updater_path.Append(FILE_PATH_LITERAL("chromium_win_x86"));
-#endif
-#elif BUILDFLAG(GOOGLE_CHROME_BRANDING)
-#if defined(ARCH_CPU_ARM64)
-  old_updater_path =
-      old_updater_path.Append(FILE_PATH_LITERAL("chrome_win_arm64"));
-#elif defined(ARCH_CPU_X86_64)
-  old_updater_path =
-      old_updater_path.Append(FILE_PATH_LITERAL("chrome_win_x86_64"));
-#elif defined(ARCH_CPU_X86)
-  old_updater_path =
-      old_updater_path.Append(FILE_PATH_LITERAL("chrome_win_x86"));
-#endif
-#endif
-
+  base::FilePath path_suffix;
 #if BUILDFLAG(CHROMIUM_BRANDING) || BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  old_updater_path = old_updater_path.Append(FILE_PATH_LITERAL("cipd"));
+  path_suffix = path_suffix.Append(FILE_PATH_LITERAL("cipd"));
 #endif
-  return old_updater_path.Append(FILE_PATH_LITERAL("UpdaterSetup_test.exe"));
+  path_suffix = path_suffix.Append(FILE_PATH_LITERAL("UpdaterSetup_test.exe"));
+
+  std::vector<TestUpdaterVersion> updater_versions;
+  base::ranges::transform(
+      supported_archs, std::back_inserter(updater_versions),
+      [&](const std::wstring& arch) -> TestUpdaterVersion {
+        const base::FilePath updater_setup_path =
+            old_updater_path.Append(arch).Append(path_suffix);
+        return {updater_setup_path,
+                base::Version(base::UTF16ToUTF8(
+                    FileVersionInfo::CreateFileVersionInfo(updater_setup_path)
+                        ->file_version()))};
+      });
+  return updater_versions;
 }
 
 void RunUninstallCmdLine(UpdaterScope scope) {
@@ -1724,6 +1739,8 @@ void SetupFakeLegacyUpdater(UpdaterScope scope) {
   const HKEY root = UpdaterScopeToHKeyRoot(scope);
 
   base::win::RegKey key;
+
+  // Legacy updater, should not be migrated.
   ASSERT_EQ(key.Create(root,
                        base::StrCat(
                            {UPDATER_KEY L"Clients\\", kLegacyGoogleUpdateAppID})
@@ -1735,6 +1752,7 @@ void SetupFakeLegacyUpdater(UpdaterScope scope) {
   ASSERT_EQ(key.WriteValue(kRegValueAP, L"TestAP"), ERROR_SUCCESS);
   key.Close();
 
+  // Chrome app with registration in the 32-bit hive, should be migrated.
   ASSERT_EQ(
       key.Create(
           root,
@@ -1770,6 +1788,7 @@ void SetupFakeLegacyUpdater(UpdaterScope scope) {
             ERROR_SUCCESS);
   key.Close();
 
+  // App without 'pv', should not be migrated.
   ASSERT_EQ(
       key.Create(
           root,
@@ -1780,6 +1799,26 @@ void SetupFakeLegacyUpdater(UpdaterScope scope) {
   ASSERT_EQ(key.WriteValue(kRegValueAP, L"TestAP"), ERROR_SUCCESS);
   ASSERT_EQ(key.WriteValue(kRegValueDateOfLastActivity, L"5900"),
             ERROR_SUCCESS);
+  key.Close();
+
+  // App registered in the 64-bit hive, should be migrated.
+  ASSERT_EQ(
+      key.Create(
+          root,
+          UPDATER_KEY L"\\Clients\\{D7FB8805-0780-4A48-BEA8-7C1919185D3B}",
+          KEY_WRITE | KEY_WOW64_64KEY),
+      ERROR_SUCCESS);
+  ASSERT_EQ(key.WriteValue(kRegValuePV, L"7.1.0.0"), ERROR_SUCCESS);
+  key.Close();
+
+  ASSERT_EQ(
+      key.Create(
+          root,
+          UPDATER_KEY L"\\ClientState\\{D7FB8805-0780-4A48-BEA8-7C1919185D3B}",
+          KEY_WRITE | KEY_WOW64_64KEY),
+      ERROR_SUCCESS);
+  ASSERT_EQ(key.WriteValue(kRegValueBrandCode, L"FFLS"), ERROR_SUCCESS);
+  ASSERT_EQ(key.WriteValue(kRegValueAP, L"TAP"), ERROR_SUCCESS);
   key.Close();
 
   if (IsSystemInstall(scope)) {
@@ -1925,6 +1964,7 @@ void ExpectLegacyUpdaterMigrated(UpdaterScope scope) {
   EXPECT_EQ(persisted_data->GetDateLastActive(kNoPVAppId), -2);
   EXPECT_EQ(persisted_data->GetDateLastRollCall(kNoPVAppId), -2);
 
+  // Chrome app with registration in the 32-bit hive should be migrated.
   EXPECT_EQ(persisted_data->GetProductVersion(kChromeAppId),
             base::Version("99.0.0.1"));
   EXPECT_EQ(persisted_data->GetAP(kChromeAppId), "TestAP");
@@ -1935,6 +1975,13 @@ void ExpectLegacyUpdaterMigrated(UpdaterScope scope) {
   EXPECT_EQ(persisted_data->GetCohort(kChromeAppId), "TestCohort");
   EXPECT_EQ(persisted_data->GetCohortName(kChromeAppId), "TestCohortName");
   EXPECT_EQ(persisted_data->GetCohortHint(kChromeAppId), "TestCohortHint");
+
+  // App with registration in the 64-bit hive should be migrated.
+  const std::string k64BitAppId("{D7FB8805-0780-4A48-BEA8-7C1919185D3B}");
+  EXPECT_EQ(persisted_data->GetProductVersion(k64BitAppId),
+            base::Version("7.1.0.0"));
+  EXPECT_EQ(persisted_data->GetAP(k64BitAppId), "TAP");
+  EXPECT_EQ(persisted_data->GetBrandCode(k64BitAppId), "FFLS");
 
   int count_entries = 0;
   if (IsSystemInstall(scope)) {

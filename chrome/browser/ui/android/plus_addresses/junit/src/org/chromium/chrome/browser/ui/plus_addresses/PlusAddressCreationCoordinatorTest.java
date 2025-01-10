@@ -21,8 +21,6 @@ import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Batch;
-import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
@@ -33,7 +31,6 @@ import org.chromium.url.GURL;
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
 @Batch(Batch.UNIT_TESTS)
-@EnableFeatures(ChromeFeatureList.PLUS_ADDRESS_ANDROID_ENHANCED_LOADING_STATES_ENABLED)
 public class PlusAddressCreationCoordinatorTest {
     private static final PlusAddressCreationNormalStateInfo FIRST_TIME_USAGE_INFO =
             new PlusAddressCreationNormalStateInfo(
@@ -43,9 +40,7 @@ public class PlusAddressCreationCoordinatorTest {
                     /* proposedPlusAddressPlaceholder= */ "placeholder",
                     /* confirmText= */ "ok",
                     /* cancelText= */ "cancel",
-                    /* errorReportInstruction= */ "error! <link>test link</link>",
-                    /* learnMoreUrl= */ new GURL("learn.more.com"),
-                    /* errorReportUrl= */ new GURL("bug.com"));
+                    /* learnMoreUrl= */ new GURL("learn.more.com"));
     private static final String MODAL_PROPOSED_PLUS_ADDRESS = "plus+1@plus.plus";
     private static final boolean REFRESH_SUPPORTED = true;
     private static final PlusAddressCreationErrorStateInfo ERROR_STATE =

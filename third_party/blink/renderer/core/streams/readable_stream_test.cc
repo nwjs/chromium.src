@@ -18,6 +18,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_testing.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_readable_stream.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_readable_stream_get_reader_options.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_readable_stream_read_result.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_readablestreambyobreader_readablestreamdefaultreader.h"
 #include "third_party/blink/renderer/core/messaging/message_channel.h"
 #include "third_party/blink/renderer/core/streams/readable_stream_byob_reader.h"
@@ -105,8 +106,7 @@ readAll(stream);
       // Allow Promises to resolve.
       scope.PerformMicrotaskCheckpoint();
     }
-    NOTREACHED_IN_MIGRATION();
-    return std::nullopt;
+    NOTREACHED();
   }
   test::TaskEnvironment task_environment_;
 };
@@ -131,8 +131,8 @@ class TestTransferringOptimizer final
     explicit Source(ScriptState* script_state)
         : UnderlyingSourceBase(script_state) {}
 
-    ScriptPromiseUntyped Start(ScriptState* script_state,
-                               ExceptionState&) override {
+    ScriptPromise<IDLUndefined> Start(ScriptState* script_state,
+                                      ExceptionState&) override {
       Controller()->Enqueue(V8String(script_state->GetIsolate(), "foo"));
       Controller()->Enqueue(V8String(script_state->GetIsolate(), ", bar"));
       Controller()->Close();

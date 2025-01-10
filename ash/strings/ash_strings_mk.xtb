@@ -308,7 +308,6 @@
 <translation id="2041220428661959602">Ниво на батерија: <ph name="BATTERY_PERCENTAGE" /> %</translation>
 <translation id="204259843076055848">Кратенката <ph name="SIX_PACK_KEY_NAME" /> во моментов е исклучена</translation>
 <translation id="2049240716062114887">Името на работната површина е променето во <ph name="DESK_NAME" /></translation>
-<translation id="2050339315714019657">Вертикално</translation>
 <translation id="2064048859448024834">Вклучен е преглед на камерата</translation>
 <translation id="2065098273523946419">Линк за „Дознајте повеќе“. Пренасочува кон прелистувачот кога ќе се активира</translation>
 <translation id="2067220651560163985">Прикажувај ја температурата во Целзиусови степени</translation>
@@ -339,9 +338,6 @@
 <translation id="219905428774326614">Стартер, сите апликации</translation>
 <translation id="2201071101391734388">Неодамнешна фотографија: <ph name="INDEX" /> од <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Собери го Google Tasks</translation>
-<translation id="2206960886090042977">Вградената допирна подлога е оневозможена бидејќи е поврзано глувче. Користете го глувчето или тастатурата за да ја потврдите промената.
-
-Во спротивно, вградената допирна подлога ќе се овозможи повторно по 30 секунди.</translation>
 <translation id="2208323208084708176">Режим на единствена работна површина</translation>
 <translation id="2220572644011485463">PIN или лозинка</translation>
 <translation id="2222841058024245321">Работна површина 7</translation>
@@ -504,6 +500,9 @@
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> до <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">Ctrl+Search+S</translation>
 <translation id="2778650143428714839"><ph name="MANAGER" /> управува со <ph name="DEVICE_TYPE" /></translation>
+<translation id="2781658180588759579">Вградената допирна подлога е оневозможена. Користете ја тастатурата или друг уред за покажување за да ја потврдите промената.
+
+Во спротивно, вградената допирна подлога ќе се овозможи повторно по <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2782591952652094792">Излези од режимот на снимање</translation>
 <translation id="2785499565474703580">Поврзан е 1 уред</translation>
 <translation id="2791421900609674576">Ќе видите препораки за да можете да продолжите каде што сте застанале. Може да допрете и задржите за да ги отстраните препораките.</translation>
@@ -601,6 +600,9 @@
 <translation id="3113492864356515707">Нагласете ја претходната ставка на полицата</translation>
 <translation id="311799651966070385">Затвори го потсетувањето</translation>
 <translation id="3120421559657122717">Да се исклучи уредот?</translation>
+<translation id="3121411970001795539">Вградената допирна подлога е оневозможена бидејќи е поврзано глувче. Користете го глувчето или тастатурата за да ја потврдите промената.
+
+Во спротивно, вградената допирна подлога ќе се овозможи повторно по <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="3122464029669770682">ЦПУ</translation>
 <translation id="3125690294288312932">Тип школска работа</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -846,7 +848,7 @@
 <translation id="3945319193631853098">Допрете за да го завршите поставувањето</translation>
 <translation id="3945867833895287237">Се поврзува со точка на пристап…</translation>
 <translation id="3950272133184491871">Дали ќе се одјавите сега?</translation>
-<translation id="3950820424414687140">Најави се</translation>
+<translation id="3950820424414687140">Најавете се</translation>
 <translation id="3953130726459169782">Сѐ уште нема завршени задачи.</translation>
 <translation id="3958714870339660776">Цел ден</translation>
 <translation id="3962859241508114581">Претходна песна</translation>
@@ -972,13 +974,13 @@
 <translation id="4322742403972824594">Кратенката од тастатура Ctrl + Alt + Стрелка нагоре се промени. За да го користите копчето Home, притиснете го копчето <ph name="LAUNCHER_KEY_NAME" /> + Стрелка налево.</translation>
 <translation id="4324840740119394760">Ова дозволува пристап до камерата за <ph name="APP_NAME" /> и сите апликации и веб-сајтови со дозвола за камерата</translation>
 <translation id="4327147325944669226">Снимање игра</translation>
-<translation id="4333628967105022692">Lacros не е поддржан кога се најавени повеќе корисници.</translation>
 <translation id="4338109981321384717">Лупа</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, звукот е исклучен</translation>
 <translation id="4351244548802238354">Затвори дијалог</translation>
 <translation id="4356872429719185452">Прикажи детали за точката на пристап. Точката на пристап се вклучува.</translation>
 <translation id="4364101114148522660">Се снима: <ph name="DURATION" /></translation>
 <translation id="4371348193907997655">Поставки за Cast</translation>
+<translation id="4371834685492830207">PIN-кодот мора да содржи само важечки знаци</translation>
 <translation id="4375482231364171368">Пребарува во лентата за адреси</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, јачина на сигналот: <ph name="SIGNAL_STRENGTH" /> %</translation>
 <translation id="4378551569595875038">Се поврзува…</translation>
@@ -1049,7 +1051,7 @@
 <translation id="4596144739579517758">Темната тема е исклучена</translation>
 <translation id="4596442969149038771">Споделено од <ph name="USER" /></translation>
 <translation id="4610493115106525653">Добри излезни податоци</translation>
-<translation id="4611292653554630842">Најави се</translation>
+<translation id="4611292653554630842">Најавете се</translation>
 <translation id="462160925400706389">Поврзано: <ph name="NAME" /></translation>
 <translation id="4623167406982293031">Потврдете ја сметката</translation>
 <translation id="4628757576491864469">Уреди</translation>
@@ -1144,6 +1146,7 @@
 <translation id="4902797682482387055">Предложена задача на којашто може да се фокусирате</translation>
 <translation id="490375751687810070">Вертикално</translation>
 <translation id="490788395437447240"><ph name="BATTERY_PERCENTAGE" /> % батерија</translation>
+<translation id="4911191962826748981">Ова е експериментална AI-функција, па нема секогаш да прикажува точни информации.</translation>
 <translation id="491504982845934899">Активирајте <ph name="NETWORK_NAME" /> по поставувањето на уредот</translation>
 <translation id="4917385247580444890">Силен</translation>
 <translation id="4918086044614829423">Прифати</translation>
@@ -1302,6 +1305,7 @@
 <translation id="5393156353051693207">Допрете и задржете каде било за да ги преуредите апликациите</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" /> врз <ph name="IN_PLACE_APP" />, пуштете за да се создаде папка.</translation>
 <translation id="5397578532367286026">Користењето и историјата на овој корисник може да ги прегледува управникот (<ph name="MANAGER_EMAIL" />) на chrome.com.</translation>
+<translation id="540338817371815859">Пејзаж</translation>
 <translation id="540713187982329711">Вклучување/Исклучување на точката на пристап. Точката на пристап е вклучена, нема поврзани уреди.</translation>
 <translation id="5409208741270395213">Означете ја задачата како завршена</translation>
 <translation id="5413656666631274079">страницата со поставки</translation>
@@ -1473,7 +1477,6 @@
 <translation id="5975235751479998104">Движете се нанапред низ прозорците</translation>
 <translation id="5978382165065462689">Споделување контрола на вашиот екран преку далечинска помош.</translation>
 <translation id="5980301590375426705">Излези од гостин</translation>
-<translation id="5982119059638483922">Притиснете Alt + „Пребарување“ или Shift за да откажете.</translation>
 <translation id="5983567367406220847">Точката на пристап е исклучена поради неактивност.</translation>
 <translation id="598407983968395253">Употреби го шаблонот</translation>
 <translation id="5986723678596105470">Придружете се со Google Meet</translation>
@@ -1543,7 +1546,6 @@
 <translation id="6166852626429024716">Пребарувајте низ уредот, апликациите, поставките, на интернет…</translation>
 <translation id="6168318496333165060">Отворете ја апликацијата Diagnostics</translation>
 <translation id="6168622430237609329">Вашите инсталирани апликации</translation>
-<translation id="6173151025443907148">Ако е овозможен Lacros, не е поддржано најавување втор корисник. Наместо тоа, користете втор профил за прелистувач во Lacros или оневозможете го Lacros и обидете се повторно.</translation>
 <translation id="6179832488876878285">Може да ги закачите вашите важни датотеки тука. Отворете ја апликацијата Files за да започнете.</translation>
 <translation id="6180193585172850042">Копче за назад</translation>
 <translation id="6180651297859206670">Копче за напред</translation>
@@ -1565,6 +1567,7 @@
 <translation id="6232416233079464213">Од <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> ги користи камерата и микрофонот во моментов</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">Лозинката мора да содржи само важечки знаци</translation>
 <translation id="6240603910551255087">Горно копче</translation>
 <translation id="6240821072888636753">Прашувај секогаш</translation>
 <translation id="6247728804802644171">Отворете ги известувањата</translation>
@@ -1695,7 +1698,6 @@
 <translation id="6682029141988159141">Ги лепи содржините од привремената меморија</translation>
 <translation id="6683022854667115063">Слушалки</translation>
 <translation id="6686023075541098243">Поставете прегледување на известувањата на телефонот</translation>
-<translation id="6688019813898140556">Притиснете Esc 5 пати</translation>
 <translation id="6694462491298752106">Вградената допирна подлога е оневозможена</translation>
 <translation id="6694973220096431421">Пребарајте во Google Drive</translation>
 <translation id="6696025732084565524">Отстранливата тастатура има потреба од важно ажурирање</translation>
@@ -1716,6 +1718,7 @@
 <translation id="6751826523481687655">Следењето на изведбата е вклучено</translation>
 <translation id="6752912906630585008">Работниот простор <ph name="REMOVED_DESK" /> е отстранет и споен со работниот простор <ph name="RECEIVE_DESK" /></translation>
 <translation id="6753390234084146956">картички</translation>
+<translation id="6754918760968695779">Брзо вметнување</translation>
 <translation id="6757237461819837179">Нема пуштени аудиовизуелни содржини</translation>
 <translation id="6760438044935091345">Контролна табла за игри</translation>
 <translation id="6768043681523654438">простор</translation>
@@ -1765,6 +1768,7 @@
 <translation id="6921427376813842559">Ажурирајте го уредот</translation>
 <translation id="6929081673585394903">Прикажи ги контролите</translation>
 <translation id="6931576957638141829">Зачувај во</translation>
+<translation id="6935857786205183008">Портрет</translation>
 <translation id="6942518653766415536">Мени за формат на снимање</translation>
 <translation id="6945221475159498467">Избери</translation>
 <translation id="6945922087561257829">Вашиот телефон користи мобилна мрежа. Проверете дали телефонот и Chromebook се на истата Wi-Fi мрежа, па обидете се повторно. <ph name="LEARN_MORE" /></translation>
@@ -1921,9 +1925,6 @@
 За да го исклучите уредот, повторно притиснете и задржете го копчето за вклучување на уредот.</translation>
 <translation id="7523420897035067483">Овозможете „Не вознемирувај“ при „Режим за концентрација“</translation>
 <translation id="7524043547948122239">Google Tasks</translation>
-<translation id="7524919752437339268">Вградената допирна подлога е оневозможена. Користете ја тастатурата или друг уред за покажување за да ја потврдите промената.
-
-Во спротивно, вградената допирна подлога ќе се овозможи повторно по 30 секунди.</translation>
 <translation id="7525067979554623046">Создај</translation>
 <translation id="7526573455193969409">Мрежата можеби се следи</translation>
 <translation id="7536035074519304529">IP адреса: <ph name="ADDRESS" /></translation>
@@ -2010,6 +2011,7 @@
 <translation id="780301667611848630">Не, фала</translation>
 <translation id="7807067443225230855">„Пребарување“ и „Помошник“</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> и <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">„Ми се допаѓа“ ќе ги испрати повратните информации дека ви се допаѓа предлогов</translation>
 <translation id="7825412704590278437">Од претстоен настан во календарот</translation>
 <translation id="7829386189513694949">Силен сигнал</translation>
 <translation id="7830453190047749513">Може да ги персонализирате дејствата за копчињата, брзината на курсорот и друго за вашиот уред <ph name="PERIPHERAL_NAME" /></translation>
@@ -2164,6 +2166,7 @@
 <translation id="830868413617744215">Бета</translation>
 <translation id="8314772463905284467">Вклучено е Caps Lock</translation>
 <translation id="8315514906653279104">Се вклучува…</translation>
+<translation id="8319634750346253957">„Не ми се допаѓа“ ќе ги испрати повратните информации дека не ви се допаѓа предлогов</translation>
 <translation id="8331351032546853669">Преземање на чекање</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" /> <ph name="GET_STARTED" /></translation>
@@ -2349,9 +2352,10 @@
 <translation id="8982906748181120328">Видливост во близина</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">Се користи <ph name="IME_NAME" /></translation>
+<translation id="8991648557324317894">Притиснете Fn + „Брзо вметнување“ или Shift за да откажете.</translation>
 <translation id="899350903320462459">Отклучете го уредот како <ph name="LOGIN_ID" /> за да се изврши дејството од известувањето</translation>
 <translation id="8993733019280019776">Дали зборувате? Вашиот микрофон е исклучен. Изберете го микрофонот за да го вклучите.</translation>
-<translation id="9000771174482730261">УПРАВУВАЈТЕ СО КАПАЦИТЕТОТ</translation>
+<translation id="9000771174482730261">УПРАВУВАЈТЕ СО ПРОСТОРОТ</translation>
 <translation id="9003374957546315126">Емоџија и друго</translation>
 <translation id="9005984960510803406">Отвора прозорец на Crosh</translation>
 <translation id="9017320285115481645">Внесете го кодот за пристап на родители на Family Link.</translation>
@@ -2431,9 +2435,9 @@
 <translation id="974545358917229949">Се прикажуваат <ph name="RESULT_COUNT" /> резултати за <ph name="QUERY" /></translation>
 <translation id="981011780479609956">Без рок</translation>
 <translation id="98120814841227350">Одете на крајот од документот</translation>
-<translation id="98515147261107953">Пејзаж</translation>
 <translation id="987589956647469042">Мобилниот интернет е вклучен</translation>
 <translation id="989374776391122812">Контроли за камера и звук</translation>
+<translation id="990263227494928142">Притиснете Shift 5 пати за да ја овозможите допирната подлога</translation>
 <translation id="990277280839877440">Прозорецот <ph name="WINDOW_TITILE" /> е затворен.</translation>
 <translation id="993398562350683614">Чекор <ph name="STEP" /> од <ph name="TOTAL_STEPS" />. Користете апликации за да правите сѐ што е потребно на вашиот уред <ph name="PRODUCT_NAME" />. Вашите апликации може да ги најдете во „Стартер“. Притиснете Alt + Shift + L за да се фокусирате на копчето за „Стартер“.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

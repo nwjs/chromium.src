@@ -26,7 +26,7 @@
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/buildflags.h"
 #include "chrome/browser/new_tab_page/feature_promo_helper/new_tab_page_feature_promo_helper.h"
-#include "chrome/browser/new_tab_page/modules/file_suggestion/file_suggestion_handler.h"
+#include "chrome/browser/new_tab_page/modules/file_suggestion/drive_suggestion_handler.h"
 #include "chrome/browser/new_tab_page/modules/new_tab_page_modules.h"
 #include "chrome/browser/new_tab_page/modules/v2/calendar/google_calendar_page_handler.h"
 #include "chrome/browser/new_tab_page/modules/v2/calendar/outlook_calendar_page_handler.h"
@@ -344,15 +344,14 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
        IDS_NTP_MODULES_DRIVE_DISMISS_BUTTON_TEXT},
       {"modulesDriveMoreActionsButtonText",
        IDS_NTP_MODULES_DRIVE_MORE_ACTIONS_BUTTON_TEXT},
-      {"modulesDriveSentence", IDS_NTP_MODULES_DRIVE_SENTENCE},
-      {"modulesDriveSentence2", IDS_NTP_MODULES_DRIVE_SENTENCE2},
+      {"modulesDriveSentence", IDS_NTP_MODULES_DRIVE_NAME},
       {"modulesDriveFilesSentence", IDS_NTP_MODULES_DRIVE_FILES_SENTENCE},
       {"modulesDummyLower", IDS_NTP_MODULES_DUMMY_LOWER},
-      {"modulesDriveTitle", IDS_NTP_MODULES_DRIVE_TITLE},
-      {"modulesDriveTitleV2", IDS_NTP_MODULES_DRIVE_TITLE_V2},
+      {"modulesDriveTitle", IDS_NTP_MODULES_DRIVE_NAME},
+      {"modulesDriveTitleV2", IDS_NTP_MODULES_DRIVE_NAME},
       {"modulesDriveInfo", IDS_NTP_MODULES_DRIVE_INFO},
       {"modulesSharepointInfo", IDS_NTP_MODULES_SHAREPOINT_INFO},
-      {"modulesSharepointTitle", IDS_NTP_MODULES_SHAREPOINT_TITLE},
+      {"modulesSharepointName", IDS_NTP_MODULES_SHAREPOINT_NAME},
       {"modulesDummyTitle", IDS_NTP_MODULES_DUMMY_TITLE},
       {"modulesDismissForHoursButtonText",
        IDS_NTP_MODULES_DISMISS_FOR_HOURS_BUTTON_TEXT},
@@ -434,9 +433,6 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
       {"webstoreThemesToastButtonText", IDS_NTP_WEBSTORE_TOAST_BUTTON_TEXT},
   };
   source->AddLocalizedStrings(kStrings);
-
-  source->AddBoolean("wideModulesEnabled", base::FeatureList::IsEnabled(
-                                               ntp_features::kNtpWideModules));
 
   source->AddBoolean(
       "modulesHeaderIconEnabled",
@@ -663,9 +659,9 @@ void NewTabPageUI::BindInterface(
 }
 
 void NewTabPageUI::BindInterface(
-    mojo::PendingReceiver<file_suggestion::mojom::FileSuggestionHandler>
+    mojo::PendingReceiver<file_suggestion::mojom::DriveSuggestionHandler>
         pending_receiver) {
-  file_handler_ = std::make_unique<FileSuggestionHandler>(
+  drive_handler_ = std::make_unique<DriveSuggestionHandler>(
       std::move(pending_receiver), profile_);
 }
 

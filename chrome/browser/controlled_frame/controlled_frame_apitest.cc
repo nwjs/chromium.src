@@ -9,6 +9,7 @@
 #include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/path_service.h"
+#include "base/test/bind.h"
 #include "base/test/gmock_expected_support.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/threading/thread_restrictions.h"
@@ -21,8 +22,10 @@
 #include "chrome/browser/web_applications/isolated_web_apps/test/isolated_web_app_builder.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
+#include "components/embedder_support/user_agent_utils.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_exposed_isolation_level.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -37,6 +40,8 @@
 #include "net/test/spawned_test_server/spawned_test_server.h"
 #include "net/test/test_data_directory.h"
 #include "testing/gtest/include/gtest/gtest.h"
+
+using testing::HasSubstr;
 
 namespace controlled_frame {
 
@@ -224,11 +229,7 @@ class ControlledFrameApiTest : public ControlledFrameTestBase {
     if (mangle_js.length() == 0u) {
       return testing::AssertionFailure() << "No mangle.js code found";
     }
-    if (!ExecJs(frame, mangle_js)) {
-      return testing::AssertionFailure()
-             << "Could not include mangle.js in frame";
-    }
-    return testing::AssertionSuccess();
+    return ExecJs(frame, mangle_js);
   }
 
  public:
@@ -624,6 +625,11 @@ IN_PROC_BROWSER_TEST_F(ControlledFrameApiTest, DisabledInSandboxedIframe) {
                                            url_info.origin().Serialize())));
   content::RenderFrameHost* iframe = ChildFrameAt(app_frame, 1);
   ASSERT_NE(iframe, nullptr);
+
+  EXPECT_EQ(content::WebExposedIsolationLevel::kNotIsolated,
+            iframe->GetWebExposedIsolationLevel());
+  EXPECT_EQ(false, EvalJs(iframe, "window.crossOriginIsolated"));
+  EXPECT_EQ("null", EvalJs(iframe, "window.origin"));
 
   ASSERT_FALSE(CreateControlledFrame(iframe, https_url));
 }
@@ -1249,6 +1255,74 @@ IN_PROC_BROWSER_TEST_P(ControlledFrameAvailabilityTest, Verify) {
     EXPECT_EQ(kEvalSuccessStr, ExecuteScriptRedBackgroundCode(app_frame));
     EXPECT_EQ(kEvalSuccessStr, VerifyBackgroundColorIsRed(web_view_guest));
   }
+}
+
+class ControlledFrameRequestHeaderTest : public ControlledFrameTestBase {
+ public:
+  [[nodiscard]] bool SetUserAgentAndAwaitReload(content::RenderFrameHost* frame,
+                                                const std::string& user_agent) {
+    const std::string kRemoveUserAgentAndReload = R"(
+new Promise((resolve, reject) => {
+  const controlledframe = document.getElementsByTagName('controlledframe')[0];
+  if (!('src' in controlledframe)) {
+    reject('FAIL');
+    return;
+  }
+  controlledframe.addEventListener('loadstop', resolve);
+  controlledframe.addEventListener('loadabort', reject);
+  // |setUserAgentOverride| should automatically reload
+  controlledframe.setUserAgentOverride($1);
+});
+    )";
+    return ExecJs(frame,
+                  content::JsReplace(kRemoveUserAgentAndReload, user_agent));
+  }
+
+  void MonitorRequest(const net::test_server::HttpRequest& request) {
+    if (request.relative_url != "/index.html") {
+      return;
+    }
+    last_seen_ua_ = request.headers.at("User-Agent");
+    last_seen_sec_ch_ua_ = request.headers.at("Sec-CH-UA");
+  }
+
+  const std::string& last_seen_ua() const { return last_seen_ua_; }
+  const std::string& last_seen_sec_ch_ua() const {
+    return last_seen_sec_ch_ua_;
+  }
+
+ private:
+  std::string last_seen_ua_;
+  std::string last_seen_sec_ch_ua_;
+};
+
+// Verifies that `setUserAgentOverride` works as expected, and that default
+// Sec-CH-UA includes "ControlledFrame" brand.
+IN_PROC_BROWSER_TEST_F(ControlledFrameRequestHeaderTest,
+                       HasDefaultCHUABrandWithUAOverride) {
+  embedded_https_test_server().RegisterRequestMonitor(
+      base::BindRepeating(&ControlledFrameRequestHeaderTest::MonitorRequest,
+                          base::Unretained(this)));
+
+  StartContentServer("web_apps/simple_isolated_app");
+
+  web_app::IsolatedWebAppUrlInfo url_info =
+      CreateAndInstallEmptyApp(web_app::ManifestBuilder());
+  content::RenderFrameHost* app_frame = OpenApp(url_info.app_id());
+
+  ASSERT_TRUE(CreateControlledFrame(
+      app_frame, embedded_https_test_server().GetURL("/index.html")));
+  EXPECT_EQ(last_seen_ua(), embedder_support::GetUserAgent());
+  EXPECT_THAT(last_seen_sec_ch_ua(), HasSubstr("ControlledFrame"));
+
+  ASSERT_TRUE(SetUserAgentAndAwaitReload(app_frame, "foobar"));
+  EXPECT_EQ(last_seen_ua(), "foobar");
+  EXPECT_THAT(last_seen_sec_ch_ua(), HasSubstr("ControlledFrame"));
+
+  // Passing an empty string should reset the UA value.
+  ASSERT_TRUE(SetUserAgentAndAwaitReload(app_frame, ""));
+  EXPECT_EQ(last_seen_ua(), embedder_support::GetUserAgent());
+  EXPECT_THAT(last_seen_sec_ch_ua(), HasSubstr("ControlledFrame"));
 }
 
 }  // namespace controlled_frame

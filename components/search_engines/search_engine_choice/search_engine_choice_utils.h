@@ -32,6 +32,9 @@ inline constexpr char kSearchEngineChoiceScreenEventsHistogram[] =
 inline constexpr char
     kSearchEngineChoiceScreenDefaultSearchEngineTypeHistogram[] =
         "Search.ChoiceScreenDefaultSearchEngineType";
+inline constexpr char
+    kSearchEngineChoiceScreenDefaultSearchEngineType2Histogram[] =
+        "Search.ChoiceScreenDefaultSearchEngineType2";
 inline constexpr char kSearchEngineChoiceScreenSelectedEngineIndexHistogram[] =
     "Search.ChoiceScreenSelectedEngineIndex";
 inline constexpr char
@@ -98,7 +101,7 @@ enum class SearchEngineChoiceScreenConditions {
 
   kMaxValue = kUsingPersistedGuestSessionChoice,
 };
-// LINT.ThenChange(/tools/metrics/histograms/enums.xml:SearchEngineChoiceScreenConditions)
+// LINT.ThenChange(/tools/metrics/histograms/metadata/search/enums.xml:SearchEngineChoiceScreenConditions)
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
@@ -133,7 +136,7 @@ enum class SearchEngineChoiceScreenEvents {
   kProfileCreationMoreButtonClicked = 12,
   kMaxValue = kProfileCreationMoreButtonClicked,
 };
-// LINT.ThenChange(/tools/metrics/histograms/enums.xml:SearchEngineChoiceScreenEvents)
+// LINT.ThenChange(/tools/metrics/histograms/metadata/search/enums.xml:SearchEngineChoiceScreenEvents)
 
 // The cause for wiping the search engine choice preferences. Only used for
 // metrics.
@@ -273,7 +276,9 @@ void RecordChoiceScreenEvent(SearchEngineChoiceScreenEvents event);
 
 // Records the type of the default search engine that was chosen by the user
 // in the search engine choice screen or in the settings page.
-void RecordChoiceScreenDefaultSearchProviderType(SearchEngineType engine_type);
+void RecordChoiceScreenDefaultSearchProviderType(
+    SearchEngineType engine_type,
+    ChoiceMadeLocation choice_location);
 
 // Records the index of the search engine that was chosen by the user as it was
 // displayed on the choice screen.

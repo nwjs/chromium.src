@@ -96,7 +96,7 @@ namespace blink {
 static const unsigned kMaxXMLTreeDepth = 5000;
 
 static inline String ToString(const xmlChar* string, size_t length) {
-  return String::FromUTF8(reinterpret_cast<const char*>(string), length);
+  return String::FromUTF8(string, length);
 }
 
 static inline String ToString(const xmlChar* string) {
@@ -683,7 +683,8 @@ static int ReadFunc(void* context, char* buffer, int len) {
     return 0;
 
   SharedBufferReader* data = static_cast<SharedBufferReader*>(context);
-  return data->ReadData(buffer, len);
+  auto buffer_span = base::span(buffer, base::checked_cast<size_t>(len));
+  return base::checked_cast<int>(data->ReadData(buffer_span));
 }
 
 static int WriteFunc(void*, const char*, int) {
@@ -1473,78 +1474,65 @@ static xmlEntityPtr SharedXHTMLEntity() {
   return &entity;
 }
 
-static size_t ConvertUTF16EntityToUTF8(const UChar* utf16_entity,
-                                       size_t number_of_code_units,
-                                       char* target,
-                                       size_t target_size) {
+template <size_t N>
+static base::span<const char, N - 1> CopyToEntityBuffer(
+    base::span<const char, N> expanded_entity_chars) {
+  auto entity_buffer =
+      base::as_writable_chars(base::span(g_shared_xhtml_entity_result));
+  entity_buffer.first<N>().copy_from(expanded_entity_chars);
+  return entity_buffer.first<N - 1>();
+}
+
+static base::span<const char> ConvertUTF16EntityToUTF8(
+    const DecodedHTMLEntity& entity) {
+  DCHECK_LE(entity.length, 4u);
+  const UChar* utf16_entity = entity.data.data();
+  auto entity_buffer =
+      base::as_writable_chars(base::span(g_shared_xhtml_entity_result));
+  char* target = entity_buffer.data();
   const char* original_target = target;
   WTF::unicode::ConversionResult conversion_result =
       WTF::unicode::ConvertUTF16ToUTF8(&utf16_entity,
-                                       utf16_entity + number_of_code_units,
-                                       &target, target + target_size);
+                                       utf16_entity + entity.length, &target,
+                                       target + entity_buffer.size());
   if (conversion_result != WTF::unicode::kConversionOK)
-    return 0;
+    return {};
 
   DCHECK_GT(target, original_target);
   // Even though we must pass the length, libxml expects the entity string to be
   // null terminated.
   *target = '\0';
-  return target - original_target;
+  return entity_buffer.first(static_cast<size_t>(target - original_target));
 }
 
 static xmlEntityPtr GetXHTMLEntity(const xmlChar* name) {
-  UChar utf16_decoded_entity[4];
-  size_t number_of_code_units = DecodeNamedEntityToUCharArray(
-      reinterpret_cast<const char*>(name), utf16_decoded_entity);
-  if (!number_of_code_units)
+  std::optional<DecodedHTMLEntity> decoded_entity =
+      DecodeNamedEntity(reinterpret_cast<const char*>(name));
+  if (!decoded_entity) {
     return nullptr;
-
-  constexpr size_t kSharedXhtmlEntityResultLength =
-      std::size(g_shared_xhtml_entity_result);
-  size_t entity_length_in_utf8;
-  // Unlike HTML parser, XML parser parses the content of named
-  // entities. So we need to escape '&' and '<'.
-  if (number_of_code_units == 1 && utf16_decoded_entity[0] == '&') {
-    g_shared_xhtml_entity_result[0] = '&';
-    g_shared_xhtml_entity_result[1] = '#';
-    g_shared_xhtml_entity_result[2] = '3';
-    g_shared_xhtml_entity_result[3] = '8';
-    g_shared_xhtml_entity_result[4] = ';';
-    g_shared_xhtml_entity_result[5] = 0;
-    entity_length_in_utf8 = 5;
-  } else if (number_of_code_units == 1 && utf16_decoded_entity[0] == '<') {
-    g_shared_xhtml_entity_result[0] = '&';
-    g_shared_xhtml_entity_result[1] = '#';
-    g_shared_xhtml_entity_result[2] = '6';
-    g_shared_xhtml_entity_result[3] = '0';
-    g_shared_xhtml_entity_result[4] = ';';
-    g_shared_xhtml_entity_result[5] = 0;
-    entity_length_in_utf8 = 5;
-  } else if (number_of_code_units == 2 && utf16_decoded_entity[0] == '<' &&
-             utf16_decoded_entity[1] == 0x20D2) {
-    g_shared_xhtml_entity_result[0] = '&';
-    g_shared_xhtml_entity_result[1] = '#';
-    g_shared_xhtml_entity_result[2] = '6';
-    g_shared_xhtml_entity_result[3] = '0';
-    g_shared_xhtml_entity_result[4] = ';';
-    g_shared_xhtml_entity_result[5] = 0xE2;
-    g_shared_xhtml_entity_result[6] = 0x83;
-    g_shared_xhtml_entity_result[7] = 0x92;
-    g_shared_xhtml_entity_result[8] = 0;
-    entity_length_in_utf8 = 8;
-  } else {
-    DCHECK_LE(number_of_code_units, 4u);
-    entity_length_in_utf8 = ConvertUTF16EntityToUTF8(
-        utf16_decoded_entity, number_of_code_units,
-        reinterpret_cast<char*>(g_shared_xhtml_entity_result),
-        kSharedXhtmlEntityResultLength);
-    if (entity_length_in_utf8 == 0)
-      return nullptr;
   }
-  DCHECK_LE(entity_length_in_utf8, kSharedXhtmlEntityResultLength);
+
+  base::span<const char> entity_utf8;
+
+  // Unlike the HTML parser, the XML parser parses the content of named
+  // entities. So we need to escape '&' and '<'.
+  if (decoded_entity->length == 1 && decoded_entity->data[0] == '&') {
+    entity_utf8 = CopyToEntityBuffer(base::span_with_nul_from_cstring("&#38;"));
+  } else if (decoded_entity->length == 1 && decoded_entity->data[0] == '<') {
+    entity_utf8 = CopyToEntityBuffer(base::span_with_nul_from_cstring("&#60;"));
+  } else if (decoded_entity->length == 2 && decoded_entity->data[0] == '<' &&
+             decoded_entity->data[1] == 0x20D2) {
+    entity_utf8 = CopyToEntityBuffer(
+        base::span_with_nul_from_cstring("&#60;\xE2\x83\x92"));
+  } else {
+    entity_utf8 = ConvertUTF16EntityToUTF8(*decoded_entity);
+    if (entity_utf8.empty()) {
+      return nullptr;
+    }
+  }
 
   xmlEntityPtr entity = SharedXHTMLEntity();
-  entity->length = base::checked_cast<int>(entity_length_in_utf8);
+  entity->length = static_cast<int>(entity_utf8.size());
   entity->name = name;
   return entity;
 }

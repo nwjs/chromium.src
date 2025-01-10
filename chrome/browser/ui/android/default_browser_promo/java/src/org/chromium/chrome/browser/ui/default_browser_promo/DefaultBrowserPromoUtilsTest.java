@@ -44,6 +44,7 @@ import org.chromium.components.messages.MessageBannerProperties;
 import org.chromium.components.messages.MessageIdentifier;
 import org.chromium.components.messages.MessagesFactory;
 import org.chromium.components.search_engines.SearchEngineChoiceService;
+import org.chromium.ui.InsetObserver;
 import org.chromium.ui.base.ActivityWindowAndroid;
 import org.chromium.ui.base.IntentRequestTracker;
 import org.chromium.ui.base.WindowAndroid;
@@ -59,6 +60,7 @@ public class DefaultBrowserPromoUtilsTest {
     @Mock private Profile mProfile;
     @Mock private ManagedMessageDispatcher mMockMessageDispatcher;
     @Mock private SearchEngineChoiceService mMockSearchEngineChoiceService;
+    @Mock private InsetObserver mInsetObserver;
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -72,7 +74,10 @@ public class DefaultBrowserPromoUtilsTest {
         mActivity = Robolectric.buildActivity(Activity.class).get();
         mWindowAndroid =
                 new ActivityWindowAndroid(
-                        mActivity, false, IntentRequestTracker.createFromActivity(mActivity));
+                        mActivity,
+                        false,
+                        IntentRequestTracker.createFromActivity(mActivity),
+                        mInsetObserver);
         TrackerFactory.setTrackerForTests(mMockTracker);
         MessagesFactory.attachMessageDispatcher(mWindowAndroid, mMockMessageDispatcher);
         SearchEngineChoiceService.setInstanceForTests(mMockSearchEngineChoiceService);
@@ -244,7 +249,7 @@ public class DefaultBrowserPromoUtilsTest {
     @EnableFeatures(ChromeFeatureList.DEFAULT_BROWSER_PROMO_ANDROID2)
     public void testNoMessagePromo_featureEngagementBlocker() {
         when(mProvider.isRoleAvailable(any())).thenReturn(false);
-        when(mMockTracker.shouldTriggerHelpUI(any())).thenReturn(false);
+        when(mMockTracker.shouldTriggerHelpUi(any())).thenReturn(false);
 
         Assert.assertFalse(mUtils.shouldShowRoleManagerPromo(mActivity, false));
         Assert.assertTrue(mUtils.shouldShowNonRoleManagerPromo(mActivity));
@@ -258,7 +263,7 @@ public class DefaultBrowserPromoUtilsTest {
     @EnableFeatures(ChromeFeatureList.DEFAULT_BROWSER_PROMO_ANDROID2)
     public void testShowMessagePromo() {
         when(mProvider.isRoleAvailable(any())).thenReturn(false);
-        when(mMockTracker.shouldTriggerHelpUI(any())).thenReturn(true);
+        when(mMockTracker.shouldTriggerHelpUi(any())).thenReturn(true);
 
         Assert.assertFalse(mUtils.shouldShowRoleManagerPromo(mActivity, false));
         Assert.assertTrue(mUtils.shouldShowNonRoleManagerPromo(mActivity));

@@ -308,7 +308,6 @@ Na začiatok môžete vyskúšať niektoré z týchto vecí.</translation>
 <translation id="2041220428661959602">Stav batérie: <ph name="BATTERY_PERCENTAGE" /> %</translation>
 <translation id="204259843076055848">Skratka <ph name="SIX_PACK_KEY_NAME" /> je momentálne vypnutá</translation>
 <translation id="2049240716062114887">Názov plochy bol zmenený na <ph name="DESK_NAME" /></translation>
-<translation id="2050339315714019657">Na výšku</translation>
 <translation id="2064048859448024834">Ukážka kamery je zapnutá</translation>
 <translation id="2065098273523946419">Odkaz, pomocou ktorého sa dozviete viac. Po aktivácii nastane presmerovanie do prehliadača.</translation>
 <translation id="2067220651560163985">Zobrazovať teplotu v stupňoch Celzia</translation>
@@ -339,9 +338,6 @@ Na začiatok môžete vyskúšať niektoré z týchto vecí.</translation>
 <translation id="219905428774326614">Spúšťač, všetky aplikácie</translation>
 <translation id="2201071101391734388"><ph name="INDEX" /> nedávna fotka z <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Zbaliť Úlohy Google</translation>
-<translation id="2206960886090042977">Vstavaný touchpad je deaktivovaný, pretože je pripojená myš. Zmenu potvrďte myšou alebo klávesnicou.
-
-V opačnom prípade sa vstavaný touchpad znova aktivuje o 30 sekúnd.</translation>
 <translation id="2208323208084708176">Režim zjednotenej pracovnej plochy</translation>
 <translation id="2220572644011485463">PIN alebo heslo</translation>
 <translation id="2222841058024245321">7. plocha</translation>
@@ -504,6 +500,9 @@ Pripojených je viacero zariadení (<ph name="DEVICECOUNT" />).</translation>
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> pomocou klávesa <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">ctrl + kláves vyhľadávania + s</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" /> spravuje <ph name="MANAGER" /></translation>
+<translation id="2781658180588759579">Vstavaný touchpad je deaktivovaný. Zmenu potvrďte klávesnicou alebo iným polohovacím zariadením.
+
+Ak to neurobíte, vstavaný touchpad sa znova aktivuje o <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2782591952652094792">Ukončiť režim snímania</translation>
 <translation id="2785499565474703580">1 pripojené zariadenie</translation>
 <translation id="2791421900609674576">Zobrazia sa vám odporúčania, aby ste mohli pokračovať tam, kde ste prestali. Odstránite ich pridržaním.</translation>
@@ -601,6 +600,9 @@ Pripojených je viacero zariadení (<ph name="DEVICECOUNT" />).</translation>
 <translation id="3113492864356515707">Zvýraznenie predchádzajúcej položky na poličke</translation>
 <translation id="311799651966070385">Zavrieť štuchnutie</translation>
 <translation id="3120421559657122717">Chcete zariadenie vypnúť?</translation>
+<translation id="3121411970001795539">Vstavaný touchpad je deaktivovaný, pretože je pripojená myš. Zmenu potvrďte myšou alebo klávesnicou.
+
+Ak to neurobíte, vstavaný touchpad sa znova aktivuje o <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">Typ prác triedy</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +973,13 @@ Niektoré funkcie sú obmedzené, aby sa predĺžila výdrž batérie.</translat
 <translation id="4322742403972824594">Klávesová skratka Ctrl + Alt + šípka nahor bola zmenená. Ak chcete použiť kláves Domov, stlačte klávesy <ph name="LAUNCHER_KEY_NAME" /> + šípka doľava.</translation>
 <translation id="4324840740119394760">Týmto povolíte prístup ku kamere aplikácii <ph name="APP_NAME" /> a všetkým aplikáciám a webom s povolením používať kameru</translation>
 <translation id="4327147325944669226">Nahrať hru</translation>
-<translation id="4333628967105022692">Prehliadač Lacros nie je podporovaný, keď je prihlásených viacero používateľov.</translation>
 <translation id="4338109981321384717">Lupa</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, vypnutý zvuk</translation>
 <translation id="4351244548802238354">Zavrieť dialógové okno</translation>
 <translation id="4356872429719185452">Zobraziť podrobnosti o hotspote. Hotspot sa zapína.</translation>
 <translation id="4364101114148522660"><ph name="DURATION" />  Nahráva sa</translation>
 <translation id="4371348193907997655">Nastavenia prenosu</translation>
+<translation id="4371834685492830207">PIN musí obsahovať iba platné znaky</translation>
 <translation id="4375482231364171368">Vyhľadávanie na paneli s adresou</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, sila signálu: <ph name="SIGNAL_STRENGTH" /> %.</translation>
 <translation id="4378551569595875038">Pripája sa...</translation>
@@ -1143,6 +1145,7 @@ Pripojené je jedno zariadenie.</translation>
 <translation id="4902797682482387055">Navrhovaná úloha, na ktorú sa treba zamerať</translation>
 <translation id="490375751687810070">Na výšku</translation>
 <translation id="490788395437447240"><ph name="BATTERY_PERCENTAGE" /> % batérie</translation>
+<translation id="4911191962826748981">Toto je experimentálna funkcia umelej inteligencie a nie vždy sa to podarí.</translation>
 <translation id="491504982845934899">Aktivovať <ph name="NETWORK_NAME" /> po nastavení zariadenia</translation>
 <translation id="4917385247580444890">Silné</translation>
 <translation id="4918086044614829423">Prijať</translation>
@@ -1301,6 +1304,7 @@ Nie sú pripojené žiadne zariadenia.</translation>
 <translation id="5393156353051693207">Pridržte ľubovoľné miesto a zmeňte poradie aplikácií</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" /> na aplikáciu <ph name="IN_PLACE_APP" />, uvoľnením vytvoríte priečinok.</translation>
 <translation id="5397578532367286026">Aktivitu a históriu tohto používateľa môže skontrolovať správca (<ph name="MANAGER_EMAIL" />) na adrese chrome.com.</translation>
+<translation id="540338817371815859">Na šírku</translation>
 <translation id="540713187982329711">Prepnúť hotspot. Hotspot je zapnutý, nie je pripojené žiadne zariadenie.</translation>
 <translation id="5409208741270395213">Označiť úlohu ako dokončenú</translation>
 <translation id="5413656666631274079">Stránka Nastavenia</translation>
@@ -1472,7 +1476,6 @@ Nie sú pripojené žiadne zariadenia.</translation>
 <translation id="5975235751479998104">Prechádzanie oknami vpred</translation>
 <translation id="5978382165065462689">Ovládanie obrazovky sa zdieľa prostredníctvom Vzdialenej pomoci.</translation>
 <translation id="5980301590375426705">Ukončiť rel. hosťa</translation>
-<translation id="5982119059638483922">Zrušíte stlačením klávesov Fn + kláves vyhľadávania alebo Shift.</translation>
 <translation id="5983567367406220847">Hotspot bol pre nečinnosť vypnutý.</translation>
 <translation id="598407983968395253">Použiť šablónu</translation>
 <translation id="5986723678596105470">Pripojiť sa cez Google Meet</translation>
@@ -1542,7 +1545,6 @@ Nie sú pripojené žiadne zariadenia.</translation>
 <translation id="6166852626429024716">Vyhľadávajte v zariadení, aplikáciách, nastaveniach a na internete…</translation>
 <translation id="6168318496333165060">Otvorenie aplikácie Diagnostika</translation>
 <translation id="6168622430237609329">Vaše nainštalované aplikácie</translation>
-<translation id="6173151025443907148">Prihlásenie druhého používateľa nie je podporované, keď je spustený prehliadač Lacros. Použite radšej druhý profil v prehliadači Lacros alebo Lacros deaktivujte a skúste to znova.</translation>
 <translation id="6179832488876878285">Tu si môžete pripnúť dôležité súbory. Začnite otvorením aplikácie Súbory.</translation>
 <translation id="6180193585172850042">Tlačidlo Späť</translation>
 <translation id="6180651297859206670">Tlačidlo Ďalej</translation>
@@ -1564,6 +1566,7 @@ Nie sú pripojené žiadne zariadenia.</translation>
 <translation id="6232416233079464213">Zdroj: <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> momentálne používa kameru a mikrofón</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">Heslo musí obsahovať iba platné znaky</translation>
 <translation id="6240603910551255087">Vrchné tlačidlo</translation>
 <translation id="6240821072888636753">Vždy sa opýtať</translation>
 <translation id="6247728804802644171">Otvorenie upozornení</translation>
@@ -1694,7 +1697,6 @@ Nová inštalácia</translation>
 <translation id="6682029141988159141">Prilepenie obsahu zo schránky</translation>
 <translation id="6683022854667115063">Slúchadlá</translation>
 <translation id="6686023075541098243">Nastaviť zobrazovanie upozornení z telefónu</translation>
-<translation id="6688019813898140556">Esc päťkrát</translation>
 <translation id="6694462491298752106">Vstavaný touchpad je deaktivovaný</translation>
 <translation id="6694973220096431421">Nájsť na Disku Google</translation>
 <translation id="6696025732084565524">Odoberateľná klávesnica potrebuje kritickú aktualizáciu</translation>
@@ -1715,6 +1717,7 @@ Nová inštalácia</translation>
 <translation id="6751826523481687655">Trasovanie výkonnosti je zapnuté</translation>
 <translation id="6752912906630585008">Plocha <ph name="REMOVED_DESK" /> bola odstránená a zlúčená s plochou <ph name="RECEIVE_DESK" /></translation>
 <translation id="6753390234084146956">karty</translation>
+<translation id="6754918760968695779">Rýchlo vložiť</translation>
 <translation id="6757237461819837179">Neprehrávajú sa žiadne médiá</translation>
 <translation id="6760438044935091345">Herný panel</translation>
 <translation id="6768043681523654438">ukladací priestor</translation>
@@ -1764,6 +1767,7 @@ Nová inštalácia</translation>
 <translation id="6921427376813842559">Aktualizujte zariadenie</translation>
 <translation id="6929081673585394903">Zobraziť ovládanie</translation>
 <translation id="6931576957638141829">Uložiť do</translation>
+<translation id="6935857786205183008">Na výšku</translation>
 <translation id="6942518653766415536">Ponuka formátu nahrávky</translation>
 <translation id="6945221475159498467">Vybrať</translation>
 <translation id="6945922087561257829">Váš telefón používa mobilnú sieť. Uistite sa, že telefón aj Chromebook sú v rovnakej sieti Wi‑Fi a potom to skúste znova. <ph name="LEARN_MORE" /></translation>
@@ -1920,9 +1924,6 @@ Nová inštalácia</translation>
 Ak chcete zariadenie vypnúť, znova pridržte jeho vypínač.</translation>
 <translation id="7523420897035067483">Povoľte režim bez vyrušení počas zamerania</translation>
 <translation id="7524043547948122239">Úlohy Google</translation>
-<translation id="7524919752437339268">Vstavaný touchpad je deaktivovaný. Zmenu potvrďte klávesnicou alebo iným polohovacím zariadením.
-
-V opačnom prípade sa vstavaný touchpad znova aktivuje o 30 sekúnd.</translation>
 <translation id="7525067979554623046">Vytvoriť</translation>
 <translation id="7526573455193969409">Sieť môže byť sledovaná</translation>
 <translation id="7536035074519304529">Adresa IP: <ph name="ADDRESS" /></translation>
@@ -2009,6 +2010,7 @@ V opačnom prípade sa vstavaný touchpad znova aktivuje o 30 sekúnd.</trans
 <translation id="780301667611848630">Nie, ďakujem</translation>
 <translation id="7807067443225230855">Vyhľadávanie a Asistent</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> a <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">Tlačidlom s palcom hore odošlete spätnú väzbu, že sa vám tento návrh páči</translation>
 <translation id="7825412704590278437">Z nadchádzajúcej udalosti v kalendári</translation>
 <translation id="7829386189513694949">silný signál</translation>
 <translation id="7830453190047749513">Akcie tlačidiel, rýchlosť kurzora a ďalšie nastavenia si môžete pre zariadenie <ph name="PERIPHERAL_NAME" /> prispôsobiť</translation>
@@ -2163,6 +2165,7 @@ V opačnom prípade sa vstavaný touchpad znova aktivuje o 30 sekúnd.</trans
 <translation id="830868413617744215">Beta</translation>
 <translation id="8314772463905284467">Kláves Caps Lock je zapnutý</translation>
 <translation id="8315514906653279104">Zapína sa…</translation>
+<translation id="8319634750346253957">Tlačidlom s palcom dole odošlete spätnú väzbu, že sa vám tento návrh nepáči</translation>
 <translation id="8331351032546853669">Čaká sa na stiahnutie</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2347,6 +2350,7 @@ V opačnom prípade sa vstavaný touchpad znova aktivuje o 30 sekúnd.</trans
 <translation id="8982906748181120328">Viditeľnosť nablízku</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">Práve sa používa <ph name="IME_NAME" /></translation>
+<translation id="8991648557324317894">Zrušíte to stlačením klávesov Fn + Rýchlo vložiť alebo Shift.</translation>
 <translation id="899350903320462459">Ak chcete vykonať akciu s upozornením, odomknite zariadenie ako <ph name="LOGIN_ID" /></translation>
 <translation id="8993733019280019776">Rozprávate? Váš mikrofón je vypnutý. Vyberte mikrofón a tak ho zapnite.</translation>
 <translation id="9000771174482730261">SPRAVOVAŤ PRIESTOR</translation>
@@ -2429,9 +2433,9 @@ V opačnom prípade sa vstavaný touchpad znova aktivuje o 30 sekúnd.</trans
 <translation id="974545358917229949">Zobrazujú sa výsledky (<ph name="RESULT_COUNT" />) pre <ph name="QUERY" /></translation>
 <translation id="981011780479609956">Bez termínu dokončenia</translation>
 <translation id="98120814841227350">Prechod na koniec dokumentu</translation>
-<translation id="98515147261107953">Krajina</translation>
 <translation id="987589956647469042">Mobilné dáta sú zapnuté</translation>
 <translation id="989374776391122812">Ovládanie kamery a zvuku</translation>
+<translation id="990263227494928142">Ak chcete aktivovať touchpad, päťkrát stlačte Shift</translation>
 <translation id="990277280839877440">Okno <ph name="WINDOW_TITILE" /> bolo zatvorené.</translation>
 <translation id="993398562350683614"><ph name="STEP" />. krok prehliadky z <ph name="TOTAL_STEPS" />. Vykonávajte všetko potrebné v zariadení <ph name="PRODUCT_NAME" /> pomocou aplikácií. Nájdete ich v Spúšťači. Ak chcete označiť tlačidlo spúšťača, stlačte Alt + Shift + L.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

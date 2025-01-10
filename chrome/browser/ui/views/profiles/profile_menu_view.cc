@@ -14,10 +14,10 @@
 #include "base/functional/callback.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
+#include "base/notreached.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/browser_management/browser_management_service.h"
@@ -153,6 +153,14 @@ std::u16string GetProfileIdentifier(
 }
 
 }  // namespace
+
+ProfileMenuView::IdentitySectionParams::IdentitySectionParams() = default;
+ProfileMenuView::IdentitySectionParams::~IdentitySectionParams() = default;
+ProfileMenuView::IdentitySectionParams::IdentitySectionParams(
+    IdentitySectionParams&&) = default;
+ProfileMenuView::IdentitySectionParams&
+ProfileMenuView::IdentitySectionParams::operator=(IdentitySectionParams&&) =
+    default;
 
 // ProfileMenuView ---------------------------------------------------------
 
@@ -615,14 +623,12 @@ void ProfileMenuView::BuildGuestIdentity() {
         IDS_GUEST_WINDOW_COUNT_MESSAGE, guest_window_count);
   }
 
-  ui::ThemedVectorIcon header_art_icon(&kGuestMenuArtIcon,
-                                       ui::kColorAvatarHeaderArt);
   SetProfileIdentityInfo(
       /*profile_name=*/std::u16string(),
       /*background_color=*/SK_ColorTRANSPARENT,
       /*edit_button=*/std::nullopt, profiles::GetGuestAvatar(),
       ui::ImageModel(), menu_title_, menu_subtitle_, management_label,
-      header_art_icon);
+      &kGuestMenuArtIcon);
 }
 
 void ProfileMenuView::BuildAutofillButtons() {
@@ -708,6 +714,9 @@ void ProfileMenuView::BuildSyncInfo() {
   signin_metrics::AccessPoint access_point =
       signin_metrics::AccessPoint::ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN;
 
+  signin_metrics::PromoAction promo_action =
+      signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO;
+
   if (!account_info.IsEmpty()) {
     if (switches::IsExplicitBrowserSigninUIOnDesktopEnabled() &&
         identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
@@ -744,6 +753,7 @@ void ProfileMenuView::BuildSyncInfo() {
                               : account_info_for_promos.email));
     button_type = ActionableItem::kEnableSyncForWebOnlyAccountButton;
     show_account_card = true;
+    promo_action = signin_metrics::PromoAction::PROMO_ACTION_WITH_DEFAULT;
   } else {
     // Not signed in state.
     if (switches::IsExplicitBrowserSigninUIOnDesktopEnabled()) {
@@ -758,7 +768,10 @@ void ProfileMenuView::BuildSyncInfo() {
       button_text = l10n_util::GetStringUTF16(IDS_PROFILES_DICE_SIGNIN_BUTTON);
     }
     button_type = ActionableItem::kSigninButton;
+    promo_action = signin_metrics::PromoAction::
+        PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT;
   }
+  signin_metrics::LogSignInOffered(access_point, promo_action);
 
   CHECK(!description.empty());
   CHECK(!button_text.empty());
@@ -771,13 +784,94 @@ void ProfileMenuView::BuildSyncInfo() {
       show_account_card ? account_info_for_promos : AccountInfo());
 }
 
-std::u16string ProfileMenuView::GetIdentitySectionSubtitle(
-    const CoreAccountInfo& account_info) const {
-  // TODO(crbug.com/356603651): Implement this.
-  return account_info.email.empty()
-             ? l10n_util::GetStringUTF16(
-                   IDS_PROFILE_MENU_SIGNIN_PROMO_DESCRIPTION)
-             : base::UTF8ToUTF16(account_info.email);
+ProfileMenuView::IdentitySectionParams
+ProfileMenuView::GetIdentitySectionParams() {
+  CHECK(switches::IsImprovedSigninUIOnDesktopEnabled());
+  CHECK(switches::IsExplicitBrowserSigninUIOnDesktopEnabled());
+
+  Profile* profile = browser()->profile();
+  const std::optional<AvatarSyncErrorType> error =
+      GetAvatarSyncErrorType(profile);
+  const signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile);
+  const bool is_sync_feature_enabled =
+      identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync);
+  IdentitySectionParams params;
+
+  // Sync error.
+  if (error.has_value()) {
+    params.description =
+        GetAvatarSyncErrorDescription(*error, is_sync_feature_enabled);
+    params.button_text = GetSyncErrorButtonText(error.value());
+    params.button_action =
+        base::BindRepeating(&ProfileMenuView::OnSyncErrorButtonClicked,
+                            base::Unretained(this), error.value());
+    return params;
+  }
+
+  ActionableItem button_type = ActionableItem::kSigninAccountButton;
+  signin_metrics::AccessPoint access_point =
+      signin_metrics::AccessPoint::ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN;
+  CoreAccountInfo account_info =
+      identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
+  switch (signin_util::GetSignedInState(identity_manager)) {
+    case signin_util::SignedInState::kSignedOut:
+      if (profile->GetPrefs()->GetBoolean(prefs::kSigninAllowed)) {
+        button_type = ActionableItem::kSigninButton;
+        access_point = signin_metrics::AccessPoint::
+            ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN_WITH_SYNC_PROMO;
+        params.description = l10n_util::GetStringUTF16(
+            IDS_PROFILE_MENU_SIGNIN_PROMO_DESCRIPTION);
+        params.button_text =
+            l10n_util::GetStringUTF16(IDS_PROFILE_MENU_SIGNIN_PROMO_BUTTON);
+      }
+      break;
+    case signin_util::SignedInState::kWebOnlySignedIn: {
+      access_point = signin_metrics::AccessPoint::
+          ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN_WITH_SYNC_PROMO;
+      AccountInfo account_info_for_promos =
+          signin_ui_util::GetSingleAccountForPromos(identity_manager);
+      params.description =
+          l10n_util::GetStringUTF16(IDS_PROFILE_MENU_SIGNIN_PROMO_DESCRIPTION);
+      params.button_text = l10n_util::GetStringFUTF16(
+          IDS_PROFILES_DICE_WEB_ONLY_SIGNIN_BUTTON,
+          base::UTF8ToUTF16(!account_info_for_promos.given_name.empty()
+                                ? account_info_for_promos.given_name
+                                : account_info_for_promos.email));
+      // TODO(crbug.com/356603651): Set `params.button_image`.
+      break;
+    }
+    case signin_util::SignedInState::kSignedIn:
+      params.description =
+          l10n_util::GetStringUTF16(IDS_PROFILES_DICE_SYNC_PROMO);
+      params.button_text =
+          l10n_util::GetStringUTF16(IDS_PROFILES_DICE_SIGNIN_BUTTON);
+      break;
+    case signin_util::SignedInState::kSyncing:
+      // No button.
+      params.description = base::UTF8ToUTF16(
+          identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin)
+              .email);
+      break;
+    case signin_util::SignedInState::kSignInPending:
+      button_type = ActionableItem::kSigninReauthButton;
+      params.description =
+          l10n_util::GetStringUTF16(IDS_SIGNIN_PAUSED_USER_MENU_VERIFY_MESSAGE);
+      params.button_text =
+          l10n_util::GetStringUTF16(IDS_PROFILES_VERIFY_ACCOUNT_BUTTON);
+      break;
+    case signin_util::SignedInState::kSyncPaused:
+      // Sync paused is covered by the sync errors path.
+      NOTREACHED();
+  }
+
+  if (!params.button_text.empty()) {
+    params.button_action = base::BindRepeating(
+        &ProfileMenuView::OnSigninButtonClicked, base::Unretained(this),
+        account_info, button_type, access_point);
+  }
+
+  return params;
 }
 
 void ProfileMenuView::BuildIdentityWithCallToAction() {
@@ -797,20 +891,7 @@ void ProfileMenuView::BuildIdentityWithCallToAction() {
       identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
   const AccountInfo account_info =
       identity_manager->FindExtendedAccountInfo(account);
-
-  // TODO(crbug.com/356603651): Finish button implementation.
-  std::u16string button_text =
-      account.IsEmpty()
-          ? l10n_util::GetStringUTF16(IDS_PROFILE_MENU_SIGNIN_PROMO_BUTTON)
-          : std::u16string();
-  base::RepeatingClosure button_action;
-  if (!button_text.empty()) {
-    button_action = base::BindRepeating(
-        &ProfileMenuView::OnSigninButtonClicked, base::Unretained(this),
-        account_info, ActionableItem::kSigninButton,
-        signin_metrics::AccessPoint::ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN);
-  }
-
+  const IdentitySectionParams params = GetIdentitySectionParams();
   profiles::PlaceholderAvatarIconParams icon_params = {.has_padding = true,
                                                        .has_background = false};
   ui::ImageModel profile_image = ui::ImageModel::FromImage(
@@ -823,8 +904,8 @@ void ProfileMenuView::BuildIdentityWithCallToAction() {
 
   SetProfileIdentityWithCallToAction(
       profile_attributes->GetProfileThemeColors().profile_highlight_color,
-      profile_image, title, GetIdentitySectionSubtitle(account), button_text,
-      /*button_image=*/ui::ImageModel(), button_action);
+      profile_image, title, params.description, params.button_text,
+      params.button_image, params.button_action);
 }
 
 void ProfileMenuView::BuildAutofillSettingsButton() {
@@ -860,14 +941,23 @@ void ProfileMenuView::MaybeBuildChromeAccountSettingsButton() {
     return;
   }
 
-  // Show the settings button when signed in to Chrome or to the web. Do not
-  // show if sync is enabled.
-  const bool has_sync_consent =
-      identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync);
-  const bool should_show_settings_button =
-      !has_sync_consent &&
+  // Show the settings button when signed in to Chrome or to the web.
+  bool should_show_settings_button =
       !identity_manager->GetExtendedAccountInfoForAccountsWithRefreshToken()
            .empty();
+
+  if (switches::IsImprovedSigninUIOnDesktopEnabled()) {
+    if (!profile->GetPrefs()->GetBoolean(prefs::kSigninAllowed)) {
+      should_show_settings_button = true;
+    }
+  } else {
+    if (identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync)) {
+      // Do not show if sync is enabled with the legacy design, because there is
+      // already a similar button in the sync info card.
+      should_show_settings_button = false;
+    }
+  }
+
   if (!should_show_settings_button) {
     return;
   }
@@ -881,7 +971,31 @@ void ProfileMenuView::MaybeBuildChromeAccountSettingsButton() {
 
 void ProfileMenuView::MaybeBuildManageGoogleAccountButton() {
   Profile* profile = browser()->profile();
-  if (!HasUnconstentedProfile(profile) || IsSyncPaused(profile)) {
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile);
+
+  if (!identity_manager) {
+    return;
+  }
+
+  bool show_button = true;
+  switch (signin_util::GetSignedInState(identity_manager)) {
+    case signin_util::SignedInState::kSignInPending:
+      if (switches::IsImprovedSigninUIOnDesktopEnabled()) {
+        show_button = false;
+      }
+      break;
+    case signin_util::SignedInState::kSyncPaused:
+    case signin_util::SignedInState::kSignedOut:
+    case signin_util::SignedInState::kWebOnlySignedIn:
+      show_button = false;
+      break;
+    case signin_util::SignedInState::kSignedIn:
+    case signin_util::SignedInState::kSyncing:
+      // Show the button.
+      break;
+  }
+  if (!show_button) {
     return;
   }
 

@@ -35,6 +35,7 @@
 #include "services/network/public/mojom/fetch_api.mojom.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/url_loader_factory.mojom-forward.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/loader/throttling_url_loader.h"
 #include "third_party/blink/public/mojom/loader/resource_load_info.mojom-shared.h"
 
@@ -179,7 +180,9 @@ PrefetchManager::~PrefetchManager() = default;
 
 void PrefetchManager::Start(const GURL& url,
                             std::vector<PrefetchRequest> requests) {
-  DCHECK(base::FeatureList::IsEnabled(features::kLoadingPredictorPrefetch));
+  CHECK(
+      base::FeatureList::IsEnabled(features::kLoadingPredictorPrefetch) ||
+      base::FeatureList::IsEnabled(blink::features::kLCPPPrefetchSubresource));
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   if (use_network_context_prefetch_) {
@@ -219,6 +222,14 @@ void PrefetchManager::Stop(const GURL& url) {
   it->second->was_canceled = true;
 }
 
+// static
+bool PrefetchManager::IsAvailableForPrefetch(
+    network::mojom::RequestDestination destination) {
+  // TODO(crbug.com/342445996): Expand this for NetworkContextPrefetch once it
+  // supports more resource types.
+  return GetResourceTypeForPrefetch(destination).has_value();
+}
+
 void PrefetchManager::PrefetchUrl(
     std::unique_ptr<PrefetchJob> job,
     scoped_refptr<network::SharedURLLoaderFactory> factory) {
@@ -245,9 +256,12 @@ void PrefetchManager::PrefetchUrl(
 
   request.load_flags = net::LOAD_PREFETCH;
   request.destination = job->destination;
-  request.resource_type =
-      static_cast<int>(GetResourceTypeForPrefetch(request.destination)
-                           .value_or(blink::mojom::ResourceType::kSubResource));
+  auto resource_type = GetResourceTypeForPrefetch(request.destination);
+  DUMP_WILL_BE_CHECK(resource_type.has_value());
+  if (!resource_type.has_value()) {
+    resource_type = blink::mojom::ResourceType::kSubResource;
+  }
+  request.resource_type = static_cast<int>(*resource_type);
 
   // TODO(falken): Support CORS?
   request.mode = network::mojom::RequestMode::kNoCors;

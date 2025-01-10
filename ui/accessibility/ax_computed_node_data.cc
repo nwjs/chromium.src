@@ -111,7 +111,7 @@ const std::string& AXComputedNodeData::ComputeAttributeUTF8(
       return GetOrComputeTextContentUTF8();
 
     default:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 
@@ -126,7 +126,7 @@ std::u16string AXComputedNodeData::ComputeAttributeUTF16(
       return GetOrComputeTextContentUTF16();
 
     default:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 
@@ -159,7 +159,7 @@ const std::vector<int32_t>& AXComputedNodeData::ComputeAttribute(
       return *word_ends_;
 
     default:
-      NOTREACHED_NORETURN();
+      NOTREACHED();
   }
 }
 
@@ -475,7 +475,8 @@ std::string AXComputedNodeData::ComputeTextContentUTF8() const {
       // The accessible name is not displayed directly inside the node but is
       // visible via e.g. a tooltip.
       case ax::mojom::NameFrom::kTitle:
-      case ax::mojom::NameFrom::kPopoverAttribute:
+      case ax::mojom::NameFrom::kPopoverTarget:
+      case ax::mojom::NameFrom::kInterestTarget:
         return std::string();
 
       case ax::mojom::NameFrom::kContents:

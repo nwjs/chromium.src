@@ -12,6 +12,7 @@
 #include "base/containers/contains.h"
 #include "base/files/file_util.h"
 #include "base/path_service.h"
+#include "base/scoped_observation.h"
 #include "base/strings/escape.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -109,7 +110,8 @@ class AXTreeChangeWaiter : public ui::AXTreeObserver {
   }
 
   void WaitForChange(ui::AXTree* tree) {
-    tree->AddObserver(this);
+    base::ScopedObservation<ui::AXTree, ui::AXTreeObserver> observation(this);
+    observation.Observe(tree);
     loop_runner_->Run();
     loop_runner_.reset();
     loop_runner_quit_closure_.Reset();
@@ -254,9 +256,7 @@ std::string DumpAccessibilityTestBase::DumpTreeAsString() const {
   formatter->SetPropertyFilters(scenario_.property_filters,
                                 AXTreeFormatter::kFiltersDefaultSet);
   formatter->SetNodeFilters(scenario_.node_filters);
-  std::string actual_contents =
-      formatter->Format(GetRootAccessibilityNode(GetWebContents()));
-  return base::EscapeNonASCII(actual_contents);
+  return FormatWebContentsTree(*formatter);
 }
 
 std::string
@@ -264,7 +264,42 @@ DumpAccessibilityTestBase::DumpUnfilteredAccessibilityTreeAsString() {
   std::unique_ptr<AXTreeFormatter> formatter(CreateFormatter());
   formatter->SetPropertyFilters({{"*", AXPropertyFilter::ALLOW}});
   formatter->set_show_ids(true);
-  return formatter->Format(GetRootAccessibilityNode(GetWebContents()));
+  return FormatWebContentsTree(*formatter);
+}
+
+std::string DumpAccessibilityTestBase::FormatWebContentsTree(
+    const ui::AXTreeFormatter& formatter) const {
+  std::string contents =
+      IsTestingExternalTree()
+          ? formatter.Format(
+                {GetAcceleratedWidget(), ui::AXTreeSelector::ActiveTab})
+          : formatter.Format(GetRootAccessibilityNode(GetWebContents()));
+  return base::EscapeNonASCII(contents);
+}
+
+std::string DumpAccessibilityTestBase::FormatWebContentsTestNode(
+    const ui::AXTreeFormatter& formatter) const {
+  // Retrieve the element by "test" ID if present or "test" class name.
+  // Using only the class name is preferred, as the presence of an ID can impact
+  // the accessibility tree and make testing certain scenarios difficult.
+  // Supporting only the class name reduces unnecessary complexity in testing.
+  const std::string kTestNodeName = "test";
+  std::string contents;
+  if (IsTestingExternalTree()) {
+    contents = formatter.FormatNode(
+        {ui::AXTreeSelector::ActiveTab | ui::AXTreeSelector::IDOrClass,
+         kTestNodeName, GetAcceleratedWidget()});
+  } else {
+    ui::BrowserAccessibility* test_node = FindNodeByStringAttribute(
+        ax::mojom::StringAttribute::kHtmlId, kTestNodeName);
+    if (!test_node) {
+      test_node = FindNodeByStringAttribute(
+          ax::mojom::StringAttribute::kClassName, kTestNodeName);
+    }
+    contents =
+        test_node ? formatter.FormatNode(test_node) : "Test node not found.";
+  }
+  return base::EscapeNonASCII(contents);
 }
 
 void DumpAccessibilityTestBase::RunTest(
@@ -611,6 +646,17 @@ WebContentsImpl* DumpAccessibilityTestBase::GetWebContents() const {
   return static_cast<WebContentsImpl*>(shell()->web_contents());
 }
 
+gfx::AcceleratedWidget DumpAccessibilityTestBase::GetAcceleratedWidget() const {
+#if BUILDFLAG(IS_OZONE) || BUILDFLAG(IS_APPLE)
+  return static_cast<gfx::AcceleratedWidget>(getpid());
+#else
+  // The getpid() function is unavailable on some platforms, like Windows. Use 0
+  // as a fallback until support for these platforms is required for external
+  // tree testing.
+  return reinterpret_cast<gfx::AcceleratedWidget>(0);
+#endif
+}
+
 std::unique_ptr<AXTreeFormatter> DumpAccessibilityTestBase::CreateFormatter()
     const {
   return AXInspectFactory::CreateFormatter(GetParam());
@@ -722,6 +768,18 @@ DumpAccessibilityTestBase::FindNodeByStringAttributeInSubtree(
     }
   }
   return nullptr;
+}
+
+bool DumpAccessibilityTestBase::IsTestingExternalTree() const {
+#if BUILDFLAG(IS_MAC)
+  // macOS uses an external accessibility tree, which allows testing exactly
+  // what assistive technologies operates with. Other platforms
+  // test the internal accessibility tree except the Android one which tests
+  // both.
+  return GetParam() == ui::AXApiType::kMac;
+#else
+  return false;
+#endif
 }
 
 void DumpAccessibilityTestBase::UseHttpsTestServer() {

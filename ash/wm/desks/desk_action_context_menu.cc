@@ -19,10 +19,10 @@
 #include "ash/wm/overview/overview_utils.h"
 #include "base/metrics/histogram_functions.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/models/simple_menu_model.h"
 #include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/gfx/image/image_skia_operations.h"
+#include "ui/menus/simple_menu_model.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/menu/menu_item_view.h"
@@ -269,8 +269,6 @@ void DeskActionContextMenu::ExecuteCommand(int command_id, int event_flags) {
       config_.close_all_callback.Run();
       break;
     case CommandId::kShowProfileManager:
-      base::UmaHistogramBoolean(kDeskProfilesOpenProfileManagerHistogramName,
-                                true);
       Shell::Get()->shell_delegate()->OpenProfileManager();
       break;
     default:

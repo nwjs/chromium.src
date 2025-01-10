@@ -58,7 +58,6 @@
 #include "third_party/blink/renderer/modules/mediastream/processed_local_audio_source.h"
 #include "third_party/blink/renderer/modules/mediastream/scoped_media_stream_tracer.h"
 #include "third_party/blink/renderer/modules/mediastream/user_media_client.h"
-#include "third_party/blink/renderer/platform/mediastream/media_constraints_consts.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_audio_source.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_audio_track.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_component_impl.h"
@@ -124,12 +123,13 @@ const char* MediaStreamRequestResultToString(MediaStreamRequestResult value) {
       return "DEVICE_IN_USE";
     case MediaStreamRequestResult::REQUEST_CANCELLED:
       return "REQUEST_CANCELLED";
+    case MediaStreamRequestResult::START_TIMEOUT:
+      return "START_TIMEOUT";
     case MediaStreamRequestResult::NUM_MEDIA_REQUEST_RESULTS:
       return "NUM_MEDIA_REQUEST_RESULTS";
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
-  return "INVALID";
 }
 
 void SendLogMessage(const std::string& message) {
@@ -212,26 +212,11 @@ void SurfaceAudioProcessingSettings(MediaStreamSource* source) {
           blink::ProcessedLocalAudioSource::From(source_impl)) {
     blink::AudioProcessingProperties properties =
         processed_source->audio_processing_properties();
-    MediaStreamSource::EchoCancellationMode echo_cancellation_mode;
-
-    switch (properties.echo_cancellation_type) {
-      case EchoCancellationType::kEchoCancellationDisabled:
-        echo_cancellation_mode =
-            MediaStreamSource::EchoCancellationMode::kDisabled;
-        break;
-      case EchoCancellationType::kEchoCancellationAec3:
-        echo_cancellation_mode =
-            MediaStreamSource::EchoCancellationMode::kBrowser;
-        break;
-      case EchoCancellationType::kEchoCancellationSystem:
-        echo_cancellation_mode =
-            MediaStreamSource::EchoCancellationMode::kSystem;
-        break;
-    }
 
     source->SetAudioProcessingProperties(
-        echo_cancellation_mode, properties.goog_auto_gain_control,
-        properties.goog_noise_suppression,
+        properties.echo_cancellation_type !=
+            EchoCancellationType::kEchoCancellationDisabled,
+        properties.goog_auto_gain_control, properties.goog_noise_suppression,
         properties.voice_isolation ==
             AudioProcessingProperties::VoiceIsolationType::
                 kVoiceIsolationEnabled);
@@ -239,14 +224,10 @@ void SurfaceAudioProcessingSettings(MediaStreamSource* source) {
     // If the source is not a processed source, it could still support system
     // echo cancellation or voice. Surface that if it does.
     media::AudioParameters params = source_impl->GetAudioParameters();
-    const MediaStreamSource::EchoCancellationMode echo_cancellation_mode =
-        params.IsValid() &&
-                (params.effects() & media::AudioParameters::ECHO_CANCELLER)
-            ? MediaStreamSource::EchoCancellationMode::kSystem
-            : MediaStreamSource::EchoCancellationMode::kDisabled;
-
     source->SetAudioProcessingProperties(
-        echo_cancellation_mode, false, false,
+        params.IsValid() &&
+            (params.effects() & media::AudioParameters::ECHO_CANCELLER),
+        false, false,
         params.IsValid() &&
             (params.effects() &
              media::AudioParameters::VOICE_ISOLATION_SUPPORTED) &&
@@ -311,9 +292,10 @@ String ErrorCodeToString(MediaStreamRequestResult result) {
       return "Device in use";
     case MediaStreamRequestResult::REQUEST_CANCELLED:
       return "Request was cancelled";
+    case MediaStreamRequestResult::START_TIMEOUT:
+      return "Timeout starting video source";
     default:
-      NOTREACHED_IN_MIGRATION();
-      return "";
+      NOTREACHED();
   }
 }
 
@@ -737,6 +719,7 @@ void UserMediaProcessor::SetupAudioInput() {
         base::StringPrintf("SetupAudioInput({request_id=%d}) => "
                            "(Requesting device capabilities)",
                            current_request_info_->request_id()));
+    current_request_info_->StartTrace("GetAudioInputCapabilities");
     GetMediaDevicesDispatcher()->GetAudioInputCapabilities(
         WTF::BindOnce(&UserMediaProcessor::SelectAudioDeviceSettings,
                       WrapWeakPersistent(this), WrapPersistent(request)));
@@ -758,6 +741,11 @@ void UserMediaProcessor::SelectAudioDeviceSettings(
     Vector<mojom::blink::AudioInputDeviceCapabilitiesPtr>
         audio_input_capabilities) {
   blink::AudioDeviceCaptureCapabilities capabilities;
+
+  if (current_request_info_) {
+    current_request_info_->EndTrace("GetAudioInputCapabilities");
+  }
+
   for (const auto& device : audio_input_capabilities) {
     // Find the first occurrence of blink::ProcessedLocalAudioSource that
     // matches the same device ID as |device|. If more than one exists, any
@@ -964,6 +952,7 @@ void UserMediaProcessor::SetupVideoInput() {
       request->exclude_monitor_type_surfaces();
 
   if (blink::IsDeviceMediaType(video_controls.stream_type)) {
+    current_request_info_->StartTrace("GetVideoInputCapabilities");
     GetMediaDevicesDispatcher()->GetVideoInputCapabilities(
         WTF::BindOnce(&UserMediaProcessor::SelectVideoDeviceSettings,
                       WrapWeakPersistent(this), WrapPersistent(request)));
@@ -1011,6 +1000,7 @@ void UserMediaProcessor::SelectVideoDeviceSettings(
     return;
   }
 
+  current_request_info_->EndTrace("GetVideoInputCapabilities");
   DCHECK(current_request_info_->stream_controls()->video.requested());
   DCHECK(blink::IsDeviceMediaType(
       current_request_info_->stream_controls()->video.stream_type));
@@ -1243,7 +1233,7 @@ void UserMediaProcessor::GotOpenDevice(
   } else if (IsVideoInputMediaType(response->device.type)) {
     devices->video_device = response->device;
   } else {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 
   mojom::blink::StreamDevicesSetPtr stream_devices_set =
@@ -1264,7 +1254,9 @@ void UserMediaProcessor::OnStreamsGenerated(
     bool pan_tilt_zoom_allowed) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
-  current_request_info_->EndTrace("GenerateStreams");
+  if (current_request_info_) {
+    current_request_info_->EndTrace("GenerateStreams");
+  }
 
   if (result != MediaStreamRequestResult::OK) {
     DCHECK(!stream_devices_set);
@@ -1393,6 +1385,7 @@ void UserMediaProcessor::OnStreamsGenerated(
           request_id, label.Utf8().c_str(), video_device.id.c_str(),
           video_device.name.c_str()));
       String video_device_id(video_device.id.data());
+      current_request_info_->StartTrace("GetAllVideoInputDeviceFormats");
       GetMediaDevicesDispatcher()->GetAllVideoInputDeviceFormats(
           video_device_id,
           WTF::BindOnce(&UserMediaProcessor::GotAllVideoInputFormatsForDevice,
@@ -1415,6 +1408,8 @@ void UserMediaProcessor::GotAllVideoInputFormatsForDevice(
   if (!IsCurrentRequestInfo(user_media_request)) {
     return;
   }
+
+  current_request_info_->EndTrace("GetAllVideoInputDeviceFormats");
 
   // TODO(crbug.com/1336564): Remove the assumption that all devices support
   // the same video formats.
@@ -1615,7 +1610,7 @@ void UserMediaProcessor::OnDeviceRequestStateChange(
                             base::DoNothing());
     }
   } else {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 }
 
@@ -1786,17 +1781,6 @@ MediaStreamSource* UserMediaProcessor::InitializeAudioSourceObject(
 
   MediaStreamSource::Capabilities capabilities;
   capabilities.echo_cancellation = {true, false};
-  capabilities.echo_cancellation_type.reserve(3);
-  capabilities.echo_cancellation_type.emplace_back(
-      String::FromUTF8(kEchoCancellationTypeBrowser));
-  capabilities.echo_cancellation_type.emplace_back(
-      String::FromUTF8(kEchoCancellationTypeAec3));
-  if (device.input.effects() &
-      (media::AudioParameters::ECHO_CANCELLER |
-       media::AudioParameters::EXPERIMENTAL_ECHO_CANCELLER)) {
-    capabilities.echo_cancellation_type.emplace_back(
-        String::FromUTF8(kEchoCancellationTypeSystem));
-  }
   capabilities.auto_gain_control = {true, false};
   capabilities.noise_suppression = {true, false};
   capabilities.voice_isolation = {true, false};
@@ -2123,8 +2107,7 @@ void UserMediaProcessor::DelayedGetUserMediaRequestFailed(
   switch (result) {
     case MediaStreamRequestResult::OK:
     case MediaStreamRequestResult::NUM_MEDIA_REQUEST_RESULTS:
-      NOTREACHED_IN_MIGRATION();
-      return;
+      NOTREACHED();
     case MediaStreamRequestResult::CONSTRAINT_NOT_SATISFIED:
       user_media_request->FailConstraint(constraint_name, "");
       return;

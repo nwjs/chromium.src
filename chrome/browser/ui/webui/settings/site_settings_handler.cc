@@ -74,6 +74,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "components/browsing_data/content/browsing_data_model.h"
 #include "components/browsing_topics/browsing_topics_service.h"
+#include "components/content_settings/core/browser/content_settings_uma_util.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/browser/website_settings_info.h"
 #include "components/content_settings/core/browser/website_settings_registry.h"
@@ -450,7 +451,7 @@ std::map<std::string, std::pair<std::string, int>> GetRwsMap(
       std::string etld_plus1 = GetEtldPlusOneForHost(
           BrowsingDataModel::GetHost(entry.data_owner.get()));
       auto schemeful_site = ConvertEtldToSchemefulSite(etld_plus1);
-      auto rws_owner = privacy_sandbox_service->GetFirstPartySetOwner(
+      auto rws_owner = privacy_sandbox_service->GetRelatedWebsiteSetOwner(
           schemeful_site.GetURL());
       if (rws_owner.has_value()) {
         rws_owner_to_members[rws_owner->GetURL().host()].insert(etld_plus1);
@@ -551,7 +552,7 @@ void ConvertSiteGroupMapToList(
       site_group.Set(kRwsNumMembers, rws_map[*etld_plus1].second);
       auto schemeful_site = ConvertEtldToSchemefulSite(*etld_plus1);
       site_group.Set(kRwsEnterpriseManaged,
-                     privacy_sandbox_service->IsPartOfManagedFirstPartySet(
+                     privacy_sandbox_service->IsPartOfManagedRelatedWebsiteSet(
                          schemeful_site));
     }
     list_value->Append(std::move(site_group));
@@ -910,7 +911,7 @@ void SiteSettingsHandler::OnGetUsageInfo() {
                 IDS_SETTINGS_SITE_SETTINGS_RELATED_WEBSITE_SETS_MEMBERSHIP_LABEL),
             "MEMBERS", static_cast<int>(rws_map[etld_plus1].second),
             "RWS_OWNER", rws_map[etld_plus1].first));
-    rwsPolicy = privacy_sandbox_service->IsPartOfManagedFirstPartySet(
+    rwsPolicy = privacy_sandbox_service->IsPartOfManagedRelatedWebsiteSet(
         ConvertEtldToSchemefulSite(etld_plus1));
   }
 
@@ -1580,12 +1581,20 @@ void SiteSettingsHandler::HandleGetSmartCardReaderGrants(
 
   reader_names = base::ToValueList(
       permission_context.GetPersistentReaderGrants(),
-      [](const SmartCardPermissionContext::ReaderGrants& reader_grant) {
+      [this](const SmartCardPermissionContext::ReaderGrants& reader_grant) {
         return base::Value::Dict()
             .Set(site_settings::kReaderName, reader_grant.reader_name)
             .Set(site_settings::kOrigins,
-                 base::ToValueList(reader_grant.origins,
-                                   &url::Origin::Serialize));
+                 base::ToValueList(
+                     reader_grant.origins, [this](const url::Origin& origin) {
+                       return base::Value::Dict()
+                           .Set(site_settings::kOrigin, origin.Serialize())
+                           .Set(site_settings::kDisplayName,
+                                site_settings::GetUrlIdentityForGURL(
+                                    profile_, origin.GetURL(),
+                                    /*hostname_only=*/false)
+                                    .name);
+                     }));
       });
 #endif
   ResolveJavascriptCallback(callback_id, reader_names);
@@ -1919,6 +1928,22 @@ void SiteSettingsHandler::HandleSetCategoryPermissionForPattern(
   map->SetContentSettingCustomScope(primary_pattern, secondary_pattern,
                                     content_type, setting);
 
+  // Record which type of exception pattern was entered.
+  if (primary_pattern == ContentSettingsPattern::Wildcard() ||
+      secondary_pattern == ContentSettingsPattern::Wildcard()) {
+    // Skipping two-pattern exceptions.
+    ContentSettingsPattern::Scope content_setting_pattern_scope =
+        primary_pattern != ContentSettingsPattern::Wildcard()
+            ? primary_pattern.GetScope()
+            : secondary_pattern.GetScope();
+    base::UmaHistogramEnumeration("Privacy.SiteExceptionsAdded.ScopeType",
+                                  content_setting_pattern_scope);
+  }
+
+  // Record which content setting type is created.
+  content_settings_uma_util::RecordContentSettingsHistogram(
+      "Privacy.SiteExceptionsAdded.ContentSettingType", content_type);
+
   if (content_type == ContentSettingsType::SOUND) {
     ContentSetting default_setting =
         map->GetDefaultContentSetting(ContentSettingsType::SOUND, nullptr);
@@ -2104,7 +2129,7 @@ void SiteSettingsHandler::SendZoomLevels() {
         // start. Therefore, we don't care for them.
         continue;
       case content::HostZoomMap::ZOOM_CHANGED_TEMPORARY_ZOOM:
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
     }
   }
 
@@ -2595,10 +2620,10 @@ base::Value::List SiteSettingsHandler::PopulateFileSystemGrantData() {
 
     // Populate the `file_system_permission_grant` object with allowed
     // permissions.
-    for (auto& file_path : grantObj.directory_write_grants) {
+    for (auto& path_info : grantObj.directory_write_grants) {
       base::Value::Dict directory_write_grant;
       const std::string file_path_string =
-          FilePathToValue(file_path).GetString();
+          FilePathToValue(path_info.path).GetString();
       directory_write_grant.Set(site_settings::kOrigin, origin_string);
       directory_write_grant.Set(site_settings::kFileSystemFilePath,
                                 file_path_string);
@@ -2608,9 +2633,9 @@ base::Value::List SiteSettingsHandler::PopulateFileSystemGrantData() {
       edit_grants.Append(std::move(directory_write_grant));
     }
 
-    for (auto& file_path : grantObj.directory_read_grants) {
+    for (auto& path_info : grantObj.directory_read_grants) {
       const std::string file_path_string =
-          FilePathToValue(file_path).GetString();
+          FilePathToValue(path_info.path).GetString();
       if (base::Contains(directory_edit_grants_file_paths, file_path_string)) {
         continue;
       }
@@ -2623,10 +2648,10 @@ base::Value::List SiteSettingsHandler::PopulateFileSystemGrantData() {
       view_grants.Append(std::move(directory_read_grant));
     }
 
-    for (auto& file_path : grantObj.file_write_grants) {
+    for (auto& path_info : grantObj.file_write_grants) {
       base::Value::Dict file_write_grant;
       const std::string file_path_string =
-          FilePathToValue(file_path).GetString();
+          FilePathToValue(path_info.path).GetString();
       file_write_grant.Set(site_settings::kOrigin, origin_string);
       file_write_grant.Set(site_settings::kFileSystemFilePath,
                            file_path_string);
@@ -2636,9 +2661,9 @@ base::Value::List SiteSettingsHandler::PopulateFileSystemGrantData() {
       edit_grants.Append(std::move(file_write_grant));
     }
 
-    for (auto& file_path : grantObj.file_read_grants) {
+    for (auto& path_info : grantObj.file_read_grants) {
       const std::string file_path_string =
-          FilePathToValue(file_path).GetString();
+          FilePathToValue(path_info.path).GetString();
       if (base::Contains(file_edit_grants_file_paths, file_path_string)) {
         continue;
       }

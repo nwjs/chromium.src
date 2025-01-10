@@ -116,6 +116,10 @@ enum class SignInHistorySyncStep {
     case SigninCoordinatorResultCanceledByUser:
       _currentStep = SignInHistorySyncStep::kCompleted;
       break;
+    case SigninCoordinatorUINotAvailable:
+      // SigninAndHistorySyncController presents its child coordinators
+      // directly and does not use `ShowSigninCommand`.
+      NOTREACHED();
   }
   if (_currentStep != SignInHistorySyncStep::kCompleted) {
     _childCoordinator = [self createPresentStepChildCoordinator];
@@ -144,8 +148,7 @@ enum class SignInHistorySyncStep {
   }
   SigninCompletionInfo* completionInfo =
       [SigninCompletionInfo signinCompletionInfoWithIdentity:identity];
-  [self runCompletionCallbackWithSigninResult:result
-                               completionInfo:completionInfo];
+  [self runCompletionWithSigninResult:result completionInfo:completionInfo];
 }
 
 // Creates the current step coordinator according to `_currentStep`.

@@ -21,7 +21,8 @@ SavedTabGroupTab::SavedTabGroupTab(
     std::optional<std::string> last_updater_cache_guid,
     std::optional<base::Time> creation_time_windows_epoch_micros,
     std::optional<base::Time> update_time_windows_epoch_micros,
-    std::optional<gfx::Image> favicon)
+    std::optional<gfx::Image> favicon,
+    bool is_pending_sanitization)
     : saved_tab_guid_(saved_tab_guid.has_value()
                           ? saved_tab_guid.value()
                           : base::Uuid::GenerateRandomV4()),
@@ -40,7 +41,8 @@ SavedTabGroupTab::SavedTabGroupTab(
           update_time_windows_epoch_micros.has_value()
               ? update_time_windows_epoch_micros.value()
               : base::Time::Now()),
-      favicon_(favicon) {}
+      favicon_(favicon),
+      is_pending_sanitization_(is_pending_sanitization) {}
 
 SavedTabGroupTab::SavedTabGroupTab(const SavedTabGroupTab& other) = default;
 SavedTabGroupTab& SavedTabGroupTab::operator=(const SavedTabGroupTab& other) =
@@ -50,21 +52,7 @@ SavedTabGroupTab& SavedTabGroupTab::operator=(SavedTabGroupTab&& other) =
     default;
 SavedTabGroupTab::~SavedTabGroupTab() = default;
 
-bool SavedTabGroupTab::ShouldMergeTab(
-    const SavedTabGroupTab& remote_tab) const {
-  if (AlwaysAcceptServerDataInModel()) {
-    return true;
-  }
-
-  return remote_tab.update_time_windows_epoch_micros() >=
-         update_time_windows_epoch_micros();
-}
-
 void SavedTabGroupTab::MergeRemoteTab(const SavedTabGroupTab& remote_tab) {
-  if (!ShouldMergeTab(remote_tab)) {
-    return;
-  }
-
   SetURL(remote_tab.url());
   SetTitle(remote_tab.title());
   // TODO(crbug.com/370714643): check that remote tab always contains position.
@@ -94,18 +82,11 @@ SavedTabGroupTabBuilder::SavedTabGroupTabBuilder() = default;
 
 SavedTabGroupTabBuilder::~SavedTabGroupTabBuilder() = default;
 
-SavedTabGroupTabBuilder& SavedTabGroupTabBuilder::SetURL(const GURL& url) {
-  url_ = url;
-  has_url_ = true;
-  return *this;
-}
+SavedTabGroupTabBuilder::SavedTabGroupTabBuilder(
+    const SavedTabGroupTabBuilder&) = default;
 
-SavedTabGroupTabBuilder& SavedTabGroupTabBuilder::SetTitle(
-    const std::u16string& title) {
-  title_ = title;
-  has_title_ = true;
-  return *this;
-}
+SavedTabGroupTabBuilder& SavedTabGroupTabBuilder::operator=(
+    const SavedTabGroupTabBuilder&) = default;
 
 SavedTabGroupTabBuilder& SavedTabGroupTabBuilder::SetPosition(size_t position) {
   position_ = position;
@@ -125,12 +106,6 @@ SavedTabGroupTab SavedTabGroupTabBuilder::Build(
   SavedTabGroupTab updated_tab(tab);
 
   // Apply the updates from the builder.
-  if (has_url_) {
-    updated_tab.SetURL(url_);
-  }
-  if (has_title_) {
-    updated_tab.SetTitle(title_);
-  }
   if (has_position_) {
     updated_tab.SetPosition(position_);
   }

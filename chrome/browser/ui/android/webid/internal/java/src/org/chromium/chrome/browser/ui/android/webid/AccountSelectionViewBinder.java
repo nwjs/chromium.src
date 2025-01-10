@@ -31,6 +31,7 @@ import com.google.android.material.color.MaterialColors;
 import org.chromium.base.Callback;
 import org.chromium.blink.mojom.RpContext;
 import org.chromium.blink.mojom.RpMode;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ui.android.webid.AccountSelectionProperties.AccountProperties;
 import org.chromium.chrome.browser.ui.android.webid.AccountSelectionProperties.AddAccountButtonProperties;
 import org.chromium.chrome.browser.ui.android.webid.AccountSelectionProperties.ContinueButtonProperties;
@@ -205,8 +206,12 @@ class AccountSelectionViewBinder {
                 TintedDrawable plusIcon =
                         TintedDrawable.constructTintedDrawable(
                                 context,
-                                R.drawable.plus,
-                                R.color.default_icon_color_accent1_tint_list);
+                                properties.mRpMode == RpMode.ACTIVE
+                                        ? R.drawable.plus
+                                        : R.drawable.open_in_new_tab,
+                                properties.mRpMode == RpMode.ACTIVE
+                                        ? R.color.default_icon_color_accent1_tint_list
+                                        : R.color.default_icon_color_tint_list);
                 iconView.setImageDrawable(plusIcon);
 
                 TextView subject = view.findViewById(R.id.title);
@@ -354,7 +359,7 @@ class AccountSelectionViewBinder {
         textView.setMovementMethod(LinkMovementMethod.getInstance());
     }
 
-    private static class ErrorText {
+    static class ErrorText {
         final String mSummary;
         final SpannableString mDescription;
 
@@ -377,16 +382,18 @@ class AccountSelectionViewBinder {
 
     /**
      * Returns text to be displayed on the error dialog.
-     * @param view The view to be bound.
+     *
+     * @param context The context of the view to be bound.
      * @param properties The properties which determine what error text to display.
+     * @param clickableText Whether the text should contain a link for more details.
      * @return The ErrorText containing the summary and description to display.
      */
-    private static ErrorText getErrorText(View view, ErrorProperties.Properties properties) {
+    static ErrorText getErrorText(
+            Context context, ErrorProperties.Properties properties, boolean clickableText) {
         String code = properties.mError.getCode();
         GURL url = properties.mError.getUrl();
         String idpForDisplay = properties.mIdpForDisplay;
         String rpForDisplay = properties.mRpForDisplay;
-        Context context = view.getContext();
 
         String summary;
         String description;
@@ -429,7 +436,7 @@ class AccountSelectionViewBinder {
                     context.getString(R.string.signin_generic_error_dialog_summary, idpForDisplay);
             description = context.getString(R.string.signin_generic_error_dialog_description);
 
-            if (url.isEmpty()) {
+            if (url.isEmpty() || !clickableText) {
                 return new ErrorText(summary, description);
             }
 
@@ -455,21 +462,36 @@ class AccountSelectionViewBinder {
         description +=
                 context.getString(
                         TEMPORARILY_UNAVAILABLE.equals(code)
-                                ? R.string.signin_error_dialog_more_details_retry_prompt
-                                : R.string.signin_error_dialog_more_details_prompt,
+                                ? (clickableText
+                                        ? R.string.signin_error_dialog_more_details_retry_prompt
+                                        : R.string
+                                                .signin_error_dialog_more_details_button_retry_prompt)
+                                : (clickableText
+                                        ? R.string.signin_error_dialog_more_details_prompt
+                                        : R.string.signin_error_dialog_more_details_button_prompt),
                         idpForDisplay);
-        return new ErrorText(summary, description, context, properties.mMoreDetailsClickRunnable);
+
+        if (clickableText) {
+            return new ErrorText(
+                    summary, description, context, properties.mMoreDetailsClickRunnable);
+        }
+        return new ErrorText(summary, description);
     }
 
     /**
      * Called whenever error text is bound to this view.
+     *
      * @param model The model containing the data for the view.
      * @param view The view to be bound.
      * @param key The key of the property to be bound.
      */
     static void bindErrorTextView(PropertyModel model, View view, PropertyKey key) {
         if (key == ErrorProperties.PROPERTIES) {
-            ErrorText errorText = getErrorText(view, model.get(ErrorProperties.PROPERTIES));
+            ErrorText errorText =
+                    getErrorText(
+                            view.getContext(),
+                            model.get(ErrorProperties.PROPERTIES),
+                            /* clickableText= */ true);
 
             TextView summaryTextView = view.findViewById(R.id.error_summary);
             summaryTextView.setText(errorText.mSummary);
@@ -755,7 +777,7 @@ class AccountSelectionViewBinder {
                 int iconSize =
                         resources.getDimensionPixelSize(
                                 model.get(HeaderProperties.RP_MODE) == RpMode.ACTIVE
-                                        ? R.dimen.account_selection_button_mode_sheet_icon_size
+                                        ? R.dimen.account_selection_active_mode_sheet_icon_size
                                         : R.dimen.account_selection_sheet_icon_size);
                 Drawable croppedBrandIcon =
                         createBitmapWithMaskableIconSafeZone(resources, brandIcon, iconSize);
@@ -773,7 +795,7 @@ class AccountSelectionViewBinder {
             if (brandIcon != null) {
                 int iconSize =
                         resources.getDimensionPixelSize(
-                                R.dimen.account_selection_button_mode_sheet_icon_size);
+                                R.dimen.account_selection_active_mode_sheet_icon_size);
                 Drawable croppedBrandIcon =
                         createBitmapWithMaskableIconSafeZone(resources, brandIcon, iconSize);
                 headerIconView.setImageDrawable(croppedBrandIcon);

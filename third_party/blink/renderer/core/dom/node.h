@@ -347,11 +347,17 @@ class CORE_EXPORT Node : public EventTarget {
     return GetElementNamespaceType() == ElementNamespaceType::kSVG;
   }
 
+  DISABLE_CFI_PERF bool IsCheckPseudoElement() const {
+    return GetPseudoId() == kPseudoIdCheck;
+  }
   DISABLE_CFI_PERF bool IsBeforePseudoElement() const {
     return GetPseudoId() == kPseudoIdBefore;
   }
   DISABLE_CFI_PERF bool IsAfterPseudoElement() const {
     return GetPseudoId() == kPseudoIdAfter;
+  }
+  DISABLE_CFI_PERF bool IsSelectArrowPseudoElement() const {
+    return GetPseudoId() == kPseudoIdSelectArrow;
   }
   DISABLE_CFI_PERF bool IsScrollMarkerGroupBeforePseudoElement() const {
     return GetPseudoId() == kPseudoIdScrollMarkerGroupBefore;
@@ -484,7 +490,7 @@ class CORE_EXPORT Node : public EventTarget {
   };
   virtual void NotifyLoadedSheetAndAllCriticalSubresources(
       LoadedSheetErrorStatus) {}
-  virtual void SetToPendingState() { NOTREACHED_IN_MIGRATION(); }
+  virtual void SetToPendingState() { NOTREACHED(); }
 
   bool HasName() const {
     DCHECK(!IsTextNode());
@@ -802,7 +808,13 @@ class CORE_EXPORT Node : public EventTarget {
   // Note that the following 'inline' function is not defined in this header,
   // but in node_computed_style.h. Please include that file if you want to use
   // this function.
-  inline const ComputedStyle* GetComputedStyle() const;
+  //
+  // DO NOT USE - TO BE REMOVED: Only elements have computed styles. This method
+  // falls back to retrieve a ComputedStyle from the LayoutObject for LayoutText
+  // and LayoutView. Use Element::GetComputedStyle() or LayoutObject::Style()
+  // instead.
+  inline const ComputedStyle* GetComputedStyleForElementOrLayoutObject() const;
+
   bool ShouldSkipMarkingStyleDirty() const;
 
   // ---------------------------------------------------------------------------
@@ -850,6 +862,11 @@ class CORE_EXPORT Node : public EventTarget {
   // RemovedFrom() implementations must not modify the DOM tree, and must not
   // dispatch synchronous events.
   virtual void RemovedFrom(ContainerNode& insertion_point);
+
+  // Notifies the node that it has moved from a different parent.
+  // This corresponds to "moving steps"
+  // (https://dom.spec.whatwg.org/#concept-node-move-ext)
+  virtual void MovedFrom(ContainerNode& old_parent);
 
   // FIXME(dominicc): This method is not debug-only--it is used by
   // Tracing--rename it to something indicative.
@@ -1004,19 +1021,23 @@ class CORE_EXPORT Node : public EventTarget {
   void SetHasDisplayLockContext() { SetFlag(kHasDisplayLockContext); }
   bool HasDisplayLockContext() const { return GetFlag(kHasDisplayLockContext); }
 
-  // Creates a DocumentFragment, appends all of |nodes| to it, and returns the
-  // DocumentFragment. Returns nullptr if an exception was thrown.
-  static Node* ConvertNodesIntoNode(const Node* parent,
-                                    const HeapVector<Member<Node>>& nodes,
-                                    Document& document,
-                                    ExceptionState& exception_state);
-
   // Creates a DocumentFragment, converts |node_unions| from bindings into
   // actual Nodes by converting strings and script into text nodes via
-  // NodeOrStringToNode, appends all resulting Nodes to the DocumentFragment,
-  // and returns it. Returns nullptr if exceptions are thrown.
+  // NodeOrStringToNode.  If there is more than one node, appends all
+  // resulting Nodes to the DocumentFragment, and returns it. Returns nullptr
+  // if exceptions are thrown.
   static Node* ConvertNodeUnionsIntoNode(
-      const Node* parent,
+      const ContainerNode* parent,
+      const HeapVector<Member<V8UnionNodeOrStringOrTrustedScript>>& node_unions,
+      Document& document,
+      const char* property_name,
+      ExceptionState& exception_state);
+  // Converts |node_unions| from bindings into actual Nodes by converting
+  // strings and script into text nodes, and if more than one node resulted,
+  // removes them from their old parent (as though they had been inserted into
+  // a DocumentFragment).
+  static HeapVector<Member<Node>> ConvertNodeUnionsIntoNodes(
+      const ContainerNode* parent,
       const HeapVector<Member<V8UnionNodeOrStringOrTrustedScript>>& node_unions,
       Document& document,
       const char* property_name,

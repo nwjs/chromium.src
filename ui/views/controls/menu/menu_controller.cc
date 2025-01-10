@@ -20,7 +20,6 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "build/chromeos_buildflags.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
@@ -583,7 +582,6 @@ void MenuController::Run(Widget* parent,
   exit_type_ = ExitType::kNone;
   possible_drag_ = false;
   drag_in_progress_ = false;
-  did_initiate_drag_ = false;
   closing_event_time_ = base::TimeTicks();
   menu_start_time_ = base::TimeTicks::Now();
   menu_start_mouse_press_loc_ = gfx::Point();
@@ -867,8 +865,13 @@ void MenuController::OnMouseReleased(SubmenuView* source,
     return;
   }
 
-  if (for_drop_)
+  // Mouse releases during DnD are handled differently by platforms. Most will
+  // consume the mouse release to end the DnD, which would subsequently trigger
+  // OnDragComplete. However, Wayland will send a spurious mouse release event
+  // before ending the DnD, which should be ignored by this menu.
+  if (drag_in_progress_) {
     return;
+  }
 
   DCHECK(state_.item);
   possible_drag_ = false;
@@ -1294,27 +1297,39 @@ void MenuController::OnDragComplete(bool should_close) {
   // the event target.
   current_mouse_pressed_state_ = 0;
   current_mouse_event_target_ = nullptr;
+  possible_drag_ = false;
 
-  // Only attempt to close if the MenuHost said to.
-  if (should_close) {
-    if (showing_) {
-      // During a drag operation there are several ways in which this can be
-      // canceled and deleted. Verify that this is still active before closing
-      // the widgets.
-      if (GetActiveInstance() == this) {
-        base::WeakPtr<MenuController> this_ref = AsWeakPtr();
-        CloseAllNestedMenus();
-        Cancel(ExitType::kAll);
-        // The above may have deleted us. If not perform a full shutdown.
-        if (!this_ref)
-          return;
-        ExitMenu();
+  // TODO(crbug.com/375959961): On X11, the native widget's mouse button state
+  // is not updated when the mouse button is released to end a drag. Therefore,
+  // all subsequent mouse movements will be delivered as "MouseDragged" events.
+  // Until this is fixed, the menu should be closed.
+#if BUILDFLAG(IS_OZONE_X11)
+  should_close = true;
+#endif
+
+  if (!should_close) {
+    StopCancelAllTimer();
+    return;
+  }
+
+  if (showing_) {
+    // During a drag operation there are several ways in which this can be
+    // canceled and deleted. Verify that this is still active before closing
+    // the widgets.
+    if (GetActiveInstance() == this) {
+      base::WeakPtr<MenuController> this_ref = AsWeakPtr();
+      CloseAllNestedMenus();
+      Cancel(ExitType::kAll);
+      // The above may have deleted us. If not perform a full shutdown.
+      if (!this_ref) {
+        return;
       }
-    } else if (exit_type_ == ExitType::kAll) {
-      // We may have been canceled during the drag. If so we still need to fully
-      // shutdown.
       ExitMenu();
     }
+  } else if (exit_type_ == ExitType::kAll) {
+    // We may have been canceled during the drag. If so we still need to fully
+    // shutdown.
+    ExitMenu();
   }
 }
 
@@ -1649,15 +1664,19 @@ void MenuController::StartDrag(SubmenuView* source,
 
   StopScrollingViaButton();
   int drag_ops = item->GetDelegate()->GetDragOperations(item);
-  did_initiate_drag_ = true;
+  bool had_capture = source->host()->HasCapture();
   base::WeakPtr<MenuController> this_ref = AsWeakPtr();
   // TODO(varunjain): Properly determine and send DragEventSource below.
   item->GetWidget()->RunShellDrag(nullptr, std::move(data), widget_loc,
                                   drag_ops, ui::mojom::DragEventSource::kMouse);
-  // MenuController may have been deleted so check before accessing member
-  // variables.
-  if (this_ref)
-    did_initiate_drag_ = false;
+  if (!this_ref) {
+    return;
+  }
+  if (showing_ && had_capture) {
+    // We don't need to add a view as the delegate because the MenuHost widget
+    // will forward mouse events to the MenuController through the root view.
+    source->host()->SetCapture(nullptr);
+  }
 }
 
 bool MenuController::OnKeyPressed(const ui::KeyEvent& event) {
@@ -2235,17 +2254,6 @@ void MenuController::OpenMenuImpl(MenuItemView* item, bool show) {
           : CalculateMenuBounds(item, preferred_open_direction,
                                 &resulting_direction, &anchor);
 
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  if (bounds.size().IsEmpty()) {
-    LOG(WARNING) << "Menu size is unexpectedly zero. Bounds: "
-                 << bounds.ToString()
-                 << ", anchor: " << anchor.anchor_rect.ToString()
-                 << ", display_bounds: " << state_.monitor_bounds.ToString()
-                 << ", calculated as bubble: " << calculate_as_bubble_menu;
-    base::debug::DumpWithoutCrashing();
-  }
-#endif
-
   SetChildMenuOpenDirectionAtDepth(menu_depth, resulting_direction);
   bool do_capture = (!did_capture_ && !for_drop_ && !IsEditableCombobox());
   showing_submenu_ = true;
@@ -2614,19 +2622,21 @@ gfx::Rect MenuController::CalculateBubbleMenuBounds(
     if (!monitor_bounds.IsEmpty()) {
       int max_width = monitor_bounds.width() + border_insets.width();
       int max_height = monitor_bounds.height() + border_insets.height();
-      // In case of bubbles, the maximum width is limited by the space
-      // between the display corner and the target area + the tip size.
-      const bool is_bubble_menu =
-          menu_config.use_bubble_border && corner_radius;
-      if (is_anchored_bubble || is_bubble_menu ||
-          item->actual_menu_position() == MenuPosition::kAboveBounds) {
-        // menu_size is expected to include not just the content size
-        // but also the (border and shadow) insets, which can go offscreen.
-        max_height =
-            std::max(anchor_bounds.y() - monitor_bounds.y(),
-                     monitor_bounds.bottom() - anchor_bounds.bottom()) -
-            (is_bubble_menu ? 0 : menu_config.touchable_anchor_offset) +
-            border_insets.height();
+      if (!state_.context_menu) {
+        // In case of bubbles, the maximum width is limited by the space
+        // between the display corner and the target area + the tip size.
+        const bool is_bubble_menu =
+            menu_config.use_bubble_border && corner_radius;
+        if (is_anchored_bubble || is_bubble_menu ||
+            item->actual_menu_position() == MenuPosition::kAboveBounds) {
+          // menu_size is expected to include not just the content size
+          // but also the (border and shadow) insets, which can go offscreen.
+          max_height =
+              std::max(anchor_bounds.y() - monitor_bounds.y(),
+                       monitor_bounds.bottom() - anchor_bounds.bottom()) -
+              (is_bubble_menu ? 0 : menu_config.touchable_anchor_offset) +
+              border_insets.height();
+        }
       }
       // The menu should always have a non-empty available area.
       DCHECK_GE(max_width, kBubbleTipSizeLeftRight);
@@ -3572,7 +3582,7 @@ void MenuController::SetChildMenuOpenDirectionAtDepth(
   } else if (index < child_menu_open_direction_.size()) {
     child_menu_open_direction_[index] = direction;
   } else {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
 }
 

@@ -5,15 +5,19 @@
 #include "chromeos/ash/components/policy/restriction_schedule/device_restriction_schedule_controller.h"
 
 #include <algorithm>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include "base/functional/bind.h"
 #include "base/i18n/time_formatting.h"
+#include "base/json/values_util.h"
 #include "base/location.h"
 #include "base/memory/raw_ref.h"
 #include "base/observer_list.h"
+#include "base/scoped_observation.h"
+#include "base/time/clock.h"
 #include "base/time/time.h"
 #include "base/timer/wall_clock_timer.h"
 #include "base/values.h"
@@ -26,7 +30,6 @@
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/strings/grit/ui_strings.h"
 
 namespace policy {
 
@@ -35,6 +38,11 @@ namespace {
 // Display a notification about approaching session end this long in advance.
 constexpr base::TimeDelta kNotificationLeadTime = base::Minutes(30);
 
+// Maximum allowed delta time for detecting whether the clock has been tampered
+// with. For more details check the comment on `highest_seen_time_`.
+constexpr base::TimeDelta kMaxClockDeltaTampering = base::Days(1);
+
+using ::policy::weekly_time::AddOffsetInLocalTime;
 using ::policy::weekly_time::ExtractIntervalsFromList;
 using ::policy::weekly_time::GetDurationToNextEvent;
 using ::policy::weekly_time::GetNextEvent;
@@ -74,6 +82,10 @@ DeviceRestrictionScheduleController::DeviceRestrictionScheduleController(
       base::BindRepeating(&DeviceRestrictionScheduleController::OnPolicyUpdated,
                           base::Unretained(this)));
 
+  login_state_observation_.Observe(ash::LoginState::Get());
+
+  LoadHighestSeenTime();
+
   MaybeShowPostLogoutNotification();
   OnPolicyUpdated();
 }
@@ -88,6 +100,8 @@ void DeviceRestrictionScheduleController::RegisterLocalStatePrefs(
   registry->RegisterBooleanPref(
       chromeos::prefs::kDeviceRestrictionScheduleShowPostLogoutNotification,
       false);
+  registry->RegisterTimePref(
+      chromeos::prefs::kDeviceRestrictionScheduleHighestSeenTime, base::Time());
 }
 
 bool DeviceRestrictionScheduleController::RestrictionScheduleEnabled() const {
@@ -99,7 +113,7 @@ bool DeviceRestrictionScheduleController::RestrictionScheduleEnabled() const {
 std::u16string DeviceRestrictionScheduleController::RestrictionScheduleEndDay()
     const {
   const WeeklyTimeChecked current_weekly_time =
-      WeeklyTimeChecked::FromTimeAsLocalTime(base::Time::Now());
+      WeeklyTimeChecked::FromTimeAsLocalTime(clock_->Now());
   std::optional<WeeklyTimeChecked> next_event =
       GetNextEvent(intervals_, current_weekly_time);
   if (state_ == State::kRegular || !next_event.has_value()) {
@@ -110,11 +124,13 @@ std::u16string DeviceRestrictionScheduleController::RestrictionScheduleEndDay()
   const Day week_day_next_event = next_event.value().day_of_week();
 
   if (week_day_today == week_day_next_event) {
-    return l10n_util::GetStringUTF16(IDS_PAST_TIME_TODAY);
+    return l10n_util::GetStringUTF16(
+        IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE_TODAY);
   }
 
   if (WeeklyTimeChecked::NextDay(week_day_today) == week_day_next_event) {
-    return l10n_util::GetStringUTF16(IDS_TIME_TOMORROW);
+    return l10n_util::GetStringUTF16(
+        IDS_DEVICE_DISABLED_EXPLANATION_RESTRICTION_SCHEDULE_TOMORROW);
   }
 
   return l10n_util::GetStringUTF16(GetDayOfWeekStringId(week_day_next_event));
@@ -128,12 +144,60 @@ std::u16string DeviceRestrictionScheduleController::RestrictionScheduleEndTime()
   return base::TimeFormatTimeOfDay(next_run_time_.value());
 }
 
+void DeviceRestrictionScheduleController::SetClockForTesting(
+    const base::Clock& clock) {
+  clock_ = clock;
+}
+
+void DeviceRestrictionScheduleController::SetMessageUpdateTimerForTesting(
+    std::unique_ptr<base::WallClockTimer> timer) {
+  message_update_timer_ = std::move(timer);
+}
+
 void DeviceRestrictionScheduleController::AddObserver(Observer* observer) {
   observers_.AddObserver(observer);
 }
 
 void DeviceRestrictionScheduleController::RemoveObserver(Observer* observer) {
   observers_.RemoveObserver(observer);
+}
+
+void DeviceRestrictionScheduleController::LoggedInStateChanged() {
+  Run();
+}
+
+void DeviceRestrictionScheduleController::LoadHighestSeenTime() {
+  if (!registrar_.prefs()->HasPrefPath(
+          chromeos::prefs::kDeviceRestrictionScheduleHighestSeenTime)) {
+    // Just bail at this point if we didn't save one yet.
+    return;
+  }
+  highest_seen_time_ = registrar_.prefs()->GetTime(
+      chromeos::prefs::kDeviceRestrictionScheduleHighestSeenTime);
+}
+
+void DeviceRestrictionScheduleController::UpdateAndSaveHighestSeenTime(
+    base::Time current_time) {
+  if (highest_seen_time_.has_value() &&
+      highest_seen_time_.value() > current_time) {
+    return;
+  }
+  highest_seen_time_ = current_time;
+  registrar_.prefs()->SetTime(
+      chromeos::prefs::kDeviceRestrictionScheduleHighestSeenTime,
+      highest_seen_time_.value());
+  registrar_.prefs()->CommitPendingWrite();
+}
+
+bool DeviceRestrictionScheduleController::HasTimeBeenTamperedWith(
+    const base::Time current_time) const {
+  if (highest_seen_time_.has_value() &&
+      current_time + kMaxClockDeltaTampering < highest_seen_time_.value()) {
+    // Somebody tampered with the time. This can happen when eg. somebody
+    // removes the CMOS battery from the device.
+    return true;
+  }
+  return false;
 }
 
 void DeviceRestrictionScheduleController::OnPolicyUpdated() {
@@ -151,17 +215,24 @@ void DeviceRestrictionScheduleController::Run() {
   // Reset any potentially running timers.
   run_timer_.Stop();
   notification_timer_.Stop();
+  message_update_timer_->Stop();
 
   // Update state.
-  const base::Time current_time = base::Time::Now();
+  const base::Time current_time = clock_->Now();
   next_run_time_ = GetNextRunTime(current_time);
   state_ = GetCurrentState(current_time);
+  UpdateAndSaveHighestSeenTime(current_time);
 
   // Set up timers if there's a schedule (`intervals_` isn't empty).
   if (next_run_time_.has_value()) {
     // Show end session notification in regular state.
     if (state_ == State::kRegular) {
       StartNotificationTimer(current_time, next_run_time_.value());
+    }
+
+    // Update restriction schedule banner message on day change.
+    if (state_ == State::kRestricted) {
+      StartMessageUpdateTimer(current_time);
     }
 
     // Set up next run of the function.
@@ -177,9 +248,8 @@ void DeviceRestrictionScheduleController::Run() {
 
   // Block or unblock login. This needs to be the last statement since it could
   // cause a restart to the login-screen.
-  for (auto& observer : observers_) {
-    observer.OnRestrictionScheduleStateChanged(state_ == State::kRestricted);
-  }
+  observers_.Notify(&Observer::OnRestrictionScheduleStateChanged,
+                    state_ == State::kRestricted);
 }
 
 void DeviceRestrictionScheduleController::MaybeShowUpcomingLogoutNotification(
@@ -200,6 +270,11 @@ void DeviceRestrictionScheduleController::MaybeShowPostLogoutNotification() {
   }
 }
 
+void DeviceRestrictionScheduleController::RestrictionScheduleMessageChanged() {
+  observers_.Notify(&Observer::OnRestrictionScheduleMessageChanged);
+  StartMessageUpdateTimer(clock_->Now());
+}
+
 // TODO(isandrk): Pass in `intervals_` and convert to pure function in the empty
 // namespace.
 std::optional<base::Time> DeviceRestrictionScheduleController::GetNextRunTime(
@@ -214,7 +289,7 @@ std::optional<base::Time> DeviceRestrictionScheduleController::GetNextRunTime(
     return std::nullopt;
   }
 
-  return current_time + time_to_next_run.value();
+  return AddOffsetInLocalTime(current_time, time_to_next_run.value());
 }
 
 // TODO(isandrk): Pass in `intervals_` and convert to pure function in the empty
@@ -222,6 +297,11 @@ std::optional<base::Time> DeviceRestrictionScheduleController::GetNextRunTime(
 DeviceRestrictionScheduleController::State
 DeviceRestrictionScheduleController::GetCurrentState(
     base::Time current_time) const {
+  if (HasTimeBeenTamperedWith(current_time)) {
+    // Somebody tampered with the time, just go to restricted schedule.
+    return State::kRestricted;
+  }
+
   auto current_weekly_time_checked =
       WeeklyTimeChecked::FromTimeAsLocalTime(current_time);
   return IntervalsContainTime(intervals_, current_weekly_time_checked)
@@ -268,6 +348,47 @@ void DeviceRestrictionScheduleController::StartRunTimer(
   run_timer_.Start(FROM_HERE, next_run_time,
                    base::BindOnce(&DeviceRestrictionScheduleController::Run,
                                   base::Unretained(this)));
+}
+
+void DeviceRestrictionScheduleController::StartMessageUpdateTimer(
+    base::Time current_time) {
+  if (!next_run_time_.has_value()) {
+    // Sanity check, should never happen.
+    return;
+  }
+
+  // There are at most two message updates:
+  // 1) At next_run_midnight - base::Days(1): "Tomorrow".
+  // 2) At next_run_midnight: "Today";
+  // We only need to check our position in time relative to these two.
+
+  const base::Time next_run_midnight = next_run_time_.value().LocalMidnight();
+  // We need to include the consideration of daylight saving time in local time,
+  // so cannot subtract by one day simply here. 12 hours is enough long/short to
+  // point a time in the "previous local day" even with the consideration of
+  // daylight saving time.
+  const base::Time next_run_prev_day_midnight =
+      (next_run_midnight - base::Hours(12)).LocalMidnight();
+  base::Time update_time;
+
+  if (current_time < next_run_prev_day_midnight) {
+    // The message is some day of week (eg. "Wednesday"), needs to be update to
+    // "Tomorrow".
+    update_time = next_run_prev_day_midnight;
+  } else if (current_time < next_run_midnight) {
+    // The message is "Tomorrow", needs to be updated to "Today".
+    update_time = next_run_midnight;
+  } else {
+    // The message is already "Today" so no update needed.
+    return;
+  }
+
+  // `this` outlives `message_update_timer_`.
+  message_update_timer_->Start(
+      FROM_HERE, update_time,
+      base::BindOnce(&DeviceRestrictionScheduleController::
+                         RestrictionScheduleMessageChanged,
+                     base::Unretained(this)));
 }
 
 }  // namespace policy

@@ -566,14 +566,14 @@ void DownloadController::OnDownloadComplete(download::DownloadItem* item) {
   bool is_download_safe = true;
   // Call onDownloadCompleted
   TabAndroid* tab = nullptr;
-  if (base::FeatureList::IsEnabled(features::kAndroidOpenPdfInline)) {
-    // Primary page of the WebContents have changed when showing the native
-    // page, need to call GetOriginalWebContents() instead.
-    content::WebContents* web_contents =
-        content::DownloadItemUtils::GetOriginalWebContents(item);
-    if (web_contents) {
-      tab = TabAndroid::FromWebContents(web_contents);
-    }
+  // Primary page of the WebContents have changed when showing the native
+  // page, need to call GetOriginalWebContents() instead.
+  content::WebContents* web_contents =
+      content::DownloadItemUtils::GetOriginalWebContents(item);
+  if (web_contents) {
+    tab = TabAndroid::FromWebContents(web_contents);
+  }
+  if (tab) {
     download::DownloadItem::InsecureDownloadStatus status =
         GetInsecureDownloadStatusForDownload(
             Profile::FromBrowserContext(

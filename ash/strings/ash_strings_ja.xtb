@@ -308,7 +308,6 @@
 <translation id="2041220428661959602">バッテリー残量: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848"><ph name="SIX_PACK_KEY_NAME" /> のショートカットは現在無効になっています</translation>
 <translation id="2049240716062114887">デスクの名前を <ph name="DESK_NAME" /> に変更しました</translation>
-<translation id="2050339315714019657">縦</translation>
 <translation id="2064048859448024834">カメラ プレビューがオンになっています</translation>
 <translation id="2065098273523946419">詳細リンク。有効にするとブラウザにリダイレクトされます</translation>
 <translation id="2067220651560163985">温度を摂氏で表示</translation>
@@ -339,9 +338,6 @@
 <translation id="219905428774326614">ランチャー、すべてのアプリ</translation>
 <translation id="2201071101391734388">最近の <ph name="INDEX" /> / <ph name="TOTAL_COUNT" /> 件の写真。</translation>
 <translation id="2201687081523799384">Google ToDo リストを折りたたむ</translation>
-<translation id="2206960886090042977">マウスが接続されているため、内蔵タッチパッドを無効にします。マウスまたはキーボードを使用して変更を確定します。
-
-無効にしない場合は 30 秒後に内蔵タッチパッドが再度有効になります。</translation>
 <translation id="2208323208084708176">デスクトップ統合モード</translation>
 <translation id="2220572644011485463">PIN またはパスワード</translation>
 <translation id="2222841058024245321">デスク 7</translation>
@@ -504,6 +500,9 @@
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" />～<ph name="KEY_TWO" /> キーを押す</translation>
 <translation id="2778197796481941784">Ctrl+Search+S</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" /> は <ph name="MANAGER" /> によって管理されています</translation>
+<translation id="2781658180588759579">内蔵タッチパッドを無効にします。キーボードまたは別のポインタ デバイスを使用して変更を確定します。
+
+無効にしない場合は <ph name="TIMEOUT_SECONDS" /> 秒後に内蔵タッチパッドが再度有効になります。</translation>
 <translation id="2782591952652094792">キャプチャ モードを終了</translation>
 <translation id="2785499565474703580">1 台のデバイスが接続されています</translation>
 <translation id="2791421900609674576">前回中断したところから再開できるように、おすすめが表示されます。おすすめは長押しで削除できます。</translation>
@@ -601,6 +600,9 @@
 <translation id="3113492864356515707">シェルフで前のアイテムをハイライト表示します</translation>
 <translation id="311799651966070385">アクションの提案を閉じる</translation>
 <translation id="3120421559657122717">デバイスをシャットダウンしますか？</translation>
+<translation id="3121411970001795539">マウスが接続されているため、内蔵タッチパッドを無効にします。マウスまたはキーボードを使用して変更を確定します。
+
+無効にしない場合は <ph name="TIMEOUT_SECONDS" /> 秒後に内蔵タッチパッドが再度有効になります。</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">授業の種類</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -971,13 +973,13 @@
 <translation id="4322742403972824594">キーボード ショートカット「Ctrl+Alt+上矢印」が変更されました。Home キーを使用するには、<ph name="LAUNCHER_KEY_NAME" />+左矢印キーを押してください。</translation>
 <translation id="4324840740119394760">カメラへのアクセス権を持つ <ph name="APP_NAME" /> およびすべてのアプリとウェブサイトに対して、カメラへのアクセスを許可します</translation>
 <translation id="4327147325944669226">ゲームを録画</translation>
-<translation id="4333628967105022692">複数のユーザーがログインしている場合、Lacros はサポートされません。</translation>
 <translation id="4338109981321384717">虫メガネ</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />、ミュートされています</translation>
 <translation id="4351244548802238354">ダイアログを閉じる</translation>
 <translation id="4356872429719185452">アクセス ポイントの詳細を表示します。アクセス ポイントはオンです。</translation>
 <translation id="4364101114148522660"><ph name="DURATION" /> 録画中</translation>
 <translation id="4371348193907997655">キャスト設定</translation>
+<translation id="4371834685492830207">PIN には有効な文字のみを使用してください</translation>
 <translation id="4375482231364171368">アドレスバーで検索する</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />、電波強度 <ph name="SIGNAL_STRENGTH" />%</translation>
 <translation id="4378551569595875038">接続中...</translation>
@@ -1143,6 +1145,7 @@
 <translation id="4902797682482387055">集中するタスクの候補</translation>
 <translation id="490375751687810070">縦</translation>
 <translation id="490788395437447240"><ph name="BATTERY_PERCENTAGE" />% のバッテリー残量</translation>
+<translation id="4911191962826748981">これは試験運用版の AI 機能です。常に適切な結果が得られるとは限りません。</translation>
 <translation id="491504982845934899">デバイスのセットアップ後に <ph name="NETWORK_NAME" /> を有効にします</translation>
 <translation id="4917385247580444890">強い</translation>
 <translation id="4918086044614829423">同意する</translation>
@@ -1301,6 +1304,7 @@
 <translation id="5393156353051693207">任意の場所を長押ししてアプリを並べ替えられます</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" />を<ph name="IN_PLACE_APP" />の上にドラッグしました。指を離すとフォルダが作成されます。</translation>
 <translation id="5397578532367286026">このユーザーの利用状況や履歴は、chrome.com で管理者（<ph name="MANAGER_EMAIL" />）によって確認されます。</translation>
+<translation id="540338817371815859">横向き</translation>
 <translation id="540713187982329711">アクセス ポイントを切り替えます。アクセス ポイントはオンです。接続されているデバイスはありません。</translation>
 <translation id="5409208741270395213">タスクを完了としてマーク</translation>
 <translation id="5413656666631274079">設定ページ</translation>
@@ -1440,7 +1444,7 @@
 <translation id="5842553299352339114"><ph name="DEVICE_NAME" /> のアクセス ポイントはオンです。デバイスが接続されていません</translation>
 <translation id="584525477304726060">長押しして最大化</translation>
 <translation id="5856638668464565213"><ph name="NETWORK_NAME" /> が無効です。</translation>
-<translation id="5860033963881614850">OFF</translation>
+<translation id="5860033963881614850">オフ</translation>
 <translation id="5860491529813859533">オンにする</translation>
 <translation id="5864748620896638071">バッテリー残量 <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="5867217927013474703">ネットワーク情報を収集しています</translation>
@@ -1458,7 +1462,7 @@
 <translation id="5911231045062997865">Lacros ウィンドウは現在サポートされていません。他のアプリは保存されます。</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" />（<ph name="MAIL" />）</translation>
 <translation id="5916646100036936191">新しい通知、合計 <ph name="NOTIFICATION_COUNT" /> 件</translation>
-<translation id="5916664084637901428">ON</translation>
+<translation id="5916664084637901428">オン</translation>
 <translation id="5920710855273935292">マイクはミュートです。</translation>
 <translation id="5928083197428724029"><ph name="MANAGER" /> が更新するよう求めています</translation>
 <translation id="5939518447894949180">リセット</translation>
@@ -1472,7 +1476,6 @@
 <translation id="5975235751479998104">ウィンドウ間を順方向に移動する</translation>
 <translation id="5978382165065462689">リモート サポート経由で画面の制御を共有しています。</translation>
 <translation id="5980301590375426705">ゲストを終了</translation>
-<translation id="5982119059638483922">キャンセルするには、Fn+検索キーまたは Shift キーを押します。</translation>
 <translation id="5983567367406220847">アクティビティがないため、アクセス ポイントはオフになっています。</translation>
 <translation id="598407983968395253">テンプレートを使用</translation>
 <translation id="5986723678596105470">Google Meet に参加する</translation>
@@ -1542,7 +1545,6 @@
 <translation id="6166852626429024716">デバイス、アプリ、設定、ウェブを検索...</translation>
 <translation id="6168318496333165060">診断アプリを開きます</translation>
 <translation id="6168622430237609329">インストール済みアプリ</translation>
-<translation id="6173151025443907148">Lacros が有効になっている場合は、2 つ目のユーザーにログインできません。代わりに Lacros で 2 つ目のブラウザ プロフィールを使用するか、Lacros を無効にしてログインしなおしてください。</translation>
 <translation id="6179832488876878285">重要なファイルをここに固定できます。この機能を使用するには、ファイルアプリを開いてください。</translation>
 <translation id="6180193585172850042">[戻る] ボタン</translation>
 <translation id="6180651297859206670">[進む] ボタン</translation>
@@ -1564,6 +1566,7 @@
 <translation id="6232416233079464213"><ph name="SESSION_NAME" /> から</translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> がカメラとマイクを使用しています</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">パスワードには有効な文字のみを使用してください</translation>
 <translation id="6240603910551255087">上部ボタン</translation>
 <translation id="6240821072888636753">毎回確認</translation>
 <translation id="6247728804802644171">通知を開きます</translation>
@@ -1694,7 +1697,6 @@
 <translation id="6682029141988159141">クリップボードの内容を貼り付ける</translation>
 <translation id="6683022854667115063">ヘッドフォン</translation>
 <translation id="6686023075541098243">スマートフォンの通知の表示を設定</translation>
-<translation id="6688019813898140556">Esc キーを 5 回</translation>
 <translation id="6694462491298752106">内蔵タッチパッドがオフになりました</translation>
 <translation id="6694973220096431421">Google ドライブを検索</translation>
 <translation id="6696025732084565524">お使いのキーボード（取り外し可能）に重要なアップデートを適用する必要があります</translation>
@@ -1715,6 +1717,7 @@
 <translation id="6751826523481687655">パフォーマンス追跡機能が有効になっています</translation>
 <translation id="6752912906630585008">デスク <ph name="REMOVED_DESK" /> が削除されデスク <ph name="RECEIVE_DESK" /> に統合されました</translation>
 <translation id="6753390234084146956">タブ</translation>
+<translation id="6754918760968695779">クイック インサート</translation>
 <translation id="6757237461819837179">再生中のメディアはありません</translation>
 <translation id="6760438044935091345">ゲーム ダッシュボード</translation>
 <translation id="6768043681523654438">ストレージ</translation>
@@ -1764,6 +1767,7 @@
 <translation id="6921427376813842559">デバイスを更新してください</translation>
 <translation id="6929081673585394903">コントロールを表示</translation>
 <translation id="6931576957638141829">保存先</translation>
+<translation id="6935857786205183008">縦向き</translation>
 <translation id="6942518653766415536">録画形式メニュー</translation>
 <translation id="6945221475159498467">選択</translation>
 <translation id="6945922087561257829">スマートフォンはモバイル ネットワークを使用しています。スマートフォンと Chromebook が同じ Wi-Fi ネットワークに接続されていることを確認してから、もう一度お試しください。<ph name="LEARN_MORE" /></translation>
@@ -1921,9 +1925,6 @@
 デバイスをシャットダウンするには、デバイスの電源ボタンをもう一度長押しします。</translation>
 <translation id="7523420897035067483">フォーカス モード中にサイレント モードを有効にする</translation>
 <translation id="7524043547948122239">Google ToDo リスト</translation>
-<translation id="7524919752437339268">内蔵タッチパッドを無効にします。キーボードまたは別のポインタ デバイスを使用して変更を確定します。
-
-無効にしない場合は 30 秒後に内蔵タッチパッドが再度有効になります。</translation>
 <translation id="7525067979554623046">作成</translation>
 <translation id="7526573455193969409">ネットワークが監視されている可能性があります</translation>
 <translation id="7536035074519304529">IP アドレス: <ph name="ADDRESS" /></translation>
@@ -2010,6 +2011,7 @@
 <translation id="780301667611848630">キャンセル</translation>
 <translation id="7807067443225230855">検索とアシスタント</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">高く評価すると、この提案が気に入ったというフィードバックが送信されます</translation>
 <translation id="7825412704590278437">カレンダーの今後の予定から</translation>
 <translation id="7829386189513694949">電波: 強い</translation>
 <translation id="7830453190047749513"><ph name="PERIPHERAL_NAME" /> のボタン操作やカーソルの速度などをカスタマイズできます</translation>
@@ -2164,6 +2166,7 @@
 <translation id="830868413617744215">Beta</translation>
 <translation id="8314772463905284467">Caps Lock がオンになっています</translation>
 <translation id="8315514906653279104">オンにしています...</translation>
+<translation id="8319634750346253957">低く評価すると、この提案が気に入らなかったというフィードバックが送信されます</translation>
 <translation id="8331351032546853669">ダウンロード保留中</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2348,6 +2351,7 @@
 <translation id="8982906748181120328">周辺ユーザーによる検出</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590"><ph name="IME_NAME" /> を使用しています</translation>
+<translation id="8991648557324317894">キャンセルするには、fn+クイック インサート キーまたは Shift キーを押してください。</translation>
 <translation id="899350903320462459">通知に関する操作を行うには、<ph name="LOGIN_ID" /> でデバイスのロックを解除してください</translation>
 <translation id="8993733019280019776">話していますか？マイクがオフになっています。オンにするにはマイクを選択してください。</translation>
 <translation id="9000771174482730261">ストレージを管理</translation>
@@ -2430,9 +2434,9 @@
 <translation id="974545358917229949"><ph name="QUERY" /> の検索結果 <ph name="RESULT_COUNT" /> 件を表示しています</translation>
 <translation id="981011780479609956">期限なし</translation>
 <translation id="98120814841227350">ドキュメントの末尾に移動する</translation>
-<translation id="98515147261107953">風景</translation>
 <translation id="987589956647469042">モバイルデータはオンです</translation>
 <translation id="989374776391122812">カメラとオーディオのコントロール</translation>
+<translation id="990263227494928142">タッチパッドを有効にするには、Shift キーを 5 回押します</translation>
 <translation id="990277280839877440">「<ph name="WINDOW_TITILE" />」のウィンドウを閉じました。</translation>
 <translation id="993398562350683614">ステップ <ph name="STEP" />/<ph name="TOTAL_STEPS" />。<ph name="PRODUCT_NAME" /> では、アプリを使用してさまざまな作業を行うことができます。アプリはランチャーに表示されます。ランチャー ボタンにフォーカスを移動するには、Alt+Shift+L キーを押します。</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />、<ph name="SUBTEXT" /></translation>

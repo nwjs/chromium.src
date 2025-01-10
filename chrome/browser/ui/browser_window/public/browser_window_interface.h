@@ -5,6 +5,8 @@
 #ifndef CHROME_BROWSER_UI_BROWSER_WINDOW_PUBLIC_BROWSER_WINDOW_INTERFACE_H_
 #define CHROME_BROWSER_UI_BROWSER_WINDOW_PUBLIC_BROWSER_WINDOW_INTERFACE_H_
 
+#include <vector>
+
 #include "base/callback_list.h"
 #include "build/chromeos_buildflags.h"
 #include "content/public/browser/page_navigator.h"
@@ -34,6 +36,7 @@ namespace web_modal {
 class WebContentsModalDialogHost;
 }  // namespace web_modal
 
+class Browser;
 class BrowserActions;
 class BrowserUserEducationInterface;
 class BrowserWindowFeatures;
@@ -77,6 +80,13 @@ class BrowserWindowInterface : public content::PageNavigator {
   // See Browser::IsAttemptingToCloseBrowser() for more details.
   virtual bool IsAttemptingToCloseBrowser() const = 0;
 
+  // Register callbacks invoked when browser has successfully processed its
+  // close request and has been scheduled for deletion.
+  using BrowserDidCloseCallback =
+      base::RepeatingCallback<void(BrowserWindowInterface*)>;
+  virtual base::CallbackListSubscription RegisterBrowserDidClose(
+      BrowserDidCloseCallback callback) = 0;
+
   // Returns the top container view.
   virtual views::View* TopContainer() = 0;
 
@@ -111,6 +121,8 @@ class BrowserWindowInterface : public content::PageNavigator {
   // Whether the window is active.
   // This definition needs to be more precise, as "active" has different
   // semantics and nuance on each platform.
+  // Note that this does not work correctly for mac PWA windows, as those are
+  // hosted in a separate application with a stub in the browser process.
   virtual bool IsActive() = 0;
 
   // Register for these two callbacks to detect changes to IsActive().
@@ -178,6 +190,15 @@ class BrowserWindowInterface : public content::PageNavigator {
   virtual BrowserUserEducationInterface* GetUserEducationInterface() = 0;
 
   virtual web_app::AppBrowserController* GetAppBrowserController() = 0;
+
+  // This is used by features that need to operate on most or all tabs in the
+  // browser window. Do not use this method to find a specific tab.
+  virtual std::vector<tabs::TabInterface*> GetAllTabInterfaces() = 0;
+
+  // Downcasts to a Browser*. The only valid use for this method is when
+  // migrating a large chunk of code to BrowserWindowInterface, to allow
+  // incremental migration.
+  virtual Browser* GetBrowserForMigrationOnly() = 0;
 };
 
 #endif  // CHROME_BROWSER_UI_BROWSER_WINDOW_PUBLIC_BROWSER_WINDOW_INTERFACE_H_

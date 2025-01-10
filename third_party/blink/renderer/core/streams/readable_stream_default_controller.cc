@@ -78,11 +78,9 @@ ReadableStreamDefaultController::ReadableStreamDefaultController(
     const Member<ReadableStreamDefaultController> controller_;
   };
 
-  resolve_function_ = MakeGarbageCollected<ScriptFunction>(
-      script_state,
-      MakeGarbageCollected<CallPullIfNeededResolveFunction>(this));
-  reject_function_ = MakeGarbageCollected<ScriptFunction>(
-      script_state, MakeGarbageCollected<CallPullIfNeededRejectFunction>(this));
+  resolve_function_ =
+      MakeGarbageCollected<CallPullIfNeededResolveFunction>(this);
+  reject_function_ = MakeGarbageCollected<CallPullIfNeededRejectFunction>(this);
 }
 
 void ReadableStreamDefaultController::close(ScriptState* script_state,
@@ -109,8 +107,7 @@ void ReadableStreamDefaultController::close(ScriptState* script_state,
           break;
 
         default:
-          NOTREACHED_IN_MIGRATION();
-          break;
+          NOTREACHED();
       }
     }
     exception_state.ThrowTypeError(errorDescription);
@@ -436,8 +433,7 @@ void ReadableStreamDefaultController::CallPullIfNeeded(
   auto pull_promise =
       controller->pull_algorithm_->Run(script_state, 0, nullptr);
 
-  StreamThenPromise(script_state->GetContext(), pull_promise,
-                    controller->resolve_function_,
+  StreamThenPromise(script_state, pull_promise, controller->resolve_function_,
                     controller->reject_function_);
 }
 
@@ -598,13 +594,9 @@ void ReadableStreamDefaultController::SetUp(
     const Member<ReadableStreamDefaultController> controller_;
   };
 
-  StreamThenPromise(
-      script_state->GetContext(), start_promise,
-      MakeGarbageCollected<ScriptFunction>(
-          script_state, MakeGarbageCollected<ResolveFunction>(controller)),
-
-      MakeGarbageCollected<ScriptFunction>(
-          script_state, MakeGarbageCollected<RejectFunction>(controller)));
+  StreamThenPromise(script_state, start_promise,
+                    MakeGarbageCollected<ResolveFunction>(controller),
+                    MakeGarbageCollected<RejectFunction>(controller));
 }
 
 void ReadableStreamDefaultController::SetUpFromUnderlyingSource(

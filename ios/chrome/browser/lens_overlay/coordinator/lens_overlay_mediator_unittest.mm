@@ -67,6 +67,10 @@
   // NO-OP
 }
 
+- (void)handleSlowRequestHasStarted {
+  // NO-OP
+}
+
 - (void)disconnect {
   self.webState = nil;
 }
@@ -112,10 +116,10 @@ class LensOverlayMediatorTest : public PlatformTest {
     mediator_.resultConsumer = fake_result_consumer_;
     mediator_.omniboxCoordinator = mock_omnibox_coordinator_;
     mediator_.toolbarConsumer = mock_toolbar_consumer_;
-    mediator_.webState = fake_web_state_.get();
     mediator_.lensHandler = fake_chrome_lens_overlay_;
     mediator_.commandsHandler = mock_lens_commands_;
     mediator_.omniboxClient = lens_omnibox_client_.get();
+    [mediator_ lensResultPageDidChangeActiveWebState:fake_web_state_.get()];
   }
 
   ~LensOverlayMediatorTest() override {
@@ -149,13 +153,16 @@ class LensOverlayMediatorTest : public PlatformTest {
 
     // UI is updated.
     OCMExpect([mock_omnibox_coordinator_ setThumbnailImage:[OCMArg any]]);
+    // Expect omnibox text update when accepting an omnibox text.
+    OCMExpect([mock_omnibox_coordinator_ updateOmniboxState]);
+    // Expect omnibox text update after page load.
     OCMExpect([mock_omnibox_coordinator_ updateOmniboxState]);
     OCMExpect([mock_toolbar_consumer_ setCanGoBack:expectCanGoBack]);
+    OCMExpect([mock_toolbar_consumer_ setOmniboxEnabled:YES]);
+    OCMExpect([mock_toolbar_consumer_ setOmniboxEnabled:YES]);
 
     fake_chrome_lens_overlay_.resultURL = resultURL;
-    [mediator_ omniboxDidAcceptText:omniboxText
-                     destinationURL:omniboxURL
-                   thumbnailRemoved:NO];
+    [mediator_ omniboxDidAcceptText:omniboxText destinationURL:omniboxURL];
 
     EXPECT_EQ(fake_result_consumer_.lastPushedURL, resultURL);
     EXPECT_OCMOCK_VERIFY(mock_omnibox_coordinator_);
@@ -170,6 +177,8 @@ class LensOverlayMediatorTest : public PlatformTest {
     OCMExpect([mock_omnibox_coordinator_ setThumbnailImage:[OCMArg any]]);
     OCMExpect([mock_omnibox_coordinator_ updateOmniboxState]);
     OCMExpect([mock_toolbar_consumer_ setCanGoBack:expectCanGoBack]);
+    OCMExpect([mock_toolbar_consumer_ setOmniboxEnabled:YES]);
+    OCMExpect([mock_toolbar_consumer_ setOmniboxEnabled:YES]);
 
     fake_chrome_lens_overlay_.resultURL = resultURL;
     [fake_chrome_lens_overlay_ simulateSelectionUpdate];
@@ -187,6 +196,7 @@ class LensOverlayMediatorTest : public PlatformTest {
     OCMExpect([mock_omnibox_coordinator_ setThumbnailImage:[OCMArg any]]);
     OCMExpect([mock_omnibox_coordinator_ updateOmniboxState]);
     OCMExpect([mock_toolbar_consumer_ setCanGoBack:expectCanGoBack]);
+    OCMExpect([mock_toolbar_consumer_ setOmniboxEnabled:YES]);
 
     fake_chrome_lens_overlay_.resultURL = resultURL;
     [fake_chrome_lens_overlay_ simulateSelectionUpdate];
@@ -201,7 +211,6 @@ class LensOverlayMediatorTest : public PlatformTest {
   /// Simulates a web navigation.
   void SimulateWebNavigation(const GURL& URL, BOOL expectCanGoBack) {
     OCMExpect([mock_toolbar_consumer_ setCanGoBack:expectCanGoBack]);
-    OCMExpect([mock_omnibox_coordinator_ updateOmniboxState]);
 
     web::FakeNavigationContext navigationContext;
     navigationContext.SetWebState(fake_web_state_.get());
@@ -210,7 +219,6 @@ class LensOverlayMediatorTest : public PlatformTest {
     fake_web_state_->OnNavigationStarted(&navigationContext);
     fake_web_state_->OnNavigationFinished(&navigationContext);
 
-    EXPECT_OCMOCK_VERIFY(mock_omnibox_coordinator_);
     EXPECT_OCMOCK_VERIFY(mock_toolbar_consumer_);
   }
 
@@ -218,10 +226,15 @@ class LensOverlayMediatorTest : public PlatformTest {
   void GoBack(const GURL& expectedURL,
               BOOL expectCanGoBack,
               id<ChromeLensOverlayResult> expectedResultReload) {
+    // Expect UI update when starting to go back and on navigation start.
+    OCMExpect([mock_omnibox_coordinator_ updateOmniboxState]);
     OCMExpect([mock_omnibox_coordinator_ updateOmniboxState]);
     OCMExpect([mock_toolbar_consumer_ setCanGoBack:expectCanGoBack]);
-
+    OCMExpect([mock_toolbar_consumer_ setCanGoBack:expectCanGoBack]);
+    OCMExpect([mock_toolbar_consumer_ setOmniboxEnabled:YES]);
+    OCMExpect([mock_toolbar_consumer_ setOmniboxEnabled:YES]);
     if (expectedResultReload) {
+      OCMExpect([mock_omnibox_coordinator_ setThumbnailImage:[OCMArg any]]);
       OCMExpect([mock_omnibox_coordinator_ setThumbnailImage:[OCMArg any]]);
     }
 
@@ -280,8 +293,10 @@ TEST_F(LensOverlayMediatorTest, DefocusOmnibox) {
 
 // Tests simulating web navigation.
 TEST_F(LensOverlayMediatorTest, WebNavigation) {
-  SimulateWebNavigation(/*URL=*/GURL("https://some-url.com"),
-                        /*expectCanGoBack=*/NO);
+  UpdateLensSelection(/*resultURL=*/GURL("https://some-url.com/1"),
+                      /*expectCanGoBack=*/NO);
+  SimulateWebNavigation(/*URL=*/GURL("https://some-url.com/2"),
+                        /*expectCanGoBack=*/YES);
 }
 
 // Tests simulating omnibox navigation.

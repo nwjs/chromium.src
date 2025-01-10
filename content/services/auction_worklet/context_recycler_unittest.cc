@@ -33,6 +33,8 @@
 #include "content/services/auction_worklet/worklet_test_util.h"
 #include "gin/converter.h"
 #include "gin/dictionary.h"
+#include "services/network/public/cpp/shared_storage_utils.h"
+#include "services/network/public/mojom/shared_storage.mojom.h"
 #include "testing/gmock/include/gmock/gmock-matchers.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/numeric/int128.h"
@@ -2134,18 +2136,11 @@ TEST_F(ContextRecyclerTest,
 }
 
 TEST_F(ContextRecyclerTest, SharedStorageMethods) {
-  using RequestType =
-      auction_worklet::TestAuctionSharedStorageHost::RequestType;
   using Request = auction_worklet::TestAuctionSharedStorageHost::Request;
 
+  // Divide the byte limit by two to get the character limit for a key or value.
   const std::string kInvalidValue(
-      static_cast<size_t>(
-          // Divide the byte limit by two to get the character limit for a key
-          // or value.
-          blink::features::kMaxSharedStorageBytesPerOrigin.Get()) /
-              2 +
-          1,
-      '*');
+      network::kMaxSharedStorageBytesPerOrigin / 2u + 1u, '*');
 
   const char kScript[] = R"(
     function testSet(...args) {
@@ -2192,13 +2187,12 @@ TEST_F(ContextRecyclerTest, SharedStorageMethods) {
     EXPECT_THAT(error_msgs, ElementsAre());
 
     EXPECT_THAT(test_shared_storage_host.observed_requests(),
-                ElementsAre(Request{
-                    .type = RequestType::kSet,
-                    .key = u"a",
-                    .value = u"b",
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kBidderGenerateBid}));
+                ElementsAre(Request(
+                    network::mojom::SharedStorageModifierMethod::NewSetMethod(
+                        network::mojom::SharedStorageSetMethod::New(
+                            /*key=*/u"a", /*value=*/u"b",
+                            /*ignore_if_present=*/false)),
+                    mojom::AuctionWorkletFunction::kBidderGenerateBid)));
 
     test_shared_storage_host.ClearObservedRequests();
   }
@@ -2221,13 +2215,12 @@ TEST_F(ContextRecyclerTest, SharedStorageMethods) {
     EXPECT_THAT(error_msgs, ElementsAre());
 
     EXPECT_THAT(test_shared_storage_host.observed_requests(),
-                ElementsAre(Request{
-                    .type = RequestType::kSet,
-                    .key = u"a",
-                    .value = u"b",
-                    .ignore_if_present = true,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kBidderGenerateBid}));
+                ElementsAre(Request(
+                    network::mojom::SharedStorageModifierMethod::NewSetMethod(
+                        network::mojom::SharedStorageSetMethod::New(
+                            /*key=*/u"a", /*value=*/u"b",
+                            /*ignore_if_present=*/true)),
+                    mojom::AuctionWorkletFunction::kBidderGenerateBid)));
 
     test_shared_storage_host.ClearObservedRequests();
   }
@@ -2244,14 +2237,13 @@ TEST_F(ContextRecyclerTest, SharedStorageMethods) {
              gin::ConvertToV8(helper_->isolate(), std::string("b"))}));
     EXPECT_THAT(error_msgs, ElementsAre());
 
-    EXPECT_THAT(test_shared_storage_host.observed_requests(),
-                ElementsAre(Request{
-                    .type = RequestType::kAppend,
-                    .key = u"a",
-                    .value = u"b",
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kBidderGenerateBid}));
+    EXPECT_THAT(
+        test_shared_storage_host.observed_requests(),
+        ElementsAre(Request(
+            network::mojom::SharedStorageModifierMethod::NewAppendMethod(
+                network::mojom::SharedStorageAppendMethod::New(
+                    /*key=*/u"a", /*value=*/u"b")),
+            mojom::AuctionWorkletFunction::kBidderGenerateBid)));
 
     test_shared_storage_host.ClearObservedRequests();
   }
@@ -2267,14 +2259,13 @@ TEST_F(ContextRecyclerTest, SharedStorageMethods) {
             {gin::ConvertToV8(helper_->isolate(), std::string("a"))}));
     EXPECT_THAT(error_msgs, ElementsAre());
 
-    EXPECT_THAT(test_shared_storage_host.observed_requests(),
-                ElementsAre(Request{
-                    .type = RequestType::kDelete,
-                    .key = u"a",
-                    .value = std::u16string(),
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kBidderGenerateBid}));
+    EXPECT_THAT(
+        test_shared_storage_host.observed_requests(),
+        ElementsAre(Request(
+            network::mojom::SharedStorageModifierMethod::NewDeleteMethod(
+                network::mojom::SharedStorageDeleteMethod::New(
+                    /*key=*/u"a")),
+            mojom::AuctionWorkletFunction::kBidderGenerateBid)));
 
     test_shared_storage_host.ClearObservedRequests();
   }
@@ -2291,13 +2282,10 @@ TEST_F(ContextRecyclerTest, SharedStorageMethods) {
     EXPECT_THAT(error_msgs, ElementsAre());
 
     EXPECT_THAT(test_shared_storage_host.observed_requests(),
-                ElementsAre(Request{
-                    .type = RequestType::kClear,
-                    .key = std::u16string(),
-                    .value = std::u16string(),
-                    .ignore_if_present = false,
-                    .source_auction_worklet_function =
-                        mojom::AuctionWorkletFunction::kBidderGenerateBid}));
+                ElementsAre(Request(
+                    network::mojom::SharedStorageModifierMethod::NewClearMethod(
+                        network::mojom::SharedStorageClearMethod::New()),
+                    mojom::AuctionWorkletFunction::kBidderGenerateBid)));
 
     test_shared_storage_host.ClearObservedRequests();
   }
@@ -5449,8 +5437,7 @@ class ContextRecyclerRealTimeReportingEnabledTest : public ContextRecyclerTest {
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-// Exercise RealTimeReportingBindings, and make sure they are not available when
-// kCookieDeprecationFacilitatedTesting is enabled.
+// Exercise RealTimeReportingBindings.
 TEST_F(ContextRecyclerRealTimeReportingEnabledTest, RealTimeReportingBindings) {
   const char kScript[] = R"(
     function test(args) {
@@ -5778,81 +5765,6 @@ class ContextRecyclerRealTimeReportingDisabledTest
 
 // Exercise RealTimeReportingBindings, and make sure they reset properly.
 TEST_F(ContextRecyclerRealTimeReportingDisabledTest,
-       RealTimeReportingBindings) {
-  const char kScript[] = R"(
-    function test(args) {
-      realTimeReporting.contributeToHistogram(123,args);
-    }
-    function testLatency(args) {
-      realTimeReporting.contributeOnWorkletLatency(200, args);
-    }
-  )";
-
-  v8::Local<v8::UnboundScript> script = Compile(kScript);
-  ASSERT_FALSE(script.IsEmpty());
-
-  ContextRecycler context_recycler(helper_.get());
-  {
-    ContextRecyclerScope scope(context_recycler);  // Initialize context
-    context_recycler.AddRealTimeReportingBindings();
-  }
-
-  {
-    ContextRecyclerScope scope(context_recycler);
-    std::vector<std::string> error_msgs;
-
-    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
-    dict.Set("priorityWeight", 0.5);
-
-    Run(scope, script, "test", error_msgs,
-        gin::ConvertToV8(helper_->isolate(), dict));
-    EXPECT_THAT(
-        error_msgs,
-        ElementsAre("https://example.test/script.js:3 Uncaught ReferenceError: "
-                    "realTimeReporting is not defined."));
-
-    EXPECT_TRUE(context_recycler.real_time_reporting_bindings()
-                    ->TakeRealTimeReportingContributions()
-                    .empty());
-  }
-
-  {
-    ContextRecyclerScope scope(context_recycler);
-    std::vector<std::string> error_msgs;
-
-    gin::Dictionary dict = gin::Dictionary::CreateEmpty(helper_->isolate());
-    dict.Set("priorityWeight", 0.5);
-    dict.Set("latencyThreshold", 200);
-
-    Run(scope, script, "testLatency", error_msgs,
-        gin::ConvertToV8(helper_->isolate(), dict));
-    EXPECT_THAT(
-        error_msgs,
-        ElementsAre("https://example.test/script.js:6 Uncaught ReferenceError: "
-                    "realTimeReporting is not defined."));
-
-    EXPECT_TRUE(context_recycler.real_time_reporting_bindings()
-                    ->TakeRealTimeReportingContributions()
-                    .empty());
-  }
-}
-
-class ContextRecyclerRealTimeReportingAndCookieDeprecationEnabledTest
-    : public ContextRecyclerTest {
- public:
-  ContextRecyclerRealTimeReportingAndCookieDeprecationEnabledTest() {
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{blink::features::kFledgeRealTimeReporting,
-                              features::kCookieDeprecationFacilitatedTesting},
-        /*disabled_features=*/{});
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-// Exercise RealTimeReportingBindings, and make sure they reset properly.
-TEST_F(ContextRecyclerRealTimeReportingAndCookieDeprecationEnabledTest,
        RealTimeReportingBindings) {
   const char kScript[] = R"(
     function test(args) {

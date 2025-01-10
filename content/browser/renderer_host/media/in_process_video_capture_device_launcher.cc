@@ -4,6 +4,7 @@
 
 #include "content/browser/renderer_host/media/in_process_video_capture_device_launcher.h"
 
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -20,10 +21,10 @@
 #include "content/browser/media/capture/native_screen_capture_picker.h"
 #include "content/browser/renderer_host/media/in_process_launched_video_capture_device.h"
 #include "content/browser/renderer_host/media/video_capture_controller.h"
-#include "content/common/buildflags.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/desktop_media_id.h"
+#include "content/public/common/buildflags.h"
 #include "content/public/common/content_features.h"
 #include "media/base/media_switches.h"
 #include "media/capture/video/fake_video_capture_device.h"
@@ -125,8 +126,7 @@ void IncrementDesktopCaptureCounters(const DesktopMediaID& device_id) {
                                 : TAB_VIDEO_CAPTURER_CREATED_WITHOUT_AUDIO);
       break;
     case DesktopMediaID::TYPE_NONE:
-      NOTREACHED_IN_MIGRATION();
-      break;
+      NOTREACHED();
   }
 }
 
@@ -362,13 +362,17 @@ void InProcessVideoCaptureDeviceLauncher::LaunchDeviceAsync(
 #endif  // BUILDFLAG(ENABLE_SCREEN_CAPTURE)
 
     default:
-      NOTREACHED_IN_MIGRATION() << "unsupported stream type=" << stream_type;
-      start_capture_closure =
-          base::BindOnce(std::move(after_start_capture_callback), nullptr);
+      NOTREACHED() << "unsupported stream type=" << stream_type;
   }
 
+// TODO(pbos): Should this entire method be gone when
+// !BUILDFLAG(ENABLE_SCREEN_CAPTURE)? Right now we're getting dead-code warnings
+// if we include below code outside ENABLE_SCREEN_CAPTURE builds as all cases
+// above are NOTREACHED() then.
+#if BUILDFLAG(ENABLE_SCREEN_CAPTURE)
   state_ = State::DEVICE_START_IN_PROGRESS;
   device_task_runner_->PostTask(FROM_HERE, std::move(start_capture_closure));
+#endif
 }
 
 void InProcessVideoCaptureDeviceLauncher::AbortLaunch() {
@@ -408,8 +412,7 @@ InProcessVideoCaptureDeviceLauncher::CreateDeviceClient(
                               receiver_on_io_thread)));
 #else
   return std::make_unique<media::VideoCaptureDeviceClient>(
-      std::move(receiver), std::move(buffer_pool),
-      media::VideoEffectsContext({}));
+      std::move(receiver), std::move(buffer_pool), std::nullopt);
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 }
 

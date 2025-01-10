@@ -283,8 +283,6 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
 
   bool CopyToPlatformMailbox(gpu::raster::RasterInterface*,
                              gpu::Mailbox dst_mailbox,
-                             GLenum dst_texture_target,
-                             bool flip_y,
                              const gfx::Point& dst_texture_offset,
                              const gfx::Rect& src_sub_rectangle,
                              SourceDrawingBuffer src_buffer);
@@ -292,7 +290,6 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
   bool CopyToVideoFrame(
       WebGraphicsContext3DVideoFramePool* frame_pool,
       SourceDrawingBuffer src_buffer,
-      bool src_origin_is_top_left,
       const gfx::ColorSpace& dst_color_space,
       WebGraphicsContext3DVideoFramePool::FrameReadyCallback callback);
 
@@ -471,10 +468,8 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
   using CopyFunctionRef = base::FunctionRef<std::optional<gpu::SyncToken>(
       scoped_refptr<gpu::ClientSharedImage>,
       const gpu::SyncToken&,
-      viz::SharedImageFormat,
       SkAlphaType alpha_type,
-      const gfx::Size&,
-      const gfx::ColorSpace&)>;
+      const gfx::Size&)>;
   bool CopyToPlatformInternal(gpu::InterfaceBase* dst_interface,
                               bool dst_is_unpremul_gl,
                               SourceDrawingBuffer src_buffer,

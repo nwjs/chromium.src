@@ -232,6 +232,9 @@ DOMArrayBufferView::ViewType GetArrayBufferViewType(
       return DOMArrayBufferView::ViewType::kTypeInt8;
     case webnn::OperandDataType::kUint8:
       return DOMArrayBufferView::ViewType::kTypeUint8;
+    case webnn::OperandDataType::kInt4:
+    case webnn::OperandDataType::kUint4:
+      return DOMArrayBufferView::ViewType::kTypeUint8;
   }
 }
 
@@ -256,6 +259,10 @@ Vector<uint32_t> CreateLayerNormalizationDefaultAxes(const wtf_size_t rank) {
     std::iota(default_axes.begin(), default_axes.end(), 1);
   }
   return default_axes;
+}
+
+Vector<uint32_t> CreateSliceDefaultStrides(wtf_size_t rank) {
+  return Vector<uint32_t>(rank, 1);
 }
 
 base::expected<void, String> ValidateFilterLayout(
@@ -346,6 +353,10 @@ V8MLOperandDataType ToBlinkDataType(webnn::OperandDataType data_type) {
       return V8MLOperandDataType(V8MLOperandDataType::Enum::kInt8);
     case webnn::OperandDataType::kUint8:
       return V8MLOperandDataType(V8MLOperandDataType::Enum::kUint8);
+    case webnn::OperandDataType::kInt4:
+      return V8MLOperandDataType(V8MLOperandDataType::Enum::kInt4);
+    case webnn::OperandDataType::kUint4:
+      return V8MLOperandDataType(V8MLOperandDataType::Enum::kUint4);
   }
 }
 
@@ -367,6 +378,10 @@ webnn::OperandDataType FromBlinkDataType(V8MLOperandDataType::Enum data_type) {
       return webnn::OperandDataType::kInt8;
     case V8MLOperandDataType::Enum::kUint8:
       return webnn::OperandDataType::kUint8;
+    case V8MLOperandDataType::Enum::kInt4:
+      return webnn::OperandDataType::kInt4;
+    case V8MLOperandDataType::Enum::kUint4:
+      return webnn::OperandDataType::kUint4;
   }
 }
 
@@ -391,34 +406,6 @@ bool IsLogicalBinaryOperator(
     case webnn::mojom::blink::ElementWiseBinary::Kind::kLogicalXor:
       return true;
   }
-}
-
-// Allows a tensor's shape to be specified through either the
-// `MLOperandDescriptor`'s `shape` or `dimensions` fields. This code exists for
-// now to give callers the opportunity to migrate their code to use `shape`.
-//
-// TODO(crbug.com/365813262): Remove this function after about a milestone.
-base::expected<Vector<uint32_t>, std::string> GetShapeFromDescriptor(
-    ScriptState* script_state,
-    const MLOperandDescriptor& desc) {
-  if (!desc.hasDimensions()) {
-    return desc.shape();
-  }
-
-  if (desc.shape() != desc.dimensions()) {
-    if (!desc.shape().empty()) {
-      return base::unexpected(
-          "Invalid operand descriptor: shape and dimensions do not match.");
-    } else {
-      LogConsoleWarning(
-          script_state,
-          "WARNING: MLOperandDescriptor.dimensions is deprecated. "
-          "Use MLOperandDescriptor.shape instead.",
-          mojom::blink::ConsoleMessageSource::kDeprecation);
-    }
-  }
-
-  return desc.dimensions();
 }
 
 void LogConsoleWarning(ScriptState* script_state,

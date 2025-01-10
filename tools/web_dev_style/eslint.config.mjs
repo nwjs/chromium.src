@@ -38,8 +38,7 @@ export default [
       // conformance.
       'chrome/test/data/extensions/**/*',
 
-      // TODO(https://crbug.com/370730323): 1-month exception. This can be
-      // removed in November 2024.
+      // Un-ignore CrOS Settings dir to enable linting.
       '!chrome/browser/resources/ash/settings/**/*',
     ],
   },
@@ -183,6 +182,14 @@ export default [
         'error', {
           let : 'never',
           const : 'never',
+        }
+      ],
+
+      // https://google.github.io/styleguide/tsguide.html#equality-checks
+      // https://google.github.io/styleguide/jsguide.html#features-equality-checks
+      eqeqeq: [
+        'error', 'always', {
+          null: 'ignore',
         }
       ],
 
@@ -398,26 +405,6 @@ export default [
     },
   },
   {
-    // We do not allow per-directory custom eslint rules. This section exists
-    // for rules that are in the process of being applied to the whole code
-    // base.
-    files: [
-      'chrome/browser/resources/**/*.[jt]s',
-      'chrome/test/data/pdf/**/*.ts',
-      'chrome/test/data/webui/**/*.[jt]s',
-      'content/browser/resources/**/*.[jt]s',
-      'ui/webui/resources/**/*.[jt]s',
-    ],
-
-    rules: {
-      eqeqeq: [
-        'error', 'always', {
-          null: 'ignore',
-        }
-      ],
-    },
-  },
-  {
     // Conceptually these rules can be applied to the whole code base, but
     // they're only current applicable to WebUI tests. Moving them here is a
     // performance optimization.
@@ -440,40 +427,4 @@ export default [
       ]
     }
   },
-  {
-    // 1-month exception for //ui/file_manager. This can be removed in November
-    // 2024. http://b/370371134.
-    files: ['ui/file_manager/**/*.[jt]s'],
-
-    rules: {
-      'no-console': 'off',
-      'no-restricted-syntax': 'off',
-    },
-  },
-  {
-    // 1-month exception for //chrome/browser/resources/ash/settings. This can
-    // be removed November 15 2024.
-    files: ['chrome/browser/resources/ash/settings/**/*.[jt]s'],
-
-    rules: {
-      '@typescript-eslint/consistent-type-imports': 'off',
-
-      '@typescript-eslint/explicit-function-return-type': [
-        'error', {
-          allowExpressions: true,
-          allowedNames: ['is', 'template', 'properties', 'observers'],
-        }
-      ],
-
-      '@typescript-eslint/no-inferrable-types': [
-        'error', {
-          ignoreParameters: true,
-          ignoreProperties: true,
-        }
-      ],
-
-      'prefer-arrow-callback': 'error',
-      'quote-props': ['error', 'consistent-as-needed'],
-    },
-  }
 ];

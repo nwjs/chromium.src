@@ -32,6 +32,7 @@ import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tab.TabSupplierObserver;
+import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgePadAdjuster;
 import org.chromium.components.browser_ui.edge_to_edge.EdgeToEdgeStateProvider;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
@@ -165,7 +166,6 @@ public class EdgeToEdgeControllerImpl
                         updateWebContentsObserver(tab);
                     }
                 };
-        mInsetObserver = mWindowAndroid.getInsetObserver();
         mBrowserControlsStateProvider = browserControlsStateProvider;
         mBrowserControlsStateProvider.addObserver(this);
 
@@ -179,6 +179,10 @@ public class EdgeToEdgeControllerImpl
         mFullscreenManager = fullscreenManager;
         mFullscreenManager.addObserver(this);
 
+        mInsetObserver = mWindowAndroid.getInsetObserver();
+        assert mInsetObserver != null
+                : "The EdgeToEdgeControllerImpl needs access to a valid InsetObserver to listen to"
+                        + " the system insets!";
         mWindowInsetsConsumer = this::handleWindowInsets;
         mInsetObserver.addInsetsConsumer(mWindowInsetsConsumer);
 
@@ -479,12 +483,9 @@ public class EdgeToEdgeControllerImpl
         // In fullscreen mode, there are cases the content isn't being drawn under the system
         // bar (e.g. during multi-window mode). In this case, adjust the padding based on the
         // visibility rects. See https://crbug.com/359659885
-        // The exception of this workaround is in PiP mode. See https://crbug.com/377809718.
-        if (mFullscreenManager.getPersistentFullscreenMode()
-                && !mActivity.isInPictureInPictureMode()) {
-            topPadding = Math.max(0, mCachedWindowVisibleRect.top - mCachedContentVisibleRect.top);
-            bottomPadding =
-                    Math.max(0, mCachedContentVisibleRect.bottom - mCachedWindowVisibleRect.bottom);
+        if (mFullscreenManager.getPersistentFullscreenMode()) {
+            topPadding = 0;
+            bottomPadding = 0;
         }
 
         // Use Insets to store the paddings as it is immutable.

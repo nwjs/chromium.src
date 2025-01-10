@@ -101,7 +101,7 @@ class MockVideoEncoderWrapper : public media::VideoEncoder {
   void ChangeOptions(const Options& options,
                      OutputCB output_cb,
                      EncoderStatusCB done_cb) override {
-    NOTREACHED_IN_MIGRATION();
+    NOTREACHED();
   }
   void Flush(EncoderStatusCB done_cb) override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -690,6 +690,11 @@ INSTANTIATE_TEST_SUITE_P(CodecProfile,
                          ::testing::Values(media::H264PROFILE_MIN,
                                            media::VP8PROFILE_MIN,
                                            media::VP9PROFILE_MIN,
-                                           media::AV1PROFILE_MIN));
+                                           media::AV1PROFILE_MIN
+#if BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
+                                           ,
+                                           media::HEVCPROFILE_MIN
+#endif
+                                           ));
 
 }  // namespace blink

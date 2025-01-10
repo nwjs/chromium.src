@@ -5,6 +5,7 @@
 #include "chromeos/ash/components/boca/babelorca/transcript_receiver.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -24,7 +25,6 @@
 #include "chromeos/ash/components/boca/babelorca/tachyon_streaming_client.h"
 #include "chromeos/ash/services/boca/babelorca/mojom/tachyon_parsing_service.mojom.h"
 #include "media/mojo/mojom/speech_recognition_result.h"
-#include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_url_loader_factory.h"
@@ -42,10 +42,17 @@ constexpr base::TimeDelta kInitialBackoff = base::Milliseconds(250);
 
 class TranscriptReceiverTest : public testing::Test {
  protected:
-  void SetUp() override {
+  TranscriptReceiverTest()
+      : data_provider_("session-id",
+                       "tachyon-token",
+                       "group-id",
+                       "sender@email.com") {}
+
+  void SetUp() override { CreateReceiver(&data_provider_); }
+
+  void CreateReceiver(FakeTachyonRequestDataProvider* data_provider) {
     receiver_ = std::make_unique<TranscriptReceiver>(
-        url_loader_factory_.GetSafeWeakWrapper(), TRAFFIC_ANNOTATION_FOR_TESTS,
-        &data_provider_,
+        url_loader_factory_.GetSafeWeakWrapper(), data_provider,
         base::BindLambdaForTesting(
             [this](
                 scoped_refptr<network::SharedURLLoaderFactory> loader_factory,
@@ -74,8 +81,8 @@ class TranscriptReceiverTest : public testing::Test {
 
   mojom::BabelOrcaMessagePtr CreateMessage(const std::string& text,
                                            bool is_final) {
-    return CreateMessage(text, is_final, data_provider_.sender_email(),
-                         data_provider_.session_id());
+    return CreateMessage(text, is_final, data_provider_.sender_email().value(),
+                         data_provider_.session_id().value());
   }
 
   void VerifyMessage(ResultFuture* result_future,
@@ -125,11 +132,11 @@ TEST_F(TranscriptReceiverTest, VerifyEmailAndSessionId) {
                             failure_future.GetCallback());
 
   on_message_callback_.Run(CreateMessage("random text", /*is_final=*/false,
-                                         data_provider_.sender_email(),
+                                         data_provider_.sender_email().value(),
                                          "wrong session id"));
   on_message_callback_.Run(CreateMessage("other random text",
                                          /*is_final=*/false, "wrong@email.com",
-                                         data_provider_.session_id()));
+                                         data_provider_.session_id().value()));
   on_message_callback_.Run(CreateMessage(kText1, /*is_final=*/true));
 
   VerifyMessage(&result_future, kText1, /*is_final=*/true);
@@ -278,7 +285,8 @@ TEST_F(TranscriptReceiverTest, OneMessageWithMultipleTranscripts) {
       /*transcript_id=*/1234, /*text_index=*/0, kText1, /*is_final=*/false,
       kLanguage);
   on_message_callback_.Run(mojom::BabelOrcaMessage::New(
-      data_provider_.sender_email(), data_provider_.session_id(),
+      data_provider_.sender_email().value(),
+      data_provider_.session_id().value(),
       /*init_timestamp_ms=*/999999, /*order=*/1,
       /*previous_transcript_part=*/nullptr,
       /*current_transcript_part=*/transcript->Clone()));
@@ -287,7 +295,8 @@ TEST_F(TranscriptReceiverTest, OneMessageWithMultipleTranscripts) {
   // chunk.
   transcript->is_final = true;
   on_message_callback_.Run(mojom::BabelOrcaMessage::New(
-      data_provider_.sender_email(), data_provider_.session_id(),
+      data_provider_.sender_email().value(),
+      data_provider_.session_id().value(),
       /*init_timestamp_ms=*/999999, /*order=*/2,
       /*previous_transcript_part=*/std::move(transcript),
       /*current_transcript_part=*/
@@ -314,7 +323,8 @@ TEST_F(TranscriptReceiverTest, NewRequestResetsTranscriptBuilder) {
       /*transcript_id=*/1234, /*text_index=*/0, kText1, /*is_final=*/false,
       kLanguage);
   on_message_callback_.Run(mojom::BabelOrcaMessage::New(
-      data_provider_.sender_email(), data_provider_.session_id(),
+      data_provider_.sender_email().value(),
+      data_provider_.session_id().value(),
       /*init_timestamp_ms=*/999999, /*order=*/1,
       /*previous_transcript_part=*/nullptr,
       /*current_transcript_part=*/transcript->Clone()));
@@ -323,7 +333,8 @@ TEST_F(TranscriptReceiverTest, NewRequestResetsTranscriptBuilder) {
                             failure_future.GetCallback());
   transcript->is_final = true;
   on_message_callback_.Run(mojom::BabelOrcaMessage::New(
-      data_provider_.sender_email(), data_provider_.session_id(),
+      data_provider_.sender_email().value(),
+      data_provider_.session_id().value(),
       /*init_timestamp_ms=*/999999, /*order=*/2,
       /*previous_transcript_part=*/std::move(transcript),
       /*current_transcript_part=*/
@@ -343,8 +354,44 @@ TEST_F(TranscriptReceiverTest, RequestHasTachyonToken) {
 
   ASSERT_TRUE(request.ParseFromString(authed_client_ptr_->GetRequestString()));
   EXPECT_EQ(request.header().auth_token_payload(),
-            data_provider_.tachyon_token());
+            data_provider_.tachyon_token().value());
 }
+
+struct TranscriptReceiverMissingDataTestCase {
+  std::string test_name;
+  std::optional<std::string> session_id;
+  std::optional<std::string> tachyon_token;
+  std::optional<std::string> sender_email;
+};
+
+class TranscriptReceiverMissingDataTest
+    : public TranscriptReceiverTest,
+      public testing::WithParamInterface<
+          TranscriptReceiverMissingDataTestCase> {};
+
+TEST_P(TranscriptReceiverMissingDataTest, FailWithMissing) {
+  base::test::TestFuture<void> failure_future;
+  FakeTachyonRequestDataProvider data_provider(
+      GetParam().session_id, GetParam().tachyon_token, "group_id",
+      GetParam().sender_email);
+  CreateReceiver(&data_provider);
+
+  receiver_->StartReceiving(base::DoNothing(), failure_future.GetCallback());
+
+  EXPECT_TRUE(failure_future.IsReady());
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    TranscriptReceiverMissingDataTests,
+    TranscriptReceiverMissingDataTest,
+    testing::ValuesIn<TranscriptReceiverMissingDataTestCase>(
+        {{"SessionId", std::nullopt, "tachyon-token", "sender@email.com"},
+         {"TachyonToken", "session_id", std::nullopt, "sender@email.com"},
+         {"SenderEmail", "session_id", "tachyon-token", std::nullopt}}),
+    [](const testing::TestParamInfo<
+        TranscriptReceiverMissingDataTest::ParamType>& info) {
+      return info.param.test_name;
+    });
 
 }  // namespace
 }  // namespace ash::babelorca

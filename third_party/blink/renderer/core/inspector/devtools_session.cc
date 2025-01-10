@@ -320,7 +320,7 @@ void DevToolsSession::FallThrough(int call_id,
                                   crdtp::span<uint8_t> method,
                                   crdtp::span<uint8_t> message) {
   // There's no other layer to handle the command.
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void DevToolsSession::sendResponse(
@@ -427,7 +427,7 @@ blink::mojom::blink::DevToolsMessagePtr DevToolsSession::FinalizeMessage(
     message_to_send = std::move(json);
   }
   auto mojo_msg = mojom::blink::DevToolsMessage::New();
-  mojo_msg->data = std::move(message_to_send);
+  mojo_msg->data = {message_to_send};
   return mojo_msg;
 }
 

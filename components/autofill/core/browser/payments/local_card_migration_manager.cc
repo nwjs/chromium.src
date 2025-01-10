@@ -335,7 +335,7 @@ void LocalCardMigrationManager::OnDidMigrateLocalCards(
             MigratableCreditCard::MigrationStatus::SUCCESS_ON_UPLOAD);
         migrated_cards.push_back(card.credit_card());
       } else {
-        NOTREACHED_IN_MIGRATION();
+        NOTREACHED();
       }
     }
 

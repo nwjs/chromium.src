@@ -16,6 +16,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/no_destructor.h"
 #include "base/notreached.h"
+#include "base/supports_user_data.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/values.h"
@@ -23,6 +24,7 @@
 #include "build/buildflag.h"
 #include "build/chromeos_buildflags.h"
 #include "content/browser/ai/echo_ai_manager_impl.h"
+#include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/public/browser/anchor_element_preconnect_delegate.h"
 #include "content/public/browser/authenticator_request_client_delegate.h"
 #include "content/public/browser/browser_context.h"
@@ -247,7 +249,11 @@ ContentBrowserClient::DetermineAddressSpaceFromURL(const GURL& url) {
   return network::mojom::IPAddressSpace::kUnknown;
 }
 
-bool ContentBrowserClient::LogWebUIUrl(const GURL& web_ui_url) {
+bool ContentBrowserClient::LogWebUICreated(const GURL& web_ui_url) {
+  return false;
+}
+
+bool ContentBrowserClient::LogWebUIShown(const GURL& web_ui_url) {
   return false;
 }
 
@@ -484,6 +490,11 @@ bool ContentBrowserClient::AllowCompressionDictionaryTransport(
   return true;
 }
 
+bool ContentBrowserClient::AllowSharedWorkerBlobURLFix(
+    BrowserContext* context) {
+  return true;
+}
+
 bool ContentBrowserClient::OverrideWebPreferencesAfterNavigation(
     WebContents* web_contents,
     blink::web_pref::WebPreferences* prefs) {
@@ -557,6 +568,7 @@ std::string ContentBrowserClient::GetWebBluetoothBlocklist() {
 }
 
 bool ContentBrowserClient::IsInterestGroupAPIAllowed(
+    content::BrowserContext* browser_context,
     content::RenderFrameHost* render_frame_host,
     InterestGroupApiOperation operation,
     const url::Origin& top_frame_origin,
@@ -632,6 +644,14 @@ bool ContentBrowserClient::IsSharedStorageSelectURLAllowed(
     const url::Origin& accessing_origin,
     std::string* out_debug_message,
     bool* out_block_is_site_setting_specific) {
+  return false;
+}
+
+bool ContentBrowserClient::IsFencedStorageReadAllowed(
+    content::BrowserContext* browser_context,
+    content::RenderFrameHost* rfh,
+    const url::Origin& top_frame_origin,
+    const url::Origin& accessing_origin) {
   return false;
 }
 
@@ -939,14 +959,6 @@ void ContentBrowserClient::RemovePresentationObserver(
     PresentationObserver* observer,
     WebContents* web_contents) {}
 
-bool ContentBrowserClient::AddPrivacySandboxAttestationsObserver(
-    PrivacySandboxAttestationsObserver* observer) {
-  return true;
-}
-
-void ContentBrowserClient::RemovePrivacySandboxAttestationsObserver(
-    PrivacySandboxAttestationsObserver* observer) {}
-
 void ContentBrowserClient::OpenURL(
     content::SiteInstance* site_instance,
     const content::OpenURLParams& params,
@@ -1105,7 +1117,7 @@ void ContentBrowserClient::CreateWebSocket(
     mojo::PendingRemote<network::mojom::WebSocketHandshakeClient>
         handshake_client) {
   // NOTREACHED because WillInterceptWebSocket returns false.
-  NOTREACHED_IN_MIGRATION();
+  NOTREACHED();
 }
 
 void ContentBrowserClient::WillCreateWebTransport(
@@ -1783,9 +1795,9 @@ bool ContentBrowserClient::ShouldSuppressAXLoadComplete(RenderFrameHost* rfh) {
 
 void ContentBrowserClient::BindAIManager(
     BrowserContext* browser_context,
-    std::variant<RenderFrameHost*, base::SupportsUserData*> context,
+    base::SupportsUserData* context_user_data,
     mojo::PendingReceiver<blink::mojom::AIManager> receiver) {
-  EchoAIManagerImpl::Create(context, std::move(receiver));
+  EchoAIManagerImpl::Create(*context_user_data, std::move(receiver));
 }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -1807,17 +1819,6 @@ bool ContentBrowserClient::IsSaveableNavigation(
 #if BUILDFLAG(IS_WIN)
 void ContentBrowserClient::OnUiaProviderRequested(bool uia_provider_enabled) {}
 #endif
-
-base::ReadOnlySharedMemoryRegion
-ContentBrowserClient::GetPerformanceScenarioRegionForProcess(
-    RenderProcessHost* process_host) {
-  return base::ReadOnlySharedMemoryRegion();
-}
-
-base::ReadOnlySharedMemoryRegion
-ContentBrowserClient::GetGlobalPerformanceScenarioRegion() {
-  return base::ReadOnlySharedMemoryRegion();
-}
 
 bool ContentBrowserClient::AllowNonActivatedCrossOriginPaintHolding() {
   return false;

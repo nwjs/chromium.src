@@ -65,12 +65,6 @@ BASE_FEATURE(kCertVerificationNetworkTime,
              "CertVerificationNetworkTime",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables using the ClosedTabCache to instantly restore recently closed tabs
-// using the "Reopen Closed Tab" button.
-BASE_FEATURE(kClosedTabCache,
-             "ClosedTabCache",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 #if BUILDFLAG(IS_LINUX)
 // Enables usage of os_crypt_async::SecretPortalKeyProvider.  Once
 // `kSecretPortalKeyProviderUseForEncryption` is enabled, this flag cannot be
@@ -140,20 +134,6 @@ BASE_FEATURE(kFlexOrgManagementDisclosure,
 BASE_FEATURE(kIncomingCallNotifications,
              "IncomingCallNotifications",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Controls whether the static key pinning list can be updated via component
-// updater.
-BASE_FEATURE(kKeyPinningComponentUpdater,
-             "KeyPinningComponentUpdater",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-#if BUILDFLAG(IS_WIN)
-// Enables locking the cookie database for profiles.
-// TODO(crbug.com/40901624): Remove after fully launched.
-BASE_FEATURE(kLockProfileCookieDatabase,
-             "LockProfileCookieDatabase",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_WIN)
 
 #if !BUILDFLAG(IS_ANDROID)
 // Adds a "Snooze" action to mute notifications during screen sharing sessions.

@@ -50,7 +50,6 @@
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/strings/grit/components_strings.h"
-#include "components/sync/base/features.h"
 #include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui_data_source.h"
@@ -142,9 +141,7 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
 
   static const webui::LocalizedString kStrings[] = {
       {"accountStorageToggleLabel",
-       base::FeatureList::IsEnabled(syncer::kSyncWebauthnCredentials)
-           ? IDS_PASSWORD_MANAGER_UI_ACCOUNT_STORAGE_WITH_PASSKEYS_TOGGLE_LABEL
-           : IDS_PASSWORD_MANAGER_UI_ACCOUNT_STORAGE_TOGGLE_LABEL},
+       IDS_PASSWORD_MANAGER_UI_ACCOUNT_STORAGE_WITH_PASSKEYS_TOGGLE_LABEL},
       {"accountStorageToggleSubLabel",
        IDS_PASSWORD_MANAGER_UI_ACCOUNT_STORAGE_TOGGLE_SUB_LABEL},
       {"addPassword", IDS_PASSWORD_MANAGER_UI_ADD_PASSWORD_BUTTON},
@@ -424,13 +421,6 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
       {"save", IDS_SAVE},
       {"savePasswordsLabel",
        IDS_PASSWORD_MANAGER_UI_SAVE_PASSWORDS_TOGGLE_LABEL},
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
-      {"screenlockReauthPromoConfirmation",
-       IDS_PASSWORD_MANAGER_UI_SCREENLOCK_REAUTH_PROMO_CARD_CONFIRMATION},
-#elif BUILDFLAG(IS_CHROMEOS_ASH)
-      {"screenlockReauthPromoConfirmation",
-       IDS_PASSWORD_MANAGER_UI_SCREENLOCK_REAUTH_PROMO_CARD_CONFIRMATION_CHROMEOS},
-#endif
       {"share", IDS_PASSWORD_MANAGER_UI_SHARE},
       {"shareDialogTitle", IDS_PASSWORD_MANAGER_UI_SHARE_DIALOG_TITLE},
       {"shareDialogLoadingTitle",
@@ -660,11 +650,8 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
 
   source->AddBoolean("canAddShortcut", web_app::AreWebAppsEnabled(profile));
 
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-  source->AddBoolean(
-      "isBatchUploadDesktopEnabled",
-      base::FeatureList::IsEnabled(switches::kBatchUploadDesktop));
-#endif
+  source->AddBoolean("isBatchUploadDesktopEnabled",
+                     switches::IsBatchUploadDesktopEnabled());
 
   content::URLDataSource::Add(
       profile, std::make_unique<FaviconSource>(

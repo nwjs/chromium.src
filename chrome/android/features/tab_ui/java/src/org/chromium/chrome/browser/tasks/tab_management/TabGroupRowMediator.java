@@ -15,6 +15,7 @@ import androidx.core.util.Pair;
 import androidx.core.util.Supplier;
 
 import org.chromium.base.CallbackController;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.LazyOneshotSupplier;
 import org.chromium.chrome.R;
@@ -27,8 +28,8 @@ import org.chromium.chrome.browser.hub.PaneManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
-import org.chromium.chrome.browser.tasks.tab_management.ActionConfirmationManager.ConfirmationResult;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupFaviconCluster.ClusterData;
+import org.chromium.components.browser_ui.widget.ActionConfirmationResult;
 import org.chromium.components.data_sharing.DataSharingService;
 import org.chromium.components.data_sharing.DataSharingService.GroupDataOrFailureOutcome;
 import org.chromium.components.data_sharing.GroupData;
@@ -114,10 +115,7 @@ class TabGroupRowMediator {
 
         ClusterData clusterData = new ClusterData(faviconResolver, numberOfTabs, urlList);
         builder.with(TabGroupRowProperties.CLUSTER_DATA, clusterData);
-
-        if (ChromeFeatureList.sTabGroupParityAndroid.isEnabled()) {
-            builder.with(TabGroupRowProperties.COLOR_INDEX, savedTabGroup.color);
-        }
+        builder.with(TabGroupRowProperties.COLOR_INDEX, savedTabGroup.color);
 
         String userTitle = savedTabGroup.title;
         Pair<String, Integer> titleData = new Pair<>(userTitle, numberOfTabs);
@@ -230,7 +228,12 @@ class TabGroupRowMediator {
             String syncId = savedTabGroup.syncId;
             mTabGroupUiActionHandler.openTabGroup(syncId);
             savedTabGroup = mTabGroupSyncService.getGroup(syncId);
-            assert savedTabGroup.localId != null;
+        }
+
+        if (savedTabGroup.localId == null) {
+            RecordHistogram.recordEnumeratedHistogram(
+                    "Android.TabGroupSync.WindowStateOnFailedOpen", state, GroupWindowState.COUNT);
+            return;
         }
 
         int rootId = mTabGroupModelFilter.getRootIdFromStableId(savedTabGroup.localId.tabGroupId);
@@ -244,8 +247,8 @@ class TabGroupRowMediator {
 
     private void processDeleteGroup() {
         mActionConfirmationManager.processDeleteGroupAttempt(
-                (@ConfirmationResult Integer result) -> {
-                    if (result != ConfirmationResult.CONFIRMATION_NEGATIVE) {
+                (@ActionConfirmationResult Integer result) -> {
+                    if (result != ActionConfirmationResult.CONFIRMATION_NEGATIVE) {
                         deleteGroup();
                     }
                 });
@@ -256,8 +259,8 @@ class TabGroupRowMediator {
         // no other users.
         mActionConfirmationManager.processDeleteSharedGroupAttempt(
                 groupTitle,
-                (@ConfirmationResult Integer result) -> {
-                    if (result != ConfirmationResult.CONFIRMATION_NEGATIVE) {
+                (@ActionConfirmationResult Integer result) -> {
+                    if (result != ActionConfirmationResult.CONFIRMATION_NEGATIVE) {
                         mDataSharingService.deleteGroup(groupId, this::onLeaveOrDeleteGroup);
                     }
                 });
@@ -268,8 +271,8 @@ class TabGroupRowMediator {
         // no other users.
         mActionConfirmationManager.processLeaveGroupAttempt(
                 groupTitle,
-                (@ConfirmationResult Integer result) -> {
-                    if (result != ConfirmationResult.CONFIRMATION_NEGATIVE) {
+                (@ActionConfirmationResult Integer result) -> {
+                    if (result != ActionConfirmationResult.CONFIRMATION_NEGATIVE) {
                         String memberEmail = mCoreAccountInfoSupplier.get().getEmail();
                         mDataSharingService.removeMember(
                                 groupId, memberEmail, this::onLeaveOrDeleteGroup);

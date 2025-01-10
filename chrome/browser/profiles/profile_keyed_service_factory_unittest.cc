@@ -34,8 +34,7 @@ class ProfileKeyedServiceFactoryTest : public ProfileKeyedServiceFactory {
   // Implementation is not for testing.
   KeyedService* BuildServiceInstanceFor(
       content::BrowserContext* context) const override {
-    NOTREACHED_IN_MIGRATION();
-    return nullptr;
+    NOTREACHED();
   }
 };
 
@@ -59,8 +58,7 @@ class RefcountedProfileKeyedServiceFactoryTest
   // Implementation is not for testing.
   scoped_refptr<RefcountedKeyedService> BuildServiceInstanceFor(
       content::BrowserContext* context) const override {
-    NOTREACHED_IN_MIGRATION();
-    return nullptr;
+    NOTREACHED();
   }
 };
 
@@ -119,14 +117,6 @@ class ProfileKeyedServiceFactoryUnittest : public testing::Test {
   Profile* lockscreen_profile_otr() {
     return profile_testing_helper_.lockscreen_profile_otr();
   }
-
-  TestingProfile* lockscreenapp_profile() {
-    return profile_testing_helper_.lockscreenapp_profile();
-  }
-
-  Profile* lockscreenapp_profile_otr() {
-    return profile_testing_helper_.lockscreenapp_profile_otr();
-  }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
  private:
@@ -159,9 +149,6 @@ TEST_F(ProfileKeyedServiceFactoryUnittest, DefaultFactoryTest) {
 
   TestProfileToUse(factory, lockscreen_profile(), nullptr);
   TestProfileToUse(factory, lockscreen_profile_otr(), nullptr);
-
-  TestProfileToUse(factory, lockscreenapp_profile(), nullptr);
-  TestProfileToUse(factory, lockscreenapp_profile_otr(), nullptr);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
@@ -195,9 +182,6 @@ TEST_F(ProfileKeyedServiceFactoryUnittest,
 
   TestProfileToUse(factory, lockscreen_profile(), nullptr);
   TestProfileToUse(factory, lockscreen_profile_otr(), nullptr);
-
-  TestProfileToUse(factory, lockscreenapp_profile(), nullptr);
-  TestProfileToUse(factory, lockscreenapp_profile_otr(), nullptr);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
@@ -237,10 +221,6 @@ TEST_F(ProfileKeyedServiceFactoryUnittest,
 
   TestProfileToUse(factory, lockscreen_profile(), lockscreen_profile());
   TestProfileToUse(factory, lockscreen_profile_otr(), lockscreen_profile_otr());
-
-  TestProfileToUse(factory, lockscreenapp_profile(), lockscreenapp_profile());
-  TestProfileToUse(factory, lockscreenapp_profile_otr(),
-                   lockscreenapp_profile_otr());
 #endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
@@ -272,9 +252,6 @@ TEST_F(ProfileKeyedServiceFactoryUnittest, DefaultRefcountedFactoryTest) {
 
   TestProfileToUse(factory, lockscreen_profile(), nullptr);
   TestProfileToUse(factory, lockscreen_profile_otr(), nullptr);
-
-  TestProfileToUse(factory, lockscreenapp_profile(), nullptr);
-  TestProfileToUse(factory, lockscreenapp_profile_otr(), nullptr);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
@@ -313,9 +290,5 @@ TEST_F(ProfileKeyedServiceFactoryUnittest,
 
   TestProfileToUse(factory, lockscreen_profile(), nullptr);
   TestProfileToUse(factory, lockscreen_profile_otr(), lockscreen_profile_otr());
-
-  TestProfileToUse(factory, lockscreenapp_profile(), nullptr);
-  TestProfileToUse(factory, lockscreenapp_profile_otr(),
-                   lockscreenapp_profile_otr());
 #endif  // BUILDFLAG(IS_CHROMEOS)
 }

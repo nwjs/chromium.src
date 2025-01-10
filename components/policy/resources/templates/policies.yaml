@@ -1305,10 +1305,16 @@ policies:
   1304: DirectSocketsPrivateNetworkAccessAllowedForUrls
   1305: DirectSocketsPrivateNetworkAccessBlockedForUrls
   1306: SelectParserRelaxationEnabled
-  1307: ''
-  1308: ''
-  1309: ''
+  1307: ClassManagementEnabled
+  1308: EnterpriseSearchAggregatorSettings
+  1309: TranslatorAPIAllowed
   1310: WebAudioOutputBufferingEnabled
+  1311: NTPOutlookCardVisible
+  1312: NTPSharepointCardVisible
+  1313: SharedWorkerBlobURLFixEnabled
+  1314: DeviceNativeClientForceAllowed
+  1315: GenAiLensOverlaySettings
+  1316: PasswordManagerPasskeysEnabled
 
 atomic_groups:
   1: Homepage

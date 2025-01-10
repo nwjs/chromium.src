@@ -178,7 +178,14 @@ BASE_FEATURE(kOnDeviceModelValidation,
 BASE_FEATURE(kAiSettingsPageRefresh,
              "AiSettingsPageRefresh",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<bool> kShowAiSettingsForTesting{
+    &kAiSettingsPageRefresh, "show_ai_settings_for_testing", false};
 #endif
+
+const base::FeatureParam<std::string> kPerformanceClassListForOnDeviceModel{
+    &kOptimizationGuideOnDeviceModel,
+    "compatible_on_device_performance_classes", "5,6"};
 
 // The default value here is a bit of a guess.
 // TODO(crbug.com/40163041): This should be tuned once metrics are available.
@@ -668,26 +675,27 @@ int GetOnDeviceModelCrashCountBeforeDisable() {
   return kOnDeviceModelDisableCrashCount.Get();
 }
 
-int GetOnDeviceModelTimeoutCountBeforeDisable() {
-  static const base::FeatureParam<int> kOnDeviceModelDisableTimeoutCount{
-      &kOptimizationGuideOnDeviceModel, "on_device_model_disable_timeout_count",
-      2};
-  return kOnDeviceModelDisableTimeoutCount.Get();
+base::TimeDelta GetOnDeviceModelMaxCrashBackoffTime() {
+  static const base::FeatureParam<base::TimeDelta>
+      kOnDeviceModelMaxCrashBackoffTime{
+          &kOptimizationGuideOnDeviceModel,
+          "on_device_model_max_crash_backoff_time", base::Hours(1)};
+  return kOnDeviceModelMaxCrashBackoffTime.Get();
+}
+
+base::TimeDelta GetOnDeviceModelCrashBackoffBaseTime() {
+  static const base::FeatureParam<base::TimeDelta>
+      kOnDeviceModelCrashBackoffBaseTime{
+          &kOptimizationGuideOnDeviceModel,
+          "on_device_model_crash_backoff_base_time", base::Minutes(1)};
+  return kOnDeviceModelCrashBackoffBaseTime.Get();
 }
 
 base::TimeDelta GetOnDeviceStartupMetricDelay() {
   static const base::FeatureParam<base::TimeDelta> kOnDeviceStartupMetricDelay{
       &kLogOnDeviceMetricsOnStartup, "on_device_startup_metric_delay",
-      base::Minutes(2)};
+      base::Minutes(3)};
   return kOnDeviceStartupMetricDelay.Get();
-}
-
-base::TimeDelta GetOnDeviceModelTimeForInitialResponse() {
-  static const base::FeatureParam<base::TimeDelta>
-      kOnDeviceModelTimeForInitialResponse{
-          &kOptimizationGuideOnDeviceModel,
-          "on_device_time_for_initial_response", base::Seconds(15)};
-  return kOnDeviceModelTimeForInitialResponse.Get();
 }
 
 bool GetOnDeviceFallbackToServerOnDisconnect() {
@@ -696,24 +704,6 @@ bool GetOnDeviceFallbackToServerOnDisconnect() {
           &kOptimizationGuideOnDeviceModel,
           "on_device_fallback_to_server_on_disconnect", true};
   return kOnDeviceModelFallbackToServerOnDisconnect.Get();
-}
-
-bool IsPerformanceClassCompatibleWithOnDeviceModel(
-    OnDeviceModelPerformanceClass performance_class) {
-  std::string perf_classes_string = base::GetFieldTrialParamValueByFeature(
-      kOptimizationGuideOnDeviceModel,
-      "compatible_on_device_performance_classes");
-  if (perf_classes_string.empty()) {
-    perf_classes_string = "5,6";
-  }
-  if (perf_classes_string == "*") {
-    return true;
-  }
-  std::vector<std::string_view> perf_classes_list = base::SplitStringPiece(
-      perf_classes_string, ",", base::WhitespaceHandling::TRIM_WHITESPACE,
-      base::SplitResult::SPLIT_WANT_NONEMPTY);
-  return base::Contains(perf_classes_list,
-                        base::ToString(static_cast<int>(performance_class)));
 }
 
 bool CanLaunchOnDeviceModelService() {

@@ -34,10 +34,26 @@ _JAVAC_EXTRACTOR = os.path.join(build_utils.DIR_SOURCE_ROOT, 'third_party',
 # Use this when trying to enable more checks.
 ERRORPRONE_CHECKS_TO_APPLY = []
 
+# Checks to disable in tests.
+TESTONLY_ERRORPRONE_WARNINGS_TO_DISABLE = [
+    # Too much effort to enable.
+    'UnusedVariable',
+]
+
 # Full list of checks: https://errorprone.info/bugpatterns
 ERRORPRONE_WARNINGS_TO_DISABLE = [
     'InlineMeInliner',
     'InlineMeSuggester',
+    # High priority to enable:
+    'HidingField',
+    'AlreadyChecked',
+    'DirectInvocationOnMock',
+    'MockNotUsedInProduction',
+    # High priority to enable in non-tests:
+    'JdkObsolete',
+    'UnusedMethod',
+    'ReturnValueIgnored',
+    'StaticAssignmentInConstructor',
     # These are all for Javadoc, which we don't really care about.
     # vvv
     'InvalidBlockTag',
@@ -49,29 +65,21 @@ ERRORPRONE_WARNINGS_TO_DISABLE = [
     'UnescapedEntity',
     'UnrecognisedJavadocTag',
     # ^^^
-    'StaticAssignmentInConstructor',
     'MutablePublicArray',
     'NonCanonicalType',
-    'ReturnValueIgnored',
     'DoNotClaimAnnotations',
     'JavaUtilDate',
     'IdentityHashMapUsage',
     'StaticMockMember',
-    'MissingSuperCall',
-    'ToStringReturnsNull',
     # Triggers in tests where this is useful to do.
     'StaticAssignmentOfThrowable',
     # TODO(crbug.com/41384349): Follow steps in bug.
     'CatchAndPrintStackTrace',
-    # TODO(crbug.com/41364336): Follow steps in bug.
-    'SynchronizeOnNonFinalField',
     # TODO(crbug.com/41364806): Follow steps in bug.
     'TypeParameterUnusedInFormals',
     # Android platform default is always UTF-8.
     # https://developer.android.com/reference/java/nio/charset/Charset.html#defaultCharset()
     'DefaultCharset',
-    # Low priority since the alternatives still work.
-    'JdkObsolete',
     # There are lots of times when we just want to post a task.
     'FutureReturnValueIgnored',
     # Just false positives in our code.
@@ -84,22 +92,10 @@ ERRORPRONE_WARNINGS_TO_DISABLE = [
     'ClassNewInstance',
     # Results in false positives.
     'ThreadLocalUsage',
-    # Also just false positives.
-    'Finally',
-    # False positives for Chromium.
-    'FragmentNotInstantiable',
-    # Low priority to fix.
-    'HidingField',
     # Low priority.
     'EqualsHashCode',
     # Not necessary for tests.
     'OverrideThrowableToString',
-    # Nice to have better type safety.
-    'CollectionToArraySafeParameter',
-    # Triggers on private methods that are @CalledByNative.
-    'UnusedMethod',
-    # Triggers on generated R.java files.
-    'UnusedVariable',
     # Not that useful.
     'UnsafeReflectiveConstructionCast',
     # Not that useful.
@@ -118,8 +114,6 @@ ERRORPRONE_WARNINGS_TO_DISABLE = [
     'BadImport',
     # Nice to have.
     'UseCorrectAssertInTests',
-    # Nice to have.
-    'InlineFormatString',
     # Must be off since we are now passing in annotation processor generated
     # code as a source jar (deduplicating work with turbine).
     'RefersToDaggerCodegen',
@@ -128,16 +122,10 @@ ERRORPRONE_WARNINGS_TO_DISABLE = [
     'RemoveUnusedImports',
     # Only has false positives (would not want to enable this).
     'UnicodeEscape',
-    # Nice to have.
-    'AlreadyChecked',
     # A lot of existing violations. e.g. Should return List and not ArrayList
     'NonApiType',
     # Nice to have.
-    'DirectInvocationOnMock',
-    # Nice to have.
     'StringCharset',
-    # Nice to have.
-    'MockNotUsedInProduction',
     # Nice to have.
     'StringCaseLocaleUsage',
 ]
@@ -637,10 +625,12 @@ def _ParseOptions(argv):
       '--enable-errorprone',
       action='store_true',
       help='Enable errorprone checks')
-  parser.add_option(
-      '--warnings-as-errors',
-      action='store_true',
-      help='Treat all warnings as errors.')
+  parser.add_option('--testonly',
+                    action='store_true',
+                    help='Disable some Error Prone checks')
+  parser.add_option('--warnings-as-errors',
+                    action='store_true',
+                    help='Treat all warnings as errors.')
   parser.add_option('--jar-path', help='Jar output path.')
   parser.add_option(
       '--javac-arg',
@@ -740,11 +730,19 @@ def main(argv):
                             for x in ERRORPRONE_WARNINGS_TO_DISABLE)
     errorprone_flags.extend('-Xep:{}:WARN'.format(x)
                             for x in ERRORPRONE_WARNINGS_TO_ENABLE)
+    if options.testonly:
+      errorprone_flags.extend('-Xep:{}:OFF'.format(x)
+                              for x in TESTONLY_ERRORPRONE_WARNINGS_TO_DISABLE)
 
     if ERRORPRONE_CHECKS_TO_APPLY:
+      to_apply = list(ERRORPRONE_CHECKS_TO_APPLY)
+      if options.testonly:
+        to_apply = [
+            x for x in to_apply
+            if x not in TESTONLY_ERRORPRONE_WARNINGS_TO_DISABLE
+        ]
       errorprone_flags += [
-          '-XepPatchLocation:IN_PLACE',
-          '-XepPatchChecks:,' + ','.join(ERRORPRONE_CHECKS_TO_APPLY)
+          '-XepPatchLocation:IN_PLACE', '-XepPatchChecks:,' + ','.join(to_apply)
       ]
 
     # These are required to use JDK 16, and are taken directly from

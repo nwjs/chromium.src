@@ -493,7 +493,7 @@ class FakeRecommendAppsFetcher : public apps::RecommendAppsFetcher {
     delegate_->OnLoadSuccess(base::Value(std::move(response_dict)));
   }
 
-  void Retry() override { NOTREACHED_IN_MIGRATION(); }
+  void Retry() override { NOTREACHED(); }
 
  private:
   const raw_ptr<apps::RecommendAppsFetcherDelegate> delegate_;
@@ -838,9 +838,7 @@ void OobeInteractiveUITest::PerformSessionSignInSteps() {
     HandleAiIntroScreen();
   }
 
-  if (ash::features::IsOobeGeminiIntroEnabled()) {
-    HandleGeminiIntroScreen();
-  }
+  HandleGeminiIntroScreen();
 
   if (!features::IsOobeSkipAssistantEnabled()) {
     HandleAssistantOptInScreen();
@@ -1190,9 +1188,7 @@ IN_PROC_BROWSER_TEST_P(EphemeralUserOobeTest, RegularEphemeralUser) {
     HandleAiIntroScreen();
   }
 
-  if (ash::features::IsOobeGeminiIntroEnabled()) {
-    HandleGeminiIntroScreen();
-  }
+  HandleGeminiIntroScreen();
 
   HandleThemeSelectionScreen();
   WaitForActiveSession();

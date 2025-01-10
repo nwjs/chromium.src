@@ -13,11 +13,14 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/time/time.h"
 #import "components/pref_registry/pref_registry_syncable.h"
+#import "components/prefs/ios/pref_observer_bridge.h"
+#import "components/prefs/pref_change_registrar.h"
 #import "components/prefs/pref_service.h"
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/features.h"
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_constants.h"
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_util.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_activation_level.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_controller.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_provider.h"
@@ -38,7 +41,7 @@
 
 #pragma mark - IncognitoReauthSceneAgent
 
-@interface IncognitoReauthSceneAgent ()
+@interface IncognitoReauthSceneAgent () <PrefObserverDelegate>
 
 // Whether the window had incognito content (e.g. at least one open tab) upon
 // backgrounding.
@@ -59,14 +62,28 @@
 
 @end
 
-@implementation IncognitoReauthSceneAgent
+@implementation IncognitoReauthSceneAgent {
+  // Bridge to listen to pref changes.
+  std::unique_ptr<PrefObserverBridge> _prefObserverBridge;
+  // Registrar for pref changes notifications.
+  PrefChangeRegistrar _prefChangeRegistrar;
+}
 
 @synthesize lastBackgroundedTime = _lastBackgroundedTime;
 
 #pragma mark - class public
 
 + (void)registerLocalState:(PrefRegistrySimple*)registry {
+  // TODO(crbug.com/370804664): Consider merging both Incognito soft lock and
+  // authentication prefs into a state pref instead of two boolean prefs after
+  // completing the soft lock experiment.
   registry->RegisterBooleanPref(prefs::kIncognitoAuthenticationSetting, false);
+  // TODO(crbug.com/370804664): Guard pref behind a flag. Currently doing so
+  // causes crashes due to unregistered pref. Needs futher investigation.
+  // This pref reflects enabling Incognito Soft Lock by default for the
+  // experiment to see user engagement and whether they prefer to keep it on,
+  // upgrade to biometric authentication, or turn it off.
+  registry->RegisterBooleanPref(prefs::kIncognitoSoftLockSetting, true);
   registry->RegisterTimePref(prefs::kLastBackgroundedTime, base::Time());
 }
 
@@ -102,6 +119,10 @@
   return IncognitoLockState::kNone;
 }
 
+- (void)manualAuthenticationOverride {
+  self.authenticatedSinceLastForeground = YES;
+}
+
 - (void)authenticateIncognitoContent {
   [self authenticateIncognitoContentWithCompletionBlock:nil];
 }
@@ -125,8 +146,18 @@
 
   if ([self isReauthFeatureEnabled]) {
     [self reauthIncognitoContentWithCompletionBlock:completion];
+    base::UmaHistogramEnumeration(
+        kIncognitoLockOverlayInteractionHistogram,
+        IncognitoLockOverlayInteraction::kUnlockWithReauthButtonClicked);
+    base::RecordAction(
+        base::UserMetricsAction("IOS.IncognitoLock.Overlay.UnlockWithReauth"));
   } else if ([self isSoftLockFeatureEnabled]) {
     [self unlockIncognitoContentWithCompletionBlock:completion];
+    base::UmaHistogramEnumeration(
+        kIncognitoLockOverlayInteractionHistogram,
+        IncognitoLockOverlayInteraction::kContinueInIncognitoButtonClicked);
+    base::RecordAction(base::UserMetricsAction(
+        "IOS.IncognitoLock.Overlay.ContinueInIncognito"));
   }
 }
 
@@ -145,46 +176,6 @@
   if ([self areLockFeaturesEnabled]) {
     [self notifyObservers];
   }
-}
-
-- (void)updateWindowHasIncognitoContent:(SceneState*)sceneState {
-  BOOL hasIncognitoContent = YES;
-  if (sceneState.browserProviderInterface.hasIncognitoBrowserProvider) {
-    hasIncognitoContent =
-        sceneState.browserProviderInterface.incognitoBrowserProvider.browser
-            ->GetWebStateList()
-            ->count() > 0;
-    // If there is no tabs, act as if the user authenticated since last
-    // foreground to avoid issue with multiwindows.
-    if (!hasIncognitoContent)
-      self.authenticatedSinceLastForeground = YES;
-  }
-
-  self.windowHadIncognitoContentWhenBackgrounded = hasIncognitoContent;
-
-  if ([self areLockFeaturesEnabled]) {
-    [self notifyObservers];
-  }
-}
-
-- (void)updateBackgroundedForEnoughTime:(SceneActivationLevel)level {
-  if (!IsIOSSoftLockEnabled()) {
-    return;
-  }
-
-  if (level <= SceneActivationLevelBackground) {
-    self.lastBackgroundedTime = base::Time::Now();
-    self.backgroundedForEnoughTime = NO;
-    return;
-  }
-
-  if (self.lastBackgroundedTime.is_null()) {
-    self.backgroundedForEnoughTime = NO;
-    return;
-  }
-
-  base::TimeDelta duration = base::Time::Now() - self.lastBackgroundedTime;
-  self.backgroundedForEnoughTime = duration >= kSoftLockBackgroundThreshold;
 }
 
 - (void)setWindowHadIncognitoContentWhenBackgrounded:(BOOL)hadIncognitoContent {
@@ -226,31 +217,53 @@
   return _lastBackgroundedTime;
 }
 
-- (void)notifyObservers {
-  DCHECK([self areLockFeaturesEnabled]);
-  [self.observers reauthAgent:self
-      didUpdateAuthenticationRequirement:self.isAuthenticationRequired];
-}
-
 #pragma mark - SceneStateObserver
 
 - (void)sceneState:(SceneState*)sceneState
     transitionedToActivationLevel:(SceneActivationLevel)level {
   if (level <= SceneActivationLevelBackground) {
     [self updateWindowHasIncognitoContent:sceneState];
-    [self updateBackgroundedForEnoughTime:level];
+    [self updateBackgroundedForEnoughTimeOnBackground];
     self.authenticatedSinceLastForeground = NO;
   } else if (level >= SceneActivationLevelForegroundInactive) {
     [self updateWindowHasIncognitoContent:sceneState];
-    [self updateBackgroundedForEnoughTime:level];
+    [self updateBackgroundedForEnoughTimeOnForeground];
     // Close media presentations when the app is foregrounded rather than
     // backgrounded to avoid freezes.
     [self closeMediaPresentations];
+  }
+
+  if (IsIOSSoftLockEnabled()) {
+    [self recordIncognitoLockImpressionForSceneState:sceneState];
   }
 }
 
 - (void)sceneStateDidEnableUI:(SceneState*)sceneState {
   [self logEnabledHistogramOnce];
+  if (IsIOSSoftLockEnabled()) {
+    [self setUpPrefObservers];
+    [self logIncognitoLockStateHistogramOnce];
+    [self recordIncognitoLockImpressionForSceneState:sceneState];
+  }
+}
+
+- (void)sceneStateDidDisableUI:(SceneState*)sceneState {
+  if (IsIOSSoftLockEnabled()) {
+    [self tearDownPrefObservers];
+  }
+}
+
+#pragma mark - PrefObserverDelegate
+
+- (void)onPreferenceChanged:(const std::string&)preferenceName {
+  [self notifyObservers];
+}
+
+- (void)sceneState:(SceneState*)sceneState
+    isDisplayingIncognitoContent:(BOOL)level {
+  if (IsIOSSoftLockEnabled()) {
+    [self recordIncognitoLockImpressionForSceneState:sceneState];
+  }
 }
 
 #pragma mark - private
@@ -270,6 +283,31 @@
         self.localState->GetBoolean(prefs::kIncognitoAuthenticationSetting);
     base::UmaHistogramBoolean("IOS.Incognito.BiometricAuthEnabled",
                               settingEnabled);
+  });
+}
+
+// Log Incognito lock setting state histogram to determine the feature usage.
+// This is done once per app launch.
+// Since this agent is created per-scene, guard it with dispatch_once.
+- (void)logIncognitoLockStateHistogramOnce {
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    DCHECK(self.localState)
+        << "Local state is not yet available when trying to log "
+           "IOS.IncognitoLockSettingStartupState This code is called too soon.";
+    if ([self isReauthFeatureEnabled]) {
+      base::UmaHistogramEnumeration(
+          kIncognitoLockSettingStartupStateHistogram,
+          IncognitoLockSettingStartupState::kHideWithReauth);
+    } else if ([self isSoftLockFeatureEnabled]) {
+      base::UmaHistogramEnumeration(
+          kIncognitoLockSettingStartupStateHistogram,
+          IncognitoLockSettingStartupState::kHideWithSoftLock);
+    } else {
+      base::UmaHistogramEnumeration(
+          kIncognitoLockSettingStartupStateHistogram,
+          IncognitoLockSettingStartupState::kDoNotHide);
+    }
   });
 }
 
@@ -294,9 +332,8 @@
 // Convenience method to check the pref associated with the soft lock setting
 // and the feature flag.
 - (BOOL)isSoftLockFeatureEnabled {
-  // TODO(crbug.com/370804664): Add pref check when the settings page is
-  // available.
-  return IsIOSSoftLockEnabled();
+  return IsIOSSoftLockEnabled() && self.localState &&
+         self.localState->GetBoolean(prefs::kIncognitoSoftLockSetting);
 }
 
 // Convenience method to check whether any of the locking features are enabled.
@@ -362,6 +399,123 @@
   [self.reauthModule attemptReauthWithLocalizedReason:authReason
                                  canReusePreviousAuth:false
                                               handler:completionHandler];
+}
+
+// Checks whether the window has any Incognito tabs. Called when the browser is
+// backgrounded or foregrounded.
+- (void)updateWindowHasIncognitoContent:(SceneState*)sceneState {
+  BOOL hasIncognitoContent = YES;
+  if (sceneState.browserProviderInterface.hasIncognitoBrowserProvider) {
+    hasIncognitoContent =
+        sceneState.browserProviderInterface.incognitoBrowserProvider.browser
+            ->GetWebStateList()
+            ->count() > 0;
+    // If there is no tabs, act as if the user authenticated since last
+    // foreground to avoid issue with multiwindows.
+    if (!hasIncognitoContent) {
+      self.authenticatedSinceLastForeground = YES;
+    }
+  }
+
+  self.windowHadIncognitoContentWhenBackgrounded = hasIncognitoContent;
+
+  if ([self areLockFeaturesEnabled]) {
+    [self notifyObservers];
+  }
+}
+
+// Stores the current timestamp when the browser is backgrounded. This happens
+// only if authentication is not required as to not wrongly reset the timer.
+- (void)updateBackgroundedForEnoughTimeOnBackground {
+  if (!IsIOSSoftLockEnabled()) {
+    return;
+  }
+
+  if (!self.isAuthenticationRequired) {
+    self.lastBackgroundedTime = base::Time::Now();
+    self.backgroundedForEnoughTime = NO;
+  }
+}
+
+// Checks whether the browser was backgrounded for more than the required soft
+// lock display time.
+- (void)updateBackgroundedForEnoughTimeOnForeground {
+  if (!IsIOSSoftLockEnabled()) {
+    return;
+  }
+  if (self.lastBackgroundedTime.is_null()) {
+    self.backgroundedForEnoughTime = NO;
+    return;
+  }
+
+  base::TimeDelta duration = base::Time::Now() - self.lastBackgroundedTime;
+  self.backgroundedForEnoughTime =
+      duration >= kIOSSoftLockBackgroundThreshold.Get();
+}
+
+// Notifies the observers of changes to the state of isAuthenticationRequired.
+- (void)notifyObservers {
+  if (IsIOSSoftLockEnabled()) {
+    [self.observers reauthAgent:self
+        didUpdateIncognitoLockState:self.incognitoLockState];
+  } else {
+    [self.observers reauthAgent:self
+        didUpdateAuthenticationRequirement:self.isAuthenticationRequired];
+  }
+}
+
+// Registers observers for the relevant preferences, so that settings changes
+// can be picked up in real time.
+- (void)setUpPrefObservers {
+  // TODO(crbug.com/370804664): Adding a DCHECK instead of a CHECK for the
+  // moment as its not clear whether the localState will be available at this
+  // point.
+  DCHECK(self.localState);
+  if (!_prefObserverBridge) {
+    _prefChangeRegistrar.Init(self.localState);
+
+    _prefObserverBridge = std::make_unique<PrefObserverBridge>(self);
+    _prefObserverBridge->ObserveChangesForPreference(
+        prefs::kIncognitoAuthenticationSetting, &_prefChangeRegistrar);
+    _prefObserverBridge->ObserveChangesForPreference(
+        prefs::kIncognitoSoftLockSetting, &_prefChangeRegistrar);
+  }
+}
+
+// Removes the already setup preference observers.
+- (void)tearDownPrefObservers {
+  if (_prefObserverBridge) {
+    _prefChangeRegistrar.RemoveAll();
+    _prefObserverBridge.reset();
+  }
+}
+
+// Records impressions of the Incognito lock for reauth and soft lock states.
+- (void)recordIncognitoLockImpressionForSceneState:(SceneState*)sceneState {
+  // sceneState.UIEnabled guarantees that sceneState.controller has been
+  // initialized.
+  if (sceneState.UIEnabled && sceneState.incognitoContentVisible &&
+      sceneState.activationLevel == SceneActivationLevelForegroundActive) {
+    switch ([self incognitoLockState]) {
+      case IncognitoLockState::kNone:
+        // No impression metrics to be recorded when the lock is disabled.
+        break;
+      case IncognitoLockState::kReauth:
+        base::UmaHistogramEnumeration(
+            kIncognitoLockImpressionHistogram,
+            sceneState.controller.isTabGridVisible
+                ? IncognitoLockImpression::kReauthLockTabGrid
+                : IncognitoLockImpression::kReauthLockSingleTab);
+        break;
+      case IncognitoLockState::kSoftLock:
+        base::UmaHistogramEnumeration(
+            kIncognitoLockImpressionHistogram,
+            sceneState.controller.isTabGridVisible
+                ? IncognitoLockImpression::kSoftLockTabGrid
+                : IncognitoLockImpression::kSoftLockSingleTab);
+        break;
+    }
+  }
 }
 
 @end

@@ -80,7 +80,6 @@ Sommige kenmerke kan dalk nie beskikbaar wees nie en veranderings aan voorkeure 
 <translation id="2008942457798486387">{NUM_EXTENSIONS,plural, =1{Hierdie uitbreiding word nie meer gesteun nie. Chrome beveel aan dat jy dit verwyder.}other{Hierdie uitbreidings word nie meer gesteun nie. Chrome beveel aan dat jy hulle verwyder.}}</translation>
 <translation id="2018528049276128029">Elke profiel hou sy eie Chrome-inligting soos boekmerke, geskiedenis, wagwoorde en meer</translation>
 <translation id="2018879682492276940">Kan nie installeer nie. Probeer weer.</translation>
-<translation id="2022471217832964798">Jy kan steeds Chrome gebruik terwyl ons rekeningtoegang opstel. Jy sal dalk nie toegang tot sommige hulpbronne hê tot tyd en wyl opstelling voltooi is nie.</translation>
 <translation id="2034233344106846793">Chrome gradeer onveilige verbindings outomaties op na HTTPS, wanneer moontlik</translation>
 <translation id="207902854391093810">Wanneer proeflopies aan is, stel advertensiemeting werwe wat jy besoek in staat om inligting van Chrome af te versoek wat die werf help om die werkverrigting van hul advertensies te meet. Advertensiemeting beperk oorkruiswerfnasporing deur so min inligting moontlik tussen werwe oor te dra.</translation>
 <translation id="2091012649849228750">Jy het Windows 10 of nuwer nodig om in die toekoms Google Chrome-opdaterings te kry. Hierdie rekenaar gebruik Windows 8.</translation>
@@ -249,6 +248,7 @@ Sommige kenmerke kan dalk nie beskikbaar wees nie en veranderings aan voorkeure 
 <translation id="3873044882194371212">Maak skakel in 'n incognitovenster in Chrome oop</translation>
 <translation id="3885770153807205175">Taalkieser</translation>
 <translation id="3889417619312448367">Deïnstalleer Google Chrome</translation>
+<translation id="3892148308691398805">Kopieer teks</translation>
 <translation id="3941890832296813527">Installeerfout: Die installeerderlêernaam is ongeldig of word nie ondersteun nie.</translation>
 <translation id="3973161977468201858">Google Chrome wil jou Google Wagwoordbestuurder-data uitvee. Tik jou Windows-wagwoord in om dit toe te laat.</translation>
 <translation id="398236277091248993">Chrome bly vinnig met kenmerke wat werkverrigting ’n hupstoot gee</translation>
@@ -303,6 +303,7 @@ Sommige kenmerke kan dalk nie beskikbaar wees nie en veranderings aan voorkeure 
 <translation id="4567424176335768812">Jy is as <ph name="USER_EMAIL_ADDRESS" /> aangemeld. Nou kan jy op al jou aangemelde toestelle by jou boekmerke, geskiedenis en ander instellings ingaan.</translation>
 <translation id="4571503333518166079">Gaan na Chrome-kennisgewinginstellings</translation>
 <translation id="4575717501879784448">Chrome kan hierdie oortjies onaktief maak om jou blaai-ervaring te verbeter en hulpbronne beskikbaar te maak.</translation>
+<translation id="4595162648538023956">Jy kan aanmeld om jou goed te kry, of Chrome sonder ’n rekening gebruik</translation>
 <translation id="459622048091363950">Sodra Chrome toegang het, sal webwerwe jou kan vra vir toegang.</translation>
 <translation id="4600710005438004015">Chrome kon nie na die nuutste weergawe opdateer nie en daarom het jy nie nuwe kenmerke en sekuriteitregstellings nie.</translation>
 <translation id="4601439950572737842">Jou data is met jou wagfrase geënkripteer. Voer dit in om Chrome-data in jou Google-rekening te gebruik en te stoor.</translation>
@@ -349,6 +350,7 @@ Sommige kenmerke kan dalk nie beskikbaar wees nie en veranderings aan voorkeure 
 <translation id="5170938038195470297">Jou profiel kan nie gebruik word nie, want dit kom van 'n nuwer weergawe van Google Chrome af.
 
 Sommige kenmerke kan dalk onbeskikbaar wees. Spesifiseer 'n ander profielgids of gebruik 'n nuwer weergawe van Chrome.</translation>
+<translation id="5174969993834422967">Jy blokkeer gewoonlik kennisgewings. Klik die kennisgewing-ikoon in die regter hoek van jou liggingbalk sodat dié werf jou in kennis kan stel.</translation>
 <translation id="5201744974236816379">Chrome-opdatering</translation>
 <translation id="521447420733633466">As jy 'n toestel deel, kan vriende en familie apart blaai en Chrome opstel nes hulle dit wil hê</translation>
 <translation id="5234764350956374838">Verwerp</translation>
@@ -395,7 +397,6 @@ Google Chrome kan nie jou instellings terugstel nie.</translation>
 <translation id="5895138241574237353">Herbegin</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" /> – Netwerkaanmelding</translation>
 <translation id="5924017743176219022">Koppel tans aan die internet …</translation>
-<translation id="5932997892801542621">Wanneer jy iets in die adresbalk of soekkassie tik, stuur Chrome wat jy tik na Google Drive toe om itemvoorstelle te kry. Dit is af in Incognito.</translation>
 <translation id="5940385492829620908">Jou web, boekmerke en ander Chrome-goed woon hier.</translation>
 <translation id="5941711191222866238">Maak kleiner</translation>
 <translation id="5941830788786076944">Maak Google Chrome die verstekblaaier</translation>
@@ -454,6 +455,7 @@ Google Chrome kan nie jou instellings terugstel nie.</translation>
 <translation id="6497147134301593682">Chrome is outomaties toegemaak</translation>
 <translation id="6506909944137591434">Chrome het kameratoestemming nodig om 'n 3D-kaart van jou omgewing te skep</translation>
 <translation id="6515495397637126556"><ph name="PAGE_TITLE" /> – Google Chrome Dev</translation>
+<translation id="6515549163407364048">Meld aan by Chrome om jou uitbreidings op al jou rekenaars te kry</translation>
 <translation id="6520670145826811516">Jy moet vir Chrome toegang in <ph name="BEGIN_LINK" />stelselinstellings<ph name="END_LINK" /> gee om jou ligging te gebruik</translation>
 <translation id="659498884637196217">In Google Wagwoordbestuurder op hierdie toestel</translation>
 <translation id="6600016381025017075">Soek na enigiets op hierdie bladsy</translation>
@@ -547,6 +549,7 @@ Toestemmings wat jy reeds aan webwerwe en apps gegee het, kan op hierdie rekenin
 <translation id="7655455401911432608">Jou blaaigeskiedenis, ’n rekord van werwe wat jy besoek het deur Chrome op hierdie toestel te gebruik.</translation>
 <translation id="7655472416356262023">Verwyder rekening uit Chrome</translation>
 <translation id="7658239707568436148">Kanselleer</translation>
+<translation id="7659737857277959440">Jou organisasie kan blaaierdata sien en bestuur, soos jou boekmerke, geskiedenis en wagwoorde. Dit kan nie blaaierdata in persoonlike Chromium-profiele sien nie.</translation>
 <translation id="7661924425853052955">Jy het nie onlangs die webwerf besoek nie. Chrome het <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> en nog <ph name="COUNT" /> verwyder</translation>
 <translation id="7668816516367091728">Voer take direk van die adresbalk af uit soos vertaal, bereken en meer</translation>
 <translation id="7670287553302121848">Chrome-rekening vereis herstawing</translation>
@@ -597,6 +600,7 @@ Toestemmings wat jy reeds aan webwerwe en apps gegee het, kan op hierdie rekenin
 <translation id="8129812357326543296">Meer oor Google Chrome</translation>
 <translation id="813913629614996137">Inisialiseer tans …</translation>
 <translation id="8162006532256575008">Gebruik Chrome sonder ’n rekening</translation>
+<translation id="8221491193165283816">Jy blokkeer gewoonlik kennisgewings. Klik hier sodat dié werf jou in kennis kan stel.</translation>
 <translation id="8255190535488645436">Google Chrome gebruik jou kamera en mikrofoon.</translation>
 <translation id="8257796129973882597">Jy kan boekmerke, leesmodus en meer vanaf die Chrome-kieslys oopmaak</translation>
 <translation id="8267953129876836456">Chrome het ’n paar veiligheidsaanbevelings vir jou hersiening gekry</translation>
@@ -628,6 +632,7 @@ Toestemmings wat jy reeds aan webwerwe en apps gegee het, kan op hierdie rekenin
 <translation id="852529348814672339">Vertoon Chrome in hierdie taal</translation>
 <translation id="8550334526674375523">Hierdie werkprofiel is heeltemal apart van jou persoonlike profiel.</translation>
 <translation id="8555465886620020932">Diensfout: <ph name="SERVICE_ERROR" />.</translation>
+<translation id="856656450041460113">Deursoek lys tale</translation>
 <translation id="8571790202382503603">Met Chrome-profiele kan jy al jou Chrome-goed skei. Dit maak dit makliker om tussen werk en pret te verdeel.</translation>
 <translation id="8601359445272098721">Nuut! Jy kan sowel teks as prente op jou skerm vertaal deur die “vertaal skerm”-knoppie te kies</translation>
 <translation id="8614913330719544658">Google Chrome reageer nie. Herbegin nou?</translation>

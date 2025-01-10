@@ -152,6 +152,19 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
     base::AutoReset<bool> in_detach_scope_;
   };
 
+  class AttachScrollMarkersScope {
+    STACK_ALLOCATED();
+
+   public:
+    explicit AttachScrollMarkersScope(StyleEngine& engine)
+        : in_scroll_markers_attachment_scope_(
+              &engine.in_scroll_markers_attachment_,
+              true) {}
+
+   private:
+    base::AutoReset<bool> in_scroll_markers_attachment_scope_;
+  };
+
   // There are a few instances where we are marking nodes style dirty from
   // within style recalc. That is generally not allowed, and if allowed we must
   // make sure we mark inside the subtree we are currently traversing, be sure
@@ -326,7 +339,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   void SetStyleAffectedByLayout() { style_affected_by_layout_ = true; }
   bool StyleAffectedByLayout() { return style_affected_by_layout_; }
 
-  bool StyleMaybeAffectedByLayout(const Node&);
+  bool StyleMaybeAffectedByLayout(const Element&);
 
   bool SkippedContainerRecalc() const { return skipped_container_recalc_ != 0; }
   void IncrementSkippedContainerRecalc() { ++skipped_container_recalc_; }
@@ -561,6 +574,7 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   void PropertyRegistryChanged();
 
   void EnvironmentVariableChanged();
+  void InvalidateEnvDependentStylesIfNeeded();
 
   void MarkAllElementsForStyleRecalc(const StyleChangeReasonForTracing& reason);
   void MarkViewportStyleDirty();
@@ -1015,6 +1029,9 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
 
   // See enum ViewportUnitFlag.
   unsigned viewport_unit_dirty_flags_{0};
+
+  // True if some data backing env() has changed.
+  bool is_env_dirty_{false};
 
   VisionDeficiency vision_deficiency_{VisionDeficiency::kNoVisionDeficiency};
   Member<ReferenceFilterOperation> vision_deficiency_filter_;

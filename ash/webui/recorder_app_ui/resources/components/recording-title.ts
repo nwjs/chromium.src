@@ -6,7 +6,6 @@ import 'chrome://resources/cros_components/textfield/textfield.js';
 import 'chrome://resources/cros_components/snackbar/snackbar.js';
 import './cra/cra-icon.js';
 import './cra/cra-icon-button.js';
-import './cra/cra-tooltip.js';
 import './recording-title-suggestion.js';
 
 import {
@@ -37,7 +36,9 @@ import {computed, signal} from '../core/reactive/signal.js';
 import {RecordingMetadata} from '../core/recording_data_manager.js';
 import {settings, SummaryEnableState} from '../core/state/settings.js';
 import {assertExists, assertInstanceof} from '../core/utils/assert.js';
+
 import {CraIconButton} from './cra/cra-icon-button.js';
+import {withTooltip} from './directives/with-tooltip.js';
 import {RecordingTitleSuggestion} from './recording-title-suggestion.js';
 
 /**
@@ -74,17 +75,8 @@ export class RecordingTitle extends ReactiveLitElement {
       text-overflow: ellipsis;
       white-space: nowrap;
 
-      & > cra-tooltip {
-        position-anchor: --title;
-        display: none;
-      }
-
       &:hover {
         background-color: var(--cros-sys-hover_on_subtle);
-
-        & > cra-tooltip {
-          display: block;
-        }
       }
     }
   `;
@@ -160,14 +152,15 @@ export class RecordingTitle extends ReactiveLitElement {
     // TODO(pihsun): Have a specific format for transcription to be used as
     // model input.
     const text = this.transcription.value.toPlainText();
-
+    const language = this.transcription.value.language;
     this.platformHandler.perfLogger.start({
       kind: 'titleSuggestion',
-      wordCount: this.transcription.value.wordCount,
+      wordCount: this.transcription.value.getWordCount(),
     });
 
     const {titleSuggestionModelLoader} = this.platformHandler;
-    const suggestions = await titleSuggestionModelLoader.loadAndExecute(text);
+    const suggestions =
+      await titleSuggestionModelLoader.loadAndExecute(text, language);
     this.platformHandler.perfLogger.finish('titleSuggestion');
 
     return suggestions;
@@ -274,7 +267,7 @@ export class RecordingTitle extends ReactiveLitElement {
       @close=${this.closeSuggestionDialog}
       @change=${this.onSuggestTitle}
       .suggestedTitles=${this.suggestedTitles}
-      .wordCount=${this.transcription.value?.wordCount ?? 0}
+      .wordCount=${this.transcription.value?.getWordCount() ?? 0}
       ${ref(this.recordingTitleSuggestion)}
     ></recording-title-suggestion>`;
   }
@@ -293,6 +286,7 @@ export class RecordingTitle extends ReactiveLitElement {
               @keydown=${this.onSuggestTitleButtonKeyDown}
               ${ref(this.suggestTitleButton)}
               aria-label=${i18n.titleSuggestionButtonTooltip}
+              ${withTooltip()}
             >
               <cra-icon slot="icon" name="pen_spark"></cra-icon>
             </cra-icon-button>`;
@@ -308,8 +302,7 @@ export class RecordingTitle extends ReactiveLitElement {
         </cros-textfield>
         ${this.renderSuggestionDialog()}`;
     }
-    // TODO(pihsun): Have a directive for tooltip instead of having user to
-    // manually add <cra-tooltip> and CSS styles.
+
     return html`
       <div
         id="title"
@@ -317,9 +310,9 @@ export class RecordingTitle extends ReactiveLitElement {
         @focus=${this.startEditTitle}
         @click=${this.startEditTitle}
         ${ref(this.renameContainer)}
+        ${withTooltip(i18n.titleRenameTooltip)}
       >
         ${this.recordingMetadata?.title ?? ''}
-        <cra-tooltip>${i18n.titleRenameTooltip}</cra-tooltip>
       </div>
     `;
   }

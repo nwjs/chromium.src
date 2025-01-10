@@ -322,24 +322,20 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   virtual gfx::Point ConvertFromContainingEmbeddedContentViewToScrollbar(
       const Scrollbar& scrollbar,
       const gfx::Point& parent_point) const {
-    NOTREACHED_IN_MIGRATION();
-    return parent_point;
+    NOTREACHED();
   }
   virtual gfx::Point ConvertFromScrollbarToContainingEmbeddedContentView(
       const Scrollbar& scrollbar,
       const gfx::Point& scrollbar_point) const {
-    NOTREACHED_IN_MIGRATION();
-    return scrollbar_point;
+    NOTREACHED();
   }
   virtual gfx::Point ConvertFromRootFrame(
       const gfx::Point& point_in_root_frame) const {
-    NOTREACHED_IN_MIGRATION();
-    return point_in_root_frame;
+    NOTREACHED();
   }
   virtual gfx::Point ConvertFromRootFrameToVisualViewport(
       const gfx::Point& point_in_root_frame) const {
-    NOTREACHED_IN_MIGRATION();
-    return point_in_root_frame;
+    NOTREACHED();
   }
 
   virtual Scrollbar* HorizontalScrollbar() const { return nullptr; }
@@ -614,6 +610,8 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
 
   virtual void SetSnappedQueryTargetIds(
       std::optional<cc::TargetSnapAreaElementIds>) {}
+
+  virtual void UpdateScrollMarkers(const ScrollOffset& offset) {}
 
  protected:
   // Deduces the mojom::blink::ScrollBehavior based on the

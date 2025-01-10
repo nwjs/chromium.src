@@ -308,7 +308,6 @@ Ecco alcune cose che puoi provare per iniziare.</translation>
 <translation id="2041220428661959602">Livello batteria: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848">La scorciatoia <ph name="SIX_PACK_KEY_NAME" /> è attualmente disattivata</translation>
 <translation id="2049240716062114887">Il nome della scrivania è stato modificato in <ph name="DESK_NAME" /></translation>
-<translation id="2050339315714019657">Verticale</translation>
 <translation id="2064048859448024834">Anteprima della videocamera attiva</translation>
 <translation id="2065098273523946419">Link Scopri di più. Quando attivato, reindirizza al browser.</translation>
 <translation id="2067220651560163985">Mostra la temperatura in gradi Celsius</translation>
@@ -339,9 +338,6 @@ Ecco alcune cose che puoi provare per iniziare.</translation>
 <translation id="219905428774326614">Avvio applicazioni, tutte le app</translation>
 <translation id="2201071101391734388">Foto recente <ph name="INDEX" /> di <ph name="TOTAL_COUNT" />.</translation>
 <translation id="2201687081523799384">Comprimi Google Tasks</translation>
-<translation id="2206960886090042977">Il touchpad integrato è disattivato perché è collegato un mouse. Usa il mouse o la tastiera per confermare la modifica.
-
-In caso contrario, il touchpad integrato verrà riattivato dopo 30 secondi.</translation>
 <translation id="2208323208084708176">Modalità desktop unificato</translation>
 <translation id="2220572644011485463">PIN o password</translation>
 <translation id="2222841058024245321">Scrivania 7</translation>
@@ -504,6 +500,9 @@ In caso contrario, il touchpad integrato verrà riattivato dopo 30 secondi.</tra
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /> da <ph name="KEY_ONE" /> a <ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">Ctrl+ Tasto per la ricerca + S</translation>
 <translation id="2778650143428714839">Dispositivo <ph name="DEVICE_TYPE" /> gestito da <ph name="MANAGER" /></translation>
+<translation id="2781658180588759579">Il touchpad integrato è disattivato. Usa la tastiera o un altro dispositivo di puntamento per confermare la modifica.
+
+In caso contrario, il touchpad integrato verrà riattivato dopo <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2782591952652094792">Esci dalla modalità di acquisizione</translation>
 <translation id="2785499565474703580">1 dispositivo connesso</translation>
 <translation id="2791421900609674576">Vedrai consigli per poter continuare dal punto in cui avevi interrotto. Puoi toccare i consigli e tenere premuto per rimuoverli.</translation>
@@ -601,6 +600,9 @@ In caso contrario, il touchpad integrato verrà riattivato dopo 30 secondi.</tra
 <translation id="3113492864356515707">Evidenzia l'elemento precedente nella barra delle app</translation>
 <translation id="311799651966070385">Chiudi avviso</translation>
 <translation id="3120421559657122717">Spegnere il dispositivo?</translation>
+<translation id="3121411970001795539">Il touchpad integrato è disattivato perché è collegato un mouse. Usa il mouse o la tastiera per confermare la modifica.
+
+In caso contrario, il touchpad integrato verrà riattivato dopo <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">Tipo di lavori del corso</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -968,13 +970,13 @@ Alcune funzionalità sono limitate per aumentare la durata della batteria.</tran
 <translation id="4322742403972824594">La scorciatoia da tastiera Ctrl + Alt + Freccia su è cambiata. Per usare il tasto Home, premi il tasto <ph name="LAUNCHER_KEY_NAME" /> + Freccia sinistra.</translation>
 <translation id="4324840740119394760">Consente l'accesso alla fotocamera per <ph name="APP_NAME" />, tutte le app e tutti i siti web che hanno l'autorizzazione di accesso alla fotocamera</translation>
 <translation id="4327147325944669226">Registra partita</translation>
-<translation id="4333628967105022692">Lacros non è supportato quando più utenti hanno effettuato l'accesso.</translation>
 <translation id="4338109981321384717">Lente d'ingrandimento</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, disattivato</translation>
 <translation id="4351244548802238354">Chiudi finestra di dialogo</translation>
 <translation id="4356872429719185452">Mostra i dettagli relativi all'hotspot. È in corso l'attivazione dell'hotspot.</translation>
 <translation id="4364101114148522660"><ph name="DURATION" />: registrazione in corso</translation>
 <translation id="4371348193907997655">Impostazioni di trasmissione</translation>
+<translation id="4371834685492830207">Il PIN deve contenere solo caratteri validi</translation>
 <translation id="4375482231364171368">Cerca nella barra degli indirizzi</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, intensità segnale: <ph name="SIGNAL_STRENGTH" /> percento</translation>
 <translation id="4378551569595875038">Connessione...</translation>
@@ -1140,6 +1142,7 @@ Alcune funzionalità sono limitate per aumentare la durata della batteria.</tran
 <translation id="4902797682482387055">Attività suggerita su cui concentrarti</translation>
 <translation id="490375751687810070">Verticale</translation>
 <translation id="490788395437447240">Livello batteria: <ph name="BATTERY_PERCENTAGE" />%</translation>
+<translation id="4911191962826748981">Si tratta di una funzionalità di AI sperimentale che potrebbe non essere sempre accurata.</translation>
 <translation id="491504982845934899">Attiva <ph name="NETWORK_NAME" /> dopo la configurazione del dispositivo</translation>
 <translation id="4917385247580444890">Forte</translation>
 <translation id="4918086044614829423">Accetto</translation>
@@ -1298,6 +1301,7 @@ Nessun dispositivo connesso.</translation>
 <translation id="5393156353051693207">Tocca e tieni premuto un punto qualsiasi per riordinare le app</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" /> sopra <ph name="IN_PLACE_APP" />, rilascia per creare una cartella.</translation>
 <translation id="5397578532367286026">L'utilizzo e la cronologia di questo utente possono essere esaminati dal gestore (<ph name="MANAGER_EMAIL" />) su chrome.com.</translation>
+<translation id="540338817371815859">Orizzontale</translation>
 <translation id="540713187982329711">Attiva/disattiva l'hotspot. L'hotspot è attivo, nessun dispositivo connesso.</translation>
 <translation id="5409208741270395213">Contrassegna l'attività come completata</translation>
 <translation id="5413656666631274079">Pagina Impostazioni</translation>
@@ -1378,7 +1382,7 @@ Nessun dispositivo connesso.</translation>
 <translation id="5672890847723042801">Utilità</translation>
 <translation id="5673434351075758678">Da "<ph name="FROM_LOCALE" />" a "<ph name="TO_LOCALE" />" dopo la sincronizzazione delle impostazioni.</translation>
 <translation id="5675363643668471212">Elemento barra delle app</translation>
-<translation id="5677928146339483299">Autorizzazione bloccata</translation>
+<translation id="5677928146339483299">Autorizzazione negata</translation>
 <translation id="5678564054339031017">Mostra la settimana successiva</translation>
 <translation id="5679050765726761783">Alimentatore a basso consumo energetico collegato</translation>
 <translation id="5682642926269496722">L'Assistente Google non è disponibile per l'attuale account utente.</translation>
@@ -1469,7 +1473,6 @@ Nessun dispositivo connesso.</translation>
 <translation id="5975235751479998104">Spostati avanti tra le finestre</translation>
 <translation id="5978382165065462689">Condividi il controllo dello schermo tramite Assistenza remota.</translation>
 <translation id="5980301590375426705">Esci da sessione Ospite</translation>
-<translation id="5982119059638483922">Premi FN + tasto per la ricerca o MAIUSC per annullare.</translation>
 <translation id="5983567367406220847">L'hotspot è stato disattivato per inattività.</translation>
 <translation id="598407983968395253">Utilizza modello</translation>
 <translation id="5986723678596105470">Partecipa con Google Meet</translation>
@@ -1539,7 +1542,6 @@ Nessun dispositivo connesso.</translation>
 <translation id="6166852626429024716">Cerca sul dispositivo, nelle app, nelle impostazioni e sul Web.</translation>
 <translation id="6168318496333165060">Apri l'app Diagnostica</translation>
 <translation id="6168622430237609329">Le app che hai installato</translation>
-<translation id="6173151025443907148">L'accesso di un secondo utente non è supportato se Lacros è attivo. Usa un secondo profilo del browser in Lacros oppure disattiva Lacros e riprova.</translation>
 <translation id="6179832488876878285">Puoi bloccare qui i tuoi file importanti. Apri l'app File per iniziare.</translation>
 <translation id="6180193585172850042">Tasto Indietro</translation>
 <translation id="6180651297859206670">Tasto Avanti</translation>
@@ -1561,6 +1563,7 @@ Nessun dispositivo connesso.</translation>
 <translation id="6232416233079464213">Di <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> sta usando la fotocamera e il microfono</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">La password deve contenere solo caratteri validi</translation>
 <translation id="6240603910551255087">Pulsante in alto</translation>
 <translation id="6240821072888636753">Chiedi ogni volta</translation>
 <translation id="6247728804802644171">Apri le notifiche</translation>
@@ -1691,7 +1694,6 @@ Nuova installazione</translation>
 <translation id="6682029141988159141">Incolla i contenuti dagli appunti</translation>
 <translation id="6683022854667115063">Cuffie</translation>
 <translation id="6686023075541098243">Configura la visualizzazione di notifiche dello smartphone</translation>
-<translation id="6688019813898140556">Premi Esc 5 volte</translation>
 <translation id="6694462491298752106">Il touchpad integrato è disattivato</translation>
 <translation id="6694973220096431421">Cerca su Google Drive</translation>
 <translation id="6696025732084565524">La tastiera rimovibile richiede un aggiornamento critico</translation>
@@ -1712,6 +1714,7 @@ Nuova installazione</translation>
 <translation id="6751826523481687655">La traccia delle prestazioni è attiva</translation>
 <translation id="6752912906630585008">Scrivania <ph name="REMOVED_DESK" /> rimossa e unita alla scrivania <ph name="RECEIVE_DESK" /></translation>
 <translation id="6753390234084146956">schede</translation>
+<translation id="6754918760968695779">Inserimento rapido</translation>
 <translation id="6757237461819837179">Nessun contenuto multimediale in riproduzione</translation>
 <translation id="6760438044935091345">Pannello di gioco</translation>
 <translation id="6768043681523654438">spazio di archiviazione</translation>
@@ -1761,6 +1764,7 @@ Nuova installazione</translation>
 <translation id="6921427376813842559">Aggiorna il dispositivo</translation>
 <translation id="6929081673585394903">Mostra controlli</translation>
 <translation id="6931576957638141829">Salva in</translation>
+<translation id="6935857786205183008">Verticale</translation>
 <translation id="6942518653766415536">Menu del formato di registrazione</translation>
 <translation id="6945221475159498467">Seleziona</translation>
 <translation id="6945922087561257829">Il tuo telefono è connesso a una rete mobile. Assicurati che il telefono e Chromebook siano collegati alla stessa rete Wi-Fi, quindi riprova. <ph name="LEARN_MORE" />:</translation>
@@ -1917,9 +1921,6 @@ Nuova installazione</translation>
 Per arrestare il dispositivo, tieni di nuovo premuto il relativo tasto di accensione.</translation>
 <translation id="7523420897035067483">Abilita Non disturbare finché è attiva la modalità Non disturbare</translation>
 <translation id="7524043547948122239">Google Tasks</translation>
-<translation id="7524919752437339268">Il touchpad integrato è disattivato. Usa la tastiera o un altro dispositivo di puntamento per confermare la modifica.
-
-In caso contrario, il touchpad integrato verrà riattivato dopo 30 secondi.</translation>
 <translation id="7525067979554623046">Crea</translation>
 <translation id="7526573455193969409">La rete potrebbe essere monitorata</translation>
 <translation id="7536035074519304529">Indirizzo IP: <ph name="ADDRESS" /></translation>
@@ -2006,6 +2007,7 @@ In caso contrario, il touchpad integrato verrà riattivato dopo 30 secondi.</tra
 <translation id="780301667611848630">No grazie</translation>
 <translation id="7807067443225230855">Ricerca e assistente</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> e <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">L'opzione Mi piace invia un feedback che indica che ti piace questo suggerimento</translation>
 <translation id="7825412704590278437">Di un evento nel calendario in programma</translation>
 <translation id="7829386189513694949">Segnale forte</translation>
 <translation id="7830453190047749513">Puoi personalizzare le azioni dei pulsanti, la velocità del cursore e altro ancora per il tuo <ph name="PERIPHERAL_NAME" /></translation>
@@ -2160,6 +2162,7 @@ In caso contrario, il touchpad integrato verrà riattivato dopo 30 secondi.</tra
 <translation id="830868413617744215">Beta</translation>
 <translation id="8314772463905284467">Bloc maiusc è attivo</translation>
 <translation id="8315514906653279104">Attivazione in corso…</translation>
+<translation id="8319634750346253957">L'opzione Non mi piace invia un feedback che indica che non ti piace questo suggerimento</translation>
 <translation id="8331351032546853669">Download in attesa</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2344,6 +2347,7 @@ In caso contrario, il touchpad integrato verrà riattivato dopo 30 secondi.</tra
 <translation id="8982906748181120328">Visibilità nelle vicinanze</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590">In uso: <ph name="IME_NAME" /></translation>
+<translation id="8991648557324317894">Premi Fn + Inserimento rapido o Maiusc per annullare.</translation>
 <translation id="899350903320462459">Sblocca il dispositivo con l'account <ph name="LOGIN_ID" /> per eseguire l'azione di notifica</translation>
 <translation id="8993733019280019776">Stai parlando? Il microfono è disattivato. Seleziona il microfono per attivarlo.</translation>
 <translation id="9000771174482730261">GESTISCI SPAZIO DI ARCHIVIAZIONE</translation>
@@ -2426,9 +2430,9 @@ In caso contrario, il touchpad integrato verrà riattivato dopo 30 secondi.</tra
 <translation id="974545358917229949">Visualizzazione di <ph name="RESULT_COUNT" /> risultati per <ph name="QUERY" /></translation>
 <translation id="981011780479609956">Nessuna data di scadenza</translation>
 <translation id="98120814841227350">Passa alla fine del documento</translation>
-<translation id="98515147261107953">Orizzontale</translation>
 <translation id="987589956647469042">I dati mobili sono attivi</translation>
 <translation id="989374776391122812">Controlli audio e fotocamera</translation>
+<translation id="990263227494928142">Premi Maiusc 5 volte per attivare il touchpad</translation>
 <translation id="990277280839877440">Finestra <ph name="WINDOW_TITILE" /> chiusa.</translation>
 <translation id="993398562350683614">Passaggio <ph name="STEP" /> di <ph name="TOTAL_STEPS" /> del tour. Usa le app per fare tutto ciò che ti serve sul tuo <ph name="PRODUCT_NAME" />. Puoi trovare le tue app in Avvio app. Premi Alt + Maiusc + L per impostare lo stato attivo sul pulsante Avvio app.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

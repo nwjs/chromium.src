@@ -105,6 +105,10 @@ extern const base::FeatureParam<int> kDownloadWarningSurveyIgnoreDelaySeconds;
 // chrome://settings/security to mention the use of AI.
 BASE_DECLARE_FEATURE(kEsbAiStringUpdate);
 
+// Makes the Enhanced Protection a syncable setting.
+// Check the design doc (go/esb-as-a-synced-setting-dd) for further details.
+BASE_DECLARE_FEATURE(kEsbAsASyncedSetting);
+
 // Controls whether Safe Browsing Extended Reporting (SBER) is deprecated.
 // When this feature flag is enabled:
 // - the Extended Reporting toggle will not be displayed on
@@ -198,12 +202,6 @@ extern const base::FeatureParam<int> kHashPrefixRealTimeLookupsSampleRate;
 // replace the downloads url.
 BASE_DECLARE_FEATURE(kDownloadsPageReferrerUrl);
 
-// If enabled, hash databases will compute an "offset map" that allows
-// prefix lookups to quickly narrow the search to a subrange of the
-// database. This will tradeoff memory for lookup time.
-BASE_DECLARE_FEATURE(kHashDatabaseOffsetMap);
-extern const base::FeatureParam<int> kHashDatabaseOffsetMapBytesPerOffset;
-
 // If enabled, fetching lists from Safe Browsing and performing checks on those
 // lists uses the v5 APIs instead of the v4 Update API. There is no change to
 // how often the checks are triggered (they are still not in real time).
@@ -211,6 +209,14 @@ BASE_DECLARE_FEATURE(kLocalListsUseSBv5);
 
 // Enable logging of the account enhanced protection setting in Protego pings.
 BASE_DECLARE_FEATURE(kLogAccountEnhancedProtectionStateInProtegoPings);
+
+// Killswitch for fetching and executing the notification content detection
+// model. This also gates logging metrics related to this model.
+BASE_DECLARE_FEATURE(kOnDeviceNotificationContentDetectionModel);
+// Determines the percentage of notifications from allowlisted sites that we
+// will check the model for. The value should be between 0 and 100.
+extern const base::FeatureParam<int>
+    kOnDeviceNotificationContentDetectionModelAllowlistSamplingRate;
 
 // Enable movement of password leak toggle out of standard protection and into
 // its own section.

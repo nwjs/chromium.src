@@ -11,6 +11,7 @@
 #include "ash/system/graduation/graduation_nudge_controller.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/observer_list.h"
 #include "base/scoped_observation.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/session_manager/core/session_manager.h"
@@ -38,7 +39,17 @@ class GraduationManagerImpl : public ash::graduation::GraduationManager,
   ~GraduationManagerImpl() override;
 
   // ash::graduation::GraduationManager:
-  const std::string GetLanguageCode() const override;
+  std::string GetLanguageCode() const override;
+
+  signin::IdentityManager* GetIdentityManager(
+      content::BrowserContext* context) override;
+  content::StoragePartition* GetStoragePartition(
+      content::BrowserContext* context,
+      const content::StoragePartitionConfig& storage_partition_config) override;
+
+  void AddObserver(GraduationManagerObserver* observer) override;
+  void RemoveObserver(GraduationManagerObserver* observer) override;
+
   void SetClocksForTesting(const base::Clock* clock,
                            const base::TickClock* tick_clock) override;
   void ResumeTimerForTesting() override;
@@ -54,6 +65,7 @@ class GraduationManagerImpl : public ash::graduation::GraduationManager,
   void OnMidnightTimer();
   void MaybeScheduleAppStatusUpdate();
   void UpdateAppReadiness();
+  void NotifyAppUpdate();
 
   PrefChangeRegistrar pref_change_registrar_;
 
@@ -74,6 +86,8 @@ class GraduationManagerImpl : public ash::graduation::GraduationManager,
   base::ScopedObservation<session_manager::SessionManager,
                           session_manager::SessionManagerObserver>
       session_manager_observation_{this};
+
+  base::ObserverList<GraduationManagerObserver> observers_;
 
   base::WeakPtrFactory<GraduationManagerImpl> weak_ptr_factory_{this};
 };

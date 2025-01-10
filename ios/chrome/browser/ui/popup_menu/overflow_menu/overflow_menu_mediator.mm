@@ -1248,13 +1248,9 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
       overflow_menu::Destination::RecentTabs,
       overflow_menu::Destination::SiteInfo,
       overflow_menu::Destination::Settings,
+      overflow_menu::Destination::PriceNotifications,
+      overflow_menu::Destination::WhatsNew,
   };
-
-  if (IsPriceNotificationsEnabled()) {
-    destinations.push_back(overflow_menu::Destination::PriceNotifications);
-  }
-
-  destinations.push_back(overflow_menu::Destination::WhatsNew);
 
   return destinations;
 }
@@ -1971,8 +1967,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
     case overflow_menu::ActionType::Help:
     case overflow_menu::ActionType::ShareChrome:
     case overflow_menu::ActionType::EditActions:
-      NOTREACHED_IN_MIGRATION();
-      return nil;
+      NOTREACHED();
     case overflow_menu::ActionType::Follow:
       return [self newFollowAction];
     case overflow_menu::ActionType::Bookmark:

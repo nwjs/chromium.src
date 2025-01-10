@@ -42,7 +42,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/isolated_world_ids.h"
-#include "third_party/blink/public/mojom/input/input_handler.mojom-blink.h"
+#include "third_party/blink/public/mojom/input/input_handler.mojom.h"
 #include "ui/accessibility/ax_assistant_structure.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/accessibility/ax_tree_update.h"
@@ -867,12 +867,6 @@ void WebContentsAndroid::OnFinishDownloadImage(
   }
   Java_WebContentsImpl_onDownloadImageFinished(
       env, obj, callback, id, http_status_code, jurl, jbitmaps, jsizes);
-}
-
-void WebContentsAndroid::SetMediaSession(
-    const ScopedJavaLocalRef<jobject>& j_media_session) {
-  JNIEnv* env = base::android::AttachCurrentThread();
-  Java_WebContentsImpl_setMediaSession(env, obj_, j_media_session);
 }
 
 void WebContentsAndroid::SendOrientationChangeEvent(JNIEnv* env,

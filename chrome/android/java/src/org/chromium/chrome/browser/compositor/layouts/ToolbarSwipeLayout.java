@@ -4,19 +4,26 @@
 
 package org.chromium.chrome.browser.compositor.layouts;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.RectF;
+import android.os.Build;
+import android.view.View;
+import android.view.ViewGroup;
 
 import org.chromium.base.CallbackUtils;
 import org.chromium.base.MathUtils;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.compositor.layouts.components.LayoutTab;
 import org.chromium.chrome.browser.compositor.layouts.eventfilter.BlackHoleEventFilter;
 import org.chromium.chrome.browser.compositor.scene_layer.ToolbarSwipeSceneLayer;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.EventFilter;
 import org.chromium.chrome.browser.layouts.LayoutManager;
 import org.chromium.chrome.browser.layouts.LayoutType;
@@ -33,6 +40,7 @@ import org.chromium.chrome.browser.toolbar.top.TopToolbarOverlayCoordinator;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.widget.gesture.SwipeGestureListener.ScrollDirection;
 import org.chromium.components.embedder_support.util.UrlUtilities;
+import org.chromium.components.sensitive_content.SensitiveContentFeatures;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.interpolators.Interpolators;
@@ -68,6 +76,8 @@ public class ToolbarSwipeLayout extends Layout {
     private ObservableSupplierImpl<Tab> mLeftTabSupplier;
     private ObservableSupplierImpl<Tab> mRightTabSupplier;
 
+    private final ViewGroup mContentContainer;
+
     // Whether or not to show the toolbar.
     private boolean mMoveToolbar;
 
@@ -95,9 +105,11 @@ public class ToolbarSwipeLayout extends Layout {
     private int mNextTabId;
 
     /**
-     * @param context             The current Android's context.
-     * @param updateHost          The {@link LayoutUpdateHost} view for this layout.
-     * @param renderHost          The {@link LayoutRenderHost} view for this layout.
+     * @param context The current Android's context.
+     * @param updateHost The {@link LayoutUpdateHost} view for this layout.
+     * @param renderHost The {@link LayoutRenderHost} view for this layout.
+     * @param bottomControlsOffsetSupplier Supplier of the offset, relative to the bottom of the
+     *     viewport, of the bottom-anchored toolbar.
      */
     public ToolbarSwipeLayout(
             Context context,
@@ -105,7 +117,9 @@ public class ToolbarSwipeLayout extends Layout {
             LayoutRenderHost renderHost,
             BrowserControlsStateProvider browserControlsStateProvider,
             LayoutManager layoutManager,
-            TopUiThemeColorProvider topUiColorProvider) {
+            TopUiThemeColorProvider topUiColorProvider,
+            Supplier<Integer> bottomControlsOffsetSupplier,
+            ViewGroup contentContainer) {
         super(context, updateHost, renderHost);
         mBlackHoleEventFilter = new BlackHoleEventFilter(context);
         mBrowserControlsStateProvider = browserControlsStateProvider;
@@ -113,6 +127,7 @@ public class ToolbarSwipeLayout extends Layout {
         final float pxToDp = 1.0f / res.getDisplayMetrics().density;
         mCommitDistanceFromEdge = res.getDimension(R.dimen.toolbar_swipe_commit_distance) * pxToDp;
         mSpaceBetweenTabs = res.getDimension(R.dimen.toolbar_swipe_space_between_tabs) * pxToDp;
+        mContentContainer = contentContainer;
 
         mMoveToolbar = !DeviceFormFactor.isNonMultiDisplayContextOnTablet(context);
 
@@ -129,6 +144,7 @@ public class ToolbarSwipeLayout extends Layout {
                             mBrowserControlsStateProvider,
                             () -> mRenderHost.getResourceManager(),
                             topUiColorProvider,
+                            bottomControlsOffsetSupplier,
                             LayoutType.TOOLBAR_SWIPE,
                             true);
             mLeftToolbarOverlay.setManualVisibility(true);
@@ -143,6 +159,7 @@ public class ToolbarSwipeLayout extends Layout {
                             mBrowserControlsStateProvider,
                             () -> mRenderHost.getResourceManager(),
                             topUiColorProvider,
+                            bottomControlsOffsetSupplier,
                             LayoutType.TOOLBAR_SWIPE,
                             true);
             mRightToolbarOverlay.setManualVisibility(true);
@@ -287,6 +304,19 @@ public class ToolbarSwipeLayout extends Layout {
         if (fromTabId != Tab.INVALID_TAB_ID) visibleTabs.add(fromTabId);
         updateCacheVisibleIds(visibleTabs);
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM
+                && ChromeFeatureList.isEnabled(SensitiveContentFeatures.SENSITIVE_CONTENT)
+                && ChromeFeatureList.isEnabled(
+                        SensitiveContentFeatures.SENSITIVE_CONTENT_WHILE_SWITCHING_TABS)
+                && visibleTabs.stream()
+                        .anyMatch(
+                                tabId ->
+                                        model.getTabById(tabId) != null
+                                                && model.getTabById(tabId)
+                                                        .getTabHasSensitiveContent())) {
+            mContentContainer.setContentSensitivity(View.CONTENT_SENSITIVITY_SENSITIVE);
+        }
+
         mToTab = null;
 
         // Reset the tab offsets.
@@ -383,6 +413,21 @@ public class ToolbarSwipeLayout extends Layout {
                 animator -> {
                     mOffset = animator.getAnimatedValue();
                     mOffsetTarget = mOffset;
+                });
+        offsetAnimation.addListener(
+                new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM
+                                && ChromeFeatureList.isEnabled(
+                                        SensitiveContentFeatures.SENSITIVE_CONTENT)
+                                && ChromeFeatureList.isEnabled(
+                                        SensitiveContentFeatures
+                                                .SENSITIVE_CONTENT_WHILE_SWITCHING_TABS)) {
+                            mContentContainer.setContentSensitivity(
+                                    View.CONTENT_SENSITIVITY_NOT_SENSITIVE);
+                        }
+                    }
                 });
         offsetAnimation.start();
     }

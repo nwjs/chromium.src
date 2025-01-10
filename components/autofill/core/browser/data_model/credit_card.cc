@@ -292,7 +292,6 @@ int CreditCard::IconResourceId(Suggestion::Icon icon) {
       return get_icon(IDR_AUTOFILL_METADATA_CC_GENERIC,
                       IDR_AUTOFILL_CC_GENERIC);
     case Suggestion::Icon::kAutofillPredictionImprovements:
-    case Suggestion::Icon::kAutofillPredictionImprovementsDark:
 
     case Suggestion::Icon::kAccount:
     case Suggestion::Icon::kClear:
@@ -566,9 +565,7 @@ void CreditCard::SetRawInfoWithVerificationStatus(FieldType type,
       break;
 
     default:
-      NOTREACHED_IN_MIGRATION()
-          << "Attempting to set unknown info-type " << type;
-      break;
+      NOTREACHED() << "Attempting to set unknown info-type " << type;
   }
 }
 

@@ -154,7 +154,7 @@ mojom::ConsoleMessageLevel MessageLevelFromNonFatalErrorLevel(int error_level) {
       level = mojom::ConsoleMessageLevel::kInfo;
       break;
     default:
-      NOTREACHED_IN_MIGRATION();
+      NOTREACHED();
   }
   return level;
 }
@@ -360,9 +360,19 @@ void V8Initializer::ExceptionPropagationCallback(
   }
   DCHECK(class_name.Is8Bit());
 
-  ApplyContextToException(
-      isolate, isolate->GetCurrentContext(), exception,
-      ExceptionContext(context_type, class_name.Utf8().data(), property_name));
+  for (auto* dictionary_context =
+           V8PerIsolateData::From(isolate)->TopOfDictionaryStack();
+       dictionary_context;
+       dictionary_context = dictionary_context->Previous()) {
+    ApplyContextToException(isolate, isolate->GetCurrentContext(), exception,
+                            v8::ExceptionContext::kAttributeGet,
+                            dictionary_context->DictionaryName(),
+                            dictionary_context->PropertyName());
+  }
+
+  ApplyContextToException(isolate, isolate->GetCurrentContext(), exception,
+                          context_type, class_name.Utf8().data(),
+                          property_name);
 }
 
 static void PromiseRejectHandlerInWorker(v8::PromiseRejectMessage data) {

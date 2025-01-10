@@ -350,6 +350,12 @@ _CONFIG = [
         ],
     },
     {
+        'paths': ['third_party/blink/common/context_menu_data/'],
+        'allowed': [
+            'ui::mojom::MenuSourceType',
+        ],
+    },
+    {
         'paths': ['third_party/blink/common/indexeddb/indexeddb_key.cc'],
         'allowed': ['base::HexEncode'],
     },
@@ -379,6 +385,10 @@ _CONFIG = [
             'net::MatchesMimeType',
             'media::IsSupportedMediaMimeType',
         ],
+    },
+    {
+        'paths': ['third_party/blink/common/loader/mime_sniffing_throttle.cc'],
+        'allowed': ['base::EqualsCaseInsensitiveASCII'],
     },
     {
         'paths': [
@@ -549,6 +559,7 @@ _CONFIG = [
             'cc::LayerTreeHost',
             'cc::PictureLayer',
             'cc::SurfaceLayer',
+            'cc::TextureLayerImpl',
 
             # cc::Layer helper data structs.
             'cc::AnchorPositionScrollData',
@@ -970,7 +981,6 @@ _CONFIG = [
             'third_party/blink/common/messaging/accelerated_static_bitmap_image_mojom_traits.cc'
         ],
         'allowed': [
-            'gpu::MailboxHolder',
             'gpu::SHARED_IMAGE_USAGE_DISPLAY_READ',
             'gpu::SHARED_IMAGE_USAGE_SCANOUT',
             'gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE',
@@ -1099,6 +1109,8 @@ _CONFIG = [
             'cc::CompositorCommitData',
             'cc::InputHandlerScrollResult',
             'cc::SwapPromise',
+            'stylus_handwriting::win::IsStylusHandwritingWinEnabled',
+            'stylus_handwriting::win::ProximateBoundsCollectionHalfLimit',
             'viz::CompositorFrameMetadata',
             'viz::FrameTimingDetails',
         ],
@@ -1208,6 +1220,7 @@ _CONFIG = [
             'gfx::PointF',
             'gfx::Rect',
             'gfx::RectF',
+            'gfx::Vector2dF',
 
             # The Blink public API is shared between non-Blink and Blink code
             # and must use the regular variants.
@@ -1236,7 +1249,17 @@ _CONFIG = [
     },
     {
         'paths': [
+            'third_party/blink/public/common/context_menu_data/',
+        ],
+        'allowed': [
+            'ui::mojom::MenuSourceType',
+        ],
+    },
+    {
+        'paths': [
             'third_party/blink/public/platform/web_audio_device.h',
+            'third_party/blink/public/web/web_local_frame_client.h',
+            'third_party/blink/renderer/modules/audio_output_devices/html_media_element_audio_output_device.cc',
         ],
         'allowed': [
             'media::OutputDeviceStatus',
@@ -1431,6 +1454,7 @@ _CONFIG = [
             'display::Display',
             'gl::GpuPreference',
             'gpu::ClientSharedImage',
+            'gpu::ContextSupport',
             'gpu::gles2::GLES2Interface',
             'gpu::Mailbox',
             'gpu::MailboxHolder',
@@ -2276,6 +2300,14 @@ _CONFIG = [
         ],
         'allowed': [
             'gpu::SharedImageInterface',
+        ]
+    },
+    {
+        'paths': [
+            'third_party/blink/public/platform/web_media_player_client.h',
+        ],
+        'allowed': [
+            'media::.+',
         ]
     },
 ]

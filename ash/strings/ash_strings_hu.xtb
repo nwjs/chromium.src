@@ -308,7 +308,6 @@
 <translation id="2041220428661959602">Akkumulátor töltöttségi szintje: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848">A(z) <ph name="SIX_PACK_KEY_NAME" /> billentyűparancsa jelenleg ki van kapcsolva</translation>
 <translation id="2049240716062114887">Az asztal neve a következőre változott: <ph name="DESK_NAME" /></translation>
-<translation id="2050339315714019657">Álló</translation>
 <translation id="2064048859448024834">Kamera-előnézet bekapcsolva</translation>
 <translation id="2065098273523946419">További információkhoz vezető link. Aktiválásakor átirányítja a rendszer a böngészőbe.</translation>
 <translation id="2067220651560163985">Hőmérséklet megjelenítése Celsius-fokban</translation>
@@ -339,9 +338,6 @@
 <translation id="219905428774326614">Indító, minden alkalmazás</translation>
 <translation id="2201071101391734388"><ph name="INDEX" />. fénykép a legutóbbi <ph name="TOTAL_COUNT" /> fénykép közül.</translation>
 <translation id="2201687081523799384">A Google Tasks összecsukása</translation>
-<translation id="2206960886090042977">A beépített érintőpad le van tiltva, mert csatlakoztatva van egy egér. A módosítás megerősítéséhez használja az egeret vagy a billentyűzetet.
-
-Ellenkező esetben a beépített érintőpad 30 másodperc múlva újra engedélyezve lesz.</translation>
 <translation id="2208323208084708176">Egységes asztali mód</translation>
 <translation id="2220572644011485463">PIN-kód vagy jelszó</translation>
 <translation id="2222841058024245321">7. asztal</translation>
@@ -504,6 +500,9 @@ Ellenkező esetben a beépített érintőpad 30 másodperc múlva újra engedé
 <translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" />–<ph name="KEY_TWO" /></translation>
 <translation id="2778197796481941784">ctrl + search + s</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" /> kezelője: <ph name="MANAGER" /></translation>
+<translation id="2781658180588759579">A beépített érintőpad le van tiltva. A módosítás megerősítéséhez használjon billentyűzetet vagy egy másik mutatóeszközt.
+
+Ellenkező esetben a beépített érintőpad <ph name="TIMEOUT_SECONDS" /> múlva újra engedélyezve lesz.</translation>
 <translation id="2782591952652094792">Kilépés a rögzítés módból</translation>
 <translation id="2785499565474703580">1 csatlakoztatott eszköz</translation>
 <translation id="2791421900609674576">Ajánlásokat tekinthet meg, hogy ott folytathassa, ahol abbahagyta. Érintéssel és nyomva tartással eltávolíthatja az ajánlásokat.</translation>
@@ -601,6 +600,9 @@ Ellenkező esetben a beépített érintőpad 30 másodperc múlva újra engedé
 <translation id="3113492864356515707">Az előző elem kiemelése a polcon</translation>
 <translation id="311799651966070385">Megbökés bezárása</translation>
 <translation id="3120421559657122717">Leállítja az eszközt?</translation>
+<translation id="3121411970001795539">A beépített érintőpad le van tiltva, mert csatlakoztatva van egy egér. A módosítás megerősítéséhez használja az egeret vagy a billentyűzetet.
+
+Ellenkező esetben a beépített érintőpad <ph name="TIMEOUT_SECONDS" /> múlva újra engedélyezve lesz.</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3125690294288312932">Feladat típusa</translation>
 <translation id="3126026824346185272">Ctrl</translation>
@@ -972,13 +974,13 @@ Az akkumulátor-élettartam növelése érdekében egyes funkciók korlátozotta
 <translation id="4322742403972824594">A Ctrl + Alt + Felfelé nyíl billentyűparancs módosult. A Home billentyű használatához nyomja le a következő billentyűparancsot: <ph name="LAUNCHER_KEY_NAME" /> + Balra nyíl.</translation>
 <translation id="4324840740119394760">Ezzel engedélyezi a kamerához való hozzáférést a(z) <ph name="APP_NAME" />, valamint a kamerahasználati engedéllyel rendelkező összes alkalmazás és webhely számára</translation>
 <translation id="4327147325944669226">Játék felvétele</translation>
-<translation id="4333628967105022692">A Lacros nem támogatott akkor, ha több felhasználó van bejelentkezve.</translation>
 <translation id="4338109981321384717">Nagyító</translation>
 <translation id="4348580496249286403"><ph name="VOLUME_LEVEL" />, némítva</translation>
 <translation id="4351244548802238354">Párbeszédablak bezárása</translation>
 <translation id="4356872429719185452">Hotspotadatok megjelenítése. A hotspot bekapcsolása folyamatban van.</translation>
 <translation id="4364101114148522660"><ph name="DURATION" />  Felvétel…</translation>
 <translation id="4371348193907997655">Átküldés beállításai</translation>
+<translation id="4371834685492830207">A PIN-kód csak érvényes karaktereket tartalmazhat</translation>
 <translation id="4375482231364171368">Keresés a címsávban</translation>
 <translation id="4378479437904450384"><ph name="WIRELESS_PROVIDER" />, jelerősség: <ph name="SIGNAL_STRENGTH" /> százalék</translation>
 <translation id="4378551569595875038">Kapcsolódás…</translation>
@@ -1144,6 +1146,7 @@ Az akkumulátor-élettartam növelése érdekében egyes funkciók korlátozotta
 <translation id="4902797682482387055">Javasolt feladat a következőre fókuszálva:</translation>
 <translation id="490375751687810070">Függőleges</translation>
 <translation id="490788395437447240"><ph name="BATTERY_PERCENTAGE" />%-os töltöttség</translation>
+<translation id="4911191962826748981">Ez egy kísérleti AI-funkció, amely nem mindig működik megfelelően.</translation>
 <translation id="491504982845934899">A(z) <ph name="NETWORK_NAME" /> hálózat aktiválása csak az eszköz beállítása után lehetséges</translation>
 <translation id="4917385247580444890">Erős</translation>
 <translation id="4918086044614829423">Elfogadás</translation>
@@ -1302,6 +1305,7 @@ Nincsenek csatlakoztatott eszközök.</translation>
 <translation id="5393156353051693207">Az alkalmazások átrendezéséhez tartsa lenyomva ujját bárhol</translation>
 <translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" /> az alatta lévő <ph name="IN_PLACE_APP" /> alkalmazáson; mappa létrehozásához engedje el.</translation>
 <translation id="5397578532367286026">A felhasználó használati adatait és előzményeit a kezelő (<ph name="MANAGER_EMAIL" />) a chrome.com webhelyen tekintheti meg.</translation>
+<translation id="540338817371815859">Fekvő</translation>
 <translation id="540713187982329711">Hotspot be- vagy kikapcsolása. A hotspot be van kapcsolva; nincs csatlakoztatott eszköz.</translation>
 <translation id="5409208741270395213">Feladat megjelölése teljesítettként</translation>
 <translation id="5413656666631274079">Beállítások oldal</translation>
@@ -1473,7 +1477,6 @@ Nincsenek csatlakoztatott eszközök.</translation>
 <translation id="5975235751479998104">Váltás előre az ablakokon keresztül</translation>
 <translation id="5978382165065462689">A képernyő irányításának megosztása a Távsegítség szolgáltatás keretein belül.</translation>
 <translation id="5980301590375426705">Kilépés vendégként</translation>
-<translation id="5982119059638483922">A kikapcsoláshoz nyomja meg az Fn + Keresőgomb billentyűkombinációt vagy a Shift billentyűt.</translation>
 <translation id="5983567367406220847">Tétlenség miatt a hotspot ki lett kapcsolva.</translation>
 <translation id="598407983968395253">Sablon használata</translation>
 <translation id="5986723678596105470">Bekapcsolódás Google Meettel</translation>
@@ -1543,7 +1546,6 @@ Nincsenek csatlakoztatott eszközök.</translation>
 <translation id="6166852626429024716">Kereshet az eszközén, az alkalmazások és a beállítások között, az interneten…</translation>
 <translation id="6168318496333165060">Diagnosztika alkalmazás megnyitása</translation>
 <translation id="6168622430237609329">Telepített alkalmazások</translation>
-<translation id="6173151025443907148">Második felhasználó bejelentkezése nem támogatott, ha a Lacros böngésző engedélyezve van. Bejelentkezés helyett használjon második böngészőprofilt, vagy zárja be a Lacrost, és próbálja újra.</translation>
 <translation id="6179832488876878285">Ide kitűzheti a fontos fájlokat. A kezdéshez nyissa meg a Fájlok alkalmazást.</translation>
 <translation id="6180193585172850042">Vissza gomb</translation>
 <translation id="6180651297859206670">Előre gomb</translation>
@@ -1565,6 +1567,7 @@ Nincsenek csatlakoztatott eszközök.</translation>
 <translation id="6232416233079464213">Innen: <ph name="SESSION_NAME" /></translation>
 <translation id="6232891689835436217">A(z) <ph name="APP_NAME" /> jelenleg használja a kamerát és a mikrofont</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6240551054644725950">A jelszó csak érvényes karaktereket tartalmazhat</translation>
 <translation id="6240603910551255087">Felső gomb</translation>
 <translation id="6240821072888636753">Mindig kérdezzen rá</translation>
 <translation id="6247728804802644171">Értesítések megnyitása</translation>
@@ -1695,7 +1698,6 @@ Frissen telepítve</translation>
 <translation id="6682029141988159141">Tartalom beillesztése a vágólapról</translation>
 <translation id="6683022854667115063">Fejhallgató</translation>
 <translation id="6686023075541098243">A telefonértesítések megtekintésének beállítása</translation>
-<translation id="6688019813898140556">Esc billentyűt ötször</translation>
 <translation id="6694462491298752106">A beépített érintőpad le van tiltva</translation>
 <translation id="6694973220096431421">Keresés a Google Drive-on</translation>
 <translation id="6696025732084565524">Szükség van a leválasztható billentyűzet kritikus frissítésének telepítésére</translation>
@@ -1716,6 +1718,7 @@ Frissen telepítve</translation>
 <translation id="6751826523481687655">A teljesítménykövetés be van kapcsolva</translation>
 <translation id="6752912906630585008">A(z) „<ph name="REMOVED_DESK" />” asztal el lett távolítva, és össze lett vonva a(z) „<ph name="RECEIVE_DESK" />” asztallal</translation>
 <translation id="6753390234084146956">lapok</translation>
+<translation id="6754918760968695779">Gyors beillesztés</translation>
 <translation id="6757237461819837179">Nincs lejátszott médiatartalom</translation>
 <translation id="6760438044935091345">Játékok irányítópultja</translation>
 <translation id="6768043681523654438">tárhely</translation>
@@ -1765,6 +1768,7 @@ Frissen telepítve</translation>
 <translation id="6921427376813842559">Az eszköz frissítése</translation>
 <translation id="6929081673585394903">Vezérlők megjelenítése</translation>
 <translation id="6931576957638141829">Mentés ide</translation>
+<translation id="6935857786205183008">Álló</translation>
 <translation id="6942518653766415536">Rögzítési formátum menüje</translation>
 <translation id="6945221475159498467">Kiválasztás</translation>
 <translation id="6945922087561257829">Telefonja mobilhálózathoz csatlakozik. Győződjön meg arról, hogy a telefon és a Chromebook ugyanahhoz a Wi-Fi-hálózathoz csatlakozik, majd próbálja újra. <ph name="LEARN_MORE" />.</translation>
@@ -1921,9 +1925,6 @@ Frissen telepítve</translation>
 Az eszköz leállításához tartsa ismét nyomva az eszköz bekapcsológombját.</translation>
 <translation id="7523420897035067483">A Ne zavarjanak mód bekapcsolása Összpontosítási üzemmódban</translation>
 <translation id="7524043547948122239">Google Tasks</translation>
-<translation id="7524919752437339268">A beépített érintőpad le van tiltva. A módosítás megerősítéséhez használjon billentyűzetet vagy egy másik mutatóeszközt.
-
-Ellenkező esetben a beépített érintőpad 30 másodperc múlva újra engedélyezve lesz.</translation>
 <translation id="7525067979554623046">Létrehozás</translation>
 <translation id="7526573455193969409">Elképzelhető, hogy figyelik a hálózatot</translation>
 <translation id="7536035074519304529">IP-cím: <ph name="ADDRESS" /></translation>
@@ -2010,6 +2011,7 @@ Ellenkező esetben a beépített érintőpad 30 másodperc múlva újra engedé
 <translation id="780301667611848630">Köszönöm, nem</translation>
 <translation id="7807067443225230855">Keresés és a Segéd</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> és <ph name="MINUTE" /></translation>
+<translation id="7823946889603375473">A „Tetszik” gombbal azt a visszajelzést küldi, hogy tetszik Önnek ez a javaslat</translation>
 <translation id="7825412704590278437">Közelgő naptáreseményből</translation>
 <translation id="7829386189513694949">Erős jel</translation>
 <translation id="7830453190047749513">Személyre szabhatja <ph name="PERIPHERAL_NAME" /> eszközén a gombműveleteket, a kurzor sebességét és egyebeket</translation>
@@ -2164,6 +2166,7 @@ Ellenkező esetben a beépített érintőpad 30 másodperc múlva újra engedé
 <translation id="830868413617744215">Béta</translation>
 <translation id="8314772463905284467">A Caps Lock be van kapcsolva</translation>
 <translation id="8315514906653279104">Bekapcsolás…</translation>
+<translation id="8319634750346253957">A „Nem tetszik” gombbal azt a visszajelzést küldi, hogy nem tetszik Önnek ez a javaslat</translation>
 <translation id="8331351032546853669">Letöltés függőben</translation>
 <translation id="8339706171276328417"><ph name="ACTION_DESCRIPTION" /> · <ph name="TIME" /></translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
@@ -2349,6 +2352,7 @@ Ellenkező esetben a beépített érintőpad 30 másodperc múlva újra engedé
 <translation id="8982906748181120328">Közeli láthatóság</translation>
 <translation id="8983038754672563810">HSPA</translation>
 <translation id="8990809378771970590"><ph name="IME_NAME" /> használata</translation>
+<translation id="8991648557324317894">Nyomja meg az fn + Gyors beillesztés billentyűket vagy a Shift billentyűt a megszakításhoz.</translation>
 <translation id="899350903320462459">Az eszköz zárolásának feloldása az értesítési művelet végrehajtásához a következő felhasználó által: <ph name="LOGIN_ID" />.</translation>
 <translation id="8993733019280019776">Most beszél? A mikrofon ki van kapcsolva. Válassza ki a mikrofont a bekapcsolásához.</translation>
 <translation id="9000771174482730261">TÁRHELY KEZELÉSE</translation>
@@ -2431,9 +2435,9 @@ Ellenkező esetben a beépített érintőpad 30 másodperc múlva újra engedé
 <translation id="974545358917229949"><ph name="RESULT_COUNT" /> találat megjelenítése a következő lekérdezésre: <ph name="QUERY" /></translation>
 <translation id="981011780479609956">Nincs határidő</translation>
 <translation id="98120814841227350">Ugrás a dokumentum végére</translation>
-<translation id="98515147261107953">Táj</translation>
 <translation id="987589956647469042">A mobiladat-kapcsolat be van kapcsolva</translation>
 <translation id="989374776391122812">Kamera- és hangvezérlők</translation>
+<translation id="990263227494928142">Az érintőpad engedélyezéséhez nyomja meg ötször a Shift billentyűt</translation>
 <translation id="990277280839877440">Bezárta a következő ablakot: <ph name="WINDOW_TITILE" />.</translation>
 <translation id="993398562350683614">A bemutató <ph name="STEP" />. lépése az összesen <ph name="TOTAL_STEPS" /> lépésből. Alkalmazások használatával bármit elvégezhet <ph name="PRODUCT_NAME" /> eszközén. Alkalmazásait az Indítóban találja. Ha az Indító gombra szeretné helyezni a fókuszt, nyomja le az Alt + Shift + L billentyűkombinációt.</translation>
 <translation id="994354411665877646"><ph name="NETWORK_NAME" />, <ph name="SUBTEXT" /></translation>

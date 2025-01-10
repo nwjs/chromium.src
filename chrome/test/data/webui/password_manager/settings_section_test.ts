@@ -4,7 +4,7 @@
 
 import 'chrome://password-manager/password_manager.js';
 
-import {OpenWindowProxyImpl, PASSWORD_MANAGER_ACCOUNT_STORE_TOGGLE_ELEMENT_ID, PasswordManagerImpl, SyncBrowserProxyImpl, TrustedVaultBannerState} from 'chrome://password-manager/password_manager.js';
+import {BatchUploadPasswordsEntryPoint, OpenWindowProxyImpl, PASSWORD_MANAGER_ACCOUNT_STORE_TOGGLE_ELEMENT_ID, PasswordManagerImpl, SyncBrowserProxyImpl, TrustedVaultBannerState} from 'chrome://password-manager/password_manager.js';
 import {webUIListenerCallback} from 'chrome://resources/js/cr.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
@@ -26,12 +26,6 @@ import type { PrefToggleButtonElement } from 'chrome://password-manager/password
 import { PasskeysBrowserProxyImpl } from 'chrome://password-manager/password_manager.js';
 
 import {TestPasskeysBrowserProxy} from './test_passkeys_browser_proxy.js';
-// </if>
-
-// <if expr="not is_chromeos">
-import {TestPromoCardsProxy} from './test_promo_cards_browser_proxy.js';
-
-import {PromoCardsProxyImpl} from 'chrome://password-manager/password_manager.js';
 // </if>
 
 // clang-format on
@@ -60,9 +54,6 @@ suite('SettingsSectionTest', function() {
   // <if expr="is_win or is_macosx">
   let passkeysProxy: TestPasskeysBrowserProxy;
   // </if>
-  // <if expr="not is_chromeos">
-  let promoCardsProxy: TestPromoCardsProxy;
-  // </if>
 
   setup(function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
@@ -72,10 +63,6 @@ suite('SettingsSectionTest', function() {
     OpenWindowProxyImpl.setInstance(openWindowProxy);
     syncProxy = new TestSyncBrowserProxy();
     SyncBrowserProxyImpl.setInstance(syncProxy);
-    // <if expr="not is_chromeos">
-    promoCardsProxy = new TestPromoCardsProxy();
-    PromoCardsProxyImpl.setInstance(promoCardsProxy);
-    // </if>
 
     // <if expr="is_win or is_macosx">
     passkeysProxy = new TestPasskeysBrowserProxy();
@@ -514,6 +501,7 @@ suite('SettingsSectionTest', function() {
         }),
       ],
     });
+    syncProxy.localPasswordCount = 1;
 
     passwordManager.data.groups = [group];
     const settings = document.createElement('settings-section');
@@ -601,7 +589,6 @@ suite('SettingsSectionTest', function() {
         assertTrue(!!dialog);
       });
 
-  // <if expr="not is_chromeos">
   test(
       'clicking save passwords in account opens batch upload dialog',
       async function() {
@@ -630,6 +617,7 @@ suite('SettingsSectionTest', function() {
         passwordManager.data.groups = [group];
         passwordManager.setRequestCredentialsDetailsResponse(
             passwordManager.data.groups[0]!.entries);
+        syncProxy.localPasswordCount = 1;
 
         const settings = document.createElement('settings-section');
         document.body.appendChild(settings);
@@ -644,9 +632,10 @@ suite('SettingsSectionTest', function() {
         movePasswordsButton!.click();
         await flushTasks();
 
-        await promoCardsProxy.whenCalled('openBatchUpload');
+        const entryPoint = await syncProxy.whenCalled('openBatchUpload');
+        assertEquals(
+            BatchUploadPasswordsEntryPoint.PASSWORD_MANAGER, entryPoint);
       });
-  // </if>
 
   test('Account storage iph', async function() {
     loadTimeData.overrideValues({canAddShortcut: false});

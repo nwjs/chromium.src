@@ -18,7 +18,7 @@
 class GURL;
 
 // LINT.IfChange(FamilyLinkUserReauthenticationInterstitialState)
-// State of the re-authentication interstitial indicatins if the user
+// State of the re-authentication interstitial indicating if the user
 // has interacted with the sign-in flow.
 enum class FamilyLinkUserReauthenticationInterstitialState : int {
   kInterstitialShown = 0,
@@ -40,6 +40,10 @@ class SupervisedUserVerificationPage
   // Whether the user is in a suitable auth state for this page to be shown.
   static bool ShouldShowPage(
       const supervised_user::ChildAccountService& child_account_service);
+
+  // Helper method for getting the right histogram bucket from a given status.
+  static FamilyLinkUserReauthenticationInterstitialState
+  GetReauthenticationInterstitialStateFromStatus(Status status);
 
   // `request_url` is the URL which triggered the interstitial page. It can be
   // a main frame or a subresource URL.
@@ -66,6 +70,8 @@ class SupervisedUserVerificationPage
   void OnInterstitialClosing() override;
   int GetHTMLTemplateId() override;
   virtual void RecordReauthStatusMetrics(Status status) = 0;
+  virtual void RecordSignInTabUmaMetrics(int closed_tab_count,
+                                         int skipped_tab_count) = 0;
   void PopulateCommonStrings(base::Value::Dict& load_time_data);
   bool IsReauthCompleted();
 

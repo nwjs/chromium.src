@@ -4,7 +4,9 @@
 
 #include "android_webview/browser/aw_field_trials.h"
 
+#include "android_webview/common/aw_features.h"
 #include "android_webview/common/aw_switches.h"
+#include "base/allocator/partition_alloc_features.h"
 #include "base/base_paths_android.h"
 #include "base/check.h"
 #include "base/feature_list.h"
@@ -263,20 +265,29 @@ void AwFieldTrials::RegisterFeatureOverrides(base::FeatureList* feature_list) {
     aw_feature_overrides.EnableFeature(network::features::kMaskedDomainList);
   }
 
+  // Feature parameters can only be set via a field trial.
+  // Note: Performing a field trial here means we cannot include
+  // |kDIPSTtl| in the testing config json.
+  {
+    const char kDipsWebViewExperiment[] = "DipsWebViewExperiment";
+    const char kDipsWebViewGroup[] = "DipsWebViewGroup";
+    base::FieldTrial* dips_field_trial = base::FieldTrialList::CreateFieldTrial(
+        kDipsWebViewExperiment, kDipsWebViewGroup);
+    CHECK(dips_field_trial) << "Unexpected name conflict.";
+    base::FieldTrialParams params;
+    const std::string ttl_time_delta_30_days = "30d";
+    params.emplace(features::kDIPSInteractionTtl.name, ttl_time_delta_30_days);
+    base::AssociateFieldTrialParams(kDipsWebViewExperiment, kDipsWebViewGroup,
+                                    params);
+    aw_feature_overrides.OverrideFeatureWithFieldTrial(
+        features::kDIPSTtl,
+        base::FeatureList::OverrideState::OVERRIDE_ENABLE_FEATURE,
+        dips_field_trial);
+  }
+
   // Delete Incidental Party State (DIPS) feature is not yet supported on
   // WebView.
-  // TODO(b/344852824): Enable the feature for WebView
   aw_feature_overrides.DisableFeature(::features::kDIPS);
-
-  // Async Safe Browsing check will be rolled out together with
-  // kHashPrefixRealTimeLookups on WebView.
-  aw_feature_overrides.DisableFeature(
-      safe_browsing::kSafeBrowsingAsyncRealTimeCheck);
-  aw_feature_overrides.DisableFeature(
-      safe_browsing::kHashPrefixRealTimeLookups);
-
-  // WebView does not currently support the Permissions API (crbug.com/490120)
-  aw_feature_overrides.DisableFeature(::features::kWebPermissionsApi);
 
   // TODO(crbug.com/41492947): See crrev.com/c/5744034 for details, but I was
   // unable to add this feature to fieldtrial_testing_config and pass all tests.
@@ -293,4 +304,9 @@ void AwFieldTrials::RegisterFeatureOverrides(base::FeatureList* feature_list) {
   // TODO(crbug.com/336852432): Enable this feature for WebView.
   aw_feature_overrides.DisableFeature(
       blink::features::kNavigationPredictorNewViewportFeatures);
+
+  // This feature is global for the process and thus should not be enabled by
+  // WebView.
+  aw_feature_overrides.DisableFeature(
+      base::features::kPartitionAllocMemoryTagging);
 }
