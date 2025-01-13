@@ -312,10 +312,19 @@ extern const base::NotFatalUntil kLensOverlayNotFatalUntil;
 // default.
 BASE_DECLARE_FEATURE(kLensOverlayEnableLocationBarEntrypoint);
 
+// Feature flag to enable the Lens overlay location bar entrypoint on SRP.
+// Enabled by default.
+BASE_DECLARE_FEATURE(kLensOverlayEnableLocationBarEntrypointOnSRP);
+
 // Feature flag to disable price insights for a lens overlay experiment. As the
 // price insights entrypoint trumps the lens overlay entrypoint. This flag
 // should only be used for experiment.
 BASE_DECLARE_FEATURE(kLensOverlayDisablePriceInsights);
+
+// Feature flag to enable lens overlay location bar entrypoint only when price
+// insights should trigger. This is used as counterfactual for
+// kLensOverlayDisablePriceInsights.
+BASE_DECLARE_FEATURE(kLensOverlayPriceInsightsCounterfactual);
 
 // Feature to force allow iPad support of lens overlay.
 BASE_DECLARE_FEATURE(kLensOverlayEnableIPadCompatibility);

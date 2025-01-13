@@ -284,12 +284,20 @@ BASE_FEATURE(kLensOverlayDisablePriceInsights,
              "LensOverlayDisablePriceInsights",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kLensOverlayPriceInsightsCounterfactual,
+             "LensOverlayPriceInsightsCounterfactual",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kLensOverlayEnableIPadCompatibility,
              "EnableLensOverlayForceIPadSupport",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensOverlayEnableLocationBarEntrypoint,
              "LensOverlayEnableLocationBarEntrypoint",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLensOverlayEnableLocationBarEntrypointOnSRP,
+             "LensOverlayEnableLocationBarEntrypointOnSRP",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensOverlayEnableSameTabNavigation,

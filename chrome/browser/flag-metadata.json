@@ -3421,6 +3421,11 @@
     "expiry_milestone": 136
   },
   {
+    "name": "enable-lens-overlay-price-insights-counterfactual",
+    "owners": [ "christianxu@chromium.org", "stkhapugin@chromium.org"],
+    "expiry_milestone": 135
+  },
+  {
     "name": "enable-lens-overlay-translate-button",
     "owners": [ "juanmojica@google.com", "jdonnelly@chromium.org", "lens-chrome@google.com" ],
     "expiry_milestone": 135
@@ -5763,6 +5768,11 @@
   },
   {
     "name": "lens-overlay-enable-location-bar-entrypoint",
+    "owners": ["christianxu@google.com", "stkhapugin@chromium.org"],
+    "expiry_milestone": 135
+  },
+  {
+    "name": "lens-overlay-enable-location-bar-entrypoint-on-srp",
     "owners": ["christianxu@google.com", "stkhapugin@chromium.org"],
     "expiry_milestone": 135
   },

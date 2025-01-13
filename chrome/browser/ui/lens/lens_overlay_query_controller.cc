@@ -11,6 +11,7 @@
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/rand_util.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
@@ -49,10 +50,12 @@
 #include "third_party/icu/source/common/unicode/unistr.h"
 #include "third_party/icu/source/i18n/unicode/timezone.h"
 #include "third_party/lens_server_proto/lens_overlay_client_platform.pb.h"
+#include "third_party/lens_server_proto/lens_overlay_document.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_filters.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_platform.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_polygon.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_request_id.pb.h"
+#include "third_party/lens_server_proto/lens_overlay_service_deps.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_surface.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_visual_search_interaction_data.pb.h"
 #include "ui/gfx/geometry/rect.h"
@@ -350,6 +353,7 @@ void LensOverlayQueryController::StartQueryFlow(
 }
 
 void LensOverlayQueryController::EndQuery() {
+  ResetPageContentData();
   gen204_controller_->OnQueryFlowEnd(
       request_id_generator_->GetBase32EncodedAnalyticsId());
   full_image_endpoint_fetcher_.reset();
@@ -382,14 +386,17 @@ void LensOverlayQueryController::SendEndTranslateModeQuery() {
   PrepareAndFetchFullImageRequest();
 }
 
+void LensOverlayQueryController::ResetPageContentData() {
+  underlying_content_bytes_ = base::span<const uint8_t>();
+  underlying_content_type_ = lens::MimeType::kUnknown;
+  page_url_ = GURL();
+  partial_content_ = base::span<const std::u16string>();
+}
+
 void LensOverlayQueryController::SendPageContentUpdateRequest(
     base::span<const uint8_t> new_content_bytes,
     lens::MimeType new_content_type,
     GURL new_page_url) {
-  if (new_content_bytes == underlying_content_bytes_ &&
-      new_content_type == underlying_content_type_) {
-    return;
-  }
   underlying_content_bytes_ = new_content_bytes;
   underlying_content_type_ = new_content_type;
   page_url_ = new_page_url;
@@ -421,6 +428,13 @@ void LensOverlayQueryController::SendPageContentUpdateRequest(
   PrepareAndFetchPageContentRequest();
 }
 
+void LensOverlayQueryController::SendPartialPageContentRequest(
+    base::span<const std::u16string> partial_content) {
+  partial_content_ = partial_content;
+
+  PrepareAndFetchPartialPageContentRequest();
+}
+
 void LensOverlayQueryController::SendRegionSearch(
     lens::mojom::CenterRotatedBoxPtr region,
     lens::LensOverlaySelectionType lens_selection_type,
@@ -443,7 +457,7 @@ void LensOverlayQueryController::SendContextualTextQuery(
 
   // If there is a page content request in flight, wait for it to finish before
   // sending the contextual text query.
-  if (page_content_request_in_progress_) {
+  if (ShouldHoldContextualSearchQuery()) {
     pending_contextual_query_callback_ =
         base::BindOnce(&LensOverlayQueryController::SendContextualTextQuery,
                        weak_ptr_factory_.GetWeakPtr(), query_text,
@@ -714,6 +728,7 @@ void LensOverlayQueryController::ClusterInfoFetchResponseHandler(
   // cluster info we just received.
   PrepareAndFetchFullImageRequest();
   PrepareAndFetchPageContentRequest();
+  PrepareAndFetchPartialPageContentRequest();
 }
 
 void LensOverlayQueryController::PrepareAndFetchFullImageRequest() {
@@ -1062,6 +1077,85 @@ void LensOverlayQueryController::PageContentUploadProgressHandler(
           FROM_HERE, std::move(pending_contextual_query_callback_));
     }
   }
+}
+
+void LensOverlayQueryController::PrepareAndFetchPartialPageContentRequest() {
+  if (!cluster_info_ || partial_content_.empty()) {
+    // Cannot send this request without cluster info. No need to send the
+    // request without content bytes.
+    return;
+  }
+
+  partial_page_contents_request_start_time_ = base::TimeTicks::Now();
+
+  // Create the request.
+  lens::LensOverlayServerRequest request;
+  lens::LensOverlayRequestContext request_context;
+
+  // Use the same request ID as the full image request. It is guaranteed to
+  // exist since the full image request was started first.
+  CHECK(latest_full_image_request_data_->request_id_);
+  request_context.mutable_request_id()->CopyFrom(
+      *latest_full_image_request_data_->request_id_);
+
+  request_context.mutable_client_context()->CopyFrom(CreateClientContext());
+  request.mutable_objects_request()->mutable_request_context()->CopyFrom(
+      request_context);
+
+  // Create the partial page content payload.
+  lens::Payload payload;
+  payload.set_request_type(lens::Payload::REQUEST_TYPE_EARLY_PARTIAL_PDF);
+
+  // Add the partial page content to the payload.
+  lens::LensOverlayDocument* partial_pdf_document =
+      payload.mutable_partial_pdf_document();
+  for (size_t i = 0; i < partial_content_.size(); ++i) {
+    const auto& page_text = partial_content_[i];
+    auto* page = partial_pdf_document->add_pages();
+    page->set_page_number(i + 1);
+    page->add_text_segments(base::UTF16ToUTF8(page_text));
+  }
+
+  // Add the page url to the payload if it is available.
+  if (!page_url_.is_empty() &&
+      lens::features::SendPageUrlForContextualization()) {
+    payload.set_page_url(page_url_.spec());
+  }
+  request.mutable_objects_request()->mutable_payload()->CopyFrom(payload);
+
+  partial_page_content_access_token_fetcher_ =
+      CreateOAuthHeadersAndContinue(base::BindOnce(
+          &LensOverlayQueryController::PerformPartialPageContentRequest,
+          weak_ptr_factory_.GetWeakPtr(), std::move(request)));
+}
+
+void LensOverlayQueryController::PerformPartialPageContentRequest(
+    lens::LensOverlayServerRequest request,
+    std::vector<std::string> headers) {
+  partial_page_content_access_token_fetcher_.reset();
+
+  PerformFetchRequest(
+      &request, &headers,
+      base::Milliseconds(
+          lens::features::GetLensOverlayPageContentRequestTimeoutMs()),
+      base::BindOnce(&LensOverlayQueryController::
+                         OnPartialPageContentEndpointFetcherCreated,
+                     weak_ptr_factory_.GetWeakPtr()),
+      base::BindOnce(
+          &LensOverlayQueryController::PartialPageContentResponseHandler,
+          weak_ptr_factory_.GetWeakPtr()));
+}
+
+void LensOverlayQueryController::PartialPageContentResponseHandler(
+    std::unique_ptr<EndpointResponse> response) {
+  partial_page_content_endpoint_fetcher_.reset();
+
+  SendLatencyGen204IfEnabled(
+      LatencyType::kPartialPageContentUploadLatency,
+      partial_page_contents_request_start_time_,
+      VitQueryParamValueForMimeType(underlying_content_type_),
+      /*cluster_info_latency=*/std::nullopt,
+      /*encoded_analytics_id=*/std::nullopt);
 }
 
 void LensOverlayQueryController::SendInteraction(
@@ -1689,11 +1783,44 @@ void LensOverlayQueryController::OnPageContentEndpointFetcherCreated(
   page_content_endpoint_fetcher_ = std::move(endpoint_fetcher);
 }
 
+void LensOverlayQueryController::OnPartialPageContentEndpointFetcherCreated(
+    std::unique_ptr<EndpointFetcher> endpoint_fetcher) {
+  SendInitialLatencyGen204IfNotAlreadySent(
+      LatencyType::kInvocationToInitialPartialPageContentRequestSent,
+      VitQueryParamValueForMimeType(underlying_content_type_));
+  partial_page_content_endpoint_fetcher_ = std::move(endpoint_fetcher);
+}
+
 void LensOverlayQueryController::OnInteractionEndpointFetcherCreated(
     std::unique_ptr<EndpointFetcher> endpoint_fetcher) {
   SendInitialLatencyGen204IfNotAlreadySent(
       LatencyType::kInvocationToInitialInteractionRequestSent,
       VitQueryParamValueForMimeType(underlying_content_type_));
   interaction_endpoint_fetcher_ = std::move(endpoint_fetcher);
+}
+
+bool LensOverlayQueryController::ShouldHoldContextualSearchQuery() {
+  // If the page content request has already finished, the query can be sent.
+  if (!page_content_request_in_progress_) {
+    return false;
+  }
+
+  // If the partial page content is empty, the query needs to be held until the
+  // page content upload is finished.
+  if (partial_content_.empty()) {
+    return true;
+  }
+
+  // Get the average number of characters per page.
+  int total_characters = 0;
+  for (const std::u16string& page_text : partial_content_) {
+    total_characters += page_text.size();
+  }
+  const int characters_per_page = total_characters / partial_content_.size();
+
+  // If the average is under the scanned pdf character per page heuristic, the
+  // query needs to wait for the page content upload.
+  return characters_per_page <
+         lens::features::GetScannedPdfCharacterPerPageHeuristic();
 }
 }  // namespace lens

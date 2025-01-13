@@ -386,6 +386,14 @@ extern bool GetLensOverlaySendLensVisualInteractionDataForLensSuggest();
 COMPONENT_EXPORT(LENS_FEATURES)
 extern uint32_t GetLensOverlayFileUploadLimitBytes();
 
+// Returns the number of characters to be retrieved from the PDF for generating
+// suggestions. This is a target and not a hard limit. The actual number of
+// characters returned may be more than this value since the characters are
+// rounded to the nearest page. The actual number of characters may also be
+// less than this value if the PDF is too small.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern uint32_t GetLensOverlayPdfSuggestCharacterTarget();
+
 // Returns whether to use the &vit=pdf param for the search request.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool UsePdfVitParam();
@@ -402,6 +410,12 @@ extern bool UsePdfInteractionType();
 // queries.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool UseWebpageInteractionType();
+
+// Returns the number of characters that should be present per page if the PDF
+// is not scanned. This value is compared to the average number of characters
+// per page to determine if the PDF is scanned.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern int GetScannedPdfCharacterPerPageHeuristic();
 
 // Returns whether to include PDFs from the underlying page in the request to be
 // used as page context.

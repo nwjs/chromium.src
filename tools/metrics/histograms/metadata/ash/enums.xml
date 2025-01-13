@@ -323,6 +323,13 @@ ash/webui/personalization_app/mojom/personalization_app.mojom -->
   <int value="11" label="Coral"/>
 </enum>
 
+<enum name="BocaPollingResult">
+  <int value="0" label="No Update"/>
+  <int value="1" label="Polling causes session to start"/>
+  <int value="2" label="Polling causes session to end"/>
+  <int value="3" label="Polling causes in-session update"/>
+</enum>
+
 <enum name="BooleanMuted">
   <int value="0" label="Muted"/>
   <int value="1" label="Unmuted"/>
@@ -544,6 +551,12 @@ ash/webui/personalization_app/mojom/personalization_app.mojom -->
       label="Disabled because the related app is disabled by policy"/>
   <int value="3"
       label="Disabled because the related URLs are blocked by policy"/>
+</enum>
+
+<enum name="CoralActionType">
+  <int value="0" label="Restore"/>
+  <int value="1" label="LaunchToNewDesk"/>
+  <int value="2" label="SaveAsDeskTemplate"/>
 </enum>
 
 <enum name="CriticalNotificationOutcome">

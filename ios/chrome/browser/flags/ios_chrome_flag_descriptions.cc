@@ -675,6 +675,12 @@ extern const char kLensOverlayDisablePriceInsightsDescription[] =
     "trumps lens overlay entrypoint in the location bar. This should only be "
     "used for experiments.";
 
+extern const char kLensOverlayPriceInsightsCounterfactualName[] =
+    "Lens overlay disable price insights counterfactual.";
+extern const char kLensOverlayPriceInsightsCounterfactualDescription[] =
+    "When enabled, show the lens overlay location bar entrypoint only when "
+    "price insights should have triggered.";
+
 extern const char kLensOverlayEnableIPadCompatibilityName[] =
     "Allow Lens overlay to also run on iPad devices if the feature is enabled";
 extern const char kLensOverlayEnableIPadCompatibilityDescription[] =
@@ -686,6 +692,12 @@ extern const char kLensOverlayEnableLocationBarEntrypointDescription[] =
     "When enabled, shows the Lens overlay entrypoint in the location bar when "
     "no other buttons are shown (price insight or messages). Enabled by "
     "default. ";
+
+extern const char kLensOverlayEnableLocationBarEntrypointOnSRPName[] =
+    "Enable Lens overlay location bar entrypoint on SRP.";
+extern const char kLensOverlayEnableLocationBarEntrypointOnSRPDescription[] =
+    "When enabled, the location bar entrypoint is available on SRP. Enabled by "
+    "default.";
 
 extern const char kLensOverlayEnableSameTabNavigationName[] =
     "Lens overlay same tab navigation";

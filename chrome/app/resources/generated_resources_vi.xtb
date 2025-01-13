@@ -3345,7 +3345,7 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="3320271870899888245">Không thể kết nối với OneDrive. Hãy thử lại.</translation>
 <translation id="3320630259304269485">Tính năng Duyệt web an toàn (bảo vệ trước các trang web nguy hiểm) và chế độ cài đặt bảo mật khác</translation>
 <translation id="3320957378743864387">Không được phép đề xuất hỗ trợ viết</translation>
-<translation id="3321460131042519426">Bật xuống dòng tự động</translation>
+<translation id="3321460131042519426">Bật tính năng xuống dòng tự động</translation>
 <translation id="3321494112580110651">Bạn không thấy máy in của mình?</translation>
 <translation id="3321776060736518525">Từ <ph name="APP_URL" /></translation>
 <translation id="3323521181261657960">Phần thưởng! Bạn có thêm thời gian sử dụng thiết bị</translation>
@@ -6552,7 +6552,6 @@ Các quyền bạn từng cấp cho trang web và ứng dụng có thể áp d�
 <translation id="5613074282491265467">Mật khẩu bạn lưu khi đăng nhập vào Chrome sẽ được lưu vào Tài khoản Google <ph name="USER_EMAIL" /> của bạn. Để tắt tính năng này, hãy vào phần cài đặt.</translation>
 <translation id="5614190747811328134">Thông báo Người dùng</translation>
 <translation id="5614553682702429503">Lưu mật khẩu?</translation>
-<translation id="5614625640221885312">Đăng nhập để sử dụng dấu trang, mật khẩu và nhiều nội dung khác trên mọi thiết bị của bạn</translation>
 <translation id="5614947000616625327">Chuỗi khoá iCloud</translation>
 <translation id="561552177910095306">Danh sách trang web bạn truy cập gần đây có thể đề xuất quảng cáo cho các trang web khác khi bạn tiếp tục duyệt web</translation>
 <translation id="5616571005307953937">Cũ nhất</translation>
@@ -9678,7 +9677,7 @@ Nhấn một công tắc hoặc phím đã gán để xóa.</translation>
 <translation id="7870790288828963061">Không tìm thấy ứng dụng Kiosk nào có phiên bản mới hơn. Không có gì để cập nhật. Vui lòng rút thẻ USB.</translation>
 <translation id="7871109039747854576">Dùng phím <ph name="COMMA" /> và <ph name="PERIOD" /> để chuyển đến danh sách các tùy chọn</translation>
 <translation id="7871277686245037315">tìm kiếm + mũi tên trái</translation>
-<translation id="7871691770940645922">Màn hình chữ nổi Braille ảo</translation>
+<translation id="7871691770940645922">Màn hình chữ nổi ảo</translation>
 <translation id="787268756490971083">Đang tắt</translation>
 <translation id="7872758299142009420">Quá nhiều nhóm con: <ph name="ERROR_LINE" /></translation>
 <translation id="7873386145597434863">Steam dành cho Chromebook</translation>

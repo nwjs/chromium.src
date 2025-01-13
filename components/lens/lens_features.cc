@@ -332,6 +332,9 @@ constexpr base::FeatureParam<bool>
 constexpr base::FeatureParam<size_t> kLensOverlayFileUploadLimitBytes{
     &kLensOverlayContextualSearchbox, "file-upload-limit-bytes", 200000000};
 
+constexpr base::FeatureParam<size_t> kLensOverlayPdfTextCharacterLimit{
+    &kLensOverlayContextualSearchbox, "pdf-text-character-limit", 2500};
+
 const base::FeatureParam<base::TimeDelta> kLensOverlaySurveyResultsTime{
     &kLensOverlaySurvey, "results-time", base::Seconds(1)};
 
@@ -346,6 +349,9 @@ constexpr base::FeatureParam<bool> kUsePdfInteractionType{
 
 constexpr base::FeatureParam<bool> kUseWebpageInteractionType{
     &kLensOverlayContextualSearchbox, "use-webpage-interaction-type", false};
+
+constexpr base::FeatureParam<int> kScannedPdfCharacterPerPageHeuristic{
+    &kLensOverlayContextualSearchbox, "characters-per-page-heuristic", 200};
 
 constexpr base::FeatureParam<std::string> kTranslateEndpointUrl{
     &kLensOverlayTranslateLanguages, "translate-endpoint-url",
@@ -631,6 +637,13 @@ uint32_t GetLensOverlayFileUploadLimitBytes() {
              : 0;
 }
 
+uint32_t GetLensOverlayPdfSuggestCharacterTarget() {
+  size_t limit = kLensOverlayPdfTextCharacterLimit.Get();
+  return base::IsValueInRangeForNumericType<uint32_t>(limit)
+             ? static_cast<uint32_t>(limit)
+             : 0;
+}
+
 bool UsePdfVitParam() {
   return kUsePdfVitParam.Get();
 }
@@ -645,6 +658,10 @@ bool UsePdfInteractionType() {
 
 bool UseWebpageInteractionType() {
   return kUseWebpageInteractionType.Get();
+}
+
+int GetScannedPdfCharacterPerPageHeuristic() {
+  return kScannedPdfCharacterPerPageHeuristic.Get();
 }
 
 bool UsePdfsAsContext() {
